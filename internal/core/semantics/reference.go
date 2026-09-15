@@ -23,7 +23,7 @@ func (m *Model) ReferencedFeature(sym *symbols.Symbol) *symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
-	defer m.own(sym)()
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.referenced[sym]; ok {
 		return cached
 	}
@@ -230,7 +230,7 @@ func (m *Model) DirectMemberSources(sym *symbols.Symbol) []*symbols.Symbol {
 // KerML feature keyword implies, then the feature it reference-subsets. The two
 // bases contribute members only, not conformance.
 func (m *Model) contributors(sym *symbols.Symbol) []*symbols.Symbol {
-	defer m.own(sym)()
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.contributed[sym]; ok {
 		return cached
 	}

@@ -8,7 +8,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
-	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -35,8 +34,8 @@ func (IdentityMetadataPass) Run(ctx *Context, name string, root *ast.RootNamespa
 	// A project scope may span workspace documents, so uniqueness is judged
 	// over the union of their gathers; each document only reports its own elements.
 	union := ctx.Gathers().identitiesOf(ctx)
-	c := &identityChecker{res: ctx.Resolver(), space: union.identityIndex, docRoot: rootScope}
-	if c.table = union.tableOf(name); c.table == nil {
+	c := &identityChecker{space: union.identityIndex, docRoot: rootScope}
+	if c.table = union.judged(ctx.Resolver(), name); c.table == nil {
 		c.table = identity.Build(ctx.Model(), ctx.Resolver(), rootScope)
 		c.space = union.including(c.table)
 	}
@@ -45,7 +44,6 @@ func (IdentityMetadataPass) Run(ctx *Context, name string, root *ast.RootNamespa
 }
 
 type identityChecker struct {
-	res *resolve.Resolver
 	// table is the document's own identities; space the id space they are judged in.
 	table   *identity.Table
 	space   *identityIndex
@@ -200,7 +198,7 @@ func (c *identityChecker) checkIDSpace(info *identity.Info) {
 	key := keyOf(info)
 	// Distinct qualified names never derive one id, so a group of derived
 	// ids is one name seen twice, not an identity conflict.
-	if group := c.space.group(c.res, key); len(group) >= 2 && anyAnnotated(group) {
+	if group := c.space.group(key); len(group) >= 2 && anyAnnotated(group) {
 		names := make([]string, 0, len(group))
 		for _, o := range group {
 			names = append(names, o.FQN)
@@ -217,7 +215,7 @@ func (c *identityChecker) checkIDSpace(info *identity.Info) {
 			continue
 		}
 		for _, t := range derivedTargets(d.ID) {
-			for _, owner := range c.space.group(c.res, identityKey{key.scope, t.base}) {
+			for _, owner := range c.space.group(identityKey{key.scope, t.base}) {
 				if owner.Symbol == info.Symbol {
 					continue
 				}
@@ -227,7 +225,7 @@ func (c *identityChecker) checkIDSpace(info *identity.Info) {
 			}
 		}
 	}
-	for _, hit := range c.space.hitsOn(c.res, key) {
+	for _, hit := range c.space.hitsOn(key) {
 		if hit.info.Symbol == info.Symbol {
 			continue
 		}

@@ -99,7 +99,7 @@ func (m *Model) EvalElementFilter(f symbols.ElementFilter, cand *symbols.Symbol)
 	if pred == nil {
 		return true, &FilterError{Err: ErrFilterUnevaluable, Reason: "the condition is empty", Span: f.Span}
 	}
-	defer m.own(cand)()
+	defer m.own(cand).LeaveDoc()
 	key := filterKey{pred: pred, cand: cand}
 	if v, ok := m.filterVerdicts[key]; ok {
 		return v.value, v.err
@@ -130,7 +130,7 @@ func (m *Model) CompileElementFilter(f symbols.ElementFilter) *symbols.FilterPre
 	if f.Expr == nil {
 		return nil
 	}
-	defer m.ownScope(f.Scope)()
+	defer m.ownScope(f.Scope).LeaveDoc()
 	if pred, ok := m.filterPreds[f.Expr]; ok {
 		return pred
 	}

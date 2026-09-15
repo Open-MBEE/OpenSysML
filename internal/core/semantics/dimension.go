@@ -414,7 +414,7 @@ func (m *Model) dimensionOf(sym *symbols.Symbol) (UnitTerm, bool) {
 	if m == nil || sym == nil {
 		return UnitTerm{}, false
 	}
-	defer m.own(sym)()
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.dimensions[sym]; ok {
 		return cached.term, cached.ok
 	}

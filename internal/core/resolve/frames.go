@@ -1,6 +1,7 @@
 package resolve
 
 import (
+	"reflect"
 	"sort"
 	"strings"
 
@@ -18,7 +19,10 @@ type frame struct {
 	transient map[ast.Node]bool
 	// barrier is set for the frame Untracked pushes: nothing below it is current.
 	barrier bool
-	journal []func()
+	// journal is what the frame drops when it ends; ledgers finds the ledger
+	// among it for a memo table, by the table's identity.
+	journal []dropper
+	ledgers map[uintptr]dropper
 	// names, namespaces and docs are what the index answered about while the
 	// frame was innermost; all is set once it enumerated the whole name table.
 	names      map[string]bool
@@ -27,9 +31,69 @@ type frame struct {
 	all        bool
 	// deps are the documents whose frames were entered from this one.
 	deps map[string]bool
+	// recent are the frames last entered from this one, consulted before the
+	// maps: an analysis enters a library's frame once per symbol it reads there.
+	recent [4]*frame
+	next   uint8
 }
 
 func (f *frame) scratch() bool { return f.transient != nil }
+
+func (f *frame) drop() {
+	for _, d := range f.journal {
+		d.drop()
+	}
+}
+
+// entries counts what the frame will drop.
+func (f *frame) entries() int {
+	n := 0
+	for _, d := range f.journal {
+		n += d.size()
+	}
+	return n
+}
+
+// A dropper is an entry of a frame's journal.
+type dropper interface {
+	drop()
+	size() int
+}
+
+// dropFunc is a journaled closure.
+type dropFunc func()
+
+func (d dropFunc) drop()     { d() }
+func (d dropFunc) size() int { return 1 }
+
+// ledger is a frame's share of one memo table: the keys it wrote there.
+type ledger[K comparable, V any] struct {
+	table map[K]V
+	keys  []K
+}
+
+func (l *ledger[K, V]) drop() {
+	for _, k := range l.keys {
+		delete(l.table, k)
+	}
+}
+
+func (l *ledger[K, V]) size() int { return len(l.keys) }
+
+// entered is the frame of doc among those recently entered from f, or nil.
+func (f *frame) entered(doc string) *frame {
+	for _, g := range f.recent {
+		if g != nil && g.doc == doc {
+			return g
+		}
+	}
+	return nil
+}
+
+func (f *frame) remember(g *frame) {
+	f.recent[f.next%uint8(len(f.recent))] = g
+	f.next++
+}
 
 // stale reports whether ch moved anything the frame's entries were read from.
 func (f *frame) stale(ch symbols.Changes) bool {
@@ -169,9 +233,16 @@ func (r *Resolver) EnterDoc(doc string) {
 		r.stack = append(r.stack, cur)
 		return
 	}
-	f := r.docFrame(doc)
+	var f *frame
 	if cur != nil {
-		r.depend(cur, doc)
+		f = cur.entered(doc)
+	}
+	if f == nil {
+		f = r.docFrame(doc)
+		if cur != nil {
+			r.depend(cur, doc)
+			cur.remember(f)
+		}
 	}
 	r.stack = append(r.stack, f)
 	r.cur = f
@@ -219,10 +290,15 @@ func (r *Resolver) Untracked(f func()) {
 // Depend records that the enclosing document depends on doc: a symbol of doc
 // was read, so doc's replacement invalidates what was computed from it.
 func (r *Resolver) Depend(doc string) {
-	if r == nil || r.cur == nil || doc == "" || doc == r.cur.doc {
+	if r == nil {
 		return
 	}
-	r.depend(r.cur, doc)
+	cur := r.cur
+	if cur == nil || doc == "" || doc == cur.doc || cur.entered(doc) != nil {
+		return
+	}
+	r.depend(cur, doc)
+	cur.remember(r.docFrame(doc))
 }
 
 // found returns a resolution, making the current document depend on the one
@@ -361,9 +437,7 @@ func (r *Resolver) dropFrame(doc string) {
 	if f == nil {
 		return
 	}
-	for _, drop := range f.journal {
-		drop()
-	}
+	f.drop()
 	for dep := range f.deps {
 		delete(r.dependents[dep], doc)
 	}
@@ -384,7 +458,7 @@ func (r *Resolver) Dependents(doc string) []string {
 // Owned reports how many entries doc's frame will drop; for tests.
 func (r *Resolver) Owned(doc string) int {
 	if f := r.owners[doc]; f != nil {
-		return len(f.journal)
+		return f.entries()
 	}
 	return 0
 }
@@ -400,9 +474,7 @@ func (r *Resolver) Scratch(transient map[ast.Node]bool, f func()) {
 		n := len(r.stack) - 1
 		r.stack[n] = nil
 		r.stack = r.stack[:n]
-		for _, drop := range fr.journal {
-			drop()
-		}
+		fr.drop()
 	}()
 	f()
 }
@@ -411,25 +483,32 @@ func (r *Resolver) Scratch(transient map[ast.Node]bool, f func()) {
 // that disowns node, else the innermost document frame. It is how a side
 // table keyed by node joins the resolver's lifecycle.
 func (r *Resolver) Journal(node ast.Node, drop func()) {
+	if f := r.owner(node); f != nil {
+		f.journal = append(f.journal, dropFunc(drop))
+	}
+}
+
+// owner is the frame whose journal an entry for node joins: the Scratch that
+// disowns node, else the innermost document frame; nil when none does.
+func (r *Resolver) owner(node ast.Node) *frame {
 	if !r.Journaling() {
-		return
+		return nil
 	}
 	if r.scratching > 0 {
 		for i := len(r.stack) - 1; i >= 0; i-- {
 			if f := r.stack[i]; f.scratch() && f.transient[node] {
-				f.journal = append(f.journal, drop)
-				return
+				return f
 			}
 		}
 	}
 	switch {
 	case r.cur != nil:
-		r.cur.journal = append(r.cur.journal, drop)
+		return r.cur
 	case len(r.stack) == 0 && r.Tracking():
 		// Written outside any frame: owned by the frame every change drops.
-		f := r.docFrame("")
-		f.journal = append(f.journal, drop)
+		return r.docFrame("")
 	}
+	return nil
 }
 
 // Journaling reports whether a memo write now would be journaled, so a side
@@ -439,7 +518,7 @@ func (r *Resolver) Journaling() bool {
 }
 
 // JournalNew journals the deletion of m[k], about to be written for node the
-// first time, with the innermost frame.
+// first time, with the innermost frame: in that frame's ledger for m.
 func JournalNew[K comparable, V any](r *Resolver, m map[K]V, k K, node ast.Node) {
 	if !r.Journaling() {
 		return
@@ -447,7 +526,21 @@ func JournalNew[K comparable, V any](r *Resolver, m map[K]V, k K, node ast.Node)
 	if _, had := m[k]; had {
 		return
 	}
-	r.Journal(node, func() { delete(m, k) })
+	f := r.owner(node)
+	if f == nil {
+		return
+	}
+	id := reflect.ValueOf(m).Pointer()
+	l, ok := f.ledgers[id].(*ledger[K, V])
+	if !ok {
+		l = &ledger[K, V]{table: m}
+		if f.ledgers == nil {
+			f.ledgers = map[uintptr]dropper{}
+		}
+		f.ledgers[id] = l
+		f.journal = append(f.journal, l)
+	}
+	l.keys = append(l.keys, k)
 }
 
 // journalNew is JournalNew for the resolver's own tables.

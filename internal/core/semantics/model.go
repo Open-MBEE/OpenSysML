@@ -271,7 +271,7 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
-	defer m.own(sym)()
+	defer m.own(sym).LeaveDoc()
 	// An assumption answers every query under it, which it cuts short so nothing is memoized.
 	if assumed, ok := m.assumedSupers[sym]; ok {
 		m.resolver.CutShort(assumed.depth)
@@ -672,7 +672,7 @@ func (m *Model) AllSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
-	defer m.own(sym)()
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.allSupers[sym]; ok {
 		return cached
 	}
@@ -930,7 +930,7 @@ func (m *Model) composedOperands(
 	if sym == nil {
 		return nil
 	}
-	defer m.own(sym)()
+	defer m.own(sym).LeaveDoc()
 	key := composedKey{sym: sym, kind: kind}
 	if cached, ok := m.composed[key]; ok {
 		return cached

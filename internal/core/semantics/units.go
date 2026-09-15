@@ -355,7 +355,7 @@ func (m *Model) UnitTermOf(sym *symbols.Symbol) (UnitTerm, error) {
 	if m == nil || sym == nil {
 		return UnitTerm{}, ErrNotAUnit
 	}
-	defer m.own(sym)()
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.unitTerms[sym]; ok {
 		return cached, nil
 	}

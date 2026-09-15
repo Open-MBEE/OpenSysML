@@ -1723,7 +1723,7 @@ func (idx *Index) LookupDirectChildrenNamedFrom(prefix, fromFQN, name string) []
 }
 
 func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) []*Symbol {
-	idx.readName(joinFQN(key.prefix, name))
+	idx.readNamespace(key.prefix)
 	generation := idx.generation.get()
 	idx.directChildrenMu.Lock()
 	idx.resetDirectChildrenCachesLocked(generation)

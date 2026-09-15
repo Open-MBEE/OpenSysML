@@ -6,22 +6,22 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// own makes the document declaring sym the owner of what is memoized until the
-// returned func runs (see resolve.Resolver.EnterDoc); deferred at the head of
-// every method memoizing per symbol.
-func (m *Model) own(sym *symbols.Symbol) func() {
+// own makes the document declaring sym the owner of what is memoized until
+// LeaveDoc is called on the returned resolver (see resolve.Resolver.EnterDoc):
+// a method memoizing per symbol computes under `defer m.own(sym).LeaveDoc()`.
+func (m *Model) own(sym *symbols.Symbol) *resolve.Resolver {
 	doc := ""
 	if sym != nil {
 		doc = sym.DocName
 	}
 	m.resolver.EnterDoc(doc)
-	return m.resolver.LeaveDoc
+	return m.resolver
 }
 
 // ownScope is own for a method memoizing per scope.
-func (m *Model) ownScope(scope *symbols.Scope) func() {
+func (m *Model) ownScope(scope *symbols.Scope) *resolve.Resolver {
 	m.resolver.EnterDoc(symbols.DocNameOf(scope))
-	return m.resolver.LeaveDoc
+	return m.resolver
 }
 
 // journal registers the deletion of table[key], about to be written for the

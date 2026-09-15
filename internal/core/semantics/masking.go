@@ -21,7 +21,7 @@ func (m *Model) RedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil {
 		return nil
 	}
-	defer m.own(sym)()
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.redefined[sym]; ok {
 		// The seed answers a re-entrant query with nothing, cutting that query short.
 		if depth := m.computingRedefined[sym]; depth != 0 {
@@ -287,7 +287,7 @@ func (m *Model) memoizedMask(
 	if m == nil || sym == nil {
 		return nil
 	}
-	defer m.own(sym)()
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := cache[sym]; ok {
 		return cached
 	}
@@ -410,7 +410,7 @@ func (m *Model) redefinitionClosure(candidate *symbols.Symbol) (map[*symbols.Sym
 	if candidate == nil {
 		return nil, false
 	}
-	defer m.own(candidate)()
+	defer m.own(candidate).LeaveDoc()
 	if cached, ok := m.redefClosure[candidate]; ok {
 		return cached, false
 	}

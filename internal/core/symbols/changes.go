@@ -64,8 +64,9 @@ func (idx *Index) changedDoc(name string) {
 // A ReadRecorder is told what an index read is about, so a consumer can find
 // out later whether a change (see Changes) can have moved what it read. Reads
 // through a name (LookupQualified and kin) report the name; enumerations of a
-// namespace report the namespace; reads of a document's root or kind report the
-// document; scans of the whole name table report that.
+// namespace and reads of its direct children report the namespace; reads of a
+// document's root or kind report the document; scans of the whole name table
+// report that.
 type ReadRecorder interface {
 	ReadName(fqn string)
 	ReadNamespace(fqn string)

@@ -39,7 +39,7 @@ func (m *Model) ShapeFeatures(typ *symbols.Symbol) []ShapeFeature {
 	if m == nil || typ == nil {
 		return nil
 	}
-	defer m.own(typ)()
+	defer m.own(typ).LeaveDoc()
 	if cached, ok := m.shapes[typ]; ok {
 		return cached
 	}
@@ -111,7 +111,7 @@ func (m *Model) constructorSlots(typ *symbols.Symbol) constructorSlots {
 	if m == nil || typ == nil || m.resolver == nil || m.resolver.Index() == nil {
 		return constructorSlots{}
 	}
-	defer m.own(typ)()
+	defer m.own(typ).LeaveDoc()
 	if cached, ok := m.ctorSlots[typ]; ok {
 		return cached
 	}

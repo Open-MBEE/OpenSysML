@@ -22,7 +22,7 @@ func (m *Model) IsUnique(sym *symbols.Symbol) bool {
 	if m == nil || sym == nil {
 		return true
 	}
-	defer m.own(sym)()
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.unique[sym]; ok {
 		return cached
 	}

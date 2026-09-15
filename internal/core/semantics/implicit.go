@@ -344,7 +344,7 @@ func (m *Model) implicitBases(sym *symbols.Symbol) []*symbols.Symbol {
 	if m.resolver == nil || m.resolver.Index() == nil {
 		return nil
 	}
-	defer m.own(sym)()
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.implicitBase[sym]; ok {
 		return cached
 	}

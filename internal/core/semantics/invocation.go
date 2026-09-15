@@ -229,7 +229,7 @@ func (m *Model) SelectInvocation(scope *symbols.Scope, e *ast.InvocationExpr, ar
 	if m == nil || e == nil || e.Type == nil {
 		return &InvocationSelection{}
 	}
-	defer m.ownScope(scope)()
+	defer m.ownScope(scope).LeaveDoc()
 	key := invocationKey{node: e, scope: scope, performs: performs}
 	if sel, ok := m.invocations[key]; ok {
 		return sel

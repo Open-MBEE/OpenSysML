@@ -178,7 +178,7 @@ func (m *Model) PrimTypeOf(sym *symbols.Symbol) PrimType {
 	if m == nil || sym == nil {
 		return PrimUnknown
 	}
-	defer m.own(sym)()
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.primTypes[sym]; ok {
 		return cached
 	}

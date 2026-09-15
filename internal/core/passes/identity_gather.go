@@ -17,7 +17,12 @@ const aboutGather = "\x00identity"
 // audit reads the union by.
 type identityKey struct{ scope, id string }
 
-func identityName(k identityKey) string { return "\x00identity/" + k.scope + "\x01" + k.id }
+// identityJudgment names what the identity audit of doc read of the union: the
+// groups its elements are filed in. A regather that moves a group names the
+// judgments of every document filed there, and of every non-workspace document.
+func identityJudgment(doc string) string { return "\x00identity/" + doc }
+
+const identityJudgments = "\x00identity/*"
 
 // identityHit is a declared id landing in the derived id space of the element
 // with the key it is filed under.
@@ -131,16 +136,20 @@ func keysOf(info *identity.Info) []identityKey {
 	return out
 }
 
-// group is the elements sharing one effective id, read by name.
-func (x *identityIndex) group(r *resolve.Resolver, k identityKey) []*identity.Info {
-	r.ReadName(identityName(k))
-	return x.byID[k]
-}
+// group is the elements sharing one effective id.
+func (x *identityIndex) group(k identityKey) []*identity.Info { return x.byID[k] }
 
-// hitsOn is the declared ids landing in one element's derived id space, read by name.
-func (x *identityIndex) hitsOn(r *resolve.Resolver, k identityKey) []identityHit {
-	r.ReadName(identityName(k))
-	return x.hits[k]
+// hitsOn is the declared ids landing in one element's derived id space.
+func (x *identityIndex) hitsOn(k identityKey) []identityHit { return x.hits[k] }
+
+// readers names the documents whose elements are filed under k.
+func (x *identityIndex) readers(k identityKey, into map[string]bool) {
+	for _, info := range x.byID[k] {
+		into[info.Symbol.DocName] = true
+	}
+	for _, h := range x.hits[k] {
+		into[h.info.Symbol.DocName] = true
+	}
 }
 
 // identityContribution is what one gather — a document's own elements, or the
@@ -148,31 +157,38 @@ func (x *identityIndex) hitsOn(r *resolve.Resolver, k identityKey) []identityHit
 type identityContribution struct {
 	table *identity.Table
 	infos []*identity.Info
-	// facts spells, per key, what the contribution files there, so a regather
-	// names only the keys whose entries it moved.
-	facts map[identityKey]string
 }
 
-// contribute selects the infos of table that pass keep, spelling their facts.
+// contribute selects the infos of table that pass keep.
 func contribute(table *identity.Table, keep func(*identity.Info) bool) *identityContribution {
-	c := &identityContribution{table: table, facts: map[identityKey]string{}}
-	lines := map[identityKey][]string{}
+	c := &identityContribution{table: table}
 	for _, sym := range table.Symbols() {
-		info, ok := table.Info(sym)
-		if !ok || !keep(info) {
-			continue
+		if info, ok := table.Info(sym); ok && keep(info) {
+			c.infos = append(c.infos, info)
 		}
-		c.infos = append(c.infos, info)
+	}
+	return c
+}
+
+// facts spells, per key, what the contribution files there, so a regather
+// names only the keys whose entries it moved.
+func (c *identityContribution) facts() map[identityKey]string {
+	if c == nil {
+		return nil
+	}
+	lines := map[identityKey][]string{}
+	for _, info := range c.infos {
 		spelled := spellInfo(info)
 		for _, k := range keysOf(info) {
 			lines[k] = append(lines[k], spelled)
 		}
 	}
+	facts := make(map[identityKey]string, len(lines))
 	for k, l := range lines {
 		sort.Strings(l)
-		c.facts[k] = strings.Join(l, "\n")
+		facts[k] = strings.Join(l, "\n")
 	}
-	return c
+	return facts
 }
 
 // spellInfo spells what the union's readers see of an element.
@@ -248,9 +264,27 @@ func (u *identityUnion) regatherAbout(ctx *Context, g *Gathers, changed map[stri
 	u.about = cur
 }
 
-// replace swaps one contribution for another in the index, naming the keys
-// whose entries differ between them in changed when it is not nil.
+// replace swaps one contribution for another in the index, naming in changed,
+// when it is not nil, the judgments that read a group the swap moved.
 func (u *identityUnion) replace(old, cur *identityContribution, changed map[string]bool) {
+	var moved []identityKey
+	if changed != nil {
+		before, after := old.facts(), cur.facts()
+		for k, spelled := range before {
+			if after[k] != spelled {
+				moved = append(moved, k)
+			}
+		}
+		for k := range after {
+			if _, had := before[k]; !had {
+				moved = append(moved, k)
+			}
+		}
+	}
+	readers := map[string]bool{}
+	for _, k := range moved {
+		u.readers(k, readers)
+	}
 	if old != nil {
 		for _, info := range old.infos {
 			u.remove(info)
@@ -261,26 +295,26 @@ func (u *identityUnion) replace(old, cur *identityContribution, changed map[stri
 			u.insert(info)
 		}
 	}
-	if changed == nil {
-		return
+	for _, k := range moved {
+		u.readers(k, readers)
 	}
-	for k, spelled := range old.factsOf() {
-		if cur.factsOf()[k] != spelled {
-			changed[identityName(k)] = true
+	if len(moved) > 0 {
+		for doc := range readers {
+			changed[identityJudgment(doc)] = true
 		}
-	}
-	for k, spelled := range cur.factsOf() {
-		if old.factsOf()[k] != spelled {
-			changed[identityName(k)] = true
-		}
+		changed[identityJudgments] = true
 	}
 }
 
-func (c *identityContribution) factsOf() map[identityKey]string {
-	if c == nil {
-		return nil
+// judged reads the union for the identity audit of doc, whose table it returns
+// when doc is a workspace document.
+func (u *identityUnion) judged(r *resolve.Resolver, doc string) *identity.Table {
+	if t := u.tableOf(doc); t != nil {
+		r.ReadName(identityJudgment(doc))
+		return t
 	}
-	return c.facts
+	r.ReadName(identityJudgments)
+	return nil
 }
 
 // including is the union with one more table's elements filed in, for a

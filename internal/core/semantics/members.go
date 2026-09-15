@@ -61,7 +61,7 @@ func (m *Model) membersOf(sym *symbols.Symbol, view memberView, declaring *symbo
 			sym = target
 		}
 	}
-	defer m.own(sym)()
+	defer m.own(sym).LeaveDoc()
 	key := memberKey{sym: sym, view: view}
 	if view != memberViewDeclaring {
 		if cached, ok := m.members[key]; ok {

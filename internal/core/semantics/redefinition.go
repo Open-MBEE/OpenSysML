@@ -131,7 +131,7 @@ func (m *Model) BehaviorParametersOf(sym *symbols.Symbol) []BehaviorParameter {
 // behavior beyond those redefined are inherited, ordered after the owned ones).
 // The result is memoized.
 func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
-	defer m.own(sym)()
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.params[sym]; ok {
 		return cached
 	}

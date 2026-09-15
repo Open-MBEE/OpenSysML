@@ -44,7 +44,7 @@ func (m *Model) annotationsOf(sym *symbols.Symbol) []annotation {
 	if sym == nil {
 		return nil
 	}
-	defer m.own(sym)()
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.annotations[sym]; ok {
 		return cached
 	}

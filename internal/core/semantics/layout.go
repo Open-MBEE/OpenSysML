@@ -107,7 +107,7 @@ func (m *Model) LayoutSitesOf(sym *symbols.Symbol) []*LayoutSite {
 	if m == nil || sym == nil {
 		return nil
 	}
-	defer m.own(sym)()
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.layoutSites[sym]; ok {
 		return cached
 	}
@@ -224,7 +224,7 @@ func (m *Model) symbolDeclaringUnder(scope *symbols.Scope, decl ast.Node) (*symb
 	if scope == nil {
 		return nil, false
 	}
-	defer m.ownScope(scope)()
+	defer m.ownScope(scope).LeaveDoc()
 	index, ok := m.declSymbols[scope]
 	if !ok {
 		index = make(map[ast.Node]*symbols.Symbol)
