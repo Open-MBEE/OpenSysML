@@ -25,6 +25,7 @@ func TestStateSpaceRobustness(t *testing.T) {
 	t.Run("divergent_state", testStateSpaceDivergentState)
 	t.Run("step_past_the_last_instant", testStateSpaceStepPastLastInstant)
 	t.Run("guard_that_is_not_a_number", testStateSpaceGuardNotANumber)
+	t.Run("return_parameter", testStateSpaceReturnParameter)
 }
 
 // stateSpaceSource wraps an action body in a package importing what a
@@ -92,6 +93,16 @@ func testStateSpaceStateNotAVector(t *testing.T) {
 		:>> stopTime = 1 [s];
 	`+decayCalcs))
 	expectStateSpaceError(t, err, ErrStateSpaceValue, "stateSpace of action dyn", "not a vector")
+}
+
+func testStateSpaceReturnParameter(t *testing.T) {
+	err := runStateSpace(t, stateSpaceSource("ContinuousStateSpaceDynamics, FixedStepDynamics", `
+		return result : StateSpace;
+		:>> stateSpace = VectorOf((1.0));
+		:>> timeStep = 0.1 [s];
+		:>> stopTime = 1 [s];
+	`+decayCalcs))
+	expectStateSpaceError(t, err, ErrActionResultParameter, "action dyn declares `return result`", "write `out result`")
 }
 
 func testStateSpaceStateWithoutAnInitialValue(t *testing.T) {

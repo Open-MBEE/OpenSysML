@@ -105,6 +105,9 @@ func (e *ActionExecutor) initializeDynamics() error {
 	if err != nil {
 		return err
 	}
+	if err := e.checkResultParameters(); err != nil {
+		return err
+	}
 	run := &stateSpaceRun{dyn: dyn}
 	e.dynamics = run
 
