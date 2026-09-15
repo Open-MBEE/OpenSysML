@@ -121,8 +121,9 @@ func (b *stateFootprintBuilder) segment(source *ast.StateNode, seg *Transition) 
 
 // pseudostate adds what a route through the pseudostate may do: every branch of
 // a choice or junction, every target of a fork with the regions it leaves to
-// start by default, the target of a join with the regions it leaves, the whole
-// composite a history re-enters.
+// start by default and every region it restarts when reached from inside its
+// owner, the target of a join with the regions it leaves, the whole composite a
+// history re-enters.
 func (b *stateFootprintBuilder) pseudostate(source *ast.StateNode, seg *Transition, ps *ast.PseudostateNode) {
 	if b.crossed[ps] {
 		return
@@ -149,6 +150,11 @@ func (b *stateFootprintBuilder) pseudostate(source *ast.StateNode, seg *Transiti
 			for _, region := range b.graph.CompositeStates[plan.Owner] {
 				if plan.Branches[region] == nil {
 					b.entersRegion(plan.Owner, region)
+				}
+			}
+			if source != plan.Owner && b.graph.encloses(plan.Owner, source) {
+				for _, child := range b.graph.children(plan.Owner) {
+					b.exits(child)
 				}
 			}
 		}
