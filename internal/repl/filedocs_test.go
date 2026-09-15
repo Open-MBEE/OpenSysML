@@ -102,7 +102,7 @@ func TestLoadedFileErrorsDoNotBlockOtherDocuments(t *testing.T) {
 		t.Errorf("a loaded file's error should not block the prompt's document: %s", note)
 	}
 
-	s.Submit("package Typed { part b : Absent; }")
+	s.Submit("package Typed { part b : Absent::B; }")
 	good := tempFile(t, "good.sysml", "package Good { part def B; }\n")
 	if note := s.submit(good, "package Good { part def B; }\n").Blocked.note(); note != "" {
 		t.Errorf("the prompt's error should not block a loaded file's document: %s", note)
@@ -115,6 +115,13 @@ func TestLoadedFileErrorsDoNotBlockOtherDocuments(t *testing.T) {
 	s.submit(good, "package Good { part def B; }\n")
 	if note := s.Submit("package More { part def D; }").Blocked.note(); note != "" {
 		t.Errorf("the standing error was named already; a load does not renew it: %s", note)
+	}
+	// A load that resolves the standing error ends its interval: should a reload
+	// bring the error back, the next prompt is told again.
+	s.submit(good, "package Absent { part def B; }\n")
+	s.submit(good, "package Good { part def B; }\n")
+	if s.Submit("package Yet { part def E; }").Blocked.note() == "" {
+		t.Error("an error resolved by a load and brought back by a reload should be named again")
 	}
 }
 

@@ -922,11 +922,7 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 		foreign: s.foreignSpans(),
 		Notices: notices,
 	}
-	// Nothing outside a load shares its documents, so nothing blocks it, and the
-	// note the transcript has had stays the transcript's.
-	if !load {
-		res.Blocked = s.blockedBy(res)
-	}
+	res.Blocked = s.blockedBy(res, load)
 	return res, byFile, whole
 }
 

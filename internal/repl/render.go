@@ -442,11 +442,16 @@ func (b *blocker) note() string {
 
 // blockedBy reports the unresolved error that stopped the deeper checks from
 // running over this submission: a standing error is named on the first
-// submission whose report says so, not on every one after it.
-func (s *Session) blockedBy(r Result) *blocker {
+// submission whose report says so, not on every one after it. A load shares no
+// document with the transcript, so it names nothing; one that resolves the
+// standing error lets it be named again should it return.
+func (s *Session) blockedBy(r Result, load bool) *blocker {
 	b := r.analysisBlocked()
 	if b == nil {
 		s.notedBlocker.record("")
+		return nil
+	}
+	if load {
 		return nil
 	}
 	key := b.key()
