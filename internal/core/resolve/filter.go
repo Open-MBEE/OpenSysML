@@ -58,6 +58,8 @@ func (r *Resolver) namespaceFilters(scope *symbols.Scope) []symbols.ElementFilte
 	if scope == nil {
 		return nil
 	}
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
 	if filters, ok := r.nsFilters[scope]; ok {
 		return filters
 	}
@@ -72,6 +74,7 @@ func (r *Resolver) namespaceFilters(scope *symbols.Scope) []symbols.ElementFilte
 			}
 		}
 	}
+	journalNew(r, r.nsFilters, scope, scope.Node())
 	r.nsFilters[scope] = filters
 	return filters
 }
@@ -83,6 +86,8 @@ func (r *Resolver) inheritedViewConditions(scope *symbols.Scope) []symbols.Eleme
 	if scope == nil || !isViewSymbol(scope.Owner()) {
 		return nil
 	}
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
 	if filters, ok := r.viewFilters[scope]; ok {
 		return filters
 	}
@@ -111,6 +116,7 @@ func (r *Resolver) inheritedViewConditions(scope *symbols.Scope) []symbols.Eleme
 		}
 		queue = append(queue, supers.DirectSupertypes(super)...)
 	}
+	journalNew(r, r.viewFilters, scope, scope.Node())
 	r.viewFilters[scope] = filters
 	return filters
 }

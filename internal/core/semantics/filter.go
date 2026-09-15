@@ -99,6 +99,7 @@ func (m *Model) EvalElementFilter(f symbols.ElementFilter, cand *symbols.Symbol)
 	if pred == nil {
 		return true, &FilterError{Err: ErrFilterUnevaluable, Reason: "the condition is empty", Span: f.Span}
 	}
+	defer m.own(cand).LeaveDoc()
 	key := filterKey{pred: pred, cand: cand}
 	if v, ok := m.filterVerdicts[key]; ok {
 		return v.value, v.err
@@ -116,6 +117,7 @@ func (m *Model) EvalElementFilter(f symbols.ElementFilter, cand *symbols.Symbol)
 	// while the index is still filling — and re-deciding it later is what keeps
 	// the answer from depending on when it was first asked.
 	if err == nil {
+		journal(m, m.filterVerdicts, key, cand.Decl)
 		m.filterVerdicts[key] = verdict
 	}
 	return verdict.value, verdict.err
@@ -128,6 +130,7 @@ func (m *Model) CompileElementFilter(f symbols.ElementFilter) *symbols.FilterPre
 	if f.Expr == nil {
 		return nil
 	}
+	defer m.ownScope(f.Scope).LeaveDoc()
 	if pred, ok := m.filterPreds[f.Expr]; ok {
 		return pred
 	}
@@ -135,6 +138,7 @@ func (m *Model) CompileElementFilter(f symbols.ElementFilter) *symbols.FilterPre
 	// they resolve through the namespace's imports unfiltered.
 	var pred *symbols.FilterPredicate
 	m.resolver.InCondition(func() { pred = m.compileCondition(f.Scope, f.Expr) })
+	journal(m, m.filterPreds, f.Expr, f.Expr)
 	m.filterPreds[f.Expr] = pred
 	return pred
 }
@@ -933,6 +937,7 @@ func (m *Model) symbolByFQN(fqn string) *symbols.Symbol {
 	if fqn == "" || m.resolver == nil || m.resolver.Index() == nil {
 		return nil
 	}
+	m.resolver.ReadName(fqn)
 	if sym, ok := m.filterTypes[fqn]; ok {
 		return sym
 	}
@@ -940,6 +945,7 @@ func (m *Model) symbolByFQN(fqn string) *symbols.Symbol {
 	if syms := m.resolver.Index().LookupQualified(fqn); len(syms) == 1 {
 		found = syms[0]
 	}
+	journal(m, m.filterTypes, fqn, nil)
 	m.filterTypes[fqn] = found
 	return found
 }

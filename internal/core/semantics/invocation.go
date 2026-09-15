@@ -229,12 +229,13 @@ func (m *Model) SelectInvocation(scope *symbols.Scope, e *ast.InvocationExpr, ar
 	if m == nil || e == nil || e.Type == nil {
 		return &InvocationSelection{}
 	}
+	defer m.ownScope(scope).LeaveDoc()
 	key := invocationKey{node: e, scope: scope, performs: performs}
 	if sel, ok := m.invocations[key]; ok {
 		return sel
 	}
 	sel := m.selectAmong(scope, m.resolver.InvocationCandidates(scope, e.Type), args, performs)
-	m.resolver.Journal(e, func() { delete(m.invocations, key) })
+	journal(m, m.invocations, key, e)
 	m.invocations[key] = sel
 	return sel
 }
