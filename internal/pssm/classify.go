@@ -71,7 +71,7 @@ const (
 	ConstructTesterTrace       Construct = "tester trace"
 	// This project's lowerer refusing a shape UML allows and v2 can spell:
 	// a candidate gap of ours, recorded apart from v2's missing spellings.
-	ConstructForkedRegionNoEntry Construct = "lowerer refuses fork into a region without an entry transition"
+	ConstructRegionNoEntry Construct = "lowerer refuses an orthogonal region with neither an entry transition nor a fork branch into it"
 	// Recorded but not deciding: a pseudostate filed as a connection point that
 	// is neither an entry nor an exit point and that no transition reaches.
 	ConstructStrayConnectionPoint Construct = "stray connection point"
@@ -105,7 +105,7 @@ var constructClass = map[Construct]Expressibility{
 	ConstructBehaviorParameter:    NotExpressible,
 	ConstructOperationResult:      NotExpressible,
 	ConstructTesterTrace:          NotExpressible,
-	ConstructForkedRegionNoEntry:  NotExpressible,
+	ConstructRegionNoEntry:        NotExpressible,
 	ConstructTerminate:            TerminateGap,
 	ConstructDefer:                Extension,
 	ConstructFork:                 Extension,
@@ -126,7 +126,7 @@ type Use struct {
 
 // Ours reports whether the construct is unspellable because of this project's
 // lowerer rather than because SysML v2 has no notation for it.
-func (c Construct) Ours() bool { return c == ConstructForkedRegionNoEntry }
+func (c Construct) Ours() bool { return c == ConstructRegionNoEntry }
 
 func (u Use) String() string {
 	if u.Where == "" {
@@ -171,7 +171,7 @@ func Classify(t *Test) Classification {
 		if t.Machine.Redefines != "" {
 			add(ConstructRedefinedMachine, t.Machine.Name)
 		}
-		w := &walker{add: add, reached: reachedVertices(t.Machine.Regions)}
+		w := &walker{add: add, reached: reachedVertices(t.Machine.Regions), forkEntered: forkEnteredRegions(t.Machine.Regions)}
 		w.connectionPoints(t.Machine.ConnectionPoints)
 		w.regions(t.Machine.Regions)
 		w.tester(t.Stimulation)
@@ -208,9 +208,88 @@ func reachedVertices(regions []*Region) map[*Vertex]bool {
 	return reached
 }
 
+// forkEnteredRegions collects every region a fork's branches start, as the
+// lowerer plans them: the regions of the fork's owner — the innermost orthogonal
+// state below every target — each target lies in, however deep.
+func forkEnteredRegions(regions []*Region) map[*Region]bool {
+	targets := map[*Vertex][]*Vertex{}
+	var visit func([]*Region)
+	visit = func(regions []*Region) {
+		for _, r := range regions {
+			for _, tr := range r.Transitions {
+				if tr.Source != nil && tr.Source.Kind == VertexFork && tr.Target != nil {
+					targets[tr.Source] = append(targets[tr.Source], tr.Target)
+				}
+			}
+			for _, v := range r.Vertices {
+				visit(v.Regions)
+			}
+		}
+	}
+	visit(regions)
+	entered := map[*Region]bool{}
+	for _, branches := range targets {
+		owner := forkOwner(branches)
+		for _, target := range branches {
+			if region := regionUnder(owner, target); region != nil {
+				entered[region] = true
+			}
+		}
+	}
+	return entered
+}
+
+// parentState is the state whose region declares v, nil at the machine's.
+func parentState(v *Vertex) *Vertex {
+	if v.Region == nil {
+		return nil
+	}
+	return v.Region.owner
+}
+
+// forkOwner is the innermost orthogonal state every target lies below, nil when
+// only the machine encloses them all.
+func forkOwner(targets []*Vertex) *Vertex {
+	owner := parentState(targets[0])
+	for _, target := range targets[1:] {
+		for owner != nil && !within(owner, target) {
+			owner = parentState(owner)
+		}
+	}
+	for owner != nil && len(owner.Regions) < 2 {
+		owner = parentState(owner)
+	}
+	return owner
+}
+
+// within reports whether v is owner or lies below it.
+func within(owner, v *Vertex) bool {
+	for s := v; s != nil; s = parentState(s) {
+		if s == owner {
+			return true
+		}
+	}
+	return false
+}
+
+// regionUnder is the region of owner that v lies in, nil when owner is the
+// machine or v is not below it.
+func regionUnder(owner, v *Vertex) *Region {
+	if owner == nil {
+		return nil
+	}
+	for s := v; s != nil && s != owner; s = parentState(s) {
+		if s.Region != nil && s.Region.owner == owner {
+			return s.Region
+		}
+	}
+	return nil
+}
+
 type walker struct {
-	add     func(Construct, string)
-	reached map[*Vertex]bool
+	add         func(Construct, string)
+	reached     map[*Vertex]bool
+	forkEntered map[*Region]bool
 }
 
 // connectionPoints records a machine's or state's connection points. Entry and
@@ -256,10 +335,10 @@ func (w *walker) regions(regions []*Region) {
 	}
 }
 
-// initial records an orthogonal region no initial pseudostate starts, entered
-// by a fork instead: UML allows it, `parallel` can spell it, the lowerer refuses it.
+// initial records an orthogonal region with neither an initial pseudostate nor
+// a fork branch into it: UML allows it, the lowerer refuses it.
 func (w *walker) initial(r *Region) {
-	if r.owner == nil || len(r.owner.Regions) < 2 {
+	if r.owner == nil || len(r.owner.Regions) < 2 || w.forkEntered[r] {
 		return
 	}
 	for _, v := range r.Vertices {
@@ -267,7 +346,7 @@ func (w *walker) initial(r *Region) {
 			return
 		}
 	}
-	w.add(ConstructForkedRegionNoEntry, r.owner.Path()+"/"+r.Name)
+	w.add(ConstructRegionNoEntry, r.owner.Path()+"/"+r.Name)
 }
 
 // behavior records a state behavior with parameters: the notation binds event
