@@ -292,6 +292,12 @@ the interactive band at every operation measured.
 
 ## Further work the measurement points at
 
+The design that takes these up — a persistent semantic model invalidated per
+document, closed documents held as interface records, parallel batch
+validation, and one definition with many occurrences — is in
+[scaling to very large models](large-model-scaling-design.md). The three
+items below are the ones the profiles point at directly.
+
 - **Scope the workspace-wide passes.** The OOSEM and MOSA audits and the
   inherited-name conflict pass are what make one keystroke cost a
   whole-workspace walk. The audits need the whole workspace only when some
