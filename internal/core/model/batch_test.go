@@ -353,3 +353,42 @@ func renderDiagnostics(b *strings.Builder, name string, diags []passes.Diagnosti
 		fmt.Fprintf(b, "%s: %+v\n", filepath.Base(name), d)
 	}
 }
+
+// A batch that reloads a metadata definition's document leaves the annotating
+// documents in place; the next batch reports them over the definition now
+// indexed, on any number of workers, as a fresh workspace does.
+func TestOpenAllReloadedMetadataDefinitionReownsAnnotationBodies(t *testing.T) {
+	use := Input{Name: "use.sysml", Version: 1, Content: []byte("package Use { private import Meta::*; part def C { @M { a = b; } } }")}
+	first := Input{Name: "meta.sysml", Version: 1, Content: []byte("package Meta { metadata def M { attribute a; attribute b; } }")}
+	edited := Input{Name: "meta.sysml", Version: 2, Content: []byte("package Meta { metadata def M { attribute a; attribute c; } }")}
+	names := []string{"meta.sysml", "use.sysml"}
+	fresh := NewWorkspace()
+	fresh.OpenAll([]Input{edited, use})
+	var want strings.Builder
+	for i, diags := range fresh.DiagnosticsAll(names) {
+		renderDiagnostics(&want, names[i], diags)
+	}
+	if !strings.Contains(want.String(), "unresolved reference: b") {
+		t.Fatalf("a fresh workspace should report b, which M no longer declares, got:\n%s", want.String())
+	}
+	for _, workers := range []int{1, 8} {
+		ws := NewWorkspace()
+		if err := ws.SetWorkers(workers); err != nil {
+			t.Fatal(err)
+		}
+		ws.OpenAll([]Input{first, use})
+		for i, diags := range ws.DiagnosticsAll(names) {
+			if len(diags) != 0 {
+				t.Fatalf("%d workers, before the reload, %s: %v", workers, names[i], diags)
+			}
+		}
+		ws.OpenAll([]Input{edited})
+		var got strings.Builder
+		for i, diags := range ws.DiagnosticsAll(names) {
+			renderDiagnostics(&got, names[i], diags)
+		}
+		if got.String() != want.String() {
+			t.Errorf("%d workers, after reloading M:\n%s\nwant, as a fresh workspace reports:\n%s", workers, got.String(), want.String())
+		}
+	}
+}

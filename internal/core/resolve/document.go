@@ -547,18 +547,15 @@ func (r *Resolver) resolveMetadataPrefix(names, parent *symbols.Scope, prefix *a
 		r.ResolveQualified(names, a)
 	}
 	owner := r.metadataBodyOwner(names, prefix)
-	if owner == nil {
-		return
-	}
 	body := parent.ChildFor(prefix)
 	if body == nil {
 		return
 	}
 	// Body values resolve against the metadata definition, not the annotated element.
-	if body.Owner() == nil {
-		body.SetOwner(owner)
+	linkMetadataBody(body, owner)
+	if owner != nil {
+		r.resolveMetadataBody(body, prefix.Body)
 	}
-	r.resolveMetadataBody(body, prefix.Body)
 }
 
 // metadataBodyOwner is the metadata definition the body of prefix resolves against,
@@ -572,6 +569,14 @@ func (r *Resolver) metadataBodyOwner(names *symbols.Scope, prefix *ast.PrefixMet
 		return target
 	}
 	return owner
+}
+
+// linkMetadataBody makes owner, the metadata definition the body resolves against
+// now, the body scope's owner; a definition it kept from an earlier build goes.
+func linkMetadataBody(body *symbols.Scope, owner *symbols.Symbol) {
+	if body.Owner() != owner {
+		body.SetOwner(owner)
+	}
 }
 
 // LinkMetadataBodies sets every annotation body scope's owner as resolving the
@@ -589,10 +594,8 @@ func (r *Resolver) LinkMetadataBodies(name string) {
 
 func (r *Resolver) linkMetadataBodies(scope *symbols.Scope) {
 	for _, child := range scope.Children() {
-		if prefix, ok := child.Node().(*ast.PrefixMetadata); ok && child.Owner() == nil {
-			if owner := r.metadataBodyOwner(r.bodyScope(scope, child.Annotated()), prefix); owner != nil {
-				child.SetOwner(owner)
-			}
+		if prefix, ok := child.Node().(*ast.PrefixMetadata); ok {
+			linkMetadataBody(child, r.metadataBodyOwner(r.bodyScope(scope, child.Annotated()), prefix))
 		}
 		r.linkMetadataBodies(child)
 	}

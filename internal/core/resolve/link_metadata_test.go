@@ -153,3 +153,80 @@ func TestLinkMetadataBodiesReachesEveryBody(t *testing.T) {
 		t.Errorf("%d bodies, %d owned; want 5 and 4", bodies, owned)
 	}
 }
+
+// parsedRoot parses src as name, failing the test on a parse diagnostic.
+func parsedRoot(t *testing.T, name, src string) *ast.RootNamespace {
+	t.Helper()
+	p := parser.New(source.New(name, []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("%s: parse diagnostics: %v", name, p.Diagnostics)
+	}
+	return root
+}
+
+// An annotation body owned by a definition of another document follows that
+// document: once it is replaced, resolving or linking the unchanged annotating
+// document owns the body by the definition now indexed, and once the definition
+// is gone the body is owned by nothing.
+func TestMetadataBodyOwnerFollowsTheDefinitionsDocument(t *testing.T) {
+	const meta, use = "meta.sysml", "use.sysml"
+	const useSrc = "package Use { private import Meta::*; part def C { @M { a = b; } } }"
+	bodyOwner := func(idx *symbols.Index) *symbols.Symbol {
+		body := idx.DocumentRoot(use).Children()[0].Children()[0].Children()[0]
+		if _, ok := body.Node().(*ast.PrefixMetadata); !ok {
+			t.Fatalf("C's first scope is a %T, want the annotation body", body.Node())
+		}
+		return body.Owner()
+	}
+	for _, relink := range []struct {
+		name string
+		do   func(r *resolve.Resolver, root *ast.RootNamespace)
+	}{
+		{"resolving", func(r *resolve.Resolver, root *ast.RootNamespace) { r.ResolveDocument(use, root) }},
+		{"linking", func(r *resolve.Resolver, _ *ast.RootNamespace) { r.LinkMetadataBodies(use) }},
+	} {
+		idx := symbols.NewIndex()
+		idx.AddDocument(meta, parsedRoot(t, meta, "package Meta { metadata def M { attribute a; attribute b; } }"))
+		useRoot := parsedRoot(t, use, useSrc)
+		idx.AddDocument(use, useRoot)
+		idx.ExpandWildcardImports()
+		r := resolve.New(idx)
+		r.SetModel(semantics.NewModel(r))
+		r.ResolveDocument(use, useRoot)
+		first := bodyOwner(idx)
+		if first == nil || idx.GetFQN(first) != "Meta::M" {
+			t.Fatalf("%s: body owned by %v before the reload, want Meta::M", relink.name, first)
+		}
+
+		idx.AddDocument(meta, parsedRoot(t, meta, "package Meta { metadata def M { attribute a; attribute c; } }"))
+		idx.ExpandWildcardImports()
+		r = resolve.New(idx)
+		r.SetModel(semantics.NewModel(r))
+		relink.do(r, useRoot)
+		if got := bodyOwner(idx); got == nil || idx.GetFQN(got) != "Meta::M" || got == first {
+			t.Errorf("%s after the definition's document was replaced: body owned by %s, want the Meta::M now indexed", relink.name, fqnOrNone(idx, got))
+		}
+		if syms := idx.LookupQualified("Meta::M::b"); len(syms) != 0 {
+			t.Fatalf("Meta::M::b should be gone from the index, found %d", len(syms))
+		}
+
+		idx.RemoveDocument(meta)
+		r = resolve.New(idx)
+		r.SetModel(semantics.NewModel(r))
+		relink.do(r, useRoot)
+		if got := bodyOwner(idx); got != nil {
+			t.Errorf("%s after the definition's document was removed: body owned by %s, want nothing", relink.name, fqnOrNone(idx, got))
+		}
+	}
+}
+
+func fqnOrNone(idx *symbols.Index, sym *symbols.Symbol) string {
+	if sym == nil {
+		return "nothing"
+	}
+	if fqn := idx.GetFQN(sym); fqn != "" {
+		return fqn
+	}
+	return sym.Name + " of an earlier " + sym.DocName
+}
