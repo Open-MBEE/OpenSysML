@@ -19,7 +19,8 @@
   for one or take its name, and closing it puts the file back. The library is what the index
   shows, a file the overlay shadows under a frozen base's name included. An edit's temporary
   index keeps the documents such an index holds beyond its frozen base, marked or not, and
-  resolves against a shadowing file rather than the one it shadows.
+  resolves against a shadowing file rather than the one it shadows, and does not bring back a
+  base document the overlay removed.
 - **A file opened under a bundled library's own name no longer removes that library from the
   workspace when it is closed.** Closing it put nothing back, so every later document was checked
   against a library missing that file; the standard-library expression gate

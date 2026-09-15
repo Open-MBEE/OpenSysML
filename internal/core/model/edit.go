@@ -112,15 +112,21 @@ func (w *Workspace) editIndexLocked(name string) *editIndex {
 
 // build makes an index holding the libraries and every workspace document but
 // the edited one, so the edited notation resolves what the original did. It
-// overlays the frozen base, if any, then re-indexes what the base does not hold
-// as the workspace shows it: the library files, marked, and the caller's other
-// documents, languages included. A bundled file the edited document stands in
-// for stays: indexed displaces it again if the edited notation is still a version of it.
+// overlays the frozen base, if any, less what the caller's overlay removed from
+// it, then re-indexes what the base does not hold as the workspace shows it: the
+// library files, marked, and the caller's other documents, languages included. A
+// bundled file the edited document stands in for stays: indexed displaces it
+// again if the edited notation is still a version of it.
 func (e *editIndex) build() *symbols.Index {
 	w, name := e.w, e.name
 	idx := symbols.NewIndex()
 	if w.libBase != nil {
 		idx = symbols.NewOverlay(w.libBase)
+		for _, other := range w.libBase.Documents() {
+			if _, library := w.library[other]; !library && w.index.DocumentRoot(other) == nil {
+				idx.RemoveDocument(other)
+			}
+		}
 	}
 	added := map[string]bool{}
 	skip := func(other string) bool {

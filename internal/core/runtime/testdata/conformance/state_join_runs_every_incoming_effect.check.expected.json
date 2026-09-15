@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"log": ["\"left(effect) right(effect) outer(exit) sync(effect) rest(entry)\"", "\"right(effect) left(effect) outer(exit) sync(effect) rest(entry)\""]},
+	"agreed": {"finalState": "done"}
+}
