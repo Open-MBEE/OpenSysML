@@ -458,51 +458,30 @@ func (e *StateExecutor) scheduleFromLeaf(leaf *ast.StateNode) error {
 	return nil
 }
 
-// scheduleCompletionTransitions queues a state's completion: one event per
-// completion transition whose guard holds now, or one carrying the first when
-// none does, so the guards are read again when the occurrence is dispatched. A
-// state completes only once its do behavior has finished, so a state still
-// running one is skipped here and scheduled by settleDoActions when the behavior
-// ends; a composite state's body reaching `done` schedules it through completeIfDone.
+// scheduleCompletionTransitions queues a state's completion as one event, carrying
+// its first completion transition; the guards are read when the occurrence is
+// dispatched (chooseCompletion), not now. A state completes only once its do
+// behavior has finished, so a state still running one is skipped here and
+// scheduled by settleDoActions when the behavior ends; a composite state's body
+// reaching `done` schedules it through completeIfDone.
 func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) error {
 	if e.hasRunningDoAction(state) {
 		return nil
 	}
-
-	var first *lower.Transition
-	queued := false
 	for _, trans := range e.graph.Transitions[state] {
 		if trans.Trigger != nil {
 			continue
 		}
-		if first == nil {
-			first = trans
-		}
-		satisfied, err := e.passesGuard(trans)
-		if err != nil {
-			return fmt.Errorf("eval completion guard: %w", err)
-		}
-		if !satisfied {
-			continue
-		}
-		e.pushCompletion(trans)
-		queued = true
-	}
-	if first != nil && !queued {
-		e.pushCompletion(first)
+		e.eventQueue.Push(Event{
+			ID:        e.nextEventID,
+			Type:      EventTime, // Use EventTime with nil trigger
+			Timestamp: e.ctx.clock.now,
+			Payload:   trans,
+		})
+		e.nextEventID++
+		return nil
 	}
 	return nil
-}
-
-// pushCompletion queues the completion event carrying a completion transition.
-func (e *StateExecutor) pushCompletion(trans *lower.Transition) {
-	e.eventQueue.Push(Event{
-		ID:        e.nextEventID,
-		Type:      EventTime, // Use EventTime with nil trigger
-		Timestamp: e.ctx.clock.now,
-		Payload:   trans,
-	})
-	e.nextEventID++
 }
 
 // scheduleTransitionsForState schedules events for outgoing transitions of a specific state.
