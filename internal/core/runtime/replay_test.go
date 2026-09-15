@@ -1102,6 +1102,187 @@ func TestReplayRefusedChoiceMoveChangesNothing(t *testing.T) {
 	}
 }
 
+// A history's default transition drawn at a junction and refused at the choice
+// beyond it is undone whole: the machine stays put and the junction's draw,
+// made inside the move, is neither a note nor a choice of the run.
+func TestReplayRefusedChoiceUndoesTheHistoryDefaultsJunctionDraw(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		attribute def Go;
+		state def Machine {
+			attribute route : Integer = 0;
+			attribute level : Integer = 0;
+			entry; then idle;
+			state idle;
+			state work {
+				entry; then w1;
+				state w1;
+				state w2;
+				state w3;
+				history resume;
+				junction split;
+				choice pick;
+				transition first resume then split;
+				transition first split do assign route := 1 then pick;
+				transition first split do assign route := 2 then pick;
+				transition first pick if level > 5 then w1;
+				transition first pick if level > 7 then w2;
+				transition first pick if level > 9 then w3;
+			}
+			transition first idle accept Go do assign level := 8 then resume;
+		}
+	}`)
+	sym := m.state(t, "Machine")
+	witness, err := ParseChoices("junction split -> 2->pick\nchoice pick -> 3->w3\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustSchedule(t, ctx, ReplayPolicy(witness))
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatal(err)
+	}
+	exec.SendSignal("Go", nil)
+	err = exec.RunToCompletion()
+	var refused *ReplayError
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 2 || !strings.Contains(err.Error(), "3->w3 is not enabled (enabled: 1->w1, 2->w2)") {
+		t.Fatalf("error %T %v, want the choice move refused as not enabled", err, err)
+	}
+	data := exec.StateData()
+	for name, want := range map[string]string{"route": "0", "level": "0"} {
+		if got := FormatValue(data[name]); got != want {
+			t.Errorf("%s is %s after the refusal, want %s: the move is undone whole", name, got, want)
+		}
+	}
+	if state, ok := exec.CurrentState().(*ast.StateNode); !ok || state.Name != "idle" {
+		t.Errorf("the machine is in %v after the refusal, want idle", exec.CurrentState())
+	}
+	for _, n := range ctx.Notes() {
+		if _, ok := n.(ChoicePoint); ok {
+			t.Errorf("the run noted %v, want the junction's draw undone with the move", n)
+		}
+	}
+	if choices := ctx.Choices(); len(choices) != 0 {
+		t.Errorf("the run recorded %v, want no choice: the junction's draw is undone with the move", choices)
+	}
+	if taken := ctx.ChoicesTaken(); len(taken) != 0 {
+		t.Errorf("the context's witness holds %v, want no move: the junction's draw is undone with the move", taken)
+	}
+}
+
+// A transition drawn at a junction and refused at the choice beyond it is undone
+// whole, fired from the machine's own state or from inside an orthogonal region:
+// the machine stays put and the junction's draw is neither a note nor a choice
+// of the run.
+func TestReplayRefusedChoiceUndoesTheJunctionDrawBeforeIt(t *testing.T) {
+	for name, tc := range map[string]struct {
+		model, stays string
+	}{
+		"direct": {`package test {
+			private import ScalarValues::*;
+			attribute def Go;
+			state def Machine {
+				attribute route : Integer = 0;
+				attribute level : Integer = 0;
+				entry; then idle;
+				state idle;
+				state one;
+				state two;
+				state three;
+				junction split;
+				choice pick;
+				transition first idle accept Go do assign level := 8 then split;
+				transition first split do assign route := 1 then pick;
+				transition first split do assign route := 2 then pick;
+				transition first pick if level > 5 then one;
+				transition first pick if level > 7 then two;
+				transition first pick if level > 9 then three;
+			}
+		}`, "idle"},
+		"in region": {`package test {
+			private import ScalarValues::*;
+			attribute def Go;
+			state def Machine parallel {
+				attribute route : Integer = 0;
+				attribute level : Integer = 0;
+				state left {
+					entry; then idle;
+					state idle;
+					junction split;
+					choice pick;
+					state one;
+					state two;
+					state three;
+					transition first idle accept Go do assign level := 8 then split;
+					transition first split do assign route := 1 then pick;
+					transition first split do assign route := 2 then pick;
+					transition first pick if level > 5 then one;
+					transition first pick if level > 7 then two;
+					transition first pick if level > 9 then three;
+				}
+				state right {
+					entry; then rest;
+					state rest;
+				}
+			}
+		}`, "idle|rest"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			m := parseExploreModel(t, tc.model)
+			sym := m.state(t, "Machine")
+			witness, err := ParseChoices("junction split -> 2->pick\nchoice pick -> 3->three\n")
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, err := m.fresh()
+			if err != nil {
+				t.Fatal(err)
+			}
+			mustSchedule(t, ctx, ReplayPolicy(witness))
+			exec, err := ctx.CreateStateExecutor(sym)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := exec.RunToCompletion(); err != nil {
+				t.Fatal(err)
+			}
+			exec.SendSignal("Go", nil)
+			err = exec.RunToCompletion()
+			var refused *ReplayError
+			if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 2 || !strings.Contains(err.Error(), "3->three is not enabled (enabled: 1->one, 2->two)") {
+				t.Fatalf("error %T %v, want the choice move refused as not enabled", err, err)
+			}
+			data := exec.StateData()
+			for name, want := range map[string]string{"route": "0", "level": "0"} {
+				if got := FormatValue(data[name]); got != want {
+					t.Errorf("%s is %s after the refusal, want %s: the move is undone whole", name, got, want)
+				}
+			}
+			if got := activeStateNames(exec); got != tc.stays {
+				t.Errorf("the machine is in %s after the refusal, want %s", got, tc.stays)
+			}
+			for _, n := range ctx.Notes() {
+				if _, ok := n.(ChoicePoint); ok {
+					t.Errorf("the run noted %v, want the junction's draw undone with the move", n)
+				}
+			}
+			if choices := ctx.Choices(); len(choices) != 0 {
+				t.Errorf("the run recorded %v, want no choice: the junction's draw is undone with the move", choices)
+			}
+			if taken := ctx.ChoicesTaken(); len(taken) != 0 {
+				t.Errorf("the context's witness holds %v, want no move: the junction's draw is undone with the move", taken)
+			}
+		})
+	}
+}
+
 // A choice move naming a branch the choice's guards do not enable is refused
 // where the choice is resolved, so the run neither takes a branch nor exits 0.
 func TestReplayRefusesAChoiceBranchNotEnabled(t *testing.T) {

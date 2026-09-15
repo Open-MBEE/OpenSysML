@@ -697,6 +697,7 @@ type moveMark struct {
 	run              *runState
 	steps, elements  int64
 	notes            []RunNote
+	choices          []ChoiceTaken
 	trace            traceCapture
 	ids              *idSequence
 	nextID           int64
@@ -709,7 +710,7 @@ func (e *StateExecutor) markMove() *moveMark {
 	ctx := e.ctx
 	m := &moveMark{
 		exec: e, run: ctx.run, steps: ctx.run.steps, elements: ctx.run.elements,
-		notes: slices.Clone(ctx.run.notes),
+		notes: slices.Clone(ctx.run.notes), choices: ctx.choices,
 		trace: captureTrace(ctx.trace),
 		ids:   ctx.ids, nextID: ctx.ids.next,
 	}
@@ -737,6 +738,7 @@ func (m *moveMark) undo() {
 		m.ids.release(e.ctx, m.nextID)
 	}
 	m.run.steps, m.run.elements, m.run.notes = m.steps, m.elements, m.notes
+	e.ctx.choices = m.choices
 	m.trace.restore(e.ctx.trace)
 	m.state.restore()
 }
