@@ -46,8 +46,7 @@ func (r route) effects() []lower.StateBehavior {
 }
 
 // resolveRoute settles a transition's route before anything moves: its target, or
-// on through junctions, a synchronized join or an unrecorded history's default
-// transition, up to the first choice.
+// on through junctions or a join, up to the first choice; a history stays unsettled.
 func (e *StateExecutor) resolveRoute(trans *lower.Transition) (route, error) {
 	r := route{segments: []*lower.Transition{trans}}
 	switch target := trans.Target.(type) {
@@ -56,7 +55,7 @@ func (e *StateExecutor) resolveRoute(trans *lower.Transition) (route, error) {
 		return r, nil
 	case *ast.PseudostateNode:
 		switch target.Kind {
-		case ast.PseudostateFork:
+		case ast.PseudostateFork, ast.PseudostateShallowHistory, ast.PseudostateDeepHistory:
 			return r, nil
 		case ast.PseudostateJoin:
 			sources, err := e.joinSources(target)
@@ -66,16 +65,6 @@ func (e *StateExecutor) resolveRoute(trans *lower.Transition) (route, error) {
 			if !e.allActive(sources) {
 				return r, nil
 			}
-		case ast.PseudostateShallowHistory, ast.PseudostateDeepHistory:
-			owner := e.graph.PseudostateOwner[target]
-			if owner == nil || e.historyRecorded(owner) || len(e.graph.Transitions[target]) == 0 {
-				return r, nil
-			}
-			r, err := e.followOut(target, r)
-			if err != nil {
-				return route{}, fmt.Errorf("default transition of history %s, %s having no recorded configuration: %w", target.Name, owner.Name, err)
-			}
-			return r, nil
 		}
 		r, err := e.followOut(target, r)
 		if err != nil {
@@ -358,10 +347,16 @@ func (e *StateExecutor) exitAhead(states []*ast.StateNode) error {
 // states every branch leaves, runs the effects of the segments into it and
 // reads its guards; move then finishes the settled rest with the effects left.
 func (e *StateExecutor) travel(r route, exits exitPlan, move func([]lower.StateBehavior, *ast.StateNode) error) error {
+	return e.travelChoosing(r.choice != nil, r, exits, move)
+}
+
+// travelChoosing is travel where choosing says whether a choice lies on the way,
+// on the route or inside move, at which a replay may refuse the move.
+func (e *StateExecutor) travelChoosing(choosing bool, r route, exits exitPlan, move func([]lower.StateBehavior, *ast.StateNode) error) error {
 	saved := e.leftAhead
 	e.leftAhead = nil
 	defer func() { e.leftAhead = saved }()
-	if r.choice == nil || !e.ctx.scheduling().replaying() {
+	if !choosing || !e.ctx.scheduling().replaying() {
 		return e.travelResolving(r, exits, move)
 	}
 	// Only a replay refuses a move, at a choice the exits and effects ahead of it

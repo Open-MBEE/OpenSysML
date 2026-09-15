@@ -559,16 +559,21 @@ recent active substate of its containing Region, but not the substates of that s
 the full entry semantics. *v2/KerML:* no notation and no library element; `history` is this
 project's extension with UML as its reference (`pseudostates.md`). *Runtime:*
 `exitState` records the region's active state in `recordRegionHistory`;
-`fireHistoryTransition` re-enters the owner and restores that substate, which for a shallow
-history is entered through its own initial transition (`state_shallow_history`,
-`state_history_revisit`). **agrees.**
+`fireHistoryTransition` → `moveToHistory` exits the source configuration first, reads the
+record once the exits have run (finding 7), re-enters the owner and restores that substate,
+which for a shallow history is entered through its own initial transition
+(`state_shallow_history`, `state_history_revisit`,
+`state_shallow_history_completion_default`: a completion transition of the owner into its own
+shallow history). A history declared in the machine's own body restores the machine's
+top-level configuration (`state_machine_body_deep_history`). **agrees.**
 
 **SM27. Deep history.** PSSM requirement *History 001* (§9.4.15): "the full state configuration of the most recent
 visit ... including execution of all entry Behaviors encountered along the way", outermost
 first (*History 004*). *Runtime:* `historyRecord` keeps the recorded child per region
 recursively; `fireHistoryTransition` with a deep history restores the chain through
 `enterStateInto` along the recorded path, running each entry body (`state_deep_history`,
-`state_deep_history_region_composite`). **agrees.**
+`state_deep_history_region_composite`, `state_deep_history_self_transition`: the owner's
+self-transition restores the configuration it is leaving). **agrees.**
 
 **SM28. History with nothing to restore.** PSSM requirements *History 002–003* (§9.4.15): with no prior visit, or a
 region that "had reached its FinalState", the history's outgoing transition (the default history
@@ -1646,14 +1651,22 @@ are not alignment questions. Each names its evidence; items 4 and 5 are fixed, a
    which the composite's own exit would have cleared under SM28's rule — so the history's
    default transition is skipped, the substate is re-entered, the composite completes again and
    the run exhausts its step budget. Surfaced by the PSSM referee once SM11 and SM28 landed
-   (before them 001-A was a typed error and 002-D ended at the machine's completion). Not fixed
-   in this note's change set; the two tests are its cases.
+   (before them 001-A was a typed error and 002-D ended at the machine's completion).
+   *Fixed:* `resolveRoute` leaves a history route unsettled, and `fireHistoryTransition` →
+   `moveToHistory` exits the source configuration and runs the transition's effects before
+   `historyEntry` reads the record; a default transition is taken from inside the owner once
+   the owner is entered (`defaultHistoryRoute`), so the owner's `entry` runs before the default
+   transition's effect and the region's ordinary initial transition never runs beside it. A
+   history declared in the machine's own body, restoring the machine's top-level configuration
+   (PSSM *History 001-D* is built this way), is owned by the graph's root state. Pinned by
+   `state_deep_history_self_transition`, `state_shallow_history_completion_default`,
+   `state_machine_body_deep_history` and `robustness_test.go:history_outside_composite_state`; the
+   two tests pass, and *History 001-B*, *001-D*, *002-A* and *002-C* with them.
 
-Items 3, 6 and 7 have no fixture on `develop`; the first thing each needs is the conformance
+Items 3 and 6 have no fixture on `develop`; the first thing each needs is the conformance
 case that pins the behavior, then the fix, in a change set of its own — Track E of the roadmap
-holds item 3's entry, item 6 has the two PSSM tests as its cases once the referee can translate
-them, and item 7 has its two as `fail` rows of the referee's baseline. Items 4 and 5 took that
-path in the change set that decided them.
+holds item 3's entry, and item 6 has the two PSSM tests as its cases once the referee can
+translate them. Items 4, 5 and 7 took that path in the change set that decided them.
 
 ## Open decisions
 

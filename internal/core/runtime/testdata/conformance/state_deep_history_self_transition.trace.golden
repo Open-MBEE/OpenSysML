@@ -1,0 +1,89 @@
+exit: start
+enter: outer (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "outer(entry);" -> "outer(entry);"
+    eval operator + -> "outer(entry);"
+enter: middle (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);"
+      eval literal "middle(entry);" -> "middle(entry);"
+    eval operator + -> "outer(entry);middle(entry);"
+enter: inner
+transition: start -> outer (event: accept Go)
+exit: inner
+exit: middle
+exit: outer (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);middle(entry);"
+      eval literal "outer(exit);" -> "outer(exit);"
+    eval operator + -> "outer(entry);middle(entry);outer(exit);"
+enter: away
+transition: inner -> away (event: accept Leave)
+exit: away
+enter: outer (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);middle(entry);outer(exit);"
+      eval literal "outer(entry);" -> "outer(entry);"
+    eval operator + -> "outer(entry);middle(entry);outer(exit);outer(entry);"
+enter: middle (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);middle(entry);outer(exit);outer(entry);"
+      eval literal "middle(entry);" -> "middle(entry);"
+    eval operator + -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);"
+enter: inner
+transition: away -> inner (event: accept Back)
+exit: inner
+enter: innerTwo (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);"
+      eval literal "innerTwo(entry);" -> "innerTwo(entry);"
+    eval operator + -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);"
+transition: inner -> innerTwo (event: accept Next)
+exit: innerTwo
+exit: middle
+exit: outer (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);"
+      eval literal "outer(exit);" -> "outer(exit);"
+    eval operator + -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);"
+stmt assign log
+    eval feature log -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);"
+    eval literal "reset(effect);" -> "reset(effect);"
+  eval operator + -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);reset(effect);"
+enter: outer (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);reset(effect);"
+      eval literal "outer(entry);" -> "outer(entry);"
+    eval operator + -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);reset(effect);outer(entry);"
+enter: middle (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);reset(effect);outer(entry);"
+      eval literal "middle(entry);" -> "middle(entry);"
+    eval operator + -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);reset(effect);outer(entry);middle(entry);"
+enter: innerTwo (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);reset(effect);outer(entry);middle(entry);"
+      eval literal "innerTwo(entry);" -> "innerTwo(entry);"
+    eval operator + -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);reset(effect);outer(entry);middle(entry);innerTwo(entry);"
+transition: innerTwo -> innerTwo (event: accept Reset)
+exit: innerTwo
+exit: middle
+exit: outer (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);reset(effect);outer(entry);middle(entry);innerTwo(entry);"
+      eval literal "outer(exit);" -> "outer(exit);"
+    eval operator + -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);reset(effect);outer(entry);middle(entry);innerTwo(entry);outer(exit);"
+enter: done
+transition: innerTwo -> done (event: accept Finish)

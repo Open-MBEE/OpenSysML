@@ -1693,33 +1693,25 @@ func (e *StateExecutor) moveTo(trans *lower.Transition, currentState *ast.StateN
 	if err := e.runBehaviors(effects); err != nil {
 		return err
 	}
+	return e.enterBelow(trans, fromName, lca, targetState, branches)
+}
 
-	// Enter target state hierarchy from LCA
-	statesToEnter := make([]*ast.StateNode, 0)
-	current := targetState
-	for current != nil && current != lca {
-		statesToEnter = append(statesToEnter, current)
-		current = e.graph.ParentState[current]
-	}
-
-	// Reverse statesToEnter (shallowest to deepest)
-	for i := len(statesToEnter) - 1; i >= 0; i-- {
-		if err := e.enterStateInto(statesToEnter[i], branches); err != nil {
-			return fmt.Errorf("enter state: %w", err)
-		}
-	}
-	// A composite target's own body starts in the state its entry transitions choose.
-	leaf, err := e.enterStartOf(targetState)
+// enterBelow finishes a move whose exits and effects are done: it enters the
+// states below lca down to targetState, then the target's own start.
+func (e *StateExecutor) enterBelow(trans *lower.Transition, fromName string, lca, targetState *ast.StateNode, branches map[*ast.StateRegion]*ast.StateNode) error {
+	_, leaf, err := e.enterToward(lca, targetState, branches)
 	if err != nil {
 		return err
 	}
 
-	// Update current state and rebuild stateStack with full active configuration.
-	// A composite state with orthogonal regions is represented by its regions'
-	// active states, which entering it has just filled in, so taking it as the
-	// single active state would discard that configuration.
-	if _, hasRegions := e.graph.CompositeStates[leaf]; !hasRegions {
-		e.setCurrentState(leaf)
+	// Each region on the path activates its deepest entered state; a leaf in no
+	// region is the machine's single active state.
+	onPath := e.branchesTo(nil, leaf)
+	for region, state := range onPath {
+		e.activeConfig.regionStates[region] = state
+	}
+	if len(onPath) == 0 && len(e.activeConfig.regionStates) == 0 {
+		e.activeConfig.simpleState = leaf
 	}
 	e.stateStack = e.rootToLeaf(leaf)
 
@@ -1972,31 +1964,131 @@ func (e *StateExecutor) forgetRegionHistory(region *ast.StateRegion) {
 // A shallow history restores the substate that was active; a deep history keeps
 // descending, restoring the innermost one.
 func (e *StateExecutor) fireHistoryTransition(trans *lower.Transition, hist *ast.PseudostateNode, r route) error {
-	// A default transition open at a choice restores nothing: it is taken as any
-	// compound transition is.
-	if r.choice != nil {
-		return e.transitionToInto(trans, r, nil)
-	}
-	target, branches, err := e.historyEntry(hist, r.target)
+	owner, err := e.historyOwner(hist)
 	if err != nil {
 		return err
 	}
-	r.target = target
-	return e.transitionToInto(trans, r, branches)
+	currentState := e.moveOrigin()
+	return e.travelChoosing(e.leadsToChoice(hist), r,
+		func(*ast.StateNode) []*ast.StateNode { return e.exitedByMove(currentState, trans, owner) },
+		func(effects []lower.StateBehavior, _ *ast.StateNode) error {
+			return e.moveToHistory(trans, currentState, effects, hist, owner)
+		})
 }
 
-// historyEntry is the state a history transition enters and the branch each region
-// entered on the way starts in; read before the source configuration is left.
-func (e *StateExecutor) historyEntry(hist *ast.PseudostateNode, route *ast.StateNode) (*ast.StateNode, map[*ast.StateRegion]*ast.StateNode, error) {
-	owner, ok := e.graph.PseudostateOwner[hist]
-	if !ok || owner == nil {
-		return nil, nil, fmt.Errorf("history %s must be declared inside the composite state it restores", hist.Name)
+// historyOwner is the composite state hist restores; a history in the machine's
+// own body restores the top-level configuration, kept under the root state.
+func (e *StateExecutor) historyOwner(hist *ast.PseudostateNode) (*ast.StateNode, error) {
+	if owner := e.graph.PseudostateOwner[hist]; owner != nil {
+		return owner, nil
 	}
-	if !e.historyRecorded(owner) {
-		if route != nil {
-			return route, nil, nil
+	if e.graph.Machine != nil && len(e.graph.TopRegions) == 0 {
+		return e.graph.Machine, nil
+	}
+	return nil, fmt.Errorf("history %s must be declared inside the composite state it restores", hist.Name)
+}
+
+// historyBoundary is the state a move into owner's history stops exiting at and
+// enters from: the owner's parent, or the root for the machine's own body.
+func (e *StateExecutor) historyBoundary(currentState *ast.StateNode, trans *lower.Transition, owner *ast.StateNode) *ast.StateNode {
+	if owner == e.graph.Machine {
+		return nil
+	}
+	return e.moveBoundary(currentState, trans, owner)
+}
+
+// moveToHistory finishes a move into hist: exits run first, since leaving the
+// owner writes the record, then the record is read and the owner re-entered.
+func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast.StateNode, effects []lower.StateBehavior, hist *ast.PseudostateNode, owner *ast.StateNode) error {
+	fromName := ""
+	if currentState != nil {
+		fromName = currentState.Name
+	}
+	lca := e.historyBoundary(currentState, trans, owner)
+	leaving := e.exitPath(currentState, lca, nil)
+	// A record the exits leave as it is is checked before anything moves, so an
+	// unenterable history fails with the machine where it was.
+	if owner != e.graph.Machine && !slices.Contains(leaving, owner) {
+		if _, _, err := e.historyEntry(hist, owner); err != nil {
+			return err
 		}
-		if !e.hasDefaultEntry(owner) {
+	}
+	if err := e.exitStates(leaving); err != nil {
+		return err
+	}
+	if err := e.runBehaviors(effects); err != nil {
+		return err
+	}
+
+	target, branches, err := e.historyEntry(hist, owner)
+	if err != nil {
+		return err
+	}
+	if target != nil {
+		return e.enterBelow(trans, fromName, lca, target, branches)
+	}
+	below := lca
+	if owner != e.graph.Machine {
+		for _, state := range e.descendantChain(lca, owner) {
+			if err := e.enterStateInto(state, nil); err != nil {
+				return fmt.Errorf("enter state: %w", err)
+			}
+		}
+		below = owner
+	}
+	r, err := e.defaultHistoryRoute(hist)
+	if err != nil {
+		return err
+	}
+	return e.enterBelow(trans, fromName, below, r.target, nil)
+}
+
+// defaultHistoryRoute takes a history's default transition from inside its
+// owner, resolving any choice on the way once the effects into it have run.
+func (e *StateExecutor) defaultHistoryRoute(hist *ast.PseudostateNode) (route, error) {
+	r, err := e.followOut(hist, route{})
+	if err != nil {
+		return route{}, fmt.Errorf("default transition of history %s: %w", hist.Name, err)
+	}
+	for r.choice != nil {
+		if err := e.runBehaviors(r.effects()); err != nil {
+			return route{}, err
+		}
+		if r, err = e.resolveChoice(r); err != nil {
+			return route{}, err
+		}
+	}
+	return r, e.runBehaviors(r.effects())
+}
+
+// leadsToChoice reports whether a path out of ps through junctions reaches a choice.
+func (e *StateExecutor) leadsToChoice(ps *ast.PseudostateNode) bool {
+	seen := map[*ast.PseudostateNode]bool{ps: true}
+	var visit func(ps *ast.PseudostateNode) bool
+	visit = func(ps *ast.PseudostateNode) bool {
+		for _, branch := range e.graph.Transitions[ps] {
+			next, ok := branch.Target.(*ast.PseudostateNode)
+			if !ok || seen[next] {
+				continue
+			}
+			seen[next] = true
+			if next.Kind == ast.PseudostateChoice || visit(next) {
+				return true
+			}
+		}
+		return false
+	}
+	return visit(ps)
+}
+
+// historyEntry is the state a move into owner's history enters and each region's
+// branch, read after the exits; a nil state says to take the default transition.
+func (e *StateExecutor) historyEntry(hist *ast.PseudostateNode, owner *ast.StateNode) (*ast.StateNode, map[*ast.StateRegion]*ast.StateNode, error) {
+	if !e.historyRecorded(owner) {
+		if len(e.graph.Transitions[hist]) > 0 {
+			return nil, nil, nil
+		}
+		if owner == e.graph.Machine || !e.hasDefaultEntry(owner) {
 			return nil, nil, fmt.Errorf("%w: history %s has no default transition, %s has no recorded configuration and declares no entry transition",
 				ErrHistoryWithoutEntry, hist.Name, owner.Name)
 		}
@@ -2877,15 +2969,11 @@ func (e *StateExecutor) exitedBySynchronization(trans *lower.Transition, ps *ast
 		beyond, ok := e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(owner, trans, target) })
 		return append(slices.Clone(sources), beyond...), ok
 	default:
-		origin := e.moveOrigin()
-		if r.choice != nil {
-			return e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(origin, trans, target) })
-		}
-		target, _, err := e.historyEntry(ps, r.target)
+		owner, err := e.historyOwner(ps)
 		if err != nil {
 			return nil, false
 		}
-		return e.exitedByMove(origin, trans, target), true
+		return e.exitedByMove(e.moveOrigin(), trans, owner), true
 	}
 }
 
@@ -3687,6 +3775,8 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 	}
 	if parent := e.graph.ParentState[state]; parent != nil {
 		e.recordChildHistory(parent, state)
+	} else if e.graph.Machine != nil && e.graph.RegionOf[state] == nil && !e.graph.HiddenStates[state] {
+		e.recordChildHistory(e.graph.Machine, state)
 	}
 
 	// Exit the active state of each of this state's regions, in declaration order.

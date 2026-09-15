@@ -4190,20 +4190,26 @@ func testCallArgumentOfWrongType(t *testing.T) {
 	}
 }
 
-// testHistoryOutsideCompositeState: a history pseudostate restores the state
-// that declares it, so one declared directly in the machine has nothing to
-// restore and must report rather than enter an arbitrary state.
+// testHistoryOutsideCompositeState: a history in a parallel machine's own body
+// belongs to no region and no composite state, so it must report, not guess.
 func testHistoryOutsideCompositeState(t *testing.T) {
 	exec := stateExecutorFor(t, &ast.Usage{
-		Kind:  ast.UsageState,
-		Ident: ast.Identification{Name: "Machine"},
+		Kind:       ast.UsageState,
+		Ident:      ast.Identification{Name: "Machine"},
+		IsParallel: true,
 		Members: []ast.Node{
-			entryStart("init"),
-			&ast.StateNode{Name: "init"},
-			&ast.StateNode{Name: "away"},
+			&ast.StateNode{Name: "left", Substates: []ast.Node{
+				entryStart("init"),
+				&ast.StateNode{Name: "init"},
+				&ast.StateNode{Name: "away"},
+				transitionMember("init", "away"),
+				transitionMember("away", "H"),
+			}},
+			&ast.StateNode{Name: "right", Substates: []ast.Node{
+				entryStart("idle"),
+				&ast.StateNode{Name: "idle"},
+			}},
 			&ast.PseudostateNode{Kind: ast.PseudostateShallowHistory, Name: "H"},
-			transitionMember("init", "away"),
-			transitionMember("away", "H"),
 		},
 	})
 	if err := exec.initialize(); err != nil {

@@ -62,6 +62,30 @@ func (e *StateExecutor) entryPlan(lca, target *ast.StateNode) (*ast.StateNode, m
 	return target, nil
 }
 
+// enterToward enters the states below lca down to target and target's start; a
+// region below target starts where branches says. Returns the entered and deepest states.
+func (e *StateExecutor) enterToward(lca, target *ast.StateNode, branches map[*ast.StateRegion]*ast.StateNode) (entered, deepest *ast.StateNode, err error) {
+	enter, plan := e.entryPlan(lca, target)
+	if plan == nil {
+		plan = branches
+	} else {
+		for region, state := range branches {
+			plan[region] = state
+		}
+	}
+	for _, state := range e.descendantChain(lca, enter) {
+		if err := e.enterStateInto(state, plan); err != nil {
+			return nil, nil, fmt.Errorf("enter state: %w", err)
+		}
+	}
+	if enter != target {
+		// Entering enter's regions entered target and its start; record the deepest.
+		return enter, e.activeConfig.regionStates[e.enclosingRegion(target)], nil
+	}
+	deepest, err = e.enterStartOf(target)
+	return deepest, deepest, err
+}
+
 // activeLeavesBelow returns the deepest active states inside state — one per
 // active orthogonal region, recursively — which are the states whose outgoing
 // transitions have to be scheduled after entering it.
@@ -261,7 +285,6 @@ func (e *StateExecutor) moveBetweenRegions(
 		return err
 	}
 
-	enter, branches := e.entryPlan(keep, target)
 	// The region's active state is the deepest state on the path to target that the
 	// region itself declares, which is a composite state above target when the
 	// target is nested inside one.
@@ -272,14 +295,9 @@ func (e *StateExecutor) moveBetweenRegions(
 	// The region's own entry is recorded before entering, so a state entered
 	// inside it is not mistaken for the single active state of a simple machine.
 	e.activeConfig.regionStates[targetRegion] = leaf
-	for _, state := range e.descendantChain(keep, enter) {
-		if err := e.enterStateInto(state, branches); err != nil {
-			return fmt.Errorf("enter state: %w", err)
-		}
-	}
 	// The target's own entry transitions may start it in a nested state, which
 	// then is the deepest state the region keeps active.
-	deepest, err := e.enterStartOf(target)
+	_, deepest, err := e.enterToward(keep, target, nil)
 	if err != nil {
 		return err
 	}
@@ -410,13 +428,7 @@ func (e *StateExecutor) leaveTopRegions(trans *lower.Transition, effects []lower
 // enterOutside enters target below lca after the region set the transition left
 // has been torn down, and finishes the move.
 func (e *StateExecutor) enterOutside(trans *lower.Transition, source, lca, target *ast.StateNode) error {
-	enter, branches := e.entryPlan(lca, target)
-	for _, state := range e.descendantChain(lca, enter) {
-		if err := e.enterStateInto(state, branches); err != nil {
-			return fmt.Errorf("enter state: %w", err)
-		}
-	}
-	deepest, err := e.enterStartOf(target)
+	entered, deepest, err := e.enterToward(lca, target, nil)
 	if err != nil {
 		return err
 	}
@@ -433,13 +445,7 @@ func (e *StateExecutor) enterOutside(trans *lower.Transition, source, lca, targe
 	}
 
 	e.stateStack = e.rootToLeaf(deepest)
-	// Scheduling starts from the deepest state entered when the path descends
-	// through no orthogonal regions; otherwise their recorded leaves are used.
-	scheduleFrom := enter
-	if enter == target {
-		scheduleFrom = deepest
-	}
-	if err := e.scheduleFromEntered(scheduleFrom); err != nil {
+	if err := e.scheduleFromEntered(entered); err != nil {
 		return err
 	}
 	if err := e.completeIfDone(deepest); err != nil {
