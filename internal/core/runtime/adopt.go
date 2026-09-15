@@ -866,6 +866,8 @@ func (a *adoption) commit() {
 		prevTypes := plan.obj.types()
 		plan.obj.Type = plan.typeSym
 		plan.obj.classifiers = plan.classifiers
+		// Every value taken from a shape is derived again here, so nothing is owed for one.
+		plan.obj.owed = nil
 		// Names of one redefined feature share a feature value, which is rebound once, to
 		// the feature of the name the shared feature value was created under.
 		done := make(map[*FeatureValue]bool, len(plan.obj.FeatureValues))

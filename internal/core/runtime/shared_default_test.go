@@ -592,3 +592,62 @@ func TestAssumedPopulationSurvivesHeldImage(t *testing.T) {
 	expect(t, dst, restored, "sats[2]", "n", "3")
 	expectTaken(t, dst, 0)
 }
+
+// Adoption derives a taken value again, so it owes nothing: carried over and imaged
+// before it is read, the occurrence derives it on the destination as declared.
+func TestAdoptedOccurrenceOwesNothingForAValueDerivedAgain(t *testing.T) {
+	prev := contextOver(t, imagedFleetSrc)
+	prev.SetSharedDefaults(true)
+	fleet, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "test::fleet"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	expect(t, prev, fleet, "sats[1]", "total", "4")
+	expect(t, prev, fleet, "sats[2]", "total", "4")
+	if owed := at(t, prev, fleet, "sats[2]").owed; len(owed) != 1 {
+		t.Fatalf("sats[2] owes %d values before the carry-over, want its total", len(owed))
+	}
+	shapes := prev.ShapesOf(fleet)
+	ctx := contextOver(t, imagedFleetSrc)
+	ctx.SetSharedDefaults(true)
+	if _, err := ctx.Adopt(prev, shapes, fleet); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	if owed := at(t, ctx, fleet, "sats[2]").owed; len(owed) != 0 {
+		t.Errorf("adopted sats[2] owes %d values for a total derived again", len(owed))
+	}
+	dst := imageInto(t, ctx, fleet)
+	restored, ok := dst.Instance(fleet.ID)
+	if !ok {
+		t.Fatalf("object #%d not materialized from the image", fleet.ID)
+	}
+	if owed := at(t, dst, restored, "sats[2]").owed; len(owed) != 0 {
+		t.Errorf("restored sats[2] owes %d values, want none", len(owed))
+	}
+	expect(t, dst, restored, "sats[2]", "total", "4")
+	expect(t, dst, restored, "sats[1]", "total", "4")
+	expect(t, ctx, fleet, "sats[2]", "total", "4")
+}
+
+// A taken value invalidated by a write under its occurrence is imaged as what it is,
+// a value not yet derived: the destination derives it over the written value.
+func TestInvalidatedTakenValueIsImagedAsUnderived(t *testing.T) {
+	ctx, fleet, _ := sharedFixture(t, imagedFleetSrc, "test::fleet")
+	expect(t, ctx, fleet, "sats[1]", "total", "4")
+	expect(t, ctx, fleet, "sats[2]", "total", "4")
+	write(t, ctx, fleet, "sats[2].c1", "m", 10)
+	if at(t, ctx, fleet, "sats[2]").FeatureValues["total"].Materialized {
+		t.Fatal("sats[2].total still materialized over a written c1.m")
+	}
+	dst := imageInto(t, ctx, fleet)
+	restored, ok := dst.Instance(fleet.ID)
+	if !ok {
+		t.Fatalf("object #%d not materialized from the image", fleet.ID)
+	}
+	if owed := at(t, dst, restored, "sats[2]").owed; len(owed) != 0 {
+		t.Errorf("restored sats[2] owes %d values, want none", len(owed))
+	}
+	expect(t, dst, restored, "sats[2]", "total", "11")
+	expect(t, dst, restored, "sats[1]", "total", "4")
+	expect(t, ctx, fleet, "sats[2]", "total", "11")
+}

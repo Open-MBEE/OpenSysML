@@ -369,7 +369,7 @@ func (t *imaging) object(inst *Instance) error {
 		if fv.Feature != nil {
 			f.feature = *fv.Feature
 		}
-		if o, ok := owed[fv]; ok {
+		if o, ok := owed[fv]; ok && fv.declared() {
 			f.shared, f.owed = o.paths, true
 		} else if fv.declared() && len(fv.reads) != 0 {
 			if shared, ok := ctx.sharedRecordOf(inst, fv); ok {
