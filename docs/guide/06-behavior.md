@@ -1397,6 +1397,139 @@ The evaluations cross `-json` as each check's `evaluations` and the gRPC API as
 capability, so a client reads the same per-alternative table
 ([reference/wire-contract.md](../reference/wire-contract.md#case-evaluations)).
 
+### Running a continuous model
+
+The analysis library `StateSpaceRepresentation` (SysML v2 Domain Libraries, `Analysis/`)
+declares a state-space protocol: `StateSpace`, `Input` and `Output` are vector quantities,
+`ContinuousStateSpaceDynamics` is an action with a `stateSpace`, an `input`, an `output`, a
+`getDerivative` and a `getOutput`, and `DiscreteStateSpaceDynamics` has a `getDifference` in
+place of the derivative. An action specializing either is run by time-stepping. The bundled
+`StateSpaceIntegration` library (an OpenSysML extension, not part of the OMG release) adds what
+the protocol leaves open: `FixedStepDynamics` states the `timeStep`, an optional `stopTime` and a
+`time` the runner writes; `Euler` and `RK4` are the integrators; `ZeroCrossing` is the event a
+guard raises when it changes sign.
+
+```sysml
+package Decay {
+    private import ScalarValues::*;
+    private import SI::*;
+    private import VectorFunctions::*;
+    private import StateSpaceRepresentation::*;
+    private import StateSpaceIntegration::*;
+
+    attribute def DecayState :> StateSpace;
+    attribute def DecayInput :> Input;
+    attribute def DecayOutput :> Output;
+
+    action decay : ContinuousStateSpaceDynamics, FixedStepDynamics {
+        attribute rate : Real = 0.5;
+        in :>> input : DecayInput = 0 [m] * VectorOf((0.0));
+        :>> stateSpace : DecayState = 1 [m] * VectorOf((1.0));
+        :>> timeStep = 0.1 [s];
+        :>> stopTime = 2 [s];
+
+        calc :>> getDerivative {
+            in input : DecayInput;
+            in stateSpace : DecayState;
+            return : StateDerivative = (0.0 - rate) * stateSpace / 1 [s];
+        }
+        calc :>> getOutput {
+            in input : DecayInput;
+            in stateSpace : DecayState;
+            return : DecayOutput = 2.0 * stateSpace;
+        }
+    }
+}
+```
+
+The action is run as any action is — `-action`, `%action`, `ExecuteAction`. Each step advances
+the runtime's clock by `timeStep`, computes the next state from `getDerivative`, writes
+`stateSpace`, `time` and `output`, and the run ends when the next step would pass `stopTime`.
+The action's outputs are the final values:
+
+```bash
+$ sysml -action Decay::decay -trace decay.sysml
+✓ package Decay
+[trace] state: decay t=0.0 x=⟨1.0⟩ [m] y=⟨2.0⟩ [m]
+[trace] state: decay t=0.1 x=⟨0.9512294270833334⟩ [m] y=⟨1.9024588541666667⟩ [m]
+[trace] state: decay t=0.2 x=⟨0.9048374229492866⟩ [m] y=⟨1.8096748458985732⟩ [m]
+...
+    output = ⟨0.7357589222950793⟩ [m]
+    stateSpace = ⟨0.36787946114753967⟩ [m]
+    time = 2.0 [s]
+```
+
+`-trace` (and `%trace on`) records one `state: <action> t=<instant> x=<state> y=<output>` line
+per step, the initial sample first, in the same trace the actions and states around it write to.
+The final state is within 3e-8 of the closed form `e^-1 = 0.36787944…`: the model above binds
+no integrator, and a model that binds none steps by classical fourth-order Runge–Kutta (`RK4`).
+To choose, bind `getNextState`'s `integrate` to one of the two the runtime provides:
+
+```sysml
+calc :>> getNextState {
+    calc :>> integrate : Euler;
+}
+```
+
+Forward `Euler` advances by the derivative at the start of the step; the same system ends at
+`0.3585`, first-order error visible against `RK4`. A `getNextState` the model bodies itself is
+applied as written instead. `DiscreteStateSpaceDynamics` steps the same way with no integrator
+at all: each step adds `getDifference(input, stateSpace)` to the state.
+
+The clock is the runtime's one clock, so a state machine exhibited beside the dynamics sees the
+same time: its `accept after`/`at` triggers fire in step order, and a state's entry action can
+read `dynamics.output` as the state the last step wrote. When a step and a timed trigger fall
+due at one instant, which runs first is a `due order` choice point the scheduling policy decides
+(see [When a model has more than one valid run](#when-a-model-has-more-than-one-valid-run)),
+never an implicit order; `explore` and the checker enumerate both. A model that states no
+`stopTime` steps as far as the clock is driven — `%advance 5` steps it to 5 s; run to
+completion alone it stops at the step budget.
+
+A guard raises an event when it crosses zero. The dynamics declare an `event occurrence` of a
+type specializing `ZeroCrossing`, bind its `guard` — any expression over the state, the input and
+`time` — and, to end the dynamics at the crossing, set `terminal`:
+
+```sysml
+part def Lander {
+    action def Touchdown :> ZeroCrossing;
+
+    perform action fall : ContinuousStateSpaceDynamics, FixedStepDynamics {
+        :>> stateSpace : FallState = VectorOf((19.0, 0.0));
+        :>> timeStep = 0.5 [s];
+        event occurrence touchdown : Touchdown {
+            :>> guard = stateSpace.elements#(1);
+            :>> terminal = true;
+        }
+        // getDerivative, getOutput, input as above
+    }
+
+    state flight {
+        entry; then falling;
+        state falling;
+        accept Touchdown then landed;
+        transition first falling accept after 10 [s] then lost;
+        state lost;
+        state landed;
+    }
+}
+```
+
+After each step every guard is evaluated; one that changed sign since the previous step, or has
+just reached exactly zero, posts an event of its type — once: a guard resting at zero raises no
+more — which the machine's `accept Touchdown` takes as it takes any signal, and the trace records
+`event: zero crossing touchdown of fall (t=2.0)`. Two performances of the same dynamics each post
+their own event, so a machine accepting `fall.touchdown` takes its performer's crossing. The crossing
+is located to the end of the step that detected it: the event carries that step's instant and the
+state the machine reads is the post-step state, so a crossing is reported up to one `timeStep`
+late and a guard that crosses and crosses back inside one step is not seen — choose the step for
+the guard as much as for the integration.
+
+A shape the runner cannot run truthfully is an error naming the action and the member at fault,
+never a wrong result: a `stateSpace`, `input`, derivative or output that is not a vector or is
+not bound; a `getDerivative`, `getDifference` or `getOutput` left abstract; an `integrate` bound
+to a calc other than `Euler` or `RK4`; a `timeStep` that is absent, zero, negative or not a
+duration; a state that leaves a step non-finite.
+
 For all of this section run end to end on one model — an analysis with its objective, a
 verification case with its body verdict, a sweep and a sample, two trade studies and an action
 waiting on the clock a state machine also runs on, from the command line, the REPL and Python —

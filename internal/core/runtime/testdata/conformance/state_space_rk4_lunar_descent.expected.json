@@ -1,0 +1,11 @@
+{
+  "type": "action",
+  "libraries": true,
+  "evaluate": "test::descent",
+  "outputs": {
+    "output": {"type": "Vector", "elements": [
+      {"type": "Real", "value": 15001.719185373526}
+    ]},
+    "time": {"type": "Quantity", "value": 3.0, "unit": "s"}
+  }
+}

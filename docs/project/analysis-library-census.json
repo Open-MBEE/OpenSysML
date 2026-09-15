@@ -84,7 +84,9 @@
         "StateSpaceRepresentation::GetNextState",
         "StateSpaceRepresentation::GetOutput",
         "StateSpaceRepresentation::GetDerivative",
-        "StateSpaceRepresentation::GetDifference"
+        "StateSpaceRepresentation::ContinuousStateSpaceDynamics",
+        "StateSpaceRepresentation::GetDifference",
+        "StateSpaceRepresentation::DiscreteStateSpaceDynamics"
       ],
       "refused": [
         {
@@ -118,11 +120,6 @@
           "message": "calc test::Euler: evaluating the returned expression: no result expression: calc test::Euler::getDerivative has no return expression: the result parameter binds no value; write the result as the trailing expression of the body, or bind it with `return : StateDerivative = \u003cexpr\u003e;`"
         },
         {
-          "declaration": "StateSpaceRepresentation::ContinuousStateSpaceDynamics",
-          "error": "ErrInvalidActionFlow",
-          "message": "initialize action: invalid action flow: no initial node found in action Damper"
-        },
-        {
           "declaration": "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getDerivative",
           "error": "ErrNotAFunction",
           "message": "not a function: damper.getDerivative is undetermined, not a function"
@@ -136,11 +133,6 @@
           "declaration": "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate",
           "error": "Undetermined",
           "message": "damper has no value in the model"
-        },
-        {
-          "declaration": "StateSpaceRepresentation::DiscreteStateSpaceDynamics",
-          "error": "ErrInvalidActionFlow",
-          "message": "initialize action: invalid action flow: no initial node found in action Spring"
         },
         {
           "declaration": "StateSpaceRepresentation::DiscreteStateSpaceDynamics::getDifference",

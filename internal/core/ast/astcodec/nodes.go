@@ -1157,7 +1157,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 	case *ast.AcceptEvent:
 		d.base(&n.NodeBase)
 		n.SignalType = typed[*ast.QualifiedName](d)
-		n.Subsets = typed[*ast.QualifiedName](d)
+		n.Subsets = d.node()
 		n.Payload = typed[*ast.Usage](d)
 	case *ast.ActionExecutionNode:
 		d.base(&n.NodeBase)

@@ -272,6 +272,16 @@ func (tr *TraceRecorder) RecordEvent(event string, time float64) {
 	tr.entries = append(tr.entries, fmt.Sprintf("event: %s (t=%.1f)", event, time))
 }
 
+// RecordStateSpaceStep records the state a dynamics holds at an instant, with the
+// output it computes there: one `(t, x)` sample of the run.
+func (tr *TraceRecorder) RecordStateSpaceStep(action string, time float64, state, output Value) {
+	if !tr.enabled {
+		return
+	}
+	tr.entries = append(tr.entries, fmt.Sprintf("state: %s t=%s x=%s y=%s",
+		action, semantics.FormatReal(time), FormatValue(state), FormatValue(output)))
+}
+
 // RecordObjectMaterialized records an object being materialized, before any
 // behavior of it starts.
 func (tr *TraceRecorder) RecordObjectMaterialized(typeName string, id int64) {

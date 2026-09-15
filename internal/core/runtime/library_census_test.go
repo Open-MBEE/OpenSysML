@@ -11,6 +11,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
+	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -82,6 +83,9 @@ var censusSentinels = []struct {
 	{"ErrOccurrenceDestroyed", ErrOccurrenceDestroyed},
 	{"ErrOccurrenceLifetime", ErrOccurrenceLifetime},
 	{"ErrStatePerformanceOccurrence", ErrStatePerformanceOccurrence},
+	{"ErrStateSpaceDiverged", ErrStateSpaceDiverged},
+	{"ErrStateSpaceStep", ErrStateSpaceStep},
+	{"ErrStateSpaceValue", ErrStateSpaceValue},
 	{"ErrStepLimitExceeded", ErrStepLimitExceeded},
 	{"ErrTypeMismatch", ErrTypeMismatch},
 	{"ErrUnboundParameter", ErrUnboundParameter},
@@ -94,6 +98,7 @@ var censusSentinels = []struct {
 	{"ErrUnresolvedType", ErrUnresolvedType},
 	{"ErrUnsupportedBodyDeclaration", ErrUnsupportedBodyDeclaration},
 	{"ErrUnsupportedOperator", ErrUnsupportedOperator},
+	{"ErrUnsupportedStateSpace", lower.ErrUnsupportedStateSpace},
 	{"ErrViolated", ErrViolated},
 }
 
