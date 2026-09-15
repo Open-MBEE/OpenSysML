@@ -93,20 +93,20 @@ func TextDigest(text []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// libraryIdentityOf digests the library documents by name, tier and text, and
-// reports false when one states no text digest, since it may then hold anything.
+// libraryIdentityOf digests the library documents by tier and text, not the names they
+// are held under, and reports false when one states no text digest: it may then hold anything.
 func libraryIdentityOf(docs map[string]LibraryDocument) (string, bool) {
-	names := make([]string, 0, len(docs))
-	for name, doc := range docs {
+	lines := make([]string, 0, len(docs))
+	for _, doc := range docs {
 		if doc.Digest == "" {
 			return "", false
 		}
-		names = append(names, name)
+		lines = append(lines, fmt.Sprintf("%d\x00%s\x00", doc.Tier, doc.Digest))
 	}
-	sort.Strings(names)
+	sort.Strings(lines)
 	h := sha256.New()
-	for _, name := range names {
-		fmt.Fprintf(h, "%s\x00%d\x00%s\x00", name, docs[name].Tier, docs[name].Digest)
+	for _, line := range lines {
+		fmt.Fprint(h, line)
 	}
 	return hex.EncodeToString(h.Sum(nil)), true
 }

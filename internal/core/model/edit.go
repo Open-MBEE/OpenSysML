@@ -41,14 +41,15 @@ func (w *Workspace) ApplyEdit(name string, ops []edit.Operation) (result *EditRe
 	if doc == nil {
 		return nil, 0, false, nil
 	}
+	ei := w.editIndexLocked(name)
 	m := edit.Model{
 		Source:     doc.sf,
 		Root:       doc.AST,
 		Index:      w.index,
 		ParseDiags: doc.ParseDiagnostics,
 		SemDiags:   w.diagnosticsLocked(name, doc),
-		NewIndex:   w.siblingIndexLocked(name),
-		Indexed:    w.standInOverLocked,
+		NewIndex:   ei.build,
+		Indexed:    ei.indexed,
 		Analysis:   w.analysis,
 		Other:      w.otherDocumentLocked(name),
 	}
@@ -93,48 +94,63 @@ func (w *Workspace) otherDocumentLocked(name string) func(string) (edit.Document
 	}
 }
 
-// siblingIndexLocked builds an index holding the libraries and every workspace
-// document but name, so the edited notation resolves what the original did.
-// Over a shared library base it overlays that; over a caller-built index it
-// re-indexes the caller's other documents, library marks and languages included.
-// A bundled file that name stands in for stays: standInOverLocked displaces it
-// again if the edited notation is still a version of it.
-func (w *Workspace) siblingIndexLocked(name string) func() *symbols.Index {
-	return func() *symbols.Index {
-		var idx *symbols.Index
-		if w.libBase != nil {
-			idx = symbols.NewOverlay(w.libBase)
-		} else {
-			idx = symbols.NewIndex()
-			for _, other := range w.index.Documents() {
-				if other == name || w.docs[other] != nil {
-					continue
-				}
-				root, ok := w.index.DocumentRoot(other).Node().(*ast.RootNamespace)
-				if !ok {
-					continue
-				}
-				idx.AddDocumentWithKind(other, root, w.index.DocumentKind(other))
-				if lib := w.index.LibraryDocumentOf(other); lib.Tier.Library() {
-					idx.MarkLibraryDocument(other, lib)
-				}
-			}
-		}
-		for other, library := range w.standIns {
-			if other != name {
-				idx.RemoveDocument(library)
-			}
-		}
-		for other, doc := range w.docs {
-			if other == name {
+// editIndex is the index one edit of the named document is judged in, built once
+// and re-fed each rewrite; standIns is what its documents stand in for, which an
+// edit's intermediate rewrites move without moving the workspace's own.
+type editIndex struct {
+	w        *Workspace
+	name     string
+	standIns map[string]string
+}
+
+// editIndexLocked prepares the index an edit of name is judged in. Caller holds the lock.
+func (w *Workspace) editIndexLocked(name string) *editIndex {
+	return &editIndex{w: w, name: name}
+}
+
+// build makes an index holding the libraries and every workspace document but
+// the edited one, so the edited notation resolves what the original did. Over a
+// shared library base it overlays that; over a caller-built index it re-indexes
+// the caller's other documents, library marks and languages included. A bundled
+// file the edited document stands in for stays: indexed displaces it again if
+// the edited notation is still a version of it.
+func (e *editIndex) build() *symbols.Index {
+	w, name := e.w, e.name
+	var idx *symbols.Index
+	if w.libBase != nil {
+		idx = symbols.NewOverlay(w.libBase)
+	} else {
+		idx = symbols.NewIndex()
+		for _, other := range w.index.Documents() {
+			if other == name || w.docs[other] != nil {
 				continue
 			}
-			idx.AddDocument(other, doc.AST)
-			if _, ok := w.standIns[other]; ok {
-				idx.MarkLibraryDocument(other, w.index.LibraryDocumentOf(other))
+			root, ok := w.index.DocumentRoot(other).Node().(*ast.RootNamespace)
+			if !ok {
+				continue
+			}
+			idx.AddDocumentWithKind(other, root, w.index.DocumentKind(other))
+			if lib := w.index.LibraryDocumentOf(other); lib.Tier.Library() {
+				idx.MarkLibraryDocument(other, lib)
 			}
 		}
-		idx.ExpandWildcardImports()
-		return idx
 	}
+	e.standIns = map[string]string{}
+	for other, library := range w.standIns {
+		if other != name {
+			e.standIns[other] = library
+			idx.RemoveDocument(library)
+		}
+	}
+	for other, doc := range w.docs {
+		if other == name {
+			continue
+		}
+		idx.AddDocument(other, doc.AST)
+		if _, ok := w.standIns[other]; ok {
+			idx.MarkLibraryDocument(other, w.index.LibraryDocumentOf(other))
+		}
+	}
+	idx.ExpandWildcardImports()
+	return idx
 }
