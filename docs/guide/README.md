@@ -12,6 +12,7 @@ Read the chapters in order the first time through; each one builds on the ones b
 8. [Editors](08-editors.md) — `sysml-lsp` and the VS Code extension
 9. [From your own program](09-clients.md) — the Go, Python, Node, Java and Rust clients
 10. [Troubleshooting](10-troubleshooting.md) — diagnosing a run that stops early
+11. [Migrating a SysML v1 model](11-migrating-from-sysml-v1.md) — XMI, `.uml` or `.mdzip` in, v2 notation and a report out
 
 Chapter 9 does one task in all five clients side by side — Go, Python, Node/TypeScript, Java and
 Rust, in tabs — and then has a section per client for what only that one has.

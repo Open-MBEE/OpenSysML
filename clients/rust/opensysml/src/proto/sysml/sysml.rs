@@ -859,12 +859,15 @@ pub struct ExecuteStateResponse {
 /// change the answer; a file_path is read afresh and content is carried inline.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ConvertRequest {
-    /// "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-    /// file_path's extension, and is notation for a model_hash, since that is what
-    /// parse reads; inline content has neither, so it must say.
+    /// "sysml", "kerml", "text", "ttl", "turtle" or "rdf", or "xmi", "uml" or
+    /// "mdzip" for a SysML v1 model, which is read and migrated to v2 and never
+    /// written. Empty infers from file_path's extension, and is notation for a
+    /// model_hash, since that is what parse reads; inline content has neither, so
+    /// it must say.
     #[prost(string, tag="3")]
     pub from_format: ::prost::alloc::string::String,
-    /// Format to write, named as in from_format. Empty is rejected.
+    /// Format to write, named as in from_format; the v1 names are refused, since
+    /// a v2 model has no v1 form. Empty is rejected.
     #[prost(string, tag="4")]
     pub to_format: ::prost::alloc::string::String,
     /// Write notation back out even when the parser could not read all of it,
@@ -909,7 +912,8 @@ pub struct ConvertResponse {
     /// Set when either format is RDF, whose mapping is experimental: it covers
     /// model structure and the behavior its bodies state, refuses what it cannot
     /// write back, and its vocabulary may change without a compatibility path.
-    /// Notation to notation is stable and leaves this unset.
+    /// Also set when the source is SysML v1, whose migration is experimental in
+    /// the same sense. Notation to notation is stable and leaves this unset.
     #[prost(bool, tag="6")]
     pub experimental: bool,
     /// What is experimental about the conversion, in the wording every surface

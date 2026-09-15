@@ -841,9 +841,11 @@ class Connection:
             content (str, optional): Source carried inline
             model_hash (str, optional): Hash of a loaded model, whose parsed
                 source is converted
-            from_format (str, optional): Format to read the source as; inferred
-                from file_path's extension when omitted, notation for a
-                model_hash, and required for inline content
+            from_format (str, optional): Format to read the source as, one of
+                the to_format names or 'xmi', 'uml' or 'mdzip' for a SysML v1
+                model to migrate; inferred from file_path's extension when
+                omitted, notation for a model_hash, and required for inline
+                content
             tolerate_syntax_errors (bool): Write notation back out even when the
                 parser could not read all of it, reporting its syntax errors as
                 the result's diagnostics. Notation to notation only: every other
@@ -856,7 +858,9 @@ class Connection:
 
         Warns:
             ExperimentalFeatureWarning: If either format is RDF, whose mapping is
-                experimental — see ``docs/reference/rdf-mapping.md``
+                experimental (see ``docs/reference/rdf-mapping.md``), or the
+                source is SysML v1, whose migration is experimental too (see
+                ``docs/reference/sysml-v1-migration.md``)
 
         Raises:
             ValueError: If other than one of file_path, content and model_hash

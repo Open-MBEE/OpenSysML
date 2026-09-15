@@ -89,8 +89,9 @@ sysml input.txt -convert ttl -from sysml
 `-convert` and `-from` accept `sysml`, `kerml`, `text`, `ttl`, `turtle` and `rdf`; `-from` also
 accepts `xmi` (or `uml`, `mdzip`) for a SysML v1 model exported as OMG XMI, an Eclipse `.uml`
 file or a zip archive holding the XMI (a MagicDraw/Cameo `.mdzip` project), which is migrated
-to v2 on the way in — an experimental path, and every run that takes it says so on stderr; see
-[SysML v1 migration](../reference/sysml-v1-migration.md). The output path
+to v2 on the way in — an experimental path, and every run that takes it says so on stderr;
+[chapter 11](11-migrating-from-sysml-v1.md) walks one through, and
+[SysML v1 migration](../reference/sysml-v1-migration.md) states the mapping. The output path
 plays no part in choosing the format, so a destination without an extension, such as `-o /dev/null`
 or a FIFO, needs no extra flags.
 
