@@ -325,7 +325,8 @@ test's constructs in its `reasons`.
 ## Findings about our own conformance
 
 The referee's classifier and runs surfaced two gaps that are this project's rather than SysML
-v2's, recorded here as candidates and **not fixed** in the change that added the referee:
+v2's, recorded here as candidates when the referee was added; the second is fixed, the first
+is not:
 
 - **The lowerer refuses a fork into orthogonal regions that have no initial pseudostate**
   (*Fork 002*, *Join 001*; alignment finding 6). UML lets a fork's outgoing transitions enter
@@ -337,20 +338,25 @@ v2's, recorded here as candidates and **not fixed** in the change that added the
   `not-expressible` under the distinct reason *lowerer refuses fork into a region without an
   entry transition* so they are never confused with the constructs v2 has no spelling for; a fix
   moves them into the expressible buckets and the count moves with them.
-- **A transition from a composite state into its own history pseudostate reads the record
-  before the state is left** (*History 001-A*, *History 002-D*; alignment finding 7). The
+- **A transition from a composite state into its own history pseudostate read the record
+  before the state was left** (*History 001-A*, *History 002-D*; alignment finding 7). The
   configuration a history restores is recorded when its owner is exited
   (`exitState` → `recordChildHistory`, `recordRegionHistory`), but `resolveRoute` and
-  `historyEntry` read it before the transition's exits run, so a transition whose source is the
-  owner itself sees the owner's *previous* exit, not the configuration it is leaving: *History
-  001-A*'s self-transition finds no record and performs a default entry where PSSM restores
-  `S1.1.2`; *History 002-D*'s completion transition finds the record `S1.1`'s exit left, which
-  the owner's exit would have cleared, so the history's default transition is skipped and `S1.1`
-  re-entered, whose completion fires the transition again until the step budget is exhausted.
-  UML restores the most recent active configuration — the one being left. The two tests are the
-  finding's cases; a fix moves them out of `fail` and the count moves with them.
+  `historyEntry` read it before the transition's exits ran, so a transition whose source was the
+  owner itself saw the owner's *previous* exit, not the configuration it was leaving: *History
+  001-A*'s self-transition found no record and performed a default entry where PSSM restores
+  `S1.1.2`; *History 002-D*'s completion transition found the record `S1.1`'s exit left, which
+  the owner's exit would have cleared, so the history's default transition was skipped and `S1.1`
+  re-entered, whose completion fired the transition again until the step budget was exhausted.
+  UML restores the most recent active configuration — the one being left. Fixed:
+  `fireHistoryTransition` → `moveToHistory` runs the exits and effects before `historyEntry`
+  reads the record, a default transition is taken from inside the owner once entered, and a
+  history in the machine's own body restores the machine's configuration
+  (`state_deep_history_self_transition`, `state_shallow_history_completion_default`,
+  `state_machine_body_deep_history`). The two tests pass, and *History 001-B*, *001-D* and
+  *002-A* with them; the movements table above adjudicates each.
 
-The twenty unadjudicated `fail` rows are not findings yet. Each is still to be attributed
+The seventeen unadjudicated `fail` rows are not findings yet. Each is still to be attributed
 one by one — to a translation defect (the referee lost a construct), a runtime defect (the extra
 trace shows behavior UML and v2 both forbid), or a missing alignment row (v2 legitimately
 differs and the note has no row for it yet) — and the attribution belongs in the change that
