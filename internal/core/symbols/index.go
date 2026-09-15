@@ -876,8 +876,9 @@ func (idx *Index) MarkLibraryDocument(name string, doc LibraryDocument) {
 }
 
 // LibraryIdentity digests the library content the index holds — every library
-// document's tier and text, whatever name holds it — so two indexes that agree on
-// it declare the same library. It is unknown while a library document states no text digest.
+// document's language, tier and text, whatever name holds it — so two indexes that
+// agree on it declare the same library. It is unknown while a library document
+// states no text digest.
 func (idx *Index) LibraryIdentity() (string, bool) {
 	if !idx.frozen && (!idx.libraryIdentity.taken || idx.libraryIdentity.gen != idx.generation.get()) {
 		idx.takeLibraryIdentity()
@@ -898,7 +899,7 @@ func (idx *Index) takeLibraryIdentity() {
 	for _, name := range idx.libraryDocs.keys() {
 		docs[name] = idx.libraryDocs.at(name)
 	}
-	idx.libraryIdentity.value, idx.libraryIdentity.known = libraryIdentityOf(docs)
+	idx.libraryIdentity.value, idx.libraryIdentity.known = libraryIdentityOf(docs, idx.DocumentKind)
 	idx.libraryIdentity.gen = idx.generation.get()
 	idx.libraryIdentity.taken = true
 }
