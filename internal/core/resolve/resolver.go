@@ -430,7 +430,7 @@ func (r *Resolver) lookupMember(sym *symbols.Symbol, name string, hide *refFilte
 	if r.model == nil {
 		return r.featureOf(sym, name, newFeatureWalk(hide))
 	}
-	if found, ok := r.lookupMemberOf(sym, name); ok {
+	if found, ok := r.model.LookupMember(sym, name); ok {
 		return found, true
 	}
 	if sym.Scope == nil {
@@ -448,15 +448,6 @@ func (r *Resolver) lookupMember(sym *symbols.Symbol, name string, hide *refFilte
 		}
 	}
 	return nil, false
-}
-
-// lookupMemberOf resolves name as a member sym declares, inherits, or accepts as
-// a trigger payload; what its imports surface is not considered.
-func (r *Resolver) lookupMemberOf(sym *symbols.Symbol, name string) (*symbols.Symbol, bool) {
-	if found, ok := r.model.LookupMember(sym, name); ok {
-		return found, true
-	}
-	return r.triggerPayload(sym, name)
 }
 
 // lookupContributedMember resolves name as a member sym inherits or

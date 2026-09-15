@@ -152,21 +152,26 @@ func (e *emitter) fail(where, reason string) error {
 }
 
 // nameVertices names every state and pseudostate by its path as an identifier,
-// suffixing a name two vertices share so each is one endpoint.
+// suffixing a name two vertices share so each is one endpoint. An initial
+// pseudostate is named for the helper state startTarget may declare for it.
 func (e *emitter) nameVertices(regions []*Region) {
-	taken := map[string]int{}
+	taken := map[string]bool{}
 	var visit func([]*Region)
 	visit = func(regions []*Region) {
 		for _, r := range regions {
 			for _, v := range r.Vertices {
-				if v.Kind == VertexInitial || v.Kind == VertexFinal {
+				if v.Kind == VertexFinal {
 					continue
 				}
-				name := identifier(v.Path())
-				taken[name]++
-				if n := taken[name]; n > 1 {
-					name = fmt.Sprintf("%s_%d", name, n)
+				base := identifier(v.Path())
+				if v.Kind == VertexInitial {
+					base += "_start"
 				}
+				name := base
+				for n := 2; taken[name]; n++ {
+					name = fmt.Sprintf("%s_%d", base, n)
+				}
+				taken[name] = true
 				e.names[v] = name
 				visit(v.Regions)
 			}
@@ -358,7 +363,7 @@ func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, st
 	}
 	var initialTarget string
 	if len(regions) == 1 {
-		if initialTarget, err = e.startEntry(b, inner, regions[0], where, &parts); err != nil {
+		if initialTarget, err = e.startEntry(b, inner, regions[0], where); err != nil {
 			return err
 		}
 	}
@@ -392,19 +397,12 @@ func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, st
 	return nil
 }
 
-// startEntry folds a single region's initial transition into the state's entry:
-// its effect joins the entry statements, and its target is the entry's destination.
-func (e *emitter) startEntry(b *strings.Builder, inner string, region *Region, where string, parts *stateParts) (string, error) {
+// startEntry spells a single region's initial transition as the destination of
+// the state's entry; an empty region contributes no destination.
+func (e *emitter) startEntry(b *strings.Builder, inner string, region *Region, where string) (string, error) {
 	init, tr, err := e.initial(region, where)
 	if err != nil || init == nil {
 		return "", err
-	}
-	if tr.Effect != nil {
-		stmts, err := e.plainBody(tr.Effect, effectOf(tr))
-		if err != nil {
-			return "", err
-		}
-		parts.entry = append(parts.entry, stmts...)
 	}
 	return e.startTarget(b, inner, init, tr, where)
 }
@@ -507,17 +505,7 @@ func (e *emitter) parallelRegion(b *strings.Builder, depth int, path string, r *
 	if err != nil {
 		return err
 	}
-	if tr.Effect != nil {
-		stmts, err := e.plainBody(tr.Effect, effectOf(tr))
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(b, "%s    entry action %s {\n", inner, spell(regionName+initialSuffix))
-		writeStmts(b, inner+"        ", stmts)
-		fmt.Fprintf(b, "%s    }\n%s    transition %s then %s;\n", inner, inner, spell(regionName+initialSuffix), target)
-	} else {
-		fmt.Fprintf(b, "%s    entry; then %s;\n", inner, target)
-	}
+	fmt.Fprintf(b, "%s    entry; then %s;\n", inner, target)
 	if err := e.region(b, depth+2, r, path); err != nil {
 		return err
 	}
@@ -557,19 +545,28 @@ func (e *emitter) initial(r *Region, where string) (*Vertex, *Transition, error)
 	return init, out, nil
 }
 
-// startTarget spells where a region starts. An initial transition into a
-// pseudostate is not a state to start in, so it starts in an empty helper
-// state whose completion transition reaches the pseudostate instead.
+// startTarget spells where a region starts: an initial transition with an effect
+// or a pseudostate target starts in a helper state whose completion carries it.
 func (e *emitter) startTarget(b *strings.Builder, ind string, init *Vertex, tr *Transition, where string) (string, error) {
 	target, err := e.target(tr, where)
 	if err != nil {
 		return "", err
 	}
-	if tr.Target == nil || !tr.Target.Kind.IsPseudostate() {
+	if tr.Effect == nil && (tr.Target == nil || !tr.Target.Kind.IsPseudostate()) {
 		return target, nil
 	}
-	helper := identifier(init.Path()) + "_start"
-	fmt.Fprintf(b, "%sstate %s;\n%stransition first %s then %s;\n", ind, helper, ind, helper, target)
+	helper := e.names[init]
+	fmt.Fprintf(b, "%sstate %s;\n%stransition first %s", ind, helper, ind, helper)
+	if tr.Effect != nil {
+		stmts, err := e.plainBody(tr.Effect, effectOf(tr))
+		if err != nil {
+			return "", err
+		}
+		b.WriteString(" do {\n")
+		writeStmts(b, ind+"    ", stmts)
+		b.WriteString(ind + "}")
+	}
+	fmt.Fprintf(b, " then %s;\n", target)
 	return helper, nil
 }
 
@@ -693,7 +690,7 @@ func (e *emitter) target(t *Transition, where string) (string, error) {
 		return "done", nil
 	}
 	name := e.names[t.Target]
-	if name == "" {
+	if name == "" || t.Target.Kind == VertexInitial {
 		return "", e.fail(where, "a transition into an unnamed vertex")
 	}
 	return spell(name), nil

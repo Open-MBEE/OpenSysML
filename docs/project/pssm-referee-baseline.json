@@ -6,14 +6,14 @@
     "url": "https://www.omg.org/spec/PSSM/20181101/PSSM_TestSuite.xmi",
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
-    "recorded": "2026-09-12",
-    "develop": "bb95cf2264ed02dc6eaca3cf3cc880a3ea020548"
+    "recorded": "2026-09-14",
+    "develop": "f4b844329ace2f8feaf2560b4e21d0a5d834683d"
   },
   "buckets": {
     "differs-by-design": 2,
-    "fail": 23,
+    "fail": 18,
     "not-expressible": 39,
-    "pass": 36,
+    "pass": 41,
     "terminate-gap": 3
   },
   "tests": [
@@ -605,8 +605,6 @@
       "class": "standard",
       "bucket": "fail",
       "reasons": [
-        "reached a trace the suite does not admit: S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S2.1(entry)::T1.1(effect)::S1.1(entry)",
-        "admitted trace not reached: S1(entry)::S1.1(entry)::T2.1(effect)::S2.1(entry)",
         "admitted trace not reached: S1(entry)::T2.1(effect)::S1.1(entry)::S2.1(entry)",
         "admitted trace not reached: S1(entry)::T2.1(effect)::S2.1(entry)::S1.1(entry)"
       ],
@@ -616,7 +614,7 @@
         "S1(entry)::T2.1(effect)::S2.1(entry)::S1.1(entry)"
       ],
       "reached": [
-        "S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S2.1(entry)::T1.1(effect)::S1.1(entry)"
+        "S1(entry)::S1.1(entry)::T2.1(effect)::S2.1(entry)"
       ],
       "runs": 1
     },
@@ -626,11 +624,9 @@
       "class": "standard",
       "bucket": "fail",
       "reasons": [
-        "reached a trace the suite does not admit: S1(entry)::T2.1(effect)::S1.2(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)",
         "admitted trace not reached: S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S1.2(entry)",
         "admitted trace not reached: S1(entry)::T1.1(effect)::T2.1(effect)::S1.1(entry)::S1.2(entry)",
         "admitted trace not reached: S1(entry)::T1.1(effect)::T2.1(effect)::S1.2(entry)::S1.1(entry)",
-        "admitted trace not reached: S1(entry)::T2.1(effect)::S1.2(entry)::T1.1(effect)::S1.1(entry)",
         "admitted trace not reached: S1(entry)::T2.1(effect)::T1.1(effect)::S1.1(entry)::S1.2(entry)",
         "admitted trace not reached: S1(entry)::T2.1(effect)::T1.1(effect)::S1.2(entry)::S1.1(entry)"
       ],
@@ -643,7 +639,7 @@
         "S1(entry)::T2.1(effect)::T1.1(effect)::S1.2(entry)::S1.1(entry)"
       ],
       "reached": [
-        "S1(entry)::T2.1(effect)::S1.2(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)"
+        "S1(entry)::T2.1(effect)::S1.2(entry)::T1.1(effect)::S1.1(entry)"
       ],
       "runs": 1
     },
@@ -1213,16 +1209,12 @@
       "name": "History 001-A",
       "area": "History",
       "class": "extension",
-      "bucket": "fail",
-      "reasons": [
-        "reached a trace the suite does not admit: S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)::T3(effect)::S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)",
-        "admitted trace not reached: S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)::T3(effect)::S1(entry)::S1.1(entry)::S1.1.2(entry)"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)::T3(effect)::S1(entry)::S1.1(entry)::S1.1.2(entry)"
       ],
       "reached": [
-        "S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)::T3(effect)::S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)"
+        "S1(entry)::S1.1(entry)::S1.1.1(entry)::S1.1.2(entry)::T3(effect)::S1(entry)::S1.1(entry)::S1.1.2(entry)"
       ],
       "runs": 1
     },
@@ -1230,16 +1222,12 @@
       "name": "History 001-B",
       "area": "History",
       "class": "extension",
-      "bucket": "fail",
-      "reasons": [
-        "reached a trace the suite does not admit: T1.4(effect)::S1(entry)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::T1.4(effect)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)",
-        "admitted trace not reached: S1(entry)::T1.4(effect)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1(entry)::T1.4(effect)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)"
       ],
       "reached": [
-        "T1.4(effect)::S1(entry)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::T1.4(effect)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)"
+        "S1(entry)::T1.4(effect)::S1.2(entry)::S1.2.1(entry)::S1.2(exit)::S1(entry)::S1.2(entry)::S1.2.1(entry)::T1.2.2(effect)::S1.2.2(entry)::S1.2(exit)"
       ],
       "runs": 1
     },
@@ -1249,13 +1237,11 @@
       "class": "extension",
       "bucket": "fail",
       "reasons": [
-        "reached a trace the suite does not admit: S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S2.2.2(entry)",
         "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)",
         "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S2.2(entry)::S1.2(entry)::S2.2.2(entry)::S1(exit)",
         "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S2.2(entry)::S2.2.2(entry)::S1.2(entry)::S1(exit)",
         "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.2(entry)::S1(exit)",
         "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S1.1(exit)::S2.2.2(entry)::S1.2(entry)::S1(exit)",
-        "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)",
         "admitted trace not reached: S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)",
         "admitted trace not reached: S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S2.2(entry)::S1.2(entry)::S2.2.2(entry)::S1(exit)",
         "admitted trace not reached: S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S2.2(entry)::S2.2.2(entry)::S1.2(entry)::S1(exit)",
@@ -1278,20 +1264,19 @@
         "S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)"
       ],
       "reached": [
-        "S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S2.2.2(entry)"
+        "S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S2.2(entry)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)"
       ],
-      "runs": 1
+      "runs": 2
     },
     {
       "name": "History 001-D",
       "area": "History",
       "class": "extension",
-      "bucket": "fail",
-      "reasons": [
-        "run error: process event: fire transition out of S1_S1_2: history DeepHistory1 must be declared inside the composite state it restores",
-        "admitted trace not reached: S1(entry)::S1.1(entry)::T1.2(effect)::S1.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.2(entry)::S1(exit)::S2(entry)"
-      ],
+      "bucket": "pass",
       "expected": [
+        "S1(entry)::S1.1(entry)::T1.2(effect)::S1.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.2(entry)::S1(exit)::S2(entry)"
+      ],
+      "reached": [
         "S1(entry)::S1.1(entry)::T1.2(effect)::S1.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.2(entry)::S1(exit)::S2(entry)"
       ],
       "runs": 1
@@ -1300,16 +1285,12 @@
       "name": "History 002-A",
       "area": "History",
       "class": "extension",
-      "bucket": "fail",
-      "reasons": [
-        "reached a trace the suite does not admit: S1(entry)::S1.1(exit)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)",
-        "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1(entry)::S1.1(exit)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)"
       ],
       "reached": [
-        "S1(entry)::S1.1(exit)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)"
+        "S1(entry)::S1.1(exit)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.2(entry)::S1.2.1(exit)::T1.2.2(effect)::S1.2.2(entry)::S1(exit)"
       ],
       "runs": 1
     },
@@ -1319,9 +1300,7 @@
       "class": "extension",
       "bucket": "fail",
       "reasons": [
-        "reached a trace the suite does not admit: S1(entry)::S1.1(exit)::S1.2(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)",
         "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)",
-        "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)",
         "admitted trace not reached: S1(entry)::S1.1(exit)::S1.2(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)",
         "admitted trace not reached: S1(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)",
         "admitted trace not reached: S1(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)",
@@ -1336,9 +1315,9 @@
         "S1(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)::S1(exit)"
       ],
       "reached": [
-        "S1(entry)::S1.1(exit)::S1.2(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)"
+        "S1(entry)::S1.1(exit)::S1.2(entry)::S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)::T3(effect)::S1(entry)::S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)"
       ],
-      "runs": 1
+      "runs": 2
     },
     {
       "name": "History 002-C",
@@ -1359,12 +1338,11 @@
       "name": "History 002-D",
       "area": "History",
       "class": "extension",
-      "bucket": "fail",
-      "reasons": [
-        "run error: process event: enter state: entry action: eval assignment RHS: evaluation step limit exceeded (100000 steps; raise OPENSYSML_MAX_STEPS to allow more)",
-        "admitted trace not reached: S1(entry)::T1.1(effect)::S1.1(entry)::S1(exit)::T1.2(effect)::S1(exit)::T3(effect)::S1(entry)::T1.3(effect)::S1.2(entry)::S1(exit)"
-      ],
+      "bucket": "pass",
       "expected": [
+        "S1(entry)::T1.1(effect)::S1.1(entry)::S1(exit)::T1.2(effect)::S1(exit)::T3(effect)::S1(entry)::T1.3(effect)::S1.2(entry)::S1(exit)"
+      ],
+      "reached": [
         "S1(entry)::T1.1(effect)::S1.1(entry)::S1(exit)::T1.2(effect)::S1(exit)::T3(effect)::S1(entry)::T1.3(effect)::S1.2(entry)::S1(exit)"
       ],
       "runs": 1
@@ -1422,14 +1400,11 @@
       "class": "extension",
       "bucket": "fail",
       "reasons": [
-        "reached a trace the suite does not admit: T1.3(effect)::S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)",
+        "run error: process event: evaluate pseudostate: junction S1_Junction1_2: no guard evaluated to true",
         "admitted trace not reached: T3(effect)"
       ],
       "expected": [
         "T3(effect)"
-      ],
-      "reached": [
-        "T1.3(effect)::S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)"
       ],
       "runs": 1
     },
@@ -1439,7 +1414,7 @@
       "class": "extension",
       "bucket": "fail",
       "reasons": [
-        "reached a trace the suite does not admit: T1.3(effect)::S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)",
+        "reached a trace the suite does not admit: T1.3(effect)::S1(entry)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)",
         "admitted trace not reached: S1(entry)::T1.3(effect)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)",
         "admitted trace not reached: S1(entry)::T2.1(effect)::S2.1(entry)::T1.3(effect)::S1.2(exit)::S1(exit)",
         "admitted trace not reached: S1(entry)::T2.1(effect)::T1.3(effect)::S2.1(entry)::S1.2(exit)::S1(exit)"
@@ -1450,7 +1425,7 @@
         "S1(entry)::T2.1(effect)::T1.3(effect)::S2.1(entry)::S1.2(exit)::S1(exit)"
       ],
       "reached": [
-        "T1.3(effect)::S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::T1.1(effect)::S1.2(exit)"
+        "T1.3(effect)::S1(entry)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)"
       ],
       "runs": 1
     },
