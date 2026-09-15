@@ -217,7 +217,9 @@ declares, under the same qualified name, and all of one file. On the graph side
 the root must carry the package's normative id; in notation, where an
 unannotated package can state no id, the root must either state the normative id
 in an `@ElementId` annotation or be declared as the library declares it
-(`standard library package Occurrences`, `library package …`). Both sides apply
+(`standard library package Occurrences`, `library package …`), and the document
+must be in the file's language: the text of `ScalarValues.kerml` under a `.sysml`
+name was parsed as SysML, so it is the user's file. Both sides apply
 the one test, `identity.Catalog.DocumentRootedAt` in
 `internal/core/identity/library_version.go` (`libraryDocument` for graph roots,
 `documentLibrary` for parsed roots in `internal/core/export/library_names.go`

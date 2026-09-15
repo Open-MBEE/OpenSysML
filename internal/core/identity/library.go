@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity/normative"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -79,13 +80,15 @@ type LibraryElement struct {
 }
 
 // Catalog indexes the normative ids of the bundled library by id: a version-5
-// UUID cannot be reversed, only looked up. Elements are indexed by name too, and
-// roots holds every library document's top-level packages, id or none.
+// UUID cannot be reversed, only looked up. Elements are indexed by name too;
+// roots holds every library document's top-level packages, id or none, and
+// kinds each document's language.
 type Catalog struct {
 	elements    map[string]*LibraryElement
 	memberships map[string]*LibraryElement
 	names       map[string]*LibraryElement
 	roots       map[string]*LibraryElement
+	kinds       map[string]source.Kind
 	order       []*LibraryElement
 }
 
@@ -107,6 +110,9 @@ func (c *Catalog) RootNamed(fqn string) (*LibraryElement, bool) {
 	el, ok := c.roots[fqn]
 	return el, ok
 }
+
+// DocumentKind is the language the named library document is written in.
+func (c *Catalog) DocumentKind(doc string) source.Kind { return c.kinds[doc] }
 
 // OwningMembership is the library element whose owning membership has normative id id.
 func (c *Catalog) OwningMembership(id string) (*LibraryElement, bool) {
@@ -145,6 +151,7 @@ func newCatalog() *Catalog {
 		memberships: map[string]*LibraryElement{},
 		names:       map[string]*LibraryElement{},
 		roots:       map[string]*LibraryElement{},
+		kinds:       map[string]source.Kind{},
 	}
 }
 
@@ -159,6 +166,7 @@ func buildCatalog(idx *symbols.Index) *Catalog {
 		}
 		if root := idx.DocumentRoot(name); root != nil {
 			roots = append(roots, root)
+			c.kinds[name] = idx.DocumentKind(name)
 		}
 	}
 	for _, sym := range collectSymbols(roots) {

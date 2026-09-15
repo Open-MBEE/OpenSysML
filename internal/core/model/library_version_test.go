@@ -589,6 +589,35 @@ func TestWorkspaceLibraryVersionNeedsLibraryRoots(t *testing.T) {
 	}
 }
 
+// A library file's text under a name of the other language is the workspace's
+// own: it was parsed as that language, so it is not a version of the file, and
+// the bundled file stays, judged as it always is.
+func TestWorkspaceLibraryVersionNeedsTheLibraryLanguage(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	ws.Open("copy.sysml", lib.Content, 1)
+	if got := ws.StandsInFor("copy.sysml"); got != "" {
+		t.Fatalf("StandsInFor = %q, want nothing of a .sysml file", got)
+	}
+	if ws.index.DocumentKind("copy.sysml") != source.KindSysML {
+		t.Error("the .sysml file is not indexed as SysML")
+	}
+	if !ws.IsLibraryDocument(scalarValues) {
+		t.Error("the bundled KerML file was displaced")
+	}
+	if syms := ws.LookupQualified("ScalarValues::Real"); len(syms) != 2 {
+		t.Errorf("ScalarValues::Real = %d symbols, want the bundled one and the file's", len(syms))
+	}
+	ws.Remove("copy.sysml")
+	ws.Open("copy.kerml", lib.Content, 1)
+	if got := ws.StandsInFor("copy.kerml"); got != scalarValues {
+		t.Fatalf("StandsInFor = %q of a .kerml file, want %q", got, scalarValues)
+	}
+}
+
 // A library the caller indexed and marked has the same lifecycle as the bundled
 // one: a workspace document under a library file's name displaces it and closing
 // puts it back under its mark, and a version rooted at its package stands in.
@@ -740,5 +769,39 @@ func TestWorkspaceLibraryVersionEditIndexKeepsOverlayDocuments(t *testing.T) {
 	}
 	if syms := edited.LookupQualified("Hulls::Hull"); len(syms) != 1 || syms[0].DocName != hulls {
 		t.Errorf("Hulls::Hull in the edit index = %v, want the one %s declares", syms, hulls)
+	}
+}
+
+// A caller overlay may shadow a frozen base's library file under its name: the
+// library is what the overlay shows, so a copy rooted at the shown package is
+// a version, and one rooted at the shadowed package is not.
+func TestWorkspaceLibraryVersionOverShadowedBase(t *testing.T) {
+	const lib = "lib/tanks.sysml"
+	oldText := []byte("standard library package OldTanks {\n    part def Tank;\n}\n")
+	newText := []byte("standard library package Tanks {\n    part def Tank;\n}\n")
+	base := symbols.NewIndex()
+	base.AddDocumentWithKind(lib, parser.New(source.New(lib, oldText)).ParseFile(), source.KindSysML)
+	base.MarkLibraryDocument(lib, symbols.LibraryDocument{Tier: symbols.TierSystems, Digest: symbols.TextDigest(oldText)})
+	base.Freeze()
+	idx := symbols.NewOverlay(base)
+	idx.AddDocumentWithKind(lib, parser.New(source.New(lib, newText)).ParseFile(), source.KindSysML)
+	idx.MarkLibraryDocument(lib, symbols.LibraryDocument{Tier: symbols.TierSystems, Digest: symbols.TextDigest(newText)})
+	idx.ExpandWildcardImports()
+	ws := NewWorkspaceWithIndex(idx)
+
+	ws.Open("copy.sysml", newText, 1)
+	if got := ws.StandsInFor("copy.sysml"); got != lib {
+		t.Fatalf("StandsInFor = %q of the shown package's copy, want %q", got, lib)
+	}
+	if syms := ws.LookupQualified("Tanks::Tank"); len(syms) != 1 || syms[0].DocName != "copy.sysml" {
+		t.Errorf("Tanks::Tank = %v, want the one copy.sysml declares", syms)
+	}
+	ws.Remove("copy.sysml")
+	if syms := ws.LookupQualified("Tanks::Tank"); len(syms) != 1 || syms[0].DocName != lib {
+		t.Errorf("after the version closed: Tanks::Tank = %v, want the one %s declares", syms, lib)
+	}
+	ws.Open("old.sysml", oldText, 1)
+	if got := ws.StandsInFor("old.sysml"); got != "" {
+		t.Errorf("StandsInFor = %q of the shadowed package's copy, want nothing", got)
 	}
 }
