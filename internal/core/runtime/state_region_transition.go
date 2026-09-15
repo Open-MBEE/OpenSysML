@@ -389,18 +389,8 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 		}
 		e.activeConfig.regionStates[region] = owner
 	}
-	for _, current := range between {
-		// Clear the region current is active in first — a region's active state may
-		// be nested below current — or an enclosing state exits current again.
-		if declaring := e.enclosingRegion(current); declaring != nil {
-			if active, isActive := e.activeConfig.regionStates[declaring]; isActive && e.isBelowOrEqual(active, current) {
-				e.recordRegionHistory(declaring, active)
-				delete(e.activeConfig.regionStates, declaring)
-			}
-		}
-		if err := e.exitState(current); err != nil {
-			return fmt.Errorf("exit state: %w", err)
-		}
+	if err := e.exitRegionOwnerTo(owner, lca); err != nil {
+		return err
 	}
 	if lca == target && len(between) > 0 {
 		if declaring := e.declaringRegion(between[len(between)-1]); declaring != nil {
@@ -416,6 +406,25 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 		return e.completeInto(trans, source.Name, target)
 	}
 	return e.enterOutside(trans, source, lca, target)
+}
+
+// exitRegionOwnerTo exits owner, whose regions hold the active configuration,
+// and its ancestors up to lca, which stays active.
+func (e *StateExecutor) exitRegionOwnerTo(owner, lca *ast.StateNode) error {
+	for _, current := range e.exitPath(owner, lca, nil) {
+		// Clear the region current is active in first — a region's active state may
+		// be nested below current — or an enclosing state exits current again.
+		if declaring := e.enclosingRegion(current); declaring != nil {
+			if active, isActive := e.activeConfig.regionStates[declaring]; isActive && e.isBelowOrEqual(active, current) {
+				e.recordRegionHistory(declaring, active)
+				delete(e.activeConfig.regionStates, declaring)
+			}
+		}
+		if err := e.exitState(current); err != nil {
+			return fmt.Errorf("exit state: %w", err)
+		}
+	}
+	return nil
 }
 
 // leaveTopRegions leaves the machine's own orthogonal regions, which no state
