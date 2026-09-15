@@ -447,7 +447,7 @@ of its own:
   `state_machine_body_deep_history`). The two tests pass, and *History 001-B*, *001-D* and
   *002-A* with them; the movements table above adjudicates each.
 
-The sixteen unadjudicated `fail` rows are not findings yet. Each is still to be attributed
+The fifteen unadjudicated `fail` rows are not findings yet. Each is still to be attributed
 one by one — to a translation defect (the referee lost a construct), a runtime defect (the extra
 trace shows behavior UML and v2 both forbid), or a missing alignment row (v2 legitimately
 differs and the note has no row for it yet) — and the attribution belongs in the change that
