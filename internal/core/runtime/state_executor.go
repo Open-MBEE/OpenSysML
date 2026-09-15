@@ -1211,15 +1211,25 @@ func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lowe
 	}
 	transitions := e.graph.Transitions[source]
 	var enabled []int
+	var notes []RunNote
 	for pos, trans := range transitions {
 		if trans != dispatched && !slices.ContainsFunc(queued, func(ev Event) bool { return ev.Payload == trans }) {
 			continue
 		}
-		pass, err := e.passesGuard(trans)
-		if err != nil {
+		var ok bool
+		var err error
+		if len(enabled) > 0 {
+			// As for a triggered event: once one is enabled, a later one whose guard
+			// cannot be read is noted as an alternative not taken, not an error.
+			e.preview(func() { ok, err = e.completionEnabled(trans) })
+			if err != nil {
+				notes = append(notes, e.unevaluableTransition(source, transitions, pos, err))
+				ok = false
+			}
+		} else if ok, err = e.completionEnabled(trans); err != nil {
 			return nil, nil, fmt.Errorf("eval completion guard: %w", err)
 		}
-		if pass {
+		if ok {
 			enabled = append(enabled, pos)
 		}
 	}
@@ -1230,7 +1240,7 @@ func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lowe
 	choice, ok := e.transitionChoice(source, transitions, enabled)
 	if !ok {
 		drain()
-		return transitions[enabled[0]], nil, nil
+		return transitions[enabled[0]], notes, nil
 	}
 	whereOf := func(i int) string { return transitionWhere(source, transitions[enabled[i]]) }
 	pick := e.ctx.scheduling().choose(choice, whereOf)
@@ -1240,7 +1250,17 @@ func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lowe
 		return nil, nil, err
 	}
 	drain()
-	return transitions[enabled[pick]], []RunNote{choice}, nil
+	return transitions[enabled[pick]], append(notes, choice), nil
+}
+
+// completionEnabled reports whether a completion transition can fire now: its
+// guard holds and the join it may lead into has every other branch in place.
+func (e *StateExecutor) completionEnabled(trans *lower.Transition) (bool, error) {
+	pass, err := e.passesGuard(trans)
+	if err != nil || !pass {
+		return false, err
+	}
+	return e.joinSynchronized(trans)
 }
 
 // transitionDecided records what selecting the transition now firing noted, its
