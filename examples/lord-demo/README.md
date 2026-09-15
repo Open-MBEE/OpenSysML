@@ -380,12 +380,15 @@ overnight; a shop refuses a sale the gold on hand does not cover.
 The golem's blow of eight took the warrior to two hit points; the eight
 points mended cost sixteen gold; the Dagger was not bought.
 
-Every deed checks its own precondition, so the warrior's invariants hold
+Every deed checks its own preconditions, so the warrior's invariants hold
 whichever way it is reached — through the `day` machine's guarded transitions
-or directly here. The forest turns away a dead warrior or one whose fifteen
-fights are spent, so `forestFightsLeft` never goes below zero; the bank moves
-only gold the warrior has, so neither balance goes negative; and a master
-refuses a twelfth-level warrior, so `train` never makes a level thirteen:
+or directly here — and whatever its parameters say. The forest turns away a
+dead warrior or one whose fifteen fights are spent, so `forestFightsLeft`
+never goes below zero; the healer and the masters turn away the dead, so the
+slain keep no hit points until morning; the bank moves only gold the warrior
+has, and pays interest but never charges it; a shop refuses a price below
+zero and the forest a foe with negative stats or gold; and a master refuses a
+twelfth-level warrior, so `train` never makes a level thirteen:
 
 ```
 %instantiate LordPlay::champion

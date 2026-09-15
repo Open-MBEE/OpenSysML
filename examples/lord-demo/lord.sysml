@@ -222,7 +222,9 @@ package LordPlay {
 
             first start;
             then decide mayFight;
-            if forestFightsLeft > 0 and alive then engage;
+            if forestFightsLeft > 0 and alive and foeHitPoints > 0
+                and foeStrength >= 0 and foeDefense >= 0
+                and foeGold >= 0 and foeExperience >= 0 then engage;
             else done;
 
             action engage {
@@ -277,12 +279,16 @@ package LordPlay {
         }
 
         // The healer mends every point, or as many as the gold on hand pays for.
+        // The dead are past healing, and a rate must be a price.
         action heal {
             in goldPerHitPoint : Integer = 2;
 
             attribute affordable : Integer = 0;
 
             first start;
+            then decide mayHeal;
+            if alive and goldPerHitPoint > 0 then price;
+            else done;
 
             action price {
                 assign affordable := floor(gold / goldPerHitPoint);
@@ -300,7 +306,6 @@ package LordPlay {
                 assign gold := gold - affordable * goldPerHitPoint;
             }
 
-            succession first start then price;
             succession first price then canAffordAll;
             first canAffordAll if affordable >= maxHitPoints - hitPoints then mendAll;
             first canAffordAll if affordable < maxHitPoints - hitPoints then mendSome;
@@ -349,7 +354,7 @@ package LordPlay {
 
             first start;
             then decide canPay;
-            if gold >= price then pay;
+            if price >= 0 and gold >= price then pay;
             else done;
 
             action pay {
@@ -368,7 +373,7 @@ package LordPlay {
 
             first start;
             then decide canPay;
-            if gold >= price then pay;
+            if price >= 0 and gold >= price then pay;
             else done;
 
             action pay {
@@ -396,7 +401,7 @@ package LordPlay {
 
             first start;
             then decide ready;
-            if experience >= experienceRequired and level < 12 then bout;
+            if alive and experience >= experienceRequired and level < 12 then bout;
             else turnedAway;
 
             action bout {
@@ -430,7 +435,7 @@ package LordPlay {
             succession first turnedAway then done;
         }
 
-        // Midnight: the fights come back, the bank pays, the slain rise.
+        // Midnight: the fights come back, the bank pays (never charges), the slain rise.
         action newDay {
             in interestPercent : Integer = 10;
 
@@ -438,7 +443,7 @@ package LordPlay {
             then action reset {
                 assign forestFightsLeft := 15;
                 assign playerFightsLeft := 3;
-                assign bankGold := bankGold + Interest(bankGold, interestPercent);
+                assign bankGold := bankGold + Interest(bankGold, max(0, interestPercent));
                 assign hitPoints := if alive ? hitPoints else maxHitPoints;
                 assign alive := true;
             }
