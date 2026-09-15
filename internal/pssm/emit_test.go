@@ -162,17 +162,20 @@ func TestEmitInitialWithEffect(t *testing.T) {
 }
 
 // TestEmitInitialHelperNameIsUnique pins that the helper state an initial
-// transition starts in shares the vertex name registry: a state whose path
-// spells the same identifier gets the suffixed name.
+// transition starts in shares the vertex name registry, and that the registry
+// reserves final names: a state spelled like a suffixed name keeps it, and
+// the next collision probes past it.
 func TestEmitInitialHelperNameIsUnique(t *testing.T) {
 	m, err := emitFixture(t, "", `
           <subvertex xmi:type="uml:State" xmi:id="xS2" name="S2">
             <region xmi:type="uml:Region" xmi:id="xS2r1" name="R1">
               <subvertex xmi:type="uml:Pseudostate" xmi:id="xS2i" name="I"/>
+              <subvertex xmi:type="uml:State" xmi:id="xS22" name="I_start_2"/>
               <subvertex xmi:type="uml:State" xmi:id="xS21" name="I_start"/>
               <transition xmi:type="uml:Transition" xmi:id="xS2t" name="T2.1" source="xS2i" target="xS21">
                 `+traceCall("effect", "xS2teffect", "T2.1(effect)")+`
               </transition>
+              <transition xmi:type="uml:Transition" xmi:id="xS2u" name="T2.2" source="xS21" target="xS22"/>
             </region>
           </subvertex>
           <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xS2">
@@ -184,11 +187,18 @@ func TestEmitInitialHelperNameIsUnique(t *testing.T) {
 	for _, want := range []string{
 		"state S2_I_start;",
 		"state S2_I_start_2;",
-		"then S2_I_start_2;",
+		"state S2_I_start_3;",
+		"then S2_I_start_3;",
+		"transition first S2_I_start_3 then S2_I_start_2;",
 		"entry; then S2_I_start;",
 	} {
 		if !strings.Contains(m.Text, want) {
 			t.Errorf("model lacks %q:\n%s", want, m.Text)
+		}
+	}
+	for _, decl := range []string{"state S2_I_start;", "state S2_I_start_2;", "state S2_I_start_3;"} {
+		if n := strings.Count(m.Text, decl); n != 1 {
+			t.Errorf("%q is declared %d times, want once:\n%s", decl, n, m.Text)
 		}
 	}
 	if problems := Validate(m); len(problems) > 0 {

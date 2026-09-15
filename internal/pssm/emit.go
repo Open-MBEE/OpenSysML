@@ -155,7 +155,7 @@ func (e *emitter) fail(where, reason string) error {
 // suffixing a name two vertices share so each is one endpoint. An initial
 // pseudostate is named for the helper state startTarget may declare for it.
 func (e *emitter) nameVertices(regions []*Region) {
-	taken := map[string]int{}
+	taken := map[string]bool{}
 	var visit func([]*Region)
 	visit = func(regions []*Region) {
 		for _, r := range regions {
@@ -163,14 +163,15 @@ func (e *emitter) nameVertices(regions []*Region) {
 				if v.Kind == VertexFinal {
 					continue
 				}
-				name := identifier(v.Path())
+				base := identifier(v.Path())
 				if v.Kind == VertexInitial {
-					name += "_start"
+					base += "_start"
 				}
-				taken[name]++
-				if n := taken[name]; n > 1 {
-					name = fmt.Sprintf("%s_%d", name, n)
+				name := base
+				for n := 2; taken[name]; n++ {
+					name = fmt.Sprintf("%s_%d", base, n)
 				}
+				taken[name] = true
 				e.names[v] = name
 				visit(v.Regions)
 			}
