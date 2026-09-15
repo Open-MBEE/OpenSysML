@@ -1122,7 +1122,7 @@ package LordPlay {
 
             first start;
             then decide hasGold;
-            if amount >= 0 and gold >= amount then move;
+            if alive and amount >= 0 and gold >= amount then move;
             else done;
 
             action move {
@@ -1137,7 +1137,7 @@ package LordPlay {
 
             first start;
             then decide hasGold;
-            if amount >= 0 and bankGold >= amount then move;
+            if alive and amount >= 0 and bankGold >= amount then move;
             else done;
 
             action move {
@@ -1563,7 +1563,7 @@ package LordPlay {
         action divorce {
             first start;
             then decide married;
-            if spouse != Spouse::nobody then separate;
+            if alive and spouse != Spouse::nobody then separate;
             else done;
 
             action separate {

@@ -472,8 +472,9 @@ A signal the current state does not accept is refused naming the state: in
 `townSquare`, `%send LookForSomethingToKill` reports `accepts no signal
 LookForSomethingToKill now: state machine "day" in state townSquare`. A
 signal the state accepts but whose every transition is guarded off — `RobTheBank`
-at the bank without a fairy, `TradeGems` with one gem — is accepted and then
-reported at dispatch: `guard of every transition RobTheBank triggers is false`.
+at the bank without a fairy, `TradeGems` with one gem — is refused too, before
+it is queued: `would fire no transition on RobTheBank now, so it was not sent:
+... the guard of every transition RobTheBank triggers is false`.
 
 ### The town's deeds, one at a time
 
@@ -607,7 +608,7 @@ does not:
 ✓ taughtToday (on LordPlay::champion ID: 7)
   = false
 ✓ mysticalUses (on LordPlay::heroine ID: 9)
-  = 0
+  = 1
 ✓ hitPoints (on LordPlay::heroine ID: 9)
   = 10
 ✓ mysticalUses (on LordPlay::heroine ID: 9)
@@ -745,7 +746,7 @@ neither refusal costs a fight.
 ### Other places
 
 Off the town square: the fairies grant a blessing to whoever asks — a kiss
-that heals, a horse, a sad story for charm, or lore — and one may be caught
+that heals, a horse, a sad story worth a gem, or lore — and one may be caught
 and carried, to revive the warrior once in the forest or at the dragon's feet,
 or to open the bank's vault to a thief. The Dark Cloak Tavern changes a
 warrior's profession and takes wagers; the Old Hag trades a gem for a hit
