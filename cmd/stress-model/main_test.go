@@ -61,6 +61,58 @@ func TestWriteSplitIntoAnUnknownDirectoryRemovesNothing(t *testing.T) {
 	}
 }
 
+// A generation that fails part way records every file it did move in, so the
+// next one still cleans up after it, and leaves no staging behind.
+func TestWriteSplitThatFailsRecordsWhatItWrote(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "notes.sysml"), []byte("package Notes;\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 1, Satellites: 1}, dir); err != nil {
+		t.Fatal(err)
+	}
+	// A directory standing where the third plane goes fails its move, after the
+	// library and two planes — one the earlier generation never had — moved in.
+	blocker := filepath.Join(dir, "plane002.sysml")
+	if err := os.MkdirAll(filepath.Join(blocker, "inner"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 4, Satellites: 1}, dir); err == nil {
+		t.Fatal("moving a plane onto a directory should fail the generation")
+	}
+	want := []string{manifestName, "constellation.sysml", "library.sysml", "notes.sysml", "plane000.sysml", "plane001.sysml", "plane002.sysml"}
+	if got := listing(t, dir); !slices.Equal(got, want) {
+		t.Errorf("the failed generation left %v, want %v: nothing staged, nothing unrecorded", got, want)
+	}
+	recorded, err := readManifest(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"constellation.sysml", "library.sysml", "plane000.sysml", "plane001.sysml"} {
+		if !slices.Contains(recorded, name) {
+			t.Errorf("the manifest %v should still record %s", recorded, name)
+		}
+	}
+	if slices.Contains(recorded, "notes.sysml") {
+		t.Errorf("the manifest %v claims the user's notes.sysml", recorded)
+	}
+
+	// With the directory gone, a smaller generation owns everything it finds.
+	if err := os.RemoveAll(blocker); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := writeSplit(stressmodel.SatelliteNetwork{Planes: 1, Satellites: 1}, dir); err != nil {
+		t.Fatal(err)
+	}
+	want = []string{manifestName, "constellation.sysml", "library.sysml", "notes.sysml", "plane000.sysml"}
+	if got := listing(t, dir); !slices.Equal(got, want) {
+		t.Errorf("regenerating with one plane left %v, want %v", got, want)
+	}
+	if recorded, err := readManifest(dir); err != nil || !slices.Equal(recorded, []string{"library.sysml", "plane000.sysml", "constellation.sysml"}) {
+		t.Errorf("the manifest reads %v, %v; want only the last generation's files", recorded, err)
+	}
+}
+
 func listing(t *testing.T, dir string) []string {
 	t.Helper()
 	entries, err := os.ReadDir(dir)

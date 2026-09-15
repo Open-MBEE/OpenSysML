@@ -53,7 +53,9 @@ func main() {
 const manifestName = ".stress-model-files"
 
 // writeSplit writes the network one file per plane into dir, creating it, and
-// removes what an earlier generation wrote there that this one did not.
+// removes what an earlier generation wrote there that this one did not. The
+// files are staged beside their places and each is recorded in the manifest
+// before it is moved in, so a generation that fails leaves nothing unrecorded.
 func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, error) {
 	files, stats := n.Split()
 	if err := os.MkdirAll(dir, 0o750); err != nil {
@@ -63,14 +65,34 @@ func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, 
 	if err != nil {
 		return stats, err
 	}
-	written := make(map[string]bool, len(files))
-	var manifest strings.Builder
+	staging, err := os.MkdirTemp(dir, ".stress-model-*")
+	if err != nil {
+		return stats, err
+	}
+	defer os.RemoveAll(staging)
 	for _, f := range files {
-		if err := os.WriteFile(filepath.Join(dir, f.Name), []byte(f.Source), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(staging, f.Name), []byte(f.Source), 0o600); err != nil {
 			return stats, err
 		}
+	}
+	manifest, err := os.OpenFile(filepath.Join(dir, manifestName), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600) // #nosec G304 -- the output directory is named on the command line.
+	if err != nil {
+		return stats, err
+	}
+	written := make(map[string]bool, len(files))
+	var current strings.Builder
+	for _, f := range files {
+		current.WriteString(f.Name + "\n")
+		if _, err := manifest.WriteString(f.Name + "\n"); err != nil {
+			return stats, errors.Join(err, manifest.Close())
+		}
+		if err := os.Rename(filepath.Join(staging, f.Name), filepath.Join(dir, f.Name)); err != nil {
+			return stats, errors.Join(err, manifest.Close())
+		}
 		written[f.Name] = true
-		manifest.WriteString(f.Name + "\n")
+	}
+	if err := manifest.Close(); err != nil {
+		return stats, err
 	}
 	for _, name := range previous {
 		if written[name] {
@@ -88,7 +110,7 @@ func writeSplit(n stressmodel.SatelliteNetwork, dir string) (stressmodel.Stats, 
 			return stats, err
 		}
 	}
-	return stats, os.WriteFile(filepath.Join(dir, manifestName), []byte(manifest.String()), 0o600)
+	return stats, os.WriteFile(filepath.Join(dir, manifestName), []byte(current.String()), 0o600)
 }
 
 // readManifest returns the file names the last generation into dir recorded;
