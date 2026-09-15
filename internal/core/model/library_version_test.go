@@ -774,7 +774,8 @@ func TestWorkspaceLibraryVersionEditIndexKeepsOverlayDocuments(t *testing.T) {
 
 // A caller overlay may shadow a frozen base's library file under its name: the
 // library is what the overlay shows, so a copy rooted at the shown package is
-// a version, and one rooted at the shadowed package is not.
+// a version, one rooted at the shadowed package is not, and an edit resolves
+// against the shown package, not the shadowed one.
 func TestWorkspaceLibraryVersionOverShadowedBase(t *testing.T) {
 	const lib = "lib/tanks.sysml"
 	oldText := []byte("standard library package OldTanks {\n    part def Tank;\n}\n")
@@ -800,6 +801,20 @@ func TestWorkspaceLibraryVersionOverShadowedBase(t *testing.T) {
 	if syms := ws.LookupQualified("Tanks::Tank"); len(syms) != 1 || syms[0].DocName != lib {
 		t.Errorf("after the version closed: Tanks::Tank = %v, want the one %s declares", syms, lib)
 	}
+
+	ws.Open("car.sysml", []byte("part def Car {\n    part tank : Tanks::Tank;\n}\n"), 1)
+	shown := edit.AddMember("Car", "part", "spare")
+	shown.Type = "Tanks::Tank"
+	if _, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{shown}); !ok || err != nil {
+		t.Errorf("an edit naming the shown package: ok %v, err %v", ok, err)
+	}
+	shadowed := edit.AddMember("Car", "part", "old")
+	shadowed.Type = "OldTanks::Tank"
+	if _, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{shadowed}); !ok || err == nil {
+		t.Errorf("an edit naming the shadowed package: ok %v, err %v, want a refusal", ok, err)
+	}
+	ws.Remove("car.sysml")
+
 	ws.Open("old.sysml", oldText, 1)
 	if got := ws.StandsInFor("old.sysml"); got != "" {
 		t.Errorf("StandsInFor = %q of the shadowed package's copy, want nothing", got)

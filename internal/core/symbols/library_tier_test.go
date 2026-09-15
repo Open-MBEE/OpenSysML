@@ -1,6 +1,11 @@
 package symbols
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+)
 
 // The Kernel tiers frame every element; the Systems, Domain and OpenSysML tiers
 // describe the objects a model asks for. Library content of no stated tier is
@@ -85,14 +90,15 @@ func TestLibraryTierProvenance(t *testing.T) {
 	}
 }
 
-// The library's identity is a function of the tier and text of its documents:
-// the same text under another name is the same library, another text or tier is not.
+// The library's identity is a function of the language, tier and text of its
+// documents: the same text under another name is the same library, another text,
+// tier or language is not.
 func TestLibraryIdentityFollowsTextNotName(t *testing.T) {
 	const items = "package Items { item def Item; }"
-	identity := func(name, text string, tier LibraryTier) string {
+	identityOfKind := func(name, text string, tier LibraryTier, kind source.Kind) string {
 		t.Helper()
 		idx := NewIndex()
-		addDoc(t, idx, name, text)
+		idx.AddDocumentWithKind(name, parser.New(source.New(name, []byte(text))).ParseFile(), kind)
 		idx.MarkLibraryDocument(name, LibraryDocument{Tier: tier, Digest: TextDigest([]byte(text))})
 		got, known := idx.LibraryIdentity()
 		if !known || got == "" {
@@ -100,9 +106,19 @@ func TestLibraryIdentityFollowsTextNotName(t *testing.T) {
 		}
 		return got
 	}
+	identity := func(name, text string, tier LibraryTier) string {
+		t.Helper()
+		return identityOfKind(name, text, tier, source.KindOf(name))
+	}
 	bundled := identity("Systems Library/Items.sysml", items, TierSystems)
 	if got := identity("copy.sysml", items, TierSystems); got != bundled {
 		t.Errorf("the same text under another name has another identity")
+	}
+	if got := identityOfKind("copy.kerml", items, TierSystems, source.KindSysML); got != bundled {
+		t.Errorf("the same text under a name of another suffix, parsed as SysML, has another identity")
+	}
+	if got := identityOfKind("Systems Library/Items.sysml", items, TierSystems, source.KindKerML); got == bundled {
+		t.Errorf("the same text parsed as KerML has the same identity")
 	}
 	if got := identity("Systems Library/Items.sysml", items+" // edited", TierSystems); got == bundled {
 		t.Errorf("another text under the same name has the same identity")

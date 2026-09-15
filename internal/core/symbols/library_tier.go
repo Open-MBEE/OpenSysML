@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sort"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // LibraryTier is the part of the bundled library a document belongs to. The
@@ -93,15 +95,16 @@ func TextDigest(text []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// libraryIdentityOf digests the library documents by tier and text, not the names they
-// are held under, and reports false when one states no text digest: it may then hold anything.
-func libraryIdentityOf(docs map[string]LibraryDocument) (string, bool) {
+// libraryIdentityOf digests the library documents by language, tier and text, not the
+// names they are held under, and reports false when one states no text digest: it may
+// then hold anything. kind is the language each named document was parsed as.
+func libraryIdentityOf(docs map[string]LibraryDocument, kind func(name string) source.Kind) (string, bool) {
 	lines := make([]string, 0, len(docs))
-	for _, doc := range docs {
+	for name, doc := range docs {
 		if doc.Digest == "" {
 			return "", false
 		}
-		lines = append(lines, fmt.Sprintf("%d\x00%s\x00", doc.Tier, doc.Digest))
+		lines = append(lines, fmt.Sprintf("%d\x00%d\x00%s\x00", kind(name), doc.Tier, doc.Digest))
 	}
 	sort.Strings(lines)
 	h := sha256.New()

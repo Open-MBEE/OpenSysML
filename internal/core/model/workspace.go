@@ -175,6 +175,22 @@ func (w *Workspace) baseHoldsLibrary() bool {
 	return held == len(w.library)
 }
 
+// baseShows reports whether the frozen base holds the named document as the
+// workspace's index shows it: same root, language and library record.
+func (w *Workspace) baseShows(name string) bool {
+	if w.libBase == nil {
+		return false
+	}
+	root := w.libBase.DocumentRoot(name)
+	if root == nil {
+		return false
+	}
+	shown := w.index.DocumentRoot(name)
+	return shown != nil && shown.Node() == root.Node() &&
+		w.libBase.DocumentKind(name) == w.index.DocumentKind(name) &&
+		w.libBase.LibraryDocumentOf(name) == w.index.LibraryDocumentOf(name)
+}
+
 // ConformanceMode reports the strictness this workspace judges notation at.
 func (w *Workspace) ConformanceMode() conformance.Mode {
 	w.mu.RLock()
