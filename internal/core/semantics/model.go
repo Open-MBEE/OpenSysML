@@ -83,6 +83,9 @@ type Model struct {
 	aboutByDecl map[ast.Node][]annotation
 	// aboutOrder lists aboutAnnots' targets in first-annotation order.
 	aboutOrder []*symbols.Symbol
+	// docGathers holds what the workspace-wide indexes are built from, per
+	// document (gather.go); nil until first needed.
+	docGathers map[string]*docGather
 	// layoutSites memoizes the DiagramLayout annotations of each element, and
 	// declSymbols the symbol each declaration under a scope registers (layout.go).
 	layoutSites map[*symbols.Symbol][]*LayoutSite
@@ -268,6 +271,7 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
+	defer m.own(sym)()
 	// An assumption answers every query under it, which it cuts short so nothing is memoized.
 	if assumed, ok := m.assumedSupers[sym]; ok {
 		m.resolver.CutShort(assumed.depth)
@@ -281,6 +285,7 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		return cached
 	}
 	// Guard against re-entrancy on cyclic graphs: seed with an empty slice.
+	journal(m, m.directSupers, sym, sym.Decl)
 	m.directSupers[sym] = nil
 	m.computingSupers[sym] = m.resolver.Enter()
 	defer delete(m.computingSupers, sym)
@@ -496,6 +501,7 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	// the finished model has, so it is recomputed on the next query, not memoized.
 	if !m.resolver.Leave() || !metadataComplete {
 		delete(m.directSupers, sym)
+		journal(m, m.provisionalSupers, sym, sym.Decl)
 		m.provisionalSupers[sym] = true
 		return out
 	}
@@ -666,6 +672,7 @@ func (m *Model) AllSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
+	defer m.own(sym)()
 	if cached, ok := m.allSupers[sym]; ok {
 		return cached
 	}
@@ -690,6 +697,7 @@ func (m *Model) AllSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		delete(m.allSupers, sym)
 		return order
 	}
+	journal(m, m.allSupers, sym, sym.Decl)
 	m.allSupers[sym] = order
 	return order
 }
@@ -922,10 +930,12 @@ func (m *Model) composedOperands(
 	if sym == nil {
 		return nil
 	}
+	defer m.own(sym)()
 	key := composedKey{sym: sym, kind: kind}
 	if cached, ok := m.composed[key]; ok {
 		return cached
 	}
+	journal(m, m.composed, key, sym.Decl)
 	m.composed[key] = nil
 
 	var out []*symbols.Symbol

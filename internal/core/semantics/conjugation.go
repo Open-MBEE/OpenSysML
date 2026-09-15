@@ -101,9 +101,11 @@ func (m *Model) superEdges(sym *symbols.Symbol) []superEdge {
 	if sym == nil {
 		return nil
 	}
+	defer m.own(sym)()
 	if cached, ok := m.superEdgeCache[sym]; ok {
 		return cached
 	}
+	journal(m, m.superEdgeCache, sym, sym.Decl)
 	m.superEdgeCache[sym] = nil
 
 	var out []superEdge
@@ -152,9 +154,11 @@ func (m *Model) conjugatedSupertypes(sym *symbols.Symbol) []conjugatedType {
 	if sym == nil {
 		return nil
 	}
+	defer m.own(sym)()
 	if cached, ok := m.conjSupers[sym]; ok {
 		return cached
 	}
+	journal(m, m.conjSupers, sym, sym.Decl)
 	m.conjSupers[sym] = nil
 
 	out := []conjugatedType{{sym: sym}}

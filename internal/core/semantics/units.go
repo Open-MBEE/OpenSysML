@@ -355,6 +355,7 @@ func (m *Model) UnitTermOf(sym *symbols.Symbol) (UnitTerm, error) {
 	if m == nil || sym == nil {
 		return UnitTerm{}, ErrNotAUnit
 	}
+	defer m.own(sym)()
 	if cached, ok := m.unitTerms[sym]; ok {
 		return cached, nil
 	}
@@ -371,6 +372,7 @@ func (m *Model) UnitTermOf(sym *symbols.Symbol) (UnitTerm, error) {
 	if err != nil {
 		return UnitTerm{}, err
 	}
+	journal(m, m.unitTerms, sym, sym.Decl)
 	m.unitTerms[sym] = term
 	return term, nil
 }
@@ -838,6 +840,7 @@ func (m *Model) libSymbol(fqn string) *symbols.Symbol {
 	if m.resolver == nil || m.resolver.Index() == nil {
 		return nil
 	}
+	m.resolver.ReadName(fqn)
 	if cached, ok := m.libSymbols[fqn]; ok {
 		return cached
 	}
@@ -857,6 +860,7 @@ func (m *Model) libSymbol(fqn string) *symbols.Symbol {
 	if found == nil && len(matches) == 1 {
 		found = matches[0]
 	}
+	journal(m, m.libSymbols, fqn, nil)
 	m.libSymbols[fqn] = found
 	return found
 }

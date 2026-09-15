@@ -414,6 +414,7 @@ func (m *Model) dimensionOf(sym *symbols.Symbol) (UnitTerm, bool) {
 	if m == nil || sym == nil {
 		return UnitTerm{}, false
 	}
+	defer m.own(sym)()
 	if cached, ok := m.dimensions[sym]; ok {
 		return cached.term, cached.ok
 	}
@@ -423,6 +424,7 @@ func (m *Model) dimensionOf(sym *symbols.Symbol) (UnitTerm, bool) {
 	m.dimensioning[sym] = true
 	term, ok := m.deriveDimension(sym)
 	delete(m.dimensioning, sym)
+	journal(m, m.dimensions, sym, sym.Decl)
 	m.dimensions[sym] = dimensionResult{term: term, ok: ok}
 	return term, ok
 }

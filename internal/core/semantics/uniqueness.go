@@ -22,11 +22,13 @@ func (m *Model) IsUnique(sym *symbols.Symbol) bool {
 	if m == nil || sym == nil {
 		return true
 	}
+	defer m.own(sym)()
 	if cached, ok := m.unique[sym]; ok {
 		return cached
 	}
 	unique := m.isUnique(sym, map[*symbols.Symbol]bool{sym: true})
 	if m.computingRedefinedFeatures == 0 {
+		journal(m, m.unique, sym, sym.Decl)
 		m.unique[sym] = unique
 	}
 	return unique

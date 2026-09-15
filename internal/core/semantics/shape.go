@@ -39,6 +39,7 @@ func (m *Model) ShapeFeatures(typ *symbols.Symbol) []ShapeFeature {
 	if m == nil || typ == nil {
 		return nil
 	}
+	defer m.own(typ)()
 	if cached, ok := m.shapes[typ]; ok {
 		return cached
 	}
@@ -46,6 +47,7 @@ func (m *Model) ShapeFeatures(typ *symbols.Symbol) []ShapeFeature {
 		return !m.FrameFeature(member) || m.DescribesReference(typ, member)
 	})
 	if m.MemberSourcesStable(typ) && m.computingRedefinedFeatures == 0 {
+		journal(m, m.shapes, typ, typ.Decl)
 		m.shapes[typ] = out
 	}
 	return out
@@ -109,11 +111,13 @@ func (m *Model) constructorSlots(typ *symbols.Symbol) constructorSlots {
 	if m == nil || typ == nil || m.resolver == nil || m.resolver.Index() == nil {
 		return constructorSlots{}
 	}
+	defer m.own(typ)()
 	if cached, ok := m.ctorSlots[typ]; ok {
 		return cached
 	}
 	slots := m.computeConstructorSlots(typ)
 	if m.computingRedefinedFeatures == 0 {
+		journal(m, m.ctorSlots, typ, typ.Decl)
 		m.ctorSlots[typ] = slots
 	}
 	return slots

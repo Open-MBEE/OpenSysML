@@ -344,12 +344,14 @@ func (m *Model) implicitBases(sym *symbols.Symbol) []*symbols.Symbol {
 	if m.resolver == nil || m.resolver.Index() == nil {
 		return nil
 	}
+	defer m.own(sym)()
 	if cached, ok := m.implicitBase[sym]; ok {
 		return cached
 	}
 	m.resolver.Enter()
 	out := m.computeImplicitBases(sym)
 	if m.resolver.Leave() {
+		journal(m, m.implicitBase, sym, sym.Decl)
 		m.implicitBase[sym] = out
 	}
 	return out

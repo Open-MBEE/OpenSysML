@@ -89,6 +89,12 @@ func NewContextWithOptions(name string, kind source.Kind, idx *symbols.Index,
 	return &Context{Name: name, Kind: kind, Index: idx, ParseDiagnostics: parseDiags, Options: opts}
 }
 
+// Share hands the context a resolver and model that outlive it — a workspace's,
+// kept across analyses — instead of the fresh pair it would otherwise make.
+func (c *Context) Share(resolver *resolve.Resolver, model *semantics.Model) {
+	c.resolver, c.model = resolver, model
+}
+
 // setFailures records the blocking spans of the tiers below the pass about to
 // run. Only the registry calls it, once per pass.
 func (c *Context) setFailures(spans []source.Span) { c.failures = spans }

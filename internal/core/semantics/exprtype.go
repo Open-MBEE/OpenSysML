@@ -178,11 +178,13 @@ func (m *Model) PrimTypeOf(sym *symbols.Symbol) PrimType {
 	if m == nil || sym == nil {
 		return PrimUnknown
 	}
+	defer m.own(sym)()
 	if cached, ok := m.primTypes[sym]; ok {
 		return cached
 	}
 	table := m.scalarTable()
 	prim := PrimUnknown
+	m.resolver.Enter()
 	if p, ok := table[sym]; ok {
 		prim = p
 	} else {
@@ -195,9 +197,14 @@ func (m *Model) PrimTypeOf(sym *symbols.Symbol) PrimType {
 			}
 		}
 	}
+	// A walk a re-entrant supertype query cut short is provisional, not memoized.
+	if !m.resolver.Leave() {
+		return prim
+	}
 	if m.primTypes == nil {
 		m.primTypes = make(map[*symbols.Symbol]PrimType)
 	}
+	journal(m, m.primTypes, sym, sym.Decl)
 	m.primTypes[sym] = prim
 	return prim
 }
