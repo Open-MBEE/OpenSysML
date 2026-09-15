@@ -298,6 +298,20 @@ func isCompletionEvent(event Event) bool {
 	}
 }
 
+// isTimerExpiry reports whether an event is a time trigger's expiry: a timed
+// transition due, as opposed to a completion event queued at the same instant.
+func isTimerExpiry(event Event) bool {
+	if event.Type != EventTime {
+		return false
+	}
+	trans, ok := event.Payload.(*lower.Transition)
+	if !ok {
+		return false
+	}
+	_, timed := trans.Trigger.(*ast.TimeEvent)
+	return timed
+}
+
 func (h eventHeap) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]
 }

@@ -25,7 +25,11 @@
   join, whichever expiry is dispatched first, where before each expiry found the other segment's
   timer to be a different occurrence and the join never fired; timers due at different instants
   still never fire it. A signal or call dispatched at the instant a segment's timer is due does
-  not stand in for that expiry, so it enables no time-triggered segment. A change condition's
+  not stand in for that expiry, so it enables no time-triggered segment; nor does a completion
+  event queued at that instant, so a source completing when a sibling segment's timer is due
+  leaves the join to that timer's own expiry. The checker no longer stops a machine whose closed
+  do round finds no dispatch due short of its timers: it rests, and the clock's advance to the
+  next expiry resumes it, as a run outside the checker does. A change condition's
   rise selects the segment it fires as a signal dispatch does, the join it leads into ready,
   before the route out of the join is resolved, so a rise that does not fire the join reads no
   guard beyond it. The draw among a source's transitions that selects a segment into a join is
