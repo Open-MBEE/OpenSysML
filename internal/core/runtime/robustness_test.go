@@ -290,6 +290,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("action_body_unresolved_feature", testActionBodyUnresolvedFeature)
 	t.Run("state_body_unresolved_unit", testStateBodyUnresolvedUnit)
 	t.Run("fork_branches_share_region", testForkBranchesShareRegion)
+	t.Run("fork_leaves_a_region_without_a_way_in", testForkLeavesARegionWithoutAWayIn)
 	t.Run("join_with_one_incoming_branch", testJoinWithOneIncomingBranch)
 	t.Run("region_pseudostate_without_satisfied_guard", testRegionPseudostateWithoutSatisfiedGuard)
 	t.Run("region_pseudostate_cycle", testRegionPseudostateCycle)
@@ -6061,6 +6062,36 @@ func testForkBranchesShareRegion(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "in the same region") {
 		t.Errorf("expected a same-region error, got: %v", err)
+	}
+}
+
+// testForkLeavesARegionWithoutAWayIn: a region a fork enters needs no entry
+// transition, but a sibling region neither enters still has no way in.
+func testForkLeavesARegionWithoutAWayIn(t *testing.T) {
+	_, _, err := executeStateSource(t, "Machine", `package test {
+		state Machine {
+			entry; then init;
+			state init;
+			state working parallel {
+				state left { state a; }
+				state right { state b; }
+				state third { state c; }
+			}
+			fork split;
+
+			transition first init then split;
+			transition first split then a;
+			transition first split then b;
+		}
+	}`)
+	if err == nil {
+		t.Fatal("expected an error for the region no fork enters")
+	}
+	if !strings.Contains(err.Error(), "region third has no initial state") {
+		t.Errorf("expected the third region's missing initial, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "region left") || strings.Contains(err.Error(), "region right") {
+		t.Errorf("the fork-entered regions were refused too: %v", err)
 	}
 }
 

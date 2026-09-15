@@ -138,6 +138,13 @@ type StateGraph struct {
 	// declaration order; the first whose guard holds names the state it starts in.
 	EntryTransitions map[ast.Node][]*EntryTransition
 
+	// ForkPlans: fork → where its branches lead, checked when the graph is built.
+	ForkPlans map[*ast.PseudostateNode]*ForkPlan
+
+	// ForkEntered: region → the forks whose branches enter it, in declaration
+	// order. A region only forks enter needs no entry transition of its own.
+	ForkEntered map[*ast.StateRegion][]*ast.PseudostateNode
+
 	// Connections are the connectors declared in the state machine body, which
 	// is how a `send ... via <port>` in an entry/do/exit/effect action finds the
 	// ports it reaches.
@@ -297,6 +304,9 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 			return nil, err
 		}
 	}
+	if err := graph.planForks(); err != nil {
+		return nil, err
+	}
 	for _, region := range graph.TopRegions {
 		graph.RegionInitials[region] = graph.UnconditionalStart(region)
 		if len(graph.EntryTransitions[region]) == 0 {
@@ -309,7 +319,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	for state, regions := range graph.CompositeStates {
 		for _, region := range regions {
 			graph.RegionInitials[region] = graph.UnconditionalStart(region)
-			if len(graph.EntryTransitions[region]) == 0 {
+			if len(graph.EntryTransitions[region]) == 0 && !graph.ForkStarted(region) {
 				if graph.regionDecl[region] != nil {
 					return nil, fmt.Errorf("region %s has no initial state; write `entry; then <state>;` inside the region", region.Name)
 				}
@@ -540,6 +550,8 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 
 		designatedInitials: make(map[*ast.StateNode]bool),
 		EntryTransitions:   make(map[ast.Node][]*EntryTransition),
+		ForkPlans:          make(map[*ast.PseudostateNode]*ForkPlan),
+		ForkEntered:        make(map[*ast.StateRegion][]*ast.PseudostateNode),
 	}
 }
 
