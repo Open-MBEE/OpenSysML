@@ -80,7 +80,7 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 		parent.Children = append(parent.Children, nodes[state])
 	}
 	for _, pseudo := range graph.Pseudostates {
-		doc := docs.in(graph.PseudostateOwner[pseudo])
+		doc := writtenIn(graph.PseudostateScope(pseudo), docs.in(graph.PseudostateOwner[pseudo]))
 		docs.of[pseudo] = doc
 		node := place(&Node{ID: ids.take(), Kind: pseudo.Kind.String(), Name: nameText(pseudo.Name),
 			Origin: nodeOrigin(doc, pseudo)}, pseudo)
@@ -150,9 +150,9 @@ func (r *Renderer) declaredIn(machine *symbols.Symbol, decl ast.Node, fallback s
 	return fallback
 }
 
-// writtenIn is the document a transition or region was written in, which the
-// scope its names resolve in records; fallback is the document of the body
-// holding it.
+// writtenIn is the document a transition, region or pseudostate was written
+// in, which the scope its names resolve in records; fallback is the document of
+// the body holding it.
 func writtenIn(scope *symbols.Scope, fallback string) string {
 	if scope != nil && scope.DocName() != "" {
 		return scope.DocName()

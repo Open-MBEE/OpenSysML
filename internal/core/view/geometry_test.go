@@ -3,6 +3,7 @@ package view
 import (
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -204,6 +205,34 @@ func TestInheritedRegionsAreLocatedInTheirDefinitionsDocument(t *testing.T) {
 		if got := findNode(t, machine.Roots, name).Origin.Doc; got != "regions.sysml" {
 			t.Errorf("%s is located in %q, want regions.sysml", name, got)
 		}
+	}
+}
+
+// A pseudostate of the definition's own body, which no state owns, is inherited
+// like its states: located in the definition's document, at its declaration,
+// and placed by the view's Layout about it.
+func TestInheritedTopLevelPseudostatesAreLocatedInTheirDefinitionsDocument(t *testing.T) {
+	machine := renderIn(t, "RegionUsages::controllerView", "regions-usages.sysml", "regions.sysml")
+	usage := findNode(t, machine.Roots, "RegionUsages::controller")
+	pick := findNode(t, machine.Roots, "pick")
+	if pick.Kind != "choice" {
+		t.Errorf("pick is a %q, want a choice", pick.Kind)
+	}
+	if !slices.Contains(usage.Children, pick) {
+		t.Errorf("pick is not a child of the usage; its children are %v", sortedKeys(nodeNames(usage.Children)))
+	}
+	if pick.Origin.Doc != "regions.sysml" {
+		t.Errorf("pick is located in %q, want regions.sysml, where Regions::Controller declares it", pick.Origin.Doc)
+	}
+	if !pick.Origin.Located() {
+		t.Fatal("pick has no located declaration")
+	}
+	sf := fixtureText(t, "regions.sysml")
+	if got := sf.Text(pick.Origin.Span); !strings.HasPrefix(got, "choice pick;") {
+		t.Errorf("pick's origin in regions.sysml spans %q, want its declaration", got)
+	}
+	if want := (&Geometry{X: 15, Y: 25}); !reflect.DeepEqual(pick.Geometry, want) {
+		t.Errorf("pick geometry = %+v, want the view's %+v", pick.Geometry, want)
 	}
 }
 

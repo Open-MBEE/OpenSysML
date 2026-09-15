@@ -168,6 +168,10 @@ type StateGraph struct {
 	// region a usage inherits and for one synthesized from a parallel substate.
 	regionScopeOf map[*ast.StateRegion]*symbols.Scope
 
+	// pseudostateScopeOf: pseudostate → the scope of the body declaring it, which
+	// is a definition's for one a usage inherits.
+	pseudostateScopeOf map[*ast.PseudostateNode]*symbols.Scope
+
 	// behaviorScope: entry, do or exit action → the scope it was declared in,
 	// recorded where a state runs a behavior another body declares.
 	behaviorScope map[ast.Node]*symbols.Scope
@@ -513,6 +517,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		materializing:       make(map[ast.Node]bool),
 		scopeOf:             make(map[*ast.StateNode]*symbols.Scope),
 		regionScopeOf:       make(map[*ast.StateRegion]*symbols.Scope),
+		pseudostateScopeOf:  make(map[*ast.PseudostateNode]*symbols.Scope),
 		behaviorScope:       make(map[ast.Node]*symbols.Scope),
 		attributeScope:      make(map[ast.Node]*symbols.Scope),
 		bodyOf:              make(map[*ast.StateNode][]inheritedMember),
@@ -557,6 +562,12 @@ func (g *StateGraph) DeclOf(state *ast.StateNode) ast.Node {
 // synthesizes; nil for a region written as one in a hand-built graph.
 func (g *StateGraph) RegionScope(region *ast.StateRegion) *symbols.Scope {
 	return g.regionScopeOf[region]
+}
+
+// PseudostateScope is the scope of the body a pseudostate was declared in: the
+// definition's for one a usage inherits; nil in a hand-built graph.
+func (g *StateGraph) PseudostateScope(ps *ast.PseudostateNode) *symbols.Scope {
+	return g.pseudostateScopeOf[ps]
 }
 
 // Completes reports whether entering state completes the region it belongs to:
@@ -737,7 +748,7 @@ func collectVertices(graph *StateGraph, members []ast.Node, scope *symbols.Scope
 				return err
 			}
 		case *ast.PseudostateNode:
-			graph.addPseudostate(n)
+			graph.addPseudostate(n, scope)
 		case *ast.DeferMember:
 			// The machine's own body has no state to defer for: an event deferred
 			// there would be retained for the whole run and never redelivered.
@@ -812,7 +823,7 @@ func collectStateContents(graph *StateGraph, state *ast.StateNode, scope *symbol
 			// A pseudostate declared inside a composite state belongs to it: that
 			// ownership is what a history pseudostate restores from, and without it
 			// a nested pseudostate is not part of the graph at all.
-			graph.addPseudostate(child)
+			graph.addPseudostate(child, scope)
 			graph.PseudostateOwner[child] = state
 		}
 	}
@@ -883,7 +894,7 @@ func collectRegionStates(graph *StateGraph, region *ast.StateRegion, parent *ast
 			}
 			state = built
 		case *ast.PseudostateNode:
-			graph.addPseudostate(n)
+			graph.addPseudostate(n, scope)
 			if parent != nil {
 				graph.PseudostateOwner[n] = parent
 			}
@@ -1167,10 +1178,14 @@ func (g *StateGraph) recordDecl(state *ast.StateNode) {
 	}
 }
 
-// addPseudostate records a pseudostate as a vertex of the graph.
-func (g *StateGraph) addPseudostate(ps *ast.PseudostateNode) {
+// addPseudostate records a pseudostate as a vertex of the graph, declared in
+// the body scope resolves.
+func (g *StateGraph) addPseudostate(ps *ast.PseudostateNode, scope *symbols.Scope) {
 	g.Pseudostates = append(g.Pseudostates, ps)
 	g.putVertex(ps, ps)
+	if scope != nil {
+		g.pseudostateScopeOf[ps] = scope
+	}
 }
 
 // vertex is the graph node a transition endpoint names: name resolution says

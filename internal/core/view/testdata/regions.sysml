@@ -2,6 +2,8 @@ package Regions {
 	// A parallel machine whose regions are synthesized from its substates, one of
 	// which holds a parallel composite state with regions of its own.
 	state def Controller parallel {
+		// A pseudostate of the machine's own body, which no state owns.
+		choice pick;
 		state sensing {
 			entry; then idle;
 			state idle;
