@@ -399,7 +399,7 @@ func (ar *activityReader) actionValue(n, pin *Element) Expr {
 		if classifier == nil {
 			return Expr{Kind: ExprUnknown, Text: n.Describe() + " creates an object of a classifier the document does not define"}
 		}
-		return Expr{Kind: ExprNew, Name: classifier.Name(), ID: n.ID}
+		return Expr{Kind: ExprNew, Name: classifier.Name(), TypeID: classifier.ID, ID: n.ID}
 	case "uml:ReadStructuralFeatureAction":
 		feature := ar.r.doc.ByID(n.Attr("structuralFeature"))
 		if feature == nil {

@@ -533,9 +533,11 @@ type Expr struct {
 	// Apply: the behavior applied, by its library name (Concat, ToString, Not,
 	// ...), and its arguments in parameter order. Call: the operation called on
 	// Object, with its result used as a value. New: the classifier instantiated,
-	// by Name, and ID the create action, one per object the behavior creates.
-	Args []Expr
-	ID   string
+	// by Name and TypeID, and ID the create action, one per object the behavior
+	// creates.
+	Args   []Expr
+	ID     string
+	TypeID string
 	// Unknown: what the reader could not follow, for the diagnostic.
 	Text string
 }

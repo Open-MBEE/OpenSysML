@@ -255,10 +255,13 @@ func (e *emitter) factoryDefaults() (map[string]*Literal, error) {
 			factory = bh
 		}
 	}
-	if factory == nil || factory.Body == nil {
+	if factory == nil {
 		return nil, nil
 	}
 	where := "factory of " + target.Name
+	if factory.Body == nil {
+		return nil, e.fail(where, "is not an activity")
+	}
 	if len(factory.Body.Unsupported) > 0 {
 		return nil, e.fail(where, "uses "+strings.Join(factory.Body.Unsupported, "; "))
 	}
@@ -269,7 +272,7 @@ func (e *emitter) factoryDefaults() (map[string]*Literal, error) {
 	// created is the create action of the instance every statement must address.
 	var created *Expr
 	same := func(x *Expr) bool {
-		x = newInstance(x, target.Name)
+		x = newInstance(x, target)
 		if x == nil || created != nil && created.ID != x.ID {
 			return false
 		}
@@ -303,15 +306,15 @@ func (e *emitter) factoryDefaults() (map[string]*Literal, error) {
 
 // newInstance is the creation x is a new instance of the class from: `new C()`
 // itself, or the result of calling its default constructor `new C().C()`; nil
-// when x is anything else.
-func newInstance(x *Expr, class string) *Expr {
+// when x is anything else, a same-named other class included.
+func newInstance(x *Expr, class *Class) *Expr {
 	if x == nil {
 		return nil
 	}
-	if x.Kind == ExprCall && x.Name == class && len(x.Args) == 0 {
+	if x.Kind == ExprCall && x.Name == class.Name && len(x.Args) == 0 {
 		x = x.Object
 	}
-	if x == nil || x.Kind != ExprNew || x.Name != class {
+	if x == nil || x.Kind != ExprNew || x.TypeID != class.ID {
 		return nil
 	}
 	return x
