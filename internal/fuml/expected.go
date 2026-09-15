@@ -180,20 +180,34 @@ func (e *Expected) Activity(model, id string) *ExpectedActivity {
 	return nil
 }
 
-// Refired lists the actions fired more than once within one execution of the
-// activity itself, in first-firing order: fUML's per-token firing, which v2
-// lacks. A Fire without an id names nothing in particular and is not counted.
-func (a *ExpectedActivity) Refired() []string {
-	var refired []string
+// Refired lists the actions fired more than once within one execution of their
+// activity, the activity's own or one it called, in first-firing order with
+// the most fires any execution saw. A Fire without an id names no one node
+// in particular and is not counted.
+func (a *ExpectedActivity) Refired() []Refire {
+	type key struct{ activity, node string }
+	most := map[key]*Refire{}
+	var order []key
 	for _, act := range a.activations() {
-		if act.id != a.ID {
-			continue
-		}
 		for _, f := range act.fires {
-			if f.count > 1 {
-				refired = append(refired, f.action)
+			if f.count < 2 {
+				continue
+			}
+			k := key{act.id, f.id}
+			r := most[k]
+			if r == nil {
+				r = &Refire{Activity: act.name, ActivityID: act.id, Action: f.action, ActionID: f.id}
+				most[k] = r
+				order = append(order, k)
+			}
+			if f.count > r.Fires {
+				r.Fires = f.count
 			}
 		}
+	}
+	refired := make([]Refire, 0, len(order))
+	for _, k := range order {
+		refired = append(refired, *most[k])
 	}
 	return refired
 }
