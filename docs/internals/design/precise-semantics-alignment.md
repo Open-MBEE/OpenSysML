@@ -614,13 +614,26 @@ outgoing guards "are evaluated before any compound transition containing this Ps
 executed" — statically, as part of deciding whether the incoming transition is enabled — and
 *Junction 003*: with several true, one is chosen, algorithm undefined. *v2/KerML:* no junction
 in v2; the project's `junction` is a UML-referenced extension (`pseudostates.md`, "a static
-conditional branch"). *Runtime:* `state_region_transition.go:resolveRoute` treats a junction as a
-`transientPseudostate` and resolves the route — `pseudostateTarget` → `pseudostateBranch`, the
-first outgoing transition whose guard holds, in declaration order — *before* the incoming
-transition fires, so the guards read the data as it stands before the incoming effect.
-`state_junction_pseudostate`, `state_completion_through_pseudostate`. **agrees.** Unchanged by
-SM30's decision, which moved the static resolution to `state_route.go:resolveRoute` →
-`followOut` → `pseudostateBranch` and left junctions as they were.
+conditional branch"). *Runtime:* `state_route.go:resolveRoute` → `followOut` resolves the
+route through a junction *before* the incoming transition fires, so the guards read the data as
+it stands before the incoming effect; every outgoing guard is read (`enabledBranches`), one
+enabled branch is taken, and several enabled leave the route open at the junction (`junctionDraw`)
+for the transition choice point drawn there only as the transition fires (`settleDraws` →
+`pickBranch`: after the region order among several candidates and the transition's own guard
+read again, `ChoiceTaken` drawn by the schedule policy and enumerated by `explore`; a candidate
+another region's reaction disarms draws nothing; no branch guard is read again — the route
+beyond each enabled branch, through any further junction, is settled with the transition — so a
+branch enabled at selection is taken along it though another region's effect since changed what
+its guards read), the unguarded branches being the default when no guard holds.
+`state_junction_pseudostate`, `state_completion_through_pseudostate`,
+`state_junction_several_enabled_branches`, `state_junction_drawn_as_its_transition_fires`,
+`state_junction_guards_read_once`, `state_junction_beyond_a_draw_read_once`,
+`state_history_default_through_junction` (+ trace goldens,
+every branch under `explore`),
+`explore_test.go:TestExploreStaticJunctionBranches`, `TestExploreJunctionDrawnAsTransitionFires`,
+`TestExploreHistoryDefaultThroughJunction`. **agrees.** SM30's decision moved the
+static resolution to `state_route.go` and left junctions static; *Finding 8* made several
+enabled branches a choice point where the runtime had taken the first in declaration order.
 
 **SM30. Choice: guards read on arrival.** PSSM requirement *Choice 001* (§9.4.10): the guards "are evaluated
 dynamically, when the compound transition traversal reaches this Pseudostate" — after the
@@ -646,7 +659,7 @@ branch is taken — several enabled is the existing transition choice point, rec
 — and the route goes on: a junction reached next is read statically at that point, a further
 choice lazily again on arrival. No enabled branch is the typed `ErrChoiceWithoutBranch` at that
 instant, naming the choice (SM31). Implemented in `state_route.go:resolveRoute` (stops at the
-first choice), `followOut`, `travel`, `resolveChoice`, `pseudostateBranch` (junctions only),
+first choice), `followOut` (junctions read statically), `travel`, `resolveChoice`, `settleDraws`,
 `state_executor.go:fireTransition`; pinned by
 `state_choice_after_incoming_effect` (*Choice 001*: `assign x := 1 then pick; … if x == 1 then
 seen` reaches `seen`), `state_choice_dynamic_conflict`, `state_pseudostate_chain_junction_choice`,
@@ -1629,7 +1642,7 @@ activity engine and does not become one.
 The rows below report the runtime differing from, or falling short of, SysML v2's or the Kernel
 Semantic Library's *own* text, or from this project's own design notes. They are bug reports and
 unsupported-feature records, not alignment questions: PSSM has nothing to do with them and they
-are not alignment questions. Each names its evidence; items 4, 5, 6 and 7 are fixed, and say
+are not alignment questions. Each names its evidence; items 4, 5, 6, 7 and 8 are fixed, and say
 where.
 
 1. **Terminate is parsed and lowered but not executed** (SM38). SysML v2 §7.17.10 and §7.18.3
@@ -1748,10 +1761,36 @@ where.
    `state_deep_history_self_transition`, `state_shallow_history_completion_default`,
    `state_machine_body_deep_history` and `robustness_test.go:history_outside_composite_state`; the
    two tests pass, and *History 001-B*, *001-D*, *002-A* and *002-C* with them.
+8. **A junction with several enabled branches took the first in declaration order, where a
+   choice with several draws one.** `pseudostates.md` names the choice/junction difference as
+   *when* the guards are read, and SM30 makes several enabled choice branches a transition
+   choice point (`ChoiceTaken`, enumerated by `explore`); `state_route.go:pseudostateBranch`
+   stopped at the first junction guard that held, so the same shape at a junction was
+   deterministic and `explore` reported the run complete after one branch. KerML's
+   `DecisionPerformance` (`outgoingHBLink: HappensBefore[1]`) fixes that one succession is
+   taken and ranks none, for a junction as for a choice; UML says the same of a junction whose
+   several outgoing guards hold (PSSM *Junction 003*: "one is chosen; the algorithm for making
+   this selection is not defined"). PSSM *Junction 003* admits two traces, one per branch, and
+   the referee demands that exploration reach both; the runtime reached the first only.
+   *Fixed:* `enabledBranches` reads every outgoing guard of a junction at the static instant —
+   the later ones in a preview that is undone, as at a choice — and several enabled leave the
+   route open at the junction, where `settleDraws` → `pickBranch` makes the transition choice
+   point only as the transition fires: after the region order among several candidates is drawn
+   and the transition's own guard is read again, so a witness lists the order before the draw, a
+   candidate another region's reaction disarms draws nothing, and a seed replays its draw while
+   `explore` enumerates the branches; a choice takes `pickBranch` after its effects ran, and a
+   history's default transition through a junction draws and records the same way. Pinned by
+   `state_junction_several_enabled_branches`, `state_junction_drawn_as_its_transition_fires`,
+   `state_history_default_through_junction` (+ trace goldens, `.check.expected.json`),
+   `explore_test.go:TestExploreStaticJunctionBranches`, `TestExploreJunctionDrawnAsTransitionFires`,
+   `TestExploreHistoryDefaultThroughJunction`, the oracle sections *Two branches of a junction
+   enabled when the transition is selected*, *A junction with two branches enabled in a region
+   another region's reaction may disarm* and *A history without a record takes its default
+   transition through a junction with two branches enabled*; the test passes.
 
 Item 3 has no fixture on `develop`; the first thing it needs is the conformance case that pins
 the behavior, then the fix, in a change set of its own — Track E of the roadmap holds its
-entry. Items 4, 5, 6 and 7 took that path in the change set that decided them.
+entry. Items 4, 5, 6, 7 and 8 took that path in the change set that decided them.
 
 ## Open decisions
 
