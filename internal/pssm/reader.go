@@ -221,7 +221,7 @@ func (r *reader) behavior(e *Element) *Behavior {
 	switch e.Type {
 	case "uml:Activity":
 		b.Body = r.readActivity(e)
-	case "uml:OpaqueBehavior":
+	case "uml:OpaqueBehavior", "uml:FunctionBehavior":
 		b.Opaque = readOpaque(e)
 	case typeStateMachine:
 		// A submachine or classifier behavior; read under readMachines.
