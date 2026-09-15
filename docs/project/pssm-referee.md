@@ -154,8 +154,8 @@ test in the suite reaches them.
 
 ## Baseline
 
-Recorded **2026-09-14** on develop commit **`f2193d764`** with the fork-entered-region fix
-(finding 6) described below, as
+Recorded **2026-09-15** on develop commit **`e6218449a`** with the fork-entered-region fix
+(finding 6) and the active-ancestor fix described below, as
 `docs/project/pssm-referee-baseline.json`; regenerate with `go run ./cmd/pssm-referee -update`,
 check with `-check`. The counts are the gate; the rows are for whoever adjudicates a moved count.
 The figures below are as measured when this record was last updated and are not the current
@@ -163,8 +163,8 @@ baseline — `go run ./cmd/pssm-referee` prints the current ones.
 
 | Bucket | Tests |
 |---|---:|
-| `pass` | 41 |
-| `fail` | 20 |
+| `pass` | 42 |
+| `fail` | 19 |
 | `not-expressible` | 37 |
 | `terminate-gap` | 3 |
 | `differs-by-design` | 2 |
@@ -172,8 +172,19 @@ baseline — `go run ./cmd/pssm-referee` prints the current ones.
 
 ### Movements since the previous baseline
 
-The previous baseline (develop `f4b844329`, the same day) counted 18 `fail` and 39
-`not-expressible`. One change moves it: the lowerer accepts an orthogonal region with no entry
+The previous baseline (develop `f2193d764`, 2026-09-14) counted 41 `pass` and 20 `fail`. One
+change moves it: a transition from a substate into the composite state enclosing it no longer
+re-enters that state (runtime, `state_executor.go:completeInto`; the SM35 row of the alignment
+note records the rule). One test moved `fail` → `pass` and none the other way.
+
+| Test | Row | Movement | Adjudication |
+|---|---|---|---|
+| Transition 011 C | SM35 | `fail` → `pass` | Runtime defect. `T1.3` leaves `S1.2` for `S1`, the composite enclosing it and already active. The run exited `S1.1` and `S1.2`, ran the effect, then started `S1`'s default substate again without exiting or entering `S1` — an entry sequence neither UML nor SysML v2 admits: UML's external transition either exits and re-enters `S1` or, as PSSM §8.5.8 reads it, does not enter a target that is already active and completes the source's region instead ("the RegionActivation owning the sourceVertexActivation completes"); SysML v2 §7.18.3 activates a target on the transition and nowhere restarts an active one. The runtime now follows PSSM: `S1`'s region is complete once `S1.2` is left, `S1` completes, `T2` fires and `S1(exit)` is logged, the admitted trace. `state_transition_into_active_ancestor`, `state_transition_into_active_parallel_ancestor` pin it |
+
+### Movements before that
+
+The baseline of develop `f2193d764` followed one (develop `f4b844329`, 2026-09-14) that counted
+18 `fail` and 39 `not-expressible`. One change moved it: the lowerer accepts an orthogonal region with no entry
 transition when a fork's branch enters it ([finding 6](#findings-about-our-own-conformance)),
 so the two tests the classifier filed under *lowerer refuses fork into a region without an
 entry transition* translate and run. Both moved `not-expressible` → `fail`; nothing else moved,
@@ -186,8 +197,6 @@ keeps the renamed reason (its regions have neither an entry transition nor a for
 |---|---|---|---|
 | Fork 002 | finding 6, SM22 | `not-expressible` → `fail` | Expected: the fork's branches now enter `S1.1.1` and `S1.2.1` in `S1.1`'s two regions and the run reaches `T2(effect)::S1(entry)::T2.1(effect)::S1.1(entry)::T2.2(effect)`, one of the four traces PSSM admits. The three not reached are the other interleavings of the two branches' effects and entries; the branches are entered in the regions' declaration order and no choice point records the order, which is SM22's open decision — the same family as *Entering 010* and *Entering 011* |
 | Join001 | finding 6 | `not-expressible` → `fail` | Expected to run, not to pass: the fork's branches enter `S2.1` and `S1.1` and the run reaches `S2.1(exit)::S1.1(exit)::S1(exit)::T2.4(effect)`, which PSSM does not admit — `T2.3(effect)`, the effect of the join's incoming transition from `S1.1`, never runs. The same drop as *Join002*'s missing `T1.2(effect)`: the join fires the outgoing transition after the sources' exits and runs only one incoming effect. A runtime defect of the join, not of the fork entry; it is adjudicated with *Join002* below |
-
-### Movements before that
 
 The baseline of develop `f4b844329` followed one (develop `bb95cf226`, 2026-09-12) that counted
 36 `pass` and 23 `fail`. Two changes moved it: the runtime fix of [finding 7](#findings-about-our-own-conformance) (a
@@ -247,10 +256,10 @@ short trace to a budget exhaustion: with SM11 its `S1` now completes and fires `
 history, and the history-record timing of finding 7 makes that re-enter `S1.1` without end. The
 remaining failures' reasons are byte-identical to the previous baseline's.
 
-### `pass` (41)
+### `pass` (42)
 
-Behavior 001, Behavior 002, Behavior 003 B, Transition 001, Transition 007, Transition 015,
-Transition 016, Transition 020, Transition 022, Event 001, Event 002, Event 008, Event 009,
+Behavior 001, Behavior 002, Behavior 003 B, Transition 001, Transition 007, Transition 011 C,
+Transition 015, Transition 016, Transition 020, Transition 022, Event 001, Event 002, Event 008, Event 009,
 Event 010, Event 016 A (reports on SM11), Event 016 B, Event 017 A, Event 018, Entering 004,
 Entering 005, Exiting 002, Exiting 005, Choice 001 and Choice 002 (report on SM30), Choice 003,
 Choice 004, Final001 (reports on SM11), Deferred 001, Deferred 002, Deferred 003 (reports on
@@ -270,9 +279,9 @@ History 001-D, History 002-A, History 002-C (reports on SM28), History 002-D, Ju
 Terminate 001, Terminate 002, Terminate 003 — each reaches `S1.Terminate1`; they move to
 `pass` or `fail` when the runtime executes `terminate` (alignment finding 1).
 
-### `fail` (20)
+### `fail` (19)
 
-One failure cites a note row through the committed table. The other nineteen are
+One failure cites a note row through the committed table. The other eighteen are
 **unadjudicated**: fails, not yet attributed to a translation defect, a runtime defect, or a
 missing alignment row. The referee records them; it does not diagnose them, and none of them is
 a finding against the runtime until someone adjudicates it.
@@ -283,7 +292,7 @@ a finding against the runtime until someone adjudicates it.
 |---|---|---|
 | Junction 002 | SM32 | run error: no outgoing guard of the junction holds; PSSM disables the compound transition and admits `T3(effect)` |
 
-#### Unadjudicated (19)
+#### Unadjudicated (18)
 
 One line per test, from the baseline's `reasons`: what the run reached that the suite does not
 admit (`—` when every reached trace is admitted and the failure is only a missing one), and
@@ -294,7 +303,6 @@ suite; the full sets are in the baseline file.
 | Test | Reached, not admitted | Admitted, not reached |
 |---|---|---|
 | Behavior 003 A | — | `S1(entry)` (the machine completing before the do activity's first segment) |
-| Transition 011 C | `S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1.1(entry)::S1.1(exit)::S1.2(exit)` | `S1(entry)::S1.1(entry)::S1.1(exit)::S1.2(exit)::T1.3(effect)::S1(exit)` |
 | Transition 017 | — | `T2(effect)::S1(entry)::S3.1(doActivity)::T3.1.2(effect)::T2.2(effect)::T3.2(effect)` and 6 more interleavings of `S3.1(doActivity)`, `T2.2(effect)`, `T3.1.2(effect)` (the eighth admitted order is reached) |
 | Transition 019 | `S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::T1.3(effect)` and the mirror ending `T2.3(effect)` | `S1.1(exit)::S2.1(exit)::T1.2(effect)::T2.2(effect)::T1.3(effect)::T2.3(effect)` and 5 more, all containing both `T1.3(effect)` and `T2.3(effect)` |
 | Event 015 | — | `T1.3(effect)` |
@@ -390,7 +398,7 @@ of its own:
   `state_machine_body_deep_history`). The two tests pass, and *History 001-B*, *001-D* and
   *002-A* with them; the movements table above adjudicates each.
 
-The nineteen unadjudicated `fail` rows are not findings yet. Each is still to be attributed
+The eighteen unadjudicated `fail` rows are not findings yet. Each is still to be attributed
 one by one — to a translation defect (the referee lost a construct), a runtime defect (the extra
 trace shows behavior UML and v2 both forbid), or a missing alignment row (v2 legitimately
 differs and the note has no row for it yet) — and the attribution belongs in the change that
