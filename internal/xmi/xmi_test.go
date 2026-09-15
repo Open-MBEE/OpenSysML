@@ -145,6 +145,9 @@ func TestParseAcceptsEveryXMINamespaceVersion(t *testing.T) {
 		"foreign":          "http://example.com/not-xmi",
 		"no version":       "http://www.omg.org/spec/XMI/",
 		"not a version":    "http://www.omg.org/spec/XMI/next",
+		"only a dot":       "http://www.omg.org/spec/XMI/.",
+		"empty group":      "http://www.omg.org/spec/XMI/2..1",
+		"trailing dot":     "http://www.omg.org/spec/XMI/2.1.",
 		"below the prefix": "http://www.omg.org/spec/XMI/20131001/extensions",
 	} {
 		other := `<x:XMI xmlns:x="` + ns + `"><e x:id="a" x:type="t"/></x:XMI>`

@@ -17,10 +17,15 @@ const xmiNamespacePrefix = "http://www.omg.org/spec/XMI/"
 // isXMI reports whether the attribute is in an XMI namespace of any version.
 func isXMI(a xml.Attr) bool {
 	version, ok := strings.CutPrefix(a.Name.Space, xmiNamespacePrefix)
-	if !ok || version == "" {
+	if !ok {
 		return false
 	}
-	return strings.Trim(version, "0123456789.") == ""
+	for _, group := range strings.Split(version, ".") {
+		if group == "" || strings.Trim(group, "0123456789") != "" {
+			return false
+		}
+	}
+	return true
 }
 
 // Element is one XML element of an XMI document: its local tag, its xmi:type
