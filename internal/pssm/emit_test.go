@@ -341,6 +341,33 @@ func TestEmitFactoryInitializesAttributes(t *testing.T) {
 	if !errors.As(err, &te) || !strings.Contains(err.Error(), "does not return the new instance") {
 		t.Errorf("returning nothing: err = %v", err)
 	}
+
+	// The factory creates, writes and returns a nested class that shares the target's name.
+	twin := `<nestedClassifier xmi:type="uml:Class" xmi:id="tgtXTwin" name="Area001_Test">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="twinValue" name="value">
+          <type href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedAttribute>
+      </nestedClassifier>
+      ` + strings.Replace(factoryTarget(factoryWrite("twinValue", "uml:LiteralInteger", "15")),
+		`classifier="tgtX"`, `classifier="tgtXTwin"`, 1)
+	_, err = emitWithTarget(t, twin)
+	if !errors.As(err, &te) || !strings.Contains(err.Error(), "the new instance") {
+		t.Errorf("creating a same-named other class: err = %v", err)
+	}
+
+	// The factory is an opaque behavior, whose body the reader does not follow.
+	opaque := `<generalization xmi:type="uml:Generalization" xmi:id="tgtXGen" general="clsTarget"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="tgtXValue" name="value">
+        <type href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:OpaqueBehavior" xmi:id="tgtXFactory" name="Area001_Test$factory">
+        <language>Alf</language>
+        <body>this.value = 15;</body>
+      </ownedBehavior>`
+	_, err = emitWithTarget(t, opaque)
+	if !errors.As(err, &te) || !strings.Contains(err.Error(), "is not an activity") {
+		t.Errorf("an opaque factory: err = %v", err)
+	}
 }
 
 // TestEmitRejects pins the typed error for constructs with no translation.
