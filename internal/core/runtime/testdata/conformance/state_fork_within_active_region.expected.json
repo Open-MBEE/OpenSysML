@@ -1,0 +1,12 @@
+{
+  "type": "state",
+  "events": [{"signal": "Go"}],
+  "finalState": "done",
+  "outputs": {
+    "log": {
+      "type": "String",
+      "value": "outer(entry) p(entry) a(exit) T1(effect) T1.1(effect) work(entry) x(entry) T1.2(effect) y(entry) p(exit) outer(exit) T2(effect) "
+    }
+  },
+  "trace": true
+}

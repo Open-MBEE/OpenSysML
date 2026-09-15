@@ -138,6 +138,13 @@ type StateGraph struct {
 	// declaration order; the first whose guard holds names the state it starts in.
 	EntryTransitions map[ast.Node][]*EntryTransition
 
+	// ForkPlans: fork → where its branches lead, checked when the graph is built.
+	ForkPlans map[*ast.PseudostateNode]*ForkPlan
+
+	// ForkEntered: region → the forks whose branches enter it, in declaration
+	// order. A region only forks enter needs no entry transition of its own.
+	ForkEntered map[*ast.StateRegion][]*ast.PseudostateNode
+
 	// Connections are the connectors declared in the state machine body, which
 	// is how a `send ... via <port>` in an entry/do/exit/effect action finds the
 	// ports it reaches.
@@ -297,6 +304,9 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 			return nil, err
 		}
 	}
+	if err := graph.planForks(); err != nil {
+		return nil, err
+	}
 	for _, region := range graph.TopRegions {
 		graph.RegionInitials[region] = graph.UnconditionalStart(region)
 		if len(graph.EntryTransitions[region]) == 0 {
@@ -306,14 +316,20 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 			return nil, fmt.Errorf("top-level region %s has no initial state", region.Name)
 		}
 	}
-	for state, regions := range graph.CompositeStates {
-		for _, region := range regions {
+	for _, state := range graph.CompositeStateOrder {
+		for _, region := range graph.CompositeStates[state] {
 			graph.RegionInitials[region] = graph.UnconditionalStart(region)
-			if len(graph.EntryTransitions[region]) == 0 {
+			if len(graph.EntryTransitions[region]) > 0 {
+				continue
+			}
+			if !graph.ForkStarted(region) {
 				if graph.regionDecl[region] != nil {
 					return nil, fmt.Errorf("region %s has no initial state; write `entry; then <state>;` inside the region", region.Name)
 				}
 				return nil, fmt.Errorf("region %s in state %s has no initial state", region.Name, state.Name)
+			}
+			if err := graph.checkForkOnlyRegion(state, region); err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -329,12 +345,19 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	return graph, nil
 }
 
-// ownTransitionEffects records, on every transition effect, the state its
-// transition leaves, whose attributes the effect reads and writes.
+// ownTransitionEffects records, on every transition effect, the state whose
+// attributes it reads and writes: the state the transition leaves, or the one
+// declaring the pseudostate it leaves.
 func (g *StateGraph) ownTransitionEffects() {
 	for source, transitions := range g.Transitions {
-		state, ok := source.(*ast.StateNode)
-		if !ok {
+		var state *ast.StateNode
+		switch s := source.(type) {
+		case *ast.StateNode:
+			state = s
+		case *ast.PseudostateNode:
+			state = g.PseudostateOwner[s]
+		}
+		if state == nil {
 			continue
 		}
 		for _, trans := range transitions {
@@ -540,6 +563,8 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 
 		designatedInitials: make(map[*ast.StateNode]bool),
 		EntryTransitions:   make(map[ast.Node][]*EntryTransition),
+		ForkPlans:          make(map[*ast.PseudostateNode]*ForkPlan),
+		ForkEntered:        make(map[*ast.StateRegion][]*ast.PseudostateNode),
 	}
 }
 

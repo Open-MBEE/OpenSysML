@@ -486,7 +486,8 @@ func (e *emitter) writeDeferred(b *strings.Builder, inner string, deferred []*Tr
 }
 
 // parallelRegion emits one region of an orthogonal state as a parallel substate
-// that starts where the region's entry transition leads.
+// that starts where the region's entry transition leads; a region with none is
+// entered only where a fork's branches lead, which the lowerer checks.
 func (e *emitter) parallelRegion(b *strings.Builder, depth int, path string, r *Region) error {
 	inner := strings.Repeat("    ", depth+1)
 	regionName := path + "/" + r.Name
@@ -498,14 +499,13 @@ func (e *emitter) parallelRegion(b *strings.Builder, depth int, path string, r *
 	if err != nil {
 		return err
 	}
-	if init == nil {
-		return e.fail(regionWhere(regionName), "the lowerer refuses a fork into a region without an entry transition")
+	if init != nil {
+		target, err := e.startTarget(b, inner+"    ", init, tr, regionWhere(regionName))
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(b, "%s    entry; then %s;\n", inner, target)
 	}
-	target, err := e.startTarget(b, inner+"    ", init, tr, regionWhere(regionName))
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(b, "%s    entry; then %s;\n", inner, target)
 	if err := e.region(b, depth+2, r, path); err != nil {
 		return err
 	}
