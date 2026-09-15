@@ -63,6 +63,11 @@ commands:
   # release tag could be cut over a corpus regression without them.
   download-corpora:
     steps:
+      # Every corpus below comes through this downloader, so it is checked first.
+      - run:
+          name: Test the pilot downloader
+          command: scripts/pilot-pin-test.sh
+
       - restore_cache:
           keys:
             - training-corpus-v1-{{ checksum "scripts/download-training-examples.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
