@@ -15,10 +15,9 @@ func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocume
 		return nil
 	}
 	name := uriToName(params.TextDocument.URI)
-	s.ws.Open(name, []byte(params.TextDocument.Text), int(params.TextDocument.Version))
+	s.debugEdit(ctx, "", func() { s.ws.Open(name, []byte(params.TextDocument.Text), int(params.TextDocument.Version)) })
 	s.publishDiagnostics(ctx, name)
 	s.queueOpenDiagnostics(ctx, name)
-	s.debugDocumentsChanged(ctx)
 	return nil
 }
 
@@ -54,12 +53,12 @@ func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocu
 		return nil
 	}
 	name := uriToName(params.TextDocument.URI)
-	s.loadFromDisk(name)
-	s.ws.Close(name)
+	s.debugEdit(ctx, name, func() {
+		s.loadFromDisk(name)
+		s.ws.Close(name)
+	})
 	s.clearDiagnostics(ctx, name)
 	s.queueOpenDiagnostics(ctx, name)
-	s.debugDocumentClosed(ctx, name)
-	s.debugDocumentsChanged(ctx)
 	return nil
 }
 

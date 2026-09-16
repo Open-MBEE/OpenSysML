@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
@@ -1389,6 +1390,43 @@ func TestDebugSessionFollowsEdits(t *testing.T) {
 	}
 	if _, err := s.DebugStep(&debugSessionParams{Session: session}); !errors.Is(err, ErrDebugSession) {
 		t.Errorf("step after the end: err = %v, want %v", err, ErrDebugSession)
+	}
+}
+
+// An edit reaches the workspace under the lock requests hold, so a request in
+// flight finishes at the documents it began with and the next one finds the
+// session already moved to the edited ones.
+func TestDebugEditWaitsForTheRequestInFlight(t *testing.T) {
+	s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+	name := uriToName(docURI)
+	session := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "MachineViews::opsView", Target: "Machines::Ops", Object: "Machines::Robot",
+	}).Session
+
+	// Held as a request holds it while it drives the session.
+	s.debug.mu.Lock()
+	applied := make(chan struct{})
+	go func() {
+		defer close(applied)
+		s.applyDidChange(context.Background(), name, []rawContentChange{{Text: "package Extra {\n\tpart def Spare;\n}\n" + debugMachine}}, 2)
+	}()
+	time.Sleep(50 * time.Millisecond)
+	if v := s.ws.Document(name).Version; v != 1 {
+		t.Fatalf("the edit reached the workspace at version %d while a request held the session", v)
+	}
+	if v := s.debug.sessions[session].version; v != 1 {
+		t.Fatalf("the session moved to version %d while a request held it", v)
+	}
+	s.debug.mu.Unlock()
+	<-applied
+
+	changed := rec.debugChanged()
+	if len(changed) != 1 || changed[0].Version != 2 {
+		t.Fatalf("debugChanged = %d notifications, want one at version 2", len(changed))
+	}
+	if snap := mustDebug(t, s, MethodDebugStep, &debugSessionParams{Session: session}); snap.Version != 2 {
+		t.Errorf("the step after the edit answered version %d, want 2", snap.Version)
 	}
 }
 

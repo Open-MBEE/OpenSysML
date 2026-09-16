@@ -1372,33 +1372,26 @@ func debugSignalText(msg runtime.Message) string {
 	return msg.SignalType + "(" + strings.Join(args, ", ") + ")"
 }
 
-// debugDocumentsChanged ends the sessions whose behavior, performer or view an
-// edit rewrote, moves the rest to the fresh IDs, and announces each change.
-func (s *Server) debugDocumentsChanged(ctx context.Context) {
+// debugEdit applies edit to the workspace and rebinds every session under the lock
+// requests hold, so none runs at documents an edit left behind; closed's sessions end.
+func (s *Server) debugEdit(ctx context.Context, closed string, edit func()) {
 	s.debug.mu.Lock()
+	edit()
 	var changed []*debugSnapshot
 	for id, sess := range s.debug.sessions {
-		snap, moved := s.reconcile(sess)
-		if !moved {
+		if closed != "" && sess.doc == closed {
+			sess.ended = closed + " was closed"
+		} else if !s.rebindNow(sess) {
 			continue
 		}
 		if sess.ended != "" {
 			delete(s.debug.sessions, id)
 			sess.release()
 		}
-		changed = append(changed, snap)
+		changed = append(changed, sess.snapshot())
 	}
 	s.debug.mu.Unlock()
 	s.notifyDebugChanged(ctx, changed)
-}
-
-// reconcile rebinds sess to the workspace as it is now, reporting whether the
-// session moved: to new render IDs, or to its end.
-func (s *Server) reconcile(sess *debugSession) (*debugSnapshot, bool) {
-	if !s.rebindNow(sess) {
-		return nil, false
-	}
-	return sess.snapshot(), true
 }
 
 // rebindNow rebinds sess to the workspace as it is now, reporting whether the
@@ -1532,25 +1525,11 @@ func sameRendering(a, b *view.Rendering) bool {
 	return true
 }
 
-// debugDocumentClosed ends the sessions on the closed buffer name, whether or
-// not the workspace keeps the file's text from disk.
-func (s *Server) debugDocumentClosed(ctx context.Context, name string) {
-	s.debugSessionsEndedWhere(ctx, name+" was closed", func(sess *debugSession) bool { return sess.doc == name })
-}
-
 // debugSessionsEnded ends every live session with reason, announcing each.
 func (s *Server) debugSessionsEnded(ctx context.Context, reason string) {
-	s.debugSessionsEndedWhere(ctx, reason, func(*debugSession) bool { return true })
-}
-
-// debugSessionsEndedWhere ends the live sessions matching with reason, announcing each.
-func (s *Server) debugSessionsEndedWhere(ctx context.Context, reason string, matching func(*debugSession) bool) {
 	s.debug.mu.Lock()
 	var ended []*debugSnapshot
 	for id, sess := range s.debug.sessions {
-		if !matching(sess) {
-			continue
-		}
 		sess.ended = reason
 		ended = append(ended, sess.snapshot())
 		delete(s.debug.sessions, id)
