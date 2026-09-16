@@ -31,7 +31,7 @@ New grammar features require a **four-layer test contract**:
 **Purpose:** Ensure standard library continues to parse cleanly
 
 - **Test:** `TestStdlibConformance` (internal/core/libs/)
-- **Coverage:** 101/101 bundled library files — the 94 official SysML v2 standard library files and seven non-normative OpenSysML extensions
+- **Coverage:** 103/103 bundled library files — the 94 official SysML v2 standard library files and nine non-normative OpenSysML extensions
 - **Acceptance:** All stdlib files parse without errors
 - **Allowlist:** `testdata/stdlib_known_failures.txt` (currently empty)
 

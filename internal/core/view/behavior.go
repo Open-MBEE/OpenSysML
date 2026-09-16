@@ -396,7 +396,7 @@ type actionSubject struct {
 func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Rendering,
 	lowered map[ast.Node]bool, depth int) (*Node, bool) {
 	decl, kind, name, scope, doc := subject.decl, subject.kind, subject.name, subject.scope, subject.doc
-	graph, err := lower.ToActionGraph(decl, scope)
+	graph, err := lower.ToActionGraphWith(decl, scope, r.resolver)
 	if err != nil {
 		// A node performing statements holds no flow of its own to render, which is
 		// no shortcoming of the rendering; only an exposed action is reported.
@@ -448,6 +448,9 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 				} else {
 					label = "[guard]"
 				}
+			}
+			if weight := edge.Probability; weight != nil {
+				label = strings.TrimSpace(label + " p = " + r.nodeText(doc, weight.Expr))
 			}
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label, Kind: EdgeSuccession,
 				Origin: nodeOrigin(edgeDoc, edge.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, edge.Decl, out)})

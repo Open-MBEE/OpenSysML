@@ -128,7 +128,7 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 	if !model.builds() {
 		return Result{}, &NoRuntimeError{Engine: e.Name()}
 	}
-	fresh := func() (*runtime.Context, error) { return model.NewContextOn(0, budget) }
+	fresh := func() (*runtime.Context, error) { return q.fresh(model, 0, budget) }
 	started := time.Now()
 	if budget.Depth <= 0 {
 		budget.Depth = DefaultCheckDepth
@@ -165,7 +165,7 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 		result.Strength = Witnessed
 		first := report.Violations[0]
 		result.Reason = first.String()
-		result.Witness = &Witness{Schedule: runtime.ReplayOf(first.Witness), Choices: first.Witness.Choices}
+		result.Witness = &Witness{Schedule: runtime.ReplayOf(first.Witness), Draws: first.Witness.Draws, Choices: first.Witness.Choices}
 		if len(checked.Violations) > 0 {
 			result.Witness.Written = checked.Violations[0]
 		}
@@ -196,7 +196,7 @@ func divergenceWitness(d runtime.Divergence, written []string, n int) *Witness {
 		return nil
 	}
 	w := d.Values[n].Witness
-	out := &Witness{Schedule: runtime.ReplayOf(w), Choices: w.Choices}
+	out := &Witness{Schedule: runtime.ReplayOf(w), Draws: w.Draws, Choices: w.Choices}
 	if n < len(written) {
 		out.Written = written[n]
 	}
@@ -273,7 +273,7 @@ func (e checkEngine) replayed(ctx context.Context, model *Model, q Question, bud
 		wg.Add(1)
 		go func(job int) {
 			defer wg.Done()
-			fresh := func() (*runtime.Context, error) { return model.NewContextOn(job, budget) }
+			fresh := func() (*runtime.Context, error) { return q.fresh(model, job, budget) }
 			for i := job; i < len(witnesses); i += jobs {
 				errs[i] = e.replayOne(ctx, fresh, q, witnesses[i])
 			}

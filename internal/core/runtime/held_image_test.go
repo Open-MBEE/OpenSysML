@@ -206,6 +206,107 @@ func TestHeldImageCarriesTheRunsSchedulePolicy(t *testing.T) {
 	}
 }
 
+const drawingRollerSource = `
+	private import ScalarValues::*;
+	private import RandomFunctions::*;
+	attribute def go;
+	state def Roller {
+		attribute first : Real = 0.0;
+		attribute second : Real = 0.0;
+		entry; then idle;
+		state idle;
+		transition idle_once first idle accept go do assign first := uniform(0.0, 1.0) then once;
+		state once;
+		transition once_twice first once accept go do assign second := uniform(0.0, 1.0) then twice;
+		state twice;
+	}
+	part def Die { exhibit state roll : Roller; }
+`
+
+// rollerDraw is the value the die's machine holds under name.
+func rollerDraw(t *testing.T, die *Instance, name string) Value {
+	t.Helper()
+	behavior, ok := die.ExhibitedState()
+	if !ok {
+		t.Fatalf("object #%d exhibits no machine", die.ID)
+	}
+	return behavior.State.StateData()[name]
+}
+
+// A run's modeled draws continue in the copy where the source's stopped: the copy's
+// next draw is the source's next, not its first over again, whatever the destination
+// seeds — under the model seed and under a `seed:<n>` schedule alike.
+func TestHeldImageCarriesTheModeledStream(t *testing.T) {
+	seeds := map[string]func(*Context){
+		"model seed": func(ctx *Context) { ctx.SetModelSeed(11) },
+		"schedule seed": func(ctx *Context) {
+			mustSchedule(t, ctx, mustPolicy(t, "seed:7"))
+		},
+	}
+	for name, seed := range seeds {
+		t.Run(name, func(t *testing.T) {
+			idx, _, src := buildRuntimeWithLibraries(t, "roller.sysml", parseAndBuild(t, drawingRollerSource))
+			root := idx.DocumentRoot("roller.sysml")
+			seed(src)
+			die, err := src.Instantiate(resolveSymbol(t, root, "Die"))
+			if err != nil {
+				t.Fatalf("Instantiate: %v", err)
+			}
+			dispatchTo(t, root, src, die, "go", nil)
+			first := rollerDraw(t, die, "first")
+
+			dst := imageInto(t, src, die)
+			if _, set := dst.ModelSeed(); set || dst.Schedule() != DefaultSchedulePolicy {
+				t.Fatalf("the destination seeds its runs itself: %v", dst.Schedule())
+			}
+			dispatchTo(t, root, src, die, "go", nil)
+			second := rollerDraw(t, die, "second")
+			if first == second {
+				t.Fatalf("the source drew %v twice", first)
+			}
+
+			copied, _ := dst.Instance(die.ID)
+			dispatchTo(t, root, dst, copied, "go", nil)
+			if got := rollerDraw(t, copied, "second"); got != second {
+				t.Errorf("the copy drew %v for its second, want the source's %v (its first was %v)", got, second, first)
+			}
+			if draws := dst.DrawsTaken(); len(draws) != 1 || constValue(draws[0].Value) != second {
+				t.Errorf("the destination recorded %v, want the one draw the copy made", draws)
+			}
+		})
+	}
+}
+
+// A run following a witness is bound to its context: the image refuses it as
+// ErrImageBound rather than restart the witness in the copy.
+func TestHeldImageRefusesARunFollowingAWitness(t *testing.T) {
+	idx, _, src := buildRuntimeWithLibraries(t, "roller.sysml", parseAndBuild(t, drawingRollerSource))
+	root := idx.DocumentRoot("roller.sysml")
+	src.SetModelSeed(11)
+	die, err := src.Instantiate(resolveSymbol(t, root, "Die"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	dispatchTo(t, root, src, die, "go", nil)
+	dispatchTo(t, root, src, die, "go", nil)
+	witness := Witness{Draws: src.DrawsTaken()}
+
+	replaying := NewContext(src.Model(), 10000)
+	mustSchedule(t, replaying, ReplayOf(witness))
+	replayed, err := replaying.Instantiate(resolveSymbol(t, root, "Die"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	dispatchTo(t, root, replaying, replayed, "go", nil)
+	if got, want := rollerDraw(t, replayed, "first"), rollerDraw(t, die, "first"); got != want {
+		t.Fatalf("the replay drew %v for its first, want the witness's %v", got, want)
+	}
+	var bound *HeldImageError
+	if _, err := replaying.Image(replayed); !errors.Is(err, ErrImageBound) || !errors.As(err, &bound) || bound.ID != replayed.ID {
+		t.Errorf("Image over a run following a witness = %v, want ErrImageBound naming #%d", err, replayed.ID)
+	}
+}
+
 // A performed action parked at an accept is imaged with its token where it parked:
 // the copy takes the message it awaits in the other context and writes its own object.
 // Parking there is where the start left it, so the object stays pristine.
