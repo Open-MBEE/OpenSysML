@@ -1048,6 +1048,10 @@ jobs:
             rm -rf clients/python/dist
             python -m build --outdir clients/python/dist clients/python/
             ls -l clients/python/dist
+            # The version is PEP 440 in canonical form, so these are the names
+            # the build tools give the files; the release jobs rely on them.
+            ls clients/python/dist/"opensysml-${OPENSYSML_VERSION}-py3-none-any.whl" \
+               clients/python/dist/"opensysml-${OPENSYSML_VERSION}.tar.gz" > /dev/null
 
       - run:
           name: Check the metadata (twine check --strict)
@@ -1467,13 +1471,16 @@ jobs:
                 fail "$binary" "the version string is absent from the binary"
               fi
             done
-            # The Python distribution names its version in its file names.
-            for dist in "dist/opensysml-${CIRCLE_TAG#v}-py3-none-any.whl" \
-                        "dist/opensysml-${CIRCLE_TAG#v}.tar.gz"; do
-              if [ -f "$dist" ]; then
-                echo "ok: $dist is the distribution for ${CIRCLE_TAG}"
+            # build-python-package named the Python distribution after the tag's
+            # version (SemVer 'v0.9.0-rc1' is PEP 440 '0.9.0rc1'); one of each is due.
+            for pattern in "dist/opensysml-*-py3-none-any.whl" "dist/opensysml-*.tar.gz"; do
+              set -- $pattern
+              if [ ! -f "$1" ]; then
+                fail "$pattern" "build-python-package did not produce it"
+              elif [ $# -ne 1 ]; then
+                fail "$pattern" "matches $# files, not one"
               else
-                fail "$dist" "build-python-package did not produce it"
+                echo "ok: $1 is the distribution for ${CIRCLE_TAG}"
               fi
             done
             exit $status
@@ -1775,15 +1782,15 @@ workflows:
 
       - publish-pypi:
           name: Publish opensysml to PyPI
-          # Last, and only after the Go suite and the Python client's own tests
-          # have passed on this revision: an upload cannot be undone. A re-run of
-          # a published release fails here by design; the index has the version.
+          # Last of all: an upload cannot be undone, so it waits for the GitHub
+          # release the package version promises to exist. A re-run of a published
+          # release fails here by design; the index has the version.
           # The organization context is named 'PyPI'; a context reference is
           # matched exactly, so the case here has to match it.
           context:
             - PyPI
           requires:
-            - Build release artifacts
+            - Publish GitHub release
             - Python client tests
           filters: *release-tags
 

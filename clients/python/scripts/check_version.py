@@ -11,6 +11,10 @@ publish must fail here rather than after the fact.
 
 Prints the version the tag names on success. With `--pre-release` it prints
 `yes`/`no` instead, which the job uses to route a pre-release tag to TestPyPI.
+
+The core tags are SemVer and the package version is PEP 440, so the two are
+compared as versions, not as spellings: `v0.9.0-rc1` names `0.9.0rc1`. What is
+printed is the declared version, which is what the built artifacts are named by.
 """
 
 import argparse
@@ -66,13 +70,21 @@ def version_from_tag(tag, version=None):
             opensysml/_version.py when omitted
 
     Returns:
-        str: The version to publish
+        str: The version to publish, as declared
 
     Raises:
         VersionError: If the tag is empty, is not a core release tag, or names
-            a version other than the declared one
+            a version other than the declared one; or if the declared version is
+            not PEP 440 in canonical form
     """
     declared = version if version is not None else declared_version()
+    canonical = str(parse_version(declared, "clients/python/opensysml/_version.py declares"))
+    if canonical != declared:
+        raise VersionError(
+            f"clients/python/opensysml/_version.py declares {declared!r}, whose "
+            f"canonical PEP 440 form is {canonical!r}. The built artifacts are named "
+            f"by the canonical form, so declare VERSION = {canonical!r}."
+        )
     if not tag:
         raise VersionError(
             "No tag given. The release workflow runs on a "
@@ -84,7 +96,7 @@ def version_from_tag(tag, version=None):
             f"released with the binaries, by the core {TAG_PREFIX}<version> tag; "
             "no other tag publishes it."
         )
-    tag_version = tag[len(TAG_PREFIX):]
+    tag_version = str(parse_version(tag[len(TAG_PREFIX):], f"Tag {tag!r} names"))
     if tag_version != declared:
         raise VersionError(
             f"Tag {tag!r} names version {tag_version!r}, but "
@@ -93,7 +105,26 @@ def version_from_tag(tag, version=None):
             "version must be the core version being tagged. Set VERSION to "
             f"{tag_version!r} on the release branch and tag again."
         )
-    return tag_version
+    return declared
+
+
+def parse_version(version, what):
+    """A version string as a PEP 440 version.
+
+    Args:
+        version (str): Version string
+        what (str): What names the version, for the error message
+
+    Returns:
+        packaging.version.Version: The parsed version; str() of it is canonical
+
+    Raises:
+        VersionError: If the version is not a valid PEP 440 version
+    """
+    try:
+        return Version(version)
+    except InvalidVersion as e:
+        raise VersionError(f"{what} {version!r}, which is not a PEP 440 version: {e}")
 
 
 def is_pre_release(version):
@@ -108,10 +139,7 @@ def is_pre_release(version):
     Raises:
         VersionError: If the version is not a valid PEP 440 version
     """
-    try:
-        return Version(version).is_prerelease
-    except InvalidVersion as e:
-        raise VersionError(f"{version!r} is not a PEP 440 version: {e}")
+    return parse_version(version, "Version").is_prerelease
 
 
 def main(argv=None):

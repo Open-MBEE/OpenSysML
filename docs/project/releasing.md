@@ -190,10 +190,12 @@ that release's assets rather than appending duplicates, and leaves everything
 else on the release alone: notes, title and the prerelease/latest flags survive.
 A tag that has no release yet still gets one created.
 
-`publish-pypi` runs beside it, off the same built artifacts, and is the one step
+`publish-pypi` runs after it, off the same built artifacts, and is the one step
 of a release that cannot be repeated: PyPI never accepts a version twice, so on a
 re-run of a published tag it fails by design while the GitHub assets are replaced
-(see [What the jobs do, in order](#what-the-jobs-do-in-order)).
+(see [What the jobs do, in order](#what-the-jobs-do-in-order)). Running it after
+the GitHub release means the package version never exists without the release
+it names; if the GitHub upload fails, nothing irreversible has happened yet.
 
 Do not go back to `-delete`. It is an alias of `-recreate`: it deletes the
 existing release *and its tag* and creates an empty one, which wipes
@@ -672,7 +674,9 @@ re-uploaded. `publish-pypi` therefore refuses a version the index already has, a
 on a re-run of a published tag that job fails by design while the rest of the
 workflow succeeds — the package was already published from the same revision, so
 nothing is missing. The upload runs last, only after the whole suite has passed on
-the tagged revision, so a rebuild for a failure elsewhere never reaches it.
+the tagged revision and the GitHub release is published, so a failure anywhere
+else — a rebuild, an expired GitHub token — never leaves a package on PyPI whose
+release does not exist.
 
 ### The version, in one place
 
@@ -704,8 +708,14 @@ python clients/python/scripts/check_version.py --tag v0.9.0   # prints 0.9.0
 So setting `VERSION` in `clients/python/opensysml/_version.py` to the version being
 released is a step of [the release branch](#the-release-branch), beside folding the
 changelog; a `v*` tag pushed while the two disagree fails the release before a binary
-is built. The version is PEP 440 in canonical form (`0.9.0`, `0.9.0rc1`), which the
-core tags already are.
+is built. The tag is SemVer and the declaration is PEP 440 in canonical form, and the
+check compares them as versions, not as spellings: `v0.9.0` names `0.9.0`, and a
+pre-release tag `v0.9.0-rc1` names `0.9.0rc1`, which is what `VERSION` must say
+(`0.9.0-rc1` is refused, since the build tools would name the files `0.9.0rc1` anyway).
+
+```bash
+python clients/python/scripts/check_version.py --tag v0.9.0-rc1   # prints 0.9.0rc1
+```
 
 ### What the job needs
 
@@ -773,8 +783,8 @@ bytes go to the GitHub release and to PyPI.
    files into `dist/`, lists them in `SHA256SUMS.txt` before signing it, and checks
    their names carry the tag's version.
 
-`publish-pypi`, which runs last, after the Go suite, the Python client tests and
-`build-release` have all passed on the tagged revision:
+`publish-pypi`, which runs last, after the Go suite, the Python client tests,
+`build-release` and `publish-github-release` have all passed on the tagged revision:
 
 1. Resolves the version from the tag again and checks the workspace holds the
    wheel and sdist of that version.
@@ -796,8 +806,8 @@ destination changes.
 ```bash
 # 1. Declare a pre-release version, e.g. VERSION = "0.9.0rc1"
 $EDITOR clients/python/opensysml/_version.py
-# 2. Land it, then tag it
-git tag -a v0.9.0rc1 -m "v0.9.0rc1" && git push origin v0.9.0rc1
+# 2. Land it, then tag it (the SemVer spelling of the same version)
+git tag -a v0.9.0-rc1 -m "v0.9.0-rc1" && git push origin v0.9.0-rc1
 ```
 
 The job resolves the version, sees a PEP 440 pre-release, requires
@@ -809,7 +819,7 @@ dependencies from PyPI:
 python -m venv /tmp/opensysml-rc && . /tmp/opensysml-rc/bin/activate
 pip install --index-url https://test.pypi.org/simple/ \
             --extra-index-url https://pypi.org/simple/ opensysml==0.9.0rc1
-OPENSYSML_GRPC_VERSION=v0.9.0rc1 python -c "import opensysml; print(opensysml.__version__)"
+OPENSYSML_GRPC_VERSION=v0.9.0-rc1 python -c "import opensysml; print(opensysml.__version__)"
 ```
 
 Then set `VERSION` to the final version and tag `v0.9.0`.
