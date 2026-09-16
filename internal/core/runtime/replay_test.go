@@ -1283,6 +1283,75 @@ func TestReplayRefusedChoiceUndoesTheJunctionDrawBeforeIt(t *testing.T) {
 	}
 }
 
+// A segment out of a pseudostate declared in a composite state runs its effect
+// after the composite's entry, so a witness refused at the choice beyond has the
+// composite entered ahead: its entry, the effects and the entry's do behavior are
+// undone with the move, and nothing of the entry made ahead is left behind.
+func TestReplayRefusedChoiceUndoesTheOwnerEnteredAhead(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		attribute def Go;
+		state def Machine {
+			attribute log : String = "";
+			attribute level : Integer = 0;
+			entry; then idle;
+			state idle;
+			state work {
+				entry { assign log := log + "work(entry);"; }
+				do { assign log := log + "work(do);"; }
+				junction split;
+				choice pick;
+				state one;
+				state two;
+				state three;
+				transition first split do { assign level := 8; assign log := log + "split(effect);"; } then pick;
+				transition first pick if level > 5 then one;
+				transition first pick if level > 7 then two;
+				transition first pick if level > 9 then three;
+			}
+			transition first idle accept Go do { assign log := log + "go(effect);"; } then split;
+		}
+	}`)
+	sym := m.state(t, "Machine")
+	witness, err := ParseChoices("choice pick -> 3->three\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustSchedule(t, ctx, ReplayPolicy(witness))
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatal(err)
+	}
+	exec.SendSignal("Go", nil)
+	err = exec.RunToCompletion()
+	var refused *ReplayError
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || !strings.Contains(err.Error(), "3->three is not enabled (enabled: 1->one, 2->two)") {
+		t.Fatalf("error %T %v, want the choice move refused as not enabled", err, err)
+	}
+	data := exec.StateData()
+	for name, want := range map[string]string{"log": `""`, "level": "0"} {
+		if got := FormatValue(data[name]); got != want {
+			t.Errorf("%s is %s after the refusal, want %s: the owner's entry made ahead is undone with the move", name, got, want)
+		}
+	}
+	if got := activeStateNames(exec); got != "idle" {
+		t.Errorf("the machine is in %s after the refusal, want idle", got)
+	}
+	if len(exec.doActions) != 0 {
+		t.Errorf("%d do behaviors run after the refusal, want none: the owner's is undone with its entry", len(exec.doActions))
+	}
+	if len(exec.enteredAhead) != 0 {
+		t.Errorf("the executor still holds %d states entered ahead after the refusal, want none", len(exec.enteredAhead))
+	}
+}
+
 // A join's incoming segments are drawn one at a time, so a witness refused at a
 // later draw has an earlier segment made: the whole join is undone — the exit
 // and effect of the segment fired, the do behavior the exit abandoned, the note
