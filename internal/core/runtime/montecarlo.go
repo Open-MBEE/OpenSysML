@@ -136,7 +136,8 @@ func distributeInts(values []int64) *Distribution {
 	}
 }
 
-// distributeReals summarises numbers as Reals.
+// distributeReals summarises numbers as Reals; the mean rounds once, after an exact
+// sum, so finite observations never overflow it.
 func distributeReals(numbers []semantics.Value) *Distribution {
 	sorted := make([]float64, len(numbers))
 	for i, v := range numbers {
@@ -144,19 +145,38 @@ func distributeReals(numbers []semantics.Value) *Distribution {
 	}
 	slices.Sort(sorted)
 	n := len(sorted)
-	sum := 0.0
-	for _, v := range sorted {
-		sum += v
-	}
 	return &Distribution{
 		Count:     n,
 		Min:       drawnReal(sorted[0]),
-		Mean:      sum / float64(n),
+		Mean:      meanOf(sorted),
 		Max:       drawnReal(sorted[n-1]),
 		P50:       drawnReal(nearestRank(sorted, 0.5)),
 		P90:       drawnReal(nearestRank(sorted, 0.9)),
 		Histogram: histogram(sorted),
 	}
+}
+
+// meanOf is the mean of values, exact until it rounds to a Real; a value that is
+// no finite number carries into the mean as Real arithmetic would carry it.
+func meanOf(values []float64) float64 {
+	sum := new(big.Rat)
+	for _, v := range values {
+		if math.IsInf(v, 0) || math.IsNaN(v) {
+			return realSum(values) / float64(len(values))
+		}
+		sum.Add(sum, new(big.Rat).SetFloat64(v))
+	}
+	mean, _ := sum.Quo(sum, big.NewRat(int64(len(values)), 1)).Float64()
+	return mean
+}
+
+// realSum is the sum of values in Real arithmetic.
+func realSum(values []float64) float64 {
+	sum := 0.0
+	for _, v := range values {
+		sum += v
+	}
+	return sum
 }
 
 // drawnInt is n as an Integer value.
@@ -173,25 +193,38 @@ func nearestRank[T any](sorted []T, p float64) T {
 	return sorted[k-1]
 }
 
-// histogram bins sorted Reals into at most HistogramBins equal-width bins.
+// histogram bins sorted Reals into at most HistogramBins equal-width bins; a span too
+// narrow to divide into Real widths bins each distinct value on its own.
 func histogram(sorted []float64) []HistogramBin {
 	lo, hi := sorted[0], sorted[len(sorted)-1]
 	if lo == hi || math.IsInf(hi-lo, 0) {
 		return []HistogramBin{{Lo: drawnReal(lo), Hi: drawnReal(hi), Count: len(sorted)}}
 	}
-	bins := make([]HistogramBin, HistogramBins)
 	width := (hi - lo) / HistogramBins
+	if width == 0 {
+		return distinctHistogram(sorted)
+	}
+	bins := make([]HistogramBin, HistogramBins)
 	for i := range bins {
 		bins[i].Lo = drawnReal(lo + float64(i)*width)
 		bins[i].Hi = drawnReal(lo + float64(i+1)*width)
 	}
 	bins[len(bins)-1].Hi = drawnReal(hi)
 	for _, v := range sorted {
-		i := int((v - lo) / width)
-		if i >= HistogramBins {
-			i = HistogramBins - 1
+		bins[min(int((v-lo)/width), HistogramBins-1)].Count++
+	}
+	return bins
+}
+
+// distinctHistogram bins sorted Reals one distinct value to a bin.
+func distinctHistogram(sorted []float64) []HistogramBin {
+	var bins []HistogramBin
+	for _, v := range sorted {
+		if n := len(bins); n > 0 && bins[n-1].Lo == drawnReal(v) {
+			bins[n-1].Count++
+			continue
 		}
-		bins[i].Count++
+		bins = append(bins, HistogramBin{Lo: drawnReal(v), Hi: drawnReal(v), Count: 1})
 	}
 	return bins
 }

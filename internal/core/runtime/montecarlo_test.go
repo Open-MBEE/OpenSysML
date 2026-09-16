@@ -130,6 +130,38 @@ func TestDistributeBinsIntegersWhole(t *testing.T) {
 	}
 }
 
+// Reals at the edges of the representable range are summarised as any others: the
+// mean of finite observations is finite whatever their sum would be, and a span too
+// narrow to divide into eight widths bins each distinct value on its own.
+func TestDistributeRealsAtTheEdgesOfTheRange(t *testing.T) {
+	huge := Distribute(reals(1e308, 1e308))
+	if huge.Mean != 1e308 {
+		t.Errorf("mean %v, want 1e308: the sum overflows, the mean does not", huge.Mean)
+	}
+	if mixed := Distribute(reals(math.MaxFloat64, -math.MaxFloat64, 1e308, -1e308)); mixed.Mean != 0 {
+		t.Errorf("mean %v, want 0 over values of both signs", mixed.Mean)
+	}
+	if d := Distribute(reals(0.5, 0.25, 0.25)); d.Mean != 1.0/3 {
+		t.Errorf("mean %v, want 1/3 rounded once", d.Mean)
+	}
+	if inf := Distribute(reals(1, math.Inf(1))); !math.IsInf(inf.Mean, 1) {
+		t.Errorf("mean %v, want +Inf where an observation is", inf.Mean)
+	}
+	tiny := math.SmallestNonzeroFloat64
+	narrow := Distribute(reals(0, tiny, tiny, 2*tiny))
+	want := []HistogramBin{{drawnReal(0), drawnReal(0), 1}, {drawnReal(tiny), drawnReal(tiny), 2}, {drawnReal(2 * tiny), drawnReal(2 * tiny), 1}}
+	if !reflect.DeepEqual(narrow.Histogram, want) {
+		t.Errorf("bins %v, want one a distinct value %v", narrow.Histogram, want)
+	}
+	if narrow.Min != drawnReal(0) || narrow.Max != drawnReal(2*tiny) || narrow.Mean != tiny {
+		t.Errorf("min %v mean %v max %v", narrow.Min, narrow.Mean, narrow.Max)
+	}
+	wide := Distribute(reals(-math.MaxFloat64, math.MaxFloat64, 0))
+	if len(wide.Histogram) != 1 || wide.Histogram[0].Count != 3 || wide.Mean != 0 {
+		t.Errorf("over the whole Real range: bins %v mean %v, want one bin and a mean of 0", wide.Histogram, wide.Mean)
+	}
+}
+
 // Integers beyond 2^53, which a Real cannot tell apart, stay distinct in every
 // statistic but the mean, and the whole Integer range bins without overflowing.
 func TestDistributeKeepsLargeIntegersExact(t *testing.T) {
