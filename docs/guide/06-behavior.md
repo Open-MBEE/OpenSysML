@@ -648,8 +648,19 @@ The order of executors due at one instant of the clock is explored like any othe
 `sysml -schedule explore -instantiate Demo::beacon -action Demo::watcher -state
 "Demo::Beacon::blinking Demo::beacon" -advance 5` starts every behavior named on one clock in each run, advances it, and tables the
 joint outcome — each behavior's observables under its name — once per order the due executors
-can run in, the witness naming which ran first (`t=5.0: action watcher first of action watcher,
-state machine blinking of object #1`).
+can run in, the witness naming which ran first (`t=5.0: action watcher first of state machine
+blinking of object #1, action watcher`).
+
+Each run creates its objects afresh, so the object a behavior runs on is named as something a run
+can build: a declaration to instantiate (`Demo::beacon`), or a path from one into a part it holds.
+`sysml -schedule explore -state "Comms::Ground::listen Comms::pair.ground" -state
+"Comms::Craft::modes Comms::pair.craft" -advance 5` instantiates `Comms::pair` once per run and
+runs each machine on the part the path reaches, so the pair's connector carries the ground's ping to
+the craft and the craft's frames back, and the table is of the assembly, not of a part alone.
+`-instantiate Comms::pair` gives every run the assembly instead, and a machine named alone
+attaches to the run's object exhibiting it. An id the report printed (`#2`) names an object of the
+session, which no run sees, and is refused ([Objects an exploration runs
+on](../reference/cli.md#objects-an-exploration-runs-on)).
 
 The budget is 1024 runs and 64 choice points per run unless `explore:runs=N,depth=D` says
 otherwise, and hitting it is never silent:

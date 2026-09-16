@@ -29,7 +29,9 @@ intended shape. `ParseFile` and `ParseSource` each parse one document; `ParseFil
 resolves and a diagnostic locates itself in the file it came from.
 
 `ExecuteAction`, `ExecuteState` and `RunAnalysis` answer one run, under the scheduling policy
-`WithSchedule`/`Schedule` names (`declared`, `reverse`, `seed:<n>`). `ExploreAction`,
+`WithSchedule`/`Schedule` names (`declared`, `reverse`, `seed:<n>`), on the object
+`PerformedBy`/`Subject` names — a part definition or usage, or a path from one into its parts
+such as `Mission::mission.vehicle`, made anew for the run. `ExploreAction`,
 `ExploreState` and `ExploreAnalysis` answer every run: they take the `explore` policy — the
 default when none is given, or `explore:runs=N,depth=D` to set its budget — and report an
 `Exploration`, one `Outcome` per distinct result with the number of linearizations that reached

@@ -155,12 +155,13 @@ func (inst *Instance) ExhibitedStatesOf(sym *symbols.Symbol) []*ObjectBehavior {
 	return inst.behaviorsOf(lower.ExhibitedState, sym)
 }
 
-// PerformedActionsOf is ExhibitedStatesOf for the actions the object performs.
+// PerformedActionsOf returns the actions the object performs under sym's declaration,
+// matched as ExhibitedStatesOf matches machines.
 func (inst *Instance) PerformedActionsOf(sym *symbols.Symbol) []*ObjectBehavior {
 	return inst.behaviorsOf(lower.PerformedAction, sym)
 }
 
-// behaviorsOf is the behaviors of kind the object runs under sym's declaration.
+// behaviorsOf is the object's behaviors of kind running sym's declaration.
 func (inst *Instance) behaviorsOf(kind lower.ClassifierBehaviorKind, sym *symbols.Symbol) []*ObjectBehavior {
 	if sym == nil || sym.Decl == nil {
 		return nil

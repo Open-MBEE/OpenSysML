@@ -542,7 +542,10 @@ type VerifyConstraintRequest struct {
 	// Optional FQN of a part/usage to instantiate and evaluate the constraint
 	// against, so the verdict is about concrete values rather than declared
 	// defaults. The prompt evaluates against the object a %instantiate created;
-	// a call carries no session, so it names the subject instead.
+	// a call carries no session, so it names the subject instead. A path from a
+	// declaration, as `Mission::mission.vehicle`, instantiates the declaration and
+	// evaluates against the object the path reaches, inside the assembly built
+	// around it; an index picks from a multi-valued usage, `convoy.escorts[2]`.
 	SubjectSymbolId string `protobuf:"bytes,3,opt,name=subject_symbol_id,json=subjectSymbolId,proto3" json:"subject_symbol_id,omitempty"`
 	// The engine the question is put to, as ListEngines names it, "auto" for the
 	// strongest covering one, or "all" for every covering one. Unset is "auto".
@@ -691,7 +694,8 @@ type VerifyRequirementRequest struct {
 	ModelHash string                 `protobuf:"bytes,1,opt,name=model_hash,json=modelHash,proto3" json:"model_hash,omitempty"`
 	// FQN of the requirement definition or usage to evaluate.
 	SymbolId string `protobuf:"bytes,2,opt,name=symbol_id,json=symbolId,proto3" json:"symbol_id,omitempty"`
-	// Optional FQN of a part/usage to instantiate and evaluate against.
+	// Optional FQN of a part/usage to instantiate and evaluate against, or a path
+	// from one to a nested object; see VerifyConstraintRequest.subject_symbol_id.
 	SubjectSymbolId string `protobuf:"bytes,3,opt,name=subject_symbol_id,json=subjectSymbolId,proto3" json:"subject_symbol_id,omitempty"`
 	// The engine the question is put to; see VerifyConstraintRequest.engine.
 	Engine        string `protobuf:"bytes,4,opt,name=engine,proto3" json:"engine,omitempty"`
@@ -1607,7 +1611,10 @@ type RunAnalysisRequest struct {
 	SymbolId string `protobuf:"bytes,2,opt,name=symbol_id,json=symbolId,proto3" json:"symbol_id,omitempty"`
 	// Optional FQN of a part/usage to instantiate as the case's subject. Empty
 	// leaves the case's own `subject s = ...` binding to supply it; a case that
-	// binds none and is given none fails to run.
+	// binds none and is given none fails to run. A path from a declaration, as
+	// `Mission::mission.vehicle`, makes the subject the object the path reaches in
+	// an object of the declaration built for the run — every explored run its own
+	// — so what the assembly binds and connects on it is in force.
 	SubjectSymbolId string `protobuf:"bytes,3,opt,name=subject_symbol_id,json=subjectSymbolId,proto3" json:"subject_symbol_id,omitempty"`
 	// Positional arguments for the case's input parameters, in declaration order;
 	// the subject is never among them.
@@ -3350,9 +3357,15 @@ type ExecuteActionRequest struct {
 	// the action once per linearization the library admits, within a budget of
 	// runs (default 1024) and of choice points per run (default 64), each run on
 	// a fresh context, and answers with every distinct outcome reached.
-	Schedule      string `protobuf:"bytes,4,opt,name=schedule,proto3" json:"schedule,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Schedule string `protobuf:"bytes,4,opt,name=schedule,proto3" json:"schedule,omitempty"`
+	// Optional FQN of a part/usage to perform the action on, or a path from one to
+	// a nested object, as `Mission::mission.vehicle`: the object is created for the
+	// run — inside the assembly the path walks, so its connectors carry what the
+	// action sends — and under explore each run creates its own. Empty performs
+	// the action outside any object.
+	PerformerSymbolId string `protobuf:"bytes,5,opt,name=performer_symbol_id,json=performerSymbolId,proto3" json:"performer_symbol_id,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ExecuteActionRequest) Reset() {
@@ -3409,6 +3422,13 @@ func (x *ExecuteActionRequest) GetInputs() map[string]*Value {
 func (x *ExecuteActionRequest) GetSchedule() string {
 	if x != nil {
 		return x.Schedule
+	}
+	return ""
+}
+
+func (x *ExecuteActionRequest) GetPerformerSymbolId() string {
+	if x != nil {
+		return x.PerformerSymbolId
 	}
 	return ""
 }
@@ -3516,9 +3536,15 @@ type ExecuteStateRequest struct {
 	// default, "reverse"; any other spelling is INVALID_ARGUMENT. Under explore
 	// the response answers with `outcomes` and `exploration` in place of one run's
 	// states_visited, final_context and error (see ExecuteActionResponse).
-	Schedule      string `protobuf:"bytes,4,opt,name=schedule,proto3" json:"schedule,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Schedule string `protobuf:"bytes,4,opt,name=schedule,proto3" json:"schedule,omitempty"`
+	// Optional FQN of a part/usage to run the machine on, or a path from one to a
+	// nested object (see ExecuteActionRequest.performer_symbol_id). An object
+	// exhibiting the machine runs the one it exhibits, so what its assembly
+	// connects to it reaches the run; one exhibiting it under several usages is
+	// an error. Empty runs the machine outside any object.
+	PerformerSymbolId string `protobuf:"bytes,5,opt,name=performer_symbol_id,json=performerSymbolId,proto3" json:"performer_symbol_id,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ExecuteStateRequest) Reset() {
@@ -3575,6 +3601,13 @@ func (x *ExecuteStateRequest) GetEvents() []string {
 func (x *ExecuteStateRequest) GetSchedule() string {
 	if x != nil {
 		return x.Schedule
+	}
+	return ""
+}
+
+func (x *ExecuteStateRequest) GetPerformerSymbolId() string {
+	if x != nil {
+		return x.PerformerSymbolId
 	}
 	return ""
 }
@@ -7444,7 +7477,8 @@ type RunSweepRequest struct {
 	ModelHash string                 `protobuf:"bytes,1,opt,name=model_hash,json=modelHash,proto3" json:"model_hash,omitempty"`
 	// FQN of the analysis case or calc, definition or usage.
 	SymbolId string `protobuf:"bytes,2,opt,name=symbol_id,json=symbolId,proto3" json:"symbol_id,omitempty"`
-	// Optional FQN of a part/usage to instantiate as an analysis case's subject.
+	// Optional FQN of a part/usage to instantiate as an analysis case's subject,
+	// or a path from one to a nested object; see RunAnalysisRequest.subject_symbol_id.
 	SubjectSymbolId string `protobuf:"bytes,3,opt,name=subject_symbol_id,json=subjectSymbolId,proto3" json:"subject_symbol_id,omitempty"`
 	// Positional arguments for the target's input parameters, in declaration
 	// order, as every row binds them.
@@ -8880,13 +8914,14 @@ const file_sysml_proto_rawDesc = "" +
 	"\binstance\x18\x01 \x01(\v2\x0f.sysml.InstanceR\binstance\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x123\n" +
 	"\vdiagnostics\x18\x03 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x12-\n" +
-	"\tinstances\x18\x04 \x03(\v2\x0f.sysml.InstanceR\tinstances\"\x85\x02\n" +
+	"\tinstances\x18\x04 \x03(\v2\x0f.sysml.InstanceR\tinstances\"\xb5\x02\n" +
 	"\x14ExecuteActionRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12(\n" +
 	"\x10action_symbol_id\x18\x02 \x01(\tR\x0eactionSymbolId\x12?\n" +
 	"\x06inputs\x18\x03 \x03(\v2'.sysml.ExecuteActionRequest.InputsEntryR\x06inputs\x12\x1a\n" +
-	"\bschedule\x18\x04 \x01(\tR\bschedule\x1aG\n" +
+	"\bschedule\x18\x04 \x01(\tR\bschedule\x12.\n" +
+	"\x13performer_symbol_id\x18\x05 \x01(\tR\x11performerSymbolId\x1aG\n" +
 	"\vInputsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
 	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xf8\x02\n" +
@@ -8900,13 +8935,14 @@ const file_sysml_proto_rawDesc = "" +
 	"final_time\x18\x06 \x01(\x01R\tfinalTime\x1aH\n" +
 	"\fOutputsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
-	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\x9f\x01\n" +
+	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xcf\x01\n" +
 	"\x13ExecuteStateRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x125\n" +
 	"\x17state_machine_symbol_id\x18\x02 \x01(\tR\x14stateMachineSymbolId\x12\x16\n" +
 	"\x06events\x18\x03 \x03(\tR\x06events\x12\x1a\n" +
-	"\bschedule\x18\x04 \x01(\tR\bschedule\"\xb2\x03\n" +
+	"\bschedule\x18\x04 \x01(\tR\bschedule\x12.\n" +
+	"\x13performer_symbol_id\x18\x05 \x01(\tR\x11performerSymbolId\"\xb2\x03\n" +
 	"\x14ExecuteStateResponse\x12%\n" +
 	"\x0estates_visited\x18\x01 \x03(\tR\rstatesVisited\x12R\n" +
 	"\rfinal_context\x18\x02 \x03(\v2-.sysml.ExecuteStateResponse.FinalContextEntryR\ffinalContext\x12\x14\n" +

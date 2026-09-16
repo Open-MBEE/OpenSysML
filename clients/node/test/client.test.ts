@@ -16,6 +16,7 @@ import {
   CAPABILITY_FUNCTION_VALUES,
   CAPABILITY_MEASUREMENT_REFS,
   CAPABILITY_METAOBJECT_VALUES,
+  CAPABILITY_PERFORMER,
   CAPABILITY_QUERY,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
@@ -374,6 +375,11 @@ test("the service advertises the schedule field of its execution requests", asyn
 test("the service advertises the explore scheduling policy", async () => {
   await using connection = await connect();
   assert.ok((await connection.serverInfo()).has(CAPABILITY_SCHEDULE_EXPLORE));
+});
+
+test("the service advertises the object a behavior is performed by", async () => {
+  await using connection = await connect();
+  assert.ok((await connection.serverInfo()).has(CAPABILITY_PERFORMER));
 });
 
 test("the service advertises its analysis engines", async () => {

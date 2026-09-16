@@ -450,6 +450,11 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void theServiceAdvertisesTheObjectABehaviorIsPerformedBy() {
+    assertTrue(connection.capabilities().has(Capabilities.PERFORMER));
+  }
+
+  @Test
   void theServiceAdvertisesItsAnalysisEngines() {
     assertTrue(connection.capabilities().has(Capabilities.ENGINES));
   }

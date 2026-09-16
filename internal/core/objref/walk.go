@@ -129,17 +129,34 @@ const featureListLimit = 12
 // featureListHint names the features an object has, so a misspelt one can be
 // corrected: the model's own by name, the library's by count.
 func (w Walker) featureListHint(inst *runtime.Instance) string {
-	if len(inst.FeatureValues) == 0 {
-		return " (it has no features)"
-	}
-	var names []string
-	library := 0
+	names, library := make([]string, 0, len(inst.FeatureValues)), 0
 	for name, fv := range inst.FeatureValues {
 		if w.Index != nil && fv.Feature != nil && w.Index.Library(fv.Feature.Symbol) {
 			library++
 			continue
 		}
 		names = append(names, name)
+	}
+	return featureHint(names, library)
+}
+
+// DeclaredFeatureHint is featureListHint for the features an object of a
+// declaration will have, before one is materialized.
+func (w Walker) DeclaredFeatureHint(features []runtime.EffectiveFeature) string {
+	names, library := make([]string, 0, len(features)), 0
+	for i := range features {
+		if w.Index != nil && w.Index.Library(features[i].Symbol) {
+			library++
+			continue
+		}
+		names = append(names, features[i].Name)
+	}
+	return featureHint(names, library)
+}
+
+func featureHint(names []string, library int) string {
+	if len(names)+library == 0 {
+		return " (it has no features)"
 	}
 	sort.Strings(names)
 	more := ""

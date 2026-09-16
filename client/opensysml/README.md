@@ -112,6 +112,13 @@ fails under some orders is an `Outcome` with its `Error` set, not a failed call.
 The single-run and exploring calls refuse each other's policies with
 `CodeInvalidArgument`, so a policy is never quietly answered by the wrong shape.
 
+`PerformedBy` names the object an action or state machine runs on, as `sysml
+-action "<action> <object>"` does: a part definition or usage to make an object
+of, or a path from one into its parts — `PerformedBy("Mission::mission.vehicle")`
+makes the mission and runs on its vehicle, inside the assembly, so a machine the
+vehicle exhibits hears the ground station over their connector. Each explored run
+makes the object anew. The option needs the `performer` capability.
+
 ```go
 exploration, err := client.ExploreAction(ctx, model, "Demo::race", nil)
 for _, outcome := range exploration.Outcomes {
