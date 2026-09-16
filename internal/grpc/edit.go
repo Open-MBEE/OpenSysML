@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"sort"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -224,11 +225,12 @@ func (s *Service) editRefusal(err error, sf *source.SourceFile) (*pb.ApplyEditsR
 	if !errors.As(err, &refusal) {
 		return nil, statusErrorf(connect.CodeInternal, "apply edits: %v", err)
 	}
+	referring, referrers := sortedReferrers(refusal)
 	resp := &pb.ApplyEditsResponse{
 		Error:             refusal.Message,
 		Failure:           editFailureToProto(refusal.Failure),
-		ReferringElements: refusal.Referring,
-		Referrers:         referrersToProto(refusal.Referrers),
+		ReferringElements: referring,
+		Referrers:         referrers,
 	}
 	// Diagnostic spans are offsets into what was diagnosed: the new value's text
 	// or the edited notation, not the model as the client has it.
@@ -241,6 +243,32 @@ func (s *Service) editRefusal(err error, sf *source.SourceFile) (*pb.ApplyEditsR
 	}
 	s.filterDiagnosticCapabilities(resp.Diagnostics)
 	return resp, nil
+}
+
+// sortedReferrers reports a refusal's referrers in document then name order, the
+// legacy spelling of each kept beside it, whichever order the engine found them in.
+func sortedReferrers(refusal *edit.Error) ([]string, []*pb.Referrer) {
+	if len(refusal.Referring) != len(refusal.Referrers) {
+		return refusal.Referring, referrersToProto(refusal.Referrers)
+	}
+	order := make([]int, len(refusal.Referrers))
+	for i := range order {
+		order[i] = i
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		a, b := refusal.Referrers[order[i]], refusal.Referrers[order[j]]
+		if a.Document != b.Document {
+			return a.Document < b.Document
+		}
+		return a.Name < b.Name
+	})
+	referring := make([]string, 0, len(order))
+	referrers := make([]edit.Referrer, 0, len(order))
+	for _, i := range order {
+		referring = append(referring, refusal.Referring[i])
+		referrers = append(referrers, refusal.Referrers[i])
+	}
+	return referring, referrersToProto(referrers)
 }
 
 // referrersToProto reports each referrer with the document declaring it.

@@ -323,6 +323,35 @@ func TestApplyEditsRefusalNamesReferrersInOtherDocuments(t *testing.T) {
 	}
 }
 
+// Referrers are answered in document then name order, referring_elements
+// beside them, when the engine found the edited document's own first.
+func TestApplyEditsRefusalOrdersReferrersByDocument(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedSources(t, srv, "z.sysml", editDocP, "a.sysml", editDocQ)
+
+	resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash: hash, AcceptDocuments: true, Operations: []*pb.EditOperation{deleteOp("P::Base", false)},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits failed: %v", err)
+	}
+	if resp.Failure != pb.EditFailure_EDIT_FAILURE_DELETE_REFERENCED {
+		t.Fatalf("failure = %s (%s), want DELETE_REFERENCED", resp.Failure, resp.Error)
+	}
+	if got := strings.Join(resp.ReferringElements, ","); got != "Q::b (a.sysml),P::own" {
+		t.Errorf("referring_elements = %v, want Q::b (a.sysml) then P::own", resp.ReferringElements)
+	}
+	want := []*pb.Referrer{{Name: "Q::b", Document: "a.sysml"}, {Name: "P::own", Document: "z.sysml"}}
+	if len(resp.Referrers) != len(want) {
+		t.Fatalf("referrers = %v, want %v", resp.Referrers, want)
+	}
+	for i := range want {
+		if resp.Referrers[i].Name != want[i].Name || resp.Referrers[i].Document != want[i].Document {
+			t.Errorf("referrers[%d] = %v, want %v", i, resp.Referrers[i], want[i])
+		}
+	}
+}
+
 // A move respells references in its own document only, so one referred to from
 // another document is refused as REFERENCED_ELSEWHERE, naming the referrer.
 func TestApplyEditsMoveReferredToFromAnotherDocumentIsRefused(t *testing.T) {
