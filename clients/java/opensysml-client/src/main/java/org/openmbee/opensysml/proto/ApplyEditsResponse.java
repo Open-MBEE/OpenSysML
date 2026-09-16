@@ -8,6 +8,8 @@ package org.openmbee.opensysml.proto;
 /**
  * <pre>
  * ApplyEditsResponse carries the edited source, or says why nothing was edited.
+ * The edited notation is in `documents`, one entry per document the edits
+ * rewrote; `content` repeats it for a single-document model only.
  * </pre>
  *
  * Protobuf type {@code sysml.ApplyEditsResponse}
@@ -39,6 +41,8 @@ private static final long serialVersionUID = 0L;
     diagnostics_ = java.util.Collections.emptyList();
     referringElements_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
+    documents_ = java.util.Collections.emptyList();
+    referrers_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -59,8 +63,13 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object content_ = "";
   /**
    * <pre>
-   * The edited notation, byte-identical to the source outside the edited spans.
-   * Empty when the edits were refused, so a refusal never writes a file.
+   * The edited notation of a single-document model, byte-identical to the
+   * source outside the edited spans. Empty when the edits were refused, so a
+   * refusal never writes a file, and empty for a model of several documents,
+   * whose edited notation is in `documents` alone: a client that reads
+   * `content` alone was written for one document and must not write one
+   * document's notation over another's. `documents` carries the same notation
+   * for a single-document model, so a client needs one code path.
    * </pre>
    *
    * <code>string content = 1 [json_name = "content"];</code>
@@ -81,8 +90,13 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * The edited notation, byte-identical to the source outside the edited spans.
-   * Empty when the edits were refused, so a refusal never writes a file.
+   * The edited notation of a single-document model, byte-identical to the
+   * source outside the edited spans. Empty when the edits were refused, so a
+   * refusal never writes a file, and empty for a model of several documents,
+   * whose edited notation is in `documents` alone: a client that reads
+   * `content` alone was written for one document and must not write one
+   * document's notation over another's. `documents` carries the same notation
+   * for a single-document model, so a client needs one code path.
    * </pre>
    *
    * <code>string content = 1 [json_name = "content"];</code>
@@ -108,7 +122,8 @@ private static final long serialVersionUID = 0L;
   private java.util.List<org.openmbee.opensysml.proto.AppliedEdit> applied_;
   /**
    * <pre>
-   * What each operation changed, in request order.
+   * What each operation changed, grouped by document in the order `documents`
+   * lists them and in request order within a document.
    * </pre>
    *
    * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -119,7 +134,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * What each operation changed, in request order.
+   * What each operation changed, grouped by document in the order `documents`
+   * lists them and in request order within a document.
    * </pre>
    *
    * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -131,7 +147,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * What each operation changed, in request order.
+   * What each operation changed, grouped by document in the order `documents`
+   * lists them and in request order within a document.
    * </pre>
    *
    * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -142,7 +159,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * What each operation changed, in request order.
+   * What each operation changed, grouped by document in the order `documents`
+   * lists them and in request order within a document.
    * </pre>
    *
    * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -153,7 +171,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * What each operation changed, in request order.
+   * What each operation changed, grouped by document in the order `documents`
+   * lists them and in request order within a document.
    * </pre>
    *
    * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -169,7 +188,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object error_ = "";
   /**
    * <pre>
-   * non-empty if the edits were refused; content is unset
+   * non-empty if the edits were refused; content and documents are unset
    * </pre>
    *
    * <code>string error = 3 [json_name = "error"];</code>
@@ -190,7 +209,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * non-empty if the edits were refused; content is unset
+   * non-empty if the edits were refused; content and documents are unset
    * </pre>
    *
    * <code>string error = 3 [json_name = "error"];</code>
@@ -245,7 +264,8 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-   * or the errors the edited source was found to have.
+   * or the errors the edited source was found to have. A diagnostic's span
+   * names the document it is in.
    * </pre>
    *
    * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -257,7 +277,8 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-   * or the errors the edited source was found to have.
+   * or the errors the edited source was found to have. A diagnostic's span
+   * names the document it is in.
    * </pre>
    *
    * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -270,7 +291,8 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-   * or the errors the edited source was found to have.
+   * or the errors the edited source was found to have. A diagnostic's span
+   * names the document it is in.
    * </pre>
    *
    * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -282,7 +304,8 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-   * or the errors the edited source was found to have.
+   * or the errors the edited source was found to have. A diagnostic's span
+   * names the document it is in.
    * </pre>
    *
    * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -294,7 +317,8 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-   * or the errors the edited source was found to have.
+   * or the errors the edited source was found to have. A diagnostic's span
+   * names the document it is in.
    * </pre>
    *
    * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -311,8 +335,10 @@ private static final long serialVersionUID = 0L;
       com.google.protobuf.LazyStringArrayList.emptyList();
   /**
    * <pre>
-   * Where the references to a declaration whose rename was refused are made:
-   * the FQN of each referring namespace.
+   * Where the references to a declaration whose rename, delete or move was
+   * refused are made: the FQN of each referring namespace, suffixed with its
+   * document in parentheses when that is not the document being edited.
+   * `referrers` carries the same list with the document as a field of its own.
    * </pre>
    *
    * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -324,8 +350,10 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Where the references to a declaration whose rename was refused are made:
-   * the FQN of each referring namespace.
+   * Where the references to a declaration whose rename, delete or move was
+   * refused are made: the FQN of each referring namespace, suffixed with its
+   * document in parentheses when that is not the document being edited.
+   * `referrers` carries the same list with the document as a field of its own.
    * </pre>
    *
    * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -336,8 +364,10 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Where the references to a declaration whose rename was refused are made:
-   * the FQN of each referring namespace.
+   * Where the references to a declaration whose rename, delete or move was
+   * refused are made: the FQN of each referring namespace, suffixed with its
+   * document in parentheses when that is not the document being edited.
+   * `referrers` carries the same list with the document as a field of its own.
    * </pre>
    *
    * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -349,8 +379,10 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Where the references to a declaration whose rename was refused are made:
-   * the FQN of each referring namespace.
+   * Where the references to a declaration whose rename, delete or move was
+   * refused are made: the FQN of each referring namespace, suffixed with its
+   * document in parentheses when that is not the document being edited.
+   * `referrers` carries the same list with the document as a field of its own.
    * </pre>
    *
    * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -360,6 +392,158 @@ private static final long serialVersionUID = 0L;
   public com.google.protobuf.ByteString
       getReferringElementsBytes(int index) {
     return referringElements_.getByteString(index);
+  }
+
+  public static final int DOCUMENTS_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private java.util.List<org.openmbee.opensysml.proto.EditedDocument> documents_;
+  /**
+   * <pre>
+   * The edited notation of every document the edits rewrote, named as the
+   * parse request named it: the document being edited first, then the others
+   * in name order. A document of several the edits left as parsed is not
+   * listed; the one document of a single-document model always is. Empty when
+   * the edits were refused.
+   * </pre>
+   *
+   * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<org.openmbee.opensysml.proto.EditedDocument> getDocumentsList() {
+    return documents_;
+  }
+  /**
+   * <pre>
+   * The edited notation of every document the edits rewrote, named as the
+   * parse request named it: the document being edited first, then the others
+   * in name order. A document of several the edits left as parsed is not
+   * listed; the one document of a single-document model always is. Empty when
+   * the edits were refused.
+   * </pre>
+   *
+   * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends org.openmbee.opensysml.proto.EditedDocumentOrBuilder> 
+      getDocumentsOrBuilderList() {
+    return documents_;
+  }
+  /**
+   * <pre>
+   * The edited notation of every document the edits rewrote, named as the
+   * parse request named it: the document being edited first, then the others
+   * in name order. A document of several the edits left as parsed is not
+   * listed; the one document of a single-document model always is. Empty when
+   * the edits were refused.
+   * </pre>
+   *
+   * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+   */
+  @java.lang.Override
+  public int getDocumentsCount() {
+    return documents_.size();
+  }
+  /**
+   * <pre>
+   * The edited notation of every document the edits rewrote, named as the
+   * parse request named it: the document being edited first, then the others
+   * in name order. A document of several the edits left as parsed is not
+   * listed; the one document of a single-document model always is. Empty when
+   * the edits were refused.
+   * </pre>
+   *
+   * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.EditedDocument getDocuments(int index) {
+    return documents_.get(index);
+  }
+  /**
+   * <pre>
+   * The edited notation of every document the edits rewrote, named as the
+   * parse request named it: the document being edited first, then the others
+   * in name order. A document of several the edits left as parsed is not
+   * listed; the one document of a single-document model always is. Empty when
+   * the edits were refused.
+   * </pre>
+   *
+   * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.EditedDocumentOrBuilder getDocumentsOrBuilder(
+      int index) {
+    return documents_.get(index);
+  }
+
+  public static final int REFERRERS_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private java.util.List<org.openmbee.opensysml.proto.Referrer> referrers_;
+  /**
+   * <pre>
+   * The declarations referring to the target of a refused rename, delete or
+   * move, each with the document declaring it, in document then name order.
+   * Empty when `referring_elements` is.
+   * </pre>
+   *
+   * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<org.openmbee.opensysml.proto.Referrer> getReferrersList() {
+    return referrers_;
+  }
+  /**
+   * <pre>
+   * The declarations referring to the target of a refused rename, delete or
+   * move, each with the document declaring it, in document then name order.
+   * Empty when `referring_elements` is.
+   * </pre>
+   *
+   * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends org.openmbee.opensysml.proto.ReferrerOrBuilder> 
+      getReferrersOrBuilderList() {
+    return referrers_;
+  }
+  /**
+   * <pre>
+   * The declarations referring to the target of a refused rename, delete or
+   * move, each with the document declaring it, in document then name order.
+   * Empty when `referring_elements` is.
+   * </pre>
+   *
+   * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+   */
+  @java.lang.Override
+  public int getReferrersCount() {
+    return referrers_.size();
+  }
+  /**
+   * <pre>
+   * The declarations referring to the target of a refused rename, delete or
+   * move, each with the document declaring it, in document then name order.
+   * Empty when `referring_elements` is.
+   * </pre>
+   *
+   * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.Referrer getReferrers(int index) {
+    return referrers_.get(index);
+  }
+  /**
+   * <pre>
+   * The declarations referring to the target of a refused rename, delete or
+   * move, each with the document declaring it, in document then name order.
+   * Empty when `referring_elements` is.
+   * </pre>
+   *
+   * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.ReferrerOrBuilder getReferrersOrBuilder(
+      int index) {
+    return referrers_.get(index);
   }
 
   private byte memoizedIsInitialized = -1;
@@ -393,6 +577,12 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < referringElements_.size(); i++) {
       com.google.protobuf.GeneratedMessage.writeString(output, 6, referringElements_.getRaw(i));
+    }
+    for (int i = 0; i < documents_.size(); i++) {
+      output.writeMessage(7, documents_.get(i));
+    }
+    for (int i = 0; i < referrers_.size(); i++) {
+      output.writeMessage(8, referrers_.get(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -429,6 +619,14 @@ private static final long serialVersionUID = 0L;
       size += dataSize;
       size += 1 * getReferringElementsList().size();
     }
+    for (int i = 0; i < documents_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(7, documents_.get(i));
+    }
+    for (int i = 0; i < referrers_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(8, referrers_.get(i));
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -455,6 +653,10 @@ private static final long serialVersionUID = 0L;
         .equals(other.getDiagnosticsList())) return false;
     if (!getReferringElementsList()
         .equals(other.getReferringElementsList())) return false;
+    if (!getDocumentsList()
+        .equals(other.getDocumentsList())) return false;
+    if (!getReferrersList()
+        .equals(other.getReferrersList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -483,6 +685,14 @@ private static final long serialVersionUID = 0L;
     if (getReferringElementsCount() > 0) {
       hash = (37 * hash) + REFERRING_ELEMENTS_FIELD_NUMBER;
       hash = (53 * hash) + getReferringElementsList().hashCode();
+    }
+    if (getDocumentsCount() > 0) {
+      hash = (37 * hash) + DOCUMENTS_FIELD_NUMBER;
+      hash = (53 * hash) + getDocumentsList().hashCode();
+    }
+    if (getReferrersCount() > 0) {
+      hash = (37 * hash) + REFERRERS_FIELD_NUMBER;
+      hash = (53 * hash) + getReferrersList().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -584,6 +794,8 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * ApplyEditsResponse carries the edited source, or says why nothing was edited.
+   * The edited notation is in `documents`, one entry per document the edits
+   * rewrote; `content` repeats it for a single-document model only.
    * </pre>
    *
    * Protobuf type {@code sysml.ApplyEditsResponse}
@@ -638,6 +850,20 @@ private static final long serialVersionUID = 0L;
       bitField0_ = (bitField0_ & ~0x00000010);
       referringElements_ =
           com.google.protobuf.LazyStringArrayList.emptyList();
+      if (documentsBuilder_ == null) {
+        documents_ = java.util.Collections.emptyList();
+      } else {
+        documents_ = null;
+        documentsBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00000040);
+      if (referrersBuilder_ == null) {
+        referrers_ = java.util.Collections.emptyList();
+      } else {
+        referrers_ = null;
+        referrersBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00000080);
       return this;
     }
 
@@ -688,6 +914,24 @@ private static final long serialVersionUID = 0L;
         result.diagnostics_ = diagnostics_;
       } else {
         result.diagnostics_ = diagnosticsBuilder_.build();
+      }
+      if (documentsBuilder_ == null) {
+        if (((bitField0_ & 0x00000040) != 0)) {
+          documents_ = java.util.Collections.unmodifiableList(documents_);
+          bitField0_ = (bitField0_ & ~0x00000040);
+        }
+        result.documents_ = documents_;
+      } else {
+        result.documents_ = documentsBuilder_.build();
+      }
+      if (referrersBuilder_ == null) {
+        if (((bitField0_ & 0x00000080) != 0)) {
+          referrers_ = java.util.Collections.unmodifiableList(referrers_);
+          bitField0_ = (bitField0_ & ~0x00000080);
+        }
+        result.referrers_ = referrers_;
+      } else {
+        result.referrers_ = referrersBuilder_.build();
       }
     }
 
@@ -795,6 +1039,58 @@ private static final long serialVersionUID = 0L;
         }
         onChanged();
       }
+      if (documentsBuilder_ == null) {
+        if (!other.documents_.isEmpty()) {
+          if (documents_.isEmpty()) {
+            documents_ = other.documents_;
+            bitField0_ = (bitField0_ & ~0x00000040);
+          } else {
+            ensureDocumentsIsMutable();
+            documents_.addAll(other.documents_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.documents_.isEmpty()) {
+          if (documentsBuilder_.isEmpty()) {
+            documentsBuilder_.dispose();
+            documentsBuilder_ = null;
+            documents_ = other.documents_;
+            bitField0_ = (bitField0_ & ~0x00000040);
+            documentsBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetDocumentsFieldBuilder() : null;
+          } else {
+            documentsBuilder_.addAllMessages(other.documents_);
+          }
+        }
+      }
+      if (referrersBuilder_ == null) {
+        if (!other.referrers_.isEmpty()) {
+          if (referrers_.isEmpty()) {
+            referrers_ = other.referrers_;
+            bitField0_ = (bitField0_ & ~0x00000080);
+          } else {
+            ensureReferrersIsMutable();
+            referrers_.addAll(other.referrers_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.referrers_.isEmpty()) {
+          if (referrersBuilder_.isEmpty()) {
+            referrersBuilder_.dispose();
+            referrersBuilder_ = null;
+            referrers_ = other.referrers_;
+            bitField0_ = (bitField0_ & ~0x00000080);
+            referrersBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetReferrersFieldBuilder() : null;
+          } else {
+            referrersBuilder_.addAllMessages(other.referrers_);
+          }
+        }
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -868,6 +1164,32 @@ private static final long serialVersionUID = 0L;
               referringElements_.add(s);
               break;
             } // case 50
+            case 58: {
+              org.openmbee.opensysml.proto.EditedDocument m =
+                  input.readMessage(
+                      org.openmbee.opensysml.proto.EditedDocument.parser(),
+                      extensionRegistry);
+              if (documentsBuilder_ == null) {
+                ensureDocumentsIsMutable();
+                documents_.add(m);
+              } else {
+                documentsBuilder_.addMessage(m);
+              }
+              break;
+            } // case 58
+            case 66: {
+              org.openmbee.opensysml.proto.Referrer m =
+                  input.readMessage(
+                      org.openmbee.opensysml.proto.Referrer.parser(),
+                      extensionRegistry);
+              if (referrersBuilder_ == null) {
+                ensureReferrersIsMutable();
+                referrers_.add(m);
+              } else {
+                referrersBuilder_.addMessage(m);
+              }
+              break;
+            } // case 66
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -888,8 +1210,13 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object content_ = "";
     /**
      * <pre>
-     * The edited notation, byte-identical to the source outside the edited spans.
-     * Empty when the edits were refused, so a refusal never writes a file.
+     * The edited notation of a single-document model, byte-identical to the
+     * source outside the edited spans. Empty when the edits were refused, so a
+     * refusal never writes a file, and empty for a model of several documents,
+     * whose edited notation is in `documents` alone: a client that reads
+     * `content` alone was written for one document and must not write one
+     * document's notation over another's. `documents` carries the same notation
+     * for a single-document model, so a client needs one code path.
      * </pre>
      *
      * <code>string content = 1 [json_name = "content"];</code>
@@ -909,8 +1236,13 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The edited notation, byte-identical to the source outside the edited spans.
-     * Empty when the edits were refused, so a refusal never writes a file.
+     * The edited notation of a single-document model, byte-identical to the
+     * source outside the edited spans. Empty when the edits were refused, so a
+     * refusal never writes a file, and empty for a model of several documents,
+     * whose edited notation is in `documents` alone: a client that reads
+     * `content` alone was written for one document and must not write one
+     * document's notation over another's. `documents` carries the same notation
+     * for a single-document model, so a client needs one code path.
      * </pre>
      *
      * <code>string content = 1 [json_name = "content"];</code>
@@ -931,8 +1263,13 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The edited notation, byte-identical to the source outside the edited spans.
-     * Empty when the edits were refused, so a refusal never writes a file.
+     * The edited notation of a single-document model, byte-identical to the
+     * source outside the edited spans. Empty when the edits were refused, so a
+     * refusal never writes a file, and empty for a model of several documents,
+     * whose edited notation is in `documents` alone: a client that reads
+     * `content` alone was written for one document and must not write one
+     * document's notation over another's. `documents` carries the same notation
+     * for a single-document model, so a client needs one code path.
      * </pre>
      *
      * <code>string content = 1 [json_name = "content"];</code>
@@ -949,8 +1286,13 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The edited notation, byte-identical to the source outside the edited spans.
-     * Empty when the edits were refused, so a refusal never writes a file.
+     * The edited notation of a single-document model, byte-identical to the
+     * source outside the edited spans. Empty when the edits were refused, so a
+     * refusal never writes a file, and empty for a model of several documents,
+     * whose edited notation is in `documents` alone: a client that reads
+     * `content` alone was written for one document and must not write one
+     * document's notation over another's. `documents` carries the same notation
+     * for a single-document model, so a client needs one code path.
      * </pre>
      *
      * <code>string content = 1 [json_name = "content"];</code>
@@ -964,8 +1306,13 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The edited notation, byte-identical to the source outside the edited spans.
-     * Empty when the edits were refused, so a refusal never writes a file.
+     * The edited notation of a single-document model, byte-identical to the
+     * source outside the edited spans. Empty when the edits were refused, so a
+     * refusal never writes a file, and empty for a model of several documents,
+     * whose edited notation is in `documents` alone: a client that reads
+     * `content` alone was written for one document and must not write one
+     * document's notation over another's. `documents` carries the same notation
+     * for a single-document model, so a client needs one code path.
      * </pre>
      *
      * <code>string content = 1 [json_name = "content"];</code>
@@ -996,7 +1343,8 @@ private static final long serialVersionUID = 0L;
 
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1010,7 +1358,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1024,7 +1373,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1038,7 +1388,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1059,7 +1410,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1077,7 +1429,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1097,7 +1450,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1118,7 +1472,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1136,7 +1491,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1154,7 +1510,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1173,7 +1530,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1190,7 +1548,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1207,7 +1566,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1218,7 +1578,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1232,7 +1593,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1247,7 +1609,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1258,7 +1621,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1270,7 +1634,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * What each operation changed, in request order.
+     * What each operation changed, grouped by document in the order `documents`
+     * lists them and in request order within a document.
      * </pre>
      *
      * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -1297,7 +1662,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object error_ = "";
     /**
      * <pre>
-     * non-empty if the edits were refused; content is unset
+     * non-empty if the edits were refused; content and documents are unset
      * </pre>
      *
      * <code>string error = 3 [json_name = "error"];</code>
@@ -1317,7 +1682,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * non-empty if the edits were refused; content is unset
+     * non-empty if the edits were refused; content and documents are unset
      * </pre>
      *
      * <code>string error = 3 [json_name = "error"];</code>
@@ -1338,7 +1703,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * non-empty if the edits were refused; content is unset
+     * non-empty if the edits were refused; content and documents are unset
      * </pre>
      *
      * <code>string error = 3 [json_name = "error"];</code>
@@ -1355,7 +1720,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * non-empty if the edits were refused; content is unset
+     * non-empty if the edits were refused; content and documents are unset
      * </pre>
      *
      * <code>string error = 3 [json_name = "error"];</code>
@@ -1369,7 +1734,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * non-empty if the edits were refused; content is unset
+     * non-empty if the edits were refused; content and documents are unset
      * </pre>
      *
      * <code>string error = 3 [json_name = "error"];</code>
@@ -1477,7 +1842,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1492,7 +1858,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1507,7 +1874,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1522,7 +1890,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1544,7 +1913,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1563,7 +1933,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1584,7 +1955,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1606,7 +1978,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1625,7 +1998,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1644,7 +2018,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1664,7 +2039,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1682,7 +2058,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1700,7 +2077,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1712,7 +2090,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1727,7 +2106,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1743,7 +2123,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1755,7 +2136,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1768,7 +2150,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-     * or the errors the edited source was found to have.
+     * or the errors the edited source was found to have. A diagnostic's span
+     * names the document it is in.
      * </pre>
      *
      * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -1802,8 +2185,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Where the references to a declaration whose rename was refused are made:
-     * the FQN of each referring namespace.
+     * Where the references to a declaration whose rename, delete or move was
+     * refused are made: the FQN of each referring namespace, suffixed with its
+     * document in parentheses when that is not the document being edited.
+     * `referrers` carries the same list with the document as a field of its own.
      * </pre>
      *
      * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -1816,8 +2201,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Where the references to a declaration whose rename was refused are made:
-     * the FQN of each referring namespace.
+     * Where the references to a declaration whose rename, delete or move was
+     * refused are made: the FQN of each referring namespace, suffixed with its
+     * document in parentheses when that is not the document being edited.
+     * `referrers` carries the same list with the document as a field of its own.
      * </pre>
      *
      * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -1828,8 +2215,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Where the references to a declaration whose rename was refused are made:
-     * the FQN of each referring namespace.
+     * Where the references to a declaration whose rename, delete or move was
+     * refused are made: the FQN of each referring namespace, suffixed with its
+     * document in parentheses when that is not the document being edited.
+     * `referrers` carries the same list with the document as a field of its own.
      * </pre>
      *
      * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -1841,8 +2230,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Where the references to a declaration whose rename was refused are made:
-     * the FQN of each referring namespace.
+     * Where the references to a declaration whose rename, delete or move was
+     * refused are made: the FQN of each referring namespace, suffixed with its
+     * document in parentheses when that is not the document being edited.
+     * `referrers` carries the same list with the document as a field of its own.
      * </pre>
      *
      * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -1855,8 +2246,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Where the references to a declaration whose rename was refused are made:
-     * the FQN of each referring namespace.
+     * Where the references to a declaration whose rename, delete or move was
+     * refused are made: the FQN of each referring namespace, suffixed with its
+     * document in parentheses when that is not the document being edited.
+     * `referrers` carries the same list with the document as a field of its own.
      * </pre>
      *
      * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -1875,8 +2268,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Where the references to a declaration whose rename was refused are made:
-     * the FQN of each referring namespace.
+     * Where the references to a declaration whose rename, delete or move was
+     * refused are made: the FQN of each referring namespace, suffixed with its
+     * document in parentheses when that is not the document being edited.
+     * `referrers` carries the same list with the document as a field of its own.
      * </pre>
      *
      * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -1894,8 +2289,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Where the references to a declaration whose rename was refused are made:
-     * the FQN of each referring namespace.
+     * Where the references to a declaration whose rename, delete or move was
+     * refused are made: the FQN of each referring namespace, suffixed with its
+     * document in parentheses when that is not the document being edited.
+     * `referrers` carries the same list with the document as a field of its own.
      * </pre>
      *
      * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -1913,8 +2310,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Where the references to a declaration whose rename was refused are made:
-     * the FQN of each referring namespace.
+     * Where the references to a declaration whose rename, delete or move was
+     * refused are made: the FQN of each referring namespace, suffixed with its
+     * document in parentheses when that is not the document being edited.
+     * `referrers` carries the same list with the document as a field of its own.
      * </pre>
      *
      * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -1929,8 +2328,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Where the references to a declaration whose rename was refused are made:
-     * the FQN of each referring namespace.
+     * Where the references to a declaration whose rename, delete or move was
+     * refused are made: the FQN of each referring namespace, suffixed with its
+     * document in parentheses when that is not the document being edited.
+     * `referrers` carries the same list with the document as a field of its own.
      * </pre>
      *
      * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -1946,6 +2347,738 @@ private static final long serialVersionUID = 0L;
       bitField0_ |= 0x00000020;
       onChanged();
       return this;
+    }
+
+    private java.util.List<org.openmbee.opensysml.proto.EditedDocument> documents_ =
+      java.util.Collections.emptyList();
+    private void ensureDocumentsIsMutable() {
+      if (!((bitField0_ & 0x00000040) != 0)) {
+        documents_ = new java.util.ArrayList<org.openmbee.opensysml.proto.EditedDocument>(documents_);
+        bitField0_ |= 0x00000040;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.EditedDocument, org.openmbee.opensysml.proto.EditedDocument.Builder, org.openmbee.opensysml.proto.EditedDocumentOrBuilder> documentsBuilder_;
+
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.EditedDocument> getDocumentsList() {
+      if (documentsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(documents_);
+      } else {
+        return documentsBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public int getDocumentsCount() {
+      if (documentsBuilder_ == null) {
+        return documents_.size();
+      } else {
+        return documentsBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public org.openmbee.opensysml.proto.EditedDocument getDocuments(int index) {
+      if (documentsBuilder_ == null) {
+        return documents_.get(index);
+      } else {
+        return documentsBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public Builder setDocuments(
+        int index, org.openmbee.opensysml.proto.EditedDocument value) {
+      if (documentsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureDocumentsIsMutable();
+        documents_.set(index, value);
+        onChanged();
+      } else {
+        documentsBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public Builder setDocuments(
+        int index, org.openmbee.opensysml.proto.EditedDocument.Builder builderForValue) {
+      if (documentsBuilder_ == null) {
+        ensureDocumentsIsMutable();
+        documents_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        documentsBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public Builder addDocuments(org.openmbee.opensysml.proto.EditedDocument value) {
+      if (documentsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureDocumentsIsMutable();
+        documents_.add(value);
+        onChanged();
+      } else {
+        documentsBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public Builder addDocuments(
+        int index, org.openmbee.opensysml.proto.EditedDocument value) {
+      if (documentsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureDocumentsIsMutable();
+        documents_.add(index, value);
+        onChanged();
+      } else {
+        documentsBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public Builder addDocuments(
+        org.openmbee.opensysml.proto.EditedDocument.Builder builderForValue) {
+      if (documentsBuilder_ == null) {
+        ensureDocumentsIsMutable();
+        documents_.add(builderForValue.build());
+        onChanged();
+      } else {
+        documentsBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public Builder addDocuments(
+        int index, org.openmbee.opensysml.proto.EditedDocument.Builder builderForValue) {
+      if (documentsBuilder_ == null) {
+        ensureDocumentsIsMutable();
+        documents_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        documentsBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public Builder addAllDocuments(
+        java.lang.Iterable<? extends org.openmbee.opensysml.proto.EditedDocument> values) {
+      if (documentsBuilder_ == null) {
+        ensureDocumentsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, documents_);
+        onChanged();
+      } else {
+        documentsBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public Builder clearDocuments() {
+      if (documentsBuilder_ == null) {
+        documents_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000040);
+        onChanged();
+      } else {
+        documentsBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public Builder removeDocuments(int index) {
+      if (documentsBuilder_ == null) {
+        ensureDocumentsIsMutable();
+        documents_.remove(index);
+        onChanged();
+      } else {
+        documentsBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public org.openmbee.opensysml.proto.EditedDocument.Builder getDocumentsBuilder(
+        int index) {
+      return internalGetDocumentsFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public org.openmbee.opensysml.proto.EditedDocumentOrBuilder getDocumentsOrBuilder(
+        int index) {
+      if (documentsBuilder_ == null) {
+        return documents_.get(index);  } else {
+        return documentsBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public java.util.List<? extends org.openmbee.opensysml.proto.EditedDocumentOrBuilder> 
+         getDocumentsOrBuilderList() {
+      if (documentsBuilder_ != null) {
+        return documentsBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(documents_);
+      }
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public org.openmbee.opensysml.proto.EditedDocument.Builder addDocumentsBuilder() {
+      return internalGetDocumentsFieldBuilder().addBuilder(
+          org.openmbee.opensysml.proto.EditedDocument.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public org.openmbee.opensysml.proto.EditedDocument.Builder addDocumentsBuilder(
+        int index) {
+      return internalGetDocumentsFieldBuilder().addBuilder(
+          index, org.openmbee.opensysml.proto.EditedDocument.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The edited notation of every document the edits rewrote, named as the
+     * parse request named it: the document being edited first, then the others
+     * in name order. A document of several the edits left as parsed is not
+     * listed; the one document of a single-document model always is. Empty when
+     * the edits were refused.
+     * </pre>
+     *
+     * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.EditedDocument.Builder> 
+         getDocumentsBuilderList() {
+      return internalGetDocumentsFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.EditedDocument, org.openmbee.opensysml.proto.EditedDocument.Builder, org.openmbee.opensysml.proto.EditedDocumentOrBuilder> 
+        internalGetDocumentsFieldBuilder() {
+      if (documentsBuilder_ == null) {
+        documentsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            org.openmbee.opensysml.proto.EditedDocument, org.openmbee.opensysml.proto.EditedDocument.Builder, org.openmbee.opensysml.proto.EditedDocumentOrBuilder>(
+                documents_,
+                ((bitField0_ & 0x00000040) != 0),
+                getParentForChildren(),
+                isClean());
+        documents_ = null;
+      }
+      return documentsBuilder_;
+    }
+
+    private java.util.List<org.openmbee.opensysml.proto.Referrer> referrers_ =
+      java.util.Collections.emptyList();
+    private void ensureReferrersIsMutable() {
+      if (!((bitField0_ & 0x00000080) != 0)) {
+        referrers_ = new java.util.ArrayList<org.openmbee.opensysml.proto.Referrer>(referrers_);
+        bitField0_ |= 0x00000080;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.Referrer, org.openmbee.opensysml.proto.Referrer.Builder, org.openmbee.opensysml.proto.ReferrerOrBuilder> referrersBuilder_;
+
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.Referrer> getReferrersList() {
+      if (referrersBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(referrers_);
+      } else {
+        return referrersBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public int getReferrersCount() {
+      if (referrersBuilder_ == null) {
+        return referrers_.size();
+      } else {
+        return referrersBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public org.openmbee.opensysml.proto.Referrer getReferrers(int index) {
+      if (referrersBuilder_ == null) {
+        return referrers_.get(index);
+      } else {
+        return referrersBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public Builder setReferrers(
+        int index, org.openmbee.opensysml.proto.Referrer value) {
+      if (referrersBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureReferrersIsMutable();
+        referrers_.set(index, value);
+        onChanged();
+      } else {
+        referrersBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public Builder setReferrers(
+        int index, org.openmbee.opensysml.proto.Referrer.Builder builderForValue) {
+      if (referrersBuilder_ == null) {
+        ensureReferrersIsMutable();
+        referrers_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        referrersBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public Builder addReferrers(org.openmbee.opensysml.proto.Referrer value) {
+      if (referrersBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureReferrersIsMutable();
+        referrers_.add(value);
+        onChanged();
+      } else {
+        referrersBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public Builder addReferrers(
+        int index, org.openmbee.opensysml.proto.Referrer value) {
+      if (referrersBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureReferrersIsMutable();
+        referrers_.add(index, value);
+        onChanged();
+      } else {
+        referrersBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public Builder addReferrers(
+        org.openmbee.opensysml.proto.Referrer.Builder builderForValue) {
+      if (referrersBuilder_ == null) {
+        ensureReferrersIsMutable();
+        referrers_.add(builderForValue.build());
+        onChanged();
+      } else {
+        referrersBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public Builder addReferrers(
+        int index, org.openmbee.opensysml.proto.Referrer.Builder builderForValue) {
+      if (referrersBuilder_ == null) {
+        ensureReferrersIsMutable();
+        referrers_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        referrersBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public Builder addAllReferrers(
+        java.lang.Iterable<? extends org.openmbee.opensysml.proto.Referrer> values) {
+      if (referrersBuilder_ == null) {
+        ensureReferrersIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, referrers_);
+        onChanged();
+      } else {
+        referrersBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public Builder clearReferrers() {
+      if (referrersBuilder_ == null) {
+        referrers_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000080);
+        onChanged();
+      } else {
+        referrersBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public Builder removeReferrers(int index) {
+      if (referrersBuilder_ == null) {
+        ensureReferrersIsMutable();
+        referrers_.remove(index);
+        onChanged();
+      } else {
+        referrersBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public org.openmbee.opensysml.proto.Referrer.Builder getReferrersBuilder(
+        int index) {
+      return internalGetReferrersFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public org.openmbee.opensysml.proto.ReferrerOrBuilder getReferrersOrBuilder(
+        int index) {
+      if (referrersBuilder_ == null) {
+        return referrers_.get(index);  } else {
+        return referrersBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public java.util.List<? extends org.openmbee.opensysml.proto.ReferrerOrBuilder> 
+         getReferrersOrBuilderList() {
+      if (referrersBuilder_ != null) {
+        return referrersBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(referrers_);
+      }
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public org.openmbee.opensysml.proto.Referrer.Builder addReferrersBuilder() {
+      return internalGetReferrersFieldBuilder().addBuilder(
+          org.openmbee.opensysml.proto.Referrer.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public org.openmbee.opensysml.proto.Referrer.Builder addReferrersBuilder(
+        int index) {
+      return internalGetReferrersFieldBuilder().addBuilder(
+          index, org.openmbee.opensysml.proto.Referrer.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The declarations referring to the target of a refused rename, delete or
+     * move, each with the document declaring it, in document then name order.
+     * Empty when `referring_elements` is.
+     * </pre>
+     *
+     * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.Referrer.Builder> 
+         getReferrersBuilderList() {
+      return internalGetReferrersFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.Referrer, org.openmbee.opensysml.proto.Referrer.Builder, org.openmbee.opensysml.proto.ReferrerOrBuilder> 
+        internalGetReferrersFieldBuilder() {
+      if (referrersBuilder_ == null) {
+        referrersBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            org.openmbee.opensysml.proto.Referrer, org.openmbee.opensysml.proto.Referrer.Builder, org.openmbee.opensysml.proto.ReferrerOrBuilder>(
+                referrers_,
+                ((bitField0_ & 0x00000080) != 0),
+                getParentForChildren(),
+                isClean());
+        referrers_ = null;
+      }
+      return referrersBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.ApplyEditsResponse)

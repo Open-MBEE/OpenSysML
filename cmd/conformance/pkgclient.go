@@ -696,22 +696,38 @@ func (c *pkgClient) applyEdits(ctx context.Context, request protoreflect.Message
 		}
 		edits = append(edits, edit)
 	}
-	result, err := c.api.ApplyEdits(ctx, c.model(req.ModelHash), edits...)
+	model := c.model(req.ModelHash)
+	if !req.AcceptDocuments && len(model.Roots) > 1 {
+		return nil, &uncoveredError{reason: "the public Go API always accepts documents, so it cannot send a legacy-shaped edit of a model of several"}
+	}
+	result, err := c.api.ApplyDocumentEdits(ctx, model, req.Document, edits...)
 	var editErr *opensysml.EditError
 	if errors.As(err, &editErr) {
-		return &pb.ApplyEditsResponse{
+		response := &pb.ApplyEditsResponse{
 			Error:             editErr.Message,
 			Failure:           pb.EditFailure(editErr.Failure),
 			ReferringElements: editErr.Referring,
 			Diagnostics:       diagnosticsToProto(editErr.Diagnostics),
-		}, nil
+		}
+		for _, referrer := range editErr.Referrers {
+			response.Referrers = append(response.Referrers, &pb.Referrer{
+				Name: referrer.Name, Document: referrer.Document,
+			})
+		}
+		return response, nil
 	}
 	if err != nil {
 		return nil, apiError(err)
 	}
 	response := &pb.ApplyEditsResponse{
+		//lint:ignore SA1019 the scenarios pin the deprecated field's compatibility
 		Content:     result.Content,
 		Diagnostics: diagnosticsToProto(result.Diagnostics),
+	}
+	for _, document := range result.Documents {
+		response.Documents = append(response.Documents, &pb.EditedDocument{
+			Name: document.Name, Content: document.Content,
+		})
 	}
 	for _, applied := range result.Applied {
 		// #nosec G115 -- source offsets and lengths fit in int32.
@@ -722,6 +738,7 @@ func (c *pkgClient) applyEdits(ctx context.Context, request protoreflect.Message
 			Length:         int32(applied.Length),
 			OldText:        applied.OldText,
 			NewText:        applied.NewText,
+			Document:       applied.Document,
 		})
 	}
 	return response, nil
