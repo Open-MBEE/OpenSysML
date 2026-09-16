@@ -140,14 +140,15 @@ func (e *StateExecutor) fireTransitionInRegion(region *ast.StateRegion, trans *l
 	source := e.activeConfig.regionStates[region]
 	return true, e.travel(r,
 		func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) },
-		func(effects []lower.StateBehavior, target *ast.StateNode) error {
+		func(target *ast.StateNode) []*ast.StateNode { return e.enteredInRegion(region, trans, target) },
+		func(effects []routeEffect, target *ast.StateNode) error {
 			return e.moveInRegion(region, source, trans, effects, target)
 		})
 }
 
 // moveInRegion finishes a move out of region's active state source: within the
 // region, across to a concurrent one, or out of the whole region set.
-func (e *StateExecutor) moveInRegion(region *ast.StateRegion, source *ast.StateNode, trans *lower.Transition, effects []lower.StateBehavior, target *ast.StateNode) error {
+func (e *StateExecutor) moveInRegion(region *ast.StateRegion, source *ast.StateNode, trans *lower.Transition, effects []routeEffect, target *ast.StateNode) error {
 	sourceRegion, targetRegion := e.regionMove(region, target)
 	if targetRegion == nil {
 		return e.leaveRegion(region, trans, effects, target)
@@ -260,7 +261,7 @@ func (e *StateExecutor) moveBetweenRegions(
 	sourceRegion, targetRegion *ast.StateRegion,
 	source *ast.StateNode,
 	trans *lower.Transition,
-	effects []lower.StateBehavior,
+	effects []routeEffect,
 	target *ast.StateNode,
 ) error {
 	keep := e.regionKeep(targetRegion, trans, target)
@@ -280,7 +281,7 @@ func (e *StateExecutor) moveBetweenRegions(
 		}
 	}
 
-	if err := e.runBehaviors(effects); err != nil {
+	if err := e.runEffects(effects, e.descendantChain(keep, target)); err != nil {
 		return err
 	}
 	if keep == target {
@@ -368,7 +369,7 @@ func (e *StateExecutor) exitRegionTo(region *ast.StateRegion, stop *ast.StateNod
 // source is active in — outside the composite state that owns the regions. The
 // whole set is left: every sibling region is exited, recording its configuration
 // for history, before the target is entered.
-func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transition, effects []lower.StateBehavior, target *ast.StateNode) error {
+func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transition, effects []routeEffect, target *ast.StateNode) error {
 	source := e.activeConfig.regionStates[region]
 	owner := e.graph.RegionOwner[region]
 	if owner == nil {
@@ -399,7 +400,7 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 			e.activeConfig.regionStates[declaring] = target
 		}
 	}
-	if err := e.runBehaviors(effects); err != nil {
+	if err := e.runEffects(effects, e.descendantChain(lca, target)); err != nil {
 		return err
 	}
 	if lca == target {
@@ -430,7 +431,7 @@ func (e *StateExecutor) exitRegionOwnerTo(owner, lca *ast.StateNode) error {
 // leaveTopRegions leaves the machine's own orthogonal regions, which no state
 // owns: every region is exited in declaration order and the target — outside
 // all of them — is then entered as the machine's single active state.
-func (e *StateExecutor) leaveTopRegions(trans *lower.Transition, effects []lower.StateBehavior, source, target *ast.StateNode) error {
+func (e *StateExecutor) leaveTopRegions(trans *lower.Transition, effects []routeEffect, source, target *ast.StateNode) error {
 	for _, region := range e.graph.TopRegions {
 		active, ok := e.activeConfig.regionStates[region]
 		if !ok {
@@ -448,7 +449,7 @@ func (e *StateExecutor) leaveTopRegions(trans *lower.Transition, effects []lower
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
 	e.activeConfig.simpleState = nil
 
-	if err := e.runBehaviors(effects); err != nil {
+	if err := e.runEffects(effects, e.descendantChain(nil, target)); err != nil {
 		return err
 	}
 
