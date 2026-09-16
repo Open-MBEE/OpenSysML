@@ -373,6 +373,31 @@ func TestHoverStatesIdentityInPlainText(t *testing.T) {
 	}
 }
 
+// Hovering a declaration in a workspace copy of a library file, rooted at the
+// library's package, states the norm's id; a reference to it from another file
+// resolves to the copy and states the same.
+func TestHoverWorkspaceCopyOfLibraryFileStatesNormativeIdentity(t *testing.T) {
+	ws := model.NewWorkspace()
+	s := NewServer(ws)
+	lib := ws.LibraryDocument("Kernel Libraries/Kernel Data Type Library/ScalarValues.kerml")
+	if lib == nil {
+		t.Fatal("ScalarValues.kerml not bundled")
+	}
+	copyName := uri.File("/tmp/ScalarValues.kerml").Filename()
+	src := string(lib.Content)
+	ws.Open(copyName, lib.Content, 1)
+	const want = "Element id 14c0aa22-5489-59b5-b438-ded26e83ba31 (normative, KerML)"
+	if res := hoverInSrc(t, s, copyName, src, strings.Index(src, "datatype Real ")+len("datatype ")); !strings.Contains(res.Contents.Value, want) {
+		t.Errorf("hover on the copy's Real = %q, want %q", res.Contents.Value, want)
+	}
+	user := uri.File("/tmp/uses.sysml").Filename()
+	use := "package P { attribute mass : ScalarValues::Real; }"
+	ws.Open(user, []byte(use), 1)
+	if res := hoverInSrc(t, s, user, use, strings.Index(use, "Real;")); !strings.Contains(res.Contents.Value, want) {
+		t.Errorf("hover on a reference to the copy's Real = %q, want %q", res.Contents.Value, want)
+	}
+}
+
 // Hovering a library declaration in its own bundled document states the norm's id.
 func TestHoverLibraryDeclarationStatesNormativeIdentity(t *testing.T) {
 	ws := model.NewWorkspace()

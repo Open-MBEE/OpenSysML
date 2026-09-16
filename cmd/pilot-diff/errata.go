@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/errata"
@@ -127,38 +126,30 @@ func runErrata(root corpusRoot, files []string, overlay *errata.Overlay, ours, t
 
 	run := erratumRun{
 		totals:  compareRoot(root.Name, root.Dir, files, erratumOurs, erratumTheirs).Totals,
-		applied: len(applied),
+		applied: errata.Count(applied),
 	}
-	for _, rel := range sortedPaths(applied) {
-		entry := applied[rel]
-		run.findings = append(run.findings, finding(entry, root.Name, rel, ours, theirs, erratumOurs, erratumTheirs))
+	for _, rel := range errata.SortedPaths(applied) {
+		for _, entry := range applied[rel] {
+			run.findings = append(run.findings, finding(entry, root.Name, rel, ours, theirs, erratumOurs, erratumTheirs))
+		}
 	}
 	return run, nil
 }
 
 // coveredBy keeps the entries whose file this root actually walks: a root's
 // directory can contain a nested corpus root the walker skips.
-func coveredBy(applied map[string]errata.Entry, files []string) map[string]errata.Entry {
+func coveredBy(applied map[string][]errata.Entry, files []string) map[string][]errata.Entry {
 	walked := make(map[string]bool, len(files))
 	for _, rel := range files {
 		walked[rel] = true
 	}
-	out := make(map[string]errata.Entry, len(applied))
-	for rel, entry := range applied {
+	out := make(map[string][]errata.Entry, len(applied))
+	for rel, entries := range applied {
 		if walked[rel] {
-			out[rel] = entry
+			out[rel] = entries
 		}
 	}
 	return out
-}
-
-func sortedPaths(applied map[string]errata.Entry) []string {
-	paths := make([]string, 0, len(applied))
-	for rel := range applied {
-		paths = append(paths, rel)
-	}
-	sort.Strings(paths)
-	return paths
 }
 
 // finding states what the correction changed at its own line on both sides.

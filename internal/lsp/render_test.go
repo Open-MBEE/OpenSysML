@@ -107,11 +107,11 @@ func (r *recorder) all() []string {
 	return append([]string(nil), r.sent...)
 }
 
-// renderServer is a server holding one open document, as an editor session does.
+// renderServer is a server holding one open document, as a session of an
+// editor speaking the cross-document diagram contract does.
 func renderServer(t *testing.T, name, src string) (*Server, uri.URI) {
 	t.Helper()
-	s := NewServer(model.NewWorkspace())
-	s.client = &recorder{}
+	s := initializedServer(t, map[string]any{CrossDocumentCapability: true})
 	docURI := uri.File(name)
 	if err := s.DidOpen(context.Background(), &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
@@ -121,6 +121,22 @@ func renderServer(t *testing.T, name, src string) (*Server, uri.URI) {
 		t.Fatalf("DidOpen err = %v", err)
 	}
 	return s, docURI
+}
+
+// initializedServer is a server a client initialized with those experimental
+// capabilities, none for a client predating them.
+func initializedServer(t *testing.T, experimental map[string]any) *Server {
+	t.Helper()
+	s := NewServer(model.NewWorkspace())
+	s.client = &recorder{}
+	var caps protocol.ClientCapabilities
+	if experimental != nil {
+		caps.Experimental = experimental
+	}
+	if _, err := s.Initialize(context.Background(), &protocol.InitializeParams{Capabilities: caps}); err != nil {
+		t.Fatalf("Initialize err = %v", err)
+	}
+	return s
 }
 
 // call dispatches a custom request the way a served session does, through the
@@ -802,6 +818,9 @@ func TestInitializeAdvertisesTheRenderCapability(t *testing.T) {
 	}
 	if experimental["openSysmlRender"] != true {
 		t.Errorf("openSysmlRender = %#v, want true", experimental["openSysmlRender"])
+	}
+	if experimental[CrossDocumentCapability] != true {
+		t.Errorf("%s = %#v, want true", CrossDocumentCapability, experimental[CrossDocumentCapability])
 	}
 }
 

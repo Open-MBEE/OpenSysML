@@ -11,7 +11,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // NormativeSubject reports whether id is the id the norm fixes for the subject a
@@ -32,91 +31,31 @@ func NormativeSubject(id, qualifiedName string) bool {
 	return err == nil && written == qualifiedName
 }
 
-// libraryRoot is one root of a document, as library recognition reads it: its
-// qualified name, the id it states ("" for none), and how it is declared.
-type libraryRoot struct {
-	qname, id string
-	// pkg reports a root written as a package; library and standard are its keywords.
-	pkg, library, standard bool
-}
-
 // libraryDocument is the bundled library document a graph is a version of: the
 // one declaring every root, each a top-level package the norm names and ids as
 // the graph does. A graph rooted anywhere else — in a nested library element,
 // or in several documents — is none, and is read beside the library.
 func libraryDocument(roots []*element) string {
-	var read []libraryRoot
+	var read []identity.LibraryRoot
 	for _, root := range roots {
-		read = append(read, libraryRoot{qname: root.qname, id: root.elementID, pkg: root.metaclass == "Package"})
+		read = append(read, identity.LibraryRoot{QName: root.qname, ID: root.elementID, Pkg: root.metaclass == "Package"})
 	}
-	return libraryDocumentOf(read)
+	return identity.LibraryCatalog(libs.NewModelIndex()).DocumentRootedAt(read)
 }
 
-// documentLibrary is the bundled library document a parsed document is a version
-// of; its roots' ids are read beside the library, where only an annotation states one.
-func documentLibrary(name string, root *ast.RootNamespace) string {
+// documentLibrary is the bundled library document a parsed file is a version of,
+// read over the library alone in the language it was parsed as (see identity.LibraryVersion).
+func documentLibrary(file *source.SourceFile, root *ast.RootNamespace) string {
 	idx := libs.NewModelIndex()
-	catalog := identity.LibraryCatalog(idx)
-	for _, member := range root.Members {
-		m, ok := member.(*ast.Membership)
-		if !ok {
-			return ""
-		}
-		pkg, ok := m.Member.(*ast.Package)
-		if !ok {
-			return ""
-		}
-		pkgName, _ := pkg.Ident.DeclaredName()
-		if _, ok := catalog.ElementNamed(pkgName); !ok {
-			return ""
-		}
+	if !identity.LibraryCatalog(idx).NamesEveryRoot(root) {
+		return ""
 	}
-	idx.AddDocument(name, root)
+	name := file.Name()
+	idx.AddDocumentWithKind(name, root, file.Kind())
 	res := resolve.New(idx)
 	model := semantics.NewModel(res)
 	res.SetModel(model)
-	var roots []libraryRoot
-	for _, sym := range idx.DocumentRoot(name).Members() {
-		read := libraryRoot{qname: idx.GetFQN(sym)}
-		if pkg, ok := sym.Decl.(*ast.Package); ok {
-			read.pkg, read.library, read.standard = true, pkg.IsLibrary, pkg.IsStandard
-		}
-		if info, ok := identity.Of(model, res, sym); ok && info.Source == identity.SourceDeclared {
-			read.id = info.EffectiveID
-		}
-		roots = append(roots, read)
-	}
-	return libraryDocumentOf(roots)
-}
-
-// libraryDocumentOf is the bundled library document declaring every root as a top-level
-// package under its name and its id, or with its package keywords where none is stated.
-func libraryDocumentOf(roots []libraryRoot) string {
-	catalog := identity.LibraryCatalog(libs.NewModelIndex())
-	doc := ""
-	for _, root := range roots {
-		el, ok := catalog.ElementNamed(root.qname)
-		if !ok || !topLevelPackage(root, el) || (doc != "" && el.Symbol.DocName != doc) {
-			return ""
-		}
-		pkg, ok := el.Symbol.Decl.(*ast.Package)
-		if !ok || root.id != "" && root.id != el.ID ||
-			root.id == "" && (root.library != pkg.IsLibrary || root.standard != pkg.IsStandard) {
-			return ""
-		}
-		doc = el.Symbol.DocName
-	}
-	return doc
-}
-
-// topLevelPackage reports whether root is written as a package and el is one
-// its document declares at the top: its owner scope is the document root.
-func topLevelPackage(root libraryRoot, el *identity.LibraryElement) bool {
-	if !root.pkg || el.Symbol.Kind != symbols.SymbolPackage {
-		return false
-	}
-	scope := el.Symbol.OwnerScope
-	return scope != nil && scope.Parent() == nil && scope.Owner() == nil
+	return identity.LibraryVersion(model, res, name)
 }
 
 // libraryGraphNames memoizes, per bundled library document, the qualified name
@@ -146,7 +85,7 @@ func libraryGraphName(el *identity.LibraryElement) (string, error) {
 // encodeLibraryNames runs the encoder's naming over one bundled library
 // document, so the names it answers with are the ones it writes.
 func encodeLibraryNames(doc string) any {
-	data, err := libs.EmbeddedSource().Read(doc)
+	data, err := libs.BundledSource().Read(doc)
 	if err != nil {
 		return err
 	}

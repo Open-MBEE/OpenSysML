@@ -5,10 +5,12 @@ import type { EditPalette, RenderNode } from "../protocol";
 import { nodeMenu, paletteItems } from "./actions";
 
 const palette: EditPalette = { members: ["part", "port", "fork"], connections: ["connection", "flow"], typed: ["part", "port"] };
-const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } } };
-const declared: RenderNode = { id: "n1", kind: "part", name: "tank", type: "", detail: "", fqn: "Vehicle::Car::tank", notation: "part", origin };
+const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }, digest: "d0" };
+const declared: RenderNode = { id: "n1", kind: "part", name: "tank", type: "", detail: "", fqn: "Vehicle::Car::tank", declaredHere: true, notation: "part", origin };
 const imported: RenderNode = { id: "n2", kind: "part", name: "wheel", type: "Wheel", detail: "", origin };
 const unlocated: RenderNode = { id: "n3", kind: "part", name: "ghost", type: "", detail: "" };
+// A node another workspace document declares: named for a layout, not the document's own.
+const foreign: RenderNode = { ...declared, id: "n4", declaredHere: undefined, origin: { ...origin, uri: "file:///parts.sysml" } };
 
 test("paletteItems offers every member, then every connection", () => {
   assert.deepEqual(paletteItems(palette), [
@@ -39,6 +41,11 @@ test("nodeMenu offers the full set on a node the document declares", () => {
 });
 
 // A server that gives no notation cannot say what a moved node asks its owner to admit.
+test("nodeMenu only reveals a node another document declares, whatever its name", () => {
+  const commands = nodeMenu(foreign, palette).filter((item) => item.command).map((item) => item.command);
+  assert.deepEqual(commands, [{ kind: "reveal", id: "n4" }]);
+});
+
 test("nodeMenu offers no move on a node without a notation", () => {
   const { notation: _, ...unnotated } = declared;
   const commands = nodeMenu(unnotated, palette).filter((item) => item.command).map((item) => item.command?.kind);

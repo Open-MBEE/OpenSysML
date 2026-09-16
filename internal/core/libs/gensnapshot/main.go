@@ -29,7 +29,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	data, err := libs.BuildSnapshot(libs.EmbeddedSource())
+	data, err := libs.BuildSnapshot(libs.BundledSource())
 	if err != nil {
 		fmt.Fprintln(stderr, "gensnapshot:", err)
 		return 1

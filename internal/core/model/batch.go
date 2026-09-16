@@ -126,7 +126,7 @@ func (w *Workspace) commitBatch(was map[string]uint64, docs []*Document) {
 		w.docs[doc.Name] = doc
 		w.changes[doc.Name]++
 		was[doc.Name] = w.changes[doc.Name]
-		w.index.AddBuiltDocument(doc.Name, doc.AST, doc.Scope)
+		w.installLocked(doc)
 		installed = append(installed, doc.Name)
 	}
 	if len(installed) > 0 {
