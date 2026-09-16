@@ -126,7 +126,7 @@ func PrepareBatch(idx *symbols.Index, batch *Batch) {
 		return
 	}
 	linker := resolve.New(idx)
-	attachModel(linker)
+	attachModel(linker).SetSourceText(batch.Source)
 	for _, name := range idx.WorkspaceDocuments() {
 		linker.LinkMetadataBodies(name)
 	}

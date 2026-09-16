@@ -203,6 +203,51 @@ func TestDiagnosticsAllOverOneDocumentPreparesTheOthersBodies(t *testing.T) {
 	}
 }
 
+// A batch's contexts read comment bodies from the documents as the editor's
+// model does, so an import filtered on Comment::body hides the same names on
+// both paths instead of keeping every candidate as an unevaluable filter would.
+func TestDiagnosticsAllReadsCommentBodiesAsAnEditorDoes(t *testing.T) {
+	inputs := []Input{
+		{Name: "p.sysml", Version: 1, Content: []byte(`package P {
+	comment Shown /* public */
+	comment Hidden /* private */
+}`)},
+		{Name: "a.sysml", Version: 1, Content: []byte(`package A {
+	private import KerML::*;
+	private import P::*[Comment::body == "public"];
+	comment about Shown /* seen */
+	comment about Hidden /* filtered out */
+	private import Q::Hidden;
+}
+package Q {
+	private import KerML::*;
+	public import P::*;
+	filter Comment::body == "public";
+}`)},
+	}
+	serial := NewWorkspace()
+	for _, in := range inputs {
+		serial.Open(in.Name, in.Content, in.Version)
+	}
+	var want strings.Builder
+	renderDiagnostics(&want, "a.sysml", serial.Diagnostics("a.sysml"))
+	if n := strings.Count(want.String(), "unresolved reference"); n != 2 {
+		t.Fatalf("an editor should report Hidden and Q::Hidden unresolved, got:\n%s", want.String())
+	}
+	for _, workers := range []int{1, 8} {
+		ws := NewWorkspace()
+		if err := ws.SetWorkers(workers); err != nil {
+			t.Fatal(err)
+		}
+		ws.OpenAll(inputs)
+		var got strings.Builder
+		renderDiagnostics(&got, "a.sysml", ws.DiagnosticsAll([]string{"a.sysml"})[0])
+		if got.String() != want.String() {
+			t.Errorf("a batch on %d workers reported:\n%s\nwant, as the editor does:\n%s", workers, got.String(), want.String())
+		}
+	}
+}
+
 // A batch opened over documents already there replaces them as Open does, so
 // the index holds each name once.
 func TestOpenAllReplacesEarlierDocuments(t *testing.T) {

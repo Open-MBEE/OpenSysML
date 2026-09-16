@@ -77,6 +77,9 @@ type Batch struct {
 	// Gathers is what the workspace-wide audits gather, once for the batch, on
 	// first use by any of its contexts; nil leaves each context to gather alone.
 	Gathers *Gathers
+	// Source reads the documents' notation, which comment and documentation
+	// bodies come from; nil leaves every body unreadable, as an editor never is.
+	Source source.Lookup
 }
 
 // Options is the analysis configuration of one run. The zero value is what
@@ -159,6 +162,9 @@ func (c *Context) Resolver() *resolve.Resolver {
 func (c *Context) Model() *semantics.Model {
 	if c.model == nil {
 		c.model = attachModel(c.Resolver())
+		if c.Batch != nil {
+			c.model.SetSourceText(c.Batch.Source)
+		}
 	}
 	return c.model
 }

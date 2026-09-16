@@ -155,7 +155,7 @@ func (w *Workspace) DiagnosticsAll(names []string) [][]passes.Diagnostic {
 			pending = append(pending, name)
 		}
 	}
-	batch := &passes.Batch{Documents: pending, Gathers: passes.NewGathers()}
+	batch := &passes.Batch{Documents: pending, Gathers: passes.NewGathers(), Source: w.sourceText()}
 	passes.PrepareBatch(w.index, batch)
 	analyzed := make([][]passes.Diagnostic, len(pending))
 	ParallelFor(w.workers, len(pending), func(i int) {
