@@ -1,0 +1,11 @@
+{
+  "type": "state",
+  "events": [
+    {"signal": "Bump"}
+  ],
+  "finalState": "a1+b1+c1",
+  "outputs": {
+    "log": {"type": "String", "value": ""},
+    "level": {"type": "Integer", "value": 3}
+  }
+}

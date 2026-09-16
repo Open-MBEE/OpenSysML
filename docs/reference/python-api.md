@@ -298,7 +298,9 @@ make python-proto
   answer: the engine, the strength of its evidence and the bounds it ran under
 - `exploration.py` — every outcome a run under `explore` reached, each with its
   linearization count and a witness, and whether the search completed
-- `edit.py` — the `Editor` that batches value, rename, add and delete operations
+- `edit.py` — the `Editor` that batches value, rename, add, delete and move operations, and
+  the `EditResult` it answers, with the edited notation per document in `documents` (empty,
+  with `content` filled, from a service without the `edit_documents` capability)
 - `errors.py` — the exception hierarchy and the gRPC status translation
 - `capabilities.py` — what the connected service reports it supports
 - `typefacts.py` — a symbol's static type, multiplicity and supertypes

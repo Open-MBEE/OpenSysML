@@ -137,18 +137,20 @@ jobs:
         run: |
           sha=$(git rev-parse HEAD)
           count=$(git rev-list --count "$BASE..HEAD")
+          case $count in 1) commits="1 commit" ;; *) commits="$count commits" ;; esac
+          # GitHub renders a release body with hard line breaks, so each paragraph is one line.
           {
-            echo "**Development snapshot of \`$BRANCH\`, not a release.** Built $DATE from"
-            echo "[\`${sha:0:7}\`](https://github.com/$GH_REPO/commit/$sha), $count commit(s) after"
-            echo "[$BASE](https://github.com/$GH_REPO/releases/tag/$BASE)"
-            echo "([compare](https://github.com/$GH_REPO/compare/$BASE...$sha)), by"
-            echo "[this workflow run]($RUN_URL). Every binary reports \`$VERSION\`."
+            printf '%s' "**Development snapshot of \`$BRANCH\`, not a release.** Built $DATE from"
+            printf '%s' " [\`${sha:0:7}\`](https://github.com/$GH_REPO/commit/$sha), $commits after"
+            printf '%s' " [$BASE](https://github.com/$GH_REPO/releases/tag/$BASE)"
+            printf '%s' " ([compare](https://github.com/$GH_REPO/compare/$BASE...$sha)), by"
+            printf '%s\n' " [this workflow run]($RUN_URL). Every binary reports \`$VERSION\`."
             echo
-            echo "The snapshot is replaced each night and is never the \`latest\` release; Homebrew,"
-            echo "PyPI, npm and the Windows installer follow the stable line only. The"
-            echo "[snapshot page](https://opensysml.org/project/nightly/) explains what it is, how"
-            echo "to verify it and what to expect from it; the"
-            echo "[install guide](https://opensysml.org/guide/01-install/) covers the stable releases."
+            printf '%s' "The snapshot is replaced each night and is never the \`latest\` release; Homebrew,"
+            printf '%s' " PyPI, npm and the Windows installer follow the stable line only. The"
+            printf '%s' " [snapshot page](https://opensysml.org/project/nightly/) explains what it is, how"
+            printf '%s' " to verify it and what to expect from it; the"
+            printf '%s\n' " [install guide](https://opensysml.org/guide/01-install/) covers the stable releases."
             echo
             echo "Verify a download against the signed manifest:"
             echo
@@ -161,9 +163,9 @@ jobs:
             echo
             echo "## Unreleased changes in this snapshot"
             echo
-            echo "One line per entry; the full text is under"
-            echo "[\`changes/unreleased/\`](https://github.com/$GH_REPO/tree/$sha/changes/unreleased)"
-            echo "and \`CHANGELOG.md\` at this commit."
+            printf '%s' "One line per entry; the full text is under"
+            printf '%s' " [\`changes/unreleased/\`](https://github.com/$GH_REPO/tree/$sha/changes/unreleased)"
+            printf '%s\n' " and \`CHANGELOG.md\` at this commit."
             echo
             # GitHub caps a release body at 125,000 characters; a one-line summary stays far under it.
             python3 scripts/changelog.py summary | head -c 100000

@@ -19,6 +19,8 @@ env:
   OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
   # Same for the pinned OMG PSSM test suite, gated by internal/pssm and cmd/pssm-referee.
   OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+  # Same for the pinned fUML reference-implementation suite, gated by internal/fuml.
+  OPENSYSML_REQUIRE_FUML_SUITE: "1"
   # Same for the pilot's XMI of the standard library, downloaded below and
   # compared against by internal/core/identity (TestPilotLibraryXMI).
   OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
@@ -173,6 +175,18 @@ jobs:
       - name: Download the OMG PSSM test suite
         run: ./scripts/download-pssm-suite.sh
 
+      # The fUML reference implementation's models and jar, checksummed; keyed
+      # on its download script and pin. Never run in CI: the Go tests read the
+      # committed expected-record (docs/project/fuml-referee.md).
+      - name: Cache the fUML reference-implementation suite
+        uses: actions/cache@v4
+        with:
+          path: build/fuml
+          key: fuml-suite-${{ hashFiles('scripts/download-fuml-suite.sh', 'scripts/fuml-pin.sh') }}
+
+      - name: Download the fUML reference-implementation suite
+        run: ./scripts/download-fuml-suite.sh
+
       # The pilot's XMI of the standard library, one subtree of the release
       # repository; keyed on its download script and the shared pilot pin.
       - name: Cache the pilot library XMI
@@ -283,6 +297,15 @@ jobs:
       - name: Download the OMG PSSM test suite
         run: ./scripts/download-pssm-suite.sh
 
+      - name: Cache the fUML reference-implementation suite
+        uses: actions/cache@v4
+        with:
+          path: build/fuml
+          key: fuml-suite-${{ hashFiles('scripts/download-fuml-suite.sh', 'scripts/fuml-pin.sh') }}
+
+      - name: Download the fUML reference-implementation suite
+        run: ./scripts/download-fuml-suite.sh
+
       # The pilot's XMI of the standard library, one subtree of the release
       # repository; keyed on its download script and the shared pilot pin.
       - name: Cache the pilot library XMI
@@ -381,6 +404,20 @@ jobs:
       # Bucket counts only, never pass/fail; see docs/project/pssm-referee.md.
       - name: PSSM referee reproduces its baseline counts
         run: go run ./cmd/pssm-referee -check
+
+      # The fUML reader and classifier over the pinned models on their own, likewise.
+      - name: Run fUML suite gates
+        run: |
+          set -o pipefail
+          go test -count=1 -v ./internal/fuml -run 'TestSuite' | tee fuml-gate.log
+          if grep -qE '^\s*--- SKIP' fuml-gate.log; then
+            echo "error: the fUML suite gate skipped" >&2
+            exit 1
+          fi
+
+      # Bucket counts only, never pass/fail; see docs/project/fuml-referee.md.
+      - name: fUML referee reproduces its baseline counts
+        run: go run ./cmd/fuml-referee -check
 
       # The RDF round-trip ratchet over every example on its own, so its
       # per-verdict counts are legible in the log and a skip must not pass.

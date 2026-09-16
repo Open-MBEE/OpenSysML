@@ -404,7 +404,9 @@ transitions (`settleDoActions`, SM8). `state_concurrent_do` records four admissi
 interleavings of two do actions under the scheduling policies; `TestCompletionWaitsForTheDoBehavior`.
 The step granularity (one action node per machine step) is a tool choice PSSM does not make
 either — its do activity runs in the fUML "as if concurrent" sense — so no trace admissible
-here is inadmissible there. **agrees.**
+here is inadmissible there. The converse does not hold: the round always precedes the dispatch,
+so a do action that is due steps before the occurrence at the head of the pool is dispatched,
+and the interleavings where the dispatch comes first are not explored (finding 9). **agrees.**
 
 **SM14. Order of leaving a state.** PSSM §8.5.5 (`exit`) and requirements *Exiting 001–003*, *005*
 (§9.4.6): exit "commences with the innermost State"; a running do activity "is aborted before the
@@ -515,8 +517,12 @@ fires the selected transitions one at a time, drawing the next among the candida
 from the scheduling policy (`chooseRegion`, declaration order by default) and recording a
 `ChoiceRegionOrder`; a firing may leave a sibling's leaf, which is why the draw is per firing.
 `state_parallel_broadcast`, `state_explore_region_order`, `state_composite_region_depth_order` (a
-`.declared` and a `.seed-1` golden beside the default). **agrees**: every linearization PSSM admits
-is a run the policies can produce, and the default is one of them.
+`.declared` and a `.seed-1` golden beside the default). **agrees** on the order of the firings:
+every order PSSM admits is a run the policies can produce, and the default is one of them. Each
+firing is one step, though — its source's exit and its effect run together before the next
+region is drawn — where PSSM's "concurrently" also admits the steps of two firings interleaved
+(*Transition 019* admits both sources' exits before either segment's effect, which no policy
+produces); that granularity is finding 9 below, with SM22 and SM23.
 
 **SM22. Entering the regions of a composite state.** PSSM §8.5.5 enters regions concurrently
 (*Entering 004*, §9.3.5.2, enters two regions from one transition; *Transition 011-D*'s alternative
@@ -529,13 +535,13 @@ interleavings of the branch effects and the entries, *Entering 010* and *Enterin
 one region's initial-transition effect and the other's entries). No
 `ChoicePoint` is recorded for this order — the run is deterministic and the alternative
 interleavings PSSM admits are not explored. **agrees** on admissibility, and the missing choice
-point is an *Open decision*.
+point is an *Open decision* and finding 9 below.
 
 **SM23. Exiting the regions of a composite state.** PSSM §8.5.5 exits regions concurrently as
 well (*Exiting 003*, §9.3.6.4, exits nested orthogonal regions). *Runtime:* `exitState` exits the regions' active states in declaration
 order, each innermost first (`state_composite_orthogonal_exit` and its trace golden,
 `state_composite_nested_regions_exit_once`); like SM22, no choice is recorded. **agrees**, same
-caveat.
+caveat (finding 9).
 
 **SM24. Order of do activities in one round.** PSSM: do activities are independent asynchronous
 executions; the *Behavior* and *Deferred* tests with do activities list up to 84 interleavings.
@@ -673,14 +679,26 @@ after the incoming segment's effect, with the typed `ErrChoiceWithoutBranch` nam
 (`robustness_test.go:state_choice_without_an_enabled_branch`); a junction with no guard true
 fails as SM32 describes (`region_pseudostate_without_satisfied_guard`). **agrees.**
 
-**SM32. Junction with no path through.** PSSM requirement *Junction 002* (§9.4.11): when no outgoing guard holds, "the
+**SM32. Junction or join with no path through.** PSSM requirement *Junction 002* (§9.4.11): when no outgoing guard holds, "the
 entire compound transition is disabled even though its Triggers are enabled" — the incoming
 transition is not selected, and the occurrence is deferred or lost like any other unhandled one.
 *Runtime:* the incoming transition is selected on its own trigger and guard; the failure to route
 surfaces as a "no guard evaluated to true" run failure when the route is resolved, not as a
 disabled transition (`region_pseudostate_without_satisfied_guard` uses a junction).
-**differs, v2 silent.** Unchanged by the decisions below: a junction's guards stay static, and
-the runtime's rule here stays the project's.
+The same holds wherever on the compound transition the junction with no way through lies.
+*Junction 004* (§9.4.11) puts it on the default entry of a sibling region: the transition
+targets a junction inside one region of an orthogonal state, and the other region's initial
+transition leads to a junction both of whose guards are false; PSSM's static evaluation takes
+the default entry in and disables the whole transition — the state is never entered, its `entry`
+never logged, and the next occurrence fires from the source — where the runtime enters the state
+and fails at the second region's junction. *Join 003* (§9.4.12) puts it at a join's way out: the
+join's only outgoing transition is guarded false, so PSSM fires the first completion transition
+into the join on its own (a segment may end at a join, whose completion is waited for) and
+disables the second, whose entering the join would need a way through; the owner stays active
+for the next occurrence. The runtime fires nothing at the first completion (SM34: the segments
+fire together, once every source is active) and fails at the second, resolving the route out of
+the join. **differs, v2 silent.** Unchanged by the decisions below: a junction's guards stay
+static, and the runtime's rule here stays the project's.
 
 #### Fork and join
 
@@ -708,13 +726,67 @@ the extension follows UML, and the library's `transitionLinkSource then effect` 
 during the state performance" fix each segment's exit-then-effect and place both segments before
 the owner's exit
 ([oracle](../../project/behavior-semantic-oracle.md#transitions-into-a-join-each-exits-its-source-and-runs-its-effect-before-the-owner-is-left-in-which-order-is-open)).
-*Runtime:* `fireJoinTransition` fires only when every state in `joinSources` is active;
+*Runtime:* `fireJoinTransition` fires only when `joinSynchronized` finds every other segment
+into the join enabled by the occurrence being dispatched — its source active, its guard holding,
+its trigger matching the same signal, call, timer expiry or change rise — whichever path fires
+the segment: a signal or call dispatch, a timer, a completion or a change poll
+(`state_join_waits_for_every_segment_enabled`, `state_join_segment_trigger_unmatched`,
+`state_join_time_segment_needs_same_occurrence`,
+`state_join_time_segment_unsynchronized_reads_no_route` — the route out of the join is
+resolved only once the join is ready, so an expiry that holds it reads no guard beyond it —
+`state_join_time_segments_expire_together`, `state_join_time_segments_expire_apart` — each timer
+is its own occurrence, so a time-triggered segment is enabled while its own timer is due: two
+expiries at one instant fire the join, whichever is dispatched first, and expiries at different
+instants never do —
+`state_join_change_segments_rise_together`,
+`state_join_change_segment_rises_alone` — one condition rising is one occurrence, so a later
+rise of the other segment's condition does not fire the join);
 `fireJoinIncoming` then fires the incoming segments one at a time, drawing the next from the
 scheduling policy as a `ChoiceRegionOrder` labelled `join <name>` (declaration order by default),
-before the owner is exited and the outgoing segment followed; a join with a single incoming branch
-is refused (`join_with_one_incoming_branch`). `state_fork_join_pseudostate`,
-`state_join_runs_every_incoming_effect` (both orders as `outcomes`, explored). **agrees**: every
-order PSSM admits is a run the policies produce, as SM21 has it for region firing order.
+each with the arguments its own trigger takes from the occurrence bound (`fireJoinSegment`,
+`state_join_segment_reads_its_payload`), before the owner is exited and the outgoing segment
+followed. The owner and the region of it each segment leaves are the lowerer's `JoinPlan`, found
+by the same ancestor walk that places the segments one per region, so a segment whose source
+is nested below a region's state exits its wrappers up to the region and the owner is left
+(`state_join_from_nested_states`, `join_from_nested_states_wrapper_exit_that_fails`), a segment
+whose source is a composite state with an active substate is enabled through that substate and
+exits it first (`state_join_from_composite_sources`, `TestJoinFromActiveCompositeSourcesFires`,
+`join_from_composite_source_substate_exit_that_fails`), the region recorded being the owner's own
+— the machine's top-level one, for a join of the machine's regions — however deep the source lies,
+so an orthogonal state between them is exited once, with the segment (`state_join_of_machine_regions_from_nested_source`,
+`join_of_machine_regions_nested_source_owner_exit_that_fails`, `lower/join_check_test.go`), and a
+sibling segment's guard the firing occurrence has read fail is the step's error
+(`join_time_segment_sibling_guard_that_fails`); a replay refused at a later draw undoes the segments already
+fired with the rest of the move (`TestReplayRefusedJoinDrawChangesNothing`); a join with a single incoming
+branch is refused (`join_with_one_incoming_branch`), as is one two of whose incoming transitions
+leave the same region — UML 2.5.1 §14.2.3.5 Pseudostates has a join target "two or more
+Transitions originating from Vertices in different orthogonal Regions", so every segment fires
+when the join does and none is an alternative to another (`lower/join_check.go`). `state_fork_join_pseudostate`,
+`state_join_runs_every_incoming_effect` (both orders as `outcomes`, explored). On the shape —
+every segment exits its source and runs its effect, the outgoing effect follows the last — the
+two agree; on two orders within it they part. *Where the owner is left.* The runtime leaves the
+state owning the regions after every incoming effect (`fireJoinIncoming`, then the outgoing
+segment's exits), the reading the oracle section derives from the library: each segment is
+declared in the owner's body and is an `enclosedPerformance` of it, ended before the owner's
+`exit`. *Join 001*'s prose expected execution reads the same way — each segment's source exit
+and effect, in parallel, then the owner's exit, then the join — but the traces its assertion
+admits put the owner's exit between the last source's exit and that segment's effect
+(`T2.3(effect)` or `T2.4(effect)` closes the log): the owner is left with the last source — the exits of the
+segment that completes the join climb to the compound transition's common ancestor, and its
+effect runs after them. *When the segments fire.* PSSM §8.5.7 fires each incoming transition as
+its own occurrence is dispatched — a completion transition into the join when its source's
+completion event is dequeued, the join's activation counting the segments that have arrived — so
+in *Transition 019* (§9.3.3.12) the two completion transitions into `Join1` fire in the order the
+regions completed, `T1.3(effect)` after `T1.2(effect)`'s region and `T2.3(effect)` after the
+other's, and the suite admits no trace with the join's segments in the opposite order; the
+runtime holds every segment until the join is ready and then draws their order afresh, so it
+reaches those two traces too. On neither order does v2 speak — the join is not a v2 state
+construct, and the library derivation reaches the owner's exit only through this project's
+reading of a join segment as a substate's transition — so the project's rule is the oracle
+section's: the segments fire together, in an open order, and the owner is left after the last.
+**differs, v2 silent.** Adopting PSSM's orders would leave the owner between the last source's
+exit and its effect, and tie a completion-fired segment's place to its source's completion,
+which SM19's completion choice already draws.
 
 #### Transition kinds: external, local, internal
 
@@ -816,9 +888,12 @@ runs what is due, advances to each queued wait in turn, and stops at the request
 #### Object lifecycle
 
 **SM43. Starting the classifier behavior.** fUML §8.8.1 (`ObjectActivation`): an active object's
-classifier behavior starts when the object is started (`StartObjectBehaviorAction`, or on
-creation with `isActive`), each behavior in an execution of its own, sharing the object's event
-pool; PSSM §8.5.1 makes a state machine such a classifier behavior. *v2/KerML:* §7.18.4 an
+classifier behavior starts when the object is started — `StartObjectBehaviorAction`
+(§8.10.2 `StartObjectBehaviorActionActivation`, `Object::startBehavior`), not its creation:
+`CreateObjectAction` (§8.10.2 `CreateObjectActionActivation`) creates the object and offers it
+on its result pin, and the behavior of an object nobody starts never runs — each behavior in an
+execution of its own, sharing the object's event pool; PSSM §8.5.1 makes a state machine such a
+classifier behavior. *v2/KerML:* §7.18.4 an
 `exhibit state` "must be carried out entirely within the lifetime of the performing occurrence";
 `Objects.kerml`/`Occurrences.kerml` `performances`. *Runtime:* `Context.Instantiate` →
 `classifier_behavior.go:runAttachedBehaviors` starts every exhibited state machine and performed action of a part as
@@ -1065,6 +1140,26 @@ by name only; the roadmap's "operation invocation with positional arguments" ent
 holds the positional form. Both fUML calls and both runtime paths are synchronous and
 by-position versus by-name is notation, not semantics. **agrees.**
 
+**A15. One firing per token, or one performance per node.** fUML §8.9.1 and §8.10.1
+(`ActionActivation::fire`, `isReady`, `takeOfferedTokens`): an action whose input pin has
+multiplicity 1 takes one object token per firing, and an action offered several tokens on such
+a pin fires once per token — `ActionActivation::fire` sends its offers, then fires again while
+`isReady` still holds and `takeOfferedTokens` yields tokens — so a decision fed two values
+routes each on its own, and a node re-fires for every value a fork delivers to it. *v2/KerML:*
+an action node reached over several successions is one performance that follows all of them
+(A1; KerML 1.0 §7.4.5 — a step with no declared multiplicity holds one value), and every flow
+into that performance delivers to the one input feature of that one performance ("One feature
+space per performance" in the compliance record). *Runtime:* `action_executor.go:synchronize`
+holds the arrivals and steps the node once with every delivery in hand; a second delivery to a
+multiplicity-1 input is not a second performance (`action_node_concurrent_performances` and its
+trace golden), and a multi-valued one to it is a multiplicity violation. The fUML
+referee (`docs/project/fuml-referee.md`) detects the fUML side of this row in the reference
+implementation's trace — one action fired more than once within one execution, with an object
+flow feeding it — and files the activity as `differs-by-design`: `DecisionJoin`,
+`ForkMergeData`, `TestSimpleActivities` through both, and `TestBooleanFunctions`, whose
+four-row truth tables reach each function through a multiplicity-1 pin. **differs because v2
+differs.**
+
 ### Composite structures (PSCS)
 
 PSCS (formal/19-02-01) §8.1 extends fUML with runtime manifestations of parts, ports and
@@ -1225,25 +1320,26 @@ as a connector object of its own. Nothing in PSCS would supply that object; it i
 
 ## The count
 
-Sixty-nine rows: 45 for state machines, 14 for actions, 10 for composite structures. Each
+Seventy rows: 45 for state machines, 15 for actions, 10 for composite structures. Each
 carries one verdict.
 
 | Verdict | Rows |
 |---|---:|
-| **agrees** | 50 |
-| **differs because v2 differs** | 6 |
-| **differs, v2 silent** | 9 |
+| **agrees** | 49 |
+| **differs because v2 differs** | 7 |
+| **differs, v2 silent** | 10 |
 | **gap** | 4 |
-| **Total** | **69** |
+| **Total** | **70** |
 
-The six **differs because v2 differs** rows are SM15 (a do activity and the machine competing
+The seven **differs because v2 differs** rows are SM15 (a do activity and the machine competing
 for one occurrence), SM36 (local transitions), SM37 (internal transitions), A12 (accept event:
-a message no accepter takes stays in flight), C6 (behavior ports) and C9 (interface-typed ports
-and name-based dispatch). On each, SysML v2 or the Kernel Semantic Library states the rule the
+a message no accepter takes stays in flight), A15 (one firing per token: fUML re-fires an
+action for every token on a multiplicity-1 pin, the runtime performs the node once with every
+delivery), C6 (behavior ports) and C9 (interface-typed ports and name-based dispatch). On each, SysML v2 or the Kernel Semantic Library states the rule the
 runtime follows, quoted in the row; adopting PSSM, fUML or PSCS there would move the runtime
 away from the specification it implements, so none of them is a candidate for a port.
 
-The nine **differs, v2 silent** rows, the only ones on which a port could change behavior
+The ten **differs, v2 silent** rows, the only ones on which a port could change behavior
 without contradicting v2:
 
 - **SM7** — a deferrable occurrence that also enables a transition in an enclosing state or a
@@ -1259,9 +1355,14 @@ without contradicting v2:
   region's initial pseudostate, the runtime refuses the run.
 - **SM30** — choice guards: PSSM reads them on arrival, the runtime reads them before the step,
   as for a junction.
-- **SM32** — a junction none of whose outgoing guards holds: PSSM disables the compound
-  transition and the occurrence is deferred or lost, the runtime selects the incoming transition
-  and fails the run.
+- **SM32** — a junction none of whose outgoing guards holds, or a join whose only way out is
+  guarded false: PSSM disables the compound transition and the occurrence is deferred or lost,
+  the runtime selects the incoming transition and fails the run.
+- **SM34** — the orders within a join's firing: PSSM fires each incoming segment on its own
+  occurrence, so two completion transitions into one join fire in the order their sources
+  completed, and leaves the owner with the last source, before that segment's effect; the
+  runtime holds the segments until the join is ready, draws their order, and leaves the owner
+  after the last effect.
 - **SM45** — destroying an object whose behavior is still performing: fUML stops the behavior and
   destroys, the runtime refuses the destruction.
 - **C3** — a connector between multi-valued ends: PSCS instantiates one link per matching pair
@@ -1301,7 +1402,7 @@ which supersede the hand count this section was first written with — the moves
 | **Comparing the expected trace** | **Can, on a model-level string; `%trace` is not the comparand** | PSSM's expected trace is built by the model — every entry, exit and effect behavior calls `trace("<state>(entry)")` on the `TraceBuilder` (501 call actions target the `trace` operation in the XMI). Its translation is an `assign log := log + "<state>(entry)"` in the corresponding `entry`/`exit`/`do` body, compared through the case's `slots`/`outputs`; the runtime's `%trace` and `TestExecutionTrace` goldens record steps, not segments, and would need a projection (enter/exit/effect lines to segments, everything else dropped) to be comparable at all |
 | **Alternative expected traces** | **Can, and exactly** | 36 tests declare more than one admissible trace. The conformance schema's `outcomes` with the `explore` policy replays a case once per linearization of its choice points (`ChoiceRegionOrder`, `ChoiceTransition`, `ChoiceDueOrder`) and fails when a listed outcome is unreachable or an unlisted one is reached — the same set-equality PSSM's alternatives ask for, and stricter than the single-run comparison the PSSM harness performs |
 | **The run-to-completion step table** | **Cannot compare** | Each test's "RTC steps" table lists the pool's contents and the fired transitions per step, including completion events (`CE(<state>)`). The runtime has no pool of completion occurrences (SM9) and the `%trace` records no pool; only the fired transitions and the final trace are comparable |
-| **A pass as evidence about SysML v2 semantics** | **Only on the nine `differs, v2 silent` rows and as corroboration on the `agrees` rows** | Where PSSM and v2 coincide (50 rows) a pass says the runtime does what both texts say — worth having, but not a second opinion on v2. Where they differ because v2 differs (6 rows) the corresponding tests fail by design and their failure means nothing. Where v2 is silent (9 rows) a pass or a fail reports on a tool choice, which is the one place the suite is informative about this runtime's rules |
+| **A pass as evidence about SysML v2 semantics** | **Only on the ten `differs, v2 silent` rows and as corroboration on the `agrees` rows** | Where PSSM and v2 coincide (49 rows) a pass says the runtime does what both texts say — worth having, but not a second opinion on v2. Where they differ because v2 differs (6 rows) the corresponding tests fail by design and their failure means nothing. Where v2 is silent (10 rows) a pass or a fail reports on a tool choice, which is the one place the suite is informative about this runtime's rules |
 
 ### Which UML construct maps to which notation
 
@@ -1462,8 +1563,8 @@ a choice whose guard reads what the incoming effect wrote; and *Junction 002* �
 would report on a tool choice; and the 37 tests
 with no spelling or translation, together with any test that reaches SM15, SM36 or SM37, would fail for reasons
 that are v2's, and a harness would have to exclude them by classification rather than report
-them as failures. Used that way, the suite is a second opinion on nine rows and a regression
-oracle for fifty; it is never a conformance statement about SysML v2.
+them as failures. Used that way, the suite is a second opinion on ten rows and a regression
+oracle for forty-nine; it is never a conformance statement about SysML v2.
 
 ## Options
 
@@ -1532,7 +1633,7 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
   corpus ratchets. The tool's `-h` says in one sentence what a pass means, in the words of the
   paragraph closing the capability map.
 - **User-visible change.** None to the runtime beyond (a). A maintainer gains a second oracle for
-  the nine rows and a regression net of about fifty translated machines.
+  the ten rows and a regression net of about fifty translated machines.
 - **Cost.** A UML XMI reader for the suite's subset (state machines, regions, vertices,
   transitions, triggers, opaque behaviors whose bodies are `trace(...)` calls, signals) and a
   `.sysml` emitter; a checksum-pinned download script; a baseline document under `docs/project/`
@@ -1542,7 +1643,8 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
 ### (c) A user-selectable PSSM-conformant execution mode
 
 - **Scope.** A `-semantics pssm` (or `%semantics`) switch under which the state executor follows
-  PSSM on every row where it differs: SM7, SM11, SM15, SM28, SM30, SM32, SM36, SM37, SM45, plus
+  PSSM on every row where it differs: SM7, SM11, SM15, SM28, SM30, SM32, SM34, SM36, SM37, SM45,
+  plus
   the local and internal transition kinds themselves, which need new notation and lowering
   (`transition local first …`), a completion-event pool (SM9 exactly rather than equivalently),
   and PSSM's variation points (time source, choice of conflicting transitions) made explicit.
@@ -1569,7 +1671,7 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
 
 ### (d) Do nothing
 
-- **Scope.** Leave the nine `differs, v2 silent` rows as they are, this note as the record
+- **Scope.** Leave the ten `differs, v2 silent` rows as they are, this note as the record
   that they were examined, and the four gaps to Track E.
 - **Dependencies, gate, user-visible change.** None.
 - **What it leaves.** SM7 — a `defer` that any sibling region's reaction overrides — is a rule
@@ -1583,7 +1685,7 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
 ## Recommendation
 
 **Option (a), with (b) as a follow-on once (a)'s two changes have landed.** The map shows no case
-for porting the precise-semantics family: 50 of 69 rows agree already, 6 differ because SysML v2
+for porting the precise-semantics family: 49 of 70 rows agree already, 7 differ because SysML v2
 says otherwise and must stay as they are, and the 4 gaps are v2 gaps Track E already owns. What
 remains is nine tool choices, and on two of them — SM7 and SM28 — PSSM's rule is the reference
 this project's own extensions name (UML) applied consistently, while ours is an accident of
@@ -1615,8 +1717,8 @@ activity engine and does not become one.
 The rows below report the runtime differing from, or falling short of, SysML v2's or the Kernel
 Semantic Library's *own* text, or from this project's own design notes. They are bug reports and
 unsupported-feature records, not alignment questions: PSSM has nothing to do with them and they
-are not alignment questions. Each names its evidence; items 4, 5, 6, 7 and 8 are fixed, and say
-where.
+are not alignment questions. Each names its evidence; items 4 to 8 are fixed, and say where;
+items 9 and 10 are open, and say what a fix takes.
 
 1. **Terminate is parsed and lowered but not executed** (SM38). SysML v2 §7.17.10 and §7.18.3
    define `terminate`; `Performances.kerml` provides `TerminatePerformance`; the parser accepts
@@ -1761,9 +1863,67 @@ where.
    another region's reaction may disarm* and *A history without a record takes its default
    transition through a junction with two branches enabled*; the test passes.
 
+9. **The order in which orthogonal regions are entered, exited and stepped is not a recorded
+   choice point.** SM21, SM22, SM23 and SM13 each say so of their own site; taken together the
+   sites are one gap, and the PSSM referee measures it: every trace the runtime reaches in the
+   tests below is one the suite admits, and the suite admits others no policy produces, so
+   `explore` reports each run complete after the one interleaving. Four sites. Entering the
+   regions of a composite state (`state_region_entry.go:enterRegionsInto`) and a fork's branches
+   (`enterForkBranches`) in declaration order — *Entering 010* and *Entering 011* (§9.4.5) admit
+   one region's initial-transition effect between the other's entries, *Fork 002* the
+   two branch effects in either order and the branch target's entry among them, *History 001-C* and
+   *History 002-B* (§9.4.15) the two regions' restored entries and exits interleaved. Exiting
+   them (`state_executor.go:exitState`) in declaration order, each innermost first —
+   *Exiting 001* and *Exiting 003* (§9.4.6) admit the two regions' exits in either order. Firing
+   the transitions one occurrence selects one whole firing at a time (`dispatchInOrder`, SM21) —
+   *Transition 019* (§9.3.3.12) admits both sources' exits before either effect. And stepping a
+   due do action before the occurrence at the head of the pool is dispatched
+   (`state_executor.go:runStep`, `runDoRound`, SM13) — *Behavior 003 A* admits the
+   machine's `AnotherSignal` transition before the do activity's first segment, so that
+   the first state's entry alone is a complete log, and *Transition 017* the do activity's step
+   at any point among the sibling regions' completion effects. SysML v2 §7.18.1 has parallel
+   substates "performed concurrently" and `StatePerformance::do` a sub-performance concurrent
+   with `middle`, so the runs PSSM admits are runs v2 admits, and the runtime's one order per
+   site is a linearization v2 admits too: not a defect of behavior, a gap of exploration — the
+   `explore` driver enumerates the choice points a run records (`scheduling.md`), and these sites
+   record none. A fix is a scheduling design, not a local change: an entry or exit of several
+   regions, and the steps of a do action against a dispatch, would have to be stepped one
+   region or one action at a time under a draw the policy makes and a `ChoiceRegionOrder`
+   records, as `dispatchInOrder` and `runDoRound` already do among themselves, and the goldens
+   of every fixture that enters or leaves an orthogonal state would move with the trace
+   (`state_parallel_standard`, `state_composite_orthogonal_exit`, `state_concurrent_do` and
+   their kin). Not fixed; the nine tests stay `fail` in
+   `docs/project/pssm-referee.md` citing this item, with a tenth (*Transition 019*) that also
+   reports on SM34.
+10. **A segment leaving a junction inside a composite state runs its effect before the
+    composite is entered.** PSSM *Junction 005* (§9.4.11): a transition from outside targets a
+    junction that lies in one region of an orthogonal state, and the segment out of the
+    junction, `T1.3`, has an effect; the suite admits the orthogonal state's entry, then
+    `T1.3(effect)` interleaved with the other region's default entry — every order after the
+    owner's entry. The runtime reaches `T1.3(effect)` before the owner's entry:
+    `state_executor.go:moveTo` runs every effect of the
+    route (`route.effects`) after the exits and before `enterBelow` enters the way down to the
+    target, so a segment that lies inside the target's ancestor runs before that ancestor's
+    `entry`. UML (PSSM §8.5.8, `TransitionActivation::enterTarget` on the way to a vertex owned
+    by a region of the orthogonal state) enters that state before the junction is reached, and
+    v2 says the same of the project's junction: the transition out of it is declared in the
+    owner's body, an `enclosedPerformance` of the owner "happening during the state
+    performance" (`StatePerformances.kerml`), so its effect follows the owner's `entry` — the reading the oracle's
+    join section and item 7's `defaultHistoryRoute` (a history's default transition taken from
+    inside the owner once the owner is entered) already apply. A runtime defect, then, of the
+    same family item 7 fixed for the history's default transition: a route's segments have to be
+    run from the state that owns each pseudostate they leave, entering the ancestors down to that
+    owner first — for a choice as for a junction, since `travel` serves both, and for a junction
+    drawn as its transition fires (item 8) the owner's entry would precede the drawn branch's
+    effect. Not fixed here: it changes `travel`/`moveTo` for every route through a pseudostate
+    inside a composite, and wants the conformance cases that pin a choice's and a junction's
+    segment effect after their owner's entry, with trace goldens, before it. *Junction 005*
+    stays `fail` citing this item.
+
 Item 3 has no fixture on `develop`; the first thing it needs is the conformance case that pins
 the behavior, then the fix, in a change set of its own — Track E of the roadmap holds its
-entry. Items 4, 5, 6, 7 and 8 took that path in the change set that decided them.
+entry. Items 4 to 8 took that path in the change set that decided them; items 9 and 10 wait
+for theirs.
 
 ## Open decisions
 
@@ -1811,7 +1971,7 @@ Addressed to the maintainers; each gives the options and the lean.
    rule, and UML is the extension's stated reference. *Decided:* (i); see SM28. The run failure
    remains, typed, for the one case default entry cannot serve: an owner with no entry transition.
 5. **Whether to build option (b) at all, and when.** *Options:* (i) after (a)'s changes land;
-   (ii) never — the nine rows are decided by this note and the suite adds only a regression net
+   (ii) never — the ten rows are decided by this note and the suite adds only a regression net
    over behavior the conformance cases already pin; (iii) now, in parallel with (a), so the suite
    can be run against the current runtime once as evidence for decisions 1–4. *Lean:* (iii) for
    the one-time evidence if a maintainer has the appetite, otherwise (i). The translator's cost

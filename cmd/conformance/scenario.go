@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,11 +16,38 @@ type suiteFile struct {
 }
 
 // Model is the source a scenario needs parsed before its call, named by fixture
-// so no scenario carries a machine-specific path.
+// so no scenario carries a machine-specific path. Fixture is parsed alone with
+// ParseFile; Fixtures are parsed together with ParseSources, each document
+// named by its fixture, so an edit can report which one it rewrote.
 type Model struct {
-	Fixture           string `json:"fixture"`
-	Language          string `json:"language,omitempty"`
-	StrictConformance bool   `json:"strict_conformance,omitempty"`
+	Fixture           string   `json:"fixture,omitempty"`
+	Fixtures          []string `json:"fixtures,omitempty"`
+	Language          string   `json:"language,omitempty"`
+	StrictConformance bool     `json:"strict_conformance,omitempty"`
+}
+
+// fixtureNames lists every fixture the model reads.
+func (m Model) fixtureNames() []string {
+	if len(m.Fixtures) > 0 {
+		return m.Fixtures
+	}
+	return []string{m.Fixture}
+}
+
+// key identifies a model for the once-per-run parse cache.
+func (m Model) key() string {
+	return fmt.Sprintf("%q|%s|%t", m.fixtureNames(), m.Language, m.StrictConformance)
+}
+
+// validate refuses a model naming no fixture or both a fixture and fixtures.
+func (m Model) validate() error {
+	switch {
+	case m.Fixture == "" && len(m.Fixtures) == 0:
+		return errors.New("a model needs a fixture or fixtures")
+	case m.Fixture != "" && len(m.Fixtures) > 0:
+		return errors.New("a model names either a fixture or fixtures, not both")
+	}
+	return nil
 }
 
 // Expect is what a call must answer. Every field is optional; an absent Status
@@ -88,6 +116,11 @@ func loadScenarios(dir string) ([]*Scenario, error) {
 		for _, scenario := range suite.Scenarios {
 			if scenario.ID == "" || scenario.RPC == "" {
 				return nil, fmt.Errorf("%s: every scenario needs an id and an rpc", entry)
+			}
+			if scenario.Model != nil {
+				if err := scenario.Model.validate(); err != nil {
+					return nil, fmt.Errorf("%s: %s: %w", entry, scenario.ID, err)
+				}
 			}
 			if where, dup := seen[scenario.ID]; dup {
 				return nil, fmt.Errorf("%s: scenario id %q is already declared in %s", entry, scenario.ID, where)

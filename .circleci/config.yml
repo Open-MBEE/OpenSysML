@@ -111,6 +111,21 @@ commands:
           paths:
             - build/pssm
 
+      # The fUML reference implementation's models and jar, gated by internal/fuml;
+      # the jar is never run here (docs/project/fuml-referee.md).
+      - restore_cache:
+          keys:
+            - fuml-suite-v1-{{ checksum "scripts/download-fuml-suite.sh" }}-{{ checksum "scripts/fuml-pin.sh" }}
+
+      - run:
+          name: Download the fUML reference-implementation suite
+          command: ./scripts/download-fuml-suite.sh
+
+      - save_cache:
+          key: fuml-suite-v1-{{ checksum "scripts/download-fuml-suite.sh" }}-{{ checksum "scripts/fuml-pin.sh" }}
+          paths:
+            - build/fuml
+
       # The pilot's XMI of the standard library, gated by internal/core/identity.
       - restore_cache:
           keys:
@@ -283,6 +298,7 @@ jobs:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+            OPENSYSML_REQUIRE_FUML_SUITE: "1"
             OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
             # Same for the solver installed above: absent means failure, not skip.
             OPENSYSML_REQUIRE_SMT: "1"
@@ -307,6 +323,7 @@ jobs:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+            OPENSYSML_REQUIRE_FUML_SUITE: "1"
             OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
             OPENSYSML_REQUIRE_SMT: "1"
 
@@ -388,6 +405,21 @@ jobs:
             go run ./cmd/pssm-referee -check
           environment:
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+
+      # The fUML reader and classifier over the pinned models, likewise, then the
+      # referee's bucket-count check against the committed record; the jar never runs.
+      - run:
+          name: Run fUML suite gates
+          command: |
+            set -o pipefail
+            go test -count=1 -v ./internal/fuml -run 'TestSuite' | tee fuml-gate.log
+            if grep -qE '^\s*--- SKIP' fuml-gate.log; then
+              echo "error: the fUML suite gate skipped" >&2
+              exit 1
+            fi
+            go run ./cmd/fuml-referee -check
+          environment:
+            OPENSYSML_REQUIRE_FUML_SUITE: "1"
 
       # Re-run the differential gate alone so its summary counts, which make
       # coverage drift reviewable, are visible rather than buried in the suite.

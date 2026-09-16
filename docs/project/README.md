@@ -22,6 +22,10 @@ within these records and means nothing outside this repository.
 - **[PSSM referee](pssm-referee.md)** — the OMG PSSM state-machine test suite, translated by rule
   into SysML v2 notation and run against the runtime as an advisory oracle, its bucket counts
   gated in CI; never evidence of SysML v2 conformance
+- **[fUML referee](fuml-referee.md)** — the fUML reference implementation's activity tests as
+  an advisory oracle for the action executor: how the pinned models, jar and expected-record
+  are provisioned, the rules that translate each activity, the output-value oracle, and the
+  adjudication of every row's bucket
 - **[Behavior semantic oracle](behavior-semantic-oracle.md)** — action and state-machine
   conformance cases whose expected outcomes are derived by hand from the Kernel Semantic and
   Systems Library text rather than recorded from the executor, and the three the executor fails
