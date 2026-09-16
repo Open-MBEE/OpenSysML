@@ -122,7 +122,7 @@ func TestEveryFixtureIsUsed(t *testing.T) {
 		name := filepath.Base(fixture)
 		used := false
 		for _, scenario := range scenarios {
-			if scenario.Model != nil && scenario.Model.Fixture == name {
+			if scenario.Model != nil && slices.Contains(scenario.Model.fixtureNames(), name) {
 				used = true
 			}
 			if strings.Contains(string(scenario.Request), "${fixture:"+name+"}") {

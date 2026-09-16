@@ -18,12 +18,13 @@ import pytest
 from opensysml.capabilities import (
     CAPABILITY_APPLY_EDITS,
     CAPABILITY_AUTHORING,
+    CAPABILITY_EDIT_DOCUMENTS,
     CAPABILITY_INLINE_LANGUAGE,
     MissingCapabilityError,
 )
 from opensysml.connection import Connection
 from opensysml.conversion import Conversion, FORMAT_SYSML
-from opensysml.edit import EditResult
+from opensysml.edit import EditedDocument, EditResult
 from opensysml.errors import (
     EditError,
     EditResultError,
@@ -40,6 +41,8 @@ from opensysml.errors import (
     DeleteReferencedError,
     OwnerInsideTargetError,
     MoveReferencedError,
+    ReferencedElsewhereError,
+    Referrer,
 )
 from opensysml.proto import sysml_pb2, sysml_pb2_grpc
 
@@ -81,13 +84,18 @@ class FakeService(sysml_pb2_grpc.SysMLServiceServicer):
 
     def __init__(self, capabilities=(CAPABILITY_APPLY_EDITS,), error="",
                  failure=sysml_pb2.EDIT_FAILURE_UNSPECIFIED, diagnostics=0,
-                 referring_elements=(), not_found=False):
+                 referring_elements=(), referrers=(), not_found=False,
+                 documents=(), content="edited", legacy=False):
         self._capabilities = list(capabilities)
+        self._legacy = legacy
         self._error = error
         self._failure = failure
         self._diagnostics = diagnostics
         self._referring = list(referring_elements)
+        self._referrers = list(referrers)
         self._not_found = not_found
+        self._documents = list(documents) or [("<content>", content)]
+        self._content = content
         self.requests = []
 
     def GetServerInfo(self, request, context):
@@ -115,6 +123,10 @@ class FakeService(sysml_pb2_grpc.SysMLServiceServicer):
                 error=self._error,
                 failure=self._failure,
                 referring_elements=self._referring,
+                referrers=[
+                    sysml_pb2.Referrer(name=name, document=document)
+                    for name, document in self._referrers
+                ],
                 diagnostics=[
                     sysml_pb2.Diagnostic(
                         severity="error",
@@ -124,18 +136,24 @@ class FakeService(sysml_pb2_grpc.SysMLServiceServicer):
                     for i in range(self._diagnostics)
                 ],
             )
+        applied = sysml_pb2.AppliedEdit(
+            operation_index=0,
+            target="Demo::SC::unitMass",
+            offset=7,
+            length=3,
+            old_text="old",
+            new_text="new",
+        )
+        if self._legacy:
+            return sysml_pb2.ApplyEditsResponse(content=self._content, applied=[applied])
+        applied.document = self._documents[0][0]
         return sysml_pb2.ApplyEditsResponse(
-            content="edited",
-            applied=[
-                sysml_pb2.AppliedEdit(
-                    operation_index=0,
-                    target="Demo::SC::unitMass",
-                    offset=7,
-                    length=3,
-                    old_text="old",
-                    new_text="new",
-                )
+            content=self._content,
+            documents=[
+                sysml_pb2.EditedDocument(name=name, content=text)
+                for name, text in self._documents
             ],
+            applied=[applied],
         )
 
 
@@ -463,6 +481,87 @@ def test_a_refused_rename_names_where_the_references_are(fake_service):
         with pytest.raises(RenameReferencedError) as excinfo:
             edit.apply()
     assert excinfo.value.referring_elements == ["Demo::SC", "Demo::sc"]
+    assert excinfo.value.referrers == []
+
+
+def test_a_refusal_names_each_referrer_with_its_document(fake_service):
+    """A referrer in another document of the model arrives with that document."""
+    port, _ = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING),
+        error="cannot delete Lib::Engine: it is referenced",
+        failure=sysml_pb2.EDIT_FAILURE_DELETE_REFERENCED,
+        referring_elements=("Car::engine (car.sysml)",),
+        referrers=(("Car::engine", "car.sysml"),),
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        edit = conn.load_from_content(MODEL).edit().delete("Lib::Engine")
+        with pytest.raises(DeleteReferencedError) as excinfo:
+            edit.apply()
+    assert excinfo.value.referring_elements == ["Car::engine (car.sysml)"]
+    assert excinfo.value.referrers == [Referrer("Car::engine", "car.sysml")]
+
+
+def test_a_referrer_outside_the_model_is_its_own_error(fake_service):
+    port, _ = fake_service(
+        error="refused", failure=sysml_pb2.EDIT_FAILURE_REFERENCED_ELSEWHERE,
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        edit = conn.load_from_content(MODEL).edit().rename("Demo::SC", "Ship")
+        with pytest.raises(ReferencedElsewhereError):
+            edit.apply()
+
+
+def test_the_result_lists_the_one_document_it_edited(fake_service):
+    """A model of one document answers the same notation twice: content and documents."""
+    port, _ = fake_service()
+    with Connection(port=port, auto_start=False) as conn:
+        edit = conn.load_from_content(MODEL).edit()
+        edit.set_value("Demo::SC::unitMass", "1050.0[SI::kg]")
+        result = edit.apply()
+    assert result.documents == [EditedDocument(name="<content>", content="edited")]
+    assert str(result) == result.documents[0].content == "edited"
+    assert [a.document for a in result.applied] == ["<content>"]
+
+
+def test_a_model_of_several_documents_answers_documents_not_content(fake_service):
+    """content is empty for such a model; the rewritten documents carry the notation."""
+    port, _ = fake_service(
+        content="",
+        documents=(("lib.sysml", "package Lib;"), ("car.sysml", "package Car;")),
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        edit = conn.load_from_content(MODEL).edit().rename("Lib::Engine", "Motor")
+        result = edit.apply()
+    assert str(result) == ""
+    assert [d.name for d in result.documents] == ["lib.sysml", "car.sysml"]
+    assert result.documents[1].content == "package Car;"
+    assert result.applied[0].document == "lib.sysml"
+
+
+def test_a_service_without_edit_documents_answers_content_alone(fake_service):
+    """A service lacking the capability edits a model of one document and answers
+    content alone: documents stays empty and no applied edit names a document."""
+    assert CAPABILITY_EDIT_DOCUMENTS == "edit_documents"
+    port, _ = fake_service(legacy=True)
+    with Connection(port=port, auto_start=False) as conn:
+        assert not conn.server_info().has(CAPABILITY_EDIT_DOCUMENTS)
+        edit = conn.load_from_content(MODEL).edit()
+        edit.set_value("Demo::SC::unitMass", "1050.0[SI::kg]")
+        result = edit.apply()
+    assert str(result) == "edited"
+    assert result.documents == []
+    assert [a.document for a in result.applied] == [""]
+
+
+def test_every_request_accepts_documents(fake_service):
+    """The client reads documents, so it says so; the service edits a model of several
+    only for a request that does, and refuses one that does not as it always did."""
+    port, service = fake_service()
+    with Connection(port=port, auto_start=False) as conn:
+        edit = conn.load_from_content(MODEL).edit()
+        edit.set_value("Demo::SC::unitMass", "1050.0[SI::kg]")
+        edit.apply()
+    assert [request.accept_documents for request in service.requests] == [True]
 
 
 def test_an_evicted_model_names_the_eviction(fake_service):
