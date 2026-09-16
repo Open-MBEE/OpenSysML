@@ -9,6 +9,10 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ## 0.8.1 — 2026-09-16
 
+### Added
+
+- **The VS Code diagram opens with a keystroke or a click.** `SysML: Open Diagram` is bound to <kbd>Alt</kbd>+<kbd>D</kbd> (<kbd>Option</kbd>+<kbd>D</kbd> on macOS) and <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>), active only in a `.sysml` or `.kerml` editor or in the diagram panel itself, where the same key returns to the source. The command also sits in the editor's title bar and right-click menu and in the Explorer's menu for model files, which opens the file and its diagram side by side; `SysML: Export Diagram` joins it in the editor menus. Without a running server, or one too old to draw, the commands say so instead of greying out.
+
 ### Fixed
 
 - **`-check-timeout` (`%check-bounds timeout=`) is the `smt` engine's solver clock as well as
@@ -100,6 +104,13 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   slash before the drive letter, so `path.resolve` prefixed the current drive again and
   `npm test` / `npm run package` failed with `ENOENT … scandir 'C:\C:\…\src'`. The paths now come
   from `fileURLToPath`, which yields a native path on every platform.
+
+- **A diagram drawn from an older `sysml-lsp` no longer labels a typed usage `undefined`.** A
+  server predating the node `type` field in `opensysml/render` sends no such field, and the
+  VS Code panel wrote the missing value into the label as `engine : undefined`. The extension
+  now fills in what an older server omits — a node's `type`, `name` and `detail`, an edge's
+  `label`, absent lists — before drawing, so such a usage reads `engine`, «part», `Engine`, as
+  that server's own client drew it, and an unnamed element leads with its kind alone.
 
 ## 0.8.0 — 2026-09-14
 
