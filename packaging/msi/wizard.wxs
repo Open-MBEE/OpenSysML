@@ -310,32 +310,32 @@
       </Dialog>
 
       <!-- Status line of ProgressDlg for the standard actions this package runs. -->
-      <ProgressText Action="AppSearch" Template="Property: [1], Signature: [2]">Searching for installed applications</ProgressText>
-      <ProgressText Action="CostFinalize">Computing space requirements</ProgressText>
-      <ProgressText Action="CostInitialize">Computing space requirements</ProgressText>
-      <ProgressText Action="FileCost">Computing space requirements</ProgressText>
-      <ProgressText Action="CreateFolders" Template="Folder: [1]">Creating folders</ProgressText>
-      <ProgressText Action="InstallFiles" Template="File: [1],  Directory: [9],  Size: [6]">Copying new files</ProgressText>
-      <ProgressText Action="InstallFinalize">Finishing installation</ProgressText>
-      <ProgressText Action="InstallInitialize">Preparing installation</ProgressText>
-      <ProgressText Action="InstallValidate">Validating install</ProgressText>
-      <ProgressText Action="LaunchConditions">Evaluating launch conditions</ProgressText>
-      <ProgressText Action="MigrateFeatureStates" Template="Application: [1]">Migrating feature states from related applications</ProgressText>
-      <ProgressText Action="ProcessComponents">Updating component registration</ProgressText>
-      <ProgressText Action="PublishFeatures" Template="Feature: [1]">Publishing product features</ProgressText>
-      <ProgressText Action="PublishProduct">Publishing product information</ProgressText>
-      <ProgressText Action="RegisterProduct" Template="[1]">Registering product</ProgressText>
-      <ProgressText Action="RegisterUser" Template="[1]">Registering user</ProgressText>
-      <ProgressText Action="RemoveEnvironmentStrings" Template="Name: [1], Value: [2], Action [3]">Updating environment strings</ProgressText>
-      <ProgressText Action="RemoveExistingProducts" Template="Application: [1], Command line: [2]">Removing applications</ProgressText>
-      <ProgressText Action="RemoveFiles" Template="File: [1], Directory: [9]">Removing files</ProgressText>
-      <ProgressText Action="RemoveFolders" Template="Folder: [1]">Removing folders</ProgressText>
-      <ProgressText Action="RemoveRegistryValues" Template="Key: [1], Name: [2]">Removing system registry values</ProgressText>
-      <ProgressText Action="UnpublishFeatures" Template="Feature: [1]">Unpublishing product features</ProgressText>
-      <ProgressText Action="UnregisterProduct" Template="[1]">Unregistering product</ProgressText>
-      <ProgressText Action="ValidateProductID">Validating product ID</ProgressText>
-      <ProgressText Action="WriteEnvironmentStrings" Template="Name: [1], Value: [2], Action [3]">Updating environment strings</ProgressText>
-      <ProgressText Action="WriteRegistryValues" Template="Key: [1], Name: [2], Value: [3]">Writing system registry values</ProgressText>
+      <ProgressText Action="AppSearch" Template="Property: [1], Signature: [2]" Message="Searching for installed applications" />
+      <ProgressText Action="CostFinalize" Message="Computing space requirements" />
+      <ProgressText Action="CostInitialize" Message="Computing space requirements" />
+      <ProgressText Action="FileCost" Message="Computing space requirements" />
+      <ProgressText Action="CreateFolders" Template="Folder: [1]" Message="Creating folders" />
+      <ProgressText Action="InstallFiles" Template="File: [1],  Directory: [9],  Size: [6]" Message="Copying new files" />
+      <ProgressText Action="InstallFinalize" Message="Finishing installation" />
+      <ProgressText Action="InstallInitialize" Message="Preparing installation" />
+      <ProgressText Action="InstallValidate" Message="Validating install" />
+      <ProgressText Action="LaunchConditions" Message="Evaluating launch conditions" />
+      <ProgressText Action="MigrateFeatureStates" Template="Application: [1]" Message="Migrating feature states from related applications" />
+      <ProgressText Action="ProcessComponents" Message="Updating component registration" />
+      <ProgressText Action="PublishFeatures" Template="Feature: [1]" Message="Publishing product features" />
+      <ProgressText Action="PublishProduct" Message="Publishing product information" />
+      <ProgressText Action="RegisterProduct" Template="[1]" Message="Registering product" />
+      <ProgressText Action="RegisterUser" Template="[1]" Message="Registering user" />
+      <ProgressText Action="RemoveEnvironmentStrings" Template="Name: [1], Value: [2], Action [3]" Message="Updating environment strings" />
+      <ProgressText Action="RemoveExistingProducts" Template="Application: [1], Command line: [2]" Message="Removing applications" />
+      <ProgressText Action="RemoveFiles" Template="File: [1], Directory: [9]" Message="Removing files" />
+      <ProgressText Action="RemoveFolders" Template="Folder: [1]" Message="Removing folders" />
+      <ProgressText Action="RemoveRegistryValues" Template="Key: [1], Name: [2]" Message="Removing system registry values" />
+      <ProgressText Action="UnpublishFeatures" Template="Feature: [1]" Message="Unpublishing product features" />
+      <ProgressText Action="UnregisterProduct" Template="[1]" Message="Unregistering product" />
+      <ProgressText Action="ValidateProductID" Message="Validating product ID" />
+      <ProgressText Action="WriteEnvironmentStrings" Template="Name: [1], Value: [2], Action [3]" Message="Updating environment strings" />
+      <ProgressText Action="WriteRegistryValues" Template="Key: [1], Name: [2], Value: [3]" Message="Writing system registry values" />
 
       <InstallUISequence>
         <Show Dialog="FatalErrorDlg" OnExit="error" />
@@ -343,14 +343,14 @@
         <Show Dialog="ExitDlg" OnExit="success" />
         <Show Dialog="WelcomeDlg" Before="ProgressDlg" Condition="NOT Installed" />
         <Show Dialog="MaintenanceDlg" Before="ProgressDlg" Condition="Installed AND NOT RESUME AND NOT Preselected AND NOT PATCH" />
-        <Show Dialog="ProgressDlg" After="CostFinalize" />
+        <Show Dialog="ProgressDlg" Before="ExecuteAction" />
       </InstallUISequence>
 
       <AdminUISequence>
         <Show Dialog="FatalErrorDlg" OnExit="error" />
         <Show Dialog="UserExitDlg" OnExit="cancel" />
         <Show Dialog="ExitDlg" OnExit="success" />
-        <Show Dialog="ProgressDlg" After="CostFinalize" />
+        <Show Dialog="ProgressDlg" Before="ExecuteAction" />
       </AdminUISequence>
     </UI>
   </Fragment>
