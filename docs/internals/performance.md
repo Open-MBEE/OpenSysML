@@ -400,6 +400,14 @@ allocation per token, per name or per lookup where one per file, or none, would
 serve — the snapshot decoder's node table, allocated as one block, is the
 model — and each is to be measured on its own before it is changed.
 
+One parse per load is spent twice: the REPL parses each file to accept it (the
+names it declares, whether it closes its own text) and the workspace parses the
+same bytes again as the document. The 34 files of the split (17 MB) parse in
+1.03 s serially, so the second parse is ~1 s of the one-worker 19.5 s and
+~0.13 s of the eight-worker wall. Carrying the accepted tree into the workspace
+batch would recover it; it is a change to what `model.Input` owns and is left
+to be measured on its own.
+
 ## What a process pays before the model
 
 Every `sysml`, `sysml-lsp` and `sysml-grpc` start, and every test that builds a
