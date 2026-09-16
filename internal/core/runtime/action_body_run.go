@@ -285,12 +285,18 @@ func (w *usageWork) perform() error {
 		}
 		if err := e.executeBody(w.perf, w.graph, w.usage); err != nil {
 			err = e.terminatedUsage(w.perf, w.graph, err)
-			if !terminates(err, w.perf) {
+			if ended = unwound(err); ended == nil {
 				return err
+			}
+			if ended.perf != w.perf {
+				// The usage ends a performance around it: its own completes first, pins bound.
+				if err := e.endPerformance(w.perf); err != nil {
+					return err
+				}
+				return ended
 			}
 			// A terminate unwound out of a flow nested in the body: what still runs there is dropped.
 			e.dropTokensIn(w.perf, 0)
-			ended = unwound(err)
 		}
 		if err := e.endPerformance(w.perf); err != nil {
 			return err

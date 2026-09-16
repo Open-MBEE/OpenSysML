@@ -166,13 +166,19 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 	if !f.ended {
 		if err := e.performNodeBody(f, graph, node); err != nil {
 			err = e.terminatedUsage(f.perf, graph, err)
-			if !terminates(err, f.perf) {
+			if ended = unwound(err); ended == nil {
 				return flowNext, e.ctx.pausing(f, err)
+			}
+			if ended.perf != f.perf {
+				// The node ends a performance around it: its own completes first, pins bound.
+				if err := e.endPerformance(f.perf); err != nil {
+					return flowNext, err
+				}
+				return flowNext, ended
 			}
 			if f.perf.graph == nil {
 				e.flow.dropTokensIn(f.perf, 0)
 			}
-			ended = unwound(err)
 		}
 		if err := e.endPerformance(f.perf); err != nil {
 			return flowNext, err
