@@ -42,11 +42,11 @@ is printed:
 ```console
 $ sysml Vehicle.xmi -convert sysml -o Vehicle.sysml -migration-report Vehicle.report.txt
 note: SysML v1 migration is experimental: the mapping covers structure, ports and connectors, requirements, constraints, instances and allocations, reports every element it approximates or leaves behind, and what it writes for a v1 element may change without a compatibility path; see docs/reference/sysml-v1-migration.md § Status
-wrote Vehicle.report.txt (migration report: migrated 89 element(s): 67 mapped, 14 approximated, 8 unmapped (3 skipped as profile or library content))
+wrote Vehicle.report.txt (migration report: migrated 89 element(s): 68 mapped, 13 approximated, 8 unmapped (3 skipped as profile or library content))
 wrote Vehicle.sysml (sysml, 5913 bytes)
 ```
 
-The summary is the first thing to read: 89 v1 elements, of which 67 have a direct v2 form, 14
+The summary is the first thing to read: 89 v1 elements, of which 68 have a direct v2 form, 13
 were written as the nearest v2 construct, and 8 have none. The 3 skipped are the SysML profile
 application, the profile itself and a diagram — not model content, so they count against nothing.
 The command exits 0 when the notation was written, whatever the report says; it exits non-zero
@@ -70,7 +70,7 @@ need attention first:
 ```text
 # SysML v1 to v2 migration report: Vehicle.xmi
 # exported by Example UML Tool
-# migrated 89 element(s): 67 mapped, 14 approximated, 8 unmapped (3 skipped as profile or library content)
+# migrated 89 element(s): 68 mapped, 13 approximated, 8 unmapped (3 skipped as profile or library content)
 
 ## unmapped (8)
 «Verify» Abstraction	Requirements::<Abstraction>	_dep_verify_block	(a verify whose client is not a test case has no v2 form; applied stereotypes «Verify»)
@@ -82,7 +82,7 @@ Activity	Vehicle Design::Drive	_act_drive	(behaviors are not migrated yet)
 StateMachine	Vehicle Design::Vehicle::Vehicle States	_sm_vehicle	(behaviors are not migrated yet)
 Operation	Vehicle Design::Vehicle::start	_op_start	(operations and receptions are not migrated; v2 has no operation)
 
-## approximated (14)
+## approximated (13)
 «Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	(a trace is written as a plain dependency)
 «TestCase» Activity	Requirements::Mass Test	_tc_mass	-> Requirements::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
 Actor	Vehicle Design::Driver	_actor_driver	-> 'Vehicle Design'::Driver	(a UML actor is written as a part def)
