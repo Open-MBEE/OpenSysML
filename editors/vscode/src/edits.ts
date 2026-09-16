@@ -240,9 +240,9 @@ export const REDRAWN_MESSAGE =
   "The diagram was redrawn after the action was offered on it; repeat the action on the diagram shown now.";
 
 // offeredOn reports whether an action taken on drawing `offered` still names the panel's drawing
-// `drawn`. Node ids are local to a drawing, and a view change redraws at the same document version.
+// `drawn`. Node ids are local to a drawing; zero is a restored drawing no render has numbered yet.
 export function offeredOn(drawn: number, offered: number): boolean {
-  return offered === drawn;
+  return offered > 0 && offered === drawn;
 }
 
 // editParams pins the request to the version the operations were read from: a later

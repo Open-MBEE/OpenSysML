@@ -233,6 +233,12 @@ test("offeredOn holds only for the drawing the action was offered on", () => {
   assert.equal(offeredOn(3, 0), false);
 });
 
+// A restored panel shows its saved drawing as number zero until the server draws again; an
+// action from it would resolve ids against no rendering, so it is refused as redrawn.
+test("offeredOn refuses an action from a drawing no render has numbered", () => {
+  assert.equal(offeredOn(0, 0), false);
+});
+
 // The same rendering with each declaration's notation, as a server that serves moves sends it.
 const notated = nodes.map((node) => (node.fqn ? { ...node, notation: node.kind } : node));
 const [carN, tankN, fuelOutN, engineN, fuelInN] = notated;

@@ -256,6 +256,8 @@ view is picked, or a document it imports is edited. The panel numbers every
 drawing it posts to the webview, every action the webview sends back carries the
 number of the drawing its ids came from, and an action whose number is not the
 current drawing's is refused before its ids are resolved, with the same message.
+A restored panel draws its saved rendering as drawing zero until the server draws
+again, and zero is never current, so an action taken on it is refused the same way.
 Each other document's `TextDocumentEdit` carries the version the server computed it
 against; the language client library applies edits without checking that, so the
 panel does. A document the edit names that no buffer holds is opened first and the
