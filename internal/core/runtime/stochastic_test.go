@@ -461,7 +461,8 @@ func TestReplayReproducesTheDrawsAndTheWeightedBranch(t *testing.T) {
 }
 
 // A witness whose draws the run cannot consume is refused with a typed error:
-// one drawn for another call, one missing, one left over, and one spelt unreadably.
+// one drawn for another call, one missing, one left over, one the call could not
+// have drawn, and one spelt unreadably.
 func TestReplayRefusesDrawsItCannotConsume(t *testing.T) {
 	m := parseLibraryModel(t, drawingModel)
 	ctx, _, err := runAction(t, m, "draw", "seed:3")
@@ -470,6 +471,7 @@ func TestReplayRefusesDrawsItCannotConsume(t *testing.T) {
 	}
 	good := Witness{Draws: ctx.DrawsTaken()}
 	real := func(x float64) semantics.Value { return semantics.Value{Kind: semantics.ValReal, Real: x} }
+	integer := func(n int64) semantics.Value { return semantics.Value{Kind: semantics.ValInt, Int: n} }
 	cases := []struct {
 		name  string
 		draws []DrawTaken
@@ -480,6 +482,11 @@ func TestReplayRefusesDrawsItCannotConsume(t *testing.T) {
 		{"missing", good.Draws[:1], 0, "records no draw left for it"},
 		{"left over", append(append([]DrawTaken{}, good.Draws...), DrawTaken{What: "uniform(0.0, 1.0)", Value: real(0.25)}), 3, "the run ended without drawing it"},
 		{"none at all", nil, 0, "records no draw left for it"},
+		{"real above hi", []DrawTaken{{What: good.Draws[0].What, Value: real(2)}, good.Draws[1]}, 1, "records 2.0, which the call cannot draw"},
+		{"real below lo", []DrawTaken{{What: good.Draws[0].What, Value: real(-0.5)}, good.Draws[1]}, 1, "records -0.5, which the call cannot draw"},
+		{"real for an integer", []DrawTaken{good.Draws[0], {What: good.Draws[1].What, Value: real(3.5)}}, 2, "records 3.5, which the call cannot draw"},
+		{"integer past hi", []DrawTaken{good.Draws[0], {What: good.Draws[1].What, Value: integer(7)}}, 2, "records 7, which the call cannot draw"},
+		{"integer for a real", []DrawTaken{{What: good.Draws[0].What, Value: integer(0)}, good.Draws[1]}, 1, "records 0, which the call cannot draw"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -512,6 +519,68 @@ func TestReplayRefusesDrawsItCannotConsume(t *testing.T) {
 		if err != nil || back != d {
 			t.Errorf("ParseDraw(%q) = %v, %v; want the draw back", d, back, err)
 		}
+	}
+}
+
+// A replayed draw must lie where its call's distribution puts it: a triangular draw
+// within its bounds, a normal draw finite and, at zero deviation, at the mean.
+func TestReplayRefusesDrawsOutsideTheCallsDistribution(t *testing.T) {
+	m := parseLibraryModel(t, `
+		package test {
+			private import ScalarValues::*;
+			private import RandomFunctions::*;
+			action draw {
+				attribute a : Real = triangular(0.0, 1.0, 2.0);
+				attribute b : Real = normal(5.0, 0.0);
+				attribute c : Real = normal(0.0, 1.0);
+				first start; then done;
+			}
+		}`)
+	ctx, _, err := runAction(t, m, "draw", "seed:3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	good := ctx.DrawsTaken()
+	if len(good) != 3 {
+		t.Fatalf("recorded %v, want three draws", good)
+	}
+	real := func(x float64) semantics.Value { return semantics.Value{Kind: semantics.ValReal, Real: x} }
+	with := func(i int, v semantics.Value) []DrawTaken {
+		draws := append([]DrawTaken{}, good...)
+		draws[i].Value = v
+		return draws
+	}
+	cases := []struct {
+		name  string
+		draws []DrawTaken
+		ok    bool
+	}{
+		{"triangular at lo", with(0, real(0)), true},
+		{"triangular at hi", with(0, real(2)), true},
+		{"triangular past hi", with(0, real(2.5)), false},
+		{"zero deviation at the mean", with(1, real(5)), true},
+		{"zero deviation off the mean", with(1, real(5.1)), false},
+		{"normal far out", with(2, real(-40)), true},
+		{"normal infinite", with(2, real(math.Inf(1))), false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			replay, _ := m.fresh()
+			mustSchedule(t, replay, ReplayOf(Witness{Draws: tc.draws}))
+			_, err := replay.ExecuteAction(m.action(t, "draw"))
+			if err == nil {
+				err = replay.Unfollowed()
+			}
+			if tc.ok {
+				if err != nil {
+					t.Fatalf("replay refused a draw the call could make: %v", err)
+				}
+				return
+			}
+			if !errors.Is(err, ErrWitnessDraw) || !strings.Contains(err.Error(), "which the call cannot draw") {
+				t.Fatalf("error = %v, want a WitnessDrawError naming the draw the call cannot make", err)
+			}
+		})
 	}
 }
 
@@ -548,9 +617,13 @@ func TestProbeRestoresTheModeledStream(t *testing.T) {
 	mustSchedule(t, ctx, mustPolicy(t, "seed:5"))
 	ctx.SetModelSeed(11)
 	ctx.run.scheduler = ctx.schedulerUnder(ctx.schedule)
+	unit := distribution{
+		draw:   func(rng *rand.Rand) semantics.Value { return drawnReal(rng.Float64()) },
+		admits: realWithin(0, 1),
+	}
 	peek := func() semantics.Value {
 		saved := *ctx.run.scheduler.modeled.pcg
-		v, err := ctx.run.scheduler.draw("peek", func(rng *rand.Rand) semantics.Value { return drawnReal(rng.Float64()) })
+		v, err := ctx.run.scheduler.draw("peek", unit)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -560,7 +633,7 @@ func TestProbeRestoresTheModeledStream(t *testing.T) {
 	before := peek()
 
 	end := ctx.beginProbe()
-	if _, err := ctx.draw("probe", func(rng *rand.Rand) semantics.Value { return drawnReal(rng.Float64()) }); err != nil {
+	if _, err := ctx.draw("probe", unit); err != nil {
 		t.Fatal(err)
 	}
 	if len(ctx.DrawsTaken()) != 0 {

@@ -44,8 +44,9 @@ func drawUniform(ctx *Context, name string, args []semantics.Value) (semantics.V
 	if lo > hi {
 		return semantics.Value{}, fmt.Errorf("%w: uniform(%s, %s): lo exceeds hi", ErrRandomDomain, formatDrawn(args[0]), formatDrawn(args[1]))
 	}
-	return ctx.draw(drawCall(name, args), func(rng *rand.Rand) semantics.Value {
-		return drawnReal(lo + rng.Float64()*(hi-lo))
+	return ctx.draw(drawCall(name, args), distribution{
+		draw:   func(rng *rand.Rand) semantics.Value { return drawnReal(lo + rng.Float64()*(hi-lo)) },
+		admits: realWithin(lo, hi),
 	})
 }
 
@@ -58,8 +59,11 @@ func drawUniformInteger(ctx *Context, name string, args []semantics.Value) (sema
 		return semantics.Value{}, fmt.Errorf("%w: uniformInteger(%d, %d): lo exceeds hi", ErrRandomDomain, lo, hi)
 	}
 	span := unsignedInt(hi) - unsignedInt(lo)
-	return ctx.draw(drawCall(name, args), func(rng *rand.Rand) semantics.Value {
-		return semantics.Value{Kind: semantics.ValInt, Int: signedInt(unsignedInt(lo) + drawOffset(rng, span))}
+	return ctx.draw(drawCall(name, args), distribution{
+		draw: func(rng *rand.Rand) semantics.Value {
+			return semantics.Value{Kind: semantics.ValInt, Int: signedInt(unsignedInt(lo) + drawOffset(rng, span))}
+		},
+		admits: func(v semantics.Value) bool { return v.Kind == semantics.ValInt && lo <= v.Int && v.Int <= hi },
 	})
 }
 
@@ -75,12 +79,15 @@ func drawTriangular(ctx *Context, name string, args []semantics.Value) (semantic
 		return semantics.Value{}, fmt.Errorf("%w: triangular(%s, %s, %s): needs lo <= mode <= hi with lo < hi",
 			ErrRandomDomain, formatDrawn(args[0]), formatDrawn(args[1]), formatDrawn(args[2]))
 	}
-	return ctx.draw(drawCall(name, args), func(rng *rand.Rand) semantics.Value {
-		u := rng.Float64()
-		if cut := (mode - lo) / (hi - lo); u < cut {
-			return drawnReal(lo + math.Sqrt(u*(hi-lo)*(mode-lo)))
-		}
-		return drawnReal(hi - math.Sqrt((1-u)*(hi-lo)*(hi-mode)))
+	return ctx.draw(drawCall(name, args), distribution{
+		draw: func(rng *rand.Rand) semantics.Value {
+			u := rng.Float64()
+			if cut := (mode - lo) / (hi - lo); u < cut {
+				return drawnReal(lo + math.Sqrt(u*(hi-lo)*(mode-lo)))
+			}
+			return drawnReal(hi - math.Sqrt((1-u)*(hi-lo)*(hi-mode)))
+		},
+		admits: realWithin(lo, hi),
 	})
 }
 
@@ -94,8 +101,14 @@ func drawNormal(ctx *Context, name string, args []semantics.Value) (semantics.Va
 	if sd < 0 {
 		return semantics.Value{}, fmt.Errorf("%w: normal(%s, %s): sd is negative", ErrRandomDomain, formatDrawn(args[0]), formatDrawn(args[1]))
 	}
-	return ctx.draw(drawCall(name, args), func(rng *rand.Rand) semantics.Value {
-		return drawnReal(mean + sd*rng.NormFloat64())
+	return ctx.draw(drawCall(name, args), distribution{
+		draw: func(rng *rand.Rand) semantics.Value { return drawnReal(mean + sd*rng.NormFloat64()) },
+		admits: func(v semantics.Value) bool {
+			if sd == 0 {
+				return v.Kind == semantics.ValReal && v.Real == mean
+			}
+			return v.Kind == semantics.ValReal && !math.IsInf(v.Real, 0) && !math.IsNaN(v.Real)
+		},
 	})
 }
 
@@ -113,4 +126,9 @@ func finiteBounds(name string, args []semantics.Value) error {
 // drawnReal is x as a Real value.
 func drawnReal(x float64) semantics.Value {
 	return semantics.Value{Kind: semantics.ValReal, Real: x}
+}
+
+// realWithin admits a Real on [lo, hi]: what a bounded distribution can draw.
+func realWithin(lo, hi float64) func(v semantics.Value) bool {
+	return func(v semantics.Value) bool { return v.Kind == semantics.ValReal && lo <= v.Real && v.Real <= hi }
 }

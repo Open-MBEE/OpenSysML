@@ -470,8 +470,8 @@ func (s *scheduler) chooseWeighted(c *ChoicePoint) error {
 }
 
 // draw is the value the call what draws from the run's modeled stream.
-func (s *scheduler) draw(what string, compute func(rng *rand.Rand) semantics.Value) (semantics.Value, error) {
-	return s.modeled.draw(what, compute)
+func (s *scheduler) draw(what string, dist distribution) (semantics.Value, error) {
+	return s.modeled.draw(what, dist)
 }
 
 // witnessInputs hands out the inputs the run's witness fixes, once, to the

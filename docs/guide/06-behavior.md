@@ -934,7 +934,8 @@ makes takes the next recorded draw instead of drawing, and the run is refused, a
 unfollowable move is, when a draw is missing (the run draws once more than the file recorded), left
 over (the file recorded a draw the run never made), made by another call than the one recorded
 (`uniform(1, 80)` where the file says `uniform(0.0, 10.0)`), or written as no value the call can
-return. A replay's rollback — a probe the checker makes, a `%step` taken back — restores the
+draw (`draw uniform(0.0, 1.0) = 2.0`: outside the bounds, of the wrong kind, off the mean of a
+`normal` with zero deviation). A replay's rollback — a probe the checker makes, a `%step` taken back — restores the
 draw position with the choice position, so a run stepped and re-stepped consumes each draw once.
 
 ### Under `explore` and `check`

@@ -865,9 +865,10 @@ func (r *replayRun) takeInputs() []InputTaken {
 }
 
 // takeDraw hands the call what the witness's next recorded draw, which must be of
-// the same call; a draw the witness does not record, or records for another call,
-// refuses the witness and fails the call.
-func (r *replayRun) takeDraw(what string) (semantics.Value, error) {
+// the same call and a value the call admits; a draw the witness does not record,
+// records for another call, or records outside the call's distribution refuses
+// the witness and fails the call.
+func (r *replayRun) takeDraw(what string, admits func(semantics.Value) bool) (semantics.Value, error) {
 	if r.nextDraw >= len(r.draws) {
 		err := &WitnessDrawError{What: what, Reason: "the witness records no draw left for it"}
 		if r.refused == nil {
@@ -878,6 +879,13 @@ func (r *replayRun) takeDraw(what string) (semantics.Value, error) {
 	d := r.draws[r.nextDraw]
 	if d.What != what {
 		err := &WitnessDrawError{Draw: r.nextDraw + 1, What: d.What, Reason: "the run drew " + what + " instead"}
+		if r.refused == nil {
+			r.refused = err
+		}
+		return semantics.Value{}, err
+	}
+	if !admits(d.Value) {
+		err := &WitnessDrawError{Draw: r.nextDraw + 1, What: d.What, Reason: "the witness records " + formatDrawn(d.Value) + ", which the call cannot draw"}
 		if r.refused == nil {
 			r.refused = err
 		}

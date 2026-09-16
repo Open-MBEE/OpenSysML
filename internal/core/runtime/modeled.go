@@ -150,10 +150,17 @@ func (d DrawPoint) Diagnostic() passes.Diagnostic {
 	}
 }
 
+// distribution is what one random call draws: a value from the generator, and the
+// values it could draw at all, which a witness's recorded draw is checked against.
+type distribution struct {
+	draw   func(rng *rand.Rand) semantics.Value
+	admits func(v semantics.Value) bool
+}
+
 // draw makes the random draw the call what asks for from the run's modeled stream,
 // noting it for the trace and the witness; a probe's draw is undone with the probe.
-func (ctx *Context) draw(what string, compute func(rng *rand.Rand) semantics.Value) (semantics.Value, error) {
-	val, err := ctx.scheduling().draw(what, compute)
+func (ctx *Context) draw(what string, dist distribution) (semantics.Value, error) {
+	val, err := ctx.scheduling().draw(what, dist)
 	if err != nil {
 		return semantics.Value{}, err
 	}
@@ -269,15 +276,16 @@ func (e *WitnessDrawError) Error() string {
 func (e *WitnessDrawError) Is(target error) bool { return target == ErrWitnessDraw }
 
 // draw is the value the call what draws: the witness's next recorded draw under
-// replay, which must be of the same call, else compute over the seeded generator.
-func (m *modeledSource) draw(what string, compute func(rng *rand.Rand) semantics.Value) (semantics.Value, error) {
+// replay, which must be of the same call and one the call could draw, else a draw
+// from the seeded generator.
+func (m *modeledSource) draw(what string, dist distribution) (semantics.Value, error) {
 	if m == nil {
 		return semantics.Value{}, &UnseededDrawError{What: what}
 	}
 	if m.replay != nil {
-		return m.replay.takeDraw(what)
+		return m.replay.takeDraw(what, dist.admits)
 	}
-	return compute(m.rng), nil
+	return dist.draw(m.rng), nil
 }
 
 // unit is a draw in [0, 1) deciding a weighted branch; a replay decides it by the
