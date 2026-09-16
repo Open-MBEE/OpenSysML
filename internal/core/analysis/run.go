@@ -53,7 +53,7 @@ func (e runEngine) Run(ctx context.Context, model *Model, q Question, budget Bud
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
 	}
-	rctx, err := model.running(e.Name(), budget)
+	rctx, err := model.running(e.Name(), budget, q.ModelSeed)
 	if err != nil {
 		return Result{}, err
 	}

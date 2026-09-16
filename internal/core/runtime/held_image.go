@@ -132,13 +132,15 @@ func (obj imagedObject) keptIDs() []int64 {
 }
 
 // imagedRun is one run's bookkeeping by value: what it spent and noted, the policy its
-// choices draw under, and the generator's position where that policy is seeded.
+// choices draw under, the generator's position where that policy is seeded, and the
+// modeled stream's position where the run draws its own randomness from a seed.
 type imagedRun struct {
 	steps, elements int64
 	notes           []RunNote
 	scheduled       bool
 	policy          SchedulePolicy
 	generator       *rand.PCG
+	modeled         *rand.PCG
 }
 
 // Holds reports whether the image holds an object under id.
@@ -451,10 +453,17 @@ func (t *imaging) run(state *runState) (int, error) {
 		if s.explore != nil {
 			return 0, fmt.Errorf("%w: an exploration of the schedule under way", ErrImageBound)
 		}
+		if s.replay != nil {
+			return 0, fmt.Errorf("%w: a witness being followed", ErrImageBound)
+		}
 		run.scheduled, run.policy = true, s.policy
 		if s.pcg != nil {
 			generator := *s.pcg
 			run.generator = &generator
+		}
+		if s.modeled.seeded() {
+			modeled := *s.modeled.pcg
+			run.modeled = &modeled
 		}
 	}
 	at := len(t.img.runStates)
@@ -877,7 +886,8 @@ func (m *materializing) featureAt(ref imagedFeatureRef) *FeatureValue {
 }
 
 // runState is a run of dst's own standing where an imaged run stood: what it spent
-// and noted, and, where both schedules are seeded, the imaged generator's position.
+// and noted, where both schedules are seeded the imaged generator's position, and
+// where the imaged run drew from a seed its modeled stream's position.
 func (m *materializing) runState(run imagedRun) *runState {
 	state := &runState{
 		steps: run.steps, elements: run.elements, notes: slices.Clone(run.notes),
@@ -887,6 +897,9 @@ func (m *materializing) runState(run imagedRun) *runState {
 		state.scheduler = m.dst.schedulerUnder(run.policy)
 		if run.generator != nil && state.scheduler.pcg != nil {
 			*state.scheduler.pcg = *run.generator
+		}
+		if run.modeled != nil {
+			state.scheduler.modeled = modeledAt(*run.modeled)
 		}
 	}
 	return state

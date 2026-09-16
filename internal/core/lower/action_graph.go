@@ -80,15 +80,74 @@ type ActionGraph struct {
 	// BlockNodes lists, per node, the action nodes its body's blocks (an `if` branch,
 	// a loop body) declare, in declaration order: subperformances reached by name from it.
 	BlockNodes map[ast.Node][]ast.Node
+
+	// resolver is the name-resolution tier's, by which lowering tells the metadata
+	// it gives a meaning to (Probability) from any other; nil reads none.
+	resolver *resolve.Resolver
+
+	// inherited are the actions the action specializes, nearest general first.
+	inherited []Inherited
+
+	// declaredIn: inherited node, flow or binding declaration → the scope of the
+	// general's body it was written in, which says which document declares it.
+	declaredIn map[ast.Node]*symbols.Scope
+}
+
+// recordDeclaredIn records the scope of the body an inherited declaration was written in.
+func (g *ActionGraph) recordDeclaredIn(decl ast.Node, scope *symbols.Scope) {
+	if decl == nil || scope == nil {
+		return
+	}
+	if g.declaredIn == nil {
+		g.declaredIn = make(map[ast.Node]*symbols.Scope)
+	}
+	g.declaredIn[decl] = scope
+}
+
+// DocOf is the document a declaration of the graph was written in: the general's
+// where inherited, else the action's own; "" outside any document.
+func (g *ActionGraph) DocOf(decl ast.Node) string {
+	scope := g.Scope
+	if decl != nil {
+		if declared := g.declaredIn[decl]; declared != nil {
+			scope = declared
+		}
+	}
+	return symbols.DocNameOf(scope)
+}
+
+// Inherited lists the declarations the action's content came from besides its
+// own — the actions it specializes, then those its subflows specialize — each once.
+func (g *ActionGraph) Inherited() []Inherited {
+	var out []Inherited
+	seen := make(map[ast.Node]bool)
+	var collect func(g *ActionGraph)
+	collect = func(g *ActionGraph) {
+		for _, in := range g.inherited {
+			if !seen[in.Decl] {
+				seen[in.Decl] = true
+				out = append(out, in)
+			}
+		}
+		for _, node := range g.Nodes {
+			if sub := g.Subflows[node]; sub != nil && sub.Graph != nil {
+				collect(sub.Graph)
+			}
+		}
+	}
+	collect(g)
+	return out
 }
 
 // ActionEdge is one succession out of a node: the node it leaves, the target it reaches, the
 // guard it carries and its declaration (nil when implicit). No two edges of a graph compare equal.
+// Probability is the weight its `@Probability` states, nil for an unweighted succession.
 type ActionEdge struct {
-	Source ast.Node
-	Target ast.Node
-	Guard  ast.Node
-	Decl   ast.Node
+	Source      ast.Node
+	Target      ast.Node
+	Guard       ast.Node
+	Decl        ast.Node
+	Probability *Probability
 }
 
 // Statement is one lowered statement in an action node's body. Statements are
@@ -468,11 +527,21 @@ type ObjectFlow struct {
 // scope is the scope the action's body was declared in — the scope the action
 // itself owns — which every expression the graph carries is evaluated in.
 // Returns error if graph is malformed (e.g., no initial node, dangling edges).
+// Without the name-resolution tier's resolver a Probability annotation cannot be
+// told from any other metadata, so none is read; a caller holding one uses
+// ToActionGraphWith.
 func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, error) {
-	graph, members, err := collectActionNodes(actionDecl, scope)
+	return ToActionGraphWith(actionDecl, scope, nil)
+}
+
+// ToActionGraphWith is ToActionGraph reading the metadata the resolver identifies:
+// a succession's `@Probability { p = ...; }` becomes its edge's weight.
+func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
+	graph, members, err := collectActionNodes(actionDecl, scope, resolver)
 	if err != nil {
 		return nil, err
 	}
+	weights := &probabilityReader{resolver: resolver, scope: scope}
 
 	// Note: Initial node is optional at graph construction time.
 	// The executor's initialize() will validate and return the error if missing.
@@ -485,12 +554,23 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 		case *ast.InitialNode:
 			// `first a then b;` is the succession a -> b, as `succession first a then b;` is.
 			if n.Successor == nil {
+				if err := weights.refuseStrayIn(nil, n.Members); err != nil {
+					return nil, err
+				}
 				continue
 			}
 			if !annotationsOnly(n.Members) {
 				return nil, fmt.Errorf("action succession has unsupported body")
 			}
-			if err := lowerSuccession(graph, n.First, n.Successor, n.Guard, n); err != nil {
+			weight, err := weights.read(n.Members)
+			if err != nil {
+				return nil, err
+			}
+			if err := lowerSuccession(graph, n.First, n.Successor, n.Guard, n, weight); err != nil {
+				return nil, err
+			}
+		case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode:
+			if err := weights.refuseStrayIn(nil, ast.NodeBodyMembers(n)); err != nil {
 				return nil, err
 			}
 		case *ast.SuccessionEdge:
@@ -503,10 +583,15 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 			if targetNode == nil {
 				return nil, fmt.Errorf("succession edge references undefined target node %s", edgeEnd(n.Target, n.TargetMember))
 			}
+			weight, err := weights.read(n.Members)
+			if err != nil {
+				return nil, err
+			}
 			graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
-				Source: sourceNode,
-				Target: targetNode,
-				Decl:   n,
+				Source:      sourceNode,
+				Target:      targetNode,
+				Decl:        n,
+				Probability: weight,
 			})
 		case *ast.ControlFlowEdge:
 			sourceNode := resolveActionEndpointForEdge(graph, n.Source, n.SourceMember, true)
@@ -533,11 +618,16 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 			if targetNode == nil {
 				return nil, fmt.Errorf("succession references undefined target node %s", edgeEndName(n.Target))
 			}
+			weight, err := weights.read(n.Members)
+			if err != nil {
+				return nil, err
+			}
 			graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
-				Source: sourceNode,
-				Target: targetNode,
-				Guard:  n.Guard,
-				Decl:   n,
+				Source:      sourceNode,
+				Target:      targetNode,
+				Guard:       n.Guard,
+				Decl:        n,
+				Probability: weight,
 			})
 		case *ast.ObjectFlowEdge:
 			sourceNode, sourcePin := parsePinReference(graph.Nodes, n.Source)
@@ -562,6 +652,12 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 				Decl:      n,
 			})
 		case *ast.Usage:
+			if n.Kind == ast.UsageAction {
+				if err := weights.refuseStrayIn(n.Prefixes, n.Members); err != nil {
+					return nil, err
+				}
+				continue
+			}
 			if n.Kind == ast.UsageBinding {
 				bindings, err := lowerPinBindings(graph, nodesNamed(graph.Nodes), n, scope)
 				if err != nil {
@@ -585,9 +681,19 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 						return nil, fmt.Errorf("action succession end %d has unsupported multiplicity", i+1)
 					}
 				}
+				weight, err := weights.read(n.Members)
+				if err != nil {
+					return nil, err
+				}
 				sourceRef := connectorEndReference(n.ConnectorEnds[0])
 				targetRef := connectorEndReference(n.ConnectorEnds[1])
-				if err := lowerSuccession(graph, sourceRef, targetRef, nil, n); err != nil {
+				if err := lowerSuccession(graph, sourceRef, targetRef, nil, n, weight); err != nil {
+					return nil, err
+				}
+				continue
+			}
+			if n.Kind == ast.UsageMetadata {
+				if err := weights.refuseStray(n); err != nil {
 					return nil, err
 				}
 				continue
@@ -600,10 +706,17 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 				return nil, err
 			}
 			graph.DataFlows[source] = append(graph.DataFlows[source], flow)
+		case *ast.PrefixMetadata:
+			if err := weights.refuseStray(n); err != nil {
+				return nil, err
+			}
 		}
 	}
 
 	if err := lowerInheritedPinConnections(graph, scope); err != nil {
+		return nil, err
+	}
+	if err := checkProbabilities(graph); err != nil {
 		return nil, err
 	}
 	recordBlockNodes(graph)
@@ -615,6 +728,7 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 // the action inherits keeps the connections its declaring action stated at it.
 func lowerInheritedPinConnections(graph *ActionGraph, scope *symbols.Scope) error {
 	for _, body := range resolve.ActionGeneralBodies(scope) {
+		graph.inherited = append(graph.inherited, Inherited{Decl: body.Node(), Body: body})
 		nodes := inheritedNodeLookup(graph, body)
 		for _, member := range declMembers(body.Node()) {
 			u, ok := unwrapMembership(member).(*ast.Usage)
@@ -630,6 +744,7 @@ func lowerInheritedPinConnections(graph *ActionGraph, scope *symbols.Scope) erro
 				if err != nil {
 					return err
 				}
+				graph.recordDeclaredIn(u, body)
 				graph.Bindings = append(graph.Bindings, bindings...)
 			case ast.UsageFlow:
 				if u.FlowEnds == nil {
@@ -645,6 +760,7 @@ func lowerInheritedPinConnections(graph *ActionGraph, scope *symbols.Scope) erro
 				if err != nil {
 					return err
 				}
+				graph.recordDeclaredIn(u, body)
 				graph.DataFlows[source] = append(graph.DataFlows[source], flow)
 			}
 		}
@@ -739,7 +855,7 @@ func resolveFirstNode(graph *ActionGraph) error {
 
 // lowerSuccession adds the edge a succession states between the nodes its two
 // ends resolve to.
-func lowerSuccession(graph *ActionGraph, sourceRef, targetRef, guard, decl ast.Node) error {
+func lowerSuccession(graph *ActionGraph, sourceRef, targetRef, guard, decl ast.Node, weight *Probability) error {
 	sourceNode := resolveActionEndpoint(graph, sourceRef, true)
 	if sourceNode == nil {
 		return fmt.Errorf("action succession references undefined source node %s", successionEndText(sourceRef))
@@ -749,10 +865,11 @@ func lowerSuccession(graph *ActionGraph, sourceRef, targetRef, guard, decl ast.N
 		return fmt.Errorf("action succession references undefined target node %s", successionEndText(targetRef))
 	}
 	graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
-		Source: sourceNode,
-		Target: targetNode,
-		Guard:  guard,
-		Decl:   decl,
+		Source:      sourceNode,
+		Target:      targetNode,
+		Guard:       guard,
+		Decl:        decl,
+		Probability: weight,
 	})
 	return nil
 }

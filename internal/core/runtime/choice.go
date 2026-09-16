@@ -92,19 +92,34 @@ type ChoicePoint struct {
 	// created, tied events in arrival order. Taken indexes the one taken.
 	Alternatives []string
 	Taken        int
+	// Weights are the probabilities the model states for the alternatives of a
+	// weighted decision, one per alternative; nil for a choice the model does not weight.
+	Weights []float64
+	// Drew is the unit draw that selected Taken among the Weights, when Drawn.
+	Drew  float64
+	Drawn bool
 	// File and Span locate the declaration the choice was made at; File is ""
 	// when the runtime could not name one.
 	File string
 	Span source.Span
 }
 
+// Weighted reports whether the model weights the alternatives.
+func (c ChoicePoint) Weighted() bool {
+	return len(c.Weights) == len(c.Alternatives) && len(c.Weights) > 0
+}
+
 // Describe renders the choice for a diagnostic: the alternatives in canonical
-// order and which one the executor took.
+// order and which one the executor took; a weighted decision's alternatives carry
+// their weights and how the branch was selected.
 func (c ChoicePoint) Describe() string {
 	alts := strings.Join(c.Alternatives, ", ")
 	taken := ""
 	if c.Taken >= 0 && c.Taken < len(c.Alternatives) {
 		taken = c.Alternatives[c.Taken]
+	}
+	if c.Kind == ChoiceDecisionBranch && c.Weighted() {
+		return fmt.Sprintf("step %d: %s branches %s hold (weighted; %s)", c.Step, c.Where, c.weightedAlternatives(), c.selection(taken))
 	}
 	switch c.Kind {
 	case ChoiceTokenOrder:
@@ -123,6 +138,23 @@ func (c ChoicePoint) Describe() string {
 		return fmt.Sprintf("%s: %s (unordered; dispatched %s first)", c.Where, alts, taken)
 	}
 	return fmt.Sprintf("%s: %s (unordered; took %s)", c.Kind, alts, taken)
+}
+
+// weightedAlternatives lists the alternatives each with its weight.
+func (c ChoicePoint) weightedAlternatives() string {
+	parts := make([]string, len(c.Alternatives))
+	for i, alt := range c.Alternatives {
+		parts[i] = alt + " p=" + formatWeight(c.Weights[i])
+	}
+	return strings.Join(parts, ", ")
+}
+
+// selection says how a weighted decision selected taken: by a draw, or without one.
+func (c ChoicePoint) selection(taken string) string {
+	if c.Drawn {
+		return "drew " + formatWeight(c.Drew) + ", took " + taken
+	}
+	return "took " + taken
 }
 
 // String is the trace line the choice is recorded as.
@@ -262,17 +294,35 @@ func (run *runState) NoteCount() int {
 	return len(run.notes)
 }
 
+// NotesSince returns the notes made since mark, a NoteCount read earlier, copying
+// only those.
+func (run *runState) NotesSince(mark int) []RunNote {
+	if mark < 0 {
+		mark = 0
+	}
+	if run == nil || mark >= len(run.notes) {
+		return nil
+	}
+	return slices.Clone(run.notes[mark:])
+}
+
 // Notes returns what the executor's run noted so far, in order; see Context.Notes.
 func (e *ActionExecutor) Notes() []RunNote { return e.driven.state.Notes() }
 
 // NoteCount is how many notes the executor's run has made so far.
 func (e *ActionExecutor) NoteCount() int { return e.driven.state.NoteCount() }
 
+// NotesSince returns what the executor's run noted since mark, a NoteCount read earlier.
+func (e *ActionExecutor) NotesSince(mark int) []RunNote { return e.driven.state.NotesSince(mark) }
+
 // Notes returns what the executor's run noted so far, in order; see Context.Notes.
 func (e *StateExecutor) Notes() []RunNote { return e.driven.state.Notes() }
 
 // NoteCount is how many notes the executor's run has made so far.
 func (e *StateExecutor) NoteCount() int { return e.driven.state.NoteCount() }
+
+// NotesSince returns what the executor's run noted since mark, a NoteCount read earlier.
+func (e *StateExecutor) NotesSince(mark int) []RunNote { return e.driven.state.NotesSince(mark) }
 
 // Choices returns the choice points made since the latest run began, in order.
 func (ctx *Context) Choices() []ChoicePoint {

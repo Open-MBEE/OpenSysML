@@ -284,10 +284,21 @@ func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder, schedule *tok
 
 // chooseBranch resolves which of the holding guarded successions of a decision
 // node, at their declared positions, the token takes: the position in holding, and
-// the choice point to note when there are at least two.
-func (e *ActionExecutor) chooseBranch(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int) (*ChoicePoint, int) {
+// the choice point to note when there are at least two. Weighted successions are
+// drawn by their weights, read in ec where their guards are; a sole holding
+// succession is taken without a draw, its weight still read and checked.
+func (e *ActionExecutor) chooseBranch(ec *EvalContext, frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int) (*ChoicePoint, int, error) {
+	weights, err := e.branchWeights(ec, node, successors, holding)
+	if err != nil {
+		return nil, 0, err
+	}
 	if len(holding) < 2 {
-		return nil, 0
+		if weights != nil {
+			if _, err := checkWeights(DecisionPlace(node), weights); err != nil {
+				return nil, 0, err
+			}
+		}
+		return nil, 0, nil
 	}
 	alts := make([]string, len(holding))
 	for i, pos := range holding {
@@ -300,9 +311,36 @@ func (e *ActionExecutor) chooseBranch(frame *actionFrame, node *ast.DecisionNode
 		Alternatives: alts,
 		File:         e.decisionFile(frame),
 		Span:         node.Span(),
+		Weights:      weights,
 	}
-	choice.Taken = e.ctx.scheduling().choose(choice, nil)
-	return &choice, choice.Taken
+	if err := e.ctx.scheduling().chooseWeighted(&choice); err != nil {
+		return nil, 0, err
+	}
+	return &choice, choice.Taken, nil
+}
+
+// branchWeights evaluates the weights of the holding successions of a decision,
+// nil when the model weights none of them; lowering refuses a decision weighting
+// only some.
+func (e *ActionExecutor) branchWeights(ec *EvalContext, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int) ([]float64, error) {
+	if successors[holding[0]].Probability == nil {
+		return nil, nil
+	}
+	weights := make([]float64, len(holding))
+	for i, pos := range holding {
+		p := successors[pos].Probability
+		val, err := ec.Eval(p.Expr)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %s: weight of %s: %v", ErrBranchWeights, DecisionPlace(node), branchName(successors, pos), err)
+		}
+		val = soleElement(val)
+		if val.Kind != ValConst || !val.Const.IsNumeric() {
+			return nil, fmt.Errorf("%w: %s: weight of %s is %s, not a number",
+				ErrBranchWeights, DecisionPlace(node), branchName(successors, pos), describeValue(val))
+		}
+		weights[i] = asReal(val.Const)
+	}
+	return weights, nil
 }
 
 // noteUnevaluableGuard records the guard of the succession at position pos out of

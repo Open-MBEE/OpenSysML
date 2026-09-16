@@ -170,7 +170,7 @@ func (v Value) AsReal() float64 {
 // unsupported operators, or arithmetic on infinity) — callers then skip the
 // check, matching the pilot's model-level-evaluable gating.
 func (m *Model) Eval(n ast.Node) (Value, bool) {
-	return evalConst(n)
+	return EvalConst(n)
 }
 
 // EvalIn is Eval reading through the features n names, in scope, to the values
@@ -189,7 +189,7 @@ func (m *Model) evalIn(scope *symbols.Scope, n ast.Node, seen map[*symbols.Symbo
 	case *ast.OperatorExpr:
 		return m.evalOperatorIn(scope, e, seen)
 	default:
-		return evalConst(n)
+		return EvalConst(n)
 	}
 }
 
@@ -262,7 +262,9 @@ func declScope(sym *symbols.Symbol) *symbols.Scope {
 	return sym.Scope
 }
 
-func evalConst(n ast.Node) (Value, bool) {
+// EvalConst is Eval without a model: the value of an expression over literals
+// and operators alone, which no feature's binding can change.
+func EvalConst(n ast.Node) (Value, bool) {
 	switch e := n.(type) {
 	case *ast.LiteralInteger:
 		i, err := strconv.ParseInt(e.Value, 10, 64)
@@ -298,14 +300,14 @@ func evalOperator(e *ast.OperatorExpr) (Value, bool) {
 		if len(e.Operands) != 3 {
 			return Value{}, false
 		}
-		cond, ok := evalConst(e.Operands[0])
+		cond, ok := EvalConst(e.Operands[0])
 		if !ok || cond.Kind != ValBool {
 			return Value{}, false
 		}
 		if cond.Bool {
-			return evalConst(e.Operands[1])
+			return EvalConst(e.Operands[1])
 		}
-		return evalConst(e.Operands[2])
+		return EvalConst(e.Operands[2])
 	default:
 		if len(e.Operands) != 2 {
 			return Value{}, false
@@ -342,7 +344,7 @@ func EvalUnary(op ast.OperatorKind, v Value) (Value, bool) {
 }
 
 func evalUnary(op ast.OperatorKind, operand ast.Node) (Value, bool) {
-	v, ok := evalConst(operand)
+	v, ok := EvalConst(operand)
 	if !ok {
 		return Value{}, false
 	}
@@ -350,11 +352,11 @@ func evalUnary(op ast.OperatorKind, operand ast.Node) (Value, bool) {
 }
 
 func evalBinary(op ast.OperatorKind, lhs, rhs ast.Node) (Value, bool) {
-	l, ok := evalConst(lhs)
+	l, ok := EvalConst(lhs)
 	if !ok {
 		return Value{}, false
 	}
-	r, ok := evalConst(rhs)
+	r, ok := EvalConst(rhs)
 	if !ok {
 		return Value{}, false
 	}

@@ -2,6 +2,7 @@ package lower
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -13,7 +14,15 @@ import (
 // the body there. owner is the declaration whose body members are: a case's
 // body whose members include action nodes performs them as its steps, lowered
 // as one Block over the flow they state (caseSteps); a calc's does not.
+// Without a resolver the flow's `@Probability` annotations go unread, as in
+// ToActionGraph; a caller holding one uses CalcBodyWith.
 func CalcBody(owner ast.Node, members []ast.Node, scope *symbols.Scope) []Statement {
+	return CalcBodyWith(owner, members, scope, nil)
+}
+
+// CalcBodyWith is CalcBody reading the metadata the resolver identifies: a
+// weighted succession among a case's steps keeps its weight.
+func CalcBodyWith(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) []Statement {
 	body := make([]ast.Node, 0, len(members))
 	for _, member := range members {
 		if actual := unwrapMembership(member); actual != nil {
@@ -21,7 +30,7 @@ func CalcBody(owner ast.Node, members []ast.Node, scope *symbols.Scope) []Statem
 		}
 	}
 	if PerformsSteps(owner) && len(flowNodesAmong(body)) > 0 {
-		return caseSteps(owner, body, scope)
+		return caseSteps(owner, body, scope, resolver)
 	}
 
 	var stmts, results []Statement
