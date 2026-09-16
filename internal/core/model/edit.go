@@ -2,6 +2,8 @@ package model
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -65,15 +67,18 @@ func (w *Workspace) ApplyEdit(name string, ops []edit.Operation, read []*Documen
 			return nil, doc.Version, true, &StaleError{Name: snapshot.Name}
 		}
 	}
+	ei := w.editIndexLocked(name)
 	m := edit.Model{
 		Source:     doc.sf,
 		Root:       doc.AST,
 		Index:      w.index,
 		ParseDiags: doc.ParseDiagnostics,
 		SemDiags:   w.diagnosticsLocked(name, doc),
-		NewIndex:   w.siblingIndexLocked(name),
+		NewIndex:   ei.build,
+		Indexed:    ei.indexed,
 		Analysis:   w.analysis,
 		Other:      w.otherDocumentLocked(name),
+		Documents:  w.otherDocumentNamesLocked(name),
 	}
 	edited, err := edit.Apply(m, ops)
 	if err != nil {
@@ -122,6 +127,21 @@ func (w *Workspace) documentEditLocked(doc *Document, content []byte, applied []
 	}
 }
 
+// otherDocumentNamesLocked names the documents other than name an edit reads
+// references in: the index's unmarked ones and the workspace's own, a version
+// standing in for a library file included.
+func (w *Workspace) otherDocumentNamesLocked(name string) []string {
+	names := map[string]bool{}
+	for _, other := range w.index.WorkspaceDocuments() {
+		names[other] = true
+	}
+	for other := range w.docs {
+		names[other] = true
+	}
+	delete(names, name)
+	return slices.Sorted(maps.Keys(names))
+}
+
 // otherDocumentLocked hands an edit of name the other documents of the
 // workspace as it holds them, so a rename or delete may rewrite them. Library
 // documents are not workspace documents and are not handed out.
@@ -139,48 +159,90 @@ func (w *Workspace) otherDocumentLocked(name string) func(string) (edit.Document
 	}
 }
 
-// siblingIndexLocked builds an index holding the libraries and every workspace
-// document but name, so the edited notation resolves what the original did.
-func (w *Workspace) siblingIndexLocked(name string) func() *symbols.Index {
-	return func() *symbols.Index {
-		idx := w.detachedIndexLocked()
-		for other, doc := range w.docs {
-			if other != name {
-				idx.AddDocument(other, doc.AST)
-			}
-		}
-		idx.ExpandWildcardImports()
-		return idx
-	}
+// editIndex is the index one edit of the named document is judged in, built once
+// and re-fed each rewrite; standIns is what its documents stand in for, which an
+// edit's intermediate rewrites move without moving the workspace's own.
+type editIndex struct {
+	w        *Workspace
+	name     string
+	standIns map[string]string
 }
 
-// detachedIndexLocked is a writable index holding what the workspace's index
-// holds besides the workspace's documents: over its frozen base when it has one,
-// with the caller's other documents re-indexed, library marks and languages included.
+// editIndexLocked prepares the index an edit of name is judged in. Caller holds the lock.
+func (w *Workspace) editIndexLocked(name string) *editIndex {
+	return &editIndex{w: w, name: name}
+}
+
+// build makes an index holding the libraries and every workspace document but the
+// edited one; a bundled file it stands in for stays until indexed displaces it again.
+func (e *editIndex) build() *symbols.Index {
+	idx := e.w.detachedIndexLocked()
+	e.standIns = e.w.addDocumentsLocked(idx, e.name)
+	idx.ExpandWildcardImports()
+	return idx
+}
+
+// detachedIndexLocked is a writable index holding what the workspace's index holds
+// besides its documents: the base less what the overlay removed, libraries marked.
 func (w *Workspace) detachedIndexLocked() *symbols.Index {
-	base := w.index.Base()
-	var idx *symbols.Index
-	if base != nil {
-		idx = symbols.NewOverlay(base)
-	} else {
-		idx = symbols.NewIndex()
+	idx := symbols.NewIndex()
+	if w.libBase != nil {
+		idx = symbols.NewOverlay(w.libBase)
+		for _, other := range w.libBase.Documents() {
+			if _, library := w.library[other]; !library && w.index.DocumentRoot(other) == nil {
+				idx.RemoveDocument(other)
+			}
+		}
+	}
+	added := map[string]bool{}
+	skip := func(other string) bool {
+		return w.docs[other] != nil || added[other] || w.baseShows(other)
+	}
+	libraries := make([]string, 0, len(w.library))
+	for other := range w.library {
+		libraries = append(libraries, other)
+	}
+	slices.Sort(libraries)
+	for _, other := range libraries {
+		if skip(other) {
+			continue
+		}
+		file := w.library[other]
+		idx.AddDocumentWithKind(other, file.root, file.kind)
+		idx.MarkLibraryDocument(other, file.record)
+		added[other] = true
 	}
 	for _, other := range w.index.Documents() {
-		if w.docs[other] != nil {
+		if skip(other) {
 			continue
 		}
-		scope := w.index.DocumentRoot(other)
-		if base != nil && base.DocumentRoot(other) == scope {
-			continue
-		}
-		root, ok := scope.Node().(*ast.RootNamespace)
+		root, ok := w.index.DocumentRoot(other).Node().(*ast.RootNamespace)
 		if !ok {
 			continue
 		}
 		idx.AddDocumentWithKind(other, root, w.index.DocumentKind(other))
-		if lib := w.index.LibraryDocumentOf(other); lib.Tier.Library() {
-			idx.MarkLibraryDocument(other, lib)
-		}
 	}
 	return idx
+}
+
+// addDocumentsLocked indexes the workspace's documents but except on idx, each one
+// standing in for a bundled file displacing it, and reports what stands in for what.
+func (w *Workspace) addDocumentsLocked(idx *symbols.Index, except string) map[string]string {
+	standIns := map[string]string{}
+	for other, library := range w.standIns {
+		if other != except {
+			standIns[other] = library
+			idx.RemoveDocument(library)
+		}
+	}
+	for _, other := range w.sortedDocNamesLocked() {
+		if other == except {
+			continue
+		}
+		idx.AddDocumentWithKind(other, w.docs[other].AST, w.index.DocumentKind(other))
+		if _, ok := standIns[other]; ok {
+			idx.MarkLibraryDocument(other, w.index.LibraryDocumentOf(other))
+		}
+	}
+	return standIns
 }

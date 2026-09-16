@@ -57,7 +57,14 @@ func SharedLibrary() (*symbols.Index, Source) {
 // with a source serving exactly the bytes it was built from and nothing else
 // (see SharedLibrary). Unlike SharedLibrary it loads on every call.
 func FrozenLibrary() (*symbols.Index, Source) {
-	src := newSnapshotSource(DefaultSource())
+	return FrozenLibraryFrom(DefaultSource())
+}
+
+// FrozenLibraryFrom is FrozenLibrary over the given source, for a consumer
+// judging a model against a library other than the one DefaultSource names,
+// such as the published text without its declared errata (EmbeddedSource).
+func FrozenLibraryFrom(published Source) (*symbols.Index, Source) {
+	src := newSnapshotSource(published)
 	idx := frozenLibrary(src)
 	src.seal()
 	return idx, src

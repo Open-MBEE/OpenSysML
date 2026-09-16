@@ -11,9 +11,11 @@ import (
 	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/core/identity/normative"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // uuidV4 matches a lowercase RFC 4122 version-4 UUID.
@@ -465,21 +467,23 @@ func TestIdentityActionNotOfferedOnLibraryDeclaration(t *testing.T) {
 	}
 }
 
-// A copy of a library file open in the workspace is the user's file, whatever
-// its roots: its elements' ids are derived, or declared where the copy states
-// one, and minting is offered as for any other user declaration.
-func TestWorkspaceCopyOfLibraryFileStaysAUserFile(t *testing.T) {
+// A copy of a library file open in the workspace, rooted at the library's
+// package, is the library as the RDF mapping reads it: its elements carry the
+// norm's ids and nothing is offered to mint one. Rooted elsewhere it is the
+// user's file, whose ids are derived and minted as any other.
+func TestWorkspaceCopyOfLibraryFileIsTheLibrary(t *testing.T) {
 	const file = "/tmp/ScalarValues.kerml"
+	const bundled = "Kernel Libraries/Kernel Data Type Library/ScalarValues.kerml"
 	ws := model.NewWorkspace()
-	lib := ws.LibraryDocument("Kernel Libraries/Kernel Data Type Library/ScalarValues.kerml")
+	lib := ws.LibraryDocument(bundled)
 	if lib == nil {
 		t.Fatal("ScalarValues.kerml not bundled")
 	}
 	src := string(lib.Content)
-	// The copy's Real, not the library's: both resolve under the qualified name.
+	name := uri.File(file).Filename()
+	// The copy's Real, not the library's: both may resolve under the qualified name.
 	copyIdentity := func(text string) *identity.Info {
 		t.Helper()
-		name := uri.File(file).Filename()
 		ws.Open(name, []byte(text), 1)
 		for _, sym := range ws.LookupQualified("ScalarValues::Real") {
 			if sym.DocName == name {
@@ -493,20 +497,46 @@ func TestWorkspaceCopyOfLibraryFileStaysAUserFile(t *testing.T) {
 		t.Fatal("the copy declares no ScalarValues::Real")
 		return nil
 	}
-	real := copyIdentity(src)
-	if real.Source != identity.SourceDerived || real.Normative() {
-		t.Errorf("Real in a workspace copy = %+v, want a derived id", real)
-	}
-	if act := mintAction(t, file, src, cursorAt(t, src, "datatype Real ")).Title; !strings.HasPrefix(act, "Annotate 'Real' with a minted element id") {
-		t.Errorf("action on the copy's Real = %q", act)
-	}
 	const norm = "14c0aa22-5489-59b5-b438-ded26e83ba31"
-	annotated := strings.Replace(src, "datatype Real specializes Complex;", "datatype Real specializes Complex {\n\t\t@IdentityMetadata::ElementId { id = \""+norm+"\"; }\n\t}", 1)
-	if annotated == src {
-		t.Fatalf("Real is not declared where expected:\n%s", src)
+	real := copyIdentity(src)
+	if !real.Normative() || real.EffectiveID != norm || real.Language != normative.KerML {
+		t.Errorf("Real in a workspace copy = %+v, want the norm's KerML id %s", real, norm)
 	}
-	real = copyIdentity(annotated)
-	if real.Source != identity.SourceDeclared || !real.Declared || real.EffectiveID != norm {
-		t.Errorf("annotated Real in a workspace copy = %+v, want the id declared", real)
+	if got := ws.StandsInFor(name); got != bundled {
+		t.Errorf("the copy stands in for %q, want %q", got, bundled)
+	}
+	if acts := identityActionsFor(t, file, src, cursorAt(t, src, "datatype Real ")); len(acts) != 0 {
+		t.Errorf("actions on the copy's Real = %+v, want none", acts)
+	}
+
+	// Rooted at a package of the user's, the same text is the user's file.
+	own := strings.Replace(src, "standard library package ScalarValues", "package MyScalarValues", 1)
+	if own == src {
+		t.Fatalf("ScalarValues is not declared where expected:\n%s", src)
+	}
+	ws.Open(name, []byte(own), 2)
+	var mine *symbols.Symbol
+	for _, sym := range ws.LookupQualified("MyScalarValues::Real") {
+		if sym.DocName == name {
+			mine = sym
+		}
+	}
+	if mine == nil {
+		t.Fatal("the renamed copy declares no MyScalarValues::Real")
+	}
+	info, ok := ws.IdentityOf(name, mine)
+	if !ok || info.Source != identity.SourceDerived || info.Normative() {
+		t.Errorf("Real under the user's package = %+v, want a derived id", info)
+	}
+	if got := ws.StandsInFor(name); got != "" {
+		t.Errorf("the renamed copy stands in for %q, want nothing", got)
+	}
+	if act := mintAction(t, file, own, cursorAt(t, own, "datatype Real ")).Title; !strings.HasPrefix(act, "Annotate 'Real' with a minted element id") {
+		t.Errorf("action on the user's Real = %q", act)
+	}
+
+	// Restored to the library's package, the copy is the library again.
+	if real = copyIdentity(src); !real.Normative() || real.EffectiveID != norm {
+		t.Errorf("Real in the restored copy = %+v, want the norm's id %s", real, norm)
 	}
 }
