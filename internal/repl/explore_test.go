@@ -405,6 +405,53 @@ func TestExploredRunsAreGivenTheObjectsInstantiated(t *testing.T) {
 	wantsInOrder(t, strings.Join(s.RunFor(nil, []Behavior{listen}, 5)[0].Lines, "\n"), "✓ explored Comms::Ground::listen: 2 outcomes", "received = 1", "received = 2")
 }
 
+// exploreBayEquipmentSource is a ticker held required deep in a rack, and optionally
+// in a bay, neither named by any behavior.
+const exploreBayEquipmentSource = `
+package Bay {
+	private import ScalarValues::*;
+	part def Ticker {
+		attribute n : Integer = 0;
+		exhibit state ticking { entry; then on; state on { entry assign n := n + 1; } }
+	}
+	part def Shelf { part ticker : Ticker; }
+	part def Rack { part shelves : Shelf[2]; }
+	part def Bay { part maybe : Ticker[0..1]; part rack : Rack; }
+	part bay : Bay;
+}
+`
+
+// A machine named alone finds the run's objects exhibiting it however deep a given
+// object holds them, as every required part of a behaving type is created with its
+// holder. An optional part is left absent, so the run has no object of it to find,
+// as the prompt has none: the machine is named on a path to attach to one.
+func TestExploredMachineNamedAloneFindsTheGivenObjectsRequiredParts(t *testing.T) {
+	s := loadSource(t, exploreBayEquipmentSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.InstantiateReport("Bay::bay"); err != nil {
+		t.Fatal(err)
+	}
+	ticking := Behavior{Name: "Bay::Ticker::ticking"}
+	wants(t, strings.Join(s.RunFor(nil, []Behavior{ticking}, 1)[0].Lines, "\n"),
+		`2 objects of the explored run exhibit "Bay::Ticker::ticking"`,
+		`of "Bay::bay.rack.shelves[1].ticker"`, `of "Bay::bay.rack.shelves[2].ticker"`)
+	prompt := loadSource(t, exploreBayEquipmentSource)
+	run(t, prompt, "%instantiate Bay::bay")
+	wants(t, run(t, prompt, "%state Bay::Ticker::ticking"),
+		`2 objects of this session exhibit "Bay::Ticker::ticking"`, `of "Bay::bay.rack.shelves[1].ticker"`)
+
+	v := s.RunFor(nil, []Behavior{{Name: "Bay::Ticker::ticking", Performer: []string{"Bay::bay.rack.shelves[2].ticker"}}}, 1)[0]
+	if v.Status != VerdictHolds {
+		t.Fatalf("status = %v, want holds:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+	}
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Bay::Ticker::ticking: 1 outcome", "finalState on", "this.n = 1")
+
+	wants(t, strings.Join(s.RunFor(nil, []Behavior{{Name: "Bay::Ticker::ticking", Performer: []string{"Bay::bay.maybe"}}}, 1)[0].Lines, "\n"),
+		"error: maybe of Bay::bay holds no object")
+}
+
 // exploreTankSource is a part performing an action of its own that writes the
 // part's attribute, held alone and twice over in a farm.
 const exploreTankSource = `

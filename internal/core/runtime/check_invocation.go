@@ -266,8 +266,13 @@ func (inv *Invocation) Outcome() Outcome {
 	for _, exec := range inv.States {
 		outcomes = append(outcomes, exec.Outcome())
 	}
-	outcome := outcomes[0]
-	if len(outcomes) > 1 {
+	var outcome Outcome
+	switch len(outcomes) {
+	case 0:
+		return Outcome{Outputs: make(map[string]Value)}
+	case 1:
+		outcome = outcomes[0]
+	default:
 		outcome = ctx.JointOutcome(inv.names(), outcomes)
 	}
 	for _, p := range inv.performerPrefixes() {

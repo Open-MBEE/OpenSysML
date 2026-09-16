@@ -384,6 +384,77 @@ func TestExploredOutcomesCarryThePerformersAttributesOverTheWire(t *testing.T) {
 	}
 }
 
+const performedActionModel = `
+package Pump {
+  private import ScalarValues::*;
+  action def Fill { out poured : Integer; }
+  part def Pump {
+    attribute level : Integer = 0;
+    perform action fill : Fill {
+      first start;
+      then action pour { assign level := level + 1; assign poured := level; }
+      then done;
+    }
+  }
+  part pump : Pump;
+  part def Twin { perform action morning : Fill; perform action evening : Fill; }
+  part twin : Twin;
+}
+`
+
+// An action the performer already performs runs as that one performance, executed
+// or explored, so it writes the object once; inputs for it are refused, as are
+// objects performing it twice over.
+func TestActionOnItsPerformerRunsOnceOverTheWire(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, performedActionModel, "performed-action")
+
+	for _, action := range []string{"Pump::Pump::fill", "Pump::Fill"} {
+		act, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+			ModelHash: hash, ActionSymbolId: action, PerformerSymbolId: "Pump::pump",
+		})
+		if err != nil || act.Error != "" {
+			t.Fatalf("%s on pump: %v %q", action, err, act.GetError())
+		}
+		if got := act.Outputs["poured"].GetIntValue(); got != 1 {
+			t.Errorf("%s on pump poured %d, want 1: one performance", action, got)
+		}
+		x, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+			ModelHash: hash, ActionSymbolId: action, PerformerSymbolId: "Pump::pump", Schedule: "explore",
+		})
+		if err != nil || x.Error != "" || len(x.Outcomes) != 1 || x.Outcomes[0].Error != "" {
+			t.Fatalf("explored %s on pump: %v %q %v", action, err, x.GetError(), x.GetOutcomes())
+		}
+		if got := x.Outcomes[0].Outputs["this.level"].GetIntValue(); got != 1 {
+			t.Errorf("explored %s on pump: this.level = %d, want 1: one performance", action, got)
+		}
+		if got := x.Outcomes[0].Outputs["poured"].GetIntValue(); got != 1 {
+			t.Errorf("explored %s on pump: poured = %d, want 1", action, got)
+		}
+	}
+	for _, tc := range []struct {
+		action, performer, want string
+		inputs                  map[string]*pb.Value
+	}{
+		{"Pump::Pump::fill", "Pump::pump", "inputs for a performed action", map[string]*pb.Value{"level": {Kind: &pb.Value_IntValue{IntValue: 3}}}},
+		{"Pump::Fill", "Pump::twin", "ambiguous action: the object performs Fill as morning and evening", nil},
+	} {
+		act, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+			ModelHash: hash, ActionSymbolId: tc.action, PerformerSymbolId: tc.performer, Inputs: tc.inputs,
+		})
+		if err != nil || !strings.Contains(act.Error, tc.want) {
+			t.Errorf("%s on %s: %v %q, want %q", tc.action, tc.performer, err, act.GetError(), tc.want)
+		}
+		x, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+			ModelHash: hash, ActionSymbolId: tc.action, PerformerSymbolId: tc.performer, Inputs: tc.inputs, Schedule: "explore",
+		})
+		if err != nil || len(x.Outcomes) != 1 || !strings.Contains(x.Outcomes[0].Error, tc.want) {
+			t.Errorf("explored %s on %s: %v %v, want the one failed outcome %q", tc.action, tc.performer, err, x.GetOutcomes(), tc.want)
+		}
+	}
+}
+
 // An analysis case's outcomes carry its outputs and verdicts.
 func TestExploreAnalysisOverTheWire(t *testing.T) {
 	srv := mustNewService(t, 10)

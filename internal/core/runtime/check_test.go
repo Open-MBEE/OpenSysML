@@ -76,6 +76,17 @@ func invocationOf(actions, states []*symbols.Symbol) Starter {
 // action is the one action a single-action invocation runs.
 func (inv *Invocation) action() *ActionExecutor { return inv.Actions[0] }
 
+// An invocation that started nothing has an outcome holding nothing.
+func TestEmptyInvocationHasAnEmptyOutcome(t *testing.T) {
+	outcome := (&Invocation{}).Outcome()
+	if outcome.FinalState != "" || len(outcome.StateVisits) != 0 || len(outcome.Outputs) != 0 {
+		t.Errorf("outcome of an empty invocation = %v, want nothing held", outcome)
+	}
+	if got := outcome.String(); got != "no outputs" {
+		t.Errorf("an empty invocation's outcome spells %q, want no outputs", got)
+	}
+}
+
 // performedBy starts the action performed by a fresh instance of the part.
 func performedBy(part, action *symbols.Symbol) Starter {
 	return func(ctx *Context) (*Invocation, error) {

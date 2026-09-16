@@ -1389,9 +1389,22 @@ func (ctx *Context) ActionOutcomePerformedBy(action *symbols.Symbol, self *Insta
 }
 
 // performAction runs action to completion, performed by self, and returns the
-// executor that ran it, whose root performance holds what it produced.
+// executor that ran it, whose root performance holds what it produced. An object
+// performing the action runs the performance it already runs rather than a second.
 func (ctx *Context) performAction(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
-	return ctx.performActionFrom(action, action, self, inputs, (*ActionExecutor).initialize)
+	exec, err := performanceOf(action, self, inputs)
+	if err != nil {
+		return nil, err
+	}
+	if exec == nil {
+		return ctx.performActionFrom(action, action, self, inputs, (*ActionExecutor).initialize)
+	}
+	top := ctx.runDepth == 0
+	defer ctx.beginRun()()
+	if err := ctx.runPerformance(exec, top); err != nil {
+		return nil, err
+	}
+	return exec, nil
 }
 
 // startActionStep starts an action performed as a step of an enclosing behavior:
@@ -1446,16 +1459,27 @@ func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self *Inst
 // runPerformed runs a performance beginPerformed started to completion, after
 // which the clock drives it no further; a body around it pauses where it waits.
 func (ctx *Context) runPerformed(exec *ActionExecutor, top bool) error {
+	if err := ctx.runPerformance(exec, top); err != nil {
+		if !paused(err) {
+			ctx.clock.detach(exec)
+		}
+		return err
+	}
+	ctx.clock.detach(exec)
+	return nil
+}
+
+// runPerformance runs a started performance to completion, leaving it on the
+// clock; a body around it pauses where it waits.
+func (ctx *Context) runPerformance(exec *ActionExecutor, top bool) error {
 	if exec.state != StateCompleted {
 		if err := exec.RunToCompletion(); err != nil {
 			if paused(err) {
 				return err
 			}
-			ctx.clock.detach(exec)
 			return fmt.Errorf("execute action: %w", err)
 		}
 	}
-	ctx.clock.detach(exec)
 	if err := ctx.followedWhole(top); err != nil {
 		return fmt.Errorf("execute action: %w", err)
 	}
@@ -1538,6 +1562,44 @@ func (ctx *Context) StateOutcomePerformedBy(stateMachine *symbols.Symbol, self *
 // it under several usages wraps.
 var ErrAmbiguousMachine = errors.New("ambiguous state machine")
 
+// ErrAmbiguousAction is the typed error an action named on an object performing
+// it under several usages wraps.
+var ErrAmbiguousAction = errors.New("ambiguous action")
+
+// ErrPerformedInputs is the typed error inputs given for an action the object
+// performs already wrap: its performance took the arguments its declaration binds.
+var ErrPerformedInputs = errors.New("inputs for a performed action")
+
+// performanceOf is the performance self runs of action's declaration, to run in
+// place of a second; nil when self performs none.
+func performanceOf(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
+	if self == nil {
+		return nil, nil
+	}
+	switch performed := self.PerformedActionsOf(action); len(performed) {
+	case 0:
+		return nil, nil
+	case 1:
+		if len(inputs) > 0 {
+			return nil, fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", ErrPerformedInputs, symbolText(action))
+		}
+		return performed[0].Action, nil
+	default:
+		return nil, fmt.Errorf("%w: the object performs %s as %s", ErrAmbiguousAction, symbolText(action), strings.Join(behaviorUsages(performed), " and "))
+	}
+}
+
+// behaviorUsages names the usages the behaviors are bound under, unnamed ones left out.
+func behaviorUsages(behaviors []*ObjectBehavior) []string {
+	usages := make([]string, 0, len(behaviors))
+	for _, b := range behaviors {
+		if member := b.Member(); member != nil && member.Name != "" {
+			usages = append(usages, member.Name)
+		}
+	}
+	return usages
+}
+
 // exhibitedBy is the machine self exhibits under stateMachine's declaration, to
 // run in place of a second performance of it; nil when self exhibits none.
 func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*StateExecutor, error) {
@@ -1550,13 +1612,7 @@ func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*StateExecutor, 
 	case 1:
 		return exhibited[0].State, nil
 	default:
-		usages := make([]string, 0, len(exhibited))
-		for _, b := range exhibited {
-			if member := b.Member(); member != nil && member.Name != "" {
-				usages = append(usages, member.Name)
-			}
-		}
-		return nil, fmt.Errorf("%w: the object exhibits %s as %s", ErrAmbiguousMachine, symbolText(stateMachine), strings.Join(usages, " and "))
+		return nil, fmt.Errorf("%w: the object exhibits %s as %s", ErrAmbiguousMachine, symbolText(stateMachine), strings.Join(behaviorUsages(exhibited), " and "))
 	}
 }
 
