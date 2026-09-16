@@ -163,7 +163,7 @@ send with no receiver) are not state-machine rows and no test in the suite reach
 
 ## Baseline
 
-Recorded **2026-09-15** on develop commit **`433628833`** with the fork-entered-region fix
+Recorded **2026-09-16** on develop commit **`15544e9b0`** with the fork-entered-region fix
 (finding 6), the active-ancestor fix, the completion-choice fix, the guard-side-effect
 classification, the join incoming-effects fix and the junction branch-choice fix (finding 8)
 described below, and with every remaining failure attributed, as
@@ -183,7 +183,7 @@ baseline — `go run ./cmd/pssm-referee` prints the current ones.
 
 ### Movements since the previous baseline
 
-No count has moved since the previous baseline (develop `e6218449a` with the junction
+No count has moved since the previous baseline (develop `bcc6b13e0` with the junction
 branch-choice fix, 2026-09-15). The baseline file changed all the same: the adjudication of
 the fourteen failures it left unattributed ([below](#fail-15)) added four tests to the
 committed table — *Junction 004* and *Join003* on SM32, *Join001* and *Transition 019* on
