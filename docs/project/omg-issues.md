@@ -569,6 +569,34 @@ dynamics rows without one — quoted verbatim with their derivations in
 
 ---
 
+## Defects in the vendored quantity libraries
+
+These rows are the findings the expression type checker reports in the vendored standard
+library itself: each is a unit declaration in `SI.sysml` or `USCustomaryUnits.sysml` whose value
+does not have the dimension of the measurement unit it is typed by, judged against the
+`ISQ` definitions those files import. They are pinned as an exact set by
+`TestExprTypeCheckNoStdlibFalsePositives` (`internal/core/model`): a finding outside the set
+fails the gate as a checker false positive, and a row that stops being reported fails it as a
+checker regression. The library bytes are published material and are not corrected; the pinned
+pilot is silent on every row, as on the example rows above, because it does not perform the
+corresponding check.
+
+| Library file | Declaration as published | Dimension of the value | Dimension of the declared type | Defect |
+|---|---|---|---|---|
+| `Domain Libraries/Quantities and Units/SI.sysml:137` | `attribute <'eV⋅m⁻²/kg'> ... : TotalMassStoppingPowerUnit = eV*m^-2/kg;` | T^-2 | `ISQAtomicNuclear::TotalMassStoppingPowerUnit` is L^4·T^-2 | mass stopping power is energy × area per mass, so the metre factor is `m^2`, not `m^-2` (the symbol says the same: `eV⋅m²/kg` would be right; `eV⋅m⁻²/kg` is not) |
+| `Domain Libraries/Quantities and Units/SI.sysml:149` | `attribute <'J⋅s⋅eV⋅s'> ... : TotalAngularMomentumUnit = J*s*eV*s;` | L^4·M^2·T^-2 | `ISQAtomicNuclear::TotalAngularMomentumUnit` is L^2·M·T^-1 | the two spellings of one unit (`J⋅s` and `eV⋅s`) are multiplied, squaring it; each alone is an angular momentum |
+| `Domain Libraries/Quantities and Units/SI.sysml:163` | `attribute <'J⁻¹⋅m⁻³⋅eV⁻¹⋅m⁻³'> ... : EnergyDensityOfStatesUnit = J^-1*m^-3*eV^-1*m^-3;` | L^-10·M^-2·T^4 | `ISQCondensedMatter::EnergyDensityOfStatesUnit` is L^-5·M^-1·T^2 | the same doubling: `J⁻¹⋅m⁻³` and `eV⁻¹⋅m⁻³` are each the unit, and their product is its square |
+| `Domain Libraries/Quantities and Units/SI.sysml:233` | `attribute <'m²⋅A'> 'metre squared ampere' : MagneticDipoleMomentUnit = m^2*A;` | L^2·I | `ISQElectromagnetism::MagneticDipoleMomentUnit` is L^3·M·T^-2·I^-1 | `ISQ::*` re-exports two `MagneticDipoleMomentUnit`s — IEC 80000-6 item 6-30 (`Wb⋅m`, in `ISQElectromagnetism`) and ISO 80000-10 item 10-9.1 (`m²⋅A`, in `ISQAtomicNuclear`) — under one name; `m^2*A` is the atomic-physics unit, and the unqualified name in `SI` reaches the electromagnetic one first |
+| `Domain Libraries/Quantities and Units/SI.sysml:239` | `attribute <'m²⋅s⁻³'> ... : DoseEquivalentUnit = m^2*s^-3;` | L^2·T^-3 | `ISQAtomicNuclear::DoseEquivalentUnit` is L^2·T^-2 | `m²⋅s⁻³` is a dose-equivalent *rate*: ISO 80000-10 item 10-83.2, whose units the `ISQAtomicNuclear` doc lists as `Sv/s, W/kg, m^2*s^-3`. That file declares `doseEquivalentRate: DoseEquivalentValue` rather than a rate value type with a unit of its own, and these three `SI` units follow it |
+| `Domain Libraries/Quantities and Units/SI.sysml:247` | `attribute <'m³/C⋅m³⋅s⁻¹⋅A⁻¹'> ... : HallCoefficientUnit = m^3/C*m^3*s^-1*A^-1;` | L^6·T^-2·I^-2 | `ISQCondensedMatter::HallCoefficientUnit` is L^3·T^-1·I^-1 | the same doubling: `m³/C` and `m³⋅s⁻¹⋅A⁻¹` are each the unit |
+| `Domain Libraries/Quantities and Units/SI.sysml:286` | `attribute <'Sv/s'> 'sievert per second' : DoseEquivalentUnit = Sv/s;` | L^2·T^-3 | `ISQAtomicNuclear::DoseEquivalentUnit` is L^2·T^-2 | a dose-equivalent rate typed as a dose equivalent, as line 239 |
+| `Domain Libraries/Quantities and Units/SI.sysml:299` | `attribute <'W/kg'> 'watt per kilogram' : DoseEquivalentUnit = W/kg;` | L^2·T^-3 | `ISQAtomicNuclear::DoseEquivalentUnit` is L^2·T^-2 | a dose-equivalent rate typed as a dose equivalent, as line 239 |
+| `Domain Libraries/Quantities and Units/USCustomaryUnits.sysml:255` | `private attribute zeroDegreeFahrenheitInKelvin: ThermodynamicTemperatureValue = 229835/900 [K];` | Θ^-1 | `ISQBase::ThermodynamicTemperatureValue` is Θ | `[K]` binds only to `900` (KerML 1.0 §8.2.5.8.1–8.2.5.8.2 make the bracket construction a primary expression), so the value is `229835 / (900 [K])`. The same reading as the geometry example above; the evident intended spelling is `(229835/900) [K]` |
+
+Nothing here has been posted upstream; filing is the user's decision.
+
+---
+
 ## Defects in the pilot implementation
 
 The first section records a defect in a vendored library body, and the second records defects in
