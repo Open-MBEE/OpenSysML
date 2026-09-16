@@ -53,8 +53,10 @@ extension, start the server in strict mode instead:
 
 ### The diagram panel
 
-Running `SysML: Open Diagram` from the command palette with a `.sysml` or `.kerml` file open
-shows a diagram of the model beside the editor. The panel draws the same renderings the
+<kbd>Alt</kbd>+<kbd>D</kbd> (<kbd>Option</kbd>+<kbd>D</kbd> on macOS) in a `.sysml` or `.kerml` file —
+or the preview button in its title bar, *Open Diagram* in its right-click menu or the Explorer's,
+or `SysML: Open Diagram` from the command palette — shows a diagram of the model beside the
+editor; the same key pressed in the diagram returns to the source. The panel draws the same renderings the
 REPL's `%view` command prints, as an SVG canvas of its own, and redraws as you edit the model.
 
 - **Content.** The panel draws a view the document declares (chosen from a dropdown when there
@@ -91,8 +93,9 @@ through a `Route` waypoint. The geometry is on every node and edge the server se
 tree, interconnection, state and action diagrams, which read the annotations back.
 `SysML: Export Diagram` saves that Mermaid (or a table's Markdown) to a file.
 
-The commands are only available when the connected server provides the render methods
-([LSP extensions](../reference/lsp.md)), so an older `sysml-lsp` does not offer them.
+Drawing and exporting need a connected server that provides the render methods
+([LSP extensions](../reference/lsp.md)); without one, or with an older `sysml-lsp`, the
+commands say so. Returning from the diagram to its source needs no server.
 
 ### The standard library in the editor
 

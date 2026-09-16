@@ -43,11 +43,14 @@ const (
 type Operation struct {
 	Kind OpKind
 	// Target is the element to edit, by FQN, as symbols name it. An OpSetLayout
-	// may give Declaration instead, the span the element is declared at in this
-	// document, for an element no qualified name reaches: an unnamed one, or
-	// one declared inside an unnamed one.
-	Target      string
-	Declaration source.Span
+	// may give Declaration instead, the span the element is declared at, for an
+	// element no qualified name reaches: an unnamed one, or one declared inside
+	// an unnamed one. DeclarationDoc names the document the element is declared
+	// in — the one the span is of, or the one Target must resolve to a declaration
+	// of; empty means the edited document for a span and any for a Target.
+	Target         string
+	Declaration    source.Span
+	DeclarationDoc string
 	// Value is the new value in SysML notation, for OpSetValue.
 	Value string
 	// NewName is the new declared name, for OpRename.
@@ -124,6 +127,13 @@ func SetLayout(target, view string, layout *semantics.Layout) Operation {
 // which is how an element no qualified name reaches is placed.
 func SetLayoutAt(decl source.Span, view string, layout *semantics.Layout) Operation {
 	return Operation{Kind: OpSetLayout, Declaration: decl, View: view, Annotation: semantics.LayoutFQN, Layout: layout}
+}
+
+// DeclaredIn is op with its element declared in the named document: its
+// Declaration a span of that document's text, its Target a name declared there.
+func (op Operation) DeclaredIn(doc string) Operation {
+	op.DeclarationDoc = doc
+	return op
 }
 
 // SetRoute is an operation steering the edge target through route's waypoints in
@@ -587,12 +597,12 @@ func (m Model) rebaseDeclarations(later []Operation, first int, splices []splice
 		shift := 0
 		for _, sp := range splices {
 			switch {
-			case sp.doc != "":
-				// Another document's bytes; a declaration is in the edited one.
+			case sp.document(m.Source.Name()) != m.declarationDoc(later[j]):
+				// Another document's bytes.
 			case sp.span.End() <= decl.Offset:
 				shift += len(sp.text) - sp.span.Len
 			case sp.span.Offset <= decl.Offset:
-				return m.declarationGone(first+j, decl)
+				return m.declarationGone(first+j, later[j])
 			}
 		}
 		later[j].Declaration.Offset += shift
@@ -603,24 +613,27 @@ func (m Model) rebaseDeclarations(later []Operation, first int, splices []splice
 // relocateDeclarations reads each later operation's Declaration afresh from the
 // reparsed source, where its extent may have changed but its start has not.
 func (m Model) relocateDeclarations(later []Operation, first int) error {
-	root := m.Index.DocumentRoot(m.Source.Name())
 	for j := range later {
 		decl := later[j].Declaration
 		if decl.Len == 0 {
 			continue
 		}
+		root, err := m.declarationRoot(first+j, later[j])
+		if err != nil {
+			return err
+		}
 		sym := root.DeclaredFrom(decl.Offset)
 		if sym == nil {
-			return m.declarationGone(first+j, decl)
+			return m.declarationGone(first+j, later[j])
 		}
 		later[j].Declaration = sym.DeclSpan
 	}
 	return nil
 }
 
-func (m Model) declarationGone(i int, decl source.Span) error {
+func (m Model) declarationGone(i int, op Operation) error {
 	return &Error{Failure: FailureUnknownTarget, OperationIndex: i,
-		Message: fmt.Sprintf("an earlier operation rewrote the declaration at %s; nothing is declared there now", m.at(decl))}
+		Message: fmt.Sprintf("an earlier operation rewrote the declaration at %s; nothing is declared there now", m.at(op))}
 }
 
 // checkOverlap refuses edits covering the same non-empty source bytes.

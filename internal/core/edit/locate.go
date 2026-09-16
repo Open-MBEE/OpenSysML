@@ -55,19 +55,45 @@ func (m Model) target(i int, op Operation) (*symbols.Symbol, error) {
 }
 
 // element is the declaration an operation edits, in whichever document: the one
-// Target names, or the one at Declaration in this document when Target is empty.
+// Target names, or the one at Declaration in its document when Target is empty.
+// A Target stated DeclaredIn a document is the one declared there, so that a
+// namesake another document declares does not stand in for it nor make it
+// ambiguous.
 func (m Model) element(i int, op Operation) (*symbols.Symbol, error) {
 	if op.Target != "" || op.Declaration.Len == 0 {
-		return m.declaredOnce(i, op.Target)
+		return m.declaredOnceIn(i, op.Target, op.DeclarationDoc)
 	}
-	if sym := m.Index.DocumentRoot(m.Source.Name()).DeclaredAt(op.Declaration); sym != nil {
+	root, err := m.declarationRoot(i, op)
+	if err != nil {
+		return nil, err
+	}
+	if sym := root.DeclaredAt(op.Declaration); sym != nil {
 		return sym, nil
 	}
 	return nil, &Error{
 		Failure:        FailureUnknownTarget,
 		OperationIndex: i,
-		Message:        fmt.Sprintf("nothing is declared at %s of this model", m.at(op.Declaration)),
+		Message:        fmt.Sprintf("nothing is declared at %s of this model", m.at(op)),
 	}
+}
+
+// declarationRoot is the root scope of the document an operation's Declaration
+// is a span of; a document the index does not hold is refused.
+func (m Model) declarationRoot(i int, op Operation) (*symbols.Scope, error) {
+	root := m.Index.DocumentRoot(m.declarationDoc(op))
+	if root == nil {
+		return nil, &Error{Failure: FailureUnknownTarget, OperationIndex: i,
+			Message: fmt.Sprintf("%s is no document of this workspace", op.DeclarationDoc)}
+	}
+	return root, nil
+}
+
+// declarationDoc names the document an operation's Declaration is a span of.
+func (m Model) declarationDoc(op Operation) string {
+	if op.DeclarationDoc == "" {
+		return m.Source.Name()
+	}
+	return op.DeclarationDoc
 }
 
 // label names the element an operation edits for a message and a splice: its
@@ -76,12 +102,21 @@ func (m Model) label(op Operation) string {
 	if op.Target != "" || op.Declaration.Len == 0 {
 		return op.Target
 	}
-	return "the element declared at " + m.at(op.Declaration)
+	return "the element declared at " + m.at(op)
 }
 
-// at spells where a span starts, as line:column.
-func (m Model) at(span source.Span) string {
-	pos := m.Source.Lines().PosAt(span.Offset)
+// at spells where an operation's Declaration starts, as line:column, qualified
+// by its document when that is another than the edited one.
+func (m Model) at(op Operation) string {
+	doc := m.declarationDoc(op)
+	in, ok := m.inDocument(doc)
+	if !ok {
+		return fmt.Sprintf("byte %d of %s", op.Declaration.Offset, doc)
+	}
+	pos := in.Source.Lines().PosAt(op.Declaration.Offset)
+	if doc != m.Source.Name() {
+		return fmt.Sprintf("%d:%d of %s", pos.Line, pos.Col, doc)
+	}
 	return fmt.Sprintf("%d:%d", pos.Line, pos.Col)
 }
 
@@ -99,9 +134,34 @@ func qualified(sym *symbols.Symbol) bool {
 	return true
 }
 
-// declaredOnce is the one declaration name names, in whichever document.
-func (m Model) declaredOnce(i int, name string) (*symbols.Symbol, error) {
-	declaring := m.declared(name)
+// declaredOnceIn is the one declaration name names in doc, or in whichever
+// document when doc is empty. A name declared only elsewhere is reported with
+// the documents declaring it.
+func (m Model) declaredOnceIn(i int, name, doc string) (*symbols.Symbol, error) {
+	return oneOf(i, name, doc, m.declared(name))
+}
+
+// oneOf is the one of the declarations of name in doc, or in whichever document
+// when doc is empty.
+func oneOf(i int, name, doc string, declaring []*symbols.Symbol) (*symbols.Symbol, error) {
+	if doc != "" {
+		var elsewhere []string
+		declaring = slices.DeleteFunc(declaring, func(sym *symbols.Symbol) bool {
+			if sym.DocName == doc {
+				return false
+			}
+			if label := docLabel(sym.DocName); !slices.Contains(elsewhere, label) {
+				elsewhere = append(elsewhere, label)
+			}
+			return true
+		})
+		if len(declaring) == 0 && len(elsewhere) > 0 {
+			slices.Sort(elsewhere)
+			return nil, &Error{Failure: FailureUnknownTarget, OperationIndex: i,
+				Message: fmt.Sprintf("%q is declared in %s, not in %s as stated",
+					name, strings.Join(elsewhere, " and "), docLabel(doc))}
+		}
+	}
 	switch len(declaring) {
 	case 0:
 		return nil, &Error{

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"maps"
 	"slices"
 
@@ -28,6 +29,16 @@ type DocumentEdit struct {
 	Open     bool
 }
 
+// StaleError reports that a document an operation was computed against has
+// been replaced since, so a position in it may name something else now.
+type StaleError struct {
+	Name string
+}
+
+func (e *StaleError) Error() string {
+	return fmt.Sprintf("%s changed after the operation was computed against it", e.Name)
+}
+
 // ApplyEdit rewrites the named document's current content by ops and returns
 // the result without changing the workspace: the client owns the buffers, so it
 // applies the text and the changes arrive back through the usual document
@@ -35,14 +46,22 @@ type DocumentEdit struct {
 // document of the workspace that refers to the target, open or read from disk;
 // every document is read under the one lock, so the edit is computed from a
 // single coherent state and each rewrite reports the version it was read at.
-// The returned version is the named document's. An unknown document reports ok
-// false; a refused edit is an *edit.Error and rewrites nothing.
-func (w *Workspace) ApplyEdit(name string, ops []edit.Operation) (result *EditResult, version int, ok bool, err error) {
+// Read are the workspace documents, as handed out earlier, that the operations'
+// positions were computed from; when the workspace no longer holds one of those
+// snapshots, the edit is refused with a *StaleError. The returned version is the
+// named document's. An unknown document reports ok false; a refused edit is an
+// *edit.Error and rewrites nothing.
+func (w *Workspace) ApplyEdit(name string, ops []edit.Operation, read []*Document) (result *EditResult, version int, ok bool, err error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	doc := w.docs[name]
 	if doc == nil {
 		return nil, 0, false, nil
+	}
+	for _, snapshot := range read {
+		if w.docs[snapshot.Name] != snapshot {
+			return nil, doc.Version, true, &StaleError{Name: snapshot.Name}
+		}
 	}
 	ei := w.editIndexLocked(name)
 	m := edit.Model{

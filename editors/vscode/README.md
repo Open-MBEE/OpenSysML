@@ -42,8 +42,34 @@ the Output channel says so.
 
 ## The diagram panel
 
-`SysML: Open Diagram` opens a diagram of the active model beside it, drawn as
-SVG from the server's rendering and redrawn as the model is typed.
+A diagram of a model opens beside it as soon as a `.sysml` or `.kerml` file is
+shown, drawn as SVG from the server's rendering and redrawn as the model is
+typed. The diagram opens quietly: focus stays in the text, and the diagrams of
+every file share one editor group, so switching between model files adds a tab
+there instead of another column. Nothing opens for a file that is not on disk
+— an untitled buffer, a `git:` revision, a diff — or for one only peeked at from
+a hover.
+
+Close a diagram and it stays closed for that file, across switches to other
+files and across a reload of the window, until you ask for it again. Closing
+the file's editor leaves its diagram where it is; renaming the file carries its
+open diagram — or the memory of a closed one — along, deleting the file forgets it. To have no
+diagram open on its own, turn `opensysml.diagram.autoOpen` off; `SysML: Open
+Diagram` then works as before.
+
+`SysML: Open Diagram` brings a diagram back — and lets it open on its own again
+— and is a keystroke or a click away from any `.sysml` or `.kerml` file:
+
+| From | How |
+| --- | --- |
+| **The keyboard** | <kbd>Alt</kbd>+<kbd>D</kbd> (<kbd>Option</kbd>+<kbd>D</kbd> on macOS), the shortcut diagram-preview extensions such as PlantUML use; or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> on macOS), VS Code's own shortcut for a Markdown preview. Both work with the cursor in a model file's text and nowhere else — not in the Find widget, the terminal or another file — so they shadow no other shortcut. Pressed with the diagram panel focused, either key returns to the source, whether or not the language server is running. Rebind them under *Preferences: Open Keyboard Shortcuts* by searching for `opensysml.openDiagram`; `opensysml.exportDiagram` has no default key and takes one the same way. |
+| **The editor** | The preview button at the right of the title bar, or *Open Diagram* in the right-click menu; the title bar's `…` menu and the right-click menu also offer *Export Diagram*. |
+| **The Explorer** | *Open Diagram* in a `.sysml` or `.kerml` file's right-click menu, which opens the file and its diagram side by side. |
+| **The Command Palette** | `SysML: Open Diagram`. With no model file focused, the one model file in view is drawn; with several in view, the command asks which to focus. |
+
+Without a running server, or with a `sysml-lsp` too old to draw, every one of
+these says so instead of doing nothing; a diagram that would have opened on its
+own just waits for the server.
 
 | | |
 | --- | --- |
@@ -73,6 +99,7 @@ them in the same step: one edit, one undo.
 | **Delete** | The declaration, its own line and the comment block above it. A declaration something still refers to is refused, naming the referents by file; **Delete all** removes them too, in whichever files declare them. |
 | **Drag a node** | A `metadata Layout about … { x = …; y = …; }` annotation — in the view's body when a view is drawn, inline in the node's declaration when the document is drawn directly — written when the pointer is released: one edit per drag, whatever the distance, so one <kbd>Ctrl</kbd>+<kbd>Z</kbd> puts the node back. An annotation already there is updated in place, keeping its size and collapsed state; the children the model places move with their owner, and those it does not follow it on their own. |
 | **Drag an edge** | A `metadata Route` annotation: drag the handle at the middle of a segment to bend the edge there, drag a waypoint to move it, double-click one to remove it (removing the last removes the annotation). |
+| <kbd>Shift</kbd>+**drop a node on another** | What **Move to…** writes for the node under the pointer, plus the `Layout` of where it was dropped, as one edit and one <kbd>Ctrl</kbd>+<kbd>Z</kbd>. While <kbd>Shift</kbd> is held, the node under the dragged one is outlined when its body may hold the dragged declaration and the status line says what releasing does; a node that cannot hold it is not outlined, the pointer says so, and releasing there puts the dragged node back where it was, with the reason in the status line. A drop with <kbd>Shift</kbd> up, or on empty canvas, is a plain drag. What the server refuses — a name already taken in the destination, a declaration another file refers to — is shown in the status line and the node goes back. |
 
 A reference from a file the server cannot rewrite — a bundled library file — refuses
 the rename or delete outright. An edit across files is applied only while every file
@@ -84,8 +111,8 @@ interconnection, state and action — and only for nodes and edges the file
 declares; a sequence diagram's lifelines and a table are not dragged. Positions
 are pixels from the canvas's top-left corner, y downward, as
 [the layout annotations](../../docs/project/diagram-layout-annotations.md) define
-them. Not built: dragging a node into another owner (**Move to…** does that from
-the menu), placing an element in another file's view, and the `geometry` view kind.
+them. Not built: placing an element in another file's view, and the `geometry`
+view kind.
 
 An edit that would leave the file with an error it did not have — a type that
 does not resolve, a name already taken, a connection end out of scope — is
@@ -95,6 +122,9 @@ refused, and the message names the diagnostic. Nodes the file does not declare
 The command exists only when the server advertises
 `experimental: { openSysmlRender: true }`, and the editing menus only with
 `openSysmlApplyModelEdit`, so an older `sysml-lsp` keeps working without them.
+Dragging a node another file declares needs `openSysmlCrossDocumentLayout` on
+both sides; without it the panel places, and the server names, what the
+rendered file declares alone.
 The requests behind the panel — `opensysml/render`, `opensysml/views`,
 `opensysml/applyModelEdit` and the `opensysml/renderChanged` notification — are
 documented in [docs/reference/lsp.md](../../docs/reference/lsp.md).
@@ -122,6 +152,7 @@ The command exists only when the server advertises
 | `opensysml.server.args` | `[]` | Extra server arguments. |
 | `opensysml.server.enabled` | `true` | Set to `false` for highlighting without a server. |
 | `opensysml.trace.server` | `"off"` | Trace LSP traffic in the "SysML v2" output channel. |
+| `opensysml.diagram.autoOpen` | `true` | Open a model file's diagram beside it when the file is shown. Set to `false` to open diagrams only with `SysML: Open Diagram`. |
 
 ## Grammar generation
 
