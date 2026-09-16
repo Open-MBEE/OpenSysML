@@ -20,18 +20,27 @@ func (w *Workspace) IdentityOf(name string, sym *symbols.Symbol) (*identity.Info
 	// A library document is parsed afresh from the bytes the index read, so its
 	// symbols share the index's spans rather than its nodes.
 	same := func(candidate *symbols.Symbol) bool { return candidate.Decl == sym.Decl }
+	idx := w.index
 	if library, ok := w.libraryNameLocked(name); ok {
 		name = library
 		same = func(candidate *symbols.Symbol) bool { return candidate.DeclSpan == sym.DeclSpan }
+		// A bundled file a version displaced keeps its identity in the library it came from.
+		if _, displaced := w.displaced[library]; displaced {
+			idx, _ = w.libraryAlone()
+		}
 	}
 	var indexed *symbols.Symbol
-	walkScope(w.index.DocumentRoot(name), func(candidate *symbols.Symbol) {
+	walkScope(idx.DocumentRoot(name), func(candidate *symbols.Symbol) {
 		if indexed == nil && candidate.Name == sym.Name && same(candidate) {
 			indexed = candidate
 		}
 	})
 	if indexed == nil {
 		return nil, false
+	}
+	if idx != w.index {
+		resolver, sem := w.resolverOver(idx)
+		return identity.Of(sem, resolver, indexed)
 	}
 	var info *identity.Info
 	var ok bool
