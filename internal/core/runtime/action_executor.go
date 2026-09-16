@@ -1285,6 +1285,12 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 	if tokenIdx < 0 || tokenIdx >= len(e.tokens) {
 		return fmt.Errorf("invalid token index %d", tokenIdx)
 	}
+	if e.dynamics == nil && e.tokens[tokenIdx].body == nil {
+		var ready bool
+		if tokenIdx, ready = e.synchronize(tokenIdx); !ready {
+			return nil
+		}
+	}
 	id := e.tokens[tokenIdx].ID
 	defer e.beginTokenStep(id)()
 	if err := e.stepTokenAt(tokenIdx); err != nil {
@@ -1293,18 +1299,14 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 	return nil
 }
 
-// stepTokenAt advances the token at tokenIdx; a terminate its step reaches unwinds
-// out of it, for stepToken to end the performance it names.
+// stepTokenAt advances the token at tokenIdx, synchronized already; a terminate its
+// step reaches unwinds out of it, for stepToken to end the performance it names.
 func (e *ActionExecutor) stepTokenAt(tokenIdx int) error {
 	if e.dynamics != nil {
 		return e.stepDynamics(tokenIdx)
 	}
 	if e.tokens[tokenIdx].body != nil {
 		return e.resumeBody(tokenIdx)
-	}
-	tokenIdx, ready := e.synchronize(tokenIdx)
-	if !ready {
-		return nil
 	}
 	token := &e.tokens[tokenIdx]
 

@@ -1,0 +1,11 @@
+step 1: token 1@split
+step 2: token 2@a1, token 3@a2
+stmt assign y
+  eval literal 2 -> 2
+stmt assign x
+  eval literal 1 -> 1
+choice step 3: tokens 2@a1, 3@a2 (unordered; took 3@a2 first)
+step 3: token 2@stop, token 3@stop
+stmt terminate
+terminate action: no token dropped
+step 4: no active tokens
