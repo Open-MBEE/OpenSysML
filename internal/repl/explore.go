@@ -556,9 +556,19 @@ func (f *freshObjects) owner(fqn string) (*runtime.Instance, string) {
 	return inst, label
 }
 
-// exhibitors finds the run's objects exhibiting sym's machine: those the run was
-// given, in the order given, and what they hold.
+// exhibitors finds the run's objects exhibiting sym's machine.
 func (f *freshObjects) exhibitors(sym *symbols.Symbol) []exhibitor {
+	return f.runners(func(inst *runtime.Instance) []*runtime.ObjectBehavior { return inst.ExhibitedStatesOf(sym) })
+}
+
+// performers finds the run's objects performing sym's action.
+func (f *freshObjects) performers(sym *symbols.Symbol) []exhibitor {
+	return f.runners(func(inst *runtime.Instance) []*runtime.ObjectBehavior { return inst.PerformedActionsOf(sym) })
+}
+
+// runners finds the run's objects running the behaviors of picks out: those the
+// run was given, in the order given, and what they hold.
+func (f *freshObjects) runners(of func(*runtime.Instance) []*runtime.ObjectBehavior) []exhibitor {
 	roots := make([]carrier, 0, len(f.plan.given))
 	for _, ref := range f.plan.given {
 		if inst, ok := f.roots[ref.fqn]; ok {
@@ -567,8 +577,8 @@ func (f *freshObjects) exhibitors(sym *symbols.Symbol) []exhibitor {
 	}
 	var found []exhibitor
 	walkFrom(roots, materializedObjectsIn(f.ctx), func(cur carrier) bool {
-		if machines := cur.inst.ExhibitedStatesOf(sym); len(machines) > 0 {
-			found = append(found, exhibitor{carrier: cur, machines: machines})
+		if behaviors := of(cur.inst); len(behaviors) > 0 {
+			found = append(found, exhibitor{carrier: cur, machines: behaviors})
 		}
 		return true
 	}, 0)
@@ -606,23 +616,97 @@ func (s *Session) exploredMachine(name string) (*symbols.Symbol, error) {
 	return sym, nil
 }
 
-// freshAction starts the action on an explored run's context, on an object of
-// what performer names when it names one.
-func freshAction(objects *freshObjects, sym *symbols.Symbol, performer []string) (*runtime.ActionExecutor, error) {
-	ctx := objects.ctx
-	var self *runtime.Instance
-	if len(performer) > 0 {
-		var err error
-		if self, _, err = objects.object(performer[0]); err != nil {
-			return nil, err
+// PerformersError reports an action `-action <action>` alone cannot attach to under a
+// fresh-run engine: several of the run's objects perform it, or one performs it as
+// several usages, so no one performance is meant.
+type PerformersError struct {
+	Action  string          // the action asked for, as the prompt prints names
+	Objects []RelatedObject // the run's objects performing it, in walk order
+	Usages  []string        // with one object, the performed usages running it, as the prompt prints names; "" for one unnamed
+}
+
+func (e *PerformersError) Error() string {
+	labels := make([]string, len(e.Objects))
+	for i, o := range e.Objects {
+		labels[i] = fmt.Sprintf("#%d", o.ID)
+		if o.Label != "" {
+			labels[i] = fmt.Sprintf("#%d of %q", o.ID, o.Label)
 		}
 	}
-	exec, err := ctx.CreateActionExecutorFor(sym, self)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create executor: %w", err)
+	if len(e.Objects) == 1 {
+		names := make([]string, len(e.Usages))
+		for i, u := range e.Usages {
+			names[i] = u
+			if u == "" {
+				names[i] = "an unnamed one"
+			}
+		}
+		return fmt.Sprintf("object %s of the explored run performs %q as %d actions, so naming the definition attaches to none of them: name the performed usage instead — %s",
+			labels[0], e.Action, len(e.Usages), strings.Join(names, " or "))
+	}
+	return fmt.Sprintf("%d objects of the explored run perform %q (%s), so naming the action alone attaches to none of them: name one as %s <Assembly::part>",
+		len(e.Objects), e.Action, strings.Join(labels, ", "), e.Action)
+}
+
+// performersError is the PerformersError over the run's objects performing name's action.
+func performersError(name string, performers []exhibitor) error {
+	e := &PerformersError{Action: name}
+	for _, p := range performers {
+		ref := RelatedObject{ID: p.inst.ID}
+		if !objref.IsID(p.name) {
+			ref.Label = p.name
+		}
+		e.Objects = append(e.Objects, ref)
+	}
+	if len(performers) == 1 {
+		for _, b := range performers[0].machines {
+			usage := ""
+			if member := b.Member(); member != nil && member.Name != "" {
+				usage = declarationNotation(member)
+			}
+			e.Usages = append(e.Usages, usage)
+		}
+	}
+	return e
+}
+
+// freshAction starts the action on an explored run's context: the performance the
+// object performer names (or, named alone, the run's one object performing it) already
+// runs of it, else a fresh run of the declaration on that object or on none.
+func freshAction(objects *freshObjects, sym *symbols.Symbol, name string, performer []string) (exec *runtime.ActionExecutor, label string, err error) {
+	ctx := objects.ctx
+	var self *runtime.Instance
+	switch {
+	case len(performer) > 0:
+		if self, _, err = objects.object(performer[0]); err != nil {
+			return nil, "", err
+		}
+		label = performer[0]
+	default:
+		switch performers := objects.performers(sym); len(performers) {
+		case 0:
+		case 1:
+			self, label = performers[0].inst, performers[0].name
+		default:
+			return nil, "", performersError(name, performers)
+		}
+	}
+	if self != nil {
+		switch performed := self.PerformedActionsOf(sym); len(performed) {
+		case 0:
+		case 1:
+			exec = performed[0].Action
+		default:
+			return nil, "", performersError(name, []exhibitor{{carrier: carrier{name: label, inst: self}, machines: performed}})
+		}
+	}
+	if exec == nil {
+		if exec, err = ctx.CreateActionExecutorFor(sym, self); err != nil {
+			return nil, "", fmt.Errorf("failed to create executor: %w", err)
+		}
 	}
 	exec.SetTrace(ctx.Trace())
-	return exec, nil
+	return exec, label, nil
 }
 
 // freshMachine starts the machine on an explored run's context: the one an object of performer

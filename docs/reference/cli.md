@@ -1039,9 +1039,11 @@ names is not one the session holds but a *recipe* each run follows. Three spelli
   parts of one `pair` and the messages the pair's connector carries between them are what the
   exploration tables — the point of exploring an assembly rather than a part on its own.
 - **An `-instantiate`d declaration**, given to every run: `-instantiate Comms::pair` makes each run
-  create its own `pair` before its behaviors start. A machine named alone (`-state
-  Comms::Ground::listen`) then attaches to the run's one object exhibiting it, and a path under the
-  declaration (`Comms::pair.ground`) walks into the same object rather than creating another.
+  create its own `pair` before its behaviors start. A machine or action named alone (`-state
+  Comms::Ground::listen`, `-action Tank::Tank::fill`) then attaches to the performance the run's one
+  object exhibiting or performing it already runs, so the outcome is that object's; several objects
+  running it are refused by name, as `%state` refuses the session's. A path under the declaration
+  (`Comms::pair.ground`) walks into the same object rather than creating another.
 
 The path is planned once, under the session's lock, before any run starts: an unknown usage
 (`Comms::pair.tower`), an index on a usage of one value (`Comms::pair.ground[2]`) or a step through

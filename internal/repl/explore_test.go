@@ -405,6 +405,66 @@ func TestExploredRunsAreGivenTheObjectsInstantiated(t *testing.T) {
 	wantsInOrder(t, strings.Join(s.RunFor(nil, []Behavior{listen}, 5)[0].Lines, "\n"), "✓ explored Comms::Ground::listen: 2 outcomes", "received = 1", "received = 2")
 }
 
+// exploreTankSource is a part performing an action of its own that writes the
+// part's attribute, held alone and twice over in a farm.
+const exploreTankSource = `
+package Tank {
+	private import ScalarValues::*;
+	part def Tank {
+		attribute level : Integer = 0;
+		perform action fill {
+			first start;
+			then action pour assign level := level + 1;
+			then done;
+		}
+	}
+	part tank : Tank;
+	part def Farm {
+		part tanks : Tank[2];
+	}
+}
+`
+
+// An action named alone attaches to the performance the run's one given object
+// already runs of it, so the outcome is that object's: its attribute written once,
+// not a second detached performance's. Several given objects performing it are refused
+// naming them, as machines are.
+func TestExploredActionNamedAloneAttachesToTheGivenObjectPerformingIt(t *testing.T) {
+	s := loadSource(t, exploreTankSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	fill := Behavior{Name: "Tank::Tank::fill"}
+	if _, err := s.InstantiateReport("Tank::tank"); err != nil {
+		t.Fatal(err)
+	}
+	v := s.RunFor([]Behavior{fill}, nil, 1)[0]
+	if v.Status != VerdictHolds {
+		t.Fatalf("status = %v, want holds:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+	}
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Tank::Tank::fill: 1 outcome", "this.level = 1", "complete (1 runs)")
+
+	// Named on the object performing it, the action attaches to that performance too.
+	v = s.RunFor([]Behavior{{Name: "Tank::Tank::fill", Performer: []string{"Tank::tank"}}}, nil, 1)[0]
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Tank::Tank::fill: 1 outcome", "this.level = 1", "complete (1 runs)")
+	v = s.RunFor([]Behavior{{Name: "Tank::Tank::fill", Performer: []string{"Tank::Farm.tanks[2]"}}}, nil, 1)[0]
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Tank::Tank::fill: 1 outcome", "this.level = 1", "complete (1 runs)")
+
+	if _, err := s.InstantiateReport("Tank::Farm"); err != nil {
+		t.Fatal(err)
+	}
+	v = s.RunFor([]Behavior{fill}, nil, 1)[0]
+	if v.Status != VerdictUnresolved {
+		t.Errorf("status = %v, want unresolved:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+	}
+	wants(t, strings.Join(v.Lines, "\n"), `3 objects of the explored run perform "Tank::Tank::fill"`,
+		`of "Tank::tank"`, `of "Tank::Farm.tanks[1]"`, `of "Tank::Farm.tanks[2]"`, "name one as Tank::Tank::fill <Assembly::part>")
+	var refused *PerformersError
+	if !errors.As(&PerformersError{}, &refused) {
+		t.Fatal("PerformersError is not an error")
+	}
+}
+
 // A path an exploration cannot follow is refused while the session is held: an
 // object named by id, an unknown usage, an index on a scalar or off a fixed multiplicity.
 func TestExploredPathsAreCheckedAgainstTheDeclarations(t *testing.T) {

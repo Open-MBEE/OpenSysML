@@ -243,7 +243,9 @@ func TestPerformOnANestedObjectOverTheWire(t *testing.T) {
 
 	for _, tc := range []struct{ performer, final string }{
 		{"Wire::pair.craft", "active"},
+		{"Wire::pair::craft", "active"},
 		{"Wire::pair.spares[1]", "waiting"},
+		{"Wire::Pair::craft", "waiting"},
 		{"Wire::Craft", "waiting"},
 		{"", "waiting"},
 	} {

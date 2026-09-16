@@ -149,15 +149,13 @@ func (r *freshInvocation) start(ctx *runtime.Context) (*runtime.Invocation, erro
 	performers := make([]string, len(r.behaviors))
 	for i, b := range r.behaviors {
 		if b.action {
-			exec, err := freshAction(objects, b.sym, b.Performer)
+			exec, label, err := freshAction(objects, b.sym, b.Name, b.Performer)
 			if err != nil {
 				inv.Release()
 				return nil, err
 			}
 			inv.Actions = append(inv.Actions, exec)
-			if len(b.Performer) > 0 {
-				performers[i] = b.Performer[0]
-			}
+			performers[i] = label
 			continue
 		}
 		exec, label, err := freshMachine(objects, b.sym, b.Name, b.Performer)

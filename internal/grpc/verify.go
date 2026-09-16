@@ -117,13 +117,14 @@ func (v *verifyContext) performer(symbolID string) (*runtime.Instance, error) {
 	return v.named("performer", symbolID)
 }
 
-// named is the object symbolID names in the role given: an object of the
-// declaration it names, or the one a declaration-rooted path reaches.
+// named is the object symbolID names in the role given: an object of the declaration it
+// names, or the one a declaration-rooted path reaches, spelled with `.` or `::` as the CLI
+// reads it — `Wire::pair::craft` walks into pair's object as `Wire::pair.craft` does.
 func (v *verifyContext) named(role, symbolID string) (*runtime.Instance, error) {
 	if symbolID == "" {
 		return nil, nil
 	}
-	if objref.LooksLikePath(symbolID) {
+	if ref, err := objref.Parse(symbolID); objref.LooksLikePath(symbolID) || err == nil && len(ref.Segments) > 1 {
 		return v.objectAt(role, symbolID)
 	}
 	sym, err := v.lookup(symbolID)
@@ -135,6 +136,8 @@ func (v *verifyContext) named(role, symbolID string) (*runtime.Instance, error) 
 
 // objectAt is the object a declaration-rooted path names: the longest leading run of
 // segments naming a declaration is instantiated, the rest walked from it; an id names none.
+// The index holds declarations alone, so a member reached through a usage's type
+// (`pair::craft`) names no root and is walked inside the usage's object.
 func (v *verifyContext) objectAt(role, path string) (*runtime.Instance, error) {
 	ref, err := objref.Parse(path)
 	if err != nil {
@@ -147,6 +150,9 @@ func (v *verifyContext) objectAt(role, path string) (*runtime.Instance, error) {
 		name := objref.JoinTyped(ref.Segments[:i])
 		syms := lookupNamed(v.cached.Index, name)
 		if len(syms) == 0 {
+			continue
+		}
+		if i > 1 && len(lookupNamed(v.cached.Index, objref.DeclaredRun(ref.Segments[:i]))) == 0 {
 			continue
 		}
 		if objref.IsNamespace(syms[0]) {
