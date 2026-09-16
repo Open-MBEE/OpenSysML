@@ -7,7 +7,7 @@
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
     "recorded": "2026-09-16",
-    "develop": "46828f14fc0d57fa8780737738d089fe813cff87"
+    "develop": "265045be57a07f9d90d517e69fe3c547d85fc140"
   },
   "buckets": {
     "differs-by-design": 2,
@@ -1430,8 +1430,6 @@
       "class": "extension",
       "bucket": "fail",
       "reasons": [
-        "reached a trace the suite does not admit: T1.3(effect)::S1(entry)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)",
-        "admitted trace not reached: S1(entry)::T1.3(effect)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)",
         "admitted trace not reached: S1(entry)::T2.1(effect)::S2.1(entry)::T1.3(effect)::S1.2(exit)::S1(exit)",
         "admitted trace not reached: S1(entry)::T2.1(effect)::T1.3(effect)::S2.1(entry)::S1.2(exit)::S1(exit)"
       ],
@@ -1441,7 +1439,7 @@
         "S1(entry)::T2.1(effect)::T1.3(effect)::S2.1(entry)::S1.2(exit)::S1(exit)"
       ],
       "reached": [
-        "T1.3(effect)::S1(entry)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)"
+        "S1(entry)::T1.3(effect)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)"
       ],
       "runs": 1
     },

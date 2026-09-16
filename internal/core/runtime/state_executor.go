@@ -113,6 +113,9 @@ type StateExecutor struct {
 	// within one firing, inside a step, so no snapshot sees them.
 	leftAhead    map[*ast.StateNode]bool
 	exitingAhead bool
+	// enteredAhead are the states a move activated ahead of entering them, so a
+	// segment's effect could follow the entry of the state enclosing it.
+	enteredAhead map[*ast.StateNode]bool
 	// moving marks a compound transition under way that a refused witness may undo.
 	moving *moveMark
 
@@ -1717,14 +1720,15 @@ func (e *StateExecutor) transitionToInto(trans *lower.Transition, r route, branc
 	currentState := e.moveOrigin()
 	return e.travel(r,
 		func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(currentState, trans, target) },
-		func(effects []lower.StateBehavior, target *ast.StateNode) error {
+		func(target *ast.StateNode) []*ast.StateNode { return e.enteredByMove(currentState, trans, target) },
+		func(effects []routeEffect, target *ast.StateNode) error {
 			return e.moveTo(trans, currentState, effects, target, branches)
 		})
 }
 
 // moveTo finishes a move of the single active hierarchy from currentState to
 // targetState: the exits still to make, the effects, then the entries.
-func (e *StateExecutor) moveTo(trans *lower.Transition, currentState *ast.StateNode, effects []lower.StateBehavior, targetState *ast.StateNode, branches map[*ast.StateRegion]*ast.StateNode) error {
+func (e *StateExecutor) moveTo(trans *lower.Transition, currentState *ast.StateNode, effects []routeEffect, targetState *ast.StateNode, branches map[*ast.StateRegion]*ast.StateNode) error {
 	// The trace's source name has to be read before the move, not after it.
 	fromName := ""
 	if currentState != nil {
@@ -1737,7 +1741,7 @@ func (e *StateExecutor) moveTo(trans *lower.Transition, currentState *ast.StateN
 		return err
 	}
 
-	if err := e.runBehaviors(effects); err != nil {
+	if err := e.runEffects(effects, e.descendantChain(lca, targetState)); err != nil {
 		return err
 	}
 	if lca == targetState {
@@ -2063,7 +2067,8 @@ func (e *StateExecutor) fireHistoryTransition(trans *lower.Transition, hist *ast
 	currentState := e.moveOrigin()
 	return e.travelChoosing(e.drawsBeyond(hist), r,
 		func(*ast.StateNode) []*ast.StateNode { return e.exitedByMove(currentState, trans, owner) },
-		func(effects []lower.StateBehavior, _ *ast.StateNode) error {
+		func(*ast.StateNode) []*ast.StateNode { return e.enteredByMove(currentState, trans, owner) },
+		func(effects []routeEffect, _ *ast.StateNode) error {
 			return e.moveToHistory(trans, currentState, effects, hist, owner)
 		})
 }
@@ -2090,8 +2095,9 @@ func (e *StateExecutor) historyBoundary(currentState *ast.StateNode, trans *lowe
 }
 
 // moveToHistory finishes a move into hist: exits run first, since leaving the
-// owner writes the record, then the record is read and the owner re-entered.
-func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast.StateNode, effects []lower.StateBehavior, hist *ast.PseudostateNode, owner *ast.StateNode) error {
+// owner writes the record, then the record is read and the owner re-entered. An
+// effect enclosed by a state on the way down to the owner runs as it is entered.
+func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast.StateNode, effects []routeEffect, hist *ast.PseudostateNode, owner *ast.StateNode) error {
 	fromName := ""
 	if currentState != nil {
 		fromName = currentState.Name
@@ -2108,7 +2114,7 @@ func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast
 	if err := e.exitStates(leaving); err != nil {
 		return err
 	}
-	if err := e.runBehaviors(effects); err != nil {
+	if err := e.runEffects(effects, e.descendantChain(lca, owner)); err != nil {
 		return err
 	}
 
@@ -2128,8 +2134,11 @@ func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast
 		}
 		below = owner
 	}
-	r, err := e.defaultHistoryRoute(hist)
+	r, err := e.defaultHistoryRoute(hist, below)
 	if err != nil {
+		return err
+	}
+	if err := e.runEffects(r.effects(e.graph), e.descendantChain(below, r.target)); err != nil {
 		return err
 	}
 	return e.enterBelow(trans, fromName, below, r.target, nil)
@@ -2138,7 +2147,8 @@ func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast
 // defaultHistoryRoute takes a history's default transition from inside its
 // owner, drawing at once among several branches enabled, as what it notes is
 // noted, and resolving any choice on the way once the effects into it have run.
-func (e *StateExecutor) defaultHistoryRoute(hist *ast.PseudostateNode) (route, error) {
+// The effects of the settled rest are the caller's to run as it enters below owner.
+func (e *StateExecutor) defaultHistoryRoute(hist *ast.PseudostateNode, owner *ast.StateNode) (route, error) {
 	r, err := e.followOut(hist, route{})
 	if err == nil {
 		r, err = e.settleDraws(r)
@@ -2149,14 +2159,24 @@ func (e *StateExecutor) defaultHistoryRoute(hist *ast.PseudostateNode) (route, e
 		return route{}, fmt.Errorf("default transition of history %s: %w", hist.Name, err)
 	}
 	for r.choice != nil {
-		if err := e.runBehaviors(r.effects()); err != nil {
+		targets, err := e.reachable(r)
+		if err != nil {
+			return route{}, err
+		}
+		certain := e.certainEntries(targets, func(target *ast.StateNode) []*ast.StateNode {
+			return e.descendantChain(owner, target)
+		})
+		if err := e.runEffects(r.effects(e.graph), certain); err != nil {
+			return route{}, err
+		}
+		if err := e.enterOwnerOf(r.choice, certain); err != nil {
 			return route{}, err
 		}
 		if r, err = e.resolveChoice(r); err != nil {
 			return route{}, err
 		}
 	}
-	return r, e.runBehaviors(r.effects())
+	return r, nil
 }
 
 // drawsBeyond reports whether a path out of ps through junctions may face a draw
@@ -2436,7 +2456,8 @@ func (e *StateExecutor) leaveJoinOwner(owner *ast.StateNode, trans *lower.Transi
 	if region := e.activeRegionOf(owner); region != nil {
 		return e.travel(r,
 			func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) },
-			func(effects []lower.StateBehavior, target *ast.StateNode) error {
+			func(target *ast.StateNode) []*ast.StateNode { return e.enteredInRegion(region, trans, target) },
+			func(effects []routeEffect, target *ast.StateNode) error {
 				return e.moveInRegion(region, owner, trans, effects, target)
 			})
 	}
@@ -3266,6 +3287,26 @@ func (e *StateExecutor) exitedByMove(current *ast.StateNode, trans *lower.Transi
 	return e.exitPath(current, e.moveBoundary(current, trans, target), nil)
 }
 
+// enteredByMove lists the states a move of the single active hierarchy from
+// current to target enters, outermost first.
+func (e *StateExecutor) enteredByMove(current *ast.StateNode, trans *lower.Transition, target *ast.StateNode) []*ast.StateNode {
+	return e.descendantChain(e.moveBoundary(current, trans, target), target)
+}
+
+// enteredInRegion lists the states a transition out of region's active state
+// enters on its way to target, outermost first, as moveInRegion enters them.
+func (e *StateExecutor) enteredInRegion(region *ast.StateRegion, trans *lower.Transition, target *ast.StateNode) []*ast.StateNode {
+	_, targetRegion := e.regionMove(region, target)
+	if targetRegion == nil {
+		owner := e.graph.RegionOwner[region]
+		if owner == nil {
+			return e.rootToLeaf(target)
+		}
+		return e.descendantChain(e.getLCA(owner, target), target)
+	}
+	return e.descendantChain(e.regionKeep(targetRegion, trans, target), target)
+}
+
 // resumeDoBehaviors lets the do behaviors taking the message being dispatched go
 // on with it, before the transitions selected fire, and names the states whose
 // behavior did. One an earlier behavior's step has already ended is skipped.
@@ -3924,7 +3965,25 @@ func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.S
 // activateState makes state active and runs its entry behaviors, leaving its
 // orthogonal regions, if any, to be entered and its do behavior to be started.
 func (e *StateExecutor) activateState(state *ast.StateNode) error {
+	if !e.activatedAhead(state) {
+		if err := e.performEntry(state); err != nil {
+			return err
+		}
+	}
 
+	// A composite of orthogonal regions is represented by their active states;
+	// entries of other composites' regions are left alone. A simple state is the
+	// single active state only outside any region.
+	if _, isComposite := e.graph.CompositeStates[state]; isComposite {
+		e.activeConfig.simpleState = nil
+	} else if len(e.activeConfig.regionStates) == 0 {
+		e.activeConfig.simpleState = state
+	}
+	return nil
+}
+
+// performEntry records the entry of state and performs its entry behaviors.
+func (e *StateExecutor) performEntry(state *ast.StateNode) error {
 	// Change watches are created fresh per activation, so a condition that stayed
 	// true rises again; the firing transition keeps its latch so the entry it
 	// caused does not re-enable it.
@@ -3952,15 +4011,6 @@ func (e *StateExecutor) activateState(state *ast.StateNode) error {
 		if err := e.executeBehavior(behavior); err != nil {
 			return fmt.Errorf("entry action: %w", err)
 		}
-	}
-
-	// A composite of orthogonal regions is represented by their active states;
-	// entries of other composites' regions are left alone. A simple state is the
-	// single active state only outside any region.
-	if _, isComposite := e.graph.CompositeStates[state]; isComposite {
-		e.activeConfig.simpleState = nil
-	} else if len(e.activeConfig.regionStates) == 0 {
-		e.activeConfig.simpleState = state
 	}
 	return nil
 }
