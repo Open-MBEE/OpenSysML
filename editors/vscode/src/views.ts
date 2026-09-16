@@ -1,4 +1,8 @@
+import { renamedUri } from "./autoopen";
 import type { PickerEntry, Position, Range, ViewsResult } from "./protocol";
+
+/** The `workspaceState` key under which the view chosen for each document is kept. */
+export const CHOSEN_VIEWS_KEY = "opensysml.diagram.chosenViews";
 
 /** A declared view as the picker offers it, with what choosing it on open needs. */
 export interface DeclaredView extends PickerEntry {
@@ -76,7 +80,7 @@ export function viewAt(declared: DeclaredView[], cursor: Position | undefined): 
 
 function contains(range: Range, at: Position): boolean {
   const afterStart = at.line > range.start.line || (at.line === range.start.line && at.character >= range.start.character);
-  const beforeEnd = at.line < range.end.line || (at.line === range.end.line && at.character <= range.end.character);
+  const beforeEnd = at.line < range.end.line || (at.line === range.end.line && at.character < range.end.character);
   return afterStart && beforeEnd;
 }
 
@@ -172,4 +176,76 @@ export function viewTitle(view: string): string {
   }
   const parts = view.split("::");
   return parts[parts.length - 1];
+}
+
+/** A store of view-by-document records, as `vscode.Memento` offers it. */
+export interface ChoiceStore {
+  get(key: string): Record<string, string> | undefined;
+  update(key: string, value: Record<string, string> | undefined): Thenable<void>;
+}
+
+/**
+ * ChosenViews remembers the view last chosen for each document, so Open Diagram
+ * draws it again without asking. Keyed by document URI; a choice follows the
+ * file through a rename and dies with it.
+ */
+export class ChosenViews {
+  // Changed here, at once, and written to the store in order, so mutations
+  // fired without awaiting cannot overwrite one another.
+  private chosen: Record<string, string>;
+  private writes: Promise<void> = Promise.resolve();
+
+  constructor(private readonly store: ChoiceStore) {
+    this.chosen = { ...(store.get(CHOSEN_VIEWS_KEY) ?? {}) };
+  }
+
+  get(uri: string): string | undefined {
+    return this.chosen[uri];
+  }
+
+  /** remember records the view chosen for a document, or forgets it for undefined. */
+  remember(uri: string, view: string | undefined): Thenable<void> {
+    if (this.chosen[uri] === view) {
+      return this.writes;
+    }
+    const next = { ...this.chosen };
+    if (view === undefined) {
+      delete next[uri];
+    } else {
+      next[uri] = view;
+    }
+    return this.set(next);
+  }
+
+  /** clear forgets the choice for a document, or for every document in a folder. */
+  clear(uri: string): Thenable<void> {
+    return this.rename(uri, undefined);
+  }
+
+  /** rename carries a choice to the document's new name, or every choice inside a renamed folder. */
+  rename(from: string, to: string | undefined): Thenable<void> {
+    const next: Record<string, string> = {};
+    let touched = false;
+    for (const [uri, view] of Object.entries(this.chosen)) {
+      const moved = renamedUri(uri, from, to ?? from);
+      if (moved === undefined) {
+        next[uri] = view;
+        continue;
+      }
+      touched = true;
+      if (to !== undefined) {
+        next[moved] = view;
+      }
+    }
+    return touched ? this.set(next) : this.writes;
+  }
+
+  // set applies the change at once and queues its write; a write that fails
+  // does not hold up the ones after it.
+  private set(chosen: Record<string, string>): Thenable<void> {
+    this.chosen = chosen;
+    const write = () => this.store.update(CHOSEN_VIEWS_KEY, Object.keys(chosen).length === 0 ? undefined : chosen);
+    this.writes = this.writes.then(write, write);
+    return this.writes;
+  }
 }

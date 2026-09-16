@@ -197,7 +197,8 @@ passed to the renderer directly.
   belong to the explicit command — and never takes focus; when a document declares
   several views it runs the same choice as the command up to the quick pick — the
   implied view, the one under the cursor, the remembered one — and opens nothing
-  rather than ask.
+  rather than ask. The eligibility is checked again once the listing returns, so a
+  panel opened or an editor switched meanwhile is not doubled.
 - Placement: one panel per document and view, all in one editor group. The first
   diagram opens `Beside` its source; every later one, automatic or explicit, opens
   in the group an existing diagram already occupies (`diagramColumn`), so switching
@@ -224,7 +225,9 @@ passed to the renderer directly.
   alone, so both apply to every document below it (`renamedUri`). `Dismissals`
   keeps the list in memory and writes it to `workspaceState` in order, so the
   un-awaited mutations of a multi-file rename or delete cannot overwrite one
-  another, and a failed write does not hold up the next.
+  another, and a failed write does not hold up the next. The view chosen for a
+  document (`ChosenViews`, `opensysml.diagram.chosenViews`) follows the same
+  rename and delete, with the same ordered writes.
 - The webview bundles Mermaid locally (no CDN, and a `Content-Security-Policy` with
   a nonce and no `connect-src`), renders the artifact, and re-renders on the
   extension's `postMessage`.
@@ -248,8 +251,9 @@ passed to the renderer directly.
   kind (asserting the reason), and for a stale-version request. Plus a
   didChange → `renderChanged` ordering test.
 - `editors/vscode/src/views.test.ts`: the view choice (cursor in a declaration,
-  the remembered view and its staleness, the fallbacks, "All views" expansion)
-  and the panel keying as pure functions.
+  the remembered view and its staleness, the fallbacks, "All views" expansion),
+  the panel keying as pure functions, and the chosen-view store's
+  remember/clear/rename semantics.
 - `editors/vscode/src/autoopen.test.ts`: `shouldAutoOpen` over every input, the
   dismissal store's record/clear/rename semantics, and the `Lifecycle` distinction
   between a disposal the extension asked for and a tab the user closed;

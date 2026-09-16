@@ -4,6 +4,9 @@ import { test } from "node:test";
 import {
   ALL_VIEWS,
   chooseView,
+  CHOSEN_VIEWS_KEY,
+  ChosenViews,
+  ChoiceStore,
   declaredViewEntries,
   DEFAULT_PSEUDO_VIEW,
   expandChoice,
@@ -74,7 +77,8 @@ const pseudo = pseudoViewEntries(["#tree", "#table"]);
 test("viewAt is the drawable view whose declaration contains the cursor", () => {
   assert.equal(viewAt([parts, states, shape], { line: 7, character: 0 }), "M::States");
   assert.equal(viewAt([parts, states, shape], { line: 2, character: 1 }), "M::Parts", "the declaration's first character is in it");
-  assert.equal(viewAt([parts, states, shape], { line: 4, character: 2 }), "M::Parts", "its closing brace is in it");
+  assert.equal(viewAt([parts, states, shape], { line: 4, character: 1 }), "M::Parts", "its closing brace is in it");
+  assert.equal(viewAt([parts, states, shape], { line: 4, character: 2 }), undefined, "the range's end is past the declaration");
   assert.equal(viewAt([parts, states, shape], { line: 5, character: 0 }), undefined, "the gap between declarations is in none");
   assert.equal(viewAt([parts, states, shape], { line: 11, character: 0 }), undefined, "a view that cannot be drawn is not chosen");
   assert.equal(viewAt([parts, states], undefined), undefined);
@@ -127,4 +131,74 @@ test("viewTitle is the view's short name, or the pseudo-view spec", () => {
   assert.equal(viewTitle("KitViews::widgetParts"), "widgetParts");
   assert.equal(viewTitle("widgetParts"), "widgetParts");
   assert.equal(viewTitle("#tree"), "#tree");
+});
+
+// A ChoiceStore over a value, standing in for workspaceState.
+function memory(initial?: Record<string, string>): ChoiceStore & { writes: (Record<string, string> | undefined)[] } {
+  let value = initial;
+  const writes: (Record<string, string> | undefined)[] = [];
+  return {
+    writes,
+    get: (key) => (key === CHOSEN_VIEWS_KEY ? value : undefined),
+    update: async (key, next) => {
+      assert.equal(key, CHOSEN_VIEWS_KEY);
+      value = next;
+      writes.push(next);
+    },
+  };
+}
+
+const car = "file:///w/car.sysml";
+const boat = "file:///w/fleet/boat.sysml";
+
+test("a chosen view is remembered, read back, replaced and forgotten", async () => {
+  const store = memory();
+  const chosen = new ChosenViews(store);
+  assert.equal(chosen.get(car), undefined);
+  await chosen.remember(car, "M::Parts");
+  await chosen.remember(car, "M::Parts");
+  assert.equal(chosen.get(car), "M::Parts");
+  assert.deepEqual(store.writes, [{ [car]: "M::Parts" }], "remembering the same view again writes nothing");
+  await chosen.remember(car, "M::States");
+  assert.equal(chosen.get(car), "M::States");
+  await chosen.remember(car, undefined);
+  assert.equal(chosen.get(car), undefined);
+  assert.equal(store.writes.at(-1), undefined, "an empty record is removed from the store");
+  await chosen.remember(car, undefined);
+  assert.equal(store.writes.length, 3, "forgetting a document never chosen writes nothing");
+});
+
+test("a rename carries the choice to the new name, and a delete drops it", async () => {
+  const store = memory({ [car]: "M::Parts", [boat]: "F::Hull" });
+  const chosen = new ChosenViews(store);
+  await chosen.rename(car, "file:///w/auto.sysml");
+  assert.equal(chosen.get(car), undefined);
+  assert.equal(chosen.get("file:///w/auto.sysml"), "M::Parts");
+  assert.equal(chosen.get(boat), "F::Hull", "the other document keeps its choice");
+  await chosen.rename("file:///w/other.sysml", "file:///w/else.sysml");
+  assert.equal(store.writes.length, 1, "a rename touching no chosen document writes nothing");
+  await chosen.clear("file:///w/auto.sysml");
+  assert.equal(chosen.get("file:///w/auto.sysml"), undefined);
+  assert.deepEqual(store.writes.at(-1), { [boat]: "F::Hull" });
+});
+
+test("renaming or deleting a folder carries or drops every choice inside it", async () => {
+  const store = memory({ [car]: "M::Parts", [boat]: "F::Hull" });
+  const chosen = new ChosenViews(store);
+  await chosen.rename("file:///w/fleet", "file:///w/navy");
+  assert.equal(chosen.get("file:///w/navy/boat.sysml"), "F::Hull");
+  assert.equal(chosen.get(boat), undefined);
+  await chosen.clear("file:///w/navy/");
+  assert.equal(chosen.get("file:///w/navy/boat.sysml"), undefined);
+  assert.deepEqual(store.writes.at(-1), { [car]: "M::Parts" });
+});
+
+test("choice mutations fired together land in order, none overwriting another", async () => {
+  const store = memory();
+  const chosen = new ChosenViews(store);
+  const a = chosen.remember(car, "M::Parts");
+  const b = chosen.remember(boat, "F::Hull");
+  const c = chosen.rename(car, "file:///w/auto.sysml");
+  await Promise.all([a, b, c]);
+  assert.deepEqual(store.writes.at(-1), { [boat]: "F::Hull", "file:///w/auto.sysml": "M::Parts" });
 });
