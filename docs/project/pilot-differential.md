@@ -209,7 +209,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 378 files)
+## Results (pilot `2026-08`, 379 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -218,9 +218,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
 | `testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 43 | 29 | 13 | 1233 | 4 | 2 | 7 | 1227 |
+| `examples` | 44 | 30 | 13 | 1233 | 4 | 2 | 7 | 1227 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **378** | **346** | **79** | **1288** | **38** | **3** | **38** | **1247** |
+| **Total** | **379** | **347** | **79** | **1288** | **38** | **3** | **38** | **1247** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -249,6 +249,29 @@ reference corpora is **17** — of which seven, the `Behaviors.kerml` advisory a
 `Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
+
+### Spacecraft downlink example round
+
+`examples/runtime-showcase/spacecraft-comms.sysml` is one file added to the `examples` root:
+files 43 → **44** on the root, 378 → **379** overall. It is the OpenSE Cookbook's Spacecraft
+Example re-spelled in current SysML v2 — a ground station and a spacecraft on a
+`CommunicationLink` interface, a `parallel` state machine whose regions send frames, drain the
+battery and recharge it on a change trigger, and a `BatteryLow` signal that interrupts the
+transmission — and it is silent on both sides, taking `fully agreeing` 346 → **347** (29 → **30**
+on the root). No diagnostic count moves.
+
+The example was written to the pilot's grammar where the two differ. A succession between two
+named action nodes is `succession first split then consumePower;` — the keyword-less-`first`
+form `succession split then consumePower;` we also accept is a production the pilot has only in
+KerML (`succession a then b;` in `Connectors.kerml`); its SysML `SuccessionAsUsage` requires
+`first`, and without it the pilot parses the rest of the state body as a cascade of syntax errors
+and `Duplicate of other owned member name` warnings.
+
+| Count | Before | Now |
+|---|---:|---:|
+| files | 378 | **379** |
+| overall: fully agreeing | 346 | **347** |
+| `examples`: fully agreeing | 29 | **30** |
 
 ### Legend of the Red Dragon example round
 
@@ -939,7 +962,7 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **346 / 38 / 79** |
+| overall: fully agreeing / only ours / our diagnostics | **347 / 38 / 79** |
 | only pilot | **1247** |
 | pilot diagnostics | **1288** |
 | severity-only | **3** |
