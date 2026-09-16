@@ -162,19 +162,17 @@ func (w *Workspace) libraryAlone() (*symbols.Index, *identity.Catalog) {
 	return w.libAlone, w.libCatalog
 }
 
-// baseHoldsLibrary reports whether the frozen base holds the library files and
-// no others: an overlay may shadow a base file under its name, or remove one.
+// baseHoldsLibrary reports whether the frozen base holds the library files and no
+// others: a base may hold unmarked files too, and an overlay may shadow or remove one.
 func (w *Workspace) baseHoldsLibrary() bool {
 	if w.libBase == nil {
 		return false
 	}
 	held := 0
 	for _, name := range w.libBase.Documents() {
-		if !w.libBase.IsLibraryDocument(name) {
-			continue
-		}
 		file, ok := w.library[name]
-		if !ok || w.libBase.DocumentRoot(name).Node() != file.root || w.libBase.LibraryDocumentOf(name) != file.record {
+		if !ok || !w.libBase.IsLibraryDocument(name) ||
+			w.libBase.DocumentRoot(name).Node() != file.root || w.libBase.LibraryDocumentOf(name) != file.record {
 			return false
 		}
 		held++
