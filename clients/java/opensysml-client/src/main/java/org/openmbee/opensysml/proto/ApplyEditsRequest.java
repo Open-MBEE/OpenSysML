@@ -9,7 +9,14 @@ package org.openmbee.opensysml.proto;
  * <pre>
  * ApplyEditsRequest asks for a model's source with edits applied to it. The
  * source edited is the one parse read, named by its hash, so an edit is applied
- * to the model that was inspected.
+ * to the model that was inspected. A model of several documents (ParseSources)
+ * is edited as one when the request sets `accept_documents`: the operations
+ * target declarations of the document named by `document`, and a rename or
+ * cascade delete follows references into every other document of the model,
+ * rewriting those too. `document` and `accept_documents` are advertised as the
+ * "edit_documents" capability: a service without it edits a model of one
+ * document alone and answers `content` alone, so a client checks it before
+ * naming a document or reading `documents`.
  * </pre>
  *
  * Protobuf type {@code sysml.ApplyEditsRequest}
@@ -36,6 +43,7 @@ private static final long serialVersionUID = 0L;
   private ApplyEditsRequest() {
     modelHash_ = "";
     operations_ = java.util.Collections.emptyList();
+    document_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -56,7 +64,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object modelHash_ = "";
   /**
    * <pre>
-   * from ParseFile response
+   * from a ParseFile or ParseSources response
    * </pre>
    *
    * <code>string model_hash = 1 [json_name = "modelHash"];</code>
@@ -77,7 +85,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * from ParseFile response
+   * from a ParseFile or ParseSources response
    * </pre>
    *
    * <code>string model_hash = 1 [json_name = "modelHash"];</code>
@@ -164,6 +172,77 @@ private static final long serialVersionUID = 0L;
     return operations_.get(index);
   }
 
+  public static final int DOCUMENT_FIELD_NUMBER = 3;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object document_ = "";
+  /**
+   * <pre>
+   * The document whose declarations the operations target, named as the parse
+   * request named it; empty names the model's first document, which is the
+   * only one of a ParseFile model. An operation targeting a declaration of
+   * another document is refused as an unknown target, naming that document. A
+   * name no document of the model has fails the call as an invalid argument.
+   * </pre>
+   *
+   * <code>string document = 3 [json_name = "document"];</code>
+   * @return The document.
+   */
+  @java.lang.Override
+  public java.lang.String getDocument() {
+    java.lang.Object ref = document_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      document_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The document whose declarations the operations target, named as the parse
+   * request named it; empty names the model's first document, which is the
+   * only one of a ParseFile model. An operation targeting a declaration of
+   * another document is refused as an unknown target, naming that document. A
+   * name no document of the model has fails the call as an invalid argument.
+   * </pre>
+   *
+   * <code>string document = 3 [json_name = "document"];</code>
+   * @return The bytes for document.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getDocumentBytes() {
+    java.lang.Object ref = document_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      document_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int ACCEPT_DOCUMENTS_FIELD_NUMBER = 4;
+  private boolean acceptDocuments_ = false;
+  /**
+   * <pre>
+   * Whether the client reads the response's `documents`. A model of several documents is
+   * edited only when set; unset, such a model is refused as a failed precondition, as before.
+   * </pre>
+   *
+   * <code>bool accept_documents = 4 [json_name = "acceptDocuments"];</code>
+   * @return The acceptDocuments.
+   */
+  @java.lang.Override
+  public boolean getAcceptDocuments() {
+    return acceptDocuments_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -184,6 +263,12 @@ private static final long serialVersionUID = 0L;
     for (int i = 0; i < operations_.size(); i++) {
       output.writeMessage(2, operations_.get(i));
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(document_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 3, document_);
+    }
+    if (acceptDocuments_ != false) {
+      output.writeBool(4, acceptDocuments_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -199,6 +284,13 @@ private static final long serialVersionUID = 0L;
     for (int i = 0; i < operations_.size(); i++) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(2, operations_.get(i));
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(document_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(3, document_);
+    }
+    if (acceptDocuments_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(4, acceptDocuments_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -219,6 +311,10 @@ private static final long serialVersionUID = 0L;
         .equals(other.getModelHash())) return false;
     if (!getOperationsList()
         .equals(other.getOperationsList())) return false;
+    if (!getDocument()
+        .equals(other.getDocument())) return false;
+    if (getAcceptDocuments()
+        != other.getAcceptDocuments()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -236,6 +332,11 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + OPERATIONS_FIELD_NUMBER;
       hash = (53 * hash) + getOperationsList().hashCode();
     }
+    hash = (37 * hash) + DOCUMENT_FIELD_NUMBER;
+    hash = (53 * hash) + getDocument().hashCode();
+    hash = (37 * hash) + ACCEPT_DOCUMENTS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getAcceptDocuments());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -337,7 +438,14 @@ private static final long serialVersionUID = 0L;
    * <pre>
    * ApplyEditsRequest asks for a model's source with edits applied to it. The
    * source edited is the one parse read, named by its hash, so an edit is applied
-   * to the model that was inspected.
+   * to the model that was inspected. A model of several documents (ParseSources)
+   * is edited as one when the request sets `accept_documents`: the operations
+   * target declarations of the document named by `document`, and a rename or
+   * cascade delete follows references into every other document of the model,
+   * rewriting those too. `document` and `accept_documents` are advertised as the
+   * "edit_documents" capability: a service without it edits a model of one
+   * document alone and answers `content` alone, so a client checks it before
+   * naming a document or reading `documents`.
    * </pre>
    *
    * Protobuf type {@code sysml.ApplyEditsRequest}
@@ -381,6 +489,8 @@ private static final long serialVersionUID = 0L;
         operationsBuilder_.clear();
       }
       bitField0_ = (bitField0_ & ~0x00000002);
+      document_ = "";
+      acceptDocuments_ = false;
       return this;
     }
 
@@ -430,6 +540,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000001) != 0)) {
         result.modelHash_ = modelHash_;
       }
+      if (((from_bitField0_ & 0x00000004) != 0)) {
+        result.document_ = document_;
+      }
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.acceptDocuments_ = acceptDocuments_;
+      }
     }
 
     @java.lang.Override
@@ -475,6 +591,14 @@ private static final long serialVersionUID = 0L;
           }
         }
       }
+      if (!other.getDocument().isEmpty()) {
+        document_ = other.document_;
+        bitField0_ |= 0x00000004;
+        onChanged();
+      }
+      if (other.getAcceptDocuments() != false) {
+        setAcceptDocuments(other.getAcceptDocuments());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -519,6 +643,16 @@ private static final long serialVersionUID = 0L;
               }
               break;
             } // case 18
+            case 26: {
+              document_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000004;
+              break;
+            } // case 26
+            case 32: {
+              acceptDocuments_ = input.readBool();
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 32
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -539,7 +673,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object modelHash_ = "";
     /**
      * <pre>
-     * from ParseFile response
+     * from a ParseFile or ParseSources response
      * </pre>
      *
      * <code>string model_hash = 1 [json_name = "modelHash"];</code>
@@ -559,7 +693,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * from ParseFile response
+     * from a ParseFile or ParseSources response
      * </pre>
      *
      * <code>string model_hash = 1 [json_name = "modelHash"];</code>
@@ -580,7 +714,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * from ParseFile response
+     * from a ParseFile or ParseSources response
      * </pre>
      *
      * <code>string model_hash = 1 [json_name = "modelHash"];</code>
@@ -597,7 +731,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * from ParseFile response
+     * from a ParseFile or ParseSources response
      * </pre>
      *
      * <code>string model_hash = 1 [json_name = "modelHash"];</code>
@@ -611,7 +745,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * from ParseFile response
+     * from a ParseFile or ParseSources response
      * </pre>
      *
      * <code>string model_hash = 1 [json_name = "modelHash"];</code>
@@ -956,6 +1090,165 @@ private static final long serialVersionUID = 0L;
         operations_ = null;
       }
       return operationsBuilder_;
+    }
+
+    private java.lang.Object document_ = "";
+    /**
+     * <pre>
+     * The document whose declarations the operations target, named as the parse
+     * request named it; empty names the model's first document, which is the
+     * only one of a ParseFile model. An operation targeting a declaration of
+     * another document is refused as an unknown target, naming that document. A
+     * name no document of the model has fails the call as an invalid argument.
+     * </pre>
+     *
+     * <code>string document = 3 [json_name = "document"];</code>
+     * @return The document.
+     */
+    public java.lang.String getDocument() {
+      java.lang.Object ref = document_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        document_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The document whose declarations the operations target, named as the parse
+     * request named it; empty names the model's first document, which is the
+     * only one of a ParseFile model. An operation targeting a declaration of
+     * another document is refused as an unknown target, naming that document. A
+     * name no document of the model has fails the call as an invalid argument.
+     * </pre>
+     *
+     * <code>string document = 3 [json_name = "document"];</code>
+     * @return The bytes for document.
+     */
+    public com.google.protobuf.ByteString
+        getDocumentBytes() {
+      java.lang.Object ref = document_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        document_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The document whose declarations the operations target, named as the parse
+     * request named it; empty names the model's first document, which is the
+     * only one of a ParseFile model. An operation targeting a declaration of
+     * another document is refused as an unknown target, naming that document. A
+     * name no document of the model has fails the call as an invalid argument.
+     * </pre>
+     *
+     * <code>string document = 3 [json_name = "document"];</code>
+     * @param value The document to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDocument(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      document_ = value;
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The document whose declarations the operations target, named as the parse
+     * request named it; empty names the model's first document, which is the
+     * only one of a ParseFile model. An operation targeting a declaration of
+     * another document is refused as an unknown target, naming that document. A
+     * name no document of the model has fails the call as an invalid argument.
+     * </pre>
+     *
+     * <code>string document = 3 [json_name = "document"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDocument() {
+      document_ = getDefaultInstance().getDocument();
+      bitField0_ = (bitField0_ & ~0x00000004);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The document whose declarations the operations target, named as the parse
+     * request named it; empty names the model's first document, which is the
+     * only one of a ParseFile model. An operation targeting a declaration of
+     * another document is refused as an unknown target, naming that document. A
+     * name no document of the model has fails the call as an invalid argument.
+     * </pre>
+     *
+     * <code>string document = 3 [json_name = "document"];</code>
+     * @param value The bytes for document to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDocumentBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      document_ = value;
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+
+    private boolean acceptDocuments_ ;
+    /**
+     * <pre>
+     * Whether the client reads the response's `documents`. A model of several documents is
+     * edited only when set; unset, such a model is refused as a failed precondition, as before.
+     * </pre>
+     *
+     * <code>bool accept_documents = 4 [json_name = "acceptDocuments"];</code>
+     * @return The acceptDocuments.
+     */
+    @java.lang.Override
+    public boolean getAcceptDocuments() {
+      return acceptDocuments_;
+    }
+    /**
+     * <pre>
+     * Whether the client reads the response's `documents`. A model of several documents is
+     * edited only when set; unset, such a model is refused as a failed precondition, as before.
+     * </pre>
+     *
+     * <code>bool accept_documents = 4 [json_name = "acceptDocuments"];</code>
+     * @param value The acceptDocuments to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAcceptDocuments(boolean value) {
+
+      acceptDocuments_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Whether the client reads the response's `documents`. A model of several documents is
+     * edited only when set; unset, such a model is refused as a failed precondition, as before.
+     * </pre>
+     *
+     * <code>bool accept_documents = 4 [json_name = "acceptDocuments"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAcceptDocuments() {
+      bitField0_ = (bitField0_ & ~0x00000008);
+      acceptDocuments_ = false;
+      onChanged();
+      return this;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.ApplyEditsRequest)

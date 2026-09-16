@@ -180,6 +180,13 @@ export class Runner {
       result.reason = `the service does not report ${missing.join(", ")}, so the without-capability expectation applies`;
     }
 
+    if (scenario.model?.fixtures !== undefined) {
+      result.outcome = "skip";
+      result.status = "-";
+      result.reason = "v1 of this client parses one document at a time, not a model of several";
+      return finish();
+    }
+
     let modelHash = "";
     let request: Record<string, unknown>;
     try {
@@ -350,6 +357,9 @@ export class Runner {
 
   /** Parses a scenario's fixture once per run and remembers the hash. */
   private async modelHash(model: ScenarioModel): Promise<string> {
+    if (model.fixture === undefined) {
+      throw new Error("a model names no fixture");
+    }
     const key = `${model.fixture}|${model.language ?? ""}|${String(model.strict_conformance ?? false)}`;
     const known = this.hashes.get(key);
     if (known !== undefined) {

@@ -39,7 +39,8 @@ func (m Model) renameSplices(i int, op Operation, sym *symbols.Symbol) ([]splice
 	if c := rename.Check(r, sem, sym, ident.Name, op.NewName, checked); c != nil {
 		e := &Error{Failure: FailureInvalidName, OperationIndex: i, Message: c.Error()}
 		if c.Site != "" {
-			e.Referring = []string{c.Site}
+			e.Referrers = []Referrer{{Name: c.Site, Document: occurrences[c.Occurrence].doc}}
+			e.Referring = referring(m.Source.Name(), e.Referrers)
 		}
 		return nil, e
 	}

@@ -158,19 +158,25 @@ elements, err := client.Query(ctx, model, opensysml.Query{
 })
 ```
 
-Edits are typed the same way — `SetValue`, `Rename`, `AddMember`, `Delete` —
-and either all apply, answering the edited source, or none do and the refusal
-arrives as an `*EditError` naming its kind:
+Edits are typed the same way — `SetValue`, `Rename`, `AddMember`, `Delete`,
+`Move` — and either all apply, answering the edited source, or none do and the
+refusal arrives as an `*EditError` naming its kind:
 
 ```go
 result, err := client.ApplyEdits(ctx, model,
 	opensysml.SetValue{Target: "Demo::sedan::mass", Value: "1200.0[SI::kg]"})
 
 var refused *opensysml.EditError
-if errors.As(err, &refused) && refused.Failure == opensysml.EditFailureRenameReferenced {
-	// refused.Referring names what still refers to it
+if errors.As(err, &refused) && refused.Failure == opensysml.EditFailureDeleteReferenced {
+	// refused.Referrers names what still refers to it, each with its document
 }
 ```
+
+The edited source is `result.Documents`, one `EditedDocument` per document the
+batch reached, under the name the model was parsed with; `result.Content` is the
+same notation for a model of one document and empty for a model of several, kept
+for callers of the sole-document contract. Each `AppliedEdit` names the
+`Document` its bytes belong to.
 
 ## What a model is here
 
@@ -199,10 +205,27 @@ own name, so a diagnostic locates itself in the file it came from, and
 `Model.Root` is the first, as it is for a one-document model. A set is cached by
 what is in it, so parsing the same documents again answers the same model hash.
 
-Two operations write one document's own notation back out, and they are refused
-with `CodeFailedPrecondition` for a model of several rather than applied to one
-of them: `Convert` from a model handle, and `ApplyEdits`. Convert a single
-document of such a set with `ConvertFile` or `ConvertSource`.
+`Convert` from a model handle writes one document's own notation back out, and
+is refused with `CodeFailedPrecondition` for a model of several rather than
+applied to one of them; convert a single document of such a set with
+`ConvertFile` or `ConvertSource`.
+
+`ApplyEdits` edits the set as one model. Its operations name elements declared in
+the first document; `ApplyDocumentEdits(ctx, model, "top.sysml", edits...)` names
+another, and a name that is not one of the model's is `CodeInvalidArgument`. A
+rename or a cascade delete follows its references into the other documents, every
+document touched is re-parsed and re-analysed together, and `result.Documents`
+lists exactly the documents rewritten — so a batch that reaches one document of
+three answers one `EditedDocument`, and `result.Content` is empty. The client marks
+every request as accepting documents; the service refuses a request that does not on a
+model of several, as it did before, so a program reading `Content` alone through an
+earlier client is never handed an empty one. A reference from
+a document the edit cannot rewrite, such as a bundled library file, refuses the
+edit as `EditFailureReferencedElsewhere`, naming it in `Referrers`. All of this is the
+`CapabilityEditDocuments` capability: a service without it edits a model of one
+document alone, answering `Content` with `Documents` empty, refuses a model of several
+with `CodeFailedPrecondition`, and refuses `ApplyDocumentEdits` with `CodeUnimplemented`
+— so a program reading `Documents` checks `ServerInfo` for the capability first.
 
 ## Concurrency, contexts and lifetime
 
