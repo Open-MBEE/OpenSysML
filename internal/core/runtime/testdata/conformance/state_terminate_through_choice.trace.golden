@@ -1,0 +1,15 @@
+stmt assign x
+  eval literal 2 -> 2
+stmt assign log
+    eval feature log -> ""
+    eval literal "check;" -> "check;"
+  eval operator + -> "check;"
+  eval feature x -> 2
+  eval literal 1 -> 1
+eval operator > -> true
+stmt assign log
+    eval feature log -> "check;"
+    eval literal "bad;" -> "bad;"
+  eval operator + -> "check;bad;"
+transition: idle -> stop (event: accept Check)
+terminate: stop

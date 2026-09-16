@@ -598,21 +598,21 @@ func (e *StateExecutor) exitAhead(states []*ast.StateNode) error {
 // then at each choice it leaves the states every branch leaves, runs the effects
 // of the segments into it and reads its guards; move then finishes the settled
 // rest with the effects left.
-func (e *StateExecutor) travel(r route, exits exitPlan, enters entryPlan, move func([]routeEffect, *ast.StateNode) error) error {
-	return e.travelChoosing(r.choice != nil || r.draw != nil, r, exits, enters, move)
+func (e *StateExecutor) travel(trans *lower.Transition, from *ast.StateNode, r route, exits exitPlan, enters entryPlan, move func([]routeEffect, *ast.StateNode) error) error {
+	return e.travelChoosing(r.choice != nil || r.draw != nil, trans, from, r, exits, enters, move)
 }
 
 // travelChoosing is travel where choosing says whether a draw lies on the way, on
 // the route or inside move, at which a replay may refuse the move.
-func (e *StateExecutor) travelChoosing(choosing bool, r route, exits exitPlan, enters entryPlan, move func([]routeEffect, *ast.StateNode) error) error {
+func (e *StateExecutor) travelChoosing(choosing bool, trans *lower.Transition, from *ast.StateNode, r route, exits exitPlan, enters entryPlan, move func([]routeEffect, *ast.StateNode) error) error {
 	savedLeft, savedEntered := e.leftAhead, e.enteredAhead
 	e.leftAhead, e.enteredAhead = nil, nil
 	defer func() { e.leftAhead, e.enteredAhead = savedLeft, savedEntered }()
 	var err error
 	if !choosing {
-		err = e.travelResolving(r, exits, enters, move)
+		err = e.travelResolving(trans, from, r, exits, enters, move)
 	} else {
-		err = e.moveWhole(func() error { return e.travelResolving(r, exits, enters, move) })
+		err = e.moveWhole(func() error { return e.travelResolving(trans, from, r, exits, enters, move) })
 	}
 	if err != nil {
 		return err
@@ -639,8 +639,9 @@ func (e *StateExecutor) moveWhole(move func() error) error {
 
 // travelResolving is travel's course: the draw the route is open at made, then
 // each choice on the way resolved once the exits every branch makes and the
-// effects into it are done.
-func (e *StateExecutor) travelResolving(r route, exits exitPlan, enters entryPlan, move func([]routeEffect, *ast.StateNode) error) error {
+// effects into it are done. trans is the compound transition's first segment and
+// from the state the move leaves, for the trace.
+func (e *StateExecutor) travelResolving(trans *lower.Transition, from *ast.StateNode, r route, exits exitPlan, enters entryPlan, move func([]routeEffect, *ast.StateNode) error) error {
 	if r.draw != nil {
 		var err error
 		r, err = e.settleDraws(r)
@@ -677,19 +678,20 @@ func (e *StateExecutor) travelResolving(r route, exits exitPlan, enters entryPla
 	}
 	e.noteFired(r.segments...)
 	if r.terminate != nil {
-		return e.terminateAlong(r)
+		return e.terminateAlong(r, StateVertexName(from), trans)
 	}
 	return move(r.effects(e.graph), r.target)
 }
 
 // terminateAlong ends the machine's performance at the terminate action the route
 // reaches (SysML v2 §7.18.3): its effects run, then no state is exited and no exit
-// behavior runs; the running do behaviors are abandoned where they stand.
-func (e *StateExecutor) terminateAlong(r route) error {
+// behavior runs; the running do behaviors are abandoned where they stand. The
+// trace names the move from fromName by trans, the compound transition's trigger.
+func (e *StateExecutor) terminateAlong(r route, fromName string, trans *lower.Transition) error {
 	if err := e.runEffects(r.effects(e.graph), nil); err != nil {
 		return err
 	}
-	return e.terminateMachine(r.segments[0], r.terminate)
+	return e.terminateMachine(fromName, trans.Trigger, r.terminate)
 }
 
 // runBehaviors performs a transition's effects, in order.

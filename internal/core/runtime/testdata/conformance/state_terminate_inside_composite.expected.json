@@ -1,0 +1,10 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Abort"}],
+	"terminated": true,
+	"stateVisits": ["work", "inner"],
+	"outputs": {
+		"log": {"type": "String", "value": "work(entry);inner(entry);watch;abort(effect);"}
+	}
+}

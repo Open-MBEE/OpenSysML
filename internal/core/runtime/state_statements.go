@@ -49,6 +49,8 @@ func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior) *stateStmtHos
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
 	host.flow.flow = host.flow
+	host.flow.driven.exec = host.flow
+	host.flow.driven.caller = &e.driven
 	host.perfs = &host.flow.performances
 	return host
 }
@@ -77,7 +79,7 @@ func (h *stateStmtHost) ended(err error) error {
 	}
 	endNested(root)
 	root.live = 0
-	h.flow.state = StateTerminated
+	h.flow.state = StateCompleted
 	if t := unwound(err); t != nil {
 		return h.flow.endAlongside(t)
 	}
@@ -304,9 +306,9 @@ func (h *stateStmtHost) acceptReturn(Value, lower.Return) error {
 // effect performs the action a `perform` names, or ends the performance a
 // `terminate` names; every other effect a body may state has no execution in a
 // state behavior.
-func (h *stateStmtHost) effect(_ *stmtEnv, s lower.Effect) error {
+func (h *stateStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 	if s.Kind == lower.EffectTerminate {
-		return h.perfs.terminate(h.perfs.root, s)
+		return h.perfs.terminate(engine, h.perfs.root, s)
 	}
 	if s.Kind == lower.EffectPerform {
 		inv, ok := performedInvocation(s)

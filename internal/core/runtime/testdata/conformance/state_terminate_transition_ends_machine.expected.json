@@ -1,0 +1,12 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Abort"}],
+	"terminated": true,
+	"stateVisits": ["busy"],
+	"outputs": {
+		"count": {"type": "Integer", "value": 1},
+		"exits": {"type": "Integer", "value": 0},
+		"effects": {"type": "Integer", "value": 7}
+	}
+}

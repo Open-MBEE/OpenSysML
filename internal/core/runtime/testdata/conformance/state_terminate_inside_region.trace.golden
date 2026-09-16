@@ -1,0 +1,13 @@
+do: r1
+stmt action body
+enter action node: state behavior hold
+  stmt assign log
+      eval feature log -> "l1(entry);r1(entry);"
+      eval literal "hold;" -> "hold;"
+    eval operator + -> "l1(entry);r1(entry);hold;"
+stmt assign log
+    eval feature log -> "l1(entry);r1(entry);hold;"
+    eval literal "abort(effect);" -> "abort(effect);"
+  eval operator + -> "l1(entry);r1(entry);hold;abort(effect);"
+transition: l1 -> stop (event: accept Abort)
+terminate: stop (do behavior abandoned: r1)

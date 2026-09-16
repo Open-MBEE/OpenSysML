@@ -1,0 +1,11 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Check"}],
+	"terminated": true,
+	"stateVisits": ["idle"],
+	"outputs": {
+		"x": {"type": "Integer", "value": 2},
+		"log": {"type": "String", "value": "check;bad;"}
+	}
+}

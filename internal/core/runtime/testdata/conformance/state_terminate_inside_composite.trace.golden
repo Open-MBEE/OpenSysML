@@ -1,0 +1,13 @@
+do: work
+stmt action body
+enter action node: state behavior watch
+  stmt assign log
+      eval feature log -> "work(entry);inner(entry);"
+      eval literal "watch;" -> "watch;"
+    eval operator + -> "work(entry);inner(entry);watch;"
+stmt assign log
+    eval feature log -> "work(entry);inner(entry);watch;"
+    eval literal "abort(effect);" -> "abort(effect);"
+  eval operator + -> "work(entry);inner(entry);watch;abort(effect);"
+transition: inner -> stop (event: accept Abort)
+terminate: stop (do behavior abandoned: work)

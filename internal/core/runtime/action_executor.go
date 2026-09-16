@@ -232,6 +232,7 @@ func newActionExecutorOn(
 	exec.root = exec.newRootFrame()
 	exec.owner = exec
 	exec.flow = exec
+	exec.driven.exec = exec
 	ctx.clock.attach(exec)
 	return exec
 }

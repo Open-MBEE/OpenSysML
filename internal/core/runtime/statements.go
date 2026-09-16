@@ -159,8 +159,8 @@ type stmtHost interface {
 	declaredOutput(name string) bool
 	// acceptReturn takes the value a `return` yields.
 	acceptReturn(value Value, s lower.Return) error
-	// effect states an effect on the world outside the body, over env's values.
-	effect(env *stmtEnv, s lower.Effect) error
+	// effect states an effect on the world outside the body, over engine's values.
+	effect(engine *stmtEngine, s lower.Effect) error
 	// performNode runs a nested action a block's flow declares, node of graph,
 	// as a performance of its own with engine's block-locals in reach.
 	performNode(engine *stmtEngine, graph *lower.ActionGraph, node *ast.Usage) (stmtFlow, error)
@@ -409,7 +409,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		}
 		return e.block(s)
 	case lower.Effect:
-		return flowNext, e.host.effect(e.env, s)
+		return flowNext, e.host.effect(e, s)
 	case lower.Unsupported:
 		return flowNext, fmt.Errorf("%w: %s: %s in a body is not executable", ErrStatementNotExecutable, e.host.describe(), s.Description)
 	default:

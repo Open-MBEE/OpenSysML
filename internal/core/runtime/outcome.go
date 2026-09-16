@@ -13,7 +13,10 @@ type Outcome struct {
 	Outputs     map[string]Value
 	FinalState  string
 	StateVisits []string
-	Err         error
+	// Terminated is set when a `terminate` ended the performance where it was,
+	// rather than the behavior reaching its own end.
+	Terminated bool
+	Err        error
 	// ctx is the run's context, where the objects the outputs hold live.
 	ctx *Context
 }
@@ -37,6 +40,9 @@ func (o Outcome) String() string {
 		return "error: " + o.Err.Error()
 	}
 	var parts []string
+	if o.Terminated {
+		parts = append(parts, "terminated")
+	}
 	if o.FinalState != "" {
 		parts = append(parts, "finalState "+o.FinalState)
 	}
@@ -67,6 +73,9 @@ func (o Outcome) identity() string {
 		return "error: " + strconv.Quote(o.Err.Error())
 	}
 	parts := []string{"finalState " + strconv.Quote(o.FinalState)}
+	if o.Terminated {
+		parts = append(parts, "terminated")
+	}
 	for _, visit := range o.StateVisits {
 		parts = append(parts, "visit "+strconv.Quote(visit))
 	}
@@ -97,6 +106,14 @@ func (ctx *Context) ActionOutcome(outputs map[string]Value) Outcome {
 	return Outcome{Outputs: outputs, ctx: ctx}
 }
 
+// Outcome is the outcome of the run so far: the values its features hold, and
+// whether a `terminate` ended it short of its own end.
+func (e *ActionExecutor) Outcome() Outcome {
+	outcome := e.ctx.ActionOutcome(e.Results())
+	outcome.Terminated = e.state == StateTerminated
+	return outcome
+}
+
 // Outcome is the outcome of the performance so far: the configuration the
 // machine rests in, the states it entered and the values it holds.
 func (e *StateExecutor) Outcome() Outcome {
@@ -104,6 +121,7 @@ func (e *StateExecutor) Outcome() Outcome {
 		FinalState:  e.FinalStateName(),
 		StateVisits: slices.Clone(e.stateVisits),
 		Outputs:     e.StateData(),
+		Terminated:  e.state == StateTerminated,
 		ctx:         e.ctx,
 	}
 }
@@ -115,6 +133,9 @@ func (ctx *Context) JointOutcome(names []string, outcomes []Outcome) Outcome {
 	outputs := make(map[string]Value)
 	for i, o := range outcomes {
 		name := names[i]
+		if o.Terminated {
+			outputs[name+" terminated"] = boolValue(true)
+		}
 		if o.FinalState != "" {
 			outputs[name+" finalState"] = NewStringValue(o.FinalState)
 		}

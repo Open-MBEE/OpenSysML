@@ -193,6 +193,18 @@ func (ctx *Context) checkPerformer(self *Instance) error {
 // checkMayEnd reports why inst cannot end now: it ended already, or a behavior
 // it performs, or one performed as it, is under way.
 func (ctx *Context) checkMayEnd(inst *Instance) error {
+	if err := ctx.checkLiving(inst); err != nil {
+		return err
+	}
+	if b := ctx.performanceUnderWay(inst); b != nil {
+		return fmt.Errorf("%w: object #%d (%s) cannot end while %s is under way",
+			ErrOccurrenceLifetime, inst.ID, symbolText(inst.Type), b.Describe())
+	}
+	return nil
+}
+
+// checkLiving refuses an occurrence that has no lifetime here, was destroyed, or ended already.
+func (ctx *Context) checkLiving(inst *Instance) error {
 	prior, ok := ctx.lives[inst.ID]
 	switch {
 	case !ok:
@@ -204,10 +216,6 @@ func (ctx *Context) checkMayEnd(inst *Instance) error {
 	case prior.ended != 0:
 		return fmt.Errorf("%w: object #%d (%s) ended at %d already",
 			ErrOccurrenceLifetime, inst.ID, symbolText(inst.Type), prior.ended)
-	}
-	if b := ctx.performanceUnderWay(inst); b != nil {
-		return fmt.Errorf("%w: object #%d (%s) cannot end while %s is under way",
-			ErrOccurrenceLifetime, inst.ID, symbolText(inst.Type), b.Describe())
 	}
 	return nil
 }

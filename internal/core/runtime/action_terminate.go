@@ -14,27 +14,50 @@ import (
 // terminated unwinds a body out to the executor step within perf, the performance
 // its `terminate` ends (SysML v2 §7.17.10); then are the performances the same
 // statement named after perf, ended in place once perf has, in that order.
+// A terminate of an occurrence the body runs within unwinds with perf nil instead:
+// object is the occurrence and ended the identities of the objects ending with it.
 type terminated struct {
-	perf *actionFrame
-	then []*actionFrame
+	perf   *actionFrame
+	then   []*actionFrame
+	object *Instance
+	ended  map[int64]bool
 }
 
-func (t *terminated) Error() string { return "terminate " + t.perf.describe() }
+func (t *terminated) Error() string {
+	if t.perf == nil {
+		return fmt.Sprintf("terminate object #%d (%s)", t.object.ID, symbolText(t.object.Type))
+	}
+	return "terminate " + t.perf.describe()
+}
 
 // terminates reports whether err is the unwinding of a terminate ending perf.
 func terminates(err error, perf *actionFrame) bool {
 	var t *terminated
-	return errors.As(err, &t) && t.perf == perf
+	return errors.As(err, &t) && t.perf != nil && t.perf == perf
 }
 
-// terminate ends the performances s names, the earliest begun first: in place for each
+// terminate ends what s names, the earliest begun first: in place for each performance
 // that is another flow's node, unwinding perf's body at the one it runs within — the
-// later ones then end where the unwinding is caught, so the order named holds.
-func (e *performances) terminate(perf *actionFrame, s lower.Effect) error {
+// later ones then end where the unwinding is caught, so the order named holds. An
+// occurrence named is evaluated by engine and ended with its behaviors (terminateOccurrence).
+func (e *performances) terminate(engine *stmtEngine, perf *actionFrame, s lower.Effect) error {
+	if s.Terminates == lower.TerminateOccurrence {
+		return e.terminateOccurrence(engine, s)
+	}
 	targets, err := e.terminateTargets(perf, s)
 	if err != nil {
 		return err
 	}
+	// An action usage no flow around the statement declares is an occurrence the
+	// name denotes: another object's action, reached through it.
+	if len(targets) == 0 {
+		return e.terminateOccurrence(engine, s)
+	}
+	return e.endPerformances(perf, targets)
+}
+
+// endPerformances ends targets, performances of flows around perf, in the order named.
+func (e *performances) endPerformances(perf *actionFrame, targets []*actionFrame) error {
 	for _, target := range targets {
 		if target.ended {
 			return fmt.Errorf("%w: %s", ErrPerformanceEnded, target.describe())
@@ -64,11 +87,16 @@ func (e *performances) terminatedUsage(perf *actionFrame, graph *lower.ActionGra
 	if !ok {
 		return err
 	}
-	return e.terminate(perf, s)
+	targets, err := e.terminateTargets(perf, s)
+	if err != nil {
+		return err
+	}
+	return e.endPerformances(perf, targets)
 }
 
 // terminateTargets resolves the performances s names from perf, whose body states it:
-// perf itself, its parent, or the ongoing performances of a node of a flow around it.
+// perf itself, its parent, or the ongoing performances of a node of a flow around it;
+// none for an action usage no flow around perf declares.
 func (e *performances) terminateTargets(perf *actionFrame, s lower.Effect) ([]*actionFrame, error) {
 	switch s.Terminates {
 	case lower.TerminateContaining:
@@ -90,14 +118,25 @@ func (e *performances) terminateTargets(perf *actionFrame, s lower.Effect) ([]*a
 				return []*actionFrame{latest}, nil
 			}
 		}
+		if !perf.declaresAround(s.Target) {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("%w: action node %s has no ongoing performance in a flow around %s",
 			ErrTerminateTarget, ActionNodeName(s.Target), perf.describe())
-	case lower.TerminateOccurrence:
-		return nil, fmt.Errorf("%w: %s: 'terminate %s' names an occurrence, not an action node",
-			ErrTerminateOccurrence, perf.describe(), e.ctx.bindingExprText(s.TargetExpr, s.Scope))
 	}
-	return nil, fmt.Errorf("%w: %s: 'terminate %s' names no action node of a flow around it and no occurrence",
-		ErrTerminateTarget, perf.describe(), e.ctx.bindingExprText(s.TargetExpr, s.Scope))
+	return nil, fmt.Errorf("%w: %s: 'terminate' names no performance of a flow around it",
+		ErrTerminateTarget, perf.describe())
+}
+
+// declaresAround reports whether node is a node of f's flow or of a flow around it.
+func (f *actionFrame) declaresAround(node ast.Node) bool {
+	name := ActionNodeName(node)
+	for ; f != nil; f = f.parent {
+		if slices.Contains(f.nodesNamed(name), node) {
+			return true
+		}
+	}
+	return false
 }
 
 // ongoingWith returns the ongoing performances of node in the flow of within, a performance
@@ -181,6 +220,9 @@ func (e *ActionExecutor) endTerminatedFor(id int64, err error) error {
 	if t == nil {
 		return err
 	}
+	if t.perf == nil {
+		return e.endedByOccurrence(t, err)
+	}
 	idx := e.tokenIndex(id)
 	if idx < 0 {
 		return err
@@ -226,7 +268,7 @@ func (e *ActionExecutor) endAround(tokenIdx int, perf *actionFrame) error {
 	e.dropTokensIn(perf, id)
 	if perf == e.root {
 		e.removeToken(e.tokenIndex(id))
-		e.state = StateTerminated
+		e.state = StateCompleted
 		e.ctx.endPerformanceLife(e.occurrence)
 		return nil
 	}

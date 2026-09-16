@@ -261,7 +261,7 @@ func (inv *Invocation) Outcome() Outcome {
 	ctx := inv.Context()
 	outcomes := make([]Outcome, 0, len(inv.Actions)+len(inv.States))
 	for _, exec := range inv.Actions {
-		outcomes = append(outcomes, ctx.ActionOutcome(exec.Results()))
+		outcomes = append(outcomes, exec.Outcome())
 	}
 	for _, exec := range inv.States {
 		outcomes = append(outcomes, exec.Outcome())

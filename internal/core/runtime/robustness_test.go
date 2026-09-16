@@ -11498,7 +11498,7 @@ func testTerminateOfANonActionFeature(t *testing.T) {
 }
 
 // testTerminateOfAQualifiedOccurrence: a qualified name reaching an occurrence that is
-// no action node is the occurrence refusal, as the simple name is, not an unknown target.
+// no action node ends that occurrence; naming it again is the occurrence refusal.
 func testTerminateOfAQualifiedOccurrence(t *testing.T) {
 	_, err := executeActionSource(t, "host", `package test {
 		part def V;
@@ -11506,16 +11506,17 @@ func testTerminateOfAQualifiedOccurrence(t *testing.T) {
 		action host {
 			first start;
 			then action c1 { terminate test::victim; }
+			then action c2 { terminate test::victim; }
 			then done;
 		}
 	}`)
-	if !errors.Is(err, ErrTerminateOccurrence) {
-		t.Fatalf("error = %v, want ErrTerminateOccurrence", err)
+	if !errors.Is(err, ErrTerminateOccurrence) || !errors.Is(err, ErrOccurrenceLifetime) {
+		t.Fatalf("error = %v, want ErrTerminateOccurrence wrapping ErrOccurrenceLifetime", err)
 	}
 }
 
-// testTerminateOfAnOccurrenceExpression: a terminate whose target is an expression
-// evaluating to an occurrence is reported as not executable, never ignored.
+// testTerminateOfAnOccurrenceExpression: a terminate whose target expression names
+// no occurrence where it is stated — `this` in a body no object performs — ends nothing.
 func testTerminateOfAnOccurrenceExpression(t *testing.T) {
 	_, err := executeActionSource(t, "host", `package test {
 		action host {
@@ -11524,8 +11525,8 @@ func testTerminateOfAnOccurrenceExpression(t *testing.T) {
 			then done;
 		}
 	}`)
-	if !errors.Is(err, ErrTerminateOccurrence) {
-		t.Fatalf("error = %v, want ErrTerminateOccurrence", err)
+	if !errors.Is(err, ErrTerminateTarget) {
+		t.Fatalf("error = %v, want ErrTerminateTarget", err)
 	}
 }
 

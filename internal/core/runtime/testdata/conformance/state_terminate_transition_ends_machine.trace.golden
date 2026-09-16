@@ -1,0 +1,9 @@
+do: busy
+stmt action body
+enter action node: state behavior tick
+  stmt assign count
+    eval literal 1 -> 1
+stmt assign effects
+  eval literal 7 -> 7
+transition: busy -> stop (event: accept Abort)
+terminate: stop (do behavior abandoned: busy)

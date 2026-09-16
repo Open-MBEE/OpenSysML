@@ -340,6 +340,15 @@ func (tr *TraceRecorder) RecordOccurrenceDestroyed(typeName string, id int64) {
 	tr.entries = append(tr.entries, fmt.Sprintf("destroy: %s #%d", typeName, id))
 }
 
+// RecordOccurrenceTerminated records an occurrence ending by `terminate`.
+func (tr *TraceRecorder) RecordOccurrenceTerminated(typeName string, id int64) {
+	if !tr.enabled {
+		return
+	}
+
+	tr.entries = append(tr.entries, fmt.Sprintf("terminate: %s #%d", typeName, id))
+}
+
 // RecordBehaviorStart records an object's own execution of a behavior its type
 // exhibits or performs starting.
 func (tr *TraceRecorder) RecordBehaviorStart(kind, name string, id int64) {
