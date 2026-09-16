@@ -182,6 +182,7 @@ func newActionExecutorOn(
 	exec.features = exec.performanceFeatures()
 	exec.root = exec.newRootFrame()
 	exec.owner = exec
+	exec.flow = exec
 	ctx.clock.attach(exec)
 	return exec
 }
@@ -1284,8 +1285,17 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 	if tokenIdx < 0 || tokenIdx >= len(e.tokens) {
 		return fmt.Errorf("invalid token index %d", tokenIdx)
 	}
-	defer e.beginTokenStep(e.tokens[tokenIdx].ID)()
+	id := e.tokens[tokenIdx].ID
+	defer e.beginTokenStep(id)()
+	if err := e.stepTokenAt(tokenIdx); err != nil {
+		return e.endTerminatedFor(id, err)
+	}
+	return nil
+}
 
+// stepTokenAt advances the token at tokenIdx; a terminate its step reaches unwinds
+// out of it, for stepToken to end the performance it names.
+func (e *ActionExecutor) stepTokenAt(tokenIdx int) error {
 	if e.dynamics != nil {
 		return e.stepDynamics(tokenIdx)
 	}

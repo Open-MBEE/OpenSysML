@@ -173,6 +173,18 @@ var (
 	// ErrActionDeadlock is returned when action tokens cannot make progress.
 	ErrActionDeadlock = errors.New("action deadlock")
 
+	// ErrTerminateTarget is returned when a `terminate` names no ongoing performance
+	// of an action node in a flow enclosing it, and no occurrence either.
+	ErrTerminateTarget = errors.New("terminate names nothing to end")
+
+	// ErrPerformanceEnded is returned when a `terminate` names a performance that
+	// has already ended, by completing or by an earlier terminate.
+	ErrPerformanceEnded = errors.New("performance already ended")
+
+	// ErrTerminateOccurrence is returned when a `terminate` names an occurrence by
+	// an expression, which ends an object and its behaviors — not yet executed.
+	ErrTerminateOccurrence = errors.New("terminating an occurrence is not executable")
+
 	// ErrExecutorReleased is returned when a released executor is stepped.
 	ErrExecutorReleased = errors.New("executor released")
 

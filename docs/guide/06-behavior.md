@@ -1659,6 +1659,40 @@ regions, choice and junction) appear in
 [examples/pseudostates-demo.sysml](../../examples/pseudostates-demo.sysml), and every case the
 executors are tested against lives under `internal/core/runtime/testdata/conformance/`.
 
+### Terminate: ending an action early
+
+`terminate` ends the performance it is written in, keeping whatever it assigned so far. As a
+node of the flow — `then terminate;`, or a named terminate action usage reached by a succession
+(`then stop; action stop terminate;`) — it ends the action, so nodes after it do not run and a
+forked sibling branch still running is dropped, an `accept` it never received included. As a
+statement of a nested action node's body it ends only that node: the rest of the body is
+skipped, the node's own fork branches are dropped, and the parent continues along the node's
+succession with the values the node assigned before it ended. `terminate <name>;` names an
+action node of the flow it is in or of a flow around it — the node itself
+(`action c1 { terminate c1; }`), the node whose body it runs in, or a sibling node still
+running — and ends that node's performance. `-trace` writes every dropped token.
+
+```sysml
+action bounded {
+    out attribute x : Integer = 0;
+    out attribute y : Integer = 0;
+
+    first start;
+    then action c1 {
+        assign x := 1;
+        terminate;
+        assign x := 2;
+    }
+    then action c2 { assign y := 3; }
+    then done;
+}
+```
+
+Here `c1` ends after its first assignment, and `c2` still runs: `x = 1`, `y = 3`. Only actions
+are ended this way. A `terminate` inside a state's `entry`, `do` or `exit` body, and a
+`terminate` of an occurrence (`terminate this;`, or an expression evaluating to an object) are
+reported as not executable rather than ignored.
+
 A run that stops early, whether through deadlock or by hitting a budget, is reported as an
 undecided check rather than a failure. The budgets are documented in
 [reference/environment.md](../reference/environment.md).

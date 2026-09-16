@@ -1737,6 +1737,10 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		}
 	}
 	head := strings.Join(words, " ") + multPart
+	// A terminate action usage closes its head with `terminate` (SysML.xtext TerminateActionUsage).
+	if el.metaclass == mTerminate {
+		head += " terminate"
+	}
 	value, hasValue := d.stringOf(el, rdf.SysML+pValue)
 	// `assert c;`, `assert c[1]` and `assert c { … }` name the `c` they refer to;
 	// a declared `c` is read only where a typing, specialization or value follows.
