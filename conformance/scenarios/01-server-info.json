@@ -32,6 +32,7 @@
             "tensor_values",
             "metaobject_values",
             "apply_edits",
+            "edit_documents",
             "strict_conformance",
             "feature_values",
             "document_query",

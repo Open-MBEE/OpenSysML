@@ -100,4 +100,26 @@ public interface AppliedEditOrBuilder extends
    */
   com.google.protobuf.ByteString
       getNewTextBytes();
+
+  /**
+   * <pre>
+   * The document the bytes are in, named as the parse request named it and as
+   * ApplyEditsResponse.documents lists it. Set for a single-document model too.
+   * </pre>
+   *
+   * <code>string document = 7 [json_name = "document"];</code>
+   * @return The document.
+   */
+  java.lang.String getDocument();
+  /**
+   * <pre>
+   * The document the bytes are in, named as the parse request named it and as
+   * ApplyEditsResponse.documents lists it. Set for a single-document model too.
+   * </pre>
+   *
+   * <code>string document = 7 [json_name = "document"];</code>
+   * @return The bytes for document.
+   */
+  com.google.protobuf.ByteString
+      getDocumentBytes();
 }
