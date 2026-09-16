@@ -1,0 +1,72 @@
+exit: idle
+stmt assign log
+    eval feature log -> ""
+    eval literal "go(effect);" -> "go(effect);"
+  eval operator + -> "go(effect);"
+enter: outer (entry action)
+stmt assign log
+    eval feature log -> "go(effect);"
+    eval literal "outer(entry);" -> "outer(entry);"
+  eval operator + -> "go(effect);outer(entry);"
+stmt assign log
+    eval feature log -> "go(effect);outer(entry);"
+    eval literal "h(effect);" -> "h(effect);"
+  eval operator + -> "go(effect);outer(entry);h(effect);"
+stmt assign log
+    eval feature log -> "go(effect);outer(entry);h(effect);"
+    eval literal "j(effect);" -> "j(effect);"
+  eval operator + -> "go(effect);outer(entry);h(effect);j(effect);"
+enter: inner (entry action)
+stmt assign log
+    eval feature log -> "go(effect);outer(entry);h(effect);j(effect);"
+    eval literal "inner(entry);" -> "inner(entry);"
+  eval operator + -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);"
+stmt assign log
+    eval feature log -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);"
+    eval literal "ij(effect);" -> "ij(effect);"
+  eval operator + -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);ij(effect);"
+enter: leaf (entry action)
+stmt assign log
+    eval feature log -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);ij(effect);"
+    eval literal "leaf(entry);" -> "leaf(entry);"
+  eval operator + -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);ij(effect);leaf(entry);"
+transition: idle -> leaf (event: accept Go)
+exit: leaf
+exit: inner
+exit: outer (exit action)
+stmt assign log
+    eval feature log -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);ij(effect);leaf(entry);"
+    eval literal "outer(exit);" -> "outer(exit);"
+  eval operator + -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);ij(effect);leaf(entry);outer(exit);"
+enter: idle
+transition: leaf -> idle (event: accept Out)
+exit: idle
+stmt assign log
+    eval feature log -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);ij(effect);leaf(entry);outer(exit);"
+    eval literal "go(effect);" -> "go(effect);"
+  eval operator + -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);ij(effect);leaf(entry);outer(exit);go(effect);"
+enter: outer (entry action)
+stmt assign log
+    eval feature log -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);ij(effect);leaf(entry);outer(exit);go(effect);"
+    eval literal "outer(entry);" -> "outer(entry);"
+  eval operator + -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);ij(effect);leaf(entry);outer(exit);go(effect);outer(entry);"
+enter: inner (entry action)
+stmt assign log
+    eval feature log -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);ij(effect);leaf(entry);outer(exit);go(effect);outer(entry);"
+    eval literal "inner(entry);" -> "inner(entry);"
+  eval operator + -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);ij(effect);leaf(entry);outer(exit);go(effect);outer(entry);inner(entry);"
+enter: leaf (entry action)
+stmt assign log
+    eval feature log -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);ij(effect);leaf(entry);outer(exit);go(effect);outer(entry);inner(entry);"
+    eval literal "leaf(entry);" -> "leaf(entry);"
+  eval operator + -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);ij(effect);leaf(entry);outer(exit);go(effect);outer(entry);inner(entry);leaf(entry);"
+transition: idle -> leaf (event: accept Go)
+exit: leaf
+exit: inner
+exit: outer (exit action)
+stmt assign log
+    eval feature log -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);ij(effect);leaf(entry);outer(exit);go(effect);outer(entry);inner(entry);leaf(entry);"
+    eval literal "outer(exit);" -> "outer(exit);"
+  eval operator + -> "go(effect);outer(entry);h(effect);j(effect);inner(entry);ij(effect);leaf(entry);outer(exit);go(effect);outer(entry);inner(entry);leaf(entry);outer(exit);"
+enter: done
+transition: leaf -> done (event: accept Stop)

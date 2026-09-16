@@ -61,11 +61,25 @@ func (r route) settled() bool {
 	return r.target != nil || r.choice != nil || r.draw != nil
 }
 
-// effects are the behaviors the route's segments perform, in path order.
-func (r route) effects() []lower.StateBehavior {
-	var effects []lower.StateBehavior
+// routeEffect is one effect of a compound transition and the state declaring the
+// pseudostate its segment leaves; nil for a segment out of a state or the machine's body.
+type routeEffect struct {
+	behavior lower.StateBehavior
+	within   *ast.StateNode
+}
+
+// effects are the behaviors the route's segments perform, in path order, each
+// with the state enclosing it.
+func (r route) effects(g *lower.StateGraph) []routeEffect {
+	var effects []routeEffect
 	for _, seg := range r.segments {
-		effects = append(effects, seg.Effect...)
+		var within *ast.StateNode
+		if ps, isPseudostate := seg.Source.(*ast.PseudostateNode); isPseudostate {
+			within = g.PseudostateOwner[ps]
+		}
+		for _, behavior := range seg.Effect {
+			effects = append(effects, routeEffect{behavior: behavior, within: within})
+		}
 	}
 	return effects
 }
@@ -386,6 +400,10 @@ func (e *StateExecutor) reachable(r route) ([]*ast.StateNode, error) {
 // as it stands.
 type exitPlan func(target *ast.StateNode) []*ast.StateNode
 
+// entryPlan lists the states a move to target enters, outermost first, against
+// the configuration as it stands.
+type entryPlan func(target *ast.StateNode) []*ast.StateNode
+
 // certainExits lists the states a move to every one of the targets exits — in a
 // sibling region as well as above the source — in the order the first target's
 // move leaves them, so they can be left before the branch is known.
@@ -416,6 +434,102 @@ func (e *StateExecutor) certainExits(targets []*ast.StateNode, exits exitPlan) [
 		}
 	}
 	return certain
+}
+
+// certainEntries lists the states a move to every one of the targets enters, in
+// the order the first target's move enters them, before the branch is known.
+func (e *StateExecutor) certainEntries(targets []*ast.StateNode, enters entryPlan) []*ast.StateNode {
+	if len(targets) == 0 {
+		return nil
+	}
+	certain := enters(targets[0])
+	for _, target := range targets[1:] {
+		entered := enters(target)
+		certain = slices.DeleteFunc(certain, func(state *ast.StateNode) bool {
+			return !slices.Contains(entered, state)
+		})
+	}
+	return certain
+}
+
+// runEffects performs a compound transition's effects in path order, activating the
+// chain down to the state enclosing each first: a segment is a performance of its owner.
+func (e *StateExecutor) runEffects(effects []routeEffect, chain []*ast.StateNode) error {
+	for _, effect := range effects {
+		if upto := e.enclosingIndex(chain, effect.within); upto >= 0 {
+			if err := e.enterAhead(chain[:upto+1]); err != nil {
+				return err
+			}
+		}
+		if err := e.executeBehavior(effect.behavior); err != nil {
+			return fmt.Errorf("transition effect: %w", err)
+		}
+	}
+	return nil
+}
+
+// enclosingIndex is where the state enclosing an effect, or the parallel state
+// whose region it stands for, lies in chain; -1 when the chain never enters it.
+func (e *StateExecutor) enclosingIndex(chain []*ast.StateNode, state *ast.StateNode) int {
+	if state == nil || state == e.graph.Machine {
+		return -1
+	}
+	if i := slices.Index(chain, state); i >= 0 {
+		return i
+	}
+	if region := e.graph.HiddenRegionOf[state]; region != nil {
+		return slices.Index(chain, e.graph.RegionOwner[region])
+	}
+	return -1
+}
+
+// enterOwnerOf activates the chain down to the state declaring ps, when the move
+// enters it: the guards of a choice are read once its owner is entered.
+func (e *StateExecutor) enterOwnerOf(ps *ast.PseudostateNode, chain []*ast.StateNode) error {
+	upto := e.enclosingIndex(chain, e.graph.PseudostateOwner[ps])
+	if upto < 0 {
+		return nil
+	}
+	return e.enterAhead(chain[:upto+1])
+}
+
+// enterAhead activates the states of chain not yet activated, outermost first; the
+// move entering them later finds them activated and goes on with their regions.
+func (e *StateExecutor) enterAhead(chain []*ast.StateNode) error {
+	simple := e.activeConfig.simpleState
+	defer func() { e.activeConfig.simpleState = simple }()
+	for _, state := range chain {
+		if _, ahead := e.enteredAhead[state]; ahead {
+			continue
+		}
+		if err := e.activateState(state); err != nil {
+			return fmt.Errorf("enter state %s: %w", state.Name, err)
+		}
+		if e.enteredAhead == nil {
+			e.enteredAhead = make(map[*ast.StateNode]bool)
+		}
+		e.enteredAhead[state] = true
+	}
+	return nil
+}
+
+// activatedAhead reports, and takes, an activation the move already made ahead.
+func (e *StateExecutor) activatedAhead(state *ast.StateNode) bool {
+	if !e.enteredAhead[state] {
+		return false
+	}
+	e.enteredAhead[state] = false
+	return true
+}
+
+// entriesSettled reports a move that never entered a state activated ahead of it.
+func (e *StateExecutor) entriesSettled() error {
+	for state, waiting := range e.enteredAhead {
+		if waiting {
+			return fmt.Errorf("state %s was entered ahead of the transition but the transition does not enter it", state.Name)
+		}
+	}
+	return nil
 }
 
 // expandExits lists the states an exit list leaves, innermost first: every active
@@ -464,20 +578,26 @@ func (e *StateExecutor) exitAhead(states []*ast.StateNode) error {
 // then at each choice it leaves the states every branch leaves, runs the effects
 // of the segments into it and reads its guards; move then finishes the settled
 // rest with the effects left.
-func (e *StateExecutor) travel(r route, exits exitPlan, move func([]lower.StateBehavior, *ast.StateNode) error) error {
-	return e.travelChoosing(r.choice != nil || r.draw != nil, r, exits, move)
+func (e *StateExecutor) travel(r route, exits exitPlan, enters entryPlan, move func([]routeEffect, *ast.StateNode) error) error {
+	return e.travelChoosing(r.choice != nil || r.draw != nil, r, exits, enters, move)
 }
 
 // travelChoosing is travel where choosing says whether a draw lies on the way, on
 // the route or inside move, at which a replay may refuse the move.
-func (e *StateExecutor) travelChoosing(choosing bool, r route, exits exitPlan, move func([]lower.StateBehavior, *ast.StateNode) error) error {
-	saved := e.leftAhead
-	e.leftAhead = nil
-	defer func() { e.leftAhead = saved }()
+func (e *StateExecutor) travelChoosing(choosing bool, r route, exits exitPlan, enters entryPlan, move func([]routeEffect, *ast.StateNode) error) error {
+	savedLeft, savedEntered := e.leftAhead, e.enteredAhead
+	e.leftAhead, e.enteredAhead = nil, nil
+	defer func() { e.leftAhead, e.enteredAhead = savedLeft, savedEntered }()
+	var err error
 	if !choosing {
-		return e.travelResolving(r, exits, move)
+		err = e.travelResolving(r, exits, enters, move)
+	} else {
+		err = e.moveWhole(func() error { return e.travelResolving(r, exits, enters, move) })
 	}
-	return e.moveWhole(func() error { return e.travelResolving(r, exits, move) })
+	if err != nil {
+		return err
+	}
+	return e.entriesSettled()
 }
 
 // moveWhole makes move as one compound transition. Only a replay refuses a move,
@@ -500,7 +620,7 @@ func (e *StateExecutor) moveWhole(move func() error) error {
 // travelResolving is travel's course: the draw the route is open at made, then
 // each choice on the way resolved once the exits every branch makes and the
 // effects into it are done.
-func (e *StateExecutor) travelResolving(r route, exits exitPlan, move func([]lower.StateBehavior, *ast.StateNode) error) error {
+func (e *StateExecutor) travelResolving(r route, exits exitPlan, enters entryPlan, move func([]routeEffect, *ast.StateNode) error) error {
 	if r.draw != nil {
 		var err error
 		r, err = e.settleDraws(r)
@@ -518,7 +638,10 @@ func (e *StateExecutor) travelResolving(r route, exits exitPlan, move func([]low
 		if err := e.exitAhead(e.certainExits(targets, exits)); err != nil {
 			return err
 		}
-		if err := e.runBehaviors(r.effects()); err != nil {
+		if err := e.runEffects(r.effects(e.graph), e.certainEntries(targets, enters)); err != nil {
+			return err
+		}
+		if err := e.enterOwnerOf(r.choice, e.certainEntries(targets, enters)); err != nil {
 			return err
 		}
 		e.noteFired(r.segments...)
@@ -527,10 +650,10 @@ func (e *StateExecutor) travelResolving(r route, exits exitPlan, move func([]low
 		}
 	}
 	e.noteFired(r.segments...)
-	return move(r.effects(), r.target)
+	return move(r.effects(e.graph), r.target)
 }
 
-// runBehaviors performs the effects of a compound transition's segments, in order.
+// runBehaviors performs a transition's effects, in order.
 func (e *StateExecutor) runBehaviors(effects []lower.StateBehavior) error {
 	for _, behavior := range effects {
 		if err := e.executeBehavior(behavior); err != nil {
