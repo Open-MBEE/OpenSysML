@@ -77,6 +77,11 @@ const CapabilityApplyEdits = "apply_edits"
 // CapabilityAuthoring names add-member and delete source authoring operations.
 const CapabilityAuthoring = "authoring"
 
+// CapabilityEditDocuments names the capability of editing a model of several
+// documents as one batch, for a request accepting documents, and of answering
+// each edited document by name in ApplyEditsResponse.documents.
+const CapabilityEditDocuments = "edit_documents"
+
 // CapabilityInlineLanguage names explicit language selection for inline content.
 const CapabilityInlineLanguage = "inline_language"
 
@@ -178,6 +183,7 @@ var capabilities = []string{
 	CapabilityMetaobjectValues,
 	CapabilityUndeterminedValue,
 	CapabilityEnginesExternal,
+	CapabilityEditDocuments,
 }
 
 type capabilityAvailability struct {
@@ -666,7 +672,7 @@ func (s *Service) parseModel(inputs []sourceInput, mode conformance.Mode) (strin
 
 	// A parse racing another of the same model keeps the entry already cached,
 	// so the objects held on it stay reachable under the hash.
-	model := &CachedModel{Documents: documents, Index: idx, Library: library}
+	model := &CachedModel{Documents: documents, Index: idx, Library: library, Mode: mode}
 	return modelHash, s.cache.Add(modelHash, model)
 }
 

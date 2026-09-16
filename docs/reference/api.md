@@ -56,6 +56,29 @@ for _, outcome := range exploration.Outcomes {
 fmt.Println(exploration.Status()) // complete (6 runs)
 ```
 
+`ApplyEdits` rewrites a model's source and answers an `EditResult`: `Documents` is the edited
+notation of every document the batch reached, each under the name the parse gave it, and
+`Content` is the same notation for a model of exactly one document — the field the sole-document
+contract answered first, kept so a caller written against it is unchanged; it is empty for a model
+of several, even when the batch rewrote only one of them. The operations name elements declared
+in the model's first document; `ApplyDocumentEdits` names another. A rename or cascade delete
+follows its references into the model's other documents, every touched document is re-parsed
+and re-analysed together, and either all of them are answered or the refusal — an `*EditError`
+whose `Referrers` name each referrer with its document — carries none. The client sets the
+request's `accept_documents`, which is what lets a model of several documents be edited: a
+request without it, as every earlier client sends, is refused on such a model with
+`FAILED_PRECONDITION` as before, so a caller reading `content` alone is never handed an empty one.
+A service advertising `apply_edits` without `edit_documents` (`CapabilityEditDocuments`) predates
+`Documents`: it edits a model of one document and answers `Content` alone, so a caller checks the
+capability before reading `Documents`, `Referrers` or an applied edit's `Document`.
+
+```go
+result, err := client.ApplyEdits(ctx, model, opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})
+for _, doc := range result.Documents {
+	os.WriteFile(doc.Name, []byte(doc.Content), 0o644)
+}
+```
+
 Its errors, ownership rules, capability negotiation and v1 boundary are in
 [client/opensysml/README.md](../../client/opensysml/README.md), and the other client languages are on
 [client libraries](clients.md). A program with no client library that posts JSON to the service
