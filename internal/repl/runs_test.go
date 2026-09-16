@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
 
 // runsModel declares what %runs runs: an action that draws a duration, an
@@ -239,6 +240,32 @@ func TestRunRunsRefusesFewerThanOneRun(t *testing.T) {
 		if strings.Contains(got, runtime.ErrSweepEmpty.Error()) {
 			t.Errorf("%d runs were refused as an empty sweep:\n%s", count, got)
 		}
+	}
+}
+
+// An observable that some runs produce in a unit and others as a bare number
+// has no one unit to summarise in, whichever run comes first.
+func TestObservableLinesRefuseMixedUnitsInAnyOrder(t *testing.T) {
+	quantity := runtime.NewQuantityValue(&runtime.Quantity{
+		Num:  semantics.Value{Kind: semantics.ValReal, Real: 2},
+		Unit: runtime.Unit{Text: "s"},
+	})
+	bare := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 3}}
+	row := func(v runtime.Value) runtime.SweepRow {
+		return runtime.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "t", Value: v}}}
+	}
+	for name, rows := range map[string][]runtime.SweepRow{
+		"quantity first": {row(quantity), row(bare)},
+		"bare first":     {row(bare), row(quantity)},
+	} {
+		got := strings.Join(observableLines(runtime.SweepTable{Target: "MC::x", Rows: rows}, "t"), "\n")
+		if !strings.Contains(got, "more than one unit; no distribution") {
+			t.Errorf("%s: mixed units summarised:\n%s", name, got)
+		}
+	}
+	same := runtime.SweepTable{Target: "MC::x", Rows: []runtime.SweepRow{row(quantity), row(quantity)}}
+	if got := strings.Join(observableLines(same, "t"), "\n"); !strings.Contains(got, "min 2.0 [s]") {
+		t.Errorf("one unit not summarised in it:\n%s", got)
 	}
 }
 

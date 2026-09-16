@@ -1263,7 +1263,8 @@ the `disagreements[]` the composition under `all` resolved (`stands`, `demoted`,
 `claim` and `strength`, `reason`). `results[]` holds one entry per engine that answered:
 `engine`, `claim`, `strength`, `bounds` (every bound the engine took, each with `name`, `limit`
 and whether it was `reached`), `witness` (the replayable execution behind a witnessed claim —
-its `schedule` and `choices` — or `null`), the `reason` of a result claiming nothing, and its
+its `schedule`, its `choices` and, when the run drew modeled randomness, its `draws` — or
+`null`), the `reason` of a result claiming nothing, and its
 `standing`. The verdict's `lines` end with the standing line. `results` is `[]` when no engine
 answered (every one refused), and a check decided before any engine was asked — a subject that
 did not resolve — carries neither key.
@@ -1426,9 +1427,9 @@ search is an action's alone), and a bound that is no positive integer (`-check-d
 
 With `-json` the check's `results[]` entry for the `check` engine carries, beside `claim`,
 `strength`, `bounds` and `witness`, a `check` object: `verdict`, `states`, `moves`, `depth`,
-`boundsHit[]`, `violations[]` (each with its `kind`, `detail`, `witness` choices and file
-`path`), `divergent[]` (each `feature` with its `values[]`, each with `value`, `witness` and
-`path`) and `outcomes[]`.
+`boundsHit[]`, `violations[]` (each with its `kind`, `detail`, `witness` choices, the `draws`
+the run made when it drew, and file `path`), `divergent[]` (each `feature` with its `values[]`,
+each with `value`, `witness`, `draws` and `path`) and `outcomes[]`.
 
 ### Deciding a property over the inputs
 

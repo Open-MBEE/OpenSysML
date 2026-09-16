@@ -215,6 +215,7 @@ func observableLines(table runtime.SweepTable, name string) []string {
 			}
 			if n, ok := runtime.MagnitudeValue(out.Value); ok {
 				numbers = append(numbers, n)
+				unit = ""
 				if q := out.Value.Quantity(); q != nil {
 					unit = q.Unit.String()
 				}

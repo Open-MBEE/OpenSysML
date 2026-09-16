@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
@@ -185,6 +186,33 @@ func TestExploreAndCheckDrawFromTheRequestsModelSeed(t *testing.T) {
 	c := plan.Result.Check()
 	if c == nil || c.Report == nil || c.Report.Verdict != runtime.CheckViolation || len(c.Report.Violations) != 1 || !errors.Is(c.Report.Violations[0].Err, runtime.ErrUnseededDraw) {
 		t.Fatalf("unseeded check %+v, want the one run's failure as the unseeded refusal", c)
+	}
+}
+
+// A violation reached through draws alone is witnessed by them: the result's witness
+// carries the draws where it has no choice, its standing counts them, and its
+// schedule replays them.
+func TestCheckWitnessCarriesTheDraws(t *testing.T) {
+	d := parseDrawing(t)
+	never := runtime.CheckProperty{Name: "never", Holds: func(*runtime.Context, *runtime.Invocation) (bool, error) { return false, nil }}
+	ask := &CheckAsk{Start: d.start(t), Properties: []runtime.CheckProperty{never}}
+	plan, err := Default().Check(context.Background(), d.seeded("test::draw", policy(t, "explore"), 7), Holds, FreeSchedule, ask, nil, d.run(t))
+	if err != nil {
+		t.Fatalf("seeded check: %v", err)
+	}
+	result := plan.Result
+	if result.Claim != ClaimViolated || result.Witness == nil {
+		t.Fatalf("result %+v, want the violation witnessed", result)
+	}
+	w := result.Witness
+	if len(w.Draws) != 1 || len(w.Choices) != 0 {
+		t.Fatalf("witness draws %v choices %v, want the one draw and no choice", w.Draws, w.Choices)
+	}
+	if replay, ok := w.Schedule.Replay(); !ok || len(replay) != 0 {
+		t.Fatalf("witness schedule %s, want a replay of no choice", w.Schedule)
+	}
+	if got := result.Standing(); !strings.Contains(got, "witness of 1 draw replayed") {
+		t.Errorf("standing %q, want the draw counted", got)
 	}
 }
 
