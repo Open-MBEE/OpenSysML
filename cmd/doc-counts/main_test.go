@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -26,25 +29,19 @@ old library table
 <!-- doc-counts:end analysis-libraries -->
 The rows above are the map's own.
 
-- Execution conformance: <!-- doc-counts:begin inventory-conformance -->stale<!-- doc-counts:end inventory-conformance --> — kept prose
-- Runtime robustness: <!-- doc-counts:begin inventory-robustness -->stale<!-- doc-counts:end inventory-robustness -->, among them kept prose
-- Runtime tests: <!-- doc-counts:begin inventory-runtime-tests -->stale<!-- doc-counts:end inventory-runtime-tests -->
-- Golden ASTs: <!-- doc-counts:begin inventory-golden-asts -->stale<!-- doc-counts:end inventory-golden-asts -->
-- Golden traces: <!-- doc-counts:begin inventory-traces -->stale<!-- doc-counts:end inventory-traces -->
-- Negative parser tests: <!-- doc-counts:begin inventory-negatives -->stale<!-- doc-counts:end inventory-negatives -->
-- gRPC: <!-- doc-counts:begin inventory-grpc -->stale<!-- doc-counts:end inventory-grpc -->
-- Test functions: <!-- doc-counts:begin inventory-tests -->stale<!-- doc-counts:end inventory-tests -->
+- Execution conformance: <!-- doc-counts:begin inventory-conformance -->the conformance cases<!-- doc-counts:end inventory-conformance --> — kept prose
+- Runtime robustness: <!-- doc-counts:begin inventory-robustness -->the runtime robustness cases<!-- doc-counts:end inventory-robustness -->, among them kept prose
+- Runtime tests: <!-- doc-counts:begin inventory-runtime-tests -->the runtime test functions<!-- doc-counts:end inventory-runtime-tests -->
+- Golden ASTs: <!-- doc-counts:begin inventory-golden-asts -->the golden AST fixtures<!-- doc-counts:end inventory-golden-asts -->
+- Golden traces: <!-- doc-counts:begin inventory-traces -->the golden execution traces<!-- doc-counts:end inventory-traces -->
+- Negative parser tests: <!-- doc-counts:begin inventory-negatives -->the negative parser subtests<!-- doc-counts:end inventory-negatives -->
+- gRPC: <!-- doc-counts:begin inventory-grpc -->the gRPC cases<!-- doc-counts:end inventory-grpc -->
+- Test functions: <!-- doc-counts:begin inventory-tests -->the top-level Test functions<!-- doc-counts:end inventory-tests -->
 
-**Measured coverage:** <!-- doc-counts:begin lsp-tests -->stale<!-- doc-counts:end lsp-tests -->, plus kept prose.
+**Measured coverage:** <!-- doc-counts:begin lsp-tests -->the LSP test functions<!-- doc-counts:end lsp-tests -->, plus kept prose.
 `
 	fixtureReadme = `# README
 
-| Behavioral parser | ✅ Complete (<!-- doc-counts:begin tier-behavioral-parser -->stale<!-- doc-counts:end tier-behavioral-parser -->) |
-| Calc | ✅ Complete (<!-- doc-counts:begin tier-calc-evaluation -->stale<!-- doc-counts:end tier-calc-evaluation -->) |
-| Action | ✅ Complete (<!-- doc-counts:begin tier-action-execution -->stale<!-- doc-counts:end tier-action-execution -->) |
-| State | ✅ Complete (<!-- doc-counts:begin tier-state-machine -->stale<!-- doc-counts:end tier-state-machine -->: kept prose) |
-
-**Test coverage:** <!-- doc-counts:begin test-suite -->stale<!-- doc-counts:end test-suite --> Kept prose.
 **Behavioral execution:** the send statement (<!-- doc-counts:begin conformance-passing -->stale<!-- doc-counts:end conformance-passing -->).
 `
 	fixtureBookkeeping = `# Guide
@@ -67,8 +64,8 @@ Nothing else on this line's neighbours moves.
 		`"refused":[{"declaration":"Alpha::b","error":"ErrNoValue","message":"no value: b"}],"wrong":[]}]}`
 )
 
-// TestRunRewritesEveryDerivedLineAndIsIdempotent is the guarantee the wave-9
-// workflow rests on: one command, byte-identical output, second run a no-op.
+// TestRunRewritesEveryDerivedLineAndIsIdempotent is the guarantee the workflow
+// rests on: one command, byte-identical output, second run a no-op.
 func TestRunRewritesEveryDerivedLineAndIsIdempotent(t *testing.T) {
 	root := writeFixture(t)
 
@@ -92,26 +89,16 @@ func TestRunRewritesEveryDerivedLineAndIsIdempotent(t *testing.T) {
 	if !strings.Contains(first[doccounts.ArchitecturePath], "Nothing else on this line's neighbours moves.") {
 		t.Fatal("architecture lost a neighbouring line")
 	}
-	want := doccountstest.Expected
-	for _, sentence := range []string{
-		"| Behavioral parser | ✅ Complete (<!-- doc-counts:begin tier-behavioral-parser -->3 golden ASTs, 3 negative tests<!-- doc-counts:end tier-behavioral-parser -->) |",
-		"| State | ✅ Complete (<!-- doc-counts:begin tier-state-machine -->1 conformance cases passing<!-- doc-counts:end tier-state-machine -->: kept prose) |",
-		"**Test coverage:** <!-- doc-counts:begin test-suite -->" + want.TestFunctions + " top-level `Test` functions",
-		"7 conformance cases, 3 golden traces, 5 runtime robustness cases, 2 gRPC conformance cases and 2 gRPC robustness cases.<!-- doc-counts:end test-suite --> Kept prose.",
-		"(<!-- doc-counts:begin conformance-passing -->7/7 conformance cases passing<!-- doc-counts:end conformance-passing -->).",
-	} {
-		if !strings.Contains(first[doccounts.ReadmePath], sentence) {
-			t.Fatalf("README lacks %q:\n%s", sentence, first[doccounts.ReadmePath])
-		}
+	if sentence := "(<!-- doc-counts:begin conformance-passing -->every conformance case passing<!-- doc-counts:end conformance-passing -->)."; !strings.Contains(first[doccounts.ReadmePath], sentence) {
+		t.Fatalf("README lacks %q:\n%s", sentence, first[doccounts.ReadmePath])
 	}
 	for _, sentence := range []string{
-		"- Execution conformance: <!-- doc-counts:begin inventory-conformance -->" + want.ConformanceSummary + "<!-- doc-counts:end inventory-conformance --> — kept prose",
-		"- Golden traces: <!-- doc-counts:begin inventory-traces -->" + want.TraceSummary,
+		"- Execution conformance: <!-- doc-counts:begin inventory-conformance -->the conformance cases<!-- doc-counts:end inventory-conformance --> — kept prose",
 		"| b | ⚠️ Approximate |",
-		"<!-- doc-counts:begin lsp-tests -->1 top-level `Test` functions in `internal/lsp`<!-- doc-counts:end lsp-tests -->, plus kept prose.",
+		"<!-- doc-counts:begin lsp-tests -->the LSP test functions<!-- doc-counts:end lsp-tests -->, plus kept prose.",
 	} {
 		if !strings.Contains(first[doccounts.SpecCompliancePath], sentence) {
-			t.Fatalf("compliance map lacks %q:\n%s", sentence, first[doccounts.SpecCompliancePath])
+			t.Fatalf("compliance map lacks %q (a site block is rendered by the build, not written):\n%s", sentence, first[doccounts.SpecCompliancePath])
 		}
 	}
 	compliance := read(t, root, doccounts.SpecCompliancePath)
@@ -251,8 +238,8 @@ func TestRunReportsACensusMissingItsBlock(t *testing.T) {
 	}
 }
 
-// TestCheckFailsOnAMutatedFigure is what makes the generated figures a gate:
-// one digit changed in any generated block, and -check names the file.
+// TestCheckFailsOnAMutatedFigure is what makes the committed figures a gate:
+// a digit slipped into any committed block, and -check names the file.
 func TestCheckFailsOnAMutatedFigure(t *testing.T) {
 	root := writeFixture(t)
 	if _, err := run(root, io.Discard); err != nil {
@@ -269,10 +256,7 @@ func TestCheckFailsOnAMutatedFigure(t *testing.T) {
 				t.Fatalf("%s lacks the block %q", block.Path, block.Name)
 			}
 			generated := current[start : start+end]
-			digit := strings.IndexAny(generated, "0123456789")
-			if digit < 0 {
-				t.Fatalf("block %q states no figure:\n%s", block.Name, generated)
-			}
+			digit := max(strings.IndexAny(generated, "0123456789"), 0)
 			mutated := generated[:digit] + "9" + generated[digit:]
 			writeAt(t, root, block.Path, current[:start]+mutated+current[start+end:])
 			var output strings.Builder
@@ -287,25 +271,159 @@ func TestCheckFailsOnAMutatedFigure(t *testing.T) {
 	}
 }
 
-// TestCheckFailsOnAMutatedSuiteTree is the other direction: a fixture added to
-// the tree makes the committed figures stale until they are regenerated.
-func TestCheckFailsOnAMutatedSuiteTree(t *testing.T) {
+// TestAMutatedSuiteTreeMovesTheSiteBlocksAlone is what keeps a branch adding a
+// fixture from touching a committed page: the tree stays current, and the new
+// case shows in what the build renders.
+func TestAMutatedSuiteTreeMovesTheSiteBlocksAlone(t *testing.T) {
 	root := writeFixture(t)
 	if _, err := run(root, io.Discard); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	writeAt(t, root, "internal/core/runtime/testdata/conformance/state_b.expected.json", "{}\n")
+	writeAt(t, root, "internal/core/runtime/robustness_more_test.go", "package runtime\n\nimport \"testing\"\n\nfunc TestRuntimeRobustnessMore(t *testing.T) {\n\tt.Run(\"h\", func(t *testing.T) {})\n}\n")
 	var output strings.Builder
 	stale, err := check(root, &output)
 	if err != nil {
 		t.Fatalf("check: %v", err)
 	}
-	if stale != 2 {
-		t.Fatalf("a new conformance case left %d files stale, want the README and the compliance map:\n%s", stale, output.String())
+	if stale != 0 {
+		t.Fatalf("a new conformance case left %d files stale, want none:\n%s", stale, output.String())
 	}
-	if !strings.Contains(output.String(), "8 conformance cases") || !strings.Contains(output.String(), "state×2") {
-		t.Fatalf("check does not restate the new census:\n%s", output.String())
+	rendered := siteBlocksOf(t, root)
+	compliance := rendered[doccounts.SpecCompliancePath]
+	if got := compliance["inventory-conformance"]; !strings.Contains(got, "8 conformance cases") || !strings.Contains(got, "state×2") {
+		t.Fatalf("the build does not render the new case: %q", got)
 	}
+	if got := compliance["inventory-robustness"]; !strings.HasPrefix(got, "8 runtime robustness cases") {
+		t.Fatalf("the build does not count the new robustness file: %q", got)
+	}
+}
+
+// TestAKnownFailureMovesTheCommittedConformanceBlock: known_failures.txt is a
+// committed adjudication, so the README's passing statement follows it.
+func TestAKnownFailureMovesTheCommittedConformanceBlock(t *testing.T) {
+	root := writeFixture(t)
+	if _, err := run(root, io.Discard); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	writeAt(t, root, "internal/core/runtime/testdata/conformance/known_failures.txt", "calc_a\n")
+	var output strings.Builder
+	stale, err := check(root, &output)
+	if err != nil {
+		t.Fatalf("check: %v", err)
+	}
+	if stale != 1 || !strings.Contains(output.String(), "README.md is stale") {
+		t.Fatalf("a known failure left %d files stale, want the README:\n%s", stale, output.String())
+	}
+	if !strings.Contains(output.String(), "every conformance case passing but the 1 `known_failures.txt` lists") {
+		t.Fatalf("check does not restate the known failure:\n%s", output.String())
+	}
+}
+
+// TestSiteBlocksRenderTheTreeAsJSON pins the contract the MkDocs hook reads.
+func TestSiteBlocksRenderTheTreeAsJSON(t *testing.T) {
+	root := writeFixture(t)
+	rendered := siteBlocksOf(t, root)
+	if got := len(rendered); got != 1 {
+		t.Fatalf("rendered %d pages, want the compliance map alone: %v", got, rendered)
+	}
+	compliance := rendered[doccounts.SpecCompliancePath]
+	want := doccountstest.Expected
+	for name, text := range map[string]string{
+		"inventory-conformance": want.ConformanceSummary,
+		"inventory-traces":      want.TraceSummary,
+		"inventory-robustness":  "7 runtime robustness cases (first-level subtests across the `TestRuntimeRobustness*` functions)",
+		"inventory-grpc":        "2 gRPC conformance cases and 3 gRPC robustness cases (first-level subtests across the `TestGRPCRobustness*` functions)",
+		"inventory-tests":       want.TestFunctions + " top-level `Test` functions across the module",
+		"lsp-tests":             "1 top-level `Test` functions in `internal/lsp`",
+	} {
+		if !strings.HasPrefix(compliance[name], text) {
+			t.Errorf("%s renders %q, want it to open with %q", name, compliance[name], text)
+		}
+	}
+	var names []string
+	for _, block := range doccounts.SiteBlocks() {
+		names = append(names, block.Name)
+	}
+	for name := range compliance {
+		if !strings.Contains(" "+strings.Join(names, " ")+" ", " "+name+" ") {
+			t.Errorf("rendered an unregistered block %q", name)
+		}
+	}
+	if len(compliance) != len(names) {
+		t.Errorf("rendered %d blocks, want %d", len(compliance), len(names))
+	}
+}
+
+// TestCheckRefusesAFigureInASiteBlock keeps the volatile figures out of git:
+// a contributor who types one in is refused, whatever the number.
+func TestCheckRefusesAFigureInASiteBlock(t *testing.T) {
+	root := writeFixture(t)
+	if _, err := run(root, io.Discard); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	for _, block := range doccounts.SiteBlocks() {
+		t.Run(block.Name, func(t *testing.T) {
+			current := read(t, root, block.Path)
+			defer writeAt(t, root, block.Path, current)
+			begin := "<!-- doc-counts:begin " + block.Name + " -->"
+			start := strings.Index(current, begin) + len(begin)
+			if start < len(begin) {
+				t.Fatalf("%s lacks the block %q", block.Path, block.Name)
+			}
+			writeAt(t, root, block.Path, current[:start]+"7 "+current[start:])
+			_, err := check(root, io.Discard)
+			if err == nil || !strings.Contains(err.Error(), block.Name) || !strings.Contains(err.Error(), "states a figure") {
+				t.Fatalf("a figure typed into %q was not refused: %v", block.Name, err)
+			}
+			if _, err := run(root, io.Discard); err == nil {
+				t.Fatal("run accepted the figure")
+			}
+		})
+	}
+}
+
+// TestRunReportsAMissingSiteBlock keeps the build's consumer from dropping a
+// block: the page must carry every site block registered for it.
+func TestRunReportsAMissingSiteBlock(t *testing.T) {
+	root := writeFixture(t)
+	writeAt(t, root, doccounts.SpecCompliancePath, strings.Replace(fixtureCompliance, "<!-- doc-counts:begin lsp-tests -->the LSP test functions<!-- doc-counts:end lsp-tests -->", "the LSP test functions", 1))
+	if _, err := run(root, io.Discard); err == nil || !strings.Contains(err.Error(), "lsp-tests") {
+		t.Fatalf("want an error naming the missing block, got %v", err)
+	}
+}
+
+func siteBlocksOf(t *testing.T, root string) map[string]map[string]string {
+	t.Helper()
+	var output strings.Builder
+	if err := renderSiteBlocks(root, &output); err != nil {
+		t.Fatalf("site blocks: %v", err)
+	}
+	var rendered map[string]map[string]string
+	if err := json.Unmarshal([]byte(output.String()), &rendered); err != nil {
+		t.Fatalf("site blocks are not JSON: %v\n%s", err, output.String())
+	}
+	return rendered
+}
+
+// TestSiteBlocksOfTheCommittedTreeRender keeps the build from failing on the
+// tree as committed: every site block renders, and none is empty.
+func TestSiteBlocksOfTheCommittedTreeRender(t *testing.T) {
+	rendered := siteBlocksOf(t, "../..")
+	if pages, want := pagesOf(rendered), slices.Sorted(slices.Values(doccounts.SitePaths())); !slices.Equal(pages, want) {
+		t.Fatalf("rendered pages %v, want %v", pages, want)
+	}
+	for page, blocks := range rendered {
+		for name, text := range blocks {
+			if strings.TrimSpace(text) == "" || !strings.ContainsAny(text, "0123456789") {
+				t.Errorf("%s/%s renders %q", page, name, text)
+			}
+		}
+	}
+}
+
+func pagesOf(rendered map[string]map[string]string) []string {
+	return slices.Sorted(maps.Keys(rendered))
 }
 
 // TestRunReportsAMissingSuiteBlock keeps a consumer from dropping a block: the

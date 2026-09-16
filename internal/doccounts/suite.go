@@ -35,9 +35,9 @@ type SuiteCounts struct {
 	Traces          TraceCounts
 	GoldenASTs      GoldenCounts
 	Negatives       NegativeCounts
-	Robustness      int // first-level subtests of TestRuntimeRobustness
+	Robustness      int // first-level subtests across the TestRuntimeRobustness* functions
 	GRPCConformance int // cases under internal/grpc/testdata/conformance
-	GRPCRobustness  int // first-level subtests of TestGRPCRobustness
+	GRPCRobustness  int // first-level subtests across the TestGRPCRobustness* functions
 	// TestFunctions counts the module's top-level `Test` functions; the other
 	// two count one package's.
 	TestFunctions        int
@@ -52,24 +52,6 @@ type ConformanceCounts struct {
 	Passing       int
 	Prefixes      map[string]int
 	KnownFailures map[string]int
-}
-
-// Of counts the cases carrying any of the prefixes.
-func (c ConformanceCounts) Of(prefixes ...string) int {
-	total := 0
-	for _, prefix := range prefixes {
-		total += c.Prefixes[prefix]
-	}
-	return total
-}
-
-// PassingOf counts the cases carrying any of the prefixes that are not known failures.
-func (c ConformanceCounts) PassingOf(prefixes ...string) int {
-	total := c.Of(prefixes...)
-	for _, prefix := range prefixes {
-		total -= c.KnownFailures[prefix]
-	}
-	return total
 }
 
 // TraceCounts are the golden execution traces: one per case under the default
@@ -122,7 +104,7 @@ func ReadSuiteCounts(root string) (SuiteCounts, error) {
 	if err != nil {
 		return counts, err
 	}
-	if counts.Robustness, err = countSubtestsOf(runtimeTests, "TestRuntimeRobustness"); err != nil {
+	if counts.Robustness, err = countSubtestsWithPrefix(runtimeTests, "TestRuntimeRobustness"); err != nil {
 		return counts, err
 	}
 	counts.RuntimeTestFunctions = countTestFunctions(runtimeTests)
@@ -135,7 +117,7 @@ func ReadSuiteCounts(root string) (SuiteCounts, error) {
 	if err != nil {
 		return counts, err
 	}
-	if counts.GRPCRobustness, err = countSubtestsOf(grpcTests, "TestGRPCRobustness"); err != nil {
+	if counts.GRPCRobustness, err = countSubtestsWithPrefix(grpcTests, "TestGRPCRobustness"); err != nil {
 		return counts, err
 	}
 	lspTests, err := parseTestFiles(filepath.Join(root, filepath.FromSlash(lspDir)))
@@ -387,6 +369,27 @@ func countSubtestsOf(files []*ast.File, name string) (int, error) {
 		}
 	}
 	return 0, fmt.Errorf("no test function %s", name)
+}
+
+// countSubtestsWithPrefix sums the first-level subtests of every test function
+// named prefix or prefix-and-more, so a feature's cases can live in a file of their own.
+func countSubtestsWithPrefix(files []*ast.File, prefix string) (int, error) {
+	total, found := 0, false
+	for _, fn := range testFunctions(files) {
+		if !strings.HasPrefix(fn.Name.Name, prefix) {
+			continue
+		}
+		found = true
+		count, err := countSubtests(fn)
+		if err != nil {
+			return 0, err
+		}
+		total += count
+	}
+	if !found {
+		return 0, fmt.Errorf("no test function named %s*", prefix)
+	}
+	return total, nil
 }
 
 // countSubtests counts the first-level subtests a test runs: each `t.Run` in its
