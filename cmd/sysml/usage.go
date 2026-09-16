@@ -129,6 +129,30 @@ func doc() usage.Doc {
 					"than as a named distribution.",
 			},
 		}, {
+			Title: "Running an action many times",
+			Examples: []usage.Example{
+				usage.Ex(`sysml -action Acquire -runs 100 -seed 7 m.sysml`, "100 runs, every feature"),
+				usage.Ex(`sysml -action Acquire -runs 100 -seed 7 -observe elapsed m.sysml`, "One observable"),
+				usage.Ex(`sysml -action Acquire -seed 7 m.sysml`, "One run, its draws seeded"),
+			},
+			Paragraphs: []string{
+				"-runs runs one -action to completion that many times, each run on a " +
+					"fresh context whose modeled randomness — the weighted decisions " +
+					"@Probability states and the draws of uniform, uniformInteger, " +
+					"triangular and normal — is seeded from a seed of its own derived " +
+					"from -seed, so the same seed makes the same table on every platform " +
+					"and a run can be replayed alone. -schedule stays the second, " +
+					"independent knob: it decides the concurrency choices, which carry " +
+					"no probability, in every run alike.",
+				"The table has one row per run, numbered, with each -observe feature " +
+					"of the action — `clock` is the simulation time the run completed " +
+					"at, never a feature of that name — and without -observe every " +
+					"feature the action holds and the clock. Below it each numeric observable is summarised over the " +
+					"completed runs: min, mean, max, the nearest-rank p50 and p90, and " +
+					"a histogram; a non-numeric one is counted by value. A feature the " +
+					"action does not hold is refused.",
+			},
+		}, {
 			Title: "Conversion",
 			Examples: []usage.Example{
 				usage.Ex("sysml model.sysml -convert ttl", "SysML notation to RDF Turtle, on stdout"),
@@ -404,7 +428,9 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.analyses, "analysis", "Run this analysis or verification case and report its outputs and the verdict of its objective, as -analysis \"Pkg::Case(3.0) Pkg::part\" with arguments for its inputs and an object as its subject; a verification case also reports the verdict its body produced (repeatable)")
 	fs.Var(&modelChecks.sweeps, "sweep", "Run the named -analysis or -calc once per value of this range, as -sweep \"speed=0.0 [SI::'m/s']..10.0 [SI::'m/s']:2.0 [SI::'m/s']\"; the values are produced in the parameter's declared type; several ranges run their cartesian product (repeatable)")
 	fs.Var(&modelChecks.samples, "samples", "Draw this many values uniformly from each -sweep range instead of stepping through them, Integers or reals as the parameter is typed; needs -seed")
-	fs.Var(&modelChecks.seed, "seed", "Seed -samples draws from, so the same seed draws the same table")
+	fs.Var(&modelChecks.seed, "seed", "Seed the model's own draws — Probability-weighted decisions, RandomFunctions — come from in every run made, whatever -schedule, and the seed -samples or -runs draws from; the same seed draws the same run or table")
+	fs.Var(&modelChecks.runs, "runs", "Run the -action this many times, each run's modeled randomness (weighted decisions, random functions) seeded from -seed, and report the table of the -observe features with each one's distribution; needs -seed")
+	fs.Var(&modelChecks.observe, "observe", "Report this feature of the -runs action, or `clock` for the time it completed at; default every feature it holds and the clock (repeatable)")
 	fs.Var(&modelChecks.queries, "run-query", "Execute this document query and report its rows, as -run-query \"HeavySubsystems root=telescope\" (repeatable)")
 	fs.Var(&modelChecks.actions, "action", "Run this action to completion, as -action \"Drive rover1\" to run it on an object; under -schedule explore each run performs it on an object of its own, named as a definition or usage to create, a path into one such as mission.rover, or, named alone, the run's one -instantiate object performing it (repeatable)")
 	fs.Var(&modelChecks.states, "state", "Run this state machine, as -state \"Mission rover1\" to run it on an object; under -schedule explore each run creates the object of its own, named as a definition or usage to create or a path such as mission.rover into one — the declaration is created once per run, so machines on sibling parts share it and its connectors — or, named alone, the run's one -instantiate object exhibiting it (repeatable)")

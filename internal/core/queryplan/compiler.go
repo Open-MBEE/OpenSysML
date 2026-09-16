@@ -463,7 +463,7 @@ func (c *compiler) effectiveResults(sym *symbols.Symbol, visiting map[*symbols.S
 	if sym == nil || visiting[sym] {
 		return nil, nil
 	}
-	if result, stated, err := declaredResult(sym); err != nil {
+	if result, stated, err := c.declaredResult(sym); err != nil {
 		return nil, err
 	} else if stated {
 		return []effectiveResult{result}, nil
@@ -511,10 +511,10 @@ func (c *compiler) mostSpecificResults(results []effectiveResult) []effectiveRes
 	return effective
 }
 
-func declaredResult(sym *symbols.Symbol) (effectiveResult, bool, error) {
+func (c *compiler) declaredResult(sym *symbols.Symbol) (effectiveResult, bool, error) {
 	name := symbols.FQNOf(sym)
 	members := declarationMembers(sym)
-	statements := lower.CalcBody(sym.Decl, members, sym.Scope)
+	statements := lower.CalcBodyWith(sym.Decl, members, sym.Scope, c.resolver)
 	if len(statements) == 1 {
 		if result, ok := statements[0].(lower.Return); ok && result.Value != nil {
 			return effectiveResult{node: result.Value, owner: sym}, true, nil

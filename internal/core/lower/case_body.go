@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -26,8 +27,9 @@ func PerformsSteps(decl ast.Node) bool {
 // caseSteps lowers a body whose steps are action nodes: the locals it declares, one
 // Block over the flow the steps state, then its results. A body stating successions
 // or control nodes is the token flow an action body is (ToActionGraph); one stating
-// none runs its steps in declaration order.
-func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope) []Statement {
+// none runs its steps in declaration order. The resolver reads the flow's
+// `@Probability` annotations; nil reads none.
+func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) []Statement {
 	if !statesOwnFlow(body) {
 		var results []Statement
 		graph := lowerBlockFlowWith(body, scope, func(graph *ActionGraph, nodes []ast.Node, member ast.Node) (Statement, bool) {
@@ -68,7 +70,7 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope) []Statemen
 		}
 		locals = append(locals, stmt)
 	}
-	graph, err := ToActionGraph(owner, scope)
+	graph, err := ToActionGraphWith(owner, scope, resolver)
 	if err != nil {
 		unsupported := Unsupported{
 			Description: "the flow the steps of the body state: " + err.Error(),

@@ -39,6 +39,9 @@ func NewLibraryStateTypes(resolver *resolve.Resolver) EndpointResolver {
 	return types
 }
 
+// nameResolver is the resolver the types are resolved through.
+func (s *LibraryStateTypes) nameResolver() *resolve.Resolver { return s.Resolver }
+
 // StartShot reports the library StateAction's own `start`, the shot every state
 // inherits: a declaration elsewhere under that name is no start shot.
 func (s *LibraryStateTypes) StartShot(decl ast.Node) bool {
