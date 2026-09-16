@@ -8,12 +8,12 @@
     "jarDigest": "4e78a194bdd15ed4ee30b26828a91d3b2bd32e57cd397667e32b21eb4de1f06e",
     "activities": 55,
     "recorded": "2026-09-16",
-    "develop": "46828f14fc0d57fa8780737738d089fe813cff87"
+    "develop": "80cfc98d2b9d79430edc7856a8d770bf50183f13"
   },
   "buckets": {
     "differs-by-design": 4,
-    "fail": 9,
-    "not-expressible": 27,
+    "fail": 0,
+    "not-expressible": 36,
     "pass": 15
   },
   "activities": [
@@ -21,18 +21,18 @@
       "name": "TestGeneralizationAssembly",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "fail",
+      "bucket": "not-expressible",
       "reasons": [
-        "not translated: Create(Specific): CreateObjectAction is not translated by the pilot emitter"
+        "not yet translated: Create(Specific): CreateObjectAction is not translated by the pilot emitter"
       ]
     },
     {
       "name": "TestClassWriterReader",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "fail",
+      "bucket": "not-expressible",
       "reasons": [
-        "not translated: Create(TestClass): CreateObjectAction is not translated by the pilot emitter"
+        "not yet translated: Create(TestClass): CreateObjectAction is not translated by the pilot emitter"
       ]
     },
     {
@@ -78,14 +78,13 @@
       "bucket": "differs-by-design",
       "reasons": [
         "per-token action re-firing (fUML fires an action once per object token on a multiplicity-1 pin; SysML v2 performs the node once with every delivery): ForkMergeData.Action_B fired 2 times",
-        "outputs differ: output = 0, 0, 0"
+        "the run agrees with the implementation"
       ],
       "expected": [
         "output = 0, 0"
       ],
       "reached": [
-        "output = 0, 0",
-        "output = 0, 0, 0"
+        "output = 0, 0"
       ],
       "runs": 20,
       "status": "complete (20 runs)"
@@ -103,9 +102,9 @@
       "name": "TestClassObjectCreator",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "fail",
+      "bucket": "not-expressible",
       "reasons": [
-        "not translated: Create(TestClass): CreateObjectAction is not translated by the pilot emitter"
+        "not yet translated: Create(TestClass): CreateObjectAction is not translated by the pilot emitter"
       ]
     },
     {
@@ -298,9 +297,9 @@
       "name": "TestClassAttributeWriter",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "fail",
+      "bucket": "not-expressible",
       "reasons": [
-        "not translated: Add(y): AddStructuralFeatureValueAction is not translated by the pilot emitter"
+        "not yet translated: Add(y): AddStructuralFeatureValueAction is not translated by the pilot emitter"
       ]
     },
     {
@@ -401,9 +400,9 @@
       "name": "TestClassAttributeValueRemover",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "fail",
+      "bucket": "not-expressible",
       "reasons": [
-        "not translated: Add(y)-1: AddStructuralFeatureValueAction is not translated by the pilot emitter"
+        "not yet translated: Add(y)-1: AddStructuralFeatureValueAction is not translated by the pilot emitter"
       ]
     },
     {
@@ -428,36 +427,36 @@
       "name": "ActiveClassBehavior",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "fail",
+      "bucket": "not-expressible",
       "reasons": [
-        "not translated: activity: an owned behavior of a class is not translated by the pilot emitter"
+        "not yet translated: activity: an owned behavior of a class is not translated by the pilot emitter"
       ]
     },
     {
       "name": "TestSignalReceiver",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "fail",
+      "bucket": "not-expressible",
       "reasons": [
-        "not translated: Accept(TestSignal): AcceptEventAction is not translated by the pilot emitter"
+        "not yet translated: Accept(TestSignal): AcceptEventAction is not translated by the pilot emitter"
       ]
     },
     {
       "name": "TestSpecializedSignalSend",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "fail",
+      "bucket": "not-expressible",
       "reasons": [
-        "not translated: Create(TestSignalReceiver): CreateObjectAction is not translated by the pilot emitter"
+        "not yet translated: Create(TestSignalReceiver): CreateObjectAction is not translated by the pilot emitter"
       ]
     },
     {
       "name": "ActiveClassBehaviorSender",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "fail",
+      "bucket": "not-expressible",
       "reasons": [
-        "not translated: Create(ActiveClass): CreateObjectAction is not translated by the pilot emitter"
+        "not yet translated: Create(ActiveClass): CreateObjectAction is not translated by the pilot emitter"
       ]
     },
     {

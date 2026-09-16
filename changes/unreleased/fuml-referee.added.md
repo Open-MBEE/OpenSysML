@@ -10,9 +10,9 @@
   firing sequence being among the reachable ones is reported and never a verdict. Each activity
   is filed as `pass`, `fail`, `not-expressible` or `differs-by-design` (an action the reference
   fires once per object token), the counts are pinned in `docs/project/fuml-referee-baseline.json`
-  and checked in CI over the downloaded suite by `go run ./cmd/fuml-referee -check`, and the
-  9 `fail` rows are activities the emitter does not yet translate (object creation,
-  structural-feature actions, accept-event actions, active classes), attributed as such. The
+  and checked in CI over the downloaded suite by `go run ./cmd/fuml-referee -check`; an
+  activity the emitter does not yet translate (object creation, structural-feature actions,
+  accept-event actions, active classes) is `not-expressible` with the construct named. The
   `-json`, `-filter`, `-keep` and `-jobs` flags report, narrow, retain the emitted models and
   parallelize the run; a filtered run never updates the baseline. `docs/project/fuml-referee.md`
   documents the translation rules and the adjudication of every row, the spec-compliance action

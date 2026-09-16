@@ -252,10 +252,12 @@ feature actions on a class, `ReadSelfAction`, `SendSignalAction`, `AcceptEventAc
 object-flow cycle through control nodes — is a **`TranslateError`** naming the activity, the
 node or edge, and the construct: `TestClassWriterReader: Create(TestClass): CreateObjectAction
 is not translated by the pilot emitter`. The classifier decides expressibility; the emitter
-decides what it can translate; a `TranslateError` on an expressible activity is a `fail`,
-never a reclassification. Every translated model is checked (`Validate`) through the parser's
-diagnostics and the lowering to an action graph before it is run, so a translation the
-runtime would reject fails as a translation, with the diagnostic.
+decides what it can translate; a `TranslateError` on an expressible activity files the row
+`not-expressible` by the emitter, its reason `not yet translated:` and the construct, the
+row's `class` still `expressible` so the two judgments stay apart. Every translated model is
+checked (`Validate`) through the parser's diagnostics and the lowering to an action graph
+before it is run, so a translation the runtime would reject fails as a translation, with the
+diagnostic.
 
 **Running.** `Execute` parses the model, resolves the definition, and performs it with the
 runtime's `ExploreWith`: every linearization of the concurrent nodes within the exploration
@@ -277,8 +279,9 @@ never a bucket.
 
 **The buckets.** A `not-expressible` or `differs-by-design` classification files the activity
 there before any translation, and a `differs-by-design` row is still translated and run, so
-the difference is recorded rather than presumed. An expressible activity is `pass` or `fail`
-by its run, a `TranslateError` and a run error being failures.
+the difference is recorded rather than presumed. An expressible activity the emitter
+translates is `pass` or `fail` by its run, a run error being a failure; one it refuses is
+`not-expressible` with the construct named, so the count says what is not yet checked.
 
 ```bash
 ./scripts/download-fuml-suite.sh            # once
@@ -307,9 +310,9 @@ The committed baseline over the 55 activities of both models:
 | Bucket | Count | Activities |
 |---|---|---|
 | `pass` | 15 | `Copier`, `CopierCaller`, `SimpleDecision`, `ForkJoin`, `ForkMerge`, `NodeEnabler`, `TestNodeEnabler`, `TestIntegerFunctions`, `TestIntegerComparisonFunctions`, `TestRealFunctions`, `TestRealComparisonFunctions`, `TestStringFunctions`, `GenerateBooleanTestData`, `GenerateListTestData`, `TestListFunctions` |
-| `fail` | 9 | `TestGeneralizationAssembly`, `TestClassObjectCreator`, `TestClassWriterReader`, `TestSpecializedSignalSend`, `ActiveClassBehaviorSender` (`CreateObjectAction`); `TestClassAttributeWriter`, `TestClassAttributeValueRemover` (`AddStructuralFeatureValueAction`); `TestSignalReceiver` (`AcceptEventAction`); `ActiveClassBehavior` (a class's owned behavior) |
+| `fail` | 0 | |
 | `differs-by-design` | 4 | `DecisionJoin`, `ForkMergeData`, `TestSimpleActivities`, `TestBooleanFunctions` |
-| `not-expressible` | 27 | the 15 of the test model and the 12 of the exception model listed above |
+| `not-expressible` | 36 | the 15 of the test model and the 12 of the exception model listed above, by the classifier; and by the emitter, `TestGeneralizationAssembly`, `TestClassObjectCreator`, `TestClassWriterReader`, `TestSpecializedSignalSend`, `ActiveClassBehaviorSender` (`CreateObjectAction`), `TestClassAttributeWriter`, `TestClassAttributeValueRemover` (`AddStructuralFeatureValueAction`), `TestSignalReceiver` (`AcceptEventAction`), `ActiveClassBehavior` (a class's owned behavior) |
 
 Every pilot activity the scope named runs: the eight control- and object-flow activities and
 the primitive-function tests pass with every linearization agreeing, seven of them with the
@@ -317,13 +320,15 @@ schedules exhausted (`ForkMerge` 20 runs, `TestIntegerComparisonFunctions` 972) 
 function tests, whose nodes are all concurrent, over the 1024-run sample; `DecisionJoin`,
 `ForkMergeData` and `TestSimpleActivities` are `differs-by-design` as the scope expected.
 
-**The nine failures are all the emitter's**, and every one is adjudicated as such: each is a
-`TranslateError` on a construct the classifier holds expressible — object creation, feature
-writes on a class, signal reception, an active class's behavior — that the pilot emitter,
-scoped to control and object flow over primitive values, does not spell. None reached the
-runtime. They are the expansion's work, and they stay `fail` rather than being reclassified,
-so the count says what is not yet checked. The five `CreateObjectAction` rows also depend on
-the object-lifecycle mapping the alignment note fixes: creation does not start a behavior;
+**No row fails, and nine are `not-expressible` by the emitter rather than the classifier**,
+each adjudicated as such: a `TranslateError` on a construct the classifier holds expressible —
+object creation, feature writes on a class, signal reception, an active class's behavior —
+that the pilot emitter, scoped to control and object flow over primitive values, does not
+spell. None reached the runtime. Each row keeps `class: expressible` and names the construct
+after `not yet translated:`, so the nine are told apart from the classifier's 27 in the
+report and move to `pass` or `fail` only when the emitter grows a rule; that growth is the
+expansion's work. The five `CreateObjectAction` rows also depend on the object-lifecycle
+mapping the alignment note fixes: creation does not start a behavior;
 `StartObjectBehaviorAction` does.
 
 **The four design differences run as the alignment row predicts.** `DecisionJoin` offers
