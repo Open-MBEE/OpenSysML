@@ -218,9 +218,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
 | `testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 44 | 30 | 13 | 1233 | 4 | 2 | 7 | 1227 |
+| `examples` | 44 | 30 | 13 | 1320 | 4 | 2 | 7 | 1314 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **379** | **347** | **79** | **1288** | **38** | **3** | **38** | **1247** |
+| **Total** | **379** | **347** | **79** | **1375** | **38** | **3** | **38** | **1334** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -249,6 +249,40 @@ reference corpora is **17** — of which seven, the `Behaviors.kerml` advisory a
 `Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
+
+### Legend of the Red Dragon completed-mechanics round
+
+`examples/lord-demo/lord.sysml` grows from the first day's mechanics to the whole game's: all
+twelve forest levels and the dragon, the three skill guilds, the inn's rooms, bribes, gems and
+sweethearts, the slaughter of other warriors, the fairies, the Old Hag, the Dark Cloak Tavern
+and the daily happenings, each an executable action the state machine's transitions perform.
+No file is added, so files stay at **44** on the root and **379** overall. The model half (the
+`Lord`, `LordPlay` and `LordOdds` packages) still draws no row on either side. The document
+half (`LordViews`) grows from four queries to eleven — one per shop, master list, sweetheart's
+favours and forest level — and draws **149** pilot-only diagnostics on **120** line-and-category
+rows, up from 62, every one the `DocumentQueries` cascade already adjudicated for
+`self-model/document.sysml` and the round before: 106 `unresolved-reference` from the import
+of that library and the `Query`, `WhereType`, `WhereFeature`, `OwnedElements`, `Descendants`,
+`RelatedElements`, `OrderBy`, `Project`, `Column`, `Verdicts`, `Document`, `Paragraph` and
+`Table` names it fails to resolve and the `source`, `properties`, `columns`, `caption` and
+other parameters of those unresolved invocations; 35 `kind-mismatch` errors: 21 `Must invoke a
+behavior or a behavioral feature` on the query invocations whose calc def did not resolve, 9
+`An occurrence, item or part must be typed by occurrence definitions` on the document parts
+typed by the unresolved `Paragraph` and `Table`, and 5 `Must be an accessible feature (use dot
+notation for nesting)` on the `Lord::Weapon::name`-style column expressions inside the
+unresolved `Column` invocations; and 8 `Bound features should have conforming types` warnings
+on the bindings to the document parts. The file stays not fully agreeing, and fully agreeing
+stays at **347** (30 on the root). Pilot diagnostics rise 1288 → **1375** and only-pilot
+1247 → **1334**; only-ours, our diagnostics, agreed and severity-only do not move, and no
+per-file ratchet count outside this file moves.
+
+| Count | Before | Now |
+|---|---:|---:|
+| files | 379 | **379** |
+| only pilot | 1247 | **1334** |
+| pilot diagnostics | 1288 | **1375** |
+| `examples`: only pilot | 1227 | **1314** |
+| `examples`: `kind-mismatch` / `unresolved-reference`, only pilot | 565 / 633 | **590 / 695** |
 
 ### Spacecraft downlink example round
 
@@ -737,8 +771,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1247** |
-| pilot diagnostics | 123 | **1288** |
+| only pilot | 82 | **1334** |
+| pilot diagnostics | 123 | **1375** |
 | severity-only | 9 | **3** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -871,7 +905,7 @@ Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
 advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
-`examples` 10 syntax, 19 `unmapped`, 565 `kind-mismatch`, 633 `unresolved-reference` — of which
+`examples` 10 syntax, 19 `unmapped`, 590 `kind-mismatch`, 695 `unresolved-reference` — of which
 `relay-probe-demo/mission.sysml` carries none: it carried a `kind-mismatch` on its send of a
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
 constructor, `send new Telemetry(…) via antenna`, which both implementations accept, so the row
@@ -963,13 +997,13 @@ page's history.
 | Count | Now |
 |---|---:|
 | overall: fully agreeing / only ours / our diagnostics | **347 / 38 / 79** |
-| only pilot | **1247** |
-| pilot diagnostics | **1288** |
+| only pilot | **1334** |
+| pilot diagnostics | **1375** |
 | severity-only | **3** |
 | unmapped, our side | **34** |
 | kerml-examples: only ours | **10** |
 | pilot-examples: only ours | **7** |
-| examples: only pilot | **1227** |
+| examples: only pilot | **1314** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **10** only-ours against 6
 only-pilot, with 49 of 58 files fully
