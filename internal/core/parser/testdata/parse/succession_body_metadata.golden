@@ -1,0 +1,27 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="SuccessionBodyMetadata" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="Stochastic" filtered=false)
+      (Membership visibility="default"
+        (Usage kind="action" name="route" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (InitialNode name="start" successor="")
+          (DecisionNode name="select")
+          (SuccessionEdge source="start" target="select")
+          (InitialNode name="select" successor="fast"
+            (Membership visibility="default"
+              (PrefixMetadata type="Probability"
+                (Membership visibility="default"
+                  (Usage kind="attribute" name="p" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                    (LiteralReal value="0.7"))))))
+          (InitialNode name="select" successor="slow"
+            (Membership visibility="default"
+              (PrefixMetadata type="Probability"
+                (Membership visibility="default"
+                  (Usage kind="attribute" name="p" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                    (LiteralReal value="0.3"))))))
+          (Usage kind="action" name="fast" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+          (FinalNode)
+          (SuccessionEdge source="fast" target="@done")
+          (Usage kind="action" name="slow" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+          (FinalNode)
+          (SuccessionEdge source="slow" target="@done"))))))

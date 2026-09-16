@@ -37,7 +37,7 @@ func RunSeed(seed uint64, i int64) uint64 {
 // MonteCarloPlan is the plan of runs runs seeded from seed: one row per run and
 // no ranges.
 func MonteCarloPlan(runs int64, seed uint64) SweepPlan {
-	return SweepPlan{Runs: runs, Seed: seed}
+	return SweepPlan{Runs: runs, Seed: seed, MonteCarlo: true}
 }
 
 // runBindings is one row per run, binding RunParam to the run's number from 1;

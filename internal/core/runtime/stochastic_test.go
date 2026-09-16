@@ -939,6 +939,12 @@ func TestReplayRefusesAWeightedMoveTheDecisionDoesNotFit(t *testing.T) {
 			w.Among, w.Weights, w.Alternatives, w.Taken = w.Among[1:], w.Weights[1:], 1, 0
 		}), "the run's decision weighs every branch: 1->slow p=0.3, 2->fast p=0.7"},
 		{"no weights recorded", reweighed(func(w *ChoiceTaken) { w.Weights, w.Drawn = nil, false }), "the run's decision weighs every branch"},
+		{"a branch weighed twice", reweighed(func(w *ChoiceTaken) {
+			w.Among[0], w.Weights[0] = "2->fast", 0.7
+		}), "the move weighs 2->fast twice: 2->fast, 2->fast"},
+		{"a branch the run does not face", reweighed(func(w *ChoiceTaken) {
+			w.Among[0] = "3->never"
+		}), "3->never is not enabled (enabled: 1->slow, 2->fast)"},
 		{"a draw of one", reweighed(func(w *ChoiceTaken) { w.Drew = 1 }), "the draw 1 is no unit draw in [0, 1)"},
 		{"a negative draw", reweighed(func(w *ChoiceTaken) { w.Drew = -0.5 }), "the draw -0.5 is no unit draw in [0, 1)"},
 		{"a draw that is not a number", reweighed(func(w *ChoiceTaken) { w.Drew = math.NaN() }), "is no unit draw in [0, 1)"},

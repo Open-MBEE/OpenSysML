@@ -17,8 +17,8 @@ library package Stochastic {
 		doc
 		/*
 		 * The probability that a run takes the annotated succession out of a decision
-		 * node, or the annotated transition out of a state, among the alternatives
-		 * that hold at that moment. It annotates the succession from within its body:
+		 * node, among the alternatives that hold at that moment. It annotates the
+		 * succession from within its body:
 		 *
 		 *   decide d;
 		 *   first d then fast { @Probability { p = 0.7; } }
@@ -28,7 +28,8 @@ library package Stochastic {
 		 * none does; p lies in 0.0..1.0; and where every p out of one node is a constant
 		 * they sum to 1.0. A seeded run draws a branch by these weights, an unseeded
 		 * run takes the most probable, and a weighted branch whose guard does not hold
-		 * is left out of the draw, the others' weights renormalized.
+		 * is left out of the draw, the others' weights renormalized. A transition out
+		 * of a state cannot be weighted: one carrying a Probability is refused.
 		 */
 		attribute p : Real;
 	}

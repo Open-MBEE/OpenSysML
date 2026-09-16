@@ -193,7 +193,7 @@ is a schema error the test reports.
 
 A case whose model draws — a decision weighted by `Probability`, a call of a
 `RandomFunctions` function — states the seed its draws come from with
-`"modelSeed": <n>`, which the harness sets as `%seed`/`-model-seed` would under
+`"modelSeed": <n>`, which the harness sets as `%seed`/`-seed` would under
 every policy of the sweep; the modeled stream is separate from the one
 `seed:<n>` shuffles tokens with, so the case's draws are the same under
 `reverse`, `declared` and `seed:1`. Without it such a case refuses to draw

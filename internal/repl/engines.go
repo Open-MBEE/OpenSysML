@@ -246,7 +246,7 @@ func (s *Session) sweep(target string, model *analysis.Model, plan runtime.Sweep
 		Budget:    s.budgetFor(schedule, analysis.Sweep),
 		Selection: s.engine,
 	}
-	if plan.Runs == 0 {
+	if !plan.IsMonteCarlo() {
 		req.ModelSeed = s.askedModelSeed()
 	}
 	return s.engines.Sweep(s.planContext(), req, plan, row)

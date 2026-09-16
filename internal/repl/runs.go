@@ -29,11 +29,15 @@ func (s *Session) doRuns(tail string) ([]string, bool, error) {
 	if err != nil {
 		return []string{errPrefix + err.Error(), runsUsage}, false, nil
 	}
-	fields := strings.Fields(rest)
+	fields := splitQueryArgs(rest)
 	if len(fields) == 0 {
 		return []string{runsUsage}, false, nil
 	}
-	return s.withTrace(s.runsVerdict(Behavior{Name: fields[0]}, count, seed, fields[1:])).Lines, false, nil
+	observables := make([]string, 0, len(fields)-1)
+	for _, name := range fields[1:] {
+		observables = append(observables, unquoteSpecName(name))
+	}
+	return s.withTrace(s.runsVerdict(Behavior{Name: fields[0]}, count, seed, observables)).Lines, false, nil
 }
 
 // splitRunsTail reads the number of runs and the seed off the front of a %runs tail.

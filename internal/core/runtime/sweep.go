@@ -102,11 +102,17 @@ type SweepPlan struct {
 	Samples int64
 	Seed    uint64
 	Runs    int64
+	// MonteCarlo marks a plan made by MonteCarloPlan, whatever number of runs it asks for.
+	MonteCarlo bool
 }
+
+// IsMonteCarlo reports whether the plan runs one behavior repeatedly: made by
+// MonteCarloPlan, or stating runs.
+func (p SweepPlan) IsMonteCarlo() bool { return p.MonteCarlo || p.Runs != 0 }
 
 // Drawn reports whether the plan's rows come from Seed: a sampled sweep or a Monte
 // Carlo; a swept table steps its ranges and draws nothing.
-func (p SweepPlan) Drawn() bool { return p.Sampled || p.Runs > 0 }
+func (p SweepPlan) Drawn() bool { return p.Sampled || p.IsMonteCarlo() }
 
 // SweepRunResult is what one run of a sweep produced. A calc's returned value is
 // reported as an output named "result", so a calc row and a case row read alike.
@@ -167,7 +173,7 @@ func NewSweepTable(target string, plan SweepPlan) SweepTable {
 		Seed:    plan.Seed,
 		Runs:    plan.Runs,
 	}
-	if plan.Runs > 0 {
+	if plan.IsMonteCarlo() {
 		table.Params = append(table.Params, RunParam)
 		table.Types = append(table.Types, SweepType{Numbers: SweepIntegers})
 	}
@@ -218,7 +224,7 @@ func (ctx *Context) sweepRunLimit(runs int64) int64 {
 // product of the swept ranges, one row per draw of a sampled one, or one per
 // run of a Monte Carlo, at most limit.
 func (ctx *Context) sweepBindings(plan SweepPlan, limit int64) ([][]SweepBinding, error) {
-	if plan.Runs != 0 {
+	if plan.IsMonteCarlo() {
 		return ctx.runBindings(plan, limit)
 	}
 	if len(plan.Ranges) == 0 {

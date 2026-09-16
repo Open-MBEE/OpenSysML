@@ -17223,6 +17223,7 @@ func testMonteCarloPlanWithoutRuns(t *testing.T) {
 	ctx, _ := analysisFixture(t, sweepRobustnessModel)
 	one := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 1}}
 	plans := map[string]SweepPlan{
+		"none":     MonteCarloPlan(0, 1),
 		"negative": MonteCarloPlan(-1, 1),
 		"ranged":   {Runs: 2, Ranges: []SweepRange{{Param: "x", From: one, To: one}}},
 		"sampled":  {Runs: 2, Sampled: true, Samples: 2},

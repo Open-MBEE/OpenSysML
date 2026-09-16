@@ -1187,7 +1187,16 @@ func (r *replayRun) weighedAlike(w ChoiceTaken, c ChoicePoint, taken int) bool {
 		return false
 	}
 	for i, alt := range w.Among {
-		if got := c.Weights[slices.Index(c.Alternatives, alt)]; got != w.Weights[i] {
+		if slices.Index(w.Among, alt) != i {
+			r.refuse(fmt.Sprintf("the move weighs %s twice: %s", choiceLabel(alt), choiceLabels(w.Among)))
+			return false
+		}
+		at := slices.Index(c.Alternatives, alt)
+		if at < 0 {
+			r.refuse(fmt.Sprintf("%s is not among the run's branches: %s", choiceLabel(alt), weightedLabels(c.Alternatives, c.Weights)))
+			return false
+		}
+		if got := c.Weights[at]; got != w.Weights[i] {
 			r.refuse(fmt.Sprintf("%s weighs p=%s, not p=%s", choiceLabel(alt), formatWeight(got), formatWeight(w.Weights[i])))
 			return false
 		}

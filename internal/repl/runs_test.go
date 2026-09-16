@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 )
 
 // runsModel declares what %runs runs: an action that draws a duration, an
@@ -201,6 +203,42 @@ func TestRunsRefusesWhatItCannotRun(t *testing.T) {
 		{"%runs 3 7 MC::acquire total total", "observable total is named twice"},
 	} {
 		wants(t, run(t, s, tc.line), tc.want)
+	}
+}
+
+// A quoted name at %runs is one word, spaces included, for the action and for
+// an observable alike, and an observable's quotes are not part of its name.
+func TestRunsReadsQuotedNames(t *testing.T) {
+	s := runsSession(t)
+	const quoted = `package 'My Pkg' {
+		private import ScalarValues::*;
+		action 'run it' { attribute 'the count' : Integer = 4; attribute k : Integer = 2; first start; then done; }
+	}`
+	if errs := errorDiagnostics(s.Submit(quoted).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	got := sweepTable(run(t, s, "%runs 2 7 'My Pkg'::'run it' 'the count' k"))
+	wants(t, got,
+		"runs 'My Pkg'::'run it' — 2 run(s), seed 7",
+		"run | the count | k | time",
+		"1   | 4         | 2 | <time>",
+		"the count: 2 run(s), min 4, mean 4.0, max 4, p50 4, p90 4",
+		"k: 2 run(s), min 2, mean 2.0, max 2, p50 2, p90 2",
+	)
+	wants(t, run(t, s, "%runs 2 7 'My Pkg'::'run it' 'the count' 'the count'"), "observable the count is named twice")
+}
+
+// RunRuns, asked for no run or fewer, is refused as a Monte Carlo without runs
+// rather than as a sweep naming no range.
+func TestRunRunsRefusesFewerThanOneRun(t *testing.T) {
+	s := runsSession(t)
+	for _, count := range []int64{0, -3} {
+		verdict := s.RunRuns("MC::fixed", nil, count, 7, nil)
+		got := strings.Join(verdict.Lines, "\n")
+		wants(t, got, runtime.ErrSweepRuns.Error(), "runs nothing; ask for at least one")
+		if strings.Contains(got, runtime.ErrSweepEmpty.Error()) {
+			t.Errorf("%d runs were refused as an empty sweep:\n%s", count, got)
+		}
 	}
 }
 
