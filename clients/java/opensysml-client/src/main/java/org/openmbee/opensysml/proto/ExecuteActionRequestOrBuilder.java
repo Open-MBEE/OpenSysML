@@ -125,4 +125,32 @@ org.openmbee.opensysml.proto.Value defaultValue);
    */
   com.google.protobuf.ByteString
       getScheduleBytes();
+
+  /**
+   * <pre>
+   * Optional FQN of a part/usage to perform the action on, or a path from one to
+   * a nested object, as `Mission::mission.vehicle`: the object is created for the
+   * run — inside the assembly the path walks, so its connectors carry what the
+   * action sends — and under explore each run creates its own. Empty performs
+   * the action outside any object.
+   * </pre>
+   *
+   * <code>string performer_symbol_id = 5 [json_name = "performerSymbolId"];</code>
+   * @return The performerSymbolId.
+   */
+  java.lang.String getPerformerSymbolId();
+  /**
+   * <pre>
+   * Optional FQN of a part/usage to perform the action on, or a path from one to
+   * a nested object, as `Mission::mission.vehicle`: the object is created for the
+   * run — inside the assembly the path walks, so its connectors carry what the
+   * action sends — and under explore each run creates its own. Empty performs
+   * the action outside any object.
+   * </pre>
+   *
+   * <code>string performer_symbol_id = 5 [json_name = "performerSymbolId"];</code>
+   * @return The bytes for performerSymbolId.
+   */
+  com.google.protobuf.ByteString
+      getPerformerSymbolIdBytes();
 }

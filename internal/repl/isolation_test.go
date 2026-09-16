@@ -96,8 +96,9 @@ const nestedCaseSource = `package Nested {
 const nestedCase = "Nested::Vehicle::subsystem::check"
 
 // An explored case nested in a type finds the object owning it while the
-// session's state is held; a run then instantiates the owner in its own context,
-// reading nothing of the session, so the held objects stay as the plan left them.
+// session's state is held; a run then reaches the owner in its own object of the
+// held declaration, reading nothing of the session, so the held objects stay as
+// the plan left them.
 func TestExploredNestedCaseOwnerIsPlannedBeforeRelease(t *testing.T) {
 	s := loadSource(t, nestedCaseSource)
 	run(t, s, "%instantiate Nested::Vehicle")
@@ -125,10 +126,16 @@ func TestExploredNestedCaseOwnerIsPlannedBeforeRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	objects := plan.bind(ctx)
+	objects, err := plan.bind(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	self, name := objects.owner(fqn)
-	if self == nil || name != "Nested::Vehicle::subsystem" {
-		t.Fatalf("owner = %v %q, want an object of Nested::Vehicle::subsystem", self, name)
+	if self == nil || name != "Nested::Vehicle.subsystem" {
+		t.Fatalf("owner = %v %q, want the subsystem of the run's Nested::Vehicle", self, name)
+	}
+	if root, ok := objects.roots["Nested::Vehicle"]; !ok || root.FeatureValues["subsystem"] == nil {
+		t.Errorf("the owner is not held by the run's own Nested::Vehicle: %v", root)
 	}
 	if inSession, _ := s.rtCtx.Instance(self.ID); inSession == self {
 		t.Error("the owner was instantiated in the session's runtime, not the run's")

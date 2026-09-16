@@ -44,7 +44,8 @@ public interface RunSweepRequestOrBuilder extends
 
   /**
    * <pre>
-   * Optional FQN of a part/usage to instantiate as an analysis case's subject.
+   * Optional FQN of a part/usage to instantiate as an analysis case's subject,
+   * or a path from one to a nested object; see RunAnalysisRequest.subject_symbol_id.
    * </pre>
    *
    * <code>string subject_symbol_id = 3 [json_name = "subjectSymbolId"];</code>
@@ -53,7 +54,8 @@ public interface RunSweepRequestOrBuilder extends
   java.lang.String getSubjectSymbolId();
   /**
    * <pre>
-   * Optional FQN of a part/usage to instantiate as an analysis case's subject.
+   * Optional FQN of a part/usage to instantiate as an analysis case's subject,
+   * or a path from one to a nested object; see RunAnalysisRequest.subject_symbol_id.
    * </pre>
    *
    * <code>string subject_symbol_id = 3 [json_name = "subjectSymbolId"];</code>
