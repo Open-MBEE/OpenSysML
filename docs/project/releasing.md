@@ -708,10 +708,13 @@ python clients/python/scripts/check_version.py --tag v0.9.0   # prints 0.9.0
 So setting `VERSION` in `clients/python/opensysml/_version.py` to the version being
 released is a step of [the release branch](#the-release-branch), beside folding the
 changelog; a `v*` tag pushed while the two disagree fails the release before a binary
-is built. The tag is SemVer and the declaration is PEP 440 in canonical form, and the
-check compares them as versions, not as spellings: `v0.9.0` names `0.9.0`, and a
-pre-release tag `v0.9.0-rc1` names `0.9.0rc1`, which is what `VERSION` must say
+is built. The tag is SemVer and the declaration is PEP 440 in canonical form, so the
+check translates the tag before comparing: `v0.9.0` names `0.9.0`, and a pre-release
+tag `v0.9.0-rc1` (or `v0.9.0-rc.1`) names `0.9.0rc1`, which is what `VERSION` must say
 (`0.9.0-rc1` is refused, since the build tools would name the files `0.9.0rc1` anyway).
+Only `-alpha.N`, `-beta.N` and `-rc.N` are accepted as pre-release suffixes, the ones
+with a single PEP 440 meaning; a tag like `v0.9.0-1` is refused rather than read as
+the post-release `0.9.0.post1` and sent to PyPI proper.
 
 ```bash
 python clients/python/scripts/check_version.py --tag v0.9.0-rc1   # prints 0.9.0rc1

@@ -4,12 +4,23 @@ import importlib.util
 import pathlib
 
 import pytest
+from packaging.version import Version
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "scripts" / "check_version.py"
 spec = importlib.util.spec_from_file_location("check_version", SCRIPT)
 check_version = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
 spec.loader.exec_module(check_version)
+
+
+def _core_tag(version):
+    """The SemVer core tag naming a PEP 440 version: 0.5.0rc1 is tagged v0.5.0-rc1."""
+    parsed = Version(version)
+    tag = f"v{parsed.base_version}"
+    if parsed.pre is not None:
+        phase, number = parsed.pre
+        tag += f"-{ {'a': 'alpha', 'b': 'beta', 'rc': 'rc'}[phase] }.{number}"
+    return tag
 
 
 def test_declared_version_reads_the_shipped_version_file():
@@ -36,12 +47,32 @@ def test_version_from_tag_accepts_the_declared_version():
         ("v0.4.0-rc.1", "0.4.0rc1"),
         ("v0.4.0-alpha.2", "0.4.0a2"),
         ("v0.4.0-beta1", "0.4.0b1"),
-        ("v0.4.0rc1", "0.4.0rc1"),
+        ("v0.4.0-rc.010", "0.4.0rc10"),
     ],
 )
-def test_version_from_tag_compares_a_semver_pre_release_as_a_version(tag, declared):
+def test_version_from_tag_translates_a_semver_pre_release_to_pep_440(tag, declared):
     """A core pre-release tag is SemVer; the package's version is its PEP 440 form."""
     assert check_version.version_from_tag(tag, version=declared) == declared
+    assert check_version.is_pre_release(declared)
+
+
+@pytest.mark.parametrize(
+    "tag",
+    [
+        "v0.4.0-1",  # PEP 440 would read a post-release, SemVer a pre-release
+        "v0.4.0-rc",
+        "v0.4.0-pre.1",
+        "v0.4.0-rc1+build.5",
+        "v0.4.0rc1",
+        "v0.4.0.post1",
+        "v0.4",
+        "v0.4.0.1",
+        "v0.4.0-not-a-version",
+    ],
+)
+def test_version_from_tag_rejects_a_suffix_without_one_pep_440_meaning(tag):
+    with pytest.raises(check_version.VersionError, match="is not a core release tag of the form"):
+        check_version.version_from_tag(tag, version="0.4.0.post1")
 
 
 @pytest.mark.parametrize(
@@ -52,7 +83,6 @@ def test_version_from_tag_compares_a_semver_pre_release_as_a_version(tag, declar
         ("0.4.0", "does not start with 'v'"),
         ("v0.4.1", "names version '0.4.1', but"),
         ("v0.4.0-rc1", "names version '0.4.0rc1', but"),
-        ("v0.4.0-not-a-version", "not a PEP 440 version"),
     ],
 )
 def test_version_from_tag_rejects_a_tag_that_names_another_version(tag, message):
@@ -87,13 +117,13 @@ def test_is_pre_release_rejects_a_non_pep_440_version():
 
 def test_main_prints_the_version_the_tag_names(capsys):
     declared = check_version.declared_version()
-    assert check_version.main(["--tag", f"v{declared}"]) == 0
+    assert check_version.main(["--tag", _core_tag(declared)]) == 0
     assert capsys.readouterr().out.strip() == declared
 
 
 def test_main_routes_a_pre_release_by_printing_yes_or_no(capsys):
     declared = check_version.declared_version()
-    assert check_version.main(["--tag", f"v{declared}", "--pre-release"]) == 0
+    assert check_version.main(["--tag", _core_tag(declared), "--pre-release"]) == 0
     expected = "yes" if check_version.is_pre_release(declared) else "no"
     assert capsys.readouterr().out.strip() == expected
 
@@ -110,11 +140,11 @@ def test_main_fails_on_a_tag_that_names_no_version(capsys):
     assert check_version.main(["--tag", "v0.0.0-not-declared"]) == 1
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert "not a PEP 440 version" in captured.err
+    assert "is not a core release tag of the form" in captured.err
 
 
 def test_main_reads_the_tag_from_circle_tag(monkeypatch, capsys):
     declared = check_version.declared_version()
-    monkeypatch.setenv("CIRCLE_TAG", f"v{declared}")
+    monkeypatch.setenv("CIRCLE_TAG", _core_tag(declared))
     assert check_version.main([]) == 0
     assert capsys.readouterr().out.strip() == declared

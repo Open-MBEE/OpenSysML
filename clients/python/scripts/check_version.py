@@ -12,19 +12,28 @@ publish must fail here rather than after the fact.
 Prints the version the tag names on success. With `--pre-release` it prints
 `yes`/`no` instead, which the job uses to route a pre-release tag to TestPyPI.
 
-The core tags are SemVer and the package version is PEP 440, so the two are
-compared as versions, not as spellings: `v0.9.0-rc1` names `0.9.0rc1`. What is
-printed is the declared version, which is what the built artifacts are named by.
+The core tags are SemVer and the package version is PEP 440, so the tag is
+translated before the comparison: `v0.9.0-rc1` names `0.9.0rc1`. Only the SemVer
+pre-release forms with one PEP 440 meaning are accepted (`-alpha.N`, `-beta.N`,
+`-rc.N`, dot optional); `-1` would be a PEP 440 post-release, so it is refused.
+What is printed is the declared version, which the built artifacts are named by.
 """
 
 import argparse
 import ast
 import os
+import re
 import sys
 
 from packaging.version import InvalidVersion, Version
 
 TAG_PREFIX = "v"
+
+TAG_VERSION = re.compile(
+    r"^(?P<release>\d+\.\d+\.\d+)(?:-(?P<phase>alpha|beta|rc)\.?(?P<number>\d+))?$"
+)
+TAG_FORM = f"{TAG_PREFIX}<major>.<minor>.<patch>[-(alpha|beta|rc)[.]<n>]"
+PEP_440_PHASE = {"alpha": "a", "beta": "b", "rc": "rc"}
 
 VERSION_FILE = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "opensysml", "_version.py"
@@ -96,7 +105,7 @@ def version_from_tag(tag, version=None):
             f"released with the binaries, by the core {TAG_PREFIX}<version> tag; "
             "no other tag publishes it."
         )
-    tag_version = str(parse_version(tag[len(TAG_PREFIX):], f"Tag {tag!r} names"))
+    tag_version = pep440_from_semver(tag[len(TAG_PREFIX):], tag)
     if tag_version != declared:
         raise VersionError(
             f"Tag {tag!r} names version {tag_version!r}, but "
@@ -106,6 +115,32 @@ def version_from_tag(tag, version=None):
             f"{tag_version!r} on the release branch and tag again."
         )
     return declared
+
+
+def pep440_from_semver(semver, tag):
+    """The canonical PEP 440 version a core tag's SemVer version denotes.
+
+    Args:
+        semver (str): The tag without its prefix, e.g. '0.9.0-rc1'
+        tag (str): The tag, for the error message
+
+    Returns:
+        str: The PEP 440 version, e.g. '0.9.0rc1'
+
+    Raises:
+        VersionError: If the version is not a release or an alpha/beta/rc
+            pre-release of one; other SemVer suffixes have no single PEP 440
+            meaning ('-1' would be a post-release, build metadata a local version)
+    """
+    match = TAG_VERSION.match(semver)
+    if match is None:
+        raise VersionError(
+            f"Tag {tag!r} is not a core release tag of the form {TAG_FORM}; only "
+            "those pre-release forms have one PEP 440 meaning for the package."
+        )
+    if match["phase"] is None:
+        return match["release"]
+    return f"{match['release']}{PEP_440_PHASE[match['phase']]}{int(match['number'])}"
 
 
 def parse_version(version, what):
