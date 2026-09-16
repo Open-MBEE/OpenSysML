@@ -1396,7 +1396,7 @@ func (s *Server) debugEdit(ctx context.Context, closed string, edit func()) {
 	edit()
 	var changed []*debugSnapshot
 	for id, sess := range s.debug.sessions {
-		if closed != "" && sess.doc == closed {
+		if closed != "" && slices.Contains(sess.documents(), closed) {
 			sess.ended = closed + " was closed"
 		} else if !s.rebindNow(sess) {
 			continue
@@ -1424,6 +1424,18 @@ func (s *Server) rebindNow(sess *debugSession) bool {
 	return moved
 }
 
+// documents are those the session stands on: the view's, the target's and the
+// object's; closing any ends the session.
+func (sess *debugSession) documents() []string {
+	docs := []string{sess.doc}
+	for _, doc := range []string{sess.targetDoc, sess.objectDoc} {
+		if doc != "" && !slices.Contains(docs, doc) {
+			docs = append(docs, doc)
+		}
+	}
+	return docs
+}
+
 // rebind binds sess to the documents as r reads them, reporting whether the
 // session moved: to new render IDs, or to its end.
 func (sess *debugSession) rebind(r *model.Reading) bool {
@@ -1431,8 +1443,8 @@ func (sess *debugSession) rebind(r *model.Reading) bool {
 		sess.ended = reason
 		return true
 	}
-	for _, doc := range []string{sess.doc, sess.targetDoc, sess.objectDoc} {
-		if doc != "" && r.Document(doc) == nil {
+	for _, doc := range sess.documents() {
+		if r.Document(doc) == nil {
 			return end(fmt.Sprintf("%s was closed", doc))
 		}
 	}

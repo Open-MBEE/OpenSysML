@@ -1952,6 +1952,58 @@ func TestDebugTargetDeclaredInAnotherDocument(t *testing.T) {
 	}
 }
 
+// Closing the target's or the object's document ends a session even when the
+// file is on disk, so the workspace goes on holding the document it declares.
+func TestDebugEndsWhenTargetOrObjectDocumentClosedOnDisk(t *testing.T) {
+	ctx := context.Background()
+	split := strings.Index(debugMachine, "package MachineViews")
+	machines, views := debugMachine[:split], debugMachine[split:]
+	robots := "package Robots { part def Rover { exhibit state ops : Machines::Ops; } }\n"
+	for _, tc := range []struct{ closed, decl string }{
+		{"machines.sysml", "Machines::Ops"},
+		{"robots.sysml", "Robots::Rover"},
+	} {
+		t.Run(tc.closed+" closed", func(t *testing.T) {
+			dir := t.TempDir()
+			for name, src := range map[string]string{"views.sysml": views, "machines.sysml": machines, "robots.sysml": robots} {
+				if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			s, viewsURI, rec := debugServer(t, filepath.Join(dir, "views.sysml"), views)
+			for name, src := range map[string]string{"machines.sysml": machines, "robots.sysml": robots} {
+				if err := s.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+					TextDocument: protocol.TextDocumentItem{URI: uri.File(filepath.Join(dir, name)), LanguageID: "sysml", Version: 1, Text: src},
+				}); err != nil {
+					t.Fatalf("DidOpen %s: %v", name, err)
+				}
+			}
+			snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: viewsURI},
+				View:         "MachineViews::opsView", Target: "Machines::Ops", Object: "Robots::Rover",
+			})
+			closed := filepath.Join(dir, tc.closed)
+			if err := s.DidClose(ctx, &protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(closed)}}); err != nil {
+				t.Fatalf("DidClose: %v", err)
+			}
+			if s.ws.Document(closed) == nil {
+				t.Fatalf("closing dropped %s, which is on disk", tc.closed)
+			}
+			changed := rec.debugChanged()
+			if len(changed) != 1 {
+				t.Fatalf("debugChanged = %d notifications, want the one ending the session", len(changed))
+			}
+			last := changed[0]
+			if last.Session != snap.Session || last.State != debugEnded || !strings.Contains(last.Reason, tc.closed+" was closed") {
+				t.Fatalf("debugChanged after closing %s's document = %s", tc.decl, describe(last))
+			}
+			if _, err := s.DebugStep(&debugSessionParams{Session: snap.Session}); !errors.Is(err, ErrDebugSession) {
+				t.Errorf("step after the close: err = %v, want %v", err, ErrDebugSession)
+			}
+		})
+	}
+}
+
 // debugReads is a machine and an action whose run reads beyond what they
 // inherit: a performer's supertype and feature types, an invoked action, a
 // signal's schema and a value named from another package.
