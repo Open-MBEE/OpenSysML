@@ -337,23 +337,29 @@ func (o *Overlay) Materialize(repo, dir, dst string) ([]Entry, error) {
 	}
 	parent := filepath.Dir(dst)
 	_, statErr := os.Stat(parent)
+	createdParent := errors.Is(statErr, fs.ErrNotExist)
 	if err := os.MkdirAll(parent, 0o750); err != nil {
+		return nil, err
+	}
+	fail := func(tmp string, err error) ([]Entry, error) {
+		if tmp != "" {
+			_ = os.RemoveAll(tmp)
+		}
+		if createdParent {
+			_ = os.Remove(parent)
+		}
 		return nil, err
 	}
 	tmp, err := os.MkdirTemp(parent, filepath.Base(dst)+".*")
 	if err != nil {
-		return nil, err
+		return fail("", err)
 	}
 	out, err := materializeInto(repo, dir, tmp, entries)
 	if err == nil {
 		err = os.Rename(tmp, dst)
 	}
 	if err != nil {
-		_ = os.RemoveAll(tmp)
-		if statErr != nil {
-			_ = os.Remove(parent)
-		}
-		return nil, err
+		return fail(tmp, err)
 	}
 	return out, nil
 }
