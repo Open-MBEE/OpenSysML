@@ -329,8 +329,6 @@ func TestSweepMisuseThroughCLI(t *testing.T) {
 			"-samples draws from a range"},
 		{"samples without a seed", []string{"-calc", "Sw::Twice", "-sweep", "n=1..9", "-samples", "4"},
 			"-samples draws from a seed"},
-		{"a seed without samples", []string{"-calc", "Sw::Twice", "-sweep", "n=1..9", "-seed", "1"},
-			"name how many to draw"},
 		{"samples that are no number", []string{"-calc", "Sw::Twice", "-sweep", "n=1..9", "-samples", "none"},
 			"-samples takes the number of values to draw"},
 		{"a seed that is no number", []string{"-calc", "Sw::Twice", "-sweep", "n=1..9", "-samples", "2", "-seed", "x"},

@@ -135,6 +135,8 @@ func init() {
 	registerLibraryFunction("OpenSysMLMathFunctions::ln", []string{"x"}, naturalLog, positiveReal)
 	registerLibraryFunction("OpenSysMLMathFunctions::log", []string{"x", "base"}, logToBase, positiveReal, logarithmBase)
 	registerLibraryFunction("OpenSysMLMathFunctions::atan2", []string{"y", "x"}, atan2Real)
+
+	registerRandomFunctions()
 }
 
 // registerVectorFunctions registers VectorFunctions (Kernel Function Library).
@@ -224,6 +226,19 @@ func registerStringFunctions() {
 // arguments, which is what most of the numeric library declares, under the
 // domain each parameter puts on its argument by itself.
 func registerLibraryFunction(name string, params []string, apply func([]semantics.Value) (semantics.Value, error), domains ...scalarDomain) {
+	registerContextFunction(name, params, pureScalars(apply), domains...)
+}
+
+// pureScalars lifts an implementation over its arguments alone to a contextApply.
+func pureScalars(apply func([]semantics.Value) (semantics.Value, error)) contextApply {
+	return func(_ *Context, _ string, values []semantics.Value) (semantics.Value, error) {
+		return apply(values)
+	}
+}
+
+// registerContextFunction is registerLibraryFunction for an implementation that
+// reads the run it is called in — a random draw from its modeled stream.
+func registerContextFunction(name string, params []string, apply contextApply, domains ...scalarDomain) {
 	registerValueFunction(name, params, len(params), numericScalars(params, apply, domains))
 	libraryFunctions[name].scalar = true
 	undeterminedAware[name] = true
@@ -268,11 +283,15 @@ func registerUnevaluable(name string, params []declaredParam, reason string) {
 // by itself, which every determined argument meets before the function applies.
 type scalarDomain func(x semantics.Value) error
 
+// contextApply computes one scalar numeric function in the run calling it, under
+// the name it was dispatched by.
+type contextApply func(ctx *Context, name string, values []semantics.Value) (semantics.Value, error)
+
 // numericScalars adapts an implementation over scalar numeric values: every
 // parameter of such a declaration is one number, so a collection of several, a
 // string, an instance or a quantity does not conform to it. An argument the
 // model leaves open leaves the result open once the determined ones conform.
-func numericScalars(params []string, apply func([]semantics.Value) (semantics.Value, error), domains []scalarDomain) libraryApply {
+func numericScalars(params []string, apply contextApply, domains []scalarDomain) libraryApply {
 	return func(name string, ctx *Context, args []Value) (Value, error) {
 		values := make([]semantics.Value, len(args))
 		for i, arg := range args {
@@ -305,7 +324,7 @@ func numericScalars(params []string, apply func([]semantics.Value) (semantics.Va
 		if val, open := ctx.openInvocation(name, args...); open {
 			return val, nil
 		}
-		result, err := apply(values)
+		result, err := apply(ctx, name, values)
 		if err != nil {
 			return Value{}, fmt.Errorf("function %s: %w", name, err)
 		}

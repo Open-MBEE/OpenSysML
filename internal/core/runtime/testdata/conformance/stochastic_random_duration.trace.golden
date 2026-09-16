@@ -1,0 +1,12 @@
+step 1: token 1@usage_action
+    eval literal 1 -> 1
+    eval literal 80 -> 80
+    enter calc RandomFunctions::uniform
+      bind lo = 1 [argument]
+      bind hi = 80 [argument]
+draw uniform(1, 80) = 47.88520359371734
+    exit calc RandomFunctions::uniform -> 47.88520359371734
+  eval invoke uniform -> 47.88520359371734
+eval index -> 47.88520359371734 [s]
+step 2: token 1@done
+step 3: no active tokens

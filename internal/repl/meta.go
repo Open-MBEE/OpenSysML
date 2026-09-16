@@ -113,6 +113,7 @@ const (
 	cmdAnalysis       = "%analysis"
 	cmdSweep          = "%sweep"
 	cmdSamples        = "%samples"
+	cmdRuns           = "%runs"
 	cmdRunQuery       = "%run-query"
 	cmdRenderDocument = "%render-document"
 	argName           = "<name>"
@@ -147,6 +148,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%trace", args: "[on|off]", desc: "show or set execution tracing (evaluation, calc, action and state steps)"},
 	{name: "%strict", args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
 	{name: "%schedule", args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
+	{name: "%seed", args: "[<n>|off]", desc: "show or set the seed runs started from here on draw their modeled randomness from — Probability-weighted decisions, RandomFunctions — whatever the schedule; off leaves it to the schedule's seed:<n>"},
 	{name: "%budget", desc: "show the bounds one run may spend, and the variable raising each"},
 	{name: "%jobs", args: "[<n>]", desc: "show or set how many runs of one check go concurrently: an exploration's linearizations, the engines all consults"},
 	{name: "%engines", args: "[probe]", desc: "list the analysis engines, with the kind, protocol and authority of each, the questions it answers and whether it can run; probe also starts each external engine once and checks it against its manifest"},
@@ -176,6 +178,7 @@ var metaCommandTable = []metaCommand{
 	{group: groupBehavioral, name: cmdAnalysis, args: "<name>[(<args>)] [<object>]", desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
 	{group: groupBehavioral, name: cmdSweep, args: "<name>[(<args>)] [<object>] <p>=<from>..<to>[:<step>]...", desc: "run an analysis case or calc once per value of each range, one run per row of the cartesian product, and print the table"},
 	{group: groupBehavioral, name: cmdSamples, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
+	{group: groupBehavioral, name: cmdRuns, args: "<n> <seed> <action> [<observable>...]", desc: "run an action <n> times, each run's modeled randomness seeded from the given seed, and print the table of the observables with each one's distribution"},
 	{group: groupBehavioral, name: cmdRunQuery, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
 	{group: groupBehavioral, name: cmdRenderDocument, args: "<name> [mermaid|dot|plantuml]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT or PlantUML"},
 	{group: groupBehavioral, name: "%constraint", args: argName, desc: "evaluate a constraint definition"},
@@ -322,6 +325,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doStrict(fields[1:]), false, nil), true
 	case "%schedule":
 		return metaOut(s.doSchedule(fields[1:]), false, nil), true
+	case "%seed":
+		return metaOut(s.doSeed(fields[1:]), false, nil), true
 	case "%budget":
 		return metaOut(s.doBudget(), false, nil), true
 	case "%jobs":
@@ -453,6 +458,11 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 			return metaOut([]string{samplesUsage}, false, nil), true
 		}
 		return metaOut(s.doSamples(strings.TrimPrefix(strings.TrimSpace(line), cmdSamples))), true
+	case cmdRuns:
+		if len(fields) < 2 {
+			return metaOut([]string{runsUsage}, false, nil), true
+		}
+		return metaOut(s.doRuns(strings.TrimPrefix(strings.TrimSpace(line), cmdRuns))), true
 	case cmdRunQuery:
 		if len(fields) < 2 {
 			return metaOut([]string{runQueryUsage}, false, nil), true

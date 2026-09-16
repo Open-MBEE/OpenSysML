@@ -419,6 +419,7 @@ func (r *reportRuntime) runtime() (*runtime.Context, error) {
 	if err := ctx.SetSchedule(r.session.drivenSchedule()); err != nil {
 		return nil, err
 	}
+	r.session.applyModelSeed(ctx)
 	r.ctx = ctx
 	return ctx, nil
 }
