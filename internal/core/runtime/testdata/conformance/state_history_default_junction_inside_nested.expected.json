@@ -1,0 +1,10 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Go"}, {"signal": "Out"}, {"signal": "Go"}, {"signal": "Stop"}],
+	"finalState": "done",
+	"stateVisits": ["idle", "outer", "inner", "leaf", "idle", "outer", "inner", "leaf", "done"],
+	"outputs": {
+		"log": {"type": "String", "value": "go(effect);outer(entry);h(effect);j(effect);inner(entry);ij(effect);leaf(entry);outer(exit);go(effect);outer(entry);inner(entry);leaf(entry);outer(exit);"}
+	}
+}
