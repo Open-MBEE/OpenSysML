@@ -112,16 +112,24 @@ func (m *migration) defaultIndividual(p *xmi.Element) *xmi.Element {
 }
 
 // typingIndividual returns p's default individual when it can type the usage
-// p is written as: a plain ref takes any, a part or constraint one of its kind, a port none.
-func (m *migration) typingIndividual(p *xmi.Element, kw string) *xmi.Element {
+// p is written as: a plain ref takes any, a part or constraint one of its kind
+// that is an instance of p's type, a port none. The note says why it cannot.
+func (m *migration) typingIndividual(p *xmi.Element, kw string) (*xmi.Element, string) {
 	ind := m.defaultIndividual(p)
 	if ind == nil || kw == "ref" {
-		return ind
+		return ind, ""
 	}
-	if kind, _, _ := m.individualClassifiers(ind); kind != catNone && kind.keyword() == kw+" def" {
-		return ind
+	if kw == "port" {
+		return nil, "the individual " + qualifiedName(ind) + " cannot type a port: v2 has no individual port def"
 	}
-	return nil
+	kind, classifiers, _ := m.individualClassifiers(ind)
+	if kind == catNone || kind.keyword() != kw+" def" {
+		return nil, "the individual " + qualifiedName(ind) + " is an " + individualKeyword(kind) + ", which cannot type " + article(kw) + kw
+	}
+	if t := m.model.Ref(p, "type"); t != nil && !m.instanceOf(classifiers, t) {
+		return nil, "the individual " + qualifiedName(ind) + " is not an instance of " + qualifiedName(t) + ", the type of " + p.Name
+	}
+	return ind, ""
 }
 
 // featureValue writes value v of feature f. A literal of another kind that

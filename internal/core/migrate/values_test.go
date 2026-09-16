@@ -282,16 +282,23 @@ func TestUntypedPropertyIsTypedByItsIndividualDefault(t *testing.T) {
 	wantClean(t, "untyped-individual.sysml", r)
 }
 
-// An individual types a usage only when it is of the usage's kind: an
-// interface block's individual is no port def, a constraint block's no part
-// def, so such a default stays a comment.
+// An individual types a usage only when it is of the usage's kind and an
+// instance of its type: an interface block's individual is no port def, and
+// an instance of an unrelated block is no instance of the type, so such a
+// default stays a comment.
 func TestIndividualDefaultOfAnotherKindIsNotAType(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_bus" name="Bus"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_fits" name="Fits"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_engine" name="Engine"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_pump" name="Pump"/>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_b1" name="bus 1" classifier="_bus"/>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_f1" name="fits 1" classifier="_fits"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_p1" name="pump 1" classifier="_pump"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_v" name="Vehicle">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_e" name="engine" type="_engine" aggregation="composite">
+        <defaultValue xmi:type="uml:InstanceValue" xmi:id="_de" instance="_p1"/>
+      </ownedAttribute>
       <ownedAttribute xmi:type="uml:Port" xmi:id="_p" name="bus" type="_bus">
         <defaultValue xmi:type="uml:InstanceValue" xmi:id="_dv" instance="_b1"/>
       </ownedAttribute>
@@ -304,11 +311,17 @@ func TestIndividualDefaultOfAnotherKindIsNotAType(t *testing.T) {
     </packagedElement>`, `
   <sysml:InterfaceBlock xmi:id="_s1" base_Class="_bus"/>
   <sysml:Block xmi:id="_s2" base_Class="_fits"/>
-  <sysml:Block xmi:id="_s3" base_Class="_v"/>`)
+  <sysml:Block xmi:id="_s3" base_Class="_v"/>
+  <sysml:Block xmi:id="_s4" base_Class="_engine"/>
+  <sysml:Block xmi:id="_s5" base_Class="_pump"/>`)
 	wantLine(t, r.Notation, "port bus : Bus {")
+	wantLine(t, r.Notation, "part engine : Engine {")
+	wantNoLine(t, r.Notation, "Engine, 'pump 1'")
 	wantLine(t, r.Notation, "part check : Fits, 'fits 1';")
 	wantLine(t, r.Notation, "ref loose : 'bus 1';")
 	wantNote(t, r, "_p", migrate.Approximated, "default value not migrated")
+	wantNote(t, r, "_p", migrate.Approximated, "the individual bus 1 cannot type a port: v2 has no individual port def")
+	wantNote(t, r, "_e", migrate.Approximated, "default value not migrated: the individual pump 1 is not an instance of Engine, the type of engine")
 	wantClean(t, "kinds-default.sysml", r)
 }
 

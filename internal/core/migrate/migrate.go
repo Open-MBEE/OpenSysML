@@ -760,7 +760,7 @@ func (m *migration) instanceSlot(e, slot, f *xmi.Element, kw, prefix string) ([]
 			return nil, "the slot's value " + describe(inst) + " is not an instance of " + qualifiedName(t) + ", the type of " + f.Name, false
 		}
 		// The default individual types the property, so a slot can only repeat it.
-		if d := m.typingIndividual(f, kw); d != nil && d != inst {
+		if d, _ := m.typingIndividual(f, kw); d != nil && d != inst {
 			return nil, "the slot's value " + describe(inst) + " is not " + describe(d) + ", the individual " + f.Name + " is typed by for its default", false
 		}
 		refs = append(refs, m.ref(inst, e))
@@ -1148,7 +1148,7 @@ func (m *migration) feature(p *xmi.Element) {
 			payload = "item"
 		}
 	}
-	ind := m.typingIndividual(p, kw)
+	ind, indNote := m.typingIndividual(p, kw)
 	if ind != nil && payload == "" {
 		// A v2 definition is not a value; the usage is typed by the individual instead.
 		if typ == "" {
@@ -1191,6 +1191,9 @@ func (m *migration) feature(p *xmi.Element) {
 	var bodyLines []string
 	if dv := firstOwned(p, "defaultValue"); dv != nil {
 		expr, ok, vnote := m.featureValue(dv, p, m.scope)
+		if indNote != "" {
+			vnote = indNote
+		}
 		switch {
 		case ind != nil && payload == "":
 			note = joinNotes(note, "the default value, the individual "+qualifiedName(ind)+", is written as a type of the usage: a definition is not a v2 value")
