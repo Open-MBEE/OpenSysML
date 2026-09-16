@@ -1,23 +1,12 @@
 name: Pages
 
-# The site is docs/ rendered by MkDocs, republished when a page or the site
-# configuration changes on main. --strict: a broken link fails the deployment.
+# The site is docs/ rendered by MkDocs, republished on every push to main: the
+# test-suite figures are counted from the whole tree as it builds, so any
+# fixture or test landing in a release moves them. --strict: a broken link
+# fails the deployment.
 on:
   push:
     branches: [main]
-    paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
-      - 'docs-requirements.txt'
-      - 'scripts/mkdocs_repo_links.py'
-      - 'scripts/mkdocs_landing.py'
-      - 'scripts/mkdocs_header_menu.py'
-      - 'scripts/mkdocs_census.py'
-      - 'scripts/mkdocs_suite_figures.py'
-      - 'cmd/doc-counts/**'
-      - 'internal/doccounts/**'
-      - 'overrides/**'
-      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 # One deployment at a time; cancelling one in flight would leave the site behind.
