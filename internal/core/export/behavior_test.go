@@ -314,6 +314,37 @@ func TestThenAfterFirstSequencesFromTheMemberTheStartNames(t *testing.T) {
 	}
 }
 
+// A named TerminateActionUsage is a declaration whether or not the graph states
+// sysx:hasBody, which a graph from another tool does not: the name alone keeps it
+// `action stop terminate;`, the target its succession reaches.
+func TestNamedTerminateUsageWithoutHasBodyKeepsItsName(t *testing.T) {
+	src := "package P {\n    action def Drive {\n        first start;\n        then stop;\n        action stop terminate;\n    }\n}\n"
+	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	// stop's sysx:hasBody closes its description after declaredName; every other element keeps its own.
+	var kept []string
+	for _, line := range strings.Split(string(withoutSourceText(t, turtle)), "\n") {
+		if strings.Contains(line, "sysx:hasBody") && len(kept) > 0 && strings.Contains(kept[len(kept)-1], `sysml:declaredName "stop"`) {
+			kept[len(kept)-1] = strings.TrimSuffix(kept[len(kept)-1], " ;") + " ."
+			continue
+		}
+		kept = append(kept, line)
+	}
+	foreign := strings.Join(kept, "\n")
+	if strings.Count(foreign, "sysx:hasBody") != strings.Count(string(turtle), "sysx:hasBody")-1 {
+		t.Fatalf("want stop's sysx:hasBody alone dropped:\n%s", foreign)
+	}
+	back, err := export.Convert("m.ttl", []byte(foreign), export.FormatTurtle, export.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v\n%s", err, foreign)
+	}
+	if string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+}
+
 // The `first` end of an action body's `first a then b;` is the source of that
 // succession, linked to the member it names; the one-ended `first start;`
 // beside it carries the start it marks. Both read back unchanged.

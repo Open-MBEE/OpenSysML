@@ -782,9 +782,9 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		return strings.Join([]string{"send", payload, keyword, receiver}, " "), true, nil
 
 	case mTerminate:
-		// A declared `action a terminate;` is a usage head, not a statement;
-		// it keeps its name through usageHead.
-		if d.declaresUsage(el) {
+		// A declared `action a terminate;` is a usage head, not a statement; it keeps its
+		// name through usageHead. A name alone declares too: no statement carries one.
+		if d.declaresUsage(el) || len(d.identWords(el)) > 0 {
 			return "", false, nil
 		}
 		words := []string{"terminate"}
