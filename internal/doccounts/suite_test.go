@@ -29,18 +29,15 @@ func TestReadSuiteCountsCountsTheTreeAsTheGatesDo(t *testing.T) {
 		Traces:               TraceCounts{Default: 3, Policy: 1, Prefixes: map[string]int{"calc": 2, "action": 1}},
 		GoldenASTs:           GoldenCounts{Total: 3, SysML: 2, KerML: 1},
 		Negatives:            NegativeCounts{Table: 3, Prefixed: 5, KerML: 2, All: 6},
-		Robustness:           5,
+		Robustness:           7,
 		GRPCConformance:      2,
-		GRPCRobustness:       2,
-		TestFunctions:        8,
-		RuntimeTestFunctions: 2,
+		GRPCRobustness:       3,
+		TestFunctions:        10,
+		RuntimeTestFunctions: 3,
 		LSPTestFunctions:     1,
 	}
 	if !reflect.DeepEqual(counts, want) {
 		t.Fatalf("suite counts\n got %+v\nwant %+v", counts, want)
-	}
-	if got := counts.Conformance.Of("calc", "state"); got != 5 {
-		t.Fatalf("Of(calc, state) = %d, want 5", got)
 	}
 }
 
@@ -55,18 +52,19 @@ func TestReadSuiteCountsReportsAKnownFailureAsNotPassing(t *testing.T) {
 	if counts.Conformance.Cases != 7 || counts.Conformance.Passing != 6 || counts.Conformance.KnownFailures["calc"] != 1 {
 		t.Fatalf("known failure not counted: %+v", counts.Conformance)
 	}
-	if got := counts.Conformance.PassingOf("calc"); got != 3 {
-		t.Fatalf("PassingOf(calc) = %d, want 3", got)
-	}
 	if counts.Traces.Default != 2 || counts.Traces.Policy != 0 || counts.Traces.Prefixes["calc"] != 1 {
 		t.Fatalf("the known failure's traces are counted, which the harness skips: %+v", counts.Traces)
-	}
-	if got := passingOf(counts.Conformance, "calc"); got != "3 of 4" {
-		t.Fatalf("passingOf = %q, want %q", got, "3 of 4")
 	}
 	figures := figuresOf(counts)
 	if figures.AllPassing || figures.KnownFailures != 1 {
 		t.Fatalf("figures do not state the known failure: %+v", figures)
+	}
+	got, err := renderBlock(Block{Path: ReadmePath, Name: readmeConformanceBlock}, Figures{Suite: counts})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "every conformance case passing but the 1 `known_failures.txt` lists"; got != want {
+		t.Fatalf("conformance-passing renders %q, want %q", got, want)
 	}
 }
 
@@ -150,6 +148,7 @@ func TestRuntimeRobustness(t *testing.T) {
 		},
 		"no robustness test": func(t *testing.T, root string) {
 			doccountstest.Write(t, root, "internal/core/runtime/robustness_test.go", "package runtime\n")
+			doccountstest.Write(t, root, "internal/core/runtime/robustness_signals_test.go", "package runtime\n")
 		},
 		"no conformance cases": func(t *testing.T, root string) {
 			dir := filepath.Join(root, "internal", "core", "runtime", "testdata", "conformance")
@@ -384,7 +383,7 @@ func TestSuiteBlocksRenderInlineSentences(t *testing.T) {
 		t.Fatalf("read suite counts: %v", err)
 	}
 	figures := Figures{Suite: suite}
-	for _, block := range suiteBlocks() {
+	for _, block := range append(suiteBlocks(), siteSuiteBlocks()...) {
 		content := "| row | before <!-- doc-counts:begin " + block.Name + " -->stale<!-- doc-counts:end " + block.Name + " --> after |\n"
 		got, err := RewriteBlock(content, block, figures)
 		if err != nil {
@@ -404,10 +403,11 @@ func TestSuiteBlocksRenderInlineSentences(t *testing.T) {
 	for name, want := range map[string]string{
 		inventoryConformanceBlock: doccountstest.Expected.ConformanceSummary,
 		inventoryTracesBlock:      doccountstest.Expected.TraceSummary,
-		readmeConformanceBlock:    "7/7 conformance cases passing",
-		readmeTierCalcBlock:       "conformance gate: 4 calc/constraint/requirement/satisfy cases passing",
+		readmeConformanceBlock:    "every conformance case passing",
+		inventoryRobustnessBlock:  "7 runtime robustness cases (first-level subtests across the `TestRuntimeRobustness*` functions)",
+		inventoryGRPCBlock:        "2 gRPC conformance cases and 3 gRPC robustness cases",
 		inventoryNegativesBlock:   "3 negative parser subtests (first-level subtests of `TestNegative`; 5 across the `TestNegative*` functions, 2 of them KerML, and 6 across every `*Negative*` parser test)",
-		inventoryTestsBlock:       "8 top-level `Test` functions across the module",
+		inventoryTestsBlock:       "10 top-level `Test` functions across the module",
 	} {
 		got, err := renderBlock(Block{Path: ReadmePath, Name: name}, figures)
 		if err != nil {
@@ -422,9 +422,63 @@ func TestSuiteBlocksRenderInlineSentences(t *testing.T) {
 // TestEveryBlockNamesATemplate keeps a registered block from being reported as
 // unrenderable at generation time.
 func TestEveryBlockNamesATemplate(t *testing.T) {
-	for _, block := range Blocks() {
+	for _, block := range append(Blocks(), SiteBlocks()...) {
 		if _, ok := blockTemplates[block.Name]; !ok {
 			t.Errorf("block %q on %s has no template", block.Name, block.Path)
+		}
+	}
+}
+
+// TestSiteBlocksAreNotCommittedBlocks keeps a block from being both rewritten
+// into the tree and rendered by the build.
+func TestSiteBlocksAreNotCommittedBlocks(t *testing.T) {
+	committed := map[string]bool{}
+	for _, block := range Blocks() {
+		committed[block.Path+"#"+block.Name] = true
+	}
+	for _, block := range SiteBlocks() {
+		if committed[block.Path+"#"+block.Name] {
+			t.Errorf("block %q on %s is both committed and rendered by the build", block.Name, block.Path)
+		}
+	}
+	if got := SitePaths(); !reflect.DeepEqual(got, []string{SpecCompliancePath}) {
+		t.Errorf("SitePaths() = %v", got)
+	}
+}
+
+func TestRenderSiteBlocksRendersEveryBlockByPage(t *testing.T) {
+	root := t.TempDir()
+	doccountstest.WriteSuiteFixture(t, root)
+	suite, err := ReadSuiteCounts(root)
+	if err != nil {
+		t.Fatalf("read suite counts: %v", err)
+	}
+	rendered, err := RenderSiteBlocks(Figures{Suite: suite})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rendered) != 1 || len(rendered[SpecCompliancePath]) != len(SiteBlocks()) {
+		t.Fatalf("rendered %d pages, %d blocks", len(rendered), len(rendered[SpecCompliancePath]))
+	}
+	if got := rendered[SpecCompliancePath][inventoryConformanceBlock]; got != doccountstest.Expected.ConformanceSummary {
+		t.Fatalf("inventory-conformance renders %q", got)
+	}
+}
+
+func TestCheckSiteBlockAcceptsASentenceAndRefusesAFigure(t *testing.T) {
+	block := Block{Path: SpecCompliancePath, Name: inventoryTestsBlock}
+	for content, wantErr := range map[string]bool{
+		"- Tests: <!-- doc-counts:begin inventory-tests -->top-level `Test` functions across the module<!-- doc-counts:end inventory-tests -->\n":       false,
+		"<!-- doc-counts:begin inventory-tests -->\ntop-level `Test` functions\n<!-- doc-counts:end inventory-tests -->\n":                              false,
+		"- Tests: <!-- doc-counts:begin inventory-tests -->8,585 top-level `Test` functions across the module<!-- doc-counts:end inventory-tests -->\n": true,
+		"<!-- doc-counts:begin inventory-tests -->\n8 top-level `Test` functions\n<!-- doc-counts:end inventory-tests -->\n":                            true,
+		"- Tests: <!-- doc-counts:begin inventory-tests -->none<!-- doc-counts:end inventory-tests -->\n" +
+			"- Tests: <!-- doc-counts:begin inventory-tests -->none<!-- doc-counts:end inventory-tests -->\n": true,
+		"- Tests: none\n": true,
+	} {
+		err := CheckSiteBlock(content, block)
+		if (err != nil) != wantErr {
+			t.Errorf("CheckSiteBlock(%q) = %v, want error %v", content, err, wantErr)
 		}
 	}
 }

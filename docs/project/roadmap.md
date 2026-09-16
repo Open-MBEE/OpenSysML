@@ -219,8 +219,11 @@ parser subtests, runtime and gRPC robustness cases and top-level `Test` function
 the way the gates enumerate them (the conformance cases through `internal/fixtures`, which the
 runtime and gRPC conformance tests read too), `make docs-counts` writes them into marker blocks
 beside the refereed pilot figures, and `go run ./cmd/doc-counts -check` fails in CI when a block
-and the tree disagree, so the surfaces cannot drift from the gate table again. The
-tests-and-subtests total of a run, which only a run can state, is no longer quoted anywhere. At
+and the tree disagree, so the surfaces cannot drift from the gate table again. They have since
+left git altogether: the site build counts them into the compliance map's test inventory
+(`scripts/mkdocs_suite_figures.py` over `go run ./cmd/doc-counts -site-blocks`), the committed
+pages name what is counted without a figure, and a branch adding a test rewrites no shared line.
+The tests-and-subtests total of a run, which only a run can state, is no longer quoted anywhere. At
 `develop`'s head the blocks read 945 conformance cases, 262 default and 64 per-policy trace
 goldens, 465 runtime robustness cases, 21 gRPC conformance and 8 gRPC robustness cases, 206 golden
 ASTs and 252 negative subtests; the growth over the table is fixtures landed after the tag, all
