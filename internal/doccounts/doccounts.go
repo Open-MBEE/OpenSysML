@@ -354,7 +354,9 @@ type Block struct {
 	LinkPrefix string
 }
 
-// Blocks lists every generated block and the page carrying it.
+// Blocks lists every committed generated block and the page carrying it. Each
+// moves only when a baseline, the library census or known_failures.txt is
+// re-recorded, so a branch adding a test or fixture never rewrites one.
 func Blocks() []Block {
 	blocks := []Block{
 		{Path: ReadmePath, Name: refereedBlockName, LinkPrefix: "docs/project/"},
@@ -362,6 +364,43 @@ func Blocks() []Block {
 		{Path: SpecCompliancePath, Name: libraryBlockName, LinkPrefix: ""},
 	}
 	return append(blocks, suiteBlocks()...)
+}
+
+// SiteBlocks lists the blocks the documentation build renders and git never
+// carries a figure for: the test-suite figures, which move with every fixture
+// and test. In the tree each block holds a sentence naming what is counted;
+// CheckSiteBlock refuses one holding a digit.
+func SiteBlocks() []Block {
+	return siteSuiteBlocks()
+}
+
+// SitePaths lists the pages carrying a site block, in registration order.
+func SitePaths() []string {
+	var paths []string
+	seen := map[string]bool{}
+	for _, block := range SiteBlocks() {
+		if !seen[block.Path] {
+			seen[block.Path] = true
+			paths = append(paths, block.Path)
+		}
+	}
+	return paths
+}
+
+// RenderSiteBlocks renders every site block, by page and then by block name.
+func RenderSiteBlocks(figures Figures) (map[string]map[string]string, error) {
+	rendered := map[string]map[string]string{}
+	for _, block := range SiteBlocks() {
+		text, err := renderBlock(block, figures)
+		if err != nil {
+			return nil, err
+		}
+		if rendered[block.Path] == nil {
+			rendered[block.Path] = map[string]string{}
+		}
+		rendered[block.Path][block.Name] = text
+	}
+	return rendered, nil
 }
 
 // Figures are everything the generated blocks are rendered from: the committed
@@ -427,44 +466,86 @@ const (
 	blockEndFormat   = "<!-- doc-counts:end %s -->"
 )
 
-// RewriteBlock replaces a named generated block and preserves surrounding bytes.
-func RewriteBlock(content string, spec Block, figures Figures) (string, error) {
+// blockSpan locates a named block in a page: its own lines from beginIndex to
+// endIndex, or the one line at inlineIndex carrying both markers.
+type blockSpan struct {
+	lines                             []string
+	beginIndex, endIndex, inlineIndex int
+}
+
+func locateBlock(content string, spec Block) (blockSpan, error) {
 	begin := fmt.Sprintf(blockBeginFormat, spec.Name)
 	end := fmt.Sprintf(blockEndFormat, spec.Name)
-	lines := strings.Split(content, "\n")
-	beginIndex, endIndex, inlineIndex := -1, -1, -1
-	for i, line := range lines {
+	span := blockSpan{lines: strings.Split(content, "\n"), beginIndex: -1, endIndex: -1, inlineIndex: -1}
+	for i, line := range span.lines {
 		switch strings.TrimSpace(line) {
 		case begin:
-			if beginIndex >= 0 {
-				return "", fmt.Errorf("%s: duplicate %q marker", spec.Path, begin)
+			if span.beginIndex >= 0 {
+				return span, fmt.Errorf("%s: duplicate %q marker", spec.Path, begin)
 			}
-			beginIndex = i
+			span.beginIndex = i
 			continue
 		case end:
-			if endIndex >= 0 {
-				return "", fmt.Errorf("%s: duplicate %q marker", spec.Path, end)
+			if span.endIndex >= 0 {
+				return span, fmt.Errorf("%s: duplicate %q marker", spec.Path, end)
 			}
-			endIndex = i
+			span.endIndex = i
 			continue
 		}
 		if !strings.Contains(line, begin) && !strings.Contains(line, end) {
 			continue
 		}
-		if inlineIndex >= 0 || strings.Count(line, begin) != 1 || strings.Count(line, end) != 1 {
-			return "", fmt.Errorf("%s: duplicate markers of the block named %q", spec.Path, spec.Name)
+		if span.inlineIndex >= 0 || strings.Count(line, begin) != 1 || strings.Count(line, end) != 1 {
+			return span, fmt.Errorf("%s: duplicate markers of the block named %q", spec.Path, spec.Name)
 		}
 		if strings.Index(line, end) < strings.Index(line, begin) {
-			return "", fmt.Errorf("%s:%d: the block named %q ends before it begins", spec.Path, i+1, spec.Name)
+			return span, fmt.Errorf("%s:%d: the block named %q ends before it begins", spec.Path, i+1, spec.Name)
 		}
-		inlineIndex = i
+		span.inlineIndex = i
 	}
-	if inlineIndex >= 0 && (beginIndex >= 0 || endIndex >= 0) {
-		return "", fmt.Errorf("%s: duplicate markers of the block named %q", spec.Path, spec.Name)
+	if span.inlineIndex >= 0 && (span.beginIndex >= 0 || span.endIndex >= 0) {
+		return span, fmt.Errorf("%s: duplicate markers of the block named %q", spec.Path, spec.Name)
 	}
-	if inlineIndex < 0 && (beginIndex < 0 || endIndex < 0 || endIndex <= beginIndex) {
-		return "", fmt.Errorf("%s: named block %q is missing or unterminated", spec.Path, spec.Name)
+	if span.inlineIndex < 0 && (span.beginIndex < 0 || span.endIndex < 0 || span.endIndex <= span.beginIndex) {
+		return span, fmt.Errorf("%s: named block %q is missing or unterminated", spec.Path, spec.Name)
 	}
+	return span, nil
+}
+
+// body is the text between the markers.
+func (s blockSpan) body(spec Block) string {
+	begin := fmt.Sprintf(blockBeginFormat, spec.Name)
+	end := fmt.Sprintf(blockEndFormat, spec.Name)
+	if s.inlineIndex >= 0 {
+		line := s.lines[s.inlineIndex]
+		return line[strings.Index(line, begin)+len(begin) : strings.Index(line, end)]
+	}
+	return strings.Join(s.lines[s.beginIndex+1:s.endIndex], "\n")
+}
+
+// CheckSiteBlock reports a site block that is malformed or that states a figure
+// in the tree, where only the sentence naming what the build counts belongs.
+func CheckSiteBlock(content string, spec Block) error {
+	span, err := locateBlock(content, spec)
+	if err != nil {
+		return err
+	}
+	body := span.body(spec)
+	if digit := strings.IndexAny(body, "0123456789"); digit >= 0 {
+		return fmt.Errorf("%s: the block named %q states a figure (%q); the documentation build counts it, so the tree names only what is counted", spec.Path, spec.Name, strings.TrimSpace(body))
+	}
+	return nil
+}
+
+// RewriteBlock replaces a named generated block and preserves surrounding bytes.
+func RewriteBlock(content string, spec Block, figures Figures) (string, error) {
+	begin := fmt.Sprintf(blockBeginFormat, spec.Name)
+	end := fmt.Sprintf(blockEndFormat, spec.Name)
+	span, err := locateBlock(content, spec)
+	if err != nil {
+		return "", err
+	}
+	lines, beginIndex, endIndex, inlineIndex := span.lines, span.beginIndex, span.endIndex, span.inlineIndex
 	renderedBlock, err := renderBlock(spec, figures)
 	if err != nil {
 		return "", err
