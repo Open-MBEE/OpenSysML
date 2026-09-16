@@ -23,7 +23,8 @@
   literal on an `Integer` feature and a numeric string on a scalar feature take the feature's
   scalar, a literal on a value type or enumeration with no scalar base is not bound, and a
   default naming an instance of a block types the usage by that individual — its only type when
-  the property is untyped — instead of being written as a value. An instance of a block is an
+  the property is untyped, and not at all when the usage is a port or of another kind than the
+  individual — instead of being written as a value. An instance of a block is an
   `individual part def` and of a constraint block an `individual constraint def`, and a slot of a
   part, item or constraint property is written too: one instance redefines the property as an
   `individual part :>> x : 'the instance';`, several each subset it under a redefinition

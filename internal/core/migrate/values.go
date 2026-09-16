@@ -3,6 +3,7 @@ package migrate
 import (
 	"html"
 	"math"
+	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
@@ -110,6 +111,19 @@ func (m *migration) defaultIndividual(p *xmi.Element) *xmi.Element {
 	return inst
 }
 
+// typingIndividual returns p's default individual when it can type the usage
+// p is written as: a plain ref takes any, a part or constraint one of its kind, a port none.
+func (m *migration) typingIndividual(p *xmi.Element, kw string) *xmi.Element {
+	ind := m.defaultIndividual(p)
+	if ind == nil || kw == "ref" {
+		return ind
+	}
+	if kind, _, _ := m.individualClassifiers(ind); kind != catNone && kind.keyword() == kw+" def" {
+		return ind
+	}
+	return nil
+}
+
 // featureValue writes value v of feature f. A literal of another kind that
 // spells a value of f's scalar type, as tools store a typed-in default,
 // becomes that value: a string spelling a number, a whole real for an integer.
@@ -157,11 +171,12 @@ func scalarLiteral(kind, expr, text, sv string) (value string, spelled bool) {
 		if !whole {
 			return "", false
 		}
-		r, err := strconv.ParseFloat(expr, 64)
-		if err != nil || r != math.Trunc(r) || (sv == "Natural" && r < 0) {
+		// Exact, so a whole real beyond float64's integers keeps its digits.
+		r, ok := new(big.Rat).SetString(expr)
+		if !ok || !r.IsInt() || (sv == "Natural" && r.Sign() < 0) {
 			return "", false
 		}
-		return strconv.FormatFloat(r, 'f', 0, 64), true
+		return r.Num().String(), true
 	case "boolean":
 		return expr, sv == "Boolean"
 	case "string":

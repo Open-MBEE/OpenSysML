@@ -99,6 +99,9 @@ func TestLiteralOfAnotherScalarTypeIsNotBound(t *testing.T) {
       <ownedAttribute xmi:type="uml:Property" xmi:id="_rate" name="rate">`+realHref+`
         <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_rv" value="3"/>
       </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_serial" name="serial">`+integerHref+`
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_sv" value="9007199254740993.0"/>
+      </ownedAttribute>
     </packagedElement>`, `<sysml:Block xmi:id="_st" base_Class="_b"/>`)
 	wantLine(t, r.Notation, "attribute label : ScalarValues::Real {")
 	wantLine(t, r.Notation, "attribute poles : ScalarValues::Integer {")
@@ -114,6 +117,7 @@ func TestLiteralOfAnotherScalarTypeIsNotBound(t *testing.T) {
 	wantNote(t, r, "_on", migrate.Approximated, "default value not migrated: the integer 1 is not a value of Boolean, which the feature holds")
 	wantNote(t, r, "_gain", migrate.Approximated, "default value not migrated: the boolean true is not a value of Real, which the feature holds")
 	wantNote(t, r, "_rate", migrate.Mapped, "")
+	wantLine(t, r.Notation, "attribute serial : ScalarValues::Integer default = 9007199254740993;")
 	wantClean(t, "mistyped.sysml", r)
 }
 
@@ -276,6 +280,36 @@ func TestUntypedPropertyIsTypedByItsIndividualDefault(t *testing.T) {
 	wantNoLine(t, r.Notation, "default value not migrated")
 	wantNote(t, r, "_p", migrate.Approximated, "the default value, the individual usual, is written as a type of the usage")
 	wantClean(t, "untyped-individual.sysml", r)
+}
+
+// An individual types a usage only when it is of the usage's kind: an
+// interface block's individual is no port def, a constraint block's no part
+// def, so such a default stays a comment.
+func TestIndividualDefaultOfAnotherKindIsNotAType(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_bus" name="Bus"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_fits" name="Fits"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_b1" name="bus 1" classifier="_bus"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_f1" name="fits 1" classifier="_fits"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_v" name="Vehicle">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_p" name="bus" type="_bus">
+        <defaultValue xmi:type="uml:InstanceValue" xmi:id="_dv" instance="_b1"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_c" name="check" type="_fits" aggregation="composite">
+        <defaultValue xmi:type="uml:InstanceValue" xmi:id="_dc" instance="_f1"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_u" name="loose">
+        <defaultValue xmi:type="uml:InstanceValue" xmi:id="_du" instance="_b1"/>
+      </ownedAttribute>
+    </packagedElement>`, `
+  <sysml:InterfaceBlock xmi:id="_s1" base_Class="_bus"/>
+  <sysml:Block xmi:id="_s2" base_Class="_fits"/>
+  <sysml:Block xmi:id="_s3" base_Class="_v"/>`)
+	wantLine(t, r.Notation, "port bus : Bus {")
+	wantLine(t, r.Notation, "part check : Fits, 'fits 1';")
+	wantLine(t, r.Notation, "ref loose : 'bus 1';")
+	wantNote(t, r, "_p", migrate.Approximated, "default value not migrated")
+	wantClean(t, "kinds-default.sysml", r)
 }
 
 // A value type with a unit or quantity kind and no base is a magnitude,
@@ -555,14 +589,19 @@ func TestIndividualTakesTheKindOfItsClassifier(t *testing.T) {
         <value xmi:type="uml:InstanceValue" xmi:id="_v2" instance="_f1"/>
       </slot>
     </packagedElement>
-    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_mixed" name="mixed" classifier="_b _fits"/>`, `
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_mixed" name="mixed" classifier="_b _fits"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_bus" name="Bus"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_pf" name="port first" classifier="_bus _b"/>`, `
   <sysml:ConstraintBlock xmi:id="_s1" base_Class="_fits"/>
   <sysml:Block xmi:id="_s2" base_Class="_an"/>
-  <sysml:Block xmi:id="_s3" base_Class="_b"/>`)
+  <sysml:Block xmi:id="_s3" base_Class="_b"/>
+  <sysml:InterfaceBlock xmi:id="_s4" base_Class="_bus"/>`)
 	wantLine(t, r.Notation, "individual constraint def 'fits 1' :> Fits {")
 	wantLine(t, r.Notation, "in attribute :>> x = 3.0;")
 	wantLine(t, r.Notation, "individual constraint :>> fits : 'fits 1';")
 	wantLine(t, r.Notation, "individual part def mixed :> Rover;")
 	wantNote(t, r, "_mixed", migrate.Approximated, "the instance's classifier Fits is not written: an individual part def cannot specialize a constraint def")
+	wantLine(t, r.Notation, "individual part def 'port first' :> Rover;")
+	wantNote(t, r, "_pf", migrate.Approximated, "the instance's classifier Bus is not written: an individual part def cannot specialize a port def")
 	wantClean(t, "kinds.sysml", r)
 }

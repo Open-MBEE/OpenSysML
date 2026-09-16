@@ -491,27 +491,31 @@ func (m *migration) instanceClassifiers(e *xmi.Element) (occurrences, values []*
 	return occurrences, values, strings.Join(notes, "; ")
 }
 
-// individualClassifiers returns the kind an individual takes from its first
-// classifier (part def, constraint def; none for a port def) and the classifiers of that kind.
+// individualClassifiers returns the kind an individual takes from its first classifier
+// of a kind (part def, constraint def; a port def gives none) and the classifiers of that kind.
 func (m *migration) individualClassifiers(e *xmi.Element) (kind category, written []*xmi.Element, note string) {
 	occurrences, _, _ := m.instanceClassifiers(e)
-	var notes []string
-	for _, c := range occurrences {
+	kinds := make([]category, len(occurrences))
+	for i, c := range occurrences {
 		cc, _ := m.classify(c)
 		if cc == catPortDef {
 			cc = catNone
 		}
-		switch {
-		case kind == catNone || kind == cc:
+		kinds[i] = cc
+		if kind == catNone {
 			kind = cc
-		case cc == catNone:
-			notes = append(notes, "the instance's classifier "+qualifiedName(c)+" is not written: an "+individualKeyword(kind)+" cannot specialize a port def")
-			continue
-		default:
-			notes = append(notes, "the instance's classifier "+qualifiedName(c)+" is not written: an "+individualKeyword(kind)+" cannot specialize a "+cc.keyword())
-			continue
 		}
-		written = append(written, c)
+	}
+	var notes []string
+	for i, c := range occurrences {
+		switch {
+		case kinds[i] == kind:
+			written = append(written, c)
+		case kinds[i] == catNone:
+			notes = append(notes, "the instance's classifier "+qualifiedName(c)+" is not written: an "+individualKeyword(kind)+" cannot specialize a port def")
+		default:
+			notes = append(notes, "the instance's classifier "+qualifiedName(c)+" is not written: an "+individualKeyword(kind)+" cannot specialize a "+kinds[i].keyword())
+		}
 	}
 	return kind, written, strings.Join(notes, "; ")
 }

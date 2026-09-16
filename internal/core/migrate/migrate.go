@@ -732,7 +732,7 @@ func (m *migration) instanceSlot(slot, f *xmi.Element, kw, prefix string) {
 			return
 		}
 		// The default individual types the property, so a slot can only repeat it.
-		if d := m.defaultIndividual(f); d != nil && d != inst {
+		if d := m.typingIndividual(f, kw); d != nil && d != inst {
 			m.unmapped(slot, "the slot's value "+describe(inst)+" is not "+describe(d)+", the individual "+f.Name+" is typed by for its default")
 			return
 		}
@@ -1122,7 +1122,7 @@ func (m *migration) feature(p *xmi.Element) {
 			payload = "item"
 		}
 	}
-	ind := m.defaultIndividual(p)
+	ind := m.typingIndividual(p, kw)
 	if ind != nil && payload == "" {
 		// A v2 definition is not a value; the usage is typed by the individual instead.
 		if typ == "" {
