@@ -29,8 +29,12 @@ from packaging.version import InvalidVersion, Version
 
 TAG_PREFIX = "v"
 
+# ASCII digits without leading zeros, as SemVer numeric identifiers are.
+_NUMBER = r"(?:0|[1-9][0-9]*)"
 TAG_VERSION = re.compile(
-    r"^(?P<release>\d+\.\d+\.\d+)(?:-(?P<phase>alpha|beta|rc)\.?(?P<number>\d+))?$"
+    rf"^(?P<release>{_NUMBER}\.{_NUMBER}\.{_NUMBER})"
+    rf"(?:-(?P<phase>alpha|beta|rc)\.?(?P<number>{_NUMBER}))?$",
+    re.ASCII,
 )
 TAG_FORM = f"{TAG_PREFIX}<major>.<minor>.<patch>[-(alpha|beta|rc)[.]<n>]"
 PEP_440_PHASE = {"alpha": "a", "beta": "b", "rc": "rc"}
@@ -140,7 +144,7 @@ def pep440_from_semver(semver, tag):
         )
     if match["phase"] is None:
         return match["release"]
-    return f"{match['release']}{PEP_440_PHASE[match['phase']]}{int(match['number'])}"
+    return f"{match['release']}{PEP_440_PHASE[match['phase']]}{match['number']}"
 
 
 def parse_version(version, what):

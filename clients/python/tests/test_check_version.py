@@ -47,7 +47,8 @@ def test_version_from_tag_accepts_the_declared_version():
         ("v0.4.0-rc.1", "0.4.0rc1"),
         ("v0.4.0-alpha.2", "0.4.0a2"),
         ("v0.4.0-beta1", "0.4.0b1"),
-        ("v0.4.0-rc.010", "0.4.0rc10"),
+        ("v0.4.0-rc.10", "0.4.0rc10"),
+        ("v10.0.0-rc0", "10.0.0rc0"),
     ],
 )
 def test_version_from_tag_translates_a_semver_pre_release_to_pep_440(tag, declared):
@@ -68,6 +69,11 @@ def test_version_from_tag_translates_a_semver_pre_release_to_pep_440(tag, declar
         "v0.4",
         "v0.4.0.1",
         "v0.4.0-not-a-version",
+        "v0.4.0-rc.010",  # leading zero: not a SemVer numeric identifier
+        "v0.4.0-rc010",
+        "v0.04.0",
+        "v0.4.0-rc\u0661",  # Arabic-Indic one: a digit to \\d, not to SemVer
+        "v\u0660.4.0",
     ],
 )
 def test_version_from_tag_rejects_a_suffix_without_one_pep_440_meaning(tag):
