@@ -254,12 +254,12 @@ written in, so the verdicts are about that object:
 | `-requirement <name>` | One requirement, as `%requirement` does, with [the verdict of every verification case](#verification-case-verdicts) verifying it beside its own |
 | `-satisfy` | Every satisfaction assertion the model states, with [the verdict of every verification case](#verification-case-verdicts) verifying the requirement beside each |
 | `-satisfy=<name>` | Only the assertions the named element states (`-satisfy=false` asks for none) |
-| `-instantiate <name>` | Creates an object first, so the verdicts are about it; with `-run-query` or `-render-document`, so the query reads it ([Objects the session holds](../manual/query-cookbook.md#objects-the-session-holds)) |
+| `-instantiate <name>` | Creates an object first, so the verdicts are about it; with `-run-query` or `-render-document`, so the query reads it ([Objects the session holds](../manual/query-cookbook.md#objects-the-session-holds)). Under `-schedule explore`, `-engine check`, `smt` or `all` each run creates an object of the declaration of its own before its behaviors start, one per `-instantiate` as the session holds one per `-instantiate`, which a `-state` or `-action` named alone attaches to and a path such as `Mission::mission.vehicle` walks into ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-calc "<name>(<args>)"` | Invokes a calculation and reports what it computed |
 | `-analysis "<name>[(<args>)] [object]"` | Runs an analysis or [verification](#verification-case-verdicts) case — a [trade study](#trade-studies) included — and reports its `out` and `return` values with their units, then the verdict of its `objective` — `satisfied`, `not satisfied` with the violated condition, or `undecided` with the reason — as `%analysis` does. An objective typed by a requirement def binds the def's subject as a requirement usage does (`subject = ship;`, `subject s = ship;` or `subject :>> s = ship;`); one binding none checks the case's result, the library's default for it, and is `undecided` naming the type when that result is not of the subject's type. Arguments bind the case's `in` parameters, positionally (`Pkg::Case(3.0)`) or by name (`Pkg::Case(limit = 3.0)`); the object, one `-instantiate` created and named as `-state` names its performer, is the case's `subject`. A usage that binds its subject (`subject s = ship;`) needs no object; a definition, or a usage that binds none, is refused by name without one. A verification case runs the same way and reports beside those verdicts the `VerdictKind` its body produced. Repeatable |
 | `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column(name = "<column>", expression = <expr>)` projections evaluated per row. Each binding is written as `<parameter>=<expression>`; a name binds the object `-instantiate` created under it while the run holds one (`#2` and `car.wheels[2]` bind an object by id and by path), and the element otherwise. A query over `Verdicts` reports each row as `<assertion> on <path>: <verdict>` ([Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold)) |
-| `-action "<name> [object]"` | Runs an action to completion and reports its outputs |
-| `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate` |
+| `-action "<name> [object]"` | Runs an action to completion and reports its outputs, on the object named as `-state` names its performer when one is; under `-schedule explore` each run performs it on an object of its own ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
+| `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate`. Under `-schedule explore` the object is one each run creates of its own: a definition or usage to instantiate, a path from one into a part it holds (`Mission::mission.vehicle`, `Fleet::fleet.rovers[2]`) or, named alone, the run's one `-instantiate` object exhibiting the machine ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-advance <time>` | Simulated time (seconds, `SI::s`) the invocation's `-action` and `-state` behaviors run for, on the one clock they share: every state event, action `accept after`/`accept at` and do behavior due within it runs, in due order — a state's do behavior parked at an `accept after` of its own action body among them — and two behaviors due at the same instant run in the order `-schedule` picks (the one started last first by default), reported as a choice point. A state machine takes only its initial transition without it; an action runs to completion on its own without it and, with it, only as far as that much time takes it, so one still waiting on the clock is reported as undecided with the instant it waits for. Refused without an `-action` or `-state` to run |
 | `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind, and the values are produced in its declared type (`1..4:1` over a `Real` binds `1.0`, `2.0`, …). Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
 | `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names — Integers inclusively for a parameter taking Integers, reals in `[<from>, <to>)` for one taking reals |
@@ -959,9 +959,11 @@ explores in exactly one run. With `-advance`, every
 `-action` and `-state` behavior named is started on one clock in each run and the clock advanced
 once, as it is under any policy, so the order of executors due at one instant is explored like any
 other choice point: several behaviors come to one *joint* outcome, each behavior's observables under
-its name (`Demo::Beacon::blinking finalState = "shining"; Demo::watcher.sawLit = true`), and the
-witness names which executor ran first (`t=5.0: state machine blinking of object #1 first of action
-watcher, state machine blinking of object #1`); an action still waiting on the clock when the time
+its name and what the object performed on holds under `this.` (`Demo::Beacon::blinking finalState =
+"shining"; Demo::watcher.sawLit = true; this.lit = true`), and the witness names which executor
+ran first (`t=5.0: state machine blinking of object #1 first of state machine blinking of object
+#1, action watcher` — the `-instantiate`d beacon's machine, created first in each run, is listed
+first); an action still waiting on the clock when the time
 is up is the run's error, as it is undecided under one policy.
 
 Runs that agree on what the harness compares — an action's outputs; a state machine's final state,
@@ -1019,6 +1021,44 @@ exploration ended as `exploration` (`complete`, `runs`, `budgetsHit`):
 The REPL's `%schedule` refuses `explore`, since its `%action` and `%state` debuggers step one run
 ([`%schedule`](repl-commands.md)); a service client explores through the same `schedule` field
 and reads the outcomes off the response ([API](api.md), [wire contract](wire-contract.md)).
+
+### Objects an exploration runs on
+
+Every explored run creates its objects afresh, so the object a `-state`, `-action` or `-analysis`
+names is not one the session holds but a *recipe* each run follows. Three spellings name one:
+
+- **A declaration** — a `part`/`item` usage or definition, as `-state "Fleet::Rover::modes
+  Fleet::rover"`: each run instantiates it and runs the machine on that object.
+- **A path from a declaration** into a part it holds — `<declaration>.<usage>[.<usage>…]`, with
+  `[i]` on a multi-valued usage: `-state "Comms::Craft::modes Comms::pair.craft"`,
+  `-analysis "Dyn::Analysis Fleet::fleet.rovers[2]"`. The run instantiates the declaration the path
+  starts from, its parts and connectors with it, then walks the rest of the path inside that
+  object exactly as `%state` walks `pair.craft` in the session's. The declaration is created **once
+  per run** however many behaviors name paths under it, so `-state "Comms::Ground::listen
+  Comms::pair.ground" -state "Comms::Craft::modes Comms::pair.craft"` runs both machines on the
+  parts of one `pair` and the messages the pair's connector carries between them are what the
+  exploration tables — the point of exploring an assembly rather than a part on its own.
+- **An `-instantiate`d declaration**, given to every run: `-instantiate Comms::pair` makes each run
+  create its own `pair` before its behaviors start. A machine or action named alone (`-state
+  Comms::Ground::listen`, `-action Tank::Tank::fill`) then attaches to the performance the run's one
+  object exhibiting or performing it already runs, so the outcome is that object's; several objects
+  running it are refused by name, as `%state` refuses the session's. A path under the declaration
+  (`Comms::pair.ground`) walks into the same object rather than creating another. A declaration
+  `-instantiate`d twice gives each run two objects of it, as the session holds two: the name and a
+  path from it denote the later, the earlier is the run's by id alone (`#3.ground`), and a machine
+  named alone that both run is ambiguous between them.
+
+The path is planned once, under the session's lock, before any run starts: an unknown usage
+(`Comms::pair.tower`), an index on a usage of one value (`Comms::pair.ground[2]`) or a step through
+a value that is no object are refused by name with nothing run. What only a run can know — a part
+its recipe left unbuilt, an index past what the run created — is that run's error, an outcome of its
+own in the table. The id the report prints (`#2`) and a path rooted at it (`#2.ground`) name an
+object of *this* session, which no run sees, and are refused saying so: name the declaration
+instead. The prompt's `%instantiate` likewise creates the session's object alone, which no run
+sees; only the CLI's `-instantiate` is given to the runs. The same spellings name the performer and
+subject of a service request ([wire contract](wire-contract.md)), and `-engine check`, `smt` and
+`all` plan their runs' objects by the same rules, so a witness the checker writes for a machine on
+`Comms::pair.ground` replays on it.
 
 ### Running in parallel
 
