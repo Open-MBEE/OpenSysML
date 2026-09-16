@@ -33,6 +33,8 @@ from opensysml.errors import (
     DeleteReferencedError,
     OwnerInsideTargetError,
     MoveReferencedError,
+    ReferencedElsewhereError,
+    Referrer,
 )
 
 #: Refusal kinds, as the wire enum names them, and the error each raises. A kind
@@ -56,6 +58,7 @@ _FAILURE_ERRORS = {
     "EDIT_FAILURE_DELETE_REFERENCED": DeleteReferencedError,
     "EDIT_FAILURE_OWNER_INSIDE_TARGET": OwnerInsideTargetError,
     "EDIT_FAILURE_MOVE_REFERENCED": MoveReferencedError,
+    "EDIT_FAILURE_REFERENCED_ELSEWHERE": ReferencedElsewhereError,
 }
 
 
@@ -78,7 +81,8 @@ def failure_name(failure):
         return f"EDIT_FAILURE_{failure}"
 
 
-def error_for_failure(failure, message, diagnostics=None, referring_elements=None):
+def error_for_failure(failure, message, diagnostics=None, referring_elements=None,
+                      referrers=None):
     """Build the error a refusal kind names.
 
     Args:
@@ -86,6 +90,8 @@ def error_for_failure(failure, message, diagnostics=None, referring_elements=Non
         message (str): Why the edit was refused
         diagnostics (list, optional): Diagnostics behind the refusal
         referring_elements (list, optional): Referrers of a refused rename
+        referrers (list[Referrer], optional): The same referrers, each with
+            the document declaring it
 
     Returns:
         EditError: The typed refusal, ready to raise
@@ -96,6 +102,7 @@ def error_for_failure(failure, message, diagnostics=None, referring_elements=Non
         failure=failure,
         diagnostics=diagnostics,
         referring_elements=referring_elements,
+        referrers=referrers,
     )
 
 
@@ -112,6 +119,8 @@ class AppliedEdit:
             that had none: nothing was replaced, text was inserted.
         old_text: The bytes that were there.
         new_text: What replaced them.
+        document: The document the bytes belong to, named as the parse named
+            it; the model's one document for a model loaded from a file.
     """
 
     operation_index: int
@@ -120,9 +129,28 @@ class AppliedEdit:
     length: int
     old_text: str
     new_text: str
+    document: str = ""
 
     def __str__(self):
         return f"{self.target}: {self.old_text!r} -> {self.new_text!r}"
+
+
+@dataclass(frozen=True)
+class EditedDocument:
+    """The edited notation of one document of the model.
+
+    Attributes:
+        name: The document's name as the parse named it: the file path of a
+            loaded file, or the name inline content was loaded under.
+        content: The edited notation, byte-identical to the source outside the
+            edited spans.
+    """
+
+    name: str
+    content: str
+
+    def __str__(self):
+        return self.content
 
 
 @dataclass(frozen=True)
@@ -130,13 +158,24 @@ class EditResult(Conversion):
     """The edited notation, as a :class:`~opensysml.conversion.Conversion`.
 
     ``str(result)`` is the edited text and ``result.save(path)`` writes it, so an
-    edit is written the way a conversion is.
+    edit is written the way a conversion is. ``content`` is the notation of a
+    model of one document, which is every model this client loads; a model of
+    several documents, edited through the service directly by a request that
+    accepts documents, answers with its rewritten documents in ``documents``
+    and an empty ``content``. A request not accepting them is refused on such
+    a model, as every request was before ``documents`` existed.
 
     Attributes:
-        applied: What each operation changed, in source order.
+        applied: What each operation changed, grouped by document in the order
+            ``documents`` lists them and in source order within a document.
+        documents: The edited notation of every document the edits rewrote,
+            the edited document first: one entry for a model of one document.
+            Empty from a service without the ``edit_documents`` capability,
+            which answers ``content`` alone.
     """
 
     applied: List[AppliedEdit] = field(default_factory=list)
+    documents: List[EditedDocument] = field(default_factory=list)
 
     def save(self, path):
         """Write the edited model to ``path``.
@@ -466,7 +505,24 @@ def result_of(response, applied_source=FORMAT_SYSML):
                 length=a.length,
                 old_text=a.old_text,
                 new_text=a.new_text,
+                document=a.document,
             )
             for a in response.applied
         ],
+        documents=[
+            EditedDocument(name=d.name, content=d.content)
+            for d in response.documents
+        ],
     )
+
+
+def referrers_of(response):
+    """Read an ``ApplyEditsResponse``'s referrers as :class:`Referrer` objects.
+
+    Args:
+        response: sysml_pb2.ApplyEditsResponse protobuf message
+
+    Returns:
+        list[Referrer]: Each referring declaration with its document
+    """
+    return [Referrer(name=r.name, document=r.document) for r in response.referrers]

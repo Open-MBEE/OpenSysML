@@ -10,6 +10,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
@@ -36,6 +37,9 @@ type CachedModel struct {
 	Documents []*CachedDocument
 	Index     *symbols.Index // For symbol lookups by FQN
 	Library   libs.Source    // the files the library in Index was built from, for their spans' text
+	// Mode is the conformance strictness the parse request asked for; an edit's
+	// notation is judged at the same strictness.
+	Mode conformance.Mode
 
 	symCtxOnce sync.Once
 	symCtx     *SymbolContext
@@ -134,7 +138,7 @@ func (m *CachedModel) PrimaryRoot() *symbols.Scope {
 }
 
 // SoleDocument is the model's one document, for an operation defined on a single
-// document's own source — editing it, or writing it back out. A model of several
+// document's own source, such as writing it back out. A model of several
 // documents is refused rather than answered about one of them.
 func (m *CachedModel) SoleDocument() (*CachedDocument, error) {
 	if len(m.Documents) > 1 {

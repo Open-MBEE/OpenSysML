@@ -7,19 +7,16 @@ package org.openmbee.opensysml.proto;
 
 /**
  * <pre>
- * RenameEdit rewrites the name token of a declaration and every reference to
- * it in the model's documents. A rename that reaches a reference in a document
- * the edit cannot rewrite is refused, naming the referring elements, rather
- * than leaving a broken model.
+ * Referrer is one declaration referring to the target of a refused edit.
  * </pre>
  *
- * Protobuf type {@code sysml.RenameEdit}
+ * Protobuf type {@code sysml.Referrer}
  */
 @com.google.protobuf.Generated
-public final class RenameEdit extends
+public final class Referrer extends
     com.google.protobuf.GeneratedMessage implements
-    // @@protoc_insertion_point(message_implements:sysml.RenameEdit)
-    RenameEditOrBuilder {
+    // @@protoc_insertion_point(message_implements:sysml.Referrer)
+    ReferrerOrBuilder {
 private static final long serialVersionUID = 0L;
   static {
     com.google.protobuf.RuntimeVersion.validateProtobufGencodeVersion(
@@ -28,118 +25,120 @@ private static final long serialVersionUID = 0L;
       /* minor= */ 33,
       /* patch= */ 1,
       /* suffix= */ "",
-      "RenameEdit");
+      "Referrer");
   }
-  // Use RenameEdit.newBuilder() to construct.
-  private RenameEdit(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
+  // Use Referrer.newBuilder() to construct.
+  private Referrer(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
     super(builder);
   }
-  private RenameEdit() {
-    target_ = "";
-    newName_ = "";
+  private Referrer() {
+    name_ = "";
+    document_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_RenameEdit_descriptor;
+    return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_Referrer_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_RenameEdit_fieldAccessorTable
+    return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_Referrer_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            org.openmbee.opensysml.proto.RenameEdit.class, org.openmbee.opensysml.proto.RenameEdit.Builder.class);
+            org.openmbee.opensysml.proto.Referrer.class, org.openmbee.opensysml.proto.Referrer.Builder.class);
   }
 
-  public static final int TARGET_FIELD_NUMBER = 1;
+  public static final int NAME_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
-  private volatile java.lang.Object target_ = "";
+  private volatile java.lang.Object name_ = "";
   /**
    * <pre>
-   * element to rename, as SymbolInfo.id names it
+   * The declaration as the notation names it: the FQN of a named one, or the
+   * heading of an anonymous one within its namespace.
    * </pre>
    *
-   * <code>string target = 1 [json_name = "target"];</code>
-   * @return The target.
+   * <code>string name = 1 [json_name = "name"];</code>
+   * @return The name.
    */
   @java.lang.Override
-  public java.lang.String getTarget() {
-    java.lang.Object ref = target_;
+  public java.lang.String getName() {
+    java.lang.Object ref = name_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      target_ = s;
+      name_ = s;
       return s;
     }
   }
   /**
    * <pre>
-   * element to rename, as SymbolInfo.id names it
+   * The declaration as the notation names it: the FQN of a named one, or the
+   * heading of an anonymous one within its namespace.
    * </pre>
    *
-   * <code>string target = 1 [json_name = "target"];</code>
-   * @return The bytes for target.
+   * <code>string name = 1 [json_name = "name"];</code>
+   * @return The bytes for name.
    */
   @java.lang.Override
   public com.google.protobuf.ByteString
-      getTargetBytes() {
-    java.lang.Object ref = target_;
+      getNameBytes() {
+    java.lang.Object ref = name_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
-      target_ = b;
+      name_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
     }
   }
 
-  public static final int NEW_NAME_FIELD_NUMBER = 2;
+  public static final int DOCUMENT_FIELD_NUMBER = 2;
   @SuppressWarnings("serial")
-  private volatile java.lang.Object newName_ = "";
+  private volatile java.lang.Object document_ = "";
   /**
    * <pre>
-   * new declared name; must lex as an identifier
+   * The document declaring it, named as the parse request named it.
    * </pre>
    *
-   * <code>string new_name = 2 [json_name = "newName"];</code>
-   * @return The newName.
+   * <code>string document = 2 [json_name = "document"];</code>
+   * @return The document.
    */
   @java.lang.Override
-  public java.lang.String getNewName() {
-    java.lang.Object ref = newName_;
+  public java.lang.String getDocument() {
+    java.lang.Object ref = document_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      newName_ = s;
+      document_ = s;
       return s;
     }
   }
   /**
    * <pre>
-   * new declared name; must lex as an identifier
+   * The document declaring it, named as the parse request named it.
    * </pre>
    *
-   * <code>string new_name = 2 [json_name = "newName"];</code>
-   * @return The bytes for newName.
+   * <code>string document = 2 [json_name = "document"];</code>
+   * @return The bytes for document.
    */
   @java.lang.Override
   public com.google.protobuf.ByteString
-      getNewNameBytes() {
-    java.lang.Object ref = newName_;
+      getDocumentBytes() {
+    java.lang.Object ref = document_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
-      newName_ = b;
+      document_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
@@ -160,11 +159,11 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(target_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 1, target_);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(name_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 1, name_);
     }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(newName_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 2, newName_);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(document_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 2, document_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -175,11 +174,11 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(target_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(1, target_);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(name_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(1, name_);
     }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(newName_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(2, newName_);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(document_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(2, document_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -191,15 +190,15 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof org.openmbee.opensysml.proto.RenameEdit)) {
+    if (!(obj instanceof org.openmbee.opensysml.proto.Referrer)) {
       return super.equals(obj);
     }
-    org.openmbee.opensysml.proto.RenameEdit other = (org.openmbee.opensysml.proto.RenameEdit) obj;
+    org.openmbee.opensysml.proto.Referrer other = (org.openmbee.opensysml.proto.Referrer) obj;
 
-    if (!getTarget()
-        .equals(other.getTarget())) return false;
-    if (!getNewName()
-        .equals(other.getNewName())) return false;
+    if (!getName()
+        .equals(other.getName())) return false;
+    if (!getDocument()
+        .equals(other.getDocument())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -211,53 +210,53 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    hash = (37 * hash) + TARGET_FIELD_NUMBER;
-    hash = (53 * hash) + getTarget().hashCode();
-    hash = (37 * hash) + NEW_NAME_FIELD_NUMBER;
-    hash = (53 * hash) + getNewName().hashCode();
+    hash = (37 * hash) + NAME_FIELD_NUMBER;
+    hash = (53 * hash) + getName().hashCode();
+    hash = (37 * hash) + DOCUMENT_FIELD_NUMBER;
+    hash = (53 * hash) + getDocument().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
   }
 
-  public static org.openmbee.opensysml.proto.RenameEdit parseFrom(
+  public static org.openmbee.opensysml.proto.Referrer parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static org.openmbee.opensysml.proto.RenameEdit parseFrom(
+  public static org.openmbee.opensysml.proto.Referrer parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static org.openmbee.opensysml.proto.RenameEdit parseFrom(
+  public static org.openmbee.opensysml.proto.Referrer parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static org.openmbee.opensysml.proto.RenameEdit parseFrom(
+  public static org.openmbee.opensysml.proto.Referrer parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static org.openmbee.opensysml.proto.RenameEdit parseFrom(byte[] data)
+  public static org.openmbee.opensysml.proto.Referrer parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static org.openmbee.opensysml.proto.RenameEdit parseFrom(
+  public static org.openmbee.opensysml.proto.Referrer parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static org.openmbee.opensysml.proto.RenameEdit parseFrom(java.io.InputStream input)
+  public static org.openmbee.opensysml.proto.Referrer parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseWithIOException(PARSER, input);
   }
-  public static org.openmbee.opensysml.proto.RenameEdit parseFrom(
+  public static org.openmbee.opensysml.proto.Referrer parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -265,26 +264,26 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
-  public static org.openmbee.opensysml.proto.RenameEdit parseDelimitedFrom(java.io.InputStream input)
+  public static org.openmbee.opensysml.proto.Referrer parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseDelimitedWithIOException(PARSER, input);
   }
 
-  public static org.openmbee.opensysml.proto.RenameEdit parseDelimitedFrom(
+  public static org.openmbee.opensysml.proto.Referrer parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static org.openmbee.opensysml.proto.RenameEdit parseFrom(
+  public static org.openmbee.opensysml.proto.Referrer parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseWithIOException(PARSER, input);
   }
-  public static org.openmbee.opensysml.proto.RenameEdit parseFrom(
+  public static org.openmbee.opensysml.proto.Referrer parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -297,7 +296,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(org.openmbee.opensysml.proto.RenameEdit prototype) {
+  public static Builder newBuilder(org.openmbee.opensysml.proto.Referrer prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -314,32 +313,29 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * RenameEdit rewrites the name token of a declaration and every reference to
-   * it in the model's documents. A rename that reaches a reference in a document
-   * the edit cannot rewrite is refused, naming the referring elements, rather
-   * than leaving a broken model.
+   * Referrer is one declaration referring to the target of a refused edit.
    * </pre>
    *
-   * Protobuf type {@code sysml.RenameEdit}
+   * Protobuf type {@code sysml.Referrer}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessage.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:sysml.RenameEdit)
-      org.openmbee.opensysml.proto.RenameEditOrBuilder {
+      // @@protoc_insertion_point(builder_implements:sysml.Referrer)
+      org.openmbee.opensysml.proto.ReferrerOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_RenameEdit_descriptor;
+      return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_Referrer_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_RenameEdit_fieldAccessorTable
+      return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_Referrer_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              org.openmbee.opensysml.proto.RenameEdit.class, org.openmbee.opensysml.proto.RenameEdit.Builder.class);
+              org.openmbee.opensysml.proto.Referrer.class, org.openmbee.opensysml.proto.Referrer.Builder.class);
     }
 
-    // Construct using org.openmbee.opensysml.proto.RenameEdit.newBuilder()
+    // Construct using org.openmbee.opensysml.proto.Referrer.newBuilder()
     private Builder() {
 
     }
@@ -353,25 +349,25 @@ private static final long serialVersionUID = 0L;
     public Builder clear() {
       super.clear();
       bitField0_ = 0;
-      target_ = "";
-      newName_ = "";
+      name_ = "";
+      document_ = "";
       return this;
     }
 
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_RenameEdit_descriptor;
+      return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_Referrer_descriptor;
     }
 
     @java.lang.Override
-    public org.openmbee.opensysml.proto.RenameEdit getDefaultInstanceForType() {
-      return org.openmbee.opensysml.proto.RenameEdit.getDefaultInstance();
+    public org.openmbee.opensysml.proto.Referrer getDefaultInstanceForType() {
+      return org.openmbee.opensysml.proto.Referrer.getDefaultInstance();
     }
 
     @java.lang.Override
-    public org.openmbee.opensysml.proto.RenameEdit build() {
-      org.openmbee.opensysml.proto.RenameEdit result = buildPartial();
+    public org.openmbee.opensysml.proto.Referrer build() {
+      org.openmbee.opensysml.proto.Referrer result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -379,42 +375,42 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public org.openmbee.opensysml.proto.RenameEdit buildPartial() {
-      org.openmbee.opensysml.proto.RenameEdit result = new org.openmbee.opensysml.proto.RenameEdit(this);
+    public org.openmbee.opensysml.proto.Referrer buildPartial() {
+      org.openmbee.opensysml.proto.Referrer result = new org.openmbee.opensysml.proto.Referrer(this);
       if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
     }
 
-    private void buildPartial0(org.openmbee.opensysml.proto.RenameEdit result) {
+    private void buildPartial0(org.openmbee.opensysml.proto.Referrer result) {
       int from_bitField0_ = bitField0_;
       if (((from_bitField0_ & 0x00000001) != 0)) {
-        result.target_ = target_;
+        result.name_ = name_;
       }
       if (((from_bitField0_ & 0x00000002) != 0)) {
-        result.newName_ = newName_;
+        result.document_ = document_;
       }
     }
 
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof org.openmbee.opensysml.proto.RenameEdit) {
-        return mergeFrom((org.openmbee.opensysml.proto.RenameEdit)other);
+      if (other instanceof org.openmbee.opensysml.proto.Referrer) {
+        return mergeFrom((org.openmbee.opensysml.proto.Referrer)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(org.openmbee.opensysml.proto.RenameEdit other) {
-      if (other == org.openmbee.opensysml.proto.RenameEdit.getDefaultInstance()) return this;
-      if (!other.getTarget().isEmpty()) {
-        target_ = other.target_;
+    public Builder mergeFrom(org.openmbee.opensysml.proto.Referrer other) {
+      if (other == org.openmbee.opensysml.proto.Referrer.getDefaultInstance()) return this;
+      if (!other.getName().isEmpty()) {
+        name_ = other.name_;
         bitField0_ |= 0x00000001;
         onChanged();
       }
-      if (!other.getNewName().isEmpty()) {
-        newName_ = other.newName_;
+      if (!other.getDocument().isEmpty()) {
+        document_ = other.document_;
         bitField0_ |= 0x00000002;
         onChanged();
       }
@@ -445,12 +441,12 @@ private static final long serialVersionUID = 0L;
               done = true;
               break;
             case 10: {
-              target_ = input.readStringRequireUtf8();
+              name_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000001;
               break;
             } // case 10
             case 18: {
-              newName_ = input.readStringRequireUtf8();
+              document_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000002;
               break;
             } // case 18
@@ -471,22 +467,23 @@ private static final long serialVersionUID = 0L;
     }
     private int bitField0_;
 
-    private java.lang.Object target_ = "";
+    private java.lang.Object name_ = "";
     /**
      * <pre>
-     * element to rename, as SymbolInfo.id names it
+     * The declaration as the notation names it: the FQN of a named one, or the
+     * heading of an anonymous one within its namespace.
      * </pre>
      *
-     * <code>string target = 1 [json_name = "target"];</code>
-     * @return The target.
+     * <code>string name = 1 [json_name = "name"];</code>
+     * @return The name.
      */
-    public java.lang.String getTarget() {
-      java.lang.Object ref = target_;
+    public java.lang.String getName() {
+      java.lang.Object ref = name_;
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        target_ = s;
+        name_ = s;
         return s;
       } else {
         return (java.lang.String) ref;
@@ -494,20 +491,21 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * element to rename, as SymbolInfo.id names it
+     * The declaration as the notation names it: the FQN of a named one, or the
+     * heading of an anonymous one within its namespace.
      * </pre>
      *
-     * <code>string target = 1 [json_name = "target"];</code>
-     * @return The bytes for target.
+     * <code>string name = 1 [json_name = "name"];</code>
+     * @return The bytes for name.
      */
     public com.google.protobuf.ByteString
-        getTargetBytes() {
-      java.lang.Object ref = target_;
+        getNameBytes() {
+      java.lang.Object ref = name_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        target_ = b;
+        name_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -515,70 +513,73 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * element to rename, as SymbolInfo.id names it
+     * The declaration as the notation names it: the FQN of a named one, or the
+     * heading of an anonymous one within its namespace.
      * </pre>
      *
-     * <code>string target = 1 [json_name = "target"];</code>
-     * @param value The target to set.
+     * <code>string name = 1 [json_name = "name"];</code>
+     * @param value The name to set.
      * @return This builder for chaining.
      */
-    public Builder setTarget(
+    public Builder setName(
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
-      target_ = value;
+      name_ = value;
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * element to rename, as SymbolInfo.id names it
+     * The declaration as the notation names it: the FQN of a named one, or the
+     * heading of an anonymous one within its namespace.
      * </pre>
      *
-     * <code>string target = 1 [json_name = "target"];</code>
+     * <code>string name = 1 [json_name = "name"];</code>
      * @return This builder for chaining.
      */
-    public Builder clearTarget() {
-      target_ = getDefaultInstance().getTarget();
+    public Builder clearName() {
+      name_ = getDefaultInstance().getName();
       bitField0_ = (bitField0_ & ~0x00000001);
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * element to rename, as SymbolInfo.id names it
+     * The declaration as the notation names it: the FQN of a named one, or the
+     * heading of an anonymous one within its namespace.
      * </pre>
      *
-     * <code>string target = 1 [json_name = "target"];</code>
-     * @param value The bytes for target to set.
+     * <code>string name = 1 [json_name = "name"];</code>
+     * @param value The bytes for name to set.
      * @return This builder for chaining.
      */
-    public Builder setTargetBytes(
+    public Builder setNameBytes(
         com.google.protobuf.ByteString value) {
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
-      target_ = value;
+      name_ = value;
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
 
-    private java.lang.Object newName_ = "";
+    private java.lang.Object document_ = "";
     /**
      * <pre>
-     * new declared name; must lex as an identifier
+     * The document declaring it, named as the parse request named it.
      * </pre>
      *
-     * <code>string new_name = 2 [json_name = "newName"];</code>
-     * @return The newName.
+     * <code>string document = 2 [json_name = "document"];</code>
+     * @return The document.
      */
-    public java.lang.String getNewName() {
-      java.lang.Object ref = newName_;
+    public java.lang.String getDocument() {
+      java.lang.Object ref = document_;
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        newName_ = s;
+        document_ = s;
         return s;
       } else {
         return (java.lang.String) ref;
@@ -586,20 +587,20 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * new declared name; must lex as an identifier
+     * The document declaring it, named as the parse request named it.
      * </pre>
      *
-     * <code>string new_name = 2 [json_name = "newName"];</code>
-     * @return The bytes for newName.
+     * <code>string document = 2 [json_name = "document"];</code>
+     * @return The bytes for document.
      */
     public com.google.protobuf.ByteString
-        getNewNameBytes() {
-      java.lang.Object ref = newName_;
+        getDocumentBytes() {
+      java.lang.Object ref = document_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        newName_ = b;
+        document_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -607,71 +608,71 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * new declared name; must lex as an identifier
+     * The document declaring it, named as the parse request named it.
      * </pre>
      *
-     * <code>string new_name = 2 [json_name = "newName"];</code>
-     * @param value The newName to set.
+     * <code>string document = 2 [json_name = "document"];</code>
+     * @param value The document to set.
      * @return This builder for chaining.
      */
-    public Builder setNewName(
+    public Builder setDocument(
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
-      newName_ = value;
+      document_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * new declared name; must lex as an identifier
+     * The document declaring it, named as the parse request named it.
      * </pre>
      *
-     * <code>string new_name = 2 [json_name = "newName"];</code>
+     * <code>string document = 2 [json_name = "document"];</code>
      * @return This builder for chaining.
      */
-    public Builder clearNewName() {
-      newName_ = getDefaultInstance().getNewName();
+    public Builder clearDocument() {
+      document_ = getDefaultInstance().getDocument();
       bitField0_ = (bitField0_ & ~0x00000002);
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * new declared name; must lex as an identifier
+     * The document declaring it, named as the parse request named it.
      * </pre>
      *
-     * <code>string new_name = 2 [json_name = "newName"];</code>
-     * @param value The bytes for newName to set.
+     * <code>string document = 2 [json_name = "document"];</code>
+     * @param value The bytes for document to set.
      * @return This builder for chaining.
      */
-    public Builder setNewNameBytes(
+    public Builder setDocumentBytes(
         com.google.protobuf.ByteString value) {
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
-      newName_ = value;
+      document_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
 
-    // @@protoc_insertion_point(builder_scope:sysml.RenameEdit)
+    // @@protoc_insertion_point(builder_scope:sysml.Referrer)
   }
 
-  // @@protoc_insertion_point(class_scope:sysml.RenameEdit)
-  private static final org.openmbee.opensysml.proto.RenameEdit DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:sysml.Referrer)
+  private static final org.openmbee.opensysml.proto.Referrer DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new org.openmbee.opensysml.proto.RenameEdit();
+    DEFAULT_INSTANCE = new org.openmbee.opensysml.proto.Referrer();
   }
 
-  public static org.openmbee.opensysml.proto.RenameEdit getDefaultInstance() {
+  public static org.openmbee.opensysml.proto.Referrer getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<RenameEdit>
-      PARSER = new com.google.protobuf.AbstractParser<RenameEdit>() {
+  private static final com.google.protobuf.Parser<Referrer>
+      PARSER = new com.google.protobuf.AbstractParser<Referrer>() {
     @java.lang.Override
-    public RenameEdit parsePartialFrom(
+    public Referrer parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -690,17 +691,17 @@ private static final long serialVersionUID = 0L;
     }
   };
 
-  public static com.google.protobuf.Parser<RenameEdit> parser() {
+  public static com.google.protobuf.Parser<Referrer> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<RenameEdit> getParserForType() {
+  public com.google.protobuf.Parser<Referrer> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public org.openmbee.opensysml.proto.RenameEdit getDefaultInstanceForType() {
+  public org.openmbee.opensysml.proto.Referrer getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

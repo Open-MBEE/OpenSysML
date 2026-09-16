@@ -919,16 +919,34 @@ pub struct ConvertResponse {
 }
 /// ApplyEditsRequest asks for a model's source with edits applied to it. The
 /// source edited is the one parse read, named by its hash, so an edit is applied
-/// to the model that was inspected.
+/// to the model that was inspected. A model of several documents (ParseSources)
+/// is edited as one when the request sets `accept_documents`: the operations
+/// target declarations of the document named by `document`, and a rename or
+/// cascade delete follows references into every other document of the model,
+/// rewriting those too. `document` and `accept_documents` are advertised as the
+/// "edit_documents" capability: a service without it edits a model of one
+/// document alone and answers `content` alone, so a client checks it before
+/// naming a document or reading `documents`.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ApplyEditsRequest {
-    /// from ParseFile response
+    /// from a ParseFile or ParseSources response
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
     /// Edits to apply, all of them or none. Empty is rejected: it names no edit,
     /// and answering with the unedited source would look like one was made.
     #[prost(message, repeated, tag="2")]
     pub operations: ::prost::alloc::vec::Vec<EditOperation>,
+    /// The document whose declarations the operations target, named as the parse
+    /// request named it; empty names the model's first document, which is the
+    /// only one of a ParseFile model. An operation targeting a declaration of
+    /// another document is refused as an unknown target, naming that document. A
+    /// name no document of the model has fails the call as an invalid argument.
+    #[prost(string, tag="3")]
+    pub document: ::prost::alloc::string::String,
+    /// Whether the client reads the response's `documents`. A model of several documents is
+    /// edited only when set; unset, such a model is refused as a failed precondition, as before.
+    #[prost(bool, tag="4")]
+    pub accept_documents: bool,
 }
 /// EditOperation is one source-preserving change to make.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -1012,9 +1030,10 @@ pub struct SetValueEdit {
     #[prost(string, tag="2")]
     pub value: ::prost::alloc::string::String,
 }
-/// RenameEdit rewrites the name token of a declaration. References to the
-/// element are not updated: a rename of an element referenced anywhere is
-/// refused, naming the referring elements, rather than leaving a broken model.
+/// RenameEdit rewrites the name token of a declaration and every reference to
+/// it in the model's documents. A rename that reaches a reference in a document
+/// the edit cannot rewrite is refused, naming the referring elements, rather
+/// than leaving a broken model.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RenameEdit {
     /// element to rename, as SymbolInfo.id names it
@@ -1025,16 +1044,24 @@ pub struct RenameEdit {
     pub new_name: ::prost::alloc::string::String,
 }
 /// ApplyEditsResponse carries the edited source, or says why nothing was edited.
+/// The edited notation is in `documents`, one entry per document the edits
+/// rewrote; `content` repeats it for a single-document model only.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ApplyEditsResponse {
-    /// The edited notation, byte-identical to the source outside the edited spans.
-    /// Empty when the edits were refused, so a refusal never writes a file.
+    /// The edited notation of a single-document model, byte-identical to the
+    /// source outside the edited spans. Empty when the edits were refused, so a
+    /// refusal never writes a file, and empty for a model of several documents,
+    /// whose edited notation is in `documents` alone: a client that reads
+    /// `content` alone was written for one document and must not write one
+    /// document's notation over another's. `documents` carries the same notation
+    /// for a single-document model, so a client needs one code path.
     #[prost(string, tag="1")]
     pub content: ::prost::alloc::string::String,
-    /// What each operation changed, in request order.
+    /// What each operation changed, grouped by document in the order `documents`
+    /// lists them and in request order within a document.
     #[prost(message, repeated, tag="2")]
     pub applied: ::prost::alloc::vec::Vec<AppliedEdit>,
-    /// non-empty if the edits were refused; content is unset
+    /// non-empty if the edits were refused; content and documents are unset
     #[prost(string, tag="3")]
     pub error: ::prost::alloc::string::String,
     /// Which kind of refusal `error` reports, so a client acts on the kind rather
@@ -1042,13 +1069,51 @@ pub struct ApplyEditsResponse {
     #[prost(enumeration="EditFailure", tag="4")]
     pub failure: i32,
     /// Diagnostics behind a refusal: the parse errors of an unreadable new value,
-    /// or the errors the edited source was found to have.
+    /// or the errors the edited source was found to have. A diagnostic's span
+    /// names the document it is in.
     #[prost(message, repeated, tag="5")]
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
-    /// Where the references to a declaration whose rename was refused are made:
-    /// the FQN of each referring namespace.
+    /// Where the references to a declaration whose rename, delete or move was
+    /// refused are made: the FQN of each referring namespace, suffixed with its
+    /// document in parentheses when that is not the document being edited.
+    /// `referrers` carries the same list with the document as a field of its own.
     #[prost(string, repeated, tag="6")]
     pub referring_elements: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The edited notation of every document the edits rewrote, named as the
+    /// parse request named it: the document being edited first, then the others
+    /// in name order. A document of several the edits left as parsed is not
+    /// listed; the one document of a single-document model always is. Empty when
+    /// the edits were refused.
+    #[prost(message, repeated, tag="7")]
+    pub documents: ::prost::alloc::vec::Vec<EditedDocument>,
+    /// The declarations referring to the target of a refused rename, delete or
+    /// move, each with the document declaring it, in document then name order.
+    /// Empty when `referring_elements` is.
+    #[prost(message, repeated, tag="8")]
+    pub referrers: ::prost::alloc::vec::Vec<Referrer>,
+}
+/// EditedDocument is the edited notation of one document of the model.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EditedDocument {
+    /// The document's name as the parse request gave it: the file path of a
+    /// file_path document, the name of an inline one, or the position it was
+    /// given when it was named neither.
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// The edited notation, byte-identical to the source outside the edited spans.
+    #[prost(string, tag="2")]
+    pub content: ::prost::alloc::string::String,
+}
+/// Referrer is one declaration referring to the target of a refused edit.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Referrer {
+    /// The declaration as the notation names it: the FQN of a named one, or the
+    /// heading of an anonymous one within its namespace.
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// The document declaring it, named as the parse request named it.
+    #[prost(string, tag="2")]
+    pub document: ::prost::alloc::string::String,
 }
 /// AppliedEdit is one byte range of the original source that an operation
 /// replaced, so a client can report or locate what changed.
@@ -1073,6 +1138,10 @@ pub struct AppliedEdit {
     /// what was written
     #[prost(string, tag="6")]
     pub new_text: ::prost::alloc::string::String,
+    /// The document the bytes are in, named as the parse request named it and as
+    /// ApplyEditsResponse.documents lists it. Set for a single-document model too.
+    #[prost(string, tag="7")]
+    pub document: ::prost::alloc::string::String,
 }
 /// SymbolInfo represents any SysML element
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1580,6 +1649,14 @@ pub struct ServerInfoResponse {
     ///                   rather than read as another value.
     ///    "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
     ///                   preserving everything the edit did not touch.
+    ///    "edit_documents" - ApplyEdits edits a model of several documents as one
+    ///                   batch for a request setting accept_documents, targets the
+    ///                   document the request names, and answers each edited
+    ///                   document by name in `documents`, each referrer of a refusal
+    ///                   with its document in `referrers`, and each applied edit's
+    ///                   `document`. Without it those fields are empty, a model of
+    ///                   several documents is refused with FAILED_PRECONDITION, and
+    ///                   a request naming a document is refused with UNIMPLEMENTED.
     ///    "document_query" - the RunDocumentQuery RPC runs a named document query
     ///                   and answers with typed rows.
     ///    "render_document" - the RenderDocument RPC renders a named document to
@@ -2105,6 +2182,10 @@ pub enum EditFailure {
     OwnerInsideTarget = 16,
     /// move would leave a reference no spelling restores
     MoveReferenced = 17,
+    /// the target is referred to from a document the edit cannot rewrite: a
+    /// library document, or any other document for a move, which respells
+    /// references in the target's own document only
+    ReferencedElsewhere = 18,
 }
 impl EditFailure {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2131,6 +2212,7 @@ impl EditFailure {
             Self::DeleteReferenced => "EDIT_FAILURE_DELETE_REFERENCED",
             Self::OwnerInsideTarget => "EDIT_FAILURE_OWNER_INSIDE_TARGET",
             Self::MoveReferenced => "EDIT_FAILURE_MOVE_REFERENCED",
+            Self::ReferencedElsewhere => "EDIT_FAILURE_REFERENCED_ELSEWHERE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2154,6 +2236,7 @@ impl EditFailure {
             "EDIT_FAILURE_DELETE_REFERENCED" => Some(Self::DeleteReferenced),
             "EDIT_FAILURE_OWNER_INSIDE_TARGET" => Some(Self::OwnerInsideTarget),
             "EDIT_FAILURE_MOVE_REFERENCED" => Some(Self::MoveReferenced),
+            "EDIT_FAILURE_REFERENCED_ELSEWHERE" => Some(Self::ReferencedElsewhere),
             _ => None,
         }
     }
