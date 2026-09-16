@@ -1675,7 +1675,9 @@ executors are tested against lives under `internal/core/runtime/testdata/conform
 `terminate` ends the performance it is written in, keeping whatever it assigned so far. As a
 node of the flow — `then terminate;`, or a named terminate action usage reached by a succession
 (`then stop; action stop terminate;`) — it ends the action, so nodes after it do not run and a
-forked sibling branch still running is dropped, an `accept` it never received included. As a
+forked sibling branch still running is dropped, an `accept` it never received included. A
+terminate action usage's body may declare pins and statements, which run before it ends the
+action; a flow of its own (`first`, successions) it may not state. As a
 statement of a nested action node's body it ends only that node: the rest of the body is
 skipped, the node's own fork branches are dropped, and the parent continues along the node's
 succession with the values the node assigned before it ended. `terminate <name>;` names an

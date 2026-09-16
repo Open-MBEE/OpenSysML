@@ -200,6 +200,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("terminate_of_a_qualified_occurrence", testTerminateOfAQualifiedOccurrence)
 	t.Run("terminate_of_an_occurrence_expression", testTerminateOfAnOccurrenceExpression)
 	t.Run("terminate_of_a_node_of_a_sibling_flow", testTerminateOfANodeOfASiblingFlow)
+	t.Run("terminate_usage_stating_a_flow_of_its_own", testTerminateUsageStatingAFlowOfItsOwn)
 	t.Run("calc_assignment_outside_the_calc", testCalcAssignmentOutsideTheCalc)
 	t.Run("assign_chain_unknown_final_feature", testAssignChainUnknownFinalFeature)
 	t.Run("assign_chain_step_is_not_an_object", testAssignChainStepIsNotAnObject)
@@ -11445,6 +11446,28 @@ func testTerminateOfAnUnknownName(t *testing.T) {
 	}`)
 	if !errors.Is(err, ErrTerminateTarget) {
 		t.Fatalf("error = %v, want ErrTerminateTarget", err)
+	}
+}
+
+// testTerminateUsageStatingAFlowOfItsOwn: a terminate action usage whose body states
+// a flow of its own is refused at initialize, not run with the flow dropped.
+func testTerminateUsageStatingAFlowOfItsOwn(t *testing.T) {
+	_, err := executeActionSource(t, "host", `package test {
+		private import ScalarValues::*;
+		action host {
+			out attribute x : Integer = 0;
+			first start;
+			then stop;
+			action stop terminate {
+				first start;
+				then action inner { assign x := 1; }
+				then done;
+			}
+			then done;
+		}
+	}`)
+	if !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("error = %v, want ErrInvalidActionFlow", err)
 	}
 }
 

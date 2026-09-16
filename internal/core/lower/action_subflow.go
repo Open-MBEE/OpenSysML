@@ -1,6 +1,8 @@
 package lower
 
 import (
+	"errors"
+
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -38,9 +40,8 @@ func statesOwnFlow(members []ast.Node) bool {
 // state none — the statements and accept of a leaf. scope is the node's own namespace.
 func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 	lowerFeatures(graph, node, scope)
-	// A terminate action usage runs as the one statement it stands for, its body declaring pins only.
 	if node.IsTerminate {
-		graph.Bodies[node] = []Statement{lowerStatement(node, scope)}
+		lowerTerminateNode(graph, node, scope)
 		return
 	}
 	if !statesOwnFlow(node.Members) {
@@ -56,6 +57,21 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 		StartFlow(sub)
 	}
 	graph.Subflows[node] = &Subflow{Graph: sub, Err: err}
+}
+
+// lowerTerminateNode records what a terminate action usage runs: the statements of
+// its body as a leaf's, then the terminate it stands for. A body stating a flow of
+// its own has no place to end the performance from, so it is refused at initialize.
+func lowerTerminateNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
+	if statesOwnFlow(node.Members) {
+		if graph.Subflows == nil {
+			graph.Subflows = make(map[ast.Node]*Subflow)
+		}
+		graph.Subflows[node] = &Subflow{Err: errors.New("a terminate action usage states no flow of its own")}
+		return
+	}
+	lowerBody(graph, node, scope)
+	graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(node, scope))
 }
 
 // lowerAccept records the message a nested action node waits for, which a node
