@@ -580,12 +580,10 @@ package LordPlay {
         assert constraint violetTakesGrooms { spouse != Spouse::violet or sex == Sex::male }
         assert constraint theBardTakesBrides { spouse != Spouse::sethAble or sex == Sex::female }
 
-        // One forest fight, against the Large Mosquito unless told otherwise, spending
-        // the named skill each round the warrior has the uses for it. Whether a swing
-        // lands, and whether a gem turns up, is the game's dice roll, left to the schedule.
-        // The forest turns away the dead, those out of fights, and a malformed monster.
+        // One forest fight against a monster of the warrior's level; a swing landing and a gem
+        // turning up are the game's dice, left to the schedule. Skills are spent while uses last.
         action fight {
-            in foe : Monster = town.forest.level1.largeMosquito;
+            in foe : Monster default = town.forest.level1.smallThief;
             in move : Move default = favouredMove;
 
             attribute foeLeft : Integer = 0;
@@ -595,8 +593,8 @@ package LordPlay {
 
             first start;
             then decide mayFight;
-            if forestFightsLeft > 0 and alive and foe.hitPoints > 0
-                and foe.strength >= 0 and foe.defense >= 0
+            if forestFightsLeft > 0 and alive and foe.level == level and not (foe istype Dragon)
+                and foe.hitPoints > 0 and foe.strength >= 0 and foe.defense >= 0
                 and foe.gold >= 0 and foe.experience >= 0 then engage;
             else done;
 
@@ -1650,7 +1648,7 @@ package LordPlay {
                 assign forestFightsLeft := 15 + children;
                 assign playerFightsLeft := 3;
                 assign deathKnightUses := SkillUses(deathKnightPoints, 4);
-                assign thievingUses := SkillUses(thievingPoints, 4) + (if class == CharacterClass::thievingSkills ? 1 else 0);
+                assign thievingUses := SkillUses(thievingPoints, 4);
                 assign mysticalUses := mysticalPoints;
                 assign bankGold := bankGold + Interest(bankGold, max(0, interestPercent));
                 assign hitPoints := if alive ? hitPoints else maxHitPoints;
@@ -1735,13 +1733,54 @@ package LordPlay {
                 accept EnterForest
                 then forest;
 
-            // A fight is offered while the day has fights left; the warrior
-            // stays in the forest afterwards, or goes to the grave if killed.
+            // While fights remain, the first monster of the warrior's level is fought (the game
+            // rolled among the level's eleven); the warrior stays in the forest or goes to the grave.
             transition forest_fight
                 first forest
                 accept LookForSomethingToKill
                 if forestFightsLeft > 0 and alive
-                do action fighting { perform fight; }
+                do action fighting {
+                    first start;
+                    then decide byLevel;
+                    if level == 1 then level1;
+                    if level == 2 then level2;
+                    if level == 3 then level3;
+                    if level == 4 then level4;
+                    if level == 5 then level5;
+                    if level == 6 then level6;
+                    if level == 7 then level7;
+                    if level == 8 then level8;
+                    if level == 9 then level9;
+                    if level == 10 then level10;
+                    if level == 11 then level11;
+                    if level == 12 then level12;
+                    else done;
+
+                    action level1 { first start; then perform fight { in foe = town.forest.level1.smallThief; } then done; }
+                    then done;
+                    action level2 { first start; then perform fight { in foe = town.forest.level2.greenPython; } then done; }
+                    then done;
+                    action level3 { first start; then perform fight { in foe = town.forest.level3.lazyBum; } then done; }
+                    then done;
+                    action level4 { first start; then perform fight { in foe = town.forest.level4.deathDog; } then done; }
+                    then done;
+                    action level5 { first start; then perform fight { in foe = town.forest.level5.pandionKnight; } then done; }
+                    then done;
+                    action level6 { first start; then perform fight { in foe = town.forest.level6.ironWarrior; } then done; }
+                    then done;
+                    action level7 { first start; then perform fight { in foe = town.forest.level7.emporerLen; } then done; }
+                    then done;
+                    action level8 { first start; then perform fight { in foe = town.forest.level8.screechingWitch; } then done; }
+                    then done;
+                    action level9 { first start; then perform fight { in foe = town.forest.level9.pinkElephant; } then done; }
+                    then done;
+                    action level10 { first start; then perform fight { in foe = town.forest.level10.toraksSonKorak; } then done; }
+                    then done;
+                    action level11 { first start; then perform fight { in foe = town.forest.level11.gormaTheLeper; } then done; }
+                    then done;
+                    action level12 { first start; then perform fight { in foe = town.forest.level12.corinthianGiant; } then done; }
+                    then done;
+                }
                 then forest;
 
             transition forest_dragon

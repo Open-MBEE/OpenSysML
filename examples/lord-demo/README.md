@@ -69,14 +69,14 @@ inn's rate by level, `SkillUses` turns skill points into a day's uses, and
   = 150
 ```
 
-**A fight.** `fight` is one forest encounter, against the Large Mosquito unless
-its `foe` parameter names another monster, opened with the warrior's favoured
-move unless `move` names one. Each round the warrior swings; whether the swing
-lands is the game's dice roll, and the model leaves that roll to the schedule
-as a decision with two open guards — as it leaves the monster's chance of
-dropping a gem. `-instantiate` creates the warrior and `-action "<action>
-<object>"` performs the fight on it, so the gold and the experience land on the
-hero:
+**A fight.** `fight` is one forest encounter, against the Small Thief unless
+its `foe` parameter names another monster of the warrior's level, opened with
+the warrior's favoured move unless `move` names one. Each round the warrior
+swings; whether the swing lands is the game's dice roll, and the model leaves
+that roll to the schedule as a decision with two open guards — as it leaves
+the monster's chance of dropping a gem. `-instantiate` creates the warrior and
+`-action "<action> <object>"` performs the fight on it, so the gold and the
+experience land on the hero:
 
 ```bash
 ./bin/sysml examples/lord-demo/lord.sysml \
@@ -91,14 +91,14 @@ hero:
   2 choice points; %trace on to see them
   Results:
     foe = Instance(ID: 7)
-    foeLeft = -7
+    foeLeft = -1
     incoming = 0
     move = Move::attack
     rounds = 1
     skillReady = false
 ```
 
-Under the default schedule the first swing lands and the mosquito dies in one
+Under the default schedule the first swing lands and the thief dies in one
 round. `-engine check` searches every schedule instead — every sequence of
 hits and misses, gem or no gem — and reports what the fight can end as.
 `-check-diverge` names the hero's features to compare across outcomes,
@@ -117,29 +117,29 @@ hits and misses, gem or no gem — and reports what the fight can end as.
 ```
 
 ```
-✗ Action LordPlay::Warrior::fight: divergent (195 states, 194 moves, depth 86)
+✗ Action LordPlay::Warrior::fight: divergent (43 states, 42 moves, depth 22)
   divergent: this.alive ends as false or true
     this.alive = false (witness witnesses/LordPlay.Warrior.fight@hero-this.alive-1.witness)
     this.alive = true (witness witnesses/LordPlay.Warrior.fight@hero-this.alive-2.witness)
   divergent: this.gems ends as 0 or 1
     this.gems = 0 (witness witnesses/LordPlay.Warrior.fight@hero-this.gems-1.witness)
     this.gems = 1 (witness witnesses/LordPlay.Warrior.fight@hero-this.gems-2.witness)
-  divergent: this.gold ends as 0 or 546
+  divergent: this.gold ends as 0 or 556
     this.gold = 0 (witness witnesses/LordPlay.Warrior.fight@hero-this.gold-1.witness)
-    this.gold = 546 (witness witnesses/LordPlay.Warrior.fight@hero-this.gold-2.witness)
-  outcome: foe = Lord::Forest::level1::largeMosquito#1{…}; foeLeft = -7; incoming = 0; move = Move::attack; rounds = 1; skillReady = false; this.alive = true; this.gems = 0; this.gold = 546
-  outcome: foe = Lord::Forest::level1::largeMosquito#1{…}; foeLeft = -7; incoming = 0; move = Move::attack; rounds = 1; skillReady = false; this.alive = true; this.gems = 1; this.gold = 546
+    this.gold = 556 (witness witnesses/LordPlay.Warrior.fight@hero-this.gold-2.witness)
+  outcome: foe = Lord::Forest::level1::smallThief#1{…}; foeLeft = -1; incoming = 0; move = Move::attack; rounds = 1; skillReady = false; this.alive = true; this.gems = 0; this.gold = 556
+  outcome: foe = Lord::Forest::level1::smallThief#1{…}; foeLeft = -1; incoming = 0; move = Move::attack; rounds = 1; skillReady = false; this.alive = true; this.gems = 1; this.gold = 556
   …
-  outcome: foe = Lord::Forest::level1::largeMosquito#1{…}; foeLeft = 3; incoming = 1; move = Move::attack; rounds = 10; skillReady = false; this.alive = false; this.gems = 0; this.gold = 0
-  standing: sensitive (witnessed: 195 states, 194 moves searched, witness of 10 choices replayed)
+  outcome: foe = Lord::Forest::level1::smallThief#1{…}; foeLeft = 9; incoming = 5; move = Move::attack; rounds = 2; skillReady = false; this.alive = false; this.gems = 0; this.gold = 0
+  standing: sensitive (witnessed: 43 states, 42 moves searched, witness of 2 choices replayed)
 ```
 
-Twenty-one outcomes: the mosquito dies on the first to tenth swing, with or
-without a gem in its remains, or ten misses in a row and its bites — one
-point each through the hero's single point of defense — kill a ten-hit-point
-warrior, who wakes tomorrow with no gold. No property was violated on any of
-the 195 states. The witness for the death is the misses, and `-schedule
-replay:` runs it again:
+Five outcomes: the thief dies on the first or the second swing, with or
+without a gem in his pockets, or two misses in a row and his dagger — five
+points a stab through the hero's single point of defense — kill a
+ten-hit-point warrior, who wakes tomorrow with no gold. No property was
+violated on any of the 43 states. The witness for the death is the two misses,
+and `-schedule replay:` runs it again:
 
 ```bash
 cat witnesses/LordPlay.Warrior.fight@hero-this.alive-1.witness
@@ -152,15 +152,13 @@ cat witnesses/LordPlay.Warrior.fight@hero-this.alive-1.witness
 step 7: decision swing -> 2->miss
 step 15: decision swing -> 2->miss
 …
-step 79: decision swing -> 2->miss
-…
 ✓ Action completed
   Final state: Completed
-  10 choice points; %trace on to see them
+  2 choice points; %trace on to see them
   Results:
     …
-    foeLeft = 3
-    rounds = 10
+    foeLeft = 9
+    rounds = 2
 ```
 
 **The dragon.** `fightDragon` is the fight the game is named for. Only a
@@ -408,7 +406,9 @@ exhibits, in `townSquare`. `%state` binds the debugger to that running
 machine; `%send` queues one of the menu's signals and `%advance 1` dispatches
 it and lets the effect it triggers — a fight, a night's sleep, the stroke of
 midnight — run to completion. (`%step` dispatches one event at a time; a
-transition whose effect runs a fight takes two.)
+transition whose effect runs a fight takes two.) Looking for something to
+kill fights a monster of the warrior's own level — the Small Thief for a
+first-level hero, the Corinthian Giant for the twelfth-level champion:
 
 ```
 %instantiate LordPlay::hero
@@ -419,6 +419,14 @@ transition whose effect runs a fight takes two.)
 %advance 1
 %eval in LordPlay::hero : gold
 %eval in LordPlay::hero : forestFightsLeft
+%instantiate LordPlay::champion
+%state LordPlay::champion
+%send EnterForest
+%advance 1
+%send LookForSomethingToKill
+%advance 1
+%eval in LordPlay::champion : gold
+%state LordPlay::hero
 ```
 
 ```
@@ -428,13 +436,21 @@ transition whose effect runs a fight takes two.)
   Current state: forest
   2 choice points; %trace on to see them
 ✓ gold (on LordPlay::hero ID: 1)
-  = 546
+  = 556
 ✓ forestFightsLeft (on LordPlay::hero ID: 1)
   = 14
+…
+✓ Sent LookForSomethingToKill to object #7 of "LordPlay::champion"
+  Accepted by state machine "day" in state forest: transition forest_fight fires on it
+✓ Advanced to 4.0 (2 event(s) processed)
+  Current state: forest
+  1 choice point; %trace on to see them
+✓ gold (on LordPlay::champion ID: 7)
+  = 337143
 ```
 
-Back to town, a room at the inn for the night, and midnight gives the fights
-back and turns the guest out:
+Back to town with the hero, a room at the inn for the night, and midnight
+gives the fights back and turns the guest out:
 
 ```
 %send ReturnToTown
@@ -453,13 +469,13 @@ back and turns the guest out:
 ```
 ✓ Sent BuyARoom to object #1 of "LordPlay::hero"
   Accepted by state machine "day" in state inn: transition inn_room fires on it
-✓ Advanced to 5.0 (1 event(s) processed)
+✓ Advanced to 7.0 (1 event(s) processed)
   Current state: asleep
 ✓ gold (on LordPlay::hero ID: 1)
-  = 146
+  = 156
 ✓ Sent NewDay to object #1 of "LordPlay::hero"
   Accepted by state machine "day" in state asleep: transition asleep_midnight fires on it
-✓ Advanced to 6.0 (1 event(s) processed)
+✓ Advanced to 8.0 (1 event(s) processed)
   Current state: townSquare
   1 choice point; %trace on to see them
 ✓ forestFightsLeft (on LordPlay::hero ID: 1)
@@ -533,7 +549,10 @@ Every deed checks its own preconditions, so the warrior's invariants hold
 whichever way it is reached — through the `day` machine's guarded transitions
 or directly here — and whatever its parameters say. The forest turns away a
 dead warrior or one whose fights are spent, so `forestFightsLeft` never goes
-below zero; the healer and the masters turn away the dead, so the slain keep
+below zero, and a monster of another level or the dragon, so a first-level
+warrior never meets the Corinthian Giant and the champion neither preys on
+the Small Thief nor meets the dragon outside its lair; the healer and the
+masters turn away the dead, so the slain keep
 no hit points until morning; the bank moves only gold the warrior has, and
 pays interest but never charges it; a shop refuses a price below zero, the
 forest a foe with negative stats or gold, and the hall a master with no hit
@@ -544,6 +563,11 @@ makes a level thirteen; and a warrior may not slaughter himself:
 %instantiate LordPlay::champion
 %invoke LordPlay::champion train master=Lord::town.training.turgon
 %eval in LordPlay::champion : level
+%invoke LordPlay::hero fight foe=Lord::town.forest.level12.corinthianGiant
+%eval in LordPlay::hero : hitPoints
+%invoke LordPlay::champion fight foe=Lord::town.forest.level1.smallThief
+%invoke LordPlay::champion fight foe=Lord::town.forest.redDragon
+%eval in LordPlay::champion : forestFightsLeft
 %invoke LordPlay::hero deposit amount=1000
 %eval in LordPlay::hero : gold
 %invoke LordPlay::hero attack foe=LordPlay::hero
@@ -554,6 +578,13 @@ makes a level thirteen; and a warrior may not slaughter himself:
 ✓ Invoked train on object #11 of "LordPlay::champion"
 ✓ level (on LordPlay::champion ID: 11)
   = 12
+✓ Invoked fight on object #1 of "LordPlay::hero"
+✓ hitPoints (on LordPlay::hero ID: 1)
+  = 10
+✓ Invoked fight on object #11 of "LordPlay::champion"
+✓ Invoked fight on object #11 of "LordPlay::champion"
+✓ forestFightsLeft (on LordPlay::champion ID: 11)
+  = 15
 ✓ Invoked deposit on object #1 of "LordPlay::hero"
 ✓ gold (on LordPlay::hero ID: 1)
   = 253
