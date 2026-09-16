@@ -167,6 +167,43 @@ func TestWeightedDecisionDrawsAmongTheHoldingBranches(t *testing.T) {
 
 // A model seed fixes the draws under any policy, `seed:<n>` alone seeds the
 // modeled stream with n, and a model seed set overrides the schedule's.
+// A weighted branch left holding alone is taken without a choice or a draw, its
+// weight read all the same.
+func TestSoleHoldingWeightedBranchIsTakenWithoutADraw(t *testing.T) {
+	m := parseLibraryModel(t, `
+package test {
+	private import ScalarValues::*;
+	private import Stochastic::*;
+	action route {
+		attribute w : Real = 0.2;
+		attribute taken : Integer = 0;
+		first start;
+		then decide select;
+		first select if w < 0.5 then slow { @Probability { p = w; } }
+		first select if w >= 0.5 then fast { @Probability { p = 1.0 - w; } }
+		action slow { assign taken := 2; }
+		then done;
+		action fast { assign taken := 1; }
+		then done;
+	}
+}`)
+	for _, policy := range []string{"declared", "seed:3"} {
+		ctx, out, err := runAction(t, m, "route", policy)
+		if err != nil {
+			t.Fatalf("%s: %v", policy, err)
+		}
+		if got := takenInt(t, out, "taken"); got != 2 {
+			t.Errorf("%s took %d, want the holding branch", policy, got)
+		}
+		if choices := ctx.Choices(); len(choices) != 0 {
+			t.Errorf("%s: choices %v, want none for one holding branch", policy, choices)
+		}
+		if draws := ctx.DrawsTaken(); len(draws) != 0 {
+			t.Errorf("%s drew %v", policy, draws)
+		}
+	}
+}
+
 func TestModelSeedIsIndependentOfTheScheduleSeed(t *testing.T) {
 	m := parseLibraryModel(t, drawingModel)
 	_, a, err := runAction(t, m, "draw", "seed:1", 7)

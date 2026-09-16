@@ -140,6 +140,24 @@ func TestProbability_Refusals(t *testing.T) {
 			@Probability { p = 0.5; } first d then fast;
 			@Probability { p = 0.5; } first d then slow;
 			action fast; action slow;`, "annotates the action here, not a succession"},
+		{"stray in a leaf action", `
+			decide d;
+			first d then fast; first d then slow;
+			action fast { @Probability { p = 1.0; } }
+			action slow;`, "annotates the action here, not a succession"},
+		{"stray as an action prefix", `
+			decide d;
+			first d then fast; first d then slow;
+			#Probability action fast;
+			action slow;`, "annotates the action here, not a succession"},
+		{"stray in a control node", `
+			decide d { @Probability { p = 1.0; } }
+			first d then fast; first d then slow;
+			action fast; action slow;`, "annotates the action here, not a succession"},
+		{"stray in a start node", `
+			first start { @Probability { p = 1.0; } }
+			then fast;
+			action fast;`, "annotates the action here, not a succession"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

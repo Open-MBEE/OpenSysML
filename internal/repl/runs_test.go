@@ -30,6 +30,7 @@ const runsModel = `package MC {
 		then done;
 	}
 	action fixed { attribute k : Integer = 4; first start; then done; }
+	action timed { attribute clock : Integer = 99; first start; then accept after 2 [s]; then done; }
 }`
 
 func runsSession(t *testing.T) *Session {
@@ -91,6 +92,27 @@ func TestRunsDefaultsToEveryFeatureAndTheClock(t *testing.T) {
 		"  3 #######              2",
 		"clock: 6 run(s), min 4.848060164697906 [s]",
 	)
+}
+
+// The clock observable is the time the run completed at, named or not, even
+// when the action holds a feature called clock, which is then not reported.
+func TestRunsClockIsTheRunsTimeNotAFeature(t *testing.T) {
+	s := runsSession(t)
+	out := sweepTable(run(t, s, "%runs 2 7 MC::timed"))
+	wants(t, out,
+		"run | clock   | time",
+		"1   | 2.0 [s] | <time>",
+		"2   | 2.0 [s] | <time>",
+		"clock: 2 run(s), min 2.0 [s], mean 2.0 [s], max 2.0 [s], p50 2.0 [s], p90 2.0 [s]",
+	)
+	if strings.Contains(out, "99") {
+		t.Errorf("the feature named clock was reported:\n%s", out)
+	}
+	out = sweepTable(run(t, s, "%runs 2 7 MC::timed clock"))
+	wants(t, out, "run | clock   | time", "1   | 2.0 [s] | <time>")
+	if strings.Contains(out, "99") {
+		t.Errorf("the feature named clock was reported:\n%s", out)
+	}
 }
 
 // Each run draws from a seed of its own, so a weighted branch is taken as its

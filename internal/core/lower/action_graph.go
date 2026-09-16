@@ -501,6 +501,9 @@ func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *reso
 		case *ast.InitialNode:
 			// `first a then b;` is the succession a -> b, as `succession first a then b;` is.
 			if n.Successor == nil {
+				if err := weights.refuseStrayIn(nil, n.Members); err != nil {
+					return nil, err
+				}
 				continue
 			}
 			if !annotationsOnly(n.Members) {
@@ -511,6 +514,10 @@ func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *reso
 				return nil, err
 			}
 			if err := lowerSuccession(graph, n.First, n.Successor, n.Guard, n, weight); err != nil {
+				return nil, err
+			}
+		case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode:
+			if err := weights.refuseStrayIn(nil, ast.NodeBodyMembers(n)); err != nil {
 				return nil, err
 			}
 		case *ast.SuccessionEdge:
@@ -592,6 +599,12 @@ func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *reso
 				Decl:      n,
 			})
 		case *ast.Usage:
+			if n.Kind == ast.UsageAction {
+				if err := weights.refuseStrayIn(n.Prefixes, n.Members); err != nil {
+					return nil, err
+				}
+				continue
+			}
 			if n.Kind == ast.UsageBinding {
 				bindings, err := lowerPinBindings(graph, nodesNamed(graph.Nodes), n, scope)
 				if err != nil {

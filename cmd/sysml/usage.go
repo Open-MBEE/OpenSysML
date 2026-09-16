@@ -146,8 +146,8 @@ func doc() usage.Doc {
 					"no probability, in every run alike.",
 				"The table has one row per run, numbered, with each -observe feature " +
 					"of the action — `clock` is the simulation time the run completed " +
-					"at — and without -observe every feature the action holds and the " +
-					"clock. Below it each numeric observable is summarised over the " +
+					"at, never a feature of that name — and without -observe every " +
+					"feature the action holds and the clock. Below it each numeric observable is summarised over the " +
 					"completed runs: min, mean, max, the nearest-rank p50 and p90, and " +
 					"a histogram; a non-numeric one is counted by value. A feature the " +
 					"action does not hold is refused.",

@@ -285,9 +285,19 @@ func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder, schedule *tok
 // chooseBranch resolves which of the holding guarded successions of a decision
 // node, at their declared positions, the token takes: the position in holding, and
 // the choice point to note when there are at least two. Weighted successions are
-// drawn by their weights, read in ec where their guards are.
+// drawn by their weights, read in ec where their guards are; a sole holding
+// succession is taken without a draw, its weight still read and checked.
 func (e *ActionExecutor) chooseBranch(ec *EvalContext, frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int) (*ChoicePoint, int, error) {
+	weights, err := e.branchWeights(ec, node, successors, holding)
+	if err != nil {
+		return nil, 0, err
+	}
 	if len(holding) < 2 {
+		if weights != nil {
+			if _, err := checkWeights(DecisionPlace(node), weights); err != nil {
+				return nil, 0, err
+			}
+		}
 		return nil, 0, nil
 	}
 	alts := make([]string, len(holding))
@@ -301,12 +311,8 @@ func (e *ActionExecutor) chooseBranch(ec *EvalContext, frame *actionFrame, node 
 		Alternatives: alts,
 		File:         e.decisionFile(frame),
 		Span:         node.Span(),
+		Weights:      weights,
 	}
-	weights, err := e.branchWeights(ec, node, successors, holding)
-	if err != nil {
-		return nil, 0, err
-	}
-	choice.Weights = weights
 	if err := e.ctx.scheduling().chooseWeighted(&choice); err != nil {
 		return nil, 0, err
 	}

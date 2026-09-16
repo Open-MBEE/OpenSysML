@@ -129,26 +129,29 @@ func duplicateName(names []string) string {
 }
 
 // observe is what one run reports: the observables named, in that order, from
-// the outcome's features and the clock; every feature in name order and the
-// clock when none are named. A feature the run does not hold is left out.
+// the clock and the outcome's features; every feature in name order and the
+// clock when none are named. The clock's name is reserved, so a feature called
+// clock is never reported; a feature the run does not hold is left out.
 func observe(ctx *runtime.Context, outcome runtime.Outcome, observables []string) []runtime.CalcOutputValue {
 	names := observables
 	if len(names) == 0 {
 		names = make([]string, 0, len(outcome.Outputs)+1)
 		for name := range outcome.Outputs {
-			names = append(names, name)
+			if name != ClockObservable {
+				names = append(names, name)
+			}
 		}
 		slices.Sort(names)
 		names = append(names, ClockObservable)
 	}
 	outputs := make([]runtime.CalcOutputValue, 0, len(names))
 	for _, name := range names {
-		if value, ok := outcome.Outputs[name]; ok {
-			outputs = append(outputs, runtime.CalcOutputValue{Name: name, Value: value})
-			continue
-		}
 		if name == ClockObservable {
 			outputs = append(outputs, runtime.CalcOutputValue{Name: name, Value: ctx.ClockValue()})
+			continue
+		}
+		if value, ok := outcome.Outputs[name]; ok {
+			outputs = append(outputs, runtime.CalcOutputValue{Name: name, Value: value})
 		}
 	}
 	return outputs

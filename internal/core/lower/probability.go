@@ -133,6 +133,22 @@ func (r *probabilityReader) refuseStray(member ast.Node) error {
 		"write it in the succession's body: first d then t { @Probability { p = <weight>; } }"}
 }
 
+// refuseStrayIn refuses a Probability among a flow node's prefixes or body
+// members, which annotate the node rather than a succession out of it.
+func (r *probabilityReader) refuseStrayIn(prefixes []*ast.PrefixMetadata, members []ast.Node) error {
+	for _, prefix := range prefixes {
+		if err := r.refuseStray(prefix); err != nil {
+			return err
+		}
+	}
+	for _, member := range members {
+		if err := r.refuseStray(unwrapMembership(member)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // annotationOf returns the type name and body of a metadata annotation written as
 // a member: `@Probability { ... }` or `metadata : Probability { ... }`.
 func annotationOf(member ast.Node) (*ast.QualifiedName, []ast.Node, bool) {

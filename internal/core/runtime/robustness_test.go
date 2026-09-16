@@ -499,6 +499,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("weighted_decision_with_a_weight_outside_zero_to_one", testWeightedDecisionWithAWeightOutsideZeroToOne)
 	t.Run("decision_mixing_weighted_and_unweighted_successions", testDecisionMixingWeightedAndUnweightedSuccessions)
 	t.Run("weighted_decision_on_a_state_transition", testWeightedDecisionOnAStateTransition)
+	t.Run("weighted_decision_whose_read_weight_is_no_probability", testWeightedDecisionWhoseReadWeightIsNoProbability)
 	t.Run("random_draw_without_a_seed", testRandomDrawWithoutASeed)
 	t.Run("random_bounds_reversed", testRandomBoundsReversed)
 	t.Run("random_duration_without_a_seed", testRandomDurationWithoutASeed)
@@ -17143,6 +17144,38 @@ func testWeightedDecisionOnAStateTransition(t *testing.T) {
 		}`, "Machine")
 	if !errors.Is(err, lower.ErrProbability) || !strings.Contains(err.Error(), "a transition cannot be weighted") {
 		t.Fatalf("error = %v, want the weighted transition refused", err)
+	}
+}
+
+// testWeightedDecisionWhoseReadWeightIsNoProbability: a weight read from a
+// feature is checked when read, whether one branch holds or several.
+func testWeightedDecisionWhoseReadWeightIsNoProbability(t *testing.T) {
+	cases := []struct{ name, w, slowGuard, want string }{
+		{"sole branch weighs zero", "0.0", "if not ready", "no holding branch has a positive weight"},
+		{"sole branch weighs over one", "1.5", "if not ready", "branch 0 weighs 1.5, not a probability in [0, 1]"},
+		{"sole branch weighs a negative", "-0.5", "if not ready", "branch 0 weighs -0.5, not a probability in [0, 1]"},
+		{"sole branch weighs a boolean", "false", "if not ready", "weight of 1->fast is a Boolean, not a number"},
+		{"both branches weigh zero", "0.0", "if ready", "no holding branch has a positive weight"},
+		{"both branches weigh over one", "1.5", "if ready", "branch 0 weighs 1.5, not a probability in [0, 1]"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := weightedActionError(t, `
+				attribute ready : Boolean = true;
+				attribute w = `+tc.w+`;
+				attribute taken : Integer = 0;
+				first start; then decide select;
+				first select then fast { @Probability { p = w; } }
+				first select `+tc.slowGuard+` then slow { @Probability { p = w; } }
+				action fast { assign taken := 1; } then done;
+				action slow { assign taken := 2; } then done;`, 3)
+			if !errors.Is(err, ErrBranchWeights) {
+				t.Fatalf("error = %v, want ErrBranchWeights", err)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %q, want it to say %q", err, tc.want)
+			}
+		})
 	}
 }
 
