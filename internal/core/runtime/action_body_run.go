@@ -250,7 +250,7 @@ func (w *usageWork) perform() error {
 			}
 			return e.enterSubflow(idx, w.perf)
 		}
-		if err := e.executeBody(w.perf, w.graph, w.usage); err != nil {
+		if err := e.executeBody(w.perf, w.graph, w.usage); err != nil && !terminates(err, w.perf) {
 			return err
 		}
 		if err := e.endPerformance(w.perf); err != nil {

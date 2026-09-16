@@ -340,6 +340,8 @@ type TerminateTarget int
 const (
 	// TerminateContaining is a terminate naming nothing: the containing performance ends.
 	TerminateContaining TerminateTarget = iota
+	// TerminateEnclosing is a terminate action usage: the performance its node is a step of ends.
+	TerminateEnclosing
 	// TerminateNode names an action node of an enclosing flow (Effect.Target).
 	TerminateNode
 	// TerminateOccurrence names an occurrence by an expression or a feature that is no action node.
@@ -1108,7 +1110,7 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: m.Target}
 	case *ast.Usage:
 		if m.IsTerminate {
-			return Effect{Kind: EffectTerminate, Node: m, Scope: scope}
+			return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
 		}
 		if stmt, ok := usageStatement(m, scope); ok {
 			return stmt

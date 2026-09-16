@@ -91,7 +91,12 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 		}
 	}
 	if err := e.driveSubflow(f); err != nil {
-		return e.ctx.pausing(f, err)
+		if !terminates(err, perf) {
+			return e.ctx.pausing(f, err)
+		}
+		// A terminate of the flow's own performance drops what still runs in it.
+		e.dropTokensIn(perf, 0)
+		perf.live = 0
 	}
 	if tr := e.trace(); tr != nil {
 		tr.RecordActionNodeExit(f.name)
