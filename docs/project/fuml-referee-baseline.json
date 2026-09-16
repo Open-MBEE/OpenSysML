@@ -1,0 +1,663 @@
+{
+  "meaning": "A pass checks that the runtime leaves in an activity's output parameters the values the fUML reference implementation did, where the activity has a SysML v2 spelling; it is a second opinion on the action executor and never evidence of SysML v2 conformance.",
+  "provenance": {
+    "riTag": "v1.5.0a",
+    "riCommit": "45e506336d4cd56965d4ad3b684149245f899f3a",
+    "testsDigest": "c7d54bf2b427f65b17e5fbd817b24cbe4a8cad2b7785233ef19f72a09b77e0f0",
+    "exceptionTestsDigest": "4e8315803ffafd1b475847638a7a5e13716b7aea9d7098044cc85b984932d74b",
+    "jarDigest": "4e78a194bdd15ed4ee30b26828a91d3b2bd32e57cd397667e32b21eb4de1f06e",
+    "activities": 55,
+    "recorded": "2026-09-16",
+    "develop": "46828f14fc0d57fa8780737738d089fe813cff87"
+  },
+  "buckets": {
+    "differs-by-design": 4,
+    "fail": 9,
+    "not-expressible": 27,
+    "pass": 15
+  },
+  "activities": [
+    {
+      "name": "TestGeneralizationAssembly",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "fail",
+      "reasons": [
+        "not translated: Create(Specific): CreateObjectAction is not translated by the pilot emitter"
+      ]
+    },
+    {
+      "name": "TestClassWriterReader",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "fail",
+      "reasons": [
+        "not translated: Create(TestClass): CreateObjectAction is not translated by the pilot emitter"
+      ]
+    },
+    {
+      "name": "Copier",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "pass",
+      "expected": [
+        "output = 0"
+      ],
+      "reached": [
+        "output = 0"
+      ],
+      "runs": 1,
+      "status": "complete (1 runs)"
+    },
+    {
+      "name": "TestIntegerFunctions",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "pass",
+      "expected": [
+        "NegResult = -3",
+        "PlusResult = 5",
+        "MinusResult = 1",
+        "TimesResult = 6",
+        "DivResult = 1",
+        "ModResult = 1",
+        "MaxResult = 3",
+        "MinResult = 2",
+        "AbsResult = 2"
+      ],
+      "reached": [
+        "NegResult = -3; PlusResult = 5; MinusResult = 1; TimesResult = 6; DivResult = 1; ModResult = 1; MaxResult = 3; MinResult = 2; AbsResult = 2"
+      ],
+      "runs": 1024,
+      "status": "incomplete: runs budget 1024 hit after 1024 runs"
+    },
+    {
+      "name": "ForkMergeData",
+      "model": "fUML-Tests.uml",
+      "class": "differs-by-design",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "per-token action re-firing (fUML fires an action once per object token on a multiplicity-1 pin; SysML v2 performs the node once with every delivery): ForkMergeData.Action_B fired 2 times",
+        "outputs differ: output = 0, 0, 0"
+      ],
+      "expected": [
+        "output = 0, 0"
+      ],
+      "reached": [
+        "output = 0, 0",
+        "output = 0, 0, 0"
+      ],
+      "runs": 20,
+      "status": "complete (20 runs)"
+    },
+    {
+      "name": "TestClassIdentityTester",
+      "model": "fUML-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "TestIdentityAction (SysML v2 actions cannot compare object identity): TestIdentity"
+      ]
+    },
+    {
+      "name": "TestClassObjectCreator",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "fail",
+      "reasons": [
+        "not translated: Create(TestClass): CreateObjectAction is not translated by the pilot emitter"
+      ]
+    },
+    {
+      "name": "HelloWorld",
+      "model": "fUML-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "library behavior without a KerML counterpart (KerML's function library has no counterpart): WriteLine calls BasicInputOutput::WriteLine"
+      ]
+    },
+    {
+      "name": "TestIntegerComparisonFunctions",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "pass",
+      "expected": [
+        "LTResult = false",
+        "LEResult = false",
+        "GTResult = true",
+        "GEResult = true"
+      ],
+      "reached": [
+        "LTResult = false; LEResult = false; GTResult = true; GEResult = true"
+      ],
+      "runs": 972,
+      "status": "complete (972 runs)"
+    },
+    {
+      "name": "TestBooleanFunctions",
+      "model": "fUML-Tests.uml",
+      "class": "differs-by-design",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "per-token action re-firing (fUML fires an action once per object token on a multiplicity-1 pin; SysML v2 performs the node once with every delivery): TestBooleanFunctions.Call(Not) fired 2 times, TestBooleanFunctions.Call(And) fired 4 times, TestBooleanFunctions.Call(Or) fired 4 times, TestBooleanFunctions.Call(Implies) fired 4 times, TestBooleanFunctions.Call(Xor) fired 4 times",
+        "run error: execute action: flow from argumentData1 to And.x: node Call(And): assignment to And.x: multiplicity violation: 4 value(s) bound to a feature with multiplicity upper bound 1"
+      ],
+      "expected": [
+        "NotResult = false, true",
+        "AndResult = true, false, false, false",
+        "OrResult = true, true, true, false",
+        "ImpliesResult = true, false, true, true",
+        "XorResult = false, true, true, false"
+      ],
+      "runs": 1024,
+      "status": "incomplete: runs budget 1024 hit after 1024 runs",
+      "fired": "fired by the implementation only: Call(And), Call(Implies), Call(Not), Call(Or), Call(Xor), GenData1, GenData2, GenData3, GenData4, Value(false), Value(true)"
+    },
+    {
+      "name": "DecisionJoin",
+      "model": "fUML-Tests.uml",
+      "class": "differs-by-design",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "per-token action re-firing (fUML fires an action once per object token on a multiplicity-1 pin; SysML v2 performs the node once with every delivery): DecisionJoin.Action_A fired 2 times",
+        "run error: execute action: action deadlock: 1 token(s) stuck, no progress made"
+      ],
+      "expected": [
+        "output = 0, 1"
+      ],
+      "runs": 1,
+      "status": "complete (1 runs)",
+      "fired": "fired by the implementation only: Action_A, Action_B, Value(0), Value(1)"
+    },
+    {
+      "name": "GenerateListTestData",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "pass",
+      "expected": [
+        "list = 1, 2, 3"
+      ],
+      "reached": [
+        "list = 1, 2, 3"
+      ],
+      "runs": 360,
+      "status": "complete (360 runs)"
+    },
+    {
+      "name": "TestSimpleActivities",
+      "model": "fUML-Tests.uml",
+      "class": "differs-by-design",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "per-token action re-firing (fUML fires an action once per object token on a multiplicity-1 pin; SysML v2 performs the node once with every delivery): DecisionJoin.Action_A fired 2 times, ForkMergeData.Action_B fired 2 times",
+        "run error: execute action: invoke action fuml::DecisionJoin: execute action: action deadlock: 1 token(s) stuck, no progress made"
+      ],
+      "expected": [
+        "Copier.output = 0",
+        "CopierCaller.output = 888",
+        "SimpleDecision_0.output_0 = 0",
+        "SimpleDecision_0.output_1 = -",
+        "SimpleDecision_1.output_0 = -",
+        "SimpleDecision_1.output_1 = 1",
+        "DecisionJoin.output = 0, 1",
+        "ForkMerge = 0, 0",
+        "ForkMergeData.output = 0, 0"
+      ],
+      "runs": 1024,
+      "status": "incomplete: runs budget 1024 hit after 1024 runs",
+      "fired": "fired by the implementation only: Call(Copier), Call(CopierCaller), Call(DecisionJoin), Call(ForkMerge), Call(ForkMergeData), Call(SimpleDecision_0), Call(SimpleDecision_1), Value(0), Value(1)"
+    },
+    {
+      "name": "TestClassExtentReader",
+      "model": "fUML-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "ReadExtentAction (SysML v2 has no classifier extent): ReadExtent(TestClass)"
+      ]
+    },
+    {
+      "name": "TestListFunctions",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "pass",
+      "expected": [
+        "size = 3",
+        "element = 2",
+        "concat = 1, 2, 3, 1, 2, 3"
+      ],
+      "reached": [
+        "size = 3; element = 2; concat = 1, 2, 3, 1, 2, 3"
+      ],
+      "runs": 1024,
+      "status": "incomplete: runs budget 1024 hit after 1024 runs"
+    },
+    {
+      "name": "ForkMerge",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "pass",
+      "expected": [
+        "output = 0, 0"
+      ],
+      "reached": [
+        "output = 0, 0"
+      ],
+      "runs": 20,
+      "status": "complete (20 runs)"
+    },
+    {
+      "name": "TestClassObjectDestroyer",
+      "model": "fUML-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "DestroyObjectAction (SysML v2 actions cannot destroy an object): DestroyObject"
+      ]
+    },
+    {
+      "name": "TestUnlimitedNaturalFunctions",
+      "model": "fUML-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "UnlimitedNatural (KerML's ScalarValues has no unlimited natural): parameter MaxResult, parameter MinResult, pin Value(3).result, pin Value(2).result, pin LT.x, pin LT.y, pin LE.x, pin LE.y, pin GT.x, pin GT.y, pin GE.x, pin GE.y, pin Value(*).result, pin GE.x, pin GE.y, pin LE.x, pin LE.y, pin LT.x, pin LT.y, pin GT.x, pin GT.y, pin Max.x, pin Min.y, pin Max.result, pin Min.x, pin Min.y, pin Min.result; library behavior without a KerML counterpart (KerML's function library has no counterpart): Call(LT) calls PrimitiveBehaviors::UnlimitedNaturalFunctions::\u003c, Call(LE) calls PrimitiveBehaviors::UnlimitedNaturalFunctions::\u003c=, Call(GT) calls PrimitiveBehaviors::UnlimitedNaturalFunctions::\u003e, Call(GE) calls PrimitiveBehaviors::UnlimitedNaturalFunctions::\u003e=, Call(GE)* calls PrimitiveBehaviors::UnlimitedNaturalFunctions::\u003e=, Call(LE)* calls PrimitiveBehaviors::UnlimitedNaturalFunctions::\u003c=, Call(LT)* calls PrimitiveBehaviors::UnlimitedNaturalFunctions::\u003c, Call(GT)* calls PrimitiveBehaviors::UnlimitedNaturalFunctions::\u003e, Call(Max) calls PrimitiveBehaviors::UnlimitedNaturalFunctions::Max, Call(Min) calls PrimitiveBehaviors::UnlimitedNaturalFunctions::Min"
+      ]
+    },
+    {
+      "name": "SimpleDecision",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "pass",
+      "expected": [
+        "output_0 = 0",
+        "output_1 = -"
+      ],
+      "reached": [
+        "output_0 = 0; output_1 = -"
+      ],
+      "runs": 1,
+      "status": "complete (1 runs)"
+    },
+    {
+      "name": "CopierCaller",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "pass",
+      "expected": [
+        "output = 888"
+      ],
+      "reached": [
+        "output = 888"
+      ],
+      "runs": 1,
+      "status": "complete (1 runs)"
+    },
+    {
+      "name": "TestClassAttributeWriter",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "fail",
+      "reasons": [
+        "not translated: Add(y): AddStructuralFeatureValueAction is not translated by the pilot emitter"
+      ]
+    },
+    {
+      "name": "ForkJoin",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "pass",
+      "reached": [
+        ""
+      ],
+      "runs": 1,
+      "status": "complete (1 runs)"
+    },
+    {
+      "name": "GenerateBooleanTestData",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "pass",
+      "expected": [
+        "argumentData1 = true, true, false, false",
+        "argumentData2 = true, false, true, false"
+      ],
+      "reached": [
+        "argumentData1 = true, true, false, false; argumentData2 = true, false, true, false"
+      ],
+      "runs": 1024,
+      "status": "incomplete: runs budget 1024 hit after 1024 runs"
+    },
+    {
+      "name": "SelfReader",
+      "model": "fUML-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "ReadIsClassifiedObjectAction (SysML v2 actions cannot test an object's classifiers): IsClassified(SelfReader)"
+      ]
+    },
+    {
+      "name": "TestStringFunctions",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "pass",
+      "expected": [
+        "SizeResult = 9",
+        "Substring1Result = \"12345\"",
+        "Substring2Result = \"6789\"",
+        "ConcatResult = \"123456789\""
+      ],
+      "reached": [
+        "SizeResult = 9; Substring1Result = \"12345\"; Substring2Result = \"6789\"; ConcatResult = \"123456789\""
+      ],
+      "runs": 1024,
+      "status": "incomplete: runs budget 1024 hit after 1024 runs"
+    },
+    {
+      "name": "TestRealFunctions",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "pass",
+      "expected": [
+        "NegResult = -3.1",
+        "PlusResult = 3.6",
+        "MinusResult = 2.6",
+        "InvResult = 2",
+        "TimesResult = 1.55",
+        "DivideResult = 6.2",
+        "MaxResult = 3.1",
+        "MinResult = 0.5",
+        "AbsResult = 2.3",
+        "RoundResult = -2",
+        "FloorResult = -3",
+        "ToIntegerResult = -2"
+      ],
+      "reached": [
+        "NegResult = -3.1; PlusResult = 3.6; MinusResult = 2.6; InvResult = 2; TimesResult = 1.55; DivideResult = 6.2; MaxResult = 3.1; MinResult = 0.5; AbsResult = 2.3; RoundResult = -2; FloorResult = -3; ToIntegerResult = -2"
+      ],
+      "runs": 1024,
+      "status": "incomplete: runs budget 1024 hit after 1024 runs"
+    },
+    {
+      "name": "TestRealComparisonFunctions",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "pass",
+      "expected": [
+        "LTResult = false",
+        "LEResult = false",
+        "GTResult = true",
+        "GEResult = true"
+      ],
+      "reached": [
+        "LTResult = false; LEResult = false; GTResult = true; GEResult = true"
+      ],
+      "runs": 972,
+      "status": "complete (972 runs)"
+    },
+    {
+      "name": "TestClassAttributeValueRemover",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "fail",
+      "reasons": [
+        "not translated: Add(y)-1: AddStructuralFeatureValueAction is not translated by the pilot emitter"
+      ]
+    },
+    {
+      "name": "TestAssociationEndWriterReader",
+      "model": "fUML-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "structural feature action on an association end (SysML v2 actions have no association links): Add(end2)-1, Add(end2)-3, RemoveAll(end2), Read(end2)-1, Add(end2)-2, RemoveAt(end2), Read(end2)-2"
+      ]
+    },
+    {
+      "name": "TestClassReclassifier",
+      "model": "fUML-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "ReclassifyObjectAction (SysML v2 objects cannot change classifier): Reclassify(Subclass2)"
+      ]
+    },
+    {
+      "name": "ActiveClassBehavior",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "fail",
+      "reasons": [
+        "not translated: activity: an owned behavior of a class is not translated by the pilot emitter"
+      ]
+    },
+    {
+      "name": "TestSignalReceiver",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "fail",
+      "reasons": [
+        "not translated: Accept(TestSignal): AcceptEventAction is not translated by the pilot emitter"
+      ]
+    },
+    {
+      "name": "TestSpecializedSignalSend",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "fail",
+      "reasons": [
+        "not translated: Create(TestSignalReceiver): CreateObjectAction is not translated by the pilot emitter"
+      ]
+    },
+    {
+      "name": "ActiveClassBehaviorSender",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "fail",
+      "reasons": [
+        "not translated: Create(ActiveClass): CreateObjectAction is not translated by the pilot emitter"
+      ]
+    },
+    {
+      "name": "NodeEnabler",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "pass",
+      "expected": [
+        "output = 0"
+      ],
+      "reached": [
+        "output = 0"
+      ],
+      "runs": 2,
+      "status": "complete (2 runs)"
+    },
+    {
+      "name": "TestNodeEnabler",
+      "model": "fUML-Tests.uml",
+      "class": "expressible",
+      "bucket": "pass",
+      "expected": [
+        "output = 1"
+      ],
+      "reached": [
+        "output = 1"
+      ],
+      "runs": 2,
+      "status": "complete (2 runs)"
+    },
+    {
+      "name": "TestCentralBuffer",
+      "model": "fUML-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "CentralBufferNode (SysML v2 actions have no buffer node): CentralBufferNode"
+      ]
+    },
+    {
+      "name": "TestDataStore",
+      "model": "fUML-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "DataStoreNode (SysML v2 actions have no buffer node): DataStoreNode"
+      ]
+    },
+    {
+      "name": "TestCallAccepter",
+      "model": "fUML-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "AcceptCallAction (SysML v2 actions have no operation-call semantics): Accept(test); ReplyAction (SysML v2 actions have no operation-call semantics): Reply(test)"
+      ]
+    },
+    {
+      "name": "TestCallSender",
+      "model": "fUML-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "CallOperationAction (SysML v2 actions have no operation-call semantics): Call(test); dependency on a not-expressible behavior (a behavior it calls or starts is itself not expressible): TestCallAccepter (AcceptCallAction, ReplyAction)"
+      ]
+    },
+    {
+      "name": "TestCallSend",
+      "model": "fUML-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "dependency on a not-expressible behavior (a behavior it calls or starts is itself not expressible): TestCallSender (CallOperationAction, TestCallAccepter (AcceptCallAction, ReplyAction))"
+      ]
+    },
+    {
+      "name": "TestCompositeObjectDestroyer",
+      "model": "fUML-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "structural feature action on an association end (SysML v2 actions have no association links): Write(c2); DestroyObjectAction (SysML v2 actions cannot destroy an object): Destroy(composite); ReadLinkAction (SysML v2 actions have no association links): Read(composite)"
+      ]
+    },
+    {
+      "name": "TestClassUnmarshaller",
+      "model": "fUML-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "UnmarshallAction (SysML v2 actions have no unmarshalling): Unmarshall(TestClass)"
+      ]
+    },
+    {
+      "name": "Test001",
+      "model": "fUML-Exception-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exception-test model (the exception-test model exists to raise and handle exceptions, which SysML v2 actions cannot spell): Test001 is declared in fUML-Exception-Tests.uml; RaiseExceptionAction (SysML v2 actions cannot raise exceptions): RaiseException; ExceptionHandler (SysML v2 actions cannot handle exceptions): RaiseException"
+      ]
+    },
+    {
+      "name": "Test002",
+      "model": "fUML-Exception-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exception-test model (the exception-test model exists to raise and handle exceptions, which SysML v2 actions cannot spell): Test002 is declared in fUML-Exception-Tests.uml; ExceptionHandler (SysML v2 actions cannot handle exceptions): root; RaiseExceptionAction (SysML v2 actions cannot raise exceptions): RaiseExceptionAction; library behavior without a KerML counterpart (KerML's function library has no counterpart): call(writeline) calls BasicInputOutput::WriteLine"
+      ]
+    },
+    {
+      "name": "Test003",
+      "model": "fUML-Exception-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exception-test model (the exception-test model exists to raise and handle exceptions, which SysML v2 actions cannot spell): Test003 is declared in fUML-Exception-Tests.uml; ReadIsClassifiedObjectAction (SysML v2 actions cannot test an object's classifiers): isClassifiedBy(DetailedException); RaiseExceptionAction (SysML v2 actions cannot raise exceptions): RaiseException; ExceptionHandler (SysML v2 actions cannot handle exceptions): RaiseException"
+      ]
+    },
+    {
+      "name": "Test004",
+      "model": "fUML-Exception-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exception-test model (the exception-test model exists to raise and handle exceptions, which SysML v2 actions cannot spell): Test004 is declared in fUML-Exception-Tests.uml; RaiseExceptionAction (SysML v2 actions cannot raise exceptions): RaiseException; ExceptionHandler (SysML v2 actions cannot handle exceptions): RaiseException, RaiseException"
+      ]
+    },
+    {
+      "name": "Test005",
+      "model": "fUML-Exception-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exception-test model (the exception-test model exists to raise and handle exceptions, which SysML v2 actions cannot spell): Test005 is declared in fUML-Exception-Tests.uml; RaiseExceptionAction (SysML v2 actions cannot raise exceptions): RaiseException; ExceptionHandler (SysML v2 actions cannot handle exceptions): RaiseException"
+      ]
+    },
+    {
+      "name": "Test006",
+      "model": "fUML-Exception-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exception-test model (the exception-test model exists to raise and handle exceptions, which SysML v2 actions cannot spell): Test006 is declared in fUML-Exception-Tests.uml; RaiseExceptionAction (SysML v2 actions cannot raise exceptions): RaiseExceptionAction"
+      ]
+    },
+    {
+      "name": "C_Factory",
+      "model": "fUML-Exception-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exception-test model (the exception-test model exists to raise and handle exceptions, which SysML v2 actions cannot spell): C_Factory is declared in fUML-Exception-Tests.uml; CallOperationAction (SysML v2 actions have no operation-call semantics): callConstructor"
+      ]
+    },
+    {
+      "name": "raiseException$Impl",
+      "model": "fUML-Exception-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exception-test model (the exception-test model exists to raise and handle exceptions, which SysML v2 actions cannot spell): raiseException$Impl is declared in fUML-Exception-Tests.uml; RaiseExceptionAction (SysML v2 actions cannot raise exceptions): RaiseException"
+      ]
+    },
+    {
+      "name": "C$Impl",
+      "model": "fUML-Exception-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exception-test model (the exception-test model exists to raise and handle exceptions, which SysML v2 actions cannot spell): C$Impl is declared in fUML-Exception-Tests.uml"
+      ]
+    },
+    {
+      "name": "Test007",
+      "model": "fUML-Exception-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exception-test model (the exception-test model exists to raise and handle exceptions, which SysML v2 actions cannot spell): Test007 is declared in fUML-Exception-Tests.uml; library behavior without a KerML counterpart (KerML's function library has no counterpart): call(writeline) calls BasicInputOutput::WriteLine; CallOperationAction (SysML v2 actions have no operation-call semantics): call(raiseException); ExceptionHandler (SysML v2 actions cannot handle exceptions): call(raiseException); dependency on a not-expressible behavior (a behavior it calls or starts is itself not expressible): C_Factory (exception-test model, CallOperationAction)"
+      ]
+    },
+    {
+      "name": "Test008",
+      "model": "fUML-Exception-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exception-test model (the exception-test model exists to raise and handle exceptions, which SysML v2 actions cannot spell): Test008 is declared in fUML-Exception-Tests.uml; ExceptionHandler (SysML v2 actions cannot handle exceptions): root; dependency on a not-expressible behavior (a behavior it calls or starts is itself not expressible): CalledBehavior (exception-test model, RaiseExceptionAction)"
+      ]
+    },
+    {
+      "name": "CalledBehavior",
+      "model": "fUML-Exception-Tests.uml",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "exception-test model (the exception-test model exists to raise and handle exceptions, which SysML v2 actions cannot spell): CalledBehavior is declared in fUML-Exception-Tests.uml; RaiseExceptionAction (SysML v2 actions cannot raise exceptions): RaiseException"
+      ]
+    }
+  ]
+}

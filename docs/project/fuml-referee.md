@@ -225,5 +225,133 @@ expected-record tests need no suite.
 
 ## Translating and refereeing
 
-The translation rules, `cmd/fuml-referee` and the committed bucket counts are described here
-as they land.
+`Emit(activity)` translates an expressible activity, with every activity it transitively
+calls, into one model in SysML v2 textual notation: a `package fuml` importing `ScalarValues`
+and holding one `action def` per activity. The translation is by rule and in memory; nothing
+of it is committed, and `-keep <dir>` writes it out for reading. The rules, found by hand
+translation of the pilot activities and then generalized:
+
+| fUML | SysML v2 |
+|---|---|
+| `Parameter` | `in`/`out`/`inout` parameter of the definition, with its type from `ScalarValues` and its multiplicity; a multi-valued one `[0..*] nonunique`, `ordered` where the parameter is; an `out` with lower bound 0 is initialized `= ()` so an activity that leaves it empty leaves it empty here. A called activity's parameter that shares its name with another definition's is spelled `<Activity>_<name>` (`Copier_output`), because a SysML v2 nested action returns its outputs to same-named features of the actions around it and reads an unbound input from them, where a fUML activity's parameters are its own; the translated activity's parameters keep their names, which the record compares by |
+| `ActivityParameterNode` | of an input, an action whose one output pin reads the parameter; of an output, a **collector** action whose one input pin is assigned to the parameter (`assign output := v` for a scalar, `assign output := (output, v)` for a list). A collector performs once per succession into it, so each delivery is appended as it arrives |
+| `ValueSpecificationAction` | an action whose result pin is the literal; the literal's kind types the pin, as the implementation puts the evaluated literal on the pin whatever the pin says |
+| `CallBehaviorAction` of an activity | `action <name> : fuml::<Activity>;` — a nested action typed by the callee's definition, its pins the callee's parameters by position |
+| `CallBehaviorAction` of a library function | an action whose result pin is the Kernel Function Library counterpart applied to the argument pins, as `LibraryCounterpart` maps it; `Div` is `ToInteger(x / y)`, `Inv` is `1.0 / x`, `Implies` is `ControlFunctions::'implies'`, `ListConcat` is `SequenceFunctions::union`. An untyped pin (the list functions') takes its type from the flow into it |
+| `ObjectFlow` | `flow <src>.<pin> to <tgt>.<pin>`, traced end to end: from each pin or parameter node that produces a value, through the control nodes routing its token, to each pin it can reach, one `flow` per route. Beside every flow between two actions an enabling `succession` is added, because a SysML v2 flow delivers a value but does not enable its target as fUML's object-flow does |
+| `ControlFlow` | `succession first <src> then <tgt>` |
+| `InitialNode`, `ForkNode` | `fork`; the initial node is a fork so several first nodes can follow it. Nodes with nothing coming in are enabled from `start`, through a fork when there are several |
+| `JoinNode`, `MergeNode`, `DecisionNode` | `join`, `merge`, `decide`; a decision's guards are tests of the pin it decides on (`succession first D if A.result == 0 then …`), found back through its decision-input flow or its one incoming object flow; a join has one outgoing succession, so a decision after it is spelled after it |
+| An action with several outgoing control flows, several edges into a collector or into the final node | an implicit `fork` before, an implicit `merge` after, since a plain action node has one successor |
+| `StructuredActivityNode` without pins | a nested action owning its contents' flow; an object flow across its boundary becomes a parameter of it, with a reader or collector inside. A control flow across the boundary, a guarded or weighted crossing, or a crossing of more than one boundary is refused |
+| `ActivityFinalNode` | `done`; a `FlowFinalNode` ends the edge into it |
+
+Everything else the classifier calls expressible — `CreateObjectAction` and the structural
+feature actions on a class, `ReadSelfAction`, `SendSignalAction`, `AcceptEventAction`,
+`StartObjectBehaviorAction`, a class's classifier behavior, an edge weight other than 1, an
+object-flow cycle through control nodes — is a **`TranslateError`** naming the activity, the
+node or edge, and the construct: `TestClassWriterReader: Create(TestClass): CreateObjectAction
+is not translated by the pilot emitter`. The classifier decides expressibility; the emitter
+decides what it can translate; a `TranslateError` on an expressible activity is a `fail`,
+never a reclassification. Every translated model is checked (`Validate`) through the parser's
+diagnostics and the lowering to an action graph before it is run, so a translation the
+runtime would reject fails as a translation, with the diagnostic.
+
+**Running.** `Execute` parses the model, resolves the definition, and performs it with the
+runtime's `ExploreWith`: every linearization of the concurrent nodes within the exploration
+budget (1024 runs of depth 64 by default), the runs of one activity spread over `-jobs`
+workers, the report the same for any job count because the outcomes are collected as a set.
+Every `in` parameter is given the value the implementation's `ExecutionEnvironment.execute`
+gives it — 0, `""`, `false`, 0.0 — since the JUnit suite passes none. The **oracle is the
+output parameters**: each run's `out` and `inout` values are rendered and compared with the
+record's, a scalar by value, an ordered multi-valued parameter in order, an unordered one as a
+multiset (both sides sorted), an absent optional output as `-` against a present one. A row
+passes when every run within the budget agrees with the record and none ends in a runtime
+error; the runs need not exhaust the schedules, and `status` says whether they did
+(`complete (972 runs)`, `incomplete: runs budget 1024 hit after 1024 runs`), so an agreement
+over a sample is reported as one. A run that ends in a typed runtime error — a deadlock, a
+multiplicity violation, a budget — is a `fail` with the error as its reason. The
+implementation's `Fire` sequence is compared **advisorily**: the actions the runs' outputs
+show fired here against the record's `Fire` events, the difference reported as `fired` and
+never a bucket.
+
+**The buckets.** A `not-expressible` or `differs-by-design` classification files the activity
+there before any translation, and a `differs-by-design` row is still translated and run, so
+the difference is recorded rather than presumed. An expressible activity is `pass` or `fail`
+by its run, a `TranslateError` and a run error being failures.
+
+```bash
+./scripts/download-fuml-suite.sh            # once
+go run ./cmd/fuml-referee                   # the summary: counts, then every non-pass row with its reasons
+go run ./cmd/fuml-referee -json             # the full report, byte-stable
+go run ./cmd/fuml-referee -filter Decision -keep /tmp/fuml   # a few activities, their models written out
+go run ./cmd/fuml-referee -jobs 8 -check    # reproduce the committed counts
+go run ./cmd/fuml-referee -update           # after adjudicating a movement
+```
+
+`-check` and `-update` refuse `-filter`, since the counts are the whole suite's; `-jobs`
+below 1 is refused; an absent suite is reported and exits 0 unless
+`OPENSYSML_REQUIRE_FUML_SUITE` is set, as CI sets it. The baseline
+`docs/project/fuml-referee-baseline.json` carries the provenance (tag, commit, the three
+digests, the activity count, the date and develop commit `-update` recorded), the bucket
+counts and every row with its bucket, reasons, expected and reached outputs, run count and
+status. `-check` compares the provenance first — a moved pin is a different question, never a
+moved count — then the four counts, and names the rows that moved between buckets when a
+count differs. CI runs it in the fUML suite gate after the reader and classifier tests; the
+jar never runs there.
+
+### The pilot, adjudicated
+
+The committed baseline over the 55 activities of both models:
+
+| Bucket | Count | Activities |
+|---|---|---|
+| `pass` | 15 | `Copier`, `CopierCaller`, `SimpleDecision`, `ForkJoin`, `ForkMerge`, `NodeEnabler`, `TestNodeEnabler`, `TestIntegerFunctions`, `TestIntegerComparisonFunctions`, `TestRealFunctions`, `TestRealComparisonFunctions`, `TestStringFunctions`, `GenerateBooleanTestData`, `GenerateListTestData`, `TestListFunctions` |
+| `fail` | 9 | `TestGeneralizationAssembly`, `TestClassObjectCreator`, `TestClassWriterReader`, `TestSpecializedSignalSend`, `ActiveClassBehaviorSender` (`CreateObjectAction`); `TestClassAttributeWriter`, `TestClassAttributeValueRemover` (`AddStructuralFeatureValueAction`); `TestSignalReceiver` (`AcceptEventAction`); `ActiveClassBehavior` (a class's owned behavior) |
+| `differs-by-design` | 4 | `DecisionJoin`, `ForkMergeData`, `TestSimpleActivities`, `TestBooleanFunctions` |
+| `not-expressible` | 27 | the 15 of the test model and the 12 of the exception model listed above |
+
+Every pilot activity the scope named runs: the eight control- and object-flow activities and
+the primitive-function tests pass with every linearization agreeing, seven of them with the
+schedules exhausted (`ForkMerge` 20 runs, `TestIntegerComparisonFunctions` 972) and the
+function tests, whose nodes are all concurrent, over the 1024-run sample; `DecisionJoin`,
+`ForkMergeData` and `TestSimpleActivities` are `differs-by-design` as the scope expected.
+
+**The nine failures are all the emitter's**, and every one is adjudicated as such: each is a
+`TranslateError` on a construct the classifier holds expressible — object creation, feature
+writes on a class, signal reception, an active class's behavior — that the pilot emitter,
+scoped to control and object flow over primitive values, does not spell. None reached the
+runtime. They are the expansion's work, and they stay `fail` rather than being reclassified,
+so the count says what is not yet checked. The five `CreateObjectAction` rows also depend on
+the object-lifecycle mapping the alignment note fixes: creation does not start a behavior;
+`StartObjectBehaviorAction` does.
+
+**The four design differences run as the alignment row predicts.** `DecisionJoin` offers
+`Action_A` two tokens through a multiplicity-1 pin; the implementation fires it twice and the
+decision routes one result each way, so both branches reach the join. Here `Action_A`
+performs once, one guard holds, and the join waits for the other branch: `action deadlock: 1
+token(s) stuck`. `TestBooleanFunctions` delivers a four-row truth table to each function's
+multiplicity-1 pin: four firings there, `multiplicity violation: 4 value(s) bound to a feature
+with multiplicity upper bound 1` here. `TestSimpleActivities` calls `DecisionJoin` and
+`ForkMergeData` and inherits the deadlock. Each row carries its runtime error as a reason so
+the difference is visible, but the bucket is the classifier's, not the run's.
+
+**One translation rule the pilot forced, no runtime finding.** With the nested `Copier`'s
+output parameter and `ForkMergeData`'s both spelled `output`, the model reached two outcomes
+over its 20 linearizations, `output = 0, 0` (the record's) and `output = 0, 0, 0`: when
+`Action_B`'s second performance ended after the collector had appended the first value, the
+runtime returned the nested `output` to the enclosing `output` — the same-named enclosing
+feature — as SysML v2 has it do (`action_invoked_node_body_writes_output` pins that), and the
+collector then appended to a list that already held it. fUML gives each activity its own
+parameters, so the emitter spells a called activity's shared parameter names apart
+(`Copier_output`), and `ForkMergeData` now reaches one outcome, exhaustively, agreeing with
+the record. The runtime behaved as specified; the referee row is `differs-by-design` for the
+re-firing regardless, so no count depends on it.
+
+`TestEmit*`, `TestValidate`, `TestExecute*` and `TestReferee*` in `internal/fuml` are the
+translation's permanent tests over a synthetic model: parameter directions and
+multiplicities, the enabling succession beside a flow, fork, join, merge and guarded
+decision, a nested call and its qualified name, the typed refusal, the parser-and-lowerer
+check, the four comparison rules and the advisory firing difference, the budget sample and the
+run error, the buckets' precedence, determinism across job counts, and the baseline's
+provenance-then-counts comparison with its moved-row diagnostic.
