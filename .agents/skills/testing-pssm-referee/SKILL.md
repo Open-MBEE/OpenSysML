@@ -9,7 +9,7 @@ The referee reads the OMG PSSM 1.0 test suite (`ptc/18-11-06`, `PSSM_TestSuite.x
 tests), translates each state-machine test that has a SysML v2 spelling into textual notation
 in memory, runs it under the runtime's own state-machine driver with the `explore` schedule,
 and compares the set of `log` values reachable against the suite's expected traces. It files
-each test as `pass`, `fail`, `not-expressible`, `terminate-gap` or `differs-by-design`.
+each test as `pass`, `fail`, `not-expressible` or `differs-by-design`.
 
 A pass checks that the runtime reproduces UML behavior where the model has a defensible
 SysML v2 mapping, provides a second opinion on the tool-choice rows of
@@ -178,7 +178,7 @@ budget, and `reports on SM<n> (<title>): <verdict>` when the committed row table
      Inspect the current rejection cases before choosing a mutation; do not
      assume structured payloads or operation arguments are unsupported.
 - **Reclassification is pinned.** `TestSuiteClassification` pins the per-area and total
-  counts (31 standard / 30 extension / 3 terminate-gap / 39 not-expressible). Moving one
+  counts (34 standard / 31 extension / 38 not-expressible). Moving one
   construct between buckets in `classify.go` fails it with the area that moved; the note's
   test-suite section and `docs/project/pssm-referee.md` must move with it — they are the
   record of every move and its reason.

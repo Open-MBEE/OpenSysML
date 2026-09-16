@@ -7,14 +7,13 @@
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
     "recorded": "2026-09-16",
-    "develop": "265045be57a07f9d90d517e69fe3c547d85fc140"
+    "develop": "6ef61eeddaaee1964629e99ede3e6d5f4a3a830f"
   },
   "buckets": {
     "differs-by-design": 2,
-    "fail": 15,
+    "fail": 17,
     "not-expressible": 38,
-    "pass": 45,
-    "terminate-gap": 3
+    "pass": 46
   },
   "tests": [
     {
@@ -979,29 +978,55 @@
     {
       "name": "Terminate 001",
       "area": "Terminate",
-      "class": "terminate-gap",
-      "bucket": "terminate-gap",
+      "class": "standard",
+      "bucket": "fail",
       "reasons": [
-        "terminate S1.Terminate1"
-      ]
+        "admitted trace not reached: S1(entry)::S2.1(entry)::S1.1(entry)::S2.1(exit)"
+      ],
+      "expected": [
+        "S1(entry)::S1.1(entry)::S2.1(entry)::S2.1(exit)",
+        "S1(entry)::S2.1(entry)::S1.1(entry)::S2.1(exit)"
+      ],
+      "reached": [
+        "S1(entry)::S1.1(entry)::S2.1(entry)::S2.1(exit)"
+      ],
+      "runs": 1
     },
     {
       "name": "Terminate 002",
       "area": "Terminate",
-      "class": "terminate-gap",
-      "bucket": "terminate-gap",
+      "class": "standard",
+      "bucket": "fail",
       "reasons": [
-        "terminate S1.Terminate1"
-      ]
+        "admitted trace not reached: S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)",
+        "admitted trace not reached: S1(entry)::S1.1(entry)::S2.1(entry)",
+        "admitted trace not reached: S1(entry)::S2.1(entry)::S1.1(entry)",
+        "admitted trace not reached: S1(entry)::S2.1(entry)::S1.1(entry)::S1.1(doActivityPartI)"
+      ],
+      "expected": [
+        "S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)",
+        "S1(entry)::S1.1(entry)::S2.1(entry)",
+        "S1(entry)::S1.1(entry)::S2.1(entry)::S1.1(doActivityPartI)",
+        "S1(entry)::S2.1(entry)::S1.1(entry)",
+        "S1(entry)::S2.1(entry)::S1.1(entry)::S1.1(doActivityPartI)"
+      ],
+      "reached": [
+        "S1(entry)::S1.1(entry)::S2.1(entry)::S1.1(doActivityPartI)"
+      ],
+      "runs": 1
     },
     {
       "name": "Terminate 003",
       "area": "Terminate",
-      "class": "terminate-gap",
-      "bucket": "terminate-gap",
-      "reasons": [
-        "terminate S1.Terminate1"
-      ]
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "T2(effect)"
+      ],
+      "reached": [
+        "T2(effect)"
+      ],
+      "runs": 1
     },
     {
       "name": "Final001",
