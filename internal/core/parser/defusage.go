@@ -1257,7 +1257,8 @@ func isPostModifierKeyword(tok lexer.Token) bool {
 
 // parsePostModifiers parses the modifiers that follow a multiplicity part:
 // `ordered`, `nonunique`, and on an action usage the `terminate` of a terminate
-// action usage (SysML.xtext TerminateNode); any other kind has it diagnosed.
+// action usage (SysML.xtext TerminateNode), which closes the declaration; any
+// other kind has it diagnosed.
 func (p *Parser) parsePostModifiers(kind ast.UsageKind) featureMods {
 	var m featureMods
 	for {
@@ -1273,15 +1274,29 @@ func (p *Parser) parsePostModifiers(kind ast.UsageKind) featureMods {
 			m.isNonunique = true
 			p.advance()
 		case "terminate":
-			if kind == ast.UsageAction {
-				m.isTerminate = true
-			} else {
-				p.error(t.Span, "'terminate' closes an action usage: a "+kind.String()+" usage is no terminate action usage")
-			}
 			p.advance()
+			if kind != ast.UsageAction {
+				p.error(t.Span, "'terminate' closes an action usage: a "+kind.String()+" usage is no terminate action usage")
+				continue
+			}
+			m.isTerminate = true
+			p.skipPastTerminateMarker()
+			return m
 		default:
 			return m
 		}
+	}
+}
+
+// skipPastTerminateMarker diagnoses and skips whatever a terminate action usage
+// states between its `terminate` and its body: the marker takes no clause after it.
+func (p *Parser) skipPastTerminateMarker() {
+	if p.at(lexer.Semicolon) || p.at(lexer.LBrace) || p.at(lexer.RBrace) || p.atEOF() {
+		return
+	}
+	p.error(p.peek().Span, "'terminate' closes the declaration of a terminate action usage: only its body follows")
+	for !p.at(lexer.Semicolon) && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !p.atEOF() {
+		p.advance()
 	}
 }
 

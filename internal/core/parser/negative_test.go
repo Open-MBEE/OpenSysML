@@ -748,6 +748,13 @@ func TestNegativeKerML(t *testing.T) {
 		{"part_terminate", "package P { part p terminate; }"},
 		{"attribute_terminate", "package P { part def D { attribute x : Integer terminate; } }"},
 		{"state_terminate", "package P { state def S { state s terminate; } }"},
+		// The marker closes the declaration (`ActionNodeUsageDeclaration? 'terminate'
+		// ActionBody`): nothing but the body follows it.
+		{"terminate_repeated", "package P { action def A { first start; then stop; action stop terminate terminate; } }"},
+		{"terminate_then_typing", "package P { action def A { first start; then stop; action stop terminate : Brake; } }"},
+		{"terminate_then_ordered", "package P { action def A { first start; then stop; action stop terminate ordered; } }"},
+		{"terminate_then_value", "package P { action def A { first start; then stop; action stop terminate = 3; } }"},
+		{"terminate_then_target", "package P { action def A { first start; then stop; action stop terminate stop; } }"},
 	}
 
 	for _, tt := range tests {
@@ -788,5 +795,26 @@ func TestUnterminatedCommentIsReported(t *testing.T) {
 	p.ParseFile()
 	if len(p.Diagnostics) != 0 {
 		t.Errorf("a closed comment produced %v", p.Diagnostics)
+	}
+}
+
+// A clause after the `terminate` marker is reported once, at the clause, and the
+// usage keeps its marker and its body: the recovery skips to the body.
+func TestTerminateMarkerClosesTheDeclaration(t *testing.T) {
+	for _, clause := range []string{"terminate", ": Brake", "ordered", "= 3", "stop"} {
+		src := "package P { action def A { first start; then stop; action stop terminate " + clause + " { doc /* d */ } } }"
+		p := New(source.New("t.sysml", []byte(src)))
+		f := p.ParseFile()
+		if len(p.Diagnostics) != 1 || !strings.Contains(p.Diagnostics[0].Message, "only its body follows") {
+			t.Errorf("ParseFile(%q) diagnostics = %v, want the clause after 'terminate' reported once", src, p.Diagnostics)
+			continue
+		}
+		if at := p.Diagnostics[0].Span.Offset; at != strings.Index(src, clause+" {") {
+			t.Errorf("ParseFile(%q) reports at %d, want the clause at %d", src, at, strings.Index(src, clause+" {"))
+		}
+		stop := findUsageNamed(f, "stop")
+		if stop == nil || !stop.IsTerminate || len(stop.Relationships) != 0 || stop.Value != nil || len(stop.Members) != 1 {
+			t.Errorf("ParseFile(%q) = %s, want a terminate usage with only its body", src, ast.Dump(stop))
+		}
 	}
 }
