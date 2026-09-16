@@ -5,14 +5,14 @@ stmt assign log
     eval feature log -> ""
     eval literal "go(effect);" -> "go(effect);"
   eval operator + -> "go(effect);"
-  eval feature x -> 1
-  eval literal 1 -> 1
-eval operator == -> true
 enter: work (entry action)
 stmt assign log
     eval feature log -> "go(effect);"
     eval literal "work(entry);" -> "work(entry);"
   eval operator + -> "go(effect);work(entry);"
+  eval feature x -> 1
+  eval literal 1 -> 1
+eval operator == -> true
 stmt assign log
     eval feature log -> "go(effect);work(entry);"
     eval literal "toW1(effect);" -> "toW1(effect);"

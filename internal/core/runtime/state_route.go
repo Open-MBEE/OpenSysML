@@ -483,6 +483,16 @@ func (e *StateExecutor) enclosingIndex(chain []*ast.StateNode, state *ast.StateN
 	return -1
 }
 
+// enterOwnerOf activates the chain down to the state declaring ps, when the move
+// enters it: the guards of a choice are read once its owner is entered.
+func (e *StateExecutor) enterOwnerOf(ps *ast.PseudostateNode, chain []*ast.StateNode) error {
+	upto := e.enclosingIndex(chain, e.graph.PseudostateOwner[ps])
+	if upto < 0 {
+		return nil
+	}
+	return e.enterAhead(chain[:upto+1])
+}
+
 // enterAhead activates the states of chain not yet activated, outermost first; the
 // move entering them later finds them activated and goes on with their regions.
 func (e *StateExecutor) enterAhead(chain []*ast.StateNode) error {
@@ -629,6 +639,9 @@ func (e *StateExecutor) travelResolving(r route, exits exitPlan, enters entryPla
 			return err
 		}
 		if err := e.runEffects(r.effects(e.graph), e.certainEntries(targets, enters)); err != nil {
+			return err
+		}
+		if err := e.enterOwnerOf(r.choice, e.certainEntries(targets, enters)); err != nil {
 			return err
 		}
 		if r, err = e.resolveChoice(r); err != nil {

@@ -533,9 +533,11 @@ of its own closes it:
   carry the state declaring the pseudostate each segment leaves (`state_route.go:routeEffect`,
   from the lowered `PseudostateOwner`), and `runEffects` enters the states down to that owner
   before running each (`enterAhead`; the move then finds them entered), for a junction as for a
-  choice — whose guards are read after only the states every branch enters are in
-  (`certainEntries`) — at every depth, in a region of a parallel state, and on a history's
+  choice — whose guards are read once its own owner is entered (`enterOwnerOf`) and only the
+  states every branch enters are in (`certainEntries`) — at every depth, in a region of a
+  parallel state, and on a history's
   default transition (`state_junction_inside_composite`, `state_choice_inside_composite`,
+  `state_choice_guard_reads_owner_entry`,
   `state_junction_inside_nested_composite`, `state_junction_inside_orthogonal_region`,
   `state_junction_then_choice_inside_composite`,
   `state_history_default_junction_inside_nested`, each with its trace golden; no golden on

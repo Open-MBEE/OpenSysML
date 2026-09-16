@@ -2169,6 +2169,9 @@ func (e *StateExecutor) defaultHistoryRoute(hist *ast.PseudostateNode, owner *as
 		if err := e.runEffects(r.effects(e.graph), certain); err != nil {
 			return route{}, err
 		}
+		if err := e.enterOwnerOf(r.choice, certain); err != nil {
+			return route{}, err
+		}
 		if r, err = e.resolveChoice(r); err != nil {
 			return route{}, err
 		}

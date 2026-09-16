@@ -1922,13 +1922,16 @@ where; item 9 is open, and says what a fix takes.
     order is the owner's `entry`, the segment's effect, then the entries below it, at every
     depth and for a pseudostate in one region of a parallel state (the owner entered, the
     segment's effect, then every region as usual). `travel` serves a junction and a choice
-    alike: before a choice's guards are read, only the states every branch enters are activated
-    (`certainEntries`, the counterpart of `certainExits`), so the guards still read what the
-    effects into the choice wrote, and a state no branch shares waits for the branch. A history's
+    alike: before a choice's guards are read, the states down to the choice's own owner are
+    activated (`enterOwnerOf`) and, of the rest, only the states every branch enters
+    (`certainEntries`, the counterpart of `certainExits`), so the guards read what the owner's
+    `entry` and the effects into the choice wrote, and a state no branch shares waits for the
+    branch. A history's
     default transition runs the same way from inside the owner (`defaultHistoryRoute` hands its
     settled effects to `moveToHistory`, which enters down to each segment's owner before it).
     A move that activated a state ahead and did not enter it is a typed error, never a silent
     skip. Pinned by `state_junction_inside_composite`, `state_choice_inside_composite`,
+    `state_choice_guard_reads_owner_entry`,
     `state_junction_inside_nested_composite`, `state_junction_inside_orthogonal_region`,
     `state_junction_then_choice_inside_composite` and
     `state_history_default_junction_inside_nested` (+ trace goldens); no golden on `develop`
