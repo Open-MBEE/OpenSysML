@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"evaluate": "test::stopper",
+	"libraries": true,
+	"outputs": {
+		"x": {"type": "Integer", "value": 1},
+		"result": {"type": "Integer", "value": 42},
+		"other": {"type": "Integer", "value": 0}
+	}
+}
