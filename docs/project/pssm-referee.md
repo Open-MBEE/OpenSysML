@@ -163,7 +163,7 @@ send with no receiver) are not state-machine rows and no test in the suite reach
 
 ## Baseline
 
-Recorded **2026-09-16** on develop commit **`15544e9b0`** with the fork-entered-region fix
+Recorded **2026-09-16** on develop commit **`46828f14f`** with the fork-entered-region fix
 (finding 6), the active-ancestor fix, the completion-choice fix, the guard-side-effect
 classification, the join incoming-effects fix and the junction branch-choice fix (finding 8)
 described below, and with every remaining failure attributed, as
