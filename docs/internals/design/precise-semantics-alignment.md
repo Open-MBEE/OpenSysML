@@ -1717,8 +1717,8 @@ activity engine and does not become one.
 The rows below report the runtime differing from, or falling short of, SysML v2's or the Kernel
 Semantic Library's *own* text, or from this project's own design notes. They are bug reports and
 unsupported-feature records, not alignment questions: PSSM has nothing to do with them and they
-are not alignment questions. Each names its evidence; items 4 to 8 are fixed, and say where;
-items 9 and 10 are open, and say what a fix takes.
+are not alignment questions. Each names its evidence; items 4 to 8 and 10 are fixed, and say
+where; item 9 is open, and says what a fix takes.
 
 1. **Terminate is parsed and lowered but not executed** (SM38). SysML v2 §7.17.10 and §7.18.3
    define `terminate`; `Performances.kerml` provides `TerminatePerformance`; the parser accepts
@@ -1894,36 +1894,60 @@ items 9 and 10 are open, and say what a fix takes.
    (`state_parallel_standard`, `state_composite_orthogonal_exit`, `state_concurrent_do` and
    their kin). Not fixed; the nine tests stay `fail` in
    `docs/project/pssm-referee.md` citing this item, with a tenth (*Transition 019*) that also
-   reports on SM34.
+   reports on SM34, and an eleventh (*Junction 005*, §9.4.11) that item 10's fix left on this
+   gap alone: the other region's initial-transition effect and entry, admitted before or
+   around the junction segment's effect, are entered after it.
 10. **A segment leaving a junction inside a composite state runs its effect before the
     composite is entered.** PSSM *Junction 005* (§9.4.11): a transition from outside targets a
     junction that lies in one region of an orthogonal state, and the segment out of the
     junction, `T1.3`, has an effect; the suite admits the orthogonal state's entry, then
     `T1.3(effect)` interleaved with the other region's default entry — every order after the
-    owner's entry. The runtime reaches `T1.3(effect)` before the owner's entry:
-    `state_executor.go:moveTo` runs every effect of the
-    route (`route.effects`) after the exits and before `enterBelow` enters the way down to the
-    target, so a segment that lies inside the target's ancestor runs before that ancestor's
-    `entry`. UML (PSSM §8.5.8, `TransitionActivation::enterTarget` on the way to a vertex owned
-    by a region of the orthogonal state) enters that state before the junction is reached, and
-    v2 says the same of the project's junction: the transition out of it is declared in the
-    owner's body, an `enclosedPerformance` of the owner "happening during the state
-    performance" (`StatePerformances.kerml`), so its effect follows the owner's `entry` — the reading the oracle's
-    join section and item 7's `defaultHistoryRoute` (a history's default transition taken from
-    inside the owner once the owner is entered) already apply. A runtime defect, then, of the
-    same family item 7 fixed for the history's default transition: a route's segments have to be
-    run from the state that owns each pseudostate they leave, entering the ancestors down to that
-    owner first — for a choice as for a junction, since `travel` serves both, and for a junction
-    drawn as its transition fires (item 8) the owner's entry would precede the drawn branch's
-    effect. Not fixed here: it changes `travel`/`moveTo` for every route through a pseudostate
-    inside a composite, and wants the conformance cases that pin a choice's and a junction's
-    segment effect after their owner's entry, with trace goldens, before it. *Junction 005*
-    stays `fail` citing this item.
+    owner's entry. The runtime reached `T1.3(effect)` before the owner's entry:
+    `state_executor.go:moveTo` ran every effect of the route (`route.effects`) after the exits
+    and before `enterBelow` entered the way down to the target, so a segment that lies inside
+    the target's ancestor ran before that ancestor's `entry`. UML (PSSM §8.5.8,
+    `TransitionActivation::enterTarget` on the way to a vertex owned by a region of the
+    orthogonal state) enters that state before the junction is reached, and v2 says the same of
+    the project's junction: the transition out of it is declared in the owner's body, an
+    `enclosedPerformance` of the owner "happening during the state performance"
+    (`StatePerformances.kerml`), so its effect follows the owner's `entry` — the reading the
+    oracle's join section and item 7's `defaultHistoryRoute` (a history's default transition
+    taken from inside the owner once the owner is entered) already apply. A runtime defect,
+    then, of the same family item 7 fixed for the history's default transition.
+    *Fixed:* a route's effects carry the state declaring the pseudostate each segment leaves
+    (`state_route.go:routeEffect`, from `lower.StateGraph.PseudostateOwner`), and
+    `runEffects` runs them in path order, activating the states on the way down to that owner
+    first (`enterAhead`, outermost first, each `entry` run once — the move entering them
+    afterwards finds them activated and goes on with their regions and do behaviors), so the
+    order is the owner's `entry`, the segment's effect, then the entries below it, at every
+    depth and for a pseudostate in one region of a parallel state (the owner entered, the
+    segment's effect, then every region as usual). `travel` serves a junction and a choice
+    alike: before a choice's guards are read, the states down to the choice's own owner are
+    activated (`enterOwnerOf`) and, of the rest, only the states every branch enters
+    (`certainEntries`, the counterpart of `certainExits`), so the guards read what the owner's
+    `entry` and the effects into the choice wrote, and a state no branch shares waits for the
+    branch. A history's
+    default transition runs the same way from inside the owner (`defaultHistoryRoute` hands its
+    settled effects to `moveToHistory`, which enters down to each segment's owner before it).
+    A move that activated a state ahead and did not enter it is a typed error, never a silent
+    skip. Pinned by `state_junction_inside_composite`, `state_choice_inside_composite`,
+    `state_choice_guard_reads_owner_entry`,
+    `state_junction_inside_nested_composite`, `state_junction_inside_orthogonal_region`,
+    `state_junction_then_choice_inside_composite` and
+    `state_history_default_junction_inside_nested` (+ trace goldens); no golden on `develop`
+    moved. *Junction 005* now reaches an admitted trace — the owner's entry, `T1.3(effect)`,
+    then the other region's `T2.1(effect)` and its target's entry — and misses only the two
+    orders in which the other region's initial effect and entry come before or around
+    `T1.3(effect)` — item 9's region-entry order — so it stays `fail` citing item 9 alone, an
+    eleventh test of that family. What a pseudostate's owner does when the route only passes
+    through it — a transition from outside a composite state through its junction to a target
+    outside it again — is not entered on the way, as before: the owner lies on no entry chain of
+    the move, and no PSSM test or fixture pins that shape.
 
 Item 3 has no fixture on `develop`; the first thing it needs is the conformance case that pins
 the behavior, then the fix, in a change set of its own — Track E of the roadmap holds its
-entry. Items 4 to 8 took that path in the change set that decided them; items 9 and 10 wait
-for theirs.
+entry. Items 4 to 8 and 10 took that path in the change set that decided them; item 9 waits
+for its.
 
 ## Open decisions
 
