@@ -386,7 +386,7 @@ function endGesture(event: PointerEvent): void {
   }
   if (done.kind === "node") {
     clickedWaypoint = undefined;
-    vscode.postMessage({ type: "reveal", id: done.id });
+    vscode.postMessage({ type: "reveal", id: done.id, drawn });
     return;
   }
   if (done.kind === "waypoint") {
@@ -590,7 +590,7 @@ function hideMenu(): void {
 // on; the panel redraws once the document has changed.
 function run(command: MenuCommand): void {
   if (command.kind === "reveal") {
-    vscode.postMessage({ type: "reveal", id: command.id });
+    vscode.postMessage({ type: "reveal", id: command.id, drawn });
     return;
   }
   vscode.postMessage({ type: "edit", action: command, drawn });

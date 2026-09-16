@@ -253,9 +253,10 @@ redraws and asks the user to repeat the action on what is now shown. The version
 is the server's guard; the panel has one of its own, since node ids are local to a
 drawing and a drawing can be replaced without the document changing — another
 view is picked, or a document it imports is edited. The panel numbers every
-drawing it posts to the webview, every action the webview sends back carries the
-number of the drawing its ids came from, and an action whose number is not the
-current drawing's is refused before its ids are resolved, with the same message.
+drawing it posts to the webview, every message the webview sends back that names
+a node — an action, a placement, a click that reveals a declaration — carries the
+number of the drawing its ids came from, and one whose number is not the current
+drawing's is refused before its ids are resolved, with the same message.
 The webview takes a drawing's number only once it has drawn it: a drawing that
 fails to draw leaves the last one up, dimmed, and the last one's number with it, so
 an action taken on what is still shown is refused rather than resolved against the

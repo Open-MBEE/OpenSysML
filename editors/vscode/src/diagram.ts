@@ -430,7 +430,7 @@ class DiagramPanel {
         this.refresh();
         return;
       case "reveal":
-        void this.revealSource(message.id);
+        void this.revealSource(message.id, message.drawn);
         return;
       case "edit":
         void this.edit(message.action, message.drawn);
@@ -447,8 +447,12 @@ class DiagramPanel {
     }
   }
 
-  // revealSource opens the declaration a node was built from.
-  private async revealSource(id: string): Promise<void> {
+  // revealSource opens the declaration a node was built from; the id names only the drawing it was clicked on.
+  private async revealSource(id: string, drawn: number): Promise<void> {
+    if (!offeredOn(this.drawn, drawn)) {
+      void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
+      return;
+    }
     const origin = this.node(this.rendering, id)?.origin;
     if (!origin) {
       return;

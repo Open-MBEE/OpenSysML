@@ -339,10 +339,10 @@ export interface EdgePlacement {
   route?: RenderPoint[];
 }
 
-/** A message the webview sends the extension; `drawn` is the drawing an action's ids name. */
+/** A message the webview sends the extension; `drawn` is the drawing a message's ids name. */
 export type FromWebview =
   | { type: "ready" }
-  | { type: "reveal"; id: string }
+  | { type: "reveal"; id: string; drawn: number }
   | { type: "pick"; view: string }
   | { type: "edit"; action: EditAction; drawn: number }
   /** One completed gesture: everything it moved, applied as one edit. */
