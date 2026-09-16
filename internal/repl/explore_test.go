@@ -2,6 +2,7 @@ package repl
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -159,6 +160,453 @@ func TestRunActionExploreInstantiatesThePerformer(t *testing.T) {
 	}
 }
 
+// exploreCommsSource is two parts talking over a connector: the craft's second
+// frame and the ground's stop fall due together, so whether the frame is received is a race.
+const exploreCommsSource = `
+package Comms {
+	private import ScalarValues::*;
+	private import SI::*;
+	item def Ping;
+	item def Frame;
+	port def Link { out item data : Frame; in item ping : Ping; }
+	part def Ground {
+		port p : ~Link;
+		exhibit state listen {
+			attribute received : Integer = 0;
+			entry; then idle;
+			state idle;
+			state listening {
+				entry send new Ping() via p;
+				do action recv {
+					first start;
+					then merge again;
+					then action got accept f : Frame via p;
+					then action count assign received := received + 1;
+					then again;
+				}
+			}
+			transition first idle accept after 1 [s] then listening;
+			transition first listening accept after 2 [s] then quiet;
+			state quiet;
+		}
+	}
+	part def Craft {
+		port p : Link;
+		attribute sent : Integer = 0;
+		exhibit state modes {
+			attribute emitted : Integer = 0;
+			entry; then waiting;
+			state waiting;
+			state sending {
+				do action tx {
+					first start;
+					then merge repeat;
+					then action wait accept after 1 [s];
+					then action emit send new Frame() via p;
+					then action count assign sent := sent + 1;
+					then action tally assign emitted := emitted + 1;
+					then repeat;
+				}
+			}
+			transition first waiting accept Ping via p then sending;
+		}
+		action ack {
+			attribute seen : Integer = 0;
+			first start;
+			then action wait accept after 3 [s];
+			then action look assign seen := sent;
+			then done;
+		}
+	}
+	part def Pair {
+		part ground : Ground;
+		part craft : Craft;
+		connect craft.p to ground.p;
+	}
+	part pair : Pair;
+	part def Fleet {
+		part pairs : Pair[2];
+		part spare : Ground[0..1];
+		attribute count : Integer = 2;
+	}
+	analysis def Tally {
+		subject c : Craft;
+		return n : Integer = c.sent;
+	}
+}
+`
+
+// A machine on an object nested in a declared assembly is explored on that object:
+// each run instantiates the path's root and walks the path, so the connector exists.
+func TestRunForExploresAMachineOnANestedObject(t *testing.T) {
+	s := loadSource(t, exploreCommsSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	listen := Behavior{Name: "Comms::Ground::listen", Performer: []string{"Comms::pair.ground"}}
+	verdicts := s.RunFor(nil, []Behavior{listen}, 5)
+	if len(verdicts) != 1 || verdicts[0].Status != VerdictHolds {
+		t.Fatalf("verdicts = %+v, want one that holds", verdicts)
+	}
+	out := strings.Join(verdicts[0].Lines, "\n")
+	wantsInOrder(t, out, "✓ explored Comms::Ground::listen: 2 outcomes", "received = 1", "received = 2", "complete (")
+	if len(verdicts[0].Outcomes) != 2 {
+		t.Errorf("outcomes = %+v, want the frame missed and the frame received", verdicts[0].Outcomes)
+	}
+
+	// Instantiating the nested part alone loses the assembly: nothing pings it.
+	modes := Behavior{Name: "Comms::Craft::modes", Performer: []string{"Comms::Pair::craft"}}
+	verdicts = s.RunFor(nil, []Behavior{modes}, 5)
+	wants(t, strings.Join(verdicts[0].Lines, "\n"), "✓ explored Comms::Craft::modes: 1 outcome", "finalState waiting")
+
+	// The qualified spelling reaches the same nested object, as the prompt reads it.
+	verdicts = s.RunFor(nil, []Behavior{{Name: "Comms::Ground::listen", Performer: []string{"Comms::pair::ground"}}}, 5)
+	if got := strings.Join(verdicts[0].Lines, "\n"); !strings.Contains(got, "2 outcomes") {
+		t.Errorf("the qualified spelling of the path explored:\n%s", got)
+	}
+}
+
+// An action performed by a nested object runs beside the machines the assembly's
+// objects exhibit, and reads the features they write.
+func TestRunForExploresAnActionOnANestedObject(t *testing.T) {
+	s := loadSource(t, exploreCommsSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	v := s.RunAction("Comms::Craft::ack", "Comms::pair.craft")
+	if v.Status != VerdictHolds {
+		t.Fatalf("status = %v, want holds:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+	}
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Comms::Craft::ack: 2 outcomes", "seen = 1", "seen = 2", "complete (")
+
+	// The craft instantiated on its own is never pinged, so it sends nothing.
+	v = s.RunAction("Comms::Craft::ack", "Comms::Pair::craft")
+	wants(t, strings.Join(v.Lines, "\n"), "✓ explored Comms::Craft::ack: 1 outcome", "seen = 0", "complete (1 runs)")
+}
+
+// A case's subject is named by a path as a performer is: each run makes the
+// object of the path's root and runs the case on the one the path reaches.
+func TestRunAnalysisExploresOnANestedSubject(t *testing.T) {
+	s := loadSource(t, exploreCommsSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	v := s.RunAnalysis("Comms::Tally Comms::pair.craft")
+	if v.Status != VerdictHolds {
+		t.Fatalf("status = %v, want holds:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+	}
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Comms::Tally: 1 outcome", "n = 0", "complete (1 runs)")
+	v = s.RunAnalysis("Comms::Tally Comms::pair.tower")
+	wants(t, strings.Join(v.Lines, "\n"), `Comms::pair has no feature "tower"`)
+	v = s.RunAnalysis("Comms::Tally #1")
+	wants(t, strings.Join(v.Lines, "\n"), (&ExploredObjectError{Ref: "#1"}).Error())
+}
+
+// Two behaviors on sibling parts of one root share the root's object in every
+// run, so their outcomes agree about the frames the connector carried.
+func TestRunForExploresSiblingsOnOneRoot(t *testing.T) {
+	s := loadSource(t, exploreCommsSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	listen := Behavior{Name: "Comms::Ground::listen", Performer: []string{"Comms::pair.ground"}}
+	modes := Behavior{Name: "Comms::Craft::modes", Performer: []string{"Comms::pair.craft"}}
+	verdicts := s.RunFor(nil, []Behavior{listen, modes}, 5)
+	if len(verdicts) != 1 || verdicts[0].Status != VerdictHolds {
+		t.Fatalf("verdicts = %+v, want one that holds", verdicts)
+	}
+	out := strings.Join(verdicts[0].Lines, "\n")
+	wantsInOrder(t, out, "✓ explored Comms::Ground::listen Comms::pair.ground, Comms::Craft::modes Comms::pair.craft: 2 outcomes",
+		"Comms::Craft::modes Comms::pair.craft.emitted = 4", "Comms::Ground::listen Comms::pair.ground.received = 1",
+		"Comms::Craft::modes Comms::pair.craft.emitted = 4", "Comms::Ground::listen Comms::pair.ground.received = 2",
+		"complete (3 runs)")
+	if len(verdicts[0].Outcomes) != 2 {
+		t.Errorf("outcomes = %+v, want two", verdicts[0].Outcomes)
+	}
+	// One witness names both objects on one clock: the root was instantiated once.
+	if w := strings.Join(verdicts[0].Outcomes[0].Witness, "; "); !strings.Contains(w, "state machine listen of object #") || !strings.Contains(w, "state machine modes of object #") {
+		t.Errorf("witness = %s, want both machines' choices", w)
+	}
+
+	// The same table under one job and under four.
+	for _, jobs := range []int{1, 4} {
+		if err := s.SetJobs(jobs); err != nil {
+			t.Fatal(err)
+		}
+		again := s.RunFor(nil, []Behavior{listen, modes}, 5)
+		if got := strings.Join(again[0].Lines, "\n"); got != out {
+			t.Errorf("under %d jobs:\n%s\nwant\n%s", jobs, got, out)
+		}
+	}
+}
+
+// An object -instantiate created is given to the explored runs: each creates one of
+// its declaration before the behaviors start, so a machine named alone attaches to
+// the object exhibiting it and a path into the declaration reuses the object. The
+// prompt's %instantiate creates the session's object alone, which no run sees.
+func TestExploredRunsAreGivenTheObjectsInstantiated(t *testing.T) {
+	s := loadSource(t, exploreCommsSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	listen := Behavior{Name: "Comms::Ground::listen"}
+	none := (&ExhibitorsError{Machine: "Comms::Ground::listen", Types: []string{"Comms::Ground"}, Fresh: true}).Error()
+	wants(t, strings.Join(s.RunFor(nil, []Behavior{listen}, 5)[0].Lines, "\n"), none)
+
+	run(t, s, "%instantiate Comms::pair")
+	wants(t, strings.Join(s.RunFor(nil, []Behavior{listen}, 5)[0].Lines, "\n"), none)
+
+	if _, err := s.InstantiateReport("Comms::pair"); err != nil {
+		t.Fatal(err)
+	}
+	verdicts := s.RunFor(nil, []Behavior{listen}, 5)
+	if v := verdicts[0]; v.Status != VerdictHolds {
+		t.Fatalf("status = %v, want holds:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+	}
+	wantsInOrder(t, strings.Join(verdicts[0].Lines, "\n"), "✓ explored Comms::Ground::listen: 2 outcomes", "received = 1", "received = 2")
+
+	// The given root is the one a path into it walks: one pair per run, its craft
+	// pinged by its ground, the same runs as with the ground named by its path,
+	// which the machine's object is reported under.
+	modes := Behavior{Name: "Comms::Craft::modes", Performer: []string{"Comms::pair.craft"}}
+	given := s.RunFor(nil, []Behavior{listen, modes}, 5)[0]
+	wantsInOrder(t, strings.Join(given.Lines, "\n"), "✓ explored Comms::Ground::listen, Comms::Craft::modes: 2 outcomes",
+		"Comms::Ground::listen.received = 1; Comms::pair.craft.isSolid = true; Comms::pair.craft.sent = 4; Comms::pair.ground.isSolid = true",
+		"Comms::Ground::listen.received = 2; Comms::pair.craft.isSolid = true; Comms::pair.craft.sent = 4; Comms::pair.ground.isSolid = true")
+	alone := loadSource(t, exploreCommsSource)
+	if err := alone.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	pathed := Behavior{Name: "Comms::Ground::listen", Performer: []string{"Comms::pair.ground"}}
+	named := alone.RunFor(nil, []Behavior{pathed, modes}, 5)[0]
+	for i, o := range given.Outcomes {
+		if want := named.Outcomes[i]; strings.Join(o.Witness, "; ") != strings.Join(want.Witness, "; ") || o.Linearizations != want.Linearizations {
+			t.Errorf("outcome %d given the pair: %d × %s\nwant, as with the ground named: %d × %s", i, o.Linearizations, o.Witness, want.Linearizations, want.Witness)
+		}
+	}
+
+	// A second given object exhibiting the machine makes naming it alone
+	// ambiguous, refused naming the run's objects as the prompt names the session's.
+	if _, err := s.InstantiateReport("Comms::Fleet"); err != nil {
+		t.Fatal(err)
+	}
+	wants(t, strings.Join(s.RunFor(nil, []Behavior{listen}, 5)[0].Lines, "\n"),
+		`3 objects of the explored run exhibit "Comms::Ground::listen"`, `of "Comms::pair.ground"`, `of "Comms::Fleet.pairs[1].ground"`)
+
+	// A given object lasts as long as the session holds it: a submission leaving its
+	// declaration as it was keeps it, one changing the declaration drops it with the object.
+	changed := strings.Replace(exploreCommsSource, "part def Fleet {", "part def Fleet {\n\t\tattribute name : String;", 1)
+	if res := s.Submit(changed); len(res.Diagnostics) > 0 {
+		t.Fatalf("resubmission has diagnostics: %v", res.Diagnostics)
+	}
+	if got := s.given; !slices.Equal(got, []string{"Comms::pair"}) {
+		t.Errorf("given after the Fleet changed = %q, want the pair alone", got)
+	}
+	wantsInOrder(t, strings.Join(s.RunFor(nil, []Behavior{listen}, 5)[0].Lines, "\n"), "✓ explored Comms::Ground::listen: 2 outcomes", "received = 1", "received = 2")
+}
+
+// Each -instantiate gives the runs an object of its own, as it creates one of the
+// session's: a declaration given twice is two objects per run, the name denoting
+// the later and the earlier reached by id alone, so a machine named alone is
+// ambiguous between them as the prompt's is.
+func TestExploredRunsAreGivenOneObjectPerInstantiate(t *testing.T) {
+	s := loadSource(t, exploreCommsSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if _, err := s.InstantiateReport("Comms::pair"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := s.given; !slices.Equal(got, []string{"Comms::pair", "Comms::pair"}) {
+		t.Fatalf("given after two -instantiate = %q, want the pair twice", got)
+	}
+	prompt := strings.Join(s.RunFor(nil, []Behavior{{Name: "Comms::Ground::listen"}}, 5)[0].Lines, "\n")
+	wants(t, prompt, `2 objects of the explored run exhibit "Comms::Ground::listen"`, `of "Comms::pair.ground"`, `.ground"`)
+	if strings.Count(prompt, ".ground\"") != 2 {
+		t.Errorf("want the ground of each pair named, the displaced one's by id:\n%s", prompt)
+	}
+
+	// The path walks into the pair the name denotes: the run creates two, both
+	// running, and the exploration tables the named one's machine over the runs
+	// the second pair's choices multiply.
+	pathed := Behavior{Name: "Comms::Ground::listen", Performer: []string{"Comms::pair.ground"}}
+	wantsInOrder(t, strings.Join(s.RunFor(nil, []Behavior{pathed}, 5)[0].Lines, "\n"), "explored Comms::Ground::listen: 2 outcomes", "received = 1", "received = 2")
+}
+
+// exploreBayEquipmentSource is a ticker held required deep in a rack, and optionally
+// in a bay, neither named by any behavior.
+const exploreBayEquipmentSource = `
+package Bay {
+	private import ScalarValues::*;
+	part def Ticker {
+		attribute n : Integer = 0;
+		exhibit state ticking { entry; then on; state on { entry assign n := n + 1; } }
+	}
+	part def Shelf { part ticker : Ticker; }
+	part def Rack { part shelves : Shelf[2]; }
+	part def Bay { part maybe : Ticker[0..1]; part rack : Rack; }
+	part bay : Bay;
+}
+`
+
+// A machine named alone finds the run's objects exhibiting it however deep a given
+// object holds them, as every required part of a behaving type is created with its
+// holder. An optional part is left absent, so the run has no object of it to find,
+// as the prompt has none: the machine is named on a path to attach to one.
+func TestExploredMachineNamedAloneFindsTheGivenObjectsRequiredParts(t *testing.T) {
+	s := loadSource(t, exploreBayEquipmentSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.InstantiateReport("Bay::bay"); err != nil {
+		t.Fatal(err)
+	}
+	ticking := Behavior{Name: "Bay::Ticker::ticking"}
+	wants(t, strings.Join(s.RunFor(nil, []Behavior{ticking}, 1)[0].Lines, "\n"),
+		`2 objects of the explored run exhibit "Bay::Ticker::ticking"`,
+		`of "Bay::bay.rack.shelves[1].ticker"`, `of "Bay::bay.rack.shelves[2].ticker"`)
+	prompt := loadSource(t, exploreBayEquipmentSource)
+	run(t, prompt, "%instantiate Bay::bay")
+	wants(t, run(t, prompt, "%state Bay::Ticker::ticking"),
+		`2 objects of this session exhibit "Bay::Ticker::ticking"`, `of "Bay::bay.rack.shelves[1].ticker"`)
+
+	v := s.RunFor(nil, []Behavior{{Name: "Bay::Ticker::ticking", Performer: []string{"Bay::bay.rack.shelves[2].ticker"}}}, 1)[0]
+	if v.Status != VerdictHolds {
+		t.Fatalf("status = %v, want holds:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+	}
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Bay::Ticker::ticking: 1 outcome", "finalState on", "this.n = 1")
+
+	wants(t, strings.Join(s.RunFor(nil, []Behavior{{Name: "Bay::Ticker::ticking", Performer: []string{"Bay::bay.maybe"}}}, 1)[0].Lines, "\n"),
+		"error: maybe of Bay::bay holds no object")
+}
+
+// exploreTankSource is a part performing an action of its own that writes the
+// part's attribute, held alone and twice over in a farm.
+const exploreTankSource = `
+package Tank {
+	private import ScalarValues::*;
+	part def Tank {
+		attribute level : Integer = 0;
+		perform action fill {
+			first start;
+			then action pour assign level := level + 1;
+			then done;
+		}
+	}
+	part tank : Tank;
+	part def Farm {
+		part tanks : Tank[2];
+	}
+}
+`
+
+// An action named alone attaches to the performance the run's one given object
+// already runs of it, so the outcome is that object's: its attribute written once,
+// not a second detached performance's. Several given objects performing it are refused
+// naming them, as machines are.
+func TestExploredActionNamedAloneAttachesToTheGivenObjectPerformingIt(t *testing.T) {
+	s := loadSource(t, exploreTankSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	fill := Behavior{Name: "Tank::Tank::fill"}
+	if _, err := s.InstantiateReport("Tank::tank"); err != nil {
+		t.Fatal(err)
+	}
+	v := s.RunFor([]Behavior{fill}, nil, 1)[0]
+	if v.Status != VerdictHolds {
+		t.Fatalf("status = %v, want holds:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+	}
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Tank::Tank::fill: 1 outcome", "this.level = 1", "complete (1 runs)")
+
+	// Named on the object performing it, the action attaches to that performance too.
+	v = s.RunFor([]Behavior{{Name: "Tank::Tank::fill", Performer: []string{"Tank::tank"}}}, nil, 1)[0]
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Tank::Tank::fill: 1 outcome", "this.level = 1", "complete (1 runs)")
+	v = s.RunFor([]Behavior{{Name: "Tank::Tank::fill", Performer: []string{"Tank::Farm.tanks[2]"}}}, nil, 1)[0]
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Tank::Tank::fill: 1 outcome", "this.level = 1", "complete (1 runs)")
+
+	if _, err := s.InstantiateReport("Tank::Farm"); err != nil {
+		t.Fatal(err)
+	}
+	v = s.RunFor([]Behavior{fill}, nil, 1)[0]
+	if v.Status != VerdictUnresolved {
+		t.Errorf("status = %v, want unresolved:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+	}
+	wants(t, strings.Join(v.Lines, "\n"), `3 objects of the explored run perform "Tank::Tank::fill"`,
+		`of "Tank::tank"`, `of "Tank::Farm.tanks[1]"`, `of "Tank::Farm.tanks[2]"`, "name one as Tank::Tank::fill <Assembly::part>")
+	var refused *PerformersError
+	if !errors.As(&PerformersError{}, &refused) {
+		t.Fatal("PerformersError is not an error")
+	}
+}
+
+// A path an exploration cannot follow is refused while the session is held: an
+// object named by id, an unknown usage, an index on a scalar or off a fixed multiplicity.
+func TestExploredPathsAreCheckedAgainstTheDeclarations(t *testing.T) {
+	s := loadSource(t, exploreCommsSource)
+	run(t, s, "%instantiate Comms::pair")
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	listen := "Comms::Ground::listen"
+	for performer, want := range map[string]string{
+		"#1":                      (&ExploredObjectError{Ref: "#1"}).Error(),
+		"#1.ground":               (&ExploredObjectError{Ref: "#1.ground"}).Error(),
+		"Comms::pair.tower":       `Comms::pair has no feature "tower" (its features are craft, ground`,
+		"Comms::pair.ground.p.x":  `Comms::pair.ground.p has no feature "x"`,
+		"Comms::pair.ground[1]":   "ground of Comms::pair holds one value and takes no index: write ground, not ground[1]",
+		"Comms::Fleet.pairs":      "pairs of Comms::Fleet holds 2 objects: pick one by index, pairs[1] to pairs[2]",
+		"Comms::Fleet.pairs[3]":   "pairs of Comms::Fleet holds 2 objects, so pairs[3] names none (indexes run from 1 to 2)",
+		"Comms::Fleet.count.x":    "count of Comms::Fleet holds a value, not an object",
+		"Comms::nowhere.ground":   "unresolved reference: Comms::nowhere",
+		"Comms::Ground::listen.x": "",
+	} {
+		verdicts := s.RunFor(nil, []Behavior{{Name: listen, Performer: []string{performer}}}, 5)
+		if len(verdicts) != 1 || verdicts[0].Status != VerdictUnresolved {
+			t.Errorf("%s: verdicts = %+v, want one unresolved", performer, verdicts)
+			continue
+		}
+		out := strings.Join(verdicts[0].Lines, "\n")
+		if !strings.Contains(out, want) {
+			t.Errorf("%s:\n%s\nwant %q", performer, out, want)
+		}
+		if strings.Contains(out, "explored "+listen) {
+			t.Errorf("%s was explored on:\n%s", performer, out)
+		}
+	}
+	// The refusal of a session object does not claim every dotted name is refused.
+	if msg := (&ExploredObjectError{Ref: "#1"}).Error(); !strings.Contains(msg, "a path from one to an object it holds") {
+		t.Errorf("ExploredObjectError = %q", msg)
+	}
+
+	// An element of a multi-valued usage is an object of its own, reached by index.
+	verdicts := s.RunFor(nil, []Behavior{{Name: listen, Performer: []string{"Comms::Fleet.pairs[2].ground"}}}, 5)
+	wantsInOrder(t, strings.Join(verdicts[0].Lines, "\n"), "explored Comms::Ground::listen: 2 outcomes", "received = 1", "received = 2")
+
+	// A usage the declarations allow to hold nothing is planned, and a run finding it
+	// empty fails as a run does: an outcome of the table, not a refusal of the plan.
+	verdicts = s.RunFor(nil, []Behavior{{Name: listen, Performer: []string{"Comms::Fleet.spare"}}}, 5)
+	wantsInOrder(t, strings.Join(verdicts[0].Lines, "\n"), "explored Comms::Ground::listen: 1 outcome", "error: spare of Comms::Fleet holds no object", "complete (1 runs)")
+
+	// A path is planned from the declarations, never from the objects the session holds.
+	plan := s.planFresh("Comms::pair.ground", "Comms::pair.craft", "Comms::pair")
+	for _, text := range []string{"Comms::pair.ground", "Comms::pair.craft", "Comms::pair"} {
+		ref := plan.refs[text]
+		if ref.err != nil || ref.fqn != "Comms::pair" || ref.label != text {
+			t.Errorf("plan of %s = %+v", text, ref)
+		}
+	}
+	if got := len(plan.refs["Comms::pair.ground"].path); got != 1 {
+		t.Errorf("path of Comms::pair.ground has %d segments", got)
+	}
+	var pathErr *ObjectPathError
+	if err := s.freshRef("Comms::pair.tower").err; err == nil || !errors.As(err, &pathErr) {
+		t.Errorf("Comms::pair.tower = %v, want *ObjectPathError", err)
+	}
+}
+
 // exploreLampSource has a machine and an action of one part due at one instant of
 // the clock they share, so which runs first is a choice point.
 const exploreLampSource = `
@@ -200,8 +648,8 @@ func TestRunForExploresEveryDueOrder(t *testing.T) {
 	}
 	wantsInOrder(t, strings.Join(verdicts[0].Lines, "\n"),
 		"✓ explored Shared::Lamp::peek, Shared::Lamp::glow: 2 outcomes",
-		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = false | 1              | t=3.0: action peek of object #1 first of state machine glow of object #1, action peek of object #1`,
-		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = true  | 1              | t=3.0: state machine glow of object #1 first of state machine glow of object #1, action peek of object #1`,
+		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = false; this.isSolid = true; this.lit = true | 1              | t=3.0: action peek of object #1 first of state machine glow of object #1, action peek of object #1`,
+		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = true; this.isSolid = true; this.lit = true  | 1              | t=3.0: state machine glow of object #1 first of state machine glow of object #1, action peek of object #1`,
 		"complete (2 runs)")
 
 	// One behavior explored with a duration is its own outcome, as RunStateMachine tables it.
@@ -210,7 +658,7 @@ func TestRunForExploresEveryDueOrder(t *testing.T) {
 		t.Fatalf("verdicts = %+v, want one that holds", verdicts)
 	}
 	wants(t, strings.Join(verdicts[0].Lines, "\n"), "✓ explored Shared::Lamp::glow: 1 outcome",
-		"finalState on; visits off, on | 1              | no choice points", "complete (1 runs)")
+		"finalState on; visits off, on; this.isSolid = true; this.lit = true | 1              | no choice points", "complete (1 runs)")
 
 	// A behavior that does not resolve is reported and nothing is explored.
 	verdicts = s.RunFor([]Behavior{{Name: "Shared::Lamp::nothing"}}, []Behavior{glow}, 3)
