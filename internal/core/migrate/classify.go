@@ -133,6 +133,18 @@ func isStandardNamespace(ns string) bool {
 	return false
 }
 
+// isMagicDrawCustomization matches the namespace MagicDraw and Cameo give
+// their SysML customization profile (…magicdraw.com/spec/Customization/…).
+func isMagicDrawCustomization(ns string) bool {
+	u, err := url.Parse(ns)
+	if err != nil {
+		return false
+	}
+	host := strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.")
+	return (host == "magicdraw.com" || host == "nomagic.com") &&
+		strings.HasPrefix(strings.ToLower(u.Path), "/spec/customization/")
+}
+
 // stereo returns e's application of the named standard-profile stereotype, or nil.
 func stereo(e *xmi.Element, name string) *xmi.Stereotype {
 	for _, s := range e.Stereotypes {
@@ -477,4 +489,38 @@ func (m *migration) instanceClassifiers(e *xmi.Element) (occurrences, values []*
 		}
 	}
 	return occurrences, values, strings.Join(notes, "; ")
+}
+
+// individualClassifiers returns the kind an individual takes from its first
+// classifier (part def, constraint def; none for a port def) and the classifiers of that kind.
+func (m *migration) individualClassifiers(e *xmi.Element) (kind category, written []*xmi.Element, note string) {
+	occurrences, _, _ := m.instanceClassifiers(e)
+	var notes []string
+	for _, c := range occurrences {
+		cc, _ := m.classify(c)
+		if cc == catPortDef {
+			cc = catNone
+		}
+		switch {
+		case kind == catNone || kind == cc:
+			kind = cc
+		case cc == catNone:
+			notes = append(notes, "the instance's classifier "+qualifiedName(c)+" is not written: an "+individualKeyword(kind)+" cannot specialize a port def")
+			continue
+		default:
+			notes = append(notes, "the instance's classifier "+qualifiedName(c)+" is not written: an "+individualKeyword(kind)+" cannot specialize a "+cc.keyword())
+			continue
+		}
+		written = append(written, c)
+	}
+	return kind, written, strings.Join(notes, "; ")
+}
+
+// individualKeyword is the declaration keyword of an individual of the kind:
+// `individual part def`, or `individual def` for an instance of an interface block.
+func individualKeyword(kind category) string {
+	if kind == catNone {
+		return "individual def"
+	}
+	return "individual " + kind.keyword()
 }

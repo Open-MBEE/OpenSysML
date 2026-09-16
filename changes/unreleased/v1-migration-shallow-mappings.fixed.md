@@ -1,8 +1,8 @@
 - **The SysML v1 migration reads past the UML metaclass where the tool's own encoding hides the
   v2 form.** A Signal is an `item def`, and properties typed by one are `item` / `ref item`, not
-  `attribute def` and `attribute`. A constraint block's parameters are public `in attribute`s
-  whether the tool stores them as UML Properties or, as MagicDraw does under a
-  «ConstraintParameter» marker, as UML Ports, and a `private` parameter loses its visibility so
+  `attribute def` and `attribute`. A constraint block's parameters are public `in attribute`s —
+  `in ref part`s when typed by a block — whether the tool stores them as UML Properties or, as
+  MagicDraw does under a «ConstraintParameter» marker, as UML Ports, and a `private` parameter loses its visibility so
   the block's binding connectors can reach it — as does any private feature a connector, slot,
   redefinition or subset reaches from outside, the report naming what reached it. A type
   referenced by href into the SysML or UML primitive library resolves to `ScalarValues::Real` /
@@ -23,8 +23,13 @@
   literal on an `Integer` feature and a numeric string on a scalar feature take the feature's
   scalar, a literal on a value type or enumeration with no scalar base is not bound, and a
   default naming an instance of a block types the usage by that individual — its only type when
-  the property is untyped — instead of being written as a value. An undirected part or item property of an interface block is a `ref`,
+  the property is untyped — instead of being written as a value. An instance of a block is an
+  `individual part def` and of a constraint block an `individual constraint def`, and a slot of a
+  part, item or constraint property is written too: one instance redefines the property as an
+  `individual part :>> x : 'the instance';`, several each subset it under a redefinition
+  counting them, while a slot whose instance is not of the property's type, or differs from the
+  individual its default types it by, is left as a comment. An undirected part or item property of an interface block is a `ref`,
   since a port owns no composite parts, and a specializing block's property named like an
   inherited one redefines it when both are the same kind of usage, and is reported when they
   are not. Migrating the current TMT observatory model now yields notation
-  with no analysis errors, down from a hundred.
+  with no analysis errors, down from a hundred, and keeps the structure of its instance trees.

@@ -4,6 +4,7 @@ package migrate
 
 import (
 	"fmt"
+	"math/big"
 	"sort"
 	"strconv"
 	"strings"
@@ -163,6 +164,7 @@ func (m *migration) prepare() {
 		case "InstanceSpecification":
 			for _, slot := range e.Owned("slot") {
 				if f := m.model.Ref(slot, "definingFeature"); f != nil && m.slotClassifier(e, f) != nil {
+					m.nameFor(f)
 					m.expose(f, "instance "+describe(e)+" has a slot for it")
 				}
 			}
@@ -338,7 +340,8 @@ func (m *migration) imports(e *xmi.Element) {
 		m.add(e, Skipped, "", "import of a profile or library package")
 		return
 	}
-	vis := ""
+	// v1 imports are public by default; a bare v2 import is not.
+	vis := "public "
 	if e.Attrs["visibility"] == "private" {
 		vis = privatePrefix
 	}
@@ -378,7 +381,12 @@ func (m *migration) classifier(e *xmi.Element) {
 	if e.Attrs["isAbstract"] == "true" && cat != catValue {
 		header.WriteString("abstract ")
 	}
-	header.WriteString(cat.keyword())
+	if cat == catIndividualDef {
+		kind, _, _ := m.individualClassifiers(e)
+		header.WriteString(individualKeyword(kind))
+	} else {
+		header.WriteString(cat.keyword())
+	}
 	header.WriteByte(' ')
 	if cat == catRequirementDef {
 		if id := requirementID(e); id != "" {
@@ -470,10 +478,15 @@ func (m *migration) generals(e *xmi.Element, cat category) (string, string) {
 		notes = append(notes, "a value type with a unit or quantity kind and no base type is written as ScalarValues::Real")
 	}
 	if cat == catIndividualDef || cat == catValue {
-		occurrences, values, _ := m.instanceClassifiers(e)
-		written := occurrences
+		var written []*xmi.Element
 		if cat == catValue {
-			written = values
+			_, written, _ = m.instanceClassifiers(e)
+		} else {
+			var note string
+			_, written, note = m.individualClassifiers(e)
+			if note != "" {
+				notes = append(notes, note)
+			}
 		}
 		for _, c := range written {
 			refs = append(refs, m.ref(c, m.scope))
@@ -631,50 +644,144 @@ func (m *migration) individualBody(e *xmi.Element) {
 			m.unmapped(slot, "the slot's defining feature "+qualifiedName(f)+" is not a feature of any classifier the instance is written to specialize")
 			continue
 		}
-		kw, _, _ := m.featureKeyword(f, catPartDef)
-		if kw != "attribute" {
-			m.unmapped(slot, "only slots of value properties are written; "+f.Name+" is a "+kw)
-			continue
-		}
-		var vals []string
-		var notes []string
-		ok := true
-		for _, v := range slot.Owned("value") {
-			expr, vok, note := m.featureValue(v, f, e)
-			if !vok {
-				ok = false
-				notes = append(notes, note)
-				break
-			}
-			vals = append(vals, expr)
-			if note != "" {
-				notes = append(notes, note)
-			}
-		}
-		if !ok {
-			m.unmapped(slot, strings.Join(notes, "; "))
-			continue
-		}
-		if conflict := m.slotConflict(f, vals); conflict != "" {
-			m.unmapped(slot, conflict+"; its values are "+strings.Join(vals, ", "))
-			continue
-		}
-		value := ""
-		switch len(vals) {
-		case 0:
-		case 1:
-			value = " = " + vals[0]
+		owner := m.classifyParent(f)
+		kw, prefix, _ := m.featureKeyword(f, owner)
+		dir, _ := m.featureDirection(f, owner, kw)
+		switch kw {
+		case "attribute":
+			m.valueSlot(slot, f, dir)
+		case "part", "item", "constraint", "requirement":
+			m.instanceSlot(slot, f, kw, prefix)
+		case "port":
+			m.unmapped(slot, "the slot of port "+f.Name+" is not written: v2 has no individual port for it to be typed by")
 		default:
-			value = " = (" + strings.Join(vals, ", ") + ")"
+			m.unmapped(slot, "the slot of "+f.Name+" is not written: the property is written as a plain "+kw+", which cannot be typed by an individual")
 		}
-		m.w.line("attribute :>> " + writeName(m.nameOf(f)) + value + ";")
-		m.add(slot, verdictFor(strings.Join(notes, "; ")), m.v2Name(e)+"::"+writeName(f.Name), strings.Join(notes, "; "))
 	}
 	for _, extra := range m.extras[e] {
 		extra()
 	}
 	m.stereotypeComments(e)
 	m.scope = saved
+}
+
+// valueSlot writes a slot of a value property as a redefinition bound to its
+// values, with the direction the feature has.
+func (m *migration) valueSlot(slot, f *xmi.Element, dir string) {
+	e := m.scope
+	var vals []string
+	var notes []string
+	for _, v := range slot.Owned("value") {
+		expr, ok, note := m.featureValue(v, f, e)
+		if !ok {
+			m.unmapped(slot, note)
+			return
+		}
+		vals = append(vals, expr)
+		if note != "" {
+			notes = append(notes, note)
+		}
+	}
+	if conflict := m.slotConflict(f, vals); conflict != "" {
+		m.unmapped(slot, conflict+"; its values are "+strings.Join(vals, ", "))
+		return
+	}
+	value := ""
+	switch len(vals) {
+	case 0:
+	case 1:
+		value = " = " + vals[0]
+	default:
+		value = " = (" + strings.Join(vals, ", ") + ")"
+	}
+	m.w.line(dir + "attribute :>> " + writeName(m.nameFor(f)) + value + ";")
+	m.add(slot, verdictFor(strings.Join(notes, "; ")), m.v2Name(e)+"::"+writeName(m.nameFor(f)), strings.Join(notes, "; "))
+}
+
+// instanceSlot writes a slot holding instances: one redefines the feature typed
+// by its individual; several each subset it under a redefinition counting them.
+func (m *migration) instanceSlot(slot, f *xmi.Element, kw, prefix string) {
+	e := m.scope
+	t := m.model.Ref(f, "type")
+	var refs []string
+	for _, v := range slot.Owned("value") {
+		if v.Type != "InstanceValue" {
+			m.unmapped(slot, article(kw)+kw+" holds instances; the slot's value is a "+v.Type)
+			return
+		}
+		inst := m.model.Ref(v, "instance")
+		switch {
+		case inst == nil:
+			m.unmapped(slot, "the slot's value names no instance")
+			return
+		case inst.IsProxy():
+			m.unmapped(slot, "the slot's value "+qualifiedName(inst)+" is outside the document, so it has no individual to type "+f.Name+" by")
+			return
+		}
+		if cat, note := m.classify(inst); cat != catIndividualDef {
+			m.unmapped(slot, "the slot's value "+describe(inst)+" is not written as an individual: "+note)
+			return
+		}
+		kind, classifiers, _ := m.individualClassifiers(inst)
+		if kind == catNone || kind.keyword() != kw+" def" {
+			m.unmapped(slot, "the slot's value "+describe(inst)+" is an "+individualKeyword(kind)+", which cannot type "+article(kw)+kw)
+			return
+		}
+		if !m.instanceOf(classifiers, t) {
+			m.unmapped(slot, "the slot's value "+describe(inst)+" is not an instance of "+qualifiedName(t)+", the type of "+f.Name)
+			return
+		}
+		// The default individual types the property, so a slot can only repeat it.
+		if d := m.defaultIndividual(f); d != nil && d != inst {
+			m.unmapped(slot, "the slot's value "+describe(inst)+" is not "+describe(d)+", the individual "+f.Name+" is typed by for its default")
+			return
+		}
+		refs = append(refs, m.ref(inst, e))
+	}
+	if conflict := m.slotConflict(f, refs); conflict != "" {
+		m.unmapped(slot, conflict+"; its values are "+strings.Join(refs, ", "))
+		return
+	}
+	name := writeName(m.nameFor(f))
+	lower, upper, ok := bounds(f)
+	mult := ""
+	if n := len(refs); !ok || lower != n || upper != n {
+		mult = fmt.Sprintf("[%d]", n)
+	}
+	switch len(refs) {
+	case 0:
+		m.unmapped(slot, "the slot holds no value")
+		return
+	case 1:
+		m.w.line(prefix + "individual " + kw + " :>> " + name + " : " + refs[0] + mult + ";")
+	default:
+		if mult != "" {
+			m.w.line(prefix + kw + " :>> " + name + " " + mult + ";")
+		}
+		for _, r := range refs {
+			m.w.line(prefix + "individual " + kw + " : " + r + " :> " + name + ";")
+		}
+	}
+	m.add(slot, Mapped, m.v2Name(e)+"::"+writeName(m.nameFor(f)), "")
+}
+
+// article is the indefinite article before a word: "an item", "a part".
+func article(word string) string {
+	if strings.ContainsRune("aeiou", rune(word[0])) {
+		return "an "
+	}
+	return "a "
+}
+
+// instanceOf reports whether an instance written to specialize the
+// classifiers is an instance of t: one of them is t or specializes it.
+func (m *migration) instanceOf(classifiers []*xmi.Element, t *xmi.Element) bool {
+	for _, c := range classifiers {
+		if c == t || m.inherits(c, t) {
+			return true
+		}
+	}
+	return false
 }
 
 // slotConflict notes how slot values contradict their feature: a count outside
@@ -729,14 +836,19 @@ func boundsText(lower, upper int) string {
 	return fmt.Sprintf("%d..%d", lower, upper)
 }
 
-// repeated returns the first value written more than once, or "".
+// repeated returns the first value written more than once, or "". Numbers
+// compare by value, so 1 and 1.0 repeat; anything else by its text.
 func repeated(vals []string) string {
 	seen := map[string]bool{}
 	for _, v := range vals {
-		if seen[v] {
+		key := v
+		if r, ok := new(big.Rat).SetString(v); ok && decimal(v) {
+			key = "number " + r.RatString()
+		}
+		if seen[key] {
 			return v
 		}
-		seen[v] = true
+		seen[key] = true
 	}
 	return ""
 }
@@ -842,14 +954,17 @@ func (m *migration) association(e *xmi.Element) {
 func (m *migration) featureKeyword(p *xmi.Element, owner category) (keyword, prefix, note string) {
 	t := m.model.Ref(p, "type")
 	if owner == catConstraintDef {
-		// A constraint block's properties are its parameters, whichever
-		// metaclass a tool stores them as; one typed by a constraint block nests it.
-		if t != nil {
-			if tc, _ := m.classify(t); tc == catConstraintDef {
-				return "constraint", "", ""
-			}
+		// A constraint block's properties are its parameters, whichever metaclass
+		// a tool stores them as: a value, or a reference to what it constrains.
+		if t == nil {
+			return "attribute", "", ""
 		}
-		return "attribute", "", ""
+		switch kw, note := m.typeKeyword(t); kw {
+		case "part", "item":
+			return kw, "ref ", note
+		default:
+			return kw, "", note
+		}
 	}
 	if p.Type == "Port" {
 		return "port", "", ""
@@ -857,43 +972,79 @@ func (m *migration) featureKeyword(p *xmi.Element, owner category) (keyword, pre
 	if t == nil {
 		return "ref", "", "the untyped property is written as a reference usage"
 	}
+	kw, note := m.typeKeyword(t)
+	switch kw {
+	case "item":
+		switch {
+		case owner == catPortDef, p.Attrs["aggregation"] == "composite":
+			return "item", "", note
+		case p.Attrs["aggregation"] == "shared":
+			return "item", "ref ", joinNotes(note, "shared aggregation is written as a reference item")
+		}
+		return "item", "ref ", note
+	case "part":
+		if owner == catPortDef {
+			return "item", "", note
+		}
+		switch p.Attrs["aggregation"] {
+		case "composite":
+			return "part", "", note
+		case "shared":
+			return "part", "ref ", joinNotes(note, "shared aggregation is written as a reference part")
+		}
+		return "part", "ref ", note
+	}
+	return kw, "", note
+}
+
+// typeKeyword is the usage keyword a property takes from its type alone,
+// before its owner and aggregation weigh in.
+func (m *migration) typeKeyword(t *xmi.Element) (keyword, note string) {
 	if m.scalarValue(t) != "" {
-		return "attribute", "", ""
+		return "attribute", ""
 	}
 	tc, _ := m.classify(t)
 	switch tc {
 	case catAttributeDef, catEnumDef:
-		return "attribute", "", ""
+		return "attribute", ""
 	case catItemDef:
-		switch {
-		case owner == catPortDef, p.Attrs["aggregation"] == "composite":
-			return "item", "", ""
-		case p.Attrs["aggregation"] == "shared":
-			return "item", "ref ", "shared aggregation is written as a reference item"
-		}
-		return "item", "ref ", ""
+		return "item", ""
 	case catConstraintDef:
-		return "constraint", "", ""
+		return "constraint", ""
 	case catPortDef:
 		// Only a port is typed by a port def, in an interface block as anywhere.
-		return "port", "", "a property typed by an interface block is written as a port"
+		return "port", "a property typed by an interface block is written as a port"
 	case catRequirementDef:
-		return "requirement", "", ""
+		return "requirement", ""
 	case catNone, catLibrary:
-		return "attribute", "", "typed by library element " + t.Name + " with no known v2 counterpart"
+		return "attribute", "typed by library element " + t.Name + " with no known v2 counterpart"
 	case catUnmapped:
-		return "ref", "", "typed by " + qualifiedName(t) + ", which is not migrated"
+		return "ref", "typed by " + qualifiedName(t) + ", which is not migrated"
 	}
-	if owner == catPortDef {
-		return "item", "", ""
+	return "part", ""
+}
+
+// featureDirection is the direction a feature is written with: a constraint
+// parameter is `in`, a port and a flow property carry their own.
+func (m *migration) featureDirection(p *xmi.Element, owner category, kw string) (dir, note string) {
+	switch {
+	case owner == catConstraintDef && kw != "constraint":
+		return "in ", ""
+	case p.Type == "Port":
+		return portDirection(p)
+	case owner == catPortDef:
+		if fp := stereo(p, "FlowProperty"); fp != nil {
+			switch fp.Tag("direction") {
+			case "in":
+				return "in ", ""
+			case "out":
+				return "out ", ""
+			case "inout":
+				return "inout ", ""
+			}
+		}
 	}
-	switch p.Attrs["aggregation"] {
-	case "composite":
-		return "part", "", ""
-	case "shared":
-		return "part", "ref ", "shared aggregation is written as a reference part"
-	}
-	return "part", "ref ", ""
+	return "", ""
 }
 
 // feature writes a property or port of the current scope.
@@ -903,7 +1054,7 @@ func (m *migration) feature(p *xmi.Element) {
 	t := m.model.Ref(p, "type")
 	typ, tnote := m.typeRef(t, m.scope)
 	note = joinNotes(note, tnote)
-	param := ownerCat == catConstraintDef && kw == "attribute"
+	param := ownerCat == catConstraintDef && kw != "constraint"
 
 	var b strings.Builder
 	vis := p.Attrs["visibility"]
@@ -924,26 +1075,8 @@ func (m *migration) feature(p *xmi.Element) {
 		b.WriteString(privatePrefix)
 	}
 	// The v2 usage prefix orders direction, derived, abstract, constant, ref.
-	dir := ""
-	switch {
-	case param:
-		dir = "in "
-	case p.Type == "Port":
-		var dnote string
-		dir, dnote = portDirection(p)
-		note = joinNotes(note, dnote)
-	case ownerCat == catPortDef:
-		if fp := stereo(p, "FlowProperty"); fp != nil {
-			switch fp.Tag("direction") {
-			case "in":
-				dir = "in "
-			case "out":
-				dir = "out "
-			case "inout":
-				dir = "inout "
-			}
-		}
-	}
+	dir, dnote := m.featureDirection(p, ownerCat, kw)
+	note = joinNotes(note, dnote)
 	b.WriteString(dir)
 	if p.Attrs["isDerived"] == "true" {
 		b.WriteString("derived ")
@@ -1149,7 +1282,7 @@ func (m *migration) written(e *xmi.Element) bool {
 		return false
 	}
 	switch e.Type {
-	case "Property", "Port":
+	case "Property", "Port", "EnumerationLiteral":
 		return m.written(e.Parent)
 	case "Association":
 		return e.Name != ""
@@ -1973,10 +2106,11 @@ func (m *migration) stereotypeComments(e *xmi.Element) {
 	}
 }
 
-// isConstraintParameterMarker recognises a tool's «ConstraintParameter» marker
-// on a constraint block's property; the `in` direction already says as much.
+// isConstraintParameterMarker recognises MagicDraw's «ConstraintParameter» marker,
+// which the `in` direction already says; a user profile's same-named stereotype is kept.
 func (m *migration) isConstraintParameterMarker(e *xmi.Element, s *xmi.Stereotype) bool {
-	if s.Name != "ConstraintParameter" || len(s.Tags) > 0 || e.Parent == nil {
+	if s.Name != "ConstraintParameter" || len(s.Tags) > 0 || e.Parent == nil ||
+		!isMagicDrawCustomization(s.Namespace) {
 		return false
 	}
 	cat, _ := m.classify(e.Parent)

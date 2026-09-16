@@ -306,8 +306,8 @@ func TestInstanceWithSeveralClassifiers(t *testing.T) {
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_both" name="both" classifier="_a _b"/>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_mixed" name="mixed" classifier="_a _act"/>`,
 		`<sysml:Block xmi:id="_s1" base_Class="_a"/><sysml:Block xmi:id="_s2" base_Class="_b"/>`)
-	wantLine(t, r.Notation, "individual def both :> A, B;")
-	wantLine(t, r.Notation, "individual def mixed :> A;")
+	wantLine(t, r.Notation, "individual part def both :> A, B;")
+	wantLine(t, r.Notation, "individual part def mixed :> A;")
 	if es := entriesFor(r, "_both"); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 		t.Errorf("both entries = %+v", es)
 	}

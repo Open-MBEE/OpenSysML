@@ -48,7 +48,7 @@ func TestInstanceOfValueTypeIsAnAttributeUsage(t *testing.T) {
 		`<sysml:ValueType xmi:id="_st" base_DataType="_pos"/><sysml:Block xmi:id="_sb" base_Class="_b"/>`)
 	wantLine(t, r.Notation, "attribute home : Position {")
 	wantLine(t, r.Notation, "attribute :>> x = 2.5;")
-	wantLine(t, r.Notation, "individual def mixed :> Rover {")
+	wantLine(t, r.Notation, "individual part def mixed :> Rover {")
 	wantNoLine(t, r.Notation, "x = 1.0")
 	wantNote(t, r, "_home", migrate.Mapped, "")
 	wantNote(t, r, "_mixed", migrate.Approximated, "an individual cannot specialize a value type")
@@ -70,17 +70,51 @@ func TestTypedInLiteralsTakeTheFeaturesScalarType(t *testing.T) {
       <ownedAttribute xmi:type="uml:Property" xmi:id="_on" name="on">`+booleanHref+`
         <defaultValue xmi:type="uml:LiteralString" xmi:id="_ov" value="true"/>
       </ownedAttribute>
-      <ownedAttribute xmi:type="uml:Property" xmi:id="_label" name="label">`+realHref+`
-        <defaultValue xmi:type="uml:LiteralString" xmi:id="_lv" value="fast"/>
-      </ownedAttribute>
     </packagedElement>`, `<sysml:Block xmi:id="_st" base_Class="_b"/>`)
 	wantLine(t, r.Notation, "attribute gain : ScalarValues::Real default = 17.0;")
 	wantLine(t, r.Notation, "attribute poles : ScalarValues::Integer default = 4;")
 	wantLine(t, r.Notation, "attribute on : ScalarValues::Boolean default = true;")
-	wantLine(t, r.Notation, `attribute label : ScalarValues::Real default = "fast";`)
 	wantNote(t, r, "_gain", migrate.Approximated, `the string "17" is written as the Real the feature holds`)
 	wantNote(t, r, "_poles", migrate.Approximated, "the real 4.0 is written as the Integer the feature holds")
-	wantNote(t, r, "_label", migrate.Mapped, "")
+	wantClean(t, "typed.sysml", r)
+}
+
+// A literal that spells no value of the feature's scalar type is left as a
+// comment: a binding of it would fail every v2 checker.
+func TestLiteralOfAnotherScalarTypeIsNotBound(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Motor">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_label" name="label">`+realHref+`
+        <defaultValue xmi:type="uml:LiteralString" xmi:id="_lv" value="fast"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_poles" name="poles">`+integerHref+`
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_pv" value="4.5"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_on" name="on">`+booleanHref+`
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_ov" value="1"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_gain" name="gain">`+realHref+`
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_gv" value="true"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rate" name="rate">`+realHref+`
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_rv" value="3"/>
+      </ownedAttribute>
+    </packagedElement>`, `<sysml:Block xmi:id="_st" base_Class="_b"/>`)
+	wantLine(t, r.Notation, "attribute label : ScalarValues::Real {")
+	wantLine(t, r.Notation, "attribute poles : ScalarValues::Integer {")
+	wantLine(t, r.Notation, "attribute on : ScalarValues::Boolean {")
+	wantLine(t, r.Notation, "attribute gain : ScalarValues::Real {")
+	wantLine(t, r.Notation, "attribute rate : ScalarValues::Real default = 3;")
+	wantNoLine(t, r.Notation, `default = "fast"`)
+	wantNoLine(t, r.Notation, "default = 4.5")
+	wantNoLine(t, r.Notation, "default = 1;")
+	wantNoLine(t, r.Notation, "default = true")
+	wantNote(t, r, "_label", migrate.Approximated, `default value not migrated: the string "fast" is not a value of Real, which the feature holds`)
+	wantNote(t, r, "_poles", migrate.Approximated, "default value not migrated: the real 4.5 is not a value of Integer, which the feature holds")
+	wantNote(t, r, "_on", migrate.Approximated, "default value not migrated: the integer 1 is not a value of Boolean, which the feature holds")
+	wantNote(t, r, "_gain", migrate.Approximated, "default value not migrated: the boolean true is not a value of Real, which the feature holds")
+	wantNote(t, r, "_rate", migrate.Mapped, "")
+	wantClean(t, "mistyped.sysml", r)
 }
 
 // A literal is no value of a value type or enumeration with no scalar base:
@@ -155,6 +189,38 @@ func TestSlotContradictingItsFeatureIsUnmapped(t *testing.T) {
 	wantNote(t, r, "_sp", migrate.Unmapped, "the slot holds 1 value(s) for a feature of multiplicity 3")
 	wantNote(t, r, "_sb", migrate.Mapped, "")
 	wantClean(t, "slots.sysml", r)
+}
+
+// Slot values repeat by value, as the analyzer reads them: 1 and 1.0 are one
+// number spelled twice; "1" and "1.0" are two strings.
+func TestSlotValuesRepeatByValue(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:DataType" xmi:id="_cal" name="Calibration">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_t" name="t">`+realHref+`
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_tl"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_tu" value="*"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_tag" name="tag">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#String"/>
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_gl"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_gu" value="*"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_i" name="cal" classifier="_cal">
+      <slot xmi:id="_st" definingFeature="_t">
+        <value xmi:type="uml:LiteralInteger" xmi:id="_v1" value="1"/>
+        <value xmi:type="uml:LiteralReal" xmi:id="_v2" value="1.0"/>
+      </slot>
+      <slot xmi:id="_sg" definingFeature="_tag">
+        <value xmi:type="uml:LiteralString" xmi:id="_v3" value="1"/>
+        <value xmi:type="uml:LiteralString" xmi:id="_v4" value="1.0"/>
+      </slot>
+    </packagedElement>`, `<sysml:ValueType xmi:id="_s1" base_DataType="_cal"/>`)
+	wantLine(t, r.Notation, `attribute :>> tag = ("1", "1.0");`)
+	wantNoLine(t, r.Notation, "attribute :>> t ")
+	wantNote(t, r, "_st", migrate.Unmapped, "the slot repeats the value 1.0 on a unique feature; its values are 1, 1.0")
+	wantNote(t, r, "_sg", migrate.Mapped, "")
+	wantClean(t, "repeats.sysml", r)
 }
 
 // A slot of a feature no classifier of the instance has is not written.
@@ -349,4 +415,154 @@ func TestSameNamedPortCannotRedefineAnInheritedProperty(t *testing.T) {
 	wantNoLine(t, r.Notation, ":>> status")
 	wantNote(t, r, "_pt", migrate.Approximated, "shares the name of the inherited Radio::status, which is written as attribute and so cannot be redefined by this port")
 	wantClean(t, "shadow-port.sysml", r)
+}
+
+// A slot of a part property holds instances: one redefines the part as an
+// individual typed by that instance, several each subset it under a
+// redefinition counting them. A reference part keeps its `ref`.
+func TestPartSlotsRedefineThePartByItsInstance(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_mcs" name="MCS"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_fast" name="FastMCS">
+      <generalization xmi:type="uml:Generalization" xmi:id="_gen" general="_mcs"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_tmt" name="TMT">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="mcs" type="_mcs" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_q" name="spares" type="_mcs" aggregation="composite">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_lo" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_up" value="*"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_s" name="shared" type="_mcs" aggregation="shared"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_m1" name="mcs 1" classifier="_fast"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_m2" name="mcs 2" classifier="_mcs"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_t1" name="tmt 1" classifier="_tmt">
+      <slot xmi:type="uml:Slot" xmi:id="_sl1" definingFeature="_p">
+        <value xmi:type="uml:InstanceValue" xmi:id="_v1" instance="_m1"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_sl2" definingFeature="_q">
+        <value xmi:type="uml:InstanceValue" xmi:id="_v2" instance="_m1"/>
+        <value xmi:type="uml:InstanceValue" xmi:id="_v3" instance="_m2"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_sl3" definingFeature="_s">
+        <value xmi:type="uml:InstanceValue" xmi:id="_v4" instance="_m2"/>
+      </slot>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_t2" name="tmt 2" classifier="_tmt">
+      <slot xmi:type="uml:Slot" xmi:id="_sl4" definingFeature="_q">
+        <value xmi:type="uml:InstanceValue" xmi:id="_v5" instance="_m2"/>
+      </slot>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_mcs"/>
+  <sysml:Block xmi:id="_s2" base_Class="_fast"/>
+  <sysml:Block xmi:id="_s3" base_Class="_tmt"/>`)
+	wantLine(t, r.Notation, "individual part def 'mcs 1' :> FastMCS;")
+	wantLine(t, r.Notation, "individual part def 'tmt 1' :> TMT {")
+	wantLine(t, r.Notation, "individual part :>> mcs : 'mcs 1';")
+	wantLine(t, r.Notation, "part :>> spares [2];")
+	wantLine(t, r.Notation, "individual part : 'mcs 1' :> spares;")
+	wantLine(t, r.Notation, "individual part : 'mcs 2' :> spares;")
+	wantLine(t, r.Notation, "ref individual part :>> shared : 'mcs 2';")
+	wantLine(t, r.Notation, "individual part :>> spares : 'mcs 2'[1];")
+	for _, id := range []string{"_sl1", "_sl2", "_sl3", "_sl4"} {
+		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
+			t.Errorf("entries for %s = %+v", id, es)
+		}
+	}
+	wantClean(t, "part-slots.sysml", r)
+}
+
+// A part slot whose value is not an individual of the part's type has no v2
+// form: a literal, an instance without a classifier, an instance of another
+// block or of a block where an item is due, or a port's slot, since v2 has no
+// individual port def for an instance of an interface block to be.
+func TestPartSlotWithoutAConformingIndividualIsUnmapped(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_mcs" name="MCS"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_other" name="Other"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_if" name="Bus"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_tmt" name="TMT">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="mcs" type="_mcs" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_b" name="bus" type="_if" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_u" name="loose"/>
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_port" name="link" type="_if"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pg" name="ping" type="_sig" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_sig" name="Ping"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_o1" name="other 1" classifier="_other"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_bare" name="snapshot"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_bus1" name="bus 1" classifier="_if"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_m1" name="mcs 1" classifier="_mcs"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_t1" name="tmt 1" classifier="_tmt">
+      <slot xmi:type="uml:Slot" xmi:id="_sl1" definingFeature="_p">
+        <value xmi:type="uml:LiteralInteger" xmi:id="_v1" value="3"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_sl2" definingFeature="_p">
+        <value xmi:type="uml:InstanceValue" xmi:id="_v2" instance="_bare"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_sl3" definingFeature="_p">
+        <value xmi:type="uml:InstanceValue" xmi:id="_v3" instance="_o1"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_sl4" definingFeature="_b">
+        <value xmi:type="uml:InstanceValue" xmi:id="_v4" instance="_bus1"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_sl5" definingFeature="_port">
+        <value xmi:type="uml:InstanceValue" xmi:id="_v5" instance="_bus1"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_sl6" definingFeature="_u">
+        <value xmi:type="uml:InstanceValue" xmi:id="_v6" instance="_m1"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_sl7" definingFeature="_pg">
+        <value xmi:type="uml:InstanceValue" xmi:id="_v7" instance="_o1"/>
+      </slot>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_mcs"/>
+  <sysml:Block xmi:id="_s2" base_Class="_other"/>
+  <sysml:InterfaceBlock xmi:id="_s3" base_Class="_if"/>
+  <sysml:Block xmi:id="_s4" base_Class="_tmt"/>`)
+	wantLine(t, r.Notation, "individual def 'bus 1' :> Bus;")
+	wantNoLine(t, r.Notation, ":>> mcs")
+	wantNote(t, r, "_sl1", migrate.Unmapped, "a part holds instances; the slot's value is a LiteralInteger")
+	wantNote(t, r, "_sl2", migrate.Unmapped, "the slot's value 'snapshot' is not written as an individual: an instance specification without a classifier has no v2 form")
+	wantNote(t, r, "_sl3", migrate.Unmapped, "the slot's value 'other 1' is not an instance of MCS, the type of mcs")
+	wantNote(t, r, "_sl4", migrate.Unmapped, "the slot of port bus is not written: v2 has no individual port for it to be typed by")
+	wantNote(t, r, "_sl5", migrate.Unmapped, "the slot of port link is not written: v2 has no individual port for it to be typed by")
+	wantNote(t, r, "_sl6", migrate.Unmapped, "the slot of loose is not written: the property is written as a plain ref, which cannot be typed by an individual")
+	wantNote(t, r, "_sl7", migrate.Unmapped, "the slot's value 'other 1' is an individual part def, which cannot type an item")
+	wantClean(t, "bad-part-slots.sysml", r)
+}
+
+// An individual takes the kind of its classifier — `individual constraint
+// def` for an instance of a constraint block — and its slots redefine the
+// parameters with their `in` direction. Classifiers of another kind are not
+// written: v2 does not cross them.
+func TestIndividualTakesTheKindOfItsClassifier(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_fits" name="Fits">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_x" name="x">`+realHref+`</ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_an" name="Analysis">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_c" name="fits" type="_fits" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Rover"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_f1" name="fits 1" classifier="_fits">
+      <slot xmi:type="uml:Slot" xmi:id="_sl1" definingFeature="_x">
+        <value xmi:type="uml:LiteralReal" xmi:id="_v1" value="3.0"/>
+      </slot>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_a1" name="analysis 1" classifier="_an">
+      <slot xmi:type="uml:Slot" xmi:id="_sl2" definingFeature="_c">
+        <value xmi:type="uml:InstanceValue" xmi:id="_v2" instance="_f1"/>
+      </slot>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_mixed" name="mixed" classifier="_b _fits"/>`, `
+  <sysml:ConstraintBlock xmi:id="_s1" base_Class="_fits"/>
+  <sysml:Block xmi:id="_s2" base_Class="_an"/>
+  <sysml:Block xmi:id="_s3" base_Class="_b"/>`)
+	wantLine(t, r.Notation, "individual constraint def 'fits 1' :> Fits {")
+	wantLine(t, r.Notation, "in attribute :>> x = 3.0;")
+	wantLine(t, r.Notation, "individual constraint :>> fits : 'fits 1';")
+	wantLine(t, r.Notation, "individual part def mixed :> Rover;")
+	wantNote(t, r, "_mixed", migrate.Approximated, "the instance's classifier Fits is not written: an individual part def cannot specialize a constraint def")
+	wantClean(t, "kinds.sysml", r)
 }

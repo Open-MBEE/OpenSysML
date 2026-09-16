@@ -72,9 +72,10 @@ returned over the service yet.
   machine-level datatypes (`float`, `double`, `int`, `long`, `short`, `byte`, `boolean`) are
   written as `Real`/`Integer`/`Boolean` and reported as approximations; a used project's own
   `Real` stays external, even when the project's top package borrows a library's name.
-- A constraint block's properties are its parameters, `in attribute`s, whether the tool stores
-  them as UML Properties or (as MagicDraw does, under a «ConstraintParameter» marker) as UML
-  Ports; a `private` or `protected` parameter is written public, since the owning block's
+- A constraint block's properties are its parameters, `in attribute`s when typed by a value
+  type and `in ref part` / `in ref item` when typed by a block or signal, whether the tool
+  stores them as UML Properties or (as MagicDraw does, under a «ConstraintParameter» marker) as
+  UML Ports; a `private` or `protected` parameter is written public, since the owning block's
   binding connectors reach it from outside, and the report notes the dropped visibility.
 
 ## Mapping
@@ -90,9 +91,14 @@ returned over the service yet.
 | «ConstraintBlock» | `constraint def` with its parameters | mapped |
 | «Requirement», «AbstractRequirement» | `requirement def <id>` with `doc` holding the text; any tool-specific requirement kind applied beside it as a comment | mapped |
 | «TestCase» | `verification def` | approximated: its behavior is not migrated |
-| InstanceSpecification of a block, with slots | `individual def` with attribute values | mapped |
+| InstanceSpecification of a block, of a constraint block | `individual part def`, `individual constraint def`, with its slots | mapped |
+| InstanceSpecification of an interface block | `individual def` (v2 has no individual port def) | mapped |
+| Slot of a value property | `attribute :>> x = value;` | mapped |
+| Slot of a part, item or constraint property holding one instance | `individual part :>> x : 'the instance';` — `ref` when the property is | mapped |
+| Slot of a part, item or constraint property holding several instances | `part :>> x [n];` then one `individual part : 'the instance' :> x;` each | mapped |
 | InstanceSpecification of a value type | `attribute` typed by it, holding its slot values (an individual cannot specialize an attribute def) | mapped |
-| Slot contradicting its feature (more values than the multiplicity allows, a repeated value of a unique feature, a feature of a classifier the instance is not written to specialize) | comment | **unmapped** |
+| Slot contradicting its feature (more values than the multiplicity allows, a repeated value of a unique feature, a feature of a classifier the instance is not written to specialize, an instance that is not of the property's type or of its default individual, a value outside the document) | comment | **unmapped** |
+| Slot of a port, or of an untyped property | comment (no individual can type a port; a `ref` without a type takes none) | **unmapped** |
 | Property whose default is an InstanceSpecification of a block | the individual added to the usage's types, or its only type when the property is untyped; no `default` (a definition is not a v2 value) | approximated |
 | Literal default on a value type with no scalar base (a structured value type, an enumeration) | comment | approximated |
 | Real literal on an `Integer`/`Natural` feature, numeric string on a scalar feature | converted to the feature's scalar | mapped |
@@ -146,8 +152,8 @@ The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://
 (27 MB, 34,660 elements): it writes 6 MB of notation that passes the gate
 below in about a second, and 150 MB of Turtle in four. Roughly half the elements map or are
 approximated; the unmapped rest is dominated by behaviors (activities, signal and time events,
-operations), instance specifications without a classifier, slots of part and constraint
-properties, and views.
+operations), instance specifications without a classifier, simulation verdicts stored in slots
+of constraint properties, and views.
 
 ## The report
 
