@@ -1,15 +1,10 @@
 package doccounts
 
-import "strconv"
-
-// The generated suite blocks, each one figure or one sentence of figures, named
-// by the page and the sentence carrying it.
+// The suite blocks, each one figure or one sentence of figures, named by the
+// page and the sentence carrying it. Only the README's conformance-passing block
+// is committed: it moves with known_failures.txt alone. The rest move with every
+// fixture and test, so the documentation build renders them (SiteBlocks).
 const (
-	readmeTierParserBlock      = "tier-behavioral-parser"
-	readmeTierCalcBlock        = "tier-calc-evaluation"
-	readmeTierActionBlock      = "tier-action-execution"
-	readmeTierStateBlock       = "tier-state-machine"
-	readmeTestSuiteBlock       = "test-suite"
 	readmeConformanceBlock     = "conformance-passing"
 	inventoryConformanceBlock  = "inventory-conformance"
 	inventoryRobustnessBlock   = "inventory-robustness"
@@ -22,15 +17,15 @@ const (
 	lspTestsBlock              = "lsp-tests"
 )
 
-// suiteBlocks lists the suite figures' consumers: the README and the compliance map.
+// suiteBlocks lists the committed suite blocks.
 func suiteBlocks() []Block {
+	return []Block{{Path: ReadmePath, Name: readmeConformanceBlock}}
+}
+
+// siteSuiteBlocks lists the suite blocks the documentation build renders: the
+// compliance map's test inventory and the LSP coverage line.
+func siteSuiteBlocks() []Block {
 	var blocks []Block
-	for _, name := range []string{
-		readmeTierParserBlock, readmeTierCalcBlock, readmeTierActionBlock, readmeTierStateBlock,
-		readmeTestSuiteBlock, readmeConformanceBlock,
-	} {
-		blocks = append(blocks, Block{Path: ReadmePath, Name: name})
-	}
 	for _, name := range []string{
 		inventoryConformanceBlock, inventoryRobustnessBlock, inventoryRuntimeTestsBlock,
 		inventoryGoldenASTsBlock, inventoryTracesBlock, inventoryNegativesBlock,
@@ -43,20 +38,15 @@ func suiteBlocks() []Block {
 
 // suiteBlockTemplateTexts render one span each, within the line carrying the markers.
 var suiteBlockTemplateTexts = map[string]string{
-	readmeTierParserBlock:  "{{.Suite.GoldenASTs}} golden ASTs, {{.Suite.Negatives}} negative tests",
-	readmeTierCalcBlock:    "conformance gate: {{.Suite.CalcTierPassing}} calc/constraint/requirement/satisfy cases passing",
-	readmeTierActionBlock:  "{{.Suite.ActionPassing}} conformance cases passing",
-	readmeTierStateBlock:   "{{.Suite.StatePassing}} conformance cases passing",
-	readmeTestSuiteBlock:   "{{.Suite.TestFunctions}} top-level `Test` functions (counted from the `_test.go` files, as `go test ./...` runs them) covering parsers, semantics, runtime (actions, states, instances, operators, validation). Behavioral robustness: {{.Suite.GoldenASTs}} golden ASTs, {{.Suite.Negatives}} negatives, {{.Suite.ConformanceCases}} conformance cases, {{.Suite.TracesDefault}} golden traces, {{.Suite.Robustness}} runtime robustness cases, {{.Suite.GRPCConformance}} gRPC conformance cases and {{.Suite.GRPCRobustness}} gRPC robustness cases.",
-	readmeConformanceBlock: "{{.Suite.ConformancePassing}}/{{.Suite.ConformanceCases}} conformance cases passing",
+	readmeConformanceBlock: "{{if .Suite.AllPassing}}every conformance case passing{{else}}every conformance case passing but the {{.Suite.KnownFailures}} `known_failures.txt` lists{{end}}",
 
 	inventoryConformanceBlock:  "{{.Suite.ConformanceCases}} conformance cases ({{if .Suite.AllPassing}}all passing{{else}}{{.Suite.ConformancePassing}} passing, {{.Suite.KnownFailures}} listed in `known_failures.txt`{{end}}: {{.Suite.ConformanceBreakdown}})",
-	inventoryRobustnessBlock:   "{{.Suite.Robustness}} runtime robustness cases (first-level subtests of `TestRuntimeRobustness`)",
+	inventoryRobustnessBlock:   "{{.Suite.Robustness}} runtime robustness cases (first-level subtests across the `TestRuntimeRobustness*` functions)",
 	inventoryRuntimeTestsBlock: "{{.Suite.RuntimeTestFunctions}} runtime test functions (the top-level tests `go test -v ./internal/core/runtime` reports)",
 	inventoryGoldenASTsBlock:   "{{.Suite.GoldenASTs}} golden AST fixtures ({{.Suite.GoldenSysML}} SysML, {{.Suite.GoldenKerML}} KerML)",
 	inventoryTracesBlock:       "{{.Suite.TracesDefault}} golden execution traces under the default schedule ({{.Suite.TraceBreakdown}}), and {{.Suite.TracesPolicy}} more `.trace.golden` files pinning a case under a named policy, `<case>.declared` or `<case>.seed-<n>`",
 	inventoryNegativesBlock:    "{{.Suite.Negatives}} negative parser subtests (first-level subtests of `TestNegative`; {{.Suite.NegativesPrefixed}} across the `TestNegative*` functions, {{.Suite.NegativesKerML}} of them KerML, and {{.Suite.NegativesAll}} across every `*Negative*` parser test)",
-	inventoryGRPCBlock:         "{{.Suite.GRPCConformance}} gRPC conformance cases and {{.Suite.GRPCRobustness}} gRPC robustness cases",
+	inventoryGRPCBlock:         "{{.Suite.GRPCConformance}} gRPC conformance cases and {{.Suite.GRPCRobustness}} gRPC robustness cases (first-level subtests across the `TestGRPCRobustness*` functions)",
 	inventoryTestsBlock:        "{{.Suite.TestFunctions}} top-level `Test` functions across the module",
 	lspTestsBlock:              "{{.Suite.LSPTestFunctions}} top-level `Test` functions in `internal/lsp`",
 }
@@ -71,9 +61,6 @@ type suiteFigures struct {
 	KnownFailures        int
 	AllPassing           bool
 	ConformanceBreakdown string
-	CalcTierPassing      string
-	ActionPassing        string
-	StatePassing         string
 	GoldenASTs           int
 	GoldenSysML          int
 	GoldenKerML          int
@@ -100,9 +87,6 @@ func figuresOf(counts SuiteCounts) suiteFigures {
 		KnownFailures:        conformance.Cases - conformance.Passing,
 		AllPassing:           conformance.Cases == conformance.Passing,
 		ConformanceBreakdown: Breakdown(conformance.Prefixes),
-		CalcTierPassing:      passingOf(conformance, "calc", "constraint", "requirement", "satisfy"),
-		ActionPassing:        passingOf(conformance, "action"),
-		StatePassing:         passingOf(conformance, "state"),
 		GoldenASTs:           counts.GoldenASTs.Total,
 		GoldenSysML:          counts.GoldenASTs.SysML,
 		GoldenKerML:          counts.GoldenASTs.KerML,
@@ -117,14 +101,4 @@ func figuresOf(counts SuiteCounts) suiteFigures {
 		GRPCConformance:      counts.GRPCConformance,
 		GRPCRobustness:       counts.GRPCRobustness,
 	}
-}
-
-// passingOf spells the passing cases of the prefixes: `160`, or `158 of 160`
-// while known_failures.txt lists some.
-func passingOf(counts ConformanceCounts, prefixes ...string) string {
-	total, passing := counts.Of(prefixes...), counts.PassingOf(prefixes...)
-	if passing == total {
-		return strconv.Itoa(total)
-	}
-	return strconv.Itoa(passing) + " of " + strconv.Itoa(total)
 }
