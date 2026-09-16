@@ -54,8 +54,11 @@ type ActionExecutor struct {
 	breakpointNodes []NodeBreakpoint
 	// firedBreakpoints records the token visits a breakpoint already stopped on.
 	firedBreakpoints map[breakpointVisit]bool
-	// traversals are the successions tokens have taken, in order.
-	traversals []Traversal
+	// traversals are the successions taken and still kept, in order, traversalBase
+	// those released before them; none is kept unless keepTraversals is set.
+	traversals     []Traversal
+	traversalBase  int
+	keepTraversals bool
 	// sweep numbers the pass over a flow's tokens in progress, 0 between passes; sweeps
 	// counts those begun. A token a sweep moved is not an arrival until the sweep ends.
 	sweep, sweeps uint64
@@ -1890,7 +1893,7 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 		}
 		e.nextTokenID++
 		newTokens = append(newTokens, newToken)
-		e.traversals = append(e.traversals, Traversal{Token: newToken.ID, Edge: edge, Within: newToken.Within()})
+		e.noteTraversal(&newToken, edge)
 	}
 
 	// Remove original token, add new tokens
@@ -2600,32 +2603,59 @@ func cloneTraversals(ts []Traversal) []Traversal {
 	return out
 }
 
-// Traversals returns every succession taken so far, in order: a fork's branches
-// as the tokens they spawned, a join as the one token that passes on.
+// KeepTraversals has the run keep the successions its tokens take until
+// TraversalsSince releases them, for a debugger; off (the default), it keeps none.
+func (e *ActionExecutor) KeepTraversals(keep bool) {
+	e.keepTraversals = keep
+	if !keep {
+		e.releaseTraversals(len(e.traversals))
+	}
+}
+
+// Traversals returns the successions kept, in order: a fork's branches as the
+// tokens they spawned, a join as the one token that passes on.
 func (e *ActionExecutor) Traversals() []Traversal {
 	return cloneTraversals(e.traversals)
 }
 
-// TraversalCount is the number of successions taken so far.
-func (e *ActionExecutor) TraversalCount() int { return len(e.traversals) }
+// TraversalCount counts the successions taken so far, released ones included: a
+// mark to read what a later step took from.
+func (e *ActionExecutor) TraversalCount() int { return e.traversalBase + len(e.traversals) }
 
-// TraversalsSince returns the successions taken since mark, a TraversalCount read
-// earlier, copying only those: a client reading each run's moves reads this, not
-// the whole record over again.
+// TraversalsSince returns the kept successions taken since mark, a TraversalCount
+// read earlier, and releases those before it: the run keeps only from the last mark.
 func (e *ActionExecutor) TraversalsSince(mark int) []Traversal {
-	if mark < 0 {
-		mark = 0
-	}
-	if mark >= len(e.traversals) {
+	e.releaseTraversals(mark - e.traversalBase)
+	if len(e.traversals) == 0 {
 		return nil
 	}
-	return cloneTraversals(e.traversals[mark:])
+	return cloneTraversals(e.traversals)
+}
+
+// releaseTraversals forgets the oldest n kept successions, still counting them.
+func (e *ActionExecutor) releaseTraversals(n int) {
+	n = min(n, len(e.traversals))
+	if n <= 0 {
+		return
+	}
+	kept := copy(e.traversals, e.traversals[n:])
+	clear(e.traversals[kept:])
+	e.traversals, e.traversalBase = e.traversals[:kept], e.traversalBase+n
+}
+
+// noteTraversal counts a succession token took, keeping it when asked to.
+func (e *ActionExecutor) noteTraversal(token *Token, edge lower.ActionEdge) {
+	if !e.keepTraversals {
+		e.traversalBase++
+		return
+	}
+	e.traversals = append(e.traversals, Traversal{Token: token.ID, Edge: edge, Within: token.Within()})
 }
 
 // move travels token along edge, recording the traversal.
 func (e *ActionExecutor) move(token *Token, edge lower.ActionEdge) {
 	token.travel(edge, e.sweep)
-	e.traversals = append(e.traversals, Traversal{Token: token.ID, Edge: edge, Within: token.Within()})
+	e.noteTraversal(token, edge)
 }
 
 // State returns current execution state.

@@ -45,6 +45,8 @@ type imagedAction struct {
 	breakpointNodes   []NodeBreakpoint
 	firedBreakpoints  map[breakpointVisit]bool
 	traversals        []Traversal
+	traversalBase     int
+	keepTraversals    bool
 	run               int
 	dynamics          *stateSpaceRun
 	frames            []imagedFrame
@@ -84,6 +86,8 @@ type imagedState struct {
 	stateVisits        []string
 	stateStack         []*ast.StateNode
 	fired              []FiredTransition
+	firedBase          int
+	keepFired          bool
 	breakpointNodes    map[ast.Node]bool
 	breakpointHit      *ast.StateNode
 	pausedAt           ast.Node
@@ -149,6 +153,8 @@ func (t *imaging) actionExecutor(e *ActionExecutor) (*imagedAction, error) {
 		breakpointNodes:  cloneBreakpoints(e.breakpointNodes),
 		firedBreakpoints: maps.Clone(e.firedBreakpoints),
 		traversals:       cloneTraversals(e.traversals),
+		traversalBase:    e.traversalBase,
+		keepTraversals:   e.keepTraversals,
 	}
 	var err error
 	if img.run, err = t.run(e.driven.state); err != nil {
@@ -266,6 +272,8 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		stateVisits:        slices.Clone(e.stateVisits),
 		stateStack:         slices.Clone(e.stateStack),
 		fired:              slices.Clone(e.fired),
+		firedBase:          e.firedBase,
+		keepFired:          e.keepFired,
 		breakpointNodes:    maps.Clone(e.breakpointNodes),
 		breakpointHit:      e.breakpointHit,
 		pausedAt:           e.pausedAt,
@@ -448,7 +456,7 @@ func (m *materializing) actionExecutor(e *ActionExecutor, img *imagedAction) err
 		e.breakpoints = make(map[string]bool)
 	}
 	e.breakpointNodes = cloneBreakpoints(img.breakpointNodes)
-	e.traversals = cloneTraversals(img.traversals)
+	e.traversals, e.traversalBase, e.keepTraversals = cloneTraversals(img.traversals), img.traversalBase, img.keepTraversals
 	e.firedBreakpoints = maps.Clone(img.firedBreakpoints)
 	if e.firedBreakpoints == nil {
 		e.firedBreakpoints = make(map[breakpointVisit]bool)
@@ -552,7 +560,7 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 		}
 	}
 	e.stateVisits, e.stateStack = slices.Clone(img.stateVisits), slices.Clone(img.stateStack)
-	e.fired = slices.Clone(img.fired)
+	e.fired, e.firedBase, e.keepFired = slices.Clone(img.fired), img.firedBase, img.keepFired
 	e.breakpointNodes = maps.Clone(img.breakpointNodes)
 	if e.breakpointNodes == nil {
 		e.breakpointNodes = make(map[ast.Node]bool)

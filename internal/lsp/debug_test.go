@@ -1139,6 +1139,50 @@ func TestDebugStartAttachesToThePerformersMachine(t *testing.T) {
 	}
 }
 
+// A session's executors keep only the firings and successions since the mark
+// the last snapshot read from: each snapshot releases what the one before it
+// reported, so a long-lived session's record stays bounded while the counts go on.
+func TestDebugSessionReleasesTheHistoryItReports(t *testing.T) {
+	s, docURI, _ := debugServer(t, "/w/m.sysml", debugMachine)
+	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "MachineViews::opsView", Target: "Machines::Ops", Object: "Machines::Robot",
+	})
+	session := snap.Session
+	s.debug.mu.Lock()
+	machine := s.debug.sessions[session].machine
+	s.debug.mu.Unlock()
+	if len(snap.Taken) == 0 || len(machine.FiredTransitions()) != len(snap.Taken) || machine.FiredCount() != len(snap.Taken) {
+		t.Fatalf("after start taken %d, kept %d of %d; want the entry transitions reported and kept", len(snap.Taken), len(machine.FiredTransitions()), machine.FiredCount())
+	}
+	fired := machine.FiredCount()
+	snap = mustDebug(t, s, MethodDebugAdvance, advanceBy(session, 6))
+	if len(snap.Taken) == 0 || len(machine.FiredTransitions()) != len(snap.Taken) || machine.FiredCount() != fired+len(snap.Taken) {
+		t.Errorf("after advance taken %d, kept %d of %d; want the timer's transition reported and kept alone, %d counted", len(snap.Taken), len(machine.FiredTransitions()), machine.FiredCount(), fired+len(snap.Taken))
+	}
+	snap = mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session})
+	if len(snap.Taken) != 0 || len(machine.FiredTransitions()) != 0 || machine.FiredCount() != fired+1 {
+		t.Errorf("after a request firing nothing taken %d, kept %d of %d; want none, none kept, %d counted", len(snap.Taken), len(machine.FiredTransitions()), machine.FiredCount(), fired+1)
+	}
+
+	s, docURI, _ = debugServer(t, "/w/f.sysml", debugFlow)
+	snap = mustDebug(t, s, MethodDebugStart, &debugStartParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "FlowViews::driveView", Target: "Flows::Drive",
+	})
+	session = snap.Session
+	s.debug.mu.Lock()
+	action := s.debug.sessions[session].action
+	s.debug.mu.Unlock()
+	var taken int
+	for range 3 {
+		snap = mustDebug(t, s, MethodDebugStep, &debugSessionParams{Session: session})
+		taken += len(snap.Taken)
+		if len(snap.Taken) == 0 || len(action.Traversals()) != len(snap.Taken) || action.TraversalCount() != taken {
+			t.Fatalf("after a step taken %d, kept %d of %d; want the step's successions reported and kept alone, %d counted", len(snap.Taken), len(action.Traversals()), action.TraversalCount(), taken)
+		}
+	}
+}
+
 // A machine's queue shows every message pending in its context, a message no
 // state of the machine accepts now included: it is in flight all the same.
 func TestDebugMachineQueueShowsEveryPendingMessage(t *testing.T) {

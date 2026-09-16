@@ -65,9 +65,11 @@ type StateExecutor struct {
 	lastDispatch *Dispatch
 	lastEventAt  float64
 
-	// fired are the transitions taken so far, in firing order, entry transitions
-	// included; a debugger reads what a step took from a mark.
-	fired []FiredTransition
+	// fired are the transitions taken and still kept, in firing order, firedBase
+	// those released before them; a dispatch keeps its own unless keepFired is set.
+	fired     []FiredTransition
+	firedBase int
+	keepFired bool
 
 	// breakpointNodes are the vertices a run pauses on entering or passing through;
 	// breakpointHit the first state the dispatch under way entered, pausedAt the
@@ -594,7 +596,10 @@ func (e *StateExecutor) processNextEvent() error {
 // markDispatch opens a dispatch's account: where its fired transitions begin,
 // with no state hit left staged by a dispatch that failed before pausing.
 func (e *StateExecutor) markDispatch() {
-	e.breakpointHit = nil
+	e.breakpointHit, e.dispatchMark = nil, -1
+	if !e.keepFired {
+		e.releaseFired(len(e.fired))
+	}
 	e.dispatchMark = len(e.fired)
 }
 
@@ -708,26 +713,51 @@ type FiredTransition struct {
 	Owner  ast.Node
 }
 
-// FiredTransitions returns every transition taken so far, in firing order: compound
+// KeepFired has the machine keep its firings until FiredSince releases them, as
+// a debugger reads them; off (the default), a dispatch keeps only its own.
+func (e *StateExecutor) KeepFired(keep bool) {
+	e.keepFired = keep
+	if !keep {
+		e.releaseFired(len(e.fired))
+	}
+}
+
+// FiredTransitions returns the transitions kept, in firing order: compound
 // transitions by segment, fork and join branches, and entry transitions.
 func (e *StateExecutor) FiredTransitions() []FiredTransition {
 	return slices.Clone(e.fired)
 }
 
-// FiredCount is len(FiredTransitions()), a mark to read what a later step fired from.
-func (e *StateExecutor) FiredCount() int { return len(e.fired) }
+// FiredCount counts the transitions taken so far, released ones included: a mark
+// to read what a later step fired from.
+func (e *StateExecutor) FiredCount() int { return e.firedBase + len(e.fired) }
 
-// FiredSince returns the transitions taken since mark, a FiredCount read earlier,
-// copying only those: a client reading each step's firings reads this, not the
-// whole record over again.
+// FiredSince returns the kept transitions taken since mark, a FiredCount read
+// earlier, and releases those before it: the machine keeps only from the last mark.
 func (e *StateExecutor) FiredSince(mark int) []FiredTransition {
-	if mark < 0 {
-		mark = 0
-	}
-	if mark >= len(e.fired) {
+	e.releaseFired(mark - e.firedBase)
+	if len(e.fired) == 0 {
 		return nil
 	}
-	return slices.Clone(e.fired[mark:])
+	return slices.Clone(e.fired)
+}
+
+// releaseFired forgets the oldest n kept transitions, none of the dispatch under
+// way, still counting them in FiredCount.
+func (e *StateExecutor) releaseFired(n int) {
+	n = min(n, len(e.fired))
+	if e.dispatchMark >= 0 {
+		n = min(n, e.dispatchMark)
+	}
+	if n <= 0 {
+		return
+	}
+	kept := copy(e.fired, e.fired[n:])
+	clear(e.fired[kept:])
+	e.fired, e.firedBase = e.fired[:kept], e.firedBase+n
+	if e.dispatchMark >= 0 {
+		e.dispatchMark -= n
+	}
 }
 
 // noteFired records transitions taken, skipping any without a declaration.

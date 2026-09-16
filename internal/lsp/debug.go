@@ -453,17 +453,24 @@ func (sess *debugSession) attach(ctx *runtime.Context, target *symbols.Symbol, p
 	}
 	if len(running) == 1 {
 		sess.machine, sess.action = running[0].State, running[0].Action
-		return nil
+	} else {
+		var err error
+		switch sess.kind {
+		case view.KindState:
+			sess.machine, err = ctx.CreateStateExecutorFor(target, performer)
+		case view.KindAction:
+			sess.action, err = ctx.CreateActionExecutorFor(target, performer)
+		}
+		if err != nil {
+			return fmt.Errorf("%w: %s: %w", ErrDebugTarget, sess.target, err)
+		}
 	}
-	var err error
-	switch sess.kind {
-	case view.KindState:
-		sess.machine, err = ctx.CreateStateExecutorFor(target, performer)
-	case view.KindAction:
-		sess.action, err = ctx.CreateActionExecutorFor(target, performer)
+	// The executor keeps what it fires until a snapshot reads it, and nothing more.
+	if sess.machine != nil {
+		sess.machine.KeepFired(true)
 	}
-	if err != nil {
-		return fmt.Errorf("%w: %s: %w", ErrDebugTarget, sess.target, err)
+	if sess.action != nil {
+		sess.action.KeepTraversals(true)
 	}
 	return nil
 }

@@ -287,6 +287,7 @@ func TestHeldImageCarriesAPausedStateMachine(t *testing.T) {
 	machine := lampMachine(t, bulb)
 	dimmed := stateNamed(t, machine, "dimmed")
 	machine.SetBreakpointAt(dimmed)
+	machine.KeepFired(true)
 	level := map[string]Value{"level": integerValue(7)}
 
 	early := imageInto(t, src, bulb)
@@ -315,6 +316,9 @@ func TestHeldImageCarriesAPausedStateMachine(t *testing.T) {
 	}
 	if got := copy.FiredSince(len(fired) - 1); len(got) != 1 || got[0] != fired[len(fired)-1] {
 		t.Errorf("FiredSince(last) = %v, want the last firing alone", got)
+	}
+	if got := copy.FiredTransitions(); len(got) != 1 || copy.FiredCount() != len(fired) {
+		t.Errorf("after FiredSince(last) the copy keeps %v of %d, want the last firing alone, still counting %d", got, copy.FiredCount(), len(fired))
 	}
 
 	if _, err := dst.Advance(5); err != nil {
@@ -352,7 +356,8 @@ func TestHeldImageCarriesAPausedStateMachine(t *testing.T) {
 
 // An action paused at a breakpoint set by identity is imaged as its debugger left
 // it: the copy is suspended at the same node in its flow, keeps the breakpoint and
-// the successions taken, and runs on from the pause independently of the source.
+// the successions kept and counted, and runs on from the pause independently of
+// the source.
 func TestHeldImageCarriesAPausedAction(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, waiterSource)
 	pkg := resolveSymbol(t, root, "test")
@@ -373,6 +378,7 @@ func TestHeldImageCarriesAPausedAction(t *testing.T) {
 	action := await(t, waiter)
 	mark := actionNodeNamed(t, action, "mark")
 	action.ReplaceBreakpointsAt([]NodeBreakpoint{{Node: mark}})
+	action.KeepTraversals(true)
 
 	early := imageInto(t, src, waiter)
 	earlyCopy, _ := early.Instance(waiter.ID)
@@ -391,9 +397,11 @@ func TestHeldImageCarriesAPausedAction(t *testing.T) {
 	if bp, ok := action.PausedBreakpoint(); !ok || bp.Node != mark || action.State() != StateSuspended {
 		t.Fatalf("the source paused at %+v, %v in state %v; want mark, suspended", bp, ok, action.State())
 	}
-	traversals := action.Traversals()
-	if len(traversals) != 2 {
-		t.Fatalf("the source took %d successions, want start then heard, heard then mark", len(traversals))
+	// start then heard was taken before the debugger asked for the record, so only
+	// heard then mark is kept, though both are counted.
+	traversals, taken := action.Traversals(), action.TraversalCount()
+	if len(traversals) != 1 || taken != 2 {
+		t.Fatalf("the source keeps %d of %d successions, want heard then mark of start then heard, heard then mark", len(traversals), taken)
 	}
 
 	dst := imageInto(t, src, waiter)
@@ -405,11 +413,14 @@ func TestHeldImageCarriesAPausedAction(t *testing.T) {
 	if bp, ok := copy.PausedBreakpoint(); !ok || bp.Node != mark || len(bp.Within) != 0 {
 		t.Errorf("the copy's PausedBreakpoint() = %+v, %v, want mark in the action's own flow", bp, ok)
 	}
-	if got := copy.Traversals(); copy.TraversalCount() != len(traversals) || !traversalsEqual(got, traversals) {
-		t.Errorf("the copy took %v, want the source's %v", got, traversals)
+	if got := copy.Traversals(); copy.TraversalCount() != taken || !traversalsEqual(got, traversals) {
+		t.Errorf("the copy took %v of %d, want the source's %v of %d", got, copy.TraversalCount(), traversals, taken)
 	}
-	if got := copy.TraversalsSince(1); len(got) != 1 || got[0].Edge != traversals[1].Edge {
+	if got := copy.TraversalsSince(1); len(got) != 1 || got[0].Edge != traversals[0].Edge {
 		t.Errorf("TraversalsSince(1) = %v, want the last succession alone", got)
+	}
+	if got := copy.TraversalsSince(taken); got != nil || len(copy.Traversals()) != 0 || copy.TraversalCount() != taken {
+		t.Errorf("TraversalsSince(%d) = %v leaving %d kept of %d, want nil, none, %d", taken, got, len(copy.Traversals()), copy.TraversalCount(), taken)
 	}
 
 	if err := copy.RunToCompletion(); err != nil {
@@ -424,11 +435,11 @@ func TestHeldImageCarriesAPausedAction(t *testing.T) {
 	if got := featureInt(t, dst, copied, "woken"); got != 9 {
 		t.Errorf("the copy's woken = %d, want 9", got)
 	}
-	if copy.TraversalCount() != len(traversals)+1 {
-		t.Errorf("the copy took %d successions, want the imaged %d and mark then done", copy.TraversalCount(), len(traversals))
+	if got := copy.Traversals(); copy.TraversalCount() != taken+1 || len(got) != 1 || ActionNodeName(got[0].Edge.Source) != "mark" {
+		t.Errorf("the copy took %d successions keeping %v, want the imaged %d and mark then done, keeping that one", copy.TraversalCount(), got, taken)
 	}
-	if action.State() != StateSuspended || action.TraversalCount() != len(traversals) {
-		t.Errorf("the source is %v after %d successions once the copy ran on, want still suspended after %d", action.State(), action.TraversalCount(), len(traversals))
+	if action.State() != StateSuspended || action.TraversalCount() != taken {
+		t.Errorf("the source is %v after %d successions once the copy ran on, want still suspended after %d", action.State(), action.TraversalCount(), taken)
 	}
 	if got := featureInt(t, src, waiter, "woken"); got != 0 {
 		t.Errorf("the source's woken = %d, want 0", got)

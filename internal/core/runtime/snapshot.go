@@ -417,6 +417,7 @@ type actionCapture struct {
 	awaiting          *actionFrame
 	firedBreakpoints  mapState[breakpointVisit, bool]
 	traversals        []Traversal
+	traversalBase     int
 	driven            *runState
 	dynamics          *stateSpaceRun
 	frames            []frameCapture
@@ -434,6 +435,7 @@ func (e *ActionExecutor) capture() actionCapture {
 		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
 		firedBreakpoints: captureMap(e.firedBreakpoints),
 		traversals:       cloneTraversals(e.traversals),
+		traversalBase:    e.traversalBase,
 		driven:           e.driven.state,
 		dynamics:         e.dynamics.clone(),
 	}
@@ -451,7 +453,7 @@ func (c actionCapture) restore() {
 	e.steps, e.stepsSpent, e.inRun, e.held = c.steps, c.stepsSpent, c.inRun, c.held
 	e.moved, e.awaiting = c.moved, c.awaiting
 	e.firedBreakpoints = c.firedBreakpoints.restore()
-	e.traversals = cloneTraversals(c.traversals)
+	e.traversals, e.traversalBase = cloneTraversals(c.traversals), c.traversalBase
 	e.driven.state = c.driven
 	e.dynamics = c.dynamics.clone()
 	for _, perf := range c.frames {
@@ -569,6 +571,7 @@ type stateCapture struct {
 	stateVisits        []string
 	stateStack         []*ast.StateNode
 	fired              []FiredTransition
+	firedBase          int
 	breakpointHit      *ast.StateNode
 	pausedAt           ast.Node
 	completionDue      bool
@@ -611,6 +614,7 @@ func (e *StateExecutor) capture() stateCapture {
 		stateVisits:        slices.Clone(e.stateVisits),
 		stateStack:         slices.Clone(e.stateStack),
 		fired:              slices.Clone(e.fired),
+		firedBase:          e.firedBase,
 		breakpointHit:      e.breakpointHit,
 		pausedAt:           e.pausedAt,
 		completionDue:      e.completionDue,
@@ -661,7 +665,7 @@ func (c stateCapture) restore() {
 		}
 	}
 	e.stateVisits, e.stateStack = slices.Clone(c.stateVisits), slices.Clone(c.stateStack)
-	e.fired = slices.Clone(c.fired)
+	e.fired, e.firedBase = slices.Clone(c.fired), c.firedBase
 	e.breakpointHit, e.pausedAt, e.completionDue = c.breakpointHit, c.pausedAt, c.completionDue
 	if e.history != nil {
 		clear(e.history)

@@ -1313,6 +1313,7 @@ func TestFiredTransitionsLogsEachTransitionInOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateStateExecutor: %v", err)
 	}
+	exec.KeepFired(true)
 	if got := firedNames(exec); !slices.Equal(got, []string{"->init"}) {
 		t.Fatalf("after start fired = %v, want the entry transition only", got)
 	}
@@ -1323,15 +1324,6 @@ func TestFiredTransitionsLogsEachTransitionInOrder(t *testing.T) {
 	if got := firedNames(exec)[mark:]; !slices.Equal(got, []string{"init->waiting"}) {
 		t.Fatalf("first step fired = %v, want init->waiting", got)
 	}
-	if got := exec.FiredSince(mark); !slices.Equal(got, exec.FiredTransitions()[mark:]) {
-		t.Errorf("FiredSince(%d) = %v, want the firings past the mark", mark, got)
-	}
-	if got := exec.FiredSince(exec.FiredCount()); got != nil {
-		t.Errorf("FiredSince(FiredCount()) = %v, want nil", got)
-	}
-	if got := exec.FiredSince(exec.FiredCount() + 3); got != nil {
-		t.Errorf("FiredSince past the count = %v, want nil", got)
-	}
 	for exec.HasPendingWork() && exec.State() == StateRunning {
 		if err := exec.ProcessNextEvent(); err != nil {
 			t.Fatalf("ProcessNextEvent: %v", err)
@@ -1340,6 +1332,60 @@ func TestFiredTransitionsLogsEachTransitionInOrder(t *testing.T) {
 	want := []string{"->init", "init->waiting", "waiting->working", "working->done"}
 	if got := firedNames(exec); !slices.Equal(got, want) {
 		t.Fatalf("fired = %v, want %v", got, want)
+	}
+}
+
+// A machine keeps only the dispatch under way's firings unless a debugger asks it
+// to keep them, and then releases what FiredSince read: the record is bounded by
+// what its reader has yet to see, while FiredCount counts every firing.
+func TestFiredSinceReleasesTheFiringsRead(t *testing.T) {
+	ctx, sym := loadState(t, debugStateSrc, "Cycle")
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateStateExecutor: %v", err)
+	}
+	if got := firedNames(exec); !slices.Equal(got, []string{"->init"}) {
+		t.Fatalf("after start fired = %v, want the entry transition until a dispatch begins", got)
+	}
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("ProcessNextEvent: %v", err)
+	}
+	if got := firedNames(exec); !slices.Equal(got, []string{"init->waiting"}) || exec.FiredCount() != 2 {
+		t.Fatalf("unkept, after one dispatch fired = %v of %d, want that dispatch's alone of 2", got, exec.FiredCount())
+	}
+
+	exec.KeepFired(true)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("ProcessNextEvent: %v", err)
+	}
+	kept := []string{"init->waiting", "waiting->working"}
+	if got := firedNames(exec); !slices.Equal(got, kept) || exec.FiredCount() != 3 {
+		t.Fatalf("kept, fired = %v of %d, want %v of 3", got, exec.FiredCount(), kept)
+	}
+	if got := exec.FiredSince(0); len(got) != 2 || got[0].Target != exec.FiredTransitions()[0].Target {
+		t.Errorf("FiredSince(0) = %v, want the two kept firings, the released one gone", got)
+	}
+	if got := exec.FiredSince(2); len(got) != 1 || StateVertexName(got[0].Target) != "working" {
+		t.Errorf("FiredSince(2) = %v, want waiting->working alone", got)
+	}
+	if got := firedNames(exec); !slices.Equal(got, []string{"waiting->working"}) || exec.FiredCount() != 3 {
+		t.Errorf("after reading since 2, fired = %v of %d, want the one read of 3: the earlier ones are released", got, exec.FiredCount())
+	}
+	if got := exec.FiredSince(exec.FiredCount()); got != nil || exec.FiredCount() != 3 {
+		t.Errorf("FiredSince(FiredCount()) = %v of %d, want nil of 3", got, exec.FiredCount())
+	}
+	if got := exec.FiredSince(exec.FiredCount() + 3); got != nil || len(exec.FiredTransitions()) != 0 {
+		t.Errorf("FiredSince past the count = %v, want nil and nothing kept", got)
+	}
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("ProcessNextEvent: %v", err)
+	}
+	if got := exec.FiredSince(3); len(got) != 1 || StateVertexName(got[0].Target) != "done" || exec.FiredCount() != 4 {
+		t.Errorf("FiredSince(3) = %v of %d, want working->done of 4", got, exec.FiredCount())
+	}
+	exec.KeepFired(false)
+	if got := firedNames(exec); len(got) != 0 || exec.FiredCount() != 4 {
+		t.Errorf("no longer kept, fired = %v of %d, want none of 4", got, exec.FiredCount())
 	}
 }
 
@@ -1388,6 +1434,7 @@ func TestFiredTransitionsLogsCompoundAndForkSegments(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateStateExecutor: %v", err)
 	}
+	exec.KeepFired(true)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
 	}
@@ -1425,6 +1472,7 @@ func TestFiredTransitionsLogsSegmentsIntoAChoice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateStateExecutor: %v", err)
 	}
+	exec.KeepFired(true)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
 	}
@@ -1480,6 +1528,7 @@ func TestFiredTransitionsLogsDefaultHistoryRoute(t *testing.T) {
 			if err != nil {
 				t.Fatalf("CreateStateExecutor: %v", err)
 			}
+			exec.KeepFired(true)
 			exec.SendSignal("go", nil)
 			if err := exec.ProcessNextEvent(); err != nil {
 				t.Fatalf("ProcessNextEvent: %v", err)
@@ -1545,6 +1594,7 @@ func TestFiredTransitionsOmitsAFailedFiring(t *testing.T) {
 			if err != nil {
 				t.Fatalf("CreateStateExecutor: %v", err)
 			}
+			exec.KeepFired(true)
 			if got := firedNames(exec); !slices.Equal(got, []string{"->init"}) {
 				t.Fatalf("after start fired = %v, want the entry transition only", got)
 			}
@@ -1874,6 +1924,7 @@ func TestTraversalsLogEachSuccessionInOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateActionExecutor: %v", err)
 	}
+	exec.KeepTraversals(true)
 	if got := traversalNames(exec); len(got) != 0 {
 		t.Fatalf("before any step traversals = %v, want none", got)
 	}
@@ -1895,15 +1946,6 @@ func TestTraversalsLogEachSuccessionInOrder(t *testing.T) {
 	if !slices.Equal(got, want) {
 		t.Fatalf("run traversals = %v, want %v", got, want)
 	}
-	if since := exec.TraversalsSince(mark); len(since) != len(want) || since[0].Edge != exec.Traversals()[mark].Edge {
-		t.Errorf("TraversalsSince(%d) = %v, want the %d successions past the mark", mark, since, len(want))
-	}
-	if since := exec.TraversalsSince(exec.TraversalCount()); since != nil {
-		t.Errorf("TraversalsSince(TraversalCount()) = %v, want nil", since)
-	}
-	if since := exec.TraversalsSince(-1); len(since) != exec.TraversalCount() {
-		t.Errorf("TraversalsSince(-1) = %d successions, want all %d", len(since), exec.TraversalCount())
-	}
 	tokens := make(map[int64]bool)
 	for _, tr := range exec.Traversals() {
 		tokens[tr.Token] = true
@@ -1918,9 +1960,64 @@ func TestTraversalsLogEachSuccessionInOrder(t *testing.T) {
 		t.Fatal("no traversal ran in a nested flow")
 	}
 	exec.Traversals()[nested].Within[0] = nil
-	exec.TraversalsSince(nested)[0].Within[0] = nil
+	exec.TraversalsSince(0)[nested].Within[0] = nil
 	if got := traversalNames(exec); !slices.Equal(got[mark:], want) {
 		t.Errorf("after writing into copies, traversals = %v, want %v unchanged", got[mark:], want)
+	}
+}
+
+// An action keeps no successions unless a debugger asks it to, and then releases
+// what TraversalsSince read: the record is bounded by what its reader has yet to
+// see, while TraversalCount counts every succession.
+func TestTraversalsSinceReleasesTheSuccessionsRead(t *testing.T) {
+	src := `package test {
+		action Drive {
+			first start;
+			action prep;
+			action tally;
+			done;
+			succession first start then prep;
+			succession first prep then tally;
+			succession first tally then done;
+		}
+	}`
+	ctx, sym := loadAction(t, src, "Drive")
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateActionExecutor: %v", err)
+	}
+	if err := exec.Step(); err != nil {
+		t.Fatalf("Step: %v", err)
+	}
+	if got := traversalNames(exec); len(got) != 0 || exec.TraversalCount() != 1 {
+		t.Fatalf("unkept, after one step traversals = %v of %d, want none of 1", got, exec.TraversalCount())
+	}
+
+	exec.KeepTraversals(true)
+	if err := exec.Step(); err != nil {
+		t.Fatalf("Step: %v", err)
+	}
+	if got := traversalNames(exec); !slices.Equal(got, []string{"prep->tally"}) || exec.TraversalCount() != 2 {
+		t.Fatalf("kept, traversals = %v of %d, want prep->tally of 2", got, exec.TraversalCount())
+	}
+	if got := exec.TraversalsSince(-1); len(got) != 1 {
+		t.Errorf("TraversalsSince(-1) = %v, want the one kept succession, the released one gone", got)
+	}
+	if got := exec.TraversalsSince(exec.TraversalCount()); got != nil || len(exec.Traversals()) != 0 || exec.TraversalCount() != 2 {
+		t.Errorf("TraversalsSince(TraversalCount()) = %v leaving %d kept of %d, want nil, none, 2", got, len(exec.Traversals()), exec.TraversalCount())
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion: %v", err)
+	}
+	if got := exec.TraversalsSince(2); len(got) != 1 || ActionNodeName(got[0].Edge.Target) != "done" || exec.TraversalCount() != 3 {
+		t.Errorf("TraversalsSince(2) = %v of %d, want tally->done of 3", got, exec.TraversalCount())
+	}
+	if got := exec.TraversalsSince(2); len(got) != 1 {
+		t.Errorf("read again from the same mark, TraversalsSince(2) = %v, want tally->done still kept", got)
+	}
+	exec.KeepTraversals(false)
+	if got := traversalNames(exec); len(got) != 0 || exec.TraversalCount() != 3 {
+		t.Errorf("no longer kept, traversals = %v of %d, want none of 3", got, exec.TraversalCount())
 	}
 }
 
