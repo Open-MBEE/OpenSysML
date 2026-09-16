@@ -971,6 +971,35 @@ func TestWorkspaceDisplacedIdentityIgnoresRemovedBaseFile(t *testing.T) {
 	}
 }
 
+// A caller overlay may re-add a frozen base's library file under the other
+// language: the library speaks what the overlay shows, so a copy in that
+// language is a version and one in the base's is the workspace's own.
+func TestWorkspaceLibraryVersionOverRelanguagedBase(t *testing.T) {
+	const lib = "lib/tanks.kerml"
+	text := []byte("standard library package Tanks {\n    classifier Tank;\n}\n")
+	root := parser.New(source.New(lib, text)).ParseFile()
+	record := symbols.LibraryDocument{Tier: symbols.TierLibrary, Digest: symbols.TextDigest(text)}
+	base := symbols.NewIndex()
+	base.AddDocumentWithKind(lib, root, source.KindSysML)
+	base.MarkLibraryDocument(lib, record)
+	base.Freeze()
+	idx := symbols.NewOverlay(base)
+	idx.AddDocumentWithKind(lib, root, source.KindKerML)
+	idx.MarkLibraryDocument(lib, record)
+	idx.ExpandWildcardImports()
+	ws := NewWorkspaceWithIndex(idx)
+
+	ws.Open("copy.kerml", text, 1)
+	if got := ws.StandsInFor("copy.kerml"); got != lib {
+		t.Errorf("StandsInFor = %q of a KerML copy, want %q", got, lib)
+	}
+	ws.Remove("copy.kerml")
+	ws.Open("copy.sysml", text, 1)
+	if got := ws.StandsInFor("copy.sysml"); got != "" {
+		t.Errorf("StandsInFor = %q of a SysML copy, want nothing", got)
+	}
+}
+
 // A caller overlay may shadow a frozen base's library file under its name: the
 // library is what the overlay shows, so a copy rooted at the shown package is
 // a version, one rooted at the shadowed package is not, and an edit resolves

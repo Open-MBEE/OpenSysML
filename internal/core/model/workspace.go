@@ -174,7 +174,9 @@ func (w *Workspace) baseHoldsLibrary() bool {
 	for _, name := range w.libBase.Documents() {
 		file, ok := w.library[name]
 		if !ok || !w.libBase.IsLibraryDocument(name) ||
-			w.libBase.DocumentRoot(name).Node() != file.root || w.libBase.LibraryDocumentOf(name) != file.record {
+			w.libBase.DocumentRoot(name).Node() != file.root ||
+			w.libBase.DocumentKind(name) != file.kind ||
+			w.libBase.LibraryDocumentOf(name) != file.record {
 			return false
 		}
 		held++
