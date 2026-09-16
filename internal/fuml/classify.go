@@ -160,6 +160,9 @@ var spellableKinds = map[NodeKind]bool{
 // unlimitedNaturalType is the fUML primitive type KerML's ScalarValues lack.
 const unlimitedNaturalType = "UnlimitedNatural"
 
+// unlimitedNaturalLiteral is the literal whose untyped result is still unlimited natural.
+const unlimitedNaturalLiteral = "LiteralUnlimitedNatural"
+
 // positionRoles are the pins that take a position, not a value: `*` there
 // means "at the end", which needs no unlimited natural to spell.
 var positionRoles = map[string]bool{"insertAt": true, "removeAt": true}
@@ -304,6 +307,9 @@ func classifyNode(n *Node, add func(Construct, string)) {
 	if n.Kind.Pin() && n.Type.Name == unlimitedNaturalType && !positionRoles[n.Role] && !feedsPosition(n) {
 		add(ConstructUnlimitedNatural, "pin "+pinLabel(n))
 	}
+	if n.Kind == ValueSpecificationAction && n.Value != nil && n.Value.Kind == unlimitedNaturalLiteral && !resultsTyped(n, unlimitedNaturalType) && !resultsFeedPosition(n) {
+		add(ConstructUnlimitedNatural, n.Label()+" is a "+unlimitedNaturalLiteral)
+	}
 	if n.Feature != nil && n.Feature.Association != nil {
 		add(ConstructAssociationEnd, n.Label())
 	}
@@ -327,13 +333,74 @@ func classifyCall(n *Node, add func(Construct, string)) {
 	}
 }
 
-// feedsPosition reports whether an output pin flows only into position pins.
+// feedsPosition reports whether an output pin flows, through forks, only into
+// position pins.
 func feedsPosition(n *Node) bool {
-	if n.Kind != OutputPin || len(n.Outgoing) == 0 {
+	if n.Kind != OutputPin {
+		return false
+	}
+	return deliversToPositions(n, &positionWalk{path: map[*Node]bool{}, done: map[*Node]bool{}})
+}
+
+// positionWalk is deliversToPositions' state: the forks on the active descent,
+// and the verdict of every node already walked, so a shared suffix is walked once.
+type positionWalk struct {
+	path, done map[*Node]bool
+}
+
+// resultsTyped reports whether some result pin of an action declares the type.
+func resultsTyped(n *Node, typeName string) bool {
+	for _, p := range n.Outputs() {
+		if p.Type.Name == typeName {
+			return true
+		}
+	}
+	return false
+}
+
+// resultsFeedPosition reports whether every result of an action feeds positions.
+func resultsFeedPosition(n *Node) bool {
+	outs := n.Outputs()
+	if len(outs) == 0 {
+		return false
+	}
+	for _, p := range outs {
+		if !feedsPosition(p) {
+			return false
+		}
+	}
+	return true
+}
+
+// deliversToPositions is feedsPosition over the flows out of one node. A node
+// on the active descent is a cycle, which fails; a reconverging fork is not.
+func deliversToPositions(n *Node, w *positionWalk) bool {
+	if verdict, ok := w.done[n]; ok {
+		return verdict
+	}
+	if w.path[n] {
+		return false
+	}
+	w.path[n] = true
+	verdict := deliversOnlyToPositions(n, w)
+	delete(w.path, n)
+	w.done[n] = verdict
+	return verdict
+}
+
+func deliversOnlyToPositions(n *Node, w *positionWalk) bool {
+	if len(n.Outgoing) == 0 {
 		return false
 	}
 	for _, e := range n.Outgoing {
-		if e.Target == nil || !positionRoles[e.Target.Role] {
+		switch {
+		case e.Target == nil:
+			return false
+		case e.Target.Kind == ForkNode:
+			if !deliversToPositions(e.Target, w) {
+				return false
+			}
+		case !positionRoles[e.Target.Role]:
 			return false
 		}
 	}
@@ -433,10 +500,19 @@ func objectTypesAt(n *Node, found map[*Node]*typeSources, depth int) (types []Ty
 	if fed && resolved {
 		return types, true, low
 	}
-	if !n.Type.Zero() {
-		return append(types, n.Type), true, low
+	if t := effectiveType(n); !t.Zero() {
+		return append(types, t), true, low
 	}
 	return types, flowed && !fed && resolved, low
+}
+
+// effectiveType is a node's declared type, or for an activity parameter node
+// that repeats none the type of the parameter it stands for.
+func effectiveType(n *Node) TypeRef {
+	if n.Type.Zero() && n.Kind == ActivityParameterNode && n.Parameter != nil {
+		return n.Parameter.Type
+	}
+	return n.Type
 }
 
 // classifierBehavior is the behavior an object of the type runs when started:

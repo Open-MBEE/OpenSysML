@@ -888,9 +888,12 @@ runs what is due, advances to each queued wait in turn, and stops at the request
 #### Object lifecycle
 
 **SM43. Starting the classifier behavior.** fUML §8.8.1 (`ObjectActivation`): an active object's
-classifier behavior starts when the object is started (`StartObjectBehaviorAction`, or on
-creation with `isActive`), each behavior in an execution of its own, sharing the object's event
-pool; PSSM §8.5.1 makes a state machine such a classifier behavior. *v2/KerML:* §7.18.4 an
+classifier behavior starts when the object is started — `StartObjectBehaviorAction`
+(§8.10.2 `StartObjectBehaviorActionActivation`, `Object::startBehavior`), not its creation:
+`CreateObjectAction` (§8.10.2 `CreateObjectActionActivation`) creates the object and offers it
+on its result pin, and the behavior of an object nobody starts never runs — each behavior in an
+execution of its own, sharing the object's event pool; PSSM §8.5.1 makes a state machine such a
+classifier behavior. *v2/KerML:* §7.18.4 an
 `exhibit state` "must be carried out entirely within the lifetime of the performing occurrence";
 `Objects.kerml`/`Occurrences.kerml` `performances`. *Runtime:* `Context.Instantiate` →
 `classifier_behavior.go:runAttachedBehaviors` starts every exhibited state machine and performed action of a part as
@@ -1137,6 +1140,26 @@ by name only; the roadmap's "operation invocation with positional arguments" ent
 holds the positional form. Both fUML calls and both runtime paths are synchronous and
 by-position versus by-name is notation, not semantics. **agrees.**
 
+**A15. One firing per token, or one performance per node.** fUML §8.9.1 and §8.10.1
+(`ActionActivation::fire`, `isReady`, `takeOfferedTokens`): an action whose input pin has
+multiplicity 1 takes one object token per firing, and an action offered several tokens on such
+a pin fires once per token — `ActionActivation::fire` sends its offers, then fires again while
+`isReady` still holds and `takeOfferedTokens` yields tokens — so a decision fed two values
+routes each on its own, and a node re-fires for every value a fork delivers to it. *v2/KerML:*
+an action node reached over several successions is one performance that follows all of them
+(A1; KerML 1.0 §7.4.5 — a step with no declared multiplicity holds one value), and every flow
+into that performance delivers to the one input feature of that one performance ("One feature
+space per performance" in the compliance record). *Runtime:* `action_executor.go:synchronize`
+holds the arrivals and steps the node once with every delivery in hand; a second delivery to a
+multiplicity-1 input is not a second performance (`action_node_concurrent_performances` and its
+trace golden), and a multi-valued one to it is a multiplicity violation. The fUML
+referee (`docs/project/fuml-referee.md`) detects the fUML side of this row in the reference
+implementation's trace — one action fired more than once within one execution, with an object
+flow feeding it — and files the activity as `differs-by-design`: `DecisionJoin`,
+`ForkMergeData`, `TestSimpleActivities` through both, and `TestBooleanFunctions`, whose
+four-row truth tables reach each function through a multiplicity-1 pin. **differs because v2
+differs.**
+
 ### Composite structures (PSCS)
 
 PSCS (formal/19-02-01) §8.1 extends fUML with runtime manifestations of parts, ports and
@@ -1297,21 +1320,22 @@ as a connector object of its own. Nothing in PSCS would supply that object; it i
 
 ## The count
 
-Sixty-nine rows: 45 for state machines, 14 for actions, 10 for composite structures. Each
+Seventy rows: 45 for state machines, 15 for actions, 10 for composite structures. Each
 carries one verdict.
 
 | Verdict | Rows |
 |---|---:|
 | **agrees** | 49 |
-| **differs because v2 differs** | 6 |
+| **differs because v2 differs** | 7 |
 | **differs, v2 silent** | 10 |
 | **gap** | 4 |
-| **Total** | **69** |
+| **Total** | **70** |
 
-The six **differs because v2 differs** rows are SM15 (a do activity and the machine competing
+The seven **differs because v2 differs** rows are SM15 (a do activity and the machine competing
 for one occurrence), SM36 (local transitions), SM37 (internal transitions), A12 (accept event:
-a message no accepter takes stays in flight), C6 (behavior ports) and C9 (interface-typed ports
-and name-based dispatch). On each, SysML v2 or the Kernel Semantic Library states the rule the
+a message no accepter takes stays in flight), A15 (one firing per token: fUML re-fires an
+action for every token on a multiplicity-1 pin, the runtime performs the node once with every
+delivery), C6 (behavior ports) and C9 (interface-typed ports and name-based dispatch). On each, SysML v2 or the Kernel Semantic Library states the rule the
 runtime follows, quoted in the row; adopting PSSM, fUML or PSCS there would move the runtime
 away from the specification it implements, so none of them is a candidate for a port.
 
@@ -1661,7 +1685,7 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
 ## Recommendation
 
 **Option (a), with (b) as a follow-on once (a)'s two changes have landed.** The map shows no case
-for porting the precise-semantics family: 50 of 69 rows agree already, 6 differ because SysML v2
+for porting the precise-semantics family: 49 of 70 rows agree already, 7 differ because SysML v2
 says otherwise and must stay as they are, and the 4 gaps are v2 gaps Track E already owns. What
 remains is nine tool choices, and on two of them — SM7 and SM28 — PSSM's rule is the reference
 this project's own extensions name (UML) applied consistently, while ours is an accident of
