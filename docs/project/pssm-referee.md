@@ -521,7 +521,13 @@ of its own closes it:
   admits — but a gap of exploration, and its fix is a scheduling design (each site stepped under
   a draw the policy makes and a `ChoiceRegionOrder` records, as `dispatchInOrder` and
   `runDoRound` already do among themselves, with the trace goldens of every fixture that enters
-  or leaves an orthogonal state moving), so it is recorded rather than made here.
+  or leaves an orthogonal state moving), so it is recorded rather than made here. The design is
+  written — [recording the order of orthogonal regions](../internals/design/region-order-scheduling.md):
+  the unit each site draws, the choice kinds and their trace and witness lines, what each policy
+  does, the rollback of a refused replay, the budget, and the alignment row on firing
+  granularity — and stops at two decisions for the maintainers: whether trace goldens recorded
+  under the default policy may gain `choice` lines, and the two admitted traces of
+  *Transition 017* that no reading of the model produces.
 - **A segment leaving a junction inside a composite state ran its effect before the composite
   was entered** (*Junction 005*; alignment finding 10). The transition targets a junction in one
   region of the orthogonal `S1`, and `state_executor.go:moveTo` ran every effect of the route
