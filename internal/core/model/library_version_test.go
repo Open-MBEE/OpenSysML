@@ -971,9 +971,8 @@ func TestWorkspaceDisplacedIdentityIgnoresRemovedBaseFile(t *testing.T) {
 	}
 }
 
-// A caller overlay may re-add a frozen base's library file under the other
-// language: the library speaks what the overlay shows, so a copy in that
-// language is a version and one in the base's is the workspace's own.
+// A caller overlay may re-add a frozen base's library file under the other language:
+// a copy in the overlay's language is a version, one in the base's is the workspace's own.
 func TestWorkspaceLibraryVersionOverRelanguagedBase(t *testing.T) {
 	const lib = "lib/tanks.kerml"
 	text := []byte("standard library package Tanks {\n    classifier Tank;\n}\n")
