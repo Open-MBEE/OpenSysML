@@ -903,6 +903,46 @@ func TestWorkspaceLibraryVersionEditIndexKeepsBaseRemovals(t *testing.T) {
 	}
 }
 
+// A frozen base may hold unmarked files beside the library's; the library alone
+// is the marked ones. A displaced library file's identity is answered over the
+// library alone, so an annotation in a base file the overlay removed — targeting
+// one of its elements — does not reach it.
+func TestWorkspaceDisplacedIdentityIgnoresRemovedBaseFile(t *testing.T) {
+	const lib, meta, override = "lib/tanks.sysml", "lib/meta.sysml", "override.sysml"
+	libText := []byte("standard library package Tanks {\n    part def Tank;\n}\n")
+	metaText := []byte("standard library package IdentityMetadata {\n    metadata def ElementId {\n        attribute id;\n    }\n}\n")
+	overrideText := []byte("package Overrides {\n    metadata : IdentityMetadata::ElementId about Tanks::Tank {\n        id = \"not-the-norm\";\n    }\n}\n")
+	base := symbols.NewIndex()
+	for name, text := range map[string][]byte{lib: libText, meta: metaText, override: overrideText} {
+		base.AddDocumentWithKind(name, parser.New(source.New(name, text)).ParseFile(), source.KindSysML)
+		if name != override {
+			base.MarkLibraryDocument(name, symbols.LibraryDocument{Tier: symbols.TierSystems, Digest: symbols.TextDigest(text)})
+		}
+	}
+	base.ExpandWildcardImports()
+	base.Freeze()
+	idx := symbols.NewOverlay(base)
+	idx.RemoveDocument(override)
+	ws := NewWorkspaceWithIndex(idx)
+
+	var tank *symbols.Symbol
+	walkScope(base.DocumentRoot(lib), func(s *symbols.Symbol) {
+		if s.Name == "Tank" {
+			tank = s
+		}
+	})
+	if info, ok := ws.IdentityOf(lib, tank); !ok || info.Source != identity.SourceNormative || info.Annotated {
+		t.Fatalf("identity of Tank with the override removed = %+v, want the norm's, unannotated", info)
+	}
+	ws.Open("copy.sysml", libText, 1)
+	if got := ws.StandsInFor("copy.sysml"); got != lib {
+		t.Fatalf("StandsInFor = %q, want %q", got, lib)
+	}
+	if info, ok := ws.IdentityOf(lib, tank); !ok || info.Source != identity.SourceNormative || info.Annotated {
+		t.Errorf("identity of the displaced Tank = %+v, want the norm's, unannotated", info)
+	}
+}
+
 // A caller overlay may shadow a frozen base's library file under its name: the
 // library is what the overlay shows, so a copy rooted at the shown package is
 // a version, one rooted at the shadowed package is not, and an edit resolves
