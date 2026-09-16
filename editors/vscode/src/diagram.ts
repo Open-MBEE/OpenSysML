@@ -627,9 +627,8 @@ class DiagramPanel {
     }
   }
 
-  // select makes the panel draw another view, unless its owner shows that view
-  // already; the next render then draws it, or puts the picker back. The view
-  // is taken before the owner re-keys the panel, so the title it sets is the new one.
+  // select makes the panel draw another view, unless its owner shows that view already;
+  // `selected` is set before the owner re-keys the panel, so the title it sets is the new one.
   private select(view: string, picked: boolean): void {
     const from = this.selected;
     if (view === from) {

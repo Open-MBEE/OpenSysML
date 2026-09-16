@@ -184,14 +184,9 @@ export interface ChoiceStore {
   update(key: string, value: Record<string, string> | undefined): Thenable<void>;
 }
 
-/**
- * ChosenViews remembers the view last chosen for each document, so Open Diagram
- * draws it again without asking. Keyed by document URI; a choice follows the
- * file through a rename and dies with it.
- */
+/** ChosenViews remembers the view last chosen for each document; a choice follows a rename and dies with a delete. */
 export class ChosenViews {
-  // Changed here, at once, and written to the store in order, so mutations
-  // fired without awaiting cannot overwrite one another.
+  // Changed in memory at once and written in order, so un-awaited mutations cannot overwrite one another.
   private chosen: Record<string, string>;
   private writes: Promise<void> = Promise.resolve();
 
@@ -240,8 +235,7 @@ export class ChosenViews {
     return touched ? this.set(next) : this.writes;
   }
 
-  // set applies the change at once and queues its write; a write that fails
-  // does not hold up the ones after it.
+  // set applies the change and queues its write; a failed write does not hold up the next.
   private set(chosen: Record<string, string>): Thenable<void> {
     this.chosen = chosen;
     const write = () => this.store.update(CHOSEN_VIEWS_KEY, Object.keys(chosen).length === 0 ? undefined : chosen);
