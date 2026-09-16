@@ -168,6 +168,13 @@ CAPABILITY_CASE_EVALUATIONS = "case_evaluations"
 #: ``UNIMPLEMENTED``, so the client refuses to send one.
 CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore"
 
+#: ``performer_symbol_id`` on the action and state requests: the object the
+#: behavior runs on, named as a part definition or usage to make an object of or
+#: a path from one into its parts (``Mission::mission.vehicle``), made for the
+#: call — and anew for each explored run. Without it the service would run the
+#: behavior outside any object, so the client refuses to send a performer.
+CAPABILITY_PERFORMER = "performer"
+
 #: ``final_time`` populated on an action or state run's response: the run's
 #: simulation clock when it ended, in seconds, read as the ``final_time`` of
 #: :meth:`~opensysml.connection.Connection.execute_state`. Without it the

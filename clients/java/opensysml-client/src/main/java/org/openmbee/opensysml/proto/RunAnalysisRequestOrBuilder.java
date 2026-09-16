@@ -46,7 +46,10 @@ public interface RunAnalysisRequestOrBuilder extends
    * <pre>
    * Optional FQN of a part/usage to instantiate as the case's subject. Empty
    * leaves the case's own `subject s = ...` binding to supply it; a case that
-   * binds none and is given none fails to run.
+   * binds none and is given none fails to run. A path from a declaration, as
+   * `Mission::mission.vehicle`, makes the subject the object the path reaches in
+   * an object of the declaration built for the run — every explored run its own
+   * — so what the assembly binds and connects on it is in force.
    * </pre>
    *
    * <code>string subject_symbol_id = 3 [json_name = "subjectSymbolId"];</code>
@@ -57,7 +60,10 @@ public interface RunAnalysisRequestOrBuilder extends
    * <pre>
    * Optional FQN of a part/usage to instantiate as the case's subject. Empty
    * leaves the case's own `subject s = ...` binding to supply it; a case that
-   * binds none and is given none fails to run.
+   * binds none and is given none fails to run. A path from a declaration, as
+   * `Mission::mission.vehicle`, makes the subject the object the path reaches in
+   * an object of the declaration built for the run — every explored run its own
+   * — so what the assembly binds and connects on it is in force.
    * </pre>
    *
    * <code>string subject_symbol_id = 3 [json_name = "subjectSymbolId"];</code>

@@ -504,6 +504,99 @@ func stateRun(sym *symbols.Symbol, signal string) func(*Context) (Outcome, error
 	}
 }
 
+// doForkMachine forks the do action of one state, whose token order decides x.
+const doForkMachine = `package test {
+	private import ScalarValues::*;
+	state def Machine {
+		attribute x : Integer = 0;
+		entry; then busy;
+		state busy {
+			do action work {
+				first start;
+				then fork split;
+				succession split then left;
+				succession split then right;
+				action left { assign x := 1; }
+				action right { assign x := 2; }
+				succession left then sync;
+				succession right then sync;
+				join sync;
+				then done;
+			}
+		}
+		transition first busy accept go then idle;
+		state idle;
+	}
+}`
+
+// The token orders a do action's flow draws are steps of its own, numbered on:
+// the witness of a fork within a state's do action replays to its outcome.
+func TestReplayFollowsDoActionWitnesses(t *testing.T) {
+	m := parseExploreModel(t, doForkMachine)
+	run := stateRun(m.state(t, "Machine"), "go")
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
+	if err != nil || !x.Complete() || len(x.Outcomes) != 2 {
+		t.Fatalf("explore: %v, %v", x, err)
+	}
+	for _, o := range x.Outcomes {
+		if got := FormatChoices(o.Witness); !strings.HasPrefix(got, "step 3: ") || strings.Contains(got, "; ") {
+			t.Errorf("%s: witness %s, want one token order at the flow's third step", o.Outcome, got)
+		}
+	}
+	assertWitnessesReplay(t, x, m.fresh, run)
+}
+
+// Sibling objects exhibiting one machine perform its do action each at steps of
+// their own: a step of one that draws no choice — one token able to act, none
+// the move names — leaves the witness move to the sibling's, so the witnesses
+// of a run over both replay to their outcomes.
+func TestReplayFollowsSiblingDoActionWitnesses(t *testing.T) {
+	m := parseExploreModel(t, strings.Replace(doForkMachine, "\n}", `
+	part def Pair {
+		part a : Thing;
+		part b : Thing;
+	}
+	part def Thing {
+		exhibit state m : Machine;
+	}
+	part pair : Pair;
+}`, 1))
+	sym := m.state(t, "Machine")
+	pair := namedOrFoundSymbol(t, m.idx, "test::pair", m.idx.DocumentRoot(m.path), ast.DefPart, ast.UsagePart)
+	run := func(ctx *Context) (Outcome, error) {
+		if _, err := ctx.Instantiate(pair); err != nil {
+			return Outcome{}, err
+		}
+		a, err := ctx.objectAt("test::pair#1.a")
+		if err != nil {
+			return Outcome{}, err
+		}
+		exec, err := ctx.CreateStateExecutorFor(sym, a)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if _, err := ctx.Advance(1); err != nil {
+			return Outcome{}, err
+		}
+		return exec.Outcome(), nil
+	}
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
+	if err != nil || !x.Complete() || len(x.Outcomes) != 2 {
+		t.Fatalf("explore: %v, %v", x, err)
+	}
+	for _, o := range x.Outcomes {
+		if len(o.Witness) != 3 {
+			t.Errorf("%s: witness %s, want the token order of each of the three performances", o.Outcome, FormatChoices(o.Witness))
+		}
+		outcome, _, err := replayed(t, m.fresh, run, o.Witness)
+		if err != nil {
+			t.Errorf("%s: replaying %s: %v", o.Outcome, FormatChoices(o.Witness), err)
+		} else if outcome.String() != o.Outcome.String() {
+			t.Errorf("replaying %s reached %s, want %s", FormatChoices(o.Witness), outcome, o.Outcome)
+		}
+	}
+}
+
 // A witness move the run cannot make is refused with a typed error naming the
 // move: a token not able to act, a branch not holding, a move at a step the run
 // is past, a move where the run has none, and one left over when the run ends.
