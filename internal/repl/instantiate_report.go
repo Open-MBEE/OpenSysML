@@ -1,7 +1,5 @@
 package repl
 
-import "slices"
-
 // InstantiationReport is what creating an object produced: the lines a caller
 // prints, and the diagnostics materializing the object's feature values reported.
 type InstantiationReport struct {
@@ -21,7 +19,8 @@ type InstantiationReport struct {
 // it to whoever reads a feature value next. An object that cannot be created at all is an
 // error; a feature value that cannot be materialized is a finding about the model.
 // The object is also given to the fresh-run engines: each of their runs creates
-// one of its declaration first, where %instantiate's object is the session's alone.
+// one of its declaration first, one per call as the session holds one per call,
+// where %instantiate's object is the session's alone.
 func (s *Session) InstantiateReport(name string) (InstantiationReport, error) {
 	defer s.enter()()
 	lines, err := s.instantiateLines(name)
@@ -35,9 +34,7 @@ func (s *Session) InstantiateReport(name string) (InstantiationReport, error) {
 		// Unreachable: the object was just created under this name.
 		return report, nil
 	}
-	if !slices.Contains(s.given, fqn) {
-		s.given = append(s.given, fqn)
-	}
+	s.given = append(s.given, fqn)
 	inst, ok := s.instances[fqn]
 	if !ok {
 		return report, nil

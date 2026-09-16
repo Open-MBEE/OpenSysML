@@ -405,6 +405,36 @@ func TestExploredRunsAreGivenTheObjectsInstantiated(t *testing.T) {
 	wantsInOrder(t, strings.Join(s.RunFor(nil, []Behavior{listen}, 5)[0].Lines, "\n"), "✓ explored Comms::Ground::listen: 2 outcomes", "received = 1", "received = 2")
 }
 
+// Each -instantiate gives the runs an object of its own, as it creates one of the
+// session's: a declaration given twice is two objects per run, the name denoting
+// the later and the earlier reached by id alone, so a machine named alone is
+// ambiguous between them as the prompt's is.
+func TestExploredRunsAreGivenOneObjectPerInstantiate(t *testing.T) {
+	s := loadSource(t, exploreCommsSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if _, err := s.InstantiateReport("Comms::pair"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := s.given; !slices.Equal(got, []string{"Comms::pair", "Comms::pair"}) {
+		t.Fatalf("given after two -instantiate = %q, want the pair twice", got)
+	}
+	prompt := strings.Join(s.RunFor(nil, []Behavior{{Name: "Comms::Ground::listen"}}, 5)[0].Lines, "\n")
+	wants(t, prompt, `2 objects of the explored run exhibit "Comms::Ground::listen"`, `of "Comms::pair.ground"`, `.ground"`)
+	if strings.Count(prompt, ".ground\"") != 2 {
+		t.Errorf("want the ground of each pair named, the displaced one's by id:\n%s", prompt)
+	}
+
+	// The path walks into the pair the name denotes: the run creates two, both
+	// running, and the exploration tables the named one's machine over the runs
+	// the second pair's choices multiply.
+	pathed := Behavior{Name: "Comms::Ground::listen", Performer: []string{"Comms::pair.ground"}}
+	wantsInOrder(t, strings.Join(s.RunFor(nil, []Behavior{pathed}, 5)[0].Lines, "\n"), "explored Comms::Ground::listen: 2 outcomes", "received = 1", "received = 2")
+}
+
 // exploreBayEquipmentSource is a ticker held required deep in a rack, and optionally
 // in a bay, neither named by any behavior.
 const exploreBayEquipmentSource = `

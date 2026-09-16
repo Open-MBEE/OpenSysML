@@ -443,7 +443,8 @@ func (s *Session) planOwner(p *freshPlan, sym *symbols.Symbol, fqn string) {
 }
 
 // bind is the plan's objects in one run's context, with the session's objects
-// created afresh from their declarations before any behavior starts.
+// created afresh from their declarations before any behavior starts: one per
+// -instantiate, the last of a declaration the one its name denotes.
 func (p *freshPlan) bind(ctx *runtime.Context) (*freshObjects, error) {
 	f := &freshObjects{
 		plan:  p,
@@ -457,9 +458,14 @@ func (p *freshPlan) bind(ctx *runtime.Context) (*freshObjects, error) {
 		},
 	}
 	for _, ref := range p.given {
-		if _, err := f.root(ref); err != nil {
+		inst, err := f.instantiate(ref)
+		if err != nil {
 			return nil, err
 		}
+		if previous, ok := f.roots[ref.fqn]; ok {
+			f.displaced = append(f.displaced, previous)
+		}
+		f.roots[ref.fqn] = inst
 	}
 	return f, nil
 }
@@ -468,11 +474,14 @@ func (p *freshPlan) bind(ctx *runtime.Context) (*freshObjects, error) {
 // each declaration the plan resolved is instantiated there once, by qualified name,
 // and the object each path reaches from it is walked to once, by the path as written.
 type freshObjects struct {
-	plan   *freshPlan
-	ctx    *runtime.Context
-	roots  map[string]*runtime.Instance
-	made   map[string]reachedObject
-	walker objref.Walker
+	plan  *freshPlan
+	ctx   *runtime.Context
+	roots map[string]*runtime.Instance
+	// displaced are given objects a later -instantiate of their declaration
+	// displaced from its name, still the run's and reached by id alone.
+	displaced []*runtime.Instance
+	made      map[string]reachedObject
+	walker    objref.Walker
 }
 
 // reachedObject is an object a path reached, under the label the walk gave it.
@@ -530,11 +539,20 @@ func (f *freshObjects) root(ref freshRef) (*runtime.Instance, error) {
 	if inst, ok := f.roots[ref.fqn]; ok {
 		return inst, nil
 	}
+	inst, err := f.instantiate(ref)
+	if err != nil {
+		return nil, err
+	}
+	f.roots[ref.fqn] = inst
+	return inst, nil
+}
+
+// instantiate creates an object of ref's declaration in the run.
+func (f *freshObjects) instantiate(ref freshRef) (*runtime.Instance, error) {
 	inst, err := f.ctx.Instantiate(ref.sym)
 	if err != nil {
 		return nil, fmt.Errorf("instantiation of %s failed: %w", ref.name, err)
 	}
-	f.roots[ref.fqn] = inst
 	return inst, nil
 }
 
@@ -567,13 +585,18 @@ func (f *freshObjects) performers(sym *symbols.Symbol) []exhibitor {
 }
 
 // runners finds the run's objects running the behaviors of picks out: those the
-// run was given, in the order given, and what they hold.
+// run was given, in the order given and then the displaced ones by id, and what they hold.
 func (f *freshObjects) runners(of func(*runtime.Instance) []*runtime.ObjectBehavior) []exhibitor {
 	roots := make([]carrier, 0, len(f.plan.given))
+	named := make(map[string]bool, len(f.roots))
 	for _, ref := range f.plan.given {
-		if inst, ok := f.roots[ref.fqn]; ok {
+		if inst, ok := f.roots[ref.fqn]; ok && !named[ref.fqn] {
+			named[ref.fqn] = true
 			roots = append(roots, carrier{name: ref.name, inst: inst})
 		}
+	}
+	for _, inst := range f.displaced {
+		roots = append(roots, carrier{name: fmt.Sprintf("#%d", inst.ID), inst: inst})
 	}
 	var found []exhibitor
 	walkFrom(roots, materializedObjectsIn(f.ctx), func(cur carrier) bool {
