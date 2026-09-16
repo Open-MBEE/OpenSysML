@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Gate a opensysml release on the tag and the declared version agreeing.
+"""Gate a release on the core tag and the declared opensysml version agreeing.
 
-Used by the `publish-pypi` CircleCI job before anything is built or uploaded:
-a PyPI version can be yanked but never re-uploaded, so a tag that does not name
-the version the package would publish must fail here rather than after the fact.
+The package is published from the same `v<version>` tag as the binaries, so the
+version it declares must be the one the tag names. Used by the CircleCI release
+workflow before anything is built or uploaded: a PyPI version can be yanked but
+never re-uploaded, so a tag that does not name the version the package would
+publish must fail here rather than after the fact.
 
-    python scripts/check_version.py --tag opensysml-v0.1.0
+    python scripts/check_version.py --tag v0.9.0
 
 Prints the version the tag names on success. With `--pre-release` it prints
 `yes`/`no` instead, which the job uses to route a pre-release tag to TestPyPI.
@@ -18,7 +20,7 @@ import sys
 
 from packaging.version import InvalidVersion, Version
 
-TAG_PREFIX = "opensysml-v"
+TAG_PREFIX = "v"
 
 VERSION_FILE = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "opensysml", "_version.py"
@@ -59,7 +61,7 @@ def version_from_tag(tag, version=None):
     """The version a release tag names, checked against the declared version.
 
     Args:
-        tag (str): Release tag, e.g. 'opensysml-v0.1.0'
+        tag (str): Core release tag, e.g. 'v0.9.0'
         version (str, optional): Declared version; read from
             opensysml/_version.py when omitted
 
@@ -67,28 +69,29 @@ def version_from_tag(tag, version=None):
         str: The version to publish
 
     Raises:
-        VersionError: If the tag is empty, is not a opensysml tag, or names a
-            version other than the declared one
+        VersionError: If the tag is empty, is not a core release tag, or names
+            a version other than the declared one
     """
     declared = version if version is not None else declared_version()
     if not tag:
         raise VersionError(
-            "No tag given. The publish job runs on a "
+            "No tag given. The release workflow runs on a "
             f"{TAG_PREFIX}<version> tag and reads CIRCLE_TAG."
         )
     if not tag.startswith(TAG_PREFIX):
         raise VersionError(
-            f"Tag {tag!r} does not start with {TAG_PREFIX!r}. A opensysml release "
-            f"is cut by a {TAG_PREFIX}<version> tag; a core release tag (v*) "
-            "publishes the binaries and the GitHub release, not the package."
+            f"Tag {tag!r} does not start with {TAG_PREFIX!r}. The package is "
+            f"released with the binaries, by the core {TAG_PREFIX}<version> tag; "
+            "no other tag publishes it."
         )
     tag_version = tag[len(TAG_PREFIX):]
     if tag_version != declared:
         raise VersionError(
             f"Tag {tag!r} names version {tag_version!r}, but "
             f"clients/python/opensysml/_version.py declares {declared!r}. "
-            "Publishing would put a version on PyPI that the package does not "
-            "report. Fix one of the two and tag again."
+            "The package is released in lockstep with the core, so its declared "
+            "version must be the core version being tagged. Set VERSION to "
+            f"{tag_version!r} on the release branch and tag again."
         )
     return tag_version
 

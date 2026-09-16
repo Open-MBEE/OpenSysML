@@ -1,4 +1,4 @@
-"""Tests for scripts/check_version.py, the release gate the publish job runs."""
+"""Tests for scripts/check_version.py, the release gate the release workflow runs."""
 
 import importlib.util
 import pathlib
@@ -26,15 +26,16 @@ def test_declared_version_rejects_a_file_without_a_version(tmp_path):
 
 
 def test_version_from_tag_accepts_the_declared_version():
-    assert check_version.version_from_tag("opensysml-v0.4.0", version="0.4.0") == "0.4.0"
+    assert check_version.version_from_tag("v0.4.0", version="0.4.0") == "0.4.0"
 
 
 @pytest.mark.parametrize(
     "tag, message",
     [
         ("", "No tag given"),
-        ("v0.4.0", "does not start with 'opensysml-v'"),
-        ("opensysml-v0.4.1", "names version '0.4.1', but"),
+        ("opensysml-v0.4.0", "does not start with 'v'"),
+        ("0.4.0", "does not start with 'v'"),
+        ("v0.4.1", "names version '0.4.1', but"),
     ],
 )
 def test_version_from_tag_rejects_a_tag_that_names_another_version(tag, message):
@@ -57,19 +58,19 @@ def test_is_pre_release_rejects_a_non_pep_440_version():
 
 def test_main_prints_the_version_the_tag_names(capsys):
     declared = check_version.declared_version()
-    assert check_version.main(["--tag", f"opensysml-v{declared}"]) == 0
+    assert check_version.main(["--tag", f"v{declared}"]) == 0
     assert capsys.readouterr().out.strip() == declared
 
 
 def test_main_routes_a_pre_release_by_printing_yes_or_no(capsys):
     declared = check_version.declared_version()
-    assert check_version.main(["--tag", f"opensysml-v{declared}", "--pre-release"]) == 0
+    assert check_version.main(["--tag", f"v{declared}", "--pre-release"]) == 0
     expected = "yes" if check_version.is_pre_release(declared) else "no"
     assert capsys.readouterr().out.strip() == expected
 
 
 def test_main_fails_on_a_tag_for_another_version(capsys):
-    assert check_version.main(["--tag", "opensysml-v0.0.0-not-declared"]) == 1
+    assert check_version.main(["--tag", "v0.0.0-not-declared"]) == 1
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "error:" in captured.err
@@ -78,6 +79,6 @@ def test_main_fails_on_a_tag_for_another_version(capsys):
 
 def test_main_reads_the_tag_from_circle_tag(monkeypatch, capsys):
     declared = check_version.declared_version()
-    monkeypatch.setenv("CIRCLE_TAG", f"opensysml-v{declared}")
+    monkeypatch.setenv("CIRCLE_TAG", f"v{declared}")
     assert check_version.main([]) == 0
     assert capsys.readouterr().out.strip() == declared
