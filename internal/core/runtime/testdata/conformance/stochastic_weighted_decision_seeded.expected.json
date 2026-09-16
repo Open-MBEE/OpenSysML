@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"libraries": true,
+	"trace": true,
+	"modelSeed": 7,
+	"outputs": {
+		"taken": {"type": "Integer", "value": 2}
+	}
+}

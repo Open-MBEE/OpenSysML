@@ -127,6 +127,22 @@ func (ctx *Context) Clock() *Clock {
 	return &ctx.clock
 }
 
+// ClockValue is the clock's instant now as a value: a duration in seconds, or a
+// bare number where no library reduces the second.
+func (ctx *Context) ClockValue() Value {
+	return ctx.instantValue(ctx.clock.Now())
+}
+
+// instantValue is the clock's instant t as a duration quantity, or a bare number
+// where no library reduces the second.
+func (ctx *Context) instantValue(t float64) Value {
+	second, err := ctx.clockUnit()
+	if err != nil {
+		return realConst(t)
+	}
+	return NewQuantityValue(&Quantity{Num: semantics.Value{Kind: semantics.ValReal, Real: t}, Unit: second})
+}
+
 // dueInstant is when a time trigger comes due: `after d` counts from now (a
 // negative delay is refused); `at t` is taken as read, one already past due now.
 // Either must be finite, and so must the instant a delay leads to.

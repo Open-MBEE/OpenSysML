@@ -27,6 +27,8 @@ func TestParseChoiceReadsEveryKind(t *testing.T) {
 		{"state idle on accept go -> 2->right", ChoiceTaken{Kind: ChoiceTransition, Where: "state idle on accept go", Took: "2->right"}},
 		{"on accept go: b1 first of a1, b1", ChoiceTaken{Kind: ChoiceRegionOrder, Where: "on accept go", Alternatives: 2, Taken: 1, Among: []string{"a1", "b1"}, Took: "b1"}},
 		{"t=5.0: state machine c first of state machine a, state machine b, state machine c", ChoiceTaken{Kind: ChoiceDueOrder, Where: "t=5.0", Alternatives: 3, Taken: 2, Among: []string{"state machine a", "state machine b", "state machine c"}, Took: "state machine c"}},
+		{"step 2: decision select -> 2->slow among 1->fast p=0.7, 2->slow p=0.3 drew 0.7748", ChoiceTaken{Kind: ChoiceDecisionBranch, Step: 2, Where: "decision select", Alternatives: 2, Taken: 1, Among: []string{"1->fast", "2->slow"}, Took: "2->slow", Weights: []float64{0.7, 0.3}, Drew: 0.7748, Drawn: true}},
+		{"step 2: decision select -> 1->fast among 1->fast p=0.7, 2->slow p=0.3", ChoiceTaken{Kind: ChoiceDecisionBranch, Step: 2, Where: "decision select", Alternatives: 2, Taken: 0, Among: []string{"1->fast", "2->slow"}, Took: "1->fast", Weights: []float64{0.7, 0.3}}},
 	}
 	for _, c := range cases {
 		got, err := ParseChoice(c.line)
@@ -38,7 +40,8 @@ func TestParseChoiceReadsEveryKind(t *testing.T) {
 			t.Errorf("%q read back as %q", c.line, got)
 		}
 		if got.Kind != c.want.Kind || got.Step != c.want.Step || got.Where != c.want.Where || got.Alternatives != c.want.Alternatives ||
-			got.Taken != c.want.Taken || strings.Join(got.Among, "|") != strings.Join(c.want.Among, "|") || got.Took != c.want.Took {
+			got.Taken != c.want.Taken || strings.Join(got.Among, "|") != strings.Join(c.want.Among, "|") || got.Took != c.want.Took ||
+			!slices.Equal(got.Weights, c.want.Weights) || got.Drew != c.want.Drew || got.Drawn != c.want.Drawn {
 			t.Errorf("%q: %+v, want %+v", c.line, got, c.want)
 		}
 	}
@@ -47,7 +50,8 @@ func TestParseChoiceReadsEveryKind(t *testing.T) {
 // A line that spells no choice is a typed error naming the line and why; a
 // witness is read a line at a time, or as FormatChoices joins it.
 func TestParseChoicesRejectsWhatSpellsNoChoice(t *testing.T) {
-	for _, text := range []string{"step 0: a first of a, b", "step x: a first of a, b", "a first of b, c", "c first of a, b", "step 2: c first of a, b", "-> x", "x ->", "nonsense"} {
+	for _, text := range []string{"step 0: a first of a, b", "step x: a first of a, b", "a first of b, c", "c first of a, b", "step 2: c first of a, b", "-> x", "x ->", "nonsense",
+		"step 2: d -> x among x", "step 2: d -> x among x p=heavy", "step 2: d -> y among x p=0.5, z p=0.5", "step 2: d -> x among x p=1 drew 1.5", "step 2: d -> x among x p=1 drew u"} {
 		_, err := ParseChoices("step 1: a first of a, b\n" + text)
 		var typed *ChoiceParseError
 		if !errors.As(err, &typed) || !errors.Is(err, ErrInvalidChoice) {
@@ -1913,13 +1917,15 @@ func TestReplayRefusesAMoveNamingAnObjectTheRunDidNotMake(t *testing.T) {
 // Every choice reads back from the line that spells it, whatever punctuation the
 // names it carries share with the line; a witness of such lines reads back whole.
 func TestChoiceLinesRoundTripPunctuatedNames(t *testing.T) {
-	names := []string{"a, b", "x -> y", "p; q", "k: v", "it's", `back\slash`, "first of all", "step 3", " padded ", "tab\there", "line\nbreak", "plain"}
+	names := []string{"a, b", "x -> y", "p; q", "k: v", "it's", `back\slash`, "first of all", "step 3", " padded ", "tab\there", "line\nbreak", "plain", "one among many", "fast p=0.7", "then drew 0.5"}
 	var choices []ChoiceTaken
 	for i, name := range names {
 		others := []string{name, names[(i+1)%len(names)], names[(i+2)%len(names)]}
 		choices = append(choices,
 			ChoiceTaken{Kind: ChoiceTokenOrder, Step: i + 1, Alternatives: 3, Taken: 0, Among: others, Took: name},
 			ChoiceTaken{Kind: ChoiceDecisionBranch, Step: i + 1, Where: "decision " + name, Took: "1->" + name},
+			ChoiceTaken{Kind: ChoiceDecisionBranch, Step: i + 1, Where: "decision " + name, Alternatives: 3, Taken: 0, Among: others, Took: name, Weights: []float64{0.5, 0.25, 0.25}, Drew: 0.125, Drawn: true},
+			ChoiceTaken{Kind: ChoiceDecisionBranch, Step: i + 1, Where: "decision " + name, Alternatives: 3, Taken: 2, Among: others, Took: others[2], Weights: []float64{0, 1e-9, 0.999999999}},
 			ChoiceTaken{Kind: ChoiceTransition, Where: "state " + name + " on accept " + name, Took: "2->" + name},
 			ChoiceTaken{Kind: ChoiceRegionOrder, Where: "on accept " + name, Alternatives: 3, Taken: 1, Among: []string{others[1], name, others[2]}, Took: name},
 			ChoiceTaken{Kind: ChoiceDueOrder, Where: "t=5.0", Alternatives: 3, Taken: 2, Among: []string{others[1], others[2], name}, Took: name},
