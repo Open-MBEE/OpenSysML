@@ -1,12 +1,16 @@
 // Command doc-counts rewrites the documentation lines that are a function of the
-// committed oracle baselines, of the committed analysis-library census or of the
-// test suite in the tree, so no contributor types them. It reads them through
+// committed oracle baselines, of the committed analysis-library census or of
+// known_failures.txt, so no contributor types them. It reads them through
 // internal/doccounts, which the guard in cmd/pilot-diff reads too, and rewrites
-// nothing else in the files it touches. The compliance map's own row census is not
-// written anywhere: the documentation build counts it. Run it with `make docs-counts`.
+// nothing else in the files it touches. The figures that move with every test and
+// fixture — the compliance map's row census and the test-suite inventory — are
+// not written anywhere: the documentation build counts them, and -check refuses a
+// tree that states one (-site-blocks prints what the build renders). Run it with
+// `make docs-counts`.
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -21,10 +25,22 @@ import (
 func main() {
 	root := flag.String("root", ".", "repository root the documentation paths are relative to")
 	checkOnly := flag.Bool("check", false, "verify that generated documentation is current without writing")
+	siteBlocks := flag.Bool("site-blocks", false, "print, as JSON by page and block name, the blocks the documentation build renders")
 	flag.Parse()
 	if flag.NArg() != 0 {
 		fmt.Fprintf(os.Stderr, "doc-counts: unexpected argument %q\n", flag.Arg(0))
 		os.Exit(2)
+	}
+	if *siteBlocks && *checkOnly {
+		fmt.Fprintln(os.Stderr, "doc-counts: -site-blocks and -check exclude each other")
+		os.Exit(2)
+	}
+	if *siteBlocks {
+		if err := renderSiteBlocks(*root, os.Stdout); err != nil {
+			fmt.Fprintf(os.Stderr, "doc-counts: %v\n", err)
+			os.Exit(1)
+		}
+		return
 	}
 	var rewritten int
 	var err error
@@ -81,6 +97,22 @@ func check(root string, out io.Writer) (int, error) {
 	return len(pending), nil
 }
 
+// renderSiteBlocks prints the blocks the documentation build renders, as
+// {"<page>": {"<block>": "<text>"}}, for the MkDocs hook to splice in.
+func renderSiteBlocks(root string, out io.Writer) error {
+	figures, err := doccounts.ReadFigures(root)
+	if err != nil {
+		return err
+	}
+	rendered, err := doccounts.RenderSiteBlocks(figures)
+	if err != nil {
+		return err
+	}
+	encoder := json.NewEncoder(out)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(rendered)
+}
+
 type rewrite struct {
 	path    string
 	current string
@@ -125,6 +157,14 @@ func pendingRewrites(root string) ([]rewrite, error) {
 				continue
 			}
 			if updated, err = doccounts.RewriteBlock(updated, block, figures); err != nil {
+				return nil, err
+			}
+		}
+		for _, block := range doccounts.SiteBlocks() {
+			if block.Path != path {
+				continue
+			}
+			if err := doccounts.CheckSiteBlock(updated, block); err != nil {
 				return nil, err
 			}
 		}
@@ -173,8 +213,8 @@ func checkWritable(root, path string) error {
 	return file.Close()
 }
 
-// paths lists the files carrying a derived line, in the order the lines declare
-// them and without repeating a file that carries more than one.
+// paths lists the files carrying a derived line or a site block, in the order the
+// lines declare them and without repeating a file that carries more than one.
 func paths() []string {
 	var ordered []string
 	seen := map[string]bool{}
@@ -191,6 +231,13 @@ func paths() []string {
 		}
 		seen[block.Path] = true
 		ordered = append(ordered, block.Path)
+	}
+	for _, path := range doccounts.SitePaths() {
+		if seen[path] {
+			continue
+		}
+		seen[path] = true
+		ordered = append(ordered, path)
 	}
 	return ordered
 }
