@@ -48,7 +48,7 @@ func (r Result) evidence() string {
 	if c := r.Check(); c != nil {
 		parts = append(parts, fmt.Sprintf("%s, %s searched", plural(c.Report.States, "state"), plural(c.Report.Moves, "move")))
 	}
-	if w := r.Witness; w != nil && (len(w.Choices) > 0 || len(w.Inputs) > 0) {
+	if w := r.Witness; w != nil && (len(w.Choices) > 0 || len(w.Draws) > 0 || len(w.Inputs) > 0) {
 		parts = append(parts, "witness of "+witnessSize(w)+" replayed")
 	}
 	if len(r.Inputs) > 0 {
@@ -68,16 +68,22 @@ func (r Result) evidence() string {
 	return strings.Join(parts, ", ")
 }
 
-// witnessSize counts what a witness fixes: `2 inputs and 1 choice`, `1 choice`.
+// witnessSize counts what a witness fixes: `2 inputs, 1 draw and 1 choice`, `1 choice`.
 func witnessSize(w *Witness) string {
 	var parts []string
 	if len(w.Inputs) > 0 {
 		parts = append(parts, plural(len(w.Inputs), "input"))
 	}
+	if len(w.Draws) > 0 {
+		parts = append(parts, plural(len(w.Draws), "draw"))
+	}
 	if len(w.Choices) > 0 {
 		parts = append(parts, plural(len(w.Choices), "choice"))
 	}
-	return strings.Join(parts, " and ")
+	if len(parts) > 1 {
+		parts = append(parts[:len(parts)-2], parts[len(parts)-2]+" and "+parts[len(parts)-1])
+	}
+	return strings.Join(parts, ", ")
 }
 
 // inputsEvidence spells what the result says of the initial state's inputs: the

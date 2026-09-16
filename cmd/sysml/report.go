@@ -238,9 +238,10 @@ type checkViolation struct {
 	// Error is the deadlock or failure as reported, empty for a property.
 	Error string `json:"error,omitempty"`
 	Depth int    `json:"depth"`
-	// Witness is the choices that fix the schedule, and Path where the witness file
-	// was written, empty without a directory.
+	// Witness is the choices that fix the schedule, Draws the random values it drew,
+	// and Path where the witness file was written, empty without a directory.
 	Witness []string `json:"witness"`
+	Draws   []string `json:"draws,omitempty"`
 	Path    string   `json:"path,omitempty"`
 }
 
@@ -254,6 +255,7 @@ type checkDivergent struct {
 type checkDivergentValue struct {
 	Value   string   `json:"value"`
 	Witness []string `json:"witness"`
+	Draws   []string `json:"draws,omitempty"`
 	Path    string   `json:"path,omitempty"`
 }
 
@@ -270,8 +272,11 @@ type checkWitness struct {
 	Schedule string `json:"schedule"`
 	// Inputs are the values the witness fixes for the free inputs before its first
 	// move, as the notation spells them; absent when it fixes none.
-	Inputs  []checkWitnessInput `json:"inputs,omitempty"`
-	Choices []string            `json:"choices"`
+	Inputs []checkWitnessInput `json:"inputs,omitempty"`
+	// Draws are the random values the execution drew, as the witness file's
+	// `draw <what> = <value>` lines spell them; absent when it drew none.
+	Draws   []string `json:"draws,omitempty"`
+	Choices []string `json:"choices"`
 	// Path is the witness file written under -check-witness, empty without one.
 	Path string `json:"path,omitempty"`
 }
@@ -298,7 +303,7 @@ func checkWitnessOf(w *analysis.Witness) *checkWitness {
 	if w == nil {
 		return nil
 	}
-	out := &checkWitness{Schedule: w.Schedule.String(), Choices: choiceStrings(w.Choices), Path: w.Written}
+	out := &checkWitness{Schedule: w.Schedule.String(), Draws: drawStrings(w.Draws), Choices: choiceStrings(w.Choices), Path: w.Written}
 	for _, in := range w.Inputs {
 		out.Inputs = append(out.Inputs, checkWitnessInput{Feature: in.Feature, Value: in.Written})
 	}
@@ -388,7 +393,7 @@ func checkSearchOf(checked *analysis.Checked) *checkSearch {
 		Outcomes:   make([]string, 0, len(report.Finals)),
 	}
 	for i, v := range report.Violations {
-		violation := checkViolation{Kind: v.Kind.String(), Name: v.Name, Depth: v.Depth, Witness: choiceStrings(v.Witness.Choices), Path: pathAt(checked.Violations, i)}
+		violation := checkViolation{Kind: v.Kind.String(), Name: v.Name, Depth: v.Depth, Witness: choiceStrings(v.Witness.Choices), Draws: drawStrings(v.Witness.Draws), Path: pathAt(checked.Violations, i)}
 		if v.Err != nil {
 			violation.Error = v.Err.Error()
 		}
@@ -401,7 +406,7 @@ func checkSearchOf(checked *analysis.Checked) *checkSearch {
 		}
 		divergent := checkDivergent{Feature: d.Feature, Values: make([]checkDivergentValue, 0, len(d.Values))}
 		for j, value := range d.Values {
-			divergent.Values = append(divergent.Values, checkDivergentValue{Value: value.Value, Witness: choiceStrings(value.Witness.Choices), Path: pathAt(paths, j)})
+			divergent.Values = append(divergent.Values, checkDivergentValue{Value: value.Value, Witness: choiceStrings(value.Witness.Choices), Draws: drawStrings(value.Witness.Draws), Path: pathAt(paths, j)})
 		}
 		out.Divergent = append(out.Divergent, divergent)
 	}
@@ -416,6 +421,18 @@ func choiceStrings(choices []runtime.ChoiceTaken) []string {
 	out := make([]string, 0, len(choices))
 	for _, c := range choices {
 		out = append(out, c.String())
+	}
+	return out
+}
+
+// drawStrings spells each draw as the witness file does; nil for none.
+func drawStrings(draws []runtime.DrawTaken) []string {
+	if len(draws) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(draws))
+	for _, d := range draws {
+		out = append(out, d.String())
 	}
 	return out
 }

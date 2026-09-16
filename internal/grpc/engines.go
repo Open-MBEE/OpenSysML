@@ -97,6 +97,7 @@ func performOn[T any](ctx context.Context, s *Service, rt *runtime.Context, sele
 		Model:     analysis.Held(rt),
 		Subject:   subject,
 		Schedule:  schedule,
+		ModelSeed: analysis.ModelSeedOf(rt),
 		Budget:    analysis.BudgetOf(s.budgets, schedule, analysis.Evaluate, s.jobs),
 		Selection: selection,
 	}, call, answer)

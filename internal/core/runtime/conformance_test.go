@@ -112,6 +112,9 @@ type ExpectedOutcome struct {
 	// Schedule pins the scheduling policy the case was recorded under, spelled as
 	// ParseSchedulePolicy reads it. Empty is the default policy.
 	Schedule string `json:"schedule,omitempty"`
+	// ModelSeed fixes the modeled draws — weighted branches, RandomFunctions — of
+	// a case under every policy of the sweep, as Context.SetModelSeed does.
+	ModelSeed *uint64 `json:"modelSeed,omitempty"`
 	// ExploreBudget raises the budget the harness explores the case's outcomes
 	// under, for a case whose choice tree the default budget does not cover.
 	ExploreBudget *ExpectedExploreBudget `json:"exploreBudget,omitempty"`
@@ -414,7 +417,13 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
 	model.SetSourceText(source.TextOf(sources, nil))
-	fresh := func() *Context { return NewContext(NewModel(model, resolver), 10000) }
+	fresh := func() *Context {
+		ctx := NewContext(NewModel(model, resolver), 10000)
+		if expected.ModelSeed != nil {
+			ctx.SetModelSeed(*expected.ModelSeed)
+		}
+		return ctx
+	}
 	ctx := fresh()
 	if err := ctx.SetSchedule(casePolicy(t, expected, policy)); err != nil {
 		t.Fatalf("schedule: %v", err)

@@ -139,6 +139,9 @@ type Session struct {
 	// schedule is the policy runs started from here on resolve choice points under.
 	schedule runtime.SchedulePolicy
 
+	// modelSeed is the seed runs started from here on draw their modeled randomness from.
+	modelSeed sessionSeed
+
 	// jobs is how many runs of one plan go concurrently.
 	jobs int
 
@@ -1207,6 +1210,7 @@ func (s *Session) newRuntimeOver(model *runtime.Model) (*runtime.Context, error)
 	if err := ctx.SetSchedule(s.drivenSchedule()); err != nil {
 		return nil, err
 	}
+	s.applyModelSeed(ctx)
 	return ctx, nil
 }
 
