@@ -39,6 +39,9 @@ type Element struct {
 	Name string
 	// Href is set on a proxy for an element of another document.
 	Href string
+	// QualifiedName is the name a tool records beside an href for the element it
+	// points to (MagicDraw's referentPath); "" when the document gives none.
+	QualifiedName string
 	// Attrs holds the XML attributes other than xmi:id and xmi:type, keyed by
 	// local name; references appear as their raw id text.
 	Attrs map[string]string
@@ -76,6 +79,17 @@ func (s *Stereotype) Tag(name string) string {
 		return v[0]
 	}
 	return ""
+}
+
+// IDs returns the ids a reference-valued tag lists, one per value when the
+// tool wrote child elements and split on whitespace when it wrote an IDREFS
+// attribute.
+func (s *Stereotype) IDs(name string) []string {
+	var ids []string
+	for _, v := range s.Tags[name] {
+		ids = append(ids, strings.Fields(v)...)
+	}
+	return ids
 }
 
 // Model is one document, or one archive's documents read as one.
@@ -365,8 +379,12 @@ type docParser struct {
 	// tag is the open tag-value element of stereo, and tagText its content.
 	tag     string
 	tagText strings.Builder
-	depth   int
-	sawRoot bool
+	// ref is the proxy of the open href reference, when inside one, and
+	// refDepth the stack depth the reference sits at.
+	ref      *Element
+	refDepth int
+	depth    int
+	sawRoot  bool
 }
 
 func (p *docParser) run() error {
@@ -478,6 +496,7 @@ func (p *docParser) start(t xml.StartElement) error {
 		}
 		parent.addRef(name, href)
 		p.stack = append(p.stack, nil)
+		p.ref, p.refDepth = px, len(p.stack)
 	default:
 		e := p.m.newElement(t, parent)
 		parent.Children = append(parent.Children, e)
@@ -510,6 +529,9 @@ func (p *docParser) end() {
 			}
 			p.tag = ""
 		}
+	}
+	if p.ref != nil && len(p.stack) == p.refDepth {
+		p.ref = nil
 	}
 	if n := len(p.stack); n > 0 {
 		p.stack = p.stack[:n-1]
@@ -599,13 +621,25 @@ func (m *Model) proxy(href string) *Element {
 	}
 	p := &Element{ID: href, Href: href, Attrs: map[string]string{}, refs: map[string][]string{}}
 	if i := strings.LastIndexByte(href, '#'); i >= 0 {
-		frag := href[i+1:]
-		if looksLikeName(frag) {
-			p.Name = frag
-		}
+		p.Name = fragmentName(href[i+1:])
 	}
 	m.proxies[href] = p
 	return p
+}
+
+// fragmentName reads the element name an href fragment spells, or "" when the
+// fragment is a generated id: PrimitiveTypes.xmi#Real names Real, and so does
+// SysML.xmi#SysML_dataType.Real, whose dotted path ends in the name.
+func fragmentName(frag string) string {
+	if looksLikeName(frag) {
+		return frag
+	}
+	if i := strings.LastIndexByte(frag, '.'); i >= 0 && !strings.HasPrefix(frag, "_") {
+		if last := frag[i+1:]; looksLikeName(last) {
+			return last
+		}
+	}
+	return ""
 }
 
 // looksLikeName reports whether an href fragment is a readable name rather
@@ -686,6 +720,10 @@ func (p *docParser) skipExtension(t xml.StartElement) error {
 		switch tok := tok.(type) {
 		case xml.StartElement:
 			depth++
+			if tok.Name.Local == "referenceExtension" && p.ref != nil {
+				p.describeReference(tok)
+				continue
+			}
 			var el ExtensionElement
 			for _, a := range tok.Attr {
 				switch {
@@ -707,4 +745,26 @@ func (p *docParser) skipExtension(t xml.StartElement) error {
 	p.m.Extensions = append(p.m.Extensions, ext)
 	p.depth--
 	return nil
+}
+
+// describeReference keeps what a tool's referenceExtension says about the
+// target of the open href: its qualified name, and its metaclass if unknown.
+func (p *docParser) describeReference(t xml.StartElement) {
+	for _, a := range t.Attr {
+		switch a.Name.Local {
+		case "referentPath":
+			p.ref.QualifiedName = a.Value
+			if p.ref.Name == "" {
+				if i := strings.LastIndex(a.Value, "::"); i >= 0 {
+					p.ref.Name = a.Value[i+2:]
+				} else {
+					p.ref.Name = a.Value
+				}
+			}
+		case "referentType":
+			if p.ref.Type == "" {
+				p.ref.Type = a.Value
+			}
+		}
+	}
 }
