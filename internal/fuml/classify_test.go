@@ -541,3 +541,47 @@ func TestClassifyUntypedUnlimitedNaturalLiterals(t *testing.T) {
 		t.Errorf("Cyclic = %s: %s", c.Class, c.Reason())
 	}
 }
+
+// A chain of forks each flowing twice into the next has 2^n paths; the walk
+// to the positions must visit each fork once, not once per path.
+func TestFeedsPositionWalksReconvergingForksOnce(t *testing.T) {
+	const forks = 64
+	var b strings.Builder
+	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
+<uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="Chain">
+  <packagedElement xmi:type="uml:Activity" xmi:id="a" name="Chain">
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="v" name="Value(*)">
+      <result xmi:type="uml:OutputPin" xmi:id="vr" name="result"/>
+      <value xmi:type="uml:LiteralUnlimitedNatural" xmi:id="vv" value="*"/>
+    </node>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="add" name="Add" structuralFeature="items">
+      <insertAt xmi:type="uml:InputPin" xmi:id="at" name="insertAt"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f0" source="vr" target="fork0"/>
+`)
+	for i := 0; i < forks; i++ {
+		fmt.Fprintf(&b, `    <node xmi:type="uml:ForkNode" xmi:id="fork%d" name="Fork%d"/>`+"\n", i, i)
+		target := "at"
+		if i+1 < forks {
+			target = fmt.Sprintf("fork%d", i+1)
+		}
+		fmt.Fprintf(&b, `    <edge xmi:type="uml:ObjectFlow" xmi:id="e%da" source="fork%d" target="%s"/>`+"\n", i, i, target)
+		fmt.Fprintf(&b, `    <edge xmi:type="uml:ObjectFlow" xmi:id="e%db" source="fork%d" target="%s"/>`+"\n", i, i, target)
+	}
+	b.WriteString(`  </packagedElement>
+  <packagedElement xmi:type="uml:Class" xmi:id="holder" name="Holder">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="items" name="items"/>
+  </packagedElement>
+</uml:Model>
+`)
+	m, err := ReadModel(strings.NewReader(b.String()), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Diagnostics) != 0 {
+		t.Fatalf("diagnostics = %v", m.Diagnostics)
+	}
+	if c := Classify(activity(t, m, "Chain"), nil); c.Class != Expressible {
+		t.Errorf("Chain = %s: %s", c.Class, c.Reason())
+	}
+}

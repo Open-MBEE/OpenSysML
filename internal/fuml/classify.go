@@ -339,7 +339,13 @@ func feedsPosition(n *Node) bool {
 	if n.Kind != OutputPin {
 		return false
 	}
-	return deliversToPositions(n, map[*Node]bool{})
+	return deliversToPositions(n, &positionWalk{path: map[*Node]bool{}, done: map[*Node]bool{}})
+}
+
+// positionWalk is deliversToPositions' state: the forks on the active descent,
+// and the verdict of every node already walked, so a shared suffix is walked once.
+type positionWalk struct {
+	path, done map[*Node]bool
 }
 
 // resultsTyped reports whether some result pin of an action declares the type.
@@ -366,20 +372,32 @@ func resultsFeedPosition(n *Node) bool {
 	return true
 }
 
-// deliversToPositions is feedsPosition over the flows out of one node. path holds
-// the nodes of the active descent, so a cycle fails and a reconverging fork does not.
-func deliversToPositions(n *Node, path map[*Node]bool) bool {
-	if path[n] || len(n.Outgoing) == 0 {
+// deliversToPositions is feedsPosition over the flows out of one node. A node
+// on the active descent is a cycle, which fails; a reconverging fork is not.
+func deliversToPositions(n *Node, w *positionWalk) bool {
+	if verdict, ok := w.done[n]; ok {
+		return verdict
+	}
+	if w.path[n] {
 		return false
 	}
-	path[n] = true
-	defer delete(path, n)
+	w.path[n] = true
+	verdict := deliversOnlyToPositions(n, w)
+	delete(w.path, n)
+	w.done[n] = verdict
+	return verdict
+}
+
+func deliversOnlyToPositions(n *Node, w *positionWalk) bool {
+	if len(n.Outgoing) == 0 {
+		return false
+	}
 	for _, e := range n.Outgoing {
 		switch {
 		case e.Target == nil:
 			return false
 		case e.Target.Kind == ForkNode:
-			if !deliversToPositions(e.Target, path) {
+			if !deliversToPositions(e.Target, w) {
 				return false
 			}
 		case !positionRoles[e.Target.Role]:
