@@ -226,7 +226,7 @@ func (s *Server) Views(params *viewsParams) *viewsResult {
 			Supported: info.Supported,
 			Reason:    info.Reason,
 		}
-		if origin := s.originIn(doc, info.Origin); origin != nil {
+		if origin := s.originOf(doc, info.Origin); origin != nil {
 			listed.Range = &origin.Range
 			listed.SelectionRange = origin.SelectionRange
 		}
