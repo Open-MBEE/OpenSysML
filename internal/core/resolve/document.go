@@ -546,22 +546,59 @@ func (r *Resolver) resolveMetadataPrefix(names, parent *symbols.Scope, prefix *a
 	for _, a := range prefix.About {
 		r.ResolveQualified(names, a)
 	}
-	owner, ok := r.ResolveQualified(names, prefix.Type)
-	if !ok || owner == nil || len(prefix.Body) == 0 {
-		return
-	}
-	if target, aliasOK := r.ResolveAliasTarget(owner); aliasOK {
-		owner = target
-	}
+	owner := r.metadataBodyOwner(names, prefix)
 	body := parent.ChildFor(prefix)
 	if body == nil {
 		return
 	}
 	// Body values resolve against the metadata definition, not the annotated element.
-	if body.Owner() == nil {
+	linkMetadataBody(body, owner)
+	if owner != nil {
+		r.resolveMetadataBody(body, prefix.Body)
+	}
+}
+
+// metadataBodyOwner is the metadata definition the body of prefix resolves against,
+// its type read in names; nil when it does not resolve or there is no body.
+func (r *Resolver) metadataBodyOwner(names *symbols.Scope, prefix *ast.PrefixMetadata) *symbols.Symbol {
+	owner, ok := r.ResolveQualified(names, prefix.Type)
+	if !ok || owner == nil || len(prefix.Body) == 0 {
+		return nil
+	}
+	if target, aliasOK := r.ResolveAliasTarget(owner); aliasOK {
+		return target
+	}
+	return owner
+}
+
+// linkMetadataBody makes owner, the metadata definition the body resolves against
+// now, the body scope's owner; a definition it kept from an earlier build goes.
+func linkMetadataBody(body *symbols.Scope, owner *symbols.Symbol) {
+	if body.Owner() != owner {
 		body.SetOwner(owner)
 	}
-	r.resolveMetadataBody(body, prefix.Body)
+}
+
+// LinkMetadataBodies sets every annotation body scope's owner as resolving the
+// document would, so resolving it afterwards writes nothing to the scope tree.
+func (r *Resolver) LinkMetadataBodies(name string) {
+	rootScope := r.idx.DocumentRoot(name)
+	if rootScope == nil {
+		return
+	}
+	saved := r.document
+	r.document = name
+	defer func() { r.document = saved }()
+	r.linkMetadataBodies(rootScope)
+}
+
+func (r *Resolver) linkMetadataBodies(scope *symbols.Scope) {
+	for _, child := range scope.Children() {
+		if prefix, ok := child.Node().(*ast.PrefixMetadata); ok {
+			linkMetadataBody(child, r.metadataBodyOwner(r.bodyScope(scope, child.Annotated()), prefix))
+		}
+		r.linkMetadataBodies(child)
+	}
 }
 
 func (r *Resolver) resolveMetadataBody(scope *symbols.Scope, members []ast.Node) {

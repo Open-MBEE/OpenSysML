@@ -311,6 +311,103 @@ so the win is collector pressure rather than bytes:
 Diagnostics and exit status were verified byte-identical against the previous
 binary over the same models.
 
+### What a batch of files costs
+
+`sysml -validate a.sysml b.sysml …`, `-satisfy` and `%load` open the files as
+one batch of workspace documents (`model.(*Workspace).OpenAll`): the files are
+parsed and their scope trees built on a pool of workers, installed in the
+shared index one after another, wildcard imports are expanded once for the
+batch, and the documents are analyzed on the pool
+(`model.(*Workspace).DiagnosticsAll`), each in a `passes.Context` of its own
+with a private resolver and semantic model, over an index nothing writes while
+the pool runs. What resolving a document would otherwise link into the scope
+tree on first use — the owner of a metadata body — is linked for every document
+of the batch before the pool starts (`passes.PrepareBatch`), so the workers
+only read it. The batch carries one `passes.Gathers` (`passes.Batch.Gathers`):
+the first context that runs a workspace-wide audit gathers every document's
+facts into it, under its lock, and every context reads the same union
+afterwards, so the audits gather each document once per batch rather than once
+per analysis. The gathers are the batch's, not the workspace's persistent
+ones: a private resolver records no dependencies, so facts it gathered could
+not be invalidated when what they read changes, and the diagnostics a batch
+computes are cached the same way — dropped on any change to the workspace
+(`Workspace.batched`) rather than per dependency. Diagnostics come back in the
+order the files were given and are the same at any worker count; `-workers`
+and `OPENSYSML_WORKERS` set the pool, default one worker per CPU. The earlier
+cost of indexing files one at a time — re-expanding wildcard imports over every
+document loaded so far, quadratic in the file count — is gone with it.
+
+Measured on the satellite constellation split one file per orbital plane
+(`cmd/stress-model -split-planes`; `Intel Xeon Platinum 8559C`, 8 CPUs, 31 GiB,
+Go 1.25.0, one run each, `/usr/bin/time -v`):
+
+| model | files | workers | wall | CPU | peak RSS |
+| ----- | ----- | ------- | ---- | --- | -------- |
+| 1 600 satellites, one file | 1 | — | 18.5 s | 134% | 2.47 GB |
+| 1 600 satellites, split | 34 | 1 | 19.5 s | 130% | 2.12 GB |
+| | | 2 | 12.3 s | 221% | 2.17 GB |
+| | | 4 | 8.86 s | 311% | 2.55 GB |
+| | | 8 | 7.33 s | 394% | 2.69 GB |
+| 200 satellites, split | 10 | 1 | 2.30 s | 126% | 346 MB |
+| | | 8 | 0.89 s | 368% | 489 MB |
+
+The single file is unchanged at 18.5 s. The split costs the single file's time on one worker and
+2.5× less on eight, at the single file's peak RSS. What bounds the pool is
+the gather: in the eight-worker CPU profile (7.45 s wall, 28.6 s of samples)
+the three audits' gather is 3.6 s — `passes.(*Gathers).oosemOf` 2.7 s,
+`identitiesOf` 0.55 s, `mosaOf` 0.41 s — run by one context over all 34
+documents while the other workers wait at the lock, and installing the scope
+trees and expanding wildcard imports before the pool (`commitBatch`, 1.1 s) is
+serial too; the rest — name resolution 6.8 s, the inherited-name conflict pass
+3.3 s, type checking 1.2 s, the collector 5.0 s — is spread over the workers.
+Gathering on the pool as well, each worker gathering its own document's facts
+into the union before analysis starts, is the step left to the ~5 s the
+scaling design sets for this run
+([scaling to very large models](../project/large-model-scaling-design.md)).
+Before the audits gathered once per batch, each of the 34 analyses gathered
+all 34 documents afresh in its own model: 129 s on one worker, 30.9 s on eight
+at 7.24 GB peak RSS, 118 s of a 128 s serial analysis in the three passes.
+`BenchmarkAnalyzeSplitPerDocument` in `internal/stressmodel` measures the
+pool's own speedup with the three audits left out, over the split's six files
+at 512 satellites: 3.65 s → 0.94 s, one worker against eight, the largest file
+bounding it. The whole load of the same split, audits included, is
+`BenchmarkValidateSplit`: 5.77 s → 1.67 s (10.3 s → 2.77 s before the batch gather).
+
+Parallelism does not reduce what a load allocates — the 34-file run allocates
+6.8 GiB and 90 million objects at any worker count, against the single file's
+5.4 GiB and 86 million — and the collector marking eight workers' garbage at
+once is where the pool loses efficiency beyond the gather
+(`runtime.gcBgMarkWorker` 17.5% and `runtime.scanobject` 17.9% of the
+eight-worker samples; user time 24.7 s → 28.0 s). The allocation sites the
+pool does not help, from the heap profile of the single-file 1 600-satellite
+run (62 million sampled objects and 4.3 GiB, of a run that counts 85.5 million
+allocations and 5.4 GiB), by objects allocated:
+
+| share of objects | site | what allocates |
+| ---------------- | ---- | -------------- |
+| 12.8% | `passes.(*w9cConflictChecker).specializes` | a slice per conformance question of the inherited-name conflict pass |
+| 12.6% | `passes.contributionsOf` | the per-base member list the same pass compares |
+| 9.8% | `symbols.FQNOf` (via `strings.Builder`) | a fully-qualified name built as a string, 78% of it from `symbols.(*Index).GetFQN`, 18% from the conflict pass |
+| 7.3% | `resolve.(*Resolver).specializationChain` | a slice per walk of a type's generalizations |
+| 3.5% | `semantics.(*Model).AllSupertypes` | a slice per supertype closure |
+| 2.6% | `parser.(*Parser).parseQualifiedNameRelaxed` | a qualified-name node per reference |
+| 1.9% | `parser.(*Parser).parseBase` | a node per specialization clause |
+
+By bytes the parser leads — `parseUsage` and what it calls are 25% of the 5.4
+GiB, `parseQualifiedNameRelaxed` alone 5% — with `contributionsOf` (6.6%),
+`specializes` (4.9%) and `FQNOf` (4.4%) behind it. Each of these is one
+allocation per token, per name or per lookup where one per file, or none, would
+serve — the snapshot decoder's node table, allocated as one block, is the
+model — and each is to be measured on its own before it is changed.
+
+One parse per load is spent twice: the REPL parses each file to accept it (the
+names it declares, whether it closes its own text) and the workspace parses the
+same bytes again as the document. The 34 files of the split (17 MB) parse in
+1.03 s serially, so the second parse is ~1 s of the one-worker 19.5 s and
+~0.13 s of the eight-worker wall. Carrying the accepted tree into the workspace
+batch would recover it; it is a change to what `model.Input` owns and is left
+to be measured on its own.
+
 ## What a process pays before the model
 
 Every `sysml`, `sysml-lsp` and `sysml-grpc` start, and every test that builds a
@@ -456,12 +553,11 @@ constellation, one file, three runs each:
 
 At 1 600 satellites: 17.7 s and 5.5 GiB allocated became 20.5 s and 5.8 GiB.
 The cost falls on whatever analyzes through the workspace's own context: the
-LSP server, a REPL session, and `sysml -validate`, which loads through a REPL
-session. A batch that analyzes each document in a private `passes.Context` —
-its own resolver and model over the read-only index, as a pool of workers
-must — has no frames to record into and pays none of it; the workspace's
-gathered facts are what such a batch should hand its workers, so that they do
-not gather per worker what the workspace gathered once.
+LSP server, and a REPL session's typed submissions. `sysml -validate` and
+`%load` analyze each file in a private `passes.Context` — its own resolver and
+model over the read-only index, as a pool of workers must — with the audits'
+facts gathered once for the batch ("What a batch of files costs"), and pay
+none of it.
 
 ## Notes for further work
 
@@ -470,17 +566,6 @@ not gather per worker what the workspace gathered once.
   immutable once its index is built, so whether it declares any `about` usages
   — and which — is computable once at library-index build time; a session
   would then walk only workspace documents.
-- Validating many files in one `sysml -validate` invocation is quadratic in
-  the file count: the CLI submits files one at a time and every submission
-  reindexes the workspace, re-running wildcard-import expansion over every
-  document loaded so far. The 100-file OMG training corpus costs 6.7 s as one
-  batch where its two halves cost 0.6 s and 3.4 s separately, and a CPU
-  profile of the batch spends 52% under `model.(*Workspace).setOpenBuffer` →
-  `reindexLocked` with `symbols.(*Index).ExpandWildcardImports` the largest
-  component. Submitting a batch as one indexing unit, or expanding wildcard
-  imports incrementally for documents a new submission cannot affect, would
-  make a batch cost what its parts cost.
-
 - Runs over a large model spend their time in collection, not in the executor
   (above). Reducing what a load leaves behind is the lever, since the live model
   is what each cycle scans.

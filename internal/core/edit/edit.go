@@ -245,6 +245,7 @@ func (r *reindexer) analyzedIn(sf *source.SourceFile, root *ast.RootNamespace) *
 	if r.indexed != nil {
 		r.indexed(r.idx, sf, root)
 	}
+	r.idx.ExpandWildcardImports()
 	return r.idx
 }
 

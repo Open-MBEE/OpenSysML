@@ -54,7 +54,7 @@ func unwrapMember(m ast.Node) (ast.Node, ast.Visibility) {
 // wrapper before unwrap.
 func buildDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia []ast.Trivia) {
 	if prefixes := prefixMetadataOf(decl); len(prefixes) > 0 {
-		buildMetadataBodyScopes(scope, prefixes)
+		buildMetadataBodyScopes(scope, decl, prefixes)
 	}
 	switch {
 	case buildNamespaceDecl(scope, decl, vis, trivia):
@@ -173,7 +173,7 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		// error nodes have no declaration. Nothing to register here.
 		return true
 	case *ast.PrefixMetadata:
-		child := buildMetadataBodyScope(scope, d)
+		child := buildMetadataBodyScope(scope, nil, d)
 		// An identification names the usage as a member of its namespace, exactly
 		// as the `metadata` spelling of the same declaration does.
 		if d.Ident.Name != "" || d.Ident.ShortName != "" {
@@ -359,21 +359,25 @@ func prefixMetadataOf(decl ast.Node) []*ast.PrefixMetadata {
 	return prefixes
 }
 
-func buildMetadataBodyScopes(scope *Scope, prefixes []*ast.PrefixMetadata) {
+// buildMetadataBodyScopes builds the body scopes of the annotations written on
+// decl, a member of scope.
+func buildMetadataBodyScopes(scope *Scope, decl ast.Node, prefixes []*ast.PrefixMetadata) {
 	for _, prefix := range prefixes {
 		if prefix != nil && len(prefix.Body) > 0 {
-			buildMetadataBodyScope(scope, prefix)
+			buildMetadataBodyScope(scope, decl, prefix)
 		}
 	}
 }
 
 // buildMetadataBodyScope builds the scope of a metadata usage's body and
-// returns it, or nil when the usage has no body.
-func buildMetadataBodyScope(parent *Scope, prefix *ast.PrefixMetadata) *Scope {
+// returns it, or nil when the usage has no body. annotated is the declaration
+// the usage is a prefix of, nil for a usage that is a member of its own.
+func buildMetadataBodyScope(parent *Scope, annotated ast.Node, prefix *ast.PrefixMetadata) *Scope {
 	if parent == nil || prefix == nil || len(prefix.Body) == 0 {
 		return nil
 	}
 	child := NewScope(parent, prefix)
+	child.annotated = annotated
 	child.markBodyLocal()
 	parent.AddChild(child)
 	buildMembers(child, prefix.Body)

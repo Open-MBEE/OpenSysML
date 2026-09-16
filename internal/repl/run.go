@@ -73,8 +73,9 @@ func (s *Session) LoadFileSummary(path string) ([]string, error) {
 	return s.LoadFilesSummary([]string{path})
 }
 
-// LoadFilesSummary is LoadFileSummary over every path as one submission, indexed and
-// analyzed once, each file still summarized on its own; a read failure is a *ReadError.
+// LoadFilesSummary is LoadFileSummary over every path as one submission, each
+// file a document of its own, indexed together and each summarized on its own;
+// a read failure is a *ReadError.
 func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 	defer s.enter()()
 	files := make([]SourceFile, 0, len(paths))
