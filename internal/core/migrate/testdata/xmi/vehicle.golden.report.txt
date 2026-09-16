@@ -1,6 +1,6 @@
 # SysML v1 to v2 migration report: vehicle.xmi
 # exported by Example UML Tool
-# migrated 89 element(s): 67 mapped, 14 approximated, 8 unmapped (3 skipped as profile or library content)
+# migrated 89 element(s): 68 mapped, 13 approximated, 8 unmapped (3 skipped as profile or library content)
 
 ## unmapped (8)
 «Verify» Abstraction	Requirements::<Abstraction>	_dep_verify_block	(a verify whose client is not a test case has no v2 form; applied stereotypes «Verify»)
@@ -12,7 +12,7 @@ Activity	Vehicle Design::Drive	_act_drive	(behaviors are not migrated yet)
 StateMachine	Vehicle Design::Vehicle::Vehicle States	_sm_vehicle	(behaviors are not migrated yet)
 Operation	Vehicle Design::Vehicle::start	_op_start	(operations and receptions are not migrated; v2 has no operation)
 
-## approximated (14)
+## approximated (13)
 «Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	(a trace is written as a plain dependency)
 «TestCase» Activity	Requirements::Mass Test	_tc_mass	-> Requirements::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
 Actor	Vehicle Design::Driver	_actor_driver	-> 'Vehicle Design'::Driver	(a UML actor is written as a part def)
@@ -21,14 +21,13 @@ Class	Vehicle Design::Helper	_plain_helper	-> 'Vehicle Design'::Helper	(a plain 
 Constraint	Vehicle Design::MassLimit::<Constraint>	_cb_rule	-> 'Vehicle Design'::MassLimit	(opaque expression copied verbatim (language English))
 «FlowPort» Port	Vehicle Design::Piston::p	_port_piston_p	-> 'Vehicle Design'::Piston::p	(a port typed by a DataType is written as a port holding one directed attribute)
 «ValueType» DataType	Vehicle Design::Value Types::Mass	_vt_mass	-> 'Vehicle Design'::'Value Types'::Mass	(«ValueType» quantityKind = Vehicle Design::Value Types::mass; unit = Vehicle Design::Value Types::kilogram has no v2 form)
-Signal	Vehicle Design::Value Types::StartSignal	_sig_start	-> 'Vehicle Design'::'Value Types'::StartSignal	(a signal is written as an attribute def; v2 has no signal classifier)
 «Block» Class	Vehicle Design::Vehicle	_blk_vehicle	-> 'Vehicle Design'::Vehicle	(«Block» isEncapsulated = true has no v2 form)
 Constraint	Vehicle Design::Vehicle::positive mass	_rule_positive	-> 'Vehicle Design'::Vehicle::'positive mass'	(opaque expression copied verbatim (language English))
 Property	Vehicle Design::Vehicle::sharedCharger	_prop_charger	-> 'Vehicle Design'::Vehicle::sharedCharger	(shared aggregation is written as a reference part)
 «FlowPort» Port	Vehicle Design::Vehicle::speedOut	_port_speedOut	-> 'Vehicle Design'::Vehicle::speedOut	(a port typed by a DataType is written as a port holding one directed attribute)
 Property	Vehicle Design::Vehicle::totalMass	_prop_total	-> 'Vehicle Design'::Vehicle::totalMass	(opaque expression copied verbatim (language SysML))
 
-## mapped (67)
+## mapped (68)
 Comment	<Comment>	_cmt_model
 Package	Empty Package	_pkg_unused	-> 'Empty Package'
 Model	Model	_model	(the root model's members are written at the top level)
@@ -74,6 +73,7 @@ EnumerationLiteral	Vehicle Design::Value Types::Color::blue	_lit_blue	-> 'Vehicl
 EnumerationLiteral	Vehicle Design::Value Types::Color::green	_lit_green	-> 'Vehicle Design'::'Value Types'::Color::green
 EnumerationLiteral	Vehicle Design::Value Types::Color::red	_lit_red	-> 'Vehicle Design'::'Value Types'::Color::red
 «ValueType» DataType	Vehicle Design::Value Types::Speed	_vt_speed	-> 'Vehicle Design'::'Value Types'::Speed
+Signal	Vehicle Design::Value Types::StartSignal	_sig_start	-> 'Vehicle Design'::'Value Types'::StartSignal
 Property	Vehicle Design::Value Types::StartSignal::key	_sig_start_key	-> 'Vehicle Design'::'Value Types'::StartSignal::key
 Comment	Vehicle Design::Vehicle::<Comment>	_cmt_vehicle
 Comment	Vehicle Design::Vehicle::<Comment>	_cmt_vehicle_2
