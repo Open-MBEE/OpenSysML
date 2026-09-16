@@ -60,43 +60,47 @@ export interface Store {
  * closed until Open Diagram is asked for again. Keyed by document URI.
  */
 export class Dismissals {
-  constructor(private readonly store: Store) {}
+  // The list is changed here, at once, and written to the store in order, so
+  // mutations fired without awaiting cannot overwrite one another.
+  private list: string[];
+  private writes: Promise<void> = Promise.resolve();
+
+  constructor(private readonly store: Store) {
+    this.list = store.get(DISMISSED_KEY) ?? [];
+  }
 
   has(uri: string): boolean {
-    return this.list().includes(uri);
+    return this.list.includes(uri);
   }
 
   /** record keeps the document closed; recording it twice is one entry. */
   record(uri: string): Thenable<void> {
-    const list = this.list();
-    if (list.includes(uri)) {
-      return Promise.resolve();
+    if (this.list.includes(uri)) {
+      return this.writes;
     }
-    return this.store.update(DISMISSED_KEY, [...list, uri]);
+    return this.set([...this.list, uri]);
   }
 
   /** clear lets the document's diagram open on its own again. */
   clear(uri: string): Thenable<void> {
-    const list = this.list();
-    if (!list.includes(uri)) {
-      return Promise.resolve();
+    if (!this.list.includes(uri)) {
+      return this.writes;
     }
-    const kept = list.filter((entry) => entry !== uri);
-    return this.store.update(DISMISSED_KEY, kept.length === 0 ? undefined : kept);
+    return this.set(this.list.filter((entry) => entry !== uri));
   }
 
   /** rename carries a dismissal to the document's new name. */
   rename(from: string, to: string): Thenable<void> {
-    const list = this.list();
-    if (!list.includes(from)) {
-      return Promise.resolve();
+    if (!this.list.includes(from)) {
+      return this.writes;
     }
-    const kept = list.filter((entry) => entry !== from && entry !== to);
-    return this.store.update(DISMISSED_KEY, [...kept, to]);
+    return this.set([...this.list.filter((entry) => entry !== from && entry !== to), to]);
   }
 
-  private list(): string[] {
-    return this.store.get(DISMISSED_KEY) ?? [];
+  private set(list: string[]): Thenable<void> {
+    this.list = list;
+    this.writes = this.writes.then(() => this.store.update(DISMISSED_KEY, list.length === 0 ? undefined : list));
+    return this.writes;
   }
 }
 

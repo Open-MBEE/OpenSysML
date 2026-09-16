@@ -79,6 +79,20 @@ test("a rename carries the dismissal to the new name", async () => {
   assert.equal(dismissals.has("file:///ws/e.sysml"), true);
 });
 
+test("mutations fired together land in order, none overwriting another", async () => {
+  const store = memory(["file:///ws/a.sysml", "file:///ws/b.sysml"]);
+  const dismissals = new Dismissals(store);
+  // A folder rename moves both files at once; nothing awaits between them.
+  const first = dismissals.rename("file:///ws/a.sysml", "file:///ws/x/a.sysml");
+  const second = dismissals.rename("file:///ws/b.sysml", "file:///ws/x/b.sysml");
+  const third = dismissals.record("file:///ws/c.sysml");
+  assert.equal(dismissals.has("file:///ws/x/a.sysml"), true, "the change shows before the store is written");
+  assert.equal(dismissals.has("file:///ws/a.sysml"), false);
+  await Promise.all([first, second, third]);
+  assert.deepEqual(store.get(DISMISSED_KEY), ["file:///ws/x/a.sysml", "file:///ws/x/b.sysml", "file:///ws/c.sysml"]);
+  assert.deepEqual(store.writes.at(-1), store.get(DISMISSED_KEY));
+});
+
 test("a panel the extension disposes is not a dismissal; one the user closes is", () => {
   const ours = new Lifecycle();
   assert.equal(ours.disposed, false);

@@ -109,10 +109,11 @@ export class DiagramPanels implements vscode.Disposable {
           this.autoOpen(vscode.window.activeTextEditor);
         }
       }),
-      // A dismissal follows the file through a rename and dies with it.
+      // A dismissal and an open panel follow the file through a rename; a dismissal dies with the file.
       vscode.workspace.onDidRenameFiles((event) => {
         for (const { oldUri, newUri } of event.files) {
           void this.dismissals.rename(oldUri.toString(), newUri.toString());
+          this.rebind(oldUri, newUri);
         }
       }),
       vscode.workspace.onDidDeleteFiles((event) => {
@@ -231,14 +232,30 @@ export class DiagramPanels implements vscode.Disposable {
   }
 
   // create opens a document's panel in the diagram column, leaving focus where it is.
-  private create(uri: vscode.Uri): void {
+  private create(uri: vscode.Uri, selected = "", column = this.diagramColumn()): void {
     const panel = vscode.window.createWebviewPanel(
       PANEL_TYPE,
       `Diagram: ${basename(uri)}`,
-      { viewColumn: this.diagramColumn(), preserveFocus: true },
+      { viewColumn: column, preserveFocus: true },
       { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist")] },
     );
-    this.adopt(uri, panel, "");
+    this.adopt(uri, panel, selected);
+  }
+
+  // rebind moves a renamed document's panel to its new URI, keeping its view
+  // and group; the replacement is the extension's doing, not a dismissal.
+  private rebind(from: vscode.Uri, to: vscode.Uri): void {
+    const old = this.panels.get(from.toString());
+    if (!old) {
+      return;
+    }
+    const column = old.column() ?? this.diagramColumn();
+    const selected = old.selectedView();
+    old.dispose();
+    if (this.panels.has(to.toString())) {
+      return;
+    }
+    this.create(to, selected, column);
   }
 
   // diagramColumn is the one group the diagrams share: where a panel already

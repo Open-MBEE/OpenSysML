@@ -52,8 +52,8 @@ a hover.
 
 Close a diagram and it stays closed for that file, across switches to other
 files and across a reload of the window, until you ask for it again. Closing
-the file's editor leaves its diagram where it is; renaming the file carries a
-closed diagram's memory along, deleting the file forgets it. To have no
+the file's editor leaves its diagram where it is; renaming the file carries its
+open diagram — or the memory of a closed one — along, deleting the file forgets it. To have no
 diagram open on its own, turn `opensysml.diagram.autoOpen` off; `SysML: Open
 Diagram` then works as before.
 

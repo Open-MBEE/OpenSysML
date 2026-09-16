@@ -185,9 +185,13 @@ passed to the renderer directly.
   deactivation), so the `onDidDispose` that follows is not a dismissal; a server
   restart disposes no panel at all. Closing the source editor leaves the panel
   open, as it does today — a diagram is a document of its own, with a way back to
-  the source. A rename carries a dismissal to the new URI
-  (`workspace.onDidRenameFiles`); a delete clears it, so a file recreated under the
-  same name starts fresh.
+  the source. A rename (`workspace.onDidRenameFiles`) carries a dismissal to the
+  new URI and moves an open panel with it — the panel is recreated under the new
+  URI in the same group with the same view, an extension-caused replacement, so it
+  is not a dismissal; a delete clears the dismissal, so a file recreated under the
+  same name starts fresh. `Dismissals` keeps the list in memory and writes it to
+  `workspaceState` in order, so the un-awaited mutations of a multi-file rename or
+  delete cannot overwrite one another.
 - The webview bundles Mermaid locally (no CDN, and a `Content-Security-Policy` with
   a nonce and no `connect-src`), renders the artifact, and re-renders on the
   extension's `postMessage`.
