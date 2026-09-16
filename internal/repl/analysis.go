@@ -247,8 +247,7 @@ func (s *Session) runAnalysis(inv analysisInvocation) (caseRun, error) {
 // analysisSymbol resolves the case an invocation names. It is resolved before the
 // runtime is built, so a misspelling is reported as one whatever the session holds.
 func (s *Session) analysisSymbol(inv analysisInvocation) (*symbols.Symbol, string, error) {
-	doc := s.ws.Document(docName)
-	if doc == nil || doc.Scope == nil {
+	if !s.hasDeclarations() {
 		return nil, "", errors.New("no declarations loaded")
 	}
 	return s.lookupSymbolOfKinds(inv.name,
@@ -291,7 +290,7 @@ func (s *Session) runAnalysisIn(x execution, ctx *runtime.Context, inv analysisI
 	// A usage owned by a type is a feature of an object of that type, which the
 	// session holds when one was created; a package-level case has no such owner.
 	self := nestedCaseOwner(sym, fqn, objects)
-	runScope := declaringScope(sym, s.ws.Document(docName).Scope)
+	runScope := declaringScope(sym, s.rootScopeOf(sym))
 
 	// A verification case runs the same body; asking the run for its verdict too
 	// reports it beside what the run computed.

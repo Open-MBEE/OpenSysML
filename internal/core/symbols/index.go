@@ -349,20 +349,29 @@ func (idx *Index) mustBeWritable(op string) {
 // indexed are in: adding a document cannot know whether the target of an import
 // it states is still to come.
 func (idx *Index) AddDocument(name string, root *ast.RootNamespace) {
-	idx.addDocument(name, root, source.KindOf(name), false)
+	idx.addDocument(name, root, nil, source.KindOf(name), false)
+}
+
+// AddBuiltDocument is AddDocument over a scope tree the caller already built
+// from root with Build, so a batch can build its trees off the writer's path.
+func (idx *Index) AddBuiltDocument(name string, root *ast.RootNamespace, rs *Scope) {
+	idx.addDocument(name, root, rs, source.KindOf(name), false)
 }
 
 // AddDocumentWithKind builds the scope tree for root and records its explicit
 // language, which is needed when the document name does not carry an extension.
 func (idx *Index) AddDocumentWithKind(name string, root *ast.RootNamespace, kind source.Kind) {
-	idx.addDocument(name, root, kind, true)
+	idx.addDocument(name, root, nil, kind, true)
 }
 
-func (idx *Index) addDocument(name string, root *ast.RootNamespace, kind source.Kind, explicitKind bool) {
+func (idx *Index) addDocument(name string, root *ast.RootNamespace, rs *Scope, kind source.Kind, explicitKind bool) {
 	idx.mustBeWritable("AddDocument")
-	idx.RemoveDocument(name)
+	// The caller expands once the documents are in; nothing is read in between.
+	idx.removeDocument(name, false)
 	idx.changedDoc(name)
-	rs := Build(root)
+	if rs == nil {
+		rs = Build(root)
+	}
 	SetDocName(rs, name)
 	idx.docRoots.set(name, rs)
 	if explicitKind {
@@ -808,6 +817,12 @@ func (idx *Index) hasFQN(fqn string, sym *Symbol) bool {
 // the removal is recorded in the overlay, which stops answering for what the
 // document contributed while the base keeps it for every other index over it.
 func (idx *Index) RemoveDocument(name string) {
+	idx.removeDocument(name, true)
+}
+
+// removeDocument is RemoveDocument, re-expanding only when asked: a replacement
+// takes the old document out and expands once the new one is in.
+func (idx *Index) removeDocument(name string, expand bool) {
 	idx.mustBeWritable("RemoveDocument")
 	if !idx.knows(name) {
 		return
@@ -851,7 +866,9 @@ func (idx *Index) RemoveDocument(name string) {
 	idx.docReexports.del(name)
 	idx.dropNamespaceFilters(name)
 
-	idx.ExpandWildcardImports()
+	if expand {
+		idx.ExpandWildcardImports()
+	}
 }
 
 // MarkLibrary records that the named document holds bundled library content,

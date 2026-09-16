@@ -220,6 +220,7 @@ func (r *reindexer) analyzedIn(name string, root *ast.RootNamespace, kind source
 		}
 	}
 	r.idx.AddDocumentWithKind(name, root, kind)
+	r.idx.ExpandWildcardImports()
 	return r.idx
 }
 

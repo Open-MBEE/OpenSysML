@@ -360,6 +360,11 @@ path such as car.engine (repeatable). The default is [].
 .TP
 .B \-version
 Show version information
+.TP
+.BI \-workers " value"
+Files of one load that are parsed and analyzed at once, each on a worker of
+its own over the shared index; the diagnostics are the same at any count.
+Default OPENSYSML_WORKERS, else the number of CPUs
 .SH EXAMPLES
 .RS 2
 .nf
@@ -747,6 +752,11 @@ Runs of one check that may go concurrently \(em the linearizations of an
 exploration, the engines \-engine all consults \(em each on a worker of its
 own over the shared model; \-jobs and %jobs override it. Default the number of
 CPUs.
+.TP
+.B OPENSYSML_WORKERS
+Files of one load that are parsed and analyzed at once, each on a worker of
+its own over the shared index; \-workers overrides it. The diagnostics are the
+same at any count. Default the number of CPUs.
 .TP
 .B OPENSYSML_TOOLS
 Directory of the tool manifest: one JSON file per external tool (toolName,

@@ -117,7 +117,14 @@ func TestCheckGlobExitStatus(t *testing.T) {
 // written to a file for it as check does.
 func checkPaths(t *testing.T, binary string, args ...string) runOutcome {
 	t.Helper()
+	return checkPathsEnv(t, binary, nil, args...)
+}
+
+// checkPathsEnv is checkPaths with variables added to the binary's environment.
+func checkPathsEnv(t *testing.T, binary string, env []string, args ...string) runOutcome {
+	t.Helper()
 	cmd := exec.Command(binary, args...)
+	cmd.Env = append(os.Environ(), env...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	err := cmd.Run()

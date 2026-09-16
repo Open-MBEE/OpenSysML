@@ -55,6 +55,9 @@ type Context struct {
 	// Options is what the caller asked for, fixed at construction: a pass reads
 	// it, and nothing mutates it during a run.
 	Options Options
+	// Batch is the batch this document is analyzed in, nil when it is analyzed
+	// alone; every context of a batch reads the one value and none writes it.
+	Batch *Batch
 
 	resolver *resolve.Resolver
 	model    *semantics.Model
@@ -64,6 +67,16 @@ type Context struct {
 	// failures is where the tiers below the pass now running found blocking
 	// faults, so an element-scoped pass can gate itself per element.
 	failures []source.Span
+}
+
+// Batch is what a batch of analyses computes once before its documents are
+// analyzed together; anything a pass would gather over every document belongs here.
+type Batch struct {
+	// Documents names the documents the batch analyzes, in the order asked for.
+	Documents []string
+	// Gathers is what the workspace-wide audits gather, once for the batch, on
+	// first use by any of its contexts; nil leaves each context to gather alone.
+	Gathers *Gathers
 }
 
 // Options is the analysis configuration of one run. The zero value is what
@@ -145,10 +158,16 @@ func (c *Context) Resolver() *resolve.Resolver {
 // the shared resolver so constraint passes reuse one memoized instance.
 func (c *Context) Model() *semantics.Model {
 	if c.model == nil {
-		c.model = semantics.NewModel(c.Resolver())
-		// Attach model to resolver for inheritance-aware member resolution
-		c.Resolver().SetModel(c.model)
-		c.model.SetArgumentTyper(NewArgumentTyper(c.Resolver(), c.model))
+		c.model = attachModel(c.Resolver())
 	}
 	return c.model
+}
+
+// attachModel gives r the semantic model every context resolves with, so member
+// lookup through r sees inherited members and typed arguments as the passes do.
+func attachModel(r *resolve.Resolver) *semantics.Model {
+	m := semantics.NewModel(r)
+	r.SetModel(m)
+	m.SetArgumentTyper(NewArgumentTyper(r, m))
+	return m
 }

@@ -405,8 +405,8 @@ func runChecks(files []string, exprs []string, c checks) int {
 		return rep.finish()
 	}
 
-	// The files are loaded as one submission, indexed and analyzed once, and
-	// each is still summarized on its own.
+	// The files are loaded as one submission, each a document of its own indexed
+	// with the others, and each is summarized on its own.
 	loaded, err := sess.LoadFilesSummary(paths)
 	if err != nil {
 		rep.failed(err.Error())
