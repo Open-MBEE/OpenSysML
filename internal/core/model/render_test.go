@@ -166,8 +166,8 @@ func TestRenderViewSnapshotHoldsEveryDocumentAsRendered(t *testing.T) {
 }
 
 // A transition a usage inherits from a definition in another document is
-// labelled with its trigger and guard as written there, not with placeholders.
-func TestRenderViewLabelsInheritedTransitionsFromTheirDocument(t *testing.T) {
+// located there and labelled with its trigger and guard as written there.
+func TestRenderViewLocatesInheritedTransitionsInTheirDocument(t *testing.T) {
 	const defs = "package Plant {\n\tattribute def Fault;\n\tstate def Machine {\n\t\tattribute load;\n\t\tentry; then off;\n\t\tstate off;\n\t\tstate on;\n\t\ttransition first off accept Fault if load > 3 then on;\n\t}\n}\n"
 	const uses = "package Uses {\n\tprivate import Views::*;\n\tprivate import StandardViewDefinitions::*;\n\n\tstate machine : Plant::Machine;\n\n\tview machineView : StateTransitionView {\n\t\texpose machine;\n\t}\n}\n"
 	ws := openDoc(t, "uses.sysml", uses)
@@ -373,4 +373,40 @@ func TestShortNamedDeclarationsAreCountedOnce(t *testing.T) {
 			t.Errorf("node %q drawn %d times, want once", label, count)
 		}
 	}
+}
+
+// A transition a machine inherits from a definition in another document is
+// labelled as written there: its timed trigger and guard verbatim.
+func TestRenderViewLabelsInheritedTransitionsFromTheirDocument(t *testing.T) {
+	ws := openDoc(t, "base.sysml", `package Plant {
+	state def Machine {
+		attribute ready : Boolean;
+		entry; then idle;
+		state idle;
+		transition first idle accept after 5 [s] if ready then done;
+		state done;
+	}
+}
+`)
+	ws.Open("derived.sysml", []byte(`package Derived {
+	private import StandardViewDefinitions::*;
+	state def Special :> Plant::Machine;
+	view specialStates : StateTransitionView { expose Derived::Special; }
+}
+`), 1)
+	rendering, _, err := ws.RenderView("derived.sysml", "Derived::specialStates")
+	if err != nil {
+		t.Fatalf("render the derived machine: %v", err)
+	}
+	var labels []string
+	for _, edge := range rendering.Data().Edges {
+		labels = append(labels, edge.Label)
+	}
+	want := "after 5 [s] [ready]"
+	for _, label := range labels {
+		if label == want {
+			return
+		}
+	}
+	t.Errorf("edge labels = %q, want %q among them", labels, want)
 }
