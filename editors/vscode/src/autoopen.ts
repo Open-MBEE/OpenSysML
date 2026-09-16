@@ -56,6 +56,22 @@ export interface Store {
 }
 
 /**
+ * renamedUri is where a URI ends up when `from` is renamed to `to`: `to` for
+ * the URI itself, the same path below `to` for one inside a renamed folder,
+ * undefined for one the rename does not touch.
+ */
+export function renamedUri(uri: string, from: string, to: string): string | undefined {
+  if (uri === from) {
+    return to;
+  }
+  const folder = from.endsWith("/") ? from : `${from}/`;
+  if (uri.startsWith(folder)) {
+    return `${to.endsWith("/") ? to.slice(0, -1) : to}/${uri.slice(folder.length)}`;
+  }
+  return undefined;
+}
+
+/**
  * Dismissals remembers the documents whose diagram the user closed, so it stays
  * closed until Open Diagram is asked for again. Keyed by document URI.
  */
@@ -81,25 +97,31 @@ export class Dismissals {
     return this.set([...this.list, uri]);
   }
 
-  /** clear lets the document's diagram open on its own again. */
+  /** clear lets the document's diagram — or every document's in a folder — open on its own again. */
   clear(uri: string): Thenable<void> {
-    if (!this.list.includes(uri)) {
+    const kept = this.list.filter((entry) => renamedUri(entry, uri, uri) === undefined);
+    if (kept.length === this.list.length) {
       return this.writes;
     }
-    return this.set(this.list.filter((entry) => entry !== uri));
+    return this.set(kept);
   }
 
-  /** rename carries a dismissal to the document's new name. */
+  /** rename carries a dismissal to the document's new name, or every dismissal inside a renamed folder. */
   rename(from: string, to: string): Thenable<void> {
-    if (!this.list.includes(from)) {
+    const moved = this.list.map((entry) => renamedUri(entry, from, to)).filter((entry): entry is string => entry !== undefined);
+    if (moved.length === 0) {
       return this.writes;
     }
-    return this.set([...this.list.filter((entry) => entry !== from && entry !== to), to]);
+    const kept = this.list.filter((entry) => renamedUri(entry, from, to) === undefined && !moved.includes(entry));
+    return this.set([...new Set([...kept, ...moved])]);
   }
 
+  // set applies the change at once and queues its write; a write that fails
+  // does not hold up the ones after it.
   private set(list: string[]): Thenable<void> {
     this.list = list;
-    this.writes = this.writes.then(() => this.store.update(DISMISSED_KEY, list.length === 0 ? undefined : list));
+    const write = () => this.store.update(DISMISSED_KEY, list.length === 0 ? undefined : list);
+    this.writes = this.writes.then(write, write);
     return this.writes;
   }
 }

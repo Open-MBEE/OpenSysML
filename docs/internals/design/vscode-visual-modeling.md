@@ -189,9 +189,11 @@ passed to the renderer directly.
   new URI and moves an open panel with it — the panel is recreated under the new
   URI in the same group with the same view, an extension-caused replacement, so it
   is not a dismissal; a delete clears the dismissal, so a file recreated under the
-  same name starts fresh. `Dismissals` keeps the list in memory and writes it to
-  `workspaceState` in order, so the un-awaited mutations of a multi-file rename or
-  delete cannot overwrite one another.
+  same name starts fresh. VS Code reports a folder rename or delete as the folder
+  alone, so both apply to every document below it (`renamedUri`). `Dismissals`
+  keeps the list in memory and writes it to `workspaceState` in order, so the
+  un-awaited mutations of a multi-file rename or delete cannot overwrite one
+  another, and a failed write does not hold up the next.
 - The webview bundles Mermaid locally (no CDN, and a `Content-Security-Policy` with
   a nonce and no `connect-src`), renders the artifact, and re-renders on the
   extension's `postMessage`.

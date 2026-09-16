@@ -44,7 +44,7 @@ import {
   ViewsResult,
   WorkspaceEdit,
 } from "./protocol";
-import { ActiveEditor, AUTO_OPEN_SETTING, Dismissals, Lifecycle, shouldAutoOpen, TabKind } from "./autoopen";
+import { ActiveEditor, AUTO_OPEN_SETTING, Dismissals, Lifecycle, renamedUri, shouldAutoOpen, TabKind } from "./autoopen";
 import { CommandContext, PANEL_TYPE, resolveTarget } from "./target";
 import { declaredViewEntries, DEFAULT_PSEUDO_VIEW, impliedView, pseudoViewEntries } from "./views";
 
@@ -242,20 +242,22 @@ export class DiagramPanels implements vscode.Disposable {
     this.adopt(uri, panel, selected);
   }
 
-  // rebind moves a renamed document's panel to its new URI, keeping its view
-  // and group; the replacement is the extension's doing, not a dismissal.
+  // rebind moves the panels of a renamed document, or of every document in a
+  // renamed folder, to their new URIs, keeping view and group; the replacement
+  // is the extension's doing, not a dismissal.
   private rebind(from: vscode.Uri, to: vscode.Uri): void {
-    const old = this.panels.get(from.toString());
-    if (!old) {
-      return;
+    for (const [key, old] of [...this.panels]) {
+      const moved = renamedUri(key, from.toString(), to.toString());
+      if (moved === undefined) {
+        continue;
+      }
+      const column = old.column() ?? this.diagramColumn();
+      const selected = old.selectedView();
+      old.dispose();
+      if (!this.panels.has(moved)) {
+        this.create(vscode.Uri.parse(moved), selected, column);
+      }
     }
-    const column = old.column() ?? this.diagramColumn();
-    const selected = old.selectedView();
-    old.dispose();
-    if (this.panels.has(to.toString())) {
-      return;
-    }
-    this.create(to, selected, column);
   }
 
   // diagramColumn is the one group the diagrams share: where a panel already

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { ActiveEditor, AutoOpenContext, Dismissals, DISMISSED_KEY, Lifecycle, shouldAutoOpen, Store } from "./autoopen";
+import { ActiveEditor, AutoOpenContext, Dismissals, DISMISSED_KEY, Lifecycle, renamedUri, shouldAutoOpen, Store } from "./autoopen";
 
 const car: ActiveEditor = { uri: "file:///ws/car.sysml", languageId: "sysml", scheme: "file", inGroup: true, tab: "text" };
 const ready: AutoOpenContext = { enabled: true, available: true, hasPanel: false, dismissed: false, editor: car };
@@ -77,6 +77,38 @@ test("a rename carries the dismissal to the new name", async () => {
   await dismissals.rename("file:///ws/b.sysml", "file:///ws/e.sysml");
   assert.equal(dismissals.has("file:///ws/b.sysml"), false);
   assert.equal(dismissals.has("file:///ws/e.sysml"), true);
+});
+
+test("a renamed URI is the document itself or one below a renamed folder", () => {
+  assert.equal(renamedUri("file:///ws/a.sysml", "file:///ws/a.sysml", "file:///ws/b.sysml"), "file:///ws/b.sysml");
+  assert.equal(renamedUri("file:///ws/models/car.sysml", "file:///ws/models", "file:///ws/vehicles"), "file:///ws/vehicles/car.sysml");
+  assert.equal(renamedUri("file:///ws/models/x/car.sysml", "file:///ws/models/", "file:///ws/v/"), "file:///ws/v/x/car.sysml");
+  assert.equal(renamedUri("file:///ws/models-old/car.sysml", "file:///ws/models", "file:///ws/v"), undefined, "a sibling sharing a prefix is not inside");
+  assert.equal(renamedUri("file:///ws/other.sysml", "file:///ws/a.sysml", "file:///ws/b.sysml"), undefined);
+});
+
+test("renaming or deleting a folder carries or drops every dismissal inside it", async () => {
+  const store = memory(["file:///ws/models/a.sysml", "file:///ws/models/sub/b.sysml", "file:///ws/other.sysml"]);
+  const dismissals = new Dismissals(store);
+  await dismissals.rename("file:///ws/models", "file:///ws/vehicles");
+  assert.deepEqual(store.get(DISMISSED_KEY), ["file:///ws/other.sysml", "file:///ws/vehicles/a.sysml", "file:///ws/vehicles/sub/b.sysml"]);
+  await dismissals.clear("file:///ws/vehicles");
+  assert.deepEqual(store.get(DISMISSED_KEY), ["file:///ws/other.sysml"]);
+});
+
+test("a write that fails does not hold up the ones after it", async () => {
+  const store = memory();
+  let failing = true;
+  const update = store.update;
+  store.update = (key, next) => (failing ? Promise.reject(new Error("disk full")) : update(key, next));
+  const dismissals = new Dismissals(store);
+  await dismissals.record("file:///ws/a.sysml").then(
+    () => assert.fail("the failing write rejects"),
+    () => undefined,
+  );
+  failing = false;
+  await dismissals.record("file:///ws/b.sysml");
+  assert.deepEqual(store.get(DISMISSED_KEY), ["file:///ws/a.sysml", "file:///ws/b.sysml"]);
 });
 
 test("mutations fired together land in order, none overwriting another", async () => {
