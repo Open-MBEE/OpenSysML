@@ -55,8 +55,16 @@ func (s *Session) resolveInvocation(actions, states []Behavior, horizon *float64
 	if len(unresolved) > 0 || len(inv.behaviors) == 0 {
 		return nil, unresolved
 	}
-	inv.names = jointNames(inv.behaviors)
 	inv.plan = s.planFresh(performers...)
+	for _, b := range inv.behaviors {
+		if err := inv.plan.failed(b.Performer); err != nil {
+			unresolved = append(unresolved, unresolvedVerdict(b.Name, err.Error()))
+		}
+	}
+	if len(unresolved) > 0 {
+		return nil, unresolved
+	}
+	inv.names = jointNames(inv.behaviors)
 	return inv, nil
 }
 

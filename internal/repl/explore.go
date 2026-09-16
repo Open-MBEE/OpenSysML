@@ -1,12 +1,14 @@
 package repl
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -35,13 +37,14 @@ func (e *UnplannedObjectError) Error() string {
 }
 
 // ExploredObjectError reports an object reference an exploration cannot follow:
-// every explored run creates its objects afresh, so it names declarations only.
+// every explored run creates its objects afresh, so an object of the session,
+// named by id, is in no run.
 type ExploredObjectError struct {
 	Ref string
 }
 
 func (e *ExploredObjectError) Error() string {
-	return fmt.Sprintf("%q names an object of this session, which an exploration does not run on: each explored run creates its own objects, so name the declaration to instantiate", e.Ref)
+	return fmt.Sprintf("%q names an object of this session, which an exploration does not run on: each explored run creates its own objects, so name a declaration to instantiate, or a path from one to an object it holds (Assembly::part.nested)", e.Ref)
 }
 
 // VerdictOutcome is one distinct outcome an exploration reached: what the runs
@@ -244,15 +247,18 @@ func tableLines(cells [][]string) []string {
 }
 
 // freshPlan is what an exploration's runs name, resolved while the session's state
-// is held: declarations to instantiate, a nested case's held owner, the exhibits declared.
+// is held: declarations to instantiate and paths from them, a nested case's owner,
+// the exhibits declared.
 type freshPlan struct {
 	refs     map[string]freshRef
 	owners   map[string]freshRef
 	exhibits []exhibitEntry
+	idx      *symbols.Index
 }
 
-// freshRef is a declaration an explored run instantiates, or the error its name resolved
-// to. A swept one stands for held objects: root's, and the one reached along path from it.
+// freshRef is a declaration an explored run instantiates and the path it walks from
+// the object to the one named, or the error the name resolved to. A swept one stands
+// for held objects: root's, and the one reached along path from it.
 type freshRef struct {
 	sym  *symbols.Symbol
 	fqn  string
@@ -273,6 +279,7 @@ func (s *Session) planFresh(names ...string) *freshPlan {
 		refs:     make(map[string]freshRef, len(names)),
 		owners:   make(map[string]freshRef),
 		exhibits: collectExhibits(s.docScopes()),
+		idx:      s.idx,
 	}
 	for _, text := range names {
 		if _, done := p.refs[text]; !done {
@@ -282,8 +289,20 @@ func (s *Session) planFresh(names ...string) *freshPlan {
 	return p
 }
 
-// freshRef resolves one object name to the declaration an explored run
-// instantiates; an object of the session is refused.
+// failed is the error the first of names resolved to, nil when every one is planned.
+func (p *freshPlan) failed(names []string) error {
+	for _, text := range names {
+		if ref, ok := p.refs[text]; ok && ref.err != nil {
+			return ref.err
+		}
+	}
+	return nil
+}
+
+// freshRef resolves one object name to the declaration an explored run instantiates
+// and the path walked from its object: the longest leading run of segments a
+// declaration is registered under is the root, and the rest are features of its
+// object. An object of the session, named by id, is refused.
 func (s *Session) freshRef(text string) freshRef {
 	ref, err := objref.Parse(text)
 	if err != nil {
@@ -292,16 +311,100 @@ func (s *Session) freshRef(text string) freshRef {
 	if ref.ID > 0 {
 		return freshRef{err: &ExploredObjectError{Ref: text}}
 	}
-	for _, seg := range ref.Segments {
-		if seg.Index > 0 || seg.Dotted {
-			return freshRef{err: &ExploredObjectError{Ref: text}}
+	head := objref.Head(ref.Segments)
+	var unresolved error
+	for i := head; i > 0; i-- {
+		name := objref.JoinTyped(ref.Segments[:i])
+		sym, fqn, err := s.lookupSymbol(name)
+		if err != nil {
+			var ambiguous *AmbiguousNameError
+			if errors.As(err, &ambiguous) {
+				return freshRef{err: err}
+			}
+			if i == head {
+				unresolved = err
+			}
+			continue
 		}
+		// A member reached through a usage's type (pair::ground) is a feature of
+		// the usage's object, walked there rather than instantiated on its own.
+		if i > 1 && len(s.browseIndex().LookupQualified(objref.DeclaredRun(ref.Segments[:i]))) == 0 {
+			continue
+		}
+		if objref.IsNamespace(sym) {
+			if i == head && head < len(ref.Segments) {
+				shown := declarationNotation(sym)
+				return freshRef{err: &ObjectRefError{Ref: text, Detail: fmt.Sprintf("%s is a %s, not an object: its member is written %s::%s", shown, objref.NamespaceKind(sym), shown, ref.Segments[head].Text)}}
+			}
+			break
+		}
+		r := freshRef{sym: sym, fqn: fqn, name: s.declaredName(fqn), label: text, path: ref.Segments[i:]}
+		r.err = s.checkFreshPath(name, sym, r.path)
+		return r
 	}
-	sym, fqn, err := s.lookupSymbol(objref.JoinTyped(ref.Segments))
+	if unresolved == nil {
+		_, _, unresolved = s.lookupSymbol(objref.JoinTyped(ref.Segments[:max(head, 1)]))
+	}
+	return freshRef{err: unresolved}
+}
+
+// checkFreshPath reports what the declarations already tell about a path from an
+// object of root: a feature it has not, an index on one value, one off a fixed
+// count, or a feature holding data. What its objects hold is left to the run.
+func (s *Session) checkFreshPath(label string, root *symbols.Symbol, path []objectSegment) error {
+	if len(path) == 0 {
+		return nil
+	}
+	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
-		return freshRef{err: err}
+		return err
 	}
-	return freshRef{sym: sym, fqn: fqn, name: s.declaredName(fqn)}
+	walker := s.walker(ctx)
+	typ := root
+	for _, seg := range path {
+		features := ctx.FeaturesOf(typ)
+		feat := featureNamed(features, seg.Name)
+		if feat == nil {
+			return freshPathError(label, seg, "%s has no feature %q%s", label, seg.Name, walker.DeclaredFeatureHint(features))
+		}
+		shown := lexer.NameText(seg.Name)
+		if ctx.Semantics().IsDataType(feat.Type) {
+			return freshPathError(label, seg, "%s of %s holds a value, not an object", shown, label)
+		}
+		next := label + "." + shown
+		switch count, fixed := fixedCount(feat.Multiplicity); {
+		case feat.Scalar() && seg.Index > 0:
+			return freshPathError(label, seg, "%s of %s holds one value and takes no index: write %s, not %s", shown, label, shown, seg.Text)
+		case feat.Scalar():
+		case seg.Index == 0 && fixed:
+			return freshPathError(label, seg, "%s of %s holds %d objects: pick one by index, %s[1] to %s[%d]", shown, label, count, shown, shown, count)
+		case seg.Index > count && fixed:
+			return freshPathError(label, seg, "%s of %s holds %d objects, so %s names none (indexes run from 1 to %d)", shown, label, count, seg.Text, count)
+		case seg.Index > count && count > 0:
+			return freshPathError(label, seg, "%s of %s holds at most %d objects, so %s names none", shown, label, count, seg.Text)
+		case seg.Index > 0:
+			next = fmt.Sprintf("%s[%d]", next, seg.Index)
+		}
+		// A variation or a bound part holds an object of a type only its run tells.
+		if typ = s.objectTypeOf(feat); typ == nil {
+			return nil
+		}
+		label = next
+	}
+	return nil
+}
+
+// fixedCount is a multiplicity's upper bound when finite, and whether the lower
+// bound meets it, so every object of the feature's owner holds exactly that many.
+func fixedCount(m semantics.Range) (count int, fixed bool) {
+	if !m.Upper.Known || m.Upper.Infinite {
+		return 0, false
+	}
+	return int(m.Upper.Value), m.Lower.Known && !m.Lower.Infinite && m.Lower.Value == m.Upper.Value
+}
+
+func freshPathError(object string, seg objectSegment, format string, args ...any) *ObjectPathError {
+	return &ObjectPathError{Object: object, Segment: seg.Text, Detail: fmt.Sprintf(format, args...)}
 }
 
 // planOwner resolves the type owning the case at fqn when the session holds an
@@ -323,15 +426,34 @@ func (s *Session) planOwner(p *freshPlan, sym *symbols.Symbol, fqn string) {
 
 // bind is the plan's objects in one run's context.
 func (p *freshPlan) bind(ctx *runtime.Context) *freshObjects {
-	return &freshObjects{plan: p, ctx: ctx, made: make(map[string]*runtime.Instance)}
+	return &freshObjects{
+		plan:  p,
+		ctx:   ctx,
+		roots: make(map[string]*runtime.Instance),
+		made:  make(map[string]reachedObject),
+		walker: objref.Walker{
+			Runtime: ctx,
+			Index:   p.idx,
+			Format:  func(val runtime.Value) string { return formatValue(ctx, val) },
+		},
+	}
 }
 
 // freshObjects finds the objects an explored run names in the run's own context:
-// each declaration the plan resolved is instantiated there once.
+// each declaration the plan resolved is instantiated there once, by qualified name,
+// and the object each path reaches from it is walked to once, by the path as written.
 type freshObjects struct {
-	plan *freshPlan
-	ctx  *runtime.Context
-	made map[string]*runtime.Instance
+	plan   *freshPlan
+	ctx    *runtime.Context
+	roots  map[string]*runtime.Instance
+	made   map[string]reachedObject
+	walker objref.Walker
+}
+
+// reachedObject is an object a path reached, under the label the walk gave it.
+type reachedObject struct {
+	inst  *runtime.Instance
+	label string
 }
 
 // heldObjects finds the objects a run at the prompt names: the session's own.
@@ -362,15 +484,33 @@ func (f *freshObjects) object(text string) (*runtime.Instance, string, error) {
 	if ref.err != nil {
 		return nil, "", ref.err
 	}
-	if inst, ok := f.made[ref.fqn]; ok {
-		return inst, ref.name, nil
+	if made, ok := f.made[text]; ok {
+		return made.inst, made.label, nil
+	}
+	root, err := f.root(ref)
+	if err != nil {
+		return nil, "", err
+	}
+	inst, label, err := f.walker.Walk(root, ref.name, ref.path)
+	if err != nil {
+		return nil, "", err
+	}
+	f.made[text] = reachedObject{inst: inst, label: label}
+	return inst, label, nil
+}
+
+// root is the object of ref's declaration in the run, instantiated once however
+// many paths start from it, so siblings reached from one root share it.
+func (f *freshObjects) root(ref freshRef) (*runtime.Instance, error) {
+	if inst, ok := f.roots[ref.fqn]; ok {
+		return inst, nil
 	}
 	inst, err := f.ctx.Instantiate(ref.sym)
 	if err != nil {
-		return nil, "", fmt.Errorf("instantiation of %s failed: %w", ref.name, err)
+		return nil, fmt.Errorf("instantiation of %s failed: %w", ref.name, err)
 	}
-	f.made[ref.fqn] = inst
-	return inst, ref.name, nil
+	f.roots[ref.fqn] = inst
+	return inst, nil
 }
 
 // owner instantiates the type owning a nested usage when the plan found the
@@ -399,12 +539,8 @@ func (s *Session) exploredAction(name string) (*symbols.Symbol, error) {
 	return sym, nil
 }
 
-// exploredMachine resolves the state machine an exploration runs, which names a
-// declaration: an object of the session is not run on.
+// exploredMachine resolves the state machine an exploration runs.
 func (s *Session) exploredMachine(name string) (*symbols.Symbol, error) {
-	if objref.LooksLikePath(name) {
-		return nil, &ExploredObjectError{Ref: name}
-	}
 	sym, _, err := s.lookupSymbolOfKinds(name, symbols.SymbolStateDef, symbols.SymbolStateUsage)
 	if err != nil {
 		return nil, err
@@ -503,6 +639,9 @@ func (s *Session) exploreStateMachine(name string, duration *float64, performer 
 		return unresolvedVerdict(name, err.Error())
 	}
 	plan := s.planFresh(performer...)
+	if err := plan.failed(performer); err != nil {
+		return unresolvedVerdict(name, err.Error())
+	}
 	return s.exploreVerdict(name, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		exec, err := freshMachine(plan.bind(ctx), sym, name, performer)
 		if err != nil {
@@ -567,6 +706,9 @@ func (s *Session) exploreAnalysis(inv analysisInvocation) Verdict {
 	}
 	plan := s.planFresh(names...)
 	s.planOwner(plan, sym, fqn)
+	if err := plan.failed(names); err != nil {
+		return unresolvedVerdict(label, err.Error())
+	}
 	return s.exploreVerdict(label, func(ctx *runtime.Context) (runtime.Outcome, error) {
 		run, err := s.runAnalysisIn(s.direct(), ctx, inv, sym, fqn, plan.bind(ctx))
 		if err != nil {
