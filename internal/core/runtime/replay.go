@@ -373,7 +373,7 @@ func (c ChoicePoint) Choice() ChoiceTaken {
 		taken.Took = c.Alternatives[c.Taken]
 	}
 	if c.Weighted() {
-		taken.Weights = slices.Clone(c.Weights)
+		taken.Weights, taken.Drew, taken.Drawn = slices.Clone(c.Weights), c.Drew, c.Drawn
 	}
 	return taken
 }
@@ -593,10 +593,11 @@ func parseOrderChoice(fail func(string) (ChoiceTaken, error), step int, first, m
 	return c, nil
 }
 
-// parseTransitionChoice reads `<where> -> <took>`: a decision branch inside a step,
-// a transition outside one.
+// parseTransitionChoice reads `<where> -> <took>`, a decision branch inside a step
+// and a transition outside one, with the alternatives, weights and draw a weighted
+// one carries after ` among `.
 func parseTransitionChoice(fail func(string) (ChoiceTaken, error), step int, first, after string) (ChoiceTaken, error) {
-	took, _, _, ok := readLabel(after)
+	took, mark, after, ok := readLabel(after, markAmong)
 	if !ok {
 		return fail(unclosedQuote)
 	}
@@ -606,6 +607,50 @@ func parseTransitionChoice(fail func(string) (ChoiceTaken, error), step int, fir
 	c := ChoiceTaken{Kind: ChoiceTransition, Where: first, Took: took}
 	if step > 0 {
 		c.Kind, c.Step = ChoiceDecisionBranch, step
+	}
+	if mark == markAmong {
+		return parseWeighted(fail, c, after)
+	}
+	return c, nil
+}
+
+// parseWeighted reads what follows ` among ` on a weighted line — `<alt> p=<w>, …`
+// then ` drew <u>` when a draw selected the branch — into c.
+func parseWeighted(fail func(string) (ChoiceTaken, error), c ChoiceTaken, text string) (ChoiceTaken, error) {
+	const shape = "a weighted branch lists every alternative with its weight: … among <alt> p=<w>, <alt> p=<w> drew <u>"
+	for {
+		alt, mark, rest, ok := readLabel(text, markWeight)
+		if !ok {
+			return fail(unclosedQuote)
+		}
+		if mark == "" {
+			return fail(shape)
+		}
+		number, sep := rest, ""
+		if at, m := indexMark(rest, markList, markDrew); at >= 0 {
+			number, sep, rest = rest[:at], m, rest[at+len(m):]
+		}
+		w, err := strconv.ParseFloat(number, 64)
+		if err != nil {
+			return fail("a weight is a number: <alt> p=<w>")
+		}
+		c.Among, c.Weights = append(c.Among, alt), append(c.Weights, w)
+		if sep == markList {
+			text = rest
+			continue
+		}
+		if sep == markDrew {
+			u, err := strconv.ParseFloat(rest, 64)
+			if err != nil || !(0 <= u && u < 1) {
+				return fail("the draw selecting a weighted branch is a number in [0, 1): … drew <u>")
+			}
+			c.Drew, c.Drawn = u, true
+		}
+		break
+	}
+	c.Alternatives, c.Taken = len(c.Among), slices.Index(c.Among, c.Took)
+	if c.Taken < 0 {
+		return fail(fmt.Sprintf("%s is not among %s", choiceLabel(c.Took), choiceLabels(c.Among)))
 	}
 	return c, nil
 }
@@ -621,10 +666,13 @@ const (
 	markArrow   = " -> "
 	markList    = ", "
 	markWhere   = ": "
+	markAmong   = " among "
+	markWeight  = " p="
+	markDrew    = " drew "
 )
 
 // linePunctuation is what a choice line's grammar reads as structure.
-var linePunctuation = []string{markChoices, markFirstOf, markArrow, markList, markWhere}
+var linePunctuation = []string{markChoices, markFirstOf, markArrow, markList, markWhere, markAmong, markWeight, markDrew}
 
 const (
 	unclosedQuote = "a quoted name needs its closing quote, followed by the line's punctuation"

@@ -16,8 +16,9 @@ import (
 )
 
 // The canonical form of a checked run's state is the text of what a future move
-// can observe: the clock, the executor holding the turn, then every executor on
-// it in invocation order — an action's tokens by node and performance and its
+// can observe: the clock, where the modeled stream stands (what the run draws
+// next), the executor holding the turn, then every executor on it in invocation
+// order — an action's tokens by node and performance and its
 // performances root-first with what they hold, a state machine's configuration,
 // history, values, queue, timers and do progress — then the messages in flight
 // and the objects reached by their materialization path. Identities a run hands
@@ -90,6 +91,11 @@ type stateSpeller struct {
 
 func (s *stateSpeller) spell(execs []checkedExecutor, turn checkedExecutor) string {
 	fmt.Fprintf(&s.out, "clock t=%s\n", semantics.FormatReal(s.ctx.clock.now))
+	if sched := s.ctx.run.scheduler; sched != nil {
+		if at := sched.modeled.position(); at != "" {
+			fmt.Fprintf(&s.out, "draws: %s\n", at)
+		}
+	}
 	s.nameExecutors(execs)
 	if turn != nil {
 		fmt.Fprintf(&s.out, "turn: %s\n", s.names[turn])

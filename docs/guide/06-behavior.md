@@ -930,7 +930,9 @@ $ sysml -trace -action MC::route -seed 7 mc.sysml
 
 A witness records every draw a run made, as `draw <call> = <value>` lines among its choice lines
 — `draw uniform(0.0, 10.0) = 7.74817894359002` — and a weighted choice line carries the weights
-and the draw that selected the branch. `replay:<file>` consumes them in order: each call the run
+and the draw that selected the branch after the branch taken — `step 2: decision select ->
+2->slow among 1->fast p=0.7, 2->slow p=0.3 drew 0.7748`; a branch `explore` enumerated rather than
+drew ends at the weights. `replay:<file>` consumes them in order: each call the run
 makes takes the next recorded draw instead of drawing, and the run is refused, as any
 unfollowable move is, when a draw is missing (the run draws once more than the file recorded), left
 over (the file recorded a draw the run never made), made by another call than the one recorded

@@ -77,6 +77,22 @@ func (m *modeledSource) mark() func() {
 	return func() { *m.pcg = saved }
 }
 
+// position spells where the stream stands — what the run draws next — for a
+// checker telling apart states alike in every other way; "" for a run that cannot draw.
+func (m *modeledSource) position() string {
+	switch {
+	case m == nil:
+		return ""
+	case m.replay != nil:
+		return fmt.Sprintf("witness draw %d", m.replay.nextDraw+1)
+	}
+	state, err := m.pcg.MarshalBinary()
+	if err != nil {
+		return "generator " + err.Error()
+	}
+	return fmt.Sprintf("generator %x", state)
+}
+
 // modelSeed is the seed a context's runs draw their modeled randomness from when
 // set, whatever the scheduling policy; nil leaves it to a `seed:<n>` policy.
 type modelSeed struct {

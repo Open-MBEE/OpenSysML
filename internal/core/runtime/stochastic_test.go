@@ -1,14 +1,17 @@
 package runtime
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // weightedRouteModel decides between two weighted branches, the less probable
@@ -594,6 +597,90 @@ func TestNormalDrawsStayFiniteNearTheLargestReal(t *testing.T) {
 	}
 }
 
+// Bounds a float apart — where hi-lo, or the products the triangular inverse
+// forms, overflow — still bound the draws: every one is finite, within the
+// interval, spread over it rather than piled at hi, and replays.
+func TestWideBoundsStillBoundTheDraws(t *testing.T) {
+	m := parseLibraryModel(t, `
+		package test {
+			private import ScalarValues::*;
+			private import RandomFunctions::*;
+			action draw {
+				attribute u : Real = uniform(-1.0e308, 1.0e308);
+				attribute t : Real = triangular(-1.0e308, 0.0, 1.0e308);
+				attribute s : Real = triangular(0.0, 1.0e200, 1.0e200);
+				first start; then done;
+			}
+		}`)
+	bounds := map[string][2]float64{
+		"u": {-1.0e308, 1.0e308},
+		"t": {-1.0e308, 1.0e308},
+		"s": {0, 1.0e200},
+	}
+	signs := map[string]map[bool]int{"u": {}, "t": {}}
+	for seed := uint64(1); seed <= 40; seed++ {
+		ctx, out, err := runAction(t, m, "draw", "declared", seed)
+		if err != nil {
+			t.Fatalf("seed %d: %v", seed, err)
+		}
+		for name, bound := range bounds {
+			x := out[name].Const.Real
+			if math.IsInf(x, 0) || math.IsNaN(x) || x < bound[0] || x > bound[1] || (name == "u" && x == bound[1]) {
+				t.Fatalf("seed %d drew %s = %v, outside its bounds %v", seed, name, x, bound)
+			}
+			if counts, spread := signs[name]; spread {
+				counts[x < 0]++
+			}
+		}
+		w := Witness{Draws: ctx.DrawsTaken()}
+		replay, _ := m.fresh()
+		mustSchedule(t, replay, ReplayOf(w))
+		got, err := replay.ExecuteAction(m.action(t, "draw"))
+		if err == nil {
+			err = replay.Unfollowed()
+		}
+		if err != nil {
+			t.Fatalf("seed %d: replay: %v\n%s", seed, err, w)
+		}
+		for name := range bounds {
+			if got[name].Const.Real != out[name].Const.Real {
+				t.Errorf("seed %d: replay gave %s = %v, want %v", seed, name, got[name].Const.Real, out[name].Const.Real)
+			}
+		}
+	}
+	for name, counts := range signs {
+		if counts[true] == 0 || counts[false] == 0 {
+			t.Errorf("%s drew %d negative and %d non-negative values over 40 seeds: not spread over its interval", name, counts[true], counts[false])
+		}
+	}
+}
+
+// between and fractionOf are the arithmetic the wide draws rest on: exact at the
+// ends, finite and within the interval wherever the span itself is not a float.
+func TestBetweenAndFractionOfWideSpans(t *testing.T) {
+	lo, hi := -math.MaxFloat64, math.MaxFloat64
+	for _, tc := range []struct {
+		t, want float64
+	}{{0, lo}, {1, hi}, {0.5, 0}} {
+		if got := between(lo, hi, tc.t); got != tc.want {
+			t.Errorf("between(-max, max, %v) = %v, want %v", tc.t, got, tc.want)
+		}
+	}
+	if q := between(lo, hi, 0.25); math.IsInf(q, 0) || q >= 0 || q <= lo {
+		t.Errorf("between(-max, max, 0.25) = %v, want a finite negative", q)
+	}
+	if got := between(1, 80, 0.5); got != 1+0.5*79 {
+		t.Errorf("between(1, 80, 0.5) = %v, want the plain interpolation %v", got, 1+0.5*79)
+	}
+	for _, tc := range []struct {
+		lo, x, hi, want float64
+	}{{lo, 0, hi, 0.5}, {lo, lo, hi, 0}, {lo, hi, hi, 1}, {0, 1, 4, 0.25}, {0, 1.0e200, 1.0e200, 1}} {
+		if got := fractionOf(tc.lo, tc.x, tc.hi); got != tc.want {
+			t.Errorf("fractionOf(%v, %v, %v) = %v, want %v", tc.lo, tc.x, tc.hi, got, tc.want)
+		}
+	}
+}
+
 // A run's witness records its draws, and replaying it reproduces the run: the same
 // values, the same branch, every draw consumed, no generator consulted.
 func TestReplayReproducesTheDrawsAndTheWeightedBranch(t *testing.T) {
@@ -628,6 +715,9 @@ func TestReplayReproducesTheDrawsAndTheWeightedBranch(t *testing.T) {
 		parsed, err := ParseWitness(w.String())
 		if err != nil {
 			t.Fatalf("seed %d: the witness does not read back: %v\n%s", seed, err, w)
+		}
+		if len(w.Choices) != 1 || !w.Choices[0].Drawn || !reflect.DeepEqual(parsed.Choices, w.Choices) {
+			t.Fatalf("seed %d: the witness reads back as %+v, want the drawn weighted choice %+v", seed, parsed.Choices, w.Choices)
 		}
 		replay, _ := m.fresh()
 		mustSchedule(t, replay, ReplayOf(parsed))
@@ -855,5 +945,48 @@ func TestCheckSearchesWeightedBranchesAsASet(t *testing.T) {
 		if len(choices) != 1 || !choices[0].Weighted() {
 			t.Errorf("final %v carries the witness %v, want the weighted decision", final.Outcome, choices)
 		}
+	}
+}
+
+// Two check paths that consume different numbers of draws before reaching the
+// same configuration and values are different states: the seeded stream stands
+// elsewhere on each, so what the run draws next differs.
+func TestCheckKeepsPathsApartByTheirModeledStream(t *testing.T) {
+	m := parseLibraryModel(t, `
+package test {
+	private import ScalarValues::*;
+	private import RandomFunctions::*;
+	state def Machine {
+		attribute x : Real = 0.0;
+		attribute seen : Real = 0.0;
+		entry; then a;
+		state a;
+		transition first a if true do { assign x := uniform(0.0, 1.0); } then b;
+		transition first a if true do { assign x := 0.0; } then b;
+		state b { entry { assign x := 0.0; } }
+		transition first b if true do { assign seen := uniform(0.0, 1.0); } then c;
+		state c;
+	}
+}`)
+	seeded := func() (*Context, error) {
+		ctx, err := m.fresh()
+		if err == nil {
+			ctx.SetModelSeed(3)
+		}
+		return ctx, err
+	}
+	start := invocationOf(nil, []*symbols.Symbol{m.state(t, "Machine")})
+	report, err := Check(context.Background(), seeded, start, CheckBudget{}, CheckOptions{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Violations) > 0 {
+		t.Fatalf("check failed: %v", report.Violations)
+	}
+	if got := divergentValues(report, "seen"); len(got) != 2 || got[0] == got[1] {
+		t.Fatalf("seen takes %v over the two paths, want a value per stream position: %s", got, report.Status())
+	}
+	if len(report.Finals) != 2 {
+		t.Errorf("check found %d final(s), want one per path", len(report.Finals))
 	}
 }

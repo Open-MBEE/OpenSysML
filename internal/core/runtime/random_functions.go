@@ -47,7 +47,7 @@ func drawUniform(ctx *Context, name string, args []semantics.Value) (semantics.V
 	return ctx.draw(drawCall(name, args), distribution{
 		draw: func(rng *rand.Rand) semantics.Value {
 			// Rounding at the top of a wide range may land on hi; the interval excludes it.
-			return drawnReal(math.Min(lo+rng.Float64()*(hi-lo), math.Nextafter(hi, lo)))
+			return drawnReal(math.Min(between(lo, hi, rng.Float64()), math.Nextafter(hi, lo)))
 		},
 		admits: realHalfOpen(lo, hi),
 	})
@@ -84,11 +84,11 @@ func drawTriangular(ctx *Context, name string, args []semantics.Value) (semantic
 	}
 	return ctx.draw(drawCall(name, args), distribution{
 		draw: func(rng *rand.Rand) semantics.Value {
-			u := rng.Float64()
-			if cut := (mode - lo) / (hi - lo); u < cut {
-				return drawnReal(lo + math.Sqrt(u*(hi-lo)*(mode-lo)))
+			u, cut := rng.Float64(), fractionOf(lo, mode, hi)
+			if u < cut {
+				return drawnReal(between(lo, hi, math.Sqrt(u*cut)))
 			}
-			return drawnReal(hi - math.Sqrt((1-u)*(hi-lo)*(hi-mode)))
+			return drawnReal(between(lo, hi, 1-math.Sqrt((1-u)*(1-cut))))
 		},
 		admits: realWithin(lo, hi),
 	})
@@ -135,6 +135,25 @@ func finiteBounds(name string, args []semantics.Value) error {
 // drawnReal is x as a Real value.
 func drawnReal(x float64) semantics.Value {
 	return semantics.Value{Kind: semantics.ValReal, Real: x}
+}
+
+// between is the point the fraction t in [0, 1] of the way from lo to hi, clamped
+// to [lo, hi]; the span hi-lo is formed only where it is finite.
+func between(lo, hi, t float64) float64 {
+	x := lo*(1-t) + hi*t
+	if span := hi - lo; !math.IsInf(span, 0) {
+		x = lo + t*span
+	}
+	return math.Max(lo, math.Min(x, hi))
+}
+
+// fractionOf is where x in [lo, hi] lies between lo and hi, in [0, 1], for lo < hi;
+// halving keeps a span too wide for a float finite.
+func fractionOf(lo, x, hi float64) float64 {
+	if span := hi - lo; !math.IsInf(span, 0) {
+		return (x - lo) / span
+	}
+	return (x/2 - lo/2) / (hi/2 - lo/2)
 }
 
 // realWithin admits a Real on [lo, hi]: what a bounded distribution can draw.
