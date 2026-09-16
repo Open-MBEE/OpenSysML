@@ -113,6 +113,7 @@ const (
 	cmdAnalysis       = "%analysis"
 	cmdSweep          = "%sweep"
 	cmdSamples        = "%samples"
+	cmdRuns           = "%runs"
 	cmdRunQuery       = "%run-query"
 	cmdRenderDocument = "%render-document"
 	argName           = "<name>"
@@ -147,6 +148,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%trace", args: "[on|off]", desc: "show or set execution tracing (evaluation, calc, action and state steps)"},
 	{name: "%strict", args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
 	{name: "%schedule", args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
+	{name: "%seed", args: "[<n>|off]", desc: "show or set the seed runs started from here on draw their modeled randomness from — Probability-weighted decisions, RandomFunctions — whatever the schedule; off leaves it to the schedule's seed:<n>"},
 	{name: "%budget", desc: "show the bounds one run may spend, and the variable raising each"},
 	{name: "%jobs", args: "[<n>]", desc: "show or set how many runs of one check go concurrently: an exploration's linearizations, the engines all consults"},
 	{name: "%engines", args: "[probe]", desc: "list the analysis engines, with the kind, protocol and authority of each, the questions it answers and whether it can run; probe also starts each external engine once and checks it against its manifest"},
@@ -176,6 +178,7 @@ var metaCommandTable = []metaCommand{
 	{group: groupBehavioral, name: cmdAnalysis, args: "<name>[(<args>)] [<object>]", desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
 	{group: groupBehavioral, name: cmdSweep, args: "<name>[(<args>)] [<object>] <p>=<from>..<to>[:<step>]...", desc: "run an analysis case or calc once per value of each range, one run per row of the cartesian product, and print the table"},
 	{group: groupBehavioral, name: cmdSamples, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
+	{group: groupBehavioral, name: cmdRuns, args: "<n> <seed> <action> [<observable>...]", desc: "run an action <n> times, each run's modeled randomness seeded from the given seed, and print the table of the observables with each one's distribution"},
 	{group: groupBehavioral, name: cmdRunQuery, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
 	{group: groupBehavioral, name: cmdRenderDocument, args: "<name> [mermaid|dot|plantuml]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT or PlantUML"},
 	{group: groupBehavioral, name: "%constraint", args: argName, desc: "evaluate a constraint definition"},
@@ -322,6 +325,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doStrict(fields[1:]), false, nil), true
 	case "%schedule":
 		return metaOut(s.doSchedule(fields[1:]), false, nil), true
+	case "%seed":
+		return metaOut(s.doSeed(fields[1:]), false, nil), true
 	case "%budget":
 		return metaOut(s.doBudget(), false, nil), true
 	case "%jobs":
@@ -453,6 +458,11 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 			return metaOut([]string{samplesUsage}, false, nil), true
 		}
 		return metaOut(s.doSamples(strings.TrimPrefix(strings.TrimSpace(line), cmdSamples))), true
+	case cmdRuns:
+		if len(fields) < 2 {
+			return metaOut([]string{runsUsage}, false, nil), true
+		}
+		return metaOut(s.doRuns(strings.TrimPrefix(strings.TrimSpace(line), cmdRuns))), true
 	case cmdRunQuery:
 		if len(fields) < 2 {
 			return metaOut([]string{runQueryUsage}, false, nil), true
@@ -2406,7 +2416,7 @@ func (s *Session) doStep() ([]string, bool, error) {
 
 	// Step
 	noted := exec.NoteCount()
-	err := exec.Step()
+	err := exec.StepToBreakpoint()
 	if errors.Is(err, runtime.ErrNothingDue) {
 		out := []string{"Nothing to step: the action waits on the clock, which %step does not move"}
 		out = append(out, actionWaitLines(exec, s.actionExec.rtCtx)...)
@@ -2806,10 +2816,12 @@ func (s *Session) attachExhibitedMachine(
 
 // ExhibitorsError reports a machine `%state <machine>` alone cannot attach to:
 // no held object exhibits it, or several do, so no one running performance is meant.
+// Fresh reports the same of an explored run's objects, which -instantiate gives it.
 type ExhibitorsError struct {
 	Machine string          // the machine asked for, as the prompt prints names
 	Types   []string        // the types declaring an exhibit of it, in declaration order, as the prompt prints names
 	Objects []RelatedObject // the held objects exhibiting it, in walk order; none when no object does
+	Fresh   bool            // the objects are an explored run's, not the session's
 }
 
 func (e *ExhibitorsError) Error() string {
@@ -2817,6 +2829,10 @@ func (e *ExhibitorsError) Error() string {
 		types := make([]string, len(e.Types))
 		for i, t := range e.Types {
 			types[i] = fmt.Sprintf("%q", t)
+		}
+		if e.Fresh {
+			return fmt.Sprintf("no object of the explored run exhibits %q, which runs only on an object of %s: each run creates its own objects, so name one as %s <declaration> or %s <Assembly::part>, or -instantiate the declaration holding it for every run",
+				e.Machine, strings.Join(types, " or "), e.Machine, e.Machine)
 		}
 		return fmt.Sprintf("no object of this session exhibits %q, which runs only on an object of %s: use %%instantiate to create one, then %%state <object> or %%state %s <object>",
 			e.Machine, strings.Join(types, " or "), e.Machine)
@@ -2827,6 +2843,10 @@ func (e *ExhibitorsError) Error() string {
 		if o.Label != "" {
 			labels[i] = fmt.Sprintf("#%d of %q", o.ID, o.Label)
 		}
+	}
+	if e.Fresh {
+		return fmt.Sprintf("%d objects of the explored run exhibit %q (%s), so naming the machine alone attaches to none of them: name one as %s <Assembly::part>",
+			len(e.Objects), e.Machine, strings.Join(labels, ", "), e.Machine)
 	}
 	return fmt.Sprintf("%d objects of this session exhibit %q (%s), so naming the machine alone attaches to none of them: use %%state <object> or %%state %s <object> to name one",
 		len(e.Objects), e.Machine, strings.Join(labels, ", "), e.Machine)

@@ -27,6 +27,8 @@ func TestParseChoiceReadsEveryKind(t *testing.T) {
 		{"state idle on accept go -> 2->right", ChoiceTaken{Kind: ChoiceTransition, Where: "state idle on accept go", Took: "2->right"}},
 		{"on accept go: b1 first of a1, b1", ChoiceTaken{Kind: ChoiceRegionOrder, Where: "on accept go", Alternatives: 2, Taken: 1, Among: []string{"a1", "b1"}, Took: "b1"}},
 		{"t=5.0: state machine c first of state machine a, state machine b, state machine c", ChoiceTaken{Kind: ChoiceDueOrder, Where: "t=5.0", Alternatives: 3, Taken: 2, Among: []string{"state machine a", "state machine b", "state machine c"}, Took: "state machine c"}},
+		{"step 2: decision select -> 2->slow among 1->fast p=0.7, 2->slow p=0.3 drew 0.7748", ChoiceTaken{Kind: ChoiceDecisionBranch, Step: 2, Where: "decision select", Alternatives: 2, Taken: 1, Among: []string{"1->fast", "2->slow"}, Took: "2->slow", Weights: []float64{0.7, 0.3}, Drew: 0.7748, Drawn: true}},
+		{"step 2: decision select -> 1->fast among 1->fast p=0.7, 2->slow p=0.3", ChoiceTaken{Kind: ChoiceDecisionBranch, Step: 2, Where: "decision select", Alternatives: 2, Taken: 0, Among: []string{"1->fast", "2->slow"}, Took: "1->fast", Weights: []float64{0.7, 0.3}}},
 	}
 	for _, c := range cases {
 		got, err := ParseChoice(c.line)
@@ -38,7 +40,8 @@ func TestParseChoiceReadsEveryKind(t *testing.T) {
 			t.Errorf("%q read back as %q", c.line, got)
 		}
 		if got.Kind != c.want.Kind || got.Step != c.want.Step || got.Where != c.want.Where || got.Alternatives != c.want.Alternatives ||
-			got.Taken != c.want.Taken || strings.Join(got.Among, "|") != strings.Join(c.want.Among, "|") || got.Took != c.want.Took {
+			got.Taken != c.want.Taken || strings.Join(got.Among, "|") != strings.Join(c.want.Among, "|") || got.Took != c.want.Took ||
+			!slices.Equal(got.Weights, c.want.Weights) || got.Drew != c.want.Drew || got.Drawn != c.want.Drawn {
 			t.Errorf("%q: %+v, want %+v", c.line, got, c.want)
 		}
 	}
@@ -47,7 +50,8 @@ func TestParseChoiceReadsEveryKind(t *testing.T) {
 // A line that spells no choice is a typed error naming the line and why; a
 // witness is read a line at a time, or as FormatChoices joins it.
 func TestParseChoicesRejectsWhatSpellsNoChoice(t *testing.T) {
-	for _, text := range []string{"step 0: a first of a, b", "step x: a first of a, b", "a first of b, c", "c first of a, b", "step 2: c first of a, b", "-> x", "x ->", "nonsense"} {
+	for _, text := range []string{"step 0: a first of a, b", "step x: a first of a, b", "a first of b, c", "c first of a, b", "step 2: c first of a, b", "-> x", "x ->", "nonsense",
+		"step 2: d -> x among x", "step 2: d -> x among x p=heavy", "step 2: d -> y among x p=0.5, z p=0.5", "step 2: d -> x among x p=1 drew 1.5", "step 2: d -> x among x p=1 drew u"} {
 		_, err := ParseChoices("step 1: a first of a, b\n" + text)
 		var typed *ChoiceParseError
 		if !errors.As(err, &typed) || !errors.Is(err, ErrInvalidChoice) {
@@ -501,6 +505,99 @@ func stateRun(sym *symbols.Symbol, signal string) func(*Context) (Outcome, error
 			return Outcome{}, err
 		}
 		return exec.Outcome(), nil
+	}
+}
+
+// doForkMachine forks the do action of one state, whose token order decides x.
+const doForkMachine = `package test {
+	private import ScalarValues::*;
+	state def Machine {
+		attribute x : Integer = 0;
+		entry; then busy;
+		state busy {
+			do action work {
+				first start;
+				then fork split;
+				succession split then left;
+				succession split then right;
+				action left { assign x := 1; }
+				action right { assign x := 2; }
+				succession left then sync;
+				succession right then sync;
+				join sync;
+				then done;
+			}
+		}
+		transition first busy accept go then idle;
+		state idle;
+	}
+}`
+
+// The token orders a do action's flow draws are steps of its own, numbered on:
+// the witness of a fork within a state's do action replays to its outcome.
+func TestReplayFollowsDoActionWitnesses(t *testing.T) {
+	m := parseExploreModel(t, doForkMachine)
+	run := stateRun(m.state(t, "Machine"), "go")
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
+	if err != nil || !x.Complete() || len(x.Outcomes) != 2 {
+		t.Fatalf("explore: %v, %v", x, err)
+	}
+	for _, o := range x.Outcomes {
+		if got := FormatChoices(o.Witness); !strings.HasPrefix(got, "step 3: ") || strings.Contains(got, "; ") {
+			t.Errorf("%s: witness %s, want one token order at the flow's third step", o.Outcome, got)
+		}
+	}
+	assertWitnessesReplay(t, x, m.fresh, run)
+}
+
+// Sibling objects exhibiting one machine perform its do action each at steps of
+// their own: a step of one that draws no choice — one token able to act, none
+// the move names — leaves the witness move to the sibling's, so the witnesses
+// of a run over both replay to their outcomes.
+func TestReplayFollowsSiblingDoActionWitnesses(t *testing.T) {
+	m := parseExploreModel(t, strings.Replace(doForkMachine, "\n}", `
+	part def Pair {
+		part a : Thing;
+		part b : Thing;
+	}
+	part def Thing {
+		exhibit state m : Machine;
+	}
+	part pair : Pair;
+}`, 1))
+	sym := m.state(t, "Machine")
+	pair := namedOrFoundSymbol(t, m.idx, "test::pair", m.idx.DocumentRoot(m.path), ast.DefPart, ast.UsagePart)
+	run := func(ctx *Context) (Outcome, error) {
+		if _, err := ctx.Instantiate(pair); err != nil {
+			return Outcome{}, err
+		}
+		a, err := ctx.objectAt("test::pair#1.a")
+		if err != nil {
+			return Outcome{}, err
+		}
+		exec, err := ctx.CreateStateExecutorFor(sym, a)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if _, err := ctx.Advance(1); err != nil {
+			return Outcome{}, err
+		}
+		return exec.Outcome(), nil
+	}
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
+	if err != nil || !x.Complete() || len(x.Outcomes) != 2 {
+		t.Fatalf("explore: %v, %v", x, err)
+	}
+	for _, o := range x.Outcomes {
+		if len(o.Witness) != 3 {
+			t.Errorf("%s: witness %s, want the token order of each of the three performances", o.Outcome, FormatChoices(o.Witness))
+		}
+		outcome, _, err := replayed(t, m.fresh, run, o.Witness)
+		if err != nil {
+			t.Errorf("%s: replaying %s: %v", o.Outcome, FormatChoices(o.Witness), err)
+		} else if outcome.String() != o.Outcome.String() {
+			t.Errorf("replaying %s reached %s, want %s", FormatChoices(o.Witness), outcome, o.Outcome)
+		}
 	}
 }
 
@@ -1283,6 +1380,75 @@ func TestReplayRefusedChoiceUndoesTheJunctionDrawBeforeIt(t *testing.T) {
 	}
 }
 
+// A segment out of a pseudostate declared in a composite state runs its effect
+// after the composite's entry, so a witness refused at the choice beyond has the
+// composite entered ahead: its entry, the effects and the entry's do behavior are
+// undone with the move, and nothing of the entry made ahead is left behind.
+func TestReplayRefusedChoiceUndoesTheOwnerEnteredAhead(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		attribute def Go;
+		state def Machine {
+			attribute log : String = "";
+			attribute level : Integer = 0;
+			entry; then idle;
+			state idle;
+			state work {
+				entry { assign log := log + "work(entry);"; }
+				do { assign log := log + "work(do);"; }
+				junction split;
+				choice pick;
+				state one;
+				state two;
+				state three;
+				transition first split do { assign level := 8; assign log := log + "split(effect);"; } then pick;
+				transition first pick if level > 5 then one;
+				transition first pick if level > 7 then two;
+				transition first pick if level > 9 then three;
+			}
+			transition first idle accept Go do { assign log := log + "go(effect);"; } then split;
+		}
+	}`)
+	sym := m.state(t, "Machine")
+	witness, err := ParseChoices("choice pick -> 3->three\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustSchedule(t, ctx, ReplayPolicy(witness))
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatal(err)
+	}
+	exec.SendSignal("Go", nil)
+	err = exec.RunToCompletion()
+	var refused *ReplayError
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || !strings.Contains(err.Error(), "3->three is not enabled (enabled: 1->one, 2->two)") {
+		t.Fatalf("error %T %v, want the choice move refused as not enabled", err, err)
+	}
+	data := exec.StateData()
+	for name, want := range map[string]string{"log": `""`, "level": "0"} {
+		if got := FormatValue(data[name]); got != want {
+			t.Errorf("%s is %s after the refusal, want %s: the owner's entry made ahead is undone with the move", name, got, want)
+		}
+	}
+	if got := activeStateNames(exec); got != "idle" {
+		t.Errorf("the machine is in %s after the refusal, want idle", got)
+	}
+	if len(exec.doActions) != 0 {
+		t.Errorf("%d do behaviors run after the refusal, want none: the owner's is undone with its entry", len(exec.doActions))
+	}
+	if len(exec.enteredAhead) != 0 {
+		t.Errorf("the executor still holds %d states entered ahead after the refusal, want none", len(exec.enteredAhead))
+	}
+}
+
 // A join's incoming segments are drawn one at a time, so a witness refused at a
 // later draw has an earlier segment made: the whole join is undone — the exit
 // and effect of the segment fired, the do behavior the exit abandoned, the note
@@ -1751,13 +1917,15 @@ func TestReplayRefusesAMoveNamingAnObjectTheRunDidNotMake(t *testing.T) {
 // Every choice reads back from the line that spells it, whatever punctuation the
 // names it carries share with the line; a witness of such lines reads back whole.
 func TestChoiceLinesRoundTripPunctuatedNames(t *testing.T) {
-	names := []string{"a, b", "x -> y", "p; q", "k: v", "it's", `back\slash`, "first of all", "step 3", " padded ", "tab\there", "line\nbreak", "plain"}
+	names := []string{"a, b", "x -> y", "p; q", "k: v", "it's", `back\slash`, "first of all", "step 3", " padded ", "tab\there", "line\nbreak", "plain", "one among many", "fast p=0.7", "then drew 0.5"}
 	var choices []ChoiceTaken
 	for i, name := range names {
 		others := []string{name, names[(i+1)%len(names)], names[(i+2)%len(names)]}
 		choices = append(choices,
 			ChoiceTaken{Kind: ChoiceTokenOrder, Step: i + 1, Alternatives: 3, Taken: 0, Among: others, Took: name},
 			ChoiceTaken{Kind: ChoiceDecisionBranch, Step: i + 1, Where: "decision " + name, Took: "1->" + name},
+			ChoiceTaken{Kind: ChoiceDecisionBranch, Step: i + 1, Where: "decision " + name, Alternatives: 3, Taken: 0, Among: others, Took: name, Weights: []float64{0.5, 0.25, 0.25}, Drew: 0.125, Drawn: true},
+			ChoiceTaken{Kind: ChoiceDecisionBranch, Step: i + 1, Where: "decision " + name, Alternatives: 3, Taken: 2, Among: others, Took: others[2], Weights: []float64{0, 1e-9, 0.999999999}},
 			ChoiceTaken{Kind: ChoiceTransition, Where: "state " + name + " on accept " + name, Took: "2->" + name},
 			ChoiceTaken{Kind: ChoiceRegionOrder, Where: "on accept " + name, Alternatives: 3, Taken: 1, Among: []string{others[1], name, others[2]}, Took: name},
 			ChoiceTaken{Kind: ChoiceDueOrder, Where: "t=5.0", Alternatives: 3, Taken: 2, Among: []string{others[1], others[2], name}, Took: name},

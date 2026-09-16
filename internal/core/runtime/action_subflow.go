@@ -126,8 +126,8 @@ func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error)
 func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
 	perf := f.perf
 	for perf.live > 0 {
-		if name := e.breakpointHit(); name != "" {
-			if err := e.ctx.pauseBody(bodyPause{breakpoint: name}); err != nil {
+		if stop, hit := e.breakpointHit(); hit {
+			if err := e.ctx.pauseBody(bodyPause{breakpoint: stop}); err != nil {
 				return err
 			}
 		}
@@ -137,6 +137,10 @@ func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
 		moved, err := e.stepSubflow(perf)
 		if err != nil {
 			return err
+		}
+		// A flow a body drives outside any step of the executor's own counts its steps itself.
+		if moved && e.sweep == 0 {
+			e.stepCount++
 		}
 		// A step of a token's own work stopped at a breakpoint stops the body too.
 		if e.state == StateSuspended {
@@ -205,6 +209,9 @@ func (e *ActionExecutor) stepSubflow(perf *actionFrame) (bool, error) {
 	}
 	endWrites()
 	e.noteTokenOrder(e.stepCount+1, order, schedule)
+	if refused := e.ctx.scheduling().refusal(); refused != nil {
+		err = refused
+	}
 	if err != nil {
 		return false, err
 	}

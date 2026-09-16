@@ -196,9 +196,12 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
+const MULTI_DOCUMENT_SKIP: &str = "v1 API parses one document at a time, not a model of several";
+
 fn is_expected_skip(reason: &str) -> bool {
     reason.starts_with("v1 API does not cover ")
         || reason == "unrepresentable by the typed API: ParseFile with no source"
+        || reason == MULTI_DOCUMENT_SKIP
 }
 
 impl Runner {
@@ -242,6 +245,17 @@ impl Runner {
             result.outcome = "skip".to_owned();
             result.status = "-".to_owned();
             result.reason = format!("v1 API does not cover {}", scenario.method());
+            result.duration_ms = elapsed_ms(started);
+            return result;
+        }
+        if scenario
+            .model
+            .as_ref()
+            .is_some_and(|spec| !spec.fixtures.is_empty())
+        {
+            result.outcome = "skip".to_owned();
+            result.status = "-".to_owned();
+            result.reason = MULTI_DOCUMENT_SKIP.to_owned();
             result.duration_ms = elapsed_ms(started);
             return result;
         }

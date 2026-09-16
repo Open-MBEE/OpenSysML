@@ -228,11 +228,22 @@ func (g *StateGraph) inheritedContent(decl ast.Node, declScope *symbols.Scope) (
 		members = append(members, superMembers...)
 		owners = append(owners, superOwners...)
 		owners = append(owners, def)
+		g.recordInherited(def, body)
 		for _, member := range declMembers(def) {
 			members = append(members, inheritedMember{node: member, owner: def, scope: body})
 		}
 	}
 	return members, owners, nil
+}
+
+// recordInherited notes that content was materialized from def, once per def.
+func (g *StateGraph) recordInherited(def ast.Node, body *symbols.Scope) {
+	for _, in := range g.inherited {
+		if in.Decl == def {
+			return
+		}
+	}
+	g.inherited = append(g.inherited, Inherited{Decl: def, Body: body})
 }
 
 // outerScope is the scope a declaration itself was written in, given the scope
@@ -350,6 +361,7 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 			return nil
 		}
 		clone := *m
+		g.recordDeclaredIn(&clone, scope)
 		state.Substates = append(state.Substates, &clone)
 	case *ast.SubstateMember:
 		if parallel {
@@ -445,6 +457,7 @@ func cloneStateNode(g *StateGraph, node *ast.StateNode, scope *symbols.Scope) *a
 			clone.Substates = append(clone.Substates, cloneStateNode(g, child, g.scopeOf[clone]))
 		case *ast.PseudostateNode:
 			ps := *child
+			g.recordDeclaredIn(&ps, g.scopeOf[clone])
 			clone.Substates = append(clone.Substates, &ps)
 		default:
 			clone.Substates = append(clone.Substates, substate)

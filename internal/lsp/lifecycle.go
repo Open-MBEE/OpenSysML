@@ -15,6 +15,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 		s.applyConformanceSettings(params.InitializationOptions)
 		s.setHoverMarkdown(clientRendersMarkdownHover(params.Capabilities))
 		s.setCompletionMarkdown(clientRendersMarkdownCompletion(params.Capabilities))
+		s.setCrossDocument(clientAdvertisesCrossDocument(params.Capabilities))
 	}
 	return &protocol.InitializeResult{
 		Capabilities: protocol.ServerCapabilities{
@@ -51,6 +52,8 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 				"openSysmlRenderDocument": true,
 				"openSysmlApplyModelEdit": true,
 				"openSysmlStdlibContent":  true,
+				"openSysmlDebug":          true,
+				CrossDocumentCapability:   true,
 			},
 			// Folders added mid-session are only indexed if the client reports them.
 			Workspace: &protocol.ServerCapabilitiesWorkspace{
@@ -95,6 +98,13 @@ func clientRendersMarkdownCompletion(caps protocol.ClientCapabilities) bool {
 	return false
 }
 
+// clientAdvertisesCrossDocument reports whether the client listed the
+// cross-document diagram contract among its experimental capabilities.
+func clientAdvertisesCrossDocument(caps protocol.ClientCapabilities) bool {
+	experimental, ok := caps.Experimental.(map[string]any)
+	return ok && experimental[CrossDocumentCapability] == true
+}
+
 // Initialized indexes the session's folders, so cross-file names resolve without
 // the editor having opened every file.
 func (s *Server) Initialized(ctx context.Context, params *protocol.InitializedParams) error {
@@ -103,9 +113,11 @@ func (s *Server) Initialized(ctx context.Context, params *protocol.InitializedPa
 }
 
 // Shutdown prepares the server for exit: the session stays readable, but only
-// the exit notification is still answered (LSP 3.17 §Shutdown Request).
+// the exit notification is still answered (LSP 3.17 §Shutdown Request). Live
+// debug sessions end with it, releasing what they hold.
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.markShutdown()
+	s.debugSessionsEnded(ctx, "the server is shutting down")
 	return nil
 }
 

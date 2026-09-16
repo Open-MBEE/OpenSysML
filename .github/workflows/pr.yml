@@ -415,6 +415,10 @@ jobs:
             exit 1
           fi
 
+      # Bucket counts only, never pass/fail; see docs/project/fuml-referee.md.
+      - name: fUML referee reproduces its baseline counts
+        run: go run ./cmd/fuml-referee -check
+
       # The RDF round-trip ratchet over every example on its own, so its
       # per-verdict counts are legible in the log and a skip must not pass.
       - name: Run RDF corpus round-trip gate
@@ -539,6 +543,7 @@ jobs:
           ./bin/sysml --version
           ./bin/sysml-lsp --version
           ls -lh bin/
+          make static-check
 
       - name: Upload binary artifacts
         uses: actions/upload-artifact@v4
@@ -700,6 +705,10 @@ jobs:
       # The compliance census is counted when the site is built, never committed.
       - name: Check the compliance census hook
         run: python3 scripts/mkdocs_census-test.py
+
+      # The test-suite figures are counted when the site is built, never committed.
+      - name: Check the test-suite figures hook
+        run: python3 scripts/mkdocs_suite_figures-test.py
 
       # --strict: a link or anchor a moved page left behind fails here rather than
       # publishing a 404 from main.

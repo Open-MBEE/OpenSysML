@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
@@ -198,6 +199,8 @@ type Context struct {
 
 	// schedule is the policy the next run resolves its choice points under.
 	schedule SchedulePolicy
+	// modelSeed fixes the modeled draws of the runs, whatever the policy (modeled.go).
+	modelSeed modelSeed
 	// exploring is the exploration run this context's runs take part in, nil
 	// outside Explore (explore.go).
 	exploring *exploreRun
@@ -207,6 +210,8 @@ type Context struct {
 	// choices are the choice points the context's runs resolved, in order: the
 	// witness a replay of them follows.
 	choices []ChoiceTaken
+	// draws are the random draws the context's runs made, in order (modeled.go).
+	draws []DrawTaken
 
 	// messages are the signals in flight, oldest first. The bus is context-wide,
 	// so a message one behavior sends can be accepted in another.
@@ -411,6 +416,7 @@ func (ctx *Context) schedulerUnder(policy SchedulePolicy) *scheduler {
 	if s.replay != nil {
 		s.replay.ctx = ctx
 	}
+	s.modeled = ctx.modeledUnder(policy, s.replay)
 	return s
 }
 
@@ -1377,10 +1383,33 @@ func (ctx *Context) ExecuteActionPerformedBy(action *symbols.Symbol, self *Insta
 	return exec.Results(), nil
 }
 
+// ActionOutcomePerformedBy runs an action as ExecuteActionPerformedBy does and reports
+// the outcome an exploration compares: its features and, under `this.`, the performer's attributes.
+func (ctx *Context) ActionOutcomePerformedBy(action *symbols.Symbol, self *Instance, inputs map[string]Value) (Outcome, error) {
+	exec, err := ctx.performAction(action, self, inputs)
+	if err != nil {
+		return Outcome{}, err
+	}
+	return (&Invocation{Actions: []*ActionExecutor{exec}}).Outcome(), nil
+}
+
 // performAction runs action to completion, performed by self, and returns the
-// executor that ran it, whose root performance holds what it produced.
+// executor that ran it, whose root performance holds what it produced. An object
+// performing the action runs the performance it already runs rather than a second.
 func (ctx *Context) performAction(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
-	return ctx.performActionFrom(action, action, self, inputs, (*ActionExecutor).initialize)
+	exec, err := performanceOf(action, self, inputs)
+	if err != nil {
+		return nil, err
+	}
+	if exec == nil {
+		return ctx.performActionFrom(action, action, self, inputs, (*ActionExecutor).initialize)
+	}
+	top := ctx.runDepth == 0
+	defer ctx.beginRun()()
+	if err := ctx.runPerformance(exec, top); err != nil {
+		return nil, err
+	}
+	return exec, nil
 }
 
 // startActionStep starts an action performed as a step of an enclosing behavior:
@@ -1435,16 +1464,27 @@ func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self *Inst
 // runPerformed runs a performance beginPerformed started to completion, after
 // which the clock drives it no further; a body around it pauses where it waits.
 func (ctx *Context) runPerformed(exec *ActionExecutor, top bool) error {
+	if err := ctx.runPerformance(exec, top); err != nil {
+		if !paused(err) {
+			ctx.clock.detach(exec)
+		}
+		return err
+	}
+	ctx.clock.detach(exec)
+	return nil
+}
+
+// runPerformance runs a started performance to completion, leaving it on the
+// clock; a body around it pauses where it waits.
+func (ctx *Context) runPerformance(exec *ActionExecutor, top bool) error {
 	if exec.state != StateCompleted {
 		if err := exec.RunToCompletion(); err != nil {
 			if paused(err) {
 				return err
 			}
-			ctx.clock.detach(exec)
 			return fmt.Errorf("execute action: %w", err)
 		}
 	}
-	ctx.clock.detach(exec)
 	if err := ctx.followedWhole(top); err != nil {
 		return fmt.Errorf("execute action: %w", err)
 	}
@@ -1510,29 +1550,96 @@ func (ctx *Context) ExecuteStatePerformedBy(stateMachine *symbols.Symbol, self *
 // StateOutcomeWithEvents runs a state machine as ExecuteStateWithEvents does and
 // reports where it came to as the outcome an exploration compares.
 func (ctx *Context) StateOutcomeWithEvents(stateMachine *symbols.Symbol, events []string) (Outcome, error) {
-	exec, err := ctx.performState(stateMachine, nil, events)
+	return ctx.StateOutcomePerformedBy(stateMachine, nil, events)
+}
+
+// StateOutcomePerformedBy runs a state machine as ExecuteStatePerformedBy does and reports
+// the outcome an exploration compares: its own and, under `this.`, the performer's attributes.
+func (ctx *Context) StateOutcomePerformedBy(stateMachine *symbols.Symbol, self *Instance, events []string) (Outcome, error) {
+	exec, err := ctx.performState(stateMachine, self, events)
 	if err != nil {
 		return Outcome{}, err
 	}
-	return exec.Outcome(), nil
+	return (&Invocation{States: []*StateExecutor{exec}}).Outcome(), nil
+}
+
+// ErrAmbiguousMachine is the typed error a machine named on an object exhibiting
+// it under several usages wraps.
+var ErrAmbiguousMachine = errors.New("ambiguous state machine")
+
+// ErrAmbiguousAction is the typed error an action named on an object performing
+// it under several usages wraps.
+var ErrAmbiguousAction = errors.New("ambiguous action")
+
+// ErrPerformedInputs is the typed error inputs given for an action the object
+// performs already wrap: its performance took the arguments its declaration binds.
+var ErrPerformedInputs = errors.New("inputs for a performed action")
+
+// performanceOf is the performance self runs of action's declaration, to run in
+// place of a second; nil when self performs none.
+func performanceOf(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
+	if self == nil {
+		return nil, nil
+	}
+	switch performed := self.PerformedActionsOf(action); len(performed) {
+	case 0:
+		return nil, nil
+	case 1:
+		if len(inputs) > 0 {
+			return nil, fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", ErrPerformedInputs, symbolText(action))
+		}
+		return performed[0].Action, nil
+	default:
+		return nil, fmt.Errorf("%w: the object performs %s as %s", ErrAmbiguousAction, symbolText(action), strings.Join(behaviorUsages(performed), " and "))
+	}
+}
+
+// behaviorUsages names the usages the behaviors are bound under, unnamed ones left out.
+func behaviorUsages(behaviors []*ObjectBehavior) []string {
+	usages := make([]string, 0, len(behaviors))
+	for _, b := range behaviors {
+		if member := b.Member(); member != nil && member.Name != "" {
+			usages = append(usages, member.Name)
+		}
+	}
+	return usages
+}
+
+// exhibitedBy is the machine self exhibits under stateMachine's declaration, to
+// run in place of a second performance of it; nil when self exhibits none.
+func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*StateExecutor, error) {
+	if self == nil {
+		return nil, nil
+	}
+	switch exhibited := self.ExhibitedStatesOf(stateMachine); len(exhibited) {
+	case 0:
+		return nil, nil
+	case 1:
+		return exhibited[0].State, nil
+	default:
+		return nil, fmt.Errorf("%w: the object exhibits %s as %s", ErrAmbiguousMachine, symbolText(stateMachine), strings.Join(behaviorUsages(exhibited), " and "))
+	}
 }
 
 // performState runs a state machine performed by self to completion or
-// suspension, the events injected before it runs, and returns its executor.
+// suspension, the events injected before it runs, and returns its executor. An
+// object exhibiting the machine runs the one it exhibits rather than a second.
 func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, events []string) (*StateExecutor, error) {
 	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
 
-	// Create executor
-	exec, err := newStateExecutor(ctx, stateMachine, self)
+	exec, err := exhibitedBy(stateMachine, self)
 	if err != nil {
-		return nil, fmt.Errorf("create state executor: %w", err)
+		return nil, err
 	}
-	defer ctx.clock.detach(exec)
-
-	// Initialize execution (enters initial state)
-	if err := exec.initialize(); err != nil {
-		return nil, fmt.Errorf("initialize state machine: %w", err)
+	if exec == nil {
+		if exec, err = newStateExecutor(ctx, stateMachine, self); err != nil {
+			return nil, fmt.Errorf("create state executor: %w", err)
+		}
+		defer ctx.clock.detach(exec)
+		if err := exec.initialize(); err != nil {
+			return nil, fmt.Errorf("initialize state machine: %w", err)
+		}
 	}
 
 	// Inject external signal events. Each event name is treated as a signal type

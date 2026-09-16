@@ -1,0 +1,12 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Go"}, {"signal": "Next"}, {"signal": "Stop"}],
+	"finalState": "done",
+	"stateVisits": ["idle", "work", "w1", "rest", "inner", "r1", "done"],
+	"outputs": {
+		"x": {"type": "Integer", "value": 1},
+		"y": {"type": "Integer", "value": 1},
+		"log": {"type": "String", "value": "go(effect);work(entry);toW1(effect);w1(entry);work(exit);next(effect);rest(entry);h(effect);inner(entry);toR1(effect);r1(entry);rest(exit);"}
+	}
+}

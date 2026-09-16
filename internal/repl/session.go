@@ -100,6 +100,9 @@ type Session struct {
 	names      *nameTable                   // simple names of the documents, rebuilt when their scope trees change
 	instances  map[string]*runtime.Instance // FQN -> instance for %instantiate tracking
 	unnamed    []unnamedObject              // objects a later %instantiate of their name displaced, still addressed by id
+	// given are the declarations -instantiate named, in order: a fresh-run engine
+	// creates an object of each in every run, before the behaviors start.
+	given []string
 
 	// argMemo and nameMemo hold what command text parsed to, so a repeated
 	// invocation is evaluated without being parsed again.
@@ -135,6 +138,9 @@ type Session struct {
 
 	// schedule is the policy runs started from here on resolve choice points under.
 	schedule runtime.SchedulePolicy
+
+	// modelSeed is the seed runs started from here on draw their modeled randomness from.
+	modelSeed sessionSeed
 
 	// jobs is how many runs of one plan go concurrently.
 	jobs int
@@ -311,7 +317,7 @@ func (s *Session) SetBudgets(budgets runtime.Budgets) error {
 		s.lost = lossOnBudgets(n)
 	}
 	s.instances = make(map[string]*runtime.Instance)
-	s.unnamed = nil
+	s.unnamed, s.given = nil, nil
 	s.endDebugSessions(boundsChanged)
 	return nil
 }
@@ -1120,7 +1126,7 @@ func (s *Session) clear() []string {
 		s.idxVersion = 0
 	}
 	s.instances = make(map[string]*runtime.Instance)
-	s.unnamed = nil
+	s.unnamed, s.given = nil, nil
 	s.lost = lost
 	s.endedAction, s.endedState = nil, nil
 	s.endDebugSessions(sessionReset)
@@ -1204,6 +1210,7 @@ func (s *Session) newRuntimeOver(model *runtime.Model) (*runtime.Context, error)
 	if err := ctx.SetSchedule(s.drivenSchedule()); err != nil {
 		return nil, err
 	}
+	s.applyModelSeed(ctx)
 	return ctx, nil
 }
 

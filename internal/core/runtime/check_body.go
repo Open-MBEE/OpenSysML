@@ -47,8 +47,8 @@ func (s *stateSpeller) nested(e *ActionExecutor) string {
 	defer s.enter(e)()
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s{state %s", symbolText(e.action), e.state)
-	if e.pausedAt != "" {
-		fmt.Fprintf(&b, " at %s", e.pausedAt)
+	if e.pausedAt.name != "" {
+		fmt.Fprintf(&b, " at %s", e.pausedAt.name)
 	}
 	for _, perf := range s.frames {
 		b.WriteString("; ")

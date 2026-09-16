@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -116,6 +117,76 @@ package KitViews {
 	}
 	if rendering.View != "KitViews::widgetTree" {
 		t.Errorf("View = %q, want KitViews::widgetTree", rendering.View)
+	}
+}
+
+// The snapshot a rendering comes with holds every document as the rendering
+// read it — the one asked of and the others it draws from — so that a span the
+// rendering locates in any of them is placed in the text it was read from,
+// however the workspace has changed since.
+func TestRenderViewSnapshotHoldsEveryDocumentAsRendered(t *testing.T) {
+	const parts = "package Machinery {\n\tpart def Engine {\n\t\tpart rotor;\n\t}\n}\n"
+	const views = "package EngineViews {\n\tprivate import Views::*;\n\tprivate import StandardViewDefinitions::*;\n\n\tview engineView : InterconnectionView {\n\t\texpose Machinery::Engine;\n\t}\n}\n"
+	ws := openDoc(t, "views.sysml", views)
+	ws.Open("parts.sysml", []byte(parts), 1)
+	rendering, snapshot, err := ws.RenderView("views.sysml", "EngineViews::engineView")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if snapshot.Rendered != ws.Document("views.sysml") {
+		t.Error("Rendered is not the document the rendering was asked of")
+	}
+	rendered := snapshot.Document("parts.sysml")
+	if rendered == nil || rendered != ws.Document("parts.sysml") {
+		t.Fatalf("snapshot holds parts.sysml as %v, want the workspace's document", rendered)
+	}
+	if got := snapshot.Document("Views.sysml"); got != nil {
+		t.Errorf("snapshot holds a bundled library file as %v, want none", got)
+	}
+
+	ws.Update("parts.sysml", []byte("// The engine, restated.\n"+parts), 2)
+	if snapshot.Document("parts.sysml") != rendered || rendered.Version != 1 || string(rendered.Content) != parts {
+		t.Errorf("after parts.sysml changed, the snapshot holds it as %+v, want the text rendered at version 1", snapshot.Document("parts.sysml"))
+	}
+	if current := ws.Document("parts.sysml"); current == rendered || current.Version != 2 {
+		t.Errorf("the workspace holds parts.sysml at %d, want the newer version 2", current.Version)
+	}
+	var rotor view.NodeData
+	for _, node := range rendering.Data().Nodes {
+		if node.Name == "rotor" {
+			rotor = node
+		}
+	}
+	if rotor.Origin.Doc != "parts.sysml" || !rotor.Origin.Located() {
+		t.Fatalf("rotor origin = %+v, want one located in parts.sysml", rotor.Origin)
+	}
+	if got := string(rendered.Content[rotor.Origin.Span.Offset : rotor.Origin.Span.Offset+rotor.Origin.Span.Len]); !strings.HasPrefix(got, "part rotor;") {
+		t.Errorf("rotor's span in the snapshot's text spells %q, want the declaration", got)
+	}
+}
+
+// A transition a usage inherits from a definition in another document is
+// located there and labelled with its trigger and guard as written there.
+func TestRenderViewLocatesInheritedTransitionsInTheirDocument(t *testing.T) {
+	const defs = "package Plant {\n\tattribute def Fault;\n\tstate def Machine {\n\t\tattribute load;\n\t\tentry; then off;\n\t\tstate off;\n\t\tstate on;\n\t\ttransition first off accept Fault if load > 3 then on;\n\t}\n}\n"
+	const uses = "package Uses {\n\tprivate import Views::*;\n\tprivate import StandardViewDefinitions::*;\n\n\tstate machine : Plant::Machine;\n\n\tview machineView : StateTransitionView {\n\t\texpose machine;\n\t}\n}\n"
+	ws := openDoc(t, "uses.sysml", uses)
+	ws.Open("defs.sysml", []byte(defs), 1)
+	rendering, _, err := ws.RenderView("uses.sysml", "Uses::machineView")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	var labels []string
+	for _, edge := range rendering.Data().Edges {
+		if edge.Label != "" {
+			labels = append(labels, edge.Label)
+		}
+		if edge.Origin.Doc != "defs.sysml" {
+			t.Errorf("edge %s -> %s is located in %q, want defs.sysml", edge.From, edge.To, edge.Origin.Doc)
+		}
+	}
+	if want := []string{"accept Fault [load > 3]"}; !reflect.DeepEqual(labels, want) {
+		t.Errorf("labels = %q, want %q; notices %v", labels, want, rendering.Notices)
 	}
 }
 
@@ -302,4 +373,40 @@ func TestShortNamedDeclarationsAreCountedOnce(t *testing.T) {
 			t.Errorf("node %q drawn %d times, want once", label, count)
 		}
 	}
+}
+
+// A transition a machine inherits from a definition in another document is
+// labelled as written there: its timed trigger and guard verbatim.
+func TestRenderViewLabelsInheritedTransitionsFromTheirDocument(t *testing.T) {
+	ws := openDoc(t, "base.sysml", `package Plant {
+	state def Machine {
+		attribute ready : Boolean;
+		entry; then idle;
+		state idle;
+		transition first idle accept after 5 [s] if ready then done;
+		state done;
+	}
+}
+`)
+	ws.Open("derived.sysml", []byte(`package Derived {
+	private import StandardViewDefinitions::*;
+	state def Special :> Plant::Machine;
+	view specialStates : StateTransitionView { expose Derived::Special; }
+}
+`), 1)
+	rendering, _, err := ws.RenderView("derived.sysml", "Derived::specialStates")
+	if err != nil {
+		t.Fatalf("render the derived machine: %v", err)
+	}
+	var labels []string
+	for _, edge := range rendering.Data().Edges {
+		labels = append(labels, edge.Label)
+	}
+	want := "after 5 [s] [ready]"
+	for _, label := range labels {
+		if label == want {
+			return
+		}
+	}
+	t.Errorf("edge labels = %q, want %q among them", labels, want)
 }

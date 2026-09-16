@@ -64,7 +64,7 @@ func (s *Server) applyDidChange(ctx context.Context, name string, changes []rawC
 	for _, ch := range changes {
 		content = applyRawContentChange(content, ch)
 	}
-	s.ws.Update(name, content, version)
+	s.debugEdit(ctx, "", func() { s.ws.Update(name, content, version) })
 	s.publishDiagnostics(ctx, name)
 	s.queueOpenDiagnostics(ctx, name)
 }

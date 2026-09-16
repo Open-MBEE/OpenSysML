@@ -200,6 +200,261 @@ func TestExploreStateOverTheWire(t *testing.T) {
 	}
 }
 
+// pairModel is two parts of one assembly talking through a connector: the
+// ground hails the craft on creation, which only a craft made inside the pair hears.
+const pairModel = `
+package Wire {
+  private import ScalarValues::*;
+  item def Ping;
+  port def Link { in item ping : Ping; }
+  part def Ground {
+    port p : ~Link;
+    exhibit state hail { entry; then go; state go { entry send new Ping() via p; } }
+  }
+  part def Craft {
+    port p : Link;
+    attribute pinged : Boolean = false;
+    exhibit state modes {
+      entry; then waiting;
+      state waiting;
+      transition first waiting accept Ping via p then active;
+      state active { entry assign pinged := true; }
+    }
+    action look { out seen : Boolean; first start; then action read assign seen := pinged; then done; }
+  }
+  part def Pair {
+    part ground : Ground;
+    part craft : Craft;
+    part spares : Craft[2];
+    connect craft.p to ground.p;
+  }
+  part pair : Pair;
+}
+`
+
+// A behavior performed on an object named by a path from a declaration runs on the
+// object the path reaches inside an object of the declaration, so its assembly's
+// connectors reach it; a machine the object exhibits is the one run. Under explore
+// each run makes the object anew. A path naming no object fails the call, or the run.
+func TestPerformOnANestedObjectOverTheWire(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, pairModel, "nested-performer")
+
+	for _, tc := range []struct{ performer, final string }{
+		{"Wire::pair.craft", "active"},
+		{"Wire::pair::craft", "active"},
+		{"Wire::pair.spares[1]", "waiting"},
+		{"Wire::Pair::craft", "waiting"},
+		{"Wire::Craft", "waiting"},
+		{"", "waiting"},
+	} {
+		resp, err := srv.ExecuteState(ctx, &pb.ExecuteStateRequest{
+			ModelHash: hash, StateMachineSymbolId: "Wire::Craft::modes", PerformerSymbolId: tc.performer,
+		})
+		if err != nil || resp.Error != "" {
+			t.Fatalf("ExecuteState on %q: %v %q", tc.performer, err, resp.GetError())
+		}
+		if got := resp.StatesVisited; got[len(got)-1] != tc.final {
+			t.Errorf("on %q visited %v, want to end in %s", tc.performer, got, tc.final)
+		}
+		x, err := srv.ExecuteState(ctx, &pb.ExecuteStateRequest{
+			ModelHash: hash, StateMachineSymbolId: "Wire::Craft::modes", PerformerSymbolId: tc.performer, Schedule: "explore",
+		})
+		if err != nil || x.Error != "" {
+			t.Fatalf("explore on %q: %v %q", tc.performer, err, x.GetError())
+		}
+		if len(x.Outcomes) != 1 || x.Outcomes[0].FinalState != tc.final || !x.Exploration.Complete {
+			t.Errorf("explored on %q: %v, want one outcome ending in %s", tc.performer, x.Outcomes, tc.final)
+		}
+		if tc.performer == "" {
+			continue
+		}
+		if pinged, held := x.Outcomes[0].Outputs["this.pinged"]; !held || pinged.GetBoolValue() != (tc.final == "active") {
+			t.Errorf("explored on %q outputs %v, want this.pinged = %v", tc.performer, x.Outcomes[0].Outputs, tc.final == "active")
+		}
+	}
+
+	act, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+		ModelHash: hash, ActionSymbolId: "Wire::Craft::look", PerformerSymbolId: "Wire::pair.craft",
+	})
+	if err != nil || act.Error != "" || !act.Outputs["seen"].GetBoolValue() {
+		t.Errorf("look on pair.craft: %v %q %v, want seen = true", err, act.GetError(), act.GetOutputs())
+	}
+	x, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+		ModelHash: hash, ActionSymbolId: "Wire::Craft::look", PerformerSymbolId: "Wire::pair.craft", Schedule: "explore",
+	})
+	if err != nil || x.Error != "" || len(x.Outcomes) != 1 || !x.Outcomes[0].Outputs["seen"].GetBoolValue() {
+		t.Errorf("explored look on pair.craft: %v %q %v, want one outcome with seen = true", err, x.GetError(), x.GetOutcomes())
+	} else if !x.Outcomes[0].Outputs["this.pinged"].GetBoolValue() {
+		t.Errorf("explored look on pair.craft outputs %v, want this.pinged = true", x.Outcomes[0].Outputs)
+	}
+
+	for path, want := range map[string]string{
+		"Wire::pair.tug":       `Wire::pair has no feature "tug"`,
+		"Wire::pair.spares":    "spares of Wire::pair holds 2 objects: pick one by index",
+		"Wire::pair.spares[3]": "spares[3] names none",
+		"#1":                   "performer #1 names an object by id",
+		"Wire::nobody.craft":   "symbol not found: Wire::nobody",
+	} {
+		resp, err := srv.ExecuteState(ctx, &pb.ExecuteStateRequest{
+			ModelHash: hash, StateMachineSymbolId: "Wire::Craft::modes", PerformerSymbolId: path,
+		})
+		if err != nil || !strings.Contains(resp.Error, want) {
+			t.Errorf("on %s: %v %q, want %q", path, err, resp.GetError(), want)
+		}
+		x, err := srv.ExecuteState(ctx, &pb.ExecuteStateRequest{
+			ModelHash: hash, StateMachineSymbolId: "Wire::Craft::modes", PerformerSymbolId: path, Schedule: "explore",
+		})
+		if err != nil || len(x.Outcomes) != 1 || !strings.Contains(x.Outcomes[0].Error, want) {
+			t.Errorf("explored on %s: %v %v, want the one failed outcome %q", path, err, x.GetOutcomes(), want)
+		}
+	}
+}
+
+// performerRaceModel is an object whose behaviors race two assignments to its own
+// attribute and produce nothing else: only the object tells their outcomes apart.
+const performerRaceModel = `
+package Tank {
+  private import ScalarValues::*;
+  part def Tank {
+    attribute level : Integer = 0;
+    action fill {
+      first start;
+      fork split;
+      action a { assign this.level := 1; }
+      action b { assign this.level := 2; }
+      join sync;
+      done;
+      succession first start then split;
+      succession first split then a;
+      succession first split then b;
+      succession first a then sync;
+      succession first b then sync;
+      succession first sync then done;
+    }
+    state modes {
+      entry; then filling;
+      state filling { entry perform fill; }
+    }
+  }
+  part tank : Tank;
+}
+`
+
+// An explored behavior's outcomes carry the performer's attributes under `this.`,
+// so two runs leaving the object differently are two outcomes, as the CLI tables them.
+func TestExploredOutcomesCarryThePerformersAttributesOverTheWire(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, performerRaceModel, "performer-race")
+
+	levels := func(outcomes []*pb.Outcome) []int64 {
+		var got []int64
+		for _, o := range outcomes {
+			if o.Error != "" {
+				t.Fatalf("outcome failed: %s", o.Error)
+			}
+			got = append(got, o.Outputs["this.level"].GetIntValue())
+		}
+		return got
+	}
+	act, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+		ModelHash: hash, ActionSymbolId: "Tank::Tank::fill", PerformerSymbolId: "Tank::tank", Schedule: "explore",
+	})
+	if err != nil || act.Error != "" {
+		t.Fatalf("explore fill on tank: %v %q", err, act.GetError())
+	}
+	if got := levels(act.Outcomes); len(got) != 2 || got[0] != 1 || got[1] != 2 || !act.Exploration.Complete {
+		t.Errorf("explored fill on tank: this.level over %v, want [1 2] complete: %v", got, act.Outcomes)
+	}
+	state, err := srv.ExecuteState(ctx, &pb.ExecuteStateRequest{
+		ModelHash: hash, StateMachineSymbolId: "Tank::Tank::modes", PerformerSymbolId: "Tank::tank", Schedule: "explore",
+	})
+	if err != nil || state.Error != "" {
+		t.Fatalf("explore modes on tank: %v %q", err, state.GetError())
+	}
+	if got := levels(state.Outcomes); len(got) != 2 || got[0] != 1 || got[1] != 2 || !state.Exploration.Complete {
+		t.Errorf("explored modes on tank: this.level over %v, want [1 2] complete: %v", got, state.Outcomes)
+	}
+	for _, o := range state.Outcomes {
+		if o.FinalState != "filling" {
+			t.Errorf("explored modes on tank ends in %q, want filling", o.FinalState)
+		}
+	}
+}
+
+const performedActionModel = `
+package Pump {
+  private import ScalarValues::*;
+  action def Fill { out poured : Integer; }
+  part def Pump {
+    attribute level : Integer = 0;
+    perform action fill : Fill {
+      first start;
+      then action pour { assign level := level + 1; assign poured := level; }
+      then done;
+    }
+  }
+  part pump : Pump;
+  part def Twin { perform action morning : Fill; perform action evening : Fill; }
+  part twin : Twin;
+}
+`
+
+// An action the performer already performs runs as that one performance, executed
+// or explored, so it writes the object once; inputs for it are refused, as are
+// objects performing it twice over.
+func TestActionOnItsPerformerRunsOnceOverTheWire(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, performedActionModel, "performed-action")
+
+	for _, action := range []string{"Pump::Pump::fill", "Pump::Fill"} {
+		act, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+			ModelHash: hash, ActionSymbolId: action, PerformerSymbolId: "Pump::pump",
+		})
+		if err != nil || act.Error != "" {
+			t.Fatalf("%s on pump: %v %q", action, err, act.GetError())
+		}
+		if got := act.Outputs["poured"].GetIntValue(); got != 1 {
+			t.Errorf("%s on pump poured %d, want 1: one performance", action, got)
+		}
+		x, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+			ModelHash: hash, ActionSymbolId: action, PerformerSymbolId: "Pump::pump", Schedule: "explore",
+		})
+		if err != nil || x.Error != "" || len(x.Outcomes) != 1 || x.Outcomes[0].Error != "" {
+			t.Fatalf("explored %s on pump: %v %q %v", action, err, x.GetError(), x.GetOutcomes())
+		}
+		if got := x.Outcomes[0].Outputs["this.level"].GetIntValue(); got != 1 {
+			t.Errorf("explored %s on pump: this.level = %d, want 1: one performance", action, got)
+		}
+		if got := x.Outcomes[0].Outputs["poured"].GetIntValue(); got != 1 {
+			t.Errorf("explored %s on pump: poured = %d, want 1", action, got)
+		}
+	}
+	for _, tc := range []struct {
+		action, performer, want string
+		inputs                  map[string]*pb.Value
+	}{
+		{"Pump::Pump::fill", "Pump::pump", "inputs for a performed action", map[string]*pb.Value{"level": {Kind: &pb.Value_IntValue{IntValue: 3}}}},
+		{"Pump::Fill", "Pump::twin", "ambiguous action: the object performs Fill as morning and evening", nil},
+	} {
+		act, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+			ModelHash: hash, ActionSymbolId: tc.action, PerformerSymbolId: tc.performer, Inputs: tc.inputs,
+		})
+		if err != nil || !strings.Contains(act.Error, tc.want) {
+			t.Errorf("%s on %s: %v %q, want %q", tc.action, tc.performer, err, act.GetError(), tc.want)
+		}
+		x, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+			ModelHash: hash, ActionSymbolId: tc.action, PerformerSymbolId: tc.performer, Inputs: tc.inputs, Schedule: "explore",
+		})
+		if err != nil || len(x.Outcomes) != 1 || !strings.Contains(x.Outcomes[0].Error, tc.want) {
+			t.Errorf("explored %s on %s: %v %v, want the one failed outcome %q", tc.action, tc.performer, err, x.GetOutcomes(), tc.want)
+		}
+	}
+}
+
 // An analysis case's outcomes carry its outputs and verdicts.
 func TestExploreAnalysisOverTheWire(t *testing.T) {
 	srv := mustNewService(t, 10)

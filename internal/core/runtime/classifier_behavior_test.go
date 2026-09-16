@@ -1673,3 +1673,68 @@ func TestPerformedActionDecidesOnItsOwnWrite(t *testing.T) {
 		t.Errorf("alerted = %d, want 1: the decision read the level the action wrote", got)
 	}
 }
+
+// An action executed on an object performing it runs the performance the object
+// already runs of it, so the object is written once: its outcome is that
+// performance's, with the object's attributes. Inputs for it are refused, as its
+// declaration binds its arguments; an object performing it twice over is refused
+// naming the usages; an action the object does not perform is performed anew.
+func TestActionExecutedOnItsPerformerRunsTheExistingPerformance(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package P {
+		action def Fill { out poured : Integer; }
+		part def Tank {
+			attribute level : Integer = 0;
+			perform action fill : Fill {
+				first start;
+				then action pour { assign level := level + 1; assign poured := level; }
+				then done;
+			}
+			action top {
+				first start;
+				then action pour assign level := level + 10;
+				then done;
+			}
+		}
+		part def Twin { perform action morning : Fill; perform action evening : Fill; }
+	}`))
+	tank, err := ctx.Instantiate(oneSymbol(t, idx, "P::Tank"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	fill := oneSymbol(t, idx, "P::Tank::fill")
+	results, err := ctx.ExecuteActionPerformedBy(fill, tank, nil)
+	if err != nil {
+		t.Fatalf("execute fill on the tank: %v", err)
+	}
+	if got := featureInt(t, ctx, tank, "level"); got != 1 {
+		t.Errorf("level = %d after executing fill on the tank, want 1: one performance", got)
+	}
+	if poured, ok := results["poured"]; !ok || poured.Const.Int != 1 {
+		t.Errorf("fill's results %v, want poured = 1 from the performance the tank runs", results)
+	}
+	outcome, err := ctx.ActionOutcomePerformedBy(oneSymbol(t, idx, "P::Fill"), tank, nil)
+	if err != nil {
+		t.Fatalf("outcome of Fill on the tank: %v", err)
+	}
+	if level, ok := outcome.Outputs["this.level"]; !ok || level.Const.Int != 1 {
+		t.Errorf("outcome %v, want this.level = 1", outcome.Outputs)
+	}
+	if _, err := ctx.ExecuteActionPerformedBy(fill, tank, map[string]Value{"n": intArgument(2)}); !errors.Is(err, ErrPerformedInputs) {
+		t.Errorf("fill with inputs on the tank: %v, want %v", err, ErrPerformedInputs)
+	}
+	if _, err := ctx.ExecuteActionPerformedBy(oneSymbol(t, idx, "P::Tank::top"), tank, nil); err != nil {
+		t.Fatalf("execute top on the tank: %v", err)
+	}
+	if got := featureInt(t, ctx, tank, "level"); got != 11 {
+		t.Errorf("level = %d after top, want 11: an action the tank does not perform runs anew", got)
+	}
+
+	twin, err := ctx.Instantiate(oneSymbol(t, idx, "P::Twin"))
+	if err != nil {
+		t.Fatalf("Instantiate Twin: %v", err)
+	}
+	_, err = ctx.ExecuteActionPerformedBy(oneSymbol(t, idx, "P::Fill"), twin, nil)
+	if !errors.Is(err, ErrAmbiguousAction) || !strings.Contains(err.Error(), "morning and evening") {
+		t.Errorf("Fill on an object performing it twice: %v, want %v naming morning and evening", err, ErrAmbiguousAction)
+	}
+}

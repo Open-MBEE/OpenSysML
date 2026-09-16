@@ -70,6 +70,7 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		e.changeWaits = poll.waits
 		return false, err
 	}
+	e.markDispatch()
 	fired, err := e.dispatchInOrder("on change", candidates, func(candidate dispatchCandidate, trans *lower.Transition, notes []RunNote) (bool, error) {
 		// An earlier candidate's effect may have blocked this guard since the poll
 		// read it, and the fire path re-tests it: a transition that would not move
@@ -111,6 +112,7 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 	e.changeWaits = poll.waits
 	dispatched := fired || consumed
 	e.moved = e.moved || dispatched
+	e.pauseAtBreakpoint()
 	return dispatched, nil
 }
 
@@ -330,7 +332,7 @@ func (e *StateExecutor) canStillProgress() bool {
 	if e.state != StateSuspended {
 		return e.HasPendingWork()
 	}
-	return e.eventQueue.Len() > 0 || e.hasPendingSignal() || e.HasPendingDoWork()
+	return e.completionDue || e.eventQueue.Len() > 0 || e.hasPendingSignal() || e.HasPendingDoWork()
 }
 
 // SuspendReason says why a machine that cannot progress cannot: the change

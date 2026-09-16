@@ -25,6 +25,7 @@ const (
 	CapabilityFeatureValues        = sysmlgrpc.CapabilityFeatureValues
 	CapabilityApplyEdits           = sysmlgrpc.CapabilityApplyEdits
 	CapabilityAuthoring            = sysmlgrpc.CapabilityAuthoring
+	CapabilityEditDocuments        = sysmlgrpc.CapabilityEditDocuments
 	CapabilityInlineLanguage       = sysmlgrpc.CapabilityInlineLanguage
 	CapabilityStrictConformance    = sysmlgrpc.CapabilityStrictConformance
 	CapabilityParseSources         = sysmlgrpc.CapabilityParseSources
@@ -41,6 +42,7 @@ const (
 	CapabilityVerificationVerdicts = sysmlgrpc.CapabilityVerificationVerdicts
 	CapabilityCaseEvaluations      = sysmlgrpc.CapabilityCaseEvaluations
 	CapabilityFinalTime            = sysmlgrpc.CapabilityFinalTime
+	CapabilityPerformer            = sysmlgrpc.CapabilityPerformer
 	CapabilityEngines              = sysmlgrpc.CapabilityEngines
 	CapabilityUndeterminedValue    = sysmlgrpc.CapabilityUndeterminedValue
 )

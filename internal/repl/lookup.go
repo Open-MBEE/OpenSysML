@@ -262,8 +262,14 @@ func (s *Session) walkHeldObjects(ctx *runtime.Context, visit func(carrier) bool
 
 // walk is walkObjects within limit objects visited, or unbounded for a limit of 0.
 func (s *Session) walk(nested func(carrier) []carrier, visit func(carrier) bool, limit int) {
-	seen := make(map[int64]bool, s.heldObjects())
-	queue := s.rootCarriers()
+	walkFrom(s.rootCarriers(), nested, visit, limit)
+}
+
+// walkFrom visits roots and, while visit reports true, the objects nested yields
+// for them, breadth-first, each object once, within limit visits or unbounded for 0.
+func walkFrom(roots []carrier, nested func(carrier) []carrier, visit func(carrier) bool, limit int) {
+	seen := make(map[int64]bool, len(roots))
+	queue := roots
 	for visited := 0; len(queue) > 0 && (limit == 0 || visited < limit); visited++ {
 		cur := queue[0]
 		queue = queue[1:]

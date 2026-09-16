@@ -129,6 +129,30 @@ func doc() usage.Doc {
 					"than as a named distribution.",
 			},
 		}, {
+			Title: "Running an action many times",
+			Examples: []usage.Example{
+				usage.Ex(`sysml -action Acquire -runs 100 -seed 7 m.sysml`, "100 runs, every feature"),
+				usage.Ex(`sysml -action Acquire -runs 100 -seed 7 -observe elapsed m.sysml`, "One observable"),
+				usage.Ex(`sysml -action Acquire -seed 7 m.sysml`, "One run, its draws seeded"),
+			},
+			Paragraphs: []string{
+				"-runs runs one -action to completion that many times, each run on a " +
+					"fresh context whose modeled randomness — the weighted decisions " +
+					"@Probability states and the draws of uniform, uniformInteger, " +
+					"triangular and normal — is seeded from a seed of its own derived " +
+					"from -seed, so the same seed makes the same table on every platform " +
+					"and a run can be replayed alone. -schedule stays the second, " +
+					"independent knob: it decides the concurrency choices, which carry " +
+					"no probability, in every run alike.",
+				"The table has one row per run, numbered, with each -observe feature " +
+					"of the action — `clock` is the simulation time the run completed " +
+					"at, never a feature of that name — and without -observe every " +
+					"feature the action holds and the clock. Below it each numeric observable is summarised over the " +
+					"completed runs: min, mean, max, the nearest-rank p50 and p90, and " +
+					"a histogram; a non-numeric one is counted by value. A feature the " +
+					"action does not hold is refused.",
+			},
+		}, {
 			Title: "Conversion",
 			Examples: []usage.Example{
 				usage.Ex("sysml model.sysml -convert ttl", "SysML notation to RDF Turtle, on stdout"),
@@ -395,7 +419,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&syncMintIDs, "sync-mint-ids", false, "Mint a UUID for each unannotated element being created, so the repository can address it stably")
 	fs.StringVar(&syncAnnotate, "sync-annotate", "", "Write the model to this file with each minted id declared as an @ElementId annotation (needs -sync-mint-ids)")
 	fs.Var(&deprecatedFlag{instead: "-to has been replaced by -convert, as `sysml model.sysml -convert ttl`"}, "to", "Replaced by -convert, which names the output format")
-	fs.Var(&modelChecks.instantiate, "instantiate", "Create an object of this definition before the checks, so a verdict is about it (repeatable)")
+	fs.Var(&modelChecks.instantiate, "instantiate", "Create an object of this definition or usage before the checks, so a verdict is about it; under -schedule explore, -engine check, smt or all, each run creates an object of it of its own before the behaviors start, one per -instantiate, which a -state or -action named alone attaches to and a path such as mission.vehicle walks into (repeatable)")
 	fs.Var(&modelChecks.constraints, "constraint", "Evaluate this constraint and exit (repeatable)")
 	fs.Var(&modelChecks.requirements, "requirement", "Evaluate this requirement and exit, reporting beside its verdict the verdict of every verification case verifying it (repeatable)")
 	fs.Var(&modelChecks.satisfy, "satisfy", "Evaluate every satisfaction assertion, or with -satisfy=<name> those the named element states, reporting beside each verdict the verdict of every verification case verifying the requirement (repeatable)")
@@ -404,10 +428,12 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.analyses, "analysis", "Run this analysis or verification case and report its outputs and the verdict of its objective, as -analysis \"Pkg::Case(3.0) Pkg::part\" with arguments for its inputs and an object as its subject; a verification case also reports the verdict its body produced (repeatable)")
 	fs.Var(&modelChecks.sweeps, "sweep", "Run the named -analysis or -calc once per value of this range, as -sweep \"speed=0.0 [SI::'m/s']..10.0 [SI::'m/s']:2.0 [SI::'m/s']\"; the values are produced in the parameter's declared type; several ranges run their cartesian product (repeatable)")
 	fs.Var(&modelChecks.samples, "samples", "Draw this many values uniformly from each -sweep range instead of stepping through them, Integers or reals as the parameter is typed; needs -seed")
-	fs.Var(&modelChecks.seed, "seed", "Seed -samples draws from, so the same seed draws the same table")
+	fs.Var(&modelChecks.seed, "seed", "Seed the model's own draws — Probability-weighted decisions, RandomFunctions — come from in every run made, whatever -schedule, and the seed -samples or -runs draws from; the same seed draws the same run or table")
+	fs.Var(&modelChecks.runs, "runs", "Run the -action this many times, each run's modeled randomness (weighted decisions, random functions) seeded from -seed, and report the table of the -observe features with each one's distribution; needs -seed")
+	fs.Var(&modelChecks.observe, "observe", "Report this feature of the -runs action, or `clock` for the time it completed at; default every feature it holds and the clock (repeatable)")
 	fs.Var(&modelChecks.queries, "run-query", "Execute this document query and report its rows, as -run-query \"HeavySubsystems root=telescope\" (repeatable)")
-	fs.Var(&modelChecks.actions, "action", "Run this action to completion, as -action \"Drive rover1\" to run it on an object (repeatable)")
-	fs.Var(&modelChecks.states, "state", "Run this state machine, as -state \"Mission rover1\" to run it on an object (repeatable)")
+	fs.Var(&modelChecks.actions, "action", "Run this action to completion, as -action \"Drive rover1\" to run it on an object; under -schedule explore each run performs it on an object of its own, named as a definition or usage to create, a path into one such as mission.rover, or, named alone, the run's one -instantiate object performing it (repeatable)")
+	fs.Var(&modelChecks.states, "state", "Run this state machine, as -state \"Mission rover1\" to run it on an object; under -schedule explore each run creates the object of its own, named as a definition or usage to create or a path such as mission.rover into one — the declaration is created once per run, so machines on sibling parts share it and its connectors — or, named alone, the run's one -instantiate object exhibiting it (repeatable)")
 	fs.Var(&modelChecks.advance, "advance", "Simulated time units to run the -action and -state behaviors for, on one shared clock (default: a state machine takes only its initial transition; an action runs to completion)")
 	fs.Var(&modelChecks.checker.diverge, "check-diverge", "With -engine check, -engine smt or -engine all: report this feature sensitive when schedules leave it with different final values — check searching the schedules, smt asking the solver for two that end it apart — as -check-diverge x, -check-diverge step.out for a performed node's output or -check-diverge this.level for the performing object's (not covered under smt), a name nothing holds refused; default every attribute of the action and of its performing object, the action's own when it has none (repeatable)")
 	fs.Var(&modelChecks.checker.properties, "check-property", "With -engine check or -engine all: evaluate this constraint or requirement at every stable state of the action, on the performing object when there is one, and report a schedule at which it is false (repeatable)")

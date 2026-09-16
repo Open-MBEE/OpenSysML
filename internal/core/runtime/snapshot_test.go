@@ -123,7 +123,7 @@ func (r *steppedRun) digest() string {
 	for _, exec := range r.states {
 		var active []string
 		for _, state := range exec.ActiveStates() {
-			active = append(active, getNodeName(state))
+			active = append(active, StateVertexName(state))
 		}
 		fmt.Fprintf(&b, "state %s state=%v active=%v stack=%d queue=%d deferred=%d data=%s\n",
 			symbolText(exec.stateMachine), exec.State(), active, len(exec.stateStack), exec.eventQueue.Len(), len(exec.deferred), formatValues(exec.StateData()))
@@ -724,7 +724,7 @@ func TestSnapshotStepsReachAPendingCompositeCompletionAndAHeldDeferral(t *testin
 		reaches(t, "state_composite_completion_then_machine_done", func(exec *StateExecutor) bool {
 			for _, event := range exec.eventQueue.events {
 				trans, ok := event.Payload.(*lower.Transition)
-				if ok && trans.Trigger == nil && getNodeName(trans.Source) == "s1" && exec.stateComplete(trans.Source.(*ast.StateNode)) {
+				if ok && trans.Trigger == nil && StateVertexName(trans.Source) == "s1" && exec.stateComplete(trans.Source.(*ast.StateNode)) {
 					return true
 				}
 			}
@@ -742,7 +742,7 @@ func TestSnapshotStepsReachAPendingCompositeCompletionAndAHeldDeferral(t *testin
 			candidates, err := exec.selectCandidates(func(source *ast.StateNode) ([]int, []RunNote, error) {
 				return exec.enabledTransitions(source, &exec.deferred[0])
 			})
-			return err == nil && len(candidates) == 1 && getNodeName(candidates[0].source) == "idle"
+			return err == nil && len(candidates) == 1 && StateVertexName(candidates[0].source) == "idle"
 		})
 	})
 }

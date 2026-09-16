@@ -26,6 +26,7 @@ from opensysml.capabilities import (
     CAPABILITY_INFINITY_VALUE,
     CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_METAOBJECT_VALUES,
+    CAPABILITY_PERFORMER,
     CAPABILITY_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
     CAPABILITY_SCHEDULE,
@@ -48,7 +49,7 @@ from opensysml.conversion import (
 )
 from opensysml.diagnostic import Diagnostic
 from opensysml.document import build_bindings, result_of as document_result
-from opensysml.edit import error_for_failure, failure_name, result_of
+from opensysml.edit import error_for_failure, failure_name, referrers_of, result_of
 from opensysml.enumeration import EnumLiteral
 from opensysml.exploration import Exploration, Outcome
 from opensysml.errors import (
@@ -958,7 +959,8 @@ class Connection:
         """
         info = self.server_info()
         require(info, CAPABILITY_APPLY_EDITS, upgrade_remedy(CAPABILITY_APPLY_EDITS))
-        request = sysml_pb2.ApplyEditsRequest(model_hash=model_hash)
+        # This client reads ``documents``, so a model of several may be edited.
+        request = sysml_pb2.ApplyEditsRequest(model_hash=model_hash, accept_documents=True)
         requests_authoring = False
         for operation_data in operations:
             operation = request.operations.add()
@@ -1020,6 +1022,7 @@ class Connection:
                 response.error,
                 diagnostics=[Diagnostic(d) for d in response.diagnostics],
                 referring_elements=list(response.referring_elements),
+                referrers=referrers_of(response),
             )
         return result_of(response)
 
@@ -1251,7 +1254,7 @@ class Connection:
         return Instance(response.instance, graph)
     
     def execute_action(self, action_symbol_id, model_hash, inputs=None,
-                       schedule=None):
+                       schedule=None, performer=None):
         """Execute an action definition.
         
         Args:
@@ -1263,6 +1266,13 @@ class Connection:
                 default) or ``"seed:<n>"`` — spelled as ``sysml -schedule``
                 spells it. ``"explore"`` answers with every outcome rather than
                 one run's, so it belongs to :meth:`explore_action`
+            performer (str, optional): The object the action runs on, as
+                ``sysml -action "<action> <object>"`` names it: a part
+                definition or usage to make an object of, or a path from one
+                into its parts (``"Mission::mission.vehicle"``) — the mission is
+                made and the action performed by its vehicle, inside the
+                assembly, so what its siblings send over their connectors
+                reaches it. Without one the action runs outside any object
             
         Returns:
             dict: Output parameter name → value; an output the wire format cannot
@@ -1284,12 +1294,13 @@ class Connection:
                 ``set_values``, a :class:`~opensysml.values.TensorQuantity`
                 and the service predates ``tensor_values``, a
                 :class:`~opensysml.values.Metaobject` and the service predates
-                ``metaobject_values``, or a schedule is given and the service
-                predates ``schedule``; nothing is sent
+                ``metaobject_values``, a schedule is given and the service
+                predates ``schedule``, or a performer is given and the service
+                predates ``performer``; nothing is sent
             InvalidRequestError: If the schedule names no policy
         """
         _refuse_exploring(schedule, "explore_action")
-        response = self._execute_action(action_symbol_id, model_hash, inputs, schedule)
+        response = self._execute_action(action_symbol_id, model_hash, inputs, schedule, performer)
         if response.error:
             wrapped_diags = [Diagnostic(d) for d in response.diagnostics]
             raise ExecutionError(response.error, diagnostics=wrapped_diags)
@@ -1297,7 +1308,7 @@ class Connection:
         return self._values_to_python(response.outputs)
 
     def explore_action(self, action_symbol_id, model_hash, inputs=None,
-                       schedule="explore"):
+                       schedule="explore", performer=None):
         """Run an action once per valid order of its choice points, within a budget.
 
         The service replays the action from the start, taking a different
@@ -1314,6 +1325,8 @@ class Connection:
                 ``"explore:runs=<n>,depth=<d>"``, bounding the runs made and the
                 choice points one run resolves; the service documents the
                 defaults
+            performer (str, optional): The object the action runs on, as for
+                :meth:`execute_action`; every explored run makes it anew
 
         Returns:
             Exploration: Every distinct outcome reached and how the exploration
@@ -1325,30 +1338,30 @@ class Connection:
                 unknown action, an input of the wrong kind
             ModelNotFoundError: If the service no longer holds the model
             MissingCapabilityError: If the service predates ``schedule_explore``,
-                or an input needs a value capability it lacks; nothing is sent
+                or ``performer`` when a performer is given, or an input needs a
+                value capability it lacks; nothing is sent
             InvalidRequestError: If the schedule's options are malformed
         """
         _require_exploring(schedule)
-        response = self._execute_action(action_symbol_id, model_hash, inputs, schedule)
+        response = self._execute_action(action_symbol_id, model_hash, inputs, schedule, performer)
         return self._exploration_of(response)
 
-    def _execute_action(self, action_symbol_id, model_hash, inputs, schedule):
-        """Send an ExecuteAction request, the schedule's capabilities checked first."""
+    def _execute_action(self, action_symbol_id, model_hash, inputs, schedule, performer):
+        """Send an ExecuteAction request, the schedule's and performer's capabilities checked first."""
         pb_inputs = {name: self._python_to_value(val) for name, val in (inputs or {}).items()}
-        self._require_schedule(schedule)
+        capabilities = self._run_capabilities(schedule, performer)
         req = sysml_pb2.ExecuteActionRequest(
             model_hash=model_hash,
             action_symbol_id=action_symbol_id,
             inputs=pb_inputs,
             schedule=schedule or "",
+            performer_symbol_id=performer or "",
         )
-        with translate_rpc_errors(
-            unimplemented=self._capability_refusal(self._schedule_capabilities(schedule))
-        ):
+        with translate_rpc_errors(unimplemented=self._capability_refusal(capabilities)):
             return self._stub.ExecuteAction(req)
     
     def execute_state(self, state_machine_symbol_id, model_hash, events=None,
-                      schedule=None):
+                      schedule=None, performer=None):
         """Execute a state machine.
         
         Args:
@@ -1358,6 +1371,11 @@ class Connection:
             schedule (str, optional): Scheduling policy the run resolves its
                 choice points under, as for :meth:`execute_action`;
                 ``"explore"`` belongs to :meth:`explore_state`
+            performer (str, optional): The object the machine runs on, as for
+                :meth:`execute_action`: a part definition or usage, or a path
+                from one into its parts. An object exhibiting the machine runs
+                the machine it exhibits, so its transitions hear what the
+                object's siblings send over their connectors
             
         Returns:
             dict: {'states_visited': [...], 'final_context': {...}, 'final_time': float};
@@ -1372,11 +1390,12 @@ class Connection:
             ExecutionError: If execution fails
             ModelNotFoundError: If the service no longer holds the model
             MissingCapabilityError: If a schedule is given and the service
-                predates ``schedule``; nothing is sent
+                predates ``schedule``, or a performer is given and the service
+                predates ``performer``; nothing is sent
             InvalidRequestError: If the schedule names no policy
         """
         _refuse_exploring(schedule, "explore_state")
-        response = self._execute_state(state_machine_symbol_id, model_hash, events, schedule)
+        response = self._execute_state(state_machine_symbol_id, model_hash, events, schedule, performer)
         if response.error:
             wrapped_diags = [Diagnostic(d) for d in response.diagnostics]
             raise ExecutionError(response.error, diagnostics=wrapped_diags)
@@ -1388,7 +1407,7 @@ class Connection:
         }
 
     def explore_state(self, state_machine_symbol_id, model_hash, events=None,
-                      schedule="explore"):
+                      schedule="explore", performer=None):
         """Run a state machine over the events once per valid order of its choice points.
 
         Runs agreeing on the state they rest in, the states they entered and
@@ -1400,6 +1419,8 @@ class Connection:
             events (list, optional): Event names to process
             schedule (str, optional): ``"explore"`` or
                 ``"explore:runs=<n>,depth=<d>"``
+            performer (str, optional): The object the machine runs on, as for
+                :meth:`execute_state`; every explored run makes it anew
 
         Returns:
             Exploration: Every distinct outcome reached and how the exploration
@@ -1409,26 +1430,25 @@ class Connection:
             ValueError: If the schedule does not explore
             ExecutionError: If the machine could not be explored at all
             ModelNotFoundError: If the service no longer holds the model
-            MissingCapabilityError: If the service predates ``schedule_explore``;
-                nothing is sent
+            MissingCapabilityError: If the service predates ``schedule_explore``,
+                or ``performer`` when a performer is given; nothing is sent
             InvalidRequestError: If the schedule's options are malformed
         """
         _require_exploring(schedule)
-        response = self._execute_state(state_machine_symbol_id, model_hash, events, schedule)
+        response = self._execute_state(state_machine_symbol_id, model_hash, events, schedule, performer)
         return self._exploration_of(response)
 
-    def _execute_state(self, state_machine_symbol_id, model_hash, events, schedule):
-        """Send an ExecuteState request, the schedule's capabilities checked first."""
-        self._require_schedule(schedule)
+    def _execute_state(self, state_machine_symbol_id, model_hash, events, schedule, performer):
+        """Send an ExecuteState request, the schedule's and performer's capabilities checked first."""
+        capabilities = self._run_capabilities(schedule, performer)
         req = sysml_pb2.ExecuteStateRequest(
             model_hash=model_hash,
             state_machine_symbol_id=state_machine_symbol_id,
             events=events or [],
             schedule=schedule or "",
+            performer_symbol_id=performer or "",
         )
-        with translate_rpc_errors(
-            unimplemented=self._capability_refusal(self._schedule_capabilities(schedule))
-        ):
+        with translate_rpc_errors(unimplemented=self._capability_refusal(capabilities)):
             return self._stub.ExecuteState(req)
 
     def _exploration_of(self, response, failure_reason=None):
@@ -2174,6 +2194,15 @@ class Connection:
         """Refuse to send a schedule a service without ``schedule`` would run under the default."""
         for capability in self._schedule_capabilities(schedule):
             require(self.server_info(), capability, upgrade_remedy(capability))
+
+    def _run_capabilities(self, schedule, performer):
+        """The capabilities a run's schedule and performer need, each required of the service."""
+        capabilities = self._schedule_capabilities(schedule)
+        if performer:
+            capabilities.append(CAPABILITY_PERFORMER)
+        for capability in capabilities:
+            require(self.server_info(), capability, upgrade_remedy(capability))
+        return capabilities
 
     @staticmethod
     def _schedule_capabilities(schedule):

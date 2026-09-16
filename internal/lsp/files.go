@@ -55,6 +55,22 @@ func (s *Server) wantsMarkdownCompletion() bool {
 	return s.completionMarkdown
 }
 
+// setCrossDocument records whether the client speaks the cross-document
+// diagram contract.
+func (s *Server) setCrossDocument(ok bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.crossDocument = ok
+}
+
+// clientSpeaksCrossDocument reports whether renderings may name another
+// document's declarations, which the client then pins its layouts to.
+func (s *Server) clientSpeaksCrossDocument() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.crossDocument
+}
+
 // initializeFolders returns a session's folders, preferring workspaceFolders and
 // falling back to the deprecated rootUri/rootPath older clients send instead.
 func initializeFolders(params *protocol.InitializeParams) []string {
@@ -93,9 +109,11 @@ func (s *Server) loadFolders(ctx context.Context) {
 	folders := append([]string(nil), s.folders...)
 	s.mu.Unlock()
 
-	for _, folder := range folders {
-		s.loadFolder(folder)
-	}
+	s.debugEdit(ctx, "", func() {
+		for _, folder := range folders {
+			s.loadFolder(folder)
+		}
+	})
 	s.refreshOpenDiagnostics(ctx, "")
 }
 
@@ -157,23 +175,30 @@ func (s *Server) loadFromDisk(path string) {
 // DidChangeWatchedFiles reindexes model files changed outside the editor.
 // A deletion leaves an open buffer alone; it is still authoritative.
 func (s *Server) DidChangeWatchedFiles(ctx context.Context, params *protocol.DidChangeWatchedFilesParams) error {
-	changed := false
+	var sources []*protocol.FileEvent
 	for _, event := range params.Changes {
-		name := uriToName(event.URI)
-		if !model.IsModelSource(name) {
-			continue
+		if model.IsModelSource(uriToName(event.URI)) {
+			sources = append(sources, event)
 		}
-		changed = true
+	}
+	if len(sources) == 0 {
+		return nil
+	}
+	s.debugEdit(ctx, "", func() {
+		for _, event := range sources {
+			if event.Type == protocol.FileChangeTypeDeleted {
+				s.ws.DeleteOnDisk(uriToName(event.URI))
+			} else {
+				s.loadFromDisk(uriToName(event.URI))
+			}
+		}
+	})
+	for _, event := range sources {
 		if event.Type == protocol.FileChangeTypeDeleted {
-			s.ws.DeleteOnDisk(name)
-			s.publishDiagnostics(ctx, name)
-			continue
+			s.publishDiagnostics(ctx, uriToName(event.URI))
 		}
-		s.loadFromDisk(name)
 	}
-	if changed {
-		s.refreshOpenDiagnostics(ctx, "")
-	}
+	s.refreshOpenDiagnostics(ctx, "")
 	return nil
 }
 
@@ -181,12 +206,14 @@ func (s *Server) DidChangeWatchedFiles(ctx context.Context, params *protocol.Did
 // session holds, and drops those a removed folder contributed. The file watcher
 // reports changes only, so a newly added folder has to be walked here.
 func (s *Server) DidChangeWorkspaceFolders(ctx context.Context, params *protocol.DidChangeWorkspaceFoldersParams) error {
-	for _, folder := range params.Event.Removed {
-		s.dropFolder(uriToName(protocol.DocumentURI(folder.URI)))
-	}
-	for _, folder := range params.Event.Added {
-		s.addFolder(uriToName(protocol.DocumentURI(folder.URI)))
-	}
+	s.debugEdit(ctx, "", func() {
+		for _, folder := range params.Event.Removed {
+			s.dropFolder(uriToName(protocol.DocumentURI(folder.URI)))
+		}
+		for _, folder := range params.Event.Added {
+			s.addFolder(uriToName(protocol.DocumentURI(folder.URI)))
+		}
+	})
 	s.refreshOpenDiagnostics(ctx, "")
 	return nil
 }

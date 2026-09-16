@@ -960,8 +960,8 @@ func TestExploreAdvanceRunsBehaviorsOnOneClock(t *testing.T) {
 	got := check(t, binary, dueTogetherModel, "-schedule", "explore", "-instantiate", "Due::beacon",
 		"-action", "Due::watcher", "-state", "Due::Beacon::blinking Due::beacon", "-advance", "5")
 	wantReport(t, got, 0, "✓ explored Due::watcher, Due::Beacon::blinking: 2 outcomes",
-		`Due::Beacon::blinking finalState = "shining"; Due::Beacon::blinking visits = "dark, shining"; Due::watcher.sawLit = false | 1              | t=5.0: action watcher first of action watcher, state machine blinking of object #1`,
-		`Due::Beacon::blinking finalState = "shining"; Due::Beacon::blinking visits = "dark, shining"; Due::watcher.sawLit = true  | 1              | t=5.0: state machine blinking of object #1 first of action watcher, state machine blinking of object #1`,
+		`Due::Beacon::blinking finalState = "shining"; Due::Beacon::blinking visits = "dark, shining"; Due::watcher.sawLit = false; this.isSolid = true; this.lit = true | 1              | t=5.0: action watcher first of state machine blinking of object #1, action watcher`,
+		`Due::Beacon::blinking finalState = "shining"; Due::Beacon::blinking visits = "dark, shining"; Due::watcher.sawLit = true; this.isSolid = true; this.lit = true  | 1              | t=5.0: state machine blinking of object #1 first of state machine blinking of object #1, action watcher`,
 		"complete (2 runs)")
 
 	// Advanced short of the instant, neither is due: one outcome, no choice, and

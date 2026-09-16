@@ -402,7 +402,7 @@ func (c *checker) violate(v Violation) {
 
 // witness is the schedule so far: the choices the run noted and its trace.
 func (c *checker) witness() Witness {
-	w := Witness{Choices: c.ctx.ChoicesTaken()}
+	w := Witness{Draws: c.ctx.DrawsTaken(), Choices: c.ctx.ChoicesTaken()}
 	w.Objects = c.ctx.objectsNamed(w.Choices)
 	if tr := c.ctx.Trace(); tr != nil {
 		w.Trace = tr.String()
@@ -727,9 +727,8 @@ func (c *checker) final() {
 	})
 }
 
-// spellFinal renders the completed state's outcome and divergence values under
-// a probe: rendering may evaluate a held object's defaults, which must leave no
-// trace behind for the witness to carry.
+// spellFinal renders the completed state's outcome and divergence values under a probe;
+// a selected performer feature the outcome leaves out (an item, one unset or in error) joins both.
 func (c *checker) spellFinal() (values map[string]string, spelled, identity string) {
 	defer c.ctx.beginProbe()()
 	outcome := c.inv.Outcome()
@@ -737,6 +736,9 @@ func (c *checker) spellFinal() (values map[string]string, spelled, identity stri
 	spelled, identity = outcome.String(), outcome.identity()
 	prefixes := c.inv.performerPrefixes()
 	for _, name := range slices.Sorted(maps.Keys(values)) {
+		if _, carried := outcome.Outputs[name]; carried {
+			continue
+		}
 		if !slices.ContainsFunc(prefixes, func(p performer) bool { return strings.HasPrefix(name, p.name) }) {
 			continue
 		}
@@ -1123,7 +1125,7 @@ func (c *checker) calleeFlow(graph *lower.ActionGraph, node ast.Node, callee *sy
 	if err != nil {
 		return nil, err
 	}
-	return lowerPerformance(body, tool)
+	return lowerPerformance(body, tool, c.ctx.Resolver())
 }
 
 // divergeReached fails the check when a path only a performance could tell was held

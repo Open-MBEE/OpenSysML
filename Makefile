@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-lsp build-grpc windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust test coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build build-sysml build-lsp build-grpc static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust test coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -12,6 +12,10 @@ LDFLAGS := -X main.Version=$(VERSION) \
            -X main.Commit=$(COMMIT) \
            -X main.BuildTime=$(BUILD_TIME) \
            -X main.GoVersion=$(GO_VERSION)
+# Static binaries: a host-linked libc would pin a build to the builder's glibc.
+# Only Go's net resolver used cgo, so the pure-Go one serves instead.
+GO_BUILD := CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)"
+GO_INSTALL := CGO_ENABLED=0 go install -ldflags "$(LDFLAGS)"
 
 # Static-analysis tool versions, pinned so CI and local runs agree
 STATICCHECK_VERSION := 2025.1.1
@@ -78,22 +82,25 @@ build-sysml: ## Build sysml binary
 	@echo "Building sysml..."
 	@mkdir -p $(BIN_DIR)
 	$(call winres,sysml)
-	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/sysml ./cmd/sysml
+	$(GO_BUILD) -o $(BIN_DIR)/sysml ./cmd/sysml
 	@echo "✓ Built $(BIN_DIR)/sysml ($(VERSION))"
 
 build-lsp: ## Build sysml-lsp binary
 	@echo "Building sysml-lsp..."
 	@mkdir -p $(BIN_DIR)
 	$(call winres,sysml-lsp)
-	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/sysml-lsp ./cmd/sysml-lsp
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-lsp ./cmd/sysml-lsp
 	@echo "✓ Built $(BIN_DIR)/sysml-lsp ($(VERSION))"
 
 build-grpc: ## Build sysml-grpc binary
 	@echo "Building sysml-grpc..."
 	@mkdir -p $(BIN_DIR)
 	$(call winres,sysml-grpc)
-	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/sysml-grpc ./cmd/sysml-grpc
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-grpc ./cmd/sysml-grpc
 	@echo "✓ Built $(BIN_DIR)/sysml-grpc ($(VERSION))"
+
+static-check: ## Check the built Linux binaries are statically linked (BINARIES=path...)
+	scripts/check-static-binaries.sh $(or $(BINARIES),$(addprefix $(BIN_DIR)/,$(COMMANDS)))
 
 windows-versioninfo-check: ## Check a Windows binary's VERSIONINFO carries VERSION (EXE=path/to/file.exe)
 	@test -n "$(EXE)" || { echo "Error: set EXE=path/to/file.exe"; exit 1; }
@@ -205,9 +212,9 @@ clean: ## Remove build artifacts
 
 install: build ## Install binaries to $GOPATH/bin
 	@echo "Installing to $(shell go env GOPATH)/bin..."
-	go install -ldflags "$(LDFLAGS)" ./cmd/sysml
-	go install -ldflags "$(LDFLAGS)" ./cmd/sysml-lsp
-	go install -ldflags "$(LDFLAGS)" ./cmd/sysml-grpc
+	$(GO_INSTALL) ./cmd/sysml
+	$(GO_INSTALL) ./cmd/sysml-lsp
+	$(GO_INSTALL) ./cmd/sysml-grpc
 	@echo "✓ Installed"
 
 # What a distribution's package build calls: staged under DESTDIR, into the
@@ -293,6 +300,7 @@ scripts-coverage: ## Run the repository scripts and their tests under coverage a
 	$(SCRIPTS_COVERAGE) scripts/changelog-test.py
 	$(SCRIPTS_COVERAGE) scripts/changelog.py check
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_census-test.py
+	$(SCRIPTS_COVERAGE) scripts/mkdocs_suite_figures-test.py
 	$(SCRIPTS_COVERAGE) scripts/dedupe-coverage-test.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-links.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-ids.py
@@ -337,7 +345,7 @@ self-model: build-sysml ## Render the architecture self-model's views (see examp
 	$(BIN_DIR)/sysml $(SELF_MODEL_DIR)/*.sysml -render-documents "$(SELF_MODEL_OUT)"
 	@echo "✓ Rendered the self-model's views and document into $(SELF_MODEL_OUT)/"
 
-docs-counts: ## Regenerate and verify all derived documentation counts
+docs-counts: ## Regenerate and verify the committed documentation counts; the test-suite figures are counted when the site is built
 	@echo "Regenerating the documentation count lines and refereed figures..."
 	go run ./cmd/doc-counts
 	go run ./cmd/doc-counts -check
@@ -345,12 +353,13 @@ docs-counts: ## Regenerate and verify all derived documentation counts
 	go test -count=1 ./cmd/pilot-diff ./cmd/pilot-reject ./cmd/doc-counts ./cmd/validation-census
 	@echo "✓ Documentation counts and refereed figures are current"
 
-docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle figures, changelog fragments and the build-time compliance census
+docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle figures, changelog fragments and the build-time census and test-suite figures
 	$(PYTHON) scripts/check-doc-links.py
 	$(PYTHON) scripts/check-doc-ids.py
 	$(PYTHON) scripts/check-doc-figures.py
 	$(PYTHON) scripts/changelog.py check
 	$(PYTHON) scripts/mkdocs_census-test.py
+	$(PYTHON) scripts/mkdocs_suite_figures-test.py
 
 changelog-check: ## Verify every changelog fragment under changes/unreleased/ and the folding script
 	$(PYTHON) scripts/changelog-test.py

@@ -80,6 +80,9 @@ public final class Capabilities {
   /** {@code ApplyEdits} can add members and delete declarations. */
   public static final String AUTHORING = "authoring";
 
+  /** {@code ApplyEdits} edits a model of several documents as one batch, answering each edited document by name. */
+  public static final String EDIT_DOCUMENTS = "edit_documents";
+
   /** Inline content may name the notation it is written in. */
   public static final String INLINE_LANGUAGE = "inline_language";
 
@@ -94,6 +97,9 @@ public final class Capabilities {
 
   /** The {@code explore} schedule answers with every {@code outcomes} entry and an {@code exploration} status. */
   public static final String SCHEDULE_EXPLORE = "schedule_explore";
+
+  /** The action and state requests take a {@code performer_symbol_id}, the object the behavior runs on: a declaration or a path from one into its parts. */
+  public static final String PERFORMER = "performer";
 
   /** The execution responses report {@code final_time}, the run's simulation clock when it ended, in seconds. */
   public static final String FINAL_TIME = "final_time";

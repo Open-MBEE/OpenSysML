@@ -93,6 +93,10 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"edit documents", CapabilityEditDocuments, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{Document: "q.sysml"})
+			return err
+		}},
 		{"inline language", CapabilityInlineLanguage, func(s *Service) error {
 			_, err := s.ParseFile(ctx, &pb.ParseFileRequest{
 				Source:   &pb.ParseFileRequest_Content{Content: "package P;"},
@@ -145,6 +149,14 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 		}},
 		{"run analysis schedule", CapabilitySchedule, func(s *Service) error {
 			_, err := s.RunAnalysis(ctx, &pb.RunAnalysisRequest{Schedule: "declared"})
+			return err
+		}},
+		{"execute action performer", CapabilityPerformer, func(s *Service) error {
+			_, err := s.ExecuteAction(ctx, &pb.ExecuteActionRequest{PerformerSymbolId: "Wire::pair.craft"})
+			return err
+		}},
+		{"execute state performer", CapabilityPerformer, func(s *Service) error {
+			_, err := s.ExecuteState(ctx, &pb.ExecuteStateRequest{PerformerSymbolId: "Wire::pair.craft"})
 			return err
 		}},
 	}

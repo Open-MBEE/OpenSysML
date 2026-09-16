@@ -98,6 +98,9 @@ func loadEditableWorkspace(t *testing.T, name, content string, siblings map[stri
 		others[sibling] = Document{Source: sf, ParseDiags: p.Diagnostics}
 	}
 	m.Index.ExpandWildcardImports()
+	if len(m.ParseDiags) == 0 {
+		m.SemDiags = passes.Analyze(name, m.Root, nil, m.Index)
+	}
 	for sibling, doc := range others {
 		if len(doc.ParseDiags) == 0 {
 			doc.SemDiags = passes.Analyze(sibling, roots[sibling], nil, m.Index)
@@ -107,6 +110,13 @@ func loadEditableWorkspace(t *testing.T, name, content string, siblings map[stri
 	m.Other = func(name string) (Document, bool) {
 		doc, ok := others[name]
 		return doc, ok
+	}
+	m.NewIndex = func() *symbols.Index {
+		idx := libraryIndex(t)
+		for sibling, root := range roots {
+			idx.AddDocument(sibling, root)
+		}
+		return idx
 	}
 	return m
 }

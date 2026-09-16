@@ -7,9 +7,10 @@ package org.openmbee.opensysml.proto;
 
 /**
  * <pre>
- * RenameEdit rewrites the name token of a declaration. References to the
- * element are not updated: a rename of an element referenced anywhere is
- * refused, naming the referring elements, rather than leaving a broken model.
+ * RenameEdit rewrites the name token of a declaration and every reference to
+ * it in the model's documents. A rename that reaches a reference in a document
+ * the edit cannot rewrite is refused, naming the referring elements, rather
+ * than leaving a broken model.
  * </pre>
  *
  * Protobuf type {@code sysml.RenameEdit}
@@ -313,9 +314,10 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * RenameEdit rewrites the name token of a declaration. References to the
-   * element are not updated: a rename of an element referenced anywhere is
-   * refused, naming the referring elements, rather than leaving a broken model.
+   * RenameEdit rewrites the name token of a declaration and every reference to
+   * it in the model's documents. A rename that reaches a reference in a document
+   * the edit cannot rewrite is refused, naming the referring elements, rather
+   * than leaving a broken model.
    * </pre>
    *
    * Protobuf type {@code sysml.RenameEdit}

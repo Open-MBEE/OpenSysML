@@ -17,7 +17,8 @@
 #
 # Every binary is then checked for the version it should report: the host
 # platform's builds by running them, the cross-compiled ones for the version
-# string the ldflags wrote into them.
+# string the ldflags wrote into them. The Linux builds are also checked to be
+# statically linked, so no release depends on the builder's glibc.
 set -euo pipefail
 
 : "${VERSION:?VERSION must be set to the version the binaries report}"
@@ -27,9 +28,7 @@ BUILD_TIME="${BUILD_TIME:-$(date -u '+%Y-%m-%d_%H:%M:%S')}"
 GO_VERSION="${GO_VERSION:-$(go version | awk '{print $3}')}"
 PLATFORMS=(linux-amd64 linux-arm64 darwin-amd64 darwin-arm64 windows-amd64)
 MAN="$(pwd)/man/man1"
-
-# Static binaries: a host-linked libc would pin the release to the builder's glibc.
-export CGO_ENABLED=0
+CHECK_STATIC="$(pwd)/scripts/check-static-binaries.sh"
 
 build() { # <make target> <binary name> <platform> <destination>
   local target="$1" binary="$2" platform="$3" dest="$4"
@@ -56,6 +55,8 @@ for platform in "${PLATFORMS[@]}"; do
 done
 
 cd "$DIST"
+
+"$CHECK_STATIC" sysml-linux-* sysml-lsp-linux-* grpc/sysml-grpc-linux-*
 
 for binary in sysml-*; do
   if [[ "$binary" == *.exe ]]; then

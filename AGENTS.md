@@ -132,7 +132,7 @@ When touching the lexer/parser or adding grammar:
 1. **Golden AST fixture** locking parse structure (`internal/core/parser/testdata/parse/`).
 2. **Execution conformance:** add `.sysml` + `.expected.json` under `internal/core/runtime/testdata/conformance/`; run `go test -run TestExecutionConformance ./internal/core/runtime`. Schema is documented in that dir's `README.md`.
 3. **Golden execution traces** for ordering-sensitive behavior (fork/join, transitions): `go test -run TestExecutionTrace ./internal/core/runtime` (update flag: `-update-traces`).
-4. **Robustness:** add a failure-mode case to `robustness_test.go` (deadlock, unbound params, missing refs, dangling transitions, step budget). Must return typed errors, never panic or hang.
+4. **Robustness:** add a failure-mode case (deadlock, unbound params, missing refs, dangling transitions, step budget) as a subtest of a `TestRuntimeRobustness<Feature>` function in `internal/core/runtime/robustness_<feature>_test.go` — a new file for a new feature, so branches never edit one shared registry; `robustness_test.go` holds the shared cases and is not where new ones go. Must return typed errors, never panic or hang. The suite counters read every `TestRuntimeRobustness*` function, and gRPC cases follow the same pattern with `TestGRPCRobustness*`.
 
 Then update `docs/project/spec-compliance.md` mapping: semantic rule → implementation (file:function) → test → status (✅ faithful / ⚠️ approximate / ❌ not implemented / 🚧 known failure).
 

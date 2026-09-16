@@ -380,6 +380,12 @@ func TestMoveRefusesReferenceItCannotRespell(t *testing.T) {
 	if !strings.Contains(e.Message, "P::c") {
 		t.Fatalf("message = %q, want the reference named", e.Message)
 	}
+	if len(e.Referring) != 1 || e.Referring[0] != "P::c" {
+		t.Fatalf("referring = %v, want [P::c]", e.Referring)
+	}
+	if len(e.Referrers) != 1 || e.Referrers[0] != (Referrer{Name: "P::c", Document: "move.sysml"}) {
+		t.Fatalf("referrers = %+v, want P::c in move.sysml", e.Referrers)
+	}
 }
 
 func TestMoveInBatchIsSequentialAndAllOrNothing(t *testing.T) {
@@ -420,6 +426,81 @@ func TestMoveInBatchIsSequentialAndAllOrNothing(t *testing.T) {
 	}
 	if string(m.Source.Bytes()) != src {
 		t.Fatal("a refused batch changed the source")
+	}
+}
+
+// A drop on another node places the declaration and moves it in one request: the
+// view-local annotation is respelled with the move, the inline one travels with the body.
+func TestMoveAfterSetLayoutOfTheSameTarget(t *testing.T) {
+	src := "package Rig {\n" +
+		"    part def Pump {\n" +
+		"        part valve;\n" +
+		"    }\n" +
+		"    part def Motor;\n" +
+		"}\n" +
+		"package RigViews {\n" +
+		"    private import Views::*;\n" +
+		"    private import StandardViewDefinitions::*;\n" +
+		"    view rigView {\n" +
+		"        expose Rig::*;\n" +
+		"        render asInterconnectionDiagram;\n" +
+		"    }\n" +
+		"}\n"
+	m := loadContent(t, "rig.sysml", src)
+	requireClean(t, m)
+	res, err := Apply(m, []Operation{
+		SetLayout("Rig::Pump::valve", "RigViews::rigView", at(40, 60)),
+		Move("Rig::Pump::valve", "Rig::Motor"),
+	})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	want := "package Rig {\n" +
+		"    part def Pump {\n" +
+		"    }\n" +
+		"    part def Motor {\n" +
+		"        part valve;\n" +
+		"    }\n" +
+		"}\n" +
+		"package RigViews {\n" +
+		"    private import Views::*;\n" +
+		"    private import StandardViewDefinitions::*;\n" +
+		"    view rigView {\n" +
+		"        expose Rig::*;\n" +
+		"        render asInterconnectionDiagram;\n" +
+		"        metadata DiagramLayout::Layout about Rig::Motor::valve { x = 40; y = 60; }\n" +
+		"    }\n" +
+		"}\n"
+	if got := string(res.Content); got != want {
+		t.Fatalf("placed then moved, in the view:\n%s\nwant:\n%s", got, want)
+	}
+
+	res, err = Apply(m, []Operation{
+		SetLayout("Rig::Pump::valve", "", at(40, 60)),
+		Move("Rig::Pump::valve", "Rig::Motor"),
+	})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	want = "package Rig {\n" +
+		"    part def Pump {\n" +
+		"    }\n" +
+		"    part def Motor {\n" +
+		"        part valve {\n" +
+		"            @DiagramLayout::Layout { x = 40; y = 60; }\n" +
+		"        }\n" +
+		"    }\n" +
+		"}\n" +
+		"package RigViews {\n" +
+		"    private import Views::*;\n" +
+		"    private import StandardViewDefinitions::*;\n" +
+		"    view rigView {\n" +
+		"        expose Rig::*;\n" +
+		"        render asInterconnectionDiagram;\n" +
+		"    }\n" +
+		"}\n"
+	if got := string(res.Content); got != want {
+		t.Fatalf("placed then moved, inline:\n%s\nwant:\n%s", got, want)
 	}
 }
 
