@@ -1,0 +1,44 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Guarded"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="x" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (InitialNode name="start" successor="")
+          (Membership visibility="default"
+            (Usage kind="action" name="c1" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (*ast.AssignmentActionNode)
+              (TerminateStatement
+                (FeatureReference name="c1"))))
+          (SuccessionEdge source="start" target="c1")
+          (Membership visibility="default"
+            (Usage kind="action" name="c2" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (*ast.AssignmentActionNode)
+              (TerminateStatement)))
+          (SuccessionEdge source="c1" target="c2")
+          (TerminateStatement)
+          (SuccessionEdge source="c2" target="@terminate")
+          (Membership visibility="default"
+            (Usage kind="action" name="late" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (*ast.AssignmentActionNode)))
+          (SuccessionEdge source="@terminate" target="late")
+          (FinalNode)
+          (SuccessionEdge source="late" target="@done")))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Stopped"
+          (InitialNode name="start" successor="")
+          (Membership visibility="default"
+            (Usage kind="action" name="a1" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (*ast.AssignmentActionNode)))
+          (SuccessionEdge source="start" target="a1")
+          (SuccessionEdge source="a1" target="stop")
+          (Membership visibility="default"
+            (Usage kind="action" name="stop" ref=false direction="none" composite=false derived=false ordered=false nonunique=false terminate=true))
+          (Membership visibility="default"
+            (Usage kind="action" name="a2" ref=false direction="none" composite=false derived=false ordered=false nonunique=false terminate=true))
+          (SuccessionEdge source="stop" target="a2"))))))

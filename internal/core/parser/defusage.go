@@ -235,6 +235,7 @@ type featureMods struct {
 	isReadonly    bool
 	isOrdered     bool
 	isNonunique   bool
+	isTerminate   bool                    // `terminate` closing an action usage head: a terminate action usage
 	cross         *ast.CrossFeatureMember // the cross feature declared right after `end`
 	usageOnly     lexer.Token             // first prefix keyword only a usage prefix admits (`ref`, a direction, …)
 }
@@ -1246,8 +1247,6 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 	}
 }
 
-// parsePostModifiers parses feature modifiers that appear after typing/multiplicity.
-// Currently only 'ordered' and 'nonunique' are allowed in this position.
 // isPostModifierKeyword checks if token is a post-multiplicity modifier keyword
 func isPostModifierKeyword(tok lexer.Token) bool {
 	if tok.Kind != lexer.Keyword {
@@ -1256,6 +1255,8 @@ func isPostModifierKeyword(tok lexer.Token) bool {
 	return tok.KeywordID == "ordered" || tok.KeywordID == "nonunique"
 }
 
+// parsePostModifiers parses the modifiers that follow a multiplicity part:
+// `ordered`, `nonunique`, and the `terminate` of a terminate action usage.
 func (p *Parser) parsePostModifiers() featureMods {
 	var m featureMods
 	for {
@@ -1271,8 +1272,7 @@ func (p *Parser) parsePostModifiers() featureMods {
 			m.isNonunique = true
 			p.advance()
 		case "terminate":
-			// Consume terminate keyword - marks terminal action node
-			// For now just consume it (no AST field, behavioral semantics)
+			m.isTerminate = true
 			p.advance()
 		default:
 			return m
@@ -3672,6 +3672,7 @@ func (p *Parser) parseSpecializationsAfterMultiplicity(u *ast.Usage) {
 	post := p.parsePostModifiers()
 	u.IsOrdered = u.IsOrdered || post.isOrdered
 	u.IsNonunique = u.IsNonunique || post.isNonunique
+	u.IsTerminate = u.IsTerminate || post.isTerminate
 	u.Relationships = append(u.Relationships, p.parseRelationships(true)...)
 }
 

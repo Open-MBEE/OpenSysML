@@ -693,9 +693,8 @@ func (p *Parser) parseActionExecutionNode(tok lexer.Token) ast.Node {
 					Message:  msgExpectedActionBrace,
 				}
 			}
-		} else if nextTok.Kind == lexer.Identifier || nextTok.Kind == lexer.ColonColon || nextTok.Kind == lexer.Keyword {
+		} else if nextTok.Kind == lexer.Identifier || nextTok.Kind == lexer.ColonColon {
 			// Could be name + ref OR just ref (qualified name)
-			// Also handle keywords as refs (e.g., action stop terminate;)
 			// Parse first identifier
 			firstIdToken := p.peek()
 			firstIdSpan := firstIdToken.Span
@@ -721,20 +720,10 @@ func (p *Parser) parseActionExecutionNode(tok lexer.Token) ast.Node {
 				}
 				actionRef = &ast.QualifiedName{Parts: parts}
 				actionRef.NodeSpan = p.spanFrom(firstIdSpan.Offset)
-			} else if p.at(lexer.Identifier) || p.at(lexer.Keyword) {
-				// firstId is name, what follows is actionRef (identifier or keyword)
+			} else if p.at(lexer.Identifier) {
+				// firstId is name, what follows is actionRef
 				name = firstId
-				if p.at(lexer.Keyword) {
-					// Allow keywords as action refs (e.g., 'terminate')
-					kw := p.peek()
-					actionRef = &ast.QualifiedName{
-						Parts: []ast.NameSegment{{Text: kw.KeywordID, Span: kw.Span}},
-					}
-					actionRef.NodeSpan = kw.Span
-					p.advance()
-				} else {
-					actionRef = p.parseQualifiedName()
-				}
+				actionRef = p.parseQualifiedName()
 			} else {
 				// firstId is a simple (non-qualified) actionRef
 				actionRef = &ast.QualifiedName{
