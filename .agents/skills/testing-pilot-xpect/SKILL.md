@@ -416,7 +416,7 @@ census in `w5c_census_test.go` is live two ways: perturb one pinned triple (e.g.
 ## Regression neighbour
 
 `go run ./cmd/pilot-diff` (~1m12s) must still print the headline the *committed* baseline holds —
-after the Legend of the Red Dragon example round at the `2026-08` pin that is `378 file(s), 346 fully agreeing; 38 agreed diagnostic(s), 38
+after the Spacecraft downlink example round at the `2026-08` pin that is `379 file(s), 347 fully agreeing; 38 agreed diagnostic(s), 38
 only ours, 1247 only the pilot's`. Read the number out of
 `docs/project/pilot-differential-baseline.json` rather than trusting this line, since a landing fix
 round moves it. When the baseline is itself stale (it was at `19a3ce03`, holding 273 / 281 / 317), a
