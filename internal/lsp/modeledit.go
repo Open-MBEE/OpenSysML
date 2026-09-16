@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -55,30 +56,36 @@ type applyModelEditParams struct {
 // Layout of the node Target, setRoute the Route of the edge Target, setCanvas
 // the Canvas of the view Target. A setLayout or setRoute may give Declaration
 // instead of Target, the range a rendering reports for a node or edge no
-// qualified name reaches. View names the view whose body states a Layout or
-// Route, so it applies in that view alone; left empty, the annotation goes
-// inline into Target's declaration and applies in every view. A setLayout with
-// no Layout, a setRoute with no or an empty Route and a setCanvas with no Canvas
-// clear the annotation.
+// qualified name reaches. DeclaredIn names the document declaring the target —
+// the document the range is one of, the one Target must be declared in — or is
+// empty for the requested one; Digest is the origin's digest of that document's
+// text, and a target of another document is refused as stale when that text has
+// changed since it was rendered. View names the view whose body states a
+// Layout or Route, so it applies in that view alone; left empty, the annotation
+// goes inline into Target's declaration and applies in every view. A setLayout
+// with no Layout, a setRoute with no or an empty Route and a setCanvas with no
+// Canvas clear the annotation.
 type modelEditOperation struct {
-	Kind         string           `json:"kind"`
-	Target       string           `json:"target,omitempty"`
-	Declaration  *protocol.Range  `json:"declaration,omitempty"`
-	Value        string           `json:"value,omitempty"`
-	NewName      string           `json:"newName,omitempty"`
-	Owner        string           `json:"owner,omitempty"`
-	MemberKind   string           `json:"memberKind,omitempty"`
-	Name         string           `json:"name,omitempty"`
-	Type         string           `json:"type,omitempty"`
-	Multiplicity string           `json:"multiplicity,omitempty"`
-	Specializes  []string         `json:"specializes,omitempty"`
-	From         string           `json:"from,omitempty"`
-	To           string           `json:"to,omitempty"`
-	Cascade      bool             `json:"cascade,omitempty"`
-	View         string           `json:"view,omitempty"`
-	Layout       *modelEditLayout `json:"layout,omitempty"`
-	Route        []renderPoint    `json:"route,omitempty"`
-	Canvas       *renderCanvas    `json:"canvas,omitempty"`
+	Kind         string               `json:"kind"`
+	Target       string               `json:"target,omitempty"`
+	Declaration  *protocol.Range      `json:"declaration,omitempty"`
+	DeclaredIn   protocol.DocumentURI `json:"declaredIn,omitempty"`
+	Digest       string               `json:"digest,omitempty"`
+	Value        string               `json:"value,omitempty"`
+	NewName      string               `json:"newName,omitempty"`
+	Owner        string               `json:"owner,omitempty"`
+	MemberKind   string               `json:"memberKind,omitempty"`
+	Name         string               `json:"name,omitempty"`
+	Type         string               `json:"type,omitempty"`
+	Multiplicity string               `json:"multiplicity,omitempty"`
+	Specializes  []string             `json:"specializes,omitempty"`
+	From         string               `json:"from,omitempty"`
+	To           string               `json:"to,omitempty"`
+	Cascade      bool                 `json:"cascade,omitempty"`
+	View         string               `json:"view,omitempty"`
+	Layout       *modelEditLayout     `json:"layout,omitempty"`
+	Route        []renderPoint        `json:"route,omitempty"`
+	Canvas       *renderCanvas        `json:"canvas,omitempty"`
 }
 
 // modelEditLayout is a node's geometry as setLayout writes it, in the units
@@ -96,9 +103,9 @@ type modelEditLayout struct {
 // kept the model as it was, or a stale version. Version is the document version
 // the answer was made at, which tells a stale client how far behind it was. The
 // edit holds one versioned TextDocumentEdit per document it rewrites, the
-// requested document first; the others carry the versions the server holds,
-// null for one it read from disk, so a client refuses to apply them to text that
-// has moved on rather than land them wrong.
+// requested document first when it is among them; the others carry the versions
+// the server holds, null for one it read from disk, so a client refuses to apply
+// them to text that has moved on rather than land them wrong.
 type applyModelEditResult struct {
 	Edit    *protocol.WorkspaceEdit `json:"edit,omitempty"`
 	Refused []modelEditRefusal      `json:"refused,omitempty"`
@@ -190,8 +197,8 @@ func (s *Server) modelEditHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
 // document say what the operations ask, or why it cannot. The document is read
 // at the version the client named; any other version is reported stale, since
 // an edit computed against text the client no longer has would land wrong. The
-// other documents a rename or delete reaches are read at the versions the
-// server holds, which their edits carry.
+// other documents a rename, a delete or a layout operation reaches are read at
+// the versions the server holds, which their edits carry.
 func (s *Server) ApplyModelEdit(params *applyModelEditParams) (*applyModelEditResult, error) {
 	name := uriToName(params.TextDocument.URI)
 	doc := s.ws.Document(name)
@@ -202,18 +209,27 @@ func (s *Server) ApplyModelEdit(params *applyModelEditParams) (*applyModelEditRe
 		return &applyModelEditResult{Stale: true, Version: doc.Version}, nil
 	}
 	ops := make([]modeledit.Operation, 0, len(params.Operations))
+	var read []*model.Document
 	for i, op := range params.Operations {
-		converted, err := op.operation(doc.Content)
+		converted, declaring, err := s.operation(doc, op)
+		var stale *model.StaleError
+		if errors.As(err, &stale) {
+			return &applyModelEditResult{Stale: true, Version: doc.Version}, nil
+		}
 		if err != nil {
 			return nil, fmt.Errorf("%s: operation %d: %w", jsonrpc2.ErrInvalidParams, i, err)
 		}
 		ops = append(ops, converted)
+		if declaring != nil {
+			read = append(read, declaring)
+		}
 	}
-	result, version, ok, err := s.ws.ApplyEdit(name, ops)
+	result, version, ok, err := s.ws.ApplyEdit(name, ops, read)
 	if !ok {
 		return nil, fmt.Errorf("%s: no such document", name)
 	}
-	if version != params.Version {
+	var stale *model.StaleError
+	if version != params.Version || errors.As(err, &stale) {
 		return &applyModelEditResult{Stale: true, Version: version}, nil
 	}
 	if err != nil {
@@ -225,6 +241,9 @@ func (s *Server) ApplyModelEdit(params *applyModelEditParams) (*applyModelEditRe
 	}
 	changes := make([]protocol.TextDocumentEdit, 0, len(result.Documents))
 	for _, edited := range result.Documents {
+		if bytes.Equal(edited.Original, edited.Content) {
+			continue
+		}
 		change, err := documentChange(edited)
 		if err != nil {
 			return nil, err
@@ -258,6 +277,48 @@ func documentChange(edited model.DocumentEdit) (protocol.TextDocumentEdit, error
 	return change, nil
 }
 
+// operation reads a wire operation of doc as the edit operation it names, its
+// target declared in the document DeclaredIn names: a Declaration a range of
+// that document's text, a Target a name it declares. Another document than doc
+// is read at the text the operation's digest names, and returned as the
+// snapshot the target was read in, so that the edit can be pinned to it; a
+// digest of other text is a *model.StaleError, since the range may fall on, or
+// the name reach, another declaration now.
+func (s *Server) operation(doc *model.Document, op modelEditOperation) (modeledit.Operation, *model.Document, error) {
+	if op.DeclaredIn == "" {
+		converted, err := op.operation(doc.Content)
+		return converted, nil, err
+	}
+	name := uriToName(op.DeclaredIn)
+	if name == doc.Name {
+		converted, err := op.operation(doc.Content)
+		if err != nil {
+			return modeledit.Operation{}, nil, err
+		}
+		return converted.DeclaredIn(name), nil, nil
+	}
+	if op.Digest == "" {
+		return modeledit.Operation{}, nil, fmt.Errorf("a target declared in %s, which declaredIn names, needs the digest of the text it was rendered from", op.DeclaredIn)
+	}
+	// A library document is never rewritten, so there is no snapshot to pin.
+	pinned := s.ws.Document(name)
+	declaring := pinned
+	if declaring == nil {
+		declaring = s.ws.LibraryDocument(name)
+	}
+	if declaring == nil {
+		return modeledit.Operation{}, nil, fmt.Errorf("%s, which declaredIn names, is no document the server holds", op.DeclaredIn)
+	}
+	if declaring.Digest() != op.Digest {
+		return modeledit.Operation{}, nil, &model.StaleError{Name: name}
+	}
+	converted, err := op.operation(declaring.Content)
+	if err != nil {
+		return modeledit.Operation{}, nil, err
+	}
+	return converted.DeclaredIn(name), pinned, nil
+}
+
 // operation reads the wire operation as the edit operation it names; content
 // is the document a Declaration range is a range of.
 func (op modelEditOperation) operation(content []byte) (modeledit.Operation, error) {
@@ -266,6 +327,9 @@ func (op modelEditOperation) operation(content []byte) (modeledit.Operation, err
 	}
 	if op.Declaration != nil && op.Target != "" {
 		return modeledit.Operation{}, errors.New("an operation targets its element by name or by declaration, not both")
+	}
+	if op.DeclaredIn != "" && op.Kind != EditSetLayout && op.Kind != EditSetRoute {
+		return modeledit.Operation{}, fmt.Errorf("declaredIn names the document declaring the target of a %s or %s alone", EditSetLayout, EditSetRoute)
 	}
 	switch op.Kind {
 	case EditSetValue:
@@ -491,10 +555,10 @@ func notationName(sym *symbols.Symbol) string {
 }
 
 // nodeSymbol is the declaration a rendering node or edge was built from, named
-// or not, when the rendered document declares it; nil for one another document
-// declares or a lowering sequenced without a declaration of its own.
-func nodeSymbol(doc *model.Document, name string, o view.Origin) *symbols.Symbol {
-	if doc == nil || doc.Scope == nil || o.Doc != name || !o.Located() {
+// or not, in doc, the document declaring it; nil for no document, or for a
+// lowering sequenced without a declaration of its own.
+func nodeSymbol(doc *model.Document, o view.Origin) *symbols.Symbol {
+	if doc == nil || doc.Scope == nil {
 		return nil
 	}
 	return doc.Scope.DeclaredAt(o.Span)

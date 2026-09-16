@@ -31,12 +31,12 @@ func TestReadingIsOfOneGeneration(t *testing.T) {
 		if r.Generation() != before {
 			t.Errorf("reading is of generation %d, want %d", r.Generation(), before)
 		}
-		rendering, doc, err := r.RenderView("m.sysml", "MachineViews::opsView")
+		rendering, snapshot, err := r.RenderView("m.sysml", "MachineViews::opsView")
 		if err != nil {
 			return err
 		}
-		if doc.Version != 1 || rendering == nil {
-			t.Errorf("rendering of version %d, want 1", doc.Version)
+		if snapshot.Rendered.Version != 1 || rendering == nil {
+			t.Errorf("rendering of version %d, want 1", snapshot.Rendered.Version)
 		}
 		if rt, err = r.NewRuntime(); err != nil {
 			return err

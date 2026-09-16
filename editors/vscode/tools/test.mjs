@@ -3,10 +3,11 @@
 // The bundles land under out/ so a test's jsdom resolves from node_modules.
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
-import { join, relative, resolve } from "node:path";
+import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
-const sourceDir = resolve(new URL("../src", import.meta.url).pathname);
+const sourceDir = fileURLToPath(new URL("../src", import.meta.url));
 const tests = (await readdir(sourceDir, { recursive: true }))
   .filter((name) => name.endsWith(".test.ts"))
   .map((name) => join(sourceDir, name));
@@ -15,7 +16,7 @@ if (tests.length === 0) {
   process.exit(1);
 }
 
-const outRoot = resolve(new URL("../out", import.meta.url).pathname);
+const outRoot = fileURLToPath(new URL("../out", import.meta.url));
 await mkdir(outRoot, { recursive: true });
 const outdir = await mkdtemp(join(outRoot, "test-"));
 try {
