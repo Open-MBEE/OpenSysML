@@ -221,6 +221,11 @@ jobs:
           name: Check the compliance census hook
           command: python3 scripts/mkdocs_census-test.py
 
+      # The test-suite figures are counted when the site is built, never committed.
+      - run:
+          name: Check the test-suite figures hook
+          command: python3 scripts/mkdocs_suite_figures-test.py
+
       # Each client verifies a download against the copy of the pinned digests it
       # ships, so a copy that drifts from the table pins something else.
       - run:
