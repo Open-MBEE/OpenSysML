@@ -96,7 +96,10 @@ pub struct VerifyConstraintRequest {
     /// Optional FQN of a part/usage to instantiate and evaluate the constraint
     /// against, so the verdict is about concrete values rather than declared
     /// defaults. The prompt evaluates against the object a %instantiate created;
-    /// a call carries no session, so it names the subject instead.
+    /// a call carries no session, so it names the subject instead. A path from a
+    /// declaration, as `Mission::mission.vehicle`, instantiates the declaration and
+    /// evaluates against the object the path reaches, inside the assembly built
+    /// around it; an index picks from a multi-valued usage, `convoy.escorts\[2\]`.
     #[prost(string, tag="3")]
     pub subject_symbol_id: ::prost::alloc::string::String,
     /// The engine the question is put to, as ListEngines names it, "auto" for the
@@ -131,7 +134,8 @@ pub struct VerifyRequirementRequest {
     /// FQN of the requirement definition or usage to evaluate.
     #[prost(string, tag="2")]
     pub symbol_id: ::prost::alloc::string::String,
-    /// Optional FQN of a part/usage to instantiate and evaluate against.
+    /// Optional FQN of a part/usage to instantiate and evaluate against, or a path
+    /// from one to a nested object; see VerifyConstraintRequest.subject_symbol_id.
     #[prost(string, tag="3")]
     pub subject_symbol_id: ::prost::alloc::string::String,
     /// The engine the question is put to; see VerifyConstraintRequest.engine.
@@ -360,7 +364,10 @@ pub struct RunAnalysisRequest {
     pub symbol_id: ::prost::alloc::string::String,
     /// Optional FQN of a part/usage to instantiate as the case's subject. Empty
     /// leaves the case's own `subject s = ...` binding to supply it; a case that
-    /// binds none and is given none fails to run.
+    /// binds none and is given none fails to run. A path from a declaration, as
+    /// `Mission::mission.vehicle`, makes the subject the object the path reaches in
+    /// an object of the declaration built for the run — every explored run its own
+    /// — so what the assembly binds and connects on it is in force.
     #[prost(string, tag="3")]
     pub subject_symbol_id: ::prost::alloc::string::String,
     /// Positional arguments for the case's input parameters, in declaration order;
@@ -785,6 +792,13 @@ pub struct ExecuteActionRequest {
     /// a fresh context, and answers with every distinct outcome reached.
     #[prost(string, tag="4")]
     pub schedule: ::prost::alloc::string::String,
+    /// Optional FQN of a part/usage to perform the action on, or a path from one to
+    /// a nested object, as `Mission::mission.vehicle`: the object is created for the
+    /// run — inside the assembly the path walks, so its connectors carry what the
+    /// action sends — and under explore each run creates its own. Empty performs
+    /// the action outside any object.
+    #[prost(string, tag="5")]
+    pub performer_symbol_id: ::prost::alloc::string::String,
 }
 /// ExecuteActionResponse contains action execution results
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -827,6 +841,13 @@ pub struct ExecuteStateRequest {
     /// states_visited, final_context and error (see ExecuteActionResponse).
     #[prost(string, tag="4")]
     pub schedule: ::prost::alloc::string::String,
+    /// Optional FQN of a part/usage to run the machine on, or a path from one to a
+    /// nested object (see ExecuteActionRequest.performer_symbol_id). An object
+    /// exhibiting the machine runs the one it exhibits, so what its assembly
+    /// connects to it reaches the run; one exhibiting it under several usages is
+    /// an error. Empty runs the machine outside any object.
+    #[prost(string, tag="5")]
+    pub performer_symbol_id: ::prost::alloc::string::String,
 }
 /// ExecuteStateResponse contains state machine execution trace
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1825,7 +1846,8 @@ pub struct RunSweepRequest {
     /// FQN of the analysis case or calc, definition or usage.
     #[prost(string, tag="2")]
     pub symbol_id: ::prost::alloc::string::String,
-    /// Optional FQN of a part/usage to instantiate as an analysis case's subject.
+    /// Optional FQN of a part/usage to instantiate as an analysis case's subject,
+    /// or a path from one to a nested object; see RunAnalysisRequest.subject_symbol_id.
     #[prost(string, tag="3")]
     pub subject_symbol_id: ::prost::alloc::string::String,
     /// Positional arguments for the target's input parameters, in declaration

@@ -76,6 +76,17 @@ func invocationOf(actions, states []*symbols.Symbol) Starter {
 // action is the one action a single-action invocation runs.
 func (inv *Invocation) action() *ActionExecutor { return inv.Actions[0] }
 
+// An invocation that started nothing has an outcome holding nothing.
+func TestEmptyInvocationHasAnEmptyOutcome(t *testing.T) {
+	outcome := (&Invocation{}).Outcome()
+	if outcome.FinalState != "" || len(outcome.StateVisits) != 0 || len(outcome.Outputs) != 0 {
+		t.Errorf("outcome of an empty invocation = %v, want nothing held", outcome)
+	}
+	if got := outcome.String(); got != "no outputs" {
+		t.Errorf("an empty invocation's outcome spells %q, want no outputs", got)
+	}
+}
+
 // performedBy starts the action performed by a fresh instance of the part.
 func performedBy(part, action *symbols.Symbol) Starter {
 	return func(ctx *Context) (*Invocation, error) {
@@ -297,6 +308,70 @@ func TestCheckReplayFollowsAnOrderDrawnAfterTheClockRetriesAStep(t *testing.T) {
 	}
 }
 
+// The witnesses of a check over several behaviors replay: a second action begun
+// beside `clash` shifts the step at which its branches race, and each divergent
+// value's witness re-runs to the value it claims.
+func TestCheckWitnessesOfSeveralBehaviorsReplay(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		action clash {
+			attribute x : Integer = 0;
+			first start;
+			fork split;
+			action left { assign x := 1; }
+			action right { assign x := 2; }
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then left;
+			succession first split then right;
+			succession first left then sync;
+			succession first right then sync;
+			succession first sync then done;
+		}
+		action tick {
+			attribute n : Integer = 0;
+			first start;
+			then action one assign n := n + 1;
+			then action two assign n := n + 1;
+			then done;
+		}
+	}`)
+	clash, tick := m.action(t, "clash"), m.action(t, "tick")
+	start := func(ctx *Context) (*Invocation, error) {
+		inv := &Invocation{}
+		for _, sym := range []*symbols.Symbol{tick, clash} {
+			exec, err := ctx.CreateActionExecutor(sym)
+			if err != nil {
+				return nil, err
+			}
+			inv.Actions = append(inv.Actions, exec)
+		}
+		return inv, nil
+	}
+	report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, unreduced(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var xs []string
+	for _, d := range report.Divergent {
+		if !strings.HasSuffix(d.Feature, "x") {
+			continue
+		}
+		for _, v := range d.Values {
+			xs = append(xs, v.Value)
+			r := replayWitness(t, m, start, v.Witness, d.Feature+" = "+v.Value)
+			if got, err := r.FinalValue(d.Feature); err != nil || got != v.Value {
+				t.Errorf("replaying %s reached %s = %s, %v; want %s", FormatChoices(v.Witness.Choices), d.Feature, got, err, v.Value)
+			}
+		}
+	}
+	slices.Sort(xs)
+	if !slices.Equal(xs, []string{"1", "2"}) {
+		t.Fatalf("x ends as %v, want 1 and 2", xs)
+	}
+}
+
 // A witness altered to another schedule does not replay: the disagreement is reported.
 func TestCheckReplayDisagreesWithATamperedWitness(t *testing.T) {
 	m := conformanceModel(t, "action_fork_branches_write_one_feature")
@@ -433,6 +508,50 @@ func TestCheckDivergeNamesTellTheActionsFeaturesFromThePerformers(t *testing.T) 
 			if got := divergentValues(report, name); !slices.Equal(got, []string{"1", "2"}) {
 				t.Errorf("Diverge %v: %s diverges over %v, want [1 2]", tc.diverge, name, got)
 			}
+		}
+	}
+}
+
+// Diverge selects any feature the performer holds, an attribute or not: two
+// schedules leaving a selected item differently are two outcomes, though the
+// outcome's own rendering carries the performer's attributes only.
+func TestCheckDivergeTellsOutcomesApartByANonAttributeOfThePerformer(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		part def Tank {
+			item mode : String = "idle";
+			perform action fill {
+				first start;
+				fork split;
+				action a { assign this.mode := "filling"; }
+				action b { assign this.mode := "draining"; }
+				join sync;
+				done;
+				succession first start then split;
+				succession first split then a;
+				succession first split then b;
+				succession first a then sync;
+				succession first b then sync;
+				succession first sync then done;
+			}
+		}
+	}`)
+	fill := m.idx.LookupQualified("test::Tank::fill")[0]
+	tank := m.idx.LookupQualified("test::Tank")[0]
+	start := performedBy(tank, fill)
+	report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"this.mode"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Finals) != 2 {
+		t.Fatalf("%d finals, want the two this.mode tells apart: %s", len(report.Finals), report.Status())
+	}
+	if got := divergentValues(report, "this.mode"); !slices.Equal(got, []string{`"draining"`, `"filling"`}) {
+		t.Fatalf("this.mode diverges over %v, want [\"draining\" \"filling\"]: %s", got, report.Status())
+	}
+	for _, final := range report.Finals {
+		if !strings.Contains(final.Outcome, "this.mode = "+final.Values["this.mode"]) {
+			t.Errorf("final %q does not spell this.mode = %s", final.Outcome, final.Values["this.mode"])
 		}
 	}
 }

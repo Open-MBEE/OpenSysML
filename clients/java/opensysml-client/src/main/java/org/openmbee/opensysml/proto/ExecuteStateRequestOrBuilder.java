@@ -102,4 +102,32 @@ public interface ExecuteStateRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getScheduleBytes();
+
+  /**
+   * <pre>
+   * Optional FQN of a part/usage to run the machine on, or a path from one to a
+   * nested object (see ExecuteActionRequest.performer_symbol_id). An object
+   * exhibiting the machine runs the one it exhibits, so what its assembly
+   * connects to it reaches the run; one exhibiting it under several usages is
+   * an error. Empty runs the machine outside any object.
+   * </pre>
+   *
+   * <code>string performer_symbol_id = 5 [json_name = "performerSymbolId"];</code>
+   * @return The performerSymbolId.
+   */
+  java.lang.String getPerformerSymbolId();
+  /**
+   * <pre>
+   * Optional FQN of a part/usage to run the machine on, or a path from one to a
+   * nested object (see ExecuteActionRequest.performer_symbol_id). An object
+   * exhibiting the machine runs the one it exhibits, so what its assembly
+   * connects to it reaches the run; one exhibiting it under several usages is
+   * an error. Empty runs the machine outside any object.
+   * </pre>
+   *
+   * <code>string performer_symbol_id = 5 [json_name = "performerSymbolId"];</code>
+   * @return The bytes for performerSymbolId.
+   */
+  com.google.protobuf.ByteString
+      getPerformerSymbolIdBytes();
 }
