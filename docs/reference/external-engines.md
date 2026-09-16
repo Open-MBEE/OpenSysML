@@ -199,8 +199,9 @@ graph carries, the form carries.
   `performs`, and `footprint` — the places the move reads and writes, the channels it sends on
   and accepts from, the control nodes it joins, `dynamic` when the lowering could not project it
   — present on every node the lowering computed one for. An `EdgeForm` is `source`, `target`,
-  `guard` as `{text, span}`, `else` for the branch taken when no guard holds, and `decl`, the
-  span of the succession that declares it.
+  `guard` as `{text, span}`, `else` for the branch taken when no guard holds, `probability` as
+  `{text, span}` for the weight a `Stochastic::Probability` annotation puts on a succession
+  leaving a decision, and `decl`, the span of the succession that declares it.
 - `states[]`, one `StateForm` per lowered state machine: `vertices` (the machine, its states
   and pseudostates with `kind`, `parent`, `region`, `regions`, `entry`, `do`, `exit`,
   `deferred`), `regions`, `transitions` (`source`, `target`, `trigger`, `guard`, `effect`,

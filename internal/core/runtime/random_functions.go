@@ -45,8 +45,11 @@ func drawUniform(ctx *Context, name string, args []semantics.Value) (semantics.V
 		return semantics.Value{}, fmt.Errorf("%w: uniform(%s, %s): lo exceeds hi", ErrRandomDomain, formatDrawn(args[0]), formatDrawn(args[1]))
 	}
 	return ctx.draw(drawCall(name, args), distribution{
-		draw:   func(rng *rand.Rand) semantics.Value { return drawnReal(lo + rng.Float64()*(hi-lo)) },
-		admits: realWithin(lo, hi),
+		draw: func(rng *rand.Rand) semantics.Value {
+			// Rounding at the top of a wide range may land on hi; the interval excludes it.
+			return drawnReal(math.Min(lo+rng.Float64()*(hi-lo), math.Nextafter(hi, lo)))
+		},
+		admits: realHalfOpen(lo, hi),
 	})
 }
 
@@ -131,4 +134,11 @@ func drawnReal(x float64) semantics.Value {
 // realWithin admits a Real on [lo, hi]: what a bounded distribution can draw.
 func realWithin(lo, hi float64) func(v semantics.Value) bool {
 	return func(v semantics.Value) bool { return v.Kind == semantics.ValReal && lo <= v.Real && v.Real <= hi }
+}
+
+// realHalfOpen admits a Real on [lo, hi), or lo alone when lo == hi: what uniform can draw.
+func realHalfOpen(lo, hi float64) func(v semantics.Value) bool {
+	return func(v semantics.Value) bool {
+		return v.Kind == semantics.ValReal && lo <= v.Real && (v.Real < hi || v.Real == lo)
+	}
 }

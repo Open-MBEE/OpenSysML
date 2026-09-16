@@ -251,6 +251,113 @@ func TestWeightedDecisionTakesTheMostProbableBranchUnseeded(t *testing.T) {
 	}
 }
 
+// weightedCasesModel weights the decision among the steps of a verification case
+// and of an analysis case, the more probable branch written first each time: read
+// unweighted, the last unguarded succession would be taken as the else branch.
+const weightedCasesModel = `
+package test {
+	private import ScalarValues::*;
+	private import Stochastic::*;
+
+	part def Sensor {
+		attribute reading : Integer default = 0;
+	}
+	part zeroed : Sensor;
+	part drifted : Sensor {
+		attribute :>> reading = 4;
+	}
+
+	verification def ZeroCheck {
+		subject sensor : Sensor;
+		VerificationCases::PassIf(sensor.reading == 0)
+	}
+
+	verification plan {
+		subject sensor = zeroed;
+		action start;
+		then decide route;
+		first route then checkZeroed { @Probability { p = 0.8; } }
+		first route then checkDrifted { @Probability { p = 0.2; } }
+		verification checkZeroed : ZeroCheck {
+			subject sensor = test::zeroed;
+		}
+		verification checkDrifted : ZeroCheck {
+			subject sensor = test::drifted;
+		}
+	}
+
+	analysis sizing {
+		subject s = zeroed;
+		attribute taken : Integer = 0;
+		action start;
+		then decide route;
+		first route then fast { @Probability { p = 0.8; } }
+		first route then slow { @Probability { p = 0.2; } }
+		action fast { assign taken := 1; }
+		action slow { assign taken := 2; }
+		return : Integer = taken;
+	}
+}`
+
+// A weighted decision among a case's steps is weighted as an action's is: unseeded
+// it takes the most probable branch whatever the schedule order, and under a seed
+// it is drawn, the same seed drawing the same branch.
+func TestWeightedCaseStepsKeepTheirWeights(t *testing.T) {
+	verify := func(t *testing.T, policy string) (string, ChoicePoint) {
+		t.Helper()
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, weightedCasesModel))
+		mustSchedule(t, ctx, mustPolicy(t, policy))
+		result, err := ctx.RunVerification(oneSymbol(t, idx, "test::plan"), AnalysisArgs{}, nil, nil)
+		if err != nil {
+			t.Fatalf("RunVerification: %v", err)
+		}
+		if len(result.Subcases) != 1 {
+			t.Fatalf("subcases = %+v, want the one branch performed", result.Subcases)
+		}
+		choices := ctx.Choices()
+		if len(choices) != 1 || !choices[0].Weighted() {
+			t.Fatalf("choices %v, want one weighted decision", choices)
+		}
+		return result.Subcases[0].Case, choices[0]
+	}
+	analyze := func(t *testing.T, policy string) (int64, ChoicePoint) {
+		t.Helper()
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, weightedCasesModel))
+		mustSchedule(t, ctx, mustPolicy(t, policy))
+		run, err := ctx.RunAnalysis(oneSymbol(t, idx, "test::sizing"), AnalysisArgs{}, nil, nil)
+		if err != nil {
+			t.Fatalf("RunAnalysis: %v", err)
+		}
+		if len(run.Outputs) != 1 || run.Outputs[0].Value.Const.Kind != semantics.ValInt {
+			t.Fatalf("outputs = %+v, want the one Integer result", run.Outputs)
+		}
+		choices := ctx.Choices()
+		if len(choices) != 1 || !choices[0].Weighted() {
+			t.Fatalf("choices %v, want one weighted decision", choices)
+		}
+		return run.Outputs[0].Value.Const.Int, choices[0]
+	}
+
+	for _, policy := range []string{"declared", "reverse"} {
+		sub, choice := verify(t, policy)
+		if !strings.HasSuffix(sub, "checkZeroed") || choice.Drawn {
+			t.Errorf("%s performed %s (drawn %v), want the 0.8 branch undrawn", policy, sub, choice.Drawn)
+		}
+		taken, choice := analyze(t, policy)
+		if taken != 1 || choice.Drawn {
+			t.Errorf("%s computed %d (drawn %v), want the 0.8 branch's 1 undrawn", policy, taken, choice.Drawn)
+		}
+	}
+	sub, choice := verify(t, "seed:3")
+	if again, _ := verify(t, "seed:3"); again != sub || !choice.Drawn {
+		t.Errorf("seed:3 performed %s then %s (drawn %v), want one drawn branch reproduced", sub, again, choice.Drawn)
+	}
+	taken, choice := analyze(t, "seed:3")
+	if again, _ := analyze(t, "seed:3"); again != taken || !choice.Drawn {
+		t.Errorf("seed:3 computed %d then %d (drawn %v), want one drawn branch reproduced", taken, again, choice.Drawn)
+	}
+}
+
 // Explore still enumerates every branch of a weighted decision, weights notwithstanding.
 func TestExploreEnumeratesWeightedBranches(t *testing.T) {
 	m := parseLibraryModel(t, weightedRouteModel)
@@ -570,6 +677,8 @@ func TestReplayRefusesDrawsOutsideTheCallsDistribution(t *testing.T) {
 				attribute a : Real = triangular(0.0, 1.0, 2.0);
 				attribute b : Real = normal(5.0, 0.0);
 				attribute c : Real = normal(0.0, 1.0);
+				attribute u : Real = uniform(0.0, 1.0);
+				attribute z : Real = uniform(3.0, 3.0);
 				first start; then done;
 			}
 		}`)
@@ -578,8 +687,8 @@ func TestReplayRefusesDrawsOutsideTheCallsDistribution(t *testing.T) {
 		t.Fatal(err)
 	}
 	good := ctx.DrawsTaken()
-	if len(good) != 3 {
-		t.Fatalf("recorded %v, want three draws", good)
+	if len(good) != 5 {
+		t.Fatalf("recorded %v, want five draws", good)
 	}
 	real := func(x float64) semantics.Value { return semantics.Value{Kind: semantics.ValReal, Real: x} }
 	with := func(i int, v semantics.Value) []DrawTaken {
@@ -599,6 +708,12 @@ func TestReplayRefusesDrawsOutsideTheCallsDistribution(t *testing.T) {
 		{"zero deviation off the mean", with(1, real(5.1)), false},
 		{"normal far out", with(2, real(-40)), true},
 		{"normal infinite", with(2, real(math.Inf(1))), false},
+		{"uniform at lo", with(3, real(0)), true},
+		{"uniform just below hi", with(3, real(math.Nextafter(1, 0))), true},
+		{"uniform at hi", with(3, real(1)), false},
+		{"uniform below lo", with(3, real(-0.1)), false},
+		{"zero-width uniform at its one value", with(4, real(3)), true},
+		{"zero-width uniform off its one value", with(4, real(3.1)), false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

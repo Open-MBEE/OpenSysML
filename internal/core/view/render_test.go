@@ -324,6 +324,21 @@ func TestActionRenderingComesFromTheLoweredGraph(t *testing.T) {
 	}
 }
 
+// A weighted succession is labeled with the weight its Probability annotation
+// states, read through the resolver as the runtime reads it.
+func TestActionRenderingLabelsWeightedSuccessions(t *testing.T) {
+	rendering := render(t, "weighted.sysml", "WeightedViews::routeView")
+	labels := edgeLabels(rendering)
+	for _, want := range []string{"p = 0.7", "p = 0.3"} {
+		if !labels[want] {
+			t.Errorf("edge labels %v lack %q", sortedKeys(labels), want)
+		}
+	}
+	if text := rendering.Text(); !strings.Contains(text, "p = 0.7") {
+		t.Errorf("text lacks the weight:\n%s", text)
+	}
+}
+
 // A behavior rendering carries the declared type of a typed action or state usage
 // apart from its notes, and every form writes the type after the name.
 func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
