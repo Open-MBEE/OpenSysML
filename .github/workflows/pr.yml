@@ -705,6 +705,10 @@ jobs:
       - name: Check the compliance census hook
         run: python3 scripts/mkdocs_census-test.py
 
+      # The test-suite figures are counted when the site is built, never committed.
+      - name: Check the test-suite figures hook
+        run: python3 scripts/mkdocs_suite_figures-test.py
+
       # --strict: a link or anchor a moved page left behind fails here rather than
       # publishing a 404 from main.
       - name: Build documentation site

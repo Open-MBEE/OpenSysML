@@ -13,6 +13,9 @@ on:
       - 'scripts/mkdocs_landing.py'
       - 'scripts/mkdocs_header_menu.py'
       - 'scripts/mkdocs_census.py'
+      - 'scripts/mkdocs_suite_figures.py'
+      - 'cmd/doc-counts/**'
+      - 'internal/doccounts/**'
       - 'overrides/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
@@ -41,6 +44,14 @@ jobs:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: docs-requirements.txt
+
+      # The test-suite figures are counted from the tree by cmd/doc-counts as the
+      # site is built, so the build needs the Go toolchain.
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
 
       - name: Install documentation toolchain
         run: make docs-install

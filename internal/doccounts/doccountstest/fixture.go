@@ -29,12 +29,12 @@ type Suite struct {
 // Expected is the census of the tree WriteSuiteFixture writes.
 var Expected = Suite{
 	ConformanceCases:   7,
-	Robustness:         5,
+	Robustness:         7,
 	GRPCConformance:    2,
-	GRPCRobustness:     2,
+	GRPCRobustness:     3,
 	GoldenASTs:         3,
 	NegativeTable:      3,
-	TestFunctions:      "8",
+	TestFunctions:      "10",
 	ConformanceSummary: "7 conformance cases (all passing: calc×4, and one each of action, send and state)",
 	TraceSummary:       "3 golden execution traces under the default schedule (calc×2, action×1), and 1 more `.trace.golden` files",
 }
@@ -110,6 +110,15 @@ func helper(t *testing.T) {}
 
 func Testlower(t *testing.T) {}
 `)
+	Write(t, root, "internal/core/runtime/robustness_signals_test.go", `package runtime
+
+import "testing"
+
+func TestRuntimeRobustnessSignals(t *testing.T) {
+	t.Run("f", func(t *testing.T) {})
+	t.Run("g", func(t *testing.T) {})
+}
+`)
 	grpc := "internal/grpc/testdata/conformance/"
 	Write(t, root, grpc+"a.expected.json", "{}\n")
 	Write(t, root, grpc+"b.expected.json", "{}\n")
@@ -121,6 +130,14 @@ import "testing"
 func TestGRPCRobustness(t *testing.T) {
 	t.Run("a", func(t *testing.T) {})
 	t.Run("b", func(t *testing.T) {})
+}
+`)
+	Write(t, root, "internal/grpc/robustness_streams_test.go", `package grpc
+
+import "testing"
+
+func TestGRPCRobustnessStreams(t *testing.T) {
+	t.Run("c", func(t *testing.T) {})
 }
 `)
 	Write(t, root, "internal/lsp/server_test.go", `package lsp

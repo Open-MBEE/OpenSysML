@@ -293,6 +293,7 @@ scripts-coverage: ## Run the repository scripts and their tests under coverage a
 	$(SCRIPTS_COVERAGE) scripts/changelog-test.py
 	$(SCRIPTS_COVERAGE) scripts/changelog.py check
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_census-test.py
+	$(SCRIPTS_COVERAGE) scripts/mkdocs_suite_figures-test.py
 	$(SCRIPTS_COVERAGE) scripts/dedupe-coverage-test.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-links.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-ids.py
@@ -337,7 +338,7 @@ self-model: build-sysml ## Render the architecture self-model's views (see examp
 	$(BIN_DIR)/sysml $(SELF_MODEL_DIR)/*.sysml -render-documents "$(SELF_MODEL_OUT)"
 	@echo "✓ Rendered the self-model's views and document into $(SELF_MODEL_OUT)/"
 
-docs-counts: ## Regenerate and verify all derived documentation counts
+docs-counts: ## Regenerate and verify the committed documentation counts; the test-suite figures are counted when the site is built
 	@echo "Regenerating the documentation count lines and refereed figures..."
 	go run ./cmd/doc-counts
 	go run ./cmd/doc-counts -check
@@ -345,12 +346,13 @@ docs-counts: ## Regenerate and verify all derived documentation counts
 	go test -count=1 ./cmd/pilot-diff ./cmd/pilot-reject ./cmd/doc-counts ./cmd/validation-census
 	@echo "✓ Documentation counts and refereed figures are current"
 
-docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle figures, changelog fragments and the build-time compliance census
+docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle figures, changelog fragments and the build-time census and test-suite figures
 	$(PYTHON) scripts/check-doc-links.py
 	$(PYTHON) scripts/check-doc-ids.py
 	$(PYTHON) scripts/check-doc-figures.py
 	$(PYTHON) scripts/changelog.py check
 	$(PYTHON) scripts/mkdocs_census-test.py
+	$(PYTHON) scripts/mkdocs_suite_figures-test.py
 
 changelog-check: ## Verify every changelog fragment under changes/unreleased/ and the folding script
 	$(PYTHON) scripts/changelog-test.py
