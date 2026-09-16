@@ -152,12 +152,22 @@ func (inst *Instance) ExhibitedState() (*ObjectBehavior, bool) {
 // one definition can be the body or the kind of several exhibited usages.
 // Declarations are compared.
 func (inst *Instance) ExhibitedStatesOf(sym *symbols.Symbol) []*ObjectBehavior {
+	return inst.behaviorsOf(lower.ExhibitedState, sym)
+}
+
+// PerformedActionsOf is ExhibitedStatesOf for the actions the object performs.
+func (inst *Instance) PerformedActionsOf(sym *symbols.Symbol) []*ObjectBehavior {
+	return inst.behaviorsOf(lower.PerformedAction, sym)
+}
+
+// behaviorsOf is the behaviors of kind the object runs under sym's declaration.
+func (inst *Instance) behaviorsOf(kind lower.ClassifierBehaviorKind, sym *symbols.Symbol) []*ObjectBehavior {
 	if sym == nil || sym.Decl == nil {
 		return nil
 	}
 	var bodies []*ObjectBehavior
 	for _, b := range inst.behaviors {
-		if b.Kind != lower.ExhibitedState {
+		if b.Kind != kind {
 			continue
 		}
 		if b.member != nil && b.member.Decl == sym.Decl {

@@ -35,14 +35,16 @@ type imagedAction struct {
 	stepCount         int
 	sweep, sweeps     uint64
 	inputs            map[string]Value
-	pausedAt          string
+	pausedAt          breakpointStop
 	released          bool
 	pauses            int64
 	steps, stepsSpent int64
 	inRun, moved      bool
 	awaiting          int
 	breakpoints       map[string]bool
+	breakpointNodes   []NodeBreakpoint
 	firedBreakpoints  map[breakpointVisit]bool
+	traversals        []Traversal
 	run               int
 	dynamics          *stateSpaceRun
 	frames            []imagedFrame
@@ -81,6 +83,11 @@ type imagedState struct {
 	stateAttrs         map[*ast.StateNode]map[string]Value
 	stateVisits        []string
 	stateStack         []*ast.StateNode
+	fired              []FiredTransition
+	breakpointNodes    map[ast.Node]bool
+	breakpointHit      *ast.StateNode
+	pausedAt           ast.Node
+	completionDue      bool
 	history            map[*ast.StateNode]historyRecord
 	deferred           []Event
 	lastDispatch       *Dispatch
@@ -139,7 +146,9 @@ func (t *imaging) actionExecutor(e *ActionExecutor) (*imagedAction, error) {
 		pauses: e.pauses, steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, moved: e.moved,
 		awaiting:         at(e.awaiting),
 		breakpoints:      maps.Clone(e.breakpoints),
+		breakpointNodes:  cloneBreakpoints(e.breakpointNodes),
 		firedBreakpoints: maps.Clone(e.firedBreakpoints),
+		traversals:       cloneTraversals(e.traversals),
 	}
 	var err error
 	if img.run, err = t.run(e.driven.state); err != nil {
@@ -256,6 +265,11 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		stateAttrs:         make(map[*ast.StateNode]map[string]Value, len(e.stateAttrs)),
 		stateVisits:        slices.Clone(e.stateVisits),
 		stateStack:         slices.Clone(e.stateStack),
+		fired:              slices.Clone(e.fired),
+		breakpointNodes:    maps.Clone(e.breakpointNodes),
+		breakpointHit:      e.breakpointHit,
+		pausedAt:           e.pausedAt,
+		completionDue:      e.completionDue,
 		history:            make(map[*ast.StateNode]historyRecord, len(e.history)),
 		deferred:           slices.Clone(e.deferred),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
@@ -280,7 +294,7 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 	}
 	for node, attrs := range e.stateAttrs {
 		if err := t.values(attrs); err != nil {
-			return nil, fmt.Errorf("state %s: %w", getNodeName(node), err)
+			return nil, fmt.Errorf("state %s: %w", StateVertexName(node), err)
 		}
 		img.stateAttrs[node] = maps.Clone(attrs)
 	}
@@ -308,7 +322,7 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 	for _, act := range e.doActions {
 		if act.run != nil {
 			return nil, fmt.Errorf("%w: do behavior of state %s of %s", ErrSnapshotPausedBody,
-				getNodeName(act.state), symbolText(e.stateMachine))
+				StateVertexName(act.state), symbolText(e.stateMachine))
 		}
 		img.doActions = append(img.doActions, doActionCapture{act: &doAction{state: act.state}, pending: slices.Clone(act.pending)})
 	}
@@ -433,6 +447,8 @@ func (m *materializing) actionExecutor(e *ActionExecutor, img *imagedAction) err
 	if e.breakpoints == nil {
 		e.breakpoints = make(map[string]bool)
 	}
+	e.breakpointNodes = cloneBreakpoints(img.breakpointNodes)
+	e.traversals = cloneTraversals(img.traversals)
 	e.firedBreakpoints = maps.Clone(img.firedBreakpoints)
 	if e.firedBreakpoints == nil {
 		e.firedBreakpoints = make(map[breakpointVisit]bool)
@@ -532,10 +548,16 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	}
 	for node, attrs := range img.stateAttrs {
 		if e.stateAttrs[node], err = m.values(attrs); err != nil {
-			return fmt.Errorf("state %s: %w", getNodeName(node), err)
+			return fmt.Errorf("state %s: %w", StateVertexName(node), err)
 		}
 	}
 	e.stateVisits, e.stateStack = slices.Clone(img.stateVisits), slices.Clone(img.stateStack)
+	e.fired = slices.Clone(img.fired)
+	e.breakpointNodes = maps.Clone(img.breakpointNodes)
+	if e.breakpointNodes == nil {
+		e.breakpointNodes = make(map[ast.Node]bool)
+	}
+	e.breakpointHit, e.pausedAt, e.completionDue = img.breakpointHit, img.pausedAt, img.completionDue
 	for node, record := range img.history {
 		e.history[node] = &historyRecord{child: record.child, regions: maps.Clone(record.regions)}
 	}

@@ -51,6 +51,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 				"openSysmlRenderDocument": true,
 				"openSysmlApplyModelEdit": true,
 				"openSysmlStdlibContent":  true,
+				"openSysmlDebug":          true,
 			},
 			// Folders added mid-session are only indexed if the client reports them.
 			Workspace: &protocol.ServerCapabilitiesWorkspace{
@@ -103,9 +104,11 @@ func (s *Server) Initialized(ctx context.Context, params *protocol.InitializedPa
 }
 
 // Shutdown prepares the server for exit: the session stays readable, but only
-// the exit notification is still answered (LSP 3.17 §Shutdown Request).
+// the exit notification is still answered (LSP 3.17 §Shutdown Request). Live
+// debug sessions end with it, releasing what they hold.
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.markShutdown()
+	s.debugSessionsEnded(ctx, "the server is shutting down")
 	return nil
 }
 

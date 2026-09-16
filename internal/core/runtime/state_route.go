@@ -521,10 +521,12 @@ func (e *StateExecutor) travelResolving(r route, exits exitPlan, move func([]low
 		if err := e.runBehaviors(r.effects()); err != nil {
 			return err
 		}
+		e.noteFired(r.segments...)
 		if r, err = e.resolveChoice(r); err != nil {
 			return err
 		}
 	}
+	e.noteFired(r.segments...)
 	return move(r.effects(), r.target)
 }
 
