@@ -96,7 +96,16 @@ func (ctx *Context) classify(inst *Instance, typ *symbols.Symbol) error {
 		return nil
 	}
 	inherited := ctx.instanceConforms(inst, typ)
+	ctx.observeClassify(inst, typ)
 	commit, rollback := ctx.beginJournal()
+	// A classifier may redefine what a value taken from the shape read: what the take
+	// left unmaterialized is materialized first, so the redefinition reaches the value.
+	if !inherited && ctx.classifierRedeclares(inst, typ) {
+		if err := ctx.settleOwed(inst); err != nil {
+			rollback()
+			return err
+		}
+	}
 	classifiers, values, running := inst.classifiers, maps.Clone(inst.FeatureValues), len(inst.behaviors)
 	ctx.noteProbeUndo(func() {
 		if len(inst.behaviors) > running {
@@ -136,6 +145,18 @@ func (ctx *Context) classify(inst *Instance, typ *symbols.Symbol) error {
 	}
 	commit()
 	return nil
+}
+
+// classifierRedeclares reports whether typ declares a feature inst does not hold, or one
+// it holds under another declaration: classifying by it may change what inst's values read.
+func (ctx *Context) classifierRedeclares(inst *Instance, typ *symbols.Symbol) bool {
+	features := ctx.FeaturesOf(typ)
+	for i := range features {
+		if fv, ok := inst.FeatureValues[features[i].Name]; !ok || fv.Feature.Symbol != features[i].Symbol {
+			return true
+		}
+	}
+	return false
 }
 
 // refineFeatureValue makes a carried feature value read the classifier's declaration when it redefines the
@@ -183,17 +204,31 @@ func declaredBy[T any](ctx *Context, types []*symbols.Symbol, of func(*symbols.S
 	if len(types) == 1 {
 		return of(types[0])
 	}
-	covered := map[*symbols.Scope]bool{}
+	// The scopes the earlier types cover are gathered only once a later type declares
+	// something, since most features have nothing declared for them.
+	var covered map[*symbols.Scope]bool
+	cover := func(typ *symbols.Symbol) {
+		covered[DeclScope(typ)] = true
+		for _, sup := range ctx.model.semantics.AllSupertypes(typ) {
+			covered[DeclScope(sup)] = true
+		}
+	}
 	var out []T
-	for _, typ := range types {
-		for _, rel := range of(typ) {
+	for i, typ := range types {
+		rels := of(typ)
+		if len(rels) != 0 && covered == nil {
+			covered = map[*symbols.Scope]bool{}
+			for _, earlier := range types[:i] {
+				cover(earlier)
+			}
+		}
+		for _, rel := range rels {
 			if scope := scopeOf(rel); scope == nil || !covered[scope] {
 				out = append(out, rel)
 			}
 		}
-		covered[DeclScope(typ)] = true
-		for _, sup := range ctx.model.semantics.AllSupertypes(typ) {
-			covered[DeclScope(sup)] = true
+		if covered != nil {
+			cover(typ)
 		}
 	}
 	return out

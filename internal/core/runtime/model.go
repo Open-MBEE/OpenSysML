@@ -42,6 +42,10 @@ type Model struct {
 	// named feature of the type.
 	holders map[*symbols.Symbol]map[string][]string
 
+	// subsetters memoizes, per type, the positions of the features subsetting each
+	// named feature of the type; see subsetterIndex.
+	subsetters map[*symbols.Symbol]map[string][]int
+
 	// returnedParams memoizes, per calc shape, the parameters its result passes on;
 	// returnedStack is the shapes under analysis, returnedProvisional those awaiting
 	// the root of their call cycle.
@@ -139,6 +143,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		features:            make(map[*symbols.Symbol][]EffectiveFeature),
 		denotedFeatures:     make(map[*symbols.Symbol]map[*symbols.Symbol]string),
 		holders:             make(map[*symbols.Symbol]map[string][]string),
+		subsetters:          make(map[*symbols.Symbol]map[string][]int),
 		returnedParams:      make(map[*calcShape]*returnedAnalysis),
 		redefined:           make(map[featureOfType][]*symbols.Symbol),
 		writeTargets:        make(map[writeTargetKey]*writeTarget),

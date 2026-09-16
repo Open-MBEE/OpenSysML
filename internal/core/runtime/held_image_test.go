@@ -656,7 +656,7 @@ func TestHeldImageRefusesAUsageDenotingAnotherObjectOfTheDestination(t *testing.
 // destinationState is every part of a context a materialization writes, as one value to compare.
 type destinationState struct {
 	instances, created, lives, behaviors, messages, occurrences, metadata, variants, selected int
-	onClock                                                                                   int
+	onClock, shared                                                                           int
 	nextID, tookHigh, activations, runs                                                       int64
 	clock                                                                                     float64
 	clockRun                                                                                  *runState
@@ -667,8 +667,8 @@ func destinationStateOf(ctx *Context) destinationState {
 		instances: len(ctx.instances), created: len(ctx.created), lives: len(ctx.lives), behaviors: len(ctx.objectBehaviors),
 		messages: len(ctx.messages), occurrences: len(ctx.occurrences), metadata: len(ctx.metadataObjects),
 		variants: len(ctx.variantObjects), selected: len(ctx.selectedVariants),
-		onClock: len(ctx.clock.waiters),
-		nextID:  ctx.ids.next, tookHigh: ctx.took.high, activations: ctx.activations, runs: ctx.runs,
+		onClock: len(ctx.clock.waiters), shared: len(ctx.sharedDefaults),
+		nextID: ctx.ids.next, tookHigh: ctx.took.high, activations: ctx.activations, runs: ctx.runs,
 		clock: ctx.clock.now, clockRun: ctx.clockRun.state,
 	}
 }

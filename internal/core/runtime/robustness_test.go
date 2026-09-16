@@ -495,6 +495,99 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("sweep_over_a_parameter_typed_by_a_part", testSweepOverAParameterTypedByAPart)
 	t.Run("sweep_over_an_integer_parameter_by_a_fraction", testSweepOverAnIntegerParameterByAFraction)
 	t.Run("sweep_over_a_real_parameter_by_integers_no_real_holds", testSweepOverARealParameterByIntegersNoRealHolds)
+	t.Run("shared_default_over_a_cyclic_derivation", testSharedDefaultOverACyclicDerivation)
+	t.Run("shared_default_taken_over_a_write_that_then_fails", testSharedDefaultTakenOverAWriteThatThenFails)
+}
+
+// A `=` value defined in terms of itself fails on every occurrence of the shape
+// with the same typed error, and the failure is never shared as a value.
+func testSharedDefaultOverACyclicDerivation(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<shared-cycle>", parseAndBuild(t, `package P {
+		part def Sat {
+			attribute a = b + 1;
+			attribute b = a + 1;
+		}
+		part def Fleet { part sats : Sat[3]; }
+	}`))
+	ctx.SetSharedDefaults(true)
+	fleet, err := ctx.Instantiate(oneSymbol(t, idx, "P::Fleet"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	sats, err := fleet.GetFeatureValue(ctx, "sats")
+	if err != nil {
+		t.Fatalf("sats: %v", err)
+	}
+	var first string
+	for i, held := range elementsOf(sats.HeldValue()) {
+		id, _ := held.Object()
+		sat, _ := ctx.Instance(id)
+		_, err := sat.GetFeatureValue(ctx, "a")
+		if !errors.Is(err, ErrCyclicFeatureValue) {
+			t.Fatalf("sats#(%d).a: got %v, want %v", i+1, err, ErrCyclicFeatureValue)
+		}
+		if i == 0 {
+			first = err.Error()
+		} else if err.Error() != first {
+			t.Errorf("sats#(%d).a fails as %q, the first as %q", i+1, err, first)
+		}
+	}
+	if taken := ctx.SharedDefaultsTaken(); taken != 0 {
+		t.Errorf("%d shared defaults taken from a derivation that never produced a value", taken)
+	}
+}
+
+// A write under an occurrence that took a shared value re-derives it on that
+// occurrence alone: a write the derivation cannot then use fails as a typed error
+// there, while the other occurrences keep the shape's value.
+func testSharedDefaultTakenOverAWriteThatThenFails(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<shared-then-fails>", parseAndBuild(t, `package P {
+		part def Sat {
+			attribute d = 2;
+			attribute q = 10 / d;
+		}
+		part def Fleet { part sats : Sat[2]; }
+	}`))
+	ctx.SetSharedDefaults(true)
+	fleet, err := ctx.Instantiate(oneSymbol(t, idx, "P::Fleet"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	sats, err := fleet.GetFeatureValue(ctx, "sats")
+	if err != nil {
+		t.Fatalf("sats: %v", err)
+	}
+	held := elementsOf(sats.HeldValue())
+	sat := func(i int) *Instance {
+		id, _ := held[i].Object()
+		inst, _ := ctx.Instance(id)
+		return inst
+	}
+	for i := range held {
+		fv, err := sat(i).GetFeatureValue(ctx, "q")
+		if err != nil {
+			t.Fatalf("sats#(%d).q: %v", i+1, err)
+		}
+		if got := FormatValue(fv.Value); got != "5.0" {
+			t.Fatalf("sats#(%d).q = %s, want 5.0", i+1, got)
+		}
+	}
+	if taken := ctx.SharedDefaultsTaken(); taken != 1 {
+		t.Fatalf("shared defaults taken = %d, want 1", taken)
+	}
+	if err := sat(1).SetFeatureValue(ctx, "d", integerValue(0)); err != nil {
+		t.Fatalf("sats#(2).d = 0: %v", err)
+	}
+	if _, err := sat(1).GetFeatureValue(ctx, "q"); err == nil || !strings.Contains(err.Error(), "division by zero") {
+		t.Fatalf("sats#(2).q after d = 0: got %v, want a division by zero", err)
+	}
+	fv, err := sat(0).GetFeatureValue(ctx, "q")
+	if err != nil {
+		t.Fatalf("sats#(1).q after the write to sats#(2): %v", err)
+	}
+	if got := FormatValue(fv.Value); got != "5.0" {
+		t.Errorf("sats#(1).q = %s after the write to sats#(2), want 5.0", got)
+	}
 }
 
 func testBindingConflict(t *testing.T) {

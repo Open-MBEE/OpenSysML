@@ -193,7 +193,7 @@ func (ctx *Context) resolveBindingValue(inst *Instance, name string) (Value, boo
 	ctx.noteProbeWrite(target)
 	target.Value = Value{}
 	target.Values = Value{}
-	target.Materialized = false
+	target.Materialized, target.intrinsic = false, false
 	target.BindingDerived, target.Assumed = false, false
 	val, found, err := ctx.resolveBindings(inst, target, name, key)
 	ctx.afterWrite(target, before)
@@ -461,7 +461,7 @@ func (ctx *Context) ownEndpointValue(loc bindingLocation) (Value, bool, error) {
 			return Value{}, false, err
 		}
 	}
-	ctx.noteRead(fv)
+	ctx.noteRead(loc.instance, fv)
 	val := fv.HeldValue()
 	return val, val.Kind != ValInvalid, nil
 }
@@ -777,7 +777,7 @@ func (ctx *Context) bindingLocationValue(loc bindingLocation, materialize bool) 
 	if fv.BindingDerived {
 		if ctx.CompositeTypeOf(fv.Feature) != nil {
 			if val := fv.HeldValue(); val.Kind != ValInvalid {
-				ctx.noteRead(fv)
+				ctx.noteRead(loc.instance, fv)
 				return val, true, nil
 			}
 		}
@@ -798,7 +798,7 @@ func (ctx *Context) bindingLocationValue(loc bindingLocation, materialize bool) 
 			return Value{}, false, err
 		}
 	}
-	ctx.noteRead(fv)
+	ctx.noteRead(loc.instance, fv)
 	if val := fv.HeldValue(); val.Kind != ValInvalid {
 		return val, true, nil
 	}
@@ -869,7 +869,7 @@ func (ctx *Context) assignBindingValue(inst *Instance, fv *FeatureValue, name st
 		fv.Value = Value{}
 		fv.Values = val
 	}
-	fv.Materialized = true
+	fv.Materialized, fv.intrinsic = true, false
 	fv.BindingDerived, fv.Assumed = true, false
 	return nil
 }
