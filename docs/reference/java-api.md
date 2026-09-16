@@ -188,7 +188,9 @@ Deliberately out of scope, rather than half-implemented: the edit API
 execution (`ExecuteAction`, `ExecuteState`), `EvaluateCalc`, `RunAnalysis`, `Query`/OSLC, and
 generated model-ergonomics types. The service still serves all of them, but the
 public API offers no generic call: `org.openmbee.opensysml.proto` carries the request and
-response messages, and the transport that would send one is
+response messages — `ApplyEditsResponse.getDocumentsList()` carries the edited
+notation of every document an edit rewrote, by parse name, beside the
+sole-document `content` — and the transport that would send one is
 `org.openmbee.opensysml.internal`, which is internal and not a compatibility promise. Reach
 those RPCs from the Go or Python client until a v2 wraps them here.
 

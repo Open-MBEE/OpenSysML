@@ -137,6 +137,9 @@ func TestRenameCapturingANameAtAReferenceIsRefused(t *testing.T) {
 	if len(e.Referring) != 1 || e.Referring[0] != "Q" {
 		t.Fatalf("refusal reports referring %v, want [Q]", e.Referring)
 	}
+	if len(e.Referrers) != 1 || e.Referrers[0] != (Referrer{Name: "Q", Document: "capture.sysml"}) {
+		t.Fatalf("referrers = %+v, want Q in capture.sysml", e.Referrers)
+	}
 }
 
 // The same refusal for a feature chain's member, which is read in the operand's

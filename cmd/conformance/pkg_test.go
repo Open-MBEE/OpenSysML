@@ -30,7 +30,7 @@ func TestSuitePassesThroughThePublicGoAPI(t *testing.T) {
 		service:     &service{binary: "client/opensysml"},
 		client:      c,
 		fixtures:    filepath.Join(suiteDir, "fixtures"),
-		models:      map[Model]string{},
+		models:      map[string]string{},
 		out:         &log,
 		scenarioLog: &log,
 	}

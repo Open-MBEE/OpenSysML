@@ -105,6 +105,14 @@ public interface ServerInfoResponseOrBuilder extends
    * rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
+   * "edit_documents" - ApplyEdits edits a model of several documents as one
+   * batch for a request setting accept_documents, targets the
+   * document the request names, and answers each edited
+   * document by name in `documents`, each referrer of a refusal
+   * with its document in `referrers`, and each applied edit's
+   * `document`. Without it those fields are empty, a model of
+   * several documents is refused with FAILED_PRECONDITION, and
+   * a request naming a document is refused with UNIMPLEMENTED.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
@@ -219,6 +227,14 @@ public interface ServerInfoResponseOrBuilder extends
    * rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
+   * "edit_documents" - ApplyEdits edits a model of several documents as one
+   * batch for a request setting accept_documents, targets the
+   * document the request names, and answers each edited
+   * document by name in `documents`, each referrer of a refusal
+   * with its document in `referrers`, and each applied edit's
+   * `document`. Without it those fields are empty, a model of
+   * several documents is refused with FAILED_PRECONDITION, and
+   * a request naming a document is refused with UNIMPLEMENTED.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
@@ -332,6 +348,14 @@ public interface ServerInfoResponseOrBuilder extends
    * rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
+   * "edit_documents" - ApplyEdits edits a model of several documents as one
+   * batch for a request setting accept_documents, targets the
+   * document the request names, and answers each edited
+   * document by name in `documents`, each referrer of a refusal
+   * with its document in `referrers`, and each applied edit's
+   * `document`. Without it those fields are empty, a model of
+   * several documents is refused with FAILED_PRECONDITION, and
+   * a request naming a document is refused with UNIMPLEMENTED.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
@@ -446,6 +470,14 @@ public interface ServerInfoResponseOrBuilder extends
    * rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
+   * "edit_documents" - ApplyEdits edits a model of several documents as one
+   * batch for a request setting accept_documents, targets the
+   * document the request names, and answers each edited
+   * document by name in `documents`, each referrer of a refusal
+   * with its document in `referrers`, and each applied edit's
+   * `document`. Without it those fields are empty, a model of
+   * several documents is refused with FAILED_PRECONDITION, and
+   * a request naming a document is refused with UNIMPLEMENTED.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
