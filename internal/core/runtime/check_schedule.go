@@ -267,6 +267,6 @@ func (r *checkRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 // mark returns what a probe restores: whether a move was refused and what the
 // step under way drew.
 func (r *checkRun) mark() func() {
-	refused, picked, drawn, move := r.refused, r.picked, len(r.drawn), r.move
-	return func() { r.refused, r.picked, r.drawn, r.move = refused, picked, r.drawn[:drawn], move }
+	refused, picked, drawn, move := r.refused, r.picked, slices.Clone(r.drawn), r.move
+	return func() { r.refused, r.picked, r.drawn, r.move = refused, picked, slices.Clone(drawn), move }
 }
