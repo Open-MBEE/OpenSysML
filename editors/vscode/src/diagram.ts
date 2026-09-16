@@ -469,9 +469,8 @@ class DiagramPanel {
     editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
   }
 
-  // edit applies a diagram action as a workspace edit, so it is undone like typing; the redraw
-  // comes from the server's renderChanged. The action's ids name only the rendering it was offered
-  // on, so the drawing is checked again after any prompt the action held open.
+  // edit applies a diagram action as a workspace edit, so it is undone like typing. The action's
+  // ids name only the drawing it was offered on, which is checked again after any prompt it held open.
   private async edit(action: EditAction, drawn: number): Promise<void> {
     const rendering = this.rendering;
     if (!offeredOn(this.drawn, drawn)) {
