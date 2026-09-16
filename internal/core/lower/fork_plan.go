@@ -265,7 +265,8 @@ func (g *StateGraph) within(owner, state *ast.StateNode) bool {
 	return false
 }
 
-// regionUnder is the region of owner that state lies in, nil for owner itself.
+// regionUnder is the region of owner that state lies in, nil for owner itself;
+// a nil owner is the machine, whose regions are the top-level ones.
 func (g *StateGraph) regionUnder(owner, state *ast.StateNode) *ast.StateRegion {
 	for s := state; s != nil && s != owner; s = g.ParentState[s] {
 		if region := g.HiddenRegionOf[s]; region != nil && g.RegionOwner[region] == owner {
