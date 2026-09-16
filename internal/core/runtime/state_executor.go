@@ -104,6 +104,9 @@ type StateExecutor struct {
 	// firingNotes is what selecting the transition being taken noted, recorded
 	// once its guard's final reading lets it fire (see transitionDecided).
 	firingNotes []RunNote
+	// firingEvent is the occurrence the transition being taken reacts to, for the
+	// other segments into a join it fires to bind their own trigger's arguments.
+	firingEvent *Event
 
 	// leftAhead are the states a compound transition under way left before its
 	// choice was resolved; exitingAhead is set while it leaves them. Both live
@@ -661,13 +664,21 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 				if lowerTrans, notes, err = e.chooseCompletion(sourceState, lowerTrans); err != nil || lowerTrans == nil {
 					return dispatch, err
 				}
+			} else if lowerTrans.Trigger != nil {
+				// The timer selects its transition as a signal dispatch would: its
+				// guard holds and the join it may lead into is ready, or it fires nothing.
+				if enabled, err := e.transitionEnabled(lowerTrans, &event); err != nil || !enabled {
+					return dispatch, err
+				}
 			}
 			// A transition out of a state inside an orthogonal region is region-local:
 			// it must not tear down the sibling regions unless its target lies outside
 			// the region set. The source may be a composite state enclosing the
 			// region's active state, so the region is resolved by containment.
 			var err error
-			dispatch.Fired, err = e.resolveAndFire(sourceState, lowerTrans, notes)
+			dispatch.Fired, err = e.firingOn(&event, func() (bool, error) {
+				return e.resolveAndFire(sourceState, lowerTrans, notes)
+			})
 			return dispatch, err
 		}
 
@@ -826,13 +837,23 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, []string, error) {
 			unbind()
 			return false, fmt.Errorf("state %s: %w", candidate.source.Name, err)
 		}
-		fired, err := e.fireFrom(candidate.source, trans, notes, candidate.route)
+		fired, err := e.firingOn(event, func() (bool, error) {
+			return e.fireFrom(candidate.source, trans, notes, candidate.route)
+		})
 		if err != nil {
 			return false, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)
 		}
 		return fired, nil
 	})
 	return consumed, resumed, err
+}
+
+// firingOn runs fire with event as the occurrence the transition taken reacts to.
+func (e *StateExecutor) firingOn(event *Event, fire func() (bool, error)) (bool, error) {
+	saved := e.firingEvent
+	e.firingEvent = event
+	defer func() { e.firingEvent = saved }()
+	return fire()
 }
 
 // dispatchInOrder fires the chosen candidates one at a time through fire, the
@@ -1272,7 +1293,7 @@ func (e *StateExecutor) completionEnabled(trans *lower.Transition) (bool, error)
 	if err != nil || !pass {
 		return false, err
 	}
-	return e.joinSynchronized(trans)
+	return e.joinSynchronized(trans, nil)
 }
 
 // transitionDecided records what selecting the transition now firing noted, its
@@ -1381,7 +1402,7 @@ func (e *StateExecutor) transitionEnabled(trans *lower.Transition, event *Event)
 	}
 	// A transition into a join whose other branches have not arrived is not
 	// enabled either: firing it would move nothing.
-	return e.joinSynchronized(trans)
+	return e.joinSynchronized(trans, event)
 }
 
 // transitionChoice is the transitions out of state enabled for one event, at
@@ -1531,7 +1552,13 @@ func (e *StateExecutor) matchesEvent(trans *lower.Transition, event *Event) (boo
 	}
 
 	switch event.Type {
-	case EventAccept, EventCall, EventChange:
+	case EventChange:
+		// A change occurrence is the poll that observed the rise: it takes the
+		// change-triggered transitions whose condition rose in it, not yet latched.
+		poll, ok := event.Payload.(*changePoll)
+		return ok && e.triggerMatches(trans.Trigger, trans.Scope, event) && poll.condition[trans] && !e.changeFired[trans], nil
+
+	case EventAccept, EventCall:
 		if !e.triggerMatches(trans.Trigger, trans.Scope, event) {
 			return false, nil
 		}
@@ -1625,16 +1652,16 @@ func (e *StateExecutor) fireTransition(trans *lower.Transition, r route) (bool, 
 		return false, err
 	}
 	// Fork, join and history reshape the active configuration rather than moving
-	// to a single state, so they are fired whole.
+	// to a single state, so they are fired whole; a join decides itself once ready.
 	if ps, ok := trans.Target.(*ast.PseudostateNode); ok && isSynchronizationTarget(ps) {
-		r = e.transitionDecided(r)
 		switch ps.Kind {
 		case ast.PseudostateFork:
+			e.transitionDecided(r)
 			return true, e.fireForkTransition(trans, ps)
 		case ast.PseudostateJoin:
 			return e.fireJoinTransition(trans, ps, r)
 		default:
-			return true, e.fireHistoryTransition(trans, ps, r)
+			return true, e.fireHistoryTransition(trans, ps, e.transitionDecided(r))
 		}
 	}
 	if !r.settled() {
@@ -1893,6 +1920,15 @@ func (e *StateExecutor) stateComplete(state *ast.StateNode) bool {
 		}
 	}
 	return true
+}
+
+// stateCompleted reports whether an active state's completion transitions are
+// enabled: its do behavior has finished and its body, where it runs one, is at `done`.
+func (e *StateExecutor) stateCompleted(state *ast.StateNode) bool {
+	if e.hasRunningDoAction(state) {
+		return false
+	}
+	return !e.bodyRunning(state) || e.stateComplete(state)
 }
 
 // bodyRunning reports whether a state nested in state is active.
@@ -2347,32 +2383,92 @@ func (e *StateExecutor) forkPlan(fork *ast.PseudostateNode) (*lower.ForkPlan, er
 }
 
 // fireJoinTransition takes a transition into a join, reporting whether the join
-// fired. It only fires once every one of its incoming branches has an active
-// source state, still, as it fires; until then the completed branch simply waits.
+// fired. It fires only while the occurrence firing trans enables every other
+// segment into the join, still, as it fires; until then the segment simply
+// waits, and what selecting it noted is recorded only once it fires.
 func (e *StateExecutor) fireJoinTransition(trans *lower.Transition, join *ast.PseudostateNode, r route) (bool, error) {
-	sources, err := e.joinSources(join)
+	if !r.settled() {
+		return false, nil
+	}
+	if ready, err := e.joinSynchronized(trans, e.firingEvent); err != nil || !ready {
+		return false, err
+	}
+	plan, err := e.joinPlan(join)
 	if err != nil {
 		return false, err
 	}
-	if !r.settled() || !e.allActive(sources) {
-		return false, nil
-	}
 
-	// Every incoming segment fires, then the move goes on from the composite state
-	// the sources belong to so the usual hierarchy walk exits it as well.
-	owner := e.joinOwner(sources)
-	if err := e.fireJoinIncoming(join); err != nil {
-		return false, err
-	}
-	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
-	e.activeConfig.simpleState = owner
+	// Every incoming segment fires, then the move goes on from the state whose
+	// regions they left so the usual hierarchy walk exits it as well.
 	r.segments = r.segments[1:]
-	return true, e.transitionTo(trans, r)
+	return true, e.moveWhole(func() error {
+		// Decided inside the move: a refused draw undoes the selection's records too.
+		r = e.transitionDecided(r)
+		if err := e.fireJoinIncoming(join, plan); err != nil {
+			return err
+		}
+		return e.leaveJoinOwner(plan.Owner, trans, r)
+	})
+}
+
+// joinPlan is where a join's segments come from, as lowering checked and recorded it.
+func (e *StateExecutor) joinPlan(join *ast.PseudostateNode) (*lower.JoinPlan, error) {
+	plan := e.graph.JoinPlans[join]
+	if plan == nil {
+		return nil, fmt.Errorf("join %s has no lowered plan", join.Name)
+	}
+	return plan, nil
+}
+
+// leaveJoinOwner finishes a join's compound transition once its segments have
+// fired: the move goes on out of owner, whose regions they left, along r.
+func (e *StateExecutor) leaveJoinOwner(owner *ast.StateNode, trans *lower.Transition, r route) error {
+	if owner == nil {
+		// The machine's own regions were joined: the rest of them are left too.
+		for _, region := range e.graph.TopRegions {
+			if err := e.exitRegionTo(region, nil); err != nil {
+				return err
+			}
+		}
+		e.activeConfig.simpleState = nil
+		return e.transitionTo(trans, r)
+	}
+	if region := e.activeRegionOf(owner); region != nil {
+		return e.travel(r,
+			func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) },
+			func(effects []lower.StateBehavior, target *ast.StateNode) error {
+				return e.moveInRegion(region, owner, trans, effects, target)
+			})
+	}
+	e.activeConfig.simpleState = owner
+	return e.transitionTo(trans, r)
+}
+
+// joinExits lists the states firing join exits beyond its sources: the states
+// between each source and the owner, then those the move out of the owner exits.
+func (e *StateExecutor) joinExits(plan *lower.JoinPlan, trans *lower.Transition, r route) ([]*ast.StateNode, bool) {
+	var exited []*ast.StateNode
+	for _, segment := range e.joinIncoming(trans.Target.(*ast.PseudostateNode)) {
+		exited = append(exited, e.exitPath(e.joinSegmentLeaves(segment, plan), plan.Owner, nil)...)
+	}
+	if plan.Owner == nil {
+		for _, region := range e.graph.TopRegions {
+			exited = append(exited, e.regionExitPath(region, nil)...)
+		}
+		beyond, ok := e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(nil, trans, target) })
+		return append(exited, beyond...), ok
+	}
+	if region := e.activeRegionOf(plan.Owner); region != nil {
+		beyond, ok := e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) })
+		return append(exited, beyond...), ok
+	}
+	beyond, ok := e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(plan.Owner, trans, target) })
+	return append(exited, beyond...), ok
 }
 
 // fireJoinIncoming fires each transition into join whole — its source exited,
 // then its effect — in an order the policy draws among their sources.
-func (e *StateExecutor) fireJoinIncoming(join *ast.PseudostateNode) error {
+func (e *StateExecutor) fireJoinIncoming(join *ast.PseudostateNode, plan *lower.JoinPlan) error {
 	pending := e.joinIncoming(join)
 	for len(pending) > 0 {
 		next := 0
@@ -2390,19 +2486,49 @@ func (e *StateExecutor) fireJoinIncoming(join *ast.PseudostateNode) error {
 		}
 		trans := pending[next]
 		pending = slices.Delete(pending, next, next+1)
-		if err := e.fireJoinSegment(trans); err != nil {
+		if err := e.fireJoinSegment(trans, plan); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// fireJoinSegment fires one transition into a join: its source exited, then its effect.
-func (e *StateExecutor) fireJoinSegment(trans *lower.Transition) error {
-	if err := e.exitState(trans.Source.(*ast.StateNode)); err != nil {
-		return fmt.Errorf("exit state: %w", err)
+// fireJoinSegment fires one transition into a join: its source and the states
+// between it and the owner exited, innermost first, then its effect, with the
+// arguments its own trigger takes from the occurrence bound.
+func (e *StateExecutor) fireJoinSegment(trans *lower.Transition, plan *lower.JoinPlan) error {
+	source := trans.Source.(*ast.StateNode)
+	if e.firingEvent != nil && trans.Trigger != nil {
+		unbind, err := e.bindTriggerArguments(trans, e.firingEvent)
+		if err != nil {
+			unbind()
+			return fmt.Errorf("state %s: %w", source.Name, err)
+		}
+		defer unbind()
+	}
+	leaving := e.joinSegmentLeaves(trans, plan)
+	// The region is left whole: its configuration is what a history of the owner
+	// restores, and the entry goes before the exits or the owner's exit walks it again.
+	if region := plan.Regions[trans]; region != nil {
+		if active, isActive := e.activeConfig.regionStates[region]; isActive {
+			e.recordRegionHistory(region, active)
+			delete(e.activeConfig.regionStates, region)
+		}
+	}
+	if err := e.exitStates(e.exitPath(leaving, plan.Owner, nil)); err != nil {
+		return err
 	}
 	return e.runBehaviors(trans.Effect)
+}
+
+// joinSegmentLeaves is the state a join segment's exit starts from: its region's
+// active state when that lies below the segment's composite source, else the source.
+func (e *StateExecutor) joinSegmentLeaves(segment *lower.Transition, plan *lower.JoinPlan) *ast.StateNode {
+	source := segment.Source.(*ast.StateNode)
+	if active, ok := e.activeConfig.regionStates[plan.Regions[segment]]; ok && e.isBelowOrEqual(active, source) {
+		return active
+	}
+	return source
 }
 
 // joinIncoming lists the transitions into join, in source declaration order;
@@ -2419,35 +2545,83 @@ func (e *StateExecutor) joinIncoming(join *ast.PseudostateNode) []*lower.Transit
 	return incoming
 }
 
-// joinOwner is the composite state whose regions the sources of a join lie in.
-func (e *StateExecutor) joinOwner(sources []*ast.StateNode) *ast.StateNode {
-	var owner *ast.StateNode
-	for _, source := range sources {
-		if region, ok := e.graph.RegionOf[source]; ok {
-			owner = e.graph.RegionOwner[region]
-		}
-	}
-	return owner
-}
-
 // joinSynchronized reports whether a transition is enabled as far as its target
-// goes: one into a join only while every source of the join is active.
-func (e *StateExecutor) joinSynchronized(trans *lower.Transition) (bool, error) {
+// goes: one into a join only while every other segment into the join is enabled
+// too — its source active, its guard holding, and its trigger, if it has one,
+// taking the occurrence, or its source completed if it has none. Every path
+// firing a join, dispatched on a signal, call, timer, completion or change,
+// goes through this.
+func (e *StateExecutor) joinSynchronized(trans *lower.Transition, event *Event) (bool, error) {
 	join, ok := trans.Target.(*ast.PseudostateNode)
 	if !ok || join.Kind != ast.PseudostateJoin {
 		return true, nil
 	}
-	sources, err := e.joinSources(join)
+	if _, err := e.joinSources(join); err != nil {
+		return false, err
+	}
+	for _, segment := range e.joinIncoming(join) {
+		if segment == trans {
+			continue
+		}
+		if !e.inActiveConfiguration(segment.Source.(*ast.StateNode)) {
+			return false, nil
+		}
+		if segment.Trigger == nil {
+			if !e.stateCompleted(segment.Source.(*ast.StateNode)) {
+				return false, nil
+			}
+		} else {
+			takes, err := e.segmentTakes(segment, event)
+			if err != nil || !takes {
+				return false, err
+			}
+		}
+		pass, err := e.segmentGuardHolds(segment, event)
+		if err != nil || !pass {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+// segmentTakes reports whether a join segment's trigger takes the dispatched
+// occurrence. Each timer is its own occurrence, so a time-triggered segment takes
+// another timer's expiry while its own timer is due: the expiries at one instant
+// are one occurrence for the join, which a signal, call or completion dispatched
+// then is not.
+func (e *StateExecutor) segmentTakes(segment *lower.Transition, event *Event) (bool, error) {
+	if event == nil {
+		return false, nil
+	}
+	if _, isTime := segment.Trigger.(*ast.TimeEvent); isTime {
+		if !isTimerExpiry(*event) {
+			return false, nil
+		}
+		timer, running := e.eventQueue.TimerOf(segment)
+		return running && timer.Timestamp <= event.Timestamp, nil
+	}
+	return e.matchesEvent(segment, event)
+}
+
+// segmentGuardHolds reads a join segment's guard with its trigger's arguments bound
+// and unbound again, as transitionEnabled reads the selected transition's.
+func (e *StateExecutor) segmentGuardHolds(segment *lower.Transition, event *Event) (bool, error) {
+	if segment.Trigger == nil || event == nil {
+		return e.passesGuard(segment)
+	}
+	unbind, err := e.bindTriggerArguments(segment, event)
+	defer unbind()
 	if err != nil {
 		return false, err
 	}
-	return e.allActive(sources), nil
+	return e.passesGuard(segment)
 }
 
-// allActive reports whether every state is part of the active configuration.
+// allActive reports whether every state is part of the active configuration,
+// itself active or enclosing an active state.
 func (e *StateExecutor) allActive(states []*ast.StateNode) bool {
 	for _, state := range states {
-		if !e.isActive(state) {
+		if !e.inActiveConfiguration(state) {
 			return false
 		}
 	}
@@ -3055,13 +3229,14 @@ func (e *StateExecutor) exitedBySynchronization(trans *lower.Transition, ps *ast
 		if !r.settled() {
 			return nil, true
 		}
-		sources, err := e.joinSources(ps)
+		if _, err := e.joinSources(ps); err != nil {
+			return nil, false
+		}
+		plan, err := e.joinPlan(ps)
 		if err != nil {
 			return nil, false
 		}
-		owner := e.joinOwner(sources)
-		beyond, ok := e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(owner, trans, target) })
-		return append(slices.Clone(sources), beyond...), ok
+		return e.joinExits(plan, trans, r)
 	default:
 		owner, err := e.historyOwner(ps)
 		if err != nil {

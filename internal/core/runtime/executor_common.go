@@ -214,6 +214,17 @@ func (q *EventQueue) CompletionsOf(source ast.Node) []Event {
 	return events
 }
 
+// TimerOf returns the queued time event carrying trans, false when its timer is
+// not running.
+func (q *EventQueue) TimerOf(trans *lower.Transition) (Event, bool) {
+	for _, event := range q.events {
+		if event.Type == EventTime && event.Payload == any(trans) {
+			return event, true
+		}
+	}
+	return Event{}, false
+}
+
 // Take removes and returns the event with the given ID, false when none has it.
 func (q *EventQueue) Take(id int64) (Event, bool) {
 	for i, event := range q.events {
@@ -285,6 +296,20 @@ func isCompletionEvent(event Event) bool {
 	default:
 		return false
 	}
+}
+
+// isTimerExpiry reports whether an event is a time trigger's expiry: a timed
+// transition due, as opposed to a completion event queued at the same instant.
+func isTimerExpiry(event Event) bool {
+	if event.Type != EventTime {
+		return false
+	}
+	trans, ok := event.Payload.(*lower.Transition)
+	if !ok {
+		return false
+	}
+	_, timed := trans.Trigger.(*ast.TimeEvent)
+	return timed
 }
 
 func (h eventHeap) Swap(i, j int) {
