@@ -256,9 +256,11 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object fromFormat_ = "";
   /**
    * <pre>
-   * "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-   * file_path's extension, and is notation for a model_hash, since that is what
-   * parse reads; inline content has neither, so it must say.
+   * "sysml", "kerml", "text", "ttl", "turtle" or "rdf", or "xmi", "uml" or
+   * "mdzip" for a SysML v1 model, which is read and migrated to v2 and never
+   * written. Empty infers from file_path's extension, and is notation for a
+   * model_hash, since that is what parse reads; inline content has neither, so
+   * it must say.
    * </pre>
    *
    * <code>string from_format = 3 [json_name = "fromFormat"];</code>
@@ -279,9 +281,11 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-   * file_path's extension, and is notation for a model_hash, since that is what
-   * parse reads; inline content has neither, so it must say.
+   * "sysml", "kerml", "text", "ttl", "turtle" or "rdf", or "xmi", "uml" or
+   * "mdzip" for a SysML v1 model, which is read and migrated to v2 and never
+   * written. Empty infers from file_path's extension, and is notation for a
+   * model_hash, since that is what parse reads; inline content has neither, so
+   * it must say.
    * </pre>
    *
    * <code>string from_format = 3 [json_name = "fromFormat"];</code>
@@ -307,7 +311,8 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object toFormat_ = "";
   /**
    * <pre>
-   * Format to write, named as in from_format. Empty is rejected.
+   * Format to write, named as in from_format; the v1 names are refused, since
+   * a v2 model has no v1 form. Empty is rejected.
    * </pre>
    *
    * <code>string to_format = 4 [json_name = "toFormat"];</code>
@@ -328,7 +333,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Format to write, named as in from_format. Empty is rejected.
+   * Format to write, named as in from_format; the v1 names are refused, since
+   * a v2 model has no v1 form. Empty is rejected.
    * </pre>
    *
    * <code>string to_format = 4 [json_name = "toFormat"];</code>
@@ -1112,9 +1118,11 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object fromFormat_ = "";
     /**
      * <pre>
-     * "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-     * file_path's extension, and is notation for a model_hash, since that is what
-     * parse reads; inline content has neither, so it must say.
+     * "sysml", "kerml", "text", "ttl", "turtle" or "rdf", or "xmi", "uml" or
+     * "mdzip" for a SysML v1 model, which is read and migrated to v2 and never
+     * written. Empty infers from file_path's extension, and is notation for a
+     * model_hash, since that is what parse reads; inline content has neither, so
+     * it must say.
      * </pre>
      *
      * <code>string from_format = 3 [json_name = "fromFormat"];</code>
@@ -1134,9 +1142,11 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-     * file_path's extension, and is notation for a model_hash, since that is what
-     * parse reads; inline content has neither, so it must say.
+     * "sysml", "kerml", "text", "ttl", "turtle" or "rdf", or "xmi", "uml" or
+     * "mdzip" for a SysML v1 model, which is read and migrated to v2 and never
+     * written. Empty infers from file_path's extension, and is notation for a
+     * model_hash, since that is what parse reads; inline content has neither, so
+     * it must say.
      * </pre>
      *
      * <code>string from_format = 3 [json_name = "fromFormat"];</code>
@@ -1157,9 +1167,11 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-     * file_path's extension, and is notation for a model_hash, since that is what
-     * parse reads; inline content has neither, so it must say.
+     * "sysml", "kerml", "text", "ttl", "turtle" or "rdf", or "xmi", "uml" or
+     * "mdzip" for a SysML v1 model, which is read and migrated to v2 and never
+     * written. Empty infers from file_path's extension, and is notation for a
+     * model_hash, since that is what parse reads; inline content has neither, so
+     * it must say.
      * </pre>
      *
      * <code>string from_format = 3 [json_name = "fromFormat"];</code>
@@ -1176,9 +1188,11 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-     * file_path's extension, and is notation for a model_hash, since that is what
-     * parse reads; inline content has neither, so it must say.
+     * "sysml", "kerml", "text", "ttl", "turtle" or "rdf", or "xmi", "uml" or
+     * "mdzip" for a SysML v1 model, which is read and migrated to v2 and never
+     * written. Empty infers from file_path's extension, and is notation for a
+     * model_hash, since that is what parse reads; inline content has neither, so
+     * it must say.
      * </pre>
      *
      * <code>string from_format = 3 [json_name = "fromFormat"];</code>
@@ -1192,9 +1206,11 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-     * file_path's extension, and is notation for a model_hash, since that is what
-     * parse reads; inline content has neither, so it must say.
+     * "sysml", "kerml", "text", "ttl", "turtle" or "rdf", or "xmi", "uml" or
+     * "mdzip" for a SysML v1 model, which is read and migrated to v2 and never
+     * written. Empty infers from file_path's extension, and is notation for a
+     * model_hash, since that is what parse reads; inline content has neither, so
+     * it must say.
      * </pre>
      *
      * <code>string from_format = 3 [json_name = "fromFormat"];</code>
@@ -1214,7 +1230,8 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object toFormat_ = "";
     /**
      * <pre>
-     * Format to write, named as in from_format. Empty is rejected.
+     * Format to write, named as in from_format; the v1 names are refused, since
+     * a v2 model has no v1 form. Empty is rejected.
      * </pre>
      *
      * <code>string to_format = 4 [json_name = "toFormat"];</code>
@@ -1234,7 +1251,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Format to write, named as in from_format. Empty is rejected.
+     * Format to write, named as in from_format; the v1 names are refused, since
+     * a v2 model has no v1 form. Empty is rejected.
      * </pre>
      *
      * <code>string to_format = 4 [json_name = "toFormat"];</code>
@@ -1255,7 +1273,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Format to write, named as in from_format. Empty is rejected.
+     * Format to write, named as in from_format; the v1 names are refused, since
+     * a v2 model has no v1 form. Empty is rejected.
      * </pre>
      *
      * <code>string to_format = 4 [json_name = "toFormat"];</code>
@@ -1272,7 +1291,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Format to write, named as in from_format. Empty is rejected.
+     * Format to write, named as in from_format; the v1 names are refused, since
+     * a v2 model has no v1 form. Empty is rejected.
      * </pre>
      *
      * <code>string to_format = 4 [json_name = "toFormat"];</code>
@@ -1286,7 +1306,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Format to write, named as in from_format. Empty is rejected.
+     * Format to write, named as in from_format; the v1 names are refused, since
+     * a v2 model has no v1 form. Empty is rejected.
      * </pre>
      *
      * <code>string to_format = 4 [json_name = "toFormat"];</code>

@@ -13,7 +13,7 @@ its first step, under "Proposed"), and the state-executor fixes the PSSM referee
 Read `AGENTS.md` first; it governs everything below.
 
 > **Labels.** This is an engineering record. The RDF items keep the `D` numbers (`D1`, `D2`,
-> `D3.4`, `D7`, `D8`, `D9`, `D10`, `D11`, `D12`) that other records, the known-violations inventory
+> `D3.4`, `D7`, `D8`, `D9`, `D10`, `D11`, `D12`, `D13`) that other records, the known-violations inventory
 > and the ontology package's README cross-reference; `L` names the library items, `N` the native
 > compilation track, `R` the release follow-through, `W` the diagram output formats a view
 > rendering is written in, `F` the executor defects the conformance gate carried as
@@ -957,6 +957,60 @@ What landed:
 
 Extends D3's identity work; D11's `api-json` payloads are the first surface where a foreign
 reader compares our library ids to its own.
+
+## D13 — SysML v1 migration: the rest of the model, and the report on the wire
+
+`-convert` reads a SysML v1 model — OMG UML XMI 2.5.1 with the SysML profile, an Eclipse UML2
+`.uml` file, a `.mdzip` archive — and writes it as v2 notation or Turtle, with an
+element-by-element report; see [the migration reference](../reference/sysml-v1-migration.md) and
+[guide chapter 11](../guide/11-migrating-from-sysml-v1.md). It ships **experimental**, and the
+reference is precise about where it stops: the mapping covers structure, ports and connectors,
+requirements, constraints, instances and allocations, and reports the rest as unmapped rather
+than guessing. Over the TMT model roughly half the elements map or are approximated, and the
+unmapped half is dominated by the items below. Promoting the migration to stable is closing them
+and then measuring, not a documentation change. Each is its own pull request, in this order:
+
+1. **Behaviors.** Activity, StateMachine, Interaction and OpaqueBehavior are comment
+   placeholders today. Activities become `action def`s with their nodes as owned actions, object
+   flows as `flow`s and control flows as `succession`s — the constructs
+   [guide chapter 6](../guide/06-behavior.md) executes — and state machines become `state def`s
+   with regions, transitions, triggers and guards; interactions become the message-and-succession
+   form the executor already runs. The report's `behaviors are not migrated yet` verdicts move to
+   `mapped`, and the relationships that were unmapped because their end was a behavior (the
+   `«Allocate»` and `«Refine»` to an activity) follow them. Gate: the fixture's activities and
+   state machines run under `%run` with the trace the v1 model implies.
+2. **Operations and receptions.** v2 has no operation; the nearest form is an action usage owned
+   by the part with the operation's parameters as its `in`/`out`, and a reception as an
+   `accept` of the signal's attribute def. The mapping picks one form and says so in the
+   reference, so a migrated operation is `approximated` with a note, not `unmapped`.
+3. **Units and quantity kinds.** `«Unit»` and `«QuantityKind»` instance specifications, and
+   the `unit`/`quantityKind` tags of a `«ValueType»`, are reported and commented; the value type
+   is written over `ScalarValues::Real`. Map a value type whose unit resolves to a known SI or
+   ISQ symbol onto `ISQ` quantity values with `SI` units (`attribute def Mass :> ISQ::MassValue`,
+   defaults as `1200 [SI::kg]`), and keep the comment for a unit that does not resolve. The
+   symbol table is Track L's L5, so this item follows it.
+4. **The report over gRPC and in the clients.** The migration report exists only where the CLI
+   writes it; `Convert` answers the migrated content and the experimental notice, nothing more.
+   Add the report to `ConvertResponse` as a repeated entry message with the same fields as the
+   JSON form (id, kind, name, verdict, target, note), populated only when the source is v1, and
+   surface it as a `Conversion` attribute in the Python and Go clients, so a program can gate on
+   verdicts as a script gates on the `.json` report. Node, Java and Rust read the field from the
+   generated code without a wrapper, as they do the notice.
+5. **Stable identity for a re-migration.** The v1 `xmi:id` is kept only in the report; the
+   notation carries no ids, so migrating a model twice produces two unrelated v2 models, and an
+   edit made in v2 cannot be matched against a later v1 export. Once
+   [element identity annotations](element-identity-annotations.md) land, write the `xmi:id` as
+   the element's identity, so a re-migration can be diffed against the edited model rather than
+   replacing it. Gated on D3's identity work.
+6. **Stable, then measured.** With 1–4 landed, re-run the TMT measurement the reference quotes
+   and pin the per-verdict counts as the corpus ratchet pins round trips; the mapping's forms
+   become subject to the compatibility path that lifting the experimental notice promises, and
+   the notice is removed from every surface at once (`export.IsExperimental`, the Python warning,
+   the Go `Conversion`).
+
+Independent of D1, D2 and D7, which concern the RDF form the migrated model may be written into,
+not the migration. Item 4 touches the wire contract and is a Track I change in the same pull
+request.
 
 ---
 
@@ -2486,7 +2540,8 @@ carried more than that list. By track, with the pull requests the tracks cite:
 - **Track W** — landed: W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both.
 - **Track E** — E9 and E10 landed as conformance findings; E8's refusal landed (#229), the item
   itself is open.
-- **Track D** — D12 (the standard library's normative element ids) is done.
+- **Track D** — D12 (the standard library's normative element ids) is done; D13 (the rest of
+  the SysML v1 migration, and its report on the wire) is proposed.
 - **Release follow-through** — R4's Windows installer is published by `v0.7.0` and `v0.8.0`
   alike; the release procedure runs git-flow (#151); `opensysml` 0.5.0 is on PyPI; the
   test-suite figures are generated and gated (#291, on `develop` after the tag).
@@ -2587,7 +2642,9 @@ that exercise them. The decision is the release checklist's, recorded there.
   previous repository) have to be re-proposed against this repository before **D8**'s profile,
   which only becomes conformant behind D1 and D2; **D12** (the standard library's normative
   element ids) is done; **D11** (the API element form) after D1 and D2, and before D9.2 if the
-  branch read is to offer it; **D10** (write-through from a view-only project) after D9.1 and
+  branch read is to offer it; **D13** (the SysML v1 migration's behaviors, operations, units,
+  report over gRPC and identity) is independent of the RDF items and starts with behaviors, its
+  units item after L5 and its identity item after D3; **D10** (write-through from a view-only project) after D9.1 and
   D9.2, which it reads and writes through.
 - **Track F.** Closed. F1 and F2 landed together (#116) as the token-per-succession model, F3
   (#120) as the per-traversal merge on top of it; `known_failures.txt` has no line left to delete.

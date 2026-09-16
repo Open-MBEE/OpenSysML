@@ -283,8 +283,9 @@ make python-proto
 - `model.py` — a parsed model: root symbol and diagnostics
 - `symbol.py` — lazy symbol proxy, fetches children on demand
 - `instance.py` — instantiated object and its feature values
-- `conversion.py` — a written model, its formats, extension inference, and the
-  `ExperimentalFeatureWarning` an RDF conversion raises
+- `conversion.py` — a written model, its formats, extension inference (`.xmi`, `.uml` and
+  `.mdzip` among them, for a SysML v1 model migrated on the way in), and the
+  `ExperimentalFeatureWarning` an RDF conversion or a v1 migration raises
 - `query.py` — the standard's Query payload, translated and its answers
 - `document.py` — native document queries: typed bindings, typed rows, and
   `model.render_document`'s Markdown
