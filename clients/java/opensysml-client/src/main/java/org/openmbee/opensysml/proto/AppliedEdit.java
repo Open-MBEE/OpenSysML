@@ -36,6 +36,7 @@ private static final long serialVersionUID = 0L;
     target_ = "";
     oldText_ = "";
     newText_ = "";
+    document_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -238,6 +239,55 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int DOCUMENT_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object document_ = "";
+  /**
+   * <pre>
+   * The document the bytes are in, named as the parse request named it and as
+   * ApplyEditsResponse.documents lists it. Set for a single-document model too.
+   * </pre>
+   *
+   * <code>string document = 7 [json_name = "document"];</code>
+   * @return The document.
+   */
+  @java.lang.Override
+  public java.lang.String getDocument() {
+    java.lang.Object ref = document_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      document_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The document the bytes are in, named as the parse request named it and as
+   * ApplyEditsResponse.documents lists it. Set for a single-document model too.
+   * </pre>
+   *
+   * <code>string document = 7 [json_name = "document"];</code>
+   * @return The bytes for document.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getDocumentBytes() {
+    java.lang.Object ref = document_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      document_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -270,6 +320,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(newText_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 6, newText_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(document_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 7, document_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -300,6 +353,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(newText_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(6, newText_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(document_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(7, document_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -327,6 +383,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getOldText())) return false;
     if (!getNewText()
         .equals(other.getNewText())) return false;
+    if (!getDocument()
+        .equals(other.getDocument())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -350,6 +408,8 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getOldText().hashCode();
     hash = (37 * hash) + NEW_TEXT_FIELD_NUMBER;
     hash = (53 * hash) + getNewText().hashCode();
+    hash = (37 * hash) + DOCUMENT_FIELD_NUMBER;
+    hash = (53 * hash) + getDocument().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -492,6 +552,7 @@ private static final long serialVersionUID = 0L;
       length_ = 0;
       oldText_ = "";
       newText_ = "";
+      document_ = "";
       return this;
     }
 
@@ -543,6 +604,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000020) != 0)) {
         result.newText_ = newText_;
       }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.document_ = document_;
+      }
     }
 
     @java.lang.Override
@@ -579,6 +643,11 @@ private static final long serialVersionUID = 0L;
       if (!other.getNewText().isEmpty()) {
         newText_ = other.newText_;
         bitField0_ |= 0x00000020;
+        onChanged();
+      }
+      if (!other.getDocument().isEmpty()) {
+        document_ = other.document_;
+        bitField0_ |= 0x00000040;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -637,6 +706,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000020;
               break;
             } // case 50
+            case 58: {
+              document_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1061,6 +1135,103 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       newText_ = value;
       bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object document_ = "";
+    /**
+     * <pre>
+     * The document the bytes are in, named as the parse request named it and as
+     * ApplyEditsResponse.documents lists it. Set for a single-document model too.
+     * </pre>
+     *
+     * <code>string document = 7 [json_name = "document"];</code>
+     * @return The document.
+     */
+    public java.lang.String getDocument() {
+      java.lang.Object ref = document_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        document_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The document the bytes are in, named as the parse request named it and as
+     * ApplyEditsResponse.documents lists it. Set for a single-document model too.
+     * </pre>
+     *
+     * <code>string document = 7 [json_name = "document"];</code>
+     * @return The bytes for document.
+     */
+    public com.google.protobuf.ByteString
+        getDocumentBytes() {
+      java.lang.Object ref = document_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        document_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The document the bytes are in, named as the parse request named it and as
+     * ApplyEditsResponse.documents lists it. Set for a single-document model too.
+     * </pre>
+     *
+     * <code>string document = 7 [json_name = "document"];</code>
+     * @param value The document to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDocument(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      document_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The document the bytes are in, named as the parse request named it and as
+     * ApplyEditsResponse.documents lists it. Set for a single-document model too.
+     * </pre>
+     *
+     * <code>string document = 7 [json_name = "document"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDocument() {
+      document_ = getDefaultInstance().getDocument();
+      bitField0_ = (bitField0_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The document the bytes are in, named as the parse request named it and as
+     * ApplyEditsResponse.documents lists it. Set for a single-document model too.
+     * </pre>
+     *
+     * <code>string document = 7 [json_name = "document"];</code>
+     * @param value The bytes for document to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDocumentBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      document_ = value;
+      bitField0_ |= 0x00000040;
       onChanged();
       return this;
     }
