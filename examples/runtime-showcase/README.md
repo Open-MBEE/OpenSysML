@@ -1,11 +1,13 @@
 # Runtime showcase
 
-Four small models, each built around a question that no amount of reading the
+Five small models, each built around a question that no amount of reading the
 model answers. Every file here validates: names resolve, types conform,
 multiplicities hold. What each one shows is what happens next, when the runtime
 materializes the instances, evaluates the values, performs the actions and runs
-the clock — and, in each, one deliberate case where a well-formed model turns
-out not to run, with the runtime saying why.
+the clock — and, in the first four, one deliberate case where a well-formed
+model turns out not to run, with the runtime saying why. The fifth runs two
+parts against one clock and shows what the runtime does where the model leaves
+it a choice.
 
 | Model | The question | What the runtime does |
 | --- | --- | --- |
@@ -13,6 +15,7 @@ out not to run, with the runtime saying why.
 | [`delta-v-budget.sysml`](delta-v-budget.sysml) | Does it reach orbit? | runs the rocket equation with units, evaluates an analysis whose objective is a requirement, asserts that requirement of an object, and refuses a result whose dimension is not a speed |
 | [`reliability.sysml`](reliability.sysml) | Will the crew come home? | folds `e^(-λt)` over the critical components, asserts a threshold of two missions, and tells `e` from a quantity that happens to share its name |
 | [`mission-sequence.sysml`](mission-sequence.sysml) | Where does the mission end? | performs the flight on an object, branching on the budget left after lunar orbit insertion; advances a clocked state machine through the phases; and stops at an action with no starting step |
+| [`spacecraft-comms.sysml`](spacecraft-comms.sysml) | How long does the downlink take? | runs a ground station and a spacecraft on one clock, routes signals through an interface, drains and recharges a battery in orthogonal regions, interrupts and resumes the transmission, and shows where two things falling due at the same instant leave the schedule a choice |
 
 The closing section runs the same tool over the published
 [Apollo 11 SysML v2 model](https://github.com/airbus/apollo-11-sysml-v2): 7 200
@@ -344,6 +347,160 @@ sysml: failed to create executor: initialize action: invalid action flow: no ini
 
 Two nodes with nothing before them is ambiguous, and the message names both and
 the keyword that would resolve it.
+
+## How long the downlink takes
+
+`SpacecraftComms` is the OpenSE Cookbook's
+[Spacecraft Example](https://github.com/Open-MBEE/OpenSE-Cookbook/tree/master/SysML2x/Spacecraft%20Example)
+re-spelled in current SysML v2. The cookbook's notebook is written in the 2019
+pre-release notation and stores no results, and the Cameo model beside it keeps
+its simulation in a video, so the port below supplies its own numbers: 100 kB
+to send in 1 024-byte frames, one frame a second, 2 % of battery per frame,
+1 % a second back while charging, recharge under 80 %, stop under 40 %, resume
+over 80 %. The structure is the cookbook's: a `GroundStation` and a
+`SpacecraftVehicle` with conjugate `CommunicationInterface` ports, a
+`CommunicationLink` interface carrying `data` one way and `ping` the other,
+and a `Mission` that connects the two.
+
+Each part exhibits a state machine. The station idles for 30 s, then enters
+`operation`, whose entry sends a `GroundStationPing` out of its port and whose
+`do` action counts every `Data` frame that arrives. The spacecraft's machine is
+`parallel`: `dataTransit` waits for the ping, then runs `transmitData`, which
+forks into a branch that sends a frame every second while `data` remains and a
+branch that drains the battery every second and sends `BatteryLow` when it falls
+under 40 %; `charging` watches the same `battery` attribute and recharges while
+it is under 80 %. `BatteryLow` interrupts the transmission into `lowPower`; a
+change trigger, `accept when battery > resumeLevel`, brings it back;
+`TransmissionDone` ends it.
+
+Instantiating `mission` starts both machines. `-state` attaches the debugger to
+the spacecraft's, and `-advance` runs the one clock both parts share:
+
+```bash
+./bin/sysml -quiet -instantiate SpacecraftComms::mission \
+  -state SpacecraftComms::mission.spacecraftVehicle -advance 300 \
+  examples/runtime-showcase/spacecraft-comms.sysml
+```
+
+```
+✓ Created instance of SpacecraftComms::mission
+  ID: 1
+  Use %features SpacecraftComms::mission to inspect
+✓ Debugging state machine "modes" exhibited by object #4 of "SpacecraftComms::mission.spacecraftVehicle"
+  Current state: waitingGSPing | notRecharging
+  Time: 0.0
+  Events: 0
+✓ Advanced to 300.0 (109 event(s) processed)
+  Current state: transmitted | notRecharging
+  Last event at: 241.0
+  Remaining events: 0
+  500 choice points; %trace on to see them
+  Do behavior actions run: 405
+  standing: value (observed: 1 run under reverse)
+```
+
+The answer is 241 s. The `|` in the state joins the two regions: transmission
+finished, battery back to full and no longer charging. Nothing is still due, so
+advancing further changes nothing.
+
+The path there is what the REPL is for. Piped in, the same session advances in
+steps and reads values off either object with `%eval in <object> : <expr>`;
+`%current` says what the machine is waiting on:
+
+```bash
+printf '%s\n' \
+  '%instantiate SpacecraftComms::mission' \
+  '%state SpacecraftComms::mission.spacecraftVehicle' \
+  '%advance 40' \
+  '%eval in SpacecraftComms::mission.spacecraftVehicle : battery' \
+  '%advance 39' \
+  '%eval in SpacecraftComms::mission.spacecraftVehicle : data' \
+  '%eval in SpacecraftComms::mission.groundStation : framesReceived' \
+  '%advance 41' \
+  '%advance 180' \
+  '%current' \
+  | ./bin/sysml -quiet examples/runtime-showcase/spacecraft-comms.sysml
+```
+
+```
+✓ Advanced to 40.0 (12 event(s) processed)
+  Current state: transmitting | notRecharging
+  Last event at: 30.0
+  (…)
+✓ battery (on SpacecraftComms::mission.spacecraftVehicle ID: 4)
+  = 80
+✓ Advanced to 79.0 (41 event(s) processed)
+  Current state: lowPower | recharging
+  Last event at: 79.0
+  (…)
+✓ data (on SpacecraftComms::mission.spacecraftVehicle ID: 4)
+  = 52224
+✓ framesReceived (on SpacecraftComms::mission.groundStation ID: 2)
+  = 49
+✓ Advanced to 120.0 (1 event(s) processed)
+  Current state: transmitting | recharging
+  (…)
+✓ Advanced to 300.0 (55 event(s) processed)
+  Current state: transmitted | notRecharging
+  Last event at: 241.0
+  (…)
+Current state: transmitted | notRecharging
+Time: 300.0
+Last event at: 241.0
+Execution state: Suspended
+Cannot progress: waiting on change condition: notRecharging: accept when (condition is false)
+```
+
+The ping crosses the link at t=30; ten frames later the battery is at 80 and
+the charging region wakes, so from here the battery loses a net 1 % a second;
+at t=79 the drain takes it under 40, `BatteryLow` interrupts the transmission
+with 49 frames counted at the station and 52 224 bytes left to send; charging
+alone, the battery passes 80 at t=120 and the change trigger restarts the
+transmission. The same cycle repeats once more — interrupted at t=162 with 91
+frames sent, resumed at t=204 — the last frame lands at t=213 and the battery
+is full at t=241. The `Suspended` at the end is the machine's honest
+description of itself: `notRecharging` has a change trigger whose condition,
+`battery < 80`, is false, and nothing on the clock will make it true again.
+
+`-schedule` decides what the runtime does when several things fall due at the
+same instant, and this model has such instants. At t=79 three one-second timers
+expire together: the drain, the frame send and the charge. The drain runs and
+then asks `battery >= lowLevel`; whether the charge has already added its 1 %
+when it asks is the schedule's choice. Under `reverse` (the default) and
+`declared` it has not, the battery reads 39, and `BatteryLow` goes out at t=79
+with 49 frames sent. Under `seed:7` or `seed:42` it has, the battery reads 40,
+and the interruption comes a second later, at t=80, with 50 frames sent and the
+battery at 39 instead of 41:
+
+```bash
+printf '%s\n' \
+  '%schedule seed:7' \
+  '%instantiate SpacecraftComms::mission' \
+  '%state SpacecraftComms::mission.spacecraftVehicle' \
+  '%advance 80' \
+  '%eval in SpacecraftComms::mission.groundStation : framesReceived' \
+  '%eval in SpacecraftComms::mission.spacecraftVehicle : battery' \
+  | ./bin/sysml -quiet examples/runtime-showcase/spacecraft-comms.sysml
+```
+
+```
+✓ Advanced to 80.0 (54 event(s) processed)
+  Current state: lowPower | recharging
+  Last event at: 80.0
+  (…)
+✓ framesReceived (on SpacecraftComms::mission.groundStation ID: 2)
+  = 50
+✓ battery (on SpacecraftComms::mission.spacecraftVehicle ID: 4)
+  = 39
+```
+
+Both are correct runs of the model: it says nothing about which of three
+simultaneous timers fires first, so the runtime is free to pick, and the
+`standing` line records which policy it picked under. What the model does pin
+down is the end: every one of these schedules reaches
+`transmitted | notRecharging` at t=241 with 100 frames received and the battery
+at 100. The values along the way are a property of one schedule; the
+destination is a property of the model.
 
 ## Apollo 11
 

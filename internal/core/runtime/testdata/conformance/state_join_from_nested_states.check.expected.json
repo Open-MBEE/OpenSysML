@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"log": ["\"ia(exit) a1 ib(exit) b1 work(exit) sync\"", "\"ib(exit) b1 ia(exit) a1 work(exit) sync\""]},
+	"agreed": {"finalState": "done"}
+}

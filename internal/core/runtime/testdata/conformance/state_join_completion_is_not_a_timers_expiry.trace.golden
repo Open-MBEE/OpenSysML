@@ -1,0 +1,29 @@
+do: a1
+stmt action body
+enter action node: state behavior busy
+    eval literal 1 -> 1
+  eval index -> 1 [s]
+do: a1
+  stmt assign log
+      eval feature log -> ""
+      eval literal "busy " -> "busy "
+    eval operator + -> "busy "
+leave action node: state behavior busy
+choice join sync: states a1, b1 react (unordered; took a1 first)
+exit: a1
+stmt assign log
+    eval feature log -> "busy "
+    eval literal "a " -> "a "
+  eval operator + -> "busy a "
+exit: b1
+stmt assign log
+    eval feature log -> "busy a "
+    eval literal "b " -> "b "
+  eval operator + -> "busy a b "
+exit: Work
+stmt assign log
+    eval feature log -> "busy a b "
+    eval literal "sync" -> "sync"
+  eval operator + -> "busy a b sync"
+enter: done
+transition: Work -> done (event: time)
