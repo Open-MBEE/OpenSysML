@@ -1,12 +1,14 @@
 package repl
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -35,13 +37,14 @@ func (e *UnplannedObjectError) Error() string {
 }
 
 // ExploredObjectError reports an object reference an exploration cannot follow:
-// every explored run creates its objects afresh, so it names declarations only.
+// every explored run creates its objects afresh, so an object of the session,
+// named by id, is in no run.
 type ExploredObjectError struct {
 	Ref string
 }
 
 func (e *ExploredObjectError) Error() string {
-	return fmt.Sprintf("%q names an object of this session, which an exploration does not run on: each explored run creates its own objects, so name the declaration to instantiate", e.Ref)
+	return fmt.Sprintf("%q names an object of this session, which an exploration does not run on: each explored run creates its own objects, so name a declaration to instantiate, or a path from one to an object it holds (Assembly::part.nested)", e.Ref)
 }
 
 // VerdictOutcome is one distinct outcome an exploration reached: what the runs
@@ -244,15 +247,18 @@ func tableLines(cells [][]string) []string {
 }
 
 // freshPlan is what an exploration's runs name, resolved while the session's state
-// is held: declarations to instantiate, a nested case's held owner, the exhibits declared.
+// is held: declarations to instantiate and paths from them, the declarations the
+// run was given objects of, a nested case's owner, the exhibits declared.
 type freshPlan struct {
 	refs     map[string]freshRef
 	owners   map[string]freshRef
+	given    []freshRef
 	exhibits []exhibitEntry
+	idx      *symbols.Index
 }
 
-// freshRef is a declaration an explored run instantiates, or the error its name resolved
-// to. A swept one stands for held objects: root's, and the one reached along path from it.
+// freshRef is a declaration an explored run instantiates and the path walked from its object
+// to the one named, or the error the name resolved to; a swept one stands for held objects.
 type freshRef struct {
 	sym  *symbols.Symbol
 	fqn  string
@@ -267,12 +273,15 @@ type freshRef struct {
 	err    error
 }
 
-// planFresh resolves the object names an exploration's runs will ask for.
+// planFresh resolves the object names an exploration's runs will ask for, and the
+// declarations each run instantiates first: those the run was given objects of.
 func (s *Session) planFresh(names ...string) *freshPlan {
 	p := &freshPlan{
 		refs:     make(map[string]freshRef, len(names)),
 		owners:   make(map[string]freshRef),
+		given:    s.givenRoots(),
 		exhibits: collectExhibits(s.docScopes()),
+		idx:      s.idx,
 	}
 	for _, text := range names {
 		if _, done := p.refs[text]; !done {
@@ -282,8 +291,32 @@ func (s *Session) planFresh(names ...string) *freshPlan {
 	return p
 }
 
-// freshRef resolves one object name to the declaration an explored run
-// instantiates; an object of the session is refused.
+// givenRoots are the declarations the run was given objects of (see Session.given),
+// in the order given, those the session still holds an object under.
+func (s *Session) givenRoots() []freshRef {
+	refs := make([]freshRef, 0, len(s.given))
+	for _, fqn := range s.given {
+		sym, resolved, err := s.lookupSymbol(fqn)
+		if err != nil || resolved != fqn || s.instances[fqn] == nil {
+			continue
+		}
+		refs = append(refs, freshRef{sym: sym, fqn: fqn, name: s.declaredName(fqn), label: s.declaredName(fqn)})
+	}
+	return refs
+}
+
+// failed is the error the first of names resolved to, nil when every one is planned.
+func (p *freshPlan) failed(names []string) error {
+	for _, text := range names {
+		if ref, ok := p.refs[text]; ok && ref.err != nil {
+			return ref.err
+		}
+	}
+	return nil
+}
+
+// freshRef resolves one object name to the longest leading run of segments naming a
+// declaration, the root each run instantiates, and the path walked from it; an id is refused.
 func (s *Session) freshRef(text string) freshRef {
 	ref, err := objref.Parse(text)
 	if err != nil {
@@ -292,46 +325,169 @@ func (s *Session) freshRef(text string) freshRef {
 	if ref.ID > 0 {
 		return freshRef{err: &ExploredObjectError{Ref: text}}
 	}
-	for _, seg := range ref.Segments {
-		if seg.Index > 0 || seg.Dotted {
-			return freshRef{err: &ExploredObjectError{Ref: text}}
+	head := objref.Head(ref.Segments)
+	var unresolved error
+	for i := head; i > 0; i-- {
+		name := objref.JoinTyped(ref.Segments[:i])
+		sym, fqn, err := s.lookupSymbol(name)
+		if err != nil {
+			var ambiguous *AmbiguousNameError
+			if errors.As(err, &ambiguous) {
+				return freshRef{err: err}
+			}
+			if i == head {
+				unresolved = err
+			}
+			continue
 		}
+		// A member reached through a usage's type (pair::ground) is a feature of
+		// the usage's object, walked there rather than instantiated on its own.
+		if i > 1 && len(s.browseIndex().LookupQualified(objref.DeclaredRun(ref.Segments[:i]))) == 0 {
+			continue
+		}
+		if objref.IsNamespace(sym) {
+			if i == head && head < len(ref.Segments) {
+				shown := declarationNotation(sym)
+				return freshRef{err: &ObjectRefError{Ref: text, Detail: fmt.Sprintf("%s is a %s, not an object: its member is written %s::%s", shown, objref.NamespaceKind(sym), shown, ref.Segments[head].Text)}}
+			}
+			break
+		}
+		r := freshRef{sym: sym, fqn: fqn, name: s.declaredName(fqn), label: text, path: ref.Segments[i:]}
+		r.err = s.checkFreshPath(name, sym, r.path)
+		return r
 	}
-	sym, fqn, err := s.lookupSymbol(objref.JoinTyped(ref.Segments))
-	if err != nil {
-		return freshRef{err: err}
+	if unresolved == nil {
+		_, _, unresolved = s.lookupSymbol(objref.JoinTyped(ref.Segments[:max(head, 1)]))
 	}
-	return freshRef{sym: sym, fqn: fqn, name: s.declaredName(fqn)}
+	return freshRef{err: unresolved}
 }
 
-// planOwner resolves the type owning the case at fqn when the session holds an
-// object of it, so each run instantiates one as the prompt's run performs on the held one.
+// checkFreshPath reports what the declarations already tell about a path from an object of
+// root: an unknown feature, an index on one value or off a fixed count, a feature holding data.
+func (s *Session) checkFreshPath(label string, root *symbols.Symbol, path []objectSegment) error {
+	if len(path) == 0 {
+		return nil
+	}
+	ctx, err := s.getOrCreateRuntime()
+	if err != nil {
+		return err
+	}
+	walker := s.walker(ctx)
+	typ := root
+	for _, seg := range path {
+		features := ctx.FeaturesOf(typ)
+		feat := featureNamed(features, seg.Name)
+		if feat == nil {
+			return freshPathError(label, seg, "%s has no feature %q%s", label, seg.Name, walker.DeclaredFeatureHint(features))
+		}
+		shown := lexer.NameText(seg.Name)
+		if ctx.Semantics().IsDataType(feat.Type) {
+			return freshPathError(label, seg, "%s of %s holds a value, not an object", shown, label)
+		}
+		next := label + "." + shown
+		switch count, fixed := fixedCount(feat.Multiplicity); {
+		case feat.Scalar() && seg.Index > 0:
+			return freshPathError(label, seg, "%s of %s holds one value and takes no index: write %s, not %s", shown, label, shown, seg.Text)
+		case feat.Scalar():
+		case seg.Index == 0 && fixed:
+			return freshPathError(label, seg, "%s of %s holds %d objects: pick one by index, %s[1] to %s[%d]", shown, label, count, shown, shown, count)
+		case seg.Index > count && fixed:
+			return freshPathError(label, seg, "%s of %s holds %d objects, so %s names none (indexes run from 1 to %d)", shown, label, count, seg.Text, count)
+		case seg.Index > count && count > 0:
+			return freshPathError(label, seg, "%s of %s holds at most %d objects, so %s names none", shown, label, count, seg.Text)
+		case seg.Index > 0:
+			next = fmt.Sprintf("%s[%d]", next, seg.Index)
+		}
+		// A variation or a bound part holds an object of a type only its run tells.
+		if typ = s.objectTypeOf(feat); typ == nil {
+			return nil
+		}
+		label = next
+	}
+	return nil
+}
+
+// fixedCount is a multiplicity's upper bound when finite, and whether the lower
+// bound meets it, so every object of the feature's owner holds exactly that many.
+func fixedCount(m semantics.Range) (count int, fixed bool) {
+	if !m.Upper.Known || m.Upper.Infinite {
+		return 0, false
+	}
+	return int(m.Upper.Value), m.Lower.Known && !m.Lower.Infinite && m.Lower.Value == m.Upper.Value
+}
+
+func freshPathError(object string, seg objectSegment, format string, args ...any) *ObjectPathError {
+	return &ObjectPathError{Object: object, Segment: seg.Text, Detail: fmt.Sprintf(format, args...)}
+}
+
+// planOwner resolves the object owning the case at fqn when the session holds one to the
+// declaration it is held under and the path to it, which each run walks in its own object.
 func (s *Session) planOwner(p *freshPlan, sym *symbols.Symbol, fqn string) {
 	if !isNestedCase(sym) {
 		return
 	}
+	segments := strings.Split(fqn, "::")
+	if len(segments) < 2 {
+		return
+	}
+	ownerFQN := strings.Join(segments[:len(segments)-1], "::")
 	if held, _ := s.owningInstance(fqn); held == nil {
 		return
 	}
-	segments := strings.Split(fqn, "::")
-	owner, ownerFQN, err := s.lookupSymbol(strings.Join(segments[:len(segments)-1], "::"))
+	_, key, rest := s.heldRoot(ownerFQN)
+	root, rootFQN, err := s.lookupSymbol(key)
 	if err != nil {
 		return
 	}
-	p.owners[fqn] = freshRef{sym: owner, fqn: ownerFQN, name: s.declaredName(ownerFQN)}
+	p.owners[fqn] = freshRef{sym: root, fqn: rootFQN, name: s.declaredName(rootFQN), label: s.declaredName(ownerFQN), path: pathSegments(rest)}
 }
 
-// bind is the plan's objects in one run's context.
-func (p *freshPlan) bind(ctx *runtime.Context) *freshObjects {
-	return &freshObjects{plan: p, ctx: ctx, made: make(map[string]*runtime.Instance)}
+// bind is the plan's objects in one run's context, with the session's objects
+// created afresh from their declarations before any behavior starts: one per
+// -instantiate, the last of a declaration the one its name denotes.
+func (p *freshPlan) bind(ctx *runtime.Context) (*freshObjects, error) {
+	f := &freshObjects{
+		plan:  p,
+		ctx:   ctx,
+		roots: make(map[string]*runtime.Instance),
+		made:  make(map[string]reachedObject),
+		walker: objref.Walker{
+			Runtime: ctx,
+			Index:   p.idx,
+			Format:  func(val runtime.Value) string { return formatValue(ctx, val) },
+		},
+	}
+	for _, ref := range p.given {
+		inst, err := f.instantiate(ref)
+		if err != nil {
+			return nil, err
+		}
+		if previous, ok := f.roots[ref.fqn]; ok {
+			f.displaced = append(f.displaced, previous)
+		}
+		f.roots[ref.fqn] = inst
+	}
+	return f, nil
 }
 
 // freshObjects finds the objects an explored run names in the run's own context:
-// each declaration the plan resolved is instantiated there once.
+// each declaration the plan resolved is instantiated there once, by qualified name,
+// and the object each path reaches from it is walked to once, by the path as written.
 type freshObjects struct {
-	plan *freshPlan
-	ctx  *runtime.Context
-	made map[string]*runtime.Instance
+	plan  *freshPlan
+	ctx   *runtime.Context
+	roots map[string]*runtime.Instance
+	// displaced are given objects a later -instantiate of their declaration
+	// displaced from its name, still the run's and reached by id alone.
+	displaced []*runtime.Instance
+	made      map[string]reachedObject
+	walker    objref.Walker
+}
+
+// reachedObject is an object a path reached, under the label the walk gave it.
+type reachedObject struct {
+	inst  *runtime.Instance
+	label string
 }
 
 // heldObjects finds the objects a run at the prompt names: the session's own.
@@ -362,29 +518,101 @@ func (f *freshObjects) object(text string) (*runtime.Instance, string, error) {
 	if ref.err != nil {
 		return nil, "", ref.err
 	}
-	if inst, ok := f.made[ref.fqn]; ok {
-		return inst, ref.name, nil
+	if made, ok := f.made[text]; ok {
+		return made.inst, made.label, nil
 	}
-	inst, err := f.ctx.Instantiate(ref.sym)
+	root, err := f.root(ref)
 	if err != nil {
-		return nil, "", fmt.Errorf("instantiation of %s failed: %w", ref.name, err)
+		return nil, "", err
 	}
-	f.made[ref.fqn] = inst
-	return inst, ref.name, nil
+	inst, label, err := f.walker.Walk(root, ref.name, ref.path)
+	if err != nil {
+		return nil, "", err
+	}
+	f.made[text] = reachedObject{inst: inst, label: label}
+	return inst, label, nil
 }
 
-// owner instantiates the type owning a nested usage when the plan found the
-// session holding an object of it, as the prompt's run would perform on that one.
+// root is the object of ref's declaration in the run, instantiated once however
+// many paths start from it, so siblings reached from one root share it.
+func (f *freshObjects) root(ref freshRef) (*runtime.Instance, error) {
+	if inst, ok := f.roots[ref.fqn]; ok {
+		return inst, nil
+	}
+	inst, err := f.instantiate(ref)
+	if err != nil {
+		return nil, err
+	}
+	f.roots[ref.fqn] = inst
+	return inst, nil
+}
+
+// instantiate creates an object of ref's declaration in the run.
+func (f *freshObjects) instantiate(ref freshRef) (*runtime.Instance, error) {
+	inst, err := f.ctx.Instantiate(ref.sym)
+	if err != nil {
+		return nil, fmt.Errorf("instantiation of %s failed: %w", ref.name, err)
+	}
+	return inst, nil
+}
+
+// owner is the run's object owning a nested usage when the plan found the session
+// holding one: reached in the run as the prompt's run reaches the held one.
 func (f *freshObjects) owner(fqn string) (*runtime.Instance, string) {
 	ref, ok := f.plan.owners[fqn]
 	if !ok {
 		return nil, ""
 	}
-	inst, err := f.ctx.Instantiate(ref.sym)
+	root, err := f.root(ref)
 	if err != nil {
 		return nil, ""
 	}
-	return inst, ref.name
+	inst, label, err := f.walker.Walk(root, ref.name, ref.path)
+	if err != nil {
+		return nil, ""
+	}
+	return inst, label
+}
+
+// exhibitors finds the run's objects exhibiting sym's machine.
+func (f *freshObjects) exhibitors(sym *symbols.Symbol) []exhibitor {
+	return f.runners(func(inst *runtime.Instance) []*runtime.ObjectBehavior { return inst.ExhibitedStatesOf(sym) })
+}
+
+// performers finds the run's objects performing sym's action.
+func (f *freshObjects) performers(sym *symbols.Symbol) []exhibitor {
+	return f.runners(func(inst *runtime.Instance) []*runtime.ObjectBehavior { return inst.PerformedActionsOf(sym) })
+}
+
+// runners finds the run's objects running the behaviors of picks out: those the
+// run was given, in the order given and then the displaced ones by id, and what they hold.
+func (f *freshObjects) runners(of func(*runtime.Instance) []*runtime.ObjectBehavior) []exhibitor {
+	roots := make([]carrier, 0, len(f.plan.given))
+	named := make(map[string]bool, len(f.roots))
+	for _, ref := range f.plan.given {
+		if inst, ok := f.roots[ref.fqn]; ok && !named[ref.fqn] {
+			named[ref.fqn] = true
+			roots = append(roots, carrier{name: ref.name, inst: inst})
+		}
+	}
+	for _, inst := range f.displaced {
+		roots = append(roots, carrier{name: fmt.Sprintf("#%d", inst.ID), inst: inst})
+	}
+	var found []exhibitor
+	walkFrom(roots, materializedObjectsIn(f.ctx), func(cur carrier) bool {
+		if behaviors := of(cur.inst); len(behaviors) > 0 {
+			found = append(found, exhibitor{carrier: cur, machines: behaviors})
+		}
+		return true
+	}, 0)
+	return found
+}
+
+// freshExhibitorsError is exhibitorsError over an explored run's objects.
+func freshExhibitorsError(name string, types []*symbols.Symbol, exhibitors []exhibitor) error {
+	e := exhibitorsError(name, types, exhibitors).(*ExhibitorsError)
+	e.Fresh = true
+	return e
 }
 
 // exploredAction resolves the action an exploration runs.
@@ -399,12 +627,8 @@ func (s *Session) exploredAction(name string) (*symbols.Symbol, error) {
 	return sym, nil
 }
 
-// exploredMachine resolves the state machine an exploration runs, which names a
-// declaration: an object of the session is not run on.
+// exploredMachine resolves the state machine an exploration runs.
 func (s *Session) exploredMachine(name string) (*symbols.Symbol, error) {
-	if objref.LooksLikePath(name) {
-		return nil, &ExploredObjectError{Ref: name}
-	}
 	sym, _, err := s.lookupSymbolOfKinds(name, symbols.SymbolStateDef, symbols.SymbolStateUsage)
 	if err != nil {
 		return nil, err
@@ -415,62 +639,142 @@ func (s *Session) exploredMachine(name string) (*symbols.Symbol, error) {
 	return sym, nil
 }
 
-// freshAction starts the action on an explored run's context, on an object of
-// what performer names when it names one.
-func freshAction(objects *freshObjects, sym *symbols.Symbol, performer []string) (*runtime.ActionExecutor, error) {
-	ctx := objects.ctx
-	var self *runtime.Instance
-	if len(performer) > 0 {
-		var err error
-		if self, _, err = objects.object(performer[0]); err != nil {
-			return nil, err
-		}
-	}
-	exec, err := ctx.CreateActionExecutorFor(sym, self)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create executor: %w", err)
-	}
-	exec.SetTrace(ctx.Trace())
-	return exec, nil
+// PerformersError reports an action `-action <action>` alone cannot attach to under a
+// fresh-run engine: several of the run's objects perform it, or one performs it as
+// several usages, so no one performance is meant.
+type PerformersError struct {
+	Action  string          // the action asked for, as the prompt prints names
+	Objects []RelatedObject // the run's objects performing it, in walk order
+	Usages  []string        // with one object, the performed usages running it, as the prompt prints names; "" for one unnamed
 }
 
-// freshMachine starts the machine on an explored run's context: the one an
-// object of performer exhibits when it names one, else a run of the declaration.
-func freshMachine(objects *freshObjects, sym *symbols.Symbol, name string, performer []string) (*runtime.StateExecutor, error) {
+func (e *PerformersError) Error() string {
+	labels := make([]string, len(e.Objects))
+	for i, o := range e.Objects {
+		labels[i] = fmt.Sprintf("#%d", o.ID)
+		if o.Label != "" {
+			labels[i] = fmt.Sprintf("#%d of %q", o.ID, o.Label)
+		}
+	}
+	if len(e.Objects) == 1 {
+		names := make([]string, len(e.Usages))
+		for i, u := range e.Usages {
+			names[i] = u
+			if u == "" {
+				names[i] = "an unnamed one"
+			}
+		}
+		return fmt.Sprintf("object %s of the explored run performs %q as %d actions, so naming the definition attaches to none of them: name the performed usage instead — %s",
+			labels[0], e.Action, len(e.Usages), strings.Join(names, " or "))
+	}
+	return fmt.Sprintf("%d objects of the explored run perform %q (%s), so naming the action alone attaches to none of them: name one as %s <Assembly::part>",
+		len(e.Objects), e.Action, strings.Join(labels, ", "), e.Action)
+}
+
+// performersError is the PerformersError over the run's objects performing name's action.
+func performersError(name string, performers []exhibitor) error {
+	e := &PerformersError{Action: name}
+	for _, p := range performers {
+		ref := RelatedObject{ID: p.inst.ID}
+		if !objref.IsID(p.name) {
+			ref.Label = p.name
+		}
+		e.Objects = append(e.Objects, ref)
+	}
+	if len(performers) == 1 {
+		for _, b := range performers[0].machines {
+			usage := ""
+			if member := b.Member(); member != nil && member.Name != "" {
+				usage = declarationNotation(member)
+			}
+			e.Usages = append(e.Usages, usage)
+		}
+	}
+	return e
+}
+
+// freshAction starts the action on an explored run's context: the performance the
+// object performer names (or, named alone, the run's one object performing it) already
+// runs of it, else a fresh run of the declaration on that object or on none.
+func freshAction(objects *freshObjects, sym *symbols.Symbol, name string, performer []string) (exec *runtime.ActionExecutor, label string, err error) {
 	ctx := objects.ctx
-	if len(performer) == 0 {
-		if types := exhibitingTypes(ctx, objects.plan.exhibits, sym); len(types) > 0 {
-			return nil, exhibitorsError(name, types, nil)
+	var self *runtime.Instance
+	switch {
+	case len(performer) > 0:
+		if self, _, err = objects.object(performer[0]); err != nil {
+			return nil, "", err
+		}
+		label = performer[0]
+	default:
+		switch performers := objects.performers(sym); len(performers) {
+		case 0:
+		case 1:
+			self, label = performers[0].inst, performers[0].name
+		default:
+			return nil, "", performersError(name, performers)
 		}
 	}
-	var (
-		self  *runtime.Instance
-		label string
-	)
-	if len(performer) > 0 {
-		var err error
-		if self, label, err = objects.object(performer[0]); err != nil {
-			return nil, err
+	if self != nil {
+		switch performed := self.PerformedActionsOf(sym); len(performed) {
+		case 0:
+		case 1:
+			exec = performed[0].Action
+		default:
+			return nil, "", performersError(name, []exhibitor{{carrier: carrier{name: label, inst: self}, machines: performed}})
 		}
 	}
-	var exec *runtime.StateExecutor
+	if exec == nil {
+		if exec, err = ctx.CreateActionExecutorFor(sym, self); err != nil {
+			return nil, "", fmt.Errorf("failed to create executor: %w", err)
+		}
+	}
+	exec.SetTrace(ctx.Trace())
+	return exec, label, nil
+}
+
+// freshMachine starts the machine on an explored run's context: the one an object of performer
+// exhibits, or, named alone, the run's one object exhibiting it runs, else a run of the declaration.
+func freshMachine(objects *freshObjects, sym *symbols.Symbol, name string, performer []string) (exec *runtime.StateExecutor, label string, err error) {
+	ctx := objects.ctx
+	var self *runtime.Instance
+	switch {
+	case len(performer) > 0:
+		if self, _, err = objects.object(performer[0]); err != nil {
+			return nil, "", err
+		}
+		label = performer[0]
+	default:
+		switch exhibitors := objects.exhibitors(sym); len(exhibitors) {
+		case 0:
+			if types := exhibitingTypes(ctx, objects.plan.exhibits, sym); len(types) > 0 {
+				return nil, "", freshExhibitorsError(name, types, nil)
+			}
+		case 1:
+			ex := exhibitors[0]
+			if len(ex.machines) > 1 {
+				return nil, "", ambiguousMachine(name, ex.inst, ex.name, ex.machines)
+			}
+			exec, label = ex.machines[0].State, ex.name
+		default:
+			return nil, "", freshExhibitorsError(name, nil, exhibitors)
+		}
+	}
 	if self != nil {
 		switch exhibited := self.ExhibitedStatesOf(sym); len(exhibited) {
 		case 0:
 		case 1:
 			exec = exhibited[0].State
 		default:
-			return nil, ambiguousMachine(name, self, label, exhibited)
+			return nil, "", ambiguousMachine(name, self, label, exhibited)
 		}
 	}
 	if exec == nil {
-		var err error
 		if exec, err = ctx.CreateStateExecutorFor(sym, self); err != nil {
-			return nil, fmt.Errorf("failed to create executor: %w", err)
+			return nil, "", fmt.Errorf("failed to create executor: %w", err)
 		}
 	}
 	exec.SetTrace(ctx.Trace())
-	return exec, nil
+	return exec, label, nil
 }
 
 // completedActionOutcome is the outcome of an action run that reached its end;
@@ -503,8 +807,15 @@ func (s *Session) exploreStateMachine(name string, duration *float64, performer 
 		return unresolvedVerdict(name, err.Error())
 	}
 	plan := s.planFresh(performer...)
+	if err := plan.failed(performer); err != nil {
+		return unresolvedVerdict(name, err.Error())
+	}
 	return s.exploreVerdict(name, func(ctx *runtime.Context) (runtime.Outcome, error) {
-		exec, err := freshMachine(plan.bind(ctx), sym, name, performer)
+		objects, err := plan.bind(ctx)
+		if err != nil {
+			return runtime.Outcome{}, err
+		}
+		exec, _, err := freshMachine(objects, sym, name, performer)
 		if err != nil {
 			return runtime.Outcome{}, err
 		}
@@ -513,7 +824,8 @@ func (s *Session) exploreStateMachine(name string, duration *float64, performer 
 				return runtime.Outcome{}, err
 			}
 		}
-		return exec.Outcome(), nil
+		inv := runtime.Invocation{States: []*runtime.StateExecutor{exec}}
+		return inv.Outcome(), nil
 	})
 }
 
@@ -567,8 +879,15 @@ func (s *Session) exploreAnalysis(inv analysisInvocation) Verdict {
 	}
 	plan := s.planFresh(names...)
 	s.planOwner(plan, sym, fqn)
+	if err := plan.failed(names); err != nil {
+		return unresolvedVerdict(label, err.Error())
+	}
 	return s.exploreVerdict(label, func(ctx *runtime.Context) (runtime.Outcome, error) {
-		run, err := s.runAnalysisIn(s.direct(), ctx, inv, sym, fqn, plan.bind(ctx))
+		objects, err := plan.bind(ctx)
+		if err != nil {
+			return runtime.Outcome{}, err
+		}
+		run, err := s.runAnalysisIn(s.direct(), ctx, inv, sym, fqn, objects)
 		if err != nil {
 			return runtime.Outcome{}, err
 		}

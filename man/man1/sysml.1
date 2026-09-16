@@ -15,7 +15,10 @@ exits on the verdict, which is what lets a run gate a build.
 .TP
 .BI \-action " value"
 Run this action to completion, as \-action "Drive rover1" to run it on an
-object (repeatable)
+object; under \-schedule explore each run performs it on an object of its own,
+named as a definition or usage to create, a path into one such as
+mission.rover, or, named alone, the run's one \-instantiate object performing
+it (repeatable)
 .TP
 .BI \-advance " value"
 Simulated time units to run the \-action and \-state behaviors for, on one
@@ -186,8 +189,11 @@ Style the HTML page with a bundled theme layered over the default stylesheet:
 default, modern, print or report (default: the default stylesheet alone)
 .TP
 .BI \-instantiate " value"
-Create an object of this definition before the checks, so a verdict is about
-it (repeatable)
+Create an object of this definition or usage before the checks, so a verdict
+is about it; under \-schedule explore, \-engine check, smt or all, each run
+creates an object of it of its own before the behaviors start, one per
+\-instantiate, which a \-state or \-action named alone attaches to and a path
+such as mission.vehicle walks into (repeatable)
 .TP
 .BI \-jobs " value"
 Runs of one check that may go concurrently \(em the linearizations of an
@@ -296,8 +302,12 @@ Seed \-samples draws from, so the same seed draws the same table
 With \-compile, write the generated source to \-o instead of building it
 .TP
 .BI \-state " value"
-Run this state machine, as \-state "Mission rover1" to run it on an object
-(repeatable)
+Run this state machine, as \-state "Mission rover1" to run it on an object;
+under \-schedule explore each run creates the object of its own, named as a
+definition or usage to create or a path such as mission.rover into one \(em
+the declaration is created once per run, so machines on sibling parts share it
+and its connectors \(em or, named alone, the run's one \-instantiate object
+exhibiting it (repeatable)
 .TP
 .B \-strict
 Judge the model as conforming SysML v2: notation no pinned production admits

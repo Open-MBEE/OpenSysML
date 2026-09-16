@@ -62,3 +62,20 @@ func TestAnExplorationIsNotSentWithoutTheCapability(t *testing.T) {
 		})
 	}
 }
+
+// A performer is refused before it leaves the client when the service lacks the
+// performer capability, since such a service would run outside any object instead.
+func TestAPerformerIsNotSentWithoutTheCapability(t *testing.T) {
+	ctx := context.Background()
+	model := &Model{Hash: "h"}
+	old := &oldCaller{t: t, capabilities: []string{CapabilityVerification, CapabilitySchedule, CapabilityScheduleExplore}}
+	c := &client{caller: old}
+	_, err := c.ExecuteAction(ctx, model, "A", nil, PerformedBy("M::m.part"))
+	wantUnimplemented(t, "ExecuteAction", err)
+	_, err = c.ExecuteState(ctx, model, "M", nil, PerformedBy("M::m.part"))
+	wantUnimplemented(t, "ExecuteState", err)
+	_, err = c.ExploreAction(ctx, model, "A", nil, PerformedBy("M::m.part"))
+	wantUnimplemented(t, "ExploreAction", err)
+	_, err = c.ExploreState(ctx, model, "M", nil, PerformedBy("M::m.part"))
+	wantUnimplemented(t, "ExploreState", err)
+}

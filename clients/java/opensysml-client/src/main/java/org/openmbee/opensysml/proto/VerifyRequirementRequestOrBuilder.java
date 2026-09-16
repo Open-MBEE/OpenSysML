@@ -44,7 +44,8 @@ public interface VerifyRequirementRequestOrBuilder extends
 
   /**
    * <pre>
-   * Optional FQN of a part/usage to instantiate and evaluate against.
+   * Optional FQN of a part/usage to instantiate and evaluate against, or a path
+   * from one to a nested object; see VerifyConstraintRequest.subject_symbol_id.
    * </pre>
    *
    * <code>string subject_symbol_id = 3 [json_name = "subjectSymbolId"];</code>
@@ -53,7 +54,8 @@ public interface VerifyRequirementRequestOrBuilder extends
   java.lang.String getSubjectSymbolId();
   /**
    * <pre>
-   * Optional FQN of a part/usage to instantiate and evaluate against.
+   * Optional FQN of a part/usage to instantiate and evaluate against, or a path
+   * from one to a nested object; see VerifyConstraintRequest.subject_symbol_id.
    * </pre>
    *
    * <code>string subject_symbol_id = 3 [json_name = "subjectSymbolId"];</code>
