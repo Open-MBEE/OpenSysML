@@ -817,9 +817,8 @@ simulation tool often means something else by a branch — *the acquisition succ
 in ten* — and by a duration — *the settle takes between one and eighty seconds* — and SysML v2
 has no notation for either. OpenSysML supplies one as an extension library, in standard SysML v2
 that any other tool reads as ordinary metadata and a function call: two library packages,
-[`Stochastic`](../../internal/core/libs/stdlib/OpenSysML%20Libraries/Stochastic.sysml) and
-[`RandomFunctions`](../../internal/core/libs/stdlib/OpenSysML%20Libraries/RandomFunctions.kerml),
-both marked NON-NORMATIVE, with the vendored OMG files untouched. What they state is *modeled*
+`Stochastic` and `RandomFunctions` under `internal/core/libs/stdlib/OpenSysML Libraries/`, both
+marked NON-NORMATIVE, with the vendored OMG files untouched. What they state is *modeled*
 randomness, and the runtime keeps it apart from the scheduling kind: a weighted branch is drawn
 by its weights, a scheduling choice never is, and the two draw from two independent streams,
 fixed by two independent seeds.
