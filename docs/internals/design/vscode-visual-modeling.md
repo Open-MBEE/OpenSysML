@@ -147,7 +147,53 @@ passed to the renderer directly.
 
 - `SysML: Open Diagram` opens a `WebviewPanel` beside the editor, one per document,
   retained across tab switches with `retainContextWhenHidden` off and state restored
-  through `setState`/`getState`.
+  through `setState`/`getState`. The command is bound to <kbd>Alt</kbd>+<kbd>D</kbd> and
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> (the PlantUML and Markdown-preview
+  conventions) with `when` clauses that hold only for a model editor or the panel
+  itself, and sits in the editor title bar and the editor and Explorer context menus.
+  It resolves its document from the menu's resource, the focused panel (returning
+  to the source), the active editor, or the one model editor in view — in that order
+  — and is registered whether or not the server draws, so a key or menu always
+  answers, with a diagram or with the reason there is none.
+- The panel is open by default. A model file shown in an editor gets its diagram
+  without being asked — on activation, on every change of active editor, and, for
+  a file made active while the server was still starting, when the client attaches.
+  The decision is one pure function (`src/autoopen.ts`, `shouldAutoOpen`) over the
+  `opensysml.diagram.autoOpen` setting, whether a drawing server is attached,
+  whether the document already has a panel (a panel restored by the serializer
+  counts, so a reload does not double-open), whether the user dismissed it, and
+  what the editor is: only a `file:` document in a model language, sitting in an
+  editor group, whose active tab is a plain text tab. That rules out untitled
+  buffers, `git:` revisions, diff tabs and the peek editor of a hover. An
+  automatic open is silent — no "server not running" or "too old" warning, those
+  belong to the explicit command — and never takes focus; when a document declares
+  several views it draws what `DiagramPanels.open` draws, and never asks.
+- Placement: one panel per document, all in one editor group. The first diagram
+  opens `Beside` its source; every later one, automatic or explicit, opens in the
+  group an existing diagram already occupies, so switching between model files
+  adds a tab to the diagram column rather than a column to the layout. One panel
+  per document (not one reused panel) keeps each panel's view choice and its
+  serialized state, and lets two diagrams be compared by dragging one out; one
+  group keeps the layout calm. An explicit Open Diagram on a document that already
+  has a panel reveals it in that group.
+- Dismissal: a panel whose tab the user closes records its document URI under
+  `workspaceState` (`opensysml.diagram.dismissed`), and the document is not
+  auto-opened again — across editor switches and across window reloads — until an
+  explicit Open Diagram, which clears the entry and opens the panel. Only the user's
+  close counts: `DiagramPanel` tracks a `Lifecycle` that the extension marks before
+  it disposes a panel itself (a panel replaced by `adopt`, or every panel on
+  deactivation), so the `onDidDispose` that follows is not a dismissal; a server
+  restart disposes no panel at all. Closing the source editor leaves the panel
+  open, as it does today — a diagram is a document of its own, with a way back to
+  the source. A rename (`workspace.onDidRenameFiles`) carries a dismissal to the
+  new URI and moves an open panel with it — the panel is recreated under the new
+  URI in the same group with the same view, an extension-caused replacement, so it
+  is not a dismissal; a delete clears the dismissal, so a file recreated under the
+  same name starts fresh. VS Code reports a folder rename or delete as the folder
+  alone, so both apply to every document below it (`renamedUri`). `Dismissals`
+  keeps the list in memory and writes it to `workspaceState` in order, so the
+  un-awaited mutations of a multi-file rename or delete cannot overwrite one
+  another, and a failed write does not hold up the next.
 - The webview bundles Mermaid locally (no CDN, and a `Content-Security-Policy` with
   a nonce and no `connect-src`), renders the artifact, and re-renders on the
   extension's `postMessage`.
@@ -170,6 +216,10 @@ passed to the renderer directly.
   each kind, for a pseudo-view, for a document with no views, for an unsupported
   kind (asserting the reason), and for a stale-version request. Plus a
   didChange → `renderChanged` ordering test.
+- `editors/vscode/src/autoopen.test.ts`: `shouldAutoOpen` over every input, the
+  dismissal store's record/clear/rename semantics, and the `Lifecycle` distinction
+  between a disposal the extension asked for and a tab the user closed;
+  `manifest.test.ts` pins the setting and its default.
 - `editors/vscode`: `npm run typecheck` and a GUI pass per
   `.agents/skills/testing-vscode-extension/SKILL.md` — open a model, open the
   panel, type, watch it redraw, click a node and land on the declaration.
