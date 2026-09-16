@@ -1,0 +1,20 @@
+{
+  "type": "state",
+  "libraries": true,
+  "trace": true,
+  "outcomes": [
+    {
+      "finalState": "a1+b1+c2+d2",
+      "outputs": {
+        "log": {"type": "String", "value": "c d "}
+      }
+    },
+    {
+      "finalState": "a1+b1+c2+d2",
+      "outputs": {
+        "log": {"type": "String", "value": "d c "}
+      }
+    }
+  ],
+  "admissible": "Two time events due at one instant: each dispatches, in which order is open"
+}

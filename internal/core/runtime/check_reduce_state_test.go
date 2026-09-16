@@ -66,6 +66,25 @@ func (ci *checkedInvocation) moveOf(t *testing.T, owner string) enabledMove {
 	return found[0]
 }
 
+// moveOfExecutor finds the one enabled move of the named executor whether or
+// not another holds the turn.
+func (ci *checkedInvocation) moveOfExecutor(t *testing.T, owner string) enabledMove {
+	t.Helper()
+	defer ci.run.enter()()
+	for _, exec := range ci.run.inv.executors() {
+		if exec.dueLabel() != owner {
+			continue
+		}
+		moves := exec.enabledMoves()
+		if len(moves) != 1 {
+			t.Fatalf("%s has %d moves among %s", owner, len(moves), moveLabels(moves))
+		}
+		return moves[0]
+	}
+	t.Fatalf("no executor %s", owner)
+	return enabledMove{}
+}
+
 func placeNames(places []lower.Place) string {
 	names := make([]string, len(places))
 	for i, p := range places {
@@ -107,6 +126,52 @@ func TestStateDispatchFootprintsAreTheTransitionsOut(t *testing.T) {
 	}
 	if !ci.c.futureOf(turner).Dependent(ci.c.futureOf(router)) {
 		t.Fatal("turner's and router's futures are independent")
+	}
+}
+
+// A dispatch out of a join's sources synchronizes on every other segment and
+// leaves every region: it reads a sibling segment's guard and writes what the
+// exit of a region no segment leaves from does, so an action touching either is
+// dependent on it.
+func TestStateDispatchFootprintCoversTheJoinsSiblings(t *testing.T) {
+	cases := []struct {
+		file, action, place string
+		reads               bool
+	}{
+		{file: "por_state_join_exit", action: "reader", place: "count"},
+		{file: "por_state_join_guard", action: "arm", place: "armed", reads: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.file, func(t *testing.T) {
+			m := reductionModel(t, tc.file, false)
+			ci := startCheckedInvocation(t, m, []string{tc.action}, []string{"gather"})
+			// The machine enters its regions and the action sends Go, which queues the dispatch.
+			for _, first := range []string{"state machine gather", "action " + tc.action, "action " + tc.action} {
+				m := ci.moveOf(t, first)
+				if _, err := ci.run.makeMove(m); err != nil {
+					t.Fatalf("move %s: %v", m, err)
+				}
+			}
+			act := ci.moveOf(t, "action "+tc.action)
+			dispatch := ci.moveOfExecutor(t, "state machine gather")
+			if dispatch.Kind != moveDispatch {
+				t.Fatalf("%s is a %s, want a dispatch", dispatch, dispatch.Kind)
+			}
+			fp := ci.c.footprintOf(dispatch)
+			if fp.Dynamic {
+				t.Fatalf("the dispatch is dynamic: %s", fp)
+			}
+			places, side := fp.Writes, "writes"
+			if tc.reads {
+				places, side = fp.Reads, "reads"
+			}
+			if got := placeNames(places); !strings.Contains(got, tc.place) {
+				t.Fatalf("the dispatch %s %q, want %s", side, got, tc.place)
+			}
+			if !ci.c.footprintOf(dispatch).Dependent(ci.c.footprintOf(act)) {
+				t.Fatalf("the dispatch and %s are independent", act)
+			}
+		})
 	}
 }
 
