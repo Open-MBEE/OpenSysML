@@ -782,6 +782,11 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		return strings.Join([]string{"send", payload, keyword, receiver}, " "), true, nil
 
 	case mTerminate:
+		// A declared `action a terminate;` is a usage head, not a statement;
+		// it keeps its name through usageHead.
+		if d.declaresUsage(el) {
+			return "", false, nil
+		}
 		words := []string{"terminate"}
 		if target, ok := d.stringOf(el, rdf.OpenSysML+xExpression); ok {
 			words = append(words, target)

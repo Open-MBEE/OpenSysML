@@ -980,6 +980,7 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 | `assign x := 1;` | `sysml:AssignmentActionUsage` | `sysx:target`, `sysml:value`, `sysx:assignmentOperator` when it is not `:=` |
 | `send M(x) to p;`, `… via p;` | `sysml:SendActionUsage` | `sysx:payload`, `sysx:receiver`, `sysx:isVia` |
 | `terminate;`, `terminate x;` | `sysml:TerminateActionUsage` | `sysx:expression` |
+| `action stop terminate;` (a declared terminate action usage) | `sysml:TerminateActionUsage` | the usage's own properties, `sysx:hasBody` among them — which is what tells a declaration from the statement above, since a statement never states it |
 | `accept sig : Signal;`, `accept when c;` | the usage's own metaclass | `sysml:isAccept`, and `sysx:declaredKeyword "accept"` where the optional `action` was not written |
 | `fork`, `join`, `merge`, `decide` | `sysml:ForkNode`, `JoinNode`, `MergeNode`, `DecisionNode` | `sysml:declaredName` |
 | `succession first a then b;`, `if g then b;`, `else b;`, and a state body's keyword-less `first a then b;` (a succession between two vertices, no initial node) | `sysml:SuccessionAsUsage` | `sysml:sourceFeature`, `sysml:targetFeature`, `sysx:guard`, `sysx:isElse`, `sysx:declaredKeyword`; the keyword-less spelling comes back as `succession first a then b;` from the graph alone, the same succession |

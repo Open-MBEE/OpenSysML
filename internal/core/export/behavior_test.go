@@ -402,6 +402,28 @@ func TestStateBodyFirstThenIsASuccession(t *testing.T) {
 	}
 }
 
+// A declared terminate action usage and the terminate statement share one
+// metaclass; the mapping alone tells them apart, so `action stop terminate;`
+// keeps the name its successions reach and `terminate;` stays a statement.
+func TestTerminateUsageKeepsItsNameFromTheMappingAlone(t *testing.T) {
+	src := "package P {\n    action def Drive {\n        first start;\n        then stop;\n        action stop terminate;\n        then action halt terminate;\n" +
+		"        action brake {\n            terminate brake;\n            terminate;\n        }\n    }\n}\n"
+	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	if n := strings.Count(string(turtle), "a sysml:TerminateActionUsage ;"); n != 4 {
+		t.Errorf("want two declared and two statement TerminateActionUsage, found %d:\n%s", n, turtle)
+	}
+	back, err := export.Convert("m.ttl", withoutSourceText(t, turtle), export.FormatTurtle, export.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
+	}
+	if string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+}
+
 // A chained succession end links every segment: its root is an endpoint too, so
 // a vertex nested anywhere in the machine is linked, not carried as its text.
 func TestChainedSuccessionEndLinksItsRootAsAVertex(t *testing.T) {
