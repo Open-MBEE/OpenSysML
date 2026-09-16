@@ -67,7 +67,7 @@ func (e *performances) terminateTargets(perf *actionFrame, s lower.Effect) ([]*a
 	case lower.TerminateNode:
 		for f := perf; f != nil; f = f.parent {
 			if f.node == s.Target {
-				return []*actionFrame{f}, nil
+				return e.ongoingWith(f, s.Target), nil
 			}
 			if latest, ok := f.subactions[s.Target]; ok {
 				if ongoing := e.flow.ongoing(f, s.Target); len(ongoing) > 0 {
@@ -84,6 +84,19 @@ func (e *performances) terminateTargets(perf *actionFrame, s lower.Effect) ([]*a
 	}
 	return nil, fmt.Errorf("%w: %s: 'terminate %s' names no action node of a flow around it and no occurrence",
 		ErrTerminateTarget, perf.describe(), e.ctx.bindingExprText(s.TargetExpr, s.Scope))
+}
+
+// ongoingWith returns the ongoing performances of node in the flow of within, a performance
+// of node itself, which is among them: the performance running the statement is never left out.
+func (e *performances) ongoingWith(within *actionFrame, node ast.Node) []*actionFrame {
+	if within.parent == nil {
+		return []*actionFrame{within}
+	}
+	ongoing := e.flow.ongoing(within.parent, node)
+	if !slices.Contains(ongoing, within) {
+		ongoing = append([]*actionFrame{within}, ongoing...)
+	}
+	return ongoing
 }
 
 // ongoing returns the performances of node in parent's flow still running: parent holds

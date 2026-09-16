@@ -37,12 +37,12 @@ func statesOwnFlow(members []ast.Node) bool {
 // members state (its start inferred as a whole action's is), or — where they
 // state none — the statements and accept of a leaf. scope is the node's own namespace.
 func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
-	// A terminate action usage runs as the one statement it stands for.
+	lowerFeatures(graph, node, scope)
+	// A terminate action usage runs as the one statement it stands for, its body declaring pins only.
 	if node.IsTerminate {
 		graph.Bodies[node] = []Statement{lowerStatement(node, scope)}
 		return
 	}
-	lowerFeatures(graph, node, scope)
 	if !statesOwnFlow(node.Members) {
 		lowerBody(graph, node, scope)
 		return
