@@ -20,18 +20,17 @@ import (
 // document set plus the global symbol index. Mutations are serialized under a
 // write lock; reads take a read lock.
 type Workspace struct {
-	mu     sync.RWMutex
-	docs   map[string]*Document
-	onDisk map[string][]byte // last-known on-disk bytes, used when a doc is not open
-	open   map[string]bool   // names with an authoritative open buffer
-	index  *symbols.Index
-	// libBase is the frozen library index this workspace's index overlays, nil
-	// for a caller-built index.
-	libBase   *symbols.Index
+	mu        sync.RWMutex
+	docs      map[string]*Document
+	onDisk    map[string][]byte // last-known on-disk bytes, used when a doc is not open
+	open      map[string]bool   // names with an authoritative open buffer
+	index     *symbols.Index
 	diagCache map[string][]passes.Diagnostic
 	// refs is the reverse reference index, built per document on demand and
 	// dropped per document on a change (see refindex.go).
 	refs *refIndex
+	// generation counts the changes to the documents and their analysis so far.
+	generation uint64
 	// resolver and model are the one resolver and semantic model every analysis
 	// and query of this workspace shares; what they memoize is owned by the
 	// document it was computed for and dropped when that document or one it
@@ -69,9 +68,7 @@ func WithLibrarySource(src libs.Source) Option {
 func NewWorkspace(opts ...Option) *Workspace {
 	base, src := libs.SharedLibrary()
 	opts = append([]Option{WithLibrarySource(src)}, opts...)
-	w := NewWorkspaceWithIndex(symbols.NewOverlay(base), opts...)
-	w.libBase = base
-	return w
+	return NewWorkspaceWithIndex(symbols.NewOverlay(base), opts...)
 }
 
 // NewWorkspaceWithIndex returns a workspace over a caller-built index, for a
@@ -229,6 +226,7 @@ func (w *Workspace) invalidateLocked(name string) {
 		w.invalidateAllLocked()
 		return
 	}
+	w.generation++
 	ch := w.index.TakeChanges()
 	if ch.Docs == nil {
 		ch.Docs = map[string]bool{}
@@ -278,6 +276,7 @@ func (w *Workspace) contextLocked() *passes.Context {
 func (w *Workspace) invalidateAllLocked() {
 	w.diagCache = map[string][]passes.Diagnostic{}
 	w.refs = nil
+	w.generation++
 	if w.resolver != nil {
 		w.resolver.InvalidateAll()
 		w.gathers.Reset()

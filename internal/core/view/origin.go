@@ -2,6 +2,7 @@ package view
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -19,4 +20,14 @@ func symbolOrigin(sym *symbols.Symbol) Origin {
 // document the element that lowered to it was declared in.
 func nodeOrigin(doc string, node ast.Node) Origin {
 	return provenance.Node(doc, node)
+}
+
+// inheritedOrigins is where the declarations a lowered graph took content from
+// were written, in the graph's order.
+func inheritedOrigins(inherited []lower.Inherited) []Origin {
+	out := make([]Origin, 0, len(inherited))
+	for _, in := range inherited {
+		out = append(out, nodeOrigin(symbols.DocNameOf(in.Body), in.Decl))
+	}
+	return out
 }

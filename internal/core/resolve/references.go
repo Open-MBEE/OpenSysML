@@ -18,8 +18,31 @@ func References(root *ast.RootNamespace, rootScope *symbols.Scope) []Reference {
 	return c.refs
 }
 
+// RunReferences is References with the bare names of signal triggers (`accept
+// Halt`), which a run resolves as signal types where the document walk leaves
+// them as event names.
+func RunReferences(root *ast.RootNamespace, rootScope *symbols.Scope) []Reference {
+	c := &refCollector{events: true}
+	if root != nil && rootScope != nil {
+		c.walkMembers(rootScope, root.Members)
+	}
+	return c.refs
+}
+
+// ExpressionReferences gathers the references of one expression written on its
+// own, each with scope to resolve in — the names References finds in a body.
+func ExpressionReferences(scope *symbols.Scope, expr ast.Node) []Reference {
+	c := &refCollector{}
+	if scope != nil {
+		c.expr(scope, expr)
+	}
+	return c.refs
+}
+
 type refCollector struct {
 	refs []Reference
+	// events is set to collect the bare names of signal triggers too.
+	events bool
 	// condition is set while the names of an element-filter condition are walked.
 	condition bool
 	// member is the declaration whose text is being walked.
@@ -502,8 +525,29 @@ func (c *refCollector) trigger(scope *symbols.Scope, trigger ast.Node) {
 		c.expr(scope, t.Duration)
 	case *ast.ChangeEvent:
 		c.expr(scope, t.Condition)
-	case *ast.QualifiedName, *ast.FeatureReference, *ast.AcceptEvent, *ast.CallEvent:
-		// Event names, not model elements.
+	case *ast.AcceptEvent:
+		// The payload's type and the event feature it subsets, as resolveTrigger.
+		c.add(scope, t.SignalType)
+		if qn := ast.AsQualifiedName(t.Subsets); qn != nil {
+			c.add(scope, qn)
+		} else if t.Subsets != nil {
+			c.expr(scope, t.Subsets)
+		}
+		if t.Payload != nil {
+			c.resolveDecl(scope, t.Payload)
+		}
+	case *ast.Usage:
+		c.resolveDecl(scope, t)
+	case *ast.QualifiedName:
+		if c.events {
+			c.add(scope, t)
+		}
+	case *ast.FeatureReference:
+		if c.events {
+			c.add(scope, t.Name)
+		}
+	case *ast.CallEvent:
+		// An event name, not a model element.
 	default:
 		c.expr(scope, trigger)
 	}

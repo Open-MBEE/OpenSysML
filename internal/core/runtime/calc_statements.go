@@ -217,7 +217,7 @@ func (h *calcStmtHost) assignAround(name string, value Value) (bool, error) {
 }
 
 // pauseAt sets no breakpoint: a case's steps are not stepped interactively.
-func (h *calcStmtHost) pauseAt(ast.Node) error {
+func (h *calcStmtHost) pauseAt([]ast.Node, ast.Node) error {
 	return nil
 }
 
