@@ -12,9 +12,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// Named finds a document's own declaration first, then the one workspace
-// document declaring the name; a name declared by two is an error naming both,
-// and one declared by none — or only by a library — is nil.
+// Named takes the document's own declaration, else the one workspace document's;
+// two declaring documents are an error naming both, none — or a library only — nil.
 func TestRuntimeNamedAcrossDocuments(t *testing.T) {
 	ws := NewWorkspace()
 	ws.Open("views.sysml", []byte("package Views { part def Local; }\n"), 1)

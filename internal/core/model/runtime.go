@@ -111,9 +111,8 @@ func (r *Runtime) Declared(doc, fqn string) *symbols.Symbol {
 	return declaredIn(r.index, doc, fqn)
 }
 
-// Named is the element fqn names from doc: one doc declares, else the one
-// another document the runtime holds declares by qualified name; an error
-// lists the documents when several do.
+// Named is the element fqn names from doc: doc's own, else the one another held
+// document declares by qualified name; an error names the documents when several do.
 func (r *Runtime) Named(doc, fqn string) (*symbols.Symbol, error) {
 	return namedFrom(r.index, func(doc string) bool { _, ok := r.versions[doc]; return ok }, doc, fqn)
 }

@@ -1876,9 +1876,8 @@ func TestDebugSessionEndsWhenInheritedContentChanges(t *testing.T) {
 	}
 }
 
-// A view in one document runs the behavior it exposes from another, performed
-// by an object from another still; an edit to the machine's own document moves
-// or ends the session, a name two documents declare is refused as ambiguous.
+// A view debugs the behavior it exposes from another document, performed by an
+// object from a third; edits there move or end the session, duplicates are refused.
 func TestDebugTargetDeclaredInAnotherDocument(t *testing.T) {
 	ctx := context.Background()
 	split := strings.Index(debugMachine, "package MachineViews")
