@@ -45,7 +45,7 @@ func (e *performances) terminate(perf *actionFrame, s lower.Effect) error {
 		}
 	}
 	for i, target := range targets {
-		if perf.within(target) {
+		if perf.nestedIn(target) {
 			return &terminated{perf: target, then: targets[i+1:]}
 		}
 		if err := e.flow.endOther(target); err != nil {
@@ -142,8 +142,8 @@ func (t Token) performing() *actionFrame {
 	return nil
 }
 
-// within reports whether f is perf or a performance nested in it.
-func (f *actionFrame) within(perf *actionFrame) bool {
+// nestedIn reports whether f is perf or a performance nested in it.
+func (f *actionFrame) nestedIn(perf *actionFrame) bool {
 	for g := f; g != nil; g = g.parent {
 		if g == perf {
 			return true

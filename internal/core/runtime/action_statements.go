@@ -146,7 +146,10 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 	}
 	if !resumed {
 		f = &performFrame{}
-		if err := e.owner.pauseAt(node); err != nil {
+	}
+	if !resumed || f.recheck {
+		f.recheck = false
+		if err := e.owner.pauseAt(parent.within(), node); err != nil {
 			return flowNext, e.ctx.pausing(f, err)
 		}
 	}
@@ -184,7 +187,14 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 type performFrame struct {
 	perf  *actionFrame
 	phase performPhase
+	// recheck has the resumed body look for a breakpoint on the node again: the
+	// one it stopped at was removed while it stood, so one set since is a new stop.
+	recheck bool
 }
+
+// stoppedAtBreakpoint reports whether the frame is a body's stop at a breakpoint,
+// before the node performs.
+func (f *performFrame) stoppedAtBreakpoint() bool { return f.perf == nil }
 
 func (*performFrame) abandon(*Context) {}
 

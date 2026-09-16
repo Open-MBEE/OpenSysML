@@ -21,7 +21,9 @@ var ErrSnapshotPausedBody = errors.New("snapshot of a body paused mid-statement"
 
 // Snapshot is the run-derived state of a Context at one point between steps: a
 // mark in its journal, which Restore brings the run back to as often as asked
-// until Release. The Model the context runs over is not part of it. Every object
+// until Release. The Model the context runs over is not part of it, nor are the
+// breakpoints set on its executors: those are the debugger's, not the run's, and
+// stay as set across a restore (a HeldImage, a copy, carries them). Every object
 // the run had made keeps its identity across a restore; what it made after the
 // mark is abandoned, and the identities it took are handed out again.
 type Snapshot struct {
@@ -406,7 +408,7 @@ type actionCapture struct {
 	nextTokenID       int64
 	stepCount         int
 	sweep, sweeps     uint64
-	pausedAt          string
+	pausedAt          breakpointStop
 	released          bool
 	pauses            int64
 	steps, stepsSpent int64
@@ -414,6 +416,8 @@ type actionCapture struct {
 	moved             bool
 	awaiting          *actionFrame
 	firedBreakpoints  mapState[breakpointVisit, bool]
+	traversals        []Traversal
+	traversalBase     int
 	driven            *runState
 	dynamics          *stateSpaceRun
 	frames            []frameCapture
@@ -430,6 +434,8 @@ func (e *ActionExecutor) capture() actionCapture {
 		pausedAt: e.pausedAt, released: e.released, pauses: e.pauses,
 		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
 		firedBreakpoints: captureMap(e.firedBreakpoints),
+		traversals:       cloneTraversals(e.traversals),
+		traversalBase:    e.traversalBase,
 		driven:           e.driven.state,
 		dynamics:         e.dynamics.clone(),
 	}
@@ -447,6 +453,7 @@ func (c actionCapture) restore() {
 	e.steps, e.stepsSpent, e.inRun, e.held = c.steps, c.stepsSpent, c.inRun, c.held
 	e.moved, e.awaiting = c.moved, c.awaiting
 	e.firedBreakpoints = c.firedBreakpoints.restore()
+	e.traversals, e.traversalBase = cloneTraversals(c.traversals), c.traversalBase
 	e.driven.state = c.driven
 	e.dynamics = c.dynamics.clone()
 	for _, perf := range c.frames {
@@ -563,6 +570,11 @@ type stateCapture struct {
 	stateAttrs         map[*ast.StateNode]mapState[string, Value]
 	stateVisits        []string
 	stateStack         []*ast.StateNode
+	fired              []FiredTransition
+	firedBase          int
+	breakpointHit      *ast.StateNode
+	pausedAt           ast.Node
+	completionDue      bool
 	history            map[*ast.StateNode]historyRecord
 	deferred           []Event
 	lastDispatch       *Dispatch
@@ -601,6 +613,11 @@ func (e *StateExecutor) capture() stateCapture {
 		stateAttrs:         make(map[*ast.StateNode]mapState[string, Value], len(e.stateAttrs)),
 		stateVisits:        slices.Clone(e.stateVisits),
 		stateStack:         slices.Clone(e.stateStack),
+		fired:              slices.Clone(e.fired),
+		firedBase:          e.firedBase,
+		breakpointHit:      e.breakpointHit,
+		pausedAt:           e.pausedAt,
+		completionDue:      e.completionDue,
 		history:            make(map[*ast.StateNode]historyRecord, len(e.history)),
 		deferred:           slices.Clone(e.deferred),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
@@ -648,6 +665,8 @@ func (c stateCapture) restore() {
 		}
 	}
 	e.stateVisits, e.stateStack = slices.Clone(c.stateVisits), slices.Clone(c.stateStack)
+	e.fired, e.firedBase = slices.Clone(c.fired), c.firedBase
+	e.breakpointHit, e.pausedAt, e.completionDue = c.breakpointHit, c.pausedAt, c.completionDue
 	if e.history != nil {
 		clear(e.history)
 		for node, record := range c.history {
