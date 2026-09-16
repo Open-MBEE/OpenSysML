@@ -52,7 +52,7 @@ func replaySchedule(
 	if err != nil {
 		return nil, err
 	}
-	if err := ctx.SetSchedule(ReplayOf(Witness{Objects: w.Objects, Inputs: w.Inputs, Choices: choices})); err != nil {
+	if err := ctx.SetSchedule(ReplayOf(Witness{Objects: w.Objects, Inputs: w.Inputs, Draws: w.Draws, Choices: choices})); err != nil {
 		return nil, err
 	}
 	if ctx.Trace() == nil {
@@ -106,7 +106,7 @@ func replaySchedule(
 func (r *Replayed) failedOnSchedule(w Witness, err error, taken, at int) error {
 	r.Err = err
 	switch {
-	case errors.Is(err, ErrReplayRefused), errors.Is(err, ErrWitnessInput), errors.Is(err, ErrWitnessObject):
+	case errors.Is(err, ErrReplayRefused), errors.Is(err, ErrWitnessInput), errors.Is(err, ErrWitnessObject), errors.Is(err, ErrWitnessDraw):
 		return r.disagreeOnSchedule(w, err.Error())
 	case at != ScheduleEnd:
 		return r.disagreeOnSchedule(w, fmt.Sprintf("the run failed after %d moves, before move %d: %v", taken, at, err))
@@ -122,9 +122,9 @@ func (r *Replayed) disagreeOnSchedule(w Witness, reason string) error {
 	return &ReplayDisagreement{Reason: reason, Witness: spellWitness(w), Trace: r.Ctx.Trace().String()}
 }
 
-// spellWitness spells the witness's objects, inputs and schedule as its file holds them.
+// spellWitness spells the witness's objects, inputs, draws and schedule as its file holds them.
 func spellWitness(w Witness) string {
-	return Witness{Objects: w.Objects, Inputs: w.Inputs, Choices: w.Choices}.String()
+	return Witness{Objects: w.Objects, Inputs: w.Inputs, Draws: w.Draws, Choices: w.Choices}.String()
 }
 
 // Evaluate asks the property of the replayed run's state under a readiness probe, as the check did.

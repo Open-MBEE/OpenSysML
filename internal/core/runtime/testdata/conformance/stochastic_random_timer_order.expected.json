@@ -1,0 +1,10 @@
+{
+	"type": "state",
+	"libraries": true,
+	"trace": true,
+	"modelSeed": 7,
+	"finalState": "fDone+rDone",
+	"outputs": {
+		"log": {"type": "Integer", "value": 12}
+	}
+}

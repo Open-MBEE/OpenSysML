@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"libraries": true,
+	"trace": true,
+	"modelSeed": 7,
+	"outputs": {
+		"d": {"type": "Real", "value": 0.774817894359002},
+		"n": {"type": "Integer", "value": 1}
+	}
+}

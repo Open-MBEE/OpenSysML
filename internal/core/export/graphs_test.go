@@ -3,6 +3,7 @@ package export
 import (
 	"bytes"
 	"errors"
+	"maps"
 	"reflect"
 	"strings"
 	"sync"
@@ -20,9 +21,11 @@ import (
 // graphsFixture holds every shape the lowered graphs carry: a flow with a fork,
 // a join, a guarded decision, a nested body performing another action, and a
 // machine with orthogonal regions, entry/do/exit behaviors, a call-triggered
-// guarded transition with an effect and a deferred trigger.
+// guarded transition with an effect and a deferred trigger; and a flow whose
+// decision weights its successions.
 const graphsFixture = `package test {
 	private import ScalarValues::*;
+	private import Stochastic::*;
 
 	action run {
 		attribute total : Integer = 0;
@@ -54,6 +57,22 @@ const graphsFixture = `package test {
 		else idle;
 		succession first low then done;
 		succession first idle then done;
+	}
+
+	action pick {
+		attribute taken : Integer = 0;
+
+		first start;
+		decide route;
+		action fast { assign taken := 1; }
+		action slow { assign taken := 2; }
+		done;
+
+		succession first start then route;
+		first route then fast { @Probability { p = 0.7; } }
+		first route then slow { @Probability { p = 0.3; } }
+		succession first fast then done;
+		succession first slow then done;
 	}
 
 	action def Bump {
@@ -377,6 +396,38 @@ func TestGraphsRefusesSubjectsWithoutAGraph(t *testing.T) {
 
 // The form is the same bytes on every export: repeated over one model, over
 // fresh models of the same text, and from eight goroutines at once.
+// A weighted succession's probability expression is exported with its edge, so an
+// engine reading the graph sees the weights the run draws by.
+func TestGraphsActionCarriesTheEdgeProbabilities(t *testing.T) {
+	model, idx := graphsModel(t)
+	g, _ := exportGraphs(t, model, idx, "test::pick")
+	if len(g.Actions) != 1 || g.Actions[0].Error != "" {
+		t.Fatalf("actions %+v, want the subject lowered", g.Actions)
+	}
+	pick := g.Actions[0]
+	weights := map[string]string{}
+	for _, e := range pick.Edges {
+		if e.Probability == nil {
+			continue
+		}
+		if e.Guard != nil || e.Else {
+			t.Errorf("edge %d->%d is weighted and guarded: %+v", e.Source, e.Target, e)
+		}
+		weights[pick.Nodes[e.Target].Name] = e.Probability.Text
+	}
+	if want := map[string]string{"fast": "0.7", "slow": "0.3"}; !maps.Equal(weights, want) {
+		t.Errorf("weighted edges %v, want %v", weights, want)
+	}
+	run, _ := exportGraphs(t, model, idx, "test::run")
+	for _, a := range run.Actions {
+		for _, e := range a.Edges {
+			if e.Probability != nil {
+				t.Errorf("%s: edge %d->%d carries a probability the model does not state", a.Name, e.Source, e.Target)
+			}
+		}
+	}
+}
+
 func TestGraphsAreByteStable(t *testing.T) {
 	model, idx := graphsModel(t)
 	for _, subject := range []string{"test::run", "test::Machine"} {

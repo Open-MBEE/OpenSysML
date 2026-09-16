@@ -105,7 +105,7 @@ func (x *graphsExporter) lowerSubject(out *Graphs, sym *symbols.Symbol) error {
 	x.lowered[symbols.FQNOf(sym)] = true
 	switch sym.Kind {
 	case symbols.SymbolActionDef, symbols.SymbolActionUsage:
-		graph, err := lower.ToActionGraph(sym.Decl, runtime.DeclScope(sym))
+		graph, err := lower.ToActionGraphWith(sym.Decl, runtime.DeclScope(sym), x.model.Resolver())
 		if err != nil {
 			return fmt.Errorf("%w: %s: %w", ErrGraphsSubject, symbols.FQNOf(sym), err)
 		}
@@ -148,7 +148,7 @@ func (x *graphsExporter) lowerPerformed(out *Graphs, sym *symbols.Symbol) error 
 		out.States = append(out.States, form)
 		return nil
 	}
-	graph, err := lower.ToActionGraph(sym.Decl, runtime.DeclScope(sym))
+	graph, err := lower.ToActionGraphWith(sym.Decl, runtime.DeclScope(sym), x.model.Resolver())
 	if err != nil {
 		out.Actions = append(out.Actions, &ActionForm{Name: symbols.FQNOf(sym), Kind: sym.Kind.String(), Error: err.Error()})
 		return nil

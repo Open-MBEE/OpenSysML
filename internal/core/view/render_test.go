@@ -28,22 +28,32 @@ func loadFixture(t *testing.T, file string) (*Renderer, *symbols.Index) {
 // loadFixtures loads several testdata files as separate documents of one model.
 func loadFixtures(t *testing.T, files ...string) (*Renderer, *symbols.Index) {
 	t.Helper()
-	idx := libs.NewModelIndex()
-	sources := make(map[string]*source.SourceFile, len(files))
-	for _, file := range files {
+	contents := make([][]byte, len(files))
+	for i, file := range files {
 		path := filepath.Join("testdata", file)
 		content, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatalf("read %s: %v", path, err)
 		}
-		sf := source.New(file, content)
+		contents[i] = content
+	}
+	return loadSources(t, files, contents)
+}
+
+// loadSources loads documents given by name and content as one model.
+func loadSources(t *testing.T, names []string, contents [][]byte) (*Renderer, *symbols.Index) {
+	t.Helper()
+	idx := libs.NewModelIndex()
+	sources := make(map[string]*source.SourceFile, len(names))
+	for i, name := range names {
+		sf := source.New(name, contents[i])
 		p := parser.New(sf)
 		root := p.ParseFile()
 		for _, diag := range p.Diagnostics {
-			t.Fatalf("%s: parse diagnostic: %v", file, diag)
+			t.Fatalf("%s: parse diagnostic: %v", name, diag)
 		}
-		idx.AddDocument(file, root)
-		sources[file] = sf
+		idx.AddDocument(name, root)
+		sources[name] = sf
 	}
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
@@ -321,6 +331,21 @@ func TestActionRenderingComesFromTheLoweredGraph(t *testing.T) {
 	}
 	if guards == 0 || flows == 0 {
 		t.Errorf("edges: %d guarded, %d flows; want at least one of each", guards, flows)
+	}
+}
+
+// A weighted succession is labeled with the weight its Probability annotation
+// states, read through the resolver as the runtime reads it.
+func TestActionRenderingLabelsWeightedSuccessions(t *testing.T) {
+	rendering := render(t, "weighted.sysml", "WeightedViews::routeView")
+	labels := edgeLabels(rendering)
+	for _, want := range []string{"p = 0.7", "p = 0.3"} {
+		if !labels[want] {
+			t.Errorf("edge labels %v lack %q", sortedKeys(labels), want)
+		}
+	}
+	if text := rendering.Text(); !strings.Contains(text, "p = 0.7") {
+		t.Errorf("text lacks the weight:\n%s", text)
 	}
 }
 

@@ -303,3 +303,39 @@ func TestShortNamedDeclarationsAreCountedOnce(t *testing.T) {
 		}
 	}
 }
+
+// A transition a machine inherits from a definition in another document is
+// labelled as written there: its timed trigger and guard verbatim.
+func TestRenderViewLabelsInheritedTransitionsFromTheirDocument(t *testing.T) {
+	ws := openDoc(t, "base.sysml", `package Plant {
+	state def Machine {
+		attribute ready : Boolean;
+		entry; then idle;
+		state idle;
+		transition first idle accept after 5 [s] if ready then done;
+		state done;
+	}
+}
+`)
+	ws.Open("derived.sysml", []byte(`package Derived {
+	private import StandardViewDefinitions::*;
+	state def Special :> Plant::Machine;
+	view specialStates : StateTransitionView { expose Derived::Special; }
+}
+`), 1)
+	rendering, _, err := ws.RenderView("derived.sysml", "Derived::specialStates")
+	if err != nil {
+		t.Fatalf("render the derived machine: %v", err)
+	}
+	var labels []string
+	for _, edge := range rendering.Data().Edges {
+		labels = append(labels, edge.Label)
+	}
+	want := "after 5 [s] [ready]"
+	for _, label := range labels {
+		if label == want {
+			return
+		}
+	}
+	t.Errorf("edge labels = %q, want %q among them", labels, want)
+}

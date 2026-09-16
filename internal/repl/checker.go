@@ -470,11 +470,13 @@ func (s *Session) checkVerdict(inv *freshInvocation, policy runtime.SchedulePoli
 	subject, label := inv.subject(), inv.label()
 	ctx := s.planContext()
 	free := s.checker.frees()
+	modelSeed := s.askedModelSeed()
 	s.state.Unlock()
 	answered, err := s.engines.Check(ctx, analysis.Request{
 		Model:     model,
 		Subject:   subject,
 		Schedule:  policy,
+		ModelSeed: modelSeed,
 		Budget:    budget,
 		Selection: selection,
 	}, kind, free, asks.check, asks.holds, asks.run)
@@ -680,18 +682,21 @@ func inputLines(inputs []analysis.Input) string {
 	return strings.Join(parts, ", ")
 }
 
-// witnessLine spells a witness: the file it was written to, else its choices as one
-// schedule, "no choices" for an empty one.
+// witnessLine spells a witness: the file it was written to, else its draws and
+// choices as one schedule, "no choices" for an empty one.
 func witnessLine(w *analysis.Witness) string {
 	if w.Written != "" {
 		return w.Written
 	}
-	if len(w.Choices) == 0 {
+	if len(w.Draws) == 0 && len(w.Choices) == 0 {
 		return "no choices"
 	}
-	parts := make([]string, len(w.Choices))
-	for i, c := range w.Choices {
-		parts[i] = c.String()
+	parts := make([]string, 0, len(w.Draws)+len(w.Choices))
+	for _, d := range w.Draws {
+		parts = append(parts, d.String())
+	}
+	for _, c := range w.Choices {
+		parts = append(parts, c.String())
 	}
 	return strings.Join(parts, "; ")
 }

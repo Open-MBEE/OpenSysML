@@ -150,7 +150,7 @@ func (m *Model) CompileElementFilter(f symbols.ElementFilter) *symbols.FilterPre
 func (m *Model) compileCondition(scope *symbols.Scope, n ast.Node) *symbols.FilterPredicate {
 	switch e := n.(type) {
 	case *ast.OperatorExpr:
-		if v, ok := evalConst(n); ok {
+		if v, ok := EvalConst(n); ok {
 			return &symbols.FilterPredicate{Op: symbols.FilterConst, Value: constValue(v), Span: spanOf(n)}
 		}
 		return m.compileOperator(scope, e)
@@ -159,7 +159,7 @@ func (m *Model) compileCondition(scope *symbols.Scope, n ast.Node) *symbols.Filt
 	case *ast.FeatureReference:
 		return m.compileReference(scope, e.Name, spanOf(e))
 	case *ast.LiteralInteger, *ast.LiteralReal, *ast.LiteralBool, *ast.LiteralInfinity:
-		if v, ok := evalConst(n); ok {
+		if v, ok := EvalConst(n); ok {
 			return &symbols.FilterPredicate{Op: symbols.FilterConst, Value: constValue(v), Span: spanOf(n)}
 		}
 	case *ast.LiteralString:
@@ -396,7 +396,7 @@ func (m *Model) compileFeatureChainRead(scope *symbols.Scope, operand *ast.Featu
 	if !isUsage || usage.Value == nil {
 		return evaluatorUnsupported(span, chainLimitation, read)
 	}
-	v, ok := evalConst(usage.Value)
+	v, ok := EvalConst(usage.Value)
 	if !ok {
 		return evaluatorUnsupported(span, chainLimitation, read)
 	}

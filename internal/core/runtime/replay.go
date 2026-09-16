@@ -4,12 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
 
 // The `replay:<file>` policy fixes a witness's input lines before the run's first move, follows
@@ -230,12 +232,13 @@ func ParseObject(text string) (ObjectNamed, error) {
 }
 
 // Witness is one schedule as a witness file holds it: the objects its moves name
-// bound to their paths, the inputs the run fixes before its first move, the choices
-// that fix the schedule as a replay follows them, and the trace the run leaves, as
-// the trace recorder writes it.
+// bound to their paths, the inputs the run fixes before its first move, the values
+// its random draws took, the choices that fix the schedule as a replay follows them,
+// and the trace the run leaves, as the trace recorder writes it.
 type Witness struct {
 	Objects []ObjectNamed
 	Inputs  []InputTaken
+	Draws   []DrawTaken
 	Choices []ChoiceTaken
 	Trace   string
 	// Property names the property false at the state the schedule reaches, or
@@ -253,8 +256,8 @@ const (
 )
 
 // String renders the witness as a file holds it: its objects one per line, its
-// inputs one per line, its choices one per line — or `no choice points` — a blank
-// line, the trace, and after a blank line the claims closing it: `property: <name>`
+// inputs one per line, its draws one per line, its choices one per line — or `no
+// choice points` — a blank line, the trace, and after a blank line the claims closing it: `property: <name>`
 // for a property's, `fails: <the failure>` for a schedule ending in a failure, last.
 func (w Witness) String() string {
 	var b strings.Builder
@@ -264,6 +267,10 @@ func (w Witness) String() string {
 	}
 	for _, in := range w.Inputs {
 		b.WriteString(in.String())
+		b.WriteByte('\n')
+	}
+	for _, d := range w.Draws {
+		b.WriteString(d.String())
 		b.WriteByte('\n')
 	}
 	if len(w.Choices) == 0 {
@@ -287,8 +294,8 @@ func (w Witness) String() string {
 	return b.String()
 }
 
-// Empty reports whether the witness fixes no input and takes no choice.
-func (w Witness) Empty() bool { return len(w.Inputs) == 0 && len(w.Choices) == 0 }
+// Empty reports whether the witness fixes no input, records no draw and takes no choice.
+func (w Witness) Empty() bool { return len(w.Inputs) == 0 && len(w.Draws) == 0 && len(w.Choices) == 0 }
 
 // objectNumber matches an object a move names by number.
 var objectNumber = regexp.MustCompile(regexp.QuoteMeta(objectPrefix) + `(\d+)`)
@@ -332,7 +339,7 @@ func ReplayOf(w Witness) SchedulePolicy {
 }
 
 func cloneWitness(w Witness) Witness {
-	w.Objects, w.Inputs, w.Choices = slices.Clone(w.Objects), slices.Clone(w.Inputs), slices.Clone(w.Choices)
+	w.Objects, w.Inputs, w.Draws, w.Choices = slices.Clone(w.Objects), slices.Clone(w.Inputs), slices.Clone(w.Draws), slices.Clone(w.Choices)
 	return w
 }
 
@@ -366,6 +373,9 @@ func (c ChoicePoint) Choice() ChoiceTaken {
 	if c.Taken >= 0 && c.Taken < len(c.Alternatives) {
 		taken.Took = c.Alternatives[c.Taken]
 	}
+	if c.Weighted() {
+		taken.Weights, taken.Drew, taken.Drawn = slices.Clone(c.Weights), c.Drew, c.Drawn
+	}
 	return taken
 }
 
@@ -388,6 +398,9 @@ func ParseChoices(text string) ([]ChoiceTaken, error) {
 	}
 	if len(w.Inputs) > 0 {
 		return nil, &InputParseError{Text: w.Inputs[0].String(), Reason: "a witness with inputs is read by ParseWitness"}
+	}
+	if len(w.Draws) > 0 {
+		return nil, &DrawParseError{Text: w.Draws[0].String(), Reason: "a witness with draws is read by ParseWitness"}
 	}
 	return w.Choices, nil
 }
@@ -436,8 +449,8 @@ func (w *Witness) readClaims() {
 }
 
 // readHeader reads a witness header: object lines as ObjectNamed.String spells
-// them, input lines as InputTaken.String spells them, then choices as
-// ChoiceTaken.String spells them, one per line or joined by `; `, ending at the
+// them, input lines as InputTaken.String spells them, draw lines as DrawTaken.String
+// spells them, then choices as ChoiceTaken.String spells them, one per line or joined by `; `, ending at the
 // first blank line after it. It says whether the text has a header.
 func readHeader(text string) (w Witness, headed bool, err error) {
 	for i, line := range strings.Split(text, "\n") {
@@ -454,8 +467,8 @@ func readHeader(text string) (w Witness, headed bool, err error) {
 		}
 		if strings.HasPrefix(line, objectPrefix) {
 			o, err := ParseObject(line)
-			if err == nil && (len(w.Inputs) > 0 || len(w.Choices) > 0) {
-				err = &ObjectParseError{Text: line, Reason: "objects come before the inputs and the moves"}
+			if err == nil && (len(w.Inputs) > 0 || len(w.Draws) > 0 || len(w.Choices) > 0) {
+				err = &ObjectParseError{Text: line, Reason: "objects come before the inputs and the moves, and before the draws"}
 			}
 			if err == nil && slices.ContainsFunc(w.Objects, func(seen ObjectNamed) bool { return seen.ID == o.ID }) {
 				err = &ObjectParseError{Text: line, Reason: o.Number() + " is bound twice"}
@@ -472,8 +485,8 @@ func readHeader(text string) (w Witness, headed bool, err error) {
 		}
 		if strings.HasPrefix(line, inputPrefix) {
 			in, err := ParseInput(line)
-			if err == nil && len(w.Choices) > 0 {
-				err = &InputParseError{Text: line, Reason: "inputs come before the moves"}
+			if err == nil && (len(w.Draws) > 0 || len(w.Choices) > 0) {
+				err = &InputParseError{Text: line, Reason: "inputs come before the moves, and before the draws"}
 			}
 			if err != nil {
 				var parse *InputParseError
@@ -483,6 +496,21 @@ func readHeader(text string) (w Witness, headed bool, err error) {
 				return Witness{}, true, err
 			}
 			w.Inputs = append(w.Inputs, in)
+			continue
+		}
+		if strings.HasPrefix(line, drawPrefix) {
+			d, err := ParseDraw(line)
+			if err == nil && len(w.Choices) > 0 {
+				err = &DrawParseError{Text: line, Reason: "draws come before the moves"}
+			}
+			if err != nil {
+				var parse *DrawParseError
+				if errors.As(err, &parse) {
+					parse.Line = i + 1
+				}
+				return Witness{}, true, err
+			}
+			w.Draws = append(w.Draws, d)
 			continue
 		}
 		for _, part := range splitChoices(line) {
@@ -566,10 +594,11 @@ func parseOrderChoice(fail func(string) (ChoiceTaken, error), step int, first, m
 	return c, nil
 }
 
-// parseTransitionChoice reads `<where> -> <took>`: a decision branch inside a step,
-// a transition outside one.
+// parseTransitionChoice reads `<where> -> <took>`, a decision branch inside a step
+// and a transition outside one, with the alternatives, weights and draw a weighted
+// one carries after ` among `.
 func parseTransitionChoice(fail func(string) (ChoiceTaken, error), step int, first, after string) (ChoiceTaken, error) {
-	took, _, _, ok := readLabel(after)
+	took, mark, after, ok := readLabel(after, markAmong)
 	if !ok {
 		return fail(unclosedQuote)
 	}
@@ -579,6 +608,50 @@ func parseTransitionChoice(fail func(string) (ChoiceTaken, error), step int, fir
 	c := ChoiceTaken{Kind: ChoiceTransition, Where: first, Took: took}
 	if step > 0 {
 		c.Kind, c.Step = ChoiceDecisionBranch, step
+	}
+	if mark == markAmong {
+		return parseWeighted(fail, c, after)
+	}
+	return c, nil
+}
+
+// parseWeighted reads what follows ` among ` on a weighted line — `<alt> p=<w>, …`
+// then ` drew <u>` when a draw selected the branch — into c.
+func parseWeighted(fail func(string) (ChoiceTaken, error), c ChoiceTaken, text string) (ChoiceTaken, error) {
+	const shape = "a weighted branch lists every alternative with its weight: … among <alt> p=<w>, <alt> p=<w> drew <u>"
+	for {
+		alt, mark, rest, ok := readLabel(text, markWeight)
+		if !ok {
+			return fail(unclosedQuote)
+		}
+		if mark == "" {
+			return fail(shape)
+		}
+		number, sep := rest, ""
+		if at, m := indexMark(rest, markList, markDrew); at >= 0 {
+			number, sep, rest = rest[:at], m, rest[at+len(m):]
+		}
+		w, err := strconv.ParseFloat(number, 64)
+		if err != nil {
+			return fail("a weight is a number: <alt> p=<w>")
+		}
+		c.Among, c.Weights = append(c.Among, alt), append(c.Weights, w)
+		if sep == markList {
+			text = rest
+			continue
+		}
+		if sep == markDrew {
+			u, err := strconv.ParseFloat(rest, 64)
+			if err != nil || !(0 <= u && u < 1) {
+				return fail("the draw selecting a weighted branch is a number in [0, 1): … drew <u>")
+			}
+			c.Drew, c.Drawn = u, true
+		}
+		break
+	}
+	c.Alternatives, c.Taken = len(c.Among), slices.Index(c.Among, c.Took)
+	if c.Taken < 0 {
+		return fail(fmt.Sprintf("%s is not among %s", choiceLabel(c.Took), choiceLabels(c.Among)))
 	}
 	return c, nil
 }
@@ -594,10 +667,13 @@ const (
 	markArrow   = " -> "
 	markList    = ", "
 	markWhere   = ": "
+	markAmong   = " among "
+	markWeight  = " p="
+	markDrew    = " drew "
 )
 
 // linePunctuation is what a choice line's grammar reads as structure.
-var linePunctuation = []string{markChoices, markFirstOf, markArrow, markList, markWhere}
+var linePunctuation = []string{markChoices, markFirstOf, markArrow, markList, markWhere, markAmong, markWeight, markDrew}
 
 const (
 	unclosedQuote = "a quoted name needs its closing quote, followed by the line's punctuation"
@@ -738,14 +814,16 @@ func splitLabels(text, sep string) ([]string, bool) {
 }
 
 // replayRun follows one run's witness: the objects its moves name to bind to the
-// run's own, the inputs to fix before its first move, the moves left and the first
-// it refused.
+// run's own, the inputs to fix before its first move, the draws to hand its random
+// calls in turn, the moves left and the first it refused.
 type replayRun struct {
 	// unbound are the objects the witness names that the run has not made yet;
 	// renumber maps the witness's numbers of those it has to the run's own.
 	unbound  []ObjectNamed
 	renumber map[string]string
 	inputs   []InputTaken
+	draws    []DrawTaken
+	nextDraw int
 	choices  []ChoiceTaken
 	next     int
 	refused  error
@@ -758,6 +836,7 @@ func newReplayRun(w Witness) *replayRun {
 		unbound:  slices.Clone(w.Objects),
 		renumber: make(map[string]string, len(w.Objects)),
 		inputs:   slices.Clone(w.Inputs),
+		draws:    slices.Clone(w.Draws),
 		choices:  slices.Clone(w.Choices),
 	}
 }
@@ -834,6 +913,37 @@ func (r *replayRun) takeInputs() []InputTaken {
 	return inputs
 }
 
+// takeDraw hands the call what the witness's next recorded draw, which must be of
+// the same call and a value the call admits; a draw the witness does not record,
+// records for another call, or records outside the call's distribution refuses
+// the witness and fails the call.
+func (r *replayRun) takeDraw(what string, admits func(semantics.Value) bool) (semantics.Value, error) {
+	if r.nextDraw >= len(r.draws) {
+		err := &WitnessDrawError{What: what, Reason: "the witness records no draw left for it"}
+		if r.refused == nil {
+			r.refused = err
+		}
+		return semantics.Value{}, err
+	}
+	d := r.draws[r.nextDraw]
+	if d.What != what {
+		err := &WitnessDrawError{Draw: r.nextDraw + 1, What: d.What, Reason: "the run drew " + what + " instead"}
+		if r.refused == nil {
+			r.refused = err
+		}
+		return semantics.Value{}, err
+	}
+	if !admits(d.Value) {
+		err := &WitnessDrawError{Draw: r.nextDraw + 1, What: d.What, Reason: "the witness records " + formatDrawn(d.Value) + ", which the call cannot draw"}
+		if r.refused == nil {
+			r.refused = err
+		}
+		return semantics.Value{}, err
+	}
+	r.nextDraw++
+	return d.Value, nil
+}
+
 // following reports whether moves are left to follow and none was refused.
 func (r *replayRun) following() bool {
 	return r.refused == nil && r.next < len(r.choices)
@@ -846,14 +956,18 @@ func (r *replayRun) refuse(faced string) {
 	}
 }
 
-// unfollowed is the refusal of a run that ended with moves left, or that began no
-// performance to fix its inputs on; nil otherwise.
+// unfollowed is the refusal of a run that ended with moves or draws left, or that
+// began no performance to fix its inputs on; nil otherwise.
 func (r *replayRun) unfollowed(how string) error {
 	if r.refused == nil && len(r.inputs) > 0 {
 		r.refused = &WitnessInputError{Feature: r.inputs[0].Feature, Reason: how + " with no action performance begun to fix it on"}
 	}
 	if r.following() {
 		r.refuse(how)
+	}
+	if r.refused == nil && r.nextDraw < len(r.draws) {
+		d := r.draws[r.nextDraw]
+		r.refused = &WitnessDrawError{Draw: r.nextDraw + 1, What: d.What, Reason: how + " without drawing it"}
 	}
 	return r.refused
 }
@@ -1042,14 +1156,75 @@ func (r *replayRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 		r.refuse(fmt.Sprintf("%s is not enabled (enabled: %s)", w.Took, alts))
 		return 0
 	}
+	if (w.Weighted() || c.Weighted()) && !r.weighedAlike(w, c, taken) {
+		return 0
+	}
 	r.next++
 	return taken
+}
+
+// chooseWeighted follows the witness's move at a weighted decision, the run's choice
+// carrying the draw the witness records where one selected the branch.
+func (r *replayRun) chooseWeighted(c *ChoicePoint) int {
+	w, unbound := r.current()
+	taken := r.choose(*c, nil)
+	if unbound == nil && r.refused == nil && w.Drawn {
+		c.Drew, c.Drawn = w.Drew, true
+	}
+	return taken
+}
+
+// weighedAlike reports whether the witness's weighted move w fits the decision the run
+// faces: the same branches weighed the same, and a recorded draw that selects the branch
+// taken; a move that does not fit is refused.
+func (r *replayRun) weighedAlike(w ChoiceTaken, c ChoicePoint, taken int) bool {
+	if !c.Weighted() {
+		r.refuse("the run's decision weighs no branch")
+		return false
+	}
+	if !w.Weighted() || len(w.Among) != len(c.Alternatives) {
+		r.refuse("the run's decision weighs every branch: " + weightedLabels(c.Alternatives, c.Weights))
+		return false
+	}
+	for i, alt := range w.Among {
+		if slices.Index(w.Among, alt) != i {
+			r.refuse(fmt.Sprintf("the move weighs %s twice: %s", choiceLabel(alt), choiceLabels(w.Among)))
+			return false
+		}
+		at := slices.Index(c.Alternatives, alt)
+		if at < 0 {
+			r.refuse(fmt.Sprintf("%s is not among the run's branches: %s", choiceLabel(alt), weightedLabels(c.Alternatives, c.Weights)))
+			return false
+		}
+		if got := c.Weights[at]; got != w.Weights[i] {
+			r.refuse(fmt.Sprintf("%s weighs p=%s, not p=%s", choiceLabel(alt), formatWeight(got), formatWeight(w.Weights[i])))
+			return false
+		}
+	}
+	if !w.Drawn {
+		return true
+	}
+	if math.IsNaN(w.Drew) || w.Drew < 0 || w.Drew >= 1 {
+		r.refuse(fmt.Sprintf("the draw %s is no unit draw in [0, 1)", formatWeight(w.Drew)))
+		return false
+	}
+	total := 0.0
+	for _, weight := range c.Weights {
+		total += weight
+	}
+	if pick := weightedPick(c.Weights, total, w.Drew); pick != taken {
+		r.refuse(fmt.Sprintf("the draw %s selects %s, not %s", formatWeight(w.Drew), choiceLabel(c.Alternatives[pick]), choiceLabel(w.Took)))
+		return false
+	}
+	return true
 }
 
 // mark returns what a probe restores: the run's position in the witness and the
 // objects it had bound, which the probe's run may have made and unmade.
 func (r *replayRun) mark() func() {
-	next, refused := r.next, r.refused
+	next, nextDraw, refused := r.next, r.nextDraw, r.refused
 	unbound, renumber := slices.Clone(r.unbound), maps.Clone(r.renumber)
-	return func() { r.next, r.refused, r.unbound, r.renumber = next, refused, unbound, renumber }
+	return func() {
+		r.next, r.nextDraw, r.refused, r.unbound, r.renumber = next, nextDraw, refused, unbound, renumber
+	}
 }

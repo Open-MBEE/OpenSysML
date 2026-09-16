@@ -233,7 +233,7 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 		return nil, fmt.Errorf("%w: %s states or inherits a result expression from each of %s",
 			ErrConflictingResultExpressions, label, strings.Join(names, ", "))
 	}
-	body, bodyOwner := calcBody(chain)
+	body, bodyOwner := ctx.calcBody(chain)
 	shape := &calcShape{
 		Sym:       sym,
 		Name:      name,
@@ -377,12 +377,12 @@ func (ctx *Context) redeclaredIndex(index map[string]int, sym *symbols.Symbol, n
 // calcBody returns the computation the invoked calc runs — its own body if that
 // states one, otherwise the closest inherited one — with the calc that declares
 // it, whose scope the body's statements are written in.
-func calcBody(chain []*symbols.Symbol) ([]lower.Statement, *symbols.Symbol) {
+func (ctx *Context) calcBody(chain []*symbols.Symbol) ([]lower.Statement, *symbols.Symbol) {
 	var stated []lower.Statement
 	var owner *symbols.Symbol
 	for i := len(chain) - 1; i >= 0; i-- {
 		link := chain[i]
-		stmts := lower.CalcBody(link.Decl, declMembers(link.Decl), link.Scope)
+		stmts := lower.CalcBodyWith(link.Decl, declMembers(link.Decl), link.Scope, ctx.Resolver())
 		if lower.Returns(stmts) {
 			return stmts, link
 		}
@@ -1149,7 +1149,7 @@ func (ctx *Context) applyLibraryPerformance(perf *libraryPerformance, args calcA
 // calcComputes reports whether a calc chain states a computation: a body that
 // returns or assigns an output, or a binding of the result.
 func (ctx *Context) calcComputes(chain []*symbols.Symbol) bool {
-	body, _ := calcBody(chain)
+	body, _ := ctx.calcBody(chain)
 	if lower.Returns(body) || resultBindingExpr(calcBindings(chain)) != nil {
 		return true
 	}
