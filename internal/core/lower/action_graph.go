@@ -1100,12 +1100,8 @@ func DeclaresNodeFeature(m *ast.Usage) bool {
 // for, so the executor reads them from the graph rather than walking the node's
 // members again.
 func lowerBody(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
-	for _, member := range node.Members {
-		switch m := unwrapMembership(member).(type) {
-		case *ast.SendStatement, *ast.AssignmentActionNode, *ast.WhileLoopActionNode,
-			*ast.IfActionNode, *ast.TerminateStatement:
-			graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(m, scope))
-		}
+	for _, member := range BodyStatementMembers(node.Members) {
+		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), scope))
 	}
 	lowerAccept(graph, node, scope)
 }
