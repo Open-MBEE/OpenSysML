@@ -407,8 +407,10 @@ machine; `%send` queues one of the menu's signals and `%advance 1` dispatches
 it and lets the effect it triggers — a fight, a night's sleep, the stroke of
 midnight — run to completion. (`%step` dispatches one event at a time; a
 transition whose effect runs a fight takes two.) Looking for something to
-kill fights a monster of the warrior's own level — the Small Thief for a
-first-level hero, the Corinthian Giant for the twelfth-level champion:
+kill rolls among the monsters of the warrior's own level — a schedule
+decision, so `-engine check` reaches every one of them, and the default
+schedule takes the first: the Small Thief for a first-level hero, the
+Corinthian Giant for the twelfth-level champion:
 
 ```
 %instantiate LordPlay::hero
@@ -434,7 +436,7 @@ first-level hero, the Corinthian Giant for the twelfth-level champion:
   Accepted by state machine "day" in state forest: transition forest_fight fires on it
 ✓ Advanced to 2.0 (2 event(s) processed)
   Current state: forest
-  2 choice points; %trace on to see them
+  3 choice points; %trace on to see them
 ✓ gold (on LordPlay::hero ID: 1)
   = 556
 ✓ forestFightsLeft (on LordPlay::hero ID: 1)
@@ -444,10 +446,28 @@ first-level hero, the Corinthian Giant for the twelfth-level champion:
   Accepted by state machine "day" in state forest: transition forest_fight fires on it
 ✓ Advanced to 4.0 (2 event(s) processed)
   Current state: forest
-  1 choice point; %trace on to see them
+  2 choice points; %trace on to see them
 ✓ gold (on LordPlay::champion ID: 7)
   = 337143
 ```
+
+The roll is a decision like the dice, so the checker can be pointed at the
+transition's effect to see every monster of the level come out of the trees:
+
+```bash
+./bin/sysml examples/lord-demo/lord.sysml -engine check \
+  -instantiate LordPlay::hero \
+  -action "LordPlay::Warrior::day::forest_fight::fighting hero" \
+  -check-diverge this.gold
+```
+
+```
+✗ Action LordPlay::Warrior::day::forest_fight::fighting: divergent (82 states, 81 moves, depth 11)
+  divergent: this.gold ends as 0 or 507 or 532 or 546 or 556 or 558 or 573 or 576 or 587 or 609 or 654
+```
+
+Ten purses for the ten level-one monsters a fresh hero can beat, and nothing
+for the hero who ran into Bran the Warrior.
 
 Back to town with the hero, a room at the inn for the night, and midnight
 gives the fights back and turns the guest out:
@@ -732,8 +752,9 @@ before level two or trade gems he does not have:
 ### The slaughter
 
 `attack` is a fight with another warrior, three a day, against the `rival`
-unless `foe` names another. The loser's gold and gems go to the winner with a
-tenth of the loser's experience, and the slain lie until morning. A warrior
+unless `foe` names another. The loser's gold and a tenth of the loser's
+experience go to the winner, who counts the kill — a slain sleeper's gems too,
+though an attacker who dies keeps his — and the slain lie until morning. A warrior
 asleep at the inn is out of reach unless the attacker has bribed the
 bartender and is within a level of the sleeper:
 
@@ -772,7 +793,28 @@ bartender and is within a level of the sleeper:
 ```
 
 The dead rival is refused as a target, and so is the heroine in her room;
-neither refusal costs a fight.
+neither refusal costs a fight. Picking on the `champion` ends the other way,
+and the rewards go the other way with it:
+
+```
+%instantiate LordPlay::champion
+%invoke LordPlay::hero attack foe=LordPlay::champion
+%eval in LordPlay::hero : alive
+%eval in LordPlay::hero : gold
+%eval in LordPlay::champion : gold
+%eval in LordPlay::champion : playerKills
+```
+
+```
+✓ alive (on LordPlay::hero ID: 1)
+  = false
+✓ gold (on LordPlay::hero ID: 1)
+  = 0
+✓ gold (on LordPlay::champion ID: 9)
+  = 1120
+✓ playerKills (on LordPlay::champion ID: 9)
+  = 1
+```
 
 ### Other places
 

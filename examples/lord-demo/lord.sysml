@@ -966,8 +966,8 @@ package LordPlay {
 
         // Slaughter another warrior: three a day, none asleep at the inn unless the bartender
         // is bribed and the sleeper is at most a level below. Power moves need a higher-level
-        // foe. The slain lose their gold, gems and a tenth of their experience to the killer;
-        // an attacker who dies keeps the gems.
+        // foe. The loser's gold and a tenth of the experience go to the winner, who counts the
+        // kill; a slain sleeper's gems go too, while an attacker who dies keeps the gems.
         action attack {
             in foe : Warrior = rival;
             in move : Move default = favouredMove;
@@ -1047,6 +1047,9 @@ package LordPlay {
             }
 
             action die {
+                assign foe.gold := foe.gold + gold;
+                assign foe.experience := foe.experience + Tithe(experience);
+                assign foe.playerKills := foe.playerKills + 1;
                 assign alive := false;
                 assign hitPoints := 0;
                 assign gold := 0;
@@ -1733,8 +1736,8 @@ package LordPlay {
                 accept EnterForest
                 then forest;
 
-            // While fights remain, the first monster of the warrior's level is fought (the game
-            // rolled among the level's eleven); the warrior stays in the forest or goes to the grave.
+            // While fights remain, the dice pick one of the monsters of the warrior's level to
+            // fight; the warrior stays in the forest or goes to the grave.
             transition forest_fight
                 first forest
                 accept LookForSomethingToKill
@@ -1756,29 +1759,458 @@ package LordPlay {
                     if level == 12 then level12;
                     else done;
 
-                    action level1 { first start; then perform fight { in foe = town.forest.level1.smallThief; } then done; }
+                    action level1 {
+                        first start;
+                        then decide roll;
+                        if true then smallThief;
+                        if true then rudeBoy;
+                        if true then oldMan;
+                        if true then largeGreenRat;
+                        if true then wildBoar;
+                        if true then uglyOldHag;
+                        if true then largeMosquito;
+                        if true then branTheWarrior;
+                        if true then evilWretch;
+                        if true then smallBear;
+                        if true then smallTroll;
+                        action smallThief { first start; then perform fight { in foe = town.forest.level1.smallThief; } then done; }
+                        then done;
+                        action rudeBoy { first start; then perform fight { in foe = town.forest.level1.rudeBoy; } then done; }
+                        then done;
+                        action oldMan { first start; then perform fight { in foe = town.forest.level1.oldMan; } then done; }
+                        then done;
+                        action largeGreenRat { first start; then perform fight { in foe = town.forest.level1.largeGreenRat; } then done; }
+                        then done;
+                        action wildBoar { first start; then perform fight { in foe = town.forest.level1.wildBoar; } then done; }
+                        then done;
+                        action uglyOldHag { first start; then perform fight { in foe = town.forest.level1.uglyOldHag; } then done; }
+                        then done;
+                        action largeMosquito { first start; then perform fight { in foe = town.forest.level1.largeMosquito; } then done; }
+                        then done;
+                        action branTheWarrior { first start; then perform fight { in foe = town.forest.level1.branTheWarrior; } then done; }
+                        then done;
+                        action evilWretch { first start; then perform fight { in foe = town.forest.level1.evilWretch; } then done; }
+                        then done;
+                        action smallBear { first start; then perform fight { in foe = town.forest.level1.smallBear; } then done; }
+                        then done;
+                        action smallTroll { first start; then perform fight { in foe = town.forest.level1.smallTroll; } then done; }
+                        then done;
+                    }
                     then done;
-                    action level2 { first start; then perform fight { in foe = town.forest.level2.greenPython; } then done; }
+                    action level2 {
+                        first start;
+                        then decide roll;
+                        if true then greenPython;
+                        if true then gathTheBarbarian;
+                        if true then evilWoodNymph;
+                        if true then fedrickTheLimpingBaboon;
+                        if true then wildMan;
+                        if true then brorandiaTheViking;
+                        if true then hugeBaldMan;
+                        if true then senileSeniorCitizen;
+                        if true then membrainMan;
+                        if true then bentRiverDryad;
+                        if true then rockMan;
+                        action greenPython { first start; then perform fight { in foe = town.forest.level2.greenPython; } then done; }
+                        then done;
+                        action gathTheBarbarian { first start; then perform fight { in foe = town.forest.level2.gathTheBarbarian; } then done; }
+                        then done;
+                        action evilWoodNymph { first start; then perform fight { in foe = town.forest.level2.evilWoodNymph; } then done; }
+                        then done;
+                        action fedrickTheLimpingBaboon { first start; then perform fight { in foe = town.forest.level2.fedrickTheLimpingBaboon; } then done; }
+                        then done;
+                        action wildMan { first start; then perform fight { in foe = town.forest.level2.wildMan; } then done; }
+                        then done;
+                        action brorandiaTheViking { first start; then perform fight { in foe = town.forest.level2.brorandiaTheViking; } then done; }
+                        then done;
+                        action hugeBaldMan { first start; then perform fight { in foe = town.forest.level2.hugeBaldMan; } then done; }
+                        then done;
+                        action senileSeniorCitizen { first start; then perform fight { in foe = town.forest.level2.senileSeniorCitizen; } then done; }
+                        then done;
+                        action membrainMan { first start; then perform fight { in foe = town.forest.level2.membrainMan; } then done; }
+                        then done;
+                        action bentRiverDryad { first start; then perform fight { in foe = town.forest.level2.bentRiverDryad; } then done; }
+                        then done;
+                        action rockMan { first start; then perform fight { in foe = town.forest.level2.rockMan; } then done; }
+                        then done;
+                    }
                     then done;
-                    action level3 { first start; then perform fight { in foe = town.forest.level3.lazyBum; } then done; }
+                    action level3 {
+                        first start;
+                        then decide roll;
+                        if true then lazyBum;
+                        if true then twoHeadedRotwieler;
+                        if true then purpleMonchichi;
+                        if true then bone;
+                        if true then redNeck;
+                        if true then wingedDemonOfDeath;
+                        if true then blackOwl;
+                        if true then muscledMidget;
+                        if true then headbangerOfTheWest;
+                        if true then morbidWalker;
+                        if true then magicalEvilGnome;
+                        action lazyBum { first start; then perform fight { in foe = town.forest.level3.lazyBum; } then done; }
+                        then done;
+                        action twoHeadedRotwieler { first start; then perform fight { in foe = town.forest.level3.twoHeadedRotwieler; } then done; }
+                        then done;
+                        action purpleMonchichi { first start; then perform fight { in foe = town.forest.level3.purpleMonchichi; } then done; }
+                        then done;
+                        action bone { first start; then perform fight { in foe = town.forest.level3.bone; } then done; }
+                        then done;
+                        action redNeck { first start; then perform fight { in foe = town.forest.level3.redNeck; } then done; }
+                        then done;
+                        action wingedDemonOfDeath { first start; then perform fight { in foe = town.forest.level3.wingedDemonOfDeath; } then done; }
+                        then done;
+                        action blackOwl { first start; then perform fight { in foe = town.forest.level3.blackOwl; } then done; }
+                        then done;
+                        action muscledMidget { first start; then perform fight { in foe = town.forest.level3.muscledMidget; } then done; }
+                        then done;
+                        action headbangerOfTheWest { first start; then perform fight { in foe = town.forest.level3.headbangerOfTheWest; } then done; }
+                        then done;
+                        action morbidWalker { first start; then perform fight { in foe = town.forest.level3.morbidWalker; } then done; }
+                        then done;
+                        action magicalEvilGnome { first start; then perform fight { in foe = town.forest.level3.magicalEvilGnome; } then done; }
+                        then done;
+                    }
                     then done;
-                    action level4 { first start; then perform fight { in foe = town.forest.level4.deathDog; } then done; }
+                    action level4 {
+                        first start;
+                        then decide roll;
+                        if true then deathDog;
+                        if true then weakOrc;
+                        if true then darkElf;
+                        if true then evilHobbit;
+                        if true then shortGoblin;
+                        if true then hugeBlackBear;
+                        if true then rabidWolf;
+                        if true then youngWizard;
+                        if true then mudMan;
+                        if true then deathJester;
+                        if true then rockMan;
+                        action deathDog { first start; then perform fight { in foe = town.forest.level4.deathDog; } then done; }
+                        then done;
+                        action weakOrc { first start; then perform fight { in foe = town.forest.level4.weakOrc; } then done; }
+                        then done;
+                        action darkElf { first start; then perform fight { in foe = town.forest.level4.darkElf; } then done; }
+                        then done;
+                        action evilHobbit { first start; then perform fight { in foe = town.forest.level4.evilHobbit; } then done; }
+                        then done;
+                        action shortGoblin { first start; then perform fight { in foe = town.forest.level4.shortGoblin; } then done; }
+                        then done;
+                        action hugeBlackBear { first start; then perform fight { in foe = town.forest.level4.hugeBlackBear; } then done; }
+                        then done;
+                        action rabidWolf { first start; then perform fight { in foe = town.forest.level4.rabidWolf; } then done; }
+                        then done;
+                        action youngWizard { first start; then perform fight { in foe = town.forest.level4.youngWizard; } then done; }
+                        then done;
+                        action mudMan { first start; then perform fight { in foe = town.forest.level4.mudMan; } then done; }
+                        then done;
+                        action deathJester { first start; then perform fight { in foe = town.forest.level4.deathJester; } then done; }
+                        then done;
+                        action rockMan { first start; then perform fight { in foe = town.forest.level4.rockMan; } then done; }
+                        then done;
+                    }
                     then done;
-                    action level5 { first start; then perform fight { in foe = town.forest.level5.pandionKnight; } then done; }
+                    action level5 {
+                        first start;
+                        then decide roll;
+                        if true then pandionKnight;
+                        if true then jabba;
+                        if true then manokenSloth;
+                        if true then trojanWarrior;
+                        if true then misfitTheUgly;
+                        if true then georgeOfTheJungle;
+                        if true then silentDeath;
+                        if true then baldMedusa;
+                        if true then blackAlligator;
+                        if true then clancySonOfEmpororLen;
+                        if true then blackSorcerer;
+                        action pandionKnight { first start; then perform fight { in foe = town.forest.level5.pandionKnight; } then done; }
+                        then done;
+                        action jabba { first start; then perform fight { in foe = town.forest.level5.jabba; } then done; }
+                        then done;
+                        action manokenSloth { first start; then perform fight { in foe = town.forest.level5.manokenSloth; } then done; }
+                        then done;
+                        action trojanWarrior { first start; then perform fight { in foe = town.forest.level5.trojanWarrior; } then done; }
+                        then done;
+                        action misfitTheUgly { first start; then perform fight { in foe = town.forest.level5.misfitTheUgly; } then done; }
+                        then done;
+                        action georgeOfTheJungle { first start; then perform fight { in foe = town.forest.level5.georgeOfTheJungle; } then done; }
+                        then done;
+                        action silentDeath { first start; then perform fight { in foe = town.forest.level5.silentDeath; } then done; }
+                        then done;
+                        action baldMedusa { first start; then perform fight { in foe = town.forest.level5.baldMedusa; } then done; }
+                        then done;
+                        action blackAlligator { first start; then perform fight { in foe = town.forest.level5.blackAlligator; } then done; }
+                        then done;
+                        action clancySonOfEmpororLen { first start; then perform fight { in foe = town.forest.level5.clancySonOfEmpororLen; } then done; }
+                        then done;
+                        action blackSorcerer { first start; then perform fight { in foe = town.forest.level5.blackSorcerer; } then done; }
+                        then done;
+                    }
                     then done;
-                    action level6 { first start; then perform fight { in foe = town.forest.level6.ironWarrior; } then done; }
+                    action level6 {
+                        first start;
+                        then decide roll;
+                        if true then ironWarrior;
+                        if true then blackSoul;
+                        if true then goldMan;
+                        if true then screamingZombie;
+                        if true then satansHelper;
+                        if true then wildStallion;
+                        if true then belar;
+                        if true then emptyArmour;
+                        if true then ragingLion;
+                        if true then hugeStoneWarrior;
+                        if true then magicalEvilGnome;
+                        action ironWarrior { first start; then perform fight { in foe = town.forest.level6.ironWarrior; } then done; }
+                        then done;
+                        action blackSoul { first start; then perform fight { in foe = town.forest.level6.blackSoul; } then done; }
+                        then done;
+                        action goldMan { first start; then perform fight { in foe = town.forest.level6.goldMan; } then done; }
+                        then done;
+                        action screamingZombie { first start; then perform fight { in foe = town.forest.level6.screamingZombie; } then done; }
+                        then done;
+                        action satansHelper { first start; then perform fight { in foe = town.forest.level6.satansHelper; } then done; }
+                        then done;
+                        action wildStallion { first start; then perform fight { in foe = town.forest.level6.wildStallion; } then done; }
+                        then done;
+                        action belar { first start; then perform fight { in foe = town.forest.level6.belar; } then done; }
+                        then done;
+                        action emptyArmour { first start; then perform fight { in foe = town.forest.level6.emptyArmour; } then done; }
+                        then done;
+                        action ragingLion { first start; then perform fight { in foe = town.forest.level6.ragingLion; } then done; }
+                        then done;
+                        action hugeStoneWarrior { first start; then perform fight { in foe = town.forest.level6.hugeStoneWarrior; } then done; }
+                        then done;
+                        action magicalEvilGnome { first start; then perform fight { in foe = town.forest.level6.magicalEvilGnome; } then done; }
+                        then done;
+                    }
                     then done;
-                    action level7 { first start; then perform fight { in foe = town.forest.level7.emporerLen; } then done; }
+                    action level7 {
+                        first start;
+                        then decide roll;
+                        if true then emporerLen;
+                        if true then nightHawk;
+                        if true then chargingRhinoceros;
+                        if true then goblinPygmy;
+                        if true then goliath;
+                        if true then angryLiontaur;
+                        if true then fallenAngel;
+                        if true then wickedWombat;
+                        if true then massiveDinosaur;
+                        if true then swissButcher;
+                        if true then deathGnome;
+                        action emporerLen { first start; then perform fight { in foe = town.forest.level7.emporerLen; } then done; }
+                        then done;
+                        action nightHawk { first start; then perform fight { in foe = town.forest.level7.nightHawk; } then done; }
+                        then done;
+                        action chargingRhinoceros { first start; then perform fight { in foe = town.forest.level7.chargingRhinoceros; } then done; }
+                        then done;
+                        action goblinPygmy { first start; then perform fight { in foe = town.forest.level7.goblinPygmy; } then done; }
+                        then done;
+                        action goliath { first start; then perform fight { in foe = town.forest.level7.goliath; } then done; }
+                        then done;
+                        action angryLiontaur { first start; then perform fight { in foe = town.forest.level7.angryLiontaur; } then done; }
+                        then done;
+                        action fallenAngel { first start; then perform fight { in foe = town.forest.level7.fallenAngel; } then done; }
+                        then done;
+                        action wickedWombat { first start; then perform fight { in foe = town.forest.level7.wickedWombat; } then done; }
+                        then done;
+                        action massiveDinosaur { first start; then perform fight { in foe = town.forest.level7.massiveDinosaur; } then done; }
+                        then done;
+                        action swissButcher { first start; then perform fight { in foe = town.forest.level7.swissButcher; } then done; }
+                        then done;
+                        action deathGnome { first start; then perform fight { in foe = town.forest.level7.deathGnome; } then done; }
+                        then done;
+                    }
                     then done;
-                    action level8 { first start; then perform fight { in foe = town.forest.level8.screechingWitch; } then done; }
+                    action level8 {
+                        first start;
+                        then decide roll;
+                        if true then screechingWitch;
+                        if true then rundorig;
+                        if true then wheeler;
+                        if true then deathKnight;
+                        if true then werewolf;
+                        if true then fireOrk;
+                        if true then wansBeast;
+                        if true then lordMathese;
+                        if true then kingVidion;
+                        if true then babyDragon;
+                        if true then deathGnome;
+                        action screechingWitch { first start; then perform fight { in foe = town.forest.level8.screechingWitch; } then done; }
+                        then done;
+                        action rundorig { first start; then perform fight { in foe = town.forest.level8.rundorig; } then done; }
+                        then done;
+                        action wheeler { first start; then perform fight { in foe = town.forest.level8.wheeler; } then done; }
+                        then done;
+                        action deathKnight { first start; then perform fight { in foe = town.forest.level8.deathKnight; } then done; }
+                        then done;
+                        action werewolf { first start; then perform fight { in foe = town.forest.level8.werewolf; } then done; }
+                        then done;
+                        action fireOrk { first start; then perform fight { in foe = town.forest.level8.fireOrk; } then done; }
+                        then done;
+                        action wansBeast { first start; then perform fight { in foe = town.forest.level8.wansBeast; } then done; }
+                        then done;
+                        action lordMathese { first start; then perform fight { in foe = town.forest.level8.lordMathese; } then done; }
+                        then done;
+                        action kingVidion { first start; then perform fight { in foe = town.forest.level8.kingVidion; } then done; }
+                        then done;
+                        action babyDragon { first start; then perform fight { in foe = town.forest.level8.babyDragon; } then done; }
+                        then done;
+                        action deathGnome { first start; then perform fight { in foe = town.forest.level8.deathGnome; } then done; }
+                        then done;
+                    }
                     then done;
-                    action level9 { first start; then perform fight { in foe = town.forest.level9.pinkElephant; } then done; }
+                    action level9 {
+                        first start;
+                        then decide roll;
+                        if true then pinkElephant;
+                        if true then gwendolensNightmare;
+                        if true then flyingCobra;
+                        if true then rentakisPet;
+                        if true then ernestBrown;
+                        if true then scallianRap;
+                        if true then apeman;
+                        if true then hemoGlob;
+                        if true then frankenmoose;
+                        if true then earthShaker;
+                        if true then gollumsWrath;
+                        action pinkElephant { first start; then perform fight { in foe = town.forest.level9.pinkElephant; } then done; }
+                        then done;
+                        action gwendolensNightmare { first start; then perform fight { in foe = town.forest.level9.gwendolensNightmare; } then done; }
+                        then done;
+                        action flyingCobra { first start; then perform fight { in foe = town.forest.level9.flyingCobra; } then done; }
+                        then done;
+                        action rentakisPet { first start; then perform fight { in foe = town.forest.level9.rentakisPet; } then done; }
+                        then done;
+                        action ernestBrown { first start; then perform fight { in foe = town.forest.level9.ernestBrown; } then done; }
+                        then done;
+                        action scallianRap { first start; then perform fight { in foe = town.forest.level9.scallianRap; } then done; }
+                        then done;
+                        action apeman { first start; then perform fight { in foe = town.forest.level9.apeman; } then done; }
+                        then done;
+                        action hemoGlob { first start; then perform fight { in foe = town.forest.level9.hemoGlob; } then done; }
+                        then done;
+                        action frankenmoose { first start; then perform fight { in foe = town.forest.level9.frankenmoose; } then done; }
+                        then done;
+                        action earthShaker { first start; then perform fight { in foe = town.forest.level9.earthShaker; } then done; }
+                        then done;
+                        action gollumsWrath { first start; then perform fight { in foe = town.forest.level9.gollumsWrath; } then done; }
+                        then done;
+                    }
                     then done;
-                    action level10 { first start; then perform fight { in foe = town.forest.level10.toraksSonKorak; } then done; }
+                    action level10 {
+                        first start;
+                        then decide roll;
+                        if true then toraksSonKorak;
+                        if true then brandTheWanderer;
+                        if true then theGrimestReaper;
+                        if true then deathDealer;
+                        if true then tigerOfTheDeepJungle;
+                        if true then sweetLookingLittleGirl;
+                        if true then floatingEvilEye;
+                        if true then slock;
+                        if true then adultGoldDragon;
+                        if true then killJoy;
+                        if true then blackSorcerer;
+                        action toraksSonKorak { first start; then perform fight { in foe = town.forest.level10.toraksSonKorak; } then done; }
+                        then done;
+                        action brandTheWanderer { first start; then perform fight { in foe = town.forest.level10.brandTheWanderer; } then done; }
+                        then done;
+                        action theGrimestReaper { first start; then perform fight { in foe = town.forest.level10.theGrimestReaper; } then done; }
+                        then done;
+                        action deathDealer { first start; then perform fight { in foe = town.forest.level10.deathDealer; } then done; }
+                        then done;
+                        action tigerOfTheDeepJungle { first start; then perform fight { in foe = town.forest.level10.tigerOfTheDeepJungle; } then done; }
+                        then done;
+                        action sweetLookingLittleGirl { first start; then perform fight { in foe = town.forest.level10.sweetLookingLittleGirl; } then done; }
+                        then done;
+                        action floatingEvilEye { first start; then perform fight { in foe = town.forest.level10.floatingEvilEye; } then done; }
+                        then done;
+                        action slock { first start; then perform fight { in foe = town.forest.level10.slock; } then done; }
+                        then done;
+                        action adultGoldDragon { first start; then perform fight { in foe = town.forest.level10.adultGoldDragon; } then done; }
+                        then done;
+                        action killJoy { first start; then perform fight { in foe = town.forest.level10.killJoy; } then done; }
+                        then done;
+                        action blackSorcerer { first start; then perform fight { in foe = town.forest.level10.blackSorcerer; } then done; }
+                        then done;
+                    }
                     then done;
-                    action level11 { first start; then perform fight { in foe = town.forest.level11.gormaTheLeper; } then done; }
+                    action level11 {
+                        first start;
+                        then decide roll;
+                        if true then gormaTheLeper;
+                        if true then shogunWarrior;
+                        if true then apparentlyWeakOldWoman;
+                        if true then ablesCreature;
+                        if true then whiteBearOfLore;
+                        if true then mountain;
+                        if true then sheenaTheShapechanger;
+                        if true then shadowstormwarrior;
+                        if true then madman;
+                        if true then vegetableCreature;
+                        if true then cyclopsWarrior;
+                        action gormaTheLeper { first start; then perform fight { in foe = town.forest.level11.gormaTheLeper; } then done; }
+                        then done;
+                        action shogunWarrior { first start; then perform fight { in foe = town.forest.level11.shogunWarrior; } then done; }
+                        then done;
+                        action apparentlyWeakOldWoman { first start; then perform fight { in foe = town.forest.level11.apparentlyWeakOldWoman; } then done; }
+                        then done;
+                        action ablesCreature { first start; then perform fight { in foe = town.forest.level11.ablesCreature; } then done; }
+                        then done;
+                        action whiteBearOfLore { first start; then perform fight { in foe = town.forest.level11.whiteBearOfLore; } then done; }
+                        then done;
+                        action mountain { first start; then perform fight { in foe = town.forest.level11.mountain; } then done; }
+                        then done;
+                        action sheenaTheShapechanger { first start; then perform fight { in foe = town.forest.level11.sheenaTheShapechanger; } then done; }
+                        then done;
+                        action shadowstormwarrior { first start; then perform fight { in foe = town.forest.level11.shadowstormwarrior; } then done; }
+                        then done;
+                        action madman { first start; then perform fight { in foe = town.forest.level11.madman; } then done; }
+                        then done;
+                        action vegetableCreature { first start; then perform fight { in foe = town.forest.level11.vegetableCreature; } then done; }
+                        then done;
+                        action cyclopsWarrior { first start; then perform fight { in foe = town.forest.level11.cyclopsWarrior; } then done; }
+                        then done;
+                    }
                     then done;
-                    action level12 { first start; then perform fight { in foe = town.forest.level12.corinthianGiant; } then done; }
+                    action level12 {
+                        first start;
+                        then decide roll;
+                        if true then corinthianGiant;
+                        if true then theScreamingEunich;
+                        if true then blackWarlock;
+                        if true then kalTorak;
+                        if true then theMightyShadow;
+                        if true then blackUnicorn;
+                        if true then mutatedBlackWidow;
+                        if true then humongousBlackWyre;
+                        if true then theWizardOfDarkness;
+                        if true then greatOgreOfTheNorth;
+                        action corinthianGiant { first start; then perform fight { in foe = town.forest.level12.corinthianGiant; } then done; }
+                        then done;
+                        action theScreamingEunich { first start; then perform fight { in foe = town.forest.level12.theScreamingEunich; } then done; }
+                        then done;
+                        action blackWarlock { first start; then perform fight { in foe = town.forest.level12.blackWarlock; } then done; }
+                        then done;
+                        action kalTorak { first start; then perform fight { in foe = town.forest.level12.kalTorak; } then done; }
+                        then done;
+                        action theMightyShadow { first start; then perform fight { in foe = town.forest.level12.theMightyShadow; } then done; }
+                        then done;
+                        action blackUnicorn { first start; then perform fight { in foe = town.forest.level12.blackUnicorn; } then done; }
+                        then done;
+                        action mutatedBlackWidow { first start; then perform fight { in foe = town.forest.level12.mutatedBlackWidow; } then done; }
+                        then done;
+                        action humongousBlackWyre { first start; then perform fight { in foe = town.forest.level12.humongousBlackWyre; } then done; }
+                        then done;
+                        action theWizardOfDarkness { first start; then perform fight { in foe = town.forest.level12.theWizardOfDarkness; } then done; }
+                        then done;
+                        action greatOgreOfTheNorth { first start; then perform fight { in foe = town.forest.level12.greatOgreOfTheNorth; } then done; }
+                        then done;
+                    }
                     then done;
                 }
                 then forest;
