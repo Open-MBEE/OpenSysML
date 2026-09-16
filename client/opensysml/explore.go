@@ -142,7 +142,10 @@ func (c *client) ExploreAction(
 	if err := c.requireExplore(ctx); err != nil {
 		return nil, err
 	}
-	req := &pb.ExecuteActionRequest{ModelHash: hash, ActionSymbolId: actionSymbolID, Schedule: policy}
+	if err := c.requirePerformer(ctx, options.performer); err != nil {
+		return nil, err
+	}
+	req := &pb.ExecuteActionRequest{ModelHash: hash, ActionSymbolId: actionSymbolID, Schedule: policy, PerformerSymbolId: options.performer}
 	if len(inputs) > 0 {
 		if err := c.requireValueCapabilities(ctx, slices.Collect(maps.Values(inputs))...); err != nil {
 			return nil, err
@@ -188,11 +191,15 @@ func (c *client) ExploreState(
 	if err := c.requireExplore(ctx); err != nil {
 		return nil, err
 	}
+	if err := c.requirePerformer(ctx, options.performer); err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.executeState(ctx, &pb.ExecuteStateRequest{
 		ModelHash:            hash,
 		StateMachineSymbolId: stateMachineSymbolID,
 		Events:               append([]string(nil), events...),
 		Schedule:             policy,
+		PerformerSymbolId:    options.performer,
 	})
 	if err != nil {
 		return nil, err

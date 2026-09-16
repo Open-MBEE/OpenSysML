@@ -47,7 +47,10 @@ public interface VerifyConstraintRequestOrBuilder extends
    * Optional FQN of a part/usage to instantiate and evaluate the constraint
    * against, so the verdict is about concrete values rather than declared
    * defaults. The prompt evaluates against the object a %instantiate created;
-   * a call carries no session, so it names the subject instead.
+   * a call carries no session, so it names the subject instead. A path from a
+   * declaration, as `Mission::mission.vehicle`, instantiates the declaration and
+   * evaluates against the object the path reaches, inside the assembly built
+   * around it; an index picks from a multi-valued usage, `convoy.escorts[2]`.
    * </pre>
    *
    * <code>string subject_symbol_id = 3 [json_name = "subjectSymbolId"];</code>
@@ -59,7 +62,10 @@ public interface VerifyConstraintRequestOrBuilder extends
    * Optional FQN of a part/usage to instantiate and evaluate the constraint
    * against, so the verdict is about concrete values rather than declared
    * defaults. The prompt evaluates against the object a %instantiate created;
-   * a call carries no session, so it names the subject instead.
+   * a call carries no session, so it names the subject instead. A path from a
+   * declaration, as `Mission::mission.vehicle`, instantiates the declaration and
+   * evaluates against the object the path reaches, inside the assembly built
+   * around it; an index picks from a multi-valued usage, `convoy.escorts[2]`.
    * </pre>
    *
    * <code>string subject_symbol_id = 3 [json_name = "subjectSymbolId"];</code>

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
@@ -1510,29 +1511,64 @@ func (ctx *Context) ExecuteStatePerformedBy(stateMachine *symbols.Symbol, self *
 // StateOutcomeWithEvents runs a state machine as ExecuteStateWithEvents does and
 // reports where it came to as the outcome an exploration compares.
 func (ctx *Context) StateOutcomeWithEvents(stateMachine *symbols.Symbol, events []string) (Outcome, error) {
-	exec, err := ctx.performState(stateMachine, nil, events)
+	return ctx.StateOutcomePerformedBy(stateMachine, nil, events)
+}
+
+// StateOutcomePerformedBy runs a state machine performed by self, as
+// ExecuteStatePerformedBy does, and reports its outcome.
+func (ctx *Context) StateOutcomePerformedBy(stateMachine *symbols.Symbol, self *Instance, events []string) (Outcome, error) {
+	exec, err := ctx.performState(stateMachine, self, events)
 	if err != nil {
 		return Outcome{}, err
 	}
 	return exec.Outcome(), nil
 }
 
+// ErrAmbiguousMachine is the typed error a machine named on an object exhibiting
+// it under several usages wraps.
+var ErrAmbiguousMachine = errors.New("ambiguous state machine")
+
+// exhibitedBy is the machine self exhibits under stateMachine's declaration, to
+// run in place of a second performance of it; nil when self exhibits none.
+func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*StateExecutor, error) {
+	if self == nil {
+		return nil, nil
+	}
+	switch exhibited := self.ExhibitedStatesOf(stateMachine); len(exhibited) {
+	case 0:
+		return nil, nil
+	case 1:
+		return exhibited[0].State, nil
+	default:
+		usages := make([]string, 0, len(exhibited))
+		for _, b := range exhibited {
+			if member := b.Member(); member != nil && member.Name != "" {
+				usages = append(usages, member.Name)
+			}
+		}
+		return nil, fmt.Errorf("%w: the object exhibits %s as %s", ErrAmbiguousMachine, symbolText(stateMachine), strings.Join(usages, " and "))
+	}
+}
+
 // performState runs a state machine performed by self to completion or
-// suspension, the events injected before it runs, and returns its executor.
+// suspension, the events injected before it runs, and returns its executor. An
+// object exhibiting the machine runs the one it exhibits rather than a second.
 func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, events []string) (*StateExecutor, error) {
 	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
 
-	// Create executor
-	exec, err := newStateExecutor(ctx, stateMachine, self)
+	exec, err := exhibitedBy(stateMachine, self)
 	if err != nil {
-		return nil, fmt.Errorf("create state executor: %w", err)
+		return nil, err
 	}
-	defer ctx.clock.detach(exec)
-
-	// Initialize execution (enters initial state)
-	if err := exec.initialize(); err != nil {
-		return nil, fmt.Errorf("initialize state machine: %w", err)
+	if exec == nil {
+		if exec, err = newStateExecutor(ctx, stateMachine, self); err != nil {
+			return nil, fmt.Errorf("create state executor: %w", err)
+		}
+		defer ctx.clock.detach(exec)
+		if err := exec.initialize(); err != nil {
+			return nil, fmt.Errorf("initialize state machine: %w", err)
+		}
 	}
 
 	// Inject external signal events. Each event name is treated as a signal type

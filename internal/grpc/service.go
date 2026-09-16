@@ -158,6 +158,12 @@ const CapabilityScheduleExplore = "schedule_explore"
 // when it ended. Without it the field is 0 whatever the run waited on.
 const CapabilityFinalTime = "final_time"
 
+// CapabilityPerformer names the `performer_symbol_id` field of ExecuteActionRequest
+// and ExecuteStateRequest: the declaration, or path from one, of the object the
+// behavior is performed by. A service without it would run outside any object,
+// so a client must not send the field to one.
+const CapabilityPerformer = "performer"
+
 // CapabilityMetaobjectValues names the capability of carrying an element
 // reflected on as an instance of its metaclass (`x meta T`, the last element of
 // `x.metadata`) as Value.metaobject, rather than as an unsupported null.
@@ -184,6 +190,7 @@ var capabilities = []string{
 	CapabilityUndeterminedValue,
 	CapabilityEnginesExternal,
 	CapabilityEditDocuments,
+	CapabilityPerformer,
 }
 
 type capabilityAvailability struct {
@@ -901,6 +908,11 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	if err != nil {
 		return nil, err
 	}
+	if req.PerformerSymbolId != "" {
+		if err := s.requireCapability(CapabilityPerformer); err != nil {
+			return nil, err
+		}
+	}
 
 	// Lookup cached model
 	cached, ok := s.cache.Get(req.ModelHash)
@@ -947,8 +959,8 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 
 	if _, explores := schedule.Exploration(); explores {
-		// Inputs are read again on each run's own context, so an object among them
-		// belongs to the run that binds it.
+		// Inputs are read and the performer made again on each run's own context,
+		// so an object among them belongs to the run that binds it.
 		x, err := s.explore(ctx, req.ActionSymbolId, schedule, analysis.Auto(), cached, func(rt *runtime.Context) (runtime.Outcome, error) {
 			inputs, resp, err := readInputs(rt)
 			if err != nil {
@@ -957,7 +969,11 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if resp != nil {
 				return runtime.Outcome{}, errors.New(resp.Error)
 			}
-			outputs, err := rt.ExecuteActionWithInputs(action, inputs)
+			self, err := s.performer(cached, rt, req.PerformerSymbolId)
+			if err != nil {
+				return runtime.Outcome{}, err
+			}
+			outputs, err := rt.ExecuteActionPerformedBy(action, self, inputs)
 			if err != nil {
 				return runtime.Outcome{}, fmt.Errorf("action execution failed: %w", err)
 			}
@@ -971,10 +987,14 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
+	self, err := s.performer(cached, runtimeCtx, req.PerformerSymbolId)
+	if err != nil {
+		return &pb.ExecuteActionResponse{Error: err.Error()}, nil
+	}
 
 	// Execute action with the supplied inputs
 	outputs, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.ActionSymbolId, func(rt *runtime.Context) (map[string]runtime.Value, error) {
-		return rt.ExecuteActionWithInputs(action, inputs)
+		return rt.ExecuteActionPerformedBy(action, self, inputs)
 	}, heldAnswer)
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone
@@ -1011,11 +1031,23 @@ func (s *Service) finalTime(runtimeCtx *runtime.Context) float64 {
 	return runtimeCtx.Clock().Now()
 }
 
+// performer is the object a request's behavior is performed by, made on rt: the
+// part/usage it named or the one a declaration-rooted path reaches; none when unnamed.
+func (s *Service) performer(cached *CachedModel, rt *runtime.Context, symbolID string) (*runtime.Instance, error) {
+	v := &verifyContext{service: s, cached: cached, runtime: rt, release: releaseNothing}
+	return v.performer(symbolID)
+}
+
 // ExecuteState executes a state machine
 func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest) (*pb.ExecuteStateResponse, error) {
 	schedule, err := s.schedulePolicy(req.Schedule)
 	if err != nil {
 		return nil, err
+	}
+	if req.PerformerSymbolId != "" {
+		if err := s.requireCapability(CapabilityPerformer); err != nil {
+			return nil, err
+		}
 	}
 
 	// Lookup cached model
@@ -1035,7 +1067,11 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 
 	if _, explores := schedule.Exploration(); explores {
 		x, err := s.explore(ctx, req.StateMachineSymbolId, schedule, analysis.Auto(), cached, func(rt *runtime.Context) (runtime.Outcome, error) {
-			return rt.StateOutcomeWithEvents(stateMachine, req.Events)
+			self, err := s.performer(cached, rt, req.PerformerSymbolId)
+			if err != nil {
+				return runtime.Outcome{}, err
+			}
+			return rt.StateOutcomePerformedBy(stateMachine, self, req.Events)
 		})
 		if err != nil {
 			return nil, err
@@ -1048,11 +1084,15 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
+	self, err := s.performer(cached, runtimeCtx, req.PerformerSymbolId)
+	if err != nil {
+		return &pb.ExecuteStateResponse{Error: err.Error()}, nil
+	}
 
 	// Execute state machine, injecting the requested events and capturing the
 	// real ordered state-visit trace.
 	ran, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.StateMachineSymbolId, func(rt *runtime.Context) (stateRun, error) {
-		final, visited, err := rt.ExecuteStateWithEvents(stateMachine, req.Events)
+		final, visited, err := rt.ExecuteStatePerformedBy(stateMachine, self, req.Events)
 		return stateRun{final: final, visited: visited}, err
 	}, func(ran stateRun, err error) analysis.Answer { return heldAnswer(ran.final, err) })
 	if gone := callerGone(ctx, err); gone != nil {

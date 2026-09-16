@@ -38,13 +38,42 @@ type StateRun struct {
 type ExecuteOption func(*executeOptions)
 
 type executeOptions struct {
-	schedule string
+	schedule  string
+	performer string
 }
 
 // WithSchedule names the policy a run resolves its choice points under, as sysml
 // -schedule spells it; "explore[...]" belongs to ExploreAction and ExploreState.
 func WithSchedule(policy string) ExecuteOption {
 	return func(o *executeOptions) { o.schedule = policy }
+}
+
+// PerformedBy names the object the behavior is performed by, as sysml -action
+// "<action> <object>" does: a part definition or usage the run creates an object
+// of, or a path from one into its parts such as "Mission::mission.vehicle", which
+// creates the declaration and runs on the object the path reaches — inside its
+// assembly, so its connectors carry. Each explored run creates the object anew.
+func PerformedBy(path string) ExecuteOption {
+	return func(o *executeOptions) { o.performer = path }
+}
+
+// requirePerformer refuses to send a performer to a service without the
+// performer capability, which would run outside any object rather than refuse it.
+func (c *client) requirePerformer(ctx context.Context, performer string) error {
+	if performer == "" {
+		return nil
+	}
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return err
+	}
+	if !info.Has(CapabilityPerformer) {
+		return &StatusError{
+			Code:    CodeUnimplemented,
+			Message: fmt.Sprintf("capability %q is unavailable", CapabilityPerformer),
+		}
+	}
+	return nil
 }
 
 // requireSchedule refuses to send a policy to a service without the schedule
@@ -87,7 +116,10 @@ func (c *client) ExecuteAction(
 	if err := c.requireSchedule(ctx, options.schedule); err != nil {
 		return nil, err
 	}
-	req := &pb.ExecuteActionRequest{ModelHash: hash, ActionSymbolId: actionSymbolID, Schedule: options.schedule}
+	if err := c.requirePerformer(ctx, options.performer); err != nil {
+		return nil, err
+	}
+	req := &pb.ExecuteActionRequest{ModelHash: hash, ActionSymbolId: actionSymbolID, Schedule: options.schedule, PerformerSymbolId: options.performer}
 	if len(inputs) > 0 {
 		if err := c.requireValueCapabilities(ctx, slices.Collect(maps.Values(inputs))...); err != nil {
 			return nil, err
@@ -133,11 +165,15 @@ func (c *client) ExecuteState(
 	if err := c.requireSchedule(ctx, options.schedule); err != nil {
 		return nil, err
 	}
+	if err := c.requirePerformer(ctx, options.performer); err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.executeState(ctx, &pb.ExecuteStateRequest{
 		ModelHash:            hash,
 		StateMachineSymbolId: stateMachineSymbolID,
 		Events:               append([]string(nil), events...),
 		Schedule:             options.schedule,
+		PerformerSymbolId:    options.performer,
 	})
 	if err != nil {
 		return nil, err

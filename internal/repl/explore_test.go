@@ -2,6 +2,7 @@ package repl
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -227,6 +228,10 @@ package Comms {
 		part pairs : Pair[2];
 		attribute count : Integer = 2;
 	}
+	analysis def Tally {
+		subject c : Craft;
+		return n : Integer = c.sent;
+	}
 }
 `
 
@@ -276,6 +281,24 @@ func TestRunForExploresAnActionOnANestedObject(t *testing.T) {
 	// The craft instantiated on its own is never pinged, so it sends nothing.
 	v = s.RunAction("Comms::Craft::ack", "Comms::Pair::craft")
 	wants(t, strings.Join(v.Lines, "\n"), "✓ explored Comms::Craft::ack: 1 outcome", "seen = 0", "complete (1 runs)")
+}
+
+// A case's subject is named by a path as a performer is: each run makes the
+// object of the path's root and runs the case on the one the path reaches.
+func TestRunAnalysisExploresOnANestedSubject(t *testing.T) {
+	s := loadSource(t, exploreCommsSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	v := s.RunAnalysis("Comms::Tally Comms::pair.craft")
+	if v.Status != VerdictHolds {
+		t.Fatalf("status = %v, want holds:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+	}
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Comms::Tally: 1 outcome", "n = 0", "complete (1 runs)")
+	v = s.RunAnalysis("Comms::Tally Comms::pair.tower")
+	wants(t, strings.Join(v.Lines, "\n"), `Comms::pair has no feature "tower"`)
+	v = s.RunAnalysis("Comms::Tally #1")
+	wants(t, strings.Join(v.Lines, "\n"), (&ExploredObjectError{Ref: "#1"}).Error())
 }
 
 // Two behaviors on sibling parts of one root share the root's object in every
@@ -368,6 +391,17 @@ func TestExploredRunsAreGivenTheObjectsInstantiated(t *testing.T) {
 	}
 	wants(t, strings.Join(s.RunFor(nil, []Behavior{listen}, 5)[0].Lines, "\n"),
 		`3 objects of this session exhibit "Comms::Ground::listen"`, `of "Comms::pair.ground"`, `of "Comms::Fleet.pairs[1].ground"`)
+
+	// A given object lasts as long as the session holds it: a submission leaving its
+	// declaration as it was keeps it, one changing the declaration drops it with the object.
+	changed := strings.Replace(exploreCommsSource, "part def Fleet {", "part def Fleet {\n\t\tattribute name : String;", 1)
+	if res := s.Submit(changed); len(res.Diagnostics) > 0 {
+		t.Fatalf("resubmission has diagnostics: %v", res.Diagnostics)
+	}
+	if got := s.given; !slices.Equal(got, []string{"Comms::pair"}) {
+		t.Errorf("given after the Fleet changed = %q, want the pair alone", got)
+	}
+	wantsInOrder(t, strings.Join(s.RunFor(nil, []Behavior{listen}, 5)[0].Lines, "\n"), "✓ explored Comms::Ground::listen: 2 outcomes", "received = 1", "received = 2")
 }
 
 // A path an exploration cannot follow is refused while the session is held: an
