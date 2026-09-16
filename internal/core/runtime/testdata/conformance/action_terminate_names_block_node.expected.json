@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"inner": {"type": "Integer", "value": 1},
+		"skipped": {"type": "Integer", "value": 0},
+		"after": {"type": "Integer", "value": 3}
+	}
+}

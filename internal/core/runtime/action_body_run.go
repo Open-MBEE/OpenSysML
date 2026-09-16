@@ -250,8 +250,12 @@ func (w *usageWork) perform() error {
 			}
 			return e.enterSubflow(idx, w.perf)
 		}
-		if err := e.executeBody(w.perf, w.graph, w.usage); err != nil && !terminates(err, w.perf) {
-			return err
+		if err := e.executeBody(w.perf, w.graph, w.usage); err != nil {
+			if !terminates(err, w.perf) {
+				return err
+			}
+			// A terminate unwound out of a flow nested in the body: what still runs there is dropped.
+			e.dropTokensIn(w.perf, 0)
 		}
 		if err := e.endPerformance(w.perf); err != nil {
 			return err

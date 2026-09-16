@@ -155,9 +155,13 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 			return flowNext, err
 		}
 	}
-	// A terminate of the node ends its body where it stands; the node completes.
-	if err := e.performNodeBody(f, graph, node); err != nil && !terminates(err, f.perf) {
-		return flowNext, e.ctx.pausing(f, err)
+	// A terminate of the node ends its body where it stands, dropping what a flow nested
+	// in it still runs; the node completes.
+	if err := e.performNodeBody(f, graph, node); err != nil {
+		if !terminates(err, f.perf) {
+			return flowNext, e.ctx.pausing(f, err)
+		}
+		e.flow.dropTokensIn(f.perf, 0)
 	}
 	if err := e.endPerformance(f.perf); err != nil {
 		return flowNext, err
