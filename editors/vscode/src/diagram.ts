@@ -165,8 +165,12 @@ export class DiagramPanels implements vscode.Disposable {
       return;
     }
     const { uri, fromPanel } = resolved;
+    // Returning to the source is the editor's own doing, so it works without a server.
     if (fromPanel) {
       await vscode.window.showTextDocument(uri, { viewColumn: this.sourceColumn(uri), preserveFocus: false });
+      return;
+    }
+    if (!this.available()) {
       return;
     }
     const key = uri.toString();
@@ -192,7 +196,7 @@ export class DiagramPanels implements vscode.Disposable {
   private async export(target?: unknown): Promise<void> {
     const resolved = this.resolve(target, "export a diagram of it");
     const client = this.client;
-    if (!resolved || !client) {
+    if (!resolved || !this.available() || !client) {
       return;
     }
     const uri = resolved.uri.toString();
@@ -221,13 +225,8 @@ export class DiagramPanels implements vscode.Disposable {
     this.output.appendLine(`Exported ${result.form} of ${basename(resolved.uri)} to ${saveAs.fsPath}`);
   }
 
-  // resolve names the document a command acts on, or tells the user why there
-  // is none: no server, no diagram service, or no model file in view.
+  // resolve names the document a command acts on, or tells the user that no model file is in view.
   private resolve(target: unknown, verb: string): { uri: vscode.Uri; fromPanel: boolean } | undefined {
-    if (this.unavailable) {
-      void vscode.window.showWarningMessage(this.unavailable);
-      return undefined;
-    }
     const context: CommandContext = {
       argument: target instanceof vscode.Uri ? target.toString() : undefined,
       focusedPanel: this.focusedPanel()?.documentUri().toString(),
@@ -240,6 +239,15 @@ export class DiagramPanels implements vscode.Disposable {
       return undefined;
     }
     return { uri: vscode.Uri.parse(resolved.uri), fromPanel: resolved.fromPanel };
+  }
+
+  // available is whether a server draws diagrams; when none does, it tells the user why.
+  private available(): boolean {
+    if (this.unavailable) {
+      void vscode.window.showWarningMessage(this.unavailable);
+      return false;
+    }
+    return true;
   }
 
   // focusedPanel is the diagram panel that has focus, if one does.

@@ -75,16 +75,12 @@ test("Open Diagram has the diagram-tool and the preview shortcut, each scoped to
   }
 });
 
-test("the preview shortcut keeps to the editor text, where it is not a paste", () => {
-  const preview = keybindings.find((binding) => binding.key === "ctrl+shift+v");
-  assert.ok(preview);
-  assert.match(preview.when ?? "", /^editorTextFocus && /);
-});
-
-test("the diagram-tool shortcut stays out of the terminal", () => {
-  const tool = keybindings.find((binding) => binding.key === "alt+d");
-  assert.ok(tool);
-  assert.match(tool.when ?? "", /!terminalFocus/);
+test("both shortcuts keep to the editor text, leaving the Find widget and the terminal their keys", () => {
+  for (const key of ["alt+d", "ctrl+shift+v"]) {
+    const binding = keybindings.find((entry) => entry.key === key);
+    assert.ok(binding);
+    assert.match(binding.when ?? "", /^editorTextFocus && \(/, `${key} needs the cursor in the text`);
+  }
 });
 
 test("Open Diagram is in the editor title bar, the editor context menu and the Explorer menu", () => {
