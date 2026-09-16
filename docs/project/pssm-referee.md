@@ -163,10 +163,11 @@ send with no receiver) are not state-machine rows and no test in the suite reach
 
 ## Baseline
 
-Recorded **2026-09-16** on develop commit **`46828f14f`** with the fork-entered-region fix
+Recorded **2026-09-16** on develop commit **`265045be5`** with the fork-entered-region fix
 (finding 6), the active-ancestor fix, the completion-choice fix, the guard-side-effect
-classification, the join incoming-effects fix and the junction branch-choice fix (finding 8)
-described below, and with every remaining failure attributed, as
+classification, the join incoming-effects fix, the junction branch-choice fix (finding 8) and
+the segment-effect fix (finding 10) described below, and with every remaining failure
+attributed, as
 `docs/project/pssm-referee-baseline.json`; regenerate with `go run ./cmd/pssm-referee -update`,
 check with `-check`. The counts are the gate; the rows are for whoever adjudicates a moved count.
 The figures below are as measured when this record was last updated and are not the current
@@ -183,8 +184,22 @@ baseline — `go run ./cmd/pssm-referee` prints the current ones.
 
 ### Movements since the previous baseline
 
-No count has moved since the previous baseline (develop `bcc6b13e0` with the junction
-branch-choice fix, 2026-09-15). The baseline file changed all the same: the adjudication of
+No count has moved since the previous baseline (develop `46828f14f` with the failures
+attributed, 2026-09-16). One reason did: the runtime fix of
+[finding 10](#findings-about-our-own-conformance) — a segment leaving a junction or choice
+declared inside a composite state runs its effect after that state's entry — took *Junction
+005* off the inadmissible trace it reached and onto an admitted one, and the test stays `fail`
+on what remains missing.
+
+| Test | Finding | Movement | Adjudication |
+|---|---|---|---|
+| Junction 005 | 10, then 9 | `fail` → `fail`, reason changed | Expected in part. The reached trace is now `S1(entry)::T1.3(effect)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)`, one of the three PSSM admits — `S1(entry)` first, the fix's whole effect — where it was `T1.3(effect)::S1(entry)::…`, which PSSM does not admit. The two admitted traces still not reached, `S1(entry)::T2.1(effect)::S2.1(entry)::T1.3(effect)::…` and `S1(entry)::T2.1(effect)::T1.3(effect)::S2.1(entry)::…`, put the second region's initial-transition effect and entry before or around the first region's junction segment: the order in which `S1`'s two regions are entered, which the runtime fixes in declaration order and records no choice for — finding 9's region-entry site, the one *Entering 010* and *Entering 011* fail on. The test was expected to move to `pass` on finding 10 alone; it does not, because its admitted set interleaves the two regions, and its row now cites finding 9 |
+
+### Movements before that
+
+No count moved between the baseline of develop `bcc6b13e0` (with the junction
+branch-choice fix, 2026-09-15) and the one that followed it (develop `46828f14f`, 2026-09-16).
+The baseline file changed all the same: the adjudication of
 the fourteen failures it left unattributed ([below](#fail-15)) added four tests to the
 committed table — *Junction 004* and *Join003* on SM32, *Join001* and *Transition 019* on
 SM34, both *differs, v2 silent* rows — so their rows now carry the row and its verdict, and
@@ -393,7 +408,7 @@ quoted and the number given. The full sets are in the baseline file.
 | Fork 002 | 9 (region entry order) | — | `T2(effect)::S1(entry)::T2.1(effect)::T2.2(effect)::S1.1(entry)` and 2 more orders of the two branches' effects and `S1.1(entry)` (the fourth admitted order is reached) |
 | History 001-C | 9 (region entry and exit order) | — | `S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)` and 10 more orders of the two regions' entries and exits (the twelfth admitted order, the one the PSSM text prints, is reached) |
 | History 002-B | 9 (region entry and exit order) | — | `…::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)` and 4 more orders of the two regions' entries and exits (the sixth admitted order is reached) |
-| Junction 005 | 10 (segment effect before owner entry) | `T1.3(effect)::S1(entry)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)` | `S1(entry)::T1.3(effect)::T2.1(effect)::S2.1(entry)::S1.2(exit)::S1(exit)` and 2 more orders of `T1.3(effect)`, `T2.1(effect)`, `S2.1(entry)`, all after `S1(entry)` |
+| Junction 005 | 9 (region entry order) | — | `S1(entry)::T2.1(effect)::S2.1(entry)::T1.3(effect)::S1.2(exit)::S1(exit)` and `S1(entry)::T2.1(effect)::T1.3(effect)::S2.1(entry)::S1.2(exit)::S1(exit)` (the third admitted order, `T1.3(effect)` first after `S1(entry)`, is reached: the second region's initial effect and entry are admitted before or around the junction segment's effect) |
 
 Every reason in full — each extra trace, each missing trace, each error — is in the baseline
 file's `reasons`.
@@ -428,10 +443,10 @@ test's constructs in its `reasons`.
 ## Findings about our own conformance
 
 The referee's classifier and runs surfaced five gaps that are this project's rather than SysML
-v2's. Three — the first two found when the referee was added, the third by its exploration —
-are fixed, each in a change of its own; two, found by attributing the failures that remained,
-are open, and the tests that reach them stay `fail` citing them until a change of their own
-closes each:
+v2's. Four — the first two found when the referee was added, the third by its exploration, the
+fourth by attributing the failures that remained — are fixed, each in a change of its own; one,
+found the same way, is open, and the tests that reach it stay `fail` citing it until a change
+of its own closes it:
 
 - **The lowerer refused a fork into orthogonal regions that have no initial pseudostate**
   (*Fork 002*, *Join 001*; alignment finding 6). UML lets a fork's outgoing transitions enter
@@ -491,8 +506,9 @@ closes each:
   The test passes; the movements table above adjudicates it.
 - **The order in which orthogonal regions are entered, exited and stepped is not a recorded
   choice point** (*Entering 010*, *Entering 011*, *Exiting 001*, *Exiting 003*, *Fork 002*,
-  *History 001-C*, *History 002-B*, *Transition 019*, *Behavior 003 A*, *Transition 017*;
-  alignment finding 9, open). Every trace the runtime reaches in these ten is one the suite
+  *History 001-C*, *History 002-B*, *Transition 019*, *Behavior 003 A*, *Transition 017*, and
+  *Junction 005* since finding 10's fix; alignment finding 9, open). Every trace the runtime
+  reaches in these eleven is one the suite
   admits; what fails is the admitted traces it never reaches, because four sites order what PSSM
   leaves concurrent and record no choice for `explore` to vary: the regions of a composite
   state and a fork's branches are entered in declaration order
@@ -506,17 +522,26 @@ closes each:
   a draw the policy makes and a `ChoiceRegionOrder` records, as `dispatchInOrder` and
   `runDoRound` already do among themselves, with the trace goldens of every fixture that enters
   or leaves an orthogonal state moving), so it is recorded rather than made here.
-- **A segment leaving a junction inside a composite state runs its effect before the composite
-  is entered** (*Junction 005*; alignment finding 10, open). The transition targets a junction
-  in one region of the orthogonal `S1`, and `state_executor.go:moveTo` runs every effect of the
-  route after the exits and before `enterBelow` enters the way down to the target, so the
-  segment `T1.3`, declared in `S1`'s body, logs `T1.3(effect)` before `S1(entry)`; PSSM enters
-  `S1` on the way to the junction and admits only orders with `S1(entry)` first, and v2 reads
-  the segment as an `enclosedPerformance` of `S1`, after its `entry` — the reading finding 7's
-  fix already applies to a history's default transition. A runtime defect; its fix changes the
-  route's travel for every pseudostate inside a composite (a choice as much as a junction) and
-  wants the conformance cases that pin a segment's effect after its owner's entry first, so it
-  is recorded rather than made here.
+- **A segment leaving a junction inside a composite state ran its effect before the composite
+  was entered** (*Junction 005*; alignment finding 10). The transition targets a junction in one
+  region of the orthogonal `S1`, and `state_executor.go:moveTo` ran every effect of the route
+  after the exits and before `enterBelow` entered the way down to the target, so the segment
+  `T1.3`, declared in `S1`'s body, logged `T1.3(effect)` before `S1(entry)`; PSSM enters `S1`
+  on the way to the junction and admits only orders with `S1(entry)` first, and v2 reads the
+  segment as an `enclosedPerformance` of `S1`, after its `entry` — the reading finding 7's fix
+  already applies to a history's default transition. A runtime defect. Fixed: a route's effects
+  carry the state declaring the pseudostate each segment leaves (`state_route.go:routeEffect`,
+  from the lowered `PseudostateOwner`), and `runEffects` enters the states down to that owner
+  before running each (`enterAhead`; the move then finds them entered), for a junction as for a
+  choice — whose guards are read after only the states every branch enters are in
+  (`certainEntries`) — at every depth, in a region of a parallel state, and on a history's
+  default transition (`state_junction_inside_composite`, `state_choice_inside_composite`,
+  `state_junction_inside_nested_composite`, `state_junction_inside_orthogonal_region`,
+  `state_junction_then_choice_inside_composite`,
+  `state_history_default_junction_inside_nested`, each with its trace golden; no golden on
+  `develop` moved). *Junction 005* now reaches an admitted trace and stays `fail` on the two it
+  still misses, which are finding 9's region-entry order; the movements table above
+  adjudicates it.
 
 ### The twenty failures the first baseline left unadjudicated
 
@@ -540,7 +565,7 @@ detail. By root cause:
 | A junction or join with no way through | missing alignment text, SM32 (*differs, v2 silent*) | Junction 004, Join003 | `fail`, citing SM32 |
 | The order of a join's segments | missing alignment text, SM34 (*differs, v2 silent*) | Transition 019 (also finding 9) | `fail`, citing SM34 |
 | Region entry, exit and do-step order is not a recorded choice | runtime gap, finding 9 (open) | Entering 010, Entering 011, Exiting 001, Exiting 003, History 001-C, History 002-B, Behavior 003 A, Transition 017 | `fail`, citing finding 9 |
-| A junction segment's effect before its owner's entry | runtime defect, finding 10 (open) | Junction 005 | `fail`, citing finding 10 |
+| A junction segment's effect before its owner's entry | runtime defect, finding 10 (fixed) | Junction 005 | `fail`, citing finding 9 for the region-entry orders left missing once the segment's effect follows `S1(entry)` |
 
 *Fork 002* and *Join001*, which finding 6's fix brought out of `not-expressible` after that
 baseline, are attributed with them: *Fork 002* to finding 9 (region entry order) and *Join001*
