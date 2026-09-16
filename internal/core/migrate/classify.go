@@ -215,11 +215,14 @@ func primitiveLibraryHref(href string) bool {
 // used project whose top package happens to share the name.
 func libraryReference(t *xmi.Element) bool {
 	root := pathRoot(t.QualifiedName)
-	return root != "" && libraryRoots[root] && strings.Contains(fold(hrefDocument(t.Href)), fold(root))
+	return root != "" && libraryRoots[root] && fold(hrefDocument(t.Href)) == fold(root)
 }
 
-// hrefDocument is the document an href names, without its directory, query
-// or fragment.
+// modelExtensions are the file extensions a model or module document carries.
+var modelExtensions = []string{".mdzip", ".mdxml", ".xmi", ".xml", ".uml", ".zip"}
+
+// hrefDocument is the module an href names: the document without its
+// directory, query, fragment or model extension.
 func hrefDocument(href string) string {
 	doc := href
 	if i := strings.IndexAny(doc, "#?"); i >= 0 {
@@ -230,6 +233,11 @@ func hrefDocument(href string) string {
 	}
 	if u, err := url.PathUnescape(doc); err == nil {
 		doc = u
+	}
+	for _, ext := range modelExtensions {
+		if len(doc) > len(ext) && strings.EqualFold(doc[len(doc)-len(ext):], ext) {
+			return doc[:len(doc)-len(ext)]
+		}
 	}
 	return doc
 }
