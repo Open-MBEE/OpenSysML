@@ -74,6 +74,20 @@ func lowerTerminateNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scop
 	graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(node, scope))
 }
 
+// TerminateUsage returns the terminate a terminate action usage stands for, the last of
+// its node's body after the statements it declares; false for a node that is none.
+func (g *ActionGraph) TerminateUsage(node ast.Node) (Effect, bool) {
+	body := g.Bodies[node]
+	if len(body) == 0 {
+		return Effect{}, false
+	}
+	last, ok := body[len(body)-1].(Effect)
+	if !ok || last.Kind != EffectTerminate || last.Terminates != TerminateEnclosing || last.Node != node {
+		return Effect{}, false
+	}
+	return last, true
+}
+
 // lowerAccept records the message a nested action node waits for, which a node
 // owning a flow still does before that flow starts.
 func lowerAccept(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {

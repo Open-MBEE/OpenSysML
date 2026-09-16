@@ -1883,7 +1883,8 @@ node of the flow — `then terminate;`, or a named terminate action usage reache
 (`then stop; action stop terminate;`) — it ends the action, so nodes after it do not run and a
 forked sibling branch still running is dropped, an `accept` it never received included. A
 terminate action usage's body may declare pins and statements, which run before it ends the
-action; a flow of its own (`first`, successions) it may not state. As a
+action — a `terminate;` among them ends the usage's own performance there, and the usage
+still ends the action; a flow of its own (`first`, successions) it may not state. As a
 statement of a nested action node's body it ends only that node: the rest of the body is
 skipped, the node's own fork branches are dropped, and the parent continues along the node's
 succession with the values the node assigned before it ended. `terminate <name>;` names an

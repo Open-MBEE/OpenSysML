@@ -162,6 +162,7 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 	// its leaf body still runs (runSubflow drops a flow of its own); the node completes.
 	var ended *terminated
 	if err := e.performNodeBody(f, graph, node); err != nil {
+		err = e.terminatedUsage(f.perf, graph, err)
 		if !terminates(err, f.perf) {
 			return flowNext, e.ctx.pausing(f, err)
 		}

@@ -55,6 +55,19 @@ func (e *performances) terminate(perf *actionFrame, s lower.Effect) error {
 	return nil
 }
 
+// terminatedUsage goes on from a terminate action usage's body ending perf, the usage's
+// own performance, to the terminate the usage stands for; any other err is returned as is.
+func (e *performances) terminatedUsage(perf *actionFrame, graph *lower.ActionGraph, err error) error {
+	if !terminates(err, perf) {
+		return err
+	}
+	s, ok := graph.TerminateUsage(perf.node)
+	if !ok {
+		return err
+	}
+	return e.terminate(perf, s)
+}
+
 // terminateTargets resolves the performances s names from perf, whose body states it:
 // perf itself, its parent, or the ongoing performances of a node of a flow around it.
 func (e *performances) terminateTargets(perf *actionFrame, s lower.Effect) ([]*actionFrame, error) {

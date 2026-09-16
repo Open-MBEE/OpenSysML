@@ -252,6 +252,7 @@ func (w *usageWork) perform() error {
 			return e.enterSubflow(idx, w.perf)
 		}
 		if err := e.executeBody(w.perf, w.graph, w.usage); err != nil {
+			err = e.terminatedUsage(w.perf, w.graph, err)
 			if !terminates(err, w.perf) {
 				return err
 			}
