@@ -390,7 +390,9 @@ result is one of three shapes:
 
 A rename or delete that reaches into other documents, or a layout operation whose
 annotation belongs in one, answers one `TextDocumentEdit` per document it rewrites, the
-requested document first when it is among them:
+requested document first. A document the operations read a target's declaration in and
+leave as it was is answered too, at its version with no `edits`, so that a client pins
+the edit to it:
 
 ```json
 { "version": 7,
@@ -414,7 +416,7 @@ requested document first when it is among them:
 | Field | Meaning |
 | --- | --- |
 | `version` | The document version the answer is about. |
-| `edit` | A `WorkspaceEdit` with one versioned `TextDocumentEdit` per document the operations rewrite — the requested document first, at the request's `version`, when the operations changed it; every other document at the version the server holds for it, or `null` for one it read from disk and has no open buffer of. A layout written into another document alone answers that document alone. Each document's edits, applied to the version named, produce the text the operations ask for. Every byte outside the edited spans is unchanged: comments, blank lines and indentation survive. The documents are read and the edits computed together, under one lock, so they agree with each other and with the diagnostics the server had published. |
+| `edit` | A `WorkspaceEdit` with one versioned `TextDocumentEdit` per document the operations rewrite or read a target's declaration in (`declaredIn`) — the requested document first, at the request's `version`; every other document at the version the server holds for it, or `null` for one it read from disk and has no open buffer of. A document the operations leave as it was — the requested one when a layout is written into another document alone, or the one a view-local layout's target is declared in — carries its version and no `edits`. Each document's edits, applied to the version named, produce the text the operations ask for. Every byte outside the edited spans is unchanged: comments, blank lines and indentation survive. The documents are read and the edits computed together, under one lock, so they agree with each other and with the diagnostics the server had published. |
 | `refused` | Why nothing was written. `operation` is the index of the operation at fault, or `-1` when the request as a whole was; `failure` is a stable name (`unknown-target`, `invalid-name`, `owner-unknown`, `owner-inside-target`, `illegal-kind`, `member-name-taken`, `rename-referenced`, `delete-referenced`, `move-referenced`, `referenced-elsewhere`, `not-a-view`, `not-exposed`, `not-drawn`, `not-annotated`, `result-invalid`, …); `message` says it in words. `diagnostics` carries the errors the edited text would have had, located in that text; `referring` names the declarations that still refer to a target whose delete was refused, the reference a rename would capture or a move cannot respell, or the declarations of other documents that refer to what a delete or rename would change and the server cannot rewrite, or to what a move would change — a declaration of another document is qualified by that document. `referrers` names the same declarations one by one, each as `{ "name", "uri" }` with the document declaring it, for a client that groups them by file. |
 | `stale` | The client's `version` is not the document's; nothing was computed. The operations may name declarations that version no longer has, or namesakes that replaced them, so a client does not resend them at the newer version: it shows the newer text or rendering and lets the action be taken again. |
 

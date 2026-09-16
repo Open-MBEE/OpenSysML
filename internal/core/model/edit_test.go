@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -147,6 +148,50 @@ func TestApplyEditRefusesReferenceFromDocumentItCannotRewrite(t *testing.T) {
 		if want := []string{"Fleet::truck (fleet.sysml)"}; strings.Join(e.Referring, ",") != strings.Join(want, ",") {
 			t.Errorf("%v: referring = %v, want %v", op.Kind, e.Referring, want)
 		}
+	}
+}
+
+// A document read for an operation's target and not rewritten is among the
+// result's documents all the same, once, unchanged and at the version it was
+// read at, in name order with the rewritten ones; the edited document is
+// reported once whether or not it was read.
+func TestApplyEditReportsReadDocumentsItLeftUnchanged(t *testing.T) {
+	ws := NewWorkspace()
+	ws.Open("views.sysml", []byte("package Fleet {\n    private import Views::*;\n    private import StandardViewDefinitions::*;\n    view v : InterconnectionView {\n        expose Machinery::Engine;\n    }\n}\n"), 1)
+	ws.Open("parts.sysml", []byte("package Machinery {\n    part def Engine {\n        part rotor;\n    }\n}\n"), 4)
+	ws.Open("aux.sysml", []byte("package Aux {\n    part def Spare;\n}\n"), 6)
+	place := edit.SetLayout("Machinery::Engine::rotor", "Fleet::v", &semantics.Layout{X: 1, Y: 2}).DeclaredIn("parts.sysml")
+
+	parts, aux, views := ws.Document("parts.sysml"), ws.Document("aux.sysml"), ws.Document("views.sysml")
+	result, version, ok, err := ws.ApplyEdit("views.sysml", []edit.Operation{place}, []*Document{parts, views, parts, aux})
+	if !ok || err != nil {
+		t.Fatalf("ok %v, err %v", ok, err)
+	}
+	if version != 1 {
+		t.Errorf("version = %d, want views.sysml's 1", version)
+	}
+	want := []DocumentEdit{
+		{Name: "views.sysml", Version: 1, Open: true},
+		{Name: "aux.sysml", Version: 6, Open: true},
+		{Name: "parts.sysml", Version: 4, Open: true},
+	}
+	if len(result.Documents) != len(want) {
+		t.Fatalf("documents = %+v, want %d: views.sysml, then aux.sysml and parts.sysml read", result.Documents, len(want))
+	}
+	for i, doc := range result.Documents {
+		if doc.Name != want[i].Name || doc.Version != want[i].Version || doc.Open != want[i].Open {
+			t.Errorf("document %d = %s v%d open %v, want %s v%d open %v", i,
+				doc.Name, doc.Version, doc.Open, want[i].Name, want[i].Version, want[i].Open)
+		}
+		if string(doc.Original) != string(ws.Document(doc.Name).Content) {
+			t.Errorf("%s original:\n%s\nwant the workspace's content", doc.Name, doc.Original)
+		}
+		if i > 0 && (string(doc.Content) != string(doc.Original) || len(doc.Applied) != 0) {
+			t.Errorf("%s = %+v, want it read and left as it was", doc.Name, doc)
+		}
+	}
+	if got := string(result.Documents[0].Content); !strings.Contains(got, "metadata DiagramLayout::Layout about Machinery::Engine::rotor { x = 1; y = 2; }") {
+		t.Errorf("views.sysml:\n%s", got)
 	}
 }
 

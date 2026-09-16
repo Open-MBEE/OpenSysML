@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
@@ -9,7 +10,8 @@ import (
 )
 
 // EditResult is what ApplyEdit computed: the edited document first, then every
-// other document a rename or delete followed a reference into, in name order.
+// other document the edit rewrote or read a target's declaration in, in name
+// order. A document read and left as it was has its content as its rewrite.
 type EditResult struct {
 	Documents []DocumentEdit
 }
@@ -46,7 +48,9 @@ func (e *StaleError) Error() string {
 // single coherent state and each rewrite reports the version it was read at.
 // Read are the workspace documents, as handed out earlier, that the operations'
 // positions were computed from; when the workspace no longer holds one of those
-// snapshots, the edit is refused with a *StaleError. The returned version is the
+// snapshots, the edit is refused with a *StaleError, and otherwise each is
+// among the result's documents, rewritten or not, at the version it was read
+// at, so that the client can pin the edit to it. The returned version is the
 // named document's. An unknown document reports ok false; a refused edit is an
 // *edit.Error and rewrites nothing.
 func (w *Workspace) ApplyEdit(name string, ops []edit.Operation, read []*Document) (result *EditResult, version int, ok bool, err error) {
@@ -80,7 +84,30 @@ func (w *Workspace) ApplyEdit(name string, ops []edit.Operation, read []*Documen
 		result.Documents = append(result.Documents,
 			w.documentEditLocked(w.docs[other.Name], other.Content, other.Applied))
 	}
+	for _, snapshot := range w.unrewrittenLocked(name, read, edited.Others) {
+		result.Documents = append(result.Documents, w.documentEditLocked(snapshot, snapshot.Content, nil))
+	}
+	sort.Slice(result.Documents[1:], func(i, j int) bool {
+		return result.Documents[1+i].Name < result.Documents[1+j].Name
+	})
 	return result, doc.Version, true, nil
+}
+
+// unrewrittenLocked is each document read but not rewritten, other than the
+// edited one, once each.
+func (w *Workspace) unrewrittenLocked(name string, read []*Document, rewritten []edit.DocumentResult) []*Document {
+	skip := map[string]bool{name: true}
+	for _, other := range rewritten {
+		skip[other.Name] = true
+	}
+	var out []*Document
+	for _, snapshot := range read {
+		if !skip[snapshot.Name] {
+			skip[snapshot.Name] = true
+			out = append(out, w.docs[snapshot.Name])
+		}
+	}
+	return out
 }
 
 // documentEditLocked pairs doc as the workspace holds it with its rewrite.

@@ -1,7 +1,6 @@
 package lsp
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -198,7 +197,9 @@ func (s *Server) modelEditHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
 // at the version the client named; any other version is reported stale, since
 // an edit computed against text the client no longer has would land wrong. The
 // other documents a rename, a delete or a layout operation reaches are read at
-// the versions the server holds, which their edits carry.
+// the versions the server holds, which their edits carry; a document read for a
+// target's declaration and left as it was carries its version with no edits, so
+// that the client refuses the edit once that document has moved on too.
 func (s *Server) ApplyModelEdit(params *applyModelEditParams) (*applyModelEditResult, error) {
 	name := uriToName(params.TextDocument.URI)
 	doc := s.ws.Document(name)
@@ -241,9 +242,6 @@ func (s *Server) ApplyModelEdit(params *applyModelEditParams) (*applyModelEditRe
 	}
 	changes := make([]protocol.TextDocumentEdit, 0, len(result.Documents))
 	for _, edited := range result.Documents {
-		if bytes.Equal(edited.Original, edited.Content) {
-			continue
-		}
 		change, err := documentChange(edited)
 		if err != nil {
 			return nil, err
@@ -257,8 +255,9 @@ func (s *Server) ApplyModelEdit(params *applyModelEditParams) (*applyModelEditRe
 }
 
 // documentChange is the versioned edit turning one document into its rewrite,
-// computed from the content the rewrite was made of. A document read from disk
-// has no client version, which the null version says.
+// computed from the content the rewrite was made of; no edits when the two are
+// the same. A document read from disk has no client version, which the null
+// version says.
 func documentChange(edited model.DocumentEdit) (protocol.TextDocumentEdit, error) {
 	change := protocol.TextDocumentEdit{
 		TextDocument: protocol.OptionalVersionedTextDocumentIdentifier{
