@@ -2,10 +2,11 @@
   "scenarios": [
     {
       "id": "apply_edits/a_set_value_rewrites_only_that_span",
-      "description": "The answer carries the whole edited source plus what each operation replaced.",
+      "description": "The answer carries the whole edited source twice: in content, for callers of the sole-document contract, and as the one entry of documents, named as the parse named it. Both shapes need edit_documents: a service without it fills content alone.",
       "rpc": "ApplyEdits",
       "requires_capabilities": [
-        "apply_edits"
+        "apply_edits",
+        "edit_documents"
       ],
       "model": {
         "fixture": "editable.sysml"
@@ -32,14 +33,23 @@
           "error"
         ],
         "counts": {
-          "applied": 1
+          "applied": 1,
+          "documents": 1
         },
         "response": {
           "applied": [
             {
               "target": "Demo::SC::unitMass",
               "new_text": "1050.0[SI::kg]",
-              "old_text": "1000.0[SI::kg]"
+              "old_text": "1000.0[SI::kg]",
+              "document": "<content>"
+            }
+          ],
+          "content": "package Demo {\n    // The mass of one unit, measured on the bench.\n    part def SC {\n        attribute unitMass : ISQ::MassValue = 1050.0[SI::kg];\n\n        attribute margin : ISQ::MassValue;\n    }\n\n    part sc : SC;\n}\n",
+          "documents": [
+            {
+              "name": "<content>",
+              "content": "package Demo {\n    // The mass of one unit, measured on the bench.\n    part def SC {\n        attribute unitMass : ISQ::MassValue = 1050.0[SI::kg];\n\n        attribute margin : ISQ::MassValue;\n    }\n\n    part sc : SC;\n}\n"
             }
           ]
         }
@@ -105,7 +115,9 @@
           "error"
         ],
         "absent": [
-          "content"
+          "applied",
+          "content",
+          "documents"
         ]
       }
     },
@@ -137,7 +149,267 @@
           "error"
         ],
         "absent": [
-          "content"
+          "applied",
+          "content",
+          "documents"
+        ]
+      }
+    },
+    {
+      "id": "apply_edits/a_rename_is_followed_into_the_other_documents",
+      "description": "A model of several documents is edited as one: the rename respells the declaration and every reference, and documents carries each rewritten document under the name the parse gave it. content is empty, since the model is not a single document.",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "edit_documents"
+      ],
+      "model": {
+        "fixtures": [
+          "engine_library.sysml",
+          "engine_user.sysml"
+        ]
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "accept_documents": true,
+        "operations": [
+          {
+            "rename": {
+              "target": "EngineLibrary::Engine",
+              "new_name": "Motor"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "absent": [
+          "content",
+          "error"
+        ],
+        "counts": {
+          "documents": 2,
+          "applied": 2
+        },
+        "response": {
+          "documents": [
+            {
+              "name": "engine_library.sysml",
+              "content": "package EngineLibrary {\n\tprivate import ScalarValues::*;\n\tpart def Motor {\n\t\tattribute power : Integer = 150;\n\t}\n}\n"
+            },
+            {
+              "name": "engine_user.sysml",
+              "content": "package EngineUser {\n\tprivate import EngineLibrary::*;\n\tpart def Car {\n\t\tpart motor : Motor;\n\t}\n}\n"
+            }
+          ],
+          "applied": [
+            {
+              "target": "EngineLibrary::Engine",
+              "document": "engine_library.sysml",
+              "old_text": "Engine",
+              "new_text": "Motor"
+            },
+            {
+              "target": "EngineLibrary::Engine",
+              "document": "engine_user.sysml",
+              "old_text": "Engine",
+              "new_text": "Motor"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "apply_edits/a_request_not_accepting_documents_is_refused_on_a_model_of_several",
+      "description": "A request that leaves accept_documents unset reads only content, which a model of several documents leaves empty; it is refused as a failed precondition, as every request against such a model was before documents existed, so a client written against content alone never writes an empty one.",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "edit_documents"
+      ],
+      "model": {
+        "fixtures": [
+          "engine_library.sysml",
+          "engine_user.sysml"
+        ]
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "rename": {
+              "target": "EngineLibrary::Engine",
+              "new_name": "Motor"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "FAILED_PRECONDITION",
+        "status_message_contains": "accept_documents"
+      }
+    },
+    {
+      "id": "apply_edits/a_cascade_delete_removes_the_declarations_in_other_documents",
+      "description": "A cascade delete removes the target and every declaration the deletion would leave dangling, wherever it is declared.",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "edit_documents",
+        "authoring"
+      ],
+      "model": {
+        "fixtures": [
+          "engine_library.sysml",
+          "engine_user.sysml"
+        ]
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "accept_documents": true,
+        "operations": [
+          {
+            "delete": {
+              "target": "EngineLibrary::Engine",
+              "cascade": true
+            }
+          }
+        ]
+      },
+      "expect": {
+        "absent": [
+          "content",
+          "error"
+        ],
+        "counts": {
+          "documents": 2,
+          "applied": 2
+        },
+        "response": {
+          "documents": [
+            {
+              "name": "engine_library.sysml",
+              "content": "package EngineLibrary {\n\tprivate import ScalarValues::*;\n}\n"
+            },
+            {
+              "name": "engine_user.sysml",
+              "content": "package EngineUser {\n\tprivate import EngineLibrary::*;\n\tpart def Car {\n\t}\n}\n"
+            }
+          ],
+          "applied": [
+            {
+              "target": "EngineLibrary::Engine",
+              "document": "engine_library.sysml"
+            },
+            {
+              "target": "EngineUser::Car::motor",
+              "document": "engine_user.sysml"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "apply_edits/an_edit_touching_one_document_lists_only_that_document",
+      "description": "documents lists the documents the batch rewrote, not every document of the model; content stays empty, so an empty content with a non-empty documents means a multi-document model, not an unchanged one. document selects the document declaring the target. A service not advertising edit_documents refuses a request naming a document as UNIMPLEMENTED.",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "edit_documents"
+      ],
+      "model": {
+        "fixtures": [
+          "engine_library.sysml",
+          "engine_user.sysml"
+        ]
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "accept_documents": true,
+        "document": "engine_user.sysml",
+        "operations": [
+          {
+            "rename": {
+              "target": "EngineUser::Car",
+              "new_name": "Automobile"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "absent": [
+          "content",
+          "error"
+        ],
+        "counts": {
+          "documents": 1,
+          "applied": 1
+        },
+        "response": {
+          "documents": [
+            {
+              "name": "engine_user.sysml",
+              "content": "package EngineUser {\n\tprivate import EngineLibrary::*;\n\tpart def Automobile {\n\t\tpart motor : Engine;\n\t}\n}\n"
+            }
+          ],
+          "applied": [
+            {
+              "target": "EngineUser::Car",
+              "document": "engine_user.sysml"
+            }
+          ]
+        }
+      },
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "edit_documents"
+      }
+    },
+    {
+      "id": "apply_edits/a_delete_referred_to_from_another_document_is_refused_naming_it",
+      "description": "A refusal names each referrer with its document, in referring_elements as before and structured in referrers, and returns no edited notation at all.",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "edit_documents",
+        "authoring"
+      ],
+      "model": {
+        "fixtures": [
+          "engine_library.sysml",
+          "engine_user.sysml"
+        ]
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "accept_documents": true,
+        "operations": [
+          {
+            "delete": {
+              "target": "EngineLibrary::Engine"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "response": {
+          "failure": "EDIT_FAILURE_DELETE_REFERENCED",
+          "referring_elements": [
+            "EngineUser::Car::motor (engine_user.sysml)"
+          ],
+          "referrers": [
+            {
+              "name": "EngineUser::Car::motor",
+              "document": "engine_user.sysml"
+            }
+          ]
+        },
+        "non_empty": [
+          "error"
+        ],
+        "absent": [
+          "applied",
+          "content",
+          "documents"
         ]
       }
     },
@@ -161,9 +433,12 @@
           "error"
         ],
         "absent": [
-          "content"
+          "applied",
+          "content",
+          "documents"
         ]
-      }
+      },
+      "description": "An empty batch is refused in-band, with neither content nor documents, exactly as before documents existed."
     }
   ]
 }

@@ -380,6 +380,12 @@ func TestMoveRefusesReferenceItCannotRespell(t *testing.T) {
 	if !strings.Contains(e.Message, "P::c") {
 		t.Fatalf("message = %q, want the reference named", e.Message)
 	}
+	if len(e.Referring) != 1 || e.Referring[0] != "P::c" {
+		t.Fatalf("referring = %v, want [P::c]", e.Referring)
+	}
+	if len(e.Referrers) != 1 || e.Referrers[0] != (Referrer{Name: "P::c", Document: "move.sysml"}) {
+		t.Fatalf("referrers = %+v, want P::c in move.sysml", e.Referrers)
+	}
 }
 
 func TestMoveInBatchIsSequentialAndAllOrNothing(t *testing.T) {

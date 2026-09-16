@@ -3,11 +3,15 @@ package opensysml_test
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/api/proto/protoconnect"
 	"github.com/Open-MBEE/OpenSysML/client/opensysml"
+	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/grpc"
 )
 
 const behaviorSource = `package Test {
@@ -711,6 +715,160 @@ func TestApplyEditsAnswersTheEditedSource(t *testing.T) {
 	}
 }
 
+func TestApplyEditsListsTheOneDocumentUnderTheParsesName(t *testing.T) {
+	client := newClient(t)
+	model, err := client.ParseDocuments(context.Background(),
+		[]opensysml.Document{{Name: "demo.sysml", Content: editableSource}})
+	if err != nil {
+		t.Fatalf("ParseDocuments: %v", err)
+	}
+	result, err := client.ApplyEdits(context.Background(), model,
+		opensysml.SetValue{Target: "Demo::SC::unitMass", Value: "1050.0"})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if len(result.Documents) != 1 || result.Documents[0].Name != "demo.sysml" {
+		t.Fatalf("documents = %+v, want the one document named demo.sysml", result.Documents)
+	}
+	if result.Documents[0].Content != result.Content || result.Content == "" {
+		t.Errorf("content = %q, documents[0].content = %q, want the same notation", result.Content, result.Documents[0].Content)
+	}
+	if len(result.Applied) != 1 || result.Applied[0].Document != "demo.sysml" {
+		t.Errorf("applied = %+v, want one edit in demo.sysml", result.Applied)
+	}
+}
+
+const (
+	multiDocLibrary = "package Lib {\n    part def Engine;\n    part def Wheel;\n}\n"
+	multiDocUser    = "package Car {\n    part engine : Lib::Engine;\n    part wheel : Lib::Wheel;\n}\n"
+)
+
+func parseTwo(t *testing.T, client opensysml.Client) *opensysml.Model {
+	t.Helper()
+	model, err := client.ParseDocuments(context.Background(), []opensysml.Document{
+		{Name: "lib.sysml", Content: multiDocLibrary},
+		{Name: "car.sysml", Content: multiDocUser},
+	})
+	if err != nil {
+		t.Fatalf("ParseDocuments: %v", err)
+	}
+	return model
+}
+
+func TestApplyEditsRenamesAcrossDocumentsAndLeavesContentEmpty(t *testing.T) {
+	client := newClient(t)
+	model := parseTwo(t, client)
+	result, err := client.ApplyEdits(context.Background(), model,
+		opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if result.Content != "" {
+		t.Errorf("content = %q, want empty for a model of two documents", result.Content)
+	}
+	if len(result.Documents) != 2 || result.Documents[0].Name != "lib.sysml" || result.Documents[1].Name != "car.sysml" {
+		t.Fatalf("documents = %+v, want lib.sysml then car.sysml", result.Documents)
+	}
+	if !strings.Contains(result.Documents[0].Content, "part def Motor") ||
+		!strings.Contains(result.Documents[1].Content, "engine : Lib::Motor") {
+		t.Errorf("the rename did not reach both documents:\n%s\n%s", result.Documents[0].Content, result.Documents[1].Content)
+	}
+	for _, applied := range result.Applied {
+		if applied.Document == "" {
+			t.Errorf("applied edit %+v names no document", applied)
+		}
+	}
+}
+
+func TestApplyDocumentEditsTargetsTheNamedDocument(t *testing.T) {
+	client := newClient(t)
+	model := parseTwo(t, client)
+	result, err := client.ApplyDocumentEdits(context.Background(), model, "car.sysml",
+		opensysml.Rename{Target: "Car::wheel", NewName: "tyre"})
+	if err != nil {
+		t.Fatalf("ApplyDocumentEdits: %v", err)
+	}
+	if len(result.Documents) != 1 || result.Documents[0].Name != "car.sysml" {
+		t.Fatalf("documents = %+v, want car.sysml alone", result.Documents)
+	}
+	if result.Content != "" {
+		t.Errorf("content = %q, want empty for a model of two documents", result.Content)
+	}
+	_, err = client.ApplyDocumentEdits(context.Background(), model, "nope.sysml",
+		opensysml.Rename{Target: "Car::wheel", NewName: "tyre"})
+	if !errors.Is(err, opensysml.CodeInvalidArgument) {
+		t.Errorf("an unknown document: err = %v, want CodeInvalidArgument", err)
+	}
+}
+
+func TestApplyEditsRefusalNamesReferrersByDocument(t *testing.T) {
+	client := newClient(t)
+	model := parseTwo(t, client)
+	_, err := client.ApplyEdits(context.Background(), model,
+		opensysml.Delete{Target: "Lib::Engine"})
+	var refused *opensysml.EditError
+	if !errors.As(err, &refused) {
+		t.Fatalf("err = %T (%v), want *EditError", err, err)
+	}
+	if refused.Failure != opensysml.EditFailureDeleteReferenced {
+		t.Fatalf("failure = %v, want %v", refused.Failure, opensysml.EditFailureDeleteReferenced)
+	}
+	want := []opensysml.Referrer{{Name: "Car::engine", Document: "car.sysml"}}
+	if !reflect.DeepEqual(refused.Referrers, want) {
+		t.Errorf("referrers = %+v, want %+v", refused.Referrers, want)
+	}
+	if !reflect.DeepEqual(refused.Referring, []string{"Car::engine (car.sysml)"}) {
+		t.Errorf("referring = %q, want the referrer qualified by its document", refused.Referring)
+	}
+}
+
+// A service without edit_documents edits one document alone and answers Content
+// alone, so a client checks the capability before reading Documents, before
+// editing a model of several documents, and before naming a document.
+func TestApplyEditsWithoutEditDocumentsAnswersContentAlone(t *testing.T) {
+	svc, err := sysmlgrpc.NewServiceWithUnavailableCapabilitiesForTesting(16, "test", []string{opensysml.CapabilityEditDocuments})
+	if err != nil {
+		t.Fatalf("NewServiceWithUnavailableCapabilitiesForTesting: %v", err)
+	}
+	t.Cleanup(svc.Close)
+	mux := http.NewServeMux()
+	mux.Handle(protoconnect.NewSysMLServiceHandler(sysmlgrpc.NewConnectAdapter(svc)))
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := dialClient(t, server.URL)
+	ctx := context.Background()
+
+	info, err := client.ServerInfo(ctx)
+	if err != nil {
+		t.Fatalf("ServerInfo: %v", err)
+	}
+	if info.Has(opensysml.CapabilityEditDocuments) || !info.Has(opensysml.CapabilityApplyEdits) {
+		t.Fatalf("capabilities = %v, want apply_edits without edit_documents", info.Capabilities)
+	}
+
+	one := parse(t, client, editableSource)
+	result, err := client.ApplyEdits(ctx, one, opensysml.SetValue{Target: "Demo::SC::unitMass", Value: "1050.0"})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if !strings.Contains(result.Content, "1050.0") || len(result.Documents) != 0 {
+		t.Errorf("content=%q documents=%+v, want the notation in Content alone", result.Content, result.Documents)
+	}
+	if len(result.Applied) != 1 || result.Applied[0].Document != "" {
+		t.Errorf("applied = %+v, want one edit naming no document", result.Applied)
+	}
+
+	two := parseTwo(t, client)
+	_, err = client.ApplyEdits(ctx, two, opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})
+	if !errors.Is(err, opensysml.CodeFailedPrecondition) || !strings.Contains(err.Error(), opensysml.CapabilityEditDocuments) {
+		t.Errorf("a model of two: err = %v, want CodeFailedPrecondition naming edit_documents", err)
+	}
+	_, err = client.ApplyDocumentEdits(ctx, two, "car.sysml", opensysml.Rename{Target: "Car::wheel", NewName: "tyre"})
+	if !errors.Is(err, opensysml.CodeUnimplemented) || !strings.Contains(err.Error(), opensysml.CapabilityEditDocuments) {
+		t.Errorf("naming a document: err = %v, want CodeUnimplemented naming edit_documents", err)
+	}
+}
+
 func TestApplyEditsRefusesAllOrNothingWithAClassifiedFailure(t *testing.T) {
 	client := newClient(t)
 	model := parse(t, client, editableSource)
@@ -855,6 +1013,10 @@ func TestEveryOperationIsRefusedAfterClose(t *testing.T) {
 			_, err := client.ApplyEdits(ctx, model, opensysml.Delete{Target: "Demo::sedan"})
 			return err
 		},
+		"ApplyDocumentEdits": func() error {
+			_, err := client.ApplyDocumentEdits(ctx, model, "<content>", opensysml.Delete{Target: "Demo::sedan"})
+			return err
+		},
 	} {
 		if err := call(); !errors.Is(err, opensysml.CodeUnavailable) {
 			t.Errorf("%s after Close: err = %v, want CodeUnavailable", name, err)
@@ -888,6 +1050,10 @@ func TestANilModelIsInvalidForEveryOperation(t *testing.T) {
 		},
 		"ApplyEdits": func() error {
 			_, err := client.ApplyEdits(ctx, nil, opensysml.Delete{Target: "Demo::sedan"})
+			return err
+		},
+		"ApplyDocumentEdits": func() error {
+			_, err := client.ApplyDocumentEdits(ctx, nil, "<content>", opensysml.Delete{Target: "Demo::sedan"})
 			return err
 		},
 	} {

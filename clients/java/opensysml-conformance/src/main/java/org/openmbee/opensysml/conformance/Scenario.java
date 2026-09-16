@@ -29,8 +29,12 @@ record Scenario(
     Expect expect,
     String file) {
 
-  /** The source a scenario needs parsed before its call. */
-  record Fixture(String fixture, String language, boolean strictConformance) {}
+  /**
+   * The source a scenario needs parsed before its call: one fixture, or several parsed together
+   * as one model, which the v1 API's single-document {@code parse} cannot make.
+   */
+  record Fixture(
+      String fixture, List<String> fixtures, String language, boolean strictConformance) {}
 
   /** The bare method name, whether the scenario qualified it or not. */
   String method() {
