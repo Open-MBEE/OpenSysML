@@ -40,6 +40,8 @@ type Workspace struct {
 	// refs is the reverse reference index, built per document on demand and
 	// dropped per document on a change (see refindex.go).
 	refs *refIndex
+	// generation counts the changes to the documents and their analysis so far.
+	generation uint64
 	// resolver and model are the one resolver and semantic model every analysis
 	// and query of this workspace shares; what they memoize is owned by the
 	// document it was computed for and dropped when that document or one it
@@ -337,6 +339,7 @@ func (w *Workspace) invalidateLocked(name string) {
 		w.invalidateAllLocked()
 		return
 	}
+	w.generation++
 	ch := w.index.TakeChanges()
 	if ch.Docs == nil {
 		ch.Docs = map[string]bool{}
@@ -386,6 +389,7 @@ func (w *Workspace) contextLocked() *passes.Context {
 func (w *Workspace) invalidateAllLocked() {
 	w.diagCache = map[string][]passes.Diagnostic{}
 	w.refs = nil
+	w.generation++
 	if w.resolver != nil {
 		w.resolver.InvalidateAll()
 		w.gathers.Reset()

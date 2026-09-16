@@ -92,6 +92,34 @@ func TestWorkspaceLibraryVersionStandsInForBundledFile(t *testing.T) {
 	}
 }
 
+// A runtime's private index holds a version as the workspace does: it alone declares
+// the library's names, marked as the library, with the bundled file displaced.
+func TestRuntimeIndexHoldsLibraryVersion(t *testing.T) {
+	ws := NewWorkspace()
+	lib := ws.LibraryDocument(scalarValues)
+	if lib == nil {
+		t.Fatalf("%s not bundled", scalarValues)
+	}
+	ws.Open("copy.kerml", lib.Content, 1)
+	ws.Open("main.sysml", []byte("package Main { attribute x : ScalarValues::Real; }\n"), 1)
+	rt, err := ws.NewRuntime()
+	if err != nil {
+		t.Fatalf("NewRuntime: %v", err)
+	}
+	if syms := rt.index.LookupQualified("ScalarValues::Real"); len(syms) != 1 || syms[0].DocName != "copy.kerml" {
+		t.Fatalf("runtime's ScalarValues::Real = %v, want the copy's alone", syms)
+	}
+	if rt.index.DocumentRoot(scalarValues) != nil {
+		t.Error("the runtime's index still holds the displaced bundled file")
+	}
+	if !rt.index.IsLibraryDocument("copy.kerml") {
+		t.Error("the copy is not marked as the library in the runtime's index")
+	}
+	if sym, err := rt.Named("main.sysml", "ScalarValues::Real"); err != nil || sym == nil || sym.DocName != "copy.kerml" {
+		t.Errorf("Named(main.sysml, ScalarValues::Real) = %v, %v; want the copy's, a held document", sym, err)
+	}
+}
+
 // The library's identity follows its text, not the names its files are held under: a
 // byte-identical version standing in leaves it as it was, an edited one moves it.
 func TestWorkspaceLibraryVersionKeepsLibraryIdentity(t *testing.T) {

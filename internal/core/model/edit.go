@@ -127,15 +127,18 @@ func (w *Workspace) editIndexLocked(name string) *editIndex {
 	return &editIndex{w: w, name: name}
 }
 
-// build makes an index holding the libraries and every workspace document but
-// the edited one, so the edited notation resolves what the original did. It
-// overlays the frozen base, if any, less what the caller's overlay removed from
-// it, then re-indexes what the base does not hold as the workspace shows it: the
-// library files, marked, and the caller's other documents, languages included. A
-// bundled file the edited document stands in for stays: indexed displaces it
-// again if the edited notation is still a version of it.
+// build makes an index holding the libraries and every workspace document but the
+// edited one; a bundled file it stands in for stays until indexed displaces it again.
 func (e *editIndex) build() *symbols.Index {
-	w, name := e.w, e.name
+	idx := e.w.detachedIndexLocked()
+	e.standIns = e.w.addDocumentsLocked(idx, e.name)
+	idx.ExpandWildcardImports()
+	return idx
+}
+
+// detachedIndexLocked is a writable index holding what the workspace's index holds
+// besides its documents: the base less what the overlay removed, libraries marked.
+func (w *Workspace) detachedIndexLocked() *symbols.Index {
 	idx := symbols.NewIndex()
 	if w.libBase != nil {
 		idx = symbols.NewOverlay(w.libBase)
@@ -147,7 +150,7 @@ func (e *editIndex) build() *symbols.Index {
 	}
 	added := map[string]bool{}
 	skip := func(other string) bool {
-		return other == name || w.docs[other] != nil || added[other] || w.baseShows(other)
+		return w.docs[other] != nil || added[other] || w.baseShows(other)
 	}
 	libraries := make([]string, 0, len(w.library))
 	for other := range w.library {
@@ -173,22 +176,27 @@ func (e *editIndex) build() *symbols.Index {
 		}
 		idx.AddDocumentWithKind(other, root, w.index.DocumentKind(other))
 	}
-	e.standIns = map[string]string{}
+	return idx
+}
+
+// addDocumentsLocked indexes the workspace's documents but except on idx, each one
+// standing in for a bundled file displacing it, and reports what stands in for what.
+func (w *Workspace) addDocumentsLocked(idx *symbols.Index, except string) map[string]string {
+	standIns := map[string]string{}
 	for other, library := range w.standIns {
-		if other != name {
-			e.standIns[other] = library
+		if other != except {
+			standIns[other] = library
 			idx.RemoveDocument(library)
 		}
 	}
-	for other, doc := range w.docs {
-		if other == name {
+	for _, other := range w.sortedDocNamesLocked() {
+		if other == except {
 			continue
 		}
-		idx.AddDocument(other, doc.AST)
-		if _, ok := w.standIns[other]; ok {
+		idx.AddDocumentWithKind(other, w.docs[other].AST, w.index.DocumentKind(other))
+		if _, ok := standIns[other]; ok {
 			idx.MarkLibraryDocument(other, w.index.LibraryDocumentOf(other))
 		}
 	}
-	idx.ExpandWildcardImports()
-	return idx
+	return standIns
 }

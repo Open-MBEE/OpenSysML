@@ -187,6 +187,7 @@ func ensureInheritedActionNode(graph *ActionGraph, ref ast.Node) ast.Node {
 		}
 	}
 	graph.Nodes = append(graph.Nodes, decl)
+	graph.recordDeclaredIn(decl, declaringScope)
 	switch n := decl.(type) {
 	case *ast.Usage:
 		lowerActionNode(graph, n, childScope(declaringScope, n))
