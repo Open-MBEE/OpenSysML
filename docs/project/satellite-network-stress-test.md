@@ -296,8 +296,9 @@ definition, many occurrences):
   subtree would have materialized are owed, and settled if anything later
   asks for them. A write, a binding, a behavior run, a classifier or a
   redefinition anywhere the derivation read makes the occurrence derive on
-  its own, and a write under an occurrence invalidates what it took. Only
-  scalars held by value — numbers, strings, quantities, complex numbers,
+  its own, as does a random draw or a lifetime read in the derivation — both
+  are the run's, not the shape's — and a write under an occurrence
+  invalidates what it took. Only scalars held by value — numbers, strings, quantities, complex numbers,
   enumeration literals, null — are shared; a value naming an object or a
   sequence is derived per occurrence. Every occurrence still has a feature
   value per effective feature: what is shared is the derivation, and the

@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -686,4 +687,55 @@ func TestLifetimeReadsAreNotShared(t *testing.T) {
 	expect(t, ctx, fleet, "sats[1]", "running", "true")
 	expect(t, ctx, fleet, "sats[2]", "running", "false")
 	expectTaken(t, ctx, 0)
+}
+
+const drawingFleetSrc = `package test {
+	private import RandomFunctions::*;
+	requirement def Bounded {
+		subject s : Sat;
+		require constraint { uniform(0.0, 1.0) < 2.0 }
+	}
+	part def Sat {
+		attribute jitter : ScalarValues::Real = uniform(0.0, 1.0);
+	}
+	part def Fleet {
+		part sats : Sat[3];
+	}
+	part fleet : Fleet {
+		satisfy Bounded by sats;
+	}
+}`
+
+// A random draw is the run's, not the shape's: a default or a check that draws is
+// evaluated on every occurrence, so the stream is drawn from once per occurrence.
+func TestRandomDrawsAreNotShared(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, drawingFleetSrc))
+	ctx.SetSharedDefaults(true)
+	ctx.SetModelSeed(7)
+	fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	for i := 1; i <= 3; i++ {
+		read(t, ctx, fleet, "sats["+strconv.Itoa(i)+"]", "jitter")
+	}
+	if draws := ctx.DrawsTaken(); len(draws) != 3 {
+		t.Errorf("draws taken = %d after reading three defaults, want 3", len(draws))
+	}
+	expectTaken(t, ctx, 0)
+	done := ctx.ShareVerdicts()
+	report, err := ctx.ValidateObject(fleet, []*symbols.Scope{idx.DocumentRoot("<test>")})
+	done()
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	if !report.Valid() {
+		t.Errorf("report not valid: %+v", report.Verdicts)
+	}
+	if draws := ctx.DrawsTaken(); len(draws) != 6 {
+		t.Errorf("draws taken = %d after checking three occurrences, want 6", len(draws))
+	}
+	if taken := ctx.SharedVerdictsTaken(); taken != 0 {
+		t.Errorf("shared verdicts taken = %d over a check that draws, want 0", taken)
+	}
 }
