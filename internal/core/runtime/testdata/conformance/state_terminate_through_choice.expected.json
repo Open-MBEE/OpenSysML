@@ -6,6 +6,6 @@
 	"stateVisits": ["idle"],
 	"outputs": {
 		"x": {"type": "Integer", "value": 2},
-		"log": {"type": "String", "value": "check;bad;"}
+		"log": {"type": "String", "value": "idle(exit);check;bad;"}
 	}
 }

@@ -6,7 +6,7 @@
 	"stateVisits": ["busy"],
 	"outputs": {
 		"count": {"type": "Integer", "value": 1},
-		"exits": {"type": "Integer", "value": 0},
+		"exits": {"type": "Integer", "value": 1},
 		"effects": {"type": "Integer", "value": 7}
 	}
 }

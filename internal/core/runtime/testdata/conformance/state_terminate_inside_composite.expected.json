@@ -5,6 +5,6 @@
 	"terminated": true,
 	"stateVisits": ["work", "inner"],
 	"outputs": {
-		"log": {"type": "String", "value": "work(entry);inner(entry);watch;abort(effect);"}
+		"log": {"type": "String", "value": "work(entry);inner(entry);watch;inner(exit);abort(effect);"}
 	}
 }

@@ -1,6 +1,6 @@
-// A transition in one region of an orthogonal state into a terminate action ends
-// the whole machine: the sibling region's state is not exited (its exit behavior
-// does not run) and its do behavior is abandoned with the terminating region's.
+// A transition in one region of an orthogonal state into a terminate action
+// leaves its own source (exit behavior and all), then ends the whole machine:
+// the sibling region's state is not exited and its do behavior is abandoned.
 package Test {
 	private import ScalarValues::*;
 

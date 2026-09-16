@@ -1,6 +1,7 @@
 // A choice whose enabled branch leads into a terminate action ends the machine
-// once the branch is taken: the segments' effects run in order, the source state
-// is not exited, and the other branch's target is never entered.
+// once the branch is taken: the source is exited before the choice, since every
+// branch leaves it, the segments' effects run in order, and the other branch's
+// target is never entered.
 package Test {
 	private import ScalarValues::*;
 

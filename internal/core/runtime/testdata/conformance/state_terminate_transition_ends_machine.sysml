@@ -1,5 +1,7 @@
-// A transition to a terminate action ends the state machine performance at
-// once: no state is exited, no exit behavior runs, the do behavior is aborted.
+// A transition to a terminate action leaves its source as any transition does
+// (its exit behavior runs), performs its effect, then ends the state machine
+// performance at once: nothing else is exited and the machine's own do behavior
+// is aborted where it waits.
 package test {
 	private import ScalarValues::*;
 
@@ -11,16 +13,17 @@ package test {
 		attribute exits : Integer = 0;
 		attribute effects : Integer = 0;
 
+		do action tick {
+			first start;
+			then action a assign count := 1;
+			then action wait accept Never;
+			then action b assign count := 2;
+			then done;
+		}
+
 		entry; then busy;
 
 		state busy {
-			do action tick {
-				first start;
-				then action a assign count := 1;
-				then action wait accept Never;
-				then action b assign count := 2;
-				then done;
-			}
 			exit action leave {
 				assign exits := 1;
 			}

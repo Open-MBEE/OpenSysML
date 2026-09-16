@@ -1,7 +1,7 @@
 // A transition inside a composite state into a terminate action the composite
-// declares ends the whole machine's performance: neither the substate nor the
-// composite is exited (no exit behavior runs), the composite's do behavior is
-// abandoned where it waits, and the transition's own effect still runs first.
+// declares leaves the substate as any transition does (its exit behavior runs),
+// performs its effect, then ends the whole machine's performance: the composite
+// itself is not exited and its do behavior is abandoned where it waits.
 package Test {
 	private import ScalarValues::*;
 

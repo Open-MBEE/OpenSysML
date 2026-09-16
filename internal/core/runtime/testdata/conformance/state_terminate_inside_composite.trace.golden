@@ -5,9 +5,14 @@ enter action node: state behavior watch
       eval feature log -> "work(entry);inner(entry);"
       eval literal "watch;" -> "watch;"
     eval operator + -> "work(entry);inner(entry);watch;"
+exit: inner (exit action)
 stmt assign log
     eval feature log -> "work(entry);inner(entry);watch;"
+    eval literal "inner(exit);" -> "inner(exit);"
+  eval operator + -> "work(entry);inner(entry);watch;inner(exit);"
+stmt assign log
+    eval feature log -> "work(entry);inner(entry);watch;inner(exit);"
     eval literal "abort(effect);" -> "abort(effect);"
-  eval operator + -> "work(entry);inner(entry);watch;abort(effect);"
+  eval operator + -> "work(entry);inner(entry);watch;inner(exit);abort(effect);"
 transition: inner -> stop (event: accept Abort)
 terminate: stop (do behavior abandoned: work)

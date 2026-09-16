@@ -5,9 +5,14 @@ enter action node: state behavior hold
       eval feature log -> "l1(entry);r1(entry);"
       eval literal "hold;" -> "hold;"
     eval operator + -> "l1(entry);r1(entry);hold;"
+exit: l1 (exit action)
 stmt assign log
     eval feature log -> "l1(entry);r1(entry);hold;"
+    eval literal "l1(exit);" -> "l1(exit);"
+  eval operator + -> "l1(entry);r1(entry);hold;l1(exit);"
+stmt assign log
+    eval feature log -> "l1(entry);r1(entry);hold;l1(exit);"
     eval literal "abort(effect);" -> "abort(effect);"
-  eval operator + -> "l1(entry);r1(entry);hold;abort(effect);"
+  eval operator + -> "l1(entry);r1(entry);hold;l1(exit);abort(effect);"
 transition: l1 -> stop (event: accept Abort)
 terminate: stop (do behavior abandoned: r1)

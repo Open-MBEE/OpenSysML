@@ -1,0 +1,16 @@
+exit: wait (exit action)
+stmt assign log
+    eval feature log -> ""
+    eval literal "wait(exit);" -> "wait(exit);"
+  eval operator + -> "wait(exit);"
+stmt assign log
+    eval feature log -> "wait(exit);"
+    eval literal "start(effect);" -> "start(effect);"
+  eval operator + -> "wait(exit);start(effect);"
+enter: s1 (entry action)
+stmt assign log
+    eval feature log -> "wait(exit);start(effect);"
+    eval literal "s1(entry);" -> "s1(entry);"
+  eval operator + -> "wait(exit);start(effect);s1(entry);"
+transition: wait -> stop (event: accept Start)
+terminate: stop

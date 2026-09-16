@@ -1,0 +1,10 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Start"}],
+	"terminated": true,
+	"stateVisits": ["wait", "s1"],
+	"outputs": {
+		"log": {"type": "String", "value": "wait(exit);start(effect);s1(entry);"}
+	}
+}

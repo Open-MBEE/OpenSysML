@@ -2336,7 +2336,7 @@ func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast
 		return err
 	}
 	if r.terminate != nil {
-		return e.terminateAlong(r, fromName, trans)
+		return e.terminateAt(trans, fromName, r, e.descendantChain(below, e.graph.TerminateOwner[r.terminate]))
 	}
 	if err := e.runEffects(r.effects(e.graph), e.descendantChain(below, r.target)); err != nil {
 		return err
@@ -2362,16 +2362,18 @@ func (e *StateExecutor) defaultHistoryRoute(hist *ast.PseudostateNode, owner *as
 		return route{}, fmt.Errorf("default transition of history %s: %w", hist.Name, err)
 	}
 	for r.choice != nil {
-		targets, terminates, err := e.reachable(r)
+		targets, stops, err := e.reachable(r)
 		if err != nil {
 			return route{}, err
 		}
-		var certain []*ast.StateNode
-		if !terminates {
-			certain = e.certainEntries(targets, func(target *ast.StateNode) []*ast.StateNode {
-				return e.descendantChain(owner, target)
-			})
+		var ends routeEnds
+		for _, target := range targets {
+			ends.entries = append(ends.entries, e.descendantChain(owner, target))
 		}
+		for _, stop := range stops {
+			ends.entries = append(ends.entries, e.descendantChain(owner, e.graph.TerminateOwner[stop]))
+		}
+		certain := ends.certainEntries()
 		if err := e.runEffects(r.effects(e.graph), certain); err != nil {
 			return route{}, err
 		}
@@ -2685,14 +2687,14 @@ func (e *StateExecutor) joinExits(plan *lower.JoinPlan, trans *lower.Transition,
 		for _, region := range e.graph.TopRegions {
 			exited = append(exited, e.regionExitPath(region, nil)...)
 		}
-		beyond, ok := e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(nil, trans, target) })
+		beyond, ok := e.mayExit(r, trans, nil, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(nil, trans, target) })
 		return append(exited, beyond...), ok
 	}
 	if region := e.activeRegionOf(plan.Owner); region != nil {
-		beyond, ok := e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) })
+		beyond, ok := e.mayExit(r, trans, plan.Owner, func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) })
 		return append(exited, beyond...), ok
 	}
-	beyond, ok := e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(plan.Owner, trans, target) })
+	beyond, ok := e.mayExit(r, trans, plan.Owner, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(plan.Owner, trans, target) })
 	return append(exited, beyond...), ok
 }
 
@@ -3427,10 +3429,11 @@ func (e *StateExecutor) exitedBy(candidate dispatchCandidate) ([]*ast.StateNode,
 		return nil, false
 	}
 	if region := e.activeRegionOf(candidate.source); region != nil {
-		return e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) })
+		source := e.activeConfig.regionStates[region]
+		return e.mayExit(r, trans, source, func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) })
 	}
 	origin := e.moveOrigin()
-	return e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(origin, trans, target) })
+	return e.mayExit(r, trans, origin, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(origin, trans, target) })
 }
 
 // exitedInRegion lists the states a transition out of region's active state exits

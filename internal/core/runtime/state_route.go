@@ -347,11 +347,11 @@ func pseudostateWhere(ps *ast.PseudostateNode) string {
 	return fmt.Sprintf("%s %s", ps.Kind, ps.Name)
 }
 
-// reachable lists the states the route open at a choice or a draw can end in:
-// along the route settled beyond each branch of the junction enabled (one that
-// could not be settled ends nowhere), or through every branch of the choice and
-// whatever pseudostates lie beyond, each once.
-func (e *StateExecutor) reachable(r route) (states []*ast.StateNode, terminates bool, err error) {
+// reachable lists the states, and the terminate actions, the route open at a
+// choice or a draw can end at: along the route settled beyond each branch of the
+// junction enabled (one that could not be settled ends nowhere), or through every
+// branch of the choice and whatever pseudostates lie beyond, each once.
+func (e *StateExecutor) reachable(r route) (states []*ast.StateNode, stops []*ast.Usage, err error) {
 	seen := make(map[*ast.PseudostateNode]bool)
 	for _, ps := range r.crossed {
 		seen[ps] = true
@@ -382,7 +382,9 @@ func (e *StateExecutor) reachable(r route) (states []*ast.StateNode, terminates 
 				if !lower.IsTerminateUsage(target) {
 					return fmt.Errorf("%s %s: target must be a state, pseudostate or terminate action, got %T", ps.Kind, ps.Name, branch.Target)
 				}
-				terminates = true
+				if !slices.Contains(stops, target) {
+					stops = append(stops, target)
+				}
 			default:
 				return fmt.Errorf("%s %s: target must be a state, pseudostate or terminate action, got %T", ps.Kind, ps.Name, branch.Target)
 			}
@@ -396,7 +398,9 @@ func (e *StateExecutor) reachable(r route) (states []*ast.StateNode, terminates 
 			return nil
 		}
 		if r.terminate != nil {
-			terminates = true
+			if !slices.Contains(stops, r.terminate) {
+				stops = append(stops, r.terminate)
+			}
 			return nil
 		}
 		if r.draw != nil {
@@ -413,7 +417,32 @@ func (e *StateExecutor) reachable(r route) (states []*ast.StateNode, terminates 
 		return visit(r.choice, e.graph.Transitions[r.choice])
 	}
 	err = settled(r)
-	return states, terminates, err
+	return states, stops, err
+}
+
+// terminateBoundary is the state a move from `from` into stop's owner stays inside
+// of, as moveBoundary finds it for a state target: nil for the machine's body.
+func (e *StateExecutor) terminateBoundary(from *ast.StateNode, trans *lower.Transition, stop *ast.Usage) *ast.StateNode {
+	owner := e.graph.TerminateOwner[stop]
+	if source, isState := trans.Source.(*ast.StateNode); isState && e.encloses(source, owner) {
+		return e.graph.ParentState[source]
+	}
+	if owner == nil || from == nil {
+		return nil
+	}
+	return e.getLCA(from, owner)
+}
+
+// terminateExits lists the states a move from `from` to stop exits, innermost
+// first: those below the boundary, as a move to a state in stop's body would.
+func (e *StateExecutor) terminateExits(from *ast.StateNode, trans *lower.Transition, stop *ast.Usage) []*ast.StateNode {
+	return e.exitPath(from, e.terminateBoundary(from, trans, stop), nil)
+}
+
+// terminateEntries lists the states a move from `from` to stop enters, outermost
+// first: the chain from the boundary down to the state declaring stop.
+func (e *StateExecutor) terminateEntries(from *ast.StateNode, trans *lower.Transition, stop *ast.Usage) []*ast.StateNode {
+	return e.descendantChain(e.terminateBoundary(from, trans, stop), e.graph.TerminateOwner[stop])
 }
 
 // exitPlan lists the states a move to target exits, against the configuration
@@ -424,49 +453,53 @@ type exitPlan func(target *ast.StateNode) []*ast.StateNode
 // the configuration as it stands.
 type entryPlan func(target *ast.StateNode) []*ast.StateNode
 
-// certainExits lists the states a move to every one of the targets exits — in a
-// sibling region as well as above the source — in the order the first target's
-// move leaves them, so they can be left before the branch is known.
-func (e *StateExecutor) certainExits(targets []*ast.StateNode, exits exitPlan) []*ast.StateNode {
-	if len(targets) == 0 {
-		return nil
-	}
-	first := e.expandExits(exits(targets[0]))
-	common := make(map[*ast.StateNode]bool, len(first))
-	for _, state := range first {
-		common[state] = true
-	}
-	for _, target := range targets[1:] {
-		left := make(map[*ast.StateNode]bool)
-		for _, state := range e.expandExits(exits(target)) {
-			left[state] = true
-		}
-		for state := range common {
-			if !left[state] {
-				delete(common, state)
-			}
-		}
-	}
-	certain := make([]*ast.StateNode, 0, len(common))
-	for _, state := range first {
-		if common[state] {
-			certain = append(certain, state)
-		}
-	}
-	return certain
+// routeEnds are the moves to the states and terminate actions the branches
+// beyond a choice may end at: the exits and entries each makes.
+type routeEnds struct {
+	exits   [][]*ast.StateNode
+	entries [][]*ast.StateNode
 }
 
-// certainEntries lists the states a move to every one of the targets enters, in
-// the order the first target's move enters them, before the branch is known.
-func (e *StateExecutor) certainEntries(targets []*ast.StateNode, enters entryPlan) []*ast.StateNode {
-	if len(targets) == 0 {
+// endsOf plans the move to every end the route open at a choice may reach.
+func (e *StateExecutor) endsOf(r route, trans *lower.Transition, from *ast.StateNode, exits exitPlan, enters entryPlan) (routeEnds, error) {
+	targets, stops, err := e.reachable(r)
+	if err != nil {
+		return routeEnds{}, err
+	}
+	var ends routeEnds
+	for _, target := range targets {
+		ends.exits = append(ends.exits, e.expandExits(exits(target)))
+		ends.entries = append(ends.entries, enters(target))
+	}
+	for _, stop := range stops {
+		ends.exits = append(ends.exits, e.expandExits(e.terminateExits(from, trans, stop)))
+		ends.entries = append(ends.entries, e.terminateEntries(from, trans, stop))
+	}
+	return ends, nil
+}
+
+// certainExits lists the states a move to every one of the ends exits — in a
+// sibling region as well as above the source — in the order the first end's
+// move leaves them, so they can be left before the branch is known.
+func (ends routeEnds) certainExits() []*ast.StateNode {
+	return certainStates(ends.exits)
+}
+
+// certainEntries lists the states a move to every one of the ends enters, in
+// the order the first end's move enters them, before the branch is known.
+func (ends routeEnds) certainEntries() []*ast.StateNode {
+	return certainStates(ends.entries)
+}
+
+// certainStates lists the states every list holds, in the first list's order.
+func certainStates(lists [][]*ast.StateNode) []*ast.StateNode {
+	if len(lists) == 0 {
 		return nil
 	}
-	certain := enters(targets[0])
-	for _, target := range targets[1:] {
-		entered := enters(target)
+	certain := slices.Clone(lists[0])
+	for _, other := range lists[1:] {
 		certain = slices.DeleteFunc(certain, func(state *ast.StateNode) bool {
-			return !slices.Contains(entered, state)
+			return !slices.Contains(other, state)
 		})
 	}
 	return certain
@@ -652,19 +685,14 @@ func (e *StateExecutor) travelResolving(trans *lower.Transition, from *ast.State
 		}
 	}
 	for r.choice != nil {
-		targets, terminates, err := e.reachable(r)
+		ends, err := e.endsOf(r, trans, from, exits, enters)
 		if err != nil {
 			return err
 		}
-		// A branch into a terminate action exits and enters nothing, so nothing is certain.
-		var certainExits, certainEntries []*ast.StateNode
-		if !terminates {
-			certainExits = e.certainExits(targets, exits)
-			certainEntries = e.certainEntries(targets, enters)
-		}
-		if err := e.exitAhead(certainExits); err != nil {
+		if err := e.exitAhead(ends.certainExits()); err != nil {
 			return err
 		}
+		certainEntries := ends.certainEntries()
 		if err := e.runEffects(r.effects(e.graph), certainEntries); err != nil {
 			return err
 		}
@@ -678,19 +706,34 @@ func (e *StateExecutor) travelResolving(trans *lower.Transition, from *ast.State
 	}
 	e.noteFired(r.segments...)
 	if r.terminate != nil {
-		return e.terminateAlong(r, StateVertexName(from), trans)
+		return e.terminateAlong(trans, from, r)
 	}
 	return move(r.effects(e.graph), r.target)
 }
 
-// terminateAlong ends the machine's performance at the terminate action the route
-// reaches (SysML v2 §7.18.3): its effects run, then no state is exited and no exit
-// behavior runs; the running do behaviors are abandoned where they stand. The
-// trace names the move from fromName by trans, the compound transition's trigger.
-func (e *StateExecutor) terminateAlong(r route, fromName string, trans *lower.Transition) error {
-	if err := e.runEffects(r.effects(e.graph), nil); err != nil {
+// terminateAlong finishes a transition at the terminate action its route reaches
+// (SysML v2 §7.18.3): the states the move leaves are exited and the ones down to
+// the action's owner entered, as for a state beside it, then the machine ends.
+func (e *StateExecutor) terminateAlong(trans *lower.Transition, from *ast.StateNode, r route) error {
+	if err := e.exitStates(e.terminateExits(from, trans, r.terminate)); err != nil {
 		return err
 	}
+	return e.terminateAt(trans, StateVertexName(from), r, e.terminateEntries(from, trans, r.terminate))
+}
+
+// terminateAt ends the machine's performance at the terminate action r reaches,
+// the move's exits done: the effects run entering the chain down to the action's
+// owner, then no further state is exited, no exit behavior runs, and the do
+// behaviors still under way are abandoned where they stand.
+func (e *StateExecutor) terminateAt(trans *lower.Transition, fromName string, r route, entering []*ast.StateNode) error {
+	if err := e.runEffects(r.effects(e.graph), entering); err != nil {
+		return err
+	}
+	if err := e.enterAhead(entering); err != nil {
+		return err
+	}
+	// The machine ends here: the entries made ahead are the move's own.
+	clear(e.enteredAhead)
 	return e.terminateMachine(fromName, trans.Trigger, r.terminate)
 }
 
@@ -704,26 +747,32 @@ func (e *StateExecutor) runBehaviors(effects []lower.StateBehavior) error {
 	return nil
 }
 
-// mayExit lists the states a compound transition along r may leave, whichever
-// state it can end at; false where the route cannot be followed.
-func (e *StateExecutor) mayExit(r route, exits exitPlan) ([]*ast.StateNode, bool) {
+// mayExit lists the states a compound transition along r from `from` may leave,
+// whichever end it can reach; false where the route cannot be followed.
+func (e *StateExecutor) mayExit(r route, trans *lower.Transition, from *ast.StateNode, exits exitPlan) ([]*ast.StateNode, bool) {
 	if r.target != nil {
 		return exits(r.target), true
 	}
 	if r.terminate != nil {
-		return nil, true
+		return e.terminateExits(from, trans, r.terminate), true
 	}
-	targets, _, err := e.reachable(r)
+	targets, stops, err := e.reachable(r)
 	if err != nil {
 		return nil, false
 	}
 	var states []*ast.StateNode
-	for _, target := range targets {
-		for _, state := range exits(target) {
+	add := func(exited []*ast.StateNode) {
+		for _, state := range exited {
 			if !slices.Contains(states, state) {
 				states = append(states, state)
 			}
 		}
+	}
+	for _, target := range targets {
+		add(exits(target))
+	}
+	for _, stop := range stops {
+		add(e.terminateExits(from, trans, stop))
 	}
 	return states, true
 }
