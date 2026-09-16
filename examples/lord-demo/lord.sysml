@@ -2142,6 +2142,7 @@ package LordOdds {
 
         require constraint { attacker.alive and attacker.playerFightsLeft > 0 }
         require constraint { sleeper.alive }
+        require constraint { attacker != sleeper }
         require constraint { not sleeper.innRoom or (attacker.bribed and sleeper.level >= attacker.level - 1) }
     }
 
