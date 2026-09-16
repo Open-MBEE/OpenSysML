@@ -439,8 +439,8 @@ func (s *scheduler) choose(c ChoicePoint, whereOf func(i int) string) int {
 
 // chooseWeighted resolves a decision whose branches carry weights, setting
 // c.Taken and the draw: a weighted draw where the model can draw, the most probable
-// branch under an unseeded declared or reverse run; the exploration, the witness
-// and the checker keep resolving it as they do every branch choice.
+// branch under an unseeded declared or reverse run, the witness's move, weighed and
+// drawn as the run weighs it; the exploration and the checker resolve it as every branch.
 func (s *scheduler) chooseWeighted(c *ChoicePoint) error {
 	n := len(c.Alternatives)
 	if n < 2 || len(c.Weights) != n {
@@ -457,7 +457,7 @@ func (s *scheduler) chooseWeighted(c *ChoicePoint) error {
 		return nil
 	case scheduleReplay:
 		if s.replaying() {
-			c.Taken = s.choose(*c, nil)
+			c.Taken = s.replay.chooseWeighted(c)
 			return nil
 		}
 	}

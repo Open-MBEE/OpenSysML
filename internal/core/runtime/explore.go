@@ -83,15 +83,20 @@ func (c ChoiceTaken) weightedTail() string {
 	if !c.Weighted() || len(c.Among) != len(c.Weights) {
 		return ""
 	}
-	parts := make([]string, len(c.Among))
-	for i, alt := range c.Among {
-		parts[i] = choiceLabel(alt) + markWeight + formatWeight(c.Weights[i])
-	}
-	tail := markAmong + strings.Join(parts, markList)
+	tail := markAmong + weightedLabels(c.Among, c.Weights)
 	if c.Drawn {
 		tail += markDrew + formatWeight(c.Drew)
 	}
 	return tail
+}
+
+// weightedLabels spells the alternatives with their weights, `<alt> p=<w>, …`.
+func weightedLabels(among []string, weights []float64) string {
+	parts := make([]string, len(among))
+	for i, alt := range among {
+		parts[i] = choiceLabel(alt) + markWeight + formatWeight(weights[i])
+	}
+	return strings.Join(parts, markList)
 }
 
 // FormatChoices renders a witness as one line, its choices in run order.

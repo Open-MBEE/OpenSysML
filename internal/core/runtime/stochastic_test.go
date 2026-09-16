@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -893,6 +894,96 @@ func TestReplayFollowsTheRecordedWeightedBranch(t *testing.T) {
 		if choices := replay.Choices(); len(choices) != 1 || choices[0].Drawn {
 			t.Errorf("the replay drew a branch: %v", choices)
 		}
+	}
+}
+
+// A weighted witness is followed only where it fits the decision the run faces: the
+// same branches weighed the same, and a recorded draw that selects the branch it took.
+// One weighed otherwise, drawn impossibly, or drawn for the other branch is refused
+// as a stale witness is, whatever the model seed would draw.
+func TestReplayRefusesAWeightedMoveTheDecisionDoesNotFit(t *testing.T) {
+	m := parseLibraryModel(t, weightedRouteModel)
+	ctx, _, err := runAction(t, m, "route", "declared", 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	good := ctx.ChoicesTaken()
+	if len(good) != 1 || !good[0].Drawn || good[0].Took != "2->fast" {
+		t.Fatalf("seed 7 recorded %v, want one drawn choice of 2->fast", FormatChoices(good))
+	}
+	replayOf := func(w ChoiceTaken) error {
+		replay, _ := m.fresh()
+		mustSchedule(t, replay, ReplayOf(Witness{Choices: []ChoiceTaken{w}}))
+		replay.SetModelSeed(7)
+		if _, err := replay.ExecuteAction(m.action(t, "route")); err != nil {
+			return err
+		}
+		return replay.Unfollowed()
+	}
+	if err := replayOf(good[0]); err != nil {
+		t.Fatalf("the run's own witness is refused: %v", err)
+	}
+	reweighed := func(alter func(w *ChoiceTaken)) ChoiceTaken {
+		w := good[0]
+		w.Among, w.Weights = slices.Clone(w.Among), slices.Clone(w.Weights)
+		alter(&w)
+		return w
+	}
+	cases := []struct {
+		name  string
+		move  ChoiceTaken
+		faced string
+	}{
+		{"a weight changed", reweighed(func(w *ChoiceTaken) { w.Weights[0], w.Weights[1] = 0.6, 0.4 }), "1->slow weighs p=0.3, not p=0.6"},
+		{"a branch fewer", reweighed(func(w *ChoiceTaken) {
+			w.Among, w.Weights, w.Alternatives, w.Taken = w.Among[1:], w.Weights[1:], 1, 0
+		}), "the run's decision weighs every branch: 1->slow p=0.3, 2->fast p=0.7"},
+		{"no weights recorded", reweighed(func(w *ChoiceTaken) { w.Weights, w.Drawn = nil, false }), "the run's decision weighs every branch"},
+		{"a draw of one", reweighed(func(w *ChoiceTaken) { w.Drew = 1 }), "the draw 1 is no unit draw in [0, 1)"},
+		{"a negative draw", reweighed(func(w *ChoiceTaken) { w.Drew = -0.5 }), "the draw -0.5 is no unit draw in [0, 1)"},
+		{"a draw that is not a number", reweighed(func(w *ChoiceTaken) { w.Drew = math.NaN() }), "is no unit draw in [0, 1)"},
+		{"a draw selecting the other branch", reweighed(func(w *ChoiceTaken) { w.Drew = 0.1 }), "the draw 0.1 selects 1->slow, not 2->fast"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := replayOf(c.move)
+			var refused *ReplayError
+			if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) {
+				t.Fatalf("error %T %v, want a ReplayError", err, err)
+			}
+			if refused.Move != 1 || !strings.Contains(err.Error(), c.faced) {
+				t.Errorf("error %q, want move 1 refused as %q", err, c.faced)
+			}
+		})
+	}
+	unweighted, err := ParseChoices(fmt.Sprintf("step %d: decision select -> 1->slow", good[0].Step))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = replayOf(unweighted[0]); !errors.Is(err, ErrReplayRefused) || !strings.Contains(err.Error(), "the run's decision weighs every branch") {
+		t.Fatalf("an unweighted move at the weighted decision: %v, want it refused", err)
+	}
+}
+
+// A replayed weighted move carries the witness's draw, so the replay's own witness
+// reads as the run's did.
+func TestReplayCarriesTheWitnessedDraw(t *testing.T) {
+	m := parseLibraryModel(t, weightedRouteModel)
+	ctx, _, err := runAction(t, m, "route", "declared", 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := Witness{Choices: ctx.ChoicesTaken()}
+	replay, _ := m.fresh()
+	mustSchedule(t, replay, ReplayOf(w))
+	if _, err := replay.ExecuteAction(m.action(t, "route")); err != nil {
+		t.Fatal(err)
+	}
+	if err := replay.Unfollowed(); err != nil {
+		t.Fatal(err)
+	}
+	if again := FormatChoices(replay.ChoicesTaken()); again != FormatChoices(w.Choices) {
+		t.Errorf("the replay recorded %s, want the witness %s", again, FormatChoices(w.Choices))
 	}
 }
 

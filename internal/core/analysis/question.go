@@ -121,6 +121,24 @@ type ModelSeed struct {
 	Set  bool
 }
 
+// apply gives ctx the seed where one is set; otherwise ctx keeps leaving its draws to the schedule.
+func (s ModelSeed) apply(ctx *runtime.Context) {
+	if s.Set {
+		ctx.SetModelSeed(s.Seed)
+	}
+}
+
+// fresh is a context of a run's own on the plan's worker for job, under the budget as
+// Model.NewContextOn takes it, drawing from the question's model seed where one is set.
+func (q Question) fresh(model *Model, job int, budget Budget) (*runtime.Context, error) {
+	ctx, err := model.NewContextOn(job, budget)
+	if err != nil {
+		return nil, err
+	}
+	q.ModelSeed.apply(ctx)
+	return ctx, nil
+}
+
 // ModelSeedOf is the model seed set on ctx, none when ctx is nil or has none.
 func ModelSeedOf(ctx *runtime.Context) ModelSeed {
 	if ctx == nil {

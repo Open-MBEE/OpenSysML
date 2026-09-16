@@ -128,7 +128,7 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 	if !model.builds() {
 		return Result{}, &NoRuntimeError{Engine: e.Name()}
 	}
-	fresh := func() (*runtime.Context, error) { return model.NewContextOn(0, budget) }
+	fresh := func() (*runtime.Context, error) { return q.fresh(model, 0, budget) }
 	started := time.Now()
 	if budget.Depth <= 0 {
 		budget.Depth = DefaultCheckDepth
@@ -273,7 +273,7 @@ func (e checkEngine) replayed(ctx context.Context, model *Model, q Question, bud
 		wg.Add(1)
 		go func(job int) {
 			defer wg.Done()
-			fresh := func() (*runtime.Context, error) { return model.NewContextOn(job, budget) }
+			fresh := func() (*runtime.Context, error) { return q.fresh(model, job, budget) }
 			for i := job; i < len(witnesses); i += jobs {
 				errs[i] = e.replayOne(ctx, fresh, q, witnesses[i])
 			}

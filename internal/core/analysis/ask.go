@@ -207,7 +207,7 @@ func leavesInputsUnbound(req Request, holds *HoldsAsk) bool {
 	if holds == nil || holds.Start == nil || !req.Model.builds() {
 		return false
 	}
-	ctx, err := req.Model.NewContextOn(0, req.Budget)
+	ctx, err := Question{ModelSeed: req.ModelSeed}.fresh(req.Model, 0, req.Budget)
 	if err != nil {
 		return false
 	}

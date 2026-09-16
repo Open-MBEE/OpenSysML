@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"regexp"
 	"slices"
 	"strconv"
@@ -1155,8 +1156,58 @@ func (r *replayRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 		r.refuse(fmt.Sprintf("%s is not enabled (enabled: %s)", w.Took, alts))
 		return 0
 	}
+	if (w.Weighted() || c.Weighted()) && !r.weighedAlike(w, c, taken) {
+		return 0
+	}
 	r.next++
 	return taken
+}
+
+// chooseWeighted follows the witness's move at a weighted decision, the run's choice
+// carrying the draw the witness records where one selected the branch.
+func (r *replayRun) chooseWeighted(c *ChoicePoint) int {
+	w, unbound := r.current()
+	taken := r.choose(*c, nil)
+	if unbound == nil && r.refused == nil && w.Drawn {
+		c.Drew, c.Drawn = w.Drew, true
+	}
+	return taken
+}
+
+// weighedAlike reports whether the witness's weighted move w fits the decision the run
+// faces: the same branches weighed the same, and a recorded draw that selects the branch
+// taken; a move that does not fit is refused.
+func (r *replayRun) weighedAlike(w ChoiceTaken, c ChoicePoint, taken int) bool {
+	if !c.Weighted() {
+		r.refuse("the run's decision weighs no branch")
+		return false
+	}
+	if !w.Weighted() || len(w.Among) != len(c.Alternatives) {
+		r.refuse("the run's decision weighs every branch: " + weightedLabels(c.Alternatives, c.Weights))
+		return false
+	}
+	for i, alt := range w.Among {
+		if got := c.Weights[slices.Index(c.Alternatives, alt)]; got != w.Weights[i] {
+			r.refuse(fmt.Sprintf("%s weighs p=%s, not p=%s", choiceLabel(alt), formatWeight(got), formatWeight(w.Weights[i])))
+			return false
+		}
+	}
+	if !w.Drawn {
+		return true
+	}
+	if math.IsNaN(w.Drew) || w.Drew < 0 || w.Drew >= 1 {
+		r.refuse(fmt.Sprintf("the draw %s is no unit draw in [0, 1)", formatWeight(w.Drew)))
+		return false
+	}
+	total := 0.0
+	for _, weight := range c.Weights {
+		total += weight
+	}
+	if pick := weightedPick(c.Weights, total, w.Drew); pick != taken {
+		r.refuse(fmt.Sprintf("the draw %s selects %s, not %s", formatWeight(w.Drew), choiceLabel(c.Alternatives[pick]), choiceLabel(w.Took)))
+		return false
+	}
+	return true
 }
 
 // mark returns what a probe restores: the run's position in the witness and the

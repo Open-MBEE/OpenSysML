@@ -949,7 +949,12 @@ unfollowable move is, when a draw is missing (the run draws once more than the f
 over (the file recorded a draw the run never made), made by another call than the one recorded
 (`uniform(1, 80)` where the file says `uniform(0.0, 10.0)`), or written as no value the call can
 draw (`draw uniform(0.0, 1.0) = 2.0`: outside the bounds, of the wrong kind, off the mean of a
-`normal` with zero deviation). A replay's rollback — a probe the checker makes, a `%step` taken back — restores the
+`normal` with zero deviation). A weighted choice line is followed only where it fits the decision
+the run faces: the same branches weighed the same as the model now weighs them, and a recorded
+draw that is a unit draw in `[0, 1)` selecting the branch the line took — a line that weighs a
+branch otherwise, lists another set of branches, or records a draw that would select the other
+branch (`… 2->slow … drew 0.1` where `1->fast p=0.7` comes first) is refused naming what the run
+faced. A replay's rollback — a probe the checker makes, a `%step` taken back — restores the
 draw position with the choice position, so a run stepped and re-stepped consumes each draw once.
 
 ### Under `explore` and `check`
