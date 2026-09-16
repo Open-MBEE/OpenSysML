@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/xmi"
 )
 
 // The names the suite's shared architecture gives its base classes and the
@@ -34,7 +36,7 @@ var alfStatement = regexp.MustCompile(`^(\d+):`)
 // cross regions, and its redefining machines reference vertices of the machines
 // they extend.
 type reader struct {
-	doc       *Document
+	doc       *xmi.Document
 	suite     *Suite
 	classes   map[string]*Class // by xmi:id
 	machines  map[string]*StateMachine
@@ -61,7 +63,7 @@ func ReadFile(path string) (*Suite, error) {
 // is an error; anything the reader cannot interpret inside a well-formed
 // document is a diagnostic on the suite or the test concerned.
 func Read(src io.Reader) (*Suite, error) {
-	doc, err := Parse(src)
+	doc, err := xmi.Parse(src)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +71,7 @@ func Read(src io.Reader) (*Suite, error) {
 }
 
 // ReadDocument reads the suite a parsed document contains.
-func ReadDocument(doc *Document) (*Suite, error) {
+func ReadDocument(doc *xmi.Document) (*Suite, error) {
 	r := &reader{
 		doc:       doc,
 		suite:     &Suite{Signals: make(map[string]*Signal)},
@@ -94,14 +96,14 @@ func ReadDocument(doc *Document) (*Suite, error) {
 	return r.suite, nil
 }
 
-func (r *reader) diag(e *Element, format string, args ...any) {
+func (r *reader) diag(e *xmi.Element, format string, args ...any) {
 	r.suite.Diagnostics = append(r.suite.Diagnostics, Diagnostic{Element: e.Describe(), Message: fmt.Sprintf(format, args...)})
 }
 
 // typed lists every element of the given xmi:type in document order.
-func (r *reader) typed(types ...string) []*Element {
-	var out []*Element
-	r.doc.Root.Walk(func(e *Element) bool {
+func (r *reader) typed(types ...string) []*xmi.Element {
+	var out []*xmi.Element
+	r.doc.Root.Walk(func(e *xmi.Element) bool {
 		for _, t := range types {
 			if e.Type == t {
 				out = append(out, e)
@@ -125,7 +127,7 @@ func (r *reader) readSignals() {
 	}
 }
 
-func (r *reader) readAttributes(owner *Element) []Attribute {
+func (r *reader) readAttributes(owner *xmi.Element) []Attribute {
 	var out []Attribute
 	for _, p := range owner.Tagged("ownedAttribute") {
 		if p.Type != "uml:Property" && p.Type != "" {
@@ -149,7 +151,7 @@ func (r *reader) readAttributes(owner *Element) []Attribute {
 
 // typeName names a typed element's type: a primitive by the fragment of its
 // href, a document element by its name.
-func (r *reader) typeName(e *Element) string {
+func (r *reader) typeName(e *xmi.Element) string {
 	if t := e.First("type"); t != nil {
 		if href := t.Href(); href != "" {
 			if strings.HasPrefix(href, primitiveTypes) {
@@ -173,7 +175,7 @@ func (r *reader) typeName(e *Element) string {
 	return ""
 }
 
-func (r *reader) readParams(owner *Element) []Param {
+func (r *reader) readParams(owner *xmi.Element) []Param {
 	var out []Param
 	for _, p := range owner.Tagged("ownedParameter") {
 		dir := p.Attr("direction")
@@ -203,7 +205,7 @@ func (r *reader) readOperations() {
 }
 
 // behavior reads a behavior element once and memoizes it.
-func (r *reader) behavior(e *Element) *Behavior {
+func (r *reader) behavior(e *xmi.Element) *Behavior {
 	if e == nil {
 		return nil
 	}
@@ -233,7 +235,7 @@ func (r *reader) behavior(e *Element) *Behavior {
 
 // readOpaque reads the body/language pairs of an opaque behavior or
 // expression; the suite writes one body per element.
-func readOpaque(e *Element) *OpaqueText {
+func readOpaque(e *xmi.Element) *OpaqueText {
 	bodies := e.Tagged("body")
 	langs := e.Tagged("language")
 	if len(bodies) == 0 {
@@ -247,7 +249,7 @@ func readOpaque(e *Element) *OpaqueText {
 }
 
 // readEvent resolves a trigger's event reference.
-func (r *reader) readEvent(id string, at *Element) *Event {
+func (r *reader) readEvent(id string, at *xmi.Element) *Event {
 	if ev, ok := r.events[id]; ok {
 		return ev
 	}
@@ -312,7 +314,7 @@ func (r *reader) nameOf(id string) string {
 	return id
 }
 
-func comments(e *Element) []string {
+func comments(e *xmi.Element) []string {
 	var out []string
 	for _, c := range e.Tagged("ownedComment") {
 		if body := c.Attr("body"); body != "" {
@@ -322,7 +324,7 @@ func comments(e *Element) []string {
 	return out
 }
 
-func (r *reader) readRegion(e *Element, owner *Vertex) *Region {
+func (r *reader) readRegion(e *xmi.Element, owner *Vertex) *Region {
 	reg := &Region{ID: e.ID, Name: e.Name(), owner: owner, Comments: comments(e)}
 	if id := e.Ref("extendedRegion"); id != "" {
 		reg.ExtendedRegion = r.nameOf(id)
@@ -348,7 +350,7 @@ var pseudostateKinds = map[string]VertexKind{
 	"terminate":      VertexTerminate,
 }
 
-func (r *reader) readVertex(e *Element, region *Region) *Vertex {
+func (r *reader) readVertex(e *xmi.Element, region *Region) *Vertex {
 	v := &Vertex{ID: e.ID, Name: e.Name(), Region: region, Comments: comments(e)}
 	switch e.Type {
 	case "uml:State":
@@ -437,7 +439,7 @@ func (r *reader) readTransitions() {
 }
 
 // readGuard reads a transition's guard constraint, whichever way it is written.
-func (r *reader) readGuard(t *Element) *Guard {
+func (r *reader) readGuard(t *xmi.Element) *Guard {
 	id := t.Ref("guard")
 	if id == "" {
 		return nil
@@ -577,8 +579,8 @@ func (r *reader) readRegistrations() {
 
 // registrationStatements are the numbered Alf statement nodes of a registration
 // activity's body, in statement order.
-func registrationStatements(body *Element) []*Element {
-	var statements []*Element
+func registrationStatements(body *xmi.Element) []*xmi.Element {
+	var statements []*xmi.Element
 	for _, n := range body.Tagged("node") {
 		if alfStatement.MatchString(n.Name()) {
 			statements = append(statements, n)
@@ -592,9 +594,9 @@ func registrationStatements(body *Element) []*Element {
 
 // createdTest reads a statement creating a semantic test, recording every
 // element inside it in created; nil when the statement creates none.
-func (r *reader) createdTest(st *Element, area string, created map[string]*Test) *Test {
+func (r *reader) createdTest(st *xmi.Element, area string, created map[string]*Test) *Test {
 	var test *Test
-	st.Walk(func(e *Element) bool {
+	st.Walk(func(e *xmi.Element) bool {
 		if e.Type != "uml:CreateObjectAction" {
 			return true
 		}
@@ -608,7 +610,7 @@ func (r *reader) createdTest(st *Element, area string, created map[string]*Test)
 	if test == nil {
 		return nil
 	}
-	st.Walk(func(e *Element) bool {
+	st.Walk(func(e *xmi.Element) bool {
 		if e.ID != "" {
 			created[e.ID] = test
 		}
@@ -619,9 +621,9 @@ func (r *reader) createdTest(st *Element, area string, created map[string]*Test)
 
 // readRegistrationWrite reads a statement writing a test's name or expected
 // trace into the test the statement is fed from.
-func (r *reader) readRegistrationWrite(st, act *Element, created map[string]*Test) {
-	var write *Element
-	st.Walk(func(e *Element) bool {
+func (r *reader) readRegistrationWrite(st, act *xmi.Element, created map[string]*Test) {
+	var write *xmi.Element
+	st.Walk(func(e *xmi.Element) bool {
 		if e.Type == "uml:AddStructuralFeatureValueAction" {
 			write = e
 			return false
@@ -641,7 +643,7 @@ func (r *reader) readRegistrationWrite(st, act *Element, created map[string]*Tes
 		return
 	}
 	var literals []string
-	st.Walk(func(e *Element) bool {
+	st.Walk(func(e *xmi.Element) bool {
 		if e.Type == "uml:LiteralString" {
 			literals = append(literals, e.Attr("value"))
 		}
@@ -658,7 +660,7 @@ func (r *reader) readRegistrationWrite(st, act *Element, created map[string]*Tes
 	}
 }
 
-func statementIndex(e *Element) int {
+func statementIndex(e *xmi.Element) int {
 	m := alfStatement.FindStringSubmatch(e.Name())
 	n, _ := strconv.Atoi(m[1])
 	return n
@@ -666,7 +668,7 @@ func statementIndex(e *Element) int {
 
 // testFedInto finds the test whose creating statement feeds an object flow into
 // the given statement.
-func (r *reader) testFedInto(st *Element, created map[string]*Test) *Test {
+func (r *reader) testFedInto(st *xmi.Element, created map[string]*Test) *Test {
 	var found *Test
 	body := st.Parent
 	for _, edge := range body.Tagged("edge") {

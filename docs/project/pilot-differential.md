@@ -209,7 +209,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 378 files)
+## Results (pilot `2026-08`, 379 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -218,9 +218,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
 | `testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 43 | 29 | 13 | 1320 | 4 | 2 | 7 | 1314 |
+| `examples` | 44 | 30 | 13 | 1320 | 4 | 2 | 7 | 1314 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **378** | **346** | **79** | **1375** | **38** | **3** | **38** | **1334** |
+| **Total** | **379** | **347** | **79** | **1375** | **38** | **3** | **38** | **1334** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -256,7 +256,7 @@ changing what it detects.
 twelve forest levels and the dragon, the three skill guilds, the inn's rooms, bribes, gems and
 sweethearts, the slaughter of other warriors, the fairies, the Old Hag, the Dark Cloak Tavern
 and the daily happenings, each an executable action the state machine's transitions perform.
-No file is added, so files stay at **43** on the root and **378** overall. The model half (the
+No file is added, so files stay at **44** on the root and **379** overall. The model half (the
 `Lord`, `LordPlay` and `LordOdds` packages) still draws no row on either side. The document
 half (`LordViews`) grows from four queries to eleven — one per shop, master list, sweetheart's
 favours and forest level — and draws **149** pilot-only diagnostics on **120** line-and-category
@@ -272,17 +272,40 @@ typed by the unresolved `Paragraph` and `Table`, and 5 `Must be an accessible fe
 notation for nesting)` on the `Lord::Weapon::name`-style column expressions inside the
 unresolved `Column` invocations; and 8 `Bound features should have conforming types` warnings
 on the bindings to the document parts. The file stays not fully agreeing, and fully agreeing
-stays at **346** (29 on the root). Pilot diagnostics rise 1288 → **1375** and only-pilot
+stays at **347** (30 on the root). Pilot diagnostics rise 1288 → **1375** and only-pilot
 1247 → **1334**; only-ours, our diagnostics, agreed and severity-only do not move, and no
 per-file ratchet count outside this file moves.
 
 | Count | Before | Now |
 |---|---:|---:|
-| files | 378 | **378** |
+| files | 379 | **379** |
 | only pilot | 1247 | **1334** |
 | pilot diagnostics | 1288 | **1375** |
 | `examples`: only pilot | 1227 | **1314** |
 | `examples`: `kind-mismatch` / `unresolved-reference`, only pilot | 565 / 633 | **590 / 695** |
+
+### Spacecraft downlink example round
+
+`examples/runtime-showcase/spacecraft-comms.sysml` is one file added to the `examples` root:
+files 43 → **44** on the root, 378 → **379** overall. It is the OpenSE Cookbook's Spacecraft
+Example re-spelled in current SysML v2 — a ground station and a spacecraft on a
+`CommunicationLink` interface, a `parallel` state machine whose regions send frames, drain the
+battery and recharge it on a change trigger, and a `BatteryLow` signal that interrupts the
+transmission — and it is silent on both sides, taking `fully agreeing` 346 → **347** (29 → **30**
+on the root). No diagnostic count moves.
+
+The example was written to the pilot's grammar where the two differ. A succession between two
+named action nodes is `succession first split then consumePower;` — the keyword-less-`first`
+form `succession split then consumePower;` we also accept is a production the pilot has only in
+KerML (`succession a then b;` in `Connectors.kerml`); its SysML `SuccessionAsUsage` requires
+`first`, and without it the pilot parses the rest of the state body as a cascade of syntax errors
+and `Duplicate of other owned member name` warnings.
+
+| Count | Before | Now |
+|---|---:|---:|
+| files | 378 | **379** |
+| overall: fully agreeing | 346 | **347** |
+| `examples`: fully agreeing | 29 | **30** |
 
 ### Legend of the Red Dragon example round
 
@@ -973,7 +996,7 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **346 / 38 / 79** |
+| overall: fully agreeing / only ours / our diagnostics | **347 / 38 / 79** |
 | only pilot | **1334** |
 | pilot diagnostics | **1375** |
 | severity-only | **3** |
