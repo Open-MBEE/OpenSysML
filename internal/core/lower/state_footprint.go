@@ -159,21 +159,7 @@ func (b *stateFootprintBuilder) pseudostate(source *ast.StateNode, seg *Transiti
 			}
 		}
 	case ast.PseudostateJoin:
-		if owner := b.graph.PseudostateOwner[ps]; owner != nil {
-			b.exits(owner)
-		}
-		// Firing the join runs the effects of every incoming segment, not just seg's.
-		for _, incoming := range b.graph.incomingTo(ps) {
-			if incoming == seg {
-				continue
-			}
-			for _, effect := range incoming.Effect {
-				b.statements(effect.Body)
-			}
-		}
-		for _, branch := range b.graph.Transitions[ps] {
-			b.segment(source, branch)
-		}
+		b.join(source, seg, ps)
 	case ast.PseudostateShallowHistory, ast.PseudostateDeepHistory:
 		owner := b.graph.PseudostateOwner[ps]
 		if owner == nil {
@@ -184,6 +170,45 @@ func (b *stateFootprintBuilder) pseudostate(source *ast.StateNode, seg *Transiti
 		b.enters(owner)
 	default:
 		b.footprint.Dynamic = true
+	}
+}
+
+// join adds what firing the join does: it synchronizes on every other incoming
+// segment — its source's activity, trigger and guard read — then fires them all,
+// each leaving its source and the states up to the owner, its effect run, and
+// leaves the owner (every region of the machine when the machine's are joined)
+// on the way out along the join's outgoing route.
+func (b *stateFootprintBuilder) join(source *ast.StateNode, seg *Transition, join *ast.PseudostateNode) {
+	plan := b.graph.JoinPlans[join]
+	if plan == nil {
+		b.footprint.Dynamic = true
+		return
+	}
+	for _, incoming := range b.graph.incomingTo(join) {
+		incomingSource := incoming.Source.(*ast.StateNode)
+		if incoming != seg {
+			b.read(b.graph.activity(incomingSource))
+			b.trigger(incoming)
+			b.reads(incoming.BodyScope, incoming.Guard)
+			for _, effect := range incoming.Effect {
+				b.statements(effect.Body)
+			}
+		}
+		for state := incomingSource; state != nil && state != plan.Owner; state = b.graph.ParentState[state] {
+			b.exits(state)
+		}
+	}
+	from := plan.Owner
+	if from == nil {
+		from = source
+		for _, region := range b.graph.TopRegions {
+			b.exitsRegion(nil, region)
+		}
+	} else {
+		b.exits(from)
+	}
+	for _, branch := range b.graph.Transitions[join] {
+		b.segment(from, branch)
 	}
 }
 
@@ -245,6 +270,20 @@ func (b *stateFootprintBuilder) entersBelow(state *ast.StateNode) {
 	for _, child := range b.graph.children(state) {
 		b.enters(child)
 		b.entersBelow(child)
+	}
+}
+
+// exitsRegion adds every state a region of owner may be left in: the graph-only
+// state standing for the region, or the states it declares, and all below them.
+func (b *stateFootprintBuilder) exitsRegion(owner *ast.StateNode, region *ast.StateRegion) {
+	if wrapper := b.graph.RegionState[region]; wrapper != nil {
+		b.exits(wrapper)
+		return
+	}
+	for _, child := range b.graph.children(owner) {
+		if b.graph.RegionOf[child] == region {
+			b.exits(child)
+		}
 	}
 }
 
