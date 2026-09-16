@@ -256,7 +256,9 @@ view is picked, or a document it imports is edited. The panel numbers every
 drawing it posts to the webview, every message the webview sends back that names
 a node — an action, a placement, a click that reveals a declaration — carries the
 number of the drawing its ids came from, and one whose number is not the current
-drawing's is refused before its ids are resolved, with the same message.
+drawing's is refused before its ids are resolved, with the same message. An action
+that prompts — a rename's input box, a move's destination pick — is checked again
+once the prompt closes, since the drawing can be replaced while it is open.
 The webview takes a drawing's number only once it has drawn it: a drawing that
 fails to draw leaves the last one up, dimmed, and the last one's number with it, so
 an action taken on what is still shown is refused rather than resolved against the

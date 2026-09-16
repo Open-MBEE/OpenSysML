@@ -470,7 +470,8 @@ class DiagramPanel {
   }
 
   // edit applies a diagram action as a workspace edit, so it is undone like typing; the redraw
-  // comes from the server's renderChanged. The action's ids name only the rendering it was offered on.
+  // comes from the server's renderChanged. The action's ids name only the rendering it was offered
+  // on, so the drawing is checked again after any prompt the action held open.
   private async edit(action: EditAction, drawn: number): Promise<void> {
     const rendering = this.rendering;
     if (!offeredOn(this.drawn, drawn)) {
@@ -479,6 +480,10 @@ class DiagramPanel {
     }
     const operations = await this.operationsFor(rendering, action);
     if (!operations) {
+      return;
+    }
+    if (!offeredOn(this.drawn, drawn)) {
+      void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
       return;
     }
     await this.apply(rendering, operations, action);
