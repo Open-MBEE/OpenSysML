@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/big"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -72,18 +73,16 @@ func RunNumber(bindings []SweepBinding) (int64, bool) {
 	return 0, false
 }
 
-// Distribution summarises the numbers one observable took over the runs of a
-// Monte Carlo: their extremes and mean, the nearest-rank median and 90th
-// percentile, and a histogram of at most HistogramBins equal-width bins.
-// Integral marks a distribution of whole numbers, whose bins cover whole numbers.
+// Distribution summarises one observable over the runs of a Monte Carlo: extremes,
+// mean, nearest-rank p50/p90 and a histogram, exact on Integers save the Real mean.
 type Distribution struct {
 	Count     int
 	Integral  bool
-	Min       float64
+	Min       semantics.Value
 	Mean      float64
-	Max       float64
-	P50       float64
-	P90       float64
+	Max       semantics.Value
+	P50       semantics.Value
+	P90       semantics.Value
 	Histogram []HistogramBin
 }
 
@@ -91,48 +90,82 @@ type Distribution struct {
 // numbers from Lo up to Hi, Hi included in the last bin and in every bin of an
 // integral distribution.
 type HistogramBin struct {
-	Lo, Hi float64
+	Lo, Hi semantics.Value
 	Count  int
 }
 
 // HistogramBins is the most bins a histogram has.
 const HistogramBins = 8
 
-// Distribute summarises values, whose order does not matter; nil for none. The
-// percentiles are nearest-rank: the k-th smallest for k = ⌈p·n⌉, so each is a value
-// some run took. A histogram over one value is one bin; over several its bins cut
-// the range equally, the last taking the maximum. integral bins whole numbers by
-// whole widths, one number per bin when the range allows.
-func Distribute(values []float64, integral bool) *Distribution {
-	if len(values) == 0 {
+// Distribute summarises numbers in any order, nil for none: all Integers make an
+// integral distribution computed on int64, a Real among them one over Reals.
+func Distribute(numbers []semantics.Value) *Distribution {
+	if len(numbers) == 0 {
 		return nil
 	}
+	ints := make([]int64, 0, len(numbers))
+	for _, v := range numbers {
+		if v.Kind != semantics.ValInt {
+			return distributeReals(numbers)
+		}
+		ints = append(ints, v.Int)
+	}
+	return distributeInts(ints)
+}
+
+// distributeInts summarises Integers on the Integers themselves; only the mean
+// rounds, once, after an exact sum.
+func distributeInts(values []int64) *Distribution {
 	sorted := slices.Clone(values)
+	slices.Sort(sorted)
+	n := len(sorted)
+	sum := new(big.Int)
+	for _, v := range sorted {
+		sum.Add(sum, big.NewInt(v))
+	}
+	mean, _ := new(big.Rat).SetFrac(sum, big.NewInt(int64(n))).Float64()
+	return &Distribution{
+		Count:     n,
+		Integral:  true,
+		Min:       drawnInt(sorted[0]),
+		Mean:      mean,
+		Max:       drawnInt(sorted[n-1]),
+		P50:       drawnInt(nearestRank(sorted, 0.5)),
+		P90:       drawnInt(nearestRank(sorted, 0.9)),
+		Histogram: integralHistogram(sorted),
+	}
+}
+
+// distributeReals summarises numbers as Reals.
+func distributeReals(numbers []semantics.Value) *Distribution {
+	sorted := make([]float64, len(numbers))
+	for i, v := range numbers {
+		sorted[i] = v.AsReal()
+	}
 	slices.Sort(sorted)
 	n := len(sorted)
 	sum := 0.0
 	for _, v := range sorted {
 		sum += v
 	}
-	d := &Distribution{
-		Count:    n,
-		Integral: integral,
-		Min:      sorted[0],
-		Mean:     sum / float64(n),
-		Max:      sorted[n-1],
-		P50:      nearestRank(sorted, 0.5),
-		P90:      nearestRank(sorted, 0.9),
+	return &Distribution{
+		Count:     n,
+		Min:       drawnReal(sorted[0]),
+		Mean:      sum / float64(n),
+		Max:       drawnReal(sorted[n-1]),
+		P50:       drawnReal(nearestRank(sorted, 0.5)),
+		P90:       drawnReal(nearestRank(sorted, 0.9)),
+		Histogram: histogram(sorted),
 	}
-	if integral {
-		d.Histogram = integralHistogram(sorted)
-	} else {
-		d.Histogram = histogram(sorted)
-	}
-	return d
+}
+
+// drawnInt is n as an Integer value.
+func drawnInt(n int64) semantics.Value {
+	return semantics.Value{Kind: semantics.ValInt, Int: n}
 }
 
 // nearestRank is the p-quantile of sorted by nearest rank.
-func nearestRank(sorted []float64, p float64) float64 {
+func nearestRank[T any](sorted []T, p float64) T {
 	k := int(math.Ceil(p * float64(len(sorted))))
 	if k < 1 {
 		k = 1
@@ -140,19 +173,19 @@ func nearestRank(sorted []float64, p float64) float64 {
 	return sorted[k-1]
 }
 
-// histogram bins sorted into at most HistogramBins equal-width bins.
+// histogram bins sorted Reals into at most HistogramBins equal-width bins.
 func histogram(sorted []float64) []HistogramBin {
 	lo, hi := sorted[0], sorted[len(sorted)-1]
 	if lo == hi || math.IsInf(hi-lo, 0) {
-		return []HistogramBin{{Lo: lo, Hi: hi, Count: len(sorted)}}
+		return []HistogramBin{{Lo: drawnReal(lo), Hi: drawnReal(hi), Count: len(sorted)}}
 	}
 	bins := make([]HistogramBin, HistogramBins)
 	width := (hi - lo) / HistogramBins
 	for i := range bins {
-		bins[i].Lo = lo + float64(i)*width
-		bins[i].Hi = lo + float64(i+1)*width
+		bins[i].Lo = drawnReal(lo + float64(i)*width)
+		bins[i].Hi = drawnReal(lo + float64(i+1)*width)
 	}
-	bins[len(bins)-1].Hi = hi
+	bins[len(bins)-1].Hi = drawnReal(hi)
 	for _, v := range sorted {
 		i := int((v - lo) / width)
 		if i >= HistogramBins {
@@ -163,27 +196,41 @@ func histogram(sorted []float64) []HistogramBin {
 	return bins
 }
 
-// integralHistogram bins sorted whole numbers into at most HistogramBins bins of
-// one whole width each, both bounds of a bin included.
-func integralHistogram(sorted []float64) []HistogramBin {
+// integralHistogram bins sorted Integers by whole widths, both bounds included;
+// offsets from the minimum are unsigned so the whole int64 range stays exact.
+func integralHistogram(sorted []int64) []HistogramBin {
 	lo, hi := sorted[0], sorted[len(sorted)-1]
-	span := hi - lo + 1
-	if math.IsInf(span, 0) || math.IsNaN(span) {
-		return []HistogramBin{{Lo: lo, Hi: hi, Count: len(sorted)}}
+	span := unsignedInt(hi) - unsignedInt(lo)
+	if span == math.MaxUint64 {
+		return []HistogramBin{{Lo: drawnInt(lo), Hi: drawnInt(hi), Count: len(sorted)}}
 	}
-	width := math.Ceil(span / HistogramBins)
-	count := int(math.Ceil(span / width))
-	bins := make([]HistogramBin, count)
-	for i := range bins {
-		bins[i].Lo = lo + float64(i)*width
-		bins[i].Hi = min(lo+float64(i+1)*width-1, hi)
+	width := ceilDiv(span+1, HistogramBins)
+	var bins []HistogramBin
+	for from := uint64(0); from <= span; from += width {
+		to := span
+		if span-from >= width {
+			to = from + width - 1
+		}
+		bins = append(bins, HistogramBin{
+			Lo: drawnInt(signedInt(unsignedInt(lo) + from)),
+			Hi: drawnInt(signedInt(unsignedInt(lo) + to)),
+		})
+		if to == span {
+			break
+		}
 	}
 	for _, v := range sorted {
-		i := int((v - lo) / width)
-		if i >= count {
-			i = count - 1
-		}
-		bins[i].Count++
+		bin := min((unsignedInt(v)-unsignedInt(lo))/width, HistogramBins-1)
+		bins[bin].Count++
 	}
 	return bins
+}
+
+// ceilDiv is ⌈n / d⌉ for d > 0, without overflowing near the top of uint64.
+func ceilDiv(n, d uint64) uint64 {
+	q := n / d
+	if n%d != 0 {
+		q++
+	}
+	return q
 }

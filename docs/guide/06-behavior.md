@@ -858,9 +858,10 @@ enforces, each violation a typed error before anything runs:
 - every succession out of one decision carries a `Probability`, or none does — a decision with
   three branches of which two are weighted is refused naming the unweighted one;
 - each `p` lies in `0.0..1.0`;
-- where every `p` out of one decision is a constant, they sum to `1.0` within `1e-6`; a `p` that
-  is an expression over the action's features is evaluated when the decision is reached and
-  refused then, as an `invalid branch weights` error, if it is no probability;
+- where every `p` out of one decision is a constant — a literal or arithmetic over literals,
+  `1.0 - 0.3` as much as `0.7` — they sum to `1.0` within `1e-6`; a `p` that is an expression
+  over the action's features is evaluated when the decision is reached and refused then, as an
+  `invalid branch weights` error, if it is no probability;
 - a `Probability` with no `p`, two, an attribute it does not declare, or a `p` that is not a
   number is refused naming what is wrong, and one written on an action body instead of a
   succession is refused rather than ignored.
@@ -881,7 +882,7 @@ Four functions return a draw from a stated distribution, each a scalar over scal
 | `uniform(lo, hi)` | a `Real` uniformly over `[lo, hi)` | `lo <= hi` |
 | `uniformInteger(lo, hi)` | an `Integer` uniformly over `lo..hi`, both inclusive | `lo <= hi` |
 | `triangular(lo, mode, hi)` | a `Real` from the triangular distribution peaking at `mode` | `lo <= mode <= hi`, `lo < hi` |
-| `normal(mean, sd)` | a `Real` from the normal distribution; `sd = 0.0` is `mean` | `sd >= 0.0` |
+| `normal(mean, sd)` | a finite `Real` from the normal distribution; `sd = 0.0` is `mean` | `sd >= 0.0` |
 
 A call whose arguments break the requirement — `uniform(80, 1)`, a negative `sd`, a bound that
 is not finite — is refused with a typed error, `random function arguments bound no

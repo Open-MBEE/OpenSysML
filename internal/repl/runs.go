@@ -196,9 +196,8 @@ func distributionLines(table runtime.SweepTable) []string {
 
 // observableLines is the summary of one observable.
 func observableLines(table runtime.SweepTable, name string) []string {
-	var numbers []float64
+	var numbers []semantics.Value
 	var unit string
-	integral := true
 	units := make(map[string]bool)
 	counts := make(map[string]int)
 	var order []string
@@ -210,9 +209,8 @@ func observableLines(table runtime.SweepTable, name string) []string {
 			if out.Name != name {
 				continue
 			}
-			if n, ok := runtime.Magnitude(out.Value); ok {
+			if n, ok := runtime.MagnitudeValue(out.Value); ok {
 				numbers = append(numbers, n)
-				integral = integral && wholeNumber(out.Value)
 				if q := out.Value.Quantity(); q != nil {
 					unit = q.Unit.String()
 				}
@@ -230,7 +228,7 @@ func observableLines(table runtime.SweepTable, name string) []string {
 		return []string{fmt.Sprintf("%s: %d run(s) produced numbers in more than one unit; no distribution", name, len(numbers))}
 	}
 	var lines []string
-	if d := runtime.Distribute(numbers, integral); d != nil {
+	if d := runtime.Distribute(numbers); d != nil {
 		lines = append(lines, distributionLine(name, d, unit))
 		lines = append(lines, histogramLines(d, unit)...)
 	}
@@ -245,19 +243,15 @@ func observableLines(table runtime.SweepTable, name string) []string {
 	return lines
 }
 
-// wholeNumber reports whether a value is an Integer, a quantity of one included.
-func wholeNumber(value runtime.Value) bool {
-	if q := value.Quantity(); q != nil {
-		return q.Num.Kind == semantics.ValInt
-	}
-	return value.Kind == runtime.ValConst && value.Const.Kind == semantics.ValInt
-}
-
 // distributionLine is the one-line summary of a distribution, its numbers in unit.
 func distributionLine(name string, d *runtime.Distribution, unit string) string {
-	number := func(x float64) string { return withUnit(x, unit, d.Integral) }
 	return fmt.Sprintf("%s: %d run(s), min %s, mean %s, max %s, p50 %s, p90 %s", name, d.Count,
-		number(d.Min), withUnit(d.Mean, unit, false), number(d.Max), number(d.P50), number(d.P90))
+		withUnit(d.Min, unit), withUnit(drawnMean(d), unit), withUnit(d.Max, unit), withUnit(d.P50, unit), withUnit(d.P90, unit))
+}
+
+// drawnMean is a distribution's mean as the Real it is.
+func drawnMean(d *runtime.Distribution) semantics.Value {
+	return semantics.Value{Kind: semantics.ValReal, Real: d.Mean}
 }
 
 // histogramLines render a histogram one bin per line: the bin's bounds to four
@@ -268,7 +262,7 @@ func histogramLines(d *runtime.Distribution, unit string) []string {
 	labels := make([]string, len(d.Histogram))
 	width := 0
 	for i, bin := range d.Histogram {
-		labels[i] = binLabel(bin, unit, d.Integral)
+		labels[i] = binLabel(bin, unit)
 		width = max(width, len([]rune(labels[i])))
 	}
 	lines := make([]string, len(d.Histogram))
@@ -280,32 +274,28 @@ func histogramLines(d *runtime.Distribution, unit string) []string {
 }
 
 // binLabel spells a bin's bounds, `lo..hi` in the unit, or the one number both are.
-func binLabel(bin runtime.HistogramBin, unit string, integral bool) string {
+func binLabel(bin runtime.HistogramBin, unit string) string {
 	if bin.Lo == bin.Hi {
-		return withUnit(bin.Lo, unit, integral)
+		return withUnit(bin.Lo, unit)
 	}
-	label := compactNumber(bin.Lo, integral) + ".." + compactNumber(bin.Hi, integral)
+	label := compactNumber(bin.Lo) + ".." + compactNumber(bin.Hi)
 	if unit != "" {
 		label += " [" + unit + "]"
 	}
 	return label
 }
 
-// compactNumber spells a bin bound: a whole number in full, else to four significant digits.
-func compactNumber(x float64, integral bool) string {
-	if integral {
-		return strconv.FormatFloat(x, 'f', 0, 64)
+// compactNumber spells a bin bound: an Integer in full, a Real to four significant digits.
+func compactNumber(x semantics.Value) string {
+	if x.Kind == semantics.ValInt {
+		return strconv.FormatInt(x.Int, 10)
 	}
-	return strconv.FormatFloat(x, 'g', 4, 64)
+	return strconv.FormatFloat(x.Real, 'g', 4, 64)
 }
 
-// withUnit spells a number as the table spells it — a whole one as an Integer —
-// in unit, bare when it has none.
-func withUnit(x float64, unit string, integral bool) string {
-	text := semantics.FormatReal(x)
-	if integral {
-		text = strconv.FormatFloat(x, 'f', 0, 64)
-	}
+// withUnit spells a number as the table spells it, in unit, bare when it has none.
+func withUnit(x semantics.Value, unit string) string {
+	text := semantics.FormatConst(x)
 	if unit == "" {
 		return text
 	}

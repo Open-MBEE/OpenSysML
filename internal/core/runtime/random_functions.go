@@ -94,8 +94,8 @@ func drawTriangular(ctx *Context, name string, args []semantics.Value) (semantic
 	})
 }
 
-// drawNormal is RandomFunctions::normal: a Real normal about mean with standard
-// deviation sd, which is not negative; a zero sd draws mean.
+// drawNormal is RandomFunctions::normal: a finite Real about mean with sd >= 0
+// (zero draws mean); a tail overflowing to infinity is drawn again.
 func drawNormal(ctx *Context, name string, args []semantics.Value) (semantics.Value, error) {
 	mean, sd := asReal(args[0]), asReal(args[1])
 	if err := finiteBounds(name, args); err != nil {
@@ -105,7 +105,13 @@ func drawNormal(ctx *Context, name string, args []semantics.Value) (semantics.Va
 		return semantics.Value{}, fmt.Errorf("%w: normal(%s, %s): sd is negative", ErrRandomDomain, formatDrawn(args[0]), formatDrawn(args[1]))
 	}
 	return ctx.draw(drawCall(name, args), distribution{
-		draw: func(rng *rand.Rand) semantics.Value { return drawnReal(mean + sd*rng.NormFloat64()) },
+		draw: func(rng *rand.Rand) semantics.Value {
+			for {
+				if x := mean + sd*rng.NormFloat64(); !math.IsInf(x, 0) {
+					return drawnReal(x)
+				}
+			}
+		},
 		admits: func(v semantics.Value) bool {
 			if sd == 0 {
 				return v.Kind == semantics.ValReal && v.Real == mean

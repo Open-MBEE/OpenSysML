@@ -8,6 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -34,27 +35,21 @@ type Probability struct {
 // Span is where the annotation is written.
 func (p *Probability) Span() source.Span { return p.Node.Span() }
 
-// Constant is the weight when its expression is a numeric literal, possibly
-// negated; a weight computed from features is known only when drawn.
+// Constant is the weight when its expression is a number computed from literals
+// alone (0.7, 1 - 0.3); a weight computed from features is known only when drawn.
 func (p *Probability) Constant() (float64, bool) {
-	return constantWeight(p.Expr)
+	v, ok := semantics.EvalConst(p.Expr)
+	if !ok || !v.IsNumeric() {
+		return 0, false
+	}
+	return v.AsReal(), true
 }
 
-func constantWeight(expr ast.Node) (float64, bool) {
-	switch n := expr.(type) {
-	case *ast.LiteralReal:
-		v, err := strconv.ParseFloat(n.Value, 64)
-		return v, err == nil
-	case *ast.LiteralInteger:
-		v, err := strconv.ParseFloat(n.Value, 64)
-		return v, err == nil
-	case *ast.OperatorExpr:
-		if n.Operator == ast.OpNeg && len(n.Operands) == 1 {
-			v, ok := constantWeight(n.Operands[0])
-			return -v, ok
-		}
-	}
-	return 0, false
+// constantNonNumber reports a weight computed from literals alone that is no
+// number at all (true, *): a value the draw could never take as a probability.
+func (p *Probability) constantNonNumber() bool {
+	v, ok := semantics.EvalConst(p.Expr)
+	return ok && !v.IsNumeric()
 }
 
 // WeightInRange reports whether a drawn or constant weight is a probability.
@@ -270,6 +265,10 @@ func checkProbabilities(graph *ActionGraph) error {
 func checkConstantWeights(node ast.Node, edges []ActionEdge) error {
 	sum, allConstant := 0.0, true
 	for _, edge := range edges {
+		if edge.Probability.constantNonNumber() {
+			return &ProbabilityError{Node: edge.Probability.Node, Reason: fmt.Sprintf(
+				"p = %s is not a number", writtenValue(edge.Probability.Expr))}
+		}
 		w, ok := edge.Probability.Constant()
 		if !ok {
 			allConstant = false

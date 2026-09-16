@@ -2,6 +2,7 @@ package lower
 
 import (
 	"errors"
+	"math"
 	"strings"
 	"testing"
 
@@ -63,6 +64,24 @@ func TestProbability_ReadOnEverySuccessionForm(t *testing.T) {
 	}
 }
 
+func TestProbability_ArithmeticOverLiteralsIsAConstantWeight(t *testing.T) {
+	graph, err := weightedActionGraph(t, `
+		decide d;
+		first d then fast { @Probability { p = 1 - 0.3; } }
+		first d then slow { @Probability { p = 3 / 10; } }
+		action fast; action slow;
+	`)
+	if err != nil {
+		t.Fatalf("ToActionGraphWith: %v", err)
+	}
+	for i, want := range []float64{0.7, 0.3} {
+		got, ok := graph.Edges[namedActionNode(t, graph, "d")][i].Probability.Constant()
+		if !ok || math.Abs(got-want) > ProbabilityTolerance {
+			t.Errorf("edge %d weight = %v, %v; want the arithmetic folded to %v", i, got, ok, want)
+		}
+	}
+}
+
 func TestProbability_NonConstantWeightIsKeptAsExpression(t *testing.T) {
 	graph, err := weightedActionGraph(t, `
 		attribute w : Real = 0.4;
@@ -111,11 +130,26 @@ func TestProbability_Refusals(t *testing.T) {
 			first d then fast { @Probability { p = 0.7; } }
 			first d then slow { @Probability { p = 0.7; } }
 			action fast; action slow;`, "sum to 1.4, not 1.0"},
+		{"arithmetic sum", `
+			decide d;
+			first d then fast { @Probability { p = 0.3 + 0.3; } }
+			first d then slow { @Probability { p = 0.2; } }
+			action fast; action slow;`, "sum to 0.8, not 1.0"},
 		{"range", `
 			decide d;
 			first d then fast { @Probability { p = 1.5; } }
 			first d then slow { @Probability { p = -0.5; } }
 			action fast; action slow;`, "p = 1.5 lies outside 0.0..1.0"},
+		{"arithmetic range", `
+			decide d;
+			first d then fast { @Probability { p = 2 * 0.6; } }
+			first d then slow { @Probability { p = -0.2; } }
+			action fast; action slow;`, "p = 2 * 0.6 lies outside 0.0..1.0"},
+		{"not a number", `
+			decide d;
+			first d then fast { @Probability { p = true; } }
+			first d then slow { @Probability { p = 0.5; } }
+			action fast; action slow;`, "p = true is not a number"},
 		{"not a decision", `
 			action fast;
 			first fast then slow { @Probability { p = 1.0; } }

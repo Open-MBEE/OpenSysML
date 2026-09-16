@@ -31,6 +31,10 @@ const runsModel = `package MC {
 	}
 	action fixed { attribute k : Integer = 4; first start; then done; }
 	action timed { attribute clock : Integer = 99; first start; then accept after 2 [s]; then done; }
+	action huge {
+		attribute n : Integer = 9007199254740992 + uniformInteger(0, 1);
+		first start; then done;
+	}
 }`
 
 func runsSession(t *testing.T) *Session {
@@ -112,6 +116,22 @@ func TestRunsClockIsTheRunsTimeNotAFeature(t *testing.T) {
 	wants(t, out, "run | clock   | time", "1   | 2.0 [s] | <time>")
 	if strings.Contains(out, "99") {
 		t.Errorf("the feature named clock was reported:\n%s", out)
+	}
+}
+
+// An Integer observable beyond 2^53, past what a Real tells apart, is reported
+// exactly: the two neighbouring values stay distinct in the extremes, the
+// percentiles and the bins, and only the mean is a Real.
+func TestRunsKeepsLargeIntegersExact(t *testing.T) {
+	s := runsSession(t)
+	out := sweepTable(run(t, s, "%runs 8 7 MC::huge n"))
+	wants(t, out,
+		"n: 8 run(s), min 9007199254740992, mean 9007199254740992.0, max 9007199254740993, p50 9007199254740992, p90 9007199254740993",
+		"  9007199254740992 ",
+		"  9007199254740993 ",
+	)
+	if strings.Contains(out, "9007199254740994") || strings.Contains(out, "e+") {
+		t.Errorf("an Integer was rounded through a Real:\n%s", out)
 	}
 }
 

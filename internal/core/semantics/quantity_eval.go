@@ -31,7 +31,7 @@ func (m *Model) EvalQuantity(scope *symbols.Scope, n ast.Node) (Quantity, bool) 
 	case *ast.OperatorExpr:
 		return m.foldQuantityOperator(scope, e)
 	}
-	v, ok := evalConst(n)
+	v, ok := EvalConst(n)
 	if !ok {
 		return Quantity{}, false
 	}
@@ -40,7 +40,7 @@ func (m *Model) EvalQuantity(scope *symbols.Scope, n ast.Node) (Quantity, bool) 
 
 // quantityTerm folds `magnitude [unit]` when the unit resolves in the library.
 func (m *Model) quantityTerm(scope *symbols.Scope, e *ast.IndexExpr) (Quantity, bool) {
-	magnitude, ok := evalConst(e.Operand)
+	magnitude, ok := EvalConst(e.Operand)
 	if !ok || !magnitude.IsNumeric() {
 		return Quantity{}, false
 	}

@@ -549,6 +549,51 @@ func TestRandomFunctionsDrawWithinTheirSupport(t *testing.T) {
 	}
 }
 
+// normal never draws what its witness would refuse: with parameters near the
+// largest Real the raw draw overflows to infinity on some seeds, and each such
+// run still yields a finite value that replays.
+func TestNormalDrawsStayFiniteNearTheLargestReal(t *testing.T) {
+	m := parseLibraryModel(t, `
+		package test {
+			private import ScalarValues::*;
+			private import RandomFunctions::*;
+			action draw {
+				attribute x : Real = normal(1.0e308, 1.0e308);
+				first start; then done;
+			}
+		}`)
+	overflowed := 0
+	for seed := uint64(1); seed <= 40; seed++ {
+		if raw := 1.0e308 + 1.0e308*newModeledSource(seed).rng.NormFloat64(); math.IsInf(raw, 0) {
+			overflowed++
+		}
+		ctx, out, err := runAction(t, m, "draw", "declared", seed)
+		if err != nil {
+			t.Fatalf("seed %d: %v", seed, err)
+		}
+		x := out["x"].Const.Real
+		if math.IsInf(x, 0) || math.IsNaN(x) {
+			t.Fatalf("seed %d drew normal(1.0e308, 1.0e308) = %v", seed, x)
+		}
+		w := Witness{Draws: ctx.DrawsTaken()}
+		replay, _ := m.fresh()
+		mustSchedule(t, replay, ReplayOf(w))
+		got, err := replay.ExecuteAction(m.action(t, "draw"))
+		if err == nil {
+			err = replay.Unfollowed()
+		}
+		if err != nil {
+			t.Fatalf("seed %d: replay: %v\n%s", seed, err, w)
+		}
+		if got["x"].Const.Real != x {
+			t.Errorf("seed %d: replay gave x = %v, want %v", seed, got["x"].Const.Real, x)
+		}
+	}
+	if overflowed == 0 {
+		t.Fatal("no seed's raw draw overflowed; the test exercises nothing")
+	}
+}
+
 // A run's witness records its draws, and replaying it reproduces the run: the same
 // values, the same branch, every draw consumed, no generator consulted.
 func TestReplayReproducesTheDrawsAndTheWeightedBranch(t *testing.T) {
