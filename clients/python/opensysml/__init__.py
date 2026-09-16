@@ -43,7 +43,7 @@ from opensysml.conversion import (
     FORMAT_SYSML, FORMAT_TURTLE, Conversion, ExperimentalFeatureWarning,
     format_of_path, is_experimental,
 )
-from opensysml.edit import AppliedEdit, EditResult, Editor
+from opensysml.edit import AppliedEdit, EditedDocument, EditResult, Editor
 from opensysml.errors import (
     OpenSysMLError, AnalysisRunError, ChecksumMismatchError, ConnectionError, ConversionError,
     EditError, EditResultError, EditTargetError, ExecutionError,
@@ -51,6 +51,7 @@ from opensysml.errors import (
     RenameReferencedError,
     OwnerNotFoundError, OwnerNotNamespaceError, IllegalMemberKindError,
     MemberNameTakenError, DeleteReferencedError, OwnerInsideTargetError, MoveReferencedError,
+    ReferencedElsewhereError, Referrer,
     InstanceTypeError, InvalidRequestError, ManifestSignatureError, ModelError,
     ModelFileNotFoundError, ModelNotFoundError, ServiceError,
     ServiceTimeoutError, StaleServiceError, SymbolNotFoundError,
@@ -68,7 +69,7 @@ __all__ = [
     "TensorQuantity", "InstanceRef",
     "Conversion", "FORMAT_SYSML", "FORMAT_TURTLE", "format_of_path",
     "ExperimentalFeatureWarning", "is_experimental",
-    "Editor", "EditResult", "AppliedEdit",
+    "Editor", "EditResult", "AppliedEdit", "EditedDocument", "Referrer",
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
     "Validation", "VerificationVerdict",
     "Exploration", "Outcome",
@@ -82,7 +83,7 @@ __all__ = [
     "RenameReferencedError", "OverlappingEditsError", "EditResultError",
     "OwnerNotFoundError", "OwnerNotNamespaceError", "IllegalMemberKindError",
     "MemberNameTakenError", "DeleteReferencedError", "OwnerInsideTargetError",
-    "MoveReferencedError",
+    "MoveReferencedError", "ReferencedElsewhereError",
     "InstanceTypeError", "InvalidRequestError", "ManifestSignatureError",
     "MissingCapabilityError",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",

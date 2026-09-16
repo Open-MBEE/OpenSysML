@@ -154,6 +154,12 @@ final class Runner {
 
     String modelHash = "";
     Optional<Scenario.Fixture> model = scenario.model();
+    if (model.isPresent() && !model.get().fixtures().isEmpty()) {
+      result.outcome = "skip";
+      result.status = "-";
+      result.reason = "the v1 API parses one document at a time, not a model of several";
+      return;
+    }
     if (model.isPresent()) {
       try {
         modelHash = modelHash(model.get());

@@ -75,6 +75,11 @@ CAPABILITY_FEATURE_VALUES = "feature_values"
 CAPABILITY_APPLY_EDITS = "apply_edits"
 #: Source-preserving add-member and delete authoring operations.
 CAPABILITY_AUTHORING = "authoring"
+#: ``ApplyEdits`` edits a model of several documents as one batch and answers
+#: each edited document by name in ``EditResult.documents``, with each applied
+#: edit's document and each referrer's. Without it the service edits a model of
+#: one document alone and answers ``content`` alone, leaving ``documents`` empty.
+CAPABILITY_EDIT_DOCUMENTS = "edit_documents"
 #: Declares the language of inline content passed to ``ParseFile``.
 CAPABILITY_INLINE_LANGUAGE = "inline_language"
 #: ``ParseFileRequest.strict_conformance``, which asks whether the source is

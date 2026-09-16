@@ -18,9 +18,13 @@ export class Literal {
   }
 }
 
-/** The source a scenario needs parsed before its call, named by fixture. */
+/**
+ * The source a scenario needs parsed before its call: one fixture, or several
+ * parsed together as one model, named by their fixtures.
+ */
 export interface ScenarioModel {
-  fixture: string;
+  fixture?: string;
+  fixtures?: string[];
   language?: string;
   strict_conformance?: boolean;
 }
@@ -76,7 +80,7 @@ const EXPECT_FIELDS = new Set([
   "min_counts",
 ]);
 
-const MODEL_FIELDS = new Set(["fixture", "language", "strict_conformance"]);
+const MODEL_FIELDS = new Set(["fixture", "fixtures", "language", "strict_conformance"]);
 
 /** The scenario's RPC as a bare method name. */
 export function methodOf(scenario: Scenario): string {
