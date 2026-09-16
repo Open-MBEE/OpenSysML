@@ -262,6 +262,59 @@ func TestRunAnalysisFailures(t *testing.T) {
 	}
 }
 
+// A subject named by a path from a declaration, as `Fleet::convoy.lead`, is the
+// object the path reaches in an object of the declaration built for the call, so
+// what the assembly binds on it is in force — on one run and on every explored run.
+func TestRunAnalysisOnANestedSubject(t *testing.T) {
+	const source = `package Fleet {
+	private import ScalarValues::*;
+	part def Ship { attribute cost : Real default = 5.0; }
+	analysis def Cost { subject s : Ship; out total : Real = s.cost; }
+	part def Convoy {
+		part lead : Ship { attribute :>> cost = 30.0; }
+		part escorts : Ship[2];
+	}
+	part convoy : Convoy;
+}
+`
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, source, "analysis-nested-subject")
+	for _, schedule := range []string{"", "explore"} {
+		resp := runAnalysis(t, srv, &pb.RunAnalysisRequest{ModelHash: hash, SymbolId: "Fleet::Cost", SubjectSymbolId: "Fleet::convoy.lead", Schedule: schedule})
+		if resp.Error != "" {
+			t.Fatalf("schedule %q: RunAnalysis reported %q", schedule, resp.Error)
+		}
+		if schedule == "" {
+			if got := realOutput(t, resp, "total"); got != 30.0 {
+				t.Errorf("total = %v, want the convoy's 30 on its lead", got)
+			}
+			if len(resp.Instances) == 0 || resp.Instances[0].TypeSymbolId != "Fleet::Convoy::lead" {
+				t.Errorf("instances = %v, want the lead the path reached first", resp.Instances)
+			}
+			continue
+		}
+		if len(resp.Outcomes) != 1 || resp.Outcomes[0].Outputs["total"].GetRealValue() != 30.0 {
+			t.Errorf("explored outcomes = %v, want one with total 30", resp.Outcomes)
+		}
+	}
+	resp := runAnalysis(t, srv, &pb.RunAnalysisRequest{ModelHash: hash, SymbolId: "Fleet::Cost", SubjectSymbolId: "Fleet::convoy.escorts[2]"})
+	if resp.Error != "" || realOutput(t, resp, "total") != 5.0 {
+		t.Errorf("on escorts[2]: error %q, total %v; want the default 5", resp.Error, resp.Outputs)
+	}
+	for path, want := range map[string]string{
+		"Fleet::convoy.tug":        `Fleet::convoy has no feature "tug"`,
+		"Fleet::convoy.escorts":    "escorts of Fleet::convoy holds 2 objects: pick one by index",
+		"Fleet::convoy.escorts[3]": "escorts[3] names none",
+		"#1":                       "names an object by id",
+		"Fleet::nobody.lead":       "symbol not found: Fleet::nobody",
+	} {
+		resp := runAnalysis(t, srv, &pb.RunAnalysisRequest{ModelHash: hash, SymbolId: "Fleet::Cost", SubjectSymbolId: path})
+		if !strings.Contains(resp.Error, want) {
+			t.Errorf("subject %s: error %q, want %q", path, resp.Error, want)
+		}
+	}
+}
+
 // TestRunAnalysisUnknownModel verifies an evicted or unknown model fails the
 // call the way every other model-scoped RPC does.
 func TestRunAnalysisUnknownModel(t *testing.T) {

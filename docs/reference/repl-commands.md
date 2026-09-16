@@ -122,6 +122,14 @@ behaviors named as one invocation on one clock, an action's wait and a machine's
 together being a choice the search draws. `%check-property`, `%check-diverge`, `%check-input`, `%check-assume`,
 `%check-witness` and `%check-bounds` hold the settings the CLI's `-check-*` flags carry, each
 shown with no argument and kept for the session, and `%replay` steps the run a witness records.
+A check runs in contexts of its own, so the object it performs on is named as a run can build
+it — a declaration to instantiate (`%state Rover::modes Rover::rover`) or a path from one into a
+part it holds (`%state Comms::Ground::listen Comms::pair.ground`), the declaration instantiated
+once per run for every path under it — not as an object the session holds: `%instantiate`'s
+object, `#2` and a path from it are refused naming the rule, the CLI's [Objects an exploration
+runs on](cli.md#objects-an-exploration-runs-on). An unknown usage in the path or an index a
+single-valued usage takes none of is refused before the search; a part a run finds unbuilt is
+that run's error.
 Under `%engine all`, `%action` searches once any of them is set — the checker beside the
 exploration, `states=<n>` being the one figure each bounds in its own unit — and steps again
 once every one is `off`:

@@ -2816,10 +2816,12 @@ func (s *Session) attachExhibitedMachine(
 
 // ExhibitorsError reports a machine `%state <machine>` alone cannot attach to:
 // no held object exhibits it, or several do, so no one running performance is meant.
+// Fresh reports the same of an explored run's objects, which -instantiate gives it.
 type ExhibitorsError struct {
 	Machine string          // the machine asked for, as the prompt prints names
 	Types   []string        // the types declaring an exhibit of it, in declaration order, as the prompt prints names
 	Objects []RelatedObject // the held objects exhibiting it, in walk order; none when no object does
+	Fresh   bool            // the objects are an explored run's, not the session's
 }
 
 func (e *ExhibitorsError) Error() string {
@@ -2827,6 +2829,10 @@ func (e *ExhibitorsError) Error() string {
 		types := make([]string, len(e.Types))
 		for i, t := range e.Types {
 			types[i] = fmt.Sprintf("%q", t)
+		}
+		if e.Fresh {
+			return fmt.Sprintf("no object of the explored run exhibits %q, which runs only on an object of %s: each run creates its own objects, so name one as %s <declaration> or %s <Assembly::part>, or -instantiate the declaration holding it for every run",
+				e.Machine, strings.Join(types, " or "), e.Machine, e.Machine)
 		}
 		return fmt.Sprintf("no object of this session exhibits %q, which runs only on an object of %s: use %%instantiate to create one, then %%state <object> or %%state %s <object>",
 			e.Machine, strings.Join(types, " or "), e.Machine)
@@ -2837,6 +2843,10 @@ func (e *ExhibitorsError) Error() string {
 		if o.Label != "" {
 			labels[i] = fmt.Sprintf("#%d of %q", o.ID, o.Label)
 		}
+	}
+	if e.Fresh {
+		return fmt.Sprintf("%d objects of the explored run exhibit %q (%s), so naming the machine alone attaches to none of them: name one as %s <Assembly::part>",
+			len(e.Objects), e.Machine, strings.Join(labels, ", "), e.Machine)
 	}
 	return fmt.Sprintf("%d objects of this session exhibit %q (%s), so naming the machine alone attaches to none of them: use %%state <object> or %%state %s <object> to name one",
 		len(e.Objects), e.Machine, strings.Join(labels, ", "), e.Machine)
