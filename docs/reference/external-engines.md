@@ -157,12 +157,16 @@ the stand-in engine exchanges against it.
 The question, in the model's own names, and the model in the forms the entry declared:
 
 - **`question`**: `kind`; `subject`, the qualified name as the surface spelled it, and
-  `subjectKind`, its declaration kind; `schedule` as `-schedule` spells it; `free`, what the
+  `subjectKind`, its declaration kind; `schedule` as `-schedule` spells it; `modelSeed`, the
+  seed the runs' modeled draws come from when one is set apart from the schedule (`-seed`,
+  `%seed`), absent otherwise; `free`, what the
   question leaves open (`schedule`, `inputs`); `condition` (`name`, `text`) for `holds`;
   `conditions` for `satisfiable`, one set per query with its `features`, `assertions` and
   `pinned` values; `bindings` as `{name, value, unit}`; `inputs` as `{name, type, unit,
   domain}`; `sweep` with its `ranges` (and `sampled`, `samples`, `seed` for a sampled
-  sweep; `runs` and `seed` for a Monte Carlo, which states no range).
+  sweep; `runs` and `seed` for a Monte Carlo, which states no range and seeds each run's
+  modeled draws from `seed` and the run's number, so it carries no `modelSeed`). A `seed`
+  is present, zero included, whenever rows are drawn from it.
 - **`model.sources`**, always: `library`, the version of the standard library the host embeds,
   and `documents`, every document of the model as `{path, text}` in path order.
 - **`model.graphs`**: the `graphs:1` form, when the entry names it.

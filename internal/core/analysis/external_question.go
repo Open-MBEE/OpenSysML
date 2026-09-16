@@ -86,6 +86,10 @@ func (e externalEngine) wireQuestion(model *Model, q Question, budget Budget) (e
 		Schedule: q.Schedule.String(),
 		Free:     freeNames(q.Free),
 	}
+	if q.ModelSeed.Set {
+		seed := q.ModelSeed.Seed
+		out.ModelSeed = &seed
+	}
 	out.SubjectKind = subjectFamily(model, q.Subject)
 	switch q.Kind {
 	case Holds, Outcomes:
@@ -192,9 +196,14 @@ func wireQuery(q *solve.Query) (enginewire.ConditionSet, error) {
 	return set, nil
 }
 
-// wireSweep is a sweep's domain as the protocol carries it.
+// wireSweep is a sweep's domain as the protocol carries it; the seed goes, zero included,
+// whenever the rows are drawn from it.
 func wireSweep(plan runtime.SweepPlan) (*enginewire.Sweep, error) {
-	out := &enginewire.Sweep{Ranges: []enginewire.Range{}, Sampled: plan.Sampled, Samples: plan.Samples, Seed: plan.Seed, Runs: plan.Runs}
+	out := &enginewire.Sweep{Ranges: []enginewire.Range{}, Sampled: plan.Sampled, Samples: plan.Samples, Runs: plan.Runs}
+	if plan.Drawn() {
+		seed := plan.Seed
+		out.Seed = &seed
+	}
 	for _, r := range plan.Ranges {
 		from, err := wireValue(r.Param, r.From)
 		if err != nil {

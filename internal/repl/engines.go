@@ -162,6 +162,7 @@ func evaluate[T any](x execution, subject string, ctx *runtime.Context, call fun
 		Model:     analysis.Held(ctx),
 		Subject:   subject,
 		Schedule:  schedule,
+		ModelSeed: analysis.ModelSeedOf(ctx),
 		Budget:    s.budgetFor(schedule, analysis.Evaluate),
 		Selection: s.engine,
 	}, call, answer)
@@ -227,22 +228,28 @@ func (s *Session) explore(subject string, policy runtime.SchedulePolicy, selecti
 		Model:     model,
 		Subject:   subject,
 		Schedule:  policy,
+		ModelSeed: s.askedModelSeed(),
 		Budget:    s.budgetFor(policy, analysis.Outcomes),
 		Selection: selection,
 	}, run)
 }
 
 // sweep puts a domain to the engines under the session's selection: row runs the
-// target once per row of the plan, each in a context of the plan's own over model.
+// target once per row of the plan, each in a context of the plan's own over model;
+// a Monte Carlo's runs are seeded from the plan, not the session.
 func (s *Session) sweep(target string, model *analysis.Model, plan runtime.SweepPlan, row runtime.SweepRun) (analysis.Plan, error) {
 	schedule := s.drivenSchedule()
-	return s.engines.Sweep(s.planContext(), analysis.Request{
+	req := analysis.Request{
 		Model:     model,
 		Subject:   target,
 		Schedule:  schedule,
 		Budget:    s.budgetFor(schedule, analysis.Sweep),
 		Selection: s.engine,
-	}, plan, row)
+	}
+	if plan.Runs == 0 {
+		req.ModelSeed = s.askedModelSeed()
+	}
+	return s.engines.Sweep(s.planContext(), req, plan, row)
 }
 
 // solveWith puts an element's condition sets to the engines under the session's
@@ -254,6 +261,7 @@ func (s *Session) solveWith(subject string, queries []*solve.Query, ask analysis
 		Model:     s.freshModel(),
 		Subject:   subject,
 		Schedule:  schedule,
+		ModelSeed: s.askedModelSeed(),
 		Budget:    s.budgetFor(schedule, analysis.Satisfiable),
 		Selection: s.engine,
 	}, queries, ask)

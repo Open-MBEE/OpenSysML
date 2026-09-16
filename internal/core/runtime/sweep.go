@@ -104,6 +104,10 @@ type SweepPlan struct {
 	Runs    int64
 }
 
+// Drawn reports whether the plan's rows come from Seed: a sampled sweep or a Monte
+// Carlo; a swept table steps its ranges and draws nothing.
+func (p SweepPlan) Drawn() bool { return p.Sampled || p.Runs > 0 }
+
 // SweepRunResult is what one run of a sweep produced. A calc's returned value is
 // reported as an output named "result", so a calc row and a case row read alike.
 type SweepRunResult struct {

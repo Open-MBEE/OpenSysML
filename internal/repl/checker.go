@@ -470,11 +470,13 @@ func (s *Session) checkVerdict(inv *freshInvocation, policy runtime.SchedulePoli
 	subject, label := inv.subject(), inv.label()
 	ctx := s.planContext()
 	free := s.checker.frees()
+	modelSeed := s.askedModelSeed()
 	s.state.Unlock()
 	answered, err := s.engines.Check(ctx, analysis.Request{
 		Model:     model,
 		Subject:   subject,
 		Schedule:  policy,
+		ModelSeed: modelSeed,
 		Budget:    budget,
 		Selection: selection,
 	}, kind, free, asks.check, asks.holds, asks.run)

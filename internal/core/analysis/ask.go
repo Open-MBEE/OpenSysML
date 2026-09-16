@@ -17,12 +17,13 @@ func Held(ctx *runtime.Context) *Model {
 	return &Model{Context: func() (*runtime.Context, error) { return ctx, nil }}
 }
 
-// Request is what every question put to the registry carries: the model it is
-// asked of, the subject and schedule it runs under, and the budget and selection it is answered with.
+// Request is what every question put to the registry carries: the model it is asked of, the
+// subject, schedule and model seed it runs under, and the budget and selection it is answered with.
 type Request struct {
 	Model     *Model
 	Subject   string
 	Schedule  runtime.SchedulePolicy
+	ModelSeed ModelSeed
 	Budget    Budget
 	Selection Selection
 }
@@ -30,7 +31,7 @@ type Request struct {
 // ask puts q, about the request's subject under its schedule, to the registry
 // under the request's budget and selection; a dispatch fault or refusal is the error.
 func (r *Registry) ask(ctx context.Context, req Request, q Question) (Plan, error) {
-	q.Subject, q.Schedule = req.Subject, req.Schedule
+	q.Subject, q.Schedule, q.ModelSeed = req.Subject, req.Schedule, req.ModelSeed
 	return refusedOr(r.AnswerWith(ctx, req.Model, q, req.Budget, req.Selection))
 }
 

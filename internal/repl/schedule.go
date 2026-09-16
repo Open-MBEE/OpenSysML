@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 )
 
@@ -82,6 +83,11 @@ func (s *Session) applyModelSeed(ctx *runtime.Context) {
 	} else {
 		ctx.ClearModelSeed()
 	}
+}
+
+// askedModelSeed is the session's model seed as a question to the engines carries it.
+func (s *Session) askedModelSeed() analysis.ModelSeed {
+	return analysis.ModelSeed{Seed: s.modelSeed.value, Set: s.modelSeed.set}
 }
 
 // sessionSeed is a model seed and whether one is set.

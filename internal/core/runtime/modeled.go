@@ -56,6 +56,12 @@ type modeledSource struct {
 // newModeledSource starts the modeled stream seed fixes.
 func newModeledSource(seed uint64) *modeledSource {
 	pcg := rand.NewPCG(seed, seed^modeledStream)
+	return modeledAt(*pcg)
+}
+
+// modeledAt resumes the modeled stream at a generator's position.
+func modeledAt(state rand.PCG) *modeledSource {
+	pcg := &state
 	// #nosec G404 -- a replayable run needs a stated generator, not a cryptographic one.
 	return &modeledSource{pcg: pcg, rng: rand.New(pcg)}
 }
