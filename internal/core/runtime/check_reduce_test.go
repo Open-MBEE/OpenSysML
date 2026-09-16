@@ -34,6 +34,8 @@ var reductionCorpus = []reductionCase{
 	{file: "por_state_guard_read", action: "turner", states: []string{"router"}},
 	{file: "por_state_do_write", action: "reader", states: []string{"counter"}},
 	{file: "por_state_send_accept", action: "sender", states: []string{"receiver"}},
+	{file: "por_state_join_exit", action: "reader", states: []string{"gather"}},
+	{file: "por_state_join_guard", action: "arm", states: []string{"gather"}},
 	{file: "por_two_machines", states: []string{"turner", "router", "loner"}},
 }
 
