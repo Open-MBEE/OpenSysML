@@ -88,4 +88,12 @@ func TestPrepareBatchLinksWhatAnalysisLinks(t *testing.T) {
 	if got := ownersOf(prepared, prepared.DocumentRoot(name)); !reflect.DeepEqual(got, want) {
 		t.Errorf("preparing links owners\n%q\nwant those analysis links\n%q", got, want)
 	}
+
+	// The gathers read every workspace document, so a batch of one document
+	// prepares the others' bodies too.
+	others, _ := indexedBatch(t, preparedBatch)
+	PrepareBatch(others, &Batch{Documents: []string{"meta.sysml"}})
+	if got := ownersOf(others, others.DocumentRoot(name)); !reflect.DeepEqual(got, want) {
+		t.Errorf("preparing a batch without %s links its owners\n%q\nwant those analysis links\n%q", name, got, want)
+	}
 }

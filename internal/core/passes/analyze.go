@@ -117,16 +117,17 @@ func AnalyzeWithOptions(name string, kind source.Kind, root *ast.RootNamespace,
 	return analyze(NewContextWithOptions(name, kind, idx, parseDiags, opts), root)
 }
 
-// PrepareBatch links what resolving each document of batch would write into its
-// scope tree, so AnalyzeInBatch contexts only read the index. Call it alone, first.
-// The linker resolves as a context does, model attached, to link the same owners.
+// PrepareBatch links what resolving every workspace document would write into
+// its scope tree, so AnalyzeInBatch contexts only read the index. Call it alone,
+// first. Every document, not only the batch's: the workspace-wide gathers read
+// them all. The linker resolves as a context does, model attached.
 func PrepareBatch(idx *symbols.Index, batch *Batch) {
 	if idx == nil || batch == nil {
 		return
 	}
 	linker := resolve.New(idx)
 	attachModel(linker)
-	for _, name := range batch.Documents {
+	for _, name := range idx.WorkspaceDocuments() {
 		linker.LinkMetadataBodies(name)
 	}
 }

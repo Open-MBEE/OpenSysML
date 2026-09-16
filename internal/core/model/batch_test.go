@@ -167,6 +167,42 @@ func TestDiagnosticsAllOverSomeDocumentsMatchesAskingOneByOne(t *testing.T) {
 	}
 }
 
+// A batch of one document prepares the others' annotation bodies too: the
+// identity gather files an unlinked body's attribute under its bare name, where
+// it would collide with a declared id of the document asked for.
+func TestDiagnosticsAllOverOneDocumentPreparesTheOthersBodies(t *testing.T) {
+	meta := Input{Name: "meta.sysml", Version: 1, Content: []byte(`package Meta {
+	metadata def M { attribute rationale : ScalarValues::String; attribute fallback : ScalarValues::String = "d"; }
+	part def X { @M { rationale = fallback; } }
+}`)}
+	check := Input{Name: "check.sysml", Version: 1, Content: []byte(`package Check {
+	part def Y { @IdentityMetadata::ElementId { id = "rationale"; } }
+}`)}
+	inputs := []Input{meta, check}
+	serial := NewWorkspace()
+	for _, in := range inputs {
+		serial.Open(in.Name, in.Content, in.Version)
+	}
+	serial.Diagnostics(meta.Name)
+	var want strings.Builder
+	renderDiagnostics(&want, check.Name, serial.Diagnostics(check.Name))
+	if !strings.Contains(want.String(), "identity-unscoped-id") || strings.Contains(want.String(), "identity-duplicate-id") {
+		t.Fatalf("check.sysml over resolved documents should report only the unscoped id, got:\n%s", want.String())
+	}
+	for _, workers := range []int{1, 8} {
+		ws := NewWorkspace()
+		if err := ws.SetWorkers(workers); err != nil {
+			t.Fatal(err)
+		}
+		ws.OpenAll(inputs)
+		var got strings.Builder
+		renderDiagnostics(&got, check.Name, ws.DiagnosticsAll([]string{check.Name})[0])
+		if got.String() != want.String() {
+			t.Errorf("asking for check.sysml alone on %d workers reported:\n%s\nwant:\n%s", workers, got.String(), want.String())
+		}
+	}
+}
+
 // A batch opened over documents already there replaces them as Open does, so
 // the index holds each name once.
 func TestOpenAllReplacesEarlierDocuments(t *testing.T) {
