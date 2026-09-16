@@ -336,7 +336,7 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - **Conformance gate**: `.sysml` + `.expected.json` pairs, all passing - `conformance_test.go` — counts and per-category breakdown in [the measured counts](../project/spec-compliance.md); a case whose model admits several results lists them as `outcomes`, each cited to [the semantic oracle](../project/behavior-semantic-oracle.md), and is explored to prove every one reachable and nothing else; `TestExecutionConformanceUnderPolicies` re-runs the suite under `declared` and `seed:1`
 - **Golden traces**: `.trace.golden` files - `trace_test.go` — count in [the measured counts](../project/spec-compliance.md); `.trace.order` files state the partial order a trace must respect (`a < b`), and a case with `outcomes` owns a `<case>.<policy>.trace.golden` per sweep policy
 - **Exploration**: `explore_test.go` — every linearization reached once, determinism, each budget's incompleteness, an error as an outcome, transition, region and due order
-- **Robustness**: failure-mode cases (deadlock, unbound params, missing features, dangling transitions, sourceless accept, step budget, pseudostate dead ends and cycles, history and defer misuse, send/accept misrouting, calc arity/recursion, `perform` reference failures) - `robustness_test.go`
+- **Robustness**: failure-mode cases (deadlock, unbound params, missing features, dangling transitions, sourceless accept, step budget, pseudostate dead ends and cycles, history and defer misuse, send/accept misrouting, calc arity/recursion, `perform` reference failures) - `robustness_test.go` and the per-feature `robustness_*_test.go`
 - **Coverage**: All behavioral types fully functional. Action: 14/14 features ✅. State: 13/13 features ✅. Calc: 8/8 ✅. Constraint: 5/5 ✅. Requirement: 5/5 ✅. Evaluation: 7/7 ✅.
 
 **Measured Compliance:** See [SPEC_COMPLIANCE.md](../project/spec-compliance.md) for semantic rule → implementation → test case mapping with status (✅ faithful / ⚠️ approximate / ❌ not yet implemented).
@@ -701,8 +701,8 @@ go test -v -run TestExecutionConformance ./internal/core/runtime
 
 #### 4. Runtime Robustness Tests
 - **Purpose:** Verify malformed/pathological behaviors fail gracefully (typed errors, no panics/hangs)
-- **Location:** `internal/core/runtime/robustness_test.go`
-- **Test:** `TestRuntimeRobustness`, one subtest per failure mode
+- **Location:** `internal/core/runtime/robustness_test.go` and one `robustness_<feature>_test.go` per feature
+- **Test:** the `TestRuntimeRobustness*` functions, one subtest per failure mode; a feature's cases live in its own file and function, so two features never edit one registry
 - **Acceptance:** All return typed errors, never panic, timeout guard (60s) prevents hangs
 
 **Failure modes:**
