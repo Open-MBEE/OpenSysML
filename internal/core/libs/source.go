@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/envvar"
+	"github.com/Open-MBEE/OpenSysML/internal/errata"
 )
 
 //go:embed stdlib
@@ -33,18 +34,45 @@ type Source interface {
 const LibraryPathEnvVar = "OPENSYSML_LIBRARY_PATH"
 
 // DefaultSource returns a dirSource rooted at LibraryPathEnvVar when that
-// environment variable is set and non-empty, otherwise the embedded source.
+// environment variable is set and non-empty, otherwise BundledSource. A
+// directory override is read as it stands: its text is the caller's to correct.
 func DefaultSource() Source {
 	if dir := envvar.Lookup(LibraryPathEnvVar); dir != "" {
 		return &dirSource{dir: dir}
 	}
+	return BundledSource()
+}
+
+// EmbeddedSource returns the standard library exactly as OMG published it,
+// whatever LibraryPathEnvVar says. It is the text the declared errata are
+// verified against; BundledSource is what a process loads.
+func EmbeddedSource() Source {
 	return &embedSource{}
 }
 
-// EmbeddedSource returns the bundled copy of the standard library, whatever
-// LibraryPathEnvVar says: it is what the embedded snapshot is generated from.
-func EmbeddedSource() Source {
-	return &embedSource{}
+// BundledSource returns the standard library a process loads when no directory
+// overrides it: the published text with the corrections declared in
+// internal/errata applied on read. The embedded snapshot is generated from it.
+// A registry that fails to load makes every read fail rather than serve the
+// published text uncorrected.
+func BundledSource() Source {
+	overlay, err := errata.Load()
+	if err != nil {
+		return &failingSource{published: EmbeddedSource(), err: err}
+	}
+	return overlay.LibrarySource(EmbeddedSource())
+}
+
+// failingSource lists the published files and fails to read any of them.
+type failingSource struct {
+	published Source
+	err       error
+}
+
+func (s *failingSource) List() []string { return s.published.List() }
+
+func (s *failingSource) Read(name string) ([]byte, error) {
+	return nil, fmt.Errorf("libs: %s: errata registry: %w", name, s.err)
 }
 
 // NewDirSource returns a Source that reads .kerml/.sysml files from dir.

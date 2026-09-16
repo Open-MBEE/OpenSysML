@@ -571,29 +571,189 @@ dynamics rows without one — quoted verbatim with their derivations in
 
 ## Defects in the vendored quantity libraries
 
-These rows are the findings the expression type checker reports in the vendored standard
-library itself: each is a unit declaration in `SI.sysml` or `USCustomaryUnits.sysml` whose value
-does not have the dimension of the measurement unit it is typed by, judged against the
-`ISQ` definitions those files import. They are pinned as an exact set by
-`TestExprTypeCheckNoStdlibFalsePositives` (`internal/core/model`): a finding outside the set
-fails the gate as a checker false positive, and a row that stops being reported fails it as a
-checker regression. The library bytes are published material and are not corrected; the pinned
-pilot is silent on every row, as on the example rows above, because it does not perform the
-corresponding check.
+These are the findings the expression type checker reports in the standard library as OMG
+published it: each is a unit declaration in `SI.sysml` or `USCustomaryUnits.sysml` whose value
+does not have the dimension of the measurement unit it is typed by, judged against the `ISQ`
+definitions those files import. The pinned pilot is silent on every one, as on the example rows
+above, because it does not perform the corresponding check.
 
-| Library file | Declaration as published | Dimension of the value | Dimension of the declared type | Defect |
+Every finding is an entry of the declared errata overlay (`internal/errata`,
+[the declared errata overlay](errata-overlay.md)), under the same contract as the example-model
+entries below: a specification citation, a written derivation, and an as-published line that
+must still match the vendored file, all checked by tests. The published bytes under
+`internal/core/libs/stdlib` are never edited. Three entries carry a correction — the line has
+one reading with the declared dimension — and the library a process loads
+(`libs.BundledSource`, and the snapshot generated from it) is the published text with those
+three lines substituted on read. The other six have no unambiguous intended reading and are
+documented **without** a correction: the bundled library keeps their published text and the
+checker keeps reporting them. `libs.EmbeddedSource` still serves the text exactly as published,
+and two gates in `internal/core/model` pin both verdicts as exact sets:
+`TestExprTypeCheckPublishedStdlibDefects` finds all nine over the published text, and
+`TestExprTypeCheckNoStdlibFalsePositives` finds exactly the six uncorrected ones over the bundled
+library — so a correction can only be declared for a line the checker rejects, and a corrected
+line that still reports fails the gate.
+
+| Library file | Declared type | Dimension of the value | Dimension of the type | Overlay |
 |---|---|---|---|---|
-| `Domain Libraries/Quantities and Units/SI.sysml:137` | `attribute <'eV⋅m⁻²/kg'> ... : TotalMassStoppingPowerUnit = eV*m^-2/kg;` | T^-2 | `ISQAtomicNuclear::TotalMassStoppingPowerUnit` is L^4·T^-2 | mass stopping power is energy × area per mass, so the metre factor is `m^2`, not `m^-2` (the symbol says the same: `eV⋅m²/kg` would be right; `eV⋅m⁻²/kg` is not) |
-| `Domain Libraries/Quantities and Units/SI.sysml:149` | `attribute <'J⋅s⋅eV⋅s'> ... : TotalAngularMomentumUnit = J*s*eV*s;` | L^4·M^2·T^-2 | `ISQAtomicNuclear::TotalAngularMomentumUnit` is L^2·M·T^-1 | the two spellings of one unit (`J⋅s` and `eV⋅s`) are multiplied, squaring it; each alone is an angular momentum |
-| `Domain Libraries/Quantities and Units/SI.sysml:163` | `attribute <'J⁻¹⋅m⁻³⋅eV⁻¹⋅m⁻³'> ... : EnergyDensityOfStatesUnit = J^-1*m^-3*eV^-1*m^-3;` | L^-10·M^-2·T^4 | `ISQCondensedMatter::EnergyDensityOfStatesUnit` is L^-5·M^-1·T^2 | the same doubling: `J⁻¹⋅m⁻³` and `eV⁻¹⋅m⁻³` are each the unit, and their product is its square |
-| `Domain Libraries/Quantities and Units/SI.sysml:233` | `attribute <'m²⋅A'> 'metre squared ampere' : MagneticDipoleMomentUnit = m^2*A;` | L^2·I | `ISQElectromagnetism::MagneticDipoleMomentUnit` is L^3·M·T^-2·I^-1 | `ISQ::*` re-exports two `MagneticDipoleMomentUnit`s — IEC 80000-6 item 6-30 (`Wb⋅m`, in `ISQElectromagnetism`) and ISO 80000-10 item 10-9.1 (`m²⋅A`, in `ISQAtomicNuclear`) — under one name; `m^2*A` is the atomic-physics unit, and the unqualified name in `SI` reaches the electromagnetic one first |
-| `Domain Libraries/Quantities and Units/SI.sysml:239` | `attribute <'m²⋅s⁻³'> ... : DoseEquivalentUnit = m^2*s^-3;` | L^2·T^-3 | `ISQAtomicNuclear::DoseEquivalentUnit` is L^2·T^-2 | `m²⋅s⁻³` is a dose-equivalent *rate*: ISO 80000-10 item 10-83.2, whose units the `ISQAtomicNuclear` doc lists as `Sv/s, W/kg, m^2*s^-3`. That file declares `doseEquivalentRate: DoseEquivalentValue` rather than a rate value type with a unit of its own, and these three `SI` units follow it |
-| `Domain Libraries/Quantities and Units/SI.sysml:247` | `attribute <'m³/C⋅m³⋅s⁻¹⋅A⁻¹'> ... : HallCoefficientUnit = m^3/C*m^3*s^-1*A^-1;` | L^6·T^-2·I^-2 | `ISQCondensedMatter::HallCoefficientUnit` is L^3·T^-1·I^-1 | the same doubling: `m³/C` and `m³⋅s⁻¹⋅A⁻¹` are each the unit |
-| `Domain Libraries/Quantities and Units/SI.sysml:286` | `attribute <'Sv/s'> 'sievert per second' : DoseEquivalentUnit = Sv/s;` | L^2·T^-3 | `ISQAtomicNuclear::DoseEquivalentUnit` is L^2·T^-2 | a dose-equivalent rate typed as a dose equivalent, as line 239 |
-| `Domain Libraries/Quantities and Units/SI.sysml:299` | `attribute <'W/kg'> 'watt per kilogram' : DoseEquivalentUnit = W/kg;` | L^2·T^-3 | `ISQAtomicNuclear::DoseEquivalentUnit` is L^2·T^-2 | a dose-equivalent rate typed as a dose equivalent, as line 239 |
-| `Domain Libraries/Quantities and Units/USCustomaryUnits.sysml:255` | `private attribute zeroDegreeFahrenheitInKelvin: ThermodynamicTemperatureValue = 229835/900 [K];` | Θ^-1 | `ISQBase::ThermodynamicTemperatureValue` is Θ | `[K]` binds only to `900` (KerML 1.0 §8.2.5.8.1–8.2.5.8.2 make the bracket construction a primary expression), so the value is `229835 / (900 [K])`. The same reading as the geometry example above; the evident intended spelling is `(229835/900) [K]` |
+| `Domain Libraries/Quantities and Units/SI.sysml:137` | `ISQAtomicNuclear::TotalMassStoppingPowerUnit` | T^-2 | L^4·T^-2 | corrected |
+| `Domain Libraries/Quantities and Units/SI.sysml:149` | `ISQAtomicNuclear::TotalAngularMomentumUnit` | L^4·M^2·T^-2 | L^2·M·T^-1 | documented without a correction |
+| `Domain Libraries/Quantities and Units/SI.sysml:163` | `ISQCondensedMatter::EnergyDensityOfStatesUnit` | L^-10·M^-2·T^4 | L^-5·M^-1·T^2 | documented without a correction |
+| `Domain Libraries/Quantities and Units/SI.sysml:233` | `ISQElectromagnetism::MagneticDipoleMomentUnit` | L^2·I | L^3·M·T^-2·I^-1 | documented without a correction |
+| `Domain Libraries/Quantities and Units/SI.sysml:239` | `ISQAtomicNuclear::DoseEquivalentUnit` | L^2·T^-3 | L^2·T^-2 | documented without a correction |
+| `Domain Libraries/Quantities and Units/SI.sysml:247` | `ISQCondensedMatter::HallCoefficientUnit` | L^6·T^-2·I^-2 | L^3·T^-1·I^-1 | corrected |
+| `Domain Libraries/Quantities and Units/SI.sysml:286` | `ISQAtomicNuclear::DoseEquivalentUnit` | L^2·T^-3 | L^2·T^-2 | documented without a correction |
+| `Domain Libraries/Quantities and Units/SI.sysml:299` | `ISQAtomicNuclear::DoseEquivalentUnit` | L^2·T^-3 | L^2·T^-2 | documented without a correction |
+| `Domain Libraries/Quantities and Units/USCustomaryUnits.sysml:255` | `ISQBase::ThermodynamicTemperatureValue` | Θ^-1 | Θ | corrected |
 
-Nothing here has been posted upstream; filing is the user's decision.
+Nothing here has been posted upstream; filing is the user's decision. The Quantities and Units
+domain library is normative content of the SysML v2 specification, so the channel for a fix is an
+OMG issue against the specification, with an issue on `Systems-Modeling/SysML-v2-Release` (which
+ships the library) as the informal route to the pilot maintainers.
+
+### `'eV⋅m⁻²/kg' : TotalMassStoppingPowerUnit = eV*m^-2/kg` is T^-2
+
+**Not filed.** Published, `SI.sysml`:137:
+
+```sysml
+attribute <'eV⋅m⁻²/kg'> 'electronvolt metre to the power minus 2 per kilogram' : TotalMassStoppingPowerUnit = eV*m^-2/kg;
+```
+
+Corrected by the overlay:
+
+```sysml
+attribute <'eV⋅m⁻²/kg'> 'electronvolt metre to the power minus 2 per kilogram' : TotalMassStoppingPowerUnit = eV*m^2/kg;
+```
+
+ISO 80000-10 item 10-55 defines mass stopping power as energy × area per mass, L^4·T^-2, which
+is the dimension `TotalMassStoppingPowerUnit` declares through its `quantityDimension` and the
+dimension of the file's own `J*m^2/kg` at line 147. `eV*m^-2/kg` is T^-2, and `eV*m^2/kg` is the
+only reading of an electronvolt spelling with the declared dimension, so **KerML 7.4.9** (a
+feature's value conforms to its type) is satisfied by exactly one repair. The short name and the
+long name stay as published, so the element's normative identity — derived from its qualified
+name — is unchanged; only the symbol `eV⋅m⁻²/kg` still spells the published exponent.
+
+### `'J⋅s⋅eV⋅s' : TotalAngularMomentumUnit = J*s*eV*s` squares an angular momentum
+
+**Not filed.** Published, `SI.sysml`:149:
+
+```sysml
+attribute <'J⋅s⋅eV⋅s'> 'joule second electronvolt second' : TotalAngularMomentumUnit = J*s*eV*s;
+```
+
+`J*s` and `eV*s` are each an angular momentum (L^2·M·T^-1, ISO 80000-10 item 10-11), and their
+product is L^4·M^2·T^-2, which **KerML 7.4.9** rejects against the declared unit. The two are
+different units (a joule second and an electronvolt second), and the names spell both, so which
+the line means cannot be inferred: this row is **documented without a correction**, and the
+checker keeps reporting it over the bundled library.
+
+### `'J⁻¹⋅m⁻³⋅eV⁻¹⋅m⁻³' : EnergyDensityOfStatesUnit = J^-1*m^-3*eV^-1*m^-3` squares a density of states
+
+**Not filed.** Published, `SI.sysml`:163:
+
+```sysml
+attribute <'J⁻¹⋅m⁻³⋅eV⁻¹⋅m⁻³'> 'joule to the power minus 1 metre to the power minus 3 electronvolt to the power minus 1 metre to the power minus 3' : EnergyDensityOfStatesUnit = J^-1*m^-3*eV^-1*m^-3;
+```
+
+`J^-1*m^-3` and `eV^-1*m^-3` are each an energy density of states (L^-5·M^-1·T^2, ISO 80000-12
+item 12-16), and their product is L^-10·M^-2·T^4 (**KerML 7.4.9**). As at line 149 the two are
+different units and the names spell both, so this row is **documented without a correction**.
+
+### `'m²⋅A' : MagneticDipoleMomentUnit = m^2*A` names the electromagnetic unit for the atomic one
+
+**Not filed.** Published, `SI.sysml`:233:
+
+```sysml
+attribute <'m²⋅A'> 'metre squared ampere' : MagneticDipoleMomentUnit = m^2*A;
+```
+
+`ISQ::*` re-exports two `MagneticDipoleMomentUnit`s under one name: the electromagnetic one
+(L^3·M·T^-2·I^-1, IEC 80000-6 item 6-30, unit `Wb⋅m`, in `ISQElectromagnetism`) and the atomic
+one (L^2·I, ISO 80000-10 item 10-9.1, unit `m²⋅A`, in `ISQAtomicNuclear`). `m^2*A` is the atomic
+unit; the unqualified name in `SI` resolves to the electromagnetic one, and the value fails
+**KerML 7.4.9** against it. Qualifying the type on this line would fix the symptom, but the name
+clash lives in the `ISQ` library and every unqualified use of either name shares it, so this row
+is **documented without a correction** pending an upstream decision on the two definitions.
+
+### `'m²⋅s⁻³' : DoseEquivalentUnit = m^2*s^-3` types a dose-equivalent rate as a dose equivalent
+
+**Not filed.** Published, `SI.sysml`:239:
+
+```sysml
+attribute <'m²⋅s⁻³'> 'metre squared second to the power minus 3' : DoseEquivalentUnit = m^2*s^-3;
+```
+
+`m^2*s^-3` is L^2·T^-3, a dose-equivalent *rate*: ISO 80000-10 item 10-83.2, whose units the
+`ISQAtomicNuclear` documentation lists as `Sv/s, W/kg, m^2*s^-3`. `DoseEquivalentUnit` is
+L^2·T^-2 (**KerML 7.4.9**). `ISQAtomicNuclear` declares `doseEquivalentRate: DoseEquivalentValue`
+rather than a rate value type with a unit of its own, so there is no unit in the library to
+retype this line by, and inventing one is a library design decision; this row and the two below
+are **documented without a correction**.
+
+### `'m³/C⋅m³⋅s⁻¹⋅A⁻¹' : HallCoefficientUnit = m^3/C*m^3*s^-1*A^-1` squares a Hall coefficient
+
+**Not filed.** Published, `SI.sysml`:247:
+
+```sysml
+attribute <'m³/C⋅m³⋅s⁻¹⋅A⁻¹'> 'metre cubed per coulomb cubic metre second to the power minus 1 ampere to the power minus 1' : HallCoefficientUnit = m^3/C*m^3*s^-1*A^-1;
+```
+
+Corrected by the overlay:
+
+```sysml
+attribute <'m³/C⋅m³⋅s⁻¹⋅A⁻¹'> 'metre cubed per coulomb cubic metre second to the power minus 1 ampere to the power minus 1' : HallCoefficientUnit = m^3/C;
+```
+
+`m^3/C` and `m^3*s^-1*A^-1` are one coherent unit spelled twice — `C` is declared `A*s` in the
+same file — each the Hall coefficient of ISO 80000-12 item 12-19 (L^3·T^-1·I^-1) that
+`HallCoefficientUnit` declares; their product is L^6·T^-2·I^-2 (**KerML 7.4.9**). Unlike lines
+149 and 163, either spelling alone denotes the same unit, so the correction chooses nothing: the
+first spelling is substituted and the names stay as published, keeping the element's identity.
+
+### `'Sv/s' : DoseEquivalentUnit = Sv/s` types a dose-equivalent rate as a dose equivalent
+
+**Not filed.** Published, `SI.sysml`:286:
+
+```sysml
+attribute <'Sv/s'> 'sievert per second' : DoseEquivalentUnit = Sv/s;
+```
+
+`Sv/s` is L^2·T^-3, a dose-equivalent rate (ISO 80000-10 item 10-83.2), while
+`DoseEquivalentUnit` is L^2·T^-2 (**KerML 7.4.9**); as at line 239 no rate unit exists to retype
+the line by, so this row is **documented without a correction**.
+
+### `'W/kg' : DoseEquivalentUnit = W/kg` types a dose-equivalent rate as a dose equivalent
+
+**Not filed.** Published, `SI.sysml`:299:
+
+```sysml
+attribute <'W/kg'> 'watt per kilogram' : DoseEquivalentUnit = W/kg;
+```
+
+`W/kg` is L^2·T^-3, a dose-equivalent rate (ISO 80000-10 item 10-83.2), while
+`DoseEquivalentUnit` is L^2·T^-2 (**KerML 7.4.9**); as at line 239 no rate unit exists to retype
+the line by, so this row is **documented without a correction**.
+
+### `zeroDegreeFahrenheitInKelvin = 229835/900 [K]` divides by a temperature
+
+**Not filed.** Published, `USCustomaryUnits.sysml`:255:
+
+```sysml
+private attribute zeroDegreeFahrenheitInKelvin: ThermodynamicTemperatureValue = 229835/900 [K];
+```
+
+Corrected by the overlay:
+
+```sysml
+private attribute zeroDegreeFahrenheitInKelvin: ThermodynamicTemperatureValue = (229835/900) [K];
+```
+
+`'[' SequenceExpression ']'` is a postfix on `PrimaryExpression`
+(`build/pilot-grammars/KerMLExpressions.xtext:308`), below `MultiplicativeExpression`, so `[K]`
+qualifies `900` alone and the value is `229835 / (900 [K])`, of dimension Θ^-1, where
+`ThermodynamicTemperatureValue` is Θ. **SysML v2 §9.8.9.1** makes the published expression
+unsatisfiable under any reading — the same defect as the geometry example's
+`22/2*25.4 + 110 [mm]` — and the evident intent, 0 °F as a temperature in kelvin
+(255.372… K), is the parenthesised form.
 
 ---
 

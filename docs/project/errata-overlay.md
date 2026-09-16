@@ -1,7 +1,9 @@
 # The declared errata overlay
 
 > This is an engineering record. `F<n>` names a row of the divergence census in
-> [pilot-differential.md](pilot-differential.md), and an errata entry's `ID` is that row's number.
+> [pilot-differential.md](pilot-differential.md), and an errata entry for an example model takes
+> that row's number as its `ID`; an entry for the bundled standard library is named by file and
+> line (`SI-137`).
 >
 > **Oracle figures in this record are as measured when it was written; they are not the current
 > baseline.** The current baseline is the generated block in [README](../../README.md) and
@@ -24,8 +26,9 @@ reported.
 
 ## What it is
 
-`internal/errata` is a registry of corrections to published reference material.
-One entry is one line of one file:
+`internal/errata` is a registry of corrections to published reference material — the OMG
+example corpora the oracles read, and the standard library vendored under
+`internal/core/libs/stdlib`. One entry is one line of one file; a file may carry several:
 
 | Field | Meaning |
 |---|---|
@@ -42,6 +45,19 @@ The registry as it stands:
 |---|---|---|---|
 | F82 | `sysml-examples/Geometry Examples/VehicleGeometryAndCoordinateFrames.sysml`:38 | SysML v2 §9.8.9.1 | corrected — `22/2*25.4 + 110 [mm]` → `(22/2*25.4 + 110) [mm]` |
 | F83 | `sysml-examples/Analysis Examples/Turbojet Stage Analysis.sysml`:25 | SysML v2 §9.8.9.1 | documented without a correction |
+| F84 | `sysml-examples/Analysis Examples/Dynamics.sysml`:13 | KerML 7.4.9 | documented without a correction |
+| SI-137 | `Domain Libraries/Quantities and Units/SI.sysml`:137 | KerML 7.4.9 | corrected — `eV*m^-2/kg` → `eV*m^2/kg` |
+| SI-149 | `Domain Libraries/Quantities and Units/SI.sysml`:149 | KerML 7.4.9 | documented without a correction |
+| SI-163 | `Domain Libraries/Quantities and Units/SI.sysml`:163 | KerML 7.4.9 | documented without a correction |
+| SI-233 | `Domain Libraries/Quantities and Units/SI.sysml`:233 | KerML 7.4.9 | documented without a correction |
+| SI-239 | `Domain Libraries/Quantities and Units/SI.sysml`:239 | KerML 7.4.9 | documented without a correction |
+| SI-247 | `Domain Libraries/Quantities and Units/SI.sysml`:247 | KerML 7.4.9 | corrected — `m^3/C*m^3*s^-1*A^-1` → `m^3/C` |
+| SI-286 | `Domain Libraries/Quantities and Units/SI.sysml`:286 | KerML 7.4.9 | documented without a correction |
+| SI-299 | `Domain Libraries/Quantities and Units/SI.sysml`:299 | KerML 7.4.9 | documented without a correction |
+| USCustomaryUnits-255 | `Domain Libraries/Quantities and Units/USCustomaryUnits.sysml`:255 | SysML v2 §9.8.9.1 | corrected — `229835/900 [K]` → `(229835/900) [K]` |
+
+The library entries are derived in [omg-issues.md](omg-issues.md) under "Defects in the vendored
+quantity libraries".
 
 A third entry (the non-conforming redefinition at
 `sysml-examples/Individuals Examples/AnalysisIndividualExample.sysml`:86) was retired at the
@@ -55,10 +71,22 @@ verification failed and the entry was removed rather than re-pointed.
   removed after the run; `examples/pilot-corpora/` and the pilot checkout are
   read-only to this mechanism. A test copies a root, corrects the copy and
   asserts the published tree is byte-identical afterwards.
-- **An entry cannot rot.** `Overlay.Verify` reads each entry's file and fails
-  unless `AsPublished` still matches the bytes on disk, so re-vendoring the
-  corpus invalidates the entry loudly instead of silently skipping the
-  correction.
+- **The vendored library is never written to either.** Its corrections are applied
+  on read, by the `libs.Source` that `Overlay.LibrarySource` wraps around the
+  embedded files: `libs.BundledSource` (what `libs.DefaultSource` serves, and what
+  `stdlib.snapshot` is generated from) is the published text with the declared
+  lines substituted, while `libs.EmbeddedSource` still serves the bytes as
+  published. The two digest differently, so the snapshot decodes for the bundled
+  text only. A directory named by `OPENSYSML_LIBRARY_PATH` is read as it stands.
+- **An entry cannot rot.** `Overlay.Materialize` (and `errata.ApplyAll` under it)
+  fails unless `AsPublished` still matches each entry's line on disk — the
+  documented-only entries under the root included, so the report cannot list a
+  defect the corpus no longer has — and re-vendoring the corpus invalidates the
+  entry loudly instead of silently skipping the correction. A library read checks
+  every declared line of the file the same way before substituting any, and fails
+  the read rather than serve the file unverified.
+- **One entry per line.** Two entries naming the same file and line are refused;
+  several entries for one file are applied together.
 - **No entry without provenance.** A missing citation, a missing derivation, a
   missing `omg-issues.md` row, a correction identical to the published text, a
   line that does not exist, or a path outside the published roots are all
@@ -68,6 +96,11 @@ verification failed and the entry was removed rather than re-pointed.
 - **Errata are not a reclassification route.** The overlay changes no category in
   [the adjudications record](adjudications.md)'s terms and no analyzer behaviour. F82 stays a
   true positive of ours; what the overlay records is that the *examples* are wrong.
+- **A library correction is only declared for a line the checker rejects.** Two gates
+  in `internal/core/model` pin the expression type checker's verdict on the standard
+  library as exact sets: all nine findings over the published text, and exactly the
+  six documented-only ones over the bundled library. A correction the checker still
+  reports at, or a finding that vanishes without an entry, fails a gate.
 
 ## Both figures, and which one is the statement
 
@@ -117,4 +150,6 @@ of the entry and no pilot verdict has changed yet. When one does, the finding ca
 3. Add the `errata.Entry`, copying the published line byte-for-byte, trailing
    whitespace included.
 4. `go test ./internal/errata`, then re-run the three oracles with fresh caches
-   and `make docs-counts`.
+   and `make docs-counts`. A library entry also needs `go generate ./internal/core/libs`
+   (the snapshot is built from the corrected text) and the two `internal/core/model`
+   gates moved between their published and bundled sets.
