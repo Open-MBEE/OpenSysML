@@ -36,7 +36,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // The panel is the client of the server's render methods, and is registered
   // only once a server that serves them has started.
-  diagrams = new DiagramPanels(context.extensionUri, output);
+  diagrams = new DiagramPanels(context.extensionUri, output, context.workspaceState);
   documents = new DocumentRendering(output);
   stdlib = new StdlibDocuments(output);
   context.subscriptions.push(

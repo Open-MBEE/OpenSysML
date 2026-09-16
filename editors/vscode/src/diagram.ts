@@ -44,6 +44,7 @@ import {
   ViewsResult,
   WorkspaceEdit,
 } from "./protocol";
+import { ActiveEditor, AUTO_OPEN_SETTING, Dismissals, Lifecycle, shouldAutoOpen, TabKind } from "./autoopen";
 import { CommandContext, PANEL_TYPE, resolveTarget } from "./target";
 import { declaredViewEntries, DEFAULT_PSEUDO_VIEW, impliedView, pseudoViewEntries } from "./views";
 
@@ -83,6 +84,7 @@ async function listViews(client: LanguageClient, uri: string, output: vscode.Out
 export class DiagramPanels implements vscode.Disposable {
   private readonly panels = new Map<string, DiagramPanel>();
   private readonly disposables: vscode.Disposable[] = [];
+  private readonly dismissals: Dismissals;
   private notification: vscode.Disposable | undefined;
   private client: LanguageClient | undefined;
   private unavailable: string | undefined = NOT_RUNNING;
@@ -90,7 +92,9 @@ export class DiagramPanels implements vscode.Disposable {
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly output: vscode.OutputChannel,
+    workspaceState: vscode.Memento,
   ) {
+    this.dismissals = new Dismissals(workspaceState);
     // The commands exist whether or not a server serves them, so a keybinding
     // or menu always answers — with the diagram, or with why there is none.
     this.disposables.push(
@@ -98,6 +102,23 @@ export class DiagramPanels implements vscode.Disposable {
       vscode.commands.registerCommand("opensysml.exportDiagram", (target?: unknown) => this.export(target)),
       vscode.window.onDidChangeTextEditorSelection((event) => {
         this.panels.get(event.textEditor.document.uri.toString())?.highlightAt(event.selections[0].active);
+      }),
+      vscode.window.onDidChangeActiveTextEditor((editor) => this.autoOpen(editor)),
+      vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration(AUTO_OPEN_SETTING)) {
+          this.autoOpen(vscode.window.activeTextEditor);
+        }
+      }),
+      // A dismissal follows the file through a rename and dies with it.
+      vscode.workspace.onDidRenameFiles((event) => {
+        for (const { oldUri, newUri } of event.files) {
+          void this.dismissals.rename(oldUri.toString(), newUri.toString());
+        }
+      }),
+      vscode.workspace.onDidDeleteFiles((event) => {
+        for (const uri of event.files) {
+          void this.dismissals.clear(uri.toString());
+        }
       }),
       vscode.window.registerWebviewPanelSerializer(PANEL_TYPE, {
         deserializeWebviewPanel: async (panel, state: { uri?: string; view?: string } | undefined) => {
@@ -138,6 +159,8 @@ export class DiagramPanels implements vscode.Disposable {
     for (const panel of this.panels.values()) {
       panel.refresh();
     }
+    // A model file made active while the server was starting gets its diagram now.
+    this.autoOpen(vscode.window.activeTextEditor);
   }
 
   /** detach drops what a client owned, so a restart does not leave it behind. */
@@ -173,23 +196,61 @@ export class DiagramPanels implements vscode.Disposable {
     if (!this.available()) {
       return;
     }
+    // Asking for the diagram undoes an earlier close of it.
     const key = uri.toString();
+    await this.dismissals.clear(key);
     const existing = this.panels.get(key);
     if (existing) {
-      existing.reveal();
+      existing.reveal(this.diagramColumn());
       return;
     }
     // A file chosen in the Explorer is opened first, so the diagram sits beside its source.
     if (!vscode.window.visibleTextEditors.some((editor) => editor.document.uri.toString() === key)) {
       await vscode.window.showTextDocument(uri, { preview: false });
     }
+    this.create(uri);
+  }
+
+  /**
+   * autoOpen draws the diagram of a model file the user is looking at, without
+   * being asked and without a word when it cannot; a file whose diagram the user
+   * closed stays as it is until Open Diagram asks for it again.
+   */
+  private autoOpen(editor: vscode.TextEditor | undefined): void {
+    const uri = editor?.document.uri.toString();
+    const wanted = shouldAutoOpen({
+      enabled: autoOpenEnabled(),
+      available: this.unavailable === undefined,
+      hasPanel: uri !== undefined && this.panels.has(uri),
+      dismissed: uri !== undefined && this.dismissals.has(uri),
+      editor: editor && activeEditorInfo(editor),
+    });
+    if (wanted && editor) {
+      this.create(editor.document.uri);
+    }
+  }
+
+  // create opens a document's panel in the diagram column, leaving focus where it is.
+  private create(uri: vscode.Uri): void {
     const panel = vscode.window.createWebviewPanel(
       PANEL_TYPE,
       `Diagram: ${basename(uri)}`,
-      { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+      { viewColumn: this.diagramColumn(), preserveFocus: true },
       { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist")] },
     );
     this.adopt(uri, panel, "");
+  }
+
+  // diagramColumn is the one group the diagrams share: where a panel already
+  // sits, else beside the source. One column of diagram tabs keeps the layout calm.
+  private diagramColumn(): vscode.ViewColumn {
+    for (const panel of this.panels.values()) {
+      const column = panel.column();
+      if (column !== undefined) {
+        return column;
+      }
+    }
+    return vscode.ViewColumn.Beside;
   }
 
   /** export writes the machine form (Mermaid or Markdown) of the named document's diagram to a file. */
@@ -283,17 +344,40 @@ export class DiagramPanels implements vscode.Disposable {
   }
 
   // adopt takes ownership of a panel, whether it was just created or restored.
+  // Only a panel whose tab the user closes is a dismissal.
   private adopt(docURI: vscode.Uri, panel: vscode.WebviewPanel, selected: string): void {
     const key = docURI.toString();
     this.panels.get(key)?.dispose();
-    const diagram = new DiagramPanel(docURI, panel, selected, this.extensionUri, this.output, () => this.client);
-    this.panels.set(key, diagram);
-    panel.onDidDispose(() => {
+    const diagram = new DiagramPanel(docURI, panel, selected, this.extensionUri, this.output, () => this.client, (byUser) => {
       if (this.panels.get(key) === diagram) {
         this.panels.delete(key);
       }
+      if (byUser) {
+        void this.dismissals.record(key);
+      }
     });
+    this.panels.set(key, diagram);
   }
+}
+
+function autoOpenEnabled(): boolean {
+  return vscode.workspace.getConfiguration("opensysml.diagram").get<boolean>("autoOpen", true);
+}
+
+// activeEditorInfo reads the active editor and its tab into what the auto-open
+// decision looks at: a diff tab and a hover's peek editor draw no diagram.
+function activeEditorInfo(editor: vscode.TextEditor): ActiveEditor {
+  const uri = editor.document.uri;
+  const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+  let tab: TabKind = "other";
+  if (input === undefined) {
+    tab = "none";
+  } else if (input instanceof vscode.TabInputTextDiff) {
+    tab = "diff";
+  } else if (input instanceof vscode.TabInputText && input.uri.toString() === uri.toString()) {
+    tab = "text";
+  }
+  return { uri: uri.toString(), languageId: editor.document.languageId, scheme: uri.scheme, inGroup: editor.viewColumn !== undefined, tab };
 }
 
 /** DiagramPanel is one document's diagram. */
@@ -303,7 +387,7 @@ class DiagramPanel {
   private rendering: Rendering = { nodes: [], version: 0 };
   private pending = false;
   private again = false;
-  private disposed = false;
+  private readonly lifecycle = new Lifecycle();
 
   constructor(
     private readonly docURI: vscode.Uri,
@@ -312,6 +396,7 @@ class DiagramPanel {
     extensionUri: vscode.Uri,
     private readonly output: vscode.OutputChannel,
     private readonly client: () => LanguageClient | undefined,
+    onClosed: (byUser: boolean) => void,
   ) {
     this.selected = selected;
     this.panel.webview.html = html(this.panel.webview, extensionUri, docURI, selected);
@@ -325,11 +410,24 @@ class DiagramPanel {
         }
       }),
     );
-    this.panel.onDidDispose(() => this.dispose());
+    this.panel.onDidDispose(() => {
+      const byUser = this.lifecycle.closed();
+      this.release();
+      onClosed(byUser);
+    });
   }
 
-  reveal(): void {
-    this.panel.reveal(vscode.ViewColumn.Beside, true);
+  reveal(column: vscode.ViewColumn): void {
+    this.panel.reveal(column, true);
+  }
+
+  /** column is the editor group the panel sits in, if it is shown in one. */
+  column(): vscode.ViewColumn | undefined {
+    return this.lifecycle.disposed ? undefined : this.panel.viewColumn;
+  }
+
+  private get disposed(): boolean {
+    return this.lifecycle.disposed;
   }
 
   /** isActive reports whether the panel is the focused editor. */
@@ -348,14 +446,17 @@ class DiagramPanel {
   }
 
   dispose(): void {
-    if (this.disposed) {
+    if (!this.lifecycle.dispose()) {
       return;
     }
-    this.disposed = true;
-    for (const disposable of this.disposables) {
+    this.release();
+    this.panel.dispose();
+  }
+
+  private release(): void {
+    for (const disposable of this.disposables.splice(0)) {
       disposable.dispose();
     }
-    this.panel.dispose();
   }
 
   /** fail leaves the last diagram on screen and states why it is out of date. */

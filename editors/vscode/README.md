@@ -42,9 +42,23 @@ the Output channel says so.
 
 ## The diagram panel
 
-`SysML: Open Diagram` opens a diagram of a model beside it, drawn as SVG from
-the server's rendering and redrawn as the model is typed. It is a keystroke or a
-click away from any `.sysml` or `.kerml` file:
+A diagram of a model opens beside it as soon as a `.sysml` or `.kerml` file is
+shown, drawn as SVG from the server's rendering and redrawn as the model is
+typed. The diagram opens quietly: focus stays in the text, and the diagrams of
+every file share one editor group, so switching between model files adds a tab
+there instead of another column. Nothing opens for a file that is not on disk
+— an untitled buffer, a `git:` revision, a diff — or for one only peeked at from
+a hover.
+
+Close a diagram and it stays closed for that file, across switches to other
+files and across a reload of the window, until you ask for it again. Closing
+the file's editor leaves its diagram where it is; renaming the file carries a
+closed diagram's memory along, deleting the file forgets it. To have no
+diagram open on its own, turn `opensysml.diagram.autoOpen` off; `SysML: Open
+Diagram` then works as before.
+
+`SysML: Open Diagram` brings a diagram back — and lets it open on its own again
+— and is a keystroke or a click away from any `.sysml` or `.kerml` file:
 
 | From | How |
 | --- | --- |
@@ -54,7 +68,8 @@ click away from any `.sysml` or `.kerml` file:
 | **The Command Palette** | `SysML: Open Diagram`. With no model file focused, the one model file in view is drawn; with several in view, the command asks which to focus. |
 
 Without a running server, or with a `sysml-lsp` too old to draw, every one of
-these says so instead of doing nothing.
+these says so instead of doing nothing; a diagram that would have opened on its
+own just waits for the server.
 
 | | |
 | --- | --- |
@@ -133,6 +148,7 @@ The command exists only when the server advertises
 | `opensysml.server.args` | `[]` | Extra server arguments. |
 | `opensysml.server.enabled` | `true` | Set to `false` for highlighting without a server. |
 | `opensysml.trace.server` | `"off"` | Trace LSP traffic in the "SysML v2" output channel. |
+| `opensysml.diagram.autoOpen` | `true` | Open a model file's diagram beside it when the file is shown. Set to `false` to open diagrams only with `SysML: Open Diagram`. |
 
 ## Grammar generation
 

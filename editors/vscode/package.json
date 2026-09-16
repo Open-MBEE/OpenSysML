@@ -89,6 +89,11 @@
           ],
           "default": "off",
           "description": "Trace the communication with the language server."
+        },
+        "opensysml.diagram.autoOpen": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Open the diagram of a SysML or KerML file beside its editor as soon as the file is shown. A diagram you close stays closed for that file until you run **SysML: Open Diagram** on it again."
         }
       }
     },

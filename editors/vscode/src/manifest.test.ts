@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import * as manifest from "../package.json";
+import { AUTO_OPEN_SETTING } from "./autoopen";
 import { MODEL_LANGUAGES, PANEL_TYPE } from "./target";
 
 interface Keybinding {
@@ -116,4 +117,15 @@ test("no menu item or keybinding is left without a when clause", () => {
       assert.ok(item.when, `${menu} ${item.command} is unscoped`);
     }
   }
+});
+
+test("the diagram opens on its own by default, and the setting that turns it off is described", () => {
+  const { properties } = manifest.contributes.configuration as {
+    properties: Record<string, { type: string; default: unknown; description?: string; markdownDescription?: string }>;
+  };
+  const setting = properties[AUTO_OPEN_SETTING];
+  assert.ok(setting, `${AUTO_OPEN_SETTING} is declared`);
+  assert.equal(setting.type, "boolean");
+  assert.equal(setting.default, true);
+  assert.ok(setting.description || setting.markdownDescription, "the setting is described");
 });
