@@ -83,25 +83,18 @@ func Execute(stop context.Context, em *Emitted, x *ExpectedActivity, budget runt
 	if err != nil {
 		return nil, err
 	}
-	var mu sync.Mutex
-	produced := map[string]bool{}
 	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
 		outputs, err := ctx.ExecuteActionWithInputs(action, inputs)
 		if err != nil {
 			return runtime.Outcome{}, err
 		}
-		mu.Lock()
-		for _, n := range producingNodes(em, outputs) {
-			produced[n] = true
-		}
-		mu.Unlock()
 		return ctx.ActionOutcome(outputs), nil
 	}
 	exploration, err := runtime.ExploreWith(stop, policy, jobs, fresh, run)
 	if err != nil {
 		return nil, err
 	}
-	return compare(em.Activity, exploration, x, produced), nil
+	return compare(em, exploration, x), nil
 }
 
 // runBudgets is the budgets bounding each run: the environment's where set,
@@ -186,17 +179,23 @@ func producingNodes(em *Emitted, outputs map[string]runtime.Value) []string {
 	return nodes
 }
 
-// compare holds the exploration's outcomes against the implementation's record.
-func compare(a *Activity, x *runtime.Exploration, expected *ExpectedActivity, produced map[string]bool) *Execution {
+// compare holds the exploration's outcomes against the implementation's record;
+// only the outcomes the exploration kept count, never a discarded speculative run.
+func compare(em *Emitted, x *runtime.Exploration, expected *ExpectedActivity) *Execution {
+	a := em.Activity
 	want := renderExpected(a, expected)
 	reached := map[string]bool{}
 	errs := map[string]bool{}
+	produced := map[string]bool{}
 	for _, o := range x.Outcomes {
 		if o.Outcome.Err != nil {
 			errs[o.Outcome.Err.Error()] = true
 			continue
 		}
 		reached[renderOutputs(a, o.Outcome.Outputs)] = true
+		for _, n := range producingNodes(em, o.Outcome.Outputs) {
+			produced[n] = true
+		}
 	}
 	ex := &Execution{
 		Expected: strings.Split(want, "\n"),

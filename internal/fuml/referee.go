@@ -76,8 +76,11 @@ type Provenance struct {
 	RICommit             string `json:"riCommit"`
 	TestsDigest          string `json:"testsDigest"`
 	ExceptionTestsDigest string `json:"exceptionTestsDigest"`
-	JarDigest            string `json:"jarDigest"`
-	Activities           int    `json:"activities"`
+	// LibraryDigest is the downloaded library's, the copy the reader resolves
+	// references against; the jar carries its own copy under JarDigest.
+	LibraryDigest string `json:"libraryDigest"`
+	JarDigest     string `json:"jarDigest"`
+	Activities    int    `json:"activities"`
 	// Recorded is the date -update stamped; a plain run leaves it empty.
 	Recorded string `json:"recorded,omitempty"`
 	// Develop is the develop commit whose runtime -update measured; a plain
@@ -87,7 +90,11 @@ type Provenance struct {
 
 // Provenance is the identity a report of the pinned suite carries.
 func (p Pin) Provenance(activities int) Provenance {
-	return Provenance{RITag: p.Tag, RICommit: p.Commit, TestsDigest: p.Tests, ExceptionTestsDigest: p.ExceptionTest, JarDigest: p.Jar, Activities: activities}
+	return Provenance{
+		RITag: p.Tag, RICommit: p.Commit,
+		TestsDigest: p.Tests, ExceptionTestsDigest: p.ExceptionTest, LibraryDigest: p.Library, JarDigest: p.Jar,
+		Activities: activities,
+	}
 }
 
 // Report is one run of the referee over the suite: the buckets' counts, the

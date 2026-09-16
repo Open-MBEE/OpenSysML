@@ -295,8 +295,9 @@ go run ./cmd/fuml-referee -update           # after adjudicating a movement
 `-check` and `-update` refuse `-filter`, since the counts are the whole suite's; `-jobs`
 below 1 is refused; an absent suite is reported and exits 0 unless
 `OPENSYSML_REQUIRE_FUML_SUITE` is set, as CI sets it. The baseline
-`docs/project/fuml-referee-baseline.json` carries the provenance (tag, commit, the three
-digests, the activity count, the date and develop commit `-update` recorded), the bucket
+`docs/project/fuml-referee-baseline.json` carries the provenance (tag, commit, the four
+digests of the suite files — the two models, the downloaded library the reader resolves
+against, and the jar — the activity count, the date and develop commit `-update` recorded), the bucket
 counts and every row with its bucket, reasons, expected and reached outputs, run count and
 status. `-check` compares the provenance first — a moved pin is a different question, never a
 moved count — then the four counts, and names the rows that moved between buckets when a

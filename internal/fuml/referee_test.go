@@ -376,10 +376,29 @@ func TestReproducesByCount(t *testing.T) {
 		}
 	}
 
-	other := refereed(t, s, x, Options{})
-	other.Provenance.JarDigest = "different"
-	err = Reproduces(was, other)
-	if err == nil || !strings.Contains(err.Error(), "provenance") || !strings.Contains(err.Error(), "provisioning") {
-		t.Errorf("other suite: %v", err)
+	for _, change := range []struct {
+		name string
+		set  func(*Provenance)
+	}{
+		{"jar", func(p *Provenance) { p.JarDigest = "different" }},
+		{"library", func(p *Provenance) { p.LibraryDigest = "different" }},
+	} {
+		other := refereed(t, s, x, Options{})
+		change.set(&other.Provenance)
+		err = Reproduces(was, other)
+		if err == nil || !strings.Contains(err.Error(), "provenance") || !strings.Contains(err.Error(), "provisioning") {
+			t.Errorf("other %s: %v", change.name, err)
+		}
+	}
+}
+
+// A report's provenance carries every pinned suite file the reader used,
+// the downloaded library included.
+func TestProvenanceNamesTheLibrary(t *testing.T) {
+	pin := Pin{Tag: "t", Commit: "c", Tests: "a", ExceptionTest: "b", Library: "l", Jar: "j"}
+	got := pin.Provenance(3)
+	want := Provenance{RITag: "t", RICommit: "c", TestsDigest: "a", ExceptionTestsDigest: "b", LibraryDigest: "l", JarDigest: "j", Activities: 3}
+	if got != want {
+		t.Errorf("got %+v\nwant %+v", got, want)
 	}
 }
