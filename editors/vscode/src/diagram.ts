@@ -78,18 +78,21 @@ const EXPORT_FORMS: Record<string, { extension: string; filter: string }> = {
 interface ViewListing {
   declared: DeclaredView[];
   pseudo: PickerEntry[];
+  /** Set when the server could not be asked: the empty listing then says nothing about the document. */
+  failed?: true;
 }
 
 // listViews asks the server for a document's views. A failure is logged and yields
 // no declared views: the listing is a picker's content, not the diagram.
 async function listViews(client: LanguageClient, uri: string, output: vscode.OutputChannel): Promise<ViewListing> {
-  let listing: ViewsResult | undefined;
+  let listing: ViewsResult;
   try {
     listing = await client.sendRequest<ViewsResult>(VIEWS_METHOD, { textDocument: { uri } });
   } catch (err) {
     output.appendLine(`Listing the views of ${vscode.Uri.parse(uri).fsPath} failed: ${errorMessage(err)}`);
+    return { declared: [], pseudo: pseudoViewEntries(undefined), failed: true };
   }
-  return { declared: declaredViewEntries(listing), pseudo: pseudoViewEntries(listing?.pseudoViews) };
+  return { declared: declaredViewEntries(listing), pseudo: pseudoViewEntries(listing.pseudoViews) };
 }
 
 /**
@@ -279,13 +282,20 @@ export class DiagramPanels implements vscode.Disposable {
   // cursor or an earlier choice decides, else — when asking is allowed — what the
   // user picks. Empty when nothing decides and nothing is picked. The cursor is
   // read after the listing returns: an editor just made active still restores it.
+  // Without a listing, the server's own choice is drawn when asked, nothing unasked.
   private async viewsToDraw(docURI: vscode.Uri, editor: vscode.TextEditor, ask: boolean): Promise<string[]> {
     const client = this.client;
     if (!client) {
-      return [""];
+      return ask ? [""] : [];
     }
-    const { declared, pseudo } = await listViews(client, docURI.toString(), this.output);
-    const choice = chooseView(declared, pseudo, editor.selection.active, this.chosenViews.get(docURI.toString()));
+    const version = editor.document.version;
+    const { declared, pseudo, failed } = await listViews(client, docURI.toString(), this.output);
+    if (failed) {
+      return ask ? [""] : [];
+    }
+    // Ranges were listed for the document as it was; an edit since leaves the cursor to decide nothing.
+    const cursor = editor.document.version === version ? editor.selection.active : undefined;
+    const choice = chooseView(declared, pseudo, cursor, this.chosenViews.get(docURI.toString()));
     if (choice.view !== undefined) {
       return [choice.view];
     }

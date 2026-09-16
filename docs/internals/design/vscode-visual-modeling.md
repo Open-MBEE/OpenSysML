@@ -198,7 +198,9 @@ passed to the renderer directly.
   several views it runs the same choice as the command up to the quick pick — the
   implied view, the one under the cursor, the remembered one — and opens nothing
   rather than ask. The eligibility is checked again once the listing returns, so a
-  panel opened or an editor switched meanwhile is not doubled.
+  panel opened or an editor switched meanwhile is not doubled; a listing that
+  fails opens nothing (the command falls back to the server's own choice), and
+  ranges listed before an edit are not matched against the cursor after it.
 - Placement: one panel per document and view, all in one editor group. The first
   diagram opens `Beside` its source; every later one, automatic or explicit, opens
   in the group an existing diagram already occupies (`diagramColumn`), so switching
