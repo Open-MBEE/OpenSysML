@@ -121,7 +121,7 @@ func golden(t *testing.T, s *Server, name string, ops ...modelEditOperation) str
 		}
 		converted = append(converted, c)
 	}
-	result, _, ok, err := s.ws.ApplyEdit(name, converted)
+	result, _, ok, err := s.ws.ApplyEdit(name, converted, nil)
 	if !ok || err != nil {
 		t.Fatalf("edit.Apply: ok=%v err=%v", ok, err)
 	}
