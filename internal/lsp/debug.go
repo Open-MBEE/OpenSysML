@@ -90,10 +90,11 @@ type debugSendParams struct {
 	Args    map[string]string `json:"args,omitempty"`
 }
 
-// debugAdvanceParams moves the clock forward by time.
+// debugAdvanceParams moves the clock forward by time, a duration the request
+// must spell: one omitted or null is refused rather than read as zero.
 type debugAdvanceParams struct {
-	Session string  `json:"session"`
-	Time    float64 `json:"time"`
+	Session string   `json:"session"`
+	Time    *float64 `json:"time"`
 }
 
 // debugBreakpointsParams sets breakpoints on the nodes of the session's rendering
@@ -1010,8 +1011,12 @@ func parseDebugExpression(text string) (ast.Node, error) {
 
 // DebugAdvance answers opensysml/debug/advance.
 func (s *Server) DebugAdvance(params *debugAdvanceParams) (*debugSnapshot, error) {
-	if params.Time < 0 || math.IsNaN(params.Time) || math.IsInf(params.Time, 0) {
-		return nil, debugInvalid(fmt.Errorf("%w: time must be a finite duration of at least 0, not %v", ErrDebugTime, params.Time))
+	if params.Time == nil {
+		return nil, debugInvalid(fmt.Errorf("%w: no time given", ErrDebugTime))
+	}
+	until := *params.Time
+	if until < 0 || math.IsNaN(until) || math.IsInf(until, 0) {
+		return nil, debugInvalid(fmt.Errorf("%w: time must be a finite duration of at least 0, not %v", ErrDebugTime, until))
 	}
 	sess, err := s.session(params.Session)
 	if err != nil {
@@ -1022,7 +1027,7 @@ func (s *Server) DebugAdvance(params *debugAdvanceParams) (*debugSnapshot, error
 		return nil, err
 	}
 	sess.resume()
-	if _, err := sess.rt.AdvanceUntil(params.Time, sess.halted); err != nil {
+	if _, err := sess.rt.AdvanceUntil(until, sess.halted); err != nil {
 		sess.failure = err.Error()
 	}
 	sess.pause()

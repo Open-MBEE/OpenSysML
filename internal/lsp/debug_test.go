@@ -192,6 +192,11 @@ func mustDebug(t *testing.T, s *Server, method string, params any) *debugSnapsho
 	return snap
 }
 
+// advanceBy is an advance request moving session's clock forward by time.
+func advanceBy(session string, time float64) *debugAdvanceParams {
+	return &debugAdvanceParams{Session: session, Time: &time}
+}
+
 // ids maps the names of a rendering's nodes to their IDs; names must be unique.
 func ids(t *testing.T, r *renderResult) map[string]string {
 	t.Helper()
@@ -296,10 +301,18 @@ func TestDebugProtocolShapes(t *testing.T) {
 	if want := `{"session":"debug-1","signal":"Go","args":{"level":"3"}}`; string(raw) != want {
 		t.Errorf("send params = %s, want %s", raw, want)
 	}
-	advance := debugAdvanceParams{Session: "debug-1", Time: 2.5}
-	raw, _ = json.Marshal(advance)
+	raw, _ = json.Marshal(advanceBy("debug-1", 2.5))
 	if want := `{"session":"debug-1","time":2.5}`; string(raw) != want {
 		t.Errorf("advance params = %s, want %s", raw, want)
+	}
+	for _, malformed := range []string{`{"session":"debug-1"}`, `{"session":"debug-1","time":null}`} {
+		var advance debugAdvanceParams
+		if err := json.Unmarshal([]byte(malformed), &advance); err != nil {
+			t.Fatal(err)
+		}
+		if advance.Time != nil {
+			t.Errorf("advance params %s decoded a time of %v, want none", malformed, *advance.Time)
+		}
 	}
 
 	due := 5.0
@@ -398,8 +411,18 @@ package Other {
 	if _, err := s.DebugSend(&debugSendParams{Session: snap.Session, Signal: "Halt"}); !errors.Is(err, ErrDebugSignal) {
 		t.Errorf("send of a signal no active state accepts: err = %v, want %v", err, ErrDebugSignal)
 	}
-	if _, err := s.DebugAdvance(&debugAdvanceParams{Session: snap.Session, Time: -1}); err == nil {
-		t.Error("advance by a negative duration was accepted")
+	if _, err := s.DebugAdvance(advanceBy(snap.Session, -1)); !errors.Is(err, ErrDebugTime) {
+		t.Errorf("advance by a negative duration: err = %v, want %v", err, ErrDebugTime)
+	}
+	if _, err := s.DebugAdvance(&debugAdvanceParams{Session: snap.Session}); !errors.Is(err, ErrDebugTime) {
+		t.Errorf("advance by no duration: err = %v, want %v", err, ErrDebugTime)
+	}
+	if _, err := debugCall(t, s, MethodDebugAdvance, json.RawMessage(`{"session":"`+snap.Session+`","time":null}`)); !errors.Is(err, ErrDebugTime) {
+		t.Errorf("advance by a null duration: err = %v, want %v", err, ErrDebugTime)
+	}
+	before := mustDebug(t, s, MethodDebugAdvance, advanceBy(snap.Session, 0))
+	if before.Time != snap.Time {
+		t.Errorf("advance by zero moved the clock from %v to %v", snap.Time, before.Time)
 	}
 	stopped := mustDebug(t, s, MethodDebugStop, &debugSessionParams{Session: snap.Session})
 	wantState(t, stopped, debugEnded)
@@ -497,7 +520,7 @@ func TestDebugStateMachineSession(t *testing.T) {
 	wantStrings(t, "taken into the composite state", edges(snap.Taken), []string{edge("idle", "busy"), startOf("busy") + "->" + id["working"]})
 
 	// The clock advances without anything due; the machine stays put.
-	snap = mustDebug(t, s, MethodDebugAdvance, &debugAdvanceParams{Session: snap.Session, Time: 5})
+	snap = mustDebug(t, s, MethodDebugAdvance, advanceBy(snap.Session, 5))
 	if snap.Time != 10 {
 		t.Errorf("time after advance = %v, want 10", snap.Time)
 	}
@@ -611,7 +634,7 @@ func TestDebugContinueHoldsTheClock(t *testing.T) {
 	wantStrings(t, "active after the signal", snap.ActiveStates, []string{id["motion"], id["busy"], id["working"], id["clock"], id["waiting"]})
 
 	// Advancing to the event fires it; a continue then quiesces the machine.
-	snap = mustDebug(t, s, MethodDebugAdvance, &debugAdvanceParams{Session: session, Time: 5})
+	snap = mustDebug(t, s, MethodDebugAdvance, advanceBy(session, 5))
 	if snap.Time != 5 {
 		t.Errorf("time after advance = %v, want 5", snap.Time)
 	}
@@ -656,7 +679,7 @@ func TestDebugAdvancePausesOnATransientState(t *testing.T) {
 	wantStrings(t, "initial active states", snap.ActiveStates, []string{id["coasting"]})
 	mustDebug(t, s, MethodDebugBreakpoints, &debugBreakpointsParams{Session: session, NodeIDs: []string{id["braking"]}})
 
-	snap = mustDebug(t, s, MethodDebugAdvance, &debugAdvanceParams{Session: session, Time: 20})
+	snap = mustDebug(t, s, MethodDebugAdvance, advanceBy(session, 20))
 	wantState(t, snap, debugSuspended)
 	if snap.PausedAt != id["braking"] || !strings.Contains(snap.Reason, "breakpoint braking") {
 		t.Errorf("pausedAt = %q reason = %q, want the breakpoint on braking", snap.PausedAt, snap.Reason)
@@ -679,7 +702,7 @@ func TestDebugAdvancePausesOnATransientState(t *testing.T) {
 	if snap.Time != 5 {
 		t.Errorf("time after resuming = %v, want 5", snap.Time)
 	}
-	snap = mustDebug(t, s, MethodDebugAdvance, &debugAdvanceParams{Session: session, Time: 15})
+	snap = mustDebug(t, s, MethodDebugAdvance, advanceBy(session, 15))
 	if snap.Time != 20 || snap.PausedAt != "" {
 		t.Errorf("after the rest of the advance: time = %v pausedAt = %q, want 20 and none", snap.Time, snap.PausedAt)
 	}
@@ -931,7 +954,7 @@ func TestDebugBreakpointsSetAgainWhilePausedKeepThePause(t *testing.T) {
 // run goes past the breakpoint to what is due by then.
 func TestDebugAdvanceResumesAPausedAction(t *testing.T) {
 	s, session, id := pausedAtSplit(t)
-	snap := mustDebug(t, s, MethodDebugAdvance, &debugAdvanceParams{Session: session, Time: 5})
+	snap := mustDebug(t, s, MethodDebugAdvance, advanceBy(session, 5))
 	if snap.Time != 5 {
 		t.Errorf("time after advance = %v, want 5", snap.Time)
 	}
@@ -1102,7 +1125,7 @@ func TestDebugStartAttachesToThePerformersMachine(t *testing.T) {
 	if len(snap.Queue) != 1 {
 		t.Errorf("queue = %+v, want the one timer of the one machine", snap.Queue)
 	}
-	snap = mustDebug(t, s, MethodDebugAdvance, &debugAdvanceParams{Session: session, Time: 6})
+	snap = mustDebug(t, s, MethodDebugAdvance, advanceBy(session, 6))
 	wantStrings(t, "active after both timers", snap.ActiveStates, []string{id["once"]})
 	wantStrings(t, "taken", edges(snap.Taken), []string{id["waiting"] + "->" + id["elapsed"], id["elapsed"] + "->" + id["once"]})
 
@@ -1219,7 +1242,7 @@ func TestDebugActionSession(t *testing.T) {
 
 	// Advancing to the due instant releases the timed branch; the signal
 	// branch still waits.
-	snap = mustDebug(t, s, MethodDebugAdvance, &debugAdvanceParams{Session: snap.Session, Time: 5})
+	snap = mustDebug(t, s, MethodDebugAdvance, advanceBy(snap.Session, 5))
 	wantState(t, snap, debugWaiting)
 	if snap.Time != 5 || snap.Reason != "Ping" {
 		t.Errorf("after advance time = %v reason = %q, want 5 and Ping", snap.Time, snap.Reason)

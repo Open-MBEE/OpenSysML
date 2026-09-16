@@ -527,7 +527,9 @@ the clock's units, dispatching what falls due on the way: timed transitions
 fire, `accept after` waits end and the tokens move on. A breakpoint reached on
 the way stops the advance short, the clock held at the instant it was reached,
 and the rest of the duration is for the next `advance`. A `time` that is
-negative, infinite or not a number is refused with `InvalidParams`.
+omitted, `null`, negative, infinite or not a number is refused with
+`InvalidParams`; an explicit `0` is a valid advance that leaves the clock where
+it stands.
 
 ### `opensysml/debug/breakpoints`
 
