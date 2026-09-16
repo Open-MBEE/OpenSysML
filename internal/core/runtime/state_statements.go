@@ -358,7 +358,7 @@ func (h *stateStmtHost) assignAround(name string, value Value) (bool, error) {
 }
 
 // pauseAt sets no breakpoint: a state behavior's nodes are not stepped.
-func (h *stateStmtHost) pauseAt(ast.Node) error {
+func (h *stateStmtHost) pauseAt([]ast.Node, ast.Node) error {
 	return nil
 }
 

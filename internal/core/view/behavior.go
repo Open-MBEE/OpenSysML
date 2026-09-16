@@ -42,8 +42,7 @@ func (r *Renderer) renderStates(view *symbols.Symbol, exposed []*symbols.Symbol,
 // its transitions as edges.
 func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering) *Node {
 	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), Type: declType(machine),
-		Origin: symbolOrigin(machine), Geometry: r.geometryOf(view, machine, out)}
-	docs := &machineDocs{machine: machine.DocName, of: map[ast.Node]string{}}
+		Origin: symbolOrigin(machine), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out)}
 	nodes := map[ast.Node]*Node{}
 	regions := map[*ast.StateRegion]*Node{}
 	place := func(node *Node, decl ast.Node) *Node {
@@ -54,18 +53,14 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	// Regions first: a state of an orthogonal region is nested in that region,
 	// and the region order is the order the machine enters and exits them in.
 	for _, region := range graph.TopRegions {
-		docs.of[region] = writtenIn(graph.RegionScope(region), docs.machine)
-		regions[region] = place(r.regionNode(region, docs.of[region], ids), region)
+		regions[region] = place(r.regionNode(region, graph, machine, ids), region)
 		root.Children = append(root.Children, regions[region])
 	}
 	for _, state := range graph.States {
-		doc := r.declaredIn(machine, graph.DeclOf(state), docs.machine)
-		docs.of[state] = doc
-		node := place(r.stateNode(state, graph, doc, ids), graph.DeclOf(state))
+		node := place(r.stateNode(state, graph, machine, ids), graph.DeclOf(state))
 		nodes[state] = node
 		for _, region := range graph.CompositeStates[state] {
-			docs.of[region] = writtenIn(graph.RegionScope(region), doc)
-			regions[region] = place(r.regionNode(region, docs.of[region], ids), region)
+			regions[region] = place(r.regionNode(region, graph, machine, ids), region)
 			node.Children = append(node.Children, regions[region])
 		}
 	}
@@ -80,10 +75,8 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 		parent.Children = append(parent.Children, nodes[state])
 	}
 	for _, pseudo := range graph.Pseudostates {
-		doc := writtenIn(graph.PseudostateScope(pseudo), docs.in(graph.PseudostateOwner[pseudo]))
-		docs.of[pseudo] = doc
 		node := place(&Node{ID: ids.take(), Kind: pseudo.Kind.String(), Name: nameText(pseudo.Name),
-			Origin: nodeOrigin(doc, pseudo)}, pseudo)
+			Origin: nodeOrigin(docOf(graph, pseudo, machine.DocName), pseudo)}, pseudo)
 		nodes[pseudo] = node
 		parent := root
 		if owner := graph.PseudostateOwner[pseudo]; owner != nil && nodes[owner] != nil {
@@ -105,7 +98,7 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 		}
 	}
 	for _, body := range bodies {
-		r.entryEdges(view, machine, graph, body, nodes, docs, ids, out)
+		r.entryEdges(view, machine, graph, body, nodes, ids, out)
 	}
 
 	sources := make([]ast.Node, 0, len(graph.States)+len(graph.Pseudostates))
@@ -116,7 +109,7 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 		sources = append(sources, pseudo)
 	}
 	for _, src := range sources {
-		r.transitionEdges(view, machine, graph, src, nodes, docs, out)
+		r.transitionEdges(view, machine, graph, src, nodes, out)
 	}
 	if len(root.Children) == 0 {
 		root.Detail = detailWith(root.Detail, "declares no states")
@@ -124,51 +117,14 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	return root
 }
 
-// machineDocs tells the document each vertex and region of a lowered machine
-// was written in: one inherited from a definition of another document lies in
-// that one.
-type machineDocs struct {
-	machine string
-	of      map[ast.Node]string
-}
-
-// in is the document of the body owner holds, the machine's own for nil.
-func (d *machineDocs) in(owner ast.Node) string {
-	if doc, ok := d.of[owner]; ok && doc != "" {
-		return doc
-	}
-	return d.machine
-}
-
-// declaredIn is the document the declaration a vertex of machine was lowered
-// from is written in: the symbol's declaring it, else fallback, the document
-// of the body holding it.
-func (r *Renderer) declaredIn(machine *symbols.Symbol, decl ast.Node, fallback string) string {
-	if sym, ok := r.model.SymbolDeclaring(documentScope(machine), decl); ok && sym.DocName != "" {
-		return sym.DocName
-	}
-	return fallback
-}
-
-// writtenIn is the document a transition, region or pseudostate was written
-// in, which the scope its names resolve in records; fallback is the document of
-// the body holding it.
-func writtenIn(scope *symbols.Scope, fallback string) string {
-	if scope != nil && scope.DocName() != "" {
-		return scope.DocName()
-	}
-	return fallback
-}
-
 // entryEdges gives a body that says where it starts a start node, and one edge
 // per entry transition, in the order the guards are tried in.
 func (r *Renderer) entryEdges(view, machine *symbols.Symbol, graph *lower.StateGraph, body stateBody,
-	nodes map[ast.Node]*Node, docs *machineDocs, ids *nodeIDs, out *Rendering) {
+	nodes map[ast.Node]*Node, ids *nodeIDs, out *Rendering) {
 	entries := graph.StartOf(body.owner)
 	if len(entries) == 0 {
 		return
 	}
-	doc := docs.in(body.owner)
 	start := &Node{ID: ids.take(), Kind: startKind}
 	body.node.Children = append([]*Node{start}, body.node.Children...)
 	for _, entry := range entries {
@@ -178,10 +134,10 @@ func (r *Renderer) entryEdges(view, machine *symbols.Symbol, graph *lower.StateG
 				behaviorNodeName(entry.Target), r.notationName(machine)))
 			continue
 		}
-		in := writtenIn(entry.Scope, doc)
+		doc := docOf(graph, entry.Decl, machine.DocName)
 		out.Edges = append(out.Edges, Edge{
-			From: start.ID, To: target.ID, Label: r.guardLabel(in, entry.Guard), Kind: EdgeTransition,
-			Origin: nodeOrigin(in, entry.Decl), Route: r.declaredRouteOf(view, machine, entry.Decl, out),
+			From: start.ID, To: target.ID, Label: r.guardLabel(doc, entry.Guard), Kind: EdgeTransition,
+			Origin: nodeOrigin(doc, entry.Decl), Route: r.declaredRouteOf(view, machine, entry.Decl, out),
 		})
 	}
 }
@@ -189,8 +145,7 @@ func (r *Renderer) entryEdges(view, machine *symbols.Symbol, graph *lower.StateG
 // transitionEdges adds an edge for each transition leaving src, reporting one
 // whose target the machine's own states do not include.
 func (r *Renderer) transitionEdges(view, machine *symbols.Symbol, graph *lower.StateGraph, src ast.Node,
-	nodes map[ast.Node]*Node, docs *machineDocs, out *Rendering) {
-	doc := docs.in(src)
+	nodes map[ast.Node]*Node, out *Rendering) {
 	for _, transition := range graph.Transitions[src] {
 		target, ok := nodes[transition.Target]
 		if !ok {
@@ -198,10 +153,10 @@ func (r *Renderer) transitionEdges(view, machine *symbols.Symbol, graph *lower.S
 				transitionName(transition), r.notationName(machine)))
 			continue
 		}
-		in := writtenIn(transition.Scope, doc)
+		doc := docOf(graph, transition.Decl, machine.DocName)
 		out.Edges = append(out.Edges, Edge{
-			From: nodes[src].ID, To: target.ID, Label: r.transitionLabel(in, transition), Kind: EdgeTransition,
-			Origin: nodeOrigin(in, transition.Decl), Route: r.declaredRouteOf(view, machine, transition.Decl, out),
+			From: nodes[src].ID, To: target.ID, Label: r.transitionLabel(doc, transition), Kind: EdgeTransition,
+			Origin: nodeOrigin(doc, transition.Decl), Route: r.declaredRouteOf(view, machine, transition.Decl, out),
 		})
 	}
 }
@@ -217,17 +172,32 @@ type stateBody struct {
 	node  *Node
 }
 
+// declaredDocs is a lowered graph that knows which document each of its
+// declarations was written in.
+type declaredDocs interface {
+	DocOf(decl ast.Node) string
+}
+
+// docOf is the document a graph declaration was written in, else the document of
+// the behavior drawn, for a graph lowered outside any document.
+func docOf(graph declaredDocs, decl ast.Node, fallback string) string {
+	if doc := graph.DocOf(decl); doc != "" {
+		return doc
+	}
+	return fallback
+}
+
 // regionNode renders one orthogonal region, which holds the states declared in
-// it; doc is the document its declaration was written in.
-func (r *Renderer) regionNode(region *ast.StateRegion, doc string, ids *nodeIDs) *Node {
-	return &Node{ID: ids.take(), Kind: "region", Name: nameText(region.Name), Origin: nodeOrigin(doc, region)}
+// it.
+func (r *Renderer) regionNode(region *ast.StateRegion, graph *lower.StateGraph, machine *symbols.Symbol, ids *nodeIDs) *Node {
+	return &Node{ID: ids.take(), Kind: "region", Name: nameText(region.Name), Origin: nodeOrigin(docOf(graph, region, machine.DocName), region)}
 }
 
 // stateNode renders one state with what the machine says about it: whether its
 // body unconditionally starts in it, whether entering it completes, what it runs.
-func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, doc string, ids *nodeIDs) *Node {
+func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, machine *symbols.Symbol, ids *nodeIDs) *Node {
 	node := &Node{ID: ids.take(), Kind: "state", Name: nameText(state.Name), Type: nodeType(graph.DeclOf(state)),
-		Origin: nodeOrigin(doc, state)}
+		Origin: nodeOrigin(docOf(graph, state, machine.DocName), state)}
 	var detail []string
 	if graph.UnconditionalStart(bodyOwning(graph, state)) == state {
 		detail = append(detail, "initial")
@@ -437,18 +407,23 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		return nil, false
 	}
 	root := &Node{ID: ids.take(), Kind: kind, Name: name, Type: subject.typ, Origin: nodeOrigin(doc, decl),
-		Geometry: r.declaredGeometryOf(subject.view, subject.elem, decl, out)}
+		Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.declaredGeometryOf(subject.view, subject.elem, decl, out)}
 	lowered[decl] = true
 	nodes := map[ast.Node]*Node{}
 	for _, node := range graph.Nodes {
+		nodeDoc := docOf(graph, node, doc)
 		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: nameText(behaviorNodeName(node)),
-			Type: nodeType(node), Origin: nodeOrigin(doc, node),
+			Type: nodeType(node), Origin: nodeOrigin(nodeDoc, node),
 			Geometry: r.declaredGeometryOf(subject.view, subject.elem, node, out)}
 		nodes[node] = child
 		root.Children = append(root.Children, child)
 		if nested, ok := nestedAction(node); ok && depth < maxBehaviorDepth && !lowered[node] {
+			nestedScope := graph.Scopes[node]
+			if nestedScope == nil {
+				nestedScope = actionScope(scope, nested)
+			}
 			nestedSubject := actionSubject{decl: nested, kind: child.Kind, name: child.Name, typ: child.Type,
-				scope: actionScope(scope, nested), doc: doc, view: subject.view, elem: subject.elem}
+				scope: nestedScope, doc: nodeDoc, view: subject.view, elem: subject.elem}
 			sub, ok := r.actionNode(nestedSubject, ids, out, lowered, depth+1)
 			if ok {
 				child.Children, child.Detail = sub.Children, detailWith(child.Detail, "own flow")
@@ -465,16 +440,17 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 					nameText(behaviorNodeName(src)), name))
 				continue
 			}
+			edgeDoc := docOf(graph, edge.Decl, doc)
 			label := ""
 			if guard := edge.Guard; guard != nil {
-				if text := r.nodeText(doc, guard); text != "" {
+				if text := r.nodeText(edgeDoc, guard); text != "" {
 					label = "[" + text + "]"
 				} else {
 					label = "[guard]"
 				}
 			}
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label, Kind: EdgeSuccession,
-				Origin: nodeOrigin(doc, edge.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, edge.Decl, out)})
+				Origin: nodeOrigin(edgeDoc, edge.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, edge.Decl, out)})
 		}
 		for _, flow := range graph.DataFlows[src] {
 			to, ok := nodes[flow.Target]
@@ -484,7 +460,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 				continue
 			}
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: flowLabel(flow), Kind: EdgeFlow,
-				Origin: nodeOrigin(doc, flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out)})
+				Origin: nodeOrigin(docOf(graph, flow.Decl, doc), flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out)})
 		}
 	}
 	if len(root.Children) == 0 {

@@ -52,7 +52,8 @@ Two rules hold at every site:
 a preview of what a run would do, bracketed by `beginProbe` — notes nothing, since it is not a
 run. `Context.Notes`, `Choices` and `UnevaluableGuards` read them back; the executors' `Notes` and
 `NoteCount` let a caller driving a run call by call see what one call noted, which is how the REPL
-ends `%step`, `%continue` and `%advance` with a count.
+ends `%step`, `%continue` and `%advance` with a count; `NotesSince` reads the notes past such a
+mark without copying the ones before it.
 
 Region order is drawn per dispatch, not per event: `dispatchInOrder` draws among the candidates
 still active before each firing, since a reaction may leave a sibling's leaf, and both the

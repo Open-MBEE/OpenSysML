@@ -141,29 +141,9 @@ func (w *Workspace) otherDocumentLocked(name string) func(string) (edit.Document
 
 // siblingIndexLocked builds an index holding the libraries and every workspace
 // document but name, so the edited notation resolves what the original did.
-// Over a shared library base it overlays that; over a caller-built index it
-// re-indexes the caller's other documents, library marks and languages included.
 func (w *Workspace) siblingIndexLocked(name string) func() *symbols.Index {
 	return func() *symbols.Index {
-		var idx *symbols.Index
-		if w.libBase != nil {
-			idx = symbols.NewOverlay(w.libBase)
-		} else {
-			idx = symbols.NewIndex()
-			for _, other := range w.index.Documents() {
-				if other == name || w.docs[other] != nil {
-					continue
-				}
-				root, ok := w.index.DocumentRoot(other).Node().(*ast.RootNamespace)
-				if !ok {
-					continue
-				}
-				idx.AddDocumentWithKind(other, root, w.index.DocumentKind(other))
-				if lib := w.index.LibraryDocumentOf(other); lib.Tier.Library() {
-					idx.MarkLibraryDocument(other, lib)
-				}
-			}
-		}
+		idx := w.detachedIndexLocked()
 		for other, doc := range w.docs {
 			if other != name {
 				idx.AddDocument(other, doc.AST)
@@ -172,4 +152,35 @@ func (w *Workspace) siblingIndexLocked(name string) func() *symbols.Index {
 		idx.ExpandWildcardImports()
 		return idx
 	}
+}
+
+// detachedIndexLocked is a writable index holding what the workspace's index
+// holds besides the workspace's documents: over its frozen base when it has one,
+// with the caller's other documents re-indexed, library marks and languages included.
+func (w *Workspace) detachedIndexLocked() *symbols.Index {
+	base := w.index.Base()
+	var idx *symbols.Index
+	if base != nil {
+		idx = symbols.NewOverlay(base)
+	} else {
+		idx = symbols.NewIndex()
+	}
+	for _, other := range w.index.Documents() {
+		if w.docs[other] != nil {
+			continue
+		}
+		scope := w.index.DocumentRoot(other)
+		if base != nil && base.DocumentRoot(other) == scope {
+			continue
+		}
+		root, ok := scope.Node().(*ast.RootNamespace)
+		if !ok {
+			continue
+		}
+		idx.AddDocumentWithKind(other, root, w.index.DocumentKind(other))
+		if lib := w.index.LibraryDocumentOf(other); lib.Tier.Library() {
+			idx.MarkLibraryDocument(other, lib)
+		}
+	}
+	return idx
 }

@@ -69,7 +69,7 @@ func TestAPausedStepKeepsItsFrames(t *testing.T) {
 		if len(paused.cursor) == 0 {
 			t.Errorf("pass %d: the paused work holds no frame to go on from", pass)
 		}
-		if paused.paused.onWait || paused.paused.breakpoint != "add" {
+		if paused.paused.onWait || paused.paused.breakpoint.name != "add" {
 			t.Errorf("pass %d: paused = %+v, want at breakpoint add", pass, paused.paused)
 		}
 		if exec.ctx.body != nil {

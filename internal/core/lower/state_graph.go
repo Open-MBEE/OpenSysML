@@ -2,6 +2,7 @@ package lower
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -170,6 +171,10 @@ type StateGraph struct {
 	// than an unbounded expansion.
 	materializing map[ast.Node]bool
 
+	// inherited are the declarations content was materialized from, each once,
+	// in the order they were first reached.
+	inherited []Inherited
+
 	// scopeOf: state → the scope its declaration was written in, recorded where
 	// the content came from a definition's body rather than the usage's.
 	scopeOf map[*ast.StateNode]*symbols.Scope
@@ -178,9 +183,9 @@ type StateGraph struct {
 	// region a usage inherits and for one synthesized from a parallel substate.
 	regionScopeOf map[*ast.StateRegion]*symbols.Scope
 
-	// pseudostateScopeOf: pseudostate → the scope of the body declaring it, which
-	// is a definition's for the copy a usage inherits, recorded when it is copied.
-	pseudostateScopeOf map[*ast.PseudostateNode]*symbols.Scope
+	// declaredIn: region, pseudostate or transition declaration → the scope of
+	// the body it was written in, which says which document declares it.
+	declaredIn map[ast.Node]*symbols.Scope
 
 	// behaviorScope: entry, do or exit action → the scope it was declared in,
 	// recorded where a state runs a behavior another body declares.
@@ -546,7 +551,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		materializing:       make(map[ast.Node]bool),
 		scopeOf:             make(map[*ast.StateNode]*symbols.Scope),
 		regionScopeOf:       make(map[*ast.StateRegion]*symbols.Scope),
-		pseudostateScopeOf:  make(map[*ast.PseudostateNode]*symbols.Scope),
+		declaredIn:          make(map[ast.Node]*symbols.Scope),
 		behaviorScope:       make(map[ast.Node]*symbols.Scope),
 		attributeScope:      make(map[ast.Node]*symbols.Scope),
 		bodyOf:              make(map[*ast.StateNode][]inheritedMember),
@@ -580,6 +585,19 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 	}
 }
 
+// Inherited is a declaration a graph took content from besides the one lowered
+// (a definition typing or specializing it or a state of it); Body is its body's scope.
+type Inherited struct {
+	Decl ast.Node
+	Body *symbols.Scope
+}
+
+// Inherited lists the declarations the machine's content was materialized from
+// besides its own, each once, in the order lowering first reached them.
+func (g *StateGraph) Inherited() []Inherited {
+	return slices.Clone(g.inherited)
+}
+
 // DeclOf is the declaration state was lowered from: the node the scope tree
 // is keyed by, or the state itself when it was written as one.
 func (g *StateGraph) DeclOf(state *ast.StateNode) ast.Node {
@@ -587,19 +605,6 @@ func (g *StateGraph) DeclOf(state *ast.StateNode) ast.Node {
 		return decl
 	}
 	return state
-}
-
-// RegionScope is the scope a region's declaration was written in: the
-// definition's for one a usage inherits, the substate's for one a parallel body
-// synthesizes; nil for a region written as one in a hand-built graph.
-func (g *StateGraph) RegionScope(region *ast.StateRegion) *symbols.Scope {
-	return g.regionScopeOf[region]
-}
-
-// PseudostateScope is the scope of the body a pseudostate was declared in: the
-// definition's for one a usage inherits; nil in a hand-built graph.
-func (g *StateGraph) PseudostateScope(ps *ast.PseudostateNode) *symbols.Scope {
-	return g.pseudostateScopeOf[ps]
 }
 
 // Completes reports whether entering state completes the region it belongs to:
@@ -907,6 +912,7 @@ func (g *StateGraph) stateScope(parent *symbols.Scope, state *ast.StateNode) *sy
 // state usage with a body, each of them possibly wrapped in a membership: a state
 // missed here is a state no transition can name.
 func collectRegionStates(graph *StateGraph, region *ast.StateRegion, parent *ast.StateNode, scope *symbols.Scope) error {
+	graph.recordDeclaredIn(region, scope)
 	for _, member := range region.States {
 		var state *ast.StateNode
 		switch n := unwrapMembership(member).(type) {
@@ -1020,6 +1026,7 @@ func (g *StateGraph) parallelRegions(members []inheritedMember, parent *ast.Stat
 		}
 		g.regionDecl[region] = actual
 		g.regionScopeOf[region] = childScope(member.scope, actual)
+		g.recordDeclaredIn(region, member.scope)
 		g.HiddenRegionOf[wrapper] = region
 		g.RegionState[region] = wrapper
 		before := len(g.States)
@@ -1215,9 +1222,43 @@ func (g *StateGraph) recordDecl(state *ast.StateNode) {
 func (g *StateGraph) addPseudostate(ps *ast.PseudostateNode, scope *symbols.Scope) {
 	g.Pseudostates = append(g.Pseudostates, ps)
 	g.putVertex(ps, ps)
-	if scope != nil && g.pseudostateScopeOf[ps] == nil {
-		g.pseudostateScopeOf[ps] = scope
+	if g.declaredIn[ps] == nil {
+		g.recordDeclaredIn(ps, scope)
 	}
+}
+
+// recordDeclaredIn records the scope of the body a declaration was written in.
+func (g *StateGraph) recordDeclaredIn(decl ast.Node, scope *symbols.Scope) {
+	if decl == nil || scope == nil {
+		return
+	}
+	if g.declaredIn == nil {
+		g.declaredIn = make(map[ast.Node]*symbols.Scope)
+	}
+	g.declaredIn[decl] = scope
+}
+
+// addTransition records a lowered transition among those leaving its source.
+func (g *StateGraph) addTransition(trans *Transition) {
+	g.Transitions[trans.Source] = append(g.Transitions[trans.Source], trans)
+	g.recordDeclaredIn(trans.Decl, trans.Scope)
+}
+
+// DocOf is the document a declaration of the graph was written in: the general's
+// where inherited, else the machine's own; "" outside any document.
+func (g *StateGraph) DocOf(decl ast.Node) string {
+	var scope *symbols.Scope
+	switch n := decl.(type) {
+	case *ast.StateNode:
+		scope = g.StateScopes[n]
+	case nil:
+	default:
+		scope = g.declaredIn[decl]
+	}
+	if scope == nil {
+		scope = g.Scope
+	}
+	return symbols.DocNameOf(scope)
 }
 
 // vertex is the graph node a transition endpoint names: name resolution says
@@ -1585,7 +1626,7 @@ func collectTransitions(graph *StateGraph, body transitionBody) error {
 			// Legacy: explicit TransitionEdge nodes (from hand-built tests)
 			var trans *Transition
 			if trans, err = lowerTransitionEdge(graph, n, owner, scope); err == nil {
-				graph.Transitions[trans.Source] = append(graph.Transitions[trans.Source], trans)
+				graph.addTransition(trans)
 			}
 		case *ast.TransitionMember:
 			err = collectTransitionMember(graph, n, body)
@@ -1621,7 +1662,7 @@ func (graph *StateGraph) addCompletion(decl, source, target ast.Node, scope *sym
 		Scope:     scope,
 		BodyScope: scope,
 	}
-	graph.Transitions[source] = append(graph.Transitions[source], trans)
+	graph.addTransition(trans)
 }
 
 // collectUsageTransitions lowers a succession usage as a completion transition
@@ -1723,7 +1764,7 @@ func collectTransitionMember(graph *StateGraph, n *ast.TransitionMember, body tr
 	if trans == nil {
 		return nil
 	}
-	graph.Transitions[trans.Source] = append(graph.Transitions[trans.Source], trans)
+	graph.addTransition(trans)
 	return nil
 }
 

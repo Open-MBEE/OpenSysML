@@ -1133,3 +1133,44 @@ func kindsOf(refs []resolve.Reference) []string {
 	}
 	return out
 }
+
+// An accept trigger names the signal definition its payload is typed by and the
+// event feature it subsets, as the document walk resolves them; a bare `accept
+// Halt` is an event name to the walk, and a signal type to a run.
+func TestAcceptTriggerReferencesAreCollected(t *testing.T) {
+	const src = `package A {
+	attribute def Go { attribute level; }
+	attribute def Halt;
+	part def Robot {
+		event occurrence shutDown;
+	}
+	state def Ops {
+		entry; then idle;
+		state idle;
+		transition first idle accept g : Go if g.level > 0 then busy;
+		transition first idle accept :> shutDown then done;
+		transition first idle accept Halt then done;
+		state busy;
+		state done;
+	}
+}`
+	walk, root, rootScope := resolvedDocNamed(t, "a.sysml", src)
+	count := func(refs []resolve.Reference) map[string]int {
+		found := map[string]int{}
+		for _, ref := range refs {
+			found[nameText(ref.QN)]++
+			if _, ok := walk.ResolveReference(ref); !ok && nameText(ref.QN) != "shutDown" {
+				t.Errorf("%s does not resolve on its own", nameText(ref.QN))
+			}
+		}
+		return found
+	}
+	found := count(resolve.References(root, rootScope))
+	if found["Go"] != 1 || found["shutDown"] != 1 || found["Halt"] != 0 {
+		t.Errorf("References reports Go %d, shutDown %d and Halt %d times, want 1, 1 and 0", found["Go"], found["shutDown"], found["Halt"])
+	}
+	run := count(resolve.RunReferences(root, rootScope))
+	if run["Go"] != 1 || run["shutDown"] != 1 || run["Halt"] != 1 {
+		t.Errorf("RunReferences reports Go %d, shutDown %d and Halt %d times, want one each", run["Go"], run["shutDown"], run["Halt"])
+	}
+}
