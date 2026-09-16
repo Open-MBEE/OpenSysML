@@ -866,6 +866,8 @@ func (a *adoption) commit() {
 		prevTypes := plan.obj.types()
 		plan.obj.Type = plan.typeSym
 		plan.obj.classifiers = plan.classifiers
+		// Every value taken from a shape is derived again here, so nothing is owed for one.
+		plan.obj.owed = nil
 		// Names of one redefined feature share a feature value, which is rebound once, to
 		// the feature of the name the shared feature value was created under.
 		done := make(map[*FeatureValue]bool, len(plan.obj.FeatureValues))
@@ -883,11 +885,11 @@ func (a *adoption) commit() {
 			// A value an expression states is derived again here, so it cannot go
 			// stale against what that expression now reads.
 			if a.ctx.derivedFeatureValue(fv) {
-				fv.Value, fv.Values, fv.Materialized = Value{}, Value{}, false
+				fv.Value, fv.Values, fv.Materialized, fv.intrinsic = Value{}, Value{}, false, false
 				continue
 			}
 			if a.ctx.collectedFeatureValue(fv) {
-				fv.Value, fv.Values, fv.Materialized = Value{}, Value{}, false
+				fv.Value, fv.Values, fv.Materialized, fv.intrinsic = Value{}, Value{}, false, false
 				continue
 			}
 			// A connector reads the features the `connect` clause names, which are
@@ -897,7 +899,7 @@ func (a *adoption) commit() {
 				if id, held := fv.Value.Object(); held {
 					plan.obj.keepConnector(fv, id)
 				}
-				fv.Value, fv.Values, fv.Materialized = Value{}, Value{}, false
+				fv.Value, fv.Values, fv.Materialized, fv.intrinsic = Value{}, Value{}, false, false
 				continue
 			}
 			fv.Value = a.rewrite(fv.Value)

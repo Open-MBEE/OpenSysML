@@ -90,6 +90,8 @@ type imagedObject struct {
 }
 
 // imagedFeature is one feature value by value, with every name the object reads it under.
+// shared lists what the shape's derivation of a declared value read, when on record,
+// and owed marks one taken from the shape before materializing all of that.
 type imagedFeature struct {
 	names          []string
 	feature        EffectiveFeature
@@ -97,6 +99,10 @@ type imagedFeature struct {
 	materialized   bool
 	written        bool
 	bindingDerived bool
+	assumed        bool
+	intrinsic      bool
+	shared         [][]string
+	owed           bool
 	dependents     []imagedFeatureRef
 	reads          []imagedFeatureRef
 }
@@ -336,6 +342,10 @@ func (t *imaging) object(inst *Instance) error {
 	for _, id := range obj.anonymous {
 		t.reach(id)
 	}
+	owed := make(map[*FeatureValue]*sharedDefault, len(inst.owed))
+	for _, o := range inst.owed {
+		owed[o.fv] = o.shared
+	}
 	index := make(map[*FeatureValue]int)
 	for _, name := range slices.Sorted(maps.Keys(inst.FeatureValues)) {
 		fv := inst.FeatureValues[name]
@@ -356,9 +366,17 @@ func (t *imaging) object(inst *Instance) error {
 		f := imagedFeature{
 			names: []string{name}, value: fv.Value, values: fv.Values,
 			materialized: fv.Materialized, written: fv.Written, bindingDerived: fv.BindingDerived,
+			assumed: fv.Assumed, intrinsic: fv.intrinsic,
 		}
 		if fv.Feature != nil {
 			f.feature = *fv.Feature
+		}
+		if o, ok := owed[fv]; ok && fv.declared() {
+			f.shared, f.owed = o.paths, true
+		} else if fv.declared() && len(fv.reads) != 0 {
+			if shared, ok := ctx.sharedRecordOf(inst, fv); ok {
+				f.shared = shared.paths
+			}
 		}
 		obj.features = append(obj.features, f)
 	}
@@ -556,6 +574,7 @@ func (img *HeldImage) Materialize(dst *Context) error {
 	mark := dst.materializeMark()
 	if err := m.run(); err != nil {
 		mark.rollBack(dst)
+		m.unrecord()
 		return err
 	}
 	return nil
@@ -651,10 +670,11 @@ func (mark materializeMark) rollBack(ctx *Context) {
 
 // materializing builds one context's objects for an image.
 type materializing struct {
-	dst  *Context
-	img  *HeldImage
-	made map[int64]*Instance
-	runs []*runState
+	dst      *Context
+	img      *HeldImage
+	made     map[int64]*Instance
+	runs     []*runState
+	recorded []sharedKey
 }
 
 // bring answers the object made here for an imaged identity.
@@ -711,6 +731,7 @@ func (m *materializing) run() error {
 	}
 	for _, obj := range img.objects {
 		m.edges(obj)
+		m.records(obj)
 	}
 	dst.activations = max(dst.activations, img.activations)
 	dst.runs = max(dst.runs, img.runs)
@@ -763,6 +784,7 @@ func (m *materializing) object(obj imagedObject) error {
 		fv := &FeatureValue{
 			Feature:      m.feature(inst, f.feature),
 			Materialized: f.materialized, Written: f.written, BindingDerived: f.bindingDerived,
+			Assumed: f.assumed, intrinsic: f.intrinsic,
 		}
 		var err error
 		if fv.Value, err = m.value(f.value); err != nil {
@@ -821,6 +843,39 @@ func (m *materializing) edges(obj imagedObject) {
 		for _, ref := range f.reads {
 			fv.reads = append(fv.reads, m.featureAt(ref))
 		}
+	}
+}
+
+// records puts on dst's shared table what the imaged values' derivations read, so the
+// object's shape shares them on, and owes again what a value taken from it left unmaterialized.
+func (m *materializing) records(obj imagedObject) {
+	inst := m.made[obj.id]
+	shape := m.dst.shapeOf(inst)
+	for _, f := range obj.features {
+		if f.shared == nil {
+			continue
+		}
+		fv := inst.FeatureValues[f.names[0]]
+		shared := &sharedDefault{value: fv.Value, paths: f.shared}
+		if shape != nil {
+			key := sharedKey{shape: shape, feature: fv.Feature}
+			if prior, ok := m.dst.sharedDefaults[key]; ok {
+				shared = prior
+			} else {
+				m.dst.sharedDefaults[key] = shared
+				m.recorded = append(m.recorded, key)
+			}
+		}
+		if f.owed {
+			inst.owed = append(inst.owed, owedDefault{fv: fv, shared: shared})
+		}
+	}
+}
+
+// unrecord takes off dst's shared table the records a failed materialization put there.
+func (m *materializing) unrecord() {
+	for _, key := range m.recorded {
+		delete(m.dst.sharedDefaults, key)
 	}
 }
 
