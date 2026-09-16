@@ -3,6 +3,7 @@ package errata
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -292,8 +293,8 @@ func TestMaterializeVerifiesDocumentedEntries(t *testing.T) {
 	if err == nil {
 		t.Fatal("a corpus whose documented-only line rotted was materialized")
 	}
-	if names := dirNames(t, out); len(names) != 0 {
-		t.Fatalf("after a failed materialization: %v, want no copy, partial or scratch", names)
+	if _, err := os.Stat(out); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("after a failed materialization: %v, want the directory it created gone with the partial copy", dirNames(t, out))
 	}
 }
 

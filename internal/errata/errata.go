@@ -5,7 +5,9 @@
 package errata
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -333,10 +335,12 @@ func (o *Overlay) Materialize(repo, dir, dst string) ([]Entry, error) {
 	if err := os.RemoveAll(dst); err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
+	parent := filepath.Dir(dst)
+	_, statErr := os.Stat(parent)
+	if err := os.MkdirAll(parent, 0o750); err != nil {
 		return nil, err
 	}
-	tmp, err := os.MkdirTemp(filepath.Dir(dst), filepath.Base(dst)+".*")
+	tmp, err := os.MkdirTemp(parent, filepath.Base(dst)+".*")
 	if err != nil {
 		return nil, err
 	}
@@ -346,6 +350,9 @@ func (o *Overlay) Materialize(repo, dir, dst string) ([]Entry, error) {
 	}
 	if err != nil {
 		_ = os.RemoveAll(tmp)
+		if statErr != nil {
+			_ = os.Remove(parent)
+		}
 		return nil, err
 	}
 	return out, nil
@@ -361,7 +368,11 @@ func materializeInto(repo, dir, dst string, entries map[string][]Entry) ([]Entry
 		path := filepath.Join(dst, filepath.FromSlash(rel))
 		content, err := os.ReadFile(path) // #nosec G304 -- the path is inside the copy this function just made
 		if err != nil {
-			return nil, err
+			var pathErr *fs.PathError
+			if errors.As(err, &pathErr) {
+				err = pathErr.Err
+			}
+			return nil, fmt.Errorf("%s/%s: %w", dir, rel, err)
 		}
 		corrected, err := ApplyAll(entries[rel], content)
 		if err != nil {
