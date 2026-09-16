@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -261,7 +262,7 @@ func TestMaterializeVerifiesDocumentedEntries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new: %v", err)
 	}
-	materialize := func(other string) ([]Entry, error) {
+	materialize := func(other string) (string, []Entry, error) {
 		t.Helper()
 		repo := t.TempDir()
 		root := filepath.Join(repo, filepath.FromSlash(dir))
@@ -273,18 +274,40 @@ func TestMaterializeVerifiesDocumentedEntries(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		return overlay.Materialize(repo, dir, filepath.Join(repo, "corrected"))
+		out := filepath.Join(repo, "out")
+		applied, err := overlay.Materialize(repo, dir, filepath.Join(out, "corrected"))
+		return out, applied, err
 	}
-	applied, err := materialize("x\ny\n")
+	out, applied, err := materialize("x\ny\n")
 	if err != nil {
 		t.Fatalf("materialize over a corpus as published: %v", err)
 	}
 	if len(applied) != 1 || applied[0].ID != "T1" {
 		t.Fatalf("applied = %v, want the one correction", applied)
 	}
-	if _, err := materialize("x\nother\n"); err == nil {
+	if names := dirNames(t, out); !slices.Equal(names, []string{"corrected"}) {
+		t.Fatalf("after a materialization: %v, want the corrected copy alone", names)
+	}
+	out, _, err = materialize("x\nother\n")
+	if err == nil {
 		t.Fatal("a corpus whose documented-only line rotted was materialized")
 	}
+	if names := dirNames(t, out); len(names) != 0 {
+		t.Fatalf("after a failed materialization: %v, want no copy, partial or scratch", names)
+	}
+}
+
+func dirNames(t *testing.T, dir string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+	return names
 }
 
 // TestApplyAllChecksEveryLineBeforeSubstituting keeps a file with several

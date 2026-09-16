@@ -323,7 +323,8 @@ func ApplyAll(entries []Entry, content []byte) ([]byte, error) {
 }
 
 // Materialize copies the corpus root at repo/dir into dst, verifies every entry under it and
-// applies the corrections, leaving the published tree untouched. It returns the applied entries in order.
+// applies the corrections, leaving the published tree untouched. It returns the applied entries
+// in order. The copy is all or nothing: on any error dst is absent, never a partly corrected tree.
 func (o *Overlay) Materialize(repo, dir, dst string) ([]Entry, error) {
 	if len(o.Under(dir)) == 0 {
 		return nil, fmt.Errorf("no correction lies under %s", dir)
@@ -335,6 +336,23 @@ func (o *Overlay) Materialize(repo, dir, dst string) ([]Entry, error) {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
 		return nil, err
 	}
+	tmp, err := os.MkdirTemp(filepath.Dir(dst), filepath.Base(dst)+".*")
+	if err != nil {
+		return nil, err
+	}
+	out, err := materializeInto(repo, dir, tmp, entries)
+	if err == nil {
+		err = os.Rename(tmp, dst)
+	}
+	if err != nil {
+		_ = os.RemoveAll(tmp)
+		return nil, err
+	}
+	return out, nil
+}
+
+// materializeInto fills the empty directory dst with the corrected copy of repo/dir.
+func materializeInto(repo, dir, dst string, entries map[string][]Entry) ([]Entry, error) {
 	if err := os.CopyFS(dst, os.DirFS(filepath.Join(repo, filepath.FromSlash(dir)))); err != nil {
 		return nil, fmt.Errorf("copy %s: %w", dir, err)
 	}
