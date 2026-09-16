@@ -8,8 +8,11 @@
     BinDir      directory holding sysml.exe, sysml-lsp.exe, sysml-grpc.exe
     Z3Dir       directory holding z3.exe, its VC++ runtime DLLs, LICENSE-z3.txt
     LicenseFile the repository LICENSE (Apache-2.0)
-  No authored UI (WixUI would embed an MS-RL custom-action DLL): Windows Installer
-  shows its basic progress UI, features are chosen with ADDLOCAL/REMOVE.
+  The setup wizard (welcome, destination folder, features, ready, progress, finish)
+  is authored here with the plain Windows Installer dialog controls in wizard.wxs
+  rather than the stock WixUI dialog sets, which would embed an MS-RL custom-action
+  DLL. The MSI therefore still carries no custom actions and no binaries beyond
+  the payload. Features can also be chosen with ADDLOCAL/REMOVE.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
 
@@ -40,6 +43,14 @@
     <Property Id="ARPCOMMENTS" Value="OpenSysML $(var.Tag): SysML v2 and KerML toolchain (sysml, sysml-lsp, sysml-grpc)." />
     <Property Id="ARPNOMODIFY" Value="1" />
     <Property Id="OPENSYSML_TAG" Value="$(var.Tag)" />
+
+    <!-- An upgrade (and a re-run of the wizard) proposes the folder chosen last time. -->
+    <Property Id="INSTALLFOLDER" Secure="yes">
+      <RegistrySearch Id="PreviousInstallFolder" Root="HKLM" Key="Software\Open-MBEE\OpenSysML"
+                      Name="InstallFolder" Type="raw" />
+    </Property>
+
+    <UIRef Id="OpenSysMLWizard" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="OpenSysML">
@@ -76,6 +87,11 @@
       </Component>
       <Component Id="License">
         <File Id="LicenseTxt" Name="LICENSE.txt" Source="$(var.LicenseFile)" KeyPath="yes" />
+      </Component>
+      <Component Id="InstallFolderRegistry">
+        <RegistryKey Root="HKLM" Key="Software\Open-MBEE\OpenSysML" ForceDeleteOnUninstall="yes">
+          <RegistryValue Name="InstallFolder" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+        </RegistryKey>
       </Component>
     </ComponentGroup>
 
