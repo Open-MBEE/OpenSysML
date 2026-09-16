@@ -512,6 +512,62 @@ at the bank without a fairy, `TradeGems` with one gem — is refused too, before
 it is queued: `would fire no transition on RobTheBank now, so it was not sent:
 ... the guard of every transition RobTheBank triggers is false`.
 
+The training hall dispatches the same way: `VisitTheTrainingHall` puts the
+warrior before the master who teaches the next level — Halder for a
+first-level warrior, Barak for a second, Turgon for an eleventh — so the
+machine can carry a warrior from the boat to the dragon's door, and a
+twelfth-level warrior finds no master waiting. The REPL takes declarations as
+well as commands, so two warriors the model does not ship, a second-level
+squire with Barak's four hundred experience and an eleventh-level veteran with
+Turgon's ten million, show the two ends; the hero, fresh off the boat with no
+experience, is turned away by Halder and stays first level:
+
+```
+%clear
+%load examples/lord-demo/lord.sysml
+package Probe {
+    private import LordPlay::*;
+    part squire : Warrior { attribute :>> level = 2; attribute :>> experience = 400; attribute :>> hitPoints = 20; attribute :>> maxHitPoints = 20; attribute :>> strength = 30; attribute :>> defense = 10; }
+    part veteran : Warrior { attribute :>> level = 11; attribute :>> experience = 10000000; attribute :>> hitPoints = 2000; attribute :>> maxHitPoints = 2000; attribute :>> strength = 900; attribute :>> defense = 500; }
+}
+%instantiate LordPlay::hero
+%state LordPlay::hero
+%send VisitTheTrainingHall
+%advance 1
+%eval in LordPlay::hero : level
+%instantiate Probe::squire
+%state Probe::squire
+%send VisitTheTrainingHall
+%advance 1
+%eval in Probe::squire : level
+%instantiate Probe::veteran
+%state Probe::veteran
+%send VisitTheTrainingHall
+%advance 1
+%eval in Probe::veteran : level
+```
+
+```
+✓ Sent VisitTheTrainingHall to object #1 of "LordPlay::hero"
+  Accepted by state machine "day" in state townSquare: transition townSquare_training fires on it
+✓ Advanced to 1.0 (1 event(s) processed)
+  Current state: trainingHall
+✓ level (on LordPlay::hero ID: 1)
+  = 1
+✓ Sent VisitTheTrainingHall to object #6 of "Probe::squire"
+  Accepted by state machine "day" in state townSquare: transition townSquare_training fires on it
+✓ Advanced to 2.0 (1 event(s) processed)
+  Current state: trainingHall
+✓ level (on Probe::squire ID: 6)
+  = 3
+✓ Sent VisitTheTrainingHall to object #9 of "Probe::veteran"
+  Accepted by state machine "day" in state townSquare: transition townSquare_training fires on it
+✓ Advanced to 3.0 (1 event(s) processed)
+  Current state: trainingHall
+✓ level (on Probe::veteran ID: 9)
+  = 12
+```
+
 ### The town's deeds, one at a time
 
 `%invoke` performs one of the warrior's actions on the object directly, with

@@ -1164,7 +1164,7 @@ package LordPlay {
 
         // A shop sells for the full price, the new item's stat replacing the old one's.
         action buyWeapon {
-            in weapon : Weapon = town.weapons.stick;
+            in weapon : Weapon default = town.weapons.stick;
 
             first start;
             then decide canPay;
@@ -1182,7 +1182,7 @@ package LordPlay {
         }
 
         action buyArmour {
-            in armour : Armour = town.armour.coat;
+            in armour : Armour default = town.armour.coat;
 
             first start;
             then decide canPay;
@@ -1203,7 +1203,7 @@ package LordPlay {
         // next level and a skill point in the warrior's class; a loss only bruises, and the
         // master mends it. Only the master of the next level will fight, and a real one.
         action train {
-            in master : Master = town.training.halder;
+            in master : Master default = town.training.halder;
 
             attribute masterLeft : Integer = 0;
             attribute promoted : Boolean = false;
@@ -2313,10 +2313,48 @@ package LordPlay {
                 accept ReturnToTown
                 then townSquare;
 
+            // The hall sends the master of the next level; a twelfth-level warrior meets none.
             transition townSquare_training
                 first townSquare
                 accept VisitTheTrainingHall
-                do action training { perform train; }
+                do action training {
+                    first start;
+                    then decide byLevel;
+                    if level == 1 then halder;
+                    if level == 2 then barak;
+                    if level == 3 then aragorn;
+                    if level == 4 then olodrin;
+                    if level == 5 then sandtiger;
+                    if level == 6 then sparhawk;
+                    if level == 7 then atsukoSensei;
+                    if level == 8 then aladdin;
+                    if level == 9 then princeCaspian;
+                    if level == 10 then gandalf;
+                    if level == 11 then turgon;
+                    else done;
+                    action halder { first start; then perform train { in master = town.training.halder; } then done; }
+                    then done;
+                    action barak { first start; then perform train { in master = town.training.barak; } then done; }
+                    then done;
+                    action aragorn { first start; then perform train { in master = town.training.aragorn; } then done; }
+                    then done;
+                    action olodrin { first start; then perform train { in master = town.training.olodrin; } then done; }
+                    then done;
+                    action sandtiger { first start; then perform train { in master = town.training.sandtiger; } then done; }
+                    then done;
+                    action sparhawk { first start; then perform train { in master = town.training.sparhawk; } then done; }
+                    then done;
+                    action atsukoSensei { first start; then perform train { in master = town.training.atsukoSensei; } then done; }
+                    then done;
+                    action aladdin { first start; then perform train { in master = town.training.aladdin; } then done; }
+                    then done;
+                    action princeCaspian { first start; then perform train { in master = town.training.princeCaspian; } then done; }
+                    then done;
+                    action gandalf { first start; then perform train { in master = town.training.gandalf; } then done; }
+                    then done;
+                    action turgon { first start; then perform train { in master = town.training.turgon; } then done; }
+                    then done;
+                }
                 then trainingHall;
 
             transition training_town
