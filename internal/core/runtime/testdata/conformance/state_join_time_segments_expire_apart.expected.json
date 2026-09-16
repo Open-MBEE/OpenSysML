@@ -1,0 +1,8 @@
+{
+  "type": "state",
+  "libraries": true,
+  "finalState": "a1+b1",
+  "outputs": {
+    "log": {"type": "String", "value": ""}
+  }
+}

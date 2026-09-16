@@ -1,0 +1,23 @@
+{
+  "type": "state",
+  "events": [
+    {"signal": "Go"},
+    {"signal": "Tick"},
+    {"signal": "Go"}
+  ],
+  "outcomes": [
+    {
+      "finalState": "done",
+      "outputs": {
+        "log": {"type": "String", "value": "tick a b sync"}
+      }
+    },
+    {
+      "finalState": "done",
+      "outputs": {
+        "log": {"type": "String", "value": "tick b a sync"}
+      }
+    }
+  ],
+  "admissible": "Transitions into a join: each exits its source and runs its effect before the owner is left, in which order is open"
+}

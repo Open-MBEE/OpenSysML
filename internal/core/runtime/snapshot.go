@@ -705,14 +705,16 @@ func cloneDispatch(dispatch *Dispatch) *Dispatch {
 }
 
 // moveMark is where a compound transition began, for a witness refused at one of its
-// choices to undo the move whole; the do behaviors its exits abandon end once it is kept.
+// choices to undo the move whole; the do behaviors its exits abandon end once it is
+// kept. Marks nest: a move within a move hands what it ends to the enclosing one.
 type moveMark struct {
 	exec             *StateExecutor
+	outer            *moveMark
 	commit, rollback func()
 	run              *runState
 	steps, elements  int64
 	notes            []RunNote
-	choices          []ChoiceTaken
+	choices          int
 	trace            traceCapture
 	ids              *idSequence
 	nextID           int64
@@ -724,8 +726,8 @@ type moveMark struct {
 func (e *StateExecutor) markMove() *moveMark {
 	ctx := e.ctx
 	m := &moveMark{
-		exec: e, run: ctx.run, steps: ctx.run.steps, elements: ctx.run.elements,
-		notes: slices.Clone(ctx.run.notes), choices: ctx.choices,
+		exec: e, outer: e.moving, run: ctx.run, steps: ctx.run.steps, elements: ctx.run.elements,
+		notes: slices.Clone(ctx.run.notes), choices: len(ctx.choices),
 		trace: captureTrace(ctx.trace),
 		ids:   ctx.ids, nextID: ctx.ids.next,
 	}
@@ -737,8 +739,12 @@ func (e *StateExecutor) markMove() *moveMark {
 
 // keep lets the move stand and ends the do behaviors its exits abandoned.
 func (m *moveMark) keep() {
-	m.exec.moving = nil
+	m.exec.moving = m.outer
 	m.commit()
+	if m.outer != nil {
+		m.outer.ended = append(m.outer.ended, m.ended...)
+		return
+	}
 	for _, run := range m.ended {
 		run.end(m.exec.ctx)
 	}
@@ -747,13 +753,13 @@ func (m *moveMark) keep() {
 // undo brings the executor and its context back to the mark.
 func (m *moveMark) undo() {
 	e := m.exec
-	e.moving = nil
+	e.moving = m.outer
 	m.rollback()
 	if e.ctx.ids == m.ids {
 		m.ids.release(e.ctx, m.nextID)
 	}
 	m.run.steps, m.run.elements, m.run.notes = m.steps, m.elements, m.notes
-	e.ctx.choices = m.choices
+	e.ctx.choices = e.ctx.choices[:m.choices]
 	m.trace.restore(e.ctx.trace)
 	m.state.restore()
 }

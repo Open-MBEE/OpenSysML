@@ -1,0 +1,25 @@
+{
+  "type": "state",
+  "events": [
+    {"signal": "Level", "value": {"type": "Integer", "value": 3}}
+  ],
+  "outcomes": [
+    {
+      "finalState": "done",
+      "outputs": {
+        "left": {"type": "Integer", "value": 3},
+        "right": {"type": "Integer", "value": 4},
+        "log": {"type": "String", "value": "a b sync"}
+      }
+    },
+    {
+      "finalState": "done",
+      "outputs": {
+        "left": {"type": "Integer", "value": 3},
+        "right": {"type": "Integer", "value": 4},
+        "log": {"type": "String", "value": "b a sync"}
+      }
+    }
+  ],
+  "admissible": "Transitions into a join: each exits its source and runs its effect before the owner is left, in which order is open"
+}
