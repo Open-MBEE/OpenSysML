@@ -13,10 +13,6 @@ if [[ $# -eq 0 ]]; then
   echo "usage: $0 <binary>..." >&2
   exit 2
 fi
-if ! command -v readelf >/dev/null 2>&1; then
-  echo "Error: readelf (binutils) is required" >&2
-  exit 2
-fi
 
 status=0
 for binary in "$@"; do
@@ -29,8 +25,19 @@ for binary in "$@"; do
     echo "skip: $binary is not an ELF binary"
     continue
   fi
-  interp="$(readelf -lW "$binary" | grep -c '^\s*INTERP' || true)"
-  needed="$(readelf -dW "$binary" | grep -c '(NEEDED)' || true)"
+  # Only ELF inputs need readelf, so a Mach-O-only host is not asked for binutils.
+  if ! command -v readelf >/dev/null 2>&1; then
+    echo "Error: readelf (binutils) is required to check $binary" >&2
+    exit 2
+  fi
+  # A readelf failure must not read as "no interpreter, no libraries".
+  if ! headers="$(readelf -lW "$binary")" || ! dynamic="$(readelf -dW "$binary")"; then
+    echo "Error: readelf could not read $binary" >&2
+    status=1
+    continue
+  fi
+  interp="$(grep -c '^\s*INTERP' <<<"$headers" || true)"
+  needed="$(grep -c '(NEEDED)' <<<"$dynamic" || true)"
   if [[ "$interp" == 0 && "$needed" == 0 ]]; then
     echo "ok: $binary is statically linked"
   else
