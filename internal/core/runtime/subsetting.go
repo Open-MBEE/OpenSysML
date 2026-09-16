@@ -355,27 +355,40 @@ func (ctx *Context) SubsettingFeatures(inst *Instance, typ *symbols.Symbol, name
 }
 
 // subsetterIndex is, per type, the positions in features of the features subsetting
-// each named feature of the type under any of its redefinition names; memoized.
+// each name — a feature of the type or a name one of them subsets — under any of its
+// redefinition names; memoized.
 func (ctx *Context) subsetterIndex(typ *symbols.Symbol, features []EffectiveFeature) map[string][]int {
 	if index, ok := ctx.model.subsetters[typ]; ok {
 		return index
 	}
 	index := make(map[string][]int)
 	subsetted := make([][]string, len(features))
-	for i := range features {
-		if features[i].Symbol != nil {
-			subsetted[i] = ctx.subsettedNames(features[i].Symbol, typ)
+	var names []string
+	named := make(map[string]bool, len(features))
+	name := func(n string) {
+		if !named[n] {
+			named[n] = true
+			names = append(names, n)
 		}
 	}
-	for _, feat := range features {
-		aliases := ctx.redefinitionAliases(typ, feat.Name)
+	for i := range features {
+		name(features[i].Name)
+		if features[i].Symbol != nil {
+			subsetted[i] = ctx.subsettedNames(features[i].Symbol, typ)
+			for _, n := range subsetted[i] {
+				name(n)
+			}
+		}
+	}
+	for _, key := range names {
+		aliases := ctx.redefinitionAliases(typ, key)
 		for i := range features {
 			if aliases[features[i].Name] {
 				continue
 			}
 			for _, name := range subsetted[i] {
 				if aliases[name] {
-					index[feat.Name] = append(index[feat.Name], i)
+					index[key] = append(index[key], i)
 					break
 				}
 			}
