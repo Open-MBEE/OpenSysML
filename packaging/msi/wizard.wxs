@@ -8,13 +8,14 @@
   ProgressBar) and standard control events (NewDialog, SpawnDialog, SetTargetPath,
   Remove, Reinstall, EndDialog). Nothing here runs code: the stock WixUI dialog
   sets are not used because they embed the WixUiCa custom-action DLL (MS-RL),
-  and the licensing note in README.md relies on the CustomAction and Binary
-  tables staying empty.
+  and the licensing note in README.md relies on the Binary table staying empty
+  and the only CustomAction row being a data-only type-51 set-property.
 
   First install:  WelcomeDlg -> InstallDirDlg (Change... -> BrowseDlg)
                   -> FeaturesDlg -> VerifyReadyDlg -> ProgressDlg -> ExitDlg
   Re-run when installed: MaintenanceDlg (Repair | Remove) -> ProgressDlg -> ExitDlg
-  Any time:       CancelDlg, ErrorDlg, FatalErrorDlg, UserExitDlg
+  Any time:       CancelDlg, ErrorDlg, FatalErrorDlg, UserExitDlg, FilesInUse,
+                  MsiRMFilesInUse
 
   Dialog geometry is the conventional 370x270 dialog units with a 44-unit
   header band and the button row at y=243.
@@ -28,6 +29,7 @@
 
       <Property Id="DefaultUIFont" Value="WizardFont" />
       <Property Id="ErrorDialog" Value="ErrorDlg" />
+      <Property Id="RESTARTMANAGEROPTION" Value="UseRM" />
       <!-- Target of the SelectionTree and of BrowseDlg: the directory being edited. -->
       <Property Id="_BrowseProperty" Value="INSTALLFOLDER" />
 
@@ -307,6 +309,52 @@
         <Control Id="R" Type="PushButton" X="100" Y="80" Width="56" Height="17" TabSkip="yes" Text="&amp;Retry">
           <Publish Event="EndDialog" Value="ErrorRetry" />
         </Control>
+      </Dialog>
+
+      <!-- ===================================================================== -->
+      <Dialog Id="FilesInUse" Width="370" Height="270" Title="[ProductName] Setup" KeepModeless="yes">
+        <Control Id="Retry" Type="PushButton" X="304" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="Retry">
+          <Publish Event="EndDialog" Value="Retry" />
+        </Control>
+        <Control Id="Ignore" Type="PushButton" X="235" Y="243" Width="56" Height="17" Text="Ignore">
+          <Publish Event="EndDialog" Value="Ignore" />
+        </Control>
+        <Control Id="Exit" Type="PushButton" X="166" Y="243" Width="56" Height="17" Text="Exit">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="Files in use" />
+        <Control Id="Description" Type="Text" X="20" Y="23" Width="280" Height="20" Transparent="yes" NoPrefix="yes"
+                 Text="Some files that need to be updated are currently in use." />
+        <Control Id="TopLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="Text" Type="Text" X="20" Y="55" Width="330" Height="30"
+                 Text="The following applications are using files that need to be updated by this setup. Close these applications and then click Retry to continue the installation or Cancel to exit it." />
+        <Control Id="List" Type="ListBox" X="20" Y="87" Width="330" Height="130" Property="FileInUseProcess" Sunken="yes" TabSkip="yes" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+      </Dialog>
+
+      <!-- ===================================================================== -->
+      <Dialog Id="MsiRMFilesInUse" Width="370" Height="270" Title="[ProductName] Setup" KeepModeless="yes">
+        <Control Id="OK" Type="PushButton" X="240" Y="243" Width="56" Height="17" Default="yes" Text="OK">
+          <Publish Event="EndDialog" Value="Return" />
+          <Publish Event="RMShutdownAndRestart" Value="0" Condition="RESTARTMANAGEROPTION~=&quot;UseRM&quot;" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="Files in use" />
+        <Control Id="Description" Type="Text" X="20" Y="23" Width="280" Height="20" Transparent="yes" NoPrefix="yes"
+                 Text="Some files that need to be updated are currently in use." />
+        <Control Id="TopLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="Text" Type="Text" X="20" Y="55" Width="330" Height="45"
+                 Text="The following applications are using files that need to be updated by this setup. You can let Setup Wizard close them and attempt to restart them or reboot the machine later." />
+        <Control Id="List" Type="ListBox" X="20" Y="100" Width="330" Height="80" Property="FileInUseProcess" Sunken="yes" TabSkip="yes" />
+        <Control Id="ShutdownOption" Type="RadioButtonGroup" X="26" Y="190" Width="305" Height="45" Property="RESTARTMANAGEROPTION">
+          <RadioButtonGroup Property="RESTARTMANAGEROPTION">
+            <RadioButton Value="UseRM" X="0" Y="0" Width="295" Height="16" Text="Close the applications and attempt to restart them." />
+            <RadioButton Value="DontUseRM" X="0" Y="20" Width="295" Height="16" Text="Do not close applications. A reboot will be required to complete the setup." />
+          </RadioButtonGroup>
+        </Control>
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
       </Dialog>
 
       <!-- Status line of ProgressDlg for the standard actions this package runs. -->

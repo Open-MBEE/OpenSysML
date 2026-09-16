@@ -11,8 +11,8 @@
   The setup wizard (welcome, destination folder, features, ready, progress, finish)
   is authored here with the plain Windows Installer dialog controls in wizard.wxs
   rather than the stock WixUI dialog sets, which would embed an MS-RL custom-action
-  DLL. The MSI therefore still carries no custom actions and no binaries beyond
-  the payload. Features can also be chosen with ADDLOCAL/REMOVE.
+  DLL; the MSI carries no custom-action code or binaries beyond the payload,
+  and its only CustomAction row is a data-only type-51 set-property. Features can also be chosen with ADDLOCAL/REMOVE.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
 
@@ -44,11 +44,14 @@
     <Property Id="ARPNOMODIFY" Value="1" />
     <Property Id="OPENSYSML_TAG" Value="$(var.Tag)" />
 
-    <!-- An upgrade (and a re-run of the wizard) proposes the folder chosen last time. -->
-    <Property Id="INSTALLFOLDER" Secure="yes">
+    <!-- A re-run or upgrade proposes the folder chosen last time unless INSTALLFOLDER is given on the command line. -->
+    <Property Id="INSTALLFOLDER" Secure="yes" />
+    <Property Id="PREVIOUSINSTALLFOLDER">
       <RegistrySearch Id="PreviousInstallFolder" Root="HKLM" Key="Software\Open-MBEE\OpenSysML"
                       Name="InstallFolder" Type="raw" />
     </Property>
+    <SetProperty Id="INSTALLFOLDER" Value="[PREVIOUSINSTALLFOLDER]" After="AppSearch" Sequence="both"
+                 Condition="PREVIOUSINSTALLFOLDER AND NOT INSTALLFOLDER" />
 
     <UIRef Id="OpenSysMLWizard" />
 

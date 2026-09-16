@@ -5,7 +5,7 @@ wizard) are the [WiX Toolset v5](https://wixtoolset.org/) source of the
 per-machine x64 installer published with every release as
 `opensysml-<x.y.z>-windows-amd64.msi` (and, once SignPath signing is
 configured, `opensysml-<x.y.z>-windows-amd64-signed.msi`). It is a plain MSI:
-no Burn bootstrapper bundle, no custom actions.
+no Burn bootstrapper bundle and no custom-action code.
 
 ## What it installs
 
@@ -23,7 +23,10 @@ Double-clicking the MSI runs a wizard: *Welcome* → *Destination Folder*
 *Completed* page that names the install folder and reminds you to open a new
 terminal for the updated `PATH`. Running the MSI again on a machine where
 that version is installed offers *Repair* and *Remove*; a newer MSI upgrades
-in place after the same wizard, proposing the previously chosen folder.
+in place after the same wizard, proposing the previously chosen folder. If
+`sysml`, `sysml-lsp`, or `sysml-grpc` is running during an upgrade, it is
+listed on a *Files in use* page. An `INSTALLFOLDER` command-line value wins
+over the remembered folder.
 
 The wizard is authored in `wizard.wxs` from the standard Windows Installer
 dialog controls only (see *Licensing* for why the stock `WixUI_*` sets are
@@ -158,8 +161,9 @@ To move to a new release:
   a small WiX custom-action DLL (`WixUiCa`, for the license dialog's Print
   button and install-path validation), which would put MS-RL code in the
   MSI. Dialog, control and sequence table rows are data, not code. The
-  `Binary` and `CustomAction` tables of the built MSI are empty; check with
-  `msiinfo tables` that neither table appears.
+  `Binary` table is absent, and the `CustomAction` table holds one type-51
+  (set-property) row for the remembered install folder; that row is data,
+  not code. Check with `msiinfo tables` and `msidump`.
 - **OpenSysML** is Apache-2.0; the MSI installs `LICENSE.txt`.
 - **Z3** is MIT-licensed by Microsoft Corporation. The MSI ships its
   `LICENSE.txt` as `z3\LICENSE-z3.txt` next to `z3.exe`, satisfying the MIT
