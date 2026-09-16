@@ -254,7 +254,7 @@ func (ctx *Context) readEvalValue(obj *Objective, objSym *symbols.Symbol) bool {
 		return true
 	}
 	body := bodyScope(evalSym, evalSym.OwnerScope)
-	stmts := lower.CalcBody(evalSym.Decl, declMembers(evalSym.Decl), body)
+	stmts := lower.CalcBodyWith(evalSym.Decl, declMembers(evalSym.Decl), body, ctx.Resolver())
 	if len(stmts) == 1 {
 		if ret, ok := stmts[0].(lower.Return); ok && ret.Value != nil {
 			obj.Value, obj.Scope = ret.Value, ret.Scope

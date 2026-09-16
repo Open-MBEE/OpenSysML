@@ -221,6 +221,10 @@ this file (JSON when it ends in .json, text otherwise)
 .BI \-o " string"
 Write conversion output to this file (shorthand)
 .TP
+.BI \-observe " clock"
+Report this feature of the \-runs action, or clock for the time it completed
+at; default every feature it holds and the clock (repeatable)
+.TP
 .BI \-output " string"
 Write conversion output to this file (default: stdout)
 .TP
@@ -278,6 +282,11 @@ of every verification case verifying it (repeatable)
 Execute this document query and report its rows, as \-run\-query
 "HeavySubsystems root=telescope" (repeatable)
 .TP
+.BI \-runs " value"
+Run the \-action this many times, each run's modeled randomness (weighted
+decisions, random functions) seeded from \-seed, and report the table of the
+\-observe features with each one's distribution; needs \-seed
+.TP
 .BI \-samples " value"
 Draw this many values uniformly from each \-sweep range instead of stepping
 through them, Integers or reals as the parameter is typed; needs \-seed
@@ -296,7 +305,9 @@ table the distinct outcomes, or replay:<file> to follow a witness file's
 choice lines move for move, then reverse
 .TP
 .BI \-seed " value"
-Seed \-samples draws from, so the same seed draws the same table
+Seed the model's own draws \(em Probability\-weighted decisions,
+RandomFunctions \(em come from in every run made, whatever \-schedule, and the
+seed \-samples or \-runs draws from; the same seed draws the same run or table
 .TP
 .B \-source
 With \-compile, write the generated source to \-o instead of building it
@@ -503,6 +514,33 @@ through it \(em Integers inclusively for a parameter taking Integers, reals in
 the same table on every platform. Uniform is the only distribution on offer
 \(em the bundled library states no probability distributions \(em so a range
 must be written <from>..<to> rather than as a named distribution.
+.SH RUNNING AN ACTION MANY TIMES
+.RS 2
+.nf
+# 100 runs, every feature
+sysml \-action Acquire \-runs 100 \-seed 7 m.sysml
+# One observable
+sysml \-action Acquire \-runs 100 \-seed 7 \-observe elapsed m.sysml
+# One run, its draws seeded
+sysml \-action Acquire \-seed 7 m.sysml
+.fi
+.RE
+.PP
+\-runs runs one \-action to completion that many times, each run on a fresh
+context whose modeled randomness \(em the weighted decisions @Probability
+states and the draws of uniform, uniformInteger, triangular and normal \(em is
+seeded from a seed of its own derived from \-seed, so the same seed makes the
+same table on every platform and a run can be replayed alone. \-schedule stays
+the second, independent knob: it decides the concurrency choices, which carry
+no probability, in every run alike.
+.PP
+The table has one row per run, numbered, with each \-observe feature of the
+action \(em `clock` is the simulation time the run completed at, never a
+feature of that name \(em and without \-observe every feature the action holds
+and the clock. Below it each numeric observable is summarised over the
+completed runs: min, mean, max, the nearest\-rank p50 and p90, and a
+histogram; a non\-numeric one is counted by value. A feature the action does
+not hold is refused.
 .SH CONVERSION
 .RS 2
 .nf

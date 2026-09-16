@@ -92,6 +92,9 @@ type Question struct {
 	// Schedule is the scheduling policy the question states: the one an
 	// evaluation runs under, or the exploring one whose budget bounds outcomes.
 	Schedule runtime.SchedulePolicy
+	// ModelSeed is the seed the runs' modeled draws come from when one is set
+	// apart from the schedule (runtime.Context.SetModelSeed).
+	ModelSeed ModelSeed
 	// Free is what the question leaves open.
 	Free Freedom
 	// Perform makes the one execution an Evaluate question asks for.
@@ -110,6 +113,39 @@ type Question struct {
 	// Check is the action an Outcomes or Holds question asks the check engine to
 	// search the schedules of, with what must hold and what may not diverge.
 	Check *CheckAsk
+}
+
+// ModelSeed is a seed for the modeled draws of a question's runs, and whether one is set.
+type ModelSeed struct {
+	Seed uint64
+	Set  bool
+}
+
+// apply gives ctx the seed where one is set; otherwise ctx keeps leaving its draws to the schedule.
+func (s ModelSeed) apply(ctx *runtime.Context) {
+	if s.Set {
+		ctx.SetModelSeed(s.Seed)
+	}
+}
+
+// fresh is a context of a run's own on the plan's worker for job, under the budget as
+// Model.NewContextOn takes it, drawing from the question's model seed where one is set.
+func (q Question) fresh(model *Model, job int, budget Budget) (*runtime.Context, error) {
+	ctx, err := model.NewContextOn(job, budget)
+	if err != nil {
+		return nil, err
+	}
+	q.ModelSeed.apply(ctx)
+	return ctx, nil
+}
+
+// ModelSeedOf is the model seed set on ctx, none when ctx is nil or has none.
+func ModelSeedOf(ctx *runtime.Context) ModelSeed {
+	if ctx == nil {
+		return ModelSeed{}
+	}
+	seed, set := ctx.ModelSeed()
+	return ModelSeed{Seed: seed, Set: set}
 }
 
 // Performance makes one execution in the given context and reports what it established.

@@ -94,12 +94,14 @@ type ChannelForm struct {
 
 // EdgeForm is a control flow, guarded when Guard is present; Else marks the
 // branch of a decision written as `else`, taken when no guarded branch is.
+// Probability is the weight a `@Probability` annotation gives a decision's branch.
 type EdgeForm struct {
-	Source int       `json:"source"`
-	Target int       `json:"target"`
-	Guard  *ExprForm `json:"guard,omitempty"`
-	Else   bool      `json:"else,omitempty"`
-	Decl   SpanForm  `json:"decl"`
+	Source      int       `json:"source"`
+	Target      int       `json:"target"`
+	Guard       *ExprForm `json:"guard,omitempty"`
+	Else        bool      `json:"else,omitempty"`
+	Probability *ExprForm `json:"probability,omitempty"`
+	Decl        SpanForm  `json:"decl"`
 }
 
 // ObjectFlowForm is a data flow from a pin of Source to a pin of Target.
@@ -385,13 +387,17 @@ func (x *graphsExporter) actionGraph(graph *lower.ActionGraph) (*ActionForm, err
 		form.Nodes = append(form.Nodes, nf)
 		for _, edge := range graph.Edges[node] {
 			decl, _ := edge.Decl.(*ast.ControlFlowEdge)
-			form.Edges = append(form.Edges, EdgeForm{
+			ef := EdgeForm{
 				Source: ids.add(edge.Source),
 				Target: ids.add(edge.Target),
 				Guard:  x.expr(scope, edge.Guard),
 				Else:   decl != nil && decl.IsElse,
 				Decl:   x.span(scope, edge.Decl),
-			})
+			}
+			if edge.Probability != nil {
+				ef.Probability = x.expr(scope, edge.Probability.Expr)
+			}
+			form.Edges = append(form.Edges, ef)
 		}
 		for _, flow := range graph.DataFlows[node] {
 			form.Flows = append(form.Flows, ObjectFlowForm{
