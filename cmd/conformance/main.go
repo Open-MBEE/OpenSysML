@@ -169,7 +169,7 @@ func runSuite(opts options) error {
 				runner := &runner{
 					service: svc, client: c,
 					fixtures: filepath.Join(opts.dir, "fixtures"),
-					models:   map[Model]string{}, verbose: opts.verbose,
+					models:   map[string]string{}, verbose: opts.verbose,
 					omitHandshakeScenarios: len(config.unavailable) > 0,
 					out:                    os.Stdout, scenarioLog: os.Stdout,
 				}
