@@ -351,12 +351,28 @@ When a change needs documenting:
 - **Explain in the guide, enumerate in the reference.** Do not repeat a flag table in both; link to it.
 - **Measured numbers have one home** (fixture, corpus and conversion counts live in
   [docs/project/](docs/project/)); elsewhere, link to it instead of restating a number that
-  will drift. Three release-gate surfaces are the deliberate exception, because
-  [docs/project/releasing.md](docs/project/releasing.md) checks the numbers they print:
-  `README.md`'s coverage line and status table, and the gate tables in
-  [docs/project/roadmap.md](docs/project/roadmap.md) and
-  [docs/project/training-examples.md](docs/project/training-examples.md). Recount all four
-  together, in one commit.
+  will drift. Two release-gate surfaces are the deliberate exception, because
+  [docs/project/releasing.md](docs/project/releasing.md) checks the numbers they print: the gate
+  tables in [docs/project/roadmap.md](docs/project/roadmap.md) and
+  [docs/project/training-examples.md](docs/project/training-examples.md). Recount both together,
+  in one commit.
+- **The test-suite figures are counted at build time, never committed.** The conformance-case,
+  golden-AST, golden-trace, negative-parser, robustness, gRPC and `Test`-function counts in the
+  compliance map's test inventory are `<!-- doc-counts:begin inventory-… -->` blocks whose
+  committed text names what is counted and states no figure; the site build
+  (`scripts/mkdocs_suite_figures.py`, run by `make docs`) splices in the figures from
+  `go run ./cmd/doc-counts -site-blocks`, which counts the tree the way the gates enumerate it.
+  `go run ./cmd/doc-counts -check` refuses a figure typed into one of those blocks, so adding a
+  test or a fixture is the whole change and two branches cannot conflict on a count. `README.md`
+  names the gates without their counts; the one suite figure still committed there is whether
+  every conformance case passes, which moves with `known_failures.txt` alone.
+- **Robustness cases are registered per feature.** A runtime failure-mode subtest goes in
+  `internal/core/runtime/robustness_<feature>_test.go` under a `TestRuntimeRobustness<Feature>`
+  function (gRPC: `internal/grpc/robustness_<feature>_test.go`, `TestGRPCRobustness<Feature>`),
+  a new file for a new feature; `robustness_test.go` holds the shared cases and is not where new
+  ones go. `go test` discovers them like any test, and the build-time counters sum every
+  `TestRuntimeRobustness*` and `TestGRPCRobustness*` function, so two branches adding cases never
+  edit one registry.
 - **The compliance-row census is counted at build time, never committed.** Adding or changing a
   `✅`/`⚠️`/`❌`/`⛔` row in [docs/project/spec-compliance.md](docs/project/spec-compliance.md) is the
   whole change: no header, `README.md` line or `docs/internals/architecture.md` line restates the
@@ -364,7 +380,8 @@ When a change needs documenting:
   (`scripts/mkdocs_census.py`, run by `make docs`) counts the rows into the
   `<!-- doc-counts:begin census -->` block and refuses a `🚧` row, as do `make docs-counts` and
   `go test ./cmd/pilot-diff`. `make docs-counts` still restates the externally refereed oracle
-  numbers from the baseline JSONs; run it only when a baseline moved.
+  numbers from the baseline JSONs (and the README's conformance-passing sentence); run it only
+  when a baseline or `known_failures.txt` moved.
 - **Changelog entries are fragments, not edits to `CHANGELOG.md`.** A change that a user
   should read about adds one file, `changes/unreleased/<slug>.<section>.md`, holding the list
   item(s) for that section (`added`, `changed`, `fixed`, …); see the README there. Two branches
