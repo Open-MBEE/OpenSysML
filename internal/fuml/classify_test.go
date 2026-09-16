@@ -271,6 +271,14 @@ const refiringModel = `<?xml version="1.0" encoding="UTF-8"?>
     <edge xmi:type="uml:ObjectFlow" xmi:id="f3" source="cwr2" target="workerFork"/>
     <edge xmi:type="uml:ObjectFlow" xmi:id="f4" source="workerFork" target="swo"/>
   </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="paramLauncher" name="ParameterLauncher">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="plIn" name="worker" direction="in" type="worker"/>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="plNode" name="Input(worker)" parameter="plIn"/>
+    <node xmi:type="uml:StartObjectBehaviorAction" xmi:id="startParam" name="Start(worker)">
+      <object xmi:type="uml:InputPin" xmi:id="spo" name="object"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f4b" source="plNode" target="spo"/>
+  </packagedElement>
   <packagedElement xmi:type="uml:Class" xmi:id="entity" name="Entity" isActive="true" classifierBehavior="entityPatrol">
     <ownedBehavior xmi:type="uml:Activity" xmi:id="entityPatrol" name="Patrol">
       <node xmi:type="uml:ReadExtentAction" xmi:id="readEntities" name="ReadExtent(Entity)" classifier="entity">
@@ -411,8 +419,9 @@ func TestClassifyFilesReFiringByItsCause(t *testing.T) {
 		t.Errorf("Creator = %s: %s", c.Class, c.Reason())
 	}
 	want = "dependency on a not-expressible behavior (a behavior it calls or starts is itself not expressible): Run (DestroyObjectAction)"
-	// The started object is the one created, whatever type the start pin declares.
-	for _, name := range []string{"Launcher", "GeneralLauncher"} {
+	// The started object is the one created, whatever type the start pin declares;
+	// a parameter node without a type of its own has its parameter's.
+	for _, name := range []string{"Launcher", "GeneralLauncher", "ParameterLauncher"} {
 		if c := Classify(activity(t, m, name), nil); c.Class != NotExpressible || c.Reason() != want {
 			t.Errorf("%s = %s: %s", name, c.Class, c.Reason())
 		}
@@ -439,5 +448,140 @@ func TestExpressibilityStringOutsideTheClasses(t *testing.T) {
 		if got, want := c.String(), fmt.Sprintf("Expressibility(%d)", int(c)); got != want {
 			t.Errorf("%d.String() = %q, want %q", int(c), got, want)
 		}
+	}
+}
+
+const unlimitedLiteralModel = `<?xml version="1.0" encoding="UTF-8"?>
+<uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="Unlimited">
+  <packagedElement xmi:type="uml:Activity" xmi:id="a" name="Ordinary">
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="v" name="Value(*)">
+      <result xmi:type="uml:OutputPin" xmi:id="vr" name="result"/>
+      <value xmi:type="uml:LiteralUnlimitedNatural" xmi:id="vv" value="*"/>
+    </node>
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="call" name="Call(Sink)" behavior="sink">
+      <argument xmi:type="uml:InputPin" xmi:id="callIn" name="in"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f" source="vr" target="callIn"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="b" name="Position">
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="pv" name="Value(*)">
+      <result xmi:type="uml:OutputPin" xmi:id="pvr" name="result"/>
+      <value xmi:type="uml:LiteralUnlimitedNatural" xmi:id="pvv" value="*"/>
+    </node>
+    <node xmi:type="uml:ForkNode" xmi:id="fork" name="Fork"/>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="add1" name="Add(1)" structuralFeature="items">
+      <insertAt xmi:type="uml:InputPin" xmi:id="at1" name="insertAt"/>
+    </node>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="add2" name="Add(2)" structuralFeature="items">
+      <insertAt xmi:type="uml:InputPin" xmi:id="at2" name="insertAt"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="pf" source="pvr" target="fork"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="pf1" source="fork" target="at1"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="pf2" source="fork" target="at2"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="c" name="Reconverging">
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="rv" name="Value(*)">
+      <result xmi:type="uml:OutputPin" xmi:id="rvr" name="result"/>
+      <value xmi:type="uml:LiteralUnlimitedNatural" xmi:id="rvv" value="*"/>
+    </node>
+    <node xmi:type="uml:ForkNode" xmi:id="rforkA" name="ForkA"/>
+    <node xmi:type="uml:ForkNode" xmi:id="rforkB" name="ForkB"/>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="radd" name="Add" structuralFeature="items">
+      <insertAt xmi:type="uml:InputPin" xmi:id="rat" name="insertAt"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="rf" source="rvr" target="rforkA"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="rf1" source="rforkA" target="rforkB"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="rf2" source="rforkA" target="rforkB"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="rf3" source="rforkB" target="rat"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="d" name="Cyclic">
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="cv" name="Value(*)">
+      <result xmi:type="uml:OutputPin" xmi:id="cvr" name="result"/>
+      <value xmi:type="uml:LiteralUnlimitedNatural" xmi:id="cvv" value="*"/>
+    </node>
+    <node xmi:type="uml:ForkNode" xmi:id="cforkA" name="ForkA"/>
+    <node xmi:type="uml:ForkNode" xmi:id="cforkB" name="ForkB"/>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="cadd" name="Add" structuralFeature="items">
+      <insertAt xmi:type="uml:InputPin" xmi:id="cat" name="insertAt"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="cf" source="cvr" target="cforkA"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="cf1" source="cforkA" target="cforkB"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="cf2" source="cforkB" target="cforkA"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="cf3" source="cforkB" target="cat"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="sink" name="Sink"/>
+  <packagedElement xmi:type="uml:Class" xmi:id="holder" name="Holder">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="items" name="items"/>
+  </packagedElement>
+</uml:Model>
+`
+
+func TestClassifyUntypedUnlimitedNaturalLiterals(t *testing.T) {
+	m, err := ReadModel(strings.NewReader(unlimitedLiteralModel), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Diagnostics) != 0 {
+		t.Fatalf("diagnostics = %v", m.Diagnostics)
+	}
+	// The literal is the only evidence its untyped result is unlimited natural.
+	c := Classify(activity(t, m, "Ordinary"), nil)
+	if want := "UnlimitedNatural (KerML's ScalarValues has no unlimited natural): Value(*) is a LiteralUnlimitedNatural"; c.Class != NotExpressible || c.Reason() != want {
+		t.Errorf("Ordinary = %s: %s", c.Class, c.Reason())
+	}
+	// A literal that only names positions, through a fork, needs no such type;
+	// nor through forks whose branches reconverge on a later fork.
+	for _, name := range []string{"Position", "Reconverging"} {
+		if c := Classify(activity(t, m, name), nil); c.Class != Expressible {
+			t.Errorf("%s = %s: %s", name, c.Class, c.Reason())
+		}
+	}
+	// A cycle of forks never settles on positions, whatever else it feeds.
+	if c := Classify(activity(t, m, "Cyclic"), nil); c.Class != NotExpressible || !strings.Contains(c.Reason(), "Value(*) is a LiteralUnlimitedNatural") {
+		t.Errorf("Cyclic = %s: %s", c.Class, c.Reason())
+	}
+}
+
+// A chain of forks each flowing twice into the next has 2^n paths; the walk
+// to the positions must visit each fork once, not once per path.
+func TestFeedsPositionWalksReconvergingForksOnce(t *testing.T) {
+	const forks = 64
+	var b strings.Builder
+	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
+<uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="Chain">
+  <packagedElement xmi:type="uml:Activity" xmi:id="a" name="Chain">
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="v" name="Value(*)">
+      <result xmi:type="uml:OutputPin" xmi:id="vr" name="result"/>
+      <value xmi:type="uml:LiteralUnlimitedNatural" xmi:id="vv" value="*"/>
+    </node>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="add" name="Add" structuralFeature="items">
+      <insertAt xmi:type="uml:InputPin" xmi:id="at" name="insertAt"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="f0" source="vr" target="fork0"/>
+`)
+	for i := 0; i < forks; i++ {
+		fmt.Fprintf(&b, `    <node xmi:type="uml:ForkNode" xmi:id="fork%d" name="Fork%d"/>`+"\n", i, i)
+		target := "at"
+		if i+1 < forks {
+			target = fmt.Sprintf("fork%d", i+1)
+		}
+		fmt.Fprintf(&b, `    <edge xmi:type="uml:ObjectFlow" xmi:id="e%da" source="fork%d" target="%s"/>`+"\n", i, i, target)
+		fmt.Fprintf(&b, `    <edge xmi:type="uml:ObjectFlow" xmi:id="e%db" source="fork%d" target="%s"/>`+"\n", i, i, target)
+	}
+	b.WriteString(`  </packagedElement>
+  <packagedElement xmi:type="uml:Class" xmi:id="holder" name="Holder">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="items" name="items"/>
+  </packagedElement>
+</uml:Model>
+`)
+	m, err := ReadModel(strings.NewReader(b.String()), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Diagnostics) != 0 {
+		t.Fatalf("diagnostics = %v", m.Diagnostics)
+	}
+	if c := Classify(activity(t, m, "Chain"), nil); c.Class != Expressible {
+		t.Errorf("Chain = %s: %s", c.Class, c.Reason())
 	}
 }
