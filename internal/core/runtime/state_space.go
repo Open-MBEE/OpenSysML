@@ -322,14 +322,9 @@ func (e *ActionExecutor) settleStep(run *stateSpaceRun, state Value, input *Valu
 	return e.watchCrossings(run, now)
 }
 
-// instantValue is the clock's instant as a duration quantity, or a bare number
-// where no library reduces the second.
+// instantValue is the clock's instant t as the context spells one.
 func (e *ActionExecutor) instantValue(t float64) Value {
-	second, err := e.ctx.clockUnit()
-	if err != nil {
-		return realConst(t)
-	}
-	return NewQuantityValue(&Quantity{Num: semantics.Value{Kind: semantics.ValReal, Real: t}, Unit: second})
+	return e.ctx.instantValue(t)
 }
 
 // nextState is the state one step on: the library's getNextState integrates the

@@ -53,7 +53,7 @@ func (e sweepEngine) Run(ctx context.Context, model *Model, q Question, budget B
 	if !model.builds() {
 		return Result{}, &NoRuntimeError{Engine: e.Name()}
 	}
-	first, err := model.NewContextOn(0, budget)
+	first, err := q.fresh(model, 0, budget)
 	if err != nil {
 		return Result{}, err
 	}
@@ -61,7 +61,7 @@ func (e sweepEngine) Run(ctx context.Context, model *Model, q Question, budget B
 	if runs <= 0 {
 		runs = first.SweepRunBudget()
 	}
-	fresh := func(job int) (*runtime.Context, error) { return model.NewContextOn(job, budget) }
+	fresh := func(job int) (*runtime.Context, error) { return q.fresh(model, job, budget) }
 	started := time.Now()
 	table, err := runtime.RunSweepWith(ctx, runtime.SweepWorkers{First: first, Jobs: budget.Jobs, Fresh: fresh}, q.Subject, q.Sweep.Plan, runs, q.Sweep.Row)
 	if err != nil {

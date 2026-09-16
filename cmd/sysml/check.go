@@ -28,6 +28,8 @@ type checks struct {
 	sweeps       stringSlice
 	samples      sweepCount
 	seed         sweepSeed
+	runs         runCount
+	observe      stringSlice
 	queries      stringSlice
 	actions      stringSlice
 	states       stringSlice
@@ -118,8 +120,8 @@ func (s *sweepCount) Set(value string) error {
 	return nil
 }
 
-// sweepSeed is -seed as written: the seed a sampled sweep draws from, which is
-// required rather than defaulted so a table is reproducible.
+// sweepSeed is -seed as written: the seed a sampled sweep or a Monte Carlo draws
+// from, which is required rather than defaulted so a table is reproducible.
 type sweepSeed struct {
 	value uint64
 	text  string
@@ -135,6 +137,26 @@ func (s *sweepSeed) Set(value string) error {
 		return fmt.Errorf("-seed takes a whole number to draw from, not %q", value)
 	}
 	s.value = seed
+	return nil
+}
+
+// runCount is -runs as written: how many times to run the action named, parsed
+// where a bad value is reported in the caller's own form.
+type runCount struct {
+	value int64
+	text  string
+	given bool
+}
+
+func (r *runCount) String() string { return r.text }
+
+func (r *runCount) Set(value string) error {
+	r.text, r.given = value, true
+	count, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || count <= 0 {
+		return fmt.Errorf("-runs takes the number of runs to make, not %q", value)
+	}
+	r.value = count
 	return nil
 }
 
@@ -160,7 +182,7 @@ func (c *checks) requested() bool {
 	return c.validate.given || c.jsonOut || c.advance.given || c.satisfy.given || len(c.instantiate) > 0 ||
 		len(c.constraints) > 0 || len(c.requirements) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 ||
 		len(c.queries) > 0 || len(c.actions) > 0 || len(c.states) > 0 ||
-		c.sweeping() || c.checker.given()
+		c.sweeping() || c.running() || c.checker.given()
 }
 
 // explicitOnly names the -check-* flags written that the check engine alone reads.
@@ -232,9 +254,43 @@ func spelled(names []string) string {
 	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
 }
 
-// sweeping reports whether a sweep or a sample of one was asked for.
+// sweeping reports whether a sweep or a sample of one was asked for. A seed
+// alone asks for no sweep: it seeds the model's own draws in whatever runs.
 func (c *checks) sweeping() bool {
-	return len(c.sweeps) > 0 || c.samples.given || c.seed.given
+	return len(c.sweeps) > 0 || c.samples.given
+}
+
+// running reports whether a Monte Carlo was asked for.
+func (c *checks) running() bool {
+	return c.runs.given || len(c.observe) > 0
+}
+
+// runsMisuse reports why the flags a Monte Carlo was asked for with run none,
+// and "" when they run one: -runs needs -seed and a single -action, and
+// -observe names what the runs report.
+func (c *checks) runsMisuse() string {
+	if !c.running() {
+		return ""
+	}
+	switch {
+	case !c.runs.given:
+		return "-observe names what -runs reports; ask for the runs, as -runs <number>"
+	case len(c.actions) == 0:
+		return "-runs runs an action; name one, as -action <name>"
+	case len(c.actions) > 1:
+		return "-runs runs one action; name a single -action"
+	case len(c.states) > 0:
+		return "-runs runs an action; a state machine is run once, as -state <name> without -runs"
+	case !c.seed.given:
+		return "-runs draws each run's randomness from a seed; name one, as -seed <number>"
+	case c.sweeping():
+		return "-runs runs an action; -sweep and -samples run an analysis case or calc; ask for one of them"
+	case c.advance.given:
+		return "-runs runs the action to completion; -advance runs it for a time; ask for one of them"
+	case c.checker.given():
+		return "-runs makes concrete runs; the -check-* flags search schedules; ask for one of them"
+	}
+	return ""
 }
 
 // sweepMisuse reports why the flags a sweep was asked for with make no sweep,
@@ -253,8 +309,6 @@ func (c *checks) sweepMisuse() string {
 		return "-samples draws from a range; name one, as -sweep <parameter>=<from>..<to>"
 	case c.samples.given && !c.seed.given:
 		return "-samples draws from a seed; name one, as -seed <number>"
-	case c.seed.given && !c.samples.given:
-		return "-seed is the seed -samples draws from; name how many to draw, as -samples <number>"
 	}
 	return ""
 }
@@ -264,7 +318,7 @@ func (c *checks) sweepMisuse() string {
 func (c *checks) instantiatesOnly() bool {
 	return len(c.instantiate) > 0 && !c.validate.given && !c.jsonOut && !c.advance.given && !c.satisfy.given &&
 		len(c.constraints) == 0 && len(c.requirements) == 0 && len(c.calcs) == 0 && len(c.analyses) == 0 &&
-		len(c.queries) == 0 && len(c.actions) == 0 && len(c.states) == 0 && !c.sweeping() && !c.checker.given()
+		len(c.queries) == 0 && len(c.actions) == 0 && len(c.states) == 0 && !c.sweeping() && !c.running() && !c.checker.given()
 }
 
 // checksOnly reports whether anything was asked about the model itself, as
@@ -364,6 +418,10 @@ func runChecks(files []string, exprs []string, c checks) int {
 		advance = duration
 	}
 	if message := c.sweepMisuse(); message != "" {
+		rep.failed(message)
+		return rep.finish()
+	}
+	if message := c.runsMisuse(); message != "" {
 		rep.failed(message)
 		return rep.finish()
 	}
@@ -539,6 +597,10 @@ func runChecks(files []string, exprs []string, c checks) int {
 	}
 	for _, value := range c.actions {
 		name, performer := splitPerformer(value)
+		if c.runs.given {
+			rep.verdict(sess.RunRuns(name, performer, c.runs.value, c.seed.value, c.observe))
+			continue
+		}
 		rep.verdict(sess.RunAction(name, performer...))
 	}
 	for _, value := range c.states {

@@ -119,6 +119,9 @@ type Question struct {
 	SubjectKind string `json:"subjectKind,omitempty"`
 	// Schedule is the scheduling policy the question states, as -schedule spells it.
 	Schedule string `json:"schedule"`
+	// ModelSeed is the seed the runs' modeled draws come from, apart from the schedule's;
+	// absent leaves them to a `seed:<n>` schedule.
+	ModelSeed *uint64 `json:"modelSeed,omitempty"`
 	// Free is what the question leaves open: "schedule", "inputs".
 	Free []string `json:"free"`
 	// Condition is the requirement or constraint a holds question asks about; absent asks
@@ -163,12 +166,14 @@ type FreeInput struct {
 	Domain string `json:"domain,omitempty"`
 }
 
-// Sweep is a sweep question's domain.
+// Sweep is a sweep question's domain; a Monte Carlo states runs and a seed and no range.
+// Seed is present, zero included, whenever the rows are drawn from it.
 type Sweep struct {
 	Ranges  []Range `json:"ranges"`
 	Sampled bool    `json:"sampled,omitempty"`
 	Samples int64   `json:"samples,omitempty"`
-	Seed    uint64  `json:"seed,omitempty"`
+	Seed    *uint64 `json:"seed,omitempty"`
+	Runs    int64   `json:"runs,omitempty"`
 }
 
 // Range is one parameter's range of a sweep.

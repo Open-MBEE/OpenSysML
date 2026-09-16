@@ -820,6 +820,212 @@ recorded per fixture in [the semantic oracle](../project/behavior-semantic-oracl
 [compliance table](../project/spec-compliance.md) names the code and tests behind each surface
 above.
 
+## When a model states its own odds
+
+Every choice point above is *scheduling* nondeterminism: the library leaves the order open and
+gives no alternative a likelihood, so the honest report is the set. A model migrated from a
+simulation tool often means something else by a branch — *the acquisition succeeds seven times
+in ten* — and by a duration — *the settle takes between one and eighty seconds* — and SysML v2
+has no notation for either. OpenSysML supplies one as an extension library, in standard SysML v2
+that any other tool reads as ordinary metadata and a function call: two library packages,
+`Stochastic` and `RandomFunctions` under `internal/core/libs/stdlib/OpenSysML Libraries/`, both
+marked NON-NORMATIVE, with the vendored OMG files untouched. What they state is *modeled*
+randomness, and the runtime keeps it apart from the scheduling kind: a weighted branch is drawn
+by its weights, a scheduling choice never is, and the two draw from two independent streams,
+fixed by two independent seeds.
+
+```sysml
+package MC {
+	private import ScalarValues::*;
+	private import ISQ::*;
+	private import SI::*;
+	private import Stochastic::*;
+	private import RandomFunctions::*;
+
+	action def Route {
+		attribute taken : Integer = 0;
+		attribute d : Real = uniform(0.0, 10.0);
+		first start;
+		then decide select;
+		first select then fast { @Probability { p = 0.7; } }
+		first select then slow { @Probability { p = 0.3; } }
+		action fast { assign taken := 1; }
+		then wait;
+		action slow { assign taken := 2; }
+		then wait;
+		action wait accept after uniform(1, 80) [s];
+		then done;
+	}
+	action route : Route;
+}
+```
+
+### A weighted branch: `@Probability { p = … }`
+
+`Stochastic::Probability` is a metadata definition with one attribute, `p : Real`, applied to a
+succession out of a decision node from within the succession's body. The rules the lowering
+enforces, each violation a typed error before anything runs:
+
+- every succession out of one decision carries a `Probability`, or none does — a decision with
+  three branches of which two are weighted is refused naming the unweighted one;
+- each `p` lies in `0.0..1.0`;
+- where every `p` out of one decision is a constant — a literal or arithmetic over literals,
+  `1.0 - 0.3` as much as `0.7` — they sum to `1.0` within `1e-6`; a `p` that is an expression
+  over the action's features is evaluated when the decision is reached and refused then, as an
+  `invalid branch weights` error, if it is no probability;
+- a `Probability` with no `p`, two, an attribute it does not declare, or a `p` that is not a
+  number is refused naming what is wrong, and one written on an action body instead of a
+  succession is refused rather than ignored.
+
+A branch whose guard does not hold at the decision is out of the draw, and the weights of the
+branches that do hold are renormalized among themselves: a `0.7` branch guarded by `if ready`
+against a `0.3` branch unguarded is the `0.3` branch alone when `ready` is false, and a decision
+at which no holding branch weighs more than zero is refused. A `Probability` on a state
+transition is refused with a typed lowering error: weighted transitions are not in this
+release (see [Known limitations](#known-limitations-of-modeled-randomness)).
+
+### A random value: `RandomFunctions`
+
+Four functions return a draw from a stated distribution, each a scalar over scalars:
+
+| Function | Draws | Requires |
+|---|---|---|
+| `uniform(lo, hi)` | a `Real` uniformly over `[lo, hi)` | `lo <= hi` |
+| `uniformInteger(lo, hi)` | an `Integer` uniformly over `lo..hi`, both inclusive | `lo <= hi` |
+| `triangular(lo, mode, hi)` | a `Real` from the triangular distribution peaking at `mode` | `lo <= mode <= hi`, `lo < hi` |
+| `normal(mean, sd)` | a finite `Real` from the normal distribution; `sd = 0.0` is `mean` | `sd >= 0.0` |
+
+A call whose arguments break the requirement — `uniform(80, 1)`, a negative `sd`, a bound that
+is not finite — is refused with a typed error, `random function arguments bound no
+distribution`, naming the call, not clamped. The
+functions take and return scalars, so a random quantity is a draw given a unit — `accept after
+uniform(1, 80) [s]` — and a quantity passed as a bound (`uniform(1 [s], 80 [s])`) is refused by
+the function's typing. A random `accept after` is evaluated once, when the wait is set up, and
+the instant it is due at stands while the token waits: the duration is not redrawn as the clock
+is polled.
+
+### Seeds: where the draws come from
+
+A run that reaches a weighted decision or a `RandomFunctions` call needs a *model seed*. Given
+none, it is refused — `modeled randomness needs a seed: uniform(0.0, 10.0) draws a random value;
+seed the run, as -seed <n> or %seed <n>, or schedule it under seed:<n>` — rather than drawing an
+unrepeatable value that a later run could not reproduce. The model seed comes from the first of:
+
+1. the witness a `replay:<file>` follows, whose recorded draws the run consumes (below);
+2. an explicit model seed — the CLI's `-seed <n>`, the REPL's `%seed <n>`, a conformance
+   case's `"modelSeed"`;
+3. the scheduling seed, when the run is under `seed:<n>` and no model seed is set.
+
+So `-schedule seed:3 -seed 7` shuffles the tokens from `3` and draws the model's values from `7`;
+`-schedule declared -seed 7` and `-schedule seed:1 -seed 7` make the same draws in two token
+orders; and `-schedule seed:7` alone uses `7` for both, each from a stream of its own derived
+from it, so the token order and the values are still two knobs. Under `declared` and `reverse`
+with no seed, a weighted decision is *not* refused: it takes the most probable branch (the first
+declared among equals), so an unseeded run stays deterministic, and only a call that must draw a
+value refuses.
+
+The trace shows each draw as it is made and the weighted decision as a choice point, with the
+weights of the branches that hold, the unit draw and what it selected:
+
+```console
+$ sysml -trace -action MC::route -seed 7 mc.sysml
+…
+[trace] draw uniform(0.0, 10.0) = 7.74817894359002
+…
+[trace] choice step 2: decision select branches 1->fast p=0.7, 2->slow p=0.3 hold (weighted; drew 0.33557143536732337, took 1->fast)
+…
+[trace] draw uniform(1, 80) = 47.88520359371734
+```
+
+### Replaying the draws
+
+A witness records every draw a run made, as `draw <call> = <value>` lines among its choice lines
+— `draw uniform(0.0, 10.0) = 7.74817894359002` — and a weighted choice line carries the weights
+and the draw that selected the branch after the branch taken — `step 2: decision select ->
+2->slow among 1->fast p=0.7, 2->slow p=0.3 drew 0.7748`; a branch `explore` enumerated rather than
+drew ends at the weights. `replay:<file>` consumes them in order: each call the run
+makes takes the next recorded draw instead of drawing, and the run is refused, as any
+unfollowable move is, when a draw is missing (the run draws once more than the file recorded), left
+over (the file recorded a draw the run never made), made by another call than the one recorded
+(`uniform(1, 80)` where the file says `uniform(0.0, 10.0)`), or written as no value the call can
+draw (`draw uniform(0.0, 1.0) = 2.0`: outside the bounds, of the wrong kind, off the mean of a
+`normal` with zero deviation). A weighted choice line is followed only where it fits the decision
+the run faces: the same branches weighed the same as the model now weighs them, and a recorded
+draw that is a unit draw in `[0, 1)` selecting the branch the line took — a line that weighs a
+branch otherwise, lists another set of branches, or records a draw that would select the other
+branch (`… 2->slow … drew 0.1` where `1->fast p=0.7` comes first) is refused naming what the run
+faced. A replay's rollback — a probe the checker makes, a `%step` taken back — restores the
+draw position with the choice position, so a run stepped and re-stepped consumes each draw once.
+
+### Under `explore` and `check`
+
+`explore` enumerates a weighted decision as it enumerates every other branch choice: every
+branch is a linearization, and the outcome table lists what each reaches. `check` searches them
+all the same way. The weights do not prune the search — a branch of probability `0.01` is a
+schedule, and a violation on it is a violation — and, in this release, are not accumulated into a
+probability per outcome either (see [Known limitations](#known-limitations-of-modeled-randomness)).
+The random *values* along a linearization come from the model seed as in any run, so an
+exploration needs one when the model draws.
+
+### Many runs: `%runs` and `-runs`
+
+A stochastic model is a question about a distribution, not a value. `%runs <n> <seed> <action>
+[<observable>...]` at the prompt and `-runs <n> -seed <s> -observe <feature>` at the command line
+run the action to completion `n` times, each run on a fresh context with a model seed of its
+own derived from `<seed>` and the run number — so run 3 of seed 7 is the same run on every
+platform, and can be repeated alone with `%seed <its seed>` — and table what each run's named
+features, and `clock`, the simulation time it completed at, came to. Without observables every
+feature the action holds and the clock are tabled; `clock` names the clock only, so a feature of
+that name is not reported. Below the table each numeric observable is
+summarised over the runs that completed: the minimum, mean and maximum, the nearest-rank p50
+and p90, and a histogram; a non-numeric observable is counted by value.
+
+```console
+$ sysml -action MC::route -runs 8 -seed 7 -observe taken -observe clock mc.sysml
+✓ package MC
+runs MC::route — 8 run(s), seed 7
+run | taken | clock                  | time
+----+-------+------------------------+--------
+1   | 1     | 45.771104597451966 [s] | 5.056ms
+2   | 1     | 18.029229676573745 [s] | 6.089ms
+3   | 1     | 36.432448124734556 [s] | 5.166ms
+4   | 2     | 35.38279454977086 [s]  | 5.826ms
+5   | 1     | 33.085779305138026 [s] | 5.177ms
+6   | 2     | 31.25968702920801 [s]  | 6.824ms
+7   | 1     | 72.07463187296344 [s]  | 6.696ms
+8   | 1     | 75.88725335563454 [s]  | 4.860ms
+taken: 8 run(s), min 1, mean 1.25, max 2, p50 1, p90 2
+  1 ###############      6
+  2 #####                2
+clock: 8 run(s), min 18.029229676573745 [s], mean 43.490366063934395 [s], max 75.88725335563454 [s], p50 35.38279454977086 [s], p90 75.88725335563454 [s]
+  18.03..25.26 [s] ###                  1
+  …
+  standing: table (observed: 8 rows)
+```
+
+The runs are the rows of a sweep plan with no range, so they run `%jobs`/`-jobs` at a time, a
+run that fails is a numbered row with its error under the table rather than an abort, and the
+plan is bounded by `OPENSYSML_MAX_SWEEP_RUNS` as any sweep is. The scheduling policy is the
+second knob here too: every run resolves its concurrency choices under `-schedule` alike, and a
+`replay:<file>` policy, which is one run, is refused with `-runs`.
+
+### Known limitations of modeled randomness
+
+- **State transitions carry no weight.** `@Probability` on a `transition` is refused at lowering
+  with a typed error; only successions out of a decision node are weighted.
+- **`explore` and `check` do not accumulate probability.** The outcome table and the checker's
+  verdict enumerate the weighted branches as branches; the probability of an outcome (the product
+  of the weights along its linearization's decision picks) and the probability mass of the
+  schedules reaching a violation are not reported.
+- **Random functions are scalar.** A bound given as a quantity is refused; write the unit on the
+  draw (`uniform(1, 80) [s]`).
+- **Weights are drawn among the branches that hold.** A decision whose guards leave exactly one
+  weighted branch holding takes it with probability one, whatever its `p`; the sum-to-one rule
+  is checked over the branches as written.
+- **Monte Carlo runs are a REPL and CLI operation.** `%runs` and `-runs` run an action
+  repeatedly; the `RunSweep` RPC and the service clients take ranges and samples but no run
+  count, and an external engine put a Monte Carlo answers with a claim, not the table of runs.
+
 ## An object runs the behaviors its type exhibits
 
 A type that exhibits a state machine or performs an action binds that behavior to every object of

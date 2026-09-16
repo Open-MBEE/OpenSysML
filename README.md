@@ -271,7 +271,7 @@ Guidance on selecting a client, the coverage of the four newer clients, and the 
 ## Goals
 
 - **Performance:** sub-millisecond parsing, a single static binary, and no JVM or Eclipse runtime
-- **Completeness:** SysML v2 textual notation support (101 of 101 standard library files parse cleanly: 94 vendored OMG files and 7 OpenSysML extensions)
+- **Completeness:** SysML v2 textual notation support (103 of 103 standard library files parse cleanly: 94 vendored OMG files and 9 OpenSysML extensions)
 - **Executable models:** instantiate, evaluate and simulate, turning specifications into running systems
 - **Practical ergonomics:** multi-file workspaces, incremental analysis and detailed diagnostics
 
@@ -281,7 +281,7 @@ The project is under active development, with the core infrastructure operationa
 
 | Component | Status |
 |-----------|--------|
-| Lexer/Parser (structural + behavioral grammar) | ✅ Operational (101/101 stdlib clean - see [conformance gate](internal/core/libs/stdlib_conformance_test.go)) |
+| Lexer/Parser (structural + behavioral grammar) | ✅ Operational (103/103 stdlib clean - see [conformance gate](internal/core/libs/stdlib_conformance_test.go)) |
 | Symbol resolution & type system | ✅ Complete |
 | Semantic layer (operators, builtins, validation) | ✅ Complete |
 | Feature chain resolution (member access) | ✅ Complete |
@@ -327,7 +327,7 @@ What these numbers cannot show: the OMG corpora are demonstrations rather than a
 
 **Current commit:** All tests pass (`go test -race ./...`), builds clean (`go build ./...`).
 **Test coverage:** top-level `Test` functions (counted from the `_test.go` files, as `go test ./...` runs them) covering parsers, semantics, runtime (actions, states, instances, operators, validation), behind golden ASTs, negatives, execution conformance cases, golden traces, runtime robustness cases and gRPC conformance and robustness cases. The figures are counted from the tree when the documentation site is built into the test inventory of [spec compliance](docs/project/spec-compliance.md), never committed, so a branch adding a test does not rewrite this page. A test skips only for want of something the run did not provide, and says what: the held-image round trip declines a conformance case that creates no instance, a few gate on a PDF or Mermaid toolchain, a pinned pilot artifact, the PSSM suite, a locale, a case-insensitive filesystem or a live Flexo stack, and the OMG corpus gates skip until the corpora are downloaded unless asked to fail.
-**Parser coverage:** 101/101 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the non-normative `OpenSysML Libraries/OpenSysMLMathFunctions.kerml`, `OpenSysML Libraries/DocumentQueries.sysml`, `OpenSysML Libraries/IdentityMetadata.sysml`, `OpenSysML Libraries/DiagramLayout.sysml`, `OpenSysML Libraries/OOSEM.sysml`, `OpenSysML Libraries/MOSA.sysml` and `OpenSysML Libraries/StateSpaceIntegration.sysml` extensions. Conformance verified by [stdlib_conformance_test.go](internal/core/libs/stdlib_conformance_test.go). Grammar reference: [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
+**Parser coverage:** 103/103 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the non-normative `OpenSysML Libraries/OpenSysMLMathFunctions.kerml`, `OpenSysML Libraries/DocumentQueries.sysml`, `OpenSysML Libraries/IdentityMetadata.sysml`, `OpenSysML Libraries/DiagramLayout.sysml`, `OpenSysML Libraries/OOSEM.sysml`, `OpenSysML Libraries/MOSA.sysml`, `OpenSysML Libraries/StateSpaceIntegration.sysml`, `OpenSysML Libraries/Stochastic.sysml` and `OpenSysML Libraries/RandomFunctions.kerml` extensions. Conformance verified by [stdlib_conformance_test.go](internal/core/libs/stdlib_conformance_test.go). Grammar reference: [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
 **Behavioral execution:** Calc/constraint/requirement/satisfy functional. Action/state executors handle nested invocation, control flow keywords, loop and conditional statements and the send statement (<!-- doc-counts:begin conformance-passing -->every conformance case passing<!-- doc-counts:end conformance-passing -->). Coverage is self-assessed against the specification text and the normative library: the pinned OMG pilot implementation evaluates expressions but does not execute actions or state machines headlessly, so no external implementation currently adjudicates these rows. See [spec compliance](docs/project/spec-compliance.md).
 **Reference differential:** 379 files compared diagnostic-by-diagnostic against the pinned OMG pilot implementation (`2026-08`), 347 in full agreement; every divergence is enumerated and adjudicated in [the differential](docs/project/pilot-differential.md), reproducible with `go run ./cmd/pilot-diff`.
 **Rejection oracle:** the reverse direction — do we reject what the reference rejects? 306 hand-written invalid models validated by both implementations, 297 rejected by both, 0 the pinned pilot rejects and we accept; the remainder only we reject — the control-node succession rules the pinned pilot leaves unimplemented and a non-Boolean succession guard it accepts once the standard library types it — and every permissiveness gap is enumerated with a reproducer and likely root cause in [the rejection oracle](docs/project/pilot-rejection.md), reproducible with `go run ./cmd/pilot-reject`. We wrote every case, so the count measures our coverage of the rejection surface, not our conformance — a sample, not a proof.
@@ -397,7 +397,7 @@ github.com/Open-MBEE/OpenSysML
 - **Parser:** hand-written recursive descent (no framework overhead, full error recovery, sub-millisecond parses)
 - **Grammar source:** OMG pilot Xtext grammars (`SysML.xtext` and `KerMLExpressions`)
 - **Spec compliance:** [OMG SysML v2.1 Beta 1 / KerML 1.1](https://www.omg.org/spec/SysML/2.0) (2026-08 release)
-- **Standard library:** 94 files from [SysML v2 Pilot Implementation 2026-08](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/tag/2026-08), byte-identical, plus the seven non-normative `OpenSysML Libraries/` extensions (`OpenSysMLMathFunctions`, `DocumentQueries`, `IdentityMetadata`, `DiagramLayout`, [`OOSEM`](docs/project/oosem-library.md), [`MOSA`](docs/project/mosa-library.md) and `StateSpaceIntegration`)
+- **Standard library:** 94 files from [SysML v2 Pilot Implementation 2026-08](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/tag/2026-08), byte-identical, plus the nine non-normative `OpenSysML Libraries/` extensions (`OpenSysMLMathFunctions`, `DocumentQueries`, `IdentityMetadata`, `DiagramLayout`, [`OOSEM`](docs/project/oosem-library.md), [`MOSA`](docs/project/mosa-library.md), `StateSpaceIntegration`, `Stochastic` and `RandomFunctions`)
 - **CI/CD:** GitHub Actions checks pull requests; CircleCI builds and tests `main` and `develop` and publishes releases from tags
 
 ## Releases

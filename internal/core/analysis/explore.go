@@ -63,7 +63,7 @@ func (e exploreEngine) Run(ctx context.Context, model *Model, q Question, budget
 	if !model.builds() {
 		return Result{}, &NoRuntimeError{Engine: e.Name()}
 	}
-	fresh := func(job int) (*runtime.Context, error) { return model.NewContextOn(job, budget) }
+	fresh := func(job int) (*runtime.Context, error) { return q.fresh(model, job, budget) }
 	started := time.Now()
 	x, err := runtime.ExploreWith(ctx, policy, budget.Jobs, fresh, q.Linearize)
 	if err != nil {
