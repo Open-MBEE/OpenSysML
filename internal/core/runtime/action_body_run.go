@@ -222,6 +222,7 @@ func (w *usageWork) clone() bodyWork { c := *w; return &c }
 
 func (w *usageWork) perform() error {
 	e := w.exec
+	var ended *terminated
 	if w.phase == usagePerforming {
 		switch {
 		case w.isCase:
@@ -256,6 +257,7 @@ func (w *usageWork) perform() error {
 			}
 			// A terminate unwound out of a flow nested in the body: what still runs there is dropped.
 			e.dropTokensIn(w.perf, 0)
+			ended = unwound(err)
 		}
 		if err := e.endPerformance(w.perf); err != nil {
 			return err
@@ -266,7 +268,13 @@ func (w *usageWork) perform() error {
 	if err != nil {
 		return err
 	}
-	return e.completeNode(idx, w.perf)
+	if err := e.completeNode(idx, w.perf); err != nil {
+		return err
+	}
+	if ended != nil {
+		return e.endAlongside(ended)
+	}
+	return nil
 }
 
 // statementWork is a token's step of a node written as a statement: its body, then

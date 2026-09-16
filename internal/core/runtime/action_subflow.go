@@ -90,18 +90,20 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 			return err
 		}
 	}
-	if err := e.driveSubflow(f); err != nil {
-		if !terminates(err, perf) {
-			return e.ctx.pausing(f, err)
-		}
-		// A terminate of the flow's own performance drops what still runs in it.
+	err = e.driveSubflow(f)
+	if err != nil && !terminates(err, perf) {
+		return e.ctx.pausing(f, err)
+	}
+	if err != nil {
+		// A terminate of the flow's own performance drops what still runs in it; the
+		// unwinding goes on to the statement performing the node, which completes it.
 		e.dropTokensIn(perf, 0)
 		perf.live = 0
 	}
 	if tr := e.trace(); tr != nil {
 		tr.RecordActionNodeExit(f.name)
 	}
-	return nil
+	return err
 }
 
 // enterBodyFlow starts the flow perf owns for a body statement performing its

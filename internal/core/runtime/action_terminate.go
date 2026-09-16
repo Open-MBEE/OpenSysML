@@ -12,8 +12,12 @@ import (
 )
 
 // terminated unwinds a body out to the executor step within perf, the performance
-// its `terminate` ends (SysML v2 §7.17.10).
-type terminated struct{ perf *actionFrame }
+// its `terminate` ends (SysML v2 §7.17.10); then are the performances the same
+// statement named after perf, ended in place once perf has, in that order.
+type terminated struct {
+	perf *actionFrame
+	then []*actionFrame
+}
 
 func (t *terminated) Error() string { return "terminate " + t.perf.describe() }
 
@@ -23,14 +27,14 @@ func terminates(err error, perf *actionFrame) bool {
 	return errors.As(err, &t) && t.perf == perf
 }
 
-// terminate ends the performances s names: unwinding perf's body when it runs within
-// one of them, in place for each that is another flow's node, the earliest begun first.
+// terminate ends the performances s names, the earliest begun first: in place for each
+// that is another flow's node, unwinding perf's body at the one it runs within — the
+// later ones then end where the unwinding is caught, so the order named holds.
 func (e *performances) terminate(perf *actionFrame, s lower.Effect) error {
 	targets, err := e.terminateTargets(perf, s)
 	if err != nil {
 		return err
 	}
-	var unwinding *terminated
 	for _, target := range targets {
 		if target.ended {
 			return fmt.Errorf("%w: %s", ErrPerformanceEnded, target.describe())
@@ -39,16 +43,14 @@ func (e *performances) terminate(perf *actionFrame, s lower.Effect) error {
 		if target.node == nil && (target.inBody || target.label != "") {
 			return fmt.Errorf("%w: 'terminate' of %s is not executable", ErrStatementNotExecutable, target.describe())
 		}
+	}
+	for i, target := range targets {
 		if perf.within(target) {
-			unwinding = &terminated{perf: target}
-			continue
+			return &terminated{perf: target, then: targets[i+1:]}
 		}
 		if err := e.flow.endOther(target); err != nil {
 			return err
 		}
-	}
-	if unwinding != nil {
-		return unwinding
 	}
 	return nil
 }
@@ -153,8 +155,8 @@ func (f *actionFrame) within(perf *actionFrame) bool {
 // endTerminatedFor ends the performance err unwinds to at the step of token id, unless
 // a body statement drives that step and the unwinding goes on to it.
 func (e *ActionExecutor) endTerminatedFor(id int64, err error) error {
-	var t *terminated
-	if !errors.As(err, &t) {
+	t := unwound(err)
+	if t == nil {
 		return err
 	}
 	idx := e.tokenIndex(id)
@@ -166,10 +168,33 @@ func (e *ActionExecutor) endTerminatedFor(id int64, err error) error {
 			return err
 		}
 		if f == t.perf {
-			return e.endAround(idx, t.perf)
+			if err := e.endAround(idx, t.perf); err != nil {
+				return err
+			}
+			return e.endAlongside(t)
 		}
 	}
 	return fmt.Errorf("%w: token %d is not running in %s", ErrTerminateTarget, id, t.perf.describe())
+}
+
+// endAlongside ends in place, in the order named, the performances the terminate t
+// unwound for named after the one it ended.
+func (e *ActionExecutor) endAlongside(t *terminated) error {
+	for _, target := range t.then {
+		if err := e.endOther(target); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// unwound returns the terminate err unwinds for, nil for any other error or none.
+func unwound(err error) *terminated {
+	var t *terminated
+	if errors.As(err, &t) {
+		return t
+	}
+	return nil
 }
 
 // endAround ends perf from the token at tokenIdx running in it: the other tokens are
