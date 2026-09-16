@@ -366,18 +366,20 @@ func resultsFeedPosition(n *Node) bool {
 	return true
 }
 
-// deliversToPositions is feedsPosition over the flows out of one node.
-func deliversToPositions(n *Node, seen map[*Node]bool) bool {
-	if seen[n] || len(n.Outgoing) == 0 {
+// deliversToPositions is feedsPosition over the flows out of one node. path holds
+// the nodes of the active descent, so a cycle fails and a reconverging fork does not.
+func deliversToPositions(n *Node, path map[*Node]bool) bool {
+	if path[n] || len(n.Outgoing) == 0 {
 		return false
 	}
-	seen[n] = true
+	path[n] = true
+	defer delete(path, n)
 	for _, e := range n.Outgoing {
 		switch {
 		case e.Target == nil:
 			return false
 		case e.Target.Kind == ForkNode:
-			if !deliversToPositions(e.Target, seen) {
+			if !deliversToPositions(e.Target, path) {
 				return false
 			}
 		case !positionRoles[e.Target.Role]:

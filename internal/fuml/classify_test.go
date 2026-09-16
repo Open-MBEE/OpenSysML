@@ -479,6 +479,36 @@ const unlimitedLiteralModel = `<?xml version="1.0" encoding="UTF-8"?>
     <edge xmi:type="uml:ObjectFlow" xmi:id="pf1" source="fork" target="at1"/>
     <edge xmi:type="uml:ObjectFlow" xmi:id="pf2" source="fork" target="at2"/>
   </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="c" name="Reconverging">
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="rv" name="Value(*)">
+      <result xmi:type="uml:OutputPin" xmi:id="rvr" name="result"/>
+      <value xmi:type="uml:LiteralUnlimitedNatural" xmi:id="rvv" value="*"/>
+    </node>
+    <node xmi:type="uml:ForkNode" xmi:id="rforkA" name="ForkA"/>
+    <node xmi:type="uml:ForkNode" xmi:id="rforkB" name="ForkB"/>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="radd" name="Add" structuralFeature="items">
+      <insertAt xmi:type="uml:InputPin" xmi:id="rat" name="insertAt"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="rf" source="rvr" target="rforkA"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="rf1" source="rforkA" target="rforkB"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="rf2" source="rforkA" target="rforkB"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="rf3" source="rforkB" target="rat"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="d" name="Cyclic">
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="cv" name="Value(*)">
+      <result xmi:type="uml:OutputPin" xmi:id="cvr" name="result"/>
+      <value xmi:type="uml:LiteralUnlimitedNatural" xmi:id="cvv" value="*"/>
+    </node>
+    <node xmi:type="uml:ForkNode" xmi:id="cforkA" name="ForkA"/>
+    <node xmi:type="uml:ForkNode" xmi:id="cforkB" name="ForkB"/>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="cadd" name="Add" structuralFeature="items">
+      <insertAt xmi:type="uml:InputPin" xmi:id="cat" name="insertAt"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="cf" source="cvr" target="cforkA"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="cf1" source="cforkA" target="cforkB"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="cf2" source="cforkB" target="cforkA"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="cf3" source="cforkB" target="cat"/>
+  </packagedElement>
   <packagedElement xmi:type="uml:Activity" xmi:id="sink" name="Sink"/>
   <packagedElement xmi:type="uml:Class" xmi:id="holder" name="Holder">
     <ownedAttribute xmi:type="uml:Property" xmi:id="items" name="items"/>
@@ -499,8 +529,15 @@ func TestClassifyUntypedUnlimitedNaturalLiterals(t *testing.T) {
 	if want := "UnlimitedNatural (KerML's ScalarValues has no unlimited natural): Value(*) is a LiteralUnlimitedNatural"; c.Class != NotExpressible || c.Reason() != want {
 		t.Errorf("Ordinary = %s: %s", c.Class, c.Reason())
 	}
-	// A literal that only names positions, through a fork, needs no such type.
-	if c := Classify(activity(t, m, "Position"), nil); c.Class != Expressible {
-		t.Errorf("Position = %s: %s", c.Class, c.Reason())
+	// A literal that only names positions, through a fork, needs no such type;
+	// nor through forks whose branches reconverge on a later fork.
+	for _, name := range []string{"Position", "Reconverging"} {
+		if c := Classify(activity(t, m, name), nil); c.Class != Expressible {
+			t.Errorf("%s = %s: %s", name, c.Class, c.Reason())
+		}
+	}
+	// A cycle of forks never settles on positions, whatever else it feeds.
+	if c := Classify(activity(t, m, "Cyclic"), nil); c.Class != NotExpressible || !strings.Contains(c.Reason(), "Value(*) is a LiteralUnlimitedNatural") {
+		t.Errorf("Cyclic = %s: %s", c.Class, c.Reason())
 	}
 }
