@@ -249,6 +249,9 @@ export interface ViewInfo {
   kind: string;
   supported: boolean;
   reason?: string;
+  /** The declaration and its name; absent from servers that do not locate views. */
+  range?: Range;
+  selectionRange?: Range;
 }
 
 export interface ViewsResult {

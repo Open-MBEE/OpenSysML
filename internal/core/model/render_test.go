@@ -40,9 +40,12 @@ package KitViews {
 // The views a document declares are listed with the rendering kind each states.
 func TestViewsListsDeclaredViewsAndKinds(t *testing.T) {
 	ws := openDoc(t, "kit.sysml", twoViewModel)
-	views := ws.Views("kit.sysml")
+	views, doc := ws.Views("kit.sysml")
 	if len(views) != 2 {
 		t.Fatalf("listed %d views, want 2: %+v", len(views), views)
+	}
+	if doc == nil || doc.Name != "kit.sysml" {
+		t.Fatalf("listing came with document %+v, want kit.sysml", doc)
 	}
 	want := map[string]view.Kind{"KitViews::widgetTable": view.KindTable, "KitViews::widgetTree": view.KindTree}
 	for _, info := range views {
@@ -52,6 +55,32 @@ func TestViewsListsDeclaredViewsAndKinds(t *testing.T) {
 		if info.Kind != want[info.Name] {
 			t.Errorf("%s: kind = %q, want %q", info.Name, info.Kind, want[info.Name])
 		}
+	}
+}
+
+// Each listed view is located at its declaration in the document, the whole
+// declaration and its name, so a client can tell which view the cursor is in.
+func TestViewsLocateEachDeclaration(t *testing.T) {
+	ws := openDoc(t, "kit.sysml", twoViewModel)
+	views, doc := ws.Views("kit.sysml")
+	decls := map[string]string{
+		"KitViews::widgetTree":  "view widgetTree {\n\t\texpose Kit::Widget;\n\t}",
+		"KitViews::widgetTable": "view widgetTable : GridView {\n\t\texpose Kit::Widget;\n\t}",
+	}
+	for _, info := range views {
+		if !info.Origin.Located() || info.Origin.Doc != "kit.sysml" {
+			t.Fatalf("%s: origin %+v is not located in kit.sysml", info.Name, info.Origin)
+		}
+		if got := string(doc.Content[info.Origin.Span.Offset:info.Origin.Span.End()]); got != decls[info.Name] {
+			t.Errorf("%s: declaration = %q, want %q", info.Name, got, decls[info.Name])
+		}
+		wantName := strings.TrimPrefix(info.Name, "KitViews::")
+		if got := string(doc.Content[info.Origin.Name.Offset:info.Origin.Name.End()]); got != wantName {
+			t.Errorf("%s: name span = %q, want %q", info.Name, got, wantName)
+		}
+	}
+	if views, doc := ws.Views("gone.sysml"); views != nil || doc != nil {
+		t.Errorf("an unheld document listed %+v in %+v, want nothing", views, doc)
 	}
 }
 
@@ -70,7 +99,7 @@ package GeomViews {
 	}
 }
 `)
-	views := ws.Views("geom.sysml")
+	views, _ := ws.Views("geom.sysml")
 	if len(views) != 1 {
 		t.Fatalf("listed %d views, want 1: %+v", len(views), views)
 	}
@@ -181,7 +210,7 @@ func TestRenderViewPseudoViewRendersWithoutADeclaredView(t *testing.T) {
 
 	// Nothing was added to the index: a later render still finds one document's
 	// declarations and no view.
-	if views := ws.Views("plain.sysml"); len(views) != 0 {
+	if views, _ := ws.Views("plain.sysml"); len(views) != 0 {
 		t.Errorf("rendering a pseudo-view added views to the document: %+v", views)
 	}
 }
@@ -283,7 +312,7 @@ package KitViews {
 // listed once, and it is not an ambiguity.
 func TestShortNamedDeclarationsAreCountedOnce(t *testing.T) {
 	ws := openDoc(t, "kit.sysml", shortNameModel)
-	if views := ws.Views("kit.sysml"); len(views) != 1 {
+	if views, _ := ws.Views("kit.sysml"); len(views) != 1 {
 		t.Fatalf("listed %d views, want 1: %+v", len(views), views)
 	}
 	if _, _, err := ws.RenderView("kit.sysml", ""); err != nil {

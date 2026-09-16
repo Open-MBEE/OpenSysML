@@ -6,8 +6,10 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
+	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -21,28 +23,33 @@ var ErrNoView = errors.New("declares no view")
 
 // ViewInfo is one view a document declares: its qualified name, the rendering
 // kind it states, whether this implementation produces that kind, and why not
-// when it does not.
+// when it does not. Origin is where the view is declared, so a client can tell
+// which view a cursor is in; the zero Origin for a view without a declaration.
 type ViewInfo struct {
 	Name      string
 	Kind      view.Kind
 	Supported bool
 	Reason    string
+	Origin    view.Origin
 }
 
 // Views lists the views a document declares, in qualified-name order, each with
 // the rendering kind it states. A recognized kind this build does not produce
-// is listed as unsupported with the reason.
-func (w *Workspace) Views(doc string) []ViewInfo {
+// is listed as unsupported with the reason. The document returned is the
+// snapshot the listing was read from, so the origins are located in its text;
+// nil when the workspace does not hold the document.
+func (w *Workspace) Views(doc string) ([]ViewInfo, *Document) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if w.docs[doc] == nil {
-		return nil
+	d := w.docs[doc]
+	if d == nil {
+		return nil, nil
 	}
 	out := []ViewInfo{}
 	w.queryLocked(doc, func(*resolve.Resolver, *semantics.Model) {
 		renderer := w.rendererLocked(doc)
 		for _, sym := range w.documentViewsLocked(doc) {
-			info := ViewInfo{Name: notationFQN(w.index, sym), Supported: true}
+			info := ViewInfo{Name: notationFQN(w.index, sym), Supported: true, Origin: declarationOrigin(d, sym)}
 			kind, _, err := renderer.KindOf(sym)
 			switch {
 			case err == nil:
@@ -59,7 +66,20 @@ func (w *Workspace) Views(doc string) []ViewInfo {
 		}
 	})
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return out
+	return out, d
+}
+
+// declarationOrigin locates a symbol's declaration, trimmed of the trailing
+// whitespace the parser reads into a declaration's span, so that a cursor
+// between two declarations is in neither.
+func declarationOrigin(doc *Document, sym *symbols.Symbol) view.Origin {
+	origin := provenance.Symbol(sym)
+	if !origin.Located() || origin.Doc != doc.Name || origin.Span.End() > len(doc.Content) {
+		return origin
+	}
+	trimmed := strings.TrimRightFunc(string(doc.Content[origin.Span.Offset:origin.Span.End()]), unicode.IsSpace)
+	origin.Span.Len = len(trimmed)
+	return origin
 }
 
 // RenderView renders a view of a document. fqn names a declared view or a

@@ -443,6 +443,54 @@ func TestRenderAndViewsReportAnUnsupportedKind(t *testing.T) {
 	}
 }
 
+// Each listed view carries the range of its declaration and of its name in the
+// document, in LSP positions, so a client can tell which view the cursor is in.
+func TestViewsLocateEachDeclaration(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	raw, err := call(t, s, MethodViews, &viewsParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+	})
+	if err != nil {
+		t.Fatalf("views: %v", err)
+	}
+	var listing viewsResult
+	if err := json.Unmarshal(raw, &listing); err != nil {
+		t.Fatalf("decode views result: %v", err)
+	}
+	lines := strings.Split(renderModel, "\n")
+	text := func(r protocol.Range) string {
+		if r.Start.Line != r.End.Line {
+			return strings.Join(append([]string{lines[r.Start.Line][r.Start.Character:]}, lines[r.Start.Line+1:r.End.Line]...), "\n") +
+				"\n" + lines[r.End.Line][:r.End.Character]
+		}
+		return lines[r.Start.Line][r.Start.Character:r.End.Character]
+	}
+	for _, info := range listing.Views {
+		if info.Range == nil || info.SelectionRange == nil {
+			t.Fatalf("%s: range = %v selectionRange = %v, want both", info.Name, info.Range, info.SelectionRange)
+		}
+		short := strings.TrimPrefix(info.Name, "KitViews::")
+		if got := text(*info.SelectionRange); got != short {
+			t.Errorf("%s: selectionRange covers %q, want %q", info.Name, got, short)
+		}
+		decl := text(*info.Range)
+		if !strings.HasPrefix(decl, "view "+short) || !strings.HasSuffix(decl, "}") {
+			t.Errorf("%s: range covers %q, want the whole view declaration", info.Name, decl)
+		}
+	}
+	// Two declarations never overlap, so a cursor is in at most one of them.
+	before := func(a, b protocol.Position) bool {
+		return a.Line < b.Line || (a.Line == b.Line && a.Character <= b.Character)
+	}
+	for i, a := range listing.Views {
+		for _, b := range listing.Views[i+1:] {
+			if !before(a.Range.End, b.Range.Start) && !before(b.Range.End, a.Range.Start) {
+				t.Errorf("%s and %s overlap: %v and %v", a.Name, b.Name, *a.Range, *b.Range)
+			}
+		}
+	}
+}
+
 // A form the writer does not know is refused rather than silently replaced, and
 // a known one is honored.
 func TestRenderHonorsTheFormAsked(t *testing.T) {

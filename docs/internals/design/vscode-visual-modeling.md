@@ -145,9 +145,30 @@ passed to the renderer directly.
 
 ### The extension side
 
-- `SysML: Open Diagram` opens a `WebviewPanel` beside the editor, one per document,
-  retained across tab switches with `retainContextWhenHidden` off and state restored
-  through `setState`/`getState`.
+- `SysML: Open Diagram` opens a `WebviewPanel` beside the editor, one per document
+  and view, retained across tab switches with `retainContextWhenHidden` off and
+  state (`{uri, view}`) restored through `setState`/`getState`, so a reload brings
+  every panel back on its view.
+- Which view a panel opens on is decided client-side, in `views.ts`, as pure
+  functions over the `opensysml/views` listing (`chooseView`): the view the
+  document implies (its sole drawable view, `#tree` when it declares none); else
+  the drawable view whose declaration `range` holds the editor's cursor; else the
+  view last chosen for that document, kept in `workspaceState` under
+  `opensysml.diagram.chosenViews` keyed by document URI and forgotten when the
+  document no longer declares it; else a quick pick of the drawable views (label
+  the name, detail the kind), then **All views**, then the pseudo-views. A view
+  the server cannot draw is listed disabled with its reason rather than omitted,
+  so the user learns why. Cancelling opens nothing. The server never receives an
+  empty `view` for a multi-view document: the client always names one. Servers
+  whose listing carries no `range` skip the cursor step.
+- `DiagramPanels` keys panels by `panelKey(uri, view)`; `renderChanged` and the
+  cursor highlight go to every panel of the document, and panels are titled
+  `Diagram: <file> — <view>` while the document has more than one. Opening the
+  view a panel already draws reveals it; a different view opens another panel
+  beside the source. The in-panel picker retargets its panel to the chosen view,
+  and re-keys it — unless another panel already draws that view, which is
+  revealed instead, so a document never has two panels of one view. Export uses
+  the document's one panel's view, and asks when there are none or several.
 - The webview bundles Mermaid locally (no CDN, and a `Content-Security-Policy` with
   a nonce and no `connect-src`), renders the artifact, and re-renders on the
   extension's `postMessage`.
@@ -170,7 +191,9 @@ passed to the renderer directly.
   each kind, for a pseudo-view, for a document with no views, for an unsupported
   kind (asserting the reason), and for a stale-version request. Plus a
   didChange → `renderChanged` ordering test.
-- `editors/vscode`: `npm run typecheck` and a GUI pass per
+- `editors/vscode`: `npm test` covers the view choice (cursor in a declaration,
+  the remembered view and its staleness, the fallbacks, "All views" expansion)
+  and the panel keying as pure functions; `npm run typecheck` and a GUI pass per
   `.agents/skills/testing-vscode-extension/SKILL.md` — open a model, open the
   panel, type, watch it redraw, click a node and land on the declaration.
 
