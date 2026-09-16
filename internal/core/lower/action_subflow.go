@@ -46,7 +46,7 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 	if graph.Subflows == nil {
 		graph.Subflows = make(map[ast.Node]*Subflow)
 	}
-	sub, err := ToActionGraph(node, scope)
+	sub, err := ToActionGraphWith(node, scope, graph.resolver)
 	if err == nil {
 		StartFlow(sub)
 	}

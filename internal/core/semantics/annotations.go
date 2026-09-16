@@ -533,7 +533,7 @@ func redefinitionTargetName(u *ast.Usage) string {
 // quantity, or a reference to an element such as an enumeration literal, which
 // is compared by identity.
 func (m *Model) annotationValue(scope *symbols.Scope, value ast.Node) symbols.FilterValue {
-	if v, ok := evalConst(value); ok {
+	if v, ok := EvalConst(value); ok {
 		return constValue(v)
 	}
 	if q, ok := m.EvalQuantity(scope, value); ok {

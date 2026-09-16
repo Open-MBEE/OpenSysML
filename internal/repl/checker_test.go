@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 )
 
 // checkTankSource is a fork race on a performer's attribute, with a property
@@ -347,4 +350,32 @@ func TestReplayRefusesMovesLeftWhenTheRunCompletes(t *testing.T) {
 	}
 	wants(t, out, refused)
 	rejects(t, out, "Action completed")
+}
+
+// A witness spelled inline names its draws before its choices; one of draws alone
+// is not `no choices`.
+func TestWitnessLineSpellsTheDraws(t *testing.T) {
+	draw, err := runtime.ParseDraw("draw uniformInteger(0, 1) = 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	choice, err := runtime.ParseChoice("step 3: 2@left first of 2@left, 3@right")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		w    analysis.Witness
+		want string
+	}{
+		{"none", analysis.Witness{}, "no choices"},
+		{"draw", analysis.Witness{Draws: []runtime.DrawTaken{draw}}, "draw uniformInteger(0, 1) = 1"},
+		{"both", analysis.Witness{Draws: []runtime.DrawTaken{draw}, Choices: []runtime.ChoiceTaken{choice}},
+			"draw uniformInteger(0, 1) = 1; step 3: 2@left first of 2@left, 3@right"},
+		{"written", analysis.Witness{Draws: []runtime.DrawTaken{draw}, Written: "/w/one.witness"}, "/w/one.witness"},
+	} {
+		if got := witnessLine(&tc.w); got != tc.want {
+			t.Errorf("%s: witnessLine = %q, want %q", tc.name, got, tc.want)
+		}
+	}
 }

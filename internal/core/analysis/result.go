@@ -225,7 +225,9 @@ func (b Bounds) String() string {
 type Witness struct {
 	Schedule runtime.SchedulePolicy
 	Inputs   []runtime.InputTaken
-	Choices  []runtime.ChoiceTaken
+	// Draws are the random values the execution drew, in the order drawn.
+	Draws   []runtime.DrawTaken
+	Choices []runtime.ChoiceTaken
 	// Written is the file the witness was written to, "" when none was asked for.
 	Written string
 }
