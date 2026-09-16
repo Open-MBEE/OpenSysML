@@ -158,10 +158,8 @@ const CapabilityScheduleExplore = "schedule_explore"
 // when it ended. Without it the field is 0 whatever the run waited on.
 const CapabilityFinalTime = "final_time"
 
-// CapabilityPerformer names the `performer_symbol_id` field of ExecuteActionRequest
-// and ExecuteStateRequest: the declaration, or path from one, of the object the
-// behavior is performed by. A service without it would run outside any object,
-// so a client must not send the field to one.
+// CapabilityPerformer names the `performer_symbol_id` field of ExecuteActionRequest and
+// ExecuteStateRequest; a service without it runs outside any object, so clients must not send it.
 const CapabilityPerformer = "performer"
 
 // CapabilityMetaobjectValues names the capability of carrying an element

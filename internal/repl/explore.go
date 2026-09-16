@@ -257,9 +257,8 @@ type freshPlan struct {
 	idx      *symbols.Index
 }
 
-// freshRef is a declaration an explored run instantiates and the path it walks from
-// the object to the one named, or the error the name resolved to. A swept one stands
-// for held objects: root's, and the one reached along path from it.
+// freshRef is a declaration an explored run instantiates and the path walked from its object
+// to the one named, or the error the name resolved to; a swept one stands for held objects.
 type freshRef struct {
 	sym  *symbols.Symbol
 	fqn  string
@@ -316,10 +315,8 @@ func (p *freshPlan) failed(names []string) error {
 	return nil
 }
 
-// freshRef resolves one object name to the declaration an explored run instantiates
-// and the path walked from its object: the longest leading run of segments a
-// declaration is registered under is the root, and the rest are features of its
-// object. An object of the session, named by id, is refused.
+// freshRef resolves one object name to the longest leading run of segments naming a
+// declaration, the root each run instantiates, and the path walked from it; an id is refused.
 func (s *Session) freshRef(text string) freshRef {
 	ref, err := objref.Parse(text)
 	if err != nil {
@@ -365,9 +362,8 @@ func (s *Session) freshRef(text string) freshRef {
 	return freshRef{err: unresolved}
 }
 
-// checkFreshPath reports what the declarations already tell about a path from an
-// object of root: a feature it has not, an index on one value, one off a fixed
-// count, or a feature holding data. What its objects hold is left to the run.
+// checkFreshPath reports what the declarations already tell about a path from an object of
+// root: an unknown feature, an index on one value or off a fixed count, a feature holding data.
 func (s *Session) checkFreshPath(label string, root *symbols.Symbol, path []objectSegment) error {
 	if len(path) == 0 {
 		return nil
@@ -424,9 +420,8 @@ func freshPathError(object string, seg objectSegment, format string, args ...any
 	return &ObjectPathError{Object: object, Segment: seg.Text, Detail: fmt.Sprintf(format, args...)}
 }
 
-// planOwner resolves the object owning the case at fqn when the session holds one:
-// the declaration it is held under and the path to it, which each run walks in its
-// own object of that declaration, as the prompt's run performs on the held one.
+// planOwner resolves the object owning the case at fqn when the session holds one to the
+// declaration it is held under and the path to it, which each run walks in its own object.
 func (s *Session) planOwner(p *freshPlan, sym *symbols.Symbol, fqn string) {
 	if !isNestedCase(sym) {
 		return
@@ -580,6 +575,13 @@ func (f *freshObjects) exhibitors(sym *symbols.Symbol) []exhibitor {
 	return found
 }
 
+// freshExhibitorsError is exhibitorsError over an explored run's objects.
+func freshExhibitorsError(name string, types []*symbols.Symbol, exhibitors []exhibitor) error {
+	e := exhibitorsError(name, types, exhibitors).(*ExhibitorsError)
+	e.Fresh = true
+	return e
+}
+
 // exploredAction resolves the action an exploration runs.
 func (s *Session) exploredAction(name string) (*symbols.Symbol, error) {
 	sym, _, err := s.lookupSymbolOfKinds(name, symbols.SymbolActionDef, symbols.SymbolActionUsage)
@@ -623,16 +625,14 @@ func freshAction(objects *freshObjects, sym *symbols.Symbol, performer []string)
 	return exec, nil
 }
 
-// freshMachine starts the machine on an explored run's context: the one an object
-// of performer exhibits when it names one; named alone, the one the run's one
-// object exhibiting it runs, else a run of the declaration. The label names the
-// object performing it, as performer wrote it or as the run reached it.
+// freshMachine starts the machine on an explored run's context: the one an object of performer
+// exhibits, or, named alone, the run's one object exhibiting it runs, else a run of the declaration.
 func freshMachine(objects *freshObjects, sym *symbols.Symbol, name string, performer []string) (exec *runtime.StateExecutor, label string, err error) {
 	ctx := objects.ctx
 	var self *runtime.Instance
 	switch {
 	case len(performer) > 0:
-		if self, label, err = objects.object(performer[0]); err != nil {
+		if self, _, err = objects.object(performer[0]); err != nil {
 			return nil, "", err
 		}
 		label = performer[0]
@@ -640,7 +640,7 @@ func freshMachine(objects *freshObjects, sym *symbols.Symbol, name string, perfo
 		switch exhibitors := objects.exhibitors(sym); len(exhibitors) {
 		case 0:
 			if types := exhibitingTypes(ctx, objects.plan.exhibits, sym); len(types) > 0 {
-				return nil, "", exhibitorsError(name, types, nil)
+				return nil, "", freshExhibitorsError(name, types, nil)
 			}
 		case 1:
 			ex := exhibitors[0]
@@ -649,7 +649,7 @@ func freshMachine(objects *freshObjects, sym *symbols.Symbol, name string, perfo
 			}
 			exec, label = ex.machines[0].State, ex.name
 		default:
-			return nil, "", exhibitorsError(name, nil, exhibitors)
+			return nil, "", freshExhibitorsError(name, nil, exhibitors)
 		}
 	}
 	if self != nil {

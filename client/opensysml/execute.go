@@ -48,11 +48,8 @@ func WithSchedule(policy string) ExecuteOption {
 	return func(o *executeOptions) { o.schedule = policy }
 }
 
-// PerformedBy names the object the behavior is performed by, as sysml -action
-// "<action> <object>" does: a part definition or usage the run creates an object
-// of, or a path from one into its parts such as "Mission::mission.vehicle", which
-// creates the declaration and runs on the object the path reaches — inside its
-// assembly, so its connectors carry. Each explored run creates the object anew.
+// PerformedBy names the object performing the behavior, as sysml -action "<action> <object>"
+// does: a declaration the run creates an object of, or a path into one ("Mission::mission.vehicle").
 func PerformedBy(path string) ExecuteOption {
 	return func(o *executeOptions) { o.performer = path }
 }

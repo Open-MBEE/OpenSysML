@@ -226,6 +226,7 @@ package Comms {
 	part pair : Pair;
 	part def Fleet {
 		part pairs : Pair[2];
+		part spare : Ground[0..1];
 		attribute count : Integer = 2;
 	}
 	analysis def Tally {
@@ -349,7 +350,7 @@ func TestExploredRunsAreGivenTheObjectsInstantiated(t *testing.T) {
 		t.Fatal(err)
 	}
 	listen := Behavior{Name: "Comms::Ground::listen"}
-	none := (&ExhibitorsError{Machine: "Comms::Ground::listen", Types: []string{"Comms::Ground"}}).Error()
+	none := (&ExhibitorsError{Machine: "Comms::Ground::listen", Types: []string{"Comms::Ground"}, Fresh: true}).Error()
 	wants(t, strings.Join(s.RunFor(nil, []Behavior{listen}, 5)[0].Lines, "\n"), none)
 
 	run(t, s, "%instantiate Comms::pair")
@@ -390,7 +391,7 @@ func TestExploredRunsAreGivenTheObjectsInstantiated(t *testing.T) {
 		t.Fatal(err)
 	}
 	wants(t, strings.Join(s.RunFor(nil, []Behavior{listen}, 5)[0].Lines, "\n"),
-		`3 objects of this session exhibit "Comms::Ground::listen"`, `of "Comms::pair.ground"`, `of "Comms::Fleet.pairs[1].ground"`)
+		`3 objects of the explored run exhibit "Comms::Ground::listen"`, `of "Comms::pair.ground"`, `of "Comms::Fleet.pairs[1].ground"`)
 
 	// A given object lasts as long as the session holds it: a submission leaving its
 	// declaration as it was keeps it, one changing the declaration drops it with the object.
@@ -446,6 +447,11 @@ func TestExploredPathsAreCheckedAgainstTheDeclarations(t *testing.T) {
 	// An element of a multi-valued usage is an object of its own, reached by index.
 	verdicts := s.RunFor(nil, []Behavior{{Name: listen, Performer: []string{"Comms::Fleet.pairs[2].ground"}}}, 5)
 	wantsInOrder(t, strings.Join(verdicts[0].Lines, "\n"), "explored Comms::Ground::listen: 2 outcomes", "received = 1", "received = 2")
+
+	// A usage the declarations allow to hold nothing is planned, and a run finding it
+	// empty fails as a run does: an outcome of the table, not a refusal of the plan.
+	verdicts = s.RunFor(nil, []Behavior{{Name: listen, Performer: []string{"Comms::Fleet.spare"}}}, 5)
+	wantsInOrder(t, strings.Join(verdicts[0].Lines, "\n"), "explored Comms::Ground::listen: 1 outcome", "error: spare of Comms::Fleet holds no object", "complete (1 runs)")
 
 	// A path is planned from the declarations, never from the objects the session holds.
 	plan := s.planFresh("Comms::pair.ground", "Comms::pair.craft", "Comms::pair")

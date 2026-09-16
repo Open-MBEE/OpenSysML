@@ -106,9 +106,7 @@ func (v *verifyContext) declaringScope(sym *symbols.Symbol) *symbols.Scope {
 
 // subject instantiates the part/usage a request named, so a verdict can be about
 // concrete values. An empty name is no subject, which is not an error: the
-// verdict is then about declared defaults. A path from a declaration, as
-// `Mission::mission.vehicle`, instantiates the declaration and walks the path to
-// the object it names, so a subject nested in an assembly keeps the assembly around it.
+// verdict is then about declared defaults. A path (`Mission::mission.vehicle`) names a nested one.
 func (v *verifyContext) subject(symbolID string) (*runtime.Instance, error) {
 	return v.named("subject", symbolID)
 }
@@ -135,9 +133,8 @@ func (v *verifyContext) named(role, symbolID string) (*runtime.Instance, error) 
 	return v.instantiate(role, symbolID, sym)
 }
 
-// objectAt is the object a declaration-rooted path names: the longest leading
-// run of segments naming a declaration is instantiated, the rest walked from it.
-// An object named by id belongs to no run of a call, so it names none.
+// objectAt is the object a declaration-rooted path names: the longest leading run of
+// segments naming a declaration is instantiated, the rest walked from it; an id names none.
 func (v *verifyContext) objectAt(role, path string) (*runtime.Instance, error) {
 	ref, err := objref.Parse(path)
 	if err != nil {

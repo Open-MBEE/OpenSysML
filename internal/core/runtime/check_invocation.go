@@ -255,9 +255,8 @@ func (inv *Invocation) behaviorOf(prefixes []string, name string) (int, string) 
 	return -1, ""
 }
 
-// Outcome is what the started behaviors came to: one behavior's own outcome, the
-// joint outcome of several, each one's observables under its name, and what the
-// objects performed on hold: under `this.` for one object, `<object>.` for several.
+// Outcome is what the started behaviors came to: one behavior's own outcome, or the joint
+// outcome of several, plus what the performing objects hold (`this.` for one, `<object>.` else).
 func (inv *Invocation) Outcome() Outcome {
 	ctx := inv.Context()
 	outcomes := make([]Outcome, 0, len(inv.Actions)+len(inv.States))

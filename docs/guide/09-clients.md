@@ -246,7 +246,7 @@ refuses with `CodeUnimplemented`.
 
 An action or state machine runs *on* an object when `opensysml.PerformedBy(...)` names one, as
 `sysml -action "<action> <object>"` does: a part definition or usage the run makes an object of,
-or a [path from one into its parts](07-analysis.md#objects-an-exploration-runs-on) —
+or a [path from one into its parts](../reference/cli.md#objects-an-exploration-runs-on) —
 `PerformedBy("Mission::mission.vehicle")` makes the mission and runs the machine the vehicle
 exhibits, inside its assembly, so the ground station's messages reach it over their connector.
 Each explored run makes the object anew. A service not advertising `performer` refuses the
