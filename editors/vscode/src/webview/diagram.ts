@@ -1,6 +1,15 @@
 // The diagram panel's script: draws the server's rendering on an SVG canvas, reports
 // clicks, menu choices and drags back, and highlights the cursor's node.
-import type { EditPalette, FromWebview, PickerEntry, RenderNode, RenderPoint, RenderResult, ToWebview } from "../protocol";
+import {
+  normalizeRender,
+  type EditPalette,
+  type FromWebview,
+  type PickerEntry,
+  type RenderNode,
+  type RenderPoint,
+  type RenderResult,
+  type ToWebview,
+} from "../protocol";
 import { MenuCommand, MenuItem, nodeMenu, paletteItems } from "./actions";
 import { drawCanvas } from "./canvas";
 import {
@@ -39,7 +48,8 @@ const menu = document.getElementById("menu") as HTMLUListElement;
 const documentURI = (JSON.parse(body.dataset.state ?? "{}") as { uri?: string }).uri ?? "";
 const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult };
 let selected = saved.view ?? "";
-let last: RenderResult | undefined = saved.last;
+// A rendering saved by an older extension is normalized like a fresh one.
+let last: RenderResult | undefined = saved.last === undefined ? undefined : normalizeRender(saved.last);
 let selectedNode: string | undefined;
 /** The layout on screen, which gestures act on; undefined while a table or nothing is shown. */
 let layout: CanvasLayout | undefined;
