@@ -453,8 +453,11 @@ the behavior underneath it; see `opensysml/debugChanged` for what an edit does.
 `opensysml/render`; it must render a `state` or `action` kind. `target` is the
 qualified name of the state machine or action the rendering draws — a `state def`
 or `state` usage for a state rendering, an `action def` or `action` usage for an
-action one. `object`, optional, names an object — a `part`, `item` or `occurrence`
-definition or usage; when it is given the object is instantiated first and
+action one. Both are looked up in the document first, then among the other
+documents of the workspace, since a view usually exposes a behavior another file
+declares; a qualified name two documents declare is refused as ambiguous. `object`,
+optional, names an object — a `part`, `item` or `occurrence`
+definition or usage, looked up the same way; when it is given the object is instantiated first and
 performs the behavior, so `send … via` and references to the performer's
 features resolve the way they do
 under `%instantiate`. An object whose type exhibits or performs the target
@@ -471,7 +474,7 @@ lands while the session is being built is handled as `opensysml/debugChanged`
 describes — the snapshot is answered under the new IDs, or the start is refused
 with `InvalidParams` when the edit rewrote the behavior. Errors are answered with
 `InvalidParams` when the request itself is wrong — a view of another kind, a
-target the document does not declare or that is not a behavior the kind draws, an
+target no document declares or that is not a behavior the kind draws, an
 object that does not exist or is no object (an attribute, a package, a behavior)
 — and as a plain error when the object cannot be instantiated or the behavior
 cannot be initialized (no entry transition, an initial node the flow lacks).
@@ -621,7 +624,8 @@ An edit that rewrites or removes any of those declarations, that makes the run
 read a declaration it did not (a definition declared nearer now shadows the one
 a specialization resolved to), that rewrites or removes the declared view — even
 one that still draws the target — that makes the view render another kind or
-stop drawing the target, or closing the document, ends the session: the snapshot
+stop drawing the target, or closing the document — the view's, the target's or
+the object's, when another declares them — ends the session: the snapshot
 reports `ended` with the `reason`, and the session's runtime is released. A
 library's declarations are not watched, as no edit reaches them. A `send` whose
 signal or arguments name a declaration the run had not read checks it the same

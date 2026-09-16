@@ -12,6 +12,42 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
+// Named finds a document's own declaration first, then the one workspace
+// document declaring the name; a name declared by two is an error naming both,
+// and one declared by none — or only by a library — is nil.
+func TestRuntimeNamedAcrossDocuments(t *testing.T) {
+	ws := NewWorkspace()
+	ws.Open("views.sysml", []byte("package Views { part def Local; }\n"), 1)
+	ws.Open("machines.sysml", []byte("package Machines { state def Ops; part def Local; }\n"), 1)
+	rt, err := ws.NewRuntime()
+	if err != nil {
+		t.Fatalf("NewRuntime: %v", err)
+	}
+	if sym, err := rt.Named("views.sysml", "Machines::Ops"); err != nil || sym == nil || sym.DocName != "machines.sysml" {
+		t.Errorf("Named(views.sysml, Machines::Ops) = %v, %v; want the declaration in machines.sysml", sym, err)
+	}
+	if sym, err := rt.Named("views.sysml", "Local"); err != nil || sym == nil || sym.DocName != "views.sysml" {
+		t.Errorf("Named(views.sysml, Local) = %v, %v; want the document's own", sym, err)
+	}
+	if sym, err := rt.Named("views.sysml", "Machines::Nope"); err != nil || sym != nil {
+		t.Errorf("Named(views.sysml, Machines::Nope) = %v, %v; want nil", sym, err)
+	}
+	if sym, err := rt.Named("views.sysml", "ScalarValues::Integer"); err != nil || sym != nil {
+		t.Errorf("Named(views.sysml, ScalarValues::Integer) = %v, %v; want nil for a library's declaration", sym, err)
+	}
+
+	ws.Open("spare.sysml", []byte("package Machines { state def Ops; }\n"), 1)
+	if rt, err = ws.NewRuntime(); err != nil {
+		t.Fatalf("NewRuntime: %v", err)
+	}
+	if sym, err := rt.Named("views.sysml", "Machines::Ops"); err == nil || sym != nil || !strings.Contains(err.Error(), "machines.sysml, spare.sysml") {
+		t.Errorf("Named(views.sysml, Machines::Ops) = %v, %v; want an error naming both documents", sym, err)
+	}
+	if sym, err := rt.Named("machines.sysml", "Machines::Ops"); err != nil || sym == nil || sym.DocName != "machines.sysml" {
+		t.Errorf("Named(machines.sysml, Machines::Ops) = %v, %v; want the document's own", sym, err)
+	}
+}
+
 // A runtime over a caller-built index holds the caller's documents too, bare or
 // over a frozen base: the workspace's document specializes definitions only the
 // caller indexed, and an object of it carries the feature inherited from one.

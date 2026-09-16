@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -212,6 +213,34 @@ func declaredIn(idx *symbols.Index, doc, fqn string) *symbols.Symbol {
 		}
 	})
 	return found
+}
+
+// namedFrom is the element fqn names from doc: declaredIn, else the one held
+// document declaring it by qualified name; an error lists several such documents.
+func namedFrom(idx *symbols.Index, held func(doc string) bool, doc, fqn string) (*symbols.Symbol, error) {
+	if sym := declaredIn(idx, doc, fqn); sym != nil {
+		return sym, nil
+	}
+	var found []*symbols.Symbol
+	for _, sym := range idx.LookupQualified(fqn) {
+		if held(sym.DocName) {
+			found = append(found, sym)
+		}
+	}
+	switch len(found) {
+	case 0:
+		return nil, nil
+	case 1:
+		return found[0], nil
+	}
+	docs := make([]string, 0, len(found))
+	for _, sym := range found {
+		if !slices.Contains(docs, sym.DocName) {
+			docs = append(docs, sym.DocName)
+		}
+	}
+	sort.Strings(docs)
+	return nil, fmt.Errorf("%s is declared in %s", fqn, strings.Join(docs, ", "))
 }
 
 // viewNames names views for an ambiguity message.

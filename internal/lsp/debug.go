@@ -205,6 +205,10 @@ type debugSession struct {
 	kind   view.Kind
 	target string
 	object string
+	// targetDoc and objectDoc are the documents declaring the target and the
+	// object: the view's own, or another the view exposes them from.
+	targetDoc string
+	objectDoc string
 	// viewText is the declared view's text when the session started, "" for a
 	// pseudo-view, which no declaration spells.
 	viewText string
@@ -366,9 +370,12 @@ func (s *Server) debugPrepare(params *debugStartParams) (*debugSession, error) {
 	}); err != nil {
 		return nil, err
 	}
-	target := rt.Declared(name, params.Target)
+	target, err := rt.Named(name, params.Target)
+	if err != nil {
+		return nil, debugInvalid(fmt.Errorf("%w: %w", ErrDebugTarget, err))
+	}
 	if target == nil {
-		return nil, debugInvalid(fmt.Errorf("%w: %s declares no %s", ErrDebugTarget, name, params.Target))
+		return nil, debugInvalid(fmt.Errorf("%w: no document declares %s", ErrDebugTarget, params.Target))
 	}
 	if err := debugTargetKind(rendering.Kind, target); err != nil {
 		return nil, debugInvalid(err)
@@ -377,14 +384,15 @@ func (s *Server) debugPrepare(params *debugStartParams) (*debugSession, error) {
 	var objectSym *symbols.Symbol
 	var performer *runtime.Instance
 	if params.Object != "" {
-		objectSym = rt.Declared(name, params.Object)
+		if objectSym, err = rt.Named(name, params.Object); err != nil {
+			return nil, debugInvalid(fmt.Errorf("%w: %w", ErrDebugTarget, err))
+		}
 		if objectSym == nil {
-			return nil, debugInvalid(fmt.Errorf("%w: %s declares no %s to perform it", ErrDebugTarget, name, params.Object))
+			return nil, debugInvalid(fmt.Errorf("%w: no document declares %s to perform %s", ErrDebugTarget, params.Object, params.Target))
 		}
 		if !debugPerformerKind(objectSym.Kind) {
 			return nil, debugInvalid(fmt.Errorf("%w: %s is a %s, not an object that could perform %s", ErrDebugTarget, params.Object, objectSym.Notation(), params.Target))
 		}
-		var err error
 		if performer, err = ctx.Instantiate(objectSym); err != nil {
 			return nil, fmt.Errorf("%w: instantiate %s: %w", ErrDebugTarget, params.Object, err)
 		}
@@ -394,6 +402,7 @@ func (s *Server) debugPrepare(params *debugStartParams) (*debugSession, error) {
 		view:      params.View,
 		kind:      rendering.Kind,
 		target:    rt.FQN(target),
+		targetDoc: target.DocName,
 		rt:        ctx,
 		runtime:   rt,
 		targetSym: target,
@@ -402,6 +411,7 @@ func (s *Server) debugPrepare(params *debugStartParams) (*debugSession, error) {
 	}
 	if objectSym != nil {
 		sess.object = rt.FQN(objectSym)
+		sess.objectDoc = objectSym.DocName
 	}
 	if err := sess.attach(ctx, target, performer); err != nil {
 		return nil, err
@@ -1421,16 +1431,18 @@ func (sess *debugSession) rebind(r *model.Reading) bool {
 		sess.ended = reason
 		return true
 	}
-	if r.Document(sess.doc) == nil {
-		return end(fmt.Sprintf("%s was closed", sess.doc))
+	for _, doc := range []string{sess.doc, sess.targetDoc, sess.objectDoc} {
+		if doc != "" && r.Document(doc) == nil {
+			return end(fmt.Sprintf("%s was closed", doc))
+		}
 	}
-	target := r.Declared(sess.doc, sess.target)
+	target := r.Declared(sess.targetDoc, sess.target)
 	if target == nil {
 		return end(fmt.Sprintf("%s is no longer declared", sess.target))
 	}
 	var object *symbols.Symbol
 	if sess.objectSym != nil {
-		if object = r.Declared(sess.doc, sess.object); object == nil {
+		if object = r.Declared(sess.objectDoc, sess.object); object == nil {
 			return end(fmt.Sprintf("%s is no longer declared", sess.object))
 		}
 	}
