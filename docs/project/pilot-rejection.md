@@ -289,7 +289,7 @@ and the SysML constraint census opened is closed: the 6 SysML body-item spelling
 cross-subsetting family the `semantic/` source opened (`k16`, `k17`, `k19`, `k42`) was closed by
 extending the cross-feature pass with the crossing-feature, crossed-feature, redefined-end
 specialization and at-most-one rules; `k42` is rejected by OpenSysML with the message the pilot's
-source intends (`At most one cross subsetting is allowed`) where the pinned pilot only crashes. The
+source intends (`At most one cross subsetting is allowed`), which the `2026-07` pilot could not report (it crashed with `Error executing EValidator`; fixed upstream at `2026-08`, see `omg-issues.md`). The
 last KerML gaps (`k25`, `k26`, `k37`) were closed by the association arity, binary-link end count
 and multiplicity-bound typing rules.
 Three earlier gaps were severity-policy gaps — the pinned grammar excluded the spellings, while

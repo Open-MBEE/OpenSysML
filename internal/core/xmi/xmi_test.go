@@ -326,3 +326,49 @@ func TestTypedReferencesAreNotOwned(t *testing.T) {
 		t.Errorf("typed idref = %+v", typ)
 	}
 }
+
+// A proxy is named by its href fragment when that spells a name, dotted path
+// included, and otherwise by the qualified name a tool's referenceExtension
+// records; the extension also supplies the target's metaclass.
+func TestReferenceExtensionsDescribeProxies(t *testing.T) {
+	m, err := Parse([]byte(`<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101">
+  <uml:Model xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="p">
+        <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_q" name="q">
+        <type href="Lib.mdzip#eee_1045467100323_385364_62">
+          <xmi:Extension extender="Some Tool">
+            <referenceExtension referentPath="Standard Profile::datatypes::float" referentType="DataType"/>
+          </xmi:Extension>
+        </type>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_r" name="r">
+        <type href="Lib.mdzip#_18_0_2_baa02e2_1429562376320_528739_151515"/>
+      </ownedAttribute>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if typ := m.Ref(m.Lookup("_p"), "type"); typ == nil || typ.Name != "Real" || typ.QualifiedName != "" {
+		t.Errorf("dotted fragment = %+v", typ)
+	}
+	q := m.Lookup("_q")
+	typ := m.Ref(q, "type")
+	if typ == nil || typ.Name != "float" || typ.Type != "DataType" || typ.QualifiedName != "Standard Profile::datatypes::float" {
+		t.Errorf("described href = %+v", typ)
+	}
+	if len(q.Children) != 0 {
+		t.Errorf("property owns %d children, want a reference", len(q.Children))
+	}
+	if typ := m.Ref(m.Lookup("_r"), "type"); typ == nil || typ.Name != "" || typ.Type != "" {
+		t.Errorf("bare id href = %+v", typ)
+	}
+	if len(m.Extensions) != 1 || m.Extensions[0].Owner != q || len(m.Extensions[0].Elements) != 0 {
+		t.Errorf("Extensions = %+v", m.Extensions)
+	}
+}
