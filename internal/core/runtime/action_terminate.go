@@ -9,15 +9,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 )
 
-// A `terminate` ends a performance (SysML v2 §7.17.10): the immediately containing
-// one for a bare `terminate;` or a terminate action usage, or the ongoing performance
-// of the action node it names in a flow around it. Ending drops every token running
-// in it, the paused work they hold with them, and the node completes with the
-// outputs assigned so far: the parent's token takes its succession as after a
-// normal completion, and the root ends the action.
-
-// terminated unwinds a body to the level of the executor that ends perf, a
-// performance the body's `terminate` named that the body itself runs within.
+// terminated unwinds a body out to the executor step within perf, the performance
+// its `terminate` ends (SysML v2 §7.17.10).
 type terminated struct{ perf *actionFrame }
 
 func (t *terminated) Error() string { return "terminate " + t.perf.describe() }
@@ -28,8 +21,8 @@ func terminates(err error, perf *actionFrame) bool {
 	return errors.As(err, &t) && t.perf == perf
 }
 
-// terminate ends the performance the statement s of perf's body names: by unwinding
-// the body where that is perf or one around it, in place where it is another.
+// terminate ends the performance s names: unwinding perf's body when it runs within
+// that performance, in place when it is another flow's node.
 func (e *performances) terminate(perf *actionFrame, s lower.Effect) error {
 	target, err := e.terminateTarget(perf, s)
 	if err != nil {
@@ -48,9 +41,8 @@ func (e *performances) terminate(perf *actionFrame, s lower.Effect) error {
 	return e.flow.endOther(target)
 }
 
-// terminateTarget resolves the performance s names from perf, the performance of the
-// body stating it: perf for no target, else the ongoing performance of the node named,
-// perf's own or one an enclosing performance holds.
+// terminateTarget resolves the performance s names from perf, whose body states it:
+// perf itself, its parent, or the ongoing performance of a node of a flow around it.
 func (e *performances) terminateTarget(perf *actionFrame, s lower.Effect) (*actionFrame, error) {
 	switch s.Terminates {
 	case lower.TerminateContaining:
@@ -89,9 +81,8 @@ func (f *actionFrame) within(perf *actionFrame) bool {
 	return false
 }
 
-// endTerminatedFor ends the performance a terminate unwinding the step of token id
-// through err named, where the step is the outermost within it; a step a body
-// statement drives inside it unwinds on to that statement.
+// endTerminatedFor ends the performance err unwinds to at the step of token id, unless
+// a body statement drives that step and the unwinding goes on to it.
 func (e *ActionExecutor) endTerminatedFor(id int64, err error) error {
 	var t *terminated
 	if !errors.As(err, &t) {
@@ -112,8 +103,8 @@ func (e *ActionExecutor) endTerminatedFor(id int64, err error) error {
 	return fmt.Errorf("%w: token %d is not running in %s", ErrTerminateTarget, id, t.perf.describe())
 }
 
-// endAround ends perf, which the token at tokenIdx runs in: the other tokens in it
-// are dropped and this one leaves, completing perf's node; the root ends the action.
+// endAround ends perf from the token at tokenIdx running in it: the other tokens are
+// dropped and this one leaves, completing perf's node; the root ends the action.
 func (e *ActionExecutor) endAround(tokenIdx int, perf *actionFrame) error {
 	id := e.tokens[tokenIdx].ID
 	e.dropTokensIn(perf, id)
@@ -126,8 +117,8 @@ func (e *ActionExecutor) endAround(tokenIdx int, perf *actionFrame) error {
 	return e.leaveTerminated(e.tokenIndex(id), perf)
 }
 
-// endOther ends perf, which a terminate outside it named while it is ongoing: the
-// token standing for it in the flow around it leaves it, completing its node.
+// endOther ends the ongoing perf a terminate outside it named: one token of it leaves,
+// completing its node in the flow around it.
 func (e *ActionExecutor) endOther(perf *actionFrame) error {
 	if perf.graph != nil && !perf.inBody {
 		inside := e.tokensIn(perf)
@@ -159,8 +150,8 @@ func (e *ActionExecutor) endOther(perf *actionFrame) error {
 		ErrTerminateTarget, perf.describe())
 }
 
-// leaveTerminated takes the token at tokenIdx out of perf's flow, ended early, to
-// perf's node in the flow around it, and completes the node as leaveSubflow does.
+// leaveTerminated takes the token at tokenIdx out of the ended perf to perf's node in
+// the flow around it and completes the node, as leaveSubflow does.
 func (e *ActionExecutor) leaveTerminated(tokenIdx int, perf *actionFrame) error {
 	token := &e.tokens[tokenIdx]
 	if token.body != nil {
@@ -184,9 +175,8 @@ func (e *ActionExecutor) leaveTerminated(tokenIdx int, perf *actionFrame) error 
 	return e.completeNode(tokenIdx, perf)
 }
 
-// dropTokensIn drops the tokens running in perf's flow and the flows nested in it,
-// but the one with ID keep, lowest ID first: the work each holds paused is ended,
-// the nested performances it ran in end with it, and the trace records the drops.
+// dropTokensIn drops every token in perf's flow and the flows nested in it but the one
+// with ID keep, lowest ID first, ending their paused work; the trace records the drops.
 func (e *ActionExecutor) dropTokensIn(perf *actionFrame, keep int64) {
 	var dropped []Token
 	for _, idx := range e.tokensIn(perf) {

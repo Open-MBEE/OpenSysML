@@ -350,9 +350,8 @@ const (
 	TerminateUnknown
 )
 
-// terminateTarget settles what a terminate written in scope names: a plain or
-// qualified name reaching an action node is a node; another feature stands for
-// an occurrence, as any other expression does.
+// terminateTarget settles what a terminate written in scope names: a name reaching an
+// action node is a node; another feature or expression stands for an occurrence.
 func terminateTarget(m *ast.TerminateStatement, scope *symbols.Scope) (ast.Node, TerminateTarget) {
 	if m.Target == nil {
 		return nil, TerminateContaining

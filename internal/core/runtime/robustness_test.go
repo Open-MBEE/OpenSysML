@@ -11448,7 +11448,7 @@ func testTerminateOfAnUnknownName(t *testing.T) {
 }
 
 // testTerminateOfANonActionFeature: a terminate naming a feature that is no action
-// node names an occurrence, which only the action half of the runtime cannot end.
+// node names an occurrence, which an action body does not end yet.
 func testTerminateOfANonActionFeature(t *testing.T) {
 	_, err := executeActionSource(t, "host", `package test {
 		private import ScalarValues::*;
