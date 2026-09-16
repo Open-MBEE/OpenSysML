@@ -1681,7 +1681,8 @@ skipped, the node's own fork branches are dropped, and the parent continues alon
 succession with the values the node assigned before it ended. `terminate <name>;` names an
 action node of the flow it is in or of a flow around it — the node itself
 (`action c1 { terminate c1; }`), the node whose body it runs in, or a sibling node still
-running — and ends that node's performance. `-trace` writes every dropped token.
+running — and ends every performance of that node still going on, the earliest begun first.
+`-trace` writes every dropped token.
 
 ```sysml
 action bounded {

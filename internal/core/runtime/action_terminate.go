@@ -4,8 +4,10 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 )
 
@@ -21,44 +23,57 @@ func terminates(err error, perf *actionFrame) bool {
 	return errors.As(err, &t) && t.perf == perf
 }
 
-// terminate ends the performance s names: unwinding perf's body when it runs within
-// that performance, in place when it is another flow's node.
+// terminate ends the performances s names: unwinding perf's body when it runs within
+// one of them, in place for each that is another flow's node, the earliest begun first.
 func (e *performances) terminate(perf *actionFrame, s lower.Effect) error {
-	target, err := e.terminateTarget(perf, s)
+	targets, err := e.terminateTargets(perf, s)
 	if err != nil {
 		return err
 	}
-	if target.ended {
-		return fmt.Errorf("%w: %s", ErrPerformanceEnded, target.describe())
+	var unwinding *terminated
+	for _, target := range targets {
+		if target.ended {
+			return fmt.Errorf("%w: %s", ErrPerformanceEnded, target.describe())
+		}
+		// A state behavior's or a case's own flow, run for its body, is no action performance to end.
+		if target.node == nil && (target.inBody || target.label != "") {
+			return fmt.Errorf("%w: 'terminate' of %s is not executable", ErrStatementNotExecutable, target.describe())
+		}
+		if perf.within(target) {
+			unwinding = &terminated{perf: target}
+			continue
+		}
+		if err := e.flow.endOther(target); err != nil {
+			return err
+		}
 	}
-	// A state behavior's or a case's own flow, run for its body, is no action performance to end.
-	if target.node == nil && (target.inBody || target.label != "") {
-		return fmt.Errorf("%w: 'terminate' of %s is not executable", ErrStatementNotExecutable, target.describe())
+	if unwinding != nil {
+		return unwinding
 	}
-	if perf.within(target) {
-		return &terminated{perf: target}
-	}
-	return e.flow.endOther(target)
+	return nil
 }
 
-// terminateTarget resolves the performance s names from perf, whose body states it:
-// perf itself, its parent, or the ongoing performance of a node of a flow around it.
-func (e *performances) terminateTarget(perf *actionFrame, s lower.Effect) (*actionFrame, error) {
+// terminateTargets resolves the performances s names from perf, whose body states it:
+// perf itself, its parent, or the ongoing performances of a node of a flow around it.
+func (e *performances) terminateTargets(perf *actionFrame, s lower.Effect) ([]*actionFrame, error) {
 	switch s.Terminates {
 	case lower.TerminateContaining:
-		return perf, nil
+		return []*actionFrame{perf}, nil
 	case lower.TerminateEnclosing:
 		if perf.parent == nil {
 			return nil, fmt.Errorf("%w: %s is no step of a flow to end", ErrTerminateTarget, perf.describe())
 		}
-		return perf.parent, nil
+		return []*actionFrame{perf.parent}, nil
 	case lower.TerminateNode:
 		for f := perf; f != nil; f = f.parent {
 			if f.node == s.Target {
-				return f, nil
+				return []*actionFrame{f}, nil
 			}
-			if sub, ok := f.subactions[s.Target]; ok {
-				return sub, nil
+			if latest, ok := f.subactions[s.Target]; ok {
+				if ongoing := e.flow.ongoing(f, s.Target); len(ongoing) > 0 {
+					return ongoing, nil
+				}
+				return []*actionFrame{latest}, nil
 			}
 		}
 		return nil, fmt.Errorf("%w: action node %s has no ongoing performance in a flow around %s",
@@ -69,6 +84,47 @@ func (e *performances) terminateTarget(perf *actionFrame, s lower.Effect) (*acti
 	}
 	return nil, fmt.Errorf("%w: %s: 'terminate %s' names no action node of a flow around it and no occurrence",
 		ErrTerminateTarget, perf.describe(), e.ctx.bindingExprText(s.TargetExpr, s.Scope))
+}
+
+// ongoing returns the performances of node in parent's flow still running: parent holds
+// the latest, tokens run in or hold paused the earlier ones. The earliest begun comes
+// first, those begun together in the order of the lowest token ID holding them.
+func (e *ActionExecutor) ongoing(parent *actionFrame, node ast.Node) []*actionFrame {
+	var found []*actionFrame
+	holder := make(map[*actionFrame]int64)
+	add := func(f *actionFrame, token int64) {
+		if f == nil || f.parent != parent || f.node != node || f.ended {
+			return
+		}
+		if held, ok := holder[f]; !ok || token < held {
+			holder[f] = token
+		}
+		if !slices.Contains(found, f) {
+			found = append(found, f)
+		}
+	}
+	add(parent.subactions[node], math.MaxInt64)
+	for _, token := range e.tokens {
+		for f := token.frame; f != nil; f = f.parent {
+			add(f, token.ID)
+		}
+		add(token.performing(), token.ID)
+	}
+	slices.SortFunc(found, func(a, b *actionFrame) int {
+		return cmp.Or(cmp.Compare(a.began, b.began), cmp.Compare(holder[a], holder[b]))
+	})
+	return found
+}
+
+// performing returns the leaf node's performance the token's paused step holds, nil for none.
+func (t Token) performing() *actionFrame {
+	if t.body == nil {
+		return nil
+	}
+	if w, ok := t.body.work.(*usageWork); ok {
+		return w.perf
+	}
+	return nil
 }
 
 // within reports whether f is perf or a performance nested in it.
@@ -135,7 +191,7 @@ func (e *ActionExecutor) endOther(perf *actionFrame) error {
 	// A leaf node's performance outlives a step only paused: the token at the node holds it.
 	for i := range e.tokens {
 		token := &e.tokens[i]
-		if token.frame != perf.parent || token.Location != perf.node || token.body == nil {
+		if token.performing() != perf {
 			continue
 		}
 		token.body.end(e.ctx)
