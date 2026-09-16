@@ -93,8 +93,9 @@ through a `Route` waypoint. The geometry is on every node and edge the server se
 tree, interconnection, state and action diagrams, which read the annotations back.
 `SysML: Export Diagram` saves that Mermaid (or a table's Markdown) to a file.
 
-The commands are only available when the connected server provides the render methods
-([LSP extensions](../reference/lsp.md)), so an older `sysml-lsp` does not offer them.
+Drawing and exporting need a connected server that provides the render methods
+([LSP extensions](../reference/lsp.md)); without one, or with an older `sysml-lsp`, the
+commands say so. Returning from the diagram to its source needs no server.
 
 ### The standard library in the editor
 

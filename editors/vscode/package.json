@@ -120,7 +120,7 @@
       {
         "command": "opensysml.openDiagram",
         "key": "alt+d",
-        "when": "(editorLangId == sysml || editorLangId == kerml) && !terminalFocus || activeWebviewPanelId == opensysml.diagram"
+        "when": "editorTextFocus && (editorLangId == sysml || editorLangId == kerml) || activeWebviewPanelId == opensysml.diagram"
       },
       {
         "command": "opensysml.openDiagram",
