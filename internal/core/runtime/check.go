@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -733,17 +731,7 @@ func (c *checker) final() {
 func (c *checker) spellFinal() (values map[string]string, spelled, identity string) {
 	defer c.ctx.beginProbe()()
 	outcome := c.inv.Outcome()
-	values = c.divergenceValues()
-	spelled, identity = outcome.String(), outcome.identity()
-	prefixes := c.inv.performerPrefixes()
-	for _, name := range slices.Sorted(maps.Keys(values)) {
-		if !slices.ContainsFunc(prefixes, func(p performer) bool { return strings.HasPrefix(name, p.name) }) {
-			continue
-		}
-		spelled += "; " + name + " = " + values[name]
-		identity += "; " + name + " = " + strconv.Quote(values[name])
-	}
-	return values, spelled, identity
+	return c.divergenceValues(), outcome.String(), outcome.identity()
 }
 
 // divergenceValues spells the observables divergence is reported over as the

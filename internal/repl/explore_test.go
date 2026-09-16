@@ -316,6 +316,60 @@ func TestRunForExploresSiblingsOnOneRoot(t *testing.T) {
 	}
 }
 
+// An object -instantiate created is given to the explored runs: each creates one of
+// its declaration before the behaviors start, so a machine named alone attaches to
+// the object exhibiting it and a path into the declaration reuses the object. The
+// prompt's %instantiate creates the session's object alone, which no run sees.
+func TestExploredRunsAreGivenTheObjectsInstantiated(t *testing.T) {
+	s := loadSource(t, exploreCommsSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	listen := Behavior{Name: "Comms::Ground::listen"}
+	none := (&ExhibitorsError{Machine: "Comms::Ground::listen", Types: []string{"Comms::Ground"}}).Error()
+	wants(t, strings.Join(s.RunFor(nil, []Behavior{listen}, 5)[0].Lines, "\n"), none)
+
+	run(t, s, "%instantiate Comms::pair")
+	wants(t, strings.Join(s.RunFor(nil, []Behavior{listen}, 5)[0].Lines, "\n"), none)
+
+	if _, err := s.InstantiateReport("Comms::pair"); err != nil {
+		t.Fatal(err)
+	}
+	verdicts := s.RunFor(nil, []Behavior{listen}, 5)
+	if v := verdicts[0]; v.Status != VerdictHolds {
+		t.Fatalf("status = %v, want holds:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+	}
+	wantsInOrder(t, strings.Join(verdicts[0].Lines, "\n"), "✓ explored Comms::Ground::listen: 2 outcomes", "received = 1", "received = 2")
+
+	// The given root is the one a path into it walks: one pair per run, its craft
+	// pinged by its ground, the same runs as with the ground named by its path,
+	// which the machine's object is reported under.
+	modes := Behavior{Name: "Comms::Craft::modes", Performer: []string{"Comms::pair.craft"}}
+	given := s.RunFor(nil, []Behavior{listen, modes}, 5)[0]
+	wantsInOrder(t, strings.Join(given.Lines, "\n"), "✓ explored Comms::Ground::listen, Comms::Craft::modes: 2 outcomes",
+		"Comms::Ground::listen.received = 1; Comms::pair.craft.isSolid = true; Comms::pair.craft.sent = 4; Comms::pair.ground.isSolid = true",
+		"Comms::Ground::listen.received = 2; Comms::pair.craft.isSolid = true; Comms::pair.craft.sent = 4; Comms::pair.ground.isSolid = true")
+	alone := loadSource(t, exploreCommsSource)
+	if err := alone.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	pathed := Behavior{Name: "Comms::Ground::listen", Performer: []string{"Comms::pair.ground"}}
+	named := alone.RunFor(nil, []Behavior{pathed, modes}, 5)[0]
+	for i, o := range given.Outcomes {
+		if want := named.Outcomes[i]; strings.Join(o.Witness, "; ") != strings.Join(want.Witness, "; ") || o.Linearizations != want.Linearizations {
+			t.Errorf("outcome %d given the pair: %d × %s\nwant, as with the ground named: %d × %s", i, o.Linearizations, o.Witness, want.Linearizations, want.Witness)
+		}
+	}
+
+	// A second given object exhibiting the machine makes naming it alone
+	// ambiguous, refused naming the run's objects as the prompt names the session's.
+	if _, err := s.InstantiateReport("Comms::Fleet"); err != nil {
+		t.Fatal(err)
+	}
+	wants(t, strings.Join(s.RunFor(nil, []Behavior{listen}, 5)[0].Lines, "\n"),
+		`3 objects of this session exhibit "Comms::Ground::listen"`, `of "Comms::pair.ground"`, `of "Comms::Fleet.pairs[1].ground"`)
+}
+
 // A path an exploration cannot follow is refused while the session is held: an
 // object named by id, an unknown usage, an index on a scalar or off a fixed multiplicity.
 func TestExploredPathsAreCheckedAgainstTheDeclarations(t *testing.T) {
@@ -417,8 +471,8 @@ func TestRunForExploresEveryDueOrder(t *testing.T) {
 	}
 	wantsInOrder(t, strings.Join(verdicts[0].Lines, "\n"),
 		"✓ explored Shared::Lamp::peek, Shared::Lamp::glow: 2 outcomes",
-		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = false | 1              | t=3.0: action peek of object #1 first of state machine glow of object #1, action peek of object #1`,
-		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = true  | 1              | t=3.0: state machine glow of object #1 first of state machine glow of object #1, action peek of object #1`,
+		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = false; this.isSolid = true; this.lit = true | 1              | t=3.0: action peek of object #1 first of state machine glow of object #1, action peek of object #1`,
+		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = true; this.isSolid = true; this.lit = true  | 1              | t=3.0: state machine glow of object #1 first of state machine glow of object #1, action peek of object #1`,
 		"complete (2 runs)")
 
 	// One behavior explored with a duration is its own outcome, as RunStateMachine tables it.
@@ -427,7 +481,7 @@ func TestRunForExploresEveryDueOrder(t *testing.T) {
 		t.Fatalf("verdicts = %+v, want one that holds", verdicts)
 	}
 	wants(t, strings.Join(verdicts[0].Lines, "\n"), "✓ explored Shared::Lamp::glow: 1 outcome",
-		"finalState on; visits off, on | 1              | no choice points", "complete (1 runs)")
+		"finalState on; visits off, on; this.isSolid = true; this.lit = true | 1              | no choice points", "complete (1 runs)")
 
 	// A behavior that does not resolve is reported and nothing is explored.
 	verdicts = s.RunFor([]Behavior{{Name: "Shared::Lamp::nothing"}}, []Behavior{glow}, 3)

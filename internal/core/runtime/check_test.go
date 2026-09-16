@@ -297,6 +297,70 @@ func TestCheckReplayFollowsAnOrderDrawnAfterTheClockRetriesAStep(t *testing.T) {
 	}
 }
 
+// The witnesses of a check over several behaviors replay: a second action begun
+// beside `clash` shifts the step at which its branches race, and each divergent
+// value's witness re-runs to the value it claims.
+func TestCheckWitnessesOfSeveralBehaviorsReplay(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		action clash {
+			attribute x : Integer = 0;
+			first start;
+			fork split;
+			action left { assign x := 1; }
+			action right { assign x := 2; }
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then left;
+			succession first split then right;
+			succession first left then sync;
+			succession first right then sync;
+			succession first sync then done;
+		}
+		action tick {
+			attribute n : Integer = 0;
+			first start;
+			then action one assign n := n + 1;
+			then action two assign n := n + 1;
+			then done;
+		}
+	}`)
+	clash, tick := m.action(t, "clash"), m.action(t, "tick")
+	start := func(ctx *Context) (*Invocation, error) {
+		inv := &Invocation{}
+		for _, sym := range []*symbols.Symbol{tick, clash} {
+			exec, err := ctx.CreateActionExecutor(sym)
+			if err != nil {
+				return nil, err
+			}
+			inv.Actions = append(inv.Actions, exec)
+		}
+		return inv, nil
+	}
+	report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, unreduced(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var xs []string
+	for _, d := range report.Divergent {
+		if !strings.HasSuffix(d.Feature, "x") {
+			continue
+		}
+		for _, v := range d.Values {
+			xs = append(xs, v.Value)
+			r := replayWitness(t, m, start, v.Witness, d.Feature+" = "+v.Value)
+			if got, err := r.FinalValue(d.Feature); err != nil || got != v.Value {
+				t.Errorf("replaying %s reached %s = %s, %v; want %s", FormatChoices(v.Witness.Choices), d.Feature, got, err, v.Value)
+			}
+		}
+	}
+	slices.Sort(xs)
+	if !slices.Equal(xs, []string{"1", "2"}) {
+		t.Fatalf("x ends as %v, want 1 and 2", xs)
+	}
+}
+
 // A witness altered to another schedule does not replay: the disagreement is reported.
 func TestCheckReplayDisagreesWithATamperedWitness(t *testing.T) {
 	m := conformanceModel(t, "action_fork_branches_write_one_feature")

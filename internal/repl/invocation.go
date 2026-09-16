@@ -141,9 +141,13 @@ func (r *freshInvocation) performer() string {
 // start starts every behavior on ctx: the invocation a check searches the
 // schedules of, on the one clock the behaviors share.
 func (r *freshInvocation) start(ctx *runtime.Context) (*runtime.Invocation, error) {
-	objects := r.plan.bind(ctx)
+	objects, err := r.plan.bind(ctx)
+	if err != nil {
+		return nil, err
+	}
 	inv := &runtime.Invocation{}
-	for _, b := range r.behaviors {
+	performers := make([]string, len(r.behaviors))
+	for i, b := range r.behaviors {
 		if b.action {
 			exec, err := freshAction(objects, b.sym, b.Performer)
 			if err != nil {
@@ -151,23 +155,22 @@ func (r *freshInvocation) start(ctx *runtime.Context) (*runtime.Invocation, erro
 				return nil, err
 			}
 			inv.Actions = append(inv.Actions, exec)
+			if len(b.Performer) > 0 {
+				performers[i] = b.Performer[0]
+			}
 			continue
 		}
-		exec, err := freshMachine(objects, b.sym, b.Name, b.Performer)
+		exec, label, err := freshMachine(objects, b.sym, b.Name, b.Performer)
 		if err != nil {
 			inv.Release()
 			return nil, err
 		}
 		inv.States = append(inv.States, exec)
+		performers[i] = label
 	}
 	if len(r.behaviors) > 1 {
 		inv.Names = r.names
-		inv.PerformerNames = make([]string, len(r.behaviors))
-		for i, b := range r.behaviors {
-			if len(b.Performer) > 0 {
-				inv.PerformerNames[i] = b.Performer[0]
-			}
-		}
+		inv.PerformerNames = performers
 	}
 	if r.horizon != nil {
 		inv.Horizon = runtime.HorizonAt(*r.horizon)
