@@ -406,7 +406,8 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
 
-      # The fUML reader and classifier over the pinned models, likewise.
+      # The fUML reader and classifier over the pinned models, likewise, then the
+      # referee's bucket-count check against the committed record; the jar never runs.
       - run:
           name: Run fUML suite gates
           command: |
@@ -416,6 +417,7 @@ jobs:
               echo "error: the fUML suite gate skipped" >&2
               exit 1
             fi
+            go run ./cmd/fuml-referee -check
           environment:
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
 
