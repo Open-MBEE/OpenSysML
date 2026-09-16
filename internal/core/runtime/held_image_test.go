@@ -355,6 +355,205 @@ func TestHeldImageCarriesAParkedAction(t *testing.T) {
 	}
 }
 
+// lampMachine is the machine the bulb exhibits.
+func lampMachine(t *testing.T, bulb *Instance) *StateExecutor {
+	t.Helper()
+	behavior, ok := bulb.ExhibitedState()
+	if !ok {
+		t.Fatalf("object #%d exhibits no machine", bulb.ID)
+	}
+	return behavior.State
+}
+
+// runTo posts a signal to the bulb and runs its machine to quiescence: a
+// breakpoint pauses a run, not a single dispatch.
+func runTo(t *testing.T, root *symbols.Scope, ctx *Context, bulb *Instance, signal string, args map[string]Value) {
+	t.Helper()
+	msg, err := ctx.SignalMessage(resolveSymbol(t, root, signal), args, bulb)
+	if err != nil {
+		t.Fatalf("SignalMessage(%s): %v", signal, err)
+	}
+	ctx.PostMessage(msg)
+	if err := lampMachine(t, bulb).RunToQuiescence(); err != nil {
+		t.Fatalf("RunToQuiescence(%s): %v", signal, err)
+	}
+}
+
+// A machine paused at a breakpoint is imaged as its debugger left it: the copy is
+// suspended at the same breakpoint, keeps the breakpoints set and the transitions
+// fired, and the destination's clock does not move it until it is resumed. A copy
+// taken before the breakpoint is reached carries the breakpoint and pauses at it.
+func TestHeldImageCarriesAPausedStateMachine(t *testing.T) {
+	root, src, bulb := lampBulb(t)
+	machine := lampMachine(t, bulb)
+	dimmed := stateNamed(t, machine, "dimmed")
+	machine.SetBreakpointAt(dimmed)
+	machine.KeepFired(true)
+	level := map[string]Value{"level": integerValue(7)}
+
+	early := imageInto(t, src, bulb)
+	earlyCopy, _ := early.Instance(bulb.ID)
+	runTo(t, root, early, earlyCopy, "go", nil)
+	runTo(t, root, early, earlyCopy, "Dim", level)
+	if got := lampMachine(t, earlyCopy).PausedAt(); got != dimmed {
+		t.Errorf("the copy imaged before the breakpoint paused at %v, want dimmed: the breakpoint was not carried", got)
+	}
+
+	runTo(t, root, src, bulb, "go", nil)
+	runTo(t, root, src, bulb, "Dim", level)
+	if got := machine.PausedAt(); got != dimmed || machine.State() != StateSuspended {
+		t.Fatalf("the source paused at %v in state %v, want dimmed, suspended", got, machine.State())
+	}
+	fired := machine.FiredTransitions()
+
+	dst := imageInto(t, src, bulb)
+	copied, _ := dst.Instance(bulb.ID)
+	copy := lampMachine(t, copied)
+	if copy.State() != StateSuspended || copy.PausedAt() != dimmed {
+		t.Errorf("the copy is %v paused at %v, want suspended at dimmed as imaged", copy.State(), copy.PausedAt())
+	}
+	if got := copy.FiredTransitions(); !slices.Equal(got, fired) || copy.FiredCount() != len(fired) {
+		t.Errorf("the copy fired %v, want the source's %v", got, fired)
+	}
+	if got := copy.FiredSince(len(fired) - 1); len(got) != 1 || got[0] != fired[len(fired)-1] {
+		t.Errorf("FiredSince(last) = %v, want the last firing alone", got)
+	}
+	if got := copy.FiredTransitions(); len(got) != 1 || copy.FiredCount() != len(fired) {
+		t.Errorf("after FiredSince(last) the copy keeps %v of %d, want the last firing alone, still counting %d", got, copy.FiredCount(), len(fired))
+	}
+
+	if _, err := dst.Advance(5); err != nil {
+		t.Fatalf("Advance(copy): %v", err)
+	}
+	if got := lampLeaf(t, copied); got != "dimmed" {
+		t.Errorf("the paused copy moved to %s with the clock, want held at dimmed until resumed", got)
+	}
+	if err := copy.RunToQuiescence(); err != nil {
+		t.Fatalf("RunToQuiescence(copy): %v", err)
+	}
+	if got := lampLeaf(t, copied); got != "off" {
+		t.Errorf("the resumed copy is at %s, want off after 5 s", got)
+	}
+	if copy.PausedAt() != nil {
+		t.Errorf("the resumed copy still reads paused at %v", copy.PausedAt())
+	}
+	if copy.FiredCount() != len(fired)+1 {
+		t.Errorf("the copy fired %d transitions, want the imaged %d and dim_out", copy.FiredCount(), len(fired))
+	}
+
+	// The copy resumed from the breakpoint it was imaged at; the source holds it still.
+	if got := lampLeaf(t, bulb); got != "dimmed" || machine.PausedAt() != dimmed {
+		t.Errorf("the source is at %s paused at %v, want dimmed, paused at dimmed", got, machine.PausedAt())
+	}
+	if machine.FiredCount() != len(fired) {
+		t.Errorf("the source fired %d transitions after the copy resumed, want %d", machine.FiredCount(), len(fired))
+	}
+	runTo(t, root, dst, copied, "go", nil)
+	runTo(t, root, dst, copied, "Dim", level)
+	if copy.PausedAt() != dimmed {
+		t.Errorf("the copy reached dimmed again without pausing: the breakpoint was not carried")
+	}
+}
+
+// An action paused at a breakpoint set by identity is imaged as its debugger left
+// it: the copy is suspended at the same node in its flow, keeps the breakpoint and
+// the successions kept and counted, and runs on from the pause independently of
+// the source.
+func TestHeldImageCarriesAPausedAction(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, waiterSource)
+	pkg := resolveSymbol(t, root, "test")
+	src := NewContext(NewModel(model, resolver), 10000)
+	waiter, err := src.Instantiate(resolveSymbol(t, pkg.Scope, "Waiter"))
+	if err != nil {
+		t.Fatalf("Instantiate Waiter: %v", err)
+	}
+	await := func(t *testing.T, obj *Instance) *ActionExecutor {
+		t.Helper()
+		behavior, ok := obj.Behavior("await")
+		if !ok || behavior.Action == nil {
+			t.Fatalf("object #%d performs no await action, behaviors: %v", obj.ID, obj.Behaviors())
+		}
+		return behavior.Action
+	}
+	nine := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 9}}
+	action := await(t, waiter)
+	mark := actionNodeNamed(t, action, "mark")
+	action.ReplaceBreakpointsAt([]NodeBreakpoint{{Node: mark}})
+	action.KeepTraversals(true)
+
+	early := imageInto(t, src, waiter)
+	earlyCopy, _ := early.Instance(waiter.ID)
+	early.PostMessage(Message{SignalType: "Integer", Object: earlyCopy.ID, Value: &nine})
+	if err := await(t, earlyCopy).RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion(early copy): %v", err)
+	}
+	if bp, ok := await(t, earlyCopy).PausedBreakpoint(); !ok || bp.Node != mark {
+		t.Errorf("the copy imaged before the breakpoint paused at %+v, %v; want mark: the breakpoint was not carried", bp, ok)
+	}
+
+	src.PostMessage(Message{SignalType: "Integer", Object: waiter.ID, Value: &nine})
+	if err := action.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion: %v", err)
+	}
+	if bp, ok := action.PausedBreakpoint(); !ok || bp.Node != mark || action.State() != StateSuspended {
+		t.Fatalf("the source paused at %+v, %v in state %v; want mark, suspended", bp, ok, action.State())
+	}
+	// start then heard was taken before the debugger asked for the record, so only
+	// heard then mark is kept, though both are counted.
+	traversals, taken := action.Traversals(), action.TraversalCount()
+	if len(traversals) != 1 || taken != 2 {
+		t.Fatalf("the source keeps %d of %d successions, want heard then mark of start then heard, heard then mark", len(traversals), taken)
+	}
+
+	dst := imageInto(t, src, waiter)
+	copied, _ := dst.Instance(waiter.ID)
+	copy := await(t, copied)
+	if copy.State() != StateSuspended || copy.PausedAt() != "mark" {
+		t.Errorf("the copy is %v paused at %q, want suspended at mark as imaged", copy.State(), copy.PausedAt())
+	}
+	if bp, ok := copy.PausedBreakpoint(); !ok || bp.Node != mark || len(bp.Within) != 0 {
+		t.Errorf("the copy's PausedBreakpoint() = %+v, %v, want mark in the action's own flow", bp, ok)
+	}
+	if got := copy.Traversals(); copy.TraversalCount() != taken || !traversalsEqual(got, traversals) {
+		t.Errorf("the copy took %v of %d, want the source's %v of %d", got, copy.TraversalCount(), traversals, taken)
+	}
+	if got := copy.TraversalsSince(1); len(got) != 1 || got[0].Edge != traversals[0].Edge {
+		t.Errorf("TraversalsSince(1) = %v, want the last succession alone", got)
+	}
+	if got := copy.TraversalsSince(taken); got != nil || len(copy.Traversals()) != 0 || copy.TraversalCount() != taken {
+		t.Errorf("TraversalsSince(%d) = %v leaving %d kept of %d, want nil, none, %d", taken, got, len(copy.Traversals()), copy.TraversalCount(), taken)
+	}
+
+	if err := copy.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion(copy): %v", err)
+	}
+	if copy.State() != StateCompleted {
+		t.Errorf("the resumed copy is %v, want completed", copy.State())
+	}
+	if _, ok := copy.PausedBreakpoint(); ok {
+		t.Error("the completed copy still reads paused")
+	}
+	if got := featureInt(t, dst, copied, "woken"); got != 9 {
+		t.Errorf("the copy's woken = %d, want 9", got)
+	}
+	if got := copy.Traversals(); copy.TraversalCount() != taken+1 || len(got) != 1 || ActionNodeName(got[0].Edge.Source) != "mark" {
+		t.Errorf("the copy took %d successions keeping %v, want the imaged %d and mark then done, keeping that one", copy.TraversalCount(), got, taken)
+	}
+	if action.State() != StateSuspended || action.TraversalCount() != taken {
+		t.Errorf("the source is %v after %d successions once the copy ran on, want still suspended after %d", action.State(), action.TraversalCount(), taken)
+	}
+	if got := featureInt(t, src, waiter, "woken"); got != 0 {
+		t.Errorf("the source's woken = %d, want 0", got)
+	}
+}
+
+// traversalsEqual reports whether a and b record the same successions by the same tokens.
+func traversalsEqual(a, b []Traversal) bool {
+	return slices.EqualFunc(a, b, func(x, y Traversal) bool {
+		return x.Token == y.Token && x.Edge == y.Edge && slices.Equal(x.Within, y.Within)
+	})
+}
+
 // An image is refused, by its typed reason, where the state cannot be carried: a
 // context inside a step, an object of another context, a destination holding the
 // identity or past the image's instant, a feature being written, a value of a body, a destroyed root.
@@ -870,7 +1069,7 @@ func heldDigest(ctx *Context, held func(id int64) bool) string {
 			if exec := behavior.State; exec != nil {
 				var active []string
 				for _, state := range exec.ActiveStates() {
-					active = append(active, getNodeName(state))
+					active = append(active, StateVertexName(state))
 				}
 				fmt.Fprintf(&b, "    state=%v active=%v queue=%d deferred=%d data=%s\n",
 					exec.State(), active, exec.eventQueue.Len(), len(exec.deferred), formatValues(exec.StateData()))

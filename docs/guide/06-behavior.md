@@ -414,7 +414,7 @@ refused when the behavior starts, naming the pin.
 - `%step` — Advance all tokens one step; a token waiting only on the clock is reported with the `%advance` that would move it
 - `%continue` — Run to completion, or to the first breakpoint hit
 - `%tokens` — Show active tokens with data
-- `%break <node>` — Set breakpoint on a named node, one an `if` branch or a loop body declares included; `%continue` stops when a token reaches it, or before a body performs it
+- `%break <node>` — Set breakpoint on a named node, one an `if` branch or a loop body declares included; `%continue` and `%step` stop when a token reaches it, or before a body performs it
 - `%stop` — Stop debugging
 
 **State machine debugging commands:**

@@ -316,7 +316,7 @@ func transitionKey(trans *lower.Transition) string {
 func (s *stateSpeller) transition(e *StateExecutor, trans *lower.Transition) string {
 	transitions := e.graph.Transitions[trans.Source]
 	if pos := slices.Index(transitions, trans); pos >= 0 {
-		return getNodeName(trans.Source) + " " + transitionName(transitions, pos)
+		return StateVertexName(trans.Source) + " " + transitionName(transitions, pos)
 	}
 	return transitionDescription(trans)
 }

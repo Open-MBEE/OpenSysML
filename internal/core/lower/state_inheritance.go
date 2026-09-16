@@ -228,11 +228,22 @@ func (g *StateGraph) inheritedContent(decl ast.Node, declScope *symbols.Scope) (
 		members = append(members, superMembers...)
 		owners = append(owners, superOwners...)
 		owners = append(owners, def)
+		g.recordInherited(def, body)
 		for _, member := range declMembers(def) {
 			members = append(members, inheritedMember{node: member, owner: def, scope: body})
 		}
 	}
 	return members, owners, nil
+}
+
+// recordInherited notes that content was materialized from def, once per def.
+func (g *StateGraph) recordInherited(def ast.Node, body *symbols.Scope) {
+	for _, in := range g.inherited {
+		if in.Decl == def {
+			return
+		}
+	}
+	g.inherited = append(g.inherited, Inherited{Decl: def, Body: body})
 }
 
 // outerScope is the scope a declaration itself was written in, given the scope
