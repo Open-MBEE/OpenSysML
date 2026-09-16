@@ -135,8 +135,12 @@ type EditError struct {
 	// Failure says which refusal this is.
 	Failure EditFailure
 	// Referring are the FQNs of the namespaces referring to a declaration whose
-	// rename or deletion was refused.
+	// rename or deletion was refused, each suffixed with its document in
+	// parentheses when that is not the edited one.
 	Referring []string
+	// Referrers is Referring with each document as a field of its own, in
+	// document then name order.
+	Referrers []Referrer
 }
 
 // Unwrap exposes the failure, so errors.As recovers a *FailureError from a

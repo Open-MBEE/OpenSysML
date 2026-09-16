@@ -117,6 +117,12 @@ func TestRenameConflictInAnotherDocumentRefusesWhole(t *testing.T) {
 	if !strings.Contains(e.Message, "Fresh") {
 		t.Fatalf("message %q does not name the conflict", e.Message)
 	}
+	if strings.Join(e.Referring, ",") != "Q (q.sysml)" {
+		t.Fatalf("referring = %v, want Q (q.sysml)", e.Referring)
+	}
+	if len(e.Referrers) != 1 || e.Referrers[0] != (Referrer{Name: "Q", Document: "q.sysml"}) {
+		t.Fatalf("referrers = %+v, want Q in q.sysml", e.Referrers)
+	}
 }
 
 // A reference in another document is respelled even when it lies at the very
