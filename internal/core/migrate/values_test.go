@@ -40,13 +40,19 @@ func TestInstanceOfValueTypeIsAnAttributeUsage(t *testing.T) {
         <value xmi:type="uml:LiteralReal" xmi:id="_v" value="2.5"/>
       </slot>
     </packagedElement>
-    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_mixed" name="mixed" classifier="_b _pos"/>`,
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_mixed" name="mixed" classifier="_b _pos">
+      <slot xmi:id="_ms" definingFeature="_x">
+        <value xmi:type="uml:LiteralReal" xmi:id="_mv" value="1.0"/>
+      </slot>
+    </packagedElement>`,
 		`<sysml:ValueType xmi:id="_st" base_DataType="_pos"/><sysml:Block xmi:id="_sb" base_Class="_b"/>`)
 	wantLine(t, r.Notation, "attribute home : Position {")
 	wantLine(t, r.Notation, "attribute :>> x = 2.5;")
-	wantLine(t, r.Notation, "individual def mixed :> Rover;")
+	wantLine(t, r.Notation, "individual def mixed :> Rover {")
+	wantNoLine(t, r.Notation, "x = 1.0")
 	wantNote(t, r, "_home", migrate.Mapped, "")
 	wantNote(t, r, "_mixed", migrate.Approximated, "an individual cannot specialize a value type")
+	wantNote(t, r, "_ms", migrate.Unmapped, "the slot's defining feature Position::x is not a feature of any classifier the instance is written to specialize")
 	wantClean(t, "value.sysml", r)
 }
 
@@ -166,7 +172,7 @@ func TestSlotOfForeignFeatureIsUnmapped(t *testing.T) {
       </slot>
     </packagedElement>`, `<sysml:ValueType xmi:id="_s1" base_DataType="_a"/><sysml:ValueType xmi:id="_s2" base_DataType="_b"/>`)
 	wantNoLine(t, r.Notation, ":>> y")
-	wantNote(t, r, "_s", migrate.Unmapped, "the slot's defining feature B::y is not a feature of any classifier of the instance")
+	wantNote(t, r, "_s", migrate.Unmapped, "the slot's defining feature B::y is not a feature of any classifier the instance is written to specialize")
 	wantClean(t, "foreign.sysml", r)
 }
 
@@ -187,6 +193,23 @@ func TestIndividualDefaultTypesTheUsage(t *testing.T) {
 	wantNoLine(t, r.Notation, "default = usual")
 	wantNote(t, r, "_p", migrate.Approximated, "the default value, the individual usual, is written as a type of the usage")
 	wantClean(t, "individual.sysml", r)
+}
+
+// An untyped property whose default is an individual is typed by that
+// individual alone: the instance is the only classification it has.
+func TestUntypedPropertyIsTypedByItsIndividualDefault(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_tab" name="Table"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_std" name="usual" classifier="_tab"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Procedure">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="angles">
+        <defaultValue xmi:type="uml:InstanceValue" xmi:id="_dv" instance="_std"/>
+      </ownedAttribute>
+    </packagedElement>`, `<sysml:Block xmi:id="_s1" base_Class="_tab"/><sysml:Block xmi:id="_s2" base_Class="_b"/>`)
+	wantLine(t, r.Notation, "ref angles : usual;")
+	wantNoLine(t, r.Notation, "default value not migrated")
+	wantNote(t, r, "_p", migrate.Approximated, "the default value, the individual usual, is written as a type of the usage")
+	wantClean(t, "untyped-individual.sysml", r)
 }
 
 // A value type with a unit or quantity kind and no base is a magnitude,
@@ -307,4 +330,23 @@ func TestSameNamedPropertyRedefinesTheInheritedOne(t *testing.T) {
 	wantLine(t, r.Notation, "attribute downlink : PortStatus[6] :>> downlink;")
 	wantNote(t, r, "_dl2", migrate.Approximated, "written as a redefinition of the inherited Switch::downlink")
 	wantClean(t, "shadow.sysml", r)
+}
+
+// A port sharing the name of an inherited value property is another kind of
+// usage, so it cannot redefine it: the collision is reported, not papered over.
+func TestSameNamedPortCannotRedefineAnInheritedProperty(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:DataType" xmi:id="_ps" name="PortStatus"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_if" name="Link"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_a" name="Radio">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_st" name="status" type="_ps"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Radio2">
+      <generalization xmi:id="_g" xmi:type="uml:Generalization" general="_a"/>
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_pt" name="status" type="_if"/>
+    </packagedElement>`, `<sysml:ValueType xmi:id="_s1" base_DataType="_ps"/><sysml:InterfaceBlock xmi:id="_s2" base_Class="_if"/><sysml:Block xmi:id="_s3" base_Class="_a"/><sysml:Block xmi:id="_s4" base_Class="_b"/>`)
+	wantLine(t, r.Notation, "port status : Link;")
+	wantNoLine(t, r.Notation, ":>> status")
+	wantNote(t, r, "_pt", migrate.Approximated, "shares the name of the inherited Radio::status, which is written as attribute and so cannot be redefined by this port")
+	wantClean(t, "shadow-port.sysml", r)
 }

@@ -268,41 +268,102 @@ func nameRoots(n ast.Node, roots []string) []string {
 }
 
 // invisible returns the first of the names that no element visible from
-// scope answers to — as a member of scope or an enclosing namespace, a feature
-// scope inherits, or a feature of an instance's classifiers — or "".
+// scope answers to, or "".
 func (m *migration) invisible(names []string, scope *xmi.Element) string {
 	if len(names) == 0 {
 		return ""
 	}
-	visible := map[string]bool{}
+	visible, _ := m.visibleFrom(scope)
+	for _, n := range names {
+		if visible[n] == nil {
+			return writeName(n)
+		}
+	}
+	return ""
+}
+
+// visibleFrom maps each name an expression in scope can resolve to the written
+// element it means: a member of scope or an enclosing namespace, or a feature
+// scope inherits — as a classifier from its generals, as an instance from its
+// classifiers. Private inherited features are not visible unless exposed; the
+// hidden map holds those an expression would otherwise resolve to.
+func (m *migration) visibleFrom(scope *xmi.Element) (visible, hidden map[string]*xmi.Element) {
+	visible = map[string]*xmi.Element{}
+	hidden = map[string]*xmi.Element{}
 	seen := map[*xmi.Element]bool{}
-	var members func(*xmi.Element)
-	members = func(e *xmi.Element) {
+	var members func(e *xmi.Element, inherited bool)
+	members = func(e *xmi.Element, inherited bool) {
 		if e == nil || seen[e] {
 			return
 		}
 		seen[e] = true
 		for _, c := range e.Children {
-			if n := m.nameOf(c); n != "" {
-				visible[n] = true
+			n := m.nameOf(c)
+			if n == "" || !m.written(c) {
+				continue
+			}
+			if inherited && m.hiddenFromHeirs(c) {
+				if hidden[n] == nil {
+					hidden[n] = c
+				}
+				continue
+			}
+			if visible[n] == nil {
+				visible[n] = c
 			}
 		}
 		for _, g := range e.Owned("generalization") {
-			members(m.model.Ref(g, "general"))
+			members(m.model.Ref(g, "general"), true)
 		}
 		for _, c := range m.model.Refs(e, "classifier") {
-			members(c)
+			members(c, true)
 		}
 	}
 	for cur := scope; cur != nil; cur = cur.Parent {
-		members(cur)
+		members(cur, false)
 	}
-	for _, n := range names {
-		if !visible[n] {
-			return writeName(n)
+	return visible, hidden
+}
+
+// hiddenFromHeirs reports whether feature f is written private, which v2 does
+// not inherit: a private or package property that nothing exposes and that is
+// not a constraint parameter.
+func (m *migration) hiddenFromHeirs(f *xmi.Element) bool {
+	if f.Type != "Property" && f.Type != "Port" {
+		return false
+	}
+	if vis := f.Attrs["visibility"]; vis != "private" && vis != "package" {
+		return false
+	}
+	if m.exposed[f] != "" {
+		return false
+	}
+	kw, _, _ := m.featureKeyword(f, m.classifyParent(f))
+	return !(m.classifyParent(f) == catConstraintDef && kw == "attribute")
+}
+
+// exposeNamed marks the private inherited features an opaque expression in
+// scope names, so its v2 copy can resolve them.
+func (m *migration) exposeNamed(v, scope *xmi.Element) {
+	body, _ := opaqueBody(v)
+	roots, ok := exprRoots(body)
+	if body == "" || !ok {
+		return
+	}
+	visible, hidden := m.visibleFrom(scope)
+	var reached []*xmi.Element
+	for _, n := range roots {
+		switch {
+		case visible[n] != nil:
+		case hidden[n] != nil:
+			reached = append(reached, hidden[n])
+		default:
+			return
 		}
 	}
-	return ""
+	for _, f := range reached {
+		m.expose(f, "an expression in "+qualifiedName(scope)+" names it")
+	}
 }
 
 var (

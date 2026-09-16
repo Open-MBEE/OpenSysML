@@ -1052,3 +1052,41 @@ func TestPlacedRelationshipNameYieldsToAMember(t *testing.T) {
 		t.Errorf("entries = %+v", es)
 	}
 }
+
+// An expression can only name what its v2 copy will resolve: an operation
+// is not written, so a call to it is not copied; a private inherited property
+// is not inherited in v2, so naming it exposes the property instead.
+func TestOpaqueExpressionsNeedWrittenAccessibleNames(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_base" name="Timed">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_secret" name="secret" visibility="private">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_hidden" name="hidden" visibility="private">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_cb" name="Bound">
+      <generalization xmi:type="uml:Generalization" xmi:id="_gen" general="_base"/>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_run" name="run"/>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r1" name="ran" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp1">
+          <body>run() > 0</body>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r2" name="kept" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp2">
+          <body>secret + 1 > 0</body>
+        </specification>
+      </ownedRule>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_base"/>
+  <sysml:Block xmi:id="_s2" base_Class="_cb"/>`)
+	wantLine(t, r.Notation, "attribute secret : ScalarValues::Real;")
+	wantLine(t, r.Notation, "private attribute hidden : ScalarValues::Real;")
+	wantLine(t, r.Notation, "constraint kept { secret + 1 > 0 }")
+	wantNoLine(t, r.Notation, "constraint ran")
+	wantNote(t, r, "_r1", migrate.Unmapped, "opaque expression names run, which nothing visible from Bound is called")
+	wantNote(t, r, "_secret", migrate.Approximated, "private visibility is not written: an expression in Bound names it")
+	wantClean(t, "access.sysml", r)
+}

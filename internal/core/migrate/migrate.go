@@ -166,6 +166,11 @@ func (m *migration) prepare() {
 					m.expose(f, "instance "+describe(e)+" has a slot for it")
 				}
 			}
+		case "OpaqueExpression":
+			// A default, rule or slot value is read in the scope of its owner's owner.
+			if e.Parent != nil && e.Parent.Parent != nil {
+				m.exposeNamed(e, e.Parent.Parent)
+			}
 		case "Property", "Port":
 			for _, r := range m.model.Refs(e, "redefinedProperty") {
 				m.expose(r, qualifiedName(e)+" redefines it")
@@ -173,7 +178,7 @@ func (m *migration) prepare() {
 			for _, r := range m.model.Refs(e, "subsettedProperty") {
 				m.expose(r, qualifiedName(e)+" subsets it")
 			}
-			if r := m.shadowed(e); r != nil {
+			if r, ok := m.shadowed(e); ok {
 				m.expose(r, qualifiedName(e)+" redefines it by name")
 			}
 		case "Dependency", "Abstraction", "Realization", "Usage":
@@ -208,10 +213,16 @@ func (m *migration) hasFeature(c, f *xmi.Element) bool {
 	return f.Parent != nil && (f.Parent == c || m.inherits(c, f.Parent))
 }
 
-// slotClassifier returns the classifier of instance e that has feature f, or
-// nil when the slot's defining feature belongs to none of them.
+// slotClassifier returns the classifier instance e is written to specialize
+// that has feature f, or nil: a slot of a classifier the v2 form omits (a
+// value type beside a block) has no feature to redefine.
 func (m *migration) slotClassifier(e, f *xmi.Element) *xmi.Element {
-	for _, c := range m.model.Refs(e, "classifier") {
+	occurrences, values, _ := m.instanceClassifiers(e)
+	classifiers := occurrences
+	if len(occurrences) == 0 {
+		classifiers = values
+	}
+	for _, c := range classifiers {
 		if m.hasFeature(c, f) {
 			return c
 		}
@@ -617,7 +628,7 @@ func (m *migration) individualBody(e *xmi.Element) {
 			continue
 		}
 		if m.slotClassifier(e, f) == nil {
-			m.unmapped(slot, "the slot's defining feature "+qualifiedName(f)+" is not a feature of any classifier of the instance")
+			m.unmapped(slot, "the slot's defining feature "+qualifiedName(f)+" is not a feature of any classifier the instance is written to specialize")
 			continue
 		}
 		kw, _, _ := m.featureKeyword(f, catPartDef)
@@ -978,13 +989,18 @@ func (m *migration) feature(p *xmi.Element) {
 			payload = "item"
 		}
 	}
+	ind := m.defaultIndividual(p)
+	if ind != nil && payload == "" {
+		// A v2 definition is not a value; the usage is typed by the individual instead.
+		if typ == "" {
+			typ = m.ref(ind, m.scope)
+		} else {
+			typ += ", " + m.ref(ind, m.scope)
+		}
+	}
 	if typ != "" && payload == "" {
 		if p.Type == "Port" && p.Attrs["isConjugated"] == "true" {
 			typ = "~" + typ
-		}
-		if ind := m.defaultIndividual(p); ind != nil {
-			// A v2 definition is not a value; the usage is typed by the individual instead.
-			typ += ", " + m.ref(ind, m.scope)
 		}
 		b.WriteString(" : " + typ)
 	}
@@ -1004,18 +1020,20 @@ func (m *migration) feature(p *xmi.Element) {
 			b.WriteString(op + m.featureRef(r))
 		}
 	}
-	if r := m.shadowed(p); r != nil {
+	if r, redefinable := m.shadowed(p); redefinable {
 		b.WriteString(" :>> " + m.featureRef(r))
 		note = joinNotes(note, "written as a redefinition of the inherited "+qualifiedName(r)+": v2 does not let a member share an inherited member's name")
+	} else if r != nil {
+		rkw, _, _ := m.featureKeyword(r, m.classifyParent(r))
+		note = joinNotes(note, "shares the name of the inherited "+qualifiedName(r)+", which is written as "+rkw+" and so cannot be redefined by this "+kw+": v2 does not let a member share an inherited member's name")
 	}
 	note = joinNotes(note, m.dangling(p, "redefinedProperty", "subsettedProperty"))
 
 	var bodyLines []string
 	if dv := firstOwned(p, "defaultValue"); dv != nil {
-		ind := m.defaultIndividual(p)
 		expr, ok, vnote := m.featureValue(dv, p, m.scope)
 		switch {
-		case ind != nil && typ != "" && payload == "":
+		case ind != nil && payload == "":
 			note = joinNotes(note, "the default value, the individual "+qualifiedName(ind)+", is written as a type of the usage: a definition is not a v2 value")
 		case ok:
 			b.WriteString(" default = " + expr)
@@ -1072,14 +1090,16 @@ func portDirection(p *xmi.Element) (string, string) {
 	return "", ""
 }
 
-// shadowed returns the written inherited feature that p, declaring no
-// redefinition, would hide by sharing its name, or nil when there is none.
-func (m *migration) shadowed(p *xmi.Element) *xmi.Element {
+// shadowed returns the written inherited property or port that p, declaring
+// no redefinition, would hide by sharing its name, or nil when there is none;
+// redefinable says whether both are the same kind of usage, so p can redefine it.
+func (m *migration) shadowed(p *xmi.Element) (f *xmi.Element, redefinable bool) {
 	if p.Parent == nil || p.Name == "" || len(m.model.Refs(p, "redefinedProperty")) > 0 {
-		return nil
+		return nil, false
 	}
-	if cat, _ := m.classify(p.Parent); cat.keyword() == "" {
-		return nil
+	ownerCat := m.classifyParent(p)
+	if ownerCat.keyword() == "" {
+		return nil, false
 	}
 	seen := map[*xmi.Element]bool{p.Parent: true}
 	var walk func(*xmi.Element) *xmi.Element
@@ -1091,7 +1111,7 @@ func (m *migration) shadowed(p *xmi.Element) *xmi.Element {
 			}
 			seen[t] = true
 			for _, f := range t.Children {
-				if f.Type == p.Type && m.nameOf(f) == m.nameOf(p) && m.written(f) {
+				if (f.Type == "Property" || f.Type == "Port") && m.nameOf(f) == m.nameOf(p) && m.written(f) {
 					return f
 				}
 			}
@@ -1101,7 +1121,22 @@ func (m *migration) shadowed(p *xmi.Element) *xmi.Element {
 		}
 		return nil
 	}
-	return walk(p.Parent)
+	f = walk(p.Parent)
+	if f == nil {
+		return nil, false
+	}
+	pkw, _, _ := m.featureKeyword(p, ownerCat)
+	fkw, _, _ := m.featureKeyword(f, m.classifyParent(f))
+	return f, pkw == fkw
+}
+
+// classifyParent is the category of the element that owns e.
+func (m *migration) classifyParent(e *xmi.Element) category {
+	if e.Parent == nil {
+		return catNone
+	}
+	cat, _ := m.classify(e.Parent)
+	return cat
 }
 
 // written reports whether e becomes a v2 element that can be referred to.

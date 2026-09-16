@@ -58,7 +58,8 @@ func TestExternalScalarNamesOnlyFromPrimitiveLibraries(t *testing.T) {
 // A tool's export names the standard primitives in several ways: a dotted
 // fragment into SysML.xmi, an opaque id into its bundled library module with
 // the qualified name beside it, and its own machine-level datatypes there.
-// Only those resolve to ScalarValues; a used project's own types stay external.
+// Only those resolve to ScalarValues; a used project's own types stay external,
+// even when its top package borrows a library's name.
 func TestExternalScalarsFromToolLibraryReferences(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Thing">
@@ -86,6 +87,13 @@ func TestExternalScalarsFromToolLibraryReferences(t *testing.T) {
           </xmi:Extension>
         </type>
       </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_g" name="pressure">
+        <type href="Plant.mdzip#_17_0_1_2_8f90291_1328000000000_000000_2">
+          <xmi:Extension extender="Some Tool">
+            <referenceExtension referentPath="SysML::PlantTypes::Real" referentType="DataType"/>
+          </xmi:Extension>
+        </type>
+      </ownedAttribute>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_f" name="score">
         <type href="Shared%20Types.mdzip#_17_0_1_2_8f90291_1328000000000_000000_1">
           <xmi:Extension extender="Some Tool">
@@ -99,6 +107,7 @@ func TestExternalScalarsFromToolLibraryReferences(t *testing.T) {
 	wantLine(t, r.Notation, "attribute ratio : ScalarValues::Real;")
 	wantLine(t, r.Notation, "attribute glyph;")
 	wantLine(t, r.Notation, "attribute score;")
+	wantLine(t, r.Notation, "attribute pressure;")
 	for _, id := range []string{"_a", "_c"} {
 		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 			t.Errorf("%s entries = %+v", id, es)
@@ -108,6 +117,7 @@ func TestExternalScalarsFromToolLibraryReferences(t *testing.T) {
 		"_d": "the tool's float datatype is written as ScalarValues::Real",
 		"_e": "type UML Standard Profile::MagicDraw Profile::datatypes::char lives outside the document",
 		"_f": "type Shared Types::Scalars::float lives outside the document",
+		"_g": "type SysML::PlantTypes::Real lives outside the document",
 	} {
 		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, want) {
 			t.Errorf("%s entries = %+v", id, es)

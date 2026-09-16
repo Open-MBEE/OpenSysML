@@ -3,6 +3,7 @@ package migrate
 import (
 	"net/url"
 	"strings"
+	"unicode"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
 )
@@ -196,11 +197,40 @@ func primitiveLibraryHref(href string) bool {
 	return false
 }
 
-// libraryPath reports whether a qualified name a tool records for an href
-// target starts in one of the standard library or profile roots.
-func libraryPath(qualified string) bool {
-	root := pathRoot(qualified)
-	return root != "" && libraryRoots[root]
+// libraryReference reports whether a proxy points into a standard library or
+// profile module: the qualified name the tool records starts in a library
+// root, and the document the href names is that library's own module, not a
+// used project whose top package happens to share the name.
+func libraryReference(t *xmi.Element) bool {
+	root := pathRoot(t.QualifiedName)
+	return root != "" && libraryRoots[root] && strings.Contains(fold(hrefDocument(t.Href)), fold(root))
+}
+
+// hrefDocument is the document an href names, without its directory, query
+// or fragment.
+func hrefDocument(href string) string {
+	doc := href
+	if i := strings.IndexAny(doc, "#?"); i >= 0 {
+		doc = doc[:i]
+	}
+	if i := strings.LastIndexAny(doc, "/\\"); i >= 0 {
+		doc = doc[i+1:]
+	}
+	if u, err := url.PathUnescape(doc); err == nil {
+		doc = u
+	}
+	return doc
+}
+
+// fold lowers a name and drops the separators tools vary in.
+func fold(s string) string {
+	return strings.Map(func(r rune) rune {
+		switch r {
+		case ' ', '_', '-', '.':
+			return -1
+		}
+		return unicode.ToLower(r)
+	}, s)
 }
 
 // pathRoot is the first segment of a qualified name.
@@ -218,7 +248,7 @@ var quantityLibraries = map[string]bool{"ISO-80000": true}
 // quantityValueType reports whether t is a value type of a quantity library.
 func (m *migration) quantityValueType(t *xmi.Element) bool {
 	if t.IsProxy() {
-		return quantityLibraries[pathRoot(t.QualifiedName)]
+		return quantityLibraries[pathRoot(t.QualifiedName)] && libraryReference(t)
 	}
 	return t.Type == "DataType" && m.isLibrary(t) && quantityLibraries[rootOf(t).Name]
 }
@@ -300,7 +330,7 @@ func (m *migration) scalarValue(t *xmi.Element) string {
 		}
 	}
 	if t.IsProxy() {
-		if primitiveLibraryHref(t.Href) || libraryPath(t.QualifiedName) {
+		if primitiveLibraryHref(t.Href) || libraryReference(t) {
 			return name
 		}
 		return ""
