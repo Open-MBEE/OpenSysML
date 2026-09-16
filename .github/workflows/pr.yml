@@ -415,6 +415,10 @@ jobs:
             exit 1
           fi
 
+      # Bucket counts only, never pass/fail; see docs/project/fuml-referee.md.
+      - name: fUML referee reproduces its baseline counts
+        run: go run ./cmd/fuml-referee -check
+
       # The RDF round-trip ratchet over every example on its own, so its
       # per-verdict counts are legible in the log and a skip must not pass.
       - name: Run RDF corpus round-trip gate

@@ -92,7 +92,10 @@ statement (`parser_features_demo_declarations.kerml`), a succession whose ends a
 (`Simple Tests/Connectors.kerml`), and an invocation expression (`Simple
 Tests/Expressions.kerml`, `SimpleVehicleModel.sysml`); one more, `TimeVaryingFeatures.kerml`,
 comes back from the graph alone with a `featured by` name the second conversion no longer
-resolves, which a named feature reproduces on `main`. The gate measures the source-backed trip,
+resolves, which a named feature reproduces on `main`. An `accept after 1 [s]` written as an
+action-body member rather than a transition trigger stops the same way
+(`runtime-showcase/spacecraft-comms.sysml`): its time expression is carried as source text
+alone, with no expression tree to write it back from. The gate measures the source-backed trip,
 where all of these are `stable`; the graph-only shapes are the open items in
 [rdf-mapping.md § Limitations](../reference/rdf-mapping.md#limitations).
 
