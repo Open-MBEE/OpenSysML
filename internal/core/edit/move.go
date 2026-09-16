@@ -68,7 +68,7 @@ func (m Model) moveSplices(i int, op Operation) ([]splice, error) {
 			return nil, err
 		}
 	}
-	mv := &mover{model: m, op: op, index: i, sym: sym, owner: owner, ownerScope: ownerScope}
+	mv := &mover{model: m, r: r, op: op, index: i, sym: sym, owner: owner, ownerScope: ownerScope}
 	mv.remove = m.deleteSpan(del)
 	mv.carried = m.carried(mv.remove, del.span.Offset, m.ownerMemberIndent(owner))
 	mv.ins = m.memberInsertion(owner, mv.carried.text)
@@ -78,7 +78,7 @@ func (m Model) moveSplices(i int, op Operation) ([]splice, error) {
 	if sameOwner {
 		return mv.splices(), nil
 	}
-	if err := mv.follow(r); err != nil {
+	if err := mv.follow(); err != nil {
 		return nil, err
 	}
 	return mv.splices(), nil
@@ -105,7 +105,9 @@ func (m Model) refuseReferencedElsewhere(i int, op Operation, r *resolve.Resolve
 // mover is one move in progress: what it removes, what it inserts, the
 // references it has respelled so far, and where each byte of the source lands.
 type mover struct {
-	model      Model
+	model Model
+	// r reads the source as it stands before the move.
+	r          *resolve.Resolver
 	op         Operation
 	index      int
 	sym        *symbols.Symbol
@@ -307,8 +309,8 @@ type reference struct {
 
 // referencesBefore resolves every name of the document as it stands, which is
 // what each must still reach once the target is moved.
-func (mv *mover) referencesBefore(r *resolve.Resolver) []reference {
-	m := mv.model
+func (mv *mover) referencesBefore() []reference {
+	m, r := mv.model, mv.r
 	rootScope := m.Index.DocumentRoot(m.Source.Name())
 	if rootScope == nil {
 		return nil
@@ -438,8 +440,8 @@ func foreignIdentity(idx *symbols.Index, sym *symbols.Symbol) string {
 // follow respells every reference the move breaks. Imports go first, since
 // what the other names reach depends on them; then the rest, read against
 // the source with those imports respelled.
-func (mv *mover) follow(r *resolve.Resolver) error {
-	before := mv.referencesBefore(r)
+func (mv *mover) follow() error {
+	before := mv.referencesBefore()
 	for _, imports := range []bool{true, false} {
 		md, err := mv.reread()
 		if err != nil {
@@ -470,7 +472,7 @@ func (mv *mover) followOne(md *moved, ref reference) error {
 		}
 		at, ok := md.segments[mv.landed(ref.ref.QN.Parts[part].Span.Offset)]
 		if !ok {
-			return mv.refuseReference(md, ref, part, "is not read as a name once it is moved")
+			return mv.refuseReference(ref, part, "is not read as a name once it is moved")
 		}
 		reached, ok := md.r.PartSymbol(at.ref.QN, at.part)
 		if ok && mv.identityAfter(md, reached) == mv.identityBefore(sym) {
@@ -509,16 +511,16 @@ func (mv *mover) redundantImport(ref reference) (*ast.Import, bool) {
 func (mv *mover) respell(md *moved, ref reference, broken, intact int) error {
 	qn := ref.ref.QN
 	if qn.Parts[broken].Chained || ref.ref.Chain != nil || (ref.ref.Head != nil && ref.ref.Head.Member != nil) {
-		return mv.refuseReference(md, ref, broken, "is a step of a feature chain, which no qualified name respells")
+		return mv.refuseReference(ref, broken, "is a step of a feature chain, which no qualified name respells")
 	}
 	if ref.ref.Constructed != nil && len(qn.Parts) == 1 {
-		return mv.refuseReference(md, ref, broken, "labels a constructor argument, which no qualified name respells")
+		return mv.refuseReference(ref, broken, "labels a constructor argument, which no qualified name respells")
 	}
 	target := ref.reached[broken]
 	if target.DocName == mv.model.Source.Name() {
 		landed, ok := md.declared[mv.landed(symbolSpan(target).Offset)]
 		if !ok {
-			return mv.refuseReference(md, ref, broken, "names a declaration the moved source does not read")
+			return mv.refuseReference(ref, broken, "names a declaration the moved source does not read")
 		}
 		target = landed
 	}
@@ -528,7 +530,7 @@ func (mv *mover) respell(md *moved, ref reference, broken, intact int) error {
 		chain[i] = owner.Name
 	}
 	if len(chain) == 0 || chain[len(chain)-1] == "" {
-		return mv.refuseReference(md, ref, broken, "reaches an unnamed element, which no qualified name respells")
+		return mv.refuseReference(ref, broken, "reaches an unnamed element, which no qualified name respells")
 	}
 	at := md.segments[mv.landed(qn.Parts[broken].Span.Offset)]
 	for keep := intact; keep > 0; keep-- {
@@ -561,7 +563,7 @@ func (mv *mover) respell(md *moved, ref reference, broken, intact int) error {
 	if mv.trial(md, ref, broken, at, chain, true) {
 		return mv.respelled(qn, broken, "$::"+lexer.QualifiedNameOf(chain))
 	}
-	return mv.refuseReference(md, ref, broken,
+	return mv.refuseReference(ref, broken,
 		fmt.Sprintf("would not reach it as %s", lexer.QualifiedNameOf(chain)))
 }
 
@@ -612,22 +614,25 @@ func (mv *mover) trial(md *moved, ref reference, broken int, at placed, spelling
 }
 
 // refuseReference is the refusal of a move that segment part of ref, which
-// reached an element before it, cannot follow.
-func (mv *mover) refuseReference(md *moved, ref reference, part int, reason string) error {
+// reached an element before it, cannot follow. The referrer is named in the
+// unedited source, which is what the caller holds and the refusal leaves as is.
+func (mv *mover) refuseReference(ref reference, part int, reason string) error {
 	name := mv.op.Target
 	if sym := ref.reached[part]; sym != nil && sym.Name != "" {
 		name = notationName(sym)
 	}
-	site := docLabel(mv.model.Source.Name())
-	if at, ok := md.segments[mv.landed(ref.ref.QN.Parts[part].Span.Offset)]; ok {
-		if referrer, ok := md.model.referrer(md.r, md.model.Source.Name(), at.ref, at.ref.QN.Parts[at.part].Span.Offset); ok {
-			site = referrer.name
-		}
+	doc := mv.model.Source.Name()
+	site := docLabel(doc)
+	var referrers []Referrer
+	if referrer, ok := mv.model.referrer(mv.r, doc, ref.ref, ref.ref.QN.Parts[part].Span.Offset); ok {
+		site = referrer.name
+		referrers = []Referrer{referrer.referrer()}
 	}
 	return &Error{
 		Failure:        FailureMoveReferenced,
 		OperationIndex: mv.index,
 		Referring:      []string{site},
+		Referrers:      referrers,
 		Message: fmt.Sprintf("%s cannot be moved into %s: the reference to %s in %s %s",
 			mv.op.Target, ownerName(mv.op.NewOwner), name, site, reason),
 	}

@@ -291,16 +291,48 @@ class EditError(OpenSysMLError):
         diagnostics (list): Diagnostic objects behind the refusal — the parse
             errors of an unreadable new value, or the errors the edited notation
             was found to have
-        referring_elements (list[str]): For a refused rename, where the
-            references it would have broken are made
+        referring_elements (list[str]): For a refused rename, delete or move,
+            where the references it would have broken are made, each suffixed
+            with its document in parentheses when that is not the edited one
+        referrers (list[Referrer]): The same referrers, each with the document
+            declaring it as a field of its own
     """
 
-    def __init__(self, message, failure="", diagnostics=None, referring_elements=None):
+    def __init__(self, message, failure="", diagnostics=None, referring_elements=None,
+                 referrers=None):
         super().__init__(message)
         self.message = message
         self.failure = failure
         self.diagnostics = diagnostics or []
         self.referring_elements = list(referring_elements or [])
+        self.referrers = list(referrers or [])
+
+
+class Referrer:
+    """One declaration referring to the target of a refused rename, delete or move.
+
+    Attributes:
+        name (str): The referring declaration, as the notation names it
+        document (str): The document declaring it, as the parse named it
+    """
+
+    __slots__ = ("name", "document")
+
+    def __init__(self, name, document):
+        self.name = name
+        self.document = document
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, Referrer)
+            and (self.name, self.document) == (other.name, other.document)
+        )
+
+    def __hash__(self):
+        return hash((self.name, self.document))
+
+    def __repr__(self):
+        return f"Referrer(name={self.name!r}, document={self.document!r})"
 
 
 class NoEditsError(EditError, builtins.ValueError):
@@ -376,6 +408,11 @@ class OwnerInsideTargetError(EditError):
 
 class MoveReferencedError(EditError):
     """Raised when a move would leave a reference no spelling can restore."""
+
+
+class ReferencedElsewhereError(EditError):
+    """Raised when a rename, delete or move is referred to from a document the
+    edit cannot rewrite, such as a library; ``referrers`` names each one."""
 
 
 class ServiceError(OpenSysMLError):
