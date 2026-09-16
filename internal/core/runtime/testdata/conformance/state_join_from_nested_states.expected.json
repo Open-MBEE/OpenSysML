@@ -1,0 +1,20 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [{"signal": "Go"}],
+  "outcomes": [
+    {
+      "finalState": "done",
+      "outputs": {
+        "log": {"type": "String", "value": "ia(exit) a1 ib(exit) b1 work(exit) sync"}
+      }
+    },
+    {
+      "finalState": "done",
+      "outputs": {
+        "log": {"type": "String", "value": "ib(exit) b1 ia(exit) a1 work(exit) sync"}
+      }
+    }
+  ],
+  "admissible": "Transitions into a join: each exits its source and runs its effect before the owner is left, in which order is open"
+}
