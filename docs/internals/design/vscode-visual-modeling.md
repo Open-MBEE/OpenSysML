@@ -157,8 +157,9 @@ passed to the renderer directly.
   `opensysml.diagram.chosenViews` keyed by document URI and forgotten when the
   document no longer declares it; else a quick pick of the drawable views (label
   the name, detail the kind), then **All views**, then the pseudo-views. A view
-  the server cannot draw is listed disabled with its reason rather than omitted,
-  so the user learns why. Cancelling opens nothing. The server never receives an
+  the server cannot draw is left out of the quick pick — its items cannot be
+  disabled — and the panel's own picker lists it disabled with the reason.
+  Cancelling opens nothing. The server never receives an
   empty `view` for a multi-view document: the client always names one. Servers
   whose listing carries no `range` skip the cursor step.
 - `DiagramPanels` keys panels by `panelKey(uri, view)`; `renderChanged` and the
