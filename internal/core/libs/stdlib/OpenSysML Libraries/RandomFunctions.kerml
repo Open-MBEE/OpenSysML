@@ -12,8 +12,8 @@ library package RandomFunctions {
 	 * rather than draw an unrepeatable value. Every draw is recorded in the run's witness,
 	 * so a replay of the run makes the same draws without drawing again.
 	 *
-	 * The bounds may be quantities of one dimension (`uniform(1 [s], 80 [s])`), in which
-	 * case the result is a quantity in the first bound's unit.
+	 * The functions are over scalars: a random quantity is a draw given a unit, as in
+	 * `uniform(1, 80) [s]`; a quantity passed as a bound is refused.
 	 */
 
 	public import ScalarValues::*;
@@ -21,7 +21,7 @@ library package RandomFunctions {
 	function uniform {
 		doc
 		/*
-		 * A draw from the continuous uniform distribution over the closed interval
+		 * A draw from the continuous uniform distribution over the interval
 		 * lo..hi, every value of which is equally likely. Requires lo <= hi.
 		 */
 		in lo: Real[1]; in hi: Real[1]; return : Real[1];

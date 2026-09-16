@@ -119,6 +119,20 @@ func (r *probabilityReader) read(members []ast.Node) (*Probability, error) {
 	return found, nil
 }
 
+// refuseStray refuses a Probability written as a member of the action body itself,
+// which annotates the action, not the succession that follows it.
+func (r *probabilityReader) refuseStray(member ast.Node) error {
+	if r == nil || r.resolver == nil {
+		return nil
+	}
+	typ, _, ok := annotationOf(member)
+	if !ok || !r.isProbability(typ) {
+		return nil
+	}
+	return &ProbabilityError{Node: member, Reason: "Probability annotates the action here, not a succession; " +
+		"write it in the succession's body: first d then t { @Probability { p = <weight>; } }"}
+}
+
 // annotationOf returns the type name and body of a metadata annotation written as
 // a member: `@Probability { ... }` or `metadata : Probability { ... }`.
 func annotationOf(member ast.Node) (*ast.QualifiedName, []ast.Node, bool) {

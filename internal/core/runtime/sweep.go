@@ -93,13 +93,15 @@ type SweepBinding struct {
 	Value Value
 }
 
-// SweepPlan is what a sweep asks for: the ranges its parameters take, and for a
-// sampled sweep the number of draws and the seed they are drawn from.
+// SweepPlan is what a sweep asks for: the ranges its parameters take, for a
+// sampled sweep the number of draws and the seed they are drawn from, and for
+// a Monte Carlo the number of runs, each seeded by RunSeed of Seed, and no range.
 type SweepPlan struct {
 	Ranges  []SweepRange
 	Sampled bool
 	Samples int64
 	Seed    uint64
+	Runs    int64
 }
 
 // SweepRunResult is what one run of a sweep produced. A calc's returned value is
@@ -137,7 +139,8 @@ type SweepRow struct {
 
 // SweepTable is every run of one sweep, in the order they were made: a swept
 // table runs lexicographically over its parameters in the order they were
-// given, each from its first endpoint; a sampled table runs in draw order.
+// given, each from its first endpoint; a sampled table runs in draw order; a
+// Monte Carlo in run order, its one parameter the run's number.
 type SweepTable struct {
 	Target string
 	Params []string
@@ -145,6 +148,7 @@ type SweepTable struct {
 	Types   []SweepType
 	Sampled bool
 	Seed    uint64
+	Runs    int64
 	Rows    []SweepRow
 }
 
@@ -157,6 +161,11 @@ func NewSweepTable(target string, plan SweepPlan) SweepTable {
 		Types:   make([]SweepType, 0, len(plan.Ranges)),
 		Sampled: plan.Sampled,
 		Seed:    plan.Seed,
+		Runs:    plan.Runs,
+	}
+	if plan.Runs > 0 {
+		table.Params = append(table.Params, RunParam)
+		table.Types = append(table.Types, SweepType{Numbers: SweepIntegers})
 	}
 	for _, r := range plan.Ranges {
 		table.Params = append(table.Params, r.Param)
@@ -202,8 +211,12 @@ func (ctx *Context) sweepRunLimit(runs int64) int64 {
 }
 
 // sweepBindings is every row of a plan, in the order it is run: the cartesian
-// product of the swept ranges, or one row per draw of a sampled one, at most limit.
+// product of the swept ranges, one row per draw of a sampled one, or one per
+// run of a Monte Carlo, at most limit.
 func (ctx *Context) sweepBindings(plan SweepPlan, limit int64) ([][]SweepBinding, error) {
+	if plan.Runs != 0 {
+		return ctx.runBindings(plan, limit)
+	}
 	if len(plan.Ranges) == 0 {
 		return nil, fmt.Errorf("%w: name a range as <parameter>=<from>..<to>", ErrSweepEmpty)
 	}
@@ -567,7 +580,7 @@ func realHolds(n int64) bool {
 // any row runs.
 func (t SweepType) admit(ctx *Context, param, what string, value Value) error {
 	if t.Positive {
-		if n, ok := sweepMagnitude(value); ok && n <= 0 {
+		if n, ok := Magnitude(value); ok && n <= 0 {
 			return fmt.Errorf("%w: %s is not Positive, which %s : %s takes",
 				ErrSweepRange, what, param, symbolText(t.Declared()))
 		}
@@ -615,8 +628,8 @@ func (ctx *Context) numTypeText(num *symbols.Symbol, prim semantics.PrimType) st
 	return unknownText
 }
 
-// sweepMagnitude is the number a produced value is, a quantity's magnitude included.
-func sweepMagnitude(value Value) (float64, bool) {
+// Magnitude is the number a value is, a quantity's magnitude included, and whether it is one.
+func Magnitude(value Value) (float64, bool) {
 	switch value.Kind {
 	case ValConst:
 		return value.Const.AsReal(), value.Const.IsNumeric()
@@ -704,8 +717,8 @@ func (r SweepRange) enumerate(ctx *Context, limit int64) ([]Value, error) {
 	}
 	if !bounds.isInt {
 		for i := 1; i < len(values); i++ {
-			at, _ := sweepMagnitude(values[i])
-			if before, _ := sweepMagnitude(values[i-1]); at == before {
+			at, _ := Magnitude(values[i])
+			if before, _ := Magnitude(values[i-1]); at == before {
 				return nil, fmt.Errorf("%w: %s steps by %s, finer than a Real tells apart near %s, so its rows would repeat",
 					ErrSweepRange, r.Param, FormatValue(bounds.valueReal(bounds.step)), FormatValue(values[i]))
 			}

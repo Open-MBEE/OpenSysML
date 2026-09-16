@@ -49,7 +49,13 @@ type ChoiceTaken struct {
 	// or the state whose transition fired first.
 	Among []string
 	Took  string
+	// Weights are the probabilities the model states for the alternatives, one
+	// per alternative, for a weighted decision; nil for a choice it does not weight.
+	Weights []float64
 }
+
+// Weighted reports whether the model weights the alternatives.
+func (c ChoiceTaken) Weighted() bool { return len(c.Weights) == c.Alternatives && c.Alternatives > 0 }
 
 // String renders the choice for a table or a failure message, as ParseChoice
 // reads it back: a name the line's own punctuation occurs in is quoted.
@@ -388,6 +394,9 @@ func (s exploreSlot) asChoice() ChoiceTaken {
 		c.Kind, c.Step, c.Where, c.Among = s.choice.Kind, s.choice.Step, s.choice.Where, s.choice.Alternatives
 		if s.taken < len(s.choice.Alternatives) {
 			c.Took = s.choice.Alternatives[s.taken]
+		}
+		if s.choice.Weighted() {
+			c.Weights = slices.Clone(s.choice.Weights)
 		}
 	}
 	if c.Took == "" {

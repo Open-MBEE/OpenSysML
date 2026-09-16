@@ -59,6 +59,7 @@ type runCapture struct {
 	trace             *TraceRecorder
 	traced            traceCapture
 	choices           []ChoiceTaken
+	draws             []DrawTaken
 	evaluations       *evaluationLog
 	pendingBehaviors  []*ObjectBehavior
 	heldBehaviors     mapState[*ObjectBehavior, bool]
@@ -321,6 +322,7 @@ func (ctx *Context) captureRun() runCapture {
 		trace:            ctx.trace,
 		traced:           captureTrace(ctx.trace),
 		choices:          ctx.choices,
+		draws:            ctx.draws,
 		evaluations:      ctx.evaluations,
 		pendingBehaviors: slices.Clone(ctx.pendingBehaviors),
 		heldBehaviors:    captureMap(ctx.heldBehaviors),
@@ -340,7 +342,7 @@ func (c runCapture) restore(ctx *Context) {
 	ctx.run = c.run
 	ctx.trace = c.trace
 	c.traced.restore(c.trace)
-	ctx.choices = c.choices
+	ctx.choices, ctx.draws = c.choices, c.draws
 	ctx.evaluations = c.evaluations
 	ctx.pendingBehaviors = slices.Clone(c.pendingBehaviors)
 	ctx.heldBehaviors = c.heldBehaviors.restore()
@@ -699,7 +701,7 @@ type moveMark struct {
 	run              *runState
 	steps, elements  int64
 	notes            []RunNote
-	choices          int
+	choices, draws   int
 	trace            traceCapture
 	ids              *idSequence
 	nextID           int64
@@ -712,7 +714,7 @@ func (e *StateExecutor) markMove() *moveMark {
 	ctx := e.ctx
 	m := &moveMark{
 		exec: e, outer: e.moving, run: ctx.run, steps: ctx.run.steps, elements: ctx.run.elements,
-		notes: slices.Clone(ctx.run.notes), choices: len(ctx.choices),
+		notes: slices.Clone(ctx.run.notes), choices: len(ctx.choices), draws: len(ctx.draws),
 		trace: captureTrace(ctx.trace),
 		ids:   ctx.ids, nextID: ctx.ids.next,
 	}
@@ -744,7 +746,7 @@ func (m *moveMark) undo() {
 		m.ids.release(e.ctx, m.nextID)
 	}
 	m.run.steps, m.run.elements, m.run.notes = m.steps, m.elements, m.notes
-	e.ctx.choices = e.ctx.choices[:m.choices]
+	e.ctx.choices, e.ctx.draws = e.ctx.choices[:m.choices], e.ctx.draws[:m.draws]
 	m.trace.restore(e.ctx.trace)
 	m.state.restore()
 }

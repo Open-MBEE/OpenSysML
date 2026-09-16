@@ -198,6 +198,8 @@ type Context struct {
 
 	// schedule is the policy the next run resolves its choice points under.
 	schedule SchedulePolicy
+	// modelSeed fixes the modeled draws of the runs, whatever the policy (modeled.go).
+	modelSeed modelSeed
 	// exploring is the exploration run this context's runs take part in, nil
 	// outside Explore (explore.go).
 	exploring *exploreRun
@@ -207,6 +209,8 @@ type Context struct {
 	// choices are the choice points the context's runs resolved, in order: the
 	// witness a replay of them follows.
 	choices []ChoiceTaken
+	// draws are the random draws the context's runs made, in order (modeled.go).
+	draws []DrawTaken
 
 	// messages are the signals in flight, oldest first. The bus is context-wide,
 	// so a message one behavior sends can be accepted in another.
@@ -411,6 +415,7 @@ func (ctx *Context) schedulerUnder(policy SchedulePolicy) *scheduler {
 	if s.replay != nil {
 		s.replay.ctx = ctx
 	}
+	s.modeled = ctx.modeledUnder(policy, s.replay)
 	return s
 }
 

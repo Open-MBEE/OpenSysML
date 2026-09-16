@@ -135,6 +135,11 @@ func TestProbability_Refusals(t *testing.T) {
 			first d then fast { @Probability { q = 0.5; } }
 			first d then slow { @Probability { p = 0.5; } }
 			action fast; action slow;`, `nothing named "q"`},
+		{"stray", `
+			decide d;
+			@Probability { p = 0.5; } first d then fast;
+			@Probability { p = 0.5; } first d then slow;
+			action fast; action slow;`, "annotates the action here, not a succession"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

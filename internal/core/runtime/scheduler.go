@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
 
 // A run's choice points — several steppable tokens in one step, several holding
@@ -249,11 +251,13 @@ func (p SchedulePolicy) start() *scheduler {
 // scheduler resolves the choice points of one run under a policy; a seeded one
 // carries the generator state the run consumes choice by choice, an exploring
 // one the exploration run the context takes part in, a replaying one its
-// position in the witness, a checking one the checker's selected move.
+// position in the witness, a checking one the checker's selected move. modeled
+// is the stream the model's own draws come from (modeled.go), nil when none can.
 type scheduler struct {
 	policy  SchedulePolicy
 	pcg     *rand.PCG
 	rng     *rand.Rand
+	modeled *modeledSource
 	explore *exploreRun
 	replay  *replayRun
 	check   *checkRun
@@ -433,6 +437,43 @@ func (s *scheduler) choose(c ChoicePoint, whereOf func(i int) string) int {
 	return 0
 }
 
+// chooseWeighted resolves a decision whose branches carry weights, setting
+// c.Taken and the draw: a weighted draw where the model can draw, the most probable
+// branch under an unseeded declared or reverse run; the exploration, the witness
+// and the checker keep resolving it as they do every branch choice.
+func (s *scheduler) chooseWeighted(c *ChoicePoint) error {
+	n := len(c.Alternatives)
+	if n < 2 || len(c.Weights) != n {
+		c.Taken = s.choose(*c, nil)
+		return nil
+	}
+	total, err := checkWeights(c.Where, c.Weights)
+	if err != nil {
+		return err
+	}
+	switch s.policy.kind {
+	case scheduleExplore, scheduleCheck:
+		c.Taken = s.choose(*c, nil)
+		return nil
+	case scheduleReplay:
+		if s.replaying() {
+			c.Taken = s.choose(*c, nil)
+			return nil
+		}
+	}
+	if u, drawn := s.modeled.unit(); drawn {
+		c.Taken, c.Drew, c.Drawn = weightedPick(c.Weights, total, u), u, true
+		return nil
+	}
+	c.Taken = mostProbable(c.Weights)
+	return nil
+}
+
+// draw is the value the call what draws from the run's modeled stream.
+func (s *scheduler) draw(what string, compute func(rng *rand.Rand) semantics.Value) (semantics.Value, error) {
+	return s.modeled.draw(what, compute)
+}
+
 // witnessInputs hands out the inputs the run's witness fixes, once, to the
 // performance beginning the run; nil for a run under any other policy.
 func (s *scheduler) witnessInputs() []InputTaken {
@@ -464,27 +505,29 @@ func (s *scheduler) unfollowed(how string) error {
 }
 
 // mark returns the state a probe restores, so previewing a run does not move
-// the seeded generator, the exploration's position or the witness's.
+// the seeded generators, the exploration's position or the witness's.
 func (s *scheduler) mark() func() {
 	if s == nil {
 		return func() {
 			// No scheduler drove the run, so there is no state to restore.
 		}
 	}
+	restoreModeled := s.modeled.mark()
 	if s.explore != nil {
-		return s.explore.mark()
+		restore := s.explore.mark()
+		return func() { restore(); restoreModeled() }
 	}
 	if s.replay != nil {
-		return s.replay.mark()
+		restore := s.replay.mark()
+		return func() { restore(); restoreModeled() }
 	}
 	if s.check != nil {
-		return s.check.mark()
+		restore := s.check.mark()
+		return func() { restore(); restoreModeled() }
 	}
 	if s.pcg == nil {
-		return func() {
-			// An unseeded schedule draws nothing, so there is no state to restore.
-		}
+		return restoreModeled
 	}
 	saved := *s.pcg
-	return func() { *s.pcg = saved }
+	return func() { *s.pcg = saved; restoreModeled() }
 }

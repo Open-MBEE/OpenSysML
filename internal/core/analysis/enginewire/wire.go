@@ -163,12 +163,13 @@ type FreeInput struct {
 	Domain string `json:"domain,omitempty"`
 }
 
-// Sweep is a sweep question's domain.
+// Sweep is a sweep question's domain; a Monte Carlo states runs and a seed and no range.
 type Sweep struct {
 	Ranges  []Range `json:"ranges"`
 	Sampled bool    `json:"sampled,omitempty"`
 	Samples int64   `json:"samples,omitempty"`
 	Seed    uint64  `json:"seed,omitempty"`
+	Runs    int64   `json:"runs,omitempty"`
 }
 
 // Range is one parameter's range of a sweep.

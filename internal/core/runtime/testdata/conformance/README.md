@@ -191,6 +191,14 @@ the harness then runs it under that policy in every test, whatever policy the
 test asked for. Omitted or empty means the default. A pin that names no policy
 is a schema error the test reports.
 
+A case whose model draws — a decision weighted by `Probability`, a call of a
+`RandomFunctions` function — states the seed its draws come from with
+`"modelSeed": <n>`, which the harness sets as `%seed`/`-model-seed` would under
+every policy of the sweep; the modeled stream is separate from the one
+`seed:<n>` shuffles tokens with, so the case's draws are the same under
+`reverse`, `declared` and `seed:1`. Without it such a case refuses to draw
+(the `stochastic_*` cases).
+
 `TestExecutionConformanceUnderPolicies` runs every case under `declared` and
 under `seed:1`. A case pinning no policy was recorded under the default, so its
 stated result, or one of its `outcomes`, must hold under any policy; one that

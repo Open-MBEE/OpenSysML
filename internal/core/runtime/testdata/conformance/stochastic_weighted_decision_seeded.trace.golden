@@ -1,0 +1,9 @@
+step 1: token 1@select
+eval literal 0.7 -> 0.7
+eval literal 0.3 -> 0.3
+choice step 2: decision select branches 1->fast p=0.7, 2->slow p=0.3 hold (weighted; drew 0.774817894359002, took 2->slow)
+step 2: token 1@slow
+stmt assign taken
+  eval literal 2 -> 2
+step 3: token 1@done
+step 4: no active tokens

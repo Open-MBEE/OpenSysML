@@ -626,6 +626,12 @@ func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *reso
 				}
 				continue
 			}
+			if n.Kind == ast.UsageMetadata {
+				if err := weights.refuseStray(n); err != nil {
+					return nil, err
+				}
+				continue
+			}
 			if n.Kind != ast.UsageFlow || n.FlowEnds == nil {
 				continue
 			}
@@ -634,6 +640,10 @@ func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *reso
 				return nil, err
 			}
 			graph.DataFlows[source] = append(graph.DataFlows[source], flow)
+		case *ast.PrefixMetadata:
+			if err := weights.refuseStray(n); err != nil {
+				return nil, err
+			}
 		}
 	}
 

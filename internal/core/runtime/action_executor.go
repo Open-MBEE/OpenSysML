@@ -1896,6 +1896,10 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 	ec := e.evalContextFor(token.frame, graph.Scope)
 	defer ec.beginStep()()
 
+	// A weighted decision draws among every succession whose guard holds, an
+	// unguarded one holding outright; it has no else branch.
+	weighted := len(successors) > 0 && successors[0].Probability != nil
+
 	// Two-pass evaluation:
 	// 1. Evaluate all guarded edges; take the first that holds (several: a choice point)
 	// 2. If none holds, use unguarded edge as fallback (else branch)
@@ -1907,8 +1911,12 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 	// are probed only to report the choice, which leaves the run as it was.
 	for i := range successors {
 		edge := &successors[i]
-		// No guard = remember for fallback
 		if edge.Guard == nil {
+			if weighted {
+				holding = append(holding, i)
+				continue
+			}
+			// No guard = remember for fallback
 			unguardedEdge = edge
 			continue
 		}
@@ -1927,14 +1935,17 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 		}
 	}
 	if len(holding) > 0 {
-		choice, pick := e.chooseBranch(token.frame, decisionNode, successors, holding)
+		choice, pick, err := e.chooseBranch(ec, token.frame, decisionNode, successors, holding)
+		if err != nil {
+			return err
+		}
 		// A refused replay move leaves the token at the decision: no branch is taken.
 		if refused := e.ctx.scheduling().refusal(); refused != nil {
 			return refused
 		}
 		// A branch picked past the first was only probed; its guard's final reading
 		// is the run's own, so the run holds what evaluating it did.
-		if pick > 0 {
+		if pick > 0 && successors[holding[pick]].Guard != nil {
 			holds, err := e.guardHolds(ec, decisionNode, successors[holding[pick]].Guard)
 			if err != nil {
 				return err

@@ -194,7 +194,7 @@ func wireQuery(q *solve.Query) (enginewire.ConditionSet, error) {
 
 // wireSweep is a sweep's domain as the protocol carries it.
 func wireSweep(plan runtime.SweepPlan) (*enginewire.Sweep, error) {
-	out := &enginewire.Sweep{Ranges: []enginewire.Range{}, Sampled: plan.Sampled, Samples: plan.Samples, Seed: plan.Seed}
+	out := &enginewire.Sweep{Ranges: []enginewire.Range{}, Sampled: plan.Sampled, Samples: plan.Samples, Seed: plan.Seed, Runs: plan.Runs}
 	for _, r := range plan.Ranges {
 		from, err := wireValue(r.Param, r.From)
 		if err != nil {

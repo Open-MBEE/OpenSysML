@@ -161,7 +161,8 @@ The question, in the model's own names, and the model in the forms the entry dec
   question leaves open (`schedule`, `inputs`); `condition` (`name`, `text`) for `holds`;
   `conditions` for `satisfiable`, one set per query with its `features`, `assertions` and
   `pinned` values; `bindings` as `{name, value, unit}`; `inputs` as `{name, type, unit,
-  domain}`; `sweep` with its `ranges`.
+  domain}`; `sweep` with its `ranges` (and `sampled`, `samples`, `seed` for a sampled
+  sweep; `runs` and `seed` for a Monte Carlo, which states no range).
 - **`model.sources`**, always: `library`, the version of the standard library the host embeds,
   and `documents`, every document of the model as `{path, text}` in path order.
 - **`model.graphs`**: the `graphs:1` form, when the entry names it.
