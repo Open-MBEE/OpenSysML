@@ -279,6 +279,12 @@ func (e *StateExecutor) stepOne() error {
 	return nil
 }
 
+// rest leaves a machine with no move as runOne leaves one with nothing to do: the
+// dispatch its closed round owed was not there, so its next unit opens a round.
+func (e *StateExecutor) rest() {
+	e.roundDone = false
+}
+
 // incomplete is nil for a machine: one at rest in a configuration nothing wakes
 // it from is final, not deadlocked.
 func (e *StateExecutor) incomplete() error { return nil }
