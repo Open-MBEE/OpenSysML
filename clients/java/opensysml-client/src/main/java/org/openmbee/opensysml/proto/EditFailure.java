@@ -160,6 +160,16 @@ public enum EditFailure
    * <code>EDIT_FAILURE_MOVE_REFERENCED = 17;</code>
    */
   EDIT_FAILURE_MOVE_REFERENCED(17),
+  /**
+   * <pre>
+   * the target is referred to from a document the edit cannot rewrite: a
+   * library document, or any other document for a move, which respells
+   * references in the target's own document only
+   * </pre>
+   *
+   * <code>EDIT_FAILURE_REFERENCED_ELSEWHERE = 18;</code>
+   */
+  EDIT_FAILURE_REFERENCED_ELSEWHERE(18),
   UNRECOGNIZED(-1),
   ;
 
@@ -316,6 +326,16 @@ public enum EditFailure
    * <code>EDIT_FAILURE_MOVE_REFERENCED = 17;</code>
    */
   public static final int EDIT_FAILURE_MOVE_REFERENCED_VALUE = 17;
+  /**
+   * <pre>
+   * the target is referred to from a document the edit cannot rewrite: a
+   * library document, or any other document for a move, which respells
+   * references in the target's own document only
+   * </pre>
+   *
+   * <code>EDIT_FAILURE_REFERENCED_ELSEWHERE = 18;</code>
+   */
+  public static final int EDIT_FAILURE_REFERENCED_ELSEWHERE_VALUE = 18;
 
 
   public final int getNumber() {
@@ -360,6 +380,7 @@ public enum EditFailure
       case 15: return EDIT_FAILURE_DELETE_REFERENCED;
       case 16: return EDIT_FAILURE_OWNER_INSIDE_TARGET;
       case 17: return EDIT_FAILURE_MOVE_REFERENCED;
+      case 18: return EDIT_FAILURE_REFERENCED_ELSEWHERE;
       default: return null;
     }
   }

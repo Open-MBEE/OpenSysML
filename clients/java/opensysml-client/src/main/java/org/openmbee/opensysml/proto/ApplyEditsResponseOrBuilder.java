@@ -12,8 +12,13 @@ public interface ApplyEditsResponseOrBuilder extends
 
   /**
    * <pre>
-   * The edited notation, byte-identical to the source outside the edited spans.
-   * Empty when the edits were refused, so a refusal never writes a file.
+   * The edited notation of a single-document model, byte-identical to the
+   * source outside the edited spans. Empty when the edits were refused, so a
+   * refusal never writes a file, and empty for a model of several documents,
+   * whose edited notation is in `documents` alone: a client that reads
+   * `content` alone was written for one document and must not write one
+   * document's notation over another's. `documents` carries the same notation
+   * for a single-document model, so a client needs one code path.
    * </pre>
    *
    * <code>string content = 1 [json_name = "content"];</code>
@@ -22,8 +27,13 @@ public interface ApplyEditsResponseOrBuilder extends
   java.lang.String getContent();
   /**
    * <pre>
-   * The edited notation, byte-identical to the source outside the edited spans.
-   * Empty when the edits were refused, so a refusal never writes a file.
+   * The edited notation of a single-document model, byte-identical to the
+   * source outside the edited spans. Empty when the edits were refused, so a
+   * refusal never writes a file, and empty for a model of several documents,
+   * whose edited notation is in `documents` alone: a client that reads
+   * `content` alone was written for one document and must not write one
+   * document's notation over another's. `documents` carries the same notation
+   * for a single-document model, so a client needs one code path.
    * </pre>
    *
    * <code>string content = 1 [json_name = "content"];</code>
@@ -34,7 +44,8 @@ public interface ApplyEditsResponseOrBuilder extends
 
   /**
    * <pre>
-   * What each operation changed, in request order.
+   * What each operation changed, grouped by document in the order `documents`
+   * lists them and in request order within a document.
    * </pre>
    *
    * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -43,7 +54,8 @@ public interface ApplyEditsResponseOrBuilder extends
       getAppliedList();
   /**
    * <pre>
-   * What each operation changed, in request order.
+   * What each operation changed, grouped by document in the order `documents`
+   * lists them and in request order within a document.
    * </pre>
    *
    * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -51,7 +63,8 @@ public interface ApplyEditsResponseOrBuilder extends
   org.openmbee.opensysml.proto.AppliedEdit getApplied(int index);
   /**
    * <pre>
-   * What each operation changed, in request order.
+   * What each operation changed, grouped by document in the order `documents`
+   * lists them and in request order within a document.
    * </pre>
    *
    * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -59,7 +72,8 @@ public interface ApplyEditsResponseOrBuilder extends
   int getAppliedCount();
   /**
    * <pre>
-   * What each operation changed, in request order.
+   * What each operation changed, grouped by document in the order `documents`
+   * lists them and in request order within a document.
    * </pre>
    *
    * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -68,7 +82,8 @@ public interface ApplyEditsResponseOrBuilder extends
       getAppliedOrBuilderList();
   /**
    * <pre>
-   * What each operation changed, in request order.
+   * What each operation changed, grouped by document in the order `documents`
+   * lists them and in request order within a document.
    * </pre>
    *
    * <code>repeated .sysml.AppliedEdit applied = 2 [json_name = "applied"];</code>
@@ -78,7 +93,7 @@ public interface ApplyEditsResponseOrBuilder extends
 
   /**
    * <pre>
-   * non-empty if the edits were refused; content is unset
+   * non-empty if the edits were refused; content and documents are unset
    * </pre>
    *
    * <code>string error = 3 [json_name = "error"];</code>
@@ -87,7 +102,7 @@ public interface ApplyEditsResponseOrBuilder extends
   java.lang.String getError();
   /**
    * <pre>
-   * non-empty if the edits were refused; content is unset
+   * non-empty if the edits were refused; content and documents are unset
    * </pre>
    *
    * <code>string error = 3 [json_name = "error"];</code>
@@ -120,7 +135,8 @@ public interface ApplyEditsResponseOrBuilder extends
   /**
    * <pre>
    * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-   * or the errors the edited source was found to have.
+   * or the errors the edited source was found to have. A diagnostic's span
+   * names the document it is in.
    * </pre>
    *
    * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -130,7 +146,8 @@ public interface ApplyEditsResponseOrBuilder extends
   /**
    * <pre>
    * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-   * or the errors the edited source was found to have.
+   * or the errors the edited source was found to have. A diagnostic's span
+   * names the document it is in.
    * </pre>
    *
    * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -139,7 +156,8 @@ public interface ApplyEditsResponseOrBuilder extends
   /**
    * <pre>
    * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-   * or the errors the edited source was found to have.
+   * or the errors the edited source was found to have. A diagnostic's span
+   * names the document it is in.
    * </pre>
    *
    * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -148,7 +166,8 @@ public interface ApplyEditsResponseOrBuilder extends
   /**
    * <pre>
    * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-   * or the errors the edited source was found to have.
+   * or the errors the edited source was found to have. A diagnostic's span
+   * names the document it is in.
    * </pre>
    *
    * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -158,7 +177,8 @@ public interface ApplyEditsResponseOrBuilder extends
   /**
    * <pre>
    * Diagnostics behind a refusal: the parse errors of an unreadable new value,
-   * or the errors the edited source was found to have.
+   * or the errors the edited source was found to have. A diagnostic's span
+   * names the document it is in.
    * </pre>
    *
    * <code>repeated .sysml.Diagnostic diagnostics = 5 [json_name = "diagnostics"];</code>
@@ -168,8 +188,10 @@ public interface ApplyEditsResponseOrBuilder extends
 
   /**
    * <pre>
-   * Where the references to a declaration whose rename was refused are made:
-   * the FQN of each referring namespace.
+   * Where the references to a declaration whose rename, delete or move was
+   * refused are made: the FQN of each referring namespace, suffixed with its
+   * document in parentheses when that is not the document being edited.
+   * `referrers` carries the same list with the document as a field of its own.
    * </pre>
    *
    * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -179,8 +201,10 @@ public interface ApplyEditsResponseOrBuilder extends
       getReferringElementsList();
   /**
    * <pre>
-   * Where the references to a declaration whose rename was refused are made:
-   * the FQN of each referring namespace.
+   * Where the references to a declaration whose rename, delete or move was
+   * refused are made: the FQN of each referring namespace, suffixed with its
+   * document in parentheses when that is not the document being edited.
+   * `referrers` carries the same list with the document as a field of its own.
    * </pre>
    *
    * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -189,8 +213,10 @@ public interface ApplyEditsResponseOrBuilder extends
   int getReferringElementsCount();
   /**
    * <pre>
-   * Where the references to a declaration whose rename was refused are made:
-   * the FQN of each referring namespace.
+   * Where the references to a declaration whose rename, delete or move was
+   * refused are made: the FQN of each referring namespace, suffixed with its
+   * document in parentheses when that is not the document being edited.
+   * `referrers` carries the same list with the document as a field of its own.
    * </pre>
    *
    * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -200,8 +226,10 @@ public interface ApplyEditsResponseOrBuilder extends
   java.lang.String getReferringElements(int index);
   /**
    * <pre>
-   * Where the references to a declaration whose rename was refused are made:
-   * the FQN of each referring namespace.
+   * Where the references to a declaration whose rename, delete or move was
+   * refused are made: the FQN of each referring namespace, suffixed with its
+   * document in parentheses when that is not the document being edited.
+   * `referrers` carries the same list with the document as a field of its own.
    * </pre>
    *
    * <code>repeated string referring_elements = 6 [json_name = "referringElements"];</code>
@@ -210,4 +238,122 @@ public interface ApplyEditsResponseOrBuilder extends
    */
   com.google.protobuf.ByteString
       getReferringElementsBytes(int index);
+
+  /**
+   * <pre>
+   * The edited notation of every document the edits rewrote, named as the
+   * parse request named it: the document being edited first, then the others
+   * in name order. A document of several the edits left as parsed is not
+   * listed; the one document of a single-document model always is. Empty when
+   * the edits were refused.
+   * </pre>
+   *
+   * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.EditedDocument> 
+      getDocumentsList();
+  /**
+   * <pre>
+   * The edited notation of every document the edits rewrote, named as the
+   * parse request named it: the document being edited first, then the others
+   * in name order. A document of several the edits left as parsed is not
+   * listed; the one document of a single-document model always is. Empty when
+   * the edits were refused.
+   * </pre>
+   *
+   * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+   */
+  org.openmbee.opensysml.proto.EditedDocument getDocuments(int index);
+  /**
+   * <pre>
+   * The edited notation of every document the edits rewrote, named as the
+   * parse request named it: the document being edited first, then the others
+   * in name order. A document of several the edits left as parsed is not
+   * listed; the one document of a single-document model always is. Empty when
+   * the edits were refused.
+   * </pre>
+   *
+   * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+   */
+  int getDocumentsCount();
+  /**
+   * <pre>
+   * The edited notation of every document the edits rewrote, named as the
+   * parse request named it: the document being edited first, then the others
+   * in name order. A document of several the edits left as parsed is not
+   * listed; the one document of a single-document model always is. Empty when
+   * the edits were refused.
+   * </pre>
+   *
+   * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.EditedDocumentOrBuilder> 
+      getDocumentsOrBuilderList();
+  /**
+   * <pre>
+   * The edited notation of every document the edits rewrote, named as the
+   * parse request named it: the document being edited first, then the others
+   * in name order. A document of several the edits left as parsed is not
+   * listed; the one document of a single-document model always is. Empty when
+   * the edits were refused.
+   * </pre>
+   *
+   * <code>repeated .sysml.EditedDocument documents = 7 [json_name = "documents"];</code>
+   */
+  org.openmbee.opensysml.proto.EditedDocumentOrBuilder getDocumentsOrBuilder(
+      int index);
+
+  /**
+   * <pre>
+   * The declarations referring to the target of a refused rename, delete or
+   * move, each with the document declaring it, in document then name order.
+   * Empty when `referring_elements` is.
+   * </pre>
+   *
+   * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.Referrer> 
+      getReferrersList();
+  /**
+   * <pre>
+   * The declarations referring to the target of a refused rename, delete or
+   * move, each with the document declaring it, in document then name order.
+   * Empty when `referring_elements` is.
+   * </pre>
+   *
+   * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+   */
+  org.openmbee.opensysml.proto.Referrer getReferrers(int index);
+  /**
+   * <pre>
+   * The declarations referring to the target of a refused rename, delete or
+   * move, each with the document declaring it, in document then name order.
+   * Empty when `referring_elements` is.
+   * </pre>
+   *
+   * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+   */
+  int getReferrersCount();
+  /**
+   * <pre>
+   * The declarations referring to the target of a refused rename, delete or
+   * move, each with the document declaring it, in document then name order.
+   * Empty when `referring_elements` is.
+   * </pre>
+   *
+   * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.ReferrerOrBuilder> 
+      getReferrersOrBuilderList();
+  /**
+   * <pre>
+   * The declarations referring to the target of a refused rename, delete or
+   * move, each with the document declaring it, in document then name order.
+   * Empty when `referring_elements` is.
+   * </pre>
+   *
+   * <code>repeated .sysml.Referrer referrers = 8 [json_name = "referrers"];</code>
+   */
+  org.openmbee.opensysml.proto.ReferrerOrBuilder getReferrersOrBuilder(
+      int index);
 }
