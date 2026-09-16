@@ -8,6 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
@@ -20,12 +21,22 @@ import (
 // document set plus the global symbol index. Mutations are serialized under a
 // write lock; reads take a read lock.
 type Workspace struct {
-	mu        sync.RWMutex
-	docs      map[string]*Document
-	onDisk    map[string][]byte // last-known on-disk bytes, used when a doc is not open
-	open      map[string]bool   // names with an authoritative open buffer
-	index     *symbols.Index
-	diagCache map[string][]passes.Diagnostic
+	mu     sync.RWMutex
+	docs   map[string]*Document
+	onDisk map[string][]byte // last-known on-disk bytes, used when a doc is not open
+	open   map[string]bool   // names with an authoritative open buffer
+	index  *symbols.Index
+	// library is every library file the index held at construction, so a displaced
+	// one can come back; libraryRoots names their top-level packages.
+	library      map[string]libraryFile
+	libraryRoots map[string]bool
+	// libBase is the frozen library index the index overlays, nil for a caller-built
+	// one; libAlone and libCatalog are the library alone, made on first use.
+	libBase    *symbols.Index
+	libAlone   *symbols.Index
+	libCatalog *identity.Catalog
+	libOnce    sync.Once
+	diagCache  map[string][]passes.Diagnostic
 	// refs is the reverse reference index, built per document on demand and
 	// dropped per document on a change (see refindex.go).
 	refs *refIndex
@@ -45,6 +56,19 @@ type Workspace struct {
 	// nil when the index came without one; libDocs caches them parsed.
 	libSource libs.Source
 	libDocs   map[string]*Document
+	// standIns maps a workspace document that is a version of a bundled library
+	// file to that file, which it displaces from the index (see standInLocked);
+	// displaced keeps the mark of each bundled file a workspace document
+	// displaced, by standing in for it or by taking its name, for when it comes back.
+	standIns  map[string]string
+	displaced map[string]symbols.LibraryDocument
+}
+
+// libraryFile is a library file as indexed: its parsed root, language and mark.
+type libraryFile struct {
+	root   *ast.RootNamespace
+	kind   source.Kind
+	record symbols.LibraryDocument
 }
 
 // Option configures a workspace at construction.
@@ -74,19 +98,106 @@ func NewWorkspace(opts ...Option) *Workspace {
 // NewWorkspaceWithIndex returns a workspace over a caller-built index, for a
 // consumer whose resource set is not the bundled standard library. The options
 // travel with the resource set, so any index is analyzed under the asked mode.
+// The library files the index holds are the workspace's library, whatever
+// their tier: a workspace document may stand in for one or take its name.
 func NewWorkspaceWithIndex(idx *symbols.Index, opts ...Option) *Workspace {
 	w := &Workspace{
-		docs:      map[string]*Document{},
-		onDisk:    map[string][]byte{},
-		open:      map[string]bool{},
-		index:     idx,
-		diagCache: map[string][]passes.Diagnostic{},
-		libDocs:   map[string]*Document{},
+		docs:         map[string]*Document{},
+		onDisk:       map[string][]byte{},
+		open:         map[string]bool{},
+		index:        idx,
+		library:      map[string]libraryFile{},
+		libraryRoots: map[string]bool{},
+		libBase:      idx.Base(),
+		diagCache:    map[string][]passes.Diagnostic{},
+		libDocs:      map[string]*Document{},
+		standIns:     map[string]string{},
+		displaced:    map[string]symbols.LibraryDocument{},
+	}
+	for _, name := range idx.Documents() {
+		record := idx.LibraryDocumentOf(name)
+		if !record.Tier.Library() {
+			continue
+		}
+		scope := idx.DocumentRoot(name)
+		if scope == nil {
+			continue
+		}
+		root, ok := scope.Node().(*ast.RootNamespace)
+		if !ok {
+			continue
+		}
+		w.library[name] = libraryFile{root: root, kind: idx.DocumentKind(name), record: record}
+		names, _ := identity.RootPackageNames(root)
+		for _, pkg := range names {
+			w.libraryRoots[pkg] = true
+		}
 	}
 	for _, opt := range opts {
 		opt(w)
 	}
 	return w
+}
+
+// libraryAlone is an index of the library files alone, with their catalog: the
+// overlaid base when it holds them all, else one built once from the files.
+func (w *Workspace) libraryAlone() (*symbols.Index, *identity.Catalog) {
+	w.libOnce.Do(func() {
+		w.libAlone = w.libBase
+		if !w.baseHoldsLibrary() {
+			names := make([]string, 0, len(w.library))
+			for name := range w.library {
+				names = append(names, name)
+			}
+			slices.Sort(names)
+			idx := symbols.NewIndex()
+			for _, name := range names {
+				file := w.library[name]
+				idx.AddDocumentWithKind(name, file.root, file.kind)
+				idx.MarkLibraryDocument(name, file.record)
+			}
+			idx.ExpandWildcardImports()
+			w.libAlone = idx
+		}
+		w.libCatalog = identity.LibraryCatalog(w.libAlone)
+	})
+	return w.libAlone, w.libCatalog
+}
+
+// baseHoldsLibrary reports whether the frozen base holds the library files and no
+// others: a base may hold unmarked files too, and an overlay may shadow or remove one.
+func (w *Workspace) baseHoldsLibrary() bool {
+	if w.libBase == nil {
+		return false
+	}
+	held := 0
+	for _, name := range w.libBase.Documents() {
+		file, ok := w.library[name]
+		if !ok || !w.libBase.IsLibraryDocument(name) ||
+			w.libBase.DocumentRoot(name).Node() != file.root ||
+			w.libBase.DocumentKind(name) != file.kind ||
+			w.libBase.LibraryDocumentOf(name) != file.record {
+			return false
+		}
+		held++
+	}
+	return held == len(w.library)
+}
+
+// baseShows reports whether the frozen base holds the named document as the
+// workspace's index shows it: same root, language and library record.
+func (w *Workspace) baseShows(name string) bool {
+	if w.libBase == nil {
+		return false
+	}
+	root := w.libBase.DocumentRoot(name)
+	if root == nil {
+		return false
+	}
+	shown := w.index.DocumentRoot(name)
+	return shown != nil && shown.Node() == root.Node() &&
+		w.libBase.DocumentKind(name) == w.index.DocumentKind(name) &&
+		w.libBase.LibraryDocumentOf(name) == w.index.LibraryDocumentOf(name)
 }
 
 // ConformanceMode reports the strictness this workspace judges notation at.
@@ -206,8 +317,10 @@ func (w *Workspace) Remove(name string) {
 func (w *Workspace) reindexLocked(name string, content []byte, version int) {
 	doc := newDocument(name, content, version)
 	w.docs[name] = doc
+	w.displaceLocked(name)
 	w.index.AddDocument(name, doc.AST) // AddDocument removes stale entries first
-	w.index.ExpandWildcardImports()    // Expand new document's wildcard imports
+	w.standInLocked(name, doc)
+	w.index.ExpandWildcardImports() // Expand new document's wildcard imports
 	w.invalidateLocked(name)
 }
 
@@ -215,6 +328,8 @@ func (w *Workspace) reindexLocked(name string, content []byte, version int) {
 func (w *Workspace) removeLocked(name string) {
 	delete(w.docs, name)
 	w.index.RemoveDocument(name)
+	w.releaseStandInLocked(name)
+	w.restoreLocked(name)
 	w.invalidateLocked(name)
 }
 
@@ -423,15 +538,22 @@ func (w *Workspace) memberSymbolsLocked(resolver *resolve.Resolver, sem *semanti
 // on first use and kept for its life; it tracks per document what each entry read.
 func (w *Workspace) semanticsLocked() (*resolve.Resolver, *semantics.Model) {
 	if w.resolver == nil {
-		resolver := resolve.New(w.index)
-		sem := semantics.NewModel(resolver)
-		resolver.SetModel(sem)
-		sem.SetArgumentTyper(passes.NewArgumentTyper(resolver, sem))
-		sem.SetSourceText(w.sourceText())
+		resolver, sem := w.resolverOver(w.index)
 		resolver.Track()
 		w.resolver, w.model, w.gathers = resolver, sem, passes.NewGathers()
 	}
 	return w.resolver, w.model
+}
+
+// resolverOver is a fresh resolver over idx with a semantic model attached: for
+// the library alone, an edit's temporary index, or a read mid-way through an edit.
+func (w *Workspace) resolverOver(idx *symbols.Index) (*resolve.Resolver, *semantics.Model) {
+	resolver := resolve.New(idx)
+	sem := semantics.NewModel(resolver)
+	resolver.SetModel(sem)
+	sem.SetArgumentTyper(passes.NewArgumentTyper(resolver, sem))
+	sem.SetSourceText(w.sourceText())
+	return resolver, sem
 }
 
 // queryLocked runs f, a query made from doc ("" for none), over the workspace's
@@ -462,8 +584,9 @@ func (w *Workspace) DocumentNames() []string {
 	return names
 }
 
-// IsLibraryDocument reports whether name is a bundled library file the index
-// holds, as opposed to a document of the workspace's own.
+// IsLibraryDocument reports whether name is a bundled library file, as opposed
+// to a document of the workspace's own — a version of a library file included,
+// whatever its mark in the index.
 func (w *Workspace) IsLibraryDocument(name string) bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
@@ -471,17 +594,32 @@ func (w *Workspace) IsLibraryDocument(name string) bool {
 	return ok
 }
 
-// libraryNameLocked is the index's name for the library file name denotes,
-// accepting the forward-slash form a URI carries where the source listed the
-// file with the OS separator. Caller holds the lock.
+// libraryNameLocked is the index's name for the bundled library file name
+// denotes, accepting the forward-slash form a URI carries where the source
+// listed the file with the OS separator. A file the workspace holds is its own,
+// and a bundled file a version displaced is still the library's. Caller holds
+// the lock.
 func (w *Workspace) libraryNameLocked(name string) (string, bool) {
-	if w.index.IsLibraryDocument(name) {
+	if w.docs[name] != nil {
+		return "", false
+	}
+	if w.bundledLocked(name) {
 		return name, true
 	}
-	if alt := filepath.FromSlash(name); alt != name && w.index.IsLibraryDocument(alt) {
+	if alt := filepath.FromSlash(name); alt != name && w.docs[alt] == nil && w.bundledLocked(alt) {
 		return alt, true
 	}
 	return "", false
+}
+
+// bundledLocked reports whether name is a bundled library document: one the
+// index marks, or one of the workspace's library a document displaced. Caller holds the lock.
+func (w *Workspace) bundledLocked(name string) bool {
+	if w.index.IsLibraryDocument(name) {
+		return true
+	}
+	_, ok := w.library[name]
+	return ok
 }
 
 // LibraryDocument returns the parsed text of the named bundled library file,
@@ -493,27 +631,21 @@ func (w *Workspace) LibraryDocument(name string) *Document {
 	w.mu.RLock()
 	name, isLibrary := w.libraryNameLocked(name)
 	doc, cached := w.libDocs[name]
-	src := w.libSource
 	w.mu.RUnlock()
+	if !isLibrary {
+		return nil
+	}
 	if cached {
 		return doc
 	}
-	if src == nil || !isLibrary {
-		return nil
-	}
-	content, err := src.Read(name)
-	if err != nil {
-		return nil
-	}
-	doc = newDocument(name, bytes.Clone(content), 0)
-
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if existing, ok := w.libDocs[name]; ok {
-		return existing
+	// The workspace may have taken the name between the locks; libraryDocumentLocked
+	// reads the cache again for a document another reader loaded meanwhile.
+	if name, isLibrary = w.libraryNameLocked(name); !isLibrary {
+		return nil
 	}
-	w.libDocs[name] = doc
-	return doc
+	return w.libraryDocumentLocked(name)
 }
 
 // ResolveQualifiedInDoc resolves a qualified name against the given scope using

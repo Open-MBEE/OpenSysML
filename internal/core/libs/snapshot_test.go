@@ -22,7 +22,7 @@ import (
 // TestEmbeddedSnapshotIsCurrent fails when the committed snapshot was not
 // regenerated after the bundled library, or the snapshot format, changed.
 func TestEmbeddedSnapshotIsCurrent(t *testing.T) {
-	want, err := BuildSnapshot(EmbeddedSource())
+	want, err := BuildSnapshot(BundledSource())
 	if err != nil {
 		t.Fatalf("BuildSnapshot: %v", err)
 	}
@@ -37,7 +37,7 @@ func TestEmbeddedSnapshotIsCurrent(t *testing.T) {
 // held to, and checks that re-encoding it gives the snapshot back.
 func TestSnapshotIndexMatchesFreshLoad(t *testing.T) {
 	fresh := symbols.NewIndex()
-	loader := NewLoader(EmbeddedSource(), nil)
+	loader := NewLoader(BundledSource(), nil)
 	if err := loader.LoadAll(fresh); err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestSnapshotIndexMatchesFreshLoad(t *testing.T) {
 	if err := decoded.WriteSnapshot(w); err != nil {
 		t.Fatalf("WriteSnapshot: %v", err)
 	}
-	if again, err := BuildSnapshot(EmbeddedSource()); err != nil {
+	if again, err := BuildSnapshot(BundledSource()); err != nil {
 		t.Fatal(err)
 	} else if !bytes.HasSuffix(again, w.Bytes()) {
 		t.Errorf("re-encoding the decoded index does not reproduce the snapshot stream")
@@ -114,7 +114,7 @@ func TestDecodeSnapshotRefusesOtherFiles(t *testing.T) {
 	// IsSuccession and an Invariant without IsNegated, format 15 an InitialNode's
 	// first end as a name and span rather than a QualifiedName, format 16 a Usage
 	// without IsTerminate.
-	digest := NewLoader(EmbeddedSource(), nil).setDigest()
+	digest := NewLoader(BundledSource(), nil).setDigest()
 	for _, version := range []uint64{8, 9, 10, 11, 12, 13, 14, snapshotFormatVersion - 1, snapshotFormatVersion + 1} {
 		other := binary.AppendUvarint([]byte(snapshotMagic), version)
 		other = binary.AppendUvarint(other, uint64(len(digest)))
@@ -129,7 +129,7 @@ func TestDecodeSnapshotRefusesOtherFiles(t *testing.T) {
 // TestDecodeSnapshotRejectsCorruption feeds truncated and altered snapshots to
 // the decoder, which must report each rather than panic or return an index.
 func TestDecodeSnapshotRejectsCorruption(t *testing.T) {
-	digest := NewLoader(EmbeddedSource(), nil).setDigest()
+	digest := NewLoader(BundledSource(), nil).setDigest()
 	if _, err := DecodeSnapshot([]byte("not a snapshot"), digest); !errors.Is(err, pack.ErrCorrupt) {
 		t.Errorf("garbage: got %v, want ErrCorrupt", err)
 	}
@@ -165,19 +165,7 @@ func TestDecodeSnapshotRejectsCorruption(t *testing.T) {
 // is served from the snapshot.
 func TestSnapshotIndexFollowsLibraryPath(t *testing.T) {
 	dir := t.TempDir()
-	for _, name := range EmbeddedSource().List() {
-		data, err := EmbeddedSource().Read(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		path := filepath.Join(dir, filepath.FromSlash(name))
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, data, 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
+	writeLibraryTo(t, BundledSource(), dir)
 	t.Setenv(LibraryPathEnvVar, dir)
 	if _, err := SnapshotIndex(); err != nil {
 		t.Errorf("identical override: %v, want the snapshot", err)
@@ -199,10 +187,28 @@ func TestSnapshotIndexFollowsLibraryPath(t *testing.T) {
 	}
 }
 
+// writeLibraryTo copies every file of src under dir, as a library override.
+func writeLibraryTo(t *testing.T, src Source, dir string) {
+	t.Helper()
+	for _, name := range src.List() {
+		data, err := src.Read(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // BenchmarkDecodeSnapshot times what a process pays to start from the
 // snapshot instead of from the files.
 func BenchmarkDecodeSnapshot(b *testing.B) {
-	digest := NewLoader(EmbeddedSource(), nil).setDigest()
+	digest := NewLoader(BundledSource(), nil).setDigest()
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -216,6 +222,6 @@ func BenchmarkDecodeSnapshot(b *testing.B) {
 func BenchmarkSetDigest(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		NewLoader(EmbeddedSource(), nil).setDigest()
+		NewLoader(BundledSource(), nil).setDigest()
 	}
 }

@@ -33,7 +33,7 @@ func TestApplyEditCustomIndexValidatesSemantics(t *testing.T) {
 	t.Run("refuses an unresolved type", func(t *testing.T) {
 		op := edit.AddMember("Car", "part", "wheel")
 		op.Type = "Missing"
-		_, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{op})
+		_, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{op}, nil)
 		if !ok {
 			t.Fatal("document not found")
 		}
@@ -48,7 +48,7 @@ func TestApplyEditCustomIndexValidatesSemantics(t *testing.T) {
 
 	t.Run("refuses an unresolved connection endpoint", func(t *testing.T) {
 		op := edit.AddConnection("Car", "connection", "tank", "nowhere", "")
-		_, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{op})
+		_, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{op}, nil)
 		if !ok {
 			t.Fatal("document not found")
 		}
@@ -63,7 +63,7 @@ func TestApplyEditCustomIndexValidatesSemantics(t *testing.T) {
 		spare.Type = "Lib::Tank"
 		engine := edit.AddMember("Car", "part", "engine")
 		engine.Type = "Engine"
-		result, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{spare, engine})
+		result, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{spare, engine}, nil)
 		if !ok || err != nil {
 			t.Fatalf("ok %v, err %v", ok, err)
 		}
@@ -84,7 +84,7 @@ func TestApplyEditFollowsReferencesIntoWorkspaceDocuments(t *testing.T) {
 	ws.Open("car.sysml", []byte("package Cars {\n    part def Car {\n        part e : Engines::Engine;\n    }\n}\n"), 4)
 	ws.SetOnDisk("boat.sysml", []byte("package Boats {\n    part motor : Engines::Engine;\n}\n"))
 
-	result, version, ok, err := ws.ApplyEdit("engine.sysml", []edit.Operation{edit.Rename("Engines::Engine", "Motor")})
+	result, version, ok, err := ws.ApplyEdit("engine.sysml", []edit.Operation{edit.Rename("Engines::Engine", "Motor")}, nil)
 	if !ok || err != nil {
 		t.Fatalf("ok %v, err %v", ok, err)
 	}
@@ -133,7 +133,7 @@ func TestApplyEditRefusesReferenceFromDocumentItCannotRewrite(t *testing.T) {
 		edit.Rename("Engines::Engine", "Motor"),
 		edit.Delete("Engines::Engine", true),
 	} {
-		result, _, ok, err := ws.ApplyEdit("engine.sysml", []edit.Operation{op})
+		result, _, ok, err := ws.ApplyEdit("engine.sysml", []edit.Operation{op}, nil)
 		if !ok {
 			t.Fatal("document not found")
 		}
@@ -147,5 +147,32 @@ func TestApplyEditRefusesReferenceFromDocumentItCannotRewrite(t *testing.T) {
 		if want := []string{"Fleet::truck (fleet.sysml)"}; strings.Join(e.Referring, ",") != strings.Join(want, ",") {
 			t.Errorf("%v: referring = %v, want %v", op.Kind, e.Referring, want)
 		}
+	}
+}
+
+// An edit computed from snapshots of other documents is pinned to them: when
+// the workspace has since replaced one — by other text or by the same text at a
+// new version — the edit is refused as stale, and nothing is rewritten.
+func TestApplyEditRefusesWhenAReadDocumentWasReplaced(t *testing.T) {
+	ws := NewWorkspace()
+	ws.Open("engine.sysml", []byte("package Engines {\n    part def Engine;\n}\n"), 1)
+	ws.Open("car.sysml", []byte("package Cars {\n    part def Car {\n        part e : Engines::Engine;\n    }\n}\n"), 4)
+	rename := []edit.Operation{edit.Rename("Engines::Engine", "Motor")}
+
+	read := ws.Document("car.sysml")
+	if _, _, ok, err := ws.ApplyEdit("engine.sysml", rename, []*Document{read}); !ok || err != nil {
+		t.Fatalf("with the snapshot the workspace holds: ok %v, err %v", ok, err)
+	}
+	ws.Update("car.sysml", read.Content, 5)
+	_, version, ok, err := ws.ApplyEdit("engine.sysml", rename, []*Document{read})
+	var stale *StaleError
+	if !ok || !errors.As(err, &stale) || stale.Name != "car.sysml" {
+		t.Fatalf("after car.sysml was replaced: ok %v, err %v, want a StaleError naming car.sysml", ok, err)
+	}
+	if version != 1 {
+		t.Errorf("version = %d, want engine.sysml's 1", version)
+	}
+	if got := ws.Document("car.sysml"); got == read || got.Version != 5 {
+		t.Errorf("car.sysml = v%d, want the workspace's v5 untouched", got.Version)
 	}
 }

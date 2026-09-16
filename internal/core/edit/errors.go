@@ -53,7 +53,8 @@ const (
 	// source for, such as a document not open in the editor or a bundled library
 	// file — so the reference could not follow. A reference from a document the
 	// edit may rewrite is followed instead. A move respells references in its
-	// own document only, so any other document's reference refuses it.
+	// own document only, so any other document's reference refuses it. A layout
+	// whose annotation is stated in such a document refuses the same way.
 	FailureReferencedElsewhere
 	// FailureOwnerInsideTarget is a move whose new owner is the target itself or
 	// a declaration inside it.
