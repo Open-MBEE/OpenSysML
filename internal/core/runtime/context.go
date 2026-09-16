@@ -1378,6 +1378,16 @@ func (ctx *Context) ExecuteActionPerformedBy(action *symbols.Symbol, self *Insta
 	return exec.Results(), nil
 }
 
+// ActionOutcomePerformedBy runs an action as ExecuteActionPerformedBy does and reports
+// the outcome an exploration compares: its features and, under `this.`, the performer's attributes.
+func (ctx *Context) ActionOutcomePerformedBy(action *symbols.Symbol, self *Instance, inputs map[string]Value) (Outcome, error) {
+	exec, err := ctx.performAction(action, self, inputs)
+	if err != nil {
+		return Outcome{}, err
+	}
+	return (&Invocation{Actions: []*ActionExecutor{exec}}).Outcome(), nil
+}
+
 // performAction runs action to completion, performed by self, and returns the
 // executor that ran it, whose root performance holds what it produced.
 func (ctx *Context) performAction(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
@@ -1514,14 +1524,14 @@ func (ctx *Context) StateOutcomeWithEvents(stateMachine *symbols.Symbol, events 
 	return ctx.StateOutcomePerformedBy(stateMachine, nil, events)
 }
 
-// StateOutcomePerformedBy runs a state machine performed by self, as
-// ExecuteStatePerformedBy does, and reports its outcome.
+// StateOutcomePerformedBy runs a state machine as ExecuteStatePerformedBy does and reports
+// the outcome an exploration compares: its own and, under `this.`, the performer's attributes.
 func (ctx *Context) StateOutcomePerformedBy(stateMachine *symbols.Symbol, self *Instance, events []string) (Outcome, error) {
 	exec, err := ctx.performState(stateMachine, self, events)
 	if err != nil {
 		return Outcome{}, err
 	}
-	return exec.Outcome(), nil
+	return (&Invocation{States: []*StateExecutor{exec}}).Outcome(), nil
 }
 
 // ErrAmbiguousMachine is the typed error a machine named on an object exhibiting

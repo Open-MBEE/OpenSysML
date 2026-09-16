@@ -265,6 +265,12 @@ func TestPerformOnANestedObjectOverTheWire(t *testing.T) {
 		if len(x.Outcomes) != 1 || x.Outcomes[0].FinalState != tc.final || !x.Exploration.Complete {
 			t.Errorf("explored on %q: %v, want one outcome ending in %s", tc.performer, x.Outcomes, tc.final)
 		}
+		if tc.performer == "" {
+			continue
+		}
+		if pinged, held := x.Outcomes[0].Outputs["this.pinged"]; !held || pinged.GetBoolValue() != (tc.final == "active") {
+			t.Errorf("explored on %q outputs %v, want this.pinged = %v", tc.performer, x.Outcomes[0].Outputs, tc.final == "active")
+		}
 	}
 
 	act, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
@@ -278,6 +284,8 @@ func TestPerformOnANestedObjectOverTheWire(t *testing.T) {
 	})
 	if err != nil || x.Error != "" || len(x.Outcomes) != 1 || !x.Outcomes[0].Outputs["seen"].GetBoolValue() {
 		t.Errorf("explored look on pair.craft: %v %q %v, want one outcome with seen = true", err, x.GetError(), x.GetOutcomes())
+	} else if !x.Outcomes[0].Outputs["this.pinged"].GetBoolValue() {
+		t.Errorf("explored look on pair.craft outputs %v, want this.pinged = true", x.Outcomes[0].Outputs)
 	}
 
 	for path, want := range map[string]string{
@@ -298,6 +306,78 @@ func TestPerformOnANestedObjectOverTheWire(t *testing.T) {
 		})
 		if err != nil || len(x.Outcomes) != 1 || !strings.Contains(x.Outcomes[0].Error, want) {
 			t.Errorf("explored on %s: %v %v, want the one failed outcome %q", path, err, x.GetOutcomes(), want)
+		}
+	}
+}
+
+// performerRaceModel is an object whose behaviors race two assignments to its own
+// attribute and produce nothing else: only the object tells their outcomes apart.
+const performerRaceModel = `
+package Tank {
+  private import ScalarValues::*;
+  part def Tank {
+    attribute level : Integer = 0;
+    action fill {
+      first start;
+      fork split;
+      action a { assign this.level := 1; }
+      action b { assign this.level := 2; }
+      join sync;
+      done;
+      succession first start then split;
+      succession first split then a;
+      succession first split then b;
+      succession first a then sync;
+      succession first b then sync;
+      succession first sync then done;
+    }
+    state modes {
+      entry; then filling;
+      state filling { entry perform fill; }
+    }
+  }
+  part tank : Tank;
+}
+`
+
+// An explored behavior's outcomes carry the performer's attributes under `this.`,
+// so two runs leaving the object differently are two outcomes, as the CLI tables them.
+func TestExploredOutcomesCarryThePerformersAttributesOverTheWire(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, performerRaceModel, "performer-race")
+
+	levels := func(outcomes []*pb.Outcome) []int64 {
+		var got []int64
+		for _, o := range outcomes {
+			if o.Error != "" {
+				t.Fatalf("outcome failed: %s", o.Error)
+			}
+			got = append(got, o.Outputs["this.level"].GetIntValue())
+		}
+		return got
+	}
+	act, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+		ModelHash: hash, ActionSymbolId: "Tank::Tank::fill", PerformerSymbolId: "Tank::tank", Schedule: "explore",
+	})
+	if err != nil || act.Error != "" {
+		t.Fatalf("explore fill on tank: %v %q", err, act.GetError())
+	}
+	if got := levels(act.Outcomes); len(got) != 2 || got[0] != 1 || got[1] != 2 || !act.Exploration.Complete {
+		t.Errorf("explored fill on tank: this.level over %v, want [1 2] complete: %v", got, act.Outcomes)
+	}
+	state, err := srv.ExecuteState(ctx, &pb.ExecuteStateRequest{
+		ModelHash: hash, StateMachineSymbolId: "Tank::Tank::modes", PerformerSymbolId: "Tank::tank", Schedule: "explore",
+	})
+	if err != nil || state.Error != "" {
+		t.Fatalf("explore modes on tank: %v %q", err, state.GetError())
+	}
+	if got := levels(state.Outcomes); len(got) != 2 || got[0] != 1 || got[1] != 2 || !state.Exploration.Complete {
+		t.Errorf("explored modes on tank: this.level over %v, want [1 2] complete: %v", got, state.Outcomes)
+	}
+	for _, o := range state.Outcomes {
+		if o.FinalState != "filling" {
+			t.Errorf("explored modes on tank ends in %q, want filling", o.FinalState)
 		}
 	}
 }

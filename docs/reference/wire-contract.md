@@ -1082,8 +1082,11 @@ call above; the FQN of a part definition or usage creates an object of it for th
 path from such a declaration through its parts — `Mission::mission.vehicle`,
 `Fleet::convoy.escorts[2]` for a multi-valued part — creates the declaration and reaches the
 object at the end of the path, so the action's `this` is a part *inside* its assembly and the
-assembly's connectors reach it. Each explored run creates the declaration anew. A path that
-reaches no object is the call's `error` — the feature the root has none of
+assembly's connectors reach it. Each explored run creates the declaration anew, and each
+outcome's `outputs` carry the object's attributes as the run left them under `this.`
+(`this.pinged`), beside the action's own, so runs that differ only in what they left the
+object holding are distinct outcomes. A path that reaches no object is the call's `error` —
+the feature the root has none of
 (`Mission::mission has no feature "pilot"`), a multi-valued part named without an index
 (`escorts of Fleet::convoy holds 2 objects: pick one by index`), an
 index past the end (`escorts[3] names none`), an object named by id (`performer #1 names an

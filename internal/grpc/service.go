@@ -971,11 +971,11 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if err != nil {
 				return runtime.Outcome{}, err
 			}
-			outputs, err := rt.ExecuteActionPerformedBy(action, self, inputs)
+			outcome, err := rt.ActionOutcomePerformedBy(action, self, inputs)
 			if err != nil {
 				return runtime.Outcome{}, fmt.Errorf("action execution failed: %w", err)
 			}
-			return rt.ActionOutcome(outputs), nil
+			return outcome, nil
 		})
 		if err != nil {
 			return nil, err

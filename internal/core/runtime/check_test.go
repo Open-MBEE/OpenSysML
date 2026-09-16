@@ -501,6 +501,50 @@ func TestCheckDivergeNamesTellTheActionsFeaturesFromThePerformers(t *testing.T) 
 	}
 }
 
+// Diverge selects any feature the performer holds, an attribute or not: two
+// schedules leaving a selected item differently are two outcomes, though the
+// outcome's own rendering carries the performer's attributes only.
+func TestCheckDivergeTellsOutcomesApartByANonAttributeOfThePerformer(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		part def Tank {
+			item mode : String = "idle";
+			perform action fill {
+				first start;
+				fork split;
+				action a { assign this.mode := "filling"; }
+				action b { assign this.mode := "draining"; }
+				join sync;
+				done;
+				succession first start then split;
+				succession first split then a;
+				succession first split then b;
+				succession first a then sync;
+				succession first b then sync;
+				succession first sync then done;
+			}
+		}
+	}`)
+	fill := m.idx.LookupQualified("test::Tank::fill")[0]
+	tank := m.idx.LookupQualified("test::Tank")[0]
+	start := performedBy(tank, fill)
+	report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"this.mode"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Finals) != 2 {
+		t.Fatalf("%d finals, want the two this.mode tells apart: %s", len(report.Finals), report.Status())
+	}
+	if got := divergentValues(report, "this.mode"); !slices.Equal(got, []string{`"draining"`, `"filling"`}) {
+		t.Fatalf("this.mode diverges over %v, want [\"draining\" \"filling\"]: %s", got, report.Status())
+	}
+	for _, final := range report.Finals {
+		if !strings.Contains(final.Outcome, "this.mode = "+final.Values["this.mode"]) {
+			t.Errorf("final %q does not spell this.mode = %s", final.Outcome, final.Values["this.mode"])
+		}
+	}
+}
+
 // A constraint of the performer evaluated at every state is a property: the
 // schedule reaching a state where it is false is the violation, once, and its
 // witness replays to that state.
