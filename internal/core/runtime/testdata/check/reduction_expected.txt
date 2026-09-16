@@ -17,4 +17,6 @@
 17	18	17	18	por_state_guard_read
 21	22	21	22	por_state_do_write
 9	9	9	9	por_state_send_accept
+12	14	12	14	por_state_join_exit
+12	14	12	14	por_state_join_guard
 7	6	15	18	por_two_machines
