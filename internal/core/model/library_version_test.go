@@ -426,7 +426,7 @@ func TestWorkspaceLibraryVersionEditsBesideTheBundledName(t *testing.T) {
 	ws.Open(scalarValues, []byte("package Mine { datatype Real; }"), 1)
 	ws.Open("copy.kerml", lib.Content, 1)
 	ws.Open("car.sysml", []byte("part def Car {\n    attribute mass : ScalarValues::Real;\n    attribute mine : Mine::Real;\n}\n"), 1)
-	result, _, ok, err := ws.ApplyEdit("copy.kerml", []edit.Operation{edit.Rename("ScalarValues::Real", "Reel")})
+	result, _, ok, err := ws.ApplyEdit("copy.kerml", []edit.Operation{edit.Rename("ScalarValues::Real", "Reel")}, nil)
 	if !ok || err != nil {
 		t.Fatalf("ok %v, err %v", ok, err)
 	}
@@ -454,7 +454,7 @@ func TestWorkspaceLibraryVersionResolvesEdits(t *testing.T) {
 	ws.Open("car.sysml", []byte("part def Car {\n    attribute mass : ScalarValues::Real;\n}\n"), 1)
 	op := edit.AddMember("Car", "attribute", "speed")
 	op.Type = "ScalarValues::Real"
-	result, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{op})
+	result, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{op}, nil)
 	if !ok || err != nil {
 		t.Fatalf("ok %v, err %v", ok, err)
 	}
@@ -475,7 +475,7 @@ func TestWorkspaceLibraryVersionEditsInsideVersion(t *testing.T) {
 	}
 	ws.Open("copy.kerml", lib.Content, 1)
 	ws.Open("car.sysml", []byte("part def Car {\n    attribute mass : ScalarValues::Real;\n}\n"), 1)
-	result, _, ok, err := ws.ApplyEdit("copy.kerml", []edit.Operation{edit.Rename("ScalarValues::Real", "Reel")})
+	result, _, ok, err := ws.ApplyEdit("copy.kerml", []edit.Operation{edit.Rename("ScalarValues::Real", "Reel")}, nil)
 	if !ok || err != nil {
 		t.Fatalf("ok %v, err %v", ok, err)
 	}
@@ -508,7 +508,7 @@ func TestWorkspaceLibraryVersionIsRefactored(t *testing.T) {
 		t.Fatalf("StandsInFor = %q, want %q", got, scalarValues)
 	}
 
-	result, _, ok, err := ws.ApplyEdit("mine.kerml", []edit.Operation{edit.Rename("Mine::Wheel", "Tyre")})
+	result, _, ok, err := ws.ApplyEdit("mine.kerml", []edit.Operation{edit.Rename("Mine::Wheel", "Tyre")}, nil)
 	if !ok || err != nil {
 		t.Fatalf("rename: ok %v, err %v", ok, err)
 	}
@@ -523,7 +523,7 @@ func TestWorkspaceLibraryVersionIsRefactored(t *testing.T) {
 		t.Errorf("the version's reference is not renamed; documents rewritten: %v", slices.Sorted(maps.Keys(edited)))
 	}
 
-	_, _, ok, err = ws.ApplyEdit("mine.kerml", []edit.Operation{edit.Delete("Mine::Wheel", false)})
+	_, _, ok, err = ws.ApplyEdit("mine.kerml", []edit.Operation{edit.Delete("Mine::Wheel", false)}, nil)
 	var e *edit.Error
 	if !ok || !errors.As(err, &e) || e.Failure != edit.FailureDeleteReferenced {
 		t.Fatalf("delete: ok %v, err %v, want %s", ok, err, edit.FailureDeleteReferenced)
@@ -757,7 +757,7 @@ func TestWorkspaceLibraryVersionOverCallerBuiltIndex(t *testing.T) {
 	}
 	op := edit.AddMember("Car", "part", "spare")
 	op.Type = "Tanks::Tank"
-	if _, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{op}); !ok || err != nil {
+	if _, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{op}, nil); !ok || err != nil {
 		t.Errorf("an edit beside the version: ok %v, err %v", ok, err)
 	}
 	ws.Update("copy.sysml", []byte("package Other { part def Tank; }"), 2)
@@ -865,7 +865,7 @@ func TestWorkspaceLibraryVersionEditIndexKeepsOverlayDocuments(t *testing.T) {
 	ws.Open("boat.sysml", []byte("part def Boat {\n    part hull : Hulls::Hull;\n    part tank : Tanks::Tank;\n}\n"), 1)
 	op := edit.AddMember("Boat", "part", "spare")
 	op.Type = "Tanks::Tank"
-	result, _, ok, err := ws.ApplyEdit("boat.sysml", []edit.Operation{op})
+	result, _, ok, err := ws.ApplyEdit("boat.sysml", []edit.Operation{op}, nil)
 	if !ok || err != nil {
 		t.Fatalf("ApplyEdit beside the overlay's documents: ok %v, err %v", ok, err)
 	}
@@ -920,13 +920,13 @@ func TestWorkspaceLibraryVersionEditIndexKeepsBaseRemovals(t *testing.T) {
 	for _, pkg := range []string{"Hidden", "Gone"} {
 		op := edit.AddMember("Car", "part", "extra")
 		op.Type = pkg + "::T"
-		if _, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{op}); ok && err == nil {
+		if _, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{op}, nil); ok && err == nil {
 			t.Errorf("an edit naming %s::T, which the overlay removed, was accepted", pkg)
 		}
 	}
 	op := edit.AddMember("Car", "part", "spare")
 	op.Type = "Kept::T"
-	if _, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{op}); !ok || err != nil {
+	if _, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{op}, nil); !ok || err != nil {
 		t.Errorf("an edit naming Kept::T: ok %v, err %v", ok, err)
 	}
 }
@@ -1032,12 +1032,12 @@ func TestWorkspaceLibraryVersionOverShadowedBase(t *testing.T) {
 	ws.Open("car.sysml", []byte("part def Car {\n    part tank : Tanks::Tank;\n}\n"), 1)
 	shown := edit.AddMember("Car", "part", "spare")
 	shown.Type = "Tanks::Tank"
-	if _, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{shown}); !ok || err != nil {
+	if _, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{shown}, nil); !ok || err != nil {
 		t.Errorf("an edit naming the shown package: ok %v, err %v", ok, err)
 	}
 	shadowed := edit.AddMember("Car", "part", "old")
 	shadowed.Type = "OldTanks::Tank"
-	if _, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{shadowed}); !ok || err == nil {
+	if _, _, ok, err := ws.ApplyEdit("car.sysml", []edit.Operation{shadowed}, nil); !ok || err == nil {
 		t.Errorf("an edit naming the shadowed package: ok %v, err %v, want a refusal", ok, err)
 	}
 	ws.Remove("car.sysml")

@@ -89,30 +89,84 @@
           ],
           "default": "off",
           "description": "Trace the communication with the language server."
+        },
+        "opensysml.diagram.autoOpen": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Open the diagram of a SysML or KerML file beside its editor as soon as the file is shown. A diagram you close stays closed for that file until you run **SysML: Open Diagram** on it again."
         }
       }
     },
     "commands": [
       {
         "command": "opensysml.restartServer",
-        "title": "SysML: Restart Language Server"
+        "category": "SysML",
+        "title": "Restart Language Server"
       },
       {
         "command": "opensysml.openDiagram",
-        "title": "SysML: Open Diagram",
-        "enablement": "opensysml.renderSupported && (editorLangId == sysml || editorLangId == kerml)"
+        "category": "SysML",
+        "title": "Open Diagram",
+        "icon": "$(open-preview)"
       },
       {
         "command": "opensysml.exportDiagram",
-        "title": "SysML: Export Diagram",
-        "enablement": "opensysml.renderSupported && (editorLangId == sysml || editorLangId == kerml)"
+        "category": "SysML",
+        "title": "Export Diagram"
       },
       {
         "command": "opensysml.renderDocument",
-        "title": "SysML: Render Document",
+        "category": "SysML",
+        "title": "Render Document",
         "enablement": "opensysml.renderDocumentSupported"
       }
-    ]
+    ],
+    "keybindings": [
+      {
+        "command": "opensysml.openDiagram",
+        "key": "alt+d",
+        "when": "editorTextFocus && (editorLangId == sysml || editorLangId == kerml) || activeWebviewPanelId == opensysml.diagram"
+      },
+      {
+        "command": "opensysml.openDiagram",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorTextFocus && (editorLangId == sysml || editorLangId == kerml) || activeWebviewPanelId == opensysml.diagram"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "opensysml.openDiagram",
+          "group": "navigation",
+          "when": "resourceLangId == sysml || resourceLangId == kerml"
+        },
+        {
+          "command": "opensysml.exportDiagram",
+          "group": "1_diagram",
+          "when": "resourceLangId == sysml || resourceLangId == kerml"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "opensysml.openDiagram",
+          "group": "navigation@10",
+          "when": "editorLangId == sysml || editorLangId == kerml"
+        },
+        {
+          "command": "opensysml.exportDiagram",
+          "group": "navigation@11",
+          "when": "editorLangId == sysml || editorLangId == kerml"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "opensysml.openDiagram",
+          "group": "navigation@10",
+          "when": "resourceExtname == .sysml || resourceExtname == .kerml"
+        }
+      ]
+    }
   },
   "scripts": {
     "grammar": "go run ./tools/gengrammar -out syntaxes",
