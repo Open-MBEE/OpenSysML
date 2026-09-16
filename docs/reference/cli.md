@@ -263,7 +263,9 @@ written in, so the verdicts are about that object:
 | `-advance <time>` | Simulated time (seconds, `SI::s`) the invocation's `-action` and `-state` behaviors run for, on the one clock they share: every state event, action `accept after`/`accept at` and do behavior due within it runs, in due order — a state's do behavior parked at an `accept after` of its own action body among them — and two behaviors due at the same instant run in the order `-schedule` picks (the one started last first by default), reported as a choice point. A state machine takes only its initial transition without it; an action runs to completion on its own without it and, with it, only as far as that much time takes it, so one still waiting on the clock is reported as undecided with the instant it waits for. Refused without an `-action` or `-state` to run |
 | `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind, and the values are produced in its declared type (`1..4:1` over a `Real` binds `1.0`, `2.0`, …). Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
 | `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names — Integers inclusively for a parameter taking Integers, reals in `[<from>, <to>)` for one taking reals |
-| `-seed <s>` | The seed `-samples` draws from, required with it: the same seed draws the same values on every platform |
+| `-seed <s>` | The seed the model's own draws come from in every run the invocation makes, whatever `-schedule` — the branch a `@Probability`-weighted decision takes, the value a `RandomFunctions` call returns — and the seed `-samples` and `-runs` draw from, required with those two: the same seed draws the same run or table on every platform. Without it a run that must draw is refused naming the call and the flag, and a weighted decision takes its most probable branch. See [Running an action many times](#running-an-action-many-times) |
+| `-runs <n>` | Runs the one `-action` to completion `n` times, each on a fresh context with a model seed of its own derived from `-seed` and the run number, and tables what each run's `-observe` features came to with a distribution of each; needs `-seed` and exactly one `-action`, and is refused with `-sweep`, `-samples`, `-advance`, `-state` or the checker's flags. See [Running an action many times](#running-an-action-many-times) |
+| `-observe <feature>` | A feature of the `-runs` action to table, or `clock` for the simulation time each run completed at (the clock's name, never a feature's); repeatable; default every feature the action holds and the clock. A name the action does not hold, or one named twice, is refused; the flag without `-runs` is refused |
 | `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)) or `replay:<file>` (the `input <feature> = <value>` lines of a witness, which pin those features before the run starts, then its choice lines, one per line up to the first blank line, followed move for move and then `reverse` — a header of `no choice points`, as the checker writes for a run that met none, follows the one run there is; a move the run cannot make — a pick not offered, a step already passed, a line left over at the end — is `replay refused: move <n> (<the choice>): <what the run faced>`, an input line naming a feature the action does not have is refused naming it, and the check is *not covered*; see [Running one witness again](../guide/06-behavior.md#running-one-witness-again)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice, `replay` or `replay:` without a file, a replay file that cannot be read, is empty or has a line spelling no choice — is refused before anything runs |
 | `-check-property <name>` | With `-engine check` or `-engine all`: a constraint or requirement the checker evaluates at every stable state of the invocation's behaviors, on the performing object where there is one, reporting a schedule at which it is false; repeatable. See [Checking every schedule of an action or a state machine](#checking-every-schedule-of-an-action-or-a-state-machine) |
 | `-check-diverge <feature>` | With `-engine check`, `-engine smt` or `-engine all`: a feature whose final value is compared across schedules, so the question put to the engine is whether it is *sensitive* to the schedule — `x` for the action's attribute, `step.out` for an output of a node it performs, `this.level` for the performing object's, `finalState` for a machine's resting state, `<behavior>.<feature>` and `<behavior> finalState` for one of several behaviors checked together; repeatable; a name nothing holds is refused. Under `check` a feature a schedule leaves unset ends as `<unset>`, and absent the flag every attribute of the behaviors and of the performing object and a machine's `finalState` are compared (an action run without an object has its own attributes only); under `smt` the feature is an action's alone, decided by a two-copy query, and the performing object's features are *not covered* until they are encoded |
@@ -939,6 +941,59 @@ the check itself does.
 The REPL runs the same tables through [`%sweep` and `%samples`](repl-commands.md), and a service
 client through the [`RunSweep` RPC](api.md).
 
+## Running an action many times
+
+A model that states its own odds — a decision whose successions carry
+`@Probability { p = … }`, a duration or a value drawn by `uniform`, `uniformInteger`,
+`triangular` or `normal` from the `RandomFunctions` library (see
+[When a model states its own odds](../guide/06-behavior.md#when-a-model-states-its-own-odds)) —
+is a question about a distribution. `-runs <n>` with `-seed <s>` runs the one `-action` to
+completion `n` times, each run on a fresh context whose model seed is derived from `<s>` and the
+run's number, so run 3 of seed 7 is the same run on every platform and can be made alone with
+that run's seed. The table has one row per run, numbered, with each `-observe` feature of the
+action and `clock`, the simulation time the run completed at; without `-observe` every feature
+the action holds and the clock are tabled. Below the table each numeric observable is summarised
+over the runs that completed — minimum, mean, maximum, the nearest-rank p50 and p90, and a
+histogram — and a non-numeric one is counted by value:
+
+```bash
+$ sysml -action MC::route -runs 8 -seed 7 -observe taken -observe clock mc.sysml
+✓ package MC
+runs MC::route — 8 run(s), seed 7
+run | taken | clock                  | time
+----+-------+------------------------+--------
+1   | 1     | 45.771104597451966 [s] | 5.056ms
+2   | 1     | 18.029229676573745 [s] | 6.089ms
+…
+taken: 8 run(s), min 1, mean 1.25, max 2, p50 1, p90 2
+  1 ###############      6
+  2 #####                2
+clock: 8 run(s), min 18.029229676573745 [s], mean 43.490366063934395 [s], max 75.88725335563454 [s], p50 35.38279454977086 [s], p90 75.88725335563454 [s]
+  18.03..25.26 [s] ###                  1
+  …
+  standing: table (observed: 8 rows)
+```
+
+The runs are the rows of a [sweep](#sweeping-a-parameter) plan with no range: they run `-jobs`
+at a time, a run that fails is a numbered row with its error under the table, the plan is
+bounded by `OPENSYSML_MAX_SWEEP_RUNS`, and with `-json` they are the check's `rows`, each run's
+number its one input, `run`. `-schedule` is the second, independent knob: it resolves the
+concurrency choices — which carry no probability — in every run alike, and `replay:<file>`,
+which is one run, is refused with `-runs`. `-runs` needs exactly one `-action` and `-seed`, and
+is refused with `-sweep`, `-samples`, `-advance`, `-state`, `-check-property`, `-check-diverge`
+or `-check-input`.
+
+`-seed` alone seeds the one run an invocation makes: `sysml -action MC::route -seed 7` draws the
+model's values from `7` whatever `-schedule` shuffles the tokens with, so `-schedule declared
+-seed 7` and `-schedule seed:3 -seed 7` make the same draws in two token orders. Without any
+seed a run that must draw a value is refused —
+`modeled randomness needs a seed: uniform(0.0, 10.0) draws a random value; seed the run, as
+-seed <n> or %seed <n>, or schedule it under seed:<n>` — while a weighted decision takes its most
+probable branch, so an unseeded run stays deterministic; `-schedule seed:<n>` with no `-seed`
+draws the model's values from `n` too, on a stream of its own. Every draw is recorded in the
+witness the checker writes, as `draw <call> = <value>` lines, and `-schedule replay:<file>`
+consumes them instead of drawing again.
+
 ## Exploring every linearization
 
 Where a behavior has [choice points](../guide/06-behavior.md) — several steppable tokens in one
@@ -1208,7 +1263,8 @@ the `disagreements[]` the composition under `all` resolved (`stands`, `demoted`,
 `claim` and `strength`, `reason`). `results[]` holds one entry per engine that answered:
 `engine`, `claim`, `strength`, `bounds` (every bound the engine took, each with `name`, `limit`
 and whether it was `reached`), `witness` (the replayable execution behind a witnessed claim —
-its `schedule` and `choices` — or `null`), the `reason` of a result claiming nothing, and its
+its `schedule`, its `choices` and, when the run drew modeled randomness, its `draws` — or
+`null`), the `reason` of a result claiming nothing, and its
 `standing`. The verdict's `lines` end with the standing line. `results` is `[]` when no engine
 answered (every one refused), and a check decided before any engine was asked — a subject that
 did not resolve — carries neither key.
@@ -1371,9 +1427,9 @@ search is an action's alone), and a bound that is no positive integer (`-check-d
 
 With `-json` the check's `results[]` entry for the `check` engine carries, beside `claim`,
 `strength`, `bounds` and `witness`, a `check` object: `verdict`, `states`, `moves`, `depth`,
-`boundsHit[]`, `violations[]` (each with its `kind`, `detail`, `witness` choices and file
-`path`), `divergent[]` (each `feature` with its `values[]`, each with `value`, `witness` and
-`path`) and `outcomes[]`.
+`boundsHit[]`, `violations[]` (each with its `kind`, `detail`, `witness` choices, the `draws`
+the run made when it drew, and file `path`), `divergent[]` (each `feature` with its `values[]`,
+each with `value`, `witness`, `draws` and `path`) and `outcomes[]`.
 
 ### Deciding a property over the inputs
 

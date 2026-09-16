@@ -174,7 +174,7 @@ func (c *Compiler) compileCalcWith(sym *symbols.Symbol, fargs []funcValue) (*Fun
 		return nil, fc.unsupported(fmt.Sprintf("%d function values bound to %d `in calc` parameters", len(fargs), nextFn))
 	}
 
-	stmts := lower.CalcBody(sym.Decl, body, sym.Scope)
+	stmts := lower.CalcBodyWith(sym.Decl, body, sym.Scope, fc.c.resolver)
 	if !lower.Returns(stmts) {
 		return nil, fc.unsupported("a calc that binds `out` features rather than returning a value")
 	}

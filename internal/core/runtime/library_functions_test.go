@@ -1203,6 +1203,7 @@ var vendoredFunctionPackages = map[string]string{
 	"TrigFunctions":          "Kernel Libraries/Kernel Function Library/TrigFunctions.kerml",
 	"VectorFunctions":        "Kernel Libraries/Kernel Function Library/VectorFunctions.kerml",
 	"OpenSysMLMathFunctions": "OpenSysML Libraries/OpenSysMLMathFunctions.kerml",
+	"RandomFunctions":        "OpenSysML Libraries/RandomFunctions.kerml",
 }
 
 // Every function each vendored package declares, operator-named ones included,

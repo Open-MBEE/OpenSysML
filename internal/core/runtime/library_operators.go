@@ -296,7 +296,7 @@ func registerGenericExtrema() {
 // `max`/`min` do, and strings and quantities answer with the operand chosen.
 // A kind the library declares no ordering for is refused.
 func genericExtremum(larger bool) libraryApply {
-	extremum := numericScalars([]string{"x", "y"}, numericExtremum(larger), nil)
+	extremum := numericScalars([]string{"x", "y"}, pureScalars(numericExtremum(larger)), nil)
 	return func(name string, ctx *Context, args []Value) (Value, error) {
 		args, err := checkOperands(ctx, name, anyOperand, args)
 		if err != nil {

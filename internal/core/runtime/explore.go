@@ -49,22 +49,54 @@ type ChoiceTaken struct {
 	// or the state whose transition fired first.
 	Among []string
 	Took  string
+	// Weights are the probabilities the model states for the alternatives, one
+	// per alternative, for a weighted decision; nil for a choice it does not weight.
+	Weights []float64
+	// Drew is the unit draw that selected Taken among the Weights, when Drawn.
+	Drew  float64
+	Drawn bool
 }
 
+// Weighted reports whether the model weights the alternatives.
+func (c ChoiceTaken) Weighted() bool { return len(c.Weights) == c.Alternatives && c.Alternatives > 0 }
+
 // String renders the choice for a table or a failure message, as ParseChoice
-// reads it back: a name the line's own punctuation occurs in is quoted.
+// reads it back: a name the line's own punctuation occurs in is quoted, and a
+// weighted branch carries the alternatives with their weights and the draw.
 func (c ChoiceTaken) String() string {
 	switch c.Kind {
 	case ChoiceTokenOrder:
 		return fmt.Sprintf("step %d: %s first of %s", c.Step, choiceLabel(c.Took), choiceLabels(c.Among))
 	case ChoiceDecisionBranch:
-		return fmt.Sprintf("step %d: %s -> %s", c.Step, choiceLabel(c.Where), choiceLabel(c.Took))
+		return fmt.Sprintf("step %d: %s -> %s%s", c.Step, choiceLabel(c.Where), choiceLabel(c.Took), c.weightedTail())
 	case ChoiceTransition:
-		return fmt.Sprintf("%s -> %s", choiceLabel(c.Where), choiceLabel(c.Took))
+		return fmt.Sprintf("%s -> %s%s", choiceLabel(c.Where), choiceLabel(c.Took), c.weightedTail())
 	case ChoiceRegionOrder, ChoiceDueOrder, ChoiceDispatchOrder:
 		return fmt.Sprintf("%s: %s first of %s", choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
 	}
 	return fmt.Sprintf("%s -> %s", c.Kind, choiceLabel(c.Took))
+}
+
+// weightedTail spells what a weighted choice carries past the branch taken —
+// ` among <alt> p=<w>, …` and ` drew <u>` when a draw selected it — "" for an unweighted one.
+func (c ChoiceTaken) weightedTail() string {
+	if !c.Weighted() || len(c.Among) != len(c.Weights) {
+		return ""
+	}
+	tail := markAmong + weightedLabels(c.Among, c.Weights)
+	if c.Drawn {
+		tail += markDrew + formatWeight(c.Drew)
+	}
+	return tail
+}
+
+// weightedLabels spells the alternatives with their weights, `<alt> p=<w>, …`.
+func weightedLabels(among []string, weights []float64) string {
+	parts := make([]string, len(among))
+	for i, alt := range among {
+		parts[i] = choiceLabel(alt) + markWeight + formatWeight(weights[i])
+	}
+	return strings.Join(parts, markList)
 }
 
 // FormatChoices renders a witness as one line, its choices in run order.
@@ -388,6 +420,9 @@ func (s exploreSlot) asChoice() ChoiceTaken {
 		c.Kind, c.Step, c.Where, c.Among = s.choice.Kind, s.choice.Step, s.choice.Where, s.choice.Alternatives
 		if s.taken < len(s.choice.Alternatives) {
 			c.Took = s.choice.Alternatives[s.taken]
+		}
+		if s.choice.Weighted() {
+			c.Weights, c.Drew, c.Drawn = slices.Clone(s.choice.Weights), s.choice.Drew, s.choice.Drawn
 		}
 	}
 	if c.Took == "" {

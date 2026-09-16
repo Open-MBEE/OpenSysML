@@ -2,6 +2,7 @@ package lower
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -39,15 +40,16 @@ type StateBehaviors struct {
 }
 
 // LowerBehaviors lowers the actions of an entry, do or exit member, or the
-// effects of a transition, in the scope they were declared in.
-func LowerBehaviors(actions []ast.Node, scope *symbols.Scope) []StateBehavior {
+// effects of a transition, in the scope they were declared in. resolver is the
+// name-resolution tier's, by which a body's Probability metadata is read (ToActionGraphWith).
+func LowerBehaviors(actions []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) []StateBehavior {
 	if len(actions) == 0 {
 		return nil
 	}
 	behaviors := make([]StateBehavior, 0, len(actions))
 	for _, action := range actions {
 		if actual := unwrapMembership(action); actual != nil {
-			behaviors = append(behaviors, lowerStateBehavior(actual, scope))
+			behaviors = append(behaviors, lowerStateBehavior(actual, scope, resolver))
 		}
 	}
 	return behaviors
@@ -55,7 +57,7 @@ func LowerBehaviors(actions []ast.Node, scope *symbols.Scope) []StateBehavior {
 
 // lowerStateBehavior lowers one behavior into the statements it states: the
 // statements of an inline action body, or the one statement every other form is.
-func lowerStateBehavior(action ast.Node, scope *symbols.Scope) StateBehavior {
+func lowerStateBehavior(action ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) StateBehavior {
 	behavior := StateBehavior{Node: action, Scope: scope}
 	switch node := action.(type) {
 	case *ast.Usage:
@@ -80,7 +82,7 @@ func lowerStateBehavior(action ast.Node, scope *symbols.Scope) StateBehavior {
 		case node.Kind == ast.UsageAction && node.HasBody:
 			// The body is a namespace of its own, so its locals are declared in the
 			// block's frame rather than in the state machine's data.
-			behavior.Body = []Statement{lowerBehaviorBody(node, childScope(scope, node))}
+			behavior.Body = []Statement{lowerBehaviorBody(node, childScope(scope, node), resolver)}
 		default:
 			behavior.Body = []Statement{Effect{Kind: EffectPerform, Node: node, Scope: scope}}
 		}
@@ -98,11 +100,11 @@ func lowerStateBehavior(action ast.Node, scope *symbols.Scope) StateBehavior {
 // successions or control nodes is the token flow a standalone action's body is
 // (ToActionGraph), starting at its one unpreceded node where no `first` says;
 // one stating none runs its statements in declaration order.
-func lowerBehaviorBody(node *ast.Usage, scope *symbols.Scope) Statement {
+func lowerBehaviorBody(node *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver) Statement {
 	if !statesOwnFlow(node.Members) {
 		return lowerBlock(node, node.Members, scope)
 	}
-	graph, err := ToActionGraph(node, scope)
+	graph, err := ToActionGraphWith(node, scope, resolver)
 	if err != nil {
 		return Unsupported{
 			Description: "the flow the body states: " + err.Error(),
