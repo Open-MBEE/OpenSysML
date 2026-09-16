@@ -230,7 +230,7 @@ export class DiagramPanels implements vscode.Disposable {
     if (!editor) {
       editor = await vscode.window.showTextDocument(uri, { preview: false });
     }
-    const views = view !== undefined ? [view] : await this.chosenViews(uri, editor.selection.active, true);
+    const views = view !== undefined ? [view] : await this.chosenViews(uri, editor, true);
     for (const chosen of views) {
       this.show(uri, chosen);
     }
@@ -253,7 +253,7 @@ export class DiagramPanels implements vscode.Disposable {
       editor: editor && activeEditorInfo(editor),
     });
     if (wanted && editor) {
-      void this.chosenViews(editor.document.uri, editor.selection.active, false).then((views) => {
+      void this.chosenViews(editor.document.uri, editor, false).then((views) => {
         for (const chosen of views) {
           this.show(editor.document.uri, chosen);
         }
@@ -263,14 +263,15 @@ export class DiagramPanels implements vscode.Disposable {
 
   // chosenViews is what is drawn of a document: the view the document, the
   // cursor or an earlier choice decides, else — when asking is allowed — what the
-  // user picks. Empty when nothing decides and nothing is picked.
-  private async chosenViews(docURI: vscode.Uri, cursor: vscode.Position | undefined, ask: boolean): Promise<string[]> {
+  // user picks. Empty when nothing decides and nothing is picked. The cursor is
+  // read after the listing returns: an editor just made active still restores it.
+  private async chosenViews(docURI: vscode.Uri, editor: vscode.TextEditor, ask: boolean): Promise<string[]> {
     const client = this.client;
     if (!client) {
       return [""];
     }
     const { declared, pseudo } = await listViews(client, docURI.toString(), this.output);
-    const choice = chooseView(declared, pseudo, cursor, this.rememberedView(docURI));
+    const choice = chooseView(declared, pseudo, editor.selection.active, this.rememberedView(docURI));
     if (choice.view !== undefined) {
       return [choice.view];
     }
@@ -478,7 +479,7 @@ export class DiagramPanels implements vscode.Disposable {
       },
     });
     this.panels.set(key, diagram);
-    this.retitle(docURI);
+    this.retitle(docURI, true);
   }
 
   // retarget re-keys a panel that moves to another view. When another panel
@@ -503,9 +504,14 @@ export class DiagramPanels implements vscode.Disposable {
     return true;
   }
 
-  // retitle names a document's panels by view once it has more than one.
-  private retitle(docURI: vscode.Uri): void {
+  // retitle names a document's panels by view once it has more than one. A
+  // panel gained keeps a longer title it was restored with: the document's other
+  // panels are restored only once shown, so they may not be known yet.
+  private retitle(docURI: vscode.Uri, gained = false): void {
     const panels = this.panelsOf(docURI);
+    if (gained && panels.length < 2) {
+      return;
+    }
     for (const panel of panels) {
       panel.setTitle(panels.length > 1 ? `Diagram: ${basename(docURI)} — ${viewTitle(panel.selectedView())}` : `Diagram: ${basename(docURI)}`);
     }
