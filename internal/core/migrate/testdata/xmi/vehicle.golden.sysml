@@ -15,7 +15,7 @@ package 'Vehicle Design' {
             green;
             blue;
         }
-        attribute def StartSignal {
+        item def StartSignal {
             attribute key : ScalarValues::Integer;
         }
     }
@@ -90,7 +90,7 @@ package 'Vehicle Design' {
         in attribute limit : 'Vehicle Design'::'Value Types'::Mass;
         m < limit
     }
-    individual def myCar :> Vehicle {
+    individual part def myCar :> Vehicle {
         attribute :>> mass = 1350.5;
         attribute :>> color = 'Vehicle Design'::'Value Types'::Color::blue;
     }
