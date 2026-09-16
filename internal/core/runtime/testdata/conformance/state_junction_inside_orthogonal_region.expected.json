@@ -1,0 +1,11 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Go"}, {"signal": "Stop"}],
+	"finalState": "done",
+	"stateVisits": ["idle", "both", "l1", "r0", "done"],
+	"outputs": {
+		"x": {"type": "Integer", "value": 0},
+		"log": {"type": "String", "value": "go(effect);both(entry);split(effect);l1(entry);r0(entry);both(exit);"}
+	}
+}
