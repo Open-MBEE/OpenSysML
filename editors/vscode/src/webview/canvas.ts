@@ -3,7 +3,7 @@
 // carry the edge and the waypoint or segment they stand on; the panel script
 // reads those attributes off whatever the pointer lands on.
 import type { RenderPoint } from "../protocol";
-import { CanvasLayout, FONT_SIZE, MARGIN, movable, PlacedEdge, PlacedNode, steerable } from "./layout";
+import { CanvasLayout, FONT_SIZE, liftedEdges, MARGIN, movable, PlacedEdge, PlacedNode, steerable } from "./layout";
 
 const SVG = "http://www.w3.org/2000/svg";
 const LINE_HEIGHT = 18;
@@ -53,12 +53,8 @@ export function drawCanvas(layout: CanvasLayout): SVGSVGElement {
   return svg;
 }
 
-/**
- * liftNode floats a drawn node and its descendants by (dx, dy) over the rest of the
- * canvas, which stays where the layout put it; the groups moved are marked `lifted`.
- * The canvas grows rightward and downward as far as the lifted node reaches, so it
- * is not clipped, and no further, so nothing under it shifts.
- */
+// liftNode floats a node, its descendants and the edges at them by (dx, dy) over a canvas that
+// stays put, the groups moved marked `lifted`; the canvas grows right and down to keep them in view.
 export function liftNode(svg: SVGSVGElement, layout: CanvasLayout, id: string, dx: number, dy: number): void {
   const entry = layout.nodes.get(id);
   if (!entry) {
@@ -80,6 +76,20 @@ export function liftNode(svg: SVGSVGElement, layout: CanvasLayout, id: string, d
     }
   };
   lift(entry);
+  for (const edge of liftedEdges(layout, id, dx, dy)) {
+    const drawn = drawEdge(edge);
+    drawn.classList.add("lifted");
+    svg.querySelector(`g.opensysml-edge[data-edge="${edge.index}"]`)?.replaceWith(drawn);
+    if (steerable(layout, edge)) {
+      const handles = drawHandles(edge);
+      handles.classList.add("lifted");
+      svg.querySelector(`g.edge-handles[data-edge="${edge.index}"]`)?.replaceWith(handles);
+    }
+    for (const point of edge.points) {
+      right = Math.max(right, point.x + MARGIN);
+      bottom = Math.max(bottom, point.y + MARGIN);
+    }
+  }
   const width = right - layout.origin.x;
   const height = bottom - layout.origin.y;
   svg.setAttribute("width", String(width));

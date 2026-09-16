@@ -256,8 +256,12 @@ view is picked, or a document it imports is edited. The panel numbers every
 drawing it posts to the webview, every action the webview sends back carries the
 number of the drawing its ids came from, and an action whose number is not the
 current drawing's is refused before its ids are resolved, with the same message.
-A restored panel draws its saved rendering as drawing zero until the server draws
-again, and zero is never current, so an action taken on it is refused the same way.
+The webview takes a drawing's number only once it has drawn it: a drawing that
+fails to draw leaves the last one up, dimmed, and the last one's number with it, so
+an action taken on what is still shown is refused rather than resolved against the
+rendering the panel holds. A restored panel draws its saved rendering as drawing
+zero until the server draws again, and zero is never current, so an action taken on
+it is refused the same way.
 Each other document's `TextDocumentEdit` carries the version the server computed it
 against; the language client library applies edits without checking that, so the
 panel does. A document the edit names that no buffer holds is opened first and the
@@ -389,7 +393,11 @@ it is held. While <kbd>Shift</kbd> is down the canvas is not laid out again arou
 the node's new place — an owner's box growing out to keep the node, and its
 neighbours shuffling aside, would carry the target away from under the pointer —
 but stays as the model laid it out, with the dragged subtree floating over it
-(`liftNode` in `src/webview/canvas.ts`). The node under the pointer — the innermost,
+(`liftNode` in `src/webview/canvas.ts`). The edges at the subtree float with it: one
+between two of its nodes moves whole, waypoints and label included, as the `setRoute`
+a release writes will move it; one crossing the subtree's border keeps its waypoints,
+which stay the model's, and is re-anchored on its lifted end (`liftedEdges` in
+`src/webview/layout.ts`). The node under the pointer — the innermost,
 latest-drawn box of that layout holding the point, with the dragged subtree passed
 over (`nodeUnder` in `src/webview/layout.ts`) — is judged by the same `moveDestinations` filter the
 **Move to…** menu is built from (`src/edits.ts`: the body admits the node's

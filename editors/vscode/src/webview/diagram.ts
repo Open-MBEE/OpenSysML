@@ -109,8 +109,10 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
       fillPicker(message.views, message.selected);
       return;
     case "render":
-      drawn = message.drawn;
-      draw(message.result);
+      // The number names what is on screen; a drawing that failed left the last one up.
+      if (draw(message.result)) {
+        drawn = message.drawn;
+      }
       return;
     case "error":
       showError(message.message);
@@ -166,9 +168,10 @@ function showUndrawable(views: PickerEntry[]): void {
   }
 }
 
-// draw replaces the diagram with the rendering. A failure to draw leaves the last
-// diagram up, dimmed, so a mid-keystroke parse error does not blank the panel.
-function draw(result: RenderResult): void {
+// draw replaces the diagram with the rendering and reports whether it did. A failure
+// to draw leaves the last diagram up, dimmed, so a mid-keystroke parse error does not
+// blank the panel.
+function draw(result: RenderResult): boolean {
   cancelGesture();
   try {
     if (result.form === "mermaid") {
@@ -193,10 +196,12 @@ function draw(result: RenderResult): void {
     hideMenu();
     showPalette(result.palette);
     kindLabel.textContent = describe(result);
+    return true;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     showError(message);
     vscode.postMessage({ type: "failed", message });
+    return false;
   }
 }
 

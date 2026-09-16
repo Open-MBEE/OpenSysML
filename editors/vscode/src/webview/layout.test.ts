@@ -8,6 +8,7 @@ import {
   insertedWaypoint,
   labelLines,
   layoutCanvas,
+  liftedEdges,
   MARGIN,
   movable,
   movedNode,
@@ -371,6 +372,37 @@ test("movedNode carries the placed descendants and inner routes along, leaving u
   ]);
   // Only the route between two nodes of the moved subtree moves with it.
   assert.deepEqual(placements.edges, [{ index: 0, route: [{ x: 150, y: 50 }] }]);
+});
+
+test("liftedEdges moves an edge within the lifted subtree whole and keeps a crossing edge's waypoints, re-anchored at its lifted end", () => {
+  const layout = layoutCanvas(rendering(
+    [
+      node("a", "a", { x: 0, y: 0 }),
+      node("b", "b", { parent: "a", x: 20, y: 60 }),
+      node("c", "c", { parent: "a" }),
+      node("d", "d"),
+    ],
+    [
+      { from: "b", to: "c", label: "", kind: "connection", fqn: "M::bc", route: [{ x: 50, y: 50 }] },
+      { from: "b", to: "d", label: "", kind: "connection", fqn: "M::bd", route: [{ x: 70, y: 70 }] },
+      { from: "d", to: "d", label: "", kind: "connection", fqn: "M::dd" },
+    ],
+  ));
+  const lifted = liftedEdges(layout, "a", 100, 30);
+  // The edge between two nodes outside the subtree is not touched.
+  assert.deepEqual(lifted.map((edge) => edge.index), [0, 1]);
+  const [inner, crossing] = lifted;
+  const shift = (points: { x: number; y: number }[]) => points.map((p) => ({ x: p.x + 100, y: p.y + 30 }));
+  assert.deepEqual(inner.points, shift(layout.edges[0].points));
+  assert.deepEqual(inner.route, [{ x: 150, y: 80 }]);
+  assert.deepEqual(inner.label, { x: layout.edges[0].label.x + 100, y: layout.edges[0].label.y + 30 });
+  // The crossing edge keeps the model's waypoint and its anchor on d; its anchor on b moves with b.
+  assert.deepEqual(crossing.route, [{ x: 70, y: 70 }]);
+  assert.deepEqual(crossing.points.at(-1), layout.edges[1].points.at(-1));
+  const b = layout.nodes.get("b")!.box;
+  assert.deepEqual(crossing.points[0], anchor({ ...b, x: b.x + 100, y: b.y + 30 }, { x: 70, y: 70 }));
+  // A node the layout does not hold lifts no edge.
+  assert.deepEqual(liftedEdges(layout, "z", 1, 1), []);
 });
 
 test("movedNode refuses a node no Layout can name", () => {

@@ -140,11 +140,11 @@ func (d *machineDocs) in(owner ast.Node) string {
 	return d.machine
 }
 
-// declaredIn is the document the declaration a vertex of machine was lowered
-// from is written in: the symbol's declaring it, else fallback, the document
-// of the body holding it.
-func (r *Renderer) declaredIn(machine *symbols.Symbol, decl ast.Node, fallback string) string {
-	if sym, ok := r.model.SymbolDeclaring(documentScope(machine), decl); ok && sym.DocName != "" {
+// declaredIn is the document the declaration a vertex or edge of elem, a machine
+// or action, was lowered from is written in: the symbol's declaring it, else
+// fallback, the document of the body holding it.
+func (r *Renderer) declaredIn(elem *symbols.Symbol, decl ast.Node, fallback string) string {
+	if sym, ok := r.model.SymbolDeclaring(documentScope(elem), decl); ok && sym.DocName != "" {
 		return sym.DocName
 	}
 	return fallback
@@ -421,8 +421,10 @@ type actionSubject struct {
 }
 
 // actionNode renders one lowered action: its nodes as nested nodes, its
-// successions and object flows as edges. A nested action declaring a body of its
-// own is lowered in turn, so the rendering shows the flow within it as well.
+// successions and object flows as edges, each located in the document declaring
+// it, which for one inherited from a general action may be another. A nested
+// action declaring a body of its own is lowered in turn, so the rendering shows
+// the flow within it as well.
 func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Rendering,
 	lowered map[ast.Node]bool, depth int) (*Node, bool) {
 	decl, kind, name, scope, doc := subject.decl, subject.kind, subject.name, subject.scope, subject.doc
@@ -441,14 +443,15 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	lowered[decl] = true
 	nodes := map[ast.Node]*Node{}
 	for _, node := range graph.Nodes {
+		in := r.declaredIn(subject.elem, node, doc)
 		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: nameText(behaviorNodeName(node)),
-			Type: nodeType(node), Origin: nodeOrigin(doc, node),
+			Type: nodeType(node), Origin: nodeOrigin(in, node),
 			Geometry: r.declaredGeometryOf(subject.view, subject.elem, node, out)}
 		nodes[node] = child
 		root.Children = append(root.Children, child)
 		if nested, ok := nestedAction(node); ok && depth < maxBehaviorDepth && !lowered[node] {
 			nestedSubject := actionSubject{decl: nested, kind: child.Kind, name: child.Name, typ: child.Type,
-				scope: actionScope(scope, nested), doc: doc, view: subject.view, elem: subject.elem}
+				scope: actionScope(scope, nested), doc: in, view: subject.view, elem: subject.elem}
 			sub, ok := r.actionNode(nestedSubject, ids, out, lowered, depth+1)
 			if ok {
 				child.Children, child.Detail = sub.Children, detailWith(child.Detail, "own flow")
@@ -465,16 +468,17 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 					nameText(behaviorNodeName(src)), name))
 				continue
 			}
+			in := r.declaredIn(subject.elem, edge.Decl, doc)
 			label := ""
 			if guard := edge.Guard; guard != nil {
-				if text := r.nodeText(doc, guard); text != "" {
+				if text := r.nodeText(in, guard); text != "" {
 					label = "[" + text + "]"
 				} else {
 					label = "[guard]"
 				}
 			}
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label, Kind: EdgeSuccession,
-				Origin: nodeOrigin(doc, edge.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, edge.Decl, out)})
+				Origin: nodeOrigin(in, edge.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, edge.Decl, out)})
 		}
 		for _, flow := range graph.DataFlows[src] {
 			to, ok := nodes[flow.Target]
@@ -484,7 +488,8 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 				continue
 			}
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: flowLabel(flow), Kind: EdgeFlow,
-				Origin: nodeOrigin(doc, flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out)})
+				Origin: nodeOrigin(r.declaredIn(subject.elem, flow.Decl, doc), flow.Decl),
+				Route:  r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out)})
 		}
 	}
 	if len(root.Children) == 0 {
