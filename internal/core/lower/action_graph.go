@@ -363,10 +363,11 @@ func terminateTarget(m *ast.TerminateStatement, scope *symbols.Scope) (ast.Node,
 	if node, _, found, _ := resolve.ActionNodeInScope(scope, qn); found {
 		return node, TerminateNode
 	}
-	if len(qn.Parts) > 1 {
-		return nil, TerminateUnknown
+	segments := make([]string, len(qn.Parts))
+	for i, part := range qn.Parts {
+		segments[i] = part.Text
 	}
-	sym, ok := resolve.FeatureSymbolInScope(scope, []string{qn.Parts[0].Text})
+	sym, ok := resolve.FeatureSymbolInScope(scope, segments)
 	if !ok {
 		return nil, TerminateUnknown
 	}

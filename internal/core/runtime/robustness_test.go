@@ -197,6 +197,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("terminate_of_an_ended_performance", testTerminateOfAnEndedPerformance)
 	t.Run("terminate_of_an_unknown_name", testTerminateOfAnUnknownName)
 	t.Run("terminate_of_a_non_action_feature", testTerminateOfANonActionFeature)
+	t.Run("terminate_of_a_qualified_occurrence", testTerminateOfAQualifiedOccurrence)
 	t.Run("terminate_of_an_occurrence_expression", testTerminateOfAnOccurrenceExpression)
 	t.Run("terminate_of_a_node_of_a_sibling_flow", testTerminateOfANodeOfASiblingFlow)
 	t.Run("calc_assignment_outside_the_calc", testCalcAssignmentOutsideTheCalc)
@@ -11456,6 +11457,23 @@ func testTerminateOfANonActionFeature(t *testing.T) {
 			out attribute x : Integer = 0;
 			first start;
 			then action c1 { terminate x; }
+			then done;
+		}
+	}`)
+	if !errors.Is(err, ErrTerminateOccurrence) {
+		t.Fatalf("error = %v, want ErrTerminateOccurrence", err)
+	}
+}
+
+// testTerminateOfAQualifiedOccurrence: a qualified name reaching an occurrence that is
+// no action node is the occurrence refusal, as the simple name is, not an unknown target.
+func testTerminateOfAQualifiedOccurrence(t *testing.T) {
+	_, err := executeActionSource(t, "host", `package test {
+		part def V;
+		part victim : V;
+		action host {
+			first start;
+			then action c1 { terminate test::victim; }
 			then done;
 		}
 	}`)
