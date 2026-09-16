@@ -136,7 +136,9 @@ func (e *ActionExecutor) ongoing(parent *actionFrame, node ast.Node) []*actionFr
 		for f := token.frame; f != nil; f = f.parent {
 			add(f, token.ID)
 		}
-		add(token.performing(), token.ID)
+		for _, f := range token.performed() {
+			add(f, token.ID)
+		}
 	}
 	slices.SortFunc(found, func(a, b *actionFrame) int {
 		return cmp.Or(cmp.Compare(a.began, b.began), cmp.Compare(holder[a], holder[b]))
@@ -144,15 +146,23 @@ func (e *ActionExecutor) ongoing(parent *actionFrame, node ast.Node) []*actionFr
 	return found
 }
 
-// performing returns the leaf node's performance the token's paused step holds, nil for none.
-func (t Token) performing() *actionFrame {
+// performed returns the performances the token's paused step holds: the node it steps,
+// then each node a body statement of it was performing when it paused, outermost first.
+func (t Token) performed() []*actionFrame {
 	if t.body == nil {
 		return nil
 	}
+	var held []*actionFrame
 	if w, ok := t.body.work.(*usageWork); ok {
-		return w.perf
+		held = append(held, w.perf)
 	}
-	return nil
+	cursor := t.body.cursor
+	for i := len(cursor) - 1; i >= 0; i-- {
+		if f, ok := cursor[i].(*performFrame); ok && f.perf != nil {
+			held = append(held, f.perf)
+		}
+	}
+	return held
 }
 
 // nestedIn reports whether f is perf or a performance nested in it.
@@ -239,19 +249,27 @@ func (e *ActionExecutor) endOther(perf *actionFrame) error {
 		e.dropTokensIn(perf, keep)
 		return e.leaveTerminated(e.tokenIndex(keep), perf)
 	}
-	// A leaf node's performance outlives a step only paused: the token at the node holds it.
+	// A leaf node's performance outlives a step only paused: the token at the node holds
+	// it, stepping the node or performing it from a statement of the body it runs.
 	for i := range e.tokens {
 		token := &e.tokens[i]
-		if token.performing() != perf {
+		if token.body == nil {
 			continue
 		}
-		token.body.end(e.ctx)
-		token.body = nil
-		e.dropTokensIn(perf, 0)
-		if err := e.endPerformance(perf); err != nil {
-			return err
+		if w, ok := token.body.work.(*usageWork); ok && w.perf == perf {
+			token.body.end(e.ctx)
+			token.body = nil
+			e.dropTokensIn(perf, 0)
+			if err := e.endPerformance(perf); err != nil {
+				return err
+			}
+			return e.completeNode(i, perf)
 		}
-		return e.completeNode(i, perf)
+		if token.body.endPerformed(e.ctx, perf) {
+			e.dropTokensIn(perf, 0)
+			perf.live = 0
+			return e.endPerformance(perf)
+		}
 	}
 	return fmt.Errorf("%w: %s is performed by a body statement, which a terminate outside it cannot end",
 		ErrTerminateTarget, perf.describe())

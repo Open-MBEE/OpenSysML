@@ -105,7 +105,11 @@ func (f *loopFrame) spell(s *stateSpeller) string {
 }
 
 func (f *performFrame) spell(s *stateSpeller) string {
-	return fmt.Sprintf("perform %s phase %d", s.frameLabel(f.perf), f.phase)
+	ended := ""
+	if f.ended {
+		ended = " ended"
+	}
+	return fmt.Sprintf("perform %s phase %d%s", s.frameLabel(f.perf), f.phase, ended)
 }
 
 func (f *subflowFrame) spell(s *stateSpeller) string {

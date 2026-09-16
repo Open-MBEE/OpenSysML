@@ -467,7 +467,8 @@ func (c actionCapture) restore() {
 }
 
 // reachableFrames lists every performance the executor's run may still touch:
-// the root's tree of latest performances, and those its tokens run in.
+// the root's tree of latest performances, those its tokens run in and those
+// their paused bodies hold.
 func (e *ActionExecutor) reachableFrames() []*actionFrame {
 	seen := make(map[*actionFrame]bool)
 	var frames []*actionFrame
@@ -484,6 +485,9 @@ func (e *ActionExecutor) reachableFrames() []*actionFrame {
 	visit(e.root)
 	for _, token := range e.tokens {
 		visit(token.frame)
+		for _, perf := range token.performed() {
+			visit(perf)
+		}
 	}
 	visit(e.awaiting)
 	return frames
