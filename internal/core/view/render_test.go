@@ -28,22 +28,32 @@ func loadFixture(t *testing.T, file string) (*Renderer, *symbols.Index) {
 // loadFixtures loads several testdata files as separate documents of one model.
 func loadFixtures(t *testing.T, files ...string) (*Renderer, *symbols.Index) {
 	t.Helper()
-	idx := libs.NewModelIndex()
-	sources := make(map[string]*source.SourceFile, len(files))
-	for _, file := range files {
+	contents := make([][]byte, len(files))
+	for i, file := range files {
 		path := filepath.Join("testdata", file)
 		content, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatalf("read %s: %v", path, err)
 		}
-		sf := source.New(file, content)
+		contents[i] = content
+	}
+	return loadSources(t, files, contents)
+}
+
+// loadSources loads documents given by name and content as one model.
+func loadSources(t *testing.T, names []string, contents [][]byte) (*Renderer, *symbols.Index) {
+	t.Helper()
+	idx := libs.NewModelIndex()
+	sources := make(map[string]*source.SourceFile, len(names))
+	for i, name := range names {
+		sf := source.New(name, contents[i])
 		p := parser.New(sf)
 		root := p.ParseFile()
 		for _, diag := range p.Diagnostics {
-			t.Fatalf("%s: parse diagnostic: %v", file, diag)
+			t.Fatalf("%s: parse diagnostic: %v", name, diag)
 		}
-		idx.AddDocument(file, root)
-		sources[file] = sf
+		idx.AddDocument(name, root)
+		sources[name] = sf
 	}
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
