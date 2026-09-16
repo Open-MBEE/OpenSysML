@@ -262,17 +262,35 @@ func (run *runState) NoteCount() int {
 	return len(run.notes)
 }
 
+// NotesSince returns the notes made since mark, a NoteCount read earlier, copying
+// only those.
+func (run *runState) NotesSince(mark int) []RunNote {
+	if mark < 0 {
+		mark = 0
+	}
+	if run == nil || mark >= len(run.notes) {
+		return nil
+	}
+	return slices.Clone(run.notes[mark:])
+}
+
 // Notes returns what the executor's run noted so far, in order; see Context.Notes.
 func (e *ActionExecutor) Notes() []RunNote { return e.driven.state.Notes() }
 
 // NoteCount is how many notes the executor's run has made so far.
 func (e *ActionExecutor) NoteCount() int { return e.driven.state.NoteCount() }
 
+// NotesSince returns what the executor's run noted since mark, a NoteCount read earlier.
+func (e *ActionExecutor) NotesSince(mark int) []RunNote { return e.driven.state.NotesSince(mark) }
+
 // Notes returns what the executor's run noted so far, in order; see Context.Notes.
 func (e *StateExecutor) Notes() []RunNote { return e.driven.state.Notes() }
 
 // NoteCount is how many notes the executor's run has made so far.
 func (e *StateExecutor) NoteCount() int { return e.driven.state.NoteCount() }
+
+// NotesSince returns what the executor's run noted since mark, a NoteCount read earlier.
+func (e *StateExecutor) NotesSince(mark int) []RunNote { return e.driven.state.NotesSince(mark) }
 
 // Choices returns the choice points made since the latest run began, in order.
 func (ctx *Context) Choices() []ChoicePoint {

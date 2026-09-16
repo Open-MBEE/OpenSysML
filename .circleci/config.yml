@@ -1258,9 +1258,6 @@ jobs:
             BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
             GO_VERSION=$(go version | awk '{print $3}')
             
-            # Static binaries: a host-linked libc would pin the release to the builder's glibc.
-            export CGO_ENABLED=0
-            
             # Build for multiple platforms using make
             mkdir -p dist
             
@@ -1355,6 +1352,16 @@ jobs:
             (cd grpc && sha256sum sysml-grpc-* >> ../SHA256SUMS.txt)
             (cd grpc && for f in sysml-grpc-*; do sha256sum "$f" > "$f.sha256"; done)
             cat SHA256SUMS.txt
+
+      # A Linux binary linked against this executor's glibc would not start on
+      # older distributions; the Makefile builds without cgo, and this proves it.
+      - run:
+          name: Verify the Linux binaries are statically linked
+          command: |
+            scripts/check-static-binaries.sh \
+              dist/sysml-linux-amd64 dist/sysml-linux-arm64 \
+              dist/sysml-lsp-linux-amd64 dist/sysml-lsp-linux-arm64 \
+              dist/grpc/sysml-grpc-linux-amd64 dist/grpc/sysml-grpc-linux-arm64
 
       # Signs the manifest keylessly: the certificate identity comes from this
       # job's CircleCI OIDC token, so there is no signing key to store.
@@ -1472,6 +1479,10 @@ jobs:
             cd dist/grpc
             for asset in sysml-grpc-*; do sha256sum "$asset" > "$asset.sha256"; done
             cat ./*.sha256
+
+      - run:
+          name: Verify the Linux binaries are statically linked
+          command: scripts/check-static-binaries.sh dist/grpc/sysml-grpc-linux-*
 
       - persist_to_workspace:
           root: .
