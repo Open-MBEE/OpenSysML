@@ -39,8 +39,7 @@ func (e *performances) terminate(perf *actionFrame, s lower.Effect) error {
 		if target.ended {
 			return fmt.Errorf("%w: %s", ErrPerformanceEnded, target.describe())
 		}
-		// A state behavior's or a case's own flow, run for its body, is no action performance to end.
-		if target.node == nil && (target.inBody || target.label != "") {
+		if target.node == nil && !e.owner.endsOwn() {
 			return fmt.Errorf("%w: 'terminate' of %s is not executable", ErrStatementNotExecutable, target.describe())
 		}
 	}
@@ -227,7 +226,7 @@ func (e *ActionExecutor) endAround(tokenIdx int, perf *actionFrame) error {
 	e.dropTokensIn(perf, id)
 	if perf == e.root {
 		e.removeToken(e.tokenIndex(id))
-		e.state = StateCompleted
+		e.state = StateTerminated
 		e.ctx.endPerformanceLife(e.occurrence)
 		return nil
 	}

@@ -1477,7 +1477,7 @@ func (ctx *Context) runPerformed(exec *ActionExecutor, top bool) error {
 // runPerformance runs a started performance to completion, leaving it on the
 // clock; a body around it pauses where it waits.
 func (ctx *Context) runPerformance(exec *ActionExecutor, top bool) error {
-	if exec.state != StateCompleted {
+	if !exec.state.Ended() {
 		if err := exec.RunToCompletion(); err != nil {
 			if paused(err) {
 				return err

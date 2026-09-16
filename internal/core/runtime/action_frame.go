@@ -38,6 +38,9 @@ type performanceOwner interface {
 	pauseAt(within []ast.Node, node ast.Node) error
 	// runOwnFlow runs the flow perf's node states of its own to completion.
 	runOwnFlow(perf *actionFrame) error
+	// endsOwn reports whether a terminate may end the root performance: an action's
+	// or a state behavior's ends at the statement; a case's own flow cannot be ended.
+	endsOwn() bool
 }
 
 // actionFrame is one performance: the action's own (node nil) or a nested node's.

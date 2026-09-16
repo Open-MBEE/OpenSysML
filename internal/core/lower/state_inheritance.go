@@ -373,6 +373,13 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 		state.Substates = append(state.Substates, child)
 	case *ast.Usage:
 		switch {
+		case IsTerminateUsage(m):
+			if !inherited {
+				state.Substates = append(state.Substates, m)
+				return nil
+			}
+			clone := *m
+			state.Substates = append(state.Substates, &clone)
 		case m.Kind == ast.UsageState && !parallel:
 			child, err := stateNodeFromUsage(g, m, scope)
 			if err != nil {

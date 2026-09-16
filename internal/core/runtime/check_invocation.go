@@ -196,7 +196,7 @@ func (inv *Invocation) Snapshot() (*Snapshot, error) {
 // Completed reports whether every started action reached its end.
 func (inv *Invocation) Completed() bool {
 	for _, exec := range inv.Actions {
-		if exec.state != StateCompleted {
+		if !exec.state.Ended() {
 			return false
 		}
 	}

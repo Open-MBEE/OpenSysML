@@ -227,6 +227,9 @@ func (h *calcStmtHost) runOwnFlow(perf *actionFrame) error {
 	return h.flow.runSubflow(perf)
 }
 
+// endsOwn refuses a terminate of the case's own performance: a case runs to its result.
+func (h *calcStmtHost) endsOwn() bool { return false }
+
 // runFlow runs the token flow a case body states with its successions and control
 // nodes, as the case's own performance; a calculation states none.
 func (h *calcStmtHost) runFlow(block lower.Block) (stmtFlow, error) {

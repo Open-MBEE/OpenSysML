@@ -759,9 +759,9 @@ func (ctx *Context) nextRunnableBehavior() (*ObjectBehavior, bool) {
 func (b *ObjectBehavior) hasPendingWork() bool {
 	switch {
 	case b.State != nil:
-		return b.State.State() != StateCompleted && (b.State.HasDueEvent() || b.State.HasPendingSignal())
+		return !b.State.State().Ended() && (b.State.HasDueEvent() || b.State.HasPendingSignal())
 	case b.Action != nil:
-		return b.Action.State() != StateCompleted && b.Action.HasPendingSignal()
+		return !b.Action.State().Ended() && b.Action.HasPendingSignal()
 	default:
 		return false
 	}

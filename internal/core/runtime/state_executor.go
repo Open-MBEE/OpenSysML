@@ -413,6 +413,12 @@ func StateVertexName(node ast.Node) string {
 		return n.Name
 	case *ast.PseudostateNode:
 		return n.Name
+	case *ast.Usage:
+		if lower.IsTerminateUsage(n) {
+			name, _ := ast.EffectiveName(n)
+			return name
+		}
+		return ""
 	default:
 		return ""
 	}
@@ -1026,7 +1032,7 @@ func (e *StateExecutor) dispatchInOrder(
 		if err != nil {
 			return acted, err
 		}
-		if e.state == StateCompleted {
+		if e.state.Ended() {
 			break
 		}
 	}
@@ -1956,6 +1962,37 @@ func (e *StateExecutor) completeMachine() error {
 	return nil
 }
 
+// terminateMachine ends the machine's performance at the terminate action a
+// transition reached (SysML v2 §7.18.3): no state is exited and no exit behavior
+// runs; the do behaviors under way are abandoned, and no state stays active.
+func (e *StateExecutor) terminateMachine(trans *lower.Transition, stop *ast.Usage) error {
+	name, _ := ast.EffectiveName(stop)
+	if e.trace() != nil {
+		e.trace().RecordStateTransition(StateVertexName(trans.Source), name, triggerName(trans.Trigger))
+	}
+	var abandoned []string
+	for _, act := range e.doActions {
+		abandoned = append(abandoned, act.state.Name)
+		if act.run != nil {
+			e.endDoRun(act.run)
+			act.run = nil
+		}
+	}
+	clear(e.doActions)
+	e.doActions = e.doActions[:0]
+	e.activeConfig.simpleState = nil
+	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
+	e.stateStack = nil
+	e.completionDue = false
+	e.machineExited = true
+	if e.trace() != nil {
+		e.trace().RecordStateTerminate(name, abandoned)
+	}
+	e.state = StateTerminated
+	e.ctx.endPerformanceLife(e.occurrence)
+	return nil
+}
+
 // scheduleCompletedComposites schedules the completion transitions of each
 // composite state that entering target completed, in region order.
 func (e *StateExecutor) scheduleCompletedComposites(target *ast.StateNode) error {
@@ -2289,6 +2326,9 @@ func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast
 	if err != nil {
 		return err
 	}
+	if r.terminate != nil {
+		return e.terminateAlong(r)
+	}
 	if err := e.runEffects(r.effects(e.graph), e.descendantChain(below, r.target)); err != nil {
 		return err
 	}
@@ -2313,13 +2353,16 @@ func (e *StateExecutor) defaultHistoryRoute(hist *ast.PseudostateNode, owner *as
 		return route{}, fmt.Errorf("default transition of history %s: %w", hist.Name, err)
 	}
 	for r.choice != nil {
-		targets, err := e.reachable(r)
+		targets, terminates, err := e.reachable(r)
 		if err != nil {
 			return route{}, err
 		}
-		certain := e.certainEntries(targets, func(target *ast.StateNode) []*ast.StateNode {
-			return e.descendantChain(owner, target)
-		})
+		var certain []*ast.StateNode
+		if !terminates {
+			certain = e.certainEntries(targets, func(target *ast.StateNode) []*ast.StateNode {
+				return e.descendantChain(owner, target)
+			})
+		}
 		if err := e.runEffects(r.effects(e.graph), certain); err != nil {
 			return route{}, err
 		}
@@ -3157,7 +3200,7 @@ func (e *StateExecutor) dispatchOne(progress *dueProgress) (bool, error) {
 	return true, nil
 }
 
-func (e *StateExecutor) finished() bool { return e.state == StateCompleted }
+func (e *StateExecutor) finished() bool { return e.state.Ended() }
 func (e *StateExecutor) running() bool  { return e.inRun }
 
 // runStep is one run-to-completion step (a do round, a risen change condition,
@@ -3956,7 +3999,7 @@ func (e *StateExecutor) initialize() (err error) {
 		if err := e.completeIfDone(e.activeConfig.regionStates[region]); err != nil {
 			return fmt.Errorf("complete state machine: %w", err)
 		}
-		if e.state == StateCompleted {
+		if e.state.Ended() {
 			break
 		}
 	}
@@ -4611,7 +4654,7 @@ func (e *StateExecutor) ProcessNextEvent() (err error) {
 // completedWhole makes a call of its own run that completed the machine return
 // the refusal of the witness moves left over, when the call itself did not fail.
 func (e *StateExecutor) completedWhole(err *error) {
-	if *err == nil && e.state == StateCompleted {
+	if *err == nil && e.state.Ended() {
 		*err = e.ctx.endedWhole(&e.driven)
 	}
 }

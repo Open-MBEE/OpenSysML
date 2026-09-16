@@ -248,9 +248,9 @@ func (b *ObjectBehavior) performanceOf(inst *Instance) bool {
 func (b *ObjectBehavior) completed() bool {
 	switch {
 	case b.Action != nil:
-		return b.Action.State() == StateCompleted
+		return b.Action.State().Ended()
 	case b.State != nil:
-		return b.State.State() == StateCompleted
+		return b.State.State().Ended()
 	}
 	return true
 }

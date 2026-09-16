@@ -338,7 +338,7 @@ func (e *StateExecutor) canStillProgress() bool {
 // SuspendReason says why a machine that cannot progress cannot: the change
 // conditions it waits on, or that nothing is left that could fire.
 func (e *StateExecutor) SuspendReason() string {
-	if e.state == StateCompleted || e.canStillProgress() {
+	if e.state.Ended() || e.canStillProgress() {
 		return ""
 	}
 	reason := "quiesced: nothing left can fire (no queued event, signal in flight, running do behavior or watched change condition)"

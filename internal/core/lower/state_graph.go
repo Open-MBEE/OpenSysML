@@ -92,6 +92,14 @@ type StateGraph struct {
 	// restores the configuration of its owner, so the owner must survive lowering.
 	PseudostateOwner map[*ast.PseudostateNode]*ast.StateNode
 
+	// Terminates are the machine's terminate action usages (`action stop terminate;`)
+	// in declaration order: a transition ending at one ends the machine's performance.
+	Terminates []*ast.Usage
+
+	// TerminateOwner: terminate action usage -> the composite state that declares
+	// it, absent for one declared directly in the machine.
+	TerminateOwner map[*ast.Usage]*ast.StateNode
+
 	// Transitions: source node (StateNode or PseudostateNode) → list of transitions
 	Transitions map[ast.Node][]*Transition
 
@@ -216,7 +224,7 @@ type Transition struct {
 	// reports where it comes from.
 	Decl    ast.Node
 	Source  ast.Node // *ast.StateNode or *ast.PseudostateNode
-	Target  ast.Node // *ast.StateNode or *ast.PseudostateNode
+	Target  ast.Node // *ast.StateNode, *ast.PseudostateNode or a terminate action *ast.Usage
 	Trigger ast.Node // TimeEvent, ChangeEvent, SignalEvent, CallEvent, nil = completion
 	Guard   ast.Node // guard expression, nil = no guard
 	// Effect are the transition's effect behaviors, lowered the same way a state's
@@ -574,6 +582,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		States:              make([]*ast.StateNode, 0),
 		Pseudostates:        make([]*ast.PseudostateNode, 0),
 		PseudostateOwner:    make(map[*ast.PseudostateNode]*ast.StateNode),
+		TerminateOwner:      make(map[*ast.Usage]*ast.StateNode),
 		Transitions:         make(map[ast.Node][]*Transition),
 		CompositeStates:     make(map[*ast.StateNode][]*ast.StateRegion),
 		CompositeStateOrder: make([]*ast.StateNode, 0),
@@ -766,6 +775,9 @@ func collectVertices(graph *StateGraph, members []ast.Node, scope *symbols.Scope
 				return err
 			}
 		case *ast.Usage:
+			if IsTerminateUsage(n) {
+				graph.addTerminate(n, scope, nil)
+			}
 			// `state <name> { … }`, parsed as a usage rather than a state node.
 			if n.Kind == ast.UsageState {
 				// The state node records the usage it came from, so its scope is the
@@ -869,6 +881,10 @@ func collectStateContents(graph *StateGraph, state *ast.StateNode, scope *symbol
 			// a nested pseudostate is not part of the graph at all.
 			graph.addPseudostate(child, scope)
 			graph.PseudostateOwner[child] = state
+		case *ast.Usage:
+			if IsTerminateUsage(child) {
+				graph.addTerminate(child, scope, state)
+			}
 		}
 	}
 
@@ -930,6 +946,9 @@ func collectRegionStates(graph *StateGraph, region *ast.StateRegion, parent *ast
 			state.NodeSpan = n.NodeSpan
 			graph.declOf[state] = n
 		case *ast.Usage:
+			if IsTerminateUsage(n) {
+				graph.addTerminate(n, scope, parent)
+			}
 			if n.Kind != ast.UsageState {
 				continue
 			}
@@ -1002,6 +1021,7 @@ func parallelOwnedMember(member ast.Node) bool {
 		case ast.UsageAttribute, ast.UsagePort, ast.UsageSuccession:
 			return true
 		}
+		return IsTerminateUsage(n)
 	}
 	return false
 }
@@ -1233,6 +1253,24 @@ func (g *StateGraph) addPseudostate(ps *ast.PseudostateNode, scope *symbols.Scop
 	g.recordDeclaredIn(ps, scope)
 }
 
+// IsTerminateUsage reports a terminate action usage (`action stop terminate;`),
+// which a state body declares as a vertex a transition may end at.
+func IsTerminateUsage(node ast.Node) bool {
+	usage, ok := node.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageAction && usage.IsTerminate
+}
+
+// addTerminate records a terminate action usage declared in scope as a vertex of
+// the graph, owned by the composite state declaring it, nil for the machine.
+func (g *StateGraph) addTerminate(usage *ast.Usage, scope *symbols.Scope, owner *ast.StateNode) {
+	g.Terminates = append(g.Terminates, usage)
+	g.putVertex(usage, usage)
+	g.recordDeclaredIn(usage, scope)
+	if owner != nil {
+		g.TerminateOwner[usage] = owner
+	}
+}
+
 // recordDeclaredIn records the scope of the body a declaration was written in.
 func (g *StateGraph) recordDeclaredIn(decl ast.Node, scope *symbols.Scope) {
 	if decl == nil || scope == nil {
@@ -1339,6 +1377,9 @@ const NotAVertexFormat = "transition endpoint %s names a %s that is not a vertex
 // VertexKind names what an endpoint reached in modelling terms, for a message a
 // modeller reads.
 func VertexKind(decl ast.Node) string {
+	if IsTerminateUsage(decl) {
+		return "terminate action"
+	}
 	switch decl.(type) {
 	case *ast.StateNode, *ast.SubstateMember, *ast.Usage:
 		return "state"

@@ -96,6 +96,19 @@ func (tr *TraceRecorder) RecordStateTransition(fromState, toState string, event 
 	}
 }
 
+// RecordStateTerminate records the machine's performance ending at the terminate
+// action stop, with the states whose do behaviors it abandoned.
+func (tr *TraceRecorder) RecordStateTerminate(stop string, abandoned []string) {
+	if !tr.enabled {
+		return
+	}
+	if len(abandoned) == 0 {
+		tr.entries = append(tr.entries, fmt.Sprintf("terminate: %s", stop))
+		return
+	}
+	tr.entries = append(tr.entries, fmt.Sprintf("terminate: %s (do behavior abandoned: %s)", stop, strings.Join(abandoned, ", ")))
+}
+
 // RecordStateEntry records entering a state with optional entry action execution.
 func (tr *TraceRecorder) RecordStateEntry(state string, hasEntryAction bool) {
 	if !tr.enabled {
