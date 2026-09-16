@@ -488,6 +488,14 @@ fn the_service_advertises_the_explore_schedule() {
 }
 
 #[test]
+fn the_service_advertises_the_object_a_behavior_is_performed_by() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    assert!(connection.capabilities().has("performer"));
+}
+
+#[test]
 fn the_service_advertises_the_final_clock_instant_of_its_execution_responses() {
     let Some(connection) = service_or_skip() else {
         return;

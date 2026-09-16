@@ -38,6 +38,7 @@
             "document_query",
             "render_document",
             "schedule",
+            "performer",
             "engines"
           ]
         }

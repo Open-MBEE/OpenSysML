@@ -100,6 +100,9 @@ type Session struct {
 	names      *nameTable                   // simple names of the documents, rebuilt when their scope trees change
 	instances  map[string]*runtime.Instance // FQN -> instance for %instantiate tracking
 	unnamed    []unnamedObject              // objects a later %instantiate of their name displaced, still addressed by id
+	// given are the declarations -instantiate named, in order: a fresh-run engine
+	// creates an object of each in every run, before the behaviors start.
+	given []string
 
 	// argMemo and nameMemo hold what command text parsed to, so a repeated
 	// invocation is evaluated without being parsed again.
@@ -311,7 +314,7 @@ func (s *Session) SetBudgets(budgets runtime.Budgets) error {
 		s.lost = lossOnBudgets(n)
 	}
 	s.instances = make(map[string]*runtime.Instance)
-	s.unnamed = nil
+	s.unnamed, s.given = nil, nil
 	s.endDebugSessions(boundsChanged)
 	return nil
 }
@@ -1120,7 +1123,7 @@ func (s *Session) clear() []string {
 		s.idxVersion = 0
 	}
 	s.instances = make(map[string]*runtime.Instance)
-	s.unnamed = nil
+	s.unnamed, s.given = nil, nil
 	s.lost = lost
 	s.endedAction, s.endedState = nil, nil
 	s.endDebugSessions(sessionReset)

@@ -151,6 +151,14 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			_, err := s.RunAnalysis(ctx, &pb.RunAnalysisRequest{Schedule: "declared"})
 			return err
 		}},
+		{"execute action performer", CapabilityPerformer, func(s *Service) error {
+			_, err := s.ExecuteAction(ctx, &pb.ExecuteActionRequest{PerformerSymbolId: "Wire::pair.craft"})
+			return err
+		}},
+		{"execute state performer", CapabilityPerformer, func(s *Service) error {
+			_, err := s.ExecuteState(ctx, &pb.ExecuteStateRequest{PerformerSymbolId: "Wire::pair.craft"})
+			return err
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -1,6 +1,7 @@
 package repl
 
 import (
+	"slices"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -89,6 +90,7 @@ func (s *Session) carryOverObjects(over carryover) []string {
 	dropped := held - len(kept) - len(keptUnnamed)
 	s.instances = kept
 	s.unnamed = keptUnnamed
+	s.given = slices.DeleteFunc(s.given, func(fqn string) bool { return kept[fqn] == nil })
 	var notices []string
 	if note := behaviorsRestartedNotice(restarted); note != "" {
 		notices = append(notices, note)

@@ -1076,6 +1076,27 @@ without the field whatever the run waited on. The response has no field to bound
 run goes as far as its waits require, and a machine that re-arms a timer forever ends at the
 event budget, as it does on the CLI without `-advance`.
 
+`performerSymbolId` names the object the action is performed by, as the CLI's
+`sysml -action "<action> <object>"` does: empty, the action runs outside any object, as every
+call above; the FQN of a part definition or usage creates an object of it for the run; and a
+path from such a declaration through its parts — `Mission::mission.vehicle`,
+`Fleet::convoy.escorts[2]` for a multi-valued part — creates the declaration and reaches the
+object at the end of the path, so the action's `this` is a part *inside* its assembly and the
+assembly's connectors reach it. Each explored run creates the declaration anew, and each
+outcome's `outputs` carry the object's attributes as the run left them under `this.`
+(`this.pinged`), beside the action's own, so runs that differ only in what they left the
+object holding are distinct outcomes. A path that reaches no object is the call's `error` —
+the feature the root has none of
+(`Mission::mission has no feature "pilot"`), a multi-valued part named without an index
+(`escorts of Fleet::convoy holds 2 objects: pick one by index`), an
+index past the end (`escorts[3] names none`), an object named by id (`performer #1 names an
+object by id, which a call creates none of`), or an unknown root (`symbol not found`) — or,
+under `"explore"`, the one failed outcome of every run. Objects the service's own session holds
+are never named this way: a request creates what it runs on. The field is advertised as the
+`performer` capability: a service withholding it refuses a non-empty `performerSymbolId` with
+`UNIMPLEMENTED`, since a service that predates the field would drop it and run the behavior
+outside any object.
+
 To report a decision's choice the engine reads the guards after the first holding one in a
 preview it undoes, so reading them costs and changes nothing. One it cannot evaluate there is
 not an alternative and not an error — a guard with no result is not true, so its branch is not
@@ -1163,6 +1184,17 @@ do assign fired := fired + 1; }`):
 $ … /ExecuteState -d '{"modelHash":"70ee…0c59","stateMachineSymbolId":"Test::Timer"}'
 {"statesVisited":["armed","done"],"finalContext":{"fired":{"intValue":"1"}},"finalTime":3}
 ```
+
+`performerSymbolId` names the object the machine runs on, spelled as `ExecuteAction`'s is —
+empty, a declaration's FQN, or a path from one such as `Mission::mission.vehicle` — with the
+same errors. When the object reached exhibits the machine (`exhibit state modes;` in the part
+definition of a vehicle, say), the call runs that exhibited machine rather than a second copy,
+so the object's own transitions, the messages its ports receive over the assembly's
+connectors and the features it assigns are the run's; an object exhibiting the machine under
+two usages is refused as ambiguous, since the call cannot tell which it means. An object not
+exhibiting the machine performs a fresh one, as an empty performer does outside any object.
+Under `"explore"` every run creates the object graph anew, so the machine is explored inside
+its assembly and each outcome's `outputs` are the object's features as that run left them.
 
 ### `EvaluateCalc`
 
@@ -1277,7 +1309,11 @@ for an analysis case the message says to use `RunAnalysis`.
 `symbolId` names an analysis or verification definition or usage. `subjectSymbolId` optionally names a part or
 usage to instantiate as the case's `subject`, as `VerifyRequirement` takes one; a usage that
 binds its own subject (`subject s = ship;`) needs none, and a definition or unbinding usage
-run without one is an in-body failure naming the subject. `arguments` is a positional list of
+run without one is an in-body failure naming the subject. The subject may also be a path from
+a declaration into its parts, `Fleet::convoy.lead` or `Fleet::convoy.escorts[2]`, spelled and
+refused as `ExecuteAction`'s `performerSymbolId` is: the declaration is instantiated and the
+case runs on the object the path reaches, so `instances` opens with that object and its
+features read as its assembly binds them. `arguments` is a positional list of
 `Value`s for the case's other `in` parameters in declaration order and `namedArguments` binds
 them by name; a parameter left without a value or default is an in-body failure. `outputs`
 are the case's `out` and `return` values as `EvaluateCalc` reports a usage's, a returned value
