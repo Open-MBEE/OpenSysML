@@ -32,9 +32,8 @@ func (ctx *Context) SharedVerdictsTaken() int {
 	return ctx.verdicts.taken
 }
 
-// verdictKey names one element checked one way on one shape. The kind keeps a
-// requirement checked directly apart from satisfactions of it, which bind its
-// subject to the object and report under their own kind.
+// verdictKey names one element checked one way on one shape: a requirement checked
+// directly and a satisfaction of it, which binds its subject, are two checks.
 type verdictKey struct {
 	element *symbols.Symbol
 	kind    string
