@@ -32,9 +32,12 @@ func (ctx *Context) SharedVerdictsTaken() int {
 	return ctx.verdicts.taken
 }
 
-// verdictKey names one element checked on one shape.
+// verdictKey names one element checked one way on one shape. The kind keeps a
+// requirement checked directly apart from satisfactions of it, which bind its
+// subject to the object and report under their own kind.
 type verdictKey struct {
 	element *symbols.Symbol
+	kind    string
 	shape   *shapeNode
 }
 
@@ -68,14 +71,15 @@ func (ctx *Context) checkOn(element *symbols.Symbol, kind, name string, carrying
 	if resolved.instance != self {
 		return check(resolved)
 	}
-	return ctx.checkShared(element, name, self, func() (CheckResult, error) { return check(resolved) })
+	return ctx.checkShared(element, kind, name, self, func() (CheckResult, error) { return check(resolved) })
 }
 
 // checkShared answers check on self: from the open span when a verdict of element on
 // self's shape is on record whose declared reads are as declared on self and whose
 // inputs self reads the same, else by evaluating it, which records the verdict when
-// it may stand for the shape. name is how the checked element is named in self's messages.
-func (ctx *Context) checkShared(element *symbols.Symbol, name string, self *Instance, check func() (CheckResult, error)) (CheckResult, error) {
+// it may stand for the shape. kind is how element is checked; name is how it is named
+// in self's messages.
+func (ctx *Context) checkShared(element *symbols.Symbol, kind, name string, self *Instance, check func() (CheckResult, error)) (CheckResult, error) {
 	memo := ctx.verdicts
 	if memo == nil || !ctx.sharing() || element == nil || self == nil {
 		return check()
@@ -84,7 +88,7 @@ func (ctx *Context) checkShared(element *symbols.Symbol, name string, self *Inst
 	if shape == nil {
 		return check()
 	}
-	key := verdictKey{element: element, shape: shape}
+	key := verdictKey{element: element, kind: kind, shape: shape}
 	for _, shared := range memo.verdicts[key] {
 		if ctx.declaredAlongAll(self, shared.paths) && ctx.readsInputs(self, shared.inputs) && ctx.classifyAs(self, shared.classified) {
 			memo.taken++

@@ -173,6 +173,54 @@ func TestSubjectIdentityIsNotShared(t *testing.T) {
 	}
 }
 
+// A requirement checked directly on the objects carrying it and a satisfaction of it
+// by those objects are two checks: the satisfaction binds the subject to the object
+// and reports under its own kind, so neither takes the other's verdict, while the
+// satisfactions of one shape still share theirs.
+func TestRequirementAndSatisfactionVerdictsAreNotShared(t *testing.T) {
+	const src = `package test {
+	part def Sat {
+		attribute mass : ScalarValues::Integer = 50;
+		requirement light {
+			require constraint { mass < 10 }
+		}
+		requirement bounded {
+			subject s : Sat;
+			require constraint { s.mass < 100 }
+		}
+	}
+	part def Fleet {
+		part sats : Sat[3];
+	}
+	part fleet : Fleet {
+		satisfy sats.light by sats;
+		satisfy sats.bounded by sats;
+	}
+}`
+	reading, _, shared := sparseSides(t, src, "test::fleet")
+	if shared == 0 {
+		t.Errorf("satisfactions of one shape shared nothing")
+	}
+	lines := verdictLines(reading)
+	want := []string{
+		`requirement "requirement light" on "sats[1]": violated (requirement light: require condition evaluated to false: mass < 10)`,
+		`requirement "requirement bounded" on "sats[1]": undecided (requirement bounded: require condition evaluation failed: no value for feature s)`,
+		`satisfaction "satisfy sats::light by sats" on "sats[1]": violated (satisfaction satisfy sats::light by sats: require condition evaluated to false: mass < 10)`,
+		`satisfaction "satisfy sats::bounded by sats" on "sats[1]": holds`,
+		`requirement "requirement light" on "sats[2]": violated (requirement light: require condition evaluated to false: mass < 10)`,
+		`requirement "requirement bounded" on "sats[2]": undecided (requirement bounded: require condition evaluation failed: no value for feature s)`,
+		`satisfaction "satisfy sats::light by sats" on "sats[2]": violated (satisfaction satisfy sats::light by sats: require condition evaluated to false: mass < 10)`,
+		`satisfaction "satisfy sats::bounded by sats" on "sats[2]": holds`,
+		`requirement "requirement light" on "sats[3]": violated (requirement light: require condition evaluated to false: mass < 10)`,
+		`requirement "requirement bounded" on "sats[3]": undecided (requirement bounded: require condition evaluation failed: no value for feature s)`,
+		`satisfaction "satisfy sats::light by sats" on "sats[3]": violated (satisfaction satisfy sats::light by sats: require condition evaluated to false: mass < 10)`,
+		`satisfaction "satisfy sats::bounded by sats" on "sats[3]": holds`,
+	}
+	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
+		t.Errorf("verdicts:\n%s\nwant:\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))
+	}
+}
+
 // Within a span a check is decided once per distinct input: occurrences as declared
 // take one verdict, occurrences written the same value another; none outside the span.
 func TestSharedVerdictsOncePerDistinctInput(t *testing.T) {
