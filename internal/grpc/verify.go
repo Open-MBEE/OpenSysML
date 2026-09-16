@@ -9,6 +9,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -105,16 +106,70 @@ func (v *verifyContext) declaringScope(sym *symbols.Symbol) *symbols.Scope {
 
 // subject instantiates the part/usage a request named, so a verdict can be about
 // concrete values. An empty name is no subject, which is not an error: the
-// verdict is then about declared defaults.
+// verdict is then about declared defaults. A path (`Mission::mission.vehicle`) names a nested one.
 func (v *verifyContext) subject(symbolID string) (*runtime.Instance, error) {
+	return v.named("subject", symbolID)
+}
+
+// performer is the object a request's action or machine is performed by, named
+// as a subject is; empty is no performer.
+func (v *verifyContext) performer(symbolID string) (*runtime.Instance, error) {
+	return v.named("performer", symbolID)
+}
+
+// named is the object symbolID names in the role given: an object of the declaration it
+// names, or the one a declaration-rooted path reaches, spelled with `.` or `::` as the CLI
+// reads it — `Wire::pair::craft` walks into pair's object as `Wire::pair.craft` does.
+func (v *verifyContext) named(role, symbolID string) (*runtime.Instance, error) {
 	if symbolID == "" {
 		return nil, nil
+	}
+	if ref, err := objref.Parse(symbolID); objref.LooksLikePath(symbolID) || err == nil && len(ref.Segments) > 1 {
+		return v.objectAt(role, symbolID)
 	}
 	sym, err := v.lookup(symbolID)
 	if err != nil {
 		return nil, err
 	}
-	return v.instantiate(symbolID, sym)
+	return v.instantiate(role, symbolID, sym)
+}
+
+// objectAt is the object a declaration-rooted path names: the longest leading run of
+// segments naming a declaration is instantiated, the rest walked from it; an id names none.
+// The index holds declarations alone, so a member reached through a usage's type
+// (`pair::craft`) names no root and is walked inside the usage's object.
+func (v *verifyContext) objectAt(role, path string) (*runtime.Instance, error) {
+	ref, err := objref.Parse(path)
+	if err != nil {
+		return nil, err
+	}
+	if ref.ID > 0 {
+		return nil, fmt.Errorf("%s %s names an object by id, which a call creates none of: name a declaration, or a path from one such as mission.vehicle", role, path)
+	}
+	for i := objref.Head(ref.Segments); i > 0; i-- {
+		name := objref.JoinTyped(ref.Segments[:i])
+		syms := lookupNamed(v.cached.Index, name)
+		if len(syms) == 0 {
+			continue
+		}
+		if i > 1 && len(lookupNamed(v.cached.Index, objref.DeclaredRun(ref.Segments[:i]))) == 0 {
+			continue
+		}
+		if objref.IsNamespace(syms[0]) {
+			break
+		}
+		root, err := v.instantiate(role, name, syms[0])
+		if err != nil {
+			return nil, err
+		}
+		walker := objref.Walker{Runtime: v.runtime, Index: v.cached.Index}
+		inst, _, err := walker.Walk(root, name, ref.Segments[i:])
+		if err != nil {
+			return nil, fmt.Errorf("%s %s: %w", role, path, err)
+		}
+		return inst, nil
+	}
+	return nil, fmt.Errorf("symbol not found: %s", objref.JoinTyped(ref.Segments[:max(objref.Head(ref.Segments), 1)]))
 }
 
 // object instantiates the symbol a request named to validate as a whole, which
@@ -127,14 +182,15 @@ func (v *verifyContext) object(symbolID string) (*runtime.Instance, error) {
 	if err := runtime.RequireObject(sym); err != nil {
 		return nil, err
 	}
-	return v.instantiate(symbolID, sym)
+	return v.instantiate("subject", symbolID, sym)
 }
 
-// instantiate materializes an object of sym, named as the request spelt it in a failure.
-func (v *verifyContext) instantiate(symbolID string, sym *symbols.Symbol) (*runtime.Instance, error) {
+// instantiate materializes an object of sym, named in a failure by its role and
+// as the request spelt it.
+func (v *verifyContext) instantiate(role, symbolID string, sym *symbols.Symbol) (*runtime.Instance, error) {
 	inst, err := v.runtime.Instantiate(sym)
 	if err != nil {
-		return nil, fmt.Errorf("instantiation of subject %s failed: %w", symbolID, err)
+		return nil, fmt.Errorf("instantiation of %s %s failed: %w", role, symbolID, err)
 	}
 	return inst, nil
 }

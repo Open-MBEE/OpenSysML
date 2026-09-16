@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // Invocation is what one check searches: the behaviors started on one clock, in
@@ -254,8 +255,8 @@ func (inv *Invocation) behaviorOf(prefixes []string, name string) (int, string) 
 	return -1, ""
 }
 
-// Outcome is what the started behaviors came to: one behavior's own outcome, the
-// joint outcome of several, each one's observables under its name.
+// Outcome is what the started behaviors came to: one behavior's own outcome, or the joint
+// outcome of several, plus what the performing objects hold (`this.` for one, `<object>.` else).
 func (inv *Invocation) Outcome() Outcome {
 	ctx := inv.Context()
 	outcomes := make([]Outcome, 0, len(inv.Actions)+len(inv.States))
@@ -265,10 +266,41 @@ func (inv *Invocation) Outcome() Outcome {
 	for _, exec := range inv.States {
 		outcomes = append(outcomes, exec.Outcome())
 	}
-	if len(outcomes) == 1 {
-		return outcomes[0]
+	var outcome Outcome
+	switch len(outcomes) {
+	case 0:
+		return Outcome{Outputs: make(map[string]Value)}
+	case 1:
+		outcome = outcomes[0]
+	default:
+		outcome = ctx.JointOutcome(inv.names(), outcomes)
 	}
-	return ctx.JointOutcome(inv.names(), outcomes)
+	for _, p := range inv.performerPrefixes() {
+		for name, value := range ctx.attributesHeld(p.self) {
+			outcome.Outputs[p.name+name] = value
+		}
+	}
+	return outcome
+}
+
+// attributesHeld is the value each attribute of the object holds, a default derived
+// when not yet read; an attribute holding nothing is left out.
+func (ctx *Context) attributesHeld(self *Instance) map[string]Value {
+	held := make(map[string]Value)
+	for name, fv := range self.FeatureValues {
+		if of := fv.Feature; of == nil || of.Symbol == nil || of.Symbol.Kind != symbols.SymbolAttributeUsage {
+			continue
+		}
+		fv, err := self.GetFeatureValue(ctx, name)
+		switch {
+		case err != nil || !fv.Materialized:
+		case fv.Feature.Scalar():
+			held[name] = fv.Value
+		default:
+			held[name] = fv.Values
+		}
+	}
+	return held
 }
 
 // executors lists every executor the check moves, in canonical order: the started

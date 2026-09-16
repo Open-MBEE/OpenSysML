@@ -98,6 +98,9 @@ public final class Capabilities {
   /** The {@code explore} schedule answers with every {@code outcomes} entry and an {@code exploration} status. */
   public static final String SCHEDULE_EXPLORE = "schedule_explore";
 
+  /** The action and state requests take a {@code performer_symbol_id}, the object the behavior runs on: a declaration or a path from one into its parts. */
+  public static final String PERFORMER = "performer";
+
   /** The execution responses report {@code final_time}, the run's simulation clock when it ended, in seconds. */
   public static final String FINAL_TIME = "final_time";
 
