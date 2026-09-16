@@ -381,6 +381,64 @@ func TestFeatureReachedByAConnectorLosesItsPrivacy(t *testing.T) {
 	wantClean(t, "reached.sysml", r)
 }
 
+// A connector left as a comment reaches nothing: the private feature its
+// other, resolvable end names keeps its visibility.
+func TestUnmappedConnectorDoesNotExposeItsResolvableEnd(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_fuel" name="Fuel"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_engine" name="Engine">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_pt_in" name="intake" type="_fuel" visibility="private"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_pump" name="Pump">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_pt_pump" name="inlet" type="_fuel"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_engine" name="engine" type="_engine" aggregation="composite"/>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_conn" name="feed">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e1" role="_pt_in" partWithPort="_p_engine"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e2" role="_pt_pump"/>
+      </ownedConnector>
+    </packagedElement>`, `
+  <sysml:InterfaceBlock xmi:id="_s1" base_Class="_fuel"/>
+  <sysml:Block xmi:id="_s2" base_Class="_engine"/>
+  <sysml:Block xmi:id="_s3" base_Class="_pump"/>
+  <sysml:Block xmi:id="_s4" base_Class="_car"/>`)
+	wantLine(t, r.Notation, "private port intake : Fuel;")
+	wantNoLine(t, r.Notation, "connect ")
+	wantNote(t, r, "_conn", migrate.Unmapped, "the connector end's role Pump::inlet is not a feature of Car")
+	wantNote(t, r, "_pt_in", migrate.Mapped, "")
+	wantClean(t, "unreached.sysml", r)
+}
+
+// A slot left as a comment reaches nothing either: only a slot that is written
+// takes the visibility off its private defining feature.
+func TestUnmappedSlotDoesNotExposeItsDefiningFeature(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_mcs" name="MCS"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_tmt" name="TMT">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="mcs" type="_mcs" aggregation="composite" visibility="private"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_q" name="spare" type="_mcs" aggregation="composite" visibility="private"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_m1" name="mcs 1" classifier="_mcs"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_t1" name="tmt 1" classifier="_tmt">
+      <slot xmi:type="uml:Slot" xmi:id="_sl1" definingFeature="_p">
+        <value xmi:type="uml:InstanceValue" xmi:id="_v1" instance="_m1"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_sl2" definingFeature="_q">
+        <value xmi:type="uml:LiteralInteger" xmi:id="_v2" value="3"/>
+      </slot>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_mcs"/>
+  <sysml:Block xmi:id="_s2" base_Class="_tmt"/>`)
+	wantLine(t, r.Notation, "part mcs : MCS;")
+	wantLine(t, r.Notation, "private part spare : MCS;")
+	wantLine(t, r.Notation, "individual part :>> mcs : 'mcs 1';")
+	wantNote(t, r, "_p", migrate.Approximated, "private visibility is not written: instance 'tmt 1' has a slot for it")
+	wantNote(t, r, "_q", migrate.Mapped, "")
+	wantNote(t, r, "_sl2", migrate.Unmapped, "a part holds instances; the slot's value is a LiteralInteger")
+	wantClean(t, "unreached-slot.sysml", r)
+}
+
 // A nested path whose segment is no feature of the type before it cannot be
 // written; the connector is left behind naming the segment.
 func TestConnectorPathSegmentMustBelongToThePrecedingType(t *testing.T) {

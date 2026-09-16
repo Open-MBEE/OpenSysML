@@ -4,7 +4,10 @@
   `in ref part`s when typed by a block — whether the tool stores them as UML Properties or, as
   MagicDraw does under a «ConstraintParameter» marker, as UML Ports, and a `private` parameter loses its visibility so
   the block's binding connectors can reach it — as does any private feature a connector, slot,
-  redefinition or subset reaches from outside, the report naming what reached it. A type
+  redefinition or subset reaches from outside, the report naming what reached it; a connector
+  or slot that is itself left as a comment reaches nothing. A private packaged element (a
+  block, value type or enumeration) is written public, with a note, since v2 would put it out
+  of reach of the packages importing it. A type
   referenced by href into the SysML or UML primitive library resolves to `ScalarValues::Real` /
   `Integer` / `Boolean` / `String` from a plain (`PrimitiveTypes.xmi#Real`) or dotted
   (`SysML.xmi#SysML_dataType.Real`) fragment, or from the qualified name MagicDraw records

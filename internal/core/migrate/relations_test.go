@@ -1162,7 +1162,7 @@ func TestOpaqueExpressionsResolveEveryStep(t *testing.T) {
 }
 
 // A package import is written as `public import P::*`, so an expression may name the
-// public members it brings in; a private member of the package stays out.
+// members it brings in — every packaged element is written public, a private one with a note.
 func TestOpaqueExpressionsMayNameImportedMembers(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Package" xmi:id="_lib" name="Modes">
@@ -1191,7 +1191,8 @@ func TestOpaqueExpressionsMayNameImportedMembers(t *testing.T) {
   <sysml:Block xmi:id="_s2" base_Class="_car"/>`)
 	wantLine(t, r.Notation, "public import Modes::*;")
 	wantLine(t, r.Notation, "constraint tracking { mode == Mode::TRACK }")
-	wantNoLine(t, r.Notation, "constraint crawling")
-	wantNote(t, r, "_r2", migrate.Unmapped, "opaque expression names Gear, which nothing visible from System::Car is called")
+	wantLine(t, r.Notation, "constraint crawling { gear == Gear::LOW }")
+	wantLine(t, r.Notation, "enum def Gear {")
+	wantNote(t, r, "_gear", migrate.Approximated, "private visibility is not written: v2 lets nothing outside the package reach a private member")
 	wantClean(t, "imports.sysml", r)
 }

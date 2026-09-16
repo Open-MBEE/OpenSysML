@@ -501,9 +501,9 @@ func (m *migration) membersOf(e *xmi.Element, features bool) (visible, hidden ma
 // visibleFrom maps each name an expression in scope can resolve to the written
 // element it means: a member of scope or an enclosing namespace, a feature
 // scope inherits — as a classifier from its generals, as an instance from its
-// classifiers — or a public member of a package one of them imports. Private
-// inherited features are not visible unless exposed; the hidden map holds
-// those an expression would otherwise resolve to.
+// classifiers — or a member of a package one of them imports (every packaged
+// element is written public). Private inherited features are not visible
+// unless exposed; the hidden map holds those an expression would otherwise resolve to.
 func (m *migration) visibleFrom(scope *xmi.Element) (visible, hidden map[string]*xmi.Element) {
 	visible = map[string]*xmi.Element{}
 	hidden = map[string]*xmi.Element{}
@@ -541,7 +541,7 @@ func (m *migration) visibleFrom(scope *xmi.Element) (visible, hidden map[string]
 		for _, p := range m.importedPackages(cur) {
 			for _, c := range p.Children {
 				n := m.nameOf(c)
-				if n == "" || !m.written(c) || m.privateMember(c) || visible[n] != nil {
+				if n == "" || !m.written(c) || visible[n] != nil {
 					continue
 				}
 				visible[n] = c
@@ -564,13 +564,6 @@ func (m *migration) importedPackages(ns *xmi.Element) []*xmi.Element {
 		}
 	}
 	return out
-}
-
-// privateMember reports whether a package's member is written private, which
-// an import of the package does not bring in.
-func (m *migration) privateMember(c *xmi.Element) bool {
-	vis := c.Attrs["visibility"]
-	return (vis == "private" || vis == "package") && m.exposed[c] == ""
 }
 
 // hiddenFromHeirs reports whether feature f is written private, which v2 does

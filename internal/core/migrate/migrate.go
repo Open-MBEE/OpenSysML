@@ -126,8 +126,10 @@ func (m *migration) add(e *xmi.Element, v Verdict, target, note string) {
 }
 
 // prepare walks the model once ahead of writing: it indexes the item flows
-// by realizing connector and names every anonymous feature that is referred to.
+// by realizing connector, names every anonymous feature that is referred to,
+// and then exposes the features the connectors and slots that will be written reach.
 func (m *migration) prepare() {
+	var reachers []*xmi.Element
 	var walk func(e *xmi.Element)
 	walk = func(e *xmi.Element) {
 		m.distinguish(e)
@@ -152,22 +154,8 @@ func (m *migration) prepare() {
 					}
 				}
 			}
-			if c := e.Parent; c != nil && c.Parent != nil {
-				if segs, note := m.endSegments(e, c.Parent); note == "" {
-					for _, s := range segs {
-						if s.Parent != c.Parent {
-							m.expose(s, "connector "+describe(c)+" in "+qualifiedName(c.Parent)+" reaches it")
-						}
-					}
-				}
-			}
-		case "InstanceSpecification":
-			for _, slot := range e.Owned("slot") {
-				if f := m.model.Ref(slot, "definingFeature"); f != nil && m.slotClassifier(e, f) != nil {
-					m.nameFor(f)
-					m.expose(f, "instance "+describe(e)+" has a slot for it")
-				}
-			}
+		case "Connector", "InstanceSpecification":
+			reachers = append(reachers, e)
 		case "OpaqueExpression":
 			// A default, rule or slot value is read in the scope of its owner's owner.
 			if e.Parent != nil && e.Parent.Parent != nil {
@@ -198,6 +186,39 @@ func (m *migration) prepare() {
 	for _, r := range m.model.Roots {
 		if !m.isLibrary(r) {
 			walk(r)
+		}
+	}
+	for _, e := range reachers {
+		m.exposeReached(e)
+	}
+}
+
+// exposeReached exposes the features a connector's ends or an instance's slots
+// refer to, once the connector or slot resolves as the writer will write it;
+// one that is left as a comment reaches nothing.
+func (m *migration) exposeReached(e *xmi.Element) {
+	switch e.Type {
+	case "Connector":
+		if e.Parent == nil {
+			return
+		}
+		ends, note := m.connectorEnds(e, e.Parent)
+		if note != "" {
+			return
+		}
+		for _, segs := range ends {
+			for _, s := range segs {
+				if s.Parent != e.Parent {
+					m.expose(s, "connector "+describe(e)+" in "+qualifiedName(e.Parent)+" reaches it")
+				}
+			}
+		}
+	case "InstanceSpecification":
+		for _, slot := range e.Owned("slot") {
+			f := m.model.Ref(slot, "definingFeature")
+			if _, _, ok := m.slotForm(e, slot, f); ok {
+				m.expose(f, "instance "+describe(e)+" has a slot for it")
+			}
 		}
 	}
 }
@@ -372,6 +393,10 @@ func (m *migration) classifier(e *xmi.Element) {
 		if note == "" {
 			note = "the anonymous " + e.Type + " is named " + name
 		}
+	}
+	if vis := e.Attrs["visibility"]; vis == "private" || vis == "package" || vis == "protected" {
+		// A v2 private member is out of reach of every other package, which v1 tools do not enforce.
+		note = joinNotes(note, vis+" visibility is not written: v2 lets nothing outside the package reach a private member")
 	}
 	verdict := Mapped
 	if note != "" {
@@ -636,27 +661,15 @@ func (m *migration) individualBody(e *xmi.Element) {
 	m.comments(e)
 	for _, slot := range e.Owned("slot") {
 		f := m.model.Ref(slot, "definingFeature")
-		if f == nil || f.IsProxy() {
-			m.unmapped(slot, "the slot's defining feature is not in the document")
+		lines, note, ok := m.slotForm(e, slot, f)
+		if !ok {
+			m.unmapped(slot, note)
 			continue
 		}
-		if m.slotClassifier(e, f) == nil {
-			m.unmapped(slot, "the slot's defining feature "+qualifiedName(f)+" is not a feature of any classifier the instance is written to specialize")
-			continue
+		for _, l := range lines {
+			m.w.line(l)
 		}
-		owner := m.classifyParent(f)
-		kw, prefix, _ := m.featureKeyword(f, owner)
-		dir, _ := m.featureDirection(f, owner, kw)
-		switch kw {
-		case "attribute":
-			m.valueSlot(slot, f, dir)
-		case "part", "item", "constraint", "requirement":
-			m.instanceSlot(slot, f, kw, prefix)
-		case "port":
-			m.unmapped(slot, "the slot of port "+f.Name+" is not written: v2 has no individual port for it to be typed by")
-		default:
-			m.unmapped(slot, "the slot of "+f.Name+" is not written: the property is written as a plain "+kw+", which cannot be typed by an individual")
-		}
+		m.add(slot, verdictFor(note), m.v2Name(e)+"::"+writeName(m.nameFor(f)), note)
 	}
 	for _, extra := range m.extras[e] {
 		extra()
@@ -665,17 +678,40 @@ func (m *migration) individualBody(e *xmi.Element) {
 	m.scope = saved
 }
 
-// valueSlot writes a slot of a value property as a redefinition bound to its
-// values, with the direction the feature has.
-func (m *migration) valueSlot(slot, f *xmi.Element, dir string) {
-	e := m.scope
+// slotForm resolves a slot of instance e, of defining feature f, into the v2
+// lines that write it and the notes on them; ok is false, and note says why,
+// when it has no v2 form.
+func (m *migration) slotForm(e, slot, f *xmi.Element) (lines []string, note string, ok bool) {
+	if f == nil || f.IsProxy() {
+		return nil, "the slot's defining feature is not in the document", false
+	}
+	if m.slotClassifier(e, f) == nil {
+		return nil, "the slot's defining feature " + qualifiedName(f) + " is not a feature of any classifier the instance is written to specialize", false
+	}
+	owner := m.classifyParent(f)
+	kw, prefix, _ := m.featureKeyword(f, owner)
+	dir, _ := m.featureDirection(f, owner, kw)
+	switch kw {
+	case "attribute":
+		return m.valueSlot(e, slot, f, dir)
+	case "part", "item", "constraint", "requirement":
+		return m.instanceSlot(e, slot, f, kw, prefix)
+	case "port":
+		return nil, "the slot of port " + f.Name + " is not written: v2 has no individual port for it to be typed by", false
+	default:
+		return nil, "the slot of " + f.Name + " is not written: the property is written as a plain " + kw + ", which cannot be typed by an individual", false
+	}
+}
+
+// valueSlot resolves a slot of a value property into a redefinition bound to
+// its values, with the direction the feature has.
+func (m *migration) valueSlot(e, slot, f *xmi.Element, dir string) ([]string, string, bool) {
 	var vals []string
 	var notes []string
 	for _, v := range slot.Owned("value") {
 		expr, ok, note := m.featureValue(v, f, e)
 		if !ok {
-			m.unmapped(slot, note)
-			return
+			return nil, note, false
 		}
 		vals = append(vals, expr)
 		if note != "" {
@@ -683,8 +719,7 @@ func (m *migration) valueSlot(slot, f *xmi.Element, dir string) {
 		}
 	}
 	if conflict := m.slotConflict(f, vals); conflict != "" {
-		m.unmapped(slot, conflict+"; its values are "+strings.Join(vals, ", "))
-		return
+		return nil, conflict + "; its values are " + strings.Join(vals, ", "), false
 	}
 	value := ""
 	switch len(vals) {
@@ -694,53 +729,44 @@ func (m *migration) valueSlot(slot, f *xmi.Element, dir string) {
 	default:
 		value = " = (" + strings.Join(vals, ", ") + ")"
 	}
-	m.w.line(dir + "attribute :>> " + writeName(m.nameFor(f)) + value + ";")
-	m.add(slot, verdictFor(strings.Join(notes, "; ")), m.v2Name(e)+"::"+writeName(m.nameFor(f)), strings.Join(notes, "; "))
+	line := dir + "attribute :>> " + writeName(m.nameFor(f)) + value + ";"
+	return []string{line}, strings.Join(notes, "; "), true
 }
 
-// instanceSlot writes a slot holding instances: one redefines the feature typed
-// by its individual; several each subset it under a redefinition counting them.
-func (m *migration) instanceSlot(slot, f *xmi.Element, kw, prefix string) {
-	e := m.scope
+// instanceSlot resolves a slot holding instances: one redefines the feature
+// typed by its individual; several each subset it under a redefinition counting them.
+func (m *migration) instanceSlot(e, slot, f *xmi.Element, kw, prefix string) ([]string, string, bool) {
 	t := m.model.Ref(f, "type")
 	var refs []string
 	for _, v := range slot.Owned("value") {
 		if v.Type != "InstanceValue" {
-			m.unmapped(slot, article(kw)+kw+" holds instances; the slot's value is a "+v.Type)
-			return
+			return nil, article(kw) + kw + " holds instances; the slot's value is a " + v.Type, false
 		}
 		inst := m.model.Ref(v, "instance")
 		switch {
 		case inst == nil:
-			m.unmapped(slot, "the slot's value names no instance")
-			return
+			return nil, "the slot's value names no instance", false
 		case inst.IsProxy():
-			m.unmapped(slot, "the slot's value "+qualifiedName(inst)+" is outside the document, so it has no individual to type "+f.Name+" by")
-			return
+			return nil, "the slot's value " + qualifiedName(inst) + " is outside the document, so it has no individual to type " + f.Name + " by", false
 		}
 		if cat, note := m.classify(inst); cat != catIndividualDef {
-			m.unmapped(slot, "the slot's value "+describe(inst)+" is not written as an individual: "+note)
-			return
+			return nil, "the slot's value " + describe(inst) + " is not written as an individual: " + note, false
 		}
 		kind, classifiers, _ := m.individualClassifiers(inst)
 		if kind == catNone || kind.keyword() != kw+" def" {
-			m.unmapped(slot, "the slot's value "+describe(inst)+" is an "+individualKeyword(kind)+", which cannot type "+article(kw)+kw)
-			return
+			return nil, "the slot's value " + describe(inst) + " is an " + individualKeyword(kind) + ", which cannot type " + article(kw) + kw, false
 		}
 		if !m.instanceOf(classifiers, t) {
-			m.unmapped(slot, "the slot's value "+describe(inst)+" is not an instance of "+qualifiedName(t)+", the type of "+f.Name)
-			return
+			return nil, "the slot's value " + describe(inst) + " is not an instance of " + qualifiedName(t) + ", the type of " + f.Name, false
 		}
 		// The default individual types the property, so a slot can only repeat it.
 		if d := m.typingIndividual(f, kw); d != nil && d != inst {
-			m.unmapped(slot, "the slot's value "+describe(inst)+" is not "+describe(d)+", the individual "+f.Name+" is typed by for its default")
-			return
+			return nil, "the slot's value " + describe(inst) + " is not " + describe(d) + ", the individual " + f.Name + " is typed by for its default", false
 		}
 		refs = append(refs, m.ref(inst, e))
 	}
 	if conflict := m.slotConflict(f, refs); conflict != "" {
-		m.unmapped(slot, conflict+"; its values are "+strings.Join(refs, ", "))
-		return
+		return nil, conflict + "; its values are " + strings.Join(refs, ", "), false
 	}
 	name := writeName(m.nameFor(f))
 	lower, upper, ok := bounds(f)
@@ -748,21 +774,21 @@ func (m *migration) instanceSlot(slot, f *xmi.Element, kw, prefix string) {
 	if n := len(refs); !ok || lower != n || upper != n {
 		mult = fmt.Sprintf("[%d]", n)
 	}
+	var lines []string
 	switch len(refs) {
 	case 0:
-		m.unmapped(slot, "the slot holds no value")
-		return
+		return nil, "the slot holds no value", false
 	case 1:
-		m.w.line(prefix + "individual " + kw + " :>> " + name + " : " + refs[0] + mult + ";")
+		lines = append(lines, prefix+"individual "+kw+" :>> "+name+" : "+refs[0]+mult+";")
 	default:
 		if mult != "" {
-			m.w.line(prefix + kw + " :>> " + name + " " + mult + ";")
+			lines = append(lines, prefix+kw+" :>> "+name+" "+mult+";")
 		}
 		for _, r := range refs {
-			m.w.line(prefix + "individual " + kw + " : " + r + " :> " + name + ";")
+			lines = append(lines, prefix+"individual "+kw+" : "+r+" :> "+name+";")
 		}
 	}
-	m.add(slot, Mapped, m.v2Name(e)+"::"+writeName(m.nameFor(f)), "")
+	return lines, "", true
 }
 
 // article is the indefinite article before a word: "an item", "a part".
@@ -1405,25 +1431,19 @@ func isNatural(s string) bool {
 // connector writes a connector: a binding connector as `bind`, another as
 // `connect`, and an item flow it realizes as `flow`.
 func (m *migration) connector(c *xmi.Element) {
-	ends := c.Owned("end")
-	if len(ends) != 2 {
-		m.unmappedConnector(c, fmt.Sprintf("a connector with %d ends is not migrated", len(ends)))
+	segs, note := m.connectorEnds(c, m.scope)
+	if note != "" {
+		m.unmappedConnector(c, note)
 		return
 	}
-	paths := make([]string, 2)
-	var notes []string
-	for i, end := range ends {
-		path, note := m.endPath(end)
-		if path == "" {
-			m.unmappedConnector(c, note)
-			return
+	paths := make([]string, len(segs))
+	for i, end := range segs {
+		parts := make([]string, len(end))
+		for j, s := range end {
+			parts[j] = writeName(m.nameFor(s))
 		}
-		paths[i] = path
-		if note != "" {
-			notes = append(notes, note)
-		}
+		paths[i] = strings.Join(parts, ".")
 	}
-	note := strings.Join(notes, "; ")
 	decl, kw := "connect "+paths[0]+" to "+paths[1]+";", "connection "
 	if has(c, "BindingConnector") {
 		decl, kw = "bind "+paths[0]+" = "+paths[1]+";", "binding "
@@ -1434,10 +1454,10 @@ func (m *migration) connector(c *xmi.Element) {
 		target = m.v2Name(c)
 	}
 	m.w.line(decl)
-	m.add(c, verdictFor(note), target, note)
+	m.add(c, Mapped, target, "")
 	m.stereotypeComments(c)
 	for _, f := range m.flows[c] {
-		m.itemFlow(f, ends, paths)
+		m.itemFlow(f, c.Owned("end"), paths)
 	}
 }
 
@@ -1450,18 +1470,21 @@ func (m *migration) unmappedConnector(c *xmi.Element, note string) {
 	}
 }
 
-// endPath writes the feature path a connector end names: the nested property
-// path, then the part with port, then the role.
-func (m *migration) endPath(end *xmi.Element) (string, string) {
-	segs, note := m.endSegments(end, m.scope)
-	if note != "" {
-		return "", note
+// connectorEnds resolves the feature paths the two ends of connector c, owned
+// by owner, name; a note says why the connector has no v2 form.
+func (m *migration) connectorEnds(c, owner *xmi.Element) ([][]*xmi.Element, string) {
+	ends := c.Owned("end")
+	if len(ends) != 2 {
+		return nil, fmt.Sprintf("a connector with %d ends is not migrated", len(ends))
 	}
-	parts := make([]string, len(segs))
-	for i, s := range segs {
-		parts[i] = writeName(m.nameFor(s))
+	segs := make([][]*xmi.Element, len(ends))
+	for i, end := range ends {
+		var note string
+		if segs[i], note = m.endSegments(end, owner); note != "" {
+			return nil, note
+		}
 	}
-	return strings.Join(parts, "."), ""
+	return segs, ""
 }
 
 // endSegments resolves the features a connector end of owner names, in path

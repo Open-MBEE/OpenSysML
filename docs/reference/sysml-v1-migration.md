@@ -116,7 +116,8 @@ returned over the service yet.
 | Port, «ProxyPort», «FullPort» typed by an InterfaceBlock / Block | `port`, `~` when conjugated | mapped |
 | «FlowPort» typed by a value type | `port` holding one `in`/`out`/`inout` attribute | approximated |
 | «FlowProperty» | directed `attribute`/`item` in the port def | mapped |
-| `private` feature reached from outside by a connector, a slot, a redefinition, a subset or an expression | visibility dropped so the reference resolves; the report names the reacher | approximated |
+| `private` feature reached from outside by a connector, a slot, a redefinition, a subset or an expression | visibility dropped so the reference resolves; the report names the reacher — a connector or slot that is itself left as a comment reaches nothing | approximated |
+| `private`, `package` or `protected` packaged element (a block, value type, enumeration…) | visibility dropped: a v2 private member is out of reach of every other package, which v1 tools do not enforce, so an import brings it in | approximated |
 | Property or port sharing the name of an inherited feature without redefining it | `:>>` the inherited feature when both are the same kind of usage; otherwise the collision is reported and left | approximated |
 | Connector, nested ends | `connect a.b to c.d` | mapped |
 | «BindingConnector» | `bind`, or `binding name bind` when named | mapped |
