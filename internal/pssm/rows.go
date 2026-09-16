@@ -27,7 +27,8 @@ var Rows = map[string]Row{
 	"SM15": {"SM15", RowDiffersByDesign, "A do activity and the machine competing for one occurrence"},
 	"SM28": {"SM28", RowToolChoice, "History with nothing to restore"},
 	"SM30": {"SM30", RowToolChoice, "Choice: guards read on arrival"},
-	"SM32": {"SM32", RowToolChoice, "Junction with no path through"},
+	"SM32": {"SM32", RowToolChoice, "Junction or join with no path through"},
+	"SM34": {"SM34", RowToolChoice, "Join"},
 }
 
 // TestRows maps a test to the note row its requirement lands on. It is written
@@ -58,8 +59,14 @@ var TestRows = map[string]string{
 	"Choice 001": "SM30",
 	"Choice 002": "SM30",
 	// A junction none of whose outgoing guards holds disables the whole compound
-	// transition.
+	// transition, wherever on the path it lies (a sibling region's entry, a join's exit).
 	"Junction 002": "SM32",
+	"Junction 004": "SM32",
+	"Join003":      "SM32",
+	// A join's segments fire together, in a drawn order, and the owner is left after
+	// the last; PSSM fires each on its own occurrence and leaves the owner before it.
+	"Join001":        "SM34",
+	"Transition 019": "SM34",
 }
 
 // RowOf is the note row a test reports on, if the table maps it.
