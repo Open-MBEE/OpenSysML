@@ -743,6 +743,11 @@ func TestNegativeKerML(t *testing.T) {
 		// declaration so named is still reported.
 		{"feature_named_frame_no_type", "package P { feature frame : ; }"},
 		{"feature_named_state_no_terminator", "package P { feature state }"},
+		// A terminate action usage is an action usage (SysML.xtext TerminateNode);
+		// `terminate` closes no other kind of usage.
+		{"part_terminate", "package P { part p terminate; }"},
+		{"attribute_terminate", "package P { part def D { attribute x : Integer terminate; } }"},
+		{"state_terminate", "package P { state def S { state s terminate; } }"},
 	}
 
 	for _, tt := range tests {

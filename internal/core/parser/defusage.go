@@ -1256,8 +1256,9 @@ func isPostModifierKeyword(tok lexer.Token) bool {
 }
 
 // parsePostModifiers parses the modifiers that follow a multiplicity part:
-// `ordered`, `nonunique`, and the `terminate` of a terminate action usage.
-func (p *Parser) parsePostModifiers() featureMods {
+// `ordered`, `nonunique`, and on an action usage the `terminate` of a terminate
+// action usage (SysML.xtext TerminateNode); any other kind has it diagnosed.
+func (p *Parser) parsePostModifiers(kind ast.UsageKind) featureMods {
 	var m featureMods
 	for {
 		t := p.peek()
@@ -1272,7 +1273,11 @@ func (p *Parser) parsePostModifiers() featureMods {
 			m.isNonunique = true
 			p.advance()
 		case "terminate":
-			m.isTerminate = true
+			if kind == ast.UsageAction {
+				m.isTerminate = true
+			} else {
+				p.error(t.Span, "'terminate' closes an action usage: a "+kind.String()+" usage is no terminate action usage")
+			}
 			p.advance()
 		default:
 			return m
@@ -3669,7 +3674,7 @@ func (p *Parser) parseFeatureSpecializationPart(u *ast.Usage) {
 // parseSpecializationsAfterMultiplicity parses the `ordered`/`nonunique` tail of
 // a MultiplicityPart and the FeatureSpecialization* that may follow it onto u.
 func (p *Parser) parseSpecializationsAfterMultiplicity(u *ast.Usage) {
-	post := p.parsePostModifiers()
+	post := p.parsePostModifiers(u.Kind)
 	u.IsOrdered = u.IsOrdered || post.isOrdered
 	u.IsNonunique = u.IsNonunique || post.isNonunique
 	u.IsTerminate = u.IsTerminate || post.isTerminate
