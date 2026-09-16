@@ -574,6 +574,44 @@ func TestBrokenNestedPathFailsTheConnector(t *testing.T) {
 	}
 }
 
+// A tool may write the property path as one IDREFS attribute, the ids
+// separated by whitespace and line breaks, rather than as child elements.
+func TestNestedPathAsWhitespaceSeparatedAttribute(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_fuel" name="Fuel"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_piston" name="Piston">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_pt_in" name="in" type="_fuel"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_engine" name="Engine">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_piston" name="piston" type="_piston" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_engine" name="engine" type="_engine" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_fleet" name="Fleet">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_car" name="car" type="_car" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_pt_out" name="out" type="_fuel"/>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_conn" name="feed">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e1" role="_pt_out"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e2" role="_pt_in"/>
+      </ownedConnector>
+    </packagedElement>`, `
+  <sysml:InterfaceBlock xmi:id="_s1" base_Class="_fuel"/>
+  <sysml:Block xmi:id="_s2" base_Class="_piston"/>
+  <sysml:Block xmi:id="_s3" base_Class="_engine"/>
+  <sysml:Block xmi:id="_s4" base_Class="_car"/>
+  <sysml:Block xmi:id="_s5" base_Class="_fleet"/>
+  <sysml:NestedConnectorEnd xmi:id="_nce" base_ConnectorEnd="_e2" propertyPath="_p_car
+      _p_engine _p_piston"/>`)
+	wantLine(t, r.Notation, "connection feed connect 'out' to car.engine.piston.'in';")
+	if es := entriesFor(r, "_conn"); len(es) != 1 || es[0].Verdict != migrate.Mapped {
+		t.Errorf("entries for _conn = %+v", es)
+	}
+	for _, d := range errors(t, "nested.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+}
+
 // multiConnectorFlow builds a flow realized by two connectors, each of whose
 // second end is a nested path with the given last segment.
 func multiConnectorFlow(t *testing.T, path1, path2 string) *migrate.Result {
@@ -707,6 +745,73 @@ func TestTypedHrefReferencesKeepTheirTargets(t *testing.T) {
 	}
 }
 
+// An opaque body written in a tool's scripting language may happen to parse
+// as a v2 expression. It is copied only when every name it uses is visible
+// from where it is written: parameters, inherited features, enclosing
+// members; a script's library path or a bare enumeration literal is not.
+func TestOpaqueExpressionsNeedVisibleNames(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Enumeration" xmi:id="_mode" name="Mode">
+      <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_track" name="TRACK"/>
+      <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_slew" name="SLEW"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_base" name="Timed">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_c" name="c">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_cb" name="Bound">
+      <generalization xmi:type="uml:Generalization" xmi:id="_gen" general="_base"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_s" name="s">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_m" name="m" type="_mode"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_d" name="d">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_dv">
+          <body>s * 2.0 + c</body>
+          <language>Javascript Rhino</language>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r1" name="fits" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp1">
+          <body>java.util.Collections.max(s) &lt; c</body>
+          <language>Javascript Rhino</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r2" name="moving" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp2">
+          <body>TRACK|SLEW</body>
+          <language>Javascript Rhino</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r3" name="tracking" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp3">
+          <body>m == Mode::TRACK</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+    </packagedElement>`, `
+  <sysml:ValueType xmi:id="_s0" base_DataType="_mode"/>
+  <sysml:ConstraintBlock xmi:id="_s1" base_Class="_base"/>
+  <sysml:ConstraintBlock xmi:id="_s2" base_Class="_cb"/>`)
+	wantLine(t, r.Notation, "in attribute d : ScalarValues::Real default = s * 2.0 + c;")
+	wantLine(t, r.Notation, "constraint tracking { m == Mode::TRACK }")
+	wantNoLine(t, r.Notation, "constraint fits")
+	wantNoLine(t, r.Notation, "constraint moving")
+	for id, want := range map[string]string{
+		"_r1": "opaque expression names java, which nothing visible from Bound is called (language Javascript Rhino)",
+		"_r2": "opaque expression names TRACK, which nothing visible from Bound is called (language Javascript Rhino)",
+	} {
+		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Unmapped || es[0].Note != want {
+			t.Errorf("%s entries = %+v", id, es)
+		}
+	}
+	if diags := errors(t, "o.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+}
+
 // isOrdered and isUnique=false are written as the ordered and nonunique
 // modifiers, on properties and association ends alike.
 func TestCollectionModifiersAreWritten(t *testing.T) {
@@ -810,6 +915,82 @@ func TestPrefixModifiersFollowTheGrammarOrder(t *testing.T) {
 	}
 }
 
+// MagicDraw stores a constraint block's parameters as private ports marked with
+// its customization's «ConstraintParameter»; they are the constraint's `in`
+// parameters all the same, written public so the block's binding connectors
+// resolve to them, and one typed by a block is an `in ref part`, since an
+// attribute cannot be typed by a part def. A user profile's same-named
+// stereotype is no such marker and stays on the parameter as a comment.
+func TestConstraintParametersStoredAsPortsAreInParameters(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Timer">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_bp" name="elapsed">
+        <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_bc" name="limit" type="_cb" aggregation="composite"/>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bind">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e1" role="_bp"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_e2" role="_p1" partWithPort="_bc"/>
+      </ownedConnector>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_cb" name="MaxTime">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_p1" name="t" visibility="private" aggregation="composite">
+        <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_p2" name="maxTime" visibility="protected" aggregation="composite">
+        <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p3" name="slack" visibility="private">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_p4" name="inner" type="_cb2" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_p6" name="timer" type="_b" visibility="private" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p5" name="tolerance">
+        <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>
+      </ownedAttribute>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_rule" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_spec">
+          <body>t + slack &lt;= maxTime</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_cb2" name="Positive"/>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_b"/>
+  <sysml:ConstraintBlock xmi:id="_s2" base_Class="_cb"/>
+  <sysml:ConstraintBlock xmi:id="_s3" base_Class="_cb2"/>
+  <sysml:BindingConnector xmi:id="_s4" base_Connector="_bind"/>
+  <md:ConstraintParameter xmlns:md="http://www.magicdraw.com/spec/Customization/180/SysML" xmi:id="_c1" base_Port="_p1"/>
+  <md:ConstraintParameter xmlns:md="http://www.magicdraw.com/spec/Customization/180/SysML" xmi:id="_c2" base_Port="_p2"/>
+  <md:ConstraintParameter xmlns:md="http://www.magicdraw.com/spec/Customization/180/SysML" xmi:id="_c4" base_Port="_p4"/>
+  <md:ConstraintParameter xmlns:md="http://www.magicdraw.com/spec/Customization/180/SysML" xmi:id="_c6" base_Port="_p6"/>
+  <custom:ConstraintParameter xmlns:custom="http://example.com/tool/customization" xmi:id="_c5" base_Property="_p5"/>`)
+	wantLine(t, r.Notation, "in attribute t : ScalarValues::Real;")
+	wantLine(t, r.Notation, "in attribute maxTime : ScalarValues::Real;")
+	wantLine(t, r.Notation, "in attribute slack : ScalarValues::Real;")
+	wantLine(t, r.Notation, "constraint inner : Positive;")
+	wantLine(t, r.Notation, "in ref part timer : Timer;")
+	wantLine(t, r.Notation, "in attribute tolerance : ScalarValues::Real {")
+	wantLine(t, r.Notation, "/* applied stereotype «ConstraintParameter» */")
+	wantLine(t, r.Notation, "bind elapsed = limit.t;")
+	wantNoLine(t, r.Notation, "port")
+	if n := strings.Count(string(r.Notation), "«ConstraintParameter»"); n != 1 {
+		t.Errorf("«ConstraintParameter» written %d times, want once, for the user profile's", n)
+	}
+	for _, id := range []string{"_p1", "_p2", "_p3", "_p6"} {
+		es := entriesFor(r, id)
+		if len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "visibility is not written on a constraint parameter") {
+			t.Errorf("%s entries = %+v", id, es)
+		}
+	}
+	if es := entriesFor(r, "_p4"); len(es) != 1 || es[0].Verdict != migrate.Mapped {
+		t.Errorf("_p4 entries = %+v", es)
+	}
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+}
+
 // namedRelationModel is a block, a requirement and a test case joined by one
 // named dependency of each SysML relationship stereotype.
 const namedRelationModel = `
@@ -884,4 +1065,134 @@ func TestPlacedRelationshipNameYieldsToAMember(t *testing.T) {
 	if es := entriesFor(r, "_sat"); len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "sat 2") {
 		t.Errorf("entries = %+v", es)
 	}
+}
+
+// An expression can only name what its v2 copy will resolve: an operation
+// is not written, so a call to it is not copied; a private inherited property
+// is not inherited in v2, so naming it exposes the property instead.
+func TestOpaqueExpressionsNeedWrittenAccessibleNames(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_base" name="Timed">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_secret" name="secret" visibility="private">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_hidden" name="hidden" visibility="private">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_cb" name="Bound">
+      <generalization xmi:type="uml:Generalization" xmi:id="_gen" general="_base"/>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_run" name="run"/>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r1" name="ran" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp1">
+          <body>run() > 0</body>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r2" name="kept" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp2">
+          <body>secret + 1 > 0</body>
+        </specification>
+      </ownedRule>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_base"/>
+  <sysml:Block xmi:id="_s2" base_Class="_cb"/>`)
+	wantLine(t, r.Notation, "attribute secret : ScalarValues::Real;")
+	wantLine(t, r.Notation, "private attribute hidden : ScalarValues::Real;")
+	wantLine(t, r.Notation, "constraint kept { secret + 1 > 0 }")
+	wantNoLine(t, r.Notation, "constraint ran")
+	wantNote(t, r, "_r1", migrate.Unmapped, "opaque expression names run, which nothing visible from Bound is called")
+	wantNote(t, r, "_secret", migrate.Approximated, "private visibility is not written: an expression in Bound names it")
+	wantClean(t, "access.sysml", r)
+}
+
+// Every step of a name is checked, not just its root: a chain's member must
+// be a feature of the operand's type (owned or inherited, a private one
+// exposed), and a qualified name's segment a member of the namespace before it.
+func TestOpaqueExpressionsResolveEveryStep(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Enumeration" xmi:id="_mode" name="Mode">
+      <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_track" name="TRACK"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_motor" name="Motor">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rpm" name="rpm">`+realHref+`</ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_engine" name="Engine">
+      <generalization xmi:type="uml:Generalization" xmi:id="_gen" general="_motor"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_temp" name="temp">`+realHref+`</ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_wear" name="wear" visibility="private">`+realHref+`</ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_e" name="engine" type="_engine" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_m" name="mode" type="_mode"/>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r1" name="hot" constrainedElement="_car">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp1"><body>engine.temp > 90.0 and engine.rpm > 0.0</body></specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r2" name="worn" constrainedElement="_car">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp2"><body>engine.wear &lt; 1.0</body></specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r3" name="broken" constrainedElement="_car">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp3"><body>engine.missing > 0.0</body></specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r4" name="parked" constrainedElement="_car">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp4"><body>mode == Mode::PARK</body></specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r5" name="tracking" constrainedElement="_car">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp5"><body>mode == Mode::TRACK</body></specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r6" name="deep" constrainedElement="_car">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp6"><body>engine.temp.missing > 0.0</body></specification>
+      </ownedRule>
+    </packagedElement>`, `
+  <sysml:ValueType xmi:id="_s0" base_DataType="_mode"/>
+  <sysml:Block xmi:id="_s1" base_Class="_motor"/>
+  <sysml:Block xmi:id="_s2" base_Class="_engine"/>
+  <sysml:Block xmi:id="_s3" base_Class="_car"/>`)
+	wantLine(t, r.Notation, "constraint hot { engine.temp > 90.0 and engine.rpm > 0.0 }")
+	wantLine(t, r.Notation, "constraint worn { engine.wear < 1.0 }")
+	wantLine(t, r.Notation, "constraint tracking { mode == Mode::TRACK }")
+	wantLine(t, r.Notation, "attribute wear : ScalarValues::Real;")
+	wantNoLine(t, r.Notation, "constraint broken")
+	wantNoLine(t, r.Notation, "constraint parked")
+	wantNoLine(t, r.Notation, "constraint deep")
+	wantNote(t, r, "_r3", migrate.Unmapped, "opaque expression names engine.missing, which nothing visible from Car is called")
+	wantNote(t, r, "_r4", migrate.Unmapped, "opaque expression names Mode::PARK, which nothing visible from Car is called")
+	wantNote(t, r, "_r6", migrate.Unmapped, "opaque expression names engine.temp.missing, which nothing visible from Car is called")
+	wantNote(t, r, "_wear", migrate.Approximated, "private visibility is not written: an expression in Car names it")
+	wantClean(t, "steps.sysml", r)
+}
+
+// A package import is written as `public import P::*`, so an expression may name the
+// members it brings in — every packaged element is written public, a private one with a note.
+func TestOpaqueExpressionsMayNameImportedMembers(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Package" xmi:id="_lib" name="Modes">
+      <packagedElement xmi:type="uml:Enumeration" xmi:id="_mode" name="Mode">
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_track" name="TRACK"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Enumeration" xmi:id="_gear" name="Gear" visibility="private">
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_low" name="LOW"/>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_sys" name="System">
+      <packageImport xmi:type="uml:PackageImport" xmi:id="_imp" importedPackage="_lib"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_m" name="mode" type="_mode"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_g" name="gear" type="_gear"/>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_r1" name="tracking" constrainedElement="_car">
+          <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp1"><body>mode == Mode::TRACK</body></specification>
+        </ownedRule>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_r2" name="crawling" constrainedElement="_car">
+          <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp2"><body>gear == Gear::LOW</body></specification>
+        </ownedRule>
+      </packagedElement>
+    </packagedElement>`, `
+  <sysml:ValueType xmi:id="_s0" base_DataType="_mode"/>
+  <sysml:ValueType xmi:id="_s1" base_DataType="_gear"/>
+  <sysml:Block xmi:id="_s2" base_Class="_car"/>`)
+	wantLine(t, r.Notation, "public import Modes::*;")
+	wantLine(t, r.Notation, "constraint tracking { mode == Mode::TRACK }")
+	wantLine(t, r.Notation, "constraint crawling { gear == Gear::LOW }")
+	wantLine(t, r.Notation, "enum def Gear {")
+	wantNote(t, r, "_gear", migrate.Approximated, "private visibility is not written: v2 lets nothing outside the package reach a private member")
+	wantClean(t, "imports.sysml", r)
 }
