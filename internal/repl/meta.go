@@ -2396,7 +2396,7 @@ func (s *Session) doStep() ([]string, bool, error) {
 
 	// Step
 	noted := exec.NoteCount()
-	err := exec.Step()
+	err := exec.StepToBreakpoint()
 	if errors.Is(err, runtime.ErrNothingDue) {
 		out := []string{"Nothing to step: the action waits on the clock, which %step does not move"}
 		out = append(out, actionWaitLines(exec, s.actionExec.rtCtx)...)

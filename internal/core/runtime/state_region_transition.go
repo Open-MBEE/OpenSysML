@@ -120,12 +120,13 @@ func (e *StateExecutor) scheduleFromEntered(state *ast.StateNode) error {
 // an orthogonal region. A target inside the same region moves only that region;
 // a target outside it leaves the whole region set, which is what makes a
 // transition through a choice or junction reachable from inside a region.
-func (e *StateExecutor) fireTransitionInRegion(region *ast.StateRegion, trans *lower.Transition, r route) (bool, error) {
+func (e *StateExecutor) fireTransitionInRegion(region *ast.StateRegion, trans *lower.Transition, r route) (fired bool, err error) {
 	// Fork, join and history replace the entire active configuration rather than
 	// move one region, so they are fired whole.
 	if isSynchronizationTarget(trans.Target) {
 		return e.fireTransition(trans, r)
 	}
+	defer e.unfireOnError(len(e.fired), &err)
 
 	pass, err := e.passesGuard(trans)
 	if err != nil || !pass {

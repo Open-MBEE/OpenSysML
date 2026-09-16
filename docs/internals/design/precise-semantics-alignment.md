@@ -1896,7 +1896,10 @@ where; item 9 is open, and says what a fix takes.
    `docs/project/pssm-referee.md` citing this item, with a tenth (*Transition 019*) that also
    reports on SM34, and an eleventh (*Junction 005*, §9.4.11) that item 10's fix left on this
    gap alone: the other region's initial-transition effect and entry, admitted before or
-   around the junction segment's effect, are entered after it.
+   around the junction segment's effect, are entered after it. The design is written
+   ([recording the order of orthogonal regions](region-order-scheduling.md)); it waits on two
+   decisions it puts to the maintainers, the goldens under the default policy and two admitted
+   traces of *Transition 017*.
 10. **A segment leaving a junction inside a composite state runs its effect before the
     composite is entered.** PSSM *Junction 005* (§9.4.11): a transition from outside targets a
     junction that lies in one region of an orthogonal state, and the segment out of the

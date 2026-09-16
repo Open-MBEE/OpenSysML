@@ -31,8 +31,8 @@ type performanceOwner interface {
 	// assignAround writes a name no performance nor block around a node holds to
 	// what is around the root, reporting whether something there holds it.
 	assignAround(name string, value Value) (bool, error)
-	// pauseAt pauses the run before node performs where a breakpoint is set on it.
-	pauseAt(node ast.Node) error
+	// pauseAt pauses the run before node, in the flow of within, performs where a breakpoint is set on it.
+	pauseAt(within []ast.Node, node ast.Node) error
 	// runOwnFlow runs the flow perf's node states of its own to completion.
 	runOwnFlow(perf *actionFrame) error
 }
@@ -101,6 +101,19 @@ type actionFrame struct {
 	// label names a performance that is no action node's in a diagnostic: a state
 	// machine's, a state's or a state behavior's (state_statements.go).
 	label string
+}
+
+// within lists the nested action nodes whose performances enclose this one, itself
+// included, outermost first; empty for the action's own and for no frame at all.
+func (f *actionFrame) within() []ast.Node {
+	var chain []ast.Node
+	for ; f != nil; f = f.parent {
+		if f.node != nil {
+			chain = append(chain, f.node)
+		}
+	}
+	slices.Reverse(chain)
+	return chain
 }
 
 // nestedDelivery is a value bound for a pin of a node under another: path leads to the
