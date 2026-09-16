@@ -313,6 +313,47 @@ func TestExpandWildcardImportsRederivesEverythingFromScratch(t *testing.T) {
 	}
 }
 
+// An unresolved import (here ambiguous) reads no namespace, so it must not tie
+// its importer to the document root, or every edit re-derives every re-export.
+func TestUnresolvedImportDoesNotSpreadAnEdit(t *testing.T) {
+	docs := map[string]string{
+		"a.sysml": "package Dup { part def A; }",
+		"b.sysml": "package Dup { part def B; }",
+		"c.kerml": "private import Dup::*; package Reader { private import Dup::*; }",
+		"d.sysml": "package Edited { part def Before; }",
+		"e.kerml": "private import Other::*; package Other { part def O; }",
+		"f.sysml": "package Far { public import Lib::*; }",
+	}
+	idx := buildIndex(t, docs)
+	if got := idx.resolveWildcardTarget("", "Dup"); got != "" {
+		t.Fatalf("Dup resolved to %q, want ambiguous", got)
+	}
+	if len(idx.LookupQualified("Far::Widget")) == 0 {
+		t.Fatal("Far::Widget should be re-exported from Lib")
+	}
+
+	idx.TrackChanges()
+	idx.TakeChanges()
+	docs["d.sysml"] = "package Edited { part def After; }"
+	addDoc(t, idx, "d.sysml", docs["d.sysml"])
+	idx.ExpandWildcardImports()
+
+	changed := idx.TakeChanges()
+	var far []string
+	for fqn := range changed.Names {
+		if strings.HasPrefix(fqn, "Far::") {
+			far = append(far, fqn)
+		}
+	}
+	sort.Strings(far)
+	if len(far) > 0 {
+		t.Errorf("editing d.sysml touched re-exports of Far, which imports nothing it declares: %v", far)
+	}
+	if got, want := indexState(idx), indexState(buildIndex(t, docs)); got != want {
+		t.Errorf("incremental expansion left an index a fresh build would not produce:\n%s", diffLines(want, got))
+	}
+}
+
 // diffLines reports the lines of want and got that differ, in order.
 func diffLines(want, got string) string {
 	wantLines, gotLines := strings.Split(want, "\n"), strings.Split(got, "\n")
