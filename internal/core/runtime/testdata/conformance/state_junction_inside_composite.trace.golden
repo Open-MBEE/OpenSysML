@@ -1,0 +1,31 @@
+  eval feature x -> 0
+  eval literal 1 -> 1
+eval operator == -> false
+exit: idle
+stmt assign log
+    eval feature log -> ""
+    eval literal "go(effect);" -> "go(effect);"
+  eval operator + -> "go(effect);"
+enter: work (entry action)
+stmt assign log
+    eval feature log -> "go(effect);"
+    eval literal "work(entry);" -> "work(entry);"
+  eval operator + -> "go(effect);work(entry);"
+stmt assign log
+    eval feature log -> "go(effect);work(entry);"
+    eval literal "toW2(effect);" -> "toW2(effect);"
+  eval operator + -> "go(effect);work(entry);toW2(effect);"
+enter: w2 (entry action)
+stmt assign log
+    eval feature log -> "go(effect);work(entry);toW2(effect);"
+    eval literal "w2(entry);" -> "w2(entry);"
+  eval operator + -> "go(effect);work(entry);toW2(effect);w2(entry);"
+transition: idle -> w2 (event: accept Go)
+exit: w2
+exit: work (exit action)
+stmt assign log
+    eval feature log -> "go(effect);work(entry);toW2(effect);w2(entry);"
+    eval literal "work(exit);" -> "work(exit);"
+  eval operator + -> "go(effect);work(entry);toW2(effect);w2(entry);work(exit);"
+enter: done
+transition: w2 -> done (event: accept Stop)

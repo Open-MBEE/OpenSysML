@@ -75,6 +75,11 @@ CAPABILITY_FEATURE_VALUES = "feature_values"
 CAPABILITY_APPLY_EDITS = "apply_edits"
 #: Source-preserving add-member and delete authoring operations.
 CAPABILITY_AUTHORING = "authoring"
+#: ``ApplyEdits`` edits a model of several documents as one batch and answers
+#: each edited document by name in ``EditResult.documents``, with each applied
+#: edit's document and each referrer's. Without it the service edits a model of
+#: one document alone and answers ``content`` alone, leaving ``documents`` empty.
+CAPABILITY_EDIT_DOCUMENTS = "edit_documents"
 #: Declares the language of inline content passed to ``ParseFile``.
 CAPABILITY_INLINE_LANGUAGE = "inline_language"
 #: ``ParseFileRequest.strict_conformance``, which asks whether the source is
@@ -162,6 +167,13 @@ CAPABILITY_CASE_EVALUATIONS = "case_evaluations"
 #: of one run's result. Without it the service refuses the schedule with
 #: ``UNIMPLEMENTED``, so the client refuses to send one.
 CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore"
+
+#: ``performer_symbol_id`` on the action and state requests: the object the
+#: behavior runs on, named as a part definition or usage to make an object of or
+#: a path from one into its parts (``Mission::mission.vehicle``), made for the
+#: call — and anew for each explored run. Without it the service would run the
+#: behavior outside any object, so the client refuses to send a performer.
+CAPABILITY_PERFORMER = "performer"
 
 #: ``final_time`` populated on an action or state run's response: the run's
 #: simulation clock when it ended, in seconds, read as the ``final_time`` of

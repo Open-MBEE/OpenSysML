@@ -51,7 +51,7 @@ final class Scenarios {
           "counts",
           "min_counts");
   private static final Set<String> MODEL_MEMBERS =
-      Set.of("fixture", "language", STRICT_CONFORMANCE);
+      Set.of("fixture", "fixtures", "language", STRICT_CONFORMANCE);
 
   private Scenarios() {}
 
@@ -128,6 +128,7 @@ final class Scenarios {
     reject(model, MODEL_MEMBERS, file + ": model");
     return new Scenario.Fixture(
         text(model, "fixture"),
+        strings(model.get("fixtures")),
         text(model, "language"),
         model.has(STRICT_CONFORMANCE) && model.get(STRICT_CONFORMANCE).getAsBoolean());
   }

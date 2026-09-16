@@ -37,6 +37,8 @@ type Server struct {
 	// renderNotify coalesces opensysml/renderChanged the same way, so a diagram
 	// client redraws from settled text rather than from every keystroke.
 	renderNotify *model.Debouncer
+	// debug holds the live opensysml/debug sessions.
+	debug *debugService
 
 	// pubMu serializes analyze-and-send, so the sweep's timer goroutine and a
 	// notification handler cannot deliver one document's diagnostics out of order.
@@ -69,6 +71,7 @@ func NewServer(ws *model.Workspace) *Server {
 		exited:       make(chan struct{}),
 		crossDoc:     model.NewDebouncer(crossDocRefreshWindow),
 		renderNotify: model.NewDebouncer(crossDocRefreshWindow),
+		debug:        newDebugService(),
 	}
 }
 
@@ -100,7 +103,7 @@ func (s *Server) Run(ctx context.Context, rwc io.ReadWriteCloser) error {
 // runHandler is the chain a served session reads with: cancellation, async
 // dispatch so one slow request cannot stall the stream, and a reply per request.
 func runHandler(s *Server) jsonrpc2.Handler {
-	serve := s.stdlibHandler(s.renderHandler(s.modelEditHandler(s.changeHandler(protocol.ServerHandler(s, jsonrpc2.MethodNotFoundHandler)))))
+	serve := s.stdlibHandler(s.debugHandler(s.renderHandler(s.modelEditHandler(s.changeHandler(protocol.ServerHandler(s, jsonrpc2.MethodNotFoundHandler))))))
 	// The lifecycle wrapper runs outside AsyncHandler so that shutdown, exit and
 	// the messages after them are ordered as the client sent them.
 	return s.lifecycleHandler(cancelHandler(jsonrpc2.AsyncHandler(jsonrpc2.ReplyHandler(serve))))

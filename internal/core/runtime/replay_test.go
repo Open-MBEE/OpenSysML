@@ -504,6 +504,99 @@ func stateRun(sym *symbols.Symbol, signal string) func(*Context) (Outcome, error
 	}
 }
 
+// doForkMachine forks the do action of one state, whose token order decides x.
+const doForkMachine = `package test {
+	private import ScalarValues::*;
+	state def Machine {
+		attribute x : Integer = 0;
+		entry; then busy;
+		state busy {
+			do action work {
+				first start;
+				then fork split;
+				succession split then left;
+				succession split then right;
+				action left { assign x := 1; }
+				action right { assign x := 2; }
+				succession left then sync;
+				succession right then sync;
+				join sync;
+				then done;
+			}
+		}
+		transition first busy accept go then idle;
+		state idle;
+	}
+}`
+
+// The token orders a do action's flow draws are steps of its own, numbered on:
+// the witness of a fork within a state's do action replays to its outcome.
+func TestReplayFollowsDoActionWitnesses(t *testing.T) {
+	m := parseExploreModel(t, doForkMachine)
+	run := stateRun(m.state(t, "Machine"), "go")
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
+	if err != nil || !x.Complete() || len(x.Outcomes) != 2 {
+		t.Fatalf("explore: %v, %v", x, err)
+	}
+	for _, o := range x.Outcomes {
+		if got := FormatChoices(o.Witness); !strings.HasPrefix(got, "step 3: ") || strings.Contains(got, "; ") {
+			t.Errorf("%s: witness %s, want one token order at the flow's third step", o.Outcome, got)
+		}
+	}
+	assertWitnessesReplay(t, x, m.fresh, run)
+}
+
+// Sibling objects exhibiting one machine perform its do action each at steps of
+// their own: a step of one that draws no choice — one token able to act, none
+// the move names — leaves the witness move to the sibling's, so the witnesses
+// of a run over both replay to their outcomes.
+func TestReplayFollowsSiblingDoActionWitnesses(t *testing.T) {
+	m := parseExploreModel(t, strings.Replace(doForkMachine, "\n}", `
+	part def Pair {
+		part a : Thing;
+		part b : Thing;
+	}
+	part def Thing {
+		exhibit state m : Machine;
+	}
+	part pair : Pair;
+}`, 1))
+	sym := m.state(t, "Machine")
+	pair := namedOrFoundSymbol(t, m.idx, "test::pair", m.idx.DocumentRoot(m.path), ast.DefPart, ast.UsagePart)
+	run := func(ctx *Context) (Outcome, error) {
+		if _, err := ctx.Instantiate(pair); err != nil {
+			return Outcome{}, err
+		}
+		a, err := ctx.objectAt("test::pair#1.a")
+		if err != nil {
+			return Outcome{}, err
+		}
+		exec, err := ctx.CreateStateExecutorFor(sym, a)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if _, err := ctx.Advance(1); err != nil {
+			return Outcome{}, err
+		}
+		return exec.Outcome(), nil
+	}
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
+	if err != nil || !x.Complete() || len(x.Outcomes) != 2 {
+		t.Fatalf("explore: %v, %v", x, err)
+	}
+	for _, o := range x.Outcomes {
+		if len(o.Witness) != 3 {
+			t.Errorf("%s: witness %s, want the token order of each of the three performances", o.Outcome, FormatChoices(o.Witness))
+		}
+		outcome, _, err := replayed(t, m.fresh, run, o.Witness)
+		if err != nil {
+			t.Errorf("%s: replaying %s: %v", o.Outcome, FormatChoices(o.Witness), err)
+		} else if outcome.String() != o.Outcome.String() {
+			t.Errorf("replaying %s reached %s, want %s", FormatChoices(o.Witness), outcome, o.Outcome)
+		}
+	}
+}
+
 // A witness move the run cannot make is refused with a typed error naming the
 // move: a token not able to act, a branch not holding, a move at a step the run
 // is past, a move where the run has none, and one left over when the run ends.
@@ -1280,6 +1373,75 @@ func TestReplayRefusedChoiceUndoesTheJunctionDrawBeforeIt(t *testing.T) {
 				t.Errorf("the context's witness holds %v, want no move: the junction's draw is undone with the move", taken)
 			}
 		})
+	}
+}
+
+// A segment out of a pseudostate declared in a composite state runs its effect
+// after the composite's entry, so a witness refused at the choice beyond has the
+// composite entered ahead: its entry, the effects and the entry's do behavior are
+// undone with the move, and nothing of the entry made ahead is left behind.
+func TestReplayRefusedChoiceUndoesTheOwnerEnteredAhead(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		attribute def Go;
+		state def Machine {
+			attribute log : String = "";
+			attribute level : Integer = 0;
+			entry; then idle;
+			state idle;
+			state work {
+				entry { assign log := log + "work(entry);"; }
+				do { assign log := log + "work(do);"; }
+				junction split;
+				choice pick;
+				state one;
+				state two;
+				state three;
+				transition first split do { assign level := 8; assign log := log + "split(effect);"; } then pick;
+				transition first pick if level > 5 then one;
+				transition first pick if level > 7 then two;
+				transition first pick if level > 9 then three;
+			}
+			transition first idle accept Go do { assign log := log + "go(effect);"; } then split;
+		}
+	}`)
+	sym := m.state(t, "Machine")
+	witness, err := ParseChoices("choice pick -> 3->three\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustSchedule(t, ctx, ReplayPolicy(witness))
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatal(err)
+	}
+	exec.SendSignal("Go", nil)
+	err = exec.RunToCompletion()
+	var refused *ReplayError
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || !strings.Contains(err.Error(), "3->three is not enabled (enabled: 1->one, 2->two)") {
+		t.Fatalf("error %T %v, want the choice move refused as not enabled", err, err)
+	}
+	data := exec.StateData()
+	for name, want := range map[string]string{"log": `""`, "level": "0"} {
+		if got := FormatValue(data[name]); got != want {
+			t.Errorf("%s is %s after the refusal, want %s: the owner's entry made ahead is undone with the move", name, got, want)
+		}
+	}
+	if got := activeStateNames(exec); got != "idle" {
+		t.Errorf("the machine is in %s after the refusal, want idle", got)
+	}
+	if len(exec.doActions) != 0 {
+		t.Errorf("%d do behaviors run after the refusal, want none: the owner's is undone with its entry", len(exec.doActions))
+	}
+	if len(exec.enteredAhead) != 0 {
+		t.Errorf("the executor still holds %d states entered ahead after the refusal, want none", len(exec.enteredAhead))
 	}
 }
 

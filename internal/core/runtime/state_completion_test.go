@@ -305,7 +305,7 @@ func TestCompositeCompletionQueuesItsTransitionsLikeALeaf(t *testing.T) {
 				out = append(out, "not a completion event")
 				continue
 			}
-			out = append(out, fmt.Sprintf("%s->%s@%g", getNodeName(trans.Source), getNodeName(trans.Target), event.Timestamp))
+			out = append(out, fmt.Sprintf("%s->%s@%g", StateVertexName(trans.Source), StateVertexName(trans.Target), event.Timestamp))
 		}
 		return out
 	}

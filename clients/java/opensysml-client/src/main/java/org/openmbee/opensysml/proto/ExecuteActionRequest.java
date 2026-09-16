@@ -35,6 +35,7 @@ private static final long serialVersionUID = 0L;
     modelHash_ = "";
     actionSymbolId_ = "";
     schedule_ = "";
+    performerSymbolId_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -300,6 +301,61 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     }
   }
 
+  public static final int PERFORMER_SYMBOL_ID_FIELD_NUMBER = 5;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object performerSymbolId_ = "";
+  /**
+   * <pre>
+   * Optional FQN of a part/usage to perform the action on, or a path from one to
+   * a nested object, as `Mission::mission.vehicle`: the object is created for the
+   * run — inside the assembly the path walks, so its connectors carry what the
+   * action sends — and under explore each run creates its own. Empty performs
+   * the action outside any object.
+   * </pre>
+   *
+   * <code>string performer_symbol_id = 5 [json_name = "performerSymbolId"];</code>
+   * @return The performerSymbolId.
+   */
+  @java.lang.Override
+  public java.lang.String getPerformerSymbolId() {
+    java.lang.Object ref = performerSymbolId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      performerSymbolId_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Optional FQN of a part/usage to perform the action on, or a path from one to
+   * a nested object, as `Mission::mission.vehicle`: the object is created for the
+   * run — inside the assembly the path walks, so its connectors carry what the
+   * action sends — and under explore each run creates its own. Empty performs
+   * the action outside any object.
+   * </pre>
+   *
+   * <code>string performer_symbol_id = 5 [json_name = "performerSymbolId"];</code>
+   * @return The bytes for performerSymbolId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getPerformerSymbolIdBytes() {
+    java.lang.Object ref = performerSymbolId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      performerSymbolId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -329,6 +385,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(schedule_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 4, schedule_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(performerSymbolId_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 5, performerSymbolId_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -357,6 +416,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(schedule_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(4, schedule_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(performerSymbolId_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(5, performerSymbolId_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -380,6 +442,8 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         other.internalGetInputs())) return false;
     if (!getSchedule()
         .equals(other.getSchedule())) return false;
+    if (!getPerformerSymbolId()
+        .equals(other.getPerformerSymbolId())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -401,6 +465,8 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     }
     hash = (37 * hash) + SCHEDULE_FIELD_NUMBER;
     hash = (53 * hash) + getSchedule().hashCode();
+    hash = (37 * hash) + PERFORMER_SYMBOL_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getPerformerSymbolId().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -562,6 +628,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       actionSymbolId_ = "";
       internalGetMutableInputs().clear();
       schedule_ = "";
+      performerSymbolId_ = "";
       return this;
     }
 
@@ -607,6 +674,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       if (((from_bitField0_ & 0x00000008) != 0)) {
         result.schedule_ = schedule_;
       }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.performerSymbolId_ = performerSymbolId_;
+      }
     }
 
     @java.lang.Override
@@ -637,6 +707,11 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       if (!other.getSchedule().isEmpty()) {
         schedule_ = other.schedule_;
         bitField0_ |= 0x00000008;
+        onChanged();
+      }
+      if (!other.getPerformerSymbolId().isEmpty()) {
+        performerSymbolId_ = other.performerSymbolId_;
+        bitField0_ |= 0x00000010;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -689,6 +764,11 @@ org.openmbee.opensysml.proto.Value defaultValue) {
               bitField0_ |= 0x00000008;
               break;
             } // case 34
+            case 42: {
+              performerSymbolId_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000010;
+              break;
+            } // case 42
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1170,6 +1250,118 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       checkByteStringIsUtf8(value);
       schedule_ = value;
       bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object performerSymbolId_ = "";
+    /**
+     * <pre>
+     * Optional FQN of a part/usage to perform the action on, or a path from one to
+     * a nested object, as `Mission::mission.vehicle`: the object is created for the
+     * run — inside the assembly the path walks, so its connectors carry what the
+     * action sends — and under explore each run creates its own. Empty performs
+     * the action outside any object.
+     * </pre>
+     *
+     * <code>string performer_symbol_id = 5 [json_name = "performerSymbolId"];</code>
+     * @return The performerSymbolId.
+     */
+    public java.lang.String getPerformerSymbolId() {
+      java.lang.Object ref = performerSymbolId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        performerSymbolId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Optional FQN of a part/usage to perform the action on, or a path from one to
+     * a nested object, as `Mission::mission.vehicle`: the object is created for the
+     * run — inside the assembly the path walks, so its connectors carry what the
+     * action sends — and under explore each run creates its own. Empty performs
+     * the action outside any object.
+     * </pre>
+     *
+     * <code>string performer_symbol_id = 5 [json_name = "performerSymbolId"];</code>
+     * @return The bytes for performerSymbolId.
+     */
+    public com.google.protobuf.ByteString
+        getPerformerSymbolIdBytes() {
+      java.lang.Object ref = performerSymbolId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        performerSymbolId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Optional FQN of a part/usage to perform the action on, or a path from one to
+     * a nested object, as `Mission::mission.vehicle`: the object is created for the
+     * run — inside the assembly the path walks, so its connectors carry what the
+     * action sends — and under explore each run creates its own. Empty performs
+     * the action outside any object.
+     * </pre>
+     *
+     * <code>string performer_symbol_id = 5 [json_name = "performerSymbolId"];</code>
+     * @param value The performerSymbolId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPerformerSymbolId(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      performerSymbolId_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional FQN of a part/usage to perform the action on, or a path from one to
+     * a nested object, as `Mission::mission.vehicle`: the object is created for the
+     * run — inside the assembly the path walks, so its connectors carry what the
+     * action sends — and under explore each run creates its own. Empty performs
+     * the action outside any object.
+     * </pre>
+     *
+     * <code>string performer_symbol_id = 5 [json_name = "performerSymbolId"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPerformerSymbolId() {
+      performerSymbolId_ = getDefaultInstance().getPerformerSymbolId();
+      bitField0_ = (bitField0_ & ~0x00000010);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional FQN of a part/usage to perform the action on, or a path from one to
+     * a nested object, as `Mission::mission.vehicle`: the object is created for the
+     * run — inside the assembly the path walks, so its connectors carry what the
+     * action sends — and under explore each run creates its own. Empty performs
+     * the action outside any object.
+     * </pre>
+     *
+     * <code>string performer_symbol_id = 5 [json_name = "performerSymbolId"];</code>
+     * @param value The bytes for performerSymbolId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPerformerSymbolIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      performerSymbolId_ = value;
+      bitField0_ |= 0x00000010;
       onChanged();
       return this;
     }

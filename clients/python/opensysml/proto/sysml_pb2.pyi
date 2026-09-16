@@ -34,6 +34,7 @@ class EditFailure(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     EDIT_FAILURE_DELETE_REFERENCED: _ClassVar[EditFailure]
     EDIT_FAILURE_OWNER_INSIDE_TARGET: _ClassVar[EditFailure]
     EDIT_FAILURE_MOVE_REFERENCED: _ClassVar[EditFailure]
+    EDIT_FAILURE_REFERENCED_ELSEWHERE: _ClassVar[EditFailure]
 
 class PrimitiveOperator(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -69,6 +70,7 @@ EDIT_FAILURE_MEMBER_NAME_TAKEN: EditFailure
 EDIT_FAILURE_DELETE_REFERENCED: EditFailure
 EDIT_FAILURE_OWNER_INSIDE_TARGET: EditFailure
 EDIT_FAILURE_MOVE_REFERENCED: EditFailure
+EDIT_FAILURE_REFERENCED_ELSEWHERE: EditFailure
 PRIMITIVE_OPERATOR_UNSPECIFIED: PrimitiveOperator
 PRIMITIVE_OPERATOR_EQUAL: PrimitiveOperator
 PRIMITIVE_OPERATOR_GREATER: PrimitiveOperator
@@ -593,7 +595,7 @@ class InstantiateResponse(_message.Message):
     def __init__(self, instance: _Optional[_Union[Instance, _Mapping]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ...) -> None: ...
 
 class ExecuteActionRequest(_message.Message):
-    __slots__ = ("model_hash", "action_symbol_id", "inputs", "schedule")
+    __slots__ = ("model_hash", "action_symbol_id", "inputs", "schedule", "performer_symbol_id")
     class InputsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -605,11 +607,13 @@ class ExecuteActionRequest(_message.Message):
     ACTION_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     INPUTS_FIELD_NUMBER: _ClassVar[int]
     SCHEDULE_FIELD_NUMBER: _ClassVar[int]
+    PERFORMER_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     action_symbol_id: str
     inputs: _containers.MessageMap[str, Value]
     schedule: str
-    def __init__(self, model_hash: _Optional[str] = ..., action_symbol_id: _Optional[str] = ..., inputs: _Optional[_Mapping[str, Value]] = ..., schedule: _Optional[str] = ...) -> None: ...
+    performer_symbol_id: str
+    def __init__(self, model_hash: _Optional[str] = ..., action_symbol_id: _Optional[str] = ..., inputs: _Optional[_Mapping[str, Value]] = ..., schedule: _Optional[str] = ..., performer_symbol_id: _Optional[str] = ...) -> None: ...
 
 class ExecuteActionResponse(_message.Message):
     __slots__ = ("outputs", "error", "diagnostics", "outcomes", "exploration", "final_time")
@@ -635,16 +639,18 @@ class ExecuteActionResponse(_message.Message):
     def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ...) -> None: ...
 
 class ExecuteStateRequest(_message.Message):
-    __slots__ = ("model_hash", "state_machine_symbol_id", "events", "schedule")
+    __slots__ = ("model_hash", "state_machine_symbol_id", "events", "schedule", "performer_symbol_id")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     STATE_MACHINE_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     EVENTS_FIELD_NUMBER: _ClassVar[int]
     SCHEDULE_FIELD_NUMBER: _ClassVar[int]
+    PERFORMER_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     state_machine_symbol_id: str
     events: _containers.RepeatedScalarFieldContainer[str]
     schedule: str
-    def __init__(self, model_hash: _Optional[str] = ..., state_machine_symbol_id: _Optional[str] = ..., events: _Optional[_Iterable[str]] = ..., schedule: _Optional[str] = ...) -> None: ...
+    performer_symbol_id: str
+    def __init__(self, model_hash: _Optional[str] = ..., state_machine_symbol_id: _Optional[str] = ..., events: _Optional[_Iterable[str]] = ..., schedule: _Optional[str] = ..., performer_symbol_id: _Optional[str] = ...) -> None: ...
 
 class ExecuteStateResponse(_message.Message):
     __slots__ = ("states_visited", "final_context", "error", "diagnostics", "outcomes", "exploration", "final_time")
@@ -706,12 +712,16 @@ class ConvertResponse(_message.Message):
     def __init__(self, content: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., experimental: _Optional[bool] = ..., experimental_notice: _Optional[str] = ...) -> None: ...
 
 class ApplyEditsRequest(_message.Message):
-    __slots__ = ("model_hash", "operations")
+    __slots__ = ("model_hash", "operations", "document", "accept_documents")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     OPERATIONS_FIELD_NUMBER: _ClassVar[int]
+    DOCUMENT_FIELD_NUMBER: _ClassVar[int]
+    ACCEPT_DOCUMENTS_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     operations: _containers.RepeatedCompositeFieldContainer[EditOperation]
-    def __init__(self, model_hash: _Optional[str] = ..., operations: _Optional[_Iterable[_Union[EditOperation, _Mapping]]] = ...) -> None: ...
+    document: str
+    accept_documents: bool
+    def __init__(self, model_hash: _Optional[str] = ..., operations: _Optional[_Iterable[_Union[EditOperation, _Mapping]]] = ..., document: _Optional[str] = ..., accept_documents: _Optional[bool] = ...) -> None: ...
 
 class EditOperation(_message.Message):
     __slots__ = ("set_value", "rename", "add_member", "delete", "move")
@@ -778,36 +788,58 @@ class RenameEdit(_message.Message):
     def __init__(self, target: _Optional[str] = ..., new_name: _Optional[str] = ...) -> None: ...
 
 class ApplyEditsResponse(_message.Message):
-    __slots__ = ("content", "applied", "error", "failure", "diagnostics", "referring_elements")
+    __slots__ = ("content", "applied", "error", "failure", "diagnostics", "referring_elements", "documents", "referrers")
     CONTENT_FIELD_NUMBER: _ClassVar[int]
     APPLIED_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     FAILURE_FIELD_NUMBER: _ClassVar[int]
     DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
     REFERRING_ELEMENTS_FIELD_NUMBER: _ClassVar[int]
+    DOCUMENTS_FIELD_NUMBER: _ClassVar[int]
+    REFERRERS_FIELD_NUMBER: _ClassVar[int]
     content: str
     applied: _containers.RepeatedCompositeFieldContainer[AppliedEdit]
     error: str
     failure: EditFailure
     diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
     referring_elements: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, content: _Optional[str] = ..., applied: _Optional[_Iterable[_Union[AppliedEdit, _Mapping]]] = ..., error: _Optional[str] = ..., failure: _Optional[_Union[EditFailure, str]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., referring_elements: _Optional[_Iterable[str]] = ...) -> None: ...
+    documents: _containers.RepeatedCompositeFieldContainer[EditedDocument]
+    referrers: _containers.RepeatedCompositeFieldContainer[Referrer]
+    def __init__(self, content: _Optional[str] = ..., applied: _Optional[_Iterable[_Union[AppliedEdit, _Mapping]]] = ..., error: _Optional[str] = ..., failure: _Optional[_Union[EditFailure, str]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., referring_elements: _Optional[_Iterable[str]] = ..., documents: _Optional[_Iterable[_Union[EditedDocument, _Mapping]]] = ..., referrers: _Optional[_Iterable[_Union[Referrer, _Mapping]]] = ...) -> None: ...
+
+class EditedDocument(_message.Message):
+    __slots__ = ("name", "content")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    CONTENT_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    content: str
+    def __init__(self, name: _Optional[str] = ..., content: _Optional[str] = ...) -> None: ...
+
+class Referrer(_message.Message):
+    __slots__ = ("name", "document")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DOCUMENT_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    document: str
+    def __init__(self, name: _Optional[str] = ..., document: _Optional[str] = ...) -> None: ...
 
 class AppliedEdit(_message.Message):
-    __slots__ = ("operation_index", "target", "offset", "length", "old_text", "new_text")
+    __slots__ = ("operation_index", "target", "offset", "length", "old_text", "new_text", "document")
     OPERATION_INDEX_FIELD_NUMBER: _ClassVar[int]
     TARGET_FIELD_NUMBER: _ClassVar[int]
     OFFSET_FIELD_NUMBER: _ClassVar[int]
     LENGTH_FIELD_NUMBER: _ClassVar[int]
     OLD_TEXT_FIELD_NUMBER: _ClassVar[int]
     NEW_TEXT_FIELD_NUMBER: _ClassVar[int]
+    DOCUMENT_FIELD_NUMBER: _ClassVar[int]
     operation_index: int
     target: str
     offset: int
     length: int
     old_text: str
     new_text: str
-    def __init__(self, operation_index: _Optional[int] = ..., target: _Optional[str] = ..., offset: _Optional[int] = ..., length: _Optional[int] = ..., old_text: _Optional[str] = ..., new_text: _Optional[str] = ...) -> None: ...
+    document: str
+    def __init__(self, operation_index: _Optional[int] = ..., target: _Optional[str] = ..., offset: _Optional[int] = ..., length: _Optional[int] = ..., old_text: _Optional[str] = ..., new_text: _Optional[str] = ..., document: _Optional[str] = ...) -> None: ...
 
 class SymbolInfo(_message.Message):
     __slots__ = ("id", "name", "kind", "metadata", "child_ids", "attributes", "type_info", "multiplicity", "specializations", "withheld_library_attributes")

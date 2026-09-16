@@ -51,7 +51,19 @@ rather than half-implemented in some:
 - `Query` and OSLC query;
 - native document queries and rendering (`RunDocumentQuery`, `RenderDocument`).
 
-Those RPCs exist and are served. Only the Node client offers an escape hatch to them:
+Those RPCs exist and are served. `ApplyEdits` also edits a model of several documents, parsed
+together by `ParseSources`, as one atomic batch — every document the edits reach is answered in
+`ApplyEditsResponse.documents` under the name the parse gave it, and the sole-document `content`
+stays filled for a model of one document ([the wire contract](wire-contract.md#applyedits-one-document-or-several)).
+A request must set `accept_documents` for that; one that does not is refused on a model of several
+documents as before, so a client of the previous schema is answered as it always was. The service
+advertises the `edit_documents` capability for it; one without the capability answers `content`
+alone and refuses a model of several documents, so a client reads `documents` only from a service
+that advertises it. The Go and Python clients set it and expose the documents; the Node, Java and Rust clients carry the new
+fields in their generated messages only, since v1 of each parses one document at a time, and their
+conformance runners skip the multi-document scenarios naming that reason.
+
+Only the Node client offers an escape hatch to them:
 `connection.rpc` is the generated Connect client. The Java and Rust clients ship the protobuf
 messages but no public call that sends one, so from those languages, reach these RPCs through the
 Go or Python client until a v2 wraps them. Each client's conformance report names, per scenario,

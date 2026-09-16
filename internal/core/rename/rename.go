@@ -35,6 +35,9 @@ type Conflict struct {
 	Means string
 	// Site is the namespace of the captured reference; empty for a taken name.
 	Site string
+	// Occurrence indexes the captured reference among those checked; meaningful
+	// only where Site is set.
+	Occurrence int
 	// Ambiguity is how many elements the reference would name at once, where the
 	// rename would leave it ambiguous rather than reading another element.
 	Ambiguity int
@@ -68,9 +71,9 @@ func Check(r *resolve.Resolver, sem *semantics.Model, sym *symbols.Symbol, name,
 	if means, ok := taken(r, sym, newName); ok {
 		return &Conflict{Subject: subject, NewName: newName, Means: means}
 	}
-	for _, occ := range occurrences {
+	for i, occ := range occurrences {
 		if c, ok := capturedAt(r, sem, sym, occ, newName); ok {
-			c.Subject, c.NewName, c.Site = subject, newName, site(r, occ, name)
+			c.Subject, c.NewName, c.Site, c.Occurrence = subject, newName, site(r, occ, name), i
 			return &c
 		}
 	}

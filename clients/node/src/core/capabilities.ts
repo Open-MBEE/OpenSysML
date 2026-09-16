@@ -52,10 +52,14 @@ export const CAPABILITY_CASE_EVALUATIONS = "case_evaluations";
 export const CAPABILITY_QUERY = "query";
 /** The `ApplyEdits` RPC. Not used by this version; see the README. */
 export const CAPABILITY_APPLY_EDITS = "apply_edits";
+/** `ApplyEdits` edits a model of several documents as one batch and answers each edited document by name in `documents`. Not used by this version; see the README. */
+export const CAPABILITY_EDIT_DOCUMENTS = "edit_documents";
 /** The `schedule` field of the execution requests, naming the scheduling policy. Not used by this version; see the README. */
 export const CAPABILITY_SCHEDULE = "schedule";
 /** The `explore` scheduling policy, answering with every `outcomes` entry and an `exploration` status. Not used by this version; see the README. */
 export const CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore";
+/** `performerSymbolId` on the action and state requests: the object the behavior runs on, a declaration or a path from one into its parts. Not used by this version; see the README. */
+export const CAPABILITY_PERFORMER = "performer";
 /** The `ListEngines` RPC, the `engine` field selecting an analysis engine, and `engine`, `strength` and `bounds` on the answers. Not used by this version; see the README. */
 export const CAPABILITY_ENGINES = "engines";
 /** A model-level result the model leaves open as `Value.undetermined`, read as an `undetermined` value. */

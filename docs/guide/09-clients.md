@@ -244,6 +244,14 @@ every linearization under `"explore"` — the default when no policy is given �
 before anything is sent; a service that does not advertise `schedule` or `schedule_explore`
 refuses with `CodeUnimplemented`.
 
+An action or state machine runs *on* an object when `opensysml.PerformedBy(...)` names one, as
+`sysml -action "<action> <object>"` does: a part definition or usage the run makes an object of,
+or a [path from one into its parts](../reference/cli.md#objects-an-exploration-runs-on) —
+`PerformedBy("Mission::mission.vehicle")` makes the mission and runs the machine the vehicle
+exhibits, inside its assembly, so the ground station's messages reach it over their connector.
+Each explored run makes the object anew. A service not advertising `performer` refuses the
+option with `CodeUnimplemented`.
+
 Which [analysis engine](../reference/cli.md#analysis-engines) answers is chosen the same way
 `sysml -engine` chooses it: `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` and
 `ValidateInstance` take `opensysml.WithEngine("run")`, `RunAnalysis` takes `opensysml.Engine(...)`, `Calculate` — `EvaluateCalc`
@@ -1064,8 +1072,13 @@ would otherwise break.
 `apply()` sends the operations in a single call and returns an `EditResult`, which *is* a
 `Conversion`: `str(result)` is the edited notation, and `result.save(path)` and
 `result.write(path)` write it. `result.applied` lists the changes as
-`AppliedEdit(operation_index, target, offset, length, old_text, new_text)` in source order, where
-`length == 0` marks a value added to a feature that had none before.
+`AppliedEdit(operation_index, target, offset, length, old_text, new_text, document)` in source
+order, where `length == 0` marks a value added to a feature that had none before, and
+`result.documents` lists the edited notation per document as `EditedDocument(name, content)` —
+one entry, named as the model was loaded, for the one-document models this client loads. A model
+of several documents, parsed together through the service's `ParseSources`, is edited as one
+atomic batch and answers its rewritten documents there, with `str(result)` empty; see
+[the wire contract](../reference/wire-contract.md#applyedits-one-document-or-several).
 
 How editing works:
 
@@ -1096,7 +1109,10 @@ All of these are subclasses of `EditError`, which carries `failure` (the kind of
 `diagnostics`, and `referring_elements` for a refused rename or a refused non-cascade delete. An
 `EditResultError`'s diagnostics have spans in the edited text. `referring_elements` names
 each namespace a reference is made from, telling you where to look rather than which
-expression is at fault.
+expression is at fault; `referrers` is the same list as `Referrer(name, document)` pairs, so a
+referrer in another document of the model can be opened. A `ReferencedElsewhereError` is a
+rename, delete or move referred to from a document the edit cannot rewrite, such as a bundled
+library file.
 
 ```python
 try:
@@ -1116,8 +1132,9 @@ These limitations are intentional:
   namespace, an import or a supertype), or that already means something at one of the references
   being rewritten, is refused. Such a rename would either be ambiguous or shadow an existing
   declaration, and either way unrelated expressions would start resolving to the renamed element.
-  References from another file are not rewritten, because an edit sees only the source of the
-  model it was given.
+  A reference from a file outside the model is not rewritten, because an edit sees only the
+  documents of the model it was given; within a model of several documents, a rename follows
+  its references into every document.
 - **A model cannot be built from scratch in Python.** Declarations are added to and deleted from a
   model that is already loaded; there is no way to author one from nothing, and no object facade.
   A declaration is described by the notation arguments of an `add_*` call rather than by a mutable

@@ -10,9 +10,14 @@ pub struct SuiteFile {
     pub scenarios: Vec<Scenario>,
 }
 
+/// One fixture parsed alone, or several parsed together as one model, which
+/// the v1 API's single-document parse cannot make.
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq)]
 pub struct ModelSpec {
+    #[serde(default)]
     pub fixture: String,
+    #[serde(default)]
+    pub fixtures: Vec<String>,
     #[serde(default)]
     pub language: String,
     #[serde(default)]
