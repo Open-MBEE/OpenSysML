@@ -14,8 +14,8 @@ archive of the release tag, as MSYS2 requires for all its packages. It installs 
 `depends=("${MINGW_PACKAGE_PREFIX}-z3")` so MSYS2's own Z3 package provides the solver the
 experimental `%check`/`%explain` commands look for on `PATH`. The source archive is not listed
 in `SHA256SUMS.txt`, so the render script downloads and hashes it; `updpkgsums` on the
-rendered file gives the same result. The Go build sets `CGO_ENABLED=0`, as the release
-cross-builds do, so `-cc` is not a build dependency.
+rendered file gives the same result. The Go build sets `CGO_ENABLED=0`, as the Makefile's
+build targets do, so `-cc` is not a build dependency.
 
 ## Rendering
 
