@@ -55,6 +55,22 @@ func (s *Server) wantsMarkdownCompletion() bool {
 	return s.completionMarkdown
 }
 
+// setCrossDocument records whether the client speaks the cross-document
+// diagram contract.
+func (s *Server) setCrossDocument(ok bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.crossDocument = ok
+}
+
+// clientSpeaksCrossDocument reports whether renderings may name another
+// document's declarations, which the client then pins its layouts to.
+func (s *Server) clientSpeaksCrossDocument() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.crossDocument
+}
+
 // initializeFolders returns a session's folders, preferring workspaceFolders and
 // falling back to the deprecated rootUri/rootPath older clients send instead.
 func initializeFolders(params *protocol.InitializeParams) []string {

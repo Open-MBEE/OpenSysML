@@ -19,6 +19,9 @@ export const APPLY_MODEL_EDIT_METHOD = "opensysml/applyModelEdit";
 /** The capability the server advertises when it serves model edits. */
 export const APPLY_MODEL_EDIT_CAPABILITY = "openSysmlApplyModelEdit";
 
+/** The capability each side advertises when it speaks the cross-document diagram contract: renderings naming other documents' declarations, `declaredHere`, and layouts pinned with `declaredIn`. */
+export const CROSS_DOCUMENT_CAPABILITY = "openSysmlCrossDocumentLayout";
+
 /** The URI scheme the server locates standard-library declarations in. */
 export const STDLIB_SCHEME = "sysml-stdlib";
 
@@ -48,12 +51,15 @@ export interface Range {
 
 /**
  * Where an element was declared: `range` is the whole declaration, `selectionRange`
- * the declared identifier alone, which is where clicking a node goes.
+ * the declared identifier alone, which is where clicking a node goes. `digest`
+ * fingerprints the text the ranges are of; an operation naming a range of another
+ * document hands it back, and is answered stale once that text has changed.
  */
 export interface RenderOrigin {
   uri: string;
   range: Range;
   selectionRange?: Range;
+  digest: string;
 }
 
 export interface RenderNode {
@@ -63,14 +69,17 @@ export interface RenderNode {
   type: string;
   detail: string;
   parent?: string;
-  /** The qualified name a model edit targets the declaration by; absent for a node with none in this document. */
+  /** The qualified name a model edit targets the declaration by, in whichever workspace document declares it; absent for a node with none, and for a library's. */
   fqn?: string;
+  /** The requested document declares the node, so every edit reaches it; absent, only a layout does. */
+  declaredHere?: boolean;
   /** The keyword the declaration was written with (`part def`, `port`); with `fqn`. A move asks its new owner to admit it. */
   notation?: string;
   /** The namespaces declaring the node, nearest first, drawn or not; absent with `fqn`, and for a top-level declaration. */
   owners?: RenderOwner[];
-  /** The range of the node's declaration when the document declares it but no qualified name reaches it; a layout edit targets that instead of `fqn`. */
+  /** The range of the node's declaration, in the document `origin` names, when no qualified name reaches it; a layout edit targets that instead of `fqn`. */
   declaration?: Range;
+  /** Where the node was declared; absent for one drawn from no workspace document. */
   origin?: RenderOrigin;
   /** Where a `DiagramLayout::Layout` puts the node, in pixels, y down; absent when the model does not place it. */
   x?: number;
@@ -106,10 +115,11 @@ export interface RenderEdge {
   to: string;
   label: string;
   kind: string;
-  /** The qualified name a model edit targets the declaring connection by; absent for one not declared in this document. */
+  /** The qualified name a model edit targets the declaring connection by, in whichever workspace document declares it; absent for one with none. */
   fqn?: string;
-  /** The range of the connection's declaration when no qualified name reaches it, as on a node. */
+  /** The range of the connection's declaration, in the document `origin` names, when no qualified name reaches it, as on a node. */
   declaration?: Range;
+  /** Where the connection was declared; absent for one drawn from no workspace document. */
   origin?: RenderOrigin;
   /** The waypoints a `DiagramLayout::Route` steers the edge through, source to target. */
   route?: RenderPoint[];
@@ -168,6 +178,16 @@ export function admits(palette: EditPalette | undefined, memberKind: string, nod
   return owners ? owners.includes(node.id) : true;
 }
 
+/** declaredHere: whether the requested document declares a node, which every edit reaches; another document's takes a layout alone. */
+export function declaredHere(node: RenderNode): node is RenderNode & { fqn: string } {
+  return node.declaredHere === true && node.fqn !== undefined;
+}
+
+/** ownDeclarations: nodes as a server predating `declaredHere` means them — every named one is the requested document's own. */
+export function ownDeclarations(nodes: RenderNode[]): RenderNode[] {
+  return nodes.map((node) => (node.fqn === undefined ? node : { ...node, declaredHere: true }));
+}
+
 /** reachable: whether a layout edit can reach a node or edge — by qualified name, or by declaration when none reaches it. */
 export function reachable(element: RenderNode | RenderEdge): boolean {
   return element.fqn !== undefined || element.declaration !== undefined;
@@ -181,14 +201,14 @@ export type ModelEditOperation =
   | { kind: "addConnection"; owner: string; memberKind: string; from: string; to: string; name?: string; type?: string }
   | { kind: "delete"; target: string; cascade?: boolean }
   | { kind: "move"; target: string; owner: string }
-  /** Places `target` in `view`'s body, or inline in its own declaration without a view; no `layout` clears the annotation. */
-  | { kind: "setLayout"; target: string; view?: string; layout?: LayoutGeometry }
-  /** Places the node declared at `declaration`, which no qualified name reaches, inline: a view body cannot name it. */
-  | { kind: "setLayout"; declaration: Range; layout?: LayoutGeometry }
+  /** Places `target` in `view`'s body, or inline in its own declaration without a view; no `layout` clears the annotation. `declaredIn` names the document declaring `target`, whose text `digest` fingerprints as its origin reported, so that a namesake declared since is answered stale rather than placed. */
+  | { kind: "setLayout"; target: string; declaredIn?: string; digest?: string; view?: string; layout?: LayoutGeometry }
+  /** Places the node declared at `declaration`, which no qualified name reaches, inline: a view body cannot name it. The range is one of the document `declaredIn` names — whose text `digest` fingerprints, as its origin reported — or of the edited document without it. */
+  | { kind: "setLayout"; declaration: Range; declaredIn?: string; digest?: string; layout?: LayoutGeometry }
   /** Steers the connection `target` through `route`, per view or inline as above; an empty or absent route clears it. */
-  | { kind: "setRoute"; target: string; view?: string; route?: RenderPoint[] }
+  | { kind: "setRoute"; target: string; declaredIn?: string; digest?: string; view?: string; route?: RenderPoint[] }
   /** Steers the connection declared at `declaration` inline, as `setLayout` by declaration places a node. */
-  | { kind: "setRoute"; declaration: Range; route?: RenderPoint[] }
+  | { kind: "setRoute"; declaration: Range; declaredIn?: string; digest?: string; route?: RenderPoint[] }
   /** Sizes the drawing surface of the view `target`; no `canvas` clears it. */
   | { kind: "setCanvas"; target: string; canvas?: RenderCanvas };
 

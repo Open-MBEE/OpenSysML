@@ -25,6 +25,9 @@ import {
 import {
   admits,
   APPLY_MODEL_EDIT_CAPABILITY,
+  CROSS_DOCUMENT_CAPABILITY,
+  declaredHere,
+  ownDeclarations,
   APPLY_MODEL_EDIT_METHOD,
   ApplyModelEditResult,
   EdgePlacement,
@@ -361,6 +364,10 @@ class DiagramPanel {
       if (!supportsEdit(client)) {
         delete result.palette;
       }
+      // A server predating declaredHere names the requested document's own alone.
+      if (!supportsCrossDocument(client)) {
+        result.nodes = ownDeclarations(result.nodes ?? []);
+      }
       this.rendering = {
         nodes: result.nodes ?? [],
         edges: result.edges ?? [],
@@ -504,7 +511,7 @@ class DiagramPanel {
     at: string | undefined,
   ): Promise<ModelEditOperation[] | undefined> {
     const owner = at ? ownerOf(this.node(rendering, at), rendering.nodes) : await this.ownerFromContext(rendering, memberKind);
-    if (!owner?.fqn) {
+    if (!owner || !declaredHere(owner)) {
       return undefined;
     }
     if (!admits(rendering.palette, memberKind, owner)) {
@@ -576,7 +583,7 @@ class DiagramPanel {
 
   private async rename(rendering: Rendering, id: string): Promise<ModelEditOperation[] | undefined> {
     const node = this.node(rendering, id);
-    if (!node?.fqn) {
+    if (!node || !declaredHere(node)) {
       return undefined;
     }
     const newName = await vscode.window.showInputBox({
@@ -592,7 +599,7 @@ class DiagramPanel {
 
   private async delete(rendering: Rendering, id: string, cascade: boolean): Promise<ModelEditOperation[] | undefined> {
     const node = this.node(rendering, id);
-    if (!node?.fqn) {
+    if (!node || !declaredHere(node)) {
       return undefined;
     }
     if (!cascade) {
@@ -607,7 +614,7 @@ class DiagramPanel {
   // A move is offered the drawn declarations that admit the node's kind, and the document.
   private async move(rendering: Rendering, id: string): Promise<ModelEditOperation[] | undefined> {
     const node = this.node(rendering, id);
-    if (!node?.fqn) {
+    if (!node || !declaredHere(node)) {
       return undefined;
     }
     const items = moveDestinations(node, rendering).map(({ fqn, node: into }) =>
@@ -630,7 +637,7 @@ class DiagramPanel {
   // A palette addition goes into the declaration at the cursor, else the one root, else a pick;
   // each only if it may own the kind.
   private async ownerFromContext(rendering: Rendering, memberKind: string): Promise<RenderNode | undefined> {
-    const keep = (node: RenderNode) => Boolean(node.fqn) && admits(rendering.palette, memberKind, node);
+    const keep = (node: RenderNode) => declaredHere(node) && admits(rendering.palette, memberKind, node);
     const editor = vscode.window.visibleTextEditors.find(
       (candidate) => candidate.document.uri.toString() === this.docURI.toString(),
     );
@@ -649,7 +656,7 @@ class DiagramPanel {
     rendering: Rendering,
     title: string,
     except: RenderNode | undefined,
-    keep: (node: RenderNode) => boolean = (node) => node.fqn !== undefined,
+    keep: (node: RenderNode) => boolean = declaredHere,
   ): Promise<RenderNode | undefined> {
     const items = rendering.nodes
       .filter((node) => node !== except && keep(node))
@@ -793,6 +800,11 @@ type AppliedAction = EditAction | { kind: "place" };
 /** supportsEdit reports whether the server advertised the model-edit capability. */
 function supportsEdit(client: LanguageClient): boolean {
   return experimental(client)?.[APPLY_MODEL_EDIT_CAPABILITY] === true;
+}
+
+/** supportsCrossDocument reports whether the server advertised the cross-document diagram contract. */
+function supportsCrossDocument(client: LanguageClient): boolean {
+  return experimental(client)?.[CROSS_DOCUMENT_CAPABILITY] === true;
 }
 
 /** openVersion is the version of the open buffer at a URI, or nothing when no buffer holds it. */
