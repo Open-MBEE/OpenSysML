@@ -101,7 +101,7 @@ func (m Model) validate(edited rewrites) error {
 		return nil
 	}
 	if m.reindex == nil { // validated outside an Apply call
-		m.reindex = &reindexer{newIndex: m.NewIndex}
+		m.reindex = newReindexer(m)
 	}
 	// The parse diagnostics are handed to the analysis, so a model that already
 	// had syntax errors is not judged by tiers its own parse never reached. The
@@ -113,7 +113,7 @@ func (m Model) validate(edited rewrites) error {
 	}
 	var idx *symbols.Index
 	for _, rr := range rereads {
-		idx = m.reindex.analyzedIn(rr.sf.Name(), rr.root, rr.sf.Kind())
+		idx = m.reindex.analyzedIn(rr.sf, rr.root)
 	}
 	for _, rr := range rereads {
 		after := errorsOnly(passes.AnalyzeWithOptions(rr.sf.Name(), rr.sf.Kind(), rr.root, rr.editedParse, idx, m.Analysis))
@@ -152,7 +152,7 @@ func (m Model) baseline(gate []passes.Diagnostic) []passes.Diagnostic {
 	}
 	p := parser.New(m.Source)
 	root := p.ParseFile()
-	idx := m.reindex.analyzedIn(m.Source.Name(), root, m.Source.Kind())
+	idx := m.reindex.analyzedIn(m.Source, root)
 	return passes.AnalyzeWithOptions(m.Source.Name(), m.Source.Kind(), root, gate, idx, m.Analysis)
 }
 

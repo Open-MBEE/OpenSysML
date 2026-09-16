@@ -169,7 +169,11 @@ LSP client; only the syntax highlighting is specific to VS Code.
   [element identity](../project/element-identity-annotations.md). A named
   standard-library element already carries the normative id the specification
   fixes for it — hover states it as `(normative, KerML)` or `(normative, SysML)` —
-  so the minting action is not offered on one; see
+  so the minting action is not offered on one. A copy of a library file in the
+  workspace, rooted at the library's own packages, is that library file: it stands
+  in for the bundled one, its elements keep their normative ids and get no minting
+  action, until an edit to a root (its name, its `library` keyword, a foreign id)
+  makes it the user's file again; see
   [normative library identity](../reference/rdf-mapping.md#normative-library-identity)
 
 **Not implemented:** semantic token deltas (`semanticTokens/full/delta`; the server keeps no
