@@ -12,6 +12,7 @@ import {
   movable,
   movedNode,
   movedWaypoint,
+  nodeUnder,
   overridesOf,
   removedWaypoint,
   shapeOf,
@@ -277,6 +278,42 @@ test("movable and steerable accept a target reached by its declaration alone", (
   ]));
   assert.equal(movable(unnamed, unnamed.nodes.get("b")!), true);
   assert.equal(steerable(unnamed, unnamed.edges[0]), true);
+});
+
+test("nodeUnder is the innermost drawn node holding the point, the later sibling of two that overlap", () => {
+  const layout = layoutCanvas(rendering([
+    node("a", "a", { x: 0, y: 0, width: 300, height: 200 }),
+    node("b", "b", { parent: "a", x: 20, y: 60, width: 100, height: 50 }),
+    node("c", "c", { x: 250, y: 100, width: 100, height: 50 }),
+    node("d", "d", { x: 600, y: 600, width: 100, height: 50 }),
+  ]));
+  assert.equal(nodeUnder(layout, { x: 10, y: 10 })?.node.id, "a");
+  assert.equal(nodeUnder(layout, { x: 50, y: 80 })?.node.id, "b");
+  // Where a's and c's boxes overlap, c is drawn later, on top; a border counts as inside.
+  assert.equal(nodeUnder(layout, { x: 280, y: 120 })?.node.id, "c");
+  assert.equal(nodeUnder(layout, { x: 700, y: 650 })?.node.id, "d");
+  assert.equal(nodeUnder(layout, { x: 500, y: 500 }), undefined);
+});
+
+test("nodeUnder passes over the dragged subtree and the children a collapsed node hides", () => {
+  const layout = layoutCanvas(rendering([
+    node("a", "a", { x: 0, y: 0, width: 300, height: 200 }),
+    node("b", "b", { parent: "a", x: 20, y: 60, width: 100, height: 50 }),
+    node("e", "e", { parent: "b", x: 30, y: 80, width: 40, height: 20 }),
+    node("c", "c", { x: 400, y: 0, width: 200, height: 200, collapsed: true }),
+    node("f", "f", { parent: "c", x: 420, y: 50, width: 40, height: 20 }),
+  ]));
+  // The dragged node b is held over its own place: what is under the pointer is its owner.
+  assert.equal(nodeUnder(layout, { x: 40, y: 85 }, "b")?.node.id, "a");
+  assert.equal(nodeUnder(layout, { x: 40, y: 85 })?.node.id, "e");
+  assert.equal(nodeUnder(layout, { x: 430, y: 60 })?.node.id, "c");
+});
+
+test("nodeUnder reads the layout it is given, so a node placed aside no longer covers its old point", () => {
+  const result = rendering([node("a", "a", { x: 0, y: 0, width: 100, height: 50 }), node("b", "b", { x: 200, y: 0, width: 100, height: 50 })]);
+  const shown = layoutCanvas(result, overridesOf(movedNode(layoutCanvas(result), "a", 200, 0)!));
+  assert.equal(nodeUnder(shown, { x: 50, y: 25 }), undefined);
+  assert.equal(nodeUnder(shown, { x: 250, y: 25 }, "a")?.node.id, "b");
 });
 
 test("movedNode writes the dragged node's new position, snapped, and nothing else about it", () => {

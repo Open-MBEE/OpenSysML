@@ -4,8 +4,8 @@ import { test } from "node:test";
 import { JSDOM } from "jsdom";
 
 import type { RenderNode, RenderResult } from "../protocol";
-import { drawCanvas } from "./canvas";
-import { layoutCanvas } from "./layout";
+import { drawCanvas, liftNode } from "./canvas";
+import { layoutCanvas, MARGIN } from "./layout";
 
 // The canvas is drawn with the page's document, as it is in the webview.
 const dom = new JSDOM("<!DOCTYPE html><body></body>");
@@ -52,6 +52,40 @@ test("drawCanvas draws every node as a group carrying its rendering id, movable 
   // A fork is a bar, with no label.
   assert.equal(svg.querySelector('g[data-opensysml-id="d"] > rect')?.classList.contains("filled"), true);
   assert.equal(svg.querySelector('g[data-opensysml-id="d"] text'), null);
+});
+
+test("liftNode floats the dragged subtree over a canvas that stays put, drawn last", () => {
+  const layout = layoutCanvas(result);
+  const svg = drawCanvas(layout);
+  const before = svg.querySelector('g[data-opensysml-id="c"] > rect')!.getAttribute("x");
+  liftNode(svg, layout, "a", 40, -10);
+  const groups = [...svg.querySelectorAll<SVGGElement>("g.opensysml-node")];
+  // The owner and its child move together; the others keep their place and their drawing order.
+  assert.deepEqual(groups.map((group) => group.dataset.opensysmlId), ["c", "d", "a", "b"]);
+  assert.deepEqual(groups.map((group) => group.getAttribute("transform")), [null, null, "translate(40 -10)", "translate(40 -10)"]);
+  assert.deepEqual(groups.map((group) => group.classList.contains("lifted")), [false, false, true, true]);
+  assert.equal(svg.querySelector('g[data-opensysml-id="a"] > rect')!.getAttribute("x"), "10");
+  assert.equal(svg.querySelector('g[data-opensysml-id="c"] > rect')!.getAttribute("x"), before);
+  // Lifted within the canvas, the canvas keeps its size and origin.
+  assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(layout.width), String(layout.height)]);
+  assert.equal(svg.getAttribute("viewBox"), `${layout.origin.x} ${layout.origin.y} ${layout.width} ${layout.height}`);
+  // A node the layout does not hold lifts nothing.
+  liftNode(svg, layout, "z", 1, 1);
+  assert.equal(svg.querySelectorAll("g.lifted").length, 2);
+});
+
+test("liftNode grows the canvas right and down to keep a node lifted past its edge in view", () => {
+  const layout = layoutCanvas(result);
+  const svg = drawCanvas(layout);
+  liftNode(svg, layout, "a", 1000, 500);
+  // The whole lifted subtree counts: the child reaches below its owner's stated box.
+  const boxes = ["a", "b"].map((id) => layout.nodes.get(id)!.box);
+  const width = Math.max(...boxes.map((box) => box.x + box.width)) + 1000 + MARGIN - layout.origin.x;
+  const height = Math.max(...boxes.map((box) => box.y + box.height)) + 500 + MARGIN - layout.origin.y;
+  assert.ok(width > layout.width && height > layout.height);
+  assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(width), String(height)]);
+  // The origin holds, so what is not lifted stays where it was drawn.
+  assert.equal(svg.getAttribute("viewBox"), `${layout.origin.x} ${layout.origin.y} ${width} ${height}`);
 });
 
 test("drawCanvas opens the view on geometry the model puts left of or above the origin", () => {

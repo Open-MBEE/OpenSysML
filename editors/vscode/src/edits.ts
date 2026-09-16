@@ -147,6 +147,25 @@ export function moveOperation(node: RenderNode, owner: string): ModelEditOperati
   return node.fqn === undefined ? undefined : { kind: "move", target: node.fqn, owner };
 }
 
+// reparentOperations is a drop on another node as one edit: the drag's placements, then the
+// move into the target; undefined unless Move to… would offer that target.
+export function reparentOperations(
+  rendering: Rendering,
+  id: string,
+  into: string,
+  nodes: NodePlacement[],
+  edges: EdgePlacement[],
+): ModelEditOperation[] | undefined {
+  const node = rendering.nodes.find((candidate) => candidate.id === id);
+  const owner = rendering.nodes.find((candidate) => candidate.id === into);
+  if (!node || !owner || owner.fqn === undefined || !moveDestinations(node, rendering).some((destination) => destination.node === owner)) {
+    return undefined;
+  }
+  const placed = placementOperations(rendering, nodes, edges);
+  const move = moveOperation(node, owner.fqn);
+  return placed && move ? [...placed, move] : undefined;
+}
+
 /** nameSegments splits a qualified name at `::` outside quotes: `'P::Q'::x` is two segments. */
 export function nameSegments(text: string): string[] {
   const out: string[] = [];
@@ -210,11 +229,12 @@ export function endpointPath(node: RenderNode, owner: RenderOwner): string | und
 
 /** What the user is told when an action names a rendering that has been replaced. */
 export const REDRAWN_MESSAGE =
-  "The document changed after the diagram was drawn; it is redrawn now, so repeat the action on it.";
+  "The diagram was redrawn after the action was offered on it; repeat the action on the diagram shown now.";
 
-/** offeredOn reports whether an action taken on rendering version `offered` still names `rendering`. */
-export function offeredOn(rendering: Rendering, offered: number): boolean {
-  return offered === rendering.version;
+// offeredOn reports whether an action taken on drawing `offered` still names the panel's drawing
+// `drawn`. Node ids are local to a drawing, and a view change redraws at the same document version.
+export function offeredOn(drawn: number, offered: number): boolean {
+  return offered === drawn;
 }
 
 // editParams pins the request to the version the operations were read from: a later

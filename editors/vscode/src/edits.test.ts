@@ -9,6 +9,7 @@ import {
   describeStale,
   fileLabel,
   referrersByFile,
+  reparentOperations,
   staleDocuments,
   unopenedDocuments,
   DOCUMENT_ROOT,
@@ -207,12 +208,13 @@ test("editParams asks for the version the rendering drew, not the buffer's", () 
   assert.deepEqual(params, { textDocument: { uri: "file:///vehicle.sysml" }, version: 3, operations });
 });
 
-// A menu opened on one rendering and chosen from after a redraw names node ids
-// the new rendering may have given to other declarations.
-test("offeredOn holds only for the rendering the action was offered on", () => {
-  assert.equal(offeredOn({ nodes, version: 3 }, 3), true);
-  assert.equal(offeredOn({ nodes, version: 4 }, 3), false);
-  assert.equal(offeredOn({ nodes: [], version: 0 }, 3), false);
+// A menu opened on one drawing and chosen from after a redraw names node ids the new
+// drawing may have given to other declarations; the panel numbers drawings, not the document.
+test("offeredOn holds only for the drawing the action was offered on", () => {
+  assert.equal(offeredOn(3, 3), true);
+  assert.equal(offeredOn(4, 3), false);
+  assert.equal(offeredOn(0, 3), false);
+  assert.equal(offeredOn(3, 0), false);
 });
 
 // The same rendering with each declaration's notation, as a server that serves moves sends it.
@@ -484,6 +486,63 @@ test("placementOperations targets a node or edge no qualified name reaches by it
     { kind: "setRoute", declaration, route: [{ x: 3, y: 4 }] },
     { kind: "setRoute", target: "Vehicle::Car::fuel", view: "Vehicle::Wiring", route: undefined },
   ]);
+});
+
+// The placed rendering with each declaration's notation, as a server that serves moves sends it.
+const reparentable = { ...placed, nodes: [carN, tankN, engineN, fuelInN, imported], palette: { members: ["part"], connections: [], typed: [] } };
+
+test("reparentOperations writes the drop's placements first, then the move, as one batch", () => {
+  assert.deepEqual(
+    reparentOperations(reparentable, "n2", "n4", [{ id: "n2", layout: { x: 10, y: 20 } }], [{ index: 0, route: [{ x: 5, y: 5 }] }]),
+    [
+      { kind: "setLayout", target: "Vehicle::Car::tank", view: "Vehicle::Wiring", layout: { x: 10, y: 20 } },
+      { kind: "setRoute", target: "Vehicle::Car::fuel", view: "Vehicle::Wiring", route: [{ x: 5, y: 5 }] },
+      { kind: "move", target: "Vehicle::Car::tank", owner: "Vehicle::Car::engine" },
+    ],
+  );
+  // A drop with nothing placed is the move alone.
+  assert.deepEqual(reparentOperations(reparentable, "n2", "n4", [], []), [{ kind: "move", target: "Vehicle::Car::tank", owner: "Vehicle::Car::engine" }]);
+});
+
+test("reparentOperations refuses a target Move to… would not offer: the owner, a descendant, the node, an undeclared node", () => {
+  const nodes = [{ id: "n2", layout: { x: 10, y: 20 } }];
+  assert.equal(reparentOperations(reparentable, "n2", "n1", nodes, []), undefined);
+  assert.equal(reparentOperations(reparentable, "n4", "n5", [{ id: "n4", layout: { x: 1, y: 2 } }], []), undefined);
+  assert.equal(reparentOperations(reparentable, "n2", "n2", nodes, []), undefined);
+  assert.equal(reparentOperations(reparentable, "n2", "n6", nodes, []), undefined);
+  assert.equal(reparentOperations(reparentable, "n6", "n4", [{ id: "n6", layout: { x: 1, y: 2 } }], []), undefined);
+  assert.equal(reparentOperations(reparentable, "n2", "missing", nodes, []), undefined);
+  // A body the palette does not open for the notation.
+  const confined = { ...reparentable, palette: { members: ["part"], connections: [], typed: [], owners: { part: ["n1"] } } };
+  assert.equal(reparentOperations(confined, "n2", "n4", nodes, []), undefined);
+});
+
+test("a drop is one applyModelEdit request, pinned to the version the canvas was drawn from", () => {
+  const operations = reparentOperations(reparentable, "n2", "n4", [{ id: "n2", layout: { x: 10, y: 20 } }], [])!;
+  assert.deepEqual(editParams("file:///vehicle.sysml", reparentable, operations), {
+    textDocument: { uri: "file:///vehicle.sysml" },
+    version: 4,
+    operations: [
+      { kind: "setLayout", target: "Vehicle::Car::tank", view: "Vehicle::Wiring", layout: { x: 10, y: 20 } },
+      { kind: "move", target: "Vehicle::Car::tank", owner: "Vehicle::Car::engine" },
+    ],
+  });
+});
+
+test("reparentOperations refuses a placement the document does not declare, so nothing of the drop is written", () => {
+  assert.equal(reparentOperations(reparentable, "n2", "n4", [{ id: "n2", layout: { x: 1, y: 2 } }, { id: "n6", layout: { x: 1, y: 2 } }], []), undefined);
+});
+
+// Another view of the same document version draws other declarations under the same ids, so a
+// drop begun on the first drawing is refused by its number rather than moving what the ids now name.
+test("a drop from a replaced drawing is not resolved against the drawing that replaced it", () => {
+  const other = { ...reparentable, view: "Vehicle::Plumbing", nodes: [{ ...engineN, id: "n2" }, { ...tankN, id: "n4" }, carN] };
+  assert.deepEqual(
+    reparentOperations(other, "n2", "n4", [], [])?.at(-1),
+    { kind: "move", target: "Vehicle::Car::engine", owner: "Vehicle::Car::tank" },
+  );
+  assert.equal(offeredOn(1, 1), true);
+  assert.equal(offeredOn(2, 1), false);
 });
 
 test("placementOperations refuses a node or edge the document does not declare", () => {

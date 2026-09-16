@@ -2,7 +2,8 @@
 // clicks, menu choices and drags back, and highlights the cursor's node.
 import type { EditPalette, FromWebview, PickerEntry, RenderNode, RenderPoint, RenderResult, ToWebview } from "../protocol";
 import { MenuCommand, MenuItem, nodeMenu, paletteItems } from "./actions";
-import { drawCanvas } from "./canvas";
+import { cssEscape, drawCanvas, liftNode } from "./canvas";
+import { dragHint, Drop, dropOn } from "./drop";
 import {
   CanvasLayout,
   insertedWaypoint,
@@ -10,6 +11,7 @@ import {
   movable,
   movedNode,
   movedWaypoint,
+  nodeUnder,
   overridesOf,
   Placements,
   removedWaypoint,
@@ -52,7 +54,8 @@ const DOUBLE_CLICK_MS = 400;
 // event would name the container rather than the handle, and clicks are paired here.
 let clickedWaypoint: { edge: number; point: number; at: number } | undefined;
 let paletteEntries: MenuItem[] = [];
-let paletteVersion = 0;
+// The extension's number for the drawing shown; an action names the drawing its ids came from.
+let drawn = 0;
 
 // The panel is torn down while it is hidden, so the rendering it last drew is
 // put back — dimmed until the server answers — rather than showing nothing.
@@ -72,7 +75,7 @@ adder.addEventListener("change", () => {
   const item = paletteEntries[Number(adder.value)];
   adder.selectedIndex = 0;
   if (item?.command) {
-    run(item.command, paletteVersion);
+    run(item.command);
   }
 });
 
@@ -82,6 +85,13 @@ window.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     hideMenu();
     cancelGesture();
+  } else if (event.key === "Shift" && !event.repeat) {
+    drawDrag(true);
+  }
+});
+window.addEventListener("keyup", (event) => {
+  if (event.key === "Shift") {
+    drawDrag(false);
   }
 });
 // A right-click off a node offers nothing; the browser's own menu offers less.
@@ -99,6 +109,7 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
       fillPicker(message.views, message.selected);
       return;
     case "render":
+      drawn = message.drawn;
       draw(message.result);
       return;
     case "error":
@@ -106,6 +117,9 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
       return;
     case "highlight":
       highlight(message.id);
+      return;
+    case "revert":
+      revert(message.message);
       return;
   }
 });
@@ -171,13 +185,13 @@ function draw(result: RenderResult): void {
       diagram.replaceChildren(pre);
     }
     diagram.classList.remove("stale");
-    status.textContent = "";
+    showStatus("");
     last = result;
     remember();
     showNotices(result);
     // An open menu names nodes of the drawing just replaced.
     hideMenu();
-    showPalette(result.palette, result.version);
+    showPalette(result.palette);
     kindLabel.textContent = describe(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -194,9 +208,22 @@ function show(shown: CanvasLayout): void {
 
 /** A drag in progress: what was pressed, where, and what it has moved to so far. */
 type Gesture =
-  | { kind: "node"; id: string; start: RenderPoint; pointer: number; fixed: boolean; placements?: Placements }
+  | NodeGesture
   | { kind: "waypoint"; edge: number; point: number; start: RenderPoint; pointer: number; placements?: Placements }
   | { kind: "segment"; edge: number; segment: number; start: RenderPoint; pointer: number; placements?: Placements };
+
+// A node drag also tracks what a release would do: `at` is where the pointer holds the
+// node, `drop` the node under it while Shift is held.
+interface NodeGesture {
+  kind: "node";
+  id: string;
+  start: RenderPoint;
+  pointer: number;
+  fixed: boolean;
+  placements?: Placements;
+  at?: RenderPoint;
+  drop?: Drop;
+}
 
 // The pointer is listened to on the diagram's container, which outlives the SVG a
 // drag redraws under it, so a gesture is followed across redraws.
@@ -234,8 +261,10 @@ function beginGesture(event: PointerEvent): void {
     gesture = { kind: "node", id: node.id, start, pointer: event.pointerId, fixed: !entry || !movable(layout, entry) };
   }
   event.preventDefault();
-  // Captured so the release is seen wherever the pointer goes, a fixed node's too.
+  // Captured so the release is seen wherever the pointer goes, a fixed node's too;
+  // focused so Shift and Escape reach the panel while the pointer is held.
   diagram.setPointerCapture(event.pointerId);
+  diagram.focus({ preventScroll: true });
 }
 
 // moveGesture follows the pointer, showing where the drag would leave things.
@@ -268,10 +297,63 @@ function moveGesture(event: PointerEvent): void {
     gesture = undefined;
     return;
   }
-  const svg = drawCanvas(layoutCanvas(result, overridesOf(gesture.placements)));
-  svg.classList.add("dragging");
+  if (gesture.kind === "node") {
+    gesture.at = at;
+    drawDrag(event.shiftKey);
+    return;
+  }
+  showDragged(layoutCanvas(result, overridesOf(gesture.placements)));
+}
+
+// showDragged puts the canvas a gesture has changed on screen. The pointer is captured by the
+// diagram element, whose cursor is the one shown while it is, so the drag is marked there.
+function showDragged(shown: CanvasLayout): SVGSVGElement {
+  const svg = drawCanvas(shown);
+  diagram.classList.add("dragging");
   diagram.replaceChildren(svg);
   highlight(selectedNode);
+  return svg;
+}
+
+// drawDrag draws a node drag: laid out again around the node's new place, or, with Shift held,
+// the model's layout left where it is with the dragged node floating over it, so the node
+// under the pointer is the one the user sees there and no owner grows out to reclaim it.
+function drawDrag(shift: boolean): void {
+  if (gesture?.kind !== "node" || !gesture.placements || !gesture.at || !layout || !last) {
+    return;
+  }
+  if (shift) {
+    const svg = showDragged(layout);
+    liftNode(svg, layout, gesture.id, gesture.at.x - gesture.start.x, gesture.at.y - gesture.start.y);
+  } else {
+    showDragged(layoutCanvas(last, overridesOf(gesture.placements)));
+  }
+  previewDrop(shift);
+}
+
+// previewDrop shows what a release would do: with Shift held over another node, that node
+// is marked as taking the dragged one or the status line says why not; else the line says how.
+function previewDrop(shift: boolean): void {
+  if (gesture?.kind !== "node" || !gesture.at || !layout || !last) {
+    return;
+  }
+  const result = last;
+  const dragged = gesture.id;
+  const node = result.nodes?.find((candidate) => candidate.id === dragged);
+  const under = shift ? nodeUnder(layout, gesture.at, dragged) : undefined;
+  gesture.drop = node && under ? dropOn(node, under.node, result) : undefined;
+  for (const marked of diagram.querySelectorAll(".opensysml-drop-target")) {
+    marked.classList.remove("opensysml-drop-target");
+  }
+  diagram.classList.toggle("refused", gesture.drop?.admits === false);
+  if (gesture.drop) {
+    if (gesture.drop.admits) {
+      diagram.querySelector(`[data-opensysml-id="${cssEscape(gesture.drop.target.id)}"]`)?.classList.add("opensysml-drop-target");
+    }
+    showHint(gesture.drop.message);
+    return;
+  }
+  showHint(node ? dragHint(node, result) ?? "" : "");
 }
 
 // endGesture releases the pointer: a drag that moved something is one edit, a press
@@ -281,11 +363,20 @@ function endGesture(event: PointerEvent): void {
   if (event.pointerId !== gesture?.pointer) {
     return;
   }
+  if (gesture.kind === "node" && gesture.placements) {
+    previewDrop(event.shiftKey);
+  }
   const done = gesture;
   gesture = undefined;
+  diagram.classList.remove("dragging", "refused");
   if (done.placements) {
     clickedWaypoint = undefined;
-    place(done.placements, last?.version ?? 0);
+    showStatus("");
+    if (done.kind === "node" && done.drop) {
+      dropNode(done.id, done.drop, done.placements);
+      return;
+    }
+    place(done.placements);
     return;
   }
   if (done.kind === "node") {
@@ -298,7 +389,7 @@ function endGesture(event: PointerEvent): void {
       && clickedWaypoint.point === done.point && event.timeStamp - clickedWaypoint.at < DOUBLE_CLICK_MS;
     if (again && layout && last) {
       clickedWaypoint = undefined;
-      place(removedWaypoint(layout, done.edge, done.point), last.version);
+      place(removedWaypoint(layout, done.edge, done.point));
       return;
     }
     clickedWaypoint = { edge: done.edge, point: done.point, at: event.timeStamp };
@@ -312,21 +403,44 @@ function cancelGesture(): void {
   }
   const moved = gesture.placements !== undefined;
   gesture = undefined;
+  diagram.classList.remove("dragging", "refused");
   if (moved && layout) {
     show(layout);
+    showStatus("");
   }
 }
 
-// place hands a gesture's outcome to the extension as one edit on the rendering it
+// dropNode ends a Shift-drag over another node: one edit moves the declaration into it,
+// placed where it was released; a node that does not admit it takes the canvas back instead.
+function dropNode(id: string, drop: Drop, placements: Placements): void {
+  if (!drop.admits) {
+    revert(drop.message);
+    return;
+  }
+  vscode.postMessage({ type: "reparent", id, owner: drop.target.id, nodes: placements.nodes, edges: placements.edges, drawn });
+}
+
+// revert puts the model's layout back after a drop the model did not take, and says why when told.
+function revert(message: string | undefined): void {
+  cancelGesture();
+  if (layout) {
+    show(layout);
+  }
+  if (message !== undefined) {
+    showStatus(message);
+  }
+}
+
+// place hands a gesture's outcome to the extension as one edit on the drawing it
 // was made on; the panel redraws once the document has changed.
-function place(placements: Placements | undefined, version: number): void {
+function place(placements: Placements | undefined): void {
   if (!placements || (placements.nodes.length === 0 && placements.edges.length === 0)) {
     if (layout) {
       show(layout);
     }
     return;
   }
-  vscode.postMessage({ type: "place", nodes: placements.nodes, edges: placements.edges, version });
+  vscode.postMessage({ type: "place", nodes: placements.nodes, edges: placements.edges, drawn });
 }
 
 // canvasPoint is where a pointer event is in the canvas's own coordinates.
@@ -388,16 +502,26 @@ function showNotices(result: RenderResult): void {
 // the last one the model was drawable at, and saying so is more useful than a
 // blank panel.
 function showError(message: string): void {
-  status.textContent = message;
+  showStatus(message);
   if (diagram.childElementCount > 0) {
     diagram.classList.add("stale");
   }
 }
 
+// showStatus puts a failure in the status line; showHint guidance on the gesture in progress.
+function showStatus(message: string): void {
+  status.textContent = message;
+  status.classList.remove("hint");
+}
+
+function showHint(message: string): void {
+  status.textContent = message;
+  status.classList.toggle("hint", message !== "");
+}
+
 // showPalette fills the toolbar's "Add" list, or hides it for a rendering that is not editable.
-function showPalette(palette: EditPalette | undefined, version: number): void {
+function showPalette(palette: EditPalette | undefined): void {
   paletteEntries = palette ? paletteItems(palette) : [];
-  paletteVersion = version;
   adder.replaceChildren();
   adder.hidden = paletteEntries.length === 0;
   if (paletteEntries.length === 0) {
@@ -440,7 +564,7 @@ function showMenu(node: RenderNode, result: RenderResult, x: number, y: number):
         event.stopPropagation();
         hideMenu();
         if (command) {
-          run(command, result.version);
+          run(command);
         }
       });
     }
@@ -457,14 +581,14 @@ function hideMenu(): void {
   menu.hidden = true;
 }
 
-// run hands a chosen entry to the extension with the rendering it was offered
+// run hands a chosen entry to the extension with the drawing it was offered
 // on; the panel redraws once the document has changed.
-function run(command: MenuCommand, version: number): void {
+function run(command: MenuCommand): void {
   if (command.kind === "reveal") {
     vscode.postMessage({ type: "reveal", id: command.id });
     return;
   }
-  vscode.postMessage({ type: "edit", action: command, version });
+  vscode.postMessage({ type: "edit", action: command, drawn });
 }
 
 // highlight marks the node the cursor is in, and only that one. The id is kept so
@@ -479,12 +603,6 @@ function highlight(id: string | undefined): void {
   }
   const element = diagram.querySelector(`[data-opensysml-id="${cssEscape(id)}"]`);
   element?.classList.add("opensysml-selected");
-}
-
-// cssEscape quotes an id for an attribute selector, since CSS.escape is not in
-// every webview host.
-function cssEscape(value: string): string {
-  return value.replace(/["\\]/g, String.raw`\$&`);
 }
 
 // remember keeps what the panel is showing, so a window reload restores it.
