@@ -1,7 +1,7 @@
 // What releasing a dragged node over another one does, judged by the admission
 // rule Move to… applies, so the canvas marks exactly the destinations the menu lists.
 import { ancestors, moveDestinations, type Rendering } from "../edits";
-import type { RenderNode, RenderResult } from "../protocol";
+import { declaredHere, type RenderNode, type RenderResult } from "../protocol";
 
 /** Drop is what a release over `target` would do, and what the status line says meanwhile. */
 export interface Drop {
@@ -33,13 +33,13 @@ function refusal(node: RenderNode, target: RenderNode, rendering: Rendering): st
   if (rendering.palette === undefined) {
     return "The language server does not serve model edits, so nothing is moved.";
   }
-  if (node.fqn === undefined) {
+  if (!declaredHere(node)) {
     return `${label(node)} is not declared in this document, so it cannot be moved.`;
   }
   if (node.notation === undefined) {
     return `${label(node)} cannot be moved from the diagram.`;
   }
-  if (target.fqn === undefined) {
+  if (!declaredHere(target)) {
     return `${label(target)} is not declared in this document, so nothing can be moved into it.`;
   }
   if (node.owners?.[0]?.fqn === target.fqn) {

@@ -3,6 +3,7 @@ package view
 import (
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -145,6 +146,133 @@ func TestInheritedStatesKeepTheirGeometry(t *testing.T) {
 	}
 	if got, want := routeBetween(machine, on.ID, off.ID), []Point{{30, 90}, {30, 10}}; !reflect.DeepEqual(got, want) {
 		t.Errorf("route of the unnamed transition = %v, want the inline %v", got, want)
+	}
+}
+
+// The states and transitions a usage inherits are located in the document
+// declaring the definition, not in the usage's; the usage itself stays in its own.
+func TestInheritedStatesAreLocatedInTheirDefinitionsDocument(t *testing.T) {
+	machine := renderIn(t, "PlantUsages::inheritedMachineView", "layout-usages.sysml", "layout.sysml")
+	usage := findNode(t, machine.Roots, "PlantUsages::machine")
+	if usage.Origin.Doc != "layout-usages.sysml" {
+		t.Errorf("machine is located in %q, want layout-usages.sysml", usage.Origin.Doc)
+	}
+	for _, name := range []string{"off", "on"} {
+		if got := findNode(t, machine.Roots, name).Origin.Doc; got != "layout.sysml" {
+			t.Errorf("%s is located in %q, want layout.sysml, where Plant::Machine declares it", name, got)
+		}
+	}
+	for _, edge := range machine.Edges {
+		if edge.Origin.Doc != "layout.sysml" {
+			t.Errorf("edge %s -> %s is located in %q, want layout.sysml", edge.From, edge.To, edge.Origin.Doc)
+		}
+	}
+}
+
+// The regions a usage inherits from a parallel definition — those of the machine
+// itself and those of a composite state within it — are located in the document
+// declaring the definition, as the states in them are.
+func TestInheritedRegionsAreLocatedInTheirDefinitionsDocument(t *testing.T) {
+	machine := renderIn(t, "RegionUsages::controllerView", "regions-usages.sysml", "regions.sysml")
+	usage := findNode(t, machine.Roots, "RegionUsages::controller")
+	if usage.Origin.Doc != "regions-usages.sysml" {
+		t.Errorf("controller is located in %q, want regions-usages.sysml", usage.Origin.Doc)
+	}
+	var regions []*Node
+	var walk func([]*Node)
+	walk = func(nodes []*Node) {
+		for _, node := range nodes {
+			if node.Kind == "region" {
+				regions = append(regions, node)
+			}
+			walk(node.Children)
+		}
+	}
+	walk(machine.Roots)
+	if len(regions) != 4 {
+		t.Fatalf("got %d regions, want 4 (sensing, acting, pumps, valves); notices %v, nodes %v",
+			len(regions), machine.Notices, sortedKeys(nodeNames(machine.Roots)))
+	}
+	for _, region := range regions {
+		if region.Origin.Doc != "regions.sysml" {
+			t.Errorf("region %s is located in %q, want regions.sysml, where Regions::Controller declares it", region.Name, region.Origin.Doc)
+		}
+		if !region.Origin.Located() {
+			t.Errorf("region %s has no located declaration", region.Name)
+		}
+	}
+	for _, name := range []string{"idle", "busy", "off", "on", "shut", "open", "waiting"} {
+		if got := findNode(t, machine.Roots, name).Origin.Doc; got != "regions.sysml" {
+			t.Errorf("%s is located in %q, want regions.sysml", name, got)
+		}
+	}
+}
+
+// A pseudostate of the definition's own body, which no state owns, is inherited
+// like its states: located in the definition's document, at its declaration,
+// and placed by the view's Layout about it.
+func TestInheritedTopLevelPseudostatesAreLocatedInTheirDefinitionsDocument(t *testing.T) {
+	machine := renderIn(t, "RegionUsages::controllerView", "regions-usages.sysml", "regions.sysml")
+	usage := findNode(t, machine.Roots, "RegionUsages::controller")
+	pick := findNode(t, machine.Roots, "pick")
+	if pick.Kind != "choice" {
+		t.Errorf("pick is a %q, want a choice", pick.Kind)
+	}
+	if !slices.Contains(usage.Children, pick) {
+		t.Errorf("pick is not a child of the usage; its children are %v", sortedKeys(nodeNames(usage.Children)))
+	}
+	if pick.Origin.Doc != "regions.sysml" {
+		t.Errorf("pick is located in %q, want regions.sysml, where Regions::Controller declares it", pick.Origin.Doc)
+	}
+	if !pick.Origin.Located() {
+		t.Fatal("pick has no located declaration")
+	}
+	sf := fixtureText(t, "regions.sysml")
+	if got := sf.Text(pick.Origin.Span); !strings.HasPrefix(got, "choice pick;") {
+		t.Errorf("pick's origin in regions.sysml spans %q, want its declaration", got)
+	}
+	if want := (&Geometry{X: 15, Y: 25}); !reflect.DeepEqual(pick.Geometry, want) {
+		t.Errorf("pick geometry = %+v, want the view's %+v", pick.Geometry, want)
+	}
+}
+
+// A pseudostate a state usage inherits from the definition typing it — nested in
+// the definition's body, or in a composite state of it — is located in the
+// definition's document at its declaration, not in the usage's document at the
+// same offsets.
+func TestInheritedNestedPseudostatesAreLocatedInTheirDefinitionsDocument(t *testing.T) {
+	sf := fixtureText(t, "regions.sysml")
+	machine := renderIn(t, "RegionUsages::plantView", "regions-usages.sysml", "regions.sysml")
+	if len(machine.Notices) != 0 {
+		t.Fatalf("notices = %v, want none", machine.Notices)
+	}
+	cases := []struct {
+		owner, pseudo, kind, decl string
+	}{
+		{"running", "retry", "choice", "choice retry;"},
+		{"go", "settle", "junction", "junction settle;"},
+	}
+	for _, tc := range cases {
+		owner := findNode(t, machine.Roots, tc.owner)
+		pseudo := findNode(t, machine.Roots, tc.pseudo)
+		if pseudo.Kind != tc.kind {
+			t.Errorf("%s is a %q, want a %s", tc.pseudo, pseudo.Kind, tc.kind)
+		}
+		if !slices.Contains(owner.Children, pseudo) {
+			t.Errorf("%s is not a child of %s; its children are %v", tc.pseudo, tc.owner, sortedKeys(nodeNames(owner.Children)))
+		}
+		if pseudo.Origin.Doc != "regions.sysml" {
+			t.Errorf("%s is located in %q, want regions.sysml, where its definition declares it", tc.pseudo, pseudo.Origin.Doc)
+		}
+		if !pseudo.Origin.Located() {
+			t.Fatalf("%s has no located declaration", tc.pseudo)
+		}
+		if got := sf.Text(pseudo.Origin.Span); !strings.HasPrefix(got, tc.decl) {
+			t.Errorf("%s's origin in regions.sysml spans %q, want its declaration", tc.pseudo, got)
+		}
+	}
+	if got := findNode(t, machine.Roots, "running").Origin.Doc; got != "regions-usages.sysml" {
+		t.Errorf("running is located in %q, want regions-usages.sysml, where the usage is written", got)
 	}
 }
 

@@ -119,6 +119,51 @@ package KitViews {
 	}
 }
 
+// The snapshot a rendering comes with holds every document as the rendering
+// read it — the one asked of and the others it draws from — so that a span the
+// rendering locates in any of them is placed in the text it was read from,
+// however the workspace has changed since.
+func TestRenderViewSnapshotHoldsEveryDocumentAsRendered(t *testing.T) {
+	const parts = "package Machinery {\n\tpart def Engine {\n\t\tpart rotor;\n\t}\n}\n"
+	const views = "package EngineViews {\n\tprivate import Views::*;\n\tprivate import StandardViewDefinitions::*;\n\n\tview engineView : InterconnectionView {\n\t\texpose Machinery::Engine;\n\t}\n}\n"
+	ws := openDoc(t, "views.sysml", views)
+	ws.Open("parts.sysml", []byte(parts), 1)
+	rendering, snapshot, err := ws.RenderView("views.sysml", "EngineViews::engineView")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if snapshot.Rendered != ws.Document("views.sysml") {
+		t.Error("Rendered is not the document the rendering was asked of")
+	}
+	rendered := snapshot.Document("parts.sysml")
+	if rendered == nil || rendered != ws.Document("parts.sysml") {
+		t.Fatalf("snapshot holds parts.sysml as %v, want the workspace's document", rendered)
+	}
+	if got := snapshot.Document("Views.sysml"); got != nil {
+		t.Errorf("snapshot holds a bundled library file as %v, want none", got)
+	}
+
+	ws.Update("parts.sysml", []byte("// The engine, restated.\n"+parts), 2)
+	if snapshot.Document("parts.sysml") != rendered || rendered.Version != 1 || string(rendered.Content) != parts {
+		t.Errorf("after parts.sysml changed, the snapshot holds it as %+v, want the text rendered at version 1", snapshot.Document("parts.sysml"))
+	}
+	if current := ws.Document("parts.sysml"); current == rendered || current.Version != 2 {
+		t.Errorf("the workspace holds parts.sysml at %d, want the newer version 2", current.Version)
+	}
+	var rotor view.NodeData
+	for _, node := range rendering.Data().Nodes {
+		if node.Name == "rotor" {
+			rotor = node
+		}
+	}
+	if rotor.Origin.Doc != "parts.sysml" || !rotor.Origin.Located() {
+		t.Fatalf("rotor origin = %+v, want one located in parts.sysml", rotor.Origin)
+	}
+	if got := string(rendered.Content[rotor.Origin.Span.Offset : rotor.Origin.Span.Offset+rotor.Origin.Span.Len]); !strings.HasPrefix(got, "part rotor;") {
+		t.Errorf("rotor's span in the snapshot's text spells %q, want the declaration", got)
+	}
+}
+
 // Naming no view where the document declares several reports the ambiguity and
 // names the candidates, rather than picking one.
 func TestRenderViewReportsAmbiguity(t *testing.T) {

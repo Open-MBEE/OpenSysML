@@ -25,7 +25,7 @@ import {
   rootOwner,
   validName,
 } from "./edits";
-import type { ModelEditOperation, RenderNode, RenderOwner } from "./protocol";
+import { declaredHere, ownDeclarations, type ModelEditOperation, type RenderNode, type RenderOwner } from "./protocol";
 
 // The interconnection rendering of
 //   package Vehicle { part def Car { part tank { port fuelOut; } part engine { port fuelIn; } } }
@@ -34,11 +34,11 @@ const vehicle: RenderOwner = { fqn: "Vehicle", feature: false };
 const carOwner: RenderOwner = { fqn: "Vehicle::Car", feature: false };
 const tankOwner: RenderOwner = { fqn: "Vehicle::Car::tank", feature: true };
 const engineOwner: RenderOwner = { fqn: "Vehicle::Car::engine", feature: true };
-const car: RenderNode = { id: "n1", kind: "part def", name: "Vehicle::Car", type: "", detail: "", fqn: "Vehicle::Car", owners: [vehicle] };
-const tank: RenderNode = { id: "n2", kind: "part", name: "tank", type: "", detail: "", parent: "n1", fqn: "Vehicle::Car::tank", owners: [carOwner, vehicle] };
-const fuelOut: RenderNode = { id: "n3", kind: "port", name: "fuelOut", type: "", detail: "", parent: "n2", fqn: "Vehicle::Car::tank::fuelOut", owners: [tankOwner, carOwner, vehicle] };
-const engine: RenderNode = { id: "n4", kind: "part", name: "engine", type: "", detail: "", parent: "n1", fqn: "Vehicle::Car::engine", owners: [carOwner, vehicle] };
-const fuelIn: RenderNode = { id: "n5", kind: "port", name: "fuelIn", type: "", detail: "", parent: "n4", fqn: "Vehicle::Car::engine::fuelIn", owners: [engineOwner, carOwner, vehicle] };
+const car: RenderNode = { id: "n1", kind: "part def", name: "Vehicle::Car", type: "", detail: "", fqn: "Vehicle::Car", declaredHere: true, owners: [vehicle] };
+const tank: RenderNode = { id: "n2", kind: "part", name: "tank", type: "", detail: "", parent: "n1", fqn: "Vehicle::Car::tank", declaredHere: true, owners: [carOwner, vehicle] };
+const fuelOut: RenderNode = { id: "n3", kind: "port", name: "fuelOut", type: "", detail: "", parent: "n2", fqn: "Vehicle::Car::tank::fuelOut", declaredHere: true, owners: [tankOwner, carOwner, vehicle] };
+const engine: RenderNode = { id: "n4", kind: "part", name: "engine", type: "", detail: "", parent: "n1", fqn: "Vehicle::Car::engine", declaredHere: true, owners: [carOwner, vehicle] };
+const fuelIn: RenderNode = { id: "n5", kind: "port", name: "fuelIn", type: "", detail: "", parent: "n4", fqn: "Vehicle::Car::engine::fuelIn", declaredHere: true, owners: [engineOwner, carOwner, vehicle] };
 // A node drawn from a library the document does not declare: no fqn.
 const imported: RenderNode = { id: "n6", kind: "part", name: "wheel", type: "Wheel", detail: "", parent: "n1" };
 const nodes = [car, tank, fuelOut, engine, fuelIn, imported];
@@ -65,9 +65,25 @@ test("ownerOf climbs past a node the document does not declare", () => {
 
 test("rootOwner is the single declared root, or nothing", () => {
   assert.equal(rootOwner(nodes), car);
-  const other: RenderNode = { id: "n7", kind: "part def", name: "Bike", type: "", detail: "", fqn: "Vehicle::Bike", owners: [vehicle] };
+  const other: RenderNode = { id: "n7", kind: "part def", name: "Bike", type: "", detail: "", fqn: "Vehicle::Bike", declaredHere: true, owners: [vehicle] };
   assert.equal(rootOwner([...nodes, other]), undefined);
   assert.equal(rootOwner([imported]), undefined);
+});
+
+// A node another workspace document declares: named, so a layout reaches it,
+// but not the document's own, so nothing else does.
+const foreign: RenderNode = { id: "n8", kind: "part def", name: "Wheel", type: "", detail: "", fqn: "Wheels::Wheel", notation: "part def", owners: [{ fqn: "Wheels", feature: false }] };
+
+test("a node another document declares owns nothing, moves nowhere, is no root", () => {
+  assert.equal(ownerOf(foreign, [...nodes, foreign]), undefined);
+  assert.equal(ownersOf(foreign), undefined);
+  assert.equal(rootOwner([foreign]), undefined);
+  assert.equal(moveOperation(foreign, ""), undefined);
+  assert.deepEqual(moveDestinations(foreign, { nodes: [...nodes, foreign], version: 1 }), []);
+  assert.deepEqual(
+    moveDestinations(tank, { nodes: [...nodes, foreign], version: 1 }).map(({ fqn }) => fqn),
+    moveDestinations(tank, { nodes, version: 1 }).map(({ fqn }) => fqn),
+  );
 });
 
 test("ownersOf ends at the document, and is nothing for a node the document does not declare", () => {
@@ -89,7 +105,7 @@ test("connectionOwner is the namespace declaring the container when one end cont
 });
 
 test("connectionOwner reaches the package two roots are declared in", () => {
-  const other: RenderNode = { id: "n7", kind: "part def", name: "Bike", type: "", detail: "", fqn: "Vehicle::Bike", owners: [vehicle] };
+  const other: RenderNode = { id: "n7", kind: "part def", name: "Bike", type: "", detail: "", fqn: "Vehicle::Bike", declaredHere: true, owners: [vehicle] };
   assert.deepEqual(connectionOwner(car, other), vehicle);
 });
 
@@ -117,10 +133,10 @@ test("connectionOwner finds the declaration exposed siblings share even when it 
 //   part pump { port outlet; } part tank { port inlet; }
 const pumpOwner: RenderOwner = { fqn: "pump", feature: true };
 const topTankOwner: RenderOwner = { fqn: "tank", feature: true };
-const pump: RenderNode = { id: "r1", kind: "part", name: "pump", type: "", detail: "", fqn: "pump" };
-const outlet: RenderNode = { id: "r2", kind: "port", name: "outlet", type: "", detail: "", parent: "r1", fqn: "pump::outlet", owners: [pumpOwner] };
-const topTank: RenderNode = { id: "r3", kind: "part", name: "tank", type: "", detail: "", fqn: "tank" };
-const inlet: RenderNode = { id: "r4", kind: "port", name: "inlet", type: "", detail: "", parent: "r3", fqn: "tank::inlet", owners: [topTankOwner] };
+const pump: RenderNode = { id: "r1", kind: "part", name: "pump", type: "", detail: "", fqn: "pump", declaredHere: true };
+const outlet: RenderNode = { id: "r2", kind: "port", name: "outlet", type: "", detail: "", parent: "r1", fqn: "pump::outlet", declaredHere: true, owners: [pumpOwner] };
+const topTank: RenderNode = { id: "r3", kind: "part", name: "tank", type: "", detail: "", fqn: "tank", declaredHere: true };
+const inlet: RenderNode = { id: "r4", kind: "port", name: "inlet", type: "", detail: "", parent: "r3", fqn: "tank::inlet", declaredHere: true, owners: [topTankOwner] };
 
 test("connectionOwner is the document root for two top-level declarations", () => {
   assert.deepEqual(connectionOwner(pump, topTank), DOCUMENT_ROOT);
@@ -179,11 +195,11 @@ test("nameSegments splits at :: outside quotes only", () => {
 // The server quotes each name of an fqn on its own, so 'x::y' and x::y stay apart.
 const quotedPartOwner: RenderOwner = { fqn: "'x::y'", feature: true };
 const quotedDefOwner: RenderOwner = { fqn: "'Top Def'", feature: false };
-const quotedPart: RenderNode = { id: "q1", kind: "part", name: "'x::y'", type: "", detail: "", fqn: "'x::y'" };
-const quotedPort: RenderNode = { id: "q2", kind: "port", name: "'fuel::out'", type: "", detail: "", parent: "q1", fqn: "'x::y'::'fuel::out'", owners: [quotedPartOwner] };
-const quotedDef: RenderNode = { id: "q3", kind: "part def", name: "'Top Def'", type: "", detail: "", fqn: "'Top Def'" };
-const quotedIn: RenderNode = { id: "q4", kind: "port", name: "in1", type: "", detail: "", parent: "q3", fqn: "'Top Def'::in1", owners: [quotedDefOwner] };
-const nestedY: RenderNode = { id: "q6", kind: "part", name: "y", type: "", detail: "", parent: "q5", fqn: "x::y", owners: [{ fqn: "x", feature: false }] };
+const quotedPart: RenderNode = { id: "q1", kind: "part", name: "'x::y'", type: "", detail: "", fqn: "'x::y'", declaredHere: true };
+const quotedPort: RenderNode = { id: "q2", kind: "port", name: "'fuel::out'", type: "", detail: "", parent: "q1", fqn: "'x::y'::'fuel::out'", declaredHere: true, owners: [quotedPartOwner] };
+const quotedDef: RenderNode = { id: "q3", kind: "part def", name: "'Top Def'", type: "", detail: "", fqn: "'Top Def'", declaredHere: true };
+const quotedIn: RenderNode = { id: "q4", kind: "port", name: "in1", type: "", detail: "", parent: "q3", fqn: "'Top Def'::in1", declaredHere: true, owners: [quotedDefOwner] };
+const nestedY: RenderNode = { id: "q6", kind: "part", name: "y", type: "", detail: "", parent: "q5", fqn: "x::y", declaredHere: true, owners: [{ fqn: "x", feature: false }] };
 
 test("endpointPath keeps a quoted name holding :: as one step", () => {
   assert.equal(endpointPath(quotedPort, quotedPartOwner), "'fuel::out'");
@@ -244,9 +260,9 @@ test("moveDestinations is empty for a node without a notation or a declaration h
 });
 
 test("moveDestinations keeps a confined notation to the nodes the palette admits it in, and off the document", () => {
-  const fit: RenderNode = { id: "n8", kind: "requirement def", name: "Fit", type: "", detail: "", fqn: "Vehicle::Fit", notation: "requirement def", owners: [vehicle] };
-  const check: RenderNode = { id: "n9", kind: "requirement def", name: "Check", type: "", detail: "", fqn: "Vehicle::Check", notation: "requirement def", owners: [vehicle] };
-  const subject: RenderNode = { id: "n10", kind: "subject", name: "car", type: "Car", detail: "", parent: "n8", fqn: "Vehicle::Fit::car", notation: "subject", owners: [{ fqn: "Vehicle::Fit", feature: false }, vehicle] };
+  const fit: RenderNode = { id: "n8", kind: "requirement def", name: "Fit", type: "", detail: "", fqn: "Vehicle::Fit", declaredHere: true, notation: "requirement def", owners: [vehicle] };
+  const check: RenderNode = { id: "n9", kind: "requirement def", name: "Check", type: "", detail: "", fqn: "Vehicle::Check", declaredHere: true, notation: "requirement def", owners: [vehicle] };
+  const subject: RenderNode = { id: "n10", kind: "subject", name: "car", type: "Car", detail: "", parent: "n8", fqn: "Vehicle::Fit::car", declaredHere: true, notation: "subject", owners: [{ fqn: "Vehicle::Fit", feature: false }, vehicle] };
   const all = [...notated, fit, check, subject];
   const palette = { members: ["part"], connections: [], typed: [], owners: { subject: ["n8", "n9"] } };
   assert.deepEqual(moveDestinations(subject, { nodes: all, version: 1, palette }), [{ fqn: "Vehicle::Check", node: check }]);
@@ -260,9 +276,9 @@ test("moveDestinations keeps a confined notation to the nodes the palette admits
 // A rendering may draw a declaration as its own root rather than inside its owner; what
 // the node declares is still not a place to move it to.
 test("moveDestinations excludes what the node declares even when drawn apart from it", () => {
-  const a: RenderNode = { id: "n1", kind: "part def", name: "A", type: "", detail: "", fqn: "P::A", notation: "part def", owners: [{ fqn: "P", feature: false }] };
-  const b: RenderNode = { id: "n2", kind: "part def", name: "B", type: "", detail: "", fqn: "P::A::B", notation: "part def", owners: [{ fqn: "P::A", feature: false }, { fqn: "P", feature: false }] };
-  const c: RenderNode = { id: "n3", kind: "part def", name: "C", type: "", detail: "", fqn: "P::C", notation: "part def", owners: [{ fqn: "P", feature: false }] };
+  const a: RenderNode = { id: "n1", kind: "part def", name: "A", type: "", detail: "", fqn: "P::A", declaredHere: true, notation: "part def", owners: [{ fqn: "P", feature: false }] };
+  const b: RenderNode = { id: "n2", kind: "part def", name: "B", type: "", detail: "", fqn: "P::A::B", declaredHere: true, notation: "part def", owners: [{ fqn: "P::A", feature: false }, { fqn: "P", feature: false }] };
+  const c: RenderNode = { id: "n3", kind: "part def", name: "C", type: "", detail: "", fqn: "P::C", declaredHere: true, notation: "part def", owners: [{ fqn: "P", feature: false }] };
   assert.deepEqual(moveDestinations(a, { nodes: [a, b, c], version: 1 }), [{ fqn: "P::C", node: c }, { fqn: "" }]);
 });
 
@@ -488,6 +504,71 @@ test("placementOperations targets a node or edge no qualified name reaches by it
   ]);
 });
 
+// A view of views.sysml drawing what parts.sysml declares: the nodes carry their
+// qualified names and owners as any declared node does, and the unnamed
+// connection its declaration range, all located in parts.sysml.
+const partsURI = "file:///work/parts.sysml";
+const partsDigest = "3f9c1a2b4d5e6f70";
+const partsOrigin = (line: number) => ({ uri: partsURI, range: { start: { line, character: 2 }, end: { line, character: 30 } }, digest: partsDigest });
+const engineDef: RenderOwner = { fqn: "Machinery::Engine", feature: false };
+const machinery: RenderOwner = { fqn: "Machinery", feature: false };
+const rotor: RenderNode = { id: "n1", kind: "part", name: "rotor", type: "", detail: "", parent: "n0", fqn: "Machinery::Engine::rotor", owners: [engineDef, machinery], origin: partsOrigin(3) };
+const stator: RenderNode = { id: "n2", kind: "part", name: "stator", type: "", detail: "", parent: "n0", fqn: "Machinery::Engine::stator", owners: [engineDef, machinery], origin: partsOrigin(4) };
+const rotorToStator = { from: "n1", to: "n2", label: "", kind: "connection", declaration: partsOrigin(5).range, origin: partsOrigin(5) };
+const drawnFromParts = {
+  nodes: [{ id: "n0", kind: "part def", name: "Machinery::Engine", type: "", detail: "", fqn: "Machinery::Engine", owners: [machinery], origin: partsOrigin(2) }, rotor, stator],
+  edges: [rotorToStator],
+  view: "EngineViews::engineView",
+  version: 2,
+};
+
+test("placementOperations names a node another document declares by its qualified name, in the view, at the text it was rendered from", () => {
+  assert.deepEqual(placementOperations(drawnFromParts, [{ id: "n1", layout: { x: 120, y: 40 } }], []), [
+    { kind: "setLayout", target: "Machinery::Engine::rotor", declaredIn: partsURI, digest: partsDigest, view: "EngineViews::engineView", layout: { x: 120, y: 40 } },
+  ]);
+});
+
+test("placementOperations targets a declaration another document holds in that document, at the text it was rendered from", () => {
+  assert.deepEqual(placementOperations(drawnFromParts, [], [{ index: 0, route: [{ x: 30, y: 90 }] }]), [
+    { kind: "setRoute", declaration: rotorToStator.declaration, declaredIn: partsURI, digest: partsDigest, route: [{ x: 30, y: 90 }] },
+  ]);
+  const unnamedNode = { ...drawnFromParts, nodes: [...drawnFromParts.nodes, { ...imported, id: "n7", declaration: partsOrigin(6).range, origin: partsOrigin(6) }] };
+  assert.deepEqual(placementOperations(unnamedNode, [{ id: "n7", layout: { x: 1, y: 2 } }], [{ index: 0 }]), [
+    { kind: "setLayout", declaration: partsOrigin(6).range, declaredIn: partsURI, digest: partsDigest, layout: { x: 1, y: 2 } },
+    { kind: "setRoute", declaration: rotorToStator.declaration, declaredIn: partsURI, digest: partsDigest, route: undefined },
+  ]);
+});
+
+// The edit a drag on drawnFromParts comes back as: the view's document, at the version
+// the request named, and parts.sysml at the version the server holds it.
+const viewsURI = "file:///work/views.sysml";
+const layoutEdit = {
+  documentChanges: [
+    { textDocument: { uri: viewsURI, version: 2 }, edits: [] },
+    { textDocument: { uri: partsURI, version: 5 }, edits: [] },
+  ],
+};
+
+test("a layout edit reaching another document is applied only while that document is at the version it was computed against", () => {
+  const held = new Map([
+    [viewsURI, 2],
+    [partsURI, 5],
+  ]);
+  assert.deepEqual(unopenedDocuments(layoutEdit, (uri) => held.get(uri)), []);
+  assert.deepEqual(staleDocuments(layoutEdit, (uri) => held.get(uri)), []);
+  held.set(partsURI, 6);
+  assert.deepEqual(staleDocuments(layoutEdit, (uri) => held.get(uri)), [partsURI]);
+  assert.equal(describeStale([partsURI]), "parts.sysml changed while the edit was computed; it is not applied, so repeat the action.");
+});
+
+test("a layout edit reaching a document no buffer holds asks for it to be opened first", () => {
+  assert.deepEqual(unopenedDocuments(layoutEdit, (uri) => (uri === viewsURI ? 2 : undefined)), [partsURI]);
+  const inline = { documentChanges: [{ textDocument: { uri: partsURI, version: null }, edits: [] }] };
+  assert.deepEqual(unopenedDocuments(inline, (uri) => (uri === viewsURI ? 2 : undefined)), [partsURI]);
+  assert.deepEqual(staleDocuments(inline, (uri) => (uri === viewsURI ? 2 : undefined)), []);
+  assert.deepEqual(staleDocuments(inline, () => 1), [partsURI]);
+});
+
 // The placed rendering with each declaration's notation, as a server that serves moves sends it.
 const reparentable = { ...placed, nodes: [carN, tankN, engineN, fuelInN, imported], palette: { members: ["part"], connections: [], typed: [] } };
 
@@ -550,6 +631,26 @@ test("placementOperations refuses a node or edge the document does not declare",
   assert.equal(placementOperations(placed, [{ id: "missing", layout: { x: 1, y: 2 } }], []), undefined);
   assert.equal(placementOperations(placed, [], [{ index: 1, route: [] }]), undefined);
   assert.equal(placementOperations(placed, [], [{ index: 9, route: [] }]), undefined);
+});
+
+// A server predating declaredHere named the requested document's declarations
+// alone, so read as its own, every named node keeps the edits it used to offer.
+test("ownDeclarations reads a rendering of an older server as declaring every named node", () => {
+  const legacy: RenderNode[] = [
+    { id: "n1", kind: "part def", name: "Vehicle::Car", type: "", detail: "", fqn: "Vehicle::Car", notation: "part def", owners: [vehicle] },
+    { id: "n2", kind: "part", name: "tank", type: "", detail: "", parent: "n1", fqn: "Vehicle::Car::tank", notation: "part", owners: [carOwner, vehicle] },
+    { id: "n3", kind: "part", name: "wheel", type: "Wheel", detail: "", parent: "n1" },
+  ];
+  assert.ok(!legacy.some(declaredHere));
+  const own = ownDeclarations(legacy);
+  assert.deepEqual(own.map(declaredHere), [true, true, false]);
+  assert.equal(own[2], legacy[2]);
+  assert.deepEqual(own.map((node) => node.declaredHere), [true, true, undefined]);
+  assert.deepEqual(legacy.map((node) => node.declaredHere), [undefined, undefined, undefined]);
+  assert.equal(ownerOf(own[1], own), own[1]);
+  assert.equal(ownerOf(own[2], own), own[0]);
+  assert.deepEqual(moveOperation(own[1], "Vehicle::Car"), { kind: "move", target: "Vehicle::Car::tank", owner: "Vehicle::Car" });
+  assert.equal(ownerOf(legacy[1], legacy), undefined);
 });
 
 // The scanner follows the lexer's UNRESTRICTED_NAME: a backslash escapes one

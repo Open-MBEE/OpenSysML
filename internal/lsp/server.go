@@ -51,6 +51,8 @@ type Server struct {
 	// completionMarkdown records that the client advertised Markdown for
 	// completion item documentation.
 	completionMarkdown bool
+	// crossDocument records that the client advertised CrossDocumentCapability.
+	crossDocument bool
 }
 
 // notifier sends a notification by method name, which a client connection does.
