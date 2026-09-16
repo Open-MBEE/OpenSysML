@@ -102,6 +102,7 @@ them in the same step: one edit, one undo.
 | **Delete** | The declaration, its own line and the comment block above it. A declaration something still refers to is refused, naming the referents by file; **Delete all** removes them too, in whichever files declare them. |
 | **Drag a node** | A `metadata Layout about … { x = …; y = …; }` annotation — in the view's body when a view is drawn, inline in the node's declaration when the document is drawn directly — written when the pointer is released: one edit per drag, whatever the distance, so one <kbd>Ctrl</kbd>+<kbd>Z</kbd> puts the node back. An annotation already there is updated in place, keeping its size and collapsed state; the children the model places move with their owner, and those it does not follow it on their own. |
 | **Drag an edge** | A `metadata Route` annotation: drag the handle at the middle of a segment to bend the edge there, drag a waypoint to move it, double-click one to remove it (removing the last removes the annotation). |
+| <kbd>Shift</kbd>+**drop a node on another** | What **Move to…** writes for the node under the pointer, plus the `Layout` of where it was dropped, as one edit and one <kbd>Ctrl</kbd>+<kbd>Z</kbd>. While <kbd>Shift</kbd> is held, the node under the dragged one is outlined when its body may hold the dragged declaration and the status line says what releasing does; a node that cannot hold it is not outlined, the pointer says so, and releasing there puts the dragged node back where it was, with the reason in the status line. A drop with <kbd>Shift</kbd> up, or on empty canvas, is a plain drag. What the server refuses — a name already taken in the destination, a declaration another file refers to — is shown in the status line and the node goes back. |
 
 A reference from a file the server cannot rewrite — a bundled library file — refuses
 the rename or delete outright. An edit across files is applied only while every file
@@ -113,8 +114,8 @@ interconnection, state and action — and only for nodes and edges the file
 declares; a sequence diagram's lifelines and a table are not dragged. Positions
 are pixels from the canvas's top-left corner, y downward, as
 [the layout annotations](../../docs/project/diagram-layout-annotations.md) define
-them. Not built: dragging a node into another owner (**Move to…** does that from
-the menu), placing an element in another file's view, and the `geometry` view kind.
+them. Not built: placing an element in another file's view, and the `geometry`
+view kind.
 
 An edit that would leave the file with an error it did not have — a type that
 does not resolve, a name already taken, a connection end out of scope — is
@@ -124,6 +125,9 @@ refused, and the message names the diagnostic. Nodes the file does not declare
 The command exists only when the server advertises
 `experimental: { openSysmlRender: true }`, and the editing menus only with
 `openSysmlApplyModelEdit`, so an older `sysml-lsp` keeps working without them.
+Dragging a node another file declares needs `openSysmlCrossDocumentLayout` on
+both sides; without it the panel places, and the server names, what the
+rendered file declares alone.
 The requests behind the panel — `opensysml/render`, `opensysml/views`,
 `opensysml/applyModelEdit` and the `opensysml/renderChanged` notification — are
 documented in [docs/reference/lsp.md](../../docs/reference/lsp.md).

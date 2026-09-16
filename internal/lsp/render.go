@@ -29,6 +29,11 @@ const (
 	MethodRenderChanged = "opensysml/renderChanged"
 )
 
+// CrossDocumentCapability is the experimental capability a client and the server
+// each advertise when they speak the cross-document diagram contract: renderings
+// naming other documents' declarations and layouts pinned with declaredIn.
+const CrossDocumentCapability = "openSysmlCrossDocumentLayout"
+
 // renderParams asks for one rendering. View names a view the document declares,
 // or a supported pseudo-view (`#<kind>` or `#<kind>:<fqn>`); empty renders the
 // document's own view. Form is the artifact written, defaulting to the machine
@@ -63,25 +68,29 @@ type renderResult struct {
 // was built from when there is one, and its position when a Layout gives one.
 // FQN names that declaration the way opensysml/applyModelEdit targets it, and
 // Owners the namespaces declaring it, nearest first, drawn or not. Declaration
-// stands in for FQN when the document declares the node but no qualified name
-// reaches it: a layout operation targets the declaration at that range.
+// stands in for FQN when no qualified name reaches the node: a layout operation
+// targets the declaration at that range of the document Origin names. Both are
+// given for a declaration of a workspace document alone, a library's being
+// beyond every operation; DeclaredHere marks the requested document's own, the
+// only ones the operations besides a layout reach.
 type renderNode struct {
-	ID          string          `json:"id"`
-	Kind        string          `json:"kind"`
-	Name        string          `json:"name"`
-	Type        string          `json:"type"`
-	Detail      string          `json:"detail"`
-	Parent      string          `json:"parent,omitempty"`
-	FQN         string          `json:"fqn,omitempty"`
-	Notation    string          `json:"notation,omitempty"`
-	Owners      []renderOwner   `json:"owners,omitempty"`
-	Declaration *protocol.Range `json:"declaration,omitempty"`
-	Origin      *renderOrigin   `json:"origin,omitempty"`
-	X           *float64        `json:"x,omitempty"`
-	Y           *float64        `json:"y,omitempty"`
-	Width       *float64        `json:"width,omitempty"`
-	Height      *float64        `json:"height,omitempty"`
-	Collapsed   bool            `json:"collapsed,omitempty"`
+	ID           string          `json:"id"`
+	Kind         string          `json:"kind"`
+	Name         string          `json:"name"`
+	Type         string          `json:"type"`
+	Detail       string          `json:"detail"`
+	Parent       string          `json:"parent,omitempty"`
+	FQN          string          `json:"fqn,omitempty"`
+	DeclaredHere bool            `json:"declaredHere,omitempty"`
+	Notation     string          `json:"notation,omitempty"`
+	Owners       []renderOwner   `json:"owners,omitempty"`
+	Declaration  *protocol.Range `json:"declaration,omitempty"`
+	Origin       *renderOrigin   `json:"origin,omitempty"`
+	X            *float64        `json:"x,omitempty"`
+	Y            *float64        `json:"y,omitempty"`
+	Width        *float64        `json:"width,omitempty"`
+	Height       *float64        `json:"height,omitempty"`
+	Collapsed    bool            `json:"collapsed,omitempty"`
 }
 
 // renderOwner is a namespace declaring a node: its qualified name, and whether
@@ -126,10 +135,14 @@ type renderRow struct {
 
 // renderOrigin is where an element was declared: Range is the whole declaration,
 // SelectionRange the declared identifier alone, which is where a client goes.
+// Digest fingerprints the text the ranges are of; an operation naming a range
+// of another document hands it back, so a range of text since changed is
+// refused rather than misread.
 type renderOrigin struct {
 	URI            uri.URI         `json:"uri"`
 	Range          protocol.Range  `json:"range"`
 	SelectionRange *protocol.Range `json:"selectionRange,omitempty"`
+	Digest         string          `json:"digest"`
 }
 
 // viewsParams asks for the views a document declares.
@@ -224,14 +237,16 @@ func (s *Server) Views(params *viewsParams) *viewsResult {
 
 // Render answers opensysml/render: the rendering of the view or element asked
 // for, in the form asked for, at the version of the document it was made from:
-// version, node FQNs and ranges all come from that one document snapshot.
+// version, node FQNs, ranges and digests all come from the one read of the
+// workspace the rendering was made under.
 func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	name := uriToName(params.TextDocument.URI)
-	rendering, doc, err := s.ws.RenderView(name, params.View)
+	rendering, snapshot, err := s.ws.RenderView(name, params.View)
 	if err != nil {
 		return nil, err
 	}
-	origin := func(o view.Origin) *renderOrigin { return s.originIn(doc, o) }
+	doc := snapshot.Rendered
+	origin := func(o view.Origin) *renderOrigin { return s.originIn(snapshot, o) }
 	form, err := renderForm(rendering, params.Form)
 	if err != nil {
 		return nil, err
@@ -268,8 +283,8 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			out.Canvas.Width, out.Canvas.Height = &w, &h
 		}
 	}
-	s.renderNodes(out, doc, name, data.Nodes)
-	s.renderEdges(out, doc, name, data.Edges)
+	s.renderNodes(out, snapshot, data.Nodes)
+	s.renderEdges(out, snapshot, data.Edges)
 	for _, row := range data.Rows {
 		out.Rows = append(out.Rows, renderRow{Cells: row.Cells, Origin: origin(row.Origin)})
 	}
@@ -278,7 +293,8 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 
 // renderNodes converts the rendering's nodes into out; a node the document
 // declares confines the palette to its notation and is admitted once all are known.
-func (s *Server) renderNodes(out *renderResult, doc *model.Document, name string, nodes []view.NodeData) {
+func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes []view.NodeData) {
+	name := snapshot.Rendered.Name
 	var declared []declaredNode
 	for _, node := range nodes {
 		n := renderNode{
@@ -288,19 +304,21 @@ func (s *Server) renderNodes(out *renderResult, doc *model.Document, name string
 			Type:   node.Type,
 			Detail: node.Detail,
 			Parent: node.Parent,
-			Origin: s.originIn(doc, node.Origin),
 		}
-		if sym := nodeSymbol(doc, name, node.Origin); sym != nil {
+		declaring := s.declaring(snapshot, node.Origin)
+		n.Origin = s.originOf(declaring, node.Origin)
+		if sym := nodeSymbol(s.targetable(snapshot, declaring), node.Origin); sym != nil {
 			if owners, ok := nodeOwners(sym); ok {
 				n.FQN = notationName(sym)
 				n.Notation = sym.Notation()
 				n.Owners = owners
-				if out.Palette != nil {
+				n.DeclaredHere = declaring.Name == name
+				if out.Palette != nil && n.DeclaredHere {
 					out.Palette.confine(n.Notation)
 					declared = append(declared, declaredNode{node.ID, sym.Decl})
 				}
 			} else {
-				decl := spanToRange(doc.Content, sym.DeclSpan)
+				decl := spanToRange(declaring.Content, sym.DeclSpan)
 				n.Declaration = &decl
 			}
 		}
@@ -321,20 +339,21 @@ func (s *Server) renderNodes(out *renderResult, doc *model.Document, name string
 
 // renderEdges converts the rendering's edges into out, each with its route and
 // the FQN or declaration range of the element it comes from.
-func (s *Server) renderEdges(out *renderResult, doc *model.Document, name string, edges []view.EdgeData) {
+func (s *Server) renderEdges(out *renderResult, snapshot *model.Snapshot, edges []view.EdgeData) {
 	for _, edge := range edges {
 		e := renderEdge{
-			From:   edge.From,
-			To:     edge.To,
-			Label:  edge.Label,
-			Kind:   edge.Kind.String(),
-			Origin: s.originIn(doc, edge.Origin),
+			From:  edge.From,
+			To:    edge.To,
+			Label: edge.Label,
+			Kind:  edge.Kind.String(),
 		}
-		if sym := nodeSymbol(doc, name, edge.Origin); sym != nil {
+		declaring := s.declaring(snapshot, edge.Origin)
+		e.Origin = s.originOf(declaring, edge.Origin)
+		if sym := nodeSymbol(s.targetable(snapshot, declaring), edge.Origin); sym != nil {
 			if _, ok := nodeOwners(sym); ok {
 				e.FQN = notationName(sym)
 			} else {
-				decl := spanToRange(doc.Content, sym.DeclSpan)
+				decl := spanToRange(declaring.Content, sym.DeclSpan)
 				e.Declaration = &decl
 			}
 		}
@@ -376,23 +395,46 @@ func renderPalette(asked string) (view.Palette, error) {
 	return palette, nil
 }
 
-// originIn is a core origin as a client navigates to it, nil for an element with
-// no locatable declaration and for one declared in a document the session does
-// not hold. An origin in rendered, the document snapshot the rendering was made
-// from, is placed in that snapshot's text; a standard library declaration is
-// located in its sysml-stdlib document.
-func (s *Server) originIn(rendered *model.Document, o view.Origin) *renderOrigin {
+// declaring is the document an origin is located in, as the rendering read it:
+// the snapshot's document of that name, else the bundled library file of that
+// name, which is never rewritten; nil for an origin with no locatable
+// declaration or in a document the session does not hold.
+func (s *Server) declaring(snapshot *model.Snapshot, o view.Origin) *model.Document {
 	if !o.Located() {
 		return nil
 	}
-	doc := rendered
-	if o.Doc != rendered.Name {
-		doc = s.document(o.Doc)
+	if doc := snapshot.Document(o.Doc); doc != nil {
+		return doc
 	}
+	return s.ws.LibraryDocument(o.Doc)
+}
+
+// targetable is declaring when the client may target its declarations: not a
+// bundled library file, and not another document than the rendered one for a
+// client that would place its declarations by name alone, unpinned.
+func (s *Server) targetable(snapshot *model.Snapshot, declaring *model.Document) *model.Document {
+	if declaring == nil || s.ws.IsLibraryDocument(declaring.Name) {
+		return nil
+	}
+	if declaring.Name != snapshot.Rendered.Name && !s.clientSpeaksCrossDocument() {
+		return nil
+	}
+	return declaring
+}
+
+// originIn is a core origin as a client navigates to it, placed in the text of
+// the document declaring it as the rendering read it.
+func (s *Server) originIn(snapshot *model.Snapshot, o view.Origin) *renderOrigin {
+	return s.originOf(s.declaring(snapshot, o), o)
+}
+
+// originOf places o in doc, the document declaring it; a standard library
+// declaration is located in its sysml-stdlib document. Nil for no document.
+func (s *Server) originOf(doc *model.Document, o view.Origin) *renderOrigin {
 	if doc == nil {
 		return nil
 	}
-	out := &renderOrigin{URI: s.documentURI(o.Doc), Range: spanToRange(doc.Content, o.Span)}
+	out := &renderOrigin{URI: s.documentURI(o.Doc), Range: spanToRange(doc.Content, o.Span), Digest: doc.Digest()}
 	if o.Name.Len > 0 {
 		name := spanToRange(doc.Content, o.Name)
 		out.SelectionRange = &name

@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -82,18 +83,33 @@ func declarationOrigin(doc *Document, sym *symbols.Symbol) view.Origin {
 	return origin
 }
 
+// Snapshot is the workspace's documents as one read of them, the read a
+// rendering was made under, so that a span the rendering locates in any of
+// them is a span of the text held here, whatever the workspace holds since.
+type Snapshot struct {
+	// Rendered is the document the rendering was asked of.
+	Rendered *Document
+	docs     map[string]*Document
+}
+
+// Document is the named document as the snapshot holds it; nil for a name the
+// workspace held no document of, a bundled library file's included.
+func (s *Snapshot) Document(name string) *Document {
+	return s.docs[name]
+}
+
 // RenderView renders a view of a document. fqn names a declared view or a
 // pseudo-view (`#<kind>[:<fqn>]`); "" renders the document's own view. The
-// document returned is the one the rendering was made from, read under the same
-// lock, so its version, content and scope are the rendering's.
-func (w *Workspace) RenderView(doc, fqn string) (*view.Rendering, *Document, error) {
+// snapshot returned holds the documents the rendering was made from, read under
+// the same lock, so their versions, content and scopes are the rendering's.
+func (w *Workspace) RenderView(doc, fqn string) (*view.Rendering, *Snapshot, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return w.renderViewLocked(doc, fqn)
 }
 
 // renderViewLocked is RenderView under the lock.
-func (w *Workspace) renderViewLocked(doc, fqn string) (*view.Rendering, *Document, error) {
+func (w *Workspace) renderViewLocked(doc, fqn string) (*view.Rendering, *Snapshot, error) {
 	d := w.docs[doc]
 	if d == nil {
 		return nil, nil, fmt.Errorf("%s: no such document", doc)
@@ -106,7 +122,7 @@ func (w *Workspace) renderViewLocked(doc, fqn string) (*view.Rendering, *Documen
 	if err != nil {
 		return nil, nil, err
 	}
-	return rendering, d, nil
+	return rendering, &Snapshot{Rendered: d, docs: maps.Clone(w.docs)}, nil
 }
 
 // renderDocumentViewLocked renders fqn of the held document d, as a query owned by d.
