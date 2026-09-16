@@ -351,12 +351,12 @@ func (s *Server) debugPrepare(params *debugStartParams) (*debugSession, error) {
 	// IDs answered and the behavior run are of one and the same documents.
 	var (
 		rendering *view.Rendering
-		doc       *model.Document
+		snapshot  *model.Snapshot
 		rt        *model.Runtime
 		viewText  string
 	)
 	if err := s.ws.Read(func(r *model.Reading) (err error) {
-		if rendering, doc, err = r.RenderView(name, params.View); err != nil {
+		if rendering, snapshot, err = r.RenderView(name, params.View); err != nil {
 			return err
 		}
 		if rendering.Kind != view.KindState && rendering.Kind != view.KindAction {
@@ -417,7 +417,7 @@ func (s *Server) debugPrepare(params *debugStartParams) (*debugSession, error) {
 		return nil, err
 	}
 	sess.reads = rt.Dependencies(target, objectSym)
-	if err := sess.locate(rendering, target, doc.Version); err != nil {
+	if err := sess.locate(rendering, target, snapshot.Rendered.Version); err != nil {
 		sess.release()
 		return nil, err
 	}
@@ -1466,7 +1466,7 @@ func (sess *debugSession) rebind(r *model.Reading) bool {
 	if change := dependencyChange(r, sess.target, sess.reads, r.Dependencies(roots...)); change != "" {
 		return end(change)
 	}
-	rendering, doc, err := r.RenderView(sess.doc, sess.view)
+	rendering, snapshot, err := r.RenderView(sess.doc, sess.view)
 	if err != nil {
 		return end(fmt.Sprintf("%s no longer renders: %v", sess.view, err))
 	}
@@ -1476,10 +1476,10 @@ func (sess *debugSession) rebind(r *model.Reading) bool {
 	if sess.viewText != "" && r.DeclarationText(r.DeclaredView(sess.doc, sess.view)) != sess.viewText {
 		return end(fmt.Sprintf("%s was edited", sess.view))
 	}
-	if doc.Version == sess.version && sameRendering(rendering, sess.rendering) {
+	if snapshot.Rendered.Version == sess.version && sameRendering(rendering, sess.rendering) {
 		return false
 	}
-	if err := sess.locate(rendering, target, doc.Version); err != nil {
+	if err := sess.locate(rendering, target, snapshot.Rendered.Version); err != nil {
 		return end(fmt.Sprintf("%s no longer draws %s: %v", sess.view, sess.target, err))
 	}
 	return true

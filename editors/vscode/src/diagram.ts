@@ -15,6 +15,7 @@ import {
   ownerOf,
   placementOperations,
   referrersByFile,
+  reparentOperations,
   staleDocuments,
   unopenedDocuments,
   REDRAWN_MESSAGE,
@@ -25,6 +26,9 @@ import {
 import {
   admits,
   APPLY_MODEL_EDIT_CAPABILITY,
+  CROSS_DOCUMENT_CAPABILITY,
+  declaredHere,
+  ownDeclarations,
   APPLY_MODEL_EDIT_METHOD,
   ApplyModelEditResult,
   EdgePlacement,
@@ -404,6 +408,8 @@ class DiagramPanel {
   private readonly disposables: vscode.Disposable[] = [];
   private selected: string;
   private rendering: Rendering = { nodes: [], version: 0 };
+  // Counts the drawings posted to the webview; an action names the one its ids came from.
+  private drawn = 0;
   private pending = false;
   private again = false;
   private readonly lifecycle = new Lifecycle();
@@ -536,6 +542,10 @@ class DiagramPanel {
       if (!supportsEdit(client)) {
         delete result.palette;
       }
+      // A server predating declaredHere names the requested document's own alone.
+      if (!supportsCrossDocument(client)) {
+        result.nodes = ownDeclarations(result.nodes ?? []);
+      }
       this.rendering = {
         nodes: result.nodes ?? [],
         edges: result.edges ?? [],
@@ -543,7 +553,8 @@ class DiagramPanel {
         version: result.version,
         palette: result.palette,
       };
-      this.post({ type: "render", result, selected: this.selected });
+      this.drawn += 1;
+      this.post({ type: "render", result, selected: this.selected, drawn: this.drawn });
       this.highlightActive();
     } catch (err) {
       this.fail(errorMessage(err));
@@ -594,13 +605,16 @@ class DiagramPanel {
         this.refresh();
         return;
       case "reveal":
-        void this.revealSource(message.id);
+        void this.revealSource(message.id, message.drawn);
         return;
       case "edit":
-        void this.edit(message.action, message.version);
+        void this.edit(message.action, message.drawn);
         return;
       case "place":
-        void this.place(message.nodes, message.edges, message.version);
+        void this.place(message.nodes, message.edges, message.drawn);
+        return;
+      case "reparent":
+        void this.reparent(message.id, message.owner, message.nodes, message.edges, message.drawn);
         return;
       case "failed":
         this.fail(message.message);
@@ -608,8 +622,12 @@ class DiagramPanel {
     }
   }
 
-  // revealSource opens the declaration a node was built from.
-  private async revealSource(id: string): Promise<void> {
+  // revealSource opens the declaration a node was built from; the id names only the drawing it was clicked on.
+  private async revealSource(id: string, drawn: number): Promise<void> {
+    if (!offeredOn(this.drawn, drawn)) {
+      void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
+      return;
+    }
     const origin = this.node(this.rendering, id)?.origin;
     if (!origin) {
       return;
@@ -626,16 +644,20 @@ class DiagramPanel {
     editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
   }
 
-  // edit applies a diagram action as a workspace edit, so it is undone like typing; the redraw
-  // comes from the server's renderChanged. The action's ids name only the rendering it was offered on.
-  private async edit(action: EditAction, version: number): Promise<void> {
+  // edit applies a diagram action as a workspace edit, so it is undone like typing. The action's
+  // ids name only the drawing it was offered on, which is checked again after any prompt it held open.
+  private async edit(action: EditAction, drawn: number): Promise<void> {
     const rendering = this.rendering;
-    if (!offeredOn(rendering, version)) {
+    if (!offeredOn(this.drawn, drawn)) {
       void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
       return;
     }
     const operations = await this.operationsFor(rendering, action);
     if (!operations) {
+      return;
+    }
+    if (!offeredOn(this.drawn, drawn)) {
+      void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
       return;
     }
     await this.apply(rendering, operations, action);
@@ -644,9 +666,9 @@ class DiagramPanel {
   // place writes where a drag left nodes and edges into the model as one edit, so
   // the whole gesture is one undo step. The canvas shows the drag's outcome until the
   // model changes; whenever it does not, it is redrawn from the model as it stands.
-  private async place(nodes: NodePlacement[], edges: EdgePlacement[], version: number): Promise<void> {
+  private async place(nodes: NodePlacement[], edges: EdgePlacement[], drawn: number): Promise<void> {
     const rendering = this.rendering;
-    if (!offeredOn(rendering, version)) {
+    if (!offeredOn(this.drawn, drawn)) {
       this.refresh();
       void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
       return;
@@ -654,6 +676,25 @@ class DiagramPanel {
     const operations = placementOperations(rendering, nodes, edges);
     if (!operations || operations.length === 0 || !(await this.apply(rendering, operations, { kind: "place" }))) {
       this.refresh();
+    }
+  }
+
+  // reparent moves a dropped node into the node it was dropped on, placed where it was
+  // released, as one edit; a refusal is shown in the panel and the drop is undrawn.
+  private async reparent(id: string, owner: string, nodes: NodePlacement[], edges: EdgePlacement[], drawn: number): Promise<void> {
+    const rendering = this.rendering;
+    if (!offeredOn(this.drawn, drawn)) {
+      this.refresh();
+      void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
+      return;
+    }
+    const operations = reparentOperations(rendering, id, owner, nodes, edges);
+    if (!operations) {
+      this.post({ type: "revert", message: "The node cannot be moved there from this diagram." });
+      return;
+    }
+    if (!(await this.apply(rendering, operations, { kind: "reparent", id, owner }))) {
+      this.post({ type: "revert" });
     }
   }
 
@@ -679,7 +720,7 @@ class DiagramPanel {
     at: string | undefined,
   ): Promise<ModelEditOperation[] | undefined> {
     const owner = at ? ownerOf(this.node(rendering, at), rendering.nodes) : await this.ownerFromContext(rendering, memberKind);
-    if (!owner?.fqn) {
+    if (!owner || !declaredHere(owner)) {
       return undefined;
     }
     if (!admits(rendering.palette, memberKind, owner)) {
@@ -751,7 +792,7 @@ class DiagramPanel {
 
   private async rename(rendering: Rendering, id: string): Promise<ModelEditOperation[] | undefined> {
     const node = this.node(rendering, id);
-    if (!node?.fqn) {
+    if (!node || !declaredHere(node)) {
       return undefined;
     }
     const newName = await vscode.window.showInputBox({
@@ -767,7 +808,7 @@ class DiagramPanel {
 
   private async delete(rendering: Rendering, id: string, cascade: boolean): Promise<ModelEditOperation[] | undefined> {
     const node = this.node(rendering, id);
-    if (!node?.fqn) {
+    if (!node || !declaredHere(node)) {
       return undefined;
     }
     if (!cascade) {
@@ -782,7 +823,7 @@ class DiagramPanel {
   // A move is offered the drawn declarations that admit the node's kind, and the document.
   private async move(rendering: Rendering, id: string): Promise<ModelEditOperation[] | undefined> {
     const node = this.node(rendering, id);
-    if (!node?.fqn) {
+    if (!node || !declaredHere(node)) {
       return undefined;
     }
     const items = moveDestinations(node, rendering).map(({ fqn, node: into }) =>
@@ -805,7 +846,7 @@ class DiagramPanel {
   // A palette addition goes into the declaration at the cursor, else the one root, else a pick;
   // each only if it may own the kind.
   private async ownerFromContext(rendering: Rendering, memberKind: string): Promise<RenderNode | undefined> {
-    const keep = (node: RenderNode) => Boolean(node.fqn) && admits(rendering.palette, memberKind, node);
+    const keep = (node: RenderNode) => declaredHere(node) && admits(rendering.palette, memberKind, node);
     const editor = vscode.window.visibleTextEditors.find(
       (candidate) => candidate.document.uri.toString() === this.docURI.toString(),
     );
@@ -824,7 +865,7 @@ class DiagramPanel {
     rendering: Rendering,
     title: string,
     except: RenderNode | undefined,
-    keep: (node: RenderNode) => boolean = (node) => node.fqn !== undefined,
+    keep: (node: RenderNode) => boolean = declaredHere,
   ): Promise<RenderNode | undefined> {
     const items = rendering.nodes
       .filter((node) => node !== except && keep(node))
@@ -951,6 +992,10 @@ class DiagramPanel {
       }
       return false;
     }
+    if (action.kind === "reparent") {
+      this.post({ type: "revert", message });
+      return false;
+    }
     void vscode.window.showErrorMessage(message);
     return false;
   }
@@ -963,11 +1008,16 @@ class DiagramPanel {
 }
 
 /** AppliedAction is what an edit was made for: a menu or palette action, or a drag on the canvas. */
-type AppliedAction = EditAction | { kind: "place" };
+type AppliedAction = EditAction | { kind: "place" } | { kind: "reparent"; id: string; owner: string };
 
 /** supportsEdit reports whether the server advertised the model-edit capability. */
 function supportsEdit(client: LanguageClient): boolean {
   return experimental(client)?.[APPLY_MODEL_EDIT_CAPABILITY] === true;
+}
+
+/** supportsCrossDocument reports whether the server advertised the cross-document diagram contract. */
+function supportsCrossDocument(client: LanguageClient): boolean {
+  return experimental(client)?.[CROSS_DOCUMENT_CAPABILITY] === true;
 }
 
 /** openVersion is the version of the open buffer at a URI, or nothing when no buffer holds it. */
@@ -1043,6 +1093,7 @@ function html(
       #kind { opacity: 0.8; font-size: 0.9em; }
       #add { max-width: 14rem; }
       #status { color: var(--vscode-errorForeground); min-height: 1.2em; font-size: 0.9em; white-space: pre-wrap; }
+      #status.hint { color: var(--vscode-descriptionForeground, var(--vscode-foreground)); }
       #diagram { overflow: auto; }
       #menu { position: fixed; z-index: 10; min-width: 12rem; max-height: calc(100vh - 1rem); overflow-y: auto;
         padding: 0.25rem 0; margin: 0; list-style: none;
@@ -1054,8 +1105,15 @@ function html(
       #menu li.separator { height: 0; padding: 0; margin: 0.25rem 0; border-top: 1px solid var(--vscode-menu-separatorBackground, var(--vscode-widget-border)); cursor: default; }
       #menu li.title { opacity: 0.7; cursor: default; font-size: 0.9em; }
       #diagram.stale { opacity: 0.45; }
+      #diagram:focus { outline: none; }
       #diagram svg { display: block; font-family: var(--vscode-font-family); user-select: none; touch-action: none; }
-      #diagram svg.dragging { cursor: grabbing; }
+      #diagram.dragging, #diagram.dragging * { cursor: grabbing; }
+      #diagram.dragging.refused, #diagram.dragging.refused * { cursor: not-allowed; }
+      #diagram g.lifted { opacity: 0.75; }
+      #diagram .opensysml-drop-target > .shape, #diagram .opensysml-drop-target > g.shape > circle {
+        stroke: var(--vscode-focusBorder); stroke-width: 3px; stroke-dasharray: 6 3;
+        fill: var(--vscode-editor-selectionBackground, var(--vscode-list-activeSelectionBackground));
+      }
       #diagram g.opensysml-node { cursor: pointer; }
       #diagram g.opensysml-node.movable { cursor: grab; }
       #diagram .shape { fill: var(--vscode-editorWidget-background, var(--vscode-editor-background)); stroke: var(--vscode-foreground); stroke-width: 1.25px; }
@@ -1091,7 +1149,7 @@ function html(
       <select id="add" hidden aria-label="Add to the model"></select>
     </div>
     <div id="status"></div>
-    <div id="diagram"></div>
+    <div id="diagram" tabindex="-1"></div>
     <ul id="menu" hidden role="menu"></ul>
     <details id="notices" hidden>
       <summary></summary>

@@ -2,18 +2,33 @@ import { accessSync, constants } from "node:fs";
 import { delimiter, join } from "node:path";
 import * as vscode from "vscode";
 import {
+  ClientCapabilities,
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
+  StaticFeature,
   TransportKind,
 } from "vscode-languageclient/node";
 
 import { DiagramPanels } from "./diagram";
 import { DocumentRendering } from "./document";
-import { STDLIB_SCHEME } from "./protocol";
+import { CROSS_DOCUMENT_CAPABILITY, STDLIB_SCHEME } from "./protocol";
 import { StdlibDocuments } from "./stdlib";
 
 const EXECUTABLE = process.platform === "win32" ? "sysml-lsp.exe" : "sysml-lsp";
+
+// Tells the server the diagram panel pins another document's declarations to
+// the text they were drawn from, so renderings may name them.
+const crossDocumentFeature: StaticFeature = {
+  fillClientCapabilities(capabilities: ClientCapabilities): void {
+    capabilities.experimental = { ...(capabilities.experimental as object | undefined), [CROSS_DOCUMENT_CAPABILITY]: true };
+  },
+  initialize(): void {},
+  getState() {
+    return { kind: "static" as const };
+  },
+  clear(): void {},
+};
 
 let client: LanguageClient | undefined;
 let output: vscode.OutputChannel;
@@ -109,6 +124,7 @@ async function startClient(): Promise<void> {
   };
 
   client = new LanguageClient("opensysml", "SysML v2 Language Server", serverOptions, clientOptions);
+  client.registerFeature(crossDocumentFeature);
   try {
     await client.start();
   } catch (err) {

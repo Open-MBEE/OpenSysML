@@ -3,6 +3,8 @@
 package model
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -24,6 +26,7 @@ type Document struct {
 	ParseWarnings    []parser.Diagnostic
 	Scope            *symbols.Scope
 	sf               *source.SourceFile
+	digest           string
 }
 
 // newDocument parses content, which the workspace owns and never writes, and
@@ -43,7 +46,20 @@ func newDocument(name string, content []byte, version int) *Document {
 		ParseWarnings:    p.Warnings,
 		Scope:            scope,
 		sf:               sf,
+		digest:           digestOf(content),
 	}
+}
+
+// Digest fingerprints the document's text: equal for equal content, so a
+// position read from one snapshot can be checked against a later one.
+func (d *Document) Digest() string {
+	return d.digest
+}
+
+// digestOf is the first 16 bytes of the SHA-256 of content, in hex.
+func digestOf(content []byte) string {
+	sum := sha256.Sum256(content)
+	return hex.EncodeToString(sum[:16])
 }
 
 // IsModelSource reports whether path is a SysML/KerML source file.
