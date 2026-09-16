@@ -11,6 +11,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -148,7 +149,7 @@ func newActionExecutorOf(
 	if err != nil {
 		return nil, err
 	}
-	graph, err := lowerPerformance(action, tool)
+	graph, err := lowerPerformance(action, tool, ctx.Resolver())
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +189,7 @@ func newActionExecutorOn(
 
 // lowerPerformance lowers what a performance of action runs, in the scope it was written
 // in: its token flow, or under a tool only its own interface, the body never running.
-func lowerPerformance(action *symbols.Symbol, tool *toolExecution) (*lower.ActionGraph, error) {
+func lowerPerformance(action *symbols.Symbol, tool *toolExecution, resolver *resolve.Resolver) (*lower.ActionGraph, error) {
 	if tool != nil {
 		graph, err := lower.ToActionInterface(action.Decl, DeclScope(action))
 		if err != nil {
@@ -196,7 +197,7 @@ func lowerPerformance(action *symbols.Symbol, tool *toolExecution) (*lower.Actio
 		}
 		return graph, nil
 	}
-	graph, err := lower.ToActionGraph(action.Decl, DeclScope(action))
+	graph, err := lower.ToActionGraphWith(action.Decl, DeclScope(action), resolver)
 	if err != nil {
 		return nil, fmt.Errorf("lower action graph: %w", err)
 	}

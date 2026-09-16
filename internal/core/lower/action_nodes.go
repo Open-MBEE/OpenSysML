@@ -16,7 +16,7 @@ var ErrStatementOutsideFlow = errors.New("has no position in the token flow")
 // ActionNodes returns the nodes accepted by action lowering and whether the
 // action has an initial node after interpreting `first <node>`.
 func ActionNodes(actionDecl ast.Node, scope *symbols.Scope) (nodes []ast.Node, hasInitial bool, err error) {
-	graph, _, err := collectActionNodes(actionDecl, scope)
+	graph, _, err := collectActionNodes(actionDecl, scope, nil)
 	if err != nil {
 		return nil, false, err
 	}
@@ -72,12 +72,13 @@ func actionMembers(actionDecl ast.Node) ([]ast.Node, error) {
 	}
 }
 
-func collectActionNodes(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, []ast.Node, error) {
+func collectActionNodes(actionDecl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, []ast.Node, error) {
 	members, err := actionMembers(actionDecl)
 	if err != nil {
 		return nil, nil, err
 	}
 	graph := newActionGraph(scope)
+	graph.resolver = resolver
 
 	// A succession can bind a member with no name of its own by position, which is
 	// what puts a statement member (`then send …;`) in the token flow.

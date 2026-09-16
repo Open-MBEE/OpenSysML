@@ -708,7 +708,7 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 				Target:  targetState,
 				Trigger: edge.Trigger,
 				Guard:   edge.Guard,
-				Effect:  lower.LowerBehaviors(edge.Effect, e.stateMachine.Scope),
+				Effect:  lower.LowerBehaviors(edge.Effect, e.stateMachine.Scope, e.ctx.Resolver()),
 			}
 			var err error
 			dispatch.Fired, err = e.fireTransition(lowerTrans, route{segments: []*lower.Transition{lowerTrans}, target: targetState})

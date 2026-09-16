@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -74,6 +75,9 @@ type StateGraph struct {
 
 	// endpoints resolves what a transition endpoint names.
 	endpoints EndpointResolver
+	// resolver is the name-resolution tier's behind endpoints, nil for none, by
+	// which the Probability metadata of a behavior's body is read.
+	resolver *resolve.Resolver
 
 	// States in the machine (flat list, includes nested)
 	States []*ast.StateNode
@@ -246,6 +250,9 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 		endpoints = scopeEndpoints{machine: scope}
 	}
 	graph := newStateGraph(scope, endpoints)
+	if held, ok := endpoints.(interface{ nameResolver() *resolve.Resolver }); ok {
+		graph.resolver = held.nameResolver()
+	}
 
 	members, err := machineMembers(stateMachineDecl)
 	if err != nil {
@@ -465,7 +472,7 @@ func (g *StateGraph) lowerBehaviorsFor(state *ast.StateNode, actions []ast.Node,
 		if inherited := g.behaviorScope[actual]; inherited != nil {
 			declared = inherited
 		}
-		behavior := lowerStateBehavior(actual, declared)
+		behavior := lowerStateBehavior(actual, declared, g.resolver)
 		behavior.Owner = state
 		behaviors = append(behaviors, behavior)
 	}
@@ -1327,7 +1334,7 @@ func lowerTransitionEdge(graph *StateGraph, edge *ast.TransitionEdge, owner ast.
 		Target:    target,
 		Trigger:   edge.Trigger,
 		Guard:     edge.Guard,
-		Effect:    LowerBehaviors(edge.Effect, scope),
+		Effect:    LowerBehaviors(edge.Effect, scope, graph.resolver),
 		Scope:     scope,
 		BodyScope: scope,
 	}, nil
@@ -1370,6 +1377,9 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 	// A trigger's parameters are members of a scope of the transition's own, which
 	// its guard and effect resolve in (symbols/bodyscopes.go).
 	bodyScope := symbols.TriggerScope(scope, member)
+	if err := refuseTransitionProbability(graph, member, scope); err != nil {
+		return nil, err
+	}
 	return &Transition{
 		Name:      member.Name,
 		Decl:      member,
@@ -1377,7 +1387,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 		Target:    target,
 		Trigger:   classifyTrigger(member.Trigger),
 		Guard:     member.Guard,
-		Effect:    transitionEffects(member, bodyScope),
+		Effect:    transitionEffects(member, bodyScope, graph.resolver),
 		Via:       FeaturePath(member.Via),
 		Scope:     scope,
 		BodyScope: bodyScope,
@@ -1387,9 +1397,9 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 // transitionEffects are the behaviors a transition performs: those written with
 // `do`, then the steps its body states (SysML.xtext:1863, where TransitionUsage
 // ends in ActionBody).
-func transitionEffects(member *ast.TransitionMember, scope *symbols.Scope) []StateBehavior {
-	effects := LowerBehaviors(member.Effect, scope)
-	return append(effects, LowerBehaviors(BodyStatementMembers(member.Members), scope)...)
+func transitionEffects(member *ast.TransitionMember, scope *symbols.Scope, resolver *resolve.Resolver) []StateBehavior {
+	effects := LowerBehaviors(member.Effect, scope, resolver)
+	return append(effects, LowerBehaviors(BodyStatementMembers(member.Members), scope, resolver)...)
 }
 
 // isEntrySubaction reports whether member is the entry subaction of the body a
