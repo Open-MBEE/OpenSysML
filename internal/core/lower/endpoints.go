@@ -82,6 +82,9 @@ func (s scopeEndpoints) Endpoint(scope *symbols.Scope, target ast.Node) (ast.Nod
 	return resolve.VertexInScope(scope, target)
 }
 
+// nameResolver is the resolver the endpoints are resolved through.
+func (m machineEndpoints) nameResolver() *resolve.Resolver { return m.resolver }
+
 // localEndpoints indexes a machine no scope tree holds — a hand-built one in a
 // unit test — and returns its endpoints plus the machine body scope of that
 // index, which lowering descends so a region names its own vertices.

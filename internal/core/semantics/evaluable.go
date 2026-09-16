@@ -95,7 +95,7 @@ func (m *Model) evaluableOperator(scope *symbols.Scope, e *ast.OperatorExpr, dep
 	if !allConstant(e.Operands) {
 		return true
 	}
-	_, ok := evalConst(e)
+	_, ok := EvalConst(e)
 	return ok
 }
 
@@ -106,7 +106,7 @@ func allConstant(nodes []ast.Node) bool {
 		return false
 	}
 	for _, n := range nodes {
-		if _, ok := evalConst(n); !ok {
+		if _, ok := EvalConst(n); !ok {
 			return false
 		}
 	}

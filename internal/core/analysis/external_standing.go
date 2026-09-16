@@ -269,7 +269,7 @@ func freeInputs(model *Model, q Question, budget Budget) (freed, error) {
 	if !q.Free.Has(FreeInputs) || q.Check == nil || q.Check.Start == nil || !model.builds() {
 		return freed{}, nil
 	}
-	ctx, err := model.NewContextOn(0, budget)
+	ctx, err := q.fresh(model, 0, budget)
 	if err != nil {
 		return freed{}, err
 	}
@@ -305,8 +305,14 @@ func freeInputs(model *Model, q Question, budget Budget) (freed, error) {
 // inputs, read against the inputs the question leaves free.
 type replay struct {
 	ask    *CheckAsk
+	seed   ModelSeed
 	free   []enginewire.FreeInput
 	inputs []runtime.InputTaken
+}
+
+// fresh is a context of a replay's own on the plan's worker for job, seeded as the question's runs are.
+func (r replay) fresh(model *Model, job int, budget Budget) (*runtime.Context, error) {
+	return Question{ModelSeed: r.seed}.fresh(model, job, budget)
 }
 
 // witness is the runtime witness of one schedule of the wire witness.
@@ -320,7 +326,7 @@ func (e externalEngine) replayable(model *Model, q Question, budget Budget, w en
 	if q.Check == nil || q.Check.Start == nil {
 		return replay{}, &NoReplayError{Engine: e.Name(), Kind: q.Kind}
 	}
-	out := replay{ask: q.Check}
+	out := replay{ask: q.Check, seed: q.ModelSeed}
 	if len(w.Inputs) == 0 {
 		return out, nil
 	}
@@ -394,7 +400,7 @@ func (e externalEngine) replayOne(ctx context.Context, model *Model, budget Budg
 	if err != nil {
 		return nil, nil, fmt.Errorf("its witness does not read as a schedule (%v)", err), nil
 	}
-	fresh := func() (*runtime.Context, error) { return model.NewContextOn(job, budget) }
+	fresh := func() (*runtime.Context, error) { return r.fresh(model, job, budget) }
 	rw := r.witness(choices)
 	replayed, err := runtime.ReplaySchedule(ctx, fresh, r.ask.Start, rw, at)
 	witness := &Witness{Schedule: runtime.ReplayOf(rw), Inputs: r.inputs, Choices: choices}
@@ -620,7 +626,7 @@ func (e externalEngine) replayExecution(ctx context.Context, model *Model, budge
 	if err != nil {
 		return nil, fmt.Errorf("does not read as a schedule (%v)", err), nil
 	}
-	fresh := func() (*runtime.Context, error) { return model.NewContextOn(job, budget) }
+	fresh := func() (*runtime.Context, error) { return r.fresh(model, job, budget) }
 	var fail error
 	visit := func(replayed *runtime.Replayed, moves int) error {
 		holds, why, err := holdsAt(r.ask, replayed)
