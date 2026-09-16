@@ -595,7 +595,7 @@ class InstantiateResponse(_message.Message):
     def __init__(self, instance: _Optional[_Union[Instance, _Mapping]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ...) -> None: ...
 
 class ExecuteActionRequest(_message.Message):
-    __slots__ = ("model_hash", "action_symbol_id", "inputs", "schedule")
+    __slots__ = ("model_hash", "action_symbol_id", "inputs", "schedule", "performer_symbol_id")
     class InputsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -607,11 +607,13 @@ class ExecuteActionRequest(_message.Message):
     ACTION_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     INPUTS_FIELD_NUMBER: _ClassVar[int]
     SCHEDULE_FIELD_NUMBER: _ClassVar[int]
+    PERFORMER_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     action_symbol_id: str
     inputs: _containers.MessageMap[str, Value]
     schedule: str
-    def __init__(self, model_hash: _Optional[str] = ..., action_symbol_id: _Optional[str] = ..., inputs: _Optional[_Mapping[str, Value]] = ..., schedule: _Optional[str] = ...) -> None: ...
+    performer_symbol_id: str
+    def __init__(self, model_hash: _Optional[str] = ..., action_symbol_id: _Optional[str] = ..., inputs: _Optional[_Mapping[str, Value]] = ..., schedule: _Optional[str] = ..., performer_symbol_id: _Optional[str] = ...) -> None: ...
 
 class ExecuteActionResponse(_message.Message):
     __slots__ = ("outputs", "error", "diagnostics", "outcomes", "exploration", "final_time")
@@ -637,16 +639,18 @@ class ExecuteActionResponse(_message.Message):
     def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ...) -> None: ...
 
 class ExecuteStateRequest(_message.Message):
-    __slots__ = ("model_hash", "state_machine_symbol_id", "events", "schedule")
+    __slots__ = ("model_hash", "state_machine_symbol_id", "events", "schedule", "performer_symbol_id")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     STATE_MACHINE_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     EVENTS_FIELD_NUMBER: _ClassVar[int]
     SCHEDULE_FIELD_NUMBER: _ClassVar[int]
+    PERFORMER_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     state_machine_symbol_id: str
     events: _containers.RepeatedScalarFieldContainer[str]
     schedule: str
-    def __init__(self, model_hash: _Optional[str] = ..., state_machine_symbol_id: _Optional[str] = ..., events: _Optional[_Iterable[str]] = ..., schedule: _Optional[str] = ...) -> None: ...
+    performer_symbol_id: str
+    def __init__(self, model_hash: _Optional[str] = ..., state_machine_symbol_id: _Optional[str] = ..., events: _Optional[_Iterable[str]] = ..., schedule: _Optional[str] = ..., performer_symbol_id: _Optional[str] = ...) -> None: ...
 
 class ExecuteStateResponse(_message.Message):
     __slots__ = ("states_visited", "final_context", "error", "diagnostics", "outcomes", "exploration", "final_time")

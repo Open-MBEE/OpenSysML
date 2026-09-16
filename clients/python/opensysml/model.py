@@ -509,7 +509,7 @@ class Model:
         """
         return self._client.instantiate(symbol_id, self._hash)
 
-    def execute_action(self, action_symbol_id, inputs=None, schedule=None):
+    def execute_action(self, action_symbol_id, inputs=None, schedule=None, performer=None):
         """Execute one of this model's actions.
 
         Args:
@@ -519,6 +519,10 @@ class Model:
                 choice points under — ``"declared"``, ``"reverse"`` (the
                 default) or ``"seed:<n>"``; ``"explore"`` belongs to
                 :meth:`explore_action`
+            performer (str, optional): The object the action runs on: a part
+                definition or usage to make an object of, or a path from one
+                into its parts (``"Mission::mission.vehicle"``), made for the
+                call and run inside its assembly
 
         Returns:
             dict: Output parameter name → value; an output the wire format
@@ -530,14 +534,14 @@ class Model:
             ExecutionError: If the action could not be executed
             ModelNotFoundError: If the service no longer holds this model
             MissingCapabilityError: If a schedule is given and the service
-                predates ``schedule``
+                predates ``schedule``, or a performer and it predates ``performer``
             InvalidRequestError: If the schedule names no policy
         """
         return self._client.execute_action(
-            action_symbol_id, self._hash, inputs=inputs, schedule=schedule
+            action_symbol_id, self._hash, inputs=inputs, schedule=schedule, performer=performer
         )
 
-    def explore_action(self, action_symbol_id, inputs=None, schedule="explore"):
+    def explore_action(self, action_symbol_id, inputs=None, schedule="explore", performer=None):
         """Run one of this model's actions once per valid order of its choice points.
 
         Args:
@@ -546,6 +550,8 @@ class Model:
             schedule (str, optional): ``"explore"`` or
                 ``"explore:runs=<n>,depth=<d>"``, bounding the runs made and
                 the choice points one run resolves
+            performer (str, optional): The object the action runs on, as for
+                :meth:`execute_action`; every run makes it anew
 
         Returns:
             Exploration: Every distinct outcome reached, each with the number
@@ -556,14 +562,15 @@ class Model:
             ValueError: If the schedule does not explore
             ExecutionError: If the action could not be explored at all
             ModelNotFoundError: If the service no longer holds this model
-            MissingCapabilityError: If the service predates ``schedule_explore``
+            MissingCapabilityError: If the service predates ``schedule_explore``,
+                or ``performer`` when a performer is given
             InvalidRequestError: If the schedule's options are malformed
         """
         return self._client.explore_action(
-            action_symbol_id, self._hash, inputs=inputs, schedule=schedule
+            action_symbol_id, self._hash, inputs=inputs, schedule=schedule, performer=performer
         )
 
-    def execute_state(self, state_machine_symbol_id, events=None, schedule=None):
+    def execute_state(self, state_machine_symbol_id, events=None, schedule=None, performer=None):
         """Execute one of this model's state machines.
 
         Args:
@@ -573,6 +580,9 @@ class Model:
             schedule (str, optional): Scheduling policy the run resolves its
                 choice points under, as for :meth:`execute_action`;
                 ``"explore"`` belongs to :meth:`explore_state`
+            performer (str, optional): The object the machine runs on, as for
+                :meth:`execute_action`; an object exhibiting the machine runs
+                the one it exhibits, hearing its siblings over their connectors
 
         Returns:
             dict: {'states_visited': [...], 'final_context': {...}, 'final_time': float};
@@ -585,14 +595,14 @@ class Model:
             ExecutionError: If the state machine could not be executed
             ModelNotFoundError: If the service no longer holds this model
             MissingCapabilityError: If a schedule is given and the service
-                predates ``schedule``
+                predates ``schedule``, or a performer and it predates ``performer``
             InvalidRequestError: If the schedule names no policy
         """
         return self._client.execute_state(
-            state_machine_symbol_id, self._hash, events=events, schedule=schedule
+            state_machine_symbol_id, self._hash, events=events, schedule=schedule, performer=performer
         )
 
-    def explore_state(self, state_machine_symbol_id, events=None, schedule="explore"):
+    def explore_state(self, state_machine_symbol_id, events=None, schedule="explore", performer=None):
         """Run one of this model's state machines once per valid order of its choice points.
 
         Args:
@@ -601,6 +611,8 @@ class Model:
             events (list, optional): Event names to process, in order
             schedule (str, optional): ``"explore"`` or
                 ``"explore:runs=<n>,depth=<d>"``
+            performer (str, optional): The object the machine runs on, as for
+                :meth:`execute_state`; every run makes it anew
 
         Returns:
             Exploration: Every distinct outcome reached — the state rested in,
@@ -611,11 +623,12 @@ class Model:
             ValueError: If the schedule does not explore
             ExecutionError: If the state machine could not be explored at all
             ModelNotFoundError: If the service no longer holds this model
-            MissingCapabilityError: If the service predates ``schedule_explore``
+            MissingCapabilityError: If the service predates ``schedule_explore``,
+                or ``performer`` when a performer is given
             InvalidRequestError: If the schedule's options are malformed
         """
         return self._client.explore_state(
-            state_machine_symbol_id, self._hash, events=events, schedule=schedule
+            state_machine_symbol_id, self._hash, events=events, schedule=schedule, performer=performer
         )
 
     def verify_constraint(self, symbol_id, subject=None, engine=None):
