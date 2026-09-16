@@ -1076,22 +1076,23 @@ without the field whatever the run waited on. The response has no field to bound
 run goes as far as its waits require, and a machine that re-arms a timer forever ends at the
 event budget, as it does on the CLI without `-advance`.
 
-`performerSymbolId` names the object the action is performed by, as `sysml -action "<action>
-<object>"` does: empty, the action runs outside any object, as every call above; the FQN of a
-part definition or usage creates an object of it for the run; and a path from such a declaration
-through its parts — `Mission::mission.vehicle`, `Fleet::convoy.escorts[2]` for a multi-valued
-part — creates the declaration and reaches the object at the end of the path, so the action's
-`this` is a part *inside* its assembly and the assembly's connectors reach it. Each explored run
-creates the declaration anew. A path that reaches no object is the call's `error` — the
-feature the root has none of (`Mission::mission has no feature "pilot"`), a multi-valued part
-named without an index (`escorts of Fleet::convoy holds 2 objects: pick one by index`), an
+`performerSymbolId` names the object the action is performed by, as the CLI's
+`sysml -action "<action> <object>"` does: empty, the action runs outside any object, as every
+call above; the FQN of a part definition or usage creates an object of it for the run; and a
+path from such a declaration through its parts — `Mission::mission.vehicle`,
+`Fleet::convoy.escorts[2]` for a multi-valued part — creates the declaration and reaches the
+object at the end of the path, so the action's `this` is a part *inside* its assembly and the
+assembly's connectors reach it. Each explored run creates the declaration anew. A path that
+reaches no object is the call's `error` — the feature the root has none of
+(`Mission::mission has no feature "pilot"`), a multi-valued part named without an index
+(`escorts of Fleet::convoy holds 2 objects: pick one by index`), an
 index past the end (`escorts[3] names none`), an object named by id (`performer #1 names an
 object by id, which a call creates none of`), or an unknown root (`symbol not found`) — or,
-under `"explore"`, the one failed outcome of every run. Objects the service's own session
-holds are never named this way: a request creates what it runs on. The field is advertised as
-the `performer` capability: a service withholding it refuses a non-empty `performerSymbolId`
-with `UNIMPLEMENTED`, since a service that predates the field would drop it and run the
-behavior outside any object.
+under `"explore"`, the one failed outcome of every run. Objects the service's own session holds
+are never named this way: a request creates what it runs on. The field is advertised as the
+`performer` capability: a service withholding it refuses a non-empty `performerSymbolId` with
+`UNIMPLEMENTED`, since a service that predates the field would drop it and run the behavior
+outside any object.
 
 To report a decision's choice the engine reads the guards after the first holding one in a
 preview it undoes, so reading them costs and changes nothing. One it cannot evaluate there is
