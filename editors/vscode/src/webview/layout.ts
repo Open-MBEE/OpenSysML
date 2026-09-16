@@ -482,6 +482,31 @@ export function steerable(layout: CanvasLayout, edge: PlacedEdge): boolean {
   return layout.placeable && reachable(edge.edge);
 }
 
+// nodeUnder is the node drawn on top at a point: the innermost, latest-drawn box holding it,
+// passing over hidden nodes and the subtree of `except`, which a drag holds over the others.
+export function nodeUnder(layout: CanvasLayout, at: RenderPoint, except?: string): PlacedNode | undefined {
+  let found: PlacedNode | undefined;
+  const visit = (entry: PlacedNode): void => {
+    if (entry.hidden || entry.node.id === except) {
+      return;
+    }
+    if (contains(entry.box, at)) {
+      found = entry;
+    }
+    for (const child of entry.children) {
+      visit(child);
+    }
+  };
+  for (const root of layout.roots) {
+    visit(root);
+  }
+  return found;
+}
+
+function contains(box: Box, at: RenderPoint): boolean {
+  return at.x >= box.x && at.x <= box.x + box.width && at.y >= box.y && at.y <= box.y + box.height;
+}
+
 /**
  * movedNode is what dragging a node by (dx, dy) puts in the model: the node itself,
  * every descendant the model already places, and every stated route between nodes
@@ -511,6 +536,36 @@ export function movedNode(layout: CanvasLayout, id: string, dx: number, dy: numb
     }
   }
   return { nodes, edges };
+}
+
+// liftedEdges routes the edges at the subtree under `id` lifted by (dx, dy): one within it moves
+// whole, waypoints included, as movedNode writes it; one crossing its border keeps its waypoints.
+export function liftedEdges(layout: CanvasLayout, id: string, dx: number, dy: number): PlacedEdge[] {
+  const entry = layout.nodes.get(id);
+  if (!entry) {
+    return [];
+  }
+  const placed = new Map(layout.nodes);
+  const subtree = new Set<string>();
+  const visit = (current: PlacedNode): void => {
+    subtree.add(current.node.id);
+    placed.set(current.node.id, { ...current, box: { ...current.box, x: current.box.x + dx, y: current.box.y + dy } });
+    for (const child of current.children) {
+      visit(child);
+    }
+  };
+  visit(entry);
+  const out: PlacedEdge[] = [];
+  for (const edge of layout.edges) {
+    const from = subtree.has(edge.edge.from);
+    const to = subtree.has(edge.edge.to);
+    if (edge.hidden || (!from && !to)) {
+      continue;
+    }
+    const route = from && to ? edge.route.map((p) => ({ x: p.x + dx, y: p.y + dy })) : edge.route;
+    out.push(routeEdge(edge.edge, edge.index, placed, new Map([[edge.index, route]])));
+  }
+  return out;
 }
 
 // shifted is a node's stated geometry moved by (dx, dy): its size and collapse

@@ -373,16 +373,19 @@ answer is `stale` for when that document's text has changed since the rendering,
 or not a namesake declaration now stands at the range or bears the name: when an earlier
 operation of the same request moves or lengthens a declaration, the later one's range
 still reaches it, and is refused as `unknown-target` only when the earlier one rewrote the
-declaration itself. The
-three layout operations write into whichever document of the workspace declares what
-holds the annotation — the view for a view-local one and a canvas, the target for an
-inline one — whether that is the requested document or another, so a view exposing another
-document's parts places them in its own body, and a document drawn directly places what
-it draws from another document in that document. They are refused as `not-a-view` when
-`view` or a canvas `target` is not a view, `not-exposed` when the view does not expose the
-target, `not-drawn` when no rendering the annotation applies in draws the target as the
-node or edge it positions, `not-annotated` when there is nothing to clear, and
-`referenced-elsewhere` when the document to write is one the server cannot rewrite. The
+declaration itself. A `setLayout` followed by a `move` of the same target in one request
+places the declaration and moves it as one edit: the annotation's `about` name is respelled
+with every other reference, so a client that drops a node on a new owner writes both in the
+request the drop makes. The three layout operations write into whichever document of the
+workspace declares what holds the annotation — the view for a view-local one and a canvas,
+the target for an inline one — whether that is the requested document or another, so a
+view exposing another document's parts places them in its own body, and a document drawn
+directly places what it draws from another document in that document. They are refused as
+`not-a-view` when `view` or a canvas `target` is not a view, `not-exposed` when the view
+does not expose the target, `not-drawn` when no rendering the annotation applies in draws
+the target as the node or edge it positions, `not-annotated` when there is nothing to
+clear, and `referenced-elsewhere` when the document to write is one the server cannot
+rewrite. The
 result is one of three shapes:
 
 ```json

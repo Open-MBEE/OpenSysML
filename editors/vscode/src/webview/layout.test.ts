@@ -8,10 +8,12 @@ import {
   insertedWaypoint,
   labelLines,
   layoutCanvas,
+  liftedEdges,
   MARGIN,
   movable,
   movedNode,
   movedWaypoint,
+  nodeUnder,
   overridesOf,
   removedWaypoint,
   shapeOf,
@@ -298,6 +300,42 @@ test("movable and steerable accept a target reached by its declaration alone", (
   assert.equal(steerable(unnamed, unnamed.edges[0]), true);
 });
 
+test("nodeUnder is the innermost drawn node holding the point, the later sibling of two that overlap", () => {
+  const layout = layoutCanvas(rendering([
+    node("a", "a", { x: 0, y: 0, width: 300, height: 200 }),
+    node("b", "b", { parent: "a", x: 20, y: 60, width: 100, height: 50 }),
+    node("c", "c", { x: 250, y: 100, width: 100, height: 50 }),
+    node("d", "d", { x: 600, y: 600, width: 100, height: 50 }),
+  ]));
+  assert.equal(nodeUnder(layout, { x: 10, y: 10 })?.node.id, "a");
+  assert.equal(nodeUnder(layout, { x: 50, y: 80 })?.node.id, "b");
+  // Where a's and c's boxes overlap, c is drawn later, on top; a border counts as inside.
+  assert.equal(nodeUnder(layout, { x: 280, y: 120 })?.node.id, "c");
+  assert.equal(nodeUnder(layout, { x: 700, y: 650 })?.node.id, "d");
+  assert.equal(nodeUnder(layout, { x: 500, y: 500 }), undefined);
+});
+
+test("nodeUnder passes over the dragged subtree and the children a collapsed node hides", () => {
+  const layout = layoutCanvas(rendering([
+    node("a", "a", { x: 0, y: 0, width: 300, height: 200 }),
+    node("b", "b", { parent: "a", x: 20, y: 60, width: 100, height: 50 }),
+    node("e", "e", { parent: "b", x: 30, y: 80, width: 40, height: 20 }),
+    node("c", "c", { x: 400, y: 0, width: 200, height: 200, collapsed: true }),
+    node("f", "f", { parent: "c", x: 420, y: 50, width: 40, height: 20 }),
+  ]));
+  // The dragged node b is held over its own place: what is under the pointer is its owner.
+  assert.equal(nodeUnder(layout, { x: 40, y: 85 }, "b")?.node.id, "a");
+  assert.equal(nodeUnder(layout, { x: 40, y: 85 })?.node.id, "e");
+  assert.equal(nodeUnder(layout, { x: 430, y: 60 })?.node.id, "c");
+});
+
+test("nodeUnder reads the layout it is given, so a node placed aside no longer covers its old point", () => {
+  const result = rendering([node("a", "a", { x: 0, y: 0, width: 100, height: 50 }), node("b", "b", { x: 200, y: 0, width: 100, height: 50 })]);
+  const shown = layoutCanvas(result, overridesOf(movedNode(layoutCanvas(result), "a", 200, 0)!));
+  assert.equal(nodeUnder(shown, { x: 50, y: 25 }), undefined);
+  assert.equal(nodeUnder(shown, { x: 250, y: 25 }, "a")?.node.id, "b");
+});
+
 test("movedNode writes the dragged node's new position, snapped, and nothing else about it", () => {
   const layout = layoutCanvas(rendering([node("a", "a"), node("b", "b")]));
   const placements = movedNode(layout, "a", 10.4, -3.6)!;
@@ -334,6 +372,37 @@ test("movedNode carries the placed descendants and inner routes along, leaving u
   ]);
   // Only the route between two nodes of the moved subtree moves with it.
   assert.deepEqual(placements.edges, [{ index: 0, route: [{ x: 150, y: 50 }] }]);
+});
+
+test("liftedEdges moves an edge within the lifted subtree whole and keeps a crossing edge's waypoints, re-anchored at its lifted end", () => {
+  const layout = layoutCanvas(rendering(
+    [
+      node("a", "a", { x: 0, y: 0 }),
+      node("b", "b", { parent: "a", x: 20, y: 60 }),
+      node("c", "c", { parent: "a" }),
+      node("d", "d"),
+    ],
+    [
+      { from: "b", to: "c", label: "", kind: "connection", fqn: "M::bc", route: [{ x: 50, y: 50 }] },
+      { from: "b", to: "d", label: "", kind: "connection", fqn: "M::bd", route: [{ x: 70, y: 70 }] },
+      { from: "d", to: "d", label: "", kind: "connection", fqn: "M::dd" },
+    ],
+  ));
+  const lifted = liftedEdges(layout, "a", 100, 30);
+  // The edge between two nodes outside the subtree is not touched.
+  assert.deepEqual(lifted.map((edge) => edge.index), [0, 1]);
+  const [inner, crossing] = lifted;
+  const shift = (points: { x: number; y: number }[]) => points.map((p) => ({ x: p.x + 100, y: p.y + 30 }));
+  assert.deepEqual(inner.points, shift(layout.edges[0].points));
+  assert.deepEqual(inner.route, [{ x: 150, y: 80 }]);
+  assert.deepEqual(inner.label, { x: layout.edges[0].label.x + 100, y: layout.edges[0].label.y + 30 });
+  // The crossing edge keeps the model's waypoint and its anchor on d; its anchor on b moves with b.
+  assert.deepEqual(crossing.route, [{ x: 70, y: 70 }]);
+  assert.deepEqual(crossing.points.at(-1), layout.edges[1].points.at(-1));
+  const b = layout.nodes.get("b")!.box;
+  assert.deepEqual(crossing.points[0], anchor({ ...b, x: b.x + 100, y: b.y + 30 }, { x: 70, y: 70 }));
+  // A node the layout does not hold lifts no edge.
+  assert.deepEqual(liftedEdges(layout, "z", 1, 1), []);
 });
 
 test("movedNode refuses a node no Layout can name", () => {

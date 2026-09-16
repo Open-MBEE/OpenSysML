@@ -4,8 +4,8 @@ import { test } from "node:test";
 import { JSDOM } from "jsdom";
 
 import type { RenderNode, RenderResult } from "../protocol";
-import { drawCanvas } from "./canvas";
-import { layoutCanvas } from "./layout";
+import { drawCanvas, liftNode } from "./canvas";
+import { layoutCanvas, MARGIN } from "./layout";
 
 // The canvas is drawn with the page's document, as it is in the webview.
 const dom = new JSDOM("<!DOCTYPE html><body></body>");
@@ -52,6 +52,79 @@ test("drawCanvas draws every node as a group carrying its rendering id, movable 
   // A fork is a bar, with no label.
   assert.equal(svg.querySelector('g[data-opensysml-id="d"] > rect')?.classList.contains("filled"), true);
   assert.equal(svg.querySelector('g[data-opensysml-id="d"] text'), null);
+});
+
+test("liftNode floats the dragged subtree over a canvas that stays put, drawn last", () => {
+  const layout = layoutCanvas(result);
+  const svg = drawCanvas(layout);
+  const before = svg.querySelector('g[data-opensysml-id="c"] > rect')!.getAttribute("x");
+  liftNode(svg, layout, "a", 40, -10);
+  const groups = [...svg.querySelectorAll<SVGGElement>("g.opensysml-node")];
+  // The owner and its child move together; the others keep their place and their drawing order.
+  assert.deepEqual(groups.map((group) => group.dataset.opensysmlId), ["c", "d", "a", "b"]);
+  assert.deepEqual(groups.map((group) => group.getAttribute("transform")), [null, null, "translate(40 -10)", "translate(40 -10)"]);
+  assert.deepEqual(groups.map((group) => group.classList.contains("lifted")), [false, false, true, true]);
+  assert.equal(svg.querySelector('g[data-opensysml-id="a"] > rect')!.getAttribute("x"), "10");
+  assert.equal(svg.querySelector('g[data-opensysml-id="c"] > rect')!.getAttribute("x"), before);
+  // Lifted within the canvas, the canvas keeps its size and origin.
+  assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(layout.width), String(layout.height)]);
+  assert.equal(svg.getAttribute("viewBox"), `${layout.origin.x} ${layout.origin.y} ${layout.width} ${layout.height}`);
+  // The edge from the lifted valve to the pump is redrawn to follow it, with its handles.
+  assert.deepEqual([...svg.querySelectorAll<SVGGElement>("g.lifted")].map((group) => group.className.baseVal.split(" ")[0]), [
+    "opensysml-node", "opensysml-node", "opensysml-edge", "edge-handles",
+  ]);
+  // A node the layout does not hold lifts nothing.
+  liftNode(svg, layout, "z", 1, 1);
+  assert.equal(svg.querySelectorAll("g.lifted").length, 4);
+});
+
+test("liftNode redraws the edges at the lifted subtree: an inner one moves whole, a crossing one follows its lifted end", () => {
+  const withInner: RenderResult = {
+    ...result,
+    nodes: [...result.nodes!, node("e", "gauge", { parent: "a" })],
+    edges: [
+      ...result.edges!,
+      { from: "b", to: "e", label: "reads", kind: "connection", fqn: "M::be", route: [{ x: 60, y: 60 }] },
+    ],
+  };
+  const layout = layoutCanvas(withInner);
+  const svg = drawCanvas(layout);
+  const polyline = (index: number) => svg.querySelector(`g.opensysml-edge[data-edge="${index}"] polyline`)!.getAttribute("points");
+  const label = (index: number) => svg.querySelector(`g.opensysml-edge[data-edge="${index}"] text`)!;
+  const outerBefore = polyline(1);
+  const crossingBefore = polyline(0);
+  liftNode(svg, layout, "a", 100, 30);
+  // The inner edge's line, label and handles all move by the lift; the edge between outside nodes does not.
+  assert.equal(polyline(2), layout.edges[2].points.map((p) => `${p.x + 100},${p.y + 30}`).join(" "));
+  assert.deepEqual([label(2).getAttribute("x"), label(2).getAttribute("y")], [String(layout.edges[2].label.x + 100), String(layout.edges[2].label.y + 30 - 6)]);
+  const waypoint = svg.querySelector<SVGCircleElement>('g.edge-handles[data-edge="2"] circle.waypoint')!;
+  assert.deepEqual([waypoint.getAttribute("cx"), waypoint.getAttribute("cy")], ["160", "90"]);
+  assert.equal(polyline(1), outerBefore);
+  // The crossing edge keeps its waypoint and its anchor on the pump; its anchor on the valve moves with the valve.
+  assert.notEqual(polyline(0), crossingBefore);
+  const crossing = polyline(0)!.split(" ");
+  const before = crossingBefore!.split(" ");
+  assert.deepEqual(crossing.slice(1), before.slice(1));
+  assert.notEqual(crossing[0], before[0]);
+  // The redrawn groups are marked lifted and keep their place among the edges and handles.
+  assert.deepEqual([...svg.querySelectorAll<SVGGElement>("g.opensysml-edge")].map((g) => [g.dataset.edge, g.classList.contains("lifted")]), [["0", true], ["1", false], ["2", true]]);
+  assert.deepEqual([...svg.querySelectorAll<SVGGElement>("g.edge-handles")].map((g) => [g.dataset.edge, g.classList.contains("lifted")]), [["0", true], ["2", true]]);
+  // Each edge is drawn once.
+  assert.equal(svg.querySelectorAll("g.opensysml-edge").length, 3);
+});
+
+test("liftNode grows the canvas right and down to keep a node lifted past its edge in view", () => {
+  const layout = layoutCanvas(result);
+  const svg = drawCanvas(layout);
+  liftNode(svg, layout, "a", 1000, 500);
+  // The whole lifted subtree counts: the child reaches below its owner's stated box.
+  const boxes = ["a", "b"].map((id) => layout.nodes.get(id)!.box);
+  const width = Math.max(...boxes.map((box) => box.x + box.width)) + 1000 + MARGIN - layout.origin.x;
+  const height = Math.max(...boxes.map((box) => box.y + box.height)) + 500 + MARGIN - layout.origin.y;
+  assert.ok(width > layout.width && height > layout.height);
+  assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(width), String(height)]);
+  // The origin holds, so what is not lifted stays where it was drawn.
+  assert.equal(svg.getAttribute("viewBox"), `${layout.origin.x} ${layout.origin.y} ${width} ${height}`);
 });
 
 test("drawCanvas opens the view on geometry the model puts left of or above the origin", () => {

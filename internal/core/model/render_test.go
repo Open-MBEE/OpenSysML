@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -161,6 +162,31 @@ func TestRenderViewSnapshotHoldsEveryDocumentAsRendered(t *testing.T) {
 	}
 	if got := string(rendered.Content[rotor.Origin.Span.Offset : rotor.Origin.Span.Offset+rotor.Origin.Span.Len]); !strings.HasPrefix(got, "part rotor;") {
 		t.Errorf("rotor's span in the snapshot's text spells %q, want the declaration", got)
+	}
+}
+
+// A transition a usage inherits from a definition in another document is
+// located there and labelled with its trigger and guard as written there.
+func TestRenderViewLocatesInheritedTransitionsInTheirDocument(t *testing.T) {
+	const defs = "package Plant {\n\tattribute def Fault;\n\tstate def Machine {\n\t\tattribute load;\n\t\tentry; then off;\n\t\tstate off;\n\t\tstate on;\n\t\ttransition first off accept Fault if load > 3 then on;\n\t}\n}\n"
+	const uses = "package Uses {\n\tprivate import Views::*;\n\tprivate import StandardViewDefinitions::*;\n\n\tstate machine : Plant::Machine;\n\n\tview machineView : StateTransitionView {\n\t\texpose machine;\n\t}\n}\n"
+	ws := openDoc(t, "uses.sysml", uses)
+	ws.Open("defs.sysml", []byte(defs), 1)
+	rendering, _, err := ws.RenderView("uses.sysml", "Uses::machineView")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	var labels []string
+	for _, edge := range rendering.Data().Edges {
+		if edge.Label != "" {
+			labels = append(labels, edge.Label)
+		}
+		if edge.Origin.Doc != "defs.sysml" {
+			t.Errorf("edge %s -> %s is located in %q, want defs.sysml", edge.From, edge.To, edge.Origin.Doc)
+		}
+	}
+	if want := []string{"accept Fault [load > 3]"}; !reflect.DeepEqual(labels, want) {
+		t.Errorf("labels = %q, want %q; notices %v", labels, want, rendering.Notices)
 	}
 }
 

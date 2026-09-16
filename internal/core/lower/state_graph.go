@@ -184,7 +184,7 @@ type StateGraph struct {
 	scopeOf map[*ast.StateNode]*symbols.Scope
 
 	// regionScopeOf: region → the scope its declaration was written in, for a
-	// region a usage inherits and for one synthesized from a parallel substate.
+	// region a usage inherits.
 	regionScopeOf map[*ast.StateRegion]*symbols.Scope
 
 	// declaredIn: region, pseudostate or transition declaration → the scope of
@@ -1032,7 +1032,6 @@ func (g *StateGraph) parallelRegions(members []inheritedMember, parent *ast.Stat
 			States:   regionBody(g, wrapper, actual),
 		}
 		g.regionDecl[region] = actual
-		g.regionScopeOf[region] = childScope(member.scope, actual)
 		g.recordDeclaredIn(region, member.scope)
 		g.HiddenRegionOf[wrapper] = region
 		g.RegionState[region] = wrapper
@@ -1160,11 +1159,14 @@ func parallelRegionBody(member ast.Node) (string, []ast.Node) {
 	}
 }
 
-// regionScope is the scope a region's body resolves in: the one recorded for a
-// synthesized or inherited region, else the region's own under scope.
+// regionScope uses the source substate scope for synthesized regions and the
+// region's own scope for regions written with the extension syntax.
 func (g *StateGraph) regionScope(scope *symbols.Scope, region *ast.StateRegion) *symbols.Scope {
-	if recorded := g.regionScopeOf[region]; recorded != nil {
-		return recorded
+	if inherited := g.regionScopeOf[region]; inherited != nil {
+		return inherited
+	}
+	if decl := g.regionDecl[region]; decl != nil {
+		return childScope(scope, decl)
 	}
 	return childScope(scope, region)
 }
@@ -1225,7 +1227,7 @@ func (g *StateGraph) recordDecl(state *ast.StateNode) {
 }
 
 // addPseudostate records a pseudostate as a vertex of the graph, declared in
-// the body scope resolves unless a copy already recorded the definition's.
+// scope unless inheritance already recorded the general's body it was written in.
 func (g *StateGraph) addPseudostate(ps *ast.PseudostateNode, scope *symbols.Scope) {
 	g.Pseudostates = append(g.Pseudostates, ps)
 	g.putVertex(ps, ps)
