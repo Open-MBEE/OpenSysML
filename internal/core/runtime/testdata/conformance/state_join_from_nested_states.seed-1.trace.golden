@@ -1,0 +1,36 @@
+choice on accept Go: states a1, b1 react (unordered; took b1 first)
+choice join sync: states a1, b1 react (unordered; took a1 first)
+exit: a1
+exit: ia (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "ia(exit) " -> "ia(exit) "
+    eval operator + -> "ia(exit) "
+stmt assign log
+    eval feature log -> "ia(exit) "
+    eval literal "a1 " -> "a1 "
+  eval operator + -> "ia(exit) a1 "
+exit: b1
+exit: ib (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "ia(exit) a1 "
+      eval literal "ib(exit) " -> "ib(exit) "
+    eval operator + -> "ia(exit) a1 ib(exit) "
+stmt assign log
+    eval feature log -> "ia(exit) a1 ib(exit) "
+    eval literal "b1 " -> "b1 "
+  eval operator + -> "ia(exit) a1 ib(exit) b1 "
+exit: Work (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "ia(exit) a1 ib(exit) b1 "
+      eval literal "work(exit) " -> "work(exit) "
+    eval operator + -> "ia(exit) a1 ib(exit) b1 work(exit) "
+stmt assign log
+    eval feature log -> "ia(exit) a1 ib(exit) b1 work(exit) "
+    eval literal "sync" -> "sync"
+  eval operator + -> "ia(exit) a1 ib(exit) b1 work(exit) sync"
+enter: done
+transition: Work -> done (event: accept Go)

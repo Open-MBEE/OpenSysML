@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"log": ["\"a b sync onward\"", "\"b a sync onward\""]},
+	"agreed": {"finalState": "done", "level": "3"}
+}

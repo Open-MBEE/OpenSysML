@@ -207,6 +207,109 @@ func TestTransitionFootprintsFoldJoinIncomingEffects(t *testing.T) {
 	}
 }
 
+// Firing a join synchronizes every transition into it: each incoming
+// transition's footprint reads the other segments' guards, triggers and sources'
+// activity, and writes the activity and exit behaviors of every state the join
+// leaves, the sibling regions' included, whichever state declares the join.
+func TestTransitionFootprintsFoldJoinSiblingSegments(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `
+		package test {
+			attribute def Go;
+			attribute def Tick;
+			state Machine {
+				attribute armed : Boolean = false;
+				attribute level : Integer = 0;
+				attribute x : Integer = 0;
+				attribute y : Integer = 0;
+				entry; then work;
+				state work parallel {
+					state left {
+						entry; then a1;
+						state a1;
+						transition first a1 accept Go then sync;
+					}
+					state right {
+						entry; then b1;
+						state b1 { exit action { assign x := x + 1; } }
+						transition first b1 accept Go if armed then sync;
+					}
+					state third {
+						entry; then c1;
+						state c1 { exit action { assign y := 1; } }
+						transition first c1 accept when level > 1 then sync;
+					}
+					state fourth {
+						entry; then d1;
+						state d1;
+						transition first d1 accept Tick do assign armed := true then d1;
+					}
+				}
+				join sync;
+				transition first sync then finished;
+				state finished;
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	fp := graph.TransitionFootprints()[transitionOut(t, graph, "a1", 0)]
+	for _, name := range []string{"armed", "level", "b1", "c1"} {
+		if !hasPlace(fp.Reads, name) {
+			t.Fatalf("out of a1 reads %v, want %s: the sibling segments' guards, triggers and sources", placeNames(fp.Reads), name)
+		}
+	}
+	for _, name := range []string{"x", "y", "a1", "b1", "c1", "d1", "left", "right", "third", "fourth", "work"} {
+		if !hasPlace(fp.Writes, name) {
+			t.Fatalf("out of a1 writes %v, want %s: every state the join leaves and its exits", placeNames(fp.Writes), name)
+		}
+	}
+	tick := graph.TransitionFootprints()[transitionOut(t, graph, "d1", 0)]
+	if !fp.Dependent(tick) {
+		t.Fatalf("the join reads the armed Tick writes:\njoin:\n%s\ntick:\n%s", fp, tick)
+	}
+}
+
+// A join of the machine's own regions leaves every one of them.
+func TestTransitionFootprintsFoldJoinOfTopRegions(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `
+		package test {
+			attribute def Go;
+			state Machine parallel {
+				attribute x : Integer = 0;
+				state left {
+					entry; then l1;
+					state l1;
+					transition first l1 accept Go then sync;
+				}
+				state right {
+					entry; then r1;
+					state r1 { exit action { assign x := 1; } }
+					transition first r1 accept Go then sync;
+				}
+				state third {
+					entry; then t1;
+					state t1;
+				}
+				join sync;
+				transition first sync then done;
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	fp := graph.TransitionFootprints()[transitionOut(t, graph, "l1", 0)]
+	for _, name := range []string{"x", "l1", "r1", "t1"} {
+		if !hasPlace(fp.Writes, name) {
+			t.Fatalf("out of l1 writes %v, want %s: every region is left", placeNames(fp.Writes), name)
+		}
+	}
+	if !hasPlace(fp.Reads, "r1") {
+		t.Fatalf("out of l1 reads %v, want the sibling source r1", placeNames(fp.Reads))
+	}
+}
+
 // A transition into a fork covers the regions the fork omits as well as its
 // branches' targets: the omitted region starts by default, so its states'
 // activity, entry behavior and completion are the fork's too.
