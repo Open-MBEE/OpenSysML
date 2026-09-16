@@ -42,6 +42,7 @@ const (
 	CapabilityVerificationVerdicts = sysmlgrpc.CapabilityVerificationVerdicts
 	CapabilityCaseEvaluations      = sysmlgrpc.CapabilityCaseEvaluations
 	CapabilityFinalTime            = sysmlgrpc.CapabilityFinalTime
+	CapabilityPerformer            = sysmlgrpc.CapabilityPerformer
 	CapabilityEngines              = sysmlgrpc.CapabilityEngines
 	CapabilityUndeterminedValue    = sysmlgrpc.CapabilityUndeterminedValue
 )

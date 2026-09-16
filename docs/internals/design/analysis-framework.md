@@ -462,7 +462,24 @@ the first, and a state lock for the readers that run beside a command — comple
 getters — which an exploration releases while its plan runs on a worker and contexts of its own.
 What the explored runs name — the performers and subjects to instantiate, the held object owning
 a nested case, the exhibits declared — is resolved into a plan before the release, so a run reads
-nothing the state lock guards. A prompt run in the session's own context (`%run`, `%check`) keeps
+nothing the state lock guards. The plan names a run's objects by *recipe*, never by identity
+(`repl/explore.go` `freshRef`, `freshPlan`): a name is resolved to the longest prefix that is a
+declaration — a part or item usage or definition `lookupSymbol` finds — and the segments past it
+(`objref.Ref`, usage names and `[i]` indexes), each checked against the declarations while the
+lock is held (`checkFreshPath`: a usage the type does not declare, an index on a usage of one
+value or off a fixed multiplicity, a step through a scalar are `ObjectPathError`s at plan time)
+so no run resolves anything against the session's objects. The CLI's `-instantiate` roots are
+recorded in the plan as *given* (`Session.given`, `givenRoots`), validated under the lock the same
+way. Inside a run, `freshPlan.bind` instantiates each given root and then each declaration a path
+starts from **once** (`freshObjects.roots`, keyed by the declaration's qualified name), and
+`freshObjects.object` walks the path in that object through the one `objref.Walker` the prompt's
+`resolveObject` uses, so two behaviors naming `Comms::pair.ground` and `Comms::pair.craft` run on
+the parts of one `pair` and its connectors carry their messages. What only the run can know — a
+`[0..1]` part its recipe left unbuilt, an index past what it built — is the walker's error inside
+the run, an outcome of the table; an id (`#2`) or a path from a session object with no
+declaration behind it is `ExploredObjectError` at plan time, and a path the plan did not include
+`UnplannedObjectError`. The gRPC service plans a request's `performer_symbol_id` and
+`subject_symbol_id` by the same rule (`grpc/verify.go` `objectAt`). A prompt run in the session's own context (`%run`, `%check`) keeps
 the state lock: its context is what the readers read, and releasing it there would be a shared
 `Context`. A sweep releases it as an exploration does: what its rows name is resolved into a
 plan first, and every row runs in a context of its own — the subject and `self` instantiated
