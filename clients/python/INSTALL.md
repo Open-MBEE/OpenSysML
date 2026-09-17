@@ -6,10 +6,18 @@
 pip install opensysml
 ```
 
-Published to [PyPI](https://pypi.org/project/opensysml/) from CircleCI on an
-`opensysml-v*` tag, independently of the core `v*` releases: the package downloads the
-`sysml-grpc` service it needs at runtime, so a newer core release needs no new package. See
-[docs/project/releasing.md](../../docs/project/releasing.md#releasing-opensysml-to-pypi).
+Published to [PyPI](https://pypi.org/project/opensysml/) from CircleCI by the core `v*`
+release tag, at the core's version: `v0.9.0` publishes `opensysml` 0.9.0. The package
+downloads the `sysml-grpc` service it needs at runtime from the release
+`OPENSYSML_GRPC_VERSION` (or `version=`) names, so pinning both to one version gives the
+pairing that release tested:
+
+```bash
+pip install opensysml==0.9.0
+export OPENSYSML_GRPC_VERSION=v0.9.0
+```
+
+See [docs/project/releasing.md](../../docs/project/releasing.md#releasing-opensysml-to-pypi).
 
 ## From source
 
