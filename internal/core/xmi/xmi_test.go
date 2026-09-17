@@ -194,6 +194,34 @@ const wrapperOnly = `<?xml version="1.0"?>
   <xmi:Documentation exporter="Example UML Tool"/>
 </xmi:XMI>`
 
+func TestProfileNamespaceEndingInXMIIsAStereotype(t *testing.T) {
+	src := `<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20131001" xmlns:Sim="http://www.magicdraw.com/schemas/SimulationProfile.xmi">
+  <uml:Model xmi:id="m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="c" name="C"/>
+  </uml:Model>
+  <Sim:SimulationConfig xmi:id="s" base_Class="c" numberOfRuns="5"/>
+</xmi:XMI>`
+	m, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := m.Lookup("c").Stereotype("SimulationConfig")
+	if s == nil || s.Tag("numberOfRuns") != "5" || s.ID != "s" {
+		t.Fatalf("SimulationConfig = %+v", s)
+	}
+	for _, ns := range []string{"http://www.omg.org/spec/XMI/20131001", "http://schema.omg.org/spec/XMI/2.1", "http://www.omg.org/XMI"} {
+		if !isXMINamespace(ns) {
+			t.Errorf("%s is not taken for XMI", ns)
+		}
+	}
+	for _, ns := range []string{"http://www.magicdraw.com/schemas/SimulationProfile.xmi", "http://www.magicdraw.com/schemas/ReqIF_Profile.xmi"} {
+		if isXMINamespace(ns) {
+			t.Errorf("%s is taken for XMI", ns)
+		}
+	}
+}
+
 func TestParseArchiveIgnoresUnrelatedXML(t *testing.T) {
 	data, err := os.ReadFile(fixture)
 	if err != nil {
