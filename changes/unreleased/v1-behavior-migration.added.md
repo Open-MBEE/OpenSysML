@@ -21,6 +21,11 @@
   scenario `action def` of `send`s; a Reception is a comment naming its signal. Absolute time
   events, internal transitions, entry points and history pseudostates, synchronous interaction
   messages and a tool's time variable have no v2 form and stay comments the report accounts for.
+- **A send addressed to a parameter, pin or local of the sending action reaches the object it
+  holds.** `send new Go() to recipient` under `in recipient : Worker` is delivered to whatever
+  object the caller bound, a chain from it (`team.lead`) walked through that object; a binding
+  holding no object is refused with a typed error rather than the message dropped. A target no
+  binding leads — `this.part`, a port, a name in scope — is resolved as before.
 - **`perform action x ::> part.action;` and `exit part.action;` run on the part.** An action
   usage referencing a feature chain performs the chain's last action on the object the chain
   reaches from the performer, as a state's entry, do or exit behavior does; an empty or

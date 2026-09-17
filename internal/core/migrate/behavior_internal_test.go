@@ -22,6 +22,9 @@ func TestParseDuration(t *testing.T) {
 		"1 min 30":                        "",
 		"3 fortnights":                    "",
 		"1s and 2s":                       "",
+		"1e308 d":                         "",
+		"1e400":                           "",
+		"1.5e308 s 1.5e308 s":             "",
 	} {
 		got, ok := parseDuration(text)
 		if ok != (want != "") || got != want {

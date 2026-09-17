@@ -561,6 +561,12 @@ func (ctx *Context) postTo(msg Message, send lower.Send, self *Instance, behavio
 	if err != nil {
 		return err
 	}
+	return ctx.postAt(msg, addrs, self, behavior)
+}
+
+// postAt delivers one copy of msg to each address, held to its object's identity.
+func (ctx *Context) postAt(msg Message, addrs []messageAddress, self *Instance, behavior *symbols.Symbol) error {
+	var err error
 	copies := make([]Message, 0, len(addrs))
 	for _, addr := range addrs {
 		copied := msg
@@ -703,7 +709,12 @@ func (ctx *Context) featureAddresses(scope *symbols.Scope, self *Instance, segme
 	if err != nil || !ok {
 		return nil, err
 	}
-	owners := []*Instance{owner}
+	return ctx.addressesFrom([]*Instance{owner}, rest)
+}
+
+// addressesFrom walks rest through the instance graph from owners, one address
+// per port, receiving behavior or object reached, without duplicates.
+func (ctx *Context) addressesFrom(owners []*Instance, rest []string) ([]messageAddress, error) {
 	var out []messageAddress
 	seen := map[messageAddress]bool{}
 	add := func(addr messageAddress, built bool) {
@@ -743,6 +754,43 @@ func (ctx *Context) featureAddresses(scope *symbols.Scope, self *Instance, segme
 		add(objectAddress(owner.ID))
 	}
 	return out, nil
+}
+
+// boundTargetAddresses resolves a target led by a binding of ec (a parameter, pin or
+// local holding objects), walking further segments through them; false where none leads it.
+func (ec *EvalContext) boundTargetAddresses(send lower.Send) ([]messageAddress, bool, error) {
+	if send.IsVia || send.Target == "" || strings.Contains(send.Target, "::") {
+		return nil, false, nil
+	}
+	segments := strings.Split(send.Target, ".")
+	root := segments[0]
+	if root == thisName {
+		return nil, false, nil
+	}
+	value, bound := ec.Lookup(root)
+	if !bound {
+		return nil, false, nil
+	}
+	var owners []*Instance
+	for _, held := range heldElements(value) {
+		if held.Kind != ValInstance {
+			return nil, true, &SendTargetValueError{Target: send.Target, Name: root, Value: FormatValue(value)}
+		}
+		if inst, ok := ec.ctx.instances[held.Instance]; ok {
+			owners = append(owners, inst)
+		}
+	}
+	if len(owners) == 0 {
+		return nil, true, &SendTargetValueError{Target: send.Target, Name: root, Value: FormatValue(value)}
+	}
+	addrs, err := ec.ctx.addressesFrom(owners, segments[1:])
+	if err != nil {
+		return nil, true, err
+	}
+	if len(addrs) == 0 {
+		return nil, true, &UnroutableSendError{Port: send.Target, Address: true}
+	}
+	return addrs, true, nil
 }
 
 // addressOwner answers which object a target's leading segments belong to: the
@@ -917,11 +965,23 @@ func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Co
 		return err
 	}
 	built, started := len(ctx.created), len(ctx.objectBehaviors)
-	if err := ctx.post(conns, msg, s, self, behavior); err != nil {
+	if err := ctx.postFor(ec, conns, msg, s, self, behavior); err != nil {
 		ctx.abandonCreationBetween(mark, built, attached, started)
 		return err
 	}
 	return nil
+}
+
+// postFor posts a message as its send addressed it: to the objects a target
+// bound in ec holds, else as post routes it.
+func (ctx *Context) postFor(ec *EvalContext, conns []lower.Connection, msg Message, s lower.Send, self *Instance, behavior *symbols.Symbol) error {
+	if addrs, bound, err := ec.boundTargetAddresses(s); bound {
+		if err != nil {
+			return err
+		}
+		return ctx.postAt(msg, addrs, self, behavior)
+	}
+	return ctx.post(conns, msg, s, self, behavior)
 }
 
 // post delivers a built message the way the send addressed it: routed through

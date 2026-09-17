@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -438,6 +439,9 @@ func parseDuration(text string) (seconds string, ok bool) {
 		}
 		total += v * scale
 		rest = strings.TrimSpace(rest[len(mt[0]):])
+	}
+	if math.IsInf(total, 0) || math.IsNaN(total) {
+		return "", false
 	}
 	return realLiteral(total), true
 }
