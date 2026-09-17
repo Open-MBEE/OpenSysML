@@ -32,9 +32,11 @@ type activity struct {
 	def   *xmi.Element // the element whose v2 body is written; names are distinct in it
 	names map[*xmi.Element]string
 	used  map[string]bool
-	// next lists, for each node, the nodes its edges lead to, once each.
+	// next lists, for each node, the nodes its edges lead to, once each; succ the
+	// edges out of it that stand for a succession, in the order they are owned.
 	next map[*xmi.Element][]*xmi.Element
 	prev map[*xmi.Element][]*xmi.Element
+	succ map[*xmi.Element][]*xmi.Element
 	// entry names what a succession into a node leads to: its join (its merge,
 	// for a final) when several edges lead to it, else its wait when a duration constrains it.
 	entry  map[*xmi.Element]string
@@ -76,6 +78,7 @@ func (m *migration) newActivity(act, def *xmi.Element) *activity {
 		used:        inheritedActionNames(),
 		next:        map[*xmi.Element][]*xmi.Element{},
 		prev:        map[*xmi.Element][]*xmi.Element{},
+		succ:        map[*xmi.Element][]*xmi.Element{},
 		entry:       map[*xmi.Element]string{},
 		joins:       map[*xmi.Element]string{},
 		merges:      map[*xmi.Element]string{},
@@ -250,16 +253,20 @@ func (a *activity) write() {
 	}
 }
 
-// link records the succession each edge stands for, once per pair of nodes;
-// an object flow into an action control flows also reach carries a value only.
+// link records the succession each edge stands for: every control flow, each with its
+// own guard, and the first object flow between two nodes no control flow joins.
+// An object flow into an action control flows also reach carries a value only.
 func (a *activity) link() {
 	controlled := map[*xmi.Element]bool{}
+	control := map[[2]*xmi.Element]bool{}
 	for _, e := range a.edges {
-		if tgt := a.m.model.Ref(e, "target"); e.Type == "ControlFlow" && tgt != nil {
+		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
+		if e.Type == "ControlFlow" && src != nil && tgt != nil {
 			controlled[tgt] = true
+			control[[2]*xmi.Element{ownerNode(src), ownerNode(tgt)}] = true
 		}
 	}
-	seen := map[[2]*xmi.Element]bool{}
+	linked := map[[2]*xmi.Element]bool{}
 	for _, e := range a.edges {
 		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
 		if src == nil || tgt == nil {
@@ -274,12 +281,16 @@ func (a *activity) link() {
 			a.dataOnly[e] = true
 			continue
 		}
-		if seen[[2]*xmi.Element{from, to}] {
+		pair := [2]*xmi.Element{from, to}
+		if e.Type != "ControlFlow" && (control[pair] || linked[pair]) {
 			continue
 		}
-		seen[[2]*xmi.Element{from, to}] = true
-		a.next[from] = append(a.next[from], to)
-		a.prev[to] = append(a.prev[to], from)
+		a.succ[from] = append(a.succ[from], e)
+		if !linked[pair] {
+			linked[pair] = true
+			a.next[from] = append(a.next[from], to)
+			a.prev[to] = append(a.prev[to], from)
+		}
 	}
 }
 
@@ -497,8 +508,8 @@ func (a *activity) unmappedWait(dc, e *xmi.Element, note string) {
 // ordinary node has several, guarded and weighted out of a decision.
 func (a *activity) successions(n *xmi.Element) {
 	from := writeName(a.name(n, baseName(n)))
-	outs := a.edgesFrom(n)
-	if len(a.next[n]) > 1 && n.Type != "ForkNode" && n.Type != "DecisionNode" {
+	outs := a.succ[n]
+	if len(outs) > 1 && n.Type != "ForkNode" && n.Type != "DecisionNode" {
 		f := a.fresh("fork")
 		a.m.w.line("first " + from + " then " + writeName(f) + ";")
 		a.m.w.line("fork " + writeName(f) + ";")
@@ -522,28 +533,6 @@ func (a *activity) successions(n *xmi.Element) {
 			a.m.add(e, Mapped, "", "")
 		}
 	}
-}
-
-// edgesFrom lists the edges leaving n that stand for a succession, one per
-// node they lead to: the first control flow to it, else the first edge.
-func (a *activity) edgesFrom(n *xmi.Element) []*xmi.Element {
-	var out []*xmi.Element
-	for _, to := range a.next[n] {
-		var pick *xmi.Element
-		for _, e := range a.edges {
-			src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
-			if src == nil || tgt == nil || ownerNode(src) != n || ownerNode(tgt) != to {
-				continue
-			}
-			if pick == nil || e.Type == "ControlFlow" && pick.Type != "ControlFlow" {
-				pick = e
-			}
-		}
-		if pick != nil {
-			out = append(out, pick)
-		}
-	}
-	return out
 }
 
 // decisionSuccessions writes a decision's branches: guarded where the guard is a

@@ -280,6 +280,75 @@ func TestPropertyBackedProbabilitiesMustBeFinite(t *testing.T) {
 	})
 }
 
+// parallelEdges is a block whose classifier behavior joins the same two nodes by
+// several control flows: two guarded branches of a decision reach Retry, an else
+// branch the final node, and two unguarded flows lead from Retry to Log.
+const parallelEdges = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_retrier" name="Retrier" classifierBehavior="_act">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_attempts" name="attempts">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_attempts0" value="0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_override" name="manualOverride">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_override0" value="true"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_act" name="Recover">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:DecisionNode" xmi:id="_decide"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_retry" name="Retry"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_log" name="Log"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e0" source="_init" target="_decide"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_eAttempts" source="_decide" target="_retry">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_gAttempts"><body>attempts &lt; 3</body></guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_eOverride" source="_decide" target="_retry">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_gOverride"><body>manualOverride</body></guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_eElse" source="_decide" target="_final">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_gElse"><body>else</body></guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_eLog1" source="_retry" target="_log"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_eLog2" source="_retry" target="_log"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_eEnd" source="_log" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+// Control flows between the same two nodes are each written: a decision's parallel
+// branches keep their own guards and report entries, and parallel unguarded flows
+// are successions the target waits for together, with no fork or join synthesized.
+func TestParallelControlFlowsAreEachWritten(t *testing.T) {
+	r := migrateDocument(t, parallelEdges, `
+  <sysml:Block xmi:id="_s1" base_Class="_retrier"/>`)
+	for _, line := range []string{
+		"first 'decide' if this.attempts < 3 then Retry;",
+		"first 'decide' if this.manualOverride then Retry;",
+		"else 'merge';",
+		"first Retry then 'fork';",
+		"fork 'fork';",
+		"first Log then 'merge';",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	if n := strings.Count(string(r.Notation), "first 'fork' then Log;"); n != 2 {
+		t.Errorf("the two flows from Retry to Log are written %d times, want 2:\n%s", n, r.Notation)
+	}
+	if strings.Contains(string(r.Notation), "join ") {
+		t.Errorf("a join was synthesized for parallel flows into one node:\n%s", r.Notation)
+	}
+	for _, id := range []string{"_eAttempts", "_eOverride", "_eElse", "_eLog1", "_eLog2"} {
+		wantNote(t, r, id, migrate.Mapped, "")
+	}
+	wantNote(t, r, "_retry", migrate.Approximated, "several edges leave the node, which a fork fork carries")
+	s := session(t, r)
+	meta(t, s, "%instantiate Retrier")
+	meta(t, s, "%action Retrier::Recover #1")
+	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
+		t.Errorf("the action with parallel flows did not run to completion:\n%s", out)
+	}
+}
+
 // controllerMachine is a block whose classifier behavior is a state machine:
 // an initial pseudostate, a state with a do activity that sends a signal, a
 // signal-triggered transition with an effect, a time-triggered transition, a
