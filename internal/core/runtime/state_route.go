@@ -69,6 +69,7 @@ func (r route) settled() bool {
 type routeEffect struct {
 	behavior lower.StateBehavior
 	within   *ast.StateNode
+	segment  *lower.Transition
 }
 
 // effects are the behaviors the route's segments perform, in path order, each
@@ -81,7 +82,7 @@ func (r route) effects(g *lower.StateGraph) []routeEffect {
 			within = g.PseudostateOwner[ps]
 		}
 		for _, behavior := range seg.Effect {
-			effects = append(effects, routeEffect{behavior: behavior, within: within})
+			effects = append(effects, routeEffect{behavior: behavior, within: within, segment: seg})
 		}
 	}
 	return effects
@@ -508,9 +509,15 @@ func certainStates(lists [][]*ast.StateNode) []*ast.StateNode {
 // runEffects performs a compound transition's effects in path order, activating the
 // chain down to the state enclosing each first: a segment is a performance of its owner.
 func (e *StateExecutor) runEffects(effects []routeEffect, chain []*ast.StateNode) error {
-	for _, effect := range effects {
+	for i, effect := range effects {
 		if upto := e.enclosingIndex(chain, effect.within); upto >= 0 {
 			if err := e.enterAhead(chain[:upto+1]); err != nil {
+				return err
+			}
+		}
+		// A segment's effects are one unit of the firing, run in their order.
+		if i == 0 || effects[i-1].segment != effect.segment {
+			if _, err := e.unit(ChoiceRegionOrder, unitHead{label: effectLabel(effect.segment), at: effect.segment.Decl}); err != nil {
 				return err
 			}
 		}
@@ -554,6 +561,11 @@ func (e *StateExecutor) enterAhead(chain []*ast.StateNode) error {
 	for _, state := range chain {
 		if _, ahead := e.enteredAhead[state]; ahead {
 			continue
+		}
+		if !e.graph.HiddenStates[state] {
+			if _, err := e.unit(ChoiceEntryOrder, unitHead{label: entryLabel(state), at: state}); err != nil {
+				return err
+			}
 		}
 		if err := e.activateState(state); err != nil {
 			return fmt.Errorf("enter state %s: %w", state.Name, err)
@@ -627,35 +639,23 @@ func (e *StateExecutor) exitAhead(states []*ast.StateNode) error {
 	return err
 }
 
-// travel takes a compound transition along r: a draw it is open at is made first,
-// then at each choice it leaves the states every branch leaves, runs the effects
-// of the segments into it and reads its guards; move then finishes the settled
-// rest with the effects left.
+// travel takes a compound transition along r as one move: a draw it is open at is
+// made first, then at each choice it leaves the states every branch leaves, runs
+// the effects of the segments into it and reads its guards; move then finishes
+// the settled rest with the effects left.
 func (e *StateExecutor) travel(trans *lower.Transition, from *ast.StateNode, r route, exits exitPlan, enters entryPlan, move func([]routeEffect, *ast.StateNode) error) error {
-	return e.travelChoosing(r.choice != nil || r.draw != nil, trans, from, r, exits, enters, move)
-}
-
-// travelChoosing is travel where choosing says whether a draw lies on the way, on
-// the route or inside move, at which a replay may refuse the move.
-func (e *StateExecutor) travelChoosing(choosing bool, trans *lower.Transition, from *ast.StateNode, r route, exits exitPlan, enters entryPlan, move func([]routeEffect, *ast.StateNode) error) error {
 	savedLeft, savedEntered := e.leftAhead, e.enteredAhead
 	e.leftAhead, e.enteredAhead = nil, nil
 	defer func() { e.leftAhead, e.enteredAhead = savedLeft, savedEntered }()
-	var err error
-	if !choosing {
-		err = e.travelResolving(trans, from, r, exits, enters, move)
-	} else {
-		err = e.moveWhole(func() error { return e.travelResolving(trans, from, r, exits, enters, move) })
-	}
-	if err != nil {
+	if err := e.moveWhole(func() error { return e.travelResolving(trans, from, r, exits, enters, move) }); err != nil {
 		return err
 	}
 	return e.entriesSettled()
 }
 
 // moveWhole makes move as one compound transition. Only a replay refuses a move,
-// at a draw the draws, exits and effects ahead of it have been made for; a
-// refused move is undone whole.
+// at a draw the draws, exits, effects and entries ahead of it have been made for;
+// a refused move is undone whole, the moves nested in it with it.
 func (e *StateExecutor) moveWhole(move func() error) error {
 	if !e.ctx.scheduling().replaying() {
 		return move()

@@ -11,20 +11,24 @@ import (
 )
 
 // A front is where the executor performs the units of several regions — a
-// fork's branches, the regions of a composite it enters or exits — one at a
-// time, drawing which region's next unit runs while two or more have one. Each
-// region's units run in the order the executor always performed them, as a
-// coroutine that yields before every unit; the front resumes the one drawn.
-// Under `declared` the lowest queue with a unit is drawn, so the front performs
-// the very sequence the executor did before it drew anything.
+// fork's branches, the regions of a composite it enters or exits, the firings
+// one occurrence selected — one at a time, drawing which region's next unit runs
+// while two or more have one. Each region's units run in the order the executor
+// always performed them, as a coroutine that yields before every unit; the front
+// resumes the one drawn. Under `declared` the lowest queue with a unit is drawn,
+// so the front performs the very sequence the executor did before it drew anything.
+// A front lives within one move: a refused draw fails the move, whose mark undoes
+// every unit performed, so no snapshot ever holds a front.
 
 // errFrontClosed is what a queue's unit returns once its front closed under it.
 var errFrontClosed = errors.New("front closed")
 
 // The Where of an entry order names the composite whose regions are entered, or
-// the fork whose branches are; an exit order names the composite exited. A step
-// order's alternatives are units, `do <state>` and `dispatch <event>`.
+// the fork whose branches are; an exit order names the composite exited; a
+// region order among the units of firings names the occurrence they react to. A
+// step order's alternatives are units, `do <state>` and `dispatch <event>`.
 const (
+	firingWherePrefix   = "on "
 	enteringWherePrefix = "entering "
 	forkWherePrefix     = "fork "
 	exitingWherePrefix  = "exiting "
@@ -59,17 +63,20 @@ type unitFront struct {
 // unitQueue is one region's remaining units: the coroutine performing them and
 // the head it yielded, the unit it performs next when resumed. A queue drawn for
 // a unit it has yet to name (a start a guard decides) is prepaid for that unit.
+// A queue spawned at a head starts its coroutine when first drawn, for that head.
 type unitQueue struct {
 	front   *unitFront
 	head    unitHead
 	done    bool
 	closed  bool
 	err     error
+	body    func() error
 	next    func() (unitHead, bool)
 	stop    func()
 	yield   func(unitHead) bool
 	perform bool
 	prepaid bool
+	firing  firingScope
 }
 
 // unitHead describes a queue's next unit. A shared unit is one several queues
@@ -82,6 +89,125 @@ type unitHead struct {
 	shared  *ast.StateNode
 	dropped func() bool
 	until   func() bool
+}
+
+// firingScope is the state of the firing a queue's units belong to — the
+// occurrence taken, what a compound transition under way left and entered ahead,
+// its mark, the trigger arguments it bound — kept with the queue while another
+// queue's units run, so two firings interleaved read each their own.
+type firingScope struct {
+	event        *Event
+	change       *lower.Transition
+	notes        []RunNote
+	leftAhead    map[*ast.StateNode]bool
+	exitingAhead bool
+	enteredAhead map[*ast.StateNode]bool
+	moving       *moveMark
+	// bound are the machine's data the firing bound, installed while its units
+	// run; shadowed what the data held under each while installed.
+	bound    map[string]Value
+	shadowed map[string]dataSlot
+}
+
+// dataSlot is one entry of the machine's data as it was, or that it was absent.
+type dataSlot struct {
+	value Value
+	held  bool
+}
+
+// firing captures the firing the executor is in the middle of.
+func (e *StateExecutor) firing() firingScope {
+	return firingScope{
+		event: e.firingEvent, change: e.firingChange, notes: e.firingNotes,
+		leftAhead: e.leftAhead, exitingAhead: e.exitingAhead, enteredAhead: e.enteredAhead,
+		moving: e.moving,
+	}
+}
+
+// setFiring puts the executor back in the middle of the firing, keeping what the
+// firing had bound as it is.
+func (e *StateExecutor) setFiring(s *firingScope) {
+	e.firingEvent, e.firingChange, e.firingNotes = s.event, s.change, s.notes
+	e.leftAhead, e.exitingAhead, e.enteredAhead = s.leftAhead, s.exitingAhead, s.enteredAhead
+	e.moving = s.moving
+}
+
+// install puts the data the firing bound in place, remembering what was under it.
+func (s *firingScope) install(e *StateExecutor) {
+	for name, value := range s.bound {
+		prior, held := e.stateData[name]
+		s.shadowed[name] = dataSlot{value: prior, held: held}
+		e.stateData[name] = value
+	}
+}
+
+// uninstall takes the data the firing bound out, putting back what was under it.
+func (s *firingScope) uninstall(e *StateExecutor) {
+	for name := range s.bound {
+		s.bound[name] = e.stateData[name]
+		s.restore(e, name)
+	}
+}
+
+// restore puts back what the data held under the firing's binding of name.
+func (s *firingScope) restore(e *StateExecutor, name string) {
+	if slot := s.shadowed[name]; slot.held {
+		e.stateData[name] = slot.value
+	} else {
+		delete(e.stateData, name)
+	}
+}
+
+// runningQueue is the queue whose units are running, nil outside a front.
+func (e *StateExecutor) runningQueue() *unitQueue {
+	if e.front == nil {
+		return nil
+	}
+	return e.front.current
+}
+
+// bindData binds one of the machine's data for the firing under way to read.
+func (e *StateExecutor) bindData(name string, value Value) {
+	e.stateData[name] = value
+	if q := e.runningQueue(); q != nil {
+		q.firing.bound[name] = value
+	}
+}
+
+// restoreData snapshots the named entries of the machine's data and returns the
+// function putting them back, deleting the ones that were not there before. In
+// a front the entries are the running queue's firing's, put back when it unbinds
+// them and kept out of the way while another queue's units run.
+func (e *StateExecutor) restoreData(names []ast.NameSegment) func() {
+	q := e.runningQueue()
+	if q == nil {
+		return e.restoreSharedData(names)
+	}
+	s := &q.firing
+	for _, name := range names {
+		if _, bound := s.bound[name.Text]; bound {
+			continue
+		}
+		prior, held := e.stateData[name.Text]
+		s.shadowed[name.Text] = dataSlot{value: prior, held: held}
+		s.bound[name.Text] = prior
+	}
+	return func() {
+		for _, name := range names {
+			if _, bound := s.bound[name.Text]; !bound {
+				continue
+			}
+			s.restore(e, name.Text)
+			delete(s.bound, name.Text)
+			delete(s.shadowed, name.Text)
+		}
+	}
+}
+
+// accepts reports whether a front of the kind orders units of the given kind: a
+// firing's units are entries, exits and effects alike.
+func (f *unitFront) accepts(kind ChoiceKind) bool {
+	return f.kind == kind || f.kind == ChoiceRegionOrder
 }
 
 // openFront begins a site nested in whatever front is under way.
@@ -143,7 +269,7 @@ func (e *StateExecutor) spawnUnits(kind ChoiceKind, bodies []func() error, wait 
 func (f *unitFront) close() {
 	for _, q := range f.queues {
 		q.closed = true
-		if !q.done {
+		if !q.done && q.stop != nil {
 			q.stop()
 		}
 	}
@@ -155,26 +281,59 @@ func (f *unitFront) close() {
 // the lowest queue is drawn first under `declared`, and the nested region was
 // entered before the spawning region went on.
 func (f *unitFront) spawn(body func() error) *unitQueue {
-	q := &unitQueue{front: f}
-	q.next, q.stop = iter.Pull(func(yield func(unitHead) bool) {
-		q.yield = yield
-		q.err = body()
-	})
+	q := f.add(body)
+	q.start()
+	f.resume(q, false)
+	return q
+}
+
+// spawnAt adds a queue performing body whose first unit head names; the body
+// runs when the queue is first drawn, performing that unit without a draw of
+// its own. A body deciding first whether it has a unit at all is spawned so.
+func (f *unitFront) spawnAt(head unitHead, body func() error) *unitQueue {
+	q := f.add(body)
+	q.head = head
+	return q
+}
+
+// add places a queue for body in the front, before the running queue.
+func (f *unitFront) add(body func() error) *unitQueue {
+	q := &unitQueue{front: f, body: body, firing: f.exec.firing()}
+	q.firing.bound, q.firing.shadowed = make(map[string]Value), make(map[string]dataSlot)
 	at := len(f.queues)
 	if i := slices.Index(f.queues, f.current); i >= 0 {
 		at = i
 	}
 	f.queues = slices.Insert(f.queues, at, q)
-	f.resume(q, true)
 	return q
 }
 
+// start begins the queue's coroutine.
+func (q *unitQueue) start() {
+	q.next, q.stop = iter.Pull(func(yield func(unitHead) bool) {
+		q.yield = yield
+		q.err = q.body()
+	})
+}
+
 // resume runs the queue to its next head, performing the unit at its head or
-// dropping it as perform says.
+// dropping it as perform says, in the firing the queue's units belong to.
 func (f *unitFront) resume(q *unitQueue, perform bool) {
 	prev := f.current
 	f.current, q.perform = q, perform
+	if q.next == nil {
+		q.start()
+		q.prepaid = true
+	}
+	outer := f.exec.firing()
+	f.exec.setFiring(&q.firing)
+	q.firing.install(f.exec)
 	head, ok := q.next()
+	q.firing.uninstall(f.exec)
+	bound, shadowed := q.firing.bound, q.firing.shadowed
+	q.firing = f.exec.firing()
+	q.firing.bound, q.firing.shadowed = bound, shadowed
+	f.exec.setFiring(&outer)
 	f.current = prev
 	if !ok {
 		q.done = true
@@ -188,7 +347,7 @@ func (f *unitFront) resume(q *unitQueue, perform bool) {
 // orders coarser units this one is part of.
 func (e *StateExecutor) unit(kind ChoiceKind, head unitHead) (bool, error) {
 	f := e.front
-	if f == nil || f.kind != kind || f.current == nil {
+	if f == nil || !f.accepts(kind) || f.current == nil {
 		return true, nil
 	}
 	q := f.current
@@ -209,7 +368,7 @@ func (e *StateExecutor) unit(kind ChoiceKind, head unitHead) (bool, error) {
 // draw is made under the given label and pays for the unit's own draw.
 func (e *StateExecutor) unitAhead(kind ChoiceKind, head unitHead) error {
 	f := e.front
-	if f == nil || f.kind != kind || f.current == nil {
+	if f == nil || !f.accepts(kind) || f.current == nil {
 		return nil
 	}
 	if _, err := e.unit(kind, head); err != nil {
@@ -222,14 +381,14 @@ func (e *StateExecutor) unitAhead(kind ChoiceKind, head unitHead) error {
 // inFront reports whether a queue of a front of the given kind is running, so a
 // site nested in it adds its queues to that front rather than opening one.
 func (e *StateExecutor) inFront(kind ChoiceKind) bool {
-	return e.front != nil && e.front.kind == kind && e.front.current != nil
+	return e.front != nil && e.front.accepts(kind) && e.front.current != nil
 }
 
 // await parks the running queue until the condition holds; no unit of its own
 // is performed until then.
 func (e *StateExecutor) await(kind ChoiceKind, until func() bool) error {
 	f := e.front
-	if f == nil || f.kind != kind || f.current == nil || until() {
+	if f == nil || !f.accepts(kind) || f.current == nil || until() {
 		return nil
 	}
 	if f.current.closed {

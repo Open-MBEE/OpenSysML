@@ -147,6 +147,9 @@ func (c ChoicePoint) Describe() string {
 	case ChoiceTransition:
 		return fmt.Sprintf("%s: transitions %s (unordered; took %s)", c.Where, alts, taken)
 	case ChoiceRegionOrder:
+		if strings.HasPrefix(c.Where, firingWherePrefix) {
+			return fmt.Sprintf("%s: next %s (unordered; took %s first)", c.Where, alts, taken)
+		}
 		return fmt.Sprintf("%s: states %s react (unordered; took %s first)", c.Where, alts, taken)
 	case ChoiceDueOrder:
 		return fmt.Sprintf("at %s: due %s (unordered; ran %s first)", c.Where, alts, taken)

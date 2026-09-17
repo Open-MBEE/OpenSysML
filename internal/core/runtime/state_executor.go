@@ -1008,7 +1008,7 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, []string, error) {
 			return false, resumed, err
 		}
 	}
-	consumed, err := e.dispatchInOrder("on "+eventName(event), candidates, func(candidate dispatchCandidate, trans *lower.Transition, notes []RunNote) (bool, error) {
+	consumed, err := e.dispatchInOrder(firingWherePrefix+eventName(event), candidates, func(candidate dispatchCandidate, trans *lower.Transition, notes []RunNote) (bool, error) {
 		// The guard ran against the pre-dispatch data, so the arguments it read were
 		// unbound again; the effect needs them bound.
 		unbind, err := e.bindTriggerArguments(trans, event)
@@ -1035,41 +1035,65 @@ func (e *StateExecutor) firingOn(event *Event, fire func() (bool, error)) (bool,
 	return fire()
 }
 
-// dispatchInOrder fires the chosen candidates one at a time through fire, the
-// policy re-drawing among those still active since a reaction may leave a leaf;
+// dispatchInOrder fires the chosen candidates through fire as the queues of one
+// front: each firing's units — the exits, the effects, the entries — in their
+// order, the policy drawing which firing's next unit runs while two or more have
+// one. The candidates whose transitions meet at one join are one firing, fired
+// whole by the first. A firing whose leaf a unit before it left fires nothing.
 // where names the occurrence dispatched, for the choice each draw reports.
 func (e *StateExecutor) dispatchInOrder(
 	where string,
 	candidates []dispatchCandidate,
 	fire func(dispatchCandidate, *lower.Transition, []RunNote) (bool, error),
 ) (bool, error) {
-	pending := slices.Clone(candidates)
 	acted := false
-	for len(pending) > 0 {
-		pending = slices.DeleteFunc(pending, func(c dispatchCandidate) bool { return !e.isActive(c.leaf) })
-		if len(pending) == 0 {
-			break
+	gone := func(candidate dispatchCandidate) bool { return !e.isActive(candidate.leaf) || e.state.Ended() }
+	firing := func(candidate dispatchCandidate) error {
+		if gone(candidate) {
+			return nil
 		}
-		next, order := e.chooseRegion(where, pending)
-		candidate := pending[next]
-		pending = slices.Delete(pending, next, next+1)
-		notes := candidate.notes
-		if order != nil {
-			notes = append([]RunNote{order}, notes...)
-		}
-		if err := e.ctx.scheduling().refusal(); err != nil {
-			return acted, err
-		}
-		fired, err := fire(candidate, candidate.chosen, notes)
+		fired, err := fire(candidate, candidate.chosen, candidate.notes)
 		acted = acted || fired
-		if err != nil {
-			return acted, err
-		}
-		if e.state.Ended() {
-			break
-		}
+		return err
 	}
-	return acted, nil
+	firings := joinFirings(candidates)
+	if len(firings) < 2 {
+		for _, candidate := range firings {
+			if err := firing(candidate); err != nil {
+				return acted, err
+			}
+		}
+		return acted, nil
+	}
+	err := e.moveWhole(func() error {
+		f := e.openFront(ChoiceRegionOrder, where)
+		for _, candidate := range firings {
+			head := unitHead{label: exitLabel(candidate.leaf), at: candidate.leaf, dropped: func() bool { return gone(candidate) }}
+			if join, ok := candidate.chosen.Target.(*ast.PseudostateNode); ok && join.Kind == ast.PseudostateJoin {
+				head.label, head.at = join.Name+"(join)", join
+			}
+			f.spawnAt(head, func() error { return firing(candidate) })
+		}
+		return f.drain()
+	})
+	return acted, err
+}
+
+// joinFirings is the candidates with those meeting at one join reduced to the
+// first of them, which fires the join's every segment.
+func joinFirings(candidates []dispatchCandidate) []dispatchCandidate {
+	firings := make([]dispatchCandidate, 0, len(candidates))
+	joins := make(map[*ast.PseudostateNode]bool)
+	for _, candidate := range candidates {
+		if join, ok := candidate.chosen.Target.(*ast.PseudostateNode); ok && join.Kind == ast.PseudostateJoin {
+			if joins[join] {
+				continue
+			}
+			joins[join] = true
+		}
+		firings = append(firings, candidate)
+	}
+	return firings
 }
 
 // dispatchCandidate is the state one active leaf selected for an event, the leaf
@@ -1191,20 +1215,6 @@ func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Tr
 		notes = append([]RunNote{choice}, notes...)
 	}
 	return transitions[candidate.enabled[pick]], notes
-}
-
-// chooseRegion resolves which of the candidates, all still able to fire, fires next:
-// the policy draws the pick and, with several candidates, the choice is reported.
-func (e *StateExecutor) chooseRegion(where string, pending []dispatchCandidate) (int, RunNote) {
-	if len(pending) < 2 {
-		return 0, nil
-	}
-	sources := make([]*ast.StateNode, len(pending))
-	for i, candidate := range pending {
-		sources[i] = candidate.source
-	}
-	choice := e.regionOrderChoice(where, sources)
-	return choice.Taken, choice
 }
 
 // regionOrderChoice is the choice among the states of several regions acting on
@@ -1666,7 +1676,7 @@ func (e *StateExecutor) bindTriggerArguments(trans *lower.Transition, event *Eve
 			return unbind, fmt.Errorf("call trigger %s: invocation carries no argument %q",
 				call.Operation, param.Text)
 		}
-		e.stateData[param.Text] = value
+		e.bindData(param.Text, value)
 	}
 	return unbind, nil
 }
@@ -1690,7 +1700,7 @@ func (e *StateExecutor) bindAcceptPayload(acceptEvent *ast.AcceptEvent, event *E
 		return unbind, fmt.Errorf("accept %s: %w", name.Text, err)
 	}
 	event.Payload = msg
-	e.stateData[name.Text] = value
+	e.bindData(name.Text, value)
 	return unbind, nil
 }
 
@@ -1702,9 +1712,9 @@ func orAnonymousSignal(signalType string) string {
 	return "the accepted " + signalType
 }
 
-// restoreData snapshots the named entries of the machine's data and returns the
-// function putting them back, deleting the ones that were not there before.
-func (e *StateExecutor) restoreData(names []ast.NameSegment) func() {
+// restoreSharedData snapshots the named entries of the machine's data and returns
+// the function putting them back, deleting the ones that were not there before.
+func (e *StateExecutor) restoreSharedData(names []ast.NameSegment) func() {
 	saved := make(map[string]Value, len(names))
 	held := make(map[string]bool, len(names))
 	for _, name := range names {
@@ -2298,7 +2308,7 @@ func (e *StateExecutor) fireHistoryTransition(trans *lower.Transition, hist *ast
 		return err
 	}
 	currentState := e.moveOrigin()
-	return e.travelChoosing(e.drawsBeyond(hist), trans, currentState, r,
+	return e.travel(trans, currentState, r,
 		func(*ast.StateNode) []*ast.StateNode { return e.exitedByMove(currentState, trans, owner) },
 		func(*ast.StateNode) []*ast.StateNode { return e.enteredByMove(currentState, trans, owner) },
 		func(effects []routeEffect, _ *ast.StateNode) error {
@@ -2422,32 +2432,6 @@ func (e *StateExecutor) defaultHistoryRoute(hist *ast.PseudostateNode, owner *as
 		}
 	}
 	return r, nil
-}
-
-// drawsBeyond reports whether a path out of ps through junctions may face a draw
-// the policy makes while the move is under way: a choice, or several branches out
-// of ps or a junction beyond it.
-func (e *StateExecutor) drawsBeyond(ps *ast.PseudostateNode) bool {
-	seen := map[*ast.PseudostateNode]bool{ps: true}
-	var visit func(ps *ast.PseudostateNode) bool
-	visit = func(ps *ast.PseudostateNode) bool {
-		branches := e.graph.Transitions[ps]
-		if len(branches) > 1 {
-			return true
-		}
-		for _, branch := range branches {
-			next, ok := branch.Target.(*ast.PseudostateNode)
-			if !ok || seen[next] {
-				continue
-			}
-			seen[next] = true
-			if next.Kind == ast.PseudostateChoice || visit(next) {
-				return true
-			}
-		}
-		return false
-	}
-	return visit(ps)
 }
 
 // historyEntry is the state a move into owner's history enters and each region's
