@@ -961,8 +961,10 @@ for a related element, and each element it reaches charges the visit budget.
 source order; `Union(source, other)` is every row of `source` followed by the
 rows of `other` not already present. Both emit each row once and identify a row the
 way `RelatedElements` de-duplicates: a model element by its declaration, an
-object the session holds by the object itself, and a verdict by its assertion
-and the object it was checked on — so `Verdicts` tables can be combined too.
+object the session holds by the object itself, a verdict by its assertion and
+the object it was checked on, a state by its object, machine and state path, and
+an event by its place in the trace — so `Verdicts`, `States` and `Events` tables
+can be combined too.
 Combining the two coverage queries gives the requirements with a gap of
 either kind, and subtracting one from the other the requirements with exactly
 one:

@@ -309,8 +309,8 @@ library package DocumentQueries {
 		return result : Element[0..*] ordered;
 	}
 
-	/* Except: the source rows whose element, object or verdict is not among
-	 * exclude, once each in source order. */
+	/* Except: the source rows whose element, object, verdict, state or event
+	 * is not among exclude, once each in source order. */
 	calc def Except {
 		in source : Element[0..*] ordered;
 		in exclude : Element[0..*] ordered;

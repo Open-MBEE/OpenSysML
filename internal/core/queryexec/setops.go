@@ -5,27 +5,37 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// setKey is a row's identity for set operations: an element or object as
-// rowKey has it, a verdict by its assertion and the carrier it was checked on.
+// setKey is a row's identity for set operations: an element or object as rowKey
+// has it, a verdict by its assertion and carrier, a state by its object, machine
+// and path, an event by its place in the session's trace.
 type setKey struct {
-	row  rowKey
-	kind ValueKind
-	path string
+	row   rowKey
+	kind  ValueKind
+	path  string
+	index int
 }
 
 func setKeyOf(row Value) setKey {
-	verdict, ok := row.Verdict()
-	if !ok {
-		return setKey{row: keyOfRow(row), kind: row.Kind()}
-	}
-	key := setKey{
-		row:  rowKey{element: symbols.KeyOf(verdict.Assertion())},
-		kind: ValueVerdict,
-	}
-	if carrier, held := verdict.Carrier(); held {
-		key.row.object = carrier.ID
-	} else {
-		key.path = verdict.Path()
+	key := setKey{kind: row.Kind()}
+	switch {
+	case row.kind == ValueVerdict:
+		verdict, _ := row.Verdict()
+		key.row.element = symbols.KeyOf(verdict.Assertion())
+		if carrier, held := verdict.Carrier(); held {
+			key.row.object = carrier.ID
+		} else {
+			key.path = verdict.Path()
+		}
+	case row.kind == ValueState:
+		state, _ := row.State()
+		object, _ := state.Object()
+		key.row = rowKey{element: symbols.KeyOf(state.behavior), object: object.ID}
+		key.path = state.Machine() + " in " + state.Path()
+	case row.kind == ValueEvent:
+		event, _ := row.Event()
+		key.index = event.index
+	default:
+		key.row = keyOfRow(row)
 	}
 	return key
 }

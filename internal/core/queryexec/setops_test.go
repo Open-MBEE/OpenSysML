@@ -264,3 +264,64 @@ calc def NotConstraints :> Query {
 		}
 	}
 }
+
+// State rows are one identity per object, machine and state path; event rows
+// one per trace record. Union keeps every distinct row, Except drops only the
+// rows named.
+func TestExecuteSetOperationsOverStatesAndEvents(t *testing.T) {
+	fixture := loadLampFixture(t, `
+calc def StatesTwice :> Query {
+	in root : Element;
+	Project(source = Union(source = States(source = root), other = States(source = root)), properties = ("path", "statePath"))
+}
+calc def StatesBut :> Query {
+	in root : Element;
+	in exclude : Element;
+	Project(source = Except(source = States(source = root), exclude = States(source = exclude)), properties = ("path", "statePath"))
+}
+calc def AcceptsTwice :> Query {
+	in root : Element;
+	Project(source = Union(source = Events(source = root, kind = "accept"), other = Events(source = root, kind = "accept")), properties = ("time", "path", "event"))
+}
+calc def LaterAccepts :> Query {
+	in root : Element;
+	Project(
+		source = Except(source = Events(source = root, kind = "accept"), exclude = Events(source = root, kind = "accept", before = 2 [s])),
+		properties = ("time", "path", "event")
+	)
+}
+`)
+	lamps := Bindings{"root": {ElementValue(fixture.symbol(t, "Lamp"))}}
+	got := rowTexts(t, fixture.rows(t, "StatesTwice", lamps))
+	want := []string{
+		"path=lamp1 statePath=on.dim",
+		"path=lamp1 statePath=on.fast",
+		"path=lamp2 statePath=off",
+	}
+	if joinLines(got) != joinLines(want) {
+		t.Fatalf("Union of the same states:\n%s\nwant:\n%s", joinLines(got), joinLines(want))
+	}
+	got = rowTexts(t, fixture.rows(t, "StatesBut", Bindings{
+		"root":    {ElementValue(fixture.symbol(t, "Lamp"))},
+		"exclude": {ObjectValue(fixture.lamp1, "lamp1")},
+	}))
+	if joinLines(got) != "path=lamp2 statePath=off" {
+		t.Fatalf("lamp states but lamp1's:\n%s", joinLines(got))
+	}
+
+	got = rowTexts(t, fixture.rows(t, "AcceptsTwice", lamps))
+	want = []string{
+		"time=0.0 [s] path=lamp1 event=Toggle",
+		"time=1.0 [s] path=lamp1 event=Dim",
+		"time=2.0 [s] path=lamp2 event=Toggle",
+		"time=2.5 [s] path=lamp2 event=Toggle",
+		"time=2.5 [s] path=lamp1 event=Boost",
+	}
+	if joinLines(got) != joinLines(want) {
+		t.Fatalf("Union of the same accepts:\n%s\nwant:\n%s", joinLines(got), joinLines(want))
+	}
+	got = rowTexts(t, fixture.rows(t, "LaterAccepts", lamps))
+	if joinLines(got) != joinLines(want[2:]) {
+		t.Fatalf("accepts from 2 s:\n%s\nwant:\n%s", joinLines(got), joinLines(want[2:]))
+	}
+}
