@@ -70,7 +70,7 @@ func load(arg string) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("lord.sysml: %w", err)
 	}
-	proof.Close()
+	_ = proof.Close()
 	source = []byte(text)
 	retireGame()
 	return view("")
@@ -126,7 +126,7 @@ func retire(string) (any, error) {
 // retireGame closes the warrior's game, if one is running, and forgets it.
 func retireGame() {
 	if game != nil {
-		game.Close()
+		_ = game.Close()
 		game = nil
 	}
 }

@@ -66,7 +66,7 @@ func NewGame(modelSource []byte, seed uint64, character Character) (*Game, error
 	}
 	g, err := openGame(client, modelSource, seed, character)
 	if err != nil {
-		client.Close()
+		_ = client.Close()
 		return nil, err
 	}
 	return g, nil
@@ -89,7 +89,7 @@ func openGame(client opensysml.Client, modelSource []byte, seed uint64, characte
 	}
 	g := &Game{client: client, model: model, session: session, seed: seed}
 	if err := g.start(character); err != nil {
-		session.Close()
+		_ = session.Close()
 		return nil, err
 	}
 	return g, nil
