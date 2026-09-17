@@ -13,8 +13,9 @@ type Outcome struct {
 	Outputs     map[string]Value
 	FinalState  string
 	StateVisits []string
-	// Terminated is set when a `terminate` ended the performance where it was,
-	// rather than the behavior reaching its own end.
+	// Terminated is set when the performance was ended short of its own flow: a
+	// machine's transition to a terminate action, or a terminate of an occurrence
+	// it belongs to. An action's own `terminate` node completes it instead.
 	Terminated bool
 	Err        error
 	// ctx is the run's context, where the objects the outputs hold live.

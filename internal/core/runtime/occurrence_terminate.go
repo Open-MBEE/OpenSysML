@@ -100,6 +100,11 @@ func (e *ActionExecutor) endsWith(ended map[int64]bool) bool {
 	return e.driven.caller.endsWithin(ended)
 }
 
+// performerEnded reports whether the action's occurrence or performer ended.
+func (e *ActionExecutor) performerEnded() bool {
+	return e.ctx.lifeEnded(e.occurrence) || e.ctx.lifeEnded(e.self)
+}
+
 // endTerminated ends the action's performance where it is: every token is dropped
 // with the bodies and performances it held, and the run is terminated.
 func (e *ActionExecutor) endTerminated() {
@@ -138,6 +143,11 @@ func (e *StateExecutor) endsWith(ended map[int64]bool) bool {
 	return e.driven.caller.endsWithin(ended)
 }
 
+// performerEnded reports whether the machine's occurrence or exhibiting object ended.
+func (e *StateExecutor) performerEnded() bool {
+	return e.ctx.lifeEnded(e.occurrence) || e.ctx.lifeEnded(e.self)
+}
+
 // endTerminated ends the machine's performance where it is, as a transition to a
 // terminate action does: no state is exited, the do behaviors under way are abandoned.
 func (e *StateExecutor) endTerminated() {
@@ -146,7 +156,7 @@ func (e *StateExecutor) endTerminated() {
 	}
 	abandoned := e.abandonMachine()
 	if e.trace() != nil {
-		e.trace().RecordStateTerminate("", abandoned)
+		e.trace().RecordStateEndedWithOccurrence(symbolText(e.stateMachine), abandoned)
 	}
 	e.state = StateTerminated
 	e.ctx.endPerformanceLife(e.occurrence)

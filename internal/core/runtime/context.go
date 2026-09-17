@@ -656,6 +656,8 @@ type endable interface {
 	endsWith(ended map[int64]bool) bool
 	// endTerminated ends the executor's performance where it is, terminated.
 	endTerminated()
+	// performerEnded reports whether the executor's occurrence or performer has ended.
+	performerEnded() bool
 }
 
 // endsWithin reports whether the run's executor ends with the objects ended.
@@ -676,6 +678,10 @@ func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 	}
 	ctx.onStack = append(ctx.onStack, run)
 	leave := ctx.enterRun(run.state)
+	// A call into an executor whose performer ended in between finds its performance over.
+	if run.exec != nil && run.exec.performerEnded() {
+		run.exec.endTerminated()
+	}
 	return func() {
 		leave()
 		ctx.onStack = ctx.onStack[:len(ctx.onStack)-1]

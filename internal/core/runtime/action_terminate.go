@@ -109,12 +109,20 @@ func (e *performances) terminateTargets(perf *actionFrame, s lower.Effect) ([]*a
 	case lower.TerminateNode:
 		for f := perf; f != nil; f = f.parent {
 			if f.node == s.Target {
-				return e.ongoingWith(f, s.Target), nil
+				ongoing := e.ongoingWith(f, s.Target)
+				pending, err := e.flow.beginPending(f.parent, s.Target)
+				return append(ongoing, pending...), err
 			}
-			if latest, ok := f.subactions[s.Target]; ok {
-				if ongoing := e.flow.ongoing(f, s.Target); len(ongoing) > 0 {
-					return ongoing, nil
-				}
+			latest, performed := f.subactions[s.Target]
+			ongoing := e.flow.ongoing(f, s.Target)
+			pending, err := e.flow.beginPending(f, s.Target)
+			if err != nil {
+				return nil, err
+			}
+			if targets := append(ongoing, pending...); len(targets) > 0 {
+				return targets, nil
+			}
+			if performed {
 				return []*actionFrame{latest}, nil
 			}
 		}
@@ -182,6 +190,32 @@ func (e *ActionExecutor) ongoing(parent *actionFrame, node ast.Node) []*actionFr
 		return cmp.Or(cmp.Compare(a.began, b.began), cmp.Compare(holder[a], holder[b]))
 	})
 	return found
+}
+
+// beginPending begins, for each token of parent's flow parked at node with its step not
+// begun (a fork's sibling, an accept still waiting), the performance the step is: named by
+// a terminate, it ends before doing anything (endPending). Lowest token ID first.
+func (e *ActionExecutor) beginPending(parent *actionFrame, node ast.Node) ([]*actionFrame, error) {
+	if parent == nil {
+		return nil, nil
+	}
+	var parked []int64
+	for _, token := range e.tokens {
+		if token.frame == parent && token.Location == node && token.body == nil {
+			parked = append(parked, token.ID)
+		}
+	}
+	slices.Sort(parked)
+	var begun []*actionFrame
+	for _, id := range parked {
+		perf, err := e.beginPerformance(parent, e.graphOf(parent), node, nil)
+		if err != nil {
+			return nil, err
+		}
+		perf.heldAt = id
+		begun = append(begun, perf)
+	}
+	return begun, nil
 }
 
 // performed returns the performances the token's paused step holds: the node it steps,
@@ -278,6 +312,9 @@ func (e *ActionExecutor) endAround(tokenIdx int, perf *actionFrame) error {
 // endOther ends the ongoing perf a terminate outside it named: one token of it leaves,
 // completing its node in the flow around it.
 func (e *ActionExecutor) endOther(perf *actionFrame) error {
+	if perf.heldAt != 0 {
+		return e.endPending(e.tokenIndex(perf.heldAt), perf)
+	}
 	if perf.graph != nil && !perf.inBody {
 		inside := e.tokensIn(perf)
 		if len(inside) == 0 {
@@ -314,6 +351,24 @@ func (e *ActionExecutor) endOther(perf *actionFrame) error {
 	}
 	return fmt.Errorf("%w: %s is performed by a body statement, which a terminate outside it cannot end",
 		ErrTerminateTarget, perf.describe())
+}
+
+// endPending ends perf, whose step the token parked at its node had yet to begin or
+// was waiting at: the token goes on from the node as from a performance that ended.
+func (e *ActionExecutor) endPending(tokenIdx int, perf *actionFrame) error {
+	if tokenIdx < 0 {
+		return fmt.Errorf("%w: no token is parked at %s", ErrTerminateTarget, perf.describe())
+	}
+	token := &e.tokens[tokenIdx]
+	if tr := e.trace(); tr != nil {
+		tr.RecordActionTerminatePending(perf.describe(), token.Wait != nil)
+	}
+	token.Wait = nil
+	perf.live, perf.heldAt = 0, 0
+	if err := e.endPerformance(perf); err != nil {
+		return err
+	}
+	return e.completeNode(tokenIdx, perf)
 }
 
 // leaveTerminated takes the token at tokenIdx out of the ended perf to perf's node in

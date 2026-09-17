@@ -109,6 +109,19 @@ func (tr *TraceRecorder) RecordStateTerminate(stop string, abandoned []string) {
 	tr.entries = append(tr.entries, fmt.Sprintf("terminate: %s (do behavior abandoned: %s)", stop, strings.Join(abandoned, ", ")))
 }
 
+// RecordStateEndedWithOccurrence records the machine's performance ending with the
+// occurrence a `terminate` named, with the states whose do behaviors it abandoned.
+func (tr *TraceRecorder) RecordStateEndedWithOccurrence(machine string, abandoned []string) {
+	if !tr.enabled {
+		return
+	}
+	if len(abandoned) == 0 {
+		tr.entries = append(tr.entries, fmt.Sprintf("terminated with occurrence: %s", machine))
+		return
+	}
+	tr.entries = append(tr.entries, fmt.Sprintf("terminated with occurrence: %s (do behavior abandoned: %s)", machine, strings.Join(abandoned, ", ")))
+}
+
 // RecordStateEntry records entering a state with optional entry action execution.
 func (tr *TraceRecorder) RecordStateEntry(state string, hasEntryAction bool) {
 	if !tr.enabled {
@@ -168,6 +181,19 @@ func (tr *TraceRecorder) RecordActionTerminate(perf string, dropped []Token) {
 		parts = append(parts, fmt.Sprintf("token %d@%s", t.ID, nodeIdentifier(t.Location)))
 	}
 	tr.entries = append(tr.entries, fmt.Sprintf("terminate %s: dropped %s", perf, strings.Join(parts, ", ")))
+}
+
+// RecordActionTerminatePending records a performance a terminate ended at a parked token:
+// one waiting at an accept, or one whose step had yet to begin.
+func (tr *TraceRecorder) RecordActionTerminatePending(perf string, waiting bool) {
+	if !tr.enabled {
+		return
+	}
+	how := "ended before it began"
+	if waiting {
+		how = "ended waiting"
+	}
+	tr.entries = append(tr.entries, fmt.Sprintf("terminate %s: %s", perf, how))
 }
 
 // RecordCalcEnter records entering a calc invocation and opens a nesting level.

@@ -78,6 +78,9 @@ type actionFrame struct {
 	result string
 	// began is the activation the performance began in, which orders performances.
 	began int64
+	// heldAt is the ID of the token parked at node whose step this performance ends
+	// before it began, a terminate having named the node (beginPending); 0 otherwise.
+	heldAt int64
 	// run is the identity of this performance among the context's runs (Context.newRun).
 	run int64
 	// callee is the action a `Callee(...)` node performs, resolved or settled by its

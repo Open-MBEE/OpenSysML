@@ -257,6 +257,7 @@ type ObjectRun struct {
 	Behavior    string                   `json:"behavior,omitempty"`
 	Events      []ExpectedEvent          `json:"events,omitempty"`
 	FinalState  string                   `json:"finalState,omitempty"`
+	Terminated  bool                     `json:"terminated,omitempty"`
 	StateVisits []string                 `json:"stateVisits,omitempty"`
 	Values      map[string]ExpectedValue `json:"slots,omitempty"`
 }
@@ -1669,6 +1670,7 @@ func validateObjectRuns(t *testing.T, ctx *Context, typeSym *symbols.Symbol, fir
 				t.Fatalf("run machine of object #%d: %v", obj.ID, err)
 			}
 			validateFinalState(t, exec.FinalStateName(), run.FinalState)
+			validateTerminated(t, exec.Outcome().Terminated, run.Terminated)
 			validateStateVisits(t, exec.GetStateVisits(), run.StateVisits)
 			for name, want := range run.Values {
 				fv, err := featureValueAtPath(t, ctx, obj, name)
