@@ -79,13 +79,16 @@ type unitQueue struct {
 // unitHead describes a queue's next unit. A shared unit is one several queues
 // may perform, entered once by whichever is drawn first: the others drop it as
 // dropped reports. A queue waiting on something a sibling does (its owner's
-// entry, the queues it spawned) has no unit until until holds.
+// entry, the queues it spawned) has no unit until until holds. A queue void of
+// a unit (a firing a sibling's unit disabled) is no alternative while void holds;
+// it runs to its end, performing nothing, once no queue has a unit.
 type unitHead struct {
 	label   string
 	at      ast.Node
 	shared  *ast.StateNode
 	dropped func() bool
 	until   func() bool
+	void    func() bool
 }
 
 // firingScope is the state of the firing a queue's units belong to — the
@@ -410,6 +413,9 @@ func (f *unitFront) drain() (err error) {
 		}
 		ready := f.ready()
 		if len(ready) == 0 {
+			if f.drainVoid() {
+				continue
+			}
 			if f.finished() {
 				return nil
 			}
@@ -456,7 +462,7 @@ func (f *unitFront) settle() {
 func (f *unitFront) ready() []*unitQueue {
 	var ready []*unitQueue
 	for _, q := range f.queues {
-		if q.done || q.head.until != nil {
+		if q.done || q.head.until != nil || (q.head.void != nil && q.head.void()) {
 			continue
 		}
 		if q.head.shared != nil && slices.ContainsFunc(ready, func(r *unitQueue) bool { return r.head.shared == q.head.shared }) {
@@ -465,6 +471,19 @@ func (f *unitFront) ready() []*unitQueue {
 		ready = append(ready, q)
 	}
 	return ready
+}
+
+// drainVoid runs the queues void of a unit to their ends, performing nothing,
+// and reports whether there were any.
+func (f *unitFront) drainVoid() bool {
+	drained := false
+	for _, q := range f.queues {
+		if !q.done && q.head.void != nil && q.head.void() {
+			f.resume(q, false)
+			drained = true
+		}
+	}
+	return drained
 }
 
 // finished reports whether every queue ran to its end.

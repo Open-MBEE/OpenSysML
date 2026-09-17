@@ -1048,8 +1048,9 @@ func (e *StateExecutor) firingOn(event *Event, fire func() (bool, error)) (bool,
 // order, the policy drawing which firing's next unit runs while two or more have
 // one. The candidates whose transitions meet at one join are one firing, fired
 // whole by the first. A firing whose leaf a unit before it left, or whose guard
-// one falsified — armed reads it as firing would — has no unit and is no
-// alternative. where names the occurrence dispatched, for the choice each draw reports.
+// one falsified — armed reads it as firing would — is void of a unit: no
+// alternative, run in its turn once no firing has one, as fire then finds.
+// where names the occurrence dispatched, for the choice each draw reports.
 func (e *StateExecutor) dispatchInOrder(
 	where string,
 	candidates []dispatchCandidate,
@@ -1059,7 +1060,7 @@ func (e *StateExecutor) dispatchInOrder(
 	acted := false
 	gone := func(candidate dispatchCandidate) bool { return !e.isActive(candidate.leaf) || e.state.Ended() }
 	// A guard that cannot be read is left to the firing, which reports the error.
-	dropped := func(candidate dispatchCandidate) bool {
+	void := func(candidate dispatchCandidate) bool {
 		if gone(candidate) {
 			return true
 		}
@@ -1088,7 +1089,7 @@ func (e *StateExecutor) dispatchInOrder(
 	err := e.moveWhole(func() error {
 		f := e.openFront(ChoiceRegionOrder, where)
 		for _, candidate := range firings {
-			head := unitHead{label: exitLabel(candidate.leaf), at: candidate.leaf, dropped: func() bool { return dropped(candidate) }}
+			head := unitHead{label: exitLabel(candidate.leaf), at: candidate.leaf, void: func() bool { return void(candidate) }}
 			if join, ok := candidate.chosen.Target.(*ast.PseudostateNode); ok && join.Kind == ast.PseudostateJoin {
 				head.label, head.at = join.Name+"(join)", join
 			}
