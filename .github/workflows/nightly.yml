@@ -91,6 +91,13 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+
       - name: Derive the snapshot version
         id: version
         run: |
@@ -105,6 +112,27 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: scripts/build-release-artifacts.sh dist
+
+      # The extension is side-loaded, not published to a marketplace, so the snapshot
+      # is its distribution. Its version is the manifest's with the snapshot version as
+      # the pre-release part, so two nights' builds are told apart in VS Code and any
+      # stable release of the extension ranks above them.
+      - name: Package the VS Code extension
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          base=$(node -p "require('./editors/vscode/package.json').version")
+          expected="${base}-${VERSION}"
+          make vscode-package VSIX_VERSION="$expected"
+          unzip -q -o editors/vscode/opensysml-sysml.vsix extension/package.json -d /tmp/vsix
+          stamped=$(node -p "require('/tmp/vsix/extension/package.json').version")
+          if [ "$stamped" != "$expected" ]; then
+            echo "::error::opensysml-sysml.vsix carries version '$stamped', not the '$expected' it is being published as."
+            exit 1
+          fi
+          echo "ok: opensysml-sysml.vsix carries $stamped"
+          cp editors/vscode/opensysml-sysml.vsix dist/
+          (cd dist && sha256sum opensysml-sysml.vsix >> SHA256SUMS.txt && cat SHA256SUMS.txt)
 
       # Keyless, like the stable release; the identity is this workflow's OIDC identity.
       - name: Install cosign
@@ -156,6 +184,10 @@ jobs:
             printf '%s' " to verify it and what to expect from it; the"
             printf '%s\n' " [install guide](https://opensysml.org/guide/01-install/) covers the stable releases."
             echo
+            printf '%s' "\`opensysml-sysml.vsix\` is the VS Code extension built from the same commit:"
+            printf '%s' " \`code --install-extension opensysml-sysml.vsix\`, with a snapshot's \`sysml-lsp\`"
+            printf '%s\n' " on your \`PATH\` or named by \`opensysml.server.path\`."
+            echo
             echo "Verify a download against the signed manifest:"
             echo
             echo '```bash'
@@ -197,6 +229,7 @@ jobs:
             --notes-file notes.md \
             --prerelease \
             --latest=false \
-            dist/*.tar.gz dist/*.zip dist/SHA256SUMS.txt dist/SHA256SUMS.txt.bundle \
+            dist/*.tar.gz dist/*.zip dist/opensysml-sysml.vsix \
+            dist/SHA256SUMS.txt dist/SHA256SUMS.txt.bundle \
             dist/grpc/sysml-grpc-*
           gh release view "$TAG" --json url,assets --jq '.url, (.assets[].name)'
