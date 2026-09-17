@@ -78,7 +78,7 @@ func (m *migration) valueExpr(v, scope *xmi.Element) (expr string, ok bool, note
 			return "", false, "opaque expression is not v2 expression syntax" + langNote(lang)
 		}
 		if missing := m.invisible(refs, scope); missing != "" {
-			return "", false, "opaque expression names " + missing + ", which nothing visible from " + qualifiedName(scope) + " is called" + langNote(lang)
+			return "", false, "opaque expression names " + missing + langNote(lang)
 		}
 		return body, true, "opaque expression copied verbatim" + langNote(lang)
 	case "Expression", "TimeExpression", "Duration", "Interval", "StringExpression":
@@ -142,8 +142,17 @@ func (m *migration) featureValue(v, f, scope *xmi.Element) (expr string, ok bool
 		return expr, ok, note
 	}
 	t := m.model.Ref(f, "type")
+	if v.Type == "InstanceValue" && t != nil {
+		inst := m.model.Ref(v, "instance")
+		if inst.Type == "InstanceSpecification" && !m.instanceOf(m.model.Refs(inst, "classifier"), t) {
+			return "", false, "the instance " + qualifiedName(inst) + " is not a " + qualifiedName(t) + ", which the feature holds"
+		}
+		if inst.Type == "EnumerationLiteral" && inst.Parent != t && m.written(t) {
+			return "", false, "the literal " + qualifiedName(inst) + " is not a " + qualifiedName(t) + ", which the feature holds"
+		}
+	}
 	sv := m.scalarBase(t)
-	if sv == "" && strings.HasPrefix(v.Type, "Literal") && m.structuredValueType(t) {
+	if sv == "" && strings.HasPrefix(v.Type, "Literal") && v.Type != "LiteralNull" && (m.structuredValueType(t) || m.written(t)) {
 		return "", false, "the literal " + expr + " is not a value of " + qualifiedName(t) + ", which has no scalar base"
 	}
 	if sv == "" || !strings.HasPrefix(v.Type, "Literal") || v.Type == "LiteralNull" {
@@ -238,6 +247,8 @@ func opaqueBody(v *xmi.Element) (body, lang string) {
 type reference struct {
 	global bool
 	steps  []step
+	// start is the offset of the first step in the expression text.
+	start int
 }
 
 type step struct {
@@ -267,10 +278,23 @@ func (r reference) text(n int) string {
 // leaving no diagnostic — and returns every name it refers to: the features,
 // functions and types its meaning depends on, each with its whole path.
 func exprRefs(text string) (refs []reference, ok bool) {
+	value, ok := parseExpr(text)
+	if !ok {
+		return nil, false
+	}
+	refs = nameRefs(value, nil)
+	for i := range refs {
+		refs[i].start -= len(exprProbePrefix)
+	}
+	return refs, true
+}
+
+// parseExpr parses text as one v2 expression, leaving no diagnostic.
+func parseExpr(text string) (ast.Node, bool) {
 	if strings.ContainsAny(text, ";{}") {
 		return nil, false
 	}
-	src := source.New("probe.sysml", []byte("attribute probe = "+text+";"))
+	src := source.New("probe.sysml", []byte(exprProbePrefix+text+";"))
 	p := parser.New(src)
 	root := p.ParseFile()
 	if len(p.Diagnostics) != 0 || len(root.Members) != 1 {
@@ -281,11 +305,31 @@ func exprRefs(text string) (refs []reference, ok bool) {
 		return nil, false
 	}
 	u, ok := mem.Member.(*ast.Usage)
-	if !ok {
+	if !ok || u.Value == nil {
 		return nil, false
 	}
-	return nameRefs(u.Value, nil), true
+	return u.Value, true
 }
+
+// exprLiteral reports the kind of literal text is — integer, real, string or
+// boolean, as featureValue names them — with its value text, or "" when it
+// is not one.
+func exprLiteral(text string) (kind, value string) {
+	switch v, _ := parseExpr(text); lit := v.(type) {
+	case *ast.LiteralInteger:
+		return "integer", lit.Value
+	case *ast.LiteralReal:
+		return "real", lit.Value
+	case *ast.LiteralString:
+		return "string", strings.Trim(lit.Value, `"`)
+	case *ast.LiteralBool:
+		return "boolean", strconv.FormatBool(lit.Value)
+	}
+	return "", ""
+}
+
+// exprProbePrefix precedes an expression parsed on its own as an attribute's value.
+const exprProbePrefix = "attribute probe = "
 
 // nameRefs appends to refs each name an expression refers to. A feature chain
 // whose operand is itself a name extends that name; on any other operand its
@@ -357,7 +401,7 @@ func qualifiedRef(q *ast.QualifiedName) (reference, bool) {
 	if q == nil || len(q.Parts) == 0 {
 		return reference{}, false
 	}
-	r := reference{global: q.Global}
+	r := reference{global: q.Global, start: q.Parts[0].Span.Offset}
 	for _, p := range q.Parts {
 		r.steps = append(r.steps, step{name: p.Text})
 	}
@@ -386,17 +430,37 @@ func chainRef(e *ast.FeatureChainExpr) (reference, bool) {
 	return r, true
 }
 
-// invisible returns the first of the references that resolves to nothing
-// written and visible from scope, as the expression spells it, or "".
+// invisible returns why the first unusable reference cannot be read in scope,
+// as "<name>, which ...": it resolves to nothing written and visible, or to a
+// behavior an expression cannot evaluate. "" when every reference is usable.
 func (m *migration) invisible(refs []reference, scope *xmi.Element) string {
 	if len(refs) == 0 {
 		return ""
 	}
 	visible, _ := m.visibleFrom(scope)
 	for _, r := range refs {
-		if _, _, missing := m.resolve(r, visible, nil); missing != "" {
-			return missing
+		e, _, missing := m.resolve(r, visible, nil)
+		if missing != "" {
+			return missing + ", which nothing visible from " + qualifiedName(scope) + " is called"
 		}
+		if kw := m.notAValue(e); kw != "" {
+			return r.text(len(r.steps)) + ", which is " + kw + " " + qualifiedName(e) + ", not a value an expression can read"
+		}
+	}
+	return ""
+}
+
+// notAValue names the kind of declaration e becomes when an expression cannot
+// read it: an operation or behavior written as an action or state def.
+func (m *migration) notAValue(e *xmi.Element) string {
+	if e.Type != "Operation" && !isBehavior(e) {
+		return ""
+	}
+	switch cat, _ := m.classify(e); cat {
+	case catActionDef:
+		return "the action def"
+	case catStateDef:
+		return "the state def"
 	}
 	return ""
 }

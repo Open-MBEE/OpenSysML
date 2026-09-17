@@ -706,6 +706,7 @@ func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *reso
 				return nil, err
 			}
 			graph.DataFlows[source] = append(graph.DataFlows[source], flow)
+			succeedFlow(graph, source, flow)
 		case *ast.PrefixMetadata:
 			if err := weights.refuseStray(n); err != nil {
 				return nil, err
@@ -762,6 +763,7 @@ func lowerInheritedPinConnections(graph *ActionGraph, scope *symbols.Scope) erro
 				}
 				graph.recordDeclaredIn(u, body)
 				graph.DataFlows[source] = append(graph.DataFlows[source], flow)
+				succeedFlow(graph, source, flow)
 			}
 		}
 	}
@@ -1249,12 +1251,22 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope) Block 
 	block := Block{Node: owner, Scope: scope}
 	for _, member := range members {
 		actual := unwrapMembership(member)
-		if actual == nil {
+		if actual == nil || isAnnotation(actual) {
 			continue
 		}
 		block.Statements = append(block.Statements, lowerStatement(actual, scope))
 	}
 	return block
+}
+
+// isAnnotation reports whether a body member annotates the body rather than
+// stating a step of it.
+func isAnnotation(n ast.Node) bool {
+	switch n.(type) {
+	case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation:
+		return true
+	}
+	return false
 }
 
 // lowerAttributes returns every attribute declared among a behavior's members,
@@ -1613,6 +1625,16 @@ func lowerFlow(nodes nodeLookup, flow *ast.Usage) (ast.Node, ObjectFlow, error) 
 		Target:    targetNode,
 		Decl:      flow,
 	}, nil
+}
+
+// succeedFlow adds the succession a `succession flow` also states: the target
+// starts once the source completes and the value has moved.
+func succeedFlow(graph *ActionGraph, source ast.Node, flow ObjectFlow) {
+	u, ok := flow.Decl.(*ast.Usage)
+	if !ok || !u.IsSuccessionFlow() {
+		return
+	}
+	graph.Edges[source] = append(graph.Edges[source], ActionEdge{Source: source, Target: flow.Target, Decl: u})
 }
 
 // flowEnd resolves one end of a flow to the node it belongs to and the pin it

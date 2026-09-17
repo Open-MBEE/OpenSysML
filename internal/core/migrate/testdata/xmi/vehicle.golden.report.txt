@@ -1,16 +1,11 @@
 # SysML v1 to v2 migration report: vehicle.xmi
 # exported by Example UML Tool
-# migrated 89 element(s): 68 mapped, 13 approximated, 8 unmapped (3 skipped as profile or library content)
+# migrated 92 element(s): 76 mapped, 13 approximated, 3 unmapped (3 skipped as profile or library content)
 
-## unmapped (8)
+## unmapped (3)
 «Verify» Abstraction	Requirements::<Abstraction>	_dep_verify_block	(a verify whose client is not a test case has no v2 form; applied stereotypes «Verify»)
-«Refine» Abstraction	Requirements::<Abstraction>	_dep_refine	(its end Vehicle Design::Drive is not migrated; applied stereotypes «Refine»)
-«Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate	(its end Vehicle Design::Drive is not migrated; applied stereotypes «Allocate»)
-Activity	Vehicle Design::Drive	_act_drive	(behaviors are not migrated yet)
 «Unit» InstanceSpecification	Vehicle Design::Value Types::kilogram	_unit_kg	(units and quantity kinds are not migrated; use the SI and ISQ libraries; applied stereotypes «Unit» (quantityKind = Vehicle Design::Value Types::mass; symbol = kg))
 «QuantityKind» InstanceSpecification	Vehicle Design::Value Types::mass	_qk_mass	(units and quantity kinds are not migrated; use the SI and ISQ libraries; applied stereotypes «QuantityKind»)
-StateMachine	Vehicle Design::Vehicle::Vehicle States	_sm_vehicle	(behaviors are not migrated yet)
-Operation	Vehicle Design::Vehicle::start	_op_start	(operations and receptions are not migrated; v2 has no operation)
 
 ## approximated (13)
 «Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	(a trace is written as a plain dependency)
@@ -27,7 +22,7 @@ Property	Vehicle Design::Vehicle::sharedCharger	_prop_charger	-> 'Vehicle Design
 «FlowPort» Port	Vehicle Design::Vehicle::speedOut	_port_speedOut	-> 'Vehicle Design'::Vehicle::speedOut	(a port typed by a DataType is written as a port holding one directed attribute)
 Property	Vehicle Design::Vehicle::totalMass	_prop_total	-> 'Vehicle Design'::Vehicle::totalMass	(opaque expression copied verbatim (language SysML))
 
-## mapped (68)
+## mapped (76)
 Comment	<Comment>	_cmt_model
 Package	Empty Package	_pkg_unused	-> 'Empty Package'
 Model	Model	_model	(the root model's members are written at the top level)
@@ -36,6 +31,8 @@ Package	Requirements	_pkg_reqs	-> Requirements
 «Satisfy» Abstraction	Requirements::<Abstraction>	_dep_satisfy_prop	-> 'Vehicle Design'::Vehicle
 «DeriveReqt» Abstraction	Requirements::<Abstraction>	_dep_derive	-> Requirements::'Derive Engine Mass Requirement'
 «Verify» Abstraction	Requirements::<Abstraction>	_dep_verify	-> Requirements::'Mass Test'
+«Refine» Abstraction	Requirements::<Abstraction>	_dep_refine
+«Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate
 «Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate_blocks
 Dependency	Requirements::<Dependency>	_dep_plain
 «Requirement» Class	Requirements::Engine Mass Requirement	_req_derived	-> Requirements::'Engine Mass Requirement'
@@ -47,6 +44,7 @@ Association	Vehicle Design::<Association>	_assoc_vehicle_engine	(the anonymous a
 Association	Vehicle Design::<Association>	_assoc_vehicle_wheel	(the anonymous association is written as its member-end properties)
 Comment	Vehicle Design::<Comment>	_cmt_pkg
 «ItemFlow» InformationFlow	Vehicle Design::<InformationFlow>	_if_fuel
+Activity	Vehicle Design::Drive	_act_drive	-> 'Vehicle Design'::Drive
 Association	Vehicle Design::Drives	_assoc_vehicle_driver	-> 'Vehicle Design'::Drives
 Property	Vehicle Design::Drives::vehicle	_ae_vehicle_3	-> 'Vehicle Design'::Drives::vehicle
 «Block» Class	Vehicle Design::Electric Vehicle	_blk_ev	-> 'Vehicle Design'::'Electric Vehicle'
@@ -81,6 +79,9 @@ Comment	Vehicle Design::Vehicle::<Comment>	_cmt_vehicle_2
 Connector	Vehicle Design::Vehicle::<Connector>	_conn_nested
 «Block» Class	Vehicle Design::Vehicle::Chassis	_blk_chassis	-> 'Vehicle Design'::Vehicle::Chassis
 Property	Vehicle Design::Vehicle::Chassis::mass	_prop_chassis_mass	-> 'Vehicle Design'::Vehicle::Chassis::mass
+StateMachine	Vehicle Design::Vehicle::Vehicle States	_sm_vehicle	-> 'Vehicle Design'::Vehicle::'Vehicle States'
+Region	Vehicle Design::Vehicle::Vehicle States::<Region>	_reg_1	(the one region is written as the body of its owner)
+State	Vehicle Design::Vehicle::Vehicle States::<Region>::Off	_st_off	-> Off
 Property	Vehicle Design::Vehicle::color	_prop_color	-> 'Vehicle Design'::Vehicle::color
 «FullPort» Port	Vehicle Design::Vehicle::diag	_port_untyped	-> 'Vehicle Design'::Vehicle::diag
 Property	Vehicle Design::Vehicle::driver	_prop_driver	-> 'Vehicle Design'::Vehicle::driver
@@ -90,6 +91,8 @@ Connector	Vehicle Design::Vehicle::fuel line	_conn_fuel	-> 'Vehicle Design'::Veh
 Property	Vehicle Design::Vehicle::isElectric	_prop_isElectric	-> 'Vehicle Design'::Vehicle::isElectric
 Property	Vehicle Design::Vehicle::mass	_prop_mass	-> 'Vehicle Design'::Vehicle::mass
 Property	Vehicle Design::Vehicle::massLimit	_prop_limit	-> 'Vehicle Design'::Vehicle::massLimit
+Operation	Vehicle Design::Vehicle::start	_op_start	-> 'Vehicle Design'::Vehicle::start
+Parameter	Vehicle Design::Vehicle::start::key	_par_start	-> 'Vehicle Design'::Vehicle::start::key
 Property	Vehicle Design::Vehicle::vehicle name	_prop_name	-> 'Vehicle Design'::Vehicle::'vehicle name'
 Property	Vehicle Design::Vehicle::wheels	_prop_wheels	-> 'Vehicle Design'::Vehicle::wheels
 «Block» Class	Vehicle Design::Wheel	_blk_wheel	-> 'Vehicle Design'::Wheel

@@ -2424,17 +2424,25 @@ func (e *ActionExecutor) armedWaits() []ClockWait {
 }
 
 // dueWork reports a token that can move at this instant (not parked nor paused on
-// the clock, due, or with a message in flight) in the flow awaiting the clock, else the action's.
+// the clock, not held at a join, due, or with a message in flight) in the flow
+// awaiting the clock, else the action's.
 func (e *ActionExecutor) dueWork() bool {
 	if e.released || (e.state != StateRunning && e.state != StateWaiting) {
 		return false
 	}
 	for _, token := range e.tokens {
-		if token.Wait == nil && !token.pausedOnClock() && token.inFlowOf(e.awaiting) {
+		if token.Wait == nil && !token.pausedOnClock() && !e.heldAtSync(token) && token.inFlowOf(e.awaiting) {
 			return true
 		}
 	}
 	return e.dueNow(e.awaiting)
+}
+
+// heldAtSync reports a token held at a synchronizing node for a succession into
+// it no token has arrived over yet: it cannot move until the arrival does.
+func (e *ActionExecutor) heldAtSync(t Token) bool {
+	consumed, held := e.arrivals(t)
+	return held && consumed == nil
 }
 
 // watchesChange reports a token parked at an `accept when`, which data written

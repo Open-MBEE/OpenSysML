@@ -731,6 +731,10 @@ func (ctx *Context) featureAddresses(scope *symbols.Scope, self *Instance, segme
 // the shortest prefix names in the send's scope — a prefix rather than one name,
 // since a namespace qualifies the occurrence in `P::alpha.inPort`.
 func (ctx *Context) addressOwner(scope *symbols.Scope, self *Instance, segments []string) (*Instance, []string, bool, error) {
+	// `this.…` reads from the sending object, the context occurrence of the send.
+	if segments[0] == thisName && len(segments) > 1 && self != nil {
+		return self, segments[1:], true, nil
+	}
 	// A name is a feature of the sending object, or of an object holding it: a
 	// nested object addresses a sibling through the object they belong to.
 	for up := self; up != nil; up = up.owner {

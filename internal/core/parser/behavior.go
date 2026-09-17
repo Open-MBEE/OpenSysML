@@ -3155,7 +3155,7 @@ func (p *Parser) parseSendStatement(tok lexer.Token) ast.Node {
 		}
 	case p.acceptKeyword("to"):
 		target = p.parseNodeArgument()
-	case !p.at(lexer.LBrace) && !p.at(lexer.Semicolon):
+	case !p.at(lexer.LBrace) && !p.at(lexer.Semicolon) && !p.atEffectStatementEnd(start):
 		p.error(p.peek().Span, "expected 'to' or 'via' after send message")
 	}
 
