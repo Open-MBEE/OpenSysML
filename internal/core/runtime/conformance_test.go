@@ -117,6 +117,9 @@ type ExpectedOutcome struct {
 	// ModelSeed fixes the modeled draws — weighted branches, RandomFunctions — of
 	// a case under every policy of the sweep, as Context.SetModelSeed does.
 	ModelSeed *uint64 `json:"modelSeed,omitempty"`
+	// Draws fixes the policy the case's RandomFunctions calls resolve under, as
+	// ParseDrawPolicy reads it: min, max or average; empty draws at random.
+	Draws string `json:"draws,omitempty"`
 	// ExploreBudget raises the budget the harness explores the case's outcomes
 	// under, for a case whose choice tree the default budget does not cover.
 	ExploreBudget *ExpectedExploreBudget `json:"exploreBudget,omitempty"`
@@ -425,9 +428,7 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	model.SetSourceText(source.TextOf(sources, nil))
 	fresh := func() *Context {
 		ctx := NewContext(NewModel(model, resolver), 10000)
-		if expected.ModelSeed != nil {
-			ctx.SetModelSeed(*expected.ModelSeed)
-		}
+		applyCaseDraws(t, ctx, expected)
 		return ctx
 	}
 	ctx := fresh()
@@ -493,6 +494,23 @@ func indexCaseDocuments(t *testing.T, conformanceDir string, src *source.SourceF
 		idx.ExpandWildcardImports()
 	}
 	return idx, sources
+}
+
+// applyCaseDraws gives ctx the model seed and draw policy the case states, as
+// -seed and -draws would. A draws pin that names no policy is a schema error.
+func applyCaseDraws(t *testing.T, ctx *Context, expected ExpectedOutcome) {
+	t.Helper()
+	if expected.ModelSeed != nil {
+		ctx.SetModelSeed(*expected.ModelSeed)
+	}
+	if expected.Draws == "" {
+		return
+	}
+	draws, err := ParseDrawPolicy(expected.Draws)
+	if err != nil {
+		t.Fatalf("draws: %v", err)
+	}
+	ctx.SetDrawPolicy(draws)
 }
 
 // casePolicy is the policy a case runs under: the one it pins, else the one the
