@@ -1015,6 +1015,100 @@ func TestOpaqueBodyChainsAndLibraryNamesAreChecked(t *testing.T) {
 	}
 }
 
+func TestOpaqueBodiesCheckCastBoundsAndUsageEnds(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_pt" name="Pt">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_x" name="x">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_link" name="Link"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_cb" name="Bound">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_c" name="c">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_castMissing" name="castMissing" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_castMissingValue">
+          <body>(as Pt[missing])</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_castPresent" name="castPresent" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_castPresentValue">
+          <body>(as Pt[c])</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_connectionMissing" name="connectionMissing" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_connectionMissingValue">
+          <body>{ connection link : Link connect c to missing; c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_connectionPresent" name="connectionPresent" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_connectionPresentValue">
+          <body>{ connection link : Link connect c to c; c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_connectionDeclaredPresent" name="connectionDeclaredPresent" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_connectionDeclaredPresentValue">
+          <body>{ connection link : Link connect src references c to dst references c { attribute x = src; } c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_connectionDeclaredMissing" name="connectionDeclaredMissing" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_connectionDeclaredMissingValue">
+          <body>{ connection link : Link connect src references c to dst references c { attribute x = other; } c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_flowMissing" name="flowMissing" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_flowMissingValue">
+          <body>{ flow f from c to missing; c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_flowPresent" name="flowPresent" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_flowPresentValue">
+          <body>{ flow f from c to c; c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_param" name="param" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_paramValue">
+          <body>{ in v : Pt; (as Pt[v.x]) }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+    </packagedElement>`, `
+  <sysml:ConstraintBlock xmi:id="_s1" base_Class="_cb"/>`)
+
+	for _, name := range []string{"castPresent", "connectionPresent", "connectionDeclaredPresent", "flowPresent", "param"} {
+		wantLine(t, r.Notation, "constraint "+name+" { ")
+	}
+	for _, name := range []string{"castMissing", "connectionMissing", "connectionDeclaredMissing", "flowMissing"} {
+		wantNoLine(t, r.Notation, "constraint "+name+" { ")
+	}
+	for _, id := range []string{"_castPresent", "_connectionPresent", "_connectionDeclaredPresent", "_flowPresent", "_param"} {
+		es := entriesFor(r, id)
+		if len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "copied verbatim") {
+			t.Errorf("%s entries = %+v", id, es)
+		}
+	}
+	for id, want := range map[string]string{
+		"_castMissing":               "opaque expression names missing, which nothing visible from Bound is called (language SysML)",
+		"_connectionMissing":         "opaque expression names missing, which nothing visible from Bound is called (language SysML)",
+		"_connectionDeclaredMissing": "opaque expression names other, which nothing visible from Bound is called (language SysML)",
+		"_flowMissing":               "opaque expression names missing, which nothing visible from Bound is called (language SysML)",
+	} {
+		es := entriesFor(r, id)
+		if len(es) != 1 || es[0].Verdict != migrate.Unmapped || es[0].Note != want {
+			t.Errorf("%s entries = %+v", id, es)
+		}
+	}
+}
+
 // isOrdered and isUnique=false are written as the ordered and nonunique
 // modifiers, on properties and association ends alike.
 func TestCollectionModifiersAreWritten(t *testing.T) {
