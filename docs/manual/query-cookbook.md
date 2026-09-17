@@ -874,12 +874,13 @@ Which end is the original is read from the derivation itself: an end
 subsetting `originalRequirements` or tagged `#original` is the original, one
 subsetting `derivedRequirements` or tagged `#derive` is derived, and a
 connection typed by a `connection def` specializing `Derivation` inherits the
-roles its definition's ends state. Only when no end states a role does the
-first end count as the original and every other end as derived, so `connect
-(a, b, c)` derives `b` and `c` from `a`. A `connection def` specializing
-`Derivation` whose ends are typed by requirement definitions — the form the
-v1 migrator writes — relates those definitions the same way. A plain
-connection between two requirements is not a derivation.
+roles its definition's ends state. An end that states no role takes the one
+left over: it is the original when no other end is, and derived otherwise —
+so `connect (a, b, c)` with no stated roles derives `b` and `c` from `a`, and
+an unmarked end beside an `#original` end is derived. A `connection def`
+specializing `Derivation` whose ends are typed by requirement definitions —
+the form the v1 migrator writes — relates those definitions the same way. A
+plain connection between two requirements is not a derivation.
 
 ### Refine relationships
 

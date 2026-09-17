@@ -23,6 +23,10 @@ package Observatory {
 	requirement pointingBudget;
 	requirement jitterBudget;
 	requirement driftBudget;
+	requirement thermalStability;
+	requirement heaterPower;
+	requirement opticsAlignment;
+	requirement mirrorFigure;
 
 	part mirrorDesign;
 	part mountDesign;
@@ -48,6 +52,17 @@ package Observatory {
 	connection : Derivation {
 		end :> derivedRequirements ::> guidingAccuracy;
 		end :> originalRequirements ::> pointingAccuracy;
+	}
+
+	// An end stating no role takes the one left over: derived beside a stated
+	// original, original beside a stated derived.
+	#derivation connection {
+		end #original ::> thermalStability;
+		end ::> heaterPower;
+	}
+	#derivation connection {
+		end ::> opticsAlignment;
+		end #derive ::> mirrorFigure;
 	}
 
 	// A derivation definition whose ends are typed by requirement definitions,

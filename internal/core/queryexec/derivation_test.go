@@ -42,6 +42,16 @@ func TestExecuteRelatedDerivationBodyEndRoles(t *testing.T) {
 	assertRelated(t, fixture, "guidingAccuracy", "derivation", "incoming", 1,
 		[]string{"pointingAccuracy"})
 	assertRelated(t, fixture, "trackingAccuracy", "derivation", "outgoing", 1, nil)
+
+	// An end stating no role takes the one left over: derived beside a stated
+	// original, original beside a stated derived.
+	assertRelated(t, fixture, "thermalStability", "derivation", "outgoing", 1,
+		[]string{"heaterPower"})
+	assertRelated(t, fixture, "heaterPower", "derivation", "outgoing", 1, nil)
+	assertRelated(t, fixture, "opticsAlignment", "derivation", "outgoing", 1,
+		[]string{"mirrorFigure"})
+	assertRelated(t, fixture, "mirrorFigure", "derivation", "incoming", 1,
+		[]string{"opticsAlignment"})
 }
 
 func TestExecuteRelatedDerivationDefinitions(t *testing.T) {
