@@ -21,7 +21,8 @@ Read `AGENTS.md` first; it governs everything below.
 > Track E (landed), `E` the behavior-execution semantics the runtime does not yet have, `X` the expression forms it
 > parses but does not evaluate, `Q` the runtime query surface, `A` analysis and simulation
 > execution, `V` the validation census, `I` the language integrations, `B` the bindings from
-> modeled elements to external data and services, and `M` the embedded target. Each is stated in
+> modeled elements to external data and services, `M` the embedded target, and `P` the package
+> layering of the Go module. Each is stated in
 > full where it is introduced, and a reader who wants only the gap can ignore the label.
 >
 > **Status words.** *Landed* means in the tag named above, so a landed item is released; where a
@@ -2444,6 +2445,160 @@ a sixth slower for the recording it never uses). Open against `develop` on the s
 (a load's files parsed, indexed and validated on a pool of workers), #309 (the REPL analyzing
 each loaded file as a document of its own) and #308 (the satellite network generated as a fleet
 of occurrences). Independent of every track above; the design's own sequence orders it.
+
+# Track P — package layering (earmarked for 0.9.0)
+
+The module is one Go module of 72 packages under `internal/`, 49 of them under `internal/core/`.
+The import graph is acyclic, as Go requires, but it is not layered: the runtime imports the
+validation suite and the parser, the RDF exporter imports the runtime, the REPL imports the gRPC
+service, and test-only and referee packages sit beside the product packages with nothing telling
+them apart. Nothing here changes what any binary does; the track is the separation of the
+parser, the semantic engine, the runtime and the translation utilities into layers that can each
+be built, tested and reasoned about without the layers above them, whether or not they ever ship
+separately. It is **not started**, and deliberately so: the moves touch files every open pull
+request touches, so the track is scheduled for the 0.9.0 cycle, after the pull requests open
+against `develop` at this baseline have landed, with the small items first and the two large ones
+last. Measured at `develop` `530c04667` (#354), non-test lines and `go list` import edges.
+
+## Where the module stands
+
+Transitive dependencies on other packages of the module: `internal/core/parser` 4 (`source`,
+`lexer`, `ast`, `quickfix`) — the parser is separable today; `semantics` 9; `lower` 10;
+`passes` 19; `runtime` 22, including `parser` and all of `passes`; `export` 29, including
+`runtime`, `lower`, `migrate`, `parser` and `libs`; `model` 32. `internal/core/runtime` is
+71,520 non-test lines, 29% of the module's non-test code, and 84 of its 138 non-test files import
+`internal/core/ast`.
+
+The edges that break the layering, each with the files that carry it:
+
+- **Runtime → validation.** `internal/core/runtime` imports `internal/core/passes` in seven
+  files, for two things: `passes.Diagnostic` and `passes.Severity*` as the runtime's own
+  diagnostic type (`choice.go`, `tool.go`, `modeled.go`), and the invocation selection in
+  `passes/invocation.go` — `SelectInvocation`, `ChainCallee`, `NewArgumentTyper`,
+  `InvocationArgs` — which both the type checker and the evaluator need (`eval.go`, `holders.go`,
+  `binding_reads.go`, `model.go`). Because `passes` itself imports `docplan`, `queryplan`, `view`,
+  `rdf`, `identity` and `lower`, executing a model links document planning, diagram layout and
+  the RDF vocabulary.
+- **Runtime → parser.** `runtime/tool.go` calls `parser.New` to parse text at execution time; the
+  runtime should receive a tree, not build one.
+- **Translation → execution.** `internal/core/export` imports `runtime` and `lower` in
+  `graphs.go`, `graphs_action.go` and `graphs_state.go` for the `graphs:1` form, and `migrate`
+  and `parser` in `convert.go` because `sysml -convert` was implemented inside the exporter. In
+  the other direction `internal/core/analysis` imports `export` (`engine_entry.go`,
+  `external_question.go`) for the same form, so execution and translation depend on each other
+  through two packages. An RDF exporter cannot be built without the runtime.
+- **Validation → execution IR.** `passes` imports `lower` (`send_action.go`,
+  `action_endpoint.go`, `state_transition.go`, `w8d_assignment_referent.go`, `typecheck.go`).
+  [architecture.md](../internals/architecture.md) describes `lower` as "AST → execution IR for the
+  runtime"; validation consuming it means it is a semantic IR shared by both, and the layering
+  should say so rather than place it under the runtime alone.
+- **Frontends sideways.** `internal/repl` imports `internal/grpc` for `InstanceGraphToProto` and
+  `GraphBounds` (`repl/features.go`), so the terminal REPL links the Connect service layer;
+  `cmd/sysml` imports nineteen `internal` packages directly rather than through `repl` or
+  `model`; `internal/lsp` imports `internal/interop/reposync`.
+- **Type system → scanner.** `internal/core/semantics` imports `internal/core/lexer` for its
+  notation-text helpers (`NameText`, `UnrestrictedNameText`, `StringValue`, `CommentBody`,
+  `IsIdentifier`, `IsKeyword`) in `documentation.go`, `units.go`, `unit_product.go`,
+  `annotations.go` and `filter.go`.
+
+What is in `internal/` that is not product code, or is in the wrong place:
+
+- `internal/hygiene` and `internal/perfbench` have no non-test files; they exist to host
+  `TestNoProductionCodeImportsTesting` and the benchmarks.
+- `internal/baseline`, `internal/fixtures`, `internal/junit`, `internal/doccounts`,
+  `internal/stressmodel`, `internal/fuml`, `internal/pssm` and `internal/testutil` are reached
+  only from `cmd/pilot-*`, `cmd/pssm-referee`, `cmd/fuml-referee`, `cmd/stress-model`,
+  `cmd/doc-counts` and `cmd/validation-census`, never from `sysml`, `sysml-lsp` or `sysml-grpc`.
+- `internal/errata` is both: `core/libs/source.go` applies its overlay to the bundled standard
+  library (product), and the pilot tools read its registry (tooling). It can only move once the
+  overlay is split from the oracle bookkeeping.
+- `internal/xmi` (the XMI 2.5 reader of the UML test suites, for `fuml` and `pssm`) and
+  `internal/core/xmi` (the XMI reader of SysML v1 exports, for `migrate`) read the same format
+  into two element trees.
+- `internal/core/envvar` and `internal/core/project` are process configuration, not language
+  core; `internal/docpdf` is the PDF backend of the `core/docrender` pipeline and the only part of
+  it outside `core/`.
+
+## The syntax layer against the instance layer
+
+The instance model is clean: `runtime.Instance` is an id, a `*symbols.Symbol` and a map of
+`FeatureValue`s over `EffectiveFeature`s, `Value` wraps `semantics.Value`, instance ids,
+collections and symbols, and `instance.go`, `value.go` and `features.go` together name `ast.`
+24 times, all for the expression payload of a `ValExpr` or function value. There is no
+execution-owned layer between it and the syntax tree, though: the lowered graphs in
+`internal/core/lower` are side tables keyed by AST nodes (`ActionGraph.Nodes []ast.Node`,
+`Edges map[ast.Node][]ActionEdge`, `StateGraph.Behaviors map[*ast.StateNode]*StateBehaviors`,
+`Transition{Source, Target, Trigger, Guard ast.Node}`), so a node's identity is its AST pointer
+and `state_executor.go` alone names `ast.StateNode` 211 times; expressions are never lowered,
+`runtime/eval.go` interpreting `ast.OperatorExpr`, `ast.InvocationExpr` and `ast.FeatureChainExpr`
+directly and `compile.go` compiling the same tree into closures held in a side table; and calc
+lowering (`calcShape` and its `Steps`) lives in `runtime/invoke_calc.go`, not in `lower`. This
+is the immutable-AST, side-table design `AGENTS.md` §4 requires and is not a defect, but it is
+why the runtime cannot be exercised without real trees, why a change to an AST node type reaches
+`lower`, `passes`, `runtime` and `export/graphs_*` at once, and why a compiled tier would have
+to introduce the missing layer first.
+
+## The target
+
+A package imports only the layers below it:
+
+| layer | packages |
+|---|---|
+| foundation | `source`, `ast`, `ast/astcodec`, `pack`, `quickfix`, the notation-text helpers |
+| syntax | `lexer`, `parser`, `format` |
+| semantics | `symbols`, `suggest`, `resolve`, `semantics` (with invocation selection), `conformance`, `provenance`, `identity` |
+| semantic IR | `lower`, `queryplan`, `docplan` |
+| validation | `passes`, split by domain, `rename`, `edit` |
+| execution | `runtime`, `solve`, `smt`, `analysis`, `engines`, `objref`, the `graphs:1` form |
+| translation | `rdf`, `export`, `migrate`, one `xmi`, `codegen`, `interop/*` |
+| documents | `queryexec`, `docir`, `docrender`, `docpdf` |
+| workspace | `model`, `libs`, `project`, `envvar` |
+| frontends | a shared proto conversion package, `repl`, `lsp`, `grpc`, `stdiorpc`, `usage`, `cmd/*` |
+| tooling | `baseline`, the errata registry, `fixtures`, `junit`, `doccounts`, `stressmodel`, `fuml`, `pssm`, `perfbench`, `hygiene`, `testutil`, never linked by a shipped binary |
+
+A layering test beside `TestNoProductionCodeImportsTesting` — a table of layer → permitted layers
+checked against `go list -f '{{.Imports}}'` — pins each edge as it is removed; `make lint` is
+staticcheck and gosec and checks no import boundary today.
+
+## P1 — the small moves (not started)
+
+Each a pull request of its own, mechanical for any branch it crosses:
+
+1. `semantics → lexer`: move the notation-text helpers (`NameText`, `StringValue`,
+   `CommentBody` and the rest) to `source`.
+2. `runtime → passes` for diagnostics: move `Diagnostic` and `Severity` to a leaf package that
+   `passes` and `runtime` both import.
+3. `runtime → passes` for invocation selection: move `passes/invocation.go` into `semantics`.
+4. `runtime → parser`: the caller of `tool.go` hands the runtime the parsed tree.
+5. `repl → grpc`: move `InstanceGraphToProto` and `GraphBounds` to a proto conversion package
+   both frontends import.
+6. `export → migrate, parser`: move `Migrate` and the notation parsing out of `convert.go` into
+   the conversion entry point that calls them.
+
+With these the runtime links neither the validation suite nor the parser, and the REPL not the
+service layer.
+
+## P2 — a runtime-free translation module (not started)
+
+Move the `graphs:1` form and `GraphsVersion` from `export` to the execution layer, so `analysis`
+no longer imports `export`; then audit `graphs_*.go` for the runtime types it still names and
+reduce it to `lower` and `semantics`. Merge `internal/xmi` and `internal/core/xmi` into one
+reader with the two interpretations on top.
+
+## P3 — the product/tooling split (not started)
+
+Move `hygiene`, `perfbench` and the referee packages out of `internal/` into a tooling tree;
+split `errata` into the overlay the standard library applies and the registry the oracles read;
+move `envvar` and `project` beside `model`, and `docpdf` beside `docrender`. Then split `passes`
+by domain — core, behavior, document, diagram, identity — with registration left central.
+
+## P4 — an execution-owned IR (not started)
+
+Give `lower`'s graphs their own node identities (an opaque id with the originating `ast.Node`
+kept for diagnostics), lower expressions once rather than interpreting the tree in two
+evaluators, and move `calcShape` lowering from `runtime` into `lower`. This is the item that
+creates a layer between the syntax tree and the instances; it is feature-sized work under
+`AGENTS.md` §8 and goes last, when the graph the layering test guards is otherwise clean.
 
 # Suggested sequencing
 
