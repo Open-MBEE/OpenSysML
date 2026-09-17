@@ -265,6 +265,8 @@ func (r reference) text(n int) string {
 
 // exprRefs parses text as one v2 expression — the value of an attribute, and
 // nothing after it — and returns every model name it refers to with its path.
+// ok is false when the text is not such an expression, or declares a member the
+// walk does not read, whose names could then not be checked.
 func exprRefs(text string) (refs []reference, ok bool) {
 	src := source.New("probe.sysml", []byte("attribute probe = "+text+";"))
 	p := parser.New(src)
@@ -280,154 +282,182 @@ func exprRefs(text string) (refs []reference, ok bool) {
 	if !ok || u.Value == nil || u.HasBody || len(u.Members) != 0 {
 		return nil, false
 	}
-	return nameRefs(u.Value, nil, nil), true
+	var c refCollector
+	c.expr(u.Value, nil)
+	if c.unread {
+		return nil, false
+	}
+	return c.refs, true
 }
 
-// nameRefs appends to refs each name an expression refers to beyond the local
-// ones; a feature chain on a name extends it, on anything else only the operand
-// counts.
-func nameRefs(n ast.Node, local map[string]bool, refs []reference) []reference {
-	name := func(q *ast.QualifiedName) {
-		if r, ok := qualifiedRef(q); ok && !local[r.first()] {
-			refs = append(refs, r)
-		}
+// refCollector gathers the names an expression refers to beyond its local
+// ones; unread is set when a member of a kind the walk does not read is met.
+type refCollector struct {
+	refs   []reference
+	unread bool
+}
+
+func (c *refCollector) name(q *ast.QualifiedName, local map[string]bool) {
+	if r, ok := qualifiedRef(q); ok && !local[r.first()] {
+		c.refs = append(c.refs, r)
 	}
+}
+
+// expr walks one expression; a feature chain on a name extends it, on anything
+// else only the operand counts.
+func (c *refCollector) expr(n ast.Node, local map[string]bool) {
 	switch e := n.(type) {
 	case *ast.QualifiedName:
-		name(e)
+		c.name(e, local)
 	case *ast.FeatureReference:
-		name(e.Name)
+		c.name(e.Name, local)
 	case *ast.FeatureChainExpr:
 		if r, ok := chainRef(e); ok {
 			if !local[r.first()] {
-				refs = append(refs, r)
+				c.refs = append(c.refs, r)
 			}
 		} else {
-			refs = nameRefs(e.Operand, local, refs)
+			c.expr(e.Operand, local)
 		}
 	case *ast.OperatorExpr:
 		for _, o := range e.Operands {
-			refs = nameRefs(o, local, refs)
+			c.expr(o, local)
 		}
-		name(e.TypeRef)
+		c.name(e.TypeRef, local)
 	case *ast.IndexExpr:
-		refs = nameRefs(e.Operand, local, refs)
-		refs = nameRefs(e.Index, local, refs)
+		c.expr(e.Operand, local)
+		c.expr(e.Index, local)
 	case *ast.InvocationExpr:
-		refs = nameRefs(e.Operand, local, refs)
-		name(e.Type)
+		c.expr(e.Operand, local)
+		c.name(e.Type, local)
 		for _, a := range e.Args {
-			refs = nameRefs(a, local, refs)
+			c.expr(a, local)
 		}
 		for _, a := range e.NamedArgs {
-			refs = nameRefs(a.Value, local, refs)
+			c.expr(a.Value, local)
 		}
 	case *ast.CollectExpr:
-		refs = nameRefs(e.Operand, local, refs)
-		refs = nameRefs(e.Body, local, refs)
+		c.expr(e.Operand, local)
+		c.expr(e.Body, local)
 	case *ast.SelectExpr:
-		refs = nameRefs(e.Operand, local, refs)
-		refs = nameRefs(e.Body, local, refs)
+		c.expr(e.Operand, local)
+		c.expr(e.Body, local)
 	case *ast.ConstructorExpr:
-		name(e.Type)
+		c.name(e.Type, local)
 		for _, a := range e.Args {
-			refs = nameRefs(a, local, refs)
+			c.expr(a, local)
 		}
 		for _, a := range e.NamedArgs {
-			refs = nameRefs(a.Value, local, refs)
+			c.expr(a.Value, local)
 		}
 	case *ast.BodyExpr:
-		refs = bodyRefs(e, local, refs)
+		c.body(e, local)
 	case *ast.SequenceExpr:
 		for _, el := range e.Elements {
-			refs = nameRefs(el, local, refs)
+			c.expr(el, local)
 		}
 	case *ast.MetadataAccessExpr:
-		name(e.Ref)
+		c.name(e.Ref, local)
 	case *ast.CastExpr:
-		name(e.TargetType)
+		c.name(e.TargetType, local)
 	}
-	return refs
 }
 
-// bodyRefs appends the names a body expression refers to beyond its own
-// parameters and members, which are in scope throughout the body.
-func bodyRefs(e *ast.BodyExpr, outer map[string]bool, refs []reference) []reference {
-	usages := declaredUsages(e.Members)
-	local := make(map[string]bool, len(outer)+len(e.Params)+len(usages))
-	for n := range outer {
-		local[n] = true
-	}
+// body walks a body expression; its parameters and members are in scope
+// throughout the body.
+func (c *refCollector) body(e *ast.BodyExpr, outer map[string]bool) {
+	local := scope(outer, e.Members)
 	for _, p := range e.Params {
 		local[p.Name] = true
 	}
-	declare(local, usages)
 	for _, p := range e.Params {
-		if r, ok := qualifiedRef(p.Type); ok && !local[r.first()] {
-			refs = append(refs, r)
-		}
-		for _, rel := range p.Relationships {
-			refs = nameRefs(rel.Target, local, refs)
-		}
-		refs = nameRefs(p.Value, local, refs)
-		refs = memberRefs(p.Members, local, refs)
+		c.name(p.Type, local)
+		c.multiplicity(p.Multiplicity, local)
+		c.relationships(p.Relationships, local)
+		c.expr(p.Value, local)
+		c.members(p.Members, local)
 	}
-	refs = usageRefs(usages, local, refs)
-	return nameRefs(e.Result, local, refs)
+	c.declarations(e.Members, local)
+	c.expr(e.Result, local)
 }
 
-// memberRefs appends the names the declarations in a usage's or parameter's
-// body refer to; those declarations are in scope throughout that body.
-func memberRefs(members []ast.Node, outer map[string]bool, refs []reference) []reference {
-	usages := declaredUsages(members)
-	if len(usages) == 0 {
-		return refs
+// members walks the declarations of a usage's or parameter's body, which are
+// in scope throughout that body.
+func (c *refCollector) members(members []ast.Node, outer map[string]bool) {
+	if len(members) == 0 {
+		return
 	}
-	local := make(map[string]bool, len(outer)+len(usages))
-	for n := range outer {
-		local[n] = true
-	}
-	declare(local, usages)
-	return usageRefs(usages, local, refs)
+	c.declarations(members, scope(outer, members))
 }
 
-// usageRefs appends the names each usage's relationships, value and own body
-// refer to beyond the local ones.
-func usageRefs(usages []*ast.Usage, local map[string]bool, refs []reference) []reference {
-	for _, u := range usages {
-		for _, rel := range u.Relationships {
-			refs = nameRefs(rel.Target, local, refs)
-		}
-		refs = nameRefs(u.Value, local, refs)
-		refs = memberRefs(u.Members, local, refs)
-	}
-	return refs
-}
-
-// declaredUsages returns the usages among members, looking through memberships.
-func declaredUsages(members []ast.Node) []*ast.Usage {
-	var usages []*ast.Usage
+// declarations walks each member's references with its body's scope in force.
+func (c *refCollector) declarations(members []ast.Node, local map[string]bool) {
 	for _, m := range members {
 		if mem, ok := m.(*ast.Membership); ok {
 			m = mem.Member
 		}
-		if u, ok := m.(*ast.Usage); ok {
-			usages = append(usages, u)
+		switch e := m.(type) {
+		case *ast.Usage:
+			c.relationships(e.Relationships, local)
+			c.multiplicity(e.Multiplicity, local)
+			c.expr(e.Value, local)
+			c.members(e.Members, local)
+		case *ast.Definition:
+			c.relationships(e.Relationships, local)
+			c.multiplicity(e.Multiplicity, local)
+			c.members(e.Members, local)
+		case *ast.ConstraintMember:
+			c.expr(e.Expression, local)
+			c.members(e.Body, local)
+		case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation:
+		default:
+			c.unread = true
 		}
 	}
-	return usages
 }
 
-// declare adds each usage's names to local.
-func declare(local map[string]bool, usages []*ast.Usage) {
-	for _, u := range usages {
-		if u.Ident.Name != "" {
-			local[u.Ident.Name] = true
+func (c *refCollector) relationships(rels []*ast.Relationship, local map[string]bool) {
+	for _, rel := range rels {
+		c.expr(rel.Target, local)
+		c.multiplicity(rel.Multiplicity, local)
+	}
+}
+
+func (c *refCollector) multiplicity(m *ast.Multiplicity, local map[string]bool) {
+	if m == nil {
+		return
+	}
+	c.expr(m.Lower, local)
+	c.expr(m.Upper, local)
+}
+
+// scope returns outer extended by the names members declare.
+func scope(outer map[string]bool, members []ast.Node) map[string]bool {
+	local := make(map[string]bool, len(outer)+len(members))
+	for n := range outer {
+		local[n] = true
+	}
+	for _, m := range members {
+		if mem, ok := m.(*ast.Membership); ok {
+			m = mem.Member
 		}
-		if u.Ident.ShortName != "" {
-			local[u.Ident.ShortName] = true
+		var id ast.Identification
+		switch e := m.(type) {
+		case *ast.Usage:
+			id = e.Ident
+		case *ast.Definition:
+			id = e.Ident
+		case *ast.ConstraintMember:
+			id.Name = e.Name
+		}
+		if id.Name != "" {
+			local[id.Name] = true
+		}
+		if id.ShortName != "" {
+			local[id.ShortName] = true
 		}
 	}
+	return local
 }
 
 // first is the name a reference starts from; "" for a global one.
