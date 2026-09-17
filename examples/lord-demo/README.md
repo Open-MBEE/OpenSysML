@@ -6,9 +6,11 @@ twelve forest levels and the Red Dragon, the three skill trees, Violet and Seth
 Able at the inn, gems and charm, rooms and bribes, the slaughter of other
 players, the fairies, the Old Hag and the Dark Cloak Tavern, and the town crier
 at midnight — is an executable SysML action or transition, guarded so that the
-warrior's invariants hold however it is reached. What it is not is the game
-as a player saw it: no screens, no saved characters, no other players on the
-line. Every output below is what the commands print.
+warrior's invariants hold however it is reached. [Played in the browser](#in-the-browser),
+it looks like the door game did — a black screen, the menus, a warrior's stats —
+with the page pressing the model's keys and no rule of its own. What it still is
+not is the bulletin board: no saved characters, no other players on the line.
+Every output below is what the commands print.
 
 The solver sections need `z3` on `PATH` — see
 [installing a solver](../../docs/guide/01-install.md#installing-a-solver-optional).
@@ -994,6 +996,52 @@ it need not. `PowerMoves` asks the fewest lessons that give three uses to a
 warrior who will gain five levels, and `GemsForDefense` the gems for five
 points of defense: seven and ten.
 
+## In the browser
+
+`lord-web` serves the model as the game a player saw: a terminal-styled page
+with the warrior's stats, the menu of the state the day machine is in, and the
+keys the game took. Build and start it from the repository root:
+
+```bash
+go run ./cmd/lord-web
+```
+
+```
+Legend of the Red Dragon awaits at http://127.0.0.1:8080/
+```
+
+Open that address, name your warrior, choose a sex and a skill guild, and the
+town square is drawn. Press a menu's key or click its line; a choice that needs
+more — how much to deposit, which weapon, which blessing — asks for it, and
+<kbd>Esc</kbd> takes the question back. The page is the model's, not a copy of
+it:
+
+- **Each browser plays its own model.** The first visit gets a workspace of its
+  own, with `lord.sysml` loaded, `LordPlay::hero` instantiated and its `day`
+  machine started; the game is kept in memory under a session cookie and
+  dropped after `-idle` (two hours) without a keypress. Nothing is written to
+  disk, and nobody else's warrior is on the line.
+- **The menu is the state machine.** Each key is one of the `accept` triggers
+  of the transitions out of the current state; a choice the guard refuses
+  (*Seek the Red Dragon* at level one, robbing the bank untrained, a room with
+  no gold) is drawn dimmed and, pressed, is refused by the machine, not the
+  page. Where a transition's deed takes an argument — the fairies' blessing,
+  a wager, a profession, a favour, a stat for the gems — the page asks for it
+  and performs the action with the argument bound to the model's own value
+  (`Blessing::horse`, `town.inn.violet.wink`), with the same guard deciding.
+- **The stats are the warrior's features.** Name, level, hit points, gold in
+  hand and in the bank, experience, gems, charm, the fights left and the
+  skill points are read from the instance after every command; the page
+  never adds or subtracts.
+- **What happened is what the schedule decided.** The foe the forest served
+  and the blows that landed are the run's recorded choices; every other line
+  of the log is a difference between the warrior before and after.
+
+Flags: `-addr` to listen elsewhere than `127.0.0.1:8080`, `-model` to play
+another copy of the model, `-idle` to keep untouched games longer or shorter.
+A model that does not play — one with errors, or without `LordPlay::hero` and
+its day machine — is refused at startup rather than at the first visit.
+
 ## What the model leaves open, and where it guesses
 
 The dice are the schedule. The game rolls whether a swing lands, which
@@ -1018,5 +1066,5 @@ attribute or a calculation in `lord.sysml`, changed by editing it.
 
 The game had a screen, a modem and a hundred players on one bulletin board;
 the model has warriors, and `attack` takes one of them as its `foe`. There is
-no character file: a warrior lives as long as the REPL session, or the
-`-instantiate` that made it.
+no character file: a warrior lives as long as the REPL session, the
+`-instantiate` that made it, or the browser session that plays it.
