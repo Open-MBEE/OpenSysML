@@ -15,6 +15,8 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ### Fixed
 
+- **The SysML v1 migration reads an opaque body expression's own names as its own.** An opaque expression written in v2 syntax whose body expression declares parameters or members — `{ in v; v > limit }` — no longer fails to copy because `v` is not a feature of the surrounding block; only the names the body reaches for beyond its own are checked for visibility. What the expression is followed by must be nothing, so `c > 0.0; attribute k = c` is still not one expression.
+- **The SysML v1 migration keeps an empty slot of a required feature as a comment.** A slot holding no value for a feature of multiplicity 1 or more contradicts the feature just as too many values do, and is now left unmapped with that note instead of being written as a redefinition bound to nothing. An empty slot of an optional feature is still written.
 - **`-check-timeout` (`%check-bounds timeout=`) is the `smt` engine's solver clock as well as
   the plan's.** Each solver query of a check runs under the check's timeout in place of
   `OPENSYSML_SMT_TIMEOUT`, so a check told it may run for `2m` is no longer left *not covered*
