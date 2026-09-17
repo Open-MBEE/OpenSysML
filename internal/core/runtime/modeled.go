@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -370,6 +371,33 @@ func checkWeights(where string, weights []float64) (float64, error) {
 		return 0, fmt.Errorf("%w: %s: no holding branch has a positive weight", ErrBranchWeights, where)
 	}
 	return total, nil
+}
+
+// checkDistribution refuses the weights read out of a decision as lowering
+// refuses constant ones — one outside [0, 1], none positive among the holding
+// branches, or a sum off 1 by more than lower.ProbabilityTolerance — and
+// returns the holding branches' weights, which the draw renormalizes.
+func checkDistribution(where string, declared []float64, holding []int) ([]float64, error) {
+	total := 0.0
+	for i, w := range declared {
+		if math.IsNaN(w) || w < 0 || w > 1 {
+			return nil, fmt.Errorf("%w: %s: branch %d weighs %s, not a probability in [0, 1]",
+				ErrBranchWeights, where, i, formatWeight(w))
+		}
+		total += w
+	}
+	weights := make([]float64, len(holding))
+	for i, pos := range holding {
+		weights[i] = declared[pos]
+	}
+	if _, err := checkWeights(where, weights); err != nil {
+		return nil, err
+	}
+	if math.Abs(total-1) > lower.ProbabilityTolerance {
+		return nil, fmt.Errorf("%w: %s: the weights of its branches sum to %s, not 1.0",
+			ErrBranchWeights, where, formatWeight(total))
+	}
+	return weights, nil
 }
 
 // formatWeight spells a weight as a trace reports it.
