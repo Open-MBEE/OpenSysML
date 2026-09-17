@@ -479,7 +479,7 @@ received and the battery at 100.
 
 The two engines that run every schedule find the same fork. `-engine check`
 searches the choices exhaustively up to t=80 and tables the divergence — the
-battery ends as 39 or 41, the data left as 51 200 or 52 224 bytes — with one
+battery ends as 39 or 41, the data left as 52 224 or 53 248 bytes — with one
 witness per value, and `-check-witness <dir>` writes each to a file that
 `-schedule replay:<file>` runs again to the same values ([Checking every
 schedule](../../docs/reference/cli.md#checking-every-schedule-of-an-action-or-a-state-machine)):
@@ -491,14 +491,14 @@ schedule](../../docs/reference/cli.md#checking-every-schedule-of-an-action-or-a-
 ```
 
 ```
-✗ State machine SpacecraftComms::SpacecraftVehicle::modes: divergent up to t=80.0 (190 states, 227 moves, depth 146)
+✗ State machine SpacecraftComms::SpacecraftVehicle::modes: divergent up to t=80.0 (421 states, 499 moves, depth 334)
   divergent: this.battery ends as 39 or 41
-  divergent: this.data ends as 51200 or 52224
+  divergent: this.data ends as 52224 or 53248
   (…)
 ```
 
 `-schedule explore` samples the same choices one whole run at a time, and its
-budget has to fit this model: a run to t=80 meets 238 choice points — which
+budget has to fit this model: a run to t=80 meets 277 choice points — which
 token acts, at every step of the looping `do` bodies where two are able to, and
 which region's `do round` goes first, every second `transmitting` and
 `recharging` fall due together — so the default depth of 64 leaves the round at
@@ -509,7 +509,7 @@ each choice point of the first run once, earliest first, so one more run than
 the first run's choice points reaches every alternative of the round at t=79:
 
 ```bash
-./bin/sysml -schedule explore:runs=300,depth=256 -instantiate SpacecraftComms::mission \
+./bin/sysml -schedule explore:runs=300,depth=512 -instantiate SpacecraftComms::mission \
   -state "SpacecraftComms::SpacecraftVehicle::modes SpacecraftComms::mission.spacecraftVehicle" \
   -advance 80 examples/runtime-showcase/spacecraft-comms.sysml
 ```
@@ -518,15 +518,16 @@ the first run's choice points reaches every alternative of the round at t=79:
 ? explored SpacecraftComms::SpacecraftVehicle::modes: 2 outcomes
 outcome                                                           | linearizations | witness
 ------------------------------------------------------------------+----------------+---------
-finalState recharging+lowPower; (…) this.battery = 39; (…) this.data = 51200; (…) | 1   | (…) do round at t=79.0: recharging first of transmitting, recharging; (…)
-finalState recharging+lowPower; (…) this.battery = 41; (…) this.data = 52224; (…) | 299 | (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
+finalState recharging+lowPower; (…) this.battery = 39; (…) this.data = 52224; (…) | 4   | (…) do round at t=79.0: recharging first of transmitting, recharging; (…)
+finalState recharging+lowPower; (…) this.battery = 41; (…) this.data = 53248; (…) | 296 | (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
 incomplete: runs budget 300 hit after 300 runs
 ```
 
-The second row is the first run and the 298 that vary a choice the outcome
-does not turn on; the first is the run that let `recharging` go first at t=79.
-`incomplete` is honest: 300 runs do not exhaust the orders of 238 choices, and
-the table is the same at any `-jobs`.
+The second row is the first run and the 295 that vary a choice the outcome
+does not turn on; the first is the run that let `recharging` go first at t=79
+and three more that vary a choice to the same end. `incomplete` is honest: 300
+runs do not exhaust the orders of 277 choices, and the table is the same at any
+`-jobs`.
 
 ## Apollo 11
 

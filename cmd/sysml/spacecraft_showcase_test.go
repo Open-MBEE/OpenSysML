@@ -80,26 +80,26 @@ func TestExploreTablesTheSpacecraftRaceWithinItsBudget(t *testing.T) {
 
 	shallow := explore("runs=300", "1")
 	wantReport(t, shallow, 2, "? explored SpacecraftComms::SpacecraftVehicle::modes: 1 outcome",
-		"this.battery = 41; this.chargePerSecond = 1; this.data = 52224;",
+		"this.battery = 41; this.chargePerSecond = 1; this.data = 53248;",
 		"do round at t=79.0: transmitting first of transmitting, recharging",
 		"incomplete: runs budget 300 and depth budget 64 hit after 300 runs")
 	rejectReport(t, shallow, "this.battery = 39;")
 
-	got := explore("runs=300,depth=256", "1")
+	got := explore("runs=300,depth=512", "1")
 	wantReport(t, got, 2, "? explored SpacecraftComms::SpacecraftVehicle::modes: 2 outcomes",
-		"this.battery = 39; this.chargePerSecond = 1; this.data = 51200;",
-		"this.battery = 41; this.chargePerSecond = 1; this.data = 52224;",
+		"this.battery = 39; this.chargePerSecond = 1; this.data = 52224;",
+		"this.battery = 41; this.chargePerSecond = 1; this.data = 53248;",
 		"do round at t=79.0: recharging first of transmitting, recharging",
 		"do round at t=79.0: transmitting first of transmitting, recharging",
 		"incomplete: runs budget 300 hit after 300 runs")
 	rejectReport(t, got, "depth budget")
-	if again := explore("runs=300,depth=256", "4"); again.output() != got.output() {
+	if again := explore("runs=300,depth=512", "4"); again.output() != got.output() {
 		t.Errorf("under -jobs 4:\n%s\nwant\n%s", again.output(), got.output())
 	}
 
-	// The first run meets 238 choice points; each is varied once by run 239.
-	wantReport(t, explore("runs=239,depth=256", "1"), 2,
-		"? explored SpacecraftComms::SpacecraftVehicle::modes: 2 outcomes", "incomplete: runs budget 239 hit after 239 runs")
+	// The first run meets 277 choice points; each is varied once by run 278.
+	wantReport(t, explore("runs=278,depth=512", "1"), 2,
+		"? explored SpacecraftComms::SpacecraftVehicle::modes: 2 outcomes", "incomplete: runs budget 278 hit after 278 runs")
 }
 
 var evaluated = regexp.MustCompile(`✓ (battery|data|framesReceived) \(on [^)]*\)\n  = (\d+)`)
