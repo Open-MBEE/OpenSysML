@@ -2,6 +2,7 @@ package queryexec
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -34,13 +35,20 @@ calc def Moves :> Query {
 	Project(source = Events(kind = "accept, transition"), properties = ("kind", "path", "name"))
 }
 calc def Sent :> Query {
-	Project(source = Events(kind = "send"), properties = ("time", "path", "target", "event"))
+	Project(source = Events(kind = "send"), properties = ("time", "path", "machine", "target", "event"))
+}
+calc def SenderState :> Query {
+	Project(source = Events(kind = "send"), properties = ("path", "brightness", "rounds"))
 }
 calc def Steps :> Query {
 	Project(source = Events(kind = "do, guard"), properties = ("kind", "time", "path", "machine", "state", "name"))
 }
 calc def Drawn :> Query {
-	Project(source = Events(kind = "choice"), properties = ("time", "name", "alternatives", "taken", "text"))
+	Project(source = Events(kind = "choice"), properties = ("time", "path", "machine", "name", "alternatives", "taken", "text"))
+}
+calc def DrawnBy :> Query {
+	in root : Element;
+	Project(source = Events(source = root, kind = "choice, guard"), properties = ("kind", "path", "machine", "name"))
 }
 calc def Between :> Query {
 	in since : ScalarValue;
@@ -190,18 +198,35 @@ func TestExecuteEventsByKind(t *testing.T) {
 	}
 	got = rowTexts(t, fixture.rows(t, "Sent", nil))
 	want = []string{
-		"time=0.0 [s] path= target=object lamp1 event=Toggle",
-		"time=1.0 [s] path= target=object lamp1 event=Dim",
-		"time=2.0 [s] path= target=object lamp2 event=Toggle",
-		"time=2.5 [s] path= target=object lamp1 event=Boost",
-		"time=2.5 [s] path= target=object lamp2 event=Toggle",
-		"time=2.5 [s] path=lamp1 target=object panel event=Report",
+		"time=0.0 [s] path=panel machine=marking target=object lamp1 event=Report",
+		"time=0.0 [s] path= machine= target=object lamp1 event=Toggle",
+		"time=1.0 [s] path= machine= target=object lamp1 event=Dim",
+		"time=2.0 [s] path= machine= target=object lamp2 event=Toggle",
+		"time=2.5 [s] path= machine= target=object lamp1 event=Boost",
+		"time=2.5 [s] path= machine= target=object lamp2 event=Toggle",
+		"time=2.5 [s] path=lamp1 machine=lp target=object panel event=Report",
 	}
 	if joinLines(got) != joinLines(want) {
 		t.Fatalf("sends:\n%s\nwant:\n%s", joinLines(got), joinLines(want))
 	}
+	// A send row reads the sending behavior's declared attributes; a message
+	// posted from outside the run has no behavior to read.
+	got = rowTexts(t, fixture.rows(t, "SenderState", nil))
+	want = []string{
+		"path=panel brightness= rounds=2.0",
+		"path= brightness= rounds=",
+		"path= brightness= rounds=",
+		"path= brightness= rounds=",
+		"path= brightness= rounds=",
+		"path= brightness= rounds=",
+		"path=lamp1 brightness=0.0 rounds=",
+	}
+	if joinLines(got) != joinLines(want) {
+		t.Fatalf("sender attributes:\n%s\nwant:\n%s", joinLines(got), joinLines(want))
+	}
 	got = rowTexts(t, fixture.rows(t, "Steps", nil))
 	want = []string{
+		"kind=guard time=0.0 [s] path=panel machine=marking state= name=2->split",
 		"kind=guard time=0.0 [s] path=lamp1 machine=lp state= name=2->on",
 		"kind=do time=1.0 [s] path=lamp1 machine=lp state=dim name=dim",
 		"kind=guard time=2.0 [s] path=lamp2 machine=lp state= name=2->on",
@@ -211,13 +236,30 @@ func TestExecuteEventsByKind(t *testing.T) {
 	}
 	got = rowTexts(t, fixture.rows(t, "Drawn", nil))
 	want = []string{
-		"time=2.5 [s] name=due order " +
+		"time=0.0 [s] path=panel machine=marking name=write order " +
+			"alternatives=mark of object #6 := 1 by token 2+mark of object #6 := 2 by token 3 " +
+			"taken=mark of object #6 := 1 by token 2 " +
+			"text=choice step 4: writes mark of object #6 := 1 by token 2, mark of object #6 := 2 by token 3 (unordered; mark of object #6 := 1 by token 2 stood)",
+		"time=0.0 [s] path=panel machine=marking name=token order " +
+			"alternatives=2@low+3@high taken=3@high " +
+			"text=choice step 4: tokens 2@low, 3@high (unordered; took 3@high first)",
+		"time=2.5 [s] path= machine= name=due order " +
 			"alternatives=state machine LampMachine of object #1+state machine LampMachine of object #3 " +
 			"taken=state machine LampMachine of object #3 " +
 			"text=choice at t=2.5: due state machine LampMachine of object #1, state machine LampMachine of object #3 (unordered; ran state machine LampMachine of object #3 first)",
 	}
 	if joinLines(got) != joinLines(want) {
 		t.Fatalf("choices:\n%s\nwant:\n%s", joinLines(got), joinLines(want))
+	}
+	// An action's choices and guards are the performer's: source reaches them.
+	got = rowTexts(t, fixture.rows(t, "DrawnBy", fixture.object(fixture.panel, "panel")))
+	want = []string{
+		"kind=guard path=panel machine=marking name=2->split",
+		"kind=choice path=panel machine=marking name=write order",
+		"kind=choice path=panel machine=marking name=token order",
+	}
+	if joinLines(got) != joinLines(want) {
+		t.Fatalf("panel choices and guards:\n%s\nwant:\n%s", joinLines(got), joinLines(want))
 	}
 }
 
@@ -332,4 +374,31 @@ func TestExecuteEventsRefusals(t *testing.T) {
 	}
 	_, err = fixture.run(t, fixture.session(), "EventStates", nil)
 	executionError(t, err, ErrorEventRow)
+}
+
+// A recorder bounded to the most recent records answers an interval that starts after
+// the last record it dropped, and refuses one reaching what it no longer holds.
+func TestExecuteEventsOverATruncatedTrace(t *testing.T) {
+	fixture := loadLampFixtureTracing(t, eventQueries, runtime.NewEventRecorder(4))
+	second := func(seconds string) Value { return fixture.quantity(t, seconds+" [s]") }
+	dropped, upTo := fixture.trace.Dropped()
+	if dropped == 0 || upTo != 2.5 {
+		t.Fatalf("dropped %d records up to t = %v, want the run before 2.5 s dropped", dropped, upTo)
+	}
+
+	got := rowTexts(t, fixture.rows(t, "Between", Bindings{"since": {second("2.6")}, "before": {second("3.5")}}))
+	if len(got) != 0 {
+		t.Fatalf("accepts in [2.6, 3.5):\n%s", joinLines(got))
+	}
+
+	for name, bindings := range map[string]Bindings{
+		"Accepts": nil,
+		"Between": {"since": {second("2.5")}, "before": {second("2.6")}},
+		"Since":   nil,
+	} {
+		_, err := fixture.run(t, fixture.session(), name, bindings)
+		if got := executionError(t, err, ErrorTraceTruncated); got.Actual != strconv.Itoa(dropped)+" records up to t = 2.5 dropped" {
+			t.Fatalf("%s over a truncated trace = %v", name, got)
+		}
+	}
 }

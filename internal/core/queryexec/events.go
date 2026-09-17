@@ -79,6 +79,15 @@ func (e *executor) evaluateEvents(expression queryplan.Expression) (sequence, er
 			Origin:    expression.Origin(),
 		}
 	}
+	if dropped, upTo := trace.Dropped(); dropped > 0 && (!hasFrom || from <= upTo) {
+		return sequence{}, &Error{
+			Kind:      ErrorTraceTruncated,
+			Query:     e.definition.Name(),
+			Operation: expression.Operation(),
+			Actual:    fmt.Sprintf("%d records up to t = %s dropped", dropped, formatInstant(upTo)),
+			Origin:    expression.Origin(),
+		}
+	}
 	var only map[int64]struct{}
 	if hasArgument(expression, "source") {
 		source, err := e.objectArgument(expression, "source")

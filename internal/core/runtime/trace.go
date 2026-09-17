@@ -146,12 +146,19 @@ func (r TraceRecord) Text() string {
 // is answered by the semantic constant folder without evaluating its operands,
 // so it appears with no children.
 //
-// Clear marks records printed rather than dropping them: a query reads the whole run.
+// Clear marks records printed rather than dropping them: a query reads the whole
+// run, or the most recent limit records of one bounded by NewEventRecorder.
 type TraceRecorder struct {
 	records []TraceRecord
 	printed int
 	enabled bool
 	depth   int
+	// queryOnly keeps no TraceLine: nothing prints the recorder, queries read it.
+	queryOnly bool
+	// limit is the most records kept, 0 for all; dropped and horizon count and date the oldest discarded.
+	limit   int
+	dropped int
+	horizon float64
 }
 
 // NewTraceRecorder creates a new trace recorder.
@@ -159,6 +166,16 @@ func NewTraceRecorder() *TraceRecorder {
 	return &TraceRecorder{
 		records: make([]TraceRecord, 0),
 		enabled: true,
+	}
+}
+
+// NewEventRecorder creates a recorder nothing prints, keeping the most recent limit records (all when 0).
+func NewEventRecorder(limit int) *TraceRecorder {
+	return &TraceRecorder{
+		records:   make([]TraceRecord, 0),
+		enabled:   true,
+		queryOnly: true,
+		limit:     max(limit, 0),
 	}
 }
 
@@ -174,10 +191,30 @@ func (tr *TraceRecorder) Disable() {
 
 // add keeps one record.
 func (tr *TraceRecorder) add(r TraceRecord) {
-	if !tr.enabled {
+	if !tr.enabled || (tr.queryOnly && r.Kind == TraceLine) {
 		return
 	}
 	tr.records = append(tr.records, r)
+	tr.trim()
+}
+
+// trim drops the oldest records past the limit, remembering how many and up to when.
+func (tr *TraceRecorder) trim() {
+	if tr.limit == 0 || len(tr.records) <= tr.limit {
+		return
+	}
+	n := len(tr.records) - tr.limit
+	tr.dropped += n
+	tr.horizon = tr.records[n-1].Origin.At
+	tr.printed = max(tr.printed-n, 0)
+	copy(tr.records, tr.records[n:])
+	clear(tr.records[tr.limit:])
+	tr.records = tr.records[:tr.limit]
+}
+
+// Dropped reports how many records the limit discarded and the instant of the last of them.
+func (tr *TraceRecorder) Dropped() (count int, upTo float64) {
+	return tr.dropped, tr.horizon
 }
 
 // line keeps a TraceLine at nesting depth 0.
@@ -224,9 +261,9 @@ func (tr *TraceRecorder) RecordNote(origin TraceOrigin, n RunNote) {
 	tr.add(TraceRecord{Kind: kind, Origin: origin, Note: n})
 }
 
-// Mark is the position the next record takes, for a record inserted there later.
+// Mark is the whole-run position the next record takes, for RecordAcceptAt to insert there later.
 func (tr *TraceRecorder) Mark() int {
-	return len(tr.records)
+	return tr.dropped + len(tr.records)
 }
 
 // RecordAcceptAt records an accept as RecordAccept does, placed at mark: before
@@ -236,15 +273,14 @@ func (tr *TraceRecorder) RecordAcceptAt(mark int, origin TraceOrigin, event stri
 		return
 	}
 	record := TraceRecord{Kind: TraceAccept, Origin: origin, Event: event, Payload: payload}
-	if mark < 0 || mark > len(tr.records) {
-		mark = len(tr.records)
-	}
+	mark = min(max(mark-tr.dropped, 0), len(tr.records))
 	tr.records = append(tr.records, TraceRecord{})
 	copy(tr.records[mark+1:], tr.records[mark:])
 	tr.records[mark] = record
 	if mark < tr.printed {
 		tr.printed++
 	}
+	tr.trim()
 }
 
 // RecordStateTransition records a transition fired, with the trigger it fired on.
@@ -512,8 +548,7 @@ func (tr *TraceRecorder) Entries() []string {
 	return entries
 }
 
-// Records returns every record made since the recorder was created, in order,
-// those Clear has already printed included. The slice is read-only.
+// Records returns the records kept in order, printed ones included. The slice is read-only.
 func (tr *TraceRecorder) Records() []TraceRecord {
 	return tr.records
 }

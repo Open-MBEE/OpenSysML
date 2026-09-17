@@ -64,6 +64,8 @@ const (
 	ErrorNoTrace ErrorKind = "no-trace"
 	// ErrorInvalidInterval: an Events bound is not an instant on the clock, or the interval is empty.
 	ErrorInvalidInterval ErrorKind = "invalid-interval"
+	// ErrorTraceTruncated: Events reaches back to records the session's bounded trace has dropped.
+	ErrorTraceTruncated ErrorKind = "trace-truncated"
 )
 
 // Error is a typed query-execution failure with plan provenance.
@@ -156,6 +158,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s operation %s names state %s, which no state machine the session runs declares", e.Query, e.Operation, e.Actual)
 	case ErrorNoTrace:
 		return fmt.Sprintf("query %s operation %s reads the session's trace, and this session records none: turn tracing on before running", e.Query, e.Operation)
+	case ErrorTraceTruncated:
+		return fmt.Sprintf("query %s operation %s reaches back to records the session's trace no longer keeps (%s): bound since to a later instant", e.Query, e.Operation, e.Actual)
 	case ErrorInvalidInterval:
 		message := fmt.Sprintf("query %s operation %s has an invalid time interval", e.Query, e.Operation)
 		if e.Parameter != "" {

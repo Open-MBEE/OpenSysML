@@ -10,7 +10,8 @@ import (
 )
 
 // lampBody is a session's worth of state machines: two lamps whose machine has
-// an `on` state of two orthogonal regions, and a rock exhibiting none.
+// an `on` state of two orthogonal regions, a panel whose action draws a write
+// order and sends, and a rock exhibiting none.
 const lampBody = `
 private import SI::*;
 attribute def Toggle;
@@ -47,7 +48,28 @@ state def LampMachine {
 	transition on_off first on accept Toggle then off;
 }
 part def Lamp { exhibit state lp : LampMachine; }
-part def Panel;
+part def Panel {
+	attribute mark : Integer = 0;
+	perform action marking {
+		attribute rounds : Integer = 2;
+		first start;
+		then decide route;
+			if mark == 0 then split;
+			if 1 / mark > 0 then split;
+		fork split;
+		action low { assign mark := 1; }
+		action high { assign mark := 2; }
+		join sync;
+		action report send new Report() to lamp1;
+		done;
+		succession first split then low;
+		succession first split then high;
+		succession first low then sync;
+		succession first high then sync;
+		succession first sync then report;
+		succession first report then done;
+	}
+}
 part lamp1 : Lamp;
 part lamp2 : Lamp;
 part panel : Panel;
@@ -141,9 +163,14 @@ type lampFixture struct {
 // 2.5 s; lamp2 on at 2 s, off at 2.5 s; the clock stands at 3.5 s.
 func loadLampFixture(t *testing.T, queries string) lampFixture {
 	t.Helper()
+	return loadLampFixtureTracing(t, queries, runtime.NewTraceRecorder())
+}
+
+// loadLampFixtureTracing drives the lamps as loadLampFixture does, into trace.
+func loadLampFixtureTracing(t *testing.T, queries string, trace *runtime.TraceRecorder) lampFixture {
+	t.Helper()
 	fixture := loadExecutionFixture(t, lampBody+queries)
 	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), runtime.DefaultMaxSteps)
-	trace := runtime.NewTraceRecorder()
 	ctx.SetTrace(trace)
 	instantiate := func(name string) *runtime.Instance {
 		inst, err := ctx.Instantiate(fixture.symbol(t, name))

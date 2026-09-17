@@ -93,19 +93,19 @@ type Call struct {
 // A message posted with a destination but no Delivery — one injected from
 // outside the model — is held to the destination it names.
 func (ctx *Context) PostMessage(msg Message) {
-	ctx.postFrom(msg, nil)
+	ctx.postFrom(msg, nil, nil)
 }
 
 // postFrom puts a message on the bus as PostMessage does, recording the object
-// that sent it in the trace; nil is a message from outside the run.
-func (ctx *Context) postFrom(msg Message, from *Instance) {
+// and behavior that sent it in the trace; nil is a message from outside the run.
+func (ctx *Context) postFrom(msg Message, from *Instance, behavior *symbols.Symbol) {
 	if msg.Delivery == DeliverAnyone {
 		msg.Delivery = deliveryOf(msg)
 	}
 	ctx.messages = append(ctx.messages, msg)
 	if ctx.trace != nil {
 		target, _ := ctx.Instance(msg.Object)
-		ctx.trace.RecordSend(TraceOrigin{At: ctx.clock.now, Object: from}, msg, target)
+		ctx.trace.RecordSend(TraceOrigin{At: ctx.clock.now, Object: from, Behavior: behavior}, msg, target)
 	}
 }
 
@@ -360,7 +360,7 @@ func (ctx *Context) portInstanceID(holder *Instance, port string) (int64, error)
 // carry inward after conjugation. A send that reaches none of them is delivered
 // nowhere, which is a typed error rather than a message quietly dropped — the
 // model asked for a delivery the connections it declares cannot make.
-func (ctx *Context) postVia(conns []lower.Connection, msg Message, send lower.Send, self *Instance) error {
+func (ctx *Context) postVia(conns []lower.Connection, msg Message, send lower.Send, self *Instance, behavior *symbols.Symbol) error {
 	if send.Receiver != "" && send.Scope != nil {
 		sym, ok := ctx.portSymbol(send.Scope, send.Target)
 		if !ok || sym == nil || sym.Kind != symbols.SymbolPortUsage ||
@@ -435,7 +435,7 @@ func (ctx *Context) postVia(conns []lower.Connection, msg Message, send lower.Se
 		routed = append(routed, copied)
 	}
 	for _, m := range routed {
-		ctx.postFrom(m, self)
+		ctx.postFrom(m, self, behavior)
 	}
 	return nil
 }
@@ -556,7 +556,7 @@ func objectAddress(object int64) (messageAddress, bool) {
 
 // postTo delivers an addressed send to every object its target resolves to,
 // one copy per address, each held to that object's own identity.
-func (ctx *Context) postTo(msg Message, send lower.Send, self *Instance) error {
+func (ctx *Context) postTo(msg Message, send lower.Send, self *Instance, behavior *symbols.Symbol) error {
 	addrs, err := ctx.resolveAddresses(send, self)
 	if err != nil {
 		return err
@@ -575,7 +575,7 @@ func (ctx *Context) postTo(msg Message, send lower.Send, self *Instance) error {
 		copies = append(copies, copied)
 	}
 	for _, copied := range copies {
-		ctx.postFrom(copied, self)
+		ctx.postFrom(copied, self, behavior)
 	}
 	return nil
 }
@@ -905,7 +905,7 @@ func isPerformanceEvent(sym *symbols.Symbol) bool {
 
 // send builds and posts the message a send statement describes; a message the
 // send cannot build or deliver leaves nothing building it created behind.
-func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Connection, s lower.Send, self *Instance) error {
+func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Connection, s lower.Send, self *Instance, behavior *symbols.Symbol) error {
 	mark, attached := len(ctx.created), len(ctx.objectBehaviors)
 	msg, err := ec.buildMessage(scope, s)
 	if err != nil {
@@ -913,7 +913,7 @@ func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Co
 		return err
 	}
 	built, started := len(ctx.created), len(ctx.objectBehaviors)
-	if err := ctx.post(conns, msg, s, self); err != nil {
+	if err := ctx.post(conns, msg, s, self, behavior); err != nil {
 		ctx.abandonCreationBetween(mark, built, attached, started)
 		return err
 	}
@@ -923,12 +923,12 @@ func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Co
 // post delivers a built message the way the send addressed it: routed through
 // the connections of the sending port, or straight onto the bus. self is the
 // object performing the behavior that sent it, nil for a behavior no object
-// performs.
-func (ctx *Context) post(conns []lower.Connection, msg Message, send lower.Send, self *Instance) error {
+// performs; behavior is that behavior, which the trace names.
+func (ctx *Context) post(conns []lower.Connection, msg Message, send lower.Send, self *Instance, behavior *symbols.Symbol) error {
 	if send.IsVia {
-		return ctx.postVia(conns, msg, send, self)
+		return ctx.postVia(conns, msg, send, self, behavior)
 	}
-	return ctx.postTo(msg, send, self)
+	return ctx.postTo(msg, send, self, behavior)
 }
 
 // carriesEvent reports whether m was sent from the event feature an accept

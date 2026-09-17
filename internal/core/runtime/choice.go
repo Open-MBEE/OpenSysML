@@ -234,11 +234,6 @@ func (ctx *Context) noteChoice(c ChoicePoint) {
 	ctx.note(c)
 }
 
-// noteUnevaluableGuard keeps a guard the run could not evaluate, as noteChoice does.
-func (ctx *Context) noteUnevaluableGuard(g UnevaluableGuard) {
-	ctx.note(g)
-}
-
 // note keeps n for the run's diagnostics and, when tracing, writes it to the
 // trace where it was made. A probe's preview is not a run.
 func (ctx *Context) note(n RunNote) {

@@ -124,8 +124,11 @@ The rows are the typed record the trace is kept as, which `-trace` and
 `%trace` print from — not a parse of the printed lines. So a trace query needs
 a session that records one: `-trace` on the command line, `%trace on` at the
 prompt before the run (the population `Instantiate` builds over gRPC is
-traced from the start); without it the query is a typed `no-trace` error
-rather than an empty relation, and `%trace off` discards the record. A bound that is not a
+traced from the start, keeping the most recent `OPENSYSML_GRPC_MAX_HELD_EVENTS`
+records; an interval reaching back past them is a typed `trace-truncated`
+error naming the instant history is kept from, never a shortened relation);
+without it the query is a typed `no-trace` error rather than an empty
+relation, and `%trace off` discards the record. A bound that is not a
 duration (`1 [m]`), an interval with `before` at or before `since`, and a
 `kind` the trace does not record are `invalid-interval` and `invalid-argument`
 errors; `States(source = Events(...))`, or `Events` over a verdict row, is an

@@ -107,7 +107,7 @@ func TestHTMLStateReport(t *testing.T) {
 		`<td class="sysml-cell" data-column="enclosing" data-value-kind="string"><span class="sysml-value" data-value-kind="string">on</span></td>`,
 		`<tr class="sysml-row" data-object="#1" data-element="Lamps::lamp1" data-element-kind="partUsage">`,
 		`<tr class="sysml-row" data-object="#1" data-event-kind="accept" data-time="1" data-element="Lamps::LampMachine" data-element-kind="stateDef">`,
-		`<tr class="sysml-row" data-object="#1" data-event-kind="send" data-time="2" data-element="Lamps::lamp1" data-element-kind="partUsage">`,
+		`<tr class="sysml-row" data-object="#1" data-event-kind="send" data-time="2" data-element="Lamps::LampMachine" data-element-kind="stateDef">`,
 		`<td class="sysml-cell" data-column="time" data-value-kind="quantity"><span class="sysml-value" data-value-kind="quantity" data-magnitude="1" data-unit="s">1 [s]</span></td>`,
 		`<td class="sysml-cell" data-column="payload" data-value-kind="string"><span class="sysml-value" data-value-kind="string">level = 3</span></td>`,
 		`<td class="sysml-cell" data-column="target" data-value-kind="object"><span class="sysml-value sysml-object" data-value-kind="object" data-object="#5" data-element="Lamps::panel" data-element-kind="partUsage">panel</span></td>`,
