@@ -251,6 +251,16 @@ positions this note takes:
 
 The design goes in its own note before code is written, as the analysis framework's did.
 
+The public Go package has the in-process half of this today: `opensysml.OpenSession` opens a
+`Session` over a model a `New` client parsed, and the session keeps the clock, the schedule and
+the objects it instantiated between `Instantiate`, `Send`, `Advance`, `Perform`, `Feature` and
+`Evaluate` calls, answering facts (transitions and triggers by name, whether a guard holds, the
+choice points of a run, the branch a decision left by) rather than engine graphs. It is not a
+`Client` method — no RPC answers it, so `Dial` refuses it with `CodeUnimplemented` — which keeps
+the parity contract on `Client` exact. The wire session this stage designs would answer the same
+fact-shaped messages, and the in-process `Session` would then become one of its two
+implementations.
+
 ### Stage 5 — parity as a test
 
 Extend `cmd/conformance` so that every scenario runs on a third protocol beside `pkg` and

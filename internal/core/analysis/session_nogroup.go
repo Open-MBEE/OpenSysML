@@ -1,10 +1,10 @@
-//go:build windows
+//go:build windows || js
 
 package analysis
 
 import "os/exec"
 
-// ownProcessGroup is a no-op: Windows has no process group to end the children by.
+// ownProcessGroup is a no-op: neither Windows nor a browser has a process group to end the children by.
 func ownProcessGroup(*exec.Cmd) {}
 
 // killProcessGroup ends the engine process.
