@@ -1638,6 +1638,8 @@ message DocumentValue {
     Quantity quantity = 8;   // magnitude in a unit, `2290000 [kg]`
     DocumentVerdict verdict = 9;  // a row Verdicts answered; answered, never bound
     DocumentObject object = 10;   // an object Instantiate created; bound and answered
+    DocumentState state = 11;     // a row States answered; answered, never bound
+    DocumentEvent event = 12;     // a row Events answered; answered, never bound
   }
   // Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
   string element_type = 7;
@@ -1691,6 +1693,61 @@ message DocumentVerdict {
   repeated string verification = 8;
 }
 
+// DocumentState is one row a `States` query answered: an active leaf state of
+// the state machine `object` exhibits, which the row stands for as its `element`
+// when the model declares it.
+message DocumentState {
+  // The object in the state, with the path the session reaches it by.
+  DocumentObject object = 1;
+  // The state machine, by the name the object exhibits it under (`lp`), else
+  // its declared name.
+  string machine = 2;
+  // The leaf state's name.
+  string name = 3;
+  // The leaf state's path in its machine, composite states first (`on.dim`).
+  string state_path = 4;
+  // The leaf state's declaration as an element value; empty when the machine
+  // declares no element for it.
+  DocumentValue state = 5;
+  // The orthogonal region the leaf is declared in; empty outside one.
+  string region = 6;
+  // The composite states enclosing the leaf, outermost first; each is active.
+  repeated string enclosing = 7;
+}
+
+// DocumentEvent is one row an `Events` query answered: one record of the
+// session's trace, in the order the run made it.
+message DocumentEvent {
+  // "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+  string kind = 1;
+  // The clock's instant when the record was made: a quantity in the clock's
+  // unit when the library reduces one, else a bare real of clock units.
+  DocumentValue time = 2;
+  // The object whose behavior made the record; unset for the run's own
+  // records (a due-order choice, a message posted from outside the model).
+  DocumentObject object = 3;
+  // The behavior the record is about, by the name the object exhibits it
+  // under, else its declared name; empty for the run's own records.
+  string machine = 4;
+  // The state entered, exited or stepped by an entry, exit or do record.
+  string state = 5;
+  // A fired transition's source and target states.
+  string from = 6;
+  string to = 7;
+  // The object a send was addressed to; unset for every other kind and a
+  // send addressed to no object.
+  DocumentObject target = 8;
+  // The signal or event accepted or sent, or the trigger a transition fired on.
+  string event = 9;
+  // An accept's payload, one `name = value` entry per parameter in name order.
+  repeated string payload = 10;
+  // A choice's alternatives, in the order they were offered, and the one taken.
+  repeated string alternatives = 11;
+  string taken = 12;
+  // The line the trace prints for the record.
+  string text = 13;
+}
+
 // DocumentQueryColumn is one projected property, in projection order.
 message DocumentQueryColumn {
   string name = 1;
@@ -1706,7 +1763,8 @@ message DocumentQueryCell {
 message DocumentQueryRow {
   // The selected element itself, an element value with its qualified name; an
   // object value for a row over an object the service holds; a verdict value
-  // for a row `Verdicts` answered.
+  // for a row `Verdicts` answered; a state value for a row `States` answered;
+  // an event value for a row `Events` answered.
   DocumentValue element = 1;
   repeated DocumentQueryCell cells = 2;
 }

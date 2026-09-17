@@ -17,13 +17,8 @@ import (
 // evaluateObjects enumerates every object the session holds that is of the
 // requested type, roots first in the session's order, then the objects they hold.
 func (e *executor) evaluateObjects(expression queryplan.Expression) (sequence, error) {
-	if e.context.Runtime == nil {
-		return sequence{}, &Error{
-			Kind:      ErrorNoRuntime,
-			Query:     e.definition.Name(),
-			Operation: expression.Operation(),
-			Origin:    expression.Origin(),
-		}
+	if err := e.requireRuntime(expression); err != nil {
+		return sequence{}, err
 	}
 	typeName, err := e.stringArgument(expression, "type")
 	if err != nil {
@@ -40,6 +35,31 @@ func (e *executor) evaluateObjects(expression queryplan.Expression) (sequence, e
 		}
 	}
 	var result sequence
+	err = e.eachSessionObject(expression, func(row Value) {
+		if e.objectIsA(row, typeName, target) {
+			result.values = append(result.values, row)
+		}
+	})
+	return result, err
+}
+
+// requireRuntime refuses an operation over a session's objects when the
+// execution has no session.
+func (e *executor) requireRuntime(expression queryplan.Expression) error {
+	if e.context.Runtime != nil {
+		return nil
+	}
+	return &Error{
+		Kind:      ErrorNoRuntime,
+		Query:     e.definition.Name(),
+		Operation: expression.Operation(),
+		Origin:    expression.Origin(),
+	}
+}
+
+// eachSessionObject visits every object the session holds once, roots first in
+// the session's order, then breadth-first the objects they hold.
+func (e *executor) eachSessionObject(expression queryplan.Expression, visit func(row Value)) error {
 	seen := make(map[int64]struct{})
 	queue := make([]Value, 0, len(e.context.Roots))
 	for _, root := range e.context.Roots {
@@ -56,14 +76,12 @@ func (e *executor) evaluateObjects(expression queryplan.Expression) (sequence, e
 		next := queue[0]
 		queue = queue[1:]
 		if !e.consumeVisit() {
-			return sequence{}, e.budgetError(expression)
+			return e.budgetError(expression)
 		}
-		if e.objectIsA(next, typeName, target) {
-			result.values = append(result.values, next)
-		}
+		visit(next)
 		children, err := e.heldObjects(expression, next)
 		if err != nil {
-			return sequence{}, err
+			return err
 		}
 		for _, child := range children {
 			inst, _, _ := child.Object()
@@ -74,7 +92,7 @@ func (e *executor) evaluateObjects(expression queryplan.Expression) (sequence, e
 			queue = append(queue, child)
 		}
 	}
-	return result, nil
+	return nil
 }
 
 // objectDeclaration is the element an object stands for in the model: the usage

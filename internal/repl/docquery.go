@@ -416,6 +416,12 @@ func formatQueryValue(value queryexec.Value) string {
 	if verdict, ok := value.Verdict(); ok {
 		return verdict.Summary()
 	}
+	if state, ok := value.State(); ok {
+		return state.Label()
+	}
+	if event, ok := value.Event(); ok {
+		return event.Summary()
+	}
 	if text, ok := value.String(); ok {
 		return strconv.Quote(text)
 	}

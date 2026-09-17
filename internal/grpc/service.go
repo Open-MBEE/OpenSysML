@@ -256,6 +256,9 @@ type Service struct {
 	// maxHeldObjects bounds the objects one cached model holds for its queries,
 	// HeldObjectsEnvVar read once at construction.
 	maxHeldObjects int
+	// maxHeldEvents bounds the event records one cached model's population keeps
+	// for Events, HeldEventsEnvVar read once at construction.
+	maxHeldEvents int
 	// engines answers every analysis question the runtime RPCs put, under auto.
 	engines *analysis.Registry
 	// version is the build version GetServerInfo reports, informational only.
@@ -281,10 +284,10 @@ func ServeExternalEngines(names ...string) Option {
 
 // NewService creates a gRPC service with specified cache size, reporting
 // version as its build version. It returns an error if cacheSize is not
-// positive, if a budget variable, OPENSYSML_JOBS or OPENSYSML_GRPC_MAX_HELD_OBJECTS
-// holds anything but a positive integer, if the prewarm setting is not a
-// non-negative integer, or if a manifest or a name given to ServeExternalEngines
-// is wrong. It does not load the standard library: call Prewarm to have that
+// positive, if a budget variable, OPENSYSML_JOBS, OPENSYSML_GRPC_MAX_HELD_OBJECTS or
+// OPENSYSML_GRPC_MAX_HELD_EVENTS holds anything but a positive integer, if the
+// prewarm setting is not a non-negative integer, or if a manifest or a name
+// given to ServeExternalEngines is wrong. It does not load the standard library: call Prewarm to have that
 // happen in the background, ahead of the requests that need it.
 func NewService(cacheSize int, version string, opts ...Option) (*Service, error) {
 	return newService(cacheSize, version, opts)
@@ -325,6 +328,10 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 	if err != nil {
 		return nil, err
 	}
+	maxHeldEvents, err := maxHeldEventsFromEnv()
+	if err != nil {
+		return nil, err
+	}
 	registry, err := engineset.DefaultFromEnv()
 	if err != nil {
 		return nil, err
@@ -343,6 +350,7 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 		budgets:        budgets,
 		jobs:           jobs,
 		maxHeldObjects: maxHeldObjects,
+		maxHeldEvents:  maxHeldEvents,
 		engines:        engines,
 		version:        version,
 		capabilities:   availability,

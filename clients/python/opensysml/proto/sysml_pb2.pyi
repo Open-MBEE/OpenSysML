@@ -1305,7 +1305,7 @@ class DocumentQueryBinding(_message.Message):
     def __init__(self, parameter: _Optional[str] = ..., values: _Optional[_Iterable[_Union[DocumentValue, _Mapping]]] = ...) -> None: ...
 
 class DocumentValue(_message.Message):
-    __slots__ = ("element_id", "string_value", "int_value", "real_value", "bool_value", "infinity", "quantity", "verdict", "object", "element_type")
+    __slots__ = ("element_id", "string_value", "int_value", "real_value", "bool_value", "infinity", "quantity", "verdict", "object", "state", "event", "element_type")
     ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     STRING_VALUE_FIELD_NUMBER: _ClassVar[int]
     INT_VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -1315,6 +1315,8 @@ class DocumentValue(_message.Message):
     QUANTITY_FIELD_NUMBER: _ClassVar[int]
     VERDICT_FIELD_NUMBER: _ClassVar[int]
     OBJECT_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    EVENT_FIELD_NUMBER: _ClassVar[int]
     ELEMENT_TYPE_FIELD_NUMBER: _ClassVar[int]
     element_id: str
     string_value: str
@@ -1325,8 +1327,10 @@ class DocumentValue(_message.Message):
     quantity: Quantity
     verdict: DocumentVerdict
     object: DocumentObject
+    state: DocumentState
+    event: DocumentEvent
     element_type: str
-    def __init__(self, element_id: _Optional[str] = ..., string_value: _Optional[str] = ..., int_value: _Optional[int] = ..., real_value: _Optional[float] = ..., bool_value: _Optional[bool] = ..., infinity: _Optional[bool] = ..., quantity: _Optional[_Union[Quantity, _Mapping]] = ..., verdict: _Optional[_Union[DocumentVerdict, _Mapping]] = ..., object: _Optional[_Union[DocumentObject, _Mapping]] = ..., element_type: _Optional[str] = ...) -> None: ...
+    def __init__(self, element_id: _Optional[str] = ..., string_value: _Optional[str] = ..., int_value: _Optional[int] = ..., real_value: _Optional[float] = ..., bool_value: _Optional[bool] = ..., infinity: _Optional[bool] = ..., quantity: _Optional[_Union[Quantity, _Mapping]] = ..., verdict: _Optional[_Union[DocumentVerdict, _Mapping]] = ..., object: _Optional[_Union[DocumentObject, _Mapping]] = ..., state: _Optional[_Union[DocumentState, _Mapping]] = ..., event: _Optional[_Union[DocumentEvent, _Mapping]] = ..., element_type: _Optional[str] = ...) -> None: ...
 
 class DocumentObject(_message.Message):
     __slots__ = ("instance_id", "path", "element")
@@ -1357,6 +1361,53 @@ class DocumentVerdict(_message.Message):
     reason: str
     verification: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, assertion: _Optional[_Union[DocumentValue, _Mapping]] = ..., kind: _Optional[str] = ..., text: _Optional[str] = ..., path: _Optional[str] = ..., verdict: _Optional[str] = ..., condition: _Optional[str] = ..., reason: _Optional[str] = ..., verification: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class DocumentState(_message.Message):
+    __slots__ = ("object", "machine", "name", "state_path", "state", "region", "enclosing")
+    OBJECT_FIELD_NUMBER: _ClassVar[int]
+    MACHINE_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    STATE_PATH_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    REGION_FIELD_NUMBER: _ClassVar[int]
+    ENCLOSING_FIELD_NUMBER: _ClassVar[int]
+    object: DocumentObject
+    machine: str
+    name: str
+    state_path: str
+    state: DocumentValue
+    region: str
+    enclosing: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, object: _Optional[_Union[DocumentObject, _Mapping]] = ..., machine: _Optional[str] = ..., name: _Optional[str] = ..., state_path: _Optional[str] = ..., state: _Optional[_Union[DocumentValue, _Mapping]] = ..., region: _Optional[str] = ..., enclosing: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class DocumentEvent(_message.Message):
+    __slots__ = ("kind", "time", "object", "machine", "state", "to", "target", "event", "payload", "alternatives", "taken", "text")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    TIME_FIELD_NUMBER: _ClassVar[int]
+    OBJECT_FIELD_NUMBER: _ClassVar[int]
+    MACHINE_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    FROM_FIELD_NUMBER: _ClassVar[int]
+    TO_FIELD_NUMBER: _ClassVar[int]
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    EVENT_FIELD_NUMBER: _ClassVar[int]
+    PAYLOAD_FIELD_NUMBER: _ClassVar[int]
+    ALTERNATIVES_FIELD_NUMBER: _ClassVar[int]
+    TAKEN_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    kind: str
+    time: DocumentValue
+    object: DocumentObject
+    machine: str
+    state: str
+    to: str
+    target: DocumentObject
+    event: str
+    payload: _containers.RepeatedScalarFieldContainer[str]
+    alternatives: _containers.RepeatedScalarFieldContainer[str]
+    taken: str
+    text: str
+    def __init__(self, kind: _Optional[str] = ..., time: _Optional[_Union[DocumentValue, _Mapping]] = ..., object: _Optional[_Union[DocumentObject, _Mapping]] = ..., machine: _Optional[str] = ..., state: _Optional[str] = ..., to: _Optional[str] = ..., target: _Optional[_Union[DocumentObject, _Mapping]] = ..., event: _Optional[str] = ..., payload: _Optional[_Iterable[str]] = ..., alternatives: _Optional[_Iterable[str]] = ..., taken: _Optional[str] = ..., text: _Optional[str] = ..., **kwargs) -> None: ...
 
 class DocumentQueryColumn(_message.Message):
     __slots__ = ("name",)

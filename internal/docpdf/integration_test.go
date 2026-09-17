@@ -241,6 +241,39 @@ func TestRenderFormulasWithInstalledKatex(t *testing.T) {
 	}
 }
 
+// TestRenderStateReportWithInstalledEngines renders the state-and-event report
+// through each installed converter and reads back the state paths, event
+// summaries and unit-bearing instants as prose.
+func TestRenderStateReportWithInstalledEngines(t *testing.T) {
+	document := stateDocument(t)
+	for _, engine := range Engines() {
+		t.Run(engine, func(t *testing.T) {
+			_, text := renderInstalled(t, document, engine, Options{TOC: true})
+			if text == "" {
+				t.Skip("pdftotext not installed")
+			}
+			for _, want := range []string{
+				"Lamp Report",
+				"Active states of every lamp",
+				"on.dim",
+				"1 [s]",
+				"level = 3",
+				"t=0 lamp1.lp: enter: on",
+				"lamp1.lp in on.fast",
+			} {
+				if !strings.Contains(text, want) {
+					t.Errorf("PDF text lacks %q:\n%s", want, text)
+				}
+			}
+			for _, stray := range []string{`\[`, "<!--", "*"} {
+				if strings.Contains(text, stray) {
+					t.Errorf("PDF text carries %q:\n%s", stray, text)
+				}
+			}
+		})
+	}
+}
+
 // TestRenderDiagramsWithInstalledMermaid renders the telescope report's two
 // diagrams when mermaid-cli and an engine are installed, and skips otherwise.
 func TestRenderDiagramsWithInstalledMermaid(t *testing.T) {

@@ -496,9 +496,10 @@ func destination(target string) string {
 
 // valueText renders one typed value as plain, unescaped text: elements by
 // qualified name (falling back to declared name), objects by the label the
-// session reaches them by (`car.wheels[2]`), strings as their text, integers in
-// base 10, reals in shortest 'g' form, booleans, infinity as "*", and
-// quantities as their magnitude in the unit written: `2290000 [kg]`.
+// session reaches them by (`car.wheels[2]`), verdicts, states and events by
+// their summary, strings as their text, integers in base 10, reals in shortest
+// 'g' form, booleans, infinity as "*", and quantities as their magnitude in
+// the unit written: `2290000 [kg]`.
 func valueText(value queryexec.Value) string {
 	if element, ok := value.Element(); ok {
 		if fqn := symbols.FQNOf(element); fqn != "" {
@@ -511,6 +512,12 @@ func valueText(value queryexec.Value) string {
 	}
 	if verdict, ok := value.Verdict(); ok {
 		return verdict.Summary()
+	}
+	if state, ok := value.State(); ok {
+		return state.Label()
+	}
+	if event, ok := value.Event(); ok {
+		return event.Summary()
 	}
 	if text, ok := value.String(); ok {
 		return text

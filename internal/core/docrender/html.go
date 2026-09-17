@@ -511,6 +511,12 @@ func (w *htmlWriter) writeValue(value queryexec.Value) {
 	if _, ok := value.Verdict(); ok {
 		classes += " sysml-verdict"
 	}
+	if _, ok := value.State(); ok {
+		classes += " sysml-state"
+	}
+	if _, ok := value.Event(); ok {
+		classes += " sysml-event"
+	}
 	w.b.WriteString("<span class=\"" + classes + "\"" + attr("data-value-kind", string(value.Kind())) +
 		elementAttrs(value) + quantityAttrs(value) + ">" + htmlText(valueText(value)) + "</span>")
 }
@@ -859,7 +865,8 @@ func attr(name, value string) string {
 }
 
 // elementAttrs writes the element behind a row, item or value (an object's declaration,
-// a verdict's assertion), plus an object's identity or a verdict's status and carrier path.
+// a verdict's assertion, a state's declaration), plus an object's identity, a verdict's
+// status and carrier path, a state's machine and path, or an event's kind and instant.
 func elementAttrs(value queryexec.Value) string {
 	objectAttrs := ""
 	if inst, _, ok := value.Object(); ok {
@@ -870,6 +877,18 @@ func elementAttrs(value queryexec.Value) string {
 			objectAttrs = attr("data-object", "#"+strconv.FormatInt(carrier.ID, 10))
 		}
 		objectAttrs += attr("data-verdict", verdict.Status().String()) + attr("data-path", verdict.Path())
+	}
+	if state, ok := value.State(); ok {
+		if inst, _ := state.Object(); inst != nil {
+			objectAttrs = attr("data-object", "#"+strconv.FormatInt(inst.ID, 10))
+		}
+		objectAttrs += attr("data-machine", state.Machine()) + attr("data-state", state.Path()) + attr("data-region", state.Region())
+	}
+	if event, ok := value.Event(); ok {
+		if inst, _ := event.Object(); inst != nil {
+			objectAttrs = attr("data-object", "#"+strconv.FormatInt(inst.ID, 10))
+		}
+		objectAttrs += attr("data-event-kind", event.Kind()) + attr("data-time", strconv.FormatFloat(event.At(), 'g', -1, 64))
 	}
 	element := value.Declaration()
 	if element == nil {

@@ -336,16 +336,17 @@ body stating no flow still runs its statements in declaration order. The three b
 in *when* they run: entry and exit are performed whole at the instant the state is entered or
 left (as is a transition's `do` effect), so a body of theirs that waits on the clock is refused
 with `state behavior waits for the clock`; the `do` behavior runs while the state is active,
-one action per round, and may wait. An `accept after` in a do body parks it on the shared clock
-and `%advance` moves it; an `accept Sig` parks it until a matching signal is sent — `%send Sig`
-takes it though no transition fires on it, reporting that the do behavior goes on. A do behavior
-performs once — when its body ends, the state has completed and a completion transition out of
-it, if any, fires — and leaving the state for any other reason abandons what is left of it: its
-waits leave the clock, nothing after the wait runs, and an `inout` pin writes its value back to
-the bound attribute only when the performance ends (an `inout` pin valued by an enumeration
-literal or another constant, `inout mode = Mode::idle`, starts from that value and writes back
-nowhere). `Poll` below counts once at `t=3.0`, the
-state is left at `t=10.0`, and `ticks` reads `1`:
+one statement per round — each statement of a `for` or `while` iteration and of a nested block
+or branch its own, one step of a flow the body states, each of its tokens one node — and may wait. An `accept after` in a do body parks it on the shared clock and `%advance`
+moves it; an `accept Sig` parks it until a matching signal is sent — `%send Sig` takes it though
+no transition fires on it, reporting that the do behavior goes on. A do behavior performs once —
+when its body ends, the state has completed and a completion transition out of it, if any, fires
+— and leaving the state for any other reason abandons what is left of it: the statements after
+the one it last ran do not run, its waits leave the clock, and an `inout` pin writes its value
+back to the bound attribute only when the performance ends (an `inout` pin valued by an
+enumeration literal or another constant, `inout mode = Mode::idle`, starts from that value and
+writes back nowhere). `Poll` below counts once at `t=3.0`, the state is left at `t=10.0`, and
+`ticks` reads `1`:
 
 ```sysml
 sysml> package Watch {

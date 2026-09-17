@@ -107,11 +107,15 @@ jobs:
         run: scripts/build-release-artifacts.sh dist
 
       # Keyless, like the stable release; the identity is this workflow's OIDC identity.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+        with:
+          cosign-release: v3.0.3
+
       - name: Sign the checksum manifest with cosign keyless
         run: |
-          go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.3
           cd dist
-          "$(go env GOPATH)/bin/cosign" sign-blob SHA256SUMS.txt \
+          cosign sign-blob SHA256SUMS.txt \
             --bundle SHA256SUMS.txt.bundle \
             --use-signing-config=false \
             --yes
@@ -121,7 +125,7 @@ jobs:
           WORKFLOW_REF: ${{ github.workflow_ref }}
         run: |
           cd dist
-          "$(go env GOPATH)/bin/cosign" verify-blob SHA256SUMS.txt \
+          cosign verify-blob SHA256SUMS.txt \
             --bundle SHA256SUMS.txt.bundle \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             --certificate-identity "https://github.com/${WORKFLOW_REF}"

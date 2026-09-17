@@ -1,0 +1,12 @@
+{
+  "rpc": "RunDocumentQuery",
+  "instantiate": ["Lamps::lamp"],
+  "query_id": "Lamps::Off",
+  "expected_columns": ["qualifiedName"],
+  "expected_rows": [
+    {
+      "element": {"kind": "object", "value": "Lamps::lamp (#1) : Lamps::lamp (PartUsage)"},
+      "cells": [[{"kind": "string_value", "value": "Lamps::lamp"}]]
+    }
+  ]
+}

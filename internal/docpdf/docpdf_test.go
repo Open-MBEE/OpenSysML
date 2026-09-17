@@ -499,3 +499,51 @@ func TestLuaString(t *testing.T) {
 		}
 	}
 }
+
+// TestRenderStateReportPage hands the engines the state-and-event report as the
+// HTML backend's page: three captioned tables whose cells carry each state's
+// machine and path or each event's kind and instant, and two lists of summaries.
+func TestRenderStateReportPage(t *testing.T) {
+	dir := t.TempDir()
+	capture := captureWeasyPrint(t, dir)
+	document := stateDocument(t)
+	if _, err := Render(document, "weasyprint", Options{TOC: true}); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	page, _ := readCapture(t, capture)
+	want, err := docrender.HTML(document, docrender.HTMLOptions{
+		TOC:         true,
+		Stylesheets: []docrender.Stylesheet{docrender.InlineStylesheet(PrintStylesheet)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page != want {
+		t.Fatalf("page differs from the HTML backend's with the print stylesheet:\n%s", page)
+	}
+	if got := strings.Count(page, `<caption class="sysml-caption">`); got != 3 {
+		t.Errorf("page has %d captions, want 3:\n%s", got, page)
+	}
+	if got := strings.Count(page, `<ul class="sysml-list"`); got != 2 {
+		t.Errorf("page has %d lists, want 2:\n%s", got, page)
+	}
+	for _, want := range []string{
+		`<caption class="sysml-caption">Active states of every lamp</caption>`,
+		`<tr class="sysml-row" data-object="#1" data-machine="lp" data-state="on.dim" data-region="light" data-element="Lamps::LampMachine::on::light::dim" data-element-kind="stateUsage">`,
+		`<tr class="sysml-row" data-object="#1" data-event-kind="accept" data-time="1" data-element="Lamps::LampMachine" data-element-kind="stateDef">`,
+		`<span class="sysml-value" data-value-kind="quantity" data-magnitude="1" data-unit="s">1 [s]</span>`,
+		`<span class="sysml-value" data-value-kind="string">level = 3</span>`,
+		`<li class="sysml-item" data-object="#1" data-event-kind="entry" data-time="0" data-element="Lamps::LampMachine" data-element-kind="stateDef">t=0 lamp1.lp: enter: on</li>`,
+		`<li class="sysml-item" data-object="#1" data-machine="lp" data-state="on.fast" data-region="fan" data-element="Lamps::LampMachine::on::fan::fast" data-element-kind="stateUsage">lamp1.lp in on.fast</li>`,
+		"@layer opensysml-print",
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("state report markup missing from the page: %q\n%s", want, page)
+		}
+	}
+	for _, stray := range []string{`\[`, "<!-- caption -->", `class="caption"`, " style=\""} {
+		if strings.Contains(page, stray) {
+			t.Errorf("page leaks %q:\n%s", stray, page)
+		}
+	}
+}
