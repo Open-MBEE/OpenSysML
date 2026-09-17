@@ -261,3 +261,258 @@ calc def Bad :> Query {
 		})
 	}
 }
+
+func TestCompileRelatedColumns(t *testing.T) {
+	fixture := loadQueryFixture(t, computedFixture+`
+calc def Matrix :> Query {
+	in root : Element;
+	in depth : Integer = 1;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		properties = ("name"),
+		columns = (
+			RelatedColumn(name = "satisfiedBy", relationshipKind = "satisfaction", direction = "incoming", maxDepth = depth),
+			RelatedColumn("verifications", "verification", "incoming", 1, "count"),
+			RelatedColumn(name = "verified", relationshipKind = "verification", direction = "incoming", maxDepth = 1, aggregate = "any"),
+			Column(name = "label", expression = "req: " + Element::name)
+		)
+	)
+}
+`)
+	program := fixture.compile(t, "Matrix")
+	definition := entryDefinition(t, program)
+	var columns Expression
+	for _, argument := range definition.Expression().Arguments() {
+		if argument.Name == "columns" {
+			columns = argument.Value
+		}
+	}
+	elements := columns.Arguments()
+	if len(elements) != 4 {
+		t.Fatalf("columns = %d, want 4", len(elements))
+	}
+	want := []struct {
+		operation Operation
+		name      string
+		arguments []string
+	}{
+		{OperationRelatedColumn, "satisfiedBy", []string{"relationshipKind", "direction", "maxDepth"}},
+		{OperationRelatedColumn, "verifications", []string{"relationshipKind", "direction", "maxDepth", "aggregate"}},
+		{OperationRelatedColumn, "verified", []string{"relationshipKind", "direction", "maxDepth", "aggregate"}},
+		{OperationColumn, "label", []string{"expression"}},
+	}
+	for i, element := range elements {
+		column := element.Value
+		if column.Operation() != want[i].operation || column.Target() != want[i].name {
+			t.Fatalf("column %d = %s %q, want %s %q", i, column.Operation(), column.Target(), want[i].operation, want[i].name)
+		}
+		if !column.Origin().Located() {
+			t.Fatalf("column %d must carry source provenance", i)
+		}
+		var names []string
+		for _, argument := range column.Arguments() {
+			names = append(names, argument.Name)
+		}
+		if len(names) != len(want[i].arguments) {
+			t.Fatalf("column %d arguments = %v, want %v", i, names, want[i].arguments)
+		}
+		for j, name := range names {
+			if name != want[i].arguments[j] {
+				t.Fatalf("column %d arguments = %v, want %v", i, names, want[i].arguments)
+			}
+		}
+	}
+	depth, _ := argumentOf(t, elements[0].Value, "maxDepth")
+	if depth.Operation() != OperationParameter || depth.Target() != "depth" {
+		t.Fatalf("maxDepth = %s %q, want the depth parameter", depth.Operation(), depth.Target())
+	}
+	aggregate, _ := argumentOf(t, elements[1].Value, "aggregate")
+	if kind, text := aggregate.Literal(); aggregate.Operation() != OperationLiteral || kind != LiteralString || text != `"count"` {
+		t.Fatalf("aggregate = %s %s %s", aggregate.Operation(), kind, text)
+	}
+}
+
+func argumentOf(t *testing.T, expression Expression, name string) (Expression, bool) {
+	t.Helper()
+	for _, argument := range expression.Arguments() {
+		if argument.Name == name {
+			return argument.Value, true
+		}
+	}
+	t.Fatalf("missing argument %s", name)
+	return Expression{}, false
+}
+
+func TestCompileRelatedColumnDiagnostics(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		kind ErrorKind
+	}{
+		{
+			name: "non-literal column name",
+			kind: ErrorColumnName,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	in label : String;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (RelatedColumn(name = label, relationshipKind = "satisfaction", direction = "incoming", maxDepth = 1))
+	)
+}`,
+		},
+		{
+			name: "non-literal positional column name",
+			kind: ErrorColumnName,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (RelatedColumn(42, "satisfaction", "incoming", 1))
+	)
+}`,
+		},
+		{
+			name: "missing name",
+			kind: ErrorMissingArgument,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (RelatedColumn(relationshipKind = "satisfaction", direction = "incoming", maxDepth = 1))
+	)
+}`,
+		},
+		{
+			name: "missing direction",
+			kind: ErrorMissingArgument,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (RelatedColumn(name = "satisfiedBy", relationshipKind = "satisfaction", maxDepth = 1))
+	)
+}`,
+		},
+		{
+			name: "too few positional arguments",
+			kind: ErrorArgumentCount,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (RelatedColumn("satisfiedBy", "satisfaction", "incoming"))
+	)
+}`,
+		},
+		{
+			name: "too many positional arguments",
+			kind: ErrorArgumentCount,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (RelatedColumn("satisfiedBy", "satisfaction", "incoming", 1, "list", "extra"))
+	)
+}`,
+		},
+		{
+			name: "unknown argument",
+			kind: ErrorUnknownArgument,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (RelatedColumn(name = "satisfiedBy", relationshipKind = "satisfaction", direction = "incoming", maxDepth = 1, depth = 2))
+	)
+}`,
+		},
+		{
+			name: "duplicate argument",
+			kind: ErrorDuplicateArgument,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (RelatedColumn(name = "satisfiedBy", relationshipKind = "satisfaction", direction = "incoming", direction = "outgoing", maxDepth = 1))
+	)
+}`,
+		},
+		{
+			name: "mistyped depth",
+			kind: ErrorArgumentType,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (RelatedColumn(name = "satisfiedBy", relationshipKind = "satisfaction", direction = "incoming", maxDepth = "one"))
+	)
+}`,
+		},
+		{
+			name: "mistyped relationship kind",
+			kind: ErrorArgumentType,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (RelatedColumn(name = "satisfiedBy", relationshipKind = 1, direction = "incoming", maxDepth = 1))
+	)
+}`,
+		},
+		{
+			name: "unsupported aggregate",
+			kind: ErrorColumnAggregate,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (RelatedColumn(name = "satisfiedBy", relationshipKind = "satisfaction", direction = "incoming", maxDepth = 1, aggregate = "sum"))
+	)
+}`,
+		},
+		{
+			name: "duplicate related column name",
+			kind: ErrorDuplicateColumn,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		properties = ("name"),
+		columns = (RelatedColumn(name = "name", relationshipKind = "satisfaction", direction = "incoming", maxDepth = 1))
+	)
+}`,
+		},
+		{
+			name: "related column outside a projection",
+			kind: ErrorInvalidColumn,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	RelatedColumn(name = "satisfiedBy", relationshipKind = "satisfaction", direction = "incoming", maxDepth = 1)
+}`,
+		},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			fixture := loadQueryFixture(t, computedFixture+test.body)
+			_, err := Compile(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, "Bad"))
+			planning := planningError(t, err, test.kind)
+			if !planning.Origin.Located() {
+				t.Fatal("planning diagnostics must carry source spans")
+			}
+		})
+	}
+}

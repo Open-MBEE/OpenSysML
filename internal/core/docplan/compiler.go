@@ -1124,7 +1124,7 @@ func literalStrings(value queryplan.Expression) ([]string, bool) {
 }
 
 // columnNames extracts the explicit names of a projection's planned
-// computed columns.
+// computed and relationship-derived columns.
 func columnNames(value queryplan.Expression) []string {
 	if value.Operation() == queryplan.OperationSequence {
 		var out []string
@@ -1133,7 +1133,8 @@ func columnNames(value queryplan.Expression) []string {
 		}
 		return out
 	}
-	if value.Operation() == queryplan.OperationColumn {
+	switch value.Operation() {
+	case queryplan.OperationColumn, queryplan.OperationRelatedColumn:
 		return []string{value.Target()}
 	}
 	return nil

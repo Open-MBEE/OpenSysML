@@ -71,8 +71,26 @@ func (e *executor) evaluateRelated(expression queryplan.Expression) (sequence, e
 	if err != nil {
 		return sequence{}, err
 	}
+	if err := e.validateRelationship(expression, kind, direction); err != nil {
+		return sequence{}, err
+	}
+	roots := make([]*symbols.Symbol, 0, len(source.values))
+	for _, value := range source.values {
+		sym, _ := value.Element()
+		roots = append(roots, sym)
+	}
+	values, err := e.traverseRelated(expression, kind, direction, maxDepth, roots)
+	if err != nil {
+		return sequence{}, err
+	}
+	return sequence{values: values}, nil
+}
+
+// validateRelationship rejects a relationship kind or direction the traversal
+// does not define, as the typed errors RelatedElements reports.
+func (e *executor) validateRelationship(expression queryplan.Expression, kind, direction string) error {
 	if !supportedRelationship(kind) {
-		return sequence{}, &Error{
+		return &Error{
 			Kind:      ErrorUnknownRelationship,
 			Query:     e.definition.Name(),
 			Operation: expression.Operation(),
@@ -81,20 +99,31 @@ func (e *executor) evaluateRelated(expression queryplan.Expression) (sequence, e
 		}
 	}
 	if direction != directionOutgoing && direction != directionIncoming {
-		return sequence{}, e.operatorError(expression, direction)
+		return e.operatorError(expression, direction)
 	}
+	return nil
+}
+
+// traverseRelated walks the given relationship kind breadth-first from the
+// roots to maxDepth, yielding each reached element once by semantic identity
+// in traversal order; every element reached charges the visit budget.
+func (e *executor) traverseRelated(
+	expression queryplan.Expression,
+	kind, direction string,
+	maxDepth int64,
+	roots []*symbols.Symbol,
+) ([]Value, error) {
 	type pending struct {
 		sym   *symbols.Symbol
 		depth int64
 	}
-	queue := make([]pending, 0, len(source.values))
+	queue := make([]pending, 0, len(roots))
 	seen := make(map[symbols.ElementKey]struct{})
-	for _, value := range source.values {
-		sym, _ := value.Element()
+	for _, sym := range roots {
 		seen[symbols.KeyOf(sym)] = struct{}{}
 		queue = append(queue, pending{sym: sym})
 	}
-	var result sequence
+	var result []Value
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
@@ -103,7 +132,7 @@ func (e *executor) evaluateRelated(expression queryplan.Expression) (sequence, e
 		}
 		neighbors, err := e.relatedNeighbors(expression, kind, direction, next.sym)
 		if err != nil {
-			return sequence{}, err
+			return nil, err
 		}
 		for _, neighbor := range neighbors {
 			key := symbols.KeyOf(neighbor)
@@ -111,10 +140,10 @@ func (e *executor) evaluateRelated(expression queryplan.Expression) (sequence, e
 				continue
 			}
 			if !e.consumeVisit() {
-				return sequence{}, e.budgetError(expression)
+				return nil, e.budgetError(expression)
 			}
 			seen[key] = struct{}{}
-			result.values = append(result.values, ElementValue(neighbor))
+			result = append(result, ElementValue(neighbor))
 			queue = append(queue, pending{sym: neighbor, depth: next.depth + 1})
 		}
 	}

@@ -229,4 +229,15 @@ library package DocumentQueries {
 		attribute palette : String[0..1];
 		ref source : Element[0..1];
 	}
+
+	/* A relationship-derived Project column: the elements RelatedElements
+	 * reaches from each row, as a "list" (default), a "count" or "any". */
+	calc def RelatedColumn {
+		in name : String[1];
+		in relationshipKind : String[1];
+		in direction : String[1];
+		in maxDepth : Integer[1];
+		in aggregate : String[1] = "list";
+		return result : ColumnSpec[1];
+	}
 }

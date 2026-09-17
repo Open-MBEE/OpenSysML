@@ -218,4 +218,69 @@ package Cookbook {
 		in root : Element;
 		WhereFeature(source = Verdicts(source = root), 'feature' = "verdict", operator = "=", value = "violated")
 	}
+
+	// ---- Traceability: requirements, what satisfies them, what verifies them ----
+
+	package Traceability {
+		requirement <'TR-1'> pointingRequirement;
+		requirement <'TR-2'> thermalRequirement;
+		requirement <'TR-3'> downlinkRequirement;
+
+		part gimbal;
+		part radiator;
+		part transmitter;
+		part spacecraft {
+			satisfy pointingRequirement by gimbal;
+			satisfy thermalRequirement by radiator;
+			satisfy downlinkRequirement by transmitter;
+		}
+
+		verification pointingTest : MassTest {
+			objective {
+				verify pointingRequirement;
+			}
+		}
+		verification pointingAnalysis : MassTest {
+			objective {
+				verify pointingRequirement;
+			}
+		}
+		verification thermalTest : MassTest {
+			objective {
+				verify thermalRequirement;
+			}
+		}
+	}
+
+	calc def TraceMatrix :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(
+				source = Descendants(source = root, maxDepth = 1),
+				type = "RequirementUsage"
+			),
+			properties = ("shortName", "name"),
+			columns = (
+				RelatedColumn(name = "satisfiedBy", relationshipKind = "satisfaction", direction = "incoming", maxDepth = 1),
+				RelatedColumn(name = "verifiedBy", relationshipKind = "verification", direction = "incoming", maxDepth = 1),
+				RelatedColumn(
+					name = "verifications",
+					relationshipKind = "verification",
+					direction = "incoming",
+					maxDepth = 1,
+					aggregate = "count"
+				)
+			)
+		)
+	}
+
+	calc def Unverified :> Query {
+		in root : Element;
+		WhereFeature(
+			source = TraceMatrix(root = root),
+			'feature' = "verifications",
+			operator = "=",
+			value = "0"
+		)
+	}
 }

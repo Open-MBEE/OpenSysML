@@ -25,7 +25,10 @@ was produced by it.
 6. [Interfaces](interfaces.md) — CLI flags, REPL commands, the gRPC and Python
    APIs, and VS Code/LSP authoring support
 7. [A complete worked example](worked-example.md) — a telescope mass report
-   with its full source and full rendered output
+   with its full source and full rendered output; the
+   [traceability example](examples/traceability.md)
+   ([source](examples/traceability.sysml)) renders every requirement's
+   satisfiers, verifiers and verdicts in one report
 8. [Limitations and troubleshooting](troubleshooting.md) — the typed error
    catalog and the current limitations
 
