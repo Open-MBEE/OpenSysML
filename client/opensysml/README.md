@@ -128,7 +128,7 @@ defer session.Close()
 hero, err := session.Instantiate("Play::hero")           // starts the machines it exhibits
 err = session.SetSchedule("seed:42")                     // the dice later runs roll
 states, err := session.ActiveStates(hero)                // ["town"]
-transitions, err := session.Transitions(hero)            // out of each active state: Source, Target, Trigger, Signal, Guarded
+transitions, err := session.Transitions(hero)            // out of each active state and those enclosing it: Source, Target, Trigger, Signal, Guarded
 acceptance, err := session.Accepts(hero, "Play::Go", nil) // Accepted; Enabled() is whether a guard holds now
 _, err = session.Send(hero, "Play::Go", nil)             // posts it, or refuses with CodeFailedPrecondition
 advanced, err := session.Advance(1)                      // dispatches, completion transitions included; Choices
@@ -163,8 +163,9 @@ identically over both — and a session over the wire, if one is added, will be
 a set of RPCs with the same fact-shaped answers.
 
 Misuse is refused, never a panic: a closed session answers `CodeUnavailable`;
-a signal no transition out of the active state accepts, or one whose every
-guard is false, `CodeFailedPrecondition`; an exploration policy or a negative
+a signal no transition out of an active state, or a state enclosing one,
+accepts in any machine the object exhibits, or one whose every guard is false,
+`CodeFailedPrecondition`; an exploration policy or a negative
 advance `CodeInvalidArgument`; an unknown symbol, object or action, or a run
 the model fails, a `*FailureError` as the request-scoped calls report them. A
 session holds its model in the client's cache and the objects it made until

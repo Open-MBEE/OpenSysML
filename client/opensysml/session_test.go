@@ -183,6 +183,92 @@ func TestSessionReportsTransitionsAndAcceptance(t *testing.T) {
 	}
 }
 
+// nestedSource exhibits two machines, one with a composite state whose own
+// transition leaves from whichever nested state is active.
+const nestedSource = `package Nest {
+	attribute def Abort;
+	attribute def Step;
+	attribute def Spin;
+	part def Unit {
+		exhibit state work {
+			entry; then working;
+			state working {
+				entry; then step1;
+				state step1;
+				state step2;
+				transition step1_step2 first step1 accept Step then step2;
+			}
+			state done;
+			transition working_done first working accept Abort then done;
+		}
+		exhibit state fan {
+			entry; then off;
+			state off;
+			state on;
+			transition off_on first off accept Spin then on;
+		}
+	}
+	part unit : Unit;
+}`
+
+func TestSessionSeesEnclosingStatesAndEveryMachine(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, nestedSource)
+	session, err := opensysml.OpenSession(client, model)
+	if err != nil {
+		t.Fatalf("OpenSession: %v", err)
+	}
+	t.Cleanup(func() { _ = session.Close() })
+	unit, err := session.Instantiate("Nest::unit")
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if got := activeStates(t, session, unit); !reflect.DeepEqual(got, []string{"step1", "off"}) {
+		t.Fatalf("ActiveStates = %v, want [step1 off], one per machine", got)
+	}
+	transitions, err := session.Transitions(unit)
+	if err != nil {
+		t.Fatalf("Transitions: %v", err)
+	}
+	want := []opensysml.Transition{
+		{Name: "step1_step2", Source: "step1", Target: "step2", Trigger: opensysml.TriggerSignal, Signal: "Step"},
+		{Name: "working_done", Source: "working", Target: "done", Trigger: opensysml.TriggerSignal, Signal: "Abort"},
+		{Name: "off_on", Source: "off", Target: "on", Trigger: opensysml.TriggerSignal, Signal: "Spin"},
+	}
+	if !reflect.DeepEqual(transitions, want) {
+		t.Errorf("Transitions = %+v, want the nested state's, then its enclosing state's, then the second machine's", transitions)
+	}
+
+	// The enclosing state's transition is accepted while a nested state is active.
+	acceptance, err := session.Accepts(unit, "Nest::Abort", nil)
+	if err != nil || !acceptance.Accepted || len(acceptance.Fires) != 1 || acceptance.Fires[0].Name != "working_done" {
+		t.Fatalf("Accepts Abort = %+v, %v; want working_done", acceptance, err)
+	}
+	// The second machine's signal is accepted and dispatched to it alone.
+	acceptance, err = session.Accepts(unit, "Nest::Spin", nil)
+	if err != nil || !acceptance.Accepted || len(acceptance.Fires) != 1 || acceptance.Fires[0].Name != "off_on" {
+		t.Fatalf("Accepts Spin = %+v, %v; want off_on", acceptance, err)
+	}
+	if _, err := session.Send(unit, "Nest::Spin", nil); err != nil {
+		t.Fatalf("Send Spin: %v", err)
+	}
+	if _, err := session.Advance(0); err != nil {
+		t.Fatalf("Advance: %v", err)
+	}
+	if got := activeStates(t, session, unit); !reflect.DeepEqual(got, []string{"step1", "on"}) {
+		t.Errorf("ActiveStates after Spin = %v, want [step1 on]", got)
+	}
+	if _, err := session.Send(unit, "Nest::Abort", nil); err != nil {
+		t.Fatalf("Send Abort: %v", err)
+	}
+	if _, err := session.Advance(0); err != nil {
+		t.Fatalf("Advance: %v", err)
+	}
+	if got := activeStates(t, session, unit); !reflect.DeepEqual(got, []string{"done", "on"}) {
+		t.Errorf("ActiveStates after Abort = %v, want [done on]", got)
+	}
+}
+
 func TestSessionPerformReportsBranchesAndChoices(t *testing.T) {
 	session, hero := openSession(t)
 

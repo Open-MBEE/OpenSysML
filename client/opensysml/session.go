@@ -237,8 +237,10 @@ func transitionFromFact(t sysmlgrpc.SessionTransition) Transition {
 	return Transition{Name: t.Name, Source: t.Source, Target: t.Target, Trigger: TriggerKind(t.Trigger), Signal: t.Signal, Guarded: t.Guarded}
 }
 
-// ActiveStates names the states the object's exhibited state machine is in,
-// outermost first; a FailureError when the object exhibits none.
+// ActiveStates names the innermost active states of every state machine the
+// object exhibits, machine by machine in declaration order, one per active
+// region; the composite states enclosing them are active too. A FailureError
+// when the object exhibits none.
 func (s *Session) ActiveStates(object InstanceID) (states []string, err error) {
 	err = s.answer("ActiveStates", func() error {
 		states, err = s.engine.ActiveStates(int64(object))
@@ -247,9 +249,11 @@ func (s *Session) ActiveStates(object InstanceID) (states []string, err error) {
 	return states, err
 }
 
-// Transitions lists the transitions out of each active state of the object's
-// exhibited state machine, in declaration order, so a caller can offer what
-// the machine could do next.
+// Transitions lists the transitions dispatch could select now, machine by
+// machine: those out of each active state and then of each state enclosing
+// it, innermost first as dispatch tries them, each in declaration order. A
+// caller offers them as what the object could do next; Source tells which
+// state declares each.
 func (s *Session) Transitions(object InstanceID) (transitions []Transition, err error) {
 	err = s.answer("Transitions", func() error {
 		facts, err := s.engine.Transitions(int64(object))
@@ -293,8 +297,9 @@ func acceptanceFromFact(a *sysmlgrpc.SessionAcceptance) *Acceptance {
 }
 
 // Accepts says what sending the signal to the object would do now, without
-// sending it: whether a transition accepts it and whether its guard holds. The
-// signal definition is named by ID; args bind its attributes.
+// sending it: whether a transition of any machine it exhibits, an enclosing
+// state's included, accepts it and whether its guard holds. The signal
+// definition is named by ID; args bind its attributes.
 func (s *Session) Accepts(object InstanceID, signalID string, args map[string]Value) (acceptance *Acceptance, err error) {
 	err = s.answer("Accepts", func() error {
 		sent, err := valuesToProto(args)
@@ -313,7 +318,8 @@ func (s *Session) Accepts(object InstanceID, signalID string, args map[string]Va
 
 // Send posts the signal to the object; Advance then dispatches it and runs
 // what follows, completion transitions included. A signal no transition out of
-// the active state accepts, or one whose every guard is false, is refused with
+// an active state or a state enclosing one accepts, in any machine the object
+// exhibits, or one whose every guard is false, is refused with
 // CodeFailedPrecondition and nothing is posted.
 func (s *Session) Send(object InstanceID, signalID string, args map[string]Value) (acceptance *Acceptance, err error) {
 	err = s.answer("Send", func() error {

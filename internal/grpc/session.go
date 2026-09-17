@@ -323,40 +323,44 @@ func (ss *Session) Members(symbolID string) ([]SessionMember, error) {
 	return members, nil
 }
 
-// ActiveStates names the states the object's exhibited state machine is in.
+// ActiveStates names the innermost active states of every machine the object
+// exhibits, machine by machine in declaration order; the composite states
+// enclosing them are active too.
 func (ss *Session) ActiveStates(object int64) ([]string, error) {
 	done, err := ss.enter()
 	if err != nil {
 		return nil, err
 	}
 	defer done()
-	machine, err := ss.machine(object)
+	machines, err := ss.machines(object)
 	if err != nil {
 		return nil, err
 	}
 	var names []string
-	for _, state := range machine.ActiveStates() {
-		names = append(names, state.Name)
+	for _, machine := range machines {
+		for _, state := range machine.ActiveLeaves() {
+			names = append(names, state.Name)
+		}
 	}
 	return names, nil
 }
 
-// Transitions lists the transitions out of each active state of the object's
-// exhibited state machine, in declaration order.
+// Transitions lists the transitions dispatch could select now in every machine
+// the object exhibits: out of each active state and then of each state
+// enclosing it, innermost first, in declaration order.
 func (ss *Session) Transitions(object int64) ([]SessionTransition, error) {
 	done, err := ss.enter()
 	if err != nil {
 		return nil, err
 	}
 	defer done()
-	machine, err := ss.machine(object)
+	machines, err := ss.machines(object)
 	if err != nil {
 		return nil, err
 	}
-	graph := machine.Graph()
 	var out []SessionTransition
-	for _, state := range machine.ActiveStates() {
-		for _, trans := range graph.Transitions[state] {
+	for _, machine := range machines {
+		for _, trans := range machine.OutgoingTransitions() {
 			out = append(out, transitionFact(trans))
 		}
 	}
@@ -396,68 +400,72 @@ func (ss *Session) Accepts(object int64, signalID string, args map[string]*pb.Va
 		return nil, err
 	}
 	defer done()
-	machine, msg, err := ss.signal(object, signalID, args)
+	machines, msg, err := ss.signal(object, signalID, args)
 	if err != nil {
 		return nil, err
 	}
-	return ss.decide(machine, msg)
+	return ss.decide(machines, msg)
 }
 
-// decide reads what the machine would do with the message.
-func (ss *Session) decide(machine *runtime.StateExecutor, msg runtime.Message) (*SessionAcceptance, error) {
-	accepted, err := machine.AcceptsMessage(msg)
-	if err != nil {
-		return nil, sessionFailuref("deciding the signal failed: %v", err)
+// decide reads what the object's machines, together, would do with the message:
+// each that accepts it contributes what it would fire, resume or defer.
+func (ss *Session) decide(machines []*runtime.StateExecutor, msg runtime.Message) (*SessionAcceptance, error) {
+	out := &SessionAcceptance{}
+	for _, machine := range machines {
+		accepted, err := machine.AcceptsMessage(msg)
+		if err != nil {
+			return nil, sessionFailuref("deciding the signal failed: %v", err)
+		}
+		if !accepted {
+			continue
+		}
+		out.Accepted = true
+		decision, transitions, err := machine.DecideTransitions(msg)
+		if err != nil {
+			return nil, sessionFailuref("deciding the signal failed: %v", err)
+		}
+		for _, trans := range transitions {
+			out.Fires = append(out.Fires, transitionFact(trans))
+		}
+		out.Deferred = out.Deferred || decision.Deferred
+		out.Resumes = append(out.Resumes, decision.Resumes...)
 	}
-	out := &SessionAcceptance{Accepted: accepted}
-	if !accepted {
-		return out, nil
-	}
-	decision, transitions, err := machine.DecideTransitions(msg)
-	if err != nil {
-		return nil, sessionFailuref("deciding the signal failed: %v", err)
-	}
-	for _, trans := range transitions {
-		out.Fires = append(out.Fires, transitionFact(trans))
-	}
-	out.Deferred = decision.Deferred
-	out.Resumes = append(out.Resumes, decision.Resumes...)
 	return out, nil
 }
 
-// Send posts the signal to the object, refusing one its machine would do
-// nothing with; Advance then dispatches it.
+// Send posts the signal to the object, refusing one none of its machines would
+// do anything with; Advance then dispatches it.
 func (ss *Session) Send(object int64, signalID string, args map[string]*pb.Value) (*SessionAcceptance, error) {
 	done, err := ss.enter()
 	if err != nil {
 		return nil, err
 	}
 	defer done()
-	machine, msg, err := ss.signal(object, signalID, args)
+	machines, msg, err := ss.signal(object, signalID, args)
 	if err != nil {
 		return nil, err
 	}
-	acceptance, err := ss.decide(machine, msg)
+	acceptance, err := ss.decide(machines, msg)
 	if err != nil {
 		return nil, err
 	}
 	if !acceptance.Accepted {
-		return nil, statusErrorf(connect.CodeFailedPrecondition, "no transition out of the active state accepts %s", signalID)
+		return nil, statusErrorf(connect.CodeFailedPrecondition, "no transition out of the active states accepts %s", signalID)
 	}
 	if !acceptance.Enabled() {
-		return nil, statusErrorf(connect.CodeFailedPrecondition, "the active state accepts %s but no guard on it holds", signalID)
+		return nil, statusErrorf(connect.CodeFailedPrecondition, "the active states accept %s but no guard on it holds", signalID)
 	}
 	ss.rt.PostMessage(msg)
 	return acceptance, nil
 }
 
 // signal builds the message the signal definition sends to the object.
-func (ss *Session) signal(object int64, signalID string, args map[string]*pb.Value) (*runtime.StateExecutor, runtime.Message, error) {
+func (ss *Session) signal(object int64, signalID string, args map[string]*pb.Value) ([]*runtime.StateExecutor, runtime.Message, error) {
 	inst, err := ss.object(object)
 	if err != nil {
 		return nil, runtime.Message{}, err
 	}
-	machine, err := ss.machineOf(inst, object)
+	machines, err := ss.machinesOf(inst, object)
 	if err != nil {
 		return nil, runtime.Message{}, err
 	}
@@ -476,7 +484,7 @@ func (ss *Session) signal(object int64, signalID string, args map[string]*pb.Val
 	if err != nil {
 		return nil, runtime.Message{}, sessionFailuref("signal %s could not be built: %v", signalID, err)
 	}
-	return machine, msg, nil
+	return machines, msg, nil
 }
 
 // Advance moves the session's clock by seconds, dispatching what is due.
@@ -637,21 +645,26 @@ func (ss *Session) object(id int64) (*runtime.Instance, error) {
 	return inst, nil
 }
 
-// machine is the state machine the object exhibits.
-func (ss *Session) machine(object int64) (*runtime.StateExecutor, error) {
+// machines are the state machines the object exhibits, in declaration order.
+func (ss *Session) machines(object int64) ([]*runtime.StateExecutor, error) {
 	inst, err := ss.object(object)
 	if err != nil {
 		return nil, err
 	}
-	return ss.machineOf(inst, object)
+	return ss.machinesOf(inst, object)
 }
 
-func (ss *Session) machineOf(inst *runtime.Instance, object int64) (*runtime.StateExecutor, error) {
-	exhibited, ok := inst.ExhibitedState()
-	if !ok || exhibited.State == nil {
+func (ss *Session) machinesOf(inst *runtime.Instance, object int64) ([]*runtime.StateExecutor, error) {
+	var machines []*runtime.StateExecutor
+	for _, exhibited := range inst.ExhibitedStates() {
+		if exhibited.State != nil {
+			machines = append(machines, exhibited.State)
+		}
+	}
+	if len(machines) == 0 {
 		return nil, sessionFailuref("object %d exhibits no state machine", object)
 	}
-	return exhibited.State, nil
+	return machines, nil
 }
 
 // value reads one named wire value as the session's runtime holds it; a value of

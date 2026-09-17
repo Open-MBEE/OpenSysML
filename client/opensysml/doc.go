@@ -57,7 +57,8 @@
 // it is opened from a Client, so a program reaches it through the same handle
 // and model it uses for everything else, but only a client New returned can
 // answer it, and a Dial client is refused with CodeUnimplemented. What a
-// Session answers is facts — the transitions out of the active state and what
+// Session answers is facts — the transitions out of the active states, and
+// the states enclosing them, of every machine an object exhibits and what
 // fires them, whether a signal's guard holds now, the choice points a run made,
 // whether an action's opening decision turned its caller away — never the
 // engine's own graphs or objects, so the boundary the rest of the package keeps

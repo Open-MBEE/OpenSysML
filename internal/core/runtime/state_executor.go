@@ -4431,6 +4431,31 @@ func (e *StateExecutor) ActiveStates() []*ast.StateNode {
 	return e.activeStates()
 }
 
+// ActiveLeaves returns the innermost active states, one per active region, in
+// region order; the composite states enclosing them are active too.
+func (e *StateExecutor) ActiveLeaves() []*ast.StateNode {
+	return e.activeLeaves()
+}
+
+// OutgoingTransitions lists the transitions dispatch could select now: those
+// out of each active leaf and then of each state enclosing it, innermost first
+// as dispatch tries them, each in declaration order and a shared enclosing
+// state's once.
+func (e *StateExecutor) OutgoingTransitions() []*lower.Transition {
+	var out []*lower.Transition
+	listed := make(map[*ast.StateNode]bool)
+	for _, leaf := range e.activeLeaves() {
+		for _, source := range e.getParentChain(leaf) {
+			if listed[source] {
+				continue
+			}
+			listed[source] = true
+			out = append(out, e.graph.Transitions[source]...)
+		}
+	}
+	return out
+}
+
 // GetStateVisits returns the ordered list of visited state names.
 func (e *StateExecutor) GetStateVisits() []string {
 	return e.stateVisits

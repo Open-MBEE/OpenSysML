@@ -247,8 +247,9 @@ refuses with `CodeUnimplemented`.
 To play a model one step at a time instead — instantiate a part, offer its state machine a
 signal, perform an action on it, read what changed — open a `Session` with
 `opensysml.OpenSession(client, model)`: it keeps the clock, the schedule and the objects it made
-between calls and answers facts (the transitions out of the active state, whether a guard holds
-now, the choices a run made). Only a `New` client answers it; a `Dial` client refuses with
+between calls and answers facts (the transitions out of the active states and the states
+enclosing them in every machine the object exhibits, whether a guard holds now, the choices a
+run made). Only a `New` client answers it; a `Dial` client refuses with
 `CodeUnimplemented`, since no RPC carries state between calls. The Legend of the Red Dragon
 browser game under `examples/lord-demo/web` is written on it and nothing else.
 
