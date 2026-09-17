@@ -55,7 +55,7 @@ func (g *Game) Played(outcome *Outcome) (*View, error) {
 		switch {
 		case outcome.Moved():
 			view.Lines = []string{fmt.Sprintf("You make your way to %s.", view.Screen.Title)}
-		case outcome.Refused():
+		case outcome.Refused:
 			view.Refused = true
 			view.Lines = []string{"You cannot do that as things stand."}
 		default:

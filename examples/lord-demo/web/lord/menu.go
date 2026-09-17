@@ -336,13 +336,13 @@ func (g *Game) perform(choice Choice, inputs map[string]string) (*Outcome, error
 	if choice.Action != "" {
 		return g.Invoke(choice.Action, args)
 	}
-	return g.run(func() ([]runtime.RunNote, error) {
+	return g.run(func() (deed, error) {
 		for name, v := range args {
 			if err := g.SetPreference(name, v); err != nil {
-				return nil, err
+				return deed{}, err
 			}
 		}
-		return nil, nil
+		return deed{}, nil
 	})
 }
 

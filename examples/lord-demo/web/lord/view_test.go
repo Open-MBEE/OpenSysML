@@ -65,6 +65,47 @@ func TestPlayedMarksARefusal(t *testing.T) {
 	}
 }
 
+func TestPlayedTellsANoOpFromARefusal(t *testing.T) {
+	g := newGame(t, 1, Character{})
+	if _, err := g.Play("K", nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"D", "W"} {
+		o, err := g.Play(key, map[string]string{"amount": "0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		v, err := g.Played(o)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if o.Refused || v.Refused || *o.Before != *o.After || len(v.Lines) != 1 || !strings.Contains(v.Lines[0], "Nothing comes of it") {
+			t.Fatalf("%s of nothing: refused=%v %q", key, v.Refused, v.Lines)
+		}
+	}
+	o, err := g.Play("W", map[string]string{"amount": "-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !o.Refused || *o.Before != *o.After {
+		t.Fatalf("withdrawing a negative sum: refused=%v %+v", o.Refused, *o.After)
+	}
+}
+
+func TestARefusalNeedNotEndAtDone(t *testing.T) {
+	g := newGame(t, 1, Character{})
+	if _, err := g.Send("VisitTheTrainingHall"); err != nil {
+		t.Fatal(err)
+	}
+	o, err := g.Invoke("train", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !o.Refused || o.After.Level != 1 || o.After.TrainedToday {
+		t.Fatalf("an untried warrior was trained: refused=%v %+v", o.Refused, *o.After)
+	}
+}
+
 func TestCharacterViewAsksForAWarrior(t *testing.T) {
 	v := CharacterView("Create one.")
 	if !v.Character || v.Warrior != nil || v.Screen != nil || len(v.Lines) != 1 {

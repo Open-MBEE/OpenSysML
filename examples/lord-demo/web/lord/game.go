@@ -59,6 +59,9 @@ type Game struct {
 	hero  *runtime.Instance
 	day   *runtime.StateExecutor
 	scope *symbols.Scope
+	// seed fixes the game's dice; deeds counts the direct actions performed, so
+	// each is run under dice of its own that the seed still determines.
+	seed, deeds uint64
 }
 
 // NewGame loads the model source into a fresh workspace, instantiates the hero
@@ -80,11 +83,7 @@ func NewGame(modelSource []byte, seed uint64, character Character) (*Game, error
 		return nil, fmt.Errorf("%w: %s is not declared", ErrModelInvalid, heroFQN)
 	}
 	ctx := runtime.NewContext(rt.Model(), maxSteps)
-	policy, err := runtime.ParseSchedulePolicy("seed:" + strconv.FormatUint(seed, 10))
-	if err != nil {
-		return nil, err
-	}
-	if err := ctx.SetSchedule(policy); err != nil {
+	if err := seedDice(ctx, seed); err != nil {
 		return nil, err
 	}
 	hero, err := ctx.Instantiate(heroSym)
@@ -95,11 +94,29 @@ func NewGame(modelSource []byte, seed uint64, character Character) (*Game, error
 	if !ok || exhibited.State == nil {
 		return nil, fmt.Errorf("%w: %s exhibits no state machine", ErrModelInvalid, heroFQN)
 	}
-	g := &Game{rt: rt, ctx: ctx, hero: hero, day: exhibited.State, scope: runtime.DeclScope(heroSym)}
+	g := &Game{rt: rt, ctx: ctx, hero: hero, day: exhibited.State, scope: runtime.DeclScope(heroSym), seed: seed}
 	if err := g.create(character); err != nil {
 		return nil, err
 	}
 	return g, nil
+}
+
+// seedDice makes the context's next runs draw their dice from seed.
+func seedDice(ctx *runtime.Context, seed uint64) error {
+	policy, err := runtime.ParseSchedulePolicy("seed:" + strconv.FormatUint(seed, 10))
+	if err != nil {
+		return err
+	}
+	return ctx.SetSchedule(policy)
+}
+
+// deedSeed is the seed the nth direct action rolls under: a seeded run starts its
+// dice over, so each deed gets a stream of its own, mixed from the game's seed.
+func deedSeed(seed, n uint64) uint64 {
+	z := seed + (n+1)*0x9e3779b97f4a7c15
+	z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9
+	z = (z ^ (z >> 27)) * 0x94d049bb133111eb
+	return z ^ (z >> 31)
 }
 
 // create writes the player's choices to the hero before the day begins.
@@ -169,27 +186,69 @@ func (g *Game) Send(signal string) (*Outcome, error) {
 	if !decision.Enabled() {
 		return nil, fmt.Errorf("%w: %s in %s", ErrRefused, signal, g.Location())
 	}
-	return g.run(func() ([]runtime.RunNote, error) {
+	return g.run(func() (deed, error) {
 		g.ctx.PostMessage(msg)
 		report, err := g.ctx.Advance(1)
-		return report.Notes, err
+		return deed{notes: report.Notes}, err
 	})
 }
 
 // Invoke performs one of the warrior's actions directly with the given
 // arguments, then lets the day machine take any completion transition it enables.
+// The deed is refused when the model turns the warrior away at its opening decision.
 func (g *Game) Invoke(action string, args map[string]runtime.Value) (*Outcome, error) {
-	if g.rt.Declared(modelDocName, warriorFQN+"::"+action) == nil {
+	sym := g.rt.Declared(modelDocName, warriorFQN+"::"+action)
+	if sym == nil {
 		return nil, fmt.Errorf("%w: action %s", ErrNoSuchCommand, action)
 	}
-	return g.run(func() ([]runtime.RunNote, error) {
-		if _, err := g.ctx.InvokeOperation(g.hero, action, args); err != nil {
-			return nil, err
+	return g.run(func() (deed, error) {
+		if err := seedDice(g.ctx, deedSeed(g.seed, g.deeds)); err != nil {
+			return deed{}, err
 		}
-		notes := g.ctx.Notes()
+		g.deeds++
+		exec, err := g.ctx.CreateActionExecutorWithInputs(sym, g.hero, args)
+		if err != nil {
+			return deed{}, err
+		}
+		defer exec.Release()
+		exec.KeepTraversals(true)
+		if err := exec.RunToCompletion(); err != nil {
+			return deed{}, err
+		}
+		done := deed{notes: exec.Notes(), refused: turnedAway(exec)}
 		report, err := g.ctx.Advance(1)
-		return append(notes, report.Notes...), err
+		done.notes = append(done.notes, report.Notes...)
+		return done, err
 	})
+}
+
+// turnedAway reports whether the deed left its opening decision, the one its
+// start leads to, by the else branch: how every deed of the model refuses.
+func turnedAway(exec *runtime.ActionExecutor) bool {
+	graph := exec.Graph()
+	var opening ast.Node
+	for _, node := range graph.Nodes {
+		if _, ok := node.(*ast.InitialNode); !ok {
+			continue
+		}
+		for _, edge := range graph.Edges[node] {
+			if _, ok := edge.Target.(*ast.DecisionNode); ok {
+				opening = edge.Target
+			}
+		}
+	}
+	if opening == nil {
+		return false
+	}
+	for _, t := range exec.Traversals() {
+		if len(t.Within) > 0 || t.Edge.Source != opening {
+			continue
+		}
+		if branch, ok := t.Edge.Decl.(*ast.ControlFlowEdge); ok && branch.IsElse {
+			return true
+		}
+	}
+	return false
 }
 
 // SetPreference writes one of the warrior's own preference attributes, such as
@@ -198,15 +257,22 @@ func (g *Game) SetPreference(attribute string, value runtime.Value) error {
 	return g.hero.SetFeatureValue(g.ctx, attribute, value)
 }
 
+// deed is what a command's run reported: what it noted, and whether the model refused it.
+type deed struct {
+	notes   []runtime.RunNote
+	refused bool
+}
+
 // run executes a command and reports what the model made of it: the states it
-// went through, the warrior before and after, and the choices the run noted.
-func (g *Game) run(command func() ([]runtime.RunNote, error)) (*Outcome, error) {
+// went through, the warrior before and after, whether it was refused, and the
+// choices the run noted.
+func (g *Game) run(command func() (deed, error)) (*Outcome, error) {
 	before, err := g.Snapshot()
 	if err != nil {
 		return nil, err
 	}
 	from := g.Location()
-	notes, err := command()
+	done, err := command()
 	if err != nil {
 		return nil, err
 	}
@@ -215,12 +281,12 @@ func (g *Game) run(command func() ([]runtime.RunNote, error)) (*Outcome, error) 
 		return nil, err
 	}
 	var choices []runtime.ChoicePoint
-	for _, note := range notes {
+	for _, note := range done.notes {
 		if c, ok := note.(runtime.ChoicePoint); ok {
 			choices = append(choices, c)
 		}
 	}
-	return &Outcome{From: from, To: g.Location(), Before: before, After: after, Choices: choices}, nil
+	return &Outcome{From: from, To: g.Location(), Before: before, After: after, Choices: choices, Refused: done.refused}, nil
 }
 
 // Int reads an Integer attribute of the warrior.
