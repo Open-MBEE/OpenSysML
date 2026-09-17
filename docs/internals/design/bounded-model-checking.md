@@ -156,8 +156,8 @@ time. Two consequences:
   `right { x := 2 }` admit `y = 2`. The checker takes the coarser reading — one body, one atomic
   step — and says so in the report. Statement-level interleaving multiplies the state space by
   the product of body lengths for no property a systems model states; the coarse reading is
-  also the one the executor implements, so the checker's outcomes are a superset of the
-  executor's rather than of a finer semantics it does not have. A later stage may add a
+  also the one the executor implements, so for an action the checker's outcomes are a superset
+  of the executor's rather than of a finer semantics it does not have. A later stage may add a
   `-granularity statement` mode if a property needs it.
 
 For a state machine the atomic unit is **one dispatch**: take one event off the queue, select
@@ -167,6 +167,14 @@ it completes or waits. Every executor on the invocation's clock — the behavior
 machines of the objects they materialize — moves one unit at a time, and the checker draws
 which moves as the clock's `runDue` draws it (`ChoiceDueOrder`): the executor drawn holds the
 turn until it has no move left at the instant, then the order is drawn again.
+
+A do step moves one token of the body's flow, and the machine may dispatch after each; the
+fixed policies instead advance every steppable token of the flow once a round and dispatch
+between rounds. That run — the whole round, then the dispatch — is an interleaving the checker's
+enumeration does not yet contain (`state_do_action_loop_timed_exit` pins it under `declared`
+alone), so for a machine with a looping `do` the checker's outcomes are not a superset of the
+fixed policies'. Whether a dispatch waits for the round or cuts it becomes a recorded choice
+point with the [region-order scheduling](region-order-scheduling.md) work.
 
 ### The choice points
 

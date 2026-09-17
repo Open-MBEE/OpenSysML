@@ -720,14 +720,11 @@ each due `do` behavior moves one token, then the machine dispatches the event at
 pool. Under the fixed policies (`reverse`, `declared`, `seed:<n>`) a do behavior's flow instead
 advances every steppable token once a round, and the machine dispatches only between rounds. The
 run a fixed policy makes — the whole round, then the dispatch — is therefore an interleaving
-`check`'s enumeration does not yet contain, and `check` moves the tokens within a `do` flow in
-declared order where `explore` draws their order: a `check` that reports *exhaustive* has
-exhausted the orders of the due `do` behaviors and of the dispatches, and a `do` behavior a
-transition interrupts may end with a value under `reverse` that `check` does not table. Whether
-the dispatch waits for the round or cuts it becomes a recorded choice point with the
-region-order scheduling work ([design note](../internals/design/region-order-scheduling.md));
-until then, run a fixed policy and `explore` beside the checker when a `do` behavior loops
-through timed waits.
+`check`'s enumeration does not yet contain: a `do` behavior that a transition interrupts may end
+with a value under `reverse` that a `check` reporting *exhaustive* does not table. Whether the
+dispatch waits for the round or cuts it becomes a recorded choice point with the region-order
+scheduling work ([design note](../internals/design/region-order-scheduling.md)); until then, run
+a fixed policy beside the checker when a `do` behavior loops through timed waits.
 
 The order of executors due at one instant of the clock is explored like any other choice:
 `sysml -schedule explore -instantiate Demo::beacon -action Demo::watcher -state
