@@ -2002,6 +2002,7 @@ func (e *StateExecutor) abandonMachine() []string {
 	e.eventQueue.Withdraw(func(Event) bool { return true })
 	e.deferred = e.deferred[:0]
 	clear(e.timerScheduled)
+	e.changeWaits = nil
 	e.machineExited = true
 	return abandoned
 }

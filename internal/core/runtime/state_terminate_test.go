@@ -7,8 +7,9 @@ import (
 )
 
 // TestTerminatedMachineHoldsNoPendingWork: a transition to a terminate action
-// nested in a composite state leaves the other region's timer and the event it
-// still defers with nothing to dispatch on, so the ended machine holds neither.
+// nested in a composite state leaves the other region's timer, the event it still
+// defers and the change condition it watched with nothing to act on, so the ended
+// machine holds none of them.
 func TestTerminatedMachineHoldsNoPendingWork(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
 		private import SI::*;
@@ -16,6 +17,7 @@ func TestTerminatedMachineHoldsNoPendingWork(t *testing.T) {
 		attribute def Abort;
 		attribute def Later;
 		state def Machine {
+			attribute level : Integer = 0;
 			entry; then busy;
 			state busy parallel {
 				state r1 {
@@ -27,6 +29,7 @@ func TestTerminatedMachineHoldsNoPendingWork(t *testing.T) {
 					entry; then b;
 					state b { defer Later; }
 					transition first b accept after 10 [s] then c;
+					transition first b accept when level > 0 then c;
 					state c;
 				}
 				action stop terminate;
@@ -45,6 +48,12 @@ func TestTerminatedMachineHoldsNoPendingWork(t *testing.T) {
 	if got := exec.DeferredEvents(); len(got) != 1 {
 		t.Fatalf("deferred = %v; want the Later event held by a", got)
 	}
+	if fired, err := exec.PollChangeEvents(); err != nil || fired {
+		t.Fatalf("poll = %v, %v; want nothing fired with level at 0", fired, err)
+	}
+	if got := exec.ChangeWaits(); len(got) != 1 {
+		t.Fatalf("ChangeWaits() = %v; want the level condition b waits on", got)
+	}
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("dispatch Abort: %v", err)
 	}
@@ -62,5 +71,8 @@ func TestTerminatedMachineHoldsNoPendingWork(t *testing.T) {
 	}
 	if _, waiting := exec.NextWait(); waiting {
 		t.Errorf("NextWait() reports a timer on a terminated machine")
+	}
+	if got := exec.ChangeWaits(); len(got) != 0 {
+		t.Errorf("ChangeWaits() = %v after termination; want none", got)
 	}
 }
