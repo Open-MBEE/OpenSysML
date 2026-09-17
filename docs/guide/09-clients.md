@@ -250,8 +250,9 @@ signal, perform an action on it, read what changed — open a `Session` with
 between calls and answers facts (the transitions out of the active states and the states
 enclosing them in every machine the object exhibits, whether a guard holds now, the choices a
 run made). Only a `New` client answers it; a `Dial` client refuses with
-`CodeUnimplemented`, since no RPC carries state between calls. The Legend of the Red Dragon
-browser game under `examples/lord-demo/web` is written on it and nothing else.
+`CodeUnimplemented`, since no RPC carries state between calls. The
+[Legend of the Red Dragon browser game](https://github.com/Open-MBEE/SysML-LoRD) is written
+on it and nothing else.
 
 An action or state machine runs *on* an object when `opensysml.PerformedBy(...)` names one, as
 `sysml -action "<action> <object>"` does: a part definition or usage the run makes an object of,

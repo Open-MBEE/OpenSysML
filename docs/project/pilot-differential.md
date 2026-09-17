@@ -209,7 +209,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 379 files)
+## Results (pilot `2026-08`, 378 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -218,9 +218,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
 | `testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 44 | 30 | 13 | 1320 | 4 | 2 | 7 | 1314 |
+| `examples` | 43 | 30 | 13 | 1171 | 4 | 2 | 7 | 1165 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **379** | **347** | **79** | **1375** | **38** | **3** | **38** | **1334** |
+| **Total** | **378** | **347** | **79** | **1226** | **38** | **3** | **38** | **1185** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -249,6 +249,26 @@ reference corpora is **17** — of which seven, the `Behaviors.kerml` advisory a
 `Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
+
+### Legend of the Red Dragon departure round
+
+`examples/lord-demo/lord.sysml` leaves the `examples` root for a repository of its own,
+[SysML-LoRD](https://github.com/Open-MBEE/SysML-LoRD), where the model is played in the browser
+by a program on the public Go API: files 44 → **43** on the root, 379 → **378** overall. The
+file was the one not-fully-agreeing model of the root whose every row was pilot-only — the
+**149** `DocumentQueries` cascade diagnostics on 120 line-and-category rows the two rounds below
+adjudicated — so fully agreeing stays at **347** (30 on the root) while pilot diagnostics fall
+1375 → **1226** and only-pilot 1334 → **1185**; only-ours, our diagnostics, agreed and
+severity-only do not move, and no per-file ratchet count moves. The model's own agreement is
+now measured by that repository's CI against the OpenSysML release it pins.
+
+| Count | Before | Now |
+|---|---:|---:|
+| files | 379 | **378** |
+| only pilot | 1334 | **1185** |
+| pilot diagnostics | 1375 | **1226** |
+| `examples`: only pilot | 1314 | **1165** |
+| `examples`: `kind-mismatch` / `unresolved-reference`, only pilot | 590 / 695 | **547 / 589** |
 
 ### Legend of the Red Dragon completed-mechanics round
 
@@ -771,8 +791,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1334** |
-| pilot diagnostics | 123 | **1375** |
+| only pilot | 82 | **1185** |
+| pilot diagnostics | 123 | **1226** |
 | severity-only | 9 | **3** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -905,7 +925,7 @@ Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
 advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
-`examples` 10 syntax, 19 `unmapped`, 590 `kind-mismatch`, 695 `unresolved-reference` — of which
+`examples` 10 syntax, 19 `unmapped`, 547 `kind-mismatch`, 589 `unresolved-reference` — of which
 `relay-probe-demo/mission.sysml` carries none: it carried a `kind-mismatch` on its send of a
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
 constructor, `send new Telemetry(…) via antenna`, which both implementations accept, so the row
@@ -997,13 +1017,13 @@ page's history.
 | Count | Now |
 |---|---:|
 | overall: fully agreeing / only ours / our diagnostics | **347 / 38 / 79** |
-| only pilot | **1334** |
-| pilot diagnostics | **1375** |
+| only pilot | **1185** |
+| pilot diagnostics | **1226** |
 | severity-only | **3** |
 | unmapped, our side | **34** |
 | kerml-examples: only ours | **10** |
 | pilot-examples: only ours | **7** |
-| examples: only pilot | **1314** |
+| examples: only pilot | **1165** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **10** only-ours against 6
 only-pilot, with 49 of 58 files fully
