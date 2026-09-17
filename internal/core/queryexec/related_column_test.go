@@ -309,6 +309,50 @@ func TestExecuteRelatedColumnsFilterAndOrderDownstream(t *testing.T) {
 	})
 }
 
+// A list cell's elements compare and order as the qualified names the cell
+// prints them by, so a matrix filters and sorts on who satisfies what.
+func TestExecuteRelatedColumnElementsCompareByQualifiedName(t *testing.T) {
+	fixture := loadExecutionFixtureFile(t, traceMatrixFixture)
+	root := fixture.observatory(t)
+	filters := []struct {
+		operator, satisfier string
+		want                []string
+	}{
+		{"=", "Observatory::mount", []string{"Observatory::pointingRequirement"}},
+		{"endsWith", "::groundStation", []string{"Observatory::massRequirement"}},
+		{"matches", "^Observatory::(telescope|mount)$", []string{"Observatory::massRequirement", "Observatory::pointingRequirement"}},
+		{"!=", "Observatory::mount", []string{"Observatory::massRequirement"}},
+	}
+	for _, filter := range filters {
+		bindings := Bindings{"root": {root}, "operator": {StringValue(filter.operator)}, "satisfier": {StringValue(filter.satisfier)}}
+		result, err := fixture.execute(t, "SatisfiedBy", bindings, Options{})
+		if err != nil {
+			t.Fatalf("satisfiedBy %s %q: %v", filter.operator, filter.satisfier, err)
+		}
+		if names := rowNames(result); !equalStrings(names, filter.want) {
+			t.Fatalf("satisfiedBy %s %q rows = %v, want %v", filter.operator, filter.satisfier, names, filter.want)
+		}
+	}
+	bindings := Bindings{"root": {root}, "operator": {StringValue("<")}, "satisfier": {StringValue("1")}}
+	_, err := fixture.execute(t, "SatisfiedBy", bindings, Options{})
+	executionError(t, err, ErrorInvalidOperator)
+
+	// The mass requirement's first satisfier is the telescope, its last the ground station.
+	orders := map[string][]string{
+		"first": {"Observatory::pointingRequirement", "Observatory::massRequirement", "Observatory::dataRequirement"},
+		"last":  {"Observatory::massRequirement", "Observatory::pointingRequirement", "Observatory::dataRequirement"},
+	}
+	for multiple, want := range orders {
+		result, err := fixture.execute(t, "BySatisfier", Bindings{"root": {root}, "multiple": {StringValue(multiple)}}, Options{})
+		if err != nil {
+			t.Fatalf("bySatisfier %s: %v", multiple, err)
+		}
+		if names := rowNames(result); !equalStrings(names, want) {
+			t.Fatalf("bySatisfier %s rows = %v, want %v", multiple, names, want)
+		}
+	}
+}
+
 func TestExecuteRelatedColumnTraversesFromAnObjectsDeclaration(t *testing.T) {
 	fixture := loadExecutionFixtureFile(t, traceMatrixFixture)
 	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), runtime.DefaultMaxSteps)

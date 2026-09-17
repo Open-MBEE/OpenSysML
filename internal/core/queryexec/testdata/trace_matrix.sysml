@@ -102,4 +102,28 @@ package Observatory {
 			multiple = "error"
 		)
 	}
+
+	calc def SatisfiedBy :> Query {
+		in root : Element;
+		in operator : String;
+		in satisfier : String;
+		WhereFeature(
+			source = Matrix(root = root),
+			'feature' = "satisfiedBy",
+			operator = operator,
+			value = satisfier
+		)
+	}
+
+	calc def BySatisfier :> Query {
+		in root : Element;
+		in multiple : String;
+		OrderBy(
+			source = Matrix(root = root),
+			property = "satisfiedBy",
+			direction = "ascending",
+			missing = "last",
+			multiple = multiple
+		)
+	}
 }

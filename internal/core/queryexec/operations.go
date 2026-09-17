@@ -813,6 +813,10 @@ func compareValue(actual Value, operator, expected string) (bool, error) {
 		// A bare number compares against the magnitude in the quantity's own unit.
 		magnitude, _ := actual.Magnitude()
 		return compareValue(magnitude, operator, expected)
+	case ValueElement:
+		// An element compares as the qualified name a cell prints it by.
+		sym, _ := actual.Element()
+		return compareText(symbols.FQNOf(sym), operator, expected)
 	default:
 		return false, errComparison
 	}
@@ -870,6 +874,10 @@ func (e *executor) compareOrdered(left, right Value) (int, error) {
 		l, _ := left.String()
 		r, _ := right.String()
 		return strings.Compare(l, r), nil
+	case ValueElement:
+		l, _ := left.Element()
+		r, _ := right.Element()
+		return strings.Compare(symbols.FQNOf(l), symbols.FQNOf(r)), nil
 	case ValueBoolean:
 		l, _ := left.Boolean()
 		r, _ := right.Boolean()

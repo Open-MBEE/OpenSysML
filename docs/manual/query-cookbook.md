@@ -311,7 +311,9 @@ expression.
 `WhereFeature` compares an attribute's constant value. The comparison is
 typed: numbers compare numerically (`<`, `<=`, `>`, `>=` and equality, with
 `*` accepted as infinity), booleans by equality, strings with the text
-operators above. An element without the attribute simply does not match; a
+operators above, and an element-valued feature — a verdict's `assertion`, a
+`RelatedColumn` list — as the qualified name it prints by, with the text
+operators. An element without the attribute simply does not match; a
 property no element in the source has is a typed `unknown-property` error.
 
 ```sysml
@@ -927,6 +929,10 @@ verification declared first comes first.
 
 Related columns join the projection like computed ones: `OrderBy` sorts by
 them, a table's `groupBy` groups by them, and `WhereFeature` filters on them.
+A list cell's elements compare and sort as their qualified names, so
+`WhereFeature(feature = "satisfiedBy", operator = "endsWith", value = "::gimbal")`
+keeps the requirements the gimbal satisfies and `OrderBy(property =
+"satisfiedBy", multiple = "first")` sorts by each row's first satisfier.
 Uncovered requirements are the rows whose count is zero:
 
 ```sysml
