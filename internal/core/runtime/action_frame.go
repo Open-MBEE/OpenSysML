@@ -1232,7 +1232,7 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 		}
 	}
 
-	callee, err := e.ctx.beginCallee(inv.performed(sym), sym, performer, inputs)
+	callee, err := e.ctx.beginOrJoinCallee(inv, sym, performer, inputs)
 	if err != nil {
 		return nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
 	}
