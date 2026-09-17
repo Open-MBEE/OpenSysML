@@ -15,11 +15,17 @@ git -C "$work" init -q release
 git -C "$release" config user.email ci@example.com
 git -C "$release" config user.name CI
 mkdir -p "$release/sysml.library.xmi/Domain" "$release/empty.subtree" "$release/pair/a" "$release/pair/b"
-echo '<xmi/>' >"$release/sysml.library.xmi/Domain/Quantities.sysmlx"
-echo '<xmi/>' >"$release/sysml.library.xmi/Kernel.kermlx"
+
+# stub_xmi writes a minimal XMI document at each path given.
+stub_xmi() {
+	local path
+	for path in "$@"; do
+		echo '<xmi/>' >"$path"
+	done
+}
+stub_xmi "$release/sysml.library.xmi/Domain/Quantities.sysmlx" "$release/sysml.library.xmi/Kernel.kermlx" \
+	"$release/pair/a/A.sysmlx" "$release/pair/b/B.sysmlx"
 echo notes >"$release/empty.subtree/README.md"
-echo '<xmi/>' >"$release/pair/a/A.sysmlx"
-echo '<xmi/>' >"$release/pair/b/B.sysmlx"
 git -C "$release" add .
 git -C "$release" -c commit.gpgsign=false commit -qm release
 git -C "$release" tag test-tag
@@ -48,7 +54,8 @@ fetch() {
 }
 
 count_xmi() {
-	find "$1" -type f \( -name '*.sysmlx' -o -name '*.kermlx' \) 2>/dev/null | wc -l | tr -d ' '
+	local dir=$1
+	find "$dir" -type f \( -name '*.sysmlx' -o -name '*.kermlx' \) 2>/dev/null | wc -l | tr -d ' '
 }
 
 pass() {

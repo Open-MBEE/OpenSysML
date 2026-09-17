@@ -49,16 +49,63 @@ func (r *reader) readActivity(act *xmi.Element) *Body {
 	return ar.body
 }
 
+// The xmi:type of each activity node, behavior and pin the reader tells apart.
+const (
+	typeAcceptCallAction                   = "uml:AcceptCallAction"
+	typeAcceptEventAction                  = "uml:AcceptEventAction"
+	typeActivity                           = "uml:Activity"
+	typeActivityFinalNode                  = "uml:ActivityFinalNode"
+	typeActivityParameterNode              = "uml:ActivityParameterNode"
+	typeAddStructuralFeatureValueAction    = "uml:AddStructuralFeatureValueAction"
+	typeCallBehaviorAction                 = "uml:CallBehaviorAction"
+	typeCallOperationAction                = "uml:CallOperationAction"
+	typeCentralBufferNode                  = "uml:CentralBufferNode"
+	typeClearAssociationAction             = "uml:ClearAssociationAction"
+	typeClearStructuralFeatureAction       = "uml:ClearStructuralFeatureAction"
+	typeConditionalNode                    = "uml:ConditionalNode"
+	typeCreateLinkAction                   = "uml:CreateLinkAction"
+	typeCreateObjectAction                 = "uml:CreateObjectAction"
+	typeDecisionNode                       = "uml:DecisionNode"
+	typeDestroyLinkAction                  = "uml:DestroyLinkAction"
+	typeDestroyObjectAction                = "uml:DestroyObjectAction"
+	typeExpansionNode                      = "uml:ExpansionNode"
+	typeExpansionRegion                    = "uml:ExpansionRegion"
+	typeFlowFinalNode                      = "uml:FlowFinalNode"
+	typeForkNode                           = "uml:ForkNode"
+	typeFunctionBehavior                   = "uml:FunctionBehavior"
+	typeInitialNode                        = "uml:InitialNode"
+	typeInputPin                           = "uml:InputPin"
+	typeJoinNode                           = "uml:JoinNode"
+	typeLoopNode                           = "uml:LoopNode"
+	typeMergeNode                          = "uml:MergeNode"
+	typeReadExtentAction                   = "uml:ReadExtentAction"
+	typeReadIsClassifiedObjectAction       = "uml:ReadIsClassifiedObjectAction"
+	typeReadLinkAction                     = "uml:ReadLinkAction"
+	typeReadSelfAction                     = "uml:ReadSelfAction"
+	typeReadStructuralFeatureAction        = "uml:ReadStructuralFeatureAction"
+	typeReclassifyObjectAction             = "uml:ReclassifyObjectAction"
+	typeReduceAction                       = "uml:ReduceAction"
+	typeRemoveStructuralFeatureValueAction = "uml:RemoveStructuralFeatureValueAction"
+	typeSendSignalAction                   = "uml:SendSignalAction"
+	typeSequenceNode                       = "uml:SequenceNode"
+	typeStartClassifierBehaviorAction      = "uml:StartClassifierBehaviorAction"
+	typeStartObjectBehaviorAction          = "uml:StartObjectBehaviorAction"
+	typeStructuredActivityNode             = "uml:StructuredActivityNode"
+	typeTestIdentityAction                 = "uml:TestIdentityAction"
+	typeUnmarshallAction                   = "uml:UnmarshallAction"
+	typeValueSpecificationAction           = "uml:ValueSpecificationAction"
+)
+
 // valueNodes are the node kinds that read, compute or route a value; every
 // other action acts on the model, whether or not the reading expresses it.
 var valueNodes = map[string]bool{
-	"uml:ValueSpecificationAction": true, "uml:ReadSelfAction": true, "uml:ReadStructuralFeatureAction": true,
-	"uml:TestIdentityAction": true, "uml:ReadIsClassifiedObjectAction": true, "uml:ReadExtentAction": true,
-	"uml:ReadLinkAction": true, "uml:ActivityParameterNode": true,
-	"uml:InitialNode": true, "uml:ActivityFinalNode": true, "uml:FlowFinalNode": true, "uml:ForkNode": true,
-	"uml:JoinNode": true, "uml:MergeNode": true, "uml:DecisionNode": true, "uml:ExpansionNode": true,
-	"uml:StructuredActivityNode": true, "uml:SequenceNode": true, "uml:ConditionalNode": true,
-	"uml:LoopNode": true, "uml:ExpansionRegion": true,
+	typeValueSpecificationAction: true, typeReadSelfAction: true, typeReadStructuralFeatureAction: true,
+	typeTestIdentityAction: true, typeReadIsClassifiedObjectAction: true, typeReadExtentAction: true,
+	typeReadLinkAction: true, typeActivityParameterNode: true,
+	typeInitialNode: true, typeActivityFinalNode: true, typeFlowFinalNode: true, typeForkNode: true,
+	typeJoinNode: true, typeMergeNode: true, typeDecisionNode: true, typeExpansionNode: true,
+	typeStructuredActivityNode: true, typeSequenceNode: true, typeConditionalNode: true,
+	typeLoopNode: true, typeExpansionRegion: true,
 }
 
 // acts reports whether any node under the activity, at any depth, acts on the
@@ -75,9 +122,9 @@ func (r *reader) acts(act *xmi.Element, visiting map[string]bool) bool {
 			return true
 		}
 		switch e.Type {
-		case "uml:CallBehaviorAction":
+		case typeCallBehaviorAction:
 			acts = r.calledBehaviorActs(e, visiting)
-		case "uml:CallOperationAction":
+		case typeCallOperationAction:
 			var method *xmi.Element
 			if op := r.doc.ByID(e.Attr("operation")); op != nil {
 				method = r.doc.ByID(op.Ref("method"))
@@ -108,9 +155,9 @@ func (r *reader) callActs(called *xmi.Element, visiting map[string]bool) bool {
 	switch {
 	case called == nil:
 		return true
-	case called.Type == "uml:FunctionBehavior":
+	case called.Type == typeFunctionBehavior:
 		return false
-	case called.Type != "uml:Activity":
+	case called.Type != typeActivity:
 		return true
 	}
 	return r.acts(called, visiting)
@@ -200,13 +247,13 @@ func (ar *activityReader) consumed(n *xmi.Element) bool {
 
 func (ar *activityReader) readNode(n *xmi.Element) {
 	switch n.Type {
-	case "uml:StructuredActivityNode", "uml:SequenceNode":
+	case typeStructuredActivityNode, typeSequenceNode:
 		ar.readBlock(n)
-	case "uml:ExpansionRegion":
+	case typeExpansionRegion:
 		ar.unsupported(n, "iterates over a collection")
-	case "uml:ConditionalNode", "uml:LoopNode":
+	case typeConditionalNode, typeLoopNode:
 		ar.unsupported(n, "branches or loops")
-	case "uml:CallOperationAction":
+	case typeCallOperationAction:
 		if ar.consumed(n) {
 			return
 		}
@@ -216,19 +263,19 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 			return
 		}
 		ar.emit(Statement{Kind: StmtCall, Name: op.Name(), Receiver: ar.pinValue(n.First("target")), Args: ar.args(n)})
-	case "uml:CallBehaviorAction":
+	case typeCallBehaviorAction:
 		if ar.consumed(n) {
 			return
 		}
 		ar.emit(Statement{Kind: StmtCall, Name: ar.behaviorName(n), Args: ar.args(n)})
-	case "uml:SendSignalAction":
+	case typeSendSignalAction:
 		sig := ar.r.doc.ByID(n.Attr("signal"))
 		if sig == nil {
 			ar.unsupported(n, "sends a signal the document does not define")
 			return
 		}
 		ar.emit(Statement{Kind: StmtSend, Name: sig.Name(), Receiver: ar.pinValue(n.First("target")), Args: ar.args(n)})
-	case "uml:AcceptEventAction", "uml:AcceptCallAction":
+	case typeAcceptEventAction, typeAcceptCallAction:
 		st := Statement{Kind: StmtAccept}
 		for _, trig := range n.Tagged("trigger") {
 			st.Events = append(st.Events, ar.r.readEvent(trig.Attr("event"), trig))
@@ -237,7 +284,7 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 			st.Result = res.Name()
 		}
 		ar.emit(st)
-	case "uml:AddStructuralFeatureValueAction":
+	case typeAddStructuralFeatureValueAction:
 		feature := ar.r.doc.ByID(n.Attr("structuralFeature"))
 		if feature == nil {
 			ar.unsupported(n, "writes a feature the document does not define")
@@ -255,24 +302,24 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 			Value:     ar.pinValue(n.First("value")),
 			Replace:   n.Attr("isReplaceAll") == "true",
 		})
-	case "uml:ActivityParameterNode":
+	case typeActivityParameterNode:
 		// A fed return parameter node is the body's return statement.
 		param := ar.r.doc.ByID(n.Attr("parameter"))
 		if param != nil && (param.Attr("direction") == "return" || param.Attr("direction") == "out") && len(ar.incoming[n.ID]) > 0 {
 			ar.emit(Statement{Kind: StmtReturn, Value: ar.pinValue(n)})
 		}
-	case "uml:InitialNode", "uml:ActivityFinalNode", "uml:FlowFinalNode", "uml:ForkNode", "uml:JoinNode",
-		"uml:MergeNode", "uml:DecisionNode", "uml:ExpansionNode":
-	case "uml:ValueSpecificationAction", "uml:ReadSelfAction", "uml:ReadStructuralFeatureAction",
-		"uml:ClearStructuralFeatureAction", "uml:TestIdentityAction", "uml:ReadIsClassifiedObjectAction",
-		"uml:CreateObjectAction":
+	case typeInitialNode, typeActivityFinalNode, typeFlowFinalNode, typeForkNode, typeJoinNode,
+		typeMergeNode, typeDecisionNode, typeExpansionNode:
+	case typeValueSpecificationAction, typeReadSelfAction, typeReadStructuralFeatureAction,
+		typeClearStructuralFeatureAction, typeTestIdentityAction, typeReadIsClassifiedObjectAction,
+		typeCreateObjectAction:
 		// Values: read where a pin consumes them. An unconsumed one is dead.
-	case "uml:StartObjectBehaviorAction":
+	case typeStartObjectBehaviorAction:
 		ar.emit(Statement{Kind: StmtStart, Receiver: ar.pinValue(n.First("object"))})
-	case "uml:DestroyObjectAction",
-		"uml:ReadExtentAction", "uml:StartClassifierBehaviorAction", "uml:ReduceAction",
-		"uml:RemoveStructuralFeatureValueAction", "uml:CreateLinkAction", "uml:DestroyLinkAction",
-		"uml:ReadLinkAction", "uml:ClearAssociationAction", "uml:ReclassifyObjectAction", "uml:UnmarshallAction":
+	case typeDestroyObjectAction,
+		typeReadExtentAction, typeStartClassifierBehaviorAction, typeReduceAction,
+		typeRemoveStructuralFeatureValueAction, typeCreateLinkAction, typeDestroyLinkAction,
+		typeReadLinkAction, typeClearAssociationAction, typeReclassifyObjectAction, typeUnmarshallAction:
 		ar.unsupported(n, "manipulates objects or links")
 	default:
 		ar.unsupported(n, "is a node kind the reader does not know")
@@ -351,9 +398,9 @@ func (ar *activityReader) value(id string) Expr {
 	defer delete(ar.visiting, id)
 
 	switch e.Type {
-	case "uml:ForkNode", "uml:MergeNode", "uml:ExpansionNode", "uml:CentralBufferNode":
+	case typeForkNode, typeMergeNode, typeExpansionNode, typeCentralBufferNode:
 		return ar.passThrough(e)
-	case "uml:ActivityParameterNode":
+	case typeActivityParameterNode:
 		param := ar.r.doc.ByID(e.Attr("parameter"))
 		if param == nil {
 			return Expr{Kind: ExprUnknown, Text: e.Describe() + " names no parameter"}
@@ -363,7 +410,7 @@ func (ar *activityReader) value(id string) Expr {
 		}
 		return ar.passThrough(e)
 	}
-	if e.Tag == "structuredNodeInput" || e.Tag == "structuredNodeOutput" || e.Type == "uml:InputPin" || e.Tag == "argument" || e.Tag == "object" || e.Tag == "target" || e.Tag == "value" {
+	if e.Tag == "structuredNodeInput" || e.Tag == "structuredNodeOutput" || e.Type == typeInputPin || e.Tag == "argument" || e.Tag == "object" || e.Tag == "target" || e.Tag == "value" {
 		return ar.passThrough(e)
 	}
 	// An output pin: the value is what its owning action computes.
@@ -394,41 +441,41 @@ func (ar *activityReader) actionValue(n, pin *xmi.Element) Expr {
 		return p
 	}
 	switch n.Type {
-	case "uml:ValueSpecificationAction":
+	case typeValueSpecificationAction:
 		lit, diag := readLiteral(n.First("value"))
 		if diag != "" {
 			return Expr{Kind: ExprUnknown, Text: diag}
 		}
 		return Expr{Kind: ExprLiteral, Literal: lit}
-	case "uml:ReadSelfAction":
+	case typeReadSelfAction:
 		return Expr{Kind: ExprSelf}
-	case "uml:CreateObjectAction":
+	case typeCreateObjectAction:
 		classifier := ar.r.doc.ByID(n.Attr("classifier"))
 		if classifier == nil {
 			return Expr{Kind: ExprUnknown, Text: n.Describe() + " creates an object of a classifier the document does not define"}
 		}
 		return Expr{Kind: ExprNew, Name: classifier.Name(), TypeID: classifier.ID, ID: n.ID}
-	case "uml:ReadStructuralFeatureAction":
+	case typeReadStructuralFeatureAction:
 		feature := ar.r.doc.ByID(n.Attr("structuralFeature"))
 		if feature == nil {
 			return Expr{Kind: ExprUnknown, Text: n.Describe() + " reads a feature the document does not define"}
 		}
 		return Expr{Kind: ExprRead, Name: feature.Name(), Object: deref(ar.pinValue(n.First("object")))}
-	case "uml:ClearStructuralFeatureAction":
+	case typeClearStructuralFeatureAction:
 		return *deref(ar.pinValue(n.First("object")))
-	case "uml:CallBehaviorAction":
+	case typeCallBehaviorAction:
 		return Expr{Kind: ExprApply, Name: ar.behaviorName(n), Args: ar.args(n)}
-	case "uml:CallOperationAction":
+	case typeCallOperationAction:
 		op := ar.r.doc.ByID(n.Attr("operation"))
 		if op == nil {
 			return Expr{Kind: ExprUnknown, Text: n.Describe() + " calls an operation the document does not define"}
 		}
 		return Expr{Kind: ExprCall, Name: op.Name(), Object: deref(ar.pinValue(n.First("target"))), Args: ar.args(n)}
-	case "uml:TestIdentityAction":
+	case typeTestIdentityAction:
 		return Expr{Kind: ExprApply, Name: "==", Args: []Expr{*deref(ar.pinValue(n.First("first"))), *deref(ar.pinValue(n.First("second")))}}
-	case "uml:AcceptEventAction", "uml:AcceptCallAction":
+	case typeAcceptEventAction, typeAcceptCallAction:
 		return Expr{Kind: ExprEvent, Name: pin.Name()}
-	case "uml:StructuredActivityNode", "uml:SequenceNode", "uml:ExpansionRegion":
+	case typeStructuredActivityNode, typeSequenceNode, typeExpansionRegion:
 		return ar.passThrough(pin)
 	}
 	return Expr{Kind: ExprUnknown, Text: n.Describe() + " is a node kind the reader does not evaluate"}

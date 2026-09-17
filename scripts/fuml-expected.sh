@@ -39,7 +39,7 @@ mkdir -p "$classes"
 echo "Compiling scripts/fuml-driver ..."
 # -path is off: some dependency manifests name sibling jars under other file names.
 "$javac" -encoding UTF-8 -Xlint:all,-path -Werror -d "$classes" -cp "$classpath" \
-	"$repo_root"/scripts/fuml-driver/*.java
+	"$repo_root"/scripts/fuml-driver/io/opensysml/fuml/*.java
 
 # The implementation reads its configuration (DefaultFumlConfig.xml) and the
 # foundational library it executes against from resources inside its own jar.

@@ -201,8 +201,9 @@ def test_an_object_binds_by_id_by_path_or_both():
 
 def test_an_object_naming_nothing_is_refused():
     """An ObjectRef with neither id nor path is a caller error, named early."""
+    unnamed = {"root": ObjectRef()}
     with pytest.raises(DocumentQueryError, match="'root'.*neither was given"):
-        build_bindings({"root": ObjectRef()})
+        build_bindings(unnamed)
 
 
 def test_an_oversized_int_binding_is_refused():
@@ -651,7 +652,8 @@ class TestDocumentsAgainstRealService:
         assert mass_ok[2] == ("holds",)
         power_low = by_text["assert constraint powerLow on Garage::car.engine"].verdict
         assert power_low.status == "violated"
-        assert power_low.condition and power_low.reason
+        assert power_low.condition
+        assert power_low.reason
         fits = by_text["assert constraint fits on Garage::car"].verdict
         assert fits.status == "undecided"
         assert "capacity" in fits.reason
@@ -722,7 +724,8 @@ class TestDocumentsAgainstRealService:
             model.instantiate("Garage::car")
             model.instantiate("Garage::spare")
             after = model.run_document_query("Garage::Wheels")
-        assert before.columns == ("pressure",) and len(before) == 0
+        assert before.columns == ("pressure",)
+        assert len(before) == 0
         assert [(str(row.object), row[0]) for row in after] == [
             ("Garage::spare", (20,)),
             ("Garage::car.wheels[1]", (30,)),
@@ -757,31 +760,28 @@ class TestDocumentsAgainstRealService:
     ):
         with Connection(port=real_service, auto_start=False) as conn:
             model = conn.load_from_content(garage_objects("refused"))
+            unpopulated = {"root": ObjectRef(id=1)}
             with pytest.raises(SymbolNotFoundError, match="holds no objects"):
-                model.run_document_query("Garage::Parts", bindings={"root": ObjectRef(id=1)})
+                model.run_document_query("Garage::Parts", bindings=unpopulated)
             model.instantiate("Garage::car")
+            unknown_id = {"root": ObjectRef(id=99)}
             with pytest.raises(SymbolNotFoundError, match="no object #99"):
-                model.run_document_query("Garage::Parts", bindings={"root": ObjectRef(id=99)})
+                model.run_document_query("Garage::Parts", bindings=unknown_id)
+            unknown_path = {"root": ObjectRef(path="spare")}
             with pytest.raises(SymbolNotFoundError, match="no instance of"):
-                model.run_document_query(
-                    "Garage::Parts", bindings={"root": ObjectRef(path="spare")}
-                )
+                model.run_document_query("Garage::Parts", bindings=unknown_path)
+            unknown_feature = {"root": ObjectRef(path="car.hood")}
             with pytest.raises(InvalidRequestError, match="hood"):
-                model.run_document_query(
-                    "Garage::Parts", bindings={"root": ObjectRef(path="car.hood")}
-                )
+                model.run_document_query("Garage::Parts", bindings=unknown_feature)
+            value_path = {"root": ObjectRef(path="car.mass")}
             with pytest.raises(InvalidRequestError, match="not an object"):
-                model.run_document_query(
-                    "Garage::Parts", bindings={"root": ObjectRef(path="car.mass")}
-                )
+                model.run_document_query("Garage::Parts", bindings=value_path)
+            malformed_path = {"root": ObjectRef(path="car..wheels")}
             with pytest.raises(InvalidRequestError, match="not an object reference"):
-                model.run_document_query(
-                    "Garage::Parts", bindings={"root": ObjectRef(path="car..wheels")}
-                )
+                model.run_document_query("Garage::Parts", bindings=malformed_path)
+            disagreeing = {"root": ObjectRef(id=99, path="car")}
             with pytest.raises(InvalidRequestError, match="is object #"):
-                model.run_document_query(
-                    "Garage::Parts", bindings={"root": ObjectRef(id=99, path="car")}
-                )
+                model.run_document_query("Garage::Parts", bindings=disagreeing)
 
     def test_a_document_query_answers_typed_ordered_rows(self, real_service, telescope):
         with Connection(port=real_service, auto_start=False) as conn:
