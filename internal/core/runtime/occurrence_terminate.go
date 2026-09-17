@@ -56,21 +56,23 @@ func (ctx *Context) endOccurrence(inst *Instance) (map[int64]bool, error) {
 		tr.RecordOccurrenceTerminated(symbolText(inst.Type), inst.ID)
 	}
 	ended := make(map[int64]bool)
+	// One boundary ends the whole and its portions: none outlives its whole.
+	at := ctx.newActivation()
 	for _, portion := range ctx.portionsOf(inst) {
 		if l, ok := ctx.lives[portion.ID]; ok && l.ended != 0 {
 			continue
 		}
 		ended[portion.ID] = true
-		ctx.endLifeNow(portion)
+		ctx.endLifeAt(portion, at)
 	}
 	ctx.endBehaviorsWith(ended)
 	return ended, nil
 }
 
-// endLifeNow records inst's lifetime ending at the current activation, undone with a probe.
-func (ctx *Context) endLifeNow(inst *Instance) {
+// endLifeAt records inst's lifetime ending at the activation at, undone with a probe.
+func (ctx *Context) endLifeAt(inst *Instance, at int64) {
 	prior := ctx.lives[inst.ID]
-	ctx.lives[inst.ID] = life{reached: prior.reached, began: prior.began, ended: ctx.newActivation()}
+	ctx.lives[inst.ID] = life{reached: prior.reached, began: prior.began, ended: at}
 	ctx.noteProbeUndo(func() { ctx.lives[inst.ID] = prior })
 }
 

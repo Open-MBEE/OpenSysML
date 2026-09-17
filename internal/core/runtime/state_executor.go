@@ -1998,6 +1998,10 @@ func (e *StateExecutor) abandonMachine() []string {
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
 	e.stateStack = nil
 	e.completionDue = false
+	// Nothing dispatches on an ended machine: what it queued or deferred is discarded.
+	e.eventQueue.Withdraw(func(Event) bool { return true })
+	e.deferred = e.deferred[:0]
+	clear(e.timerScheduled)
 	e.machineExited = true
 	return abandoned
 }
