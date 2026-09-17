@@ -31,7 +31,7 @@ func setKeyOf(row Value) setKey {
 }
 
 // evaluateExcept keeps the source rows whose identity does not occur among
-// the exclude rows, in source order with its projected columns.
+// the exclude rows, once each in source order with its projected columns.
 func (e *executor) evaluateExcept(expression queryplan.Expression) (sequence, error) {
 	source, err := e.rowArgument(expression, "source")
 	if err != nil {
@@ -46,10 +46,16 @@ func (e *executor) evaluateExcept(expression queryplan.Expression) (sequence, er
 		excluded[setKeyOf(value)] = struct{}{}
 	}
 	result := filtered(source)
+	seen := make(map[setKey]struct{}, len(source.values))
 	for i, value := range source.values {
-		if _, ok := excluded[setKeyOf(value)]; ok {
+		key := setKeyOf(value)
+		if _, ok := excluded[key]; ok {
 			continue
 		}
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
 		appendSelected(&result, source, i)
 	}
 	return result, nil

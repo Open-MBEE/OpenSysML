@@ -959,7 +959,7 @@ for a related element, and each element it reaches charges the visit budget.
 
 `Except(source, exclude)` keeps the rows of `source` not among `exclude`, in
 source order; `Union(source, other)` is every row of `source` followed by the
-rows of `other` not already present, each row once. Both identify a row the
+rows of `other` not already present. Both emit each row once and identify a row the
 way `RelatedElements` de-duplicates: a model element by its declaration, an
 object the session holds by the object itself, and a verdict by its assertion
 and the object it was checked on — so `Verdicts` tables can be combined too.

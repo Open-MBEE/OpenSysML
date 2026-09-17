@@ -72,9 +72,10 @@ func TestExecuteSetOperationsOverElements(t *testing.T) {
 	mirror := ElementValue(fixture.symbol(t, "MirrorAssembly"))
 	telescope := ElementValue(fixture.symbol(t, "telescope"))
 
-	// Except keeps source order and drops every occurrence of an excluded identity.
+	// Except keeps source order, drops every occurrence of an excluded identity
+	// and emits a repeated source identity once.
 	difference, err := fixture.execute(t, "Difference", Bindings{
-		"source":  {mirror, subsystem, optical, mirror, telescope},
+		"source":  {mirror, subsystem, optical, mirror, subsystem, telescope},
 		"exclude": {telescope, mirror},
 	}, Options{})
 	if err != nil {
