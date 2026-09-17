@@ -146,6 +146,9 @@ func (r signalReceiver) kind() string {
 // the accepts an action is parked at or the state of its run.
 func (r signalReceiver) status() string {
 	if r.machine != nil {
+		if r.machine.State() == runtime.StateTerminated {
+			return fmt.Sprintf("state machine %q terminated", r.name)
+		}
 		return fmt.Sprintf("state machine %q in state %s", r.name, currentStateName(r.machine))
 	}
 	return fmt.Sprintf("performed action %q %s", r.name, actionStanding(r.action))

@@ -1,0 +1,7 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"steps": {"type": "Integer", "value": 1}
+	}
+}

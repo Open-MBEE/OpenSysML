@@ -304,18 +304,33 @@ func TestRefereeRowsAreWellFormed(t *testing.T) {
 	}
 }
 
-// Not-expressible and terminate-gap tests are filed without being translated
-// or run, with the classifier's reason.
-func TestRefereeUnrunnableBuckets(t *testing.T) {
-	report, _ := refereeFixture(t, `<subvertex xmi:type="uml:Pseudostate" xmi:id="xTerm" name="Terminate1" kind="terminate"/>
-          <transition xmi:type="uml:Transition" xmi:id="xT3" source="xS1" target="xTerm">
+// A transition into a terminate pseudostate runs: the machine ends there with
+// the source exited and nothing else, and the trace is compared like any other.
+func TestRefereeTerminateRuns(t *testing.T) {
+	terminate := `<subvertex xmi:type="uml:State" xmi:id="xS2" name="S2">
+            ` + traceCall("entry", "xS2entry", "S2(entry)") + `
+            ` + traceCall("exit", "xS2exit", "S2(exit)") + `
+          </subvertex>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="xTerm" name="Terminate1" kind="terminate"/>
+          <transition xmi:type="uml:Transition" xmi:id="xT3" source="xS1" target="xS2">
             <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
-          </transition>`, "", nil, Options{})
-	if row := report.Tests[0]; row.Bucket != BucketTerminateGap || len(row.Reached) != 0 || row.Runs != 0 {
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="xT4" source="xS2" target="xTerm"/>`
+	report, _ := refereeFixture(t, terminate, "", []string{"S1(entry)::S2(entry)::S2(exit)"}, Options{})
+	row := report.Tests[0]
+	if row.Bucket != BucketPass || row.Runs == 0 || strings.Join(row.Reached, ",") != "S1(entry)::S2(entry)::S2(exit)" {
 		t.Errorf("terminate: %+v", row)
 	}
+	report, _ = refereeFixture(t, terminate, "", []string{"S1(entry)::S2(entry)"}, Options{})
+	if row := report.Tests[0]; row.Bucket != BucketFail {
+		t.Errorf("terminate with the exit not admitted: %+v", row)
+	}
+}
 
-	report, _ = refereeFixture(t, `<transition xmi:type="uml:Transition" xmi:id="xT3" kind="internal" source="xS1" target="xS1">
+// Not-expressible tests are filed without being translated or run, with the
+// classifier's reason.
+func TestRefereeUnrunnableBucket(t *testing.T) {
+	report, _ := refereeFixture(t, `<transition xmi:type="uml:Transition" xmi:id="xT3" kind="internal" source="xS1" target="xS1">
             <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
           </transition>`, "", nil, Options{})
 	row := report.Tests[0]

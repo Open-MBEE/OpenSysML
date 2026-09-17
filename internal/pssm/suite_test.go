@@ -69,17 +69,18 @@ func TestSuiteRead(t *testing.T) {
 
 // TestSuiteClassification pins the classifier area by area; the alignment
 // note's test-suite section and docs/project/pssm-referee.md record the seven
-// tests it moves out of the original hand count (37/33/3/30) and why.
+// tests it moves out of the original hand count (37/33/3/30) and why, and the
+// three terminate tests that are standard now that terminate executes.
 func TestSuiteClassification(t *testing.T) {
 	s := loadSuite(t)
-	type row struct{ std, ext, gap, none int }
+	type row struct{ std, ext, none int }
 	want := map[string]row{
-		"Behavior": {4, 0, 0, 1}, "Transition": {8, 1, 0, 6}, "Event": {10, 0, 0, 6},
-		"Entering": {4, 0, 0, 1}, "Exiting": {4, 0, 0, 1}, "Entry": {0, 0, 0, 6},
-		"Exit": {0, 0, 0, 3}, "Choice": {0, 4, 0, 1}, "Junction": {0, 5, 0, 1},
-		"Fork": {0, 1, 0, 1}, "Join": {0, 3, 0, 0}, "Final": {1, 0, 0, 0},
-		"Terminate": {0, 0, 3, 0}, "History": {0, 8, 0, 0}, "Deferred": {0, 9, 0, 1},
-		"Redefinition": {0, 0, 0, 6}, "Standalone": {0, 0, 0, 3}, "Other": {0, 0, 0, 1},
+		"Behavior": {4, 0, 1}, "Transition": {8, 1, 6}, "Event": {10, 0, 6},
+		"Entering": {4, 0, 1}, "Exiting": {4, 0, 1}, "Entry": {0, 0, 6},
+		"Exit": {0, 0, 3}, "Choice": {0, 4, 1}, "Junction": {0, 5, 1},
+		"Fork": {0, 1, 1}, "Join": {0, 3, 0}, "Final": {1, 0, 0},
+		"Terminate": {3, 0, 0}, "History": {0, 8, 0}, "Deferred": {0, 9, 1},
+		"Redefinition": {0, 0, 6}, "Standalone": {0, 0, 3}, "Other": {0, 0, 1},
 	}
 	got := map[string]row{}
 	var total row
@@ -94,9 +95,6 @@ func TestSuiteClassification(t *testing.T) {
 		case Extension:
 			r.ext++
 			total.ext++
-		case TerminateGap:
-			r.gap++
-			total.gap++
 		case NotExpressible:
 			r.none++
 			total.none++
@@ -127,7 +125,7 @@ func TestSuiteClassification(t *testing.T) {
 			t.Errorf("%s = %+v, want %+v", area, got[area], w)
 		}
 	}
-	if total != (row{31, 31, 3, 38}) {
-		t.Errorf("total = %+v, want {31 31 3 38}", total)
+	if total != (row{34, 31, 38}) {
+		t.Errorf("total = %+v, want {34 31 38}", total)
 	}
 }

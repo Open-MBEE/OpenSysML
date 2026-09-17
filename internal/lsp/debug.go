@@ -59,13 +59,14 @@ const debugProtocolVersion = 1
 
 // Debug session states, as debugSnapshot.State reports them.
 const (
-	debugReady     = "ready"
-	debugRunning   = "running"
-	debugWaiting   = "waiting"
-	debugSuspended = "suspended"
-	debugCompleted = "completed"
-	debugFailed    = "failed"
-	debugEnded     = "ended"
+	debugReady      = "ready"
+	debugRunning    = "running"
+	debugWaiting    = "waiting"
+	debugSuspended  = "suspended"
+	debugCompleted  = "completed"
+	debugTerminated = "terminated"
+	debugFailed     = "failed"
+	debugEnded      = "ended"
 )
 
 // debugStartParams asks to run target, a state machine or action the view draws,
@@ -146,8 +147,8 @@ type debugSnapshot struct {
 	// Revision counts the session's snapshots: a client keeps the highest it has
 	// seen, as a notification taken earlier may reach it after a later answer.
 	Revision int `json:"revision"`
-	// State is ready, running, waiting, suspended, completed, failed or ended;
-	// Reason says why for the last four.
+	// State is ready, running, waiting, suspended, completed, terminated, failed or
+	// ended; Reason says why for waiting, suspended, failed and ended.
 	State  string  `json:"state"`
 	Reason string  `json:"reason,omitempty"`
 	Time   float64 `json:"time"`
@@ -163,7 +164,7 @@ type debugSnapshot struct {
 	PausedAt string `json:"pausedAt,omitempty"`
 	// Notes are what the runtime noted during the last request.
 	Notes []string `json:"notes"`
-	// Results are a completed action's outputs.
+	// Results are an ended action's outputs, as they stood when it completed or was terminated.
 	Results map[string]string `json:"results,omitempty"`
 }
 
@@ -651,7 +652,7 @@ func (s *Server) DebugStep(params *debugSessionParams) (*debugSnapshot, error) {
 	sess.resume()
 	switch sess.kind {
 	case view.KindAction:
-		if sess.action.State() == runtime.StateCompleted {
+		if sess.action.State().Ended() {
 			break
 		}
 		err := sess.action.StepToBreakpoint()
@@ -763,7 +764,7 @@ func (s *Server) DebugContinue(params *debugSessionParams) (*debugSnapshot, erro
 	sess.resume()
 	switch sess.kind {
 	case view.KindAction:
-		if sess.action.State() == runtime.StateCompleted {
+		if sess.action.State().Ended() {
 			break
 		}
 		if err := sess.action.RunToQuiescence(); err != nil {
@@ -784,7 +785,7 @@ func (s *Server) DebugContinue(params *debugSessionParams) (*debugSnapshot, erro
 // to a breakpoint, holding the clock: an event due later waits for an advance.
 func (sess *debugSession) continueMachine() {
 	exec := sess.machine
-	if exec.State() == runtime.StateCompleted {
+	if exec.State().Ended() {
 		return
 	}
 	if err := exec.RunToQuiescence(); err != nil {
@@ -1158,6 +1159,8 @@ func (sess *debugSession) status() (string, string) {
 		return debugSuspended, sess.suspendReason()
 	case runtime.StateCompleted:
 		return debugCompleted, ""
+	case runtime.StateTerminated:
+		return debugTerminated, ""
 	}
 	return strings.ToLower(state.String()), ""
 }
@@ -1246,7 +1249,7 @@ func (sess *debugSession) actionSnapshot(snap *debugSnapshot) {
 	for _, msg := range sess.rt.PendingMessages() {
 		snap.Queue = append(snap.Queue, debugEvent{Event: debugSignalText(msg), At: snap.Time, Pending: true})
 	}
-	if exec.State() == runtime.StateCompleted {
+	if exec.State().Ended() {
 		results := exec.Results()
 		if len(results) > 0 {
 			snap.Results = make(map[string]string, len(results))

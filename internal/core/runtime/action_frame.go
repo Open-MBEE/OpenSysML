@@ -38,6 +38,9 @@ type performanceOwner interface {
 	pauseAt(within []ast.Node, node ast.Node) error
 	// runOwnFlow runs the flow perf's node states of its own to completion.
 	runOwnFlow(perf *actionFrame) error
+	// endsOwn reports whether a terminate may end the root performance: an action's
+	// or a state behavior's ends at the statement; a case's own flow cannot be ended.
+	endsOwn() bool
 }
 
 // actionFrame is one performance: the action's own (node nil) or a nested node's.
@@ -75,6 +78,9 @@ type actionFrame struct {
 	result string
 	// began is the activation the performance began in, which orders performances.
 	began int64
+	// heldAt is the ID of the token parked at node whose step this performance ends
+	// before it began, a terminate having named the node (beginPending); 0 otherwise.
+	heldAt int64
 	// run is the identity of this performance among the context's runs (Context.newRun).
 	run int64
 	// callee is the action a `Callee(...)` node performs, resolved or settled by its

@@ -835,14 +835,25 @@ does not exit any States nor does it perform any exit Behaviors"; running do act
 automatically aborted", and entering it "is equivalent to invoking a DestroyObjectAction".
 *v2/KerML:* SysML v2 §7.17.10 defines the terminate action, and §7.18.3 shows `accept Abort via
 commPort then stop; action stop terminate;` as the way "to immediately terminate the containing
-state performance"; `Performances.kerml` `TerminatePerformance`. *Runtime:* the parser accepts
-`terminate` and lowering preserves it (`lower.EffectTerminate`); `action_statements.go:
-actionStmtHost.effect` refuses it with "'terminate' in a body is not executable", and a
-transition to a terminate action fails to resolve its target. The refusal is pinned for a
-calculation only (`robustness_test.go:calc_terminate_is_rejected`, where it is refused as a side
-effect); the runtime has no `terminate` execution for actions or states either. Roadmap Track E
-lists it. **gap** — a v2 gap first, and PSSM's rules for it coincide with §7.17.10's, so the
-same implementation closes both.
+state performance"; `Performances.kerml` `TerminatePerformance`. *Runtime:* lowering carries
+every `terminate` as a `lower.Effect` of kind `EffectTerminate` with the terminated occurrence
+as an evaluable target (`TerminateContaining`, `TerminateEnclosing`, `TerminateNode`,
+`TerminateOccurrence`), and a state graph lists its terminate action usages with the composite
+state each is declared in (`lower.StateGraph.Terminates`, `TerminateOwner`). A `terminate` in
+an action or state-behavior body ends the containing performance, or the occurrence it names,
+at that statement (`action_terminate.go:performances.terminate`,
+`occurrence_terminate.go:terminateOccurrence`): the outputs assigned so far stay, the tokens
+held anywhere in the ended action are dropped, and a state's entry, do or exit behavior ends
+while the state stays active and the machine keeps dispatching. A transition whose target is a
+terminate action usage ends the state-machine performance where it arrives
+(`state_route.go:terminateAt`, `state_executor.go:terminateMachine`): the transition's source
+is exited and its effect run, the states down to the usage's owner are entered, then nothing
+else is exited, running do behaviors are abandoned (`abandonMachine`), and the outcome is
+`Terminated` rather than a final state. Only a calculation still refuses it, as a side effect
+(`robustness_test.go:calc_terminate_is_rejected`). PSSM's rules for the pseudostate — "does
+not exit any States", do activities "automatically aborted" — are these; the source's exit is
+in PSSM's own expected traces (the last step of *Terminate 001*'s admitted trace is the exit of
+the state whose completion transition reaches the pseudostate). **agrees**.
 
 #### Time and change events against the simulation clock
 
@@ -1325,10 +1336,10 @@ carries one verdict.
 
 | Verdict | Rows |
 |---|---:|
-| **agrees** | 49 |
+| **agrees** | 50 |
 | **differs because v2 differs** | 7 |
 | **differs, v2 silent** | 10 |
-| **gap** | 4 |
+| **gap** | 3 |
 | **Total** | **70** |
 
 The seven **differs because v2 differs** rows are SM15 (a do activity and the machine competing
@@ -1371,9 +1382,8 @@ without contradicting v2:
 - **C8** — a send that reaches no receiver: PSCS loses the occurrence, the runtime fails the
   send with a typed error.
 
-The four **gap** rows:
+The three **gap** rows:
 
-- **SM38** — terminate (the roadmap's "terminate in a body" entry under Track E).
 - **A8** — streaming flows (the roadmap's "streaming flows" entry).
 - **A9** — parallel expansion regions (the roadmap's "concurrent per-element performance"
   entry).
@@ -1381,8 +1391,8 @@ The four **gap** rows:
 
 Every gap is already a Track E entry with a v2 basis of its own; a port of the precise-semantics
 text would not close any of them, because each is a v2 concept the runtime lacks, not a UML
-concept v2 lacks. Terminate is the one gap the PSSM suite tests directly (three tests); the
-other three are fUML rows no PSSM test reaches.
+concept v2 lacks. All three are fUML rows no PSSM test reaches; terminate (SM38), the one gap
+the suite tested directly, is closed.
 
 ## The test suite as a referee: a capability map
 
@@ -1397,12 +1407,12 @@ which supersede the hand count this section was first written with — the moves
 
 | Aspect of the suite | Verdict | Why |
 |---|---|---|
-| **Expressing the test model in SysML v2 textual notation** | **Can, for 65 of 103** (31 with standard notation, 31 with this project's extensions, 3 spellable but reaching the terminate gap); **cannot, for 38** (30 use a construct v2 has no spelling for, 8 more use a behavior shape the notation cannot bind) | Every test's state machine is classified by the UML constructs it uses; the table below gives the construct-to-notation mapping and the per-area result |
+| **Expressing the test model in SysML v2 textual notation** | **Can, for 65 of 103** (34 with standard notation, 31 with this project's extensions); **cannot, for 38** (30 use a construct v2 has no spelling for, 8 more use a behavior shape the notation cannot bind) | Every test's state machine is classified by the UML constructs it uses; the table below gives the construct-to-notation mapping and the per-area result |
 | **Driving the test** | **Can, with one normalization** | PSSM's `Tester` sends `Start` and the follow-up signals from its own behavior, interleaved with the target's steps by fUML's scheduling; the conformance harness queues a case's `events` before the first step (`conformance_test.go:injectEvents`). The two coincide when every send precedes the target's first reaction, which is what the tests' "received when in configuration ..." lists state; a test that needs a signal to arrive mid-run needs a tester `part` in the model instead |
 | **Comparing the expected trace** | **Can, on a model-level string; `%trace` is not the comparand** | PSSM's expected trace is built by the model — every entry, exit and effect behavior calls `trace("<state>(entry)")` on the `TraceBuilder` (501 call actions target the `trace` operation in the XMI). Its translation is an `assign log := log + "<state>(entry)"` in the corresponding `entry`/`exit`/`do` body, compared through the case's `slots`/`outputs`; the runtime's `%trace` and `TestExecutionTrace` goldens record steps, not segments, and would need a projection (enter/exit/effect lines to segments, everything else dropped) to be comparable at all |
 | **Alternative expected traces** | **Can, and exactly** | 36 tests declare more than one admissible trace. The conformance schema's `outcomes` with the `explore` policy replays a case once per linearization of its choice points (`ChoiceRegionOrder`, `ChoiceTransition`, `ChoiceDueOrder`) and fails when a listed outcome is unreachable or an unlisted one is reached — the same set-equality PSSM's alternatives ask for, and stricter than the single-run comparison the PSSM harness performs |
 | **The run-to-completion step table** | **Cannot compare** | Each test's "RTC steps" table lists the pool's contents and the fired transitions per step, including completion events (`CE(<state>)`). The runtime has no pool of completion occurrences (SM9) and the `%trace` records no pool; only the fired transitions and the final trace are comparable |
-| **A pass as evidence about SysML v2 semantics** | **Only on the ten `differs, v2 silent` rows and as corroboration on the `agrees` rows** | Where PSSM and v2 coincide (49 rows) a pass says the runtime does what both texts say — worth having, but not a second opinion on v2. Where they differ because v2 differs (6 rows) the corresponding tests fail by design and their failure means nothing. Where v2 is silent (10 rows) a pass or a fail reports on a tool choice, which is the one place the suite is informative about this runtime's rules |
+| **A pass as evidence about SysML v2 semantics** | **Only on the ten `differs, v2 silent` rows and as corroboration on the `agrees` rows** | Where PSSM and v2 coincide (50 rows) a pass says the runtime does what both texts say — worth having, but not a second opinion on v2. Where they differ because v2 differs (6 rows) the corresponding tests fail by design and their failure means nothing. Where v2 is silent (10 rows) a pass or a fail reports on a tool choice, which is the one place the suite is informative about this runtime's rules |
 
 ### Which UML construct maps to which notation
 
@@ -1416,7 +1426,7 @@ which supersede the hand count this section was first written with — the moves
 | Call event trigger | `accept op(args)` on an operation invocation, as `state_call_trigger` spells it | standard, with the caller-return caveat of A14 |
 | Deferrable trigger | `defer Sig;` — this project's extension | extension |
 | Fork, join, junction, choice, shallow and deep history pseudostates | State-body `fork`/`join`/`junction`/`choice`/`history`/`deep history` — this project's extensions | extension |
-| Terminate pseudostate | `terminate` — accepted by the parser, refused by the runtime (SM38) | spellable, runtime gap |
+| Terminate pseudostate | A terminate action usage in the region, `action t terminate;`, that a transition ends at with `then t` (§7.18.3; SM38) | standard |
 | Entry point, exit point (connection points and connection point references) | none | no spelling |
 | Local transition, internal transition | none (SM36, SM37) | no spelling |
 | State machine generalization: extended regions, redefined transitions | none | no spelling |
@@ -1429,31 +1439,33 @@ which supersede the hand count this section was first written with — the moves
 
 The classification is by construct, in the order of the table: a test whose model uses any
 construct with no spelling or no translation is counted as not expressible whatever else it
-uses; otherwise it is counted under the gap if it uses `terminate`, under the extensions if it
-uses any of them, and as standard otherwise. `internal/pssm/classify.go` is the classifier and
-`TestSuiteClassification` pins this table against the pinned suite. By area:
+uses; otherwise it is counted under the extensions if it uses any of them, and as standard
+otherwise (the three terminate tests were a class of their own, *terminate gap*, while the
+runtime did not execute `terminate`; they are standard since it does). `internal/pssm/classify.go`
+is the classifier and `TestSuiteClassification` pins this table against the pinned suite. By
+area:
 
-| Area | Tests | Standard | Extension | Terminate gap | Not expressible |
-|---|---:|---:|---:|---:|---:|
-| Behavior | 5 | 4 | 0 | 0 | 1 |
-| Transition | 15 | 8 | 1 | 0 | 6 |
-| Event | 16 | 10 | 0 | 0 | 6 |
-| Entering | 5 | 4 | 0 | 0 | 1 |
-| Exiting | 5 | 4 | 0 | 0 | 1 |
-| Entry (entry points) | 6 | 0 | 0 | 0 | 6 |
-| Exit (exit points) | 3 | 0 | 0 | 0 | 3 |
-| Choice | 5 | 0 | 4 | 0 | 1 |
-| Junction | 6 | 0 | 5 | 0 | 1 |
-| Fork | 2 | 0 | 1 | 0 | 1 |
-| Join | 3 | 0 | 3 | 0 | 0 |
-| Final | 1 | 1 | 0 | 0 | 0 |
-| Terminate | 3 | 0 | 0 | 3 | 0 |
-| History | 8 | 0 | 8 | 0 | 0 |
-| Deferred | 10 | 0 | 9 | 0 | 1 |
-| Redefinition | 6 | 0 | 0 | 0 | 6 |
-| Standalone | 3 | 0 | 0 | 0 | 3 |
-| Other | 1 | 0 | 0 | 0 | 1 |
-| **Total** | **103** | **31** | **31** | **3** | **38** |
+| Area | Tests | Standard | Extension | Not expressible |
+|---|---:|---:|---:|---:|
+| Behavior | 5 | 4 | 0 | 1 |
+| Transition | 15 | 8 | 1 | 6 |
+| Event | 16 | 10 | 0 | 6 |
+| Entering | 5 | 4 | 0 | 1 |
+| Exiting | 5 | 4 | 0 | 1 |
+| Entry (entry points) | 6 | 0 | 0 | 6 |
+| Exit (exit points) | 3 | 0 | 0 | 3 |
+| Choice | 5 | 0 | 4 | 1 |
+| Junction | 6 | 0 | 5 | 1 |
+| Fork | 2 | 0 | 1 | 1 |
+| Join | 3 | 0 | 3 | 0 |
+| Final | 1 | 1 | 0 | 0 |
+| Terminate | 3 | 3 | 0 | 0 |
+| History | 8 | 0 | 8 | 0 |
+| Deferred | 10 | 0 | 9 | 1 |
+| Redefinition | 6 | 0 | 0 | 6 |
+| Standalone | 3 | 0 | 0 | 3 |
+| Other | 1 | 0 | 0 | 1 |
+| **Total** | **103** | **34** | **31** | **38** |
 
 Of the 30 with no v2 spelling, 14 use an entry point, 12 an exit point, 9 a local transition, 2
 an internal transition and 6 the redefinition machinery (several use more than one). Of the 62
@@ -1618,7 +1630,7 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
   machine, a comparator normalizing the `TraceBuilder` string against the model's `log` and
   matching the result against the test's set of expected traces (as a set, under the `explore`
   policy), and a committed baseline of bucket counts (`pass`, `fail`, `not-expressible`,
-  `terminate-gap`, `differs-by-design` for the tests reaching SM15/SM36/SM37) that CI compares
+  `differs-by-design` for the tests reaching SM15/SM36/SM37) that CI compares
   by count and never by pass/fail.
 - **Dependencies.** The translator's hardest part, the `Tester`/`Target` protocol, is a
   fixed pattern in the suite (one `Start`, then the listed signals), so the harness's driver is
@@ -1626,8 +1638,8 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
   would be bucketed, not driven. Independent of the bounded-model-checking stages, since the
   `explore` policy already exists; it *benefits* from stage 3 (dispatch-order choice points make
   the set comparison exhaustive for the orthogonal-region tests rather than budget-bounded). No
-  Track E dependency, but the three terminate tests stay in their bucket until Track E closes
-  terminate, after which they move to `pass`/`fail` and the count moves.
+  Track E dependency; the three terminate tests, held in a `terminate-gap` bucket until Track E
+  closed terminate, run since (*Terminate 003* passes, *001* and *002* fail on finding 9).
 - **Acceptance gate.** The harness reproduces its committed baseline deterministically; the
   `pass` bucket is not a CI gate, only its *count* is, adjudicated on every movement like the
   corpus ratchets. The tool's `-h` says in one sentence what a pass means, in the words of the
@@ -1656,9 +1668,9 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
   the dispatch-order choice points and the `do` interleaving representation would have to be
   defined per mode, and the [analysis framework](analysis-framework.md)'s rule that "the
   interpreter is normative" would have two normative interpreters — every engine (`smt`, `check`)
-  either supports both or is silently wrong under one. Track E's terminate closes for both modes
-  at once (the rules coincide, SM38); its interrupting-performance and streaming entries are fUML
-  rows the mode would not touch.
+  either supports both or is silently wrong under one. Terminate is closed for both modes at
+  once (the rules coincide, SM38); Track E's interrupting-performance and streaming entries are
+  fUML rows the mode would not touch.
 - **Acceptance gate.** The PSSM suite itself, passing on every expressible test — which is the
   one thing this option buys that (b) does not, and only for the 61 expressible tests, since the
   30 with no spelling need new notation first.
@@ -1672,7 +1684,7 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
 ### (d) Do nothing
 
 - **Scope.** Leave the ten `differs, v2 silent` rows as they are, this note as the record
-  that they were examined, and the four gaps to Track E.
+  that they were examined, and the three gaps to Track E.
 - **Dependencies, gate, user-visible change.** None.
 - **What it leaves.** SM7 — a `defer` that any sibling region's reaction overrides — is a rule
   this project chose without the alternative in view; it stays chosen. SM28 stays a run failure
@@ -1685,8 +1697,8 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
 ## Recommendation
 
 **Option (a), with (b) as a follow-on once (a)'s two changes have landed.** The map shows no case
-for porting the precise-semantics family: 49 of 70 rows agree already, 7 differ because SysML v2
-says otherwise and must stay as they are, and the 4 gaps are v2 gaps Track E already owns. What
+for porting the precise-semantics family: 50 of 70 rows agree already, 7 differ because SysML v2
+says otherwise and must stay as they are, and the 3 gaps are v2 gaps Track E already owns. What
 remains is nine tool choices, and on two of them — SM7 and SM28 — PSSM's rule is the reference
 this project's own extensions name (UML) applied consistently, while ours is an accident of
 implementation order; on the other seven the runtime's rule is deliberate and better for a modeler
@@ -1717,17 +1729,20 @@ activity engine and does not become one.
 The rows below report the runtime differing from, or falling short of, SysML v2's or the Kernel
 Semantic Library's *own* text, or from this project's own design notes. They are bug reports and
 unsupported-feature records, not alignment questions: PSSM has nothing to do with them and they
-are not alignment questions. Each names its evidence; items 4 to 8 and 10 are fixed, and say
-where; item 9 is open, and says what a fix takes.
+are not alignment questions. Each names its evidence; items 1, 4 to 8 and 10 are fixed, and
+say where; item 9 is open, and says what a fix takes.
 
-1. **Terminate is parsed and lowered but not executed** (SM38). SysML v2 §7.17.10 and §7.18.3
-   define `terminate`; `Performances.kerml` provides `TerminatePerformance`; the parser accepts
-   it and `lower.EffectTerminate` carries it; `action_statements.go:actionStmtHost.effect`
-   refuses it as "'terminate' in a body is not executable"
-   (`robustness_test.go:calc_terminate_is_rejected`). Roadmap Track E, "terminate in a body".
-   That PSSM's *Terminate 001–002* describe the same behavior is a coincidence of the two texts
-   and does not make this a PSSM alignment item: the implementation follows §7.17.10, and the
-   PSSM tests would then pass as a consequence.
+1. **Terminate was parsed and lowered but not executed** (SM38). SysML v2 §7.17.10 and §7.18.3
+   define `terminate`; `Performances.kerml` provides `TerminatePerformance`; the parser accepted
+   it and `lower.EffectTerminate` carried it, and `action_statements.go:actionStmtHost.effect`
+   refused it as "'terminate' in a body is not executable". Fixed: the row SM38 names the
+   lowering (`lower.Effect.Terminates`, `StateGraph.Terminates`) and the execution
+   (`action_terminate.go`, `occurrence_terminate.go`, `state_route.go:terminateAt`) of every
+   position the parser accepts; the calculation refusal alone stays
+   (`robustness_test.go:calc_terminate_is_rejected`). That PSSM's *Terminate 001–002* describe
+   the same behavior is a coincidence of the two texts and did not make this a PSSM alignment
+   item: the implementation follows §7.17.10, and *Terminate 003* passes as a consequence,
+   while *001* and *002* reach an admitted trace and fail on item 9's region-entry order.
 2. **Streaming flows, parallel expansion and interrupting an ongoing performance** (A8, A9,
    A10). `Flows.sysml` distinguishes `Flow` from `SuccessionFlow` and SysML v2 §7.16.1 says a
    streaming flow may be ongoing while both actions perform; the runtime applies every flow at
@@ -1881,7 +1896,9 @@ where; item 9 is open, and says what a fix takes.
    (`state_executor.go:runStep`, `runDoRound`, SM13) — *Behavior 003 A* admits the
    machine's `AnotherSignal` transition before the do activity's first segment, so that
    the first state's entry alone is a complete log, and *Transition 017* the do activity's step
-   at any point among the sibling regions' completion effects. SysML v2 §7.18.1 has parallel
+   at any point among the sibling regions' completion effects — and *Terminate 001* and
+   *Terminate 002* (§9.4.13) the second region's entry before the first's, *002* also the do
+   activity's step before the terminating completion transition or not at all. SysML v2 §7.18.1 has parallel
    substates "performed concurrently" and `StatePerformance::do` a sub-performance concurrent
    with `middle`, so the runs PSSM admits are runs v2 admits, and the runtime's one order per
    site is a linearization v2 admits too: not a defect of behavior, a gap of exploration — the
@@ -1892,9 +1909,9 @@ where; item 9 is open, and says what a fix takes.
    records, as `dispatchInOrder` and `runDoRound` already do among themselves, and the goldens
    of every fixture that enters or leaves an orthogonal state would move with the trace
    (`state_parallel_standard`, `state_composite_orthogonal_exit`, `state_concurrent_do` and
-   their kin). Not fixed; the nine tests stay `fail` in
-   `docs/project/pssm-referee.md` citing this item, with a tenth (*Transition 019*) that also
-   reports on SM34, and an eleventh (*Junction 005*, §9.4.11) that item 10's fix left on this
+   their kin). Not fixed; the eleven tests stay `fail` in
+   `docs/project/pssm-referee.md` citing this item, with a twelfth (*Transition 019*) that also
+   reports on SM34, and a thirteenth (*Junction 005*, §9.4.11) that item 10's fix left on this
    gap alone: the other region's initial-transition effect and entry, admitted before or
    around the junction segment's effect, are entered after it. The design is written
    ([recording the order of orthogonal regions](region-order-scheduling.md)); it waits on two

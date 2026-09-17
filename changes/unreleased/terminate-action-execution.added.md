@@ -6,6 +6,5 @@
   `accept` included — in an order the trace records, and a nested node's parent continues along the
   node's succession. `terminate <name>;` ends every ongoing performance of the named action node
   of the flow it is in or of a flow around it, the node itself included. A performance that already
-  ended, a name that is no action node of an enclosing flow, and an occurrence target
-  (`terminate this;`) are each a typed error rather than a silent no-op; a `terminate` in a
-  calculation or in a state's body is refused as before.
+  ended and a name that is no action node of an enclosing flow are each a typed error rather
+  than a silent no-op; a `terminate` in a calculation is refused as before.

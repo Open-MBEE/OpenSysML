@@ -1,0 +1,16 @@
+do: idle
+stmt action body
+  stmt assign later
+    eval literal 5 -> 5
+  stmt terminate
+terminate state behavior tick: no token dropped
+exit: idle (exit action)
+stmt action body
+  stmt assign count
+      eval feature count -> 1
+      eval literal 10 -> 10
+    eval operator + -> 11
+  stmt terminate
+terminate state behavior leave: no token dropped
+enter: next
+transition: idle -> next (event: accept go)

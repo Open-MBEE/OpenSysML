@@ -181,9 +181,9 @@ var (
 	// has already ended, by completing or by an earlier terminate.
 	ErrPerformanceEnded = errors.New("performance already ended")
 
-	// ErrTerminateOccurrence is returned when a `terminate` names an occurrence by
-	// an expression, which ends an object and its behaviors — not yet executed.
-	ErrTerminateOccurrence = errors.New("terminating an occurrence is not executable")
+	// ErrTerminateOccurrence is returned when a `terminate` names a value that is no
+	// occurrence, or an occurrence that is not ongoing; it wraps the lifetime error.
+	ErrTerminateOccurrence = errors.New("occurrence cannot be terminated")
 
 	// ErrExecutorReleased is returned when a released executor is stepped.
 	ErrExecutorReleased = errors.New("executor released")

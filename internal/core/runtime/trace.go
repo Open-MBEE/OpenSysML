@@ -96,6 +96,32 @@ func (tr *TraceRecorder) RecordStateTransition(fromState, toState string, event 
 	}
 }
 
+// RecordStateTerminate records the machine's performance ending at the terminate
+// action stop, with the states whose do behaviors it abandoned.
+func (tr *TraceRecorder) RecordStateTerminate(stop string, abandoned []string) {
+	if !tr.enabled {
+		return
+	}
+	if len(abandoned) == 0 {
+		tr.entries = append(tr.entries, fmt.Sprintf("terminate: %s", stop))
+		return
+	}
+	tr.entries = append(tr.entries, fmt.Sprintf("terminate: %s (do behavior abandoned: %s)", stop, strings.Join(abandoned, ", ")))
+}
+
+// RecordStateEndedWithOccurrence records the machine's performance ending with the
+// occurrence a `terminate` named, with the states whose do behaviors it abandoned.
+func (tr *TraceRecorder) RecordStateEndedWithOccurrence(machine string, abandoned []string) {
+	if !tr.enabled {
+		return
+	}
+	if len(abandoned) == 0 {
+		tr.entries = append(tr.entries, fmt.Sprintf("terminated with occurrence: %s", machine))
+		return
+	}
+	tr.entries = append(tr.entries, fmt.Sprintf("terminated with occurrence: %s (do behavior abandoned: %s)", machine, strings.Join(abandoned, ", ")))
+}
+
 // RecordStateEntry records entering a state with optional entry action execution.
 func (tr *TraceRecorder) RecordStateEntry(state string, hasEntryAction bool) {
 	if !tr.enabled {
@@ -155,6 +181,19 @@ func (tr *TraceRecorder) RecordActionTerminate(perf string, dropped []Token) {
 		parts = append(parts, fmt.Sprintf("token %d@%s", t.ID, nodeIdentifier(t.Location)))
 	}
 	tr.entries = append(tr.entries, fmt.Sprintf("terminate %s: dropped %s", perf, strings.Join(parts, ", ")))
+}
+
+// RecordActionTerminatePending records a performance a terminate ended at a parked token:
+// one waiting at an accept, or one whose step had yet to begin.
+func (tr *TraceRecorder) RecordActionTerminatePending(perf string, waiting bool) {
+	if !tr.enabled {
+		return
+	}
+	how := "ended before it began"
+	if waiting {
+		how = "ended waiting"
+	}
+	tr.entries = append(tr.entries, fmt.Sprintf("terminate %s: %s", perf, how))
 }
 
 // RecordCalcEnter records entering a calc invocation and opens a nesting level.
@@ -325,6 +364,15 @@ func (tr *TraceRecorder) RecordOccurrenceDestroyed(typeName string, id int64) {
 	}
 
 	tr.entries = append(tr.entries, fmt.Sprintf("destroy: %s #%d", typeName, id))
+}
+
+// RecordOccurrenceTerminated records an occurrence ending by `terminate`.
+func (tr *TraceRecorder) RecordOccurrenceTerminated(typeName string, id int64) {
+	if !tr.enabled {
+		return
+	}
+
+	tr.entries = append(tr.entries, fmt.Sprintf("terminate: %s #%d", typeName, id))
 }
 
 // RecordBehaviorStart records an object's own execution of a behavior its type

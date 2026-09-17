@@ -9,17 +9,14 @@ import (
 // Expressibility is whether a test's model can be spelled in SysML v2 textual
 // notation, decided by the UML constructs its state machine uses, in the order of the
 // alignment note's construct-to-notation table: a construct with no spelling
-// makes the test not expressible whatever else it uses; otherwise `terminate`
-// puts it in the gap, any of this project's extensions makes it an extension
-// test, and it is standard otherwise.
+// makes the test not expressible whatever else it uses; otherwise any of this
+// project's extensions makes it an extension test, and it is standard otherwise.
 type Expressibility int
 
-// The four expressibility classes, in decision order.
+// The three expressibility classes, in decision order.
 const (
 	// NotExpressible: the model uses a construct with no SysML v2 spelling.
 	NotExpressible Expressibility = iota
-	// TerminateGap: spellable, but reaches `terminate`, which the runtime refuses.
-	TerminateGap
 	// Extension: spellable with this project's extensions (defer, fork, join,
 	// junction, choice, history).
 	Extension
@@ -29,7 +26,6 @@ const (
 
 var expressibilityNames = [...]string{
 	NotExpressible: "not-expressible",
-	TerminateGap:   "terminate-gap",
 	Extension:      "extension",
 	Standard:       "standard",
 }
@@ -77,8 +73,6 @@ const (
 	// Recorded but not deciding: a pseudostate filed as a connection point that
 	// is neither an entry nor an exit point and that no transition reaches.
 	ConstructStrayConnectionPoint Construct = "stray connection point"
-	// The runtime gap.
-	ConstructTerminate Construct = "terminate"
 	// This project's extensions.
 	ConstructDefer          Construct = "defer"
 	ConstructFork           Construct = "fork"
@@ -110,7 +104,6 @@ var constructClass = map[Construct]Expressibility{
 	ConstructGuardSideEffect:      NotExpressible,
 	ConstructGuardBehaviorUnread:  NotExpressible,
 	ConstructRegionNoEntry:        NotExpressible,
-	ConstructTerminate:            TerminateGap,
 	ConstructDefer:                Extension,
 	ConstructFork:                 Extension,
 	ConstructJoin:                 Extension,
@@ -414,7 +407,7 @@ func (w *walker) tester(body *Body) {
 func (w *walker) vertex(v *Vertex) {
 	where := v.Path()
 	switch v.Kind {
-	case VertexState, VertexFinal, VertexInitial:
+	case VertexState, VertexFinal, VertexInitial, VertexTerminate:
 	case VertexJunction:
 		w.add(ConstructJunction, where)
 	case VertexChoice:
@@ -431,8 +424,6 @@ func (w *walker) vertex(v *Vertex) {
 		w.add(ConstructEntryPoint, where)
 	case VertexExitPoint:
 		w.add(ConstructExitPoint, where)
-	case VertexTerminate:
-		w.add(ConstructTerminate, where)
 	default:
 		w.add(ConstructUnknownVertex, where)
 	}

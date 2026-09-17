@@ -131,7 +131,7 @@ func (h *calcStmtHost) performer() *Instance {
 
 // effect performs the action a `perform` in a case body names, its outputs
 // returning to the body's values; a calculation states no effect at all.
-func (h *calcStmtHost) effect(_ *stmtEnv, s lower.Effect) error {
+func (h *calcStmtHost) effect(_ *stmtEngine, s lower.Effect) error {
 	if h.perfs == nil || s.Kind != lower.EffectPerform {
 		return fmt.Errorf("%w: a calculation cannot state '%s'", ErrCalcSideEffect, s.Kind)
 	}
@@ -226,6 +226,9 @@ func (h *calcStmtHost) pauseAt([]ast.Node, ast.Node) error {
 func (h *calcStmtHost) runOwnFlow(perf *actionFrame) error {
 	return h.flow.runSubflow(perf)
 }
+
+// endsOwn refuses a terminate of the case's own performance: a case runs to its result.
+func (h *calcStmtHost) endsOwn() bool { return false }
 
 // runFlow runs the token flow a case body states with its successions and control
 // nodes, as the case's own performance; a calculation states none.

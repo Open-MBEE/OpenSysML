@@ -232,6 +232,7 @@ func newActionExecutorOn(
 	exec.root = exec.newRootFrame()
 	exec.owner = exec
 	exec.flow = exec
+	exec.driven.exec = exec
 	ctx.clock.attach(exec)
 	return exec
 }
@@ -322,7 +323,7 @@ func (e *ActionExecutor) Step() error {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
 	}
 
-	if e.state == StateCompleted {
+	if e.state.Ended() {
 		return nil // Already completed
 	}
 
@@ -427,7 +428,7 @@ func (e *ActionExecutor) Step() error {
 		e.trace().RecordActionStep(e.stepCount, e.tokens)
 	}
 
-	if e.state == StateCompleted {
+	if e.state.Ended() {
 		return e.ctx.endedWhole(&e.driven)
 	}
 	return nil
@@ -610,7 +611,7 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 // on one the run has not yet stopped at suspends the run before any token moves,
 // and one a step lands on suspends it after, so the next step resumes past it.
 func (e *ActionExecutor) StepToBreakpoint() error {
-	if e.released || e.state == StateReady || e.state == StateCompleted {
+	if e.released || e.state == StateReady || e.state.Ended() {
 		return e.Step()
 	}
 	if e.pauseAtBreakpoint() {
@@ -1158,6 +1159,9 @@ func (e *ActionExecutor) assignAround(string, Value) (bool, error) {
 func (e *ActionExecutor) runOwnFlow(perf *actionFrame) error {
 	return e.runSubflow(perf)
 }
+
+// endsOwn allows a terminate to end the action's own performance.
+func (e *ActionExecutor) endsOwn() bool { return true }
 
 // setFeature writes into the action's feature space, through the performance
 // occurrence for a feature the action declares: the occurrence is authoritative
@@ -2484,7 +2488,7 @@ func (e *ActionExecutor) tokenPositions() map[int64]ast.Node {
 	return positions
 }
 
-func (e *ActionExecutor) finished() bool { return e.released || e.state == StateCompleted }
+func (e *ActionExecutor) finished() bool { return e.released || e.state.Ended() }
 func (e *ActionExecutor) running() bool  { return e.inRun || e.held }
 
 // performerSuffix names the object performing a behavior, nothing for none.

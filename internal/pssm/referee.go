@@ -20,17 +20,16 @@ const Meaning = "A pass checks that the runtime reproduces UML behavior where th
 // Bucket is the verdict the referee files a test under.
 type Bucket string
 
-// The five buckets, in report order.
+// The four buckets, in report order.
 const (
 	BucketPass            Bucket = "pass"
 	BucketFail            Bucket = "fail"
 	BucketNotExpressible  Bucket = "not-expressible"
-	BucketTerminateGap    Bucket = "terminate-gap"
 	BucketDiffersByDesign Bucket = "differs-by-design"
 )
 
 // Buckets lists every bucket in report order.
-var Buckets = []Bucket{BucketPass, BucketFail, BucketNotExpressible, BucketTerminateGap, BucketDiffersByDesign}
+var Buckets = []Bucket{BucketPass, BucketFail, BucketNotExpressible, BucketDiffersByDesign}
 
 // Provenance identifies the suite a report measured.
 type Provenance struct {
@@ -138,14 +137,8 @@ func referee(stop context.Context, s *Suite, t *Test, opts Options) (TestReport,
 		row.Row = r.ID
 		row.RowKind = string(r.Kind)
 	}
-	switch c.Class {
-	case NotExpressible:
+	if c.Class == NotExpressible {
 		row.Bucket = BucketNotExpressible
-		row.Reasons = []string{c.Reason()}
-		row.Expected = nil
-		return row, nil
-	case TerminateGap:
-		row.Bucket = BucketTerminateGap
 		row.Reasons = []string{c.Reason()}
 		row.Expected = nil
 		return row, nil

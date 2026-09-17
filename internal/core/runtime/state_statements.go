@@ -49,6 +49,8 @@ func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior) *stateStmtHos
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
 	host.flow.flow = host.flow
+	host.flow.driven.exec = host.flow
+	host.flow.driven.caller = &e.driven
 	host.perfs = &host.flow.performances
 	return host
 }
@@ -61,7 +63,35 @@ func (h *stateStmtHost) run() error {
 		engine.env.perf = h.perfs.root
 		return engine
 	}, h.behavior.Body)
-	return err
+	return h.ended(err)
+}
+
+// ended settles a run of the behavior that err ended: a terminate of the behavior's
+// own performance is its end, dropping what its flow still ran and ending the
+// performances nested in it; any other err is returned as is.
+func (h *stateStmtHost) ended(err error) error {
+	root := h.perfs.root
+	if !terminates(err, root) {
+		return err
+	}
+	if !root.inBody || len(h.flow.tokensIn(root)) > 0 {
+		h.flow.dropTokensIn(root, 0)
+	}
+	endNested(root)
+	root.live = 0
+	h.flow.state = StateCompleted
+	if t := unwound(err); t != nil {
+		return h.flow.endAlongside(t)
+	}
+	return nil
+}
+
+// endNested marks the performances nested in perf ended, perf itself kept.
+func endNested(perf *actionFrame) {
+	for _, sub := range perf.subactions {
+		sub.ended, sub.live = true, 0
+		endNested(sub)
+	}
 }
 
 func (h *stateStmtHost) perform() error { return h.run() }
@@ -273,9 +303,13 @@ func (h *stateStmtHost) acceptReturn(Value, lower.Return) error {
 	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())
 }
 
-// effect performs the action a `perform` names; every other effect a body may
-// state has no execution in a state behavior.
-func (h *stateStmtHost) effect(_ *stmtEnv, s lower.Effect) error {
+// effect performs the action a `perform` names, or ends the performance a
+// `terminate` names; every other effect a body may state has no execution in a
+// state behavior.
+func (h *stateStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
+	if s.Kind == lower.EffectTerminate {
+		return h.perfs.terminate(engine, h.perfs.root, s)
+	}
 	if s.Kind == lower.EffectPerform {
 		inv, ok := performedInvocation(s)
 		if !ok {
@@ -368,6 +402,10 @@ func (h *stateStmtHost) pauseAt([]ast.Node, ast.Node) error {
 func (h *stateStmtHost) runOwnFlow(perf *actionFrame) error {
 	return h.flow.runSubflow(perf)
 }
+
+// endsOwn allows a terminate to end the behavior's own performance (SysML v2
+// §7.17.10): the behavior ends at the statement and the state it belongs to stays.
+func (h *stateStmtHost) endsOwn() bool { return true }
 
 // performedInvocation reports the action a `perform` statement declared in scope
 // names, in either form the parser produces for one.
