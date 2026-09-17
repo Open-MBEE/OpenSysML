@@ -450,6 +450,27 @@ func (c *refCollector) declarations(members []ast.Node, local locals) {
 	}
 }
 
+func endScope(local locals, ends []*ast.ConnectorEnd) locals {
+	var scoped locals
+	for _, end := range ends {
+		if end == nil {
+			continue
+		}
+		id, declares := end.DeclaredName()
+		if !declares {
+			continue
+		}
+		if scoped == nil {
+			scoped = scope(local, nil)
+		}
+		scoped[id.Name] = nil
+	}
+	if scoped == nil {
+		return local
+	}
+	return scoped
+}
+
 func (c *refCollector) usage(e *ast.Usage, local locals) {
 	c.relationships(e.Relationships, local)
 	c.multiplicity(e.Multiplicity, local)
@@ -482,7 +503,7 @@ func (c *refCollector) usage(e *ast.Usage, local locals) {
 		}
 		c.multiplicity(e.FlowEnds.PayloadMultiplicity, local)
 	}
-	c.members(e.Members, local)
+	c.members(e.Members, endScope(local, e.ConnectorEnds))
 }
 
 func (c *refCollector) relationships(rels []*ast.Relationship, local locals) {
