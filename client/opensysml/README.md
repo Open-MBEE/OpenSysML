@@ -177,8 +177,9 @@ would pass the bound answers `CodeResourceExhausted` — and its runs by the
 same step budget as `ExecuteAction`, each `Evaluate` and `Perform` a run of
 its own.
 
-The Legend of the Red Dragon example (`examples/lord-demo/web`) is a client of
-this surface and nothing else: its browser game imports only this package.
+The [Legend of the Red Dragon browser game](https://github.com/Open-MBEE/SysML-LoRD)
+is a client of this surface and nothing else: it imports only this package,
+compiled to WebAssembly.
 
 `PerformedBy` names the object an action or state machine runs on, as `sysml
 -action "<action> <object>"` does: a part definition or usage to make an object

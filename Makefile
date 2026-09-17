@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-lsp build-grpc static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust test coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model lord-web
+.PHONY: all build build-sysml build-lsp build-grpc static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust test coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -55,9 +55,6 @@ SITE_DIR := site
 # Where make self-model writes the architecture self-model's rendered views.
 SELF_MODEL_DIR := examples/self-model
 SELF_MODEL_OUT ?= build/self-model
-# The Legend of the Red Dragon example's browser game, and where make lord-web assembles it.
-LORD_DEMO_DIR := examples/lord-demo
-LORD_WEB_OUT ?= build/lord-demo
 # Where the commands the Go tests build and run write their coverage counters.
 GO_COUNTER_DIR := $(CURDIR)/build/gocoverdir
 LIBS_DIR := internal/core/libs
@@ -211,7 +208,6 @@ clean: ## Remove build artifacts
 	rm -rf $(SITE_DIR)
 	@# Only the default destination; an overridden SELF_MODEL_OUT is the caller's.
 	rm -rf build/self-model
-	rm -rf build/lord-demo
 	@echo "✓ Cleaned"
 
 install: build ## Install binaries to $GOPATH/bin
@@ -348,15 +344,6 @@ self-model: build-sysml ## Render the architecture self-model's views (see examp
 	@# The architecture document the model declares, rendered by the same model.
 	$(BIN_DIR)/sysml $(SELF_MODEL_DIR)/*.sysml -render-documents "$(SELF_MODEL_OUT)"
 	@echo "✓ Rendered the self-model's views and document into $(SELF_MODEL_OUT)/"
-
-lord-web: ## Build the Legend of the Red Dragon browser game into $(LORD_WEB_OUT) (see examples/lord-demo/README.md)
-	@echo "Building the Legend of the Red Dragon for the browser..."
-	@mkdir -p "$(LORD_WEB_OUT)"
-	GOOS=js GOARCH=wasm go build -trimpath -ldflags "-s -w" -o "$(LORD_WEB_OUT)/lord.wasm" ./$(LORD_DEMO_DIR)/web
-	@# The page, the model it plays, and Go's WebAssembly loader, served together.
-	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" "$(LORD_WEB_OUT)/"
-	cp $(LORD_DEMO_DIR)/web/index.html $(LORD_DEMO_DIR)/web/lord.css $(LORD_DEMO_DIR)/web/lord.js $(LORD_DEMO_DIR)/lord.sysml "$(LORD_WEB_OUT)/"
-	@echo "✓ Built $(LORD_WEB_OUT)/; serve it with: python3 -m http.server -d $(LORD_WEB_OUT)"
 
 docs-counts: ## Regenerate and verify the committed documentation counts; the test-suite figures are counted when the site is built
 	@echo "Regenerating the documentation count lines and refereed figures..."
