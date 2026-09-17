@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -331,4 +332,69 @@ func TestRunQueryReportsVerdicts(t *testing.T) {
 	wantReport(t, check(t, binary, verdictQueryModel, "-instantiate", "Garage::car", "-run-query", "Checks root=#1"),
 		0, "✓ Query Garage::Checks returned 3 rows",
 		"Row 3: assert constraint inflated on #1.wheels[2]: violated")
+}
+
+// stateQueryModel declares a lamp whose machine switches itself on the clock,
+// with queries over the state it is in and the transitions its trace records.
+const stateQueryModel = `package Blink {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+	private import SI::*;
+
+	state def Blinker {
+		entry; then off;
+		state off;
+		transition off_on first off accept after 1 [s] then on;
+		state on;
+		transition on_off first on accept after 2 [s] then off;
+	}
+	part def Lamp { exhibit state lp : Blinker; }
+	part lamp : Lamp;
+
+	calc def Standing :> Query {
+		Project(source = States(source = Objects(type = "Lamp")), properties = ("path", "machine", "statePath"))
+	}
+	calc def Switched :> Query {
+		in root : Element;
+		Project(
+			source = Events(source = root, kind = "transition", since = 1 [s], before = 3 [s]),
+			properties = ("time", "from", "to")
+		)
+	}
+}
+`
+
+// TestRunQueryOverStatesAndTrace checks -run-query runs after the behaviors named:
+// states read where -advance left them, events read -trace's record or are refused.
+func TestRunQueryOverStatesAndTrace(t *testing.T) {
+	binary := buildCLI(t)
+
+	wantReport(t, check(t, binary, stateQueryModel, "-run-query", "Standing"),
+		0, "✓ Query Blink::Standing returned 0 rows")
+
+	wantReport(t, check(t, binary, stateQueryModel, "-instantiate", "lamp", "-run-query", "Standing"),
+		0, "✓ Query Blink::Standing returned 1 row",
+		"Row 1: Blink::lamp.lp in off",
+		`statePath = "off"`)
+
+	run := check(t, binary, stateQueryModel, "-trace", "-instantiate", "lamp", "-state", "lp lamp", "-advance", "4",
+		"-run-query", "Standing", "-run-query", "Switched root=lamp")
+	wantReport(t, run,
+		0, "✓ Advanced to 4.0",
+		"✓ Query Blink::Standing returned 1 row",
+		"Row 1: Blink::lamp.lp in on",
+		"✓ Query Blink::Switched returned 1 row",
+		"Columns: time, from, to",
+		"Row 1: t=1 Blink::lamp.lp: transition: off -> on (event: time)",
+		"time = 1.0 [s]",
+		`from = "off"`,
+		`to = "on"`)
+	if strings.Index(run.output(), "✓ Advanced to 4.0") > strings.Index(run.output(), "✓ Query Blink::Standing") {
+		t.Errorf("queries ran before the behaviors:\n%s", run.output())
+	}
+
+	wantReport(t, check(t, binary, stateQueryModel, "-instantiate", "lamp", "-state", "lp lamp", "-advance", "4",
+		"-run-query", "Switched root=lamp"),
+		2, "query Blink::Switched operation events reads the session's trace, and this session records none")
 }

@@ -2,6 +2,7 @@ package Cookbook {
 	private import DocumentQueries::*;
 	private import KerML::Root::Element;
 	private import ScalarValues::*;
+	private import SI::*;
 
 	// ---- The model the recipes query ----
 
@@ -53,6 +54,37 @@ package Cookbook {
 			verify massRequirement;
 		}
 	}
+
+	// ---- The run the state and event recipes query ----
+
+	attribute def Open;
+	attribute def Close;
+	attribute def Slew { attribute azimuth : Real; }
+
+	state def DomeControl {
+		attribute azimuth : Real = 0.0;
+		entry; then closed;
+		state closed;
+		transition closed_open first closed accept Open then open;
+		state open parallel {
+			state pointing {
+				entry; then parked;
+				state parked;
+				transition parked_slewing first parked accept s : Slew do assign azimuth := s.azimuth then slewing;
+				state slewing;
+			}
+			state shutter {
+				entry; then opening;
+				state opening;
+				transition opening_opened first opening accept after 1 [s] then opened;
+				state opened;
+			}
+		}
+		transition open_close first open accept Close then closed;
+	}
+	part def Dome { exhibit state control : DomeControl; }
+	part dome : Dome;
+	part spareDome : Dome;
 
 	// ---- Recipe queries ----
 
@@ -250,6 +282,23 @@ package Cookbook {
 			relationshipKind = "refinement",
 			direction = "incoming",
 			maxDepth = 1
+		)
+	}
+
+	calc def DomeStates :> Query {
+		in root : Element;
+		Project(source = States(source = root), properties = ("machine", "statePath", "region", "enclosing"))
+	}
+
+	calc def Opened :> Query {
+		Project(source = InState(name = "open"), properties = ("qualifiedName"))
+	}
+
+	calc def Accepted :> Query {
+		in root : Element;
+		Project(
+			source = Events(source = root, kind = "accept", since = 1 [s], before = 2.5 [s]),
+			properties = ("time", "event", "payload")
 		)
 	}
 }

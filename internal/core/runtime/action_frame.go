@@ -21,6 +21,9 @@ type performances struct {
 	self  *Instance
 	root  *actionFrame
 	owner performanceOwner
+	// behavior is the action or state machine the trace names as making what
+	// these performances send and draw; nil for a body no behavior owns.
+	behavior *symbols.Symbol
 	// flow is the executor holding the tokens these performances run under, which a
 	// terminate drops when it ends one of them.
 	flow *ActionExecutor

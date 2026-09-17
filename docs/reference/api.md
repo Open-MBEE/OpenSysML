@@ -790,10 +790,10 @@ repl.Loop(reader, os.Stdout, session)
 
 ## SysML v2 API & Services `Query`
 
-This section describes the structured API Query surface. OpenSysML also accepts
-OSLC Query text for element identification; see [OSLC Query text](oslc-query.md).
-The two surfaces intentionally differ: structured queries support `or`, while
-OSLC compound terms support only `and`, so neither surface subsumes the other.
+This section describes the structured API Query surface; [OSLC Query
+text](oslc-query.md) is the second spelling over the same elements, and
+[Which query is which](../manual/query-kinds.md) places both beside the
+document queries, `Evaluate` and `solve`.
 
 The gRPC service implements the query surface the **SysML v2 API & Services**
 standard defines, so a client that speaks that API — the
@@ -952,8 +952,9 @@ Where the standard is vague, these are the choices this implementation makes:
 
 ### Not supported — by design of the standard
 
-The standard's query model is deliberately weak, and this is an interop surface,
-not OpenSysML's expressive query story:
+The standard's query model is deliberately weak, and this is an interop
+surface; the [document queries](../manual/query-kinds.md) are the expressive
+one:
 
 - **No graph traversal and no transitive closure.** There is no "all elements
   under X", no "everything that specializes Y", no path expressions and no joins.

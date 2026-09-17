@@ -2,6 +2,7 @@ do: idle
 stmt action body
   stmt assign later
     eval literal 5 -> 5
+do: idle
   stmt terminate
 terminate state behavior tick: no token dropped
 exit: idle (exit action)
@@ -13,4 +14,4 @@ stmt action body
   stmt terminate
 terminate state behavior leave: no token dropped
 enter: next
-transition: idle -> next (event: accept go)
+transition: idle -> next (event: time)
