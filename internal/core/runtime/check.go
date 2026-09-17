@@ -566,11 +566,15 @@ func (c *checker) complete(depth int) error {
 	return nil
 }
 
-// visit records the stable state the invocation stands in, evaluating the
-// properties at a new one; seen is nil when the states bound keeps the search out.
+// visit records the stable state the invocation stands in, noting the runs its moves
+// leave out, evaluating the properties at a new one; seen is nil when the states bound
+// keeps the search out.
 func (c *checker) visit(depth int) (form canonicalForm, key stateKey, seen *visitedState, visited bool, err error) {
 	form = c.run.canonicalState()
 	key = form.key()
+	for _, name := range c.run.leftOut() {
+		c.leaveOut(name)
+	}
 	if seen, visited = c.visited[key]; !visited {
 		if c.budget.States > 0 && len(c.visited) >= c.budget.States {
 			c.hit("states")
@@ -580,9 +584,6 @@ func (c *checker) visit(depth int) (form canonicalForm, key stateKey, seen *visi
 		c.visited[key] = seen
 		c.tellHeld()
 		c.properties(depth)
-		for _, name := range c.run.leftOut() {
-			c.leaveOut(name)
-		}
 	} else if depth < seen.depth {
 		if seen.cut {
 			seen.explored = make(map[string]bool)
@@ -1148,9 +1149,10 @@ func (c *checker) calleeFlow(graph *lower.ActionGraph, node ast.Node, callee *sy
 }
 
 // divergeReached fails the check when a path only a performance could tell was held
-// at no state of an exhaustive search; a bounded one may have stopped short of it.
+// at no state of an exhaustive search; a bounded one — a bound hit, or a run its
+// moves leave out — may have stopped short of it.
 func (c *checker) divergeReached() error {
-	if len(c.bounds) > 0 {
+	if len(c.bounds) > 0 || len(c.notEnumerated) > 0 {
 		return nil
 	}
 	for _, name := range c.opts.Diverge {

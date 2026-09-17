@@ -16,19 +16,25 @@ import (
 // timed transition leaves the state; nested puts the machine on a part two deep.
 func loopingDoModel(t *testing.T, nested bool) *exploreModel {
 	t.Helper()
+	more := ""
+	if nested {
+		more = `
+	part def Vehicle { exhibit state modes : Machine; }
+	part def Mission { part vehicle : Vehicle; }
+	part mission : Mission;
+`
+	}
+	return parseLibraryModel(t, loopingDoText(t, more))
+}
+
+// loopingDoText is the conformance case's text with more members in its package.
+func loopingDoText(t *testing.T, more string) string {
+	t.Helper()
 	text, err := os.ReadFile(filepath.Join("testdata", "conformance", "state_do_action_loop_timed_exit.sysml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if nested {
-		text = append(text[:len(text)-2], []byte(`
-	part def Vehicle { exhibit state modes : Machine; }
-	part def Mission { part vehicle : Vehicle; }
-	part mission : Mission;
-}
-`)...)
-	}
-	return parseLibraryModel(t, string(text))
+	return string(text[:len(text)-2]) + more + "}\n"
 }
 
 // nestedStateStarterOf starts the machine on the object the path reaches under an

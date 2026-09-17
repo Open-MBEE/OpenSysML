@@ -91,7 +91,7 @@ scheduler has a choice:
 | Messages in flight | `Context.messages` (the message bus `send` posts to and `accept` consumes from, oldest first) | The bus contents in arrival order |
 | State configuration | `StateExecutor.activeConfig`, `stateStack`, `history`, `stateAttrs`, `stateData` | All of it |
 | Event queue | `StateExecutor.eventQueue` (a heap ordered by timestamp, completion first, then arrival), `deferred`, `timerScheduled`, `changeFired`, `changeWaits` | The queue as a sequence in dispatch order; the latches |
-| `do` behaviors | `StateExecutor.doActions` (in state-entry order, one action per round) | The pending statements of each |
+| `do` behaviors | `StateExecutor.doActions` (in state-entry order, one action per round) | The pending statements of each, and whether its last step left a token able to act standing — that decides a run left out, so a machine left standing is a state of its own |
 | Virtual time | `Context.clock` (`now` and the waiters on it), shared by every executor of the context | Captured, not explored |
 
 Not captured: the memo tables (`calcShapes`, `writeTargets`, `invocationTargets`, literal
