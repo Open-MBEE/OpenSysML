@@ -19,6 +19,9 @@ type Table struct {
 	// sorted holds the simple names in order, so the names a word starts are a
 	// binary search away.
 	sorted []string
+	// simple remembers the simple name each qualified spelling was filed under,
+	// so Refresh can unfile it without knowing what the index now says.
+	simple map[string]string
 }
 
 // lowered is a candidate spelling beside its lowercase form, folded once.
@@ -26,10 +29,10 @@ type lowered struct {
 	name, lower string
 }
 
-// NewTable sweeps the index once. It reads the index, so build a new one after
-// the index changes.
+// NewTable sweeps the index once. It reads the index, so Refresh it with the
+// names that change afterwards, or build a new one.
 func NewTable(idx *symbols.Index) *Table {
-	t := &Table{idx: idx, byName: map[string][]string{}, byLength: map[int][]lowered{}}
+	t := &Table{idx: idx, byName: map[string][]string{}, byLength: map[int][]lowered{}, simple: map[string]string{}}
 	if idx == nil {
 		return t
 	}
@@ -41,9 +44,72 @@ func NewTable(idx *symbols.Index) *Table {
 			t.sorted = append(t.sorted, last)
 		}
 		t.byName[last] = append(t.byName[last], fqn)
+		t.simple[fqn] = last
 	})
 	sort.Strings(t.sorted)
 	return t
+}
+
+// Refresh refiles the qualified names the index changed since the table last
+// read it, one lookup each: the table then equals one built afresh.
+func (t *Table) Refresh(names map[string]bool) {
+	if t.idx == nil {
+		return
+	}
+	for fqn := range names {
+		t.unfile(fqn)
+		if syms := t.idx.RegisteredUnder(fqn); len(syms) > 0 {
+			t.file(fqn, simpleName(fqn, syms))
+		}
+	}
+}
+
+// file records fqn under the simple name last, entering last if it is new.
+func (t *Table) file(fqn, last string) {
+	if _, seen := t.byName[last]; !seen {
+		n := len([]rune(last))
+		t.byLength[n] = append(t.byLength[n], lowered{name: last, lower: strings.ToLower(last)})
+		at := sort.SearchStrings(t.sorted, last)
+		t.sorted = append(t.sorted, "")
+		copy(t.sorted[at+1:], t.sorted[at:])
+		t.sorted[at] = last
+	}
+	t.byName[last] = append(t.byName[last], fqn)
+	t.simple[fqn] = last
+}
+
+// unfile forgets fqn, and the simple name it was filed under once nothing else is.
+func (t *Table) unfile(fqn string) {
+	last, ok := t.simple[fqn]
+	if !ok {
+		return
+	}
+	delete(t.simple, fqn)
+	fqns := t.byName[last]
+	for i, f := range fqns {
+		if f == fqn {
+			fqns = append(fqns[:i], fqns[i+1:]...)
+			break
+		}
+	}
+	if len(fqns) > 0 {
+		t.byName[last] = fqns
+		return
+	}
+	delete(t.byName, last)
+	n := len([]rune(last))
+	for i, c := range t.byLength[n] {
+		if c.name == last {
+			t.byLength[n] = append(t.byLength[n][:i], t.byLength[n][i+1:]...)
+			break
+		}
+	}
+	if len(t.byLength[n]) == 0 {
+		delete(t.byLength, n)
+	}
+	if at := sort.SearchStrings(t.sorted, last); at < len(t.sorted) && t.sorted[at] == last {
+		t.sorted = append(t.sorted[:at], t.sorted[at+1:]...)
+	}
 }
 
 // simpleName is the name fqn registers a declaration under: the declared name,

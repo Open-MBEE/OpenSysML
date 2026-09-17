@@ -38,32 +38,28 @@ func semanticTokensLegend() protocol.SemanticTokensLegend {
 // SemanticTokensFull answers the semantic tokens of a whole document, a bundled
 // library one included.
 func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
-	name := uriToName(params.TextDocument.URI)
-	doc := s.document(name)
-	if doc == nil {
+	content, toks := s.ws.HighlightTokens(uriToName(params.TextDocument.URI))
+	if content == nil {
 		return &protocol.SemanticTokens{}, nil
 	}
-	return &protocol.SemanticTokens{
-		Data: encodeTokens(doc.Content, s.ws.HighlightTokens(name)),
-	}, nil
+	return &protocol.SemanticTokens{Data: encodeTokens(content, toks)}, nil
 }
 
 // SemanticTokensRange answers the tokens overlapping a range, the document's
 // tokens filtered: highlighting a name resolves the whole document either way.
 func (s *Server) SemanticTokensRange(ctx context.Context, params *protocol.SemanticTokensRangeParams) (*protocol.SemanticTokens, error) {
-	name := uriToName(params.TextDocument.URI)
-	doc := s.document(name)
-	if doc == nil {
+	content, toks := s.ws.HighlightTokens(uriToName(params.TextDocument.URI))
+	if content == nil {
 		return &protocol.SemanticTokens{}, nil
 	}
-	want := rangeToSpan(doc.Content, params.Range)
+	want := rangeToSpan(content, params.Range)
 	var in []highlight.Token
-	for _, tok := range s.ws.HighlightTokens(name) {
+	for _, tok := range toks {
 		if tok.Span.Offset < want.End() && tok.Span.End() > want.Offset {
 			in = append(in, tok)
 		}
 	}
-	return &protocol.SemanticTokens{Data: encodeTokens(doc.Content, in)}, nil
+	return &protocol.SemanticTokens{Data: encodeTokens(content, in)}, nil
 }
 
 // encodeTokens encodes tokens relative to their predecessor in UTF-16 units,
