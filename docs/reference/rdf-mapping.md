@@ -217,14 +217,18 @@ declares, under the same qualified name, and all of one file. On the graph side
 the root must carry the package's normative id; in notation, where an
 unannotated package can state no id, the root must either state the normative id
 in an `@ElementId` annotation or be declared as the library declares it
-(`standard library package Occurrences`, `library package …`). Both sides apply
-the one test (`libraryDocument` for graph roots, `documentLibrary` for parsed
-roots in `internal/core/export/library_names.go`). It is not a test of names,
-file names or UUIDs alone: `package Actions { part def X; }` is a user package
-with encoded ids (`Actions`, `Actions__X`) and none of the library's members, a
-user element carrying a catalogued UUID under another qualified name keeps that
-id as declared, and a graph rooted at a nested library element
-(`ScalarValues::Real`) is not the document, even under its normative id.
+(`standard library package Occurrences`, `library package …`), and the document
+must be in the file's language: the text of `ScalarValues.kerml` under a `.sysml`
+name was parsed as SysML, so it is the user's file. Both sides apply
+the one test, `identity.Catalog.DocumentRootedAt` in
+`internal/core/identity/library_version.go` (`libraryDocument` for graph roots,
+`documentLibrary` for parsed roots in `internal/core/export/library_names.go`
+feed it). It is not a test of names, file names or UUIDs alone:
+`package Actions { part def X; }` is a user package with encoded ids (`Actions`,
+`Actions__X`) and none of the library's members, a user element carrying a
+catalogued UUID under another qualified name keeps that id as declared, and a
+graph rooted at a nested library element (`ScalarValues::Real`) is not the
+document, even under its normative id.
 
 Such a version is analyzed *in the bundled file's place*, whatever its bytes: the
 encoder takes the bundled document out of the library index and indexes the
@@ -247,10 +251,17 @@ library file exact from the first hop: the Turtle of the rebuilt notation equals
 the Turtle it was rebuilt from, source text aside, and the rebuilt notation
 states no `@ElementId` (`library_graph_test.go:TestLibraryFilesComeBackFromTheGraphAlone`).
 
-This recognition is the RDF mapping's. A copy of a library file open in an
-editor workspace is still the user's file: the language server derives or
-declares its ids as for any other document and offers to mint them
-(`internal/lsp/identity_test.go:TestWorkspaceCopyOfLibraryFileStaysAUserFile`).
+The editor workspace applies the same recognition. A version of a library file
+open in a workspace (or on its disk) stands in for the bundled file: the
+workspace takes the bundled document out of its library index and indexes the
+version where it stood, so names resolve to the version's declarations, its
+elements carry their normative ids — hover states `(normative, KerML)` as on the
+bundled file — and the language server offers no minting action on them
+(`internal/lsp/identity_test.go:TestWorkspaceCopyOfLibraryFileIsTheLibrary`).
+Editing a root so it no longer qualifies (renaming the package, dropping its
+`library` keyword, stating a foreign id) makes the document the user's again and
+puts the bundled file back; closing a version whose on-disk text is the user's
+does the same (`internal/core/model/library_version_test.go`).
 
 A document holding **more than one project scope** qualifies each element's IRI
 with its scope's provenance (`elmt:<encoded-org>.<encoded-project>:<id>`), so an
@@ -980,6 +991,7 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 | `assign x := 1;` | `sysml:AssignmentActionUsage` | `sysx:target`, `sysml:value`, `sysx:assignmentOperator` when it is not `:=` |
 | `send M(x) to p;`, `… via p;` | `sysml:SendActionUsage` | `sysx:payload`, `sysx:receiver`, `sysx:isVia` |
 | `terminate;`, `terminate x;` | `sysml:TerminateActionUsage` | `sysx:expression` |
+| `action stop terminate;` (a declared terminate action usage) | `sysml:TerminateActionUsage` | the usage's own properties, `sysx:hasBody` among them — which is what tells a declaration from the statement above, since a statement never states it |
 | `accept sig : Signal;`, `accept when c;` | the usage's own metaclass | `sysml:isAccept`, and `sysx:declaredKeyword "accept"` where the optional `action` was not written |
 | `fork`, `join`, `merge`, `decide` | `sysml:ForkNode`, `JoinNode`, `MergeNode`, `DecisionNode` | `sysml:declaredName` |
 | `succession first a then b;`, `if g then b;`, `else b;`, and a state body's keyword-less `first a then b;` (a succession between two vertices, no initial node) | `sysml:SuccessionAsUsage` | `sysml:sourceFeature`, `sysml:targetFeature`, `sysx:guard`, `sysx:isElse`, `sysx:declaredKeyword`; the keyword-less spelling comes back as `succession first a then b;` from the graph alone, the same succession |

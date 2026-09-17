@@ -1,0 +1,1 @@
+- SysML v1 migration no longer copies opaque expressions whose cast multiplicity bounds or body-local connection/flow endpoints name members the model lacks, and treats declared connector-end names as in scope within their connector bodies.

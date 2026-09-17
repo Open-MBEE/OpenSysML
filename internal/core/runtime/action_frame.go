@@ -21,6 +21,12 @@ type performances struct {
 	self  *Instance
 	root  *actionFrame
 	owner performanceOwner
+	// behavior is the action or state machine the trace names as making what
+	// these performances send and draw; nil for a body no behavior owns.
+	behavior *symbols.Symbol
+	// flow is the executor holding the tokens these performances run under, which a
+	// terminate drops when it ends one of them.
+	flow *ActionExecutor
 }
 
 // performanceOwner is the behavior whose nodes perform — an action executor or a state
@@ -35,11 +41,9 @@ type performanceOwner interface {
 	pauseAt(within []ast.Node, node ast.Node) error
 	// runOwnFlow runs the flow perf's node states of its own to completion.
 	runOwnFlow(perf *actionFrame) error
-	// performsOwn reports whether sym names the behavior the root performance performs.
-	performsOwn(sym *symbols.Symbol) bool
-	// terminatePerformance ends perf before its flow completes: the tokens running in
-	// it go, and the level performing it completes it (action_terminate.go).
-	terminatePerformance(perf *actionFrame) error
+	// endsOwn reports whether a terminate may end the root performance: an action's
+	// or a state behavior's ends at the statement; a case's own flow cannot be ended.
+	endsOwn() bool
 }
 
 // actionFrame is one performance: the action's own (node nil) or a nested node's.
@@ -77,6 +81,9 @@ type actionFrame struct {
 	result string
 	// began is the activation the performance began in, which orders performances.
 	began int64
+	// heldAt is the ID of the token parked at node whose step this performance ends
+	// before it began, a terminate having named the node (beginPending); 0 otherwise.
+	heldAt int64
 	// run is the identity of this performance among the context's runs (Context.newRun).
 	run int64
 	// callee is the action a `Callee(...)` node performs, resolved or settled by its
@@ -100,9 +107,6 @@ type actionFrame struct {
 	// ended marks a performance that has completed, so a delivery to a node under it
 	// waits for the next performance rather than reaching one that is over.
 	ended bool
-	// terminated is the performance whose termination ended this one before its flow
-	// completed: itself where a `terminate` named it, an enclosing one it went with.
-	terminated *actionFrame
 	// nodes are the action nodes a state behavior's performance runs, which its body's
 	// blocks declare; the frames of a state machine and its states hold none.
 	nodes []ast.Node

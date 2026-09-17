@@ -610,6 +610,12 @@ func (c *pkgClient) runDocumentQuery(ctx context.Context, request protoreflect.M
 		if row.Object != nil {
 			converted.Element = cellToProto(*row.Object)
 		}
+		if row.State != nil {
+			converted.Element = cellToProto(*row.State)
+		}
+		if row.Event != nil {
+			converted.Element = cellToProto(*row.Event)
+		}
 		for _, cell := range row.Cells {
 			values := &pb.DocumentQueryCell{}
 			for _, value := range cell {
@@ -1211,14 +1217,12 @@ func cellFromProto(value *pb.DocumentValue) opensysml.Cell {
 		return opensysml.Real(kind.RealValue)
 	case *pb.DocumentValue_BoolValue:
 		return opensysml.Bool(kind.BoolValue)
+	case *pb.DocumentValue_Quantity:
+		return quantityFromProto(kind.Quantity)
 	case *pb.DocumentValue_Infinity:
 		return opensysml.Infinity{}
 	case *pb.DocumentValue_Object:
-		object := opensysml.Object{ID: kind.Object.GetInstanceId(), Path: kind.Object.GetPath()}
-		if element, ok := cellFromProto(kind.Object.GetElement()).(opensysml.Element); ok {
-			object.Element = element
-		}
-		return object
+		return documentObjectFromProto(kind.Object)
 	case *pb.DocumentValue_Verdict:
 		verdict := opensysml.DocumentVerdict{
 			Kind:         kind.Verdict.GetKind(),
@@ -1233,9 +1237,61 @@ func cellFromProto(value *pb.DocumentValue) opensysml.Cell {
 			verdict.Assertion = assertion
 		}
 		return verdict
+	case *pb.DocumentValue_State:
+		state := opensysml.DocumentState{
+			Object:    documentObjectFromProto(kind.State.GetObject()),
+			Machine:   kind.State.GetMachine(),
+			Name:      kind.State.GetName(),
+			Path:      kind.State.GetStatePath(),
+			Region:    kind.State.GetRegion(),
+			Enclosing: append([]string(nil), kind.State.GetEnclosing()...),
+		}
+		if declaration, ok := cellFromProto(kind.State.GetState()).(opensysml.Element); ok {
+			state.State = declaration
+		}
+		return state
+	case *pb.DocumentValue_Event:
+		event := opensysml.DocumentEvent{
+			Kind:         kind.Event.GetKind(),
+			Time:         cellFromProto(kind.Event.GetTime()),
+			Machine:      kind.Event.GetMachine(),
+			State:        kind.Event.GetState(),
+			From:         kind.Event.GetFrom(),
+			To:           kind.Event.GetTo(),
+			Event:        kind.Event.GetEvent(),
+			Payload:      append([]string(nil), kind.Event.GetPayload()...),
+			Alternatives: append([]string(nil), kind.Event.GetAlternatives()...),
+			Taken:        kind.Event.GetTaken(),
+			Text:         kind.Event.GetText(),
+		}
+		if kind.Event.GetObject() != nil {
+			object := documentObjectFromProto(kind.Event.GetObject())
+			event.Object = &object
+		}
+		if kind.Event.GetTarget() != nil {
+			target := documentObjectFromProto(kind.Event.GetTarget())
+			event.Target = &target
+		}
+		return event
 	default:
 		return nil
 	}
+}
+
+func documentObjectFromProto(object *pb.DocumentObject) opensysml.Object {
+	out := opensysml.Object{ID: object.GetInstanceId(), Path: object.GetPath()}
+	if element, ok := cellFromProto(object.GetElement()).(opensysml.Element); ok {
+		out.Element = element
+	}
+	return out
+}
+
+func documentObjectToProto(object opensysml.Object) *pb.DocumentObject {
+	out := &pb.DocumentObject{InstanceId: object.ID, Path: object.Path}
+	if object.Element.ID != "" {
+		out.Element = cellToProto(object.Element)
+	}
+	return out
 }
 
 func cellToProto(cell opensysml.Cell) *pb.DocumentValue {
@@ -1253,14 +1309,12 @@ func cellToProto(cell opensysml.Cell) *pb.DocumentValue {
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_RealValue{RealValue: float64(value)}}
 	case opensysml.Bool:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_BoolValue{BoolValue: bool(value)}}
+	case opensysml.Quantity:
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_Quantity{Quantity: quantityToProto(value)}}
 	case opensysml.Infinity:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_Infinity{Infinity: true}}
 	case opensysml.Object:
-		object := &pb.DocumentObject{InstanceId: value.ID, Path: value.Path}
-		if value.Element.ID != "" {
-			object.Element = cellToProto(value.Element)
-		}
-		return &pb.DocumentValue{Kind: &pb.DocumentValue_Object{Object: object}}
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_Object{Object: documentObjectToProto(value)}}
 	case opensysml.DocumentVerdict:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_Verdict{Verdict: &pb.DocumentVerdict{
 			Assertion:    cellToProto(value.Assertion),
@@ -1272,6 +1326,41 @@ func cellToProto(cell opensysml.Cell) *pb.DocumentValue {
 			Reason:       value.Reason,
 			Verification: value.Verification,
 		}}}
+	case opensysml.DocumentState:
+		state := &pb.DocumentState{
+			Object:    documentObjectToProto(value.Object),
+			Machine:   value.Machine,
+			Name:      value.Name,
+			StatePath: value.Path,
+			State:     &pb.DocumentValue{},
+			Region:    value.Region,
+			Enclosing: value.Enclosing,
+		}
+		if value.State.ID != "" {
+			state.State = cellToProto(value.State)
+		}
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_State{State: state}}
+	case opensysml.DocumentEvent:
+		event := &pb.DocumentEvent{
+			Kind:         value.Kind,
+			Time:         cellToProto(value.Time),
+			Machine:      value.Machine,
+			State:        value.State,
+			From:         value.From,
+			To:           value.To,
+			Event:        value.Event,
+			Payload:      value.Payload,
+			Alternatives: value.Alternatives,
+			Taken:        value.Taken,
+			Text:         value.Text,
+		}
+		if value.Object != nil {
+			event.Object = documentObjectToProto(*value.Object)
+		}
+		if value.Target != nil {
+			event.Target = documentObjectToProto(*value.Target)
+		}
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_Event{Event: event}}
 	default:
 		return nil
 	}

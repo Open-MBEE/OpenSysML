@@ -224,6 +224,8 @@ type Context struct {
 	// clockRun the run an advance of it draws its due-order choices from.
 	clock    Clock
 	clockRun executorRun
+	// onStack lists the runs of the executors whose calls are under way, outermost first.
+	onStack []*executorRun
 
 	// derivingFeatureValues holds the feature values whose defaults are being evaluated, so a
 	// default that refers back to its own feature value is reported as a cycle.
@@ -641,10 +643,31 @@ func (ctx *Context) nestRun() func() {
 type executorRun struct {
 	state *runState
 	owned bool
+	// exec is the executor the run drives, nil for the clock's; caller is the run
+	// a callee's executor was begun under, whose performance encloses it.
+	exec   endable
+	caller *executorRun
+}
+
+// endable is an executor whose performance an occurrence's end may end.
+type endable interface {
+	// endsWith reports whether the executor's performance ends with the objects
+	// ended: its occurrence or performer, or the performance it is a step of.
+	endsWith(ended map[int64]bool) bool
+	// endTerminated ends the executor's performance where it is, terminated.
+	endTerminated()
+	// performerEnded reports whether the executor's occurrence or performer has ended.
+	performerEnded() bool
+}
+
+// endsWithin reports whether the run's executor ends with the objects ended.
+func (run *executorRun) endsWithin(ended map[int64]bool) bool {
+	return run != nil && run.exec != nil && run.exec.endsWith(ended)
 }
 
 // beginExecutorRun brackets one call into a call-by-call driven executor: the run's
 // own state, fresh at its first call, is installed for each, whatever ran in between.
+// The run is on the stack of executors under way until the call returns.
 func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 	if run.state == nil {
 		if ctx.runDepth > 0 {
@@ -653,7 +676,29 @@ func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 			run.state, run.owned = ctx.newRunState(), true
 		}
 	}
-	return ctx.enterRun(run.state)
+	ctx.onStack = append(ctx.onStack, run)
+	leave := ctx.enterRun(run.state)
+	// A call into an executor whose performer ended in between finds its performance over.
+	if run.exec != nil && run.exec.performerEnded() {
+		run.exec.endTerminated()
+	}
+	return func() {
+		leave()
+		ctx.onStack = ctx.onStack[:len(ctx.onStack)-1]
+	}
+}
+
+// innermostRun is the run of the executor whose call is under way, nil outside any.
+func (ctx *Context) innermostRun() *executorRun {
+	if len(ctx.onStack) == 0 {
+		return nil
+	}
+	return ctx.onStack[len(ctx.onStack)-1]
+}
+
+// underWay reports whether a call into run's executor is on the stack.
+func (ctx *Context) underWay(run *executorRun) bool {
+	return slices.Contains(ctx.onStack, run)
 }
 
 // endedWhole is the refusal of a call-by-call run of its own that ended with
@@ -1448,6 +1493,9 @@ func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self *Inst
 		return nil, fmt.Errorf("create action executor: %w", err)
 	}
 	exec.beginsRun = top
+	if !top {
+		exec.driven.caller = ctx.innermostRun()
+	}
 
 	// Bind inputs before initialization so they seed the initial token.
 	if len(inputs) > 0 {
@@ -1477,7 +1525,7 @@ func (ctx *Context) runPerformed(exec *ActionExecutor, top bool) error {
 // runPerformance runs a started performance to completion, leaving it on the
 // clock; a body around it pauses where it waits.
 func (ctx *Context) runPerformance(exec *ActionExecutor, top bool) error {
-	if exec.state != StateCompleted {
+	if !exec.state.Ended() {
 		if err := exec.RunToCompletion(); err != nil {
 			if paused(err) {
 				return err

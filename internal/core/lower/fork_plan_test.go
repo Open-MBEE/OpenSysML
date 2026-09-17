@@ -472,6 +472,12 @@ func TestToStateGraph_ForkShapeRejected(t *testing.T) {
 			 transition first split then sync;`,
 			"branch target must be a state",
 		},
+		"branch into a terminate action": {
+			`transition first split then a;
+			 transition first split then stop;
+			 action stop terminate;`,
+			"branch target must be a state",
+		},
 		"branches into two composite states": {
 			`transition first split then a;
 			 transition first split then c;`,

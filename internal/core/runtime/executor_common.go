@@ -87,12 +87,16 @@ func (w AcceptWait) String() string {
 type ExecutionState int
 
 const (
-	StateReady     ExecutionState = iota // Not started
-	StateRunning                         // In progress
-	StateCompleted                       // Reached terminal state
-	StateSuspended                       // Paused for debugging
-	StateWaiting                         // Every remaining token is parked at an accept
+	StateReady      ExecutionState = iota // Not started
+	StateRunning                          // In progress
+	StateCompleted                        // Reached terminal state
+	StateSuspended                        // Paused for debugging
+	StateWaiting                          // Every remaining token is parked at an accept
+	StateTerminated                       // Ended by a terminate before reaching a terminal state
 )
+
+// Ended reports an execution over for good: completed, or ended by a terminate.
+func (s ExecutionState) Ended() bool { return s == StateCompleted || s == StateTerminated }
 
 func (s ExecutionState) String() string {
 	switch s {
@@ -106,6 +110,8 @@ func (s ExecutionState) String() string {
 		return "Suspended"
 	case StateWaiting:
 		return "Waiting"
+	case StateTerminated:
+		return "Terminated"
 	default:
 		return "Unknown"
 	}

@@ -28,17 +28,34 @@ const HeldObjectsEnvVar = "OPENSYSML_GRPC_MAX_HELD_OBJECTS"
 // DefaultMaxHeldObjects is the bound HeldObjectsEnvVar takes when unset.
 const DefaultMaxHeldObjects = 10000
 
+// HeldEventsEnvVar names the variable bounding the event records a cached population
+// keeps for Events; the oldest are dropped and a query reaching them fails.
+const HeldEventsEnvVar = "OPENSYSML_GRPC_MAX_HELD_EVENTS"
+
+// DefaultMaxHeldEvents is the bound HeldEventsEnvVar takes when unset.
+const DefaultMaxHeldEvents = 100000
+
 // maxHeldObjectsFromEnv returns the positive integer HeldObjectsEnvVar holds, or
-// DefaultMaxHeldObjects when it is unset or empty. An unusable value is an error
-// naming the variable, rather than a silently kept default.
+// DefaultMaxHeldObjects when it is unset or empty.
 func maxHeldObjectsFromEnv() (int, error) {
-	raw := strings.TrimSpace(os.Getenv(HeldObjectsEnvVar))
+	return positiveFromEnv(HeldObjectsEnvVar, DefaultMaxHeldObjects, "held objects bound")
+}
+
+// maxHeldEventsFromEnv returns the positive integer HeldEventsEnvVar holds, or
+// DefaultMaxHeldEvents when it is unset or empty.
+func maxHeldEventsFromEnv() (int, error) {
+	return positiveFromEnv(HeldEventsEnvVar, DefaultMaxHeldEvents, "held events bound")
+}
+
+// positiveFromEnv reads a positive integer bound from the environment; an unusable value is an error.
+func positiveFromEnv(name string, fallback int, what string) (int, error) {
+	raw := strings.TrimSpace(os.Getenv(name))
 	if raw == "" {
-		return DefaultMaxHeldObjects, nil
+		return fallback, nil
 	}
 	n, err := strconv.Atoi(raw)
 	if err != nil || n <= 0 {
-		return 0, fmt.Errorf("held objects bound must be a positive integer, got %q (%s)", raw, HeldObjectsEnvVar)
+		return 0, fmt.Errorf("%s must be a positive integer, got %q (%s)", what, raw, name)
 	}
 	return n, nil
 }
@@ -65,6 +82,8 @@ func (s *Service) objects(cached *CachedModel) *heldObjects {
 		model, _ := cached.Semantics()
 		rt := s.newRuntimeContext(model)
 		rt.SetMaxInstances(s.maxHeldObjects)
+		// Events reads the population's run, so its records are kept from the start.
+		rt.SetTrace(runtime.NewEventRecorder(s.maxHeldEvents))
 		cached.objects = &heldObjects{
 			rt:    rt,
 			idx:   cached.Index,

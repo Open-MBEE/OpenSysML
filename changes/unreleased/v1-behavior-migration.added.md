@@ -26,7 +26,3 @@
   reaches from the performer, as a state's entry, do or exit behavior does; an empty or
   many-valued receiver, a chain ending in no action and a destroyed receiver are refused with
   typed errors.
-- **`terminate;` and `terminate x;` end a performance from inside it.** A `terminate`
-  statement ends the running action (the named nested action when one is given), cancelling the
-  tokens its forks and joins hold, so a migrated activity final node ends the activity as it does
-  in v1; the trace records each termination.

@@ -1487,6 +1487,8 @@ func machineStatus(exec *runtime.StateExecutor) string {
 		return "not started"
 	case runtime.StateCompleted:
 		return "completed"
+	case runtime.StateTerminated:
+		return "terminated"
 	default:
 		return "current state " + currentStateName(exec)
 	}
@@ -1657,7 +1659,7 @@ func (s *Session) doInstances() ([]string, bool, error) {
 	slices.Sort(names)
 	lines := []string{"Instances:"}
 	for _, name := range names {
-		lines = append(lines, fmt.Sprintf("  %s (ID: %d%s)", s.declaredName(name), s.instances[name].ID, s.destroyedNote(s.instances[name])))
+		lines = append(lines, fmt.Sprintf("  %s (ID: %d%s)", s.declaredName(name), s.instances[name].ID, s.lifeNote(s.instances[name])))
 	}
 	// An object a later %instantiate unnamed is still held, and is listed as
 	// the id that reaches it.
@@ -1668,7 +1670,7 @@ func (s *Session) doInstances() ([]string, bool, error) {
 		if held, ok := s.rtCtx.Instance(u.obj.ID); !ok || held != u.obj {
 			continue
 		}
-		lines = append(lines, fmt.Sprintf("  #%d (ID: %d, displaced from %s%s)", u.obj.ID, u.obj.ID, s.declaredName(u.fqn), s.destroyedNote(u.obj)))
+		lines = append(lines, fmt.Sprintf("  #%d (ID: %d, displaced from %s%s)", u.obj.ID, u.obj.ID, s.declaredName(u.fqn), s.lifeNote(u.obj)))
 	}
 	// Some of what the session materialized may be gone even though the rest
 	// survived, which the list would otherwise not say.
@@ -1678,15 +1680,20 @@ func (s *Session) doInstances() ([]string, bool, error) {
 	return lines, false, nil
 }
 
-// destroyedNote is the note an instance listing adds to an object `destroy` ended.
-func (s *Session) destroyedNote(inst *runtime.Instance) string {
+// lifeNote is the note an instance listing adds to an object whose lifetime ended:
+// emptied by `destroy`, or ended by a `terminate` with its values kept.
+func (s *Session) lifeNote(inst *runtime.Instance) string {
 	if s.rtCtx == nil {
 		return ""
 	}
-	if life, ok := s.rtCtx.OccurrenceLife(inst.ID); ok && life.Destroyed {
+	life, ok := s.rtCtx.OccurrenceLife(inst.ID)
+	switch {
+	case !ok || life.Ended == 0:
+		return ""
+	case life.Destroyed:
 		return ", destroyed"
 	}
-	return ""
+	return ", ended"
 }
 
 // formatFeatureValue renders what a feature value reads as: what it holds, the empty
@@ -2419,9 +2426,8 @@ func (s *Session) doStep() ([]string, bool, error) {
 
 	exec := s.actionExec.executor
 
-	// Check if already completed
-	if exec.State() == runtime.StateCompleted {
-		return []string{"✓ Action already completed"}, false, nil
+	if exec.State().Ended() {
+		return []string{"✓ Action already " + strings.ToLower(exec.State().String())}, false, nil
 	}
 
 	// Step
@@ -2449,8 +2455,8 @@ func (s *Session) doStep() ([]string, bool, error) {
 		out = append(out, fmt.Sprintf("  ⏸ Paused at breakpoint %q", node))
 	}
 
-	if exec.State() == runtime.StateCompleted {
-		out = append(out, "", actionCompletedText)
+	if exec.State().Ended() {
+		out = append(out, "", actionEndedText(exec))
 		out = append(out, renderResults(s.actionExec.contextOf(), exec.Results())...)
 	}
 
@@ -2471,9 +2477,8 @@ func (s *Session) continueAction() ([]string, []NamedValue, error) {
 
 	exec := s.actionExec.executor
 
-	// Check if already completed
-	if exec.State() == runtime.StateCompleted {
-		return []string{"✓ Action already completed"}, namedValues(s.actionExec.contextOf(), exec.Results()), nil
+	if exec.State().Ended() {
+		return []string{"✓ Action already " + strings.ToLower(exec.State().String())}, namedValues(s.actionExec.contextOf(), exec.Results()), nil
 	}
 
 	// Run to completion, or to the first breakpoint hit
@@ -2494,7 +2499,7 @@ func (s *Session) continueAction() ([]string, []NamedValue, error) {
 
 	// Display results
 	out := []string{
-		actionCompletedText,
+		actionEndedText(exec),
 		fmt.Sprintf("  Final state: %s", exec.State()),
 	}
 	out = append(out, s.noteSummary(exec.Notes(), noted)...)
@@ -3010,6 +3015,9 @@ func (s *Session) stepState() ([]string, bool, error) {
 	if exec.HasPendingWork() || exec.WatchesChangeCondition() {
 		exec.Resume()
 	}
+	if exec.State() == runtime.StateTerminated {
+		return []string{stateTerminatedText}, false, nil
+	}
 	if exec.State() != runtime.StateRunning {
 		return []string{fmt.Sprintf("✓ State machine %s (%s)", exec.State(), currentStateName(exec))}, false, nil
 	}
@@ -3356,17 +3364,37 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 	out = append(out, s.separateActionClockLines(contexts, moved)...)
 	out = append(out, s.advanceReportLines(moved, contexts)...)
 
-	if state != nil && state.State() == runtime.StateCompleted {
-		out = append(out, "", stateCompletedText)
+	if state != nil && state.State().Ended() {
+		out = append(out, "", stateEndedText(state))
 	}
-	if action != nil && action.State() == runtime.StateCompleted {
-		out = append(out, "", actionCompletedText)
+	if action != nil && action.State().Ended() {
+		out = append(out, "", actionEndedText(action))
 		out = append(out, renderResults(s.actionExec.contextOf(), action.Results())...)
 	}
 	return out, nil
 }
 
 const stateCompletedText = "✓ State machine completed (a transition reached `done`)"
+
+const stateTerminatedText = "✓ State machine terminated (a `terminate` ended its performance short of a final state; no state is active)"
+
+const actionTerminatedText = "✓ Action terminated (a `terminate` of an occurrence it belongs to ended its performance)"
+
+// stateEndedText says how a machine that is over ended: completed or terminated.
+func stateEndedText(exec *runtime.StateExecutor) string {
+	if exec.State() == runtime.StateTerminated {
+		return stateTerminatedText
+	}
+	return stateCompletedText
+}
+
+// actionEndedText says how an action that is over ended: completed or terminated.
+func actionEndedText(exec *runtime.ActionExecutor) string {
+	if exec.State() == runtime.StateTerminated {
+		return actionTerminatedText
+	}
+	return actionCompletedText
+}
 
 const actionCompletedText = "✓ Action completed"
 

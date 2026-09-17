@@ -586,13 +586,20 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 }
 
 // propertyValues reads a property of a row: of the session for an object row,
-// of the check for a verdict row, of the model for an element row.
+// of the check, state or trace record for a verdict, state or event row, of
+// the model for an element row.
 func (e *executor) propertyValues(row Value, property string) ([]Value, bool, error) {
 	if _, _, isObject := row.Object(); isObject {
 		return e.objectPropertyValues(row, property)
 	}
 	if _, isVerdict := row.Verdict(); isVerdict {
 		return e.verdictPropertyValues(row, property)
+	}
+	if _, isState := row.State(); isState {
+		return e.statePropertyValues(row, property)
+	}
+	if _, isEvent := row.Event(); isEvent {
+		return e.eventPropertyValues(row, property)
 	}
 	sym, _ := row.Element()
 	if isQueryableProperty(property) {
@@ -1048,13 +1055,19 @@ func (e *executor) unevaluable(expression queryplan.Expression, property string,
 }
 
 // rowTarget names a row in an error: an element by qualified name, an object
-// by the label the session reaches it by.
+// by the label the session reaches it by, a verdict, state or event by its label.
 func rowTarget(row Value) string {
 	if _, label, ok := row.Object(); ok {
 		return label
 	}
 	if verdict, ok := row.Verdict(); ok {
 		return verdict.Label()
+	}
+	if state, ok := row.State(); ok {
+		return state.Label()
+	}
+	if event, ok := row.Event(); ok {
+		return event.Label()
 	}
 	sym, _ := row.Element()
 	return symbols.FQNOf(sym)

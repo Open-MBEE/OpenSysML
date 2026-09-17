@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -40,9 +41,12 @@ package KitViews {
 // The views a document declares are listed with the rendering kind each states.
 func TestViewsListsDeclaredViewsAndKinds(t *testing.T) {
 	ws := openDoc(t, "kit.sysml", twoViewModel)
-	views := ws.Views("kit.sysml")
+	views, doc := ws.Views("kit.sysml")
 	if len(views) != 2 {
 		t.Fatalf("listed %d views, want 2: %+v", len(views), views)
+	}
+	if doc == nil || doc.Name != "kit.sysml" {
+		t.Fatalf("listing came with document %+v, want kit.sysml", doc)
 	}
 	want := map[string]view.Kind{"KitViews::widgetTable": view.KindTable, "KitViews::widgetTree": view.KindTree}
 	for _, info := range views {
@@ -52,6 +56,32 @@ func TestViewsListsDeclaredViewsAndKinds(t *testing.T) {
 		if info.Kind != want[info.Name] {
 			t.Errorf("%s: kind = %q, want %q", info.Name, info.Kind, want[info.Name])
 		}
+	}
+}
+
+// Each listed view is located at its declaration in the document, the whole
+// declaration and its name, so a client can tell which view the cursor is in.
+func TestViewsLocateEachDeclaration(t *testing.T) {
+	ws := openDoc(t, "kit.sysml", twoViewModel)
+	views, doc := ws.Views("kit.sysml")
+	decls := map[string]string{
+		"KitViews::widgetTree":  "view widgetTree {\n\t\texpose Kit::Widget;\n\t}",
+		"KitViews::widgetTable": "view widgetTable : GridView {\n\t\texpose Kit::Widget;\n\t}",
+	}
+	for _, info := range views {
+		if !info.Origin.Located() || info.Origin.Doc != "kit.sysml" {
+			t.Fatalf("%s: origin %+v is not located in kit.sysml", info.Name, info.Origin)
+		}
+		if got := string(doc.Content[info.Origin.Span.Offset:info.Origin.Span.End()]); got != decls[info.Name] {
+			t.Errorf("%s: declaration = %q, want %q", info.Name, got, decls[info.Name])
+		}
+		wantName := strings.TrimPrefix(info.Name, "KitViews::")
+		if got := string(doc.Content[info.Origin.Name.Offset:info.Origin.Name.End()]); got != wantName {
+			t.Errorf("%s: name span = %q, want %q", info.Name, got, wantName)
+		}
+	}
+	if views, doc := ws.Views("gone.sysml"); views != nil || doc != nil {
+		t.Errorf("an unheld document listed %+v in %+v, want nothing", views, doc)
 	}
 }
 
@@ -70,7 +100,7 @@ package GeomViews {
 	}
 }
 `)
-	views := ws.Views("geom.sysml")
+	views, _ := ws.Views("geom.sysml")
 	if len(views) != 1 {
 		t.Fatalf("listed %d views, want 1: %+v", len(views), views)
 	}
@@ -116,6 +146,76 @@ package KitViews {
 	}
 	if rendering.View != "KitViews::widgetTree" {
 		t.Errorf("View = %q, want KitViews::widgetTree", rendering.View)
+	}
+}
+
+// The snapshot a rendering comes with holds every document as the rendering
+// read it — the one asked of and the others it draws from — so that a span the
+// rendering locates in any of them is placed in the text it was read from,
+// however the workspace has changed since.
+func TestRenderViewSnapshotHoldsEveryDocumentAsRendered(t *testing.T) {
+	const parts = "package Machinery {\n\tpart def Engine {\n\t\tpart rotor;\n\t}\n}\n"
+	const views = "package EngineViews {\n\tprivate import Views::*;\n\tprivate import StandardViewDefinitions::*;\n\n\tview engineView : InterconnectionView {\n\t\texpose Machinery::Engine;\n\t}\n}\n"
+	ws := openDoc(t, "views.sysml", views)
+	ws.Open("parts.sysml", []byte(parts), 1)
+	rendering, snapshot, err := ws.RenderView("views.sysml", "EngineViews::engineView")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if snapshot.Rendered != ws.Document("views.sysml") {
+		t.Error("Rendered is not the document the rendering was asked of")
+	}
+	rendered := snapshot.Document("parts.sysml")
+	if rendered == nil || rendered != ws.Document("parts.sysml") {
+		t.Fatalf("snapshot holds parts.sysml as %v, want the workspace's document", rendered)
+	}
+	if got := snapshot.Document("Views.sysml"); got != nil {
+		t.Errorf("snapshot holds a bundled library file as %v, want none", got)
+	}
+
+	ws.Update("parts.sysml", []byte("// The engine, restated.\n"+parts), 2)
+	if snapshot.Document("parts.sysml") != rendered || rendered.Version != 1 || string(rendered.Content) != parts {
+		t.Errorf("after parts.sysml changed, the snapshot holds it as %+v, want the text rendered at version 1", snapshot.Document("parts.sysml"))
+	}
+	if current := ws.Document("parts.sysml"); current == rendered || current.Version != 2 {
+		t.Errorf("the workspace holds parts.sysml at %d, want the newer version 2", current.Version)
+	}
+	var rotor view.NodeData
+	for _, node := range rendering.Data().Nodes {
+		if node.Name == "rotor" {
+			rotor = node
+		}
+	}
+	if rotor.Origin.Doc != "parts.sysml" || !rotor.Origin.Located() {
+		t.Fatalf("rotor origin = %+v, want one located in parts.sysml", rotor.Origin)
+	}
+	if got := string(rendered.Content[rotor.Origin.Span.Offset : rotor.Origin.Span.Offset+rotor.Origin.Span.Len]); !strings.HasPrefix(got, "part rotor;") {
+		t.Errorf("rotor's span in the snapshot's text spells %q, want the declaration", got)
+	}
+}
+
+// A transition a usage inherits from a definition in another document is
+// located there and labelled with its trigger and guard as written there.
+func TestRenderViewLocatesInheritedTransitionsInTheirDocument(t *testing.T) {
+	const defs = "package Plant {\n\tattribute def Fault;\n\tstate def Machine {\n\t\tattribute load;\n\t\tentry; then off;\n\t\tstate off;\n\t\tstate on;\n\t\ttransition first off accept Fault if load > 3 then on;\n\t}\n}\n"
+	const uses = "package Uses {\n\tprivate import Views::*;\n\tprivate import StandardViewDefinitions::*;\n\n\tstate machine : Plant::Machine;\n\n\tview machineView : StateTransitionView {\n\t\texpose machine;\n\t}\n}\n"
+	ws := openDoc(t, "uses.sysml", uses)
+	ws.Open("defs.sysml", []byte(defs), 1)
+	rendering, _, err := ws.RenderView("uses.sysml", "Uses::machineView")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	var labels []string
+	for _, edge := range rendering.Data().Edges {
+		if edge.Label != "" {
+			labels = append(labels, edge.Label)
+		}
+		if edge.Origin.Doc != "defs.sysml" {
+			t.Errorf("edge %s -> %s is located in %q, want defs.sysml", edge.From, edge.To, edge.Origin.Doc)
+		}
+	}
+	if want := []string{"accept Fault [load > 3]"}; !reflect.DeepEqual(labels, want) {
+		t.Errorf("labels = %q, want %q; notices %v", labels, want, rendering.Notices)
 	}
 }
 
@@ -181,7 +281,7 @@ func TestRenderViewPseudoViewRendersWithoutADeclaredView(t *testing.T) {
 
 	// Nothing was added to the index: a later render still finds one document's
 	// declarations and no view.
-	if views := ws.Views("plain.sysml"); len(views) != 0 {
+	if views, _ := ws.Views("plain.sysml"); len(views) != 0 {
 		t.Errorf("rendering a pseudo-view added views to the document: %+v", views)
 	}
 }
@@ -283,7 +383,7 @@ package KitViews {
 // listed once, and it is not an ambiguity.
 func TestShortNamedDeclarationsAreCountedOnce(t *testing.T) {
 	ws := openDoc(t, "kit.sysml", shortNameModel)
-	if views := ws.Views("kit.sysml"); len(views) != 1 {
+	if views, _ := ws.Views("kit.sysml"); len(views) != 1 {
 		t.Fatalf("listed %d views, want 1: %+v", len(views), views)
 	}
 	if _, _, err := ws.RenderView("kit.sysml", ""); err != nil {

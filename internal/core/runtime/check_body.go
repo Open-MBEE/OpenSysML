@@ -25,9 +25,13 @@ func (s *stateSpeller) body(run *bodyRun) string {
 	return b.String()
 }
 
-// pause spells why a body paused: the breakpoint it met, or the wait it is in —
-// the callee held by its caller, whole, else the performance whose flow waits.
+// pause spells why a body paused: the statement boundary it yielded at, the
+// breakpoint it met, or the wait it is in — the callee held by its caller, whole,
+// else the performance whose flow waits.
 func (s *stateSpeller) pause(p bodyPause) string {
+	if p.yielded {
+		return "yielded between statements"
+	}
 	if !p.onWait {
 		return fmt.Sprintf("at breakpoint %q", p.breakpoint)
 	}
@@ -105,7 +109,11 @@ func (f *loopFrame) spell(s *stateSpeller) string {
 }
 
 func (f *performFrame) spell(s *stateSpeller) string {
-	return fmt.Sprintf("perform %s phase %d", s.frameLabel(f.perf), f.phase)
+	ended := ""
+	if f.ended {
+		ended = " ended"
+	}
+	return fmt.Sprintf("perform %s phase %d%s", s.frameLabel(f.perf), f.phase, ended)
 }
 
 func (f *subflowFrame) spell(s *stateSpeller) string {

@@ -9,8 +9,7 @@ import (
 // Bucket is the verdict the referee files an activity under.
 type Bucket string
 
-// The four buckets, in report order. fUML has no `terminate`, so there is no
-// terminate-gap bucket here.
+// The four buckets, in report order.
 const (
 	BucketPass            Bucket = "pass"
 	BucketFail            Bucket = "fail"

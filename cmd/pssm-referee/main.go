@@ -36,7 +36,7 @@ func usage(flags *flag.FlagSet) string {
 Usage: pssm-referee [flags]
 
 Runs the PSSM test suite (OMG ptc/18-11-06) against the runtime and files each
-test as pass, fail, not-expressible, terminate-gap or differs-by-design. The
+test as pass, fail, not-expressible or differs-by-design. The
 suite is fetched by ./scripts/download-pssm-suite.sh; when it is absent the
 referee reports so and exits 0, unless ` + pssm.RequireEnv + ` is set.
 

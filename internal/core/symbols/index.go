@@ -482,7 +482,7 @@ func (idx *Index) importersToRefresh(changed map[string]nsChange, deriveOnly boo
 			continue
 		}
 		for _, imp := range now {
-			if changed[imp.fqn].gained {
+			if imp.fqn != "" && changed[imp.fqn].gained {
 				derive = append(derive, pkgFQN)
 				break
 			}
@@ -543,10 +543,11 @@ func (idx *Index) resolveImports(pkgFQN string) []resolvedImport {
 }
 
 // lostMembers reports whether any namespace these imports name lost a member,
-// or had one hidden again, since the last expansion.
+// or had one hidden again, since the last expansion. An unresolved import names
+// none: "" is the document root, which no import reads from.
 func lostMembers(changed map[string]nsChange, imports []resolvedImport) bool {
 	for _, imp := range imports {
-		if changed[imp.fqn].lost {
+		if imp.fqn != "" && changed[imp.fqn].lost {
 			return true
 		}
 	}
@@ -894,8 +895,9 @@ func (idx *Index) MarkLibraryDocument(name string, doc LibraryDocument) {
 }
 
 // LibraryIdentity digests the library content the index holds — every library
-// document's name, tier and text — so two indexes that agree on it declare the
-// same library. It is unknown while a library document states no text digest.
+// document's language, tier and text, whatever name holds it — so two indexes that
+// agree on it declare the same library. It is unknown while a library document
+// states no text digest.
 func (idx *Index) LibraryIdentity() (string, bool) {
 	if !idx.frozen && (!idx.libraryIdentity.taken || idx.libraryIdentity.gen != idx.generation.get()) {
 		idx.takeLibraryIdentity()
@@ -916,7 +918,7 @@ func (idx *Index) takeLibraryIdentity() {
 	for _, name := range idx.libraryDocs.keys() {
 		docs[name] = idx.libraryDocs.at(name)
 	}
-	idx.libraryIdentity.value, idx.libraryIdentity.known = libraryIdentityOf(docs)
+	idx.libraryIdentity.value, idx.libraryIdentity.known = libraryIdentityOf(docs, idx.DocumentKind)
 	idx.libraryIdentity.gen = idx.generation.get()
 	idx.libraryIdentity.taken = true
 }
@@ -1588,6 +1590,13 @@ func (idx *Index) Registered(fn func(fqn string, syms []*Symbol)) {
 	for _, fqn := range idx.FQNs() {
 		fn(fqn, idx.fqn.at(fqn))
 	}
+}
+
+// RegisteredUnder returns every symbol registered under fqn, re-exports
+// included, or nil when the index registers nothing there.
+func (idx *Index) RegisteredUnder(fqn string) []*Symbol {
+	idx.readName(fqn)
+	return idx.fqn.at(fqn)
 }
 
 // FQNsEndingIn returns up to limit registered fully-qualified names whose last

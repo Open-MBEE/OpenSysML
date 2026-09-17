@@ -10,8 +10,10 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
 )
 
@@ -77,8 +79,8 @@ func (m *migration) valueExpr(v, scope *xmi.Element) (expr string, ok bool, note
 		if !ok {
 			return "", false, "opaque expression is not v2 expression syntax" + langNote(lang)
 		}
-		if missing := m.invisible(refs, scope); missing != "" {
-			return "", false, "opaque expression names " + missing + langNote(lang)
+		if problem := m.invisible(refs, scope); problem != "" {
+			return "", false, "opaque expression " + problem + langNote(lang)
 		}
 		return body, true, "opaque expression copied verbatim" + langNote(lang)
 	case "Expression", "TimeExpression", "Duration", "Interval", "StringExpression":
@@ -201,7 +203,7 @@ func scalarLiteral(kind, expr, text, sv string) (value string, spelled bool) {
 		case sv == "String":
 			return expr, true
 		case numeric && decimal(text):
-			if _, err := strconv.ParseFloat(text, 64); err != nil {
+			if _, ok := new(big.Rat).SetString(text); !ok {
 				return "", false
 			}
 			if !strings.ContainsAny(text, ".eE") {
@@ -209,7 +211,7 @@ func scalarLiteral(kind, expr, text, sv string) (value string, spelled bool) {
 			}
 			return text, true
 		case whole && decimal(text):
-			if _, err := strconv.ParseInt(text, 10, 64); err != nil || (sv == "Natural" && text[0] == '-') {
+			if _, ok := new(big.Int).SetString(text, 10); !ok || (sv == "Natural" && text[0] == '-') {
 				return "", false
 			}
 			return text, true
@@ -243,9 +245,13 @@ func opaqueBody(v *xmi.Element) (body, lang string) {
 }
 
 // reference is one name an expression refers to: the segments of a qualified
-// name, then the members feature chains select from it (chain is true).
+// name, then the members feature chains select from it (chain is true). A
+// chain on a name the expression's own body declares (local) starts from that
+// local's declared type instead, whose segments are the first typed steps.
 type reference struct {
 	global bool
+	local  string
+	typed  int
 	steps  []step
 	// start is the offset of the first step in the expression text.
 	start int
@@ -259,10 +265,14 @@ type step struct {
 // text writes the reference's first n steps as the expression spells them.
 func (r reference) text(n int) string {
 	var b strings.Builder
-	if r.global {
+	steps := r.steps[:n]
+	if r.local != "" && n > r.typed {
+		b.WriteString(writeName(r.local))
+		steps = steps[r.typed:]
+	} else if r.global {
 		b.WriteString("$")
 	}
-	for i, s := range r.steps[:n] {
+	for i, s := range steps {
 		switch {
 		case s.chain:
 			b.WriteString(".")
@@ -274,26 +284,35 @@ func (r reference) text(n int) string {
 	return b.String()
 }
 
-// exprRefs parses text as one v2 expression — the value of an attribute,
-// leaving no diagnostic — and returns every name it refers to: the features,
-// functions and types its meaning depends on, each with its whole path.
+// locals maps the names a body declares to the type each is declared with;
+// nil for none.
+type locals map[string]*ast.QualifiedName
+
+func (l locals) has(n string) bool {
+	_, ok := l[n]
+	return ok
+}
+
+// exprRefs parses text as one v2 expression and returns every model name it
+// refers to with its path; ok is false if it is not one, or has unread members.
 func exprRefs(text string) (refs []reference, ok bool) {
 	value, ok := parseExpr(text)
 	if !ok {
 		return nil, false
 	}
-	refs = nameRefs(value, nil)
-	for i := range refs {
-		refs[i].start -= len(exprProbePrefix)
+	var c refCollector
+	c.expr(value, nil)
+	if c.unread {
+		return nil, false
 	}
-	return refs, true
+	for i := range c.refs {
+		c.refs[i].start -= len(exprProbePrefix)
+	}
+	return c.refs, true
 }
 
 // parseExpr parses text as one v2 expression, leaving no diagnostic.
 func parseExpr(text string) (ast.Node, bool) {
-	if strings.ContainsAny(text, ";{}") {
-		return nil, false
-	}
 	src := source.New("probe.sysml", []byte(exprProbePrefix+text+";"))
 	p := parser.New(src)
 	root := p.ParseFile()
@@ -305,7 +324,7 @@ func parseExpr(text string) (ast.Node, bool) {
 		return nil, false
 	}
 	u, ok := mem.Member.(*ast.Usage)
-	if !ok || u.Value == nil {
+	if !ok || u.Value == nil || u.HasBody || len(u.Members) != 0 {
 		return nil, false
 	}
 	return u.Value, true
@@ -330,69 +349,274 @@ func exprLiteral(text string) (kind, value string) {
 // exprProbePrefix precedes an expression parsed on its own as an attribute's value.
 const exprProbePrefix = "attribute probe = "
 
-// nameRefs appends to refs each name an expression refers to. A feature chain
-// whose operand is itself a name extends that name; on any other operand its
-// members cannot be checked apart from it, so only the operand's names count.
-func nameRefs(n ast.Node, refs []reference) []reference {
-	name := func(q *ast.QualifiedName) {
-		if r, ok := qualifiedRef(q); ok {
-			refs = append(refs, r)
+// refCollector gathers the names an expression refers to beyond its local
+// ones; unread is set when a member of a kind the walk does not read is met.
+type refCollector struct {
+	refs   []reference
+	unread bool
+}
+
+func (c *refCollector) name(q *ast.QualifiedName, local locals) {
+	if r, ok := qualifiedRef(q); ok && !local.has(r.first()) {
+		c.refs = append(c.refs, r)
+	}
+}
+
+// chain records a feature chain; one on a body-local name is rerooted at the
+// local's declared type, or left with no type steps when it declares none.
+func (c *refCollector) chain(r reference, local locals) {
+	if !local.has(r.first()) {
+		c.refs = append(c.refs, r)
+		return
+	}
+	chain := r.steps[1:]
+	for _, s := range chain {
+		if !s.chain {
+			return // a qualified name under a local, which v2 cannot spell
 		}
 	}
+	rooted := reference{local: r.steps[0].name}
+	if t, ok := qualifiedRef(local[r.first()]); ok && !local.has(t.first()) {
+		rooted.global, rooted.typed, rooted.steps = t.global, len(t.steps), t.steps
+	}
+	rooted.steps = append(rooted.steps, chain...)
+	c.refs = append(c.refs, rooted)
+}
+
+// expr walks one expression; a feature chain on a name extends it, on anything
+// else only the operand counts.
+func (c *refCollector) expr(n ast.Node, local locals) {
 	switch e := n.(type) {
 	case *ast.QualifiedName:
-		name(e)
+		c.name(e, local)
 	case *ast.FeatureReference:
-		name(e.Name)
+		c.name(e.Name, local)
 	case *ast.FeatureChainExpr:
 		if r, ok := chainRef(e); ok {
-			refs = append(refs, r)
+			c.chain(r, local)
 		} else {
-			refs = nameRefs(e.Operand, refs)
+			c.expr(e.Operand, local)
 		}
 	case *ast.OperatorExpr:
 		for _, o := range e.Operands {
-			refs = nameRefs(o, refs)
+			c.expr(o, local)
 		}
-		name(e.TypeRef)
+		c.name(e.TypeRef, local)
 	case *ast.IndexExpr:
-		refs = nameRefs(e.Operand, refs)
-		refs = nameRefs(e.Index, refs)
+		c.expr(e.Operand, local)
+		c.expr(e.Index, local)
 	case *ast.InvocationExpr:
-		refs = nameRefs(e.Operand, refs)
-		name(e.Type)
+		c.expr(e.Operand, local)
+		c.name(e.Type, local)
 		for _, a := range e.Args {
-			refs = nameRefs(a, refs)
+			c.expr(a, local)
 		}
 		for _, a := range e.NamedArgs {
-			refs = nameRefs(a.Value, refs)
+			c.expr(a.Value, local)
 		}
 	case *ast.CollectExpr:
-		refs = nameRefs(e.Operand, refs)
-		refs = nameRefs(e.Body, refs)
+		c.expr(e.Operand, local)
+		c.expr(e.Body, local)
 	case *ast.SelectExpr:
-		refs = nameRefs(e.Operand, refs)
-		refs = nameRefs(e.Body, refs)
+		c.expr(e.Operand, local)
+		c.expr(e.Body, local)
 	case *ast.ConstructorExpr:
-		name(e.Type)
+		c.name(e.Type, local)
 		for _, a := range e.Args {
-			refs = nameRefs(a, refs)
+			c.expr(a, local)
 		}
 		for _, a := range e.NamedArgs {
-			refs = nameRefs(a.Value, refs)
+			c.expr(a.Value, local)
 		}
 	case *ast.BodyExpr:
-		refs = nameRefs(e.Result, refs)
+		c.body(e, local)
 	case *ast.SequenceExpr:
 		for _, el := range e.Elements {
-			refs = nameRefs(el, refs)
+			c.expr(el, local)
 		}
 	case *ast.MetadataAccessExpr:
-		name(e.Ref)
+		c.name(e.Ref, local)
 	case *ast.CastExpr:
-		name(e.TargetType)
+		c.name(e.TargetType, local)
+		c.multiplicity(e.Multiplicity, local)
 	}
-	return refs
+}
+
+// body walks a body expression; its parameters and members are in scope
+// throughout the body.
+func (c *refCollector) body(e *ast.BodyExpr, outer locals) {
+	local := scope(outer, e.Members)
+	for _, p := range e.Params {
+		local[p.Name] = p.Type
+	}
+	for _, p := range e.Params {
+		c.name(p.Type, local)
+		c.multiplicity(p.Multiplicity, local)
+		c.relationships(p.Relationships, local)
+		c.expr(p.Value, local)
+		c.members(p.Members, local)
+	}
+	c.declarations(e.Members, local)
+	c.expr(e.Result, local)
+}
+
+// members walks the declarations of a usage's or parameter's body, which are
+// in scope throughout that body.
+func (c *refCollector) members(members []ast.Node, outer locals) {
+	if len(members) == 0 {
+		return
+	}
+	c.declarations(members, scope(outer, members))
+}
+
+// declarations walks each member's references with its body's scope in force.
+func (c *refCollector) declarations(members []ast.Node, local locals) {
+	for _, m := range members {
+		if mem, ok := m.(*ast.Membership); ok {
+			m = mem.Member
+		}
+		switch e := m.(type) {
+		case *ast.Usage:
+			c.usage(e, local)
+		case *ast.Definition:
+			c.relationships(e.Relationships, local)
+			c.multiplicity(e.Multiplicity, local)
+			c.members(e.Members, local)
+		case *ast.ConstraintMember:
+			c.expr(e.Expression, local)
+			c.members(e.Body, local)
+		case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation:
+		default:
+			c.unread = true
+		}
+	}
+}
+
+func endScope(local locals, ends []*ast.ConnectorEnd) locals {
+	var scoped locals
+	for _, end := range ends {
+		if end == nil {
+			continue
+		}
+		id, declares := end.DeclaredName()
+		if !declares {
+			continue
+		}
+		if scoped == nil {
+			scoped = scope(local, nil)
+		}
+		scoped[id.Name] = nil
+	}
+	if scoped == nil {
+		return local
+	}
+	return scoped
+}
+
+func (c *refCollector) usage(e *ast.Usage, local locals) {
+	c.relationships(e.Relationships, local)
+	c.multiplicity(e.Multiplicity, local)
+	c.expr(e.Value, local)
+	if e.CrossFeature != nil {
+		c.unread = true
+	}
+	for _, end := range e.ConnectorEnds {
+		if end == nil {
+			continue
+		}
+		redefines, others := ast.SplitRedefinitions(end.Relationships)
+		if len(redefines) != 0 {
+			c.unread = true
+		}
+		c.relationships(others, local)
+		c.multiplicity(end.Multiplicity, local)
+		if _, declares := end.DeclaredName(); !declares {
+			c.expr(end.Target, local)
+		}
+		c.expr(end.Reference, local)
+	}
+	if e.FlowEnds != nil {
+		c.expr(e.FlowEnds.From, local)
+		c.expr(e.FlowEnds.To, local)
+		if e.FlowEnds.PayloadDecl != nil {
+			c.unread = true
+		} else {
+			c.expr(e.FlowEnds.Payload, local)
+		}
+		c.multiplicity(e.FlowEnds.PayloadMultiplicity, local)
+	}
+	c.members(e.Members, endScope(local, e.ConnectorEnds))
+}
+
+func (c *refCollector) relationships(rels []*ast.Relationship, local locals) {
+	for _, rel := range rels {
+		c.expr(rel.Target, local)
+		c.multiplicity(rel.Multiplicity, local)
+	}
+}
+
+func (c *refCollector) multiplicity(m *ast.Multiplicity, local locals) {
+	if m == nil {
+		return
+	}
+	c.expr(m.Lower, local)
+	c.expr(m.Upper, local)
+}
+
+// scope returns outer extended by the names members declare, each with the
+// one type a usage is declared with.
+func scope(outer locals, members []ast.Node) locals {
+	local := make(locals, len(outer)+len(members))
+	for n, t := range outer {
+		local[n] = t
+	}
+	for _, m := range members {
+		if mem, ok := m.(*ast.Membership); ok {
+			m = mem.Member
+		}
+		var id ast.Identification
+		var t *ast.QualifiedName
+		switch e := m.(type) {
+		case *ast.Usage:
+			id, t = e.Ident, soleType(e.Relationships)
+		case *ast.Definition:
+			id = e.Ident
+		case *ast.ConstraintMember:
+			id.Name = e.Name
+		}
+		if id.Name != "" {
+			local[id.Name] = t
+		}
+		if id.ShortName != "" {
+			local[id.ShortName] = t
+		}
+	}
+	return local
+}
+
+// soleType returns the one type a usage's relationships name, or nil when it
+// names none, several, or one by an expression.
+func soleType(rels []*ast.Relationship) *ast.QualifiedName {
+	var t *ast.QualifiedName
+	for _, rel := range rels {
+		if rel.Kind != ast.RelTyping {
+			continue
+		}
+		q, ok := rel.Target.(*ast.QualifiedName)
+		if !ok || t != nil {
+			return nil
+		}
+		t = q
+	}
+	return t
+}
+
+// first is the name a reference starts from; "" for a global one.
+func (r reference) first() string {
+	if r.global || len(r.steps) == 0 {
+		return ""
+	}
+	return r.steps[0].name
 }
 
 // qualifiedRef returns the reference a qualified name spells.
@@ -429,8 +653,8 @@ func chainRef(e *ast.FeatureChainExpr) (reference, bool) {
 	return r, true
 }
 
-// invisible says why the first unusable reference cannot be read in scope, as "<name>,
-// which ..." (nothing visible, or a behavior no expression evaluates); "" when all can.
+// invisible says why the references cannot all be seen from scope: the first that
+// resolves to nothing, or reaches through an untyped local. "" if all resolve.
 func (m *migration) invisible(refs []reference, scope *xmi.Element) string {
 	if len(refs) == 0 {
 		return ""
@@ -439,10 +663,13 @@ func (m *migration) invisible(refs []reference, scope *xmi.Element) string {
 	for _, r := range refs {
 		e, _, missing := m.resolve(r, visible, nil)
 		if missing != "" {
-			return missing + ", which nothing visible from " + qualifiedName(scope) + " is called"
+			if r.local != "" && r.typed == 0 {
+				return "reaches " + missing + " through " + writeName(r.local) + ", whose type it does not declare"
+			}
+			return "names " + missing + ", which nothing visible from " + qualifiedName(scope) + " is called"
 		}
 		if kw := m.notAValue(e); kw != "" {
-			return r.text(len(r.steps)) + ", which is " + kw + " " + qualifiedName(e) + ", not a value an expression can read"
+			return "names " + r.text(len(r.steps)) + ", which is " + kw + " " + qualifiedName(e) + ", not a value an expression can read"
 		}
 	}
 	return ""
@@ -451,7 +678,7 @@ func (m *migration) invisible(refs []reference, scope *xmi.Element) string {
 // notAValue names the kind of declaration e becomes when an expression cannot
 // read it: an operation or behavior written as an action or state def.
 func (m *migration) notAValue(e *xmi.Element) string {
-	if e.Type != "Operation" && !isBehavior(e) {
+	if e == nil || (e.Type != "Operation" && !isBehavior(e)) {
 		return ""
 	}
 	switch cat, _ := m.classify(e); cat {
@@ -466,22 +693,38 @@ func (m *migration) notAValue(e *xmi.Element) string {
 // resolve follows a reference from the names visible in its scope through the
 // members each step selects; hidden collects the private features it passes
 // through, and missing spells the reference up to the step that resolves to
-// nothing (when hidden is nil, a private feature is such a step).
+// nothing (when hidden is nil, a private feature is such a step). A name no
+// written element answers is looked up in the standard library; e is nil then.
 func (m *migration) resolve(r reference, visible, hidden map[string]*xmi.Element) (e *xmi.Element, reached []*xmi.Element, missing string) {
+	if r.local != "" && r.typed == 0 {
+		return nil, nil, r.text(len(r.steps))
+	}
+	var lib string
 	for i, s := range r.steps {
 		var next *xmi.Element
 		var private *xmi.Element
 		switch {
+		case lib != "":
+			if lib = m.libraryMember(lib, s.name, s.chain); lib == "" {
+				return nil, nil, r.text(i + 1)
+			}
+			continue
 		case i == 0 && r.global:
 			next = m.rootMember(s.name)
 		case i == 0:
 			next, private = visible[s.name], hidden[s.name]
+		case r.local != "" && i == r.typed:
+			next, private = m.memberNamed(e, s.name, memberFeature)
 		default:
-			next, private = m.memberNamed(e, s.name, s.chain)
+			next, private = m.memberNamed(e, s.name, chainKind(s.chain))
 		}
 		if next == nil && private != nil && hidden != nil {
 			next = private
 			reached = append(reached, private)
+		}
+		if next == nil && i == 0 && !s.chain && m.libraryPackage(s.name) {
+			lib = s.name
+			continue
 		}
 		if next == nil {
 			return nil, nil, r.text(i + 1)
@@ -489,6 +732,72 @@ func (m *migration) resolve(r reference, visible, hidden map[string]*xmi.Element
 		e = next
 	}
 	return e, reached, ""
+}
+
+// libraryPackage reports whether n names a top-level package of the standard
+// library, which a v2 model reaches without importing it.
+func (m *migration) libraryPackage(n string) bool {
+	for _, sym := range libs.SharedBase().LookupQualified(n) {
+		if _, ok := sym.Decl.(*ast.Package); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// libraryMember returns the qualified name of the library member of fqn named n,
+// or ""; a feature chain also selects members inherited from fqn's supertypes.
+func (m *migration) libraryMember(fqn, n string, chain bool) string {
+	idx := libs.SharedBase()
+	if !chain {
+		if len(idx.LookupDirectChildrenNamed(fqn, n)) != 0 {
+			return fqn + "::" + n
+		}
+		return ""
+	}
+	seen := map[string]bool{}
+	queue := []string{fqn}
+	for len(queue) != 0 {
+		t := queue[0]
+		queue = queue[1:]
+		if seen[t] {
+			continue
+		}
+		seen[t] = true
+		if len(idx.LookupDirectChildrenNamed(t, n)) != 0 {
+			return t + "::" + n
+		}
+		queue = append(queue, librarySupers(idx, t)...)
+	}
+	return ""
+}
+
+// librarySupers returns the qualified names of the direct supertypes the
+// library records for fqn.
+func librarySupers(idx *symbols.Index, fqn string) []string {
+	var out []string
+	for _, sym := range idx.LookupQualified(fqn) {
+		if sym.Facts != nil {
+			out = append(out, sym.Facts.Supers...)
+		}
+	}
+	return out
+}
+
+// memberKind says which members of an element a step of a reference selects.
+type memberKind int
+
+const (
+	memberAny     memberKind = iota // a qualified name: any member of a namespace or a feature's type
+	memberChained                   // a feature chain: a feature of a feature's type
+	memberFeature                   // a feature chain on a typed local: a feature of the type itself
+)
+
+func chainKind(chain bool) memberKind {
+	if chain {
+		return memberChained
+	}
+	return memberAny
 }
 
 // rootMember returns the written top-level element named n: a member of the
@@ -510,23 +819,23 @@ func (m *migration) rootMember(n string) *xmi.Element {
 	return nil
 }
 
-// memberNamed returns the written member of e named n, reached from outside e: a
-// feature chain (chain) selects a feature of a feature's type; a qualified
-// name selects any member of a namespace, or of a feature's type. private is
-// the private feature the name would otherwise reach.
-func (m *migration) memberNamed(e *xmi.Element, n string, chain bool) (member, private *xmi.Element) {
-	visible, hidden := m.membersOf(e, chain)
+// memberNamed returns the written member of e named n that a step of the given
+// kind selects, reached from outside e. private is the private feature the
+// name would otherwise reach.
+func (m *migration) memberNamed(e *xmi.Element, n string, kind memberKind) (member, private *xmi.Element) {
+	visible, hidden := m.membersOf(e, kind)
 	return visible[n], hidden[n]
 }
 
 // membersOf maps the names of the written members of e, seen from outside it:
 // a namespace's own and inherited members, a feature's or instance's the
-// members of its type or classifiers. features restricts them to features.
-// Private features are hidden, as v2 neither inherits nor reaches them.
-func (m *migration) membersOf(e *xmi.Element, features bool) (visible, hidden map[string]*xmi.Element) {
+// members of its type or classifiers, restricted as kind says. Private
+// features are hidden, as v2 neither inherits nor reaches them.
+func (m *migration) membersOf(e *xmi.Element, kind memberKind) (visible, hidden map[string]*xmi.Element) {
 	visible = map[string]*xmi.Element{}
 	hidden = map[string]*xmi.Element{}
 	seen := map[*xmi.Element]bool{}
+	features := kind != memberAny
 	var walk func(t *xmi.Element)
 	walk = func(t *xmi.Element) {
 		if t == nil || t.IsProxy() || seen[t] {
@@ -555,14 +864,14 @@ func (m *migration) membersOf(e *xmi.Element, features bool) (visible, hidden ma
 			walk(c)
 		}
 	}
-	switch e.Type {
-	case "Property", "Port":
-		walk(m.model.Ref(e, "type"))
-	default:
-		if features {
-			// Only a feature has a feature chain.
-			return visible, hidden
+	switch {
+	case e.Type == "Property" || e.Type == "Port":
+		if kind != memberFeature {
+			walk(m.model.Ref(e, "type"))
 		}
+	case kind == memberChained:
+		// Only a feature has a feature chain.
+	default:
 		walk(e)
 	}
 	return visible, hidden

@@ -6,7 +6,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // calcStmtHost runs a calculation body's statements: it owns its locals, its
@@ -40,13 +39,14 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 		run:        h.ctx.newRun(),
 	}
 	h.flow = &ActionExecutor{
-		performances:     performances{ctx: h.ctx, self: h.self, root: root, owner: h},
+		performances:     performances{ctx: h.ctx, self: h.self, root: root, owner: h, behavior: h.shape.Sym},
 		action:           h.shape.Sym,
 		state:            StateRunning,
 		nextTokenID:      1,
 		breakpoints:      make(map[string]bool),
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
+	h.flow.flow = h.flow
 	h.perfs = &h.flow.performances
 	h.env = engine.env
 	engine.env.perf = root
@@ -131,7 +131,7 @@ func (h *calcStmtHost) performer() *Instance {
 
 // effect performs the action a `perform` in a case body names, its outputs
 // returning to the body's values; a calculation states no effect at all.
-func (h *calcStmtHost) effect(_ *stmtEnv, s lower.Effect) error {
+func (h *calcStmtHost) effect(_ *stmtEngine, s lower.Effect) error {
 	if h.perfs == nil || s.Kind != lower.EffectPerform {
 		return fmt.Errorf("%w: a calculation cannot state '%s'", ErrCalcSideEffect, s.Kind)
 	}
@@ -227,22 +227,8 @@ func (h *calcStmtHost) runOwnFlow(perf *actionFrame) error {
 	return h.flow.runSubflow(perf)
 }
 
-// performsOwn reports whether sym is the case the body's performance is of.
-func (h *calcStmtHost) performsOwn(sym *symbols.Symbol) bool {
-	return h.flow != nil && h.flow.performsOwn(sym)
-}
-
-// terminatePerformance rejects ending a performance early: a calculation's body
-// states no effect on the lifetime of anything.
-func (h *calcStmtHost) terminatePerformance(*actionFrame) error {
-	return fmt.Errorf("%w: a calculation cannot state 'terminate'", ErrCalcSideEffect)
-}
-
-// terminate rejects a terminate statement: it ends a performance, an effect a
-// calculation cannot have.
-func (h *calcStmtHost) terminate(lower.Effect) (stmtFlow, error) {
-	return flowNext, h.terminatePerformance(nil)
-}
+// endsOwn refuses a terminate of the case's own performance: a case runs to its result.
+func (h *calcStmtHost) endsOwn() bool { return false }
 
 // runFlow runs the token flow a case body states with its successions and control
 // nodes, as the case's own performance; a calculation states none.

@@ -777,14 +777,14 @@ func freshMachine(objects *freshObjects, sym *symbols.Symbol, name string, perfo
 	return exec, label, nil
 }
 
-// completedActionOutcome is the outcome of an action run that reached its end;
-// one that stopped short is an error, as the prompt's run reports it.
+// completedActionOutcome is the outcome of an action run that ended, completed or
+// terminated; one that stopped short is an error, as the prompt's run reports it.
 func completedActionOutcome(ctx *runtime.Context, exec *runtime.ActionExecutor, name string) (runtime.Outcome, error) {
-	if state := exec.State(); state != runtime.StateCompleted {
+	if state := exec.State(); !state.Ended() {
 		return runtime.Outcome{}, fmt.Errorf("action %s stopped at %s at simulation time %s without completing",
 			name, state, semantics.FormatReal(ctx.Clock().Now()))
 	}
-	return ctx.ActionOutcome(exec.Results()), nil
+	return exec.Outcome(), nil
 }
 
 // exploreAction explores an action run to completion, on an object of what

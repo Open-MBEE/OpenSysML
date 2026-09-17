@@ -1,9 +1,0 @@
-step 1: token 1@f
-step 2: token 2@a, token 3@bw
-  eval literal 5 -> 5
-eval index -> 5 [SI::s]
-stmt assign x
-  eval literal 1 -> 1
-stmt terminate
-terminate: action
-step 3: no active tokens

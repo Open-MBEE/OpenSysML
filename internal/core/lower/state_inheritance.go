@@ -326,9 +326,15 @@ func (g *StateGraph) addMembers(content *stateContent, members []inheritedMember
 func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel bool, from inheritedMember) error {
 	state := content.node
 	scope := from.scope
-	// What a state declares itself is lowered as written; what it inherits is
-	// copied, so two usages of one definition own two vertices.
+	// What a state declares itself is lowered as written; what it inherits, or
+	// declares inside an inherited body, is copied, so two usages of one
+	// definition own two vertices.
 	inherited := from.owner != nil
+	copied := inherited || g.copying > 0
+	if inherited {
+		g.copying++
+		defer func() { g.copying-- }()
+	}
 	switch m := member.(type) {
 	case *ast.EntryMember:
 		state.Entry = append(state.Entry, g.behaviorsIn(m.Actions, scope)...)
@@ -339,7 +345,7 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 	case *ast.DeferMember:
 		state.Defer = append(state.Defer, m.Triggers...)
 	case *ast.StateRegion:
-		if !inherited {
+		if !copied {
 			state.Regions = append(state.Regions, m)
 			return nil
 		}
@@ -356,11 +362,12 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 		}
 		state.Substates = append(state.Substates, cloneStateNode(g, m, scope))
 	case *ast.PseudostateNode:
-		if !inherited {
+		if !copied {
 			state.Substates = append(state.Substates, m)
 			return nil
 		}
 		clone := *m
+		g.copyInherited(&clone, m, scope)
 		state.Substates = append(state.Substates, &clone)
 	case *ast.SubstateMember:
 		if parallel {
@@ -373,6 +380,14 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 		state.Substates = append(state.Substates, child)
 	case *ast.Usage:
 		switch {
+		case IsTerminateUsage(m):
+			if !copied {
+				state.Substates = append(state.Substates, m)
+				return nil
+			}
+			clone := *m
+			g.copyInherited(&clone, m, scope)
+			state.Substates = append(state.Substates, &clone)
 		case m.Kind == ast.UsageState && !parallel:
 			child, err := stateNodeFromUsage(g, m, scope)
 			if err != nil {
@@ -456,7 +471,16 @@ func cloneStateNode(g *StateGraph, node *ast.StateNode, scope *symbols.Scope) *a
 			clone.Substates = append(clone.Substates, cloneStateNode(g, child, g.scopeOf[clone]))
 		case *ast.PseudostateNode:
 			ps := *child
+			g.copyInherited(&ps, child, g.scopeOf[clone])
 			clone.Substates = append(clone.Substates, &ps)
+		case *ast.Usage:
+			if !IsTerminateUsage(child) {
+				clone.Substates = append(clone.Substates, substate)
+				continue
+			}
+			stop := *child
+			g.copyInherited(&stop, child, g.scopeOf[clone])
+			clone.Substates = append(clone.Substates, &stop)
 		default:
 			clone.Substates = append(clone.Substates, substate)
 		}

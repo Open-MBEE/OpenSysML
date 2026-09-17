@@ -139,7 +139,7 @@ func (e *StateExecutor) fireTransitionInRegion(region *ast.StateRegion, trans *l
 	}
 
 	source := e.activeConfig.regionStates[region]
-	return true, e.travel(r,
+	return true, e.travel(trans, source, r,
 		func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) },
 		func(target *ast.StateNode) []*ast.StateNode { return e.enteredInRegion(region, trans, target) },
 		func(effects []routeEffect, target *ast.StateNode) error {
@@ -506,7 +506,7 @@ func (e *StateExecutor) recordTransitionTrace(trans *lower.Transition, source, t
 	if source != nil {
 		from = source.Name
 	}
-	e.trace().RecordStateTransition(from, target.Name, triggerName(trans.Trigger))
+	e.trace().RecordStateTransition(e.traceOrigin(), from, target.Name, triggerName(trans.Trigger))
 }
 
 // orderedActiveRegions returns the active orthogonal regions in declaration

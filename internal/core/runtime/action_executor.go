@@ -214,7 +214,7 @@ func newActionExecutorOn(
 	self, occurrence *Instance,
 ) *ActionExecutor {
 	exec := &ActionExecutor{
-		performances: performances{ctx: ctx, self: self},
+		performances: performances{ctx: ctx, self: self, behavior: action},
 		action:       action,
 		performed:    performed,
 		tool:         tool,
@@ -231,6 +231,8 @@ func newActionExecutorOn(
 	exec.features = exec.performanceFeatures()
 	exec.root = exec.newRootFrame()
 	exec.owner = exec
+	exec.flow = exec
+	exec.driven.exec = exec
 	ctx.clock.attach(exec)
 	return exec
 }
@@ -321,7 +323,7 @@ func (e *ActionExecutor) Step() error {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
 	}
 
-	if e.state == StateCompleted {
+	if e.state.Ended() {
 		return nil // Already completed
 	}
 
@@ -426,7 +428,7 @@ func (e *ActionExecutor) Step() error {
 		e.trace().RecordActionStep(e.stepCount, e.tokens)
 	}
 
-	if e.state == StateCompleted {
+	if e.state.Ended() {
 		return e.ctx.endedWhole(&e.driven)
 	}
 	return nil
@@ -609,7 +611,7 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 // on one the run has not yet stopped at suspends the run before any token moves,
 // and one a step lands on suspends it after, so the next step resumes past it.
 func (e *ActionExecutor) StepToBreakpoint() error {
-	if e.released || e.state == StateReady || e.state == StateCompleted {
+	if e.released || e.state == StateReady || e.state.Ended() {
 		return e.Step()
 	}
 	if e.pauseAtBreakpoint() {
@@ -1158,6 +1160,9 @@ func (e *ActionExecutor) runOwnFlow(perf *actionFrame) error {
 	return e.runSubflow(perf)
 }
 
+// endsOwn allows a terminate to end the action's own performance.
+func (e *ActionExecutor) endsOwn() bool { return true }
+
 // setFeature writes into the action's feature space, through the performance
 // occurrence for a feature the action declares: the occurrence is authoritative
 // for those, and data mirrors what it holds after the write.
@@ -1388,17 +1393,28 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 	if tokenIdx < 0 || tokenIdx >= len(e.tokens) {
 		return fmt.Errorf("invalid token index %d", tokenIdx)
 	}
-	defer e.beginTokenStep(e.tokens[tokenIdx].ID)()
+	if e.dynamics == nil && e.tokens[tokenIdx].body == nil {
+		var ready bool
+		if tokenIdx, ready = e.synchronize(tokenIdx); !ready {
+			return nil
+		}
+	}
+	id := e.tokens[tokenIdx].ID
+	defer e.beginTokenStep(id)()
+	if err := e.stepTokenAt(tokenIdx); err != nil {
+		return e.endTerminatedFor(id, err)
+	}
+	return nil
+}
 
+// stepTokenAt advances the token at tokenIdx, synchronized already; a terminate its
+// step reaches unwinds out of it, for stepToken to end the performance it names.
+func (e *ActionExecutor) stepTokenAt(tokenIdx int) error {
 	if e.dynamics != nil {
 		return e.stepDynamics(tokenIdx)
 	}
 	if e.tokens[tokenIdx].body != nil {
 		return e.resumeBody(tokenIdx)
-	}
-	tokenIdx, ready := e.synchronize(tokenIdx)
-	if !ready {
-		return nil
 	}
 	token := &e.tokens[tokenIdx]
 
@@ -1803,7 +1819,7 @@ func (e *ActionExecutor) stepInitialNode(tokenIdx int) error {
 	if len(graph.Edges[token.Location]) == 0 {
 		return fmt.Errorf("%w: initial node has no successors", ErrInvalidActionFlow)
 	}
-	if terminated, err := e.runNodeBody(token.frame, token.Location); err != nil || terminated {
+	if err := e.runNodeBody(token.frame, token.Location); err != nil {
 		return err
 	}
 
@@ -1868,7 +1884,7 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 		return fmt.Errorf("%w: fork node %s has no successors",
 			ErrInvalidActionFlow, node.Name)
 	}
-	if terminated, err := e.runNodeBody(frame, node); err != nil || terminated {
+	if err := e.runNodeBody(frame, node); err != nil {
 		return err
 	}
 
@@ -1913,7 +1929,7 @@ func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 	frame := token.frame
 	graph := e.graphOf(frame)
 
-	if terminated, err := e.runNodeBody(frame, node); err != nil || terminated {
+	if err := e.runNodeBody(frame, node); err != nil {
 		return err
 	}
 
@@ -1959,7 +1975,7 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 		return fmt.Errorf("%w: merge node %s has multiple successors (not yet supported)",
 			ErrInvalidActionFlow, mergeNode.Name)
 	}
-	if terminated, err := e.runNodeBody(token.frame, mergeNode); err != nil || terminated {
+	if err := e.runNodeBody(token.frame, mergeNode); err != nil {
 		return err
 	}
 
@@ -1991,7 +2007,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 		return fmt.Errorf("%w: decision node %s has no successors",
 			ErrInvalidActionFlow, decisionNode.Name)
 	}
-	if terminated, err := e.runNodeBody(token.frame, decisionNode); err != nil || terminated {
+	if err := e.runNodeBody(token.frame, decisionNode); err != nil {
 		return err
 	}
 
@@ -2060,7 +2076,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 			}
 		}
 		if choice != nil {
-			e.ctx.noteChoice(*choice)
+			e.noteChoice(*choice)
 		}
 		e.move(token, successors[holding[pick]])
 		return nil
@@ -2199,6 +2215,10 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 			return nil
 		}
 		token.Wait = nil
+		if tr := e.trace(); tr != nil {
+			tr.RecordAccept(TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.action},
+				acceptedEventName(msg), msg.Payload)
+		}
 		if accept.ParamName != "" {
 			value, err := e.ctx.acceptedValue(&msg)
 			if err != nil {
@@ -2480,7 +2500,7 @@ func (e *ActionExecutor) tokenPositions() map[int64]ast.Node {
 	return positions
 }
 
-func (e *ActionExecutor) finished() bool { return e.released || e.state == StateCompleted }
+func (e *ActionExecutor) finished() bool { return e.released || e.state.Ended() }
 func (e *ActionExecutor) running() bool  { return e.inRun || e.held }
 
 // performerSuffix names the object performing a behavior, nothing for none.

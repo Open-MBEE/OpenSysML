@@ -42,8 +42,9 @@ type bodyFrame interface {
 	spell(*stateSpeller) string
 }
 
-// bodyRun is the work of one body: a breakpoint met inside it, or a wait on the
-// clock, pauses it there until resumed, its frames kept in cursor.
+// bodyRun is the work of one body: a breakpoint met inside it, a wait on the
+// clock, or a statement boundary where it yields, pauses it there until
+// resumed, its frames kept in cursor.
 type bodyRun struct {
 	work bodyWork
 	// err is what ended the work, once ended: its own failure, or its abandonment.
@@ -58,18 +59,23 @@ type bodyRun struct {
 	// traceLevels is the trace nesting the paused work holds open, set aside
 	// while it is paused so what runs meanwhile records at the outer depth.
 	traceLevels int
+	// traceBase is the nesting the work resumed at, which its levels count from.
+	traceBase int
 	// awaitsMessages lets the run pause for a message too, as a do behavior does
 	// while its machine goes on; a token's step run waits only on the clock.
 	awaitsMessages bool
-	// outer is the run this one resumed inside, while it runs; nil for a paused one.
-	outer *bodyRun
+	// yields has the run pause at the statement boundary after the statement,
+	// loop iteration or flow step it performed since resumed, which performed marks.
+	yields, performed bool
 }
 
-// bodyPause is why a body run paused: at the breakpoint, or on a wait.
+// bodyPause is why a body run paused: at the breakpoint, on a wait, or yielded
+// at a statement boundary, to go on with the next statement when resumed.
 type bodyPause struct {
 	breakpoint breakpointStop
 	onWait     bool
 	wait       bodyWait
+	yielded    bool
 }
 
 // bodyWait is the wait a body's run paused on: of the action it performs (held),
@@ -111,12 +117,14 @@ func (w bodyWait) heldWaiter() clockWaiter {
 // its end, leaving err set.
 func (run *bodyRun) resume(ctx *Context) (bodyPause, bool) {
 	outer := ctx.body
-	ctx.body, run.outer = run, outer
+	ctx.body = run
 	run.resuming, run.cursor = run.cursor, nil
+	run.performed = false
 	base := ctx.trace.nesting()
+	run.traceBase = base
 	ctx.trace.setNesting(base + run.traceLevels)
 	err := run.work.perform()
-	ctx.body, run.outer = outer, nil
+	ctx.body = outer
 	// Levels a failure left un-entered hold nothing the work still needs.
 	for _, f := range run.resuming {
 		f.abandon(ctx)
@@ -127,20 +135,8 @@ func (run *bodyRun) resume(ctx *Context) (bodyPause, bool) {
 		ctx.trace.setNesting(base)
 		return run.paused, true
 	}
-	// Levels a termination cut short closed no trace nesting of their own.
-	ctx.trace.setNesting(base)
 	run.err, run.ended = err, true
 	return bodyPause{}, false
-}
-
-// active reports whether run is on the stack now: the run under way or one it resumed inside.
-func (ctx *Context) active(run *bodyRun) bool {
-	for r := ctx.body; r != nil; r = r.outer {
-		if r == run {
-			return true
-		}
-	}
-	return false
 }
 
 // end ends the paused work for good: what its frames hold open is abandoned,
@@ -149,24 +145,47 @@ func (run *bodyRun) end(ctx *Context) {
 	if run.ended {
 		return
 	}
-	run.cancel(ctx)
-	where := "on a wait"
-	if !run.paused.onWait {
+	for _, f := range run.cursor {
+		f.abandon(ctx)
+	}
+	run.cursor, run.ended = nil, true
+	where := "between statements"
+	switch {
+	case run.paused.onWait:
+		where = "on a wait"
+	case !run.paused.yielded:
 		where = fmt.Sprintf("at breakpoint %q", run.paused.breakpoint.name)
 	}
 	run.err = fmt.Errorf("%w: the run paused %s was abandoned", ErrActionDeadlock, where)
 }
 
-// cancel ends the paused work as a termination does: what its frames hold open
-// is abandoned, innermost first, and nothing is left to report.
-func (run *bodyRun) cancel(ctx *Context) {
-	if run.ended {
-		return
+// endPerformed ends perf where a body statement of the paused run was performing it,
+// abandoning the levels within it: the run resumed goes on past the node as completed.
+func (run *bodyRun) endPerformed(ctx *Context, perf *actionFrame) bool {
+	for i, f := range run.cursor {
+		pf, ok := f.(*performFrame)
+		if !ok || pf.perf != perf {
+			continue
+		}
+		for _, inner := range run.cursor[:i] {
+			inner.abandon(ctx)
+		}
+		run.cursor = run.cursor[i:]
+		run.traceLevels = pf.levels
+		run.paused = bodyPause{}
+		pf.ended = true
+		return true
 	}
-	for _, f := range run.cursor {
-		f.abandon(ctx)
+	return false
+}
+
+// bodyLevels is the trace nesting the body on the stack holds open at this point
+// of its work, over the depth it resumed at; 0 with no body on the stack.
+func (ctx *Context) bodyLevels() int {
+	if ctx.body == nil {
+		return 0
 	}
-	run.cursor, run.ended = nil, true
+	return ctx.trace.nesting() - ctx.body.traceBase
 }
 
 // pushPaused keeps f, where the level of the body's work now unwinding paused.
@@ -245,6 +264,7 @@ func (w *usageWork) clone() bodyWork { c := *w; return &c }
 
 func (w *usageWork) perform() error {
 	e := w.exec
+	var ended *terminated
 	if w.phase == usagePerforming {
 		switch {
 		case w.isCase:
@@ -273,13 +293,20 @@ func (w *usageWork) perform() error {
 			}
 			return e.enterSubflow(idx, w.perf)
 		}
-		flow, err := e.executeBody(w.perf, w.graph, w.usage)
-		if err != nil {
-			return err
-		}
-		// A terminate ending a performance around the node took its token with it.
-		if flow == flowTerminate && w.perf.terminated != w.perf {
-			return nil
+		if err := e.executeBody(w.perf, w.graph, w.usage); err != nil {
+			err = e.terminatedUsage(w.perf, w.graph, err)
+			if ended = unwound(err); ended == nil {
+				return err
+			}
+			if ended.perf != w.perf {
+				// The usage ends a performance around it: its own completes first, pins bound.
+				if err := e.endPerformance(w.perf); err != nil {
+					return err
+				}
+				return ended
+			}
+			// A terminate unwound out of a flow nested in the body: what still runs there is dropped.
+			e.dropTokensIn(w.perf, 0)
 		}
 		if err := e.endPerformance(w.perf); err != nil {
 			return err
@@ -290,7 +317,13 @@ func (w *usageWork) perform() error {
 	if err != nil {
 		return err
 	}
-	return e.completeNode(idx, w.perf)
+	if err := e.completeNode(idx, w.perf); err != nil {
+		return err
+	}
+	if ended != nil {
+		return e.endAlongside(ended)
+	}
+	return nil
 }
 
 // statementWork is a token's step of a node written as a statement: its body, then
@@ -308,13 +341,8 @@ func (w *statementWork) clone() bodyWork { c := *w; return &c }
 func (w *statementWork) perform() error {
 	e := w.exec
 	if !w.done {
-		flow, err := e.executeBody(w.frame, w.frame.graph, w.node)
-		if err != nil {
+		if err := e.executeBody(w.frame, w.frame.graph, w.node); err != nil {
 			return err
-		}
-		// A terminate ending the flow the node is in took its token with it.
-		if flow == flowTerminate {
-			return nil
 		}
 		w.done = true
 	}
@@ -470,6 +498,30 @@ func (ctx *Context) pauseBody(pause bodyPause) error {
 	}
 	run.paused = pause
 	return errPaused
+}
+
+// yieldBody pauses the body on the stack before its next statement where its run
+// goes one at a time and has performed one since resumed; nil, going on, else.
+func (ctx *Context) yieldBody() error {
+	if ctx.body == nil || !ctx.body.yields || !ctx.body.performed {
+		return nil
+	}
+	return ctx.pauseBody(bodyPause{yielded: true})
+}
+
+// bodyPerformed notes a statement, loop iteration or flow step of the body on the
+// stack done, after which a run going one at a time yields.
+func (ctx *Context) bodyPerformed() {
+	if ctx.body != nil {
+		ctx.body.performed = true
+	}
+}
+
+// yieldedHere reports the frame just popped as the one the body yielded in: its
+// next statement begins afresh there, where a frame paused inside one resumes it.
+func (ctx *Context) yieldedHere() bool {
+	run := ctx.body
+	return run != nil && len(run.resuming) == 0 && run.paused.yielded
 }
 
 // pauseForClock pauses the body on the stack while wait, a wait on the clock,

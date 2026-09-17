@@ -177,15 +177,23 @@ var (
 	// ErrActionDeadlock is returned when action tokens cannot make progress.
 	ErrActionDeadlock = errors.New("action deadlock")
 
+	// ErrTerminateTarget is returned when a `terminate` names no ongoing performance
+	// of an action node in a flow enclosing it, and no occurrence either.
+	ErrTerminateTarget = errors.New("terminate names nothing to end")
+
+	// ErrPerformanceEnded is returned when a `terminate` names a performance that
+	// has already ended, by completing or by an earlier terminate.
+	ErrPerformanceEnded = errors.New("performance already ended")
+
+	// ErrTerminateOccurrence is returned when a `terminate` names a value that is no
+	// occurrence, or an occurrence that is not ongoing; it wraps the lifetime error.
+	ErrTerminateOccurrence = errors.New("occurrence cannot be terminated")
+
 	// ErrExecutorReleased is returned when a released executor is stepped.
 	ErrExecutorReleased = errors.New("executor released")
 
 	// ErrInvalidActionFlow is returned for a structurally invalid action graph.
 	ErrInvalidActionFlow = errors.New("invalid action flow")
-
-	// ErrTerminateTarget is returned when a `terminate` names something that is
-	// not an ongoing performance of the behavior it stands in.
-	ErrTerminateTarget = errors.New("terminate names no ongoing performance")
 
 	// ErrNoEnabledSuccession is returned when a decision can select no branch.
 	ErrNoEnabledSuccession = errors.New("no enabled succession")

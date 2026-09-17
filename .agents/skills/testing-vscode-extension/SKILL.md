@@ -582,6 +582,79 @@ column is too small to read in a 1024x768 full screenshot.
   the ` DONE  Packaged: opensysml-sysml.vsix` line before `ls editors/vscode/*.vsix`, or you will
   conclude the build failed while it is still installing node modules.
 
+## Diagram authoring (`opensysml/applyModelEdit`)
+
+- Use a small interconnection fixture with **explicit private imports** and expose the owner,
+  not only its children:
+  ```sysml
+  package Vehicle {
+      private import StandardViewDefinitions::*;
+      private import Views::*;
+      port def FuelPort;
+      part def Tank { port fuelOut : FuelPort; }
+      part def Engine { port fuelIn : FuelPort; }
+      part def Car {
+          part tank : Tank;
+          part engine : Engine;
+      }
+      view carView : GeneralView {
+          expose Car;
+          render asInterconnectionDiagram;
+      }
+  }
+  ```
+  Without the imports the view names are unresolved; imports without visibility produce
+  diagnostics. `expose Car::*` renders tank/engine as separate roots, leaving no shared
+  rendered owner for a connection. `expose Car` retains the Car node and its children.
+- Keep the Problems panel visible: this fixture should start and remain at zero. An
+  empty Problems panel alone is not sufficient; confirm the diagram and live server too.
+- Palette **Add part…** uses the source cursor owner. Put the cursor on the Car declaration
+  after its indentation, then verify the prompt title says `Add part to Vehicle::Car`
+  before typing a name. Part prompts for a type; connection prompts allow an empty name.
+- The custom context menu labels are **Connection from here…**, **Rename…**, **Delete…**.
+  Connection target quick-pick also matches type details: typing `engine` can match both
+  `engine : Engine` and `battery : Engine`, so explicitly choose the intended label.
+- All Delete actions first show a native confirmation dialog. Referenced deletion then
+  shows a second dialog with **Delete all**. Unreferenced deletion should not show the
+  second cascade dialog. Canceling the first dialog does not exercise server refusal.
+- Focus the source editor before Ctrl+Z / Ctrl+Y. One undo should remove one diagram
+  operation (e.g. connection), the next the preceding operation (e.g. added part); each
+  diagram update should arrive automatically, without Refresh.
+- For duplicate refusal, use the current name after any rename. Expect a bottom-right
+  toast such as `Vehicle::Car already declares "motor"` and `Model edit refused:` in
+  **Output: Show Output Channels… → SysML v2**. The displayed message need not include
+  the protocol's failure-code spelling.
+- Table rendering is non-SVG, but may still receive a full member/connection palette.
+  Check the current palette table in `internal/lsp/render.go` rather than
+  assuming non-SVG means authoring is hidden.
+
+## Edit-latency and semantic-token comparisons
+
+- Use the same scratch workspace and isolated keystrokes for both server builds.
+  Keep ambiguous wildcard imports at document level as well as inside a package;
+  include a resolved root wildcard import so there are actual root re-exports.
+  Start from the current index invalidation reproducer rather than assuming a
+  nested-only import triggers document-root invalidation. Small fixtures may
+  still not reproduce the reported multi-second stall; report this limitation.
+- Measure `didChange` to `publishDiagnostics` with a transparent framed stdio
+  relay or timestamped client trace, keeping payloads unchanged. Distinguish
+  server transport latency from visible screen repaint and editor debounce.
+  For publications without versions, isolate changes with settled intervals;
+  do not attribute a queued older publication to the newest edit.
+- A relay must forward/handle EOF and termination so changing the server setting
+  does not leave orphan servers. Check the actual child executable, not merely
+  the setting value. Separate logs for each server/workload.
+- Disable word-based suggestions to prove newly declared names come from the
+  LSP, but leave ordinary quick suggestions enabled when checking popup behavior.
+  Type a prefix with the list open to prove it does not block editing.
+- Inspect the reference with **Developer: Inspect Editor Tokens and Colors**
+  after renaming and shifting source lines. Check exact identifier length and
+  semantic token type; matching syntax colour alone does not prove a semantic
+  token arrived. A finite GUI sequence cannot exclude every scheduling race.
+- Show the normal hover before typing with it open. A disappearing hover and
+  inserted text prove input was not blocked; the diagnostic squiggle and Problems
+  entry are not modal notifications.
+
 ## Devin Secrets Needed
 
 None.

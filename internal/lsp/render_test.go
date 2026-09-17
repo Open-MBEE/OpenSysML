@@ -107,11 +107,11 @@ func (r *recorder) all() []string {
 	return append([]string(nil), r.sent...)
 }
 
-// renderServer is a server holding one open document, as an editor session does.
+// renderServer is a server holding one open document, as a session of an
+// editor speaking the cross-document diagram contract does.
 func renderServer(t *testing.T, name, src string) (*Server, uri.URI) {
 	t.Helper()
-	s := NewServer(model.NewWorkspace())
-	s.client = &recorder{}
+	s := initializedServer(t, map[string]any{CrossDocumentCapability: true})
 	docURI := uri.File(name)
 	if err := s.DidOpen(context.Background(), &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
@@ -121,6 +121,22 @@ func renderServer(t *testing.T, name, src string) (*Server, uri.URI) {
 		t.Fatalf("DidOpen err = %v", err)
 	}
 	return s, docURI
+}
+
+// initializedServer is a server a client initialized with those experimental
+// capabilities, none for a client predating them.
+func initializedServer(t *testing.T, experimental map[string]any) *Server {
+	t.Helper()
+	s := NewServer(model.NewWorkspace())
+	s.client = &recorder{}
+	var caps protocol.ClientCapabilities
+	if experimental != nil {
+		caps.Experimental = experimental
+	}
+	if _, err := s.Initialize(context.Background(), &protocol.InitializeParams{Capabilities: caps}); err != nil {
+		t.Fatalf("Initialize err = %v", err)
+	}
+	return s
 }
 
 // call dispatches a custom request the way a served session does, through the
@@ -440,6 +456,54 @@ func TestRenderAndViewsReportAnUnsupportedKind(t *testing.T) {
 	}
 	if !strings.Contains(geometry.Reason, "geometry rendering") {
 		t.Errorf("reason = %q, want it to say a geometry rendering is not supported", geometry.Reason)
+	}
+}
+
+// Each listed view carries the range of its declaration and of its name in the
+// document, in LSP positions, so a client can tell which view the cursor is in.
+func TestViewsLocateEachDeclaration(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	raw, err := call(t, s, MethodViews, &viewsParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+	})
+	if err != nil {
+		t.Fatalf("views: %v", err)
+	}
+	var listing viewsResult
+	if err := json.Unmarshal(raw, &listing); err != nil {
+		t.Fatalf("decode views result: %v", err)
+	}
+	lines := strings.Split(renderModel, "\n")
+	text := func(r protocol.Range) string {
+		if r.Start.Line != r.End.Line {
+			return strings.Join(append([]string{lines[r.Start.Line][r.Start.Character:]}, lines[r.Start.Line+1:r.End.Line]...), "\n") +
+				"\n" + lines[r.End.Line][:r.End.Character]
+		}
+		return lines[r.Start.Line][r.Start.Character:r.End.Character]
+	}
+	for _, info := range listing.Views {
+		if info.Range == nil || info.SelectionRange == nil {
+			t.Fatalf("%s: range = %v selectionRange = %v, want both", info.Name, info.Range, info.SelectionRange)
+		}
+		short := strings.TrimPrefix(info.Name, "KitViews::")
+		if got := text(*info.SelectionRange); got != short {
+			t.Errorf("%s: selectionRange covers %q, want %q", info.Name, got, short)
+		}
+		decl := text(*info.Range)
+		if !strings.HasPrefix(decl, "view "+short) || !strings.HasSuffix(decl, "}") {
+			t.Errorf("%s: range covers %q, want the whole view declaration", info.Name, decl)
+		}
+	}
+	// Two declarations never overlap, so a cursor is in at most one of them.
+	before := func(a, b protocol.Position) bool {
+		return a.Line < b.Line || (a.Line == b.Line && a.Character <= b.Character)
+	}
+	for i, a := range listing.Views {
+		for _, b := range listing.Views[i+1:] {
+			if !before(a.Range.End, b.Range.Start) && !before(b.Range.End, a.Range.Start) {
+				t.Errorf("%s and %s overlap: %v and %v", a.Name, b.Name, *a.Range, *b.Range)
+			}
+		}
 	}
 }
 
@@ -802,6 +866,9 @@ func TestInitializeAdvertisesTheRenderCapability(t *testing.T) {
 	}
 	if experimental["openSysmlRender"] != true {
 		t.Errorf("openSysmlRender = %#v, want true", experimental["openSysmlRender"])
+	}
+	if experimental[CrossDocumentCapability] != true {
+		t.Errorf("%s = %#v, want true", CrossDocumentCapability, experimental[CrossDocumentCapability])
 	}
 }
 

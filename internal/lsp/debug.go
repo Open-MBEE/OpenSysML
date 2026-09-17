@@ -59,13 +59,14 @@ const debugProtocolVersion = 1
 
 // Debug session states, as debugSnapshot.State reports them.
 const (
-	debugReady     = "ready"
-	debugRunning   = "running"
-	debugWaiting   = "waiting"
-	debugSuspended = "suspended"
-	debugCompleted = "completed"
-	debugFailed    = "failed"
-	debugEnded     = "ended"
+	debugReady      = "ready"
+	debugRunning    = "running"
+	debugWaiting    = "waiting"
+	debugSuspended  = "suspended"
+	debugCompleted  = "completed"
+	debugTerminated = "terminated"
+	debugFailed     = "failed"
+	debugEnded      = "ended"
 )
 
 // debugStartParams asks to run target, a state machine or action the view draws,
@@ -146,8 +147,8 @@ type debugSnapshot struct {
 	// Revision counts the session's snapshots: a client keeps the highest it has
 	// seen, as a notification taken earlier may reach it after a later answer.
 	Revision int `json:"revision"`
-	// State is ready, running, waiting, suspended, completed, failed or ended;
-	// Reason says why for the last four.
+	// State is ready, running, waiting, suspended, completed, terminated, failed or
+	// ended; Reason says why for waiting, suspended, failed and ended.
 	State  string  `json:"state"`
 	Reason string  `json:"reason,omitempty"`
 	Time   float64 `json:"time"`
@@ -163,7 +164,7 @@ type debugSnapshot struct {
 	PausedAt string `json:"pausedAt,omitempty"`
 	// Notes are what the runtime noted during the last request.
 	Notes []string `json:"notes"`
-	// Results are a completed action's outputs.
+	// Results are an ended action's outputs, as they stood when it completed or was terminated.
 	Results map[string]string `json:"results,omitempty"`
 }
 
@@ -351,12 +352,12 @@ func (s *Server) debugPrepare(params *debugStartParams) (*debugSession, error) {
 	// IDs answered and the behavior run are of one and the same documents.
 	var (
 		rendering *view.Rendering
-		doc       *model.Document
+		snapshot  *model.Snapshot
 		rt        *model.Runtime
 		viewText  string
 	)
 	if err := s.ws.Read(func(r *model.Reading) (err error) {
-		if rendering, doc, err = r.RenderView(name, params.View); err != nil {
+		if rendering, snapshot, err = r.RenderView(name, params.View); err != nil {
 			return err
 		}
 		if rendering.Kind != view.KindState && rendering.Kind != view.KindAction {
@@ -417,7 +418,7 @@ func (s *Server) debugPrepare(params *debugStartParams) (*debugSession, error) {
 		return nil, err
 	}
 	sess.reads = rt.Dependencies(target, objectSym)
-	if err := sess.locate(rendering, target, doc.Version); err != nil {
+	if err := sess.locate(rendering, target, snapshot.Rendered.Version); err != nil {
 		sess.release()
 		return nil, err
 	}
@@ -651,7 +652,7 @@ func (s *Server) DebugStep(params *debugSessionParams) (*debugSnapshot, error) {
 	sess.resume()
 	switch sess.kind {
 	case view.KindAction:
-		if sess.action.State() == runtime.StateCompleted {
+		if sess.action.State().Ended() {
 			break
 		}
 		err := sess.action.StepToBreakpoint()
@@ -763,7 +764,7 @@ func (s *Server) DebugContinue(params *debugSessionParams) (*debugSnapshot, erro
 	sess.resume()
 	switch sess.kind {
 	case view.KindAction:
-		if sess.action.State() == runtime.StateCompleted {
+		if sess.action.State().Ended() {
 			break
 		}
 		if err := sess.action.RunToQuiescence(); err != nil {
@@ -784,7 +785,7 @@ func (s *Server) DebugContinue(params *debugSessionParams) (*debugSnapshot, erro
 // to a breakpoint, holding the clock: an event due later waits for an advance.
 func (sess *debugSession) continueMachine() {
 	exec := sess.machine
-	if exec.State() == runtime.StateCompleted {
+	if exec.State().Ended() {
 		return
 	}
 	if err := exec.RunToQuiescence(); err != nil {
@@ -1158,6 +1159,8 @@ func (sess *debugSession) status() (string, string) {
 		return debugSuspended, sess.suspendReason()
 	case runtime.StateCompleted:
 		return debugCompleted, ""
+	case runtime.StateTerminated:
+		return debugTerminated, ""
 	}
 	return strings.ToLower(state.String()), ""
 }
@@ -1246,7 +1249,7 @@ func (sess *debugSession) actionSnapshot(snap *debugSnapshot) {
 	for _, msg := range sess.rt.PendingMessages() {
 		snap.Queue = append(snap.Queue, debugEvent{Event: debugSignalText(msg), At: snap.Time, Pending: true})
 	}
-	if exec.State() == runtime.StateCompleted {
+	if exec.State().Ended() {
 		results := exec.Results()
 		if len(results) > 0 {
 			snap.Results = make(map[string]string, len(results))
@@ -1466,7 +1469,7 @@ func (sess *debugSession) rebind(r *model.Reading) bool {
 	if change := dependencyChange(r, sess.target, sess.reads, r.Dependencies(roots...)); change != "" {
 		return end(change)
 	}
-	rendering, doc, err := r.RenderView(sess.doc, sess.view)
+	rendering, snapshot, err := r.RenderView(sess.doc, sess.view)
 	if err != nil {
 		return end(fmt.Sprintf("%s no longer renders: %v", sess.view, err))
 	}
@@ -1476,10 +1479,10 @@ func (sess *debugSession) rebind(r *model.Reading) bool {
 	if sess.viewText != "" && r.DeclarationText(r.DeclaredView(sess.doc, sess.view)) != sess.viewText {
 		return end(fmt.Sprintf("%s was edited", sess.view))
 	}
-	if doc.Version == sess.version && sameRendering(rendering, sess.rendering) {
+	if snapshot.Rendered.Version == sess.version && sameRendering(rendering, sess.rendering) {
 		return false
 	}
-	if err := sess.locate(rendering, target, doc.Version); err != nil {
+	if err := sess.locate(rendering, target, snapshot.Rendered.Version); err != nil {
 		return end(fmt.Sprintf("%s no longer draws %s: %v", sess.view, sess.target, err))
 	}
 	return true

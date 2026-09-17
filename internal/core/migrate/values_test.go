@@ -70,10 +70,18 @@ func TestTypedInLiteralsTakeTheFeaturesScalarType(t *testing.T) {
       <ownedAttribute xmi:type="uml:Property" xmi:id="_on" name="on">`+booleanHref+`
         <defaultValue xmi:type="uml:LiteralString" xmi:id="_ov" value="true"/>
       </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_serial" name="serial">`+integerHref+`
+        <defaultValue xmi:type="uml:LiteralString" xmi:id="_sv" value="9223372036854775808"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_span" name="span">`+realHref+`
+        <defaultValue xmi:type="uml:LiteralString" xmi:id="_spv" value="1e400"/>
+      </ownedAttribute>
     </packagedElement>`, `<sysml:Block xmi:id="_st" base_Class="_b"/>`)
 	wantLine(t, r.Notation, "attribute gain : ScalarValues::Real default = 17.0;")
 	wantLine(t, r.Notation, "attribute poles : ScalarValues::Integer default = 4;")
 	wantLine(t, r.Notation, "attribute on : ScalarValues::Boolean default = true;")
+	wantLine(t, r.Notation, "attribute serial : ScalarValues::Integer default = 9223372036854775808;")
+	wantLine(t, r.Notation, "attribute span : ScalarValues::Real default = 1e400;")
 	wantNote(t, r, "_gain", migrate.Approximated, `the string "17" is written as the Real the feature holds`)
 	wantNote(t, r, "_poles", migrate.Approximated, "the real 4.0 is written as the Integer the feature holds")
 	wantClean(t, "typed.sysml", r)
@@ -154,9 +162,10 @@ func TestLiteralOnStructuredValueTypeIsNotBound(t *testing.T) {
 	wantClean(t, "structured.sysml", r)
 }
 
-// A slot whose values contradict its feature — more than the multiplicity
-// admits, or a repeat on a unique feature — is invalid in both languages and
-// is left as a comment naming the values.
+// A slot whose values contradict its feature — too few or too many for the
+// multiplicity, none for a required feature, or a repeat on a unique feature —
+// is invalid in both languages and is left as a comment naming the values.
+// An empty slot of an optional feature is a redefinition bound to nothing.
 func TestSlotContradictingItsFeatureIsUnmapped(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:DataType" xmi:id="_cal" name="Calibration">
@@ -172,12 +181,19 @@ func TestSlotContradictingItsFeatureIsUnmapped(t *testing.T) {
         <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_bl"/>
         <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_bu" value="*"/>
       </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_need" name="need">`+realHref+`</ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_may" name="may">`+realHref+`
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_ml"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_mu" value="1"/>
+      </ownedAttribute>
     </packagedElement>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_i" name="cal" classifier="_cal">
       <slot xmi:id="_st" definingFeature="_t">
         <value xmi:type="uml:LiteralReal" xmi:id="_v1" value="815.0"/>
         <value xmi:type="uml:LiteralReal" xmi:id="_v2" value="815.0"/>
       </slot>
+      <slot xmi:id="_sn" definingFeature="_need"/>
+      <slot xmi:id="_sm" definingFeature="_may"/>
       <slot xmi:id="_sp" definingFeature="_pix">
         <value xmi:type="uml:LiteralInteger" xmi:id="_v3" value="1"/>
       </slot>
@@ -189,8 +205,12 @@ func TestSlotContradictingItsFeatureIsUnmapped(t *testing.T) {
 	wantLine(t, r.Notation, "attribute :>> bag = (1.0, 1.0);")
 	wantNoLine(t, r.Notation, "attribute :>> t")
 	wantNoLine(t, r.Notation, "attribute :>> pix")
+	wantNoLine(t, r.Notation, "attribute :>> need")
+	wantLine(t, r.Notation, "attribute :>> may;")
 	wantNote(t, r, "_st", migrate.Unmapped, "the slot repeats the value 815.0 on a unique feature; its values are 815.0, 815.0")
 	wantNote(t, r, "_sp", migrate.Unmapped, "the slot holds 1 value(s) for a feature of multiplicity 3")
+	wantNote(t, r, "_sn", migrate.Unmapped, "the slot holds 0 value(s) for a feature of multiplicity 1")
+	wantNote(t, r, "_sm", migrate.Mapped, "")
 	wantNote(t, r, "_sb", migrate.Mapped, "")
 	wantClean(t, "slots.sysml", r)
 }
@@ -660,7 +680,11 @@ func TestIndividualTakesTheKindOfItsClassifier(t *testing.T) {
         <value xmi:type="uml:InstanceValue" xmi:id="_v2" instance="_f1"/>
       </slot>
     </packagedElement>
-    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_mixed" name="mixed" classifier="_b _fits"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_mixed" name="mixed" classifier="_b _fits">
+      <slot xmi:type="uml:Slot" xmi:id="_sl3" definingFeature="_x">
+        <value xmi:type="uml:LiteralReal" xmi:id="_v3" value="4.0"/>
+      </slot>
+    </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_bus" name="Bus"/>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_pf" name="port first" classifier="_bus _b"/>`, `
   <sysml:ConstraintBlock xmi:id="_s1" base_Class="_fits"/>
@@ -670,8 +694,10 @@ func TestIndividualTakesTheKindOfItsClassifier(t *testing.T) {
 	wantLine(t, r.Notation, "individual constraint def 'fits 1' :> Fits {")
 	wantLine(t, r.Notation, "in attribute :>> x = 3.0;")
 	wantLine(t, r.Notation, "individual constraint :>> fits : 'fits 1';")
-	wantLine(t, r.Notation, "individual part def mixed :> Rover;")
+	wantLine(t, r.Notation, "individual part def mixed :> Rover {")
 	wantNote(t, r, "_mixed", migrate.Approximated, "the instance's classifier Fits is not written: an individual part def cannot specialize a constraint def")
+	wantNoLine(t, r.Notation, "attribute :>> x = 4.0;")
+	wantNote(t, r, "_sl3", migrate.Unmapped, "the slot's defining feature Fits::x is not a feature of any classifier the instance is written to specialize")
 	wantLine(t, r.Notation, "individual part def 'port first' :> Rover;")
 	wantNote(t, r, "_pf", migrate.Approximated, "the instance's classifier Bus is not written: an individual part def cannot specialize a port def")
 	wantClean(t, "kinds.sysml", r)

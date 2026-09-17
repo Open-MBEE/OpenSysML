@@ -92,6 +92,14 @@ type StateGraph struct {
 	// restores the configuration of its owner, so the owner must survive lowering.
 	PseudostateOwner map[*ast.PseudostateNode]*ast.StateNode
 
+	// Terminates are the machine's terminate action usages (`action stop terminate;`)
+	// in declaration order: a transition ending at one ends the machine's performance.
+	Terminates []*ast.Usage
+
+	// TerminateOwner: terminate action usage -> the composite state that declares
+	// it, absent for one declared directly in the machine.
+	TerminateOwner map[*ast.Usage]*ast.StateNode
+
 	// Transitions: source node (StateNode or PseudostateNode) → list of transitions
 	Transitions map[ast.Node][]*Transition
 
@@ -175,6 +183,10 @@ type StateGraph struct {
 	// than an unbounded expansion.
 	materializing map[ast.Node]bool
 
+	// copying counts the inherited members whose content is being added, so a
+	// vertex a state usage's body declares inside one is copied, not shared.
+	copying int
+
 	// inherited are the declarations content was materialized from, each once,
 	// in the order they were first reached.
 	inherited []Inherited
@@ -190,6 +202,10 @@ type StateGraph struct {
 	// declaredIn: region, pseudostate or transition declaration → the scope of
 	// the body it was written in, which says which document declares it.
 	declaredIn map[ast.Node]*symbols.Scope
+
+	// copiedFrom: the copy of a pseudostate or terminate action a state usage
+	// inherits → the declaration it was copied from, which endpoints resolve to.
+	copiedFrom map[ast.Node]ast.Node
 
 	// behaviorScope: entry, do or exit action → the scope it was declared in,
 	// recorded where a state runs a behavior another body declares.
@@ -216,7 +232,7 @@ type Transition struct {
 	// reports where it comes from.
 	Decl    ast.Node
 	Source  ast.Node // *ast.StateNode or *ast.PseudostateNode
-	Target  ast.Node // *ast.StateNode or *ast.PseudostateNode
+	Target  ast.Node // *ast.StateNode, *ast.PseudostateNode or a terminate action *ast.Usage
 	Trigger ast.Node // TimeEvent, ChangeEvent, SignalEvent, CallEvent, nil = completion
 	Guard   ast.Node // guard expression, nil = no guard
 	// Effect are the transition's effect behaviors, lowered the same way a state's
@@ -559,6 +575,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		scopeOf:             make(map[*ast.StateNode]*symbols.Scope),
 		regionScopeOf:       make(map[*ast.StateRegion]*symbols.Scope),
 		declaredIn:          make(map[ast.Node]*symbols.Scope),
+		copiedFrom:          make(map[ast.Node]ast.Node),
 		behaviorScope:       make(map[ast.Node]*symbols.Scope),
 		attributeScope:      make(map[ast.Node]*symbols.Scope),
 		bodyOf:              make(map[*ast.StateNode][]inheritedMember),
@@ -574,6 +591,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		States:              make([]*ast.StateNode, 0),
 		Pseudostates:        make([]*ast.PseudostateNode, 0),
 		PseudostateOwner:    make(map[*ast.PseudostateNode]*ast.StateNode),
+		TerminateOwner:      make(map[*ast.Usage]*ast.StateNode),
 		Transitions:         make(map[ast.Node][]*Transition),
 		CompositeStates:     make(map[*ast.StateNode][]*ast.StateRegion),
 		CompositeStateOrder: make([]*ast.StateNode, 0),
@@ -766,6 +784,9 @@ func collectVertices(graph *StateGraph, members []ast.Node, scope *symbols.Scope
 				return err
 			}
 		case *ast.Usage:
+			if IsTerminateUsage(n) {
+				graph.addTerminate(n, scope, nil)
+			}
 			// `state <name> { … }`, parsed as a usage rather than a state node.
 			if n.Kind == ast.UsageState {
 				// The state node records the usage it came from, so its scope is the
@@ -869,6 +890,10 @@ func collectStateContents(graph *StateGraph, state *ast.StateNode, scope *symbol
 			// a nested pseudostate is not part of the graph at all.
 			graph.addPseudostate(child, scope)
 			graph.PseudostateOwner[child] = state
+		case *ast.Usage:
+			if IsTerminateUsage(child) {
+				graph.addTerminate(child, scope, state)
+			}
 		}
 	}
 
@@ -930,6 +955,9 @@ func collectRegionStates(graph *StateGraph, region *ast.StateRegion, parent *ast
 			state.NodeSpan = n.NodeSpan
 			graph.declOf[state] = n
 		case *ast.Usage:
+			if IsTerminateUsage(n) {
+				graph.addTerminate(n, scope, parent)
+			}
 			if n.Kind != ast.UsageState {
 				continue
 			}
@@ -1002,6 +1030,7 @@ func parallelOwnedMember(member ast.Node) bool {
 		case ast.UsageAttribute, ast.UsagePort, ast.UsageSuccession:
 			return true
 		}
+		return IsTerminateUsage(n)
 	}
 	return false
 }
@@ -1226,11 +1255,50 @@ func (g *StateGraph) recordDecl(state *ast.StateNode) {
 	}
 }
 
-// addPseudostate records a pseudostate declared in scope as a vertex of the graph.
+// addPseudostate records a pseudostate as a vertex of the graph, declared in
+// scope unless inheritance already recorded the general's body it was written in.
 func (g *StateGraph) addPseudostate(ps *ast.PseudostateNode, scope *symbols.Scope) {
 	g.Pseudostates = append(g.Pseudostates, ps)
-	g.putVertex(ps, ps)
-	g.recordDeclaredIn(ps, scope)
+	g.putCopiedVertex(ps)
+	if g.declaredIn[ps] == nil {
+		g.recordDeclaredIn(ps, scope)
+	}
+}
+
+// putCopiedVertex records a vertex under itself and, for the copy of an inherited
+// declaration, under that declaration, so an inherited transition reaches the copy.
+func (g *StateGraph) putCopiedVertex(node ast.Node) {
+	g.putVertex(node, node)
+	if decl, ok := g.copiedFrom[node]; ok {
+		g.putVertex(decl, node)
+	}
+}
+
+// copyInherited records that copy stands for decl, a pseudostate or terminate
+// action a state usage inherits, declared in the scope of the body writing decl.
+func (g *StateGraph) copyInherited(copy, decl ast.Node, scope *symbols.Scope) {
+	g.copiedFrom[copy] = decl
+	g.recordDeclaredIn(copy, scope)
+}
+
+// IsTerminateUsage reports a terminate action usage (`action stop terminate;`),
+// which a state body declares as a vertex a transition may end at.
+func IsTerminateUsage(node ast.Node) bool {
+	usage, ok := node.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageAction && usage.IsTerminate
+}
+
+// addTerminate records a terminate action usage declared in scope as a vertex of
+// the graph, owned by the composite state declaring it, nil for the machine.
+func (g *StateGraph) addTerminate(usage *ast.Usage, scope *symbols.Scope, owner *ast.StateNode) {
+	g.Terminates = append(g.Terminates, usage)
+	g.putCopiedVertex(usage)
+	if g.declaredIn[usage] == nil {
+		g.recordDeclaredIn(usage, scope)
+	}
+	if owner != nil {
+		g.TerminateOwner[usage] = owner
+	}
 }
 
 // recordDeclaredIn records the scope of the body a declaration was written in.
@@ -1339,6 +1407,9 @@ const NotAVertexFormat = "transition endpoint %s names a %s that is not a vertex
 // VertexKind names what an endpoint reached in modelling terms, for a message a
 // modeller reads.
 func VertexKind(decl ast.Node) string {
+	if IsTerminateUsage(decl) {
+		return "terminate action"
+	}
 	switch decl.(type) {
 	case *ast.StateNode, *ast.SubstateMember, *ast.Usage:
 		return "state"

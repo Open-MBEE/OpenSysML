@@ -24,6 +24,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -127,12 +128,12 @@ public final class FumlExpected {
 
 	/** Captures the thread's {@code [event]} lines, plus each completion debug line as a Complete event. */
 	private static final class EventAppender extends AppenderSkeleton {
-		volatile Thread owner;
+		final AtomicReference<Thread> owner = new AtomicReference<>();
 		final List<String> events = new ArrayList<>();
 
 		@Override
 		protected void append(LoggingEvent event) {
-			if (Thread.currentThread() != owner) {
+			if (Thread.currentThread() != owner.get()) {
 				return;
 			}
 			// Compared by rank: commons-logging hands log4j its own Priority instances.
@@ -281,7 +282,7 @@ public final class FumlExpected {
 				events.drain();
 				Map<String, String> aliases = new LinkedHashMap<>();
 				Future<ParameterValueList> future = runner.submit(() -> {
-					events.owner = Thread.currentThread();
+					events.owner.set(Thread.currentThread());
 					return new ExecutionEnvironment(environment).execute(behavior);
 				});
 				rec.put("executed", true);
@@ -292,7 +293,7 @@ public final class FumlExpected {
 				} catch (TimeoutException e) {
 					failed++;
 					rec.put("error", "timed out after " + ACTIVITY_TIMEOUT_SECONDS + "s");
-					events.owner = null;
+					events.owner.set(null);
 					timedOut = decl.name;
 					System.err.println("error: " + decl.name + " timed out; no later activity is run");
 					runner.shutdownNow();

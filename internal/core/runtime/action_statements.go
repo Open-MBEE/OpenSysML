@@ -19,25 +19,23 @@ type actionStmtHost struct {
 }
 
 // executeBody runs the lowered statements graph records for node in perf, the
-// performance they belong to, with the performances around it in lexical reach;
-// flowTerminate reports a `terminate` ending perf or a performance around it.
-func (e *performances) executeBody(perf *actionFrame, graph *lower.ActionGraph, node ast.Node) (stmtFlow, error) {
-	return e.ctx.runStatements(func() *stmtEngine {
+// performance they belong to, with the performances around it in lexical reach.
+func (e *performances) executeBody(perf *actionFrame, graph *lower.ActionGraph, node ast.Node) error {
+	_, err := e.ctx.runStatements(func() *stmtEngine {
 		host := &actionStmtHost{exec: e, node: node, perf: perf}
 		lexical := perf.lexicalFrames()
 		return newStmtEngineIn(e.ctx, host, lexical[len(lexical)-1], lexical[:len(lexical)-1])
 	}, graph.Bodies[node])
+	return err
 }
 
 // runNodeBody runs the statements a control or initial node's body declares,
-// which the token passing through the node performs; true once the token's flow
-// was terminated by them, so the token takes no succession.
-func (e *ActionExecutor) runNodeBody(frame *actionFrame, node ast.Node) (bool, error) {
+// which the token passing through the node performs.
+func (e *ActionExecutor) runNodeBody(frame *actionFrame, node ast.Node) error {
 	if len(frame.graph.Bodies[node]) == 0 {
-		return false, nil
+		return nil
 	}
-	flow, err := e.executeBody(frame, frame.graph, node)
-	return flow == flowTerminate, err
+	return e.executeBody(frame, frame.graph, node)
 }
 
 func (h *actionStmtHost) describe() string {
@@ -45,7 +43,7 @@ func (h *actionStmtHost) describe() string {
 }
 
 func (h *actionStmtHost) send(ec *EvalContext, s lower.Send) error {
-	return h.exec.ctx.send(ec, h.exec.root.scope, h.perf.connections, s, h.exec.self)
+	return h.exec.ctx.send(ec, h.exec.root.scope, h.perf.connections, s, h.exec.self, h.exec.behavior)
 }
 
 // assignOuter writes a name the body's blocks do not declare: to the running performance,
@@ -86,18 +84,13 @@ func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
 	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())
 }
 
-// terminate ends the performance the statement names, the body's own where it names none.
-func (h *actionStmtHost) terminate(s lower.Effect) (stmtFlow, error) {
-	flow, err := h.exec.terminate(h.perf, s)
-	if err != nil {
-		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
-	}
-	return flow, nil
-}
-
 // effect performs the action a `perform` in statement form names, where it
-// stands; any other effect is reported.
-func (h *actionStmtHost) effect(env *stmtEnv, s lower.Effect) error {
+// stands, or ends the performance a `terminate` names; any other effect is reported.
+func (h *actionStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
+	env := engine.env
+	if s.Kind == lower.EffectTerminate {
+		return h.exec.terminate(engine, h.perf, s)
+	}
 	if s.Kind != lower.EffectPerform {
 		return fmt.Errorf("%s: '%s' in a body is not executable", h.describe(), s.Kind)
 	}
@@ -153,7 +146,7 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 		return flowNext, err
 	}
 	if !resumed {
-		f = &performFrame{}
+		f = &performFrame{levels: e.ctx.bodyLevels()}
 	}
 	if !resumed || f.recheck {
 		f.recheck = false
@@ -166,21 +159,38 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 			return flowNext, err
 		}
 	}
-	// A performance terminated while the body paused in it completes as it resumes.
-	if f.perf.terminated != f.perf {
-		flow, err := e.performNodeBody(f, graph, node)
-		if err != nil {
-			return flowNext, e.ctx.pausing(f, err)
+	// A terminate of the node ends its body where it stands, dropping what a flow nested in
+	// its leaf body still runs (runSubflow drops a flow of its own); the node completes.
+	// One ended while the body was paused (endPerformed) has only the node to complete.
+	var ended *terminated
+	if !f.ended {
+		if err := e.performNodeBody(f, graph, node); err != nil {
+			err = e.terminatedUsage(f.perf, graph, err)
+			if ended = unwound(err); ended == nil {
+				return flowNext, e.ctx.pausing(f, err)
+			}
+			if ended.perf != f.perf {
+				// The node ends a performance around it: its own completes first, pins bound.
+				if err := e.endPerformance(f.perf); err != nil {
+					return flowNext, err
+				}
+				return flowNext, ended
+			}
+			if f.perf.graph == nil {
+				e.flow.dropTokensIn(f.perf, 0)
+			}
 		}
-		// A performance ending with one around it leaves nothing to complete.
-		if flow == flowTerminate && f.perf.terminated != f.perf {
-			return flowTerminate, nil
+		if err := e.endPerformance(f.perf); err != nil {
+			return flowNext, err
 		}
 	}
-	if err := e.endPerformance(f.perf); err != nil {
+	if err := e.applyDataFlows(parent, graph, node, f.perf.data); err != nil {
 		return flowNext, err
 	}
-	return flowNext, e.applyDataFlows(parent, graph, node, f.perf.data)
+	if ended != nil {
+		return flowNext, e.flow.endAlongside(ended)
+	}
+	return flowNext, nil
 }
 
 // performFrame is a node a body performs (performNode) where the body paused: at
@@ -191,13 +201,22 @@ type performFrame struct {
 	// recheck has the resumed body look for a breakpoint on the node again: the
 	// one it stopped at was removed while it stood, so one set since is a new stop.
 	recheck bool
+	// levels is the trace nesting the body held open at the node, over the depth
+	// its run resumed at; ended marks the performance a terminate ended meanwhile.
+	levels int
+	ended  bool
 }
 
 // stoppedAtBreakpoint reports whether the frame is a body's stop at a breakpoint,
 // before the node performs.
 func (f *performFrame) stoppedAtBreakpoint() bool { return f.perf == nil }
 
-func (*performFrame) abandon(*Context) {}
+// abandon ends the node's performance with the body that was performing it.
+func (f *performFrame) abandon(*Context) {
+	if f.perf != nil {
+		f.perf.ended, f.perf.live = true, 0
+	}
+}
 
 func (f *performFrame) clone() bodyFrame { c := *f; return &c }
 
@@ -210,29 +229,22 @@ const (
 )
 
 // performNodeBody performs the case the node is or the action it performs, then
-// the flow it owns or the statements of its body; flowTerminate reports a
-// `terminate` ending the performance or one around it.
-func (e *performances) performNodeBody(f *performFrame, graph *lower.ActionGraph, node *ast.Usage) (stmtFlow, error) {
+// the flow it owns or the statements of its body.
+func (e *performances) performNodeBody(f *performFrame, graph *lower.ActionGraph, node *ast.Usage) error {
 	perf := f.perf
 	if isCaseStep(node) {
-		return flowNext, e.performCase(perf)
+		return e.performCase(perf)
 	}
 	if f.phase == performInvoking {
 		if inv, ok := nestedInvocation(node); ok {
 			if err := e.performInvocation(perf, inv); err != nil {
-				return flowNext, err
+				return err
 			}
 		}
 		f.phase = performBody
 	}
 	if perf.graph != nil {
-		if err := e.owner.runOwnFlow(perf); err != nil {
-			return flowNext, err
-		}
-		if perf.terminated != nil {
-			return flowTerminate, nil
-		}
-		return flowNext, nil
+		return e.owner.runOwnFlow(perf)
 	}
 	return e.executeBody(perf, graph, node)
 }

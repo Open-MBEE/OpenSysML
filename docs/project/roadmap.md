@@ -3,13 +3,16 @@
 Baseline: `v0.8.0` (`238aed650`, `Merge pull request #277 from Open-MBEE/release/0.8.0`,
 2026-09-13), verified locally with Go 1.25.0. It is the newest tag on `Open-MBEE/OpenSysML`, after
 `v0.7.0` (`e0fbfea5b`, 2026-09-09) and `v0.6.0` (`30f103bb9`, 2026-09-07). The integration branch
-`develop` (`e6064fa70`, #318) carries 33 pull requests past the tag and nothing else is counted
+`develop` (`fcfb0a7b9`, #352) carries 64 pull requests past the tag and nothing else is counted
 ahead of it: every status below is what the tag carries unless the text names one of those as
 having moved it — #267, #289 and #293 (Q2), #263 (A7), #286 (the release fold-back), #291
-(the generated test figures), #292 (L7), #296 (A4), #300 and #316 (the large-model design and
-its first step, under "Proposed"), and the state-executor fixes the PSSM referee adjudicated
-(#295, #297, #311, #313–#315, #317, #318; Track E) — and the pull requests open against
-`develop` at this baseline are named where they touch a roadmap item.
+(the generated test figures), #292 (L7), #296 (A4), #335 and #352 (E1), #344 (modeled
+randomness beside A3), #300 and #316 (the large-model design and its first step, under
+"Proposed"), #319, #321 and #334 (the fUML referee for actions, under "Proposed"), #350 (R4's
+installer wizard), #304 (the errata overlay over the bundled library, under "Upstream
+follow-through"), and the state-executor fixes and findings the PSSM referee adjudicated (#295,
+#297, #311, #313–#315, #317, #318, #322, #326, #336, #342; Track E) — and the pull requests open
+against `develop` at this baseline are named where they touch a roadmap item.
 Read `AGENTS.md` first; it governs everything below.
 
 > **Labels.** This is an engineering record. The RDF items keep the `D` numbers (`D1`, `D2`,
@@ -21,7 +24,8 @@ Read `AGENTS.md` first; it governs everything below.
 > Track E (landed), `E` the behavior-execution semantics the runtime does not yet have, `X` the expression forms it
 > parses but does not evaluate, `Q` the runtime query surface, `A` analysis and simulation
 > execution, `V` the validation census, `I` the language integrations, `B` the bindings from
-> modeled elements to external data and services, and `M` the embedded target. Each is stated in
+> modeled elements to external data and services, `M` the embedded target, and `P` the package
+> layering of the Go module. Each is stated in
 > full where it is introduced, and a reader who wants only the gap can ignore the label.
 >
 > **Status words.** *Landed* means in the tag named above, so a landed item is released; where a
@@ -224,13 +228,15 @@ left git altogether: the site build counts them into the compliance map's test i
 (`scripts/mkdocs_suite_figures.py` over `go run ./cmd/doc-counts -site-blocks`), the committed
 pages name what is counted without a figure, and a branch adding a test rewrites no shared line.
 The tests-and-subtests total of a run, which only a run can state, is no longer quoted anywhere. At
-`develop`'s head the blocks read 945 conformance cases, 262 default and 64 per-policy trace
-goldens, 465 runtime robustness cases, 21 gRPC conformance and 8 gRPC robustness cases, 206 golden
+`develop`'s head the blocks read 1013 conformance cases, 307 default and 80 per-policy trace
+goldens, 493 runtime robustness cases, 21 gRPC conformance and 8 gRPC robustness cases, 208 golden
 ASTs and 252 negative subtests; the growth over the table is fixtures landed after the tag, all
-unreleased. The census, rejection-oracle and RDF round-trip
-rows follow the committed baselines; none of the three moved between `074f9c4b7` and the tag, the
-census did not move since `v0.7.0`, and the other two grew with the corpus and the baseline
-between `v0.7.0` and `074f9c4b7` (bracketed above).
+unreleased. The robustness cases are counted across the `TestRuntimeRobustness*` and
+`TestGRPCRobustness*` functions since #345 registered them per feature, so the table's
+single-function figure and the block's are the same census under two spellings. The census,
+rejection-oracle and RDF round-trip rows follow the committed baselines; none of the three moved
+between `074f9c4b7` and the tag, the census did not move since `v0.7.0`, and the other two grew
+with the corpus and the baseline between `v0.7.0` and `074f9c4b7` (bracketed above).
 
 Statement coverage, re-measured with `go test -cover ./...` at this baseline with the corpora
 present. It counts only each package's own tests, which understates a package consumed by others
@@ -354,7 +360,10 @@ with the Z3 solver as an optional feature pinned by hash, published unsigned as
 `error: C:\Program is required`, because the script read the `wix` command from the `WIX`
 environment variable, which the preinstalled WiX v3 on `windows-latest` exports as its
 installation directory. #127 renamed the override to `WIX_CMD`, and `v0.7.0` and `v0.8.0` each
-published their `.msi`.
+published their `.msi`. Those two ran as Windows Installer's bare progress window; #350, on
+`develop` after the tag, gives the MSI a setup wizard — destination folder, the gRPC service
+and Z3 as selectable components, a confirmation and a completion page, repair and remove on a
+second run — so the next tag's `.msi` is the first a user is walked through.
 Once SignPath is configured it is rebuilt from the signed executables and itself signed as
 `*-signed.msi` (Z3 stays unsigned by SignPath's terms). Scoop,
 winget and MSYS2 manifests that depend on Z3 rather than bundle it are maintained as templates
@@ -374,11 +383,16 @@ class of account gate as R4.
 ## Upstream follow-through
 
 Filed and waiting on the other side: the identity-annotation enhancement against SysML 2.0
-(`INBOX-2510`, maintainer-approved 2026-09-01) and the `ownedDisjoining` EMF defect against the
-pilot (`SysML-v2-Pilot-Implementation#790`). Drafted and waiting on a maintainer to authorise
-posting: the three dimensional-analysis errata in the pilot's example corpus and the question
-about the `queryx/failing` Xpect fixtures. All four are in [omg-issues.md](omg-issues.md), body
-and status; none needs code here until an answer arrives.
+(`INBOX-2510`, maintainer-approved 2026-09-01). Filed against the pilot and fixed there: the
+`ownedDisjoining` EMF defect (`SysML-v2-Pilot-Implementation#790`, shipped in `2026-08`) and the
+cross-subsetting validator throw (`#794`). Drafted and waiting on a maintainer to authorise
+posting: the three dimensional-analysis errata in the pilot's example corpus, the question about
+the `queryx/failing` Xpect fixtures, the unenforced control-node constraints, and the nine
+dimension defects in the published `SI.sysml` and `USCustomaryUnits.sysml` — which #304, on
+`develop` after the tag, put under the declared errata overlay, so the bundled library reads with
+the three that have one correction applied and the six that do not documented, the vendored bytes
+untouched. All are in [omg-issues.md](omg-issues.md), body and status; none needs code here until
+an answer arrives.
 
 ---
 
@@ -1191,72 +1205,66 @@ choice point (#313); a junction with several enabled branches draws one as a cho
 the referee's translation carries the values a test's constructor writes (#314) and refuses a
 guard whose behavior acts on the model rather than dropping the call (#315). #322 (a join's
 segments fire with their own trigger bound, and a refused join is undone whole) is open against
-`develop`. None of E1–E7 moved; the referee's 15 `fail` are their measurement on the state side.
+`develop`. E1 then landed: the referee translates the terminate pseudostate, its `terminate-gap`
+bucket is retired, and the baseline is 46 `pass` / 17 `fail` / 38 `not-expressible` /
+2 `differs-by-design` — *Terminate 003* passes, *Terminate 001* and *002* fail on the
+region-entry order the same open finding already covers. E2–E7 have not moved; the referee's
+17 `fail` are their measurement on the state side.
 
-## E1 — `terminate` in a body
+## E1 — `terminate` in a body (landed)
 
-**Today.** The parser accepts a terminate action usage in every position the grammar allows
-(`ast.TerminateStatement`, with the terminated occurrence as `Target` or nil for the containing
-action), and lowering carries it losslessly: as a node of the flow (`then terminate;`,
-`lower/action_nodes.go`), as a statement of a control node's or a state's `entry`/`do`/`exit`
-body (`lower/action_graph.go` `lowerStatement` → `Effect{Kind: EffectTerminate}`;
-`lower/state_graph.go` through `BodyStatementMembers`). The runtime then refuses to execute it,
-with one message wherever it is reached: `runtime/action_statements.go`
-`(*actionStmtHost).effect` and `runtime/state_statements.go` `(*stateStmtHost).effect` return
-`<where>: 'terminate' in a body is not executable`; a calculation refuses it as
-`ErrCalcSideEffect` (`runtime/calc_statements.go`), and that refusal is correct and stays — a
-calculation is pure (`robustness_test.go:calc_terminate_is_rejected`). So an action whose flow
-reaches `then terminate;` fails with that error rather than ending. The training corpus's
-`19. Terminate Actions/Terminate Actions Example-1.sysml` (`MonitoredActivity`) uses it twice
-and does not run at this baseline: it stops earlier, at the nested action node whose members are
-`perform`s with no `first` (`no initial node found in action node performCriticalActivity`,
-re-measured after #823's nested frames landed — the refusal is the flow rule, not the frame), and
-would stop at the first `terminate` once that is in. The PSSM referee files 3 of its 103 tests
-under `terminate-gap` for the same refusal.
+**Landed** in two change sets, the action half and then the state and occurrence half (SM38 in
+`docs/internals/design/precise-semantics-alignment.md`). The parser had accepted a terminate
+action usage in every position the grammar allows and lowering carried it losslessly; the runtime
+refused every one with `'terminate' in a body is not executable`. That refusal is gone from
+`runtime/action_statements.go` and `runtime/state_statements.go`, and `lower.Effect` names the
+terminated occurrence rather than leaving the executors to re-derive it: `Terminates` classifies
+the target (`TerminateContaining` for a bare `terminate;`, `TerminateEnclosing` for a terminate
+action usage `then stop;` reaches, `TerminateNode` for a name that is an action node of a flow
+around the statement, `TerminateOccurrence` for `this` or a feature chain) and `Target`/
+`TargetExpr` carry the expression, in the scope it is written in.
 
-Every position is refused. The previous baseline recorded one that was not — a nested action node
-written as a statement body (`action a { assign n := 1; terminate; }`) dropped the `terminate`
-because `lowerBody`'s statement cases did not include it. That is closed: `BodyStatementMembers`
-and `lowerStatement` (`lower/action_graph.go`) take `*ast.TerminateStatement`, the action
-executor's `stepStatementNode` recognises it, and the statement reaches the same `'terminate' in a
-body is not executable` refusal as every other body. There is no silent no-op left in this item;
-what remains is the semantics below.
+*Actions* (`runtime/action_terminate.go`): `then terminate;` ends the performance whose flow it
+is a node of with the outputs assigned so far, dropping every other token of that performance —
+a forked sibling still running, one parked at an `accept` — lowest token ID first, which the
+trace records (`terminate <performance>: dropped tokens …`); `terminate;` in a nested node's body
+ends that node and the parent goes on along its succession; `terminate <node>;` ends every
+ongoing performance of the named node in the flow around it, earliest begun first, the one
+running the statement included, and a performance whose step a parked token had yet to begin is
+begun and ended in the same activation (`beginPending`/`endPending`, traced as `ended before it
+began` or `ended waiting`) so the result does not depend on which fork branch the scheduler
+stepped first. *Occurrences* (`runtime/occurrence_terminate.go` `terminateOccurrence`):
+`terminate this;` in a part's behavior and `terminate <feature chain>;` evaluate the target and
+end the occurrence's lifetime, with its owned parts, the behaviors it exhibits or performs and
+every action or state executor running on it (`Context.endOccurrence`, `endBehaviorsWith`; an
+executor whose performer ended between two of its runs ends as terminated at its next,
+`performerEnded`). *States* (`runtime/state_statements.go`, `state_route.go` `terminateAt`,
+`state_executor.go` `terminateMachine`): a `terminate;` in an `entry`, `do` or `exit` body ends
+that behavior at the statement, the state stays active and dispatch goes on; a transition whose
+target is a terminate action usage (`accept Abort then stop; action stop terminate;`, §7.18.3)
+exits its source and runs its effect, then ends the machine's performance with no further exit,
+the running do behaviors abandoned (`abandonMachine`) and no state active — reached directly or
+through a choice, junction or join, from a composite state or one region of an orthogonal one.
+The outcome is `Outcome.Terminated` with an empty `FinalState`, the executor's state
+`StateTerminated` (distinct from `StateCompleted`), the REPL's `State machine terminated` and
+`Execution state: Terminated`, the LSP debug snapshot's `terminated`. A `terminate` naming a
+performance that ended, a value that is no occurrence, or an occurrence `destroy` emptied is a
+typed error (`ErrPerformanceEnded`, `ErrTerminateOccurrence`, `ErrTerminateTarget`,
+`robustness_terminate_test.go`); a calculation still refuses it as `ErrCalcSideEffect`
+(`robustness_test.go:calc_terminate_is_rejected`). The PSSM referee translates the suite's
+terminate pseudostate to the same spelling, which retired its `terminate-gap` bucket
+(`docs/project/pssm-referee.md`).
 
-**Target.** SysML v2 §7.17.10: a terminate action usage "forces the lifetime of the terminated
-occurrence to end by the completion of the `TerminateAction`"; when no occurrence is given, the
-default is "the immediately containing action of the terminate action usage", and for a nested
-action "it is that nested action that is terminated, not any containing actions"; `terminate
-this;` in a part's action ends the part; the occurrence may also arrive by a `flow` into the
-`terminatedOccurrence` parameter. The library is `Actions::TerminateAction` (`Systems
-Library/Actions.sysml`: `in occurrence terminatedOccurrence[1]`, performed by
-`terminateOccurrence : destroy`) and the base usage `Actions::terminateActions`, whose
-`terminatedOccurrence` defaults to `that as Occurrence`. In a state body the containing action is
-the entry, do or exit behavior it is written in — a `StatePerformance`'s `entry`/`do`/`exit` step
-(`Kernel Semantic Library/StatePerformances.kerml`) — so it ends that behavior, not the state
-machine, unless the machine's exhibiting occurrence is named.
-
-**Work.** Give `lower.Effect` the terminated occurrence as an evaluable target (nil for the
-containing performance), and give both executors a notion of *ending a performance that is still
-ongoing*: for the action executor, dropping every token the terminated node or action still holds
-— including a forked sibling branch still running, as `MonitoredActivity` requires — and
-completing it with the outputs it has; for the state executor, ending the running entry/do/exit
-behavior at that statement (`runtime/state_executor.go` `startDoAction`/`runDoRound` hold the
-running do behaviors) and, for a named occurrence, the object that holds it. A `terminate` naming
-an occurrence that is not ongoing, or a value that is no occurrence, is a typed error. Nothing
-else in the track depends on anything but this item, and E2 depends on it.
-
-**Proof.** Conformance: the training example above runs to completion, `performCriticalActivity`
-ended by its own `terminate` while `monitorCriticalActivity` is still ongoing and `stop` ending
-the whole action; `then terminate;` in a flow ends the action with the outputs assigned so far;
-`terminate` in a `do` body ends that behavior and the state stays active; a nested action's
-`terminate` ends the nested action and its parent continues. A trace golden for
-the fork case (which tokens are dropped, in what order). Robustness: terminate of a completed
-occurrence, of a non-occurrence, and the calculation refusal unchanged. `spec-compliance.md`: the
-Actions map gains a `terminate` row per position (today it has none — the refusal is the only
-record), and the pointer to this track under "not supported" drops the `terminate` clause.
-**Prioritize when** a corpus model or a user model needs `terminate` to run rather than to be
-refused — the training example is the first candidate, once the nested-action frames it also
-needs are in.
+**What it leaves.** A fork branch of a state machine cannot target a terminate action: the
+lowering's fork rule takes states as branch targets (`lower/fork_plan.go`), and the spelling
+reported rather than routed. The training corpus's `19. Terminate Actions/Terminate Actions
+Example-1.sysml` (`MonitoredActivity`) parses and every `terminate` it uses runs, but the model
+still stops at initialize: its nested node `performCriticalActivity` is two `perform`s with no
+`first` and no succession between them, so the flow-start rule (`lower/case_body.go`
+`CaseFlowStart`, `runtime/action_subflow.go` `noFlowStart`) reports two possible starts — `no
+succession leads to "monitorCriticalActivity" or to "criticalActivity"` — where §7.17.2 lets
+unsequenced nested actions start concurrently when their container does. That is a flow-start
+item, not a terminate one, and it is what the example waits on.
 
 ## E2 — interrupting an ongoing performance ("interruptible regions")
 
@@ -1265,7 +1273,7 @@ SysML v2 as an `accept` followed by a `terminate` in a forked branch (§7.17.10'
 `MonitoredActivity`: "Terminates `performCriticalActivity` even if `monitorCriticalActivity` is
 still ongoing"), or as a transition leaving a state whose `do` is running (§7.18.3: "If the
 source state has a do action that is still being performed, that is interrupted."). The action
-half is E1 and does not exist yet. The state half runs, with one documented approximation
+half is E1 and landed. The state half runs, with one documented approximation
 (`spec-compliance.md` § Known Limitations, *Runtime*): an inline `do` body is one action, so
 `runDoRound` advances it as a unit and an outgoing transition interrupts it only between rounds,
 never between its statements; the one-action-per-statement `do { … }` form is the interruptible
@@ -1899,7 +1907,14 @@ in the Python client. A run that fails is a row carrying its error, not the end 
 no step, a step of zero or of the wrong sign, a parameter the target does not declare or the
 arguments already bind, and a distribution asked for by name (only the uniform draw exists) are
 typed refusals. Orchestration over A1 with no new semantics, as planned; a document query over the
-table is Track Q's.
+table is Track Q's. #344, on `develop` after the tag, adds what the item left out: a model states
+its own odds through two non-normative libraries (`Stochastic::Probability` weighting the
+successions out of a decision, validated at lowering; `RandomFunctions` for `uniform`,
+`uniformInteger`, `triangular` and `normal`), on a random stream of its own apart from the
+token-shuffle stream, every draw recorded in the witness so `%replay` reproduces a run, and
+`%runs` / `-runs <n> -seed <s>` run an action `n` times on the sweep machinery and report each
+observable's min, mean, max, percentiles and histogram. The scheduling choice points stay
+unweighted and `explore` still enumerates weighted branches as a set.
 
 ## A4 — continuous time: a state-space runner (landed, unreleased)
 
@@ -2426,9 +2441,18 @@ established that the pinned pilot evaluates model-level expressions and nothing 
 `cmd/pilot-exec-diff` can adjudicate the expression rows of `spec-compliance.md` and no external
 implementation adjudicates actions or state machines. Widening that referee means finding one,
 not more harness work. For state machines the OMG PSSM suite is that referee (#230, advisory);
-for actions #319, open against `develop`, provisions the fUML reference implementation and
-commits what it computes over its own test models as the first of three changes modelled on the
-PSSM referee (a reader and classifier, then an emitter and the comparison, would follow).
+for actions the fUML reference implementation is, in three changes modelled on the PSSM referee
+and all on `develop` after the tag: #319 provisions the pinned implementation and commits what
+it computes over its own test models, #321 reads and classifies the activities, and #334
+translates every expressible one to a `fuml::<Activity>` action definition by rule, runs it
+under every schedule the explorer reaches and requires the values left in its output parameters
+to be the reference's. `cmd/fuml-referee` files 55 activities as 15 `pass` / 0 `fail` / 36
+`not-expressible` / 4 `differs-by-design` (an action the reference fires once per object token),
+pinned in `docs/project/fuml-referee-baseline.json` and checked in CI by
+`go run ./cmd/fuml-referee -check`; [fuml-referee.md](fuml-referee.md) records the translation
+rules and every row. What remains is the `not-expressible` bucket, which is the emitter's, not
+the runtime's: object creation, structural-feature actions, accept-event actions and active
+classes have no translation yet, and each one added moves rows into `pass` or `fail`.
 
 **Scaling to very large models.** [large-model-scaling-design.md](large-model-scaling-design.md)
 (#300, on `develop` after the tag) starts from the satellite-network stress test's profiles
@@ -2451,19 +2475,177 @@ a sixth slower for the recording it never uses). Open against `develop` on the s
 each loaded file as a document of its own) and #308 (the satellite network generated as a fleet
 of occurrences). Independent of every track above; the design's own sequence orders it.
 
+# Track P — package layering (earmarked for 0.9.0)
+
+The module is one Go module of 72 packages under `internal/`, 49 of them under `internal/core/`.
+The import graph is acyclic, as Go requires, but it is not layered: the runtime imports the
+validation suite and the parser, the RDF exporter imports the runtime, the REPL imports the gRPC
+service, and test-only and referee packages sit beside the product packages with nothing telling
+them apart. Nothing here changes what any binary does; the track is the separation of the
+parser, the semantic engine, the runtime and the translation utilities into layers that can each
+be built, tested and reasoned about without the layers above them, whether or not they ever ship
+separately. It is **not started**, and deliberately so: the moves touch files every open pull
+request touches, so the track is scheduled for the 0.9.0 cycle, after the pull requests open
+against `develop` at this baseline have landed, with the small items first and the two large ones
+last. Measured at `develop` `530c04667` (#354), non-test lines and `go list` import edges.
+
+## Where the module stands
+
+Transitive dependencies on other packages of the module: `internal/core/parser` 4 (`source`,
+`lexer`, `ast`, `quickfix`) — the parser is separable today; `semantics` 9; `lower` 10;
+`passes` 19; `runtime` 22, including `parser` and all of `passes`; `export` 29, including
+`runtime`, `lower`, `migrate`, `parser` and `libs`; `model` 32. `internal/core/runtime` is
+71,520 non-test lines, 29% of the module's non-test code, and 84 of its 138 non-test files import
+`internal/core/ast`.
+
+The edges that break the layering, each with the files that carry it:
+
+- **Runtime → validation.** `internal/core/runtime` imports `internal/core/passes` in seven
+  files, for two things: `passes.Diagnostic` and `passes.Severity*` as the runtime's own
+  diagnostic type (`choice.go`, `tool.go`, `modeled.go`), and the invocation selection in
+  `passes/invocation.go` — `SelectInvocation`, `ChainCallee`, `NewArgumentTyper`,
+  `InvocationArgs` — which both the type checker and the evaluator need (`eval.go`, `holders.go`,
+  `binding_reads.go`, `model.go`). Because `passes` itself imports `docplan`, `queryplan`, `view`,
+  `rdf`, `identity` and `lower`, executing a model links document planning, diagram layout and
+  the RDF vocabulary.
+- **Runtime → parser.** `runtime/tool.go` calls `parser.New` to parse text at execution time; the
+  runtime should receive a tree, not build one.
+- **Translation → execution.** `internal/core/export` imports `runtime` and `lower` in
+  `graphs.go`, `graphs_action.go` and `graphs_state.go` for the `graphs:1` form, and `migrate`
+  and `parser` in `convert.go` because `sysml -convert` was implemented inside the exporter. In
+  the other direction `internal/core/analysis` imports `export` (`engine_entry.go`,
+  `external_question.go`) for the same form, so execution and translation depend on each other
+  through two packages. An RDF exporter cannot be built without the runtime.
+- **Validation → execution IR.** `passes` imports `lower` (`send_action.go`,
+  `action_endpoint.go`, `state_transition.go`, `w8d_assignment_referent.go`, `typecheck.go`).
+  [architecture.md](../internals/architecture.md) describes `lower` as "AST → execution IR for the
+  runtime"; validation consuming it means it is a semantic IR shared by both, and the layering
+  should say so rather than place it under the runtime alone.
+- **Frontends sideways.** `internal/repl` imports `internal/grpc` for `InstanceGraphToProto` and
+  `GraphBounds` (`repl/features.go`), so the terminal REPL links the Connect service layer;
+  `cmd/sysml` imports nineteen `internal` packages directly rather than through `repl` or
+  `model`; `internal/lsp` imports `internal/interop/reposync`.
+- **Type system → scanner.** `internal/core/semantics` imports `internal/core/lexer` for its
+  notation-text helpers (`NameText`, `UnrestrictedNameText`, `StringValue`, `CommentBody`,
+  `IsIdentifier`, `IsKeyword`) in `documentation.go`, `units.go`, `unit_product.go`,
+  `annotations.go` and `filter.go`.
+
+What is in `internal/` that is not product code, or is in the wrong place:
+
+- `internal/hygiene` and `internal/perfbench` have no non-test files; they exist to host
+  `TestNoProductionCodeImportsTesting` and the benchmarks.
+- `internal/baseline`, `internal/fixtures`, `internal/junit`, `internal/doccounts`,
+  `internal/stressmodel`, `internal/fuml`, `internal/pssm` and `internal/testutil` are reached
+  only from `cmd/pilot-*`, `cmd/pssm-referee`, `cmd/fuml-referee`, `cmd/stress-model`,
+  `cmd/doc-counts` and `cmd/validation-census`, never from `sysml`, `sysml-lsp` or `sysml-grpc`.
+- `internal/errata` is both: `core/libs/source.go` applies its overlay to the bundled standard
+  library (product), and the pilot tools read its registry (tooling). It can only move once the
+  overlay is split from the oracle bookkeeping.
+- `internal/xmi` (the XMI 2.5 reader of the UML test suites, for `fuml` and `pssm`) and
+  `internal/core/xmi` (the XMI reader of SysML v1 exports, for `migrate`) read the same format
+  into two element trees.
+- `internal/core/envvar` and `internal/core/project` are process configuration, not language
+  core; `internal/docpdf` is the PDF backend of the `core/docrender` pipeline and the only part of
+  it outside `core/`.
+
+## The syntax layer against the instance layer
+
+The instance model is clean: `runtime.Instance` is an id, a `*symbols.Symbol` and a map of
+`FeatureValue`s over `EffectiveFeature`s, `Value` wraps `semantics.Value`, instance ids,
+collections and symbols, and `instance.go`, `value.go` and `features.go` together name `ast.`
+24 times, all for the expression payload of a `ValExpr` or function value. There is no
+execution-owned layer between it and the syntax tree, though: the lowered graphs in
+`internal/core/lower` are side tables keyed by AST nodes (`ActionGraph.Nodes []ast.Node`,
+`Edges map[ast.Node][]ActionEdge`, `StateGraph.Behaviors map[*ast.StateNode]*StateBehaviors`,
+`Transition{Source, Target, Trigger, Guard ast.Node}`), so a node's identity is its AST pointer
+and `state_executor.go` alone names `ast.StateNode` 211 times; expressions are never lowered,
+`runtime/eval.go` interpreting `ast.OperatorExpr`, `ast.InvocationExpr` and `ast.FeatureChainExpr`
+directly and `compile.go` compiling the same tree into closures held in a side table; and calc
+lowering (`calcShape` and its `Steps`) lives in `runtime/invoke_calc.go`, not in `lower`. This
+is the immutable-AST, side-table design `AGENTS.md` §4 requires and is not a defect, but it is
+why the runtime cannot be exercised without real trees, why a change to an AST node type reaches
+`lower`, `passes`, `runtime` and `export/graphs_*` at once, and why a compiled tier would have
+to introduce the missing layer first.
+
+## The target
+
+A package imports only the layers below it:
+
+| layer | packages |
+|---|---|
+| foundation | `source`, `ast`, `ast/astcodec`, `pack`, `quickfix`, the notation-text helpers |
+| syntax | `lexer`, `parser`, `format` |
+| semantics | `symbols`, `suggest`, `resolve`, `semantics` (with invocation selection), `conformance`, `provenance`, `identity` |
+| semantic IR | `lower`, `queryplan`, `docplan` |
+| validation | `passes`, split by domain, `rename`, `edit` |
+| execution | `runtime`, `solve`, `smt`, `analysis`, `engines`, `objref`, the `graphs:1` form |
+| translation | `rdf`, `export`, `migrate`, one `xmi`, `codegen`, `interop/*` |
+| documents | `queryexec`, `docir`, `docrender`, `docpdf` |
+| workspace | `model`, `libs`, `project`, `envvar` |
+| frontends | a shared proto conversion package, `repl`, `lsp`, `grpc`, `stdiorpc`, `usage`, `cmd/*` |
+| tooling | `baseline`, the errata registry, `fixtures`, `junit`, `doccounts`, `stressmodel`, `fuml`, `pssm`, `perfbench`, `hygiene`, `testutil`, never linked by a shipped binary |
+
+A layering test beside `TestNoProductionCodeImportsTesting` — a table of layer → permitted layers
+checked against `go list -f '{{.Imports}}'` — pins each edge as it is removed; `make lint` is
+staticcheck and gosec and checks no import boundary today.
+
+## P1 — the small moves (not started)
+
+Each a pull request of its own, mechanical for any branch it crosses:
+
+1. `semantics → lexer`: move the notation-text helpers (`NameText`, `StringValue`,
+   `CommentBody` and the rest) to `source`.
+2. `runtime → passes` for diagnostics: move `Diagnostic` and `Severity` to a leaf package that
+   `passes` and `runtime` both import.
+3. `runtime → passes` for invocation selection: move `passes/invocation.go` into `semantics`.
+4. `runtime → parser`: the caller of `tool.go` hands the runtime the parsed tree.
+5. `repl → grpc`: move `InstanceGraphToProto` and `GraphBounds` to a proto conversion package
+   both frontends import.
+6. `export → migrate, parser`: move `Migrate` and the notation parsing out of `convert.go` into
+   the conversion entry point that calls them.
+
+With these the runtime links neither the validation suite nor the parser, and the REPL not the
+service layer.
+
+## P2 — a runtime-free translation module (not started)
+
+Move the `graphs:1` form and `GraphsVersion` from `export` to the execution layer, so `analysis`
+no longer imports `export`; then audit `graphs_*.go` for the runtime types it still names and
+reduce it to `lower` and `semantics`. Merge `internal/xmi` and `internal/core/xmi` into one
+reader with the two interpretations on top.
+
+## P3 — the product/tooling split (not started)
+
+Move `hygiene`, `perfbench` and the referee packages out of `internal/` into a tooling tree;
+split `errata` into the overlay the standard library applies and the registry the oracles read;
+move `envvar` and `project` beside `model`, and `docpdf` beside `docrender`. Then split `passes`
+by domain — core, behavior, document, diagram, identity — with registration left central.
+
+## P4 — an execution-owned IR (not started)
+
+Give `lower`'s graphs their own node identities (an opaque id with the originating `ast.Node`
+kept for diagnostics), lower expressions once rather than interpreting the tree in two
+evaluators, and move `calcShape` lowering from `runtime` into `lower`. This is the item that
+creates a layer between the syntax tree and the instances; it is feature-sized work under
+`AGENTS.md` §8 and goes last, when the graph the layering test guards is otherwise clean.
+
 # Suggested sequencing
 
 Two orders, because there are two kinds of item. The **track-local** orders say where to start
 inside a track; the **cross-cutting** order says which tracks' first items go first when a session
 must choose. The order agreed at the `v0.6.0` baseline had F and S first and A6/X6/A2 second, and
 owed X2's chain-read half; all of it landed and `v0.7.0` and `v0.8.0` shipped it, so both orders
-below are rewritten again around what remains. Of the 33 pull requests merged to `develop` after
+below are rewritten again around what remains. Of the 64 pull requests merged to `develop` after
 the tag, these move a roadmap item and are named where they do: #267, #289 and #293 (Q2, now
 closed), #263 (A7), #286 (the release fold-back), #291 (the generated test figures), #292 (L7,
-closing Track L), #296 (A4, closing Track A), #300 and #316 (the large-model design and its
-first step) and the eight state-executor fixes the PSSM referee adjudicated (Track E). Open
-against `develop` and touching an item: #322 (Track E), #319 (an execution referee for actions),
-#308, #309 and #312 (the large-model design's next steps).
+closing Track L), #296 (A4, closing Track A), #335 and #352 (E1), #344 (modeled randomness
+beside A3), #300 and #316 (the large-model design and its first step), #319, #321 and #334 (the
+fUML referee for actions), #350 (R4's installer wizard), #304 (the errata overlay, under
+"Upstream follow-through") and the state-executor fixes and findings the PSSM referee
+adjudicated (Track E). Open against `develop` and touching an item: #308, #309 and #312 (the
+large-model design's next steps) and #327 (the SysML v1 migration's remaining items, written as
+a Track D item). Open against `main`: #347, a `release/0.8.1` cut from `v0.8.0` by cherry-pick,
+carrying the bug fixes since the tag and nothing that moved a roadmap item.
 
 ## What `v0.7.0` and `v0.8.0` released
 
@@ -2478,13 +2660,19 @@ carried more than that list. By track, with the pull requests the tracks cite:
   (#211, #238, #239), X6 (#122), X7's values (#121), X8's typing (#112); the `meta` cast (#212)
   and static expression typing landed beside them.
 - **Track A** — landed: A6 (#117), A3 (#118), A2 (#133), A5 (#136); A7 (#263) and A4 (#296) are
-  on `develop` after the tag, and the track is closed.
+  on `develop` after the tag, and the track is closed; #344 added modeled randomness and Monte
+  Carlo runs beside A3 there too.
 - **Track Q** — landed: Q4 (#849), Q2's expression half (X5); Q2's query side (#267, #289, #293)
   is on `develop` after the tag and closes Q2.
 - **Track L** — landed: L3–L6; L7's measured table (#292) is on `develop` after the tag and
   closes the track.
-- **Track W** — landed: W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both.
-- **Track E** — E9 and E10 landed as conformance findings; E8's refusal landed (#229), the item
+- **Track W** — landed: W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both. The VS Code
+  diagram panel grew on `develop` after the tag without touching a form item: it runs the
+  behavior it draws through the language server's `opensysml/debug/*` requests (#294), opens a
+  document's several views (#349) and opens on demand (#348), writes layout into the document
+  that declares the element across the workspace (#307), and reparents by drag (#305).
+- **Track E** — E1 landed (`terminate` runs in every position, the PSSM `terminate-gap` bucket
+  retired); E9 and E10 landed as conformance findings; E8's refusal landed (#229), the item
   itself is open.
 - **Track D** — D12 (the standard library's normative element ids) is done.
 - **Release follow-through** — R4's Windows installer is published by `v0.7.0` and `v0.8.0`
@@ -2497,10 +2685,14 @@ The open items, by track, with the item that gates each where one does. Everythi
 is landed or is a track the previous baseline left as it stands (D, N, M, I, V, B, R2–R5);
 Tracks F, S, L and A are closed.
 
-- **Track E** — eligible and first: E1, E2, E4 in that order, then E6 on request, E3/E5 behind
+- **Track E** — eligible and first: E2, then E4 (E1 landed), then E6 on request, E3/E5 behind
   their design records, E7 behind its object-model item, E8 behind a model that needs it. The
-  PSSM referee's 15 `fail` and 3 `terminate-gap` tests are the state side's measurement; #322 is
-  open.
+  PSSM referee's 17 `fail` tests are the state side's measurement, every one attributed (#326):
+  eleven wait on the region-order choice point whose design record #342 wrote and left at two
+  maintainer decisions — the nine the record names to move `fail` → `pass`, plus *Terminate 001*
+  and *002*, which E1 added at the same region-entry site; *Transition 017* is the record's second
+  decision (two admitted traces no reading of the model produces); the remaining five cite a
+  *differs, v2 silent* alignment row.
 - **Track Q** — Q1, unblocked now that #293 closed Q2; Q3, unblocked by A5 and by Q2's object
   rows, not started.
 - **Track X** — X7's RDF literal form and native layout for sets and tensors; X8's two harness
@@ -2513,8 +2705,10 @@ Tracks F, S, L and A are closed.
 - **Tracks D, N, M, I, V, B** — as the tracks state them; nothing in them moved since `v0.6.0`
   except D12 and the four `Value` arms Track I's clients carry (#113, #121, #122).
 - **Proposed** — the PDF path onto the HTML backend (not started); scaling to very large models
-  (the design and its first step landed, #300 and #316; #308, #309, #312 open); an execution
-  referee for actions (#319 open).
+  (the design and its first step landed, #300 and #316; #308, #309, #312 open); the fUML referee
+  for actions (landed, #319, #321, #334; its `not-expressible` bucket is the emitter's open
+  work); recording the order of orthogonal regions (the design record #342 landed, its two
+  decisions open, no code).
 
 ## Cross-cutting order
 
@@ -2522,12 +2716,17 @@ The release housekeeping the previous order opened with is done — #286 folded 
 `develop`, PyPI serves the Python client's 0.5.0 — and its steps 2 (L7, #292), 4's first half
 (Q2, #293) and 5 (A4, #296) landed on `develop`, so the order is shorter by three.
 
-1. **Track E** — E1, then E2, then E4, in the track's own order below. F and S landed and two
+1. **Track E** — E2, then E4, in the track's own order below; E1 landed. F and S landed and two
    releases shipped them, so the condition the previous baseline set is met; the loops E edits
    carry A5's clock and S2's choice points, and every E item is written against a named scheduling
-   policy. The state-executor fixes since the tag (#295, #297, #311, #313–#315, #317, #318) moved
-   the PSSM referee to 45 `pass` and touched none of E1–E7; E1 is the first item and the only
-   one nothing else waits behind.
+   policy. The state-executor fixes since the tag (#295, #297, #311, #313–#315, #317, #318, #322,
+   #336) and E1 (#335, #352) moved the PSSM referee to 46 `pass` / 17 `fail`; E1 gave E2 and E4
+   the notion of ending an ongoing performance they build on. Beside E2, the largest single
+   lever on the state side is not a lettered item: eleven of the 17 failures wait on the
+   region-order choice point, whose design record (#342) is written and stops at two decisions
+   for the maintainers — whether default-policy trace goldens may gain `choice` lines, and two
+   admitted traces of *Transition 017* no reading of the model produces. Those decisions, then
+   the code, run beside E2 without touching it.
 2. **Q1, then Q3** — Q1 is the page that says which query is which, written now that the set is
    complete (#267, #289 and #293 closed Q2 on `develop`); Q3 (state and event queries) follows on
    A5's clock and Q2's object rows. Q4 (#849) landed independently ahead of it.
@@ -2559,14 +2758,19 @@ The release housekeeping the previous order opened with is done — #286 folded 
 Beside the order, whenever a session has room: Track V's census rows (1 *not implemented*, 53
 *unknown*), the PDF path onto the HTML backend (about one session, independent of every track),
 Track W's remaining writer and rasterization work, and the large-model design's next steps in its
-own sequence (#308, #309 and #312 are the open ones). The next release cut from `develop` carries
-what has landed since the tag — Q2 closed, L7, A4, the generated figures, the state-executor
-fixes and the workspace's persistent semantic model — and by `CONTRIBUTING.md` § Versioning it
-bumps the minor segment, not the patch: features are patch material there, but #302 refuses a
-construct `v0.8.0` accepted (a body inside a nested definition reaching the enclosing
-definition's features by their bare names, now `Must be an accessible feature`), and the
-completion, junction and join fixes (#313, #318, #317) add `choice` lines to the traces of models
-that exercise them. The decision is the release checklist's, recorded there.
+own sequence (#308, #309 and #312 are the open ones). Two releases are in view. `release/0.8.1`
+(#347, open against `main`) is a patch cut from `v0.8.0` by cherry-pick, carrying the bug fixes
+since the tag and the three VS Code extension fixes, and deliberately none of the state-executor
+series or the features; it moves no roadmap item, and once tagged `main` is folded back into
+`develop` as after `v0.8.0`. The next cut from `develop` carries everything else that landed
+since the tag — Q2 closed, L7, A4, E1, the generated figures, modeled randomness, the fUML
+referee, the state-executor fixes and the workspace's persistent semantic model — and by
+`CONTRIBUTING.md` § Versioning it bumps the minor segment, not the patch: features are patch
+material there, but #302 refuses a construct `v0.8.0` accepted (a body inside a nested definition
+reaching the enclosing definition's features by their bare names, now `Must be an accessible
+feature`), the completion, junction and join fixes (#313, #318, #317) add `choice` lines to the
+traces of models that exercise them, and E1 makes a `terminate` statement that `v0.8.0` ran as
+an empty action end its performance. The decision is the release checklist's, recorded there.
 
 ## Track-local orders
 
@@ -2593,19 +2797,19 @@ that exercise them. The decision is the release checklist's, recorded there.
   (#120) as the per-traversal merge on top of it; `known_failures.txt` has no line left to delete.
 - **Track S.** Landed in the order agreed: S1 (#110), S2 (#123), S3 (#125), S4 (#134); #141 added
   the region-order choice point afterwards. Nothing remains in the track.
-- **Track E.** Eligible — step 1 above. The order is **E1** (termination of an ongoing
-  performance, which **E2** and **E4** build on), then **E2**, then **E4**; **E6** whenever asked,
+- **Track E.** Eligible — step 1 above. **E1** (termination of an ongoing performance, which
+  **E2** and **E4** build on) is landed; the order is **E2**, then **E4**; **E6** whenever asked,
   being a day's work; **E3** and **E5** only after their design records; **E7** after the
   object-model item it depends on; **E8** when a model redefines run-to-completion, its refusal
-  (#229) standing until then; **E9** and **E10** are landed.
+  (#229) standing until then; **E1**, **E9** and **E10** are landed.
 - **Track X.** X2, X3, X4, X5, X6, X7's values and X8's typing landed (#164, #115, #113, #211,
   #122, #121, #112). What is left, in order: X8's harness halves (normalization and adjudication
   in the pilot differential, a standalone RDF expression-tree round trip) so every later X item is
   measured; X7's RDF literal form and native layout for sets and tensors last, when something
   needs them — step 5 above.
 - **Track A.** A6, A2, A3 and A5 landed (#117, #133, #118, #136); A7 (#263) and A4 (#296) landed
-  on `develop` after the tag, A7's carrier walk shared with Q2's query side (#267). Nothing
-  remains in the track.
+  on `develop` after the tag, A7's carrier walk shared with Q2's query side (#267), and #344 gave
+  A3's Monte Carlo the modeled randomness it had refused by name. Nothing remains in the track.
 - **Track Q.** Q4 is done; Q2's expression half landed with X5 and its query side in #267, #289
   and #293 on `develop` after the tag, which closes Q2; Q1 and then Q3 are step 2 above.
 - **Track V.** Everything queued has landed (#822, #900, #831, #817, the rule pull requests, #811

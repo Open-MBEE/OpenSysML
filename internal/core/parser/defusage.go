@@ -235,6 +235,7 @@ type featureMods struct {
 	isReadonly    bool
 	isOrdered     bool
 	isNonunique   bool
+	isTerminate   bool                    // `terminate` closing an action usage head: a terminate action usage
 	cross         *ast.CrossFeatureMember // the cross feature declared right after `end`
 	usageOnly     lexer.Token             // first prefix keyword only a usage prefix admits (`ref`, a direction, …)
 }
@@ -1246,8 +1247,6 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 	}
 }
 
-// parsePostModifiers parses feature modifiers that appear after typing/multiplicity.
-// Currently only 'ordered' and 'nonunique' are allowed in this position.
 // isPostModifierKeyword checks if token is a post-multiplicity modifier keyword
 func isPostModifierKeyword(tok lexer.Token) bool {
 	if tok.Kind != lexer.Keyword {
@@ -1256,7 +1255,11 @@ func isPostModifierKeyword(tok lexer.Token) bool {
 	return tok.KeywordID == "ordered" || tok.KeywordID == "nonunique"
 }
 
-func (p *Parser) parsePostModifiers() featureMods {
+// parsePostModifiers parses the modifiers that follow a multiplicity part:
+// `ordered`, `nonunique`, and on an action usage the `terminate` of a terminate
+// action usage (SysML.xtext TerminateNode), which closes the declaration; any
+// other kind has it diagnosed.
+func (p *Parser) parsePostModifiers(kind ast.UsageKind) featureMods {
 	var m featureMods
 	for {
 		t := p.peek()
@@ -1270,9 +1273,30 @@ func (p *Parser) parsePostModifiers() featureMods {
 		case "nonunique":
 			m.isNonunique = true
 			p.advance()
+		case "terminate":
+			p.advance()
+			if kind != ast.UsageAction {
+				p.error(t.Span, "'terminate' closes an action usage: a "+kind.String()+" usage is no terminate action usage")
+				continue
+			}
+			m.isTerminate = true
+			p.skipPastTerminateMarker()
+			return m
 		default:
 			return m
 		}
+	}
+}
+
+// skipPastTerminateMarker diagnoses and skips whatever a terminate action usage
+// states between its `terminate` and its body: the marker takes no clause after it.
+func (p *Parser) skipPastTerminateMarker() {
+	if p.at(lexer.Semicolon) || p.at(lexer.LBrace) || p.at(lexer.RBrace) || p.atEOF() {
+		return
+	}
+	p.error(p.peek().Span, "'terminate' closes the declaration of a terminate action usage: only its body follows")
+	for !p.at(lexer.Semicolon) && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !p.atEOF() {
+		p.advance()
 	}
 }
 
@@ -3665,9 +3689,10 @@ func (p *Parser) parseFeatureSpecializationPart(u *ast.Usage) {
 // parseSpecializationsAfterMultiplicity parses the `ordered`/`nonunique` tail of
 // a MultiplicityPart and the FeatureSpecialization* that may follow it onto u.
 func (p *Parser) parseSpecializationsAfterMultiplicity(u *ast.Usage) {
-	post := p.parsePostModifiers()
+	post := p.parsePostModifiers(u.Kind)
 	u.IsOrdered = u.IsOrdered || post.isOrdered
 	u.IsNonunique = u.IsNonunique || post.isNonunique
+	u.IsTerminate = u.IsTerminate || post.isTerminate
 	u.Relationships = append(u.Relationships, p.parseRelationships(true)...)
 }
 

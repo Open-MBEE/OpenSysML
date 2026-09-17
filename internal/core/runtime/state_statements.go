@@ -41,13 +41,16 @@ func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) error {
 func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior) *stateStmtHost {
 	host := &stateStmtHost{exec: e, behavior: behavior, attrs: e.attrFramesFor(behavior.Owner)}
 	host.flow = &ActionExecutor{
-		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(host.attrs), owner: host},
+		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(host.attrs), owner: host, behavior: e.stateMachine},
 		action:           behaviorSymbol(behavior),
 		state:            StateRunning,
 		nextTokenID:      1,
 		breakpoints:      make(map[string]bool),
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
+	host.flow.flow = host.flow
+	host.flow.driven.exec = host.flow
+	host.flow.driven.caller = &e.driven
 	host.perfs = &host.flow.performances
 	return host
 }
@@ -60,7 +63,35 @@ func (h *stateStmtHost) run() error {
 		engine.env.perf = h.perfs.root
 		return engine
 	}, h.behavior.Body)
-	return err
+	return h.ended(err)
+}
+
+// ended settles a run of the behavior that err ended: a terminate of the behavior's
+// own performance is its end, dropping what its flow still ran and ending the
+// performances nested in it; any other err is returned as is.
+func (h *stateStmtHost) ended(err error) error {
+	root := h.perfs.root
+	if !terminates(err, root) {
+		return err
+	}
+	if !root.inBody || len(h.flow.tokensIn(root)) > 0 {
+		h.flow.dropTokensIn(root, 0)
+	}
+	endNested(root)
+	root.live = 0
+	h.flow.state = StateCompleted
+	if t := unwound(err); t != nil {
+		return h.flow.endAlongside(t)
+	}
+	return nil
+}
+
+// endNested marks the performances nested in perf ended, perf itself kept.
+func endNested(perf *actionFrame) {
+	for _, sub := range perf.subactions {
+		sub.ended, sub.live = true, 0
+		endNested(sub)
+	}
 }
 
 func (h *stateStmtHost) perform() error { return h.run() }
@@ -68,9 +99,10 @@ func (h *stateStmtHost) perform() error { return h.run() }
 // clone is the host itself: what its run changes is the flow's, captured with it.
 func (h *stateStmtHost) clone() bodyWork { return h }
 
-// doRun is a do behavior under way as a body run: a wait on the clock or for a
-// message in its flow pauses it there, to be resumed once the wait ends or
-// ended when the state is exited, while the machine goes on around it.
+// doRun is a do behavior under way as a body run: it yields after each statement
+// of its body, and a wait on the clock or for a message in its flow pauses it
+// there, to be resumed in a later round or ended when the state is exited, while
+// the machine goes on around it.
 type doRun struct {
 	host *stateStmtHost
 	body *bodyRun
@@ -79,19 +111,19 @@ type doRun struct {
 	mail []Message
 }
 
-// startDoRun begins a do behavior, pausing it where it first waits; nil once it
-// has ended, with the error that ended it.
+// startDoRun begins a do behavior, performing its first statement and pausing it
+// there; nil once it has ended, with the error that ended it.
 func (e *StateExecutor) startDoRun(behavior lower.StateBehavior) (*doRun, error) {
 	if len(behavior.Body) == 0 {
 		return nil, nil
 	}
 	host := e.behaviorHost(behavior)
-	body := &bodyRun{work: host, awaitsMessages: true}
+	body := &bodyRun{work: host, awaitsMessages: true, yields: true}
 	run := &doRun{host: host, body: body}
 	return run.resume(e.ctx)
 }
 
-// resume lets the run go on to where it next waits, or to its end.
+// resume lets the run go on to its next statement boundary or wait, or to its end.
 func (run *doRun) resume(ctx *Context) (*doRun, error) {
 	defer ctx.readingMail(&run.mail)()
 	defer func() { run.mail = nil }()
@@ -100,7 +132,7 @@ func (run *doRun) resume(ctx *Context) (*doRun, error) {
 		if !paused {
 			return nil, run.body.err
 		}
-		if pause.onWait {
+		if pause.onWait || pause.yielded {
 			return run, nil
 		}
 	}
@@ -113,9 +145,13 @@ func (run *doRun) offer(ctx *Context, m Message) (*doRun, error) {
 	return run.resume(ctx)
 }
 
-// resumable reports a run whose wait on the clock has ended: a run parked for a
-// message stays until its machine dispatches one to it.
+// resumable reports a run due to go on: one yielded between statements, or one
+// whose wait on the clock has ended; a run parked for a message stays until its
+// machine dispatches one to it.
 func (run *doRun) resumable(ctx *Context) bool {
+	if run.body.paused.yielded {
+		return true
+	}
 	defer ctx.readingMail(&run.mail)()
 	return !run.body.paused.wait.goesOn()
 }
@@ -213,7 +249,7 @@ func (h *stateStmtHost) describe() string {
 }
 
 func (h *stateStmtHost) send(ec *EvalContext, s lower.Send) error {
-	return h.exec.ctx.send(ec, h.exec.stateMachine.Scope, h.exec.graph.Connections, s, h.exec.self)
+	return h.exec.ctx.send(ec, h.exec.stateMachine.Scope, h.exec.graph.Connections, s, h.exec.self, h.exec.stateMachine)
 }
 
 // assignOuter writes a name the machine does not declare to the object
@@ -272,9 +308,13 @@ func (h *stateStmtHost) acceptReturn(Value, lower.Return) error {
 	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())
 }
 
-// effect performs the action a `perform` names; every other effect a body may
-// state has no execution in a state behavior.
-func (h *stateStmtHost) effect(_ *stmtEnv, s lower.Effect) error {
+// effect performs the action a `perform` names, or ends the performance a
+// `terminate` names; every other effect a body may state has no execution in a
+// state behavior.
+func (h *stateStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
+	if s.Kind == lower.EffectTerminate {
+		return h.perfs.terminate(engine, h.perfs.root, s)
+	}
 	if s.Kind == lower.EffectPerform {
 		inv, ok := performedInvocation(s)
 		if !ok {
@@ -368,25 +408,9 @@ func (h *stateStmtHost) runOwnFlow(perf *actionFrame) error {
 	return h.flow.runSubflow(perf)
 }
 
-// performsOwn reports whether sym is the action the behavior's inline body declares.
-func (h *stateStmtHost) performsOwn(sym *symbols.Symbol) bool {
-	return h.flow.performsOwn(sym)
-}
-
-// terminatePerformance ends a performance of the behavior early; ending the
-// behavior itself leaves the state, and the machine exhibiting it, as they are.
-func (h *stateStmtHost) terminatePerformance(perf *actionFrame) error {
-	return h.flow.terminatePerformance(perf)
-}
-
-// terminate ends the behavior's own performance, or the nested one it names.
-func (h *stateStmtHost) terminate(s lower.Effect) (stmtFlow, error) {
-	flow, err := h.perfs.terminate(h.perfs.root, s)
-	if err != nil {
-		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
-	}
-	return flow, nil
-}
+// endsOwn allows a terminate to end the behavior's own performance (SysML v2
+// §7.17.10): the behavior ends at the statement and the state it belongs to stays.
+func (h *stateStmtHost) endsOwn() bool { return true }
 
 // performedInvocation reports the action a `perform` statement declared in scope
 // names, in either form the parser produces for one.

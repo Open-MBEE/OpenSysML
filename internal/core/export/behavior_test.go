@@ -111,6 +111,10 @@ func TestBehavioralStatementsRoundTrip(t *testing.T) {
 		"action accept":       "action watch accept when speed > 0;",
 		"terminate":           "terminate;",
 		"terminate a node":    "terminate brake;",
+		"terminate usage":     "action stop terminate;",
+		"then terminate":      "then terminate;",
+		"then terminate node": "then action stop terminate;",
+		"body terminate":      "action stop {\n            terminate stop;\n        }",
 		"succession":          "succession first brake then finish;",
 		"first then":          "first brake then finish;",
 		"first then body":     "first brake then finish {\n            attribute delay;\n        }",
@@ -310,6 +314,37 @@ func TestThenAfterFirstSequencesFromTheMemberTheStartNames(t *testing.T) {
 	}
 }
 
+// A named TerminateActionUsage is a declaration whether or not the graph states
+// sysx:hasBody, which a graph from another tool does not: the name alone keeps it
+// `action stop terminate;`, the target its succession reaches.
+func TestNamedTerminateUsageWithoutHasBodyKeepsItsName(t *testing.T) {
+	src := "package P {\n    action def Drive {\n        first start;\n        then stop;\n        action stop terminate;\n    }\n}\n"
+	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	// stop's sysx:hasBody closes its description after declaredName; every other element keeps its own.
+	var kept []string
+	for _, line := range strings.Split(string(withoutSourceText(t, turtle)), "\n") {
+		if strings.Contains(line, "sysx:hasBody") && len(kept) > 0 && strings.Contains(kept[len(kept)-1], `sysml:declaredName "stop"`) {
+			kept[len(kept)-1] = strings.TrimSuffix(kept[len(kept)-1], " ;") + " ."
+			continue
+		}
+		kept = append(kept, line)
+	}
+	foreign := strings.Join(kept, "\n")
+	if strings.Count(foreign, "sysx:hasBody") != strings.Count(string(turtle), "sysx:hasBody")-1 {
+		t.Fatalf("want stop's sysx:hasBody alone dropped:\n%s", foreign)
+	}
+	back, err := export.Convert("m.ttl", []byte(foreign), export.FormatTurtle, export.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v\n%s", err, foreign)
+	}
+	if string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+}
+
 // The `first` end of an action body's `first a then b;` is the source of that
 // succession, linked to the member it names; the one-ended `first start;`
 // beside it carries the start it marks. Both read back unchanged.
@@ -395,6 +430,28 @@ func TestStateBodyFirstThenIsASuccession(t *testing.T) {
 	}
 	if a, b := withoutSourceText(t, turtle), withoutSourceText(t, keyworded); string(a) != string(b) {
 		t.Errorf("both spellings should map to one graph\n--- first ---\n%s\n--- succession first ---\n%s", a, b)
+	}
+}
+
+// A declared terminate action usage and the terminate statement share one
+// metaclass; the mapping alone tells them apart, so `action stop terminate;`
+// keeps the name its successions reach and `terminate;` stays a statement.
+func TestTerminateUsageKeepsItsNameFromTheMappingAlone(t *testing.T) {
+	src := "package P {\n    action def Drive {\n        first start;\n        then stop;\n        action stop terminate;\n        then action halt terminate;\n" +
+		"        action brake {\n            terminate brake;\n            terminate;\n        }\n    }\n}\n"
+	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	if n := strings.Count(string(turtle), "a sysml:TerminateActionUsage ;"); n != 4 {
+		t.Errorf("want two declared and two statement TerminateActionUsage, found %d:\n%s", n, turtle)
+	}
+	back, err := export.Convert("m.ttl", withoutSourceText(t, turtle), export.FormatTurtle, export.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
+	}
+	if string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
 	}
 }
 

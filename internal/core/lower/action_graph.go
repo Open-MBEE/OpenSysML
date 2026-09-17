@@ -383,13 +383,54 @@ func (k EffectKind) String() string {
 // Effect is a statement acting on the world outside the body — perform, accept,
 // terminate — lowered so a host rejecting it (a calculation) can say so.
 type Effect struct {
-	Kind   EffectKind
-	Node   ast.Node
-	Scope  *symbols.Scope // the scope the statement was declared in
-	Target ast.Node       // the action a terminate names, nil for the enclosing one
-	// IsNode marks a terminate an action node is written as (`action t terminate;`):
-	// the node is the TerminateAction, so a bare one ends the node's owner, not the node.
-	IsNode bool
+	Kind  EffectKind
+	Node  ast.Node
+	Scope *symbols.Scope // the scope the statement was declared in
+	// Terminates says what a terminate ends; Target is the action node it names
+	// (TerminateNode), TargetExpr the target as written, nil for none.
+	Terminates TerminateTarget
+	Target     ast.Node
+	TargetExpr ast.Node
+}
+
+// TerminateTarget is what a terminate names, settled where it was written.
+type TerminateTarget int
+
+const (
+	// TerminateContaining is a terminate naming nothing: the containing performance ends.
+	TerminateContaining TerminateTarget = iota
+	// TerminateEnclosing is a terminate action usage: the performance its node is a step of ends.
+	TerminateEnclosing
+	// TerminateNode names an action usage (Effect.Target): a node of an enclosing flow,
+	// or else the action occurrence the name denotes, evaluated as TerminateOccurrence is.
+	TerminateNode
+	// TerminateOccurrence names an occurrence by an expression the executor evaluates.
+	TerminateOccurrence
+)
+
+// terminateTarget settles what a terminate written in scope names: a name reaching an
+// action usage is a node; anything else is an expression denoting an occurrence.
+func terminateTarget(m *ast.TerminateStatement, scope *symbols.Scope) (ast.Node, TerminateTarget) {
+	if m.Target == nil {
+		return nil, TerminateContaining
+	}
+	qn := ast.AsQualifiedName(m.Target)
+	if qn == nil || len(qn.Parts) == 0 {
+		return nil, TerminateOccurrence
+	}
+	if node, _, found, _ := resolve.ActionNodeInScope(scope, qn); found {
+		return node, TerminateNode
+	}
+	segments := make([]string, len(qn.Parts))
+	for i, part := range qn.Parts {
+		segments[i] = part.Text
+	}
+	if sym, ok := resolve.FeatureSymbolInScope(scope, segments); ok {
+		if usage, isUsage := sym.Decl.(*ast.Usage); isUsage && usage.Kind == ast.UsageAction {
+			return usage, TerminateNode
+		}
+	}
+	return nil, TerminateOccurrence
 }
 
 func (Effect) statement() { /* marker: closed Statement set */ }
@@ -1054,25 +1095,8 @@ func DeclaresNodeFeature(m *ast.Usage) bool {
 // for, so the executor reads them from the graph rather than walking the node's
 // members again.
 func lowerBody(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
-	for _, member := range node.Members {
-		switch m := unwrapMembership(member).(type) {
-		case *ast.TerminateStatement:
-			stmt := Effect{Kind: EffectTerminate, Node: m, Scope: scope, Target: m.Target, IsNode: node.IsActionNode}
-			graph.Bodies[node] = append(graph.Bodies[node], stmt)
-		case *ast.SendStatement, *ast.AssignmentActionNode, *ast.WhileLoopActionNode,
-			*ast.IfActionNode:
-			graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(m, scope))
-		case *ast.Usage:
-			// An accept written among the statements has no token to park; it is
-			// reported rather than passed over.
-			if m.Kind == ast.UsageAction && !m.IsBodyParameter && acceptsMessage(m) {
-				graph.Bodies[node] = append(graph.Bodies[node], Unsupported{
-					Description: "'accept' among the statements of an action body",
-					Node:        m,
-					Scope:       scope,
-				})
-			}
-		}
+	for _, member := range BodyStatementMembers(node.Members) {
+		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), scope))
 	}
 	lowerAccept(graph, node, scope)
 }
@@ -1190,8 +1214,12 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 	case *ast.PerformActionNode:
 		return Effect{Kind: EffectPerform, Node: m, Scope: scope}
 	case *ast.TerminateStatement:
-		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Target: m.Target}
+		target, terminates := terminateTarget(m, scope)
+		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: m.Target}
 	case *ast.Usage:
+		if m.IsTerminate {
+			return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
+		}
 		if stmt, ok := usageStatement(m, scope); ok {
 			return stmt
 		}

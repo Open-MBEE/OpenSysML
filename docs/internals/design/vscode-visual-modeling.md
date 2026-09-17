@@ -25,8 +25,9 @@ annotations of [Diagram layout annotations](../../project/diagram-layout-annotat
 its section below is the design as built. Re-parenting is `edit.OpMove`
 (`internal/core/edit/move.go`), the `move` operation of `applyModelEdit` and the
 node menu's **Move to…**, which offers the drawn declarations whose body admits the
-node's kind; the drag that would issue it, and the `CustomTextEditorProvider`
-registration, are not built, as the known limitations say. The tier 1 and 2
+node's kind, and the <kbd>Shift</kbd>-drop of a node on another, which issues it for
+the node under the pointer; the `CustomTextEditorProvider` registration is not
+built, as the known limitations say. The tier 1 and 2
 sections are the design as written before the work, kept for the reasoning behind it.
 
 ## What exists today
@@ -116,6 +117,11 @@ off the wire when the panel is hidden.
 Capability: the server advertises `experimental: { openSysmlRender: true }` in
 `initialize`, and the client only registers the panel when it sees it, so an old
 server and a new extension degrade to today's behavior instead of erroring.
+The cross-document contract is advertised by both sides as
+`openSysmlCrossDocumentLayout`: the server names another document's nodes only
+to a client that pins them by `declaredIn` and `digest`, and the client reads a
+server that never sent `declaredHere` as declaring every node it named, so an
+older extension drags no unpinned name and an older server loses no menu.
 
 ### The Go side
 
@@ -145,9 +151,85 @@ passed to the renderer directly.
 
 ### The extension side
 
-- `SysML: Open Diagram` opens a `WebviewPanel` beside the editor, one per document,
-  retained across tab switches with `retainContextWhenHidden` off and state restored
-  through `setState`/`getState`.
+- `SysML: Open Diagram` opens a `WebviewPanel` beside the editor, one per document
+  and view, retained across tab switches with `retainContextWhenHidden` off and
+  state (`{uri, view}`) restored through `setState`/`getState`, so a reload brings
+  every panel back on its view. The command is bound to <kbd>Alt</kbd>+<kbd>D</kbd> and
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> (the PlantUML and Markdown-preview
+  conventions) with `when` clauses that hold only for a model editor or the panel
+  itself, and sits in the editor title bar and the editor and Explorer context menus.
+  It resolves its document from the menu's resource, the focused panel (returning
+  to the source), the active editor, or the one model editor in view — in that order
+  — and is registered whether or not the server draws, so a key or menu always
+  answers, with a diagram or with the reason there is none.
+- Which view a panel opens on is decided client-side, in `views.ts`, as pure
+  functions over the `opensysml/views` listing (`chooseView`): the view the
+  document implies (its sole drawable view, `#tree` when it declares none); else
+  the drawable view whose declaration `range` holds the editor's cursor; else the
+  view last chosen for that document, kept in `workspaceState` under
+  `opensysml.diagram.chosenViews` keyed by document URI and forgotten when the
+  document no longer declares it; else a quick pick of the drawable views (label
+  the name, detail the kind), then **All views**, then the pseudo-views. A view
+  the server cannot draw is left out of the quick pick — its items cannot be
+  disabled — and the panel's own picker lists it disabled with the reason.
+  Cancelling opens nothing. The server never receives an
+  empty `view` for a multi-view document: the client always names one. Servers
+  whose listing carries no `range` skip the cursor step.
+- `DiagramPanels` keys panels by `panelKey(uri, view)`; `renderChanged` and the
+  cursor highlight go to every panel of the document, and panels are titled
+  `Diagram: <file> — <view>` while the document has more than one. Opening the
+  view a panel already draws reveals it; a different view opens another panel
+  beside the source. The in-panel picker retargets its panel to the chosen view,
+  and re-keys it — unless another panel already draws that view, which is
+  revealed instead, so a document never has two panels of one view. Export uses
+  the document's one panel's view, and asks when there are none or several.
+- The panel is open by default. A model file shown in an editor gets its diagram
+  without being asked — on activation, on every change of active editor, and, for
+  a file made active while the server was still starting, when the client attaches.
+  The decision is one pure function (`src/autoopen.ts`, `shouldAutoOpen`) over the
+  `opensysml.diagram.autoOpen` setting, whether a drawing server is attached,
+  whether the document already has a panel of any view (a panel restored by the
+  serializer counts, so a reload does not double-open), whether the user dismissed it, and
+  what the editor is: only a `file:` document in a model language, sitting in an
+  editor group, whose active tab is a plain text tab. That rules out untitled
+  buffers, `git:` revisions, diff tabs and the peek editor of a hover. An
+  automatic open is silent — no "server not running" or "too old" warning, those
+  belong to the explicit command — and never takes focus; when a document declares
+  several views it runs the same choice as the command up to the quick pick — the
+  implied view, the one under the cursor, the remembered one — and opens nothing
+  rather than ask. The eligibility is checked again once the listing returns, so a
+  panel opened or an editor switched meanwhile is not doubled; a listing that
+  fails opens nothing (the command falls back to the server's own choice), and
+  ranges listed before an edit are not matched against the cursor after it.
+- Placement: one panel per document and view, all in one editor group. The first
+  diagram opens `Beside` its source; every later one, automatic or explicit, opens
+  in the group an existing diagram already occupies (`diagramColumn`), so switching
+  between model files or views adds a tab to the diagram column rather than a
+  column to the layout. One panel per view (not one reused panel) keeps each
+  panel's view choice and its serialized state, and lets two diagrams be compared
+  by dragging one out; one group keeps the layout calm. An explicit Open Diagram
+  on a view that already has a panel reveals it in that group.
+- Dismissal is per document, whatever the number of its panels: closing the
+  document's last panel records its document URI under
+  `workspaceState` (`opensysml.diagram.dismissed`), and the document is not
+  auto-opened again — across editor switches and across window reloads — until an
+  explicit Open Diagram, which clears the entry and opens the panel. Only the user's
+  close counts: `DiagramPanel` tracks a `Lifecycle` that the extension marks before
+  it disposes a panel itself (a panel replaced by `adopt`, or every panel on
+  deactivation), so the `onDidDispose` that follows is not a dismissal; a server
+  restart disposes no panel at all. Closing the source editor leaves the panel
+  open, as it does today — a diagram is a document of its own, with a way back to
+  the source. A rename (`workspace.onDidRenameFiles`) carries a dismissal to the
+  new URI and moves an open panel with it — the panel is recreated under the new
+  URI in the same group with the same view, each of the document's panels in
+  turn, an extension-caused replacement, so it is not a dismissal; a delete clears the dismissal, so a file recreated under the
+  same name starts fresh. VS Code reports a folder rename or delete as the folder
+  alone, so both apply to every document below it (`renamedUri`). `Dismissals`
+  keeps the list in memory and writes it to `workspaceState` in order, so the
+  un-awaited mutations of a multi-file rename or delete cannot overwrite one
+  another, and a failed write does not hold up the next. The view chosen for a
+  document (`ChosenViews`, `opensysml.diagram.chosenViews`) follows the same
+  rename and delete, with the same ordered writes.
 - The webview bundles Mermaid locally (no CDN, and a `Content-Security-Policy` with
   a nonce and no `connect-src`), renders the artifact, and re-renders on the
   extension's `postMessage`.
@@ -170,6 +252,14 @@ passed to the renderer directly.
   each kind, for a pseudo-view, for a document with no views, for an unsupported
   kind (asserting the reason), and for a stale-version request. Plus a
   didChange → `renderChanged` ordering test.
+- `editors/vscode/src/views.test.ts`: the view choice (cursor in a declaration,
+  the remembered view and its staleness, the fallbacks, "All views" expansion),
+  the panel keying as pure functions, and the chosen-view store's
+  remember/clear/rename semantics.
+- `editors/vscode/src/autoopen.test.ts`: `shouldAutoOpen` over every input, the
+  dismissal store's record/clear/rename semantics, and the `Lifecycle` distinction
+  between a disposal the extension asked for and a tab the user closed;
+  `manifest.test.ts` pins the setting and its default.
 - `editors/vscode`: `npm run typecheck` and a GUI pass per
   `.agents/skills/testing-vscode-extension/SKILL.md` — open a model, open the
   panel, type, watch it redraw, click a node and land on the declaration.
@@ -243,14 +333,29 @@ it touched, since it is one edit. The request names the
 `version` of the rendering the action was taken on, not the buffer's: its targets
 are names the user saw there, and a later version may spell the same names for
 other declarations. A `version` that no longer matches is rejected, and the panel
-redraws and asks the user to repeat the action on what is now shown. Each other
-document's `TextDocumentEdit` carries the version the server computed it against; the
-language client library applies edits without checking that, so the panel does. A
-document the edit names that no buffer holds is opened first and the edit asked for
-again, so every document it lands on is a versioned buffer; the versions are compared
-and `applyEdit` called in one turn, and VS Code pins each document to the version it
-holds at that call, so an edit naming a document that moved on meanwhile is not
-applied at all.
+redraws and asks the user to repeat the action on what is now shown. The version
+is the server's guard; the panel has one of its own, since node ids are local to a
+drawing and a drawing can be replaced without the document changing — another
+view is picked, or a document it imports is edited. The panel numbers every
+drawing it posts to the webview, every message the webview sends back that names
+a node — an action, a placement, a click that reveals a declaration — carries the
+number of the drawing its ids came from, and one whose number is not the current
+drawing's is refused before its ids are resolved, with the same message. An action
+that prompts — a rename's input box, a move's destination pick — is checked again
+once the prompt closes, since the drawing can be replaced while it is open.
+The webview takes a drawing's number only once it has drawn it: a drawing that
+fails to draw leaves the last one up, dimmed, and the last one's number with it, so
+an action taken on what is still shown is refused rather than resolved against the
+rendering the panel holds. A restored panel draws its saved rendering as drawing
+zero until the server draws again, and zero is never current, so an action taken on
+it is refused the same way.
+Each other document's `TextDocumentEdit` carries the version the server computed it
+against; the language client library applies edits without checking that, so the
+panel does. A document the edit names that no buffer holds is opened first and the
+edit asked for again, so every document it lands on is a versioned buffer; the
+versions are compared and `applyEdit` called in one turn, and VS Code pins each
+document to the version it holds at that call, so an edit naming a document that
+moved on meanwhile is not applied at all.
 
 The diagram never mutates itself. It applies the edit, the edit re-triggers
 analysis, analysis emits `renderChanged`, and the panel redraws from the model. One
@@ -312,14 +417,34 @@ The consequences for the editor:
 its values rewritten in place, one added goes where the writer puts it — the view's
 body for a view-local one, the element's own body for an inline one, opening a
 bodyless declaration as `AddMember` does — and a cleared one is removed with its
-line and, when it was the whole body, with the body. The operations refuse a target
-outside the document (`unknown-target`), a view that is none (`not-a-view`), a
-view-local placement of an element the view does not expose (`not-exposed`), an
-element no rendering draws as the node or edge the annotation positions
-(`not-drawn`), and a clearing with nothing to clear (`not-annotated`).
-`opensysml/applyModelEdit` exposes them as `setLayout`, `setRoute` and
-`setCanvas`; the three rewrite the requesting document alone, so their
-`WorkspaceEdit` carries one `TextDocumentEdit`.
+line and, when it was the whole body, with the body. The document written is the
+one declaring what holds the annotation, wherever the request came from: the view's
+document for a view-local `Layout` or `Route` and for a `Canvas`, the element's own
+document for an inline one. A target is resolved through the workspace index, in
+the document `declaredIn` names — the rendering's origin, whose text the `digest`
+it reported fingerprints — at the text it was rendered from: a declaration range is
+read there, and a qualified name must be declared there, so a document since
+changed is answered stale rather than read where the range now falls or the name
+now reaches, and a namesake another document declares is refused rather than
+placed. The rendering itself is converted from one read of the workspace — every
+origin, range and digest of every document it draws from, taken under the one lock
+— so that what a client hands back names the text the rendering was made from. The
+edit is then pinned to the very snapshot the target was read in: the workspace
+refuses it, under the one lock, should it have replaced that document in between.
+The splices go through the same
+per-document routing, atomic validation and `Result.Others` that rename and
+delete use, so one request may write several documents and refuses as a whole
+when the result is invalid in any of them. The operations refuse a target no
+document of the workspace declares (`unknown-target`), a view that is none
+(`not-a-view`), a view-local placement of an element the view does not expose
+(`not-exposed`), an element no rendering draws as the node or edge the annotation
+positions (`not-drawn`), a clearing with nothing to clear (`not-annotated`), and a
+destination it may not rewrite — a bundled library file, or a document the index
+holds without the workspace holding its source — naming the file
+(`referenced-elsewhere`). `opensysml/applyModelEdit` exposes them as `setLayout`,
+`setRoute` and `setCanvas`, answering one versioned `TextDocumentEdit` per
+document changed, as it does for rename and delete; the requesting document is
+among them only when it changed.
 
 ### Direct manipulation
 
@@ -339,8 +464,56 @@ subtree, in the same request; unplaced descendants follow their owner on their o
 
 Re-parenting is a move — delete from one body and add to another as one
 operation, `edit.OpMove{Target, NewOwner}`, so the two halves cannot come apart —
-issued from the node menu's **Move to…**; dragging a part into a different
-definition does not issue it.
+issued from the node menu's **Move to…** and by dropping a node on another with
+<kbd>Shift</kbd> held.
+
+The modifier is what tells the two drags apart. A plain drag is a layout drag
+whatever it is released over: a node is routinely dragged across its neighbours'
+boxes, and inside its owner's, on the way to a position, and a canvas whose nodes
+are placed close together would offer a re-parent on most releases if the pointer's
+position alone decided. So a release never moves a declaration unless
+<kbd>Shift</kbd> is down at that moment, and a plain drag posts the same `place`
+message it always did. The gesture is told on the status line as soon as a node
+that some drawn node admits is picked up ("Hold Shift and release over a node to
+move … into it"), so it is found without reading the manual, and confirmed while
+it is held. While <kbd>Shift</kbd> is down the canvas is not laid out again around
+the node's new place — an owner's box growing out to keep the node, and its
+neighbours shuffling aside, would carry the target away from under the pointer —
+but stays as the model laid it out, with the dragged subtree floating over it
+(`liftNode` in `src/webview/canvas.ts`). The edges at the subtree float with it: one
+between two of its nodes moves whole, waypoints and label included, as the `setRoute`
+a release writes will move it; one crossing the subtree's border keeps its waypoints,
+which stay the model's, and is re-anchored on its lifted end (`liftedEdges` in
+`src/webview/layout.ts`). The node under the pointer — the innermost,
+latest-drawn box of that layout holding the point, with the dragged subtree passed
+over (`nodeUnder` in `src/webview/layout.ts`) — is judged by the same `moveDestinations` filter the
+**Move to…** menu is built from (`src/edits.ts`: the body admits the node's
+`notation`, the target is neither the node, nor its current owner, nor anything
+inside it), and outlined when it admits the dragged node. A node that does not
+admit it is not outlined; the cursor turns to *not-allowed* and the status line
+says why ("already declared in …", "declared inside …", "a subject cannot be
+declared in …"). Releasing there cancels the drag rather than falling back to a
+layout drag: the node goes back where it was and the reason stays on the status
+line, because a release the user meant as a move should not quietly write a
+position instead. Releasing with <kbd>Shift</kbd> over empty canvas is a plain drag.
+
+A drop is one `reparent` message and one `applyModelEdit` request, pinned to the
+version the canvas was drawn from like every other gesture: the `setLayout` (and
+`setRoute`) operations the same drag would have written, followed by the `move`
+(`reparentOperations` in `src/edits.ts`). The layout is written first, on the
+names the rendering draws, and the move respells the annotation's `about` name
+along with every other reference to the moved declaration, so the node redraws
+under its new owner at the place it was released — the owner's box grows around
+it if need be — and one <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes both. The extension
+refuses the drop itself when the rendering it holds no longer offers the target,
+and every refusal the server answers — a name clash in the destination, a cycle, a
+declaration another file refers to — is posted back to the panel as a `revert`:
+the canvas redraws the model's layout, the status line carries the server's
+message, and no source changed. A drop begun on a drawing the panel has since
+replaced is refused by the drawing's number, as for any edit, so its ids are never
+resolved against nodes they did not name. When the edit applies, nothing of the
+gesture survives: the document-change path re-renders and the node is wherever the
+model now declares it.
 
 ### Rendering surface
 
@@ -361,28 +534,60 @@ save are the text document's.
 
 - `edit`: goldens for a new annotation in a view body and inline, an update in
   place, a clearing that removes the body it filled, a route and a canvas, and each
-  typed refusal; the unannotated case stays byte-identical
-  (`internal/core/edit/layout_test.go`).
+  typed refusal; the unannotated case stays byte-identical; a view in another
+  document, an element in another document placed inline, a `Canvas` on a view
+  elsewhere, a clearing elsewhere, several documents in one request, the refusals
+  for an unheld and a library document, and the atomic refusal when the second
+  document's result is invalid (`internal/core/edit/layout_test.go`).
 - LSP: a render → `setLayout` → apply → re-render round trip that sees the new
   `x` and `y`, one versioned `TextDocumentEdit` on the document, and a refusal shape
-  (`internal/lsp/modeledit_test.go`).
+  (`internal/lsp/modeledit_test.go`); a view drawing another document's parts, whose
+  drag writes the view's document alone, a route by declaration range that writes the
+  other document at the version the server holds, a direct rendering that writes the
+  other document and not its own, a disk-only document written at no version, the
+  library refusal, and the atomic refusal when the other document would become
+  invalid (`internal/lsp/modeledit_cross_document_test.go`).
+- Extension: a node another document declares is placed by its qualified name, a
+  declaration range travels with the document it is one of, and the edit is applied
+  only while every document it names is open at the version it carries
+  (`src/edits.test.ts`).
 - Webview: the automatic layout pinned for a fixture, the model's geometry kept
   exactly, one placement per gesture, and the SVG's node groups, handles and
-  arrowheads (`src/webview/layout.test.ts`, `canvas.test.ts`).
+  arrowheads (`src/webview/layout.test.ts`, `canvas.test.ts`); the node under a
+  point, innermost and latest-drawn, with the dragged subtree and hidden nodes
+  passed over (`layout.test.ts`); a drop admitted for exactly the targets
+  **Move to…** lists, each refusal's reason, and the hint a pick-up shows
+  (`drop.test.ts`).
+- Extension: the drop's batch — placements first, then the move, nothing when the
+  target is not offered or a placement is undeclared — the request it becomes,
+  pinned to the rendering's version, and the refusal of a drop from a replaced
+  drawing whose ids now name other declarations (`src/edits.test.ts`).
 - GUI: drag a node, check the file gained the annotation, <kbd>Ctrl</kbd>+<kbd>Z</kbd>,
-  check it is gone, redraw and check the position held.
+  check it is gone, redraw and check the position held. <kbd>Shift</kbd>-drop a part
+  on another definition, check the declaration moved in the file and the diagram
+  redrew it under the new owner, <kbd>Ctrl</kbd>+<kbd>Z</kbd>, check both are back;
+  <kbd>Shift</kbd>-drop on a node that does not admit it and check the file is
+  untouched.
 
 ## Known limitations, stated rather than hidden
 
 - The `geometry` view kind is not rendered by `internal/core/view` and no tier here
   adds it; the panel reports it as unsupported.
 - Multi-document models render per document. A view exposing elements from another
-  open file draws them, and dragging one writes into the view's body in the
-  panel's document; a document drawn directly places only what it declares, and
-  writing an annotation into another document is out of scope. Rename and delete
-  follow references into the workspace's other documents; a reference from a
-  bundled library file, or from a document the index holds without the workspace
-  holding its source, still refuses the edit.
+  file draws them and places them in its own body; a document drawn directly places
+  what it draws from another file inline, in that file; a view declared in another
+  file is placed in that file. Rename, delete and the layout operations follow
+  their targets into the workspace's other documents; a reference from, or an
+  annotation into, a bundled library file or a document the index holds without
+  the workspace holding its source still refuses the edit, naming the file.
+- A node drawn from a bundled library, or from no workspace document, carries no
+  `fqn` and no `declaration`, so the panel does not offer to drag it. A node another
+  workspace document declares carries its `fqn` but not `declaredHere`, so the panel
+  drags it and offers it nothing else: a rename, delete, move or member added is
+  written by the document declaring the node, from a panel of that document. Both
+  hold only between a client and a server advertising `openSysmlCrossDocumentLayout`;
+  across a version gap each side falls back to naming, or reading, the requested
+  document's declarations alone.
 - Only the requesting document's version travels in the request, so only it can be
   answered `stale` by the server; another document that changed between the server
   computing the edit and the client applying it is caught by the client comparing
@@ -390,8 +595,9 @@ save are the text document's.
 - The layout annotations are this project's library. SysML v2 §10.2 leaves how a
   view is drawn to the tool, so nothing here claims to be a normative diagram
   interchange, and no attempt is made to read or write another tool's layout.
-- Re-parenting by drag is not built; a part is moved from the node menu's
-  **Move to…** or by editing the text.
+- A drop re-parents within the requesting document only, as **Move to…** does: a
+  node drawn from another file is neither dragged nor a drop target, and a
+  declaration another file refers to is refused by the server.
 - The palette writes the notation OpenSysML's writer emits, which is
   spec-conformant but not necessarily byte-identical to what a user would have
   typed. `format` makes it consistent with the file; it does not make it a

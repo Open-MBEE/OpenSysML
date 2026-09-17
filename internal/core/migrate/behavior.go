@@ -271,7 +271,7 @@ func (m *migration) qualifySelf(text string, refs []reference, scope *xmi.Elemen
 	visible, _ := m.visibleFrom(scope)
 	var starts []int
 	for _, r := range refs {
-		if r.global || len(r.steps) == 0 {
+		if r.global || r.local != "" || len(r.steps) == 0 {
 			continue
 		}
 		f := visible[r.steps[0].name]

@@ -100,22 +100,22 @@ func TestClassifyExtensions(t *testing.T) {
 	}
 }
 
-func TestClassifyTerminateOutranksExtensions(t *testing.T) {
-	c := classifyFixture(t, "", `
-          <subvertex xmi:type="uml:Pseudostate" xmi:id="xC" name="Choice1" kind="choice"/>
+// A terminate pseudostate is standard notation (a terminate action usage a
+// transition ends at): it is neither recorded nor deciding.
+func TestClassifyTerminateIsStandard(t *testing.T) {
+	terminate := `
           <subvertex xmi:type="uml:Pseudostate" xmi:id="xTm" name="Terminate1" kind="terminate"/>
           <transition xmi:type="uml:Transition" xmi:id="xT3" source="xS1" target="xTm">
             <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
-          </transition>`)
-	if c.Class != TerminateGap || c.Reason() != "terminate Terminate1" {
-		t.Errorf("classified %s (%s)", c.Class, c.Reason())
+          </transition>`
+	c := classifyFixture(t, "", terminate)
+	if c.Class != Standard || len(c.Uses) != 0 {
+		t.Errorf("classified %s (%s) with uses %v", c.Class, c.Reason(), c.Uses)
 	}
-	if c.Class.Expressible() {
-		t.Error("terminate gap is expressible")
-	}
-	// The extension is still recorded, after the deciding use.
-	if len(c.Uses) != 2 || c.Uses[0].Construct != ConstructTerminate || c.Uses[1].Construct != ConstructChoice {
-		t.Errorf("uses = %v", c.Uses)
+	c = classifyFixture(t, "", terminate+`
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="xC" name="Choice1" kind="choice"/>`)
+	if c.Class != Extension || len(c.Uses) != 1 || c.Uses[0].Construct != ConstructChoice {
+		t.Errorf("classified %s (%s) with uses %v", c.Class, c.Reason(), c.Uses)
 	}
 }
 
@@ -138,7 +138,7 @@ func TestClassifyNoSpellingOutranksAll(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Every case also uses terminate and a choice, which must not win.
+			// Every case also uses a choice (an extension) and a terminate, which must not win.
 			body := tc.body + `
           <subvertex xmi:type="uml:Pseudostate" xmi:id="xCh" name="Choice1" kind="choice"/>
           <subvertex xmi:type="uml:Pseudostate" xmi:id="xTm" name="Terminate1" kind="terminate"/>`

@@ -54,9 +54,20 @@ func (e *performances) beginStepWrites(step int) func() {
 	ledger := &stepWriteLedger{step: step, writes: make(map[writeDest]*destWrites)}
 	e.ctx.stepWrites = ledger
 	return func() {
-		ledger.noteChoices(e.ctx)
+		ledger.noteChoices(e)
 		e.ctx.stepWrites = saved
 	}
+}
+
+// noteChoice keeps a choice point these performances drew, as made by their
+// object and behavior.
+func (e *performances) noteChoice(c ChoicePoint) {
+	e.ctx.noteFrom(c, e.self, e.behavior)
+}
+
+// noteGuard keeps a guard these performances could not evaluate, as noteChoice does.
+func (e *performances) noteGuard(g UnevaluableGuard) {
+	e.ctx.noteFrom(g, e.self, e.behavior)
 }
 
 // beginTokenStep marks the token whose step is running, returning what to
@@ -119,7 +130,7 @@ func (ctx *Context) noteWrite(dest writeDest, label string, value Value, file st
 
 // noteChoices records each destination two or more tokens wrote within the step
 // as a choice point, whatever they wrote: another order lets another write stand.
-func (l *stepWriteLedger) noteChoices(ctx *Context) {
+func (l *stepWriteLedger) noteChoices(e *performances) {
 	for _, dest := range l.order {
 		d := l.writes[dest]
 		if len(d.last) < 2 {
@@ -135,7 +146,7 @@ func (l *stepWriteLedger) noteChoices(ctx *Context) {
 				taken = i
 			}
 		}
-		ctx.noteChoice(ChoicePoint{
+		e.noteChoice(ChoicePoint{
 			Kind:         ChoiceWriteOrder,
 			Step:         l.step,
 			Alternatives: alts,
@@ -272,7 +283,7 @@ func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder, schedule *tok
 			}
 		}
 	}
-	e.ctx.noteChoice(ChoicePoint{
+	e.noteChoice(ChoicePoint{
 		Kind:         ChoiceTokenOrder,
 		Step:         step,
 		Alternatives: alts,
@@ -346,7 +357,7 @@ func (e *ActionExecutor) branchWeights(ec *EvalContext, node *ast.DecisionNode, 
 // noteUnevaluableGuard records the guard of the succession at position pos out of
 // a decision node, probed once the branch was decided, as one with no result.
 func (e *ActionExecutor) noteUnevaluableGuard(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, pos int, err error) {
-	e.ctx.noteUnevaluableGuard(UnevaluableGuard{
+	e.noteGuard(UnevaluableGuard{
 		Step:        e.stepCount + 1,
 		Where:       DecisionPlace(node),
 		Alternative: branchName(successors, pos),

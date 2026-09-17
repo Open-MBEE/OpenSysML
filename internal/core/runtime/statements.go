@@ -128,18 +128,14 @@ func (env *stmtEnv) assign(name string, value Value) bool {
 	return false
 }
 
-// stmtFlow is how a statement list ended: at its last statement, at a `return` that
-// unwinds to the host, or at a `terminate` that unwinds to the performance it ended.
+// stmtFlow is how a statement list ended: at its last statement, or at a
+// `return` that unwinds every block entered up to the host.
 type stmtFlow int
 
 const (
 	flowNext stmtFlow = iota
 	flowReturn
-	flowTerminate
 )
-
-// unwinds reports a flow that leaves the statements after it unrun.
-func (f stmtFlow) unwinds() bool { return f != flowNext }
 
 // stmtHost is the behavior a statement engine runs statements for: it names
 // itself in diagnostics and decides the statements only it can state — sends,
@@ -163,11 +159,8 @@ type stmtHost interface {
 	declaredOutput(name string) bool
 	// acceptReturn takes the value a `return` yields.
 	acceptReturn(value Value, s lower.Return) error
-	// effect states an effect on the world outside the body, over env's values.
-	effect(env *stmtEnv, s lower.Effect) error
-	// terminate ends the performance a `terminate` names, unwinding the body
-	// (flowTerminate) where that performance is one the body runs in.
-	terminate(s lower.Effect) (stmtFlow, error)
+	// effect states an effect on the world outside the body, over engine's values.
+	effect(engine *stmtEngine, s lower.Effect) error
 	// performNode runs a nested action a block's flow declares, node of graph,
 	// as a performance of its own with engine's block-locals in reach.
 	performNode(engine *stmtEngine, graph *lower.ActionGraph, node *ast.Usage) (stmtFlow, error)
@@ -302,7 +295,8 @@ func (f *stmtListFrame) abandon(*Context) { f.run.elements = f.elements }
 func (f *stmtListFrame) clone() bodyFrame { c := *f; return &c }
 
 // run executes statements in declaration order, stopping at a `return`; a body
-// pausing in one is re-entered at that statement.
+// pausing in one is re-entered at that statement, one yielding between two at
+// the next.
 func (e *stmtEngine) run(stmts []lower.Statement) (stmtFlow, error) {
 	f, resumed, err := popFrame[*stmtListFrame](e.ctx)
 	if err != nil {
@@ -311,12 +305,17 @@ func (e *stmtEngine) run(stmts []lower.Statement) (stmtFlow, error) {
 	if !resumed {
 		f = &stmtListFrame{}
 	}
+	resumed = resumed && !e.ctx.yieldedHere()
 	for ; f.i < len(stmts); f.i++ {
+		if err := e.ctx.yieldBody(); err != nil {
+			return flowNext, e.ctx.pausing(f, err)
+		}
 		flow, err := e.statement(stmts[f.i], f, resumed)
 		resumed = false
-		if err != nil || flow.unwinds() {
+		if err != nil || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
 		}
+		e.ctx.bodyPerformed()
 	}
 	return flowNext, nil
 }
@@ -416,10 +415,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		}
 		return e.block(s)
 	case lower.Effect:
-		if s.Kind == lower.EffectTerminate {
-			return e.host.terminate(s)
-		}
-		return flowNext, e.host.effect(e.env, s)
+		return flowNext, e.host.effect(e, s)
 	case lower.Unsupported:
 		return flowNext, fmt.Errorf("%w: %s: %s in a body is not executable", ErrStatementNotExecutable, e.host.describe(), s.Description)
 	default:
@@ -551,7 +547,8 @@ func (f *flowNodeFrame) clone() bodyFrame { c := *f; return &c }
 
 // blockFlow runs a block that is a token flow of its own (lower/block_graph.go):
 // a token starts at the block's initial node and passes along the successions the
-// block states, running each node it reaches until one succeeds to none.
+// block states, running each node it reaches until one succeeds to none; a body
+// run one statement at a time yields between two nodes.
 func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 	graph := block.Graph
 	f, resumed, err := popFrame[*flowNodeFrame](e.ctx)
@@ -561,7 +558,11 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 	if !resumed {
 		f = &flowNodeFrame{node: graph.Initial}
 	}
+	resumed = resumed && !e.ctx.yieldedHere()
 	for f.node != nil {
+		if err := e.ctx.yieldBody(); err != nil {
+			return flowNext, e.ctx.pausing(f, err)
+		}
 		// A node reached spends a step, so a flow that does not end fails the run.
 		if !resumed {
 			if err := e.ctx.incrementStep(); err != nil {
@@ -570,9 +571,10 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 		}
 		flow, err := e.blockNode(graph, f.node, resumed)
 		resumed = false
-		if err != nil || flow.unwinds() {
+		if err != nil || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
 		}
+		e.ctx.bodyPerformed()
 		successors := graph.Edges[f.node]
 		if len(successors) == 0 {
 			return flowNext, nil
@@ -687,7 +689,8 @@ func (e *stmtEngine) endIteration(f *loopFrame, err error) {
 
 // loop runs a loop to termination or to the `return` its body reaches. Every
 // iteration spends one step of the budget, so a non-terminating loop fails with
-// ErrStepLimitExceeded instead of hanging its caller.
+// ErrStepLimitExceeded instead of hanging its caller. A body run one statement
+// at a time yields between two iterations as between two statements of one.
 func (e *stmtEngine) loop(stmt lower.Loop) (stmtFlow, error) {
 	if stmt.Kind == ast.LoopFor {
 		return e.forLoop(stmt)
@@ -699,10 +702,14 @@ func (e *stmtEngine) loop(stmt lower.Loop) (stmtFlow, error) {
 	if !resumed {
 		f = &loopFrame{}
 	}
+	resumed = resumed && !e.ctx.yieldedHere()
 	leave := e.enterLoop(f)
 	defer leave()
 
 	for {
+		if err := e.ctx.yieldBody(); err != nil {
+			return flowNext, e.ctx.pausing(f, err)
+		}
 		if !resumed {
 			if err := e.ctx.incrementStep(); err != nil {
 				return flowNext, err
@@ -710,9 +717,10 @@ func (e *stmtEngine) loop(stmt lower.Loop) (stmtFlow, error) {
 		}
 		flow, done, err := e.iteration(stmt, f, resumed)
 		resumed = false
-		if err != nil || done || flow.unwinds() {
+		if err != nil || done || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
 		}
+		e.ctx.bodyPerformed()
 	}
 }
 
@@ -735,7 +743,7 @@ func (e *stmtEngine) iteration(stmt lower.Loop, f *loopFrame, resumed bool) (flo
 		clear(f.locals)
 	}
 	flow, err = e.runBlock(stmt.Body)
-	if err != nil || flow.unwinds() {
+	if err != nil || flow == flowReturn {
 		return flow, true, err
 	}
 
@@ -777,11 +785,18 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 			return flowNext, fmt.Errorf("%s: %w", e.host.describe(), err)
 		}
 		f = &loopFrame{elements: elements}
+		if len(elements) == 0 {
+			e.ctx.bodyPerformed()
+		}
 	}
+	resumed = resumed && !e.ctx.yieldedHere()
 	leave := e.enterLoop(f)
 	defer leave()
 
 	for f.iteration < len(f.elements) || resumed {
+		if err := e.ctx.yieldBody(); err != nil {
+			return flowNext, e.ctx.pausing(f, err)
+		}
 		if !resumed {
 			if err := e.ctx.incrementStep(); err != nil {
 				return flowNext, err
@@ -789,9 +804,10 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 		}
 		flow, err := e.forIteration(stmt, f, resumed)
 		resumed = false
-		if err != nil || flow.unwinds() {
+		if err != nil || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
 		}
+		e.ctx.bodyPerformed()
 	}
 	return flowNext, nil
 }
