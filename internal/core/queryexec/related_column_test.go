@@ -333,3 +333,51 @@ func TestExecuteRelatedColumnTraversesFromAnObjectsDeclaration(t *testing.T) {
 	// The object stands for the telescope usage, which satisfies the mass requirement.
 	assertColumn(t, cellsByColumn(t, result), "related", [][]string{{"massRequirement"}})
 }
+
+const eventRelatedQueries = `
+calc def SenderTypes :> Query {
+	Project(
+		source = Events(kind = "send"),
+		properties = ("path", "event"),
+		columns = (RelatedColumn(name = "types", relationshipKind = "typing", direction = "outgoing", maxDepth = 1))
+	)
+}
+calc def MoverTypes :> Query {
+	Project(
+		source = Events(kind = "transition"),
+		properties = ("path"),
+		columns = (RelatedColumn(name = "usages", relationshipKind = "typing", direction = "incoming", maxDepth = 1))
+	)
+}
+`
+
+// An event row traverses from the behavior it came from; a message posted from
+// outside the run came from none, and the column refuses it with a typed error.
+func TestExecuteRelatedColumnRefusesARowNoElementDeclares(t *testing.T) {
+	fixture := loadLampFixture(t, eventRelatedQueries)
+
+	_, err := fixture.run(t, fixture.session(), "SenderTypes", nil)
+	execution := executionError(t, err, ErrorUndeclaredRow)
+	if execution.Property != "types" || execution.Operation != "related-column" || !execution.Origin.Located() {
+		t.Fatalf("error = %#v, want column types of related-column with provenance", execution)
+	}
+	want := `query Observatory::SenderTypes operation related-column column types traverses from send Toggle, which no element declares`
+	if execution.Error() != want {
+		t.Fatalf("message = %q, want %q", execution.Error(), want)
+	}
+
+	// A transition row comes from the lamp's machine, whose one usage is `lp`.
+	result, err := fixture.run(t, fixture.session(), "MoverTypes", nil)
+	if err != nil {
+		t.Fatalf("execute MoverTypes: %v", err)
+	}
+	rows := result.Rows()
+	if len(rows) == 0 {
+		t.Fatal("transition rows: got none")
+	}
+	for i, row := range rows {
+		if got := cellNames(t, row.Cells()[1]); len(got) != 1 || got[0] != "Lamp::lp" {
+			t.Fatalf("row %d usages = %v, want [Lamp::lp]", i, got)
+		}
+	}
+}

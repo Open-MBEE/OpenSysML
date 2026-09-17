@@ -50,8 +50,18 @@ func (e *executor) relatedColumnOf(plan queryplan.Expression) (*relatedColumn, e
 // whether it is non-empty.
 func (e *executor) evaluateRelatedCell(column computedColumn, row Value) ([]Value, error) {
 	related := column.related
-	roots := []*symbols.Symbol{row.Declaration()}
-	values, err := e.traverseRelated(related.plan, related.kind, related.direction, related.maxDepth, roots)
+	root := row.Declaration()
+	if root == nil {
+		return nil, &Error{
+			Kind:      ErrorUndeclaredRow,
+			Query:     e.definition.Name(),
+			Operation: related.plan.Operation(),
+			Property:  column.name,
+			Target:    rowTarget(row),
+			Origin:    related.plan.Origin(),
+		}
+	}
+	values, err := e.traverseRelated(related.plan, related.kind, related.direction, related.maxDepth, []*symbols.Symbol{root})
 	if err != nil {
 		return nil, columnScoped(err, column.name)
 	}

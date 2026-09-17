@@ -66,6 +66,8 @@ const (
 	ErrorInvalidInterval ErrorKind = "invalid-interval"
 	// ErrorTraceTruncated: Events reaches back to records the session's bounded trace has dropped.
 	ErrorTraceTruncated ErrorKind = "trace-truncated"
+	// ErrorUndeclaredRow: a RelatedColumn was to traverse from a row no element declares.
+	ErrorUndeclaredRow ErrorKind = "undeclared-row"
 )
 
 // Error is a typed query-execution failure with plan provenance.
@@ -161,6 +163,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s operation %s applies to model elements, not to state %s", e.Query, e.Operation, e.Target)
 	case ErrorEventRow:
 		return fmt.Sprintf("query %s operation %s applies to model elements, not to event %s", e.Query, e.Operation, e.Target)
+	case ErrorUndeclaredRow:
+		return fmt.Sprintf("query %s operation %s%s traverses from %s, which no element declares", e.Query, e.Operation, e.column(), e.Target)
 	case ErrorNotHeld:
 		return fmt.Sprintf("query %s operation %s reads the objects of %s, and the session holds none", e.Query, e.Operation, e.Target)
 	case ErrorNoStateMachine:
