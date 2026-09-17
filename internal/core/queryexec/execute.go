@@ -297,6 +297,24 @@ func (e *executor) valueConforms(value Value, expected string) bool {
 			return false
 		}
 		return e.valueConforms(ElementValue(verdict.Assertion()), expected)
+	case ValueState:
+		state, ok := value.State()
+		if !ok {
+			return false
+		}
+		if state.symbol != nil {
+			return e.valueConforms(ElementValue(state.symbol), expected)
+		}
+		return expected == "Element" || expected == "KerML::Root::Element"
+	case ValueEvent:
+		event, ok := value.Event()
+		if !ok {
+			return false
+		}
+		if behavior := event.Behavior(); behavior != nil {
+			return e.valueConforms(ElementValue(behavior), expected)
+		}
+		return expected == "Element" || expected == "KerML::Root::Element"
 	case ValueQuantity:
 		quantity, ok := value.Quantity()
 		if !ok {
@@ -316,6 +334,11 @@ func (e *executor) valueConforms(value Value, expected string) bool {
 		for _, target := range e.context.Index.LookupQualified(expected) {
 			expectedType := e.context.Model.PrimTypeOf(target)
 			if expectedType != semantics.PrimUnknown && semantics.PrimConforms(actual, expectedType) {
+				return true
+			}
+			// A type above the scalar lattice (ScalarValue, DataValue) is judged
+			// by the scalar's library definition.
+			if expectedType == semantics.PrimUnknown && e.context.Model.Conforms(e.context.Model.ScalarSymbol(actual), target) {
 				return true
 			}
 		}
@@ -384,6 +407,12 @@ func (e *executor) evaluate(expression queryplan.Expression) (sequence, error) {
 		return e.evaluateExcept(expression)
 	case queryplan.OperationUnion:
 		return e.evaluateUnion(expression)
+	case queryplan.OperationStates:
+		return e.evaluateStates(expression)
+	case queryplan.OperationInState:
+		return e.evaluateInState(expression)
+	case queryplan.OperationEvents:
+		return e.evaluateEvents(expression)
 	default:
 		return sequence{}, &Error{
 			Kind:      ErrorUnsupportedOperation,
@@ -509,6 +538,12 @@ func (e *executor) evaluateLiteral(expression queryplan.Expression) (sequence, e
 		value = BooleanValue(boolean)
 	case queryplan.LiteralInfinity:
 		value = Value{kind: ValueInfinity}
+	case queryplan.LiteralQuantity:
+		quantity, ok := expression.Quantity()
+		if !ok {
+			return sequence{}, e.invalidArgument(expression, "", raw)
+		}
+		value = QuantityValue(quantity)
 	case queryplan.LiteralNull:
 		return sequence{}, nil
 	default:
@@ -572,13 +607,19 @@ func (e *executor) rowArgument(expression queryplan.Expression, name string) (se
 		if _, ok := item.Verdict(); ok {
 			continue
 		}
+		if _, ok := item.State(); ok {
+			continue
+		}
+		if _, ok := item.Event(); ok {
+			continue
+		}
 		return sequence{}, e.invalidArgument(expression, name, string(item.Kind()))
 	}
 	return value, nil
 }
 
 // ownershipArgument is rowArgument for an operation walking ownership, which
-// elements and objects have and a verdict row does not.
+// elements and objects have and a verdict, state or event row does not.
 func (e *executor) ownershipArgument(expression queryplan.Expression, name string) (sequence, error) {
 	value, err := e.rowArgument(expression, name)
 	if err != nil {
@@ -588,12 +629,15 @@ func (e *executor) ownershipArgument(expression queryplan.Expression, name strin
 		if verdict, ok := item.Verdict(); ok {
 			return sequence{}, e.verdictRowError(expression, name, verdict)
 		}
+		if err := e.runtimeRowError(expression, name, item); err != nil {
+			return sequence{}, err
+		}
 	}
 	return value, nil
 }
 
 // elementArgument is rowArgument for an operation defined over the model
-// alone, which an object or verdict row cannot pass through.
+// alone, which an object, verdict, state or event row cannot pass through.
 func (e *executor) elementArgument(expression queryplan.Expression, name string) (sequence, error) {
 	value, err := e.rowArgument(expression, name)
 	if err != nil {
@@ -613,8 +657,22 @@ func (e *executor) elementArgument(expression queryplan.Expression, name string)
 		if verdict, ok := item.Verdict(); ok {
 			return sequence{}, e.verdictRowError(expression, name, verdict)
 		}
+		if err := e.runtimeRowError(expression, name, item); err != nil {
+			return sequence{}, err
+		}
 	}
 	return value, nil
+}
+
+// runtimeRowError refuses a state or event row where an operation takes neither.
+func (e *executor) runtimeRowError(expression queryplan.Expression, name string, item Value) error {
+	if state, ok := item.State(); ok {
+		return e.rowKindError(expression, name, ErrorStateRow, state.Label())
+	}
+	if event, ok := item.Event(); ok {
+		return e.rowKindError(expression, name, ErrorEventRow, event.Label())
+	}
+	return nil
 }
 
 func (e *executor) verdictRowError(expression queryplan.Expression, name string, verdict Verdict) error {
@@ -739,6 +797,10 @@ func (e *executor) validateResult(result sequence) error {
 				actual = "object " + label
 			} else if verdict, ok := value.Verdict(); ok {
 				actual = "verdict " + verdict.Label()
+			} else if state, ok := value.State(); ok {
+				actual = "state " + state.Label()
+			} else if event, ok := value.Event(); ok {
+				actual = "event " + event.Label()
 			}
 			return &Error{
 				Kind:     ErrorResultType,

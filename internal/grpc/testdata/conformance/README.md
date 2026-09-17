@@ -56,8 +56,10 @@ A document value (`RunDocumentQuery`) is `{"kind": <oneof field of pb.DocumentVa
 `string_value` are their literals. Answered, `element_id` renders as `"<fqn> (<element_type>)"`,
 `object` as `"<path> (#<id>) : <usage fqn> (<element_type>)"` — the path the object is reached by
 from the binding (`#1.wheels[2]` bound by id, `Garage::car.wheels[2]` bound by name), its id, and
-the usage it stands for — `verdict` as `"<text> on <path>: <verdict>"`, `quantity` as below,
-`infinity` asserts the arm only, and the scalar arms compare their literals.
+the usage it stands for — `verdict` as `"<text> on <path>: <verdict>"`, `state` as
+`"<object path>.<machine> in <state path> (<region>)"`, `event` as `"<kind> at <time>: <text>"`
+with the time in the spelling of its own arm, `quantity` as below, `infinity` asserts the arm
+only, and the scalar arms compare their literals.
 
 A `quantity`'s literal is the string `"<magnitude> [<unit as written>] = <reduction>"`, for
 example `"5.4 [SI::km/SI::h] = 5/18·SI::metre·SI::second^-1"`: the magnitude in the unit it

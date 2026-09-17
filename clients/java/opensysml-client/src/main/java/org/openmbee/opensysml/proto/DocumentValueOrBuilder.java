@@ -183,6 +183,60 @@ public interface DocumentValueOrBuilder extends
 
   /**
    * <pre>
+   * a row States answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentState state = 11 [json_name = "state"];</code>
+   * @return Whether the state field is set.
+   */
+  boolean hasState();
+  /**
+   * <pre>
+   * a row States answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentState state = 11 [json_name = "state"];</code>
+   * @return The state.
+   */
+  org.openmbee.opensysml.proto.DocumentState getState();
+  /**
+   * <pre>
+   * a row States answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentState state = 11 [json_name = "state"];</code>
+   */
+  org.openmbee.opensysml.proto.DocumentStateOrBuilder getStateOrBuilder();
+
+  /**
+   * <pre>
+   * a row Events answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentEvent event = 12 [json_name = "event"];</code>
+   * @return Whether the event field is set.
+   */
+  boolean hasEvent();
+  /**
+   * <pre>
+   * a row Events answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentEvent event = 12 [json_name = "event"];</code>
+   * @return The event.
+   */
+  org.openmbee.opensysml.proto.DocumentEvent getEvent();
+  /**
+   * <pre>
+   * a row Events answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentEvent event = 12 [json_name = "event"];</code>
+   */
+  org.openmbee.opensysml.proto.DocumentEventOrBuilder getEventOrBuilder();
+
+  /**
+   * <pre>
    * Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
    * </pre>
    *

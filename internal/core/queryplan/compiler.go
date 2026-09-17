@@ -29,6 +29,9 @@ var builtins = map[string]builtin{
 	"DocumentQueries::Ancestors":       {OperationAncestors},
 	"DocumentQueries::Objects":         {OperationObjects},
 	"DocumentQueries::Verdicts":        {OperationVerdicts},
+	"DocumentQueries::States":          {OperationStates},
+	"DocumentQueries::InState":         {OperationInState},
+	"DocumentQueries::Events":          {OperationEvents},
 	"DocumentQueries::RelatedElements": {OperationRelatedElements},
 	"DocumentQueries::WhereType":       {OperationWhereType},
 	"DocumentQueries::WhereMetadata":   {OperationWhereMetadata},
@@ -627,6 +630,15 @@ func (c *compiler) compileExpression(
 		result := c.literalExpression(owner, node, LiteralNull, "null", "")
 		result.multiplicity = Multiplicity{Known: true}
 		return result, nil
+	case *ast.IndexExpr:
+		if expression.Bracket {
+			return c.quantityExpression(query, owner, expression)
+		}
+		return typedExpression{}, &Error{
+			Kind:   ErrorUnsupportedExpression,
+			Query:  symbols.FQNOf(query),
+			Origin: provenance.Node(owner.DocName, node),
+		}
 	default:
 		return typedExpression{}, &Error{
 			Kind:   ErrorUnsupportedExpression,
@@ -1017,6 +1029,33 @@ func (c *compiler) literalExpression(
 	}
 }
 
+// quantityExpression folds `magnitude [unit]` in the owner's scope; the value
+// has no static type, so its use is checked where it is consumed.
+func (c *compiler) quantityExpression(
+	query *symbols.Symbol,
+	owner *symbols.Symbol,
+	node *ast.IndexExpr,
+) (typedExpression, error) {
+	quantity, ok := c.model.EvalQuantity(owner.Scope, node)
+	if !ok {
+		return typedExpression{}, &Error{
+			Kind:   ErrorUnsupportedExpression,
+			Query:  symbols.FQNOf(query),
+			Origin: provenance.Node(owner.DocName, node),
+		}
+	}
+	return typedExpression{
+		expression: Expression{
+			operation: OperationLiteral,
+			literal:   LiteralQuantity,
+			value:     quantity.String(),
+			quantity:  &quantity,
+			origin:    provenance.Node(owner.DocName, node),
+		},
+		multiplicity: Multiplicity{Lower: 1, Upper: 1, Known: true},
+	}, nil
+}
+
 func (c *compiler) validateArgument(
 	query *symbols.Symbol,
 	target string,
@@ -1076,9 +1115,8 @@ func (c *compiler) argumentTypesConform(actual []*symbols.Symbol, expected *symb
 			continue
 		}
 		got, want := c.model.PrimTypeOf(candidate), c.model.PrimTypeOf(expected)
-		if got != semantics.PrimUnknown || want != semantics.PrimUnknown {
-			if got != semantics.PrimUnknown && want != semantics.PrimUnknown &&
-				semantics.PrimConforms(got, want) {
+		if got != semantics.PrimUnknown && want != semantics.PrimUnknown {
+			if semantics.PrimConforms(got, want) {
 				continue
 			}
 			return false
