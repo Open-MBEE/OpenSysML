@@ -1730,17 +1730,22 @@ solver's `solve`. Two of the four reach the runtime: `Evaluate`/`-eval`/`%eval i
 — and the document query since #267 and #293 on `develop`, whose rows may be the objects
 `%instantiate`, `-instantiate` and the service's `Instantiate` create, whose operations read what
 they hold now, and whose parameters bind to a held object from the REPL, the CLI and gRPC alike.
-The API `Query` and `solve` read the *model* alone, no surface reaches the trace `-trace` prints,
-and the documentation does not yet say which surface answers which question. That is the rest of
-the track.
+The API `Query` and `solve` read the *model* alone, and no surface reaches the trace `-trace`
+prints. That is the rest of the track.
 
-## Q1 — say which query is which
+## Q1 — say which query is which (done)
 
 One page distinguishing the four: document queries over elements, the API `Query` over a project,
 `Evaluate` over one expression in one scope, and `solve` over constraints; what each returns, what
-each cannot see, and where runtime queries (Q2–Q4) sit. Cheap, and it stops each later item from
-re-explaining the boundary. Unblocked — #293 completed the set the page describes — and not
-started.
+each cannot see, and where runtime queries (Q2–Q4) sit. **Done**: the document-generation manual's
+[Which query is which](../manual/introduction.md#which-query-is-which) is that page — one row per
+surface with what it reads, what it returns and what it cannot see, then the question each
+answers — and the manual's [interfaces](../manual/interfaces.md) and [outputs](../manual/outputs.md)
+chapters carry the runtime side of the document query: a parameter bound to a held object by name,
+`#id` or path from the CLI, the REPL and the Python client (`ObjectRef`), `-instantiate` beside
+`-render-document`, `Verdicts` rows (`DocumentVerdict` in the Python client) and the `data-object`,
+`data-verdict` and `data-path` attributes the HTML carries. Each later item points at that page
+rather than re-explaining the boundary.
 
 ## Q2 — a runtime population: `all T`, and predicates over instances (landed; the query side unreleased)
 
@@ -2650,8 +2655,8 @@ Tracks F, S, L and A are closed.
 - **Track E** — eligible and first: E2, then E4 (E1 landed), then E6 on request, E3/E5 behind
   their design records, E7 behind its object-model item, E8 behind a model that needs it. The
   PSSM referee's `fail` tests are the state side's measurement; #322 is open.
-- **Track Q** — Q1, unblocked now that #293 closed Q2; Q3, unblocked by A5 and by Q2's object
-  rows, not started.
+- **Track Q** — Q3, unblocked by A5 and by Q2's object rows, not started; Q1 is written and Q2
+  and Q4 are done.
 - **Track X** — X7's RDF literal form and native layout for sets and tensors; X8's two harness
   halves (pilot-differential numeric normalization with an adjudication file, and a standalone
   RDF expression-tree round trip).
@@ -2677,9 +2682,10 @@ The release housekeeping the previous order opened with is done — #286 folded 
    policy. The state-executor fixes since the tag (#295, #297, #311, #313–#315, #317, #318) moved
    the PSSM referee to 45 `pass` and touched none of E1–E7; E1 gave E2 and E4 the notion of
    ending an ongoing performance they build on.
-2. **Q1, then Q3** — Q1 is the page that says which query is which, written now that the set is
-   complete (#267, #289 and #293 closed Q2 on `develop`); Q3 (state and event queries) follows on
-   A5's clock and Q2's object rows. Q4 (#849) landed independently ahead of it.
+2. **Q3** — state and event queries, on A5's clock and Q2's object rows. Q1, the page that says
+   which query is which, is written in the document-generation manual now that the set is
+   complete (#267, #289 and #293 closed Q2 on `develop`); Q4 (#849) landed independently ahead
+   of it.
 3. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
    C client, each derived from the wire contract (I1, landed in #848); the C *ABI* half of I4 is
    not here — it is step 7.
@@ -2756,7 +2762,7 @@ that exercise them. The decision is the release checklist's, recorded there.
   on `develop` after the tag, A7's carrier walk shared with Q2's query side (#267). Nothing
   remains in the track.
 - **Track Q.** Q4 is done; Q2's expression half landed with X5 and its query side in #267, #289
-  and #293 on `develop` after the tag, which closes Q2; Q1 and then Q3 are step 2 above.
+  and #293 on `develop` after the tag, which closes Q2; Q1 is written; Q3 is step 2 above.
 - **Track V.** Everything queued has landed (#822, #900, #831, #817, the rule pull requests, #811
   reconciled with #907, #909); work the census's 1 *not implemented* and 53 *unknown* rows,
   negative case first, each change moving its row.
