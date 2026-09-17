@@ -71,8 +71,9 @@ exploration as its runs (default 1000000)
 .TP
 .BI \-check\-timeout " value"
 With \-engine check, \-engine smt or \-engine all: the time the check's plan
-may run for, as 30s or 2m; a search it stops is reported incomplete with the
-states and depth reached, not as a verdict
+may run for, as 30s or 2m, and the time each of the smt engine's solver
+queries may take in place of OPENSYSML_SMT_TIMEOUT; a search it stops is
+reported incomplete with the states and depth reached, not as a verdict
 .TP
 .BI \-check\-unroll " value"
 With \-engine smt or \-engine all: the most iterations of one loop the smt
@@ -744,7 +745,8 @@ drive as their SMT solver, speaking SMT\-LIB2 on standard input
 .TP
 .B OPENSYSML_SMT_TIMEOUT
 How long one solver query may take, as a Go duration. Default 10s, after which
-the verdict is unknown.
+the verdict is unknown; a check's \-check\-timeout takes its place for the smt
+engine's queries.
 .TP
 .B OPENSYSML_SMT_CORE_BUDGET
 How long %explain may spend reducing an unsat core to a minimal one, as a Go

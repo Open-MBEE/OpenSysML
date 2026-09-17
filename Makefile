@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-lsp build-grpc windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust test coverage lint clean install help python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build build-sysml build-lsp build-grpc static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust test coverage lint clean install help python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -11,6 +11,10 @@ LDFLAGS := -X main.Version=$(VERSION) \
            -X main.Commit=$(COMMIT) \
            -X main.BuildTime=$(BUILD_TIME) \
            -X main.GoVersion=$(GO_VERSION)
+# Static binaries: a host-linked libc would pin a build to the builder's glibc.
+# Only Go's net resolver used cgo, so the pure-Go one serves instead.
+GO_BUILD := CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)"
+GO_INSTALL := CGO_ENABLED=0 go install -ldflags "$(LDFLAGS)"
 
 # Static-analysis tool versions, pinned so CI and local runs agree
 STATICCHECK_VERSION := 2025.1.1
@@ -77,22 +81,25 @@ build-sysml: ## Build sysml binary
 	@echo "Building sysml..."
 	@mkdir -p $(BIN_DIR)
 	$(call winres,sysml)
-	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/sysml ./cmd/sysml
+	$(GO_BUILD) -o $(BIN_DIR)/sysml ./cmd/sysml
 	@echo "✓ Built $(BIN_DIR)/sysml ($(VERSION))"
 
 build-lsp: ## Build sysml-lsp binary
 	@echo "Building sysml-lsp..."
 	@mkdir -p $(BIN_DIR)
 	$(call winres,sysml-lsp)
-	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/sysml-lsp ./cmd/sysml-lsp
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-lsp ./cmd/sysml-lsp
 	@echo "✓ Built $(BIN_DIR)/sysml-lsp ($(VERSION))"
 
 build-grpc: ## Build sysml-grpc binary
 	@echo "Building sysml-grpc..."
 	@mkdir -p $(BIN_DIR)
 	$(call winres,sysml-grpc)
-	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/sysml-grpc ./cmd/sysml-grpc
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-grpc ./cmd/sysml-grpc
 	@echo "✓ Built $(BIN_DIR)/sysml-grpc ($(VERSION))"
+
+static-check: ## Check the built Linux binaries are statically linked (BINARIES=path...)
+	scripts/check-static-binaries.sh $(or $(BINARIES),$(addprefix $(BIN_DIR)/,$(COMMANDS)))
 
 windows-versioninfo-check: ## Check a Windows binary's VERSIONINFO carries VERSION (EXE=path/to/file.exe)
 	@test -n "$(EXE)" || { echo "Error: set EXE=path/to/file.exe"; exit 1; }
@@ -200,9 +207,9 @@ clean: ## Remove build artifacts
 
 install: build ## Install binaries to $GOPATH/bin
 	@echo "Installing to $(shell go env GOPATH)/bin..."
-	go install -ldflags "$(LDFLAGS)" ./cmd/sysml
-	go install -ldflags "$(LDFLAGS)" ./cmd/sysml-lsp
-	go install -ldflags "$(LDFLAGS)" ./cmd/sysml-grpc
+	$(GO_INSTALL) ./cmd/sysml
+	$(GO_INSTALL) ./cmd/sysml-lsp
+	$(GO_INSTALL) ./cmd/sysml-grpc
 	@echo "✓ Installed"
 
 # What a distribution's package build calls: staged under DESTDIR, into the

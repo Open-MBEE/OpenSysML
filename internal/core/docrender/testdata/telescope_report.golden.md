@@ -95,6 +95,7 @@ config:
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
   subgraph n0 ["Observatory::imagingChain<br>«part»"]
+    direction LR
     n1["camera : Camera<br>«part»"]
     n2["recorder : Recorder<br>«part»"]
   end

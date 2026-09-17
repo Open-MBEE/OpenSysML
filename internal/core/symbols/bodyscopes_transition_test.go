@@ -7,8 +7,8 @@ import (
 )
 
 // A body expression written in a triggered transition's trailing body declares
-// its parameters beneath the trigger's scope, where the body's members were
-// built, so the resolver finds both the body's and the accept's parameter.
+// its parameters beneath the transition's scope, where the body's members and
+// the accept's parameter were built, so the resolver finds both.
 func TestTransitionBodyExpressionScopesNestInTriggerScope(t *testing.T) {
 	root := build(t, `package P {
 	private import ScalarValues::*;
@@ -32,16 +32,16 @@ func TestTransitionBodyExpressionScopesNestInTriggerScope(t *testing.T) {
 		t.Fatal("transition t not defined")
 	}
 	trigger := TriggerScope(server.Scope, trans.Decl.(*ast.TransitionMember))
-	if trigger == trans.Scope {
-		t.Fatal("the accept's parameter scope was not built")
+	if trigger != trans.Scope {
+		t.Fatalf("TriggerScope is %v, want the transition's own scope", trigger.Node())
 	}
 	if bodies[0].Parent() != trigger {
-		t.Errorf("body scope parent = %v, want the trigger's parameter scope", bodies[0].Parent().Node())
+		t.Errorf("body scope parent = %v, want the transition's scope", bodies[0].Parent().Node())
 	}
 	if _, ok := bodies[0].LookupLocal("i"); !ok {
 		t.Error("parameter i not defined in the body scope")
 	}
-	if _, ok := trigger.LookupLocal("origin"); !ok {
-		t.Error("the accept's parameter is not declared in the trigger scope")
+	if origin, ok := trigger.LookupLocal("origin"); !ok || origin.OwnerScope != trans.Scope {
+		t.Error("the accept's parameter is not a member of the transition")
 	}
 }
