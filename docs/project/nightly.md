@@ -32,7 +32,8 @@ described in the [install guide](../guide/01-install.md)) carries it.
   changes because a snapshot exists.
 - **Identified by its version.** Every binary reports `nightly-<yyyymmdd>-<commit>` from
   `--version`, with the commit and build time on the following lines, and the release title
-  carries the same string. Quote it when reporting a problem.
+  carries the same string; the VS Code extension shows it after its own version. Quote it
+  when reporting a problem.
 
 ## What it contains
 
@@ -45,6 +46,16 @@ The assets are the ones a stable release ships, laid out the same way (see
 - `sysml-<os>-<arch>.tar.gz` and `sysml-lsp-<os>-<arch>.tar.gz` — each binary on its own;
 - `sysml-grpc-<os>-<arch>` with a `.sha256` sidecar — the gRPC service, raw;
 - `SHA256SUMS.txt` over all of the above and its cosign bundle `SHA256SUMS.txt.bundle`.
+
+And one a stable release does not ship:
+
+- `opensysml-sysml.vsix` — the [VS Code extension](../guide/08-editors.md#vs-code) packaged
+  from the same commit (as `make vscode-package` does). The extension is side-loaded rather than
+  published to a marketplace, so the snapshot is where a build of it is picked up. Its
+  version is the extension manifest's with the snapshot version appended as the pre-release
+  part — `0.1.0-nightly-<yyyymmdd>-<commit>` — so VS Code tells one night's build from the
+  next, installs a later night over an earlier one without `--force`, and ranks any stable
+  `0.1.0` above them all. It is in `SHA256SUMS.txt` with the rest.
 
 Not in a snapshot: the Windows installer, the Authenticode-signed Windows binaries, the
 Homebrew formula, and the PyPI, npm, Maven and crates.io client packages. Those belong to the
@@ -67,6 +78,20 @@ tar xzf opensysml-linux-amd64.tar.gz
 
 Keep a snapshot beside your installed release rather than over it: the version string tells
 the two apart, and the release is the one to go back to when the snapshot breaks.
+
+The extension installs from its `.vsix` and finds the snapshot's `sysml-lsp` on your `PATH`
+or at the path `opensysml.server.path` names (a checkout's `bin/sysml-lsp` is found on its
+own, see [the editors guide](../guide/08-editors.md#vs-code)):
+
+```bash
+curl -fsSLO https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml-sysml.vsix
+sha256sum -c --ignore-missing SHA256SUMS.txt
+code --install-extension opensysml-sysml.vsix
+```
+
+VS Code installs a later night over an earlier one as an update. To go back to an earlier
+night, or from a snapshot to a stable build of the extension whose version is lower, add
+`--force`.
 
 The `opensysml` Python client does not download a snapshot on its own. It accepts a
 `sysml-grpc` only when its digest is pinned in the client or the release's checksum
@@ -106,7 +131,10 @@ the same commit — for instance after the workflow itself changed). It picks th
 described above, builds the assets with
 [`scripts/build-release-artifacts.sh`](../../scripts/build-release-artifacts.sh)
 — the same targets, platforms, layout and version check as the CircleCI `build-release`
-job — signs the manifest with its own GitHub OIDC identity, and publishes with the
+job — packages the VS Code extension with its own `npm run package` stamped with the
+snapshot version (not through the Makefile, which the older selected commit may lack the
+knob for) and checks the `.vsix` carries it, signs the manifest with its own GitHub OIDC
+identity, and publishes with the
 repository's own `GITHUB_TOKEN`. There is no secret to configure. The release notes
 are generated: the commit, the count since the last `v*` tag, the verification commands,
 and one line per unreleased changelog entry (`python3 scripts/changelog.py summary`) —
