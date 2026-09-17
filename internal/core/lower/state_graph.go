@@ -1226,11 +1226,14 @@ func (g *StateGraph) recordDecl(state *ast.StateNode) {
 	}
 }
 
-// addPseudostate records a pseudostate declared in scope as a vertex of the graph.
+// addPseudostate records a pseudostate as a vertex of the graph, declared in
+// scope unless inheritance already recorded the general's body it was written in.
 func (g *StateGraph) addPseudostate(ps *ast.PseudostateNode, scope *symbols.Scope) {
 	g.Pseudostates = append(g.Pseudostates, ps)
 	g.putVertex(ps, ps)
-	g.recordDeclaredIn(ps, scope)
+	if g.declaredIn[ps] == nil {
+		g.recordDeclaredIn(ps, scope)
+	}
 }
 
 // recordDeclaredIn records the scope of the body a declaration was written in.

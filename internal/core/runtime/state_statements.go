@@ -48,6 +48,7 @@ func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior) *stateStmtHos
 		breakpoints:      make(map[string]bool),
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
+	host.flow.flow = host.flow
 	host.perfs = &host.flow.performances
 	return host
 }

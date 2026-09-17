@@ -149,6 +149,8 @@ func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 		return mEventOccurrenceUsage, true
 	case assertedConstraint(n):
 		return mAssertConstraintUsage, true
+	case n.IsTerminate && n.Kind == ast.UsageAction:
+		return mTerminate, true
 	}
 	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration) {
 		return "ReferenceUsage", true
@@ -188,6 +190,7 @@ var metaclassKeywordUsage = map[string]ast.UsageKind{
 	"ReferenceUsage":       ast.UsageAttribute,
 	mEventOccurrenceUsage:  ast.UsageOccurrence,
 	mAssertConstraintUsage: ast.UsageConstraint,
+	mTerminate:             ast.UsageAction,
 }
 
 // definitionKeyword and usageKeyword give the source keyword for a kind. The

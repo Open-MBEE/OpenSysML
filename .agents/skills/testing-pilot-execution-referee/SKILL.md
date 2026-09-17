@@ -149,7 +149,7 @@ pilot answers the representation's own. See
   such file or directory`.
 - **Additivity.** `go run ./cmd/pilot-diff` must still print the headline the
   committed baseline holds (`379 file(s), 347 fully agreeing; 38 agreed
-  diagnostic(s), 38 only ours, 1247 only the pilot's` after the Legend of the Red Dragon example round at the `2026-08` pin — read it from the baseline JSON, not from this line, since each
+  diagnostic(s), 38 only ours, 1334 only the pilot's` after the Legend of the Red Dragon completed-mechanics round at the `2026-08` pin — read it from the baseline JSON, not from this line, since each
   fix round moves it) and `jq -S` diff clean against
   `docs/project/pilot-differential-baseline.json`; `git status --porcelain`
   empty at the end.

@@ -97,7 +97,7 @@ func runErrata(report *Report, overlay *errata.Overlay, adj adjudication, out st
 				VerdictChange{Path: rel, Published: was, Corrected: cases[rel].Bucket})
 		}
 	}
-	report.Errata.Applied = len(applied)
+	report.Errata.Applied = errata.Count(applied)
 	report.Errata.Note = "adjudicated again over a corrected copy of the corpus; the published corpus is unchanged on disk"
 	return nil
 }

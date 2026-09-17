@@ -329,7 +329,7 @@ func acceptsMessage(node *ast.Usage) bool {
 // action's flow: the features it declares, and the statements or flow its members
 // state — a flow of its own (`first`, a succession) as the subflow the node owns.
 func lowerNestedNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
-	if statesOwnFlow(node.Members) {
+	if node.IsTerminate || statesOwnFlow(node.Members) {
 		lowerActionNode(graph, node, scope)
 		return
 	}

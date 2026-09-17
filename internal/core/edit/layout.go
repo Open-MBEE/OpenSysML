@@ -30,7 +30,7 @@ var layoutFeatures = map[string][]string{
 
 // layoutSplices turns a set-layout operation into the bytes it rewrites: the
 // values of an annotation already there, a new annotation where the notation
-// puts one, or the removal of the one being cleared.
+// puts one, or the removal of the one being cleared, in the annotation's document.
 func (m Model) layoutSplices(i int, op Operation) ([]splice, error) {
 	features, known := layoutFeatures[op.Annotation]
 	if !known {
@@ -46,24 +46,64 @@ func (m Model) layoutSplices(i int, op Operation) ([]splice, error) {
 	if err != nil {
 		return nil, err
 	}
+	in, err := m.layoutDocument(i, op, sym, viewSym)
+	if err != nil {
+		return nil, err
+	}
 	r, sem := m.resolver()
 	renderer := view.NewRenderer(sem, r, nil)
 	if err := m.checkPlaceable(i, op, renderer, sem, sym, viewSym); err != nil {
 		return nil, err
 	}
-	site := m.layoutSite(sem, sym, viewSym, op.Annotation)
-	if bindings == nil {
+	site := in.layoutSite(sem, sym, viewSym, op.Annotation)
+	var splices []splice
+	switch {
+	case bindings == nil:
 		if site == nil {
 			return nil, &Error{Failure: FailureNotAnnotated, OperationIndex: i,
 				Message: fmt.Sprintf("%s carries no %s%s to clear", m.label(op),
 					layoutTypeName(op.Annotation), inView(op.View))}
 		}
-		return []splice{m.clearAnnotation(i, op, site, sym)}, nil
+		splices = []splice{in.clearAnnotation(site, sym)}
+	case site == nil:
+		splices = []splice{in.insertAnnotation(op.Annotation, bindings, sym, viewSym)}
+	default:
+		splices = in.updateAnnotation(site, bindings, features)
 	}
-	if site == nil {
-		return []splice{m.insertAnnotation(i, op, bindings, sym, viewSym)}, nil
+	return m.addressed(splices, i, op, in), nil
+}
+
+// addressed labels splices as operation i's, addressed to in's document.
+func (m Model) addressed(splices []splice, i int, op Operation, in Model) []splice {
+	label := m.label(op)
+	var doc string
+	if in.Source.Name() != m.Source.Name() {
+		doc = in.Source.Name()
 	}
-	return m.updateAnnotation(i, op, site, bindings, features), nil
+	for j := range splices {
+		splices[j].opIndex, splices[j].target, splices[j].doc = i, label, doc
+	}
+	return splices
+}
+
+// layoutDocument is the model of the document written: the view's when one is
+// named, else the element's own. A document without writable source refuses.
+func (m Model) layoutDocument(i int, op Operation, sym, viewSym *symbols.Symbol) (Model, error) {
+	owner, declares := sym, "it"
+	if viewSym != nil {
+		owner, declares = viewSym, op.View
+	}
+	in, ok := m.inDocument(owner.DocName)
+	if !ok {
+		where := docLabel(owner.DocName)
+		if m.Index.IsLibraryDocument(owner.DocName) {
+			where = "the bundled library file " + where
+		}
+		return Model{}, &Error{Failure: FailureReferencedElsewhere, OperationIndex: i,
+			Message: fmt.Sprintf("a %s of %s is stated in %s, which declares %s; this edit cannot rewrite that document",
+				layoutTypeName(op.Annotation), m.label(op), where, declares)}
+	}
+	return in, nil
 }
 
 // layoutBindings spells the geometry an operation writes, feature by feature,
@@ -128,28 +168,23 @@ func stringLiteral(s string) string {
 }
 
 // layoutTargets resolves the element an operation lays out and the view whose
-// body states the layout. Whatever the operation writes into must be declared
-// in this document: the element for an inline annotation, the view for one in
-// its body; an element another document declares may still be placed by a view
-// of this one. A view body states an annotation `about` a qualified name, so an
-// element reached by none — its own or an owner's name missing — is placed
-// inline or not at all.
+// body states the layout, wherever in the workspace each is declared. A view
+// body states an annotation `about` a qualified name, so an element reached by
+// none — its own or an owner's name missing — is placed inline or not at all.
 func (m Model) layoutTargets(i int, op Operation) (sym, viewSym *symbols.Symbol, err error) {
-	if op.Annotation == semantics.CanvasFQN || op.View == "" {
-		sym, err = m.target(i, op)
-		if err != nil {
-			return nil, nil, err
-		}
+	if op.Annotation == semantics.CanvasFQN && (op.Target != "" || op.Declaration.Len == 0) {
+		sym, err = m.viewNamed(i, op.Target, op.DeclarationDoc,
+			fmt.Sprintf("%s is no view; a Canvas sizes the drawing surface of a view", op.Target))
 	} else {
 		sym, err = m.element(i, op)
-		if err != nil {
-			return nil, nil, err
-		}
-		if !qualified(sym) {
-			return nil, nil, &Error{Failure: FailureNotNamed, OperationIndex: i,
-				Message: fmt.Sprintf("%s has no qualified name for the body of %s to state a %s about; write it inline, without a view",
-					m.label(op), op.View, layoutTypeName(op.Annotation))}
-		}
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	if op.Annotation != semantics.CanvasFQN && op.View != "" && !qualified(sym) {
+		return nil, nil, &Error{Failure: FailureNotNamed, OperationIndex: i,
+			Message: fmt.Sprintf("%s has no qualified name for the body of %s to state a %s about; write it inline, without a view",
+				m.label(op), op.View, layoutTypeName(op.Annotation))}
 	}
 	if op.Annotation == semantics.CanvasFQN {
 		if op.View != "" {
@@ -158,23 +193,44 @@ func (m Model) layoutTargets(i int, op Operation) (sym, viewSym *symbols.Symbol,
 		}
 		if !semantics.IsView(sym) {
 			return nil, nil, &Error{Failure: FailureNotAView, OperationIndex: i,
-				Message: fmt.Sprintf("%s is no view; a Canvas sizes the drawing surface of a view", op.Target)}
+				Message: fmt.Sprintf("%s is no view; a Canvas sizes the drawing surface of a view", m.label(op))}
 		}
 		return sym, nil, nil
 	}
 	if op.View == "" {
 		return sym, nil, nil
 	}
-	viewSym, err = m.target(i, Operation{Target: op.View})
+	viewSym, err = m.viewNamed(i, op.View, "",
+		fmt.Sprintf("%s is no view; a %s applies in the view whose body states it", op.View, layoutTypeName(op.Annotation)))
 	if err != nil {
 		return nil, nil, err
 	}
-	if !semantics.IsView(viewSym) {
-		return nil, nil, &Error{Failure: FailureNotAView, OperationIndex: i,
-			Message: fmt.Sprintf("%s is no view; a %s applies in the view whose body states it",
-				op.View, layoutTypeName(op.Annotation))}
-	}
 	return sym, viewSym, nil
+}
+
+// viewNamed is the view name names, among the views so named: the one of doc
+// when a document is stated, else the edited document's own, since that is the
+// view a rendering of it shows, else the one view of the workspace. A name
+// naming declarations but no view is refused with noView.
+func (m Model) viewNamed(i int, name, doc, noView string) (*symbols.Symbol, error) {
+	declaring := m.declared(name)
+	var views, own []*symbols.Symbol
+	for _, sym := range declaring {
+		if !semantics.IsView(sym) {
+			continue
+		}
+		views = append(views, sym)
+		if sym.DocName == m.Source.Name() {
+			own = append(own, sym)
+		}
+	}
+	if len(views) == 0 && len(declaring) > 0 {
+		return nil, &Error{Failure: FailureNotAView, OperationIndex: i, Message: noView}
+	}
+	if doc == "" && len(own) == 1 {
+		return own[0], nil
+	}
+	return oneOf(i, name, doc, views)
 }
 
 // checkPlaceable refuses a Layout or Route of an element the rendering it
@@ -240,7 +296,7 @@ func ownerOf(sym *symbols.Symbol) *symbols.Symbol {
 
 // layoutSite is the annotation of type typeFQN the operation rewrites: the one
 // stated in viewSym's body about sym, or, for an inline operation, the one
-// applying in every view; nil when none is stated in this document.
+// applying in every view; nil when none is stated in m's document.
 func (m Model) layoutSite(sem *semantics.Model, sym, viewSym *symbols.Symbol, typeFQN string) *semantics.LayoutSite {
 	for _, site := range sem.LayoutSitesOf(sym) {
 		if site.TypeFQN != typeFQN || symbols.DocNameOf(site.Scope) != m.Source.Name() {
@@ -256,17 +312,17 @@ func (m Model) layoutSite(sem *semantics.Model, sym, viewSym *symbols.Symbol, ty
 	return nil
 }
 
-// insertAnnotation is the insertion of a new annotation: inline in the body of
-// sym, or stated about it in the body of viewSym.
-func (m Model) insertAnnotation(i int, op Operation, bindings []layoutBinding, sym, viewSym *symbols.Symbol) splice {
+// insertAnnotation is the insertion of a new annotation of type typeFQN: inline
+// in the body of sym, or stated about it in the body of viewSym.
+func (m Model) insertAnnotation(typeFQN string, bindings []layoutBinding, sym, viewSym *symbols.Symbol) splice {
 	owner := sym
-	text := "@" + op.Annotation
+	text := "@" + typeFQN
 	if viewSym != nil {
 		owner = viewSym
-		text = "metadata " + op.Annotation + " about " + notationName(sym)
+		text = "metadata " + typeFQN + " about " + notationName(sym)
 	}
 	ins := m.memberInsertion(owner.Decl, text+" "+writeBindings(bindings))
-	return splice{span: ins.span, text: ins.text, opIndex: i, target: m.label(op)}
+	return splice{span: ins.span, text: ins.text}
 }
 
 // writeBindings spells an annotation body on one line.
@@ -281,7 +337,7 @@ func writeBindings(bindings []layoutBinding) string {
 // updateAnnotation rewrites an annotation in place: the value of each feature
 // it already binds, a removal of each it binds and the operation drops, and an
 // insertion of each the operation adds, after the last binding kept.
-func (m Model) updateAnnotation(i int, op Operation, site *semantics.LayoutSite, bindings []layoutBinding, features []string) []splice {
+func (m Model) updateAnnotation(site *semantics.LayoutSite, bindings []layoutBinding, features []string) []splice {
 	wanted := map[string]string{}
 	for _, b := range bindings {
 		wanted[b.feature] = b.literal
@@ -299,7 +355,7 @@ func (m Model) updateAnnotation(i int, op Operation, site *semantics.LayoutSite,
 		}
 		literal, keep := wanted[b.Feature]
 		if !keep {
-			out = append(out, splice{span: m.bindingSpan(b.Node), opIndex: i, target: m.label(op)})
+			out = append(out, splice{span: m.bindingSpan(b.Node)})
 			continue
 		}
 		bound[b.Feature] = true
@@ -307,7 +363,7 @@ func (m Model) updateAnnotation(i int, op Operation, site *semantics.LayoutSite,
 		if b.Value == nil {
 			continue
 		}
-		out = append(out, splice{span: m.tokenSpan(b.Value.Span()), text: literal, opIndex: i, target: m.label(op)})
+		out = append(out, splice{span: m.tokenSpan(b.Value.Span()), text: literal})
 	}
 	var missing []layoutBinding
 	for _, b := range bindings {
@@ -316,7 +372,7 @@ func (m Model) updateAnnotation(i int, op Operation, site *semantics.LayoutSite,
 		}
 	}
 	if len(missing) > 0 {
-		out = append(out, m.bindingInsertion(i, op, site.Node, lastKept, missing))
+		out = append(out, m.bindingInsertion(site.Node, lastKept, missing))
 	}
 	return out
 }
@@ -345,7 +401,7 @@ func (m Model) bindingSpan(member *ast.Usage) source.Span {
 // bindingInsertion inserts bindings into an annotation body after the last
 // binding kept, or at the body's opening brace when none is; each on the line
 // of the last binding when the body is written on one line, else on its own.
-func (m Model) bindingInsertion(i int, op Operation, node ast.Node, after *ast.Usage, bindings []layoutBinding) splice {
+func (m Model) bindingInsertion(node ast.Node, after *ast.Usage, bindings []layoutBinding) splice {
 	content := m.Source.Bytes()
 	lbrace, rbrace := m.bodyBraces(node.Span())
 	at := lbrace.End()
@@ -367,7 +423,7 @@ func (m Model) bindingInsertion(i int, op Operation, node ast.Node, after *ast.U
 	for _, b := range bindings {
 		text.WriteString(sep + b.feature + " = " + b.literal + ";")
 	}
-	return splice{span: source.Span{Offset: at}, text: text.String(), opIndex: i, target: m.label(op)}
+	return splice{span: source.Span{Offset: at}, text: text.String()}
 }
 
 // bodyBraces are the braces of the outermost body written within span: the last
@@ -397,14 +453,14 @@ func (m Model) bodyBraces(span source.Span) (lbrace, rbrace source.Span) {
 // clearAnnotation removes an annotation with its owned trivia. An inline
 // annotation that was the whole body of sym's declaration takes the body with
 // it, so the declaration reads `…;` as it did before it was placed.
-func (m Model) clearAnnotation(i int, op Operation, site *semantics.LayoutSite, sym *symbols.Symbol) splice {
+func (m Model) clearAnnotation(site *semantics.LayoutSite, sym *symbols.Symbol) splice {
 	removed := m.deleteSpan(deletion{node: site.Node, span: site.Node.Span()})
 	if !site.About && sym.Decl != nil && sym.DocName == m.Source.Name() {
 		if body, ok := m.emptiedBody(sym.Decl, removed); ok {
-			return splice{span: body, text: ";", opIndex: i, target: m.label(op)}
+			return splice{span: body, text: ";"}
 		}
 	}
-	return splice{span: removed, opIndex: i, target: m.label(op)}
+	return splice{span: removed}
 }
 
 // emptiedBody is the span of decl's body, with the space before its `{`, when

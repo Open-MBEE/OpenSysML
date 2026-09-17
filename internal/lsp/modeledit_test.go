@@ -121,7 +121,7 @@ func golden(t *testing.T, s *Server, name string, ops ...modelEditOperation) str
 		}
 		converted = append(converted, c)
 	}
-	result, _, ok, err := s.ws.ApplyEdit(name, converted)
+	result, _, ok, err := s.ws.ApplyEdit(name, converted, nil)
 	if !ok || err != nil {
 		t.Fatalf("edit.Apply: ok=%v err=%v", ok, err)
 	}
@@ -537,6 +537,17 @@ func TestApplyModelEditVersionsOtherDocumentsAsHeld(t *testing.T) {
 	}
 	if got := applyDocumentChange(t, "package Depot {\n    part spare : Vehicle::Car;\n}\n", depot); !strings.Contains(got, "Vehicle::Auto") {
 		t.Errorf("depot.sysml not respelled:\n%s", got)
+	}
+}
+
+// pinned asserts a change that edits nothing, pinning its document at version.
+func pinned(t *testing.T, change protocol.TextDocumentEdit, version int) {
+	t.Helper()
+	if len(change.Edits) != 0 {
+		t.Errorf("%s has edits %+v, want none", change.TextDocument.URI, change.Edits)
+	}
+	if v := change.TextDocument.Version; v == nil || int(*v) != version {
+		t.Errorf("%s pinned at version %v, want %d", change.TextDocument.URI, v, version)
 	}
 }
 

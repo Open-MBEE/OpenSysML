@@ -93,7 +93,7 @@ func (r *Reading) DeclaredView(doc, fqn string) *symbols.Symbol {
 }
 
 // RenderView is Workspace.RenderView of the documents as read.
-func (r *Reading) RenderView(doc, fqn string) (*view.Rendering, *Document, error) {
+func (r *Reading) RenderView(doc, fqn string) (*view.Rendering, *Snapshot, error) {
 	return r.w.renderViewLocked(doc, fqn)
 }
 

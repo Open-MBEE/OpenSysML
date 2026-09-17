@@ -407,6 +407,9 @@ func dumpDeclaration(b *strings.Builder, n Node, depth int) bool {
 		if v.IsActionNode {
 			b.WriteString(` node=true`)
 		}
+		if v.IsTerminate {
+			b.WriteString(` terminate=true`)
+		}
 		writeValueOperator(b, v.ValueIsDefault, v.ValueIsInitial)
 		writeChildren(b, depth, usageChildren(v))
 		return true

@@ -66,16 +66,16 @@ func (w *Workspace) heldTextLocked() source.Lookup {
 }
 
 // privateIndexLocked indexes the workspace's documents on an index the workspace
-// does not write to, holding everything else the workspace's index holds.
+// does not write to, holding everything else the workspace's index holds; a
+// version standing in for a bundled file displaces it there as well.
 func (w *Workspace) privateIndexLocked() (*symbols.Index, error) {
-	idx := w.detachedIndexLocked()
 	for _, name := range w.sortedDocNamesLocked() {
-		d := w.docs[name]
-		if d.AST == nil {
+		if w.docs[name].AST == nil {
 			return nil, fmt.Errorf("%s: document has no parse tree", name)
 		}
-		idx.AddDocumentWithKind(name, d.AST, w.index.DocumentKind(name))
 	}
+	idx := w.detachedIndexLocked()
+	w.addDocumentsLocked(idx, "")
 	idx.ExpandWildcardImports()
 	return idx, nil
 }

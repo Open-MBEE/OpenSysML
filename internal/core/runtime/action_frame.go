@@ -21,6 +21,9 @@ type performances struct {
 	self  *Instance
 	root  *actionFrame
 	owner performanceOwner
+	// flow is the executor holding the tokens these performances run under, which a
+	// terminate drops when it ends one of them.
+	flow *ActionExecutor
 }
 
 // performanceOwner is the behavior whose nodes perform — an action executor or a state

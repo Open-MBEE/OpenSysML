@@ -361,6 +361,7 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 			return nil
 		}
 		clone := *m
+		g.recordDeclaredIn(&clone, scope)
 		state.Substates = append(state.Substates, &clone)
 	case *ast.SubstateMember:
 		if parallel {
@@ -456,6 +457,7 @@ func cloneStateNode(g *StateGraph, node *ast.StateNode, scope *symbols.Scope) *a
 			clone.Substates = append(clone.Substates, cloneStateNode(g, child, g.scopeOf[clone]))
 		case *ast.PseudostateNode:
 			ps := *child
+			g.recordDeclaredIn(&ps, g.scopeOf[clone])
 			clone.Substates = append(clone.Substates, &ps)
 		default:
 			clone.Substates = append(clone.Substates, substate)

@@ -43,11 +43,14 @@ const (
 type Operation struct {
 	Kind OpKind
 	// Target is the element to edit, by FQN, as symbols name it. An OpSetLayout
-	// may give Declaration instead, the span the element is declared at in this
-	// document, for an element no qualified name reaches: an unnamed one, or
-	// one declared inside an unnamed one.
-	Target      string
-	Declaration source.Span
+	// may give Declaration instead, the span the element is declared at, for an
+	// element no qualified name reaches: an unnamed one, or one declared inside
+	// an unnamed one. DeclarationDoc names the document the element is declared
+	// in — the one the span is of, or the one Target must resolve to a declaration
+	// of; empty means the edited document for a span and any for a Target.
+	Target         string
+	Declaration    source.Span
+	DeclarationDoc string
 	// Value is the new value in SysML notation, for OpSetValue.
 	Value string
 	// NewName is the new declared name, for OpRename.
@@ -126,6 +129,13 @@ func SetLayoutAt(decl source.Span, view string, layout *semantics.Layout) Operat
 	return Operation{Kind: OpSetLayout, Declaration: decl, View: view, Annotation: semantics.LayoutFQN, Layout: layout}
 }
 
+// DeclaredIn is op with its element declared in the named document: its
+// Declaration a span of that document's text, its Target a name declared there.
+func (op Operation) DeclaredIn(doc string) Operation {
+	op.DeclarationDoc = doc
+	return op
+}
+
 // SetRoute is an operation steering the edge target through route's waypoints in
 // view — inline on target when view is empty — or clearing them when route is nil.
 func SetRoute(target, view string, route *semantics.Route) Operation {
@@ -158,6 +168,9 @@ type Model struct {
 	// against and every other document of Index, but none under Source's name,
 	// for analyzing the edited notation. Nil checks syntax alone.
 	NewIndex func() *symbols.Index
+	// Indexed, when set, is called after each document the edit adds to that index,
+	// so the caller can keep the index's library marks as it keeps its own.
+	Indexed func(idx *symbols.Index, sf *source.SourceFile, root *ast.RootNamespace)
 	// Analysis is the options the edited notation is judged under, the same the
 	// original's SemDiags came from; the zero value is the default mode.
 	Analysis passes.Options
@@ -165,6 +178,9 @@ type Model struct {
 	// rewrite when a rename or delete reaches a reference in it, or false for one
 	// it may not, which the edit then refuses to follow. Nil rewrites Source alone.
 	Other func(name string) (Document, bool)
+	// Documents names the other documents a reference to the edited one may be
+	// written in; nil reads them as Index's unmarked documents.
+	Documents []string
 	// reindex is the one index an Apply call analyzes in, set by Apply.
 	reindex *reindexer
 }
@@ -197,7 +213,7 @@ func (m Model) inDocument(name string) (Model, bool) {
 	return Model{
 		Source: doc.Source, Root: root, Index: m.Index,
 		ParseDiags: doc.ParseDiags, SemDiags: doc.SemDiags,
-		NewIndex: m.NewIndex, Analysis: m.Analysis, Other: m.Other, reindex: m.reindex,
+		NewIndex: m.NewIndex, Indexed: m.Indexed, Analysis: m.Analysis, Other: m.Other, Documents: m.Documents, reindex: m.reindex,
 	}, true
 }
 
@@ -206,12 +222,18 @@ func (m Model) inDocument(name string) (Model, bool) {
 // contributions first, so reuse leaves what a fresh build would.
 type reindexer struct {
 	newIndex func() *symbols.Index
+	indexed  func(idx *symbols.Index, sf *source.SourceFile, root *ast.RootNamespace)
 	idx      *symbols.Index
 }
 
-// analyzedIn returns the index holding root as the document named name,
-// building the call's index on first use.
-func (r *reindexer) analyzedIn(name string, root *ast.RootNamespace, kind source.Kind) *symbols.Index {
+// newReindexer is the reindexer for m's index.
+func newReindexer(m Model) *reindexer {
+	return &reindexer{newIndex: m.NewIndex, indexed: m.Indexed}
+}
+
+// analyzedIn returns the index holding root as the document sf, building the
+// call's index on first use.
+func (r *reindexer) analyzedIn(sf *source.SourceFile, root *ast.RootNamespace) *symbols.Index {
 	if r.idx == nil {
 		if r.newIndex != nil {
 			r.idx = r.newIndex()
@@ -219,7 +241,10 @@ func (r *reindexer) analyzedIn(name string, root *ast.RootNamespace, kind source
 			r.idx = symbols.NewIndex()
 		}
 	}
-	r.idx.AddDocumentWithKind(name, root, kind)
+	r.idx.AddDocumentWithKind(sf.Name(), root, sf.Kind())
+	if r.indexed != nil {
+		r.indexed(r.idx, sf, root)
+	}
 	return r.idx
 }
 
@@ -299,7 +324,7 @@ func Apply(m Model, ops []Operation) (*Result, error) {
 	if len(ops) == 0 {
 		return nil, &Error{Failure: FailureNoOperations, Message: "no edit operations requested"}
 	}
-	m.reindex = &reindexer{newIndex: m.NewIndex}
+	m.reindex = newReindexer(m)
 	if !needsSequential(ops) {
 		return applyBatch(m, ops)
 	}
@@ -431,13 +456,13 @@ func reparseModel(base Model, edited rewrites) Model {
 		original, _ := base.Other(name)
 		sf := source.NewWithKind(name, edited[name].content, original.Source.Kind())
 		p := parser.New(sf)
-		base.reindex.analyzedIn(name, p.ParseFile(), sf.Kind())
+		base.reindex.analyzedIn(sf, p.ParseFile())
 		others[name] = Document{Source: sf, ParseDiags: p.Diagnostics}
 	}
 	sf := source.NewWithKind(base.Source.Name(), edited[base.Source.Name()].content, base.Source.Kind())
 	p := parser.New(sf)
 	root := p.ParseFile()
-	idx := base.reindex.analyzedIn(sf.Name(), root, sf.Kind())
+	idx := base.reindex.analyzedIn(sf, root)
 	other := base.Other
 	if len(others) > 0 {
 		other = func(name string) (Document, bool) {
@@ -450,7 +475,7 @@ func reparseModel(base Model, edited rewrites) Model {
 	return Model{
 		Source: sf, Root: root, Index: idx,
 		ParseDiags: p.Diagnostics,
-		NewIndex:   base.NewIndex, Analysis: base.Analysis, Other: other, reindex: base.reindex,
+		NewIndex:   base.NewIndex, Indexed: base.Indexed, Analysis: base.Analysis, Other: other, Documents: base.Documents, reindex: base.reindex,
 	}
 }
 
@@ -572,12 +597,12 @@ func (m Model) rebaseDeclarations(later []Operation, first int, splices []splice
 		shift := 0
 		for _, sp := range splices {
 			switch {
-			case sp.doc != "":
-				// Another document's bytes; a declaration is in the edited one.
+			case sp.document(m.Source.Name()) != m.declarationDoc(later[j]):
+				// Another document's bytes.
 			case sp.span.End() <= decl.Offset:
 				shift += len(sp.text) - sp.span.Len
 			case sp.span.Offset <= decl.Offset:
-				return m.declarationGone(first+j, decl)
+				return m.declarationGone(first+j, later[j])
 			}
 		}
 		later[j].Declaration.Offset += shift
@@ -588,24 +613,27 @@ func (m Model) rebaseDeclarations(later []Operation, first int, splices []splice
 // relocateDeclarations reads each later operation's Declaration afresh from the
 // reparsed source, where its extent may have changed but its start has not.
 func (m Model) relocateDeclarations(later []Operation, first int) error {
-	root := m.Index.DocumentRoot(m.Source.Name())
 	for j := range later {
 		decl := later[j].Declaration
 		if decl.Len == 0 {
 			continue
 		}
+		root, err := m.declarationRoot(first+j, later[j])
+		if err != nil {
+			return err
+		}
 		sym := root.DeclaredFrom(decl.Offset)
 		if sym == nil {
-			return m.declarationGone(first+j, decl)
+			return m.declarationGone(first+j, later[j])
 		}
 		later[j].Declaration = sym.DeclSpan
 	}
 	return nil
 }
 
-func (m Model) declarationGone(i int, decl source.Span) error {
+func (m Model) declarationGone(i int, op Operation) error {
 	return &Error{Failure: FailureUnknownTarget, OperationIndex: i,
-		Message: fmt.Sprintf("an earlier operation rewrote the declaration at %s; nothing is declared there now", m.at(decl))}
+		Message: fmt.Sprintf("an earlier operation rewrote the declaration at %s; nothing is declared there now", m.at(op))}
 }
 
 // checkOverlap refuses edits covering the same non-empty source bytes.
