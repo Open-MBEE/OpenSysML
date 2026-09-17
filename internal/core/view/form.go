@@ -115,8 +115,12 @@ type WrongFormError struct {
 }
 
 func (e *WrongFormError) Error() string {
-	return fmt.Sprintf("%s: %s %s rendering is not written as %s; ask for %s",
-		e.View, e.Kind.article(), e.Kind, e.Form, joinForms(e.Kind.SupportedForms(), "or"))
+	msg := fmt.Sprintf("%s %s rendering is not written as %s; ask for %s",
+		e.Kind.article(), e.Kind, e.Form, joinForms(e.Kind.SupportedForms(), "or"))
+	if e.View == "" {
+		return msg
+	}
+	return e.View + ": " + msg
 }
 
 // joinForms spells forms as prose, the last joined by the conjunction: "text,

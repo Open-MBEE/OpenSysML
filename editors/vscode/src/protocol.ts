@@ -10,6 +10,9 @@ export const RENDER_DOCUMENT_METHOD = "opensysml/renderDocument";
 /** The capability the server advertises when it serves the render methods. */
 export const RENDER_CAPABILITY = "openSysmlRender";
 
+/** The capability whose value lists the forms `opensysml/render` writes; a server without it writes the documented five. */
+export const RENDER_FORMS_CAPABILITY = "openSysmlRenderForms";
+
 /** The capability the server advertises when it serves document rendering. */
 export const RENDER_DOCUMENT_CAPABILITY = "openSysmlRenderDocument";
 

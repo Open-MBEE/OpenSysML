@@ -54,6 +54,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 				"openSysmlStdlibContent":  true,
 				"openSysmlDebug":          true,
 				CrossDocumentCapability:   true,
+				RenderFormsCapability:     renderFormNames(),
 			},
 			// Folders added mid-session are only indexed if the client reports them.
 			Workspace: &protocol.ServerCapabilitiesWorkspace{

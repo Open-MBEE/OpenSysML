@@ -184,11 +184,17 @@ $ sysml report.sysml -render-document Observatory::MassReport \
 Internally the engine renders Markdown, converts it to styled HTML, renders
 any Mermaid diagrams to SVG with Mermaid CLI (`mmdc`), typesets any formulas
 with KaTeX (`katex`), and hands the result to an external HTML-to-PDF
-converter. Rendered with `-diagram-form dot` or
-`-diagram-form plantuml`, the diagrams are not drawn: the PDF keeps their DOT
-or PlantUML source under a notice saying so, and neither Mermaid CLI nor a
-Graphviz or PlantUML tool is looked for, so the run needs no diagram tool at
-all.
+converter. Rendered with `-diagram-form dot`, the diagrams are drawn by
+Graphviz — the `dot` named by `OPENSYSML_DOT`, else the one on `PATH`, writing
+SVG under the layout engine the block's `// layout:` header names, so a view
+the model positions is drawn where its `Layout` annotations put it — and with
+`-diagram-form plantuml` by the PlantUML jar named by `OPENSYSML_PLANTUML_JAR`,
+run by the `java` named by `OPENSYSML_JAVA` or found on `PATH`. Both are
+optional where Mermaid CLI is required: without the tool, the PDF keeps the
+block's DOT or PlantUML source under a notice naming the variable to set, and
+the render still succeeds. A tool that is present and fails stops the render
+with a typed `tool-failed` error carrying its output, as a failing `mmdc`
+does.
 
 ### Engines
 
@@ -206,9 +212,12 @@ error naming it. Environment variables override discovery:
 `OPENSYSML_WEASYPRINT`, `OPENSYSML_PANDOC`, `OPENSYSML_PRINCE`,
 `OPENSYSML_MMDC`, `OPENSYSML_MMDC_PUPPETEER` (extra Puppeteer
 configuration for Mermaid CLI), `OPENSYSML_KATEX` and `OPENSYSML_KATEX_CSS`
-(the KaTeX stylesheet, when it is not installed beside the `katex` command).
-The repository's `scripts/download-doc-pdf-toolchain.sh` fetches a pinned
-WeasyPrint, pandoc, Mermaid CLI and KaTeX and prints the exports to use them.
+(the KaTeX stylesheet, when it is not installed beside the `katex` command),
+`OPENSYSML_DOT` (Graphviz), `OPENSYSML_PLANTUML_JAR` and `OPENSYSML_JAVA`
+(PlantUML). The repository's `scripts/download-doc-pdf-toolchain.sh` fetches
+a pinned WeasyPrint, pandoc, Mermaid CLI, KaTeX, Graphviz and PlantUML jar and
+prints the exports to use them; the jar still needs a Java runtime of your
+own.
 
 ### Deliverable options
 
