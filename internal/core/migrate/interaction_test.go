@@ -163,6 +163,13 @@ const rigInteraction = `
         <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_sO" covered="_lo" message="_mO"/>
         <message xmi:type="uml:Message" xmi:id="_mO" name="go" messageSort="asynchSignal" signature="_go" receiveEvent="_sO"/>
       </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_trace" name="Spinup at 12.01">
+        <ownedRule xmi:type="uml:TimeConstraint" xmi:id="_tc1" constrainedElement="_inv1"/>
+        <ownedRule xmi:type="uml:TimeConstraint" xmi:id="_tc2" constrainedElement="_inv2"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_trl" name="motor" represents="_dMotor"/>
+        <fragment xmi:type="uml:StateInvariant" xmi:id="_inv1" covered="_trl"/>
+        <fragment xmi:type="uml:StateInvariant" xmi:id="_inv2" covered="_trl"/>
+      </ownedBehavior>
       <ownedBehavior xmi:type="uml:Interaction" xmi:id="_tc" name="Spinup Test">
         <lifeline xmi:type="uml:Lifeline" xmi:id="_tlm" name="m" represents="_dMotor"/>
         <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_tRSpin" covered="_tlm" message="_tmSpin"/>
@@ -184,7 +191,7 @@ const rigApplications = `
 // stands for, reached through the part tree, with its arguments bound by
 // position and by name; the reply assigns the call's result to the attribute it
 // names; alt, opt, loop and par fragments become if, if, for and fork; a create
-// message is reported. The scenario validates, runs, and leaves the motor
+// message is reported, as is a timing trace of state invariants. The scenario validates, runs, and leaves the motor
 // spinning at the last rpm and the controller holding the first.
 func TestInteractionCallsRepliesAndFragments(t *testing.T) {
 	r := migrateDocument(t, rigInteraction, rigApplications)
@@ -243,6 +250,7 @@ func TestInteractionCallsRepliesAndFragments(t *testing.T) {
 	wantNote(t, r, "_sNew", migrate.Unmapped, "the occurrence belongs to the message 'new', which is not written")
 	wantNote(t, r, "_astray", migrate.Unmapped, "the lifeline 'o' stands for 'motor' of Other, which no part of Rig reaches")
 	wantNote(t, r, "_tc", migrate.Approximated, "written as a scenario of 1 steps")
+	wantNote(t, r, "_trace", migrate.Unmapped, "the interaction has no message: it records 2 state invariant(s) under 2 time constraint(s), a timing trace, which no scenario step performs")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Rig")

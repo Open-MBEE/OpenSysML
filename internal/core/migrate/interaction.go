@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -86,6 +87,25 @@ type scenarioOperand struct {
 	steps []*scenarioStep
 }
 
+// messagelessNote says why an interaction without messages has no steps; one of
+// state invariants under time constraints is a recorded timing trace, not a behavior.
+func messagelessNote(e *xmi.Element) string {
+	invariants := 0
+	for _, f := range e.Owned("fragment") {
+		if f.Type == "StateInvariant" {
+			invariants++
+		}
+	}
+	if invariants == 0 {
+		return "the interaction has no message"
+	}
+	note := fmt.Sprintf("the interaction has no message: it records %d state invariant(s)", invariants)
+	if n := len(e.Owned("ownedRule")); n > 0 {
+		note += fmt.Sprintf(" under %d time constraint(s), a timing trace", n)
+	}
+	return note + ", which no scenario step performs"
+}
+
 // interactionNote says why an interaction has no v2 form; "" when it becomes a scenario.
 func (m *migration) interactionNote(e *xmi.Element) string {
 	_, note := m.scenario(e, "this")
@@ -108,7 +128,7 @@ func (m *migration) scenario(e *xmi.Element, self string) (*scenario, string) {
 		return nil, "the interaction belongs to " + describe(context) + ", which has no v2 declaration to hold it"
 	}
 	if len(e.Owned("message")) == 0 {
-		return nil, "the interaction has no message"
+		return nil, messagelessNote(e)
 	}
 	saved := m.self
 	m.self = self
