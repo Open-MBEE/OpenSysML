@@ -30,6 +30,9 @@ const (
 	// catCalcDef is an opaque or function behavior computing a result.
 	catCalcDef
 	catStateDef
+	// catSimConfig is a simulation tool's run configuration: an action def
+	// that instantiates its execution target and performs its behavior.
+	catSimConfig
 	// catValue is an instance of a value type: an attribute usage holding its
 	// slot values, since an individual cannot specialize an attribute def.
 	catValue
@@ -70,6 +73,8 @@ func (c category) keyword() string {
 		return "calc def"
 	case catStateDef:
 		return "state def"
+	case catSimConfig:
+		return "action def"
 	case catValue:
 		return "attribute"
 	}
@@ -389,6 +394,8 @@ func (m *migration) classify(e *xmi.Element) (category, string) {
 		return catLibrary, ""
 	case "Class", "Component":
 		switch {
+		case simulationConfig(e) != nil:
+			return catSimConfig, ""
 		case has(e, requirementStereotypes...):
 			return catRequirementDef, ""
 		case has(e, "ConstraintBlock"):

@@ -52,6 +52,7 @@ func FromModel(name string, model *xmi.Model) *Result {
 		methodOf:  map[*xmi.Element]*xmi.Element{},
 		realizes:  map[*xmi.Element]*xmi.Element{},
 		opUsage:   map[*xmi.Element]string{},
+		cbUsage:   map[*xmi.Element]string{},
 		deciding:  map[*xmi.Element]bool{},
 		bounded:   map[*xmi.Element][]*xmi.Element{},
 		triggered: map[*xmi.Element]bool{},
@@ -144,6 +145,8 @@ type migration struct {
 	realizes map[*xmi.Element]*xmi.Element
 	// opUsage names, for each operation, the action usage of its owner that performs it.
 	opUsage map[*xmi.Element]string
+	// cbUsage names, for each class, the usage that runs its classifier behavior.
+	cbUsage map[*xmi.Element]string
 	// deciding holds each opaque behavior whose body is being checked for names
 	// it can see, which is written whichever declaration the check picks.
 	deciding map[*xmi.Element]bool
@@ -419,13 +422,19 @@ func (m *migration) body(e *xmi.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
+	m.members(e)
+	m.scope = saved
+}
+
+// members writes the owned members of e, the current scope, then what other
+// elements contribute to its body.
+func (m *migration) members(e *xmi.Element) {
 	for _, c := range e.Children {
 		m.member(c)
 	}
 	for _, extra := range m.extras[e] {
 		extra()
 	}
-	m.scope = saved
 }
 
 // member writes one owned element of the current scope.
@@ -556,6 +565,10 @@ func (m *migration) classifier(e *xmi.Element) {
 	if n != "" {
 		verdict = Approximated
 		note = joinNotes(note, n)
+	}
+	if cat == catSimConfig {
+		m.simulationConfig(e, header.String(), note)
+		return
 	}
 	m.add(e, verdict, m.v2Name(e), note)
 	switch cat {
@@ -2334,7 +2347,7 @@ func (m *migration) stereotypeComments(e *xmi.Element) {
 	for _, s := range e.Stereotypes {
 		classifying := isStandard(s) && classifyingStereotypes[s.Name]
 		consumed := consumedTags[s.Name]
-		if m.isConstraintParameterMarker(e, s) {
+		if m.isConstraintParameterMarker(e, s) || isSimulationConfig(s) {
 			continue
 		}
 		if isStandard(s) && isRequirementStereotype(s.Name) {

@@ -567,8 +567,20 @@ func isVersionSegment(s string) bool {
 	return true
 }
 
+// isXMINamespace recognizes the OMG XMI namespaces (…/XMI, …/spec/XMI/<version>)
+// by their last non-version segment, so a profile whose namespace merely ends
+// in ".xmi" (MagicDraw's SimulationProfile.xmi) is not taken for XMI metadata.
 func isXMINamespace(ns string) bool {
-	return strings.Contains(strings.ToLower(ns), "xmi")
+	segs := strings.Split(strings.TrimRight(ns, "/"), "/")
+	for i := len(segs) - 1; i >= 0; i-- {
+		if strings.EqualFold(segs[i], "xmi") {
+			return true
+		}
+		if !isVersionSegment(segs[i]) {
+			return false
+		}
+	}
+	return false
 }
 
 func hasXMIType(attrs []xml.Attr) bool { return xmiType(attrs) != "" }
