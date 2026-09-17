@@ -24,6 +24,7 @@ class FakeHost implements ExportHost {
   saveDefault?: string;
   saveFilter?: { extension: string; filter: string };
   written?: { location: string; artifact: string };
+  writeRefusal?: Error;
 
   constructor(
     private readonly picks: string | undefined,
@@ -49,6 +50,9 @@ class FakeHost implements ExportHost {
   }
 
   async write(location: string, artifact: string): Promise<void> {
+    if (this.writeRefusal) {
+      throw this.writeRefusal;
+    }
     this.written = { location, artifact };
   }
 }
@@ -159,7 +163,17 @@ test("a server that refuses the form fails the export with its message, before a
     throw new Error('"dot" is not a form of a sequence rendering: write "mermaid", "text" or "plantuml"');
   });
   const outcome = await exportRendering(host, { uri: "file:///ws/car.sysml", documentName: "car.sysml", view: "Kit::widgetSequence", forms: DOCUMENTED_FORMS });
-  assert.deepEqual(outcome, { kind: "failed", message: '"dot" is not a form of a sequence rendering: write "mermaid", "text" or "plantuml"' });
+  assert.deepEqual(outcome, { kind: "failed", step: "render", message: '"dot" is not a form of a sequence rendering: write "mermaid", "text" or "plantuml"' });
   assert.equal(host.saveDefault, undefined);
+  assert.equal(host.written, undefined);
+});
+
+test("a destination that refuses the write fails the export as a save failure, with the file system's message", async () => {
+  const host = new FakeHost("dot", echoForm, "file:///ws/readonly/car.dot");
+  host.writeRefusal = new Error("EACCES: permission denied, open '/ws/readonly/car.dot'");
+  const outcome = await exportRendering(host, { uri: "file:///ws/car.sysml", documentName: "car.sysml", view: "Kit::widgetTree", forms: DOCUMENTED_FORMS });
+  assert.deepEqual(outcome, { kind: "failed", step: "save", message: "EACCES: permission denied, open '/ws/readonly/car.dot'" });
+  assert.equal(host.requests.length, 1);
+  assert.equal(host.saveDefault, "car.dot");
   assert.equal(host.written, undefined);
 });

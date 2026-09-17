@@ -408,7 +408,11 @@ export class DiagramPanels implements vscode.Disposable {
         this.output.appendLine(`Exported ${outcome.form} of ${documentName} to ${vscode.Uri.parse(outcome.location).fsPath}`);
         break;
       case "failed":
-        void vscode.window.showErrorMessage(`Rendering ${documentName} failed: ${outcome.message}`);
+        void vscode.window.showErrorMessage(
+          outcome.step === "save"
+            ? `Saving the export of ${documentName} failed: ${outcome.message}`
+            : `Rendering ${documentName} failed: ${outcome.message}`,
+        );
         break;
       case "cancelled":
         break;

@@ -82,11 +82,11 @@ export interface ExportHost {
   write(location: string, artifact: string): Promise<void>;
 }
 
-/** What an export of a document's view came to. */
+/** What an export of a document's view came to; a failure says which step failed. */
 export type ExportOutcome =
   | { kind: "saved"; form: string; location: string }
   | { kind: "cancelled" }
-  | { kind: "failed"; message: string };
+  | { kind: "failed"; step: "render" | "save"; message: string };
 
 export interface ExportRequest {
   /** The document rendered, as the server names it. */
@@ -113,13 +113,17 @@ export async function exportRendering(host: ExportHost, request: ExportRequest):
   try {
     result = await host.render({ textDocument: { uri: request.uri }, view: request.view, form });
   } catch (err) {
-    return { kind: "failed", message: errorMessage(err) };
+    return { kind: "failed", step: "render", message: errorMessage(err) };
   }
   const location = await host.pickSaveLocation(exportFileName(request.documentName, result.form), exportFile(result.form));
   if (location === undefined) {
     return { kind: "cancelled" };
   }
-  await host.write(location, result.artifact);
+  try {
+    await host.write(location, result.artifact);
+  } catch (err) {
+    return { kind: "failed", step: "save", message: errorMessage(err) };
+  }
   return { kind: "saved", form: result.form, location };
 }
 
