@@ -59,6 +59,9 @@ func TestNegative(t *testing.T) {
 		{"calc_while_unclosed_body", "calc def C { while i < 2 { i = i + 1; }"},
 		{"calc_for_no_variable", "calc def C { for in xs { } }"},
 		{"calc_assignment_no_value", "calc def C { i = ; }"},
+		// A terminate statement ends with `;` and names at most one target.
+		{"terminate_unterminated", "action def A { action a { terminate assign n := 1; } }"},
+		{"terminate_target_incomplete", "action def A { action a { terminate a::; } }"},
 		{"calc_if_no_body", "calc def C { if i < 2 }"},
 		{"constraint_incomplete", "constraint c { assert }"},
 		// A parameterised constraint body asserts conditions like any other, so a

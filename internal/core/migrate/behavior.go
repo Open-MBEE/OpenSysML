@@ -9,11 +9,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
 )
 
-// classifyBehavior decides the v2 declaration a UML behavior becomes: an
-// activity is an action def, a state machine a state def, an opaque or
-// function behavior a calc def when its body is one v2 expression and an
-// action def keeping the body as a comment otherwise, and an interaction a
-// scenario action def when every message is a signal send to a part.
+// classifyBehavior decides the v2 declaration a UML behavior becomes: action def,
+// state def, calc def for an expression body, or a scenario action def for an interaction.
 func (m *migration) classifyBehavior(e *xmi.Element) (category, string) {
 	switch e.Type {
 	case "Activity":
@@ -21,7 +18,13 @@ func (m *migration) classifyBehavior(e *xmi.Element) (category, string) {
 	case "StateMachine":
 		return catStateDef, ""
 	case "OpaqueBehavior", "FunctionBehavior":
-		if _, ok, _ := m.calcExpr(e); ok {
+		if m.deciding[e] {
+			return catActionDef, ""
+		}
+		m.deciding[e] = true
+		_, ok, _ := m.calcExpr(e)
+		delete(m.deciding, e)
+		if ok {
 			return catCalcDef, ""
 		}
 		return catActionDef, ""
@@ -87,11 +90,13 @@ func (m *migration) classifierBehavior(c *xmi.Element) {
 	if b == nil || b.Parent != c || !m.written(b) {
 		return
 	}
+	name := ""
 	if op := m.methodOf[b]; op != nil {
-		b = op
+		b, name = op, m.operationUsage(op)
+	} else {
+		name = m.freshName(c, lowerFirst(m.nameFor(b)))
 	}
 	cat, _ := m.classify(b)
-	name := m.freshName(c, lowerFirst(m.nameFor(b)))
 	switch cat {
 	case catStateDef:
 		m.w.line("exhibit state " + writeName(name) + " : " + m.ref(b, c) + ";")
@@ -101,6 +106,38 @@ func (m *migration) classifierBehavior(c *xmi.Element) {
 		return
 	}
 	m.downgrade(b, "the classifier behavior is run by every object of "+qualifiedName(c)+" as its usage "+name)
+}
+
+// operationUsage names the action usage of an operation's owner that performs
+// it, which a call on an object refers to as `obj.<usage>`; the first ask names it.
+func (m *migration) operationUsage(op *xmi.Element) string {
+	if name, ok := m.opUsage[op]; ok {
+		return name
+	}
+	name := m.freshName(op.Parent, lowerFirst(m.nameFor(op)))
+	m.opUsage[op] = name
+	return name
+}
+
+// operationFeature writes the action usage that makes an operation a feature of
+// its owner, as a v1 operation is; the classifier behavior's own performance is that usage.
+func (m *migration) operationFeature(op *xmi.Element) {
+	if m.classifierBehaviorOperation(op.Parent) == op {
+		return
+	}
+	usage := m.operationUsage(op)
+	m.w.line("action " + writeName(usage) + " : " + m.ref(op, op.Parent) + ";")
+	m.add(op, Mapped, "", "its owner's usage "+usage+" performs it, as a call on an object does")
+}
+
+// classifierBehaviorOperation is the operation whose method c's classifier
+// behavior is, when it is written as one; nil otherwise.
+func (m *migration) classifierBehaviorOperation(c *xmi.Element) *xmi.Element {
+	b := m.model.Ref(c, "classifierBehavior")
+	if b == nil || b.Parent != c || !m.written(b) {
+		return nil
+	}
+	return m.methodOf[b]
 }
 
 // parameters writes the owned parameters of a behavior or operation as the
@@ -169,9 +206,8 @@ func parameterDirection(p *xmi.Element) (string, string) {
 	return "in", ""
 }
 
-// behaviorValue writes a value specification read inside a behavior: an
-// opaque expression's names are resolved from scope and the features of the
-// enclosing classifier are reached through `this`.
+// behaviorValue writes a value specification read inside a behavior: an opaque
+// expression's names resolve from scope, the enclosing classifier's through `this`.
 func (m *migration) behaviorValue(v, scope *xmi.Element) (expr string, ok bool, note string) {
 	if v.Type != "OpaqueExpression" {
 		return m.valueExpr(v, scope)
@@ -288,9 +324,8 @@ func behaviorScope(e *xmi.Element) bool {
 // assignment is one statement of an opaque body written as a v2 assignment.
 var assignment = regexp.MustCompile(`^([\p{L}_][\p{L}\p{N}_ ]*)\s*(\+\+|--|[-+*/]?=)\s*(.*)$`)
 
-// statements writes an opaque body of assignment statements as v2 assignments
-// read inside scope, or refuses with the reason. Every statement must be an
-// assignment to a visible feature whose right-hand side is a v2 expression.
+// statements writes an opaque body as v2 assignments read inside scope when every
+// statement assigns a v2 expression to a visible feature, else refuses with the reason.
 func (m *migration) statements(body, lang string, scope *xmi.Element) (lines []string, ok bool, note string) {
 	body = strings.TrimSpace(body)
 	if body == "" {
@@ -323,7 +358,7 @@ func (m *migration) statements(body, lang string, scope *xmi.Element) (lines []s
 		}
 		expr, ok, enote := m.behaviorExpr(rhs, lang, scope)
 		if !ok {
-			return nil, false, "the statement " + strconv.Quote(st) + " assigns a value that is " + enote
+			return nil, false, "the statement " + strconv.Quote(st) + " assigns a value whose expression is not migrated: " + enote
 		}
 		if op != "=" {
 			expr = target + " " + op[:1] + " (" + expr + ")"
@@ -365,24 +400,36 @@ var durationUnits = map[string]float64{
 	"d": 86400, "day": 86400, "days": 86400,
 }
 
-var durationLiteral = regexp.MustCompile(`^([0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?)\s*([\p{L}µ]*)$`)
+var (
+	durationTerm     = regexp.MustCompile(`^([0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?)\s*([\p{L}µ]*)`)
+	durationVariable = regexp.MustCompile(`^[\p{L}_][\p{L}\p{N}_]*\s*=\s*`)
+)
 
-// parseDuration reads a duration literal such as `1s`, `0.5 s`, `80ms` or `2 min`
-// as a number of seconds written as a v2 real literal.
+// parseDuration reads a duration literal such as `1s`, `0.5 s`, `80ms`, `2 min` or
+// `t = 1 minute 30 seconds` as a number of seconds written as a v2 real literal.
 func parseDuration(text string) (seconds string, ok bool) {
-	mt := durationLiteral.FindStringSubmatch(strings.TrimSpace(text))
-	if mt == nil {
+	rest := durationVariable.ReplaceAllString(strings.TrimSpace(text), "")
+	if rest == "" {
 		return "", false
 	}
-	v, err := strconv.ParseFloat(mt[1], 64)
-	if err != nil {
-		return "", false
+	var total float64
+	for terms := 0; rest != ""; terms++ {
+		mt := durationTerm.FindStringSubmatch(rest)
+		if mt == nil {
+			return "", false
+		}
+		v, err := strconv.ParseFloat(mt[1], 64)
+		if err != nil {
+			return "", false
+		}
+		scale, known := durationUnits[strings.ToLower(mt[2])]
+		if !known || (mt[2] == "" && terms > 0) {
+			return "", false
+		}
+		total += v * scale
+		rest = strings.TrimSpace(rest[len(mt[0]):])
 	}
-	scale, known := durationUnits[strings.ToLower(mt[2])]
-	if !known {
-		return "", false
-	}
-	return realLiteral(v * scale), true
+	return realLiteral(total), true
 }
 
 // realLiteral writes a float as a v2 real literal, with a decimal point.
@@ -394,9 +441,8 @@ func realLiteral(v float64) string {
 	return s
 }
 
-// durationExpr writes a UML value standing for a duration as a v2 expression
-// in seconds: a literal with its unit scaled, a number taken as seconds, or an
-// expression read in scope; ok is false with the reason when it is none.
+// durationExpr writes a UML duration value as a v2 expression in seconds: a scaled
+// literal, a bare number, or an expression read in scope; else ok is false with why.
 func (m *migration) durationExpr(v, scope *xmi.Element) (expr string, ok bool, note string) {
 	for v != nil && (v.Type == "Duration" || v.Type == "TimeExpression") {
 		v = firstOwned(v, "expr")
@@ -458,9 +504,8 @@ func (m *migration) calcBody(e *xmi.Element) {
 	}
 }
 
-// opaqueBehaviorBody writes the body of an opaque or function behavior that
-// is no single expression: as assignments when every statement is one, else
-// as a comment keeping the language and text; scope is the definition written.
+// opaqueBehaviorBody writes an opaque or function behavior's body that is no single
+// expression: as assignments when every statement is one, else as a comment.
 func (m *migration) opaqueBehaviorBody(e, scope *xmi.Element) {
 	body, lang := opaqueBody(e)
 	lines, ok, note := m.statements(body, lang, scope)
@@ -597,13 +642,16 @@ func (m *migration) reception(r *xmi.Element) {
 	m.add(r, Approximated, "", note)
 }
 
-// event reports an event declared as a member: it has no declaration of its
-// own but is written where a trigger refers to it, as an accept clause.
+// event reports an event declared as a member: it is written as an accept clause
+// where a trigger refers to it, and the triggers report those, in their own scope.
 func (m *migration) event(e *xmi.Element) {
-	clause, note, ok := m.acceptClause(e, e.Parent, "")
-	if !ok {
-		m.unmapped(e, note)
+	if m.triggered[e] {
 		return
 	}
-	m.add(e, Approximated, "", joinNotes("an event is written where a trigger refers to it, as "+clause, note))
+	clause, note, ok := m.acceptClause(e, e.Parent, "")
+	if !ok {
+		m.unmapped(e, joinNotes("no trigger refers to the event", note))
+		return
+	}
+	m.add(e, Approximated, "", joinNotes("no trigger refers to the event, which would be written as "+clause, note))
 }

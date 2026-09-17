@@ -128,14 +128,18 @@ func (env *stmtEnv) assign(name string, value Value) bool {
 	return false
 }
 
-// stmtFlow is how a statement list ended: at its last statement, or at a
-// `return` that unwinds every block entered up to the host.
+// stmtFlow is how a statement list ended: at its last statement, at a `return` that
+// unwinds to the host, or at a `terminate` that unwinds to the performance it ended.
 type stmtFlow int
 
 const (
 	flowNext stmtFlow = iota
 	flowReturn
+	flowTerminate
 )
+
+// unwinds reports a flow that leaves the statements after it unrun.
+func (f stmtFlow) unwinds() bool { return f != flowNext }
 
 // stmtHost is the behavior a statement engine runs statements for: it names
 // itself in diagnostics and decides the statements only it can state — sends,
@@ -161,6 +165,9 @@ type stmtHost interface {
 	acceptReturn(value Value, s lower.Return) error
 	// effect states an effect on the world outside the body, over env's values.
 	effect(env *stmtEnv, s lower.Effect) error
+	// terminate ends the performance a `terminate` names, unwinding the body
+	// (flowTerminate) where that performance is one the body runs in.
+	terminate(s lower.Effect) (stmtFlow, error)
 	// performNode runs a nested action a block's flow declares, node of graph,
 	// as a performance of its own with engine's block-locals in reach.
 	performNode(engine *stmtEngine, graph *lower.ActionGraph, node *ast.Usage) (stmtFlow, error)
@@ -307,7 +314,7 @@ func (e *stmtEngine) run(stmts []lower.Statement) (stmtFlow, error) {
 	for ; f.i < len(stmts); f.i++ {
 		flow, err := e.statement(stmts[f.i], f, resumed)
 		resumed = false
-		if err != nil || flow == flowReturn {
+		if err != nil || flow.unwinds() {
 			return flow, e.ctx.pausing(f, err)
 		}
 	}
@@ -409,6 +416,9 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		}
 		return e.block(s)
 	case lower.Effect:
+		if s.Kind == lower.EffectTerminate {
+			return e.host.terminate(s)
+		}
 		return flowNext, e.host.effect(e.env, s)
 	case lower.Unsupported:
 		return flowNext, fmt.Errorf("%w: %s: %s in a body is not executable", ErrStatementNotExecutable, e.host.describe(), s.Description)
@@ -560,7 +570,7 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 		}
 		flow, err := e.blockNode(graph, f.node, resumed)
 		resumed = false
-		if err != nil || flow == flowReturn {
+		if err != nil || flow.unwinds() {
 			return flow, e.ctx.pausing(f, err)
 		}
 		successors := graph.Edges[f.node]
@@ -700,7 +710,7 @@ func (e *stmtEngine) loop(stmt lower.Loop) (stmtFlow, error) {
 		}
 		flow, done, err := e.iteration(stmt, f, resumed)
 		resumed = false
-		if err != nil || done || flow == flowReturn {
+		if err != nil || done || flow.unwinds() {
 			return flow, e.ctx.pausing(f, err)
 		}
 	}
@@ -725,7 +735,7 @@ func (e *stmtEngine) iteration(stmt lower.Loop, f *loopFrame, resumed bool) (flo
 		clear(f.locals)
 	}
 	flow, err = e.runBlock(stmt.Body)
-	if err != nil || flow == flowReturn {
+	if err != nil || flow.unwinds() {
 		return flow, true, err
 	}
 
@@ -779,7 +789,7 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 		}
 		flow, err := e.forIteration(stmt, f, resumed)
 		resumed = false
-		if err != nil || flow == flowReturn {
+		if err != nil || flow.unwinds() {
 			return flow, e.ctx.pausing(f, err)
 		}
 	}

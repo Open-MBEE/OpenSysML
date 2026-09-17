@@ -1,0 +1,15 @@
+step 1: token 1@f
+step 2: token 2@a, token 3@b
+stmt assign y
+  eval literal 2 -> 2
+stmt assign x
+  eval literal 1 -> 1
+stmt terminate
+terminate: action node a
+choice step 3: tokens 2@a, 3@b (unordered; took 3@b first)
+step 3: token 2@j, token 3@j
+step 4: token 4@tail
+stmt assign z
+  eval literal 3 -> 3
+step 5: token 4@done
+step 6: no active tokens

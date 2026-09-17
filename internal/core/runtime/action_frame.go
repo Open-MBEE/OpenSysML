@@ -35,6 +35,11 @@ type performanceOwner interface {
 	pauseAt(within []ast.Node, node ast.Node) error
 	// runOwnFlow runs the flow perf's node states of its own to completion.
 	runOwnFlow(perf *actionFrame) error
+	// performsOwn reports whether sym names the behavior the root performance performs.
+	performsOwn(sym *symbols.Symbol) bool
+	// terminatePerformance ends perf before its flow completes: the tokens running in
+	// it go, and the level performing it completes it (action_terminate.go).
+	terminatePerformance(perf *actionFrame) error
 }
 
 // actionFrame is one performance: the action's own (node nil) or a nested node's.
@@ -95,6 +100,9 @@ type actionFrame struct {
 	// ended marks a performance that has completed, so a delivery to a node under it
 	// waits for the next performance rather than reaching one that is over.
 	ended bool
+	// terminated is the performance whose termination ended this one before its flow
+	// completed: itself where a `terminate` named it, an enclosing one it went with.
+	terminated *actionFrame
 	// nodes are the action nodes a state behavior's performance runs, which its body's
 	// blocks declare; the frames of a state machine and its states hold none.
 	nodes []ast.Node
@@ -1182,7 +1190,7 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 	if e.ctx.actionDepth >= maxActionNestingDepth {
 		return nil, fmt.Errorf(
 			"action invocation nested more than %d deep at %s (recursive action?)",
-			maxActionNestingDepth, qualifiedNameText(inv.target),
+			maxActionNestingDepth, inv.name(),
 		)
 	}
 
@@ -1210,13 +1218,22 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 	if err := checkInputsBound(inv, params, inputs); err != nil {
 		return nil, err
 	}
+	performer := e.self
+	if inv.chain != nil {
+		ec := e.evalContextAround(perf, nodeScope(perf.flow, perf.node))
+		ec.inBehaviorBody = true
+		defer ec.beginStep()()
+		if performer, err = e.ctx.performerOf(ec, inv, e.self); err != nil {
+			return nil, err
+		}
+	}
 
-	callee, err := e.ctx.beginCallee(inv.performed(sym), sym, e.self, inputs)
+	callee, err := e.ctx.beginCallee(inv.performed(sym), sym, performer, inputs)
 	if err != nil {
-		return nil, fmt.Errorf("invoke action %s: %w", qualifiedNameText(inv.target), err)
+		return nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
 	}
 	sort.Strings(out)
-	callee.name, callee.out = qualifiedNameText(inv.target), out
+	callee.name, callee.out = inv.name(), out
 	return callee, nil
 }
 
@@ -1247,7 +1264,7 @@ func checkInputsBound(inv actionInvocation, params []actionParameter, inputs map
 			continue
 		}
 		return fmt.Errorf("%w: action %s: input parameter %s is bound by no argument",
-			ErrUnboundParameter, qualifiedNameText(inv.target), param.Name)
+			ErrUnboundParameter, inv.name(), param.Name)
 	}
 	return nil
 }

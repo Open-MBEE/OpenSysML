@@ -383,9 +383,13 @@ func (k EffectKind) String() string {
 // Effect is a statement acting on the world outside the body — perform, accept,
 // terminate — lowered so a host rejecting it (a calculation) can say so.
 type Effect struct {
-	Kind  EffectKind
-	Node  ast.Node
-	Scope *symbols.Scope // the scope the statement was declared in
+	Kind   EffectKind
+	Node   ast.Node
+	Scope  *symbols.Scope // the scope the statement was declared in
+	Target ast.Node       // the action a terminate names, nil for the enclosing one
+	// IsNode marks a terminate an action node is written as (`action t terminate;`):
+	// the node is the TerminateAction, so a bare one ends the node's owner, not the node.
+	IsNode bool
 }
 
 func (Effect) statement() { /* marker: closed Statement set */ }
@@ -1052,8 +1056,22 @@ func DeclaresNodeFeature(m *ast.Usage) bool {
 func lowerBody(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 	for _, member := range node.Members {
 		switch m := unwrapMembership(member).(type) {
-		case *ast.SendStatement, *ast.AssignmentActionNode, *ast.WhileLoopActionNode, *ast.IfActionNode:
+		case *ast.TerminateStatement:
+			stmt := Effect{Kind: EffectTerminate, Node: m, Scope: scope, Target: m.Target, IsNode: node.IsActionNode}
+			graph.Bodies[node] = append(graph.Bodies[node], stmt)
+		case *ast.SendStatement, *ast.AssignmentActionNode, *ast.WhileLoopActionNode,
+			*ast.IfActionNode:
 			graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(m, scope))
+		case *ast.Usage:
+			// An accept written among the statements has no token to park; it is
+			// reported rather than passed over.
+			if m.Kind == ast.UsageAction && !m.IsBodyParameter && acceptsMessage(m) {
+				graph.Bodies[node] = append(graph.Bodies[node], Unsupported{
+					Description: "'accept' among the statements of an action body",
+					Node:        m,
+					Scope:       scope,
+				})
+			}
 		}
 	}
 	lowerAccept(graph, node, scope)
@@ -1172,7 +1190,7 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 	case *ast.PerformActionNode:
 		return Effect{Kind: EffectPerform, Node: m, Scope: scope}
 	case *ast.TerminateStatement:
-		return Effect{Kind: EffectTerminate, Node: m, Scope: scope}
+		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Target: m.Target}
 	case *ast.Usage:
 		if stmt, ok := usageStatement(m, scope); ok {
 			return stmt

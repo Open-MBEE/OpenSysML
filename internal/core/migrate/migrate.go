@@ -38,27 +38,46 @@ func Migrate(name string, data []byte) (*Result, error) {
 // FromModel migrates an already-read XMI model.
 func FromModel(name string, model *xmi.Model) *Result {
 	m := &migration{
-		model:    model,
-		report:   &Report{Source: name, Exporter: model.Exporter},
-		w:        &writer{},
-		names:    map[*xmi.Element]string{},
-		extras:   map[*xmi.Element][]func(){},
-		flows:    map[*xmi.Element][]*xmi.Element{},
-		outcomes: map[*xmi.Element]*flowOutcome{},
-		unplaced: map[*xmi.Element]*placement{},
-		taken:    map[*xmi.Element]map[string]bool{},
-		exposed:  map[*xmi.Element]string{},
-		methodOf: map[*xmi.Element]*xmi.Element{},
-		bounded:  map[*xmi.Element][]*xmi.Element{},
-		indexed:  map[string]int{},
+		model:     model,
+		report:    &Report{Source: name, Exporter: model.Exporter},
+		w:         &writer{},
+		names:     map[*xmi.Element]string{},
+		extras:    map[*xmi.Element][]func(){},
+		flows:     map[*xmi.Element][]*xmi.Element{},
+		outcomes:  map[*xmi.Element]*flowOutcome{},
+		unplaced:  map[*xmi.Element]*placement{},
+		taken:     map[*xmi.Element]map[string]bool{},
+		exposed:   map[*xmi.Element]string{},
+		methodOf:  map[*xmi.Element]*xmi.Element{},
+		opUsage:   map[*xmi.Element]string{},
+		deciding:  map[*xmi.Element]bool{},
+		bounded:   map[*xmi.Element][]*xmi.Element{},
+		triggered: map[*xmi.Element]bool{},
+		indexed:   map[string]int{},
 	}
 	m.prepare()
 	for _, root := range model.Roots {
 		m.root(root)
 	}
 	m.flushFlows()
+	m.unwrittenEvents()
 	m.extensions()
 	return &Result{Notation: []byte(m.w.String()), Report: m.report}
+}
+
+// unwrittenEvents reports the events whose triggers were never written, which
+// belong to behaviors that were not.
+func (m *migration) unwrittenEvents() {
+	var left []*xmi.Element
+	for ev := range m.triggered {
+		if !m.reported(ev) && !m.isLibrary(ev) {
+			left = append(left, ev)
+		}
+	}
+	sort.Slice(left, func(i, j int) bool { return left[i].ID < left[j].ID })
+	for _, ev := range left {
+		m.add(ev, Unmapped, "", "every trigger referring to the event belongs to a behavior that is not written")
+	}
 }
 
 // flowOutcome gathers what each realizing connector did for one item flow, so
@@ -116,8 +135,15 @@ type migration struct {
 	scope *xmi.Element
 	// methodOf maps each behavior that is the method of an operation to it.
 	methodOf map[*xmi.Element]*xmi.Element
+	// opUsage names, for each operation, the action usage of its owner that performs it.
+	opUsage map[*xmi.Element]string
+	// deciding holds each opaque behavior whose body is being checked for names
+	// it can see, which is written whichever declaration the check picks.
+	deciding map[*xmi.Element]bool
 	// bounded lists the duration constraints constraining each element.
 	bounded map[*xmi.Element][]*xmi.Element
+	// triggered holds each event some trigger refers to, which is reported where it is.
+	triggered map[*xmi.Element]bool
 	// indexed locates each element's report entry by id, so an element that
 	// several writers account for is reported once.
 	indexed map[string]int
@@ -228,6 +254,10 @@ func (m *migration) prepare() {
 			for _, c := range m.model.Refs(e, "constrainedElement") {
 				m.bounded[c] = append(m.bounded[c], e)
 			}
+		case "Trigger":
+			if ev := m.model.Ref(e, "event"); ev != nil {
+				m.triggered[ev] = true
+			}
 		}
 		for _, c := range e.Children {
 			walk(c)
@@ -324,9 +354,8 @@ func (m *migration) distinguish(e *xmi.Element) {
 	}
 }
 
-// namespaceMembers lists the children of e written as members of its v2 body:
-// its own, and the named vertices of its one region, which UML keeps in a
-// namespace of its own while v2 puts them beside the other members.
+// namespaceMembers lists the children of e written as members of its v2 body: its
+// own, and the named vertices of its one region, which v2 puts beside them.
 func namespaceMembers(e *xmi.Element) []*xmi.Element {
 	var members []*xmi.Element
 	inline := len(e.Owned("region")) == 1
@@ -546,6 +575,9 @@ func (m *migration) classifier(e *xmi.Element) {
 	}
 	if behaviorCategory(cat) {
 		m.w.block(header.String(), func() { m.behaviorBody(e, cat) })
+		if e.Type == "Operation" {
+			m.operationFeature(e)
+		}
 		return
 	}
 	m.w.block(header.String(), func() {
@@ -1425,9 +1457,8 @@ func (m *migration) written(e *xmi.Element) bool {
 	return cat.keyword() != ""
 }
 
-// inlinedBehavior reports whether e is a behavior a state or transition owns:
-// it is written as that owner's entry, do, exit or effect action, which
-// nothing else can name.
+// inlinedBehavior reports whether e is a behavior a state or transition owns, written
+// as its owner's entry, do, exit or effect action, which nothing else can name.
 func inlinedBehavior(e *xmi.Element) bool {
 	return isBehavior(e) && e.Parent != nil && (e.Parent.Type == "State" || e.Parent.Type == "Transition")
 }
@@ -1441,9 +1472,8 @@ func (m *migration) featureRef(r *xmi.Element) string {
 	return m.ref(r, m.scope)
 }
 
-// conform reports whether a value of type a may be bound to a feature of type
-// b or the reverse, as v2 judges a binding: one specializes the other, or both
-// are numbers. An unknown type is given the benefit of the doubt.
+// conform reports whether types a and b may be bound as v2 judges a binding: one
+// specializes the other, or both are numbers; an unknown type is trusted.
 func (m *migration) conform(a, b *xmi.Element) bool {
 	if a == nil || b == nil || a == b || m.inherits(a, b) || m.inherits(b, a) {
 		return true

@@ -61,6 +61,8 @@ type bodyRun struct {
 	// awaitsMessages lets the run pause for a message too, as a do behavior does
 	// while its machine goes on; a token's step run waits only on the clock.
 	awaitsMessages bool
+	// outer is the run this one resumed inside, while it runs; nil for a paused one.
+	outer *bodyRun
 }
 
 // bodyPause is why a body run paused: at the breakpoint, or on a wait.
@@ -109,12 +111,12 @@ func (w bodyWait) heldWaiter() clockWaiter {
 // its end, leaving err set.
 func (run *bodyRun) resume(ctx *Context) (bodyPause, bool) {
 	outer := ctx.body
-	ctx.body = run
+	ctx.body, run.outer = run, outer
 	run.resuming, run.cursor = run.cursor, nil
 	base := ctx.trace.nesting()
 	ctx.trace.setNesting(base + run.traceLevels)
 	err := run.work.perform()
-	ctx.body = outer
+	ctx.body, run.outer = outer, nil
 	// Levels a failure left un-entered hold nothing the work still needs.
 	for _, f := range run.resuming {
 		f.abandon(ctx)
@@ -125,8 +127,20 @@ func (run *bodyRun) resume(ctx *Context) (bodyPause, bool) {
 		ctx.trace.setNesting(base)
 		return run.paused, true
 	}
+	// Levels a termination cut short closed no trace nesting of their own.
+	ctx.trace.setNesting(base)
 	run.err, run.ended = err, true
 	return bodyPause{}, false
+}
+
+// active reports whether run is on the stack now: the run under way or one it resumed inside.
+func (ctx *Context) active(run *bodyRun) bool {
+	for r := ctx.body; r != nil; r = r.outer {
+		if r == run {
+			return true
+		}
+	}
+	return false
 }
 
 // end ends the paused work for good: what its frames hold open is abandoned,
@@ -135,15 +149,24 @@ func (run *bodyRun) end(ctx *Context) {
 	if run.ended {
 		return
 	}
-	for _, f := range run.cursor {
-		f.abandon(ctx)
-	}
-	run.cursor, run.ended = nil, true
+	run.cancel(ctx)
 	where := "on a wait"
 	if !run.paused.onWait {
 		where = fmt.Sprintf("at breakpoint %q", run.paused.breakpoint.name)
 	}
 	run.err = fmt.Errorf("%w: the run paused %s was abandoned", ErrActionDeadlock, where)
+}
+
+// cancel ends the paused work as a termination does: what its frames hold open
+// is abandoned, innermost first, and nothing is left to report.
+func (run *bodyRun) cancel(ctx *Context) {
+	if run.ended {
+		return
+	}
+	for _, f := range run.cursor {
+		f.abandon(ctx)
+	}
+	run.cursor, run.ended = nil, true
 }
 
 // pushPaused keeps f, where the level of the body's work now unwinding paused.
@@ -250,8 +273,13 @@ func (w *usageWork) perform() error {
 			}
 			return e.enterSubflow(idx, w.perf)
 		}
-		if err := e.executeBody(w.perf, w.graph, w.usage); err != nil {
+		flow, err := e.executeBody(w.perf, w.graph, w.usage)
+		if err != nil {
 			return err
+		}
+		// A terminate ending a performance around the node took its token with it.
+		if flow == flowTerminate && w.perf.terminated != w.perf {
+			return nil
 		}
 		if err := e.endPerformance(w.perf); err != nil {
 			return err
@@ -280,8 +308,13 @@ func (w *statementWork) clone() bodyWork { c := *w; return &c }
 func (w *statementWork) perform() error {
 	e := w.exec
 	if !w.done {
-		if err := e.executeBody(w.frame, w.frame.graph, w.node); err != nil {
+		flow, err := e.executeBody(w.frame, w.frame.graph, w.node)
+		if err != nil {
 			return err
+		}
+		// A terminate ending the flow the node is in took its token with it.
+		if flow == flowTerminate {
+			return nil
 		}
 		w.done = true
 	}

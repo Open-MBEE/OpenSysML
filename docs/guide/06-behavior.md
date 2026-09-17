@@ -1026,6 +1026,33 @@ second knob here too: every run resolves its concurrency choices under `-schedul
   repeatedly; the `RunSweep` RPC and the service clients take ranges and samples but no run
   count, and an external engine put a Monte Carlo answers with a claim, not the table of runs.
 
+### Behaviors migrated from SysML v1
+
+The [v1 migration](../reference/sysml-v1-migration.md#behaviors) writes a v1 activity as an
+`action def` and a v1 state machine as a `state def` in exactly the forms this chapter uses, so
+a migrated behavior runs under the same debugger, seed and `%runs` as one written by hand. Two
+v1 idioms land on the machinery above:
+
+- A **`DurationConstraint`** on a call action (`[1s..80s]`) becomes a wait the token takes
+  before it — `accept after 3.0 [SI::s]` for a point interval, `accept after
+  RandomFunctions::uniform(1.0, 80.0) [SI::s]` for a proper one — so a workflow's duration is a
+  draw from the model seed, as under a v1 tool's random duration mode. The tool's `min` and
+  `max` modes are settings of its run configuration, not of the model, and are not migrated.
+- **«Probability»** on the edges out of a decision becomes `@Stochastic::Probability { p = … }`
+  on each succession, when every edge carries one; a decision whose guards are opaque English
+  (`[Align BTO]`) is written unguarded, and the runtime draws its branch with the model seed.
+
+The workflow's total duration is the clock at the end of the run, which `%runs` reports when no
+observable is named:
+
+```text
+%runs 100 1 Model::Mission::'Acquire Target'::'Acquire Target - Logical'
+```
+
+A v1 opaque action that only reads the tool's time variable (`Time_Acq_Total = simtime`) is
+kept as a comment, since `simtime` is a run setting and not a feature of the model; the report
+says so for each.
+
 ## An object runs the behaviors its type exhibits
 
 A type that exhibits a state machine or performs an action binds that behavior to every object of

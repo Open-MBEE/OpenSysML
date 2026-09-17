@@ -90,6 +90,16 @@ func parseArgs(line string) []string {
 	return args
 }
 
+// SplitBehavior splits a behavior spec as `%action` and `-action` take it: the name,
+// then the words naming the performing object, a quoted name with spaces kept whole.
+func SplitBehavior(spec string) (name string, performer []string) {
+	fields := parseArgs(spec)
+	if len(fields) == 0 {
+		return "", nil
+	}
+	return fields[0], fields[1:]
+}
+
 // opensName reports whether a single quote begins an unrestricted name rather
 // than being an apostrophe in ordinary text. A name starts an argument or follows
 // a `::` qualifier or a `.` in an object path, and is closed later on the line;

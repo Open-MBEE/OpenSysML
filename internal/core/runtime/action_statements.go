@@ -19,23 +19,25 @@ type actionStmtHost struct {
 }
 
 // executeBody runs the lowered statements graph records for node in perf, the
-// performance they belong to, with the performances around it in lexical reach.
-func (e *performances) executeBody(perf *actionFrame, graph *lower.ActionGraph, node ast.Node) error {
-	_, err := e.ctx.runStatements(func() *stmtEngine {
+// performance they belong to, with the performances around it in lexical reach;
+// flowTerminate reports a `terminate` ending perf or a performance around it.
+func (e *performances) executeBody(perf *actionFrame, graph *lower.ActionGraph, node ast.Node) (stmtFlow, error) {
+	return e.ctx.runStatements(func() *stmtEngine {
 		host := &actionStmtHost{exec: e, node: node, perf: perf}
 		lexical := perf.lexicalFrames()
 		return newStmtEngineIn(e.ctx, host, lexical[len(lexical)-1], lexical[:len(lexical)-1])
 	}, graph.Bodies[node])
-	return err
 }
 
 // runNodeBody runs the statements a control or initial node's body declares,
-// which the token passing through the node performs.
-func (e *ActionExecutor) runNodeBody(frame *actionFrame, node ast.Node) error {
+// which the token passing through the node performs; true once the token's flow
+// was terminated by them, so the token takes no succession.
+func (e *ActionExecutor) runNodeBody(frame *actionFrame, node ast.Node) (bool, error) {
 	if len(frame.graph.Bodies[node]) == 0 {
-		return nil
+		return false, nil
 	}
-	return e.executeBody(frame, frame.graph, node)
+	flow, err := e.executeBody(frame, frame.graph, node)
+	return flow == flowTerminate, err
 }
 
 func (h *actionStmtHost) describe() string {
@@ -82,6 +84,15 @@ func (h *actionStmtHost) performer() *Instance {
 // acceptReturn rejects a `return`: an action node computes no result to return.
 func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
 	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())
+}
+
+// terminate ends the performance the statement names, the body's own where it names none.
+func (h *actionStmtHost) terminate(s lower.Effect) (stmtFlow, error) {
+	flow, err := h.exec.terminate(h.perf, s)
+	if err != nil {
+		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
+	}
+	return flow, nil
 }
 
 // effect performs the action a `perform` in statement form names, where it
@@ -155,8 +166,16 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 			return flowNext, err
 		}
 	}
-	if err := e.performNodeBody(f, graph, node); err != nil {
-		return flowNext, e.ctx.pausing(f, err)
+	// A performance terminated while the body paused in it completes as it resumes.
+	if f.perf.terminated != f.perf {
+		flow, err := e.performNodeBody(f, graph, node)
+		if err != nil {
+			return flowNext, e.ctx.pausing(f, err)
+		}
+		// A performance ending with one around it leaves nothing to complete.
+		if flow == flowTerminate && f.perf.terminated != f.perf {
+			return flowTerminate, nil
+		}
 	}
 	if err := e.endPerformance(f.perf); err != nil {
 		return flowNext, err
@@ -191,22 +210,29 @@ const (
 )
 
 // performNodeBody performs the case the node is or the action it performs, then
-// the flow it owns or the statements of its body.
-func (e *performances) performNodeBody(f *performFrame, graph *lower.ActionGraph, node *ast.Usage) error {
+// the flow it owns or the statements of its body; flowTerminate reports a
+// `terminate` ending the performance or one around it.
+func (e *performances) performNodeBody(f *performFrame, graph *lower.ActionGraph, node *ast.Usage) (stmtFlow, error) {
 	perf := f.perf
 	if isCaseStep(node) {
-		return e.performCase(perf)
+		return flowNext, e.performCase(perf)
 	}
 	if f.phase == performInvoking {
 		if inv, ok := nestedInvocation(node); ok {
 			if err := e.performInvocation(perf, inv); err != nil {
-				return err
+				return flowNext, err
 			}
 		}
 		f.phase = performBody
 	}
 	if perf.graph != nil {
-		return e.owner.runOwnFlow(perf)
+		if err := e.owner.runOwnFlow(perf); err != nil {
+			return flowNext, err
+		}
+		if perf.terminated != nil {
+			return flowTerminate, nil
+		}
+		return flowNext, nil
 	}
 	return e.executeBody(perf, graph, node)
 }

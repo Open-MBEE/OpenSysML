@@ -596,7 +596,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 		return rep.finish()
 	}
 	for _, value := range c.actions {
-		name, performer := splitPerformer(value)
+		name, performer := repl.SplitBehavior(value)
 		if c.runs.given {
 			rep.verdict(sess.RunRuns(name, performer, c.runs.value, c.seed.value, c.observe))
 			continue
@@ -604,7 +604,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 		rep.verdict(sess.RunAction(name, performer...))
 	}
 	for _, value := range c.states {
-		name, performer := splitPerformer(value)
+		name, performer := repl.SplitBehavior(value)
 		rep.verdict(sess.RunStateMachine(name, performer...))
 	}
 
@@ -615,7 +615,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 func behaviors(values []string) []repl.Behavior {
 	out := make([]repl.Behavior, 0, len(values))
 	for _, value := range values {
-		name, performer := splitPerformer(value)
+		name, performer := repl.SplitBehavior(value)
 		out = append(out, repl.Behavior{Name: name, Performer: performer})
 	}
 	return out
@@ -639,17 +639,6 @@ func reportedErrors(diags []repl.Diagnostic) bool {
 		}
 	}
 	return false
-}
-
-// splitPerformer splits a `-action`/`-state` value into the behavior's name and
-// the object performing it, which is the word after it as `%action` takes it:
-// `-action "Drive rover1"`.
-func splitPerformer(value string) (string, []string) {
-	fields := strings.Fields(value)
-	if len(fields) == 0 {
-		return "", nil
-	}
-	return fields[0], fields[1:]
 }
 
 func fileExists(path string) bool {

@@ -140,6 +140,14 @@ func (tr *TraceRecorder) RecordActionNodeExit(node string) {
 	tr.entries = append(tr.entries, fmt.Sprintf("leave action node: %s", node))
 }
 
+// RecordActionTerminate records a performance a `terminate` ended before its flow completed.
+func (tr *TraceRecorder) RecordActionTerminate(performance string) {
+	if !tr.enabled {
+		return
+	}
+	tr.entries = append(tr.entries, fmt.Sprintf("terminate: %s", performance))
+}
+
 // RecordCalcEnter records entering a calc invocation and opens a nesting level.
 func (tr *TraceRecorder) RecordCalcEnter(name string) {
 	tr.RecordCalculationEnter("calc", name)

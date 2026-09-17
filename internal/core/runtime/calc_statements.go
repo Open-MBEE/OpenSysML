@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // calcStmtHost runs a calculation body's statements: it owns its locals, its
@@ -224,6 +225,23 @@ func (h *calcStmtHost) pauseAt([]ast.Node, ast.Node) error {
 // runOwnFlow runs the token flow a step of the case states of its own to completion.
 func (h *calcStmtHost) runOwnFlow(perf *actionFrame) error {
 	return h.flow.runSubflow(perf)
+}
+
+// performsOwn reports whether sym is the case the body's performance is of.
+func (h *calcStmtHost) performsOwn(sym *symbols.Symbol) bool {
+	return h.flow != nil && h.flow.performsOwn(sym)
+}
+
+// terminatePerformance rejects ending a performance early: a calculation's body
+// states no effect on the lifetime of anything.
+func (h *calcStmtHost) terminatePerformance(*actionFrame) error {
+	return fmt.Errorf("%w: a calculation cannot state 'terminate'", ErrCalcSideEffect)
+}
+
+// terminate rejects a terminate statement: it ends a performance, an effect a
+// calculation cannot have.
+func (h *calcStmtHost) terminate(lower.Effect) (stmtFlow, error) {
+	return flowNext, h.terminatePerformance(nil)
 }
 
 // runFlow runs the token flow a case body states with its successions and control

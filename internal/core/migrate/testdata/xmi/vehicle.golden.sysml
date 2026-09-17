@@ -51,6 +51,7 @@ package 'Vehicle Design' {
         abstract action def start {
             in key : ScalarValues::Integer;
         }
+        action 'start 2' : start;
         state def 'Vehicle States' {
             /* the region has no initial pseudostate: nothing enters it */
             state Off;

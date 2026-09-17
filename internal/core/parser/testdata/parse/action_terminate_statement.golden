@@ -1,0 +1,111 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Termination" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Halt"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="n" ref=false direction="out" composite=false derived=false ordered=false nonunique=false initial=true
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (InitialNode name="start" successor="")
+          (ForkNode name="f")
+          (Membership visibility="default"
+            (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (*ast.AssignmentActionNode)
+              (TerminateStatement)))
+          (Membership visibility="default"
+            (Usage kind="action" name="b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (TerminateStatement
+                (FeatureReference name="a"))))
+          (Membership visibility="default"
+            (Usage kind="action" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (TerminateStatement
+                (FeatureReference name="Halt"))
+              (*ast.AssignmentActionNode)))
+          (Membership visibility="default"
+            (Usage kind="action" name="d" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (WhileLoopActionNode kind="while" variable=""
+                (OperatorExpr operator="<"
+                  (FeatureReference name="n")
+                  (LiteralInteger value="3"))
+                (*ast.AssignmentActionNode)
+                (IfActionNode
+                  (OperatorExpr operator="=="
+                    (FeatureReference name="n")
+                    (LiteralInteger value="2"))
+                  (IfBranchNode kind="then"
+                    (TerminateStatement))))))
+          (JoinNode name="j")
+          (FinalNode)
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="start"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="f"
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="f"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="a"
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="f"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="b"
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="f"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="c"
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="f"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="d"
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="a"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="j"
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="b"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="j"
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="c"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="j"
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="d"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="j"
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="j"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="done"
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="M"
+          (EntryMember)
+          (SuccessionEdge source="@entry" target="s")
+          (Membership visibility="default"
+            (Usage kind="state" name="s" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (EntryMember
+                (Membership visibility="default"
+                  (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="entry"
+                    (TerminateStatement)))))))))))

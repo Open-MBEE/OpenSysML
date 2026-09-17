@@ -311,9 +311,8 @@ func parseExpr(text string) (ast.Node, bool) {
 	return u.Value, true
 }
 
-// exprLiteral reports the kind of literal text is — integer, real, string or
-// boolean, as featureValue names them — with its value text, or "" when it
-// is not one.
+// exprLiteral reports the kind of literal text is (integer, real, string or boolean,
+// as featureValue names them) with its value text, or "" when it is not one.
 func exprLiteral(text string) (kind, value string) {
 	switch v, _ := parseExpr(text); lit := v.(type) {
 	case *ast.LiteralInteger:
@@ -430,9 +429,8 @@ func chainRef(e *ast.FeatureChainExpr) (reference, bool) {
 	return r, true
 }
 
-// invisible returns why the first unusable reference cannot be read in scope,
-// as "<name>, which ...": it resolves to nothing written and visible, or to a
-// behavior an expression cannot evaluate. "" when every reference is usable.
+// invisible says why the first unusable reference cannot be read in scope, as "<name>,
+// which ..." (nothing visible, or a behavior no expression evaluates); "" when all can.
 func (m *migration) invisible(refs []reference, scope *xmi.Element) string {
 	if len(refs) == 0 {
 		return ""

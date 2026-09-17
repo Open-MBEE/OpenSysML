@@ -1803,7 +1803,7 @@ func (e *ActionExecutor) stepInitialNode(tokenIdx int) error {
 	if len(graph.Edges[token.Location]) == 0 {
 		return fmt.Errorf("%w: initial node has no successors", ErrInvalidActionFlow)
 	}
-	if err := e.runNodeBody(token.frame, token.Location); err != nil {
+	if terminated, err := e.runNodeBody(token.frame, token.Location); err != nil || terminated {
 		return err
 	}
 
@@ -1868,7 +1868,7 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 		return fmt.Errorf("%w: fork node %s has no successors",
 			ErrInvalidActionFlow, node.Name)
 	}
-	if err := e.runNodeBody(frame, node); err != nil {
+	if terminated, err := e.runNodeBody(frame, node); err != nil || terminated {
 		return err
 	}
 
@@ -1913,7 +1913,7 @@ func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 	frame := token.frame
 	graph := e.graphOf(frame)
 
-	if err := e.runNodeBody(frame, node); err != nil {
+	if terminated, err := e.runNodeBody(frame, node); err != nil || terminated {
 		return err
 	}
 
@@ -1959,7 +1959,7 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 		return fmt.Errorf("%w: merge node %s has multiple successors (not yet supported)",
 			ErrInvalidActionFlow, mergeNode.Name)
 	}
-	if err := e.runNodeBody(token.frame, mergeNode); err != nil {
+	if terminated, err := e.runNodeBody(token.frame, mergeNode); err != nil || terminated {
 		return err
 	}
 
@@ -1991,7 +1991,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 		return fmt.Errorf("%w: decision node %s has no successors",
 			ErrInvalidActionFlow, decisionNode.Name)
 	}
-	if err := e.runNodeBody(token.frame, decisionNode); err != nil {
+	if terminated, err := e.runNodeBody(token.frame, decisionNode); err != nil || terminated {
 		return err
 	}
 

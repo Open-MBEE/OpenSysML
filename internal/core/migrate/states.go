@@ -226,28 +226,35 @@ func (m *migration) connectionPoint(v *xmi.Element) {
 // with its entry, do and exit actions and regions.
 func (s *stateRegion) state(v *xmi.Element) {
 	name := writeName(s.name(v))
+	defers := s.deferrals(v)
 	if sub := s.m.model.Ref(v, "submachine"); sub != nil {
 		for _, c := range v.Owned("connection") {
 			s.m.unmapped(c, "a connection point reference has no v2 form; transitions through it are written to and from the submachine state")
 		}
-		if !s.m.written(sub) {
-			s.m.w.line("state " + name + ";")
+		head := "state " + name
+		if s.m.written(sub) {
+			head += " : " + s.m.ref(sub, s.r)
+			s.m.add(v, Mapped, name, "")
+		} else {
 			s.m.add(v, Approximated, name, "its submachine "+qualifiedName(sub)+" has no v2 declaration; the state is written simple")
+		}
+		if len(defers) == 0 {
+			s.m.w.line(head + ";")
 			return
 		}
-		s.m.w.line("state " + name + " : " + s.m.ref(sub, s.r) + ";")
-		s.m.add(v, Mapped, name, "")
+		s.m.w.block(head, func() { s.m.w.lines(defers) })
 		return
 	}
 	regions := v.Owned("region")
 	entry, do, exit := firstOwned(v, "entry"), firstOwned(v, "doActivity"), firstOwned(v, "exit")
-	if entry == nil && do == nil && exit == nil && len(regions) == 0 {
+	if entry == nil && do == nil && exit == nil && len(regions) == 0 && len(defers) == 0 {
 		s.m.w.line("state " + name + ";")
 		s.m.add(v, Mapped, name, "")
 		return
 	}
 	s.m.w.block("state "+name, func() {
 		s.m.writeComments(v, false)
+		s.m.w.lines(defers)
 		if entry != nil {
 			s.m.inlineBehavior("entry action", entry, v)
 		}
@@ -262,12 +269,41 @@ func (s *stateRegion) state(v *xmi.Element) {
 		}
 	})
 	s.m.add(v, Mapped, name, "")
-	for _, d := range v.Owned("deferrableTrigger") {
-		s.m.add(d, Unmapped, "", "a deferred trigger has no v2 form")
-	}
 	if inv := firstOwned(v, "stateInvariant"); inv != nil {
 		s.m.add(inv, Unmapped, "", "a state invariant has no v2 form")
 	}
+}
+
+// deferrals writes a state's deferrable triggers as `defer Sig;` lines: v2
+// defers the signal a transition would accept, so no other event kind can be.
+func (s *stateRegion) deferrals(v *xmi.Element) []string {
+	var lines []string
+	for _, d := range v.Owned("deferrableTrigger") {
+		ev := s.m.model.Ref(d, "event")
+		if ev == nil {
+			s.m.add(d, Unmapped, "", joinNotes(s.m.dangling(d, "event"), "the deferred trigger names no event"))
+			continue
+		}
+		if ev.Type != "SignalEvent" {
+			note := "only a signal event can be deferred, not a " + ev.Type
+			s.m.add(d, Unmapped, "", note)
+			s.m.add(ev, Unmapped, "", "a deferred trigger refers to it; "+note)
+			continue
+		}
+		sig := s.m.model.Ref(ev, "signal")
+		if sig == nil || !s.m.written(sig) {
+			note := "the signal event names no migrated signal"
+			s.m.add(d, Unmapped, "", note)
+			s.m.add(ev, Unmapped, "", note)
+			continue
+		}
+		clause := "defer " + s.m.ref(sig, v)
+		lines = append(lines, clause+";")
+		note := "written as " + clause + ", an OpenSysML extension of the notation that the runtime executes"
+		s.m.add(d, Approximated, "", note)
+		s.m.add(ev, Approximated, "", "written where a trigger refers to it, as "+clause+", an OpenSysML extension of the notation")
+	}
+	return lines
 }
 
 // inheritedStateNames are the members every state usage inherits, which the
@@ -350,9 +386,8 @@ func (m *migration) inlineBehavior(kw string, b, owner *xmi.Element) bool {
 	return false
 }
 
-// target names what a transition leads to: a state of the region, done for
-// a final or terminate state, or the state a connection point reference
-// belongs to.
+// target names what a transition leads to: a state of the region, done for a final
+// or terminate state, or the state a connection point reference belongs to.
 func (s *stateRegion) target(t, v *xmi.Element) (string, bool) {
 	if v == nil {
 		return "", false
@@ -457,7 +492,7 @@ func (s *stateRegion) transition(t *xmi.Element) {
 		if ev.Type == "SignalEvent" {
 			payload = s.payloadName(t, ev)
 		}
-		clause, note, ok := s.m.acceptClause(ev, t, payload)
+		clause, note, ok := s.m.triggerClause(ev, t, payload)
 		if !ok {
 			s.m.add(tr, Unmapped, "", note)
 			notes = append(notes, "a trigger is dropped: "+note)
@@ -507,9 +542,8 @@ func (s *stateRegion) transition(t *xmi.Element) {
 	s.m.add(t, verdictFor(note), tname, note)
 }
 
-// payloadName names the signal a transition accepts so its effect can read
-// it: the name of the signal's first parameter reference in the effect, or
-// the lower-cased signal name.
+// payloadName names the signal a transition accepts so its effect can read it: the
+// effect's first reference to a signal parameter, or the lower-cased signal name.
 func (s *stateRegion) payloadName(t, ev *xmi.Element) string {
 	sig := s.m.model.Ref(ev, "signal")
 	if sig == nil || firstOwned(t, "effect") == nil {

@@ -1270,10 +1270,6 @@ func (p *Parser) parsePostModifiers() featureMods {
 		case "nonunique":
 			m.isNonunique = true
 			p.advance()
-		case "terminate":
-			// Consume terminate keyword - marks terminal action node
-			// For now just consume it (no AST field, behavioral semantics)
-			p.advance()
 		default:
 			return m
 		}

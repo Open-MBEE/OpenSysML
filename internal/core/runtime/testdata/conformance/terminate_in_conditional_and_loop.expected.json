@@ -1,0 +1,7 @@
+{
+  "type": "action",
+  "outputs": {
+    "n": {"type": "Integer", "value": 3},
+    "after": {"type": "Integer", "value": 0}
+  }
+}

@@ -14,9 +14,8 @@ type scenarioSend struct {
 	part   *xmi.Element
 }
 
-// interactionNote says why an interaction cannot be written as a scenario of
-// sends: "" when every message is a signal sent to a part of the classifier
-// that owns the interaction, in the order of its occurrences.
+// interactionNote says why an interaction is no scenario of sends; "" when every
+// message is a signal sent to a part of the interaction's owner, in occurrence order.
 func (m *migration) interactionNote(e *xmi.Element) string {
 	_, note := m.scenario(e)
 	return note
@@ -72,9 +71,8 @@ func indexOf(list []*xmi.Element, e *xmi.Element) int {
 	return -1
 }
 
-// messageSend resolves one message to a send: an asynchronous signal message
-// whose signature is a migrated signal and whose receive occurrence covers a
-// lifeline standing for a part of context.
+// messageSend resolves one message to a send: an asynchronous message of a migrated
+// signal whose receive occurrence covers a lifeline standing for a part of context.
 func (m *migration) messageSend(msg, context, e *xmi.Element) (scenarioSend, string) {
 	if sort := msg.Attrs["messageSort"]; sort != "asynchSignal" {
 		if sort == "" {

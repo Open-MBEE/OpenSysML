@@ -368,6 +368,26 @@ func (h *stateStmtHost) runOwnFlow(perf *actionFrame) error {
 	return h.flow.runSubflow(perf)
 }
 
+// performsOwn reports whether sym is the action the behavior's inline body declares.
+func (h *stateStmtHost) performsOwn(sym *symbols.Symbol) bool {
+	return h.flow.performsOwn(sym)
+}
+
+// terminatePerformance ends a performance of the behavior early; ending the
+// behavior itself leaves the state, and the machine exhibiting it, as they are.
+func (h *stateStmtHost) terminatePerformance(perf *actionFrame) error {
+	return h.flow.terminatePerformance(perf)
+}
+
+// terminate ends the behavior's own performance, or the nested one it names.
+func (h *stateStmtHost) terminate(s lower.Effect) (stmtFlow, error) {
+	flow, err := h.perfs.terminate(h.perfs.root, s)
+	if err != nil {
+		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
+	}
+	return flow, nil
+}
+
 // performedInvocation reports the action a `perform` statement declared in scope
 // names, in either form the parser produces for one.
 func performedInvocation(s lower.Effect) (actionInvocation, bool) {
@@ -385,8 +405,11 @@ func statementInvocation(node ast.Node) (actionInvocation, bool) {
 		if inv := n.PerformedInvocation(); inv != nil {
 			return expressionInvocation(inv), true
 		}
-		if qn, ok := n.ActionRef.(*ast.QualifiedName); ok {
-			return actionInvocation{target: qn}, true
+		switch ref := n.ActionRef.(type) {
+		case *ast.QualifiedName:
+			return actionInvocation{target: ref}, true
+		case *ast.FeatureChainExpr:
+			return chainedInvocation(ref, nil)
 		}
 	case *ast.Usage:
 		return nestedInvocation(n)
