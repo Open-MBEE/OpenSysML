@@ -12,6 +12,7 @@ import (
 func TestRuntimeRobustnessResumableInlineDoBody(t *testing.T) {
 	t.Run("exit_mid_loop_drops_the_pending_iterations", testDoBodyExitMidLoopDropsThePendingIterations)
 	t.Run("exit_mid_iteration_drops_the_rest_of_the_iteration", testDoBodyExitMidIterationDropsTheRestOfTheIteration)
+	t.Run("empty_branch_is_a_round_of_its_own", testDoBodyEmptyBranchIsARoundOfItsOwn)
 	t.Run("exit_on_a_clock_wait_after_a_loop_leaves_no_timer", testDoBodyExitOnAClockWaitAfterALoopLeavesNoTimer)
 	t.Run("non_terminating_body_exceeds_the_step_limit", testDoBodyNonTerminatingExceedsTheStepLimit)
 	t.Run("non_terminating_flow_body_exceeds_the_step_limit", testDoBodyNonTerminatingFlowExceedsTheStepLimit)
@@ -142,6 +143,30 @@ func testDoBodyExitMidIterationDropsTheRestOfTheIteration(t *testing.T) {
 		t.Errorf("total = %v, after = %v; want 12 and 12: the round before the Stop ran the second iteration's `+ i`, its `* 10` and the third iteration never ran", data["total"], data["after"])
 	}
 	assertDoBodyAbandoned(t, exec, run, goroutines)
+}
+
+// testDoBodyEmptyBranchIsARoundOfItsOwn: a conditional whose branch holds nothing
+// and a loop ended by its condition at once each spend a round; the assignment
+// after them runs in the next.
+func testDoBodyEmptyBranchIsARoundOfItsOwn(t *testing.T) {
+	for _, compound := range []string{"if true { }", "if false { assign total := 5; } else { }", "while false { assign total := 5; }"} {
+		exec := stateExecutorForSource(t, "Machine", doBodyMachine(compound+` assign total := 1;`))
+		run := pausedDoRun(t, exec)
+		if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
+			t.Fatalf("%s: total = %v after one round; want 0, the assignment after it not yet run", compound, total)
+		}
+		exec.SendSignal("Stop", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("%s: run to completion: %v", compound, err)
+		}
+		data := exec.StateData()
+		if !valueEqual(data["total"], integerValue(1)) || !valueEqual(data["after"], integerValue(1)) {
+			t.Errorf("%s: total = %v, after = %v; want 1 and 1: the round before the Stop ran the assignment", compound, data["total"], data["after"])
+		}
+		if !run.body.ended || exec.HasPendingDoWork() {
+			t.Errorf("%s: body ended = %v, pending do work %v; want the body ended with nothing due", compound, run.body.ended, exec.HasPendingDoWork())
+		}
+	}
 }
 
 // testDoBodyExitOnAClockWaitAfterALoopLeavesNoTimer: a body whose flow loops in

@@ -315,21 +315,9 @@ func (e *stmtEngine) run(stmts []lower.Statement) (stmtFlow, error) {
 		if err != nil || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
 		}
-		if !compound(stmts[f.i]) {
-			e.ctx.bodyPerformed()
-		}
+		e.ctx.bodyPerformed()
 	}
 	return flowNext, nil
-}
-
-// compound reports a statement whose own statements, iterations or nodes are the
-// steps of a body run one at a time, not the statement as a whole.
-func compound(stmt lower.Statement) bool {
-	switch stmt.(type) {
-	case lower.If, lower.Loop, lower.Block:
-		return true
-	}
-	return false
 }
 
 // statement executes one lowered statement, recording it in the trace with the
@@ -469,7 +457,6 @@ func (e *stmtEngine) ifStatement(stmt lower.If) (stmtFlow, error) {
 			return flowNext, err
 		}
 		if !holds && stmt.Else == nil {
-			e.ctx.bodyPerformed()
 			return flowNext, nil
 		}
 		f = &branchFrame{elseBranch: !holds}
@@ -730,11 +717,6 @@ func (e *stmtEngine) loop(stmt lower.Loop) (stmtFlow, error) {
 		}
 		flow, done, err := e.iteration(stmt, f, resumed)
 		resumed = false
-		// A first iteration ended by the condition is the loop's one step; a later
-		// one ended so performed nothing since the yield before it.
-		if done && err == nil && f.iteration == 1 {
-			e.ctx.bodyPerformed()
-		}
 		if err != nil || done || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
 		}
