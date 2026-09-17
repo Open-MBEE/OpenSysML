@@ -128,7 +128,12 @@ func (m *migration) regions(owner *xmi.Element, regions []*xmi.Element, entered 
 		st.write()
 	default:
 		name := m.parallel[regions[0]]
-		m.w.line(entryThen(entered, writeName(name)))
+		if without := regionsWithoutInitial(regions); len(without) == 0 {
+			m.w.line(entryThen(entered, writeName(name)))
+		} else {
+			m.w.lines(commentLines("no default entry: the " + pluralRegion(len(without)) + " " + strings.Join(without, ", ") +
+				" have no initial pseudostate, so only a fork or a transition naming a nested state enters the regions"))
+		}
 		between()
 		m.w.block("state "+writeName(name)+" parallel", func() {
 			for _, r := range regions {
@@ -143,6 +148,30 @@ func (m *migration) regions(owner *xmi.Element, regions []*xmi.Element, entered 
 		})
 		m.w.line("transition first " + writeName(name) + " then done;")
 	}
+}
+
+// regionsWithoutInitial names the regions no initial pseudostate starts.
+func regionsWithoutInitial(regions []*xmi.Element) []string {
+	var out []string
+	for _, r := range regions {
+		has := false
+		for _, v := range r.Owned("subvertex") {
+			if pseudoKind(v) == "initial" {
+				has = true
+			}
+		}
+		if !has {
+			out = append(out, describe(r))
+		}
+	}
+	return out
+}
+
+func pluralRegion(n int) string {
+	if n == 1 {
+		return "region"
+	}
+	return "regions"
 }
 
 // region prepares to write region r of the machine that nameMachine named.
