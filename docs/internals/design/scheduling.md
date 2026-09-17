@@ -95,7 +95,7 @@ A `SchedulePolicy` is parsed from one spelling and printed back to it:
 | `reverse` (default, zero value) | reverse spawn order | first in declaration order | last created |
 | `declared` | spawn order | first in declaration order | first created |
 | `seed:<n>` | shuffle of the tokens not parked | uniform draw | uniform draw |
-| `replay:<file>` | the witness's `step n: …` line, then `reverse` | the witness's line, then `reverse` | the witness's line, then `reverse` |
+| `replay:<file>` | the witness's `step n: …` line, then `reverse`'s pick alone | the witness's line, then `reverse` | the witness's line, then `reverse` |
 | `explore[:runs=N,depth=D]` | the exploration's plan | the exploration's plan | the exploration's plan |
 
 `reverse` is exactly what every run did before policies existed, so every `.expected.json` and
@@ -123,10 +123,11 @@ own generator and an interleaved run neither consumes its draws nor inherits its
 — `ChoiceTaken.String` spellings, one per line up to the first blank line, so a checker's witness
 file with a trace body after its header serves as it stands — are followed one move at a time,
 each having to name the step the run is at and pick among the alternatives it offers, and once
-they are spent the run continues as `reverse`. A line the run cannot follow, or one left over at
-the end, is recorded as the run goes and reported by `Context.Unfollowed` as a `ReplayError`
-naming the move, its choice and what the run faced; the run is never quietly turned into another
-linearization. A refused move changes nothing: a transition draw is refused before the dispatch
+they are spent the run picks as `reverse` does, still one token a step — the witness was written
+by a run stepping so, and a sweep letting every token act would leave another trace. A line the
+run cannot follow, or one left over at the end, is recorded as the run goes and reported by
+`Context.Unfollowed` as a `ReplayError` naming the move, its choice and what the run faced; the
+run is never quietly turned into another linearization. A refused move changes nothing: a transition draw is refused before the dispatch
 fires (`broadcastEvent`), and a `choice` pseudostate's, drawn only once the compound transition's
 exits and incoming effects are made, or a join's, drawn one incoming segment at a time, undoes
 that move whole — exits, effects, the do behaviors the exits abandoned, what was traced and noted

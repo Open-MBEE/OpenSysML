@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -49,8 +50,8 @@ const (
 	// scheduleExplore replays runs under Explore, each following a recorded prefix of
 	// choices and taking the first untried alternative at its frontier.
 	scheduleExplore
-	// scheduleReplay follows a witness move for move, then behaves as reverse; a
-	// move the run cannot make is refused (replay.go).
+	// scheduleReplay follows a witness move for move, then picks as reverse does, still one
+	// token a step; a move the run cannot make is refused (replay.go).
 	scheduleReplay
 	// scheduleCheck makes the one move the model checker selected for the step; it
 	// has no spelling and is constructed by the checker alone (check_schedule.go).
@@ -275,6 +276,17 @@ type stepTokens struct {
 	label   func(id int64) string
 }
 
+// has reports whether the step has a token the label names.
+func (t stepTokens) has(label string) bool {
+	return slices.ContainsFunc(t.ids, func(id int64) bool { return t.label(id) == label })
+}
+
+// hasAll reports whether the step has every token the labels name: the order
+// of a witness's step is this flow's move only when it does.
+func (t stepTokens) hasAll(labels []string) bool {
+	return len(labels) > 0 && !slices.ContainsFunc(labels, func(l string) bool { return !t.has(l) })
+}
+
 // tokenSchedule hands a step its tokens one at a time in the order the policy
 // tries them, and is told after each whether it acted.
 type tokenSchedule struct {
@@ -344,7 +356,7 @@ func (ts *tokenSchedule) Choice() (alternatives []string, taken int, ok bool) {
 // every token able to act, the witness's or the checker's — rather than a sweep
 // giving each token its turn.
 func (s *scheduler) oneMove() bool {
-	return (s.policy.kind == scheduleExplore && s.explore != nil) || s.replaying() || s.checking()
+	return (s.policy.kind == scheduleExplore && s.explore != nil) || s.replay != nil || s.checking()
 }
 
 // checking reports whether the run makes the moves the model checker selects.
@@ -359,8 +371,10 @@ func (s *scheduler) replaying() bool {
 
 // scheduleStep fixes how the step tries its tokens: reversed, declared,
 // seeded shuffle, or one at a time as the exploration or the witness picks them.
+// A replay stays one move a step past its witness, so the run it re-makes goes
+// on as the checker or exploration that wrote the witness stepped it.
 func (s *scheduler) scheduleStep(tokens stepTokens) *tokenSchedule {
-	if s.replaying() {
+	if s.replay != nil {
 		return &tokenSchedule{replay: s.replay.beginStep(tokens)}
 	}
 	if s.checking() {
