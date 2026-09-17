@@ -241,9 +241,9 @@ func (m *migration) hasFeature(c, f *xmi.Element) bool {
 // value type beside a block) has no feature to redefine.
 func (m *migration) slotClassifier(e, f *xmi.Element) *xmi.Element {
 	occurrences, values, _ := m.instanceClassifiers(e)
-	classifiers := occurrences
-	if len(occurrences) == 0 {
-		classifiers = values
+	classifiers := values
+	if len(occurrences) > 0 {
+		_, classifiers, _ = m.individualClassifiers(e)
 	}
 	for _, c := range classifiers {
 		if m.hasFeature(c, f) {

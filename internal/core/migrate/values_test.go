@@ -672,7 +672,11 @@ func TestIndividualTakesTheKindOfItsClassifier(t *testing.T) {
         <value xmi:type="uml:InstanceValue" xmi:id="_v2" instance="_f1"/>
       </slot>
     </packagedElement>
-    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_mixed" name="mixed" classifier="_b _fits"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_mixed" name="mixed" classifier="_b _fits">
+      <slot xmi:type="uml:Slot" xmi:id="_sl3" definingFeature="_x">
+        <value xmi:type="uml:LiteralReal" xmi:id="_v3" value="4.0"/>
+      </slot>
+    </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_bus" name="Bus"/>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_pf" name="port first" classifier="_bus _b"/>`, `
   <sysml:ConstraintBlock xmi:id="_s1" base_Class="_fits"/>
@@ -682,8 +686,10 @@ func TestIndividualTakesTheKindOfItsClassifier(t *testing.T) {
 	wantLine(t, r.Notation, "individual constraint def 'fits 1' :> Fits {")
 	wantLine(t, r.Notation, "in attribute :>> x = 3.0;")
 	wantLine(t, r.Notation, "individual constraint :>> fits : 'fits 1';")
-	wantLine(t, r.Notation, "individual part def mixed :> Rover;")
+	wantLine(t, r.Notation, "individual part def mixed :> Rover {")
 	wantNote(t, r, "_mixed", migrate.Approximated, "the instance's classifier Fits is not written: an individual part def cannot specialize a constraint def")
+	wantNoLine(t, r.Notation, "attribute :>> x = 4.0;")
+	wantNote(t, r, "_sl3", migrate.Unmapped, "the slot's defining feature Fits::x is not a feature of any classifier the instance is written to specialize")
 	wantLine(t, r.Notation, "individual part def 'port first' :> Rover;")
 	wantNote(t, r, "_pf", migrate.Approximated, "the instance's classifier Bus is not written: an individual part def cannot specialize a port def")
 	wantClean(t, "kinds.sysml", r)
