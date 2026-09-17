@@ -714,6 +714,21 @@ table is followed by the trace of each outcome's witness run (`trace of outcome 
 (run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, `witness`) and
 `exploration` (`complete`, `runs`, `budgetsHit`) beside the table's lines.
 
+<a id="a-do-behavior-under-explore-and-check"></a>
+A state's `do` behavior is stepped the same way under `explore` and `check`: one token at a time —
+each due `do` behavior moves one token, then the machine dispatches the event at the head of its
+pool. Under the fixed policies (`reverse`, `declared`, `seed:<n>`) a do behavior's flow instead
+advances every steppable token once a round, and the machine dispatches only between rounds. The
+run a fixed policy makes — the whole round, then the dispatch — is therefore an interleaving
+`check`'s enumeration does not yet contain, and `check` moves the tokens within a `do` flow in
+declared order where `explore` draws their order: a `check` that reports *exhaustive* has
+exhausted the orders of the due `do` behaviors and of the dispatches, and a `do` behavior a
+transition interrupts may end with a value under `reverse` that `check` does not table. Whether
+the dispatch waits for the round or cuts it becomes a recorded choice point with the
+region-order scheduling work ([design note](../internals/design/region-order-scheduling.md));
+until then, run a fixed policy and `explore` beside the checker when a `do` behavior loops
+through timed waits.
+
 The order of executors due at one instant of the clock is explored like any other choice:
 `sysml -schedule explore -instantiate Demo::beacon -action Demo::watcher -state
 "Demo::Beacon::blinking Demo::beacon" -advance 5` starts every behavior named on one clock in each run, advances it, and tables the

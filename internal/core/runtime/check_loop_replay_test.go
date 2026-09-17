@@ -50,10 +50,11 @@ func nestedStateStarterOf(part, sym *symbols.Symbol, path string, horizon Horizo
 	}
 }
 
-// The witness of a check over a state whose `do` body loops through timed waits
-// replays: at the round the body's branches are due together the timed exit is
-// due too, and the move the checker records there is the move replay makes,
-// whether the machine runs at top level or on a part nested in another.
+// Every witness of a check over a state whose `do` body loops through timed
+// waits replays to its trace: at the round the body's branches are due together
+// the timed exit is due too, and the move the checker records there is the move
+// replay makes, whether the machine runs at top level or on a part nested in
+// another.
 func TestCheckWitnessesOfALoopingDoRoundReplay(t *testing.T) {
 	for _, nested := range []bool{false, true} {
 		name := "top-level"
@@ -72,25 +73,20 @@ func TestCheckWitnessesOfALoopingDoRoundReplay(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if report.Verdict != CheckExhaustive || len(report.Finals) != 1 {
-				t.Fatalf("check: %s, want no violation, exhaustive, one final", report.Status())
+			if report.Verdict != CheckExhaustive || len(report.Finals) == 0 {
+				t.Fatalf("check: %s, want no violation, exhaustive, with finals", report.Status())
 			}
-			final := report.Finals[0]
-			if final.Values["left"] != "1" || final.Values["right"] != "1" || final.Values["late"] != "1" {
-				t.Fatalf("final %s, want left, right and late at 1", final.Outcome)
-			}
-			var orders int
-			for _, c := range final.Witness.Choices {
-				if c.Kind == ChoiceTokenOrder {
-					orders++
+			for _, final := range report.Finals {
+				if final.Values["finalState"] != "heard+finished" || final.Values["late"] != "1" {
+					t.Fatalf("final %s, want heard+finished with late at 1", final.Outcome)
 				}
-			}
-			if orders == 0 {
-				t.Fatalf("witness %s records no token order at the do round", FormatChoices(final.Witness.Choices))
-			}
-			r := replayWitness(t, m, start, final.Witness, final.Outcome)
-			if got := r.Ctx.Trace().String(); got != final.Witness.Trace {
-				t.Errorf("replay left the trace\n%s\nwant the witness's\n%s", got, final.Witness.Trace)
+				if !slices.ContainsFunc(final.Witness.Choices, func(c ChoiceTaken) bool { return c.Kind == ChoiceTokenOrder }) {
+					t.Fatalf("witness %s records no token order at the do round", FormatChoices(final.Witness.Choices))
+				}
+				r := replayWitness(t, m, start, final.Witness, final.Outcome)
+				if got := r.Ctx.Trace().String(); got != final.Witness.Trace {
+					t.Errorf("replay of %s left the trace\n%s\nwant the witness's\n%s", final.Outcome, got, final.Witness.Trace)
+				}
 			}
 		})
 	}

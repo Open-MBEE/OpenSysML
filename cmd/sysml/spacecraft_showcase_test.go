@@ -16,9 +16,9 @@ var spacecraftMachine = []string{"-instantiate", "SpacecraftComms::mission",
 	"-state", "SpacecraftComms::SpacecraftVehicle::modes SpacecraftComms::mission.spacecraftVehicle", "-advance", "80"}
 
 // spacecraftOutcomes are the two ends of the race at t=79 between the drain, the
-// frame send and the charge: the last frame out before `BatteryLow` interrupts
-// the transmission, or not.
-var spacecraftOutcomes = []string{"battery 39, data 51200, 50 frames", "battery 41, data 52224, 49 frames"}
+// frame send and the charge as the checker steps it, one token a step: how many
+// frames go out, and whether the charge lands, before `BatteryLow` interrupts.
+var spacecraftOutcomes = []string{"battery 39, data 52224, 49 frames", "battery 41, data 53248, 48 frames"}
 
 // TestEngineCheckWitnessesTheSpacecraftRaceAndReplaysEach checks -engine check on
 // the showcase's spacecraft: the race at t=79, inside a state whose `do` body
@@ -31,7 +31,7 @@ func TestEngineCheckWitnessesTheSpacecraftRaceAndReplaysEach(t *testing.T) {
 	got := runFiles(t, binary, []string{spacecraftModel}, append([]string{"-engine", "check", "-check-witness", dir}, spacecraftMachine...)...)
 	wantReport(t, got, 1,
 		"divergent: this.battery ends as 39 or 41",
-		"divergent: this.data ends as 51200 or 52224",
+		"divergent: this.data ends as 52224 or 53248",
 		"standing: sensitive (witnessed:", "replayed)")
 	rejectReport(t, got, "disagrees with the witness", "not covered")
 

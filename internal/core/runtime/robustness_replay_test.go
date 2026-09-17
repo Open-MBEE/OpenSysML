@@ -85,16 +85,19 @@ func testInnerOrderMixingTwoFlows(t *testing.T) {
 }
 
 // testWitnessEndingBeforeTheRunDoes: a witness cut short leaves the run to end on
-// its own, one move a step, without a refusal or a move left over.
+// its own as `reverse` picks, still one token a step — at the round both branches
+// and the exit are due, `b` alone writes before the exit — without a refusal or a
+// move left over.
 func testWitnessEndingBeforeTheRunDoes(t *testing.T) {
 	m := loopingDoModel(t, false)
 	sym := m.state(t, "Machine")
+	start := stateStarterOf(sym, HorizonAt(5))
 	ctx, err := m.fresh()
 	if err != nil {
 		t.Fatal(err)
 	}
 	mustSchedule(t, ctx, ReplayPolicy(nil))
-	run, err := beginInvocation(ctx, stateStarterOf(sym, HorizonAt(5)))
+	run, err := beginInvocation(ctx, start)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,12 +117,8 @@ func testWitnessEndingBeforeTheRunDoes(t *testing.T) {
 		t.Fatalf("unfollowed: %v", err)
 	}
 	outcome := run.inv.Outcome()
-	for _, out := range outcome.RenderedOutputs() {
-		if out.Text != "1" {
-			t.Fatalf("outcome %s, want %s at 1", outcome, out.Name)
-		}
-	}
-	if outcome.FinalState != "heard+finished" || len(outcome.RenderedOutputs()) != 3 {
-		t.Fatalf("outcome %s, want heard+finished with left, right and late", outcome)
+	want := "finalState heard+finished; visits waiting, looping, finished, heard; late = 1; left = 0; right = 1"
+	if got := outcome.String(); got != want {
+		t.Errorf("outcome %s, want %s", got, want)
 	}
 }
