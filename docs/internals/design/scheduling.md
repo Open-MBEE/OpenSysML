@@ -109,6 +109,10 @@ platform; `scheduler.mark` saves and restores that state around a probe, so prev
 move the generator. `Context.SetSchedule` sets the policy runs started from then on draw under; a
 run already under way keeps the one it started with, and `explore` is refused with
 `ErrExploreUndriven` because it is not a policy one context runs under (below).
+`Context.Reschedule` is the same change reaching the runs driven call by call too — the clock's
+and those of the behaviors the objects run — each given a scheduler started under the new policy
+where it stands, so a persistent session's turns from then on choose as a fresh run would; a
+snapshot restores the schedulers the runs had along with their marks.
 
 The scheduler lives in the run's `runState` beside the budget and the notes. A run driven call by
 call — a REPL `%action` or `%state` session — owns its `executorRun.state`, installed for each

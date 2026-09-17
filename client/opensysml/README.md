@@ -34,6 +34,7 @@ inst, err := client.Instantiate(ctx, model, "Demo::Vehicle")
 | Compute with it | `Evaluate`, `Instantiate`, `EvaluateCalc`, `Calculate`, `RunAnalysis` |
 | Run behavior | `ExecuteAction`, `ExecuteState` |
 | Run every linearization of it | `ExploreAction`, `ExploreState`, `ExploreAnalysis` |
+| Play it step by step | `OpenSession`, then `Session.Instantiate`, `Send`, `Advance`, `Perform` |
 | Check it | `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance` |
 | Choose who answers | `ListEngines`, `WithEngine`, `Engine`, `CalcEngine` |
 | Search it | `Query`, `QueryOSLC` |
@@ -111,6 +112,73 @@ ended it. `WithSchedule("explore:runs=64,depth=8")` sets the budget; a run that
 fails under some orders is an `Outcome` with its `Error` set, not a failed call.
 The single-run and exploring calls refuse each other's policies with
 `CodeInvalidArgument`, so a policy is never quietly answered by the wrong shape.
+
+### Sessions
+
+`ExecuteAction` and `ExecuteState` run a whole behaviour and answer what it did.
+A `Session` is the interactive shape: a persistent run of one model that keeps
+its clock, its scheduling policy and the objects it instantiated between calls,
+for a debugger, a simulator's console or a game played against the model one
+key at a time.
+
+```go
+session, err := opensysml.OpenSession(client, model)
+defer session.Close()
+
+hero, err := session.Instantiate("Play::hero")           // starts the machines it exhibits
+err = session.SetSchedule("seed:42")                     // the dice later turns roll, the running machines' and clock's included
+states, err := session.ActiveStates(hero)                // ["town"]
+transitions, err := session.Transitions(hero)            // out of each active state and those enclosing it: Source, Target, Trigger, Signal or Event, Guarded
+acceptance, err := session.Accepts(hero, "Play::Go", nil) // Taken(), as dispatch selects among machines; Accepted; Enabled() is whether a guard holds now
+_, err = session.Send(hero, "Play::Go", nil)             // posts it, or refuses with CodeFailedPrecondition
+advanced, err := session.Advance(1)                      // dispatches, completion transitions included; Choices
+performed, err := session.Perform(hero, "Play::Hero::pay",
+	map[string]opensysml.Value{"amount": opensysml.Int(5)}) // Outputs, Choices, Branches; TurnedAway()
+value, err := session.Feature(hero, "gold")              // as the runs left it
+err = session.SetFeature(hero, "gold", opensysml.Int(100))
+v, err := session.Evaluate("town.shop.stick", opensysml.WithContextSymbol("Play::hero"))
+members, err := session.Members("Play::Mood")            // an enumeration's literals, a package's parts
+```
+
+A session answers facts, never the engine's own graphs or objects: a
+`Transition` is its ends and trigger by name; an `Acceptance` is whether a
+transition accepts the signal and whether one is enabled; a `Performance`
+carries the run's outputs, its `ChoicePoint`s (where the schedule chose, what
+it could have chosen, what it took) and the `Branch` each decision of the
+action's own flow left by, with `TurnedAway()` reading whether the opening
+decision took its else branch — the shape of an action that looks at its
+inputs and declines. Objects are `InstanceID` handles that `Feature`,
+`SetFeature`, `Accepts`, `Send` and `Perform` take, and `Evaluate` reads them
+where an expression names one.
+
+A `Session` is not part of the `Client` interface, on purpose. `Client` is the
+set of RPCs the service answers, and `New` and `Dial` are held to identical
+answers by the conformance suite; a session is state the engine holds between
+calls, which the service exposes no RPC for. Rather than a `Dial` that answers
+some methods and not others, `OpenSession` is a separate in-process-only
+surface opened from a `Client`: a client `New` returned answers it, a `Dial`
+client is refused with `CodeUnimplemented`, and nothing is stubbed in between.
+The `Client` contract is untouched — every one of its methods still answers
+identically over both — and a session over the wire, if one is added, will be
+a set of RPCs with the same fact-shaped answers.
+
+Misuse is refused, never a panic: a closed session answers `CodeUnavailable`;
+a signal no transition out of an active state, or a state enclosing one,
+accepts in any machine the object exhibits, or one whose every guard is false,
+`CodeFailedPrecondition`; an exploration policy or a negative
+advance `CodeInvalidArgument`; an unknown symbol, object or action, or a run
+the model fails, a `*FailureError` as the request-scoped calls report them. A
+session holds its model in the client's cache and the objects it made until
+`Close`, which releases them; closing twice is harmless, and `Close` on the
+client does not close a session opened from it, so close the session first.
+Its objects are bounded as the service bounds the objects it holds for
+queries (`OPENSYSML_GRPC_MAX_HELD_OBJECTS`, 10000 by default) — a call that
+would pass the bound answers `CodeResourceExhausted` — and its runs by the
+same step budget as `ExecuteAction`, each `Evaluate` and `Perform` a run of
+its own.
+
+The Legend of the Red Dragon example (`examples/lord-demo/web`) is a client of
+this surface and nothing else: its browser game imports only this package.
 
 `PerformedBy` names the object an action or state machine runs on, as `sysml
 -action "<action> <object>"` does: a part definition or usage to make an object

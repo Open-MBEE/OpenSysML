@@ -33,6 +33,37 @@
 // model handle, and editing — is refused with CodeFailedPrecondition rather than
 // applied to one document of several.
 //
+// # Sessions
+//
+// Every method on Client is request-scoped: ExecuteAction and ExecuteState run
+// a whole behaviour and answer what it did. A Session is the other shape — a
+// persistent, interactive run that keeps its clock, its scheduling policy and
+// the objects it instantiated between calls, so a caller instantiates a part,
+// sends its state machine a signal, performs an action on it and reads what
+// changed, one step at a time:
+//
+//	session, err := opensysml.OpenSession(client, model)
+//	hero, err := session.Instantiate("Play::hero")
+//	acceptance, err := session.Accepts(hero, "Play::Go", nil)
+//	_, err = session.Send(hero, "Play::Go", nil)
+//	advanced, err := session.Advance(1)
+//	performed, err := session.Perform(hero, "Play::Hero::pay", inputs)
+//
+// A Session is deliberately not part of the Client interface. Client is the
+// set of RPCs the service answers, held to identical answers from New and Dial
+// by the conformance suite; a session is state the engine holds between calls,
+// which the service exposes no RPC for. Rather than a Dial that answers some
+// methods and not others, OpenSession is a separate, in-process-only surface:
+// it is opened from a Client, so a program reaches it through the same handle
+// and model it uses for everything else, but only a client New returned can
+// answer it, and a Dial client is refused with CodeUnimplemented. What a
+// Session answers is facts — the transitions out of the active states, and
+// the states enclosing them, of every machine an object exhibits and what
+// fires them, whether a signal's guard holds now, the choice points a run made,
+// whether an action's opening decision turned its caller away — never the
+// engine's own graphs or objects, so the boundary the rest of the package keeps
+// holds here too.
+//
 // # Answers, verdicts and refusals
 //
 // Operations that ask something of the model answer what it says rather than

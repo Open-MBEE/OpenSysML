@@ -6,9 +6,11 @@ twelve forest levels and the Red Dragon, the three skill trees, Violet and Seth
 Able at the inn, gems and charm, rooms and bribes, the slaughter of other
 players, the fairies, the Old Hag and the Dark Cloak Tavern, and the town crier
 at midnight — is an executable SysML action or transition, guarded so that the
-warrior's invariants hold however it is reached. What it is not is the game
-as a player saw it: no screens, no saved characters, no other players on the
-line. Every output below is what the commands print.
+warrior's invariants hold however it is reached. [Played in the browser](#in-the-browser),
+it looks like the door game did — a black screen, the menus, a warrior's stats —
+with the page pressing the model's keys and no rule of its own. What it still is
+not is the bulletin board: no saved characters, no other players on the line.
+Every output below is what the commands print.
 
 The solver sections need `z3` on `PATH` — see
 [installing a solver](../../docs/guide/01-install.md#installing-a-solver-optional).
@@ -994,6 +996,80 @@ it need not. `PowerMoves` asks the fewest lessons that give three uses to a
 warrior who will gain five levels, and `GemsForDefense` the gems for five
 points of defense: seven and ten.
 
+## In the browser
+
+[`web/`](web/) plays the model as the game a player saw: a terminal-styled page
+with the warrior's stats, the menu of the state the day machine is in, and the
+keys the game took. The model runtime is compiled to WebAssembly and runs in
+the tab, so there is no game server: the page is static files. Build them
+from the repository root and serve the directory with any file server:
+
+```bash
+make lord-web
+python3 -m http.server -d build/lord-demo 8000
+```
+
+Open <http://localhost:8000/>, name your warrior, choose a sex and a skill
+guild, and the town square is drawn. Press a menu's key or click its line; a
+choice that needs more — how much to deposit, which weapon, which blessing —
+asks for it, and <kbd>Esc</kbd> takes the question back. The page is the
+model's, not a copy of it:
+
+- **Each tab plays its own model.** The page fetches `lord.sysml` and hands it
+  to the runtime in `lord.wasm`, which parses and checks it, instantiates
+  `LordPlay::hero` and starts its `day` machine — all in the browser. A game
+  lives as long as the tab; nothing is sent anywhere, written to disk, or
+  shared with another tab. Edit the model in `build/lord-demo/`, reload, and
+  the changed rules are what you play.
+- **The menu is the state machine.** Each key is one of the `accept` triggers
+  of the transitions out of the current state; a choice the guard refuses
+  (*Seek the Red Dragon* at level one, robbing the bank untrained, a room with
+  no gold) is drawn dimmed and, pressed, is refused by the machine, not the
+  page. Where a transition's deed takes an argument — the fairies' blessing,
+  a wager, a profession, a favour, a stat for the gems — the page asks for it
+  and performs the action with the argument bound to the model's own value
+  (`Blessing::horse`, `town.inn.violet.wink`), with the same guard deciding.
+- **The stats are the warrior's features.** Name, level, hit points, gold in
+  hand and in the bank, experience, gems, charm, the fights left and the
+  skill points are read from the instance after every command; the page
+  never adds or subtracts.
+- **What happened is what the schedule decided.** The foe the forest served
+  and the blows that landed are the run's recorded choices; every other line
+  of the log is a difference between the warrior before and after.
+
+`make lord-web` assembles `build/lord-demo/` (`LORD_WEB_OUT` to put it
+elsewhere): `lord.wasm` built from [`web/main.go`](web/main.go) with
+`GOOS=js GOARCH=wasm`, Go's `wasm_exec.js` loader, the page, and a copy of
+the model. The page needs an HTTP server only because browsers will not fetch
+WebAssembly from `file://`; the one above is Python's, and any other serves.
+The binary carries the whole SysML toolchain and its bundled standard library,
+so it is large — about 57 MB, 13 MB compressed — and a model that does not
+play (one with errors, or without `LordPlay::hero` and its day machine) is
+refused when the page loads it, before any warrior is made.
+
+The game itself is the [`web/lord`](web/lord/) package: one `Game` per
+warrior, that sends the day machine the signal a key stands for, invokes the
+deed an argument-taking choice performs, and projects the hero's features for
+the page. It has no dependence on the browser and is what the tests exercise;
+`main.go` only hands it to JavaScript.
+
+The package is written against the public Go API alone — `client/opensysml`
+and nothing under `internal/` — as any program outside this repository would
+be. A `Game` opens an in-process client with `opensysml.New`, parses the model
+with `ParseSource`, and plays it in a `Session` (`opensysml.OpenSession`), the
+API's persistent shape: the session keeps the hero it instantiated, the day
+machine's state, the clock and the seeded schedule between keys. The menu is
+`Session.Transitions` filtered to the signal triggers out of the active state,
+each dimmed or lit by `Session.Accepts`; a key is `Session.Send` followed by
+`Session.Advance`, which runs the deed and the completion transitions after it;
+an argument-taking choice is `Session.Perform` on the hero, refused when its
+`Performance.TurnedAway()` — the opening decision left by its else branch — and
+narrated from its `ChoicePoint`s; the stats are `Session.Feature` reads, and
+the values a choice binds (`Blessing::horse`, `town.inn.violet.wink`) are
+`Session.Evaluate` in the hero's scope. Each direct deed rolls under a seed of
+its own that the game's seed determines (`Session.SetSchedule`), so a seed and
+a sequence of keys replay the same day.
+
 ## What the model leaves open, and where it guesses
 
 The dice are the schedule. The game rolls whether a swing lands, which
@@ -1018,5 +1094,5 @@ attribute or a calculation in `lord.sysml`, changed by editing it.
 
 The game had a screen, a modem and a hundred players on one bulletin board;
 the model has warriors, and `attack` takes one of them as its `foe`. There is
-no character file: a warrior lives as long as the REPL session, or the
-`-instantiate` that made it.
+no character file: a warrior lives as long as the REPL session, the
+`-instantiate` that made it, or the browser tab that plays it.

@@ -3823,6 +3823,21 @@ func (e *StateExecutor) AcceptsMessage(m Message) (accepted bool, err error) {
 	return accepted, err
 }
 
+// TakesMessage previews whether delivery would let this machine take the message:
+// it reacts to it and does not yield it to a sibling machine that would fire or defer.
+func (e *StateExecutor) TakesMessage(m Message) (takes bool, err error) {
+	defer e.ctx.previewExecutorRun(&e.driven)()
+	e.preview(func() { takes, err = e.takesMessage(m) })
+	return takes, err
+}
+
+// TriggeredBy previews whether a transition out of an active or enclosing state is
+// triggered by the message, whatever its guard; deferral and do behaviors aside.
+func (e *StateExecutor) TriggeredBy(m Message) (triggered bool, err error) {
+	e.preview(func() { triggered, err = e.acceptsSignal(m) })
+	return triggered, err
+}
+
 // preview runs fn as a probe of the context, which beginProbe undoes whole.
 func (e *StateExecutor) preview(fn func()) {
 	defer e.ctx.beginProbe()()
@@ -3856,35 +3871,45 @@ func (d Decision) Enabled() bool {
 // A do behavior parked at an accept the message would let go on is named too.
 func (e *StateExecutor) Decide(m Message) (decision Decision, err error) {
 	defer e.ctx.previewExecutorRun(&e.driven)()
-	e.preview(func() { decision, err = e.decide(m) })
+	e.preview(func() { decision, _, err = e.decide(m) })
 	return decision, err
+}
+
+// DecideTransitions is Decide reporting alongside the decision the transitions
+// its Fires describe, in the same order.
+func (e *StateExecutor) DecideTransitions(m Message) (decision Decision, transitions []*lower.Transition, err error) {
+	defer e.ctx.previewExecutorRun(&e.driven)()
+	e.preview(func() { decision, transitions, err = e.decide(m) })
+	return decision, transitions, err
 }
 
 // decide is Decide under the preview that discards what it builds. It selects the
 // message's takers as broadcastEvent does, so the two agree.
-func (e *StateExecutor) decide(m Message) (Decision, error) {
+func (e *StateExecutor) decide(m Message) (Decision, []*lower.Transition, error) {
 	event := Event{Type: EventAccept, Timestamp: e.ctx.clock.now, Payload: m}
 	accepted, err := e.acceptableMessage(m)
 	if err != nil {
-		return Decision{}, err
+		return Decision{}, nil, err
 	}
 	var candidates []dispatchCandidate
 	if accepted {
 		selected, err := e.selectTransitions(&event)
 		if err != nil {
-			return Decision{}, err
+			return Decision{}, nil, err
 		}
 		if candidates, err = e.chooseTransitions(selected, &event); err != nil {
-			return Decision{}, err
+			return Decision{}, nil, err
 		}
 	}
 	taking, err := e.doBehaviorsTaking(m, candidates)
 	if err != nil {
-		return Decision{}, err
+		return Decision{}, nil, err
 	}
 	var decision Decision
+	var transitions []*lower.Transition
 	for _, candidate := range candidates {
 		decision.Fires = append(decision.Fires, transitionDescription(candidate.chosen))
+		transitions = append(transitions, candidate.chosen)
 	}
 	for _, act := range taking {
 		decision.Resumes = append(decision.Resumes, doBehaviorDescription(act.state))
@@ -3892,7 +3917,7 @@ func (e *StateExecutor) decide(m Message) (Decision, error) {
 	if accepted && !decision.Enabled() {
 		decision.Deferred = e.defersEvent(&event)
 	}
-	return decision, nil
+	return decision, transitions, nil
 }
 
 // Performer is the object this machine is performed by, nil for none.
@@ -4447,6 +4472,31 @@ func (e *StateExecutor) CurrentState() ast.Node {
 // active state, or one state per orthogonal region, in declaration order.
 func (e *StateExecutor) ActiveStates() []*ast.StateNode {
 	return e.activeStates()
+}
+
+// ActiveLeaves returns the innermost active states, one per active region, in
+// region order; the composite states enclosing them are active too.
+func (e *StateExecutor) ActiveLeaves() []*ast.StateNode {
+	return e.activeLeaves()
+}
+
+// OutgoingTransitions lists the transitions dispatch could select now: those
+// out of each active leaf and then of each state enclosing it, innermost first
+// as dispatch tries them, each in declaration order and a shared enclosing
+// state's once.
+func (e *StateExecutor) OutgoingTransitions() []*lower.Transition {
+	var out []*lower.Transition
+	listed := make(map[*ast.StateNode]bool)
+	for _, leaf := range e.activeLeaves() {
+		for _, source := range e.getParentChain(leaf) {
+			if listed[source] {
+				continue
+			}
+			listed[source] = true
+			out = append(out, e.graph.Transitions[source]...)
+		}
+	}
+	return out
 }
 
 // GetStateVisits returns the ordered list of visited state names.

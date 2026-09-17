@@ -41,6 +41,14 @@ some order is an `Outcome` whose `Error` is set, not a failure of the call. The 
 refuse each other's policies with `CodeInvalidArgument`, and exploring requires the
 `schedule_explore` capability alongside `schedule`.
 
+A `Session` (`opensysml.OpenSession(client, model)`) is the interactive counterpart of those
+one-run calls: it keeps its clock, its schedule (`SetSchedule`) and the objects it instantiated
+between calls, so `Instantiate`, `ActiveStates`, `Transitions`, `Accepts`, `Send`, `Advance`,
+`Perform`, `Feature`, `SetFeature`, `Evaluate` and `Members` play a model one step at a time and
+answer facts about it. It is in-process only — opened from a `New` client, refused by a `Dial`
+client with `CodeUnimplemented` — and is not part of the `Client` interface; the package README
+explains why.
+
 `ListEngines` names the analysis engines the service answers with, as `EngineInfo` in name order.
 `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` and `ValidateInstance` take `WithEngine(name)` and
 `RunAnalysis` and `ExploreAnalysis` take `Engine(name)`, and `Calculate` (`EvaluateCalc` with
@@ -443,6 +451,11 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
     now on resolve their choice points under; a run already under way keeps the one it started
     with. `explore` is refused with `ErrExploreUndriven`: an exploration replays whole runs over
     fresh contexts, so `Explore` drives it rather than one context running under it
+  - `Reschedule(policy SchedulePolicy) error` — `SetSchedule` reaching the runs driven call by
+    call as well — the clock and the behaviors the objects run — which choose under the policy
+    from their next step on as a run started under it would, their configurations, pending
+    events, clock and choices so far kept; the session surface's `SetSchedule`.
+    `ErrRescheduleMidRun` from inside a step
   - `Schedule() SchedulePolicy` — The policy the next run resolves its choice points under
   - `Clock() *Clock` — The simulation clock every executor of the context reads and waits on:
     `Now()` its current instant in `SI::s`, `Waits()` every state timer and action `accept

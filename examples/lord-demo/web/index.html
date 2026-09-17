@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legend of the Red Dragon</title>
+<link rel="stylesheet" href="lord.css">
+</head>
+<body>
+<main id="terminal" aria-live="polite">
+  <header id="banner">
+    <pre id="title"> ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ █                                                                                      █
+ █   ██╗     ███████╗ ██████╗ ███████╗███╗   ██╗██████╗                                 █
+ █   ██║     ██╔════╝██╔════╝ ██╔════╝████╗  ██║██╔══██╗                                █
+ █   ██║     █████╗  ██║  ███╗█████╗  ██╔██╗ ██║██║  ██║                                █
+ █   ██║     ██╔══╝  ██║   ██║██╔══╝  ██║╚██╗██║██║  ██║                                █
+ █   ███████╗███████╗╚██████╔╝███████╗██║ ╚████║██████╔╝                                █
+ █   ╚══════╝╚══════╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝╚═════╝                                 █
+ █                                                                                      █
+ █                 of the                                                               █
+ █                                                                                      █
+ █   ██████╗ ███████╗██████╗     ██████╗ ██████╗  █████╗  ██████╗  ██████╗ ███╗   ██╗   █
+ █   ██╔══██╗██╔════╝██╔══██╗    ██╔══██╗██╔══██╗██╔══██╗██╔════╝ ██╔═══██╗████╗  ██║   █
+ █   ██████╔╝█████╗  ██║  ██║    ██║  ██║██████╔╝███████║██║  ███╗██║   ██║██╔██╗ ██║   █
+ █   ██╔══██╗██╔══╝  ██║  ██║    ██║  ██║██╔══██╗██╔══██║██║   ██║██║   ██║██║╚██╗██║   █
+ █   ██║  ██║███████╗██████╔╝    ██████╔╝██║  ██║██║  ██║╚██████╔╝╚██████╔╝██║ ╚████║   █
+ █   ╚═╝  ╚═╝╚══════╝╚═════╝     ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝   █
+ █                                                                                      █
+ ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀</pre>
+    <p id="subtitle">A SysML v2 model, played. The rules live in <code>examples/lord-demo/lord.sysml</code>, run by the model runtime compiled to WebAssembly; this page only presses its keys.</p>
+  </header>
+
+  <section id="character" hidden>
+    <h2>Create your warrior</h2>
+    <p id="notice" hidden></p>
+    <form id="character-form">
+      <label>What is your name, warrior? <input id="name" name="name" maxlength="24" autocomplete="off" placeholder="Sir Devin"></label>
+      <fieldset>
+        <legend>Are you male or female?</legend>
+        <label><input type="radio" name="sex" value="male" checked> Male</label>
+        <label><input type="radio" name="sex" value="female"> Female</label>
+      </fieldset>
+      <fieldset>
+        <legend>Choose your skill</legend>
+        <label><input type="radio" name="class" value="deathKnight" checked> Death Knight — the way of the sword</label>
+        <label><input type="radio" name="class" value="mysticalSkills"> Mystical Skills — the way of the mind</label>
+        <label><input type="radio" name="class" value="thievingSkills"> Thieving Skills — the way of the shadow</label>
+      </fieldset>
+      <button id="begin" type="submit" disabled><kbd>Enter</kbd> Begin your quest</button>
+    </form>
+  </section>
+
+  <section id="game" hidden>
+    <pre id="stats" aria-label="Your stats"></pre>
+    <h2 id="location"></h2>
+    <pre id="log" aria-label="What happened"></pre>
+    <nav id="menu" aria-label="Your options"></nav>
+    <form id="prompt" hidden></form>
+    <p id="hint">Press a key, or click a choice. <kbd>Esc</kbd> cancels a prompt. <a href="#" id="retire">Retire this warrior</a>.</p>
+  </section>
+</main>
+<script src="wasm_exec.js"></script>
+<script src="lord.js"></script>
+</body>
+</html>

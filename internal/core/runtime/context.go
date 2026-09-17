@@ -394,6 +394,48 @@ func (ctx *Context) SetSchedule(policy SchedulePolicy) error {
 	return nil
 }
 
+// ErrRescheduleMidRun is Reschedule from inside a step.
+var ErrRescheduleMidRun = errors.New("reschedule inside a step")
+
+// Reschedule is SetSchedule reaching the runs driven call by call as well — the
+// clock and the behaviors the objects run — which resolve their choice points
+// under the policy from their next step on, as a run started under it would from
+// its first: their configurations, pending events, clock and choices so far are
+// kept, and the draws of a seeded policy start over. It fails with
+// ErrRescheduleMidRun from inside a step.
+func (ctx *Context) Reschedule(policy SchedulePolicy) error {
+	if ctx.runDepth > 0 || ctx.actionDepth > 0 || ctx.calcDepth > 0 || ctx.body != nil || ctx.probes > 0 {
+		return ErrRescheduleMidRun
+	}
+	if err := ctx.SetSchedule(policy); err != nil {
+		return err
+	}
+	for _, state := range ctx.drivenRunStates() {
+		state.scheduler = ctx.newScheduler()
+	}
+	return nil
+}
+
+// drivenRunStates are the states of the runs driven call by call, each once.
+func (ctx *Context) drivenRunStates() []*runState {
+	var states []*runState
+	add := func(state *runState) {
+		if state != nil && !slices.Contains(states, state) {
+			states = append(states, state)
+		}
+	}
+	add(ctx.clockRun.state)
+	for _, behavior := range ctx.objectBehaviors {
+		switch {
+		case behavior.State != nil:
+			add(behavior.State.driven.state)
+		case behavior.Action != nil:
+			add(behavior.Action.driven.state)
+		}
+	}
+	return states
+}
+
 // beginExploration makes the context's runs the given run of an exploration; the
 // state installed for a run no bracket began starts over, drawing from it.
 func (ctx *Context) beginExploration(policy SchedulePolicy, run *exploreRun) {
