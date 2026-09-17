@@ -854,7 +854,8 @@ A completion event precedes both, never drawn.
 ### Do behaviors of sibling regions active at one instant: each proceeds, in which order is open
 
 Fixtures: `state_concurrent_do` (golden, explored), `state_anonymous_do_atomic` (golden, explored),
-`state_concurrent_do_action_bodies_timed` (golden, explored).
+`state_concurrent_inline_do_bodies` (golden, explored), `state_concurrent_do_action_bodies_timed`
+(golden, explored).
 
 ```
 Interleave parallel { left:  lwork { do { seq := seq*10+1; seq := seq*10+2; seq := seq*10+3 } }
@@ -887,7 +888,10 @@ linearization (`124356`); `seed:<n>` draws the order; `explore` varies it and mu
 values and no other. `state_anonymous_do_atomic` is the same machine with each body written as one
 inline action, `do action { … }`, of three statements: an inline body yields after each statement,
 so it interleaves as the one-action-per-statement form does and reaches the same four values, not
-`123456`. `state_concurrent_do_action_bodies_timed` is the shape with action bodies
+`123456`. `state_concurrent_inline_do_bodies` writes the left body as a `for` loop over 1..2 followed
+by a statement and the right one as a statement followed by an `if` block of two: an iteration and a
+statement of a nested block are each one step, so the same four values and no other are reached.
+`state_concurrent_do_action_bodies_timed` is the shape with action bodies
 that wait on the clock: both behaviors pause at an `accept after 2 [s]` and are due again in the
 round at `t=2.0`, where the order of the two counts is open (`1324` entering order, `3124` the
 other), while the counts at `t=4.0` and `t=5.0` are alone in their rounds.

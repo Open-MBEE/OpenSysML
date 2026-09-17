@@ -15030,10 +15030,9 @@ func testStateDoBodyAcceptYieldsToATransitionIntoItsRegion(t *testing.T) {
 }
 
 // testStateDoBodyAcceptRunsBeforeTheChoiceReads: the do behaviors go on with the
-// signal — the node after the accept, then yield — before the chosen transition
-// fires, and a choice on its route reads its guards only then, so a do behavior
-// that rewrites the guard on its way sends the transition down the branch the
-// rewritten data selects; the node after runs in the round after the dispatch.
+// signal (one node, then yield) before the chosen transition fires, and a choice
+// on its route reads its guards only then, so a do behavior that rewrites the
+// guard on its way sends the transition down the branch the rewritten data selects.
 func testStateDoBodyAcceptRunsBeforeTheChoiceReads(t *testing.T) {
 	src := `
 	private import ScalarValues::*;

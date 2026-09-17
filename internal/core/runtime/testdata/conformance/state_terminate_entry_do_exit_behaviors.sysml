@@ -1,7 +1,6 @@
 // `terminate` in a state's entry, do or exit behavior ends that behavior at the
 // statement: the state stays active and the machine keeps dispatching. The
-// transition out is timed so the do body, run one statement a round, reaches
-// its `terminate` before anything interrupts it.
+// transition out is timed, so the do body reaches its `terminate` first.
 package test {
 	private import ScalarValues::*;
 
