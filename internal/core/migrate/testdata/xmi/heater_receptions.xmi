@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_sigs" name="Signals">
+      <packagedElement xmi:type="uml:Signal" xmi:id="_setLevel" name="SetLevel">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_slValue" name="value">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+      <packagedElement xmi:type="uml:Signal" xmi:id="_reset" name="Reset"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_heater" name="Heater">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_level" name="level">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_level0" value="0.0"/>
+      </ownedAttribute>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvSet" name="SetLevel" signal="_setLevel" method="_apply">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_rpValue" name="value" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_rpExtra" name="extra" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+      </ownedReception>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvStop" name="Stop" signal="_stop"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvReset" name="Reset" signal="_reset" method="_resetting"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvAway" name="Away" signal="_elsewhere"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_apply" name="Apply Level" specification="_rcvSet">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_apValue" name="value" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_apGain" name="gain" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+          <defaultValue xmi:type="uml:LiteralReal" xmi:id="_apGain0" value="1.0"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_apnValue" name="value" parameter="_apValue"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_set" name="set level" structuralFeature="_level" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_setVal" name="value"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of" source="_apnValue" target="_setVal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_resetting" name="Resetting">
+        <region xmi:type="uml:Region" xmi:id="_rr">
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_heater"/>
+</xmi:XMI>

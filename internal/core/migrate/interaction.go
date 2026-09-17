@@ -757,8 +757,13 @@ func (s *scenario) write() {
 	for _, o := range s.e.Owned("observation") {
 		s.m.unmapped(o, "a "+o.Type+" has no v2 form")
 	}
-	s.m.add(s.e, Approximated, s.m.v2Name(s.e), "written as a scenario of "+strconv.Itoa(countSteps(s.steps))+
-		" steps, one per message in occurrence order; the lifelines' own behavior is not part of it")
+	n := countSteps(s.steps)
+	steps := "steps"
+	if n == 1 {
+		steps = "step"
+	}
+	s.m.add(s.e, Approximated, s.m.v2Name(s.e), "written as a scenario of "+strconv.Itoa(n)+" "+steps+
+		", one per message in occurrence order; the lifelines' own behavior is not part of it")
 }
 
 // countSteps counts the messages a body of steps and its fragments write.
@@ -901,7 +906,11 @@ func (s *scenario) operand(step *scenarioStep, o *scenarioOperand, i int) string
 
 // fragmentDone reports a combined fragment written as the v2 construct named form.
 func (s *scenario) fragmentDone(step *scenarioStep, form string) {
-	s.m.add(step.frag, Mapped, step.name, "written as the action "+step.name+", a "+form+" over the operands")
+	article := "a"
+	if form == "if" {
+		article = "an"
+	}
+	s.m.add(step.frag, Mapped, step.name, "written as the action "+step.name+", "+article+" "+form+" over the operands")
 }
 
 // messageDone reports a message step and the occurrences that order it.

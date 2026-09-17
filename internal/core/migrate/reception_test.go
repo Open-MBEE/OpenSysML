@@ -7,68 +7,18 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
 )
 
-// heaterReceptions is a block with a reception whose method stores the signal's
-// attribute, a reception without a method, one whose method is a state machine,
-// one whose signal is not in the document, and a reception parameter that
-// matches no attribute of its signal.
-const heaterReceptions = `
-    <packagedElement xmi:type="uml:Package" xmi:id="_sigs" name="Signals">
-      <packagedElement xmi:type="uml:Signal" xmi:id="_setLevel" name="SetLevel">
-        <ownedAttribute xmi:type="uml:Property" xmi:id="_slValue" name="value">
-          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
-        </ownedAttribute>
-      </packagedElement>
-      <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
-      <packagedElement xmi:type="uml:Signal" xmi:id="_reset" name="Reset"/>
-    </packagedElement>
-    <packagedElement xmi:type="uml:Class" xmi:id="_heater" name="Heater">
-      <ownedAttribute xmi:type="uml:Property" xmi:id="_level" name="level">
-        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
-        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_level0" value="0.0"/>
-      </ownedAttribute>
-      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvSet" name="SetLevel" signal="_setLevel" method="_apply">
-        <ownedParameter xmi:type="uml:Parameter" xmi:id="_rpValue" name="value" direction="in">
-          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
-        </ownedParameter>
-        <ownedParameter xmi:type="uml:Parameter" xmi:id="_rpExtra" name="extra" direction="in">
-          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
-        </ownedParameter>
-      </ownedReception>
-      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvStop" name="Stop" signal="_stop"/>
-      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvReset" name="Reset" signal="_reset" method="_resetting"/>
-      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvAway" name="Away" signal="_elsewhere"/>
-      <ownedBehavior xmi:type="uml:Activity" xmi:id="_apply" name="Apply Level" specification="_rcvSet">
-        <ownedParameter xmi:type="uml:Parameter" xmi:id="_apValue" name="value" direction="in">
-          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
-        </ownedParameter>
-        <ownedParameter xmi:type="uml:Parameter" xmi:id="_apGain" name="gain" direction="in">
-          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
-          <defaultValue xmi:type="uml:LiteralReal" xmi:id="_apGain0" value="1.0"/>
-        </ownedParameter>
-        <node xmi:type="uml:ActivityParameterNode" xmi:id="_apnValue" name="value" parameter="_apValue"/>
-        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_set" name="set level" structuralFeature="_level" isReplaceAll="true">
-          <value xmi:type="uml:InputPin" xmi:id="_setVal" name="value"/>
-        </node>
-        <edge xmi:type="uml:ObjectFlow" xmi:id="_of" source="_apnValue" target="_setVal"/>
-      </ownedBehavior>
-      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_resetting" name="Resetting">
-        <region xmi:type="uml:Region" xmi:id="_rr">
-          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
-        </region>
-      </ownedBehavior>
-    </packagedElement>`
-
-const heaterApplications = `
-  <sysml:Block xmi:id="_s1" base_Class="_heater"/>`
-
-// A reception with a method becomes an action def of the block that accepts the
-// signal and performs the method, its in parameters bound to the payload's
-// attributes of the same name; one without a method only accepts; a state
-// machine method and a signal outside the document are refused with the reason.
-// Performing the usage on an object of the block and sending it the signal
-// runs the method on that object.
+// The fixture testdata/xmi/heater_receptions.xmi is a block with a reception
+// whose method stores the signal's attribute, a reception without a method, one
+// whose method is a state machine, one whose signal is not in the document, and
+// a reception parameter that matches no attribute of its signal. A reception
+// with a method becomes an action def of the block that accepts the signal and
+// performs the method, its in parameters bound to the payload's attributes of
+// the same name; one without a method only accepts; a state machine method and
+// a signal outside the document are refused with the reason. Performing the
+// usage on an object of the block and sending it the signal runs the method on
+// that object.
 func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
-	r := migrateDocument(t, heaterReceptions, heaterApplications)
+	r := migrateFixtureFile(t, "heater_receptions")
 	for _, line := range []string{
 		"action def SetLevel {",
 		"first start then receive;",

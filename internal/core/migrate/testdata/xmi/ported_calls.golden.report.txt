@@ -1,0 +1,48 @@
+# SysML v1 to v2 migration report: ported_calls.xmi
+# migrated 40 element(s): 34 mapped, 5 approximated, 1 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## unmapped (1)
+ObjectFlow	Drive::Run::<ObjectFlow>	_of2	(the flow's target 'target' has no v2 name)
+
+## approximated (5)
+ReadStructuralFeatureAction	Drive::Run::read motor	_readMotor	-> 'read motor'	(several edges leave the node, which a fork fork carries)
+CallOperationAction	Drive::Run::spin over cmd	_callCmd	-> 'spin over cmd'	(several edges lead to the node, which waits for all of them through the join 'join')
+CallOperationAction	Drive::Stray::spin over loose	_callLoose	-> 'spin over loose'	(no edge leads to the node, so it starts with the activity; the call runs in the caller's context: no connector of Drive joins its port loose to a part)
+AddStructuralFeatureValueAction	Motor::Spinning::set speed	_setSpeed	-> 'set speed'	(no edge leads to the node, so it starts with the activity)
+Interface	MotorCmd	_cmdIf	-> MotorCmd	(a UML interface is written as a port def)
+
+## mapped (34)
+«Block» Class	Drive	_drive	-> Drive
+Connector	Drive::<Connector>	_c
+Activity	Drive::Run	_run	-> Drive::Run
+ActivityFinalNode	Drive::Run::<ActivityFinalNode>	_final	-> final
+ControlFlow	Drive::Run::<ControlFlow>	_e2
+ControlFlow	Drive::Run::<ControlFlow>	_e3
+ControlFlow	Drive::Run::<ControlFlow>	_e4
+InitialNode	Drive::Run::<InitialNode>	_init	-> start
+ObjectFlow	Drive::Run::<ObjectFlow>	_of1
+ObjectFlow	Drive::Run::<ObjectFlow>	_of3
+ValueSpecificationAction	Drive::Run::forty	_forty	-> forty
+OutputPin	Drive::Run::forty::result	_fortyOut	-> Drive::Run::forty.result
+OutputPin	Drive::Run::read motor::result	_readMotorOut	-> Drive::Run::'read motor'.result
+InputPin	Drive::Run::spin over cmd::rpm	_callCmdRpm	-> Drive::Run::'spin over cmd'.rpm	(the pin stands for the parameter rpm of the definition, which the flows name)
+InputPin	Drive::Run::spin over cmd::target	_callCmdTgt	-> Drive::Run::'spin over cmd'	(the call performs the usage spin of the target this.motor; its port cmd is not written, as a v2 perform names the operation on the object)
+CallOperationAction	Drive::Run::spin over p	_callP	-> 'spin over p'	(the call performs the usage spin of the part connected to the port p)
+InputPin	Drive::Run::spin over p::rpm	_callPRpm	-> Drive::Run::'spin over p'.rpm	(the pin stands for the parameter rpm of the definition, which the flows name)
+ValueSpecificationAction	Drive::Run::thirty	_thirty	-> thirty
+OutputPin	Drive::Run::thirty::result	_thirtyOut	-> Drive::Run::thirty.result
+Activity	Drive::Stray	_stray	-> Drive::Stray
+Port	Drive::loose	_loose	-> Drive::loose
+Property	Drive::motor	_motorPart	-> Drive::motor
+Port	Drive::p	_p	-> Drive::p
+Model	Model	_m	(the root model's members are written at the top level)
+«Block» Class	Motor	_motor	-> Motor
+Operation	Motor::Spin	_spin	-> Motor::Spin	(its owner's usage spin performs it, as a call on an object does)
+Parameter	Motor::Spin::rpm	_spinRpm	-> Motor::Spin::rpm
+Activity	Motor::Spinning	_spinning	-> Motor::Spin	(written as the body of the operation Motor::Spin, whose method it is)
+ObjectFlow	Motor::Spinning::<ObjectFlow>	_spOf
+Parameter	Motor::Spinning::rpm	_spRpm	-> Motor::Spin::rpm	(stands for the operation's parameter rpm at the same position, which is written once)
+ActivityParameterNode	Motor::Spinning::rpm	_spApn	-> Motor::Spinning::rpm	(the flows to and from the node name the parameter rpm)
+InputPin	Motor::Spinning::set speed::value	_setSpeedVal	-> Motor::Spinning::'set speed'.value
+Port	Motor::cmd	_cmd	-> Motor::cmd
+Property	Motor::speed	_speed	-> Motor::speed

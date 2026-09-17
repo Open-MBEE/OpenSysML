@@ -1,0 +1,122 @@
+# SysML v1 to v2 migration report: plant_states.xmi
+# migrated 111 element(s): 103 mapped, 5 approximated, 3 unmapped (0 skipped as profile, library or notation-only content, 1 as model elements nothing refers to)
+
+## unmapped (3)
+Transition	Plant::Line::main::<Transition>	_tNever	(every trigger is dropped, so the transition would fire at once: a trigger is dropped: the time event's time is not written: the instant "next Tuesday" is not a number with a time unit)
+Trigger	Plant::Line::main::<Transition>::<Trigger>	_trNever	(the time event's time is not written: the instant "next Tuesday" is not a number with a time unit)
+TimeEvent	never	_never	(the time event's time is not written: the instant "next Tuesday" is not a number with a time unit)
+
+## approximated (5)
+StateMachine	Plant::Line	_line	-> Plant::Line	(the classifier behavior is run by every object of Plant as its usage line)
+Transition	Plant::Line::main::<Transition>	_tBump	(the target 'Prep' lies in another region and is named by its path Work::Prep; a local transition is written external: the composite state Work exits and re-enters where v1 stayed in it, running its exit and entry behaviors)
+Trigger	Plant::Line::main::<Transition>::<Trigger>	_trDawn	(the absolute time is an instant on the simulation clock, which starts at 0.0 [SI::s])
+OpaqueBehavior	Plant::Line::main::Work::tally	_workExit	-> Plant::Line::Work::tally	(the JavaScript body is written as v2 assignments)
+TimeEvent	dawn	_dawn	(written where a trigger refers to it, as accept at dawn; the absolute time is an instant on the simulation clock, which starts at 0.0 [SI::s])
+
+## mapped (103)
+SignalEvent	<SignalEvent>	_nextEv	(written where a trigger refers to it, as accept Next)
+SignalEvent	<SignalEvent>	_goEv	(written where a trigger refers to it, as accept Go)
+SignalEvent	<SignalEvent>	_stopEv	(written where a trigger refers to it, as accept Stop)
+SignalEvent	<SignalEvent>	_resumeEv	(written where a trigger refers to it, as accept Resume)
+SignalEvent	<SignalEvent>	_holdEv	(written where a trigger refers to it, as accept Hold)
+SignalEvent	<SignalEvent>	_enterEv	(written where a trigger refers to it, as accept Enter)
+SignalEvent	<SignalEvent>	_routeEv	(written where a trigger refers to it, as accept Route)
+SignalEvent	<SignalEvent>	_splitEv	(written where a trigger refers to it, as accept Split)
+SignalEvent	<SignalEvent>	_pingEv	(written where a trigger refers to it, as accept Ping)
+SignalEvent	<SignalEvent>	_bumpEv	(written where a trigger refers to it, as accept Bump)
+SignalEvent	<SignalEvent>	_finishEv	(written where a trigger refers to it, as accept Finish)
+Signal	Bump	_bump	-> Bump
+Signal	Enter	_enter	-> Enter
+Signal	Finish	_finish	-> Finish
+Signal	Go	_go	-> Go
+Signal	Hold	_hold	-> Hold
+Model	Model	_m	(the root model's members are written at the top level)
+Signal	Next	_next	-> Next
+Signal	Ping	_ping	-> Ping
+«Block» Class	Plant	_plant	-> Plant
+StateMachine	Plant::CellMachine	_cell	-> Plant::CellMachine
+Region	Plant::CellMachine::cell	_rc	(the one region is written as the body of its owner)
+Pseudostate	Plant::CellMachine::cell::<Pseudostate>	_initC	(written as the entry of the region)
+Transition	Plant::CellMachine::cell::<Transition>	_tCi
+Transition	Plant::CellMachine::cell::<Transition>	_tWarm
+Transition	Plant::CellMachine::cell::<Transition>	_tIn
+Transition	Plant::CellMachine::cell::<Transition>	_tOut
+Trigger	Plant::CellMachine::cell::<Transition>::<Trigger>	_trWarm
+Trigger	Plant::CellMachine::cell::<Transition>::<Trigger>	_trOut
+State	Plant::CellMachine::cell::Cold	_cold	-> Cold
+State	Plant::CellMachine::cell::Hot	_hot	-> Hot
+Pseudostate	Plant::CellMachine::spent	_cpOut	-> spent	(written as a state; a transition leaving a submachine state through the exit point leaves this state)
+Pseudostate	Plant::CellMachine::warmStart	_cpIn	-> warmStart	(written as a state; a transition entering a submachine state through the entry point enters this state)
+Region	Plant::Line::main	_main	(the one region is written as the body of its owner)
+FinalState	Plant::Line::main::<FinalState>	_fin	-> done
+Pseudostate	Plant::Line::main::<Pseudostate>	_init0	(written as the entry of the region)
+Transition	Plant::Line::main::<Transition>	_t0
+Transition	Plant::Line::main::<Transition>	_tGo
+Transition	Plant::Line::main::<Transition>	_tStop	(the source 'Run' lies in another region and is named by its path Work::Run)
+Transition	Plant::Line::main::<Transition>	_tDirect	(the target 'Run' lies in another region and is named by its path Work::Run)
+Transition	Plant::Line::main::<Transition>	_tHold
+Transition	Plant::Line::main::<Transition>	_tResume	(the target 'last' lies in another region and is named by its path Work::last)
+Transition	Plant::Line::main::<Transition>	_tEnter
+Transition	Plant::Line::main::<Transition>	_tLeave
+Transition	Plant::Line::main::<Transition>	_tRoute
+Transition	Plant::Line::main::<Transition>	_tBusy
+Transition	Plant::Line::main::<Transition>	_tSpent
+Transition	Plant::Line::main::<Transition>	_tSplit
+Transition	Plant::Line::main::<Transition>	_tFa	(the target 'A1' lies in another region and is named by its path Both::regions::a::A1)
+Transition	Plant::Line::main::<Transition>	_tFb	(the target 'B1' lies in another region and is named by its path Both::regions::b::B1)
+Transition	Plant::Line::main::<Transition>	_tJa	(the source 'A2' lies in another region and is named by its path Both::regions::a::A2)
+Transition	Plant::Line::main::<Transition>	_tJb	(the source 'B2' lies in another region and is named by its path Both::regions::b::B2)
+Transition	Plant::Line::main::<Transition>	_tJoined
+Transition	Plant::Line::main::<Transition>	_tPing	(an internal transition is written as a self transition; Idle has no entry, exit or do behavior and no substates, so re-entering it is not observable)
+Transition	Plant::Line::main::<Transition>	_tDawn
+Constraint	Plant::Line::main::<Transition>::<Constraint>	_gBusy
+Constraint	Plant::Line::main::<Transition>::<Constraint>	_gSpent	(an else guard is written as the unguarded transition out of the junction, which is taken when no guarded one holds)
+Trigger	Plant::Line::main::<Transition>::<Trigger>	_trGo
+Trigger	Plant::Line::main::<Transition>::<Trigger>	_trStop
+Trigger	Plant::Line::main::<Transition>::<Trigger>	_trDirect
+Trigger	Plant::Line::main::<Transition>::<Trigger>	_trHold
+Trigger	Plant::Line::main::<Transition>::<Trigger>	_trResume
+Trigger	Plant::Line::main::<Transition>::<Trigger>	_trEnter
+Trigger	Plant::Line::main::<Transition>::<Trigger>	_trRoute
+Trigger	Plant::Line::main::<Transition>::<Trigger>	_trSplit
+Trigger	Plant::Line::main::<Transition>::<Trigger>	_trPing
+Trigger	Plant::Line::main::<Transition>::<Trigger>	_trBump
+State	Plant::Line::main::Both	_both	-> Both
+Region	Plant::Line::main::Both::a	_ra	-> a	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
+Transition	Plant::Line::main::Both::a::<Transition>	_tA
+Trigger	Plant::Line::main::Both::a::<Transition>::<Trigger>	_trA
+State	Plant::Line::main::Both::a::A1	_a1	-> A1
+State	Plant::Line::main::Both::a::A2	_a2	-> A2
+Region	Plant::Line::main::Both::b	_rb	-> b	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
+Transition	Plant::Line::main::Both::b::<Transition>	_tB
+Trigger	Plant::Line::main::Both::b::<Transition>::<Trigger>	_trB
+State	Plant::Line::main::Both::b::B1	_b1	-> B1
+State	Plant::Line::main::Both::b::B2	_b2	-> B2
+State	Plant::Line::main::Cell	_cellSt	-> Cell
+ConnectionPointReference	Plant::Line::main::Cell::<ConnectionPointReference>	_cprIn	-> Cell::warmStart	(written as the entry point's state in the submachine state, Cell::warmStart)
+ConnectionPointReference	Plant::Line::main::Cell::<ConnectionPointReference>	_cprOut	-> Cell::spent	(written as the exit point's state in the submachine state, Cell::spent)
+State	Plant::Line::main::Idle	_idle	-> Idle
+State	Plant::Line::main::Pause	_pause	-> Pause
+State	Plant::Line::main::Work	_work	-> Work
+Region	Plant::Line::main::Work::steps	_rw	(the one region is written as the body of its owner)
+Pseudostate	Plant::Line::main::Work::steps::<Pseudostate>	_initW	(written as the entry of the region)
+Transition	Plant::Line::main::Work::steps::<Transition>	_tWi
+Transition	Plant::Line::main::Work::steps::<Transition>	_tNext
+Transition	Plant::Line::main::Work::steps::<Transition>	_tHist
+Trigger	Plant::Line::main::Work::steps::<Transition>::<Trigger>	_trNext
+State	Plant::Line::main::Work::steps::Prep	_prep	-> Prep
+State	Plant::Line::main::Work::steps::Run	_run	-> Run
+Pseudostate	Plant::Line::main::Work::steps::deepest	_deep	-> deepest	(written as a deep history, which re-enters the innermost states active when its state was last left)
+Pseudostate	Plant::Line::main::Work::steps::last	_hist	-> last	(written as a shallow history, which re-enters the substate active when its state was last left)
+Pseudostate	Plant::Line::main::gather	_join	-> gather	(written as a join pseudostate, whose segments the runtime fires together)
+Pseudostate	Plant::Line::main::route	_junc	-> route	(written as a junction pseudostate, whose guarded transitions the runtime reads when it is reached; an unguarded one is its else branch)
+Pseudostate	Plant::Line::main::spread	_fork	-> spread	(written as a fork pseudostate, whose segments the runtime fires together)
+Property	Plant::count	_count	-> Plant::count
+Signal	Resume	_resume	-> Resume
+Signal	Route	_route	-> Route
+Signal	Split	_split	-> Split
+Signal	Stop	_stop	-> Stop
+Signal	Unused	_unused	-> Unused
+
+## skipped (1)
+SignalEvent	<SignalEvent>	_unusedEv	(not referenced by any behavior: no trigger refers to the event, so nothing would accept it)

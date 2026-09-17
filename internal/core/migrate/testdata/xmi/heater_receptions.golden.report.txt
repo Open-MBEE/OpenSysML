@@ -1,0 +1,32 @@
+# SysML v1 to v2 migration report: heater_receptions.xmi
+# migrated 24 element(s): 19 mapped, 3 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## unmapped (2)
+Reception	Heater::Away	_rcvAway	(1 signal reference(s) resolve to nothing in the document (_elsewhere))
+Parameter	Heater::SetLevel::extra	_rpExtra	(the parameter extra matches no attribute of the signal, whose payload is all the accept carries)
+
+## approximated (3)
+AddStructuralFeatureValueAction	Heater::Apply Level::set level	_set	-> 'set level'	(no edge leads to the node, so it starts with the activity)
+Reception	Heater::Reset	_rcvReset	-> Heater::Reset	(written as an action def accepting Reset, which its owner's usage reset runs; the method Heater::Resetting has no action def to perform; the reception only accepts the signal)
+Reception	Heater::Stop	_rcvStop	-> Heater::Stop	(written as an action def accepting Stop, which its owner's usage stop runs; the reception has no method, so it only accepts the signal)
+
+## mapped (19)
+«Block» Class	Heater	_heater	-> Heater
+Activity	Heater::Apply Level	_apply	-> Heater::'Apply Level'
+ObjectFlow	Heater::Apply Level::<ObjectFlow>	_of
+Parameter	Heater::Apply Level::gain	_apGain	-> Heater::'Apply Level'::gain
+InputPin	Heater::Apply Level::set level::value	_setVal	-> Heater::'Apply Level'::'set level'.value
+Parameter	Heater::Apply Level::value	_apValue	-> Heater::'Apply Level'::value
+ActivityParameterNode	Heater::Apply Level::value	_apnValue	-> Heater::'Apply Level'::value	(the flows to and from the node name the parameter value)
+StateMachine	Heater::Resetting	_resetting	-> Heater::Resetting
+Region	Heater::Resetting::<Region>	_rr	(the one region is written as the body of its owner)
+State	Heater::Resetting::<Region>::Idle	_idle	-> Idle
+Reception	Heater::SetLevel	_rcvSet	-> Heater::SetLevel	(written as an action def accepting SetLevel and performing its method Heater::Apply Level, which its owner's usage setLevel runs)
+Parameter	Heater::SetLevel::value	_rpValue	-> Signals::SetLevel::value	(stands for the signal's attribute value, which the accepted payload carries)
+Property	Heater::level	_level	-> Heater::level
+Model	Model	_m	(the root model's members are written at the top level)
+Package	Signals	_sigs	-> Signals
+Signal	Signals::Reset	_reset	-> Signals::Reset
+Signal	Signals::SetLevel	_setLevel	-> Signals::SetLevel
+Property	Signals::SetLevel::value	_slValue	-> Signals::SetLevel::value
+Signal	Signals::Stop	_stop	-> Signals::Stop
