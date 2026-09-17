@@ -15,7 +15,7 @@ import (
 )
 
 // The `replay:<file>` policy fixes a witness's input lines before the run's first move, follows
-// its choice lines move for move, then behaves as `reverse`; a move the run cannot make where
+// its choice lines move for move, then picks as `reverse` does, still one token a step; a move the run cannot make where
 // the witness makes it is refused, naming the move, as is an input the run cannot fix.
 
 // ErrReplayRefused is the typed error every refused replay move wraps.
@@ -1009,6 +1009,7 @@ type replayMove struct {
 
 // beginStep resolves the step by the witness's move at it: taken when each token named is able to act, kept for
 // the clock's retry when one at most is and the rest are present but parked or held; a token absent is refused.
+// Past the witness the step is still one token's move, the last able to act, as `reverse` orders them.
 func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 	m := &replayMove{run: r, step: tokens.step}
 	var enabled, rest, held []int64
@@ -1029,11 +1030,22 @@ func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 	for i, id := range enabled {
 		m.enabled[i] = tokens.label(id)
 	}
+	if !r.following() {
+		if len(enabled) < 2 {
+			m.order = slices.Concat(enabled, rest, held)
+			return m
+		}
+		m.taken = len(enabled) - 1
+		m.order = []int64{enabled[m.taken]}
+		return m
+	}
 	able := m.able()
-	r.hoistOrder(tokens.step)
+	r.hoistOrder(tokens)
 	current, unbound := r.current()
 	c := &current
-	if c.Kind == ChoiceTokenOrder && c.Step == tokens.step {
+	// With one token at most able to act, an order over tokens this flow lacks is
+	// another performance's step of the same number, made within this move or after it.
+	if c.Kind == ChoiceTokenOrder && c.Step == tokens.step && (len(enabled) >= 2 || tokens.hasAll(c.Among)) {
 		if unbound != nil {
 			r.refuseUnbound(*unbound)
 			return m
@@ -1041,7 +1053,7 @@ func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 		for _, alt := range c.Among {
 			switch {
 			case slices.Contains(m.enabled, alt):
-			case len(enabled) < 2 && slices.ContainsFunc(tokens.ids, func(id int64) bool { return tokens.label(id) == alt }):
+			case len(enabled) < 2 && tokens.has(alt):
 				if m.kept == "" {
 					m.kept = alt
 				}
@@ -1075,15 +1087,15 @@ func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 	return m
 }
 
-// hoistOrder moves the step's token order, which a run notes after the choices
-// the token's move made, ahead of them: it is resolved first when replaying.
-func (r *replayRun) hoistOrder(step int) {
+// hoistOrder moves the step's token order, which a witness may spell after the
+// choices the token's move made, ahead of them: it is resolved first when replaying.
+func (r *replayRun) hoistOrder(tokens stepTokens) {
 	for j := r.next; j < len(r.choices); j++ {
 		c := r.choices[j]
-		if c.Step != step {
+		if c.Step != tokens.step {
 			return
 		}
-		if c.Kind == ChoiceTokenOrder {
+		if c.Kind == ChoiceTokenOrder && tokens.hasAll(c.Among) {
 			copy(r.choices[r.next+1:j+1], r.choices[r.next:j])
 			r.choices[r.next] = c
 			return

@@ -505,7 +505,8 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
   - `SchedulePolicyNames` — The accepted spellings, for usage text
   - `replay:<file>` follows the witness move for move — each choice point the run reaches takes
     the file's next line, which must name that step and pick among the alternatives the run
-    offers — and resolves the rest as `reverse` once the lines are spent. A run that could not
+    offers — and resolves the rest as `reverse` would, one token a step, once the lines are
+    spent. A run that could not
     follow a line, or ended with lines left over, keeps it: `Context.Unfollowed() error` is the
     `*ReplayError` (`Move`, `Choice`, `Faced`; `errors.Is(err, ErrReplayRefused)`) the run also
     fails with, nil when the witness was followed whole or the policy was another
