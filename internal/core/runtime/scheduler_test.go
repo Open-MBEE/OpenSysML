@@ -502,21 +502,29 @@ func TestSharedAncestorChoiceDrawsOnce(t *testing.T) {
 			if err != nil {
 				t.Fatalf("%s %s: %v", tc.name, policy, err)
 			}
-			choices := ctx.Choices()
-			if len(choices) != 2 {
-				t.Fatalf("%s %s: choices = %v, want one out of busy and one after it (visited %v)",
-					tc.name, policy, choices, visited)
-			}
-			draws := policy.start()
-			for i, choice := range choices {
-				if choice.Kind != ChoiceTransition {
-					t.Fatalf("%s %s: choice %d is %v, want a transition choice", tc.name, policy, i, choice)
-				}
-				if want := draw(draws, 2); choice.Taken != want {
-					t.Errorf("%s %s: choice %d took %d, the seed's draw is %d (%v)",
-						tc.name, policy, i, choice.Taken, want, choice)
-				}
-			}
+			checkSharedAncestorDraws(t, tc.name, policy, ctx.Choices(), visited)
+		}
+	}
+}
+
+// checkSharedAncestorDraws checks a run through busy drew its regions' entry,
+// the one transition out of busy, its regions' exit and the transition after,
+// each taking the seed's next draw.
+func checkSharedAncestorDraws(t *testing.T, name string, policy SchedulePolicy, choices []ChoicePoint, visited []string) {
+	t.Helper()
+	kinds := []ChoiceKind{ChoiceEntryOrder, ChoiceTransition, ChoiceExitOrder, ChoiceTransition}
+	if len(choices) != len(kinds) {
+		t.Fatalf("%s %s: choices = %v, want the entry, one out of busy, the exit and one after it (visited %v)",
+			name, policy, choices, visited)
+	}
+	draws := policy.start()
+	for i, choice := range choices {
+		if choice.Kind != kinds[i] {
+			t.Fatalf("%s %s: choice %d is %v, want a %s choice", name, policy, i, choice, kinds[i])
+		}
+		if want := draw(draws, len(choice.Alternatives)); choice.Taken != want {
+			t.Errorf("%s %s: choice %d took %d, the seed's draw is %d (%v)",
+				name, policy, i, choice.Taken, want, choice)
 		}
 	}
 }
@@ -585,21 +593,7 @@ func TestOutrankedChoiceDrawsNothing(t *testing.T) {
 			if !slices.Contains(visited, "l2") {
 				t.Fatalf("%s %s: the nested transition did not fire (visited %v)", tc.name, policy, visited)
 			}
-			choices := ctx.Choices()
-			if len(choices) != 2 {
-				t.Fatalf("%s %s: choices = %v, want one out of busy and one after it (visited %v)",
-					tc.name, policy, choices, visited)
-			}
-			draws := policy.start()
-			for i, choice := range choices {
-				if choice.Kind != ChoiceTransition {
-					t.Fatalf("%s %s: choice %d is %v, want a transition choice", tc.name, policy, i, choice)
-				}
-				if want := draw(draws, 2); choice.Taken != want {
-					t.Errorf("%s %s: choice %d took %d, the seed's draw is %d (%v)",
-						tc.name, policy, i, choice.Taken, want, choice)
-				}
-			}
+			checkSharedAncestorDraws(t, tc.name, policy, ctx.Choices(), visited)
 		}
 	}
 }

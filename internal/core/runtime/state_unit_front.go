@@ -477,23 +477,28 @@ func (f *unitFront) finished() bool {
 	return true
 }
 
-// labels spells the ready queues' next units, the alternatives of the draw; two
-// states of one name are told apart by their regions, as stateNames tells them.
+// labels spells the ready queues' next units, the alternatives of the draw; a
+// state whose name another region's state shares, as typed regions' states do,
+// is told apart by its region, as stateNames tells states of one name apart.
 func (f *unitFront) labels(ready []*unitQueue) []string {
-	shared := make(map[string]int, len(ready))
-	for _, q := range ready {
-		shared[q.head.label]++
-	}
 	labels := make([]string, len(ready))
 	for i, q := range ready {
 		labels[i] = q.head.label
-		state, isState := q.head.at.(*ast.StateNode)
-		if shared[labels[i]] < 2 || !isState {
-			continue
-		}
-		if region := f.exec.graph.RegionOf[state]; region != nil && region.Name != "" {
-			labels[i] = region.Name + "." + labels[i]
+		if state, isState := q.head.at.(*ast.StateNode); isState && f.exec.nameShared(state) {
+			if region := f.exec.graph.RegionOf[state]; region != nil && region.Name != "" {
+				labels[i] = region.Name + "." + labels[i]
+			}
 		}
 	}
 	return labels
+}
+
+// nameShared reports whether a state of another region bears this state's name.
+func (e *StateExecutor) nameShared(state *ast.StateNode) bool {
+	for other, region := range e.graph.RegionOf {
+		if other != state && other.Name == state.Name && region != e.graph.RegionOf[state] {
+			return true
+		}
+	}
+	return false
 }

@@ -26,8 +26,14 @@ func TestChoicePointRendering(t *testing.T) {
 			"choice step 4: writes x := 1 by token 2, x := 2 by token 3 (unordered; x := 1 by token 2 stood)"},
 		{ChoicePoint{Kind: ChoiceTransition, Where: "state idle on accept Go", Alternatives: []string{"1->low", "2->high"}, Taken: 0},
 			"choice state idle on accept Go: transitions 1->low, 2->high (unordered; took 1->low)"},
-		{ChoicePoint{Kind: ChoiceRegionOrder, Where: "on accept Go", Alternatives: []string{"a1", "b1"}, Taken: 1},
-			"choice on accept Go: states a1, b1 react (unordered; took b1 first)"},
+		{ChoicePoint{Kind: ChoiceRegionOrder, Where: "on accept Go", Alternatives: []string{"a1(exit)", "b1(exit)"}, Taken: 1},
+			"choice on accept Go: next a1(exit), b1(exit) (unordered; took b1(exit) first)"},
+		{ChoicePoint{Kind: ChoiceRegionOrder, Where: "do round at t=0.0", Alternatives: []string{"a1", "b1"}, Taken: 1},
+			"choice do round at t=0.0: states a1, b1 react (unordered; took b1 first)"},
+		{ChoicePoint{Kind: ChoiceEntryOrder, Where: "entering work", Alternatives: []string{"a1(entry)", "b1(entry)"}, Taken: 0},
+			"choice entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first)"},
+		{ChoicePoint{Kind: ChoiceExitOrder, Where: "exiting work", Alternatives: []string{"a1(exit)", "b1(exit)"}, Taken: 1},
+			"choice exiting work: next a1(exit), b1(exit) (unordered; took b1(exit) first)"},
 	}
 	for _, c := range cases {
 		if got := c.choice.String(); got != c.want {
@@ -480,13 +486,35 @@ func TestSharedAncestorChoiceIsReportedOnce(t *testing.T) {
 	if strings.Join(visited, ",") != "work,a1,b1,low" {
 		t.Fatalf("visited %v, want both regions entered, then the first transition out of work", visited)
 	}
-	want := "choice state work on accept Go: transitions 1->low, 2->high (unordered; took 1->low)"
-	if got := ctx.Choices(); len(got) != 1 || got[0].String() != want {
-		t.Fatalf("choices = %v, want exactly [%s]", got, want)
+	want := []string{
+		"choice entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first)",
+		"choice state work on accept Go: transitions 1->low, 2->high (unordered; took 1->low)",
+		"choice exiting work: next a1(exit), b1(exit) (unordered; took a1(exit) first)",
+	}
+	if got := choiceStrings(ctx.Choices()); !slices.Equal(got, want) {
+		t.Fatalf("choices = %v, want exactly %v", got, want)
 	}
 	if got := ctx.UnevaluableGuards(); len(got) != 1 || got[0].Alternative != "3->high" {
 		t.Fatalf("unevaluable guards = %v, want the third transition out of work, once", got)
 	}
+}
+
+// choiceStrings spells the choices as %trace does.
+func choiceStrings(choices []ChoicePoint) []string {
+	out := make([]string, len(choices))
+	for i, c := range choices {
+		out[i] = c.String()
+	}
+	return out
+}
+
+// noteStrings spells the notes as %trace does.
+func noteStrings(notes []RunNote) []string {
+	out := make([]string, len(notes))
+	for i, n := range notes {
+		out[i] = n.String()
+	}
+	return out
 }
 
 // A transition out of a composite state loses to one a nested state takes on the
@@ -525,7 +553,8 @@ func TestAncestorChoiceSuppressedByNestedTransitionIsNotReported(t *testing.T) {
 	if strings.Join(visited, ",") != "work,a1,b1,a2" {
 		t.Fatalf("visited %v, want the nested transition to fire and work to stay active", visited)
 	}
-	if got := ctx.Notes(); len(got) != 0 {
+	want := []string{"choice entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first)"}
+	if got := noteStrings(ctx.Notes()); !slices.Equal(got, want) {
 		t.Fatalf("the outranked transitions out of work were reported: %v", got)
 	}
 }
@@ -920,7 +949,8 @@ func TestProbedGuardLeavesObjectIdentitiesUntouched(t *testing.T) {
 
 // A selected transition whose guard another region's reaction falsified before
 // its turn does not fire, so nothing about selecting it is reported; the
-// region order that let the other reaction go first is the run's one choice.
+// region order that let the other reaction go first is the run's choice, drawn
+// per unit until the effect falsifies the guard and the blocked firing drops out.
 func TestNotesOfATransitionBlockedBeforeFiringAreDropped(t *testing.T) {
 	src := `package test {
 		private import ScalarValues::*;
@@ -957,12 +987,13 @@ func TestNotesOfATransitionBlockedBeforeFiringAreDropped(t *testing.T) {
 	if strings.Join(visited, ",") != "work,a1,b1,a2" {
 		t.Fatalf("visited %v, want region a to fire and region b, its guards blocked by a's effect, to stay", visited)
 	}
-	got := ctx.Notes()
-	if len(got) != 1 {
-		t.Fatalf("notes %v, want the region-order choice alone", got)
+	want := []string{
+		"choice entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first)",
+		"choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)",
+		"choice on accept Go: next a1->a2(effect), b1(exit) (unordered; took a1->a2(effect) first)",
 	}
-	if choice, ok := got[0].(ChoicePoint); !ok || choice.Kind != ChoiceRegionOrder || choice.Taken != 0 {
-		t.Fatalf("a transition that did not fire was reported: %v", got[0])
+	if got := noteStrings(ctx.Notes()); !slices.Equal(got, want) {
+		t.Fatalf("notes %v, want the entry and region-order choices alone: %v", got, want)
 	}
 }
 
@@ -1011,15 +1042,7 @@ func TestRegionOrderChoiceNamesTheOccurrenceNotTheTakenTrigger(t *testing.T) {
 		if _, _, err := ctx.ExecuteStateWithEvents(sym, nil); err != nil {
 			t.Fatalf("%s: execute: %v", spelling, err)
 		}
-		got := ctx.Notes()
-		if len(got) != 1 {
-			t.Fatalf("%s: notes %v, want the region-order choice alone", spelling, got)
-		}
-		choice, ok := got[0].(ChoicePoint)
-		if !ok || choice.Kind != ChoiceRegionOrder || strings.Join(choice.Alternatives, ", ") != "a1, b1" {
-			t.Fatalf("%s: note %v, want a region-order choice among a1, b1", spelling, got[0])
-		}
-		return choice
+		return firstRegionOrderChoice(t, spelling, ctx.Notes(), "a1(exit), b1(exit)")
 	}
 	const want = "on accept Go"
 	if choice := under("reverse"); choice.Taken != 0 || choice.Where != want {
@@ -1035,6 +1058,33 @@ func TestRegionOrderChoiceNamesTheOccurrenceNotTheTakenTrigger(t *testing.T) {
 		}
 	}
 	t.Fatal("no seed up to 32 took b1 first; the case does not exercise the alternate draw")
+}
+
+// firstRegionOrderChoice returns the first draw among the firings of a
+// dispatch, checking the run's notes are the entry order and those draws alone
+// and every draw of the dispatch is named alike.
+func firstRegionOrderChoice(t *testing.T, label string, notes []RunNote, alternatives string) ChoicePoint {
+	t.Helper()
+	var firings []ChoicePoint
+	for _, note := range notes {
+		choice, ok := note.(ChoicePoint)
+		switch {
+		case ok && choice.Kind == ChoiceEntryOrder:
+		case ok && choice.Kind == ChoiceRegionOrder:
+			firings = append(firings, choice)
+		default:
+			t.Fatalf("%s: note %v, want the entry and region-order choices alone", label, note)
+		}
+	}
+	if len(firings) == 0 || strings.Join(firings[0].Alternatives, ", ") != alternatives {
+		t.Fatalf("%s: notes %v, want a region-order choice among %s first", label, notes, alternatives)
+	}
+	for _, choice := range firings[1:] {
+		if choice.Where != firings[0].Where {
+			t.Fatalf("%s: the draws of one dispatch are named %q and %q", label, firings[0].Where, choice.Where)
+		}
+	}
+	return firings[0]
 }
 
 // A message sent from an event feature is named after that feature, as the
@@ -1074,14 +1124,9 @@ func TestRegionOrderChoiceNamesTheEventFeatureSent(t *testing.T) {
 		if _, _, err := ctx.ExecuteStateWithEvents(sym, nil); err != nil {
 			t.Fatalf("%s: execute: %v", feature, err)
 		}
-		got := ctx.Notes()
-		if len(got) != 1 {
-			t.Fatalf("%s: notes %v, want the region-order choice alone", feature, got)
-		}
-		choice, ok := got[0].(ChoicePoint)
 		want := "on accept :> " + feature
-		if !ok || choice.Kind != ChoiceRegionOrder || choice.Where != want {
-			t.Fatalf("%s: note %v, want a region-order choice %q", feature, got[0], want)
+		if choice := firstRegionOrderChoice(t, feature, ctx.Notes(), "a1(exit), b1(exit)"); choice.Where != want {
+			t.Fatalf("%s: choice %v, want a region-order choice %q", feature, choice, want)
 		}
 	}
 }
@@ -1247,14 +1292,12 @@ func TestChangeTransitionChoiceUnderHierarchyAndRegions(t *testing.T) {
 		t.Fatalf("visited %v, want both regions to take their nested transitions and work to stay active", visited)
 	}
 	want := []string{
-		"choice on change: states a1, b1 react (unordered; took a1 first)",
+		"choice entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first)",
+		"choice on change: next a1(exit), b1(exit) (unordered; took a1(exit) first)",
 		"choice state a1 on change: transitions 1->a2, 2->a3 (unordered; took 1->a2)",
+		"choice on change: next a2(entry), b1(exit) (unordered; took a2(entry) first)",
 	}
-	var got []string
-	for _, choice := range ctx.Choices() {
-		got = append(got, choice.String())
-	}
-	if !slices.Equal(got, want) {
+	if got := choiceStrings(ctx.Choices()); !slices.Equal(got, want) {
 		t.Fatalf("choices = %v, want exactly %v", got, want)
 	}
 }
@@ -1337,8 +1380,8 @@ func TestCompletionTransitionChoiceRereadsGuards(t *testing.T) {
 	if strings.Join(visited, ",") != "work,a1,ready,a2,right" {
 		t.Fatalf("visited %v, want a1's completion to clear flag before ready's is dispatched, and ready to move to right", visited)
 	}
-	if choices := ctx.Choices(); len(choices) != 0 {
-		t.Fatalf("choices = %v, want none: the disabled completion transition is no alternative", choices)
+	if got, want := choiceStrings(ctx.Choices()), []string{"choice entering work: next a1(entry), ready(entry) (unordered; took a1(entry) first)"}; !slices.Equal(got, want) {
+		t.Fatalf("choices = %v, want the entry order alone: the disabled completion transition is no alternative", got)
 	}
 }
 
@@ -1381,12 +1424,11 @@ func TestCompletionTransitionChoiceSeesLaterEnabledGuard(t *testing.T) {
 	if strings.Join(visited, ",") != "work,a1,ready,a2,left" {
 		t.Fatalf("visited %v, want a1's completion to set flag before ready's is dispatched, and the draw to take left", visited)
 	}
-	want := []string{"choice state ready: transitions 1->left, 2->right (unordered; took 1->left)"}
-	var got []string
-	for _, choice := range ctx.Choices() {
-		got = append(got, choice.String())
+	want := []string{
+		"choice entering work: next a1(entry), ready(entry) (unordered; took a1(entry) first)",
+		"choice state ready: transitions 1->left, 2->right (unordered; took 1->left)",
 	}
-	if !slices.Equal(got, want) {
+	if got := choiceStrings(ctx.Choices()); !slices.Equal(got, want) {
 		t.Fatalf("choices = %v, want exactly %v: the guard enabled since queuing is an alternative", got, want)
 	}
 }
@@ -1428,8 +1470,8 @@ func TestSingleCompletionTransitionFiresOnceGuardHolds(t *testing.T) {
 	if strings.Join(visited, ",") != "work,a1,ready,a2,left" {
 		t.Fatalf("visited %v, want ready's completion to fire once a1's effect set flag", visited)
 	}
-	if choices := ctx.Choices(); len(choices) != 0 {
-		t.Fatalf("choices = %v, want none: one completion transition is no choice", choices)
+	if got, want := choiceStrings(ctx.Choices()), []string{"choice entering work: next a1(entry), ready(entry) (unordered; took a1(entry) first)"}; !slices.Equal(got, want) {
+		t.Fatalf("choices = %v, want the entry order alone: one completion transition is no choice", got)
 	}
 }
 
@@ -1473,8 +1515,8 @@ func TestCompletionTransitionChoiceSkipsUnreadyJoin(t *testing.T) {
 	if strings.Join(visited, ",") != "work,a1,ready,right,a2" {
 		t.Fatalf("visited %v, want ready to move to right while the join waits on a2, then a2 alone", visited)
 	}
-	if choices := ctx.Choices(); len(choices) != 0 {
-		t.Fatalf("choices = %v, want none: a transition into an unready join is no alternative", choices)
+	if got, want := choiceStrings(ctx.Choices()), []string{"choice entering work: next a1(entry), ready(entry) (unordered; took a1(entry) first)"}; !slices.Equal(got, want) {
+		t.Fatalf("choices = %v, want the entry order alone: a transition into an unready join is no alternative", got)
 	}
 }
 
@@ -1517,8 +1559,8 @@ func TestLaterCompletionGuardErrorIsNotedNotRaised(t *testing.T) {
 	if strings.Join(visited, ",") != "work,a1,ready,a2,left" {
 		t.Fatalf("visited %v, want a1's completion to zero d before ready's is dispatched, and ready to move to left", visited)
 	}
-	if choices := ctx.Choices(); len(choices) != 0 {
-		t.Fatalf("choices = %v, want none: an unevaluable completion guard is no alternative", choices)
+	if got, want := choiceStrings(ctx.Choices()), []string{"choice entering work: next a1(entry), ready(entry) (unordered; took a1(entry) first)"}; !slices.Equal(got, want) {
+		t.Fatalf("choices = %v, want the entry order alone: an unevaluable completion guard is no alternative", got)
 	}
 	got := ctx.UnevaluableGuards()
 	if len(got) != 1 || got[0].Where != "state ready" || got[0].Alternative != "2->right" ||
