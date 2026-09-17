@@ -4,6 +4,7 @@ package docpdf
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -132,20 +133,30 @@ var (
 )
 
 // locate finds the tool via its environment override or a PATH lookup;
-// engine names the converter looking ("" for the diagram renderer).
+// engine names the converter looking ("" for the diagram renderer). The
+// path comes back absolute, since the tool runs in the render directory.
 func (t tool) locate(engine string) (string, error) {
 	if override := strings.TrimSpace(os.Getenv(t.envVar)); override != "" {
 		path, err := exec.LookPath(override)
 		if err != nil {
 			return "", &Error{Kind: ErrorToolMissing, Engine: engine, Tool: override, EnvVar: t.envVar}
 		}
-		return path, nil
+		return absolute(path)
 	}
 	path, err := exec.LookPath(t.name)
 	if err != nil {
 		return "", &Error{Kind: ErrorToolMissing, Engine: engine, Tool: t.name, EnvVar: t.envVar}
 	}
-	return path, nil
+	return absolute(path)
+}
+
+// absolute resolves a path the operator gave against the working directory.
+func absolute(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("docpdf: resolving %q: %w", path, err)
+	}
+	return abs, nil
 }
 
 // runTool runs one external executable in dir with SOURCE_DATE_EPOCH pinned

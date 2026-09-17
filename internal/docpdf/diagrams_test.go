@@ -336,6 +336,28 @@ func TestRenderPlantUMLWithFakeJava(t *testing.T) {
 	}
 }
 
+// The jar and the tools may be named by paths relative to the working
+// directory; they are still found when the tools run in the render directory.
+func TestRenderPlantUMLWithRelativeJarAndJava(t *testing.T) {
+	dir := t.TempDir()
+	withoutDiagramTools(t)
+	if err := os.WriteFile(filepath.Join(dir, "plantuml.jar"), []byte("PK"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	log := fakeSVGTool(t, dir, "java", JavaEnv)
+	fakeWeasyPrint(t, dir)
+	t.Chdir(dir)
+	t.Setenv(PlantUMLJarEnv, "plantuml.jar")
+	t.Setenv(JavaEnv, "./java")
+	if _, err := Render(plantumlMarkdown, "weasyprint", Options{}); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	logged, _ := os.ReadFile(log)
+	if !strings.Contains(string(logged), "-jar "+filepath.Join(dir, "plantuml.jar")+" -tsvg -pipe\n") {
+		t.Fatalf("java was not given the jar's absolute path: %s", logged)
+	}
+}
+
 // A Graphviz or PlantUML that is installed but fails is the typed error a
 // failing Mermaid CLI is, carrying the tool's stderr.
 func TestRenderDiagramToolFailed(t *testing.T) {

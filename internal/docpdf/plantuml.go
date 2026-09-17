@@ -55,8 +55,9 @@ func (p *plantumlRasterizer) draw(dir, source, output string) error {
 	return os.WriteFile(filepath.Join(dir, output), svg.Bytes(), 0o600)
 }
 
-// locatePlantUMLJar finds the jar PlantUMLJarEnv names; unset, or naming no
-// file, is the jar missing.
+// locatePlantUMLJar finds the jar PlantUMLJarEnv names, as an absolute path
+// since java runs in the render directory; unset, or naming no file, is the
+// jar missing.
 func locatePlantUMLJar() (string, error) {
 	jar := strings.TrimSpace(os.Getenv(PlantUMLJarEnv))
 	if jar == "" {
@@ -65,7 +66,7 @@ func locatePlantUMLJar() (string, error) {
 	if info, err := os.Stat(jar); err != nil || info.IsDir() {
 		return "", &Error{Kind: ErrorToolMissing, Tool: jar, EnvVar: PlantUMLJarEnv}
 	}
-	return jar, nil
+	return absolute(jar)
 }
 
 // plantumlDetail keeps what PlantUML says of a failure, dropping the JVM's
