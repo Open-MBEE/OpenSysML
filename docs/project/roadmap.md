@@ -1096,8 +1096,8 @@ top of this as the `due order` choice point (#136), as this item said it would.
 
 **Landed** in #134. `sysml -schedule explore[:runs=N,depth=D]` runs a behavior once, then
 replays it from the start on a fresh executor of the same loaded model, following the recorded
-prefix and taking the next untried alternative at the frontier, depth-first, until every choice
-sequence is spent or a budget is hit (1024 runs and 64 choice points per run by default; hitting
+prefix and taking the next untried alternative at the frontier, the first run's choices varied
+earliest first, until every choice sequence is spent or a budget is hit (1024 runs and 64 choice points per run by default; hitting
 either is exit status `2`, never a silent truncation). Runs agreeing on the observables the
 harness compares are one outcome; a run that fails under some order is an outcome of its own. The
 responses gain repeated `outcomes` and an `exploration` status, advertised as `schedule_explore`;

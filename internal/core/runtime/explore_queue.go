@@ -11,7 +11,10 @@ import (
 // each run's context for the job making it; the result does not depend on jobs.
 //
 // The prefixes form a work queue in plan order, the order one job visits them, and the runs
-// budget is a cut in that order. A run is committed once every prefix before it has completed;
+// budget is a cut in that order. Plan order is by departures first — every prefix departing
+// from the first run at one choice before any departing at two — so a budget of one more run
+// than the first run's choice points varies each of them at least once, then by the position
+// of the choice varied, earliest first. A run is committed once every prefix before it has completed;
 // one started earlier is speculative, and at most jobs of those are discarded in all. The queue
 // never holds more than runs prefixes, so no more than runs jobs are ever put to work.
 func ExploreWith(stop context.Context, policy SchedulePolicy, jobs int, fresh func(job int) (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error) {
@@ -33,7 +36,7 @@ func newExploreQueue(policy SchedulePolicy, budget ExploreBudget, jobs int) *exp
 		reached: make(map[string]int),
 	}
 	q.wake = sync.NewCond(&q.mu)
-	q.insert(0, []*explorePrefix{{}})
+	q.insert([]*explorePrefix{{}})
 	return q
 }
 
@@ -75,7 +78,10 @@ const (
 // explorePrefix is one prefix on the queue: its position in plan order and, once run, the result,
 // held only until the run is folded or dropped so the queue keeps no context but the witnesses'.
 type explorePrefix struct {
-	prefix   []exploreSlot
+	prefix []exploreSlot
+	// key places the prefix in plan order: its parent's key, then its rank among the
+	// prefixes the parent's run left; its length is how many choices the run departs at.
+	key      []int
 	index    int
 	state    prefixState
 	replay   *exploreRun // nil when fresh failed
@@ -205,7 +211,7 @@ func (q *exploreQueue) speculative() int {
 	return n
 }
 
-// finish records a run's result, queues the prefixes it leaves right after it and folds
+// finish records a run's result, queues the prefixes it leaves in plan order and folds
 // what is now committed; a run dropped meanwhile is discarded.
 func (q *exploreQueue) finish(p *explorePrefix, replay *exploreRun, outcome Outcome, err error) {
 	if err == nil {
@@ -225,19 +231,34 @@ func (q *exploreQueue) finish(p *explorePrefix, replay *exploreRun, outcome Outc
 		children := replay.unexplored()
 		next := make([]*explorePrefix, len(children))
 		for i, prefix := range children {
-			next[i] = &explorePrefix{prefix: prefix}
+			next[i] = &explorePrefix{prefix: prefix, key: append(slices.Clone(p.key), i)}
 		}
-		q.insert(p.index+1, next)
+		q.insert(next)
 	}
 	q.fold()
 }
 
-// insert queues prefixes at position at, moving what follows back; whatever moves past the
-// runs cut is dropped, a started run among it discarded.
-func (q *exploreQueue) insert(at int, prefixes []*explorePrefix) {
+// before reports whether p precedes o in plan order: fewer departures, then the lesser key.
+func (p *explorePrefix) before(o *explorePrefix) bool {
+	if len(p.key) != len(o.key) {
+		return len(p.key) < len(o.key)
+	}
+	return slices.Compare(p.key, o.key) < 0
+}
+
+// insert queues one run's prefixes, consecutive in plan order, where that order puts them,
+// moving what follows back; whatever moves past the runs cut is dropped, a started run among
+// it discarded.
+func (q *exploreQueue) insert(prefixes []*explorePrefix) {
 	if len(prefixes) == 0 {
 		return
 	}
+	at, _ := slices.BinarySearchFunc(q.order, prefixes[0], func(o, p *explorePrefix) int {
+		if o.before(p) {
+			return -1
+		}
+		return 1
+	})
 	q.order = slices.Insert(q.order, at, prefixes...)
 	if len(q.order) > q.budget.Runs {
 		q.beyond = true
