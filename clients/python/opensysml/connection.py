@@ -29,6 +29,7 @@ from opensysml.capabilities import (
     CAPABILITY_PERFORMER,
     CAPABILITY_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
+    CAPABILITY_RENDER_DOCUMENT_HTML,
     CAPABILITY_SCHEDULE,
     CAPABILITY_SCHEDULE_EXPLORE,
     CAPABILITY_SET_VALUES,
@@ -1106,8 +1107,8 @@ class Connection:
             response = self._stub.RunDocumentQuery(request)
         return document_result(response)
 
-    def render_document(self, model_hash, document_id):
-        """Render a named document to Markdown.
+    def render_document(self, model_hash, document_id, form="markdown"):
+        """Render a named document to Markdown or HTML.
 
         The document is the model's own — a part def specializing
         ``DocumentQueries::Document`` — whose queries are bound in the model.
@@ -1115,31 +1116,39 @@ class Connection:
         Args:
             model_hash (str): Hash of the model holding the document
             document_id (str): Qualified name of the document
+            form (str): ``"markdown"`` (the default) or ``"html"``, the
+                standalone page with the default stylesheet that the CLI's
+                ``-doc-form html`` writes
 
         Returns:
-            str: The rendered Markdown
+            str: The rendered document in the form asked for
 
         Raises:
-            MissingCapabilityError: If the service cannot render documents
+            ValueError: If ``form`` is neither ``"markdown"`` nor ``"html"``
+            MissingCapabilityError: If the service cannot render documents, or
+                cannot render HTML when that form is asked for
             InvalidRequestError: If the symbol named is not a document
             SymbolNotFoundError: If the model does not declare the document
             ModelNotFoundError: If the model is no longer cached
         """
-        require(
-            self.server_info(),
-            CAPABILITY_RENDER_DOCUMENT,
-            upgrade_remedy(CAPABILITY_RENDER_DOCUMENT),
-        )
+        if form not in ("markdown", "html"):
+            raise ValueError("form must be 'markdown' or 'html'")
+        capabilities = [CAPABILITY_RENDER_DOCUMENT]
+        if form == "html":
+            capabilities.append(CAPABILITY_RENDER_DOCUMENT_HTML)
+        for capability in capabilities:
+            require(self.server_info(), capability, upgrade_remedy(capability))
         request = sysml_pb2.RenderDocumentRequest(
             model_hash=model_hash,
             document_id=document_id,
+            form="" if form == "markdown" else form,
         )
         with translate_rpc_errors(
             not_found=SymbolNotFoundError,
-            unimplemented=self._capability_refusal((CAPABILITY_RENDER_DOCUMENT,)),
+            unimplemented=self._capability_refusal(capabilities),
         ):
             response = self._stub.RenderDocument(request)
-        return response.markdown
+        return response.html if form == "html" else response.markdown
 
     def get_symbol(self, model_hash, symbol_id):
         """Fetch symbol by ID from cached model.

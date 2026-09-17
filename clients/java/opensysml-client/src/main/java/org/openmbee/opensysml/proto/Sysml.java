@@ -1036,11 +1036,12 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       "tQueryCellR\005cells\"}\n\030RunDocumentQueryRes" +
       "ponse\0224\n\007columns\030\001 \003(\0132\032.sysml.DocumentQ" +
       "ueryColumnR\007columns\022+\n\004rows\030\002 \003(\0132\027.sysm" +
-      "l.DocumentQueryRowR\004rows\"W\n\025RenderDocume" +
+      "l.DocumentQueryRowR\004rows\"k\n\025RenderDocume" +
       "ntRequest\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash" +
-      "\022\037\n\013document_id\030\002 \001(\tR\ndocumentId\"4\n\026Ren" +
-      "derDocumentResponse\022\032\n\010markdown\030\001 \001(\tR\010m" +
-      "arkdown*\223\001\n\rFailureReason\022\036\n\032FAILURE_REA" +
+      "\022\037\n\013document_id\030\002 \001(\tR\ndocumentId\022\022\n\004for" +
+      "m\030\003 \001(\tR\004form\"H\n\026RenderDocumentResponse\022" +
+      "\032\n\010markdown\030\001 \001(\tR\010markdown\022\022\n\004html\030\002 \001(" +
+      "\tR\004html*\223\001\n\rFailureReason\022\036\n\032FAILURE_REA" +
       "SON_UNSPECIFIED\020\000\022\035\n\031FAILURE_REASON_EVAL" +
       "UATION\020\001\022\035\n\031FAILURE_REASON_WRONG_KIND\020\002\022" +
       "$\n FAILURE_REASON_AMBIGUOUS_SUBJECT\020\003*\214\005" +
@@ -1767,13 +1768,13 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
     internal_static_sysml_RenderDocumentRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderDocumentRequest_descriptor,
-        new java.lang.String[] { "ModelHash", "DocumentId", });
+        new java.lang.String[] { "ModelHash", "DocumentId", "Form", });
     internal_static_sysml_RenderDocumentResponse_descriptor =
       getDescriptor().getMessageType(100);
     internal_static_sysml_RenderDocumentResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderDocumentResponse_descriptor,
-        new java.lang.String[] { "Markdown", });
+        new java.lang.String[] { "Markdown", "Html", });
     descriptor.resolveAllFeaturesImmutable();
   }
 

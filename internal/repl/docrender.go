@@ -39,6 +39,13 @@ func (s *Session) RenderDocumentHTML(invocation string, opts docrender.HTMLOptio
 	return docrender.HTML(document, opts)
 }
 
+// EvaluateDocument compiles the named document definition and evaluates its
+// queries against the session's model, for a backend rendering the result.
+func (s *Session) EvaluateDocument(invocation string) (*docir.Document, error) {
+	defer s.enter()()
+	return s.evaluateDocument(invocation)
+}
+
 func (s *Session) renderDocumentMarkdown(invocation string, opts docrender.MarkdownOptions) (string, error) {
 	document, err := s.evaluateDocument(invocation)
 	if err != nil {

@@ -2,7 +2,6 @@
 
 Each requirement by identifier, first as a table and then as prose.
 
-<!-- caption -->
 *Requirements*
 
 | shortName | name | documentation |

@@ -2106,8 +2106,8 @@ pub struct RunDocumentQueryResponse {
     pub rows: ::prost::alloc::vec::Vec<DocumentQueryRow>,
 }
 /// RenderDocumentRequest renders a named document — a part def specializing
-/// DocumentQueries::Document — to Markdown. A document binds its queries'
-/// parameters in the model, so the request carries none.
+/// DocumentQueries::Document — to Markdown or HTML. A document binds its
+/// queries' parameters in the model, so the request carries none.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RenderDocumentRequest {
     /// from ParseFile response
@@ -2117,13 +2117,22 @@ pub struct RenderDocumentRequest {
     /// not declare it, and INVALID_ARGUMENT when it declares something else.
     #[prost(string, tag="2")]
     pub document_id: ::prost::alloc::string::String,
+    /// Form to render: "markdown" (the default when empty) or "html", the
+    /// standalone page with the default stylesheet that the CLI's -doc-form html
+    /// writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
+    /// converter toolchain and is not offered here.
+    #[prost(string, tag="3")]
+    pub form: ::prost::alloc::string::String,
 }
-/// RenderDocumentResponse carries the rendered Markdown, byte-for-byte what the
-/// CLI's -render-document writes.
+/// RenderDocumentResponse carries the rendered document in the form requested,
+/// byte-for-byte what the CLI's -render-document writes: markdown for the
+/// Markdown form, html for the HTML form, the other left empty.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RenderDocumentResponse {
     #[prost(string, tag="1")]
     pub markdown: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub html: ::prost::alloc::string::String,
 }
 /// FailureReason says what kind of failure an `error` reports, so a client acts
 /// on the kind rather than on the message text.

@@ -1,14 +1,20 @@
-// Package docpdf renders docrender Markdown to PDF by driving external
-// converters as subprocesses; no PDF renderer is linked into the binary.
+// Package docpdf renders an evaluated document to PDF by driving external
+// converters as subprocesses; no PDF renderer is linked into the binary. An
+// engine reading HTML is handed the HTML backend's markup with the print
+// stylesheet; one reading Markdown is handed the Markdown backend's text.
 package docpdf
 
 import (
 	"context"
+	_ "embed"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 )
 
 // Environment variables that point each external tool's discovery at a
@@ -32,15 +38,22 @@ const (
 const toolTimeout = 5 * time.Minute
 
 // Prepared is one document laid out in a working directory for a converter,
-// as both Markdown (diagrams as image references) and standalone HTML.
+// in the form the converter reads, with its diagrams drawn and its formulas
+// typeset beside it.
 type Prepared struct {
 	// Dir is the working directory holding every input, diagram SVGs included.
 	Dir string
 
-	// MarkdownFile is the Markdown document's name within Dir.
+	// MarkdownFile is the Markdown document's name within Dir, for a converter
+	// reading Markdown; empty for one reading HTML.
 	MarkdownFile string
 
-	// HTMLFile is the HTML document's name within Dir.
+	// Filter is a pandoc Lua filter within Dir that swaps the drawn diagrams
+	// and typeset formulas into the Markdown; empty when there are none.
+	Filter string
+
+	// HTMLFile is the HTML document's name within Dir, for a converter reading
+	// HTML; empty for one reading Markdown.
 	HTMLFile string
 
 	// MathCSS is the KaTeX stylesheet's path within Dir, for converters that
@@ -252,6 +265,16 @@ func (c *pandocConverter) Convert(doc *Prepared) ([]byte, error) {
 	if doc.MathCSS != "" {
 		args = append(args, "--css", doc.MathCSS)
 	}
+	sheets, err := writeReaderStylesheets(doc.Dir, doc.Options.Stylesheets)
+	if err != nil {
+		return nil, err
+	}
+	for _, sheet := range sheets {
+		args = append(args, "--css", sheet)
+	}
+	if doc.Filter != "" {
+		args = append(args, "--lua-filter", doc.Filter)
+	}
 	if doc.Options.TOC {
 		args = append(args, "--toc")
 	}
@@ -296,12 +319,37 @@ const outputName = "document.pdf"
 // pandocCSSName is the stylesheet the pandoc converter writes for its engine.
 const pandocCSSName = "pandoc.css"
 
-// pandocCSS is the print stylesheet for pandoc's own HTML: the shared layout
-// rules, and a page of its own for pandoc's title block when asked for.
+// pandocStylesheet is the print stylesheet for pandoc's own HTML, which
+// carries pandoc's structure rather than the HTML backend's classes.
+//
+//go:embed pandoc.css
+var pandocStylesheet string
+
+// pandocCSS is the print stylesheet for pandoc's own HTML, with a page of its
+// own for pandoc's title block when asked for.
 func pandocCSS(opts Options) string {
-	css := styleSheet
+	css := pandocStylesheet
 	if opts.TitlePage {
 		css += "header#title-block-header { page-break-after: always; text-align: center; padding-top: 35%; }\n"
 	}
 	return css
+}
+
+// writeReaderStylesheets lays the reader's stylesheets out for a converter
+// reading Markdown: each inline sheet as a file in dir, each linked one as
+// its URL, in order.
+func writeReaderStylesheets(dir string, sheets []docrender.Stylesheet) ([]string, error) {
+	names := make([]string, 0, len(sheets))
+	for i, sheet := range sheets {
+		if sheet.Href != "" {
+			names = append(names, sheet.Href)
+			continue
+		}
+		name := fmt.Sprintf("reader-%d.css", i+1)
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(sheet.Content), 0o600); err != nil {
+			return nil, err
+		}
+		names = append(names, name)
+	}
+	return names, nil
 }

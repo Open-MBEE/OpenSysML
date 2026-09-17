@@ -17,11 +17,6 @@ import (
 // properties, so its rows are the elements themselves.
 const elementColumn = "element"
 
-// captionMarker precedes every caption line, distinguishing a caption from a
-// paragraph that is one emphasis run; both are written as *text*. The marker
-// is an HTML comment, so rendered output is unaffected.
-const captionMarker = "<!-- caption -->"
-
 // MarkdownOptions are the presentation choices of the Markdown backend. They
 // are options of this backend, never document-model attributes.
 type MarkdownOptions struct {
@@ -129,15 +124,15 @@ func heading(level int, title string) string {
 	return strings.Repeat("#", level) + " " + inline(title)
 }
 
-// renderTable writes one pipe table, preceded by its marked caption in
-// emphasis. A query without projected columns gets a single "element"
-// column, and a table without rows still writes its header and delimiter.
+// renderTable writes one pipe table, preceded by its caption in emphasis. A
+// query without projected columns gets a single "element" column, and a table
+// without rows still writes its header and delimiter.
 // A grouped table writes one subtable per group, each preceded by its group key in strong
 // emphasis; the group column keeps its place in every subtable.
 func renderTable(node docir.Content) []string {
 	var blocks []string
 	if node.Caption() != "" {
-		blocks = append(blocks, captionMarker+"\n*"+inline(node.Caption())+"*")
+		blocks = append(blocks, "*"+inline(node.Caption())+"*")
 	}
 	columns := node.Columns()
 	names := make([]string, 0, len(columns))
@@ -171,7 +166,7 @@ func pipeTable(names []string, rows []queryexec.Row, columns int) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// diagramBlocks writes one diagram under its marked caption: a table-kind view
+// diagramBlocks writes one diagram under its caption in emphasis: a table-kind view
 // as a pipe table, every other kind as a fence in the render's diagram form.
 func diagramBlocks(name, caption string, rendering *view.Rendering, options view.Options, form view.Form) ([]string, error) {
 	if rendering == nil {
@@ -179,7 +174,7 @@ func diagramBlocks(name, caption string, rendering *view.Rendering, options view
 	}
 	var blocks []string
 	if caption != "" {
-		blocks = append(blocks, captionMarker+"\n*"+inline(caption)+"*")
+		blocks = append(blocks, "*"+inline(caption)+"*")
 	}
 	if rendering.Kind == view.KindTable {
 		return append(blocks, strings.TrimRight(rendering.MarkdownCells(tableCell), "\n")), nil
@@ -274,12 +269,12 @@ func renderList(node docir.Content) []string {
 // mathFence opens and closes a display-math block on lines of its own.
 const mathFence = "$$"
 
-// renderFormula writes one display-math block under its marked caption: the
-// LaTeX source between $$ fences, one source line per line.
+// renderFormula writes one display-math block under its caption in emphasis:
+// the LaTeX source between $$ fences, one source line per line.
 func renderFormula(node docir.Content) []string {
 	var blocks []string
 	if node.Caption() != "" {
-		blocks = append(blocks, captionMarker+"\n*"+inline(node.Caption())+"*")
+		blocks = append(blocks, "*"+inline(node.Caption())+"*")
 	}
 	return append(blocks, mathFence+"\n"+displayMath(node.Source())+"\n"+mathFence)
 }
@@ -301,12 +296,19 @@ func displayMath(source string) string {
 // newlines folded so the delimiters hug non-space characters, as the
 // dollar-math convention requires, and bare dollars escaped.
 func mathSpan(source string) string {
+	return "$" + inlineMath(source) + "$"
+}
+
+// inlineMath prepares LaTeX for a dollar span: trimmed, newlines folded, bare
+// dollars escaped, and a trailing backslash doubled so it cannot escape the
+// closing dollar.
+func inlineMath(source string) string {
 	source = strings.TrimSpace(strings.ReplaceAll(newlineNormalizer.Replace(source), "\n", " "))
 	escaped := escapeDollars(source)
 	if trailingBackslashes(escaped)%2 == 1 {
 		escaped += `\`
 	}
-	return "$" + escaped + "$"
+	return escaped
 }
 
 // trailingBackslashes counts the backslashes ending text; an odd count would

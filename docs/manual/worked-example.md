@@ -309,7 +309,6 @@ This report is *generated* from the model by `sysml -render-document` [(OpenSysM
 
 ## Subsystem Masses
 
-<!-- caption -->
 *All subsystems by mass*
 
 | name | mass |
@@ -318,7 +317,6 @@ This report is *generated* from the model by `sysml -render-document` [(OpenSysM
 | optics | 8.5 |
 | segmentControl | 20 |
 
-<!-- caption -->
 *Subsystems grouped by zone*
 
 **zone: support**
@@ -343,14 +341,12 @@ Subsystems at or above 10 kg:
 
 ## Mass Requirement
 
-<!-- caption -->
 *Parts satisfying the mass requirement*
 
 | name | qualifiedName |
 | --- | --- |
 | telescope | Observatory::telescope |
 
-<!-- caption -->
 *Verifications of the mass requirement*
 
 | qualifiedName |
@@ -359,7 +355,6 @@ Subsystems at or above 10 kg:
 
 ## Diagrams
 
-<!-- caption -->
 *Imaging chain interconnection*
 
 ```mermaid
@@ -379,7 +374,6 @@ flowchart LR
   n1 ---|"link"| n2
 ```
 
-<!-- caption -->
 *Telescope part tree, left to right*
 
 ```mermaid

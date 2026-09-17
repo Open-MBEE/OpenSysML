@@ -21,6 +21,9 @@ const (
 	ErrorAmbiguousStylesheet ErrorKind = "ambiguous-stylesheet"
 	ErrorUnsafeStylesheet    ErrorKind = "unsafe-stylesheet"
 	ErrorUnknownTheme        ErrorKind = "unknown-theme"
+	// ErrorSurplusDiagramImages is more diagram images than the document has
+	// graph-shaped diagrams to write them for.
+	ErrorSurplusDiagramImages ErrorKind = "surplus-diagram-images"
 )
 
 // Error is a typed document-rendering failure.
@@ -32,6 +35,9 @@ type Error struct {
 	DiagramForm view.Form
 	// Form is the backend that failed, "Markdown" when empty.
 	Form string
+	// Count is how many of something the document has, when a failure is about
+	// a mismatch with it.
+	Count int
 }
 
 // form names the backend a failure came from.
@@ -64,6 +70,8 @@ func (e *Error) Error() string {
 		return "stylesheet content closes the style element it would be inlined in; link it by URL instead"
 	case ErrorUnknownTheme:
 		return fmt.Sprintf("no bundled theme is named %q; the themes are %s", e.Actual, strings.Join(Themes(), ", "))
+	case ErrorSurplusDiagramImages:
+		return fmt.Sprintf("%s diagram images were drawn for a document with %d graph-shaped diagrams", e.Actual, e.Count)
 	default:
 		return "document rendering failed"
 	}
