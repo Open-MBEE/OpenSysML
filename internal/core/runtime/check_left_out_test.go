@@ -85,8 +85,7 @@ func TestCheckTellsAMachineLeavingItsDoRoundStandingFromOneThatDidNot(t *testing
 }
 
 // enablingBranchModel loads the conformance case whose do body's `setter` branch
-// writes the feature the `watcher` branch's change wait and the exit transition
-// both wait on.
+// writes the feature the `watcher` branch's change wait blocks on, under a timed exit.
 func enablingBranchModel(t *testing.T) *exploreModel {
 	t.Helper()
 	text, err := os.ReadFile(filepath.Join("testdata", "conformance", "state_do_action_branch_enables_other_before_exit.sysml"))
@@ -96,10 +95,8 @@ func enablingBranchModel(t *testing.T) *exploreModel {
 	return parseLibraryModel(t, string(text))
 }
 
-// A token another token's move enables is left standing too: `raise` moves alone,
-// but its write frees `watch` and raises the exit, and a fixed policy's sweep
-// takes `watch` before that dispatch — the interleaving the check names as not
-// enumerated.
+// A token another token's move enables is left standing too: `raise` moves alone and
+// frees `watch`, which a fixed policy's sweep takes before the dispatch the check makes.
 func TestCheckTellsADoRoundStandingWhenOneBranchEnablesAnother(t *testing.T) {
 	m := enablingBranchModel(t)
 	report, err := Check(context.Background(), m.fresh, stateStarterOf(m.state(t, "Machine"), HorizonAt(3)), CheckBudget{}, unreduced(), nil)
