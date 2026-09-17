@@ -17,19 +17,22 @@ was produced by it.
    to end
 3. [Query cookbook](query-cookbook.md) — recipes for collecting, filtering,
    sorting, traversing and projecting model elements
-4. [Document authoring](authoring.md) — sections, paragraphs, inline runs,
+4. [Which query is which](query-kinds.md) — document queries beside the API
+   `Query`, `Evaluate`, `all T` and `solve`: what each reads, returns and
+   cannot see, and where the runtime's state and event queries sit
+5. [Document authoring](authoring.md) — sections, paragraphs, inline runs,
    links, cross-references, tables (including grouped tables), lists and
    diagrams
-5. [Outputs](outputs.md) — Markdown, semantic HTML and its stylesheets, the
+6. [Outputs](outputs.md) — Markdown, semantic HTML and its stylesheets, the
    PDF engines and their options, and what determinism is guaranteed
-6. [Interfaces](interfaces.md) — CLI flags, REPL commands, the gRPC and Python
+7. [Interfaces](interfaces.md) — CLI flags, REPL commands, the gRPC and Python
    APIs, and VS Code/LSP authoring support
-7. [A complete worked example](worked-example.md) — a telescope mass report
+8. [A complete worked example](worked-example.md) — a telescope mass report
    with its full source and full rendered output; the
    [traceability example](examples/traceability.md)
    ([source](examples/traceability.sysml)) renders every requirement's
    satisfiers, verifiers and verdicts in one report
-8. [Limitations and troubleshooting](troubleshooting.md) — the typed error
+9. [Limitations and troubleshooting](troubleshooting.md) — the typed error
    catalog and the current limitations
 
 The document-query vocabulary is a **non-normative OpenSysML extension** — it

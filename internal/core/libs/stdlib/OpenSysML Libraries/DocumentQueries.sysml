@@ -57,6 +57,73 @@ library package DocumentQueries {
 		attribute 'verification' : String[0..*] ordered;
 	}
 
+	/* States: one row per active leaf state of each source row's object (a
+	 * session object, or an element whose objects the session holds), machines
+	 * in the object's order and leaves in region order; an object with no state
+	 * machine is refused. Requires a session. */
+	calc def States {
+		in source : Element[0..*] ordered;
+		return result : Element[0..*] ordered;
+	}
+
+	/* InState: the objects the session holds whose state machine is in the
+	 * named state, a leaf or a state enclosing one, by name or dotted path
+	 * (`on.run`); a name no machine declares is refused. Requires a session. */
+	calc def InState {
+		in name : String[1];
+		return result : Element[0..*] ordered;
+	}
+
+	/* The properties of a States row, for Project and column expressions
+	 * (`State::name`); a row also answers its state declaration's own
+	 * properties. object and 'state' are elements: project them by name. */
+	attribute def State {
+		ref object : Element[1];
+		attribute path : String[1];
+		attribute machine : String[1];
+		attribute name : String[1];
+		attribute statePath : String[1];
+		ref 'state' : Element[0..1];
+		attribute region : String[1];
+		attribute enclosing : String[0..*] ordered;
+	}
+
+	/* Events: the session's trace as a relation in the order recorded, one row
+	 * per accept, send, transition fired, state entry, exit or do step, choice
+	 * point drawn or guard left unevaluated; source keeps the rows of the given
+	 * objects (every object when null), kind the kinds named (`all`, or kinds
+	 * separated by `,`), since and before the instants in [since, before) as
+	 * durations or bare numbers of the clock's seconds. Requires a session
+	 * recording a trace. */
+	calc def Events {
+		in source : Element[0..*] ordered = null;
+		in kind : String[1] = "all";
+		in since : ScalarValue[0..1] = null;
+		in before : ScalarValue[0..1] = null;
+		return result : Element[0..*] ordered;
+	}
+
+	/* The properties of an Events row, for Project and column expressions
+	 * (`Event::time`, `Event::'event'`); a row also answers the properties of
+	 * the behavior that made it. object and target are elements: project them
+	 * by name. */
+	attribute def Event {
+		attribute kind : String[1];
+		attribute time : ScalarValue[1];
+		ref object : Element[0..1];
+		attribute path : String[0..1];
+		attribute machine : String[0..1];
+		attribute 'state' : String[0..1];
+		attribute 'from' : String[0..1];
+		attribute 'to' : String[0..1];
+		ref target : Element[0..1];
+		attribute 'event' : String[0..1];
+		attribute payload : String[0..*] ordered;
+		attribute alternatives : String[0..*] ordered;
+		attribute taken : String[0..1];
+		attribute text : String[1];
+	}
+
 	calc def RelatedElements {
 		in source : Element[0..*] ordered;
 		/* relationshipKind: "specialization", "subsetting", "redefinition",

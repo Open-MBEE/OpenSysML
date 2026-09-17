@@ -50,6 +50,22 @@ const (
 	ErrorNotAnObject ErrorKind = "not-an-object"
 	// ErrorIncompleteValidation: Verdicts could not check every assertion about a row.
 	ErrorIncompleteValidation ErrorKind = "incomplete-validation"
+	// ErrorStateRow: a model-only operation was given a state row.
+	ErrorStateRow ErrorKind = "state-row"
+	// ErrorEventRow: a model-only operation was given an event row.
+	ErrorEventRow ErrorKind = "event-row"
+	// ErrorNotHeld: a runtime operation was given an element the session holds no object of.
+	ErrorNotHeld ErrorKind = "not-held"
+	// ErrorNoStateMachine: States was asked about an object exhibiting no state machine.
+	ErrorNoStateMachine ErrorKind = "no-state-machine"
+	// ErrorUnknownState: InState named a state no session object's machine declares.
+	ErrorUnknownState ErrorKind = "unknown-state"
+	// ErrorNoTrace: Events ran in a session that records no trace.
+	ErrorNoTrace ErrorKind = "no-trace"
+	// ErrorInvalidInterval: an Events bound is not an instant on the clock, or the interval is empty.
+	ErrorInvalidInterval ErrorKind = "invalid-interval"
+	// ErrorTraceTruncated: Events reaches back to records the session's bounded trace has dropped.
+	ErrorTraceTruncated ErrorKind = "trace-truncated"
 )
 
 // Error is a typed query-execution failure with plan provenance.
@@ -141,6 +157,31 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s operation %s cannot check %s, which declares no object", e.Query, e.Operation, e.Target)
 	case ErrorIncompleteValidation:
 		return fmt.Sprintf("query %s operation %s could not check every assertion about %s: %v", e.Query, e.Operation, e.Target, e.Cause)
+	case ErrorStateRow:
+		return fmt.Sprintf("query %s operation %s applies to model elements, not to state %s", e.Query, e.Operation, e.Target)
+	case ErrorEventRow:
+		return fmt.Sprintf("query %s operation %s applies to model elements, not to event %s", e.Query, e.Operation, e.Target)
+	case ErrorNotHeld:
+		return fmt.Sprintf("query %s operation %s reads the objects of %s, and the session holds none", e.Query, e.Operation, e.Target)
+	case ErrorNoStateMachine:
+		return fmt.Sprintf("query %s operation %s asks the state of %s, which exhibits no state machine", e.Query, e.Operation, e.Target)
+	case ErrorUnknownState:
+		return fmt.Sprintf("query %s operation %s names state %s, which no state machine the session runs declares", e.Query, e.Operation, e.Actual)
+	case ErrorNoTrace:
+		return fmt.Sprintf("query %s operation %s reads the session's trace, and this session records none: turn tracing on before running", e.Query, e.Operation)
+	case ErrorTraceTruncated:
+		return fmt.Sprintf("query %s operation %s reaches back to records the session's trace no longer keeps (%s): bound since to a later instant", e.Query, e.Operation, e.Actual)
+	case ErrorInvalidInterval:
+		message := fmt.Sprintf("query %s operation %s has an invalid time interval", e.Query, e.Operation)
+		if e.Parameter != "" {
+			message = fmt.Sprintf("query %s operation %s bound %s is not an instant on the clock", e.Query, e.Operation, e.Parameter)
+		}
+		if e.Cause != nil {
+			message += ": " + e.Cause.Error()
+		} else if e.Actual != "" {
+			message += ": " + e.Actual
+		}
+		return message
 	case ErrorResultType:
 		return fmt.Sprintf("query %s produced %s, expected %s", e.Query, e.Actual, e.Expected)
 	case ErrorResultMultiplicity:

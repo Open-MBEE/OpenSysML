@@ -214,7 +214,7 @@ func newActionExecutorOn(
 	self, occurrence *Instance,
 ) *ActionExecutor {
 	exec := &ActionExecutor{
-		performances: performances{ctx: ctx, self: self},
+		performances: performances{ctx: ctx, self: self, behavior: action},
 		action:       action,
 		performed:    performed,
 		tool:         tool,
@@ -2076,7 +2076,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 			}
 		}
 		if choice != nil {
-			e.ctx.noteChoice(*choice)
+			e.noteChoice(*choice)
 		}
 		e.move(token, successors[holding[pick]])
 		return nil
@@ -2215,6 +2215,10 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 			return nil
 		}
 		token.Wait = nil
+		if tr := e.trace(); tr != nil {
+			tr.RecordAccept(TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.action},
+				acceptedEventName(msg), msg.Payload)
+		}
 		if accept.ParamName != "" {
 			value, err := e.ctx.acceptedValue(&msg)
 			if err != nil {

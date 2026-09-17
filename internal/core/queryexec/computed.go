@@ -157,6 +157,32 @@ func (e *executor) evaluateColumnExpression(
 			}
 			row = ElementValue(verdict.Assertion())
 		}
+		if state, isState := row.State(); isState {
+			if declaring == stateFQN {
+				values, _, err := e.statePropertyValues(row, property)
+				if err != nil {
+					return nil, e.unevaluable(expression, property, row, err)
+				}
+				return values, nil
+			}
+			if state.symbol == nil {
+				return nil, nil
+			}
+			row = ElementValue(state.symbol)
+		}
+		if event, isEvent := row.Event(); isEvent {
+			if declaring == eventFQN {
+				values, _, err := e.eventPropertyValues(row, property)
+				if err != nil {
+					return nil, e.unevaluable(expression, property, row, err)
+				}
+				return values, nil
+			}
+			if event.Behavior() == nil {
+				return nil, nil
+			}
+			row = ElementValue(event.Behavior())
+		}
 		sym, _ := row.Element()
 		if isMetaclassFQN(declaring) {
 			if !e.context.Model.MetaclassConforms(sym, declaring) {
