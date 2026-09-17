@@ -521,6 +521,11 @@ func TestTableFormsAreMarkdownNotMermaid(t *testing.T) {
 	if _, err := render(t, "tree.sysml", "VehicleViews::vehicleView").Write(FormMarkdown); !errors.Is(err, ErrWrongForm) {
 		t.Errorf("markdown of a tree error = %v, want ErrWrongForm", err)
 	}
+	// A rendering of no named view leaves the view out of the message.
+	anonymous := (&WrongFormError{Form: FormMarkdown, Kind: KindTree}).Error()
+	if strings.HasPrefix(anonymous, ":") || !strings.HasPrefix(anonymous, "a tree rendering is not written as markdown") {
+		t.Errorf("anonymous error = %q, want it to open with the kind", anonymous)
+	}
 }
 
 // A rendering kind OpenSysML does not produce is a typed error naming the kind
