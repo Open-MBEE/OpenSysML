@@ -76,3 +76,55 @@ func TestTerminatedMachineHoldsNoPendingWork(t *testing.T) {
 		t.Errorf("ChangeWaits() = %v after termination; want none", got)
 	}
 }
+
+// TestChangeTriggeredTerminationHoldsNoWaits: a change condition rising in one
+// region routes to the terminate action while the other region's condition stays
+// false; the poll that ended the machine publishes no wait for it.
+func TestChangeTriggeredTerminationHoldsNoWaits(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		state def Machine {
+			attribute abort : Boolean = false;
+			attribute level : Integer = 0;
+			entry; then busy;
+			state busy parallel {
+				state r1 {
+					entry; then a;
+					state a;
+					transition first a accept when abort then stop;
+				}
+				state r2 {
+					entry; then b;
+					state b;
+					transition first b accept when level > 0 then c;
+					state c;
+				}
+				action stop terminate;
+			}
+		}
+	}`))
+	exec, err := ctx.CreateStateExecutor(findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fired, err := exec.PollChangeEvents(); err != nil || fired {
+		t.Fatalf("poll = %v, %v; want nothing fired while both conditions are false", fired, err)
+	}
+	if got := exec.ChangeWaits(); len(got) != 2 {
+		t.Fatalf("ChangeWaits() = %v; want both conditions", got)
+	}
+	exec.stateData["abort"] = boolValue(true)
+	fired, err := exec.PollChangeEvents()
+	if err != nil || !fired {
+		t.Fatalf("poll = %v, %v; want the abort condition to fire", fired, err)
+	}
+	if exec.State() != StateTerminated {
+		t.Fatalf("state = %v; want Terminated", exec.State())
+	}
+	if got := exec.ChangeWaits(); len(got) != 0 {
+		t.Errorf("ChangeWaits() = %v after termination; want none", got)
+	}
+	if exec.HasPendingWork() {
+		t.Errorf("HasPendingWork() = true on a terminated machine")
+	}
+}

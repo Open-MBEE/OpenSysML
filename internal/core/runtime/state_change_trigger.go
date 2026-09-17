@@ -109,6 +109,10 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		e.recallDeferredEvents()
 	}
 	consumed := e.consumeRise(poll)
+	// A firing that ended the machine leaves nothing waiting on a condition.
+	if e.state.Ended() {
+		poll.waits = nil
+	}
 	e.changeWaits = poll.waits
 	dispatched := fired || consumed
 	e.moved = e.moved || dispatched
