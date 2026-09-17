@@ -430,6 +430,36 @@ func TestRenderForPandoc(t *testing.T) {
 	}
 }
 
+// TestRenderForPandocKeepsOtherFormsUnderNotice checks a document whose
+// diagrams are asked for as DOT or PlantUML is handed to pandoc with a filter
+// that draws nothing and sets the notice the print stylesheet sets over the
+// HTML backend's page, so both converter inputs say the same.
+func TestRenderForPandocKeepsOtherFormsUnderNotice(t *testing.T) {
+	dir := t.TempDir()
+	capture := filepath.Join(dir, "capture")
+	fakeTool(t, dir, "pandoc", PandocEnv,
+		`cp "$(dirname "$1")/artwork.lua" "`+capture+`.lua"; out=""; while [ $# -gt 0 ]; do [ "$1" = "--output" ] && out="$2"; shift; done; printf '%%PDF-1.7 fake' > "$out"`+"\n")
+	fakeTool(t, dir, "weasyprint", WeasyPrintEnv, "exit 0\n")
+	t.Setenv(MermaidEnv, filepath.Join(dir, "no-mmdc-here"))
+	for form, notice := range map[view.Form]string{view.FormDot: dotNotice, view.FormPlantUML: plantumlNotice} {
+		if _, err := Render(telescopeDocument(t), "pandoc", Options{DiagramForm: form}); err != nil {
+			t.Fatalf("Render %s: %v", form, err)
+		}
+		filter, err := os.ReadFile(capture + ".lua")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range []string{`local form = "` + string(form) + `"`, `local images = {"", ""}`, luaString(notice)} {
+			if !strings.Contains(string(filter), want) {
+				t.Fatalf("%s filter lacks %q:\n%s", form, want, filter)
+			}
+		}
+		if !strings.Contains(PrintStylesheet, `content: "`+notice+`";`) {
+			t.Fatalf("print stylesheet does not set the %s notice %q", form, notice)
+		}
+	}
+}
+
 // TestRenderForPandocWithoutArtwork checks a document with nothing to draw or
 // typeset is handed to pandoc without a filter.
 func TestRenderForPandocWithoutArtwork(t *testing.T) {

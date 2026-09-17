@@ -203,7 +203,7 @@ is declared in a second cascade layer after the default sheet:
 ```
 
 Both layers draw their values from the same `--sysml-*` tokens and write no
-`style` attributes, so `-html-theme` retheme a PDF as they do a page,
+`style` attributes, so `-html-theme` rethemes a PDF as it does a page,
 `-html-css` sheets apply unlayered after both layers and win on cascade
 origin, and `-html-no-default-css` leaves both layers out so that only your
 sheets — `@page` rules included — style the PDF. The pandoc engine reads

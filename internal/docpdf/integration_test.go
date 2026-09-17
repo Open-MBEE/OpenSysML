@@ -207,7 +207,7 @@ func TestRenderFormulasWithInstalledKatex(t *testing.T) {
 		`<div class="sysml-math"><span class="katex-display"><span class="katex">`,
 		`<span class="mord mathnormal">A</span>`,
 		`<span class="mrel">∝</span>`,
-		`<span class="mord mathnormal">λ</span>`,
+		`<span class="mord mathnormal mtight">λ</span>`,
 	} {
 		if !strings.Contains(page, want) {
 			t.Fatalf("page missing %q:\n%s", want, page)

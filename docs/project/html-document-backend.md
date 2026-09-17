@@ -1,22 +1,23 @@
 # HTML document backend — design
 
-Status: **implemented, except the PDF migration** — `docrender.HTML`, `-doc-form html`, the
-stylesheet options and linked HTML sets ship; the PDF engines still read the Markdown-derived
-HTML of `internal/docpdf` (see [Rendering a document as HTML](../reference/cli.md#rendering-a-document-as-html)
-for the user-facing surface). This page records the design agreed for rendering documents as HTML
+Status: **implemented** — `docrender.HTML`, `-doc-form html`, the stylesheet options and linked
+HTML sets ship, and the PDF engines that read HTML are handed this backend's page with the PDF
+backend's print stylesheet (see [Rendering a document as HTML](../reference/cli.md#rendering-a-document-as-html)
+and [Rendering a document as PDF](../reference/cli.md#rendering-a-document-as-pdf) for the
+user-facing surface). This page records the design agreed for rendering documents as HTML
 directly from the document IR, the class and attribute vocabulary that makes the output styleable,
-and what the change does to the existing PDF backend.
+and what the change did to the PDF backend.
 
 ## The problem
 
-The problem this page set out to solve, as it stood: `-doc-form` wrote Markdown or PDF, and there
+The problem this page set out to solve, as it stood before either step landed: `-doc-form` wrote Markdown or PDF, and there
 was no HTML form at all. HTML did exist inside
 the toolchain, but only as an intermediate for the PDF converters that read HTML — WeasyPrint
-and Prince — and it is built the long way round: `internal/docpdf/markdown.go` re-parses
+and Prince — and it was built the long way round: `internal/docpdf/markdown.go` re-parsed
 docrender's Markdown back into flat presentation blocks (heading, paragraph, caption, table,
-list, mermaid, anchor) and `internal/docpdf/html.go` writes those blocks as a page with an
-inline print stylesheet. That intermediate was a deliberate choice — it keeps the PDF layer
-independent of the document IR — and it has two consequences.
+list, mermaid, anchor) and `internal/docpdf/html.go` wrote those blocks as a page with an
+inline print stylesheet. That intermediate was a deliberate choice — it kept the PDF layer
+independent of the document IR — and it had two consequences.
 
 The first is that the markup carries no model information. Its only hooks are `title-page`,
 `nav.toc` with a flat `toc-2`/`toc-3` depth class, `p.caption`, `span.section-number`,
@@ -28,12 +29,12 @@ kind behind a row, whether a link points at a URL or at another content node —
 the Markdown boundary. Markdown is a lossy encoding of the IR, so no amount of work inside
 `docpdf` can recover it.
 
-The second is that the intermediate has to reconstruct what it lost, and that shows. A caption
-is a paragraph that happens to be one emphasis run, so docrender writes an HTML comment marker
-(`<!-- caption -->`) ahead of it and docpdf recognizes the marker; the pandoc path rewrites the
-marked line as `[…]{.caption}` so the Markdown reader styles it the same way. Table cells fold
-newlines to a literal `<br>` that the block parser has to split on and preserve, distinguishing
-it from the escaped metacharacters around it. None of this is wrong, but all of it is a
+The second was that the intermediate had to reconstruct what it lost, and that showed. A caption
+is a paragraph that happens to be one emphasis run, so docrender wrote an HTML comment marker
+(`<!-- caption -->`) ahead of it and docpdf recognized the marker; the pandoc path rewrote the
+marked line as `[…]{.caption}` so the Markdown reader styled it the same way. Table cells fold
+newlines to a literal `<br>` that the block parser had to split on and preserve, distinguishing
+it from the escaped metacharacters around it. None of this was wrong, but all of it was a
 consequence of going through Markdown twice.
 
 ## What the IR already carries
@@ -336,20 +337,44 @@ with the PDF backend, where its `@page` rules belong, and is layered the same wa
 ## What this does to the PDF backend
 
 Once `docrender` writes HTML from the IR, the intermediate in `docpdf` is redundant and its
-losses are unnecessary. The HTML-input converters (WeasyPrint, Prince) are handed the backend's
-HTML with the print stylesheet, and the Markdown-input converter (pandoc) keeps receiving
-Markdown, so all three engines keep working. That deletes `internal/docpdf/markdown.go`,
-`html.go` and `inline.go` — the block parser, the page writer and the Markdown-inline-to-HTML
-translator — and with them the caption marker convention in `docrender.Markdown`, the
-`[…]{.caption}` rewrite for pandoc, and the `<br>` fold in table cells. `docpdf` keeps what it
-is actually for: locating and running external tools, rendering diagrams with `mmdc`, and the
-typed errors for a missing or failing one.
+losses are unnecessary. `docpdf.Render` takes the evaluated `docir.Document`; the HTML-input
+converters (WeasyPrint, Prince) are handed the backend's page with the print stylesheet, and
+the Markdown-input converter (pandoc) keeps receiving `docrender.Markdown`'s text, so all
+three engines keep working. `internal/docpdf/markdown.go`, `html.go` and `inline.go` — the
+block parser, the page writer and the Markdown-inline-to-HTML translator — are gone, and with
+them the caption marker convention in `docrender.Markdown`, the `[…]{.caption}` rewrite for
+pandoc, and the `<br>` fold in table cells. `docpdf` keeps what it is actually for: locating
+and running external tools, drawing diagrams with `mmdc`, typesetting formulas with KaTeX, and
+the typed errors for a missing or failing one.
 
-The caption marker is the one deletion visible in existing output: it is an HTML comment in
-rendered Markdown, so removing it changes Markdown goldens without changing how any Markdown
-renderer displays them. Whether pandoc keeps needing the caption span decides whether the
-marker can go entirely or has to stay for that engine alone; that is settled by measurement
-during the work, not here.
+What a backend may draw or typeset out of process is listed by `docrender` from the IR —
+`Diagrams` (graph-shaped diagram sources in the requested form, table-kind views excluded),
+`Formulas` (distinct math, keyed as the HTML backend writes it) and `Captions` (table, diagram
+and formula captions in document order) — and handed back through `HTMLOptions.DiagramImages`
+and `HTMLOptions.Math`, the one seam where a diagram block becomes its rasterized image and a
+formula its typeset HTML. Rasterizers for other diagram forms plug into that seam beside
+`mermaid.go` without touching the renderer.
+
+The print stylesheet is `internal/docpdf/print.css`: `@page` geometry, the page counter, print
+fonts and breaks, and the print treatment of the `sysml-*` classes, in `@layer opensysml-print`
+declared after `@layer opensysml`. The cascade order for an HTML-input engine is the backend's
+default sheet and theme, the print layer, KaTeX's stylesheet when the document has formulas,
+then the reader's `-html-css` sheets unlayered — so the override contract of § *Styling and
+overriding it* holds for PDF byte for byte, and `-html-theme` and `-html-no-default-css` mean
+for PDF what they mean for HTML. Pandoc's own HTML carries pandoc's structure rather than the
+backend's classes, so the pandoc engine keeps a stylesheet of its own (`pandoc.css`), accepts
+`-html-css` as further `--css` arguments, and rejects `-html-theme` and `-html-no-default-css`
+with a typed error.
+
+The caption marker was the one deletion visible in existing output: an HTML comment in rendered
+Markdown, so removing it changed Markdown goldens by that line only, without changing how any
+Markdown renderer displays them. Measurement settled the pandoc question: pandoc has no syntax
+that tells a caption from a paragraph that happens to be emphasized, so the pandoc converter's
+generated Lua filter (the one that also swaps in the drawn diagrams and typeset formulas)
+marks a caption when an emphasized paragraph matches the next of the document's caption texts,
+in order, and the block after it is captionable — a table, a display formula, a diagram fence,
+or a grouped table's key ahead of its first subtable. An emphasized paragraph elsewhere stays
+body prose. Nothing of this reaches the Markdown output.
 
 ## Test contract
 
@@ -375,9 +400,11 @@ during the work, not here.
   documentation.
 - **Determinism**, rendering twice and comparing bytes, including for grouped tables and
   multi-document sets.
-- **The PDF path unchanged**, per engine: the existing `docpdf` tests and the integration
-  tests against real tools must pass with the new HTML, and the PDF goldens are re-adjudicated
-  rather than blindly re-baselined.
+- **The PDF path unchanged**, per engine: the `docpdf` tests assert the prepared input each
+  converter is handed (the backend's page, or the Markdown text with its filter) and the
+  integration tests against real tools render the fixtures; the print stylesheet meets the
+  override-contract assertions the HTML tests make of the default sheet (no `style`
+  attributes, layered, `--sysml-*` tokens).
 - **CLI surface**: the new form and flags, their conflicts, and stdout versus `-o`.
 - **`docs/project/spec-compliance.md`** gains the rows for the form, the vocabulary and the
   linked HTML set, with honest status flags.
@@ -390,14 +417,15 @@ during the work, not here.
    `-html-default-css` and `-html-fragment`, the shared deliverable options, goldens and the
    test contract, and the user documentation (`docs/reference/cli.md`, `docs/manual/outputs.md`,
    `docs/manual/interfaces.md`, the guide's document pages).
-2. **The PDF migration.** Point the HTML-input engines at the backend, split the print
-   stylesheet out as the PDF backend's own, delete the block parser, page writer, inline
-   translator and — measurement permitting — the caption marker, re-adjudicate the PDF
-   goldens, and add the service form field with its Python client surface.
+2. **The PDF migration** — landed. The HTML-input engines read the backend's page, the print
+   stylesheet is the PDF backend's own `print.css`, the block parser, page writer, inline
+   translator and the caption marker are gone, and `RenderDocument` carries a `form` field
+   (`markdown` or `html`, capability `render_document_html`) with the Python client's
+   `render_document(..., form=)` behind it.
 
-Step 1 stands alone: it delivers the HTML form without touching PDF output. Step 2 is a
-refactor with no new user-visible behavior beyond the caption comment disappearing from
-Markdown.
+Step 1 stood alone: it delivered the HTML form without touching PDF output. Step 2 was a
+refactor whose user-visible changes are the caption comment leaving Markdown output and the
+HTML stylesheet options reaching `-doc-form pdf`.
 
 ## Known limitations
 
@@ -407,6 +435,13 @@ Markdown.
   browser with access to the script's URL. Pre-rendered images are available through the PDF
   path's machinery, but wiring `mmdc` into the HTML form — an `-html-diagrams svg` option — is
   deliberately out of scope and left as follow-on work.
+- **PDF only through the CLI.** The service's `RenderDocument` offers `markdown` and `html`;
+  PDF needs the CLI's external converter toolchain and is not a service form.
+- **Pandoc's captions are matched, not marked.** Because the Markdown carries no caption
+  marker, the pandoc engine identifies captions by text and position; an emphasized paragraph
+  whose text equals the next caption and which sits directly ahead of that caption's block
+  would be styled as the caption. The HTML-input engines carry captions as `<caption>` and
+  `<figcaption>` and have no such ambiguity.
 - **Three bundled themes, no house style.** `modern`, `print` and `report` are generic looks
   built on the layer and the token vocabulary; an organisation's house style is still a
   `-html-css` sheet of its own, and no theme is loaded from the network.

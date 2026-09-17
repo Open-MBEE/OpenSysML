@@ -144,7 +144,7 @@ func renderTable(node docir.Content) []string {
 	}
 	if node.GroupBy() != "" {
 		for _, group := range node.Groups() {
-			blocks = append(blocks, "**"+inline(node.GroupBy()+": "+group.Key())+"**")
+			blocks = append(blocks, delimited("**", node.GroupBy()+": "+group.Key()))
 			blocks = append(blocks, pipeTable(names, group.Rows(), len(columns)))
 		}
 		if len(node.Groups()) == 0 {

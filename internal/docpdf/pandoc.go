@@ -17,15 +17,19 @@ import (
 // artworkFilterName is the Lua filter Render writes beside the Markdown.
 const artworkFilterName = "artwork.lua"
 
-// writeArtworkFilter writes the filter for a document whose diagrams were
-// drawn, formulas typeset or captions set, returning its name; a document
-// with none needs no filter, and "" is returned.
+// Notices written ahead of a diagram kept as source, in a form the PDF
+// backend does not draw; the print stylesheet says the same over the HTML
+// backend's page.
+const (
+	dotNotice      = "This diagram is written in Graphviz DOT, which the PDF backend does not draw; its source follows."
+	plantumlNotice = "This diagram is written in PlantUML, which the PDF backend does not draw; its source follows."
+)
+
+// writeArtworkFilter writes the filter for a document with diagrams (drawn,
+// or kept as source under a notice), typeset formulas or captions, returning
+// its name; a document with none needs no filter, and "" is returned.
 func writeArtworkFilter(dir string, form view.Form, images []string, math formulas, captions []string) (string, error) {
-	drawn := false
-	for _, image := range images {
-		drawn = drawn || image != ""
-	}
-	if !drawn && len(math.html) == 0 && len(captions) == 0 {
+	if len(images) == 0 && len(math.html) == 0 && len(captions) == 0 {
 		return "", nil
 	}
 	if form == "" {
@@ -56,6 +60,7 @@ func writeArtworkFilter(dir string, form view.Form, images []string, math formul
 		b.WriteString(luaString(caption))
 	}
 	b.WriteString("}\n")
+	b.WriteString("local notices = {dot = " + luaString(dotNotice) + ", plantuml = " + luaString(plantumlNotice) + "}\n")
 	b.WriteString(artworkFilterBody)
 	if err := os.WriteFile(filepath.Join(dir, artworkFilterName), []byte(b.String()), 0o600); err != nil {
 		return "", err
@@ -156,10 +161,14 @@ return {
       end
       drawn = drawn + 1
       local image = images[drawn]
-      if image == nil or image == "" then
+      if image ~= nil and image ~= "" then
+        return pandoc.Para({pandoc.Image({}, image)})
+      end
+      local notice = notices[form]
+      if notice == nil then
         return nil
       end
-      return pandoc.Para({pandoc.Image({}, image)})
+      return {pandoc.Para({pandoc.Emph({pandoc.Str(notice)})}), el}
     end,
   },
   {

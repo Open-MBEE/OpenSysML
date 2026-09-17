@@ -133,3 +133,64 @@ func TestCaptionsFollowDocumentOrder(t *testing.T) {
 		t.Error("nil document has captions")
 	}
 }
+
+// TestHTMLDiagramImages: an image drawn ahead of the render stands in for the
+// diagram's source, in the order Diagrams lists them; the table-kind view is
+// a table regardless, an empty entry keeps the source, and more images than
+// diagrams is a typed error.
+func TestHTMLDiagramImages(t *testing.T) {
+	path := filepath.Join("testdata", telescopeFixture)
+	got := renderFixtureHTML(t, path, "Observatory::MassReport", HTMLOptions{DiagramImages: []string{"imaging.svg", ""}})
+	if !strings.Contains(got, `<img src="imaging.svg" alt="Imaging chain interconnection">`) {
+		t.Errorf("first diagram is not its image:\n%s", got)
+	}
+	if strings.Contains(got, "flowchart LR") || strings.Count(got, `<pre class="mermaid">`) != 1 || !strings.Contains(got, "stateDiagram-v2") {
+		t.Errorf("the second diagram must keep its source and the first lose it:\n%s", got)
+	}
+	w := &htmlWriter{form: view.FormMermaid, opts: HTMLOptions{DiagramImages: []string{"masses.svg"}}}
+	if err := w.writeFigure("", "d", "Masses", &view.Rendering{Kind: view.KindTable, Columns: []string{"name"}, Rows: [][]string{{"optics"}}}, view.Options{}); err != nil {
+		t.Fatal(err)
+	}
+	if table := w.b.String(); strings.Contains(table, "<img") || !strings.Contains(table, `<table class="sysml-table"`) || w.diagrams != 0 {
+		t.Errorf("a table-kind view took a diagram's image:\n%s", table)
+	}
+	both := renderFixtureHTML(t, path, "Observatory::MassReport", HTMLOptions{DiagramImages: []string{"imaging.svg", "states.svg"}})
+	if strings.Contains(both, `<pre class="mermaid">`) || !strings.Contains(both, `<img src="states.svg" alt="Observatory states, left to right">`) {
+		t.Errorf("both images are not written:\n%s", both)
+	}
+	var typed *Error
+	_, err := HTML(fixtureDocument(t, path, "Observatory::MassReport"), HTMLOptions{DiagramImages: []string{"a", "b", "c"}})
+	if !errors.As(err, &typed) || typed.Kind != ErrorSurplusDiagramImages || !strings.Contains(err.Error(), "3 diagram images were drawn for a document with 2") {
+		t.Errorf("surplus images: error = %v", err)
+	}
+}
+
+// TestHTMLMathTypeset: typeset HTML keyed as Formulas lists a formula replaces
+// its delimited LaTeX inline and in a formula block; a formula without any
+// keeps its LaTeX.
+func TestHTMLMathTypeset(t *testing.T) {
+	document := fixtureDocument(t, filepath.Join("testdata", mathFixture), "Optics::OpticsReport")
+	formulas := Formulas(document)
+	typeset := map[Formula]string{
+		formulas[0]: `<span class="katex">inline</span>`,
+		formulas[1]: `<span class="katex-display">display</span>`,
+	}
+	got, err := HTML(document, HTMLOptions{Math: typeset})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`scales as <span class="sysml-math"><span class="katex">inline</span></span> and`,
+		`<div class="sysml-math"><span class="katex-display">display</span></div>`,
+		`<div class="sysml-math">\[\text{cost} = 10^6\,\$ \times D^{2.5} + $\]</div>`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rendering does not contain %q\n%s", want, got)
+		}
+	}
+	for _, unwanted := range []string{`\(m \propto`, `\[A = \pi`} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("typeset formula still carries its LaTeX %q\n%s", unwanted, got)
+		}
+	}
+}

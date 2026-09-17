@@ -160,6 +160,58 @@ func TestMarkdownGroupedTableEmpty(t *testing.T) {
 	}
 }
 
+// TestMarkdownGroupedTableBlankKey checks that a group whose key is blank
+// writes a strong span CommonMark parses, with the blank outside the marks.
+func TestMarkdownGroupedTableBlankKey(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "blank_group.sysml")
+	model := `
+		package Groups {
+			private import DocumentQueries::*;
+			private import KerML::Root::Element;
+			private import ScalarValues::*;
+
+			calc def Zoned :> Query {
+				in root : Element;
+				Project(
+					source = WhereType(source = OwnedElements(source = root), type = "Groups::Widget"),
+					properties = ("name", "zone")
+				)
+			}
+
+			part def Widget {
+				attribute zone : String;
+			}
+
+			part hollow {
+				part def Widget :> Groups::Widget;
+				part inner : Widget {
+					attribute redefines zone = "payload";
+				}
+			}
+
+			part def Report :> Document {
+				attribute redefines title = "Report";
+				part zones : Table {
+					attribute redefines groupBy = "zone";
+					calc rows : Zoned {
+						in root = hollow;
+					}
+				}
+			}
+		}
+	`
+	if err := os.WriteFile(path, []byte(model), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	got := renderFixtureDocument(t, path, "Groups::Report")
+	if !strings.Contains(got, "\n**zone:** \n") || strings.Contains(got, "**zone: **") {
+		t.Errorf("blank group key is not a strong span CommonMark parses\n%s", got)
+	}
+	if !strings.Contains(got, "\n**zone: payload**\n") {
+		t.Errorf("rendering does not contain the payload group key\n%s", got)
+	}
+}
+
 // TestMarkdownGoldenInlineRuns spot-checks the rendered inline runs, anchors,
 // and grouped subtables of the telescope report.
 func TestMarkdownGoldenInlineRuns(t *testing.T) {
