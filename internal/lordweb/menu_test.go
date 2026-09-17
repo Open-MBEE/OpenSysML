@@ -161,6 +161,29 @@ func TestPlayBindsTheOptionsAndNumbers(t *testing.T) {
 	}
 }
 
+func TestTheTrainingHallNamesTheMaster(t *testing.T) {
+	g := newGame(t, 1, Character{})
+	o := play(t, g, "T", nil)
+	want := "Halder, master of the Short Sword, teaches level 2 to warriors of 100 experience. You have 0; come back stronger."
+	if lines := o.Narrate(g); o.To != "trainingHall" || o.After.Level != 1 || len(lines) != 1 || lines[0] != want {
+		t.Fatalf("training at level 1 with no experience: %s %q", o.To, lines)
+	}
+	play(t, g, "R", nil)
+	if err := g.SetPreference("experience", IntValue(100)); err != nil {
+		t.Fatal(err)
+	}
+	o = play(t, g, "T", nil)
+	lines := strings.Join(o.Narrate(g), "\n")
+	switch {
+	case !o.After.TrainedToday:
+		t.Fatalf("training at level 1 with 100 experience: no bout %q", lines)
+	case o.After.Level == 2 && strings.Contains(lines, "Halder bows: you have learned all the Short Sword can teach."):
+	case o.After.Level == 1 && strings.Contains(lines, "Halder bests you"):
+	default:
+		t.Fatalf("training at level 1 with 100 experience: level %d %q", o.After.Level, lines)
+	}
+}
+
 func TestPlayRefusesWhatItCannotBind(t *testing.T) {
 	g := newGame(t, 1, Character{})
 	for _, tc := range []struct {

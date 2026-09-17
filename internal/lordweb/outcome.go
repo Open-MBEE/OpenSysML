@@ -36,7 +36,74 @@ func (o *Outcome) Narrate(g *Game) []string {
 		lines = append(lines, blowsLine(hits, misses))
 	}
 	lines = append(lines, o.changes()...)
+	if master := o.masterLine(g); master != "" {
+		lines = append(lines, master)
+	}
 	return lines
+}
+
+// masterLine tells whom the training hall put before the warrior on arrival: the
+// master whose class is the next level, read from the hall's parts.
+func (o *Outcome) masterLine(g *Game) string {
+	if o.To != "trainingHall" || o.From == "trainingHall" {
+		return ""
+	}
+	names, err := g.Members(lordPackage + "::TrainingHall")
+	if err != nil {
+		return ""
+	}
+	level := o.Before.Level
+	for _, name := range names {
+		v, err := g.Eval("town.training." + name)
+		if err != nil {
+			continue
+		}
+		inst, ok := g.Instance(v)
+		if !ok {
+			continue
+		}
+		teaches, err := wholeFeature(g, inst, "teaches")
+		if err != nil || teaches != level+1 {
+			continue
+		}
+		master, err := g.Feature(inst, "name")
+		if err != nil {
+			return ""
+		}
+		weapon, err := g.Feature(inst, "weapon")
+		if err != nil {
+			return ""
+		}
+		required, err := wholeFeature(g, inst, "experienceRequired")
+		if err != nil {
+			return ""
+		}
+		if o.After.Level > level {
+			return fmt.Sprintf("%s bows: you have learned all the %s can teach.", master.Str(), weapon.Str())
+		}
+		if o.After.TrainedToday && !o.Before.TrainedToday {
+			return fmt.Sprintf("%s bests you and sends you off to rest; try again tomorrow.", master.Str())
+		}
+		line := fmt.Sprintf("%s, master of the %s, teaches level %d to warriors of %d experience.", master.Str(), weapon.Str(), level+1, required)
+		if o.After.Experience < required {
+			line += fmt.Sprintf(" You have %d; come back stronger.", o.After.Experience)
+		}
+		return line
+	}
+	return "No master has anything left to teach you."
+}
+
+// wholeFeature reads an Integer attribute of a model part.
+func wholeFeature(g *Game, inst *runtime.Instance, attribute string) (int64, error) {
+	v, err := g.Feature(inst, attribute)
+	if err != nil {
+		return 0, err
+	}
+	n, ok := v.Const.WholeNumber()
+	if v.Kind != runtime.ValConst || !ok {
+		return 0, fmt.Errorf("%s is %s, not an integer", attribute, runtime.FormatValue(v))
+	}
+	return n, nil
 }
 
 // foeName names the monster the forest's roll picked, read from the level's part;

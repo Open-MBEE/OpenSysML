@@ -36,6 +36,7 @@ type Snapshot struct {
 	Fairy            bool   `json:"fairy"`
 	InnRoom          bool   `json:"innRoom"`
 	Bribed           bool   `json:"bribed"`
+	TrainedToday     bool   `json:"trainedToday"`
 	News             string `json:"news"`
 }
 
@@ -93,6 +94,7 @@ func (g *Game) Snapshot() (*Snapshot, error) {
 	flag(&s.Fairy, "fairy")
 	flag(&s.InnRoom, "innRoom")
 	flag(&s.Bribed, "bribed")
+	flag(&s.TrainedToday, "trainedToday")
 	str(&s.News, "news")
 	if err != nil {
 		return nil, err
