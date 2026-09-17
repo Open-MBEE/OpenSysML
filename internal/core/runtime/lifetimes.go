@@ -78,14 +78,15 @@ func (ctx *Context) OccurrenceLife(id int64) (OccurrenceLife, bool) {
 	return OccurrenceLife{Began: l.began, Ended: l.ended, Destroyed: l.destroyed}, true
 }
 
-// beginLife records inst materialized now. A part of an object exists as long
-// as its whole does, so it began when its owner did; anything else begins now.
+// beginLife records inst materialized now. A part of an object exists as long as
+// its whole does: it began when its owner did and, if the owner has ended, ended
+// with it, however late it is first read; anything else begins now.
 func (ctx *Context) beginLife(inst *Instance) {
 	now := ctx.newActivation()
 	l := life{reached: now, began: now}
 	if inst.owner != nil {
 		if owner, ok := ctx.lives[inst.owner.ID]; ok && owner.began != 0 {
-			l.began = owner.began
+			l.began, l.ended, l.destroyed = owner.began, owner.ended, owner.destroyed
 		}
 	}
 	ctx.lives[inst.ID] = l

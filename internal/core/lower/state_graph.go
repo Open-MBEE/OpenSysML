@@ -183,6 +183,10 @@ type StateGraph struct {
 	// than an unbounded expansion.
 	materializing map[ast.Node]bool
 
+	// copying counts the inherited members whose content is being added, so a
+	// vertex a state usage's body declares inside one is copied, not shared.
+	copying int
+
 	// inherited are the declarations content was materialized from, each once,
 	// in the order they were first reached.
 	inherited []Inherited
@@ -198,6 +202,10 @@ type StateGraph struct {
 	// declaredIn: region, pseudostate or transition declaration → the scope of
 	// the body it was written in, which says which document declares it.
 	declaredIn map[ast.Node]*symbols.Scope
+
+	// copiedFrom: the copy of a pseudostate or terminate action a state usage
+	// inherits → the declaration it was copied from, which endpoints resolve to.
+	copiedFrom map[ast.Node]ast.Node
 
 	// behaviorScope: entry, do or exit action → the scope it was declared in,
 	// recorded where a state runs a behavior another body declares.
@@ -567,6 +575,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		scopeOf:             make(map[*ast.StateNode]*symbols.Scope),
 		regionScopeOf:       make(map[*ast.StateRegion]*symbols.Scope),
 		declaredIn:          make(map[ast.Node]*symbols.Scope),
+		copiedFrom:          make(map[ast.Node]ast.Node),
 		behaviorScope:       make(map[ast.Node]*symbols.Scope),
 		attributeScope:      make(map[ast.Node]*symbols.Scope),
 		bodyOf:              make(map[*ast.StateNode][]inheritedMember),
@@ -1250,10 +1259,26 @@ func (g *StateGraph) recordDecl(state *ast.StateNode) {
 // scope unless inheritance already recorded the general's body it was written in.
 func (g *StateGraph) addPseudostate(ps *ast.PseudostateNode, scope *symbols.Scope) {
 	g.Pseudostates = append(g.Pseudostates, ps)
-	g.putVertex(ps, ps)
+	g.putCopiedVertex(ps)
 	if g.declaredIn[ps] == nil {
 		g.recordDeclaredIn(ps, scope)
 	}
+}
+
+// putCopiedVertex records a vertex under itself and, for the copy of an inherited
+// declaration, under that declaration, so an inherited transition reaches the copy.
+func (g *StateGraph) putCopiedVertex(node ast.Node) {
+	g.putVertex(node, node)
+	if decl, ok := g.copiedFrom[node]; ok {
+		g.putVertex(decl, node)
+	}
+}
+
+// copyInherited records that copy stands for decl, a pseudostate or terminate
+// action a state usage inherits, declared in the scope of the body writing decl.
+func (g *StateGraph) copyInherited(copy, decl ast.Node, scope *symbols.Scope) {
+	g.copiedFrom[copy] = decl
+	g.recordDeclaredIn(copy, scope)
 }
 
 // IsTerminateUsage reports a terminate action usage (`action stop terminate;`),
@@ -1267,8 +1292,10 @@ func IsTerminateUsage(node ast.Node) bool {
 // the graph, owned by the composite state declaring it, nil for the machine.
 func (g *StateGraph) addTerminate(usage *ast.Usage, scope *symbols.Scope, owner *ast.StateNode) {
 	g.Terminates = append(g.Terminates, usage)
-	g.putVertex(usage, usage)
-	g.recordDeclaredIn(usage, scope)
+	g.putCopiedVertex(usage)
+	if g.declaredIn[usage] == nil {
+		g.recordDeclaredIn(usage, scope)
+	}
 	if owner != nil {
 		g.TerminateOwner[usage] = owner
 	}

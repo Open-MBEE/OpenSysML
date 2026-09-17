@@ -17,6 +17,7 @@ func TestRuntimeRobustnessTerminate(t *testing.T) {
 	t.Run("terminate_of_a_literal_value", testTerminateOfALiteralValue)
 	t.Run("terminate_of_a_qualified_occurrence", testTerminateOfAQualifiedOccurrence)
 	t.Run("terminate_of_a_destroyed_occurrence", testTerminateOfADestroyedOccurrence)
+	t.Run("terminate_of_a_part_reached_after_its_whole_ended", testTerminateOfAPartReachedAfterItsWholeEnded)
 	t.Run("terminate_of_an_occurrence_expression", testTerminateOfAnOccurrenceExpression)
 	t.Run("terminate_of_a_node_of_a_sibling_flow", testTerminateOfANodeOfASiblingFlow)
 	t.Run("terminate_usage_stating_a_flow_of_its_own", testTerminateUsageStatingAFlowOfItsOwn)
@@ -192,6 +193,37 @@ func testTerminateOfADestroyedOccurrence(t *testing.T) {
 	_, err := ctx.ExecuteAction(findSymbolByName(idx.DocumentRoot("<test>"), "host", ast.DefAction))
 	if !errors.Is(err, ErrTerminateOccurrence) || !errors.Is(err, ErrOccurrenceDestroyed) {
 		t.Fatalf("error = %v, want ErrTerminateOccurrence wrapping ErrOccurrenceDestroyed", err)
+	}
+}
+
+// testTerminateOfAPartReachedAfterItsWholeEnded: a part first read after `terminate`
+// ended its whole ended with the whole, so terminating it is refused as ended already.
+func testTerminateOfAPartReachedAfterItsWholeEnded(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		part def Engine { attribute rate : Integer = 60; }
+		part def Body { part engine : Engine[0..1] { :>> rate = 50; } }
+		part patient : Body;
+		action host {
+			out attribute rate : Integer = 0;
+			first start;
+			then action c1 { terminate patient; }
+			then action c2 assign rate := patient.engine.rate;
+			then action c3 { terminate patient.engine; }
+			then done;
+		}
+	}`))
+	_, err := ctx.ExecuteAction(findSymbolByName(idx.DocumentRoot("<test>"), "host", ast.DefAction))
+	if !errors.Is(err, ErrTerminateOccurrence) || !errors.Is(err, ErrOccurrenceLifetime) {
+		t.Fatalf("error = %v, want ErrTerminateOccurrence wrapping ErrOccurrenceLifetime", err)
+	}
+	whole, ok := ctx.OccurrenceLife(1)
+	if !ok || whole.Ended == 0 {
+		t.Fatalf("whole's life = %v, %v; want ended", whole, ok)
+	}
+	part, ok := ctx.OccurrenceLife(2)
+	if !ok || part.Began != whole.Began || part.Ended != whole.Ended || part.Destroyed {
+		t.Fatalf("part's life = %v, %v; want the whole's, %v", part, ok, whole)
 	}
 }
 

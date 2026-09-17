@@ -2,7 +2,8 @@
   `terminate <occurrence>;` evaluates its target — `this`, a part's feature chain
   (`terminate vehicle.engine;`), a nested action node's own occurrence — and ends that
   occurrence's lifetime: its owned parts, the behaviors it exhibits or performs, and any action
-  or state performance running on it stop where they are, keeping their values; a name that
+  or state performance running on it stop where they are, keeping their values, and a part of
+  it first read afterwards is reached ended too, no behavior of it started; a name that
   denotes no occurrence, one already ended, and one `destroy` emptied are each a typed error.
   A `terminate;` in a state's `entry`, `do` or `exit` body ends that behavior at the statement,
   the state stays active and the machine keeps dispatching. A transition whose target is a

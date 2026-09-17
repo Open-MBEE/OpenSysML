@@ -1,0 +1,12 @@
+{
+	"type": "state",
+	"evaluate": "Test::Machine",
+	"trace": true,
+	"events": [{"signal": "Next"}, {"signal": "Go"}, {"signal": "Next"}, {"signal": "Abort"}],
+	"terminated": true,
+	"stateVisits": ["one", "idle", "work", "w1", "two", "idle", "work", "w1"],
+	"outputs": {
+		"one.log": {"type": "String", "value": "idle(exit);w1(exit);work(exit);"},
+		"two.log": {"type": "String", "value": "idle(exit);w1(exit);abort(effect);"}
+	}
+}

@@ -438,12 +438,16 @@ func (ctx *Context) restartClassifierBehaviors(objects []*Instance) error {
 
 // startBehaviorsOfAll attaches the behaviors of every object before running any
 // of them, so their starts are one collective run: the behaviors share it rather
-// than each owning one, and witness moves they leave are for the runs after.
+// than each owning one, and witness moves they leave are for the runs after. An
+// object that ended as it was reached, a part of an ended whole, performs nothing.
 func (ctx *Context) startBehaviorsOfAll(objects []*Instance) error {
 	defer ctx.beginRun()()
 	defer ctx.holdDrivenWork()()
 	ctx.behaviorRunDepth++
 	for _, inst := range objects {
+		if ctx.lifeEnded(inst) {
+			continue
+		}
 		if err := ctx.startBehaviorsOf(inst); err != nil {
 			ctx.behaviorRunDepth--
 			return err
