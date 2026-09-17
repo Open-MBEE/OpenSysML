@@ -274,12 +274,17 @@ func (s *Session) Transitions(object InstanceID) (transitions []Transition, err 
 	return transitions, err
 }
 
-// Acceptance is what dispatching a signal to an object would do now.
+// Acceptance is what dispatching a signal to an object would do now, read from
+// the machines dispatch would let take it, as Advance does: a machine yields a
+// signal it would only drop to a sibling that would fire on or defer it. Where
+// several would take it, the schedule's due order decides which consumes it.
 type Acceptance struct {
-	// Accepted reports whether a transition out of an active state is
-	// triggered by the signal at all, whatever its guard.
+	// Accepted reports whether a transition out of an active state of a taking
+	// machine is triggered by the signal, whatever its guard. A signal only
+	// deferred, or only resuming a do behavior, is not Accepted.
 	Accepted bool
-	// Fires lists the transitions that would fire, in the order they would.
+	// Fires lists the transitions that would fire, taking machine by taking
+	// machine in exhibit order, each machine's in the order they would.
 	Fires []Transition
 	// Deferred reports whether the active state defers the signal.
 	Deferred bool
@@ -294,6 +299,12 @@ func (a *Acceptance) Enabled() bool {
 	return a != nil && (len(a.Fires) > 0 || a.Deferred || len(a.Resumes) > 0)
 }
 
+// Taken reports whether a machine would take the signal at all, whether to
+// fire, defer, resume, or drop it because every guard is false.
+func (a *Acceptance) Taken() bool {
+	return a != nil && (a.Accepted || a.Enabled())
+}
+
 func acceptanceFromFact(a *sysmlgrpc.SessionAcceptance) *Acceptance {
 	out := &Acceptance{Accepted: a.Accepted, Deferred: a.Deferred, Resumes: append([]string(nil), a.Resumes...)}
 	for _, t := range a.Fires {
@@ -303,9 +314,9 @@ func acceptanceFromFact(a *sysmlgrpc.SessionAcceptance) *Acceptance {
 }
 
 // Accepts says what sending the signal to the object would do now, without
-// sending it: whether a transition of any machine it exhibits, an enclosing
-// state's included, accepts it and whether its guard holds. The signal
-// definition is named by ID; args bind its attributes.
+// sending it: which machines it exhibits would take it, whether a transition
+// of theirs, an enclosing state's included, is triggered by it and whether a
+// guard holds. The signal definition is named by ID; args bind its attributes.
 func (s *Session) Accepts(object InstanceID, signalID string, args map[string]Value) (acceptance *Acceptance, err error) {
 	err = s.answer("Accepts", func() error {
 		sent, err := valuesToProto(args)
@@ -323,10 +334,10 @@ func (s *Session) Accepts(object InstanceID, signalID string, args map[string]Va
 }
 
 // Send posts the signal to the object; Advance then dispatches it and runs
-// what follows, completion transitions included. A signal no transition out of
-// an active state or a state enclosing one accepts, in any machine the object
-// exhibits, or one whose every guard is false, is refused with
-// CodeFailedPrecondition and nothing is posted.
+// what follows, completion transitions included. A signal no machine the
+// object exhibits would take, or one every taking machine would drop because
+// its guards are false, is refused with CodeFailedPrecondition and nothing is
+// posted.
 func (s *Session) Send(object InstanceID, signalID string, args map[string]Value) (acceptance *Acceptance, err error) {
 	err = s.answer("Send", func() error {
 		sent, err := valuesToProto(args)

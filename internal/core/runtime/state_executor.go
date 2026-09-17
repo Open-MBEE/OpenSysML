@@ -3795,6 +3795,21 @@ func (e *StateExecutor) AcceptsMessage(m Message) (accepted bool, err error) {
 	return accepted, err
 }
 
+// TakesMessage previews whether delivery would let this machine take the message:
+// it reacts to it and does not yield it to a sibling machine that would fire or defer.
+func (e *StateExecutor) TakesMessage(m Message) (takes bool, err error) {
+	defer e.ctx.previewExecutorRun(&e.driven)()
+	e.preview(func() { takes, err = e.takesMessage(m) })
+	return takes, err
+}
+
+// TriggeredBy previews whether a transition out of an active or enclosing state is
+// triggered by the message, whatever its guard; deferral and do behaviors aside.
+func (e *StateExecutor) TriggeredBy(m Message) (triggered bool, err error) {
+	e.preview(func() { triggered, err = e.acceptsSignal(m) })
+	return triggered, err
+}
+
 // preview runs fn as a probe of the context, which beginProbe undoes whole.
 func (e *StateExecutor) preview(fn func()) {
 	defer e.ctx.beginProbe()()

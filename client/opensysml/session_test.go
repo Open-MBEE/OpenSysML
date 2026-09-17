@@ -292,6 +292,159 @@ func TestSessionSeesEnclosingStatesAndEveryMachine(t *testing.T) {
 	}
 }
 
+const twinSource = `package Twin {
+	private import ScalarValues::*;
+	attribute def Ping;
+	attribute def Go;
+	part def Pair {
+		attribute leftArmed : Boolean = false;
+		attribute rightArmed : Boolean = true;
+		exhibit state left {
+			entry; then idle;
+			state idle;
+			transition left_go first idle accept Ping if leftArmed then done;
+			state done;
+		}
+		exhibit state right {
+			entry; then busy;
+			state busy { defer Ping; }
+			transition right_ready first busy accept Go then ready;
+			state ready;
+			transition right_go first ready accept Ping if rightArmed then done;
+			state done;
+		}
+	}
+	part pair : Pair;
+}`
+
+// Accepts reads the machines dispatch would let take the signal, so what it
+// reports is what Send and Advance then do.
+func TestSessionAcceptsMatchesDispatchAcrossMachines(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, twinSource)
+	session, err := opensysml.OpenSession(client, model)
+	if err != nil {
+		t.Fatalf("OpenSession: %v", err)
+	}
+	t.Cleanup(func() { _ = session.Close() })
+	pair, err := session.Instantiate("Twin::pair")
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	ping := func() *opensysml.Acceptance {
+		t.Helper()
+		acceptance, err := session.Accepts(pair, "Twin::Ping", nil)
+		if err != nil {
+			t.Fatalf("Accepts Ping: %v", err)
+		}
+		return acceptance
+	}
+	send := func(signal string) {
+		t.Helper()
+		if _, err := session.Send(pair, "Twin::"+signal, nil); err != nil {
+			t.Fatalf("Send %s: %v", signal, err)
+		}
+		if _, err := session.Advance(0); err != nil {
+			t.Fatalf("Advance: %v", err)
+		}
+	}
+	states := func(want ...string) {
+		t.Helper()
+		if got := activeStates(t, session, pair); !reflect.DeepEqual(got, want) {
+			t.Fatalf("ActiveStates = %v, want %v", got, want)
+		}
+	}
+
+	// left's guard is false and right only defers: the signal is taken, deferred,
+	// and no transition is triggered by it, distinct facts Send agrees with.
+	acceptance := ping()
+	if acceptance.Accepted || !acceptance.Deferred || len(acceptance.Fires) != 0 || !acceptance.Taken() || !acceptance.Enabled() {
+		t.Fatalf("Accepts Ping with left disarmed and right busy = %+v; want deferred only", acceptance)
+	}
+	send("Ping")
+	states("idle", "busy")
+
+	// Go readies right, which then fires on the deferred Ping alone; left, whose
+	// guard is false, yields it rather than dropping it.
+	send("Go")
+	states("idle", "done")
+
+	// Back in ready with the guards swapped, left would fire and right, whose
+	// guard is false, yields: only left_go is reported, and only left moves.
+	pair, err = session.Instantiate("Twin::pair")
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if err := session.SetFeature(pair, "leftArmed", opensysml.Bool(true)); err != nil {
+		t.Fatalf("SetFeature leftArmed: %v", err)
+	}
+	if err := session.SetFeature(pair, "rightArmed", opensysml.Bool(false)); err != nil {
+		t.Fatalf("SetFeature rightArmed: %v", err)
+	}
+	send("Go")
+	states("idle", "ready")
+	acceptance = ping()
+	if !acceptance.Accepted || acceptance.Deferred || len(acceptance.Fires) != 1 || acceptance.Fires[0].Name != "left_go" {
+		t.Fatalf("Accepts Ping with only left armed = %+v; want left_go alone", acceptance)
+	}
+	send("Ping")
+	states("done", "ready")
+
+	// With both guards holding, both would take it and the schedule's due order
+	// decides which consumes it: both fires are reported, exactly one machine
+	// moves, and Advance notes the choice.
+	pair, err = session.Instantiate("Twin::pair")
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if err := session.SetFeature(pair, "leftArmed", opensysml.Bool(true)); err != nil {
+		t.Fatalf("SetFeature leftArmed: %v", err)
+	}
+	send("Go")
+	acceptance = ping()
+	if !acceptance.Accepted || len(acceptance.Fires) != 2 || acceptance.Fires[0].Name != "left_go" || acceptance.Fires[1].Name != "right_go" {
+		t.Fatalf("Accepts Ping with both armed = %+v; want left_go then right_go", acceptance)
+	}
+	if _, err := session.Send(pair, "Twin::Ping", nil); err != nil {
+		t.Fatalf("Send Ping: %v", err)
+	}
+	advanced, err := session.Advance(0)
+	if err != nil {
+		t.Fatalf("Advance: %v", err)
+	}
+	dueOrder := 0
+	for _, choice := range advanced.Choices {
+		if choice.Kind == "due order" && len(choice.Alternatives) == 2 {
+			dueOrder++
+		}
+	}
+	if dueOrder != 1 {
+		t.Fatalf("Advance chose the due order %d times among %+v; want once between the two machines", dueOrder, advanced.Choices)
+	}
+	if got := activeStates(t, session, pair); !reflect.DeepEqual(got, []string{"done", "ready"}) && !reflect.DeepEqual(got, []string{"idle", "done"}) {
+		t.Fatalf("ActiveStates = %v, want exactly one machine to have consumed Ping", got)
+	}
+
+	// With neither guard holding, both machines are triggered and would drop it:
+	// accepted, not enabled, and Send refuses it as Advance would do nothing.
+	pair, err = session.Instantiate("Twin::pair")
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if err := session.SetFeature(pair, "rightArmed", opensysml.Bool(false)); err != nil {
+		t.Fatalf("SetFeature rightArmed: %v", err)
+	}
+	send("Go")
+	acceptance = ping()
+	if !acceptance.Accepted || acceptance.Enabled() {
+		t.Fatalf("Accepts Ping with neither armed = %+v; want accepted but not enabled", acceptance)
+	}
+	if _, err := session.Send(pair, "Twin::Ping", nil); !hasCode(err, opensysml.CodeFailedPrecondition) {
+		t.Fatalf("Send Ping with neither armed: %v, want CodeFailedPrecondition", err)
+	}
+	states("idle", "ready")
+}
+
 func TestSessionPerformReportsBranchesAndChoices(t *testing.T) {
 	session, hero := openSession(t)
 

@@ -210,7 +210,7 @@ func (g *Game) Send(signal string) (*Outcome, error) {
 		}
 		return nil, err
 	}
-	if !acceptance.Accepted {
+	if !acceptance.Taken() {
 		return nil, fmt.Errorf("%w: %s in %s", ErrNotHere, signal, g.Location())
 	}
 	if !acceptance.Enabled() {

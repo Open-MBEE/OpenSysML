@@ -3,7 +3,9 @@
   and the objects it instantiated between calls, where `ExecuteAction` and `ExecuteState` run a
   whole behaviour and return. `Instantiate` makes an object and starts the state machines it
   exhibits; `ActiveStates` and `Transitions` say where each machine stands and what could fire
-  next, by name; `Accepts` says whether a signal would be taken and whether a guard holds now;
+  next, by name; `Accepts` says whether a signal would be taken, read from the machines dispatch would let take it
+  — one whose guards all fail yields it to a sibling that would fire on or defer it — whether a
+  transition is triggered by it and whether a guard holds now;
   `Send` posts it and `Advance` dispatches it, completion transitions included; `Perform` runs an
   action on the object and reports its outputs, the `ChoicePoint`s the schedule resolved and the
   `Branch` each decision left by, with `TurnedAway()` for an action that declined at its opening

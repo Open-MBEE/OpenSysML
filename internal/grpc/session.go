@@ -79,17 +79,28 @@ const (
 	TriggerCall       = "call"
 )
 
-// SessionAcceptance is what dispatching a signal to an object now would do.
+// SessionAcceptance is what dispatching a signal to an object now would do, read
+// from the machines delivery would let take it; where several would, the
+// schedule's due order decides which consumes it.
 type SessionAcceptance struct {
+	// Accepted reports whether a transition of a taking machine is triggered by
+	// the signal, whatever its guard; a deferral alone does not set it.
 	Accepted bool
 	Fires    []SessionTransition
 	Deferred bool
 	Resumes  []string
 }
 
-// Enabled reports whether dispatching the signal would do something with it.
+// Enabled reports whether dispatching the signal would do something with it:
+// fire, defer or resume.
 func (a SessionAcceptance) Enabled() bool {
 	return len(a.Fires) > 0 || a.Deferred || len(a.Resumes) > 0
+}
+
+// Taken reports whether a machine of the object would take the signal at all,
+// be it to fire, defer, resume, or drop it because every guard is false.
+func (a SessionAcceptance) Taken() bool {
+	return a.Accepted || a.Enabled()
 }
 
 // SessionChoice is one choice a run made, copied from the runtime's note.
@@ -421,19 +432,23 @@ func (ss *Session) Accepts(object int64, signalID string, args map[string]*pb.Va
 	return ss.decide(machines, msg)
 }
 
-// decide reads what the object's machines, together, would do with the message:
-// each that accepts it contributes what it would fire, resume or defer.
+// decide previews the message on each machine delivery would let take it — one
+// that reacts to it and does not yield it to a sibling — in exhibit order.
 func (ss *Session) decide(machines []*runtime.StateExecutor, msg runtime.Message) (*SessionAcceptance, error) {
 	out := &SessionAcceptance{}
 	for _, machine := range machines {
-		accepted, err := machine.AcceptsMessage(msg)
+		takes, err := machine.TakesMessage(msg)
 		if err != nil {
 			return nil, ss.runFailure(err, "deciding the signal failed: %v")
 		}
-		if !accepted {
+		if !takes {
 			continue
 		}
-		out.Accepted = true
+		triggered, err := machine.TriggeredBy(msg)
+		if err != nil {
+			return nil, ss.runFailure(err, "deciding the signal failed: %v")
+		}
+		out.Accepted = out.Accepted || triggered
 		decision, transitions, err := machine.DecideTransitions(msg)
 		if err != nil {
 			return nil, ss.runFailure(err, "deciding the signal failed: %v")
@@ -447,8 +462,8 @@ func (ss *Session) decide(machines []*runtime.StateExecutor, msg runtime.Message
 	return out, nil
 }
 
-// Send posts the signal to the object, refusing one none of its machines would
-// do anything with; Advance then dispatches it.
+// Send posts the signal to the object, refusing one no machine would take or
+// one every taking machine would drop; Advance then dispatches it.
 func (ss *Session) Send(object int64, signalID string, args map[string]*pb.Value) (*SessionAcceptance, error) {
 	done, err := ss.enter()
 	if err != nil {
@@ -463,8 +478,8 @@ func (ss *Session) Send(object int64, signalID string, args map[string]*pb.Value
 	if err != nil {
 		return nil, err
 	}
-	if !acceptance.Accepted {
-		return nil, statusErrorf(connect.CodeFailedPrecondition, "no transition out of the active states accepts %s", signalID)
+	if !acceptance.Taken() {
+		return nil, statusErrorf(connect.CodeFailedPrecondition, "no active state accepts or defers %s", signalID)
 	}
 	if !acceptance.Enabled() {
 		return nil, statusErrorf(connect.CodeFailedPrecondition, "the active states accept %s but no guard on it holds", signalID)

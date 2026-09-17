@@ -945,6 +945,78 @@ func TestSignalGoesToTheSiblingMachineThatFiresOnIt(t *testing.T) {
 				t.Fatalf("%d messages left in flight after the drain", len(ctx.PendingMessages()))
 			}
 		})
+		t.Run(tc.name+"/previewed", func(t *testing.T) {
+			// Previewed, each machine says whether it would take the message as
+			// delivery decides; both are triggered by it, guards aside.
+			ctx, left, right, ping := twinWithPing(t, armed)
+			wantLeftTakes := !tc.leftStepLeavesItInFlight
+			wantRightTakes := tc.rightArmed || !tc.leftArmed
+			for _, probe := range []struct {
+				name      string
+				machine   *StateExecutor
+				wantTakes bool
+			}{{"left", left, wantLeftTakes}, {"right", right, wantRightTakes}} {
+				takes, err := probe.machine.TakesMessage(ping)
+				if err != nil || takes != probe.wantTakes {
+					t.Errorf("%s.TakesMessage(Ping) = %v, %v; want %v", probe.name, takes, err, probe.wantTakes)
+				}
+				triggered, err := probe.machine.TriggeredBy(ping)
+				if err != nil || !triggered {
+					t.Errorf("%s.TriggeredBy(Ping) = %v, %v; want true whatever the guard", probe.name, triggered, err)
+				}
+			}
+			if got := activeLeaf(left) + "/" + activeLeaf(right); got != "idle/idle" {
+				t.Fatalf("after the previews: left/right = %s, want idle/idle", got)
+			}
+			if len(ctx.PendingMessages()) != 0 {
+				t.Fatalf("%d messages in flight after previews of one never posted", len(ctx.PendingMessages()))
+			}
+		})
+	}
+}
+
+// A state that only defers a message takes it without any transition being
+// triggered by it, which the two previews tell apart.
+func TestADeferringMachineTakesWhatNoTransitionIsTriggeredBy(t *testing.T) {
+	src := `
+		attribute def Ping;
+		attribute def Go;
+		part def Holder {
+			exhibit state main {
+				entry; then busy;
+				state busy { defer Ping; }
+				transition first busy accept Go then ready;
+				state ready;
+				transition first ready accept Ping then done;
+				state done;
+			}
+		}
+		part holder : Holder;
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "holder.sysml", parseAndBuild(t, src))
+	root := idx.DocumentRoot("holder.sysml")
+	holder, err := ctx.occurrenceOf(resolveSymbol(t, root, "holder"))
+	if err != nil {
+		t.Fatalf("occurrenceOf(holder): %v", err)
+	}
+	machines := holder.ExhibitedStates()
+	if len(machines) != 1 || machines[0].State == nil {
+		t.Fatalf("holder exhibits %d machines; want main", len(machines))
+	}
+	main := machines[0].State
+	ping, err := ctx.SignalMessage(resolveSymbol(t, root, "Ping"), nil, holder)
+	if err != nil {
+		t.Fatalf("SignalMessage(Ping): %v", err)
+	}
+	if takes, err := main.TakesMessage(ping); err != nil || !takes {
+		t.Fatalf("main.TakesMessage(Ping) in busy = %v, %v; want true, busy defers it", takes, err)
+	}
+	if triggered, err := main.TriggeredBy(ping); err != nil || triggered {
+		t.Fatalf("main.TriggeredBy(Ping) in busy = %v, %v; want false, busy only defers it", triggered, err)
+	}
+	decision, err := main.Decide(ping)
+	if err != nil || !decision.Deferred || len(decision.Fires) != 0 {
+		t.Fatalf("main.Decide(Ping) in busy = %+v, %v; want deferred and nothing fired", decision, err)
 	}
 }
 
