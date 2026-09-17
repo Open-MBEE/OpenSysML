@@ -74,6 +74,27 @@ func TestRenderToolMissing(t *testing.T) {
 	}
 }
 
+// TestRenderUnsupportedOptionBeforeTools checks an option pandoc cannot take
+// is reported as such even when pandoc itself is not installed.
+func TestRenderUnsupportedOptionBeforeTools(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv(PandocEnv, "")
+	document := plainDocument(t)
+	for option, opts := range map[string]Options{
+		"-html-theme":          {Theme: "report"},
+		"-html-no-default-css": {NoDefaultStylesheet: true},
+	} {
+		_, err := Render(document, "pandoc", opts)
+		var docErr *Error
+		if !errors.As(err, &docErr) || docErr.Kind != ErrorUnsupportedOption {
+			t.Fatalf("%s: got %v, want ErrorUnsupportedOption", option, err)
+		}
+		if docErr.Option != option || !strings.Contains(err.Error(), option) {
+			t.Fatalf("%s: error names %q: %v", option, docErr.Option, err)
+		}
+	}
+}
+
 // fakeTool writes an executable shell script into dir and points envVar at it.
 func fakeTool(t *testing.T, dir, name, envVar, script string) {
 	t.Helper()

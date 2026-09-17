@@ -65,10 +65,10 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	if err := converter.Available(); err != nil {
+	if err := checkOptions(converter, opts); err != nil {
 		return nil, err
 	}
-	if err := checkOptions(converter, opts); err != nil {
+	if err := converter.Available(); err != nil {
 		return nil, err
 	}
 	diagrams, err := docrender.Diagrams(document, opts.DiagramForm)
