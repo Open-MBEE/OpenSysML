@@ -85,6 +85,29 @@ package Observatory {
 		end #RequirementDerivation::derive derivedRequirement : SegmentMassRequirement;
 	}
 
+	// Definitions specializing a derivation definition: one redefines the derived
+	// end, one only the original, one nothing; an untyped end relates no requirement.
+	requirement def AlignmentRequirement;
+	requirement def SegmentAlignmentRequirement;
+	requirement def ActuatorAlignmentRequirement :> SegmentAlignmentRequirement;
+	requirement def MirrorAlignmentRequirement :> AlignmentRequirement;
+	connection def AlignmentDerivation :> Derivation {
+		end #original alignment : AlignmentRequirement;
+		end #derive segment : SegmentAlignmentRequirement;
+	}
+	connection def ActuatorAlignmentDerivation :> AlignmentDerivation {
+		end :>> alignment;
+		end actuator : ActuatorAlignmentRequirement :>> segment;
+	}
+	connection def MirrorAlignmentDerivation :> AlignmentDerivation {
+		end mirror : MirrorAlignmentRequirement :>> alignment;
+	}
+	connection def InheritedAlignmentDerivation :> AlignmentDerivation;
+	connection def UntypedDerivation :> Derivation {
+		end #original alignment : AlignmentRequirement;
+		end untyped;
+	}
+
 	// A plain connection between requirements is no derivation.
 	connection connect systemMass to instrumentMass;
 

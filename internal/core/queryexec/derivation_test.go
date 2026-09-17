@@ -74,6 +74,18 @@ func TestExecuteRelatedDerivationDefinitions(t *testing.T) {
 		[]string{"MirrorMassRequirement", "InstrumentMassRequirement", "SegmentMassRequirement"})
 	assertRelated(t, fixture, "SegmentMassRequirement", "derivation", "incoming", 2,
 		[]string{"MirrorMassRequirement", "MassRequirement"})
+
+	// A specializing definition keeps the ends it inherits, with their roles and
+	// types, and an end redefined without a type keeps the redefined end's type;
+	// an end typed by nothing stands for no requirement, not for an end's base type.
+	assertRelated(t, fixture, "AlignmentRequirement", "derivation", "outgoing", 1,
+		[]string{"SegmentAlignmentRequirement", "ActuatorAlignmentRequirement"})
+	assertRelated(t, fixture, "MirrorAlignmentRequirement", "derivation", "outgoing", 1,
+		[]string{"SegmentAlignmentRequirement"})
+	assertRelated(t, fixture, "SegmentAlignmentRequirement", "derivation", "incoming", 1,
+		[]string{"AlignmentRequirement", "MirrorAlignmentRequirement"})
+	assertRelated(t, fixture, "ActuatorAlignmentRequirement", "derivation", "incoming", 1,
+		[]string{"AlignmentRequirement"})
 }
 
 func TestExecuteRelatedRefinement(t *testing.T) {

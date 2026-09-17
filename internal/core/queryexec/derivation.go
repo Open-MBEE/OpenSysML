@@ -13,6 +13,7 @@ const (
 	derivedRequirementsFQN   = "DerivationConnections::derivedRequirements"
 	originalMetadataFQN      = "RequirementDerivation::OriginalRequirementMetadata"
 	derivedMetadataFQN       = "RequirementDerivation::DerivedRequirementMetadata"
+	requirementCheckFQN      = "Requirements::RequirementCheck"
 	refinementMetadataFQN    = "ModelingMetadata::Refinement"
 	metaclassFeatureClient   = "client"
 	metaclassFeatureSupplier = "supplier"
@@ -102,16 +103,29 @@ func (e *executor) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {
 	return ends
 }
 
-// derivationDefinitionEnds returns a definition's ends, each standing for its declared types.
+// derivationDefinitionEnds returns a definition's effective ends — its own, then the
+// inherited ones none of them redefines — each standing for its requirement types.
 func (e *executor) derivationDefinitionEnds(sym *symbols.Symbol) []derivationEnd {
 	var ends []derivationEnd
-	for _, feature := range bodyEnds(sym) {
+	for _, feature := range e.context.Model.EndFeatures(sym) {
 		ends = append(ends, derivationEnd{
 			role:      e.derivationRoleOf(feature),
-			referents: e.lineageTargets(feature, ast.RelTyping),
+			referents: e.requirementTypes(feature),
 		})
 	}
 	return ends
+}
+
+// requirementTypes is the requirement definitions among an end's effective types,
+// declared on it or inherited from the ends it redefines.
+func (e *executor) requirementTypes(feature *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, typ := range e.context.Model.FeatureTypeSet(feature) {
+		if e.conformsToLibrary(typ, requirementCheckFQN) {
+			out = append(out, typ)
+		}
+	}
+	return out
 }
 
 // derivationRoleOf is the role an end feature states by its metadata or by conforming

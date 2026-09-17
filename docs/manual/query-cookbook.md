@@ -879,8 +879,11 @@ left over: it is the original when no other end is, and derived otherwise —
 so `connect (a, b, c)` with no stated roles derives `b` and `c` from `a`, and
 an unmarked end beside an `#original` end is derived. A `connection def`
 specializing `Derivation` whose ends are typed by requirement definitions —
-the form the v1 migrator writes — relates those definitions the same way. A
-plain connection between two requirements is not a derivation.
+the form the v1 migrator writes — relates those definitions the same way,
+through the ends it inherits from a general definition as well as its own; an
+end that redefines an inherited end keeps that end's role and, when it declares
+no type, its type. A plain connection between two requirements is not a
+derivation.
 
 ### Refine relationships
 
