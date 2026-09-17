@@ -149,21 +149,46 @@ func (m *migration) parameters(e, scope *xmi.Element) {
 	}
 }
 
+// realizeParameters pairs a method's parameters with its operation's by position:
+// one agreeing in direction and type stands for the operation's and takes its name.
+func (m *migration) realizeParameters(op, method *xmi.Element) {
+	ops := op.Owned("ownedParameter")
+	for i, mp := range method.Owned("ownedParameter") {
+		if i >= len(ops) {
+			return
+		}
+		md, _ := parameterDirection(mp)
+		od, _ := parameterDirection(ops[i])
+		if md != od || !m.conform(m.model.Ref(mp, "type"), m.model.Ref(ops[i], "type")) {
+			continue
+		}
+		m.realizes[mp] = ops[i]
+		m.names[mp] = m.nameFor(ops[i])
+	}
+}
+
 // parameter writes one parameter; declared lists the names already written in
-// the definition, so a method's parameter sharing its operation's is skipped.
+// the definition, so a method's parameter standing for its operation's is skipped.
 func (m *migration) parameter(p, scope *xmi.Element, declared map[string]bool) {
 	name := m.nameOf(p)
 	if name == "" {
 		name = m.nameFor(p)
 	}
+	if op := m.realizes[p]; op != nil {
+		m.add(p, Mapped, m.v2Name(op), "stands for the operation's parameter "+name+" at the same position, which is written once")
+		return
+	}
+	dir, note := parameterDirection(p)
 	if declared != nil {
 		if declared[name] {
 			m.add(p, Mapped, m.v2Name(p), "shares the name of the operation's parameter, which is written once")
 			return
 		}
 		declared[name] = true
+		if p.Parent != scope {
+			note = joinNotes(note, "the method's parameter matches none of the operation's by position, direction and type; a call binds only the operation's parameters")
+		}
 	}
-	dir, note := parameterDirection(p)
 	t := m.model.Ref(p, "type")
 	typ, tnote := m.typeRef(t, scope)
 	note = joinNotes(note, tnote)

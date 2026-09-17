@@ -50,6 +50,7 @@ func FromModel(name string, model *xmi.Model) *Result {
 		parallel:  map[*xmi.Element]string{},
 		exposed:   map[*xmi.Element]string{},
 		methodOf:  map[*xmi.Element]*xmi.Element{},
+		realizes:  map[*xmi.Element]*xmi.Element{},
 		opUsage:   map[*xmi.Element]string{},
 		deciding:  map[*xmi.Element]bool{},
 		bounded:   map[*xmi.Element][]*xmi.Element{},
@@ -139,6 +140,8 @@ type migration struct {
 	scope *xmi.Element
 	// methodOf maps each behavior that is the method of an operation to it.
 	methodOf map[*xmi.Element]*xmi.Element
+	// realizes maps a method's parameter to the operation's it stands for.
+	realizes map[*xmi.Element]*xmi.Element
 	// opUsage names, for each operation, the action usage of its owner that performs it.
 	opUsage map[*xmi.Element]string
 	// deciding holds each opaque behavior whose body is being checked for names
@@ -159,7 +162,7 @@ type migration struct {
 // add records e's verdict. An element reported before keeps one entry: the
 // weaker verdict, the target that was written, and every distinct note.
 func (m *migration) add(e *xmi.Element, v Verdict, target, note string) {
-	if n, ok := m.names[e]; ok && e.Name != "" && n != e.Name {
+	if n, ok := m.names[e]; ok && e.Name != "" && n != e.Name && m.realizes[e] == nil {
 		if v == Mapped {
 			v = Approximated
 		}
@@ -256,6 +259,7 @@ func (m *migration) prepare() {
 		case "Operation":
 			if method := m.model.Ref(e, "method"); method != nil && method.Parent == e.Parent {
 				m.methodOf[method] = e
+				m.realizeParameters(e, method)
 			}
 		case "DurationConstraint":
 			for _, c := range m.model.Refs(e, "constrainedElement") {

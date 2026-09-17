@@ -232,3 +232,135 @@ func TestInoutParameterFlowsInAndOutOfACall(t *testing.T) {
 		t.Errorf("the call did not hand its inout parameter back:\n%s", out)
 	}
 }
+
+// twoFeeds is an activity whose call takes its input from either of two
+// values, each by an object flow of its own into the same pin; a third edge
+// repeats the first.
+const twoFeeds = `
+    <packagedElement xmi:type="uml:Activity" xmi:id="_show" name="Show">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_sv" name="v" direction="in">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedParameter>
+      <node xmi:type="uml:ActivityParameterNode" xmi:id="_svN" name="v" parameter="_sv"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_pick" name="Pick">
+      <node xmi:type="uml:ValueSpecificationAction" xmi:id="_one" name="one">
+        <value xmi:type="uml:LiteralInteger" xmi:id="_oneL" value="1"/>
+        <result xmi:type="uml:OutputPin" xmi:id="_oneOut" name="result"/>
+      </node>
+      <node xmi:type="uml:ValueSpecificationAction" xmi:id="_two" name="two">
+        <value xmi:type="uml:LiteralInteger" xmi:id="_twoL" value="2"/>
+        <result xmi:type="uml:OutputPin" xmi:id="_twoOut" name="result"/>
+      </node>
+      <node xmi:type="uml:CallBehaviorAction" xmi:id="_callShow" name="show" behavior="_show">
+        <argument xmi:type="uml:InputPin" xmi:id="_showIn" name="v"/>
+      </node>
+      <edge xmi:type="uml:ObjectFlow" xmi:id="_pOf1" source="_oneOut" target="_showIn"/>
+      <edge xmi:type="uml:ObjectFlow" xmi:id="_pOf2" source="_twoOut" target="_showIn"/>
+      <edge xmi:type="uml:ObjectFlow" xmi:id="_pOf3" source="_oneOut" target="_showIn"/>
+    </packagedElement>`
+
+// Each object flow writes the flows from its own source, so two edges into one
+// pin write one flow each rather than both twice, and an edge repeating another
+// is reported rather than written again.
+func TestFlowsIntoOnePinAreWrittenOnceEach(t *testing.T) {
+	r := migrateDocument(t, twoFeeds, "")
+	for _, line := range []string{"flow one.result to show.v;", "flow two.result to show.v;"} {
+		if n := strings.Count(string(r.Notation), line); n != 1 {
+			t.Errorf("%q written %d times, want once:\n%s", line, n, r.Notation)
+		}
+	}
+	wantNote(t, r, "_pOf1", migrate.Mapped, "")
+	wantNote(t, r, "_pOf2", migrate.Mapped, "")
+	wantNote(t, r, "_pOf3", migrate.Mapped, "the flow from one.result to show.v is written once, though several edges carry it")
+}
+
+// pointOperation is a block whose operation Point(in azimuth) has an activity
+// method whose parameter is called angle, plus an operation whose method takes
+// a second parameter the operation lacks and a first one of another direction.
+const pointOperation = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_scope" name="Scope">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_az" name="azimuth">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_az0" value="0.0"/>
+      </ownedAttribute>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_point" name="Point" method="_pointing">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_pAz" name="azimuth" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+      </ownedOperation>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_pointing" name="Pointing" specification="_point">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_pAngle" name="angle" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_apn" name="angle" parameter="_pAngle"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_set" name="set azimuth" structuralFeature="_az" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_setVal" name="value"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of0" source="_apn" target="_setVal"/>
+      </ownedBehavior>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_tilt" name="Tilt" method="_tilting">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_tBy" name="amount" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+      </ownedOperation>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_tilting" name="Tilting" specification="_tilt">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_tOut" name="was" direction="out">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_tExtra" name="extra" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_aim" name="Aim">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_ninety" name="ninety">
+          <value xmi:type="uml:LiteralReal" xmi:id="_ninetyV" value="90.0"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_ninetyOut" name="result"/>
+        </node>
+        <node xmi:type="uml:CallOperationAction" xmi:id="_call" name="point" operation="_point">
+          <argument xmi:type="uml:InputPin" xmi:id="_callAz" name="azimuth"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_ninety"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of2" source="_ninetyOut" target="_callAz"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_call" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+const pointApplications = `
+  <sysml:Block xmi:id="_s1" base_Class="_scope"/>`
+
+// A method's parameter stands for the operation's at the same position, whatever
+// it is called: the action def declares the operation's signature alone, the
+// method's parameter nodes name the operation's parameter, and a call binds it.
+// A method parameter matching none of the operation's is declared and reported.
+func TestMethodParametersStandForTheOperationsByPosition(t *testing.T) {
+	r := migrateDocument(t, pointOperation, pointApplications)
+	for _, line := range []string{
+		"action def Point {",
+		"in azimuth : ScalarValues::Real;",
+		"bind 'set azimuth'.value = azimuth;",
+		"action def Tilt {",
+		"in amount : ScalarValues::Real;",
+		"out was : ScalarValues::Real;",
+		"in extra : ScalarValues::Real;",
+		"flow ninety.result to point.azimuth;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	if strings.Contains(string(r.Notation), "angle") {
+		t.Errorf("the method's own parameter name was written:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_pAngle", migrate.Mapped, "stands for the operation's parameter azimuth at the same position, which is written once")
+	wantNote(t, r, "_tOut", migrate.Approximated, "the method's parameter matches none of the operation's by position, direction and type; a call binds only the operation's parameters")
+	wantNote(t, r, "_tExtra", migrate.Approximated, "the method's parameter matches none of the operation's by position, direction and type; a call binds only the operation's parameters")
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Scope")
+	meta(t, s, "%action Scope::Aim #1")
+	meta(t, s, "%continue")
+	if out := meta(t, s, "%features #1"); !strings.Contains(out, "azimuth = 90.0") {
+		t.Errorf("the call did not reach the method's body through the operation's parameter:\n%s", out)
+	}
+}

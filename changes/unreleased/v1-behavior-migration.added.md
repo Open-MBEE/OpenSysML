@@ -14,7 +14,9 @@
   `transition first s accept sig : Sig if g do e then t;` with relative time and change events
   as triggers, a deferrable signal trigger as `defer Sig;` — exhibited by an `exhibit state`
   usage of its block. An Operation is an `action def` owned by the block with its parameters,
-  its method as body and its conditions as `assert constraint`s; a `CallOperationAction` on an
+  its method as body — the method's parameters standing for the operation's at the same
+  position under the operation's names — and its conditions as `assert constraint`s; a
+  `CallOperationAction` on an
   object performs it on that object through
   `perform action x ::> target.op;`. An OpaqueBehavior or FunctionBehavior whose body is a v2
   expression is a `calc def`; an Interaction whose messages are all signal sends to parts is a

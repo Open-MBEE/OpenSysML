@@ -49,9 +49,13 @@ type activity struct {
 	// payload is the signal an accept's result pin holds, which types the pin
 	// whatever v1 said.
 	payload map[*xmi.Element]*xmi.Element
-	// objectPin maps each pin to what flows into it, followed back through
-	// control and buffer nodes to the pins and parameter nodes that produce it.
+	// sources maps each pin to what flows into it, followed back through control
+	// and buffer nodes to the pins and parameter nodes that produce it, once each.
 	sources map[*xmi.Element][]*xmi.Element
+	// edgeSources and edgeSelf record the same per object flow: the producers
+	// its own source leads back to, and whether one is a ReadSelfAction.
+	edgeSources map[*xmi.Element][]*xmi.Element
+	edgeSelf    map[*xmi.Element]bool
 	// inert marks the nodes written as placeholders, whose output pins no value reaches.
 	inert map[*xmi.Element]bool
 	// dataOnly marks the object flows that carry a value into an action without
@@ -61,27 +65,32 @@ type activity struct {
 	edges    []*xmi.Element
 	// data lists the object flows to write once the nodes are declared.
 	data []string
+	// written marks the (producer, pin) pairs a flow or bind is already written for.
+	written map[[2]*xmi.Element]bool
 }
 
 func (m *migration) newActivity(act, def *xmi.Element) *activity {
 	a := &activity{
 		m: m, act: act, def: def,
-		names:    map[*xmi.Element]string{},
-		used:     inheritedActionNames(),
-		next:     map[*xmi.Element][]*xmi.Element{},
-		prev:     map[*xmi.Element][]*xmi.Element{},
-		entry:    map[*xmi.Element]string{},
-		joins:    map[*xmi.Element]string{},
-		merges:   map[*xmi.Element]string{},
-		waits:    map[*xmi.Element]waitNode{},
-		selfFed:  map[*xmi.Element]bool{},
-		pinType:  map[*xmi.Element]*xmi.Element{},
-		payload:  map[*xmi.Element]*xmi.Element{},
-		sources:  map[*xmi.Element][]*xmi.Element{},
-		dataOnly: map[*xmi.Element]bool{},
-		inert:    map[*xmi.Element]bool{},
-		nodes:    act.Owned("node"),
-		edges:    act.Owned("edge"),
+		names:       map[*xmi.Element]string{},
+		used:        inheritedActionNames(),
+		next:        map[*xmi.Element][]*xmi.Element{},
+		prev:        map[*xmi.Element][]*xmi.Element{},
+		entry:       map[*xmi.Element]string{},
+		joins:       map[*xmi.Element]string{},
+		merges:      map[*xmi.Element]string{},
+		waits:       map[*xmi.Element]waitNode{},
+		selfFed:     map[*xmi.Element]bool{},
+		pinType:     map[*xmi.Element]*xmi.Element{},
+		payload:     map[*xmi.Element]*xmi.Element{},
+		sources:     map[*xmi.Element][]*xmi.Element{},
+		dataOnly:    map[*xmi.Element]bool{},
+		edgeSources: map[*xmi.Element][]*xmi.Element{},
+		edgeSelf:    map[*xmi.Element]bool{},
+		written:     map[[2]*xmi.Element]bool{},
+		inert:       map[*xmi.Element]bool{},
+		nodes:       act.Owned("node"),
+		edges:       act.Owned("edge"),
 	}
 	for _, owner := range []*xmi.Element{def, act} {
 		for _, c := range owner.Children {
@@ -303,20 +312,24 @@ func (a *activity) resolveData() {
 		}
 		return out
 	}
-	for tgt := range into {
-		if nodeKind(tgt) != nodePin && nodeKind(tgt) != nodeParam && tgt.Type != "DecisionNode" {
+	for _, e := range a.edges {
+		if e.Type != "ObjectFlow" {
 			continue
 		}
-		var srcs []*xmi.Element
-		for _, s := range into[tgt] {
-			srcs = append(srcs, trace(s, map[*xmi.Element]bool{})...)
+		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
+		if src == nil || tgt == nil || nodeKind(tgt) != nodePin && nodeKind(tgt) != nodeParam && tgt.Type != "DecisionNode" {
+			continue
 		}
-		for _, s := range srcs {
+		for _, s := range trace(src, map[*xmi.Element]bool{}) {
 			if s.Parent != nil && s.Parent.Type == "ReadSelfAction" {
 				a.selfFed[tgt] = true
+				a.edgeSelf[e] = true
 				continue
 			}
-			a.sources[tgt] = append(a.sources[tgt], s)
+			a.edgeSources[e] = append(a.edgeSources[e], s)
+			if !slices.Contains(a.sources[tgt], s) {
+				a.sources[tgt] = append(a.sources[tgt], s)
+			}
 		}
 	}
 }
@@ -1047,11 +1060,11 @@ func (a *activity) objectFlow(e *xmi.Element) {
 		a.m.add(e, Approximated, "", "an object flow into "+describe(tgt)+" is written as a succession")
 		return
 	}
-	if len(a.sources[tgt]) == 0 && !a.selfFed[tgt] {
+	if len(a.edgeSources[e]) == 0 && !a.edgeSelf[e] {
 		a.m.add(e, Unmapped, "", "nothing the flow carries comes from a pin or parameter")
 		return
 	}
-	if a.selfFed[tgt] {
+	if a.edgeSelf[e] {
 		a.m.add(e, Approximated, "", "the flow carries this, which the action names directly")
 	}
 	if a.dataOnly[e] {
@@ -1062,12 +1075,17 @@ func (a *activity) objectFlow(e *xmi.Element) {
 		a.m.add(e, Unmapped, "", "the flow's target "+describe(tgt)+" has no v2 name")
 		return
 	}
-	for _, s := range a.sources[tgt] {
+	for _, s := range a.edgeSources[e] {
 		from, ok := a.pinRef(s)
 		if !ok {
 			a.m.add(e, Unmapped, "", "the flow's source "+describe(s)+" has no v2 name")
 			continue
 		}
+		if a.written[[2]*xmi.Element{s, tgt}] {
+			a.m.add(e, Mapped, "", "the flow from "+from+" to "+to+" is written once, though several edges carry it")
+			continue
+		}
+		a.written[[2]*xmi.Element{s, tgt}] = true
 		if a.inert[s.Parent] {
 			a.m.w.line("/* flow " + from + " to " + to + " not written: " + describe(s.Parent) + " is not migrated and produces no value */")
 			a.m.add(e, Approximated, "", "the flow is kept as a comment: its source "+describe(s.Parent)+" is not migrated, so no value reaches "+describe(s))
