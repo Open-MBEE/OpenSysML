@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // ChoiceKind names what an executor chose among at a choice point.
@@ -248,6 +249,12 @@ func (ctx *Context) noteAll(notes []RunNote) {
 // note keeps n for the run's diagnostics and, when tracing, writes it to the
 // trace where it was made. A probe's preview is not a run.
 func (ctx *Context) note(n RunNote) {
+	ctx.noteFrom(n, nil, nil)
+}
+
+// noteFrom is note for a note made by the behavior of an object, which the trace
+// record names; nil for one the run made on its own.
+func (ctx *Context) noteFrom(n RunNote, self *Instance, behavior *symbols.Symbol) {
 	if ctx.probes > 0 {
 		return
 	}
@@ -256,7 +263,7 @@ func (ctx *Context) note(n RunNote) {
 		ctx.choices = append(ctx.choices, c.Choice())
 	}
 	if ctx.trace != nil {
-		ctx.trace.RecordNote(TraceOrigin{At: ctx.clock.now}, n)
+		ctx.trace.RecordNote(TraceOrigin{At: ctx.clock.now, Object: self, Behavior: behavior}, n)
 	}
 }
 

@@ -686,7 +686,7 @@ func (e *StateExecutor) nextEvent() (Event, error) {
 	if err := scheduling.refusal(); err != nil {
 		return Event{}, err
 	}
-	e.ctx.noteChoice(choice)
+	e.noteChoice(choice)
 	event, _ := e.eventQueue.Take(tied[choice.Taken].ID)
 	return event, nil
 }
@@ -2736,7 +2736,7 @@ func (e *StateExecutor) fireJoinIncoming(join *ast.PseudostateNode, plan *lower.
 			if err := e.ctx.scheduling().refusal(); err != nil {
 				return err
 			}
-			e.ctx.noteChoice(choice)
+			e.noteChoice(choice)
 			next = choice.Taken
 		}
 		trans := pending[next]
@@ -3628,7 +3628,7 @@ func (e *StateExecutor) chooseDoAction(due []*doAction) (int, error) {
 	if err := e.ctx.scheduling().refusal(); err != nil {
 		return 0, err
 	}
-	e.ctx.noteChoice(choice)
+	e.noteChoice(choice)
 	return choice.Taken, nil
 }
 
@@ -4511,6 +4511,11 @@ func (e *StateExecutor) statePath(state *ast.StateNode) string {
 // reporting on or off reaches an execution already under way.
 func (e *StateExecutor) trace() *TraceRecorder {
 	return e.ctx.trace
+}
+
+// noteChoice keeps a choice point this machine drew, as made by its object.
+func (e *StateExecutor) noteChoice(choice ChoicePoint) {
+	e.ctx.noteFrom(choice, e.self, e.stateMachine)
 }
 
 // traceOrigin is where this machine's trace records are made: the clock now, the
