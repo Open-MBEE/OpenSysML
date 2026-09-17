@@ -244,11 +244,11 @@ func (g *Game) Invoke(action string, args map[string]opensysml.Value) (*Outcome,
 		if err := seedDice(g.session, deedSeed(g.seed, g.deeds)); err != nil {
 			return deed{}, err
 		}
-		g.deeds++
 		performed, err := g.session.Perform(g.hero, actionID, args)
 		if err != nil {
 			return deed{}, err
 		}
+		g.deeds++
 		done := deed{choices: performed.Choices, refused: performed.TurnedAway()}
 		advanced, err := g.session.Advance(1)
 		if err != nil {

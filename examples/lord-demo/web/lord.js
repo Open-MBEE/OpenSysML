@@ -256,11 +256,21 @@
     }
   });
 
+  // instantiate compiles lord.wasm: streamed where the server calls it
+  // application/wasm, from its bytes where a plain file server does not.
+  async function instantiate(go) {
+    const response = await fetch("lord.wasm");
+    if (!response.ok) throw new Error(`lord.wasm: ${response.status} ${response.statusText}`);
+    const type = (response.headers.get("Content-Type") || "").split(";", 1)[0].trim();
+    if (type === "application/wasm") return WebAssembly.instantiateStreaming(response, go.importObject);
+    return WebAssembly.instantiate(await response.arrayBuffer(), go.importObject);
+  }
+
   // Start the runtime, then hand it the model; the game exists only in this tab.
   async function boot() {
     show({character: true, lines: ["Waking the realm..."]});
     const go = new Go();
-    const wasm = await WebAssembly.instantiateStreaming(fetch("lord.wasm"), go.importObject);
+    const wasm = await instantiate(go);
     go.run(wasm.instance);
     const model = await fetch("lord.sysml");
     if (!model.ok) throw new Error(`lord.sysml: ${model.status} ${model.statusText}`);

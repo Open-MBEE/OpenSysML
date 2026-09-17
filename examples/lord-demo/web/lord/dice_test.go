@@ -51,3 +51,30 @@ func TestDirectActionsAreReproducible(t *testing.T) {
 		t.Fatalf("seed 7 left %d then %d gold", gold, again)
 	}
 }
+
+func TestFailedActionsLeaveTheDiceAlone(t *testing.T) {
+	wager := map[string]opensysml.Value{"wager": IntValue(10)}
+	tavern := func() *Game {
+		g := newGame(t, 7, Character{})
+		for _, signal := range []string{"EnterForest", "FindTheDarkCloakTavern"} {
+			if _, err := g.Send(signal); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return g
+	}
+	clean := tavern()
+	if _, err := clean.Invoke("gamble", wager); err != nil {
+		t.Fatal(err)
+	}
+	stumbled := tavern()
+	if _, err := stumbled.Invoke("gamble", map[string]opensysml.Value{"wager": opensysml.String("lots")}); err == nil {
+		t.Fatal("a String bound to an Integer parameter was accepted")
+	}
+	if _, err := stumbled.Invoke("gamble", wager); err != nil {
+		t.Fatal(err)
+	}
+	if a, b := snapshot(t, clean).Gold, snapshot(t, stumbled).Gold; a != b {
+		t.Fatalf("a wager after a failed one left %d gold, the same wager alone %d: the failed one used up a deed's dice", b, a)
+	}
+}
