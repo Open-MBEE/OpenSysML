@@ -12,7 +12,7 @@ the reference; this one only draws the boundaries.
 |---|---|---|---|---|
 | [Document queries](#document-queries-over-elements) | The model's elements: declarations, ownership, relationships, declared values | Ordered rows of elements, projected into typed columns | Objects unless the session holds them; nothing a solver would infer | `%run-query`, `-run-query`, `RunDocumentQuery`, tables and lists in a document |
 | [Object and verdict rows](#object-rows-and-verdict-rows) | The objects a session holds and the assertions about them | Rows standing for objects (by path and id) or for verdicts | Objects no session created; the model's relationships over an object row | The same, in a session with `-instantiate`/`%instantiate` |
-| [State and event rows](#runtime-state-and-event-queries) | The state machines the held objects run and the trace of the run so far | Rows for active states and for the trace's events, by instant | Anything outside the current session; a machine that never ran | The same, in a session with a run |
+| [State and event rows](#runtime-state-and-event-queries) | The state machines the held objects exhibit, as they stand now, and the trace the session recorded | One row per active leaf state; one row per trace record, at its instant | Anything outside the current session; a run no trace recorded | The same, in a session with a run and `-trace`/`%trace on` |
 | [API `Query`](#the-api-query-over-a-project) | The elements of one loaded model, by property | Elements with their properties, in declaration order | Objects, values, the library, traversal beyond containment | `Query` RPC, `model.query(...)` |
 | [OSLC Query text](#the-api-query-over-a-project) | The same elements, by prefixed property | Element identification only | The same; `or` | `%query`, `-query`, `oslc_query` in `Query` |
 | [`Evaluate`](#evaluate-one-expression-in-one-scope) | One expression in one scope, over a held object when named | One value — a scalar, a sequence, an object, an element | Rows, columns, anything the expression's scope does not reach | `%eval`, `-eval`, `Evaluate` RPC |
@@ -77,42 +77,72 @@ Over gRPC, `RunDocumentQuery` answers an object row in the `object` arm of
 
 ## Runtime state and event queries
 
-Object rows tell you *what an object holds*; two more operations tell you
-*where its behavior is* and *what happened to it*. They are document-query
-operations like `Objects` and `Verdicts`, take the same filters, and are
-refused with the same typed `no-runtime` error outside a session.
+Object rows tell you *what an object holds*; three more operations tell you
+*where its behavior stands* and *what happened to it*. They are document-query
+operations like `Objects` and `Verdicts`: they take object rows, the row
+operations (`WhereType`, `WhereName`, `WhereFeature`, `Project`, `OrderBy`,
+`Column`) read their rows, and they are refused with the same typed
+`no-runtime` error where there is no session.
 
-**`States(source)`** answers, for each object row it is given, the state(s)
-the object's state machines are in now — one row per active leaf state, so a
-machine with orthogonal regions contributes one row per region — and, by
-projection, the composite states enclosing them. The row is a **state**: its
-`name` is the state's, `machine` the state machine it belongs to, `object`
-the object (an object value, as `Objects` answers it) and `path` the object's
-path, so `WhereFeature` on any of them narrows the table, and `OrderBy`
-orders it. An object that runs no state machine is a typed `no-state-machine`
-error, not an empty row set.
+**`States(source)`** answers, for each object row it is given (or each
+object the session holds of an element named), the states the object's
+exhibited machines are in now — one row per active leaf state, so a machine
+in a `parallel` state contributes one row per region. The row is a **state**:
+`object` and `path` are the object, `machine` the exhibited machine (`lp`),
+`name` the leaf's own name, `statePath` its name qualified by the states
+enclosing it (`on.run`), `region` the orthogonal region it runs in (`""`
+outside one) and `enclosing` the composite states active with it, outermost
+first; `WhereName` reads `name`, and the row answers the state declaration's
+own properties too. It prints as `lamp1.lp in on.run`. An object exhibiting
+no state machine is a typed `no-state-machine` error, not an empty row set.
 
-**`InState(name)`** is the inverse: the objects, among those the session
-holds, with an active state of that name — as object rows, so anything that
-reads an object row reads them.
+**`InState(name)`** is the inverse: the objects the session holds whose
+machine is in the state named — a leaf or a state enclosing one, by name or
+by dotted path (`on.slow`) — each object once, as object rows, so anything
+that reads an object row reads them. A name no held object's machine declares
+is a typed `unknown-state` error.
 
-**`Events(source, from, to)`** answers the run's trace as a time-ordered
-relation: one row per accepted signal, per send, per transition fired, per
-entry, exit and do step, and per choice a scheduling policy drew. Each row is
-an **event** with its `instant` read from the runtime clock, its `kind`, the
-`object` it happened to, the `state` or `node` where it happened, and the
-`payload` where there is one. `from` and `to` bound the instant — inclusive
-at `from`, exclusive at `to`, so the intervals `[0, 1)` and `[1, 2)`
-partition the trace — and a bound in a unit the clock does not carry, or a
-trace query in a session that has not run, is a typed error. The rows come
-from the same in-memory record `-trace` prints from, not from its text.
+**`Events(source, kind, since, before)`** answers the trace as a relation in
+the order it was recorded: one row per signal accepted (`accept`), per signal
+sent (`send`), per transition fired (`transition`), per state `entry`, `exit`
+and `do` step, per `choice` point the run drew (a due order among concurrent
+reactions, a junction split) and per `guard` it could not evaluate. Each row
+is an **event**: `time` is the instant read from the runtime clock, as a
+duration in the clock's second when the library defines it; `object`, `path`
+and `machine` say whose behavior made the record; `state`, `from` and `to`
+name the state entered, exited or transitioned between; `event` the trigger;
+`target` the object a send was addressed to; `payload` an accepted or sent
+signal's parameters as `name = value`; `alternatives` and `taken` a choice's
+draw; and `text` the line `-trace` prints. `source` keeps the rows of the
+objects given (every object's when absent), `kind` the kinds named (`all`, or
+kinds separated by commas), and `since` and `before` bound the instant as a
+duration or a bare number of clock units — inclusive at `since`, exclusive at
+`before`, so `[0 [s], 1 [s])` and `[1 [s], 2 [s])` partition the trace. It
+prints as `t=1 lamp1.lp: accept Dim`.
 
-The cookbook's [Objects the session holds](query-cookbook.md#objects-the-session-holds) section
-has the recipes for the three questions this vocabulary exists to answer.
+The rows are the typed record the trace is kept as, which `-trace` and
+`%trace` print from — not a parse of the printed lines. So a trace query needs
+a session that records one: `-trace` on the command line, `%trace on` at the
+prompt before the run (the population `Instantiate` builds over gRPC is
+traced from the start); without it the query is a typed `no-trace` error
+rather than an empty relation, and `%trace off` discards the record. A bound that is not a
+duration (`1 [m]`), an interval with `before` at or before `since`, and a
+`kind` the trace does not record are `invalid-interval` and `invalid-argument`
+errors; `States(source = Events(...))`, or `Events` over a verdict row, is an
+`event-row`/`verdict-row` error, as a state or event row given to a
+model-only operation such as `RelatedElements` is.
 
-What these cannot see: another session's run, and the future — the rows are
-what *has* happened up to the instant the clock reads now. Advancing the run
-is the REPL's job (`%advance`, `%step`); a query only reads.
+On the command line, `-run-query` runs after the `-state`/`-action` behaviors
+and the `-advance` named, so a state query reads where the run left each
+machine and an event query reads what the run recorded. The cookbook's
+[Where the objects stand and what they did](query-cookbook.md#where-the-objects-stand-and-what-they-did)
+section has the recipes for the three questions this vocabulary exists to
+answer.
+
+What these cannot see: another session's run, a machine no object exhibits,
+and the future — the rows are what *has* happened up to the instant the clock
+reads now. Advancing the run is the REPL's job (`%advance`, `%step`, `%send`);
+a query only reads, and never moves the clock or a queue.
 
 ## The API `Query` over a project
 

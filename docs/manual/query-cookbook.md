@@ -1055,3 +1055,152 @@ In a document, a `Verdicts` table renders each cell as
 `<assertion> on <path>: <verdict>`; in HTML a verdict cell is a
 `span.sysml-verdict` carrying `data-verdict`, `data-path` and, for an object
 the session holds, `data-object`, beside the `data-element` of the assertion.
+
+## Where the objects stand and what they did
+
+Objects the session holds may be *running*: an object whose type exhibits a
+state machine starts it when the object is created, and `%send` and
+`%advance` (or `-state` with `-advance` on the command line) drive it. Three
+operations read the run. `States(source = <rows>)` answers the state each
+object's machine is in now — one row per active leaf state, so a `parallel`
+state contributes a row per region; `InState(name = "<state>")` is the
+inverse, the held objects whose machine is in that state; and
+`Events(source, kind, since, before)` reads the trace the session records as
+rows. All three read the session as `Objects` does, and are refused with the
+same `no-runtime` error where there is none;
+[Which query is which](query-kinds.md#runtime-state-and-event-queries) has
+the boundaries in full.
+
+The cookbook model's `Dome` exhibits a `DomeControl` machine: `closed` until
+an `Open` arrives, then `open` with two regions — `pointing`, which slews on a
+`Slew(azimuth)` signal, and `shutter`, which takes a second to reach `opened`
+— and back to `closed` on `Close`:
+
+```sysml
+calc def DomeStates :> Query {
+	in root : Element;
+	Project(source = States(source = root), properties = ("machine", "statePath", "region", "enclosing"))
+}
+
+calc def Opened :> Query {
+	Project(source = InState(name = "open"), properties = ("qualifiedName"))
+}
+
+calc def Accepted :> Query {
+	in root : Element;
+	Project(
+		source = Events(source = root, kind = "accept", since = 1 [s], before = 2.5 [s]),
+		properties = ("time", "event", "payload")
+	)
+}
+```
+
+Sending a signal needs the prompt, so this recipe runs there. `%trace on`
+first, since `Events` reads the trace the session records and refuses
+(`no-trace`) in one that records none — and `%trace off` discards it:
+
+```console
+$ sysml docs/manual/examples/cookbook.sysml
+sysml> %trace on
+sysml> %instantiate dome
+✓ Created instance of Cookbook::dome
+  ID: 1
+sysml> %instantiate spareDome
+✓ Created instance of Cookbook::spareDome
+  ID: 3
+sysml> %state control dome
+sysml> %send Open
+sysml> %advance 1
+sysml> %send Slew(azimuth = 120.0)
+sysml> %advance 1
+sysml> %send Open to spareDome
+sysml> %advance 0.5
+sysml> %send Close to spareDome
+sysml> %advance 0.5
+```
+
+*Which state is `#1.control` in?* — one row per active leaf, with the
+region each runs in and the composite state enclosing both:
+
+```console
+sysml> %run-query DomeStates root=#1
+✓ Query Cookbook::DomeStates returned 2 rows
+  Columns: machine, statePath, region, enclosing
+  Row 1: #1.control in open.slewing
+    machine = "control"
+    statePath = "open.slewing"
+    region = "pointing"
+    enclosing = "open"
+  Row 2: #1.control in open.opened
+    machine = "control"
+    statePath = "open.opened"
+    region = "shutter"
+    enclosing = "open"
+```
+
+A state row's `name` is the leaf's own (`slewing`), `statePath` its name
+qualified by the states enclosing it, `object` and `path` the object, and the
+row answers the state declaration's own properties too, so `WhereName` and
+`WhereFeature` on any of them narrow the table and `OrderBy` orders it. A row
+prints as `<object>.<machine> in <statePath>`, the object as the binding named
+it. `States` over an object exhibiting no state machine is a typed
+`no-state-machine` error, not an empty table.
+
+*Which objects are in `open`?* — `spareDome` opened at `t = 2` and closed
+again at `t = 2.5`, so only `dome` is:
+
+```console
+sysml> %run-query Opened
+✓ Query Cookbook::Opened returned 1 row
+  Columns: qualifiedName
+  Row 1: Cookbook::dome (#1)
+    qualifiedName = "Cookbook::dome"
+```
+
+The name is a leaf or a state enclosing one, by name or dotted path
+(`open.slewing`), and each object is one row however many of its leaves match;
+a name no held object's machine declares is a typed `unknown-state` error.
+The rows are object rows, so `Descendants`, `WhereFeature` and `Verdicts`
+read them as [above](#objects-the-session-holds).
+
+*What did `#1` accept between `t = 1 [s]` and `t = 2.5 [s]`?* — the interval
+is inclusive at `since` and exclusive at `before`, so the `Open` accepted at
+`t = 0` is out, the `Slew` at `t = 1` in, and for `spareDome` the `Open` at
+`t = 2` is in while the `Close` at `t = 2.5` is out:
+
+```console
+sysml> %run-query Accepted root=#1
+✓ Query Cookbook::Accepted returned 1 row
+  Columns: time, event, payload
+  Row 1: t=1 Cookbook::dome.control: accept Slew
+    time = 1.0 [s]
+    event = "Slew"
+    payload = "azimuth = 120.0"
+sysml> %run-query Accepted root=spareDome
+✓ Query Cookbook::Accepted returned 1 row
+  Columns: time, event, payload
+  Row 1: t=2 Cookbook::spareDome.control: accept Open
+    time = 2.0 [s]
+    event = "Open"
+    payload = (none)
+```
+
+`kind` names the records to keep — `accept`, `send`, `transition`, `entry`,
+`exit`, `do`, `choice` (a due order or region order the run drew, with
+`alternatives` and `taken`) or `guard` (one it could not evaluate), several
+separated by commas, `all` by default — and a `source` left out reads every
+object's records. `since` and `before` take a duration or a bare number of
+the clock's seconds; a bound that is not a duration (`1 [m]`), or an interval
+with `before` at or before `since`, is a typed `invalid-interval` error. Each
+row's `time` is the instant read from the runtime clock, `state`, `from` and
+`to` the states an entry, exit or transition touched, `target` the object a
+send was addressed to, and `text` the line `%trace` prints — the rows are the
+record it prints from, so the two never disagree. The rows come in the order
+the run made them; `OrderBy(property = "time", direction = "descending", ...)`
+reverses it.
+
+In a document, a state cell renders as `<path>.<machine> in <statePath>` and
+an event cell as `t=<instant> <path>.<machine>: <text>`; in HTML they are a
+`span.sysml-state` with `data-machine`, `data-state` and `data-region`, and a
+`span.sysml-event` with `data-event-kind` and `data-time`, each carrying the
+object's `data-object`.
