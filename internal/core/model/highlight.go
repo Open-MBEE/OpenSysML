@@ -8,16 +8,17 @@ import (
 )
 
 // HighlightTokens returns the semantic tokens of a document, ordered by source
-// position, with the content they index, so an edit cannot split the two. Nil
-// for unknown documents. A bundled library document is highlighted like a
-// workspace one.
+// position, with the content they index; the workspace or bundled library
+// document is chosen under one lock, so neither an edit nor a close can split
+// or lose them. Nil for unknown documents.
 func (w *Workspace) HighlightTokens(name string) ([]byte, []highlight.Token) {
-	lib := w.LibraryDocument(name)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	doc := w.docs[name]
 	if doc == nil {
-		doc = lib
+		if lib, isLibrary := w.libraryNameLocked(name); isLibrary {
+			doc = w.libraryDocumentLocked(lib)
+		}
 	}
 	if doc == nil {
 		return nil, nil
