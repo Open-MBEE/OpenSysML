@@ -282,10 +282,8 @@ func (l locals) has(n string) bool {
 	return ok
 }
 
-// exprRefs parses text as one v2 expression — the value of an attribute, and
-// nothing after it — and returns every model name it refers to with its path.
-// ok is false when the text is not such an expression, or declares a member the
-// walk does not read, whose names could then not be checked.
+// exprRefs parses text as one v2 expression and returns every model name it
+// refers to with its path; ok is false if it is not one, or has unread members.
 func exprRefs(text string) (refs []reference, ok bool) {
 	src := source.New("probe.sysml", []byte("attribute probe = "+text+";"))
 	p := parser.New(src)
@@ -559,9 +557,8 @@ func chainRef(e *ast.FeatureChainExpr) (reference, bool) {
 	return r, true
 }
 
-// invisible says what keeps the references from being checked as visible from
-// scope: the first that resolves to nothing written, or that reaches through a
-// name whose type is not written. "" when every reference resolves.
+// invisible says why the references cannot all be seen from scope: the first that
+// resolves to nothing, or reaches through an untyped local. "" if all resolve.
 func (m *migration) invisible(refs []reference, scope *xmi.Element) string {
 	if len(refs) == 0 {
 		return ""
@@ -582,8 +579,7 @@ func (m *migration) invisible(refs []reference, scope *xmi.Element) string {
 // members each step selects; hidden collects the private features it passes
 // through, and missing spells the reference up to the step that resolves to
 // nothing (when hidden is nil, a private feature is such a step). A name no
-// written element answers is looked for in the standard library, whose
-// packages every v2 model reaches by qualified name; e is nil for one found there.
+// written element answers is looked up in the standard library; e is nil then.
 func (m *migration) resolve(r reference, visible, hidden map[string]*xmi.Element) (e *xmi.Element, reached []*xmi.Element, missing string) {
 	if r.local != "" && r.typed == 0 {
 		return nil, nil, r.text(len(r.steps))
@@ -634,9 +630,8 @@ func (m *migration) libraryPackage(n string) bool {
 	return false
 }
 
-// libraryMember returns the qualified name of the standard-library member of
-// fqn named n, or "": a qualified name selects an owned member, a feature chain
-// a member fqn owns or inherits from the supertypes the library records.
+// libraryMember returns the qualified name of the library member of fqn named n,
+// or ""; a feature chain also selects members inherited from fqn's supertypes.
 func (m *migration) libraryMember(fqn, n string, chain bool) string {
 	idx := libs.SharedBase()
 	if !chain {
