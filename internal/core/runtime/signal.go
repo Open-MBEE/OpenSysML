@@ -104,7 +104,8 @@ func (ctx *Context) postFrom(msg Message, from *Instance) {
 	}
 	ctx.messages = append(ctx.messages, msg)
 	if ctx.trace != nil {
-		ctx.trace.RecordSend(TraceOrigin{At: ctx.clock.now, Object: from}, msg)
+		target, _ := ctx.Instance(msg.Object)
+		ctx.trace.RecordSend(TraceOrigin{At: ctx.clock.now, Object: from}, msg, target)
 	}
 }
 

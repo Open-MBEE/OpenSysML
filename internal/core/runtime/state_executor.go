@@ -594,31 +594,42 @@ func (e *StateExecutor) processNextEvent() error {
 	e.lastEventAt = e.ctx.clock.now
 
 	e.markDispatch()
+	mark, at := e.traceMark()
 	dispatch, err := e.dispatchEvent(event)
 	if err != nil {
 		return err
 	}
 	e.lastDispatch = &dispatch
 	if !dispatch.Deferred {
-		e.recordAccept(event)
+		e.recordAccept(event, mark, at)
 	}
 	e.recallDeferredEvents()
 	e.pauseAtBreakpoint()
 	return nil
 }
 
-// recordAccept keeps a dispatched signal or call in the trace's records; a time
-// or change event is no accept, and the transition it fires records the trigger.
-func (e *StateExecutor) recordAccept(event Event) {
+// traceMark is where the trace stands before a dispatch, and the clock's instant.
+func (e *StateExecutor) traceMark() (int, float64) {
+	if tr := e.trace(); tr != nil {
+		return tr.Mark(), e.ctx.clock.now
+	}
+	return 0, e.ctx.clock.now
+}
+
+// recordAccept keeps a dispatched signal or call in the trace's records, before
+// what its dispatch recorded; a time or change event is no accept, and the
+// transition it fires records the trigger.
+func (e *StateExecutor) recordAccept(event Event, mark int, at float64) {
 	tr := e.trace()
 	if tr == nil {
 		return
 	}
+	origin := TraceOrigin{At: at, Object: e.self, Behavior: e.stateMachine}
 	switch payload := event.Payload.(type) {
 	case Message:
-		tr.RecordAccept(e.traceOrigin(), acceptedEventName(payload), payload.Payload)
+		tr.RecordAcceptAt(mark, origin, acceptedEventName(payload), payload.Payload)
 	case Call:
-		tr.RecordAccept(e.traceOrigin(), payload.Operation, payload.Args)
+		tr.RecordAcceptAt(mark, origin, payload.Operation, payload.Args)
 	}
 }
 
@@ -1466,9 +1477,9 @@ func (e *StateExecutor) completionEnabled(trans *lower.Transition) (bool, error)
 // guard having passed its final reading, then what settling its route r noted;
 // the route is returned with its notes taken.
 func (e *StateExecutor) transitionDecided(r route) route {
-	e.ctx.noteAll(e.firingNotes)
+	e.noteAll(e.firingNotes)
 	e.firingNotes = nil
-	e.ctx.noteAll(r.notes)
+	e.noteAll(r.notes)
 	r.notes = nil
 	return r
 }
@@ -2379,7 +2390,7 @@ func (e *StateExecutor) defaultHistoryRoute(hist *ast.PseudostateNode, owner *as
 	if err == nil {
 		r, err = e.settleDraws(r)
 	}
-	e.ctx.noteAll(r.notes)
+	e.noteAll(r.notes)
 	r.notes = nil
 	if err != nil {
 		return route{}, fmt.Errorf("default transition of history %s: %w", hist.Name, err)
@@ -4507,6 +4518,30 @@ func (e *StateExecutor) statePath(state *ast.StateNode) string {
 	return strings.Join(parts, ".")
 }
 
+// EnclosingStates returns the states written around state, outermost first;
+// the owners lowering synthesizes for regions are not among them.
+func (e *StateExecutor) EnclosingStates(state *ast.StateNode) []*ast.StateNode {
+	chain := e.getParentChain(state)
+	out := make([]*ast.StateNode, 0, len(chain))
+	for i := len(chain) - 1; i >= 1; i-- {
+		if e.graph.HiddenStates[chain[i]] {
+			continue
+		}
+		out = append(out, chain[i])
+	}
+	return out
+}
+
+// StatePath is state's name qualified by the states written around it (`on.run`).
+func (e *StateExecutor) StatePath(state *ast.StateNode) string {
+	enclosing := e.EnclosingStates(state)
+	parts := make([]string, 0, len(enclosing)+1)
+	for _, s := range enclosing {
+		parts = append(parts, s.Name)
+	}
+	return strings.Join(append(parts, state.Name), ".")
+}
+
 // trace returns the recorder this executor's context is attached to, so turning
 // reporting on or off reaches an execution already under way.
 func (e *StateExecutor) trace() *TraceRecorder {
@@ -4516,6 +4551,13 @@ func (e *StateExecutor) trace() *TraceRecorder {
 // noteChoice keeps a choice point this machine drew, as made by its object.
 func (e *StateExecutor) noteChoice(choice ChoicePoint) {
 	e.ctx.noteFrom(choice, e.self, e.stateMachine)
+}
+
+// noteAll keeps notes this machine made, in order, as made by its object.
+func (e *StateExecutor) noteAll(notes []RunNote) {
+	for _, n := range notes {
+		e.ctx.noteFrom(n, e.self, e.stateMachine)
+	}
 }
 
 // traceOrigin is where this machine's trace records are made: the clock now, the

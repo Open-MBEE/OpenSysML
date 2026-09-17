@@ -18,7 +18,13 @@ const (
 	ValueObject ValueKind = "object"
 	// ValueVerdict is an assertion checked about an object, carried as a row whose
 	// declaration is the asserting element.
-	ValueVerdict  ValueKind = "verdict"
+	ValueVerdict ValueKind = "verdict"
+	// ValueState is one active state of an object's state machine, carried as a
+	// row whose declaration is the state.
+	ValueState ValueKind = "state"
+	// ValueEvent is one record of a session's trace, carried as a row whose
+	// declaration is the behavior that made it.
+	ValueEvent    ValueKind = "event"
 	ValueString   ValueKind = "string"
 	ValueInteger  ValueKind = "integer"
 	ValueReal     ValueKind = "real"
@@ -34,6 +40,8 @@ type Value struct {
 	element  *symbols.Symbol
 	object   *runtime.Instance
 	verdict  *Verdict
+	state    *State
+	event    *Event
 	text     string
 	integer  int64
 	real     float64
@@ -116,13 +124,19 @@ func (v Value) Element() (*symbols.Symbol, bool) {
 
 // Declaration returns the element a value is declared by: an element itself, the
 // usage or definition an object stands for, the assertion a verdict is about,
-// and nil for a scalar.
+// the state or behavior a state or event row is of, and nil for a scalar.
 func (v Value) Declaration() *symbols.Symbol {
 	if inst, _, ok := v.Object(); ok {
 		return objectDeclaration(inst)
 	}
 	if verdict, ok := v.Verdict(); ok {
 		return verdict.assertion
+	}
+	if state, ok := v.State(); ok {
+		return state.Declaration()
+	}
+	if event, ok := v.Event(); ok {
+		return event.Behavior()
 	}
 	sym, _ := v.Element()
 	return sym
@@ -199,7 +213,8 @@ func (c Cell) Values() []Value { return append([]Value(nil), c.values...) }
 // Origin returns the selected model element behind the cell.
 func (c Cell) Origin() provenance.Origin { return c.origin }
 
-// isRow reports whether a value can be a query row: an element, an object or a verdict.
+// isRow reports whether a value can be a query row: an element, an object, a
+// verdict, a state or an event.
 func (v Value) isRow() bool {
 	switch v.kind {
 	case ValueElement:
@@ -208,18 +223,24 @@ func (v Value) isRow() bool {
 		return v.object != nil
 	case ValueVerdict:
 		return v.verdict != nil
+	case ValueState:
+		return v.state != nil
+	case ValueEvent:
+		return v.event != nil
 	}
 	return false
 }
 
-// Row retains the selected element, object or verdict and its ordered projected cells.
+// Row retains the selected element, object, verdict, state or event and its
+// ordered projected cells.
 type Row struct {
 	element Value
 	cells   []Cell
 }
 
 // Element returns the selected value: a model element, a runtime object when
-// the query ran over a session's objects, or a verdict about one.
+// the query ran over a session's objects, a verdict about one, a state one is
+// in, or an event of the session's trace.
 func (r Row) Element() Value { return r.element }
 
 // Cells returns an independent copy of the row's projected cells.

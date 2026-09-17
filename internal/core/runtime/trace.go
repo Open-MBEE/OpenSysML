@@ -34,9 +34,10 @@ const (
 	TraceExit
 	// TraceDo is one step of a state's do behavior.
 	TraceDo
-	// TraceChoice is a note the run made about itself: a choice point it drew,
-	// or a guard it could not evaluate.
+	// TraceChoice is a choice point the run drew.
 	TraceChoice
+	// TraceGuard is a guard the run read to report a choice and could not evaluate.
+	TraceGuard
 )
 
 // String names the kind as a query reads it.
@@ -58,6 +59,8 @@ func (k TraceKind) String() string {
 		return "do"
 	case TraceChoice:
 		return "choice"
+	case TraceGuard:
+		return "guard"
 	}
 	return fmt.Sprintf("TraceKind(%d)", int(k))
 }
@@ -82,9 +85,12 @@ type TraceRecord struct {
 	// accept or send carries; Payload is the message's payload.
 	Event   string
 	Payload map[string]Value
+	// Target is the object a send was addressed to, nil for a broadcast or a
+	// destination named only as text (kept in To).
+	Target *Instance
 	// Action reports an entry or exit behavior ran with the entry or exit.
 	Action bool
-	// Note is a TraceChoice's note.
+	// Note is a TraceChoice's or TraceGuard's note.
 	Note RunNote
 	// text and depth are a TraceLine's line and nesting.
 	text  string
@@ -116,7 +122,7 @@ func (r TraceRecord) Line() (line string, printed bool) {
 		return fmt.Sprintf("exit: %s", r.State), true
 	case TraceDo:
 		return fmt.Sprintf("do: %s", r.State), true
-	case TraceChoice:
+	case TraceChoice, TraceGuard:
 		return r.Note.String(), true
 	}
 	return "", false
@@ -212,7 +218,34 @@ func (tr *TraceRecorder) RecordActionStep(step int, tokens []Token) {
 // RecordNote records a run's note where it was made: before the step line of the
 // action step it belongs to, or before the transition it decided.
 func (tr *TraceRecorder) RecordNote(origin TraceOrigin, n RunNote) {
-	tr.add(TraceRecord{Kind: TraceChoice, Origin: origin, Note: n})
+	kind := TraceChoice
+	if _, isGuard := n.(UnevaluableGuard); isGuard {
+		kind = TraceGuard
+	}
+	tr.add(TraceRecord{Kind: kind, Origin: origin, Note: n})
+}
+
+// Mark is the position the next record takes, for a record inserted there later.
+func (tr *TraceRecorder) Mark() int {
+	return len(tr.records)
+}
+
+// RecordAcceptAt records an accept as RecordAccept does, placed at mark: before
+// the records the dispatch of the event made. A mark already printed stays printed.
+func (tr *TraceRecorder) RecordAcceptAt(mark int, origin TraceOrigin, event string, payload map[string]Value) {
+	if !tr.enabled {
+		return
+	}
+	record := TraceRecord{Kind: TraceAccept, Origin: origin, Event: event, Payload: payload}
+	if mark < 0 || mark > len(tr.records) {
+		mark = len(tr.records)
+	}
+	tr.records = append(tr.records, TraceRecord{})
+	copy(tr.records[mark+1:], tr.records[mark:])
+	tr.records[mark] = record
+	if mark < tr.printed {
+		tr.printed++
+	}
 }
 
 // RecordStateTransition records a transition fired, with the trigger it fired on.
@@ -228,12 +261,12 @@ func (tr *TraceRecorder) RecordAccept(origin TraceOrigin, event string, payload 
 
 // RecordSend records a message posted onto the bus by the object at origin, or
 // from outside the run where it has none.
-func (tr *TraceRecorder) RecordSend(origin TraceOrigin, msg Message) {
+func (tr *TraceRecorder) RecordSend(origin TraceOrigin, msg Message, target *Instance) {
 	event := msg.SignalType
 	if msg.EventName != "" {
 		event = msg.EventName
 	}
-	tr.add(TraceRecord{Kind: TraceSend, Origin: origin, Event: event, To: msg.Target, Payload: msg.Payload})
+	tr.add(TraceRecord{Kind: TraceSend, Origin: origin, Event: event, To: msg.Target, Target: target, Payload: msg.Payload})
 }
 
 // RecordStateTerminate records the machine's performance ending at the terminate
