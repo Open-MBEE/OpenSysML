@@ -530,7 +530,9 @@ func readHeader(text string) (w Witness, headed bool, err error) {
 
 // ParseChoice reads one choice as ChoiceTaken.String spells it: `step N: T first of A, B`,
 // `step N: decision D -> B`, `S -> T`, `W: X first of A, B` (a region order, a due
-// order at `t=…`, or a dispatch order among `events at t=…`).
+// order at `t=…`, a step order at `t=…` among `do …`/`dispatch …` units, a dispatch
+// order among `events at t=…`, an entry order `entering …`/`fork …`, or an exit
+// order `exiting …`).
 func ParseChoice(text string) (ChoiceTaken, error) {
 	text = strings.TrimSpace(text)
 	fail := func(reason string) (ChoiceTaken, error) {
@@ -559,7 +561,8 @@ func ParseChoice(text string) (ChoiceTaken, error) {
 }
 
 // parseOrderChoice reads the order after `<took> first of ` (a step's token order)
-// or `<where>: <took> first of ` (a region or due order) as ParseChoice found it.
+// or `<where>: <took> first of ` (a region, due, dispatch, entry, exit or step
+// order, told apart by where it was made) as ParseChoice found it.
 func parseOrderChoice(fail func(string) (ChoiceTaken, error), step int, first, mark, after string) (ChoiceTaken, error) {
 	c := ChoiceTaken{Kind: ChoiceTokenOrder, Step: step, Took: first}
 	if mark == markWhere {
@@ -572,6 +575,10 @@ func parseOrderChoice(fail func(string) (ChoiceTaken, error), step int, first, m
 			c.Kind = ChoiceDueOrder
 		case strings.HasPrefix(first, dispatchWherePrefix):
 			c.Kind = ChoiceDispatchOrder
+		case strings.HasPrefix(first, enteringWherePrefix), strings.HasPrefix(first, forkWherePrefix):
+			c.Kind = ChoiceEntryOrder
+		case strings.HasPrefix(first, exitingWherePrefix):
+			c.Kind = ChoiceExitOrder
 		}
 		var ok bool
 		if c.Took, mark, after, ok = readLabel(after, markFirstOf); !ok {
@@ -586,6 +593,9 @@ func parseOrderChoice(fail func(string) (ChoiceTaken, error), step int, first, m
 	among, ok := splitLabels(after, markList)
 	if !ok {
 		return fail(unclosedQuote)
+	}
+	if c.Kind == ChoiceDueOrder && stepOrderUnits(among) {
+		c.Kind = ChoiceStepOrder
 	}
 	c.Among, c.Alternatives, c.Taken = among, len(among), slices.Index(among, c.Took)
 	if c.Taken < 0 {

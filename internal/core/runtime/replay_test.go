@@ -27,6 +27,16 @@ func TestParseChoiceReadsEveryKind(t *testing.T) {
 		{"state idle on accept go -> 2->right", ChoiceTaken{Kind: ChoiceTransition, Where: "state idle on accept go", Took: "2->right"}},
 		{"on accept go: b1 first of a1, b1", ChoiceTaken{Kind: ChoiceRegionOrder, Where: "on accept go", Alternatives: 2, Taken: 1, Among: []string{"a1", "b1"}, Took: "b1"}},
 		{"t=5.0: state machine c first of state machine a, state machine b, state machine c", ChoiceTaken{Kind: ChoiceDueOrder, Where: "t=5.0", Alternatives: 3, Taken: 2, Among: []string{"state machine a", "state machine b", "state machine c"}, Took: "state machine c"}},
+		{"events at t=2.0: time b1 1->b2 first of time a1 1->a2, time b1 1->b2", ChoiceTaken{Kind: ChoiceDispatchOrder, Where: "events at t=2.0", Alternatives: 2, Taken: 1, Among: []string{"time a1 1->a2", "time b1 1->b2"}, Took: "time b1 1->b2"}},
+		{"entering top: T2.1(effect) first of left(entry), T2.1(effect)", ChoiceTaken{Kind: ChoiceEntryOrder, Where: "entering top", Alternatives: 2, Taken: 1, Among: []string{"left(entry)", "T2.1(effect)"}, Took: "T2.1(effect)"}},
+		{"entering top: left(entry) first of left(entry), T2.1(effect)", ChoiceTaken{Kind: ChoiceEntryOrder, Where: "entering top", Alternatives: 2, Taken: 0, Among: []string{"left(entry)", "T2.1(effect)"}, Took: "left(entry)"}},
+		{"fork split: r2(entry) first of r1(entry), r2(entry)", ChoiceTaken{Kind: ChoiceEntryOrder, Where: "fork split", Alternatives: 2, Taken: 1, Among: []string{"r1(entry)", "r2(entry)"}, Took: "r2(entry)"}},
+		{"exiting top: right(exit) first of inner(exit), right(exit)", ChoiceTaken{Kind: ChoiceExitOrder, Where: "exiting top", Alternatives: 2, Taken: 1, Among: []string{"inner(exit)", "right(exit)"}, Took: "right(exit)"}},
+		{"on accept Continue: exit right first of exit left, exit right", ChoiceTaken{Kind: ChoiceRegionOrder, Where: "on accept Continue", Alternatives: 2, Taken: 1, Among: []string{"exit left", "exit right"}, Took: "exit right"}},
+		{"t=0.0: dispatch AnotherSignal first of do top, dispatch AnotherSignal", ChoiceTaken{Kind: ChoiceStepOrder, Where: "t=0.0", Alternatives: 2, Taken: 1, Among: []string{"do top", "dispatch AnotherSignal"}, Took: "dispatch AnotherSignal"}},
+		{"t=0.0: do top first of do top, dispatch AnotherSignal", ChoiceTaken{Kind: ChoiceStepOrder, Where: "t=0.0", Alternatives: 2, Taken: 0, Among: []string{"do top", "dispatch AnotherSignal"}, Took: "do top"}},
+		{"t=0.0: do b first of do a, do b, dispatch Go", ChoiceTaken{Kind: ChoiceStepOrder, Where: "t=0.0", Alternatives: 3, Taken: 1, Among: []string{"do a", "do b", "dispatch Go"}, Took: "do b"}},
+		{"t=0.0: do top first of do top, state machine b", ChoiceTaken{Kind: ChoiceDueOrder, Where: "t=0.0", Alternatives: 2, Taken: 0, Among: []string{"do top", "state machine b"}, Took: "do top"}},
 		{"step 2: decision select -> 2->slow among 1->fast p=0.7, 2->slow p=0.3 drew 0.7748", ChoiceTaken{Kind: ChoiceDecisionBranch, Step: 2, Where: "decision select", Alternatives: 2, Taken: 1, Among: []string{"1->fast", "2->slow"}, Took: "2->slow", Weights: []float64{0.7, 0.3}, Drew: 0.7748, Drawn: true}},
 		{"step 2: decision select -> 1->fast among 1->fast p=0.7, 2->slow p=0.3", ChoiceTaken{Kind: ChoiceDecisionBranch, Step: 2, Where: "decision select", Alternatives: 2, Taken: 0, Among: []string{"1->fast", "2->slow"}, Took: "1->fast", Weights: []float64{0.7, 0.3}}},
 	}
@@ -43,6 +53,60 @@ func TestParseChoiceReadsEveryKind(t *testing.T) {
 			got.Taken != c.want.Taken || strings.Join(got.Among, "|") != strings.Join(c.want.Among, "|") || got.Took != c.want.Took ||
 			!slices.Equal(got.Weights, c.want.Weights) || got.Drew != c.want.Drew || got.Drawn != c.want.Drawn {
 			t.Errorf("%q: %+v, want %+v", c.line, got, c.want)
+		}
+	}
+}
+
+// Each order kind describes itself as the trace's `choice` line spells it, and the
+// line the witness spells for it reads back as the same choice.
+func TestOrderChoicesDescribeAndRoundTrip(t *testing.T) {
+	cases := []struct {
+		point    ChoicePoint
+		describe string
+		witness  string
+	}{
+		{ChoicePoint{Kind: ChoiceEntryOrder, Where: "entering top", Alternatives: []string{"left(entry)", "T2.1(effect)"}},
+			"entering top: next left(entry), T2.1(effect) (unordered; took left(entry) first)",
+			"entering top: left(entry) first of left(entry), T2.1(effect)"},
+		{ChoicePoint{Kind: ChoiceEntryOrder, Where: "fork split", Alternatives: []string{"r1(entry)", "r2(entry)"}, Taken: 1},
+			"fork split: next r1(entry), r2(entry) (unordered; took r2(entry) first)",
+			"fork split: r2(entry) first of r1(entry), r2(entry)"},
+		{ChoicePoint{Kind: ChoiceExitOrder, Where: "exiting top", Alternatives: []string{"inner(exit)", "right(exit)"}},
+			"exiting top: next inner(exit), right(exit) (unordered; took inner(exit) first)",
+			"exiting top: inner(exit) first of inner(exit), right(exit)"},
+		{ChoicePoint{Kind: ChoiceRegionOrder, Where: "on accept Continue", Alternatives: []string{"exit left", "exit right"}},
+			"on accept Continue: states exit left, exit right react (unordered; took exit left first)",
+			"on accept Continue: exit left first of exit left, exit right"},
+		{ChoicePoint{Kind: ChoiceStepOrder, Where: "t=0.0", Alternatives: []string{"do top", "dispatch AnotherSignal"}},
+			"at t=0.0: next do top, dispatch AnotherSignal (unordered; ran do top first)",
+			"t=0.0: do top first of do top, dispatch AnotherSignal"},
+		{ChoicePoint{Kind: ChoiceStepOrder, Where: "t=0.0", Alternatives: []string{"do top", "dispatch AnotherSignal"}, Taken: 1},
+			"at t=0.0: next do top, dispatch AnotherSignal (unordered; ran dispatch AnotherSignal first)",
+			"t=0.0: dispatch AnotherSignal first of do top, dispatch AnotherSignal"},
+		{ChoicePoint{Kind: ChoiceDueOrder, Where: "t=0.0", Alternatives: []string{"do top", "state machine b"}},
+			"at t=0.0: due do top, state machine b (unordered; ran do top first)",
+			"t=0.0: do top first of do top, state machine b"},
+	}
+	for _, c := range cases {
+		if got := c.point.Describe(); got != c.describe {
+			t.Errorf("%s: Describe() = %q, want %q", c.point.Kind, got, c.describe)
+		}
+		want := c.point.Choice()
+		if got := want.String(); got != c.witness {
+			t.Errorf("%s: String() = %q, want %q", c.point.Kind, got, c.witness)
+		}
+		got, err := ParseChoice(c.witness)
+		if err != nil {
+			t.Errorf("%q: %v", c.witness, err)
+			continue
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("%q reads back as %+v, want %+v", c.witness, got, want)
+		}
+	}
+	for kind, name := range map[ChoiceKind]string{ChoiceEntryOrder: "entry order", ChoiceExitOrder: "exit order", ChoiceStepOrder: "step order"} {
+		if kind.String() != name {
+			t.Errorf("%d.String() = %q, want %q", int(kind), kind, name)
 		}
 	}
 }
@@ -1929,6 +1993,9 @@ func TestChoiceLinesRoundTripPunctuatedNames(t *testing.T) {
 			ChoiceTaken{Kind: ChoiceTransition, Where: "state " + name + " on accept " + name, Took: "2->" + name},
 			ChoiceTaken{Kind: ChoiceRegionOrder, Where: "on accept " + name, Alternatives: 3, Taken: 1, Among: []string{others[1], name, others[2]}, Took: name},
 			ChoiceTaken{Kind: ChoiceDueOrder, Where: "t=5.0", Alternatives: 3, Taken: 2, Among: []string{others[1], others[2], name}, Took: name},
+			ChoiceTaken{Kind: ChoiceEntryOrder, Where: "entering " + name, Alternatives: 3, Taken: 1, Among: []string{others[1] + "(entry)", name + "(entry)", others[2] + "(effect)"}, Took: name + "(entry)"},
+			ChoiceTaken{Kind: ChoiceExitOrder, Where: "exiting " + name, Alternatives: 3, Taken: 2, Among: []string{others[1] + "(exit)", others[2] + "(exit)", name + "(exit)"}, Took: name + "(exit)"},
+			ChoiceTaken{Kind: ChoiceStepOrder, Where: "t=5.0", Alternatives: 3, Taken: 0, Among: []string{"do " + name, "do " + others[1], "dispatch " + others[2]}, Took: "do " + name},
 		)
 	}
 	var lines []string

@@ -34,6 +34,15 @@ const (
 	// triggers, or a time trigger and a pool event — were due at one instant, and
 	// one of them was dispatched first.
 	ChoiceDispatchOrder
+	// ChoiceEntryOrder: a composite state's regions, a fork's branches or the
+	// regions a history restores each had a unit left to enter, and one advanced first.
+	ChoiceEntryOrder
+	// ChoiceExitOrder: a composite state's regions each had a state left to exit,
+	// and one advanced first.
+	ChoiceExitOrder
+	// ChoiceStepOrder: a do step was due while an event waited at the head of
+	// the pool, and one of them ran first.
+	ChoiceStepOrder
 )
 
 // String is the kind as a trace or diagnostic names it.
@@ -53,8 +62,38 @@ func (k ChoiceKind) String() string {
 		return "due order"
 	case ChoiceDispatchOrder:
 		return "dispatch order"
+	case ChoiceEntryOrder:
+		return "entry order"
+	case ChoiceExitOrder:
+		return "exit order"
+	case ChoiceStepOrder:
+		return "step order"
 	}
 	return fmt.Sprintf("ChoiceKind(%d)", int(k))
+}
+
+// The prefixes of Where that tell the order kinds apart when a witness line is
+// read back: a due order and a step order both sit at `t=`, and are told apart
+// by the step order's units, each `do <state>` or `dispatch <event>`.
+const (
+	enteringWherePrefix = "entering "
+	forkWherePrefix     = "fork "
+	exitingWherePrefix  = "exiting "
+	doUnitPrefix        = "do "
+	dispatchUnitPrefix  = "dispatch "
+)
+
+// stepOrderUnits reports whether every label names a step-order unit.
+func stepOrderUnits(labels []string) bool {
+	if len(labels) == 0 {
+		return false
+	}
+	for _, label := range labels {
+		if !strings.HasPrefix(label, doUnitPrefix) && !strings.HasPrefix(label, dispatchUnitPrefix) {
+			return false
+		}
+	}
+	return true
 }
 
 // ChoiceDiagnosticCode is the code every choice-point diagnostic carries.
@@ -136,6 +175,10 @@ func (c ChoicePoint) Describe() string {
 		return fmt.Sprintf("at %s: due %s (unordered; ran %s first)", c.Where, alts, taken)
 	case ChoiceDispatchOrder:
 		return fmt.Sprintf("%s: %s (unordered; dispatched %s first)", c.Where, alts, taken)
+	case ChoiceEntryOrder, ChoiceExitOrder:
+		return fmt.Sprintf("%s: next %s (unordered; took %s first)", c.Where, alts, taken)
+	case ChoiceStepOrder:
+		return fmt.Sprintf("at %s: next %s (unordered; ran %s first)", c.Where, alts, taken)
 	}
 	return fmt.Sprintf("%s: %s (unordered; took %s)", c.Kind, alts, taken)
 }
