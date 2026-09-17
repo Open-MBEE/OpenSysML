@@ -263,13 +263,9 @@ func (r reference) text(n int) string {
 	return b.String()
 }
 
-// exprRefs parses text as one v2 expression — the value of an attribute,
-// leaving no diagnostic — and returns every name it refers to: the features,
-// functions and types its meaning depends on, each with its whole path.
+// exprRefs parses text as one v2 expression — the value of an attribute, and
+// nothing after it — and returns every model name it refers to with its path.
 func exprRefs(text string) (refs []reference, ok bool) {
-	if strings.ContainsAny(text, ";{}") {
-		return nil, false
-	}
 	src := source.New("probe.sysml", []byte("attribute probe = "+text+";"))
 	p := parser.New(src)
 	root := p.ParseFile()
@@ -281,18 +277,18 @@ func exprRefs(text string) (refs []reference, ok bool) {
 		return nil, false
 	}
 	u, ok := mem.Member.(*ast.Usage)
-	if !ok {
+	if !ok || u.Value == nil || u.HasBody || len(u.Members) != 0 {
 		return nil, false
 	}
-	return nameRefs(u.Value, nil), true
+	return nameRefs(u.Value, nil, nil), true
 }
 
-// nameRefs appends to refs each name an expression refers to. A feature chain
-// whose operand is itself a name extends that name; on any other operand its
-// members cannot be checked apart from it, so only the operand's names count.
-func nameRefs(n ast.Node, refs []reference) []reference {
+// nameRefs appends to refs each name an expression refers to beyond the local
+// ones; a feature chain on a name extends it, on anything else only the operand
+// counts.
+func nameRefs(n ast.Node, local map[string]bool, refs []reference) []reference {
 	name := func(q *ast.QualifiedName) {
-		if r, ok := qualifiedRef(q); ok {
+		if r, ok := qualifiedRef(q); ok && !local[r.first()] {
 			refs = append(refs, r)
 		}
 	}
@@ -303,46 +299,48 @@ func nameRefs(n ast.Node, refs []reference) []reference {
 		name(e.Name)
 	case *ast.FeatureChainExpr:
 		if r, ok := chainRef(e); ok {
-			refs = append(refs, r)
+			if !local[r.first()] {
+				refs = append(refs, r)
+			}
 		} else {
-			refs = nameRefs(e.Operand, refs)
+			refs = nameRefs(e.Operand, local, refs)
 		}
 	case *ast.OperatorExpr:
 		for _, o := range e.Operands {
-			refs = nameRefs(o, refs)
+			refs = nameRefs(o, local, refs)
 		}
 		name(e.TypeRef)
 	case *ast.IndexExpr:
-		refs = nameRefs(e.Operand, refs)
-		refs = nameRefs(e.Index, refs)
+		refs = nameRefs(e.Operand, local, refs)
+		refs = nameRefs(e.Index, local, refs)
 	case *ast.InvocationExpr:
-		refs = nameRefs(e.Operand, refs)
+		refs = nameRefs(e.Operand, local, refs)
 		name(e.Type)
 		for _, a := range e.Args {
-			refs = nameRefs(a, refs)
+			refs = nameRefs(a, local, refs)
 		}
 		for _, a := range e.NamedArgs {
-			refs = nameRefs(a.Value, refs)
+			refs = nameRefs(a.Value, local, refs)
 		}
 	case *ast.CollectExpr:
-		refs = nameRefs(e.Operand, refs)
-		refs = nameRefs(e.Body, refs)
+		refs = nameRefs(e.Operand, local, refs)
+		refs = nameRefs(e.Body, local, refs)
 	case *ast.SelectExpr:
-		refs = nameRefs(e.Operand, refs)
-		refs = nameRefs(e.Body, refs)
+		refs = nameRefs(e.Operand, local, refs)
+		refs = nameRefs(e.Body, local, refs)
 	case *ast.ConstructorExpr:
 		name(e.Type)
 		for _, a := range e.Args {
-			refs = nameRefs(a, refs)
+			refs = nameRefs(a, local, refs)
 		}
 		for _, a := range e.NamedArgs {
-			refs = nameRefs(a.Value, refs)
+			refs = nameRefs(a.Value, local, refs)
 		}
 	case *ast.BodyExpr:
-		refs = nameRefs(e.Result, refs)
+		refs = bodyRefs(e, local, refs)
 	case *ast.SequenceExpr:
 		for _, el := range e.Elements {
-			refs = nameRefs(el, refs)
+			refs = nameRefs(el, local, refs)
 		}
 	case *ast.MetadataAccessExpr:
 		name(e.Ref)
@@ -350,6 +348,60 @@ func nameRefs(n ast.Node, refs []reference) []reference {
 		name(e.TargetType)
 	}
 	return refs
+}
+
+// bodyRefs appends the names a body expression refers to beyond its own
+// parameters and members, which are in scope throughout the body.
+func bodyRefs(e *ast.BodyExpr, outer map[string]bool, refs []reference) []reference {
+	local := make(map[string]bool, len(outer)+len(e.Params)+len(e.Members))
+	for n := range outer {
+		local[n] = true
+	}
+	for _, p := range e.Params {
+		local[p.Name] = true
+	}
+	var usages []*ast.Usage
+	for _, m := range e.Members {
+		if mem, ok := m.(*ast.Membership); ok {
+			m = mem.Member
+		}
+		if u, ok := m.(*ast.Usage); ok {
+			usages = append(usages, u)
+			if u.Ident.Name != "" {
+				local[u.Ident.Name] = true
+			}
+			if u.Ident.ShortName != "" {
+				local[u.Ident.ShortName] = true
+			}
+		}
+	}
+	name := func(q *ast.QualifiedName) {
+		if r, ok := qualifiedRef(q); ok && !local[r.first()] {
+			refs = append(refs, r)
+		}
+	}
+	for _, p := range e.Params {
+		name(p.Type)
+		for _, rel := range p.Relationships {
+			refs = nameRefs(rel.Target, local, refs)
+		}
+		refs = nameRefs(p.Value, local, refs)
+	}
+	for _, u := range usages {
+		for _, rel := range u.Relationships {
+			refs = nameRefs(rel.Target, local, refs)
+		}
+		refs = nameRefs(u.Value, local, refs)
+	}
+	return nameRefs(e.Result, local, refs)
+}
+
+// first is the name a reference starts from; "" for a global one.
+func (r reference) first() string {
+	if r.global || len(r.steps) == 0 {
+		return ""
+	}
+	return r.steps[0].name
 }
 
 // qualifiedRef returns the reference a qualified name spells.
