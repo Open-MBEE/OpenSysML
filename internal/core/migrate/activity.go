@@ -22,7 +22,6 @@ func (m *migration) activityBody(act, def *xmi.Element) {
 	a.write()
 	a.partitions()
 	a.rules()
-	a.observations()
 }
 
 // activity writes one node graph: an activity's, or a structured node's.
@@ -69,6 +68,9 @@ type activity struct {
 	data []string
 	// written marks the (producer, pin) pairs a flow or bind is already written for.
 	written map[[2]*xmi.Element]bool
+	// before and after are the clock stamps a duration observation reads at a node's ends.
+	before, after map[*xmi.Element]*stamp
+	timed         []*timing
 }
 
 func (m *migration) newActivity(act, def *xmi.Element) *activity {
@@ -92,6 +94,8 @@ func (m *migration) newActivity(act, def *xmi.Element) *activity {
 		edgeSelf:    map[*xmi.Element]bool{},
 		written:     map[[2]*xmi.Element]bool{},
 		inert:       map[*xmi.Element]bool{},
+		before:      map[*xmi.Element]*stamp{},
+		after:       map[*xmi.Element]*stamp{},
 		nodes:       act.Owned("node"),
 		edges:       act.Owned("edge"),
 	}
@@ -222,11 +226,13 @@ func baseName(n *xmi.Element) string {
 func (a *activity) write() {
 	a.link()
 	a.resolveData()
+	a.timings()
 	for _, n := range a.nodes {
 		if k := nodeKind(n); k == nodeAction || k == nodeControl || k == nodeBuffer || k == nodeFinal {
 			a.entries(n)
 		}
 	}
+	a.timingAttributes()
 	a.startSuccessions()
 	for _, n := range a.nodes {
 		switch nodeKind(n) {
@@ -353,6 +359,9 @@ func (a *activity) entries(n *xmi.Element) {
 		w := writeName(a.fresh("wait"))
 		a.waits[n] = waitNode{w, delay}
 		name = w
+	}
+	if s, ok := a.before[n]; ok {
+		name = s.name
 	}
 	switch {
 	case len(a.prev[n]) <= 1 || n.Type == "JoinNode" || n.Type == "MergeNode":
@@ -508,6 +517,11 @@ func (a *activity) unmappedWait(dc, e *xmi.Element, note string) {
 // ordinary node has several, guarded and weighted out of a decision.
 func (a *activity) successions(n *xmi.Element) {
 	from := writeName(a.name(n, baseName(n)))
+	if s, ok := a.after[n]; ok {
+		a.m.w.line("first " + from + " then " + s.name + ";")
+		a.m.w.block("action "+s.name, func() { a.m.w.lines(s.lines) })
+		from = s.name
+	}
 	outs := a.succ[n]
 	if len(outs) > 1 && n.Type != "ForkNode" && n.Type != "DecisionNode" {
 		f := a.fresh("fork")
@@ -666,7 +680,8 @@ func (a *activity) decisionInput(n *xmi.Element) string {
 }
 
 // guard reads an edge's guard as ` if <expr>`, comparing a bare value with the
-// decision's input; a guard that is no v2 expression is kept as a comment.
+// decision's input; a guard with no v2 form is kept as a comment. Names in an
+// opaque guard resolve from the edge: its swimlane's object first, then the activity.
 func (a *activity) guard(e *xmi.Element, input string) guardText {
 	g := firstOwned(e, "guard")
 	if g == nil {
@@ -679,7 +694,14 @@ func (a *activity) guard(e *xmi.Element, input string) guardText {
 		a.m.add(e, Approximated, "", "the guard ["+describeValue(g)+"] is kept as a comment and the edge written unguarded: "+note)
 		return guardText{comment: commentLines("guard not migrated: [" + describeValue(g) + "] — " + note)}
 	}
-	expr, ok, note := a.m.behaviorValue(g, a.act)
+	var expr, note string
+	var ok bool
+	if g.Type == "OpaqueExpression" {
+		body, lang := opaqueBody(g)
+		expr, ok, note = a.m.behaviorExprAs(body, lang, e, "Boolean")
+	} else {
+		expr, ok, note = a.m.behaviorValue(g, e)
+	}
 	if !ok {
 		return unguarded(note)
 	}
@@ -691,6 +713,9 @@ func (a *activity) guard(e *xmi.Element, input string) guardText {
 			return unguarded("the guard is a value, and no object flow into the decision names what to compare it with")
 		}
 		return guardText{expr: " if " + input + " == " + expr, ok: true}
+	}
+	if expr == "true" {
+		return guardText{ok: true}
 	}
 	return guardText{expr: " if " + expr, ok: true}
 }
@@ -827,6 +852,11 @@ func (a *activity) declare(n *xmi.Element) {
 		a.m.w.line("action " + w.name + " accept after " + w.delay + ";")
 		a.m.w.line("first " + w.name + " then " + name + ";")
 		into = w.name
+	}
+	if s, ok := a.before[n]; ok {
+		a.m.w.block("action "+s.name, func() { a.m.w.lines(s.lines) })
+		a.m.w.line("first " + s.name + " then " + into + ";")
+		into = s.name
 	}
 	if j, ok := a.joins[n]; ok {
 		a.m.w.line("join " + j + ";")
@@ -1106,6 +1136,9 @@ func (a *activity) objectFlow(e *xmi.Element) {
 func (a *activity) callBehavior(n *xmi.Element, name string) {
 	b := a.m.model.Ref(n, "behavior")
 	if b == nil {
+		if a.leafStep(n, name) {
+			return
+		}
 		a.placeholder(n, name, joinNotes(a.m.dangling(n, "behavior"), "the action calls no behavior"), Unmapped)
 		return
 	}
@@ -1119,12 +1152,18 @@ func (a *activity) callBehavior(n *xmi.Element, name string) {
 	cat, _ := a.m.classify(b)
 	switch cat {
 	case catActionDef:
-		a.m.w.line("action " + name + " : " + a.m.ref(b, a.def) + ";")
-		a.pins(n, true, b.Owned("ownedParameter"))
 		note := ""
-		if owner, here := classifierOf(b), classifierOf(a.act); owner != nil && owner != here && (here == nil || !a.m.inherits(here, owner)) {
-			note = "the behavior belongs to " + qualifiedName(owner) + " and runs here in the caller's context"
+		if obj, _ := a.m.lanePerformer(n); obj != "" {
+			usage := strings.TrimPrefix(obj, "this.") + "." + writeName(a.m.behaviorUsage(b))
+			a.m.w.line("perform action " + name + " ::> " + usage + ";")
+			a.m.add(n, Mapped, name, "performed by "+obj+", the object its swimlane represents, as its usage "+usage)
+		} else {
+			a.m.w.line("action " + name + " : " + a.m.ref(b, a.def) + ";")
+			if owner, here := classifierOf(b), classifierOf(a.act); owner != nil && owner != here && (here == nil || !a.m.inherits(here, owner)) {
+				note = "the behavior belongs to " + qualifiedName(owner) + " and runs here in the caller's context"
+			}
 		}
+		a.pins(n, true, b.Owned("ownedParameter"))
 		a.m.add(n, verdictFor(note), name, note)
 	case catCalcDef:
 		a.m.w.block("action "+name, func() {
@@ -1235,7 +1274,7 @@ func (a *activity) opaqueAction(n *xmi.Element, name string) {
 			return
 		}
 		a.m.w.lines(lines)
-		a.m.add(n, Approximated, name, "the "+langName(lang)+" body is written as v2 assignments")
+		a.m.add(n, verdictFor(note), name, note)
 	})
 }
 
@@ -1633,7 +1672,24 @@ func (a *activity) partitions() {
 			text += ": " + strings.Join(held, ", ")
 		}
 		a.m.w.lines(commentLines(text))
-		a.m.add(g, Approximated, "", "a partition names who performs its nodes, which v2 has no form for; it is kept as a comment")
+		a.partitionEntry(g)
+	}
+}
+
+// partitionEntry reports a partition: mapped when the object it represents
+// resolved a name or performed a call, else approximated with why it could not.
+func (a *activity) partitionEntry(g *xmi.Element) {
+	l := a.m.lanesOf(a.act).find(g)
+	const kept = "a partition names who performs its nodes; it is kept as a comment"
+	switch {
+	case l == nil:
+		a.m.add(g, Approximated, "", kept)
+	case l.used:
+		a.m.add(g, Mapped, "", l.note)
+	case l.expr != "":
+		a.m.add(g, Approximated, "", kept+"; "+l.note+", but nothing in it names the object's features")
+	default:
+		a.m.add(g, Approximated, "", kept+"; "+l.note)
 	}
 }
 
@@ -1659,8 +1715,3 @@ func (a *activity) rules() {
 }
 
 // observations reports the activity's observations: what a run measures.
-func (a *activity) observations() {
-	for _, o := range a.act.Owned("observation") {
-		a.m.add(o, Unmapped, "", "an observation records what a run measures; the runtime reports a run's clock instead")
-	}
-}

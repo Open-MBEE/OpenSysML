@@ -94,6 +94,8 @@ func (m *migration) classifierBehavior(c *xmi.Element) {
 	name := ""
 	if op := m.methodOf[b]; op != nil {
 		b, name = op, m.operationUsage(op)
+	} else if classifierOf(b) == c {
+		name = m.behaviorUsage(b)
 	} else {
 		name = m.freshName(c, lowerFirst(m.nameFor(b)))
 	}
@@ -287,10 +289,34 @@ func (m *migration) typedBehaviorValue(v, f, scope *xmi.Element) (expr string, o
 // behaviorExpr writes text as a v2 expression read inside scope, or refuses
 // with the reason: it is not expression syntax, or a name resolves to nothing.
 func (m *migration) behaviorExpr(text, lang string, scope *xmi.Element) (expr string, ok bool, note string) {
+	return m.behaviorExprAs(text, lang, scope, "")
+}
+
+// behaviorExprAs is behaviorExpr wanting a scalar ("" for any): a body in a
+// language the translator reads is translated first, then read as v2 syntax.
+func (m *migration) behaviorExprAs(text, lang string, scope *xmi.Element, want string) (expr string, ok bool, note string) {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return "", false, "the expression has no body"
 	}
+	var refused *refusal
+	if dialectOf(lang) != dialectNone {
+		expr, note, refused = m.translatedExpr(text, lang, scope, want)
+		if refused == nil {
+			m.noted(scope, note)
+			return expr, true, ""
+		}
+	}
+	expr, ok, note = m.v2Expr(text, lang, scope)
+	if !ok {
+		return "", false, refusedNote(refused, note)
+	}
+	return expr, true, note
+}
+
+// v2Expr writes text, already v2 expression syntax, read inside scope, or
+// refuses with the reason: it is not expression syntax, or a name resolves to nothing.
+func (m *migration) v2Expr(text, lang string, scope *xmi.Element) (expr string, ok bool, note string) {
 	refs, ok := exprRefs(text)
 	if !ok {
 		return "", false, "not v2 expression syntax" + langNote(lang)
@@ -299,6 +325,15 @@ func (m *migration) behaviorExpr(text, lang string, scope *xmi.Element) (expr st
 		return "", false, "names " + missing + langNote(lang)
 	}
 	return m.qualifySelf(text, refs, scope), true, ""
+}
+
+// refusedNote is the note for a body neither translated nor read as v2: the
+// translator's refusal when it read the language, else the v2 reading's.
+func refusedNote(refused *refusal, v2Note string) string {
+	if refused == nil || refused.kind == refusedLanguage {
+		return v2Note
+	}
+	return refused.note()
 }
 
 // qualifySelf prefixes `this.` to each name in text that resolves to a feature
@@ -360,13 +395,32 @@ func behaviorScope(e *xmi.Element) bool {
 // assignment is one statement of an opaque body written as a v2 assignment.
 var assignment = regexp.MustCompile(`^([\p{L}_][\p{L}\p{N}_ ]*)\s*(\+\+|--|[-+*/]?=)\s*(.*)$`)
 
-// statements writes an opaque body as v2 assignments read inside scope when every
-// statement assigns a v2 expression to a visible feature, else refuses with the reason.
+// statements writes an opaque body as v2 assignments read inside scope: a body
+// in a language the translator reads is translated first, then each statement
+// is read as an assignment of a v2 expression; else refuses with the reason.
 func (m *migration) statements(body, lang string, scope *xmi.Element) (lines []string, ok bool, note string) {
 	body = strings.TrimSpace(body)
 	if body == "" {
 		return nil, false, "the body is empty"
 	}
+	var refused *refusal
+	if dialectOf(lang) == dialectScript {
+		lines, note, refused = m.translatedStatements(body, lang, scope)
+		if refused == nil {
+			m.noted(scope, note)
+			return lines, true, ""
+		}
+	}
+	lines, ok, note = m.v2Statements(body, lang, scope)
+	if !ok {
+		return nil, false, refusedNote(refused, note)
+	}
+	return lines, true, note
+}
+
+// v2Statements writes an opaque body whose every statement assigns a v2
+// expression to a visible feature, else refuses with the reason.
+func (m *migration) v2Statements(body, lang string, scope *xmi.Element) (lines []string, ok bool, note string) {
 	if strings.ContainsAny(body, "{}") {
 		return nil, false, "the body is not a sequence of assignments" + langNote(lang)
 	}
@@ -392,7 +446,7 @@ func (m *migration) statements(body, lang string, scope *xmi.Element) (lines []s
 			lines = append(lines, "assign "+target+" := "+target+" "+op[:1]+" 1;")
 			continue
 		}
-		expr, ok, enote := m.behaviorExpr(rhs, lang, scope)
+		expr, ok, enote := m.v2Expr(rhs, lang, scope)
 		if !ok {
 			return nil, false, "the statement " + strconv.Quote(st) + " assigns a value whose expression is not migrated: " + enote
 		}
@@ -404,7 +458,7 @@ func (m *migration) statements(body, lang string, scope *xmi.Element) (lines []s
 	if len(lines) == 0 {
 		return nil, false, "the body is empty"
 	}
-	return lines, true, ""
+	return lines, true, "the " + langName(lang) + " body is written as v2 assignments"
 }
 
 // assignable writes the v2 target of an assignment to name read in scope: a

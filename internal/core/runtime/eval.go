@@ -1348,6 +1348,13 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 			return ec.chainMemberValue(answer, rest, name)
 		}
 	}
+	// A clock's currentTime is the run's shared clock, which no feature value holds.
+	if now, isClock, err := ec.ctx.clockMember(inst, name); isClock {
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.chainMemberValue(now, rest, name)
+	}
 	fvDecl, ok := inst.FeatureValues[name]
 	if !ok {
 		// A calc usage is an evaluation rather than a feature value, so its outputs are

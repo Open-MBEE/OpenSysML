@@ -56,6 +56,8 @@ func FromModel(name string, model *xmi.Model) *Result {
 		bounded:   map[*xmi.Element][]*xmi.Element{},
 		triggered: map[*xmi.Element]bool{},
 		indexed:   map[string]int{},
+		lanes:     map[*xmi.Element]*lanes{},
+		usageOf:   map[*xmi.Element]string{},
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -157,6 +159,15 @@ type migration struct {
 	// indexed locates each element's report entry by id, so an element that
 	// several writers account for is reported once.
 	indexed map[string]int
+	// lanes indexes each activity's partitions by the nodes and edges they hold.
+	lanes map[*xmi.Element]*lanes
+	// usageOf names, for each activity a lane's object performs, the action
+	// usage of the activity's owner that performs it.
+	usageOf map[*xmi.Element]string
+	// clocks memoizes the names a simulation configuration gives the clock.
+	clocks map[string]string
+	// observed memoizes, per observation, the durations and time expressions that read it.
+	observed map[*xmi.Element][]*xmi.Element
 }
 
 // add records e's verdict. An element reported before keeps one entry: the
@@ -207,7 +218,7 @@ func weaker(a, b Verdict) bool {
 // by realizing connector, names every anonymous feature that is referred to,
 // and then exposes the features the connectors and slots that will be written reach.
 func (m *migration) prepare() {
-	var reachers []*xmi.Element
+	var reachers, laned []*xmi.Element
 	var walk func(e *xmi.Element)
 	walk = func(e *xmi.Element) {
 		m.distinguish(e)
@@ -261,6 +272,8 @@ func (m *migration) prepare() {
 				m.methodOf[method] = e
 				m.realizeParameters(e, method)
 			}
+		case "Activity":
+			laned = append(laned, e)
 		case "DurationConstraint":
 			for _, c := range m.model.Refs(e, "constrainedElement") {
 				m.bounded[c] = append(m.bounded[c], e)
@@ -281,6 +294,9 @@ func (m *migration) prepare() {
 	}
 	for _, e := range reachers {
 		m.exposeReached(e)
+	}
+	for _, act := range laned {
+		m.prepareLanes(act)
 	}
 }
 

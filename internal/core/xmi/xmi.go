@@ -543,9 +543,15 @@ func (p *docParser) end() {
 // serializations: a "UML" path segment followed only by a version, so a
 // profile below it (…/UML/20161101/StandardProfile) is not one.
 func isUMLNamespace(ns string) bool {
+	return isMetaNamespace(ns, "uml")
+}
+
+// isMetaNamespace reports whether ns names the metamodel called name: its
+// last path segment, or the one before only version segments, is name.
+func isMetaNamespace(ns, name string) bool {
 	segs := strings.Split(strings.TrimRight(ns, "/"), "/")
 	for i := len(segs) - 1; i >= 0; i-- {
-		if strings.EqualFold(segs[i], "uml") {
+		if strings.EqualFold(segs[i], name) {
 			return true
 		}
 		if !isVersionSegment(segs[i]) {
@@ -567,8 +573,10 @@ func isVersionSegment(s string) bool {
 	return true
 }
 
+// isXMINamespace recognizes the XMI namespaces the same way: an "XMI" path
+// segment followed only by a version, so a tool's profile schema (…/SimulationProfile.xmi) is not one.
 func isXMINamespace(ns string) bool {
-	return strings.Contains(strings.ToLower(ns), "xmi")
+	return isMetaNamespace(ns, "xmi")
 }
 
 func hasXMIType(attrs []xml.Attr) bool { return xmiType(attrs) != "" }
