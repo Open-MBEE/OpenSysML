@@ -67,6 +67,18 @@ func (r *invocationRun) enabledMoves() []enabledMove {
 	return held
 }
 
+// leftOut names the interleavings the executors' moves leave out at the state, in executor order.
+func (r *invocationRun) leftOut() []string {
+	defer r.enter()()
+	var names []string
+	for _, exec := range r.inv.executors() {
+		if name := exec.leftOut(); name != "" && !slices.Contains(names, name) {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
 // owners lists the executors with a move among moves, in executor order.
 func owners(moves []enabledMove) []checkedExecutor {
 	var execs []checkedExecutor

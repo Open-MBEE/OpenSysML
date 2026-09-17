@@ -127,6 +127,7 @@ func (e *StateExecutor) startDoRun(behavior lower.StateBehavior) (*doRun, error)
 func (run *doRun) resume(ctx *Context) (*doRun, error) {
 	defer ctx.readingMail(&run.mail)()
 	defer func() { run.mail = nil }()
+	run.host.flow.leftStanding = false
 	for {
 		pause, paused := run.body.resume(ctx)
 		if !paused {

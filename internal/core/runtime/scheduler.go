@@ -281,6 +281,17 @@ func (t stepTokens) has(label string) bool {
 	return slices.ContainsFunc(t.ids, func(id int64) bool { return t.label(id) == label })
 }
 
+// readyCount counts the tokens able to act now, which a one-token step picks among.
+func (t stepTokens) readyCount() int {
+	n := 0
+	for _, id := range t.ids {
+		if !t.held[id] && t.enabled(id) {
+			n++
+		}
+	}
+	return n
+}
+
 // hasAll reports whether the step has every token the labels name: the order
 // of a witness's step is this flow's move only when it does.
 func (t stepTokens) hasAll(labels []string) bool {

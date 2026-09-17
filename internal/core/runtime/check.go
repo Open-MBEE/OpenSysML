@@ -155,7 +155,8 @@ type CheckVerdict int
 const (
 	// CheckExhaustive found no violation and every schedule, up to equivalence, was searched.
 	CheckExhaustive CheckVerdict = iota
-	// CheckWithinBounds found no violation among the schedules the bounds let it search.
+	// CheckWithinBounds found no violation among the schedules the bounds, or the
+	// checker's own moves (NotEnumerated), let it search.
 	CheckWithinBounds
 	// CheckViolation found a violation.
 	CheckViolation
@@ -188,6 +189,9 @@ type CheckReport struct {
 	// BoundsHit names the bounds the search ran into: `depth`, `states`, and the
 	// executor's budgets by name (ExecutorBounds); none when exhaustive.
 	BoundsHit []string
+	// NotEnumerated names the interleavings the search met that its moves leave
+	// out (NotEnumeratedDoRound); none when its moves span every schedule.
+	NotEnumerated []string
 	// Limits are the executor's budgets the search ran under.
 	Limits Budgets
 	// Horizon is the instant the search stopped the clock at: no schedule was
@@ -208,6 +212,9 @@ func (r *CheckReport) Status() string {
 	s += fmt.Sprintf(" (%d states, %d moves, depth %d", r.States, r.Moves, r.MaxDepth)
 	if len(r.BoundsHit) > 0 {
 		s += "; bounds hit: " + strings.Join(r.BoundsHit, ", ")
+	}
+	if len(r.NotEnumerated) > 0 {
+		s += "; not enumerated: " + strings.Join(r.NotEnumerated, ", ")
 	}
 	return s + ")"
 }
@@ -301,6 +308,8 @@ type checker struct {
 	moves    int
 	maxDepth int
 	bounds   []string
+	// notEnumerated names the interleavings the moves left out at states visited.
+	notEnumerated []string
 
 	violations []Violation
 	// finals indexes result.Finals by outcome identity.
@@ -380,6 +389,13 @@ func containsMove(moves []searchMove, m searchMove) bool {
 func (c *checker) hit(bound string) {
 	if !slices.Contains(c.bounds, bound) {
 		c.bounds = append(c.bounds, bound)
+	}
+}
+
+// leaveOut records an interleaving the search's moves leave out at a state it visited.
+func (c *checker) leaveOut(name string) {
+	if !slices.Contains(c.notEnumerated, name) {
+		c.notEnumerated = append(c.notEnumerated, name)
 	}
 }
 
@@ -564,6 +580,9 @@ func (c *checker) visit(depth int) (form canonicalForm, key stateKey, seen *visi
 		c.visited[key] = seen
 		c.tellHeld()
 		c.properties(depth)
+		for _, name := range c.run.leftOut() {
+			c.leaveOut(name)
+		}
 	} else if depth < seen.depth {
 		if seen.cut {
 			seen.explored = make(map[string]bool)
@@ -1145,14 +1164,15 @@ func (c *checker) divergeReached() error {
 // result assembles what the search found.
 func (c *checker) result() *CheckReport {
 	r := &CheckReport{
-		States:     len(c.visited),
-		Moves:      c.moves,
-		MaxDepth:   c.maxDepth,
-		BoundsHit:  c.bounds,
-		Limits:     c.ctx.Budgets(),
-		Horizon:    c.horizon(),
-		Violations: c.violations,
-		Finals:     slices.Clone(c.results),
+		States:        len(c.visited),
+		Moves:         c.moves,
+		MaxDepth:      c.maxDepth,
+		BoundsHit:     c.bounds,
+		NotEnumerated: c.notEnumerated,
+		Limits:        c.ctx.Budgets(),
+		Horizon:       c.horizon(),
+		Violations:    c.violations,
+		Finals:        slices.Clone(c.results),
 	}
 	sort.Slice(r.Finals, func(i, j int) bool { return r.Finals[i].identity < r.Finals[j].identity })
 	r.Divergent = divergences(r.Finals)
@@ -1161,7 +1181,7 @@ func (c *checker) result() *CheckReport {
 		r.Verdict = CheckViolation
 	case len(r.Divergent) > 0:
 		r.Verdict = CheckDivergent
-	case len(r.BoundsHit) > 0:
+	case len(r.BoundsHit) > 0 || len(r.NotEnumerated) > 0:
 		r.Verdict = CheckWithinBounds
 	default:
 		r.Verdict = CheckExhaustive
@@ -1216,6 +1236,11 @@ const (
 	BoundElements    = "elements"
 	BoundBehaviors   = "behaviors"
 )
+
+// NotEnumeratedDoRound names the interleaving the checker leaves out at a machine
+// owing a dispatch after a do step that moved one of several tokens able to act:
+// its one move dispatches, where the fixed policies move the rest of the round first.
+const NotEnumeratedDoRound = "do round before dispatch"
 
 // ExecutorBounds lists the executor budgets a bound hit may name, in report order.
 var ExecutorBounds = []string{BoundSteps, BoundActionSteps, BoundEvents, BoundDoSteps, BoundElements, BoundBehaviors}
