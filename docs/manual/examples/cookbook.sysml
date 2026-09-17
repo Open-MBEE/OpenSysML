@@ -218,4 +218,38 @@ package Cookbook {
 		in root : Element;
 		WhereFeature(source = Verdicts(source = root), 'feature' = "verdict", operator = "=", value = "violated")
 	}
+
+	// ---- Requirement derivation and refinement ----
+
+	requirement mirrorMassRequirement;
+	requirement segmentMassRequirement;
+	requirement instrumentMassRequirement;
+	connection deriveMirrorMass : RequirementDerivation::Derivation
+		connect massRequirement to mirrorMassRequirement;
+	#RequirementDerivation::derivation connection deriveInstrumentMass
+		connect massRequirement to instrumentMassRequirement;
+	#RequirementDerivation::derivation connection deriveSegmentMass
+		connect mirrorMassRequirement to segmentMassRequirement;
+	#ModelingMetadata::refinement dependency mirrorRefinesMass
+		from MirrorAssembly to mirrorMassRequirement;
+
+	calc def DerivedFrom :> Query {
+		in req : Element;
+		RelatedElements(
+			source = req,
+			relationshipKind = "derivation",
+			direction = "outgoing",
+			maxDepth = 2
+		)
+	}
+
+	calc def RefinedBy :> Query {
+		in req : Element;
+		RelatedElements(
+			source = req,
+			relationshipKind = "refinement",
+			direction = "incoming",
+			maxDepth = 1
+		)
+	}
 }

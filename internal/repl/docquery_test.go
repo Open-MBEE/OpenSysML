@@ -88,7 +88,7 @@ const docQueryModel = `package Observatory {
 		in root : Element;
 		RelatedElements(
 			source = root,
-			relationshipKind = "refinement",
+			relationshipKind = "containment",
 			direction = "outgoing",
 			maxDepth = 1
 		)
@@ -161,7 +161,7 @@ func TestRunQuerySurfacesTypedExecutionFailures(t *testing.T) {
 		"error:", "binding root has type integer, expected")
 	// An unsupported relationship kind is a typed execution failure.
 	wants(t, run(t, s, "%run-query UnknownRelatedQuery root=telescope"),
-		"error:", `does not support relationship kind "refinement"`)
+		"error:", `does not support relationship kind "containment"`)
 }
 
 func TestRunQueryTraversesNamedRelationships(t *testing.T) {

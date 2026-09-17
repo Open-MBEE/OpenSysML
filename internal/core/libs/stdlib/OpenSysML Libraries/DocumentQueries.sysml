@@ -60,8 +60,8 @@ library package DocumentQueries {
 	calc def RelatedElements {
 		in source : Element[0..*] ordered;
 		/* relationshipKind: "specialization", "subsetting", "redefinition",
-		 * "typing", "connection", "allocation", "satisfaction" or
-		 * "verification"; direction: "outgoing" or "incoming". */
+		 * "typing", "connection", "allocation", "satisfaction", "verification",
+		 * "derivation" or "refinement"; direction: "outgoing" or "incoming". */
 		in relationshipKind : String[1];
 		in direction : String[1];
 		in maxDepth : Integer[1];
