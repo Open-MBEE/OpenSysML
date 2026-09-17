@@ -139,7 +139,7 @@ func TestPlayBindsTheOptionsAndNumbers(t *testing.T) {
 		t.Fatalf("narration = %q", lines)
 	}
 	o = play(t, g, "W", map[string]string{"weapon": "town.weapons.nirasTeeth"})
-	if o.After.WeaponTier != 1 || o.After.Gold != 300 {
+	if o.After.WeaponTier != 1 || o.After.Gold != 300 || !o.Refused() {
 		t.Fatalf("a weapon beyond the purse was sold: %+v", *o.After)
 	}
 	o = play(t, g, "M", map[string]string{"favouredMove": "Move::deathKnight"})
@@ -152,8 +152,12 @@ func TestPlayBindsTheOptionsAndNumbers(t *testing.T) {
 		t.Fatalf("after depositing: %+v", *o.After)
 	}
 	o = play(t, g, "W", map[string]string{"amount": "100"})
-	if o.After.Gold != 150 || o.After.BankGold != 150 {
+	if o.After.Gold != 150 || o.After.BankGold != 150 || o.Refused() {
 		t.Fatalf("after withdrawing: %+v", *o.After)
+	}
+	o = play(t, g, "W", map[string]string{"amount": "9999"})
+	if o.After.Gold != 150 || o.After.BankGold != 150 || !o.Refused() {
+		t.Fatalf("overdrawing the bank: %+v refused=%v", *o.After, o.Refused())
 	}
 }
 

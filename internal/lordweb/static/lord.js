@@ -45,7 +45,7 @@
       renderStats(view.warrior);
       location.textContent = view.screen.title;
       renderMenu(view.screen.choices);
-      if (view.lines && view.lines.length) history.push({lines: view.lines});
+      if (view.lines && view.lines.length) history.push({lines: view.lines, error: view.refused});
     }
     if (error) history.push({lines: [error], error: true});
     history = history.slice(-4);

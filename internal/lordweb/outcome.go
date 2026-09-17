@@ -18,6 +18,13 @@ type Outcome struct {
 // Moved reports whether the day machine changed state.
 func (o *Outcome) Moved() bool { return o.From != o.To }
 
+// Refused reports that the model turned the deed down: every deed opens with a
+// decision whose else branch is done, so a run that stayed put, drew no dice and
+// changed nothing took that branch.
+func (o *Outcome) Refused() bool {
+	return !o.Moved() && len(o.Choices) == 0 && *o.Before == *o.After
+}
+
 // Narrate tells the outcome as the game's screens did: the foe the forest
 // served, the blows, and every change to the warrior's standing.
 func (o *Outcome) Narrate(g *Game) []string {

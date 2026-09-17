@@ -31,6 +31,7 @@ type View struct {
 	Warrior   *Snapshot `json:"warrior,omitempty"`
 	Screen    *Screen   `json:"screen,omitempty"`
 	Lines     []string  `json:"lines"`
+	Refused   bool      `json:"refused,omitempty"`
 }
 
 // playRequest is a keypress on the current screen with the inputs its choice asks for.
@@ -166,9 +167,13 @@ func (s *Server) handlePlay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(lines) == 0 {
-		if outcome.Moved() {
+		switch {
+		case outcome.Moved():
 			view.Lines = []string{fmt.Sprintf("You make your way to %s.", view.Screen.Title)}
-		} else {
+		case outcome.Refused():
+			view.Refused = true
+			view.Lines = []string{"You cannot do that as things stand."}
+		default:
 			view.Lines = []string{"Nothing comes of it."}
 		}
 	}

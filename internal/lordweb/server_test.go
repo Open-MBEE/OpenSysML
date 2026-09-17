@@ -162,6 +162,17 @@ func TestServerAnswersSlipsAsTheGameWould(t *testing.T) {
 	if resp, body := b.post("/api/new", Character{Class: "wizard"}); resp.StatusCode != http.StatusBadRequest || !strings.Contains(string(body), "wizard") {
 		t.Fatalf("a class the model lacks: %d %s", resp.StatusCode, body)
 	}
+
+	b.view("/api/play", playRequest{Key: "R"})
+	b.view("/api/play", playRequest{Key: "K"})
+	v := b.view("/api/play", playRequest{Key: "W", Inputs: map[string]string{"amount": "9999"}})
+	if !v.Refused || v.Warrior.Gold != 500 || v.Warrior.BankGold != 0 || len(v.Lines) != 1 || !strings.Contains(v.Lines[0], "cannot") {
+		t.Fatalf("overdrawing the bank: refused=%v %+v %q", v.Refused, *v.Warrior, v.Lines)
+	}
+	v = b.view("/api/play", playRequest{Key: "D", Inputs: map[string]string{"amount": "100"}})
+	if v.Refused || v.Warrior.Gold != 400 || v.Warrior.BankGold != 100 {
+		t.Fatalf("a deposit within the purse: refused=%v %+v", v.Refused, *v.Warrior)
+	}
 }
 
 func TestServerKeepsBrowsersApart(t *testing.T) {
