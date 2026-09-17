@@ -336,8 +336,8 @@ body stating no flow still runs its statements in declaration order. The three b
 in *when* they run: entry and exit are performed whole at the instant the state is entered or
 left (as is a transition's `do` effect), so a body of theirs that waits on the clock is refused
 with `state behavior waits for the clock`; the `do` behavior runs while the state is active,
-one statement per round — one iteration of a `for` or `while` body, one step of a flow the body
-states, each of its tokens one node — and may wait. An `accept after` in a do body parks it on the shared clock and `%advance`
+one statement per round — each statement of a `for` or `while` iteration and of a nested block
+or branch its own, one step of a flow the body states, each of its tokens one node — and may wait. An `accept after` in a do body parks it on the shared clock and `%advance`
 moves it; an `accept Sig` parks it until a matching signal is sent — `%send Sig` takes it though
 no transition fires on it, reporting that the do behavior goes on. A do behavior performs once —
 when its body ends, the state has completed and a completion transition out of it, if any, fires

@@ -11,6 +11,7 @@ import (
 // budget a body that never ends runs into.
 func TestRuntimeRobustnessResumableInlineDoBody(t *testing.T) {
 	t.Run("exit_mid_loop_drops_the_pending_iterations", testDoBodyExitMidLoopDropsThePendingIterations)
+	t.Run("exit_mid_iteration_drops_the_rest_of_the_iteration", testDoBodyExitMidIterationDropsTheRestOfTheIteration)
 	t.Run("exit_on_a_clock_wait_after_a_loop_leaves_no_timer", testDoBodyExitOnAClockWaitAfterALoopLeavesNoTimer)
 	t.Run("non_terminating_body_exceeds_the_step_limit", testDoBodyNonTerminatingExceedsTheStepLimit)
 	t.Run("non_terminating_flow_body_exceeds_the_step_limit", testDoBodyNonTerminatingFlowExceedsTheStepLimit)
@@ -82,10 +83,10 @@ func pausedDoRun(t *testing.T, exec *StateExecutor) *doRun {
 	return run
 }
 
-// testDoBodyExitMidLoopDropsThePendingIterations: a `for` body yields after each
-// iteration; the Stop, dispatched after the round that ran the third, drops the
-// two left with the behavior, the exit behavior runs, and nothing of the loop
-// stays behind.
+// testDoBodyExitMidLoopDropsThePendingIterations: a `for` body of one statement
+// yields after each iteration; the Stop, dispatched after the round that ran the
+// third, drops the two left with the behavior, the exit behavior runs, and
+// nothing of the loop stays behind.
 func testDoBodyExitMidLoopDropsThePendingIterations(t *testing.T) {
 	goroutines := goruntime.NumGoroutine()
 	exec := stateExecutorForSource(t, "Machine", doBodyMachine(`
@@ -107,6 +108,38 @@ func testDoBodyExitMidLoopDropsThePendingIterations(t *testing.T) {
 	data := exec.StateData()
 	if !valueEqual(data["total"], integerValue(6)) || !valueEqual(data["after"], integerValue(6)) {
 		t.Errorf("total = %v, after = %v; want 6 and 6: one iteration in the round before the Stop, none after, the exit behavior did run", data["total"], data["after"])
+	}
+	assertDoBodyAbandoned(t, exec, run, goroutines)
+}
+
+// testDoBodyExitMidIterationDropsTheRestOfTheIteration: an iteration of two
+// statements is two rounds, so the Stop dispatched after the round that ran the
+// second iteration's first statement leaves its second unrun with the iterations after.
+func testDoBodyExitMidIterationDropsTheRestOfTheIteration(t *testing.T) {
+	goroutines := goruntime.NumGoroutine()
+	exec := stateExecutorForSource(t, "Machine", doBodyMachine(`
+		for i in 1..3 {
+			assign total := total + i;
+			assign total := total * 10;
+		}
+	`))
+	run := pausedDoRun(t, exec)
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(1)) {
+		t.Fatalf("total = %v after one round; want 1, the first statement of the first iteration", total)
+	}
+	if _, err := exec.RunDoRound(); err != nil {
+		t.Fatalf("second do round: %v", err)
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(10)) {
+		t.Fatalf("total = %v after two rounds; want 10, the first iteration's second statement", total)
+	}
+	exec.SendSignal("Stop", nil)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run to completion: %v", err)
+	}
+	data := exec.StateData()
+	if !valueEqual(data["total"], integerValue(12)) || !valueEqual(data["after"], integerValue(12)) {
+		t.Errorf("total = %v, after = %v; want 12 and 12: the round before the Stop ran the second iteration's `+ i`, its `* 10` and the third iteration never ran", data["total"], data["after"])
 	}
 	assertDoBodyAbandoned(t, exec, run, goroutines)
 }

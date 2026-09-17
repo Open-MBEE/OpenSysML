@@ -703,7 +703,7 @@ func (e *stmtEngine) endIteration(f *loopFrame, err error) {
 // loop runs a loop to termination or to the `return` its body reaches. Every
 // iteration spends one step of the budget, so a non-terminating loop fails with
 // ErrStepLimitExceeded instead of hanging its caller. A body run one statement
-// at a time yields between two iterations.
+// at a time yields between two iterations as between two statements of one.
 func (e *stmtEngine) loop(stmt lower.Loop) (stmtFlow, error) {
 	if stmt.Kind == ast.LoopFor {
 		return e.forLoop(stmt)
