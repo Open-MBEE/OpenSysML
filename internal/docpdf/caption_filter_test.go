@@ -13,9 +13,10 @@ import (
 )
 
 // tableDiagramDocument is a report whose captioned artwork is, in order, two
-// table-kind diagrams, a Mermaid diagram, a table whose caption is padded with
-// blanks, a table whose caption is blank and a captioned table, with an
-// emphasized paragraph of prose between them that repeats a caption's text.
+// table-kind diagrams, a Mermaid diagram, a table whose caption is padded to
+// CommonMark's indented-code width, a table whose caption is blank and a
+// captioned table, with an emphasized paragraph of prose between them that
+// repeats a caption's text.
 func tableDiagramDocument(t *testing.T) *docir.Document {
 	t.Helper()
 	return sourceDocument(t, "tables.sysml", `package Tables {
@@ -57,7 +58,7 @@ func tableDiagramDocument(t *testing.T) *docir.Document {
 			ref redefines source = imagingChain;
 		}
 		part names : Table {
-			attribute redefines caption = " Subsystems by name ";
+			attribute redefines caption = "    Subsystems by name ";
 			calc rows : Names { in root = imagingChain; }
 		}
 		part unnamed : Table {
@@ -84,20 +85,22 @@ func TestArtworkFilterMarksCaptionsPastTableRenderings(t *testing.T) {
 	}
 	document := tableDiagramDocument(t)
 	captions := docrender.Captions(document)
-	if want := []string{"Masses", "Everything else", "Imaging chain", " Subsystems by name ", "Total mass"}; strings.Join(captions, "|") != strings.Join(want, "|") {
+	if want := []string{"Masses", "Everything else", "Imaging chain", "Subsystems by name", "Total mass"}; strings.Join(captions, "|") != strings.Join(want, "|") {
 		t.Fatalf("captions = %q, want %q", captions, want)
 	}
 	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"*Masses*\n\n<!-- table rendering", "*Everything else*\n\n<!-- table rendering", "\n *Subsystems by name* \n", "*Total mass*\n\n|"} {
+	for _, want := range []string{"*Masses*\n\n<!-- table rendering", "*Everything else*\n\n<!-- table rendering", "\n*Subsystems by name*\n", "*Total mass*\n\n|"} {
 		if !strings.Contains(markdown, want) {
 			t.Fatalf("Markdown lacks %q:\n%s", want, markdown)
 		}
 	}
-	if strings.Contains(markdown, "*   *") {
-		t.Fatalf("Markdown writes a paragraph for the blank caption:\n%s", markdown)
+	for _, literal := range []string{"    *Subsystems", "*   *"} {
+		if strings.Contains(markdown, literal) {
+			t.Fatalf("Markdown carries a caption's padding %q:\n%s", literal, markdown)
+		}
 	}
 	html := filteredHTML(t, pandoc, markdown, captions)
 	if !strings.Contains(html, "<p><em>Masses</em></p>") {
@@ -142,7 +145,7 @@ func filteredHTML(t *testing.T, pandoc, markdown string, captions []string) stri
 	}
 	html := string(out)
 	for _, caption := range captions {
-		if !strings.Contains(html, `<span class="caption"><em>`+strings.TrimSpace(caption)+`</em></span>`) {
+		if !strings.Contains(html, `<span class="caption"><em>`+caption+`</em></span>`) {
 			t.Errorf("caption %q not marked:\n%s", caption, html)
 		}
 	}

@@ -10,5 +10,5 @@
   Markdown backend wrote ahead of a table's or diagram's emphasized caption is gone; the caption
   stays an emphasized paragraph. Pandoc recognizes captions by matching those paragraphs against
   the document's captions in order, so an emphasized paragraph elsewhere stays prose. A caption
-  padded with blanks keeps them outside the emphasis marks, as a grouped table's key already did,
-  so CommonMark still parses it as emphasis; a blank caption writes no paragraph.
+  is written without its surrounding blanks, which CommonMark would otherwise read as literal
+  asterisks or as indented code; a blank caption writes no paragraph.

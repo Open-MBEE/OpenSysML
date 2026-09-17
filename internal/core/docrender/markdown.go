@@ -432,13 +432,14 @@ func documentFileName(fqn, extension string) string {
 	return docir.AnchorFor(strings.Split(fqn, "::")) + extension
 }
 
-// captionBlock writes a caption as an emphasized paragraph, its surrounding
-// blanks outside the marks; a blank caption writes nothing, as Captions lists none.
+// captionBlock writes a caption as an emphasized paragraph without its surrounding
+// blanks, which at block start would read as indentation; a blank caption writes nothing.
 func captionBlock(caption string) []string {
-	if strings.TrimSpace(caption) == "" {
+	caption = strings.TrimSpace(caption)
+	if caption == "" {
 		return nil
 	}
-	return []string{delimited("*", caption)}
+	return []string{"*" + inline(caption) + "*"}
 }
 
 // delimited wraps escaped text in emphasis delimiters, keeping leading and

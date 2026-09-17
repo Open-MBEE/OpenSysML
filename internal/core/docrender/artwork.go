@@ -143,8 +143,8 @@ func displayFormula(source string) Formula {
 // Captions lists the document's table, diagram and formula captions in
 // document order: each is the emphasized paragraph the Markdown backend
 // writes ahead of its block, for a consumer telling a caption from a
-// paragraph that happens to be emphasized. A blank caption is written
-// nowhere and listed nowhere.
+// paragraph that happens to be emphasized. Each is listed as written, without
+// surrounding blanks; a blank caption is written nowhere and listed nowhere.
 func Captions(document *docir.Document) []string {
 	if document == nil {
 		return nil
@@ -155,8 +155,8 @@ func Captions(document *docir.Document) []string {
 		for _, node := range nodes {
 			switch node.Kind() {
 			case docir.ContentTable, docir.ContentDiagram, docir.ContentFormula:
-				if strings.TrimSpace(node.Caption()) != "" {
-					captions = append(captions, node.Caption())
+				if caption := strings.TrimSpace(node.Caption()); caption != "" {
+					captions = append(captions, caption)
 				}
 			}
 			walk(node.Children())

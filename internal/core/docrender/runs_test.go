@@ -213,9 +213,10 @@ func TestMarkdownGroupedTableBlankKey(t *testing.T) {
 	}
 }
 
-// TestMarkdownPaddedCaption checks a caption keeps its surrounding blank
-// outside the emphasis marks, so CommonMark still parses it as emphasis, and
-// that a blank caption writes no paragraph and is not listed by Captions.
+// TestMarkdownPaddedCaption checks a caption padded with blanks, four spaces
+// or a tab is written as plain emphasis (CommonMark would read the padding as
+// indented code), and that a blank caption writes no paragraph and is not
+// listed by Captions.
 func TestMarkdownPaddedCaption(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "padded_caption.sysml")
 	model := `
@@ -234,6 +235,14 @@ func TestMarkdownPaddedCaption(t *testing.T) {
 				attribute redefines title = "Report";
 				part padded : Table {
 					attribute redefines caption = " Masses ";
+					calc rows : Named { in root = widgets; }
+				}
+				part indented : Table {
+					attribute redefines caption = "    Volumes";
+					calc rows : Named { in root = widgets; }
+				}
+				part tabbed : Table {
+					attribute redefines caption = "	Areas";
 					calc rows : Named { in root = widgets; }
 				}
 				part blank : Table {
@@ -255,14 +264,18 @@ func TestMarkdownPaddedCaption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(got, "\n *Masses* \n") || strings.Contains(got, "* Masses *") {
-		t.Errorf("padded caption is not an emphasis span CommonMark parses\n%s", got)
+	for _, want := range []string{"\n*Masses*\n", "\n*Volumes*\n", "\n*Areas*\n", "\n*Details*\n"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("Markdown lacks %q as a plain emphasized paragraph\n%s", want, got)
+		}
 	}
-	if strings.Contains(got, "*   *") || strings.Contains(got, "\n   \n") {
-		t.Errorf("blank caption wrote a paragraph\n%s", got)
+	for _, literal := range []string{"* Masses *", " *Masses*", "    *Volumes*", "\t*Areas*", "*   *", "\n   \n"} {
+		if strings.Contains(got, literal) {
+			t.Errorf("Markdown carries a caption's padding %q\n%s", literal, got)
+		}
 	}
-	if captions := Captions(document); !reflect.DeepEqual(captions, []string{" Masses ", "Details"}) {
-		t.Errorf("Captions = %q, want the padded and trailing captions only", captions)
+	if captions := Captions(document); !reflect.DeepEqual(captions, []string{"Masses", "Volumes", "Areas", "Details"}) {
+		t.Errorf("Captions = %q, want the non-blank captions trimmed", captions)
 	}
 }
 
