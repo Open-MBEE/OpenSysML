@@ -20,6 +20,13 @@ import (
 // valueExpr writes a UML value specification as a v2 expression. ok is false
 // when it has no v2 form; note explains an approximation or the refusal.
 func (m *migration) valueExpr(v, scope *xmi.Element) (expr string, ok bool, note string) {
+	return m.valueExprAs(v, scope, "")
+}
+
+// valueExprAs writes a value specification wanted as the scalar want ("" for
+// any): an opaque body in the translated subset is translated, else copied
+// when it is already v2 whose names resolve from scope.
+func (m *migration) valueExprAs(v, scope *xmi.Element, want string) (expr string, ok bool, note string) {
 	switch v.Type {
 	case "LiteralInteger", "LiteralUnlimitedNatural":
 		val := v.Attrs["value"]
@@ -75,12 +82,20 @@ func (m *migration) valueExpr(v, scope *xmi.Element) (expr string, ok bool, note
 		if body == "" {
 			return "", false, "opaque expression has no body"
 		}
+		var refused *refusal
+		if dialectOf(lang) != dialectNone {
+			expr, note, refused = m.translatedExpr(body, lang, scope, want)
+			if refused == nil {
+				m.noted(valueOwner(v, scope), note)
+				return expr, true, ""
+			}
+		}
 		refs, ok := exprRefs(body)
 		if !ok {
-			return "", false, "opaque expression is not v2 expression syntax" + langNote(lang)
+			return "", false, refusedNote(refused, "opaque expression is not v2 expression syntax"+langNote(lang), lang)
 		}
 		if problem := m.invisible(refs, scope); problem != "" {
-			return "", false, "opaque expression " + problem + langNote(lang)
+			return "", false, refusedNote(refused, "opaque expression "+problem+langNote(lang), lang)
 		}
 		return body, true, "opaque expression copied verbatim" + langNote(lang)
 	case "Expression", "TimeExpression", "Duration", "Interval", "StringExpression":
@@ -134,16 +149,25 @@ func (m *migration) typingIndividual(p *xmi.Element, kw string) (*xmi.Element, s
 	return ind, ""
 }
 
+// valueOwner is the element whose report entry describes value v: the element
+// holding it, else the scope it is read in.
+func valueOwner(v, scope *xmi.Element) *xmi.Element {
+	if v.Parent != nil {
+		return v.Parent
+	}
+	return scope
+}
+
 // featureValue writes value v of feature f. A literal of another kind that
 // spells a value of f's scalar type, as tools store a typed-in default,
 // becomes that value: a string spelling a number, a whole real for an integer.
 // A literal that spells no value of that type is refused, not copied.
 func (m *migration) featureValue(v, f, scope *xmi.Element) (expr string, ok bool, note string) {
-	expr, ok, note = m.valueExpr(v, scope)
+	t := m.model.Ref(f, "type")
+	expr, ok, note = m.valueExprAs(v, scope, m.scalarBase(t))
 	if !ok {
 		return expr, ok, note
 	}
-	t := m.model.Ref(f, "type")
 	if v.Type == "InstanceValue" && t != nil {
 		inst := m.model.Ref(v, "instance")
 		if inst.Type == "InstanceSpecification" && !m.instanceOf(m.model.Refs(inst, "classifier"), t) {

@@ -309,7 +309,7 @@ func (m *migration) behaviorExprAs(text, lang string, scope *xmi.Element, want s
 	}
 	expr, ok, note = m.v2Expr(text, lang, scope)
 	if !ok {
-		return "", false, refusedNote(refused, note)
+		return "", false, refusedNote(refused, note, lang)
 	}
 	return expr, true, note
 }
@@ -328,9 +328,10 @@ func (m *migration) v2Expr(text, lang string, scope *xmi.Element) (expr string, 
 }
 
 // refusedNote is the note for a body neither translated nor read as v2: the
-// translator's refusal when it read the language, else the v2 reading's.
-func refusedNote(refused *refusal, v2Note string) string {
-	if refused == nil || refused.kind == refusedLanguage {
+// translator's refusal when the body declares a language it reads, else the
+// v2 reading's (a body declaring no language is v2 first).
+func refusedNote(refused *refusal, v2Note, lang string) string {
+	if refused == nil || refused.kind == refusedLanguage || strings.TrimSpace(lang) == "" {
 		return v2Note
 	}
 	return refused.note()
@@ -413,7 +414,7 @@ func (m *migration) statements(body, lang string, scope *xmi.Element) (lines []s
 	}
 	lines, ok, note = m.v2Statements(body, lang, scope)
 	if !ok {
-		return nil, false, refusedNote(refused, note)
+		return nil, false, refusedNote(refused, note, lang)
 	}
 	return lines, true, note
 }

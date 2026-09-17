@@ -934,6 +934,19 @@ func isBehaviorSymbol(sym *symbols.Symbol) bool {
 	return false
 }
 
+// isBehaviorType reports whether sym is a behavior, whose objects are its
+// performances: an action or state, as a definition or a usage.
+func isBehaviorType(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	switch sym.Kind {
+	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolStateDef, symbols.SymbolStateUsage:
+		return true
+	}
+	return false
+}
+
 // isPerformanceEvent reports an `event occurrence` a behavior declares: it occurs
 // in each performance of the behavior rather than being an object of its own.
 func isPerformanceEvent(sym *symbols.Symbol) bool {

@@ -143,7 +143,7 @@ func TestActivityMigratesToAnExecutableActionDef(t *testing.T) {
 		"action wait2 accept after RandomFunctions::uniform(1.0, 8.0) [SI::s];",
 		"join 'join';",
 		"decide 'decide';",
-		"/* guard not migrated: [Focus lost] — the text \"lost\" is not expression syntax: text follows the expression */",
+		"/* guard not migrated: [Focus lost] — not v2 expression syntax */",
 		"first 'decide' then Retry { @Stochastic::Probability { p = 0.25; } }",
 		"first 'decide' then 'merge' { @Stochastic::Probability { p = 0.75; } }",
 		"merge 'merge';",

@@ -1,28 +1,26 @@
 # SysML v1 to v2 migration report: vehicle.xmi
 # exported by Example UML Tool
-# migrated 92 element(s): 76 mapped, 13 approximated, 3 unmapped (3 skipped as profile or library content)
+# migrated 92 element(s): 78 mapped, 11 approximated, 3 unmapped (3 skipped as profile or library content)
 
 ## unmapped (3)
 «Verify» Abstraction	Requirements::<Abstraction>	_dep_verify_block	(a verify whose client is not a test case has no v2 form; applied stereotypes «Verify»)
 «Unit» InstanceSpecification	Vehicle Design::Value Types::kilogram	_unit_kg	(units and quantity kinds are not migrated; use the SI and ISQ libraries; applied stereotypes «Unit» (quantityKind = Vehicle Design::Value Types::mass; symbol = kg))
 «QuantityKind» InstanceSpecification	Vehicle Design::Value Types::mass	_qk_mass	(units and quantity kinds are not migrated; use the SI and ISQ libraries; applied stereotypes «QuantityKind»)
 
-## approximated (13)
+## approximated (11)
 «Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	(a trace is written as a plain dependency)
 «TestCase» Activity	Requirements::Mass Test	_tc_mass	-> Requirements::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
 Actor	Vehicle Design::Driver	_actor_driver	-> 'Vehicle Design'::Driver	(a UML actor is written as a part def)
 «FlowPort» Port	Vehicle Design::Engine::speedIn	_port_speedIn	-> 'Vehicle Design'::Engine::speedIn	(a port typed by a DataType is written as a port holding one directed attribute)
 Class	Vehicle Design::Helper	_plain_helper	-> 'Vehicle Design'::Helper	(a plain UML class without «Block» is written as a part def)
-Constraint	Vehicle Design::MassLimit::<Constraint>	_cb_rule	-> 'Vehicle Design'::MassLimit	(opaque expression copied verbatim (language English))
 «FlowPort» Port	Vehicle Design::Piston::p	_port_piston_p	-> 'Vehicle Design'::Piston::p	(a port typed by a DataType is written as a port holding one directed attribute)
 «ValueType» DataType	Vehicle Design::Value Types::Mass	_vt_mass	-> 'Vehicle Design'::'Value Types'::Mass	(«ValueType» quantityKind = Vehicle Design::Value Types::mass; unit = Vehicle Design::Value Types::kilogram has no v2 form)
 «Block» Class	Vehicle Design::Vehicle	_blk_vehicle	-> 'Vehicle Design'::Vehicle	(«Block» isEncapsulated = true has no v2 form)
-Constraint	Vehicle Design::Vehicle::positive mass	_rule_positive	-> 'Vehicle Design'::Vehicle::'positive mass'	(opaque expression copied verbatim (language English))
 Property	Vehicle Design::Vehicle::sharedCharger	_prop_charger	-> 'Vehicle Design'::Vehicle::sharedCharger	(shared aggregation is written as a reference part)
 «FlowPort» Port	Vehicle Design::Vehicle::speedOut	_port_speedOut	-> 'Vehicle Design'::Vehicle::speedOut	(a port typed by a DataType is written as a port holding one directed attribute)
 Property	Vehicle Design::Vehicle::totalMass	_prop_total	-> 'Vehicle Design'::Vehicle::totalMass	(opaque expression copied verbatim (language SysML))
 
-## mapped (76)
+## mapped (78)
 Comment	<Comment>	_cmt_model
 Package	Empty Package	_pkg_unused	-> 'Empty Package'
 Model	Model	_model	(the root model's members are written at the top level)
@@ -60,6 +58,7 @@ Package	Vehicle Design::Interfaces	_pkg_interfaces	-> 'Vehicle Design'::Interfac
 «FlowProperty» Property	Vehicle Design::Interfaces::FuelInterface::fuel	_fp_fuel	-> 'Vehicle Design'::Interfaces::FuelInterface::fuel
 «FlowProperty» Property	Vehicle Design::Interfaces::FuelInterface::rate	_fp_rate	-> 'Vehicle Design'::Interfaces::FuelInterface::rate
 «ConstraintBlock» Class	Vehicle Design::MassLimit	_cb_masslimit	-> 'Vehicle Design'::MassLimit
+Constraint	Vehicle Design::MassLimit::<Constraint>	_cb_rule	-> 'Vehicle Design'::MassLimit	(the English body is translated to v2)
 Property	Vehicle Design::MassLimit::limit	_cp_limit	-> 'Vehicle Design'::MassLimit::limit
 Property	Vehicle Design::MassLimit::m	_cp_m	-> 'Vehicle Design'::MassLimit::m
 «Block» Class	Vehicle Design::Motor	_blk_motor	-> 'Vehicle Design'::Motor
@@ -91,6 +90,7 @@ Connector	Vehicle Design::Vehicle::fuel line	_conn_fuel	-> 'Vehicle Design'::Veh
 Property	Vehicle Design::Vehicle::isElectric	_prop_isElectric	-> 'Vehicle Design'::Vehicle::isElectric
 Property	Vehicle Design::Vehicle::mass	_prop_mass	-> 'Vehicle Design'::Vehicle::mass
 Property	Vehicle Design::Vehicle::massLimit	_prop_limit	-> 'Vehicle Design'::Vehicle::massLimit
+Constraint	Vehicle Design::Vehicle::positive mass	_rule_positive	-> 'Vehicle Design'::Vehicle::'positive mass'	(the English body is translated to v2)
 Operation	Vehicle Design::Vehicle::start	_op_start	-> 'Vehicle Design'::Vehicle::start	(its owner's usage start 2 performs it, as a call on an object does)
 Parameter	Vehicle Design::Vehicle::start::key	_par_start	-> 'Vehicle Design'::Vehicle::start::key
 Property	Vehicle Design::Vehicle::vehicle name	_prop_name	-> 'Vehicle Design'::Vehicle::'vehicle name'

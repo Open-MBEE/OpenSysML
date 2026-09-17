@@ -180,10 +180,11 @@ func (m *migration) translatedExpr(body, lang string, scope *xmi.Element, want s
 	if err != nil {
 		return "", "", err
 	}
-	if _, ok := parseExpr(t.expr); !ok {
-		return "", "", &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(t.expr) + " is not v2 expression syntax"}
+	expr = spellFor(want, t)
+	if _, ok := parseExpr(expr); !ok {
+		return "", "", &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(expr) + " is not v2 expression syntax"}
 	}
-	return t.expr, s.note(lang), nil
+	return expr, s.note(lang), nil
 }
 
 // translatedStatements translates an opaque body as the statements of an action

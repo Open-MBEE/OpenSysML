@@ -776,7 +776,7 @@ func (m *migration) constraintBody(e *xmi.Element) {
 		}
 		if spec == nil {
 			m.unmapped(result, "the constraint has no specification")
-		} else if expr, ok, note := m.valueExpr(spec, e); ok {
+		} else if expr, ok, note := m.valueExprAs(spec, e, "Boolean"); ok {
 			m.w.line(expr)
 			m.add(result, verdictFor(note), m.v2Name(e), note)
 		} else {
@@ -1904,7 +1904,7 @@ func (m *migration) rule(r *xmi.Element) {
 		m.unmapped(r, "the constraint has no specification")
 		return
 	}
-	expr, ok, note := m.valueExpr(spec, m.scope)
+	expr, ok, note := m.valueExprAs(spec, m.scope, "Boolean")
 	if !ok {
 		m.unmappedExpr(r, spec, note)
 		return

@@ -397,7 +397,7 @@ func actionCandidates(
 		return nil, nil, fmt.Errorf("unresolved action reference: %s (a perform statement cannot perform itself)", name)
 	}
 	if !ctx.model.semantics.Performable(semantics.PerformsAction, sym) {
-		return nil, nil, fmt.Errorf("%s is not an action (%v)", name, sym.Kind)
+		return nil, nil, fmt.Errorf("%w: %s is not an action (%v)", ErrNotABehavior, name, sym.Kind)
 	}
 	return sym, nil, nil
 }

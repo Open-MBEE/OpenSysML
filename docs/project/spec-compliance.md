@@ -477,8 +477,8 @@ checked after the result is bound is not a form the runtime offers, and none is 
 - `VectorFunctions::norm::lengthZero` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::norm::lengthZero: constraint lengthZero: require condition evaluation failed: no value: condition is undetermined: l has no value in the model
 - `VectorFunctions::angle::commutivity` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::angle::commutivity: constraint commutivity: require condition evaluation failed: no value: condition is undetermined: theta has no value in the model
 - `VectorFunctions::angle::lengthInsensitive` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::angle::lengthInsensitive: constraint lengthInsensitive: require condition evaluation failed: no value: condition is undetermined: theta has no value in the model
-- `OccurrenceFunctions::removeOld` — `ErrActionPerformanceOccurrence`: action performance occurrence unavailable: materialize go of object #1: performed action clean of work: symbol removeOld is not an action
-- `OccurrenceFunctions::removeOldAt` — `ErrActionPerformanceOccurrence`: action performance occurrence unavailable: materialize go of object #1: performed action clean of work: symbol removeOldAt is not an action
+- `OccurrenceFunctions::removeOld` — `ErrNotABehavior`: performed action go of object #1: action node work: not a behavior: removeOld is not an action (kermlType)
+- `OccurrenceFunctions::removeOldAt` — `ErrNotABehavior`: performed action go of object #1: action node work: not a behavior: removeOldAt is not an action (kermlType)
 <!-- doc-counts:end analysis-libraries -->
 
 ### Constraint

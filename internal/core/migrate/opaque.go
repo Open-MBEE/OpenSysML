@@ -74,22 +74,54 @@ type opaqueScope interface {
 }
 
 // translated is a v2 expression the translator produced, with what it knows
-// of its type; atomic is true when it needs no parentheses as an operand, and
+// of its type; atomic is true when it needs no parentheses as an operand, loose
+// is the v2 precedence of its outermost operator when it is not atomic, and
 // lit names the literal kind when the expression is one literal.
 type translated struct {
 	expr   string
 	scalar string
 	plural bool
 	atomic bool
+	loose  int
 	lit    string
 }
 
-// operand writes t as the operand of an operator.
+// The v2 operators the translator writes, loosest last: an operand of a looser
+// operator is parenthesized.
+const (
+	looseUnary = iota + 1
+	loosePower
+	looseMultiplicative
+	looseAdditive
+	looseRelational
+	looseEquality
+	looseAnd
+	looseOr
+)
+
+// operand writes t as the operand of an operator that binds least of all.
 func (t translated) operand() string {
 	if t.atomic {
 		return t.expr
 	}
 	return "(" + t.expr + ")"
+}
+
+// operandOf writes t as the left or right operand of an operator of looseness
+// loose. The binary operators associate left, but `**` to the right.
+func (t translated) operandOf(loose int, right bool) string {
+	switch {
+	case t.atomic, t.loose < loose:
+		return t.expr
+	case t.loose == loose && right == (loose == loosePower):
+		return t.expr
+	}
+	return "(" + t.expr + ")"
+}
+
+// binary writes left op right at looseness loose.
+func binary(left translated, op string, right translated, loose int, scalar string) translated {
+	return translated{expr: left.operandOf(loose, false) + " " + op + " " + right.operandOf(loose, true), scalar: scalar, loose: loose}
 }
 
 // dialect is the family an opaque language belongs to.
@@ -558,7 +590,8 @@ func (p *opaqueParser) assignment(path []string, op string) ([]string, *refusal)
 		if (target.scalar != "" && !isNumeric(target.scalar)) || (value.scalar != "" && !isNumeric(value.scalar)) {
 			return nil, &refusal{kind: refusedType, token: name + " " + op, why: "the operation needs numbers"}
 		}
-		value = translated{expr: target.expr + " " + op[:1] + " " + value.operand(), scalar: arithmeticScalar(op[:1], target.scalar, value.scalar)}
+		held := translated{expr: target.expr, scalar: target.scalar, atomic: true}
+		value = binary(held, op[:1], value, arithmeticLoose(op[:1]), arithmeticScalar(op[:1], target.scalar, value.scalar))
 	}
 	if value.plural != target.plural {
 		return nil, &refusal{kind: refusedType, token: name + " " + op, why: "one side is a collection and the other a single value"}
@@ -633,16 +666,16 @@ type binaryOp struct{ src, v2 string }
 
 // or reads `a || b`, in English `a or b`.
 func (p *opaqueParser) or() (translated, *refusal) {
-	return p.logical(p.and, binaryOp{"||", "or"}, "or")
+	return p.logical(p.and, binaryOp{"||", "or"}, "or", looseOr)
 }
 
 // and reads `a && b`, in English `a and b`.
 func (p *opaqueParser) and() (translated, *refusal) {
-	return p.logical(p.equality, binaryOp{"&&", "and"}, "and")
+	return p.logical(p.equality, binaryOp{"&&", "and"}, "and", looseAnd)
 }
 
 // logical reads a chain of one Boolean connective over operands read by next.
-func (p *opaqueParser) logical(next func() (translated, *refusal), op binaryOp, word string) (translated, *refusal) {
+func (p *opaqueParser) logical(next func() (translated, *refusal), op binaryOp, word string, loose int) (translated, *refusal) {
 	left, err := next()
 	if err != nil {
 		return translated{}, err
@@ -662,7 +695,7 @@ func (p *opaqueParser) logical(next func() (translated, *refusal), op binaryOp, 
 				return translated{}, &refusal{kind: refusedType, token: tok.text, why: "an operand is a " + side.scalar + ", not a Boolean"}
 			}
 		}
-		left = translated{expr: left.operand() + " " + op.v2 + " " + right.operand(), scalar: "Boolean"}
+		left = binary(left, op.v2, right, loose, "Boolean")
 	}
 }
 
@@ -692,7 +725,8 @@ func (p *opaqueParser) equality() (translated, *refusal) {
 		if _, ok := commonScalar(left, right); !ok {
 			return translated{}, &refusal{kind: refusedType, token: tok.text, why: "a " + left.scalar + " is compared with a " + right.scalar}
 		}
-		left = translated{expr: left.operand() + " " + v2 + " " + spellFor(left.scalar, right), scalar: "Boolean"}
+		right.expr = spellFor(left.scalar, right)
+		left = binary(left, v2, right, looseEquality, "Boolean")
 	}
 }
 
@@ -715,7 +749,7 @@ func (p *opaqueParser) relational() (translated, *refusal) {
 		if err := numbersAt(tok.text, left, right); err != nil {
 			return translated{}, err
 		}
-		left = translated{expr: left.operand() + " " + tok.text + " " + right.operand(), scalar: "Boolean"}
+		left = binary(left, tok.text, right, looseRelational, "Boolean")
 	}
 }
 
@@ -746,7 +780,7 @@ func (p *opaqueParser) power() (translated, *refusal) {
 	if err := numbersAt("**", left, right); err != nil {
 		return translated{}, err
 	}
-	return translated{expr: left.operand() + " ** " + right.operand(), scalar: "Real"}, nil
+	return binary(left, "**", right, loosePower, "Real"), nil
 }
 
 // arithmetic reads a chain of the given operators over operands read by next.
@@ -777,7 +811,7 @@ func (p *opaqueParser) arithmetic(next func() (translated, *refusal), ops ...str
 		if err := numbersAt(op, left, right); err != nil {
 			return translated{}, err
 		}
-		left = translated{expr: left.operand() + " " + op + " " + right.operand(), scalar: arithmeticScalar(op, left.scalar, right.scalar)}
+		left = binary(left, op, right, arithmeticLoose(op), arithmeticScalar(op, left.scalar, right.scalar))
 	}
 }
 
@@ -800,7 +834,7 @@ func (p *opaqueParser) unary() (translated, *refusal) {
 		if x.lit == "integer" || x.lit == "real" {
 			return translated{expr: "-" + x.expr, scalar: x.scalar, atomic: true, lit: x.lit}, nil
 		}
-		return translated{expr: "-" + x.operand(), scalar: x.scalar}, nil
+		return translated{expr: "-" + x.operandOf(looseUnary, true), scalar: x.scalar, loose: looseUnary}, nil
 	case tok.isPunct("!"), p.d == dialectEnglish && tok.word("not"):
 		p.next(true)
 		x, err := p.unary()
@@ -810,7 +844,7 @@ func (p *opaqueParser) unary() (translated, *refusal) {
 		if x.scalar != "" && x.scalar != "Boolean" {
 			return translated{}, &refusal{kind: refusedType, token: tok.text, why: "the operand is a " + x.scalar + ", not a Boolean"}
 		}
-		return translated{expr: "not " + x.operand(), scalar: "Boolean"}, nil
+		return translated{expr: "not " + x.operandOf(looseUnary, true), scalar: "Boolean", loose: looseUnary}, nil
 	case tok.isPunct("++"), tok.isPunct("--"):
 		return translated{}, &refusal{kind: refusedConstruct, token: tok.text, why: "counting inside an expression has no v2 form"}
 	}
@@ -970,7 +1004,7 @@ func (p *opaqueParser) call(path []string) (translated, *refusal) {
 		}
 		switch fn {
 		case "Math.ceil":
-			return translated{expr: "-RealFunctions::floor(-" + args[0].operand() + ")", scalar: "Integer"}, nil
+			return translated{expr: "-RealFunctions::floor(-" + args[0].operandOf(looseUnary, true) + ")", scalar: "Integer", loose: looseUnary}, nil
 		default:
 			return translated{expr: "RealFunctions::" + fn[5:] + "(" + args[0].expr + ")", scalar: "Integer", atomic: true}, nil
 		}
@@ -989,7 +1023,7 @@ func (p *opaqueParser) call(path []string) (translated, *refusal) {
 		if err := numbersAt(fn, args[0], args[1]); err != nil {
 			return translated{}, err
 		}
-		return translated{expr: args[0].operand() + " ** " + args[1].operand(), scalar: "Real"}, nil
+		return binary(args[0], "**", args[1], loosePower, "Real"), nil
 	case "java.util.Collections.max", "java.util.Collections.min", "Collections.max", "Collections.min":
 		if err := arity(1); err != nil {
 			return translated{}, err
@@ -1067,6 +1101,14 @@ func realScalar(s string) bool {
 
 // arithmeticScalar is the scalar an arithmetic operator yields: integers stay
 // integers except under `/`, which a script computes as a real.
+// arithmeticLoose is the looseness of an arithmetic operator.
+func arithmeticLoose(op string) int {
+	if op == "+" || op == "-" {
+		return looseAdditive
+	}
+	return looseMultiplicative
+}
+
 func arithmeticScalar(op, a, b string) string {
 	switch {
 	case op == "/":

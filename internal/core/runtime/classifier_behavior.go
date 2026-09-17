@@ -240,9 +240,11 @@ func (b *ObjectBehavior) Member() *symbols.Symbol {
 }
 
 // classifierBehaviorsOf reports the behaviors every object of a type runs:
-// those its own declaration binds and those it inherits.
+// those its own declaration binds and those it inherits. A behavior's own
+// `perform`/`exhibit` members are steps its execution runs, so a performance
+// occurrence — an object typed by an action or state — runs none as its own.
 func (ctx *Context) classifierBehaviorsOf(typeSym *symbols.Symbol) []classifierBehaviorDecl {
-	if typeSym == nil {
+	if typeSym == nil || isBehaviorType(typeSym) {
 		return nil
 	}
 	if cached, ok := ctx.model.classifierBehaviors[typeSym]; ok {
