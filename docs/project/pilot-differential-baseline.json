@@ -61,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 44,
-        "digest": "sha256:d54099be870f8b41f201dc6e857104189d3afbf3c38f3fe3da2c3e08e6d43287"
+        "digest": "sha256:87431c00eaeebabca697903b39f5faefa833bd739144d927042554b5228fe58f"
       },
       {
         "name": "probes",
@@ -79,9 +79,9 @@
     "agreement": 38,
     "severityMismatch": 3,
     "openSysMLOnly": 38,
-    "pilotOnly": 1247,
+    "pilotOnly": 1334,
     "openSysMLDiagnostics": 79,
-    "pilotDiagnostics": 1288
+    "pilotDiagnostics": 1375
   },
   "roots": [
     {
@@ -751,9 +751,9 @@
         "agreement": 4,
         "severityMismatch": 2,
         "openSysMLOnly": 7,
-        "pilotOnly": 1227,
+        "pilotOnly": 1314,
         "openSysMLDiagnostics": 13,
-        "pilotDiagnostics": 1233
+        "pilotDiagnostics": 1320
       },
       "files": [
         {
@@ -848,301 +848,721 @@
           "openSysMLOnly": [],
           "pilotOnly": [
             {
-              "line": 659,
+              "line": 2734,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 682,
+              "line": 2778,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 684,
+              "line": 2780,
               "severity": "error",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 684,
+              "line": 2780,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 685,
+              "line": 2781,
               "severity": "error",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 685,
+              "line": 2781,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 2
             },
             {
-              "line": 686,
+              "line": 2782,
               "severity": "error",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 686,
+              "line": 2782,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 2
             },
             {
-              "line": 687,
+              "line": 2783,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 688,
+              "line": 2784,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 689,
+              "line": 2785,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 690,
+              "line": 2786,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 693,
+              "line": 2789,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 697,
+              "line": 2794,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 699,
+              "line": 2797,
               "severity": "error",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 699,
+              "line": 2797,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 700,
+              "line": 2798,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2798,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 2
+            },
+            {
+              "line": 2799,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2799,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 2
+            },
+            {
+              "line": 2800,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2800,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 2
+            },
+            {
+              "line": 2801,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2801,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 2
+            },
+            {
+              "line": 2802,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 701,
+              "line": 2803,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 702,
+              "line": 2804,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2805,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2807,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2809,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2811,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2812,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2813,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2815,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2816,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2817,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2821,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2823,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2823,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2824,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2825,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2826,
               "severity": "error",
               "category": "kind-mismatch",
               "count": 2
             },
             {
-              "line": 702,
+              "line": 2826,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 4
             },
             {
-              "line": 706,
+              "line": 2830,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 708,
+              "line": 2832,
               "severity": "error",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 708,
+              "line": 2832,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 709,
+              "line": 2833,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 710,
+              "line": 2834,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 711,
+              "line": 2835,
               "severity": "error",
               "category": "kind-mismatch",
               "count": 2
             },
             {
-              "line": 711,
+              "line": 2835,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 4
             },
             {
-              "line": 716,
+              "line": 2839,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 718,
+              "line": 2841,
               "severity": "error",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 718,
+              "line": 2841,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 719,
+              "line": 2842,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2843,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2844,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 2
+            },
+            {
+              "line": 2844,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 4
+            },
+            {
+              "line": 2848,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2850,
               "severity": "error",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 719,
+              "line": 2850,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2851,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2852,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2853,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 2
+            },
+            {
+              "line": 2853,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 4
+            },
+            {
+              "line": 2857,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2860,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2860,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2861,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2861,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 2
+            },
+            {
+              "line": 2862,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2863,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2864,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2865,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2866,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2868,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2869,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 2
+            },
+            {
+              "line": 2869,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 4
+            },
+            {
+              "line": 2874,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2876,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2876,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2877,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2877,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 3
             },
             {
-              "line": 720,
+              "line": 2878,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 725,
+              "line": 2883,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 726,
+              "line": 2884,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 728,
+              "line": 2886,
               "severity": "error",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 728,
+              "line": 2886,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 729,
+              "line": 2887,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 731,
+              "line": 2889,
               "severity": "error",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 731,
+              "line": 2889,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 732,
+              "line": 2890,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 734,
+              "line": 2892,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 737,
+              "line": 2895,
               "severity": "error",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 737,
+              "line": 2895,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 738,
+              "line": 2896,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 740,
+              "line": 2898,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 743,
+              "line": 2901,
               "severity": "error",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 743,
+              "line": 2901,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 744,
+              "line": 2902,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 746,
+              "line": 2904,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2907,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2907,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2908,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2910,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2913,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2913,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2914,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2916,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2919,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2919,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2920,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2922,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2925,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2925,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2926,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2928,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2932,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 2932,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2933,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 2935,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -6749,9 +7169,9 @@
       "agreement": 38,
       "severityMismatch": 3,
       "openSysMLOnly": 37,
-      "pilotOnly": 1247,
+      "pilotOnly": 1334,
       "openSysMLDiagnostics": 78,
-      "pilotDiagnostics": 1288
+      "pilotDiagnostics": 1375
     },
     "findings": [
       {
