@@ -129,6 +129,34 @@ extension-debugging loop.
 Other editors can launch `bin/sysml-lsp` over standard input and output through their own generic
 LSP client; only the syntax highlighting is specific to VS Code.
 
+## OpenCode
+
+[OpenCode](https://opencode.ai) feeds language-server diagnostics back to its coding agent, but
+it knows only the servers compiled into it — `gopls` starts for a `.go` file because the
+registry inside OpenCode has an entry for it — so `sysml-lsp` has to be declared. The
+checkout's [`opencode.json`](../../opencode.json) does that for anyone who opens this repository:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "lsp": {
+    "sysml": {
+      "command": ["sysml-lsp", "--stdio"],
+      "extensions": [".sysml", ".kerml"]
+    }
+  }
+}
+```
+
+The same `lsp` block in `~/.config/opencode/opencode.json` enables the server for every project;
+see [LSP servers](https://opencode.ai/docs/lsp) in the OpenCode documentation. Either way
+`sysml-lsp` must be on `PATH` — `go install github.com/Open-MBEE/OpenSysML/cmd/sysml-lsp@latest`
+or the release tarball installs it there, and a checkout that ran `make build` can put its own
+build first with `PATH="$PWD/bin:$PATH" opencode`. Two details of the configuration matter:
+`lsp` as an object keeps OpenCode's built-in servers enabled alongside this one (omitting the
+key disables them all), and OpenCode starts a declared server with the project directory as its
+workspace root, so the whole checkout is the server's workspace.
+
 **Capabilities advertised at `initialize`**, recorded from a live session with `bin/sysml-lsp`:
 
 - ✅ Document synchronization, incremental (`textDocumentSync.change: 2`)
