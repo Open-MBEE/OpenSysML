@@ -295,7 +295,8 @@ func (f *stmtListFrame) abandon(*Context) { f.run.elements = f.elements }
 func (f *stmtListFrame) clone() bodyFrame { c := *f; return &c }
 
 // run executes statements in declaration order, stopping at a `return`; a body
-// pausing in one is re-entered at that statement.
+// pausing in one is re-entered at that statement, one yielding between two at
+// the next.
 func (e *stmtEngine) run(stmts []lower.Statement) (stmtFlow, error) {
 	f, resumed, err := popFrame[*stmtListFrame](e.ctx)
 	if err != nil {
@@ -304,14 +305,31 @@ func (e *stmtEngine) run(stmts []lower.Statement) (stmtFlow, error) {
 	if !resumed {
 		f = &stmtListFrame{}
 	}
+	resumed = resumed && !e.ctx.yieldedHere()
 	for ; f.i < len(stmts); f.i++ {
+		if err := e.ctx.yieldBody(); err != nil {
+			return flowNext, e.ctx.pausing(f, err)
+		}
 		flow, err := e.statement(stmts[f.i], f, resumed)
 		resumed = false
 		if err != nil || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
 		}
+		if !compound(stmts[f.i]) {
+			e.ctx.bodyPerformed()
+		}
 	}
 	return flowNext, nil
+}
+
+// compound reports a statement whose own statements, iterations or nodes are the
+// steps of a body run one at a time, not the statement as a whole.
+func compound(stmt lower.Statement) bool {
+	switch stmt.(type) {
+	case lower.If, lower.Loop, lower.Block:
+		return true
+	}
+	return false
 }
 
 // statement executes one lowered statement, recording it in the trace with the
@@ -451,6 +469,7 @@ func (e *stmtEngine) ifStatement(stmt lower.If) (stmtFlow, error) {
 			return flowNext, err
 		}
 		if !holds && stmt.Else == nil {
+			e.ctx.bodyPerformed()
 			return flowNext, nil
 		}
 		f = &branchFrame{elseBranch: !holds}
@@ -541,7 +560,8 @@ func (f *flowNodeFrame) clone() bodyFrame { c := *f; return &c }
 
 // blockFlow runs a block that is a token flow of its own (lower/block_graph.go):
 // a token starts at the block's initial node and passes along the successions the
-// block states, running each node it reaches until one succeeds to none.
+// block states, running each node it reaches until one succeeds to none; a body
+// run one statement at a time yields between two nodes.
 func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 	graph := block.Graph
 	f, resumed, err := popFrame[*flowNodeFrame](e.ctx)
@@ -551,7 +571,11 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 	if !resumed {
 		f = &flowNodeFrame{node: graph.Initial}
 	}
+	resumed = resumed && !e.ctx.yieldedHere()
 	for f.node != nil {
+		if err := e.ctx.yieldBody(); err != nil {
+			return flowNext, e.ctx.pausing(f, err)
+		}
 		// A node reached spends a step, so a flow that does not end fails the run.
 		if !resumed {
 			if err := e.ctx.incrementStep(); err != nil {
@@ -563,6 +587,7 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 		if err != nil || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
 		}
+		e.ctx.bodyPerformed()
 		successors := graph.Edges[f.node]
 		if len(successors) == 0 {
 			return flowNext, nil
@@ -677,7 +702,8 @@ func (e *stmtEngine) endIteration(f *loopFrame, err error) {
 
 // loop runs a loop to termination or to the `return` its body reaches. Every
 // iteration spends one step of the budget, so a non-terminating loop fails with
-// ErrStepLimitExceeded instead of hanging its caller.
+// ErrStepLimitExceeded instead of hanging its caller. A body run one statement
+// at a time yields between two iterations.
 func (e *stmtEngine) loop(stmt lower.Loop) (stmtFlow, error) {
 	if stmt.Kind == ast.LoopFor {
 		return e.forLoop(stmt)
@@ -689,10 +715,14 @@ func (e *stmtEngine) loop(stmt lower.Loop) (stmtFlow, error) {
 	if !resumed {
 		f = &loopFrame{}
 	}
+	resumed = resumed && !e.ctx.yieldedHere()
 	leave := e.enterLoop(f)
 	defer leave()
 
 	for {
+		if err := e.ctx.yieldBody(); err != nil {
+			return flowNext, e.ctx.pausing(f, err)
+		}
 		if !resumed {
 			if err := e.ctx.incrementStep(); err != nil {
 				return flowNext, err
@@ -700,9 +730,15 @@ func (e *stmtEngine) loop(stmt lower.Loop) (stmtFlow, error) {
 		}
 		flow, done, err := e.iteration(stmt, f, resumed)
 		resumed = false
+		// A first iteration ended by the condition is the loop's one step; a later
+		// one ended so performed nothing since the yield before it.
+		if done && err == nil && f.iteration == 1 {
+			e.ctx.bodyPerformed()
+		}
 		if err != nil || done || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
 		}
+		e.ctx.bodyPerformed()
 	}
 }
 
@@ -767,11 +803,18 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 			return flowNext, fmt.Errorf("%s: %w", e.host.describe(), err)
 		}
 		f = &loopFrame{elements: elements}
+		if len(elements) == 0 {
+			e.ctx.bodyPerformed()
+		}
 	}
+	resumed = resumed && !e.ctx.yieldedHere()
 	leave := e.enterLoop(f)
 	defer leave()
 
 	for f.iteration < len(f.elements) || resumed {
+		if err := e.ctx.yieldBody(); err != nil {
+			return flowNext, e.ctx.pausing(f, err)
+		}
 		if !resumed {
 			if err := e.ctx.incrementStep(); err != nil {
 				return flowNext, err
@@ -782,6 +825,7 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 		if err != nil || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
 		}
+		e.ctx.bodyPerformed()
 	}
 	return flowNext, nil
 }

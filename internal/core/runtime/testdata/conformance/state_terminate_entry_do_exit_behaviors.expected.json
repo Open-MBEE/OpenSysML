@@ -1,7 +1,6 @@
 {
 	"type": "state",
 	"trace": true,
-	"events": [{"signal": "go"}],
 	"finalState": "next",
 	"stateVisits": ["idle", "next"],
 	"outputs": {

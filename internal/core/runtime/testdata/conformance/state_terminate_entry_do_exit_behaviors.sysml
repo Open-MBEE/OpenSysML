@@ -1,9 +1,9 @@
 // `terminate` in a state's entry, do or exit behavior ends that behavior at the
-// statement: the state stays active and the machine keeps dispatching.
+// statement: the state stays active and the machine keeps dispatching. The
+// transition out is timed so the do body, run one statement a round, reaches
+// its `terminate` before anything interrupts it.
 package test {
 	private import ScalarValues::*;
-
-	attribute def go;
 
 	state def Machine {
 		attribute count : Integer = 0;
@@ -30,6 +30,6 @@ package test {
 		}
 		state next;
 
-		transition first idle accept go then next;
+		transition first idle accept after 1 then next;
 	}
 }

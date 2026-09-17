@@ -151,13 +151,13 @@ type StateExecutor struct {
 type doAction struct {
 	state   *ast.StateNode
 	pending []lower.StateBehavior
-	// run is the behavior under way, paused where its flow waits on the clock or
-	// for a message; nil between behaviors.
+	// run is the behavior under way, paused between two statements or where its
+	// flow waits on the clock or for a message; nil between behaviors.
 	run *doRun
 }
 
-// due reports work of the do behavior runnable now: a paused behavior whose wait
-// has ended, or the next behavior where none is under way.
+// due reports work of the do behavior runnable now: a paused behavior with its
+// next statement due, or the next behavior where none is under way.
 func (act *doAction) due(ctx *Context) bool {
 	if act.run != nil {
 		return act.run.resumable(ctx)
