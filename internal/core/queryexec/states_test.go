@@ -318,6 +318,52 @@ func TestExecuteStatesListsEveryActiveLeaf(t *testing.T) {
 	}
 }
 
+// A leaf nested below a region's own state still stands in that region: the row
+// names the innermost region an enclosing state is declared in.
+func TestExecuteStatesNameTheRegionOfANestedLeaf(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+state def Dome {
+	entry; then open;
+	state open parallel {
+		state shutter {
+			entry; then ajar;
+			state ajar {
+				entry; then widening;
+				state widening;
+			}
+		}
+		state drive {
+			entry; then idle;
+			state idle;
+		}
+	}
+}
+part def Housing { exhibit state control : Dome; }
+part housing : Housing;
+calc def NestedStates :> Query {
+	in root : Element;
+	Project(source = States(source = root), properties = ("statePath", "region", "enclosing"))
+}
+`)
+	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), runtime.DefaultMaxSteps)
+	housing, err := ctx.Instantiate(fixture.symbol(t, "housing"))
+	if err != nil {
+		t.Fatalf("Instantiate housing: %v", err)
+	}
+	context := Context{Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model, Runtime: ctx, Roots: []Root{{Label: "housing", Object: housing}}}
+	result, err := Execute(fixture.program(t, "NestedStates"), context, Bindings{"root": {ObjectValue(housing, "housing")}}, Options{})
+	if err != nil {
+		t.Fatalf("execute NestedStates: %v", err)
+	}
+	want := []string{
+		"statePath=open.ajar.widening region=shutter enclosing=open+ajar",
+		"statePath=open.idle region=drive enclosing=open",
+	}
+	if got := rowTexts(t, result); joinLines(got) != joinLines(want) {
+		t.Fatalf("nested leaves:\n%s\nwant:\n%s", joinLines(got), joinLines(want))
+	}
+}
+
 // State rows take the row operations the object rows do: WhereFeature over the
 // leaf's name or its region, WhereName, OrderBy, and Column expressions.
 func TestExecuteStateRowsThroughRowOperations(t *testing.T) {

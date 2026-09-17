@@ -207,9 +207,7 @@ func (tr *TraceRecorder) trim() {
 	tr.dropped += n
 	tr.horizon = tr.records[n-1].Origin.At
 	tr.printed = max(tr.printed-n, 0)
-	copy(tr.records, tr.records[n:])
-	clear(tr.records[tr.limit:])
-	tr.records = tr.records[:tr.limit]
+	tr.records = tr.records[n:]
 }
 
 // Dropped reports how many records the limit discarded and the instant of the last of them.

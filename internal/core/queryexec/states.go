@@ -196,10 +196,16 @@ func activeState(inst *runtime.Instance, label string, machine *runtime.ObjectBe
 	}
 }
 
-// regionName names the region declaring state, "" for a state outside any.
+// regionName names the innermost orthogonal region state stands in, its own or an
+// ancestor's, "" for a state outside every region.
 func regionName(graph *lower.StateGraph, state *ast.StateNode) string {
-	if region := graph.RegionOf[state]; region != nil {
-		return region.Name
+	for current := state; current != nil; current = graph.ParentState[current] {
+		if region := graph.RegionOf[current]; region != nil {
+			return region.Name
+		}
+		if region := graph.HiddenRegionOf[current]; region != nil {
+			return region.Name
+		}
 	}
 	return ""
 }
