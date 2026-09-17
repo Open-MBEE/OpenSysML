@@ -373,8 +373,9 @@ that tells a caption from a paragraph that happens to be emphasized, so the pand
 generated Lua filter (the one that also swaps in the drawn diagrams and typeset formulas)
 marks a caption when an emphasized paragraph matches the next of the document's caption texts,
 in order, and the block after it is captionable — a table, a display formula, a diagram fence,
-or a grouped table's key ahead of its first subtable. An emphasized paragraph elsewhere stays
-body prose. Nothing of this reaches the Markdown output.
+the rendering comment a table-kind diagram opens with, or a grouped table's key ahead of its
+first subtable. An emphasized paragraph elsewhere stays body prose. Nothing of this reaches the
+Markdown output.
 
 ## Test contract
 
