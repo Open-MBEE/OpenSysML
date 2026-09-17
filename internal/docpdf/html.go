@@ -228,6 +228,7 @@ nav.toc li.toc-4 { padding-left: 4.5em; }
 nav.toc li.toc-5 { padding-left: 6em; }
 nav.toc a { text-decoration: none; color: inherit; }
 table { border-collapse: collapse; margin: 0.8em 0; width: 100%; }
+tr { break-inside: avoid; }
 th, td { border: 0.5pt solid #666666; padding: 0.3em 0.6em; text-align: left; overflow-wrap: anywhere; }
 th { background: #eeeeee; }
 p.caption, span.caption { font-size: 9.5pt; color: #444444; }
