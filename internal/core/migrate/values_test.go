@@ -154,9 +154,10 @@ func TestLiteralOnStructuredValueTypeIsNotBound(t *testing.T) {
 	wantClean(t, "structured.sysml", r)
 }
 
-// A slot whose values contradict its feature — more than the multiplicity
-// admits, or a repeat on a unique feature — is invalid in both languages and
-// is left as a comment naming the values.
+// A slot whose values contradict its feature — too few or too many for the
+// multiplicity, none for a required feature, or a repeat on a unique feature —
+// is invalid in both languages and is left as a comment naming the values.
+// An empty slot of an optional feature is a redefinition bound to nothing.
 func TestSlotContradictingItsFeatureIsUnmapped(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:DataType" xmi:id="_cal" name="Calibration">
@@ -172,12 +173,19 @@ func TestSlotContradictingItsFeatureIsUnmapped(t *testing.T) {
         <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_bl"/>
         <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_bu" value="*"/>
       </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_need" name="need">`+realHref+`</ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_may" name="may">`+realHref+`
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_ml"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_mu" value="1"/>
+      </ownedAttribute>
     </packagedElement>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_i" name="cal" classifier="_cal">
       <slot xmi:id="_st" definingFeature="_t">
         <value xmi:type="uml:LiteralReal" xmi:id="_v1" value="815.0"/>
         <value xmi:type="uml:LiteralReal" xmi:id="_v2" value="815.0"/>
       </slot>
+      <slot xmi:id="_sn" definingFeature="_need"/>
+      <slot xmi:id="_sm" definingFeature="_may"/>
       <slot xmi:id="_sp" definingFeature="_pix">
         <value xmi:type="uml:LiteralInteger" xmi:id="_v3" value="1"/>
       </slot>
@@ -189,8 +197,12 @@ func TestSlotContradictingItsFeatureIsUnmapped(t *testing.T) {
 	wantLine(t, r.Notation, "attribute :>> bag = (1.0, 1.0);")
 	wantNoLine(t, r.Notation, "attribute :>> t")
 	wantNoLine(t, r.Notation, "attribute :>> pix")
+	wantNoLine(t, r.Notation, "attribute :>> need")
+	wantLine(t, r.Notation, "attribute :>> may;")
 	wantNote(t, r, "_st", migrate.Unmapped, "the slot repeats the value 815.0 on a unique feature; its values are 815.0, 815.0")
 	wantNote(t, r, "_sp", migrate.Unmapped, "the slot holds 1 value(s) for a feature of multiplicity 3")
+	wantNote(t, r, "_sn", migrate.Unmapped, "the slot holds 0 value(s) for a feature of multiplicity 1")
+	wantNote(t, r, "_sm", migrate.Mapped, "")
 	wantNote(t, r, "_sb", migrate.Mapped, "")
 	wantClean(t, "slots.sysml", r)
 }

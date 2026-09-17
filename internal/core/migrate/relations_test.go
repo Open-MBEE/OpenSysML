@@ -812,6 +812,79 @@ func TestOpaqueExpressionsNeedVisibleNames(t *testing.T) {
 	}
 }
 
+// A body expression's parameters and the members it declares are names of its
+// own, not of the scope the opaque body is written in; only what the body
+// refers to beyond them must be visible there. A function after `->` is such a
+// name, as is anything written after the expression.
+func TestOpaqueBodyExpressionsBindTheirOwnNames(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_cb" name="Bound">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_s" name="s">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_sl"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_su" value="*"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_c" name="c">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_r1" name="bound">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_sp1">
+          <body>{ in v; v > c }</body>
+          <language>SysML</language>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_r2" name="scaled">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_sp2">
+          <body>{ in v; private attribute k = 2.0; v * k > c }</body>
+          <language>SysML</language>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r3" name="stray" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp3">
+          <body>{ in v; v > limit }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r4" name="each" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp4">
+          <body>s->forAll { in v; v > c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r5" name="twice" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp5">
+          <body>c > 0.0; attribute probe2 = c</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r6" name="bodied" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp6">
+          <body>c > 0.0 { doc /* none */ }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+    </packagedElement>`, `
+  <sysml:ConstraintBlock xmi:id="_s2" base_Class="_cb"/>`)
+	wantLine(t, r.Notation, "in attribute bound default = { in v; v > c };")
+	wantLine(t, r.Notation, "in attribute scaled default = { in v; private attribute k = 2.0; v * k > c };")
+	for _, n := range []string{"stray", "each", "twice", "bodied"} {
+		wantNoLine(t, r.Notation, "constraint "+n)
+	}
+	for id, want := range map[string]string{
+		"_r3": "opaque expression names limit, which nothing visible from Bound is called (language SysML)",
+		"_r4": "opaque expression names forAll, which nothing visible from Bound is called (language SysML)",
+		"_r5": "opaque expression is not v2 expression syntax (language SysML)",
+		"_r6": "opaque expression is not v2 expression syntax (language SysML)",
+	} {
+		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Unmapped || es[0].Note != want {
+			t.Errorf("%s entries = %+v", id, es)
+		}
+	}
+	if diags := errors(t, "b.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+}
+
 // isOrdered and isUnique=false are written as the ordered and nonunique
 // modifiers, on properties and association ends alike.
 func TestCollectionModifiersAreWritten(t *testing.T) {
