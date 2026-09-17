@@ -50,8 +50,12 @@ jobs:
         run: |
           # The tag moves before the release exists, so a night counts as done only once a published
           # release sits at it; `gh release create` uploads into a draft and publishes last.
-          published=$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq .object.sha 2>/dev/null || true)
-          released=$(gh api "repos/$GH_REPO/releases/tags/$TAG" --jq 'select(.draft == false) | .id' 2>/dev/null || true)
+          # Both lookups answer an empty match, not 404, when there is no snapshot yet, so an API failure
+          # stops the job rather than passing for "no snapshot". The release is recreated nightly, so it is recent.
+          published=$(gh api "repos/$GH_REPO/git/matching-refs/tags/$TAG" \
+            --jq ".[] | select(.ref == \"refs/tags/$TAG\") | .object.sha")
+          released=$(gh api "repos/$GH_REPO/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$TAG\" and .draft == false) | .id")
 
           # First-parent commits only (a merged branch's commits carry its PR's statuses); CircleCI's
           # combined state is `success` only when every job passed. The walk ends at the published snapshot.
