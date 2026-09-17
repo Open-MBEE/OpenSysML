@@ -378,6 +378,12 @@ func (e *executor) evaluate(expression queryplan.Expression) (sequence, error) {
 		return e.evaluateObjects(expression)
 	case queryplan.OperationVerdicts:
 		return e.evaluateVerdicts(expression)
+	case queryplan.OperationWhereRelated:
+		return e.evaluateWhereRelated(expression)
+	case queryplan.OperationExcept:
+		return e.evaluateExcept(expression)
+	case queryplan.OperationUnion:
+		return e.evaluateUnion(expression)
 	default:
 		return sequence{}, &Error{
 			Kind:      ErrorUnsupportedOperation,
@@ -666,6 +672,21 @@ func (e *executor) integerArgument(expression queryplan.Expression, name string)
 		return 0, e.invalidArgument(expression, name, string(value.values[0].Kind()))
 	}
 	return integer, nil
+}
+
+func (e *executor) booleanArgument(expression queryplan.Expression, name string) (bool, error) {
+	value, err := e.argument(expression, name)
+	if err != nil {
+		return false, err
+	}
+	if len(value.values) != 1 {
+		return false, e.invalidArgument(expression, name, strconv.Itoa(len(value.values)))
+	}
+	boolean, ok := value.values[0].Boolean()
+	if !ok {
+		return false, e.invalidArgument(expression, name, string(value.values[0].Kind()))
+	}
+	return boolean, nil
 }
 
 func (e *executor) invalidArgument(expression queryplan.Expression, parameter, actual string) error {

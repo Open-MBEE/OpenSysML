@@ -218,4 +218,88 @@ package Cookbook {
 		in root : Element;
 		WhereFeature(source = Verdicts(source = root), 'feature' = "verdict", operator = "=", value = "violated")
 	}
+
+	// ---- A requirement nothing satisfies, and the coverage recipes ----
+
+	requirement def PointingRequirement {
+		doc /* The telescope holds a target within the stated accuracy. */
+	}
+	requirement <'REQ-2'> pointingRequirement : PointingRequirement {
+		doc /* The telescope points at a target to within 2 arcseconds. */
+		requirement <'REQ-2.1'> slewRequirement {
+			doc /* The mount reaches a new target within 60 seconds. */
+		}
+		requirement <'REQ-2.2'> trackingRequirement {
+			doc /* The mount tracks a target for 30 minutes without drift. */
+		}
+	}
+	verification def PointingTest;
+	verification pointingVerification : PointingTest {
+		objective {
+			verify pointingRequirement;
+		}
+	}
+
+	calc def Requirements :> Query {
+		in root : Element;
+		Except(
+			source = Union(
+				source = WhereType(source = Descendants(source = root, maxDepth = 10), type = "RequirementDefinition"),
+				other = WhereType(source = Descendants(source = root, maxDepth = 10), type = "RequirementUsage")
+			),
+			exclude = WhereType(source = Descendants(source = root, maxDepth = 10), type = "SatisfyRequirementUsage")
+		)
+	}
+
+	calc def UnsatisfiedRequirements :> Query {
+		in root : Element;
+		WhereRelated(
+			source = Requirements(root = root),
+			relationshipKind = "satisfaction",
+			direction = "incoming",
+			maxDepth = 1,
+			exists = false
+		)
+	}
+
+	calc def UnverifiedRequirements :> Query {
+		in root : Element;
+		WhereRelated(
+			source = Requirements(root = root),
+			relationshipKind = "verification",
+			direction = "incoming",
+			maxDepth = 1,
+			exists = false
+		)
+	}
+
+	calc def UncoveredRequirements :> Query {
+		in root : Element;
+		Union(
+			source = UnsatisfiedRequirements(root = root),
+			other = UnverifiedRequirements(root = root)
+		)
+	}
+
+	calc def VerifiedButUnsatisfied :> Query {
+		in root : Element;
+		Except(
+			source = UnsatisfiedRequirements(root = root),
+			exclude = UnverifiedRequirements(root = root)
+		)
+	}
+
+	calc def RequirementTree :> Query {
+		in root : Element;
+		Project(
+			source = OrderBy(
+				source = Requirements(root = root),
+				property = "qualifiedName",
+				direction = "ascending",
+				missing = "last",
+				multiple = "error"
+			),
+			properties = ("shortName", "name", "documentation")
+		)
+	}
 }

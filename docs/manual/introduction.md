@@ -62,6 +62,9 @@ sequences):
 | `OrderBy` | Sort by a property, with explicit missing- and multiple-value policies |
 | `Project` | Turn elements into rows of named, typed columns |
 | `Objects` | The objects the session holds that are of a type, each under its path — the one operation that reads objects rather than elements; every other operation accepts an object where it accepts an element and reads what the object holds ([Objects the session holds](query-cookbook.md#objects-the-session-holds)) |
+| `WhereRelated` | Keep elements by whether at least one element is reachable over a named relationship kind (`exists = true`, the default) or none is (`exists = false`) — the coverage filter behind "which requirements does nothing satisfy" ([Coverage](query-cookbook.md#coverage)) |
+| `Except` | The rows of one sequence not present in another, in order |
+| `Union` | One sequence followed by the rows of another not already present, each once |
 
 **Document content blocks** (each a `part def` nested inside a document or
 section):
