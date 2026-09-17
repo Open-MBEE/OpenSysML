@@ -39,6 +39,11 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   the drawing follows the declared direction throughout. A tree draws containment as edges
   rather than subgraphs and is unchanged.
 
+- **The landing page's four refereed-comparison cards no longer wrap three and one.** The grid
+  now lays them out in one row of four on wide screens, two rows of two below the width at which
+  four fit, and a single column on phones, instead of letting the fourth card fall alone onto a
+  second row.
+
 - **Every build of `sysml`, `sysml-lsp` and `sysml-grpc` is now statically linked, not only the release job's.** `CGO_ENABLED=0` moved from the release scripts into the Makefile's build and install targets, so `make build`, `make install` and the pull-request build no longer link the builder's glibc either; a Linux `sysml-grpc` built that way needed glibc 2.34 where the release binary did not. `make static-check` (`scripts/check-static-binaries.sh`) verifies the Linux binaries, and the release and pull-request pipelines run it, so a dynamically linked binary now fails the build instead of shipping.
 
 - **A transition's `accept` trigger payload is a member of the transition.** The parameter an
