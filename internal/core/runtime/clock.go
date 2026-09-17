@@ -143,6 +143,18 @@ func (ctx *Context) instantValue(t float64) Value {
 	return NewQuantityValue(&Quantity{Num: semantics.Value{Kind: semantics.ValReal, Real: t}, Unit: second})
 }
 
+// InstantValue is instant t as the runtime reports the clock: a quantity in
+// seconds when the library defines them, otherwise a bare real.
+func (ctx *Context) InstantValue(t float64) Value {
+	return ctx.instantValue(t)
+}
+
+// ClockMagnitude reads a value as a number of clock units: a bare number is one
+// already, a quantity is converted from its unit; what names it in errors.
+func (ctx *Context) ClockMagnitude(val Value, what string) (float64, error) {
+	return ctx.timeMagnitude(val, what)
+}
+
 // dueInstant is when a time trigger comes due: `after d` counts from now (a
 // negative delay is refused); `at t` is taken as read, one already past due now.
 // Either must be finite, and so must the instant a delay leads to.

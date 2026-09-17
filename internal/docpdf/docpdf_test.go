@@ -415,3 +415,48 @@ func TestParseTelescopeGolden(t *testing.T) {
 		}
 	}
 }
+
+// TestParseStateReportGolden lays out the state-and-event report: three captioned
+// tables and two lists of row summaries, unit brackets escaped, state paths literal.
+func TestParseStateReportGolden(t *testing.T) {
+	golden, err := os.ReadFile(filepath.Join("..", "core", "docrender", "testdata", "state_report.golden.md"))
+	if err != nil {
+		t.Fatalf("read golden: %v", err)
+	}
+	blocks, err := parseBlocks(string(golden))
+	if err != nil {
+		t.Fatalf("parseBlocks: %v", err)
+	}
+	var tables, captions, lists int
+	for _, b := range blocks {
+		switch b.Kind {
+		case blockTable:
+			tables++
+		case blockCaption:
+			captions++
+		case blockList:
+			lists++
+		}
+	}
+	if tables != 3 || captions != 3 || lists != 2 {
+		t.Fatalf("got %d tables, %d captions, %d lists; want 3, 3, 2", tables, captions, lists)
+	}
+	page := documentHTML(blocks, artwork{}, Options{})
+	for _, want := range []string{
+		`<p class="caption"><em>Active states of every lamp</em></p>`,
+		"<td>on.dim</td>",
+		"<td>1 [s]</td>",
+		"<td>level = 3</td>",
+		"<li>t=0 lamp1.lp: enter: on</li>",
+		"<li>lamp1.lp in on.fast</li>",
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("state report markup missing from HTML: %q\n%s", want, page)
+		}
+	}
+	for _, stray := range []string{`\[`, "<!-- caption -->"} {
+		if strings.Contains(page, stray) {
+			t.Errorf("page leaks %q:\n%s", stray, page)
+		}
+	}
+}

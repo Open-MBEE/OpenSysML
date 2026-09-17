@@ -23,8 +23,10 @@ from opensysml.connection import Connection
 from opensysml.document import (
     INFINITY,
     DocumentQueryError,
+    DocumentEvent,
     DocumentQueryResult,
     DocumentRow,
+    DocumentState,
     DocumentVerdict,
     ElementRef,
     ObjectRef,
@@ -62,6 +64,12 @@ VERDICT_FIXTURE = os.path.join(
 OBJECT_FIXTURE = os.path.join(
     REPO_ROOT, "internal", "grpc", "testdata", "conformance",
     "document_query_object_by_path.sysml",
+)
+#: The service's state fixture: a lamp exhibiting a state machine with an
+#: orthogonal region, and queries over its states and its trace.
+STATE_FIXTURE = os.path.join(
+    REPO_ROOT, "internal", "grpc", "testdata", "conformance",
+    "document_query_states.sysml",
 )
 
 CAPABILITIES = (CAPABILITY_DOCUMENT_QUERY, CAPABILITY_RENDER_DOCUMENT)
@@ -160,6 +168,17 @@ def test_a_verdict_binding_is_refused():
     )
     with pytest.raises(DocumentQueryError, match="'root'.*answered by queries"):
         build_bindings({"root": verdict})
+
+
+def test_a_state_or_event_binding_is_refused():
+    """States and events are answered by queries; binding one is a caller error."""
+    lamp = ObjectRef(id=1, path="Lamps::lamp")
+    state = DocumentState(object=lamp, machine="lp", name="off", path="off")
+    event = DocumentEvent(kind="entry", time=0, text="enter: off")
+    with pytest.raises(DocumentQueryError, match="'root'.*a state row is answered by queries"):
+        build_bindings({"root": state})
+    with pytest.raises(DocumentQueryError, match="'root'.*an event row is answered by queries"):
+        build_bindings({"root": event})
 
 
 def test_an_object_binds_by_id_by_path_or_both():
@@ -384,6 +403,118 @@ def test_an_object_row_decodes_to_the_object_and_its_usage(fake_service):
     assert str(ObjectRef(id=2)) == "#2"
 
 
+def _lamp_wire(instance_id=1, path="Lamps::lamp"):
+    return sysml_pb2.DocumentObject(
+        instance_id=instance_id,
+        path=path,
+        element=sysml_pb2.DocumentValue(element_id="Lamps::lamp", element_type="PartUsage"),
+    )
+
+
+def test_a_state_row_decodes_to_the_object_and_its_state(fake_service):
+    """A row a States query answered stands for the object's usage and
+    carries the object and the state; a state-valued cell decodes the same way."""
+    wire = sysml_pb2.DocumentState(
+        object=_lamp_wire(),
+        machine="lp",
+        name="run",
+        state_path="on.run",
+        state=sysml_pb2.DocumentValue(
+            element_id="Lamps::LampMachine::on::light::run", element_type="StateUsage"
+        ),
+        region="light",
+        enclosing=["on"],
+    )
+    response = sysml_pb2.RunDocumentQueryResponse(
+        columns=[sysml_pb2.DocumentQueryColumn(name="self")],
+        rows=[sysml_pb2.DocumentQueryRow(
+            element=sysml_pb2.DocumentValue(state=wire),
+            cells=[sysml_pb2.DocumentQueryCell(values=[sysml_pb2.DocumentValue(state=wire)])],
+        )],
+    )
+    port, _ = fake_service(response=response)
+    with Connection(port=port, auto_start=False) as conn:
+        result = conn.load_from_content("package Demo;").run_document_query("Demo::Q")
+
+    (row,) = result
+    lamp = ObjectRef(id=1, path="Lamps::lamp", element=ElementRef("Lamps::lamp", "PartUsage"))
+    expected = DocumentState(
+        object=lamp,
+        machine="lp",
+        name="run",
+        path="on.run",
+        state=ElementRef("Lamps::LampMachine::on::light::run", "StateUsage"),
+        region="light",
+        enclosing=("on",),
+    )
+    assert row.state == expected
+    assert row.object == lamp
+    assert row.element == lamp.element
+    assert row.verdict is None and row.event is None
+    assert row[0] == (expected,)
+    assert str(row.state) == "Lamps::lamp.lp in on.run"
+
+
+def test_an_event_row_decodes_to_the_trace_record(fake_service):
+    """A row an Events query answered carries the record's kind, instant,
+    object, machine, states, target, event, payload and choice; an event
+    without an object is a record of the run as a whole."""
+    at = sysml_pb2.DocumentValue(quantity=sysml_pb2.Quantity(
+        real_magnitude=1.5, unit="s",
+        unit_term=sysml_pb2.UnitTerm(
+            scale_num=1, scale_den=1, factors=[sysml_pb2.UnitFactor(unit_id="SI::second", exponent=1)]
+        ),
+    ))
+    accept = sysml_pb2.DocumentEvent(
+        kind="accept", time=at, object=_lamp_wire(), machine="lp",
+        event="Toggle", payload=["level = 2"], text="accept Toggle",
+    )
+    send = sysml_pb2.DocumentEvent(
+        kind="send", time=at, object=_lamp_wire(), machine="lp",
+        target=_lamp_wire(2, "#2"), event="Toggle", text="send Toggle to #2",
+    )
+    fired = sysml_pb2.DocumentEvent(
+        kind="transition", time=at, object=_lamp_wire(), machine="lp",
+        **{"from": "off"}, to="on", event="Toggle", text="off -> on",
+    )
+    choice = sysml_pb2.DocumentEvent(
+        kind="choice", time=at, alternatives=["light", "fan"], taken="fan",
+        text="choice: region order [fan, light]",
+    )
+    response = sysml_pb2.RunDocumentQueryResponse(
+        columns=[sysml_pb2.DocumentQueryColumn(name="self")],
+        rows=[
+            sysml_pb2.DocumentQueryRow(
+                element=sysml_pb2.DocumentValue(event=record),
+                cells=[sysml_pb2.DocumentQueryCell(values=[sysml_pb2.DocumentValue(event=record)])],
+            )
+            for record in (accept, send, fired, choice)
+        ],
+    )
+    port, _ = fake_service(response=response)
+    with Connection(port=port, auto_start=False) as conn:
+        result = conn.load_from_content("package Demo;").run_document_query("Demo::Q")
+
+    lamp = ObjectRef(id=1, path="Lamps::lamp", element=ElementRef("Lamps::lamp", "PartUsage"))
+    other = ObjectRef(id=2, path="#2", element=ElementRef("Lamps::lamp", "PartUsage"))
+    when = Quantity(1.5, Unit(text="s", factors=(UnitFactor("SI::second", 1),)))
+    rows = list(result)
+    assert [row.event.kind for row in rows] == ["accept", "send", "transition", "choice"]
+    assert rows[0].event == DocumentEvent(
+        kind="accept", time=when, text="accept Toggle", object=lamp, machine="lp",
+        event="Toggle", payload=("level = 2",),
+    )
+    assert rows[0].object == lamp and rows[0].element == lamp.element
+    assert rows[0].state is None and rows[0].verdict is None
+    assert rows[0][0] == (rows[0].event,)
+    assert rows[1].event.target == other
+    assert (rows[2].event.from_state, rows[2].event.to_state) == ("off", "on")
+    assert rows[3].event.object is None and rows[3].object is None
+    assert rows[3].element == ElementRef("")
+    assert (rows[3].event.alternatives, rows[3].event.taken) == (("light", "fan"), "fan")
+    assert str(rows[0].event) == "1.5 [s]: accept Toggle"
+
+
 def test_a_row_that_is_no_verdict_carries_none(fake_service):
     response = sysml_pb2.RunDocumentQueryResponse(
         rows=[sysml_pb2.DocumentQueryRow(
@@ -464,9 +595,45 @@ def garage_objects():
     return stamped
 
 
+@pytest.fixture(scope="module")
+def lamps():
+    """The state fixture's source, stamped per test as the object fixture is."""
+    with open(STATE_FIXTURE, encoding="utf-8") as f:
+        source = f.read()
+
+    def stamped(tag):
+        return f"{source}\n// {tag}\n"
+
+    return stamped
+
+
 @pytest.mark.integration
 class TestDocumentsAgainstRealService:
     """The answers themselves, from the real engine."""
+
+    def test_states_and_events_over_the_object_instantiate_built(self, real_service, lamps):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(lamps("states"))
+            model.instantiate("Lamps::lamp")
+            lamp = {"root": ObjectRef(path="Lamps::lamp")}
+            states = model.run_document_query("Lamps::CurrentStates", bindings=lamp)
+            off = model.run_document_query("Lamps::Off")
+            steps = model.run_document_query("Lamps::Steps", bindings=lamp)
+        assert states.columns == ("machine", "statePath", "region")
+        (state,) = states
+        assert state.state == DocumentState(
+            object=ObjectRef(1, "Lamps::lamp", ElementRef("Lamps::lamp", "PartUsage")),
+            machine="lp", name="off", path="off",
+            state=ElementRef("Lamps::LampMachine::off", "StateUsage"),
+        )
+        assert str(state.object) == "Lamps::lamp"
+        assert (state[0], state[1], state[2]) == (("lp",), ("off",), ("",))
+        assert [str(row.object) for row in off] == ["Lamps::lamp"]
+        (entered,) = steps
+        assert entered.event.kind == "entry" and entered.event.state == "off"
+        assert entered.event.object == state.state.object
+        assert entered.event.time == Quantity(0.0, Unit(text="s", factors=(UnitFactor("SI::second", 1),)))
+        assert entered[0] == (entered.event.time,) and entered[1] == ("off",)
 
     def test_a_verdicts_query_checks_the_element_as_declared(self, real_service, garage):
         with Connection(port=real_service, auto_start=False) as conn:

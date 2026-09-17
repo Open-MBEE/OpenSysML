@@ -583,9 +583,6 @@ func runChecks(files []string, exprs []string, c checks) int {
 		}
 		rep.verdict(sess.RunAnalysis(invocation))
 	}
-	for _, invocation := range c.queries {
-		rep.verdict(sess.RunDocumentQuery(invocation))
-	}
 	// With -advance every behavior named is started first and the clock they share
 	// is moved once, so an action's signal reaches a machine that accepts it later;
 	// under the check engine it bounds the search of the invocation's schedules.
@@ -593,6 +590,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 		for _, v := range sess.RunFor(behaviors(c.actions), behaviors(c.states), advance) {
 			rep.verdict(v)
 		}
+		c.runQueries(sess, rep)
 		return rep.finish()
 	}
 	for _, value := range c.actions {
@@ -607,8 +605,17 @@ func runChecks(files []string, exprs []string, c checks) int {
 		name, performer := splitPerformer(value)
 		rep.verdict(sess.RunStateMachine(name, performer...))
 	}
+	c.runQueries(sess, rep)
 
 	return rep.finish()
+}
+
+// runQueries executes each -run-query after the behaviors named have run, so a
+// query over the session's states or trace reads what the run did.
+func (c *checks) runQueries(sess *repl.Session, rep *reporter) {
+	for _, invocation := range c.queries {
+		rep.verdict(sess.RunDocumentQuery(invocation))
+	}
 }
 
 // behaviors reads `-action`/`-state` values as the behaviors they name.

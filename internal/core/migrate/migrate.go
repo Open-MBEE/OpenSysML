@@ -241,9 +241,9 @@ func (m *migration) hasFeature(c, f *xmi.Element) bool {
 // value type beside a block) has no feature to redefine.
 func (m *migration) slotClassifier(e, f *xmi.Element) *xmi.Element {
 	occurrences, values, _ := m.instanceClassifiers(e)
-	classifiers := occurrences
-	if len(occurrences) == 0 {
-		classifiers = values
+	classifiers := values
+	if len(occurrences) > 0 {
+		_, classifiers, _ = m.individualClassifiers(e)
 	}
 	for _, c := range classifiers {
 		if m.hasFeature(c, f) {
@@ -719,7 +719,7 @@ func (m *migration) valueSlot(e, slot, f *xmi.Element, dir string) ([]string, st
 		}
 	}
 	if conflict := m.slotConflict(f, vals); conflict != "" {
-		return nil, conflict + "; its values are " + strings.Join(vals, ", "), false
+		return nil, conflict + valuesNote(vals), false
 	}
 	value := ""
 	switch len(vals) {
@@ -766,7 +766,7 @@ func (m *migration) instanceSlot(e, slot, f *xmi.Element, kw, prefix string) ([]
 		refs = append(refs, m.ref(inst, e))
 	}
 	if conflict := m.slotConflict(f, refs); conflict != "" {
-		return nil, conflict + "; its values are " + strings.Join(refs, ", "), false
+		return nil, conflict + valuesNote(refs), false
 	}
 	name := writeName(m.nameFor(f))
 	lower, upper, ok := bounds(f)
@@ -815,13 +815,21 @@ func (m *migration) instanceOf(classifiers []*xmi.Element, t *xmi.Element) bool 
 func (m *migration) slotConflict(f *xmi.Element, vals []string) string {
 	n := len(vals)
 	lower, upper, ok := bounds(f)
-	if ok && n > 0 && (n < lower || (upper >= 0 && n > upper)) {
+	if ok && (n < lower || (upper >= 0 && n > upper)) {
 		return fmt.Sprintf("the slot holds %d value(s) for a feature of multiplicity %s", n, boundsText(lower, upper))
 	}
 	if dup := repeated(vals); dup != "" && f.Attrs["isUnique"] != "false" {
 		return "the slot repeats the value " + dup + " on a unique feature"
 	}
 	return ""
+}
+
+// valuesNote lists a slot's values after a conflict note; nothing for none.
+func valuesNote(vals []string) string {
+	if len(vals) == 0 {
+		return ""
+	}
+	return "; its values are " + strings.Join(vals, ", ")
 }
 
 // bounds returns a property's multiplicity as numbers, upper -1 for unbounded;

@@ -759,7 +759,8 @@ func (e *evaluator) rowRuns(row queryexec.Row) []TextRun {
 }
 
 // valueText renders one typed query value as deterministic plain text; an
-// object reads as the label the session reaches it by, a verdict as its summary.
+// object reads as the label the session reaches it by, a verdict, state or
+// event as its summary.
 func (e *evaluator) valueText(value queryexec.Value) string {
 	if element, ok := value.Element(); ok {
 		if name := e.context.Model.EffectiveNameOf(element); name != "" {
@@ -772,6 +773,12 @@ func (e *evaluator) valueText(value queryexec.Value) string {
 	}
 	if verdict, ok := value.Verdict(); ok {
 		return verdict.Summary()
+	}
+	if state, ok := value.State(); ok {
+		return state.Label()
+	}
+	if event, ok := value.Event(); ok {
+		return event.Summary()
 	}
 	if text, ok := value.String(); ok {
 		return text

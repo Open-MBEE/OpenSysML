@@ -1,0 +1,15 @@
+{
+  "rpc": "RunDocumentQuery",
+  "instantiate": ["Lamps::lamp"],
+  "query_id": "Lamps::Steps",
+  "bindings": [
+    {"parameter": "root", "values": [{"kind": "object", "value": {"path": "Lamps::lamp"}}]}
+  ],
+  "expected_columns": ["time", "state"],
+  "expected_rows": [
+    {
+      "element": {"kind": "event", "value": "entry at 0 [s] = SI::second: enter: off"},
+      "cells": [[{"kind": "quantity", "value": "0 [s] = SI::second"}], [{"kind": "string_value", "value": "off"}]]
+    }
+  ]
+}

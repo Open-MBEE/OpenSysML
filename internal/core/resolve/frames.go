@@ -392,8 +392,8 @@ func (r *Resolver) Invalidate(ch symbols.Changes) []string {
 			ch.Names[name] = true
 		}
 	}
-	if ch.Registered() {
-		r.names = nil
+	if r.names != nil && ch.Registered() {
+		r.names.Refresh(ch.Names)
 	}
 	var work []*frame
 	for _, f := range r.owners {

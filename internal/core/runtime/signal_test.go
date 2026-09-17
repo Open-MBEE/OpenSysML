@@ -1394,7 +1394,7 @@ func TestRoutingHonorsTheSelectedVariantConnection(t *testing.T) {
 		if tt.selected != "" {
 			ctx.selectedVariants[variantSelection{variation: "link"}] = tt.selected
 		}
-		if err := ctx.postVia(conns, Message{SignalType: "Ping"}, lower.Send{Target: "outPort", IsVia: true}, nil); err != nil {
+		if err := ctx.postVia(conns, Message{SignalType: "Ping"}, lower.Send{Target: "outPort", IsVia: true}, nil, nil); err != nil {
 			t.Fatalf("selection %q: %v", tt.selected, err)
 		}
 		var got []string
@@ -1437,7 +1437,7 @@ func TestRoutingIsPerOwnerVariantSelection(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", usage, err)
 		}
-		if err := ctx.postVia(nil, Message{SignalType: "Ping"}, lower.Send{Target: "outPort", IsVia: true}, self); err != nil {
+		if err := ctx.postVia(nil, Message{SignalType: "Ping"}, lower.Send{Target: "outPort", IsVia: true}, self, nil); err != nil {
 			t.Fatalf("%s: %v", usage, err)
 		}
 		var got []string
@@ -1476,7 +1476,7 @@ func TestAddressedSendStaysWithinTheSendingObject(t *testing.T) {
 	}`))
 	alpha, beta := instanceOfUsage(t, ctx, idx, "test::alpha"), instanceOfUsage(t, ctx, idx, "test::beta")
 	send := lower.Send{Target: "reader", Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
-	if err := ctx.post(nil, Message{SignalType: "Ping"}, send, alpha); err != nil {
+	if err := ctx.post(nil, Message{SignalType: "Ping"}, send, alpha, nil); err != nil {
 		t.Fatalf("post: %v", err)
 	}
 	pending := ctx.PendingMessages()
@@ -1504,7 +1504,7 @@ func TestAddressedSendResolvesPortOfNamedObject(t *testing.T) {
 	}`))
 	alpha, beta := instanceOfUsage(t, ctx, idx, "test::alpha"), instanceOfUsage(t, ctx, idx, "test::beta")
 	send := lower.Send{Target: "alpha.inPort", TargetPath: true, Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
-	if err := ctx.post(nil, Message{SignalType: "Ping"}, send, beta); err != nil {
+	if err := ctx.post(nil, Message{SignalType: "Ping"}, send, beta, nil); err != nil {
 		t.Fatalf("post: %v", err)
 	}
 	pending := ctx.PendingMessages()
@@ -1536,7 +1536,7 @@ func TestAddressedSendDescendsToNestedPort(t *testing.T) {
 	}`))
 	alpha := instanceOfUsage(t, ctx, idx, "test::alpha")
 	send := lower.Send{Target: "inner.inPort", TargetPath: true, Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
-	if err := ctx.post(nil, Message{SignalType: "Ping"}, send, alpha); err != nil {
+	if err := ctx.post(nil, Message{SignalType: "Ping"}, send, alpha, nil); err != nil {
 		t.Fatalf("post: %v", err)
 	}
 	inner, ok, err := ctx.fvObject(alpha, "inner")
@@ -1566,7 +1566,7 @@ func TestAddressedSendToUnreachablePortIsTyped(t *testing.T) {
 		part alpha : Node;
 	}`))
 	send := lower.Send{Target: "alpha.count", TargetPath: true, Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
-	err := ctx.post(nil, Message{SignalType: "Ping"}, send, instanceOfUsage(t, ctx, idx, "test::alpha"))
+	err := ctx.post(nil, Message{SignalType: "Ping"}, send, instanceOfUsage(t, ctx, idx, "test::alpha"), nil)
 	if !errors.Is(err, ErrUnroutableSend) {
 		t.Fatalf("post to alpha.count: %v, want ErrUnroutableSend", err)
 	}
@@ -1624,7 +1624,7 @@ func TestAddressedSendToQualifiedNameSkipsSameNamedFeature(t *testing.T) {
 	}`))
 	alpha := instanceOfUsage(t, ctx, idx, "test::alpha")
 	send := lower.Send{Target: "Other::reader", Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
-	err := ctx.post(nil, Message{SignalType: "Integer"}, send, alpha)
+	err := ctx.post(nil, Message{SignalType: "Integer"}, send, alpha, nil)
 	if !errors.Is(err, ErrUnroutableSend) {
 		t.Errorf("`send to Other::reader` from an object: %v, want %v", err, ErrUnroutableSend)
 	}
@@ -1646,7 +1646,7 @@ func TestAddressedSendToQualifiedNameFromNoObjectIsDelivered(t *testing.T) {
 		action listen { first start; done; succession first start then done; }
 	}`))
 	send := lower.Send{Target: "Other::reader", Scope: DeclScope(oneSymbol(t, idx, "test::listen"))}
-	if err := ctx.post(nil, Message{SignalType: "Integer"}, send, nil); err != nil {
+	if err := ctx.post(nil, Message{SignalType: "Integer"}, send, nil, nil); err != nil {
 		t.Fatalf("post: %v", err)
 	}
 	if got := ctx.PendingMessages()[0]; got.Target != "reader" || !got.reaches("reader", "", 0) {
@@ -1668,7 +1668,7 @@ func TestAddressedSendToAnObjectNeedsThatObject(t *testing.T) {
 	}`))
 	alpha := instanceOfUsage(t, ctx, idx, "test::alpha")
 	send := lower.Send{Target: "leaf", Scope: DeclScope(oneSymbol(t, idx, "test::Node::talk"))}
-	if err := ctx.post(nil, Message{SignalType: "Integer"}, send, alpha); err != nil {
+	if err := ctx.post(nil, Message{SignalType: "Integer"}, send, alpha, nil); err != nil {
 		t.Fatalf("post: %v", err)
 	}
 	got := ctx.PendingMessages()[0]
@@ -1695,7 +1695,7 @@ func TestAddressedSendToReceiverOfAnotherObjectCarriesItsIdentity(t *testing.T) 
 	}`))
 	alpha, beta := instanceOfUsage(t, ctx, idx, "test::alpha"), instanceOfUsage(t, ctx, idx, "test::beta")
 	send := lower.Send{Target: "alpha::reader", Scope: DeclScope(oneSymbol(t, idx, "test::Talker::talk"))}
-	if err := ctx.post(nil, Message{SignalType: "Integer"}, send, beta); err != nil {
+	if err := ctx.post(nil, Message{SignalType: "Integer"}, send, beta, nil); err != nil {
 		t.Fatalf("post: %v", err)
 	}
 	got := ctx.PendingMessages()[0]
@@ -1727,7 +1727,7 @@ func TestAddressedSendPrefersTheNearerDeclaration(t *testing.T) {
 	}`))
 	alpha := instanceOfUsage(t, ctx, idx, "test::alpha")
 	send := lower.Send{Target: "reader", Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
-	if err := ctx.post(nil, Message{SignalType: "Integer"}, send, alpha); err != nil {
+	if err := ctx.post(nil, Message{SignalType: "Integer"}, send, alpha, nil); err != nil {
 		t.Fatalf("post: %v", err)
 	}
 	got := ctx.PendingMessages()[0]
@@ -1750,7 +1750,7 @@ func TestAddressedSendToQualifiedPortOfAnotherTypeIsTyped(t *testing.T) {
 		part alpha : Node;
 	}`))
 	send := lower.Send{Target: "Other::inPort", Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
-	err := ctx.post(nil, Message{SignalType: "Ping"}, send, instanceOfUsage(t, ctx, idx, "test::alpha"))
+	err := ctx.post(nil, Message{SignalType: "Ping"}, send, instanceOfUsage(t, ctx, idx, "test::alpha"), nil)
 	if !errors.Is(err, ErrUnroutableSend) {
 		t.Fatalf("post to Other::inPort: %v, want ErrUnroutableSend", err)
 	}
@@ -1778,7 +1778,7 @@ func TestAddressedSendThroughNamespaceQualifiedPathReachesObject(t *testing.T) {
 		TargetPath: true,
 		Scope:      DeclScope(oneSymbol(t, idx, "test::Node::listen")),
 	}
-	if err := ctx.post(nil, Message{SignalType: "Ping"}, send, beta); err != nil {
+	if err := ctx.post(nil, Message{SignalType: "Ping"}, send, beta, nil); err != nil {
 		t.Fatalf("post: %v", err)
 	}
 	got := ctx.PendingMessages()[0]
@@ -1805,7 +1805,7 @@ func TestAddressedSendReportsWhyTheObjectCouldNotBeBuilt(t *testing.T) {
 		Scope:      DeclScope(oneSymbol(t, idx, "test::Node::listen")),
 	}
 	ctx.maxSteps = 0
-	err := ctx.post(nil, Message{SignalType: "Ping"}, send, nil)
+	err := ctx.post(nil, Message{SignalType: "Ping"}, send, nil, nil)
 	if !errors.Is(err, ErrStepLimitExceeded) {
 		t.Fatalf("post to alpha.inPort: %v, want ErrStepLimitExceeded", err)
 	}
@@ -1832,7 +1832,7 @@ func TestAddressedSendThroughMultiplePartIsTyped(t *testing.T) {
 		TargetPath: true,
 		Scope:      DeclScope(oneSymbol(t, idx, "test::Node::listen")),
 	}
-	err := ctx.post(nil, Message{SignalType: "Ping"}, send, nil)
+	err := ctx.post(nil, Message{SignalType: "Ping"}, send, nil, nil)
 	if !errors.Is(err, ErrUnroutableSend) {
 		t.Fatalf("post to nodes.inPort: %v, want ErrUnroutableSend", err)
 	}
@@ -1861,7 +1861,7 @@ func TestAddressedSendFansOutOverAMultiValuedFeature(t *testing.T) {
 		TargetPath: true,
 		Scope:      DeclScope(oneSymbol(t, idx, "test::Node::listen")),
 	}
-	if err := ctx.post(nil, Message{SignalType: "Ping"}, send, alpha); err != nil {
+	if err := ctx.post(nil, Message{SignalType: "Ping"}, send, alpha, nil); err != nil {
 		t.Fatalf("post to nodes.inPort: %v", err)
 	}
 	elements, err := ctx.fvObjects(alpha, "nodes")
@@ -2000,7 +2000,7 @@ func TestAddressedSendToQualifiedElementOfATwinObject(t *testing.T) {
 		{"alpha::reader", "", "reader"},
 	} {
 		ctx.messages = nil
-		if err := ctx.post(nil, Message{SignalType: "Integer"}, lower.Send{Target: tc.target, Scope: scope}, beta); err != nil {
+		if err := ctx.post(nil, Message{SignalType: "Integer"}, lower.Send{Target: tc.target, Scope: scope}, beta, nil); err != nil {
 			t.Fatalf("post to %s: %v", tc.target, err)
 		}
 		got := ctx.PendingMessages()[0]

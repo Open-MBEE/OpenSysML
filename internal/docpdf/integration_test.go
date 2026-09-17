@@ -152,6 +152,39 @@ func TestRenderFormulasWithInstalledKatex(t *testing.T) {
 }
 
 // TestRenderDiagramsWithInstalledMermaid renders a real diagram when
+
+// TestRenderStateReportWithInstalledEngines renders the state-and-event report
+// golden through each installed converter, and skips otherwise.
+func TestRenderStateReportWithInstalledEngines(t *testing.T) {
+	golden, err := os.ReadFile(filepath.Join("..", "core", "docrender", "testdata", "state_report.golden.md"))
+	if err != nil {
+		t.Fatalf("read golden: %v", err)
+	}
+	for _, engine := range Engines() {
+		t.Run(engine, func(t *testing.T) {
+			converter, err := EngineNamed(engine)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := converter.Available(); err != nil {
+				var docErr *Error
+				if errors.As(err, &docErr) && docErr.Kind == ErrorToolMissing {
+					t.Skipf("%s not installed: %v", engine, err)
+				}
+				t.Fatal(err)
+			}
+			pdf, err := Render(string(golden), engine, Options{TOC: true})
+			if err != nil {
+				t.Fatalf("Render: %v", err)
+			}
+			if !strings.HasPrefix(string(pdf), "%PDF-") {
+				t.Fatalf("output is no PDF: %.16q", pdf)
+			}
+		})
+	}
+}
+
+// TestRenderDiagramsWithInstalledMermaid renders a real diagram when
 // mermaid-cli and an engine are installed, and skips otherwise.
 func TestRenderDiagramsWithInstalledMermaid(t *testing.T) {
 	if _, err := mermaidTool.locate(""); err != nil {

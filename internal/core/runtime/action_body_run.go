@@ -42,8 +42,9 @@ type bodyFrame interface {
 	spell(*stateSpeller) string
 }
 
-// bodyRun is the work of one body: a breakpoint met inside it, or a wait on the
-// clock, pauses it there until resumed, its frames kept in cursor.
+// bodyRun is the work of one body: a breakpoint met inside it, a wait on the
+// clock, or a statement boundary where it yields, pauses it there until
+// resumed, its frames kept in cursor.
 type bodyRun struct {
 	work bodyWork
 	// err is what ended the work, once ended: its own failure, or its abandonment.
@@ -63,13 +64,18 @@ type bodyRun struct {
 	// awaitsMessages lets the run pause for a message too, as a do behavior does
 	// while its machine goes on; a token's step run waits only on the clock.
 	awaitsMessages bool
+	// yields has the run pause at the statement boundary after the statement,
+	// loop iteration or flow step it performed since resumed, which performed marks.
+	yields, performed bool
 }
 
-// bodyPause is why a body run paused: at the breakpoint, or on a wait.
+// bodyPause is why a body run paused: at the breakpoint, on a wait, or yielded
+// at a statement boundary, to go on with the next statement when resumed.
 type bodyPause struct {
 	breakpoint breakpointStop
 	onWait     bool
 	wait       bodyWait
+	yielded    bool
 }
 
 // bodyWait is the wait a body's run paused on: of the action it performs (held),
@@ -113,6 +119,7 @@ func (run *bodyRun) resume(ctx *Context) (bodyPause, bool) {
 	outer := ctx.body
 	ctx.body = run
 	run.resuming, run.cursor = run.cursor, nil
+	run.performed = false
 	base := ctx.trace.nesting()
 	run.traceBase = base
 	ctx.trace.setNesting(base + run.traceLevels)
@@ -142,8 +149,11 @@ func (run *bodyRun) end(ctx *Context) {
 		f.abandon(ctx)
 	}
 	run.cursor, run.ended = nil, true
-	where := "on a wait"
-	if !run.paused.onWait {
+	where := "between statements"
+	switch {
+	case run.paused.onWait:
+		where = "on a wait"
+	case !run.paused.yielded:
 		where = fmt.Sprintf("at breakpoint %q", run.paused.breakpoint.name)
 	}
 	run.err = fmt.Errorf("%w: the run paused %s was abandoned", ErrActionDeadlock, where)
@@ -488,6 +498,30 @@ func (ctx *Context) pauseBody(pause bodyPause) error {
 	}
 	run.paused = pause
 	return errPaused
+}
+
+// yieldBody pauses the body on the stack before its next statement where its run
+// goes one at a time and has performed one since resumed; nil, going on, else.
+func (ctx *Context) yieldBody() error {
+	if ctx.body == nil || !ctx.body.yields || !ctx.body.performed {
+		return nil
+	}
+	return ctx.pauseBody(bodyPause{yielded: true})
+}
+
+// bodyPerformed notes a statement, loop iteration or flow step of the body on the
+// stack done, after which a run going one at a time yields.
+func (ctx *Context) bodyPerformed() {
+	if ctx.body != nil {
+		ctx.body.performed = true
+	}
+}
+
+// yieldedHere reports the frame just popped as the one the body yielded in: its
+// next statement begins afresh there, where a frame paused inside one resumes it.
+func (ctx *Context) yieldedHere() bool {
+	run := ctx.body
+	return run != nil && len(run.resuming) == 0 && run.paused.yielded
 }
 
 // pauseForClock pauses the body on the stack while wait, a wait on the clock,
