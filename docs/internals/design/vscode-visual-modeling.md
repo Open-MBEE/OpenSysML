@@ -151,9 +151,10 @@ passed to the renderer directly.
 
 ### The extension side
 
-- `SysML: Open Diagram` opens a `WebviewPanel` beside the editor, one per document,
-  retained across tab switches with `retainContextWhenHidden` off and state restored
-  through `setState`/`getState`. The command is bound to <kbd>Alt</kbd>+<kbd>D</kbd> and
+- `SysML: Open Diagram` opens a `WebviewPanel` beside the editor, one per document
+  and view, retained across tab switches with `retainContextWhenHidden` off and
+  state (`{uri, view}`) restored through `setState`/`getState`, so a reload brings
+  every panel back on its view. The command is bound to <kbd>Alt</kbd>+<kbd>D</kbd> and
   <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> (the PlantUML and Markdown-preview
   conventions) with `when` clauses that hold only for a model editor or the panel
   itself, and sits in the editor title bar and the editor and Explorer context menus.
@@ -161,28 +162,55 @@ passed to the renderer directly.
   to the source), the active editor, or the one model editor in view — in that order
   — and is registered whether or not the server draws, so a key or menu always
   answers, with a diagram or with the reason there is none.
+- Which view a panel opens on is decided client-side, in `views.ts`, as pure
+  functions over the `opensysml/views` listing (`chooseView`): the view the
+  document implies (its sole drawable view, `#tree` when it declares none); else
+  the drawable view whose declaration `range` holds the editor's cursor; else the
+  view last chosen for that document, kept in `workspaceState` under
+  `opensysml.diagram.chosenViews` keyed by document URI and forgotten when the
+  document no longer declares it; else a quick pick of the drawable views (label
+  the name, detail the kind), then **All views**, then the pseudo-views. A view
+  the server cannot draw is left out of the quick pick — its items cannot be
+  disabled — and the panel's own picker lists it disabled with the reason.
+  Cancelling opens nothing. The server never receives an
+  empty `view` for a multi-view document: the client always names one. Servers
+  whose listing carries no `range` skip the cursor step.
+- `DiagramPanels` keys panels by `panelKey(uri, view)`; `renderChanged` and the
+  cursor highlight go to every panel of the document, and panels are titled
+  `Diagram: <file> — <view>` while the document has more than one. Opening the
+  view a panel already draws reveals it; a different view opens another panel
+  beside the source. The in-panel picker retargets its panel to the chosen view,
+  and re-keys it — unless another panel already draws that view, which is
+  revealed instead, so a document never has two panels of one view. Export uses
+  the document's one panel's view, and asks when there are none or several.
 - The panel is open by default. A model file shown in an editor gets its diagram
   without being asked — on activation, on every change of active editor, and, for
   a file made active while the server was still starting, when the client attaches.
   The decision is one pure function (`src/autoopen.ts`, `shouldAutoOpen`) over the
   `opensysml.diagram.autoOpen` setting, whether a drawing server is attached,
-  whether the document already has a panel (a panel restored by the serializer
-  counts, so a reload does not double-open), whether the user dismissed it, and
+  whether the document already has a panel of any view (a panel restored by the
+  serializer counts, so a reload does not double-open), whether the user dismissed it, and
   what the editor is: only a `file:` document in a model language, sitting in an
   editor group, whose active tab is a plain text tab. That rules out untitled
   buffers, `git:` revisions, diff tabs and the peek editor of a hover. An
   automatic open is silent — no "server not running" or "too old" warning, those
   belong to the explicit command — and never takes focus; when a document declares
-  several views it draws what `DiagramPanels.open` draws, and never asks.
-- Placement: one panel per document, all in one editor group. The first diagram
-  opens `Beside` its source; every later one, automatic or explicit, opens in the
-  group an existing diagram already occupies, so switching between model files
-  adds a tab to the diagram column rather than a column to the layout. One panel
-  per document (not one reused panel) keeps each panel's view choice and its
-  serialized state, and lets two diagrams be compared by dragging one out; one
-  group keeps the layout calm. An explicit Open Diagram on a document that already
-  has a panel reveals it in that group.
-- Dismissal: a panel whose tab the user closes records its document URI under
+  several views it runs the same choice as the command up to the quick pick — the
+  implied view, the one under the cursor, the remembered one — and opens nothing
+  rather than ask. The eligibility is checked again once the listing returns, so a
+  panel opened or an editor switched meanwhile is not doubled; a listing that
+  fails opens nothing (the command falls back to the server's own choice), and
+  ranges listed before an edit are not matched against the cursor after it.
+- Placement: one panel per document and view, all in one editor group. The first
+  diagram opens `Beside` its source; every later one, automatic or explicit, opens
+  in the group an existing diagram already occupies (`diagramColumn`), so switching
+  between model files or views adds a tab to the diagram column rather than a
+  column to the layout. One panel per view (not one reused panel) keeps each
+  panel's view choice and its serialized state, and lets two diagrams be compared
+  by dragging one out; one group keeps the layout calm. An explicit Open Diagram
+  on a view that already has a panel reveals it in that group.
+- Dismissal is per document, whatever the number of its panels: closing the
+  document's last panel records its document URI under
   `workspaceState` (`opensysml.diagram.dismissed`), and the document is not
   auto-opened again — across editor switches and across window reloads — until an
   explicit Open Diagram, which clears the entry and opens the panel. Only the user's
@@ -193,13 +221,15 @@ passed to the renderer directly.
   open, as it does today — a diagram is a document of its own, with a way back to
   the source. A rename (`workspace.onDidRenameFiles`) carries a dismissal to the
   new URI and moves an open panel with it — the panel is recreated under the new
-  URI in the same group with the same view, an extension-caused replacement, so it
-  is not a dismissal; a delete clears the dismissal, so a file recreated under the
+  URI in the same group with the same view, each of the document's panels in
+  turn, an extension-caused replacement, so it is not a dismissal; a delete clears the dismissal, so a file recreated under the
   same name starts fresh. VS Code reports a folder rename or delete as the folder
   alone, so both apply to every document below it (`renamedUri`). `Dismissals`
   keeps the list in memory and writes it to `workspaceState` in order, so the
   un-awaited mutations of a multi-file rename or delete cannot overwrite one
-  another, and a failed write does not hold up the next.
+  another, and a failed write does not hold up the next. The view chosen for a
+  document (`ChosenViews`, `opensysml.diagram.chosenViews`) follows the same
+  rename and delete, with the same ordered writes.
 - The webview bundles Mermaid locally (no CDN, and a `Content-Security-Policy` with
   a nonce and no `connect-src`), renders the artifact, and re-renders on the
   extension's `postMessage`.
@@ -222,6 +252,10 @@ passed to the renderer directly.
   each kind, for a pseudo-view, for a document with no views, for an unsupported
   kind (asserting the reason), and for a stale-version request. Plus a
   didChange → `renderChanged` ordering test.
+- `editors/vscode/src/views.test.ts`: the view choice (cursor in a declaration,
+  the remembered view and its staleness, the fallbacks, "All views" expansion),
+  the panel keying as pure functions, and the chosen-view store's
+  remember/clear/rename semantics.
 - `editors/vscode/src/autoopen.test.ts`: `shouldAutoOpen` over every input, the
   dismissal store's record/clear/rename semantics, and the `Lifecycle` distinction
   between a disposal the extension asked for and a tab the user closed;

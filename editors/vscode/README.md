@@ -48,9 +48,11 @@ typed. The diagram opens quietly: focus stays in the text, and the diagrams of
 every file share one editor group, so switching between model files adds a tab
 there instead of another column. Nothing opens for a file that is not on disk
 — an untitled buffer, a `git:` revision, a diff — or for one only peeked at from
-a hover.
+a hover. A file declaring several drawable views opens on its own only when the
+cursor sits in one of them or one was chosen for it before; otherwise nothing
+opens and nothing asks — `SysML: Open Diagram` does the asking.
 
-Close a diagram and it stays closed for that file, across switches to other
+Close a file's last diagram and it stays closed for that file, across switches to other
 files and across a reload of the window, until you ask for it again. Closing
 the file's editor leaves its diagram where it is; renaming the file carries its
 open diagram — or the memory of a closed one — along, deleting the file forgets it. To have no
@@ -73,12 +75,13 @@ own just waits for the server.
 
 | | |
 | --- | --- |
-| **What it draws** | The view the document declares, chosen in the picker when it declares several. A document declaring none is drawn directly, as a model tree, interconnection diagram, state diagram, action flow, sequence diagram or element table — a table is written as Markdown rather than drawn, and is shown as that. A view whose rendering is not supported (`geometry`, `textual`) is listed but not drawable, and the reason is written under the diagram. |
+| **What it draws** | The view the document declares. A document declaring several drawable views opens on the one whose declaration holds the editor's cursor, else the one last chosen for that document in this workspace, else the one picked from a list — the drawable views by name and kind, **All views** to open each in its own panel, and the pseudo-views last; views the server cannot draw are left out of that list (the panel's own picker still shows them, disabled, with the reason), and cancelling opens nothing. A document declaring none is drawn directly, as a model tree, interconnection diagram, state diagram, action flow, sequence diagram or element table — a table is written as Markdown rather than drawn, and is shown as that. A view whose rendering is not supported (`geometry`, `textual`) is listed but not drawable, and the reason is written under the diagram. |
+| **Several panels** | A document may have one panel per view open at once; they are titled `Diagram: <file> — <view>` while there are several, each redraws when the model changes, and each highlights the cursor's node. Open Diagram reveals the panel already showing the chosen view, or opens another beside the source for a different one. Picking a view in a panel's picker retargets that panel — unless another panel already draws it, which is revealed instead. Panels come back with their views when the window reloads. |
 | **Where things go** | A node the model places — a `DiagramLayout::Layout` annotation in the view's body or the element's own — is drawn exactly there, at the size it states; every other node takes a slot in a grid under its owner, in the order rendered, so the same model draws the same way every time. An edge follows the waypoints its `DiagramLayout::Route` gives it, else runs straight. |
 | **Navigation** | Click a node to open the declaration it was built from; moving the cursor in the editor highlights the node whose declaration contains it. A node built from a standard library declaration opens the bundled library file, read-only. |
 | **While typing** | A rendering that fails mid-keystroke leaves the last good diagram on screen, dimmed, with the error in the status line: the panel never blanks. What a rendering could not represent is listed under it. |
 | **Cost** | The panel asks for a diagram only while visible, and only once an editing burst settles. The panel draws its own SVG, and its CSP allows the bundled script alone — nothing is fetched from the network. |
-| **Export** | `SysML: Export Diagram` saves the server's machine form of the diagram — Mermaid (`.mmd`) for a diagram, with the model's positions as `%% layout:` comments, Markdown for a table — for the view the document's panel shows; with no panel, the document's one drawable view, its model tree when it declares none, or the view picked from a list when it declares several. |
+| **Export** | `SysML: Export Diagram` saves the server's machine form of the diagram — Mermaid (`.mmd`) for a diagram, with the model's positions as `%% layout:` comments, Markdown for a table — for the view the document's panel shows; with no panel or several, the document's one drawable view, its model tree when it declares none, or the view picked from a list when it declares several. |
 
 ### Editing from the diagram
 

@@ -51,7 +51,18 @@ import {
 } from "./protocol";
 import { ActiveEditor, AUTO_OPEN_SETTING, Dismissals, Lifecycle, renamedUri, shouldAutoOpen, TabKind } from "./autoopen";
 import { CommandContext, PANEL_TYPE, resolveTarget } from "./target";
-import { declaredViewEntries, DEFAULT_PSEUDO_VIEW, impliedView, pseudoViewEntries } from "./views";
+import {
+  chooseView,
+  ChosenViews,
+  DeclaredView,
+  declaredViewEntries,
+  expandChoice,
+  impliedView,
+  panelKey,
+  pseudoViewEntries,
+  viewPickItems,
+  viewTitle,
+} from "./views";
 
 /** Why the diagram commands cannot serve, when they cannot. */
 const NOT_RUNNING = "The SysML v2 language server is not running; run \"SysML: Restart Language Server\" to start it.";
@@ -66,30 +77,35 @@ const EXPORT_FORMS: Record<string, { extension: string; filter: string }> = {
 
 /** The views of a document, as the picker offers them: declared first, then the pseudo-views. */
 interface ViewListing {
-  declared: PickerEntry[];
+  declared: DeclaredView[];
   pseudo: PickerEntry[];
+  /** Set when the server could not be asked: the empty listing then says nothing about the document. */
+  failed?: true;
 }
 
 // listViews asks the server for a document's views. A failure is logged and yields
 // no declared views: the listing is a picker's content, not the diagram.
 async function listViews(client: LanguageClient, uri: string, output: vscode.OutputChannel): Promise<ViewListing> {
-  let listing: ViewsResult | undefined;
+  let listing: ViewsResult;
   try {
     listing = await client.sendRequest<ViewsResult>(VIEWS_METHOD, { textDocument: { uri } });
   } catch (err) {
     output.appendLine(`Listing the views of ${vscode.Uri.parse(uri).fsPath} failed: ${errorMessage(err)}`);
+    return { declared: [], pseudo: pseudoViewEntries(undefined), failed: true };
   }
-  return { declared: declaredViewEntries(listing), pseudo: pseudoViewEntries(listing?.pseudoViews) };
+  return { declared: declaredViewEntries(listing), pseudo: pseudoViewEntries(listing.pseudoViews) };
 }
 
 /**
- * DiagramPanels owns the diagram webviews: one per document, drawn from the
- * server's rendering of it and redrawn when the server says it went stale.
+ * DiagramPanels owns the diagram webviews: one per document and view, drawn from
+ * the server's rendering of it and redrawn when the server says it went stale.
  */
 export class DiagramPanels implements vscode.Disposable {
+  /** The panels, by panelKey of the document and the view each draws. */
   private readonly panels = new Map<string, DiagramPanel>();
   private readonly disposables: vscode.Disposable[] = [];
   private readonly dismissals: Dismissals;
+  private readonly chosenViews: ChosenViews;
   private notification: vscode.Disposable | undefined;
   private client: LanguageClient | undefined;
   private unavailable: string | undefined = NOT_RUNNING;
@@ -100,13 +116,16 @@ export class DiagramPanels implements vscode.Disposable {
     workspaceState: vscode.Memento,
   ) {
     this.dismissals = new Dismissals(workspaceState);
+    this.chosenViews = new ChosenViews(workspaceState);
     // The commands exist whether or not a server serves them, so a keybinding
     // or menu always answers — with the diagram, or with why there is none.
     this.disposables.push(
       vscode.commands.registerCommand("opensysml.openDiagram", (target?: unknown) => this.open(target)),
       vscode.commands.registerCommand("opensysml.exportDiagram", (target?: unknown) => this.export(target)),
       vscode.window.onDidChangeTextEditorSelection((event) => {
-        this.panels.get(event.textEditor.document.uri.toString())?.highlightAt(event.selections[0].active);
+        for (const panel of this.panelsOf(event.textEditor.document.uri)) {
+          panel.highlightAt(event.selections[0].active);
+        }
       }),
       vscode.window.onDidChangeActiveTextEditor((editor) => this.autoOpen(editor)),
       vscode.workspace.onDidChangeConfiguration((event) => {
@@ -114,16 +133,18 @@ export class DiagramPanels implements vscode.Disposable {
           this.autoOpen(vscode.window.activeTextEditor);
         }
       }),
-      // A dismissal and an open panel follow the file through a rename; a dismissal dies with the file.
+      // A dismissal, a chosen view and an open panel follow the file through a rename; the records die with the file.
       vscode.workspace.onDidRenameFiles((event) => {
         for (const { oldUri, newUri } of event.files) {
           void this.dismissals.rename(oldUri.toString(), newUri.toString());
+          void this.chosenViews.rename(oldUri.toString(), newUri.toString());
           this.rebind(oldUri, newUri);
         }
       }),
       vscode.workspace.onDidDeleteFiles((event) => {
         for (const uri of event.files) {
           void this.dismissals.clear(uri.toString());
+          void this.chosenViews.clear(uri.toString());
         }
       }),
       vscode.window.registerWebviewPanelSerializer(PANEL_TYPE, {
@@ -160,7 +181,9 @@ export class DiagramPanels implements vscode.Disposable {
     this.client = client;
     this.unavailable = undefined;
     this.notification = client.onNotification(RENDER_CHANGED_METHOD, (params: RenderChangedParams) => {
-      this.panels.get(vscode.Uri.parse(params.textDocument.uri).toString())?.refresh();
+      for (const panel of this.panelsOf(vscode.Uri.parse(params.textDocument.uri))) {
+        panel.refresh();
+      }
     });
     for (const panel of this.panels.values()) {
       panel.refresh();
@@ -187,8 +210,15 @@ export class DiagramPanels implements vscode.Disposable {
     }
   }
 
-  /** open shows the diagram of the document a command names beside its source; from the panel, the source. */
-  private async open(target?: unknown): Promise<void> {
+  /**
+   * open shows the diagram of a document beside its source: the one a command
+   * names, or the one given. From the panel, it shows the source. The view is the
+   * one given, else the one the document implies, the one under the cursor, the
+   * one last chosen for the document, or the user's pick; a pick of "All views"
+   * opens one panel per drawable view. A panel already drawing the view is
+   * revealed rather than opened again.
+   */
+  async open(target?: unknown, view?: string): Promise<void> {
     const resolved = this.resolve(target, "draw a diagram of it");
     if (!resolved) {
       return;
@@ -205,38 +235,103 @@ export class DiagramPanels implements vscode.Disposable {
     // Asking for the diagram undoes an earlier close of it.
     const key = uri.toString();
     await this.dismissals.clear(key);
-    const existing = this.panels.get(key);
-    if (existing) {
-      existing.reveal(this.diagramColumn());
-      return;
-    }
     // A file chosen in the Explorer is opened first, so the diagram sits beside its source.
-    if (!vscode.window.visibleTextEditors.some((editor) => editor.document.uri.toString() === key)) {
-      await vscode.window.showTextDocument(uri, { preview: false });
+    let editor = editorOf(uri);
+    if (!editor) {
+      editor = await vscode.window.showTextDocument(uri, { preview: false });
     }
-    this.create(uri);
+    const views = view !== undefined ? [view] : await this.viewsToDraw(uri, editor, true);
+    for (const chosen of views) {
+      this.show(uri, chosen);
+    }
   }
 
   /**
    * autoOpen draws the diagram of a model file the user is looking at, without
    * being asked and without a word when it cannot; a file whose diagram the user
-   * closed stays as it is until Open Diagram asks for it again.
+   * closed stays as it is until Open Diagram asks for it again. A document that
+   * declares several views is drawn only when the cursor or an earlier choice
+   * names one: nothing is asked.
    */
   private autoOpen(editor: vscode.TextEditor | undefined): void {
-    const uri = editor?.document.uri.toString();
-    const wanted = shouldAutoOpen({
-      enabled: autoOpenEnabled(),
-      available: this.unavailable === undefined,
-      hasPanel: uri !== undefined && this.panels.has(uri),
-      dismissed: uri !== undefined && this.dismissals.has(uri),
-      editor: editor && activeEditorInfo(editor),
-    });
-    if (wanted && editor) {
-      this.create(editor.document.uri);
+    if (editor && this.autoOpenWanted(editor)) {
+      void this.viewsToDraw(editor.document.uri, editor, false).then((views) => {
+        // The listing took time; the editor may have moved on or the document gained a panel.
+        if (vscode.window.activeTextEditor !== editor || !this.autoOpenWanted(editor)) {
+          return;
+        }
+        for (const chosen of views) {
+          this.show(editor.document.uri, chosen);
+        }
+      });
     }
   }
 
-  // create opens a document's panel in the diagram column, leaving focus where it is.
+  // autoOpenWanted is whether the editor's document gets a diagram unasked, as of now.
+  private autoOpenWanted(editor: vscode.TextEditor | undefined): boolean {
+    const uri = editor?.document.uri.toString();
+    return shouldAutoOpen({
+      enabled: autoOpenEnabled(),
+      available: this.unavailable === undefined,
+      hasPanel: editor !== undefined && this.panelsOf(editor.document.uri).length > 0,
+      dismissed: uri !== undefined && this.dismissals.has(uri),
+      editor: editor && activeEditorInfo(editor),
+    });
+  }
+
+  // viewsToDraw is what is drawn of a document: the view the document, the
+  // cursor or an earlier choice decides, else — when asking is allowed — what the
+  // user picks. Empty when nothing decides and nothing is picked. The cursor is
+  // read after the listing returns: an editor just made active still restores it.
+  // Without a listing, the server's own choice is drawn when asked, nothing unasked.
+  private async viewsToDraw(docURI: vscode.Uri, editor: vscode.TextEditor, ask: boolean): Promise<string[]> {
+    const client = this.client;
+    if (!client) {
+      return ask ? [""] : [];
+    }
+    const version = editor.document.version;
+    const { declared, pseudo, failed } = await listViews(client, docURI.toString(), this.output);
+    if (failed) {
+      return ask ? [""] : [];
+    }
+    // Ranges were listed for the document as it was; an edit since leaves the cursor to decide nothing.
+    const cursor = editor.document.version === version ? editor.selection.active : undefined;
+    const choice = chooseView(declared, pseudo, cursor, this.chosenViews.get(docURI.toString()));
+    if (choice.view !== undefined) {
+      return [choice.view];
+    }
+    if (choice.stale !== undefined) {
+      await this.chosenViews.remember(docURI.toString(), undefined);
+    }
+    if (!ask) {
+      return [];
+    }
+    const picked = await vscode.window.showQuickPick(viewPickItems(declared, pseudo), {
+      title: `Which view of ${basename(docURI)}?`,
+      matchOnDetail: true,
+    });
+    if (!picked) {
+      return [];
+    }
+    const views = expandChoice(picked.value, declared);
+    if (views.length === 1) {
+      await this.chosenViews.remember(docURI.toString(), views[0]);
+    }
+    return views;
+  }
+
+  // show reveals the panel drawing a view of a document, creating it in the
+  // diagram column when there is none.
+  private show(docURI: vscode.Uri, view: string): void {
+    const existing = this.panels.get(panelKey(docURI.toString(), view));
+    if (existing) {
+      existing.reveal(this.diagramColumn());
+      return;
+    }
+    this.create(docURI, view);
+  }
+
+  // create opens a panel of a view of a document in the diagram column, leaving focus where it is.
   private create(uri: vscode.Uri, selected = "", column = this.diagramColumn()): void {
     const panel = vscode.window.createWebviewPanel(
       PANEL_TYPE,
@@ -247,19 +342,25 @@ export class DiagramPanels implements vscode.Disposable {
     this.adopt(uri, panel, selected);
   }
 
+  /** panelsOf is every panel drawing a view of the document. */
+  private panelsOf(docURI: vscode.Uri): DiagramPanel[] {
+    const key = docURI.toString();
+    return [...this.panels.values()].filter((panel) => panel.documentUri().toString() === key);
+  }
+
   // rebind moves the panels of a renamed document, or of every document in a
   // renamed folder, to their new URIs, keeping view and group; the replacement
   // is the extension's doing, not a dismissal.
   private rebind(from: vscode.Uri, to: vscode.Uri): void {
-    for (const [key, old] of [...this.panels]) {
-      const moved = renamedUri(key, from.toString(), to.toString());
+    for (const old of [...this.panels.values()]) {
+      const moved = renamedUri(old.documentUri().toString(), from.toString(), to.toString());
       if (moved === undefined) {
         continue;
       }
       const column = old.column() ?? this.diagramColumn();
       const selected = old.selectedView();
       old.dispose();
-      if (!this.panels.has(moved)) {
+      if (!this.panels.has(panelKey(moved, selected))) {
         this.create(vscode.Uri.parse(moved), selected, column);
       }
     }
@@ -285,8 +386,10 @@ export class DiagramPanels implements vscode.Disposable {
       return;
     }
     const uri = resolved.uri.toString();
-    // A panel that has not chosen among the document's views leaves the choice here.
-    const view = this.panels.get(uri)?.selectedView() || await this.exportedView(client, uri);
+    // Several panels of the document leave the choice between them here, as does a
+    // panel that has not chosen among the document's views.
+    const panels = this.panelsOf(resolved.uri);
+    const view = (panels.length === 1 ? panels[0].selectedView() : "") || await this.exportedView(client, uri);
     if (view === undefined) {
       return;
     }
@@ -367,21 +470,74 @@ export class DiagramPanels implements vscode.Disposable {
     return picked?.entry.value;
   }
 
-  // adopt takes ownership of a panel, whether it was just created or restored.
-  // Only a panel whose tab the user closes is a dismissal.
+  // adopt takes ownership of a panel, whether it was just created or restored. A
+  // restored panel drawing what another already draws replaces it. Only a panel
+  // whose tab the user closes is a dismissal, and only the document's last one.
   private adopt(docURI: vscode.Uri, panel: vscode.WebviewPanel, selected: string): void {
-    const key = docURI.toString();
+    const key = panelKey(docURI.toString(), selected);
     this.panels.get(key)?.dispose();
-    const diagram = new DiagramPanel(docURI, panel, selected, this.extensionUri, this.output, () => this.client, (byUser) => {
-      if (this.panels.get(key) === diagram) {
-        this.panels.delete(key);
-      }
-      if (byUser) {
-        void this.dismissals.record(key);
-      }
+    const diagram: DiagramPanel = new DiagramPanel(docURI, panel, selected, this.extensionUri, this.output, () => this.client, {
+      retarget: (from, to, picked) => this.retarget(diagram, from, to, picked),
+      closed: (byUser) => {
+        if (this.panels.get(diagram.key()) === diagram) {
+          this.panels.delete(diagram.key());
+        }
+        if (byUser && this.panelsOf(docURI).length === 0) {
+          void this.dismissals.record(docURI.toString());
+        }
+        this.retitle(docURI);
+      },
     });
     this.panels.set(key, diagram);
+    this.retitle(docURI, true);
   }
+
+  // retarget re-keys a panel that moves to another view. When another panel
+  // already draws that view, that one is revealed instead and the move is
+  // refused, so a document never has two panels of one view. A view the user
+  // picked is remembered for the document; one the panel settled on is not.
+  private retarget(diagram: DiagramPanel, from: string, to: string, picked: boolean): boolean {
+    const docURI = diagram.documentUri();
+    const taken = this.panels.get(panelKey(docURI.toString(), to));
+    if (taken && taken !== diagram) {
+      taken.reveal(this.diagramColumn());
+      return false;
+    }
+    if (this.panels.get(panelKey(docURI.toString(), from)) === diagram) {
+      this.panels.delete(panelKey(docURI.toString(), from));
+    }
+    this.panels.set(panelKey(docURI.toString(), to), diagram);
+    if (picked) {
+      void this.chosenViews.remember(docURI.toString(), to);
+    }
+    this.retitle(docURI);
+    return true;
+  }
+
+  // retitle names a document's panels by view once it has more than one. A
+  // panel gained keeps a longer title it was restored with: the document's other
+  // panels are restored only once shown, so they may not be known yet.
+  private retitle(docURI: vscode.Uri, gained = false): void {
+    const panels = this.panelsOf(docURI);
+    if (gained && panels.length < 2) {
+      return;
+    }
+    for (const panel of panels) {
+      panel.setTitle(panels.length > 1 ? `Diagram: ${basename(docURI)} — ${viewTitle(panel.selectedView())}` : `Diagram: ${basename(docURI)}`);
+    }
+  }
+}
+
+/** What a panel tells its owner: that it moves to another view, which the owner may refuse, and that it closed. */
+interface PanelOwner {
+  retarget(from: string, to: string, picked: boolean): boolean;
+  closed(byUser: boolean): void;
+}
+
+// editorOf is the visible editor showing a document, if one does.
+function editorOf(uri: vscode.Uri): vscode.TextEditor | undefined {
+  const key = uri.toString();
+  return vscode.window.visibleTextEditors.find((editor) => editor.document.uri.toString() === key);
 }
 
 function autoOpenEnabled(): boolean {
@@ -422,7 +578,7 @@ class DiagramPanel {
     extensionUri: vscode.Uri,
     private readonly output: vscode.OutputChannel,
     private readonly client: () => LanguageClient | undefined,
-    onClosed: (byUser: boolean) => void,
+    private readonly owner: PanelOwner,
   ) {
     this.selected = selected;
     this.panel.webview.html = html(this.panel.webview, extensionUri, docURI, selected);
@@ -439,7 +595,7 @@ class DiagramPanel {
     this.panel.onDidDispose(() => {
       const byUser = this.lifecycle.closed();
       this.release();
-      onClosed(byUser);
+      owner.closed(byUser);
     });
   }
 
@@ -469,6 +625,30 @@ class DiagramPanel {
   /** selectedView is the view the panel draws, "" for the document's own. */
   selectedView(): string {
     return this.selected;
+  }
+
+  /** key is the panel's place among its owner's panels. */
+  key(): string {
+    return panelKey(this.docURI.toString(), this.selected);
+  }
+
+  setTitle(title: string): void {
+    if (!this.disposed && this.panel.title !== title) {
+      this.panel.title = title;
+    }
+  }
+
+  // select makes the panel draw another view, unless its owner shows that view already;
+  // `selected` is set before the owner re-keys the panel, so the title it sets is the new one.
+  private select(view: string, picked: boolean): void {
+    const from = this.selected;
+    if (view === from) {
+      return;
+    }
+    this.selected = view;
+    if (!this.owner.retarget(from, view, picked)) {
+      this.selected = from;
+    }
   }
 
   dispose(): void {
@@ -522,10 +702,14 @@ class DiagramPanel {
   private async render(client: LanguageClient): Promise<void> {
     const textDocument = { uri: this.docURI.toString() };
     const { declared, pseudo } = await listViews(client, textDocument.uri, this.output);
-    // A document declaring no drawable view is rendered as its model tree, so
-    // the panel shows the model being written rather than nothing.
-    if (this.selected === "" && !declared.some((entry) => entry.supported)) {
-      this.selected = DEFAULT_PSEUDO_VIEW;
+    // A panel opened on no particular view draws the one the document implies:
+    // its sole view, or the model tree when it declares none, so the model being
+    // written is shown rather than nothing. Several views leave the picker to say.
+    if (this.selected === "") {
+      const implied = impliedView(declared);
+      if (implied !== undefined) {
+        this.select(implied, false);
+      }
     }
     this.post({
       type: "views",
@@ -604,7 +788,7 @@ class DiagramPanel {
         this.refresh();
         return;
       case "pick":
-        this.selected = message.view;
+        this.select(message.view, true);
         this.refresh();
         return;
       case "reveal":

@@ -157,12 +157,15 @@ type viewsResult struct {
 	PseudoViews []string   `json:"pseudoViews"`
 }
 
-// viewInfo is one view a document declares.
+// viewInfo is one view a document declares. Range is its whole declaration and
+// SelectionRange its name, so a client can tell which view the cursor is in.
 type viewInfo struct {
-	Name      string `json:"name"`
-	Kind      string `json:"kind"`
-	Supported bool   `json:"supported"`
-	Reason    string `json:"reason,omitempty"`
+	Name           string          `json:"name"`
+	Kind           string          `json:"kind"`
+	Supported      bool            `json:"supported"`
+	Reason         string          `json:"reason,omitempty"`
+	Range          *protocol.Range `json:"range,omitempty"`
+	SelectionRange *protocol.Range `json:"selectionRange,omitempty"`
 }
 
 // renderChangedParams tells a client which document's renderings went stale, and
@@ -215,13 +218,19 @@ func (s *Server) renderHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
 func (s *Server) Views(params *viewsParams) *viewsResult {
 	name := uriToName(params.TextDocument.URI)
 	out := &viewsResult{Views: []viewInfo{}, PseudoViews: view.PseudoViewSpecs()}
-	for _, info := range s.ws.Views(name) {
-		out.Views = append(out.Views, viewInfo{
+	views, doc := s.ws.Views(name)
+	for _, info := range views {
+		listed := viewInfo{
 			Name:      info.Name,
 			Kind:      string(info.Kind),
 			Supported: info.Supported,
 			Reason:    info.Reason,
-		})
+		}
+		if origin := s.originOf(doc, info.Origin); origin != nil {
+			listed.Range = &origin.Range
+			listed.SelectionRange = origin.SelectionRange
+		}
+		out.Views = append(out.Views, listed)
 	}
 	return out
 }

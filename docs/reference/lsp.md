@@ -197,13 +197,27 @@ picker.
 ```json
 {
   "views": [
-    { "name": "KitViews::widgetParts", "kind": "interconnection", "supported": true },
-    { "name": "KitViews::widgetSequence", "kind": "sequence", "supported": true },
+    {
+      "name": "KitViews::widgetParts",
+      "kind": "interconnection",
+      "supported": true,
+      "range": { "start": { "line": 8, "character": 1 }, "end": { "line": 10, "character": 2 } },
+      "selectionRange": { "start": { "line": 8, "character": 6 }, "end": { "line": 8, "character": 17 } }
+    },
+    {
+      "name": "KitViews::widgetSequence",
+      "kind": "sequence",
+      "supported": true,
+      "range": { "start": { "line": 12, "character": 1 }, "end": { "line": 14, "character": 2 } },
+      "selectionRange": { "start": { "line": 12, "character": 6 }, "end": { "line": 12, "character": 20 } }
+    },
     {
       "name": "KitViews::widgetGeometry",
       "kind": "geometry",
       "supported": false,
-      "reason": "KitViews::widgetGeometry: geometry rendering (view def GeometryView) is not supported"
+      "reason": "KitViews::widgetGeometry: geometry rendering (view def GeometryView) is not supported",
+      "range": { "start": { "line": 16, "character": 1 }, "end": { "line": 18, "character": 2 } },
+      "selectionRange": { "start": { "line": 16, "character": 6 }, "end": { "line": 16, "character": 20 } }
     }
   ],
   "pseudoViews": ["#action", "#interconnection", "#sequence", "#state", "#table", "#tree"]
@@ -215,6 +229,13 @@ with `supported: false` and the reason, so a client can say why it cannot be
 drawn instead of hiding it. `pseudoViews` lists the supported `#<kind>` specs
 in sorted order; a client can use it to offer pseudo-views without duplicating
 the server's list of supported kinds.
+
+`range` is the view's whole declaration in the document and `selectionRange`
+its name, in the same positions as every other LSP range, so a client can tell
+which view the cursor is in and open that one without asking. The trailing
+whitespace between two declarations belongs to neither range. Both fields are
+optional: a server that does not locate views omits them, and a client then
+falls back to asking.
 
 ## `opensysml/documents` (request)
 
