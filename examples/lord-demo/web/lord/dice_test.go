@@ -3,11 +3,11 @@ package lord
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/client/opensysml"
 )
 
 // gambleTwice wagers 10 gold twice in the tavern and reports each wager's dice.
-func gambleTwice(t *testing.T, seed uint64) (first, second []runtime.ChoicePoint, gold int64) {
+func gambleTwice(t *testing.T, seed uint64) (first, second []opensysml.ChoicePoint, gold int64) {
 	t.Helper()
 	g := newGame(t, seed, Character{})
 	if _, err := g.Send("EnterForest"); err != nil {
@@ -16,7 +16,7 @@ func gambleTwice(t *testing.T, seed uint64) (first, second []runtime.ChoicePoint
 	if _, err := g.Send("FindTheDarkCloakTavern"); err != nil {
 		t.Fatal(err)
 	}
-	wager := map[string]runtime.Value{"wager": IntValue(10)}
+	wager := map[string]opensysml.Value{"wager": IntValue(10)}
 	a, err := g.Invoke("gamble", wager)
 	if err != nil {
 		t.Fatal(err)

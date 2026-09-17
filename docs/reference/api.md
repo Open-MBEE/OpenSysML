@@ -41,6 +41,14 @@ some order is an `Outcome` whose `Error` is set, not a failure of the call. The 
 refuse each other's policies with `CodeInvalidArgument`, and exploring requires the
 `schedule_explore` capability alongside `schedule`.
 
+A `Session` (`opensysml.OpenSession(client, model)`) is the interactive counterpart of those
+one-run calls: it keeps its clock, its schedule (`SetSchedule`) and the objects it instantiated
+between calls, so `Instantiate`, `ActiveStates`, `Transitions`, `Accepts`, `Send`, `Advance`,
+`Perform`, `Feature`, `SetFeature`, `Evaluate` and `Members` play a model one step at a time and
+answer facts about it. It is in-process only — opened from a `New` client, refused by a `Dial`
+client with `CodeUnimplemented` — and is not part of the `Client` interface; the package README
+explains why.
+
 `ListEngines` names the analysis engines the service answers with, as `EngineInfo` in name order.
 `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` and `ValidateInstance` take `WithEngine(name)` and
 `RunAnalysis` and `ExploreAnalysis` take `Engine(name)`, and `Calculate` (`EvaluateCalc` with

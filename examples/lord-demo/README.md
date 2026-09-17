@@ -1043,16 +1043,32 @@ elsewhere): `lord.wasm` built from [`web/main.go`](web/main.go) with
 the model. The page needs an HTTP server only because browsers will not fetch
 WebAssembly from `file://`; the one above is Python's, and any other serves.
 The binary carries the whole SysML toolchain and its bundled standard library,
-so it is large — about 27 MB, 7 MB compressed — and a model that does not
+so it is large — about 57 MB, 13 MB compressed — and a model that does not
 play (one with errors, or without `LordPlay::hero` and its day machine) is
 refused when the page loads it, before any warrior is made.
 
 The game itself is the [`web/lord`](web/lord/) package: one `Game` per
-warrior, with a runtime of its own, that sends the day machine the signal a
-key stands for, invokes the deed an argument-taking choice performs, and
-projects the hero's features for the page. It has no dependence on the
-browser and is what the tests exercise; `main.go` only hands it to
-JavaScript.
+warrior, that sends the day machine the signal a key stands for, invokes the
+deed an argument-taking choice performs, and projects the hero's features for
+the page. It has no dependence on the browser and is what the tests exercise;
+`main.go` only hands it to JavaScript.
+
+The package is written against the public Go API alone — `client/opensysml`
+and nothing under `internal/` — as any program outside this repository would
+be. A `Game` opens an in-process client with `opensysml.New`, parses the model
+with `ParseSource`, and plays it in a `Session` (`opensysml.OpenSession`), the
+API's persistent shape: the session keeps the hero it instantiated, the day
+machine's state, the clock and the seeded schedule between keys. The menu is
+`Session.Transitions` filtered to the signal triggers out of the active state,
+each dimmed or lit by `Session.Accepts`; a key is `Session.Send` followed by
+`Session.Advance`, which runs the deed and the completion transitions after it;
+an argument-taking choice is `Session.Perform` on the hero, refused when its
+`Performance.TurnedAway()` — the opening decision left by its else branch — and
+narrated from its `ChoicePoint`s; the stats are `Session.Feature` reads, and
+the values a choice binds (`Blessing::horse`, `town.inn.violet.wink`) are
+`Session.Evaluate` in the hero's scope. Each direct deed rolls under a seed of
+its own that the game's seed determines (`Session.SetSchedule`), so a seed and
+a sequence of keys replay the same day.
 
 ## What the model leaves open, and where it guesses
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/client/opensysml"
 )
 
 // Outcome is what one command made of the model: where the day machine went,
@@ -13,7 +13,7 @@ import (
 type Outcome struct {
 	From, To      string
 	Before, After *Snapshot
-	Choices       []runtime.ChoicePoint
+	Choices       []opensysml.ChoicePoint
 	// Refused is a deed the model turned down at its opening decision; one it
 	// carried out that changed nothing is not refused.
 	Refused bool
@@ -76,12 +76,12 @@ func (o *Outcome) masterLine(g *Game) string {
 			return ""
 		}
 		if o.After.Level > level {
-			return fmt.Sprintf("%s bows: you have learned all the %s can teach.", master.Str(), weapon.Str())
+			return fmt.Sprintf("%s bows: you have learned all the %s can teach.", spell(master), spell(weapon))
 		}
 		if o.After.TrainedToday && !o.Before.TrainedToday {
-			return fmt.Sprintf("%s bests you and sends you off to rest; try again tomorrow.", master.Str())
+			return fmt.Sprintf("%s bests you and sends you off to rest; try again tomorrow.", spell(master))
 		}
-		line := fmt.Sprintf("%s, master of the %s, teaches level %d to warriors of %d experience.", master.Str(), weapon.Str(), level+1, required)
+		line := fmt.Sprintf("%s, master of the %s, teaches level %d to warriors of %d experience.", spell(master), spell(weapon), level+1, required)
 		if o.After.Experience < required {
 			line += fmt.Sprintf(" You have %d; come back stronger.", o.After.Experience)
 		}
@@ -91,23 +91,19 @@ func (o *Outcome) masterLine(g *Game) string {
 }
 
 // wholeFeature reads an Integer attribute of a model part.
-func wholeFeature(g *Game, inst *runtime.Instance, attribute string) (int64, error) {
+func wholeFeature(g *Game, inst opensysml.InstanceID, attribute string) (int64, error) {
 	v, err := g.Feature(inst, attribute)
 	if err != nil {
 		return 0, err
 	}
-	n, ok := v.Const.WholeNumber()
-	if v.Kind != runtime.ValConst || !ok {
-		return 0, fmt.Errorf("%s is %s, not an integer", attribute, runtime.FormatValue(v))
-	}
-	return n, nil
+	return whole(attribute, v)
 }
 
 // foeName names the monster the forest's roll picked, read from the level's part;
 // a roll that is no monster's (the fairies', the dice) names none.
 func (o *Outcome) foeName(g *Game) string {
 	for _, c := range o.Choices {
-		if c.Kind != runtime.ChoiceDecisionBranch || c.Where != "decision roll" || c.Taken >= len(c.Alternatives) {
+		if c.Kind != opensysml.ChoiceDecisionBranch || c.Where != "decision roll" || c.Taken >= len(c.Alternatives) {
 			continue
 		}
 		_, part, ok := strings.Cut(c.Alternatives[c.Taken], "->")
@@ -115,8 +111,8 @@ func (o *Outcome) foeName(g *Game) string {
 			continue
 		}
 		v, err := g.Eval(fmt.Sprintf("town.forest.level%d.%s.name", o.Before.Level, part))
-		if err == nil && v.Kind == runtime.ValString {
-			return v.Str()
+		if name, ok := v.(opensysml.String); err == nil && ok {
+			return string(name)
 		}
 	}
 	return ""
@@ -125,7 +121,7 @@ func (o *Outcome) foeName(g *Game) string {
 // blows counts the sword swings the run decided, landed and missed.
 func (o *Outcome) blows() (hits, misses int) {
 	for _, c := range o.Choices {
-		if c.Kind != runtime.ChoiceDecisionBranch || c.Where != "decision swing" || c.Taken >= len(c.Alternatives) {
+		if c.Kind != opensysml.ChoiceDecisionBranch || c.Where != "decision swing" || c.Taken >= len(c.Alternatives) {
 			continue
 		}
 		switch {
