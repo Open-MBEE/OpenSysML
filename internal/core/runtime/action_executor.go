@@ -2215,6 +2215,10 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 			return nil
 		}
 		token.Wait = nil
+		if tr := e.trace(); tr != nil {
+			tr.RecordAccept(TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.action},
+				acceptedEventName(msg), msg.Payload)
+		}
 		if accept.ParamName != "" {
 			value, err := e.ctx.acceptedValue(&msg)
 			if err != nil {

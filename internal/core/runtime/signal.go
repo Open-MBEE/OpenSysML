@@ -93,10 +93,28 @@ type Call struct {
 // A message posted with a destination but no Delivery — one injected from
 // outside the model — is held to the destination it names.
 func (ctx *Context) PostMessage(msg Message) {
+	ctx.postFrom(msg, nil)
+}
+
+// postFrom puts a message on the bus as PostMessage does, recording the object
+// that sent it in the trace; nil is a message from outside the run.
+func (ctx *Context) postFrom(msg Message, from *Instance) {
 	if msg.Delivery == DeliverAnyone {
 		msg.Delivery = deliveryOf(msg)
 	}
 	ctx.messages = append(ctx.messages, msg)
+	if ctx.trace != nil {
+		ctx.trace.RecordSend(TraceOrigin{At: ctx.clock.now, Object: from}, msg)
+	}
+}
+
+// acceptedEventName names what an accepted message carries: the event feature
+// it was sent from, else its signal type.
+func acceptedEventName(msg Message) string {
+	if msg.EventName != "" {
+		return msg.EventName
+	}
+	return msg.SignalType
 }
 
 // deliveryOf is what the fields of a message name as its destination, most
@@ -416,7 +434,7 @@ func (ctx *Context) postVia(conns []lower.Connection, msg Message, send lower.Se
 		routed = append(routed, copied)
 	}
 	for _, m := range routed {
-		ctx.PostMessage(m)
+		ctx.postFrom(m, self)
 	}
 	return nil
 }
@@ -556,7 +574,7 @@ func (ctx *Context) postTo(msg Message, send lower.Send, self *Instance) error {
 		copies = append(copies, copied)
 	}
 	for _, copied := range copies {
-		ctx.PostMessage(copied)
+		ctx.postFrom(copied, self)
 	}
 	return nil
 }

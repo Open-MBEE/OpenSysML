@@ -599,9 +599,27 @@ func (e *StateExecutor) processNextEvent() error {
 		return err
 	}
 	e.lastDispatch = &dispatch
+	if !dispatch.Deferred {
+		e.recordAccept(event)
+	}
 	e.recallDeferredEvents()
 	e.pauseAtBreakpoint()
 	return nil
+}
+
+// recordAccept keeps a dispatched signal or call in the trace's records; a time
+// or change event is no accept, and the transition it fires records the trigger.
+func (e *StateExecutor) recordAccept(event Event) {
+	tr := e.trace()
+	if tr == nil {
+		return
+	}
+	switch payload := event.Payload.(type) {
+	case Message:
+		tr.RecordAccept(e.traceOrigin(), acceptedEventName(payload), payload.Payload)
+	case Call:
+		tr.RecordAccept(e.traceOrigin(), payload.Operation, payload.Args)
+	}
 }
 
 // markDispatch opens a dispatch's account: where its fired transitions begin,
@@ -1927,7 +1945,7 @@ func (e *StateExecutor) enterBelow(trans *lower.Transition, fromName string, lca
 	// Record trace
 	if e.trace() != nil {
 		eventName := triggerName(trans.Trigger)
-		e.trace().RecordStateTransition(fromName, targetState.Name, eventName)
+		e.trace().RecordStateTransition(e.traceOrigin(), fromName, targetState.Name, eventName)
 	}
 
 	return nil
@@ -1970,7 +1988,7 @@ func (e *StateExecutor) completeMachine() error {
 func (e *StateExecutor) terminateMachine(fromName string, trigger ast.Node, stop *ast.Usage) error {
 	name, _ := ast.EffectiveName(stop)
 	if e.trace() != nil {
-		e.trace().RecordStateTransition(fromName, name, triggerName(trigger))
+		e.trace().RecordStateTransition(e.traceOrigin(), fromName, name, triggerName(trigger))
 	}
 	abandoned := e.abandonMachine()
 	if e.trace() != nil {
@@ -2090,7 +2108,7 @@ func (e *StateExecutor) completeInto(trans *lower.Transition, fromName string, t
 		}
 	}
 	if e.trace() != nil {
-		e.trace().RecordStateTransition(fromName, target.Name, triggerName(trans.Trigger))
+		e.trace().RecordStateTransition(e.traceOrigin(), fromName, target.Name, triggerName(trans.Trigger))
 	}
 	return nil
 }
@@ -2552,7 +2570,7 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 		return fmt.Errorf("complete state machine: %w", err)
 	}
 	if e.trace() != nil {
-		e.trace().RecordStateTransition(StateVertexName(trans.Source), fork.Name, "")
+		e.trace().RecordStateTransition(e.traceOrigin(), StateVertexName(trans.Source), fork.Name, "")
 	}
 	return nil
 }
@@ -3366,7 +3384,7 @@ func (e *StateExecutor) runDoRound() (int, error) {
 func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, error)) error {
 	e.moved = true
 	if e.trace() != nil {
-		e.trace().RecordDoStep(act.state.Name)
+		e.trace().RecordDoStep(e.traceOrigin(), act.state.Name)
 	}
 	var err error
 	if act.run != nil {
@@ -4243,7 +4261,7 @@ func (e *StateExecutor) performEntry(state *ast.StateNode) error {
 
 		// Record trace
 		if e.trace() != nil {
-			e.trace().RecordStateEntry(state.Name, len(e.behaviorsOf(state).Entry) > 0)
+			e.trace().RecordStateEntry(e.traceOrigin(), state.Name, len(e.behaviorsOf(state).Entry) > 0)
 		}
 	}
 
@@ -4338,7 +4356,7 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 
 	// Record trace
 	if !e.graph.HiddenStates[state] && e.trace() != nil {
-		e.trace().RecordStateExit(state.Name, len(e.behaviorsOf(state).Exit) > 0)
+		e.trace().RecordStateExit(e.traceOrigin(), state.Name, len(e.behaviorsOf(state).Exit) > 0)
 	}
 
 	// Execute exit actions
@@ -4493,6 +4511,12 @@ func (e *StateExecutor) statePath(state *ast.StateNode) string {
 // reporting on or off reaches an execution already under way.
 func (e *StateExecutor) trace() *TraceRecorder {
 	return e.ctx.trace
+}
+
+// traceOrigin is where this machine's trace records are made: the clock now, the
+// object performing the machine and the machine itself.
+func (e *StateExecutor) traceOrigin() TraceOrigin {
+	return TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.stateMachine}
 }
 
 // SetTrace sets the trace recorder for this executor and the context it

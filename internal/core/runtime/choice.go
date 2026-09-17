@@ -256,7 +256,7 @@ func (ctx *Context) note(n RunNote) {
 		ctx.choices = append(ctx.choices, c.Choice())
 	}
 	if ctx.trace != nil {
-		ctx.trace.RecordNote(n)
+		ctx.trace.RecordNote(TraceOrigin{At: ctx.clock.now}, n)
 	}
 }
 
