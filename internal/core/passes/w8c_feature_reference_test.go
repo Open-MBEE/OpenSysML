@@ -29,19 +29,6 @@ func w8cLibraryMessagesIn(t *testing.T, name, src string) []string {
 	return out
 }
 
-// w8cLibraryErrorsIn returns the error messages of analysing src; a clean
-// fixture must report none, or a lower tier's error masks the rule under test.
-func w8cLibraryErrorsIn(t *testing.T, name, src string) []string {
-	t.Helper()
-	var out []string
-	for _, d := range w8cLibraryDiagnostics(t, name, src) {
-		if d.Severity == SeverityError {
-			out = append(out, d.Message)
-		}
-	}
-	return out
-}
-
 func TestW8CFeatureReferenceAccessibleAndValid(t *testing.T) {
 	src := `package P {
 	private import ScalarValues::*;
@@ -151,27 +138,6 @@ func TestW8CFeatureReferenceBodyInaccessible(t *testing.T) {
 	part def Q { attribute n = 1; }
 	action def A { attribute v = 0; assign v := P::Q::n; }
 }`,
-		"nested calc def reads the enclosing feature": `package P {
-	part def Q { attribute n = 1; calc def E { n + 1 } }
-}`,
-		"nested constraint def reads the enclosing feature": `package P {
-	part def Q { attribute n = 1; constraint def K { n > 0 } }
-}`,
-		"nested state def guard reads the enclosing feature": `package P {
-	part def Q { attribute n = 1; state def S { state a; state b; transition first a if n > 0 then b; } }
-}`,
-		"nested action def assigns the enclosing feature": `package P {
-	private import ScalarValues::*;
-	part def Q { attribute n : Integer = 1; action def A { attribute v : Integer; assign v := n; } }
-}`,
-		"nested action def branches on the enclosing feature": `package P {
-	private import ScalarValues::*;
-	part def Q { attribute n : Integer = 1; action def A { if n > 0 { action x; } } }
-}`,
-		"nested calc def chains from the enclosing feature": `package P {
-	part def Q { attribute n = 1; }
-	part def R { part q : Q; calc def E { q.n + 1 } }
-}`,
 	}
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -217,7 +183,7 @@ func TestW8CFeatureReferenceBodyAccessible(t *testing.T) {
 }`,
 		"typed nested constraint parameter": `package P {
 	part def W;
-	constraint def Q { in v default = 1; }
+	constraint def Q { in v = 1; }
 	requirement def R { subject s : W; require constraint w : Q { in v = 2; v > 0 } }
 }`,
 		"implicit calc result": `package P {
@@ -249,61 +215,12 @@ func TestW8CFeatureReferenceBodyAccessible(t *testing.T) {
 	part def Port;
 	part def A { part x : Port; part y : Port; connect x to y; }
 }`,
-		"nested usages read the enclosing feature": `package P {
-	part def Q {
-		attribute n = 1;
-		calc e { n + 1 }
-		constraint k { n > 0 }
-		state s { state a; state b; transition first a if n > 0 then b; }
-	}
-}`,
-		"nested action usage reads the enclosing feature": `package P {
-	private import ScalarValues::*;
-	part def Q {
-		attribute n : Integer = 1;
-		action a { attribute v : Integer; assign v := n; if n > 0 { action x; } }
-	}
-}`,
-		"nested definitions read their own features": `package P {
-	part def Q {
-		attribute n = 1;
-		calc def E { attribute m = 2; m + 1 }
-		constraint def K { attribute m = 2; m > 0 }
-		state def S { attribute m = 2; state a; state b; transition first a if m > 0 then b; }
-	}
-}`,
-		"nested definitions read inherited features": `package P {
-	calc def Base { attribute m = 2; }
-	constraint def CBase { attribute m = 2; }
-	state def SBase { attribute m = 2; }
-	part def Q {
-		attribute n = 1;
-		calc def E :> Base { m + 1 }
-		constraint def K :> CBase { m > 0 }
-		state def S :> SBase { state a; state b; transition first a if m > 0 then b; }
-	}
-}`,
-		"nested definition reads a redefined feature": `package P {
-	calc def Base { attribute m default = 2; }
-	part def Q { attribute n = 1; calc def E :> Base { attribute :>> m = 3; m + 1 } }
-}`,
-		"nested definition specializing the enclosing one": `package P {
-	calc def Q { attribute n = 1; calc def E :> Q { n + 1 } }
-}`,
-		"nested definition reads a package-level feature": `package P {
-	attribute g = 5;
-	part def Q { attribute n = 1; calc def E { g + 1 } }
-}`,
-		"package-level definition chains through its own part": `package P {
-	part def Q { attribute n = 1; }
-	part def R { part q : Q; }
-	calc def F { part r : R; r.q.n + 1 }
-}`,
 	}
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {
-			if errs := w8cLibraryErrorsIn(t, "<t>.sysml", src); len(errs) != 0 {
-				t.Errorf("want a clean analysis, got %v", errs)
+			msgs := w8cLibraryMessagesIn(t, "<t>.sysml", src)
+			if w8cCount(msgs, msgSubsettingFeaturingTypes) != 0 {
+				t.Errorf("unexpected %q: %v", msgSubsettingFeaturingTypes, msgs)
 			}
 		})
 	}

@@ -593,12 +593,9 @@ func (cc *constraintChecker) redefinedAccessible(sym, redefined *symbols.Symbol,
 	return false
 }
 
-// featuringContexts returns a feature's explicit featured-by targets, or its owning type when
-// it declares none. A definition has no featuring types: nested in a type, it is owned, not featured.
+// featuringContexts returns sym's explicit featured-by targets, or its owning
+// type when it declares none.
 func (cc *constraintChecker) featuringContexts(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym == nil || sym.Kind.IsDefinition() {
-		return nil
-	}
 	if owners, ok := cc.featuringOwners(sym); ok {
 		return owners
 	}

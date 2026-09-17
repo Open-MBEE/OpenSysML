@@ -89,15 +89,8 @@ Filter `grep -v log4j`. Two caveats:
 
 **Gap class worth re-checking on any change here:** a body inside a *nested definition* that reads
 the *enclosing definition's* feature — `part def P { attribute n = 1; calc def E { n + 1 } }`, and
-the same shape with `constraint def`, an `action def`'s `assign`/`if`, or a `state def` transition
-guard. The pilot reports each; OpenSysML now does too, because `passes/constraint.go`
-`featuringContexts` derives a featuring type only for a feature — a nested definition is an owned
-member of its owner, not featured by it. The boundary is the nested *usage* (`calc e { n + 1 }`),
-which is featured by `P` and must stay clean, as must a nested definition reading its own,
-inherited or redefined feature or a package-level one. `TestW8CFeatureReferenceBodyInaccessible` /
-`TestW8CFeatureReferenceBodyAccessible` pin both sides; the clean table asserts *no error of any
-tier*, so a fixture that trips a lower tier cannot pass by masking. Minimal probes reproduce the
-class in three lines, so keep including them.
+the same shape with `constraint def` or a `state def` transition guard. The pilot reports; OpenSysML
+has been silent on all three. Minimal probes reproduce it in three lines, so include them.
 
 Element-filter expressions (`filter …;`, `import P::*[@T]`) are accessibility-checked with the
 candidate element as the featuring context; the referent is accessible when its declaration comes
