@@ -96,9 +96,12 @@ func (tc *typeChecker) walk(scope *symbols.Scope, members []ast.Node) {
 			if child := childScopeOf(scope, d); child != nil {
 				tc.walk(child, d.Members)
 			}
+			tc.checkMetadataUsageBody(scope, d)
 		case *ast.AssumeMember, *ast.RequireMember:
 			tc.checkOwnedConstraint(scope, d)
 			tc.checkBehaviorMember(scope, d)
+		case *ast.PrefixMetadata:
+			tc.checkPrefixMetadata(scope, d)
 		case *ast.MultiplicityDecl:
 			tc.expr.checkBoundOperators(scope, d.Range)
 			if child := childScopeOf(scope, d); child != nil {
