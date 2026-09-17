@@ -1737,6 +1737,10 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		}
 	}
 	head := strings.Join(words, " ") + multPart
+	// A terminate action usage closes its head with `terminate` (SysML.xtext TerminateActionUsage).
+	if el.metaclass == mTerminate {
+		head += " terminate"
+	}
 	value, hasValue := d.stringOf(el, rdf.SysML+pValue)
 	// `assert c;`, `assert c[1]` and `assert c { … }` name the `c` they refer to;
 	// a declared `c` is read only where a typing, specialization or value follows.
@@ -2924,6 +2928,13 @@ func (d *decoder) stringOf(el *element, property string) (string, bool) {
 
 func (d *decoder) boolOf(el *element, property string) bool {
 	return d.graph.BoolValue(rdf.IRI(el.iri), property)
+}
+
+// declaresUsage reports whether el is a usage declaration rather than a body
+// statement of the same metaclass: every declaration states sysx:hasBody.
+func (d *decoder) declaresUsage(el *element) bool {
+	_, ok := d.graph.Lexical(rdf.IRI(el.iri), rdf.OpenSysML+xHasBody)
+	return ok
 }
 
 func intOf(g *rdf.Graph, subject rdf.Term, property string) int {

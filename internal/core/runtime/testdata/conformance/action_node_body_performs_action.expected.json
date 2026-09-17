@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"evaluate": "test::host",
+	"libraries": true,
+	"outputs": {
+		"x": {"type": "Integer", "value": 60},
+		"cleaned": {"type": "Integer", "value": 5}
+	}
+}

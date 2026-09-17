@@ -58,6 +58,8 @@ type bodyRun struct {
 	// traceLevels is the trace nesting the paused work holds open, set aside
 	// while it is paused so what runs meanwhile records at the outer depth.
 	traceLevels int
+	// traceBase is the nesting the work resumed at, which its levels count from.
+	traceBase int
 	// awaitsMessages lets the run pause for a message too, as a do behavior does
 	// while its machine goes on; a token's step run waits only on the clock.
 	awaitsMessages bool
@@ -112,6 +114,7 @@ func (run *bodyRun) resume(ctx *Context) (bodyPause, bool) {
 	ctx.body = run
 	run.resuming, run.cursor = run.cursor, nil
 	base := ctx.trace.nesting()
+	run.traceBase = base
 	ctx.trace.setNesting(base + run.traceLevels)
 	err := run.work.perform()
 	ctx.body = outer
@@ -144,6 +147,35 @@ func (run *bodyRun) end(ctx *Context) {
 		where = fmt.Sprintf("at breakpoint %q", run.paused.breakpoint.name)
 	}
 	run.err = fmt.Errorf("%w: the run paused %s was abandoned", ErrActionDeadlock, where)
+}
+
+// endPerformed ends perf where a body statement of the paused run was performing it,
+// abandoning the levels within it: the run resumed goes on past the node as completed.
+func (run *bodyRun) endPerformed(ctx *Context, perf *actionFrame) bool {
+	for i, f := range run.cursor {
+		pf, ok := f.(*performFrame)
+		if !ok || pf.perf != perf {
+			continue
+		}
+		for _, inner := range run.cursor[:i] {
+			inner.abandon(ctx)
+		}
+		run.cursor = run.cursor[i:]
+		run.traceLevels = pf.levels
+		run.paused = bodyPause{}
+		pf.ended = true
+		return true
+	}
+	return false
+}
+
+// bodyLevels is the trace nesting the body on the stack holds open at this point
+// of its work, over the depth it resumed at; 0 with no body on the stack.
+func (ctx *Context) bodyLevels() int {
+	if ctx.body == nil {
+		return 0
+	}
+	return ctx.trace.nesting() - ctx.body.traceBase
 }
 
 // pushPaused keeps f, where the level of the body's work now unwinding paused.
@@ -222,6 +254,7 @@ func (w *usageWork) clone() bodyWork { c := *w; return &c }
 
 func (w *usageWork) perform() error {
 	e := w.exec
+	var ended *terminated
 	if w.phase == usagePerforming {
 		switch {
 		case w.isCase:
@@ -251,7 +284,19 @@ func (w *usageWork) perform() error {
 			return e.enterSubflow(idx, w.perf)
 		}
 		if err := e.executeBody(w.perf, w.graph, w.usage); err != nil {
-			return err
+			err = e.terminatedUsage(w.perf, w.graph, err)
+			if ended = unwound(err); ended == nil {
+				return err
+			}
+			if ended.perf != w.perf {
+				// The usage ends a performance around it: its own completes first, pins bound.
+				if err := e.endPerformance(w.perf); err != nil {
+					return err
+				}
+				return ended
+			}
+			// A terminate unwound out of a flow nested in the body: what still runs there is dropped.
+			e.dropTokensIn(w.perf, 0)
 		}
 		if err := e.endPerformance(w.perf); err != nil {
 			return err
@@ -262,7 +307,13 @@ func (w *usageWork) perform() error {
 	if err != nil {
 		return err
 	}
-	return e.completeNode(idx, w.perf)
+	if err := e.completeNode(idx, w.perf); err != nil {
+		return err
+	}
+	if ended != nil {
+		return e.endAlongside(ended)
+	}
+	return nil
 }
 
 // statementWork is a token's step of a node written as a statement: its body, then

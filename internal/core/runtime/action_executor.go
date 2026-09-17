@@ -231,6 +231,7 @@ func newActionExecutorOn(
 	exec.features = exec.performanceFeatures()
 	exec.root = exec.newRootFrame()
 	exec.owner = exec
+	exec.flow = exec
 	ctx.clock.attach(exec)
 	return exec
 }
@@ -1388,17 +1389,28 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 	if tokenIdx < 0 || tokenIdx >= len(e.tokens) {
 		return fmt.Errorf("invalid token index %d", tokenIdx)
 	}
-	defer e.beginTokenStep(e.tokens[tokenIdx].ID)()
+	if e.dynamics == nil && e.tokens[tokenIdx].body == nil {
+		var ready bool
+		if tokenIdx, ready = e.synchronize(tokenIdx); !ready {
+			return nil
+		}
+	}
+	id := e.tokens[tokenIdx].ID
+	defer e.beginTokenStep(id)()
+	if err := e.stepTokenAt(tokenIdx); err != nil {
+		return e.endTerminatedFor(id, err)
+	}
+	return nil
+}
 
+// stepTokenAt advances the token at tokenIdx, synchronized already; a terminate its
+// step reaches unwinds out of it, for stepToken to end the performance it names.
+func (e *ActionExecutor) stepTokenAt(tokenIdx int) error {
 	if e.dynamics != nil {
 		return e.stepDynamics(tokenIdx)
 	}
 	if e.tokens[tokenIdx].body != nil {
 		return e.resumeBody(tokenIdx)
-	}
-	tokenIdx, ready := e.synchronize(tokenIdx)
-	if !ready {
-		return nil
 	}
 	token := &e.tokens[tokenIdx]
 

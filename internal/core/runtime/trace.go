@@ -140,6 +140,23 @@ func (tr *TraceRecorder) RecordActionNodeExit(node string) {
 	tr.entries = append(tr.entries, fmt.Sprintf("leave action node: %s", node))
 }
 
+// RecordActionTerminate records a performance ended by a terminate, with the tokens
+// dropped from its flow in the order they were, lowest ID first.
+func (tr *TraceRecorder) RecordActionTerminate(perf string, dropped []Token) {
+	if !tr.enabled {
+		return
+	}
+	if len(dropped) == 0 {
+		tr.entries = append(tr.entries, fmt.Sprintf("terminate %s: no token dropped", perf))
+		return
+	}
+	parts := make([]string, 0, len(dropped))
+	for _, t := range dropped {
+		parts = append(parts, fmt.Sprintf("token %d@%s", t.ID, nodeIdentifier(t.Location)))
+	}
+	tr.entries = append(tr.entries, fmt.Sprintf("terminate %s: dropped %s", perf, strings.Join(parts, ", ")))
+}
+
 // RecordCalcEnter records entering a calc invocation and opens a nesting level.
 func (tr *TraceRecorder) RecordCalcEnter(name string) {
 	tr.RecordCalculationEnter("calc", name)

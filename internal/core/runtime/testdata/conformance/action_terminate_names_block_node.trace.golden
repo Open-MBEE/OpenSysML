@@ -1,0 +1,16 @@
+step 1: token 1@node
+stmt if
+  eval literal true -> true
+  stmt node outer
+    stmt action body
+      stmt node forked
+enter action node: forked
+        stmt assign inner
+          eval literal 1 -> 1
+        stmt terminate
+terminate action node outer: dropped token 3@waiter, token 4@quit
+  stmt node next
+    stmt assign after
+      eval literal 3 -> 3
+step 2: token 1@done
+step 3: no active tokens

@@ -386,6 +386,58 @@ type Effect struct {
 	Kind  EffectKind
 	Node  ast.Node
 	Scope *symbols.Scope // the scope the statement was declared in
+	// Terminates says what a terminate ends; Target is the action node it names
+	// (TerminateNode), TargetExpr the target as written, nil for none.
+	Terminates TerminateTarget
+	Target     ast.Node
+	TargetExpr ast.Node
+}
+
+// TerminateTarget is what a terminate names, settled where it was written.
+type TerminateTarget int
+
+const (
+	// TerminateContaining is a terminate naming nothing: the containing performance ends.
+	TerminateContaining TerminateTarget = iota
+	// TerminateEnclosing is a terminate action usage: the performance its node is a step of ends.
+	TerminateEnclosing
+	// TerminateNode names an action node of an enclosing flow (Effect.Target).
+	TerminateNode
+	// TerminateOccurrence names an occurrence by an expression or a feature that is no action node.
+	TerminateOccurrence
+	// TerminateUnknown names nothing an action body can end.
+	TerminateUnknown
+)
+
+// terminateTarget settles what a terminate written in scope names: a name reaching an
+// action node is a node; another feature or expression stands for an occurrence.
+func terminateTarget(m *ast.TerminateStatement, scope *symbols.Scope) (ast.Node, TerminateTarget) {
+	if m.Target == nil {
+		return nil, TerminateContaining
+	}
+	qn := ast.AsQualifiedName(m.Target)
+	if qn == nil || len(qn.Parts) == 0 {
+		return nil, TerminateOccurrence
+	}
+	if node, _, found, _ := resolve.ActionNodeInScope(scope, qn); found {
+		return node, TerminateNode
+	}
+	segments := make([]string, len(qn.Parts))
+	for i, part := range qn.Parts {
+		segments[i] = part.Text
+	}
+	sym, ok := resolve.FeatureSymbolInScope(scope, segments)
+	if !ok {
+		return nil, TerminateUnknown
+	}
+	usage, isUsage := sym.Decl.(*ast.Usage)
+	switch {
+	case isUsage && usage.Kind == ast.UsageAction:
+		return usage, TerminateNode
+	case isUsage:
+		return nil, TerminateOccurrence
+	}
+	return nil, TerminateUnknown
 }
 
 func (Effect) statement() { /* marker: closed Statement set */ }
@@ -1048,11 +1100,8 @@ func DeclaresNodeFeature(m *ast.Usage) bool {
 // for, so the executor reads them from the graph rather than walking the node's
 // members again.
 func lowerBody(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
-	for _, member := range node.Members {
-		switch m := unwrapMembership(member).(type) {
-		case *ast.SendStatement, *ast.AssignmentActionNode, *ast.WhileLoopActionNode, *ast.IfActionNode:
-			graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(m, scope))
-		}
+	for _, member := range BodyStatementMembers(node.Members) {
+		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), scope))
 	}
 	lowerAccept(graph, node, scope)
 }
@@ -1170,8 +1219,12 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 	case *ast.PerformActionNode:
 		return Effect{Kind: EffectPerform, Node: m, Scope: scope}
 	case *ast.TerminateStatement:
-		return Effect{Kind: EffectTerminate, Node: m, Scope: scope}
+		target, terminates := terminateTarget(m, scope)
+		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: m.Target}
 	case *ast.Usage:
+		if m.IsTerminate {
+			return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
+		}
 		if stmt, ok := usageStatement(m, scope); ok {
 			return stmt
 		}

@@ -1,0 +1,41 @@
+step 1: token 1@split
+step 2: token 2@gate, token 3@pre
+choice step 3: tokens 2@gate, 3@pre (unordered; took 3@pre first)
+step 3: token 2@slow, token 3@gate
+stmt assign n
+    eval feature n -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+stmt if
+    eval feature n -> 1
+    eval literal 1 -> 1
+  eval operator == -> true
+  stmt node inner
+enter action node: inner
+      eval literal 10 -> 10
+    eval index -> 10 [s]
+choice step 4: tokens 2@slow, 3@gate (unordered; took 3@gate first)
+step 4: token 2@slow, token 3@slow, token 4@nap
+stmt assign n
+    eval feature n -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+stmt if
+    eval feature n -> 2
+    eval literal 1 -> 1
+  eval operator == -> false
+  stmt terminate
+terminate action node slow: dropped token 4@nap
+terminate action node slow: no token dropped
+stmt assign y
+    eval feature y -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 5: token 2@done, token 3@after
+stmt assign y
+    eval feature y -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+choice step 6: tokens 2@done, 3@after (unordered; took 3@after first)
+step 6: token 3@done
+step 7: no active tokens

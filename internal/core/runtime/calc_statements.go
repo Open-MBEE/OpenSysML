@@ -46,6 +46,7 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 		breakpoints:      make(map[string]bool),
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
+	h.flow.flow = h.flow
 	h.perfs = &h.flow.performances
 	h.env = engine.env
 	engine.env.perf = root
