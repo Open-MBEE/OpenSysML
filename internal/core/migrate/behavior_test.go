@@ -438,14 +438,15 @@ func TestStateMachineMigratesToAnExecutableStateDef(t *testing.T) {
 		"transition first Busy accept after 2.0 [SI::s] then Cool;",
 		"transition first Cool accept Go then done;",
 		"state def Cooling {",
+		"state 'in';",
 		"exhibit state control : Control;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNote(t, r, "_sm", migrate.Approximated, "the classifier behavior is run by every object of Controller as its usage control")
 	wantNote(t, r, "_cool", migrate.Mapped, "")
-	wantNote(t, r, "_cpr", migrate.Unmapped, "a connection point reference has no v2 form")
-	wantNote(t, r, "_cpEntry", migrate.Unmapped, "an entry point has no v2 form")
+	wantNote(t, r, "_cpr", migrate.Unmapped, "no transition of the machine passes through the connection point reference")
+	wantNote(t, r, "_cpEntry", migrate.Mapped, "written as a state; a transition entering a submachine state through the entry point enters this state")
 	wantNote(t, r, "_eff", migrate.Approximated, "the JavaScript body is written as v2 assignments")
 	wantNote(t, r, "_tick", migrate.Mapped, "written where a trigger refers to it, as accept after 2.0 [SI::s]")
 

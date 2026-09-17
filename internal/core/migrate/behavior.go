@@ -682,15 +682,11 @@ func (m *migration) reception(r *xmi.Element) {
 }
 
 // event reports an event declared as a member: it is written as an accept clause
-// where a trigger refers to it, and the triggers report those, in their own scope.
+// where a trigger refers to it, and the triggers report those, in their own
+// scope; one no trigger refers to is skipped, since no behavior would accept it.
 func (m *migration) event(e *xmi.Element) {
 	if m.triggered[e] {
 		return
 	}
-	clause, note, ok := m.acceptClause(e, e.Parent, "")
-	if !ok {
-		m.unmapped(e, joinNotes("no trigger refers to the event", note))
-		return
-	}
-	m.add(e, Approximated, "", joinNotes("no trigger refers to the event, which would be written as "+clause, note))
+	m.add(e, Skipped, "", "not referenced by any behavior: no trigger refers to the event, so nothing would accept it")
 }

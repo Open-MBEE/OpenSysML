@@ -38,24 +38,27 @@ func Migrate(name string, data []byte) (*Result, error) {
 // FromModel migrates an already-read XMI model.
 func FromModel(name string, model *xmi.Model) *Result {
 	m := &migration{
-		model:     model,
-		report:    &Report{Source: name, Exporter: model.Exporter},
-		w:         &writer{},
-		names:     map[*xmi.Element]string{},
-		extras:    map[*xmi.Element][]func(){},
-		flows:     map[*xmi.Element][]*xmi.Element{},
-		outcomes:  map[*xmi.Element]*flowOutcome{},
-		unplaced:  map[*xmi.Element]*placement{},
-		taken:     map[*xmi.Element]map[string]bool{},
-		parallel:  map[*xmi.Element]string{},
-		exposed:   map[*xmi.Element]string{},
-		methodOf:  map[*xmi.Element]*xmi.Element{},
-		realizes:  map[*xmi.Element]*xmi.Element{},
-		opUsage:   map[*xmi.Element]string{},
-		deciding:  map[*xmi.Element]bool{},
-		bounded:   map[*xmi.Element][]*xmi.Element{},
-		triggered: map[*xmi.Element]bool{},
-		indexed:   map[string]int{},
+		model:       model,
+		report:      &Report{Source: name, Exporter: model.Exporter},
+		w:           &writer{},
+		names:       map[*xmi.Element]string{},
+		extras:      map[*xmi.Element][]func(){},
+		flows:       map[*xmi.Element][]*xmi.Element{},
+		outcomes:    map[*xmi.Element]*flowOutcome{},
+		unplaced:    map[*xmi.Element]*placement{},
+		taken:       map[*xmi.Element]map[string]bool{},
+		parallel:    map[*xmi.Element]string{},
+		exposed:     map[*xmi.Element]string{},
+		methodOf:    map[*xmi.Element]*xmi.Element{},
+		realizes:    map[*xmi.Element]*xmi.Element{},
+		opUsage:     map[*xmi.Element]string{},
+		deciding:    map[*xmi.Element]bool{},
+		bounded:     map[*xmi.Element][]*xmi.Element{},
+		triggered:   map[*xmi.Element]bool{},
+		indexed:     map[string]int{},
+		regionUsed:  map[*xmi.Element]map[string]bool{},
+		vertexNames: map[*xmi.Element]string{},
+		instant:     map[*xmi.Element]map[*xmi.Element]instantValue{},
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -157,6 +160,13 @@ type migration struct {
 	// indexed locates each element's report entry by id, so an element that
 	// several writers account for is reported once.
 	indexed map[string]int
+	// regionUsed holds the vertex names each region's body has taken.
+	regionUsed map[*xmi.Element]map[string]bool
+	// vertexNames gives the v2 name of every vertex a state machine writes.
+	vertexNames map[*xmi.Element]string
+	// instant names, per state machine, the TimeInstantValue attribute each
+	// absolute time event its transitions accept is written as.
+	instant map[*xmi.Element]map[*xmi.Element]instantValue
 }
 
 // add records e's verdict. An element reported before keeps one entry: the

@@ -21,7 +21,8 @@ const (
 	// recorded as a comment where it stood.
 	Unmapped
 	// Skipped: the element is not the user's model — a profile, a library the
-	// tool bundled, a diagram — and is left out without a comment.
+	// tool bundled, a diagram — or nothing in the model refers to it, so no v2
+	// form would say anything; it is left out without a comment.
 	Skipped
 )
 
@@ -91,7 +92,7 @@ func (r *Report) Count() map[Verdict]int {
 func (r *Report) Summary() string {
 	c := r.Count()
 	total := len(r.Entries) - c[Skipped]
-	return fmt.Sprintf("migrated %d element(s): %d mapped, %d approximated, %d unmapped (%d skipped as profile or library content)",
+	return fmt.Sprintf("migrated %d element(s): %d mapped, %d approximated, %d unmapped (%d skipped as profile or library content, or as content nothing refers to)",
 		total, c[Mapped], c[Approximated], c[Unmapped], c[Skipped])
 }
 

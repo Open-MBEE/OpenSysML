@@ -121,16 +121,18 @@ const ovenApplications = `
 
 // Two regions of one state become the sub-states of a parallel state, a
 // JavaScript entry or exit behavior an entry or exit action of assignments, a
-// choice a state left at once by its guarded transitions, a guard that is a v2
-// expression an if clause and one that is not a comment, a change event an
-// accept when, an internal transition and an absolute time event unmapped, and
-// a transition with two triggers two transitions. The result runs: On enters
-// both regions, the tick alternates the light, the change event fires when the
-// temperature is raised, and Off leaves through the choice on the counter.
+// choice a choice pseudostate whose else guard is the unguarded branch, a guard
+// that is a v2 expression an if clause, a change event an accept when, an
+// absolute time event a TimeInstantValue attribute the transition accepts at,
+// an internal transition a self transition, and a transition with two triggers
+// two transitions. The result runs: On enters both regions, the tick alternates
+// the light, the change event fires when the temperature is raised, On leaves
+// through the choice on the counter, and the clock reaches the instant.
 func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 	r := migrateDocument(t, ovenMachine, ovenApplications)
 	for _, line := range []string{
 		"state def Baking {",
+		"attribute instant : Time::TimeInstantValue = 43200.0 [SI::s];",
 		"entry; then Off;",
 		"state Off {",
 		"defer Door;",
@@ -149,31 +151,29 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 		"transition first Lit accept after 0.5 [SI::s] then Dark;",
 		"transition first Dark accept after 0.5 [SI::s] then Lit;",
 		"transition first regions then done;",
-		"state choice;",
+		"choice choice;",
 		"state Resting;",
 		"transition first Off accept TurnOn then On;",
 		"transition first On accept TurnOff then choice;",
 		"transition first On accept Door then choice;",
 		"transition first choice if this.cycles >= 3 then done;",
-		"/* guard not migrated: [else] — ",
 		"transition first choice then Resting;",
+		"transition first Resting accept at instant then Off;",
+		"transition first Resting accept Door then Resting;",
 	} {
 		wantLine(t, r.Notation, line)
-	}
-	if strings.Contains(string(r.Notation), "first Resting") {
-		t.Errorf("a transition on an absolute time or an internal transition was written:\n%s", r.Notation)
 	}
 	wantNote(t, r, "_rHeat", migrate.Mapped, "an orthogonal region is written as a sub-state of the parallel state regions")
 	wantNote(t, r, "_offEntry", migrate.Approximated, "the JavaScript body is written as v2 assignments")
 	wantNote(t, r, "_onExit", migrate.Approximated, "the JavaScript body is written as v2 assignments")
-	wantNote(t, r, "_pick", migrate.Approximated, "a choice pseudostate is written as a state its guarded transitions leave at once")
+	wantNote(t, r, "_pick", migrate.Mapped, "written as a choice pseudostate, whose guarded transitions the runtime reads when it is reached")
 	wantNote(t, r, "_gWorn", migrate.Mapped, "")
-	wantNote(t, r, "_gFresh", migrate.Approximated, "the guard is kept as a comment and the transition written unguarded")
+	wantNote(t, r, "_gFresh", migrate.Mapped, "an else guard is written as the unguarded transition out of the choice")
 	wantNote(t, r, "_tOff", migrate.Approximated, "written as 2 transitions, one per trigger")
-	wantNote(t, r, "_tRested", migrate.Unmapped, "an absolute time event needs a TimeInstantValue, which no literal writes")
-	wantNote(t, r, "_tSelf", migrate.Unmapped, "an internal transition has no v2 form")
+	wantNote(t, r, "_tRested", migrate.Mapped, "")
+	wantNote(t, r, "_tSelf", migrate.Approximated, "an internal transition is written as a self transition, which exits and re-enters Resting")
 	wantNote(t, r, "_hotEv", migrate.Mapped, "written where a trigger refers to it, as accept when this.temperature > 200.0")
-	wantNote(t, r, "_noon", migrate.Unmapped, "an absolute time event needs a TimeInstantValue, which no literal writes")
+	wantNote(t, r, "_noon", migrate.Approximated, "written where a trigger refers to it, as accept at instant; the absolute time is an instant on the simulation clock")
 	wantNote(t, r, "_dDoor", migrate.Approximated, "written as defer Door, an OpenSysML extension of the notation that the runtime executes")
 	wantNote(t, r, "_doorEv", migrate.Approximated, "written where a trigger refers to it, as defer Door, an OpenSysML extension of the notation")
 	wantNote(t, r, "_dNoon", migrate.Unmapped, "only a signal event can be deferred, not a TimeEvent")
@@ -203,12 +203,22 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 		t.Errorf("%%send Door: %s", out)
 	}
 	meta(t, s, "%step")
-	meta(t, s, "%step")
 	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Resting") {
 		t.Errorf("the first cycle did not rest through the choice:\n%s", out)
 	}
 	if out := meta(t, s, "%eval in #1 : cycles"); !strings.Contains(out, "= 1") {
 		t.Errorf("the exit action did not count the cycle: %s", out)
+	}
+	if out := meta(t, s, "%send Door"); !strings.Contains(out, "transition Resting -> Resting fires on it") {
+		t.Errorf("%%send Door while Resting: %s", out)
+	}
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Resting") {
+		t.Errorf("the internal transition left Resting:\n%s", out)
+	}
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Off") || !strings.Contains(out, "Time: 43200.0") {
+		t.Errorf("the clock did not reach the instant and return to Off:\n%s", out)
 	}
 
 	// A Door sent while Off is deferred there, and taken once On is entered.

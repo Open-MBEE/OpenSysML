@@ -19,6 +19,7 @@ func (m *migration) activityBody(act, def *xmi.Element) {
 		}
 	}
 	a := m.newActivity(act, def)
+	m.instants(act, a.used)
 	a.write()
 	a.partitions()
 	a.rules()
@@ -1552,20 +1553,24 @@ func (m *migration) acceptClause(ev, scope *xmi.Element, payload string) (clause
 	switch ev.Type {
 	case "SignalEvent":
 		sig := m.model.Ref(ev, "signal")
-		if sig == nil || !m.written(sig) {
-			return "", "the signal event names no migrated signal", false
+		if note, ok := m.signalOf(ev); !ok {
+			return "", note, false
 		}
 		if payload != "" {
 			return "accept " + writeName(payload) + " : " + m.ref(sig, scope), "", true
 		}
 		return "accept " + m.ref(sig, scope), "", true
 	case "TimeEvent":
+		if ev.Attrs["isRelative"] != "true" {
+			name, note, ok := m.instantRef(ev, scope)
+			if !ok {
+				return "", note, false
+			}
+			return "accept at " + name, note, true
+		}
 		d, ok, note := m.durationExpr(firstOwned(ev, "when"), scope)
 		if !ok {
 			return "", "the time event's time is not written: " + note, false
-		}
-		if ev.Attrs["isRelative"] != "true" {
-			return "", "an absolute time event needs a TimeInstantValue, which no literal writes", false
 		}
 		return "accept after " + d + " [SI::s]", note, true
 	case "ChangeEvent":
