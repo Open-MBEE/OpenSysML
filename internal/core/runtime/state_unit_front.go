@@ -432,7 +432,7 @@ func (f *unitFront) drain() (err error) {
 			if at := ready[pick].head.at; at != nil {
 				choice.Span = at.Span()
 			}
-			f.exec.ctx.noteChoice(choice)
+			f.exec.noteChoice(choice)
 		}
 		f.resume(ready[pick], true)
 	}

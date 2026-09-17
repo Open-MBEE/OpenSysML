@@ -148,9 +148,9 @@ package Debug {
 	rejects(t, out, "choice point")
 }
 
-// One event enabling a transition in each of two orthogonal regions is a
-// region-order choice under the default policy: counted in the summary line,
-// and shown in the trace when it is on.
+// One event enabling a transition in each of two orthogonal regions draws the
+// order of the two firings' units, one choice per unit boundary, under the
+// default policy: counted in the summary line, and shown in the trace when it is on.
 func TestAdvanceReportsRegionOrderChoice(t *testing.T) {
 	src := `
 package Debug {
@@ -175,7 +175,7 @@ package Debug {
 	wants(t, run(t, s, "%state rig"), "Current state: a1 | b1")
 	run(t, s, "%send Go")
 	out := run(t, s, "%advance 1")
-	wants(t, out, "Current state: a2 | b2", "  1 choice point; %trace on to see them")
+	wants(t, out, "Current state: a2 | b2", "  3 choice points; %trace on to see them")
 	rejects(t, out, "region order")
 
 	s = loadSource(t, src)
@@ -185,8 +185,10 @@ package Debug {
 	run(t, s, "%send Go")
 	out = run(t, s, "%advance 1")
 	wants(t, out,
-		"choice on accept Go: states a1, b1 react (unordered; took a1 first)",
-		"  1 choice point")
+		"choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)",
+		"choice on accept Go: next a1->a2(effect), b1(exit) (unordered; took a1->a2(effect) first)",
+		"choice on accept Go: next a2(entry), b1(exit) (unordered; took a2(entry) first)",
+		"  3 choice points")
 	rejects(t, out, "%trace on to see them")
 }
 
