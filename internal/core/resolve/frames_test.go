@@ -214,7 +214,13 @@ func TestFramesReadingTheWholeIndexSurviveAJudgmentChange(t *testing.T) {
 	if dropped := w.put("a.sysml", "package A { part def X2; }"); !reflect.DeepEqual(dropped, []string{"a.sysml", "b.sysml"}) {
 		t.Fatalf("a registration dropped %v, want the whole-index reader too", dropped)
 	}
-	if w.r.names != nil {
-		t.Fatal("a registration kept the suggestion table")
+	if w.r.names != table {
+		t.Fatal("a registration rebuilt the suggestion table instead of refreshing it")
+	}
+	if got := table.Declared("X2"); !reflect.DeepEqual(got, []string{"A::X2"}) {
+		t.Fatalf("the refreshed table declares X2 as %v, want A::X2", got)
+	}
+	if got := table.Declared("X"); len(got) != 0 {
+		t.Fatalf("the refreshed table still declares X as %v", got)
 	}
 }
