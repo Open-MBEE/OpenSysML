@@ -99,9 +99,10 @@ func (h *stateStmtHost) perform() error { return h.run() }
 // clone is the host itself: what its run changes is the flow's, captured with it.
 func (h *stateStmtHost) clone() bodyWork { return h }
 
-// doRun is a do behavior under way as a body run: a wait on the clock or for a
-// message in its flow pauses it there, to be resumed once the wait ends or
-// ended when the state is exited, while the machine goes on around it.
+// doRun is a do behavior under way as a body run: it yields after each statement
+// of its body, and a wait on the clock or for a message in its flow pauses it
+// there, to be resumed in a later round or ended when the state is exited, while
+// the machine goes on around it.
 type doRun struct {
 	host *stateStmtHost
 	body *bodyRun
@@ -110,19 +111,19 @@ type doRun struct {
 	mail []Message
 }
 
-// startDoRun begins a do behavior, pausing it where it first waits; nil once it
-// has ended, with the error that ended it.
+// startDoRun begins a do behavior, performing its first statement and pausing it
+// there; nil once it has ended, with the error that ended it.
 func (e *StateExecutor) startDoRun(behavior lower.StateBehavior) (*doRun, error) {
 	if len(behavior.Body) == 0 {
 		return nil, nil
 	}
 	host := e.behaviorHost(behavior)
-	body := &bodyRun{work: host, awaitsMessages: true}
+	body := &bodyRun{work: host, awaitsMessages: true, yields: true}
 	run := &doRun{host: host, body: body}
 	return run.resume(e.ctx)
 }
 
-// resume lets the run go on to where it next waits, or to its end.
+// resume lets the run go on to its next statement boundary or wait, or to its end.
 func (run *doRun) resume(ctx *Context) (*doRun, error) {
 	defer ctx.readingMail(&run.mail)()
 	defer func() { run.mail = nil }()
@@ -131,7 +132,7 @@ func (run *doRun) resume(ctx *Context) (*doRun, error) {
 		if !paused {
 			return nil, run.body.err
 		}
-		if pause.onWait {
+		if pause.onWait || pause.yielded {
 			return run, nil
 		}
 	}
@@ -144,9 +145,13 @@ func (run *doRun) offer(ctx *Context, m Message) (*doRun, error) {
 	return run.resume(ctx)
 }
 
-// resumable reports a run whose wait on the clock has ended: a run parked for a
-// message stays until its machine dispatches one to it.
+// resumable reports a run due to go on: one yielded between statements, or one
+// whose wait on the clock has ended; a run parked for a message stays until its
+// machine dispatches one to it.
 func (run *doRun) resumable(ctx *Context) bool {
+	if run.body.paused.yielded {
+		return true
+	}
 	defer ctx.readingMail(&run.mail)()
 	return !run.body.paused.wait.goesOn()
 }

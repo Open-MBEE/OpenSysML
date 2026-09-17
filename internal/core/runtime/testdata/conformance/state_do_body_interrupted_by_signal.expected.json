@@ -1,0 +1,10 @@
+{
+    "type": "state",
+    "trace": true,
+    "events": [{"signal": "Stop"}],
+    "finalState": "halted",
+    "stateVisits": ["busy", "halted"],
+    "outputs": {
+        "log": { "type": "String", "value": "s1 exit " }
+    }
+}

@@ -15030,9 +15030,9 @@ func testStateDoBodyAcceptYieldsToATransitionIntoItsRegion(t *testing.T) {
 }
 
 // testStateDoBodyAcceptRunsBeforeTheChoiceReads: the do behaviors go on with the
-// signal before the chosen transition fires, and a choice on its route reads its
-// guards only then, so a do behavior that rewrites the guard on its way sends the
-// transition down the branch the rewritten data selects.
+// signal (one node, then yield) before the chosen transition fires, and a choice
+// on its route reads its guards only then, so a do behavior that rewrites the
+// guard on its way sends the transition down the branch the rewritten data selects.
 func testStateDoBodyAcceptRunsBeforeTheChoiceReads(t *testing.T) {
 	src := `
 	private import ScalarValues::*;
@@ -15081,8 +15081,17 @@ func testStateDoBodyAcceptRunsBeforeTheChoiceReads(t *testing.T) {
 	if activeLeaf(exec) != "other" || len(ctx.PendingMessages()) != 0 {
 		t.Errorf("state %s with %d messages in flight, want other with the one message consumed: the choice read stay after the do behavior cleared it", activeLeaf(exec), len(ctx.PendingMessages()))
 	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(100)) {
+		t.Errorf("total = %v, want 100: the entry of other, the do behavior yielded after flip with count still to run", total)
+	}
+	if !exec.HasPendingDoWork() {
+		t.Fatal("the do behavior must be due to go on with count")
+	}
+	if _, err := exec.RunDoRound(); err != nil {
+		t.Fatalf("run the do round: %v", err)
+	}
 	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(110)) {
-		t.Errorf("total = %v, want 110: the do behavior's count, then the entry of other", total)
+		t.Errorf("total = %v, want 110: the do behavior's count in the round after the dispatch", total)
 	}
 }
 
