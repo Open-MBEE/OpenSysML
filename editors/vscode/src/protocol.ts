@@ -172,6 +172,21 @@ export interface EditPalette {
   owners?: Record<string, string[]>;
 }
 
+/** normalizeRender fills in what an older server omits (a node's `type`, empty lists), so no label spells a missing value. */
+export function normalizeRender(result: RenderResult): RenderResult {
+  return {
+    ...result,
+    nodes: (result.nodes ?? []).map((node) => ({
+      ...node,
+      name: node.name ?? "",
+      type: node.type ?? "",
+      detail: node.detail ?? "",
+    })),
+    edges: (result.edges ?? []).map((edge) => ({ ...edge, label: edge.label ?? "" })),
+    notices: result.notices ?? [],
+  };
+}
+
 /** admits: whether a member may go into node — any node, unless the palette confines the kind to some. */
 export function admits(palette: EditPalette | undefined, memberKind: string, node: RenderNode): boolean {
   const owners = palette?.owners?.[memberKind];
