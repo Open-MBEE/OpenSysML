@@ -437,6 +437,9 @@ HTML stylesheet options reaching `-doc-form pdf`.
   deliberately out of scope and left as follow-on work.
 - **PDF only through the CLI.** The service's `RenderDocument` offers `markdown` and `html`;
   PDF needs the CLI's external converter toolchain and is not a service form.
+- **A PDF is one document.** `-render-documents` refuses `-doc-form pdf`, so a `Ref` into
+  another document links to that document's page file name — as the HTML and Markdown forms
+  write it — which no PDF beside it carries. In-document references are working links.
 - **Pandoc's captions are matched, not marked.** Because the Markdown carries no caption
   marker, the pandoc engine identifies captions by text and position; an emphasized paragraph
   whose text equals the next caption and which sits directly ahead of that caption's block

@@ -3013,7 +3013,9 @@ is byte-reproducible against one pinned toolchain (`SOURCE_DATE_EPOCH` is pinned
 converter versions or system fonts produce different bytes. Pandoc's page is its own, not the
 HTML backend's, so `-html-theme`, `-html-no-default-css` and `-html-css` are refused for that
 engine, and its captions are recognized by matching the Markdown's emphasized paragraphs against
-the document's captions in order rather than by markup.
+the document's captions in order rather than by markup. A PDF is one document, never a linked
+set, so a `Ref` into another document links to that document's file name under every engine,
+which no PDF beside it carries; an in-document `Ref` is a working internal link.
 HTML presentation is configurable by stylesheet (`-html-css`, `-html-no-default-css`,
 `-html-default-css`, `-html-fragment`), and the same sheets reach a WeasyPrint or Prince PDF;
 a Mermaid theme is not, so a diagram's model-level attributes (caption, direction) remain its
