@@ -16,16 +16,19 @@ described in the [install guide](../guide/01-install.md)) carries it.
 
 ## What a snapshot is
 
-- **Built from the newest green `develop` commit.** The workflow walks `develop` from its
-  head and takes the first commit whose CircleCI `build-test` workflow — the Go suite, the
+- **Built from the newest green `develop` commit.** The workflow walks `develop`'s own
+  commits (its first-parent history, one per merged pull request) from the head and takes the
+  first whose CircleCI `build-test` workflow — the Go suite, the
   corpus gates and the client tests — passed. A red head is skipped, so a snapshot can be a
   few commits behind `develop`; the release notes name the commit and link the
-  compare against the last stable tag.
+  compare against the last stable tag. The walk ends at the commit the current snapshot was
+  built from, so the snapshot never moves backwards, and a green commit that predates
+  `scripts/build-release-artifacts.sh` is skipped, since the workflow cannot build it.
 - **Replaced, not accumulated.** There is one snapshot. Each night the previous release is
   deleted, the `nightly` tag moved, and a new release published with only that night's
   assets. A link to `releases/tag/nightly` is stable; a link to an asset of a particular night
-  is not. A night on which nothing new is green publishes nothing and the previous snapshot
-  stands.
+  is not. A night on which no commit newer than the snapshot is green publishes nothing and
+  the previous snapshot stands.
 - **Never the latest release.** The snapshot is a prerelease and is not marked latest, so
   `releases/latest`, `go install …@latest`, the Homebrew tap, PyPI, npm and the Windows
   installer all keep following the stable `v*` line. Nothing on the stable release path
