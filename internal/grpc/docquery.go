@@ -168,6 +168,12 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, par
 	case *pb.DocumentValue_Verdict:
 		return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument,
 			"binding %s: a verdict is answered by queries, not bound to them", parameter)
+	case *pb.DocumentValue_State:
+		return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument,
+			"binding %s: a state row is answered by queries, not bound to them", parameter)
+	case *pb.DocumentValue_Event:
+		return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument,
+			"binding %s: an event row is answered by queries, not bound to them", parameter)
 	case *pb.DocumentValue_Quantity:
 		bound, err := ProtoToQuantity(kind.Quantity, idx, sem)
 		if err != nil {
@@ -215,7 +221,8 @@ func rowSetResponse(idx *symbols.Index, result *queryexec.RowSet) *pb.RunDocumen
 }
 
 // documentValue converts one engine value, naming an element by qualified name
-// and metamodel type, and a verdict by the assertion checked and its outcome.
+// and metamodel type, a verdict by the assertion checked and its outcome, and
+// a state or event row by the fields its query exposes as properties.
 func documentValue(idx *symbols.Index, value queryexec.Value) *pb.DocumentValue {
 	switch value.Kind() {
 	case queryexec.ValueElement:
@@ -229,6 +236,12 @@ func documentValue(idx *symbols.Index, value queryexec.Value) *pb.DocumentValue 
 	case queryexec.ValueVerdict:
 		verdict, _ := value.Verdict()
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_Verdict{Verdict: documentVerdict(idx, verdict)}}
+	case queryexec.ValueState:
+		state, _ := value.State()
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_State{State: documentState(idx, state)}}
+	case queryexec.ValueEvent:
+		event, _ := value.Event()
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_Event{Event: documentEvent(idx, event)}}
 	case queryexec.ValueString:
 		text, _ := value.String()
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_StringValue{StringValue: text}}
@@ -291,6 +304,51 @@ func documentVerdict(idx *symbols.Index, verdict queryexec.Verdict) *pb.Document
 	for _, kind := range verdict.Verification() {
 		out.Verification = append(out.Verification, string(kind))
 	}
+	return out
+}
+
+// documentState converts a state row: the object, its machine and the active
+// leaf with the composite states around it.
+func documentState(idx *symbols.Index, state queryexec.State) *pb.DocumentState {
+	inst, label := state.Object()
+	out := &pb.DocumentState{
+		Object:    documentObject(idx, queryexec.ObjectValue(inst, label)),
+		Machine:   state.Machine(),
+		Name:      state.Name(),
+		StatePath: state.Path(),
+		State:     &pb.DocumentValue{},
+		Region:    state.Region(),
+		Enclosing: state.Enclosing(),
+	}
+	if sym := state.Declaration(); sym != nil {
+		out.State = elementValue(idx, sym)
+	}
+	return out
+}
+
+// documentEvent converts an event row as the trace recorded it, the instant
+// in the clock's unit as Events answers `time`.
+func documentEvent(idx *symbols.Index, event queryexec.Event) *pb.DocumentEvent {
+	record := event.Record()
+	out := &pb.DocumentEvent{
+		Kind:    event.Kind(),
+		Time:    documentValue(idx, event.Time()),
+		Machine: event.Machine(),
+		State:   record.State,
+		From:    record.From,
+		To:      record.To,
+		Event:   record.Event,
+		Payload: event.Payload(),
+		Text:    event.Text(),
+	}
+	if inst, label := event.Object(); inst != nil {
+		out.Object = documentObject(idx, queryexec.ObjectValue(inst, label))
+	}
+	if inst, label := event.Target(); inst != nil {
+		out.Target = documentObject(idx, queryexec.ObjectValue(inst, label))
+	}
+	out.Alternatives = event.Alternatives()
+	out.Taken = event.Taken()
 	return out
 }
 

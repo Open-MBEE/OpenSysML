@@ -41,7 +41,7 @@ func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) error {
 func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior) *stateStmtHost {
 	host := &stateStmtHost{exec: e, behavior: behavior, attrs: e.attrFramesFor(behavior.Owner)}
 	host.flow = &ActionExecutor{
-		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(host.attrs), owner: host},
+		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(host.attrs), owner: host, behavior: e.stateMachine},
 		action:           behaviorSymbol(behavior),
 		state:            StateRunning,
 		nextTokenID:      1,
@@ -244,7 +244,7 @@ func (h *stateStmtHost) describe() string {
 }
 
 func (h *stateStmtHost) send(ec *EvalContext, s lower.Send) error {
-	return h.exec.ctx.send(ec, h.exec.stateMachine.Scope, h.exec.graph.Connections, s, h.exec.self)
+	return h.exec.ctx.send(ec, h.exec.stateMachine.Scope, h.exec.graph.Connections, s, h.exec.self, h.exec.stateMachine)
 }
 
 // assignOuter writes a name the machine does not declare to the object
