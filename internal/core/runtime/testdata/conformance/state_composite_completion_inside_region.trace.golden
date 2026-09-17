@@ -10,6 +10,7 @@ stmt action body
     eval operator + -> "/inner;"
 enter: done
 transition: done -> done
+choice exiting outer: next left.done(exit), right.done(exit) (unordered; took left.done(exit) first)
 exit: done
 exit: done
 exit: outer (exit action)

@@ -2,7 +2,10 @@ exit: init
 enter: ready
 transition: init -> ready
 exit: ready
+choice fork split: next split->building(effect), split->checking(effect) (unordered; took split->building(effect) first)
+choice fork split: next working(entry), split->checking(effect) (unordered; took working(entry) first)
 enter: working
+choice fork split: next building(entry), split->checking(effect) (unordered; took building(entry) first)
 enter: building (entry action)
 stmt assign leftDone
   eval literal 1 -> 1

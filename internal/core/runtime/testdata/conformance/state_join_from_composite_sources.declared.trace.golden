@@ -1,4 +1,3 @@
-choice on accept Go: states ia, b1 react (unordered; took ia first)
 choice join sync: states ia, b1 react (unordered; took ia first)
 exit: a1 (exit action)
 stmt action body

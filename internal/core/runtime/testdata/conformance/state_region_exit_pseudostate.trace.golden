@@ -4,6 +4,7 @@ transition: lstart -> lwork
 exit: rstart
 enter: rwork
 transition: rstart -> rwork
+choice exiting working: next lwork(exit), rwork(exit) (unordered; took lwork(exit) first)
 exit: lwork (exit action)
 stmt assign exits
     eval feature exits -> 0

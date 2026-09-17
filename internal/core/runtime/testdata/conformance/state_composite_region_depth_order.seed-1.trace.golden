@@ -1,7 +1,8 @@
 exit: start
 enter: Working
-enter: lstart
+choice entering Working: next lstart(entry), rstart(entry) (unordered; took rstart(entry) first)
 enter: rstart
+enter: lstart
 transition: start -> Working
 exit: lstart
 enter: l1
@@ -13,22 +14,24 @@ transition: rstart -> deep
 exit: dstart
 enter: d1
 transition: dstart -> d1
-choice on accept Tick: states l1, d1 react (unordered; took d1 first)
-exit: d1
+choice on accept Tick: next l1(exit), d1(exit) (unordered; took l1(exit) first)
+exit: l1
+choice on accept Tick: next l1->l2(effect), d1(exit) (unordered; took l1->l2(effect) first)
 stmt assign log
       eval feature log -> 0
       eval literal 10 -> 10
     eval operator * -> 0
-    eval literal 2 -> 2
-  eval operator + -> 2
-enter: d2
-transition: d1 -> d2 (event: accept Tick)
-exit: l1
-stmt assign log
-      eval feature log -> 2
-      eval literal 10 -> 10
-    eval operator * -> 20
     eval literal 1 -> 1
-  eval operator + -> 21
+  eval operator + -> 1
+choice on accept Tick: next l2(entry), d1(exit) (unordered; took l2(entry) first)
 enter: l2
 transition: l1 -> l2 (event: accept Tick)
+exit: d1
+stmt assign log
+      eval feature log -> 1
+      eval literal 10 -> 10
+    eval operator * -> 10
+    eval literal 2 -> 2
+  eval operator + -> 12
+enter: d2
+transition: d1 -> d2 (event: accept Tick)

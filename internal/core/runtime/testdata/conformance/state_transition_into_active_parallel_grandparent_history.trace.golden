@@ -4,6 +4,7 @@ stmt assign log
     eval feature log -> "outer(entry);idle(entry);b(entry);"
     eval literal "inner(entry);" -> "inner(entry);"
   eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);"
+choice entering inner: next a(entry), c(entry) (unordered; took a(entry) first)
 enter: a (entry action)
 stmt assign log
     eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);"
@@ -76,6 +77,7 @@ stmt assign log
     eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);"
     eval literal "outer(entry);" -> "outer(entry);"
   eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);"
+choice entering outer: next idle(entry), d(entry) (unordered; took idle(entry) first)
 enter: idle (entry action)
 stmt assign log
     eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);"
@@ -87,6 +89,7 @@ stmt assign log
     eval literal "d(entry);" -> "d(entry);"
   eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);idle(entry);d(entry);"
 transition: away -> outer (event: accept Back)
+choice exiting outer: next idle(exit), d(exit) (unordered; took idle(exit) first)
 exit: idle
 exit: d (exit action)
 stmt assign log

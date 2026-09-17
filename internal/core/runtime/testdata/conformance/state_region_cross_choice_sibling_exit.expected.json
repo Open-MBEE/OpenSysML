@@ -1,5 +1,6 @@
 {
   "type": "state",
+  "schedule": "reverse",
   "trace": true,
   "finalState": "seen",
   "stateVisits": ["outer", "l", "r", "seen"],

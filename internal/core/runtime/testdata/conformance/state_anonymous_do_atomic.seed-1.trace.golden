@@ -12,47 +12,47 @@ stmt action body
 exit: rstart
 enter: rwork
 transition: rstart -> rwork
-choice do round at t=0.0: states lwork, rwork react (unordered; took rwork first)
-do: rwork
-stmt action body
+choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first)
+do: lwork
   stmt assign seq
         eval feature seq -> 1
         eval literal 10 -> 10
       eval operator * -> 10
-      eval literal 4 -> 4
-    eval operator + -> 14
-do: lwork
-  stmt assign seq
-        eval feature seq -> 14
-        eval literal 10 -> 10
-      eval operator * -> 140
       eval literal 2 -> 2
-    eval operator + -> 142
+    eval operator + -> 12
+do: rwork
+stmt action body
+  stmt assign seq
+        eval feature seq -> 12
+        eval literal 10 -> 10
+      eval operator * -> 120
+      eval literal 4 -> 4
+    eval operator + -> 124
 choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first)
 do: lwork
   stmt assign seq
-        eval feature seq -> 142
+        eval feature seq -> 124
         eval literal 10 -> 10
-      eval operator * -> 1420
+      eval operator * -> 1240
       eval literal 3 -> 3
-    eval operator + -> 1423
+    eval operator + -> 1243
 do: rwork
   stmt assign seq
-        eval feature seq -> 1423
+        eval feature seq -> 1243
         eval literal 10 -> 10
-      eval operator * -> 14230
+      eval operator * -> 12430
       eval literal 5 -> 5
-    eval operator + -> 14235
+    eval operator + -> 12435
 exit: lwork
 enter: ldone
 transition: lwork -> ldone
 do: rwork
   stmt assign seq
-        eval feature seq -> 14235
+        eval feature seq -> 12435
         eval literal 10 -> 10
-      eval operator * -> 142350
+      eval operator * -> 124350
       eval literal 6 -> 6
-    eval operator + -> 142356
+    eval operator + -> 124356
 exit: rwork
 enter: rdone
 transition: rwork -> rdone
