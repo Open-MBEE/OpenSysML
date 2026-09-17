@@ -413,3 +413,69 @@ func TestInteractionMigratesToAScenarioOfSends(t *testing.T) {
 		t.Errorf("the scenario did not run to completion:\n%s", out)
 	}
 }
+
+// loggingMachine is a state machine whose state names its entry behavior, its
+// exit behavior and a nested state alike, as UML allows and v2 does not.
+const loggingMachine = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_logger" name="Logger" classifierBehavior="_sm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_count" name="count">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_count0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Logging">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init0"/>
+          <subvertex xmi:type="uml:State" xmi:id="_on_s" name="On">
+            <entry xmi:type="uml:OpaqueBehavior" xmi:id="_onEntry" name="log">
+              <language>JavaScript</language>
+              <body>count = count + 1;</body>
+            </entry>
+            <exit xmi:type="uml:OpaqueBehavior" xmi:id="_onExit" name="log">
+              <language>JavaScript</language>
+              <body>count = count + 10;</body>
+            </exit>
+            <region xmi:type="uml:Region" xmi:id="_rIn">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_initIn"/>
+              <subvertex xmi:type="uml:State" xmi:id="_log_s" name="log"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tIn" source="_initIn" target="_log_s"/>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init0" target="_on_s"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+const loggingApplications = `
+  <sysml:Block xmi:id="_s1" base_Class="_logger"/>`
+
+// A state's entry and exit behaviors and the states of its one region are
+// members of one v2 body, so those sharing a name are told apart the way any
+// clashing members are; the region's entry follows the state's own entry action.
+func TestStateBehaviorsSharingANameAreDistinguished(t *testing.T) {
+	r := migrateDocument(t, loggingMachine, loggingApplications)
+	for _, line := range []string{
+		"entry action log {",
+		"exit action 'log 2' {",
+		"then 'log 3';",
+		"state 'log 3';",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	if strings.Contains(string(r.Notation), "entry; then 'log 3'") {
+		t.Errorf("the region's entry is written as a second entry action:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_onExit", migrate.Approximated, "written as v2 assignments")
+	if es := entriesFor(r, "_onExit"); len(es) == 1 && es[0].Target != "Logger::Logging::On::'log 2'" {
+		t.Errorf("the exit behavior's report target is %q, not the name written", es[0].Target)
+	}
+	if es := entriesFor(r, "_log_s"); len(es) != 1 || es[0].Target != "'log 3'" {
+		t.Errorf("the nested state's report entries are %+v, want one naming 'log 3'", es)
+	}
+	s := session(t, r)
+	meta(t, s, "%instantiate Logger")
+	meta(t, s, "%state Logger::Logging")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%eval in #1 : count"); !strings.Contains(out, "= 1") {
+		t.Errorf("the entry action did not run: %s", out)
+	}
+}

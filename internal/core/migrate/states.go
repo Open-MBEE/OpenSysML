@@ -19,20 +19,27 @@ func (m *migration) stateMachineBody(sm *xmi.Element) {
 	for _, cp := range sm.Owned("connectionPoint") {
 		m.connectionPoint(cp)
 	}
-	m.regions(sm, sm.Owned("region"), inheritedStateNamesSet())
+	m.regions(sm, sm.Owned("region"), inheritedStateNamesSet(), false, func() {})
 }
 
-// regions writes the regions of a state machine or composite state: one
-// inline, several as the sub-states of one parallel state.
-func (m *migration) regions(owner *xmi.Element, regions []*xmi.Element, used map[string]bool) {
+// regions writes the regions of a state machine or composite state: one inline,
+// several as the sub-states of one parallel state. The entry succession follows
+// the body's entry action when entered says one was written; between writes
+// the members that come after it and before the states.
+func (m *migration) regions(owner *xmi.Element, regions []*xmi.Element, used map[string]bool, entered bool, between func()) {
 	switch len(regions) {
 	case 0:
+		between()
 		m.w.lines(commentLines("the " + kindOf(owner) + " has no region"))
 	case 1:
-		m.region(regions[0], used)
+		st := &stateRegion{m: m, r: regions[0], used: used, names: map[*xmi.Element]string{}}
+		st.enter(entered)
+		between()
+		st.write()
 	default:
 		name := freshIn(used, "regions")
-		m.w.line("entry; then " + writeName(name) + ";")
+		m.w.line(entryThen(entered, writeName(name)))
+		between()
 		m.w.block("state "+writeName(name)+" parallel", func() {
 			inner := inheritedStateNamesSet()
 			for _, r := range regions {
@@ -41,8 +48,12 @@ func (m *migration) regions(owner *xmi.Element, regions []*xmi.Element, used map
 					rname = "region"
 				}
 				rname = freshIn(inner, rname)
+				m.names[r] = rname
+				m.parallel[r] = name
 				m.w.block("state "+writeName(rname), func() {
-					m.region(r, inheritedStateNamesSet())
+					st := &stateRegion{m: m, r: r, used: inheritedStateNamesSet(), names: map[*xmi.Element]string{}}
+					st.enter(false)
+					st.write()
 				})
 				m.add(r, Mapped, rname, "an orthogonal region is written as a sub-state of the parallel state "+name)
 			}
@@ -61,13 +72,16 @@ func freshIn(used map[string]bool, base string) string {
 	return name
 }
 
-// region writes one region's vertices and transitions into the current body.
-func (m *migration) region(r *xmi.Element, used map[string]bool) {
-	st := &stateRegion{m: m, r: r, used: used, names: map[*xmi.Element]string{}}
-	st.write()
+// entryThen writes the succession into to from the body's entry action, an
+// empty one unless entered says the body wrote its own.
+func entryThen(entered bool, to string) string {
+	if entered {
+		return "then " + to + ";"
+	}
+	return "entry; then " + to + ";"
 }
 
-// stateRegion writes one region: its states, then its transitions.
+// stateRegion writes one region: its entry, then its states and transitions.
 type stateRegion struct {
 	m     *migration
 	r     *xmi.Element
@@ -75,16 +89,21 @@ type stateRegion struct {
 	names map[*xmi.Element]string
 }
 
-func (s *stateRegion) write() {
-	vertices := s.r.Owned("subvertex")
-	transitions := s.r.Owned("transition")
-	for _, v := range vertices {
+// enter names the region's vertices and writes its entry succession.
+func (s *stateRegion) enter(entered bool) {
+	for _, v := range s.r.Owned("subvertex") {
 		switch {
 		case v.Type == "State", v.Type == "Pseudostate" && pseudoKind(v) == "choice", v.Type == "Pseudostate" && pseudoKind(v) == "junction":
 			s.name(v)
 		}
 	}
-	s.initial(vertices, transitions)
+	s.initial(s.r.Owned("subvertex"), s.r.Owned("transition"), entered)
+}
+
+// write writes the region's states and transitions; enter comes first.
+func (s *stateRegion) write() {
+	vertices := s.r.Owned("subvertex")
+	transitions := s.r.Owned("transition")
 	for _, v := range vertices {
 		s.vertex(v)
 	}
@@ -114,6 +133,9 @@ func (s *stateRegion) name(v *xmi.Element) string {
 	}
 	s.used[name] = true
 	s.names[v] = name
+	if name != s.m.nameOf(v) {
+		s.m.names[v] = name
+	}
 	return name
 }
 
@@ -128,8 +150,9 @@ func pseudoKind(v *xmi.Element) string {
 }
 
 // initial writes the region's entry: `entry; then s` from its initial
-// pseudostate, with the initial transition's effect as the entry action.
-func (s *stateRegion) initial(vertices, transitions []*xmi.Element) {
+// pseudostate, with the initial transition's effect as the entry action
+// unless the body wrote its own, which entered says.
+func (s *stateRegion) initial(vertices, transitions []*xmi.Element, entered bool) {
 	var init *xmi.Element
 	for _, v := range vertices {
 		if pseudoKind(v) == "initial" {
@@ -182,15 +205,16 @@ func (s *stateRegion) initial(vertices, transitions []*xmi.Element) {
 		note = joinNotes(note, "an initial transition takes no guard; "+text+" is dropped")
 		s.m.add(g, Unmapped, "", "a guard of an initial transition, which takes none, is dropped")
 	}
-	if eff := firstOwned(t, "effect"); eff != nil {
+	switch eff := firstOwned(t, "effect"); {
+	case eff == nil:
+		s.m.w.line(entryThen(entered, to))
+	case entered:
+		s.m.w.lines(commentLines("the effect " + describe(eff) + " of the initial transition is dropped: the state's entry behavior is its entry action"))
+		s.m.unmapped(eff, "the effect of an initial transition is the entry action of the body, which the state's entry behavior is")
+		s.m.w.line(entryThen(true, to))
+	default:
 		s.m.unbound(eff, "an initial transition accepts no signal")
-		if s.m.inlineBehavior("entry action", eff, t) {
-			s.m.w.line("then " + to + ";")
-		} else {
-			s.m.w.line("entry; then " + to + ";")
-		}
-	} else {
-		s.m.w.line("entry; then " + to + ";")
+		s.m.w.line(entryThen(s.m.inlineBehavior("entry action", eff, t), to))
 	}
 	s.m.add(init, Mapped, "", "written as the entry of the region")
 	s.m.add(t, verdictFor(note), "", note)
@@ -266,18 +290,20 @@ func (s *stateRegion) state(v *xmi.Element) {
 		if inv != nil {
 			s.m.invariant(inv)
 		}
-		if entry != nil {
-			s.m.inlineBehavior("entry action", entry, v)
+		entered := entry != nil && s.m.inlineBehavior("entry action", entry, v)
+		between := func() {
+			if do != nil {
+				s.m.inlineBehavior("do action", do, v)
+			}
+			if exit != nil {
+				s.m.inlineBehavior("exit action", exit, v)
+			}
 		}
-		if do != nil {
-			s.m.inlineBehavior("do action", do, v)
+		if len(regions) == 0 {
+			between()
+			return
 		}
-		if exit != nil {
-			s.m.inlineBehavior("exit action", exit, v)
-		}
-		if len(regions) > 0 {
-			s.m.regions(v, regions, inheritedStateNamesSet())
-		}
+		s.m.regions(v, regions, inheritedStateNamesSet(), entered, between)
 	})
 }
 
@@ -361,8 +387,7 @@ func (m *migration) inlineBehavior(kw string, b, owner *xmi.Element) bool {
 	m.scope = b
 	defer func() { m.scope = saved }()
 	header := kw
-	if b.Name != "" {
-		name := b.Name
+	if name := m.nameOf(b); name != "" {
 		if inheritedStateNames[name] {
 			name = freshIn(map[string]bool{name: true}, name)
 			m.names[b] = name

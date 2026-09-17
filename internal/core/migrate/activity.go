@@ -786,8 +786,8 @@ const probabilityTolerance = 1e-6
 // visible from the activity whose default value is a number.
 func (a *activity) probability(text string) (string, bool) {
 	text = strings.TrimSpace(text)
-	if f, err := strconv.ParseFloat(text, 64); err == nil && !math.IsNaN(f) && !math.IsInf(f, 0) {
-		return realLiteral(f), true
+	if v, ok := finiteNumber(text); ok {
+		return v, true
 	}
 	if t := a.m.model.Lookup(text); t != nil {
 		text = t.Name
@@ -803,11 +803,18 @@ func (a *activity) probability(text string) (string, bool) {
 	}
 	switch dv.Type {
 	case "LiteralReal", "LiteralInteger":
-		if f, err := strconv.ParseFloat(dv.Attrs["value"], 64); err == nil {
-			return realLiteral(f), true
-		}
+		return finiteNumber(dv.Attrs["value"])
 	}
 	return "", false
+}
+
+// finiteNumber reads text as a finite number written as a v2 real literal.
+func finiteNumber(text string) (string, bool) {
+	f, err := strconv.ParseFloat(text, 64)
+	if err != nil || math.IsNaN(f) || math.IsInf(f, 0) {
+		return "", false
+	}
+	return realLiteral(f), true
 }
 
 // declare writes a node's declaration.
@@ -1446,7 +1453,7 @@ func (a *activity) sendSignal(n *xmi.Element, name string) {
 // signalArguments writes a send's arguments, one per argument pin standing for an
 // attribute of the signal it can bind; the rest are left out and the note says why.
 func (a *activity) signalArguments(n, sig *xmi.Element) ([]string, string) {
-	attrs := sig.Owned("ownedAttribute")
+	attrs := a.m.signalAttributes(sig)
 	var args []string
 	var notes []string
 	for i, pin := range n.Owned("argument") {

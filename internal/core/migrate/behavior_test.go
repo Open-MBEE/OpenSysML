@@ -225,6 +225,61 @@ func TestProbabilitiesAreWrittenOnlyWhenTheyAreSound(t *testing.T) {
 	})
 }
 
+// weightedChooser is a block whose value properties hold the probabilities the
+// «Probability» edges of its classifier behavior name.
+const weightedChooser = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_chooser" name="Chooser" classifierBehavior="_act">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pa" name="pA">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_pav" value="0.25"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pb" name="pB">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_pbv" value="NaN"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_act" name="Choose">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:DecisionNode" xmi:id="_decide"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_a" name="a"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_b" name="b"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e0" source="_init" target="_decide"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ea" source="_decide" target="_a"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_eb" source="_decide" target="_b"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_fa" source="_a" target="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_fb" source="_b" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+// A probability naming a value property takes the property's default: a finite
+// number is written as the weight, while a default that is not one drops the
+// decision's marked weights with the reason, leaving an even draw.
+func TestPropertyBackedProbabilitiesMustBeFinite(t *testing.T) {
+	t.Run("finite default", func(t *testing.T) {
+		r := migrateDocument(t, weightedChooser, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="_pa"/>
+  <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="0.75"/>`)
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = 0.25; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.75; } }")
+		wantNote(t, r, "_ea", migrate.Mapped, "")
+	})
+	t.Run("NaN default", func(t *testing.T) {
+		r := migrateDocument(t, weightedChooser, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="_pa"/>
+  <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="pB"/>`)
+		if n := string(r.Notation); strings.Contains(n, "p = 0.25") || strings.Contains(n, "p = NaN") {
+			t.Errorf("a marked weight was written beside a default that is not a number:\n%s", n)
+		}
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = 0.5; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.5; } }")
+		wantNote(t, r, "_eb", migrate.Approximated, `no «Probability» is written on the decision's branches: the probability "pB" on`)
+		wantNote(t, r, "_eb", migrate.Approximated, "is neither a number nor a property with a numeric default")
+		wantNote(t, r, "_decide", migrate.Approximated, "one is drawn at random with the model seed: each branch is weighted 0.5")
+	})
+}
+
 // controllerMachine is a block whose classifier behavior is a state machine:
 // an initial pseudostate, a state with a do activity that sends a signal, a
 // signal-triggered transition with an effect, a time-triggered transition, a

@@ -166,13 +166,13 @@ func (m *migration) interactionBody(e *xmi.Element) {
 }
 
 // messageArguments writes a message's arguments as the signal's attribute
-// values, by position against the signal's own attributes.
+// values, by position against the signal's attributes, inherited ones included.
 func (m *migration) messageArguments(msg, sig, scope *xmi.Element) (string, string) {
 	args := msg.Owned("argument")
 	if len(args) == 0 {
 		return "", ""
 	}
-	attrs := sig.Owned("ownedAttribute")
+	attrs := m.signalAttributes(sig)
 	out := ""
 	note := ""
 	for i, arg := range args {

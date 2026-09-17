@@ -47,6 +47,7 @@ func FromModel(name string, model *xmi.Model) *Result {
 		outcomes:  map[*xmi.Element]*flowOutcome{},
 		unplaced:  map[*xmi.Element]*placement{},
 		taken:     map[*xmi.Element]map[string]bool{},
+		parallel:  map[*xmi.Element]string{},
 		exposed:   map[*xmi.Element]string{},
 		methodOf:  map[*xmi.Element]*xmi.Element{},
 		opUsage:   map[*xmi.Element]string{},
@@ -128,6 +129,9 @@ type migration struct {
 	unplaced map[*xmi.Element]*placement
 	// taken holds synthesized names reserved in a body, by owner.
 	taken map[*xmi.Element]map[string]bool
+	// parallel names the parallel state each region of an orthogonal state is
+	// written in; a lone region is written inline and has no name of its own.
+	parallel map[*xmi.Element]string
 	// exposed notes, for each feature reached from outside its owner (through
 	// a connector path, a slot or a redefinition), what reaches it.
 	exposed map[*xmi.Element]string
@@ -1542,6 +1546,38 @@ func (m *migration) inherits(e, general *xmi.Element) bool {
 		return false
 	}
 	return walk(e)
+}
+
+// signalAttributes lists the attributes a signal's constructor binds by position:
+// its own, then the inherited ones no attribute nearer the signal redefines or shadows.
+func (m *migration) signalAttributes(sig *xmi.Element) []*xmi.Element {
+	var attrs []*xmi.Element
+	seen := map[*xmi.Element]bool{}
+	redefined := map[*xmi.Element]bool{}
+	names := map[string]bool{}
+	var walk func(*xmi.Element)
+	walk = func(c *xmi.Element) {
+		if c == nil || seen[c] {
+			return
+		}
+		seen[c] = true
+		for _, p := range c.Owned("ownedAttribute") {
+			name := m.nameOf(p)
+			if redefined[p] || name != "" && names[name] {
+				continue
+			}
+			attrs = append(attrs, p)
+			names[name] = true
+			for _, r := range m.model.Refs(p, "redefinedProperty") {
+				redefined[r] = true
+			}
+		}
+		for _, g := range c.Owned("generalization") {
+			walk(m.model.Ref(g, "general"))
+		}
+	}
+	walk(sig)
+	return attrs
 }
 
 // typeRef writes the type of a feature: a ScalarValues type, a reference to a
