@@ -281,15 +281,18 @@ func (t stepTokens) has(label string) bool {
 	return slices.ContainsFunc(t.ids, func(id int64) bool { return t.label(id) == label })
 }
 
-// readyCount counts the tokens able to act now, which a one-token step picks among.
-func (t stepTokens) readyCount() int {
-	n := 0
+// leftReady reports, once the tokens in acted have, a token held by none that did
+// not act yet can now: one a sweep moving each token once would move this step.
+func (t stepTokens) leftReady(acted []int64) bool {
+	if len(acted) == 0 {
+		return false
+	}
 	for _, id := range t.ids {
-		if !t.held[id] && t.enabled(id) {
-			n++
+		if !t.held[id] && !slices.Contains(acted, id) && t.enabled(id) {
+			return true
 		}
 	}
-	return n
+	return false
 }
 
 // hasAll reports whether the step has every token the labels name: the order

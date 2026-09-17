@@ -722,8 +722,9 @@ advances every steppable token once a round, and the machine dispatches only bet
 run a fixed policy makes — the whole round, then the dispatch — is therefore an interleaving
 `check`'s enumeration does not yet contain: a `do` behavior that a transition interrupts may end
 with a value under `reverse` that `check` does not table. A check that reaches such a state — a
-machine owing a dispatch after a `do` step that moved one of several tokens able to act, leaving
-the rest standing where a fixed policy's round would have moved them — therefore does not report
+machine owing a dispatch after a `do` step that left a token able to act standing, one ready
+beside the token moved or one its move freed, where a fixed policy's round would have moved it too
+— therefore does not report
 *exhaustive*: its verdict is `no violation within bounds` (or `divergent`, when the schedules it
 did search disagree) with `not enumerated: do round before dispatch` naming the run it left out,
 and the standing is *bounded*. Whether the dispatch waits for the round or cuts it becomes a

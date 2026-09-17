@@ -1240,8 +1240,8 @@ const (
 )
 
 // NotEnumeratedDoRound names the interleaving the checker leaves out at a machine
-// owing a dispatch after a do step that moved one of several tokens able to act:
-// its one move dispatches, where the fixed policies move the rest of the round first.
+// owing a dispatch after a do step that left a token able to act standing: its one
+// move dispatches, where the fixed policies move the rest of the round first.
 const NotEnumeratedDoRound = "do round before dispatch"
 
 // ExecutorBounds lists the executor budgets a bound hit may name, in report order.

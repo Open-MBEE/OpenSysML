@@ -3,6 +3,8 @@ package runtime
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -79,6 +81,36 @@ func TestCheckTellsAMachineLeavingItsDoRoundStandingFromOneThatDidNot(t *testing
 	}
 	if !slices.Equal(c.notEnumerated, []string{NotEnumeratedDoRound}) {
 		t.Fatalf("visit left standing: not enumerated %v, want the do round before the dispatch", c.notEnumerated)
+	}
+}
+
+// enablingBranchModel loads the conformance case whose do body's `setter` branch
+// writes the feature the `watcher` branch's change wait and the exit transition
+// both wait on.
+func enablingBranchModel(t *testing.T) *exploreModel {
+	t.Helper()
+	text, err := os.ReadFile(filepath.Join("testdata", "conformance", "state_do_action_branch_enables_other_before_exit.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return parseLibraryModel(t, string(text))
+}
+
+// A token another token's move enables is left standing too: `raise` moves alone,
+// but its write frees `watch` and raises the exit, and a fixed policy's sweep
+// takes `watch` before that dispatch — the interleaving the check names as not
+// enumerated.
+func TestCheckTellsADoRoundStandingWhenOneBranchEnablesAnother(t *testing.T) {
+	m := enablingBranchModel(t)
+	report, err := Check(context.Background(), m.fresh, stateStarterOf(m.state(t, "Machine"), HorizonAt(3)), CheckBudget{}, unreduced(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != CheckWithinBounds || len(report.BoundsHit) != 0 || !slices.Equal(report.NotEnumerated, []string{NotEnumeratedDoRound}) {
+		t.Fatalf("%s, want no violation within bounds, the do round before the dispatch alone not enumerated", report.Status())
+	}
+	if len(report.Divergent) != 0 || len(report.Violations) != 0 {
+		t.Fatalf("divergent %v, violations %v; want the one outcome the moves reach", report.Divergent, report.Violations)
 	}
 }
 
