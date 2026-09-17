@@ -178,7 +178,7 @@ func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 		return "", &Error{Kind: ErrorNilDocument}
 	}
 	for _, sheet := range opts.Stylesheets {
-		if err := sheet.check(); err != nil {
+		if err := sheet.Check(); err != nil {
 			return "", err
 		}
 	}
@@ -203,9 +203,9 @@ func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 	return w.b.String(), nil
 }
 
-// check rejects a stylesheet that is neither content nor URL, or whose content
-// would close the <style> element it is inlined in.
-func (s Stylesheet) check() error {
+// Check rejects a stylesheet that is neither content nor URL, both at once, or
+// whose content would close the <style> element it is inlined in.
+func (s Stylesheet) Check() error {
 	switch {
 	case s.Content == "" && s.Href == "" && !s.inline:
 		return &Error{Kind: ErrorEmptyStylesheet}

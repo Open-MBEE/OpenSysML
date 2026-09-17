@@ -116,9 +116,15 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	return converter.Convert(doc)
 }
 
-// checkOptions rejects the HTML backend's stylesheet choices for a converter
-// reading Markdown, whose HTML carries none of the backend's classes.
+// checkOptions rejects a malformed reader stylesheet for every converter, and
+// the HTML backend's stylesheet choices for a converter reading Markdown,
+// whose HTML carries none of the backend's classes.
 func checkOptions(converter Converter, opts Options) error {
+	for _, sheet := range opts.Stylesheets {
+		if err := sheet.Check(); err != nil {
+			return err
+		}
+	}
 	if converter.Capabilities().Input != InputMarkdown {
 		return nil
 	}

@@ -95,6 +95,46 @@ func TestRenderUnsupportedOptionBeforeTools(t *testing.T) {
 	}
 }
 
+// TestRenderMalformedStylesheetEveryEngine checks a reader stylesheet the HTML
+// backend rejects is rejected ahead of every engine, tools present or not,
+// while an empty inline sheet stays a stylesheet for the Markdown-reading one.
+func TestRenderMalformedStylesheetEveryEngine(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("PATH", dir)
+	for _, tool := range []string{PandocEnv, WeasyPrintEnv, PrinceEnv} {
+		t.Setenv(tool, "")
+	}
+	document := plainDocument(t)
+	malformed := map[docrender.ErrorKind]docrender.Stylesheet{
+		docrender.ErrorAmbiguousStylesheet: {Content: "body { color: red }", Href: "theme.css"},
+		docrender.ErrorEmptyStylesheet:     {},
+		docrender.ErrorUnsafeStylesheet:    docrender.InlineStylesheet("</style><script>"),
+	}
+	for _, engine := range Engines() {
+		for kind, sheet := range malformed {
+			_, err := Render(document, engine, Options{Stylesheets: []docrender.Stylesheet{sheet}})
+			var renderErr *docrender.Error
+			if !errors.As(err, &renderErr) || renderErr.Kind != kind {
+				t.Fatalf("engine %s, %s: got %v, want %s", engine, kind, err, kind)
+			}
+		}
+	}
+
+	fakeTool(t, dir, "pandoc", PandocEnv,
+		`echo "$@" > "`+dir+`/args"; out=""; while [ $# -gt 0 ]; do [ "$1" = "--output" ] && out="$2"; shift; done; printf '%%PDF-1.7 fake' > "$out"`+"\n")
+	fakeTool(t, dir, "weasyprint", WeasyPrintEnv, "exit 0\n")
+	if _, err := Render(document, "pandoc", Options{Stylesheets: []docrender.Stylesheet{docrender.InlineStylesheet("")}}); err != nil {
+		t.Fatalf("empty inline stylesheet for pandoc: %v", err)
+	}
+	args, err := os.ReadFile(filepath.Join(dir, "args"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(args), "--css reader-1.css") {
+		t.Fatalf("pandoc arguments lack the empty reader stylesheet: %s", args)
+	}
+}
+
 // fakeTool writes an executable shell script into dir and points envVar at it.
 func fakeTool(t *testing.T, dir, name, envVar, script string) {
 	t.Helper()
