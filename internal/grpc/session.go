@@ -179,7 +179,9 @@ func (ss *Session) enter() (func(), error) {
 	return ss.mu.Unlock, nil
 }
 
-// SetSchedule makes the session's next runs follow the scheduling policy.
+// SetSchedule makes the session's later turns follow the scheduling policy: the
+// actions it performs from now on, and the machines and clock it already drives
+// from their next step on.
 func (ss *Session) SetSchedule(spelling string) error {
 	done, err := ss.enter()
 	if err != nil {
@@ -194,7 +196,7 @@ func (ss *Session) SetSchedule(spelling string) error {
 		return statusErrorf(connect.CodeInvalidArgument,
 			"invalid scheduling policy %q: an exploration replays whole runs, which a session does not", spelling)
 	}
-	if err := ss.rt.SetSchedule(policy); err != nil {
+	if err := ss.rt.Reschedule(policy); err != nil {
 		return statusError(connect.CodeInvalidArgument, err.Error())
 	}
 	return nil

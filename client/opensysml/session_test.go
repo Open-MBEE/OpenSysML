@@ -650,3 +650,90 @@ func hasCode(err error, code opensysml.Code) bool {
 	var status *opensysml.StatusError
 	return errors.As(err, &status) && status.Code == code
 }
+
+// forkSource is a machine whose one signal enables two transitions, so which
+// fires is the schedule's choice: a seeded run's first draw.
+const forkSource = `package Fork {
+	attribute def Go;
+	part def Chooser {
+		exhibit state pick {
+			entry; then start;
+			state start;
+			state first;
+			state second;
+			transition to_first first start accept Go then first;
+			transition to_second first start accept Go then second;
+			transition back_first first first accept Go then start;
+			transition back_second first second accept Go then start;
+		}
+	}
+	part chooser : Chooser;
+}`
+
+// A policy set after the object was instantiated and its clock advanced governs
+// the choices the later turns make, as it would a fresh session's first.
+func TestSessionSetScheduleGovernsTheLaterTurns(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, forkSource)
+	open := func() (*opensysml.Session, opensysml.InstanceID) {
+		t.Helper()
+		session, err := opensysml.OpenSession(client, model)
+		if err != nil {
+			t.Fatalf("OpenSession: %v", err)
+		}
+		t.Cleanup(func() { _ = session.Close() })
+		chooser, err := session.Instantiate("Fork::chooser")
+		if err != nil {
+			t.Fatalf("Instantiate: %v", err)
+		}
+		return session, chooser
+	}
+	go_ := func(session *opensysml.Session, chooser opensysml.InstanceID) string {
+		t.Helper()
+		if _, err := session.Send(chooser, "Fork::Go", nil); err != nil {
+			t.Fatalf("Send Go: %v", err)
+		}
+		if _, err := session.Advance(0); err != nil {
+			t.Fatalf("Advance: %v", err)
+		}
+		states := activeStates(t, session, chooser)
+		if len(states) != 1 {
+			t.Fatalf("ActiveStates = %v, want one", states)
+		}
+		return states[0]
+	}
+	seeds := []string{"seed:1", "seed:2", "seed:3", "seed:4", "seed:5", "seed:6", "seed:7", "seed:8"}
+
+	// What each seed's first draw picks, read from a fresh session per seed.
+	first := make(map[string]string, len(seeds))
+	picked := make(map[string]bool)
+	for _, seed := range seeds {
+		session, chooser := open()
+		if err := session.SetSchedule(seed); err != nil {
+			t.Fatalf("SetSchedule(%s): %v", seed, err)
+		}
+		first[seed] = go_(session, chooser)
+		picked[first[seed]] = true
+	}
+	if len(picked) != 2 {
+		t.Fatalf("the seeds' first draws all pick %v; want both transitions among them", picked)
+	}
+
+	// One session, its clock already advanced under the default policy: each
+	// seed set from then on starts its draws over.
+	session, chooser := open()
+	if state := go_(session, chooser); state == "start" {
+		t.Fatalf("Go under the default policy left the machine in %s", state)
+	}
+	for _, seed := range seeds {
+		if state := go_(session, chooser); state != "start" {
+			t.Fatalf("Go back left the machine in %s, want start", state)
+		}
+		if err := session.SetSchedule(seed); err != nil {
+			t.Fatalf("SetSchedule(%s): %v", seed, err)
+		}
+		if got := go_(session, chooser); got != first[seed] {
+			t.Errorf("Go under %s set after earlier turns went to %s; a fresh session's first draw goes to %s", seed, got, first[seed])
+		}
+	}
+}

@@ -126,7 +126,7 @@ session, err := opensysml.OpenSession(client, model)
 defer session.Close()
 
 hero, err := session.Instantiate("Play::hero")           // starts the machines it exhibits
-err = session.SetSchedule("seed:42")                     // the dice later runs roll
+err = session.SetSchedule("seed:42")                     // the dice later turns roll, the running machines' and clock's included
 states, err := session.ActiveStates(hero)                // ["town"]
 transitions, err := session.Transitions(hero)            // out of each active state and those enclosing it: Source, Target, Trigger, Signal or Event, Guarded
 acceptance, err := session.Accepts(hero, "Play::Go", nil) // Taken(), as dispatch selects among machines; Accepted; Enabled() is whether a guard holds now

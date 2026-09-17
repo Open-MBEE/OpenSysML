@@ -1,7 +1,9 @@
 - **A persistent session in the public Go API.** `opensysml.OpenSession` opens a `Session` over
   a model a `New` client parsed: an interactive run that keeps its clock, its scheduling policy
   and the objects it instantiated between calls, where `ExecuteAction` and `ExecuteState` run a
-  whole behaviour and return. `Instantiate` makes an object and starts the state machines it
+  whole behaviour and return. `SetSchedule` governs the turns from then on, the machines and
+  clock already running included (`runtime.Context.Reschedule`), where they stand kept.
+  `Instantiate` makes an object and starts the state machines it
   exhibits; `ActiveStates` and `Transitions` say where each machine stands and what could fire
   next, by name; `Accepts` says whether a signal would be taken, read from the machines dispatch would let take it
   — one whose guards all fail yields it to a sibling that would fire on or defer it — whether a

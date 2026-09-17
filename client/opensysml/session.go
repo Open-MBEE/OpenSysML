@@ -92,10 +92,12 @@ func sessionError(op string, err error) error {
 	return statusToError(err)
 }
 
-// SetSchedule makes the session's later runs resolve their choice points under
-// the policy, as sysml -schedule spells it ("seed:42"); "explore[...]" is
-// refused, an exploration replays whole runs. Setting the same seed again
-// restarts its stream, so two runs from the same seed choose alike.
+// SetSchedule makes the session's later turns resolve their choice points under
+// the policy, as sysml -schedule spells it ("seed:42"): the actions it performs
+// from now on, and the objects' machines and the clock from their next step on,
+// their states and pending signals kept. "explore[...]" is refused, an
+// exploration replays whole runs. Setting the same seed again restarts its
+// stream, so two turns from the same seed choose alike.
 func (s *Session) SetSchedule(policy string) error {
 	return s.answer("SetSchedule", func() error { return s.engine.SetSchedule(policy) })
 }
