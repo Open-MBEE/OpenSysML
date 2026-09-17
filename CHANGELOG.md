@@ -7,6 +7,110 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ## Unreleased
 
+## 0.8.1 — 2026-09-16
+
+### Added
+
+- **The VS Code diagram opens with a keystroke or a click.** `SysML: Open Diagram` is bound to <kbd>Alt</kbd>+<kbd>D</kbd> (<kbd>Option</kbd>+<kbd>D</kbd> on macOS) and <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>), active only in a `.sysml` or `.kerml` editor or in the diagram panel itself, where the same key returns to the source. The command also sits in the editor's title bar and right-click menu and in the Explorer's menu for model files, which opens the file and its diagram side by side; `SysML: Export Diagram` joins it in the editor menus. Without a running server, or one too old to draw, the commands say so instead of greying out.
+
+### Fixed
+
+- **The SysML v1 migration reads an opaque body expression's own names as its own.** An opaque expression written in v2 syntax whose body expression declares parameters or members — `{ in v; v > limit }` — no longer fails to copy because `v` is not a feature of the surrounding block; only the names the body reaches for beyond its own are checked for visibility, including those in a nested body, a nested constraint or a multiplicity bound (`in v { attribute y[limit]; }`). A body declaring a member kind the check does not read, such as an import, is left unmapped rather than copied unchecked. A feature chain on one of the body's own names is checked against the type the name is declared with — `{ in v : Pt; v.missing }` is unmapped rather than copied, and `{ in v; v.x }` is unmapped because `v` declares no type to check `x` against. A qualified name starting in a standard-library package, `ScalarValues::Integer` or `ISQ::mass`, is checked against the bundled library, which a v2 model reaches without importing it; a bare `Integer` is still not visible without an import. What the expression is followed by must be nothing, so `c > 0.0; attribute k = c` is still not one expression.
+- **The SysML v1 migration keeps an empty slot of a required feature as a comment.** A slot holding no value for a feature of multiplicity 1 or more contradicts the feature just as too many values do, and is now left unmapped with that note instead of being written as a redefinition bound to nothing. An empty slot of an optional feature is still written.
+- **The SysML v1 migration does not redefine a feature of a classifier the individual leaves out.** An instance classified by both a block and a constraint block is written as an `individual part def` of the block alone; a slot for a feature of the constraint block is now left as a comment rather than redefining a feature the individual does not inherit.
+- **The SysML v1 migration keeps a typed-in number of any size.** A string default spelling a whole number or a real for a numeric feature is now checked exactly, so `"9223372036854775808"` for an `Integer` and `"1e400"` for a `Real` are written as those values instead of being left as comments for exceeding a machine word or a double.
+- **`-check-timeout` (`%check-bounds timeout=`) is the `smt` engine's solver clock as well as
+  the plan's.** Each solver query of a check runs under the check's timeout in place of
+  `OPENSYSML_SMT_TIMEOUT`, so a check told it may run for `2m` is no longer left *not covered*
+  by a query the solver's own 10 s default cut short; the `solver` bound the result names is
+  the clock the query ran under. Without a timeout the queries keep `OPENSYSML_SMT_TIMEOUT`.
+
+- **A library copy whose root package states only a short name is read as the library.** The
+  notation-side library check looked the root up by its long name alone, so a copy opening with
+  `standard library package <Occurrences> {` fell through to user-document analysis and its
+  elements took derived ids. The check now uses the name the symbol table registers the package
+  under — the long name, else the short name — as the graph-side check already did.
+
+- **Every Mermaid flowchart `subgraph` now states the flowchart's `direction`.** Mermaid lays
+  out a subgraph that states no direction without regard to the flowchart's, so an action
+  rendering declared `flowchart TD` drew its container's contents left to right, and an
+  interconnection or action rendering with `direction BT` or `RL` lost the direction inside
+  every container. Each `subgraph`, nested ones included, now opens on `direction <flow>` —
+  `TD`, `LR` for an interconnection, or the direction the view or the caller asked for — so
+  the drawing follows the declared direction throughout. A tree draws containment as edges
+  rather than subgraphs and is unchanged.
+
+- **The landing page's four refereed-comparison cards no longer wrap three and one.** The grid
+  now lays them out in one row of four on wide screens, two rows of two below the width at which
+  four fit, and a single column on phones, instead of letting the fourth card fall alone onto a
+  second row.
+
+- **Every build of `sysml`, `sysml-lsp` and `sysml-grpc` is now statically linked, not only the release job's.** `CGO_ENABLED=0` moved from the release scripts into the Makefile's build and install targets, so `make build`, `make install` and the pull-request build no longer link the builder's glibc either; a Linux `sysml-grpc` built that way needed glibc 2.34 where the release binary did not. `make static-check` (`scripts/check-static-binaries.sh`) verifies the Linux binaries, and the release and pull-request pipelines run it, so a dynamically linked binary now fails the build instead of shipping.
+
+- **A transition's `accept` trigger payload is a member of the transition.** The parameter an
+  accept trigger declares (`transition t first a accept p : Payload then b;`) was catalogued in a
+  scope of its own, so it had no owner, no qualified name and — for the one such parameter in the
+  standard library, `Actions::AcceptAction::aState::aTransition::apayload` — no normative id, the
+  last named library element whose id differed from the pilot's XMI. The symbol index now defines
+  it in the transition's own scope beside the effect and body members, so `t::p` names it, the
+  normative catalog derives its id under the transition, and `TestPilotLibraryXMI` lists no
+  pilot-only element. The guard, effect and body still reach it as before; any other reference
+  to it reports `Must be an accessible feature`, as the pilot does.
+
+- **The SysML v1 migration reads past the UML metaclass where the tool's own encoding hides the
+  v2 form.** A Signal is an `item def`, and properties typed by one are `item` / `ref item`, not
+  `attribute def` and `attribute`. A constraint block's parameters are public `in attribute`s —
+  `in ref part`s when typed by a block — whether the tool stores them as UML Properties or, as
+  MagicDraw does under a «ConstraintParameter» marker, as UML Ports, and a `private` parameter loses its visibility so
+  the block's binding connectors can reach it — as does any private feature a connector, slot,
+  redefinition or subset reaches from outside, the report naming what reached it; a connector
+  or slot that is itself left as a comment reaches nothing. A private packaged element (a
+  block, value type or enumeration) is written public, with a note, since v2 would put it out
+  of reach of the packages importing it. A type
+  referenced by href into the SysML or UML primitive library resolves to `ScalarValues::Real` /
+  `Integer` / `Boolean` / `String` from a plain (`PrimitiveTypes.xmi#Real`) or dotted
+  (`SysML.xmi#SysML_dataType.Real`) fragment, or from the qualified name MagicDraw records
+  beside an opaque id (`referentPath`) into a module named for that library; the tool library's `float`, `double`, `int`, `long`,
+  `short`, `byte` and `boolean` are written as the matching scalar and reported as
+  approximations. A nested connector end's `propertyPath` given as one whitespace-separated
+  attribute is split into its ids rather than failing to resolve. An opaque expression is copied
+  only when it parses as v2 and every name it uses is a written element visible where it is
+  written, so a JavaScript body, a bare enumeration literal or a call to an operation stays a
+  comment, and a private inherited feature an expression names is exposed like one a connector
+  reaches. An instance of a value type is
+  an `attribute` typed by it rather than an `individual def` that cannot specialize an attribute
+  def; a slot contradicting its feature — more values than the multiplicity allows, a repeated
+  value of a unique feature, a feature of a classifier the instance is not written to
+  specialize — is left as a comment; a real
+  literal on an `Integer` feature and a numeric string on a scalar feature take the feature's
+  scalar, a literal on a value type or enumeration with no scalar base is not bound, and a
+  default naming an instance of a block types the usage by that individual — its only type when
+  the property is untyped, and not at all when the usage is a port, of another kind than the
+  individual, or typed by a block the individual is not an instance of — instead of being written
+  as a value. An instance of a block is an
+  `individual part def` and of a constraint block an `individual constraint def`, and a slot of a
+  part, item or constraint property is written too: one instance redefines the property as an
+  `individual part :>> x : 'the instance';`, several each subset it under a redefinition
+  counting them, while a slot whose instance is not of the property's type, or differs from the
+  individual its default types it by, is left as a comment. An undirected part or item property of an interface block is a `ref`,
+  since a port owns no composite parts, and a specializing block's property named like an
+  inherited one redefines it when both are the same kind of usage, and is reported when they
+  are not. Migrating the current TMT observatory model now yields notation
+  with no analysis errors, down from a hundred, and keeps the structure of its instance trees.
+
+- **The VS Code extension's test runner finds `src/` on Windows.** `tools/test.mjs` derived its
+  `src/` and `out/` directories from a file URL's `pathname`, which on Windows carries a leading
+  slash before the drive letter, so `path.resolve` prefixed the current drive again and
+  `npm test` / `npm run package` failed with `ENOENT … scandir 'C:\C:\…\src'`. The paths now come
+  from `fileURLToPath`, which yields a native path on every platform.
+
+- **A diagram drawn from an older `sysml-lsp` no longer labels a typed usage `undefined`.** A
+  server predating the node `type` field in `opensysml/render` sends no such field, and the
+  VS Code panel wrote the missing value into the label as `engine : undefined`. The extension
+  now fills in what an older server omits — a node's `type`, `name` and `detail`, an edge's
+  `label`, absent lists — before drawing, so such a usage reads `engine`, «part», `Engine`, as
+  that server's own client drew it, and an unnamed element leads with its kind alone.
+
 ## 0.8.0 — 2026-09-14
 
 ### Added
