@@ -1,6 +1,7 @@
 package migrate_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -9,8 +10,8 @@ import (
 
 // plantMachine is a block whose classifier behavior is a state machine with
 // transitions crossing region boundaries in both directions, a junction with an
-// else branch, a fork and join around a state of two regions, a shallow
-// history, a submachine state entered and left through its entry and exit
+// else branch, a fork and join around a state of two regions, a shallow and
+// a deep history, a submachine state entered and left through its entry and exit
 // points, an internal transition on a plain state, a local transition, an
 // absolute time event, and a signal event no trigger refers to.
 const plantMachine = `
@@ -67,6 +68,7 @@ const plantMachine = `
               <subvertex xmi:type="uml:State" xmi:id="_prep" name="Prep"/>
               <subvertex xmi:type="uml:State" xmi:id="_run" name="Run"/>
               <subvertex xmi:type="uml:Pseudostate" xmi:id="_hist" name="last" kind="shallowHistory"/>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_deep" name="deepest" kind="deepHistory"/>
               <transition xmi:type="uml:Transition" xmi:id="_tWi" source="_initW" target="_prep"/>
               <transition xmi:type="uml:Transition" xmi:id="_tNext" source="_prep" target="_run">
                 <trigger xmi:type="uml:Trigger" xmi:id="_trNext" event="_nextEv"/>
@@ -178,8 +180,8 @@ const plantApplications = `
 
 // A transition whose ends lie in different regions names the nested end by its
 // path; a junction and its else guard become a junction pseudostate with an
-// unguarded branch; fork and join pseudostates keep their kind; a shallow
-// history is a history member; an entry or exit point is a state of the
+// unguarded branch; fork and join pseudostates keep their kind; a shallow or
+// deep history is a history member; an entry or exit point is a state of the
 // submachine's state def that a connection point reference names through the
 // submachine state; an internal transition on a plain state is a self
 // transition; a local transition is written external and noted; a literal
@@ -194,6 +196,7 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 		"state Work {",
 		"entry; then Prep;",
 		"history last;",
+		"deep history deepest;",
 		"transition first last then Prep;",
 		"state Cell : CellMachine;",
 		"junction route;",
@@ -234,6 +237,7 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 	wantNote(t, r, "_fork", migrate.Mapped, "written as a fork pseudostate")
 	wantNote(t, r, "_join", migrate.Mapped, "written as a join pseudostate")
 	wantNote(t, r, "_hist", migrate.Mapped, "written as a shallow history")
+	wantNote(t, r, "_deep", migrate.Mapped, "written as a deep history, which re-enters the innermost states active")
 	wantNote(t, r, "_cpIn", migrate.Mapped, "a transition entering a submachine state through the entry point enters this state")
 	wantNote(t, r, "_cpOut", migrate.Mapped, "a transition leaving a submachine state through the exit point leaves this state")
 	wantNote(t, r, "_cprIn", migrate.Mapped, "written as the entry point's state in the submachine state, Cell::warmStart")
@@ -245,8 +249,18 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 	wantNote(t, r, "_tNever", migrate.Unmapped, "the time event's time is not written")
 	wantNote(t, r, "_never", migrate.Unmapped, "the time event's time is not written")
 	wantNote(t, r, "_unusedEv", migrate.Skipped, "not referenced by any behavior")
-	if c := r.Report.Count(); c[migrate.Skipped] < 1 {
+	c := r.Report.Count()
+	if c[migrate.Skipped] < 1 {
 		t.Errorf("the skipped count leaves out the unreferenced event: %v", c)
+	}
+	if n := r.Report.Unreferenced(); n != 1 {
+		t.Errorf("unreferenced = %d, want the one event no trigger refers to", n)
+	}
+	summary := r.Report.Summary()
+	want := fmt.Sprintf("migrated %d element(s): %d mapped, %d approximated, %d unmapped (%d skipped as profile, library or notation-only content, 1 as model elements nothing refers to)",
+		len(r.Report.Entries)-c[migrate.Skipped], c[migrate.Mapped], c[migrate.Approximated], c[migrate.Unmapped], c[migrate.Skipped]-1)
+	if summary != want {
+		t.Errorf("summary\n got %s\nwant %s", summary, want)
 	}
 
 	// Idle leaves into the nested Run and comes back from it.

@@ -1,6 +1,6 @@
 # SysML v1 to v2 migration report: vehicle.xmi
 # exported by Example UML Tool
-# migrated 92 element(s): 76 mapped, 13 approximated, 3 unmapped (3 skipped as profile or library content, or as content nothing refers to)
+# migrated 92 element(s): 76 mapped, 13 approximated, 3 unmapped (3 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (3)
 «Verify» Abstraction	Requirements::<Abstraction>	_dep_verify_block	(a verify whose client is not a test case has no v2 form; applied stereotypes «Verify»)

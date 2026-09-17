@@ -777,5 +777,5 @@ func (m *migration) event(e *xmi.Element) {
 	if m.triggered[e] {
 		return
 	}
-	m.add(e, Skipped, "", "not referenced by any behavior: no trigger refers to the event, so nothing would accept it")
+	m.add(e, Skipped, "", unreferencedNote+": no trigger refers to the event, so nothing would accept it")
 }

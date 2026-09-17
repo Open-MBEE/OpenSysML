@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"evaluate": "test::watcher",
+	"libraries": true,
+	"trace": true,
+	"outputs": {
+		"total": {"type": "Real", "value": 5.0}
+	}
+}
