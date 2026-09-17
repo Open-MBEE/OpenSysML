@@ -74,9 +74,14 @@ func (r *Resolver) walkUnqualifiedHiding(scope *symbols.Scope, name string, hide
 	return resolution{}
 }
 
+// enclosingLocal finds name among the bindings the enclosing scopes declare, an
+// accept payload counting as one of its body's, before any import is consulted.
 func (r *Resolver) enclosingLocal(scope *symbols.Scope, name string, hide *refFilter) (*symbols.Symbol, bool) {
 	for ; scope != nil; scope = scope.Parent() {
 		if sym, ok := r.localBinding(scope, name, hide); ok {
+			return sym, true
+		}
+		if sym, ok := r.acceptPayload(scope, name); ok && !hide.hides(sym) {
 			return sym, true
 		}
 	}

@@ -659,26 +659,115 @@ func (m *migration) reported(e *xmi.Element) bool {
 	return ok
 }
 
-// reception writes a reception as a comment on its owner: v2 has no
-// reception, the signal it names being accepted by the owner's behaviors.
+// reception writes a reception as an action def of its owner that accepts the
+// signal and performs the method, with a usage an object runs it as.
 func (m *migration) reception(r *xmi.Element) {
 	sig := m.model.Ref(r, "signal")
+	if sig == nil || !m.written(sig) {
+		m.receptionComment(r, sig)
+		return
+	}
+	owner := r.Parent
+	name := m.nameFor(r)
+	usage := m.freshName(owner, lowerFirst(name))
+	used := map[string]bool{"start": true, "done": true}
+	trig := freshIn(used, "receive")
+	payload := freshIn(used, lowerFirst(m.nameFor(sig)))
+	run := freshIn(used, "run")
+	method := m.model.Ref(r, "method")
+	note, performed := "", false
+	m.w.block("action def "+writeName(name), func() {
+		m.w.line("first start then " + trig + ";")
+		m.w.line("action " + trig + " accept " + payload + " : " + m.ref(sig, owner) + ";")
+		last := trig
+		switch {
+		case method == nil:
+			if len(m.model.Unresolved(r, "method")) > 0 {
+				note = "the method refers to nothing in the document; the reception only accepts the signal"
+			} else {
+				note = "the reception has no method, so it only accepts the signal"
+			}
+		case !m.written(method) || !hasActionForm(method):
+			note = "the method " + qualifiedName(method) + " has no action def to perform; the reception only accepts the signal"
+		default:
+			last, performed = run, true
+			args, anote := m.receptionArguments(method, sig, payload)
+			note = anote
+			m.w.line("first " + trig + " then " + run + ";")
+			decl := "action " + run + " : " + m.ref(method, owner)
+			if len(args) == 0 {
+				m.w.line(decl + ";")
+			} else {
+				m.w.line(decl + " { in " + strings.Join(args, "; in ") + "; }")
+			}
+		}
+		m.w.line("first " + last + " then done;")
+	})
+	m.w.line("action " + writeName(usage) + " : " + writeName(name) + ";")
+	m.receptionParameters(r, sig)
+	desc := "written as an action def accepting " + m.nameFor(sig)
+	if performed {
+		desc += " and performing its method " + qualifiedName(method)
+	}
+	m.add(r, verdictFor(note), m.v2Name(r), joinNotes(desc+", which its owner's usage "+usage+" runs", note))
+}
+
+// receptionComment writes a reception whose signal has no v2 declaration as a
+// comment, since nothing could accept it.
+func (m *migration) receptionComment(r, sig *xmi.Element) {
 	text := "reception " + describe(r)
-	note := "a reception names the signal its owner accepts, which the owner's behaviors carry as accept"
-	switch {
-	case sig == nil:
-		note = joinNotes(note, m.dangling(r, "signal"))
+	note := ""
+	if sig == nil {
+		note = m.dangling(r, "signal")
 		if note == "" || len(m.model.Unresolved(r, "signal")) == 0 {
 			note = joinNotes(note, "the reception names no signal")
 		}
-	case m.written(sig):
-		text += " accepts " + m.ref(sig, m.scope)
-	default:
+	} else {
 		text += " accepts " + qualifiedName(sig)
-		note = joinNotes(note, "the signal "+qualifiedName(sig)+" has no v2 declaration in the document")
+		note = "the signal " + qualifiedName(sig) + " has no v2 declaration in the document"
 	}
 	m.w.lines(prefixFirst(commentPrefix, commentLines(text)))
-	m.add(r, Approximated, "", note)
+	m.add(r, Unmapped, "", note)
+}
+
+// receptionArguments binds the method's in parameters to the accepted signal's
+// attributes of the same name; one with no such attribute and no default is noted.
+func (m *migration) receptionArguments(method, sig *xmi.Element, payload string) (args []string, note string) {
+	attrs := map[string]bool{}
+	for _, a := range m.signalAttributes(sig) {
+		attrs[m.nameOf(a)] = true
+	}
+	for _, p := range method.Owned("ownedParameter") {
+		dir, _ := parameterDirection(p)
+		if dir != "in" && dir != "inout" {
+			continue
+		}
+		name := m.nameOf(p)
+		if name == "" || !attrs[name] {
+			if firstOwned(p, "defaultValue") == nil {
+				note = joinNotes(note, "the method's parameter "+m.nameFor(p)+" matches no attribute of the signal, so it receives no value")
+			}
+			continue
+		}
+		args = append(args, writeName(name)+" = "+payload+"."+writeName(name))
+	}
+	return args, note
+}
+
+// receptionParameters reports a reception's own parameters, which mirror the
+// signal's attributes and are carried by the accepted payload.
+func (m *migration) receptionParameters(r, sig *xmi.Element) {
+	attrs := map[string]*xmi.Element{}
+	for _, a := range m.signalAttributes(sig) {
+		attrs[m.nameOf(a)] = a
+	}
+	for _, p := range r.Owned("ownedParameter") {
+		if a := attrs[m.nameOf(p)]; a != nil {
+			m.add(p, Mapped, m.v2Name(a), "stands for the signal's attribute "+m.nameOf(a)+", which the accepted payload carries")
+			continue
+		}
+		m.add(p, Unmapped, "", "the parameter "+m.nameFor(p)+" matches no attribute of the signal, whose payload is all the accept carries")
+	}
 }
 
 // event reports an event declared as a member: it is written as an accept clause

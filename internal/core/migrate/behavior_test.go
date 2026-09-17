@@ -575,7 +575,7 @@ const stationApplications = `
 // waits for the signal, an operation becomes an action def whose activity
 // method is its body and an action usage of its owner, a call on the read part
 // performs that usage on it, a value specification an out result, a function
-// behavior a calc def, a reception a comment, and a flow from an unmigrated
+// behavior a calc def, a reception an action def accepting its signal, and a flow from an unmigrated
 // JavaScript action a comment naming the input that receives nothing. The
 // result runs up to the accept, which a sent Ack releases; the call then
 // points the station's telescope, not the station.
@@ -588,7 +588,10 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 		"assign this.azimuth := value;",
 		"bind 'set azimuth'.value = az;",
 		"abstract action def Park;",
-		"comment /* reception 'Go' accepts $::Go */",
+		"action def Go {",
+		"action receive accept go : $::Go;",
+		"first receive then done;",
+		"action go : Go;",
 		"calc def Twice {",
 		"x * 2.0",
 		"out result = this.tel;",
@@ -613,7 +616,7 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 	wantNote(t, r, "_park", migrate.Mapped, "")
 	wantNote(t, r, "_twice", migrate.Mapped, "")
 	wantNote(t, r, "_tr", migrate.Approximated, "the return parameter is written as an out parameter")
-	wantNote(t, r, "_rcv", migrate.Approximated, "a reception names the signal its owner accepts")
+	wantNote(t, r, "_rcv", migrate.Approximated, "the reception has no method, so it only accepts the signal")
 	wantNote(t, r, "_js", migrate.Approximated, "the body is kept as a comment")
 	wantNote(t, r, "_log", migrate.Approximated, "its input log.t receives no value, since 'compute' is not migrated")
 	wantNote(t, r, "_point", migrate.Mapped, "its owner's usage point performs it")

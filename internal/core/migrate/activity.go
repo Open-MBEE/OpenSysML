@@ -1182,11 +1182,21 @@ func (a *activity) callOperation(n *xmi.Element, name string) {
 	ins := slices.DeleteFunc(inputPins(n), func(p *xmi.Element) bool { return p == t })
 	outs := append(n.Owned("result"), n.Owned("outputValue")...)
 	receiver, note, ok := a.receiverOf(t, op)
+	port := a.m.model.Ref(n, "onPort")
+	if port != nil {
+		receiver, note, ok = a.portReceiver(port, t, op)
+	}
 	switch {
 	case ok:
 		a.m.w.line("perform action " + name + " ::> " + receiver + ";")
-		a.m.add(t, Mapped, a.m.v2Name(n), note)
+		if t == nil {
+			a.m.add(n, Mapped, name, note)
+		} else {
+			a.m.add(t, Mapped, a.m.v2Name(n), note)
+		}
 		note = ""
+	case port != nil && t == nil:
+		a.m.w.line("action " + name + " : " + a.m.ref(op, a.def) + ";")
 	case t != nil:
 		a.m.w.line("action " + name + " : " + a.m.ref(op, a.def) + ";")
 		a.m.add(t, Approximated, "", "the target pin is not written; the call runs in the caller's context")
