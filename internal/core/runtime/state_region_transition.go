@@ -510,7 +510,7 @@ func (e *StateExecutor) recordTransitionTrace(trans *lower.Transition, source, t
 	if source != nil {
 		from = source.Name
 	}
-	e.trace().RecordStateTransition(from, target.Name, triggerName(trans.Trigger))
+	e.trace().RecordStateTransition(e.traceOrigin(), from, target.Name, triggerName(trans.Trigger))
 }
 
 // orderedActiveRegions returns the active orthogonal regions in declaration

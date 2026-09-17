@@ -68,10 +68,13 @@ type runCapture struct {
 	clockRun          *runState
 }
 
-// traceCapture is a recorder's state at the mark. Entries are only appended to or
-// replaced wholesale, so the slice header at the mark still reads what they were.
+// traceCapture is a recorder's state at the mark. Records are only appended to, cut
+// from the front or replaced wholesale, so the slice header at the mark still reads what they were.
 type traceCapture struct {
-	entries []string
+	records []TraceRecord
+	printed int
+	dropped int
+	horizon float64
 	enabled bool
 	depth   int
 }
@@ -80,12 +83,17 @@ func captureTrace(tr *TraceRecorder) traceCapture {
 	if tr == nil {
 		return traceCapture{}
 	}
-	return traceCapture{entries: tr.entries, enabled: tr.enabled, depth: tr.depth}
+	return traceCapture{
+		records: tr.records, printed: tr.printed, dropped: tr.dropped, horizon: tr.horizon,
+		enabled: tr.enabled, depth: tr.depth,
+	}
 }
 
 func (c traceCapture) restore(tr *TraceRecorder) {
 	if tr != nil {
-		tr.entries, tr.enabled, tr.depth = c.entries, c.enabled, c.depth
+		tr.records, tr.enabled, tr.depth = c.records, c.enabled, c.depth
+		tr.dropped, tr.horizon = c.dropped, c.horizon
+		tr.printed = min(c.printed, len(c.records))
 	}
 }
 
@@ -96,6 +104,7 @@ type runStateCapture struct {
 	state           *runState
 	steps, elements int64
 	notes           []RunNote
+	scheduler       *scheduler
 	restoreSchedule func()
 	calcUsageRuns   map[int64]map[calcUsageKey]*calcRun
 	calcOutputs     []mapState[string, Value]
@@ -359,6 +368,7 @@ func (s *Snapshot) captureRunState(state *runState) {
 	s.runStates = append(s.runStates, runStateCapture{
 		state: state, steps: state.steps, elements: state.elements,
 		notes:           slices.Clone(state.notes),
+		scheduler:       state.scheduler,
 		restoreSchedule: state.scheduler.mark(),
 		calcUsageRuns:   cloneCalcUsageRuns(state.calcUsageRuns),
 		calcOutputs:     captureCalcOutputs(state.calcUsageRuns),
@@ -368,6 +378,7 @@ func (s *Snapshot) captureRunState(state *runState) {
 func (c runStateCapture) restore() {
 	c.state.steps, c.state.elements = c.steps, c.elements
 	c.state.notes = slices.Clone(c.notes)
+	c.state.scheduler = c.scheduler
 	c.restoreSchedule()
 	clear(c.state.calcUsageRuns)
 	maps.Copy(c.state.calcUsageRuns, cloneCalcUsageRuns(c.calcUsageRuns))

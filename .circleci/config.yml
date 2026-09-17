@@ -180,6 +180,12 @@ jobs:
           name: Run Go vet
           command: go vet ./...
 
+      # The browser game is built for js/wasm only, which `go build ./...` on the
+      # host never compiles.
+      - run:
+          name: Build the Legend of the Red Dragon browser game
+          command: make lord-web
+
       - run:
           name: Check documentation links
           command: python3 scripts/check-doc-links.py
@@ -687,7 +693,16 @@ jobs:
       
       - attach_workspace:
           at: .
-      
+
+      # make scripts-coverage runs the test-suite figures test, which renders the figures with go run.
+      - go/install:
+          version: "1.25.0"
+
+      - run:
+          name: Verify Go version
+          command: |
+            go version
+
       - run:
           name: Install sysml-grpc
           command: |

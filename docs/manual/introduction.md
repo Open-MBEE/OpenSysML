@@ -61,7 +61,11 @@ sequences):
 | `WhereFeature` | Keep elements whose attribute value passes a comparison |
 | `OrderBy` | Sort by a property, with explicit missing- and multiple-value policies |
 | `Project` | Turn elements into rows of named, typed columns |
-| `Objects` | The objects the session holds that are of a type, each under its path — the one operation that reads objects rather than elements; every other operation accepts an object where it accepts an element and reads what the object holds ([Objects the session holds](query-cookbook.md#objects-the-session-holds)) |
+| `Objects` | The objects the session holds that are of a type, each under its path; every other operation accepts an object where it accepts an element and reads what the object holds ([Objects the session holds](query-cookbook.md#objects-the-session-holds)) |
+| `Verdicts` | One row per assertion checked on the object behind each source row — its verdict, path, kind and reason ([Which constraints and requirements hold](query-cookbook.md#which-constraints-and-requirements-hold)) |
+
+Document queries are one of several query surfaces the project has; [Which
+query is which](query-kinds.md) draws the boundaries between them.
 
 **Document content blocks** (each a `part def` nested inside a document or
 section):

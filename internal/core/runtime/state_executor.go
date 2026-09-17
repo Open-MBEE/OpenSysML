@@ -154,13 +154,13 @@ type StateExecutor struct {
 type doAction struct {
 	state   *ast.StateNode
 	pending []lower.StateBehavior
-	// run is the behavior under way, paused where its flow waits on the clock or
-	// for a message; nil between behaviors.
+	// run is the behavior under way, paused between two statements or where its
+	// flow waits on the clock or for a message; nil between behaviors.
 	run *doRun
 }
 
-// due reports work of the do behavior runnable now: a paused behavior whose wait
-// has ended, or the next behavior where none is under way.
+// due reports work of the do behavior runnable now: a paused behavior with its
+// next statement due, or the next behavior where none is under way.
 func (act *doAction) due(ctx *Context) bool {
 	if act.run != nil {
 		return act.run.resumable(ctx)
@@ -597,14 +597,42 @@ func (e *StateExecutor) processNextEvent() error {
 	e.lastEventAt = e.ctx.clock.now
 
 	e.markDispatch()
+	mark, at := e.traceMark()
 	dispatch, err := e.dispatchEvent(event)
 	if err != nil {
 		return err
 	}
 	e.lastDispatch = &dispatch
+	if !dispatch.Deferred {
+		e.recordAccept(event, mark, at)
+	}
 	e.recallDeferredEvents()
 	e.pauseAtBreakpoint()
 	return nil
+}
+
+// traceMark is where the trace stands before a dispatch, and the clock's instant.
+func (e *StateExecutor) traceMark() (int, float64) {
+	if tr := e.trace(); tr != nil {
+		return tr.Mark(), e.ctx.clock.now
+	}
+	return 0, e.ctx.clock.now
+}
+
+// recordAccept records a dispatched signal or call ahead of what its dispatch
+// recorded; time and change events are no accepts, their transition records the trigger.
+func (e *StateExecutor) recordAccept(event Event, mark int, at float64) {
+	tr := e.trace()
+	if tr == nil {
+		return
+	}
+	origin := TraceOrigin{At: at, Object: e.self, Behavior: e.stateMachine}
+	switch payload := event.Payload.(type) {
+	case Message:
+		tr.RecordAcceptAt(mark, origin, acceptedEventName(payload), payload.Payload)
+	case Call:
+		tr.RecordAcceptAt(mark, origin, payload.Operation, payload.Args)
+	}
 }
 
 // markDispatch opens a dispatch's account: where its fired transitions begin,
@@ -671,7 +699,7 @@ func (e *StateExecutor) nextEvent() (Event, error) {
 	if err := scheduling.refusal(); err != nil {
 		return Event{}, err
 	}
-	e.ctx.noteChoice(choice)
+	e.noteChoice(choice)
 	event, _ := e.eventQueue.Take(tied[choice.Taken].ID)
 	return event, nil
 }
@@ -1451,9 +1479,9 @@ func (e *StateExecutor) completionEnabled(trans *lower.Transition) (bool, error)
 // guard having passed its final reading, then what settling its route r noted;
 // the route is returned with its notes taken.
 func (e *StateExecutor) transitionDecided(r route) route {
-	e.ctx.noteAll(e.firingNotes)
+	e.noteAll(e.firingNotes)
 	e.firingNotes = nil
-	e.ctx.noteAll(r.notes)
+	e.noteAll(r.notes)
 	r.notes = nil
 	return r
 }
@@ -1930,7 +1958,7 @@ func (e *StateExecutor) enterBelow(trans *lower.Transition, fromName string, lca
 	// Record trace
 	if e.trace() != nil {
 		eventName := triggerName(trans.Trigger)
-		e.trace().RecordStateTransition(fromName, targetState.Name, eventName)
+		e.trace().RecordStateTransition(e.traceOrigin(), fromName, targetState.Name, eventName)
 	}
 
 	return nil
@@ -1973,7 +2001,7 @@ func (e *StateExecutor) completeMachine() error {
 func (e *StateExecutor) terminateMachine(fromName string, trigger ast.Node, stop *ast.Usage) error {
 	name, _ := ast.EffectiveName(stop)
 	if e.trace() != nil {
-		e.trace().RecordStateTransition(fromName, name, triggerName(trigger))
+		e.trace().RecordStateTransition(e.traceOrigin(), fromName, name, triggerName(trigger))
 	}
 	abandoned := e.abandonMachine()
 	if e.trace() != nil {
@@ -2093,7 +2121,7 @@ func (e *StateExecutor) completeInto(trans *lower.Transition, fromName string, t
 		}
 	}
 	if e.trace() != nil {
-		e.trace().RecordStateTransition(fromName, target.Name, triggerName(trans.Trigger))
+		e.trace().RecordStateTransition(e.traceOrigin(), fromName, target.Name, triggerName(trans.Trigger))
 	}
 	return nil
 }
@@ -2364,7 +2392,7 @@ func (e *StateExecutor) defaultHistoryRoute(hist *ast.PseudostateNode, owner *as
 	if err == nil {
 		r, err = e.settleDraws(r)
 	}
-	e.ctx.noteAll(r.notes)
+	e.noteAll(r.notes)
 	r.notes = nil
 	if err != nil {
 		return route{}, fmt.Errorf("default transition of history %s: %w", hist.Name, err)
@@ -2555,7 +2583,7 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 		return fmt.Errorf("complete state machine: %w", err)
 	}
 	if e.trace() != nil {
-		e.trace().RecordStateTransition(StateVertexName(trans.Source), fork.Name, "")
+		e.trace().RecordStateTransition(e.traceOrigin(), StateVertexName(trans.Source), fork.Name, "")
 	}
 	return nil
 }
@@ -2722,7 +2750,7 @@ func (e *StateExecutor) fireJoinIncoming(join *ast.PseudostateNode, plan *lower.
 			if err := e.ctx.scheduling().refusal(); err != nil {
 				return err
 			}
-			e.ctx.noteChoice(choice)
+			e.noteChoice(choice)
 			next = choice.Taken
 		}
 		trans := pending[next]
@@ -3370,7 +3398,7 @@ func (e *StateExecutor) runDoRound() (int, error) {
 func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, error)) error {
 	e.moved = true
 	if e.trace() != nil {
-		e.trace().RecordDoStep(act.state.Name)
+		e.trace().RecordDoStep(e.traceOrigin(), act.state.Name)
 	}
 	var err error
 	if act.run != nil {
@@ -3614,7 +3642,7 @@ func (e *StateExecutor) chooseDoAction(due []*doAction) (int, error) {
 	if err := e.ctx.scheduling().refusal(); err != nil {
 		return 0, err
 	}
-	e.ctx.noteChoice(choice)
+	e.noteChoice(choice)
 	return choice.Taken, nil
 }
 
@@ -3799,6 +3827,21 @@ func (e *StateExecutor) AcceptsMessage(m Message) (accepted bool, err error) {
 	return accepted, err
 }
 
+// TakesMessage previews whether delivery would let this machine take the message:
+// it reacts to it and does not yield it to a sibling machine that would fire or defer.
+func (e *StateExecutor) TakesMessage(m Message) (takes bool, err error) {
+	defer e.ctx.previewExecutorRun(&e.driven)()
+	e.preview(func() { takes, err = e.takesMessage(m) })
+	return takes, err
+}
+
+// TriggeredBy previews whether a transition out of an active or enclosing state is
+// triggered by the message, whatever its guard; deferral and do behaviors aside.
+func (e *StateExecutor) TriggeredBy(m Message) (triggered bool, err error) {
+	e.preview(func() { triggered, err = e.acceptsSignal(m) })
+	return triggered, err
+}
+
 // preview runs fn as a probe of the context, which beginProbe undoes whole.
 func (e *StateExecutor) preview(fn func()) {
 	defer e.ctx.beginProbe()()
@@ -3832,35 +3875,45 @@ func (d Decision) Enabled() bool {
 // A do behavior parked at an accept the message would let go on is named too.
 func (e *StateExecutor) Decide(m Message) (decision Decision, err error) {
 	defer e.ctx.previewExecutorRun(&e.driven)()
-	e.preview(func() { decision, err = e.decide(m) })
+	e.preview(func() { decision, _, err = e.decide(m) })
 	return decision, err
+}
+
+// DecideTransitions is Decide reporting alongside the decision the transitions
+// its Fires describe, in the same order.
+func (e *StateExecutor) DecideTransitions(m Message) (decision Decision, transitions []*lower.Transition, err error) {
+	defer e.ctx.previewExecutorRun(&e.driven)()
+	e.preview(func() { decision, transitions, err = e.decide(m) })
+	return decision, transitions, err
 }
 
 // decide is Decide under the preview that discards what it builds. It selects the
 // message's takers as broadcastEvent does, so the two agree.
-func (e *StateExecutor) decide(m Message) (Decision, error) {
+func (e *StateExecutor) decide(m Message) (Decision, []*lower.Transition, error) {
 	event := Event{Type: EventAccept, Timestamp: e.ctx.clock.now, Payload: m}
 	accepted, err := e.acceptableMessage(m)
 	if err != nil {
-		return Decision{}, err
+		return Decision{}, nil, err
 	}
 	var candidates []dispatchCandidate
 	if accepted {
 		selected, err := e.selectTransitions(&event)
 		if err != nil {
-			return Decision{}, err
+			return Decision{}, nil, err
 		}
 		if candidates, err = e.chooseTransitions(selected, &event); err != nil {
-			return Decision{}, err
+			return Decision{}, nil, err
 		}
 	}
 	taking, err := e.doBehaviorsTaking(m, candidates)
 	if err != nil {
-		return Decision{}, err
+		return Decision{}, nil, err
 	}
 	var decision Decision
+	var transitions []*lower.Transition
 	for _, candidate := range candidates {
 		decision.Fires = append(decision.Fires, transitionDescription(candidate.chosen))
+		transitions = append(transitions, candidate.chosen)
 	}
 	for _, act := range taking {
 		decision.Resumes = append(decision.Resumes, doBehaviorDescription(act.state))
@@ -3868,7 +3921,7 @@ func (e *StateExecutor) decide(m Message) (Decision, error) {
 	if accepted && !decision.Enabled() {
 		decision.Deferred = e.defersEvent(&event)
 	}
-	return decision, nil
+	return decision, transitions, nil
 }
 
 // Performer is the object this machine is performed by, nil for none.
@@ -4257,7 +4310,7 @@ func (e *StateExecutor) performEntry(state *ast.StateNode) error {
 
 		// Record trace
 		if e.trace() != nil {
-			e.trace().RecordStateEntry(state.Name, len(e.behaviorsOf(state).Entry) > 0)
+			e.trace().RecordStateEntry(e.traceOrigin(), state.Name, len(e.behaviorsOf(state).Entry) > 0)
 		}
 	}
 
@@ -4344,7 +4397,7 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 
 	// Record trace
 	if !e.graph.HiddenStates[state] && e.trace() != nil {
-		e.trace().RecordStateExit(state.Name, len(e.behaviorsOf(state).Exit) > 0)
+		e.trace().RecordStateExit(e.traceOrigin(), state.Name, len(e.behaviorsOf(state).Exit) > 0)
 	}
 
 	// Execute exit actions
@@ -4452,6 +4505,31 @@ func (e *StateExecutor) ActiveStates() []*ast.StateNode {
 	return e.activeStates()
 }
 
+// ActiveLeaves returns the innermost active states, one per active region, in
+// region order; the composite states enclosing them are active too.
+func (e *StateExecutor) ActiveLeaves() []*ast.StateNode {
+	return e.activeLeaves()
+}
+
+// OutgoingTransitions lists the transitions dispatch could select now: those
+// out of each active leaf and then of each state enclosing it, innermost first
+// as dispatch tries them, each in declaration order and a shared enclosing
+// state's once.
+func (e *StateExecutor) OutgoingTransitions() []*lower.Transition {
+	var out []*lower.Transition
+	listed := make(map[*ast.StateNode]bool)
+	for _, leaf := range e.activeLeaves() {
+		for _, source := range e.getParentChain(leaf) {
+			if listed[source] {
+				continue
+			}
+			listed[source] = true
+			out = append(out, e.graph.Transitions[source]...)
+		}
+	}
+	return out
+}
+
 // GetStateVisits returns the ordered list of visited state names.
 func (e *StateExecutor) GetStateVisits() []string {
 	return e.stateVisits
@@ -4520,10 +4598,52 @@ func (e *StateExecutor) statePath(state *ast.StateNode) string {
 	return strings.Join(parts, ".")
 }
 
+// EnclosingStates returns the states written around state, outermost first;
+// the owners lowering synthesizes for regions are not among them.
+func (e *StateExecutor) EnclosingStates(state *ast.StateNode) []*ast.StateNode {
+	chain := e.getParentChain(state)
+	out := make([]*ast.StateNode, 0, len(chain))
+	for i := len(chain) - 1; i >= 1; i-- {
+		if e.graph.HiddenStates[chain[i]] {
+			continue
+		}
+		out = append(out, chain[i])
+	}
+	return out
+}
+
+// StatePath is state's name qualified by the states written around it (`on.run`).
+func (e *StateExecutor) StatePath(state *ast.StateNode) string {
+	enclosing := e.EnclosingStates(state)
+	parts := make([]string, 0, len(enclosing)+1)
+	for _, s := range enclosing {
+		parts = append(parts, s.Name)
+	}
+	return strings.Join(append(parts, state.Name), ".")
+}
+
 // trace returns the recorder this executor's context is attached to, so turning
 // reporting on or off reaches an execution already under way.
 func (e *StateExecutor) trace() *TraceRecorder {
 	return e.ctx.trace
+}
+
+// noteChoice keeps a choice point this machine drew, as made by its object.
+func (e *StateExecutor) noteChoice(choice ChoicePoint) {
+	e.ctx.noteFrom(choice, e.self, e.stateMachine)
+}
+
+// noteAll keeps notes this machine made, in order, as made by its object.
+func (e *StateExecutor) noteAll(notes []RunNote) {
+	for _, n := range notes {
+		e.ctx.noteFrom(n, e.self, e.stateMachine)
+	}
+}
+
+// traceOrigin is where this machine's trace records are made: the clock now, the
+// object performing the machine and the machine itself.
+func (e *StateExecutor) traceOrigin() TraceOrigin {
+	return TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.stateMachine}
 }
 
 // SetTrace sets the trace recorder for this executor and the context it
