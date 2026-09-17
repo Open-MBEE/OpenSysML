@@ -919,6 +919,8 @@ func (ctx *Context) bindingExprText(expr ast.Node, scope *symbols.Scope) string 
 		return strings.Join(parts, " "+node.Operator.String()+" ")
 	case *ast.FeatureReference:
 		return ctx.bindingExprText(node.Name, scope)
+	case *ast.FeatureChainExpr:
+		return ctx.bindingExprText(node.Operand, scope) + "." + ctx.bindingExprText(node.Member, scope)
 	case *ast.IndexExpr:
 		operand, index := ctx.bindingExprText(node.Operand, scope), ctx.bindingExprText(node.Index, scope)
 		if node.Bracket {

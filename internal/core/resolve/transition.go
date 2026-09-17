@@ -689,13 +689,14 @@ func startAction(sym *symbols.Symbol) bool {
 }
 
 // IsVertex reports whether decl is a vertex a transition may name: a state, a
-// pseudostate, or a control node standing in for one (SysML 7.19.2).
+// pseudostate, a control node standing in for one (SysML 7.19.2), or a terminate
+// action ending the machine (SysML 7.18.3 `then stop; action stop terminate;`).
 func IsVertex(decl ast.Node) bool {
 	switch d := decl.(type) {
 	case *ast.StateNode, *ast.SubstateMember, *ast.PseudostateNode, *ast.InitialNode, *ast.FinalNode:
 		return true
 	case *ast.Usage:
-		return d.Kind == ast.UsageState
+		return d.Kind == ast.UsageState || (d.Kind == ast.UsageAction && d.IsTerminate)
 	}
 	return false
 }

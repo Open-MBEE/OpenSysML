@@ -1,0 +1,10 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Check"}],
+	"terminated": true,
+	"stateVisits": ["idle"],
+	"outputs": {
+		"log": {"type": "String", "value": "idle(exit);check;relay;"}
+	}
+}

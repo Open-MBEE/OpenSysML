@@ -312,8 +312,8 @@ func (e *ActionExecutor) validateSubflows(graph *lower.ActionGraph) error {
 					ErrInvalidActionFlow, ActionNodeName(node), sub.Err)
 			}
 			if sub.Graph.Initial == nil {
-				return fmt.Errorf("%w: no initial node found in action node %s",
-					ErrInvalidActionFlow, ActionNodeName(node))
+				return fmt.Errorf("%w: no initial node found in action node %s%s",
+					ErrInvalidActionFlow, ActionNodeName(node), noFlowStart(sub.Graph))
 			}
 			if err := e.validateSubflows(sub.Graph); err != nil {
 				return err

@@ -333,13 +333,13 @@ func (s *Session) RunAction(name string, performer ...string) Verdict {
 			return analysis.Answer{Err: err}
 		}
 		exec := s.actionExec.executor
-		return behaviorAnswer(exec.State() == runtime.StateCompleted, "stopped at "+exec.State().String(), exec.Results(), nil)
+		return behaviorAnswer(exec.State().Ended(), "stopped at "+exec.State().String(), exec.Results(), nil)
 	})
 	if err != nil {
 		return s.withTrace(standing(unresolvedVerdict(name, err.Error()), plan))
 	}
 	lines, values := done.lines, done.values
-	if state := s.actionExec.executor.State(); state != runtime.StateCompleted {
+	if state := s.actionExec.executor.State(); !state.Ended() {
 		lines = append(lines, fmt.Sprintf("error: action %s stopped at %s without completing", name, state))
 		return s.withTrace(standing(Verdict{Subject: name, Status: VerdictUnresolved, Lines: lines, Values: values}, plan))
 	}
@@ -474,8 +474,8 @@ func (s *Session) RunFor(actions, states []Behavior, duration float64) []Verdict
 		case r.state != nil:
 			exec := r.state.executor
 			v.Lines = append(v.Lines, stateStatusLines(exec)...)
-			if exec.State() == runtime.StateCompleted {
-				outcome = []string{stateCompletedText}
+			if exec.State().Ended() {
+				outcome = []string{stateEndedText(exec)}
 			}
 			v.Values = []NamedValue{
 				{Name: "state", Value: currentStateName(exec)},
@@ -485,8 +485,8 @@ func (s *Session) RunFor(actions, states []Behavior, duration float64) []Verdict
 		case r.action != nil:
 			exec := r.action.executor
 			v.Lines = append(v.Lines, actionStatusLines(exec)...)
-			if exec.State() == runtime.StateCompleted {
-				outcome = append([]string{actionCompletedText}, renderResults(r.action.contextOf(), exec.Results())...)
+			if exec.State().Ended() {
+				outcome = append([]string{actionEndedText(exec)}, renderResults(r.action.contextOf(), exec.Results())...)
 				v.Values = namedValues(r.action.contextOf(), exec.Results())
 			} else {
 				v.Status = VerdictUnresolved

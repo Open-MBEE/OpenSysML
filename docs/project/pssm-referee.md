@@ -7,7 +7,7 @@
 
 `cmd/pssm-referee` runs the OMG *Precise Semantics of UML State Machines* (PSSM) test suite,
 translated by rule into SysML v2 textual notation, against this runtime, and files every test in
-one of five buckets. It is advisory and opt-in: CI compares the committed **bucket counts**,
+one of four buckets. It is advisory and opt-in: CI compares the committed **bucket counts**,
 never a pass/fail verdict, and a movement in any count is adjudicated in the change that moves
 it, exactly as the [pilot corpora](pilot-corpora.md) ratchet and the
 [pilot execution referee](pilot-execution-referee.md) are.
@@ -61,15 +61,17 @@ note's [construct-to-notation table](../internals/design/precise-semantics-align
 
 | Class | Meaning | Count |
 |---|---|---:|
-| **standard** | every construct has a spelling in standard SysML v2 notation | 31 |
+| **standard** | every construct has a spelling in standard SysML v2 notation | 34 |
 | **extension** | spellable with this project's state-body extensions (`fork`, `join`, `junction`, `choice`, `history`, `defer`) | 31 |
-| **terminate-gap** | spellable, but reaches `terminate`, which the runtime parses and lowers and does not yet execute (alignment finding 1) | 3 |
 | **not-expressible** | uses a construct with no spelling (entry and exit points, local and internal transitions, state-machine redefinition), a behavior shape the notation cannot bind, or a shape this project's lowerer refuses | 38 |
 
 A test using any construct with no spelling or no translation is not expressible whatever else
-it uses; otherwise `terminate` wins over the extensions, and the extensions over standard. The
-alignment note was first written with a hand count of 37 / 33 / 3 / 30; the classifier is the
-record from now on, and the note's test-suite section carries its figures. Nine tests moved
+it uses; otherwise the extensions win over standard. A terminate pseudostate is standard
+notation (a terminate action usage, SysML v2 §7.18.3) and decides nothing; the three tests
+that reach one were a class of their own, **terminate-gap**, while the runtime parsed and
+lowered `terminate` without executing it (alignment finding 1, fixed), and are standard since.
+The alignment note was first written with a hand count of 37 / 33 / 3 / 30; the classifier is
+the record from now on, and the note's test-suite section carries its figures. Nine tests moved
 from the hand count when the emitter was written, two of them moved back when the lowerer
 learned to accept a fork-entered region, and a tenth moved when its failure was adjudicated;
 each is listed with its reason in the note under
@@ -113,8 +115,14 @@ test, following the note's table and its worked example:
   state whose completion transition reaches that pseudostate, since a region cannot start in a
   pseudostate.
 - A transition to a final state targets `done` and is declared in that final state's region.
-- `terminate` is emitted as written, so the three terminate tests are spellable models that
-  the runtime refuses at run time.
+- A terminate pseudostate is emitted as a terminate action usage declared in its region
+  (`action S1_Terminate1 terminate;`), and a transition into it targets that usage by name
+  (`then S1_Terminate1;`): SysML v2 §7.18.3's `accept Abort via commPort then stop; action
+  stop terminate;`, the one spelling the notation gives a transition that ends the machine.
+  The runtime ends the state-machine performance there — the transition's source is exited
+  and its effect run, then nothing else is exited and running do behaviors are abandoned
+  (`state_route.go:terminateAt`, `state_executor.go:terminateMachine`) — which is PSSM
+  §9.4.13's rule for the pseudostate (SM38).
 
 `TestEmitSuite` emits every expressible test of the pinned suite and asserts that the model
 parses, validates and lowers with zero diagnostics; it fails on the first construct the emitter
@@ -144,8 +152,14 @@ reports the runaway in a second rather than minutes. `-jobs n` explores
 | `pass` | the test is expressible and the reachable set equals the admitted set |
 | `fail` | the test is expressible and the sets differ, or the run errored or exhausted its budget; the reason names every extra and missing trace or the error |
 | `not-expressible` | the classifier found a construct with no spelling or no translation; the reason names it |
-| `terminate-gap` | the classifier found `terminate`; the test is spellable and waits on the runtime executing it |
 | `differs-by-design` | the test would be a `fail`, **and** the committed table `internal/pssm/rows.go:TestRows` maps it to a note row whose verdict is *differs because v2 differs* |
+
+A fifth bucket, `terminate-gap`, held the three tests that reach a terminate pseudostate
+while the runtime parsed and lowered `terminate` without executing it. It is retired rather
+than kept at zero: it named one construct's one missing execution, nothing else in the
+suite's vocabulary can produce it, and a future suite that reaches a construct the runtime
+accepts but cannot run is a `fail` naming the run's error, which is what the bucket stood in
+for.
 
 `differs-by-design` is never inferred from a failure: the table is written by hand from the
 note, names the row, and is reviewed with every change to it. A test the table maps to a
@@ -163,7 +177,8 @@ send with no receiver) are not state-machine rows and no test in the suite reach
 
 ## Baseline
 
-Recorded **2026-09-16** on develop commit **`265045be5`** with the fork-entered-region fix
+Recorded **2026-09-17** on develop commit **`c2bffb389`** with `terminate` executing
+(alignment finding 1, SM38), the fork-entered-region fix
 (finding 6), the active-ancestor fix, the completion-choice fix, the guard-side-effect
 classification, the join incoming-effects fix, the junction branch-choice fix (finding 8) and
 the segment-effect fix (finding 10) described below, and with every remaining failure
@@ -175,17 +190,30 @@ baseline — `go run ./cmd/pssm-referee` prints the current ones.
 
 | Bucket | Tests |
 |---|---:|
-| `pass` | 45 |
-| `fail` | 15 |
+| `pass` | 46 |
+| `fail` | 17 |
 | `not-expressible` | 38 |
-| `terminate-gap` | 3 |
 | `differs-by-design` | 2 |
 | **Total** | **103** |
 
 ### Movements since the previous baseline
 
-No count has moved since the previous baseline (develop `46828f14f` with the failures
-attributed, 2026-09-16). One reason did: the runtime fix of
+Three counts moved since the previous baseline (develop `265045be5` with the segment-effect
+fix, 2026-09-16): the runtime executes `terminate` in every position the parser accepts
+(alignment finding 1, SM38), so the three tests held in `terminate-gap` are translated and
+run, the bucket is retired, and each lands where its traces put it. No other row's bucket,
+reasons or reached set changed.
+
+| Test | Finding | Movement | Adjudication |
+|---|---|---|---|
+| Terminate 003 | 1 (fixed) | `terminate-gap` → `pass` | Expected. A transition from `wait` on `Start`, effect `T2(effect)`, into `S1.Terminate1`, a terminate pseudostate inside the composite state `S1` whose entry is `S1(entry)`: reached `wait(exit)::T2(effect)::S1(entry)`, the one trace PSSM admits — the source is exited, the effect run, `S1` entered down to the pseudostate's owner, and the machine ends there with `S1`'s region never started (`state_terminate_entering_composite` is the conformance fixture of the shape) |
+| Terminate 001 | 1 (fixed), then 9 | `terminate-gap` → `fail` | Expected in part. `S1` has two regions, `S1.1` in the first, `S2.1` in the second with a completion transition into `S1.Terminate1`. Reached `S1(entry)::S1.1(entry)::S2.1(entry)::S2.1(exit)`, which PSSM admits: the completion transition exits its source, and the machine ends with `S1.1` still active and never exited. The admitted trace not reached, `S1(entry)::S2.1(entry)::S1.1(entry)::S2.1(exit)`, enters the second region before the first — finding 9's region-entry site, the one *Entering 010* and *Junction 005* fail on; the termination itself is complete and correct in the trace reached. `fail` citing finding 9, as they do |
+| Terminate 002 | 1 (fixed), then 9 | `terminate-gap` → `fail` | Expected in part. As *Terminate 001*, with `S1.1` given a do activity that traces `S1.1(doActivityPartI)` and then `S1.1(doActivityPartII)`. Reached `S1(entry)::S1.1(entry)::S2.1(entry)::S1.1(doActivityPartI)`, which PSSM admits: the do activity's first segment runs, the completion transition fires and the machine ends, aborting the do activity before its second segment — which no reached or admitted trace shows, the test's whole point. The four admitted traces not reached — `S1(entry)::S1.1(entry)::S2.1(entry)` and `S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)`, and the two with `S2.1(entry)` before `S1.1(entry)` — vary the region-entry order and the do step's place against the dispatch of `S2.1`'s completion (before it, or not at all): finding 9's region-entry and do-step sites, the ones *Entering 010* and *Behavior 003 A* fail on. Note the run's trace ends on `S1.1(doActivityPartI)` with no `S2.1(exit)`: PSSM's expected traces for this test end there too, so the source's exit is not traced by the model. `fail` citing finding 9 |
+
+### Movements before that
+
+No count moved between the baseline of develop `46828f14f` (with the failures
+attributed, 2026-09-16) and the one that followed it (develop `265045be5`, 2026-09-16). One reason did: the runtime fix of
 [finding 10](#findings-about-our-own-conformance) — a segment leaving a junction or choice
 declared inside a composite state runs its effect after that state's entry — took *Junction
 005* off the inadmissible trace it reached and onto an admitted one, and the test stays `fail`
@@ -200,7 +228,7 @@ on what remains missing.
 No count moved between the baseline of develop `bcc6b13e0` (with the junction
 branch-choice fix, 2026-09-15) and the one that followed it (develop `46828f14f`, 2026-09-16).
 The baseline file changed all the same: the adjudication of
-the fourteen failures it left unattributed ([below](#fail-15)) added four tests to the
+the fourteen failures it left unattributed ([below](#fail-17)) added four tests to the
 committed table — *Junction 004* and *Join003* on SM32, *Join001* and *Transition 019* on
 SM34, both *differs, v2 silent* rows — so their rows now carry the row and its verdict, and
 their reasons the *reports on* line. All four stay `fail`, as a test mapped to a tool-choice
@@ -347,7 +375,7 @@ short trace to a budget exhaustion: with SM11 its `S1` now completes and fires `
 history, and the history-record timing of finding 7 makes that re-enter `S1.1` without end. The
 remaining failures' reasons are byte-identical to the previous baseline's.
 
-### `pass` (45)
+### `pass` (46)
 
 Behavior 001, Behavior 002, Behavior 003 B, Transition 001, Transition 007, Transition 011 C,
 Transition 015, Transition 016, Transition 020, Transition 022, Event 001, Event 002, Event 008, Event 009,
@@ -366,16 +394,11 @@ Junction 003.
 | Deferred 006 B | SM15 | `S2(doActivityPartI)::S2(doActivityPartII)` — PSSM gives the deferred occurrence to the do activity alone; the runtime dispatches it to every scope |
 | Deferred 006 C | SM15 | `S1.2(doActivity)::S1.1(doActivity)` — the same rule |
 
-### `terminate-gap` (3)
-
-Terminate 001, Terminate 002, Terminate 003 — each reaches `S1.Terminate1`; they move to
-`pass` or `fail` when the runtime executes `terminate` (alignment finding 1).
-
-### `fail` (15)
+### `fail` (17)
 
 Every failure is attributed. Five cite a *differs, v2 silent* row of the alignment note through
 the committed table: the suite's second opinion on a tool choice, which the row records and the
-test does not overturn. Ten cite an open finding against this project — a gap of the runtime's,
+test does not overturn. Twelve cite an open finding against this project — a gap of the runtime's,
 recorded [below](#findings-about-our-own-conformance) and in the alignment note, that a change
 of its own will close, moving the tests with it. None is a translation defect: each translated
 model was read against the test's UML, and every construct the test uses reaches the run.
@@ -390,7 +413,7 @@ model was read against the test's UML, and every construct the test uses reaches
 | Join001 | SM34 | reached `S1.1(exit)::T2.3(effect)::S2.1(exit)::T2.4(effect)::S1(exit)` and its mirror, `S1(exit)` after the last incoming segment's effect; PSSM admits `S1.1(exit)::T2.3(effect)::S2.1(exit)::S1(exit)::T2.4(effect)` and its mirror, `S1` left with the last source, before that segment's effect. The row records the runtime's place for the owner's exit — after every incoming effect, the library reading of the oracle's join section — and the test's own prose expected execution puts `S1(exit)` there too; its assertion does not |
 | Transition 019 | SM34, finding 9 | reached `S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::T2.3(effect)::T1.3(effect)` and its mirror, the join's segments in the order opposite to the regions' firing order: PSSM fires each completion transition into `Join1` when its source's completion is dispatched, so their order follows the sources', where the runtime holds them until the join is ready and draws the order (the row). The four admitted traces not reached put both regions' exits before either effect — the steps of two firings interleaved, finding 9's granularity — while the two that interleave each region's exit and effect are reached |
 
-#### Citing a finding (10)
+#### Citing a finding (12)
 
 One line per test, from the baseline's `reasons`: what the run reached that the suite does not
 admit (`—` when every reached trace is admitted and the failure is only a missing one), and
@@ -409,6 +432,8 @@ quoted and the number given. The full sets are in the baseline file.
 | History 001-C | 9 (region entry and exit order) | — | `S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)` and 10 more orders of the two regions' entries and exits (the twelfth admitted order, the one the PSSM text prints, is reached) |
 | History 002-B | 9 (region entry and exit order) | — | `…::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)` and 4 more orders of the two regions' entries and exits (the sixth admitted order is reached) |
 | Junction 005 | 9 (region entry order) | — | `S1(entry)::T2.1(effect)::S2.1(entry)::T1.3(effect)::S1.2(exit)::S1(exit)` and `S1(entry)::T2.1(effect)::T1.3(effect)::S2.1(entry)::S1.2(exit)::S1(exit)` (the third admitted order, `T1.3(effect)` first after `S1(entry)`, is reached: the second region's initial effect and entry are admitted before or around the junction segment's effect) |
+| Terminate 001 | 9 (region entry order) | — | `S1(entry)::S2.1(entry)::S1.1(entry)::S2.1(exit)` (the other admitted order is reached; the termination — source exited, `S1.1` left active and unexited, the machine ended — is in both) |
+| Terminate 002 | 9 (region entry order, do step before dispatch) | — | `S1(entry)::S1.1(entry)::S2.1(entry)` and 3 more orders of the two regions' entries and the do activity's first segment, which PSSM admits before the terminating completion transition or not at all (the fifth admitted order is reached; the do activity's second segment is in none, aborted) |
 
 Every reason in full — each extra trace, each missing trace, each error — is in the baseline
 file's `reasons`.
@@ -506,9 +531,10 @@ of its own closes it:
   The test passes; the movements table above adjudicates it.
 - **The order in which orthogonal regions are entered, exited and stepped is not a recorded
   choice point** (*Entering 010*, *Entering 011*, *Exiting 001*, *Exiting 003*, *Fork 002*,
-  *History 001-C*, *History 002-B*, *Transition 019*, *Behavior 003 A*, *Transition 017*, and
-  *Junction 005* since finding 10's fix; alignment finding 9, open). Every trace the runtime
-  reaches in these eleven is one the suite
+  *History 001-C*, *History 002-B*, *Transition 019*, *Behavior 003 A*, *Transition 017*,
+  *Junction 005* since finding 10's fix, and *Terminate 001* and *Terminate 002* since the
+  runtime executes `terminate`; alignment finding 9, open). Every trace the runtime
+  reaches in these thirteen is one the suite
   admits; what fails is the admitted traces it never reaches, because four sites order what PSSM
   leaves concurrent and record no choice for `explore` to vary: the regions of a composite
   state and a fork's branches are entered in declaration order
@@ -577,7 +603,10 @@ detail. By root cause:
 
 *Fork 002* and *Join001*, which finding 6's fix brought out of `not-expressible` after that
 baseline, are attributed with them: *Fork 002* to finding 9 (region entry order) and *Join001*
-to SM34 (where the owner is left), each read against its requirement.
+to SM34 (where the owner is left), each read against its requirement. So are *Terminate 001*
+and *Terminate 002*, which executing `terminate` brought out of `terminate-gap`: both to
+finding 9 (region entry order; for *002* the do step's place too), the termination itself
+reaching an admitted trace in each.
 
 ## Reproducing and CI
 

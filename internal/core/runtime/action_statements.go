@@ -86,9 +86,10 @@ func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
 
 // effect performs the action a `perform` in statement form names, where it
 // stands, or ends the performance a `terminate` names; any other effect is reported.
-func (h *actionStmtHost) effect(env *stmtEnv, s lower.Effect) error {
+func (h *actionStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
+	env := engine.env
 	if s.Kind == lower.EffectTerminate {
-		return h.exec.terminate(h.perf, s)
+		return h.exec.terminate(engine, h.perf, s)
 	}
 	if s.Kind != lower.EffectPerform {
 		return fmt.Errorf("%s: '%s' in a body is not executable", h.describe(), s.Kind)

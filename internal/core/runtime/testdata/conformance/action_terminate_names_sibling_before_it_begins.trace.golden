@@ -1,0 +1,12 @@
+step 1: token 1@fork
+step 2: token 2@performCriticalActivity, token 3@waitForTimeOut
+stmt assign steps
+    eval feature steps -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+stmt terminate
+terminate action node performCriticalActivity: ended before it began
+step 3: token 2@stop, token 3@stop
+stmt terminate
+terminate action: no token dropped
+step 4: no active tokens

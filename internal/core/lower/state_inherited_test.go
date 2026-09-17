@@ -368,3 +368,97 @@ func TestToStateGraphUsageRedeclaresInheritedSubstate(t *testing.T) {
 		t.Fatal("the inherited initial transition did not reach the redeclared substate")
 	}
 }
+
+// A transition a usage inherits ends at the usage's own copy of the terminate
+// action or pseudostate it names, never at the definition's declaration, so two
+// usages of one definition terminate or route through two distinct vertices —
+// the copy nested in a composite the usage inherits included.
+func TestToStateGraphTwoTypedUsagesOwnInheritedTerminateAndPseudostate(t *testing.T) {
+	graph := stateGraphOf(t, `
+		package test {
+			attribute def Abort;
+			attribute def Check;
+			state def Inner {
+				entry; then idle;
+				state idle;
+				transition first idle accept Abort then stop;
+				action stop terminate;
+				transition first idle accept Check then relay;
+				junction relay;
+				transition first relay then work;
+				state work {
+					entry; then w1;
+					state w1;
+					transition first w1 accept Abort then halt;
+					action halt terminate;
+				}
+			}
+			state def Machine {
+				entry; then one;
+				state one : Inner;
+				state two : Inner;
+			}
+		}
+	`, "Machine")
+
+	one, two := stateNamed(graph, "one"), stateNamed(graph, "two")
+	if one == nil || two == nil {
+		t.Fatal("both typed usages must be collected")
+	}
+	if len(graph.Terminates) != 4 {
+		t.Fatalf("terminate vertices = %d, want two per usage", len(graph.Terminates))
+	}
+	if len(graph.Pseudostates) != 2 {
+		t.Fatalf("pseudostates = %d, want one per usage", len(graph.Pseudostates))
+	}
+	ownerOf := func(usage *ast.StateNode, target ast.Node) *ast.StateNode {
+		switch v := target.(type) {
+		case *ast.Usage:
+			return graph.TerminateOwner[v]
+		case *ast.PseudostateNode:
+			return graph.PseudostateOwner[v]
+		}
+		return nil
+	}
+	targets := map[ast.Node]bool{}
+	for _, usage := range []*ast.StateNode{one, two} {
+		for _, name := range []string{"stop", "relay"} {
+			target := inheritedTarget(t, graph, usage, name)
+			if targets[target] {
+				t.Fatalf("both usages share the inherited %s vertex", name)
+			}
+			targets[target] = true
+			if owner := ownerOf(usage, target); owner != usage {
+				t.Fatalf("owner of %s under %s = %v, want the usage itself", name, usage.Name, owner)
+			}
+		}
+		halt := inheritedTarget(t, graph, usage, "halt")
+		if targets[halt] {
+			t.Fatal("both usages share the terminate action nested in the inherited composite")
+		}
+		targets[halt] = true
+		if owner := ownerOf(usage, halt); owner == nil || owner.Name != "work" || graph.ParentState[owner] != usage {
+			t.Fatalf("owner of halt under %s = %v, want that usage's copy of work", usage.Name, owner)
+		}
+	}
+}
+
+// inheritedTarget is the vertex the transitions under usage end at when they name
+// the inherited vertex called name.
+func inheritedTarget(t *testing.T, graph *StateGraph, usage *ast.StateNode, name string) ast.Node {
+	t.Helper()
+	for _, source := range graph.States {
+		for p := source; p != nil; p = graph.ParentState[p] {
+			if p != usage {
+				continue
+			}
+			for _, trans := range graph.Transitions[source] {
+				if vertexName(trans.Target) == name {
+					return trans.Target
+				}
+			}
+		}
+	}
+	t.Fatalf("no transition under %s ends at %s", usage.Name, name)
+	return nil
+}

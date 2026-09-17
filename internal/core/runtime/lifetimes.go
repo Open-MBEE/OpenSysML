@@ -78,14 +78,15 @@ func (ctx *Context) OccurrenceLife(id int64) (OccurrenceLife, bool) {
 	return OccurrenceLife{Began: l.began, Ended: l.ended, Destroyed: l.destroyed}, true
 }
 
-// beginLife records inst materialized now. A part of an object exists as long
-// as its whole does, so it began when its owner did; anything else begins now.
+// beginLife records inst materialized now. A part of an object exists as long as
+// its whole does: it began when its owner did and, if the owner has ended, ended
+// with it, however late it is first read; anything else begins now.
 func (ctx *Context) beginLife(inst *Instance) {
 	now := ctx.newActivation()
 	l := life{reached: now, began: now}
 	if inst.owner != nil {
 		if owner, ok := ctx.lives[inst.owner.ID]; ok && owner.began != 0 {
-			l.began = owner.began
+			l.began, l.ended, l.destroyed = owner.began, owner.ended, owner.destroyed
 		}
 	}
 	ctx.lives[inst.ID] = l
@@ -178,8 +179,8 @@ func (ctx *Context) portionsOf(inst *Instance) []*Instance {
 	return portions
 }
 
-// checkPerformer refuses a destroyed object as the performer of a behavior: an
-// occurrence performs nothing after its end. A nil self performs outside any object.
+// checkPerformer refuses a destroyed or ended object as the performer of a behavior:
+// an occurrence performs nothing after its end. A nil self performs outside any object.
 func (ctx *Context) checkPerformer(self *Instance) error {
 	if self == nil {
 		return nil
@@ -187,12 +188,38 @@ func (ctx *Context) checkPerformer(self *Instance) error {
 	if err := ctx.checkNotDestroyed(self); err != nil {
 		return fmt.Errorf("performer of the behavior: %w", err)
 	}
+	if l, ok := ctx.lives[self.ID]; ok && l.ended != 0 {
+		return fmt.Errorf("performer of the behavior: %w: object #%d (%s) ended at %d already",
+			ErrOccurrenceLifetime, self.ID, symbolText(self.Type), l.ended)
+	}
 	return nil
+}
+
+// lifeEnded reports whether inst's lifetime here has ended; nil and an object with
+// no lifetime recorded have not.
+func (ctx *Context) lifeEnded(inst *Instance) bool {
+	if inst == nil {
+		return false
+	}
+	l, ok := ctx.lives[inst.ID]
+	return ok && l.ended != 0
 }
 
 // checkMayEnd reports why inst cannot end now: it ended already, or a behavior
 // it performs, or one performed as it, is under way.
 func (ctx *Context) checkMayEnd(inst *Instance) error {
+	if err := ctx.checkLiving(inst); err != nil {
+		return err
+	}
+	if b := ctx.performanceUnderWay(inst); b != nil {
+		return fmt.Errorf("%w: object #%d (%s) cannot end while %s is under way",
+			ErrOccurrenceLifetime, inst.ID, symbolText(inst.Type), b.Describe())
+	}
+	return nil
+}
+
+// checkLiving refuses an occurrence that has no lifetime here, was destroyed, or ended already.
+func (ctx *Context) checkLiving(inst *Instance) error {
 	prior, ok := ctx.lives[inst.ID]
 	switch {
 	case !ok:
@@ -204,10 +231,6 @@ func (ctx *Context) checkMayEnd(inst *Instance) error {
 	case prior.ended != 0:
 		return fmt.Errorf("%w: object #%d (%s) ended at %d already",
 			ErrOccurrenceLifetime, inst.ID, symbolText(inst.Type), prior.ended)
-	}
-	if b := ctx.performanceUnderWay(inst); b != nil {
-		return fmt.Errorf("%w: object #%d (%s) cannot end while %s is under way",
-			ErrOccurrenceLifetime, inst.ID, symbolText(inst.Type), b.Describe())
 	}
 	return nil
 }
@@ -248,9 +271,9 @@ func (b *ObjectBehavior) performanceOf(inst *Instance) bool {
 func (b *ObjectBehavior) completed() bool {
 	switch {
 	case b.Action != nil:
-		return b.Action.State() == StateCompleted
+		return b.Action.State().Ended()
 	case b.State != nil:
-		return b.State.State() == StateCompleted
+		return b.State.State().Ended()
 	}
 	return true
 }

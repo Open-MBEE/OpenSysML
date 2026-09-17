@@ -409,6 +409,75 @@ states left, right react`), explored like any other ([below](#when-a-model-has-m
 A do body that binds an `in` pin to nothing, or to a feature the state does not declare, is
 refused when the behavior starts, naming the pin.
 
+<a id="ending-a-state-machine-with-terminate"></a>
+**Ending a state machine with `terminate`.** A transition whose target is a terminate action
+usage — `transition first watching accept Abort then stop; action stop terminate;`, the
+spelling §7.18.3 gives "to immediately terminate the containing state performance" — ends the
+machine's performance where the transition arrives, short of any final state. The transition
+itself runs as any transition does: its source is exited (the source's `exit` behavior runs,
+since that state *is* left) and its `do` effect runs, and a terminate usage declared inside a
+composite state entered on the way runs that composite's `entry` behavior. Then nothing else
+happens: no other state is exited, no other exit behavior runs, every do behavior still under
+way — the sibling region's, the enclosing composite's, the machine's own — is abandoned where
+it stands, and no state is active. A choice, junction or join whose way on leads into the
+usage ends the machine the same way once the compound transition completes; a fork's branches
+enter states, so one leading into a terminate usage is refused. The debugger reports it apart
+from completion, and `%current` shows no state and the data as it stood:
+
+```sysml
+sysml> package Guard {
+  ...>     private import ScalarValues::*;
+  ...>     attribute def Abort;
+  ...>     state def Sentry {
+  ...>         attribute log : String = "";
+  ...>         entry; then watching;
+  ...>         state watching {
+  ...>             do { assign log := log + "watch;"; accept after 5 [SI::s]; assign log := log + "watched;"; }
+  ...>             exit { assign log := log + "watching(exit);"; }
+  ...>         }
+  ...>         transition first watching accept Abort do assign log := log + "abort;" then stop;
+  ...>         action stop terminate;
+  ...>     }
+  ...> }
+✓ package Guard
+
+sysml> %state Guard::Sentry
+✓ Started state machine executor for "Guard::Sentry"
+  Current state: watching
+  Time: 0.0
+  Events: 0
+
+sysml> %send Abort
+✓ Sent Abort to state machine "Guard::Sentry"
+  Accepted by state machine "Sentry" in state watching: transition watching -> stop fires on it
+
+sysml> %advance 1
+✓ Advanced to 1.0 (1 event(s) processed)
+  Current state: <none>
+  Last event at: 0.0
+  Remaining events: 0
+  Do behavior actions run: 1
+
+✓ State machine terminated (a `terminate` ended its performance short of a final state; no state is active)
+
+sysml> %current
+Current state: <none>
+Time: 1.0
+Last event at: 0.0
+Execution state: Terminated
+
+State data:
+  log = "watch;watching(exit);abort;"
+```
+
+The do behavior's `watched;` never ran: its wait was abandoned with the machine. From the
+command line (`sysml -state Guard::Sentry -advance 1 …`) the run ends with the same `State
+machine terminated` line and reports `state` as `<none>`, and an exploration or a `check` sees
+the run as terminated (`Outcome.Terminated`, its final state empty) rather than as having
+reached `done`, so a model that can end either way has two outcomes. `%trace` records the transition into the usage, `terminate stop`, and each do
+behavior abandoned. A `terminate` written *inside* a state's `entry`, `do` or `exit` body is
+something else — it ends that behavior only ([below](#terminate-ending-an-action-early)).
+
 **Action debugging commands:**
 - `%action <name> [<object>]` — Start an action debugging session, optionally performed by an instantiated object
 - `%step` — Advance all tokens one step; a token waiting only on the clock is reported with the `%advance` that would move it
@@ -1890,8 +1959,13 @@ skipped, the node's own fork branches are dropped, and the parent continues alon
 succession with the values the node assigned before it ended. `terminate <name>;` names an
 action node of the flow it is in or of a flow around it — the node itself
 (`action c1 { terminate c1; }`), the node whose body it runs in, or a sibling node still
-running — and ends every performance of that node still going on, the earliest begun first.
-`-trace` writes every dropped token.
+running — and ends every performance of that node still going on, the earliest begun first,
+and every one a token of the flow is parked at without having begun: a forked sibling the
+schedule has not reached yet, or an `accept` still waiting for its signal. Such a performance
+ends there, its body never run, and the flow goes on along the node's succession — which is
+how §7.17.10's `MonitoredActivity` works, its `waitForTimeOut` branch terminating
+`performCriticalActivity` whatever that has done so far. `-trace` writes every dropped token
+and every performance ended this way (`ended waiting`, `ended before it began`).
 
 ```sysml
 action bounded {
@@ -1909,10 +1983,25 @@ action bounded {
 }
 ```
 
-Here `c1` ends after its first assignment, and `c2` still runs: `x = 1`, `y = 3`. Only actions
-are ended this way. A `terminate` inside a state's `entry`, `do` or `exit` body, and a
-`terminate` of an occurrence (`terminate this;`, or an expression evaluating to an object) are
-reported as not executable rather than ignored.
+Here `c1` ends after its first assignment, and `c2` still runs: `x = 1`, `y = 3`.
+
+`terminate <occurrence>;` ends an object instead: `terminate this;` in an action a part
+performs ends the part (an exhibited or performed behavior is a performance the object owns,
+so `this` there is the object), and a feature chain or an expression evaluating to an object
+ends that object — `terminate sub.worker;` from a controller's action. The object's lifetime
+ends at the statement, its portions with it, and every behavior it performs or exhibits ends
+where it stands: an action of it keeps what it assigned and drops its tokens, a state machine it
+exhibits is terminated with no state exited and its do behaviors abandoned, while an action of
+another object runs on. `%instances` lists the object as `ended` and `%features` shows the
+behaviors it exhibited or performed as `terminated`. Terminating a value that
+is no occurrence, a chain that names no object, an object already destroyed or a performance
+that already ended is reported (`occurrence cannot be terminated`, `performance already
+ended`), never ignored; and a behavior started for an object that ended is refused. Inside a
+state's `entry`, `do` or `exit` body a `terminate` ends that behavior — the containing action
+of the statement — so the rest of the body does not run, the state stays active and the
+machine keeps dispatching; a transition to a terminate action ends the machine instead
+([above](#ending-a-state-machine-with-terminate)). A calculation is pure and refuses
+`terminate` as it refuses `send`.
 
 A run that stops early, whether through deadlock or by hitting a budget, is reported as an
 undecided check rather than a failure. The budgets are documented in

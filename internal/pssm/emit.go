@@ -655,8 +655,8 @@ func (e *emitter) startTarget(b *strings.Builder, ind string, init *Vertex, tr *
 	return helper, nil
 }
 
-// region emits a region's vertices other than its initial and final states,
-// then the transitions placed in its scope.
+// region emits a region's vertices other than its initial and final states (a
+// terminate pseudostate as a terminate action usage, §7.18.3), then its transitions.
 func (e *emitter) region(b *strings.Builder, depth int, r *Region, path string) error {
 	ind := strings.Repeat("    ", depth)
 	for _, v := range r.Vertices {
@@ -688,6 +688,8 @@ func (e *emitter) region(b *strings.Builder, depth int, r *Region, path string) 
 			fmt.Fprintf(b, "%shistory %s;\n", ind, spell(e.names[v]))
 		case VertexDeepHistory:
 			fmt.Fprintf(b, "%sdeep history %s;\n", ind, spell(e.names[v]))
+		case VertexTerminate:
+			fmt.Fprintf(b, "%saction %s terminate;\n", ind, spell(e.names[v]))
 		default:
 			return e.fail(v.Describe(), "a pseudostate kind with no spelling")
 		}

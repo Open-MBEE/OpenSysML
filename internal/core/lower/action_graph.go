@@ -401,16 +401,15 @@ const (
 	TerminateContaining TerminateTarget = iota
 	// TerminateEnclosing is a terminate action usage: the performance its node is a step of ends.
 	TerminateEnclosing
-	// TerminateNode names an action node of an enclosing flow (Effect.Target).
+	// TerminateNode names an action usage (Effect.Target): a node of an enclosing flow,
+	// or else the action occurrence the name denotes, evaluated as TerminateOccurrence is.
 	TerminateNode
-	// TerminateOccurrence names an occurrence by an expression or a feature that is no action node.
+	// TerminateOccurrence names an occurrence by an expression the executor evaluates.
 	TerminateOccurrence
-	// TerminateUnknown names nothing an action body can end.
-	TerminateUnknown
 )
 
 // terminateTarget settles what a terminate written in scope names: a name reaching an
-// action node is a node; another feature or expression stands for an occurrence.
+// action usage is a node; anything else is an expression denoting an occurrence.
 func terminateTarget(m *ast.TerminateStatement, scope *symbols.Scope) (ast.Node, TerminateTarget) {
 	if m.Target == nil {
 		return nil, TerminateContaining
@@ -426,18 +425,12 @@ func terminateTarget(m *ast.TerminateStatement, scope *symbols.Scope) (ast.Node,
 	for i, part := range qn.Parts {
 		segments[i] = part.Text
 	}
-	sym, ok := resolve.FeatureSymbolInScope(scope, segments)
-	if !ok {
-		return nil, TerminateUnknown
+	if sym, ok := resolve.FeatureSymbolInScope(scope, segments); ok {
+		if usage, isUsage := sym.Decl.(*ast.Usage); isUsage && usage.Kind == ast.UsageAction {
+			return usage, TerminateNode
+		}
 	}
-	usage, isUsage := sym.Decl.(*ast.Usage)
-	switch {
-	case isUsage && usage.Kind == ast.UsageAction:
-		return usage, TerminateNode
-	case isUsage:
-		return nil, TerminateOccurrence
-	}
-	return nil, TerminateUnknown
+	return nil, TerminateOccurrence
 }
 
 func (Effect) statement() { /* marker: closed Statement set */ }

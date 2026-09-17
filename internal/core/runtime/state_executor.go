@@ -228,7 +228,7 @@ func newStateExecutorOn(
 	self, occurrence *Instance,
 	graph *lower.StateGraph,
 ) *StateExecutor {
-	return &StateExecutor{
+	exec := &StateExecutor{
 		ctx:                ctx,
 		stateMachine:       stateMachine,
 		self:               self,
@@ -252,6 +252,8 @@ func newStateExecutorOn(
 			regionStates: make(map[*ast.StateRegion]*ast.StateNode),
 		},
 	}
+	exec.driven.exec = exec
+	return exec
 }
 
 // initializeAttributes populates stateData from the exhibited occurrence, or
@@ -413,6 +415,12 @@ func StateVertexName(node ast.Node) string {
 		return n.Name
 	case *ast.PseudostateNode:
 		return n.Name
+	case *ast.Usage:
+		if lower.IsTerminateUsage(n) {
+			name, _ := ast.EffectiveName(n)
+			return name
+		}
+		return ""
 	default:
 		return ""
 	}
@@ -1026,7 +1034,7 @@ func (e *StateExecutor) dispatchInOrder(
 		if err != nil {
 			return acted, err
 		}
-		if e.state == StateCompleted {
+		if e.state.Ended() {
 			break
 		}
 	}
@@ -1856,7 +1864,7 @@ func (e *StateExecutor) transitionTo(trans *lower.Transition, r route) error {
 // pseudostate restores a recorded configuration rather than the initial one.
 func (e *StateExecutor) transitionToInto(trans *lower.Transition, r route, branches map[*ast.StateRegion]*ast.StateNode) error {
 	currentState := e.moveOrigin()
-	return e.travel(r,
+	return e.travel(trans, currentState, r,
 		func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(currentState, trans, target) },
 		func(target *ast.StateNode) []*ast.StateNode { return e.enteredByMove(currentState, trans, target) },
 		func(effects []routeEffect, target *ast.StateNode) error {
@@ -1954,6 +1962,49 @@ func (e *StateExecutor) completeMachine() error {
 	e.state = StateCompleted
 	e.ctx.endPerformanceLife(e.occurrence)
 	return nil
+}
+
+// terminateMachine ends the machine's performance at the terminate action a
+// transition reached (SysML v2 §7.18.3): no state is exited and no exit behavior
+// runs; the do behaviors under way are abandoned, and no state stays active.
+func (e *StateExecutor) terminateMachine(fromName string, trigger ast.Node, stop *ast.Usage) error {
+	name, _ := ast.EffectiveName(stop)
+	if e.trace() != nil {
+		e.trace().RecordStateTransition(fromName, name, triggerName(trigger))
+	}
+	abandoned := e.abandonMachine()
+	if e.trace() != nil {
+		e.trace().RecordStateTerminate(name, abandoned)
+	}
+	e.state = StateTerminated
+	e.ctx.endPerformanceLife(e.occurrence)
+	return nil
+}
+
+// abandonMachine leaves no state active without exiting any: the do behaviors under
+// way end where they are, and their states are returned in entry order.
+func (e *StateExecutor) abandonMachine() []string {
+	var abandoned []string
+	for _, act := range e.doActions {
+		abandoned = append(abandoned, act.state.Name)
+		if act.run != nil {
+			e.endDoRun(act.run)
+			act.run = nil
+		}
+	}
+	clear(e.doActions)
+	e.doActions = e.doActions[:0]
+	e.activeConfig.simpleState = nil
+	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
+	e.stateStack = nil
+	e.completionDue = false
+	// Nothing dispatches on an ended machine: what it queued or deferred is discarded.
+	e.eventQueue.Withdraw(func(Event) bool { return true })
+	e.deferred = e.deferred[:0]
+	clear(e.timerScheduled)
+	e.changeWaits = nil
+	e.machineExited = true
+	return abandoned
 }
 
 // scheduleCompletedComposites schedules the completion transitions of each
@@ -2216,7 +2267,7 @@ func (e *StateExecutor) fireHistoryTransition(trans *lower.Transition, hist *ast
 		return err
 	}
 	currentState := e.moveOrigin()
-	return e.travelChoosing(e.drawsBeyond(hist), r,
+	return e.travelChoosing(e.drawsBeyond(hist), trans, currentState, r,
 		func(*ast.StateNode) []*ast.StateNode { return e.exitedByMove(currentState, trans, owner) },
 		func(*ast.StateNode) []*ast.StateNode { return e.enteredByMove(currentState, trans, owner) },
 		func(effects []routeEffect, _ *ast.StateNode) error {
@@ -2289,6 +2340,9 @@ func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast
 	if err != nil {
 		return err
 	}
+	if r.terminate != nil {
+		return e.terminateAt(trans, fromName, r, e.descendantChain(below, e.graph.TerminateOwner[r.terminate]))
+	}
 	if err := e.runEffects(r.effects(e.graph), e.descendantChain(below, r.target)); err != nil {
 		return err
 	}
@@ -2313,13 +2367,18 @@ func (e *StateExecutor) defaultHistoryRoute(hist *ast.PseudostateNode, owner *as
 		return route{}, fmt.Errorf("default transition of history %s: %w", hist.Name, err)
 	}
 	for r.choice != nil {
-		targets, err := e.reachable(r)
+		targets, stops, err := e.reachable(r)
 		if err != nil {
 			return route{}, err
 		}
-		certain := e.certainEntries(targets, func(target *ast.StateNode) []*ast.StateNode {
-			return e.descendantChain(owner, target)
-		})
+		var ends routeEnds
+		for _, target := range targets {
+			ends.entries = append(ends.entries, e.descendantChain(owner, target))
+		}
+		for _, stop := range stops {
+			ends.entries = append(ends.entries, e.descendantChain(owner, e.graph.TerminateOwner[stop]))
+		}
+		certain := ends.certainEntries()
 		if err := e.runEffects(r.effects(e.graph), certain); err != nil {
 			return route{}, err
 		}
@@ -2611,7 +2670,7 @@ func (e *StateExecutor) leaveJoinOwner(owner *ast.StateNode, trans *lower.Transi
 		return e.transitionTo(trans, r)
 	}
 	if region := e.activeRegionOf(owner); region != nil {
-		return e.travel(r,
+		return e.travel(trans, owner, r,
 			func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) },
 			func(target *ast.StateNode) []*ast.StateNode { return e.enteredInRegion(region, trans, target) },
 			func(effects []routeEffect, target *ast.StateNode) error {
@@ -2633,14 +2692,14 @@ func (e *StateExecutor) joinExits(plan *lower.JoinPlan, trans *lower.Transition,
 		for _, region := range e.graph.TopRegions {
 			exited = append(exited, e.regionExitPath(region, nil)...)
 		}
-		beyond, ok := e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(nil, trans, target) })
+		beyond, ok := e.mayExit(r, trans, nil, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(nil, trans, target) })
 		return append(exited, beyond...), ok
 	}
 	if region := e.activeRegionOf(plan.Owner); region != nil {
-		beyond, ok := e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) })
+		beyond, ok := e.mayExit(r, trans, plan.Owner, func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) })
 		return append(exited, beyond...), ok
 	}
-	beyond, ok := e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(plan.Owner, trans, target) })
+	beyond, ok := e.mayExit(r, trans, plan.Owner, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(plan.Owner, trans, target) })
 	return append(exited, beyond...), ok
 }
 
@@ -3157,7 +3216,7 @@ func (e *StateExecutor) dispatchOne(progress *dueProgress) (bool, error) {
 	return true, nil
 }
 
-func (e *StateExecutor) finished() bool { return e.state == StateCompleted }
+func (e *StateExecutor) finished() bool { return e.state.Ended() }
 func (e *StateExecutor) running() bool  { return e.inRun }
 
 // runStep is one run-to-completion step (a do round, a risen change condition,
@@ -3375,10 +3434,11 @@ func (e *StateExecutor) exitedBy(candidate dispatchCandidate) ([]*ast.StateNode,
 		return nil, false
 	}
 	if region := e.activeRegionOf(candidate.source); region != nil {
-		return e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) })
+		source := e.activeConfig.regionStates[region]
+		return e.mayExit(r, trans, source, func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) })
 	}
 	origin := e.moveOrigin()
-	return e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(origin, trans, target) })
+	return e.mayExit(r, trans, origin, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(origin, trans, target) })
 }
 
 // exitedInRegion lists the states a transition out of region's active state exits
@@ -3956,7 +4016,7 @@ func (e *StateExecutor) initialize() (err error) {
 		if err := e.completeIfDone(e.activeConfig.regionStates[region]); err != nil {
 			return fmt.Errorf("complete state machine: %w", err)
 		}
-		if e.state == StateCompleted {
+		if e.state.Ended() {
 			break
 		}
 	}
@@ -4611,7 +4671,8 @@ func (e *StateExecutor) ProcessNextEvent() (err error) {
 // completedWhole makes a call of its own run that completed the machine return
 // the refusal of the witness moves left over, when the call itself did not fail.
 func (e *StateExecutor) completedWhole(err *error) {
-	if *err == nil && e.state == StateCompleted {
+	e.endedByOccurrence(err)
+	if *err == nil && e.state.Ended() {
 		*err = e.ctx.endedWhole(&e.driven)
 	}
 }

@@ -227,6 +227,48 @@ func TestDestroyEndsPortionsAndRefusesReads(t *testing.T) {
 	}
 }
 
+// TestTerminateEndsPortionsWithTheirWhole: `terminate` ends the object and the
+// parts it holds at one boundary, so no part outlives its whole, and none is
+// destroyed.
+func TestTerminateEndsPortionsWithTheirWhole(t *testing.T) {
+	instantiate, _, ctx := lifetimeFixture(t, lifetimeModel)
+	bench := instantiate("Bench")
+	var parts []*Instance
+	for _, name := range []string{"w", "spare"} {
+		fv, err := bench.GetFeatureValue(ctx, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		id, _ := fv.HeldValue().Object()
+		part, _ := ctx.getInstance(id)
+		parts = append(parts, part)
+	}
+
+	ended, err := ctx.endOccurrence(bench)
+	if err != nil {
+		t.Fatalf("endOccurrence(bench): %v", err)
+	}
+	whole, _ := ctx.OccurrenceLife(bench.ID)
+	if whole.Alive() || whole.Destroyed {
+		t.Fatalf("OccurrenceLife(bench) = %v; want ended, not destroyed", whole)
+	}
+	for _, part := range parts {
+		if !ended[part.ID] {
+			t.Errorf("portion #%d is not among the objects ended", part.ID)
+		}
+		l, ok := ctx.OccurrenceLife(part.ID)
+		if !ok || l.Alive() || l.Destroyed {
+			t.Errorf("OccurrenceLife(#%d) = %v; want ended, not destroyed", part.ID, l)
+		}
+		if l.Ended != whole.Ended {
+			t.Errorf("OccurrenceLife(#%d) ended at %d; want %d, with its whole", part.ID, l.Ended, whole.Ended)
+		}
+	}
+	if _, err := ctx.endOccurrence(bench); !errors.Is(err, ErrOccurrenceLifetime) {
+		t.Errorf("second terminate: %v, want %v", err, ErrOccurrenceLifetime)
+	}
+}
+
 // TestDestroyRefusedWhilePerforming: an object whose exhibited state machine has
 // not completed cannot end; the refusal names the behavior under way.
 func TestDestroyRefusedWhilePerforming(t *testing.T) {

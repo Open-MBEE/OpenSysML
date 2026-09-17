@@ -78,6 +78,7 @@ type Performer struct {
 	Object      string                   `json:"object"` // qualified name of the object's usage
 	Events      []ExpectedEvent          `json:"events,omitempty"`
 	FinalState  string                   `json:"finalState,omitempty"`
+	Terminated  bool                     `json:"terminated,omitempty"`
 	StateVisits []string                 `json:"stateVisits,omitempty"`
 	Outputs     map[string]ExpectedValue `json:"outputs,omitempty"`
 }
@@ -87,6 +88,7 @@ type Performer struct {
 type AdmittedOutcome struct {
 	Outputs     map[string]ExpectedValue `json:"outputs,omitempty"`
 	FinalState  string                   `json:"finalState,omitempty"`
+	Terminated  bool                     `json:"terminated,omitempty"`
 	StateVisits []string                 `json:"stateVisits,omitempty"`
 }
 
@@ -136,6 +138,9 @@ type ExpectedOutcome struct {
 	Events      []ExpectedEvent `json:"events,omitempty"` // Events to inject
 	FinalState  string          `json:"finalState,omitempty"`
 	StateVisits []string        `json:"stateVisits,omitempty"`
+	// Terminated states that a `terminate` ends the run short of the behavior's
+	// own end; a case leaving it out expects the run to complete.
+	Terminated bool `json:"terminated,omitempty"`
 
 	// Calc fields
 	Inputs []ExpectedValue `json:"inputs,omitempty"`
@@ -252,6 +257,7 @@ type ObjectRun struct {
 	Behavior    string                   `json:"behavior,omitempty"`
 	Events      []ExpectedEvent          `json:"events,omitempty"`
 	FinalState  string                   `json:"finalState,omitempty"`
+	Terminated  bool                     `json:"terminated,omitempty"`
 	StateVisits []string                 `json:"stateVisits,omitempty"`
 	Values      map[string]ExpectedValue `json:"slots,omitempty"`
 }
@@ -589,6 +595,7 @@ func conformanceRun(t *testing.T, idx *symbols.Index, path string, expected Expe
 // validateOutcome checks an outcome a run reached against one the case admits.
 func validateOutcome(r reporter, ctx *Context, want AdmittedOutcome, got Outcome) {
 	r.Helper()
+	validateTerminated(r, got.Terminated, want.Terminated)
 	validateFinalState(r, got.FinalState, want.FinalState)
 	validateStateVisits(r, got.StateVisits, want.StateVisits)
 	if want.Outputs != nil {
@@ -660,8 +667,8 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 	if expected.Type != "action" && expected.Type != "state" {
 		problems = append(problems, fmt.Sprintf("outcomes apply to action and state cases, not %q", expected.Type))
 	}
-	if expected.Outputs != nil || expected.FinalState != "" || expected.StateVisits != nil {
-		problems = append(problems, "outcomes and a single outputs/finalState/stateVisits are stated together; a case uses one or the other")
+	if expected.Outputs != nil || expected.FinalState != "" || expected.StateVisits != nil || expected.Terminated {
+		problems = append(problems, "outcomes and a single outputs/finalState/stateVisits/terminated are stated together; a case uses one or the other")
 	}
 	if len(expected.Performers) > 0 {
 		problems = append(problems, "outcomes and performers are stated together")
@@ -670,7 +677,7 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 		problems = append(problems, "outcomes lists one result; state it as the single outcome")
 	}
 	for i, outcome := range expected.Outcomes {
-		if outcome.Outputs == nil && outcome.FinalState == "" && outcome.StateVisits == nil {
+		if outcome.Outputs == nil && outcome.FinalState == "" && outcome.StateVisits == nil && !outcome.Terminated {
 			problems = append(problems, fmt.Sprintf("outcome %d states nothing", i+1))
 		}
 	}
@@ -848,7 +855,8 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 	actionSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefAction, ast.UsageAction)
 
 	// Execute action
-	outputs, err := ctx.ExecuteAction(actionSym)
+	outcome, err := ctx.ActionOutcomePerformedBy(actionSym, nil, nil)
+	outputs := outcome.Outputs
 	if expected.Error != "" {
 		if err == nil {
 			t.Fatalf("expected execution to fail with %q, it completed with outputs %v", expected.Error, outputs)
@@ -862,10 +870,12 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 		t.Fatalf("ExecuteAction failed: %v", err)
 	}
 
+	validateTerminated(t, outcome.Terminated, expected.Terminated)
 	validateOutputs(t, ctx, expected.Outputs, outputs)
 	if len(expected.Outcomes) > 0 {
-		matchOutcome(t, expected.Outcomes, func(r reporter, outcome AdmittedOutcome) {
-			validateOutputs(r, ctx, outcome.Outputs, outputs)
+		matchOutcome(t, expected.Outcomes, func(r reporter, admitted AdmittedOutcome) {
+			validateTerminated(r, outcome.Terminated, admitted.Terminated)
+			validateOutputs(r, ctx, admitted.Outputs, outputs)
 		})
 	}
 
@@ -896,6 +906,7 @@ func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path st
 			runOneStatePerformance(t, ctx, stateSym, self, ExpectedOutcome{
 				Events:      performer.Events,
 				FinalState:  performer.FinalState,
+				Terminated:  performer.Terminated,
 				StateVisits: performer.StateVisits,
 				Outputs:     performer.Outputs,
 			})
@@ -946,6 +957,7 @@ func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol
 	validateStateOutcome(t, ctx, exec, AdmittedOutcome{
 		Outputs:     expected.Outputs,
 		FinalState:  expected.FinalState,
+		Terminated:  expected.Terminated,
 		StateVisits: expected.StateVisits,
 	})
 	if len(expected.Outcomes) > 0 {
@@ -985,6 +997,17 @@ func validateFinalState(t reporter, got, want string) {
 		t.Errorf("expected finalState %q, got empty", want)
 	} else if got != want {
 		t.Errorf("finalState mismatch: expected %q, got %q", want, got)
+	}
+}
+
+// validateTerminated checks whether a `terminate` ended the run, as the case states.
+func validateTerminated(t reporter, got, want bool) {
+	t.Helper()
+	switch {
+	case want && !got:
+		t.Errorf("expected the run to end terminated, it completed")
+	case got && !want:
+		t.Errorf("the run ended terminated; the case expects it to complete")
 	}
 }
 
@@ -1647,6 +1670,7 @@ func validateObjectRuns(t *testing.T, ctx *Context, typeSym *symbols.Symbol, fir
 				t.Fatalf("run machine of object #%d: %v", obj.ID, err)
 			}
 			validateFinalState(t, exec.FinalStateName(), run.FinalState)
+			validateTerminated(t, exec.Outcome().Terminated, run.Terminated)
 			validateStateVisits(t, exec.GetStateVisits(), run.StateVisits)
 			for name, want := range run.Values {
 				fv, err := featureValueAtPath(t, ctx, obj, name)
