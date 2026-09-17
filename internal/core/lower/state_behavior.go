@@ -146,18 +146,22 @@ func declaresOnlyFeatures(members []ast.Node) bool {
 }
 
 // performsAction reports whether a nested action usage names the action it
-// performs — by typing, by reference subsetting or by an invocation — rather than
-// stating its own body.
+// performs — by typing, by reference subsetting (a name or a `part.action`
+// chain) or by an invocation — rather than stating its own body.
 func performsAction(usage *ast.Usage) bool {
 	if usage.PerformedInvocation() != nil {
 		return true
 	}
 	for _, rel := range usage.Relationships {
-		if rel.Kind != ast.RelTyping && rel.Kind != ast.RelReferences {
-			continue
-		}
-		if _, ok := rel.Target.(*ast.QualifiedName); ok {
-			return true
+		switch rel.Target.(type) {
+		case *ast.QualifiedName:
+			if rel.Kind == ast.RelTyping || rel.Kind == ast.RelReferences {
+				return true
+			}
+		case *ast.FeatureChainExpr:
+			if rel.Kind == ast.RelReferences {
+				return true
+			}
 		}
 	}
 	return false

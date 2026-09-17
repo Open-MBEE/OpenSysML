@@ -1,0 +1,15 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "SendThisPart::Host",
+  "slots": {
+    "mark": {
+      "type": "Integer",
+      "value": 1
+    },
+    "worker.got": {
+      "type": "Integer",
+      "value": 7
+    }
+  }
+}

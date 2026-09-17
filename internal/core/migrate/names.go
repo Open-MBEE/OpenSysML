@@ -81,12 +81,19 @@ func lowerFirst(s string) string {
 }
 
 // segments returns the v2 qualified-name segments of an element: the names
-// from the top-level declaration down, the root Model not being written.
+// from the top-level declaration down, the root Model not being written. A
+// lone region is its owner's body; one of several is a sub-state of a parallel state.
 func (m *migration) segments(e *xmi.Element) []string {
 	var segs []string
 	for cur := e; cur != nil; cur = cur.Parent {
 		if cur.Parent == nil && cur.Type == "Model" {
 			break
+		}
+		if cur.Type == "Region" && cur.Role == "region" {
+			if p, ok := m.parallel[cur]; ok {
+				segs = append([]string{p, m.nameFor(cur)}, segs...)
+			}
+			continue
 		}
 		segs = append([]string{m.nameFor(cur)}, segs...)
 	}

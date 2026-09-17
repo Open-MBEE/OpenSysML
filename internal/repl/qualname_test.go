@@ -92,6 +92,26 @@ func TestParseArgsKeepsQuotedNamesWhole(t *testing.T) {
 	}
 }
 
+// A `-action`/`-state` value splits as `%action` does: the quoted name is one
+// word, the performer the words after it.
+func TestSplitBehaviorKeepsQuotedNamesWhole(t *testing.T) {
+	for _, tc := range []struct {
+		spec      string
+		name      string
+		performer []string
+	}{
+		{"Demo::Drive", "Demo::Drive", nil},
+		{"Demo::Drive rover1", "Demo::Drive", []string{"rover1"}},
+		{"'My Pkg'::'Drive Home' 'My Pkg'::rover", "'My Pkg'::'Drive Home'", []string{"'My Pkg'::rover"}},
+		{"", "", nil},
+	} {
+		name, performer := SplitBehavior(tc.spec)
+		if name != tc.name || strings.Join(performer, "\x00") != strings.Join(tc.performer, "\x00") {
+			t.Errorf("SplitBehavior(%q) = %q, %q; want %q, %q", tc.spec, name, performer, tc.name, tc.performer)
+		}
+	}
+}
+
 // Every command that takes a name accepts the quoted spelling the model author
 // writes — the defect was that the argument was split on the space inside it.
 func TestQuotedNamesAcceptedByNameTakingCommands(t *testing.T) {

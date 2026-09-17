@@ -53,4 +53,11 @@ func (w *writer) block(header string, body func()) {
 	w.line("}")
 }
 
+// indented writes body one level deeper, for a clause continued on the next lines.
+func (w *writer) indented(body func()) {
+	w.indent++
+	body()
+	w.indent--
+}
+
 func (w *writer) String() string { return w.buf().String() }

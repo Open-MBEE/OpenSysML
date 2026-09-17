@@ -104,6 +104,7 @@ type runStateCapture struct {
 	state           *runState
 	steps, elements int64
 	notes           []RunNote
+	scheduler       *scheduler
 	restoreSchedule func()
 	calcUsageRuns   map[int64]map[calcUsageKey]*calcRun
 	calcOutputs     []mapState[string, Value]
@@ -367,6 +368,7 @@ func (s *Snapshot) captureRunState(state *runState) {
 	s.runStates = append(s.runStates, runStateCapture{
 		state: state, steps: state.steps, elements: state.elements,
 		notes:           slices.Clone(state.notes),
+		scheduler:       state.scheduler,
 		restoreSchedule: state.scheduler.mark(),
 		calcUsageRuns:   cloneCalcUsageRuns(state.calcUsageRuns),
 		calcOutputs:     captureCalcOutputs(state.calcUsageRuns),
@@ -376,6 +378,7 @@ func (s *Snapshot) captureRunState(state *runState) {
 func (c runStateCapture) restore() {
 	c.state.steps, c.state.elements = c.steps, c.elements
 	c.state.notes = slices.Clone(c.notes)
+	c.state.scheduler = c.scheduler
 	c.restoreSchedule()
 	clear(c.state.calcUsageRuns)
 	maps.Copy(c.state.calcUsageRuns, cloneCalcUsageRuns(c.calcUsageRuns))

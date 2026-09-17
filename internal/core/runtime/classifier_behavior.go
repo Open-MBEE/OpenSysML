@@ -146,6 +146,17 @@ func (inst *Instance) ExhibitedState() (*ObjectBehavior, bool) {
 	return nil, false
 }
 
+// ExhibitedStates returns every machine the object exhibits, in declaration order.
+func (inst *Instance) ExhibitedStates() []*ObjectBehavior {
+	var machines []*ObjectBehavior
+	for _, b := range inst.behaviors {
+		if b.Kind == lower.ExhibitedState {
+			machines = append(machines, b)
+		}
+	}
+	return machines
+}
+
 // ExhibitedStatesOf returns the machines the object exhibits under sym's declaration:
 // the one sym itself binds, or else every one reaching sym through its bindings
 // (the usage it names, or the definition holding its body) or typed by it, since

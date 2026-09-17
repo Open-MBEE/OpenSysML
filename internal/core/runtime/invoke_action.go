@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -21,10 +22,14 @@ const maxActionNestingDepth = 32
 //	perform Callee;            // anonymous usage, 'references' relationship
 //	action call : Callee;      // named usage, 'typing' relationship
 //	action call = Callee(1);   // named usage, invocation expression value
+//	perform part.callee;       // a feature chain: the action a part of the performer performs
 type actionInvocation struct {
 	target *ast.QualifiedName
 	args   []ast.Node
 	named  []ast.NamedArg
+	// chain is the `part.callee` form of the target, whose operand denotes the object
+	// performing the callee (SysML 7.17.6); target is then its last member.
+	chain *ast.FeatureChainExpr
 	// expr is the `Callee(...)` form, whose argument list, even an empty one, states
 	// every input the caller passes and selects among same-named actions as for calcs.
 	expr *ast.InvocationExpr
@@ -44,6 +49,23 @@ func (inv actionInvocation) performed(callee *symbols.Symbol) *symbols.Symbol {
 	return callee
 }
 
+// name renders the action as invoked, for diagnostics: the whole chain of a `part.callee`.
+func (inv actionInvocation) name() string {
+	if inv.chain != nil {
+		return lower.FeaturePath(inv.chain)
+	}
+	return qualifiedNameText(inv.target)
+}
+
+// chainedInvocation reads a `part.callee` target: the callee is the chain's last member,
+// performed by the object its operand denotes. A chain naming no member performs nothing.
+func chainedInvocation(chain *ast.FeatureChainExpr, referrer ast.Node) (actionInvocation, bool) {
+	if chain.Member == nil || len(chain.Member.Parts) == 0 {
+		return actionInvocation{}, false
+	}
+	return actionInvocation{target: chain.Member, chain: chain, referrer: referrer}, true
+}
+
 // nestedInvocation reports the action a nested usage performs, if any. A usage
 // that only carries its own body (assignments, sends, accepts) performs nothing.
 // Only typing and reference-subsetting edges name a performed action: the port
@@ -56,12 +78,18 @@ func nestedInvocation(usage *ast.Usage) (actionInvocation, bool) {
 		if rel.Kind != ast.RelTyping && rel.Kind != ast.RelReferences {
 			continue
 		}
-		if qn, ok := rel.Target.(*ast.QualifiedName); ok {
-			inv := actionInvocation{target: qn}
+		switch target := rel.Target.(type) {
+		case *ast.QualifiedName:
+			inv := actionInvocation{target: target}
 			if rel.Kind == ast.RelReferences {
 				inv.referrer = usage
 			}
 			return inv, true
+		case *ast.FeatureChainExpr:
+			if rel.Kind != ast.RelReferences {
+				continue
+			}
+			return chainedInvocation(target, usage)
 		}
 	}
 	return actionInvocation{}, false
@@ -94,7 +122,7 @@ func invocationArguments(
 	if inv.expr.Operand != nil && len(inv.named) > 0 {
 		return nil, nil, fmt.Errorf(
 			"%w: %s is called with a receiver and named arguments",
-			ErrReceiverWithNamedArgs, qualifiedNameText(inv.target),
+			ErrReceiverWithNamedArgs, inv.name(),
 		)
 	}
 	written := writtenArguments(inv.args, inv.named)
@@ -129,20 +157,20 @@ func settleAction(ec *EvalContext, inv actionInvocation, tied []*symbols.Symbol,
 		}
 		val, err := w.eval(ec)
 		if err != nil {
-			return nil, fmt.Errorf("eval argument %d of %s: %w", k+1, qualifiedNameText(inv.target), err)
+			return nil, fmt.Errorf("eval argument %d of %s: %w", k+1, inv.name(), err)
 		}
 		args = append(args, ec.valueArgument(val, name))
 	}
 	sel := ec.ctx.model.semantics.SelectAmongArguments(ec.scope, tied, args, semantics.PerformsAction)
 	if sel.Ambiguous || sel.Called() == nil {
-		return nil, ambiguousInvocationError(qualifiedNameText(inv.target), sel.Tied)
+		return nil, ambiguousInvocationError(inv.name(), sel.Tied)
 	}
 	return sel.Called(), nil
 }
 
 // invokeAction runs the action named by inv to completion as a sub-execution of
-// the caller, performed by self, and returns the values its features ended with
-// and, among them, those of its output parameters.
+// the caller, performed by self or by the part a `part.callee` target denotes, and
+// returns the values its features ended with and, among them, its output parameters'.
 //
 // The callee gets a fresh executor with its own tokens, so values cross the
 // boundary only through parameters: arguments, evaluated in the caller's data (or,
@@ -174,7 +202,33 @@ func invokeAction(
 	if err != nil {
 		return nil, nil, err
 	}
-	return invokeBoundAction(ctx, inv, sym, arguments, data, self)
+	performer, err := ctx.performerOf(ec, inv, self)
+	if err != nil {
+		return nil, nil, err
+	}
+	return invokeBoundAction(ctx, inv, sym, arguments, data, performer)
+}
+
+// performerOf is the object the callee runs as: for a `part.callee` target, the one
+// object the chain's operand denotes over the caller's values in ec; else self.
+func (ctx *Context) performerOf(ec *EvalContext, inv actionInvocation, self *Instance) (*Instance, error) {
+	if inv.chain == nil {
+		return self, nil
+	}
+	value, err := ec.Eval(inv.chain.Operand)
+	if err != nil {
+		return nil, fmt.Errorf("eval performer of %s: %w", inv.name(), err)
+	}
+	if value.Kind != ValInstance {
+		return nil, fmt.Errorf("%w: %s is performed by %s, which is no one object",
+			ErrPerformerNotObject, inv.name(), FormatValue(value))
+	}
+	performer, ok := ctx.Instance(value.Instance)
+	if !ok {
+		return nil, fmt.Errorf("%w: %s is performed by object #%d, which no longer exists",
+			ErrPerformerNotObject, inv.name(), value.Instance)
+	}
+	return performer, nil
 }
 
 // invokeBoundAction is invokeAction with the callee sym resolved and its inputs already
@@ -196,7 +250,7 @@ func invokeBoundAction(
 	if ctx.actionDepth >= maxActionNestingDepth {
 		return nil, nil, fmt.Errorf(
 			"action invocation nested more than %d deep at %s (recursive action?)",
-			maxActionNestingDepth, qualifiedNameText(inv.target),
+			maxActionNestingDepth, inv.name(),
 		)
 	}
 
@@ -229,9 +283,9 @@ func invokeBoundAction(
 
 	callee, err := ctx.beginCallee(inv.performed(sym), sym, self, inputs)
 	if err != nil {
-		return nil, nil, fmt.Errorf("invoke action %s: %w", qualifiedNameText(inv.target), err)
+		return nil, nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
 	}
-	callee.name, callee.out = qualifiedNameText(inv.target), out
+	callee.name, callee.out = inv.name(), out
 	return ctx.runCallee(callee)
 }
 
@@ -296,7 +350,7 @@ func resolveActionSymbol(
 		return nil, err
 	}
 	if sym == nil {
-		return nil, ambiguousInvocationError(qualifiedNameText(inv.target), tied)
+		return nil, ambiguousInvocationError(inv.name(), tied)
 	}
 	return sym, nil
 }
@@ -319,6 +373,8 @@ func actionCandidates(
 	var sym *symbols.Symbol
 	var ok bool
 	switch {
+	case inv.chain != nil:
+		sym, ok = ctx.resolveReferenceTarget(scope, inv.referrer, inv.chain)
 	case inv.referrer != nil:
 		sym, ok = ctx.resolveReferenceTarget(scope, inv.referrer, target)
 	case inv.expr != nil:
@@ -354,14 +410,14 @@ func bindArgumentList(ec *EvalContext, inv actionInvocation, callee *symbols.Sym
 	if len(inv.args) > len(in) {
 		return fmt.Errorf(
 			"%w: action %s takes %d input parameter(s), got %d argument(s)",
-			ErrActionArity, qualifiedNameText(inv.target), len(in), len(inv.args),
+			ErrActionArity, inv.name(), len(in), len(inv.args),
 		)
 	}
 	bound := make(map[string]bool, len(written))
 	for i := range inv.args {
 		value, err := written[i].eval(ec)
 		if err != nil {
-			return fmt.Errorf("eval argument %d of %s: %w", i+1, qualifiedNameText(inv.target), err)
+			return fmt.Errorf("eval argument %d of %s: %w", i+1, inv.name(), err)
 		}
 		inputs[in[i]] = value
 		bound[in[i]] = true
@@ -371,7 +427,7 @@ func bindArgumentList(ec *EvalContext, inv actionInvocation, callee *symbols.Sym
 	for i := range inv.named {
 		name := names[i]
 		if name == "" {
-			return fmt.Errorf("unnamed argument in invocation of %s", qualifiedNameText(inv.target))
+			return fmt.Errorf("unnamed argument in invocation of %s", inv.name())
 		}
 		if err := unbound[i]; err != nil {
 			return err
@@ -379,19 +435,19 @@ func bindArgumentList(ec *EvalContext, inv actionInvocation, callee *symbols.Sym
 		if !contains(in, name) {
 			return fmt.Errorf(
 				"%w: action %s has no input parameter %q",
-				ErrUnknownParameter, qualifiedNameText(inv.target), name,
+				ErrUnknownParameter, inv.name(), name,
 			)
 		}
 		if bound[name] {
 			return fmt.Errorf(
 				"%w: input parameter %q of %s is given more than one argument",
-				ErrDuplicateArgument, name, qualifiedNameText(inv.target),
+				ErrDuplicateArgument, name, inv.name(),
 			)
 		}
 		bound[name] = true
 		value, err := written[len(inv.args)+i].eval(ec)
 		if err != nil {
-			return fmt.Errorf("eval argument %q of %s: %w", name, qualifiedNameText(inv.target), err)
+			return fmt.Errorf("eval argument %q of %s: %w", name, inv.name(), err)
 		}
 		inputs[name] = value
 	}

@@ -680,9 +680,10 @@ runs no seed you tried happened to take.
 
 `explore` replays the behavior once per linearization. The first run records the alternative
 taken at each choice point; each later run is a fresh executor of the same loaded model — no
-object, message, clock, calc memo or note carries over — that follows the recorded prefix and
-takes the next untried alternative at the frontier, depth-first, until every choice sequence is
-spent or a budget is hit:
+object, message, clock, calc memo or note carries over — that follows a recorded prefix and
+takes an untried alternative at its end, until every choice sequence is spent or a budget is
+hit. The runs vary every choice point of the first run once, earliest first, before any is
+varied twice, so a choice met early is varied by the second run however many choices follow it:
 
 ```console
 $ sysml -schedule explore -action test::race action_explore_three_writers.sysml
@@ -714,6 +715,18 @@ table is followed by the trace of each outcome's witness run (`trace of outcome 
 (run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, `witness`) and
 `exploration` (`complete`, `runs`, `budgetsHit`) beside the table's lines.
 
+<a id="a-do-behavior-under-explore-and-check"></a>
+A state's `do` behavior is stepped the same way under `explore` and `check`: one token at a time —
+each due `do` behavior moves one token, then the machine dispatches the event at the head of its
+pool. Under the fixed policies (`reverse`, `declared`, `seed:<n>`) a do behavior's flow instead
+advances every steppable token once a round, and the machine dispatches only between rounds. The
+run a fixed policy makes — the whole round, then the dispatch — is therefore an interleaving
+`check`'s enumeration does not yet contain: a `do` behavior that a transition interrupts may end
+with a value under `reverse` that a `check` reporting *exhaustive* does not table. Whether the
+dispatch waits for the round or cuts it becomes a recorded choice point with the region-order
+scheduling work ([design note](../internals/design/region-order-scheduling.md)); until then, run
+a fixed policy beside the checker when a `do` behavior loops through timed waits.
+
 The order of executors due at one instant of the clock is explored like any other choice:
 `sysml -schedule explore -instantiate Demo::beacon -action Demo::watcher -state
 "Demo::Beacon::blinking Demo::beacon" -advance 5` starts every behavior named on one clock in each run, advances it, and tables the
@@ -736,14 +749,14 @@ The budget is 1024 runs and 64 choice points per run unless `explore:runs=N,dept
 otherwise, and hitting it is never silent:
 
 ```console
-$ sysml -schedule explore:runs=2 -action test::race action_explore_three_writers.sysml
+$ sysml -schedule explore:runs=3 -action test::race action_explore_three_writers.sysml
 ✓ package test
 ? explored test::race: 2 outcomes
 outcome                                      | linearizations | witness
 ---------------------------------------------+----------------+------------------------------------------------------------------
 aRan = true; bRan = true; cRan = true; x = 2 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
-incomplete: runs budget 2 hit after 2 runs
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
+incomplete: runs budget 3 hit after 3 runs
 $ echo $?
 2
 ```
@@ -753,7 +766,12 @@ far and no more, the check is unresolved (`?`) and the exit status is `2` — th
 that decided nothing, as for an unevaluable verdict. Raise the budget it names
 (`explore:runs=4096`, `explore:depth=128`, or both) and run again; a model whose exploration stays
 incomplete at any budget you can afford has more linearizations than a table can carry, and a
-seed is the way to look at some of them.
+seed is the way to look at some of them. The two budgets bound different things: a choice point
+met past the `depth` budget takes its first alternative in every run and is never varied, however
+many runs remain, so a run of more choice points than `depth` — the witness column lists every
+one its run met — needs `depth` raised to at least that many before more runs can help; within
+`depth`, a `runs` budget of one more than the first run's choice points varies each of them at
+least once.
 
 The same spelling explores over the wire, where the response carries `outcomes` and an
 `exploration` status ([wire contract](../reference/wire-contract.md)), and from every client
@@ -1095,6 +1113,33 @@ second knob here too: every run resolves its concurrency choices under `-schedul
 - **Monte Carlo runs are a REPL and CLI operation.** `%runs` and `-runs` run an action
   repeatedly; the `RunSweep` RPC and the service clients take ranges and samples but no run
   count, and an external engine put a Monte Carlo answers with a claim, not the table of runs.
+
+### Behaviors migrated from SysML v1
+
+The [v1 migration](../reference/sysml-v1-migration.md#behaviors) writes a v1 activity as an
+`action def` and a v1 state machine as a `state def` in exactly the forms this chapter uses, so
+a migrated behavior runs under the same debugger, seed and `%runs` as one written by hand. Two
+v1 idioms land on the machinery above:
+
+- A **`DurationConstraint`** on a call action (`[1s..80s]`) becomes a wait the token takes
+  before it — `accept after 3.0 [SI::s]` for a point interval, `accept after
+  RandomFunctions::uniform(1.0, 80.0) [SI::s]` for a proper one — so a workflow's duration is a
+  draw from the model seed, as under a v1 tool's random duration mode. The tool's `min` and
+  `max` modes are settings of its run configuration, not of the model, and are not migrated.
+- **«Probability»** on the edges out of a decision becomes `@Stochastic::Probability { p = … }`
+  on each succession, when every edge carries one; a decision whose guards are opaque English
+  (`[Align BTO]`) is written unguarded, and the runtime draws its branch with the model seed.
+
+The workflow's total duration is the clock at the end of the run, which `%runs` reports when no
+observable is named:
+
+```text
+%runs 100 1 Model::Mission::'Acquire Target'::'Acquire Target - Logical'
+```
+
+A v1 opaque action that only reads the tool's time variable (`Time_Acq_Total = simtime`) is
+kept as a comment, since `simtime` is a run setting and not a feature of the model; the report
+says so for each.
 
 ## An object runs the behaviors its type exhibits
 
