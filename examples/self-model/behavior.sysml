@@ -518,10 +518,16 @@ package OpenSysMLBehavior {
         // The prefix in hand: the choice it ends at (0: the empty prefix) and the
         // alternative it takes there; the run records down to choice `reached`, and
         // `open` while the next choice lies below the alternative its record ends at.
+        // `met` counts the choices some run has recorded so far.
         attribute choice : Integer = 0;
         attribute taken : Integer = 0;
         attribute reached : Integer = 0;
         attribute open : Boolean = true;
+        attribute met : Integer = 0;
+        // The first prefix of the level being worked: the prefixes of so many
+        // departures from the first run, worked in order of the choice varied.
+        attribute levelChoice : Integer = 0;
+        attribute levelTaken : Integer = 0;
         // What the run leaves to explore: the second alternative of each choice it met
         // and the next alternative of the choice its prefix ended at.
         attribute unexplored : Integer = 0;
@@ -544,6 +550,7 @@ package OpenSysMLBehavior {
         action runLinearization { assign runsLeft := runsLeft - 1; }
         action meetChoice {
             assign reached := reached + 1;
+            assign met := met + 1;
             assign unexplored := unexplored + 1;
             assign choicesAhead := choicesAhead - 1;
             assign open := below == 1;
@@ -563,14 +570,28 @@ package OpenSysMLBehavior {
             assign unexplored := 0;
             assign runsHit := true;
         }
-        action stepDown {
-            assign choice := reached;
-            assign taken := 2;
+        action stepAcross {
+            assign choice := choice + 1;
+            assign taken := taken - below + 1;
         }
-        action stepAlong { assign taken := taken + 1; }
-        action stepUp {
-            assign choice := choice - 1;
-            assign taken := below + 1;
+        action startLevel {
+            assign choice := levelChoice;
+            assign taken := levelTaken;
+        }
+        action scanAcross {
+            assign choice := choice + 1;
+            assign taken := taken - below + 1;
+        }
+        action stepAlong {
+            assign taken := taken + 1;
+            assign levelChoice := choice;
+            assign levelTaken := taken;
+        }
+        action stepDown {
+            assign choice := choice + 1;
+            assign taken := 2;
+            assign levelChoice := choice;
+            assign levelTaken := 2;
         }
         action sortOutcomes { assign complete := not runsHit and not depthHit; }
         action claimProved;
@@ -628,16 +649,28 @@ package OpenSysMLBehavior {
         if queued == 0 then sortOutcomes;
         else headGate;
 
-        // What a run leaves goes right after it in plan order, deepest first: the deepest
-        // choice just met, else the next alternative here, else the one left above.
+        // What a run leaves goes to the back of the queue, every departure from the first
+        // run before any second one, earliest choice first: the next prefix is the one
+        // across the level, else the first child of the level's first prefix that has one.
         decide headGate;
-        if reached > choice then stepDown;
-        if reached == choice and choice > 0 and taken < alternatives then stepAlong;
-        else stepUp;
+        if choice + 1 <= met and taken >= below + 1 then stepAcross;
+        else startLevel;
 
-        succession first stepDown then takePrefix;
+        succession first stepAcross then takePrefix;
+        succession first startLevel then scan;
+
+        merge scan;
+        succession first scan then childGate;
+
+        decide childGate;
+        if choice > 0 and taken < alternatives then stepAlong;
+        if (choice == 0 or taken == below) and choice + 1 <= met then stepDown;
+        if choice + 1 <= met and taken >= below + 1 then scanAcross;
+        else sortOutcomes;
+
+        succession first scanAcross then scan;
         succession first stepAlong then takePrefix;
-        succession first stepUp then takePrefix;
+        succession first stepDown then takePrefix;
 
         succession first sortOutcomes then completionGate;
 

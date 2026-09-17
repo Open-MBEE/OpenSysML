@@ -477,6 +477,66 @@ policy a run was observed under. What the model pins down is the end: every
 schedule reaches `transmitted | notRecharging` at t=241 with 100 frames
 received and the battery at 100.
 
+The two engines that run every schedule step finer than a round — one token of
+a `do` body at a time, the machine free to dispatch between two tokens — and so
+find a fork the fixed policies never take: at t=79 the order of the two regions'
+`do` rounds, which changes nothing under a whole-round policy, decides how many
+frames leave before `BatteryLow` interrupts. `-engine check` searches the choices
+exhaustively up to t=80 and tables the divergence — the battery ends as 39 or
+41, the data left as 52 224 or 53 248 bytes — with one witness per value, and
+`-check-witness <dir>` writes each to a file that `-schedule replay:<file>` runs
+again to the same values ([Checking every
+schedule](../../docs/reference/cli.md#checking-every-schedule-of-an-action-or-a-state-machine)).
+The fixed policies' own run — the whole round, then the dispatch, 39 with 51 200
+bytes left — is an interleaving neither engine enumerates yet; the guide states
+the limit ([a do behavior under `explore` and
+`check`](../../docs/guide/06-behavior.md#a-do-behavior-under-explore-and-check)):
+
+```bash
+./bin/sysml -engine check -check-witness witnesses -instantiate SpacecraftComms::mission \
+  -state "SpacecraftComms::SpacecraftVehicle::modes SpacecraftComms::mission.spacecraftVehicle" \
+  -advance 80 examples/runtime-showcase/spacecraft-comms.sysml
+```
+
+```
+✗ State machine SpacecraftComms::SpacecraftVehicle::modes: divergent up to t=80.0 (421 states, 499 moves, depth 334)
+  divergent: this.battery ends as 39 or 41
+  divergent: this.data ends as 52224 or 53248
+  (…)
+```
+
+`-schedule explore` samples the same choices one whole run at a time, and its
+budget has to fit this model: a run to t=80 meets 277 choice points — which
+token acts, at every step of the looping `do` bodies where two are able to, and
+which region's `do round` goes first, every second `transmitting` and
+`recharging` fall due together — so the default depth of 64 leaves the round at
+t=79 past the budget, taking its first alternative in every run, and
+`explore:runs=300` alone tables one outcome. Every choice point a run
+met is listed in its witness, which sizes the depth; within it, the runs vary
+each choice point of the first run once, earliest first, so one more run than
+the first run's choice points reaches every alternative of the round at t=79:
+
+```bash
+./bin/sysml -schedule explore:runs=300,depth=512 -instantiate SpacecraftComms::mission \
+  -state "SpacecraftComms::SpacecraftVehicle::modes SpacecraftComms::mission.spacecraftVehicle" \
+  -advance 80 examples/runtime-showcase/spacecraft-comms.sysml
+```
+
+```
+? explored SpacecraftComms::SpacecraftVehicle::modes: 2 outcomes
+outcome                                                           | linearizations | witness
+------------------------------------------------------------------+----------------+---------
+finalState recharging+lowPower; (…) this.battery = 39; (…) this.data = 52224; (…) | 4   | (…) do round at t=79.0: recharging first of transmitting, recharging; (…)
+finalState recharging+lowPower; (…) this.battery = 41; (…) this.data = 53248; (…) | 296 | (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
+incomplete: runs budget 300 hit after 300 runs
+```
+
+The second row is the first run and the 295 that vary a choice the outcome
+does not turn on; the first is the run that let `recharging` go first at t=79
+and three more that vary a choice to the same end. `incomplete` is honest: 300
+runs do not exhaust the orders of 277 choices, and the table is the same at any
+`-jobs`.
+
 ## Apollo 11
 
 The [Apollo 11 SysML v2 model](https://github.com/airbus/apollo-11-sysml-v2) is
