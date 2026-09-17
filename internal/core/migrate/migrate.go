@@ -59,6 +59,7 @@ func FromModel(name string, model *xmi.Model) *Result {
 		regionUsed:  map[*xmi.Element]map[string]bool{},
 		vertexNames: map[*xmi.Element]string{},
 		instant:     map[*xmi.Element]map[*xmi.Element]instantValue{},
+		self:        "this",
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -167,6 +168,9 @@ type migration struct {
 	// instant names, per state machine, the TimeInstantValue attribute each
 	// absolute time event its transitions accept is written as.
 	instant map[*xmi.Element]map[*xmi.Element]instantValue
+	// self names the object whose features a behavior body reads: `this`, or the
+	// subject of a test case while its scenario is written.
+	self string
 }
 
 // add records e's verdict. An element reported before keeps one entry: the
@@ -1029,7 +1033,7 @@ func repeated(vals []string) string {
 }
 
 // verificationBody writes a test case: the requirements it verifies form its
-// objective; its behavior is not migrated.
+// objective; an interaction's scenario runs on its subject, the interaction's context.
 func (m *migration) verificationBody(e *xmi.Element) {
 	saved := m.scope
 	m.scope = e
@@ -1041,8 +1045,28 @@ func (m *migration) verificationBody(e *xmi.Element) {
 			}
 		})
 	}
+	if e.Type == "Interaction" {
+		subject := m.subjectName(e)
+		if s, note := m.scenario(e, subject); note == "" {
+			m.w.line("subject " + writeName(subject) + " : " + m.ref(s.context, e) + ";")
+			m.parameters(e, e)
+			s.write()
+		}
+	}
 	m.stereotypeComments(e)
 	m.scope = saved
+}
+
+// subjectName names the subject of a test case written from an interaction:
+// `context`, the interaction's context block, unless a member of the case takes the name.
+func (m *migration) subjectName(e *xmi.Element) string {
+	used := map[string]bool{"start": true, "done": true}
+	for _, c := range e.Children {
+		if n := m.nameOf(c); n != "" {
+			used[n] = true
+		}
+	}
+	return freshIn(used, "context")
 }
 
 // ownsEveryEnd reports whether no classifier property carries the association:

@@ -444,6 +444,12 @@ func (m *migration) classify(e *xmi.Element) (category, string) {
 		return catIndividualDef, note
 	case "Activity", "OpaqueBehavior", "Interaction", "StateMachine", "FunctionBehavior":
 		if has(e, "TestCase") {
+			if e.Type == "Interaction" {
+				if _, note := m.scenario(e, m.subjectName(e)); note != "" {
+					return catVerificationDef, "the test case's scenario is not migrated: " + note + "; only its verified requirements are"
+				}
+				return catVerificationDef, ""
+			}
 			return catVerificationDef, "the test case's behavior is not migrated; only its verified requirements are"
 		}
 		return m.classifyBehavior(e)

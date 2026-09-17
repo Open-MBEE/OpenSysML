@@ -1,0 +1,16 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "trace": true,
+  "instantiate": "test::Rig",
+  "objects": [
+    {
+      "finalState": "spun",
+      "stateVisits": ["spinning", "spun"],
+      "slots": {
+        "drive.motor.speed": {"type": "Real", "value": 30.0},
+        "got": {"type": "Real", "value": 30.0}
+      }
+    }
+  ]
+}

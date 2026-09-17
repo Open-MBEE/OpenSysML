@@ -69,26 +69,37 @@ func chainedInvocation(chain *ast.FeatureChainExpr, referrer ast.Node) (actionIn
 // nestedInvocation reports the action a nested usage performs, if any. A usage
 // that only carries its own body (assignments, sends, accepts) performs nothing.
 // Only typing and reference-subsetting edges name a performed action: the port
-// of `accept msg : T via p` is a via edge, not a reference subsetting.
+// of `accept msg : T via p` is a via edge, not a reference subsetting. A
+// reference names both the action and its performer, so it wins over a typing
+// that only restates the action's definition.
 func nestedInvocation(usage *ast.Usage) (actionInvocation, bool) {
 	if invocation := usage.PerformedInvocation(); invocation != nil {
 		return expressionInvocation(invocation), true
 	}
+	if inv, ok := referencedInvocation(usage); ok {
+		return inv, true
+	}
 	for _, rel := range usage.Relationships {
-		if rel.Kind != ast.RelTyping && rel.Kind != ast.RelReferences {
+		if rel.Kind != ast.RelTyping {
+			continue
+		}
+		if target, ok := rel.Target.(*ast.QualifiedName); ok {
+			return actionInvocation{target: target}, true
+		}
+	}
+	return actionInvocation{}, false
+}
+
+// referencedInvocation reports the action a usage's reference subsetting performs.
+func referencedInvocation(usage *ast.Usage) (actionInvocation, bool) {
+	for _, rel := range usage.Relationships {
+		if rel.Kind != ast.RelReferences {
 			continue
 		}
 		switch target := rel.Target.(type) {
 		case *ast.QualifiedName:
-			inv := actionInvocation{target: target}
-			if rel.Kind == ast.RelReferences {
-				inv.referrer = usage
-			}
-			return inv, true
+			return actionInvocation{target: target, referrer: usage}, true
 		case *ast.FeatureChainExpr:
-			if rel.Kind != ast.RelReferences {
-				continue
-			}
 			return chainedInvocation(target, usage)
 		}
 	}

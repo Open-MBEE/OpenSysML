@@ -394,7 +394,7 @@ const handshakeApplications = `
 // An interaction whose messages are all signals sent to the block's parts
 // becomes a scenario action def of sends in occurrence order, its arguments
 // the signal's attribute values and its duration constraint reported; one
-// carrying a call is unmapped with the message named. The scenario runs.
+// carrying a call of no operation is unmapped with the message named. The scenario runs.
 func TestInteractionMigratesToAScenarioOfSends(t *testing.T) {
 	r := migrateDocument(t, handshakeInteraction, handshakeApplications)
 	for _, line := range []string{
@@ -410,11 +410,11 @@ func TestInteractionMigratesToAScenarioOfSends(t *testing.T) {
 	if strings.Contains(string(r.Notation), "action def RemoteCall {") {
 		t.Errorf("an interaction carrying a call was written as a scenario:\n%s", r.Notation)
 	}
-	wantNote(t, r, "_hs", migrate.Approximated, "written as a scenario of 2 sends, one per message in occurrence order")
-	wantNote(t, r, "_mReq", migrate.Mapped, "written as a send to the part b")
-	wantNote(t, r, "_la", migrate.Mapped, "the lifeline stands for the part the sends address")
-	wantNote(t, r, "_hsDur", migrate.Unmapped, "a DurationConstraint on an interaction has no form in a scenario of sends")
-	wantNote(t, r, "_rpc", migrate.Unmapped, "is a synchCall message; only a signal send has a v2 form")
+	wantNote(t, r, "_hs", migrate.Approximated, "written as a scenario of 2 steps, one per message in occurrence order")
+	wantNote(t, r, "_mReq", migrate.Mapped, "written as a send to this.b")
+	wantNote(t, r, "_la", migrate.Mapped, "the lifeline stands for this.a, which the steps address")
+	wantNote(t, r, "_hsDur", migrate.Unmapped, "a DurationConstraint on an interaction has no form in a scenario")
+	wantNote(t, r, "_rpc", migrate.Unmapped, "the message 'call' names no operation")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Net")

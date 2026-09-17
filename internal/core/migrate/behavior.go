@@ -301,8 +301,8 @@ func (m *migration) behaviorExpr(text, lang string, scope *xmi.Element) (expr st
 	return m.qualifySelf(text, refs, scope), true, ""
 }
 
-// qualifySelf prefixes `this.` to each name in text that resolves to a feature
-// of the classifier enclosing scope, which a nested action reaches no other way.
+// qualifySelf prefixes `this.` (or the subject's name, in a test case) to each name
+// in text that resolves to a feature of the classifier enclosing scope.
 func (m *migration) qualifySelf(text string, refs []reference, scope *xmi.Element) string {
 	visible, _ := m.visibleFrom(scope)
 	var starts []int
@@ -318,7 +318,7 @@ func (m *migration) qualifySelf(text string, refs []reference, scope *xmi.Elemen
 	}
 	sort.Sort(sort.Reverse(sort.IntSlice(starts)))
 	for _, s := range starts {
-		text = text[:s] + "this." + text[s:]
+		text = text[:s] + m.self + "." + text[s:]
 	}
 	return text
 }
