@@ -983,9 +983,10 @@ func checkSiblingRegionOrder(t *testing.T, m *exploreModel, signal, where string
 	if got := outcomeTexts(x); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("outcomes %v, want %v", got, want)
 	}
-	firstUnit := where + ": a1(exit) first of a1(exit), b1(exit)"
+	// The second draw of every witness is the two firings' first unit order.
+	firstUnit := where + ": %s first of a1(exit), b1(exit)"
 	for _, o := range x.Outcomes {
-		if got := o.Witness[1].String(); got != firstUnit {
+		if got := o.Witness[1].String(); got != fmt.Sprintf(firstUnit, "a1(exit)") && got != fmt.Sprintf(firstUnit, "b1(exit)") {
 			t.Fatalf("witness of %s draws %q second, want %q", o.Outcome, got, firstUnit)
 		}
 	}

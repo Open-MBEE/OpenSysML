@@ -202,6 +202,16 @@ func choiceKinds(choices []ChoiceTaken) []ChoiceKind {
 	return kinds
 }
 
+func countKind(kinds []ChoiceKind, kind ChoiceKind) int {
+	n := 0
+	for _, k := range kinds {
+		if k == kind {
+			n++
+		}
+	}
+	return n
+}
+
 // takenOf is the choices a run recorded as the moves of a witness.
 func takenOf(choices []ChoicePoint) []ChoiceTaken {
 	out := make([]ChoiceTaken, len(choices))
@@ -430,8 +440,11 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 			if outcome.String() != o.Outcome.String() {
 				t.Errorf("replaying %s reached %s, want %s", FormatChoices(o.Witness), outcome, o.Outcome)
 			}
-			if kinds := choiceKinds(choices); len(kinds) < 3 || kinds[0] != ChoiceEntryOrder || kinds[1] != ChoiceRegionOrder || kinds[2] != ChoiceTransition {
-				t.Errorf("replaying %s noted %v, want the entry, the first unit order then the transition", FormatChoices(o.Witness), kinds)
+			// Replay notes the transition when its firing's first unit is reached.
+			if kinds := choiceKinds(choices); len(kinds) < 3 || kinds[0] != ChoiceEntryOrder || kinds[1] != ChoiceRegionOrder ||
+				countKind(kinds, ChoiceTransition) != 1 ||
+				slices.ContainsFunc(kinds[2:], func(k ChoiceKind) bool { return k != ChoiceRegionOrder && k != ChoiceTransition }) {
+				t.Errorf("replaying %s noted %v, want the entry, unit orders and one transition among them", FormatChoices(o.Witness), kinds)
 			}
 			got, want := strings.Split(FormatChoices(choices), "; "), strings.Split(FormatChoices(o.Witness), "; ")
 			slices.Sort(got)
