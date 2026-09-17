@@ -2533,9 +2533,11 @@ Tracks F, S, L and A are closed.
 - **Track E** — eligible and first: E2, then E4 (E1 landed), then E6 on request, E3/E5 behind
   their design records, E7 behind its object-model item, E8 behind a model that needs it. The
   PSSM referee's 17 `fail` tests are the state side's measurement, every one attributed (#326):
-  nine, *Terminate 001* and *002* among them, wait on the region-order choice point whose design
-  record #342 wrote and left at two maintainer decisions; the rest cite a *differs, v2 silent*
-  alignment row.
+  eleven wait on the region-order choice point whose design record #342 wrote and left at two
+  maintainer decisions — the nine the record names to move `fail` → `pass`, plus *Terminate 001*
+  and *002*, which E1 added at the same region-entry site; *Transition 017* is the record's second
+  decision (two admitted traces no reading of the model produces); the remaining five cite a
+  *differs, v2 silent* alignment row.
 - **Track Q** — Q1, unblocked now that #293 closed Q2; Q3, unblocked by A5 and by Q2's object
   rows, not started.
 - **Track X** — X7's RDF literal form and native layout for sets and tensors; X8's two harness
@@ -2565,7 +2567,7 @@ The release housekeeping the previous order opened with is done — #286 folded 
    policy. The state-executor fixes since the tag (#295, #297, #311, #313–#315, #317, #318, #322,
    #336) and E1 (#335, #352) moved the PSSM referee to 46 `pass` / 17 `fail`; E1 gave E2 and E4
    the notion of ending an ongoing performance they build on. Beside E2, the largest single
-   lever on the state side is not a lettered item: nine of the 17 failures wait on the
+   lever on the state side is not a lettered item: eleven of the 17 failures wait on the
    region-order choice point, whose design record (#342) is written and stops at two decisions
    for the maintainers — whether default-policy trace goldens may gain `choice` lines, and two
    admitted traces of *Transition 017* no reading of the model produces. Those decisions, then
