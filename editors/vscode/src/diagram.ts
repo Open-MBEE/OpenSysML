@@ -23,6 +23,7 @@ import {
   rootOwner,
   validName,
 } from "./edits";
+import { ExportHost, exportRendering, serverForms } from "./export";
 import {
   admits,
   APPLY_MODEL_EDIT_CAPABILITY,
@@ -67,13 +68,6 @@ import {
 /** Why the diagram commands cannot serve, when they cannot. */
 const NOT_RUNNING = "The SysML v2 language server is not running; run \"SysML: Restart Language Server\" to start it.";
 const NOT_SERVED = "The SysML v2 language server does not serve diagrams; update sysml-lsp to draw one.";
-
-// The file an exported rendering is saved as, by the form the server wrote.
-const EXPORT_FORMS: Record<string, { extension: string; filter: string }> = {
-  mermaid: { extension: ".mmd", filter: "Mermaid" },
-  markdown: { extension: ".md", filter: "Markdown" },
-  text: { extension: ".txt", filter: "Text" },
-};
 
 /** The views of a document, as the picker offers them: declared first, then the pseudo-views. */
 interface ViewListing {
@@ -378,7 +372,7 @@ export class DiagramPanels implements vscode.Disposable {
     return vscode.ViewColumn.Beside;
   }
 
-  /** export writes the machine form (Mermaid or Markdown) of the named document's diagram to a file. */
+  /** export writes the named document's diagram to a file, in the form the user picks among those the server writes. */
   private async export(target?: unknown): Promise<void> {
     const resolved = this.resolve(target, "export a diagram of it");
     const client = this.client;
@@ -393,24 +387,32 @@ export class DiagramPanels implements vscode.Disposable {
     if (view === undefined) {
       return;
     }
-    let result: RenderResult;
-    try {
-      result = await client.sendRequest<RenderResult>(RENDER_METHOD, { textDocument: { uri }, view });
-    } catch (err) {
-      void vscode.window.showErrorMessage(`Rendering ${basename(resolved.uri)} failed: ${errorMessage(err)}`);
-      return;
+    const documentName = basename(resolved.uri);
+    const host: ExportHost = {
+      pickForm: async (items, title) => (await vscode.window.showQuickPick(items, { title, matchOnDescription: true }))?.value,
+      render: (params) => client.sendRequest<RenderResult>(RENDER_METHOD, params),
+      pickSaveLocation: async (defaultName, file) => {
+        const saveAs = await vscode.window.showSaveDialog({
+          defaultUri: vscode.Uri.joinPath(resolved.uri, "..", defaultName),
+          filters: { [file.filter]: [file.extension.slice(1)] },
+        });
+        return saveAs?.toString();
+      },
+      write: async (location, artifact) => {
+        await vscode.workspace.fs.writeFile(vscode.Uri.parse(location), new TextEncoder().encode(artifact));
+      },
+    };
+    const outcome = await exportRendering(host, { uri, documentName, view, forms: serverForms(experimental(client)) });
+    switch (outcome.kind) {
+      case "saved":
+        this.output.appendLine(`Exported ${outcome.form} of ${documentName} to ${vscode.Uri.parse(outcome.location).fsPath}`);
+        break;
+      case "failed":
+        void vscode.window.showErrorMessage(`Rendering ${documentName} failed: ${outcome.message}`);
+        break;
+      case "cancelled":
+        break;
     }
-    const { extension, filter } = EXPORT_FORMS[result.form] ?? { extension: ".txt", filter: "Text" };
-    const stem = basename(resolved.uri).replace(/\.(sysml|kerml)$/, "");
-    const saveAs = await vscode.window.showSaveDialog({
-      defaultUri: vscode.Uri.joinPath(resolved.uri, "..", `${stem}${extension}`),
-      filters: { [filter]: [extension.slice(1)] },
-    });
-    if (!saveAs) {
-      return;
-    }
-    await vscode.workspace.fs.writeFile(saveAs, new TextEncoder().encode(result.artifact));
-    this.output.appendLine(`Exported ${result.form} of ${basename(resolved.uri)} to ${saveAs.fsPath}`);
   }
 
   // resolve names the document a command acts on, or tells the user that no model file is in view.

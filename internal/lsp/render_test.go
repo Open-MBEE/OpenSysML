@@ -535,6 +535,54 @@ func TestRenderHonorsTheFormAsked(t *testing.T) {
 	}
 }
 
+// Every form the server advertises in initialize is answered in that form when
+// asked for by a view that has it, and the advertised list is the writer's own.
+func TestRenderAnswersEveryAdvertisedForm(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	res, err := s.Initialize(context.Background(), &protocol.InitializeParams{})
+	if err != nil {
+		t.Fatalf("Initialize err = %v", err)
+	}
+	experimental, ok := res.Capabilities.Experimental.(map[string]any)
+	if !ok {
+		t.Fatalf("Experimental = %#v, want a map", res.Capabilities.Experimental)
+	}
+	advertised, ok := experimental[RenderFormsCapability].([]string)
+	if !ok {
+		t.Fatalf("%s = %#v, want a list of forms", RenderFormsCapability, experimental[RenderFormsCapability])
+	}
+	if want := []string{"text", "mermaid", "markdown", "dot", "plantuml"}; !slices.Equal(advertised, want) {
+		t.Fatalf("%s = %v, want %v", RenderFormsCapability, advertised, want)
+	}
+	// A table is the one kind written in Markdown; the tree view has every other form.
+	viewFor := map[string]string{"markdown": "KitViews::widgetTable"}
+	for _, form := range advertised {
+		name := viewFor[form]
+		if name == "" {
+			name = "KitViews::widgetTree"
+		}
+		raw, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         name,
+			Form:         form,
+		})
+		if err != nil {
+			t.Errorf("render %s as %s: %v", name, form, err)
+			continue
+		}
+		var out renderResult
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode %s render result: %v", form, err)
+		}
+		if out.Form != form {
+			t.Errorf("%s: form = %q, want %q", name, out.Form, form)
+		}
+		if out.Artifact == "" {
+			t.Errorf("%s as %s: empty artifact", name, form)
+		}
+	}
+}
+
 // The DOT form is honored for a graph-shaped view, is the same rendering as a
 // digraph, and is refused for a kind that has none with the forms it has.
 func TestRenderWritesDotWhenAskedFor(t *testing.T) {
