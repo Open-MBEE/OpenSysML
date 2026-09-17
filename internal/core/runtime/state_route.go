@@ -562,7 +562,7 @@ func (e *StateExecutor) enterAhead(chain []*ast.StateNode) error {
 		if _, ahead := e.enteredAhead[state]; ahead {
 			continue
 		}
-		if !e.graph.HiddenStates[state] {
+		if e.entryIsUnit(state) {
 			if _, err := e.unit(ChoiceEntryOrder, unitHead{label: entryLabel(state), at: state}); err != nil {
 				return err
 			}

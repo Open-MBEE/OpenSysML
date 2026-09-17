@@ -1,0 +1,19 @@
+exit: idle
+enter: work
+choice entering work: next left(entry), right(entry) (unordered; took left(entry) first)
+stmt assign log
+    eval feature log -> ""
+    eval literal "left(entry) " -> "left(entry) "
+  eval operator + -> "left(entry) "
+choice entering work: next l(entry), right(entry) (unordered; took l(entry) first)
+enter: l
+stmt assign log
+    eval feature log -> "left(entry) "
+    eval literal "right(entry) " -> "right(entry) "
+  eval operator + -> "left(entry) right(entry) "
+enter: r (entry action)
+stmt assign log
+    eval feature log -> "left(entry) right(entry) "
+    eval literal "r(entry) " -> "r(entry) "
+  eval operator + -> "left(entry) right(entry) r(entry) "
+transition: idle -> work (event: accept Go)

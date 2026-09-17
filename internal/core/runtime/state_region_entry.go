@@ -107,7 +107,7 @@ func (e *StateExecutor) enterShared(l *lazyEntry) error {
 	for i := l.next; i < len(l.chain); i++ {
 		state := l.chain[i]
 		perform := true
-		if !e.graph.HiddenStates[state] {
+		if e.entryIsUnit(state) {
 			head := unitHead{label: entryLabel(state), at: state, shared: state, dropped: func() bool { return l.next > i }}
 			var err error
 			if perform, err = e.unit(ChoiceEntryOrder, head); err != nil {
@@ -172,7 +172,7 @@ func (e *StateExecutor) startHead(body ast.Node, above *ast.StateNode) unitHead 
 	starts := e.graph.StartOf(body)
 	if len(starts) > 0 && starts[0].Guard == nil {
 		for _, state := range e.descendantChain(above, starts[0].Target) {
-			if !e.graph.HiddenStates[state] {
+			if e.entryIsUnit(state) {
 				return unitHead{label: entryLabel(state), at: state}
 			}
 		}

@@ -38,6 +38,16 @@ func entryLabel(state *ast.StateNode) string     { return state.Name + "(entry)"
 func exitLabel(state *ast.StateNode) string      { return state.Name + "(exit)" }
 func effectLabel(trans *lower.Transition) string { return transitionLabel(trans) + "(effect)" }
 
+// entryIsUnit: every visible state's entry is a unit; a hidden owner's only when it performs.
+func (e *StateExecutor) entryIsUnit(state *ast.StateNode) bool {
+	return !e.graph.HiddenStates[state] || len(e.behaviorsOf(state).Entry) > 0
+}
+
+// exitIsUnit is entryIsUnit for leaving state.
+func (e *StateExecutor) exitIsUnit(state *ast.StateNode) bool {
+	return !e.graph.HiddenStates[state] || len(e.behaviorsOf(state).Exit) > 0
+}
+
 // transitionLabel names a transition by its own name, or by its ends when it has none.
 func transitionLabel(trans *lower.Transition) string {
 	if trans.Name != "" {

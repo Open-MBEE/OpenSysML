@@ -1,0 +1,44 @@
+choice on accept Go: next l1(exit), r1(exit) (unordered; took l1(exit) first)
+exit: l1
+choice on accept Go: next l2(entry), r1(exit) (unordered; took l2(entry) first)
+enter: l2 (entry action)
+stmt assign log
+    eval feature log -> ""
+    eval literal "l2(entry) " -> "l2(entry) "
+  eval operator + -> "l2(entry) "
+transition: l1 -> l2 (event: accept Go)
+exit: r1
+enter: r2 (entry action)
+stmt assign log
+    eval feature log -> "l2(entry) "
+    eval literal "r2(entry) " -> "r2(entry) "
+  eval operator + -> "l2(entry) r2(entry) "
+transition: r1 -> r2 (event: accept Go)
+choice exiting work: next l2(exit), r2(exit) (unordered; took l2(exit) first)
+exit: l2 (exit action)
+stmt assign log
+    eval feature log -> "l2(entry) r2(entry) "
+    eval literal "l2(exit) " -> "l2(exit) "
+  eval operator + -> "l2(entry) r2(entry) l2(exit) "
+exit: r2 (exit action)
+stmt assign log
+    eval feature log -> "l2(entry) r2(entry) l2(exit) "
+    eval literal "r2(exit) " -> "r2(exit) "
+  eval operator + -> "l2(entry) r2(entry) l2(exit) r2(exit) "
+exit: work
+enter: paused
+transition: work -> paused (event: accept Pause)
+exit: paused
+enter: work
+choice entering work: next l2(entry), r2(entry) (unordered; took l2(entry) first)
+enter: l2 (entry action)
+stmt assign log
+    eval feature log -> "l2(entry) r2(entry) l2(exit) r2(exit) "
+    eval literal "l2(entry) " -> "l2(entry) "
+  eval operator + -> "l2(entry) r2(entry) l2(exit) r2(exit) l2(entry) "
+enter: r2 (entry action)
+stmt assign log
+    eval feature log -> "l2(entry) r2(entry) l2(exit) r2(exit) l2(entry) "
+    eval literal "r2(entry) " -> "r2(entry) "
+  eval operator + -> "l2(entry) r2(entry) l2(exit) r2(exit) l2(entry) r2(entry) "
+transition: paused -> work (event: accept Resume)

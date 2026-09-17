@@ -4247,7 +4247,7 @@ func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.S
 	if state == nil {
 		return nil
 	}
-	if !e.graph.HiddenStates[state] && !e.enteredAhead[state] {
+	if e.entryIsUnit(state) && !e.enteredAhead[state] {
 		if _, err := e.unit(ChoiceEntryOrder, unitHead{label: entryLabel(state), at: state}); err != nil {
 			return err
 		}
@@ -4390,7 +4390,7 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 	if e.exitingAhead {
 		e.leftAhead[state] = true
 	}
-	if !e.graph.HiddenStates[state] {
+	if e.exitIsUnit(state) {
 		if _, err := e.unit(ChoiceExitOrder, unitHead{label: exitLabel(state), at: state}); err != nil {
 			return err
 		}
