@@ -396,6 +396,7 @@ func (c *refCollector) expr(n ast.Node, local locals) {
 		c.name(e.Ref, local)
 	case *ast.CastExpr:
 		c.name(e.TargetType, local)
+		c.multiplicity(e.Multiplicity, local)
 	}
 }
 
@@ -434,10 +435,7 @@ func (c *refCollector) declarations(members []ast.Node, local locals) {
 		}
 		switch e := m.(type) {
 		case *ast.Usage:
-			c.relationships(e.Relationships, local)
-			c.multiplicity(e.Multiplicity, local)
-			c.expr(e.Value, local)
-			c.members(e.Members, local)
+			c.usage(e, local)
 		case *ast.Definition:
 			c.relationships(e.Relationships, local)
 			c.multiplicity(e.Multiplicity, local)
@@ -450,6 +448,41 @@ func (c *refCollector) declarations(members []ast.Node, local locals) {
 			c.unread = true
 		}
 	}
+}
+
+func (c *refCollector) usage(e *ast.Usage, local locals) {
+	c.relationships(e.Relationships, local)
+	c.multiplicity(e.Multiplicity, local)
+	c.expr(e.Value, local)
+	if e.CrossFeature != nil {
+		c.unread = true
+	}
+	for _, end := range e.ConnectorEnds {
+		if end == nil {
+			continue
+		}
+		redefines, others := ast.SplitRedefinitions(end.Relationships)
+		if len(redefines) != 0 {
+			c.unread = true
+		}
+		c.relationships(others, local)
+		c.multiplicity(end.Multiplicity, local)
+		if _, declares := end.DeclaredName(); !declares {
+			c.expr(end.Target, local)
+		}
+		c.expr(end.Reference, local)
+	}
+	if e.FlowEnds != nil {
+		c.expr(e.FlowEnds.From, local)
+		c.expr(e.FlowEnds.To, local)
+		if e.FlowEnds.PayloadDecl != nil {
+			c.unread = true
+		} else {
+			c.expr(e.FlowEnds.Payload, local)
+		}
+		c.multiplicity(e.FlowEnds.PayloadMultiplicity, local)
+	}
+	c.members(e.Members, local)
 }
 
 func (c *refCollector) relationships(rels []*ast.Relationship, local locals) {
