@@ -25,7 +25,7 @@ func Render(markdown, engine string, opts Options) ([]byte, error) {
 		return nil, err
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
-	images, err := renderDiagrams(dir, blocks)
+	diagrams, err := renderDiagrams(dir, blocks)
 	if err != nil {
 		return nil, err
 	}
@@ -36,12 +36,12 @@ func Render(markdown, engine string, opts Options) ([]byte, error) {
 	doc := &Prepared{Dir: dir, MarkdownFile: "document.md", HTMLFile: "document.html", MathCSS: math.css, Options: opts}
 	switch converter.Capabilities().Input {
 	case InputMarkdown:
-		md := markdownWithFormulas(markdownWithImages(markdownWithSpanCaptions(markdown), images), math)
+		md := markdownWithFormulas(markdownWithImages(markdownWithSpanCaptions(markdown), diagrams), math)
 		if err := os.WriteFile(filepath.Join(dir, doc.MarkdownFile), []byte(md), 0o600); err != nil {
 			return nil, err
 		}
 	case InputHTML:
-		page := documentHTML(blocks, artwork{images: images, math: math}, opts)
+		page := documentHTML(blocks, artwork{diagrams: diagrams, math: math}, opts)
 		if err := os.WriteFile(filepath.Join(dir, doc.HTMLFile), []byte(page), 0o600); err != nil {
 			return nil, err
 		}

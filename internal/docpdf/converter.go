@@ -4,6 +4,7 @@ package docpdf
 
 import (
 	"context"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,6 +26,14 @@ const (
 	// KatexCSSEnv names KaTeX's stylesheet, with its fonts directory beside
 	// it, when it is not in the dist directory of the katex executable.
 	KatexCSSEnv = "OPENSYSML_KATEX_CSS"
+	// DotEnv names the Graphviz dot executable that draws DOT blocks; absent,
+	// they are kept as source.
+	DotEnv = "OPENSYSML_DOT"
+	// JavaEnv names the java that runs the PlantUML jar.
+	JavaEnv = "OPENSYSML_JAVA"
+	// PlantUMLJarEnv names the PlantUML jar that draws PlantUML blocks; absent,
+	// they are kept as source.
+	PlantUMLJarEnv = "OPENSYSML_PLANTUML_JAR"
 )
 
 // toolTimeout bounds each converter subprocess, so a wedged tool is a typed
@@ -118,6 +127,8 @@ var (
 	princeTool     = tool{name: "prince", envVar: PrinceEnv}
 	mermaidTool    = tool{name: "mmdc", envVar: MermaidEnv}
 	katexTool      = tool{name: "katex", envVar: KatexEnv}
+	graphvizTool   = tool{name: "dot", envVar: DotEnv}
+	javaTool       = tool{name: "java", envVar: JavaEnv}
 )
 
 // locate finds the tool via its environment override or a PATH lookup;
@@ -146,11 +157,31 @@ func runTool(dir, path string, args ...string) error {
 // runToolWith is runTool with detail choosing what of the tool's stderr the
 // failure reports.
 func runToolWith(dir, path string, detail func(stderr string) string, args ...string) error {
+	return toolRun{dir: dir, path: path, args: args, detail: detail}.run()
+}
+
+// toolRun is one invocation of an external executable: its arguments, the
+// variables added to its environment, and what it reads and writes.
+type toolRun struct {
+	dir    string
+	path   string
+	args   []string
+	env    []string
+	stdin  io.Reader
+	stdout io.Writer
+	detail func(stderr string) string
+}
+
+// run runs the tool in dir with SOURCE_DATE_EPOCH pinned for determinism; a
+// failure is a typed error carrying the tool's stderr.
+func (r toolRun) run() error {
 	ctx, cancel := context.WithTimeout(context.Background(), toolTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, path, args...) // #nosec G204 -- the path is the operator's own converter choice
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "SOURCE_DATE_EPOCH=0")
+	cmd := exec.CommandContext(ctx, r.path, r.args...) // #nosec G204 -- the path is the operator's own tool choice
+	cmd.Dir = r.dir
+	cmd.Env = append(append(os.Environ(), "SOURCE_DATE_EPOCH=0"), r.env...)
+	cmd.Stdin = r.stdin
+	cmd.Stdout = r.stdout
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
@@ -158,7 +189,11 @@ func runToolWith(dir, path string, detail func(stderr string) string, args ...st
 		if said == "" {
 			said = err.Error()
 		}
-		return &Error{Kind: ErrorToolFailed, Tool: filepath.Base(path), Detail: detail(said)}
+		detail := r.detail
+		if detail == nil {
+			detail = tail
+		}
+		return &Error{Kind: ErrorToolFailed, Tool: filepath.Base(r.path), Detail: detail(said)}
 	}
 	return nil
 }

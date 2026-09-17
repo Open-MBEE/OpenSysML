@@ -72,8 +72,23 @@ printf '<svg xmlns="http://www.w3.org/2000/svg"/>' > "$out"
 	}
 }
 
+// fakeSVGWriter is a fake diagram tool writing an SVG to the file its -o
+// argument names, or to stdout without one, and logging its arguments.
+func fakeSVGWriter(t *testing.T, dir, name string) (path, log string) {
+	t.Helper()
+	log = filepath.Join(dir, name+".log")
+	path = fakePDFTool(t, dir, name, `printf 'args:%s\n' "$*" >> `+log+`
+out=""
+while [ $# -gt 0 ]; do [ "$1" = "-o" ] && out="$2"; shift; done
+svg='<svg xmlns="http://www.w3.org/2000/svg"><text>drawn by `+name+`</text></svg>'
+if [ -n "$out" ]; then printf '%s' "$svg" > "$out"; else printf '%s' "$svg"; fi
+`)
+	return path, log
+}
+
 // TestRenderDocumentPDFDiagramFormDot checks a PDF run under -diagram-form dot
-// keeps every diagram as DOT source behind the notice and never runs mmdc.
+// never runs mmdc: without Graphviz every diagram is kept as DOT source behind
+// a notice naming OPENSYSML_DOT, and with it every diagram is drawn by dot.
 func TestRenderDocumentPDFDiagramFormDot(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
@@ -85,37 +100,57 @@ printf '%%PDF-1.7 fake' > "$2"
 `)
 	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
 	out := filepath.Join(dir, "report.pdf")
+	render := func(dot string) string {
+		t.Helper()
+		cmd := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
+			"-doc-form", "pdf", "-diagram-form", "dot", "-o", out)
+		cmd.Env = append(os.Environ(), docpdf.WeasyPrintEnv+"="+weasyprint, docpdf.MermaidEnv+"="+mmdc, docpdf.DotEnv+"="+dot)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("render: %v\n%s", err, output)
+		}
+		page, err := os.ReadFile(seen)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(page)
+	}
 
-	cmd := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
-		"-doc-form", "pdf", "-diagram-form", "dot", "-o", out)
-	cmd.Env = append(os.Environ(), docpdf.WeasyPrintEnv+"="+weasyprint, docpdf.MermaidEnv+"="+mmdc)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("render: %v\n%s", err, output)
-	}
-	page, err := os.ReadFile(seen)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := strings.Count(string(page), `<figure class="dot">`); got != 2 {
+	page := render(filepath.Join(dir, "absent", "dot"))
+	if got := strings.Count(page, `<figure class="dot">`); got != 2 {
 		t.Errorf("converter input carries %d DOT figures, want 2:\n%s", got, page)
 	}
 	for _, want := range []string{
-		"Graphviz DOT, which the PDF backend does not draw",
+		"Graphviz DOT, which the PDF backend did not draw",
+		"point " + docpdf.DotEnv + " at it",
 		"digraph &#34;Observatory::interconnectView&#34; {",
 		"<table",
 	} {
-		if !strings.Contains(string(page), want) {
+		if !strings.Contains(page, want) {
 			t.Errorf("converter input misses %q:\n%s", want, page)
 		}
 	}
-	if strings.Contains(string(page), "diagram-1.svg") {
-		t.Errorf("a diagram was drawn by the Mermaid tool:\n%s", page)
+	if strings.Contains(page, "diagram-1.svg") {
+		t.Errorf("a diagram was drawn without Graphviz:\n%s", page)
+	}
+
+	dot, log := fakeSVGWriter(t, dir, "dot")
+	page = render(dot)
+	if strings.Contains(page, `<figure class="dot">`) || !strings.Contains(page, `<img src="diagram-1.svg"`) || !strings.Contains(page, `<img src="diagram-2.svg"`) {
+		t.Errorf("converter input does not reference both drawn diagrams:\n%s", page)
+	}
+	args, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(args), "-Tsvg -o diagram-1.svg diagram-1.dot") || !strings.Contains(string(args), "-Tsvg -o diagram-2.svg diagram-2.dot") {
+		t.Errorf("dot invocations:\n%s", args)
 	}
 }
 
 // TestRenderDocumentPDFDiagramFormPlantUML checks a PDF run under
-// -diagram-form plantuml keeps every diagram as PlantUML source behind the
-// notice and never runs mmdc.
+// -diagram-form plantuml never runs mmdc: without the jar every diagram is
+// kept as PlantUML source behind a notice naming OPENSYSML_PLANTUML_JAR, and
+// with the jar and java every diagram is drawn through the jar in pipe mode.
 func TestRenderDocumentPDFDiagramFormPlantUML(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
@@ -127,32 +162,56 @@ printf '%%PDF-1.7 fake' > "$2"
 `)
 	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
 	out := filepath.Join(dir, "report.pdf")
+	render := func(jar, java string) string {
+		t.Helper()
+		cmd := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
+			"-doc-form", "pdf", "-diagram-form", "plantuml", "-o", out)
+		cmd.Env = append(os.Environ(), docpdf.WeasyPrintEnv+"="+weasyprint, docpdf.MermaidEnv+"="+mmdc,
+			docpdf.PlantUMLJarEnv+"="+jar, docpdf.JavaEnv+"="+java)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("render: %v\n%s", err, output)
+		}
+		page, err := os.ReadFile(seen)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(page)
+	}
 
-	cmd := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
-		"-doc-form", "pdf", "-diagram-form", "plantuml", "-o", out)
-	cmd.Env = append(os.Environ(), docpdf.WeasyPrintEnv+"="+weasyprint, docpdf.MermaidEnv+"="+mmdc)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("render: %v\n%s", err, output)
-	}
-	page, err := os.ReadFile(seen)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := strings.Count(string(page), `<figure class="plantuml">`); got != 2 {
+	page := render("", "")
+	if got := strings.Count(page, `<figure class="plantuml">`); got != 2 {
 		t.Errorf("converter input carries %d PlantUML figures, want 2:\n%s", got, page)
 	}
 	for _, want := range []string{
-		"PlantUML, which the PDF backend does not draw",
+		"PlantUML, which the PDF backend did not draw",
+		"point " + docpdf.PlantUMLJarEnv + " at it",
 		"<pre>@startuml\n&#39; Observatory::interconnectView — interconnection rendering",
 		"@enduml</pre>",
 		"<table",
 	} {
-		if !strings.Contains(string(page), want) {
+		if !strings.Contains(page, want) {
 			t.Errorf("converter input misses %q:\n%s", want, page)
 		}
 	}
-	if strings.Contains(string(page), "diagram-1.svg") || strings.Contains(string(page), `class="dot"`) {
-		t.Errorf("a diagram was drawn by the Mermaid tool or written as DOT:\n%s", page)
+	if strings.Contains(page, "diagram-1.svg") || strings.Contains(page, `class="dot"`) {
+		t.Errorf("a diagram was drawn without the jar, or written as DOT:\n%s", page)
+	}
+
+	jar := filepath.Join(dir, "plantuml.jar")
+	if err := os.WriteFile(jar, []byte("PK"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	java, log := fakeSVGWriter(t, dir, "java")
+	page = render(jar, java)
+	if strings.Contains(page, `<figure class="plantuml">`) || !strings.Contains(page, `<img src="diagram-1.svg"`) || !strings.Contains(page, `<img src="diagram-2.svg"`) {
+		t.Errorf("converter input does not reference both drawn diagrams:\n%s", page)
+	}
+	args, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(args), "args:-Djava.awt.headless=true -jar "+jar+" -tsvg -pipe\n") != 2 {
+		t.Errorf("java invocations:\n%s", args)
 	}
 }
 

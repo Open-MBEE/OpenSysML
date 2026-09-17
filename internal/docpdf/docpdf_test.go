@@ -174,160 +174,6 @@ func TestParseBlocksUnclosedFence(t *testing.T) {
 	}
 }
 
-// dotMarkdown is a document whose one diagram is written as DOT: a `&` and a
-// quoted ID check the source reaches the page escaped, not interpreted.
-const dotMarkdown = "# T\n\n## Flow\n\n```dot\n// kind: action\ndigraph \"a & b\" {\n  \"n0\" -> \"n1\";\n}\n```\n\n<!-- caption -->\n*Figure 1\\. Flow*\n"
-
-// A DOT fence parses to its own block and is kept as source under a notice
-// on both converter inputs; no diagram tool is looked for.
-func TestDOTBlockIsKeptAsSource(t *testing.T) {
-	blocks, err := parseBlocks(dotMarkdown)
-	if err != nil {
-		t.Fatalf("parseBlocks: %v", err)
-	}
-	if len(blocks) != 4 || blocks[2].Kind != blockDOT || !strings.Contains(blocks[2].Source, `"n0" -> "n1";`) {
-		t.Fatalf("blocks = %+v", blocks)
-	}
-	t.Setenv("PATH", t.TempDir())
-	t.Setenv(MermaidEnv, "")
-	images, err := renderDiagrams(t.TempDir(), blocks)
-	if err != nil || len(images) != 0 {
-		t.Fatalf("renderDiagrams = %v, %v; want no images and no tool lookup", images, err)
-	}
-	page := documentHTML(blocks, artwork{}, Options{})
-	for _, want := range []string{
-		`<figure class="dot"><p class="notice"><em>` + dotNotice + `</em></p>`,
-		"<pre>// kind: action\ndigraph &#34;a &amp; b&#34; {\n  &#34;n0&#34; -&gt; &#34;n1&#34;;\n}</pre></figure>",
-		`<p class="caption"><em>Figure 1. Flow</em></p>`,
-	} {
-		if !strings.Contains(page, want) {
-			t.Errorf("HTML missing %q:\n%s", want, page)
-		}
-	}
-	if strings.Contains(page, "<img") {
-		t.Errorf("a DOT block became an image:\n%s", page)
-	}
-	md := markdownWithImages(dotMarkdown, nil)
-	if !strings.Contains(md, "*"+dotNotice+"*\n\n```dot\n// kind: action\n") || !strings.Contains(md, "\n}\n```\n") {
-		t.Errorf("Markdown lacks the notice ahead of the fence:\n%s", md)
-	}
-	if strings.Contains(md, "![diagram]") {
-		t.Errorf("a DOT fence became an image reference:\n%s", md)
-	}
-}
-
-// A document mixing both forms renders its Mermaid to images and its DOT to
-// source, each in block order.
-func TestDOTAndMermaidBlocksTogether(t *testing.T) {
-	md := sampleMarkdown + "\n" + strings.TrimPrefix(dotMarkdown, "# T\n")
-	blocks, err := parseBlocks(md)
-	if err != nil {
-		t.Fatalf("parseBlocks: %v", err)
-	}
-	page := documentHTML(blocks, artwork{images: []string{"diagram-1.svg"}}, Options{})
-	image, dot := strings.Index(page, `<img src="diagram-1.svg"`), strings.Index(page, `<figure class="dot">`)
-	if image < 0 || dot < 0 || image > dot {
-		t.Fatalf("image at %d, DOT at %d:\n%s", image, dot, page)
-	}
-	out := markdownWithImages(md, []string{"diagram-1.svg"})
-	if strings.Contains(out, "```mermaid") || !strings.Contains(out, "![diagram](diagram-1.svg)") || !strings.Contains(out, "```dot\n") {
-		t.Fatalf("mixed Markdown:\n%s", out)
-	}
-}
-
-// Rendering a document whose only diagram is DOT needs no Mermaid CLI.
-func TestRenderDOTOnlyDocumentNeedsNoDiagramTool(t *testing.T) {
-	dir := t.TempDir()
-	seenPath := filepath.Join(dir, "input-seen.html")
-	fakeTool(t, dir, "weasyprint", WeasyPrintEnv, `while IFS= read -r line; do printf '%s\n' "$line"; done < "$1" > "`+seenPath+`"
-printf '%%PDF-1.7 fake' > "$2"
-`)
-	t.Setenv("PATH", dir)
-	t.Setenv(MermaidEnv, "")
-	pdf, err := Render(dotMarkdown, "weasyprint", Options{})
-	if err != nil {
-		t.Fatalf("Render: %v", err)
-	}
-	if !strings.HasPrefix(string(pdf), "%PDF-") {
-		t.Fatalf("output is no PDF: %q", pdf)
-	}
-	seen, err := os.ReadFile(seenPath)
-	if err != nil {
-		t.Fatalf("converter input: %v", err)
-	}
-	if !strings.Contains(string(seen), dotNotice) || !strings.Contains(string(seen), "digraph &#34;a &amp; b&#34;") {
-		t.Fatalf("converter input lacks the DOT notice or source:\n%s", seen)
-	}
-}
-
-// plantumlMarkdown is a document whose one diagram is written as PlantUML: a
-// creole label and a style block check the source reaches the page escaped.
-const plantumlMarkdown = "# T\n\n## Flow\n\n```plantuml\n@startuml\n' action rendering\n<style>\nelement {\n  LineColor #181818\n}\n</style>\nstate \"**a & b**\" as n0 <<action>>\nn0 --> n1\n@enduml\n```\n\n<!-- caption -->\n*Figure 1\\. Flow*\n"
-
-// A PlantUML fence parses to its own block and is kept as source under a
-// notice on both converter inputs; no diagram tool is looked for.
-func TestPlantUMLBlockIsKeptAsSource(t *testing.T) {
-	blocks, err := parseBlocks(plantumlMarkdown)
-	if err != nil {
-		t.Fatalf("parseBlocks: %v", err)
-	}
-	if len(blocks) != 4 || blocks[2].Kind != blockPlantUML || !strings.Contains(blocks[2].Source, "n0 --> n1") {
-		t.Fatalf("blocks = %+v", blocks)
-	}
-	t.Setenv("PATH", t.TempDir())
-	t.Setenv(MermaidEnv, "")
-	images, err := renderDiagrams(t.TempDir(), blocks)
-	if err != nil || len(images) != 0 {
-		t.Fatalf("renderDiagrams = %v, %v; want no images and no tool lookup", images, err)
-	}
-	page := documentHTML(blocks, artwork{}, Options{})
-	for _, want := range []string{
-		`<figure class="plantuml"><p class="notice"><em>` + plantumlNotice + `</em></p>`,
-		"<pre>@startuml\n&#39; action rendering\n&lt;style&gt;\n",
-		"state &#34;**a &amp; b**&#34; as n0 &lt;&lt;action&gt;&gt;\nn0 --&gt; n1\n@enduml</pre></figure>",
-		`<p class="caption"><em>Figure 1. Flow</em></p>`,
-	} {
-		if !strings.Contains(page, want) {
-			t.Errorf("HTML missing %q:\n%s", want, page)
-		}
-	}
-	if strings.Contains(page, "<img") || strings.Contains(page, dotNotice) {
-		t.Errorf("a PlantUML block became an image or a DOT figure:\n%s", page)
-	}
-	md := markdownWithImages(plantumlMarkdown, nil)
-	if !strings.Contains(md, "*"+plantumlNotice+"*\n\n```plantuml\n@startuml\n") || !strings.Contains(md, "\n@enduml\n```\n") {
-		t.Errorf("Markdown lacks the notice ahead of the fence:\n%s", md)
-	}
-	if strings.Contains(md, "![diagram]") {
-		t.Errorf("a PlantUML fence became an image reference:\n%s", md)
-	}
-}
-
-// Rendering a document whose only diagram is PlantUML needs no Mermaid CLI.
-func TestRenderPlantUMLOnlyDocumentNeedsNoDiagramTool(t *testing.T) {
-	dir := t.TempDir()
-	seenPath := filepath.Join(dir, "input-seen.html")
-	fakeTool(t, dir, "weasyprint", WeasyPrintEnv, `while IFS= read -r line; do printf '%s\n' "$line"; done < "$1" > "`+seenPath+`"
-printf '%%PDF-1.7 fake' > "$2"
-`)
-	t.Setenv("PATH", dir)
-	t.Setenv(MermaidEnv, "")
-	pdf, err := Render(plantumlMarkdown, "weasyprint", Options{})
-	if err != nil {
-		t.Fatalf("Render: %v", err)
-	}
-	if !strings.HasPrefix(string(pdf), "%PDF-") {
-		t.Fatalf("output is no PDF: %q", pdf)
-	}
-	seen, err := os.ReadFile(seenPath)
-	if err != nil {
-		t.Fatalf("converter input: %v", err)
-	}
-	if !strings.Contains(string(seen), plantumlNotice) || !strings.Contains(string(seen), "n0 --&gt; n1") {
-		t.Fatalf("converter input lacks the PlantUML notice or source:\n%s", seen)
-	}
-}
-
 func TestUnescape(t *testing.T) {
 	if got := unescape(`Mass \| kg \* 2\\`); got != `Mass | kg * 2\` {
 		t.Fatalf("unescape: got %q", got)
@@ -343,8 +189,8 @@ func TestDocumentHTML(t *testing.T) {
 		t.Fatalf("parseBlocks: %v", err)
 	}
 	opts := Options{TitlePage: true, TOC: true, NumberSections: true}
-	page := documentHTML(blocks, artwork{images: []string{"diagram-1.svg"}}, opts)
-	if page != documentHTML(blocks, artwork{images: []string{"diagram-1.svg"}}, opts) {
+	page := documentHTML(blocks, artwork{diagrams: []diagram{{Image: "diagram-1.svg"}}}, opts)
+	if page != documentHTML(blocks, artwork{diagrams: []diagram{{Image: "diagram-1.svg"}}}, opts) {
 		t.Fatal("HTML generation is nondeterministic")
 	}
 	for _, want := range []string{
@@ -365,7 +211,7 @@ func TestDocumentHTML(t *testing.T) {
 			t.Fatalf("HTML missing %q:\n%s", want, page)
 		}
 	}
-	plain := documentHTML(blocks, artwork{images: []string{"diagram-1.svg"}}, Options{})
+	plain := documentHTML(blocks, artwork{diagrams: []diagram{{Image: "diagram-1.svg"}}}, Options{})
 	if strings.Contains(plain, `<div class="title-page">`) || strings.Contains(plain, `<nav class="toc">`) || strings.Contains(plain, `<span class="section-number">`) {
 		t.Fatal("options leaked into default HTML")
 	}
@@ -375,7 +221,7 @@ func TestDocumentHTML(t *testing.T) {
 }
 
 func TestMarkdownWithImages(t *testing.T) {
-	got := markdownWithImages(sampleMarkdown, []string{"diagram-1.svg"})
+	got := markdownWithImages(sampleMarkdown, []diagram{{Image: "diagram-1.svg"}})
 	if strings.Contains(got, "```mermaid") {
 		t.Fatalf("fence not replaced:\n%s", got)
 	}
@@ -553,7 +399,7 @@ func TestParseTelescopeGolden(t *testing.T) {
 	if tables == 0 || headings == 0 {
 		t.Fatalf("got %d tables, %d headings", tables, headings)
 	}
-	page := documentHTML(blocks, artwork{images: []string{"diagram-1.svg", "diagram-2.svg"}}, Options{TitlePage: true, TOC: true, NumberSections: true})
+	page := documentHTML(blocks, artwork{diagrams: []diagram{{Image: "diagram-1.svg"}, {Image: "diagram-2.svg"}}}, Options{TitlePage: true, TOC: true, NumberSections: true})
 	if !strings.Contains(page, "diagram-2.svg") {
 		t.Fatal("second diagram missing from HTML")
 	}

@@ -564,6 +564,7 @@ jobs:
       - docs
       - java-test
       - node-test
+      - pdf-toolchain
       - python-test
       - race-tests
       - rust-test
@@ -582,6 +583,7 @@ jobs:
           DOCS_RESULT: ${{ needs.docs.result }}
           JAVA_TEST_RESULT: ${{ needs.java-test.result }}
           NODE_TEST_RESULT: ${{ needs.node-test.result }}
+          PDF_TOOLCHAIN_RESULT: ${{ needs.pdf-toolchain.result }}
           PYTHON_TEST_RESULT: ${{ needs.python-test.result }}
           RACE_TESTS_RESULT: ${{ needs.race-tests.result }}
           RUST_TEST_RESULT: ${{ needs.rust-test.result }}
@@ -595,6 +597,7 @@ jobs:
              ! ok "$DOCS_RESULT" ||
              ! ok "$JAVA_TEST_RESULT" ||
              ! ok "$NODE_TEST_RESULT" ||
+             ! ok "$PDF_TOOLCHAIN_RESULT" ||
              ! ok "$PYTHON_TEST_RESULT" ||
              ! ok "$RACE_TESTS_RESULT" ||
              ! ok "$RUST_TEST_RESULT" ||
@@ -606,6 +609,7 @@ jobs:
             echo "docs=$DOCS_RESULT"
             echo "java-test=$JAVA_TEST_RESULT"
             echo "node-test=$NODE_TEST_RESULT"
+            echo "pdf-toolchain=$PDF_TOOLCHAIN_RESULT"
             echo "python-test=$PYTHON_TEST_RESULT"
             echo "race-tests=$RACE_TESTS_RESULT"
             echo "rust-test=$RUST_TEST_RESULT"
@@ -613,6 +617,78 @@ jobs:
             echo "vscode-extension=$VSCODE_EXTENSION_RESULT"
             exit 1
           fi
+
+  # The PDF backend drives external tools (WeasyPrint, pandoc, mermaid-cli,
+  # KaTeX, Graphviz, the PlantUML jar) as subprocesses; the Go suite above
+  # tests that contract with fakes. This job runs the integration tests
+  # against the pinned toolchain, with an absent tool a failure, not a skip.
+  pdf-toolchain:
+    name: PDF toolchain tests
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    env:
+      OPENSYSML_REQUIRE_PDF_TOOLCHAIN: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Python
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Keyed on the provisioning script, whose pins and digests are the
+      # toolchain's identity; the venv is not restored across Python builds.
+      - name: Cache the PDF toolchain
+        id: toolchain-cache
+        uses: actions/cache@v4
+        with:
+          path: build/doc-pdf
+          key: doc-pdf-toolchain-${{ runner.os }}-${{ hashFiles('scripts/download-doc-pdf-toolchain.sh') }}-py${{ steps.setup-python.outputs.python-version }}
+
+      # WeasyPrint's venv links against the system's Pango and the browser
+      # mermaid-cli launches needs its shared libraries.
+      - name: Install the toolchain's system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
+            libnss3 libatk-bridge2.0-0 libgbm1 libxkbcommon0 libasound2t64 fonts-dejavu-core
+
+      - name: Provision the PDF toolchain
+        run: ./scripts/download-doc-pdf-toolchain.sh
+
+      - name: Run the PDF integration tests
+        env:
+          OPENSYSML_PANDOC: ${{ github.workspace }}/build/doc-pdf/pandoc-3.10.2/bin/pandoc
+          OPENSYSML_WEASYPRINT: ${{ github.workspace }}/build/doc-pdf/weasyprint/bin/weasyprint
+          OPENSYSML_MMDC: ${{ github.workspace }}/build/doc-pdf/mermaid/node_modules/.bin/mmdc
+          OPENSYSML_MMDC_PUPPETEER: ${{ github.workspace }}/build/doc-pdf/mermaid/puppeteer.json
+          OPENSYSML_KATEX: ${{ github.workspace }}/build/doc-pdf/katex/node_modules/.bin/katex
+          OPENSYSML_DOT: ${{ github.workspace }}/build/doc-pdf/graphviz/bin/dot
+          OPENSYSML_PLANTUML_JAR: ${{ github.workspace }}/build/doc-pdf/plantuml/plantuml-1.2026.8.jar
+        run: go test -count=1 -v -run Installed ./internal/docpdf
 
   vscode-extension:
     name: VS Code extension

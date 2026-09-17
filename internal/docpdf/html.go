@@ -20,17 +20,17 @@ type Options struct {
 	NumberSections bool
 }
 
-// artwork is what was pre-rendered for a page: Mermaid diagrams as image
-// files, in block order, and formulas as typeset HTML.
+// artwork is what was pre-rendered for a page: diagram blocks as image files
+// or notices, in block order, and formulas as typeset HTML.
 type artwork struct {
-	images []string
-	math   formulas
+	diagrams []diagram
+	math     formulas
 }
 
 // documentHTML writes the parsed document as one standalone, deterministic
-// HTML page for a converter to lay out. Mermaid blocks reference the images
-// in art, formulas show the HTML typeset there, and DOT blocks are kept as
-// source.
+// HTML page for a converter to lay out. Diagram blocks reference the images
+// in art or keep their source under a notice, and formulas show the HTML
+// typeset there.
 func documentHTML(blocks []block, art artwork, opts Options) string {
 	var b strings.Builder
 	b.WriteString("<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n")
@@ -103,7 +103,7 @@ func writeTOC(b *strings.Builder, blocks []block, math formulas, opts Options) {
 // writeContent writes every block after the title heading.
 func writeContent(b *strings.Builder, blocks []block, art artwork, opts Options) {
 	var counters []int
-	image := 0
+	drawn := 0
 	seenTitle := false
 	for _, blk := range blocks {
 		switch blk.Kind {
@@ -131,17 +131,13 @@ func writeContent(b *strings.Builder, blocks []block, art artwork, opts Options)
 			writeList(b, blk, art.math)
 		case blockFormula:
 			b.WriteString("<div class=\"formula\">" + art.math.typeset(formula{Source: blk.Source, Display: true}) + "</div>\n")
-		case blockMermaid:
-			if image < len(art.images) {
-				b.WriteString("<figure><img src=\"" + html.EscapeString(art.images[image]) + "\" alt=\"diagram\"></figure>\n")
-				image++
+		case blockMermaid, blockDOT, blockPlantUML:
+			var d diagram
+			if drawn < len(art.diagrams) {
+				d = art.diagrams[drawn]
 			}
-		case blockDOT:
-			b.WriteString("<figure class=\"dot\"><p class=\"notice\"><em>" + html.EscapeString(dotNotice) + "</em></p>\n" +
-				"<pre>" + html.EscapeString(blk.Source) + "</pre></figure>\n")
-		case blockPlantUML:
-			b.WriteString("<figure class=\"plantuml\"><p class=\"notice\"><em>" + html.EscapeString(plantumlNotice) + "</em></p>\n" +
-				"<pre>" + html.EscapeString(blk.Source) + "</pre></figure>\n")
+			drawn++
+			writeDiagramHTML(b, blk, d)
 		}
 	}
 }
