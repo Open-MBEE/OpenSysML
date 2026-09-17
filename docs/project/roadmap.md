@@ -1738,22 +1738,28 @@ Four query surfaces exist and are landed: the standard API `Query` over a projec
 (`internal/grpc`, the OSLC query grammar with its diagnostics — #798, #812), the native document
 query (`query def` with parameters, planned by `internal/core/queryplan` and run by
 `internal/core/queryexec`, from the CLI, the REPL and gRPC), `Evaluate`/`-eval`/`%eval in`, and the
-solver's `solve`. Two of the four reach the runtime: `Evaluate`/`-eval`/`%eval in` since 0.8.0 —
+solver's `solve`. Two of the four answer from the runtime: `Evaluate`/`-eval`/`%eval in` since 0.8.0 —
 `all T` enumerates the objects a run holds (X5) and `%eval in #1` reads an object's current values
 — and the document query since #267 and #293 on `develop`, whose rows may be the objects
 `%instantiate`, `-instantiate` and the service's `Instantiate` create, whose operations read what
 they hold now, and whose parameters bind to a held object from the REPL, the CLI and gRPC alike.
-The API `Query` and `solve` read the *model* alone, no surface reaches the trace `-trace` prints,
-and the documentation does not yet say which surface answers which question. That is the rest of
-the track.
+The API `Query` reads the *model* alone; the solver decides satisfiability rather than reading
+what holds, though `%solve` pins the values a matching held object has before synthesising the
+rest. No surface reaches the trace `-trace` prints. That is the rest of the track.
 
-## Q1 — say which query is which
+## Q1 — say which query is which (done)
 
 One page distinguishing the four: document queries over elements, the API `Query` over a project,
 `Evaluate` over one expression in one scope, and `solve` over constraints; what each returns, what
-each cannot see, and where runtime queries (Q2–Q4) sit. Cheap, and it stops each later item from
-re-explaining the boundary. Unblocked — #293 completed the set the page describes — and not
-started.
+each cannot see, and where runtime queries (Q2–Q4) sit. **Done**: the document-generation manual's
+[Which query is which](../manual/query-kinds.md) is that page — one row per surface with what it
+reads, what it returns, what it cannot see and its entry points, then a section apiece — and the
+manual's [interfaces](../manual/interfaces.md) and [outputs](../manual/outputs.md)
+chapters carry the runtime side of the document query: a parameter bound to a held object by name,
+`#id` or path from the CLI, the REPL and the Python client (`ObjectRef`), `-instantiate` beside
+`-render-document`, `Verdicts` rows (`DocumentVerdict` in the Python client) and the `data-object`,
+`data-verdict` and `data-path` attributes the HTML carries. Each later item points at that page
+rather than re-explaining the boundary.
 
 ## Q2 — a runtime population: `all T`, and predicates over instances (landed; the query side unreleased)
 
@@ -2693,8 +2699,8 @@ Tracks F, S, L and A are closed.
   and *002*, which E1 added at the same region-entry site; *Transition 017* is the record's second
   decision (two admitted traces no reading of the model produces); the remaining five cite a
   *differs, v2 silent* alignment row.
-- **Track Q** — Q1, unblocked now that #293 closed Q2; Q3, unblocked by A5 and by Q2's object
-  rows, not started.
+- **Track Q** — Q3, unblocked by A5 and by Q2's object rows, not started; Q1 is written and Q2
+  and Q4 are done.
 - **Track X** — X7's RDF literal form and native layout for sets and tensors; X8's two harness
   halves (pilot-differential numeric normalization with an adjudication file, and a standalone
   RDF expression-tree round trip).
@@ -2727,9 +2733,10 @@ The release housekeeping the previous order opened with is done — #286 folded 
    for the maintainers — whether default-policy trace goldens may gain `choice` lines, and two
    admitted traces of *Transition 017* no reading of the model produces. Those decisions, then
    the code, run beside E2 without touching it.
-2. **Q1, then Q3** — Q1 is the page that says which query is which, written now that the set is
-   complete (#267, #289 and #293 closed Q2 on `develop`); Q3 (state and event queries) follows on
-   A5's clock and Q2's object rows. Q4 (#849) landed independently ahead of it.
+2. **Q3** — state and event queries, on A5's clock and Q2's object rows. Q1, the page that says
+   which query is which, is written in the document-generation manual now that the set is
+   complete (#267, #289 and #293 closed Q2 on `develop`); Q4 (#849) landed independently ahead
+   of it.
 3. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
    C client, each derived from the wire contract (I1, landed in #848); the C *ABI* half of I4 is
    not here — it is step 7.
@@ -2811,7 +2818,7 @@ an empty action end its performance. The decision is the release checklist's, re
   on `develop` after the tag, A7's carrier walk shared with Q2's query side (#267), and #344 gave
   A3's Monte Carlo the modeled randomness it had refused by name. Nothing remains in the track.
 - **Track Q.** Q4 is done; Q2's expression half landed with X5 and its query side in #267, #289
-  and #293 on `develop` after the tag, which closes Q2; Q1 and then Q3 are step 2 above.
+  and #293 on `develop` after the tag, which closes Q2; Q1 is written; Q3 is step 2 above.
 - **Track V.** Everything queued has landed (#822, #900, #831, #817, the rule pull requests, #811
   reconciled with #907, #909); work the census's 1 *not implemented* and 53 *unknown* rows,
   negative case first, each change moving its row.

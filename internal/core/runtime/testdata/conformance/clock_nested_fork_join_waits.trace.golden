@@ -1,0 +1,33 @@
+step 1: token 1@legs
+eval literal 0 -> 0
+step 1: token 1@f
+step 2: token 2@a, token 3@b
+  eval literal 2 -> 2
+eval index -> 2 [s]
+  eval literal 1 -> 1
+eval index -> 1 [s]
+step 3: token 2@a2, token 3@b
+stmt assign reached
+    eval feature reached -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 4: token 2@j, token 3@b
+step 5: token 2@j, token 3@b
+step 6: token 2@j, token 3@b2
+stmt assign reached
+    eval feature reached -> 1
+    eval literal 10 -> 10
+  eval operator + -> 11
+step 7: token 2@j, token 3@j
+step 8: token 4@done
+step 9: no active tokens
+step 2: token 1@tail
+  eval literal 1 -> 1
+eval index -> 1 [s]
+step 3: token 1@sum
+stmt assign total
+    eval chain reached -> 11
+    eval literal 100 -> 100
+  eval operator + -> 111
+step 4: token 1@done
+step 5: no active tokens
