@@ -84,8 +84,12 @@ is not:
   it; the Mermaid form can only carry the same numbers as `%%` comments.
 
 Producing DOT needs **no Graphviz installation**. The writer is text over the rendering tree,
-exactly as `mermaid.go` is, and nothing in the repository runs a Graphviz binary — not the writer,
-not the tests, not the PDF backend.
+exactly as `mermaid.go` is, and neither the writer nor its tests run a Graphviz binary. The one
+place that does is the PDF backend, and only to draw the figure it embeds: `internal/docpdf`
+runs the `dot` that `OPENSYSML_DOT` names (else the one on `PATH`) with `-Tsvg`, under the engine
+the block's `// layout:` header names, so a positioned view is drawn where its `Layout`s put
+it. Without a Graphviz the PDF keeps the DOT source under a notice, as it does without any
+optional tool — see [Surfaces](#surfaces).
 
 ## What the DOT writer emits
 
@@ -306,9 +310,12 @@ the output.
 The `plantuml` form is for toolchains that draw with PlantUML — the OMG Pilot's own visualizer
 among them — and for the one graph-shaped kind DOT has no grammar for, the sequence. It is
 produced by pure text emission over the rendering tree, as the other forms are: **no Java and no
-PlantUML jar** is needed to write it, and nothing in the repository — writer, tests, surfaces, PDF
-backend — runs one. A jar, when present on a developer's machine, checks the goldens by hand
-(`java -jar plantuml.jar -checkonly`) or draws them; it is neither a dependency nor a CI step.
+PlantUML jar** is needed to write it, and neither the writer, its tests nor the CLI, REPL and LSP
+surfaces run one. A jar, when present on a developer's machine, checks the goldens by hand
+(`java -jar plantuml.jar -checkonly`) or draws them; it is not a dependency of the writer. The PDF
+backend alone runs it, to draw the figure it embeds: `internal/docpdf` pipes each block through
+`java -jar $OPENSYSML_PLANTUML_JAR -tsvg -pipe`, the `java` from `OPENSYSML_JAVA` or `PATH`, and
+keeps the source under a notice when either is absent — see [Surfaces](#surfaces).
 
 ```plantuml
 @startuml
@@ -457,7 +464,8 @@ every palette, and text stays black.
 | CLI | `-render <view> -render-form dot\|plantuml`; `-render-all <dir> -render-form dot` writes `.dot` files and `-render-form plantuml` writes `.puml` files; `-render-palette <name>` fills either | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view) |
 | REPL | `%render <view> dot\|plantuml [palette]`; `%help` names them; the form and, after a form that takes one, the palette complete | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
 | LSP | `"form": "dot"` or `"plantuml"` and `"palette": "<name>"` on `opensysml/render` | [`docs/reference/lsp.md`](../reference/lsp.md) |
-| Documents | `-render-document`/`-render-documents … -diagram-form dot\|plantuml`, `%render-document <name> dot\|plantuml`, `"diagramForm"` on `opensysml/renderDocument`: every graph-shaped diagram block as a ` ```dot ` or ` ```plantuml ` fence in Markdown, `<pre class="dot">` or `<pre class="plantuml">` in HTML, the source under a notice in PDF. The form is chosen at render time, not stated in the model: a `Diagram` block says what is drawn, not the notation — though it may state a `palette`, as it states a `direction`, which the DOT or PlantUML figure is filled with and the HTML figure carries as `data-palette` | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md) |
+| VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented five for a server without it), sends the pick as `form`, and saves `.dot` or `.puml` (`.mmd`, `.md`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
+| Documents | `-render-document`/`-render-documents … -diagram-form dot\|plantuml`, `%render-document <name> dot\|plantuml`, `"diagramForm"` on `opensysml/renderDocument`: every graph-shaped diagram block as a ` ```dot ` or ` ```plantuml ` fence in Markdown, `<pre class="dot">` or `<pre class="plantuml">` in HTML; in PDF, a figure drawn by Graphviz (`OPENSYSML_DOT`, else `dot` on `PATH`; `-Tsvg` under the engine the `// layout:` header names) or by the PlantUML jar (`OPENSYSML_PLANTUML_JAR`, run by `OPENSYSML_JAVA` or the `java` on `PATH`, `-tsvg -pipe`), and the source under a notice naming the variable to set when the tool is absent; a tool that fails is the typed `tool-failed` error with its stderr, as `mmdc` is. The form is chosen at render time, not stated in the model: a `Diagram` block says what is drawn, not the notation — though it may state a `palette`, as it states a `direction`, which the DOT or PlantUML figure is filled with and the HTML figure carries as `data-palette` | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md), [`docs/reference/environment.md`](../reference/environment.md) |
 
 The gRPC service (`api/proto/sysml.proto`, `internal/grpc`) has no view-render RPC and no
 render-form field — `RenderDocument` alone, to Markdown — so the wire contract carries no form
@@ -514,15 +522,31 @@ and did not change. A view-render RPC added later would take the form as a strin
 - `internal/core/docrender`, `docpdf`, `cmd/sysml`, `internal/repl`, `internal/lsp`: the
   render-time diagram form defaulting to Mermaid, written as a `dot` or `plantuml` fence and a
   `<pre class="dot">` or `<pre class="plantuml">` for every graph-shaped block with tables left
-  as tables, refused for an unknown form and for a kind with no DOT form, and kept as source in
-  the PDF under its own notice without a diagram tool being looked for.
+  as tables, refused for an unknown form and for a kind with no DOT form.
+- `internal/docpdf/diagrams_test.go`, `cmd/sysml/render_document_pdf_test.go`: with fake tools, a DOT block drawn by the `dot` that
+  `OPENSYSML_DOT` names and a PlantUML block by `java -jar <jar> -tsvg -pipe` fed on stdin; the
+  `// layout:` header choosing `dot`, `neato`, `neato -n` and `neato -n2`; the block kept as
+  source under a notice naming `OPENSYSML_DOT`, `OPENSYSML_PLANTUML_JAR` or `OPENSYSML_JAVA` when
+  the tool is absent; a failing tool or one that writes no SVG the typed `tool-failed` error
+  carrying its stderr; Mermaid, DOT and PlantUML blocks of one document drawn in source order,
+  Mermaid still required. `internal/docpdf/integration_test.go` draws through the pinned Graphviz
+  and PlantUML that `scripts/download-doc-pdf-toolchain.sh` provisions — an ordinary graph, a
+  `neato -n` layout whose nodes stay where the model put them, a malformed PlantUML refused with
+  `Syntax Error` — and CI's `pdf-toolchain` job runs it with `OPENSYSML_REQUIRE_PDF_TOOLCHAIN=1`,
+  so a missing tool there fails instead of skipping.
+- `editors/vscode/src/export.test.ts`, `internal/lsp/render_test.go`: the export picker offering
+  the server's forms, the pick sent as `form`, the artifact saved under `.dot`/`.puml`/`.mmd`/
+  `.md`/`.txt` with the matching filter, nothing sent or written when the pick or the save dialog
+  is dismissed; the server advertising `openSysmlRenderForms` and answering each form it lists.
 
 ## Known limitations
 
 - A `Route` is written as the polyline through its waypoints; the writer does not smooth it
   into a curve, and Graphviz draws it as given.
-- The PDF backend does not draw a DOT or a PlantUML diagram. It keeps the source readable under
-  a notice, and looks for no Graphviz or PlantUML tool.
+- The PDF backend draws a DOT or PlantUML diagram only when the tool is installed: Graphviz and
+  the PlantUML jar are optional, so without them the source stays readable under a notice
+  naming the variable to set, where a missing `mmdc` is an error. The figure is embedded as SVG;
+  Graphviz's own `-Tpdf` output is not embedded by WeasyPrint.
 - A `sequence` rendering has no DOT form. DOT has no sequence-diagram vocabulary; the Mermaid
   `sequenceDiagram` and PlantUML sequence forms are its machine-readable ones.
 - The PlantUML form cannot pin a position or a route: DiagramLayout geometry is written as
