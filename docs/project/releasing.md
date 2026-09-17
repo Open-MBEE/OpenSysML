@@ -2,16 +2,18 @@
 
 A release is cut by pushing a `v*` tag. Everything after that is CircleCI: the
 `release` workflow runs the test suite, cross-compiles `sysml`, `sysml-lsp` and
-`sysml-grpc` for five platforms, and publishes them to a GitHub release. Nothing
-is published from a laptop.
+`sysml-grpc` for five platforms, builds the Python client's wheel and sdist, and
+publishes all of them to a GitHub release and the package to PyPI. Nothing is
+published from a laptop.
 
-The Python client is released separately, by a `opensysml-v*` tag, which runs the
-`release-python` workflow and uploads `opensysml` to PyPI — see
-[Releasing opensysml to PyPI](#releasing-opensysml-to-pypi). The two are independent
-on purpose: `opensysml` resolves a `sysml-grpc` binary at runtime from whichever
-release the caller names, not from a release matching its own version.
+The Python client is released in lockstep with the core: the same `v<version>` tag
+publishes `opensysml` `<version>` to PyPI, and the workflow refuses to build anything
+unless `clients/python/opensysml/_version.py` declares that version — see
+[Releasing opensysml to PyPI](#releasing-opensysml-to-pypi). A caller who pins one
+version therefore gets the package and the `sysml-grpc` binary that were tested
+together.
 
-A third tag, `pysysml-v*`, publishes the one-off final release of the client's
+A second tag, `pysysml-v*`, publishes the one-off final release of the client's
 pre-rename PyPI name — see [The final `pysysml` release](#the-final-pysysml-release).
 
 The other clients are released on tags of their own, and none of them has been
@@ -23,7 +25,8 @@ own: it is part of this module, so the core's `v*` tag is what a Go program pins
 
 Between releases, `.github/workflows/nightly.yml` builds the newest green `develop`
 commit every night with `scripts/build-release-artifacts.sh` — the same targets,
-platforms and layout as `build-release` below — and publishes it as the moving
+platforms and layout as `build-release` below, minus the Python distribution, which
+only a release publishes — and publishes it as the moving
 prerelease `nightly`, never marked latest and signed by the workflow's own GitHub
 identity rather than the CircleCI one the clients pin. It touches nothing described on
 this page: the `nightly` tag matches neither the `v*` filter of the `release` workflow
@@ -44,8 +47,8 @@ go test -race -count=1 ./...
 go test -run TestStdlibConformance ./internal/core/libs
 ```
 
-Run the Python client the way CircleCI's `python-test` job does, since a
-`opensysml-v*` release gates on the same suite:
+Run the Python client the way CircleCI's `python-test` job does, since a release
+gates on the same suite:
 
 ```bash
 make build-grpc && mkdir -p ~/.opensysml/bin && cp bin/sysml-grpc ~/.opensysml/bin/
@@ -97,8 +100,11 @@ branch that moves the integration state onto `main`:
 
 2. Fold the changelog fragments on that branch — `python3 scripts/changelog.py release 0.0.5`,
    as [Before tagging](#before-tagging) describes — and commit `CHANGELOG.md` together with the
-   deleted fragments. Anything else the release needs (a version string in code, a doc that
-   names the version) lands here too; a feature does not. Check the wire compatibility
+   deleted fragments. Set `VERSION` in `clients/python/opensysml/_version.py` to `x.y.z` as
+   well: the tag publishes `opensysml` at the core version, and the release workflow fails
+   before building anything when the two disagree (see
+   [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi)). Anything else the release
+   needs (a doc that names the version) lands here too; a feature does not. Check the wire compatibility
    against the released schema, not the branch's own source:
    `make proto-breaking BUF_BREAKING_REF=origin/main` (the default baseline is
    `origin/develop`; the pull-request workflow uses the base branch, so the PR to `main`
@@ -141,7 +147,8 @@ and where development happens: every release from v0.0.1 on is tagged on its
 to a fork builds a release nobody consumes.
 
 Tags are matched by `/^v.*/` in `.circleci/config.yml`. A tag on a commit that
-fails the suite fails the release workflow before anything is published.
+fails the suite fails the release workflow before anything is published, and so
+does a tag whose version `clients/python/opensysml/_version.py` does not declare.
 
 ## What CircleCI publishes
 
@@ -157,7 +164,10 @@ fails the suite fails the release workflow before anything is published.
 - `sysml-grpc-<os>-<arch>`, published raw with a `.sha256` sidecar rather than
   archived, because that is what `opensysml` downloads and verifies
   (`clients/python/opensysml/binary.py`) when it starts the service for a Python caller;
-- `SHA256SUMS.txt` over every archive and every `sysml-grpc` binary.
+- the Python client's distribution, `opensysml-<x.y.z>-py3-none-any.whl` and
+  `opensysml-<x.y.z>.tar.gz`, built by `build-python-package` and the same files
+  `publish-pypi` uploads (see [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi));
+- `SHA256SUMS.txt` over every archive, the wheel and every `sysml-grpc` binary.
 
 Platforms: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64,
 windows/amd64.
@@ -168,7 +178,10 @@ are the only thing stamping the tag into a binary, and a binary reporting `dev`
 or a stale tag looks the same on the release page as a correct one — that is how
 an artifact whose version disagreed with its tag reached a release once already.
 The check runs the linux/amd64 builds; the cross-compiled ones cannot run on the
-executor, so each is checked for the tag string the ldflags write into it.
+executor, so each is checked for the tag string the ldflags write into it. The
+wheel and sdist are checked by name: both carry the version in their file name,
+and `build-python-package` has already imported the wheel and compared
+`opensysml.__version__` to the tag.
 
 `publish-github-release` uploads them with `ghr`, using a token from
 `GITHUB_TOKEN`, `GH_TOKEN` or `CIRCLE_TOKEN` in the CircleCI project settings.
@@ -176,6 +189,13 @@ It runs with `-replace`, so re-running the workflow for the same tag replaces
 that release's assets rather than appending duplicates, and leaves everything
 else on the release alone: notes, title and the prerelease/latest flags survive.
 A tag that has no release yet still gets one created.
+
+`publish-pypi` runs after it, off the same built artifacts, and is the one step
+of a release that cannot be repeated: PyPI never accepts a version twice, so on a
+re-run of a published tag it fails by design while the GitHub assets are replaced
+(see [What the jobs do, in order](#what-the-jobs-do-in-order)). Running it after
+the GitHub release means the package version never exists without the release
+it names; if the GitHub upload fails, nothing irreversible has happened yet.
 
 Do not go back to `-delete`. It is an alias of `-recreate`: it deletes the
 existing release *and its tag* and creates an empty one, which wipes
@@ -220,6 +240,18 @@ one alongside it).
 
    A missing bundle means `build-release` did not sign — re-run the tag's
    workflow rather than pinning around it.
+
+   Then install the Python client the release published, from the index rather
+   than the source tree, and run it against the release's own `sysml-grpc` — the
+   pairing a user who pins one version gets (see
+   [Verifying an upload](#verifying-an-upload)):
+
+   ```bash
+   python -m venv /tmp/opensysml-verify && . /tmp/opensysml-verify/bin/activate
+   pip install opensysml==0.0.5
+   OPENSYSML_GRPC_VERSION=v0.0.5 python -c \
+     "import opensysml; print(opensysml.__version__, opensysml.load('examples/state-machine-demo.sysml').diagnostics)"
+   ```
 
 2. **Let the Homebrew tap pick the release up.** The tap repository
    `Open-MBEE/homebrew-tap` updates itself: a scheduled workflow there resolves
@@ -604,30 +636,47 @@ that organization.
 ## Releasing opensysml to PyPI
 
 The Python client in `clients/python/` is published to PyPI as
-[`opensysml`](https://pypi.org/project/opensysml/) by the `release-python` workflow,
-which runs on a tag matching `/^opensysml-v.*/` — for example `opensysml-v0.3.0`.
-The first release under the new name is 0.3.0: the version line carries on from
-`pysysml` 0.2.0, which was the same client, so no version number is reused.
-Nothing is uploaded from a laptop, and a `v*` core release tag publishes no
-package.
+[`opensysml`](https://pypi.org/project/opensysml/) by the `release` workflow — the
+same `v<version>` tag that publishes the binaries, and at the same version: `v0.9.0`
+publishes `opensysml` 0.9.0. Nothing is uploaded from a laptop, and no other tag
+publishes the package. Releases up to 0.5.0 were cut on a tag of their own,
+`opensysml-v<version>`, which the workflow no longer matches; the version line
+before that carries on from `pysysml` 0.2.0, which was the same client, so no version
+number is reused.
 
-### Why its own tag
+### Why the same tag
 
 `opensysml` does not ship the service: it downloads a `sysml-grpc` binary at
 runtime for whatever release the caller names (`version=`,
 `$OPENSYSML_GRPC_VERSION`, or `latest`), verifying it against the digest it pins
 for that release (its copy of `clients/release-digests.json`) or, for a
 release it pins nothing for, against the digest in the release's signed
-`SHA256SUMS.txt` (see [the signed checksum manifest](#the-signed-checksum-manifest)),
-which is why a core release published after a client release needs no new client
-release. Its version therefore says nothing about which core release it runs
-against, and tying the two together would put a new, immutable PyPI version on
-every core release and would block a client-only fix behind a core release.
+`SHA256SUMS.txt` (see [the signed checksum manifest](#the-signed-checksum-manifest)).
+That flexibility is what makes an uncoordinated pair hard to test: a package at one
+version against a service at another is a combination nobody ran the suite on.
+Releasing the two together from one tag means every `opensysml` version has a core
+release of the same version, tested with it in the same pipeline, and a caller who
+wants exactly that pairing pins one number:
 
-Keeping them apart also protects the `v*` path: `publish-github-release` runs
-`ghr -replace`, so re-running a core release is an ordinary operation, while a
-PyPI version can be yanked but never re-uploaded. A re-run must never have an
-irreversible upload hanging off it.
+```bash
+pip install opensysml==0.9.0
+export OPENSYSML_GRPC_VERSION=v0.9.0
+```
+
+The wheel and sdist go on the GitHub release too, listed in the signed
+`SHA256SUMS.txt`, so the release page holds every deliverable of that version.
+
+The cost is that a client-only fix is a core release (a patch tag, with the
+binaries rebuilt from the same source), and that one step of a release is
+irreversible: `publish-github-release` runs `ghr -replace`, so re-running a tag's
+workflow replaces the GitHub assets, while a PyPI version can be yanked but never
+re-uploaded. `publish-pypi` therefore refuses a version the index already has, and
+on a re-run of a published tag that job fails by design while the rest of the
+workflow succeeds — the package was already published from the same revision, so
+nothing is missing. The upload runs last, only after the whole suite has passed on
+the tagged revision and the GitHub release is published, so a failure anywhere
+else — a rebuild, an expired GitHub token — never leaves a package on PyPI whose
+release does not exist.
 
 ### The version, in one place
 
@@ -650,14 +699,26 @@ the dist-info's directory, which for an editable install is a site-packages path
 holding no `opensysml/` at all.
 
 The tag must name the declared version. `clients/python/scripts/check_version.py` is run
-by the job before anything is built, and fails loudly otherwise:
+by `build-python-package` before anything is built, and fails loudly otherwise:
 
 ```bash
-python clients/python/scripts/check_version.py --tag opensysml-v0.3.0   # prints 0.3.0
+python clients/python/scripts/check_version.py --tag v0.9.0   # prints 0.9.0
 ```
 
-So a release is: bump `VERSION` in `clients/python/opensysml/_version.py`, land it, then
-tag `opensysml-v<that version>`.
+So setting `VERSION` in `clients/python/opensysml/_version.py` to the version being
+released is a step of [the release branch](#the-release-branch), beside folding the
+changelog; a `v*` tag pushed while the two disagree fails the release before a binary
+is built. The tag is SemVer and the declaration is PEP 440 in canonical form, so the
+check translates the tag before comparing: `v0.9.0` names `0.9.0`, and a pre-release
+tag `v0.9.0-rc1` (or `v0.9.0-rc.1`) names `0.9.0rc1`, which is what `VERSION` must say
+(`0.9.0-rc1` is refused, since the build tools would name the files `0.9.0rc1` anyway).
+Only `-alpha.N`, `-beta.N` and `-rc.N` are accepted as pre-release suffixes, the ones
+with a single PEP 440 meaning; a tag like `v0.9.0-1` is refused rather than read as
+the post-release `0.9.0.post1` and sent to PyPI proper.
+
+```bash
+python clients/python/scripts/check_version.py --tag v0.9.0-rc1   # prints 0.9.0rc1
+```
 
 ### What the job needs
 
@@ -709,31 +770,47 @@ GitHub Actions, Google Cloud, ActiveState and GitLab CI/CD, and CircleCI support
 is still open upstream ([pypi/warehouse#13888](https://github.com/pypi/warehouse/issues/13888)).
 An API token is the authentication CircleCI has.
 
-### What the job does, in order
+### What the jobs do, in order
+
+Two jobs of the `release` workflow, so the distribution is built once and the same
+bytes go to the GitHub release and to PyPI.
+
+`build-python-package`, which runs beside the Go suite and gates `build-release`:
 
 1. `check_version.py` — the tag must name the declared version.
+2. `python -m build` — wheel *and* sdist, into `clients/python/dist/`.
+3. `twine check --strict` — the metadata a broken listing comes from.
+4. Installs the built wheel into a clean virtualenv, imports it, and checks
+   `opensysml.__version__` is the version being published.
+5. Persists `clients/python/dist/` to the workspace. `build-release` copies both
+   files into `dist/`, lists them in `SHA256SUMS.txt` before signing it, and checks
+   their names carry the tag's version.
+
+`publish-pypi`, which runs last, after the Go suite, the Python client tests,
+`build-release` and `publish-github-release` have all passed on the tagged revision:
+
+1. Resolves the version from the tag again and checks the workspace holds the
+   wheel and sdist of that version.
 2. Requires the token for the index it will use.
 3. Refuses to continue if that index already has this version (a re-run of an
    already-published version fails here, deliberately: it cannot be replaced,
    and `--skip-existing` would let a half-intended re-run look successful).
-4. `python -m build` — wheel *and* sdist.
-5. `twine check --strict dist/*` — the metadata a broken listing comes from.
-6. Installs the built wheel into a clean virtualenv, imports it, and checks
-   `opensysml.__version__` is the version being published.
-7. `twine upload` with `TWINE_USERNAME=__token__` and the token from the
-   context.
+4. `twine check --strict` again, then `twine upload` with
+   `TWINE_USERNAME=__token__` and the token from the context.
 
 ### Dry run on TestPyPI
 
 A **pre-release version publishes to TestPyPI instead of PyPI** — that is the
-whole rule, so the happy path has no extra switch to forget. To rehearse a
-release:
+whole rule, so the happy path has no extra switch to forget. Since the tag is
+the core's, a rehearsal is a core pre-release: it builds and publishes the
+binaries to a GitHub release like any other tag, and only the package's
+destination changes.
 
 ```bash
-# 1. Declare a pre-release version, e.g. VERSION = "0.3.0rc1"
+# 1. Declare a pre-release version, e.g. VERSION = "0.9.0rc1"
 $EDITOR clients/python/opensysml/_version.py
-# 2. Land it, then tag it
-git tag -a opensysml-v0.3.0rc1 -m "opensysml 0.3.0rc1" && git push origin opensysml-v0.3.0rc1
+# 2. Land it, then tag it (the SemVer spelling of the same version)
+git tag -a v0.9.0-rc1 -m "v0.9.0-rc1" && git push origin v0.9.0-rc1
 ```
 
 The job resolves the version, sees a PEP 440 pre-release, requires
@@ -744,11 +821,11 @@ dependencies from PyPI:
 ```bash
 python -m venv /tmp/opensysml-rc && . /tmp/opensysml-rc/bin/activate
 pip install --index-url https://test.pypi.org/simple/ \
-            --extra-index-url https://pypi.org/simple/ opensysml==0.3.0rc1
-python -c "import opensysml; print(opensysml.__version__)"
+            --extra-index-url https://pypi.org/simple/ opensysml==0.9.0rc1
+OPENSYSML_GRPC_VERSION=v0.9.0-rc1 python -c "import opensysml; print(opensysml.__version__)"
 ```
 
-Then set `VERSION` to the final version and tag `opensysml-v0.3.0`.
+Then set `VERSION` to the final version and tag `v0.9.0`.
 
 Nothing about the pre-release path is required for a normal release; if you skip
 it, no TestPyPI token is needed at all.
@@ -759,15 +836,15 @@ In a clean virtualenv, from the index — not from the source tree:
 
 ```bash
 python -m venv /tmp/opensysml-verify && . /tmp/opensysml-verify/bin/activate
-pip install opensysml==0.3.0
-python -c "import opensysml; print(opensysml.__version__)"    # must print 0.3.0
+pip install opensysml==0.9.0
+python -c "import opensysml; print(opensysml.__version__)"    # must print 0.9.0
 ```
 
-Then check the client end to end against a published core release, since that
-is what a user gets:
+Then check the client end to end against the core release of the same version,
+since that is the pairing the release tested:
 
 ```bash
-export OPENSYSML_GRPC_VERSION=v0.0.5          # a released core tag
+export OPENSYSML_GRPC_VERSION=v0.9.0          # the same tag
 python -c "import opensysml; print(opensysml.load('examples/state-machine-demo.sysml').diagnostics)"
 ```
 
@@ -779,8 +856,9 @@ metadata anyone reviewed.
 
 A PyPI version cannot be replaced. Yank it
 (PyPI → project → *Manage* → *Releases* → *Yank*, which hides it from resolvers
-without breaking a pin that already names it), bump `VERSION`, and tag again.
-Deleting a release frees nothing: the version number stays used.
+without breaking a pin that already names it), and cut the next core release —
+the package's version is the core's, so the fix is a patch tag, not a new
+`VERSION` alone. Deleting a release frees nothing: the version number stays used.
 
 ## Releasing @opensysml/client to npm
 
@@ -825,12 +903,13 @@ used: the CLI mints attestations only on GitHub Actions and GitLab CI/CD.
 
 ### Why its own tag
 
-The same reason as the Python client: the package resolves a service binary at
-run time rather than being lockstep with a core release, so a client-only fix
-should not wait for a core release, and a core release should not force an
-immutable npm version. An npm version can be deprecated or (within 72 hours,
-and only under conditions) unpublished, but never replaced — keeping that off
-the re-runnable `v*` path is deliberate.
+The package resolves a service binary at run time rather than being lockstep
+with a core release, so a client-only fix should not wait for a core release,
+and a core release should not force an immutable npm version. An npm version can
+be deprecated or (within 72 hours, and only under conditions) unpublished, but
+never replaced — keeping that off the re-runnable `v*` path is deliberate. The
+Python client made the other choice (see [Why the same tag](#why-the-same-tag));
+nothing has been published from this path yet, so it can still follow.
 
 ### What the job needs
 
@@ -943,7 +1022,7 @@ None of these can be provisioned from a checkout:
 
 `clients/java/pom.xml` declares the version once, and both modules inherit it
 from the parent. A release drops `-SNAPSHOT`, lands, and is tagged
-`opensysml-java-v<version>` — its own tag, for the reason the Python client has
+`opensysml-java-v<version>` — its own tag, for the reason the Node client has
 one: the client does not ship the service, so its version says nothing about
 which core release it runs against, and a Maven Central version can never be
 replaced, so it must not hang off a `v*` core tag that `ghr -replace` re-runs.
