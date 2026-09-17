@@ -591,26 +591,11 @@ func parseOrderChoice(fail func(string) (ChoiceTaken, error), step int, first, m
 	if !ok {
 		return fail(unclosedQuote)
 	}
-	if c.Kind == ChoiceDueOrder && isStepOrder(among) {
-		c.Kind = ChoiceStepOrder
-	}
 	c.Among, c.Alternatives, c.Taken = among, len(among), slices.Index(among, c.Took)
 	if c.Taken < 0 {
 		return fail(fmt.Sprintf("%s is not among %s", choiceLabel(c.Took), choiceLabels(among)))
 	}
 	return c, nil
-}
-
-// isStepOrder tells a do step against a dispatch from a due order at the same
-// instant: its alternatives are units, `do <state>` and `dispatch <event>`, never
-// the executors a due order names.
-func isStepOrder(among []string) bool {
-	for _, alt := range among {
-		if !strings.HasPrefix(alt, stepDoPrefix) && !strings.HasPrefix(alt, stepDispatchPrefix) {
-			return false
-		}
-	}
-	return len(among) > 0
 }
 
 // parseTransitionChoice reads `<where> -> <took>`, a decision branch inside a step

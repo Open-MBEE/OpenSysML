@@ -25,15 +25,12 @@ var errFrontClosed = errors.New("front closed")
 
 // The Where of an entry order names the composite whose regions are entered, or
 // the fork whose branches are; an exit order names the composite exited; a
-// region order among the units of firings names the occurrence they react to. A
-// step order's alternatives are units, `do <state>` and `dispatch <event>`.
+// region order among the units of firings names the occurrence they react to.
 const (
 	firingWherePrefix   = "on "
 	enteringWherePrefix = "entering "
 	forkWherePrefix     = "fork "
 	exitingWherePrefix  = "exiting "
-	stepDoPrefix        = "do "
-	stepDispatchPrefix  = "dispatch "
 )
 
 // entryLabel, exitLabel and effectLabel spell a unit as a PSSM trace does.
