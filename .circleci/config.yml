@@ -1026,16 +1026,9 @@ jobs:
             git add -N clients/node/src/generated
             git diff --exit-code clients/node/src/generated
 
-  # Publishes opensysml to PyPI on a `opensysml-v<version>` tag. PyPI has no
-  # trusted-publishing (OIDC) support for CircleCI — the supported providers are
-  # GitHub Actions, Google Cloud, ActiveState and GitLab CI/CD, and
-  # pypi/warehouse#13888 is the open request — so this authenticates with an API
-  # token supplied by the restricted `PyPI` context. An upload cannot be
-  # taken back (a version can be yanked, never re-uploaded), so everything that
-  # can fail is made to fail before `twine upload` runs: the tag/version check,
-  # `twine check --strict`, an install of the built wheel into a clean
-  # virtualenv, and a refusal when the version is already on the index.
-  publish-pypi:
+  # Builds the opensysml wheel and sdist on a core `v<version>` tag, which must name
+  # the declared version; build-release and publish-pypi ship exactly these bytes.
+  build-python-package:
     executor: python-executor
     steps:
       - checkout
@@ -1045,30 +1038,6 @@ jobs:
           command: python -m pip install --upgrade pip build twine packaging
 
       - run:
-          name: Require the publishing token
-          command: |
-            # A pre-release version goes to TestPyPI (the dry run described in
-            # docs/project/releasing.md), everything else to PyPI, so only the token for
-            # the index actually being used is required.
-            if [ "$(python clients/python/scripts/check_version.py --pre-release)" = "yes" ]; then
-              if [ -z "${TEST_PYPI_API_TOKEN:-}" ]; then
-                echo "Error: TEST_PYPI_API_TOKEN is not set, and ${CIRCLE_TAG} names a"
-                echo "pre-release version, which is published to TestPyPI."
-                echo "Add it to the 'PyPI' context (Organization Settings ->"
-                echo "Contexts) as a TestPyPI API token. See docs/project/releasing.md."
-                exit 1
-              fi
-            elif [ -z "${PYPI_API_TOKEN:-}" ]; then
-              echo "Error: PYPI_API_TOKEN is not set. This job authenticates to PyPI"
-              echo "with an API token, not OIDC, and refuses to run twine without one"
-              echo "rather than failing later with a 403."
-              echo "Add it to the 'PyPI' context (Organization Settings ->"
-              echo "Contexts) and make sure this job references that context."
-              echo "See docs/project/releasing.md."
-              exit 1
-            fi
-
-      - run:
           name: Resolve the version from the tag
           command: |
             # Fails loudly when the tag names a version other than the one the
@@ -1076,30 +1045,7 @@ jobs:
             VERSION="$(python clients/python/scripts/check_version.py)"
             PRE_RELEASE="$(python clients/python/scripts/check_version.py --pre-release)"
             echo "export OPENSYSML_VERSION=${VERSION}" >> "$BASH_ENV"
-            echo "export OPENSYSML_PRE_RELEASE=${PRE_RELEASE}" >> "$BASH_ENV"
-            echo "Publishing opensysml ${VERSION} (pre-release: ${PRE_RELEASE})"
-
-      - run:
-          name: Refuse a version the index already has
-          command: |
-            if [ "$OPENSYSML_PRE_RELEASE" = "yes" ]; then
-              INDEX_HOST="test.pypi.org"
-            else
-              INDEX_HOST="pypi.org"
-            fi
-            STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
-              "https://${INDEX_HOST}/pypi/opensysml/${OPENSYSML_VERSION}/json")
-            if [ "$STATUS" = "200" ]; then
-              echo "Error: opensysml ${OPENSYSML_VERSION} is already on ${INDEX_HOST}."
-              echo "A PyPI version is immutable: it can be yanked but never replaced,"
-              echo "so this job fails rather than half-publishing. Re-running a"
-              echo "release for the same version is therefore not an operation PyPI"
-              echo "supports, unlike publish-github-release, which replaces assets"
-              echo "with 'ghr -replace'. Bump the version in"
-              echo "clients/python/opensysml/_version.py and tag opensysml-v<new version>."
-              exit 1
-            fi
-            echo "${INDEX_HOST} has no opensysml ${OPENSYSML_VERSION} (HTTP ${STATUS}); continuing"
+            echo "Building opensysml ${VERSION} (pre-release: ${PRE_RELEASE})"
 
       - run:
           name: Build the wheel and the sdist
@@ -1107,6 +1053,10 @@ jobs:
             rm -rf clients/python/dist
             python -m build --outdir clients/python/dist clients/python/
             ls -l clients/python/dist
+            # The version is PEP 440 in canonical form, so these are the names
+            # the build tools give the files; the release jobs rely on them.
+            ls clients/python/dist/"opensysml-${OPENSYSML_VERSION}-py3-none-any.whl" \
+               clients/python/dist/"opensysml-${OPENSYSML_VERSION}.tar.gz" > /dev/null
 
       - run:
           name: Check the metadata (twine check --strict)
@@ -1131,6 +1081,91 @@ jobs:
             print(f"opensysml {opensysml.__version__} imported from the built wheel")
             EOF
 
+      - store_artifacts:
+          path: clients/python/dist
+          destination: opensysml-dist
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - clients/python/dist
+
+  # Uploads the distribution build-python-package made. PyPI has no OIDC publishing
+  # for CircleCI (pypi/warehouse#13888), so a token from the `PyPI` context is used.
+  publish-pypi:
+    executor: python-executor
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+
+      - run:
+          name: Install publishing tooling
+          command: python -m pip install --upgrade pip twine packaging
+
+      - run:
+          name: Resolve the version from the tag
+          command: |
+            VERSION="$(python clients/python/scripts/check_version.py)"
+            PRE_RELEASE="$(python clients/python/scripts/check_version.py --pre-release)"
+            echo "export OPENSYSML_VERSION=${VERSION}" >> "$BASH_ENV"
+            echo "export OPENSYSML_PRE_RELEASE=${PRE_RELEASE}" >> "$BASH_ENV"
+            echo "Publishing opensysml ${VERSION} (pre-release: ${PRE_RELEASE})"
+            # The distribution must be the one build-python-package made for this tag.
+            ls -l clients/python/dist/"opensysml-${VERSION}-py3-none-any.whl" \
+                  clients/python/dist/"opensysml-${VERSION}.tar.gz"
+
+      - run:
+          name: Require the publishing token
+          command: |
+            # A pre-release version goes to TestPyPI (the dry run described in
+            # docs/project/releasing.md), everything else to PyPI, so only the token for
+            # the index actually being used is required.
+            if [ "$OPENSYSML_PRE_RELEASE" = "yes" ]; then
+              if [ -z "${TEST_PYPI_API_TOKEN:-}" ]; then
+                echo "Error: TEST_PYPI_API_TOKEN is not set, and ${CIRCLE_TAG} names a"
+                echo "pre-release version, which is published to TestPyPI."
+                echo "Add it to the 'PyPI' context (Organization Settings ->"
+                echo "Contexts) as a TestPyPI API token. See docs/project/releasing.md."
+                exit 1
+              fi
+            elif [ -z "${PYPI_API_TOKEN:-}" ]; then
+              echo "Error: PYPI_API_TOKEN is not set. This job authenticates to PyPI"
+              echo "with an API token, not OIDC, and refuses to run twine without one"
+              echo "rather than failing later with a 403."
+              echo "Add it to the 'PyPI' context (Organization Settings ->"
+              echo "Contexts) and make sure this job references that context."
+              echo "See docs/project/releasing.md."
+              exit 1
+            fi
+
+      - run:
+          name: Refuse a version the index already has
+          command: |
+            if [ "$OPENSYSML_PRE_RELEASE" = "yes" ]; then
+              INDEX_HOST="test.pypi.org"
+            else
+              INDEX_HOST="pypi.org"
+            fi
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+              "https://${INDEX_HOST}/pypi/opensysml/${OPENSYSML_VERSION}/json")
+            if [ "$STATUS" = "200" ]; then
+              echo "Error: opensysml ${OPENSYSML_VERSION} is already on ${INDEX_HOST}."
+              echo "A PyPI version is immutable: it can be yanked but never replaced,"
+              echo "so this job fails rather than half-publishing. If this is a"
+              echo "re-run of an already published release, this failure is expected"
+              echo "and the package needs no action: publish-github-release replaces"
+              echo "the GitHub assets on its own. If the package itself must change,"
+              echo "that is a new core release: bump the version in"
+              echo "clients/python/opensysml/_version.py and tag v<new version>."
+              exit 1
+            fi
+            echo "${INDEX_HOST} has no opensysml ${OPENSYSML_VERSION} (HTTP ${STATUS}); continuing"
+
+      - run:
+          name: Check the metadata (twine check --strict)
+          command: python -m twine check --strict clients/python/dist/*
+
       - run:
           name: Upload to the index
           command: |
@@ -1148,10 +1183,6 @@ jobs:
             # No --skip-existing: a version that appeared since the check above
             # must fail the job rather than pass silently.
             python -m twine upload clients/python/dist/*
-
-      - store_artifacts:
-          path: clients/python/dist
-          destination: opensysml-dist
 
   # Publishes packaging/pypi-pysysml on a `pysysml-v<version>` tag: the final
   # release of the pre-rename name, which raises on import to point at
@@ -1242,10 +1273,14 @@ jobs:
           path: packaging/pypi-pysysml/dist
           destination: pysysml-placeholder-dist
 
+  # Builds every binary the release ships, plus the Python distribution from
+  # build-python-package, so one signed manifest covers all of them.
   build-release:
     executor: go-executor
     steps:
       - checkout
+      - attach_workspace:
+          at: .
       - go/load-cache
       - go/mod-download
       - go/save-cache
@@ -1343,9 +1378,12 @@ jobs:
             (cd stage/windows-amd64 && zip -q ../../opensysml-windows-amd64.zip sysml.exe sysml-lsp.exe)
             rm -rf stage
             
+            # The opensysml wheel and sdist, released with the binaries they drive.
+            cp ../clients/python/dist/opensysml-*.whl ../clients/python/dist/opensysml-*.tar.gz .
+            
             # Checksums over every published archive, so a Homebrew formula
             # (or a careful user) can verify a download.
-            sha256sum ./*.tar.gz ./*.zip | sed 's|\./||' > SHA256SUMS.txt
+            sha256sum ./*.tar.gz ./*.zip ./*.whl | sed 's|\./||' > SHA256SUMS.txt
             
             # Same for the raw gRPC binaries, plus a per-file sidecar, which is
             # the only checksum opensysml reads.
@@ -1436,6 +1474,18 @@ jobs:
                 echo "ok: $binary carries ${CIRCLE_TAG}"
               else
                 fail "$binary" "the version string is absent from the binary"
+              fi
+            done
+            # build-python-package named the Python distribution after the tag's
+            # version (SemVer 'v0.9.0-rc1' is PEP 440 '0.9.0rc1'); one of each is due.
+            for pattern in "dist/opensysml-*-py3-none-any.whl" "dist/opensysml-*.tar.gz"; do
+              set -- $pattern
+              if [ ! -f "$1" ]; then
+                fail "$pattern" "build-python-package did not produce it"
+              elif [ $# -ne 1 ]; then
+                fail "$pattern" "matches $# files, not one"
+              else
+                echo "ok: $1 is the distribution for ${CIRCLE_TAG}"
               fi
             done
             exit $status
@@ -1593,6 +1643,8 @@ jobs:
             # Move only tarballs to a release directory
             mkdir -p dist/release
             mv dist/*.tar.gz dist/*.zip dist/release/ 2>/dev/null || true
+            # The opensysml wheel, the same bytes publish-pypi uploads.
+            mv dist/*.whl dist/release/
             mv dist/grpc/* dist/release/
             mv dist/SHA256SUMS.txt dist/release/
             # The signature over that manifest, which the Python client verifies
@@ -1683,7 +1735,8 @@ workflows:
           filters: *integration-branches
 
   # Build and release on tags. The suite runs here too: a tag can point at any
-  # commit, so a release is only published from a revision proven green.
+  # commit, so a release is only published from a revision proven green. One tag
+  # publishes the binaries and the opensysml package, at the same version.
   release:
     jobs:
       - go-static:
@@ -1703,69 +1756,53 @@ workflows:
           name: Go gates and binaries
           filters: *release-tags
 
+      - python-test:
+          name: Python client tests
+          requires: *go-suite
+          filters: *release-tags
+
+      # Fails the release before anything is built when the tag does not name
+      # the version clients/python/opensysml/_version.py declares.
+      - build-python-package:
+          name: Build Python distribution
+          requires: *go-suite
+          filters: *release-tags
+
       - build-release:
           name: Build release artifacts
-          requires: *go-suite
+          requires:
+            - Go static checks
+            - Go race tests
+            - Go coverage profile
+            - Go gates and binaries
+            - Build Python distribution
           filters: *release-tags
 
       - publish-github-release:
           name: Publish GitHub release
           requires:
             - Build release artifacts
+            - Python client tests
           filters: *release-tags
-
-  # Publish opensysml to PyPI on its own tag. The package's version is not
-  # lockstep with the core's: it resolves a sysml-grpc binary at runtime from
-  # whichever release the caller asks for (OPENSYSML_GRPC_VERSION, or 'latest'),
-  # not from a release matching its own version, so a client fix should not need
-  # a core release and a core release should not need a PyPI upload. Keeping the
-  # irreversible half on its own tag also keeps `v*` re-runnable, which
-  # publish-github-release relies on ('ghr -replace').
-  release-python:
-    jobs:
-      - go-static:
-          name: Go static checks
-          filters: &python-tags
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^opensysml-v.*/
-      - go-race-test:
-          name: Go race tests
-          filters: *python-tags
-      - go-coverage:
-          name: Go coverage profile
-          filters: *python-tags
-      - go-gates:
-          name: Go gates and binaries
-          filters: *python-tags
-
-      - python-test:
-          name: Python client tests
-          requires: *go-suite
-          filters: *python-tags
 
       - publish-pypi:
           name: Publish opensysml to PyPI
-          # Last, and only after the Go suite and the Python client's own tests
-          # have passed on this revision: an upload cannot be undone.
+          # Last of all: an upload cannot be undone, so it waits for the GitHub
+          # release the package version promises to exist. A re-run of a published
+          # release fails here by design; the index has the version.
           # The organization context is named 'PyPI'; a context reference is
           # matched exactly, so the case here has to match it.
           context:
             - PyPI
           requires:
-            - Go static checks
-            - Go race tests
-            - Go coverage profile
-            - Go gates and binaries
+            - Publish GitHub release
             - Python client tests
-          filters: *python-tags
+          filters: *release-tags
 
-  # Publish the npm client on its own tag, for the same reason the Python client
-  # has one: the package resolves a service binary at run time, so a client fix
-  # should not need a core release and a core release should not need an npm
-  # publish. The binaries the platform packages carry are built here rather than
-  # downloaded from a release.
+  # Publish the npm client on its own tag: the package resolves a service binary
+  # at run time, so a client fix should not need a core release and a core
+  # release should not need an npm publish. The binaries the platform packages
+  # carry are built here rather than downloaded from a release.
   release-node:
     jobs:
       - go-static:

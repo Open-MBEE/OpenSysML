@@ -415,9 +415,10 @@ Pre-built binaries for Linux, macOS, and Windows are available on the [Releases 
   binaries are published to GitHub Releases. Maintainer procedure:
   [docs/project/releasing.md](docs/project/releasing.md); what changed per release:
   [CHANGELOG.md](CHANGELOG.md)
-- The Python client is released on its own tag (`opensysml-v*`), which uploads `opensysml` to
-  PyPI — its version is not coupled to the core's, since it resolves a `sysml-grpc` binary
-  at runtime from whichever release the caller names
+- The Python client is released by the same `v*` tag, which uploads `opensysml` to PyPI at
+  the core's version — `v0.9.0` publishes `opensysml` 0.9.0 — so pinning one version
+  (`pip install opensysml==0.9.0`, `OPENSYSML_GRPC_VERSION=v0.9.0`) gets the package and
+  the `sysml-grpc` binary that were tested together
 - The Java client is not yet published: consume it with `mvn -f clients/java/pom.xml install`. The
   prerequisites a maintainer must obtain for a first Maven Central upload are listed in
   [docs/project/releasing.md](docs/project/releasing.md)
@@ -542,7 +543,7 @@ how to choose; [guide chapter 9](docs/guide/09-clients.md) works through each on
 | Surface | Reaches the engine by | Published | API reference |
 |---|---|---|---|
 | Go, `client/opensysml` | in process, or Connect to a service | with the core (`v*` tags) | [Go packages](docs/reference/api.md) |
-| Python, `opensysml` | gRPC, to a private child service or a named one | PyPI, on `opensysml-v*` tags | [Python API](docs/reference/python-api.md) |
+| Python, `opensysml` | gRPC, to a private child service or a named one | PyPI, on the core `v*` tags, at the core's version | [Python API](docs/reference/python-api.md) |
 | Node/TypeScript, `@opensysml/client` | Connect, from Node or a browser page | not yet | [Node API](docs/reference/node-api.md) |
 | Java, `org.openmbee:opensysml-client` | Connect, over the JDK's own HTTP client | not yet | [Java API](docs/reference/java-api.md) |
 | Rust, `opensysml` | Connect, blocking, no async runtime | not yet | [Rust API](docs/reference/rust-api.md) |
