@@ -353,47 +353,81 @@ func nameRefs(n ast.Node, local map[string]bool, refs []reference) []reference {
 // bodyRefs appends the names a body expression refers to beyond its own
 // parameters and members, which are in scope throughout the body.
 func bodyRefs(e *ast.BodyExpr, outer map[string]bool, refs []reference) []reference {
-	local := make(map[string]bool, len(outer)+len(e.Params)+len(e.Members))
+	usages := declaredUsages(e.Members)
+	local := make(map[string]bool, len(outer)+len(e.Params)+len(usages))
 	for n := range outer {
 		local[n] = true
 	}
 	for _, p := range e.Params {
 		local[p.Name] = true
 	}
-	var usages []*ast.Usage
-	for _, m := range e.Members {
-		if mem, ok := m.(*ast.Membership); ok {
-			m = mem.Member
-		}
-		if u, ok := m.(*ast.Usage); ok {
-			usages = append(usages, u)
-			if u.Ident.Name != "" {
-				local[u.Ident.Name] = true
-			}
-			if u.Ident.ShortName != "" {
-				local[u.Ident.ShortName] = true
-			}
-		}
-	}
-	name := func(q *ast.QualifiedName) {
-		if r, ok := qualifiedRef(q); ok && !local[r.first()] {
+	declare(local, usages)
+	for _, p := range e.Params {
+		if r, ok := qualifiedRef(p.Type); ok && !local[r.first()] {
 			refs = append(refs, r)
 		}
-	}
-	for _, p := range e.Params {
-		name(p.Type)
 		for _, rel := range p.Relationships {
 			refs = nameRefs(rel.Target, local, refs)
 		}
 		refs = nameRefs(p.Value, local, refs)
+		refs = memberRefs(p.Members, local, refs)
 	}
+	refs = usageRefs(usages, local, refs)
+	return nameRefs(e.Result, local, refs)
+}
+
+// memberRefs appends the names the declarations in a usage's or parameter's
+// body refer to; those declarations are in scope throughout that body.
+func memberRefs(members []ast.Node, outer map[string]bool, refs []reference) []reference {
+	usages := declaredUsages(members)
+	if len(usages) == 0 {
+		return refs
+	}
+	local := make(map[string]bool, len(outer)+len(usages))
+	for n := range outer {
+		local[n] = true
+	}
+	declare(local, usages)
+	return usageRefs(usages, local, refs)
+}
+
+// usageRefs appends the names each usage's relationships, value and own body
+// refer to beyond the local ones.
+func usageRefs(usages []*ast.Usage, local map[string]bool, refs []reference) []reference {
 	for _, u := range usages {
 		for _, rel := range u.Relationships {
 			refs = nameRefs(rel.Target, local, refs)
 		}
 		refs = nameRefs(u.Value, local, refs)
+		refs = memberRefs(u.Members, local, refs)
 	}
-	return nameRefs(e.Result, local, refs)
+	return refs
+}
+
+// declaredUsages returns the usages among members, looking through memberships.
+func declaredUsages(members []ast.Node) []*ast.Usage {
+	var usages []*ast.Usage
+	for _, m := range members {
+		if mem, ok := m.(*ast.Membership); ok {
+			m = mem.Member
+		}
+		if u, ok := m.(*ast.Usage); ok {
+			usages = append(usages, u)
+		}
+	}
+	return usages
+}
+
+// declare adds each usage's names to local.
+func declare(local map[string]bool, usages []*ast.Usage) {
+	for _, u := range usages {
+		if u.Ident.Name != "" {
+			local[u.Ident.Name] = true
+		}
+		if u.Ident.ShortName != "" {
+			local[u.Ident.ShortName] = true
+		}
+	}
 }
 
 // first is the name a reference starts from; "" for a global one.
