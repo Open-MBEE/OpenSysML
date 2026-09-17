@@ -1725,13 +1725,14 @@ Four query surfaces exist and are landed: the standard API `Query` over a projec
 (`internal/grpc`, the OSLC query grammar with its diagnostics — #798, #812), the native document
 query (`query def` with parameters, planned by `internal/core/queryplan` and run by
 `internal/core/queryexec`, from the CLI, the REPL and gRPC), `Evaluate`/`-eval`/`%eval in`, and the
-solver's `solve`. Two of the four reach the runtime: `Evaluate`/`-eval`/`%eval in` since 0.8.0 —
+solver's `solve`. Two of the four answer from the runtime: `Evaluate`/`-eval`/`%eval in` since 0.8.0 —
 `all T` enumerates the objects a run holds (X5) and `%eval in #1` reads an object's current values
 — and the document query since #267 and #293 on `develop`, whose rows may be the objects
 `%instantiate`, `-instantiate` and the service's `Instantiate` create, whose operations read what
 they hold now, and whose parameters bind to a held object from the REPL, the CLI and gRPC alike.
-The API `Query` and `solve` read the *model* alone, and no surface reaches the trace `-trace`
-prints. That is the rest of the track.
+The API `Query` reads the *model* alone; the solver decides satisfiability rather than reading
+what holds, though `%solve` pins the values a matching held object has before synthesising the
+rest. No surface reaches the trace `-trace` prints. That is the rest of the track.
 
 ## Q1 — say which query is which (done)
 

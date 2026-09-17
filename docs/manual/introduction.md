@@ -89,13 +89,14 @@ return:
 | **Document query** — `calc def` specializing `DocumentQueries::Query`, run by `-run-query`, `%run-query`, `RunDocumentQuery` or a document block | The model's elements, and, bound to or collecting one, the objects a session holds — the values they hold now, and through `Verdicts` whether their constraints, requirements and `satisfy` assertions hold | Ordered rows of typed cells — elements, objects, verdicts and values — that tables, lists and paragraphs render | Objects no session holds; a run's trace |
 | **API `Query`** — the SysML v2 API & Services query over a loaded model, `model.query(...)` in Python, and the OSLC text `-query` takes ([reference](../reference/api.md#sysml-v2-api--services-query)) | The model's elements alone, by the standard's closed set of properties | Elements as `@id`, `@type` and their properties, in declaration order | Traversal, specialization, computed values, objects, verdicts — the standard's query model is deliberately weak, which is what makes other tools able to send it |
 | **`Evaluate`** — `-eval`, `%eval`, `%eval in`, the `Evaluate` RPC | One expression in one scope: a declaration's namespace, reading what the model states, or one object, reading what it holds after its behaviors ran | One value | Anything the expression does not name; it discovers no assertion and walks no object graph, so a check is one expression at a time |
-| **`solve`** — `%solve`, `%check`, `%explain`, the `solve` engine | A constraint, requirement or `satisfy` assertion and what is already fixed — the values an object holds, or the ones the model declares | Values that would satisfy it (one witness), or `unsat` with the conditions that conflict | What *does* hold: satisfiability is not evaluation, which `%constraint`, `%satisfy`, `%validate` and `Verdicts` do |
+| **Solver** — `%check`, `%explain`, `%solve`, the `solve` engine | A constraint, requirement or `satisfy` assertion as a satisfiability question. `%check` asks whether it *can* be satisfied at all; `%solve` keeps what is already fixed — the values an object holds, or failing that the ones the model declares — and asks for the rest | `%check`: `sat` with an assignment, `unsat` or `unknown`; `%explain`: the conditions an `unsat` conflicts in; `%solve`: values that satisfy it, one witness of possibly many, or `unsat` naming the fixed values that conflict | What *does* hold: satisfiability is not evaluation, which `%constraint`, `%satisfy`, `%validate` and `Verdicts` do |
 
 So "list every requirement this rover violates, with the part it is about" is
 a document query over `Verdicts`; "which parts have mass over 10 kg" is a
 document query over elements or a `WhereFeature` over held objects; "give me
 every `PartUsage` for MATLAB" is the API `Query`; "what is `rover.battery.charge`
-now" is `%eval in`; and "is there any charge at which `powerMargin` holds" is
+now" is `%eval in`; "can `powerMargin` hold at all" is `%check`; and "is there
+a charge at which `powerMargin` holds, given what the rover holds now" is
 `%solve`. The rest of this manual covers the first row.
 
 ## What "deterministic" means here
