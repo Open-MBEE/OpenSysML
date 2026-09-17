@@ -1,33 +1,25 @@
 // Package lord plays the Legend of the Red Dragon model of examples/lord-demo:
-// a Game runs the model in a runtime of its own, the menu's keys become the
-// model's signals and actions, and the screen is a projection of the warrior's
-// feature values. No rule of the game lives here.
+// a Game runs the model in a persistent session of the public API, the menu's
+// keys become the model's signals and actions, and the screen is a projection
+// of the warrior's feature values. No rule of the game lives here.
 package lord
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/client/opensysml"
 )
 
 // The model's names the client is written against.
 const (
-	modelDocName = "lord.sysml"
-	heroFQN      = "LordPlay::hero"
-	warriorFQN   = "LordPlay::Warrior"
-	playPackage  = "LordPlay"
-	lordPackage  = "Lord"
-	maxSteps     = 1_000_000
+	heroFQN     = "LordPlay::hero"
+	warriorFQN  = "LordPlay::Warrior"
+	playPackage = "LordPlay"
+	lordPackage = "Lord"
 )
 
 var (
@@ -52,63 +44,112 @@ type Character struct {
 	Class string
 }
 
-// Game is one warrior's run of the model: a runtime of its own, the hero
-// instantiated in it, and the day state machine the hero exhibits.
+// Game is one warrior's run of the model: a session of its own on the public
+// API, the hero instantiated in it, and the day state machine the hero exhibits.
 type Game struct {
-	rt    *model.Runtime
-	ctx   *runtime.Context
-	hero  *runtime.Instance
-	day   *runtime.StateExecutor
-	scope *symbols.Scope
+	client  opensysml.Client
+	model   *opensysml.Model
+	session *opensysml.Session
+	hero    opensysml.InstanceID
 	// seed fixes the game's dice; deeds counts the direct actions performed, so
 	// each is run under dice of its own that the seed still determines.
 	seed, deeds uint64
 }
 
-// NewGame loads the model source into a fresh workspace, instantiates the hero
-// and starts its day, with the schedule's dice seeded so two games differ.
+// NewGame parses the model source in a client of its own, opens a session on
+// it, instantiates the hero and starts its day, with the schedule's dice seeded
+// so two games differ. Close releases the game.
 func NewGame(modelSource []byte, seed uint64, character Character) (*Game, error) {
-	ws := model.NewWorkspace()
-	ws.Open(modelDocName, modelSource, 1)
-	for _, d := range ws.Diagnostics(modelDocName) {
-		if d.Blocking() {
-			return nil, fmt.Errorf("%w: %s", ErrModelInvalid, d.Message)
-		}
-	}
-	rt, err := ws.NewRuntime()
+	client, err := opensysml.New()
 	if err != nil {
 		return nil, err
 	}
-	heroSym := rt.Declared(modelDocName, heroFQN)
-	if heroSym == nil {
-		return nil, fmt.Errorf("%w: %s is not declared", ErrModelInvalid, heroFQN)
-	}
-	ctx := runtime.NewContext(rt.Model(), maxSteps)
-	if err := seedDice(ctx, seed); err != nil {
-		return nil, err
-	}
-	hero, err := ctx.Instantiate(heroSym)
+	g, err := openGame(client, modelSource, seed, character)
 	if err != nil {
-		return nil, err
-	}
-	exhibited, ok := hero.ExhibitedState()
-	if !ok || exhibited.State == nil {
-		return nil, fmt.Errorf("%w: %s exhibits no state machine", ErrModelInvalid, heroFQN)
-	}
-	g := &Game{rt: rt, ctx: ctx, hero: hero, day: exhibited.State, scope: runtime.DeclScope(heroSym), seed: seed}
-	if err := g.create(character); err != nil {
+		client.Close()
 		return nil, err
 	}
 	return g, nil
 }
 
-// seedDice makes the context's next runs draw their dice from seed.
-func seedDice(ctx *runtime.Context, seed uint64) error {
-	policy, err := runtime.ParseSchedulePolicy("seed:" + strconv.FormatUint(seed, 10))
+// openGame parses the source in client, opens the session and starts the day.
+func openGame(client opensysml.Client, modelSource []byte, seed uint64, character Character) (*Game, error) {
+	model, err := client.ParseSource(context.Background(), string(modelSource))
+	if err != nil {
+		return nil, err
+	}
+	for _, d := range model.Diagnostics {
+		if d.Severity == opensysml.SeverityError {
+			return nil, fmt.Errorf("%w: %s", ErrModelInvalid, d.Message)
+		}
+	}
+	session, err := opensysml.OpenSession(client, model)
+	if err != nil {
+		return nil, err
+	}
+	g := &Game{client: client, model: model, session: session, seed: seed}
+	if err := g.start(character); err != nil {
+		session.Close()
+		return nil, err
+	}
+	return g, nil
+}
+
+// start seeds the dice, instantiates the hero and writes the player's choices.
+func (g *Game) start(character Character) error {
+	if err := g.declared(heroFQN); err != nil {
+		return err
+	}
+	if err := seedDice(g.session, g.seed); err != nil {
+		return err
+	}
+	hero, err := g.session.Instantiate(heroFQN)
 	if err != nil {
 		return err
 	}
-	return ctx.SetSchedule(policy)
+	g.hero = hero
+	if _, err := g.session.ActiveStates(hero); err != nil {
+		return fmt.Errorf("%w: %s exhibits no state machine: %v", ErrModelInvalid, heroFQN, err)
+	}
+	return g.create(character)
+}
+
+// Close releases the session and the client the game plays in.
+func (g *Game) Close() error {
+	err := g.session.Close()
+	if closeErr := g.client.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+// declared checks the model declares fqn; a missing one is ErrModelInvalid.
+func (g *Game) declared(fqn string) error {
+	if _, err := g.client.LookupSymbol(context.Background(), g.model, fqn); err != nil {
+		if errors.Is(err, opensysml.ErrFailure) {
+			return fmt.Errorf("%w: %s is not declared", ErrModelInvalid, fqn)
+		}
+		return err
+	}
+	return nil
+}
+
+// declares reports whether the model declares fqn.
+func (g *Game) declares(fqn string) (bool, error) {
+	_, err := g.client.LookupSymbol(context.Background(), g.model, fqn)
+	switch {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, opensysml.ErrFailure):
+		return false, nil
+	default:
+		return false, err
+	}
+}
+
+// seedDice makes the session's next runs draw their dice from seed.
+func seedDice(session *opensysml.Session, seed uint64) error {
+	return session.SetSchedule("seed:" + strconv.FormatUint(seed, 10))
 }
 
 // deedSeed is the seed the nth direct action rolls under: a seeded run starts its
@@ -124,7 +165,7 @@ func deedSeed(seed, n uint64) uint64 {
 func (g *Game) create(c Character) error {
 	name := strings.TrimSpace(c.Name)
 	if name != "" {
-		if err := g.hero.SetFeatureValue(g.ctx, "name", runtime.NewStringValue(name)); err != nil {
+		if err := g.session.SetFeature(g.hero, "name", opensysml.String(name)); err != nil {
 			return err
 		}
 	}
@@ -133,7 +174,7 @@ func (g *Game) create(c Character) error {
 		if err != nil {
 			return err
 		}
-		if err := g.hero.SetFeatureValue(g.ctx, "sex", sex); err != nil {
+		if err := g.session.SetFeature(g.hero, "sex", sex); err != nil {
 			return err
 		}
 	}
@@ -142,7 +183,7 @@ func (g *Game) create(c Character) error {
 		if err != nil {
 			return err
 		}
-		if err := g.hero.SetFeatureValue(g.ctx, "class", class); err != nil {
+		if err := g.session.SetFeature(g.hero, "class", class); err != nil {
 			return err
 		}
 	}
@@ -151,131 +192,82 @@ func (g *Game) create(c Character) error {
 
 // Location is the state of the day machine the warrior is in.
 func (g *Game) Location() string {
-	active := g.day.ActiveStates()
-	if len(active) == 0 {
+	active, err := g.session.ActiveStates(g.hero)
+	if err != nil {
 		return ""
 	}
-	names := make([]string, 0, len(active))
-	for _, state := range active {
-		names = append(names, state.Name)
-	}
-	return strings.Join(names, "|")
+	return strings.Join(active, "|")
 }
 
 // Send offers the day machine a signal of the LordPlay package and, where the
 // current state takes it and its guard holds, dispatches it and runs what follows.
 func (g *Game) Send(signal string) (*Outcome, error) {
-	sym := g.rt.Declared(modelDocName, playPackage+"::"+signal)
-	if sym == nil || !runtime.IsSignalDefinition(sym) {
-		return nil, fmt.Errorf("%w: signal %s", ErrNoSuchCommand, signal)
-	}
-	msg, err := g.ctx.SignalMessage(sym, nil, g.hero)
+	signalID := playPackage + "::" + signal
+	acceptance, err := g.session.Accepts(g.hero, signalID, nil)
 	if err != nil {
+		if errors.Is(err, opensysml.ErrFailure) {
+			return nil, fmt.Errorf("%w: signal %s", ErrNoSuchCommand, signal)
+		}
 		return nil, err
 	}
-	accepted, err := g.day.AcceptsMessage(msg)
-	if err != nil {
-		return nil, err
-	}
-	if !accepted {
+	if !acceptance.Accepted {
 		return nil, fmt.Errorf("%w: %s in %s", ErrNotHere, signal, g.Location())
 	}
-	decision, err := g.day.Decide(msg)
-	if err != nil {
-		return nil, err
-	}
-	if !decision.Enabled() {
+	if !acceptance.Enabled() {
 		return nil, fmt.Errorf("%w: %s in %s", ErrRefused, signal, g.Location())
 	}
 	return g.run(func() (deed, error) {
-		g.ctx.PostMessage(msg)
-		report, err := g.ctx.Advance(1)
-		return deed{notes: report.Notes}, err
+		if _, err := g.session.Send(g.hero, signalID, nil); err != nil {
+			return deed{}, err
+		}
+		advanced, err := g.session.Advance(1)
+		if err != nil {
+			return deed{}, err
+		}
+		return deed{choices: advanced.Choices}, nil
 	})
 }
 
 // Invoke performs one of the warrior's actions directly with the given
 // arguments, then lets the day machine take any completion transition it enables.
 // The deed is refused when the model turns the warrior away at its opening decision.
-func (g *Game) Invoke(action string, args map[string]runtime.Value) (*Outcome, error) {
-	sym := g.rt.Declared(modelDocName, warriorFQN+"::"+action)
-	if sym == nil {
+func (g *Game) Invoke(action string, args map[string]opensysml.Value) (*Outcome, error) {
+	actionID := warriorFQN + "::" + action
+	known, err := g.declares(actionID)
+	if err != nil {
+		return nil, err
+	}
+	if !known {
 		return nil, fmt.Errorf("%w: action %s", ErrNoSuchCommand, action)
 	}
 	return g.run(func() (deed, error) {
-		if err := seedDice(g.ctx, deedSeed(g.seed, g.deeds)); err != nil {
+		if err := seedDice(g.session, deedSeed(g.seed, g.deeds)); err != nil {
 			return deed{}, err
 		}
 		g.deeds++
-		exec, err := g.ctx.CreateActionExecutorWithInputs(sym, g.hero, args)
+		performed, err := g.session.Perform(g.hero, actionID, args)
 		if err != nil {
 			return deed{}, err
 		}
-		defer exec.Release()
-		exec.KeepTraversals(true)
-		if err := exec.RunToCompletion(); err != nil {
+		done := deed{choices: performed.Choices, refused: performed.TurnedAway()}
+		advanced, err := g.session.Advance(1)
+		if err != nil {
 			return deed{}, err
 		}
-		done := deed{notes: exec.Notes(), refused: turnedAway(exec)}
-		report, err := g.ctx.Advance(1)
-		done.notes = append(done.notes, report.Notes...)
-		return done, err
+		done.choices = append(done.choices, advanced.Choices...)
+		return done, nil
 	})
-}
-
-// turnedAway reports whether the deed left its gate by the else branch: the
-// first decision on the straight path from start, where every deed of the
-// model admits or refuses the warrior before anything is at stake.
-func turnedAway(exec *runtime.ActionExecutor) bool {
-	gate := gateOf(exec.Graph())
-	if gate == nil {
-		return false
-	}
-	for _, t := range exec.Traversals() {
-		if len(t.Within) > 0 || t.Edge.Source != gate {
-			continue
-		}
-		if branch, ok := t.Edge.Decl.(*ast.ControlFlowEdge); ok && branch.IsElse {
-			return true
-		}
-	}
-	return false
-}
-
-// gateOf is the first decision the action's start leads to without a choice on
-// the way, following each node's single succession; nil when there is none.
-func gateOf(graph *lower.ActionGraph) ast.Node {
-	var at ast.Node
-	for _, node := range graph.Nodes {
-		if _, ok := node.(*ast.InitialNode); ok {
-			at = node
-			break
-		}
-	}
-	seen := map[ast.Node]bool{}
-	for at != nil && !seen[at] {
-		seen[at] = true
-		if _, ok := at.(*ast.DecisionNode); ok {
-			return at
-		}
-		edges := graph.Edges[at]
-		if len(edges) != 1 {
-			return nil
-		}
-		at = edges[0].Target
-	}
-	return nil
 }
 
 // SetPreference writes one of the warrior's own preference attributes, such as
 // the favoured move the forest fights are fought with.
-func (g *Game) SetPreference(attribute string, value runtime.Value) error {
-	return g.hero.SetFeatureValue(g.ctx, attribute, value)
+func (g *Game) SetPreference(attribute string, value opensysml.Value) error {
+	return g.session.SetFeature(g.hero, attribute, value)
 }
 
-// deed is what a command's run reported: what it noted, and whether the model refused it.
+// deed is what a command's run reported: the choices it made, and whether the model refused it.
 type deed struct {
-	notes   []runtime.RunNote
+	choices []opensysml.ChoicePoint
 	refused bool
 }
 
@@ -296,13 +288,7 @@ func (g *Game) run(command func() (deed, error)) (*Outcome, error) {
 	if err != nil {
 		return nil, err
 	}
-	var choices []runtime.ChoicePoint
-	for _, note := range done.notes {
-		if c, ok := note.(runtime.ChoicePoint); ok {
-			choices = append(choices, c)
-		}
-	}
-	return &Outcome{From: from, To: g.Location(), Before: before, After: after, Choices: choices, Refused: done.refused}, nil
+	return &Outcome{From: from, To: g.Location(), Before: before, After: after, Choices: done.choices, Refused: done.refused}, nil
 }
 
 // Int reads an Integer attribute of the warrior.
@@ -311,11 +297,7 @@ func (g *Game) Int(attribute string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	n, ok := v.Const.WholeNumber()
-	if v.Kind != runtime.ValConst || !ok {
-		return 0, fmt.Errorf("%s is %s, not an integer", attribute, runtime.FormatValue(v))
-	}
-	return n, nil
+	return whole(attribute, v)
 }
 
 // Bool reads a Boolean attribute of the warrior.
@@ -324,10 +306,11 @@ func (g *Game) Bool(attribute string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if v.Kind != runtime.ValConst || v.Const.Kind != semantics.ValBool {
-		return false, fmt.Errorf("%s is %s, not a boolean", attribute, runtime.FormatValue(v))
+	b, ok := v.(opensysml.Bool)
+	if !ok {
+		return false, fmt.Errorf("%s is %s, not a boolean", attribute, spell(v))
 	}
-	return v.Const.Bool, nil
+	return bool(b), nil
 }
 
 // String reads a String attribute of the warrior.
@@ -336,10 +319,11 @@ func (g *Game) String(attribute string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if v.Kind != runtime.ValString {
-		return "", fmt.Errorf("%s is %s, not a string", attribute, runtime.FormatValue(v))
+	s, ok := v.(opensysml.String)
+	if !ok {
+		return "", fmt.Errorf("%s is %s, not a string", attribute, spell(v))
 	}
-	return v.Str(), nil
+	return string(s), nil
 }
 
 // Literal reads an enumeration-typed attribute of the warrior as its literal's name.
@@ -348,57 +332,62 @@ func (g *Game) Literal(attribute string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	lit := v.EnumerationLiteral()
-	if lit == nil {
-		return "", fmt.Errorf("%s is %s, not an enumeration literal", attribute, runtime.FormatValue(v))
+	name, ok := literalName(v)
+	if !ok {
+		return "", fmt.Errorf("%s is %s, not an enumeration literal", attribute, spell(v))
 	}
-	return lit.Name, nil
+	return name, nil
 }
 
-func (g *Game) value(attribute string) (runtime.Value, error) {
-	fv, err := g.hero.GetFeatureValue(g.ctx, attribute)
-	if err != nil {
-		return runtime.Value{}, err
-	}
-	return fv.Value, nil
+func (g *Game) value(attribute string) (opensysml.Value, error) {
+	return g.Feature(g.hero, attribute)
 }
 
 // literal evaluates `<enum>::<name>` of the Lord package to its literal value.
-func (g *Game) literal(enum, name string) (runtime.Value, error) {
-	def := g.rt.Declared(modelDocName, lordPackage+"::"+enum)
-	if def == nil || def.Scope == nil {
-		return runtime.Value{}, fmt.Errorf("%w: %s::%s is not declared", ErrModelInvalid, lordPackage, enum)
+func (g *Game) literal(enum, name string) (opensysml.Value, error) {
+	if err := g.declared(lordPackage + "::" + enum); err != nil {
+		return nil, err
 	}
-	if _, ok := def.Scope.LookupLocal(name); !ok {
-		return runtime.Value{}, fmt.Errorf("%w: %s is no literal of %s", ErrBadArgument, name, enum)
+	known, err := g.declares(lordPackage + "::" + enum + "::" + name)
+	if err != nil {
+		return nil, err
+	}
+	if !known {
+		return nil, fmt.Errorf("%w: %s is no literal of %s", ErrBadArgument, name, enum)
 	}
 	return g.Eval(enum + "::" + name)
 }
 
 // Eval evaluates a model expression in the hero's scope: a part of the town
 // (`town.weapons.dagger`), a literal (`Stat::strength`) or an attribute.
-func (g *Game) Eval(expr string) (runtime.Value, error) {
-	node, err := parseExpression(expr)
+func (g *Game) Eval(expr string) (opensysml.Value, error) {
+	v, err := g.session.Evaluate(expr, opensysml.WithContextSymbol(heroFQN))
 	if err != nil {
-		return runtime.Value{}, err
+		if errors.Is(err, opensysml.ErrFailure) {
+			return nil, fmt.Errorf("%w: %s: %v", ErrBadArgument, expr, err)
+		}
+		return nil, err
 	}
-	return g.ctx.EvalWithScope(node, g.scope)
+	return v, nil
 }
 
-// Instance dereferences a value that is an object, such as a shop's weapon.
-func (g *Game) Instance(v runtime.Value) (*runtime.Instance, bool) {
-	id, ok := v.Object()
-	if !ok {
-		return nil, false
-	}
-	return g.ctx.Instance(id)
+// Instance reads a value that is an object of the session, such as a shop's weapon.
+func (g *Game) Instance(v opensysml.Value) (opensysml.InstanceID, bool) {
+	id, ok := v.(opensysml.InstanceID)
+	return id, ok
 }
 
-// Feature reads an attribute of any instance, formatted as the REPL prints it.
-func (g *Game) Feature(inst *runtime.Instance, attribute string) (runtime.Value, error) {
-	fv, err := inst.GetFeatureValue(g.ctx, attribute)
+// Feature reads an attribute of any object the session holds.
+func (g *Game) Feature(inst opensysml.InstanceID, attribute string) (opensysml.Value, error) {
+	fv, err := g.session.Feature(inst, attribute)
 	if err != nil {
-		return runtime.Value{}, err
+		return nil, err
+	}
+	if fv.Error != "" {
+		return nil, fmt.Errorf("%s: %s", attribute, fv.Error)
+	}
+	if fv.Value == nil {
+		return opensysml.Sequence(fv.Values), nil
 	}
 	return fv.Value, nil
 }
@@ -406,42 +395,65 @@ func (g *Game) Feature(inst *runtime.Instance, attribute string) (runtime.Value,
 // Members lists the named members a definition or part of the Lord package
 // declares, in declaration order: the shop's weapons, the enumeration's literals.
 func (g *Game) Members(fqn string) ([]string, error) {
-	sym := g.rt.Declared(modelDocName, fqn)
-	if sym == nil || sym.Scope == nil {
-		return nil, fmt.Errorf("%w: %s is not declared", ErrModelInvalid, fqn)
+	members, err := g.session.Members(fqn)
+	if err != nil {
+		if errors.Is(err, opensysml.ErrFailure) {
+			return nil, fmt.Errorf("%w: %s is not declared", ErrModelInvalid, fqn)
+		}
+		return nil, err
 	}
 	var names []string
-	for _, member := range sym.Scope.Members() {
-		if member.Name != "" && member.Kind != symbols.SymbolAttributeUsage {
+	for _, member := range members {
+		if member.Kind != attributeUsageKind {
 			names = append(names, member.Name)
 		}
 	}
 	return names, nil
 }
 
+// attributeUsageKind is the Member.Kind of an attribute usage, which a
+// definition's members list leaves out: the shop's weapons, not its prices.
+const attributeUsageKind = "attributeUsage"
+
 // IntValue is an Integer argument for an action's parameter.
-func IntValue(n int64) runtime.Value {
-	return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: n}}
+func IntValue(n int64) opensysml.Value {
+	return opensysml.Int(n)
 }
 
-// parseExpression parses one expression as the REPL does: as the value of a throwaway attribute.
-func parseExpression(expr string) (ast.Node, error) {
-	const prefix = "attribute __lit__ = "
-	p := parser.New(source.New("expression", []byte(prefix+expr+";")))
-	root := p.ParseFile()
-	if len(p.Diagnostics) > 0 {
-		return nil, fmt.Errorf("%w: %s: %s", ErrBadArgument, expr, p.Diagnostics[0].Message)
+// whole reads an Integer attribute's value, a Real that is whole included.
+func whole(attribute string, v opensysml.Value) (int64, error) {
+	switch n := v.(type) {
+	case opensysml.Int:
+		return int64(n), nil
+	case opensysml.Real:
+		if float64(int64(n)) == float64(n) {
+			return int64(n), nil
+		}
 	}
-	if len(root.Members) != 1 {
-		return nil, fmt.Errorf("%w: %s is not one expression", ErrBadArgument, expr)
+	return 0, fmt.Errorf("%s is %s, not an integer", attribute, spell(v))
+}
+
+// literalName is the simple name of an enumeration literal value.
+func literalName(v opensysml.Value) (string, bool) {
+	lit, ok := v.(opensysml.EnumLiteral)
+	if !ok {
+		return "", false
 	}
-	member := root.Members[0]
-	if m, ok := member.(*ast.Membership); ok {
-		member = m.Member
+	if i := strings.LastIndex(lit.LiteralID, "::"); i >= 0 {
+		return lit.LiteralID[i+2:], true
 	}
-	usage, ok := member.(*ast.Usage)
-	if !ok || usage.Value == nil {
-		return nil, fmt.Errorf("%w: %s is not an expression", ErrBadArgument, expr)
+	return lit.LiteralID, true
+}
+
+// spell writes a value as the screen shows it: a scalar by itself, a string bare.
+func spell(v opensysml.Value) string {
+	switch v := v.(type) {
+	case nil:
+		return "nothing"
+	case opensysml.String:
+		return string(v)
+	case opensysml.EnumLiteral:
+		return v.Name
 	}
-	return usage.Value, nil
+	return fmt.Sprint(v)
 }

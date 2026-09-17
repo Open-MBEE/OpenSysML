@@ -66,11 +66,13 @@ func load(arg string) (any, error) {
 	if err := json.Unmarshal([]byte(arg), &text); err != nil {
 		return nil, fmt.Errorf("%w: %v", lord.ErrBadArgument, err)
 	}
-	if _, err := lord.NewGame([]byte(text), 0, lord.Character{}); err != nil {
+	proof, err := lord.NewGame([]byte(text), 0, lord.Character{})
+	if err != nil {
 		return nil, fmt.Errorf("lord.sysml: %w", err)
 	}
+	proof.Close()
 	source = []byte(text)
-	game = nil
+	retireGame()
 	return view("")
 }
 
@@ -96,6 +98,7 @@ func newGame(arg string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	retireGame()
 	game = g
 	return game.Welcome()
 }
@@ -116,6 +119,14 @@ func play(arg string) (any, error) {
 }
 
 func retire(string) (any, error) {
-	game = nil
+	retireGame()
 	return view("")
+}
+
+// retireGame closes the warrior's game, if one is running, and forgets it.
+func retireGame() {
+	if game != nil {
+		game.Close()
+		game = nil
+	}
 }

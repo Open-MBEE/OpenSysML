@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/client/opensysml"
 )
 
 // modelSource reads the LORD model the client plays.
@@ -26,6 +26,7 @@ func newGame(t *testing.T, seed uint64, c Character) *Game {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { g.Close() })
 	return g
 }
 
@@ -136,21 +137,21 @@ func TestInvokeBindsTypedArguments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	o, err := g.Invoke("buyWeapon", map[string]runtime.Value{"weapon": weapon})
+	o, err := g.Invoke("buyWeapon", map[string]opensysml.Value{"weapon": weapon})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if o.After.Gold != 300 || o.After.Strength != 15 || o.After.WeaponTier != 1 {
 		t.Fatalf("after the stick: gold %d, strength %d, tier %d", o.After.Gold, o.After.Strength, o.After.WeaponTier)
 	}
-	o, err = g.Invoke("deposit", map[string]runtime.Value{"amount": IntValue(120)})
+	o, err = g.Invoke("deposit", map[string]opensysml.Value{"amount": IntValue(120)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if o.After.Gold != 180 || o.After.BankGold != 120 {
 		t.Fatalf("after depositing: gold %d, bank %d", o.After.Gold, o.After.BankGold)
 	}
-	o, err = g.Invoke("deposit", map[string]runtime.Value{"amount": IntValue(1000)})
+	o, err = g.Invoke("deposit", map[string]opensysml.Value{"amount": IntValue(1000)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +161,7 @@ func TestInvokeBindsTypedArguments(t *testing.T) {
 	if _, err := g.Invoke("cheat", nil); !errors.Is(err, ErrNoSuchCommand) {
 		t.Fatalf("an undeclared action: err = %v, want ErrNoSuchCommand", err)
 	}
-	if _, err := g.Invoke("deposit", map[string]runtime.Value{"amount": runtime.NewStringValue("lots")}); err == nil {
+	if _, err := g.Invoke("deposit", map[string]opensysml.Value{"amount": opensysml.String("lots")}); err == nil {
 		t.Fatal("a String bound to an Integer parameter was accepted")
 	}
 }
@@ -168,7 +169,7 @@ func TestInvokeBindsTypedArguments(t *testing.T) {
 func TestGamesAreIsolated(t *testing.T) {
 	a := newGame(t, 1, Character{Name: "A"})
 	b := newGame(t, 1, Character{Name: "B"})
-	if _, err := a.Invoke("deposit", map[string]runtime.Value{"amount": IntValue(500)}); err != nil {
+	if _, err := a.Invoke("deposit", map[string]opensysml.Value{"amount": IntValue(500)}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.Send("EnterForest"); err != nil {

@@ -1,13 +1,13 @@
 package lord
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"unicode"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/client/opensysml"
 )
 
 // Choice is one line of the menu the player is shown: a key, what it does, and
@@ -158,22 +158,25 @@ func standIn(state, signal string) (actionMenu, bool) {
 // transitions accept, each decided against the warrior as it stands, and the
 // direct actions the menu offers there.
 func (g *Game) Menu() (*Screen, error) {
-	active := g.day.ActiveStates()
-	if len(active) == 0 {
+	active, err := g.session.ActiveStates(g.hero)
+	if err != nil || len(active) == 0 {
 		return nil, fmt.Errorf("%w: the day machine has no active state", ErrModelInvalid)
 	}
 	state := active[0]
-	screen := &Screen{Title: stateTitles[state.Name]}
+	screen := &Screen{Title: stateTitles[state]}
 	if screen.Title == "" {
-		screen.Title = state.Name
+		screen.Title = state
+	}
+	transitions, err := g.session.Transitions(g.hero)
+	if err != nil {
+		return nil, err
 	}
 	taken := map[string]bool{}
-	for _, trans := range g.day.Graph().Transitions[state] {
-		accept, ok := trans.Trigger.(*ast.AcceptEvent)
-		if !ok || accept.SignalType == nil || len(accept.SignalType.Parts) == 0 {
+	for _, trans := range transitions {
+		if trans.Source != state || trans.Trigger != opensysml.TriggerSignal || trans.Signal == "" {
 			continue
 		}
-		signal := accept.SignalType.Parts[len(accept.SignalType.Parts)-1].Text
+		signal := trans.Signal
 		enabled, err := g.accepts(signal)
 		if err != nil {
 			return nil, err
@@ -182,7 +185,7 @@ func (g *Game) Menu() (*Screen, error) {
 		if !known {
 			menu = signalMenu{label: spaced(signal)}
 		}
-		if direct, ok := standIn(state.Name, signal); ok {
+		if direct, ok := standIn(state, signal); ok {
 			params, err := g.params(direct.params)
 			if err != nil {
 				return nil, err
@@ -193,7 +196,7 @@ func (g *Game) Menu() (*Screen, error) {
 		screen.Choices = append(screen.Choices, Choice{Key: freeKey(taken, menu.key, signal), Label: menu.label, Signal: signal, Enabled: enabled})
 	}
 	for _, menu := range actionMenus {
-		if menu.state != state.Name || menu.signal != "" {
+		if menu.state != state || menu.signal != "" {
 			continue
 		}
 		params, err := g.params(menu.params)
@@ -207,23 +210,14 @@ func (g *Game) Menu() (*Screen, error) {
 
 // accepts reports whether the day machine would take the signal now.
 func (g *Game) accepts(signal string) (bool, error) {
-	sym := g.rt.Declared(modelDocName, playPackage+"::"+signal)
-	if sym == nil {
-		return false, fmt.Errorf("%w: %s accepts a signal %s the model does not declare", ErrModelInvalid, g.Location(), signal)
-	}
-	msg, err := g.ctx.SignalMessage(sym, nil, g.hero)
+	acceptance, err := g.session.Accepts(g.hero, playPackage+"::"+signal, nil)
 	if err != nil {
+		if errors.Is(err, opensysml.ErrFailure) {
+			return false, fmt.Errorf("%w: %s accepts a signal %s the model does not declare", ErrModelInvalid, g.Location(), signal)
+		}
 		return false, err
 	}
-	accepted, err := g.day.AcceptsMessage(msg)
-	if err != nil || !accepted {
-		return false, err
-	}
-	decision, err := g.day.Decide(msg)
-	if err != nil {
-		return false, err
-	}
-	return decision.Enabled(), nil
+	return acceptance.Accepted && acceptance.Enabled(), nil
 }
 
 // params reads a menu's parameter options from the model.
@@ -275,12 +269,14 @@ func (g *Game) options(spec paramSpec, source optionSource) ([]Option, error) {
 			if err != nil {
 				return nil, err
 			}
-			if lit := suitor.EnumerationLiteral(); lit == nil || lit.Name != sex {
+			if name, ok := literalName(suitor); !ok || name != sex {
 				continue
 			}
 		}
-		if label, err := g.Feature(inst, "name"); err == nil && label.Kind == runtime.ValString {
-			option.Label = label.Str()
+		if label, err := g.Feature(inst, "name"); err == nil {
+			if s, ok := label.(opensysml.String); ok {
+				option.Label = string(s)
+			}
 		}
 		var details []string
 		for _, attribute := range spec.detail {
@@ -288,7 +284,7 @@ func (g *Game) options(spec paramSpec, source optionSource) ([]Option, error) {
 			if err != nil {
 				return nil, err
 			}
-			details = append(details, attribute+" "+runtime.FormatValue(v))
+			details = append(details, attribute+" "+spell(v))
 		}
 		option.Detail = strings.Join(details, ", ")
 		options = append(options, option)
@@ -321,7 +317,7 @@ func (g *Game) Play(key string, inputs map[string]string) (*Outcome, error) {
 
 // perform binds a direct action's inputs and invokes it, or writes a preference.
 func (g *Game) perform(choice Choice, inputs map[string]string) (*Outcome, error) {
-	args := map[string]runtime.Value{}
+	args := map[string]opensysml.Value{}
 	for _, param := range choice.Params {
 		text, given := inputs[param.Name]
 		if !given {
@@ -348,11 +344,11 @@ func (g *Game) perform(choice Choice, inputs map[string]string) (*Outcome, error
 
 // bind turns the player's text into the model value the parameter takes: a
 // whole number, or the value of the option's expression.
-func (g *Game) bind(param Param, text string) (runtime.Value, error) {
+func (g *Game) bind(param Param, text string) (opensysml.Value, error) {
 	if param.Integer {
 		n, err := strconv.ParseInt(text, 10, 64)
 		if err != nil {
-			return runtime.Value{}, fmt.Errorf("%w: %s must be a whole number, not %q", ErrBadArgument, param.Name, text)
+			return nil, fmt.Errorf("%w: %s must be a whole number, not %q", ErrBadArgument, param.Name, text)
 		}
 		return IntValue(n), nil
 	}
@@ -361,7 +357,7 @@ func (g *Game) bind(param Param, text string) (runtime.Value, error) {
 			return g.Eval(option.Value)
 		}
 	}
-	return runtime.Value{}, fmt.Errorf("%w: %q is not a choice for %s", ErrBadArgument, text, param.Name)
+	return nil, fmt.Errorf("%w: %q is not a choice for %s", ErrBadArgument, text, param.Name)
 }
 
 // freeKey gives a choice its preferred key, or the first letter of its name not
