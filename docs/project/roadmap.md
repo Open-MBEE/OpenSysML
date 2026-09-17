@@ -1191,7 +1191,11 @@ choice point (#313); a junction with several enabled branches draws one as a cho
 the referee's translation carries the values a test's constructor writes (#314) and refuses a
 guard whose behavior acts on the model rather than dropping the call (#315). #322 (a join's
 segments fire with their own trigger bound, and a refused join is undone whole) is open against
-`develop`. None of E1–E7 moved; the referee's 15 `fail` are their measurement on the state side.
+`develop`. E1 then landed: the referee translates the terminate pseudostate, its `terminate-gap`
+bucket is retired, and the baseline is 46 `pass` / 17 `fail` / 38 `not-expressible` /
+2 `differs-by-design` — *Terminate 003* passes, *Terminate 001* and *002* fail on the
+region-entry order the same open finding already covers. E2–E7 have not moved; the referee's
+17 `fail` are their measurement on the state side.
 
 ## E1 — `terminate` in a body (landed)
 
