@@ -1397,7 +1397,7 @@ func TestOpaqueExpressionsNeedWrittenAccessibleNames(t *testing.T) {
 	wantLine(t, r.Notation, "private attribute hidden : ScalarValues::Real;")
 	wantLine(t, r.Notation, "constraint kept { secret + 1 > 0 }")
 	wantNoLine(t, r.Notation, "constraint ran")
-	wantNote(t, r, "_r1", migrate.Unmapped, "opaque expression names run, which nothing visible from Bound is called")
+	wantNote(t, r, "_r1", migrate.Unmapped, "opaque expression names run, which is the action def Bound::run, not a value an expression can read")
 	wantNote(t, r, "_secret", migrate.Approximated, "private visibility is not written: an expression in Bound names it")
 	wantClean(t, "access.sysml", r)
 }

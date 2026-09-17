@@ -144,8 +144,17 @@ func (m *migration) featureValue(v, f, scope *xmi.Element) (expr string, ok bool
 		return expr, ok, note
 	}
 	t := m.model.Ref(f, "type")
+	if v.Type == "InstanceValue" && t != nil {
+		inst := m.model.Ref(v, "instance")
+		if inst.Type == "InstanceSpecification" && !m.instanceOf(m.model.Refs(inst, "classifier"), t) {
+			return "", false, "the instance " + qualifiedName(inst) + " is not a " + qualifiedName(t) + ", which the feature holds"
+		}
+		if inst.Type == "EnumerationLiteral" && inst.Parent != t && m.written(t) {
+			return "", false, "the literal " + qualifiedName(inst) + " is not a " + qualifiedName(t) + ", which the feature holds"
+		}
+	}
 	sv := m.scalarBase(t)
-	if sv == "" && strings.HasPrefix(v.Type, "Literal") && m.structuredValueType(t) {
+	if sv == "" && strings.HasPrefix(v.Type, "Literal") && v.Type != "LiteralNull" && (m.structuredValueType(t) || m.written(t)) {
 		return "", false, "the literal " + expr + " is not a value of " + qualifiedName(t) + ", which has no scalar base"
 	}
 	if sv == "" || !strings.HasPrefix(v.Type, "Literal") || v.Type == "LiteralNull" {
@@ -244,6 +253,8 @@ type reference struct {
 	local  string
 	typed  int
 	steps  []step
+	// start is the offset of the first step in the expression text.
+	start int
 }
 
 type step struct {
@@ -285,7 +296,24 @@ func (l locals) has(n string) bool {
 // exprRefs parses text as one v2 expression and returns every model name it
 // refers to with its path; ok is false if it is not one, or has unread members.
 func exprRefs(text string) (refs []reference, ok bool) {
-	src := source.New("probe.sysml", []byte("attribute probe = "+text+";"))
+	value, ok := parseExpr(text)
+	if !ok {
+		return nil, false
+	}
+	var c refCollector
+	c.expr(value, nil)
+	if c.unread {
+		return nil, false
+	}
+	for i := range c.refs {
+		c.refs[i].start -= len(exprProbePrefix)
+	}
+	return c.refs, true
+}
+
+// parseExpr parses text as one v2 expression, leaving no diagnostic.
+func parseExpr(text string) (ast.Node, bool) {
+	src := source.New("probe.sysml", []byte(exprProbePrefix+text+";"))
 	p := parser.New(src)
 	root := p.ParseFile()
 	if len(p.Diagnostics) != 0 || len(root.Members) != 1 {
@@ -299,13 +327,27 @@ func exprRefs(text string) (refs []reference, ok bool) {
 	if !ok || u.Value == nil || u.HasBody || len(u.Members) != 0 {
 		return nil, false
 	}
-	var c refCollector
-	c.expr(u.Value, nil)
-	if c.unread {
-		return nil, false
-	}
-	return c.refs, true
+	return u.Value, true
 }
+
+// exprLiteral reports the kind of literal text is (integer, real, string or boolean,
+// as featureValue names them) with its value text, or "" when it is not one.
+func exprLiteral(text string) (kind, value string) {
+	switch v, _ := parseExpr(text); lit := v.(type) {
+	case *ast.LiteralInteger:
+		return "integer", lit.Value
+	case *ast.LiteralReal:
+		return "real", lit.Value
+	case *ast.LiteralString:
+		return "string", strings.Trim(lit.Value, `"`)
+	case *ast.LiteralBool:
+		return "boolean", strconv.FormatBool(lit.Value)
+	}
+	return "", ""
+}
+
+// exprProbePrefix precedes an expression parsed on its own as an attribute's value.
+const exprProbePrefix = "attribute probe = "
 
 // refCollector gathers the names an expression refers to beyond its local
 // ones; unread is set when a member of a kind the walk does not read is met.
@@ -582,7 +624,7 @@ func qualifiedRef(q *ast.QualifiedName) (reference, bool) {
 	if q == nil || len(q.Parts) == 0 {
 		return reference{}, false
 	}
-	r := reference{global: q.Global}
+	r := reference{global: q.Global, start: q.Parts[0].Span.Offset}
 	for _, p := range q.Parts {
 		r.steps = append(r.steps, step{name: p.Text})
 	}
@@ -619,12 +661,31 @@ func (m *migration) invisible(refs []reference, scope *xmi.Element) string {
 	}
 	visible, _ := m.visibleFrom(scope)
 	for _, r := range refs {
-		if _, _, missing := m.resolve(r, visible, nil); missing != "" {
+		e, _, missing := m.resolve(r, visible, nil)
+		if missing != "" {
 			if r.local != "" && r.typed == 0 {
 				return "reaches " + missing + " through " + writeName(r.local) + ", whose type it does not declare"
 			}
 			return "names " + missing + ", which nothing visible from " + qualifiedName(scope) + " is called"
 		}
+		if kw := m.notAValue(e); kw != "" {
+			return "names " + r.text(len(r.steps)) + ", which is " + kw + " " + qualifiedName(e) + ", not a value an expression can read"
+		}
+	}
+	return ""
+}
+
+// notAValue names the kind of declaration e becomes when an expression cannot
+// read it: an operation or behavior written as an action or state def.
+func (m *migration) notAValue(e *xmi.Element) string {
+	if e == nil || (e.Type != "Operation" && !isBehavior(e)) {
+		return ""
+	}
+	switch cat, _ := m.classify(e); cat {
+	case catActionDef:
+		return "the action def"
+	case catStateDef:
+		return "the state def"
 	}
 	return ""
 }
@@ -767,8 +828,8 @@ func (m *migration) memberNamed(e *xmi.Element, n string, kind memberKind) (memb
 }
 
 // membersOf maps the names of the written members of e, seen from outside it:
-// a namespace's own and inherited members, a feature's or instance's the
-// members of its type or classifiers, restricted as kind says. Private
+// a namespace's own and inherited members, a feature's (a parameter's too) or
+// instance's the members of its type or classifiers, restricted as kind says. Private
 // features are hidden, as v2 neither inherits nor reaches them.
 func (m *migration) membersOf(e *xmi.Element, kind memberKind) (visible, hidden map[string]*xmi.Element) {
 	visible = map[string]*xmi.Element{}
@@ -804,7 +865,7 @@ func (m *migration) membersOf(e *xmi.Element, kind memberKind) (visible, hidden 
 		}
 	}
 	switch {
-	case e.Type == "Property" || e.Type == "Port":
+	case e.Type == "Property" || e.Type == "Port" || e.Type == "Parameter":
 		if kind != memberFeature {
 			walk(m.model.Ref(e, "type"))
 		}

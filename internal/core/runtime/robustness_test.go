@@ -3250,8 +3250,9 @@ func testStateSubactionReferenceOfMissingAction(t *testing.T) {
 	}
 }
 
-// testStateSubactionReferenceFeatureChain: a feature-chain reference parses but
-// is not invocable, so it must report what it named rather than an empty name.
+// testStateSubactionReferenceFeatureChain: a feature-chain reference performs
+// the action as the object the chain denotes, so a part holding none names the
+// chained action in its error rather than running the action as the machine.
 func testStateSubactionReferenceFeatureChain(t *testing.T) {
 	ctx, machine := loadState(t, `package test {
 		action def CoolDown {
@@ -3261,7 +3262,7 @@ func testStateSubactionReferenceFeatureChain(t *testing.T) {
 		}
 
 		state Machine {
-			part controller {
+			part controller [0..1] {
 				action coolDown : CoolDown;
 			}
 
@@ -3276,9 +3277,11 @@ func testStateSubactionReferenceFeatureChain(t *testing.T) {
 		}
 	}`, "Machine")
 
-	if _, _, err := ctx.ExecuteStateWithEvents(machine, nil); err == nil {
-		t.Fatal("expected a feature-chain action reference to fail")
-	} else if !strings.Contains(err.Error(), "coolDown") {
+	_, _, err := ctx.ExecuteStateWithEvents(machine, nil)
+	if !errors.Is(err, ErrPerformerNotObject) {
+		t.Fatalf("expected ErrPerformerNotObject over an empty controller, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "controller.coolDown") {
 		t.Errorf("error should name the chained action, got: %v", err)
 	}
 }

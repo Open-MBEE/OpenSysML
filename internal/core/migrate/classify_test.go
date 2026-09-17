@@ -244,7 +244,7 @@ func TestInstanceOfUnwritableClassifierIsUnmapped(t *testing.T) {
       <packagedElement xmi:type="uml:Class" xmi:id="_lc" name="LibThing"/>
     </packagedElement>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_i" name="car" classifier="_lc"/>`,
-		"unmapped": `<packagedElement xmi:type="uml:Activity" xmi:id="_act" name="Drive"/>
+		"unmapped": `<packagedElement xmi:type="uml:Interaction" xmi:id="_act" name="Drive"/>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_i" name="car" classifier="_act"/>`,
 	}
 	for name, members := range cases {
@@ -311,7 +311,7 @@ func TestInstanceWithSeveralClassifiers(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B"/>
-    <packagedElement xmi:type="uml:Activity" xmi:id="_act" name="Drive"/>
+    <packagedElement xmi:type="uml:Interaction" xmi:id="_act" name="Drive"/>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_both" name="both" classifier="_a _b"/>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_mixed" name="mixed" classifier="_a _act"/>`,
 		`<sysml:Block xmi:id="_s1" base_Class="_a"/><sysml:Block xmi:id="_s2" base_Class="_b"/>`)
@@ -333,7 +333,7 @@ func TestInstanceWithSeveralClassifiers(t *testing.T) {
 func TestCommentAboutUnwrittenElementIsApproximated(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Thing"/>
-    <packagedElement xmi:type="uml:Activity" xmi:id="_act" name="Run"/>
+    <packagedElement xmi:type="uml:Interaction" xmi:id="_act" name="Run"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_r" name="Req">
       <ownedComment xmi:type="uml:Comment" xmi:id="_c1" body="see both" annotatedElement="_r _b _act"/>
       <ownedComment xmi:type="uml:Comment" xmi:id="_c2" body="see the run" annotatedElement="_r _act"/>
@@ -507,11 +507,11 @@ func TestUnmappedElementsKeepStereotypeMetadata(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B"/>
-    <packagedElement xmi:type="uml:Activity" xmi:id="_act" name="Run"/>
+    <packagedElement xmi:type="uml:Interaction" xmi:id="_act" name="Run"/>
     <packagedElement xmi:type="uml:Dependency" xmi:id="_d" name="link" client="_a" supplier="_gone"/>`,
 		`<sysml:Block xmi:id="_s1" base_Class="_a"/><sysml:Block xmi:id="_s2" base_Class="_b"/>
-  <custom:Tracked xmlns:custom="http://example.com/custom" xmi:id="_c1" base_Activity="_act" owner="ops" priority="2"/>
-  <custom:Reviewed xmlns:custom="http://example.com/custom" xmi:id="_c2" base_Activity="_act"/>
+  <custom:Tracked xmlns:custom="http://example.com/custom" xmi:id="_c1" base_Interaction="_act" owner="ops" priority="2"/>
+  <custom:Reviewed xmlns:custom="http://example.com/custom" xmi:id="_c2" base_Interaction="_act"/>
   <custom:Mount xmlns:custom="http://example.com/custom" xmi:id="_c3" base_Dependency="_d" kind="hard"/>
   <custom:Legacy xmlns:custom="http://example.com/custom" xmi:id="_c4" base_Dependency="_d"/>`)
 	wantLine(t, r.Notation, "«Tracked» (owner = ops; priority = 2), «Reviewed»")
@@ -527,8 +527,8 @@ func TestUnmappedElementsKeepStereotypeMetadata(t *testing.T) {
 
 func TestMultilineTagsKeepTheReportOneLinePerEntry(t *testing.T) {
 	r := migrateDocument(t, `
-    <packagedElement xmi:type="uml:Activity" xmi:id="_act" name="Run"/>`,
-		`<custom:Tracked xmlns:custom="http://example.com/custom" xmi:id="_c1" base_Activity="_act">
+    <packagedElement xmi:type="uml:Interaction" xmi:id="_act" name="Run"/>`,
+		`<custom:Tracked xmlns:custom="http://example.com/custom" xmi:id="_c1" base_Interaction="_act">
     <notes>first line
 second	line</notes>
   </custom:Tracked>`)
@@ -539,7 +539,7 @@ second	line</notes>
 	}
 	var found bool
 	for _, line := range strings.Split(b.String(), "\n") {
-		if strings.HasPrefix(line, "«Tracked» Activity\t") {
+		if strings.HasPrefix(line, "«Tracked» Interaction\t") {
 			found = true
 			if !strings.Contains(line, `notes = first line\nsecond\tline`) {
 				t.Errorf("report line = %q", line)
