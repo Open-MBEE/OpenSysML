@@ -1193,70 +1193,60 @@ guard whose behavior acts on the model rather than dropping the call (#315). #32
 segments fire with their own trigger bound, and a refused join is undone whole) is open against
 `develop`. None of E1–E7 moved; the referee's 15 `fail` are their measurement on the state side.
 
-## E1 — `terminate` in a body
+## E1 — `terminate` in a body (landed)
 
-**Today.** The parser accepts a terminate action usage in every position the grammar allows
-(`ast.TerminateStatement`, with the terminated occurrence as `Target` or nil for the containing
-action), and lowering carries it losslessly: as a node of the flow (`then terminate;`,
-`lower/action_nodes.go`), as a statement of a control node's or a state's `entry`/`do`/`exit`
-body (`lower/action_graph.go` `lowerStatement` → `Effect{Kind: EffectTerminate}`;
-`lower/state_graph.go` through `BodyStatementMembers`). The runtime then refuses to execute it,
-with one message wherever it is reached: `runtime/action_statements.go`
-`(*actionStmtHost).effect` and `runtime/state_statements.go` `(*stateStmtHost).effect` return
-`<where>: 'terminate' in a body is not executable`; a calculation refuses it as
-`ErrCalcSideEffect` (`runtime/calc_statements.go`), and that refusal is correct and stays — a
-calculation is pure (`robustness_test.go:calc_terminate_is_rejected`). So an action whose flow
-reaches `then terminate;` fails with that error rather than ending. The training corpus's
-`19. Terminate Actions/Terminate Actions Example-1.sysml` (`MonitoredActivity`) uses it twice
-and does not run at this baseline: it stops earlier, at the nested action node whose members are
-`perform`s with no `first` (`no initial node found in action node performCriticalActivity`,
-re-measured after #823's nested frames landed — the refusal is the flow rule, not the frame), and
-would stop at the first `terminate` once that is in. The PSSM referee files 3 of its 103 tests
-under `terminate-gap` for the same refusal.
+**Landed** in two change sets, the action half and then the state and occurrence half (SM38 in
+`docs/internals/design/precise-semantics-alignment.md`). The parser had accepted a terminate
+action usage in every position the grammar allows and lowering carried it losslessly; the runtime
+refused every one with `'terminate' in a body is not executable`. That refusal is gone from
+`runtime/action_statements.go` and `runtime/state_statements.go`, and `lower.Effect` names the
+terminated occurrence rather than leaving the executors to re-derive it: `Terminates` classifies
+the target (`TerminateContaining` for a bare `terminate;`, `TerminateEnclosing` for a terminate
+action usage `then stop;` reaches, `TerminateNode` for a name that is an action node of a flow
+around the statement, `TerminateOccurrence` for `this` or a feature chain) and `Target`/
+`TargetExpr` carry the expression, in the scope it is written in.
 
-Every position is refused. The previous baseline recorded one that was not — a nested action node
-written as a statement body (`action a { assign n := 1; terminate; }`) dropped the `terminate`
-because `lowerBody`'s statement cases did not include it. That is closed: `BodyStatementMembers`
-and `lowerStatement` (`lower/action_graph.go`) take `*ast.TerminateStatement`, the action
-executor's `stepStatementNode` recognises it, and the statement reaches the same `'terminate' in a
-body is not executable` refusal as every other body. There is no silent no-op left in this item;
-what remains is the semantics below.
+*Actions* (`runtime/action_terminate.go`): `then terminate;` ends the performance whose flow it
+is a node of with the outputs assigned so far, dropping every other token of that performance —
+a forked sibling still running, one parked at an `accept` — lowest token ID first, which the
+trace records (`terminate <performance>: dropped tokens …`); `terminate;` in a nested node's body
+ends that node and the parent goes on along its succession; `terminate <node>;` ends every
+ongoing performance of the named node in the flow around it, earliest begun first, the one
+running the statement included, and a performance whose step a parked token had yet to begin is
+begun and ended in the same activation (`beginPending`/`endPending`, traced as `ended before it
+began` or `ended waiting`) so the result does not depend on which fork branch the scheduler
+stepped first. *Occurrences* (`runtime/occurrence_terminate.go` `terminateOccurrence`):
+`terminate this;` in a part's behavior and `terminate <feature chain>;` evaluate the target and
+end the occurrence's lifetime, with its owned parts, the behaviors it exhibits or performs and
+every action or state executor running on it (`Context.endOccurrence`, `endBehaviorsWith`; an
+executor whose performer ended between two of its runs ends as terminated at its next,
+`performerEnded`). *States* (`runtime/state_statements.go`, `state_route.go` `terminateAt`,
+`state_executor.go` `terminateMachine`): a `terminate;` in an `entry`, `do` or `exit` body ends
+that behavior at the statement, the state stays active and dispatch goes on; a transition whose
+target is a terminate action usage (`accept Abort then stop; action stop terminate;`, §7.18.3)
+exits its source and runs its effect, then ends the machine's performance with no further exit,
+the running do behaviors abandoned (`abandonMachine`) and no state active — reached directly or
+through a choice, junction or join, from a composite state or one region of an orthogonal one.
+The outcome is `Outcome.Terminated` with an empty `FinalState`, the executor's state
+`StateTerminated` (distinct from `StateCompleted`), the REPL's `State machine terminated` and
+`Execution state: Terminated`, the LSP debug snapshot's `terminated`. A `terminate` naming a
+performance that ended, a value that is no occurrence, or an occurrence `destroy` emptied is a
+typed error (`ErrPerformanceEnded`, `ErrTerminateOccurrence`, `ErrTerminateTarget`,
+`robustness_terminate_test.go`); a calculation still refuses it as `ErrCalcSideEffect`
+(`robustness_test.go:calc_terminate_is_rejected`). The PSSM referee translates the suite's
+terminate pseudostate to the same spelling, which retired its `terminate-gap` bucket
+(`docs/project/pssm-referee.md`).
 
-**Target.** SysML v2 §7.17.10: a terminate action usage "forces the lifetime of the terminated
-occurrence to end by the completion of the `TerminateAction`"; when no occurrence is given, the
-default is "the immediately containing action of the terminate action usage", and for a nested
-action "it is that nested action that is terminated, not any containing actions"; `terminate
-this;` in a part's action ends the part; the occurrence may also arrive by a `flow` into the
-`terminatedOccurrence` parameter. The library is `Actions::TerminateAction` (`Systems
-Library/Actions.sysml`: `in occurrence terminatedOccurrence[1]`, performed by
-`terminateOccurrence : destroy`) and the base usage `Actions::terminateActions`, whose
-`terminatedOccurrence` defaults to `that as Occurrence`. In a state body the containing action is
-the entry, do or exit behavior it is written in — a `StatePerformance`'s `entry`/`do`/`exit` step
-(`Kernel Semantic Library/StatePerformances.kerml`) — so it ends that behavior, not the state
-machine, unless the machine's exhibiting occurrence is named.
-
-**Work.** Give `lower.Effect` the terminated occurrence as an evaluable target (nil for the
-containing performance), and give both executors a notion of *ending a performance that is still
-ongoing*: for the action executor, dropping every token the terminated node or action still holds
-— including a forked sibling branch still running, as `MonitoredActivity` requires — and
-completing it with the outputs it has; for the state executor, ending the running entry/do/exit
-behavior at that statement (`runtime/state_executor.go` `startDoAction`/`runDoRound` hold the
-running do behaviors) and, for a named occurrence, the object that holds it. A `terminate` naming
-an occurrence that is not ongoing, or a value that is no occurrence, is a typed error. Nothing
-else in the track depends on anything but this item, and E2 depends on it.
-
-**Proof.** Conformance: the training example above runs to completion, `performCriticalActivity`
-ended by its own `terminate` while `monitorCriticalActivity` is still ongoing and `stop` ending
-the whole action; `then terminate;` in a flow ends the action with the outputs assigned so far;
-`terminate` in a `do` body ends that behavior and the state stays active; a nested action's
-`terminate` ends the nested action and its parent continues. A trace golden for
-the fork case (which tokens are dropped, in what order). Robustness: terminate of a completed
-occurrence, of a non-occurrence, and the calculation refusal unchanged. `spec-compliance.md`: the
-Actions map gains a `terminate` row per position (today it has none — the refusal is the only
-record), and the pointer to this track under "not supported" drops the `terminate` clause.
-**Prioritize when** a corpus model or a user model needs `terminate` to run rather than to be
-refused — the training example is the first candidate, once the nested-action frames it also
-needs are in.
+**What it leaves.** A fork branch of a state machine cannot target a terminate action: the
+lowering's fork rule takes states as branch targets (`lower/fork_plan.go`), and the spelling
+reported rather than routed. The training corpus's `19. Terminate Actions/Terminate Actions
+Example-1.sysml` (`MonitoredActivity`) parses and every `terminate` it uses runs, but the model
+still stops at initialize: its nested node `performCriticalActivity` is two `perform`s with no
+`first` and no succession between them, so the flow-start rule (`lower/case_body.go`
+`CaseFlowStart`, `runtime/action_subflow.go` `noFlowStart`) reports two possible starts — `no
+succession leads to "monitorCriticalActivity" or to "criticalActivity"` — where §7.17.2 lets
+unsequenced nested actions start concurrently when their container does. That is a flow-start
+item, not a terminate one, and it is what the example waits on.
 
 ## E2 — interrupting an ongoing performance ("interruptible regions")
 
@@ -1265,7 +1255,7 @@ SysML v2 as an `accept` followed by a `terminate` in a forked branch (§7.17.10'
 `MonitoredActivity`: "Terminates `performCriticalActivity` even if `monitorCriticalActivity` is
 still ongoing"), or as a transition leaving a state whose `do` is running (§7.18.3: "If the
 source state has a do action that is still being performed, that is interrupted."). The action
-half is E1 and does not exist yet. The state half runs, with one documented approximation
+half is E1 and landed. The state half runs, with one documented approximation
 (`spec-compliance.md` § Known Limitations, *Runtime*): an inline `do` body is one action, so
 `runDoRound` advances it as a unit and an outgoing transition interrupts it only between rounds,
 never between its statements; the one-action-per-statement `do { … }` form is the interruptible
@@ -2484,7 +2474,8 @@ carried more than that list. By track, with the pull requests the tracks cite:
 - **Track L** — landed: L3–L6; L7's measured table (#292) is on `develop` after the tag and
   closes the track.
 - **Track W** — landed: W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both.
-- **Track E** — E9 and E10 landed as conformance findings; E8's refusal landed (#229), the item
+- **Track E** — E1 landed (`terminate` runs in every position, the PSSM `terminate-gap` bucket
+  retired); E9 and E10 landed as conformance findings; E8's refusal landed (#229), the item
   itself is open.
 - **Track D** — D12 (the standard library's normative element ids) is done.
 - **Release follow-through** — R4's Windows installer is published by `v0.7.0` and `v0.8.0`
@@ -2497,10 +2488,9 @@ The open items, by track, with the item that gates each where one does. Everythi
 is landed or is a track the previous baseline left as it stands (D, N, M, I, V, B, R2–R5);
 Tracks F, S, L and A are closed.
 
-- **Track E** — eligible and first: E1, E2, E4 in that order, then E6 on request, E3/E5 behind
+- **Track E** — eligible and first: E2, then E4 (E1 landed), then E6 on request, E3/E5 behind
   their design records, E7 behind its object-model item, E8 behind a model that needs it. The
-  PSSM referee's 15 `fail` and 3 `terminate-gap` tests are the state side's measurement; #322 is
-  open.
+  PSSM referee's `fail` tests are the state side's measurement; #322 is open.
 - **Track Q** — Q1, unblocked now that #293 closed Q2; Q3, unblocked by A5 and by Q2's object
   rows, not started.
 - **Track X** — X7's RDF literal form and native layout for sets and tensors; X8's two harness
@@ -2522,12 +2512,12 @@ The release housekeeping the previous order opened with is done — #286 folded 
 `develop`, PyPI serves the Python client's 0.5.0 — and its steps 2 (L7, #292), 4's first half
 (Q2, #293) and 5 (A4, #296) landed on `develop`, so the order is shorter by three.
 
-1. **Track E** — E1, then E2, then E4, in the track's own order below. F and S landed and two
+1. **Track E** — E2, then E4, in the track's own order below; E1 landed. F and S landed and two
    releases shipped them, so the condition the previous baseline set is met; the loops E edits
    carry A5's clock and S2's choice points, and every E item is written against a named scheduling
    policy. The state-executor fixes since the tag (#295, #297, #311, #313–#315, #317, #318) moved
-   the PSSM referee to 45 `pass` and touched none of E1–E7; E1 is the first item and the only
-   one nothing else waits behind.
+   the PSSM referee to 45 `pass` and touched none of E1–E7; E1 gave E2 and E4 the notion of
+   ending an ongoing performance they build on.
 2. **Q1, then Q3** — Q1 is the page that says which query is which, written now that the set is
    complete (#267, #289 and #293 closed Q2 on `develop`); Q3 (state and event queries) follows on
    A5's clock and Q2's object rows. Q4 (#849) landed independently ahead of it.
@@ -2593,11 +2583,11 @@ that exercise them. The decision is the release checklist's, recorded there.
   (#120) as the per-traversal merge on top of it; `known_failures.txt` has no line left to delete.
 - **Track S.** Landed in the order agreed: S1 (#110), S2 (#123), S3 (#125), S4 (#134); #141 added
   the region-order choice point afterwards. Nothing remains in the track.
-- **Track E.** Eligible — step 1 above. The order is **E1** (termination of an ongoing
-  performance, which **E2** and **E4** build on), then **E2**, then **E4**; **E6** whenever asked,
+- **Track E.** Eligible — step 1 above. **E1** (termination of an ongoing performance, which
+  **E2** and **E4** build on) is landed; the order is **E2**, then **E4**; **E6** whenever asked,
   being a day's work; **E3** and **E5** only after their design records; **E7** after the
   object-model item it depends on; **E8** when a model redefines run-to-completion, its refusal
-  (#229) standing until then; **E9** and **E10** are landed.
+  (#229) standing until then; **E1**, **E9** and **E10** are landed.
 - **Track X.** X2, X3, X4, X5, X6, X7's values and X8's typing landed (#164, #115, #113, #211,
   #122, #121, #112). What is left, in order: X8's harness halves (normalization and adjudication
   in the pilot differential, a standalone RDF expression-tree round trip) so every later X item is

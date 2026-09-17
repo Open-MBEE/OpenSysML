@@ -852,7 +852,8 @@ else is exited, running do behaviors are abandoned (`abandonMachine`), and the o
 `Terminated` rather than a final state. Only a calculation still refuses it, as a side effect
 (`robustness_test.go:calc_terminate_is_rejected`). PSSM's rules for the pseudostate — "does
 not exit any States", do activities "automatically aborted" — are these; the source's exit is
-in PSSM's own expected traces (*Terminate 001*'s ends in `S2.1(exit)`). **agrees**.
+in PSSM's own expected traces (the last step of *Terminate 001*'s admitted trace is the exit of
+the state whose completion transition reaches the pseudostate). **agrees**.
 
 #### Time and change events against the simulation clock
 

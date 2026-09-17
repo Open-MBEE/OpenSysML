@@ -6,8 +6,8 @@
     "url": "https://www.omg.org/spec/PSSM/20181101/PSSM_TestSuite.xmi",
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
-    "recorded": "2026-09-16",
-    "develop": "6ef61eeddaaee1964629e99ede3e6d5f4a3a830f"
+    "recorded": "2026-09-17",
+    "develop": "c2bffb389707368c814cbee64142c01f7816f093"
   },
   "buckets": {
     "differs-by-design": 2,
