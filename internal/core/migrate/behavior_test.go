@@ -308,7 +308,7 @@ func TestStateMachineMigratesToAnExecutableStateDef(t *testing.T) {
 		"entry; then Warm;",
 		"transition first Warm accept after 2.0 [SI::s] then Hot;",
 		"state Cool : Cooling;",
-		"transition start2 first Idle accept go : Go",
+		"transition start2 first Idle accept Go",
 		"assign this.count := this.count + 1;",
 		"then Busy;",
 		"transition first Busy accept after 2.0 [SI::s] then Cool;",

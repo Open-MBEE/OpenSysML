@@ -907,6 +907,9 @@ func (a *activity) declarePins(n *xmi.Element, ins, outs []*xmi.Element, typed b
 		switch p.Attrs["direction"] {
 		case "out", "return":
 			outParams = append(outParams, p)
+		case "inout":
+			inParams = append(inParams, p)
+			outParams = append(outParams, p)
 		default:
 			inParams = append(inParams, p)
 		}

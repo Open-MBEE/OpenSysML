@@ -828,8 +828,8 @@ func (m *migration) memberNamed(e *xmi.Element, n string, kind memberKind) (memb
 }
 
 // membersOf maps the names of the written members of e, seen from outside it:
-// a namespace's own and inherited members, a feature's or instance's the
-// members of its type or classifiers, restricted as kind says. Private
+// a namespace's own and inherited members, a feature's (a parameter's too) or
+// instance's the members of its type or classifiers, restricted as kind says. Private
 // features are hidden, as v2 neither inherits nor reaches them.
 func (m *migration) membersOf(e *xmi.Element, kind memberKind) (visible, hidden map[string]*xmi.Element) {
 	visible = map[string]*xmi.Element{}
@@ -865,7 +865,7 @@ func (m *migration) membersOf(e *xmi.Element, kind memberKind) (visible, hidden 
 		}
 	}
 	switch {
-	case e.Type == "Property" || e.Type == "Port":
+	case e.Type == "Property" || e.Type == "Port" || e.Type == "Parameter":
 		if kind != memberFeature {
 			walk(m.model.Ref(e, "type"))
 		}

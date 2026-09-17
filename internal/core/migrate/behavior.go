@@ -175,7 +175,13 @@ func (m *migration) parameter(p, scope *xmi.Element, declared map[string]bool) {
 	b.WriteString(mult)
 	note = joinNotes(note, mnote)
 	var body []string
-	if dv := firstOwned(p, "defaultValue"); dv != nil {
+	bound, isBound := m.bound[p]
+	if isBound {
+		b.WriteString(" = " + bound)
+	}
+	if dv := firstOwned(p, "defaultValue"); dv != nil && isBound {
+		note = joinNotes(note, "the default value "+describeValue(dv)+" gives way to the binding")
+	} else if dv != nil {
 		expr, ok, vnote := m.behaviorValue(dv, scope)
 		if ok {
 			b.WriteString(" default = " + expr)
@@ -185,7 +191,11 @@ func (m *migration) parameter(p, scope *xmi.Element, declared map[string]bool) {
 			note = joinNotes(note, "default value not migrated: "+vnote)
 		}
 	}
-	m.add(p, verdictFor(note), m.v2Name(p), note)
+	v := verdictFor(note)
+	if isBound {
+		note = joinNotes("bound to "+bound+", the signal the transition accepts", note)
+	}
+	m.add(p, v, m.v2Name(p), note)
 	m.w.block(b.String(), func() {
 		m.comments(p)
 		m.w.lines(body)

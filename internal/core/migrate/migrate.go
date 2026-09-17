@@ -65,8 +65,8 @@ func FromModel(name string, model *xmi.Model) *Result {
 	return &Result{Notation: []byte(m.w.String()), Report: m.report}
 }
 
-// unwrittenEvents reports the events whose triggers were never written, which
-// belong to behaviors that were not.
+// unwrittenEvents reports the events whose triggers were never written: those
+// belong to behaviors that were not, or to initial transitions, which take none.
 func (m *migration) unwrittenEvents() {
 	var left []*xmi.Element
 	for ev := range m.triggered {
@@ -76,7 +76,7 @@ func (m *migration) unwrittenEvents() {
 	}
 	sort.Slice(left, func(i, j int) bool { return left[i].ID < left[j].ID })
 	for _, ev := range left {
-		m.add(ev, Unmapped, "", "every trigger referring to the event belongs to a behavior that is not written")
+		m.add(ev, Unmapped, "", "every trigger referring to the event is dropped: it belongs to a behavior that is not written, or to an initial transition")
 	}
 }
 
@@ -144,6 +144,9 @@ type migration struct {
 	bounded map[*xmi.Element][]*xmi.Element
 	// triggered holds each event some trigger refers to, which is reported where it is.
 	triggered map[*xmi.Element]bool
+	// bound gives, while a transition's effect is written, the expression over
+	// the accepted signal each of its parameters is bound to.
+	bound map[*xmi.Element]string
 	// indexed locates each element's report entry by id, so an element that
 	// several writers account for is reported once.
 	indexed map[string]int
@@ -379,12 +382,13 @@ func namespaceMembers(e *xmi.Element) []*xmi.Element {
 }
 
 // ownerWritten reports whether a child in role is written by its owner rather
-// than as a member of its body.
+// than as a member of its body; an action's pins are, and it names them apart.
 func ownerWritten(role string) bool {
 	switch role {
 	case "ownedComment", "generalization", "lowerValue", "upperValue", "defaultValue",
 		"end", "specification", "type", "general", "annotatedElement", "body", "language",
-		"ownedEnd", "memberEnd", "value", "slot", "ownedLiteral", "ownedParameter", "region":
+		"ownedEnd", "memberEnd", "value", "slot", "ownedLiteral", "ownedParameter", "region",
+		"argument", "result", "inputValue", "outputValue", "object", "target", "insertAt", "removeAt":
 		return true
 	}
 	return false
@@ -1451,7 +1455,11 @@ func (m *migration) written(e *xmi.Element) bool {
 	case "Property", "Port", "EnumerationLiteral":
 		return m.written(e.Parent)
 	case "Parameter":
-		return e.Parent != nil && (e.Parent.Type == "Operation" || isBehavior(e.Parent)) && m.written(e.Parent)
+		p := e.Parent
+		if p == nil || (p.Type != "Operation" && !isBehavior(p)) {
+			return false
+		}
+		return m.written(p) || inlinedBehavior(p) && hasActionForm(p)
 	case "Association":
 		return e.Name != ""
 	}
@@ -1469,6 +1477,16 @@ func (m *migration) written(e *xmi.Element) bool {
 // as its owner's entry, do, exit or effect action, which nothing else can name.
 func inlinedBehavior(e *xmi.Element) bool {
 	return isBehavior(e) && e.Parent != nil && (e.Parent.Type == "State" || e.Parent.Type == "Transition")
+}
+
+// hasActionForm reports whether behavior b is written inline as an action
+// body, parameters included, when a state or transition owns it.
+func hasActionForm(b *xmi.Element) bool {
+	switch b.Type {
+	case "Activity", "OpaqueBehavior", "FunctionBehavior":
+		return true
+	}
+	return false
 }
 
 // featureRef writes a reference to a property from a feature that redefines or

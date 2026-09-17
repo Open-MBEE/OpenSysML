@@ -163,10 +163,13 @@ returned over the service yet.
 | Pseudostate exitPoint, terminate | a transition into it is written to `done` | approximated |
 | Pseudostate entryPoint, ConnectionPointReference, deep/shallow history, fork/join pseudostates | comment | **unmapped** — no v2 form |
 | `entry`, `doActivity`, `exit` behaviors | `entry action { … }` / `do action { … }` / `exit action { … }` inline when the behavior is owned by the state, `entry x;` / `do x : Def;` by reference otherwise | mapped |
-| Transition | `transition first s accept sig : Sig if <guard> do <effect> then t;`; several triggers are several transitions; a completion transition is `transition first s then t;` | mapped (several triggers: approximated) |
+| Transition | `transition first s accept Sig if <guard> do <effect> then t;`; several triggers are several transitions; a completion transition is `transition first s then t;` | mapped (several triggers: approximated) |
+| Transition `effect` with `in` parameters | the accepted signal is named, `accept sig : Sig`, and each parameter typed by the signal (or a general of it), or the sole untyped one, is bound to it: `in p : Sig = sig;`; a parameter of another type takes no value | mapped (an unbound parameter: approximated) |
 | State `deferrableTrigger` on a SignalEvent | `defer Sig;` in the state's body — the OpenSysML `defer` extension (see [Behavior](../guide/06-behavior.md)), which the runtime executes and the validator reports as non-standard notation | approximated |
-| Internal transition (`kind = internal`), `deferrableTrigger` on any other event, state invariant | comment | **unmapped** — no v2 form |
-| SignalEvent, ChangeEvent, relative TimeEvent | written where a trigger refers to them, as `accept sig : Sig`, `accept when <cond>`, `accept after <d> [SI::s]`; an event no trigger refers to is a comment | mapped / approximated |
+| Internal transition (`kind = internal`), `deferrableTrigger` on any other event | comment | **unmapped** — no v2 form |
+| State `stateInvariant` | comment in the state's body quoting the constraint; the state is written with a body so the comment has a place | **unmapped** — no v2 form |
+| Initial transition with a trigger or guard | the region's `entry; then s;`; each trigger and the guard are dropped and reported apart from the transition | approximated (the trigger, the guard: unmapped) |
+| SignalEvent, ChangeEvent, relative TimeEvent | written where a trigger refers to them, as `accept Sig`, `accept when <cond>`, `accept after <d> [SI::s]`; an event no trigger refers to is a comment | mapped / approximated |
 | Absolute TimeEvent, TimeEvent whose `when` is not a number with a time unit | comment | **unmapped** |
 | Interaction | a scenario `action def` of `send`s in occurrence order, when every message is an asynchronous signal send received on a lifeline standing for a part of the interaction's owner | approximated |
 | Interaction with a synchronous call, a reply, a message to a lifeline that is not a part, or no message; DurationConstraint on an interaction | comment | **unmapped** — the reason names the message |
@@ -230,9 +233,11 @@ with the model seed; the report says so.
 **State machines.** A composite state's regions become sub-states of a `parallel` state, so
 the orthogonal regions run together; a submachine state is a `state` usage typed by the
 referenced machine's `state def`, composing through any depth. Triggers are written on the
-transition that refers to them — `accept sig : Sig`, `accept after 2.0 [SI::s]`,
-`accept when this.temperature > 200.0` — and the event's own report line says where. Entry,
-do and exit behaviors owned by the state are inline action bodies; those it only refers to
+transition that refers to them — `accept Sig`, `accept after 2.0 [SI::s]`,
+`accept when this.temperature > 200.0` — and the event's own report line says where. An effect
+with parameters reads the accepted signal: the accept names it, `accept sig : Sig`, and the
+parameters the signal fits are bound to that name. Entry, do and exit behaviors owned by the
+state are inline action bodies, on a submachine state as on any other; those it only refers to
 are `entry x;` references. A transition into an exit point or a terminate pseudostate is written to `done`; entry points,
 connection point references, history pseudostates and internal transitions have no v2 form and
 are comments.
