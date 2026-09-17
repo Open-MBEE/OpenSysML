@@ -47,10 +47,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MSI_DIR="$REPO_ROOT/packaging/msi"
 WXS="$MSI_DIR/opensysml.wxs"
+WIZARD_WXS="$MSI_DIR/wizard.wxs"
 PIN="$MSI_DIR/z3.pin"
 LICENSE_FILE="$REPO_ROOT/LICENSE"
 
-for f in "$WXS" "$PIN" "$LICENSE_FILE"; do
+for f in "$WXS" "$WIZARD_WXS" "$PIN" "$LICENSE_FILE"; do
   [[ -f "$f" ]] || { echo "error: $f not found" >&2; exit 1; }
 done
 for f in "$SYSML_EXE" "$LSP_EXE" "$GRPC_EXE"; do
@@ -139,7 +140,7 @@ $WIX_CMD build -arch x64 \
   -d "LicenseFile=$(wixpath "$LICENSE_FILE")" \
   -pdbtype none \
   -o "$(wixpath "$OUT")" \
-  "$(wixpath "$WXS")"
+  "$(wixpath "$WXS")" "$(wixpath "$WIZARD_WXS")"
 
 [[ -s "$OUT" ]] || { echo "error: wix did not produce $OUT" >&2; exit 1; }
 
