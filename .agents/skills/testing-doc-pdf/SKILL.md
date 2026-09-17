@@ -1,19 +1,22 @@
 ---
 name: testing-doc-pdf
-description: How to end-to-end test the sysml PDF document backend (internal/docpdf + -doc-form pdf) on Linux — provisioning the pinned WeasyPrint/mermaid/KaTeX toolchain, rendering the worked example and the docrender goldens, and proving inline runs, anchors, links and LaTeX formulas render rather than appearing literal.
+description: How to end-to-end test the sysml PDF document backend (internal/docpdf + -doc-form pdf) on Linux — provisioning the pinned WeasyPrint/mermaid/KaTeX/Graphviz/PlantUML toolchain, rendering the worked example and the docrender goldens, and proving inline runs, anchors, links, LaTeX formulas and every diagram form render rather than appearing literal.
 ---
 
 # Testing the PDF document backend
 
 ## Toolchain
-- Provision once: `./scripts/download-doc-pdf-toolchain.sh` installs a pinned WeasyPrint venv, pandoc, mermaid-cli and KaTeX under `build/doc-pdf/`.
+- Provision once: `./scripts/download-doc-pdf-toolchain.sh` installs a pinned WeasyPrint venv, pandoc, mermaid-cli, KaTeX, Graphviz (unpacked from the upstream Ubuntu .debs; its `neato` plugin needs the host's `libgts-0.7-5`) and the PlantUML jar under `build/doc-pdf/`. PlantUML needs a `java` on `PATH` (or `OPENSYSML_JAVA`).
 - Export before any PDF render (env does NOT persist between exec tool calls even in the same shell session — re-export in the same command line):
   - `OPENSYSML_WEASYPRINT=$PWD/build/doc-pdf/weasyprint/bin/weasyprint`
   - `OPENSYSML_MMDC=$PWD/build/doc-pdf/mermaid/node_modules/.bin/mmdc`
   - `OPENSYSML_MMDC_PUPPETEER=$PWD/build/doc-pdf/mermaid/puppeteer.json`
   - `OPENSYSML_PANDOC=$PWD/build/doc-pdf/pandoc-3.10.2/bin/pandoc` (for `-pdf-engine pandoc`)
   - `OPENSYSML_KATEX=$PWD/build/doc-pdf/katex/node_modules/.bin/katex` (only a document with formulas needs it)
-- `go test -run Installed ./internal/docpdf` runs the real-toolchain integration tests (they skip per missing tool); the rest of the package's tests use fake tools and need nothing installed.
+  - `OPENSYSML_DOT=$PWD/build/doc-pdf/graphviz/bin/dot` (for `-diagram-form dot`; absent, DOT blocks stay as source under a notice)
+  - `OPENSYSML_PLANTUML_JAR=$PWD/build/doc-pdf/plantuml/plantuml-1.2026.8.jar` (for `-diagram-form plantuml`; absent, PlantUML blocks stay as source under a notice)
+- `go test -run Installed ./internal/docpdf` runs the real-toolchain integration tests (they skip per missing tool); the rest of the package's tests use fake tools and need nothing installed. `OPENSYSML_REQUIRE_PDF_TOOLCHAIN=1` turns every such skip but Prince's into a failure — set it once the script has run, so a misconfigured variable cannot pass as a skip. This is how the CI `pdf-toolchain` job runs them.
+- Diagram forms: render the worked example with `-diagram-form dot` and `-diagram-form plantuml` too; the PDF must contain no "did not draw" notice (pypdf `extract_text`) and the page's XObjects grow by one per diagram. With `OPENSYSML_DOT=/nonexistent` the render still succeeds and the notice names `OPENSYSML_DOT`. A `// layout: neato -n` block (the DOT writer emits one for a positioned diagram) must run neato: `dot -Kneato` failing with "no layout engine support" means the GTS library is missing.
 
 ## Rendering
 - Worked example: `bin/sysml docs/manual/examples/observatory.sysml -render-document Observatory::MassReport -doc-form pdf -pdf-title-page -pdf-toc -pdf-number-sections -o /tmp/observatory.pdf`. It exercises emphasis, code span, external Link, Ref (`#breakdown`), a standalone `<a id="breakdown"></a>` anchor line, grouped table (`**zone: ...**` headings), numbered list and two mermaid diagrams.

@@ -169,6 +169,17 @@ SH
 			echo "the unpacked Graphviz does not run: $("$graphviz/bin/dot" -V 2>&1)" >&2
 			exit 1
 		fi
+		# The dot and neato layouts are what the PDF backend runs; neato's plugin
+		# links against the host's GTS (libgts-0.7-5), which apt installs.
+		for engine in dot neato; do
+			if ! echo 'digraph { a -> b }' | "$graphviz/bin/dot" "-K$engine" -Tsvg >/dev/null 2>"$dest/graphviz-$engine.err"; then
+				echo "the unpacked Graphviz has no $engine layout: $(cat "$dest/graphviz-$engine.err")" >&2
+				echo "install its missing library (neato needs libgts-0.7-5) and run this script again" >&2
+				rm -rf "$graphviz"
+				exit 1
+			fi
+			rm -f "$dest/graphviz-$engine.err"
+		done
 	fi
 fi
 
