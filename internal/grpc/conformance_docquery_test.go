@@ -164,7 +164,8 @@ func checkDocumentValue(t *testing.T, label string, want expectedValue, got *pb.
 
 // describeDocumentValue names a document value's arm and renders its payload
 // in the fixture spelling: an element as "<fqn> (<type>)", an object as
-// "<path> (#<id>) : <usage fqn> (<type>)", a verdict as "<text> on <path>: <verdict>".
+// "<path> (#<id>) : <usage fqn> (<type>)", a verdict as "<text> on <path>: <verdict>",
+// a state as "<path>.<machine> in <state path> (<region>)", an event as "<kind> at <time>: <text>".
 func describeDocumentValue(v *pb.DocumentValue) (string, interface{}) {
 	switch k := v.Kind.(type) {
 	case *pb.DocumentValue_ElementId:
@@ -185,6 +186,11 @@ func describeDocumentValue(v *pb.DocumentValue) (string, interface{}) {
 		return "verdict", fmt.Sprintf("%s on %s: %s", k.Verdict.GetText(), k.Verdict.GetPath(), k.Verdict.GetVerdict())
 	case *pb.DocumentValue_Object:
 		return "object", fmt.Sprintf("%s (#%d) : %s", k.Object.GetPath(), k.Object.GetInstanceId(), describeElement(k.Object.GetElement()))
+	case *pb.DocumentValue_State:
+		return "state", fmt.Sprintf("%s.%s in %s (%s)", k.State.GetObject().GetPath(), k.State.GetMachine(), k.State.GetStatePath(), k.State.GetRegion())
+	case *pb.DocumentValue_Event:
+		_, at := describeDocumentValue(k.Event.GetTime())
+		return "event", fmt.Sprintf("%s at %v: %s", k.Event.GetKind(), at, k.Event.GetText())
 	default:
 		return "no arm", nil
 	}

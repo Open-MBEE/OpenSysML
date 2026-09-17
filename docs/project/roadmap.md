@@ -3,13 +3,16 @@
 Baseline: `v0.8.0` (`238aed650`, `Merge pull request #277 from Open-MBEE/release/0.8.0`,
 2026-09-13), verified locally with Go 1.25.0. It is the newest tag on `Open-MBEE/OpenSysML`, after
 `v0.7.0` (`e0fbfea5b`, 2026-09-09) and `v0.6.0` (`30f103bb9`, 2026-09-07). The integration branch
-`develop` (`e6064fa70`, #318) carries 33 pull requests past the tag and nothing else is counted
+`develop` (`fcfb0a7b9`, #352) carries 64 pull requests past the tag and nothing else is counted
 ahead of it: every status below is what the tag carries unless the text names one of those as
 having moved it — #267, #289 and #293 (Q2), #263 (A7), #286 (the release fold-back), #291
-(the generated test figures), #292 (L7), #296 (A4), #300 and #316 (the large-model design and
-its first step, under "Proposed"), and the state-executor fixes the PSSM referee adjudicated
-(#295, #297, #311, #313–#315, #317, #318; Track E) — and the pull requests open against
-`develop` at this baseline are named where they touch a roadmap item.
+(the generated test figures), #292 (L7), #296 (A4), #335 and #352 (E1), #344 (modeled
+randomness beside A3), #300 and #316 (the large-model design and its first step, under
+"Proposed"), #319, #321 and #334 (the fUML referee for actions, under "Proposed"), #350 (R4's
+installer wizard), #304 (the errata overlay over the bundled library, under "Upstream
+follow-through"), and the state-executor fixes and findings the PSSM referee adjudicated (#295,
+#297, #311, #313–#315, #317, #318, #322, #326, #336, #342; Track E) — and the pull requests open
+against `develop` at this baseline are named where they touch a roadmap item.
 Read `AGENTS.md` first; it governs everything below.
 
 > **Labels.** This is an engineering record. The RDF items keep the `D` numbers (`D1`, `D2`,
@@ -225,13 +228,15 @@ left git altogether: the site build counts them into the compliance map's test i
 (`scripts/mkdocs_suite_figures.py` over `go run ./cmd/doc-counts -site-blocks`), the committed
 pages name what is counted without a figure, and a branch adding a test rewrites no shared line.
 The tests-and-subtests total of a run, which only a run can state, is no longer quoted anywhere. At
-`develop`'s head the blocks read 945 conformance cases, 262 default and 64 per-policy trace
-goldens, 465 runtime robustness cases, 21 gRPC conformance and 8 gRPC robustness cases, 206 golden
+`develop`'s head the blocks read 1013 conformance cases, 307 default and 80 per-policy trace
+goldens, 493 runtime robustness cases, 21 gRPC conformance and 8 gRPC robustness cases, 208 golden
 ASTs and 252 negative subtests; the growth over the table is fixtures landed after the tag, all
-unreleased. The census, rejection-oracle and RDF round-trip
-rows follow the committed baselines; none of the three moved between `074f9c4b7` and the tag, the
-census did not move since `v0.7.0`, and the other two grew with the corpus and the baseline
-between `v0.7.0` and `074f9c4b7` (bracketed above).
+unreleased. The robustness cases are counted across the `TestRuntimeRobustness*` and
+`TestGRPCRobustness*` functions since #345 registered them per feature, so the table's
+single-function figure and the block's are the same census under two spellings. The census,
+rejection-oracle and RDF round-trip rows follow the committed baselines; none of the three moved
+between `074f9c4b7` and the tag, the census did not move since `v0.7.0`, and the other two grew
+with the corpus and the baseline between `v0.7.0` and `074f9c4b7` (bracketed above).
 
 Statement coverage, re-measured with `go test -cover ./...` at this baseline with the corpora
 present. It counts only each package's own tests, which understates a package consumed by others
@@ -355,7 +360,10 @@ with the Z3 solver as an optional feature pinned by hash, published unsigned as
 `error: C:\Program is required`, because the script read the `wix` command from the `WIX`
 environment variable, which the preinstalled WiX v3 on `windows-latest` exports as its
 installation directory. #127 renamed the override to `WIX_CMD`, and `v0.7.0` and `v0.8.0` each
-published their `.msi`.
+published their `.msi`. Those two ran as Windows Installer's bare progress window; #350, on
+`develop` after the tag, gives the MSI a setup wizard — destination folder, the gRPC service
+and Z3 as selectable components, a confirmation and a completion page, repair and remove on a
+second run — so the next tag's `.msi` is the first a user is walked through.
 Once SignPath is configured it is rebuilt from the signed executables and itself signed as
 `*-signed.msi` (Z3 stays unsigned by SignPath's terms). Scoop,
 winget and MSYS2 manifests that depend on Z3 rather than bundle it are maintained as templates
@@ -375,11 +383,16 @@ class of account gate as R4.
 ## Upstream follow-through
 
 Filed and waiting on the other side: the identity-annotation enhancement against SysML 2.0
-(`INBOX-2510`, maintainer-approved 2026-09-01) and the `ownedDisjoining` EMF defect against the
-pilot (`SysML-v2-Pilot-Implementation#790`). Drafted and waiting on a maintainer to authorise
-posting: the three dimensional-analysis errata in the pilot's example corpus and the question
-about the `queryx/failing` Xpect fixtures. All four are in [omg-issues.md](omg-issues.md), body
-and status; none needs code here until an answer arrives.
+(`INBOX-2510`, maintainer-approved 2026-09-01). Filed against the pilot and fixed there: the
+`ownedDisjoining` EMF defect (`SysML-v2-Pilot-Implementation#790`, shipped in `2026-08`) and the
+cross-subsetting validator throw (`#794`). Drafted and waiting on a maintainer to authorise
+posting: the three dimensional-analysis errata in the pilot's example corpus, the question about
+the `queryx/failing` Xpect fixtures, the unenforced control-node constraints, and the nine
+dimension defects in the published `SI.sysml` and `USCustomaryUnits.sysml` — which #304, on
+`develop` after the tag, put under the declared errata overlay, so the bundled library reads with
+the three that have one correction applied and the six that do not documented, the vendored bytes
+untouched. All are in [omg-issues.md](omg-issues.md), body and status; none needs code here until
+an answer arrives.
 
 ---
 
@@ -1739,9 +1752,9 @@ rest. No surface reaches the trace `-trace` prints. That is the rest of the trac
 One page distinguishing the four: document queries over elements, the API `Query` over a project,
 `Evaluate` over one expression in one scope, and `solve` over constraints; what each returns, what
 each cannot see, and where runtime queries (Q2–Q4) sit. **Done**: the document-generation manual's
-[Which query is which](../manual/introduction.md#which-query-is-which) is that page — one row per
-surface with what it reads, what it returns and what it cannot see, then the question each
-answers — and the manual's [interfaces](../manual/interfaces.md) and [outputs](../manual/outputs.md)
+[Which query is which](../manual/query-kinds.md) is that page — one row per surface with what it
+reads, what it returns, what it cannot see and its entry points, then a section apiece — and the
+manual's [interfaces](../manual/interfaces.md) and [outputs](../manual/outputs.md)
 chapters carry the runtime side of the document query: a parameter bound to a held object by name,
 `#id` or path from the CLI, the REPL and the Python client (`ObjectRef`), `-instantiate` beside
 `-render-document`, `Verdicts` rows (`DocumentVerdict` in the Python client) and the `data-object`,
@@ -1900,7 +1913,14 @@ in the Python client. A run that fails is a row carrying its error, not the end 
 no step, a step of zero or of the wrong sign, a parameter the target does not declare or the
 arguments already bind, and a distribution asked for by name (only the uniform draw exists) are
 typed refusals. Orchestration over A1 with no new semantics, as planned; a document query over the
-table is Track Q's.
+table is Track Q's. #344, on `develop` after the tag, adds what the item left out: a model states
+its own odds through two non-normative libraries (`Stochastic::Probability` weighting the
+successions out of a decision, validated at lowering; `RandomFunctions` for `uniform`,
+`uniformInteger`, `triangular` and `normal`), on a random stream of its own apart from the
+token-shuffle stream, every draw recorded in the witness so `%replay` reproduces a run, and
+`%runs` / `-runs <n> -seed <s>` run an action `n` times on the sweep machinery and report each
+observable's min, mean, max, percentiles and histogram. The scheduling choice points stay
+unweighted and `explore` still enumerates weighted branches as a set.
 
 ## A4 — continuous time: a state-space runner (landed, unreleased)
 
@@ -2427,9 +2447,18 @@ established that the pinned pilot evaluates model-level expressions and nothing 
 `cmd/pilot-exec-diff` can adjudicate the expression rows of `spec-compliance.md` and no external
 implementation adjudicates actions or state machines. Widening that referee means finding one,
 not more harness work. For state machines the OMG PSSM suite is that referee (#230, advisory);
-for actions #319, open against `develop`, provisions the fUML reference implementation and
-commits what it computes over its own test models as the first of three changes modelled on the
-PSSM referee (a reader and classifier, then an emitter and the comparison, would follow).
+for actions the fUML reference implementation is, in three changes modelled on the PSSM referee
+and all on `develop` after the tag: #319 provisions the pinned implementation and commits what
+it computes over its own test models, #321 reads and classifies the activities, and #334
+translates every expressible one to a `fuml::<Activity>` action definition by rule, runs it
+under every schedule the explorer reaches and requires the values left in its output parameters
+to be the reference's. `cmd/fuml-referee` files 55 activities as 15 `pass` / 0 `fail` / 36
+`not-expressible` / 4 `differs-by-design` (an action the reference fires once per object token),
+pinned in `docs/project/fuml-referee-baseline.json` and checked in CI by
+`go run ./cmd/fuml-referee -check`; [fuml-referee.md](fuml-referee.md) records the translation
+rules and every row. What remains is the `not-expressible` bucket, which is the emitter's, not
+the runtime's: object creation, structural-feature actions, accept-event actions and active
+classes have no translation yet, and each one added moves rows into `pass` or `fail`.
 
 **Scaling to very large models.** [large-model-scaling-design.md](large-model-scaling-design.md)
 (#300, on `develop` after the tag) starts from the satellite-network stress test's profiles
@@ -2612,13 +2641,17 @@ Two orders, because there are two kinds of item. The **track-local** orders say 
 inside a track; the **cross-cutting** order says which tracks' first items go first when a session
 must choose. The order agreed at the `v0.6.0` baseline had F and S first and A6/X6/A2 second, and
 owed X2's chain-read half; all of it landed and `v0.7.0` and `v0.8.0` shipped it, so both orders
-below are rewritten again around what remains. Of the 33 pull requests merged to `develop` after
+below are rewritten again around what remains. Of the 64 pull requests merged to `develop` after
 the tag, these move a roadmap item and are named where they do: #267, #289 and #293 (Q2, now
 closed), #263 (A7), #286 (the release fold-back), #291 (the generated test figures), #292 (L7,
-closing Track L), #296 (A4, closing Track A), #300 and #316 (the large-model design and its
-first step) and the eight state-executor fixes the PSSM referee adjudicated (Track E). Open
-against `develop` and touching an item: #322 (Track E), #319 (an execution referee for actions),
-#308, #309 and #312 (the large-model design's next steps).
+closing Track L), #296 (A4, closing Track A), #335 and #352 (E1), #344 (modeled randomness
+beside A3), #300 and #316 (the large-model design and its first step), #319, #321 and #334 (the
+fUML referee for actions), #350 (R4's installer wizard), #304 (the errata overlay, under
+"Upstream follow-through") and the state-executor fixes and findings the PSSM referee
+adjudicated (Track E). Open against `develop` and touching an item: #308, #309 and #312 (the
+large-model design's next steps) and #327 (the SysML v1 migration's remaining items, written as
+a Track D item). Open against `main`: #347, a `release/0.8.1` cut from `v0.8.0` by cherry-pick,
+carrying the bug fixes since the tag and nothing that moved a roadmap item.
 
 ## What `v0.7.0` and `v0.8.0` released
 
@@ -2633,12 +2666,17 @@ carried more than that list. By track, with the pull requests the tracks cite:
   (#211, #238, #239), X6 (#122), X7's values (#121), X8's typing (#112); the `meta` cast (#212)
   and static expression typing landed beside them.
 - **Track A** — landed: A6 (#117), A3 (#118), A2 (#133), A5 (#136); A7 (#263) and A4 (#296) are
-  on `develop` after the tag, and the track is closed.
+  on `develop` after the tag, and the track is closed; #344 added modeled randomness and Monte
+  Carlo runs beside A3 there too.
 - **Track Q** — landed: Q4 (#849), Q2's expression half (X5); Q2's query side (#267, #289, #293)
   is on `develop` after the tag and closes Q2.
 - **Track L** — landed: L3–L6; L7's measured table (#292) is on `develop` after the tag and
   closes the track.
-- **Track W** — landed: W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both.
+- **Track W** — landed: W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both. The VS Code
+  diagram panel grew on `develop` after the tag without touching a form item: it runs the
+  behavior it draws through the language server's `opensysml/debug/*` requests (#294), opens a
+  document's several views (#349) and opens on demand (#348), writes layout into the document
+  that declares the element across the workspace (#307), and reparents by drag (#305).
 - **Track E** — E1 landed (`terminate` runs in every position, the PSSM `terminate-gap` bucket
   retired); E9 and E10 landed as conformance findings; E8's refusal landed (#229), the item
   itself is open.
@@ -2655,7 +2693,12 @@ Tracks F, S, L and A are closed.
 
 - **Track E** — eligible and first: E2, then E4 (E1 landed), then E6 on request, E3/E5 behind
   their design records, E7 behind its object-model item, E8 behind a model that needs it. The
-  PSSM referee's `fail` tests are the state side's measurement; #322 is open.
+  PSSM referee's 17 `fail` tests are the state side's measurement, every one attributed (#326):
+  eleven wait on the region-order choice point whose design record #342 wrote and left at two
+  maintainer decisions — the nine the record names to move `fail` → `pass`, plus *Terminate 001*
+  and *002*, which E1 added at the same region-entry site; *Transition 017* is the record's second
+  decision (two admitted traces no reading of the model produces); the remaining five cite a
+  *differs, v2 silent* alignment row.
 - **Track Q** — Q3, unblocked by A5 and by Q2's object rows, not started; Q1 is written and Q2
   and Q4 are done.
 - **Track X** — X7's RDF literal form and native layout for sets and tensors; X8's two harness
@@ -2668,8 +2711,10 @@ Tracks F, S, L and A are closed.
 - **Tracks D, N, M, I, V, B** — as the tracks state them; nothing in them moved since `v0.6.0`
   except D12 and the four `Value` arms Track I's clients carry (#113, #121, #122).
 - **Proposed** — the PDF path onto the HTML backend (not started); scaling to very large models
-  (the design and its first step landed, #300 and #316; #308, #309, #312 open); an execution
-  referee for actions (#319 open).
+  (the design and its first step landed, #300 and #316; #308, #309, #312 open); the fUML referee
+  for actions (landed, #319, #321, #334; its `not-expressible` bucket is the emitter's open
+  work); recording the order of orthogonal regions (the design record #342 landed, its two
+  decisions open, no code).
 
 ## Cross-cutting order
 
@@ -2680,9 +2725,14 @@ The release housekeeping the previous order opened with is done — #286 folded 
 1. **Track E** — E2, then E4, in the track's own order below; E1 landed. F and S landed and two
    releases shipped them, so the condition the previous baseline set is met; the loops E edits
    carry A5's clock and S2's choice points, and every E item is written against a named scheduling
-   policy. The state-executor fixes since the tag (#295, #297, #311, #313–#315, #317, #318) moved
-   the PSSM referee to 45 `pass` and touched none of E1–E7; E1 gave E2 and E4 the notion of
-   ending an ongoing performance they build on.
+   policy. The state-executor fixes since the tag (#295, #297, #311, #313–#315, #317, #318, #322,
+   #336) and E1 (#335, #352) moved the PSSM referee to 46 `pass` / 17 `fail`; E1 gave E2 and E4
+   the notion of ending an ongoing performance they build on. Beside E2, the largest single
+   lever on the state side is not a lettered item: eleven of the 17 failures wait on the
+   region-order choice point, whose design record (#342) is written and stops at two decisions
+   for the maintainers — whether default-policy trace goldens may gain `choice` lines, and two
+   admitted traces of *Transition 017* no reading of the model produces. Those decisions, then
+   the code, run beside E2 without touching it.
 2. **Q3** — state and event queries, on A5's clock and Q2's object rows. Q1, the page that says
    which query is which, is written in the document-generation manual now that the set is
    complete (#267, #289 and #293 closed Q2 on `develop`); Q4 (#849) landed independently ahead
@@ -2715,14 +2765,19 @@ The release housekeeping the previous order opened with is done — #286 folded 
 Beside the order, whenever a session has room: Track V's census rows (1 *not implemented*, 53
 *unknown*), the PDF path onto the HTML backend (about one session, independent of every track),
 Track W's remaining writer and rasterization work, and the large-model design's next steps in its
-own sequence (#308, #309 and #312 are the open ones). The next release cut from `develop` carries
-what has landed since the tag — Q2 closed, L7, A4, the generated figures, the state-executor
-fixes and the workspace's persistent semantic model — and by `CONTRIBUTING.md` § Versioning it
-bumps the minor segment, not the patch: features are patch material there, but #302 refuses a
-construct `v0.8.0` accepted (a body inside a nested definition reaching the enclosing
-definition's features by their bare names, now `Must be an accessible feature`), and the
-completion, junction and join fixes (#313, #318, #317) add `choice` lines to the traces of models
-that exercise them. The decision is the release checklist's, recorded there.
+own sequence (#308, #309 and #312 are the open ones). Two releases are in view. `release/0.8.1`
+(#347, open against `main`) is a patch cut from `v0.8.0` by cherry-pick, carrying the bug fixes
+since the tag and the three VS Code extension fixes, and deliberately none of the state-executor
+series or the features; it moves no roadmap item, and once tagged `main` is folded back into
+`develop` as after `v0.8.0`. The next cut from `develop` carries everything else that landed
+since the tag — Q2 closed, L7, A4, E1, the generated figures, modeled randomness, the fUML
+referee, the state-executor fixes and the workspace's persistent semantic model — and by
+`CONTRIBUTING.md` § Versioning it bumps the minor segment, not the patch: features are patch
+material there, but #302 refuses a construct `v0.8.0` accepted (a body inside a nested definition
+reaching the enclosing definition's features by their bare names, now `Must be an accessible
+feature`), the completion, junction and join fixes (#313, #318, #317) add `choice` lines to the
+traces of models that exercise them, and E1 makes a `terminate` statement that `v0.8.0` ran as
+an empty action end its performance. The decision is the release checklist's, recorded there.
 
 ## Track-local orders
 
@@ -2760,8 +2815,8 @@ that exercise them. The decision is the release checklist's, recorded there.
   measured; X7's RDF literal form and native layout for sets and tensors last, when something
   needs them — step 5 above.
 - **Track A.** A6, A2, A3 and A5 landed (#117, #133, #118, #136); A7 (#263) and A4 (#296) landed
-  on `develop` after the tag, A7's carrier walk shared with Q2's query side (#267). Nothing
-  remains in the track.
+  on `develop` after the tag, A7's carrier walk shared with Q2's query side (#267), and #344 gave
+  A3's Monte Carlo the modeled randomness it had refused by name. Nothing remains in the track.
 - **Track Q.** Q4 is done; Q2's expression half landed with X5 and its query side in #267, #289
   and #293 on `develop` after the tag, which closes Q2; Q1 is written; Q3 is step 2 above.
 - **Track V.** Everything queued has landed (#822, #900, #831, #817, the rule pull requests, #811

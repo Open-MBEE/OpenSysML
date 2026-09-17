@@ -63,8 +63,11 @@ sequences):
 | `WhereFeature` | Keep elements whose attribute value passes a comparison |
 | `OrderBy` | Sort by a property, with explicit missing- and multiple-value policies |
 | `Project` | Turn elements into rows of named, typed columns |
-| `Objects` | The objects the session holds that are of a type, each under its path — the one operation that reads objects rather than elements; every other operation accepts an object where it accepts an element and reads what the object holds ([Objects the session holds](query-cookbook.md#objects-the-session-holds)) |
-| `Verdicts` | One row per assertion about each source row's object — the held object, or the element's declared one — and the objects it holds: the constraint, requirement, `satisfy` or verification case checked, with `path`, `kind`, `verdict` (`holds`, `violated`, `undecided`), `condition`, `reason` and `verification` for the filters and projections to read ([Which constraints and requirements hold](query-cookbook.md#which-constraints-and-requirements-hold)) |
+| `Objects` | The objects the session holds that are of a type, each under its path; every other operation accepts an object where it accepts an element and reads what the object holds ([Objects the session holds](query-cookbook.md#objects-the-session-holds)) |
+| `Verdicts` | One row per assertion checked on the object behind each source row — its verdict, path, kind and reason ([Which constraints and requirements hold](query-cookbook.md#which-constraints-and-requirements-hold)) |
+
+Document queries are one of several query surfaces the project has; [Which
+query is which](query-kinds.md) draws the boundaries between them.
 
 **Document content blocks** (each a `part def` nested inside a document or
 section):
@@ -77,27 +80,6 @@ section):
 | `Table` | A query's rows as a table, optionally grouped by a column |
 | `List` | A query's values as a bullet or numbered list |
 | `Diagram` | A view or element drawn by the view engine, as a Mermaid diagram or table |
-
-## Which query is which
-
-OpenSysML answers four kinds of question that are each called a query, and
-this manual is about one of them. They differ in what they read and what they
-return:
-
-| Surface | Reads | Returns | Cannot see |
-|---|---|---|---|
-| **Document query** — `calc def` specializing `DocumentQueries::Query`, run by `-run-query`, `%run-query`, `RunDocumentQuery` or a document block | The model's elements, and, bound to or collecting one, the objects a session holds — the values they hold now, and through `Verdicts` whether their constraints, requirements and `satisfy` assertions hold | Ordered rows of typed cells — elements, objects, verdicts and values — that tables, lists and paragraphs render | Objects no session holds; a run's trace |
-| **API `Query`** — the SysML v2 API & Services query over a loaded model, `model.query(...)` in Python, and the OSLC text `-query` takes ([reference](../reference/api.md#sysml-v2-api--services-query)) | The model's elements alone, by the standard's closed set of properties | Elements as `@id`, `@type` and their properties, in declaration order | Traversal, specialization, computed values, objects, verdicts — the standard's query model is deliberately weak, which is what makes other tools able to send it |
-| **`Evaluate`** — `-eval`, `%eval`, `%eval in`, the `Evaluate` RPC | One expression in one scope: a declaration's namespace, reading what the model states, or one object, reading what it holds after its behaviors ran | One value | Anything the expression does not name; it discovers no assertion and walks no object graph, so a check is one expression at a time |
-| **Solver** — `%check`, `%explain`, `%solve`, the `solve` engine | A constraint, requirement or `satisfy` assertion as a satisfiability question. `%check` asks whether it *can* be satisfied at all; `%solve` keeps what is already fixed — the values an object holds, or failing that the ones the model declares — and asks for the rest | `%check`: `sat` with an assignment, `unsat` or `unknown`; `%explain`: the conditions an `unsat` conflicts in; `%solve`: values that satisfy it, one witness of possibly many, or `unsat` naming the fixed values that conflict | What *does* hold: satisfiability is not evaluation, which `%constraint`, `%satisfy`, `%validate` and `Verdicts` do |
-
-So "list every requirement this rover violates, with the part it is about" is
-a document query over `Verdicts`; "which parts have mass over 10 kg" is a
-document query over elements or a `WhereFeature` over held objects; "give me
-every `PartUsage` for MATLAB" is the API `Query`; "what is `rover.battery.charge`
-now" is `%eval in`; "can `powerMargin` hold at all" is `%check`; and "is there
-a charge at which `powerMargin` holds, given what the rover holds now" is
-`%solve`. The rest of this manual covers the first row.
 
 ## What "deterministic" means here
 

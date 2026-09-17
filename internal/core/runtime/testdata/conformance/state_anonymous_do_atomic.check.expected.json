@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"seq": ["124356", "124536", "142356", "142536"]},
+	"agreed": {"finalState": "ldone+rdone"}
+}

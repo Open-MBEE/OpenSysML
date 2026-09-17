@@ -14,7 +14,8 @@ public interface DocumentQueryRowOrBuilder extends
    * <pre>
    * The selected element itself, an element value with its qualified name; an
    * object value for a row over an object the service holds; a verdict value
-   * for a row `Verdicts` answered.
+   * for a row `Verdicts` answered; a state value for a row `States` answered;
+   * an event value for a row `Events` answered.
    * </pre>
    *
    * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>
@@ -25,7 +26,8 @@ public interface DocumentQueryRowOrBuilder extends
    * <pre>
    * The selected element itself, an element value with its qualified name; an
    * object value for a row over an object the service holds; a verdict value
-   * for a row `Verdicts` answered.
+   * for a row `Verdicts` answered; a state value for a row `States` answered;
+   * an event value for a row `Events` answered.
    * </pre>
    *
    * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>
@@ -36,7 +38,8 @@ public interface DocumentQueryRowOrBuilder extends
    * <pre>
    * The selected element itself, an element value with its qualified name; an
    * object value for a row over an object the service holds; a verdict value
-   * for a row `Verdicts` answered.
+   * for a row `Verdicts` answered; a state value for a row `States` answered;
+   * an event value for a row `Events` answered.
    * </pre>
    *
    * <code>.sysml.DocumentValue element = 1 [json_name = "element"];</code>
