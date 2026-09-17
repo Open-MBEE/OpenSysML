@@ -124,7 +124,8 @@ func (v Value) Element() (*symbols.Symbol, bool) {
 
 // Declaration returns the element a value is declared by: an element itself, the
 // usage or definition an object stands for, the assertion a verdict is about,
-// the state or behavior a state or event row is of, and nil for a scalar.
+// the state a state row is of, the behavior an event row came from (its object's
+// declaration when the record names none), and nil for a scalar.
 func (v Value) Declaration() *symbols.Symbol {
 	if inst, _, ok := v.Object(); ok {
 		return objectDeclaration(inst)
@@ -136,7 +137,13 @@ func (v Value) Declaration() *symbols.Symbol {
 		return state.Declaration()
 	}
 	if event, ok := v.Event(); ok {
-		return event.Behavior()
+		if behavior := event.Behavior(); behavior != nil {
+			return behavior
+		}
+		if inst, _ := event.Object(); inst != nil {
+			return objectDeclaration(inst)
+		}
+		return nil
 	}
 	sym, _ := v.Element()
 	return sym

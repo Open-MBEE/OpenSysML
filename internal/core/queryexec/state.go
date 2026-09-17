@@ -43,9 +43,9 @@ func (s State) Region() string { return s.region }
 // each is active with the leaf.
 func (s State) Enclosing() []string { return append([]string(nil), s.enclosing...) }
 
-// Label names the row: the state's path on its object.
+// Label names the row: the state's path on its object's machine (`lamp.lp in on.dim`).
 func (s State) Label() string {
-	return s.label + " in " + s.path
+	return s.label + "." + s.machine + " in " + s.path
 }
 
 // StateValue constructs a state value; its declaration is the state.

@@ -65,6 +65,8 @@ func (s *Service) objects(cached *CachedModel) *heldObjects {
 		model, _ := cached.Semantics()
 		rt := s.newRuntimeContext(model)
 		rt.SetMaxInstances(s.maxHeldObjects)
+		// The population's run is queried by Events, so it is traced from the start.
+		rt.SetTrace(runtime.NewTraceRecorder())
 		cached.objects = &heldObjects{
 			rt:    rt,
 			idx:   cached.Index,

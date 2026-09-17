@@ -334,7 +334,7 @@ func TestExecuteEventsRefusals(t *testing.T) {
 		t.Fatalf("not-held error = %v", got)
 	}
 	_, err = fixture.run(t, fixture.session(), "EventsOfEvents", nil)
-	if got := executionError(t, err, ErrorEventRow); got.Target != "entry enter: off" {
+	if got := executionError(t, err, ErrorEventRow); got.Target != "lamp1.lp: enter: off" {
 		t.Fatalf("event-row error = %v", got)
 	}
 	_, err = fixture.run(t, fixture.session(), "EventStates", nil)

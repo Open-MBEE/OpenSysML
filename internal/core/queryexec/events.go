@@ -117,15 +117,27 @@ func (e *executor) evaluateEvents(expression queryplan.Expression) (sequence, er
 			return sequence{}, e.budgetError(expression)
 		}
 		result.values = append(result.values, EventValue(Event{
-			record: record,
-			at:     at,
-			object: object,
-			label:  labels.label(object),
-			target: labels.label(record.Target),
-			index:  index,
+			record:  record,
+			at:      at,
+			time:    instantValue(e.context.Runtime, at),
+			object:  object,
+			label:   labels.label(object),
+			machine: eventMachine(record),
+			target:  labels.label(record.Target),
+			index:   index,
 		}))
 	}
 	return result, nil
+}
+
+// instantValue is instant t as `time` answers it: a quantity in the clock's
+// unit when the library defines one, else a bare real of clock units.
+func instantValue(ctx *runtime.Context, t float64) Value {
+	value := ctx.InstantValue(t)
+	if quantity := value.Quantity(); quantity != nil {
+		return QuantityValue(*quantity)
+	}
+	return RealValue(t)
 }
 
 // eventKindArgument reads `kind`: `all` (the default), or record kinds
@@ -247,8 +259,7 @@ func (e *executor) eventPropertyValues(row Value, property string) ([]Value, boo
 	case propertyKind:
 		return text(event.Kind()), true, nil
 	case propertyTime:
-		values, err := e.cellValues(e.context.Runtime.InstantValue(event.at), property, row)
-		return values, true, err
+		return []Value{valueAt(event.time, origin)}, true, nil
 	case propertyObject:
 		if event.object == nil {
 			return nil, true, nil
@@ -257,7 +268,7 @@ func (e *executor) eventPropertyValues(row Value, property string) ([]Value, boo
 	case propertyPath:
 		return text(event.label), true, nil
 	case propertyMachine:
-		return text(eventMachine(record)), true, nil
+		return text(event.machine), true, nil
 	case propertyState:
 		return text(record.State), true, nil
 	case propertyFrom:
@@ -274,21 +285,20 @@ func (e *executor) eventPropertyValues(row Value, property string) ([]Value, boo
 	case query.PropertyName:
 		return text(eventName(record)), true, nil
 	case propertyPayload:
-		return payloadValues(record, row), true, nil
+		out := make([]Value, 0, len(record.Payload))
+		for _, cell := range payloadTexts(record) {
+			out = append(out, valueAt(StringValue(cell), origin))
+		}
+		return out, true, nil
 	case propertyAlternatives:
-		if choice, ok := record.Note.(runtime.ChoicePoint); ok {
-			out := make([]Value, 0, len(choice.Alternatives))
-			for _, alt := range choice.Alternatives {
-				out = append(out, valueAt(StringValue(alt), origin))
-			}
-			return out, true, nil
+		alternatives := event.Alternatives()
+		out := make([]Value, 0, len(alternatives))
+		for _, alt := range alternatives {
+			out = append(out, valueAt(StringValue(alt), origin))
 		}
-		return nil, true, nil
+		return out, true, nil
 	case propertyTaken:
-		if choice, ok := record.Note.(runtime.ChoicePoint); ok && choice.Taken >= 0 && choice.Taken < len(choice.Alternatives) {
-			return text(choice.Alternatives[choice.Taken]), true, nil
-		}
-		return nil, true, nil
+		return text(event.Taken()), true, nil
 	case propertyText:
 		return text(record.Text()), true, nil
 	}
@@ -341,18 +351,17 @@ func eventName(record runtime.TraceRecord) string {
 	return ""
 }
 
-// payloadValues renders an accept's or send's payload, one `name = value`
-// cell per parameter in name order, in the runtime's notation.
-func payloadValues(record runtime.TraceRecord, row Value) []Value {
+// payloadTexts renders an accept's or send's payload, one `name = value`
+// entry per parameter in name order, in the runtime's notation.
+func payloadTexts(record runtime.TraceRecord) []string {
 	names := make([]string, 0, len(record.Payload))
 	for name := range record.Payload {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	out := make([]Value, 0, len(names))
+	out := make([]string, 0, len(names))
 	for _, name := range names {
-		text := name + " = " + runtime.FormatValue(record.Payload[name])
-		out = append(out, valueAt(StringValue(text), row.Origin()))
+		out = append(out, name+" = "+runtime.FormatValue(record.Payload[name]))
 	}
 	return out
 }

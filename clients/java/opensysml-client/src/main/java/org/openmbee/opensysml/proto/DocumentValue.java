@@ -66,6 +66,8 @@ private static final long serialVersionUID = 0L;
     QUANTITY(8),
     VERDICT(9),
     OBJECT(10),
+    STATE(11),
+    EVENT(12),
     KIND_NOT_SET(0);
     private final int value;
     private KindCase(int value) {
@@ -92,6 +94,8 @@ private static final long serialVersionUID = 0L;
         case 8: return QUANTITY;
         case 9: return VERDICT;
         case 10: return OBJECT;
+        case 11: return STATE;
+        case 12: return EVENT;
         case 0: return KIND_NOT_SET;
         default: return null;
       }
@@ -436,6 +440,92 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.DocumentObject.getDefaultInstance();
   }
 
+  public static final int STATE_FIELD_NUMBER = 11;
+  /**
+   * <pre>
+   * a row States answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentState state = 11 [json_name = "state"];</code>
+   * @return Whether the state field is set.
+   */
+  @java.lang.Override
+  public boolean hasState() {
+    return kindCase_ == 11;
+  }
+  /**
+   * <pre>
+   * a row States answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentState state = 11 [json_name = "state"];</code>
+   * @return The state.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.DocumentState getState() {
+    if (kindCase_ == 11) {
+       return (org.openmbee.opensysml.proto.DocumentState) kind_;
+    }
+    return org.openmbee.opensysml.proto.DocumentState.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * a row States answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentState state = 11 [json_name = "state"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.DocumentStateOrBuilder getStateOrBuilder() {
+    if (kindCase_ == 11) {
+       return (org.openmbee.opensysml.proto.DocumentState) kind_;
+    }
+    return org.openmbee.opensysml.proto.DocumentState.getDefaultInstance();
+  }
+
+  public static final int EVENT_FIELD_NUMBER = 12;
+  /**
+   * <pre>
+   * a row Events answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentEvent event = 12 [json_name = "event"];</code>
+   * @return Whether the event field is set.
+   */
+  @java.lang.Override
+  public boolean hasEvent() {
+    return kindCase_ == 12;
+  }
+  /**
+   * <pre>
+   * a row Events answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentEvent event = 12 [json_name = "event"];</code>
+   * @return The event.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.DocumentEvent getEvent() {
+    if (kindCase_ == 12) {
+       return (org.openmbee.opensysml.proto.DocumentEvent) kind_;
+    }
+    return org.openmbee.opensysml.proto.DocumentEvent.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * a row Events answered; answered, never bound
+   * </pre>
+   *
+   * <code>.sysml.DocumentEvent event = 12 [json_name = "event"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.DocumentEventOrBuilder getEventOrBuilder() {
+    if (kindCase_ == 12) {
+       return (org.openmbee.opensysml.proto.DocumentEvent) kind_;
+    }
+    return org.openmbee.opensysml.proto.DocumentEvent.getDefaultInstance();
+  }
+
   public static final int ELEMENT_TYPE_FIELD_NUMBER = 7;
   @SuppressWarnings("serial")
   private volatile java.lang.Object elementType_ = "";
@@ -531,6 +621,12 @@ private static final long serialVersionUID = 0L;
     if (kindCase_ == 10) {
       output.writeMessage(10, (org.openmbee.opensysml.proto.DocumentObject) kind_);
     }
+    if (kindCase_ == 11) {
+      output.writeMessage(11, (org.openmbee.opensysml.proto.DocumentState) kind_);
+    }
+    if (kindCase_ == 12) {
+      output.writeMessage(12, (org.openmbee.opensysml.proto.DocumentEvent) kind_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -580,6 +676,14 @@ private static final long serialVersionUID = 0L;
     if (kindCase_ == 10) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(10, (org.openmbee.opensysml.proto.DocumentObject) kind_);
+    }
+    if (kindCase_ == 11) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(11, (org.openmbee.opensysml.proto.DocumentState) kind_);
+    }
+    if (kindCase_ == 12) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(12, (org.openmbee.opensysml.proto.DocumentEvent) kind_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -637,6 +741,14 @@ private static final long serialVersionUID = 0L;
         if (!getObject()
             .equals(other.getObject())) return false;
         break;
+      case 11:
+        if (!getState()
+            .equals(other.getState())) return false;
+        break;
+      case 12:
+        if (!getEvent()
+            .equals(other.getEvent())) return false;
+        break;
       case 0:
       default:
     }
@@ -693,6 +805,14 @@ private static final long serialVersionUID = 0L;
       case 10:
         hash = (37 * hash) + OBJECT_FIELD_NUMBER;
         hash = (53 * hash) + getObject().hashCode();
+        break;
+      case 11:
+        hash = (37 * hash) + STATE_FIELD_NUMBER;
+        hash = (53 * hash) + getState().hashCode();
+        break;
+      case 12:
+        hash = (37 * hash) + EVENT_FIELD_NUMBER;
+        hash = (53 * hash) + getEvent().hashCode();
         break;
       case 0:
       default:
@@ -844,6 +964,12 @@ private static final long serialVersionUID = 0L;
       if (objectBuilder_ != null) {
         objectBuilder_.clear();
       }
+      if (stateBuilder_ != null) {
+        stateBuilder_.clear();
+      }
+      if (eventBuilder_ != null) {
+        eventBuilder_.clear();
+      }
       elementType_ = "";
       kindCase_ = 0;
       kind_ = null;
@@ -881,7 +1007,7 @@ private static final long serialVersionUID = 0L;
 
     private void buildPartial0(org.openmbee.opensysml.proto.DocumentValue result) {
       int from_bitField0_ = bitField0_;
-      if (((from_bitField0_ & 0x00000200) != 0)) {
+      if (((from_bitField0_ & 0x00000800) != 0)) {
         result.elementType_ = elementType_;
       }
     }
@@ -901,6 +1027,14 @@ private static final long serialVersionUID = 0L;
           objectBuilder_ != null) {
         result.kind_ = objectBuilder_.build();
       }
+      if (kindCase_ == 11 &&
+          stateBuilder_ != null) {
+        result.kind_ = stateBuilder_.build();
+      }
+      if (kindCase_ == 12 &&
+          eventBuilder_ != null) {
+        result.kind_ = eventBuilder_.build();
+      }
     }
 
     @java.lang.Override
@@ -917,7 +1051,7 @@ private static final long serialVersionUID = 0L;
       if (other == org.openmbee.opensysml.proto.DocumentValue.getDefaultInstance()) return this;
       if (!other.getElementType().isEmpty()) {
         elementType_ = other.elementType_;
-        bitField0_ |= 0x00000200;
+        bitField0_ |= 0x00000800;
         onChanged();
       }
       switch (other.getKindCase()) {
@@ -959,6 +1093,14 @@ private static final long serialVersionUID = 0L;
         }
         case OBJECT: {
           mergeObject(other.getObject());
+          break;
+        }
+        case STATE: {
+          mergeState(other.getState());
+          break;
+        }
+        case EVENT: {
+          mergeEvent(other.getEvent());
           break;
         }
         case KIND_NOT_SET: {
@@ -1025,7 +1167,7 @@ private static final long serialVersionUID = 0L;
             } // case 48
             case 58: {
               elementType_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000200;
+              bitField0_ |= 0x00000800;
               break;
             } // case 58
             case 66: {
@@ -1049,6 +1191,20 @@ private static final long serialVersionUID = 0L;
               kindCase_ = 10;
               break;
             } // case 82
+            case 90: {
+              input.readMessage(
+                  internalGetStateFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              kindCase_ = 11;
+              break;
+            } // case 90
+            case 98: {
+              input.readMessage(
+                  internalGetEventFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              kindCase_ = 12;
+              break;
+            } // case 98
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1993,6 +2149,362 @@ private static final long serialVersionUID = 0L;
       return objectBuilder_;
     }
 
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.DocumentState, org.openmbee.opensysml.proto.DocumentState.Builder, org.openmbee.opensysml.proto.DocumentStateOrBuilder> stateBuilder_;
+    /**
+     * <pre>
+     * a row States answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentState state = 11 [json_name = "state"];</code>
+     * @return Whether the state field is set.
+     */
+    @java.lang.Override
+    public boolean hasState() {
+      return kindCase_ == 11;
+    }
+    /**
+     * <pre>
+     * a row States answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentState state = 11 [json_name = "state"];</code>
+     * @return The state.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.DocumentState getState() {
+      if (stateBuilder_ == null) {
+        if (kindCase_ == 11) {
+          return (org.openmbee.opensysml.proto.DocumentState) kind_;
+        }
+        return org.openmbee.opensysml.proto.DocumentState.getDefaultInstance();
+      } else {
+        if (kindCase_ == 11) {
+          return stateBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.DocumentState.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * a row States answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentState state = 11 [json_name = "state"];</code>
+     */
+    public Builder setState(org.openmbee.opensysml.proto.DocumentState value) {
+      if (stateBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        kind_ = value;
+        onChanged();
+      } else {
+        stateBuilder_.setMessage(value);
+      }
+      kindCase_ = 11;
+      return this;
+    }
+    /**
+     * <pre>
+     * a row States answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentState state = 11 [json_name = "state"];</code>
+     */
+    public Builder setState(
+        org.openmbee.opensysml.proto.DocumentState.Builder builderForValue) {
+      if (stateBuilder_ == null) {
+        kind_ = builderForValue.build();
+        onChanged();
+      } else {
+        stateBuilder_.setMessage(builderForValue.build());
+      }
+      kindCase_ = 11;
+      return this;
+    }
+    /**
+     * <pre>
+     * a row States answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentState state = 11 [json_name = "state"];</code>
+     */
+    public Builder mergeState(org.openmbee.opensysml.proto.DocumentState value) {
+      if (stateBuilder_ == null) {
+        if (kindCase_ == 11 &&
+            kind_ != org.openmbee.opensysml.proto.DocumentState.getDefaultInstance()) {
+          kind_ = org.openmbee.opensysml.proto.DocumentState.newBuilder((org.openmbee.opensysml.proto.DocumentState) kind_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          kind_ = value;
+        }
+        onChanged();
+      } else {
+        if (kindCase_ == 11) {
+          stateBuilder_.mergeFrom(value);
+        } else {
+          stateBuilder_.setMessage(value);
+        }
+      }
+      kindCase_ = 11;
+      return this;
+    }
+    /**
+     * <pre>
+     * a row States answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentState state = 11 [json_name = "state"];</code>
+     */
+    public Builder clearState() {
+      if (stateBuilder_ == null) {
+        if (kindCase_ == 11) {
+          kindCase_ = 0;
+          kind_ = null;
+          onChanged();
+        }
+      } else {
+        if (kindCase_ == 11) {
+          kindCase_ = 0;
+          kind_ = null;
+        }
+        stateBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * a row States answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentState state = 11 [json_name = "state"];</code>
+     */
+    public org.openmbee.opensysml.proto.DocumentState.Builder getStateBuilder() {
+      return internalGetStateFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * a row States answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentState state = 11 [json_name = "state"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.DocumentStateOrBuilder getStateOrBuilder() {
+      if ((kindCase_ == 11) && (stateBuilder_ != null)) {
+        return stateBuilder_.getMessageOrBuilder();
+      } else {
+        if (kindCase_ == 11) {
+          return (org.openmbee.opensysml.proto.DocumentState) kind_;
+        }
+        return org.openmbee.opensysml.proto.DocumentState.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * a row States answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentState state = 11 [json_name = "state"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.DocumentState, org.openmbee.opensysml.proto.DocumentState.Builder, org.openmbee.opensysml.proto.DocumentStateOrBuilder> 
+        internalGetStateFieldBuilder() {
+      if (stateBuilder_ == null) {
+        if (!(kindCase_ == 11)) {
+          kind_ = org.openmbee.opensysml.proto.DocumentState.getDefaultInstance();
+        }
+        stateBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.DocumentState, org.openmbee.opensysml.proto.DocumentState.Builder, org.openmbee.opensysml.proto.DocumentStateOrBuilder>(
+                (org.openmbee.opensysml.proto.DocumentState) kind_,
+                getParentForChildren(),
+                isClean());
+        kind_ = null;
+      }
+      kindCase_ = 11;
+      onChanged();
+      return stateBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.DocumentEvent, org.openmbee.opensysml.proto.DocumentEvent.Builder, org.openmbee.opensysml.proto.DocumentEventOrBuilder> eventBuilder_;
+    /**
+     * <pre>
+     * a row Events answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentEvent event = 12 [json_name = "event"];</code>
+     * @return Whether the event field is set.
+     */
+    @java.lang.Override
+    public boolean hasEvent() {
+      return kindCase_ == 12;
+    }
+    /**
+     * <pre>
+     * a row Events answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentEvent event = 12 [json_name = "event"];</code>
+     * @return The event.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.DocumentEvent getEvent() {
+      if (eventBuilder_ == null) {
+        if (kindCase_ == 12) {
+          return (org.openmbee.opensysml.proto.DocumentEvent) kind_;
+        }
+        return org.openmbee.opensysml.proto.DocumentEvent.getDefaultInstance();
+      } else {
+        if (kindCase_ == 12) {
+          return eventBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.DocumentEvent.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * a row Events answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentEvent event = 12 [json_name = "event"];</code>
+     */
+    public Builder setEvent(org.openmbee.opensysml.proto.DocumentEvent value) {
+      if (eventBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        kind_ = value;
+        onChanged();
+      } else {
+        eventBuilder_.setMessage(value);
+      }
+      kindCase_ = 12;
+      return this;
+    }
+    /**
+     * <pre>
+     * a row Events answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentEvent event = 12 [json_name = "event"];</code>
+     */
+    public Builder setEvent(
+        org.openmbee.opensysml.proto.DocumentEvent.Builder builderForValue) {
+      if (eventBuilder_ == null) {
+        kind_ = builderForValue.build();
+        onChanged();
+      } else {
+        eventBuilder_.setMessage(builderForValue.build());
+      }
+      kindCase_ = 12;
+      return this;
+    }
+    /**
+     * <pre>
+     * a row Events answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentEvent event = 12 [json_name = "event"];</code>
+     */
+    public Builder mergeEvent(org.openmbee.opensysml.proto.DocumentEvent value) {
+      if (eventBuilder_ == null) {
+        if (kindCase_ == 12 &&
+            kind_ != org.openmbee.opensysml.proto.DocumentEvent.getDefaultInstance()) {
+          kind_ = org.openmbee.opensysml.proto.DocumentEvent.newBuilder((org.openmbee.opensysml.proto.DocumentEvent) kind_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          kind_ = value;
+        }
+        onChanged();
+      } else {
+        if (kindCase_ == 12) {
+          eventBuilder_.mergeFrom(value);
+        } else {
+          eventBuilder_.setMessage(value);
+        }
+      }
+      kindCase_ = 12;
+      return this;
+    }
+    /**
+     * <pre>
+     * a row Events answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentEvent event = 12 [json_name = "event"];</code>
+     */
+    public Builder clearEvent() {
+      if (eventBuilder_ == null) {
+        if (kindCase_ == 12) {
+          kindCase_ = 0;
+          kind_ = null;
+          onChanged();
+        }
+      } else {
+        if (kindCase_ == 12) {
+          kindCase_ = 0;
+          kind_ = null;
+        }
+        eventBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * a row Events answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentEvent event = 12 [json_name = "event"];</code>
+     */
+    public org.openmbee.opensysml.proto.DocumentEvent.Builder getEventBuilder() {
+      return internalGetEventFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * a row Events answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentEvent event = 12 [json_name = "event"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.DocumentEventOrBuilder getEventOrBuilder() {
+      if ((kindCase_ == 12) && (eventBuilder_ != null)) {
+        return eventBuilder_.getMessageOrBuilder();
+      } else {
+        if (kindCase_ == 12) {
+          return (org.openmbee.opensysml.proto.DocumentEvent) kind_;
+        }
+        return org.openmbee.opensysml.proto.DocumentEvent.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * a row Events answered; answered, never bound
+     * </pre>
+     *
+     * <code>.sysml.DocumentEvent event = 12 [json_name = "event"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.DocumentEvent, org.openmbee.opensysml.proto.DocumentEvent.Builder, org.openmbee.opensysml.proto.DocumentEventOrBuilder> 
+        internalGetEventFieldBuilder() {
+      if (eventBuilder_ == null) {
+        if (!(kindCase_ == 12)) {
+          kind_ = org.openmbee.opensysml.proto.DocumentEvent.getDefaultInstance();
+        }
+        eventBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.DocumentEvent, org.openmbee.opensysml.proto.DocumentEvent.Builder, org.openmbee.opensysml.proto.DocumentEventOrBuilder>(
+                (org.openmbee.opensysml.proto.DocumentEvent) kind_,
+                getParentForChildren(),
+                isClean());
+        kind_ = null;
+      }
+      kindCase_ = 12;
+      onChanged();
+      return eventBuilder_;
+    }
+
     private java.lang.Object elementType_ = "";
     /**
      * <pre>
@@ -2048,7 +2560,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       elementType_ = value;
-      bitField0_ |= 0x00000200;
+      bitField0_ |= 0x00000800;
       onChanged();
       return this;
     }
@@ -2062,7 +2574,7 @@ private static final long serialVersionUID = 0L;
      */
     public Builder clearElementType() {
       elementType_ = getDefaultInstance().getElementType();
-      bitField0_ = (bitField0_ & ~0x00000200);
+      bitField0_ = (bitField0_ & ~0x00000800);
       onChanged();
       return this;
     }
@@ -2080,7 +2592,7 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       elementType_ = value;
-      bitField0_ |= 0x00000200;
+      bitField0_ |= 0x00000800;
       onChanged();
       return this;
     }

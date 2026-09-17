@@ -1,6 +1,8 @@
 package queryexec
 
 import (
+	"strconv"
+
 	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -11,8 +13,13 @@ import (
 type Event struct {
 	record runtime.TraceRecord
 	at     float64
+	// time is the instant as the clock reports it: a quantity in the clock's
+	// unit when the library defines one, else a bare real.
+	time   Value
 	object *runtime.Instance
 	label  string
+	// machine names the behavior as the object exhibits it, else as declared.
+	machine string
 	// target labels the object a send was addressed to, "" for none.
 	target string
 	index  int
@@ -25,6 +32,9 @@ func (ev Event) Kind() string { return ev.record.Kind.String() }
 // At is the clock instant the record was made at, in clock units.
 func (ev Event) At() float64 { return ev.at }
 
+// Time is the instant as its `time` property answers it.
+func (ev Event) Time() Value { return ev.time }
+
 // Object is the object whose behavior made the record, nil for one made from
 // outside the run, with the label a session reaches it by.
 func (ev Event) Object() (*runtime.Instance, string) { return ev.object, ev.label }
@@ -36,15 +46,51 @@ func (ev Event) Target() (*runtime.Instance, string) { return ev.record.Target, 
 // Behavior is the state machine or action the record was made under.
 func (ev Event) Behavior() *symbols.Symbol { return ev.record.Origin.Behavior }
 
+// Machine names the behavior as its `machine` property does, "" for none.
+func (ev Event) Machine() string { return ev.machine }
+
+// Payload is an accept's or send's payload, `name = value` per parameter in
+// name order, in the runtime's notation.
+func (ev Event) Payload() []string { return payloadTexts(ev.record) }
+
+// Alternatives are a choice's alternatives as offered, nil for any other record.
+func (ev Event) Alternatives() []string {
+	if choice, ok := ev.record.Note.(runtime.ChoicePoint); ok {
+		return append([]string(nil), choice.Alternatives...)
+	}
+	return nil
+}
+
+// Taken is the alternative a choice took, "" for any other record.
+func (ev Event) Taken() string {
+	choice, ok := ev.record.Note.(runtime.ChoicePoint)
+	if !ok || choice.Taken < 0 || choice.Taken >= len(choice.Alternatives) {
+		return ""
+	}
+	return choice.Alternatives[choice.Taken]
+}
+
 // Record is the trace record the row reads.
 func (ev Event) Record() runtime.TraceRecord { return ev.record }
 
 // Text is the record's trace text.
 func (ev Event) Text() string { return ev.record.Text() }
 
-// Label names the row: its kind and text.
+// Label names the row: the machine it came from and its text (`lamp.lp: enter: on`);
+// a record with no object reads as its text alone.
 func (ev Event) Label() string {
-	return ev.Kind() + " " + ev.Text()
+	if ev.label == "" {
+		return ev.Text()
+	}
+	if ev.machine == "" {
+		return ev.label + ": " + ev.Text()
+	}
+	return ev.label + "." + ev.machine + ": " + ev.Text()
+}
+
+// Summary is the event in one line: its instant in clock units, then its label.
+func (ev Event) Summary() string {
+	return "t=" + strconv.FormatFloat(ev.at, 'g', -1, 64) + " " + ev.Label()
 }
 
 // EventValue constructs an event value; its provenance is the object's declaration.

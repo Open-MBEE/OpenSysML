@@ -372,7 +372,7 @@ func TestExecuteStatesRefusals(t *testing.T) {
 		t.Fatalf("unknown-state error = %v", got)
 	}
 	_, err = fixture.run(t, fixture.session(), "StatesOfStates", lamp1)
-	if got := executionError(t, err, ErrorStateRow); got.Target != "lamp1 in on.dim" {
+	if got := executionError(t, err, ErrorStateRow); got.Target != "lamp1.lp in on.dim" {
 		t.Fatalf("state-row error = %v", got)
 	}
 	_, err = fixture.run(t, fixture.session(), "StateDescendants", lamp1)
