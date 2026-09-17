@@ -540,6 +540,17 @@ func TestApplyModelEditVersionsOtherDocumentsAsHeld(t *testing.T) {
 	}
 }
 
+// pinned asserts a change that edits nothing, pinning its document at version.
+func pinned(t *testing.T, change protocol.TextDocumentEdit, version int) {
+	t.Helper()
+	if len(change.Edits) != 0 {
+		t.Errorf("%s has edits %+v, want none", change.TextDocument.URI, change.Edits)
+	}
+	if v := change.TextDocument.Version; v == nil || int(*v) != version {
+		t.Errorf("%s pinned at version %v, want %d", change.TextDocument.URI, v, version)
+	}
+}
+
 // documentURIs lists the documents an edit changes, in the edit's order.
 func documentURIs(edit *protocol.WorkspaceEdit) []uri.URI {
 	out := make([]uri.URI, 0, len(edit.DocumentChanges))

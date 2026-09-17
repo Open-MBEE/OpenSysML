@@ -249,11 +249,13 @@ exactly the bytes it produced before; the existing rendering goldens pin that.
   the element's, so a view that exposes another file's parts is placed without touching
   that file, and a document drawn directly places what it draws from another file in
   that file. The answer is one `WorkspaceEdit` with a versioned `TextDocumentEdit` per
-  document changed, validated together; a bundled library file, or a document the
-  index holds without its source, is never written — the operation refuses, naming the
-  file. The VS Code panel draws its own SVG from the geometry, lays out what the model
-  does not place, and writes one edit per drag, so the editor's undo puts a node back,
-  in every file at once. A model nobody has dragged in keeps exactly its bytes.
+  document changed, validated together, and one with no edits per document read and left
+  as it was, so the client applies nothing once any has moved; a bundled library file,
+  or a document the index holds without its source, is never written — the operation
+  refuses, naming the file. The VS Code panel draws its own SVG from the geometry, lays
+  out what the model does not place, and writes one edit per drag, so the editor's undo
+  puts a node back, in every file at once. A model nobody has dragged in keeps exactly
+  its bytes.
 - **RDF / Flexo.** Metadata already maps; `Layout`, `Route` and `Canvas` ride along as
   ordinary metadata usages with no change to the mapping.
 - **Other tools.** Any conforming implementation parses and preserves the annotations,

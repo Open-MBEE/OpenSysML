@@ -288,9 +288,10 @@ func TestApplyModelEditLayoutReachesSeveralDocumentsInOneRequest(t *testing.T) {
 }
 
 // A document drawn directly places what it draws from another document inline,
-// in that document: the requested document, unchanged, is not among the changes.
-// A declaration range is read in the document declaredIn names; without it, the
-// range is one of the requested document, where nothing is declared.
+// in that document: the requested document, unchanged, heads the changes with
+// none, pinned at its version. A declaration range is read in the document
+// declaredIn names; without it, the range is one of the requested document,
+// where nothing is declared.
 func TestApplyModelEditPlacesInlineIntoTheDeclaringDocument(t *testing.T) {
 	const motor = "package Motors {\n\tstate def Motor {\n\t\tstate off;\n\t\tstate on;\n\t\ttransition first off then on;\n\t}\n}\n"
 	const fleet = "package Fleet {\n\tstate motor : Motors::Motor;\n}\n"
@@ -319,9 +320,10 @@ func TestApplyModelEditPlacesInlineIntoTheDeclaringDocument(t *testing.T) {
 	if out.Edit == nil || out.Refused != nil || out.Stale {
 		t.Fatalf("result = %+v, want an edit", out)
 	}
-	if got := documentURIs(out.Edit); !reflect.DeepEqual(got, []uri.URI{motorURI}) {
-		t.Fatalf("documentChanges = %v, want motor.sysml alone", got)
+	if got := documentURIs(out.Edit); !reflect.DeepEqual(got, []uri.URI{fleetURI, motorURI}) {
+		t.Fatalf("documentChanges = %v, want fleet.sysml then motor.sysml", got)
 	}
+	pinned(t, documentChangeFor(t, out.Edit, fleetURI), drawn.Version)
 	change := documentChangeFor(t, out.Edit, motorURI)
 	if v := change.TextDocument.Version; v == nil || *v != 2 {
 		t.Errorf("motor version = %v, want the server's 2", v)
@@ -351,7 +353,8 @@ func TestApplyModelEditPlacesInlineIntoTheDeclaringDocument(t *testing.T) {
 	}
 }
 
-// A Canvas sizes the view in the view's document, wherever the request comes from.
+// A Canvas sizes the view in the view's document, wherever the request comes
+// from; the requesting document, unchanged, is pinned with no edits.
 func TestApplyModelEditSetCanvasOfViewInAnotherDocument(t *testing.T) {
 	s, viewsURI, partsURI := engineWorkspace(t)
 	out := applyModelEdit(t, s, partsURI, 1,
@@ -359,9 +362,10 @@ func TestApplyModelEditSetCanvasOfViewInAnotherDocument(t *testing.T) {
 	if out.Edit == nil || out.Refused != nil {
 		t.Fatalf("result = %+v, want an edit", out)
 	}
-	if got := documentURIs(out.Edit); !reflect.DeepEqual(got, []uri.URI{viewsURI}) {
-		t.Fatalf("documentChanges = %v, want views.sysml alone", got)
+	if got := documentURIs(out.Edit); !reflect.DeepEqual(got, []uri.URI{partsURI, viewsURI}) {
+		t.Fatalf("documentChanges = %v, want parts.sysml then views.sysml", got)
 	}
+	pinned(t, documentChangeFor(t, out.Edit, partsURI), 1)
 	sized := applyDocumentChange(t, engineViews, documentChangeFor(t, out.Edit, viewsURI))
 	if !strings.Contains(sized, "\t\texpose Machinery::Engine;\n\t\t@DiagramLayout::Canvas { unit = \"px\"; width = 1200; height = 800; }\n\t}\n") {
 		t.Errorf("views.sysml:\n%s", sized)
@@ -381,9 +385,10 @@ func TestApplyModelEditLayoutIntoDiskAndLibraryDocuments(t *testing.T) {
 	if out.Edit == nil || out.Refused != nil {
 		t.Fatalf("result = %+v, want an edit", out)
 	}
-	if got := documentURIs(out.Edit); !reflect.DeepEqual(got, []uri.URI{uri.File(depotName)}) {
-		t.Fatalf("documentChanges = %v, want depot.sysml alone", got)
+	if got := documentURIs(out.Edit); !reflect.DeepEqual(got, []uri.URI{viewsURI, uri.File(depotName)}) {
+		t.Fatalf("documentChanges = %v, want views.sysml then depot.sysml", got)
 	}
+	pinned(t, documentChangeFor(t, out.Edit, viewsURI), 1)
 	change := documentChangeFor(t, out.Edit, uri.File(depotName))
 	if change.TextDocument.Version != nil {
 		t.Errorf("depot version = %d, want none for a document read from disk", *change.TextDocument.Version)
@@ -520,7 +525,9 @@ func TestApplyModelEditIsStaleWhenAnotherDocumentsDeclarationMoved(t *testing.T)
 // was rendered from: once that document changed — a namesake standing where the
 // rendered declaration was, say — the answer is stale rather than a placement of
 // whatever the name reaches now; and the name must be declared in the document
-// the node's origin named, not in a namesake's document.
+// the node's origin named, not in a namesake's document. The edit pins that
+// document, which a view-local Layout leaves as it was, at its version with no
+// edits, so that a client applies the edit only while it still holds that text.
 func TestApplyModelEditIsStaleWhenAnotherDocumentsNamedDeclarationWasReplaced(t *testing.T) {
 	s, viewsURI, partsURI := engineWorkspace(t)
 	drawn := render(t, s, viewsURI, "EngineViews::engineView")
@@ -546,9 +553,13 @@ func TestApplyModelEditIsStaleWhenAnotherDocumentsNamedDeclarationWasReplaced(t 
 	if out.Edit == nil || out.Stale || out.Refused != nil {
 		t.Fatalf("parts.sysml restored to the rendered text: %+v, want an edit", out)
 	}
+	if got := documentURIs(out.Edit); !reflect.DeepEqual(got, []uri.URI{viewsURI, partsURI}) {
+		t.Fatalf("documentChanges = %v, want views.sysml then the unchanged parts.sysml", got)
+	}
 	if got := applyDocumentChange(t, engineViews, documentChangeFor(t, out.Edit, viewsURI)); !strings.Contains(got, "metadata DiagramLayout::Layout about Machinery::Engine::rotor { x = 7; y = 8; }") {
 		t.Errorf("views.sysml:\n%s", got)
 	}
+	pinned(t, documentChangeFor(t, out.Edit, partsURI), 3)
 
 	// The name is placed only when declared in the document the origin named.
 	misplaced := place
