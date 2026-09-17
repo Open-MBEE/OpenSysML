@@ -142,6 +142,10 @@ button[type="submit"] {
   color: var(--green);
 }
 button[type="submit"]:hover { color: var(--bright); }
+button[type="submit"][disabled] { color: var(--dim); cursor: default; }
+
+#notice { color: var(--dim); }
+#notice.error { color: var(--red); }
 
 fieldset {
   border: none;

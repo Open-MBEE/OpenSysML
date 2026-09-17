@@ -1,4 +1,4 @@
-package lordweb
+package lord
 
 import (
 	"errors"

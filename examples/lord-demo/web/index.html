@@ -28,11 +28,12 @@
  █   ╚═╝  ╚═╝╚══════╝╚═════╝     ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝   █
  █                                                                                      █
  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀</pre>
-    <p id="subtitle">A SysML v2 model, played. The rules live in <code>examples/lord-demo/lord.sysml</code>; this page only presses its keys.</p>
+    <p id="subtitle">A SysML v2 model, played. The rules live in <code>examples/lord-demo/lord.sysml</code>, run by the model runtime compiled to WebAssembly; this page only presses its keys.</p>
   </header>
 
   <section id="character" hidden>
     <h2>Create your warrior</h2>
+    <p id="notice" hidden></p>
     <form id="character-form">
       <label>What is your name, warrior? <input id="name" name="name" maxlength="24" autocomplete="off" placeholder="Sir Devin"></label>
       <fieldset>
@@ -46,7 +47,7 @@
         <label><input type="radio" name="class" value="mysticalSkills"> Mystical Skills — the way of the mind</label>
         <label><input type="radio" name="class" value="thievingSkills"> Thieving Skills — the way of the shadow</label>
       </fieldset>
-      <button type="submit"><kbd>Enter</kbd> Begin your quest</button>
+      <button id="begin" type="submit" disabled><kbd>Enter</kbd> Begin your quest</button>
     </form>
   </section>
 
@@ -59,6 +60,7 @@
     <p id="hint">Press a key, or click a choice. <kbd>Esc</kbd> cancels a prompt. <a href="#" id="retire">Retire this warrior</a>.</p>
   </section>
 </main>
+<script src="wasm_exec.js"></script>
 <script src="lord.js"></script>
 </body>
 </html>

@@ -1,8 +1,8 @@
-// Package lordweb plays the Legend of the Red Dragon model of examples/lord-demo
-// through a browser: each session runs the model in its own runtime, the menu's
-// keys become the model's signals and actions, and the screen is a projection of
-// the warrior's feature values. No rule of the game lives here.
-package lordweb
+// Package lord plays the Legend of the Red Dragon model of examples/lord-demo:
+// a Game runs the model in a runtime of its own, the menu's keys become the
+// model's signals and actions, and the screen is a projection of the warrior's
+// feature values. No rule of the game lives here.
+package lord
 
 import (
 	"errors"

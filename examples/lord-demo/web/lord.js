@@ -1,11 +1,13 @@
-// The page is a dumb terminal: it shows what /api/view says and turns keys into
-// /api/play requests. Which keys exist, what they do and what they cost is the
-// model's business, reported back in every view.
+// The page is a dumb terminal: it shows the view the game reports and turns keys
+// into plays. The game is lord.wasm, the model runtime compiled for the browser;
+// which keys exist, what they do and what they cost is the model's business,
+// reported back in every view.
 (() => {
   "use strict";
 
   const $ = (id) => document.getElementById(id);
   const character = $("character");
+  const notice = $("notice");
   const game = $("game");
   const stats = $("stats");
   const location = $("location");
@@ -18,27 +20,27 @@
   let typed = "";      // digits typed so far towards a numbered option
   let history = [];    // the last few results, oldest first
 
-  async function api(path, body) {
-    const init = body === undefined ? {} : {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(body),
-    };
-    const response = await fetch(path, init);
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || response.statusText);
+  // Every call into the game takes and returns JSON; a failure is {error}.
+  function api(name, body) {
+    const data = JSON.parse(window.lord[name](JSON.stringify(body ?? null)));
+    if (data.error) throw new Error(data.error);
     return data;
   }
 
   function show(view, error) {
+    if (view && view.character) {
+      character.hidden = false;
+      game.hidden = true;
+      screen = null;
+      tell(view.lines, error);
+      $("name").focus();
+      return;
+    }
+    if (!view && !character.hidden) {
+      tell([], error);
+      return;
+    }
     if (view) {
-      if (view.character) {
-        character.hidden = false;
-        game.hidden = true;
-        screen = null;
-        $("name").focus();
-        return;
-      }
       character.hidden = true;
       game.hidden = false;
       screen = view.screen;
@@ -50,6 +52,13 @@
     if (error) history.push({lines: [error], error: true});
     history = history.slice(-4);
     renderLog();
+  }
+
+  // tell puts a word on the character screen, which has no log of its own.
+  function tell(lines, error) {
+    notice.textContent = error || (lines || []).join("\n");
+    notice.classList.toggle("error", Boolean(error));
+    notice.hidden = !notice.textContent;
   }
 
   const pad = (s, n) => String(s).padEnd(n);
@@ -184,9 +193,9 @@
     else renderPrompt();
   }
 
-  async function play(key, inputs) {
+  function play(key, inputs) {
     try {
-      show(await api("/api/play", {key, inputs}));
+      show(api("play", {key, inputs}));
     } catch (err) {
       show(null, err.message);
     }
@@ -198,7 +207,7 @@
     if (input) answer(input.value.trim());
   });
 
-  $("character-form").addEventListener("submit", async (event) => {
+  $("character-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const form = new FormData(event.target);
     const body = {
@@ -208,7 +217,7 @@
     };
     history = [];
     try {
-      show(await api("/api/new", body));
+      show(api("newGame", body));
     } catch (err) {
       show(null, err.message);
     }
@@ -218,7 +227,11 @@
     event.preventDefault();
     cancelPrompt();
     history = [];
-    show({character: true});
+    try {
+      show(api("retire"));
+    } catch (err) {
+      show(null, err.message);
+    }
   });
 
   // Keys: on a prompt with options, the digits pick one; otherwise a menu key
@@ -243,5 +256,17 @@
     }
   });
 
-  api("/api/view").then((view) => show(view)).catch((err) => show({character: true}, err.message));
+  // Start the runtime, then hand it the model; the game exists only in this tab.
+  async function boot() {
+    show({character: true, lines: ["Waking the realm..."]});
+    const go = new Go();
+    const wasm = await WebAssembly.instantiateStreaming(fetch("lord.wasm"), go.importObject);
+    go.run(wasm.instance);
+    const model = await fetch("lord.sysml");
+    if (!model.ok) throw new Error(`lord.sysml: ${model.status} ${model.statusText}`);
+    show(api("load", await model.text()));
+    $("begin").disabled = false;
+  }
+
+  boot().catch((err) => show({character: true}, err.message));
 })();

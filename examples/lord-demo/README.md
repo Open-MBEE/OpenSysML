@@ -998,29 +998,29 @@ points of defense: seven and ten.
 
 ## In the browser
 
-`lord-web` serves the model as the game a player saw: a terminal-styled page
+[`web/`](web/) plays the model as the game a player saw: a terminal-styled page
 with the warrior's stats, the menu of the state the day machine is in, and the
-keys the game took. Build and start it from the repository root:
+keys the game took. The model runtime is compiled to WebAssembly and runs in
+the tab, so there is no game server: the page is static files. Build them
+from the repository root and serve the directory with any file server:
 
 ```bash
-go run ./cmd/lord-web
+make lord-web
+python3 -m http.server -d build/lord-demo 8000
 ```
 
-```
-Legend of the Red Dragon awaits at http://127.0.0.1:8080/
-```
+Open <http://localhost:8000/>, name your warrior, choose a sex and a skill
+guild, and the town square is drawn. Press a menu's key or click its line; a
+choice that needs more — how much to deposit, which weapon, which blessing —
+asks for it, and <kbd>Esc</kbd> takes the question back. The page is the
+model's, not a copy of it:
 
-Open that address, name your warrior, choose a sex and a skill guild, and the
-town square is drawn. Press a menu's key or click its line; a choice that needs
-more — how much to deposit, which weapon, which blessing — asks for it, and
-<kbd>Esc</kbd> takes the question back. The page is the model's, not a copy of
-it:
-
-- **Each browser plays its own model.** The first visit gets a workspace of its
-  own, with `lord.sysml` loaded, `LordPlay::hero` instantiated and its `day`
-  machine started; the game is kept in memory under a session cookie and
-  dropped after `-idle` (two hours) without a keypress. Nothing is written to
-  disk, and nobody else's warrior is on the line.
+- **Each tab plays its own model.** The page fetches `lord.sysml` and hands it
+  to the runtime in `lord.wasm`, which parses and checks it, instantiates
+  `LordPlay::hero` and starts its `day` machine — all in the browser. A game
+  lives as long as the tab; nothing is sent anywhere, written to disk, or
+  shared with another tab. Edit the model in `build/lord-demo/`, reload, and
+  the changed rules are what you play.
 - **The menu is the state machine.** Each key is one of the `accept` triggers
   of the transitions out of the current state; a choice the guard refuses
   (*Seek the Red Dragon* at level one, robbing the bank untrained, a room with
@@ -1037,10 +1037,22 @@ it:
   and the blows that landed are the run's recorded choices; every other line
   of the log is a difference between the warrior before and after.
 
-Flags: `-addr` to listen elsewhere than `127.0.0.1:8080`, `-model` to play
-another copy of the model, `-idle` to keep untouched games longer or shorter.
-A model that does not play — one with errors, or without `LordPlay::hero` and
-its day machine — is refused at startup rather than at the first visit.
+`make lord-web` assembles `build/lord-demo/` (`LORD_WEB_OUT` to put it
+elsewhere): `lord.wasm` built from [`web/main.go`](web/main.go) with
+`GOOS=js GOARCH=wasm`, Go's `wasm_exec.js` loader, the page, and a copy of
+the model. The page needs an HTTP server only because browsers will not fetch
+WebAssembly from `file://`; the one above is Python's, and any other serves.
+The binary carries the whole SysML toolchain and its bundled standard library,
+so it is large — about 27 MB, 7 MB compressed — and a model that does not
+play (one with errors, or without `LordPlay::hero` and its day machine) is
+refused when the page loads it, before any warrior is made.
+
+The game itself is the [`web/lord`](web/lord/) package: one `Game` per
+warrior, with a runtime of its own, that sends the day machine the signal a
+key stands for, invokes the deed an argument-taking choice performs, and
+projects the hero's features for the page. It has no dependence on the
+browser and is what the tests exercise; `main.go` only hands it to
+JavaScript.
 
 ## What the model leaves open, and where it guesses
 
@@ -1067,4 +1079,4 @@ attribute or a calculation in `lord.sysml`, changed by editing it.
 The game had a screen, a modem and a hundred players on one bulletin board;
 the model has warriors, and `attack` takes one of them as its `foe`. There is
 no character file: a warrior lives as long as the REPL session, the
-`-instantiate` that made it, or the browser session that plays it.
+`-instantiate` that made it, or the browser tab that plays it.

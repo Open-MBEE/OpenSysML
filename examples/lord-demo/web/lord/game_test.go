@@ -1,4 +1,4 @@
-package lordweb
+package lord
 
 import (
 	"errors"
@@ -13,7 +13,7 @@ import (
 // modelSource reads the LORD model the client plays.
 func modelSource(t *testing.T) []byte {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("..", "..", "examples", "lord-demo", "lord.sysml"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "lord.sysml"))
 	if err != nil {
 		t.Fatal(err)
 	}

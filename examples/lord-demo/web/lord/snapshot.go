@@ -1,4 +1,4 @@
-package lordweb
+package lord
 
 // Snapshot is the warrior's standing as the model holds it, read attribute by
 // attribute from the hero instance; the screen renders it and outcomes diff it.
