@@ -194,7 +194,7 @@ func scalarLiteral(kind, expr, text, sv string) (value string, spelled bool) {
 		case sv == "String":
 			return expr, true
 		case numeric && decimal(text):
-			if _, err := strconv.ParseFloat(text, 64); err != nil {
+			if _, ok := new(big.Rat).SetString(text); !ok {
 				return "", false
 			}
 			if !strings.ContainsAny(text, ".eE") {
@@ -202,7 +202,7 @@ func scalarLiteral(kind, expr, text, sv string) (value string, spelled bool) {
 			}
 			return text, true
 		case whole && decimal(text):
-			if _, err := strconv.ParseInt(text, 10, 64); err != nil || (sv == "Natural" && text[0] == '-') {
+			if _, ok := new(big.Int).SetString(text, 10); !ok || (sv == "Natural" && text[0] == '-') {
 				return "", false
 			}
 			return text, true

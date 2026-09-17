@@ -70,10 +70,18 @@ func TestTypedInLiteralsTakeTheFeaturesScalarType(t *testing.T) {
       <ownedAttribute xmi:type="uml:Property" xmi:id="_on" name="on">`+booleanHref+`
         <defaultValue xmi:type="uml:LiteralString" xmi:id="_ov" value="true"/>
       </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_serial" name="serial">`+integerHref+`
+        <defaultValue xmi:type="uml:LiteralString" xmi:id="_sv" value="9223372036854775808"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_span" name="span">`+realHref+`
+        <defaultValue xmi:type="uml:LiteralString" xmi:id="_spv" value="1e400"/>
+      </ownedAttribute>
     </packagedElement>`, `<sysml:Block xmi:id="_st" base_Class="_b"/>`)
 	wantLine(t, r.Notation, "attribute gain : ScalarValues::Real default = 17.0;")
 	wantLine(t, r.Notation, "attribute poles : ScalarValues::Integer default = 4;")
 	wantLine(t, r.Notation, "attribute on : ScalarValues::Boolean default = true;")
+	wantLine(t, r.Notation, "attribute serial : ScalarValues::Integer default = 9223372036854775808;")
+	wantLine(t, r.Notation, "attribute span : ScalarValues::Real default = 1e400;")
 	wantNote(t, r, "_gain", migrate.Approximated, `the string "17" is written as the Real the feature holds`)
 	wantNote(t, r, "_poles", migrate.Approximated, "the real 4.0 is written as the Integer the feature holds")
 	wantClean(t, "typed.sysml", r)
