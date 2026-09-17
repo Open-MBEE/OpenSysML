@@ -357,7 +357,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	for _, state := range graph.CompositeStateOrder {
 		for _, region := range graph.CompositeStates[state] {
 			graph.RegionInitials[region] = graph.UnconditionalStart(region)
-			if len(graph.EntryTransitions[region]) > 0 {
+			if len(graph.EntryTransitions[region]) > 0 || graph.stateless(region) {
 				continue
 			}
 			if !graph.ForkStarted(region) {
@@ -907,6 +907,12 @@ func collectStateContents(graph *StateGraph, state *ast.StateNode, scope *symbol
 		}
 	}
 	return nil
+}
+
+// stateless reports whether region is stood for by a state declaring no substates:
+// such a region starts in, and stays in, that state, so it needs no initial.
+func (g *StateGraph) stateless(region *ast.StateRegion) bool {
+	return len(region.States) == 0 && g.RegionState[region] != nil
 }
 
 // recordCompositeState registers a state's regions while retaining their
