@@ -1,8 +1,5 @@
 # SysML v1 to v2 migration report: ported_calls.xmi
-# migrated 40 element(s): 34 mapped, 5 approximated, 1 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
-
-## unmapped (1)
-ObjectFlow	Drive::Run::<ObjectFlow>	_of2	(the flow's target 'target' has no v2 name)
+# migrated 40 element(s): 35 mapped, 5 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## approximated (5)
 ReadStructuralFeatureAction	Drive::Run::read motor	_readMotor	-> 'read motor'	(several edges leave the node, which a fork fork carries)
@@ -11,7 +8,7 @@ CallOperationAction	Drive::Stray::spin over loose	_callLoose	-> 'spin over loose
 AddStructuralFeatureValueAction	Motor::Spinning::set speed	_setSpeed	-> 'set speed'	(no edge leads to the node, so it starts with the activity)
 Interface	MotorCmd	_cmdIf	-> MotorCmd	(a UML interface is written as a port def)
 
-## mapped (34)
+## mapped (35)
 «Block» Class	Drive	_drive	-> Drive
 Connector	Drive::<Connector>	_c
 Activity	Drive::Run	_run	-> Drive::Run
@@ -21,6 +18,7 @@ ControlFlow	Drive::Run::<ControlFlow>	_e3
 ControlFlow	Drive::Run::<ControlFlow>	_e4
 InitialNode	Drive::Run::<InitialNode>	_init	-> start
 ObjectFlow	Drive::Run::<ObjectFlow>	_of1
+ObjectFlow	Drive::Run::<ObjectFlow>	_of2	(the flow names the object the call performs on, which the perform names as motor.spin)
 ObjectFlow	Drive::Run::<ObjectFlow>	_of3
 ValueSpecificationAction	Drive::Run::forty	_forty	-> forty
 OutputPin	Drive::Run::forty::result	_fortyOut	-> Drive::Run::forty.result

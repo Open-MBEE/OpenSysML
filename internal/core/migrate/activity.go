@@ -61,6 +61,8 @@ type activity struct {
 	edgeSelf    map[*xmi.Element]bool
 	// inert marks the nodes written as placeholders, whose output pins no value reaches.
 	inert map[*xmi.Element]bool
+	// receivers maps a call's target pin to the receiver path its perform names instead.
+	receivers map[*xmi.Element]string
 	// dataOnly marks the object flows that carry a value into an action without
 	// starting it: a control flow leads to the action, and that is what starts it.
 	dataOnly map[*xmi.Element]bool
@@ -93,6 +95,7 @@ func (m *migration) newActivity(act, def *xmi.Element) *activity {
 		edgeSelf:    map[*xmi.Element]bool{},
 		written:     map[[2]*xmi.Element]bool{},
 		inert:       map[*xmi.Element]bool{},
+		receivers:   map[*xmi.Element]string{},
 		nodes:       act.Owned("node"),
 		edges:       act.Owned("edge"),
 	}
@@ -1060,6 +1063,10 @@ func (a *activity) objectFlow(e *xmi.Element) {
 	if a.dataOnly[e] {
 		a.m.add(e, Approximated, "", "the flow carries its value only: the control flow into "+describe(tgt.Parent)+" starts the action, so the action does not wait for the value on each pass")
 	}
+	if receiver, ok := a.receivers[tgt]; ok {
+		a.m.add(e, Mapped, "", "the flow names the object the call performs on, which the perform names as "+receiver)
+		return
+	}
 	to, ok := a.pinRef(tgt)
 	if !ok {
 		a.m.add(e, Unmapped, "", "the flow's target "+describe(tgt)+" has no v2 name")
@@ -1193,6 +1200,7 @@ func (a *activity) callOperation(n *xmi.Element, name string) {
 			a.m.add(n, Mapped, name, note)
 		} else {
 			a.m.add(t, Mapped, a.m.v2Name(n), note)
+			a.receivers[t] = receiver
 		}
 		note = ""
 	case port != nil && t == nil:
