@@ -374,6 +374,17 @@ func TestDocumentHTML(t *testing.T) {
 	}
 }
 
+func TestStyleSheetKeepsTablesWithinThePage(t *testing.T) {
+	for _, want := range []string{
+		"table { border-collapse: collapse; margin: 0.8em 0; width: 100%; }",
+		"overflow-wrap: anywhere;",
+	} {
+		if !strings.Contains(styleSheet, want) {
+			t.Fatalf("stylesheet lacks %q: a wide cell such as a list of qualified names would run off the page", want)
+		}
+	}
+}
+
 func TestMarkdownWithImages(t *testing.T) {
 	got := markdownWithImages(sampleMarkdown, []string{"diagram-1.svg"})
 	if strings.Contains(got, "```mermaid") {
