@@ -875,20 +875,48 @@ func TestOpaqueBodyExpressionsBindTheirOwnNames(t *testing.T) {
           <language>SysML</language>
         </specification>
       </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r9" name="asserted" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp9">
+          <body>{ in v { constraint { gone > 0 } } v > c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r10" name="bounded" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp10">
+          <body>{ in v; attribute y[lost]; v > c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r11" name="imported" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp11">
+          <body>{ in v { import Q::*; } v > c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_r12" name="documented">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_sp12">
+          <body>{ in v { doc /* the value */ } v > c }</body>
+          <language>SysML</language>
+        </defaultValue>
+      </ownedAttribute>
     </packagedElement>`, `
   <sysml:ConstraintBlock xmi:id="_s2" base_Class="_cb"/>`)
 	wantLine(t, r.Notation, "in attribute bound default = { in v; v > c };")
 	wantLine(t, r.Notation, "in attribute scaled default = { in v; private attribute k = 2.0; v * k > c };")
-	for _, n := range []string{"stray", "each", "twice", "bodied", "nested", "deep"} {
+	wantLine(t, r.Notation, "in attribute documented default = { in v { doc /* the value */ } v > c };")
+	for _, n := range []string{"stray", "each", "twice", "bodied", "nested", "deep", "asserted", "bounded", "imported"} {
 		wantNoLine(t, r.Notation, "constraint "+n)
 	}
 	for id, want := range map[string]string{
-		"_r3": "opaque expression names limit, which nothing visible from Bound is called (language SysML)",
-		"_r4": "opaque expression names forAll, which nothing visible from Bound is called (language SysML)",
-		"_r5": "opaque expression is not v2 expression syntax (language SysML)",
-		"_r6": "opaque expression is not v2 expression syntax (language SysML)",
-		"_r7": "opaque expression names missing, which nothing visible from Bound is called (language SysML)",
-		"_r8": "opaque expression names absent, which nothing visible from Bound is called (language SysML)",
+		"_r3":  "opaque expression names limit, which nothing visible from Bound is called (language SysML)",
+		"_r4":  "opaque expression names forAll, which nothing visible from Bound is called (language SysML)",
+		"_r5":  "opaque expression is not v2 expression syntax (language SysML)",
+		"_r6":  "opaque expression is not v2 expression syntax (language SysML)",
+		"_r7":  "opaque expression names missing, which nothing visible from Bound is called (language SysML)",
+		"_r8":  "opaque expression names absent, which nothing visible from Bound is called (language SysML)",
+		"_r9":  "opaque expression names gone, which nothing visible from Bound is called (language SysML)",
+		"_r10": "opaque expression names lost, which nothing visible from Bound is called (language SysML)",
+		"_r11": "opaque expression is not v2 expression syntax (language SysML)",
 	} {
 		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Unmapped || es[0].Note != want {
 			t.Errorf("%s entries = %+v", id, es)
