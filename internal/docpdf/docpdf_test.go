@@ -570,9 +570,8 @@ func TestParseTelescopeGolden(t *testing.T) {
 	}
 }
 
-// TestParseStateReportGolden lays out the state-and-event report: its three
-// captioned tables and two lists of row summaries reach the page as markup,
-// with the escaped unit brackets and the state paths set literally.
+// TestParseStateReportGolden lays out the state-and-event report: three captioned
+// tables and two lists of row summaries, unit brackets escaped, state paths literal.
 func TestParseStateReportGolden(t *testing.T) {
 	golden, err := os.ReadFile(filepath.Join("..", "core", "docrender", "testdata", "state_report.golden.md"))
 	if err != nil {

@@ -67,9 +67,8 @@ func stateQuerySession(t *testing.T) *Session {
 	return s
 }
 
-// TestRunQueryStatesOverSession checks that %run-query reads the states the
-// session's objects are in: one row per active leaf, orthogonal regions
-// included, and the inverse lookup by state name.
+// TestRunQueryStatesOverSession checks %run-query reads the states the session's
+// objects are in, one row per active leaf across regions, and the inverse lookup.
 func TestRunQueryStatesOverSession(t *testing.T) {
 	s := stateQuerySession(t)
 	wants(t, run(t, s, "%run-query CurrentStates"), "✓ Query Lamps::CurrentStates returned 0 rows")
@@ -99,10 +98,8 @@ func TestRunQueryStatesOverSession(t *testing.T) {
 		"Row 1: Lamps::lamp1 (#1)")
 }
 
-// TestRunQueryEventsOverSession checks that %run-query reads the trace the
-// session records — refusing without tracing, then reporting the accepts and
-// transitions inside the interval asked for, with the payload accepted; turning
-// tracing off discards the record, so a query after it is refused again.
+// TestRunQueryEventsOverSession checks %run-query reads the recorded trace: refused
+// without tracing, then the interval's accepts and transitions, refused again after %trace off.
 func TestRunQueryEventsOverSession(t *testing.T) {
 	s := stateQuerySession(t)
 	run(t, s, "%instantiate lamp1")

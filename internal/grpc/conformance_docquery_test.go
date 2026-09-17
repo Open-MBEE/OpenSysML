@@ -165,8 +165,7 @@ func checkDocumentValue(t *testing.T, label string, want expectedValue, got *pb.
 // describeDocumentValue names a document value's arm and renders its payload
 // in the fixture spelling: an element as "<fqn> (<type>)", an object as
 // "<path> (#<id>) : <usage fqn> (<type>)", a verdict as "<text> on <path>: <verdict>",
-// a state as "<path>.<machine> in <state path> (<region>)", an event as
-// "<kind> at <time>: <text>".
+// a state as "<path>.<machine> in <state path> (<region>)", an event as "<kind> at <time>: <text>".
 func describeDocumentValue(v *pb.DocumentValue) (string, interface{}) {
 	switch k := v.Kind.(type) {
 	case *pb.DocumentValue_ElementId:

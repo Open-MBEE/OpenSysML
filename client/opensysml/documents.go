@@ -292,9 +292,8 @@ func (c *client) RenderDocument(ctx context.Context, model *Model, documentID st
 	return resp.Markdown, nil
 }
 
-// cellToProto marshals a bound value. Infinity, DocumentVerdict, DocumentState
-// and DocumentEvent are refused here, as the service refuses them: queries
-// answer them, nothing binds them.
+// cellToProto marshals a bound value; infinity and the verdict, state and event
+// rows are refused here as the service refuses them: queries answer, nothing binds.
 func cellToProto(cell Cell) (*pb.DocumentValue, error) {
 	switch value := cell.(type) {
 	case nil:

@@ -616,9 +616,8 @@ func (e *StateExecutor) traceMark() (int, float64) {
 	return 0, e.ctx.clock.now
 }
 
-// recordAccept keeps a dispatched signal or call in the trace's records, before
-// what its dispatch recorded; a time or change event is no accept, and the
-// transition it fires records the trigger.
+// recordAccept records a dispatched signal or call ahead of what its dispatch
+// recorded; time and change events are no accepts, their transition records the trigger.
 func (e *StateExecutor) recordAccept(event Event, mark int, at float64) {
 	tr := e.trace()
 	if tr == nil {

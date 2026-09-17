@@ -329,8 +329,7 @@ func eventMachine(record runtime.TraceRecord) string {
 }
 
 // eventName is what a record is about: the event accepted or sent, the state
-// entered, exited or run, the target of a transition, the kind of choice drawn
-// or the alternative whose guard was unevaluable.
+// entered, exited or run, a transition's target, the choice kind or the guarded alternative.
 func eventName(record runtime.TraceRecord) string {
 	switch record.Kind {
 	case runtime.TraceAccept, runtime.TraceSend:

@@ -365,10 +365,8 @@ const stateQueryModel = `package Blink {
 }
 `
 
-// TestRunQueryOverStatesAndTrace checks that -run-query runs after the
-// behaviors named, so a state query reads where -advance left the machine and
-// an event query reads the trace -trace recorded, inside the interval asked
-// for; without -trace the event query is refused.
+// TestRunQueryOverStatesAndTrace checks -run-query runs after the behaviors named:
+// states read where -advance left them, events read -trace's record or are refused.
 func TestRunQueryOverStatesAndTrace(t *testing.T) {
 	binary := buildCLI(t)
 

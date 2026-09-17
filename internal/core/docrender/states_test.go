@@ -14,9 +14,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// stateFixtureDocument evaluates the lamp report over a session that drove two
-// lamps: lamp1 switched on at 0 s, dimmed at 1 s and boosted at 2 s; lamp2
-// switched on at 2 s and off at 2.5 s; the clock stands at 3 s.
+// stateFixtureDocument evaluates the lamp report over a session that drove lamp1 on
+// at 0 s, dimmed at 1 s, boosted at 2 s and lamp2 on at 2 s, off at 2.5 s; clock at 3 s.
 func stateFixtureDocument(t *testing.T) *docir.Document {
 	t.Helper()
 	fixture := loadRenderFixture(t, filepath.Join("testdata", "state_report.sysml"))
@@ -72,10 +71,8 @@ func stateFixtureDocument(t *testing.T) *docir.Document {
 	return document
 }
 
-// TestMarkdownStateReportGolden locks the Markdown of a document over a
-// session's states and trace: one row per active leaf with its region and
-// enclosing states, the objects standing in `on`, the events of one lamp in a
-// time interval, and lists of unprojected event and state rows.
+// TestMarkdownStateReportGolden locks the Markdown of a document over a session's
+// states and trace: active leaves, the objects in `on`, one lamp's events, bare rows.
 func TestMarkdownStateReportGolden(t *testing.T) {
 	got, err := Markdown(stateFixtureDocument(t), MarkdownOptions{})
 	if err != nil {
@@ -97,9 +94,8 @@ func TestMarkdownStateReportGolden(t *testing.T) {
 	}
 }
 
-// TestHTMLStateReport checks the HTML of a document over states and events:
-// rows carry the object, machine and state path or the event's kind and
-// instant, and unprojected items read as the row's summary.
+// TestHTMLStateReport checks the HTML over states and events: rows carry the object,
+// machine and state path or the event's kind and instant; bare items read as summaries.
 func TestHTMLStateReport(t *testing.T) {
 	got, err := HTML(stateFixtureDocument(t), HTMLOptions{Fragment: true})
 	if err != nil {

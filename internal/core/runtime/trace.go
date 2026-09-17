@@ -146,8 +146,7 @@ func (r TraceRecord) Text() string {
 // is answered by the semantic constant folder without evaluating its operands,
 // so it appears with no children.
 //
-// Clear marks the records as printed rather than dropping them, so the records
-// a query reads span the run while each drain prints only what is new.
+// Clear marks records printed rather than dropping them: a query reads the whole run.
 type TraceRecorder struct {
 	records []TraceRecord
 	printed int

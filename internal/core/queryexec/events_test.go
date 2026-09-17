@@ -112,9 +112,8 @@ func (f lampFixture) quantity(t *testing.T, expr string) Value {
 	return QuantityValue(quantity)
 }
 
-// Events reads the typed trace in the order it was recorded: an accept is
-// followed by the exits, entries and steps its transition made, each at the
-// clock's instant, with the object, its machine and the payload carried.
+// Events reads the typed trace in recorded order: an accept, then the exits,
+// entries and steps its transition made, each with instant, object, machine and payload.
 func TestExecuteEventsReadsTheTraceInOrder(t *testing.T) {
 	fixture := eventFixture(t)
 	got := rowTexts(t, fixture.rows(t, "Happenings", fixture.object(fixture.lamp2, "lamp2")))
@@ -158,10 +157,8 @@ func TestExecuteEventsReadsTheTraceInOrder(t *testing.T) {
 	}
 }
 
-// kind keeps the kinds named: one, or several separated by commas; every kind
-// the trace records is reachable, sends with the object they were addressed to,
-// do steps and unevaluable guards under the machine that made them, and choice
-// points with their alternatives and the one taken.
+// kind keeps the kinds named, one or comma-separated; every recorded kind is
+// reachable with its target, machine, alternatives and the one taken.
 func TestExecuteEventsByKind(t *testing.T) {
 	fixture := eventFixture(t)
 	got := rowTexts(t, fixture.rows(t, "Accepts", nil))
@@ -224,9 +221,8 @@ func TestExecuteEventsByKind(t *testing.T) {
 	}
 }
 
-// The interval is [since, before): an accept at since is kept, one at before
-// is not; the bounds are durations in any unit of time or bare numbers of the
-// clock's seconds, and either may be left open.
+// The interval is [since, before): kept at since, dropped at before; bounds are
+// durations in any unit of time or bare clock seconds, either left open.
 func TestExecuteEventsIntervalIsClosedOpen(t *testing.T) {
 	fixture := eventFixture(t)
 	lamp1 := fixture.object(fixture.lamp1, "lamp1")
@@ -269,9 +265,8 @@ func TestExecuteEventsIntervalIsClosedOpen(t *testing.T) {
 	}
 }
 
-// Event rows take the row operations the object rows do: WhereFeature and
-// WhereName over the record, OrderBy over the instant, Column expressions over
-// the row's properties, and the metadata of the machine that made the record.
+// Event rows take the row operations object rows do: WhereFeature, WhereName,
+// OrderBy over the instant, Column over the row's properties and machine metadata.
 func TestExecuteEventRowsThroughRowOperations(t *testing.T) {
 	fixture := eventFixture(t)
 	got := rowTexts(t, fixture.rows(t, "Latest", nil))
@@ -295,10 +290,8 @@ func TestExecuteEventRowsThroughRowOperations(t *testing.T) {
 	}
 }
 
-// Every unsupported path is a typed error: no session, a session recording no
-// trace, an interval that is empty or runs backwards, a bound in a unit that
-// does not measure time, a kind the trace does not record, an element the
-// session holds no object of, and an event row where an object is read.
+// Every unsupported path is a typed error: no session, no trace, an empty or backwards
+// interval, a bound not measuring time, an unknown kind, no object held, a row misread.
 func TestExecuteEventsRefusals(t *testing.T) {
 	fixture := eventFixture(t)
 

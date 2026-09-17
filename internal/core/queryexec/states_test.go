@@ -137,9 +137,8 @@ type lampFixture struct {
 	rock, panel  *runtime.Instance
 }
 
-// loadLampFixture instantiates the lamps and drives them: lamp1 is switched on
-// at 0 s, dimmed at 1 s and boosted at 2.5 s; lamp2 is switched on at 2 s and off
-// at 2.5 s; the clock stands at 3.5 s.
+// loadLampFixture drives the lamps: lamp1 on at 0 s, dimmed at 1 s, boosted at
+// 2.5 s; lamp2 on at 2 s, off at 2.5 s; the clock stands at 3.5 s.
 func loadLampFixture(t *testing.T, queries string) lampFixture {
 	t.Helper()
 	fixture := loadExecutionFixture(t, lampBody+queries)
@@ -347,9 +346,8 @@ func TestExecuteInStateFindsObjectsByLeafOrEnclosingState(t *testing.T) {
 	}
 }
 
-// Every unsupported path is a typed error: no session, an object with no state
-// machine, an element the session holds no object of, a state no machine
-// declares, and a state row where an element or object is read.
+// Every unsupported path is a typed error: no session, no state machine, no object
+// held, a state no machine declares, a state row read as an element or object.
 func TestExecuteStatesRefusals(t *testing.T) {
 	fixture := loadLampFixture(t, lampQueries)
 	lamp1 := fixture.object(fixture.lamp1, "lamp1")
