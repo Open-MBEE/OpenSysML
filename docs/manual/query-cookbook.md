@@ -936,11 +936,10 @@ $ sysml cookbook.sysml -instantiate Cookbook::telescope -run-query "Cookbook::He
     mass = 4.5
 ```
 
-A session holding no object returns no rows from `Objects`; running the query
-outside any session (through the library alone) is refused with a typed error
-saying to instantiate an object first. `RelatedElements` reads the model's
-relationships and is refused over an object row — traverse the relationship from
-the element, then bind what it finds.
+A session holding no object returns no rows from `Objects`; outside any
+session the operation is refused with a typed error, and `RelatedElements` is
+refused over an object row — [Which query is
+which](query-kinds.md#object-rows-and-verdict-rows) draws these boundaries.
 
 A document renders the same way: `-instantiate <name> -render-document <doc>`
 creates the object first, and every table or list whose query is bound to that
