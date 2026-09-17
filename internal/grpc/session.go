@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -46,6 +47,17 @@ func sessionFailuref(format string, args ...any) *SessionFailure {
 	return &SessionFailure{Message: fmt.Sprintf(format, args...)}
 }
 
+// runFailure classifies a runtime error: one at the session's object bound is
+// the RESOURCE_EXHAUSTED status; any other is the model's failure, so described.
+func (ss *Session) runFailure(err error, format string, args ...any) error {
+	if errors.Is(err, runtime.ErrInstanceLimitExceeded) {
+		return statusErrorf(connect.CodeResourceExhausted,
+			"the session holds %d objects, and one more would pass the %d that %s allows; raise it to hold more (the objects are released when the session closes)",
+			ss.rt.InstanceCount(), ss.rt.MaxInstances(), HeldObjectsEnvVar)
+	}
+	return sessionFailuref(format, append(args, err)...)
+}
+
 // SessionTransition is one transition of a state machine as a session reports
 // it: its ends and trigger by name, no node of the graph it was lowered to.
 type SessionTransition struct {
@@ -54,6 +66,7 @@ type SessionTransition struct {
 	Target  string
 	Trigger string
 	Signal  string
+	Event   string
 	Guarded bool
 }
 
@@ -200,7 +213,7 @@ func (ss *Session) Instantiate(symbolID string) (int64, error) {
 	}
 	inst, err := ss.rt.Instantiate(sym)
 	if err != nil {
-		return 0, sessionFailuref("instantiation of %s failed: %v", symbolID, err)
+		return 0, ss.runFailure(err, "instantiation of %s failed: %v", symbolID)
 	}
 	return inst.ID, nil
 }
@@ -218,7 +231,7 @@ func (ss *Session) FeatureValue(object int64, feature string) (*pb.FeatureValue,
 	}
 	fv, err := inst.GetFeatureValue(ss.rt, feature)
 	if err != nil {
-		return nil, sessionFailuref("feature %s of object %d could not be read: %v", feature, object, err)
+		return nil, ss.runFailure(err, "feature %s of object %d could not be read: %v", feature, object)
 	}
 	out := &pb.FeatureValue{FeatureName: feature, Materialized: fv.Materialized}
 	if fv.Feature.Scalar() {
@@ -253,7 +266,7 @@ func (ss *Session) SetFeatureValue(object int64, feature string, value *pb.Value
 		return err
 	}
 	if err := inst.SetFeatureValue(ss.rt, feature, val); err != nil {
-		return sessionFailuref("feature %s of object %d could not be written: %v", feature, object, err)
+		return ss.runFailure(err, "feature %s of object %d could not be written: %v", feature, object)
 	}
 	return nil
 }
@@ -288,12 +301,11 @@ func (ss *Session) Evaluate(expression, contextSymbolID string) (*pb.Value, erro
 		}
 		scope = evalScope(sym, ss.cached)
 	}
-	evalCtx := runtime.NewEvalContextIn(ss.rt, scope, nil)
 	var result runtime.Value
 	var evalErr error
-	ss.rt.Resolver().Scratch(astcodec.Reachable(exprNode), func() { result, evalErr = evalCtx.Eval(exprNode) })
+	ss.rt.Resolver().Scratch(astcodec.Reachable(exprNode), func() { result, evalErr = ss.rt.EvalWithScope(exprNode, scope) })
 	if evalErr != nil {
-		return nil, sessionFailuref("evaluation failed: %v", evalErr)
+		return nil, ss.runFailure(evalErr, "evaluation failed: %v")
 	}
 	return ss.svc.valueToProto(ss.rt, result, ss.cached.Index), nil
 }
@@ -381,6 +393,8 @@ func transitionFact(trans *lower.Transition) SessionTransition {
 		fact.Trigger = TriggerSignal
 		if trigger.SignalType != nil && len(trigger.SignalType.Parts) > 0 {
 			fact.Signal = trigger.SignalType.Parts[len(trigger.SignalType.Parts)-1].Text
+		} else {
+			fact.Event = lower.FeaturePath(trigger.Subsets)
 		}
 	case *ast.TimeEvent:
 		fact.Trigger = TriggerTime
@@ -414,7 +428,7 @@ func (ss *Session) decide(machines []*runtime.StateExecutor, msg runtime.Message
 	for _, machine := range machines {
 		accepted, err := machine.AcceptsMessage(msg)
 		if err != nil {
-			return nil, sessionFailuref("deciding the signal failed: %v", err)
+			return nil, ss.runFailure(err, "deciding the signal failed: %v")
 		}
 		if !accepted {
 			continue
@@ -422,7 +436,7 @@ func (ss *Session) decide(machines []*runtime.StateExecutor, msg runtime.Message
 		out.Accepted = true
 		decision, transitions, err := machine.DecideTransitions(msg)
 		if err != nil {
-			return nil, sessionFailuref("deciding the signal failed: %v", err)
+			return nil, ss.runFailure(err, "deciding the signal failed: %v")
 		}
 		for _, trans := range transitions {
 			out.Fires = append(out.Fires, transitionFact(trans))
@@ -482,7 +496,7 @@ func (ss *Session) signal(object int64, signalID string, args map[string]*pb.Val
 	}
 	msg, err := ss.rt.SignalMessage(sym, values, inst)
 	if err != nil {
-		return nil, runtime.Message{}, sessionFailuref("signal %s could not be built: %v", signalID, err)
+		return nil, runtime.Message{}, ss.runFailure(err, "signal %s could not be built: %v", signalID)
 	}
 	return machines, msg, nil
 }
@@ -499,6 +513,9 @@ func (ss *Session) Advance(seconds float64) (*SessionAdvance, error) {
 	}
 	report, err := ss.rt.Advance(seconds)
 	if err != nil {
+		if errors.Is(err, runtime.ErrInstanceLimitExceeded) {
+			return nil, ss.runFailure(err, "advance failed: %v")
+		}
 		return nil, &SessionFailure{Message: fmt.Sprintf("advance failed: %v", err), Diagnostics: ss.diagnostics(report.Notes)}
 	}
 	return &SessionAdvance{
@@ -533,11 +550,14 @@ func (ss *Session) Perform(object int64, actionID string, inputs map[string]*pb.
 	}
 	exec, err := ss.rt.CreateActionExecutorWithInputs(sym, inst, values)
 	if err != nil {
-		return nil, sessionFailuref("action %s could not be performed: %v", actionID, err)
+		return nil, ss.runFailure(err, "action %s could not be performed: %v", actionID)
 	}
 	defer exec.Release()
 	exec.KeepTraversals(true)
 	if err := exec.RunToCompletion(); err != nil {
+		if errors.Is(err, runtime.ErrInstanceLimitExceeded) {
+			return nil, ss.runFailure(err, "action %s failed: %v", actionID)
+		}
 		return nil, &SessionFailure{Message: fmt.Sprintf("action %s failed: %v", actionID, err), Diagnostics: ss.diagnostics(exec.Notes())}
 	}
 	notes := exec.Notes()

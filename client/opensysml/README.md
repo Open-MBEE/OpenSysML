@@ -128,7 +128,7 @@ defer session.Close()
 hero, err := session.Instantiate("Play::hero")           // starts the machines it exhibits
 err = session.SetSchedule("seed:42")                     // the dice later runs roll
 states, err := session.ActiveStates(hero)                // ["town"]
-transitions, err := session.Transitions(hero)            // out of each active state and those enclosing it: Source, Target, Trigger, Signal, Guarded
+transitions, err := session.Transitions(hero)            // out of each active state and those enclosing it: Source, Target, Trigger, Signal or Event, Guarded
 acceptance, err := session.Accepts(hero, "Play::Go", nil) // Accepted; Enabled() is whether a guard holds now
 _, err = session.Send(hero, "Play::Go", nil)             // posts it, or refuses with CodeFailedPrecondition
 advanced, err := session.Advance(1)                      // dispatches, completion transitions included; Choices
@@ -172,8 +172,10 @@ session holds its model in the client's cache and the objects it made until
 `Close`, which releases them; closing twice is harmless, and `Close` on the
 client does not close a session opened from it, so close the session first.
 Its objects are bounded as the service bounds the objects it holds for
-queries (`OPENSYSML_GRPC_MAX_HELD_OBJECTS`, 10000 by default), and its runs by
-the same step budget as `ExecuteAction`.
+queries (`OPENSYSML_GRPC_MAX_HELD_OBJECTS`, 10000 by default) — a call that
+would pass the bound answers `CodeResourceExhausted` — and its runs by the
+same step budget as `ExecuteAction`, each `Evaluate` and `Perform` a run of
+its own.
 
 The Legend of the Red Dragon example (`examples/lord-demo/web`) is a client of
 this surface and nothing else: its browser game imports only this package.

@@ -205,7 +205,9 @@ type TriggerKind string
 const (
 	// TriggerCompletion fires when the source state's entry behavior completes.
 	TriggerCompletion TriggerKind = sysmlgrpc.TriggerCompletion
-	// TriggerSignal fires on accepting the signal Transition.Signal names.
+	// TriggerSignal fires on accepting a signal: one of the type
+	// Transition.Signal names, or an occurrence of the event feature
+	// Transition.Event names.
 	TriggerSignal TriggerKind = sysmlgrpc.TriggerSignal
 	// TriggerTime fires when a time event is due.
 	TriggerTime TriggerKind = sysmlgrpc.TriggerTime
@@ -225,16 +227,20 @@ type Transition struct {
 	Target string
 	// Trigger says what fires it.
 	Trigger TriggerKind
-	// Signal is the simple name of the signal a TriggerSignal transition
-	// accepts, "" for the other kinds.
+	// Signal is the simple name of the signal type a TriggerSignal transition
+	// accepts, "" when it accepts by event feature instead or for the other kinds.
 	Signal string
+	// Event is the feature path an accept trigger subsets (`alert`,
+	// `left.alert`) when it accepts an occurrence of that event feature rather
+	// than a signal type, "" otherwise.
+	Event string
 	// Guarded reports whether a guard stands on it; Accepts says whether the
 	// guard holds now.
 	Guarded bool
 }
 
 func transitionFromFact(t sysmlgrpc.SessionTransition) Transition {
-	return Transition{Name: t.Name, Source: t.Source, Target: t.Target, Trigger: TriggerKind(t.Trigger), Signal: t.Signal, Guarded: t.Guarded}
+	return Transition{Name: t.Name, Source: t.Source, Target: t.Target, Trigger: TriggerKind(t.Trigger), Signal: t.Signal, Event: t.Event, Guarded: t.Guarded}
 }
 
 // ActiveStates names the innermost active states of every state machine the

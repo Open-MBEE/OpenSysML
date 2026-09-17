@@ -22,6 +22,7 @@ const sessionSource = `package Play {
 		attribute strength : Integer = 3;
 		attribute mood : Mood = Mood::calm;
 		attribute rested : Boolean = false;
+		calc twice { gold * 2 }
 		exhibit state day {
 			entry; then town;
 			state town;
@@ -115,6 +116,28 @@ func TestSessionRetainsTheObjectAcrossCalls(t *testing.T) {
 	}
 	if want := []string{"calm", "wild"}; !reflect.DeepEqual(names, want) {
 		t.Errorf("Members(Play::Mood) = %v, want %v", names, want)
+	}
+}
+
+func TestSessionEvaluatesEachExpressionAfresh(t *testing.T) {
+	t.Setenv("OPENSYSML_MAX_STEPS", "200")
+	session, hero := openSession(t)
+
+	value, err := session.Evaluate("hero.twice", opensysml.WithContextSymbol("Play"))
+	if err != nil || value != opensysml.Int(20) {
+		t.Fatalf("Evaluate hero.twice = %#v, %v; want Int(20)", value, err)
+	}
+	if err := session.SetFeature(hero, "gold", opensysml.Int(7)); err != nil {
+		t.Fatalf("SetFeature: %v", err)
+	}
+	value, err = session.Evaluate("hero.twice", opensysml.WithContextSymbol("Play"))
+	if err != nil || value != opensysml.Int(14) {
+		t.Fatalf("Evaluate hero.twice after SetFeature = %#v, %v; want Int(14)", value, err)
+	}
+	for i := 0; i < 50; i++ {
+		if _, err := session.Evaluate("hero.gold + hero.strength * 2 - hero.twice", opensysml.WithContextSymbol("Play")); err != nil {
+			t.Fatalf("Evaluate #%d under a per-run step budget: %v", i, err)
+		}
 	}
 }
 
@@ -394,6 +417,60 @@ func TestSessionRefusesMisuseWithTypedErrors(t *testing.T) {
 	}
 	if _, err := session.Send(hero, "Play::Go", nil); !hasCode(err, opensysml.CodeUnavailable) {
 		t.Errorf("Send on a closed session: %v, want CodeUnavailable", err)
+	}
+}
+
+func TestSessionRefusesToPassTheObjectBound(t *testing.T) {
+	t.Setenv("OPENSYSML_GRPC_MAX_HELD_OBJECTS", "4")
+	session, _ := openSession(t)
+	for i := 0; i < 8; i++ {
+		_, err := session.Instantiate("Play::hero")
+		if err == nil {
+			continue
+		}
+		if !hasCode(err, opensysml.CodeResourceExhausted) {
+			t.Fatalf("Instantiate past the bound: %v, want CodeResourceExhausted", err)
+		}
+		return
+	}
+	t.Fatal("Instantiate never reached the bound of 4 held objects")
+}
+
+// eventSource accepts by the event feature an accept trigger subsets, not by a
+// signal type: the transition fact names the feature, and dispatch matches it.
+const eventSource = `package Watch {
+	private import ScalarValues::*;
+	item def Ping;
+	part def Unit {
+		item alert : Ping;
+		exhibit state duty {
+			entry; then standingBy;
+			state standingBy;
+			state working;
+			transition wake first standingBy accept :> alert then working;
+		}
+	}
+	part unit : Unit;
+}`
+
+func TestSessionNamesTheEventAnAcceptSubsets(t *testing.T) {
+	client := newClient(t)
+	session, err := opensysml.OpenSession(client, parse(t, client, eventSource))
+	if err != nil {
+		t.Fatalf("OpenSession: %v", err)
+	}
+	t.Cleanup(func() { _ = session.Close() })
+	unit, err := session.Instantiate("Watch::unit")
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	transitions, err := session.Transitions(unit)
+	if err != nil {
+		t.Fatalf("Transitions: %v", err)
+	}
+	want := []opensysml.Transition{{Name: "wake", Source: "standingBy", Target: "working", Trigger: opensysml.TriggerSignal, Event: "alert"}}
+	if !reflect.DeepEqual(transitions, want) {
+		t.Errorf("Transitions = %+v, want %+v", transitions, want)
 	}
 }
 
