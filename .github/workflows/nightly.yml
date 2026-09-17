@@ -116,14 +116,16 @@ jobs:
       # The extension is side-loaded, not published to a marketplace, so the snapshot
       # is its distribution. Its version is the manifest's with the snapshot version as
       # the pre-release part, so two nights' builds are told apart in VS Code and any
-      # stable release of the extension ranks above them.
+      # stable release of the extension ranks above them. The selected commit may be
+      # older than this workflow, so the version is passed to the extension's own
+      # package script rather than through a Makefile variable it may not have yet.
       - name: Package the VS Code extension
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           base=$(node -p "require('./editors/vscode/package.json').version")
           expected="${base}-${VERSION}"
-          make vscode-package VSIX_VERSION="$expected"
+          (cd editors/vscode && npm ci && npm run package -- "$expected" --no-update-package-json)
           unzip -q -o editors/vscode/opensysml-sysml.vsix extension/package.json -d /tmp/vsix
           stamped=$(node -p "require('/tmp/vsix/extension/package.json').version")
           if [ "$stamped" != "$expected" ]; then

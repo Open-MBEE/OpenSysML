@@ -50,7 +50,7 @@ The assets are the ones a stable release ships, laid out the same way (see
 And one a stable release does not ship:
 
 - `opensysml-sysml.vsix` — the [VS Code extension](../guide/08-editors.md#vs-code) packaged
-  from the same commit (`make vscode-package`). The extension is side-loaded rather than
+  from the same commit (as `make vscode-package` does). The extension is side-loaded rather than
   published to a marketplace, so the snapshot is where a build of it is picked up. Its
   version is the extension manifest's with the snapshot version appended as the pre-release
   part — `0.1.0-nightly-<yyyymmdd>-<commit>` — so VS Code tells one night's build from the
@@ -131,8 +131,9 @@ the same commit — for instance after the workflow itself changed). It picks th
 described above, builds the assets with
 [`scripts/build-release-artifacts.sh`](../../scripts/build-release-artifacts.sh)
 — the same targets, platforms, layout and version check as the CircleCI `build-release`
-job — packages the VS Code extension with `make vscode-package` stamped with the snapshot
-version and checks the `.vsix` carries it, signs the manifest with its own GitHub OIDC
+job — packages the VS Code extension with its own `npm run package` stamped with the
+snapshot version (not through the Makefile, which the older selected commit may lack the
+knob for) and checks the `.vsix` carries it, signs the manifest with its own GitHub OIDC
 identity, and publishes with the
 repository's own `GITHUB_TOKEN`. There is no secret to configure. The release notes
 are generated: the commit, the count since the last `v*` tag, the verification commands,
