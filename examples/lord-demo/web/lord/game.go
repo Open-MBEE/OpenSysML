@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -222,26 +223,16 @@ func (g *Game) Invoke(action string, args map[string]runtime.Value) (*Outcome, e
 	})
 }
 
-// turnedAway reports whether the deed left its opening decision, the one its
-// start leads to, by the else branch: how every deed of the model refuses.
+// turnedAway reports whether the deed left its gate by the else branch: the
+// first decision on the straight path from start, where every deed of the
+// model admits or refuses the warrior before anything is at stake.
 func turnedAway(exec *runtime.ActionExecutor) bool {
-	graph := exec.Graph()
-	var opening ast.Node
-	for _, node := range graph.Nodes {
-		if _, ok := node.(*ast.InitialNode); !ok {
-			continue
-		}
-		for _, edge := range graph.Edges[node] {
-			if _, ok := edge.Target.(*ast.DecisionNode); ok {
-				opening = edge.Target
-			}
-		}
-	}
-	if opening == nil {
+	gate := gateOf(exec.Graph())
+	if gate == nil {
 		return false
 	}
 	for _, t := range exec.Traversals() {
-		if len(t.Within) > 0 || t.Edge.Source != opening {
+		if len(t.Within) > 0 || t.Edge.Source != gate {
 			continue
 		}
 		if branch, ok := t.Edge.Decl.(*ast.ControlFlowEdge); ok && branch.IsElse {
@@ -249,6 +240,31 @@ func turnedAway(exec *runtime.ActionExecutor) bool {
 		}
 	}
 	return false
+}
+
+// gateOf is the first decision the action's start leads to without a choice on
+// the way, following each node's single succession; nil when there is none.
+func gateOf(graph *lower.ActionGraph) ast.Node {
+	var at ast.Node
+	for _, node := range graph.Nodes {
+		if _, ok := node.(*ast.InitialNode); ok {
+			at = node
+			break
+		}
+	}
+	seen := map[ast.Node]bool{}
+	for at != nil && !seen[at] {
+		seen[at] = true
+		if _, ok := at.(*ast.DecisionNode); ok {
+			return at
+		}
+		edges := graph.Edges[at]
+		if len(edges) != 1 {
+			return nil
+		}
+		at = edges[0].Target
+	}
+	return nil
 }
 
 // SetPreference writes one of the warrior's own preference attributes, such as

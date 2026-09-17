@@ -106,6 +106,24 @@ func TestARefusalNeedNotEndAtDone(t *testing.T) {
 	}
 }
 
+func TestARefusalMayFollowAReckoning(t *testing.T) {
+	g := newGame(t, 1, Character{})
+	if _, err := g.Send("VisitTheInn"); err != nil {
+		t.Fatal(err)
+	}
+	o, err := g.Play("F", map[string]string{"favour": "town.inn.violet.wink"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := g.Played(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !o.Refused || !v.Refused || o.After.Charm != o.Before.Charm || *o.Before != *o.After {
+		t.Fatalf("a penniless wink: refused=%v %+v %q", v.Refused, *o.After, v.Lines)
+	}
+}
+
 func TestCharacterViewAsksForAWarrior(t *testing.T) {
 	v := CharacterView("Create one.")
 	if !v.Character || v.Warrior != nil || v.Screen != nil || len(v.Lines) != 1 {
