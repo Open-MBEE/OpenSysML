@@ -135,6 +135,9 @@ type StateExecutor struct {
 	enteredAhead map[*ast.StateNode]bool
 	// moving marks a compound transition under way that a refused witness may undo.
 	moving *moveMark
+	// front is the site under way whose regions' units are drawn one at a time;
+	// it lives within one move, so no snapshot sees it.
+	front *unitFront
 
 	// changeRearmed collects, while a poll runs, the watches a state entry armed
 	// for a new activation, so the poll's earlier observation does not latch them.
@@ -2475,7 +2478,7 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 			return err
 		}
 	}
-	if err := e.enterForkBranches(plan, above); err != nil {
+	if err := e.enterForkBranches(fork, plan, above); err != nil {
 		return err
 	}
 	// A region the move re-entered on its way down keeps the state of that path.
@@ -2530,15 +2533,16 @@ func (e *StateExecutor) leaveForFork(trans *lower.Transition, owner *ast.StateNo
 	return keep, e.exitRegionTo(targetRegion, keep)
 }
 
-// exitRegionsOf leaves every region of owner, which stays active, in declaration
-// order: a fork reached from inside them restarts them all from its branches.
+// exitRegionsOf leaves every region of owner, which stays active, drawn one unit
+// at a time: a fork reached from inside them restarts them all from its branches.
 func (e *StateExecutor) exitRegionsOf(owner *ast.StateNode) error {
+	var bodies []func() error
 	for _, region := range e.graph.CompositeStates[owner] {
-		if err := e.exitRegionTo(region, owner); err != nil {
-			return err
+		if _, active := e.activeConfig.regionStates[region]; active {
+			bodies = append(bodies, func() error { return e.exitRegionTo(region, owner) })
 		}
 	}
-	return nil
+	return e.performUnits(ChoiceExitOrder, exitingWherePrefix+owner.Name, bodies, true)
 }
 
 // regionsExitPath lists the states exitRegionsOf exits.
@@ -4052,6 +4056,11 @@ func (e *StateExecutor) enterStartOf(state *ast.StateNode) (*ast.StateNode, erro
 		if _, orthogonal := e.graph.CompositeStates[leaf]; orthogonal {
 			return leaf, nil
 		}
+		if len(e.graph.StartOf(leaf)) > 0 {
+			if err := e.unitAhead(ChoiceEntryOrder, e.startHead(leaf, leaf)); err != nil {
+				return nil, err
+			}
+		}
 		start, err := e.startIn(leaf)
 		if err != nil {
 			return nil, err
@@ -4119,6 +4128,11 @@ func (e *StateExecutor) enterState(state *ast.StateNode) error {
 func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.StateRegion]*ast.StateNode) error {
 	if state == nil {
 		return nil
+	}
+	if !e.graph.HiddenStates[state] && !e.enteredAhead[state] {
+		if _, err := e.unit(ChoiceEntryOrder, unitHead{label: entryLabel(state), at: state}); err != nil {
+			return err
+		}
 	}
 	if err := e.activateState(state); err != nil {
 		return err
@@ -4244,23 +4258,10 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 		e.recordChildHistory(e.graph.Machine, state)
 	}
 
-	// Exit the active state of each of this state's regions, in declaration order.
+	// Exit the active state of each of this state's regions, drawn one unit at a time.
 	if isComposite {
-		for _, region := range regions {
-			regionState, isActive := active[region]
-			if !isActive {
-				continue
-			}
-			// Clear the entry first: the recursive exit walks the same map, and the
-			// region still pointing at regionState would exit it a second time.
-			delete(e.activeConfig.regionStates, region)
-			// A region's active state may be nested below the region, so exit it and
-			// the states between it and this one: their exit behaviors run too.
-			for current := regionState; current != nil && current != state; current = e.graph.ParentState[current] {
-				if err := e.exitState(current); err != nil {
-					return fmt.Errorf("exit region state: %w", err)
-				}
-			}
+		if err := e.exitRegionsBelow(state, regions, active); err != nil {
+			return err
 		}
 	}
 
@@ -4270,6 +4271,11 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 	}
 	if e.exitingAhead {
 		e.leftAhead[state] = true
+	}
+	if !e.graph.HiddenStates[state] {
+		if _, err := e.unit(ChoiceExitOrder, unitHead{label: exitLabel(state), at: state}); err != nil {
+			return err
+		}
 	}
 
 	// Leaving the state abandons whatever is left of its do behavior, before the
@@ -4292,6 +4298,31 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 	e.activeConfig.simpleState = nil
 
 	return nil
+}
+
+// exitRegionsBelow exits the active state of each of owner's regions, and the
+// states between it and owner, as queues of an exit front: the regions' exits
+// are drawn one unit at a time, each region's innermost first.
+func (e *StateExecutor) exitRegionsBelow(owner *ast.StateNode, regions []*ast.StateRegion, active map[*ast.StateRegion]*ast.StateNode) error {
+	var bodies []func() error
+	for _, region := range regions {
+		regionState, isActive := active[region]
+		if !isActive {
+			continue
+		}
+		// Clear the entry first: the recursive exit walks the same map, and the
+		// region still pointing at regionState would exit it a second time.
+		delete(e.activeConfig.regionStates, region)
+		bodies = append(bodies, func() error {
+			for current := regionState; current != nil && current != owner; current = e.graph.ParentState[current] {
+				if err := e.exitState(current); err != nil {
+					return fmt.Errorf("exit region state: %w", err)
+				}
+			}
+			return nil
+		})
+	}
+	return e.performUnits(ChoiceExitOrder, exitingWherePrefix+owner.Name, bodies, true)
 }
 
 // invokeNested performs an action from a state's entry/exit/effect behavior,

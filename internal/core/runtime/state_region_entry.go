@@ -39,47 +39,61 @@ func (e *StateExecutor) forkEntry(boundary, owner *ast.StateNode) *lazyEntry {
 // state branches names for that region, or the region's own start. container is
 // nil for the machine's own regions.
 func (e *StateExecutor) enterRegionsInto(container *ast.StateNode, regions []*ast.StateRegion, branches map[*ast.StateRegion]*ast.StateNode) error {
+	entries := make([]*regionEntry, 0, len(regions))
 	for _, region := range regions {
-		entry := &regionEntry{region: region, container: container, branches: branches, target: branches[region]}
-		if err := e.enterRegion(entry); err != nil {
-			return err
-		}
+		entries = append(entries, &regionEntry{region: region, container: container, branches: branches, target: branches[region]})
 	}
-	return nil
+	return e.enterRegions(container, entries, true)
 }
 
-// enterForkBranches enters the owner's regions through the fork's branches: the
-// first branch, in region order, runs its effect and enters the rest of the way
-// down, then every region enters in declaration order, each branch's effect
-// before its target, a region no branch enters starting as usual. The do
+// enterRegions enters the regions as queues of an entry front, each queue the
+// region's units in their order: queues of the front under way when a queue of
+// it is running, which waits for them when wait says, or a front of their own,
+// drawn one unit at a time; one region alone is entered as it stands.
+func (e *StateExecutor) enterRegions(container *ast.StateNode, entries []*regionEntry, wait bool) error {
+	bodies := make([]func() error, len(entries))
+	for i, entry := range entries {
+		bodies[i] = func() error { return e.enterRegion(entry) }
+	}
+	where := enteringWherePrefix + e.stateMachine.Name
+	if container != nil {
+		where = enteringWherePrefix + container.Name
+	}
+	return e.performUnits(ChoiceEntryOrder, where, bodies, wait)
+}
+
+// enterForkBranches enters the owner's regions through the fork's branches, one
+// queue per region: its branch's effect, the rest of the way down to the owner —
+// entered once, by whichever branch is drawn first — then its target. A region
+// no branch enters starts as usual once the way down is entered. The do
 // behaviors of the states entered on the way down start once all have,
 // innermost first, as after an ordinary entry.
-func (e *StateExecutor) enterForkBranches(plan *lower.ForkPlan, above *lazyEntry) error {
+func (e *StateExecutor) enterForkBranches(fork *ast.PseudostateNode, plan *lower.ForkPlan, above *lazyEntry) error {
 	targets := plan.Targets()
 	regions := e.graph.CompositeStates[plan.Owner]
-	var first *lower.Transition
-	for _, region := range regions {
-		if first = plan.Branches[region]; first != nil {
-			break
-		}
-	}
-	if err := e.runBranchEffect(first); err != nil {
-		return err
-	}
-	if err := e.enterLazily(above, len(above.chain)); err != nil {
-		return err
-	}
+	bodies := make([]func() error, 0, len(regions))
 	for _, region := range regions {
 		entry := &regionEntry{region: region, container: plan.Owner, branches: targets}
-		if branch := plan.Branches[region]; branch != nil {
+		branch := plan.Branches[region]
+		if branch != nil {
 			entry.target = branch.Target.(*ast.StateNode)
-			if branch != first {
-				entry.branch = branch
+		}
+		bodies = append(bodies, func() error {
+			if branch == nil {
+				if err := e.await(ChoiceEntryOrder, func() bool { return above.next >= len(above.chain) }); err != nil {
+					return err
+				}
+			} else if err := e.runBranchEffect(branch); err != nil {
+				return err
 			}
-		}
-		if err := e.enterRegion(entry); err != nil {
-			return err
-		}
+			if err := e.enterShared(above); err != nil {
+				return err
+			}
+			return e.enterRegion(entry)
+		})
+	}
+	if err := e.drawUnits(ChoiceEntryOrder, forkWherePrefix+fork.Name, bodies); err != nil {
+		return err
 	}
 	for i := len(above.chain) - 1; i >= 0; i-- {
 		e.startDoAction(above.chain[i])
@@ -87,10 +101,35 @@ func (e *StateExecutor) enterForkBranches(plan *lower.ForkPlan, above *lazyEntry
 	return nil
 }
 
-// runBranchEffect executes a fork branch's effect, if any.
+// enterShared enters the rest of the way down the fork's branches share, each
+// state a unit every branch heads until one of them enters it.
+func (e *StateExecutor) enterShared(l *lazyEntry) error {
+	for i := l.next; i < len(l.chain); i++ {
+		state := l.chain[i]
+		perform := true
+		if !e.graph.HiddenStates[state] {
+			head := unitHead{label: entryLabel(state), at: state, shared: state, dropped: func() bool { return l.next > i }}
+			var err error
+			if perform, err = e.unit(ChoiceEntryOrder, head); err != nil {
+				return err
+			}
+		}
+		if perform && l.next <= i {
+			if err := e.enterLazily(l, i+1); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// runBranchEffect executes a fork branch's effect, if any, as one unit.
 func (e *StateExecutor) runBranchEffect(branch *lower.Transition) error {
 	if branch == nil {
 		return nil
+	}
+	if _, err := e.unit(ChoiceEntryOrder, unitHead{label: effectLabel(branch), at: branch.Decl}); err != nil {
+		return err
 	}
 	for _, behavior := range branch.Effect {
 		if err := e.executeBehavior(behavior); err != nil {
@@ -100,11 +139,14 @@ func (e *StateExecutor) runBranchEffect(branch *lower.Transition) error {
 	return nil
 }
 
-// enterRegion enters one region: its fork branch's effect, then the state it
-// starts in, entering every state on the way down to it as a transition does.
+// enterRegion enters one region: the state it starts in, entering every state
+// on the way down to it as a transition does. A start its entry guards decide
+// is drawn before they are read, so they read what the units before it wrote.
 func (e *StateExecutor) enterRegion(w *regionEntry) error {
-	if err := e.runBranchEffect(w.branch); err != nil {
-		return err
+	if w.target == nil && e.graph.RegionState[w.region] == nil && len(e.graph.StartOf(w.region)) > 0 {
+		if err := e.unitAhead(ChoiceEntryOrder, e.startHead(w.region, w.container)); err != nil {
+			return err
+		}
 	}
 	entry, err := e.regionStart(w)
 	if err != nil {
@@ -121,6 +163,21 @@ func (e *StateExecutor) enterRegion(w *regionEntry) error {
 		e.activeConfig.regionStates[w.region] = branch
 	}
 	return nil
+}
+
+// startHead names the unit that enters where body starts: the entry of the first
+// state on the way below above when the first start transition has no guard, else
+// the start itself, its state known once its guards are read.
+func (e *StateExecutor) startHead(body ast.Node, above *ast.StateNode) unitHead {
+	starts := e.graph.StartOf(body)
+	if len(starts) > 0 && starts[0].Guard == nil {
+		for _, state := range e.descendantChain(above, starts[0].Target) {
+			if !e.graph.HiddenStates[state] {
+				return unitHead{label: entryLabel(state), at: state}
+			}
+		}
+	}
+	return unitHead{label: "start of " + e.describeBody(body), at: body}
 }
 
 // regionStart is the state a region starts in: the target it was given, the
@@ -144,8 +201,9 @@ func (e *StateExecutor) regionStart(w *regionEntry) (*ast.StateNode, error) {
 
 // enterLazily enters the way down as far as the first upto states of the chain.
 // A state on the way is activated without its do behavior; the region the chain
-// passes through is left to the states below, its other regions start as usual,
-// and the owner's regions are the branches' to enter.
+// passes through is left to the states below, its other regions start as usual
+// — alongside the way down, when a front draws it — and the owner's regions are
+// the branches' to enter.
 func (e *StateExecutor) enterLazily(l *lazyEntry, upto int) error {
 	for ; l.next < upto; l.next++ {
 		state := l.chain[l.next]
@@ -155,14 +213,15 @@ func (e *StateExecutor) enterLazily(l *lazyEntry, upto int) error {
 		if state == l.owner {
 			continue
 		}
+		var others []*regionEntry
 		for _, region := range e.graph.CompositeStates[state] {
 			if _, onWay := l.branches[region]; onWay {
 				continue
 			}
-			entry := &regionEntry{region: region, container: state, branches: l.branches}
-			if err := e.enterRegion(entry); err != nil {
-				return fmt.Errorf("enter state %s: %w", state.Name, err)
-			}
+			others = append(others, &regionEntry{region: region, container: state, branches: l.branches})
+		}
+		if err := e.enterRegions(state, others, false); err != nil {
+			return fmt.Errorf("enter state %s: %w", state.Name, err)
 		}
 	}
 	return nil
