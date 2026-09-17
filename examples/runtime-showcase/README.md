@@ -477,12 +477,20 @@ policy a run was observed under. What the model pins down is the end: every
 schedule reaches `transmitted | notRecharging` at t=241 with 100 frames
 received and the battery at 100.
 
-The two engines that run every schedule find the same fork. `-engine check`
-searches the choices exhaustively up to t=80 and tables the divergence — the
-battery ends as 39 or 41, the data left as 52 224 or 53 248 bytes — with one
-witness per value, and `-check-witness <dir>` writes each to a file that
-`-schedule replay:<file>` runs again to the same values ([Checking every
-schedule](../../docs/reference/cli.md#checking-every-schedule-of-an-action-or-a-state-machine)):
+The two engines that run every schedule step finer than a round — one token of
+a `do` body at a time, the machine free to dispatch between two tokens — and so
+find a fork the fixed policies never take: at t=79 the order of the two regions'
+`do` rounds, which changes nothing under a whole-round policy, decides how many
+frames leave before `BatteryLow` interrupts. `-engine check` searches the choices
+exhaustively up to t=80 and tables the divergence — the battery ends as 39 or
+41, the data left as 52 224 or 53 248 bytes — with one witness per value, and
+`-check-witness <dir>` writes each to a file that `-schedule replay:<file>` runs
+again to the same values ([Checking every
+schedule](../../docs/reference/cli.md#checking-every-schedule-of-an-action-or-a-state-machine)).
+The fixed policies' own run — the whole round, then the dispatch, 39 with 51 200
+bytes left — is an interleaving neither engine enumerates yet; the guide states
+the limit ([a do behavior under `explore` and
+`check`](../../docs/guide/06-behavior.md#a-do-behavior-under-explore-and-check)):
 
 ```bash
 ./bin/sysml -engine check -check-witness witnesses -instantiate SpacecraftComms::mission \
