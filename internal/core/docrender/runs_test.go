@@ -3,6 +3,7 @@ package docrender
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -209,6 +210,59 @@ func TestMarkdownGroupedTableBlankKey(t *testing.T) {
 	}
 	if !strings.Contains(got, "\n**zone: payload**\n") {
 		t.Errorf("rendering does not contain the payload group key\n%s", got)
+	}
+}
+
+// TestMarkdownPaddedCaption checks a caption keeps its surrounding blank
+// outside the emphasis marks, so CommonMark still parses it as emphasis, and
+// that a blank caption writes no paragraph and is not listed by Captions.
+func TestMarkdownPaddedCaption(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "padded_caption.sysml")
+	model := `
+		package Padded {
+			private import DocumentQueries::*;
+			private import KerML::Root::Element;
+
+			calc def Named :> Query {
+				in root : Element;
+				Project(source = OwnedElements(source = root), properties = ("name"))
+			}
+
+			part widgets { part a; }
+
+			part def Report :> Document {
+				attribute redefines title = "Report";
+				part padded : Table {
+					attribute redefines caption = " Masses ";
+					calc rows : Named { in root = widgets; }
+				}
+				part blank : Table {
+					attribute redefines caption = "   ";
+					calc rows : Named { in root = widgets; }
+				}
+				part trailing : Table {
+					attribute redefines caption = "Details";
+					calc rows : Named { in root = widgets; }
+				}
+			}
+		}
+	`
+	if err := os.WriteFile(path, []byte(model), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	document := fixtureDocument(t, path, "Padded::Report")
+	got, err := Markdown(document, MarkdownOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, "\n *Masses* \n") || strings.Contains(got, "* Masses *") {
+		t.Errorf("padded caption is not an emphasis span CommonMark parses\n%s", got)
+	}
+	if strings.Contains(got, "*   *") || strings.Contains(got, "\n   \n") {
+		t.Errorf("blank caption wrote a paragraph\n%s", got)
+	}
+	if captions := Captions(document); !reflect.DeepEqual(captions, []string{" Masses ", "Details"}) {
+		t.Errorf("Captions = %q, want the padded and trailing captions only", captions)
 	}
 }
 

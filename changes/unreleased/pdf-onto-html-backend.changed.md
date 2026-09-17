@@ -9,4 +9,6 @@
 - **Markdown output no longer carries a caption marker.** The `<!-- caption -->` comment the
   Markdown backend wrote ahead of a table's or diagram's emphasized caption is gone; the caption
   stays an emphasized paragraph. Pandoc recognizes captions by matching those paragraphs against
-  the document's captions in order, so an emphasized paragraph elsewhere stays prose.
+  the document's captions in order, so an emphasized paragraph elsewhere stays prose. A caption
+  padded with blanks keeps them outside the emphasis marks, as a grouped table's key already did,
+  so CommonMark still parses it as emphasis; a blank caption writes no paragraph.

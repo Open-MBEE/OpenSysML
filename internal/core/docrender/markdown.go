@@ -130,10 +130,7 @@ func heading(level int, title string) string {
 // A grouped table writes one subtable per group, each preceded by its group key in strong
 // emphasis; the group column keeps its place in every subtable.
 func renderTable(node docir.Content) []string {
-	var blocks []string
-	if node.Caption() != "" {
-		blocks = append(blocks, "*"+inline(node.Caption())+"*")
-	}
+	blocks := captionBlock(node.Caption())
 	columns := node.Columns()
 	names := make([]string, 0, len(columns))
 	for _, column := range columns {
@@ -172,10 +169,7 @@ func diagramBlocks(name, caption string, rendering *view.Rendering, options view
 	if rendering == nil {
 		return nil, &Error{Kind: ErrorMissingRendering, Content: name}
 	}
-	var blocks []string
-	if caption != "" {
-		blocks = append(blocks, "*"+inline(caption)+"*")
-	}
+	blocks := captionBlock(caption)
 	if rendering.Kind == view.KindTable {
 		return append(blocks, strings.TrimRight(rendering.MarkdownCells(tableCell), "\n")), nil
 	}
@@ -272,10 +266,7 @@ const mathFence = "$$"
 // renderFormula writes one display-math block under its caption in emphasis:
 // the LaTeX source between $$ fences, one source line per line.
 func renderFormula(node docir.Content) []string {
-	var blocks []string
-	if node.Caption() != "" {
-		blocks = append(blocks, "*"+inline(node.Caption())+"*")
-	}
+	blocks := captionBlock(node.Caption())
 	return append(blocks, mathFence+"\n"+displayMath(node.Source())+"\n"+mathFence)
 }
 
@@ -439,6 +430,15 @@ func DocumentFileName(fqn string) string {
 // extension, escaped as anchors are.
 func documentFileName(fqn, extension string) string {
 	return docir.AnchorFor(strings.Split(fqn, "::")) + extension
+}
+
+// captionBlock writes a caption as an emphasized paragraph, its surrounding
+// blanks outside the marks; a blank caption writes nothing, as Captions lists none.
+func captionBlock(caption string) []string {
+	if strings.TrimSpace(caption) == "" {
+		return nil
+	}
+	return []string{delimited("*", caption)}
 }
 
 // delimited wraps escaped text in emphasis delimiters, keeping leading and
