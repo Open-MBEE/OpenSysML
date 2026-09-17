@@ -484,7 +484,14 @@ func (s *scheduler) chooseWeighted(c *ChoicePoint) error {
 }
 
 // draw is the value the call what draws from the run's modeled stream.
-func (s *scheduler) draw(what string, dist distribution) (semantics.Value, error) {
+func (s *scheduler) draw(what string, dist distribution, policy DrawPolicy) (semantics.Value, error) {
+	if policy.Fixed() && !s.modeled.replays() {
+		val, ok := dist.fixedPoint(policy)
+		if !ok {
+			return semantics.Value{}, &DrawUnboundedError{What: what, Policy: policy}
+		}
+		return val, nil
+	}
 	return s.modeled.draw(what, dist)
 }
 

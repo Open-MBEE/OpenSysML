@@ -159,6 +159,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%strict", args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
 	{name: "%schedule", args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
 	{name: "%seed", args: "[<n>|off]", desc: "show or set the seed runs started from here on draw their modeled randomness from — Probability-weighted decisions, RandomFunctions — whatever the schedule; off leaves it to the schedule's seed:<n>"},
+	{name: "%draws", args: "[<policy>]", desc: "show or set how runs started from here on resolve RandomFunctions draws: random (from the seed), min, max or average of each call's distribution; min, max and average need no seed"},
 	{name: "%budget", desc: "show the bounds one run may spend, and the variable raising each"},
 	{name: "%jobs", args: "[<n>]", desc: "show or set how many runs of one check go concurrently: an exploration's linearizations, the engines all consults"},
 	{name: "%engines", args: "[probe]", desc: "list the analysis engines, with the kind, protocol and authority of each, the questions it answers and whether it can run; probe also starts each external engine once and checks it against its manifest"},
@@ -337,6 +338,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doSchedule(fields[1:]), false, nil), true
 	case "%seed":
 		return metaOut(s.doSeed(fields[1:]), false, nil), true
+	case "%draws":
+		return metaOut(s.doDraws(fields[1:]), false, nil), true
 	case "%budget":
 		return metaOut(s.doBudget(), false, nil), true
 	case "%jobs":

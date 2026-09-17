@@ -675,6 +675,7 @@ func newSession() *repl.Session {
 	if modelChecks.seed.given {
 		sess.SetModelSeed(modelChecks.seed.value)
 	}
+	sess.SetDraws(modelChecks.draws.value)
 	if err := sess.SetEngine(engine.text); err != nil {
 		// Unreachable: the selection was validated against the same engines when parsed.
 		fmt.Fprintln(os.Stderr, errPrefix, err)

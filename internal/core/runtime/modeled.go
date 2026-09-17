@@ -74,6 +74,9 @@ func modeledDraws(r *replayRun) *modeledSource {
 // seeded reports whether the source draws from a generator of its own.
 func (m *modeledSource) seeded() bool { return m != nil && m.rng != nil }
 
+// replays reports whether the source hands out a witness's recorded draws.
+func (m *modeledSource) replays() bool { return m != nil && m.replay != nil }
+
 // mark returns what a probe restores: the generator's state, or the witness's position.
 func (m *modeledSource) mark() func() {
 	if m == nil || m.pcg == nil {
@@ -172,17 +175,20 @@ func (d DrawPoint) Diagnostic() passes.Diagnostic {
 	}
 }
 
-// distribution is what one random call draws: a value from the generator, and the
-// values it could draw at all, which a witness's recorded draw is checked against.
+// distribution is what one random call draws: a value from the generator, the
+// values it could yield at all, which a witness's recorded draw is checked against,
+// and the fixed point each non-random DrawPolicy resolves it to, if it has one.
 type distribution struct {
 	draw   func(rng *rand.Rand) semantics.Value
 	admits func(v semantics.Value) bool
+	fixed  func(policy DrawPolicy) (semantics.Value, bool)
 }
 
-// draw makes the random draw the call what asks for from the run's modeled stream,
-// noting it for the trace and the witness; a probe's draw is undone with the probe.
+// draw makes the draw the call what asks for — the witness's under replay, the
+// distribution's fixed point under a fixed policy, else one from the run's modeled
+// stream — noting it for the trace and the witness; a probe's draw is undone with the probe.
 func (ctx *Context) draw(what string, dist distribution) (semantics.Value, error) {
-	val, err := ctx.scheduling().draw(what, dist)
+	val, err := ctx.scheduling().draw(what, dist, ctx.drawPolicy)
 	if err != nil {
 		return semantics.Value{}, err
 	}
@@ -305,7 +311,7 @@ func (m *modeledSource) draw(what string, dist distribution) (semantics.Value, e
 		return semantics.Value{}, &UnseededDrawError{What: what}
 	}
 	if m.replay != nil {
-		return m.replay.takeDraw(what, dist.admits)
+		return m.replay.takeDraw(what, dist)
 	}
 	return dist.draw(m.rng), nil
 }

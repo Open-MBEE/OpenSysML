@@ -142,6 +142,9 @@ type Session struct {
 	// modelSeed is the seed runs started from here on draw their modeled randomness from.
 	modelSeed sessionSeed
 
+	// draws is how runs started from here on resolve their RandomFunctions draws.
+	draws runtime.DrawPolicy
+
 	// jobs is how many runs of one plan go concurrently.
 	jobs int
 
@@ -1210,7 +1213,7 @@ func (s *Session) newRuntimeOver(model *runtime.Model) (*runtime.Context, error)
 	if err := ctx.SetSchedule(s.drivenSchedule()); err != nil {
 		return nil, err
 	}
-	s.applyModelSeed(ctx)
+	s.applyDraws(ctx)
 	return ctx, nil
 }
 

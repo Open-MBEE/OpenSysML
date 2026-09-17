@@ -122,6 +122,9 @@ type Question struct {
 	// ModelSeed is the seed the runs' modeled draws come from, apart from the schedule's;
 	// absent leaves them to a `seed:<n>` schedule.
 	ModelSeed *uint64 `json:"modelSeed,omitempty"`
+	// Draws is the policy the runs' RandomFunctions draws resolve under, as -draws
+	// spells it (min, max, average); absent draws at random.
+	Draws string `json:"draws,omitempty"`
 	// Free is what the question leaves open: "schedule", "inputs".
 	Free []string `json:"free"`
 	// Condition is the requirement or constraint a holds question asks about; absent asks

@@ -90,6 +90,9 @@ func (e externalEngine) wireQuestion(model *Model, q Question, budget Budget) (e
 		seed := q.ModelSeed.Seed
 		out.ModelSeed = &seed
 	}
+	if q.Draws.Fixed() {
+		out.Draws = q.Draws.String()
+	}
 	out.SubjectKind = subjectFamily(model, q.Subject)
 	switch q.Kind {
 	case Holds, Outcomes:

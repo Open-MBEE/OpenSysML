@@ -163,6 +163,7 @@ func evaluate[T any](x execution, subject string, ctx *runtime.Context, call fun
 		Subject:   subject,
 		Schedule:  schedule,
 		ModelSeed: analysis.ModelSeedOf(ctx),
+		Draws:     analysis.DrawsOf(ctx),
 		Budget:    s.budgetFor(schedule, analysis.Evaluate),
 		Selection: s.engine,
 	}, call, answer)
@@ -229,6 +230,7 @@ func (s *Session) explore(subject string, policy runtime.SchedulePolicy, selecti
 		Subject:   subject,
 		Schedule:  policy,
 		ModelSeed: s.askedModelSeed(),
+		Draws:     s.draws,
 		Budget:    s.budgetFor(policy, analysis.Outcomes),
 		Selection: selection,
 	}, run)
@@ -243,6 +245,7 @@ func (s *Session) sweep(target string, model *analysis.Model, plan runtime.Sweep
 		Model:     model,
 		Subject:   target,
 		Schedule:  schedule,
+		Draws:     s.draws,
 		Budget:    s.budgetFor(schedule, analysis.Sweep),
 		Selection: s.engine,
 	}
@@ -262,6 +265,7 @@ func (s *Session) solveWith(subject string, queries []*solve.Query, ask analysis
 		Subject:   subject,
 		Schedule:  schedule,
 		ModelSeed: s.askedModelSeed(),
+		Draws:     s.draws,
 		Budget:    s.budgetFor(schedule, analysis.Satisfiable),
 		Selection: s.engine,
 	}, queries, ask)

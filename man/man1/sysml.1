@@ -124,6 +124,13 @@ Put the document title on a page of its own (\-doc\-form html or pdf)
 .B \-doc\-toc
 Write a table of contents ahead of the content (\-doc\-form html or pdf)
 .TP
+.BI \-draws " value"
+How every run resolves the draws of RandomFunctions \(em uniform,
+uniformInteger, triangular, normal: random (default) draws from \-seed; min,
+max and average take each call's least, greatest or mean value and need no
+seed; normal has no min or max. Weighted decisions draw from \-seed whatever
+the policy. A witness records the policy so replay: reproduces it
+.TP
 .BI \-e " value"
 Evaluate expression and exit (shorthand)
 .TP
@@ -523,6 +530,10 @@ sysml \-action Acquire \-runs 100 \-seed 7 m.sysml
 sysml \-action Acquire \-runs 100 \-seed 7 \-observe elapsed m.sysml
 # One run, its draws seeded
 sysml \-action Acquire \-seed 7 m.sysml
+# Durations at their max
+sysml \-action Acquire \-draws max m.sysml
+# Mean durations
+sysml \-action A \-runs 9 \-seed 7 \-draws average m.sysml
 .fi
 .RE
 .PP
@@ -533,6 +544,17 @@ seeded from a seed of its own derived from \-seed, so the same seed makes the
 same table on every platform and a run can be replayed alone. \-schedule stays
 the second, independent knob: it decides the concurrency choices, which carry
 no probability, in every run alike.
+.PP
+\-draws is the third knob, the duration policy: random (the default) draws
+every RandomFunctions call from the seed; min, max and average resolve each
+call to the least, greatest or mean value of its distribution instead \(em the
+midpoint of a uniform, the mean of a triangular \(em so a run whose only
+randomness is durations completes deterministically and needs no \-seed.
+normal has no least or greatest value, so a run that calls it under min or max
+stops with an error. Weighted decisions are not durations: they draw from the
+seed under every policy, and an unseeded run takes the most probable branch.
+The policy is written into every witness as `draws by <policy>`, and
+\-schedule replay: follows it.
 .PP
 The table has one row per run, numbered, with each \-observe feature of the
 action \(em `clock` is the simulation time the run completed at, never a

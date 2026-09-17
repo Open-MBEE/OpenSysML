@@ -159,7 +159,9 @@ The question, in the model's own names, and the model in the forms the entry dec
 - **`question`**: `kind`; `subject`, the qualified name as the surface spelled it, and
   `subjectKind`, its declaration kind; `schedule` as `-schedule` spells it; `modelSeed`, the
   seed the runs' modeled draws come from when one is set apart from the schedule (`-seed`,
-  `%seed`), absent otherwise; `free`, what the
+  `%seed`), absent otherwise; `draws`, the policy the runs' RandomFunctions draws resolve
+  under (`-draws`, `%draws`) — `min`, `max` or `average` — absent when they draw at random;
+  `free`, what the
   question leaves open (`schedule`, `inputs`); `condition` (`name`, `text`) for `holds`;
   `conditions` for `satisfiable`, one set per query with its `features`, `assertions` and
   `pinned` values; `bindings` as `{name, value, unit}`; `inputs` as `{name, type, unit,

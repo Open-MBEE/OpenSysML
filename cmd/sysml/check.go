@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
 
@@ -28,6 +29,7 @@ type checks struct {
 	sweeps       stringSlice
 	samples      sweepCount
 	seed         sweepSeed
+	draws        drawPolicy
 	runs         runCount
 	observe      stringSlice
 	queries      stringSlice
@@ -137,6 +139,24 @@ func (s *sweepSeed) Set(value string) error {
 		return fmt.Errorf("-seed takes a whole number to draw from, not %q", value)
 	}
 	s.value = seed
+	return nil
+}
+
+// drawPolicy is -draws as written: how every run resolves the RandomFunctions
+// draws — at random from the seed, or at each call's min, max or average.
+type drawPolicy struct {
+	value runtime.DrawPolicy
+	text  string
+}
+
+func (d *drawPolicy) String() string { return d.text }
+
+func (d *drawPolicy) Set(value string) error {
+	policy, err := runtime.ParseDrawPolicy(value)
+	if err != nil {
+		return err
+	}
+	d.value, d.text = policy, value
 	return nil
 }
 
