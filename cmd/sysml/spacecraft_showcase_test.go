@@ -68,6 +68,40 @@ func TestEngineCheckWitnessesTheSpacecraftRaceAndReplaysEach(t *testing.T) {
 	}
 }
 
+// TestExploreTablesTheSpacecraftRaceWithinItsBudget checks -schedule explore on the
+// showcase's spacecraft: a run to t=80 meets more choice points than the default
+// depth, so the round at t=79 is varied only once depth covers it, and then by the
+// run after the first run's choice points, in one table under any -jobs.
+func TestExploreTablesTheSpacecraftRaceWithinItsBudget(t *testing.T) {
+	binary := buildCLI(t)
+	explore := func(budget string, jobs string) runOutcome {
+		return runFiles(t, binary, []string{spacecraftModel}, append([]string{"-jobs", jobs, "-schedule", "explore:" + budget}, spacecraftMachine...)...)
+	}
+
+	shallow := explore("runs=300", "1")
+	wantReport(t, shallow, 2, "? explored SpacecraftComms::SpacecraftVehicle::modes: 1 outcome",
+		"this.battery = 41; this.chargePerSecond = 1; this.data = 53248;",
+		"do round at t=79.0: transmitting first of transmitting, recharging",
+		"incomplete: runs budget 300 and depth budget 64 hit after 300 runs")
+	rejectReport(t, shallow, "this.battery = 39;")
+
+	got := explore("runs=300,depth=512", "1")
+	wantReport(t, got, 2, "? explored SpacecraftComms::SpacecraftVehicle::modes: 2 outcomes",
+		"this.battery = 39; this.chargePerSecond = 1; this.data = 52224;",
+		"this.battery = 41; this.chargePerSecond = 1; this.data = 53248;",
+		"do round at t=79.0: recharging first of transmitting, recharging",
+		"do round at t=79.0: transmitting first of transmitting, recharging",
+		"incomplete: runs budget 300 hit after 300 runs")
+	rejectReport(t, got, "depth budget")
+	if again := explore("runs=300,depth=512", "4"); again.output() != got.output() {
+		t.Errorf("under -jobs 4:\n%s\nwant\n%s", again.output(), got.output())
+	}
+
+	// The first run meets 277 choice points; each is varied once by run 278.
+	wantReport(t, explore("runs=278,depth=512", "1"), 2,
+		"? explored SpacecraftComms::SpacecraftVehicle::modes: 2 outcomes", "incomplete: runs budget 278 hit after 278 runs")
+}
+
 var evaluated = regexp.MustCompile(`✓ (battery|data|framesReceived) \(on [^)]*\)\n  = (\d+)`)
 
 // spacecraftValues reads the battery, the data left and the frames received off a

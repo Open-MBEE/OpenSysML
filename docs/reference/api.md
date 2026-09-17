@@ -520,9 +520,9 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
 - **`Explore(stop context.Context, policy SchedulePolicy, fresh func() (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error)`**
   — Run a behavior under `explore` once per linearization within the budget: each run starts
   from the `Context` `fresh` builds over the model and lowering they all share, records the
-  alternative taken at every choice point, and the next run replays that prefix up to its
-  frontier and takes the first untried alternative there, depth-first over the tree of choice
-  sequences. `run` performs one run and answers its `Outcome`; an error it returns is the
+  alternative taken at every choice point, and each later run replays a recorded prefix and takes
+  an untried alternative at its end — the first run's choice points each varied once, earliest
+  first, before any is varied twice. `run` performs one run and answers its `Outcome`; an error it returns is the
   `Outcome.Err` of an outcome of its own, so a run some orders fail is reported rather than
   ending the search. A `stop` that ends between runs ends the exploration with its error before
   the next context is built. A policy other than `explore` is `ErrNotExploring`; a replay that

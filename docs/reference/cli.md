@@ -1002,8 +1002,10 @@ event, several regions of one parallel state reacting to one event, two tokens w
 feature in one step, two executors due at one instant of the clock — one run shows one
 linearization.
 `-schedule explore` runs them all: the first run records the alternative taken at each choice
-point, and every later run replays the recorded prefix and takes the next untried alternative at
-the frontier, depth-first, until no alternative is left untried or a budget is hit. Every run
+point, and every later run replays a recorded prefix and takes an untried alternative at its end,
+until no alternative is left untried or a budget is hit. The runs vary each choice point of the
+first run once, earliest first, before any is varied twice, so an early choice is varied by the
+second run however many choices follow it. Every run
 starts from a fresh executor on the same loaded model: no object, message, clock, calc memo or
 note of one run is seen by the next. Under `explore` an action step is one token advancing one
 node, where the fixed policies move every steppable token once per step, so the tokens able to act
@@ -1054,7 +1056,11 @@ the status line becomes `incomplete: <budget> budget <limit> hit after N runs` (
 then `depth`, when both were hit), the outcomes reached so far are still tabled, the check is
 reported `?` rather than `✓`, and the exit status is `2` — the exploration could not answer whether
 other outcomes exist. `explore:depth=0` therefore explores a behavior with a choice point in one
-run and reports `incomplete: depth budget 0 hit after 1 runs`.
+run and reports `incomplete: depth budget 0 hit after 1 runs`. A choice point met past `depth`
+takes its first alternative in every run and is never varied, however many runs remain: a run of
+more choice points than `depth` — the witness lists every one its run met — needs `depth` raised
+to at least that many before more runs can help. Within `depth`, `runs` of one more than the
+first run's choice points varies each of them at least once.
 
 With `-trace`, the table and status come first and the trace of each outcome's witness run follows,
 under `trace of outcome <n>'s witness (run <r>):`, so every `choice` line a witness took is
