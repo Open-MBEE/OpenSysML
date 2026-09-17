@@ -33,7 +33,7 @@ func beginInvocation(ctx *Context, start Starter) (*invocationRun, error) {
 	defer r.enter()()
 	inv, err := start(ctx)
 	if err != nil {
-		return nil, err
+		return r, err
 	}
 	r.inv = inv
 	return r, nil
@@ -45,6 +45,12 @@ func (r *invocationRun) enter() func() {
 		r.state = r.ctx.newRunState()
 	}
 	return r.ctx.enterRun(r.state)
+}
+
+// checking is the run's resolution under the `check` policy, nil under another.
+func (r *invocationRun) checking() *checkRun {
+	defer r.enter()()
+	return r.ctx.scheduling().check
 }
 
 // enabledMoves lists the moves of the state: the turn holder's while it has one
