@@ -944,6 +944,12 @@ func (r *replayRun) takeInputs() []InputTaken {
 	return inputs
 }
 
+// drawsByPolicy reports whether the witness leaves its draws to its fixed policy: it
+// names one and records no draw, so each call resolves to its fixed point as the run would.
+func (r *replayRun) drawsByPolicy() bool {
+	return r.policy.Fixed() && len(r.draws) == 0
+}
+
 // takeDraw hands the call what the witness's next recorded draw, which must be of
 // the same call and a value the call admits; a draw the witness does not record,
 // records for another call, or records outside the call's distribution refuses

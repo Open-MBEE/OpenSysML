@@ -312,6 +312,49 @@ func TestWeightedDecisionsDrawTheSameUnderEveryPolicy(t *testing.T) {
 	}
 }
 
+// A witness naming a fixed policy and recording no draw leaves them to the policy: the
+// replay resolves each call to its fixed point, as the run did, and records what it took;
+// a partial record, or none under random, is still a witness the replay refuses.
+func TestFixedPolicyWitnessWithoutDrawsReplaysByThePolicy(t *testing.T) {
+	m := parseLibraryModel(t, drawPolicyModel)
+	for _, tc := range []struct {
+		policy DrawPolicy
+		u, tri float64
+		n      int64
+	}{{DrawMin, 2, 1, 1}, {DrawMax, 6, 10, 6}, {DrawAverage, 4, 5, 4}} {
+		w, err := ParseWitness(drawPolicyPrefix + tc.policy.String() + "\nno choice points\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		replay, _ := m.fresh()
+		mustSchedule(t, replay, ReplayOf(w))
+		out, err := replay.ExecuteAction(m.action(t, "draw"))
+		if err == nil {
+			err = replay.Unfollowed()
+		}
+		if err != nil {
+			t.Fatalf("%s: replay refused a witness leaving its draws to the policy: %v", tc.policy, err)
+		}
+		if u, tri, n := realOut(t, out, "u"), realOut(t, out, "tri"), takenInt(t, out, "n"); u != tc.u || tri != tc.tri || n != tc.n {
+			t.Errorf("%s replayed u = %v, tri = %v, n = %d, want %v, %v, %d", tc.policy, u, tri, n, tc.u, tc.tri, tc.n)
+		}
+		if replay.DrawPolicyTaken() != tc.policy || len(replay.DrawsTaken()) != 4 {
+			t.Errorf("%s replay drew by %s over %s, want the policy and its four draws", tc.policy, replay.DrawPolicyTaken(), formatDraws(replay.DrawsTaken()))
+		}
+	}
+	partial, err := ParseWitness("draws by max\ndraw uniform(2.0, 6.0) = 6.0\nno choice points\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	replay, _ := m.fresh()
+	mustSchedule(t, replay, ReplayOf(partial))
+	_, err = replay.ExecuteAction(m.action(t, "draw"))
+	var refused *WitnessDrawError
+	if !errors.As(err, &refused) || !strings.Contains(err.Error(), "records no draw left for it") {
+		t.Fatalf("a witness recording one draw of four replayed: %v", err)
+	}
+}
+
 // The clock of a run whose durations are all drawn is deterministic under a
 // fixed policy: the same duration every run, at the point the policy names.
 func TestFixedDrawPolicyMakesTheClockDeterministic(t *testing.T) {

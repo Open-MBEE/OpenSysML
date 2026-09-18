@@ -499,11 +499,11 @@ func (s *scheduler) chooseWeighted(c *ChoicePoint) error {
 	return nil
 }
 
-// draw is the value the call what draws: the distribution's fixed point when the
-// run's policy has one (a degenerate distribution has one under every policy), else
-// its draw from the run's modeled stream; a fixed policy refuses an unbounded one.
+// draw is the value the call what draws: the distribution's fixed point when the policy has
+// one and the run is not replaying recorded draws, else the modeled stream's; a fixed policy
+// refuses an unbounded one.
 func (s *scheduler) draw(what string, dist distribution) (semantics.Value, error) {
-	if !s.modeled.replays() {
+	if !s.modeled.replays() || s.replay.drawsByPolicy() {
 		if val, ok := dist.fixedPoint(s.draws); ok {
 			return val, nil
 		}

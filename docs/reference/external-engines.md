@@ -250,7 +250,13 @@ under `inputs`: the features the action leaves unbound and those `-check-input` 
 the value as JSON or as SysML notation (`"2 * 4"`, `"Mode::Fast"`); the replay fixes them on the
 action as it starts, before its defaults and ahead of the first move, as an `smt` witness's are,
 and the result lists them. An input the question does not leave free, one given twice or one
-the run cannot read is *not covered* naming it.
+the run cannot read is *not covered* naming it. A schedule carries choices, never the run's
+RandomFunctions draws: under a `draws` policy the question names, the host's replay resolves
+each call to the policy's point — `uniform(1, 10)` is `10` under `max` — as the engine's run
+did, and the witness the result reports records those draws under that policy; a drawing run
+under no policy has no replay, and its schedule is *not covered* (`its witness does not replay
+(… the witness records no draw left for it)`), so a question about a behavior that draws is
+put to an engine under a fixed policy.
 
 ## The standing of an answer
 

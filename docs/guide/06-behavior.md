@@ -1039,7 +1039,8 @@ branches — and an unseeded one takes its most probable branch as it does under
 policy applies to the debugger's session as well, so `%draws max` before `%action` steps through
 the longest durations. Every witness the checker writes records a fixed policy as a `draws by
 <policy>` line ahead of its draws, and `replay:<file>` runs under the recorded policy, refusing
-a recorded draw the policy could not have made. A simulation tool's *duration simulation mode*
+a recorded draw the policy could not have made (a witness that names a fixed policy and
+records no draw leaves them to the policy). A simulation tool's *duration simulation mode*
 is this knob; see [Behaviors migrated from SysML v1](#behaviors-migrated-from-sysml-v1).
 
 ### Seeds: where the draws come from

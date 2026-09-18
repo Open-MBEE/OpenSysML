@@ -9,8 +9,9 @@
   take their most probable branch unseeded. The policy is a property of the run's context, so
   it reaches the analysis engines, the wire (`"draws":"max"`) and gRPC as the model seed does;
   a witness records it as `draws by max` and `replay:` reproduces the run under it, refusing a
-  witness whose draws the recorded policy could not have made. A conformance case pins it with
-  `"draws"`.
+  witness whose draws the recorded policy could not have made; a witness naming a fixed policy
+  and recording no draw — an external engine's schedule, which carries choices alone — leaves
+  them to the policy. A conformance case pins it with `"draws"`.
 - **A «Probability» that names a property is a feature reference.** The SysML v1 migration
   writes `@Probability { p = ProbabilityBTOOP; }` when the tag names a property visible from
   the activity or its context block, by name or id, instead of the property's default, so the

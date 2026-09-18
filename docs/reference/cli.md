@@ -1004,7 +1004,9 @@ configuration migrated from a tool whose `max` mode still randomizes its decisio
 `-draws max -seed <s>`. The policy is recorded in every witness the checker writes, as a
 `draws by <policy>` line ahead of its draws (a random run's witness carries no such line, so
 one written before reads as before), and `-schedule replay:<file>` runs under the recorded
-policy whatever `-draws` says, refusing a recorded draw the policy could not have made. A
+policy whatever `-draws` says, refusing a recorded draw the policy could not have made; a
+witness naming a fixed policy and recording no draw leaves them to it, each call resolving
+to the policy's point as the run did, while one recording some but not all is refused. A
 `-draws` spelling that is none of the four is refused before anything runs.
 
 ```bash

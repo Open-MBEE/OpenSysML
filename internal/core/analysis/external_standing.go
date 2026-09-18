@@ -321,6 +321,16 @@ func (r replay) witness(choices []runtime.ChoiceTaken) runtime.Witness {
 	return runtime.Witness{Inputs: r.inputs, DrawPolicy: r.draws, Choices: choices}
 }
 
+// reported is the witness a replayed schedule stands as: the engine's choices with the
+// draws the replay resolved under the question's policy, so the record replays alone.
+func (r replay) reported(choices []runtime.ChoiceTaken, replayed *runtime.Replayed) *Witness {
+	rw := r.witness(choices)
+	if replayed != nil && replayed.Ctx != nil {
+		rw.Draws = replayed.Ctx.DrawsTaken()
+	}
+	return &Witness{Schedule: runtime.ReplayOf(rw), Inputs: r.inputs, Draws: rw.Draws, Choices: choices}
+}
+
 // replayable is the replay of a schedule witness, or the typed refusal: a question that
 // names no action, or an input the witness fixes that the question does not leave free.
 func (e externalEngine) replayable(model *Model, q Question, budget Budget, w enginewire.Witness) (replay, error) {
@@ -404,7 +414,7 @@ func (e externalEngine) replayOne(ctx context.Context, model *Model, budget Budg
 	fresh := func() (*runtime.Context, error) { return r.fresh(model, job, budget) }
 	rw := r.witness(choices)
 	replayed, err := runtime.ReplaySchedule(ctx, fresh, r.ask.Start, rw, at)
-	witness := &Witness{Schedule: runtime.ReplayOf(rw), Inputs: r.inputs, Choices: choices}
+	witness := r.reported(choices, replayed)
 	switch {
 	case err == nil:
 		return replayed, witness, nil, nil
@@ -642,7 +652,7 @@ func (e externalEngine) replayExecution(ctx context.Context, model *Model, budge
 	}
 	rw := r.witness(choices)
 	replayed, err := runtime.ReplayExecution(ctx, fresh, r.ask.Start, rw, visit)
-	witness := &Witness{Schedule: runtime.ReplayOf(rw), Inputs: r.inputs, Choices: choices}
+	witness := r.reported(choices, replayed)
 	switch {
 	case errors.Is(err, errVisitStopped):
 		return witness, fail, nil

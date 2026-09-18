@@ -20,6 +20,7 @@ func TestRuntimeRobustnessDrawPolicy(t *testing.T) {
 	t.Run("unknown_policy_is_refused", testUnknownPolicyIsRefused)
 	t.Run("witness_draw_the_policy_cannot_make", testWitnessDrawThePolicyCannotMake)
 	t.Run("witness_policy_over_a_call_it_cannot_resolve", testWitnessPolicyOverACallItCannotResolve)
+	t.Run("witness_left_to_a_policy_over_a_call_it_cannot_resolve", testWitnessLeftToAPolicyOverACallItCannotResolve)
 	t.Run("fixed_policy_still_checks_the_domain", testFixedPolicyStillChecksTheDomain)
 	t.Run("fixed_policy_leaves_unseeded_decisions_most_probable", testFixedPolicyLeavesUnseededDecisionsMostProbable)
 }
@@ -275,6 +276,23 @@ func testWitnessPolicyOverACallItCannotResolve(t *testing.T) {
 	var refused *WitnessDrawError
 	if !errors.As(err, &refused) || !strings.Contains(err.Error(), "under min") {
 		t.Fatalf("error %T %v, want a WitnessDrawError under min", err, err)
+	}
+}
+
+// testWitnessLeftToAPolicyOverACallItCannotResolve: a witness recording no draws
+// under min meets a normal as the run would, a DrawUnboundedError naming the call.
+func testWitnessLeftToAPolicyOverACallItCannotResolve(t *testing.T) {
+	m := parseLibraryModel(t, normalModel)
+	w, err := ParseWitness("draws by min\nno choice points\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	replay, _ := m.fresh()
+	mustSchedule(t, replay, ReplayOf(w))
+	_, err = replay.ExecuteAction(m.action(t, "draw"))
+	var unbounded *DrawUnboundedError
+	if !errors.As(err, &unbounded) || unbounded.Policy != DrawMin || !strings.Contains(err.Error(), "normal(12.0, 3.0)") {
+		t.Fatalf("error %T %v, want a DrawUnboundedError naming the call under min", err, err)
 	}
 }
 
