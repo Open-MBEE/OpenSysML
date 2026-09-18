@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: meter.xmi
-# migrated 112 element(s): 86 mapped, 26 approximated, 0 unmapped (0 skipped as profile or library content)
+# migrated 114 element(s): 88 mapped, 26 approximated, 0 unmapped (0 skipped as profile or library content)
 
 ## approximated (26)
 ControlFlow	Meter::Arm::<ControlFlow>	_a2	(the guard [{JavaScript} ready and enabled] is kept as a comment and the edge written unguarded: the text "and" is not expression syntax: text follows the expression)
@@ -29,7 +29,7 @@ Property	Meter::square	_square	-> Meter::square	(default value not migrated: the
 Property	Meter::tag	_tag	-> Meter::tag	(default value not migrated: the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset)
 Property	Meter::top	_top	-> Meter::top	(default value not migrated: the types at "cells.reading" disagree: the expression is a collection, not the one value wanted)
 
-## mapped (86)
+## mapped (88)
 «Block» Class	Gauge	_gauge	-> Gauge
 Activity	Gauge::Tick	_tick	-> Gauge::Tick
 ActivityFinalNode	Gauge::Tick::<ActivityFinalNode>	_tfinal	-> final
@@ -101,6 +101,7 @@ Property	Meter::dial	_dial	-> Meter::dial
 Property	Meter::eighth	_eighth	-> Meter::eighth
 Property	Meter::enabled	_enabled	-> Meter::enabled
 Property	Meter::flag	_flag	-> Meter::flag
+Property	Meter::floored	_floored	-> Meter::floored
 Property	Meter::half	_half	-> Meter::half
 Property	Meter::hand	_hand	-> Meter::hand
 Property	Meter::label	_label	-> Meter::label
@@ -108,6 +109,7 @@ Property	Meter::mode	_mmode	-> Meter::mode
 Property	Meter::quarter	_quarter	-> Meter::quarter
 Property	Meter::ratio	_ratio	-> Meter::ratio
 Property	Meter::ready	_ready	-> Meter::ready
+Property	Meter::rounded	_rounded	-> Meter::rounded
 Property	Meter::shown	_shown	-> Meter::shown	(the JavaScript body is translated to v2)
 Property	Meter::ticks	_ticks	-> Meter::ticks
 Property	Meter::total	_total	-> Meter::total

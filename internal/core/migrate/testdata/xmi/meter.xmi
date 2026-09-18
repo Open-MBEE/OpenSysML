@@ -50,6 +50,12 @@
       <ownedAttribute xmi:type="uml:Property" xmi:id="_ratio" name="ratio"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
         <defaultValue xmi:type="uml:LiteralReal" xmi:id="_ratio0" value="0.0"/>
       </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_floored" name="floored"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_floored0" value="0.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rounded" name="rounded"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_rounded0" value="0"/>
+      </ownedAttribute>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_gain" name="gain"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
         <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_gain0">
           <language>JavaScript</language>
@@ -124,7 +130,7 @@
         </node>
         <node xmi:type="uml:OpaqueAction" xmi:id="_split" name="split">
           <language>Java</language>
-          <body>half = ticks / 2; ratio = total / 2;</body>
+          <body>half = ticks / 2; ratio = total / 2; floored = Math.floor(total) / 8; rounded = Math.round(total) / 8;</body>
         </node>
         <node xmi:type="uml:OpaqueAction" xmi:id="_quarterly" name="quarterly">
           <language>Java 1.8.0_202</language>

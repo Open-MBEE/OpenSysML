@@ -23,6 +23,8 @@ part def Meter {
     attribute quarter : ScalarValues::Integer default = 0;
     attribute eighth : ScalarValues::Real default = 0.0;
     attribute ratio : ScalarValues::Real default = 0.0;
+    attribute floored : ScalarValues::Real default = 0.0;
+    attribute rounded : ScalarValues::Integer default = 0;
     attribute gain : ScalarValues::Real {
         /* default value not migrated: {JavaScript} total(count) — the call "total" is not in the translated function table */
     }
@@ -62,6 +64,8 @@ part def Meter {
         action split {
             assign this.half := OpenSysMLMathFunctions::quotient(this.ticks, 2);
             assign this.ratio := this.total / 2;
+            assign this.floored := RealFunctions::floor(this.total) / 8;
+            assign this.rounded := OpenSysMLMathFunctions::quotient(RealFunctions::floor(this.total + 0.5), 8);
         }
         first split then quarterly;
         action quarterly {

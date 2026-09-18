@@ -1298,16 +1298,21 @@ func (p *opaqueParser) call(path []string) (translated, *refusal) {
 		if err := numbersAt(fn, args[0], args[0]); err != nil {
 			return translated{}, err
 		}
+		// Java's floor and ceil answer a double, so a `/` after them is real division; its round answers a long.
+		yields := "Integer"
+		if p.d == dialectJava && fn != "Math.round" {
+			yields = "Real"
+		}
 		switch fn {
 		case "Math.ceil":
 			// -floor(-x) would overflow at the least Integer; the extension library's ceiling does not.
-			return translated{expr: "OpenSysMLMathFunctions::ceiling(" + args[0].expr + ")", scalar: "Integer", atomic: true}, nil
+			return translated{expr: "OpenSysMLMathFunctions::ceiling(" + args[0].expr + ")", scalar: yields, atomic: true}, nil
 		case "Math.round":
-			// JavaScript rounds a half toward +∞, where RealFunctions::round rounds it away from zero.
+			// JavaScript and Java round a half toward +∞, where RealFunctions::round rounds it away from zero.
 			half := translated{expr: "0.5", scalar: "Real", atomic: true, lit: "real"}
 			return translated{expr: "RealFunctions::floor(" + binary(args[0], "+", half, looseAdditive, "Real").expr + ")", scalar: "Integer", atomic: true}, nil
 		default:
-			return translated{expr: "RealFunctions::floor(" + args[0].expr + ")", scalar: "Integer", atomic: true}, nil
+			return translated{expr: "RealFunctions::floor(" + args[0].expr + ")", scalar: yields, atomic: true}, nil
 		}
 	case "Math.sqrt":
 		if err := arity(1); err != nil {

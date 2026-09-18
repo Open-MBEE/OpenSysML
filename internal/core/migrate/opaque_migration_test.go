@@ -324,8 +324,9 @@ func TestTranslatedRoundingsStopAtTheIntegerRange(t *testing.T) {
 // The meter fixture chains opaque actions through their pins: a translated body
 // assigns its output pin, and the object flow carries the value to the next
 // action's input, which its body reads; a Java body divides two integers and two
-// reals, a versioned Java label reads the same, and a JavaCC label is another
-// language, whose body is written only as the v2 assignments it already is. A
+// reals (its Math.floor a double, its Math.round a long), a versioned Java label
+// reads the same, and a JavaCC label is another language, whose body is written
+// only as the v2 assignments it already is. A
 // translated body that never assigns its output pin, like a body that is not
 // translated, leaves the flow from that pin unwritten, with the reason.
 func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
@@ -336,6 +337,8 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 		"assign this.total := v + 1;",
 		"assign this.half := OpenSysMLMathFunctions::quotient(this.ticks, 2);",
 		"assign this.ratio := this.total / 2;",
+		"assign this.floored := RealFunctions::floor(this.total) / 8;",
+		"assign this.rounded := OpenSysMLMathFunctions::quotient(RealFunctions::floor(this.total + 0.5), 8);",
 		"assign this.quarter := OpenSysMLMathFunctions::quotient(this.ticks, 4);",
 		"assign this.eighth := this.ticks / 8;",
 		"/* flow idle.z to sink.w not written: the body of 'idle' never assigns idle.z */",
@@ -370,8 +373,8 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	s := session(t, r)
 	meta(t, s, "%instantiate Meter")
 	wantVerdict(t, s.RunAction("Meter::Measure", "Meter"))
-	runs := strings.Join(s.RunRuns("Meter::Measure", []string{"Meter"}, 1, 1, []string{"this.total", "this.half", "this.ratio", "this.quarter", "this.eighth"}).Lines, "\n")
-	for _, want := range []string{"this.total: 1 run(s), min 4.0", "this.half: 1 run(s), min 3", "this.ratio: 1 run(s), min 2.0", "this.quarter: 1 run(s), min 1", "this.eighth: 1 run(s), min 0.875"} {
+	runs := strings.Join(s.RunRuns("Meter::Measure", []string{"Meter"}, 1, 1, []string{"this.total", "this.half", "this.ratio", "this.floored", "this.rounded", "this.quarter", "this.eighth"}).Lines, "\n")
+	for _, want := range []string{"this.total: 1 run(s), min 4.0", "this.half: 1 run(s), min 3", "this.ratio: 1 run(s), min 2.0", "this.floored: 1 run(s), min 0.5", "this.rounded: 1 run(s), min 0", "this.quarter: 1 run(s), min 1", "this.eighth: 1 run(s), min 0.875"} {
 		if !strings.Contains(runs, want) {
 			t.Errorf("runs lack %q:\n%s", want, runs)
 		}
