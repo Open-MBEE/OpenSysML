@@ -2267,7 +2267,7 @@ func (e *StateExecutor) fireHistoryTransition(trans *lower.Transition, hist *ast
 		return err
 	}
 	currentState := e.moveOrigin()
-	return e.travelChoosing(e.drawsBeyond(hist) || e.mayDrawEntering(owner), trans, currentState, r,
+	return e.travelChoosing(e.drawsBeyond(hist) || e.mayDrawOrder(owner), trans, currentState, r,
 		func(*ast.StateNode) []*ast.StateNode { return e.exitedByMove(currentState, trans, owner) },
 		func(*ast.StateNode) []*ast.StateNode { return e.enteredByMove(currentState, trans, owner) },
 		func(effects []routeEffect, _ *ast.StateNode) error {
