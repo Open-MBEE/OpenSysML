@@ -326,8 +326,7 @@ github.com/Open-MBEE/OpenSysML
 │   ├── reference/         # CLI, REPL, environment, APIs, RDF mapping
 │   ├── internals/         # Architecture, testing, performance, design notes
 │   └── project/           # Compliance, roadmap, releasing, measurements
-├── tests/                 # Black-box suites and their fixtures (tests/parser, …)
-├── testdata/              # Test fixtures
+├── tests/                 # Black-box suites, benchmarks, shared fixtures (tests/parser, tests/testdata, …)
 └── .circleci/             # CI configuration
 ```
 
@@ -423,7 +422,7 @@ See [ARCHITECTURE.md](docs/internals/architecture.md) for detailed design.
 
 - **Unit tests:** Per-package (`*_test.go`)
 - **Integration tests:** Cross-package scenarios
-- **Fixtures:** Real SysML v2 models in `testdata/`
+- **Fixtures:** Real SysML v2 models in `tests/testdata/`
 - **Golden files:** Expected outputs (where applicable)
 
 ## Getting Help

@@ -115,12 +115,8 @@ var packageLayer = map[string]string{
 	"cmd/sysml-grpc":         "frontends",
 	"cmd/sysml-lsp":          "frontends",
 
-	"internal/fixtures":          "tooling",
-	"internal/stressmodel":       "tooling",
-	"internal/perfbench":         "tooling",
-	"internal/hygiene":           "tooling",
-	"internal/testutil/gobuild":  "tooling",
-	"internal/testutil/graphcmp": "tooling",
+	"internal/fixtures":    "tooling",
+	"internal/stressmodel": "tooling",
 }
 
 // tolerated is the imports the layer table does not permit and that still

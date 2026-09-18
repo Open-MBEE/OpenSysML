@@ -16,7 +16,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/pack"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/testutil/graphcmp"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/graphcmp"
 )
 
 // TestEmbeddedSnapshotIsCurrent fails when the committed snapshot was not

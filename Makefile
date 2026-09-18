@@ -169,7 +169,7 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	@# make test above runs instead. -pgo=off as in make test.
 	@# -count=1: a replayed result carries zero blocks for the -coverpkg packages it does
 	@# not link, keyed to the sources of its own run, so they go stale as those change.
-	@# Tests that run a built command (internal/testutil/gobuild) instrument it and point
+	@# Tests that run a built command (tests/testutil/gobuild) instrument it and point
 	@# it at this directory; go test folds in only its own binary's counters.
 	rm -rf $(GO_COUNTER_DIR)
 	mkdir -p $(GO_COUNTER_DIR)
