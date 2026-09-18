@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
@@ -26,7 +26,7 @@ func TestSatelliteNetworkValidates(t *testing.T) {
 	}
 
 	s := repl.NewSession()
-	s.SetConformanceMode(conformance.ModeOf(true))
+	s.SetConformanceMode(diag.ConformanceModeOf(true))
 	for _, d := range s.Submit(src).Diagnostics {
 		t.Errorf("diagnostic: %s", d.Message)
 	}
@@ -74,7 +74,7 @@ func TestSatelliteNetworkFilesValidate(t *testing.T) {
 	if stats.Satellites != whole.Satellites || stats.Requirements != whole.Requirements || stats.Connections != whole.Connections {
 		t.Fatalf("split stats %+v, single-file stats %+v", stats, whole)
 	}
-	ws := model.NewWorkspace(model.WithConformanceMode(conformance.ModeOf(true)))
+	ws := model.NewWorkspace(model.WithConformanceMode(diag.ConformanceModeOf(true)))
 	for _, f := range files {
 		ws.Open(f.Name, []byte(f.Source), 1)
 	}
@@ -85,7 +85,7 @@ func TestSatelliteNetworkFilesValidate(t *testing.T) {
 	}
 
 	s := repl.NewSession()
-	s.SetConformanceMode(conformance.ModeOf(true))
+	s.SetConformanceMode(diag.ConformanceModeOf(true))
 	sources := make([]repl.SourceFile, 0, len(files))
 	for _, f := range files {
 		sources = append(sources, repl.SourceFile{Name: f.Name, Text: f.Source})

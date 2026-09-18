@@ -3,11 +3,11 @@ package repl
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // ConformanceMode reports the strictness the session judges notation at.
-func (s *Session) ConformanceMode() conformance.Mode {
+func (s *Session) ConformanceMode() diag.ConformanceMode {
 	defer s.reading()()
 	return s.ws.ConformanceMode()
 }
@@ -15,7 +15,7 @@ func (s *Session) ConformanceMode() conformance.Mode {
 // SetConformanceMode switches what the session asks of its model: whether
 // notation no SysML v2 production admits is a warning or an error. It takes
 // effect at once — the buffer is re-analyzed on the next request.
-func (s *Session) SetConformanceMode(mode conformance.Mode) {
+func (s *Session) SetConformanceMode(mode diag.ConformanceMode) {
 	defer s.enter()()
 	s.ws.SetConformanceMode(mode)
 }
@@ -26,12 +26,12 @@ func (s *Session) doStrict(args []string) []string {
 	if len(args) == 0 {
 		return []string{fmt.Sprintf("strict: %s", onOff(s.ws.ConformanceMode().IsStrict()))}
 	}
-	var mode conformance.Mode
+	var mode diag.ConformanceMode
 	switch args[0] {
 	case "on":
-		mode = conformance.ModeStrict
+		mode = diag.ConformanceStrict
 	case "off":
-		mode = conformance.ModeDefault
+		mode = diag.ConformanceDefault
 	default:
 		return []string{fmt.Sprintf("error: unknown strict setting %q (want on or off)", args[0])}
 	}

@@ -1,5 +1,6 @@
-// Package diag holds the diagnostic type every layer reports findings in and
-// the quick-fix edits a diagnostic carries.
+// Package diag holds the diagnostic type every layer reports findings in, the
+// quick-fix edits a diagnostic carries, and the conformance mode that decides
+// how strictly findings are judged.
 package diag
 
 import (

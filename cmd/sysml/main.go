@@ -13,8 +13,8 @@ import (
 	"github.com/chzyer/readline"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -685,7 +685,7 @@ func newSession() *repl.Session {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)
 	}
-	sess.SetConformanceMode(conformance.ModeOf(strictMode))
+	sess.SetConformanceMode(diag.ConformanceModeOf(strictMode))
 	sess.SetRenderWidth(terminalWidth())
 	return sess
 }

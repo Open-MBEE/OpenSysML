@@ -6,7 +6,7 @@ import (
 
 	"go.lsp.dev/protocol"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 )
 
@@ -18,14 +18,14 @@ func TestInitializeReadsTheStrictConformanceOption(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		options any
-		want    conformance.Mode
+		want    diag.ConformanceMode
 	}{
-		{"flat key", map[string]any{"strictConformance": true}, conformance.ModeStrict},
-		{"nested section", map[string]any{"sysml": map[string]any{"strictConformance": true}}, conformance.ModeStrict},
-		{"dotted key", map[string]any{"sysml.strictConformance": true}, conformance.ModeStrict},
-		{"explicit false", map[string]any{"strictConformance": false}, conformance.ModeDefault},
-		{"unrelated options", map[string]any{"other": true}, conformance.ModeDefault},
-		{"no options", nil, conformance.ModeDefault},
+		{"flat key", map[string]any{"strictConformance": true}, diag.ConformanceStrict},
+		{"nested section", map[string]any{"sysml": map[string]any{"strictConformance": true}}, diag.ConformanceStrict},
+		{"dotted key", map[string]any{"sysml.strictConformance": true}, diag.ConformanceStrict},
+		{"explicit false", map[string]any{"strictConformance": false}, diag.ConformanceDefault},
+		{"unrelated options", map[string]any{"other": true}, diag.ConformanceDefault},
+		{"no options", nil, diag.ConformanceDefault},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ws := model.NewWorkspace()
@@ -45,14 +45,14 @@ func TestInitializeReadsTheStrictConformanceOption(t *testing.T) {
 // A malformed setting must not be read as a request to answer the other
 // question.
 func TestStrictConformanceIgnoresANonBooleanSetting(t *testing.T) {
-	ws := model.NewWorkspace(model.WithConformanceMode(conformance.ModeStrict))
+	ws := model.NewWorkspace(model.WithConformanceMode(diag.ConformanceStrict))
 	s := NewServer(ws)
 	if _, err := s.Initialize(context.Background(), &protocol.InitializeParams{
 		InitializationOptions: map[string]any{"strictConformance": "yes"},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if ws.ConformanceMode() != conformance.ModeStrict {
+	if ws.ConformanceMode() != diag.ConformanceStrict {
 		t.Fatalf("mode = %v, want the mode left alone", ws.ConformanceMode())
 	}
 }
@@ -76,7 +76,7 @@ func TestDidChangeConfigurationRepublishesUnderTheNewMode(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if ws.ConformanceMode() != conformance.ModeStrict {
+	if ws.ConformanceMode() != diag.ConformanceStrict {
 		t.Fatalf("mode = %v, want strict", ws.ConformanceMode())
 	}
 	if sev := firstSeverity(t, fc.all()); sev != protocol.DiagnosticSeverityError {
