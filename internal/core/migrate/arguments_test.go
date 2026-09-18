@@ -221,6 +221,113 @@ func TestResultsTheCalleeNeverProducesAreNotFlowedOn(t *testing.T) {
 	}
 }
 
+// omittedSignalArguments is a Siren whose Alert carries a code and a level, both
+// required, a tag that admits no value and a flag with a default. Its Raise sends
+// an Alert with a pin for the code only, then one with pins for code and level;
+// a Hall's Drill sends the same alert to a siren with one argument, then with two.
+const omittedSignalArguments = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_alert" name="Alert">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_aCode" name="code">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_aLevel" name="level">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_aTag" name="tag">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_aTagLo" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_aTagHi" value="1"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_aFlag" name="flag">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_aFlag0" value="0"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_siren" name="Siren">
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_raise" name="Raise">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_one" name="one">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_oneV" value="1"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_oneOut" name="result"/>
+        </node>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_two" name="two">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_twoV" value="2"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_twoOut" name="result"/>
+        </node>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_three" name="three">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_threeV" value="3"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_threeOut" name="result"/>
+        </node>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_sendShort" name="warn" signal="_alert">
+          <argument xmi:type="uml:InputPin" xmi:id="_shortCode" name="code"/>
+        </node>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_sendFull" name="alarm" signal="_alert">
+          <argument xmi:type="uml:InputPin" xmi:id="_fullCode" name="code"/>
+          <argument xmi:type="uml:InputPin" xmi:id="_fullLevel" name="level"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_one"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of1" source="_oneOut" target="_shortCode"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_sendShort" target="_two"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_two" target="_three"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of2" source="_twoOut" target="_fullCode"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of3" source="_threeOut" target="_fullLevel"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4" source="_sendFull" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_hall" name="Hall">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_hs" name="s" type="_siren" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_short" name="Short">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_ls1" name="s" represents="_hs"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_rShort" covered="_ls1" message="_mShort"/>
+        <message xmi:type="uml:Message" xmi:id="_mShort" name="warn" messageSort="asynchSignal" signature="_alert" receiveEvent="_rShort">
+          <argument xmi:type="uml:LiteralInteger" xmi:id="_mShortCode" value="1"/>
+        </message>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_full" name="Full">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_ls2" name="s" represents="_hs"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_rFull" covered="_ls2" message="_mFull"/>
+        <message xmi:type="uml:Message" xmi:id="_mFull" name="alarm" messageSort="asynchSignal" signature="_alert" receiveEvent="_rFull">
+          <argument xmi:type="uml:LiteralInteger" xmi:id="_mFullLevel" name="level" value="2"/>
+          <argument xmi:type="uml:LiteralInteger" xmi:id="_mFullCode" name="code" value="1"/>
+        </message>
+      </ownedBehavior>
+    </packagedElement>`
+
+const omittedSignalApplications = `
+  <sysml:Block xmi:id="_b1" base_Class="_siren"/>
+  <sysml:Block xmi:id="_b2" base_Class="_hall"/>`
+
+// A send with no pin for an attribute the signal requires stands in for itself and
+// is reported, as is a scenario whose message binds no argument to one; an attribute
+// that admits no value or has a default needs none. The sends that bind both run.
+func TestSendsOmittingRequiredSignalAttributesAreReported(t *testing.T) {
+	r := migrateDocument(t, omittedSignalArguments, omittedSignalApplications)
+	for _, line := range []string{
+		"action warn {",
+		"/* not migrated: SendSignalAction 'warn' — the send passes no argument for the attribute level of Alert, which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing */",
+		"send new Alert(code, level);",
+		"/* not migrated: Interaction 'Short' — the message 'warn' binds no argument to the attribute level of Alert, which must hold a value */",
+		"action alarm send new Alert(level = 2, code = 1) to this.s;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "send new Alert(code);")
+	wantNote(t, r, "_sendShort", migrate.Approximated, "the send passes no argument for the attribute level of Alert, which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing")
+	wantNote(t, r, "_short", migrate.Unmapped, "the message 'warn' binds no argument to the attribute level of Alert, which must hold a value")
+	wantNote(t, r, "_mFull", migrate.Mapped, "written as a send to this.s")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Siren")
+	meta(t, s, "%action Siren::Raise #1")
+	if out := meta(t, s, "%continue"); !strings.Contains(out, "ompleted") {
+		t.Errorf("the run did not complete:\n%s", out)
+	}
+}
+
 // unwrittenValue is a Sky whose Aim requires coordinates, and whose Run calls it
 // on a value action holding the string "0", which is no value of the structured
 // Coords the action's result is typed by; the value action follows the call.

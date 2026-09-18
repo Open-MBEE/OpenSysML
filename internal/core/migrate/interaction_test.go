@@ -9,6 +9,7 @@ import (
 
 // testdata/xmi/rig_interactions.xmi: call and reply messages perform the operation on the lifeline's
 // object and assign its result; alt/opt/loop/par become if/if/for/fork; create messages are reported.
+// The par's messages take the names its operand and join would have, which step aside.
 func TestInteractionCallsRepliesAndFragments(t *testing.T) {
 	r := migrateFixtureFile(t, "rig_interactions")
 	for _, line := range []string{
@@ -33,16 +34,16 @@ func TestInteractionCallsRepliesAndFragments(t *testing.T) {
 		"first alt then 'loop';",
 		"fork par;",
 		"first 'loop' then par;",
-		"action parOp1 {",
-		"action sendGo send new Go() to this.drive.motor;",
-		"first par then parOp1;",
-		"first parOp1 then parEnd;",
+		"action parOp12 {",
+		"action parEnd send new Go(n = 4) to this.drive.motor;",
+		"first par then parOp12;",
+		"first parOp12 then parEnd2;",
 		"action parOp2 {",
-		"action sendDone send new Done() to this.ctrl;",
-		"join parEnd;",
+		"action parOp1 send new Done() to this.ctrl;",
+		"join parEnd2;",
 		"action opt {",
 		"if this.ctrl.got > 10.0 {",
-		"first parEnd then opt;",
+		"first parEnd2 then opt;",
 		"first opt then done;",
 		"/* not migrated: Interaction 'Astray' — the lifeline 'o' stands for 'motor' of Other, which no part of Rig reaches */",
 		"/* not migrated: Interaction 'Twinned' — the lifeline 'm' stands for 'motor', which Twin reaches as both left.motor and right.motor */",

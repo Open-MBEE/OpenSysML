@@ -71,12 +71,16 @@ func (a *activity) refusal(n *xmi.Element) (why string, v Verdict, refused bool)
 			return "", Mapped, false
 		}
 		attrs := a.m.signalAttributes(sig)
-		for i, pin := range n.Owned("argument") {
-			if i >= len(attrs) || !requiresValue(attrs[i]) {
+		pins := n.Owned("argument")
+		for i, attr := range attrs {
+			if !requiresValue(attr) {
 				continue
 			}
-			if dry := a.valueless(pin); dry != nil {
-				return a.dryArgument(pin, sig, attrs[i], dry), Approximated, true
+			if i >= len(pins) {
+				return a.unargued(sig, attr), Approximated, true
+			}
+			if dry := a.valueless(pins[i]); dry != nil {
+				return a.dryArgument(pins[i], sig, attr, dry), Approximated, true
 			}
 		}
 	}
@@ -264,10 +268,14 @@ func requiresValue(p *xmi.Element) bool {
 	return lv == nil || boundValue(lv) != "0"
 }
 
-// unargued says why a call is a placeholder: the callee requires an argument the
-// call never passes, where v1 would run it holding no value.
+// unargued says why a call or send is a placeholder: the callee or signal requires
+// an argument the action never passes, where v1 would run it holding no value.
 func (a *activity) unargued(callee, p *xmi.Element) string {
-	return "the call passes no argument for the parameter " + a.m.nameFor(p) + " of " + qualifiedName(callee) + ", which must hold a value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing"
+	who, what, does := "call", "parameter", "runs the callee"
+	if callee.Type == "Signal" {
+		who, what, does = "send", "attribute", "sends the signal"
+	}
+	return "the " + who + " passes no argument for the " + what + " " + a.m.nameFor(p) + " of " + qualifiedName(callee) + ", which must hold a value; v1 " + does + " without it, which v2 does not admit, so the action carries the token and performs nothing"
 }
 
 // dryArgument says why a call or send is a placeholder: the pin it passes for a

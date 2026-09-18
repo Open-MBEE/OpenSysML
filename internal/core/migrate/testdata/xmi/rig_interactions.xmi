@@ -160,8 +160,10 @@
         <message xmi:type="uml:Message" xmi:id="_mSpin2" messageSort="synchCall" signature="_spin" sendEvent="_sSpin2" receiveEvent="_rSpin2">
           <argument xmi:type="uml:LiteralReal" xmi:id="_mSpin2Rpm" value="40.0"/>
         </message>
-        <message xmi:type="uml:Message" xmi:id="_mGo2" messageSort="asynchSignal" signature="_go" sendEvent="_sGo2" receiveEvent="_rGo2"/>
-        <message xmi:type="uml:Message" xmi:id="_mDone" messageSort="asynchSignal" signature="_done" sendEvent="_sDone" receiveEvent="_rDone"/>
+        <message xmi:type="uml:Message" xmi:id="_mGo2" name="parEnd" messageSort="asynchSignal" signature="_go" sendEvent="_sGo2" receiveEvent="_rGo2">
+          <argument xmi:type="uml:LiteralInteger" xmi:id="_mGo2N" value="4"/>
+        </message>
+        <message xmi:type="uml:Message" xmi:id="_mDone" name="parOp1" messageSort="asynchSignal" signature="_done" sendEvent="_sDone" receiveEvent="_rDone"/>
         <message xmi:type="uml:Message" xmi:id="_mNew" name="new" messageSort="createMessage" sendEvent="_sNew" receiveEvent="_rNew"/>
       </ownedBehavior>
       <ownedBehavior xmi:type="uml:Interaction" xmi:id="_astray" name="Astray">

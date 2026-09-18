@@ -187,6 +187,7 @@ returned over the service yet.
 | CombinedFragment `seq`, `strict` | the operands in order | mapped |
 | CombinedFragment with a guard that does not parse or resolve, an `alt` with an unguarded operand before its last, or of another operator (`critical`, `neg`, `assert`, `ignore`, `consider`, `break`) | comment: the whole interaction is refused | **unmapped** — the reason quotes the guard or names the operator |
 | Message `createMessage`, `deleteMessage`; a message without a signal or operation | comment where the step would go; the steps around it are written | **unmapped** — a part exists for as long as its owner does |
+| Message binding no argument to a parameter or signal attribute that must hold a value (no default, lower bound above zero), or one whose argument is not written | comment: the whole interaction is refused | **unmapped** — the reason names the parameter or attribute |
 | Interaction with no message | comment naming what it records (state invariants under time constraints: a timing trace); DurationConstraint, TimeConstraint, observation on an interaction | **unmapped** — no scenario step performs it |
 | OpaqueBehavior, FunctionBehavior | `calc def` with its parameters when its one body is a v2 expression whose names resolve; otherwise `action def` keeping the body as a comment | mapped / approximated |
 | Operation | `action def <Op>` owned by the owner, with its parameters; the `method` behavior is written as its body (an Activity as the flow, an OpaqueBehavior as expression or comment), its parameters standing for the operation's at the same position, direction and type under the operation's names; a method parameter matching none is declared and reported, since a call binds only the operation's; no method: `abstract action def`; an `action <op> : <Op>;` usage of the owner performs it, as a call on an object does | mapped |
@@ -245,7 +246,8 @@ Sig(x)` with an input unbound, so such a step keeps its place in the flow but pe
 it is written as an empty action carrying the token, with the reason in its comment and in the
 report. The reasons are the ones the model itself decides: the call passes no argument for a
 required parameter (one with no default and a lower bound above zero; `out` and `return`
-parameters and the operation's target pin are not arguments), or the pin it passes is fed only
+parameters and the operation's target pin are not arguments), the send passes no argument for a
+required attribute of its signal, inherited ones included, or the pin it passes is fed only
 by flows no value travels — from a parameter nothing values, from an action that is not
 migrated (an opaque action's result, or a value specification action whose literal is no value
 of its result's type), or from a call whose callee gives that `out` parameter no value, judged

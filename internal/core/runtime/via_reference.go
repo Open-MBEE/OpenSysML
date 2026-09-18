@@ -24,17 +24,13 @@ func (ec *EvalContext) viaSender(send lower.Send, self *Instance) (lower.Send, *
 }
 
 // viaHolder returns the object whose port a via path names and the port's name: self and
-// the path as written, unless the root is a bound object rather than a feature of self.
+// the path as written, unless the behavior binds the root, which shadows a same-named
+// feature of self as it does in any expression.
 func (ec *EvalContext) viaHolder(path string, self *Instance) (*Instance, string, error) {
 	segments := strings.Split(path, ".")
 	root := segments[0]
 	if len(segments) < 2 || root == thisName {
 		return self, path, nil
-	}
-	if self != nil {
-		if _, held := self.FeatureValues[root]; held {
-			return self, path, nil
-		}
 	}
 	value, bound := ec.Lookup(root)
 	if !bound {

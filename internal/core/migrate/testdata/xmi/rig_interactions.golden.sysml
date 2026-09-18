@@ -81,21 +81,21 @@ part def Rig {
         first alt then 'loop';
         fork par;
         first 'loop' then par;
-        action parOp1 {
-            action sendGo send new Go() to this.drive.motor;
-            first start then sendGo;
-            first sendGo then done;
+        action parOp12 {
+            action parEnd send new Go(n = 4) to this.drive.motor;
+            first start then parEnd;
+            first parEnd then done;
         }
-        first par then parOp1;
-        first parOp1 then parEnd;
+        first par then parOp12;
+        first parOp12 then parEnd2;
         action parOp2 {
-            action sendDone send new Done() to this.ctrl;
-            first start then sendDone;
-            first sendDone then done;
+            action parOp1 send new Done() to this.ctrl;
+            first start then parOp1;
+            first parOp1 then done;
         }
         first par then parOp2;
-        first parOp2 then parEnd;
-        join parEnd;
+        first parOp2 then parEnd2;
+        join parEnd2;
         action opt {
             if this.ctrl.got > 10.0 {
                 action optOp1 {
@@ -104,7 +104,7 @@ part def Rig {
                 }
             }
         }
-        first parEnd then opt;
+        first parEnd2 then opt;
         first opt then done;
     }
     /* not migrated: Interaction 'Astray' — the lifeline 'o' stands for 'motor' of Other, which no part of Rig reaches */

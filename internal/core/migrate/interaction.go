@@ -372,7 +372,11 @@ func (s *scenario) send(step *scenarioStep) (*scenarioStep, string) {
 	}
 	step.kind = stepSend
 	step.signal = sig
-	step.args, step.note = s.bindArguments(step.msg, s.m.signalAttributes(sig), "attribute of "+sig.Name, false)
+	var why string
+	step.args, step.note, why = s.bindArguments(step.msg, s.m.signalAttributes(sig), "attribute", sig)
+	if why != "" {
+		return nil, why
+	}
 	step.name = s.stepName(step.msg, "send"+s.m.nameFor(sig))
 	return step, ""
 }
@@ -402,10 +406,10 @@ func (s *scenario) call(step *scenarioStep, sort string) (*scenarioStep, string)
 			ins = append(ins, p)
 		}
 	}
-	var note string
-	step.args, note = s.bindArguments(step.msg, ins, "parameter of "+op.Name, true)
-	if strings.HasPrefix(note, "unbound: ") {
-		return nil, strings.TrimPrefix(note, "unbound: ")
+	var note, why string
+	step.args, note, why = s.bindArguments(step.msg, ins, "parameter", op)
+	if why != "" {
+		return nil, why
 	}
 	step.kind = stepCall
 	step.op = op
@@ -540,16 +544,16 @@ func (s *scenario) parameterFor(arg *xmi.Element, targets []*xmi.Element, i int)
 	return nil
 }
 
-// bindArguments writes a message's arguments as bindings of the targets, by name or position;
-// when required, a target no argument binds is reported as "unbound: ..." for the caller to refuse on.
-func (s *scenario) bindArguments(msg *xmi.Element, targets []*xmi.Element, what string, required bool) (string, string) {
+// bindArguments writes a message's arguments as bindings of the targets, an owner's
+// parameters or attributes, by name or position; a target that must hold a value
+// (no default, lower bound above 0) and that no argument binds is a refusal, why.
+func (s *scenario) bindArguments(msg *xmi.Element, targets []*xmi.Element, kind string, owner *xmi.Element) (args, note, why string) {
 	var out []string
-	var note string
 	bound := map[*xmi.Element]bool{}
 	for i, arg := range msg.Owned("argument") {
 		t := s.parameterFor(arg, targets, i)
 		if t == nil {
-			note = joinNotes(note, "the argument "+describeValue(arg)+" has no "+what+" to bind to and is dropped")
+			note = joinNotes(note, "the argument "+describeValue(arg)+" has no "+kind+" of "+owner.Name+" to bind to and is dropped")
 			continue
 		}
 		if bound[t] {
@@ -558,8 +562,8 @@ func (s *scenario) bindArguments(msg *xmi.Element, targets []*xmi.Element, what 
 		}
 		expr, ok, vnote := s.m.typedBehaviorValue(arg, t, s.e)
 		if !ok {
-			if required && requiresValue(t) {
-				return "", "unbound: leaves the parameter " + s.m.nameOf(t) + " unbound: the argument " + describeValue(arg) + " is not written: " + vnote
+			if requiresValue(t) {
+				return "", "", "leaves the " + kind + " " + s.m.nameOf(t) + " of " + owner.Name + ", which must hold a value, unbound: the argument " + describeValue(arg) + " is not written: " + vnote
 			}
 			note = joinNotes(note, "the argument "+describeValue(arg)+" for "+s.m.nameOf(t)+" is dropped: "+vnote)
 			continue
@@ -568,14 +572,12 @@ func (s *scenario) bindArguments(msg *xmi.Element, targets []*xmi.Element, what 
 		out = append(out, writeName(s.m.nameOf(t))+" = "+expr)
 		note = joinNotes(note, vnote)
 	}
-	if required {
-		for _, t := range targets {
-			if !bound[t] && requiresValue(t) {
-				return "", "unbound: binds no argument to the parameter " + s.m.nameOf(t) + ", which must hold a value"
-			}
+	for _, t := range targets {
+		if !bound[t] && requiresValue(t) {
+			return "", "", "binds no argument to the " + kind + " " + s.m.nameOf(t) + " of " + owner.Name + ", which must hold a value"
 		}
 	}
-	return strings.Join(out, ", "), note
+	return strings.Join(out, ", "), note, ""
 }
 
 // stepName names a step after its message, or after what it does when the message is anonymous.
@@ -875,7 +877,7 @@ func (s *scenario) step(step *scenarioStep, prev string) string {
 		})
 		s.fragmentDone(step, strings.Fields(head)[0])
 	case stepPar:
-		join := writeName(step.base + "End")
+		join := writeName(freshIn(s.used, step.base+"End"))
 		m.w.line("fork " + step.name + ";")
 		m.w.line("first " + prev + " then " + step.name + ";")
 		for i, o := range step.operands {
@@ -1065,7 +1067,7 @@ func (s *scenario) branches(step *scenarioStep, i int) {
 
 // operand writes the i-th operand of a fragment as a nested action and returns its name.
 func (s *scenario) operand(step *scenarioStep, o *scenarioOperand, i int) string {
-	name := writeName(step.base + "Op" + strconv.Itoa(i+1))
+	name := writeName(freshIn(s.used, step.base+"Op"+strconv.Itoa(i+1)))
 	if len(o.steps) == 0 {
 		s.m.w.line("action " + name + ";")
 	} else {

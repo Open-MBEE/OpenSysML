@@ -8,7 +8,8 @@
   parameter, and `alt`/`opt`/`loop`/`par` fragments are `if`/`for`/`while`/`fork` structures
   when their guards parse and resolve. A lifeline or guard that does not resolve, a create or
   delete message and a message-less timing trace are refused with the reason, as is a call
-  leaving an `in` parameter with no default and a lower bound above zero unbound; two parts of
+  or signal message leaving an `in` parameter or signal attribute — inherited ones included —
+  with no default and a lower bound above zero unbound; two parts of
   one type are two paths, so a lifeline standing for a part of that type is ambiguous. A Reception is
   an `action def` of the block that accepts its signal and runs its method with the signal's
   attributes bound to the method's parameters of the same name, so a signal sent to the object
@@ -38,13 +39,14 @@
   parameters nothing values flow into is reported as never firing instead of written to wait.
 - **A `via` path can start at a bound reference, and delegated, redefined and untyped ports
   route.** `send … via ctx.p` from a behavior whose `ctx` is bound to another object leaves that
-  object's port; a part's port is known to the connectors its type inherits under the name the
+  object's port even when the performer owns a feature of the same name, the binding shadowing
+  it as it does in every other expression; a part's port is known to the connectors its type inherits under the name the
   part was declared with before redefinition; a `ref` usage holds what is bound to it rather than
   an object of its own; and an untyped `port` materializes as a `Ports::Port`, so a binding
   connector can join it and a signal sent inward over it reaches the bound part's machine.
 - **A migrated call or send that v1 fires without a required value keeps its place and performs
   nothing.** A call passing no argument for a parameter that must hold a value, or a call or
-  signal send whose pin is fed only by flows no value travels — from a parameter nothing values,
+  signal send passing none for a signal attribute that must, or one whose pin is fed only by flows no value travels — from a parameter nothing values,
   an unmigrated opaque or value specification action, or a callee whose own activity gives that
   `out` parameter no value, judged through any depth of nesting — is written as an empty action carrying the token,
   with the reason in its comment and report line, and the object flow is kept as a comment
