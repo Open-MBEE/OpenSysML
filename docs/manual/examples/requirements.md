@@ -13,7 +13,6 @@ Each requirement by identifier, first as a table and then as prose; then the spe
 
 **HLR-R002** — The mission shall achieve a soft landing on the lunar surface.
 
-<!-- caption -->
 *Requirement hierarchy*
 
 | shortName | name | documentation |
