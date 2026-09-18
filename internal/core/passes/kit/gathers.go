@@ -1,7 +1,8 @@
 package kit
 
 import (
-	"sort"
+	"maps"
+	"slices"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -46,7 +47,7 @@ func (g *Gathers) documents(ctx *Context) []string {
 			}
 		})
 	}
-	return SortedKeys(g.docs)
+	return slices.Sorted(maps.Keys(g.docs))
 }
 
 // workspaceRoot returns the root of a non-library workspace document, or nil.
@@ -90,7 +91,7 @@ func (g *Gathers) Regather(ctx *Context, docs map[string]bool) []string {
 	}
 	changed := map[string]bool{}
 	about := docs[AboutGather]
-	for _, doc := range SortedKeys(docs) {
+	for _, doc := range slices.Sorted(maps.Keys(docs)) {
 		if doc == AboutGather {
 			continue
 		}
@@ -115,7 +116,7 @@ func (g *Gathers) Regather(ctx *Context, docs map[string]bool) []string {
 			}
 		}
 	}
-	return SortedKeys(changed)
+	return slices.Sorted(maps.Keys(changed))
 }
 
 // UnionOf returns the union under key, built on first use over every gathered
@@ -185,22 +186,7 @@ func Move[K comparable](s CountSet[K], old, cur map[K]bool, name func(K) string,
 	}
 }
 
-// SortedKeys returns the sorted keys of a boolean set.
-func SortedKeys(m map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
-
 // unionKeys returns sorted keys of a union map.
 func unionKeys(m map[string]Union) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
+	return slices.Sorted(maps.Keys(m))
 }
