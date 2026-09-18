@@ -1093,11 +1093,16 @@ func (a *activity) placeholder(n *xmi.Element, name, note string, v Verdict) {
 	a.m.add(n, v, name, note)
 }
 
-// inputPins lists the input pins of an action, arguments first.
+// inputPins lists the input pins of an action, arguments first; a value action's
+// value is a specification, not a pin, and is left out.
 func inputPins(n *xmi.Element) []*xmi.Element {
 	ins := append(n.Owned("argument"), n.Owned("inputValue")...)
 	ins = append(ins, n.Owned("object")...)
-	ins = append(ins, n.Owned("value")...)
+	for _, v := range n.Owned("value") {
+		if v.Type == "InputPin" || v.Type == "ValuePin" || v.Type == "ActionInputPin" {
+			ins = append(ins, v)
+		}
+	}
 	ins = append(ins, n.Owned("target")...)
 	return append(ins, n.Owned("insertAt")...)
 }
@@ -1470,22 +1475,17 @@ func (a *activity) opaqueAction(n *xmi.Element, name string) {
 // valueAction writes a value specification action as an action whose result
 // is the value.
 func (a *activity) valueAction(n *xmi.Element, name string) {
+	if why, v, refused := a.refusal(n); refused {
+		a.placeholder(n, name, why, v)
+		return
+	}
 	v := firstOwned(n, "value")
 	results := n.Owned("result")
-	if v == nil {
-		a.placeholder(n, name, "the action has no value", Unmapped)
-		return
-	}
 	var expr, note string
-	var ok bool
 	if len(results) == 0 {
-		expr, ok, note = a.m.behaviorValue(v, n)
+		expr, _, note = a.m.behaviorValue(v, n)
 	} else {
-		expr, ok, note = a.m.typedBehaviorValue(v, results[0], n)
-	}
-	if !ok {
-		a.placeholder(n, name, "the value "+describeValue(v)+" is not written: "+note, Approximated)
-		return
+		expr, _, note = a.m.typedBehaviorValue(v, results[0], n)
 	}
 	a.m.w.block("action "+name, func() {
 		for _, r := range results[1:] {

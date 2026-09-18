@@ -220,3 +220,79 @@ func TestResultsTheCalleeNeverProducesAreNotFlowedOn(t *testing.T) {
 		t.Errorf("the run did not complete:\n%s", out)
 	}
 }
+
+// unwrittenValue is a Sky whose Aim requires coordinates, and whose Run calls it
+// on a value action holding the string "0", which is no value of the structured
+// Coords the action's result is typed by; the value action follows the call.
+const unwrittenValue = `
+    <packagedElement xmi:type="uml:DataType" xmi:id="_coords" name="Coords">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ra" name="ra">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_sky" name="Sky">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_aimed" name="aimed">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_aimed0" value="false"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_aim" name="Aim">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_aimIn" name="target" direction="in" type="_coords"/>
+        <node xmi:type="uml:InitialNode" xmi:id="_aInit"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_aSet" name="set aimed" structuralFeature="_aimed" isReplaceAll="true">
+          <value xmi:type="uml:ValuePin" xmi:id="_aSetVal" name="value">
+            <value xmi:type="uml:LiteralBoolean" xmi:id="_aSetTrue" value="true"/>
+          </value>
+        </node>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_aE1" source="_aInit" target="_aSet"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callAim" name="aim" behavior="_aim">
+          <argument xmi:type="uml:InputPin" xmi:id="_callAimIn" name="target"/>
+        </node>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_zero" name="zero">
+          <result xmi:type="uml:OutputPin" xmi:id="_zeroOut" name="result" type="_coords"/>
+          <value xmi:type="uml:LiteralString" xmi:id="_zeroVal" value="0"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_zero"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_zero" target="_callAim"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of" source="_zeroOut" target="_callAimIn"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_callAim" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+const unwrittenValueApplications = `
+  <sysml:Block xmi:id="_b1" base_Class="_sky"/>
+  <sysml:ValueType xmi:id="_vt1" base_DataType="_coords"/>`
+
+// A value action whose value is not written produces none, so a call requiring
+// that value stands in for itself, whichever of the two the model lists first.
+func TestUnwrittenValuesAreNotPassedToCalls(t *testing.T) {
+	r := migrateDocument(t, unwrittenValue, unwrittenValueApplications)
+	for _, line := range []string{
+		"action zero {",
+		"/* not migrated: ValueSpecificationAction 'zero' — the value 0 is not written: the literal \"0\" is not a value of Coords, which has no scalar base */",
+		"action aim {",
+		"/* not migrated: CallBehaviorAction 'aim' — the pin 'target' it passes for the parameter target of Sky::Aim, which must hold a value, receives none: 'zero', which feeds it, produces no value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing */",
+		"/* flow zero.result to aim.target not written: 'zero' is not migrated and produces no value */",
+		"first zero then aim;",
+		"first aim then final;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "action aim : Aim;")
+	wantNoLine(t, r.Notation, "flow zero.result to aim.target;")
+	wantNote(t, r, "_zero", migrate.Approximated, "the value 0 is not written: the literal \"0\" is not a value of Coords, which has no scalar base")
+	wantNote(t, r, "_callAim", migrate.Approximated, "the pin 'target' it passes for the parameter target of Sky::Aim, which must hold a value, receives none: 'zero', which feeds it, produces no value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Sky")
+	meta(t, s, "%action Sky::Run #1")
+	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
+		t.Errorf("the run did not complete:\n%s", out)
+	}
+}

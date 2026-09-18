@@ -6,11 +6,26 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
 )
 
-// refusal says why a call node is written as a placeholder that carries the token
-// and performs nothing, and with which verdict; refused is false when the call is
-// written. The writer asks, and so does the pass finding calls that produce no value.
+// refusal says why a node is written as a placeholder that carries the token and
+// performs nothing, and with which verdict; refused is false when the node is
+// written. The writer asks, and so does the pass finding nodes that produce no value.
 func (a *activity) refusal(n *xmi.Element) (why string, v Verdict, refused bool) {
 	switch n.Type {
+	case "ValueSpecificationAction":
+		v := firstOwned(n, "value")
+		if v == nil {
+			return "the action has no value", Unmapped, true
+		}
+		var ok bool
+		var note string
+		if results := n.Owned("result"); len(results) == 0 {
+			_, ok, note = a.m.behaviorValue(v, n)
+		} else {
+			_, ok, note = a.m.typedBehaviorValue(v, results[0], n)
+		}
+		if !ok {
+			return "the value " + describeValue(v) + " is not written: " + note, Approximated, true
+		}
 	case "CallBehaviorAction":
 		b := a.m.model.Ref(n, "behavior")
 		if b == nil {
@@ -68,7 +83,7 @@ func (a *activity) refusal(n *xmi.Element) (why string, v Verdict, refused bool)
 	return "", Mapped, false
 }
 
-// deaden marks the calls written as placeholders, whose result pins carry no
+// deaden marks the nodes written as placeholders, whose result pins carry no
 // value, until no further call turns on a value none of them produces.
 func (a *activity) deaden() {
 	for changed := true; changed; {
