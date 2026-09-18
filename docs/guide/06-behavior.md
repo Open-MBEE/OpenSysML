@@ -327,6 +327,20 @@ is listed under `Waiting on the clock`; an advance with nothing waiting just mov
 `%continue` runs an action to completion on its own, moving the clock to each of its waits as it
 reaches them, and moving with it every other behavior of the same runtime that comes due.
 
+<a id="reading-the-clock"></a>
+**Reading the clock.** A body reads the clock through the standard
+library's own form: every occurrence has a `localClock` (`Occurrences::Occurrence::localClock`,
+the `Clocks::universalClock` unless the model binds another), and the clock's `currentTime` is
+the instant the runtime's clock stands at — so `assign started := localClock.currentTime;`
+stamps a `Real` attribute with the simulation time in seconds, and
+`assign elapsed := localClock.currentTime - started;` measures the time a stretch of the flow
+took. `this.localClock.currentTime` and `part.localClock.currentTime` read the same clock through
+another object; a part holding no object has no clock to read, and the read is empty. The
+attribute is one `-observe`/`%runs` table beside `clock` — the total of a run — so a workflow
+that times one of its stretches reports it per run. The clock is read only: an assignment to
+`currentTime` is refused with `a clock's currentTime advances with the run and is not assigned`,
+since `%advance` and the waits move it.
+
 **What a state's behaviors may do.** A state's `entry`, `do` and `exit` behaviors are actions,
 and their bodies may hold whatever an action body holds: a flow of nodes joined by successions
 (`first start; then …` or, with one node no succession leads to, the flow starts there),
@@ -1137,9 +1151,14 @@ observable is named:
 %runs 100 1 Model::Mission::'Acquire Target'::'Acquire Target - Logical'
 ```
 
-A v1 opaque action that only reads the tool's time variable (`Time_Acq_Total = simtime`) is
-kept as a comment, since `simtime` is a run setting and not a feature of the model; the report
-says so for each.
+A v1 opaque action that reads the tool's time variable (`Time_Acq_Total = simtime`) reads
+[the clock](#reading-the-clock): `assign this.Time_Acq_Total := localClock.currentTime;`, so
+the attribute the workflow times is one `-observe this.Time_Acq_Total` tables per run beside
+`clock`. Names in the body resolve through the swimlane the action sits in (`this.tcs.i` for a
+partition representing the part `tcs`), so a workflow whose actions read its performer's
+features is run through the performer: `-action "'Observatory' 'Acquire Target'"`. A body the
+[opaque-language subset](../reference/sysml-v1-migration.md#the-opaque-language-subset) does
+not read stays a comment, and the report names the token it refused.
 
 ## An object runs the behaviors its type exhibits
 

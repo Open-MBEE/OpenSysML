@@ -1,0 +1,39 @@
+# SysML v1 to v2 migration report: reactor.xmi
+# migrated 33 element(s): 23 mapped, 10 approximated, 0 unmapped (0 skipped as profile or library content)
+
+## approximated (10)
+Parameter	Energy::result	_pr	-> Energy::result	(the return parameter is written as an out parameter)
+OpaqueAction	Reactor::Cycle::alloc	_alloc	-> alloc	(the body is kept as a comment: the construct "new" is outside the translated subset)
+OpaqueAction	Reactor::Cycle::loop	_loop	-> 'loop'	(the body is kept as a comment: the construct "for" is outside the translated subset)
+OpaqueAction	Reactor::Cycle::mixed	_mixed	-> mixed	(the body is kept as a comment: the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset)
+OpaqueAction	Reactor::Cycle::partial	_partial	-> partial	(the body is kept as a comment: the call "label.trim" is not in the translated function table)
+OpaqueAction	Reactor::Cycle::python	_python	-> python	(the Python body is written as v2 assignments)
+OpaqueAction	Reactor::Cycle::self	_self	-> self2	(the body is kept as a comment: the name "this.owner.power" resolves to nothing readable: Reactor has no feature owner)
+OpaqueAction	Reactor::Cycle::stray	_stray	-> stray	(the body is kept as a comment: the name "nowhere" resolves to nothing readable: nothing visible from Reactor::Cycle::stray is called nowhere)
+OpaqueAction	Reactor::Cycle::trim	_trim	-> trim	(the body is kept as a comment: the call "label.trim" is not in the translated function table)
+«SimulationConfig» Class	Run	_config	-> Run	(a plain UML class without «Block» is written as a part def)
+
+## mapped (23)
+FunctionBehavior	Energy	_energy	-> Energy	(the JavaScript body is translated to v2)
+Parameter	Energy::E_0	_pe0	-> Energy::E_0
+Parameter	Energy::P	_pp	-> Energy::P
+Parameter	Energy::dt	_pdt	-> Energy::dt
+Model	Model	_m	(the root model's members are written at the top level)
+«Block» Class	Reactor	_reactor	-> Reactor
+Activity	Reactor::Cycle	_cycle	-> Reactor::Cycle
+ActivityFinalNode	Reactor::Cycle::<ActivityFinalNode>	_final	-> final
+ControlFlow	Reactor::Cycle::<ControlFlow>	_c2
+ControlFlow	Reactor::Cycle::<ControlFlow>	_c3
+ControlFlow	Reactor::Cycle::<ControlFlow>	_c4
+ControlFlow	Reactor::Cycle::<ControlFlow>	_c5
+ControlFlow	Reactor::Cycle::<ControlFlow>	_c6
+ControlFlow	Reactor::Cycle::<ControlFlow>	_c7
+ControlFlow	Reactor::Cycle::<ControlFlow>	_c8
+ControlFlow	Reactor::Cycle::<ControlFlow>	_c9
+ControlFlow	Reactor::Cycle::<ControlFlow>	_c10
+InitialNode	Reactor::Cycle::<InitialNode>	_init	-> start
+OpaqueAction	Reactor::Cycle::mark	_mark	-> mark	(the JavaScript body is translated to v2; the clock variable reads the local clock)
+Property	Reactor::label	_label	-> Reactor::label
+Property	Reactor::limit	_limit	-> Reactor::limit	(the JavaScript body is translated to v2)
+Property	Reactor::power	_power	-> Reactor::power
+Property	Reactor::started	_started	-> Reactor::started

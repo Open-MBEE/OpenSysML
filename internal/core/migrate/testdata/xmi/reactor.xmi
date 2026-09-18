@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:SimulationProfile="http://www.magicdraw.com/schemas/SimulationProfile.xmi">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_config" name="Run"/>
+    <packagedElement xmi:type="uml:FunctionBehavior" xmi:id="_energy" name="Energy">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pe0" name="E_0" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pp" name="P" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pdt" name="dt" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pr" name="result" direction="return"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <language>JavaScript</language>
+      <body>Math.max(E_0 - P * dt, 0)</body>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_reactor" name="Reactor">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_power" name="power"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_power0" value="3.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_limit" name="limit"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_limit0">
+          <language>JavaScript</language>
+          <body>Math.min(power * 2, 5)</body>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_started" name="started"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_started0" value="0.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_label" name="label">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_cycle" name="Cycle">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_mark" name="mark">
+          <language>JavaScript</language>
+          <body>started = t_sim;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_loop" name="loop">
+          <language>JavaScript</language>
+          <body>for (var k = 0; k &lt; 3; k++) { power = power + 1; }</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_alloc" name="alloc">
+          <language>JavaScript</language>
+          <body>power = new Number(4);</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_trim" name="trim">
+          <language>JavaScript</language>
+          <body>label = label.trim();</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_self" name="self">
+          <language>JavaScript</language>
+          <body>power = this.owner.power;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_stray" name="stray">
+          <language>JavaScript</language>
+          <body>power = nowhere + 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_mixed" name="mixed">
+          <language>JavaScript</language>
+          <body>power = label + 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_python" name="python">
+          <language>Python</language>
+          <body>power = power + 1</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_partial" name="partial">
+          <language>JavaScript</language>
+          <body>power = power + 1; label = label.trim();</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c1" source="_init" target="_mark"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c2" source="_mark" target="_loop"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c3" source="_loop" target="_alloc"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c4" source="_alloc" target="_trim"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c5" source="_trim" target="_self"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c6" source="_self" target="_stray"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c7" source="_stray" target="_mixed"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c8" source="_mixed" target="_python"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c9" source="_python" target="_partial"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c10" source="_partial" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_reactor"/>
+  <SimulationProfile:SimulationConfig xmi:id="_s2" base_Class="_config" timeVariableName="t_sim"/>
+</xmi:XMI>

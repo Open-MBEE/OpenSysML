@@ -101,7 +101,7 @@ func (m *migration) newActivity(act, def *xmi.Element) *activity {
 	}
 	for _, owner := range []*xmi.Element{def, act} {
 		for _, c := range owner.Children {
-			if c.Role != "node" && c.Role != "edge" && m.nameOf(c) != "" {
+			if c.Role != "node" && c.Role != "edge" && c.Role != "observation" && m.nameOf(c) != "" {
 				a.used[m.nameOf(c)] = true
 			}
 		}
@@ -473,8 +473,8 @@ func (a *activity) waitFor(e *xmi.Element) (string, bool) {
 		a.m.unmapped(dc, "the duration constraint has no interval")
 		return "", false
 	}
-	lo, lok, lnote := a.m.durationExpr(a.m.model.Ref(spec, "min"), a.act)
-	hi, hok, hnote := a.m.durationExpr(a.m.model.Ref(spec, "max"), a.act)
+	lo, lok, lnote := a.m.durationExpr(a.m.model.Ref(spec, "min"), e)
+	hi, hok, hnote := a.m.durationExpr(a.m.model.Ref(spec, "max"), e)
 	if !lok || !hok {
 		note := lnote
 		if !lok && a.m.model.Ref(spec, "min") == nil {
@@ -1139,7 +1139,15 @@ func (a *activity) callBehavior(n *xmi.Element, name string) {
 		if a.leafStep(n, name) {
 			return
 		}
-		a.placeholder(n, name, joinNotes(a.m.dangling(n, "behavior"), "the action calls no behavior"), Unmapped)
+		note := "the action calls no behavior"
+		if pins := append(inputPins(n), append(n.Owned("result"), n.Owned("outputValue")...)...); len(pins) > 0 {
+			var names []string
+			for _, p := range pins {
+				names = append(names, describe(p))
+			}
+			note += ", yet has the pins " + strings.Join(names, ", ") + ", which nothing then computes"
+		}
+		a.placeholder(n, name, joinNotes(a.m.dangling(n, "behavior"), note), Unmapped)
 		return
 	}
 	if op := a.m.methodOf[b]; op != nil {
@@ -1646,8 +1654,8 @@ func (a *activity) structured(n *xmi.Element, name string) {
 	a.m.add(n, Mapped, name, "")
 }
 
-// partitions writes the activity's partitions as comments naming the nodes
-// each holds, since v2 has no partition.
+// partitions writes the activity's partitions, and the partitions nested in
+// them, as comments naming the nodes each holds, since v2 has no partition.
 func (a *activity) partitions() {
 	for _, g := range a.act.Owned("group") {
 		if g.Type != "ActivityPartition" {
@@ -1658,21 +1666,39 @@ func (a *activity) partitions() {
 			a.m.unmapped(g, "no v2 form for a UML "+g.Type)
 			continue
 		}
-		var held []string
-		for _, n := range a.m.model.Refs(g, "node") {
-			if s, ok := a.names[n]; ok {
-				held = append(held, s)
-			}
+		a.partition(g, "")
+	}
+}
+
+// partition writes one partition, nested in the one named by in when it is.
+func (a *activity) partition(g *xmi.Element, in string) {
+	var held []string
+	for _, n := range a.m.model.Refs(g, "node") {
+		if s, ok := a.names[n]; ok {
+			held = append(held, s)
 		}
-		text := "partition " + describe(g)
-		if r := a.m.model.Ref(g, "represents"); r != nil {
-			text += " represents " + qualifiedName(r)
+	}
+	for _, n := range a.nodes {
+		if _, ok := a.names[n]; ok && !slices.Contains(a.m.model.Refs(g, "node"), n) && slices.Contains(a.m.model.Refs(n, "inPartition"), g) {
+			held = append(held, a.names[n])
 		}
-		if len(held) > 0 {
-			text += ": " + strings.Join(held, ", ")
+	}
+	text := "partition " + describe(g)
+	if in != "" {
+		text += " in " + in
+	}
+	if r := a.m.model.Ref(g, "represents"); r != nil {
+		text += " represents " + qualifiedName(r)
+	}
+	if len(held) > 0 {
+		text += ": " + strings.Join(held, ", ")
+	}
+	a.m.w.lines(commentLines(text))
+	a.partitionEntry(g)
+	for _, sub := range g.Owned("subpartition") {
+		if sub.Type == "ActivityPartition" {
+			a.partition(sub, describe(g))
 		}
-		a.m.w.lines(commentLines(text))
-		a.partitionEntry(g)
 	}
 }
 

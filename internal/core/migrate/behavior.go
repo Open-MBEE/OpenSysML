@@ -295,23 +295,33 @@ func (m *migration) behaviorExpr(text, lang string, scope *xmi.Element) (expr st
 // behaviorExprAs is behaviorExpr wanting a scalar ("" for any): a body in a
 // language the translator reads is translated first, then read as v2 syntax.
 func (m *migration) behaviorExprAs(text, lang string, scope *xmi.Element, want string) (expr string, ok bool, note string) {
+	expr, ok, note, _ = m.behaviorExprHow(text, lang, scope, want)
+	return expr, ok, note
+}
+
+// behaviorExprHow is behaviorExprAs also reporting whether the translator
+// wrote the expression, rather than the body being v2 syntax already.
+func (m *migration) behaviorExprHow(text, lang string, scope *xmi.Element, want string) (expr string, ok bool, note string, translated bool) {
 	text = strings.TrimSpace(text)
 	if text == "" {
-		return "", false, "the expression has no body"
+		return "", false, "the expression has no body", false
 	}
 	var refused *refusal
 	if dialectOf(lang) != dialectNone {
 		expr, note, refused = m.translatedExpr(text, lang, scope, want)
 		if refused == nil {
 			m.noted(scope, note)
-			return expr, true, ""
+			return expr, true, "", true
+		}
+		if refused.final(lang) {
+			return "", false, refused.note(), false
 		}
 	}
 	expr, ok, note = m.v2Expr(text, lang, scope)
 	if !ok {
-		return "", false, refusedNote(refused, note, lang)
+		return "", false, refusedNote(refused, note, lang), false
 	}
-	return expr, true, note
+	return expr, true, note, false
 }
 
 // v2Expr writes text, already v2 expression syntax, read inside scope, or
@@ -322,7 +332,7 @@ func (m *migration) v2Expr(text, lang string, scope *xmi.Element) (expr string, 
 		return "", false, "not v2 expression syntax" + langNote(lang)
 	}
 	if missing := m.invisible(refs, scope); missing != "" {
-		return "", false, "names " + missing + langNote(lang)
+		return "", false, missing + langNote(lang)
 	}
 	return m.qualifySelf(text, refs, scope), true, ""
 }
@@ -410,6 +420,9 @@ func (m *migration) statements(body, lang string, scope *xmi.Element) (lines []s
 		if refused == nil {
 			m.noted(scope, note)
 			return lines, true, ""
+		}
+		if refused.final(lang) {
+			return nil, false, refused.note()
 		}
 	}
 	lines, ok, note = m.v2Statements(body, lang, scope)
@@ -549,7 +562,11 @@ func (m *migration) durationExpr(v, scope *xmi.Element) (expr string, ok bool, n
 		if s, ok := parseDuration(v.Attrs["value"]); ok {
 			return s, true, ""
 		}
-		return "", false, "the duration " + strconv.Quote(v.Attrs["value"]) + " is not a number with a time unit"
+		expr, ok, note := m.symbolicDuration(v.Attrs["value"], "", scope)
+		if !ok {
+			return "", false, "the duration " + strconv.Quote(v.Attrs["value"]) + " is neither a number with a time unit nor an expression: " + note
+		}
+		return expr, true, note
 	case "LiteralInteger", "LiteralReal", "LiteralUnlimitedNatural":
 		expr, ok, note := m.valueExpr(v, scope)
 		if !ok {
@@ -564,11 +581,11 @@ func (m *migration) durationExpr(v, scope *xmi.Element) (expr string, ok bool, n
 		if s, ok := parseDuration(body); ok {
 			return s, true, ""
 		}
-		expr, ok, note := m.behaviorExpr(body, lang, scope)
+		expr, ok, note := m.symbolicDuration(body, lang, scope)
 		if !ok {
 			return "", false, "the duration " + strconv.Quote(body) + " is neither a number with a time unit nor an expression: " + note
 		}
-		return expr, true, "the duration expression " + body + " is taken as seconds"
+		return expr, true, note
 	}
 	return "", false, "a UML " + v.Type + " has no v2 duration form"
 }
@@ -576,24 +593,30 @@ func (m *migration) durationExpr(v, scope *xmi.Element) (expr string, ok bool, n
 // calcExpr returns the result expression of an opaque or function behavior,
 // when its one body is a v2 expression whose names resolve from the behavior.
 func (m *migration) calcExpr(e *xmi.Element) (expr string, ok bool, note string) {
+	expr, ok, note, _ = m.calcExprHow(e)
+	return expr, ok, note
+}
+
+// calcExprHow is calcExpr also reporting whether the translator wrote the expression.
+func (m *migration) calcExprHow(e *xmi.Element) (expr string, ok bool, note string, translated bool) {
 	bodies := e.Owned("body")
 	if len(bodies) > 1 {
-		return "", false, "the behavior has " + strconv.Itoa(len(bodies)) + " bodies; only one can be the result expression"
+		return "", false, "the behavior has " + strconv.Itoa(len(bodies)) + " bodies; only one can be the result expression", false
 	}
 	body, lang := opaqueBody(e)
 	if body == "" {
-		return "", false, "the behavior has no body"
+		return "", false, "the behavior has no body", false
 	}
-	return m.behaviorExpr(body, lang, e)
+	return m.behaviorExprHow(body, lang, e, "")
 }
 
 // calcBody writes an opaque or function behavior's parameters and result expression.
 func (m *migration) calcBody(e *xmi.Element) {
 	m.parameters(e, e)
-	expr, _, _ := m.calcExpr(e)
+	expr, _, _, translated := m.calcExprHow(e)
 	_, lang := opaqueBody(e)
 	m.w.line(expr)
-	if lang != "" {
+	if lang != "" && !translated {
 		m.downgrade(e, "the "+lang+" body is written verbatim as the result expression, since it is also v2 expression syntax")
 	}
 }
@@ -612,7 +635,9 @@ func (m *migration) opaqueBehaviorBody(e, scope *xmi.Element) {
 	m.w.line("first start then " + writeName(name) + ";")
 	m.w.block("action "+writeName(name), func() { m.w.lines(lines) })
 	m.w.line("first " + writeName(name) + " then done;")
-	m.downgrade(e, "the "+langName(lang)+" body is written as v2 assignments")
+	if note != "" {
+		m.downgrade(e, note)
+	}
 }
 
 // opaqueComment keeps an opaque body the mapping cannot write as a comment.

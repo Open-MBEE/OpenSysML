@@ -203,6 +203,32 @@ func (m *migration) translatedStatements(body, lang string, scope *xmi.Element) 
 	return lines, s.note(lang), nil
 }
 
+// symbolicDuration reads a duration written as an expression, optionally
+// followed by a time unit (`ditSetup s`, `t * 2 min`), as seconds read at scope.
+func (m *migration) symbolicDuration(text, lang string, scope *xmi.Element) (expr string, ok bool, note string) {
+	body := strings.TrimSpace(durationVariable.ReplaceAllString(strings.TrimSpace(text), ""))
+	scale := 1.0
+	if i := strings.LastIndexAny(body, " \t"); i >= 0 {
+		if s, known := durationUnits[strings.ToLower(body[i+1:])]; known {
+			body, scale = strings.TrimSpace(body[:i]), s
+		}
+	}
+	if body == "" {
+		return "", false, "the duration has no expression"
+	}
+	expr, ok, note = m.behaviorExprAs(body, lang, scope, "Real")
+	if !ok {
+		return "", false, note
+	}
+	if scale != 1 {
+		if strings.ContainsAny(expr, " (") {
+			expr = "(" + expr + ")"
+		}
+		expr += " * " + realLiteral(scale)
+	}
+	return expr, true, "the duration " + strconv.Quote(strings.TrimSpace(text)) + " is read as the expression " + expr + ", in seconds"
+}
+
 // parseStatement reports whether line parses, without diagnostics, as one
 // member of an action body.
 func parseStatement(line string) bool {

@@ -455,6 +455,8 @@ func (m *migration) classify(e *xmi.Element) (category, string) {
 		return catUnmapped, "use cases are not migrated yet"
 	case "Collaboration", "Node", "Device", "ExecutionEnvironment", "Artifact":
 		return catUnmapped, "no v2 form for a UML " + e.Type
+	case "DurationObservation", "TimeObservation":
+		return catUnmapped, m.strayObservation(e)
 	}
 	return catUnmapped, "no v2 form for a UML " + e.Type
 }

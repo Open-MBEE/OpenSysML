@@ -59,6 +59,17 @@ func (r *refusal) note() string {
 	return text
 }
 
+// final reports whether the refusal settles the body: a body in a language the
+// translator reads, which it read but found wrong (a name, type, call or
+// construct), is not then read as v2 because the syntaxes overlap. A body it
+// could not read at all, or in no declared language, may still be v2 syntax.
+func (r *refusal) final(lang string) bool {
+	if strings.TrimSpace(lang) == "" {
+		return false
+	}
+	return r.kind != refusedLanguage && r.kind != refusedSyntax
+}
+
 // opaqueRef is what a scope answers for a name: the v2 expression reading it
 // and the scalar it holds ("" when unknown or not a scalar), plural for a collection.
 type opaqueRef struct {

@@ -111,8 +111,8 @@ func (a *activity) stampAt(n *xmi.Element, end bool, line string) {
 // timingAttributes declares the attributes the timings read the clock into.
 func (a *activity) timingAttributes() {
 	for _, t := range a.timed {
-		a.m.w.line("attribute " + writeName(t.start) + " : Real default = 0.0;")
-		a.m.w.line("attribute " + writeName(t.name) + " : Real default = 0.0;")
+		a.m.w.line("attribute " + writeName(t.start) + " : ScalarValues::Real default = 0.0;")
+		a.m.w.line("attribute " + writeName(t.name) + " : ScalarValues::Real default = 0.0;")
 		note := "the elapsed clock from the " + endName(t.fromEnd) + " of " + describe(t.from) + " to the " + endName(t.toEnd) + " of " + describe(t.to) + " is assigned to the attribute " + t.name + ", in seconds"
 		a.m.add(t.o, Mapped, a.m.v2Name(a.def)+"."+t.name, note)
 	}
@@ -123,6 +123,16 @@ func endName(end bool) string {
 		return "end"
 	}
 	return "start"
+}
+
+// strayObservation says why an observation owned outside any activity has no v2
+// form: no nodes of an activity bound it, so there is no clock to read between.
+func (m *migration) strayObservation(o *xmi.Element) string {
+	note := "the observation is owned by " + qualifiedName(o.Parent) + ", not an activity, so no nodes bound what it measures"
+	if by := m.observers(o); len(by) > 0 {
+		note += "; the duration " + strings.Join(by, ", ") + " that refers to it is written from its own value"
+	}
+	return note
 }
 
 // observers names the durations that refer to observation o, which the
