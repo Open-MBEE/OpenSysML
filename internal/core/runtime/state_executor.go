@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"maps"
 	"math"
@@ -135,6 +136,8 @@ type StateExecutor struct {
 	enteredAhead map[*ast.StateNode]bool
 	// moving marks a compound transition under way that a refused witness may undo.
 	moving *moveMark
+	// performing is the firing whose units a dispatch interleaves with its siblings'.
+	performing *firing
 
 	// changeRearmed collects, while a poll runs, the watches a state entry armed
 	// for a new activation, so the poll's earlier observation does not latch them.
@@ -811,7 +814,7 @@ func (e *StateExecutor) noteFired(transitions ...*lower.Transition) {
 // unfireOnError drops the transitions logged since mark when *err is set: a
 // firing that failed midway took none of them.
 func (e *StateExecutor) unfireOnError(mark int, err *error) {
-	if *err != nil {
+	if *err != nil && !errors.Is(*err, errFiringAbandoned) {
 		e.fired = e.fired[:mark]
 	}
 }
@@ -1040,6 +1043,9 @@ func (e *StateExecutor) dispatchInOrder(
 	candidates []dispatchCandidate,
 	fire func(dispatchCandidate, *lower.Transition, []RunNote) (bool, error),
 ) (bool, error) {
+	if len(candidates) > 1 && !e.firesWhole() {
+		return e.dispatchByUnit(where, candidates, fire)
+	}
 	pending := slices.Clone(candidates)
 	acted := false
 	for len(pending) > 0 {
@@ -1833,12 +1839,16 @@ func (e *StateExecutor) fireTransition(trans *lower.Transition, r route) (fired 
 	if ps, ok := trans.Target.(*ast.PseudostateNode); ok && isSynchronizationTarget(ps) {
 		switch ps.Kind {
 		case ast.PseudostateFork:
-			e.transitionDecided(r)
-			return true, e.fireForkTransition(trans, ps)
+			return true, e.performWhole(trans, func() error {
+				e.transitionDecided(r)
+				return e.fireForkTransition(trans, ps)
+			})
 		case ast.PseudostateJoin:
 			return e.fireJoinTransition(trans, ps, r)
 		default:
-			return true, e.fireHistoryTransition(trans, ps, e.transitionDecided(r))
+			return true, e.performWhole(trans, func() error {
+				return e.fireHistoryTransition(trans, ps, e.transitionDecided(r))
+			})
 		}
 	}
 	if !r.settled() {
@@ -2668,13 +2678,15 @@ func (e *StateExecutor) fireJoinTransition(trans *lower.Transition, join *ast.Ps
 	// Every incoming segment fires, then the move goes on from the state whose
 	// regions they left so the usual hierarchy walk exits it as well.
 	r.segments = r.segments[1:]
-	return true, e.moveWhole(func() error {
-		// Decided inside the move: a refused draw undoes the selection's records too.
-		r = e.transitionDecided(r)
-		if err := e.fireJoinIncoming(join, plan); err != nil {
-			return err
-		}
-		return e.leaveJoinOwner(plan.Owner, trans, r)
+	return true, e.performWhole(trans, func() error {
+		return e.moveWhole(func() error {
+			// Decided inside the move: a refused draw undoes the selection's records too.
+			r = e.transitionDecided(r)
+			if err := e.fireJoinIncoming(join, plan); err != nil {
+				return err
+			}
+			return e.leaveJoinOwner(plan.Owner, trans, r)
+		})
 	})
 }
 
@@ -4277,6 +4289,9 @@ func (e *StateExecutor) activateState(state *ast.StateNode) error {
 
 // performEntry records the entry of state and performs its entry behaviors.
 func (e *StateExecutor) performEntry(state *ast.StateNode) error {
+	if err := e.unitEnter(state); err != nil {
+		return err
+	}
 	// Change watches are created fresh per activation, so a condition that stayed
 	// true rises again; the firing transition keeps its latch so the entry it
 	// caused does not re-enable it.
@@ -4362,6 +4377,9 @@ func (e *StateExecutor) exitOwn(state *ast.StateNode) error {
 	}
 	if e.exitingAhead {
 		e.leftAhead[state] = true
+	}
+	if err := e.unitExit(state); err != nil {
+		return err
 	}
 
 	// Leaving the state abandons whatever is left of its do behavior, before the

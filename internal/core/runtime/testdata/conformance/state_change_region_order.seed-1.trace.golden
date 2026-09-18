@@ -12,10 +12,12 @@ eval operator > -> true
   eval feature temp -> 30
   eval literal 20 -> 20
 eval operator > -> true
-choice on change: states a1, b1 react (unordered; took a1 first)
+choice on change: next exit a1, exit b1 (unordered; took exit a1 first)
 exit: a1
+choice on change: next a1 -> a2(effect), exit b1 (unordered; took a1 -> a2(effect) first)
 stmt assign last
   eval literal 1 -> 1
+choice on change: next enter a2, exit b1 (unordered; took enter a2 first)
 enter: a2
 transition: a1 -> a2 (event: change)
 exit: b1

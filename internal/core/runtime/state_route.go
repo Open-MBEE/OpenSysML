@@ -69,6 +69,7 @@ func (r route) settled() bool {
 type routeEffect struct {
 	behavior lower.StateBehavior
 	within   *ast.StateNode
+	segment  *lower.Transition
 }
 
 // effects are the behaviors the route's segments perform, in path order, each
@@ -81,7 +82,7 @@ func (r route) effects(g *lower.StateGraph) []routeEffect {
 			within = g.PseudostateOwner[ps]
 		}
 		for _, behavior := range seg.Effect {
-			effects = append(effects, routeEffect{behavior: behavior, within: within})
+			effects = append(effects, routeEffect{behavior: behavior, within: within, segment: seg})
 		}
 	}
 	return effects
@@ -508,9 +509,16 @@ func certainStates(lists [][]*ast.StateNode) []*ast.StateNode {
 // runEffects performs a compound transition's effects in path order, activating the
 // chain down to the state enclosing each first: a segment is a performance of its owner.
 func (e *StateExecutor) runEffects(effects []routeEffect, chain []*ast.StateNode) error {
+	var announced *lower.Transition
 	for _, effect := range effects {
 		if upto := e.enclosingIndex(chain, effect.within); upto >= 0 {
 			if err := e.enterAhead(chain[:upto+1]); err != nil {
+				return err
+			}
+		}
+		if effect.segment != announced {
+			announced = effect.segment
+			if err := e.unitEffect(effect.segment); err != nil {
 				return err
 			}
 		}

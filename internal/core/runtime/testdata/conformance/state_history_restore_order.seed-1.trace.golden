@@ -1,5 +1,6 @@
-choice on accept Go: states l0, r0 react (unordered; took l0 first)
+choice on accept Go: next exit l0, exit r0 (unordered; took exit l0 first)
 exit: l0
+choice on accept Go: next enter l1, exit r0 (unordered; took enter l1 first)
 enter: l1 (entry action)
 stmt assign log
     eval feature log -> ""

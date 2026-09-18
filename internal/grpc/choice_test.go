@@ -255,9 +255,11 @@ package Test {
 }
 
 // One event enabling a transition in each of two orthogonal regions is a
-// region-order choice on the state response under the default policy, and
-// a seed takes the other order; a seed also reports the order the regions were
-// entered in, which the default keeps in declaration order without a choice.
+// region-order choice on the state response: the default policy draws the
+// firings whole, a seed draws them a unit at a time (exit, effect, entry), so
+// one firing's units can fall among the other's. A seed also reports the order
+// the regions were entered in, which the default keeps in declaration order
+// without a choice.
 func TestExecuteState_RegionOrderChoiceDiagnostics(t *testing.T) {
 	srv := mustNewService(t, 10)
 
@@ -308,12 +310,18 @@ package Test {
 		}
 	}
 	execute("", "work,a1,b1,a2,b2", "choice point: on accept Go: states a1, b1 react (unordered; took a1 first)")
-	execute("seed:8", "work,a1,b1,b2,a2",
+	execute("seed:7", "work,a1,b1,b2,a2",
 		"choice point: entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first)",
-		"choice point: on accept Go: states a1, b1 react (unordered; took b1 first)")
+		"choice point: on accept Go: next exit a1, exit b1 (unordered; took exit a1 first)",
+		"choice point: on accept Go: next a1 -> a2(effect), exit b1 (unordered; took exit b1 first)",
+		"choice point: on accept Go: next a1 -> a2(effect), b1 -> b2(effect) (unordered; took b1 -> b2(effect) first)",
+		"choice point: on accept Go: next a1 -> a2(effect), enter b2 (unordered; took a1 -> a2(effect) first)",
+		"choice point: on accept Go: next enter a2, enter b2 (unordered; took enter b2 first)")
 	execute("seed:1", "work,b1,a1,a2,b2",
 		"choice point: entering work: next a1(entry), b1(entry) (unordered; took b1(entry) first)",
-		"choice point: on accept Go: states a1, b1 react (unordered; took a1 first)")
+		"choice point: on accept Go: next exit a1, exit b1 (unordered; took exit a1 first)",
+		"choice point: on accept Go: next a1 -> a2(effect), exit b1 (unordered; took a1 -> a2(effect) first)",
+		"choice point: on accept Go: next enter a2, exit b1 (unordered; took enter a2 first)")
 }
 
 // A guard the run read only to report a choice and could not evaluate is an

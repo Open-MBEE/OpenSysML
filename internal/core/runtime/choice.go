@@ -26,7 +26,8 @@ const (
 	// one event.
 	ChoiceTransition
 	// ChoiceRegionOrder: one event enabled transitions in several regions, which
-	// fired in an order the library does not fix.
+	// fired in an order the library does not fix: drawn among the states whole, or
+	// among the firings' next units (an exit, an effect, an entry) one unit at a time.
 	ChoiceRegionOrder
 	// ChoiceDueOrder: several executors had work due at one instant of the
 	// shared clock, and one of them ran first.
@@ -171,6 +172,9 @@ func (c ChoicePoint) Describe() string {
 	case ChoiceTransition:
 		return fmt.Sprintf("%s: transitions %s (unordered; took %s)", c.Where, alts, taken)
 	case ChoiceRegionOrder:
+		if firingUnits(c.Alternatives) {
+			return fmt.Sprintf("%s: next %s (unordered; took %s first)", c.Where, alts, taken)
+		}
 		return fmt.Sprintf("%s: states %s react (unordered; took %s first)", c.Where, alts, taken)
 	case ChoiceDueOrder:
 		return fmt.Sprintf("at %s: due %s (unordered; ran %s first)", c.Where, alts, taken)

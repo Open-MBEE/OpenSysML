@@ -1,0 +1,31 @@
+choice on accept Go: next exit a1, exit b1 (unordered; took exit a1 first)
+exit: a1 (exit action)
+stmt assign log
+    eval feature log -> ""
+    eval literal "a1(exit) " -> "a1(exit) "
+  eval operator + -> "a1(exit) "
+choice on accept Go: next a1 -> a2(effect), exit b1 (unordered; took a1 -> a2(effect) first)
+stmt assign log
+    eval feature log -> "a1(exit) "
+    eval literal "a(effect) " -> "a(effect) "
+  eval operator + -> "a1(exit) a(effect) "
+choice on accept Go: next enter a2, exit b1 (unordered; took enter a2 first)
+enter: a2
+transition: a1 -> a2 (event: accept Go)
+exit: b1 (exit action)
+stmt assign log
+    eval feature log -> "a1(exit) a(effect) "
+    eval literal "b1(exit) " -> "b1(exit) "
+  eval operator + -> "a1(exit) a(effect) b1(exit) "
+stmt assign log
+    eval feature log -> "a1(exit) a(effect) b1(exit) "
+    eval literal "b(effect) " -> "b(effect) "
+  eval operator + -> "a1(exit) a(effect) b1(exit) b(effect) "
+enter: b2
+transition: b1 -> b2 (event: accept Go)
+choice join sync: states a2, b2 react (unordered; took a2 first)
+exit: a2
+exit: b2
+exit: work
+enter: done
+transition: work -> done

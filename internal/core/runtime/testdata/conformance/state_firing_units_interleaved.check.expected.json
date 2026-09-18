@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"log": ["\"a1(exit) a(effect) b1(exit) b(effect) \"", "\"a1(exit) b1(exit) a(effect) b(effect) \"", "\"a1(exit) b1(exit) b(effect) a(effect) \"", "\"b1(exit) a1(exit) a(effect) b(effect) \"", "\"b1(exit) a1(exit) b(effect) a(effect) \"", "\"b1(exit) b(effect) a1(exit) a(effect) \""]},
+	"agreed": {"finalState": "done"}
+}

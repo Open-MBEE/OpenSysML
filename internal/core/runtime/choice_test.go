@@ -994,7 +994,9 @@ func TestRegionOrderChoiceNamesTheOccurrenceNotTheTakenTrigger(t *testing.T) {
 			}
 		}
 	}`
-	under := func(spelling string) ChoicePoint {
+	// under returns the first region-order draw of the dispatch: among the states
+	// whole under a fixed policy, among the firings' first units under a seed.
+	under := func(spelling, alternatives string) ChoicePoint {
 		t.Helper()
 		idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
 		sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
@@ -1013,28 +1015,28 @@ func TestRegionOrderChoiceNamesTheOccurrenceNotTheTakenTrigger(t *testing.T) {
 		}
 		var got []ChoicePoint
 		for _, note := range ctx.Notes() {
-			if choice, ok := note.(ChoicePoint); ok && choice.Kind != ChoiceEntryOrder {
+			if choice, ok := note.(ChoicePoint); ok && choice.Kind == ChoiceRegionOrder {
 				got = append(got, choice)
 			}
 		}
-		if len(got) != 1 {
-			t.Fatalf("%s: choices %v, want the region-order choice alone beside the entry order", spelling, got)
+		if len(got) == 0 {
+			t.Fatalf("%s: no region-order choice among %v", spelling, ctx.Notes())
 		}
-		choice := got[0]
-		if choice.Kind != ChoiceRegionOrder || strings.Join(choice.Alternatives, ", ") != "a1, b1" {
-			t.Fatalf("%s: note %v, want a region-order choice among a1, b1", spelling, got[0])
+		for _, choice := range got {
+			if choice.Where != "on accept Go" {
+				t.Fatalf("%s: choice %s, want it named \"on accept Go\" whichever region it took first", spelling, choice.String())
+			}
 		}
-		return choice
+		if got := strings.Join(got[0].Alternatives, ", "); got != alternatives {
+			t.Fatalf("%s: first draw among %q, want %q", spelling, got, alternatives)
+		}
+		return got[0]
 	}
-	const want = "on accept Go"
-	if choice := under("reverse"); choice.Taken != 0 || choice.Where != want {
-		t.Fatalf("reverse: %s, want a1 first %q", choice.String(), want)
+	if choice := under("reverse", "a1, b1"); choice.Taken != 0 {
+		t.Fatalf("reverse: %s, want a1 first", choice.String())
 	}
 	for seed := 1; seed <= 32; seed++ {
-		choice := under(fmt.Sprintf("seed:%d", seed))
-		if choice.Where != want {
-			t.Fatalf("seed:%d: choice %s, want it named %q whichever region it took first", seed, choice.String(), want)
-		}
+		choice := under(fmt.Sprintf("seed:%d", seed), "exit a1, exit b1")
 		if choice.Taken == 1 {
 			return
 		}

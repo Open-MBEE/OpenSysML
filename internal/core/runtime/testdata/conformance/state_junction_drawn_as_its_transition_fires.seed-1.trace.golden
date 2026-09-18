@@ -1,8 +1,10 @@
 eval feature armed -> true
-choice on accept Go: states a1, b1 react (unordered; took a1 first)
+choice on accept Go: next exit a1, exit b1 (unordered; took exit a1 first)
 exit: a1
+choice on accept Go: next a1 -> a2(effect), exit b1 (unordered; took a1 -> a2(effect) first)
 stmt assign armed
   eval literal false -> false
+choice on accept Go: next enter a2, exit b1 (unordered; took enter a2 first)
 enter: a2
 transition: a1 -> a2 (event: accept Go)
 eval feature armed -> false

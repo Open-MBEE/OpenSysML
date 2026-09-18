@@ -12,7 +12,7 @@ eval operator > -> true
   eval feature level -> 3
   eval literal 2 -> 2
 eval operator > -> true
-choice on change: states a1, b1 react (unordered; took a1 first)
+choice on change: next exit a1, exit b1 (unordered; took exit a1 first)
 choice join sync: states a1, b1 react (unordered; took a1 first)
 exit: a1
 stmt assign log

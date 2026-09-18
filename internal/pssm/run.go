@@ -32,10 +32,10 @@ const MaxSteps = 100000
 
 // DefaultBudget is the exploration budget a translated test is run under; a
 // test that exhausts it fails, since its reachable traces are then unknown. The
-// runs are the runtime's default fourfold: a test entering and leaving orthogonal
-// states nested two deep, its regions each firing, has over a thousand
-// linearizations of the orders the runtime draws.
-var DefaultBudget = runtime.ExploreBudget{Runs: 4 * runtime.DefaultExploreBudget.Runs, Depth: runtime.DefaultExploreBudget.Depth}
+// runs are the runtime's default 512-fold: a test entering and leaving orthogonal
+// states nested two deep, three regions firing on one event, has over three
+// hundred thousand linearizations of the orders the runtime draws.
+var DefaultBudget = runtime.ExploreBudget{Runs: 512 * runtime.DefaultExploreBudget.Runs, Depth: runtime.DefaultExploreBudget.Depth}
 
 // Execution is what running a translated model under the exploring scheduler
 // found, compared against the traces the suite admits.

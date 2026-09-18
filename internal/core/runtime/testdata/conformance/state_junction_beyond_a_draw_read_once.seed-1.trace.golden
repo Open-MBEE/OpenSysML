@@ -8,10 +8,12 @@ eval operator > -> true
   eval operator / -> 2.0
   eval literal 1 -> 1
 eval operator > -> true
-choice on accept Go: states a1, b1 react (unordered; took a1 first)
+choice on accept Go: next exit a1, exit b1 (unordered; took exit a1 first)
 exit: a1
+choice on accept Go: next a1 -> a2(effect), exit b1 (unordered; took a1 -> a2(effect) first)
 stmt assign d
   eval literal 0 -> 0
+choice on accept Go: next enter a2, exit b1 (unordered; took enter a2 first)
 enter: a2
 transition: a1 -> a2 (event: accept Go)
 choice junction split: transitions 1->again, 2->again (unordered; took 1->again)

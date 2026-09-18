@@ -62,7 +62,7 @@ Record pre-existing untracked files before testing and do not remove them.
 ## Run
 
 ```sh
-go run ./cmd/pssm-referee                 # < 1 s wall for the whole suite
+go run ./cmd/pssm-referee                 # about a minute wall for the whole suite (-jobs 8: 20 s), Event 016 B most of it
 go run ./cmd/pssm-referee -check          # exit 0 iff the bucket counts match the baseline
 go run ./cmd/pssm-referee -json           # the full report, byte-stable
 go run ./cmd/pssm-referee -filter "Deferred 006"

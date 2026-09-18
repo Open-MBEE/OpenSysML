@@ -75,8 +75,14 @@ func TestOrderChoicesDescribeAndRoundTrip(t *testing.T) {
 			"exiting top: next inner(exit), right(exit) (unordered; took inner(exit) first)",
 			"exiting top: inner(exit) first of inner(exit), right(exit)"},
 		{ChoicePoint{Kind: ChoiceRegionOrder, Where: "on accept Continue", Alternatives: []string{"exit left", "exit right"}},
-			"on accept Continue: states exit left, exit right react (unordered; took exit left first)",
+			"on accept Continue: next exit left, exit right (unordered; took exit left first)",
 			"on accept Continue: exit left first of exit left, exit right"},
+		{ChoicePoint{Kind: ChoiceRegionOrder, Where: "on accept Continue", Alternatives: []string{"T1.2(effect)", "enter right"}, Taken: 1},
+			"on accept Continue: next T1.2(effect), enter right (unordered; took enter right first)",
+			"on accept Continue: enter right first of T1.2(effect), enter right"},
+		{ChoicePoint{Kind: ChoiceRegionOrder, Where: "on accept Continue", Alternatives: []string{"left", "right"}},
+			"on accept Continue: states left, right react (unordered; took left first)",
+			"on accept Continue: left first of left, right"},
 		{ChoicePoint{Kind: ChoiceStepOrder, Where: "t=0.0", Alternatives: []string{"do top", "dispatch AnotherSignal"}},
 			"at t=0.0: next do top, dispatch AnotherSignal (unordered; ran do top first)",
 			"t=0.0: do top first of do top, dispatch AnotherSignal"},
@@ -443,14 +449,14 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 		sym := m.state(t, "Machine")
 		run := stateRun(sym, "go")
 		x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
-		if err != nil || !x.Complete() || x.Runs != 4 {
+		if err != nil || !x.Complete() || x.Runs != 40 {
 			t.Fatalf("explore: %v, %v", x, err)
 		}
 		assertWitnessesReplay(t, x, m.fresh, run)
 	})
-	// A dispatch draws every region's transition before the order they fire in, and
-	// notes each with its firing; the witness lists the draws, the run the firings,
-	// both after the entry order drawn as the regions were entered.
+	// A dispatch draws every region's transition before the order their units run
+	// in, and notes each with its firing; the witness lists the draws, the run the
+	// firings, both after the entry order drawn as the regions were entered.
 	t.Run("regions with a conflict", func(t *testing.T) {
 		m := parseExploreModel(t, `package test {
 			private import ScalarValues::*;
@@ -468,12 +474,12 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 		sym := m.state(t, "Machine")
 		run := stateRun(sym, "go")
 		x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
-		if err != nil || !x.Complete() || x.Runs != 8 {
+		if err != nil || !x.Complete() || x.Runs != 80 {
 			t.Fatalf("explore: %v, %v", x, err)
 		}
 		for _, o := range x.Outcomes {
-			if kinds := choiceKinds(o.Witness); !reflect.DeepEqual(kinds, []ChoiceKind{ChoiceEntryOrder, ChoiceTransition, ChoiceRegionOrder}) {
-				t.Fatalf("witness %s draws %v, want the entry order, the transition, then the region order", FormatChoices(o.Witness), kinds)
+			if kinds := choiceKinds(o.Witness); len(kinds) < 3 || kinds[0] != ChoiceEntryOrder || kinds[1] != ChoiceTransition || slices.Contains(kinds[2:], ChoiceTransition) || slices.Contains(kinds[2:], ChoiceEntryOrder) {
+				t.Fatalf("witness %s draws %v, want the entry order, the transition, then the region order unit by unit", FormatChoices(o.Witness), kinds)
 			}
 			outcome, choices, err := replayed(t, m.fresh, run, o.Witness)
 			if err != nil {
@@ -483,8 +489,8 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 			if outcome.String() != o.Outcome.String() {
 				t.Errorf("replaying %s reached %s, want %s", FormatChoices(o.Witness), outcome, o.Outcome)
 			}
-			if kinds := choiceKinds(choices); !reflect.DeepEqual(kinds, []ChoiceKind{ChoiceEntryOrder, ChoiceRegionOrder, ChoiceTransition}) {
-				t.Errorf("replaying %s noted %v, want the entry order, the region order, then the transition", FormatChoices(o.Witness), kinds)
+			if kinds := choiceKinds(choices); len(kinds) < 3 || kinds[0] != ChoiceEntryOrder || kinds[1] != ChoiceRegionOrder || slices.Index(kinds, ChoiceTransition) < 2 {
+				t.Errorf("replaying %s noted %v, want the entry order, then the region order's first draw before the transition", FormatChoices(o.Witness), kinds)
 			}
 			got, want := strings.Split(FormatChoices(choices), "; "), strings.Split(FormatChoices(o.Witness), "; ")
 			slices.Sort(got)

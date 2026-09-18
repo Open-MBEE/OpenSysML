@@ -1,0 +1,32 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Go"}],
+	"outcomes": [
+		{
+			"finalState": "done",
+			"outputs": {"log": {"type": "String", "value": "a1(exit) a(effect) b1(exit) b(effect) "}}
+		},
+		{
+			"finalState": "done",
+			"outputs": {"log": {"type": "String", "value": "a1(exit) b1(exit) a(effect) b(effect) "}}
+		},
+		{
+			"finalState": "done",
+			"outputs": {"log": {"type": "String", "value": "a1(exit) b1(exit) b(effect) a(effect) "}}
+		},
+		{
+			"finalState": "done",
+			"outputs": {"log": {"type": "String", "value": "b1(exit) a1(exit) a(effect) b(effect) "}}
+		},
+		{
+			"finalState": "done",
+			"outputs": {"log": {"type": "String", "value": "b1(exit) a1(exit) b(effect) a(effect) "}}
+		},
+		{
+			"finalState": "done",
+			"outputs": {"log": {"type": "String", "value": "b1(exit) b(effect) a1(exit) a(effect) "}}
+		}
+	],
+	"admissible": "Transitions in sibling regions enabled by one event: each fires, in which order is open"
+}

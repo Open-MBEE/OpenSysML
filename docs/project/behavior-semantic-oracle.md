@@ -933,7 +933,8 @@ each pinning the declaration-order linearization.
 
 ### Transitions in sibling regions enabled by one event: each fires, in which order is open
 
-Fixture: `state_explore_region_order` (golden, explored).
+Fixtures: `state_explore_region_order` (golden, explored), `state_firing_units_interleaved`
+(golden, explored).
 
 ```
 work parallel { a: a1 ─ accept Go { last := 1 } → a2
@@ -951,28 +952,40 @@ Derived constraints:
   `TransitionPerformances.kerml`); no link joins one region's transition to the other's. UML says
   the same of the set of transitions selected for one event: the order in which they fire is not
   defined (UML 2.5.1 §14.2.3.9.4).
+- A firing is not one occurrence but a chain of them — the source's exit, then the effect, then
+  the target's entry (`TransitionPerformances.kerml`: `transitionLinkSource then effect`,
+  `effect then transitionLink.laterOccurrence`) — and the library places no succession between
+  the units of two performances in sibling regions (KerML §7.18.1 performs the regions
+  concurrently). So `b`'s exit may fall between `a`'s exit and `a`'s effect, and `b2` may be
+  entered before `a2` though `a`'s effect ran first.
 - Both effects write `last`, so the value that stands is the last write: `last = 2` when `a`'s
-  transition fires first, `last = 1` when `b`'s does; the machine ends in `a2+b2` either way.
+  effect runs first, `last = 1` when `b`'s does; the machine ends in `a2+b2` either way.
 
-Open: which region's transition fires first. The two orders reach two outcomes, told apart by
-`last` and by the order `a2` and `b2` are visited in.
+Open: the order of the two firings' units. The interleavings of two three-unit chains are told
+apart by `last` (the effects' order) and by the order `a2` and `b2` are visited in (the
+entries' order), which the chains leave independent: four outcomes per entry order of `a1` and
+`b1` (the previous section), eight in all.
 
-Pinned outcome: the admissible set `{last = 2 visiting a2 then b2, last = 1 visiting b2 then a2}`,
-stated as `outcomes` citing this section. The order is a choice point under every policy, reported
-as `choice on accept Go: states a1, b1 react (unordered; took a1 first)`: `declared` and `reverse`
-fire the selected transitions in region declaration order — a tool-defined order — and the default
-golden pins that linearization (`a` first, `last = 2`); `seed:<n>` draws the order, and the `seed:1`
-golden pins the other one (`b` first, `last = 1`); `explore` varies it (`took b1 first` in the
-witness of the second outcome) and must reach both outcomes and no other, in two runs. The fixtures
-`state_call_trigger_regions`, `state_composite_region_depth_order`,
-`state_composite_region_deeper_first` and `state_parallel_broadcast` are this same shape and list
-both orders as `outcomes` citing this section, the default golden of each pinning the
-declaration-order linearization. `state_change_region_order` is the shape with a change
-occurrence in place of the signal — one write of `temp` raises `temp > 20` in both regions at once
-— and lists the same two outcomes: a change occurrence is an event like any other, so the poll
-that dispatches it draws the region order the same way (`choice on change: states a1, b1 react
-(unordered; took a1 first)`), and no order between the two raised conditions is derivable from the
-library either.
+Pinned outcome: the admissible set `{last = 1, last = 2} × {a2 then b2, b2 then a2}` under
+either entry order, stated as `outcomes` citing this section. The order is a choice point under
+every policy. `declared` and `reverse` fire each selected transition whole, in region
+declaration order — a tool-defined order — reported as `choice on accept Go: states a1, b1 react
+(unordered; took a1 first)`, and the default golden pins that linearization (`a` first,
+`last = 2`). `seed:<n>` draws the next unit among the firings' fronts — `choice on accept Go:
+next exit a1, exit b1 (unordered; took exit a1 first)`, then `next a1 -> a2(effect), exit b1`,
+then `next enter a2, exit b1` — one draw per unit but the last; `explore` varies every draw and
+must reach the eight outcomes and no other, in forty runs (the interleavings of two chains of
+three, twenty, under two entry orders). The fixtures `state_call_trigger_regions`,
+`state_composite_region_depth_order`, `state_composite_region_deeper_first` and
+`state_parallel_broadcast` are this same shape and list the outcomes citing this section, the
+default golden of each pinning the declaration-order linearization. `state_change_region_order`
+is the shape with a change occurrence in place of the signal — one write of `temp` raises
+`temp > 20` in both regions at once — and lists the same outcomes: a change occurrence is an
+event like any other, so the poll that dispatches it draws the units the same way (`choice on
+change: …`), and no order between the two raised conditions is derivable from the library either.
+`state_firing_units_interleaved` logs each firing's exit and effect and completes both targets
+into a join: the exit-before-effect order within a firing and no order across the two admit six
+logs, the join's own order drawn separately (the section on transitions into a join).
 
 ### Two time events due at one instant: each dispatches, in which order is open
 
