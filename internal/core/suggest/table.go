@@ -123,7 +123,7 @@ func simpleName(fqn string, syms []*symbols.Symbol) string {
 			break
 		}
 	}
-	return LastSegment(fqn)
+	return symbols.LastSegment(fqn)
 }
 
 // Unquoted returns the registered simple names word is the unquoted start of

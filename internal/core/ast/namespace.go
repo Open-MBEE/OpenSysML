@@ -45,6 +45,16 @@ func (q *QualifiedName) SetSingleton(seg NameSegment) {
 	q.Parts = q.part0[:1:1]
 }
 
+// QualifiedNameOf is the name a reference written as segments joined by "::"
+// parses to, without positions.
+func QualifiedNameOf(segments ...string) *QualifiedName {
+	qn := &QualifiedName{}
+	for _, segment := range segments {
+		qn.Parts = append(qn.Parts, NameSegment{Text: segment})
+	}
+	return qn
+}
+
 // Text renders the name as written, "A::B::C", and "" for a nil name.
 func (q *QualifiedName) Text() string {
 	if q == nil {

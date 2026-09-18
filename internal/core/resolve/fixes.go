@@ -51,7 +51,7 @@ func titled(spelling string) string {
 // re-exporting its names onward ([SysML, 7.2] over [KerML, 8.2.3.3]).
 func (r *Resolver) importFix(scope *symbols.Scope, name, cand string) (quickfix.Fix, bool) {
 	cut := strings.LastIndex(cand, "::")
-	if cut < 0 || suggest.LastSegment(cand) != name || !r.importable(cand) {
+	if cut < 0 || symbols.LastSegment(cand) != name || !r.importable(cand) {
 		return quickfix.Fix{}, false
 	}
 	at, ok := importAnchor(scope)

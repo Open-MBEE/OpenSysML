@@ -3,6 +3,7 @@ package resolve_test
 import (
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -64,13 +65,13 @@ func TestW7BAliasChainDenotesOneElement(t *testing.T) {
 	r, scope := aliasWorkspace(t)
 	resolved := map[string]*symbols.Symbol{}
 	for _, name := range []string{"Car", "Auto"} {
-		sym, ok := r.ResolveQualified(scope, qualifiedName(name))
+		sym, ok := r.ResolveQualified(scope, ast.QualifiedNameOf(name))
 		if !ok {
 			t.Fatalf("%s unresolved; diags=%v", name, r.Diagnostics)
 		}
 		resolved[name] = sym
 	}
-	target, ok := r.ResolveQualified(scope, qualifiedName("defs", "Vehicle"))
+	target, ok := r.ResolveQualified(scope, ast.QualifiedNameOf("defs", "Vehicle"))
 	if !ok {
 		t.Fatalf("defs::Vehicle unresolved; diags=%v", r.Diagnostics)
 	}

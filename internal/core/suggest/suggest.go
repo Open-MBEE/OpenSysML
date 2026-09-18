@@ -294,14 +294,6 @@ func SimpleNames(idx *symbols.Index) []string {
 	return out
 }
 
-// LastSegment returns the simple name a qualified name ends in.
-func LastSegment(fqn string) string {
-	if cut := strings.LastIndex(fqn, "::"); cut >= 0 {
-		return fqn[cut+2:]
-	}
-	return fqn
-}
-
 // Nearest returns the spellings closest to word by edit distance, within the
 // budget a typo of that length justifies. It is what a surface with one flat
 // set of equally reachable names asks — the REPL's meta commands.
