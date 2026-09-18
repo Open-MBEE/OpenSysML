@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"outcomes": [
+		{"outputs": {"x": {"type": "Integer", "value": 1}, "p": {"type": "Integer", "value": 2}, "q": {"type": "Integer", "value": 2}}},
+		{"outputs": {"x": {"type": "Integer", "value": 2}, "p": {"type": "Integer", "value": 2}, "q": {"type": "Integer", "value": 2}}}
+	],
+	"admissible": "Two writers of one feature before a long tail of closed choices: two values"
+}
