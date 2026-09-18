@@ -61,6 +61,16 @@ func TestCheckRejectsAStaleOrMissingSnapshot(t *testing.T) {
 	}
 }
 
+// TestCheckResolvesARelativeOutputAtTheRepositoryRoot: `go run -C tools` starts
+// the generator inside the tools module, yet a relative -out names the committed
+// snapshot as the repository holds it.
+func TestCheckResolvesARelativeOutputAtTheRepositoryRoot(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"-check", "-out", snapshotPath}, &stdout, &stderr); code != 0 {
+		t.Fatalf("run -check -out %s = %d, want 0\n%s", snapshotPath, code, stderr.String())
+	}
+}
+
 func TestRunReportsAnUnwritableOutput(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	out := filepath.Join(t.TempDir(), "missing", "stdlib.snapshot")
