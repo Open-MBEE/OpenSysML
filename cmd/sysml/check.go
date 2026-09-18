@@ -346,7 +346,7 @@ func (c *checks) compareMisuse() string {
 
 // readResults reads the -compare-results sidecar, naming the file in what went wrong.
 func readResults(path string) (*migrate.Results, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- the operator names the sidecar on the command line
 	if err != nil {
 		return nil, fmt.Errorf("-compare-results: %w", err)
 	}
