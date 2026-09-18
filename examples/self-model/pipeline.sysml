@@ -221,11 +221,11 @@ package OpenSysMLPipeline {
         }
         part constraints : ConstraintCheck { attribute :>> goType = "ConstraintPass"; }
         part documentQueries : ConstraintCheck {
-            attribute :>> goType = "DocumentQueryPass";
+            attribute :>> goType = "QueryPass";
             attribute :>> elementScoped = true;
         }
         part documentPlans : ConstraintCheck {
-            attribute :>> goType = "DocumentPlanPass";
+            attribute :>> goType = "PlanPass";
             attribute :>> elementScoped = true;
         }
         part typeRelationships : ConstraintCheck { attribute :>> goType = "TypeRelationshipsPass"; }

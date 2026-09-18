@@ -1,17 +1,20 @@
-package passes
+package document_test
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/document"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 func documentPlanDiagnostics(t *testing.T, body string) []diag.Diagnostic {
 	t.Helper()
-	index := newTestIndex()
+	index := libs.NewModelIndex()
 	name := "documents.sysml"
 	p := parser.New(source.New(name, []byte(`
 package Fixture {
@@ -23,7 +26,7 @@ package Fixture {
 	root := p.ParseFile()
 	index.AddDocument(name, root)
 	index.ExpandWildcardImports()
-	return Analyze(name, root, parserDiagnostics(p), index)
+	return passes.Analyze(name, root, parserDiagnostics(p), index)
 }
 
 func TestDocumentPlanPassAcceptsValidDocument(t *testing.T) {
@@ -76,6 +79,8 @@ part def Report :> Document {
 }
 
 func TestDocumentPlanPassIsElementScoped(t *testing.T) {
+	_ = document.PlanPass{}.Run(nil, "", nil)
+
 	diagnostics := documentPlanDiagnostics(t, `
 part broken : MissingType;
 part def BrokenReport :> Document {
