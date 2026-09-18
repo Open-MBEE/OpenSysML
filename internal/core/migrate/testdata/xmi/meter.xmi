@@ -7,7 +7,16 @@
       <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_off" name="off"/>
       <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_on" name="on"/>
     </packagedElement>
-    <packagedElement xmi:type="uml:Class" xmi:id="_gauge" name="Gauge"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_gauge" name="Gauge">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_reading" name="reading"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_reading0" value="3.0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_tick" name="Tick">
+        <node xmi:type="uml:InitialNode" xmi:id="_tinit"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_tfinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_t1" source="_tinit" target="_tfinal"/>
+      </ownedBehavior>
+    </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_needle" name="Needle">
       <generalization xmi:type="uml:Generalization" xmi:id="_needle_gen" general="_gauge"/>
     </packagedElement>
@@ -15,6 +24,10 @@
       <ownedAttribute xmi:type="uml:Property" xmi:id="_mmode" name="mode" type="_mode"/>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_dial" name="dial" type="_gauge" aggregation="composite"/>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_hand" name="hand" type="_needle" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_cells" name="cells" type="_gauge" aggregation="composite">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_cells_lo" value="2"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_cells_hi" value="2"/>
+      </ownedAttribute>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_count" name="count"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
         <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_count0" value="0"/>
       </ownedAttribute>
@@ -171,6 +184,39 @@
         <edge xmi:type="uml:ControlFlow" xmi:id="_f8" source="_narrow" target="_huge"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f5" source="_huge" target="_smile"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f6" source="_smile" target="_ffinal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_sweep" name="Sweep">
+        <group xmi:type="uml:ActivityPartition" xmi:id="_cells_lane" name="cells" represents="_cells" node="_calib _span _ticking"/>
+        <node xmi:type="uml:InitialNode" xmi:id="_winit"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_spread" name="spread">
+          <language>JavaScript</language>
+          <body>total = cells.reading + 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_reset" name="reset">
+          <language>JavaScript</language>
+          <body>cells.reading = 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_peak" name="peak">
+          <language>JavaScript</language>
+          <body>total = java.util.Collections.max(cells.reading);</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_calib" name="calib">
+          <language>JavaScript</language>
+          <body>reading = 2;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_span" name="span">
+          <language>JavaScript</language>
+          <body>total = reading;</body>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_ticking" name="ticking" behavior="_tick"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_wfinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w1" source="_winit" target="_spread"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w2" source="_spread" target="_reset"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w3" source="_reset" target="_peak"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w4" source="_peak" target="_calib"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w5" source="_calib" target="_span"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w6" source="_span" target="_ticking"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w7" source="_ticking" target="_wfinal"/>
       </ownedBehavior>
     </packagedElement>
   </uml:Model>

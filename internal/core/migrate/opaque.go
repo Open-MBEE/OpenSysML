@@ -133,6 +133,7 @@ const (
 	looseEquality
 	looseAnd
 	looseOr
+	looseConditional
 )
 
 // operand writes t as the operand of an operator that binds least of all.
@@ -147,7 +148,11 @@ func (t translated) operand() string {
 // loose. The binary operators associate left, but `**` to the right.
 func (t translated) operandOf(loose int, right bool) string {
 	switch {
-	case t.atomic, t.loose < loose:
+	case t.atomic:
+		return t.expr
+	case t.loose == looseUnary && loose == loosePower && !right:
+		// `(-x) ** y` binds so in v2 too, but the parentheses spell out what a script reader would doubt.
+	case t.loose < loose:
 		return t.expr
 	case t.loose == loose && right == (loose == loosePower):
 		return t.expr
@@ -850,7 +855,7 @@ func (p *opaqueParser) expr() (translated, *refusal) {
 	if !ok {
 		return translated{}, &refusal{kind: refusedType, token: "?", why: "the branches are a " + yes.held() + " and a " + no.held()}
 	}
-	return translated{expr: "if " + cond.operand() + " ? " + yes.operand() + " else " + no.operand(), scalar: scalar, object: commonObject(yes, no), plural: yes.plural}, nil
+	return translated{expr: "if " + cond.operand() + " ? " + yes.operand() + " else " + no.operand(), scalar: scalar, object: commonObject(yes, no), plural: yes.plural, loose: looseConditional}, nil
 }
 
 // binaryOp is an operator of the ladder: how it is spelled in the source and in v2.
@@ -1044,11 +1049,10 @@ func (p *opaqueParser) arithmeticOf(left translated, op string, right translated
 }
 
 // javaQuotient writes Java's `/` over whole numbers x and y: the exact quotient
-// of x less its remainder, an integer, as the Integer floor returns.
+// truncated toward zero, which the extension library's quotient computes and
+// reports as overflow for the one pair (the least Integer by -1) outside the range.
 func javaQuotient(x, y translated) translated {
-	rem := binary(x, "%", y, looseMultiplicative, "Integer")
-	exact := binary(binary(x, "-", rem, looseAdditive, "Integer"), "/", y, looseMultiplicative, "Real")
-	return translated{expr: "RealFunctions::floor(" + exact.expr + ")", scalar: "Integer", atomic: true}
+	return translated{expr: "OpenSysMLMathFunctions::quotient(" + x.expr + ", " + y.expr + ")", scalar: "Integer", atomic: true}
 }
 
 // unary reads `-x`, `+x`, `!x` and in English `not x`.
@@ -1146,10 +1150,7 @@ func (p *opaqueParser) primary() (translated, *refusal) {
 			if !p.next(true).isPunct(")") {
 				return translated{}, &refusal{kind: refusedSyntax, token: "(", why: "the parenthesis is not closed"}
 			}
-			if !x.atomic {
-				x.expr = "(" + x.expr + ")"
-				x.atomic = true
-			}
+			// The group keeps its looseness: operands are re-parenthesized where the v2 precedence needs it.
 			return x, nil
 		}
 		if tok.text == "{" || tok.text == "[" {

@@ -1,7 +1,7 @@
 # SysML v1 to v2 migration report: meter.xmi
-# migrated 69 element(s): 55 mapped, 14 approximated, 0 unmapped (0 skipped as profile or library content)
+# migrated 90 element(s): 71 mapped, 19 approximated, 0 unmapped (0 skipped as profile or library content)
 
-## approximated (14)
+## approximated (19)
 OpaqueAction	Meter::Flip::bump	_bump	-> bump	(the body is kept as a comment: the types at "+" disagree: an operand is a Mode, not a number)
 OpaqueAction	Meter::Flip::huge	_huge	-> huge	(the body is kept as a comment: the construct "9007199254740993" is outside the translated subset: a script rounds a whole number beyond 9007199254740991 to the nearest floating-point value)
 OpaqueAction	Meter::Flip::match	_match	-> match	(the body is kept as a comment: the types at "mode =" disagree: a Gauge is assigned to the Mode mode holds)
@@ -13,12 +13,21 @@ ObjectFlow	Meter::Skip::<ObjectFlow>	_o3	(the flow is kept as a comment: its sou
 OpaqueAction	Meter::Skip::dark	_dark	-> dark	(the body is kept as a comment: the statement assigns q, which nothing visible from Meter::Skip::dark is called (language Python))
 OpaqueAction	Meter::Skip::drain	_drain	-> drain	(the JavaScript body is translated to v2; its input drain.w receives no value, since 'dark' is not migrated; the action cannot be performed until one is bound)
 OpaqueAction	Meter::Skip::sink	_sink	-> sink	(the JavaScript body is translated to v2; its input sink.w receives no value, since the body of 'idle' never assigns idle.z; the action cannot be performed until one is bound)
+OpaqueAction	Meter::Sweep::calib	_calib	-> calib	(the body is kept as a comment: the construct "reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects)
+OpaqueAction	Meter::Sweep::reset	_reset	-> reset	(the body is kept as a comment: the construct "cells.reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects)
+OpaqueAction	Meter::Sweep::span	_span	-> span	(the body is kept as a comment: the types at "total =" disagree: one side is a collection and the other a single value)
+OpaqueAction	Meter::Sweep::spread	_spread	-> spread	(the body is kept as a comment: the types at "+" disagree: an operand is a collection, not a number)
+CallBehaviorAction	Meter::Sweep::ticking	_ticking	-> ticking	(its swimlane represents this.cells, a collection of objects, so none of them performs the call, which runs in the caller's context; the behavior belongs to Gauge and runs here in the caller's context)
 Property	Meter::gain	_gain	-> Meter::gain	(default value not migrated: the call "total" is not in the translated function table)
 Property	Meter::square	_square	-> Meter::square	(default value not migrated: the construct "-total **" is outside the translated subset: JavaScript parenthesizes a unary operand of `**`)
 Property	Meter::tag	_tag	-> Meter::tag	(default value not migrated: the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset)
 
-## mapped (55)
+## mapped (71)
 «Block» Class	Gauge	_gauge	-> Gauge
+Activity	Gauge::Tick	_tick	-> Gauge::Tick
+ActivityFinalNode	Gauge::Tick::<ActivityFinalNode>	_tfinal	-> final
+InitialNode	Gauge::Tick::<InitialNode>	_tinit	-> start
+Property	Gauge::reading	_reading	-> Gauge::reading
 «Block» Class	Meter	_meter	-> Meter
 Activity	Meter::Flip	_flip	-> Meter::Flip
 ActivityFinalNode	Meter::Flip::<ActivityFinalNode>	_ffinal	-> final
@@ -58,6 +67,18 @@ InputPin	Meter::Skip::drain::w	_drainw	-> Meter::Skip::drain.w
 OpaqueAction	Meter::Skip::idle	_idle	-> idle	(the JavaScript body is translated to v2)
 OutputPin	Meter::Skip::idle::z	_idlez	-> Meter::Skip::idle.z
 InputPin	Meter::Skip::sink::w	_sinkw	-> Meter::Skip::sink.w
+Activity	Meter::Sweep	_sweep	-> Meter::Sweep
+ActivityFinalNode	Meter::Sweep::<ActivityFinalNode>	_wfinal	-> final
+ControlFlow	Meter::Sweep::<ControlFlow>	_w2
+ControlFlow	Meter::Sweep::<ControlFlow>	_w3
+ControlFlow	Meter::Sweep::<ControlFlow>	_w4
+ControlFlow	Meter::Sweep::<ControlFlow>	_w5
+ControlFlow	Meter::Sweep::<ControlFlow>	_w6
+ControlFlow	Meter::Sweep::<ControlFlow>	_w7
+InitialNode	Meter::Sweep::<InitialNode>	_winit	-> start
+ActivityPartition	Meter::Sweep::cells	_cells_lane	(the partition represents the context's cells, read as this.cells; it is a collection, so names read through it are collections and are not assigned)
+OpaqueAction	Meter::Sweep::peak	_peak	-> peak	(the JavaScript body is translated to v2)
+Property	Meter::cells	_cells	-> Meter::cells
 Property	Meter::count	_count	-> Meter::count
 Property	Meter::cube	_cube	-> Meter::cube	(the JavaScript body is translated to v2)
 Property	Meter::dial	_dial	-> Meter::dial

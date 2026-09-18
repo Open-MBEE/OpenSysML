@@ -231,7 +231,12 @@ the same object; when they represent different objects, no partition applies, th
 fall back to the activity and its block, and both the node's and the partitions' report lines
 say so. An edge in no partition takes its source node's partitions, its target's only when
 the source is in none — so a guard leaving such a node is refused the same way, never read
-through the target's partition. The partition's comment stays as documentation of its
+through the target's partition. A name read through a part that holds more than one object —
+a partition representing `cells : Gauge[2]`, or a dotted path `cells.reading` — is a
+collection, so it feeds `java.util.Collections.max` but not arithmetic or a scalar assignment,
+and an assignment through it (`cells.reading = 1`) is refused as writing several objects; a
+`CallBehaviorAction` in such a partition runs in the caller's context, no one of the objects
+performing it, and its report line says so. The partition's comment stays as documentation of its
 membership; its verdict is
 *mapped* when a name was resolved through it.
 
@@ -318,7 +323,7 @@ translation is always complete or absent — never partial.
 | several statements, on `;` or newlines | a sequence of the above |
 | integer, real, Boolean and string literals | the same literal; a whole number is refused beyond what an `Integer` holds (2⁶³ − 1), and in a JavaScript body beyond 2⁵³ − 1, since the script would round it to a `Number` (a Java body's `long` is exact); a string's `\n` `\t` `\r` `\b` `\f` `\\` `\'` `\"` `\xHH` `\uHHHH` `\u{H…}` escapes and line continuations are decoded, a high and low surrogate escape pair as the one character they spell, while a legacy octal escape or a character the notation cannot spell (`\0`, `\v`, other control characters, a lone surrogate) is refused |
 | `a`, `a.b.c` naming features that resolve | `this.a`, `this.a.b.c` (through the swimlane's object when it has one) |
-| `+ - * / %`, comparisons, `&& \|\| !`, parentheses | `+ - * / %`, comparisons, `and or not`, parentheses; a Java body's `/` of two whole numbers drops the remainder, so it is `RealFunctions::floor((x - x % y) / y)`, and is refused when the operands' types cannot tell whether both are whole |
+| `+ - * / %`, comparisons, `&& \|\| !`, parentheses | `+ - * / %`, comparisons, `and or not`, parentheses; a Java body's `/` of two whole numbers drops the remainder, so it is `OpenSysMLMathFunctions::quotient(x, y)` (the exact Integer quotient truncated toward zero, refused at run time only for the least Integer by `-1`, whose quotient no Integer holds), and is refused when the operands' types cannot tell whether both are whole |
 | `c ? a : b` | `if c ? a else b` when `a` and `b` are of one scalar type |
 | `Math.min` `Math.max` `Math.abs` `Math.floor` `Math.ceil` `Math.round` `Math.sqrt` `Math.pow`, `a ** b` | `RealFunctions::min` … `RealFunctions::sqrt`, `**`; `Math.ceil(x)` is `-RealFunctions::floor(-x)` and `Math.round(x)` is `RealFunctions::floor(x + 0.5)`, which rounds a half toward +∞ as JavaScript does; `-a ** b` is refused, as JavaScript rejects a unary operand of `**` without parentheses, and a Java body's `**` is refused, Java having no such operator |
 | `java.util.Collections.max(s)` / `.min(s)` | `RealFunctions::max(s)` / `RealFunctions::min(s)` over a collection |

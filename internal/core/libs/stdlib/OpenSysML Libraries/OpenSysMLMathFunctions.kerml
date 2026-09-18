@@ -3,8 +3,9 @@ library package OpenSysMLMathFunctions {
 	/*
 	 * NON-NORMATIVE. This package is an OpenSysML extension, not part of the OMG KerML
 	 * standard library: it declares the exponential, logarithmic and two-argument
-	 * arctangent functions the Kernel Function Library omits. The vendored OMG files are
-	 * unmodified. A model that needs these writes `import OpenSysMLMathFunctions::*;`.
+	 * arctangent functions and the Integer quotient the Kernel Function Library omits.
+	 * The vendored OMG files are unmodified. A model that needs these writes
+	 * `import OpenSysMLMathFunctions::*;`.
 	 */
 
 	public import ScalarValues::*;
@@ -43,5 +44,15 @@ library package OpenSysMLMathFunctions {
 		 * carries the quadrant that arctan(y / x) loses. Undefined at the origin.
 		 */
 		in y: Real[1]; in x: Real[1]; return : Real[1];
+	}
+
+	function quotient {
+		doc
+		/*
+		 * The Integer quotient of x by y, the exact ratio truncated toward zero, so that
+		 * quotient(x, y) * y + x % y == x for every y other than 0. Undefined for y == 0,
+		 * and outside the Integer range for the one pair whose quotient is 2^63.
+		 */
+		in x: Integer[1]; in y: Integer[1]; return : Integer[1];
 	}
 }

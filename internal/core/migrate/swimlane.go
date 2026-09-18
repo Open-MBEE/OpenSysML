@@ -20,6 +20,7 @@ type lane struct {
 	represents *xmi.Element // the property or classifier it represents, nil when unset
 	typ        *xmi.Element // the classifier whose features names inside resolve against
 	expr       string       // how the activity reads the represented object; "" when it cannot
+	plural     bool         // whether expr reads a collection of objects rather than one
 	note       string       // why expr is "", or how it was found
 	used       bool         // whether a name or a call resolved through the lane
 }
@@ -214,15 +215,18 @@ func (m *migration) resolveLane(l *lane, ctx *xmi.Element) {
 			l.note = "the property " + qualifiedName(r) + " it represents has no v2 declaration"
 		case l.parent != nil && l.parent.expr != "" && l.parent.typ != nil && m.hasFeature(l.parent.typ, r):
 			l.expr = l.parent.expr + "." + name
+			l.plural = l.parent.plural || manyValued(r)
 			l.note = "the partition represents " + m.nameOf(r) + " of the enclosing partition's object, read as " + l.expr
 		case ctx == nil:
 			l.note = "the activity is in no classifier whose object could hold " + qualifiedName(r)
 		case m.hasFeature(ctx, r):
 			l.expr = "this." + name
+			l.plural = manyValued(r)
 			l.note = "the partition represents the context's " + m.nameOf(r) + ", read as " + l.expr
 		default:
-			if path := m.partPath(ctx, owner, 3); path != "" {
+			if path, plural := m.partPath(ctx, owner, 3); path != "" {
 				l.expr = "this." + path + "." + name
+				l.plural = plural || manyValued(r)
 				l.note = "the partition represents " + qualifiedName(r) + ", read as " + l.expr
 			} else {
 				l.note = "no part of " + qualifiedName(ctx) + " is a " + qualifiedName(owner) + ", which holds the represented " + m.nameOf(r)
@@ -231,6 +235,9 @@ func (m *migration) resolveLane(l *lane, ctx *xmi.Element) {
 		if l.typ == nil && l.expr != "" {
 			l.note += "; the property has no type, so no name resolves through it"
 		}
+		if l.plural {
+			l.note += "; it is a collection, so names read through it are collections and are not assigned"
+		}
 		return
 	}
 	l.typ = r
@@ -238,7 +245,7 @@ func (m *migration) resolveLane(l *lane, ctx *xmi.Element) {
 	case !m.written(r):
 		l.note = "the classifier " + qualifiedName(r) + " it represents has no v2 declaration"
 	case l.parent != nil && l.parent.expr != "" && l.parent.typ != nil && (l.parent.typ == r || m.inherits(l.parent.typ, r)):
-		l.expr = l.parent.expr
+		l.expr, l.plural = l.parent.expr, l.parent.plural
 		l.note = "the partition represents the enclosing partition's object, a " + qualifiedName(r)
 	case ctx == nil:
 		l.note = "the activity is in no classifier whose object could be the represented " + qualifiedName(r)
@@ -246,22 +253,27 @@ func (m *migration) resolveLane(l *lane, ctx *xmi.Element) {
 		l.expr = "this"
 		l.note = "the partition represents the context object itself, a " + qualifiedName(r)
 	default:
-		if path := m.partPath(ctx, r, 3); path != "" {
-			l.expr = "this." + path
+		if path, plural := m.partPath(ctx, r, 3); path != "" {
+			l.expr, l.plural = "this."+path, plural
 			l.note = "the partition represents the context's part " + path + ", a " + qualifiedName(r)
 		} else {
 			l.note = "no part of " + qualifiedName(ctx) + " is a " + qualifiedName(r) + ", which the partition represents"
 		}
 	}
+	if l.plural {
+		l.note += "; it is a collection, so names read through it are collections and are not assigned"
+	}
 }
 
 // partPath finds the one chain of parts from classifier c to an object of
 // classifier target, at most depth parts long; "" when none or several exist.
-func (m *migration) partPath(c, target *xmi.Element, depth int) string {
+// plural reports whether any part on the chain holds several objects.
+func (m *migration) partPath(c, target *xmi.Element, depth int) (path string, plural bool) {
 	var found []string
+	var many []bool
 	seen := map[*xmi.Element]bool{c: true}
-	var walk func(t *xmi.Element, prefix string, left int)
-	walk = func(t *xmi.Element, prefix string, left int) {
+	var walk func(t *xmi.Element, prefix string, plural bool, left int)
+	walk = func(t *xmi.Element, prefix string, plural bool, left int) {
 		if left == 0 || len(found) > 1 {
 			return
 		}
@@ -281,22 +293,24 @@ func (m *migration) partPath(c, target *xmi.Element, depth int) string {
 				continue
 			}
 			path := prefix + writeName(name)
+			plural := plural || manyValued(p)
 			if pt == target || m.inherits(pt, target) {
 				found = append(found, path)
+				many = append(many, plural)
 				continue
 			}
 			if !seen[pt] {
 				seen[pt] = true
-				walk(pt, path+".", left-1)
+				walk(pt, path+".", plural, left-1)
 				delete(seen, pt)
 			}
 		}
 	}
-	walk(c, "", depth)
+	walk(c, "", false, depth)
 	if len(found) == 1 {
-		return found[0]
+		return found[0], many[0]
 	}
-	return ""
+	return "", false
 }
 
 // contextClassifier is the classifier whose object is `this` inside e: the
@@ -329,25 +343,29 @@ func (m *migration) laneFeature(l *lane, n string) *xmi.Element {
 
 // lanePerformer is the object, read from the activity's context, that performs
 // the behavior a call behavior action n calls: the object n's swimlane represents,
-// when it is of the classifier owning the behavior and not the context itself; else "".
-func (m *migration) lanePerformer(n *xmi.Element) (obj string, b *xmi.Element) {
+// when it is of the classifier owning the behavior and not the context itself;
+// else "", with why when the lane's object could have performed it but is a collection.
+func (m *migration) lanePerformer(n *xmi.Element) (obj string, b *xmi.Element, why string) {
 	b = m.model.Ref(n, "behavior")
 	if b == nil || m.methodOf[b] != nil || !m.written(b) {
-		return "", nil
+		return "", nil, ""
 	}
 	if cat, _ := m.classify(b); cat != catActionDef {
-		return "", nil
+		return "", nil, ""
 	}
 	l, _ := m.laneAt(n)
 	if l == nil || l.expr == "" || l.expr == "this" || l.typ == nil {
-		return "", nil
+		return "", nil, ""
 	}
 	owner := classifierOf(b)
 	if owner == nil || (l.typ != owner && !m.inherits(l.typ, owner)) {
-		return "", nil
+		return "", nil, ""
+	}
+	if l.plural {
+		return "", nil, "its swimlane represents " + l.expr + ", a collection of objects, so none of them performs the call, which runs in the caller's context"
 	}
 	m.useLane(n, l)
-	return l.expr, b
+	return l.expr, b, ""
 }
 
 // behaviorUsage names the action usage that makes an activity a feature of the
@@ -377,7 +395,7 @@ func (m *migration) prepareLanes(act *xmi.Element) {
 		if n.Type != "CallBehaviorAction" {
 			continue
 		}
-		if _, b := m.lanePerformer(n); b != nil {
+		if _, b, _ := m.lanePerformer(n); b != nil {
 			m.behaviorUsage(b)
 		}
 	}

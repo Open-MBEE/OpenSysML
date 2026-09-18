@@ -1192,7 +1192,7 @@ func (a *activity) callBehavior(n *xmi.Element, name string) {
 	switch cat {
 	case catActionDef:
 		note := ""
-		if obj, _ := a.m.lanePerformer(n); obj != "" {
+		if obj, _, why := a.m.lanePerformer(n); obj != "" {
 			usage := strings.TrimPrefix(obj, "this.") + "." + writeName(a.m.behaviorUsage(b))
 			a.m.w.line("perform action " + name + " ::> " + usage + ";")
 			a.m.add(n, Mapped, name, "performed by "+obj+", the object its swimlane represents, as its usage "+usage)
@@ -1201,6 +1201,7 @@ func (a *activity) callBehavior(n *xmi.Element, name string) {
 			if owner, here := classifierOf(b), classifierOf(a.act); owner != nil && owner != here && (here == nil || !a.m.inherits(here, owner)) {
 				note = "the behavior belongs to " + qualifiedName(owner) + " and runs here in the caller's context"
 			}
+			note = joinNotes(why, note)
 		}
 		a.pins(n, true, b.Owned("ownedParameter"))
 		a.m.add(n, verdictFor(note), name, note)

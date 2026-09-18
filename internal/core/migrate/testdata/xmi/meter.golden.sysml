@@ -2,12 +2,19 @@ enum def Mode {
     off;
     on;
 }
-part def Gauge;
+part def Gauge {
+    attribute reading : ScalarValues::Real default = 3.0;
+    action def Tick {
+        first start then final;
+        action final terminate;
+    }
+}
 part def Needle :> Gauge;
 part def Meter {
     attribute mode : Mode;
     part dial : Gauge;
     part hand : Needle;
+    part cells : Gauge[2];
     attribute count : ScalarValues::Integer default = 0;
     attribute label : ScalarValues::String;
     attribute total : ScalarValues::Real default = 0.0;
@@ -38,7 +45,7 @@ part def Meter {
         }
         first record then split;
         action split {
-            assign this.half := RealFunctions::floor((this.ticks - this.ticks % 2) / 2);
+            assign this.half := OpenSysMLMathFunctions::quotient(this.ticks, 2);
             assign this.ratio := this.total / 2;
         }
         first split then judge;
@@ -122,5 +129,40 @@ part def Meter {
         }
         first smile then final;
         action final terminate;
+    }
+    action def Sweep {
+        first start then spread;
+        action spread {
+            /* body not migrated (the types at "+" disagree: an operand is a collection, not a number) {JavaScript}:
+             * total = cells.reading + 1;
+             */
+        }
+        first spread then reset;
+        action reset {
+            /* body not migrated (the construct "cells.reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects) {JavaScript}:
+             * cells.reading = 1;
+             */
+        }
+        first reset then peak;
+        action peak {
+            assign this.total := this.cells.reading->ControlFunctions::reduce { in x; in y; RealFunctions::max(x, y) };
+        }
+        first peak then calib;
+        action calib {
+            /* body not migrated (the construct "reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects) {JavaScript}:
+             * reading = 2;
+             */
+        }
+        first calib then span;
+        action span {
+            /* body not migrated (the types at "total =" disagree: one side is a collection and the other a single value) {JavaScript}:
+             * total = reading;
+             */
+        }
+        first span then ticking;
+        action ticking : Gauge::Tick;
+        first ticking then final;
+        action final terminate;
+        /* partition 'cells' represents Meter::cells: calib, span, ticking */
     }
 }

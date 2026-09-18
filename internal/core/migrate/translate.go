@@ -86,15 +86,19 @@ func (m *migration) lanesAround(e *xmi.Element) (*lanes, *xmi.Element) {
 
 // feature resolves a dotted name: `this` and the names of the lane's object
 // first, then what the scope sees, each further step a feature of the last.
+// The result is plural once any object the name reads through is, and a
+// write through a collection is refused: it would reach several objects.
 func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 	m := s.m
 	full := strings.Join(path, ".")
 	var expr string
 	var f *xmi.Element
+	var plural bool    // whether the objects the name reads through are a collection
+	var carrier string // the first such collection
 	if path[0] == "this" {
 		switch {
 		case s.lane != nil && s.lane.expr != "" && s.lane.typ != nil:
-			expr, f = s.lane.expr, s.lane.typ
+			expr, f, plural, carrier = s.lane.expr, s.lane.typ, s.lane.plural, s.lane.expr
 			s.viaLane = true
 		case m.contextClassifier(s.scope) != nil:
 			expr, f = "this", m.contextClassifier(s.scope)
@@ -106,7 +110,7 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 			if write {
 				return opaqueRef{}, &refusal{kind: refusedContext, token: "this", why: "the object itself is not assigned"}
 			}
-			return opaqueRef{expr: expr}, nil
+			return opaqueRef{expr: expr, plural: plural}, nil
 		}
 	} else if p, d := m.pinNamed(s.scope, path[0]); p != nil {
 		if write && len(path) == 1 && d.dir == "in" {
@@ -116,7 +120,7 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 	} else {
 		name := path[0]
 		if lf := m.laneFeature(s.lane, name); lf != nil {
-			expr, f = s.lane.expr+"."+writeName(m.nameOf(lf)), lf
+			expr, f, plural, carrier = s.lane.expr+"."+writeName(m.nameOf(lf)), lf, s.lane.plural, s.lane.expr
 			s.viaLane = true
 		} else {
 			visible, hidden := m.visibleFrom(s.scope)
@@ -147,6 +151,9 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 		}
 	}
 	for _, step := range path[1:] {
+		if !plural && manyValued(f) {
+			plural, carrier = true, expr
+		}
 		typ := m.typedAs(f)
 		if typ == nil {
 			return opaqueRef{}, &refusal{kind: refusedName, token: full,
@@ -171,16 +178,25 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 	if dir, _ := parameterDirection(f); write && f.Type == "Parameter" && dir == "in" {
 		return opaqueRef{}, &refusal{kind: refusedConstruct, token: full, why: "an in parameter is not assigned"}
 	}
+	if write && plural {
+		return opaqueRef{}, &refusal{kind: refusedConstruct, token: full,
+			why: carrier + " is a collection, so the assignment would write through several objects"}
+	}
 	if s.lane != nil && s.viaLane {
 		m.useLane(s.scope, s.lane)
 	}
-	_, upper, ok := bounds(f)
 	return opaqueRef{
 		expr:   expr,
 		scalar: m.scalarBase(m.typedAs(f)),
 		object: m.nonScalar(m.typedAs(f)),
-		plural: ok && upper != 1,
+		plural: plural || manyValued(f),
 	}, nil
+}
+
+// manyValued reports whether feature f holds other than exactly one value.
+func manyValued(f *xmi.Element) bool {
+	_, upper, ok := bounds(f)
+	return ok && upper != 1
 }
 
 // nonScalar names t, then every type generalizing it, when its values are

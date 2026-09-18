@@ -130,11 +130,12 @@ func init() {
 	// OpenSysMLMathFunctions is the non-normative OpenSysML extension library
 	// (internal/core/libs/stdlib/OpenSysML Libraries/OpenSysMLMathFunctions.kerml),
 	// which declares the exponential, logarithmic and two-argument arctangent
-	// functions the OMG Kernel Function Library omits.
+	// functions and the Integer quotient the OMG Kernel Function Library omits.
 	registerLibraryFunction("OpenSysMLMathFunctions::exp", []string{"x"}, realUnary(math.Exp))
 	registerLibraryFunction("OpenSysMLMathFunctions::ln", []string{"x"}, naturalLog, positiveReal)
 	registerLibraryFunction("OpenSysMLMathFunctions::log", []string{"x", "base"}, logToBase, positiveReal, logarithmBase)
 	registerLibraryFunction("OpenSysMLMathFunctions::atan2", []string{"y", "x"}, atan2Real)
+	registerLibraryFunction("OpenSysMLMathFunctions::quotient", []string{"x", "y"}, integerQuotient, integerDomain, integerDomain)
 
 	registerRandomFunctions()
 }
@@ -734,6 +735,20 @@ func integerExtremum(larger bool) func([]semantics.Value) (semantics.Value, erro
 		}
 		return semantics.Value{Kind: semantics.ValInt, Int: res}, nil
 	}
+}
+
+// integerQuotient is OpenSysMLMathFunctions::quotient, the exact ratio of two
+// Integers truncated toward zero. The one quotient outside the Integer range,
+// the most negative Integer by -1, is reported rather than wrapped to itself.
+func integerQuotient(args []semantics.Value) (semantics.Value, error) {
+	x, y := args[0].Int, args[1].Int
+	if y == 0 {
+		return semantics.Value{}, ErrDivisionByZero
+	}
+	if x == math.MinInt64 && y == -1 {
+		return semantics.Value{}, fmt.Errorf("%w: quotient(%d, %d) exceeds the Integer range", semantics.ErrArithmeticOverflow, x, y)
+	}
+	return semantics.Value{Kind: semantics.ValInt, Int: x / y}, nil
 }
 
 // integerDomain is the domain of an Integer parameter: a Real does not conform.

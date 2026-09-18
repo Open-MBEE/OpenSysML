@@ -1628,10 +1628,11 @@ wrong answer:
 
 ### OpenSysML Math Extension Library (non-normative)
 
-The OMG Kernel Function Library declares no exponential, no logarithm and no
-two-argument arctangent: `RealFunctions` has `sqrt`/`floor`/`round`/`abs`/`max`/`min`/`'**'`/`'^'`,
-`TrigFunctions` has `sin`/`cos`/`tan`/`cot`/`arcsin`/`arccos`/`arctan`, and that
-is all. The vendored OMG files stay byte-identical, so the missing signatures are
+The OMG Kernel Function Library declares no exponential, no logarithm, no
+two-argument arctangent and no truncating Integer quotient: `RealFunctions` has
+`sqrt`/`floor`/`round`/`abs`/`max`/`min`/`'**'`/`'^'`, `TrigFunctions` has
+`sin`/`cos`/`tan`/`cot`/`arcsin`/`arccos`/`arctan`, `IntegerFunctions::'/'` answers a
+Rational, and that is all. The vendored OMG files stay byte-identical, so the missing signatures are
 declared in a clearly non-normative OpenSysML extension instead:
 `internal/core/libs/stdlib/OpenSysML Libraries/OpenSysMLMathFunctions.kerml`. It
 is bundled by the same `embed.FS` as the vendored tree and enters the same
@@ -1656,6 +1657,8 @@ same rule — the OMG function libraries are not implicitly imported either.
 | `ln(x)` — natural logarithm, defined for `x > 0.0` | `runtime/library_functions.go` `naturalLog` | `TestLibraryFunctionValues`, `TestLibraryFunctionErrors` | ✅ Faithful |
 | `log(x, base)` — logarithm to an explicit base, so base 10 and base e are never confused; base 10 and base 2 use `math.Log10`/`math.Log2`, which are exact where the ratio of logarithms is not | `runtime/library_functions.go` `logToBase` | `TestLibraryFunctionValues`, `TestLibraryFunctionErrors` | ✅ Faithful |
 | `atan2(y, x)` — full-quadrant angle, parameters ordered as in IEEE 754 and `math.Atan2` | `runtime/library_functions.go` `atan2Real` | `TestLibraryFunctionValues`, `TestLibraryFunctionAtan2NamedArguments` | ✅ Faithful |
+| `quotient(x, y)` — the Integer quotient of two Integers truncated toward zero, so `quotient(x, y) * y + x % y == x` for every `y` other than `0`: `quotient(7, 2)` is `3`, `quotient(-7, 2)` is `-3`, `quotient(7, -2)` is `-3`, exact over the whole Integer range where `/` answers the rounded binary64 (`quotient(27021597764222979, 3)` is `9007199254740993`, which `/` cannot hold); a Real operand is `ErrTypeMismatch`. This is the quotient a Java or C `/` computes over two whole numbers, and what the v1 migration writes for a Java body's `/` | `runtime/library_functions.go` `integerQuotient` | `TestLibraryFunctionValues`, `TestLibraryFunctionErrors`; conformance `calc_integer_quotient` | ✅ Faithful |
+| `quotient(x, 0)` is `ErrDivisionByZero`; `quotient(-9223372036854775808, -1)`, the one pair whose quotient (2⁶³) no Integer holds, is `ErrArithmeticOverflow` naming the pair, never a wrapped `-9223372036854775808` | `runtime/library_functions.go` `integerQuotient` | `TestLibraryFunctionErrors`, `TestRuntimeRobustnessIntegerQuotient` (`quotient_by_zero`, `quotient_of_the_least_integer_by_minus_one`, `quotient_of_a_real`) | ✅ Faithful |
 | `ln(0.0)`, `ln(-1.0)`, `log(x, 1.0)`, `log(-1.0, 10.0)`, `atan2(0.0, 0.0)` report a domain error; `exp` beyond the Real range reports an overflow | `runtime/library_functions.go` | `TestLibraryFunctionErrors`, `TestRuntimeRobustness/extension_library_function_outside_its_domain` | ✅ Faithful |
 | The shipped declarations and the registered implementations cannot drift (names, parameter names, parameter order) | `runtime/library_functions.go` registry | `TestOpenSysMLMathFunctionsMatchTheShippedDeclarations` | ✅ Faithful |
 | Evaluable from a `calc def` body under `import OpenSysMLMathFunctions::*;` | `runtime/invoke_calc.go` | `calc_opensysml_math_functions.sysml` + golden trace | ✅ Faithful |

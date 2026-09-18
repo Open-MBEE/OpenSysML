@@ -221,7 +221,7 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 		"assign y := x * 2;",
 		"flow sense.y to record.v;",
 		"assign this.total := v + 1;",
-		"assign this.half := RealFunctions::floor((this.ticks - this.ticks % 2) / 2);",
+		"assign this.half := OpenSysMLMathFunctions::quotient(this.ticks, 2);",
 		"assign this.ratio := this.total / 2;",
 		"/* flow idle.z to sink.w not written: the body of 'idle' never assigns idle.z */",
 		"/* flow dark.q to drain.w not written: 'dark' is not migrated and produces no value */",
@@ -308,6 +308,41 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 	wantVerdict(t, s.RunAction("Meter::Flip", "Meter"))
 	runs := strings.Join(s.RunRuns("Meter::Flip", []string{"Meter"}, 1, 1, []string{"this.count"}).Lines, "\n")
 	if want := "this.count: 1 run(s), min 9007199254740991"; !strings.Contains(runs, want) {
+		t.Errorf("runs lack %q:\n%s", want, runs)
+	}
+}
+
+// A name read through a collection — a plural part on the path, or a swimlane
+// representing a plural part — is a collection: arithmetic on it and a scalar
+// assignment of it are refused, an assignment through it is refused, and a
+// collection function over it translates and runs.
+func TestPluralPathsStayCollections(t *testing.T) {
+	r := migrateXMI(t, "meter")
+	wantLine(t, r.Notation, "assign this.total := this.cells.reading->ControlFunctions::reduce { in x; in y; RealFunctions::max(x, y) };")
+	wantLine(t, r.Notation, "action ticking : Gauge::Tick;")
+	wantNoLine(t, r.Notation, "assign this.total := this.cells.reading + 1;")
+	wantNoLine(t, r.Notation, "assign this.cells.reading := 1;")
+	wantNoLine(t, r.Notation, "assign this.cells.reading := 2;")
+	wantNoLine(t, r.Notation, "assign this.total := this.cells.reading;")
+	wantNoLine(t, r.Notation, "perform action ticking ::> cells.tick;")
+	wantClean(t, "t.sysml", r)
+	wantNote(t, r, "_peak", migrate.Mapped, "the JavaScript body is translated to v2")
+	for id, want := range map[string]string{
+		"_spread":  `the types at "+" disagree: an operand is a collection, not a number`,
+		"_reset":   `the construct "cells.reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects`,
+		"_calib":   `the construct "reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects`,
+		"_span":    `the types at "total =" disagree: one side is a collection and the other a single value`,
+		"_ticking": "its swimlane represents this.cells, a collection of objects, so none of them performs the call, which runs in the caller's context",
+	} {
+		wantNote(t, r, id, migrate.Approximated, want)
+	}
+	wantNote(t, r, "_cells_lane", migrate.Mapped, "read as this.cells; it is a collection, so names read through it are collections and are not assigned")
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Meter")
+	wantVerdict(t, s.RunAction("Meter::Sweep", "Meter"))
+	runs := strings.Join(s.RunRuns("Meter::Sweep", []string{"Meter"}, 1, 1, []string{"this.total"}).Lines, "\n")
+	if want := "this.total: 1 run(s), min 3"; !strings.Contains(runs, want) {
 		t.Errorf("runs lack %q:\n%s", want, runs)
 	}
 }
