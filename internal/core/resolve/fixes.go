@@ -1,32 +1,32 @@
 package resolve
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/quickfix"
 	"github.com/Open-MBEE/OpenSysML/internal/core/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // unresolvedFixes returns the edits resolving an unresolved simple name: writing
 // it as a ranked candidate, or importing the namespace declaring that name.
-func (r *Resolver) unresolvedFixes(scope *symbols.Scope, name string, at ast.Node) []quickfix.Fix {
+func (r *Resolver) unresolvedFixes(scope *symbols.Scope, name string, at ast.Node) []diag.Fix {
 	span := spanOf(at)
 	if span.Len == 0 {
 		return nil
 	}
 	s := r.suggestionFor(scope, name, at)
 	cands := append(append([]string{}, s.unquoted...), s.spellings...)
-	var fixes []quickfix.Fix
+	var fixes []diag.Fix
 	for _, cand := range cands {
 		if cand == name {
 			continue
 		}
 		written := suggest.Notation(cand)
-		fixes = append(fixes, quickfix.Fix{
+		fixes = append(fixes, diag.Fix{
 			Title:     "Change " + titled(name) + " to " + titled(written),
-			Edits:     []quickfix.Edit{quickfix.Replace(span, written)},
+			Edits:     []diag.Edit{diag.Replace(span, written)},
 			Preferred: len(cands) == 1,
 		})
 		if fix, ok := r.importFix(scope, name, cand); ok {
@@ -49,19 +49,19 @@ func titled(spelling string) string {
 // written name declared elsewhere, so the import alone resolves the reference.
 // The import is written private: it serves the namespace importing it without
 // re-exporting its names onward ([SysML, 7.2] over [KerML, 8.2.3.3]).
-func (r *Resolver) importFix(scope *symbols.Scope, name, cand string) (quickfix.Fix, bool) {
+func (r *Resolver) importFix(scope *symbols.Scope, name, cand string) (diag.Fix, bool) {
 	cut := strings.LastIndex(cand, "::")
 	if cut < 0 || symbols.LastSegment(cand) != name || !r.importable(cand) {
-		return quickfix.Fix{}, false
+		return diag.Fix{}, false
 	}
 	at, ok := importAnchor(scope)
 	if !ok {
-		return quickfix.Fix{}, false
+		return diag.Fix{}, false
 	}
 	stmt := "private import " + cand[:cut] + "::*;"
-	return quickfix.Fix{
+	return diag.Fix{
 		Title:     "Import '" + cand[:cut] + "::*'",
-		Edits:     []quickfix.Edit{quickfix.InsertLine(at, stmt)},
+		Edits:     []diag.Edit{diag.InsertLine(at, stmt)},
 		Preferred: false,
 	}, true
 }

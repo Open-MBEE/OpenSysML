@@ -1,11 +1,11 @@
 package parser
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"sort"
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/quickfix"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -76,8 +76,8 @@ func TestKeywordedConditionFixWritesTheStandardSpelling(t *testing.T) {
 }
 
 // applyEdits applies edits to src back to front, so earlier offsets stay valid.
-func applyEdits(src string, edits []quickfix.Edit) string {
-	sorted := append([]quickfix.Edit(nil), edits...)
+func applyEdits(src string, edits []diag.Edit) string {
+	sorted := append([]diag.Edit(nil), edits...)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Span.Offset > sorted[j].Span.Offset })
 	for _, e := range sorted {
 		src = src[:e.Span.Offset] + e.NewText + src[e.Span.Offset+e.Span.Len:]
