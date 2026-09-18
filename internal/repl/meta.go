@@ -23,6 +23,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
+	"github.com/Open-MBEE/OpenSysML/internal/usage"
 )
 
 // renderUsage is how %render is written: a view, the form to write it in, text
@@ -129,6 +130,10 @@ const (
 	argName           = "<name>"
 	timeLabel         = "  Time: "
 
+	groupSession    = "Session:"
+	groupSettings   = "Settings:"
+	groupEngines    = "Analysis engines:"
+	groupChecks     = "Checking every schedule:"
 	groupLibrary    = "Library discovery:"
 	groupRuntime    = "Runtime commands:"
 	groupBehavioral = "Behavioral commands:"
@@ -147,94 +152,120 @@ type metaCommand struct {
 }
 
 var metaCommandTable = []metaCommand{
-	{name: "%help", desc: "show this help"},
-	{name: "%list", desc: "list current session declarations"},
-	{name: "%clear", desc: "reset the session"},
-	{name: "%load", args: "<path>...", desc: "submit the contents of files, directories or globs"},
-	{name: "%print", args: "[name]", desc: "print the session model as SysML notation, or just the named element"},
-	{name: "%save", args: "<file>", desc: "write the session model to a file (.sysml notation, or .ttl RDF — experimental)"},
-	{name: cmdQuery, args: "<oslc-query>", desc: "identify model elements using OSLC Query text"},
-	{name: "%verbosity", args: "[level]", desc: "show or set output level: quiet, normal or debug"},
-	{name: "%trace", args: "[on|off]", desc: "show or set execution tracing (evaluation, calc, action and state steps)"},
-	{name: "%strict", args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
-	{name: "%schedule", args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
-	{name: "%seed", args: "[<n>|off]", desc: "show or set the seed runs started from here on draw their modeled randomness from — Probability-weighted decisions, RandomFunctions — whatever the schedule; off leaves it to the schedule's seed:<n>"},
-	{name: "%budget", desc: "show the bounds one run may spend, and the variable raising each"},
-	{name: "%jobs", args: "[<n>]", desc: "show or set how many runs of one check go concurrently: an exploration's linearizations, the engines all consults"},
-	{name: "%engines", args: "[probe]", desc: "list the analysis engines, with the kind, protocol and authority of each, the questions it answers and whether it can run; probe also starts each external engine once and checks it against its manifest"},
-	{name: "%engine", args: "[<name>|auto|all]", desc: "show or set the engine questions asked from here on are put to: one by name, auto for the strongest covering one, or all for every covering one"},
-	{name: "%check-diverge", args: "[<feature>...|off]", desc: "show or set the features the check engine compares final values of across schedules; off compares every attribute of the action and of its performing object, or of the action alone when it has none"},
-	{name: "%check-property", args: "[<name>...|off]", desc: "show or set the constraints and requirements the check engine evaluates at every stable state of an action"},
-	{name: "%check-input", args: "[<feature>...|off]", desc: "show or set the features the smt engine leaves free in their declared domains although the model binds them; off frees only the inputs the model leaves unbound"},
-	{name: "%check-assume", args: "[<name>...|off]", desc: "show or set the constraints and requirements the smt engine assumes over the initial state of an action"},
-	{name: "%check-witness", args: "[<dir>|off]", desc: "show or set the directory the check and smt engines write a witness to for each violation and divergent value"},
-	{name: "%check-bounds", args: "[depth=<n>] [states=<n>] [unroll=<n>] [timeout=<duration>] | off", desc: "show or set the bounds the check and smt engines search within: the moves of one schedule, the distinct states, the iterations of a loop the smt engine unrolls, and the clock; off restores their defaults"},
-	{name: "%replay", args: "<witness>", desc: "install the schedule a witness file fixes, so the next %action or %state steps the run it records"},
-	{name: "%quit", desc: "exit the REPL"},
-	{name: "%exit", desc: "exit the REPL", alias: true},
+	{name: "%help", group: groupSession, desc: "show this help"},
+	{name: "%list", group: groupSession, desc: "list current session declarations"},
+	{name: "%clear", group: groupSession, desc: "reset the session"},
+	{name: "%load", group: groupSession, args: "<path>...", desc: "submit the contents of files, directories or globs"},
+	{name: "%print", group: groupSession, args: "[name]", desc: "print the session model as SysML notation, or just the named element"},
+	{name: "%save", group: groupSession, args: "<file>", desc: "write the session model to a file (.sysml notation, or .ttl RDF — experimental)"},
+	{name: cmdQuery, group: groupSession, args: "<oslc-query>", desc: "identify model elements using OSLC Query text"},
+	{name: "%quit", group: groupSession, desc: "exit the REPL (also %exit)"},
+	{name: "%exit", group: groupSession, desc: "exit the REPL", alias: true},
 
-	{group: groupLibrary, name: "%search", args: "<substring>", desc: "list the declared and library symbols whose qualified name contains <substring>"},
-	{group: groupLibrary, name: "%builtins", desc: "list the library functions this build implements directly"},
-	{group: groupLibrary, name: "%view", args: argName, desc: "show what a view exposes, and the views nested in it"},
-	{group: groupLibrary, name: "%render", args: "<name> [form [palette]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT or PlantUML, filled from a named palette"},
+	{name: "%verbosity", group: groupSettings, args: "[level]", desc: "show or set output level: quiet, normal or debug"},
+	{name: "%trace", group: groupSettings, args: "[on|off]", desc: "show or set execution tracing (evaluation, calc, action and state steps)"},
+	{name: "%strict", group: groupSettings, args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
+	{name: "%schedule", group: groupSettings, args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
+	{name: "%seed", group: groupSettings, args: "[<n>|off]", desc: "show or set the seed runs started from here on draw their modeled randomness from — Probability-weighted decisions, RandomFunctions — whatever the schedule; off leaves it to the schedule's seed:<n>"},
+	{name: "%budget", group: groupSettings, desc: "show the bounds one run may spend, and the variable raising each"},
+	{name: "%jobs", group: groupSettings, args: "[<n>]", desc: "show or set how many runs of one check go concurrently: an exploration's linearizations, the engines all consults"},
 
-	{group: groupRuntime, name: "%instantiate", args: argName, desc: "create an instance of a part def"},
-	{group: groupRuntime, name: "%eval", args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
-	{group: groupRuntime, name: "%features", args: "<object> [all|depth <n>] [json]", desc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; json writes the object graph as the API does; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]"},
-	{group: groupRuntime, name: "%instances", desc: "list all instantiated objects"},
-	{group: groupRuntime, name: "%invoke", args: "<object> <op> [<p>=<expr>]", desc: "invoke an operation of an object's type, performed by that object; an object is named, #<id>, or a path such as car.fl"},
+	{name: "%engines", group: groupEngines, args: "[probe]", desc: "list the analysis engines, with the kind, protocol and authority of each, the questions it answers and whether it can run; probe also starts each external engine once and checks it against its manifest"},
+	{name: "%engine", group: groupEngines, args: "[<name>|auto|all]", desc: "show or set the engine questions asked from here on are put to: one by name, auto for the strongest covering one, or all for every covering one"},
 
-	{group: groupBehavioral, name: "%calc", args: "<name> <args>", desc: "invoke a calculation with arguments"},
-	{group: groupBehavioral, name: cmdAnalysis, args: "<name>[(<args>)] [<object>]", desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
-	{group: groupBehavioral, name: cmdSweep, args: "<name>[(<args>)] [<object>] <p>=<from>..<to>[:<step>]...", desc: "run an analysis case or calc once per value of each range, one run per row of the cartesian product, and print the table"},
-	{group: groupBehavioral, name: cmdSamples, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
-	{group: groupBehavioral, name: cmdRuns, args: "<n> <seed> <action> [<observable>...]", desc: "run an action <n> times, each run's modeled randomness seeded from the given seed, and print the table of the observables with each one's distribution"},
-	{group: groupBehavioral, name: cmdRunQuery, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
-	{group: groupBehavioral, name: cmdRenderDocument, args: "<name> [mermaid|dot|plantuml]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT or PlantUML"},
-	{group: groupBehavioral, name: "%constraint", args: argName, desc: "evaluate a constraint definition"},
-	{group: groupBehavioral, name: "%requirement", args: argName, desc: "evaluate a requirement definition"},
-	{group: groupBehavioral, name: "%satisfy", args: "[name]", desc: "evaluate the satisfaction assertions of the model, or of one element"},
-	{group: groupBehavioral, name: "%validate", args: "<object>", desc: "check every assertion about an object and the objects it holds: the asserted constraints of their types, the requirements they carry and the satisfactions they are subject of; an object is named, #<id>, or a path such as car.engine"},
-	{group: groupBehavioral, name: "%check", args: argName, desc: "ask an SMT solver whether a constraint, requirement or satisfaction can be satisfied (experimental)"},
-	{group: groupBehavioral, name: "%explain", args: argName, desc: "ask an SMT solver which conditions of an unsatisfiable element conflict (experimental)"},
-	{group: groupBehavioral, name: "%solve", args: argName, desc: "ask an SMT solver for values satisfying an element, keeping what is already fixed (experimental)"},
-	{group: groupBehavioral, name: "%configure", args: "<name> [<variation>=<variant>...] [all [<count>]]", desc: "ask an SMT solver which variants an element's conditions permit (experimental)"},
-	{group: groupBehavioral, name: "%optimize", args: argName, desc: "ask an SMT solver for the best values an analysis case's objectives admit (experimental)"},
+	{name: "%check-diverge", group: groupChecks, args: "[<feature>...|off]", desc: "show or set the features the check engine compares final values of across schedules; off compares every attribute of the action and of its performing object, or of the action alone when it has none"},
+	{name: "%check-property", group: groupChecks, args: "[<name>...|off]", desc: "show or set the constraints and requirements the check engine evaluates at every stable state of an action"},
+	{name: "%check-input", group: groupChecks, args: "[<feature>...|off]", desc: "show or set the features the smt engine leaves free in their declared domains although the model binds them; off frees only the inputs the model leaves unbound"},
+	{name: "%check-assume", group: groupChecks, args: "[<name>...|off]", desc: "show or set the constraints and requirements the smt engine assumes over the initial state of an action"},
+	{name: "%check-witness", group: groupChecks, args: "[<dir>|off]", desc: "show or set the directory the check and smt engines write a witness to for each violation and divergent value"},
+	{name: "%check-bounds", group: groupChecks, args: "[depth=<n>] [states=<n>] [unroll=<n>] [timeout=<duration>] | off", desc: "show or set the bounds the check and smt engines search within: the moves of one schedule, the distinct states, the iterations of a loop the smt engine unrolls, and the clock; off restores their defaults"},
+	{name: "%replay", group: groupChecks, args: "<witness>", desc: "install the schedule a witness file fixes, so the next %action or %state steps the run it records"},
 
-	{group: groupAction, name: "%action", args: "<name> [<object>]", desc: "start action executor debugging session, performed by an object"},
-	{group: groupAction, name: "%step", desc: "advance one token step, or one step of the state machine being debugged"},
-	{group: groupAction, name: "%continue", desc: "run action to completion"},
-	{group: groupAction, name: "%tokens", desc: "show active tokens"},
-	{group: groupAction, name: "%break", args: "<node>", desc: "set breakpoint at node"},
-	{group: groupAction, name: "%stop", desc: "stop current debugging session"},
+	{name: "%search", group: groupLibrary, args: "<substring>", desc: "list the declared and library symbols whose qualified name contains <substring>"},
+	{name: "%builtins", group: groupLibrary, desc: "list the library functions this build implements directly"},
+	{name: "%view", group: groupLibrary, args: argName, desc: "show what a view exposes, and the views nested in it"},
+	{name: "%render", group: groupLibrary, args: "<name> [form [palette]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT or PlantUML, filled from a named palette"},
 
-	{group: groupState, name: "%state", args: "<name> [<object>]", desc: "debug the machine an object exhibits (naming that machine alone attaches to the one object exhibiting it; with none or several, name the object), or a state machine performed by an object; an object is named, #<id>, or a path such as car.fl"},
-	{group: groupState, name: "%send", args: "<signal>[(<p>=<expr>, ...)] [to <object>]", desc: "send a signal to an object's machine, by default the one being debugged; an object is named, #<id>, or a path such as car.fl"},
-	{group: groupState, name: "%events", desc: "show event queue and signals in flight"},
-	{group: groupState, name: "%current", desc: "show current state and configuration"},
-	{group: groupState, name: "%advance", args: "<time>", desc: "advance simulation time by <time> units, processing every event due"},
+	{name: "%instantiate", group: groupRuntime, args: argName, desc: "create an instance of a part def"},
+	{name: "%eval", group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
+	{name: "%features", group: groupRuntime, args: "<object> [all|depth <n>] [json]", desc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; json writes the object graph as the API does; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]"},
+	{name: "%instances", group: groupRuntime, desc: "list all instantiated objects"},
+	{name: "%invoke", group: groupRuntime, args: "<object> <op> [<p>=<expr>]", desc: "invoke an operation of an object's type, performed by that object; an object is named, #<id>, or a path such as car.fl"},
+
+	{name: "%calc", group: groupBehavioral, args: "<name> <args>", desc: "invoke a calculation with arguments"},
+	{name: cmdAnalysis, group: groupBehavioral, args: "<name>[(<args>)] [<object>]", desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
+	{name: cmdSweep, group: groupBehavioral, args: "<name>[(<args>)] [<object>] <p>=<from>..<to>[:<step>]...", desc: "run an analysis case or calc once per value of each range, one run per row of the cartesian product, and print the table"},
+	{name: cmdSamples, group: groupBehavioral, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
+	{name: cmdRuns, group: groupBehavioral, args: "<n> <seed> <action> [<observable>...]", desc: "run an action <n> times, each run's modeled randomness seeded from the given seed, and print the table of the observables with each one's distribution"},
+	{name: cmdRunQuery, group: groupBehavioral, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
+	{name: cmdRenderDocument, group: groupBehavioral, args: "<name> [mermaid|dot|plantuml]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT or PlantUML"},
+	{name: "%constraint", group: groupBehavioral, args: argName, desc: "evaluate a constraint definition"},
+	{name: "%requirement", group: groupBehavioral, args: argName, desc: "evaluate a requirement definition"},
+	{name: "%satisfy", group: groupBehavioral, args: "[name]", desc: "evaluate the satisfaction assertions of the model, or of one element"},
+	{name: "%validate", group: groupBehavioral, args: "<object>", desc: "check every assertion about an object and the objects it holds: the asserted constraints of their types, the requirements they carry and the satisfactions they are subject of; an object is named, #<id>, or a path such as car.engine"},
+	{name: "%check", group: groupBehavioral, args: argName, desc: "ask an SMT solver whether a constraint, requirement or satisfaction can be satisfied (experimental)"},
+	{name: "%explain", group: groupBehavioral, args: argName, desc: "ask an SMT solver which conditions of an unsatisfiable element conflict (experimental)"},
+	{name: "%solve", group: groupBehavioral, args: argName, desc: "ask an SMT solver for values satisfying an element, keeping what is already fixed (experimental)"},
+	{name: "%configure", group: groupBehavioral, args: "<name> [<variation>=<variant>...] [all [<count>]]", desc: "ask an SMT solver which variants an element's conditions permit (experimental)"},
+	{name: "%optimize", group: groupBehavioral, args: argName, desc: "ask an SMT solver for the best values an analysis case's objectives admit (experimental)"},
+
+	{name: "%action", group: groupAction, args: "<name> [<object>]", desc: "start action executor debugging session, performed by an object"},
+	{name: "%step", group: groupAction, desc: "advance one token step, or one step of the state machine being debugged"},
+	{name: "%continue", group: groupAction, desc: "run action to completion"},
+	{name: "%tokens", group: groupAction, desc: "show active tokens"},
+	{name: "%break", group: groupAction, args: "<node>", desc: "set breakpoint at node"},
+	{name: "%stop", group: groupAction, desc: "stop current debugging session"},
+
+	{name: "%state", group: groupState, args: "<name> [<object>]", desc: "debug the machine an object exhibits (naming that machine alone attaches to the one object exhibiting it; with none or several, name the object), or a state machine performed by an object; an object is named, #<id>, or a path such as car.fl"},
+	{name: "%send", group: groupState, args: "<signal>[(<p>=<expr>, ...)] [to <object>]", desc: "send a signal to an object's machine, by default the one being debugged; an object is named, #<id>, or a path such as car.fl"},
+	{name: "%events", group: groupState, desc: "show event queue and signals in flight"},
+	{name: "%current", group: groupState, desc: "show current state and configuration"},
+	{name: "%advance", group: groupState, args: "<time>", desc: "advance simulation time by <time> units, processing every event due"},
 }
 
 // helpText renders the command table, one line per command under its heading.
 func helpText() []string {
-	const width = 20
-	var out []string
+	out := []string{
+		"Lines starting with % are commands; anything else is SysML notation.",
+		"Commands are listed by task; <angle brackets> name an argument, [square",
+		"brackets] an optional one.",
+	}
 	group := ""
 	for _, c := range metaCommandTable {
 		if c.alias {
 			continue
 		}
-		if c.group != group && c.group != "" {
+		if c.group != group {
 			group = c.group
 			out = append(out, "", group)
 		}
-		usage := strings.TrimSpace(c.name + " " + c.args)
-		if pad := width - len(usage); pad > 0 {
-			usage += strings.Repeat(" ", pad)
-		} else {
-			usage += "  "
+		out = append(out, helpEntry(c)...)
+	}
+	return out
+}
+
+// helpColumn is where a command's description starts; a signature too wide
+// for it takes a line of its own, and helpWidth is where the text wraps.
+const (
+	helpColumn = 28
+	helpWidth  = 78
+)
+
+// helpEntry is one command's help lines: its signature, folded when too wide
+// for one line, then its description wrapped into the column after it.
+func helpEntry(c metaCommand) []string {
+	margin := strings.Repeat(" ", helpColumn)
+	signature := strings.Split(usage.Wrap(c.name+" "+c.args, helpWidth-6), "\n")
+	out := []string{"  " + signature[0]}
+	for _, line := range signature[1:] {
+		out = append(out, "      "+line)
+	}
+	for i, line := range strings.Split(usage.Wrap(c.desc, helpWidth-helpColumn), "\n") {
+		if i == 0 && len(signature) == 1 && len(out[0]) < helpColumn-1 {
+			out[0] += margin[len(out[0]):] + line
+			continue
 		}
-		out = append(out, usage+c.desc)
+		out = append(out, margin+line)
 	}
 	return out
 }
