@@ -334,21 +334,29 @@ func TestMultiplicityBodyMembersLinkTheirReferences(t *testing.T) {
 	}
 }
 
-// TestPacketsRoundTripsStructurally is the corpus case the spelling rule was
-// found on: a redefining attribute that bears its target's own name.
-func TestPacketsRoundTripsStructurally(t *testing.T) {
-	path := filepath.Join(corpusRoundTripExamples, "pilot-corpora", "sysml-examples", "Packet Example", "Packets.sysml")
+// pilotCorpusModel reads one model of the downloaded OMG pilot corpora and returns
+// its path; an absent corpus skips locally and fails where CI requires it.
+func pilotCorpusModel(t *testing.T, rel string) (string, []byte) {
+	t.Helper()
+	path := filepath.Join("..", "..", "examples", "pilot-corpora", filepath.FromSlash(rel))
 	src, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		for _, root := range corpusRoundTripRoots {
-			if root.name == "pilot-corpora/sysml-examples" {
-				root.skip(t, path+" is missing")
-			}
+		hint := "pilot corpora not downloaded (run ./scripts/download-pilot-corpora.sh)"
+		if env := os.Getenv("OPENSYSML_REQUIRE_PILOT_CORPORA"); env != "" {
+			t.Fatalf("OPENSYSML_REQUIRE_PILOT_CORPORA=%s but %s is missing: %s", env, path, hint)
 		}
+		t.Skip(hint)
 	}
 	if err != nil {
 		t.Fatal(err)
 	}
+	return path, src
+}
+
+// TestPacketsRoundTripsStructurally is the corpus case the spelling rule was
+// found on: a redefining attribute that bears its target's own name.
+func TestPacketsRoundTripsStructurally(t *testing.T) {
+	path, src := pilotCorpusModel(t, "sysml-examples/Packet Example/Packets.sysml")
 	graph, err := export.Convert(path, src, export.FormatSysML, export.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)

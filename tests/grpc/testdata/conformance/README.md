@@ -7,7 +7,7 @@ Layer 2 of the AGENTS.md §5.2 test contract for the gRPC service. Each case is 
   (`import ScalarValues::*;`) rather than relying on an implicit library import.
 - `<name>.expected.json` — the RPC to drive and the expected response.
 
-`TestGRPCConformance` in `internal/grpc/conformance_test.go` discovers every `.expected.json`
+`TestGRPCConformance` in `tests/grpc/conformance_test.go` discovers every `.expected.json`
 in this directory, so adding a case is a data-only change.
 
 ## Expectation schema

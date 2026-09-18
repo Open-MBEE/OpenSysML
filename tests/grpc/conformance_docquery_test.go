@@ -1,4 +1,4 @@
-package grpc
+package grpc_test
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/grpc"
 )
 
 // expectedBinding is the fixture encoding of a pb.DocumentQueryBinding: the
@@ -27,7 +28,7 @@ type expectedRow struct {
 
 // runRunDocumentQueryCase instantiates the case's objects, runs its query and
 // compares columns and rows, or the status error a failing case pins.
-func runRunDocumentQueryCase(t *testing.T, srv *Service, ctx context.Context, modelHash string, tc conformanceCase) {
+func runRunDocumentQueryCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
 
 	for _, sym := range tc.Instantiate {

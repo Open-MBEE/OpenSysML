@@ -24,7 +24,7 @@ const (
 	parserSuiteDir        = "tests/parser"
 	parserGoldenDir       = parserSuiteDir + "/testdata/parse"
 	grpcDir               = "internal/grpc"
-	grpcConformanceDir    = grpcDir + "/testdata/conformance"
+	grpcConformanceDir    = "tests/grpc/testdata/conformance"
 	lspDir                = "internal/lsp"
 )
 
@@ -37,7 +37,7 @@ type SuiteCounts struct {
 	GoldenASTs      GoldenCounts
 	Negatives       NegativeCounts
 	Robustness      int // first-level subtests across the TestRuntimeRobustness* functions
-	GRPCConformance int // cases under internal/grpc/testdata/conformance
+	GRPCConformance int // cases under tests/grpc/testdata/conformance
 	GRPCRobustness  int // first-level subtests across the TestGRPCRobustness* functions
 	// TestFunctions counts the module's top-level `Test` functions; the other
 	// two count one package's.

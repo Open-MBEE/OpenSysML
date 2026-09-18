@@ -19,7 +19,7 @@ import (
 // TestPilotLibraryXMI asserts, in both directions, that the ids derived here are the
 // ones the pilot's XMI (scripts/download-pilot-library-xmi.sh) carries; nothing is recorded.
 const (
-	pilotLibraryXMIRoot = "../../../build/pilot-library-xmi"
+	pilotLibraryXMIRoot = "../../build/pilot-library-xmi"
 	pilotLibraryXMIEnv  = "OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI"
 )
 

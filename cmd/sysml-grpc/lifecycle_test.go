@@ -223,7 +223,7 @@ func callContext(t *testing.T) context.Context {
 // point of this test is the process, not the model.
 func fixture(t *testing.T, name string) string {
 	t.Helper()
-	path, err := filepath.Abs(filepath.Join("..", "..", "internal", "grpc", "testdata", "conformance", name))
+	path, err := filepath.Abs(filepath.Join("..", "..", "tests", "grpc", "testdata", "conformance", name))
 	if err != nil {
 		t.Fatalf("resolving fixture %s: %v", name, err)
 	}

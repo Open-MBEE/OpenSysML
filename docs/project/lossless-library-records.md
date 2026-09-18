@@ -420,7 +420,7 @@ declaration exposes (members, a declared value, a condition body, a `[0..1]` mul
    uniform; this proves the presence is.
 
 `TestMultiplicityOfALibraryFeatureIsTheSameColdAndWarm`
-(`internal/core/semantics/cached_library_test.go:253`) flips at this point: it stops asserting the
+(`tests/semantics/cached_library_test.go:253`) flips at this point: it stops asserting the
 assumed `1..1` and asserts the declared `0..1`, on both paths. Its comment already says so.
 
 ### The one way this proof is weaker than today's, and how it is closed

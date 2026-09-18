@@ -347,12 +347,12 @@ func fixtureSets(t *testing.T) map[string]map[string][]byte {
 		}
 		sets[set][name] = content
 	}
-	entries, err := os.ReadDir("../../../examples")
+	entries, err := os.ReadDir("../../examples")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		path := filepath.Join("../../../examples", e.Name())
+		path := filepath.Join("../../examples", e.Name())
 		switch {
 		case e.Name() == "sysml-v2-training" || e.Name() == "pilot-corpora":
 			continue
@@ -364,7 +364,7 @@ func fixtureSets(t *testing.T) map[string]map[string][]byte {
 			add("examples", e.Name(), path)
 		}
 	}
-	dirs, err := os.ReadDir("../../../tests/testdata")
+	dirs, err := os.ReadDir("../testdata")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -372,7 +372,7 @@ func fixtureSets(t *testing.T) map[string]map[string][]byte {
 		if !e.IsDir() {
 			continue
 		}
-		path := filepath.Join("../../../tests/testdata", e.Name())
+		path := filepath.Join("../testdata", e.Name())
 		for _, f := range modelFiles(t, path) {
 			add("testdata/"+e.Name(), filepath.ToSlash(f), filepath.Join(path, f))
 		}
@@ -444,10 +444,10 @@ func TestIncrementalEqualsFresh(t *testing.T) {
 // corpusRoots are the four OMG model roots the corpus gates pin, replayed under
 // the same absence policy: skipped locally, failed when the require variable is set.
 var corpusRoots = []struct{ dir, requireEnv, fetch string }{
-	{"../../../examples/sysml-v2-training", "OPENSYSML_REQUIRE_TRAINING_CORPUS", "./scripts/download-training-examples.sh"},
-	{"../../../examples/pilot-corpora/kerml-examples", "OPENSYSML_REQUIRE_PILOT_CORPORA", "./scripts/download-pilot-corpora.sh"},
-	{"../../../examples/pilot-corpora/sysml-examples", "OPENSYSML_REQUIRE_PILOT_CORPORA", "./scripts/download-pilot-corpora.sh"},
-	{"../../../examples/pilot-corpora/sysml-validation", "OPENSYSML_REQUIRE_PILOT_CORPORA", "./scripts/download-pilot-corpora.sh"},
+	{"../../examples/sysml-v2-training", "OPENSYSML_REQUIRE_TRAINING_CORPUS", "./scripts/download-training-examples.sh"},
+	{"../../examples/pilot-corpora/kerml-examples", "OPENSYSML_REQUIRE_PILOT_CORPORA", "./scripts/download-pilot-corpora.sh"},
+	{"../../examples/pilot-corpora/sysml-examples", "OPENSYSML_REQUIRE_PILOT_CORPORA", "./scripts/download-pilot-corpora.sh"},
+	{"../../examples/pilot-corpora/sysml-validation", "OPENSYSML_REQUIRE_PILOT_CORPORA", "./scripts/download-pilot-corpora.sh"},
 }
 
 func TestIncrementalEqualsFreshCorpora(t *testing.T) {
