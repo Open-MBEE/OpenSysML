@@ -3,19 +3,18 @@ package identity
 import (
 	"sync"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/identity/normative"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // LibraryLanguage is the half of the standard library a bundled tier belongs to:
 // Kernel is KerML, Systems and Domain are SysML; extensions and workspace are neither.
-func LibraryLanguage(tier symbols.LibraryTier) (normative.Language, bool) {
+func LibraryLanguage(tier symbols.LibraryTier) (Language, bool) {
 	switch tier {
 	case symbols.TierKernelSemantic, symbols.TierKernelDataType, symbols.TierKernelFunction:
-		return normative.KerML, true
+		return KerML, true
 	case symbols.TierSystems, symbols.TierDomain:
-		return normative.SysML, true
+		return SysML, true
 	}
 	return 0, false
 }
@@ -31,7 +30,7 @@ func newQualifier(idx libraryView) *qualifier {
 }
 
 // language is the language whose norm fixes sym's id, if any.
-func (q *qualifier) language(sym *symbols.Symbol) (normative.Language, bool) {
+func (q *qualifier) language(sym *symbols.Symbol) (Language, bool) {
 	lang, ok := LibraryLanguage(q.idx.LibraryTier(sym))
 	if !ok || !q.qualified(sym) {
 		return 0, false
@@ -74,7 +73,7 @@ func firstSoNamed(sym *symbols.Symbol) bool {
 type LibraryElement struct {
 	Symbol             *symbols.Symbol
 	FQN                string
-	Language           normative.Language
+	Language           Language
 	ID                 string
 	OwningMembershipID string
 }
@@ -268,8 +267,8 @@ func buildCatalog(idx libraryView) *Catalog {
 			Symbol:             sym,
 			FQN:                fqn,
 			Language:           lang,
-			ID:                 normative.ElementID(lang, fqn),
-			OwningMembershipID: normative.OwningMembershipID(lang, fqn),
+			ID:                 ElementID(lang, fqn),
+			OwningMembershipID: OwningMembershipID(lang, fqn),
 		}
 		c.elements[el.ID] = el
 		c.memberships[el.OwningMembershipID] = el

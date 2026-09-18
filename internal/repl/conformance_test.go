@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 )
@@ -21,13 +20,13 @@ func TestStrictMetaCommandReportsAndSetsTheMode(t *testing.T) {
 	if got := meta(t, s, "%strict on"); len(got) == 0 || !strings.Contains(got[0], "on") {
 		t.Fatalf("%%strict on = %v, want it to report on", got)
 	}
-	if s.ConformanceMode() != conformance.ModeStrict {
+	if s.ConformanceMode() != diag.ConformanceStrict {
 		t.Fatalf("mode = %v, want strict", s.ConformanceMode())
 	}
 	if got := meta(t, s, "%strict off"); len(got) == 0 || !strings.Contains(got[0], "off") {
 		t.Fatalf("%%strict off = %v, want it to report off", got)
 	}
-	if s.ConformanceMode() != conformance.ModeDefault {
+	if s.ConformanceMode() != diag.ConformanceDefault {
 		t.Fatalf("mode = %v, want default", s.ConformanceMode())
 	}
 }
@@ -38,7 +37,7 @@ func TestStrictMetaCommandRejectsAnUnknownSetting(t *testing.T) {
 	if len(got) != 1 || !strings.Contains(got[0], "error") {
 		t.Fatalf("%%strict maybe = %v, want one error line", got)
 	}
-	if s.ConformanceMode() != conformance.ModeDefault {
+	if s.ConformanceMode() != diag.ConformanceDefault {
 		t.Fatal("a rejected setting must leave the mode alone")
 	}
 }

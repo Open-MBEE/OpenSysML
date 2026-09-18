@@ -225,7 +225,7 @@ func (c *compiler) rejectStructural(owner, member *symbols.Symbol) error {
 		return &Error{
 			Kind:     ErrorInvalidContent,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	}
@@ -250,7 +250,7 @@ func (c *compiler) compileContent(member *symbols.Symbol) (Content, error) {
 		return Content{}, &Error{
 			Kind:     ErrorNestedDocument,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	case c.model.Conforms(member, c.bases.section):
@@ -271,7 +271,7 @@ func (c *compiler) compileContent(member *symbols.Symbol) (Content, error) {
 		return Content{}, &Error{
 			Kind:     ErrorInvalidContent,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	}
@@ -316,7 +316,7 @@ func (c *compiler) compileParagraph(member *symbols.Symbol) (Content, error) {
 		return Content{}, &Error{
 			Kind:     ErrorColumnRunWithoutQuery,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	}
@@ -324,7 +324,7 @@ func (c *compiler) compileParagraph(member *symbols.Symbol) (Content, error) {
 		return Content{}, &Error{
 			Kind:     ErrorConflictingColumnRuns,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	}
@@ -332,7 +332,7 @@ func (c *compiler) compileParagraph(member *symbols.Symbol) (Content, error) {
 		return Content{}, &Error{
 			Kind:     ErrorConflictingRuns,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	}
@@ -340,7 +340,7 @@ func (c *compiler) compileParagraph(member *symbols.Symbol) (Content, error) {
 		return Content{}, &Error{
 			Kind:     ErrorConflictingText,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	}
@@ -348,7 +348,7 @@ func (c *compiler) compileParagraph(member *symbols.Symbol) (Content, error) {
 		return Content{}, &Error{
 			Kind:     ErrorMissingText,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	}
@@ -407,7 +407,7 @@ func (c *compiler) compileColumnRun(member *symbols.Symbol, query *QueryRef) (Co
 		return ColumnRun{}, &Error{
 			Kind:     kind,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	}
@@ -435,7 +435,7 @@ func (c *compiler) compileColumnRun(member *symbols.Symbol, query *QueryRef) (Co
 			return ColumnRun{}, &Error{
 				Kind:     ErrorConflictingRunStyle,
 				Document: c.document,
-				Content:  c.contentName(member),
+				Content:  symbols.FQNOf(member),
 				Origin:   provenance.Symbol(member),
 			}
 		}
@@ -445,7 +445,7 @@ func (c *compiler) compileColumnRun(member *symbols.Symbol, query *QueryRef) (Co
 				return ColumnRun{}, &Error{
 					Kind:     ErrorInvalidRunStyle,
 					Document: c.document,
-					Content:  c.contentName(member),
+					Content:  symbols.FQNOf(member),
 					Actual:   style,
 					Origin:   provenance.Symbol(member),
 				}
@@ -456,7 +456,7 @@ func (c *compiler) compileColumnRun(member *symbols.Symbol, query *QueryRef) (Co
 				return ColumnRun{}, &Error{
 					Kind:      ErrorMissingRunColumn,
 					Document:  c.document,
-					Content:   c.contentName(member),
+					Content:   symbols.FQNOf(member),
 					Parameter: "styleColumn",
 					Origin:    provenance.Symbol(member),
 				}
@@ -482,7 +482,7 @@ func (c *compiler) requiredColumn(member *symbols.Symbol, attribute string) (str
 		return "", &Error{
 			Kind:      ErrorMissingRunColumn,
 			Document:  c.document,
-			Content:   c.contentName(member),
+			Content:   symbols.FQNOf(member),
 			Parameter: attribute,
 			Origin:    provenance.Symbol(member),
 		}
@@ -502,7 +502,7 @@ func (c *compiler) validateRunColumns(member *symbols.Symbol, query *QueryRef, r
 			return &Error{
 				Kind:     ErrorUnknownRunColumn,
 				Document: c.document,
-				Content:  c.contentName(member),
+				Content:  symbols.FQNOf(member),
 				Query:    query.entry,
 				Actual:   name,
 				Origin:   provenance.Symbol(member),
@@ -548,7 +548,7 @@ func (c *compiler) compileRun(member *symbols.Symbol) (Run, error) {
 		return Run{}, &Error{
 			Kind:     ErrorAmbiguousRun,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	}
@@ -563,7 +563,7 @@ func (c *compiler) compileRun(member *symbols.Symbol) (Run, error) {
 		return Run{}, &Error{
 			Kind:     ErrorInvalidContent,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	}
@@ -585,7 +585,7 @@ func (c *compiler) compileSpanRun(member *symbols.Symbol) (Run, error) {
 			return Run{}, &Error{
 				Kind:     ErrorInvalidRunStyle,
 				Document: c.document,
-				Content:  c.contentName(member),
+				Content:  symbols.FQNOf(member),
 				Actual:   style,
 				Origin:   provenance.Symbol(member),
 			}
@@ -596,7 +596,7 @@ func (c *compiler) compileSpanRun(member *symbols.Symbol) (Run, error) {
 		return Run{}, &Error{
 			Kind:     ErrorMissingRunText,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	}
@@ -616,7 +616,7 @@ func (c *compiler) compileLinkRun(member *symbols.Symbol) (Run, error) {
 		return Run{}, &Error{
 			Kind:     ErrorMissingLinkTarget,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	}
@@ -646,7 +646,7 @@ func (c *compiler) requiredRunText(member *symbols.Symbol) (string, error) {
 		return "", &Error{
 			Kind:     ErrorMissingRunText,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	}
@@ -668,7 +668,7 @@ func (c *compiler) refRunTarget(member *symbols.Symbol) (*symbols.Symbol, *symbo
 	return nil, nil, &Error{
 		Kind:     ErrorMissingRefTarget,
 		Document: c.document,
-		Content:  c.contentName(member),
+		Content:  symbols.FQNOf(member),
 		Origin:   provenance.Symbol(member),
 	}
 }
@@ -727,7 +727,7 @@ func (c *compiler) rejectQuery(member *symbols.Symbol) error {
 			return &Error{
 				Kind:     ErrorInvalidContent,
 				Document: c.document,
-				Content:  c.contentName(candidate),
+				Content:  symbols.FQNOf(candidate),
 				Origin:   provenance.Symbol(candidate),
 			}
 		}
@@ -769,7 +769,7 @@ func (c *compiler) resolveRefs(content []Content) error {
 					return &Error{
 						Kind:     ErrorInvalidRefTarget,
 						Document: c.document,
-						Content:  c.contentName(run.refSym),
+						Content:  symbols.FQNOf(run.refSym),
 						Actual:   "an anonymous content block",
 						Origin:   run.origin,
 					}
@@ -838,8 +838,8 @@ func (c *compiler) crossDocumentTarget(run *Run) (refTarget, error) {
 	return refTarget{}, &Error{
 		Kind:     ErrorInvalidRefTarget,
 		Document: c.document,
-		Content:  c.contentName(sym),
-		Actual:   c.contentName(sym),
+		Content:  symbols.FQNOf(sym),
+		Actual:   symbols.FQNOf(sym),
 		Origin:   run.origin,
 	}
 }
@@ -878,7 +878,7 @@ func (c *compiler) documentRootTarget(sym *symbols.Symbol, run *Run) (*symbols.S
 		return nil, &Error{
 			Kind:     ErrorAmbiguousRefTarget,
 			Document: c.document,
-			Content:  c.contentName(sym),
+			Content:  symbols.FQNOf(sym),
 			Actual:   strings.Join(names, " and "),
 			Origin:   run.origin,
 		}
@@ -913,7 +913,7 @@ func (c *compiler) chainRootDocument(run *Run) (*symbols.Symbol, error) {
 		return nil, &Error{
 			Kind:     ErrorAmbiguousRefTarget,
 			Document: c.document,
-			Content:  c.contentName(root),
+			Content:  symbols.FQNOf(root),
 			Actual:   strings.Join(names, " and "),
 			Origin:   run.origin,
 		}
@@ -1027,7 +1027,7 @@ func (c *compiler) compileTable(member *symbols.Symbol) (Content, error) {
 			return Content{}, &Error{
 				Kind:     ErrorUnknownGroupColumn,
 				Document: c.document,
-				Content:  c.contentName(member),
+				Content:  symbols.FQNOf(member),
 				Query:    query.entry,
 				Actual:   groupBy,
 				Origin:   provenance.Symbol(member),
@@ -1179,7 +1179,7 @@ func (c *compiler) compileList(member *symbols.Symbol) (Content, error) {
 			return Content{}, &Error{
 				Kind:     ErrorInvalidStyle,
 				Document: c.document,
-				Content:  c.contentName(member),
+				Content:  symbols.FQNOf(member),
 				Actual:   style,
 				Origin:   provenance.Symbol(member),
 			}
@@ -1227,7 +1227,7 @@ func (c *compiler) compileDefinitions(member *symbols.Symbol) (Content, error) {
 				return Content{}, &Error{
 					Kind:      ErrorUnknownDefinitionColumn,
 					Document:  c.document,
-					Content:   c.contentName(member),
+					Content:   symbols.FQNOf(member),
 					Query:     query.entry,
 					Parameter: column.attribute,
 					Actual:    column.name,
@@ -1259,7 +1259,7 @@ func (c *compiler) definitionColumn(member *symbols.Symbol, attribute string) (s
 		return "", &Error{
 			Kind:      ErrorMissingDefinitionColumn,
 			Document:  c.document,
-			Content:   c.contentName(member),
+			Content:   symbols.FQNOf(member),
 			Parameter: attribute,
 			Origin:    provenance.Symbol(member),
 		}
@@ -1280,7 +1280,7 @@ func (c *compiler) compileFormula(member *symbols.Symbol) (Content, error) {
 		return Content{}, &Error{
 			Kind:     ErrorMissingFormulaSource,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	}
@@ -1330,7 +1330,7 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 			return Content{}, &Error{
 				Kind:     ErrorConflictingKind,
 				Document: c.document,
-				Content:  c.contentName(member),
+				Content:  symbols.FQNOf(member),
 				Actual:   kindText,
 				Origin:   provenance.Symbol(member),
 			}
@@ -1342,7 +1342,7 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 				return Content{}, &Error{
 					Kind:     ErrorUnsupportedKind,
 					Document: c.document,
-					Content:  c.contentName(member),
+					Content:  symbols.FQNOf(member),
 					Origin:   provenance.Symbol(member),
 					Err:      err,
 				}
@@ -1350,7 +1350,7 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 			return Content{}, &Error{
 				Kind:     ErrorInvalidViewSource,
 				Document: c.document,
-				Content:  c.contentName(member),
+				Content:  symbols.FQNOf(member),
 				Origin:   provenance.Symbol(member),
 				Err:      err,
 			}
@@ -1361,7 +1361,7 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 			return Content{}, &Error{
 				Kind:     ErrorMissingDiagramKind,
 				Document: c.document,
-				Content:  c.contentName(member),
+				Content:  symbols.FQNOf(member),
 				Origin:   provenance.Symbol(member),
 			}
 		}
@@ -1370,7 +1370,7 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 			return Content{}, &Error{
 				Kind:     ErrorUnsupportedKind,
 				Document: c.document,
-				Content:  c.contentName(member),
+				Content:  symbols.FQNOf(member),
 				Actual:   kindText,
 				Origin:   provenance.Symbol(member),
 			}
@@ -1384,7 +1384,7 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 			return Content{}, &Error{
 				Kind:     ErrorInvalidDirection,
 				Document: c.document,
-				Content:  c.contentName(member),
+				Content:  symbols.FQNOf(member),
 				Actual:   directionText,
 				Origin:   provenance.Symbol(member),
 			}
@@ -1393,7 +1393,7 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 			return Content{}, &Error{
 				Kind:     ErrorUnsupportedDirection,
 				Document: c.document,
-				Content:  c.contentName(member),
+				Content:  symbols.FQNOf(member),
 				Expected: string(reference.kind),
 				Actual:   directionText,
 				Origin:   provenance.Symbol(member),
@@ -1407,7 +1407,7 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 			return Content{}, &Error{
 				Kind:     ErrorInvalidPalette,
 				Document: c.document,
-				Content:  c.contentName(member),
+				Content:  symbols.FQNOf(member),
 				Actual:   paletteText,
 				Origin:   provenance.Symbol(member),
 			}
@@ -1416,7 +1416,7 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 			return Content{}, &Error{
 				Kind:     ErrorUnsupportedPalette,
 				Document: c.document,
-				Content:  c.contentName(member),
+				Content:  symbols.FQNOf(member),
 				Expected: string(reference.kind),
 				Actual:   paletteText,
 				Origin:   provenance.Symbol(member),
@@ -1453,7 +1453,7 @@ func (c *compiler) diagramSource(member *symbols.Symbol) (*symbols.Symbol, error
 	return nil, &Error{
 		Kind:     ErrorMissingViewSource,
 		Document: c.document,
-		Content:  c.contentName(member),
+		Content:  symbols.FQNOf(member),
 		Origin:   provenance.Symbol(member),
 	}
 }
@@ -1494,7 +1494,7 @@ func (c *compiler) namedTarget(
 				return nil, nil, false, &Error{
 					Kind:     unknown,
 					Document: c.document,
-					Content:  c.contentName(member),
+					Content:  symbols.FQNOf(member),
 					Actual:   chainText(chain),
 					Origin:   provenance.Node(candidate.DocName, declaration.Value),
 				}
@@ -1506,7 +1506,7 @@ func (c *compiler) namedTarget(
 			return nil, nil, false, &Error{
 				Kind:     invalid,
 				Document: c.document,
-				Content:  c.contentName(member),
+				Content:  symbols.FQNOf(member),
 				Origin:   provenance.Node(candidate.DocName, declaration.Value),
 			}
 		}
@@ -1515,8 +1515,8 @@ func (c *compiler) namedTarget(
 			return nil, nil, false, &Error{
 				Kind:     unknown,
 				Document: c.document,
-				Content:  c.contentName(member),
-				Actual:   qualifiedNameText(name),
+				Content:  symbols.FQNOf(member),
+				Actual:   name.Text(),
 				Origin:   provenance.Node(candidate.DocName, declaration.Value),
 			}
 		}
@@ -1542,23 +1542,15 @@ func chainText(chain *ast.FeatureChainExpr) string {
 		operand = chainText(node)
 	case *ast.FeatureReference:
 		if node.Name != nil {
-			operand = qualifiedNameText(node.Name)
+			operand = node.Name.Text()
 		}
 	case *ast.QualifiedName:
-		operand = qualifiedNameText(node)
+		operand = node.Text()
 	}
 	if chain.Member == nil {
 		return operand
 	}
-	return operand + "." + qualifiedNameText(chain.Member)
-}
-
-func qualifiedNameText(name *ast.QualifiedName) string {
-	parts := make([]string, 0, len(name.Parts))
-	for _, part := range name.Parts {
-		parts = append(parts, part.Text)
-	}
-	return strings.Join(parts, "::")
+	return operand + "." + chain.Member.Text()
 }
 
 // rejectNestedContent rejects content blocks nested inside a content block,
@@ -1576,7 +1568,7 @@ func (c *compiler) rejectNestedContent(owner *symbols.Symbol) error {
 			return &Error{
 				Kind:     ErrorInvalidContent,
 				Document: c.document,
-				Content:  c.contentName(member),
+				Content:  symbols.FQNOf(member),
 				Origin:   provenance.Symbol(member),
 			}
 		}
@@ -1595,7 +1587,7 @@ func (c *compiler) requiredQueryRef(member *symbols.Symbol) (*QueryRef, error) {
 		return nil, &Error{
 			Kind:     ErrorMissingQuery,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	}
@@ -1614,7 +1606,7 @@ func (c *compiler) compileQueryRef(owner *symbols.Symbol) (*QueryRef, error) {
 			return nil, &Error{
 				Kind:     ErrorConflictingQuery,
 				Document: c.document,
-				Content:  c.contentName(owner),
+				Content:  symbols.FQNOf(owner),
 				Origin:   provenance.Symbol(member),
 			}
 		}
@@ -1628,7 +1620,7 @@ func (c *compiler) compileQueryRef(owner *symbols.Symbol) (*QueryRef, error) {
 		return nil, &Error{
 			Kind:     ErrorUnknownQuery,
 			Document: c.document,
-			Content:  c.contentName(owner),
+			Content:  symbols.FQNOf(owner),
 			Query:    symbols.FQNOf(target),
 			Origin:   provenance.Symbol(usage),
 		}
@@ -1639,7 +1631,7 @@ func (c *compiler) compileQueryRef(owner *symbols.Symbol) (*QueryRef, error) {
 		return nil, &Error{
 			Kind:     ErrorQueryPlanning,
 			Document: c.document,
-			Content:  c.contentName(owner),
+			Content:  symbols.FQNOf(owner),
 			Query:    entry,
 			Origin:   provenance.Symbol(usage),
 			Err:      err,
@@ -1724,7 +1716,7 @@ func (c *compiler) compileBindings(
 			return nil, &Error{
 				Kind:      ErrorUnknownParameter,
 				Document:  c.document,
-				Content:   c.contentName(content),
+				Content:   symbols.FQNOf(content),
 				Query:     entry,
 				Parameter: name,
 				Origin:    provenance.Symbol(member),
@@ -1734,7 +1726,7 @@ func (c *compiler) compileBindings(
 			return nil, &Error{
 				Kind:      ErrorDuplicateBinding,
 				Document:  c.document,
-				Content:   c.contentName(content),
+				Content:   symbols.FQNOf(content),
 				Query:     entry,
 				Parameter: name,
 				Origin:    provenance.Symbol(member),
@@ -1766,7 +1758,7 @@ func (c *compiler) compileBindings(
 		return nil, &Error{
 			Kind:      ErrorMissingBinding,
 			Document:  c.document,
-			Content:   c.contentName(content),
+			Content:   symbols.FQNOf(content),
 			Query:     entry,
 			Parameter: parameter.Name,
 			Origin:    provenance.Symbol(usage),
@@ -1923,7 +1915,7 @@ func (c *compiler) unsupportedBinding(content, member *symbols.Symbol, entry, pa
 	return &Error{
 		Kind:      ErrorUnsupportedBinding,
 		Document:  c.document,
-		Content:   c.contentName(content),
+		Content:   symbols.FQNOf(content),
 		Query:     entry,
 		Parameter: parameter,
 		Origin:    provenance.Symbol(member),
@@ -1941,7 +1933,7 @@ func (c *compiler) validateBinding(
 		return &Error{
 			Kind:      ErrorBindingMultiplicity,
 			Document:  c.document,
-			Content:   c.contentName(content),
+			Content:   symbols.FQNOf(content),
 			Query:     entry,
 			Parameter: parameter.Name,
 			Expected:  multiplicityString(parameter.Multiplicity),
@@ -1958,7 +1950,7 @@ func (c *compiler) validateBinding(
 			return &Error{
 				Kind:      ErrorBindingType,
 				Document:  c.document,
-				Content:   c.contentName(content),
+				Content:   symbols.FQNOf(content),
 				Query:     entry,
 				Parameter: parameter.Name,
 				Expected:  parameter.Type,
@@ -2039,7 +2031,7 @@ func (c *compiler) requiredText(member *symbols.Symbol, attribute string, missin
 		return "", &Error{
 			Kind:     missing,
 			Document: c.document,
-			Content:  c.contentName(member),
+			Content:  symbols.FQNOf(member),
 			Origin:   provenance.Symbol(member),
 		}
 	}
@@ -2096,17 +2088,10 @@ func (c *compiler) invalidAttribute(member, candidate *symbols.Symbol, attribute
 	return &Error{
 		Kind:      ErrorInvalidAttribute,
 		Document:  c.document,
-		Content:   c.contentName(member),
+		Content:   symbols.FQNOf(member),
 		Parameter: attribute,
 		Origin:    provenance.Symbol(candidate),
 	}
-}
-
-func (c *compiler) contentName(member *symbols.Symbol) string {
-	if fqn := symbols.FQNOf(member); fqn != "" {
-		return fqn
-	}
-	return member.Name
 }
 
 // localMembers returns a scope's named and anonymous declarations in source order.

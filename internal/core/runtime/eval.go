@@ -2856,7 +2856,7 @@ func (ctx *Context) boundParameterNames(scope *symbols.Scope, callee *symbols.Sy
 		if arg.Name == nil || len(arg.Name.Parts) == 0 {
 			continue
 		}
-		names[i] = semantics.QualifiedNameText(arg.Name)
+		names[i] = arg.Name.Text()
 		if callee == nil || ctx.model.semantics == nil {
 			continue
 		}

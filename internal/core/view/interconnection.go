@@ -163,7 +163,7 @@ func (r *Renderer) endNode(connector *symbols.Symbol, end connectorEnd, nodes ma
 		if !ok {
 			continue
 		}
-		for sym := target; sym != nil; sym = ownerOf(sym) {
+		for sym := target; sym != nil; sym = sym.Owner() {
 			if node, ok := nodes[sym]; ok {
 				return node
 			}
@@ -179,15 +179,6 @@ func chainOperand(node ast.Node) ast.Node {
 		return chain.Operand
 	}
 	return nil
-}
-
-// ownerOf is the element a symbol was declared in, nil for one declared at the
-// top of a document.
-func ownerOf(sym *symbols.Symbol) *symbols.Symbol {
-	if sym == nil || sym.OwnerScope == nil {
-		return nil
-	}
-	return sym.OwnerScope.Owner()
 }
 
 // connectorLabel names a connection on an edge: its own name, else the type it

@@ -3,6 +3,7 @@ package lsp
 import (
 	"bytes"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"strings"
 
 	"go.lsp.dev/protocol"
@@ -10,7 +11,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/quickfix"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
@@ -125,8 +125,8 @@ func projectRef(target *symbols.Symbol) annotation {
 
 // annotate computes the edits writing the annotations, in order, without
 // touching any other text of the file.
-func annotate(content []byte, notes []annotation) []quickfix.Edit {
-	var edits []quickfix.Edit
+func annotate(content []byte, notes []annotation) []diag.Edit {
+	var edits []diag.Edit
 	var appended []string
 	inline := make(map[*symbols.Symbol][]string)
 	var order []*symbols.Symbol
@@ -149,30 +149,30 @@ func annotate(content []byte, notes []annotation) []quickfix.Edit {
 		if len(content) > 0 && content[len(content)-1] != '\n' {
 			text = "\n" + text
 		}
-		edits = append(edits, quickfix.Insert(len(content), text))
+		edits = append(edits, diag.Insert(len(content), text))
 	}
 	return edits
 }
 
 // insertInBody places texts at the head of a body: on their own lines when the
 // members have theirs, before the first member otherwise, alone if none.
-func insertInBody(content []byte, body source.Span, texts []string) []quickfix.Edit {
+func insertInBody(content []byte, body source.Span, texts []string) []diag.Edit {
 	open, closeAt := body.Offset, body.End()-1
 	anchor, ownLine, hasMember := bodyAnchor(content, open, closeAt)
 	if !hasMember {
 		interior := source.Span{Offset: open + 1, Len: closeAt - open - 1}
 		joined := " " + strings.Join(texts, " ") + " "
 		if strings.TrimSpace(string(content[open+1:closeAt])) == "" {
-			return []quickfix.Edit{quickfix.Replace(interior, joined)}
+			return []diag.Edit{diag.Replace(interior, joined)}
 		}
-		return []quickfix.Edit{quickfix.Insert(open+1, strings.TrimRight(joined, " "))}
+		return []diag.Edit{diag.Insert(open+1, strings.TrimRight(joined, " "))}
 	}
-	edits := make([]quickfix.Edit, 0, len(texts))
+	edits := make([]diag.Edit, 0, len(texts))
 	for _, text := range texts {
 		if ownLine {
-			edits = append(edits, quickfix.InsertLine(anchor, text))
+			edits = append(edits, diag.InsertLine(anchor, text))
 		} else {
-			edits = append(edits, quickfix.Insert(anchor, text+" "))
+			edits = append(edits, diag.Insert(anchor, text+" "))
 		}
 	}
 	return edits

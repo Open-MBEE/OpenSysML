@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -142,7 +142,7 @@ func TestParseModelSharesOneEntry(t *testing.T) {
 			defer wg.Done()
 			_, models[i] = srv.parseModel([]sourceInput{{
 				name: "lot.sysml", language: "sysml", content: "package Lot { part def Cone; part cone : Cone; }", kind: source.KindSysML,
-			}}, conformance.ModeOf(false))
+			}}, diag.ConformanceModeOf(false))
 		}(i)
 	}
 	wg.Wait()

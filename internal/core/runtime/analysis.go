@@ -254,7 +254,7 @@ func (ctx *Context) readEvalValue(obj *Objective, objSym *symbols.Symbol) bool {
 		return true
 	}
 	body := bodyScope(evalSym, evalSym.OwnerScope)
-	stmts := lower.CalcBodyWith(evalSym.Decl, declMembers(evalSym.Decl), body, ctx.Resolver())
+	stmts := lower.CalcBodyWith(evalSym.Decl, unwrappedDeclMembers(evalSym.Decl), body, ctx.Resolver())
 	if len(stmts) == 1 {
 		if ret, ok := stmts[0].(lower.Return); ok && ret.Value != nil {
 			obj.Value, obj.Scope = ret.Value, ret.Scope
@@ -303,7 +303,7 @@ func (ctx *Context) objectiveMember(objSym *symbols.Symbol, name string) *symbol
 	if body == nil {
 		return nil
 	}
-	for _, node := range declMembers(objSym.Decl) {
+	for _, node := range unwrappedDeclMembers(objSym.Decl) {
 		member := memberSymbol(body, node)
 		if member != nil && restatesFeatureNamed(member, name) {
 			return member
@@ -406,7 +406,7 @@ func (ctx *Context) objectiveConditionsOf(sym *symbols.Symbol) (model, library [
 		if link == nil || ctx.frameDeclared(link) {
 			continue
 		}
-		for _, node := range declMembers(link.Decl) {
+		for _, node := range unwrappedDeclMembers(link.Decl) {
 			if ctx.libraryDeclared(link) {
 				libraryMembers = append(libraryMembers, scopedMember{node: node, scope: body})
 			} else {
@@ -414,7 +414,7 @@ func (ctx *Context) objectiveConditionsOf(sym *symbols.Symbol) (model, library [
 			}
 		}
 	}
-	for _, node := range declMembers(sym.Decl) {
+	for _, node := range unwrappedDeclMembers(sym.Decl) {
 		members = append(members, scopedMember{node: node, scope: body})
 	}
 	return ctx.conditionsOf(sym, members), ctx.conditionsOf(sym, libraryMembers)

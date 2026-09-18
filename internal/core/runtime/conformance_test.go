@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -1465,23 +1465,13 @@ func runSatisfyConformance(t *testing.T, ctx *Context, idx *symbols.Index, path 
 	for text, want := range expected.Assertions {
 		satisfied, ok := verdicts[text]
 		if !ok {
-			t.Errorf("no assertion %q among %v", text, sortedKeys(verdicts))
+			t.Errorf("no assertion %q among %v", text, slices.Sorted(maps.Keys(verdicts)))
 			continue
 		}
 		if satisfied != want {
 			t.Errorf("%s: satisfied = %v, want %v", text, satisfied, want)
 		}
 	}
-}
-
-// sortedKeys returns the keys of m in order, for a deterministic message.
-func sortedKeys(m map[string]bool) []string {
-	keys := make([]string, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 // runInstanceConformance instantiates a type and validates the values its feature values

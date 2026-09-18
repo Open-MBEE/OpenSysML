@@ -147,7 +147,7 @@ func (c *compiler) columnArguments(
 	}
 	var name, expression ast.Node
 	for _, arg := range invocation.NamedArgs {
-		argName := qualifiedName(arg.Name)
+		argName := arg.Name.Text()
 		var slot *ast.Node
 		switch argName {
 		case "name":
@@ -245,7 +245,7 @@ func (c *compiler) compileColumnReference(
 			Kind:      ErrorUnknownColumnProperty,
 			Query:     symbols.FQNOf(query),
 			Target:    column,
-			Parameter: qualifiedName(expression.Name),
+			Parameter: expression.Name.Text(),
 			Origin:    provenance.Node(owner.DocName, expression),
 		}
 	}
@@ -522,7 +522,7 @@ func relatedColumnNameNode(invocation *ast.InvocationExpr) ast.Node {
 		return invocation.Args[0]
 	}
 	for _, arg := range invocation.NamedArgs {
-		if qualifiedName(arg.Name) == "name" {
+		if arg.Name.Text() == "name" {
 			return arg.Value
 		}
 	}

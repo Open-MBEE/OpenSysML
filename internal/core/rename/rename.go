@@ -67,7 +67,7 @@ func Check(r *resolve.Resolver, sem *semantics.Model, sym *symbols.Symbol, name,
 	if name == newName {
 		return nil
 	}
-	subject := qualifiedName(r.Index(), sym)
+	subject := symbols.FQNOf(sym)
 	if means, ok := taken(r, sym, newName); ok {
 		return &Conflict{Subject: subject, NewName: newName, Means: means}
 	}
@@ -141,15 +141,7 @@ func otherThan(r *resolve.Resolver, sym, other *symbols.Symbol, ok bool) (string
 	if !ok || symbols.SameElement(other, sym) {
 		return "", false
 	}
-	return qualifiedName(r.Index(), other), true
-}
-
-// qualifiedName is sym's FQN, or its name where the index records none.
-func qualifiedName(idx *symbols.Index, sym *symbols.Symbol) string {
-	if fqn := idx.GetFQN(sym); fqn != "" {
-		return fqn
-	}
-	return sym.Name
+	return symbols.FQNOf(other), true
 }
 
 // site names the namespace a reference is made in, or the name as written where

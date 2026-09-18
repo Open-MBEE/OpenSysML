@@ -1338,11 +1338,11 @@ func (ctx *Context) chainMembers(sym *symbols.Symbol, scope *symbols.Scope) []sc
 		if link == nil || ctx.frameDeclared(link) {
 			continue
 		}
-		for _, node := range declMembers(link.Decl) {
+		for _, node := range unwrappedDeclMembers(link.Decl) {
 			out = append(out, scopedMember{node: node, scope: bodyScope(link, link.OwnerScope)})
 		}
 	}
-	for _, node := range declMembers(sym.Decl) {
+	for _, node := range unwrappedDeclMembers(sym.Decl) {
 		out = append(out, scopedMember{node: node, scope: bodyScope(sym, scope)})
 	}
 	return out

@@ -483,6 +483,17 @@ type Usage struct {
 	FlowEnds      *FlowEnds       // flow usage ends
 }
 
+// DeclMembers is the body of a definition or usage, and nil for any other node.
+func DeclMembers(decl Node) []Node {
+	switch n := decl.(type) {
+	case *Definition:
+		return n.Members
+	case *Usage:
+		return n.Members
+	}
+	return nil
+}
+
 // IsSuccessionFlow reports whether the usage is a `succession flow`: a flow that
 // also orders its ends (SysML v2 SuccessionFlowUsage).
 func (u *Usage) IsSuccessionFlow() bool {

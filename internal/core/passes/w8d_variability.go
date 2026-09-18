@@ -59,7 +59,7 @@ func (vc *w8dVariabilityChecker) check(sym *symbols.Symbol) {
 func (vc *w8dVariabilityChecker) checkMembers(sym *symbols.Symbol) {
 	_, isUsage := sym.Decl.(*ast.Usage)
 	isEnum := sym.Kind == symbols.SymbolEnumerationDef
-	for _, member := range declMembers(sym.Decl) {
+	for _, member := range ast.DeclMembers(sym.Decl) {
 		node := unwrapType(member)
 		if _, ok := node.(*ast.SubjectMember); ok {
 			vc.reportMember(sym, member.Span(), "")

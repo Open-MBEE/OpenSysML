@@ -2,7 +2,8 @@ package symbols
 
 import (
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -179,7 +180,7 @@ func (idx *Index) NamespaceFiltersOf(fqn string) []ElementFilter {
 		return nil
 	}
 	var out []ElementFilter
-	for _, doc := range sortedKeys(byDoc) {
+	for _, doc := range slices.Sorted(maps.Keys(byDoc)) {
 		out = append(out, byDoc[doc]...)
 	}
 	return out
@@ -316,15 +317,4 @@ func namespaceMembers(decl ast.Node) []ast.Node {
 	default:
 		return nil
 	}
-}
-
-// sortedKeys returns a map's keys in name order, so that reading it does not
-// depend on map iteration order.
-func sortedKeys[V any](m map[string]V) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
 }

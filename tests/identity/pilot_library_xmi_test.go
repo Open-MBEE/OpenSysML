@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/core/identity/normative"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 )
 
@@ -65,7 +64,7 @@ type xmiHref struct {
 type xmiElement struct {
 	file         string
 	path         string
-	lang         normative.Language
+	lang         identity.Language
 	id           string
 	membershipID string
 }
@@ -85,11 +84,11 @@ func TestPilotLibraryXMI(t *testing.T) {
 	var wrong []string
 	for _, el := range named {
 		// The path the pilot names an element by must derive to the id it wrote.
-		if got := normative.ElementID(el.lang, el.path); got != el.id {
+		if got := identity.ElementID(el.lang, el.path); got != el.id {
 			wrong = append(wrong, fmt.Sprintf("%s: the pilot serializes %s, %s derives to %s",
 				el.path, el.id, el.lang, got))
 		}
-		if got := normative.OwningMembershipID(el.lang, el.path); got != el.membershipID {
+		if got := identity.OwningMembershipID(el.lang, el.path); got != el.membershipID {
 			wrong = append(wrong, fmt.Sprintf("%s/owningMembership: the pilot serializes %s, %s derives to %s",
 				el.path, el.membershipID, el.lang, got))
 		}
@@ -214,9 +213,9 @@ func (lib *pilotLibrary) namedElements(t *testing.T) []xmiElement {
 	var out []xmiElement
 	for i, root := range lib.roots {
 		file := lib.files[i]
-		lang := normative.SysML
+		lang := identity.SysML
 		if strings.Contains(file, "Kernel Libraries") {
-			lang = normative.KerML
+			lang = identity.KerML
 		}
 		var walk func(owner *xmiNode, path string)
 		walk = func(owner *xmiNode, path string) {

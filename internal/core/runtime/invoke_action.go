@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -54,7 +53,7 @@ func (inv actionInvocation) name() string {
 	if inv.chain != nil {
 		return lower.FeaturePath(inv.chain)
 	}
-	return qualifiedNameText(inv.target)
+	return inv.target.Text()
 }
 
 // chainedInvocation reads a `part.callee` target: the callee is the chain's last member,
@@ -397,7 +396,7 @@ func actionCandidates(
 	if target == nil || len(target.Parts) == 0 {
 		return nil, nil, fmt.Errorf("empty action reference")
 	}
-	name := qualifiedNameText(target)
+	name := target.Text()
 	if scope == nil || ctx.model.resolver == nil {
 		return nil, nil, fmt.Errorf("cannot resolve action %s: no scope", name)
 	}
@@ -542,16 +541,4 @@ func contains(names []string, name string) bool {
 		}
 	}
 	return false
-}
-
-// qualifiedNameText renders a qualified name as written, for diagnostics.
-func qualifiedNameText(qn *ast.QualifiedName) string {
-	if qn == nil {
-		return ""
-	}
-	parts := make([]string, 0, len(qn.Parts))
-	for _, part := range qn.Parts {
-		parts = append(parts, part.Text)
-	}
-	return strings.Join(parts, "::")
 }

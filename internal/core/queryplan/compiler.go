@@ -658,7 +658,7 @@ func (c *compiler) compileReference(
 	unknown := &Error{
 		Kind:      ErrorUnknownParameter,
 		Query:     symbols.FQNOf(query),
-		Parameter: qualifiedName(expression.Name),
+		Parameter: expression.Name.Text(),
 		Origin:    provenance.Node(owner.DocName, expression),
 	}
 	target, ok := c.resolver.ResolveQualified(owner.Scope, expression.Name)
@@ -713,7 +713,7 @@ func (c *compiler) compileInvocation(
 	expression *ast.InvocationExpr,
 	dependency func(string),
 ) (typedExpression, error) {
-	name := qualifiedName(expression.Type)
+	name := expression.Type.Text()
 	if expression.Operand != nil {
 		return typedExpression{}, &Error{
 			Kind:   ErrorUnsupportedExpression,
@@ -848,7 +848,7 @@ func (c *compiler) compileBuiltinArguments(
 			return nil, &Error{
 				Kind:   ErrorArgumentCount,
 				Query:  symbols.FQNOf(query),
-				Target: qualifiedName(expression.Type),
+				Target: expression.Type.Text(),
 				Origin: provenance.Node(owner.DocName, expression),
 			}
 		}
@@ -858,7 +858,7 @@ func (c *compiler) compileBuiltinArguments(
 				return nil, &Error{
 					Kind:   ErrorArgumentCount,
 					Query:  symbols.FQNOf(query),
-					Target: qualifiedName(expression.Type),
+					Target: expression.Type.Text(),
 					Origin: provenance.Node(owner.DocName, expression),
 				}
 			}
@@ -895,7 +895,7 @@ func (c *compiler) compileBuiltinArguments(
 		query,
 		owner,
 		params,
-		qualifiedName(expression.Type),
+		expression.Type.Text(),
 		targetParams,
 		expression,
 		dependency,
@@ -918,7 +918,7 @@ func (c *compiler) compileNamedArguments(
 		known[param.Name] = param
 	}
 	for _, arg := range named {
-		name := qualifiedName(arg.Name)
+		name := arg.Name.Text()
 		if _, exists := bound[name]; exists {
 			return nil, &Error{
 				Kind:      ErrorDuplicateArgument,
@@ -1215,20 +1215,6 @@ func multiplicityString(multiplicity Multiplicity) string {
 		upper = "*"
 	}
 	return "[" + strconv.FormatInt(multiplicity.Lower, 10) + ".." + upper + "]"
-}
-
-func qualifiedName(name *ast.QualifiedName) string {
-	if name == nil {
-		return ""
-	}
-	out := ""
-	for i, part := range name.Parts {
-		if i > 0 {
-			out += "::"
-		}
-		out += part.Text
-	}
-	return out
 }
 
 func qualifiedNames(syms []*symbols.Symbol) []string {

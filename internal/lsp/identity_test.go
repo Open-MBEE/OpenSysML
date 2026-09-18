@@ -12,7 +12,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/core/identity/normative"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -499,7 +498,7 @@ func TestWorkspaceCopyOfLibraryFileIsTheLibrary(t *testing.T) {
 	}
 	const norm = "14c0aa22-5489-59b5-b438-ded26e83ba31"
 	real := copyIdentity(src)
-	if !real.Normative() || real.EffectiveID != norm || real.Language != normative.KerML {
+	if !real.Normative() || real.EffectiveID != norm || real.Language != identity.KerML {
 		t.Errorf("Real in a workspace copy = %+v, want the norm's KerML id %s", real, norm)
 	}
 	if got := ws.StandsInFor(name); got != bundled {

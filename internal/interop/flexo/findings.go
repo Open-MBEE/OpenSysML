@@ -2,6 +2,8 @@ package flexo
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -181,7 +183,7 @@ func (s *SideReport) shapes() []string {
 		}
 	}
 	var shapes []string
-	for _, shape := range sortedKeys(seen) {
+	for _, shape := range slices.Sorted(maps.Keys(seen)) {
 		shapes = append(shapes, fmt.Sprintf("%s on %d", shape, seen[shape]))
 	}
 	return shapes
