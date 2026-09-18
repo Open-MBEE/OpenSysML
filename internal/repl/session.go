@@ -1190,6 +1190,7 @@ func (s *Session) runtimeModel() (*runtime.Model, error) {
 	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(s.sessionSourceText())
 	model := runtime.NewModel(sem, resolver)
+	model.SetExpressionParser(parser.ParseOneExpression)
 	// Give the runtime the buffer's text, so an error about a declaration reports
 	// the line it was submitted on rather than a byte offset, and the buffer's
 	// scope tree, so a carried object is rebound to the symbols the prompt reaches.

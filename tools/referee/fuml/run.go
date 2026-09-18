@@ -133,6 +133,7 @@ func build(em *Emitted, budgets runtime.Budgets) (*symbols.Symbol, func(int) (*r
 			sem := passes.NewTypedModel(resolver)
 			sem.SetSourceText(text)
 			model = runtime.NewModel(sem, resolver)
+			model.SetExpressionParser(parser.ParseOneExpression)
 			models[job] = model
 		}
 		ctx := runtime.NewContext(model, budgets.MaxSteps)

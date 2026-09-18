@@ -102,6 +102,7 @@ const fixtureSteps = 10000
 func (f *fixture) semantics() (*runtime.Model, error) {
 	resolver := resolve.New(f.idx)
 	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
+	model.SetExpressionParser(parser.ParseOneExpression)
 	model.RegisterSource(f.source)
 	return model, nil
 }
@@ -120,6 +121,7 @@ func (f *fixture) building() *Model {
 func (f *fixture) context(t *testing.T) *runtime.Context {
 	t.Helper()
 	model := runtime.NewModel(f.model, f.resolver)
+	model.SetExpressionParser(parser.ParseOneExpression)
 	model.RegisterSource(f.source)
 	return runtime.NewContext(model, fixtureSteps)
 }

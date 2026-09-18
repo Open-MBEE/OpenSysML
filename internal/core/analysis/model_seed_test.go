@@ -55,7 +55,9 @@ func parseDrawing(t *testing.T) *drawing {
 
 func (d *drawing) semantics() (*runtime.Model, error) {
 	resolver := resolve.New(d.idx)
-	return runtime.NewModel(passes.NewTypedModel(resolver), resolver), nil
+	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
+	model.SetExpressionParser(parser.ParseOneExpression)
+	return model, nil
 }
 
 func (d *drawing) fresh(w *Worker) (*runtime.Context, error) {

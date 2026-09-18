@@ -11241,7 +11241,7 @@ func buildRuntimeWithLibraries(t *testing.T, path string, file *ast.RootNamespac
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	return idx, model, NewContext(typedModel(model, resolver), 10000)
+	return idx, model, NewContext(parsingModel(model, resolver), 10000)
 }
 
 // Helper: find symbol by name and kind

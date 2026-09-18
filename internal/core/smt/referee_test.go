@@ -100,6 +100,7 @@ func corpusDocument(t *testing.T, name string, c corpusCase) (*document, *symbol
 		Semantics: func() (*runtime.Model, error) {
 			resolver := resolve.New(idx)
 			m := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
+			m.SetExpressionParser(parser.ParseOneExpression)
 			m.RegisterSource(sf)
 			return m, nil
 		},

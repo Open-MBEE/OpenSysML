@@ -209,6 +209,7 @@ func parseModel(code string) (*runtime.Model, *symbols.Scope) {
 
 	resolver := resolve.New(idx)
 	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
+	model.SetExpressionParser(parser.ParseOneExpression)
 
 	return model, rootScope
 }

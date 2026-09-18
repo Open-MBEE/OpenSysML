@@ -58,7 +58,7 @@ func parseLibraryModel(t *testing.T, text string) *exploreModel {
 }
 
 func (m *exploreModel) fresh() (*Context, error) {
-	return NewContext(typedModel(m.model, m.resolver), 10000), nil
+	return NewContext(parsingModel(m.model, m.resolver), 10000), nil
 }
 
 func (m *exploreModel) action(t *testing.T, name string) *symbols.Symbol {

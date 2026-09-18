@@ -41,6 +41,7 @@ func indexed(t *testing.T, path, src string) *document {
 		Semantics: func() (*runtime.Model, error) {
 			resolver := resolve.New(idx)
 			m := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
+			m.SetExpressionParser(parser.ParseOneExpression)
 			m.RegisterSource(sf)
 			return m, nil
 		},

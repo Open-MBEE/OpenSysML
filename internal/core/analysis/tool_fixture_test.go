@@ -253,7 +253,9 @@ func parsePilot(t *testing.T) *pilot {
 
 func (p *pilot) semantics() (*runtime.Model, error) {
 	resolver := resolve.New(p.idx)
-	return runtime.NewModel(passes.NewTypedModel(resolver), resolver), nil
+	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
+	model.SetExpressionParser(parser.ParseOneExpression)
+	return model, nil
 }
 
 func (p *pilot) fresh(w *Worker) (*runtime.Context, error) {
