@@ -347,7 +347,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	}
 	for _, region := range graph.TopRegions {
 		graph.RegionInitials[region] = graph.UnconditionalStart(region)
-		if len(graph.EntryTransitions[region]) == 0 {
+		if len(graph.EntryTransitions[region]) == 0 && !graph.stateless(region) {
 			if graph.regionDecl[region] != nil {
 				return nil, fmt.Errorf("region %s has no initial state; write `entry; then <state>;` inside the region", region.Name)
 			}
