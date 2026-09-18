@@ -6,5 +6,5 @@
   and `tools/cmd/stress-model`, and the baseline provenance and JUnit writers they share
   (`internal/baseline`, `internal/junit`) are `tools/oracle/baseline` and `tools/oracle/junit`;
   every one runs with `go run -C tools ./cmd/<name>`. The analysis-library census schema that the
-  runtime's own test writes stays in the product as `internal/fixtures`, which the doc-counts gate
-  reads from there; `internal/stressmodel` stays where the model tests load it. No figure moved.
+  runtime's own test writes is `tests/fixtures`, which the doc-counts gate reads from there;
+  the model tests load the stress model from `tests/stressmodel`. No figure moved.
