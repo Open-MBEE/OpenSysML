@@ -454,6 +454,10 @@ var (
 	// the object has nothing to answer with and nowhere to hold the value.
 	ErrNoSuchFeature = errors.New("object has no such feature")
 
+	// ErrClockNotAssignable is returned when an assignment targets a Clock's
+	// currentTime: the run advances it, so no statement writes it.
+	ErrClockNotAssignable = errors.New("a clock's currentTime advances with the run and is not assigned")
+
 	// ErrNoSubject is returned when the feature a satisfaction assertion names
 	// with `by` cannot supply a subject: it resolves to nothing, or no object of
 	// it can be created.

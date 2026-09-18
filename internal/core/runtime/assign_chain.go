@@ -26,6 +26,9 @@ func writeThroughChain(ec *EvalContext, chain *lower.AssignTarget, feature strin
 	if err != nil {
 		return err
 	}
+	if feature == currentTimeName && ec.ctx.isClock(target) {
+		return fmt.Errorf("%w: object #%d (%s)", ErrClockNotAssignable, target.ID, symbolText(target.Type))
+	}
 	if _, ok := target.FeatureValues[feature]; !ok {
 		return fmt.Errorf("%w: object #%d (%s) has no feature %s",
 			ErrNoSuchFeature, target.ID, symbolText(target.Type), feature)
