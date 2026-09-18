@@ -248,7 +248,10 @@ reports: `-observe this.Time_Acq_Total`, or `%runs` with the same. The clock is 
 written: a script assigning `simtime` is refused. A `DurationObservation` whose two events are
 nodes of the activity is the same bookkeeping written for the modeler: an `attribute` of the
 `action def` named after the observation, stamped when the first node starts and assigned the
-elapsed clock when the second ends; observations whose events are not nodes of the activity,
+elapsed clock when the second ends (`firstEvent` chooses, per event, the instant the node's
+execution enters it or the instant it exits, as UML defines; a node executed again in a loop
+stamps again, so the attribute holds the span between the latest executions of the two
+nodes); observations whose events are not nodes of the activity,
 and observations owned outside any activity, are comments whose report line says which.
 
 **Durations and probabilities.** A `DurationConstraint` on an action is a wait the action's
@@ -310,11 +313,11 @@ translation is always complete or absent — never partial.
 | `x = e;` `x += e;` `-=` `*=` `/=` `x++` `x--` | `assign x := e;` `assign x := x + e;` … |
 | `var x = e;` `let x = e;` `const x = e;` (one name, initialized) | `attribute x : ScalarValues::T;` `assign x := e;` with `T` the type of `e`; a later assignment to a `const` is refused, as is a declaration of a name already declared, of a pin, parameter or property visible where the body lands, or of a member every action has (`start`, `done`, `self`) |
 | several statements, on `;` or newlines | a sequence of the above |
-| integer, real, Boolean and string literals | the same literal |
+| integer, real, Boolean and string literals | the same literal; a string's `\n` `\t` `\r` `\b` `\f` `\\` `\'` `\"` `\xHH` `\uHHHH` `\u{H…}` escapes and line continuations are decoded, while a legacy octal escape or a character the notation cannot spell (`\0`, `\v`, other control characters, a lone surrogate) is refused |
 | `a`, `a.b.c` naming features that resolve | `this.a`, `this.a.b.c` (through the swimlane's object when it has one) |
 | `+ - * / %`, comparisons, `&& \|\| !`, parentheses | `+ - * / %`, comparisons, `and or not`, parentheses |
 | `c ? a : b` | `if c ? a else b` when `a` and `b` are of one scalar type |
-| `Math.min` `Math.max` `Math.abs` `Math.floor` `Math.ceil` `Math.sqrt` `Math.pow` | `RealFunctions::min` … `RealFunctions::sqrt`, `**`; `Math.ceil(x)` is `-RealFunctions::floor(-x)` |
+| `Math.min` `Math.max` `Math.abs` `Math.floor` `Math.ceil` `Math.round` `Math.sqrt` `Math.pow` | `RealFunctions::min` … `RealFunctions::sqrt`, `**`; `Math.ceil(x)` is `-RealFunctions::floor(-x)` and `Math.round(x)` is `RealFunctions::floor(x + 0.5)`, which rounds a half toward +∞ as JavaScript does |
 | `java.util.Collections.max(s)` / `.min(s)` | `RealFunctions::max(s)` / `RealFunctions::min(s)` over a collection |
 | the tool's time variable (`simtime`) | `localClock.currentTime` |
 

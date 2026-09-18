@@ -6,6 +6,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 )
 
 // This file translates a bounded subset of the opaque languages a v1 model
@@ -281,9 +283,9 @@ func lexOpaque(body string) ([]token, *refusal) {
 			s = s[i+4:]
 			continue
 		case r == '"' || r == '\'':
-			text, rest, ok := lexString(s, r)
-			if !ok {
-				return nil, &refusal{kind: refusedSyntax, token: string(r), why: "the string is not closed"}
+			text, rest, err := lexString(s, r)
+			if err != nil {
+				return nil, err
 			}
 			toks = append(toks, token{tokString, text})
 			s = rest
@@ -324,36 +326,129 @@ func lexOpaque(body string) ([]token, *refusal) {
 
 func isDigit(c byte) bool { return c >= '0' && c <= '9' }
 
-// lexString reads a quoted string opened by quote, unescaping it.
-func lexString(s string, quote rune) (text, rest string, ok bool) {
+// lexString reads a quoted string opened by quote, decoding JavaScript's escapes.
+func lexString(s string, quote rune) (text, rest string, err *refusal) {
+	unclosed := &refusal{kind: refusedSyntax, token: string(quote), why: "the string is not closed"}
 	var b strings.Builder
 	for i := 1; i < len(s); {
 		r, size := utf8.DecodeRuneInString(s[i:])
 		i += size
 		switch {
 		case r == quote:
-			return b.String(), s[i:], true
-		case r == '\\' && i < len(s):
-			e, n := utf8.DecodeRuneInString(s[i:])
+			return b.String(), s[i:], nil
+		case r == '\\':
+			e, n, err := unescape(s[i:])
+			if err != nil {
+				return "", "", err
+			}
 			i += n
-			switch e {
-			case 'n':
-				b.WriteByte('\n')
-			case 't':
-				b.WriteByte('\t')
-			case 'r':
-				b.WriteByte('\r')
-			default:
+			if e >= 0 {
 				b.WriteRune(e)
 			}
-		case r == '\n':
-			return "", "", false
+		case r == '\n' || r == '\r':
+			return "", "", unclosed
 		default:
 			b.WriteRune(r)
 		}
 	}
-	return "", "", false
+	return "", "", unclosed
 }
+
+// unescape decodes the JavaScript escape whose backslash precedes s: the
+// character it stands for (-1 for a line continuation) and the bytes read.
+// Legacy octal escapes and characters the notation cannot spell are refused.
+func unescape(s string) (rune, int, *refusal) {
+	if s == "" {
+		return 0, 0, &refusal{kind: refusedSyntax, token: `\`, why: "the string is not closed"}
+	}
+	e, n := utf8.DecodeRuneInString(s)
+	var r rune
+	switch e {
+	case 'n':
+		r = '\n'
+	case 't':
+		r = '\t'
+	case 'r':
+		r = '\r'
+	case 'b':
+		r = '\b'
+	case 'f':
+		r = '\f'
+	case 'v':
+		r = '\v'
+	case '0':
+		if n < len(s) && isDigit(s[n]) {
+			return 0, 0, &refusal{kind: refusedConstruct, token: `\` + s[:n+1], why: "a legacy octal escape"}
+		}
+	case '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		return 0, 0, &refusal{kind: refusedConstruct, token: `\` + s[:n], why: "a legacy octal escape"}
+	case 'x':
+		hex := hexRun(s[1:], 2)
+		if len(hex) != 2 {
+			return 0, 0, &refusal{kind: refusedSyntax, token: `\x` + hex, why: "a hexadecimal escape needs two hex digits"}
+		}
+		v, _ := strconv.ParseUint(hex, 16, 32)
+		r, n = rune(v), 3
+	case 'u':
+		hex, width := hexRun(s[1:], 4), 5
+		if strings.HasPrefix(s, "u{") {
+			hex = hexRun(s[2:], len(s))
+			width = 3 + len(hex)
+			if !strings.HasPrefix(s[2+len(hex):], "}") {
+				return 0, 0, &refusal{kind: refusedSyntax, token: `\u{` + hex, why: "a Unicode escape's brace is not closed"}
+			}
+		} else if len(hex) != 4 {
+			return 0, 0, &refusal{kind: refusedSyntax, token: `\u` + hex, why: "a Unicode escape needs four hex digits"}
+		}
+		v, err := strconv.ParseUint(hex, 16, 32)
+		if err != nil || v > unicode.MaxRune {
+			return 0, 0, &refusal{kind: refusedSyntax, token: `\` + s[:width], why: "a Unicode escape names no character"}
+		}
+		r, n = rune(v), width
+	case '\n':
+		return -1, n, nil
+	case '\r':
+		if strings.HasPrefix(s, "\r\n") {
+			n = 2
+		}
+		return -1, n, nil
+	default:
+		r = e
+	}
+	if spelled, ok := spelledInNotation(r); !ok {
+		return 0, 0, &refusal{kind: refusedConstruct, token: `\` + s[:n], why: "the notation spells no " + spelled}
+	}
+	return r, n, nil
+}
+
+func isHex(c byte) bool { return isDigit(c) || strings.IndexByte("abcdefABCDEF", c) >= 0 }
+
+// hexRun is the run of at most limit hex digits opening s.
+func hexRun(s string, limit int) string {
+	i := 0
+	for i < len(s) && i < limit && isHex(s[i]) {
+		i++
+	}
+	return s[:i]
+}
+
+// spelledInNotation reports whether a string value may hold r: KerML escapes
+// only \b \t \n \f \r, so other control characters have no spelling.
+func spelledInNotation(r rune) (string, bool) {
+	switch {
+	case r == 0:
+		return "NUL character", false
+	case r == '\v':
+		return "vertical tab", false
+	case r == 0x7f || (r < 0x20 && !strings.ContainsRune("\b\t\n\f\r", r)):
+		return "control character U+" + strings.ToUpper(strconv.FormatInt(int64(r), 16)), false
+	case utf16Surrogate(r):
+		return "lone surrogate", false
+	}
+	return "", true
+}
+
+func utf16Surrogate(r rune) bool { return r >= 0xD800 && r <= 0xDFFF }
 
 // lexNumber reads a decimal number with an optional fraction and exponent, or
 // a hexadecimal one, which the parser then refuses.
@@ -1052,8 +1147,12 @@ func (p *opaqueParser) call(path []string) (translated, *refusal) {
 		switch fn {
 		case "Math.ceil":
 			return translated{expr: "-RealFunctions::floor(-" + args[0].operandOf(looseUnary, true) + ")", scalar: "Integer", loose: looseUnary}, nil
+		case "Math.round":
+			// JavaScript rounds a half toward +∞, where RealFunctions::round rounds it away from zero.
+			half := translated{expr: "0.5", scalar: "Real", atomic: true, lit: "real"}
+			return translated{expr: "RealFunctions::floor(" + binary(args[0], "+", half, looseAdditive, "Real").expr + ")", scalar: "Integer", atomic: true}, nil
 		default:
-			return translated{expr: "RealFunctions::" + fn[5:] + "(" + args[0].expr + ")", scalar: "Integer", atomic: true}, nil
+			return translated{expr: "RealFunctions::floor(" + args[0].expr + ")", scalar: "Integer", atomic: true}, nil
 		}
 	case "Math.sqrt":
 		if err := arity(1); err != nil {
@@ -1115,10 +1214,7 @@ func numberLiteral(text string) (translated, *refusal) {
 }
 
 // stringLiteral writes text as a v2 string literal.
-func stringLiteral(text string) string {
-	r := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "\t", `\t`, "\r", `\r`)
-	return `"` + r.Replace(text) + `"`
-}
+func stringLiteral(text string) string { return lexer.StringText(text) }
 
 // numbersAt refuses operands of op that are known not to be numbers.
 func numbersAt(op string, sides ...translated) *refusal {
