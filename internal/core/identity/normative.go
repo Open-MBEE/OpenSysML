@@ -1,10 +1,11 @@
-// Package normative derives the name-based UUIDs (RFC 4122 v5) KerML fixes for
-// the named elements of the standard library, as the SysML v2 pilot does:
+// The name-based UUIDs (RFC 4122 v5) KerML fixes for the named elements of the
+// standard library, derived as the SysML v2 pilot does:
 //
 //	package    = uuid5(NAMESPACE_URL, prefix + escaped(package name))
 //	descendant = uuid5(package, escaped qualified name)
 //	membership = uuid5(package, escaped qualified name + "/owningMembership")
-package normative
+
+package identity
 
 import (
 	"crypto/sha1" // #nosec G505 -- RFC 4122 defines a version 5 UUID over SHA-1; it names, it does not protect

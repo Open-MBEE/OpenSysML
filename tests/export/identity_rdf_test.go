@@ -8,7 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
-	"github.com/Open-MBEE/OpenSysML/internal/core/identity/normative"
+	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
@@ -638,7 +638,7 @@ func TestLibraryElementsCarryNormativeIDs(t *testing.T) {
 // carries the id the library file gives it.
 func TestBehavioralLibraryMemberKeepsNormativeIDWithoutSourceText(t *testing.T) {
 	const qname = "Actions::AcceptAction::aState::aTransition"
-	want := normative.ElementID(normative.SysML, qname)
+	want := identity.ElementID(identity.SysML, qname)
 	turtle := idTurtle(t, `package Actions {
 	action def AcceptAction {
 		state aState {
@@ -830,7 +830,7 @@ func TestLibraryCopiesConvertAsTheLibrary(t *testing.T) {
 	if !strings.HasPrefix(string(src), head) {
 		t.Fatalf("the library file does not open with %q", head)
 	}
-	annotation := "\t@IdentityMetadata::ElementId { id = \"" + normative.ElementID(normative.KerML, "Occurrences") + "\"; }\r\n"
+	annotation := "\t@IdentityMetadata::ElementId { id = \"" + identity.ElementID(identity.KerML, "Occurrences") + "\"; }\r\n"
 	for _, tc := range []struct{ name, text string }{
 		{"respaced", strings.Replace(string(src), head, head+"\r\n", 1)},
 		{"annotated", strings.Replace(string(src), head, head+annotation, 1)},
@@ -849,12 +849,12 @@ func TestLibraryCopiesConvertAsTheLibrary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse turtle: %v", err)
 	}
-	life := rdf.ElementIRIForID(normative.ElementID(normative.KerML, "Occurrences::Occurrence::portionOfLife"))
-	portionOf := rdf.ElementIRIForID(normative.ElementID(normative.KerML, "Occurrences::Occurrence::portionOf"))
+	life := rdf.ElementIRIForID(identity.ElementID(identity.KerML, "Occurrences::Occurrence::portionOfLife"))
+	portionOf := rdf.ElementIRIForID(identity.ElementID(identity.KerML, "Occurrences::Occurrence::portionOf"))
 	if got, _ := graph.Object(life, rdf.SysML+"subsets"); got != portionOf {
 		t.Errorf("portionOfLife subsets %v, want the id of portionOf", got)
 	}
-	membership := rdf.ElementIRIForID(normative.OwningMembershipID(normative.KerML, "Occurrences::Occurrence::portionOfLife"))
+	membership := rdf.ElementIRIForID(identity.OwningMembershipID(identity.KerML, "Occurrences::Occurrence::portionOfLife"))
 	if got, _ := graph.Object(life, rdf.SysML+"owningMembership"); got != membership {
 		t.Errorf("portionOfLife's owning membership is %v, want the norm's", got)
 	}
@@ -898,14 +898,14 @@ func TestUserPackagesUnderLibraryNamesKeepTheirOwnIdentity(t *testing.T) {
 		}
 	}
 	for _, reject := range []string{
-		normative.ElementID(normative.SysML, "Actions"),
+		identity.ElementID(identity.SysML, "Actions"),
 		"Actions::Action",
 	} {
 		if strings.Contains(text, reject) {
 			t.Errorf("a user package named Actions is read as the library, stating %q:\n%s", reject, text)
 		}
 	}
-	scalarValues := normative.ElementID(normative.KerML, "ScalarValues")
+	scalarValues := identity.ElementID(identity.KerML, "ScalarValues")
 	turtle = idTurtle(t, "package Mine {\n\t@IdentityMetadata::ElementId { id = \""+scalarValues+"\"; }\n\tdatatype Real;\n}\n")
 	graph, err := rdf.ParseTurtle(turtle)
 	if err != nil {
@@ -919,7 +919,7 @@ func TestUserPackagesUnderLibraryNamesKeepTheirOwnIdentity(t *testing.T) {
 		t.Errorf("a catalogued uuid under another name is declared, yet the graph states no sysx:declaredId")
 	}
 	if text := string(turtle); !strings.Contains(text, `sysml:elementId "Mine__Real"`) ||
-		strings.Contains(text, normative.ElementID(normative.KerML, "ScalarValues::Real")) {
+		strings.Contains(text, identity.ElementID(identity.KerML, "ScalarValues::Real")) {
 		t.Errorf("Mine::Real took the library's id:\n%s", text)
 	}
 }

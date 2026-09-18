@@ -8,7 +8,6 @@ package identity
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/identity/normative"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -118,7 +117,7 @@ type Info struct {
 	// Source is which of the three EffectiveID is.
 	Source Source
 	// Language is the library half a normative id is minted under; zero otherwise.
-	Language normative.Language
+	Language Language
 	// Annotated reports an ElementId annotation on the element.
 	Annotated bool
 	// Declared reports that the annotation's id evaluated to a constant
@@ -144,7 +143,7 @@ func (i *Info) OwningMembershipID() string {
 	if !i.Normative() {
 		return ""
 	}
-	return normative.OwningMembershipID(i.Language, i.FQN)
+	return OwningMembershipID(i.Language, i.FQN)
 }
 
 // Table is the identity side table of one analyzed scope tree.
@@ -246,7 +245,7 @@ func (b *builder) infoOf(sym *symbols.Symbol) *Info {
 	info := &Info{Symbol: sym, FQN: fqn, EffectiveID: rdf.EncodeElementID(fqn)}
 	if lang, ok := b.norm.language(sym); ok {
 		info.Source, info.Language = SourceNormative, lang
-		info.EffectiveID = normative.ElementID(lang, fqn)
+		info.EffectiveID = ElementID(lang, fqn)
 	}
 	for _, site := range b.model.AnnotationSitesOf(sym) {
 		if site.TypeFQN != ElementIdFQN {

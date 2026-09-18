@@ -182,7 +182,7 @@ it is in the pilot's `sysml.library.xmi`:
 `elmt:` prefixed name, so a UUID reads either way depending on its first hex
 digit.)
 
-The id is a version-5 UUID (`internal/core/identity/normative`): the library
+The id is a version-5 UUID (`internal/core/identity`): the library
 package's is `uuid5(URL namespace, prefix + name)` with the prefix
 `https://www.omg.org/spec/KerML/` for the kernel libraries and
 `https://www.omg.org/spec/SysML/` for the systems and domain libraries; a named
