@@ -54,18 +54,24 @@ class SuiteTest {
   }
 
   @Test
-  void theSkippedScenariosAreTheOnesV1DoesNotCover() {
+  void theSkippedScenariosAreTheOnesThePublicApiDoesNotCover() {
     Report.Summary summary = run(Encoding.PROTOBUF, Mutations.NONE);
-    List<String> skipped =
-        summary.results.stream()
-            .filter(result -> result.outcome.equals("skip"))
-            .map(result -> result.rpc)
-            .distinct()
-            .toList();
-    skipped.forEach(rpc -> assertTrue(Api.declared(rpc), rpc + " is not an RPC of the service"));
-    assertTrue(
-        skipped.stream().noneMatch(rpc -> Api.COVERED.contains(rpc) && rpc.equals("Evaluate")),
-        "Evaluate is covered and must not be skipped wholesale: " + skipped);
+    List<Report.Result> skipped =
+        summary.results.stream().filter(result -> result.outcome.equals("skip")).toList();
+    for (Report.Result result : skipped) {
+      assertTrue(Api.declared(result.rpc), result.rpc + " is not an RPC of the service");
+      if (Api.COVERED.contains(result.rpc)) {
+        assertFalse(
+            result.reason.startsWith("the public API does not cover"),
+            result.id + " is skipped as uncovered, yet " + result.rpc + " is covered");
+      }
+    }
+    for (String rpc : Api.COVERED) {
+      assertTrue(
+          summary.results.stream()
+              .anyMatch(result -> result.rpc.equals(rpc) && result.outcome.equals("pass")),
+          rpc + " is covered and must run at least one scenario");
+    }
     assertEquals(summary.skipped, summary.results.stream().filter(r -> r.outcome.equals("skip")).count());
   }
 

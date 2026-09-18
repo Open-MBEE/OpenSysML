@@ -31,7 +31,7 @@ record Scenario(
 
   /**
    * The source a scenario needs parsed before its call: one fixture, or several parsed together
-   * as one model, which the v1 API's single-document {@code parse} cannot make.
+   * as one model, which the public API's single-document {@code parse} cannot make.
    */
   record Fixture(
       String fixture, List<String> fixtures, String language, boolean strictConformance) {}

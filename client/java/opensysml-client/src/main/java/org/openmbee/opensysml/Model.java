@@ -3,13 +3,32 @@ package org.openmbee.opensysml;
 import org.openmbee.opensysml.internal.Protos;
 import org.openmbee.opensysml.proto.DiagnosticsRequest;
 import org.openmbee.opensysml.proto.DiagnosticsResponse;
+import org.openmbee.opensysml.proto.EvaluateCalcRequest;
+import org.openmbee.opensysml.proto.EvaluateCalcResponse;
 import org.openmbee.opensysml.proto.EvaluateRequest;
 import org.openmbee.opensysml.proto.EvaluateResponse;
+import org.openmbee.opensysml.proto.ExecuteActionRequest;
+import org.openmbee.opensysml.proto.ExecuteActionResponse;
+import org.openmbee.opensysml.proto.ExecuteStateRequest;
+import org.openmbee.opensysml.proto.ExecuteStateResponse;
 import org.openmbee.opensysml.proto.GetSymbolRequest;
 import org.openmbee.opensysml.proto.InstantiateRequest;
 import org.openmbee.opensysml.proto.InstantiateResponse;
+import org.openmbee.opensysml.proto.QueryRequest;
+import org.openmbee.opensysml.proto.QueryResponse;
+import org.openmbee.opensysml.proto.RunAnalysisRequest;
+import org.openmbee.opensysml.proto.RunAnalysisResponse;
 import org.openmbee.opensysml.proto.SymbolResponse;
+import org.openmbee.opensysml.proto.ValidateInstanceRequest;
+import org.openmbee.opensysml.proto.ValidateInstanceResponse;
+import org.openmbee.opensysml.proto.VerifyConstraintRequest;
+import org.openmbee.opensysml.proto.VerifyConstraintResponse;
+import org.openmbee.opensysml.proto.VerifyRequirementRequest;
+import org.openmbee.opensysml.proto.VerifyRequirementResponse;
+import org.openmbee.opensysml.proto.VerifySatisfactionRequest;
+import org.openmbee.opensysml.proto.VerifySatisfactionResponse;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -18,7 +37,20 @@ import java.util.Optional;
  *
  * <p>Obtained from {@link Connection#load(java.nio.file.Path)}, {@link Connection#parse(String)} or
  * {@link Connection#model(String)}. Immutable and thread-safe; it holds no state of its own beyond
- * the hash and what the parse reported.
+ * the hash, what the parse reported and the engine {@link #withEngine(String)} named.
+ *
+ * <p>Reading a model is {@link #eval}, {@link #symbol} and {@link #instantiate}. Running it is
+ * {@link #executeAction} and {@link #executeState} for one run under a schedule, {@link
+ * #exploreAction} and {@link #exploreState} for every run. Checking it is {@link
+ * #verifyConstraint}, {@link #verifyRequirement}, {@link #verifySatisfaction} and {@link
+ * #validateInstance}, which answer verdicts: a condition the model answers false about is a
+ * {@link Verdict} that does not hold, not an exception. {@link #evaluateCalc} and {@link
+ * #runAnalysis} compute, and {@link #query} selects elements.
+ *
+ * <p>Every call answers what the service reported or throws: {@link ModelException} when the
+ * service answered but reported a failure about the model, {@link ServiceException} when it refused
+ * the call, {@link CapabilityException} before anything is sent when the service does not advertise
+ * what the call needs.
  */
 public final class Model {
 
@@ -26,16 +58,27 @@ public final class Model {
   private final String hash;
   private final Optional<Symbol> root;
   private final List<Diagnostic> parseDiagnostics;
+  private final Optional<String> engine;
 
   Model(
       Connection connection,
       String hash,
       Optional<Symbol> root,
       List<Diagnostic> parseDiagnostics) {
+    this(connection, hash, root, parseDiagnostics, Optional.empty());
+  }
+
+  private Model(
+      Connection connection,
+      String hash,
+      Optional<Symbol> root,
+      List<Diagnostic> parseDiagnostics,
+      Optional<String> engine) {
     this.connection = connection;
     this.hash = hash;
     this.root = root;
     this.parseDiagnostics = List.copyOf(parseDiagnostics);
+    this.engine = engine;
   }
 
   /**
@@ -73,6 +116,33 @@ public final class Model {
    */
   public List<Diagnostic> parseDiagnostics() {
     return parseDiagnostics;
+  }
+
+  /**
+   * The engine this model's verifications, calculations and analyses are put to.
+   *
+   * @return the engine, absent when the service chooses
+   */
+  public Optional<String> engine() {
+    return engine;
+  }
+
+  /**
+   * The same model, its verifications, calculations and analyses put to one engine: an engine's
+   * name as {@link Connection#listEngines()} reports it, {@link Standing#ENGINE_ALL} for every
+   * engine that covers the question, or {@link Standing#ENGINE_AUTO} to leave the choice to the
+   * service. A name the service does not register fails the call with {@link
+   * StatusCode#INVALID_ARGUMENT}.
+   *
+   * @param engine the engine
+   * @return a model bound to it
+   * @throws CapabilityException if the service does not advertise {@code engines}, which it would
+   *     otherwise ignore rather than refuse
+   */
+  public Model withEngine(String engine) {
+    Objects.requireNonNull(engine, "engine");
+    connection.capabilities().require(Capabilities.ENGINES);
+    return new Model(connection, hash, root, parseDiagnostics, Optional.of(engine));
   }
 
   /**
@@ -186,6 +256,540 @@ public final class Model {
           response.getError(), Protos.diagnostics(response.getDiagnosticsList()));
     }
     return Protos.instantiation(response);
+  }
+
+  /**
+   * Executes an action once, under the service's default schedule and outside any object.
+   *
+   * @param actionSymbolId qualified name of the action definition or usage
+   * @return the outputs it produced
+   * @throws ModelException if the action could not be executed
+   * @throws ServiceException if the service does not hold this model
+   */
+  public ActionRun executeAction(String actionSymbolId) {
+    return executeAction(actionSymbolId, Map.of(), ExecutionOptions.defaults());
+  }
+
+  /**
+   * Executes an action once, with its input parameters bound.
+   *
+   * @param actionSymbolId qualified name of the action definition or usage
+   * @param inputs values for its input parameters, by name
+   * @return the outputs it produced
+   * @throws ModelException if the action could not be executed
+   * @throws ServiceException if the service does not hold this model
+   */
+  public ActionRun executeAction(String actionSymbolId, Map<String, Value> inputs) {
+    return executeAction(actionSymbolId, inputs, ExecutionOptions.defaults());
+  }
+
+  /**
+   * Executes an action once, under a schedule and on an object.
+   *
+   * @param actionSymbolId qualified name of the action definition or usage
+   * @param inputs values for its input parameters, by name
+   * @param options the schedule the run resolves its choice points under and the object performing
+   *     it; an exploring schedule belongs to {@link #exploreAction}
+   * @return the outputs it produced
+   * @throws IllegalArgumentException if the schedule explores
+   * @throws ModelException if the action could not be executed
+   * @throws ServiceException if the service does not hold this model, or the schedule names no
+   *     policy
+   * @throws CapabilityException if a schedule is named and the service does not advertise {@code
+   *     schedule}, or a performer and it does not advertise {@code performer}
+   */
+  public ActionRun executeAction(
+      String actionSymbolId, Map<String, Value> inputs, ExecutionOptions options) {
+    ExecuteActionResponse response = executeAction(actionSymbolId, inputs, options, false);
+    return Protos.actionRun(response, connection.capabilities().has(Capabilities.FINAL_TIME));
+  }
+
+  /**
+   * Runs an action once per valid order of its choice points, within the {@code explore} budget.
+   *
+   * @param actionSymbolId qualified name of the action definition or usage
+   * @return every distinct outcome reached, and how the search ended
+   * @throws ModelException if the action could not be explored at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code schedule_explore}
+   */
+  public Exploration exploreAction(String actionSymbolId) {
+    return exploreAction(actionSymbolId, Map.of(), ExecutionOptions.defaults());
+  }
+
+  /**
+   * Runs an action once per valid order of its choice points, within a budget.
+   *
+   * <p>Runs agreeing on their outputs are one {@link Outcome}; a run failing under some order is an
+   * outcome whose error is set, not a failure of the call.
+   *
+   * @param actionSymbolId qualified name of the action definition or usage
+   * @param inputs values for its input parameters, by name
+   * @param options the exploring schedule ({@code "explore"}, the default when none is named, or
+   *     {@code "explore:runs=<n>,depth=<d>"}) and the object performing each run, made anew for it
+   * @return every distinct outcome reached, and how the search ended
+   * @throws IllegalArgumentException if the schedule does not explore
+   * @throws ModelException if the action could not be explored at all
+   * @throws ServiceException if the service does not hold this model, or the schedule's budget is
+   *     malformed
+   * @throws CapabilityException if the service does not advertise {@code schedule_explore}, or a
+   *     performer is named and it does not advertise {@code performer}
+   */
+  public Exploration exploreAction(
+      String actionSymbolId, Map<String, Value> inputs, ExecutionOptions options) {
+    ExecuteActionResponse response = executeAction(actionSymbolId, inputs, options, true);
+    return Protos.exploration(response.getOutcomesList(), response.getExploration());
+  }
+
+  private ExecuteActionResponse executeAction(
+      String actionSymbolId, Map<String, Value> inputs, ExecutionOptions options, boolean explore) {
+    Objects.requireNonNull(actionSymbolId, "actionSymbolId");
+    Objects.requireNonNull(inputs, "inputs");
+    ExecuteActionRequest.Builder request =
+        ExecuteActionRequest.newBuilder()
+            .setModelHash(hash)
+            .setActionSymbolId(actionSymbolId)
+            .putAllInputs(Protos.protos(inputs))
+            .setSchedule(schedule(options, explore));
+    options.performer().ifPresent(request::setPerformerSymbolId);
+    ExecuteActionResponse response =
+        connection.call("ExecuteAction", request.build(), ExecuteActionResponse.getDefaultInstance());
+    failed(response.getError(), FailureReason.UNSPECIFIED, response.getDiagnosticsList());
+    return response;
+  }
+
+  /**
+   * Executes a state machine once, under the service's default schedule and outside any object.
+   *
+   * @param stateMachineSymbolId qualified name of the state definition or usage
+   * @param events the events to send it, in order
+   * @return the states it visited and its final context
+   * @throws ModelException if the machine could not be executed
+   * @throws ServiceException if the service does not hold this model
+   */
+  public StateRun executeState(String stateMachineSymbolId, List<String> events) {
+    return executeState(stateMachineSymbolId, events, ExecutionOptions.defaults());
+  }
+
+  /**
+   * Executes a state machine once, under a schedule and on an object.
+   *
+   * @param stateMachineSymbolId qualified name of the state definition or usage
+   * @param events the events to send it, in order
+   * @param options the schedule and performer, as for {@link #executeAction(String, Map,
+   *     ExecutionOptions)}
+   * @return the states it visited and its final context
+   * @throws IllegalArgumentException if the schedule explores
+   * @throws ModelException if the machine could not be executed
+   * @throws ServiceException if the service does not hold this model, or the schedule names no
+   *     policy
+   * @throws CapabilityException if a schedule is named and the service does not advertise {@code
+   *     schedule}, or a performer and it does not advertise {@code performer}
+   */
+  public StateRun executeState(
+      String stateMachineSymbolId, List<String> events, ExecutionOptions options) {
+    ExecuteStateResponse response = executeState(stateMachineSymbolId, events, options, false);
+    return Protos.stateRun(response, connection.capabilities().has(Capabilities.FINAL_TIME));
+  }
+
+  /**
+   * Runs a state machine once per valid order of its choice points, within the {@code explore}
+   * budget.
+   *
+   * @param stateMachineSymbolId qualified name of the state definition or usage
+   * @param events the events to send it, in order
+   * @return every distinct outcome reached, and how the search ended
+   * @throws ModelException if the machine could not be explored at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code schedule_explore}
+   */
+  public Exploration exploreState(String stateMachineSymbolId, List<String> events) {
+    return exploreState(stateMachineSymbolId, events, ExecutionOptions.defaults());
+  }
+
+  /**
+   * Runs a state machine once per valid order of its choice points, within a budget.
+   *
+   * @param stateMachineSymbolId qualified name of the state definition or usage
+   * @param events the events to send it, in order
+   * @param options the exploring schedule and performer, as for {@link #exploreAction(String, Map,
+   *     ExecutionOptions)}
+   * @return every distinct outcome reached, and how the search ended
+   * @throws IllegalArgumentException if the schedule does not explore
+   * @throws ModelException if the machine could not be explored at all
+   * @throws ServiceException if the service does not hold this model, or the schedule's budget is
+   *     malformed
+   * @throws CapabilityException if the service does not advertise {@code schedule_explore}, or a
+   *     performer is named and it does not advertise {@code performer}
+   */
+  public Exploration exploreState(
+      String stateMachineSymbolId, List<String> events, ExecutionOptions options) {
+    ExecuteStateResponse response = executeState(stateMachineSymbolId, events, options, true);
+    return Protos.exploration(response.getOutcomesList(), response.getExploration());
+  }
+
+  private ExecuteStateResponse executeState(
+      String stateMachineSymbolId, List<String> events, ExecutionOptions options, boolean explore) {
+    Objects.requireNonNull(stateMachineSymbolId, "stateMachineSymbolId");
+    Objects.requireNonNull(events, "events");
+    ExecuteStateRequest.Builder request =
+        ExecuteStateRequest.newBuilder()
+            .setModelHash(hash)
+            .setStateMachineSymbolId(stateMachineSymbolId)
+            .addAllEvents(events)
+            .setSchedule(schedule(options, explore));
+    options.performer().ifPresent(request::setPerformerSymbolId);
+    ExecuteStateResponse response =
+        connection.call("ExecuteState", request.build(), ExecuteStateResponse.getDefaultInstance());
+    failed(response.getError(), FailureReason.UNSPECIFIED, response.getDiagnosticsList());
+    return response;
+  }
+
+  /**
+   * Verifies a constraint against the model's declared values.
+   *
+   * @param symbolId qualified name of the constraint definition or usage
+   * @return its verdict, which does not hold when the model answers false and is undecided when
+   *     the constraint could not be evaluated
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification}
+   */
+  public Verification verifyConstraint(String symbolId) {
+    return verifyConstraint(symbolId, Optional.empty());
+  }
+
+  /**
+   * Verifies a constraint against an object's values.
+   *
+   * @param symbolId qualified name of the constraint definition or usage
+   * @param subjectSymbolId qualified name of the part definition or usage to instantiate and verify
+   *     the constraint on
+   * @return its verdict, about that object
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification}
+   */
+  public Verification verifyConstraint(String symbolId, String subjectSymbolId) {
+    Objects.requireNonNull(subjectSymbolId, "subjectSymbolId");
+    return verifyConstraint(symbolId, Optional.of(subjectSymbolId));
+  }
+
+  private Verification verifyConstraint(String symbolId, Optional<String> subjectSymbolId) {
+    Objects.requireNonNull(symbolId, "symbolId");
+    connection.capabilities().require(Capabilities.VERIFICATION);
+    VerifyConstraintRequest.Builder request =
+        VerifyConstraintRequest.newBuilder().setModelHash(hash).setSymbolId(symbolId);
+    subjectSymbolId.ifPresent(request::setSubjectSymbolId);
+    engine.ifPresent(request::setEngine);
+    VerifyConstraintResponse response =
+        connection.call(
+            "VerifyConstraint", request.build(), VerifyConstraintResponse.getDefaultInstance());
+    failed(response.getError(), FailureReason.UNSPECIFIED, response.getDiagnosticsList());
+    return Protos.verification(response);
+  }
+
+  /**
+   * Verifies a requirement's constraints against the model's declared values.
+   *
+   * @param symbolId qualified name of the requirement definition or usage
+   * @return its verdict, with what the verification cases verifying it answered
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification}
+   */
+  public Verification verifyRequirement(String symbolId) {
+    return verifyRequirement(symbolId, Optional.empty());
+  }
+
+  /**
+   * Verifies a requirement's constraints against an object's values.
+   *
+   * @param symbolId qualified name of the requirement definition or usage
+   * @param subjectSymbolId qualified name of the part definition or usage to instantiate and verify
+   *     the requirement on
+   * @return its verdict, about that object
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification}
+   */
+  public Verification verifyRequirement(String symbolId, String subjectSymbolId) {
+    Objects.requireNonNull(subjectSymbolId, "subjectSymbolId");
+    return verifyRequirement(symbolId, Optional.of(subjectSymbolId));
+  }
+
+  private Verification verifyRequirement(String symbolId, Optional<String> subjectSymbolId) {
+    Objects.requireNonNull(symbolId, "symbolId");
+    connection.capabilities().require(Capabilities.VERIFICATION);
+    VerifyRequirementRequest.Builder request =
+        VerifyRequirementRequest.newBuilder().setModelHash(hash).setSymbolId(symbolId);
+    subjectSymbolId.ifPresent(request::setSubjectSymbolId);
+    engine.ifPresent(request::setEngine);
+    VerifyRequirementResponse response =
+        connection.call(
+            "VerifyRequirement", request.build(), VerifyRequirementResponse.getDefaultInstance());
+    failed(response.getError(), FailureReason.UNSPECIFIED, response.getDiagnosticsList());
+    return Protos.verification(response);
+  }
+
+  /**
+   * Evaluates every {@code satisfy} assertion in the model.
+   *
+   * @return one verdict per assertion, in declaration order
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification}
+   */
+  public Satisfaction verifySatisfaction() {
+    return verifySatisfaction(Optional.empty());
+  }
+
+  /**
+   * Evaluates the {@code satisfy} assertions within one element.
+   *
+   * @param scopeSymbolId qualified name of the package, definition or usage whose assertions are
+   *     evaluated
+   * @return one verdict per assertion, in declaration order
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification}
+   */
+  public Satisfaction verifySatisfaction(String scopeSymbolId) {
+    Objects.requireNonNull(scopeSymbolId, "scopeSymbolId");
+    return verifySatisfaction(Optional.of(scopeSymbolId));
+  }
+
+  private Satisfaction verifySatisfaction(Optional<String> scopeSymbolId) {
+    connection.capabilities().require(Capabilities.VERIFICATION);
+    VerifySatisfactionRequest.Builder request =
+        VerifySatisfactionRequest.newBuilder().setModelHash(hash);
+    scopeSymbolId.ifPresent(request::setSymbolId);
+    engine.ifPresent(request::setEngine);
+    VerifySatisfactionResponse response =
+        connection.call(
+            "VerifySatisfaction", request.build(), VerifySatisfactionResponse.getDefaultInstance());
+    failed(response.getError(), response.getFailureReason(), response.getDiagnosticsList());
+    return Protos.satisfaction(response);
+  }
+
+  /**
+   * Checks every assertion about an object of a part definition or usage, and about the objects it
+   * holds, against their values.
+   *
+   * @param symbolId qualified name of the part definition or usage to instantiate and validate
+   * @return one verdict per assertion, and one for the object as a whole
+   * @throws ModelException if the service could not answer at all: an unknown symbol, or one that
+   *     declares no object
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification}
+   */
+  public Validation validateInstance(String symbolId) {
+    Objects.requireNonNull(symbolId, "symbolId");
+    connection.capabilities().require(Capabilities.VERIFICATION);
+    ValidateInstanceRequest.Builder request =
+        ValidateInstanceRequest.newBuilder().setModelHash(hash).setSymbolId(symbolId);
+    engine.ifPresent(request::setEngine);
+    ValidateInstanceResponse response =
+        connection.call(
+            "ValidateInstance", request.build(), ValidateInstanceResponse.getDefaultInstance());
+    failed(response.getError(), response.getFailureReason(), response.getDiagnosticsList());
+    return Protos.validation(response);
+  }
+
+  /**
+   * Evaluates a calc.
+   *
+   * @param symbolId qualified name of the calc definition or usage
+   * @param arguments values for its {@code in} parameters, in declaration order; empty evaluates a
+   *     usage from its own members
+   * @return what it computed
+   * @throws ModelException if the calc could not be evaluated, its {@link
+   *     ModelException#failureReason()} saying why
+   * @throws ServiceException if the service does not hold this model
+   */
+  public Calculation evaluateCalc(String symbolId, List<Value> arguments) {
+    Objects.requireNonNull(symbolId, "symbolId");
+    Objects.requireNonNull(arguments, "arguments");
+    EvaluateCalcRequest.Builder request =
+        EvaluateCalcRequest.newBuilder()
+            .setModelHash(hash)
+            .setSymbolId(symbolId)
+            .addAllArguments(Protos.protos(arguments));
+    engine.ifPresent(request::setEngine);
+    EvaluateCalcResponse response =
+        connection.call("EvaluateCalc", request.build(), EvaluateCalcResponse.getDefaultInstance());
+    failed(response.getError(), response.getFailureReason(), response.getDiagnosticsList());
+    return Protos.calculation(response);
+  }
+
+  /**
+   * Runs an analysis case usage that binds its own subject.
+   *
+   * @param symbolId qualified name of the analysis case usage
+   * @return what it computed and the verdicts of its objective and assertions
+   * @throws AnalysisException if the case could not run to its end but left something to inspect
+   * @throws ModelException if the request was refused before the run, or the failure left nothing to
+   *     report; its {@link ModelException#failureReason()} says why
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification}
+   */
+  public Analysis runAnalysis(String symbolId) {
+    return runAnalysis(symbolId, AnalysisOptions.defaults());
+  }
+
+  /**
+   * Runs an analysis case once, on a subject and with its parameters bound.
+   *
+   * <p>The subject named is instantiated and bound as the case's subject; positional arguments
+   * bind its {@code in} parameters in declaration order, the subject excluded, and named arguments
+   * bind them by name. Its objective and each {@code assert constraint} in its body are then checked
+   * against what it computed.
+   *
+   * @param symbolId qualified name of the analysis case definition or usage
+   * @param options the subject, arguments and schedule; an exploring schedule belongs to {@link
+   *     #exploreAnalysis}
+   * @return what it computed and the verdicts of its objective and assertions
+   * @throws IllegalArgumentException if the schedule explores
+   * @throws AnalysisException if the case could not run to its end but left something to inspect
+   * @throws ModelException if the request was refused before the run, or the failure left nothing to
+   *     report; its {@link ModelException#failureReason()} says why
+   * @throws ServiceException if the service does not hold this model, or the schedule names no
+   *     policy
+   * @throws CapabilityException if the service does not advertise {@code verification}, or a
+   *     schedule is named and it does not advertise {@code schedule}
+   */
+  public Analysis runAnalysis(String symbolId, AnalysisOptions options) {
+    RunAnalysisResponse response = runAnalysis(symbolId, options, false);
+    Analysis analysis = Protos.analysis(response);
+    if (response.getError().isEmpty()) {
+      return analysis;
+    }
+    FailureReason reason = Protos.failureReason(response.getFailureReason());
+    if (analysis.outputs().isEmpty()
+        && analysis.verdicts().isEmpty()
+        && analysis.evaluations().isEmpty()
+        && analysis.instances().isEmpty()) {
+      throw new ModelException(response.getError(), reason, analysis.diagnostics());
+    }
+    throw new AnalysisException(response.getError(), reason, analysis.diagnostics(), analysis);
+  }
+
+  /**
+   * Runs an analysis case once per valid order of the choice points its actions meet.
+   *
+   * <p>Runs agreeing on the case's outputs and verdicts are one {@link Outcome}; a verdict is
+   * reported among the outcome's outputs as {@code "objective <name>"} or {@code "assertion
+   * <name>"}.
+   *
+   * @param symbolId qualified name of the analysis case definition or usage
+   * @param options the subject, arguments and exploring schedule ({@code "explore"}, the default
+   *     when none is named, or {@code "explore:runs=<n>,depth=<d>"})
+   * @return every distinct outcome reached, and how the search ended
+   * @throws IllegalArgumentException if the schedule does not explore
+   * @throws ModelException if the case could not be explored at all
+   * @throws ServiceException if the service does not hold this model, or the schedule's budget is
+   *     malformed
+   * @throws CapabilityException if the service does not advertise {@code verification} or {@code
+   *     schedule_explore}
+   */
+  public Exploration exploreAnalysis(String symbolId, AnalysisOptions options) {
+    RunAnalysisResponse response = runAnalysis(symbolId, options, true);
+    failed(response.getError(), response.getFailureReason(), response.getDiagnosticsList());
+    return Protos.exploration(response.getOutcomesList(), response.getExploration());
+  }
+
+  private RunAnalysisResponse runAnalysis(
+      String symbolId, AnalysisOptions options, boolean explore) {
+    Objects.requireNonNull(symbolId, "symbolId");
+    Objects.requireNonNull(options, "options");
+    connection.capabilities().require(Capabilities.VERIFICATION);
+    RunAnalysisRequest.Builder request =
+        RunAnalysisRequest.newBuilder()
+            .setModelHash(hash)
+            .setSymbolId(symbolId)
+            .addAllArguments(Protos.protos(options.arguments()))
+            .putAllNamedArguments(Protos.protos(options.namedArguments()))
+            .setSchedule(schedule(options.schedule(), options.explores(), explore));
+    options.subject().ifPresent(request::setSubjectSymbolId);
+    engine.ifPresent(request::setEngine);
+    return connection.call("RunAnalysis", request.build(), RunAnalysisResponse.getDefaultInstance());
+  }
+
+  /**
+   * Selects elements of the model.
+   *
+   * @param query the elements considered, the properties reported and the filter applied
+   * @return the elements selected, each with the properties asked for
+   * @throws ServiceException if the service does not hold this model, or the query names an unknown
+   *     scope or property, or leaves a comparison's operator unset
+   * @throws CapabilityException if the service does not advertise {@code query}
+   */
+  public List<QueryElement> query(Query query) {
+    Objects.requireNonNull(query, "query");
+    connection.capabilities().require(Capabilities.QUERY);
+    return selected(QueryRequest.newBuilder().setModelHash(hash).setQuery(Protos.proto(query)));
+  }
+
+  /**
+   * Selects elements of the model with an OSLC query string, such as {@code
+   * "oslc.where=rdf:type=\"PartUsage\"&oslc.select=sysml:name"}.
+   *
+   * @param oslcQuery the query, as OSLC Query Syntax spells it
+   * @return the elements selected, each with the properties asked for
+   * @throws ServiceException if the service does not hold this model, or the query does not parse
+   * @throws CapabilityException if the service does not advertise {@code oslc_query}
+   */
+  public List<QueryElement> queryOslc(String oslcQuery) {
+    Objects.requireNonNull(oslcQuery, "oslcQuery");
+    connection.capabilities().require(Capabilities.OSLC_QUERY);
+    return selected(QueryRequest.newBuilder().setModelHash(hash).setOslcQuery(oslcQuery));
+  }
+
+  private List<QueryElement> selected(QueryRequest.Builder request) {
+    QueryResponse response =
+        connection.call("Query", request.build(), QueryResponse.getDefaultInstance());
+    return Protos.queryElements(response.getElementsList());
+  }
+
+  private String schedule(ExecutionOptions options, boolean explore) {
+    Objects.requireNonNull(options, "options");
+    if (options.performer().isPresent()) {
+      connection.capabilities().require(Capabilities.PERFORMER);
+    }
+    return schedule(options.schedule(), options.explores(), explore);
+  }
+
+  private String schedule(Optional<String> schedule, boolean explores, boolean explore) {
+    if (explore) {
+      if (schedule.isPresent() && !explores) {
+        throw new IllegalArgumentException(
+            "schedule " + schedule.orElseThrow() + " runs once; an exploration takes explore");
+      }
+      connection.capabilities().require(Capabilities.SCHEDULE_EXPLORE);
+      return schedule.orElse("explore");
+    }
+    if (explores) {
+      throw new IllegalArgumentException(
+          "schedule " + schedule.orElseThrow() + " answers every outcome; use the explore call");
+    }
+    if (schedule.isPresent()) {
+      connection.capabilities().require(Capabilities.SCHEDULE);
+    }
+    return schedule.orElse("");
+  }
+
+  private static void failed(
+      String error,
+      org.openmbee.opensysml.proto.FailureReason reason,
+      List<org.openmbee.opensysml.proto.Diagnostic> diagnostics) {
+    failed(error, Protos.failureReason(reason), diagnostics);
+  }
+
+  private static void failed(
+      String error, FailureReason reason, List<org.openmbee.opensysml.proto.Diagnostic> diagnostics) {
+    if (!error.isEmpty()) {
+      throw new ModelException(error, reason, Protos.diagnostics(diagnostics));
+    }
   }
 
   private SymbolResponse symbolResponse(String symbolId) {

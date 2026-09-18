@@ -131,7 +131,7 @@ final class Runner {
     if (!Api.COVERED.contains(scenario.method())) {
       result.outcome = "skip";
       result.status = "-";
-      result.reason = "the v1 API does not cover " + scenario.method();
+      result.reason = "the public API does not cover " + scenario.method();
       return;
     }
 
@@ -157,7 +157,7 @@ final class Runner {
     if (model.isPresent() && !model.get().fixtures().isEmpty()) {
       result.outcome = "skip";
       result.status = "-";
-      result.reason = "the v1 API parses one document at a time, not a model of several";
+      result.reason = "the public API parses one document at a time, not a model of several";
       return;
     }
     if (model.isPresent()) {

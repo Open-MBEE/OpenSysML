@@ -5,6 +5,8 @@ import org.openmbee.opensysml.internal.ConnectTransport;
 import org.openmbee.opensysml.internal.PrivateService;
 import org.openmbee.opensysml.internal.Protos;
 import org.openmbee.opensysml.internal.ServiceRegistry;
+import org.openmbee.opensysml.proto.ListEnginesRequest;
+import org.openmbee.opensysml.proto.ListEnginesResponse;
 import org.openmbee.opensysml.proto.ParseFileRequest;
 import org.openmbee.opensysml.proto.ParseFileResponse;
 import org.openmbee.opensysml.proto.ServerInfoRequest;
@@ -129,6 +131,24 @@ public final class Connection implements AutoCloseable {
    */
   public Capabilities capabilities() {
     return capabilities;
+  }
+
+  /**
+   * The analysis engines the service answers with, in name order: what each answers, how strongly
+   * it can, and whether it can run here. Name one with {@link Model#withEngine(String)}.
+   *
+   * @return the engines
+   * @throws CapabilityException if the service does not advertise {@code engines}
+   */
+  public List<EngineInfo> listEngines() {
+    checkOpen();
+    capabilities.require(Capabilities.ENGINES);
+    ListEnginesResponse response =
+        call(
+            "ListEngines",
+            ListEnginesRequest.getDefaultInstance(),
+            ListEnginesResponse.getDefaultInstance());
+    return Protos.engines(response.getEnginesList());
   }
 
   /**
