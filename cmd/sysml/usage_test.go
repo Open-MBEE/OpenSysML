@@ -12,7 +12,7 @@ import (
 // reports, wrapped rather than reworded.
 func TestPrintUsageStatesTheExperimentalNotice(t *testing.T) {
 	var help bytes.Buffer
-	printUsage(&help)
+	printUsage(&help, docFlags())
 
 	unwrapped := strings.Join(strings.Fields(help.String()), " ")
 	if !strings.Contains(unwrapped, convert.ExperimentalNotice) {
@@ -22,5 +22,13 @@ func TestPrintUsageStatesTheExperimentalNotice(t *testing.T) {
 		if len(line) > 96 {
 			t.Errorf("help line is %d characters wide:\n%s", len(line), line)
 		}
+	}
+}
+
+// Every flag is listed under exactly one heading, so a flag added without a
+// place in the help is caught here rather than by a reader who cannot find it.
+func TestEveryFlagIsInOneOptionGroup(t *testing.T) {
+	if err := doc().CheckOptions(docFlags()); err != nil {
+		t.Error(err)
 	}
 }

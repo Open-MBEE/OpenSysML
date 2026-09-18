@@ -26,6 +26,37 @@ func TestMetaHelpAndList(t *testing.T) {
 	}
 }
 
+// Every command sits under a heading, aliases are folded into the command
+// they spell, and no line, a wide signature included, outruns the width.
+func TestHelpTextIsGroupedAndWrapped(t *testing.T) {
+	lines := helpText()
+	help := strings.Join(lines, "\n")
+	for _, want := range []string{
+		"\nSession:\n", "\nSettings:\n", "\nAnalysis engines:\n", "\nChecking every schedule:\n",
+		"\nLibrary discovery:\n", "\nState machine debugging:\n",
+		"  %quit                     exit the REPL (also %exit)\n",
+		"  %check-witness [<dir>|off]\n                            show or set",
+		"  %check-bounds [depth=<n>] [states=<n>] [unroll=<n>] [timeout=<duration>]\n      | off\n",
+	} {
+		if !strings.Contains(help, want) {
+			t.Errorf("help lacks %q:\n%s", want, help)
+		}
+	}
+	if strings.Contains(help, "\n  %exit") {
+		t.Errorf("help lists the alias %%exit on its own:\n%s", help)
+	}
+	for _, c := range metaCommandTable {
+		if c.group == "" {
+			t.Errorf("%s has no help heading", c.name)
+		}
+	}
+	for _, line := range lines {
+		if len(line) > helpWidth {
+			t.Errorf("help line is %d wide: %q", len(line), line)
+		}
+	}
+}
+
 func TestMetaClear(t *testing.T) {
 	s := NewSession()
 	s.Submit("package P { }")
