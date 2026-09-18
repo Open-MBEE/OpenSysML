@@ -24,12 +24,17 @@ func Root() (string, error) {
 	return RootFrom(dir)
 }
 
-// Choose is the given root made absolute, or Root when none is given.
+// Choose is the given repository, or Root when none is given; like every
+// other path flag, a relative one counts from Root rather than the tools module.
 func Choose(path string) (string, error) {
-	if path != "" {
-		return filepath.Abs(path)
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path), nil
 	}
-	return Root()
+	root, err := Root()
+	if err != nil || path == "" {
+		return root, err
+	}
+	return filepath.Join(root, path), nil
 }
 
 // DevelopCommit is the given commit, or the develop commit the checkout at dir is based on.

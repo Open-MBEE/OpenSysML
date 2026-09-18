@@ -11,8 +11,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/tools/referee/fuml"
 )
 
-const repoRoot = "../../.."
-
 // The first sentence of -h says what a pass means, in the referee's own words.
 func TestHelpOpensWithTheMeaningOfAPass(t *testing.T) {
 	flags := flag.NewFlagSet("fuml-referee", flag.ContinueOnError)
@@ -31,7 +29,7 @@ func TestAbsentSuite(t *testing.T) {
 	empty := t.TempDir()
 	t.Setenv(fuml.RequireEnv, "")
 	var out, log bytes.Buffer
-	if err := run(&out, &log, options{repo: repoRoot, suite: empty, jobs: 1}); err != nil {
+	if err := run(&out, &log, options{suite: empty, jobs: 1}); err != nil {
 		t.Fatalf("absent suite: %v", err)
 	}
 	if !strings.Contains(out.String(), "download-fuml-suite.sh") {
@@ -39,7 +37,7 @@ func TestAbsentSuite(t *testing.T) {
 	}
 
 	t.Setenv(fuml.RequireEnv, "1")
-	err := run(&out, &log, options{repo: repoRoot, suite: empty, jobs: 1})
+	err := run(&out, &log, options{suite: empty, jobs: 1})
 	if err == nil || !strings.Contains(err.Error(), fuml.RequireEnv) {
 		t.Errorf("required absent suite: %v", err)
 	}
@@ -54,7 +52,7 @@ func TestBadChecksum(t *testing.T) {
 		}
 	}
 	var out, log bytes.Buffer
-	err := run(&out, &log, options{repo: repoRoot, suite: root, jobs: 1})
+	err := run(&out, &log, options{suite: root, jobs: 1})
 	if err == nil || !strings.Contains(err.Error(), "not the pinned") {
 		t.Errorf("tampered suite: %v", err)
 	}
@@ -66,16 +64,16 @@ func TestBadChecksum(t *testing.T) {
 // Flag combinations that cannot mean anything are refused.
 func TestRefusedOptions(t *testing.T) {
 	var out, log bytes.Buffer
-	if err := run(&out, &log, options{repo: repoRoot, jobs: 0}); err == nil {
+	if err := run(&out, &log, options{jobs: 0}); err == nil {
 		t.Error("-jobs 0 accepted")
 	}
-	if err := run(&out, &log, options{repo: repoRoot, jobs: 1, update: true, filter: "x"}); err == nil {
+	if err := run(&out, &log, options{jobs: 1, update: true, filter: "x"}); err == nil {
 		t.Error("-update with -filter accepted")
 	}
-	if err := run(&out, &log, options{repo: repoRoot, jobs: 1, check: true, filter: "x"}); err == nil {
+	if err := run(&out, &log, options{jobs: 1, check: true, filter: "x"}); err == nil {
 		t.Error("-check with -filter accepted")
 	}
-	if err := run(&out, &log, options{repo: repoRoot, jobs: 1, develop: "abc"}); err == nil {
+	if err := run(&out, &log, options{jobs: 1, develop: "abc"}); err == nil {
 		t.Error("-develop without -update accepted")
 	}
 }
