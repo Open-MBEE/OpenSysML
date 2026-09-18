@@ -58,10 +58,10 @@ func TestMigrationResultsThroughCLI(t *testing.T) {
 	}
 	for _, want := range []string{
 		"compare 'Group 0' — 4 stored run(s) in Results; 4 run(s) by OpenSysML, draws average\n",
-		"pA         | tool                  | 4    | 0.25    | 0.625  | 0.5     | 1.0   | 1.0",
-		"           | OpenSysML (target.pA) | 4    | 1.0     | 1.0    | 1.0     | 1.0   | 1.0",
-		"           | difference            |      | +300.0% | +60.0% | +100.0% | +0.0% | +0.0%",
-		"pB         | tool                  | 2    | 0.0     | 1.5    | 0.0     | 3.0   | 3.0",
+		"pA         | tool                  | 2    | 1.0   | 1.0   | 1.0   | 1.0   | 1.0",
+		"           | OpenSysML (target.pA) | 4    | 1.0   | 1.0   | 1.0   | 1.0   | 1.0",
+		"           | difference            |      | +0.0% | +0.0% | +0.0% | +0.0% | +0.0%",
+		"pB         | tool                  | 4    | 0.0   | 1.0   | 0.25  | 3.0   | 3.0",
 		"           | OpenSysML (target.pB) | 0    |",
 		"note: target.pB holds no number in any completed run, so pB is not compared",
 		"note: the slot of flag holds a LiteralBoolean, which is no number in 1 snapshot(s), so it is not among the results",
@@ -80,9 +80,9 @@ func TestMigrationResultsThroughCLI(t *testing.T) {
 	}
 	for _, want := range []string{
 		"compare 'Group 0' — 4 stored run(s) in Results; 3 run(s) by OpenSysML, draws random, seed 5\n",
-		"           | OpenSysML (target.pA) | 3    | 1.0       | 1.0    | 1.0       | 1.0    | 1.0",
-		"pB         | tool                  | 2    | 0.0       | 1.5    | 0.0       | 3.0    | 3.0",
-		"           | difference            |      | +1 (of 0) | -33.3% | +1 (of 0) | -66.7% | -66.7%",
+		"           | OpenSysML (target.pA) | 3    | 1.0       | 1.0   | 1.0     | 1.0    | 1.0",
+		"pB         | tool                  | 4    | 0.0       | 1.0   | 0.25    | 3.0    | 3.0",
+		"           | difference            |      | +1 (of 0) | +0.0% | +300.0% | -66.7% | -66.7%",
 	} {
 		if !strings.Contains(overridden.stdout, want) {
 			t.Errorf("the overridden comparison lacks %q:\n%s", want, overridden.output())

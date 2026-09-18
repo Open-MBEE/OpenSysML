@@ -3,6 +3,7 @@ package migrate_test
 import (
 	"encoding/json"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -14,7 +15,9 @@ import (
 // storedResults are the weighted chooser's run configuration with the result
 // snapshots a simulation tool stored under its result package: two typed by
 // the target's classifier, one classifier-less whose slots are of its
-// features, one nested in a sub-package, and an instance of another block.
+// features, one nested in a sub-package, and an instance of another block. The
+// snapshots record pA at the 1.0 Sure fixes it to and observe pB, whose NaN
+// default configures nothing.
 const storedResults = weightedChooser + `
     <packagedElement xmi:type="uml:Class" xmi:id="_g0" name="Group 0"/>
     <packagedElement xmi:type="uml:Package" xmi:id="_results" name="Results">
@@ -42,21 +45,21 @@ const storedResults = weightedChooser + `
       </packagedElement>
       <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r2" name="run 2" classifier="_sure">
         <slot xmi:type="uml:Slot" xmi:id="_r2a" definingFeature="_pa">
-          <value xmi:type="uml:LiteralReal" xmi:id="_r2av" value="0.5"/>
+          <value xmi:type="uml:LiteralReal" xmi:id="_r2av" value="1.0"/>
         </slot>
         <slot xmi:type="uml:Slot" xmi:id="_r2b" definingFeature="_pb">
           <value xmi:type="uml:LiteralReal" xmi:id="_r2bv"/>
         </slot>
       </packagedElement>
       <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r3">
-        <slot xmi:type="uml:Slot" xmi:id="_r3a" definingFeature="_pa">
-          <value xmi:type="uml:LiteralReal" xmi:id="_r3av" value="0.25"/>
+        <slot xmi:type="uml:Slot" xmi:id="_r3b" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r3bv" value="0.25"/>
         </slot>
       </packagedElement>
       <packagedElement xmi:type="uml:Package" xmi:id="_more" name="More">
         <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r4" name="run 4" classifier="_chooser">
-          <slot xmi:type="uml:Slot" xmi:id="_r4a" definingFeature="_pa">
-            <value xmi:type="uml:LiteralReal" xmi:id="_r4av" value="0.75"/>
+          <slot xmi:type="uml:Slot" xmi:id="_r4b" definingFeature="_pb">
+            <value xmi:type="uml:LiteralReal" xmi:id="_r4bv" value="0.75"/>
           </slot>
         </packagedElement>
       </packagedElement>
@@ -88,9 +91,9 @@ func TestResultSnapshotsAreIndexedPerConfiguration(t *testing.T) {
 		Observables: []string{"pA", "pB"},
 		Snapshots: []migrate.Snapshot{
 			{ID: "_r1", Name: "run 1", Values: map[string]float64{"pA": 1.0, "pB": 3}},
-			{ID: "_r2", Name: "run 2", Values: map[string]float64{"pA": 0.5, "pB": 0}},
-			{ID: "_r3", Values: map[string]float64{"pA": 0.25}},
-			{ID: "_r4", Name: "run 4", Values: map[string]float64{"pA": 0.75}},
+			{ID: "_r2", Name: "run 2", Values: map[string]float64{"pA": 1.0, "pB": 0}},
+			{ID: "_r3", Values: map[string]float64{"pB": 0.25}},
+			{ID: "_r4", Name: "run 4", Values: map[string]float64{"pB": 0.75}},
 		},
 		Notes: []string{
 			"the slot of Analysis::MonteCarlo::N is defined outside the document in 1 snapshot(s), so it is not among the results",
@@ -103,14 +106,96 @@ func TestResultSnapshotsAreIndexedPerConfiguration(t *testing.T) {
 		wantJSON, _ := json.MarshalIndent(want, "", "  ")
 		t.Errorf("configuration results:\n%s\nwant:\n%s", gotJSON, wantJSON)
 	}
-	if values := got.Values("pA"); !reflect.DeepEqual(values, []float64{1.0, 0.5, 0.25, 0.75}) {
-		t.Errorf("Values(pA) = %v", values)
+	if values := got.Values("pB"); !reflect.DeepEqual(values, []float64{3, 0, 0.25, 0.75}) {
+		t.Errorf("Values(pB) = %v", values)
 	}
 	wantLine(t, r.Notation, "/* results of the simulation tool: 4 snapshot(s) in Results holding pA, pB */")
 	wantNote(t, r, "_g0", migrate.Mapped, "")
 	wantNote(t, r, "_r1", migrate.Mapped, "")
 	wantNote(t, r, "_r3", migrate.Approximated, "classified by Chooser, the owner of its slots' defining features, since it names no classifier")
 	wantClean(t, "t.sysml", r)
+}
+
+// A snapshot recording another value of a feature the target configures — by a
+// slot of its own, or by the default of its classifier — is of a run on another
+// configuration sharing the result package, and is left out with a note; one not
+// recording the feature at all cannot be told apart and stays. A default spelling
+// no number configures nothing: it is how the tool leaves the observables its runs fill.
+func TestResultSnapshotsOfAnotherConfigurationAreLeftOut(t *testing.T) {
+	r := migrateDocument(t, storedResults+`
+    <packagedElement xmi:type="uml:Class" xmi:id="_g1" name="Group 1"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_g2" name="Group 2"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_seen" name="Seen">
+      <generalization xmi:type="uml:Generalization" xmi:id="_seen_g" general="_sure"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pb2" name="pB" redefinedProperty="_pb">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_pb2v"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_s5" name="fixed" classifier="_sure">
+      <slot xmi:type="uml:Slot" xmi:id="_s5b" definingFeature="_pb">
+        <value xmi:type="uml:LiteralInteger" xmi:id="_s5bv" value="3"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_s5f" definingFeature="_flag">
+        <value xmi:type="uml:LiteralBoolean" xmi:id="_s5fv" value="false"/>
+      </slot>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_s6" name="chooser" classifier="_chooser"/>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Block xmi:id="_s2" base_Class="_sure"/>
+  <sysml:Block xmi:id="_s3" base_Class="_other"/>
+  <sysml:Block xmi:id="_s4" base_Class="_seen"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
+      executionTarget="_s5" resultLocation="_results"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c1" base_Class="_g1"
+      executionTarget="_s6" resultLocation="_results"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c2" base_Class="_g2"
+      executionTarget="_seen" resultLocation="_results"/>`)
+	if len(r.Results.Configurations) != 3 {
+		t.Fatalf("results index %d configuration(s), want 3", len(r.Results.Configurations))
+	}
+	// fixed sets pB to 3 by a slot: run 1 recorded it, the other three another pB.
+	fixed := r.Results.Configurations[0]
+	if ids := snapshotIDs(fixed); !reflect.DeepEqual(ids, []string{"_r1"}) {
+		t.Errorf("the snapshots of fixed are %v, want run 1 alone", ids)
+	}
+	if want := "3 snapshot(s) record other values of pB than the target configures, so they are of another configuration and not among the results"; !slices.Contains(fixed.Notes, want) {
+		t.Errorf("fixed notes %q, want %q among them", fixed.Notes, want)
+	}
+	// chooser leaves pA at Chooser's 0.25: the two runs recording 1.0 were on a
+	// Sure, and the two recording no pA cannot be told apart.
+	chooser := r.Results.Configurations[1]
+	if ids := snapshotIDs(chooser); !reflect.DeepEqual(ids, []string{"_r3", "_r4"}) {
+		t.Errorf("the snapshots of chooser are %v, want the two recording no pA", ids)
+	}
+	if want := "2 snapshot(s) record other values of pA than the target configures, so they are of another configuration and not among the results"; !slices.Contains(chooser.Notes, want) {
+		t.Errorf("chooser notes %q, want %q among them", chooser.Notes, want)
+	}
+	// Seen runs as a class: Sure's pA is 1.0 as the snapshots record, and its
+	// pB redefinition leaves the value blank for the run to fill.
+	seen := r.Results.Configurations[2]
+	if ids := snapshotIDs(seen); !reflect.DeepEqual(ids, []string{"_r1", "_r2", "_r3", "_r4"}) {
+		t.Errorf("the snapshots of Seen are %v, want all four", ids)
+	}
+	for _, note := range seen.Notes {
+		if strings.Contains(note, "another configuration") {
+			t.Errorf("Seen leaves a snapshot out: %s", note)
+		}
+	}
+	wantLine(t, r.Notation, "/* results of the simulation tool: 1 snapshot(s) in Results holding pA, pB */")
+	wantLine(t, r.Notation, "/* results of the simulation tool: 2 snapshot(s) in Results holding pB */")
+	wantLine(t, r.Notation, "/* results of the simulation tool: 4 snapshot(s) in Results holding pA, pB */")
+	wantNote(t, r, "_g0", migrate.Mapped, "")
+	wantNote(t, r, "_g1", migrate.Mapped, "")
+	wantNote(t, r, "_g2", migrate.Mapped, "")
+}
+
+func snapshotIDs(c migrate.ConfigurationResults) []string {
+	var ids []string
+	for _, s := range c.Snapshots {
+		ids = append(ids, s.ID)
+	}
+	return ids
 }
 
 // A configuration whose results cannot be read says so: a result location
@@ -211,16 +296,16 @@ func TestComparisonRunsEachConfigurationBesideItsStoredResults(t *testing.T) {
 	if !v.Holds() {
 		t.Fatalf("the comparison = %s:\n%s", v.Status, lines)
 	}
-	// sure fixes pA at 1.0 and pB stays NaN, so pA compares and pB is noted;
+	// sure fixes pA at 1.0, which the runs' snapshots record, and pB stays NaN, so pA compares and pB is noted;
 	// average draws need no seed, so the header names none.
 	for _, want := range []string{
 		"compare 'Group 0' — 4 stored run(s) in Results; 4 run(s) by OpenSysML, draws average",
-		"observable | source                | runs | min     | mean   | p50     | p90   | max",
-		"pA         | tool                  | 4    | 0.25    | 0.625  | 0.5     | 1.0   | 1.0",
-		"           | OpenSysML (target.pA) | 4    | 1.0     | 1.0    | 1.0     | 1.0   | 1.0",
-		"           | difference            |      | +300.0% | +60.0% | +100.0% | +0.0% | +0.0%",
-		"pB         | tool                  | 2    | 0.0     | 1.5    | 0.0     | 3.0   | 3.0",
-		"           | OpenSysML (target.pB) | 0    |         |        |         |       |",
+		"observable | source                | runs | min   | mean  | p50   | p90   | max",
+		"pA         | tool                  | 2    | 1.0   | 1.0   | 1.0   | 1.0   | 1.0",
+		"           | OpenSysML (target.pA) | 4    | 1.0   | 1.0   | 1.0   | 1.0   | 1.0",
+		"           | difference            |      | +0.0% | +0.0% | +0.0% | +0.0% | +0.0%",
+		"pB         | tool                  | 4    | 0.0   | 1.0   | 0.25  | 3.0   | 3.0",
+		"           | OpenSysML (target.pB) | 0    |       |       |       |       |",
 		"note: target.pB holds no number in any completed run, so pB is not compared",
 	} {
 		if !strings.Contains(lines, want) {

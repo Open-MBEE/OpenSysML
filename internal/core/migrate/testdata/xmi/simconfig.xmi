@@ -68,21 +68,21 @@
       </packagedElement>
       <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r2" name="run 2" classifier="_sure">
         <slot xmi:type="uml:Slot" xmi:id="_r2a" definingFeature="_pa">
-          <value xmi:type="uml:LiteralReal" xmi:id="_r2av" value="0.5"/>
+          <value xmi:type="uml:LiteralReal" xmi:id="_r2av" value="1.0"/>
         </slot>
         <slot xmi:type="uml:Slot" xmi:id="_r2b" definingFeature="_pb">
           <value xmi:type="uml:LiteralReal" xmi:id="_r2bv"/>
         </slot>
       </packagedElement>
       <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r3">
-        <slot xmi:type="uml:Slot" xmi:id="_r3a" definingFeature="_pa">
-          <value xmi:type="uml:LiteralReal" xmi:id="_r3av" value="0.25"/>
+        <slot xmi:type="uml:Slot" xmi:id="_r3b" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r3bv" value="0.25"/>
         </slot>
       </packagedElement>
       <packagedElement xmi:type="uml:Package" xmi:id="_more" name="More">
         <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r4" name="run 4" classifier="_chooser">
-          <slot xmi:type="uml:Slot" xmi:id="_r4a" definingFeature="_pa">
-            <value xmi:type="uml:LiteralReal" xmi:id="_r4av" value="0.75"/>
+          <slot xmi:type="uml:Slot" xmi:id="_r4b" definingFeature="_pb">
+            <value xmi:type="uml:LiteralReal" xmi:id="_r4bv" value="0.75"/>
           </slot>
         </packagedElement>
       </packagedElement>

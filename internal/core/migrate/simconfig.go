@@ -130,7 +130,7 @@ func (m *migration) simulationConfig(e *xmi.Element, header, note string) {
 	target := m.configurationTarget(s)
 	notes = append(notes, target.notes...)
 	results := ConfigurationResults{ID: e.ID, Name: m.v2Name(e), Runs: settings.runs, Draws: settings.draws, Observables: []string{}, Snapshots: []Snapshot{}}
-	notes = append(notes, m.resultSnapshots(&results, s, target.classifiers)...)
+	notes = append(notes, m.resultSnapshots(&results, s, target)...)
 	note = joinNotes(note, strings.Join(notes, "; "))
 	m.add(e, verdictFor(note), m.v2Name(e), note)
 	m.w.block(header, func() {
