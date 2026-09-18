@@ -517,7 +517,7 @@ func (e *StateExecutor) runEffects(effects []routeEffect, chain []*ast.StateNode
 		}
 		// A segment's effects are one unit of the firing, run in their order.
 		if i == 0 || effects[i-1].segment != effect.segment {
-			if _, err := e.unit(ChoiceRegionOrder, unitHead{label: effectLabel(effect.segment), at: effect.segment.Decl}); err != nil {
+			if _, err := e.unit(ChoiceRegionOrder, unitHead{label: e.effectLabel(effect.segment), at: effect.segment.Decl}); err != nil {
 				return err
 			}
 		}
@@ -563,7 +563,7 @@ func (e *StateExecutor) enterAhead(chain []*ast.StateNode) error {
 			continue
 		}
 		if e.entryIsUnit(state) {
-			if _, err := e.unit(ChoiceEntryOrder, unitHead{label: entryLabel(state), at: state, silent: e.silentEntry(state)}); err != nil {
+			if _, err := e.unit(ChoiceEntryOrder, unitHead{label: e.entryLabel(state), at: state, silent: e.silentEntry(state)}); err != nil {
 				return err
 			}
 		}

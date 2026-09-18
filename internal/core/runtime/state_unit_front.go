@@ -25,10 +25,31 @@ const (
 	exitingWherePrefix  = "exiting "
 )
 
-// entryLabel, exitLabel and effectLabel spell a unit as a PSSM trace does.
-func entryLabel(state *ast.StateNode) string     { return state.Name + "(entry)" }
-func exitLabel(state *ast.StateNode) string      { return state.Name + "(exit)" }
-func effectLabel(trans *lower.Transition) string { return transitionLabel(trans) + "(effect)" }
+// entryLabel, exitLabel and effectLabel spell a unit as a PSSM trace does; a state sharing
+// its name with another region's is told apart by its region, as stateNames does.
+func (e *StateExecutor) entryLabel(state *ast.StateNode) string {
+	return e.stateName(state) + "(entry)"
+}
+func (e *StateExecutor) exitLabel(state *ast.StateNode) string { return e.stateName(state) + "(exit)" }
+func (e *StateExecutor) effectLabel(trans *lower.Transition) string {
+	return e.transitionLabel(trans) + "(effect)"
+}
+
+// stateName is the state's name, qualified by its region where another region's state shares it.
+func (e *StateExecutor) stateName(state *ast.StateNode) string {
+	if region := e.graph.RegionOf[state]; region != nil && region.Name != "" && e.nameShared(state) {
+		return region.Name + "." + state.Name
+	}
+	return state.Name
+}
+
+// vertexName is StateVertexName with a state's name qualified as stateName does.
+func (e *StateExecutor) vertexName(node ast.Node) string {
+	if state, isState := node.(*ast.StateNode); isState {
+		return e.stateName(state)
+	}
+	return StateVertexName(node)
+}
 
 // entryIsUnit: every visible state's entry is a unit; a hidden owner's only when it performs.
 func (e *StateExecutor) entryIsUnit(state *ast.StateNode) bool {
@@ -54,11 +75,11 @@ func (e *StateExecutor) silentExit(state *ast.StateNode) bool {
 }
 
 // transitionLabel names a transition by its own name, or by its ends when it has none.
-func transitionLabel(trans *lower.Transition) string {
+func (e *StateExecutor) transitionLabel(trans *lower.Transition) string {
 	if trans.Name != "" {
 		return trans.Name
 	}
-	return StateVertexName(trans.Source) + "->" + StateVertexName(trans.Target)
+	return e.vertexName(trans.Source) + "->" + e.vertexName(trans.Target)
 }
 
 // unitFront is one such site under way: its queues in canonical order, the queue
@@ -520,17 +541,11 @@ func (f *unitFront) finished() bool {
 	return true
 }
 
-// labels spells the ready queues' next units, the draw's alternatives; a state sharing its
-// name with another region's is told apart by its region, as stateNames does.
+// labels spells the ready queues' next units, the draw's alternatives.
 func (f *unitFront) labels(ready []*unitQueue) []string {
 	labels := make([]string, len(ready))
 	for i, q := range ready {
 		labels[i] = q.head.label
-		if state, isState := q.head.at.(*ast.StateNode); isState && f.exec.nameShared(state) {
-			if region := f.exec.graph.RegionOf[state]; region != nil && region.Name != "" {
-				labels[i] = region.Name + "." + labels[i]
-			}
-		}
 	}
 	return labels
 }

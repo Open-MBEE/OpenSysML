@@ -102,7 +102,7 @@ func (e *StateExecutor) enterShared(l *lazyEntry) error {
 		state := l.chain[i]
 		perform := true
 		if e.entryIsUnit(state) {
-			head := unitHead{label: entryLabel(state), at: state, shared: state, dropped: func() bool { return l.next > i }, silent: e.silentEntry(state)}
+			head := unitHead{label: e.entryLabel(state), at: state, shared: state, dropped: func() bool { return l.next > i }, silent: e.silentEntry(state)}
 			var err error
 			if perform, err = e.unit(ChoiceEntryOrder, head); err != nil {
 				return err
@@ -122,7 +122,7 @@ func (e *StateExecutor) runBranchEffect(branch *lower.Transition) error {
 	if branch == nil {
 		return nil
 	}
-	if _, err := e.unit(ChoiceEntryOrder, unitHead{label: effectLabel(branch), at: branch.Decl, silent: len(branch.Effect) == 0}); err != nil {
+	if _, err := e.unit(ChoiceEntryOrder, unitHead{label: e.effectLabel(branch), at: branch.Decl, silent: len(branch.Effect) == 0}); err != nil {
 		return err
 	}
 	for _, behavior := range branch.Effect {
@@ -165,7 +165,7 @@ func (e *StateExecutor) startHead(body ast.Node, above *ast.StateNode) unitHead 
 	if len(starts) > 0 && starts[0].Guard == nil {
 		for _, state := range e.descendantChain(above, starts[0].Target) {
 			if e.entryIsUnit(state) {
-				return unitHead{label: entryLabel(state), at: state, silent: e.silentEntry(state)}
+				return unitHead{label: e.entryLabel(state), at: state, silent: e.silentEntry(state)}
 			}
 		}
 	}
