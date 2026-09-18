@@ -81,9 +81,8 @@ func writeOptions(w io.Writer, fs *flag.FlagSet) {
 	})
 }
 
-// writeRoffOption writes one grouped option as a .BR tag: each spelling in
-// bold, the commas and the argument in roman, with the argument's <name> in
-// italic, as manual pages write them.
+// writeRoffOption writes one grouped option as a .BR tag: spellings in bold,
+// commas and argument in roman, the argument's <name> in italic.
 func writeRoffOption(w io.Writer, fs *flag.FlagSet, o Option) {
 	f := fs.Lookup(o.Name)
 	var words []string

@@ -457,9 +457,8 @@ func solverEnvironment() []usage.Item {
 	}
 }
 
-// registerFlags declares the command's flags on fs, so the help, the man page
-// and a run all read one declaration of each. Each flag's group and argument
-// placeholder are in optionGroups; a flag missing from it fails the help's tests.
+// registerFlags declares the command's flags on fs; each flag's group and
+// placeholder live in optionGroups, and a flag missing there fails the tests.
 func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&showHelp, "help", false, "Show this help and exit")
 	fs.BoolVar(&showHelp, "h", false, "Show this help and exit")
