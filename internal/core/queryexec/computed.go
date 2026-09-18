@@ -13,10 +13,12 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// computedColumn is one planned Column(name, expression) of a projection.
+// computedColumn is one planned columns entry of a projection: a
+// Column(name, expression), or a RelatedColumn when related is set.
 type computedColumn struct {
 	name       string
 	expression queryplan.Expression
+	related    *relatedColumn
 	origin     queryplan.Expression
 }
 
@@ -28,22 +30,30 @@ func (e *executor) computedColumns(project, value queryplan.Expression) ([]compu
 		for _, argument := range value.Arguments() {
 			elements = append(elements, argument.Value)
 		}
-	case queryplan.OperationColumn:
+	case queryplan.OperationColumn, queryplan.OperationRelatedColumn:
 		elements = []queryplan.Expression{value}
 	default:
 		return nil, e.invalidArgument(project, "columns", string(value.Operation()))
 	}
 	columns := make([]computedColumn, 0, len(elements))
 	for _, element := range elements {
-		if element.Operation() != queryplan.OperationColumn {
+		column := computedColumn{name: element.Target(), origin: element}
+		switch element.Operation() {
+		case queryplan.OperationColumn:
+			expression, ok := argumentValue(element, "expression")
+			if !ok {
+				return nil, e.invalidArgument(project, "columns", column.name)
+			}
+			column.expression = expression
+		case queryplan.OperationRelatedColumn:
+			related, err := e.relatedColumnOf(element)
+			if err != nil {
+				return nil, err
+			}
+			column.related = related
+		default:
 			return nil, e.invalidArgument(project, "columns", string(element.Operation()))
 		}
-		column := computedColumn{name: element.Target(), origin: element}
-		expression, ok := argumentValue(element, "expression")
-		if !ok {
-			return nil, e.invalidArgument(project, "columns", column.name)
-		}
-		column.expression = expression
 		columns = append(columns, column)
 	}
 	return columns, nil
@@ -83,6 +93,9 @@ func (e *executor) evaluateColumnCell(
 	row Value,
 	tracker *propertyTracker,
 ) ([]Value, error) {
+	if column.related != nil {
+		return e.evaluateRelatedCell(column, row)
+	}
 	values, err := e.evaluateColumnExpression(column.expression, column.name, row, tracker)
 	if err != nil {
 		return nil, err

@@ -205,7 +205,7 @@ func cellHTML(cell string, math formulas) string {
 }
 
 // styleSheet lays the document out for print: pages numbered in the footer,
-// bordered tables, captions in small type, diagrams scaled to the text width,
+// bordered tables and diagrams no wider than the text, captions in small type,
 // and a title page and table of contents on pages of their own when written.
 const styleSheet = `@page {
   margin: 2.2cm 2.2cm;
@@ -227,8 +227,9 @@ nav.toc li.toc-3 { padding-left: 3em; }
 nav.toc li.toc-4 { padding-left: 4.5em; }
 nav.toc li.toc-5 { padding-left: 6em; }
 nav.toc a { text-decoration: none; color: inherit; }
-table { border-collapse: collapse; margin: 0.8em 0; }
-th, td { border: 0.5pt solid #666666; padding: 0.3em 0.6em; text-align: left; }
+table { border-collapse: collapse; margin: 0.8em 0; width: 100%; }
+tr { break-inside: avoid; }
+th, td { border: 0.5pt solid #666666; padding: 0.3em 0.6em; text-align: left; overflow-wrap: anywhere; }
 th { background: #eeeeee; }
 p.caption, span.caption { font-size: 9.5pt; color: #444444; }
 figure { margin: 0.8em 0; }

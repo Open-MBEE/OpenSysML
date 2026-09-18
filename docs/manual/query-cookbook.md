@@ -332,7 +332,9 @@ expression.
 `WhereFeature` compares an attribute's constant value. The comparison is
 typed: numbers compare numerically (`<`, `<=`, `>`, `>=` and equality, with
 `*` accepted as infinity), booleans by equality, strings with the text
-operators above. An element without the attribute simply does not match; a
+operators above, and an element-valued feature — a verdict's `assertion`, a
+`RelatedColumn` list — as the qualified name it prints by, with the text
+operators. An element without the attribute simply does not match; a
 property no element in the source has is a typed `unknown-property` error.
 
 ```sysml
@@ -1041,17 +1043,20 @@ $ sysml cookbook.sysml -run-query "Cookbook::UnsatisfiedRequirements root=Cookbo
 ```
 
 `UnverifiedRequirements` is the same recipe with
-`relationshipKind = "verification"`:
+`relationshipKind = "verification"`; rooted at the package it also finds the
+nested `Traceability` package's `downlinkRequirement`, which the
+[traceability matrix](#traceability-matrix) below shows with no verifier:
 
 ```console
 $ sysml cookbook.sysml -run-query "Cookbook::UnverifiedRequirements root=Cookbook"
-✓ Query Cookbook::UnverifiedRequirements returned 6 rows
+✓ Query Cookbook::UnverifiedRequirements returned 7 rows
   Row 1: Cookbook::PointingRequirement
   Row 2: Cookbook::mirrorMassRequirement
   Row 3: Cookbook::segmentMassRequirement
   Row 4: Cookbook::instrumentMassRequirement
   Row 5: Cookbook::pointingRequirement::slewRequirement
   Row 6: Cookbook::pointingRequirement::trackingRequirement
+  Row 7: Cookbook::Traceability::downlinkRequirement
 ```
 
 Rows keep their order and any projected columns, so `WhereRelated` composes
@@ -1093,7 +1098,7 @@ calc def VerifiedButUnsatisfied :> Query {
 
 ```console
 $ sysml cookbook.sysml -run-query "Cookbook::UncoveredRequirements root=Cookbook"
-✓ Query Cookbook::UncoveredRequirements returned 7 rows
+✓ Query Cookbook::UncoveredRequirements returned 8 rows
   Row 1: Cookbook::PointingRequirement
   Row 2: Cookbook::pointingRequirement
   Row 3: Cookbook::mirrorMassRequirement
@@ -1101,6 +1106,7 @@ $ sysml cookbook.sysml -run-query "Cookbook::UncoveredRequirements root=Cookbook
   Row 5: Cookbook::instrumentMassRequirement
   Row 6: Cookbook::pointingRequirement::slewRequirement
   Row 7: Cookbook::pointingRequirement::trackingRequirement
+  Row 8: Cookbook::Traceability::downlinkRequirement
 ```
 
 ```console
@@ -1152,11 +1158,121 @@ $ sysml cookbook.sysml -run-query "Cookbook::RequirementTree root=Cookbook::poin
     documentation = "The mount tracks a target for 30 minutes without drift."
 ```
 
-Rooted at the package, the same query lists `PointingRequirement`,
-`massRequirement` and its three derived requirements, and
-`pointingRequirement` with its two children beneath it.
+Rooted at the package, the same query lists `PointingRequirement`, the
+`Traceability` package's three requirements, `massRequirement` and its three
+derived requirements, and `pointingRequirement` with its two children beneath
+it.
 The [requirements example](examples/requirements.sysml) renders such a tree
 as the last table of its report, [`requirements.md`](examples/requirements.md).
+
+## Traceability matrix
+
+`RelatedElements` answers one requirement at a time. To put every requirement
+in one table with its satisfiers and verifiers beside it, derive the columns
+from the relationships instead: a `RelatedColumn(name, relationshipKind,
+direction, maxDepth, aggregate = "list")` entry of `columns` traverses the
+named relationship from each row's element — the same kinds, directions and
+depth bound as `RelatedElements` — and fills a cell with what it reaches.
+The `aggregate` chooses the cell's shape: `"list"` (the default) holds the
+related elements, `"count"` how many there are, `"any"` whether there is at
+least one — an existence test that stops at the first element it reaches.
+
+The cookbook model's `Traceability` package holds three requirements, a
+`spacecraft` whose parts satisfy them and three verification cases, two of
+which verify the pointing requirement and none the downlink one:
+
+```sysml
+calc def TraceMatrix :> Query {
+	in root : Element;
+	Project(
+		source = WhereType(
+			source = Descendants(source = root, maxDepth = 1),
+			type = "RequirementUsage"
+		),
+		properties = ("shortName", "name"),
+		columns = (
+			RelatedColumn(name = "satisfiedBy", relationshipKind = "satisfaction", direction = "incoming", maxDepth = 1),
+			RelatedColumn(name = "verifiedBy", relationshipKind = "verification", direction = "incoming", maxDepth = 1),
+			RelatedColumn(
+				name = "verifications",
+				relationshipKind = "verification",
+				direction = "incoming",
+				maxDepth = 1,
+				aggregate = "count"
+			)
+		)
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::TraceMatrix root=Cookbook::Traceability"
+✓ Query Cookbook::TraceMatrix returned 3 rows
+  Columns: shortName, name, satisfiedBy, verifiedBy, verifications
+  Row 1: Cookbook::Traceability::pointingRequirement
+    shortName = "TR-1"
+    name = "pointingRequirement"
+    satisfiedBy = Cookbook::Traceability::gimbal
+    verifiedBy = [Cookbook::Traceability::pointingTest, Cookbook::Traceability::pointingAnalysis]
+    verifications = 2
+  Row 2: Cookbook::Traceability::thermalRequirement
+    shortName = "TR-2"
+    name = "thermalRequirement"
+    satisfiedBy = Cookbook::Traceability::radiator
+    verifiedBy = Cookbook::Traceability::thermalTest
+    verifications = 1
+  Row 3: Cookbook::Traceability::downlinkRequirement
+    shortName = "TR-3"
+    name = "downlinkRequirement"
+    satisfiedBy = Cookbook::Traceability::transmitter
+    verifiedBy = (none)
+    verifications = 0
+```
+
+A list cell is genuinely multi-valued: the report brackets several elements
+and prints `(none)` for an empty cell, a document table renders each element
+as it renders a multi-valued `documentation` projection (comma-joined in
+Markdown, one linked value each in HTML), and the gRPC `run_query` response
+carries every element. The elements keep the traversal's order, so the
+verification declared first comes first.
+
+Related columns join the projection like computed ones: `OrderBy` sorts by
+them, a table's `groupBy` groups by them, and `WhereFeature` filters on them.
+A list cell's elements compare and sort as their qualified names, so
+`WhereFeature(feature = "satisfiedBy", operator = "endsWith", value = "::gimbal")`
+keeps the requirements the gimbal satisfies and `OrderBy(property =
+"satisfiedBy", multiple = "first")` sorts by each row's first satisfier.
+Uncovered requirements are the rows whose count is zero:
+
+```sysml
+calc def Unverified :> Query {
+	in root : Element;
+	WhereFeature(
+		source = TraceMatrix(root = root),
+		'feature' = "verifications",
+		operator = "=",
+		value = "0"
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::Unverified root=Cookbook::Traceability"
+✓ Query Cookbook::Unverified returned 1 row
+  Columns: shortName, name, satisfiedBy, verifiedBy, verifications
+  Row 1: Cookbook::Traceability::downlinkRequirement
+    shortName = "TR-3"
+    name = "downlinkRequirement"
+    satisfiedBy = Cookbook::Traceability::transmitter
+    verifiedBy = (none)
+    verifications = 0
+```
+
+A relationship kind or direction `RelatedElements` would refuse is refused
+here too, with the same typed error naming the column; so is an `aggregate`
+other than the three above. The [traceability example](examples/traceability.md)
+renders such a matrix as a document table beside the requirement list and
+the requirements' verdicts.
 
 ## Objects the session holds
 

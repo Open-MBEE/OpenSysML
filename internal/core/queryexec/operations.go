@@ -342,10 +342,11 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 	}
 	result := filtered(source)
 	known := false
-	for i, value := range source.values {
-		values, present, valueErr := e.propertyValues(value, property)
+	columnIndex := projectedColumn(source, property)
+	for i := range source.values {
+		values, present, valueErr := e.featureValues(expression, source, i, property, columnIndex)
 		if valueErr != nil {
-			return sequence{}, e.unevaluable(expression, property, value, valueErr)
+			return sequence{}, valueErr
 		}
 		known = known || present
 		for _, actual := range values {
@@ -407,30 +408,14 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 		key   Value
 		set   bool
 	}
-	// A property matching a projected column orders by its cells, so a
-	// computed column is orderable by name.
-	columnIndex := -1
-	for i, column := range source.columns {
-		if column.name == property {
-			columnIndex = i
-			break
-		}
-	}
+	columnIndex := projectedColumn(source, property)
 	items := make([]sortable, len(source.values))
 	known := false
 	var firstKey Value
 	for i, value := range source.values {
-		var values []Value
-		var present bool
-		if columnIndex >= 0 && i < len(source.cells) {
-			values = source.cells[i][columnIndex].Values()
-			present = true
-		} else {
-			var valueErr error
-			values, present, valueErr = e.propertyValues(value, property)
-			if valueErr != nil {
-				return sequence{}, e.unevaluable(expression, property, value, valueErr)
-			}
+		values, present, valueErr := e.featureValues(expression, source, i, property, columnIndex)
+		if valueErr != nil {
+			return sequence{}, valueErr
 		}
 		known = known || present
 		items[i].value = value
@@ -500,6 +485,38 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 		result.cells = append(result.cells, item.cells)
 	}
 	return result, nil
+}
+
+// projectedColumn is the index of the projected column named property, or -1;
+// a feature naming a projected column reads its cells, so computed and
+// relationship-derived columns are filterable and orderable by name.
+func projectedColumn(source sequence, property string) int {
+	for i, column := range source.columns {
+		if column.name == property {
+			return i
+		}
+	}
+	return -1
+}
+
+// featureValues reads one row's feature: its projected cell when columnIndex
+// names one, otherwise the property of the row itself.
+func (e *executor) featureValues(
+	expression queryplan.Expression,
+	source sequence,
+	row int,
+	property string,
+	columnIndex int,
+) ([]Value, bool, error) {
+	if columnIndex >= 0 && row < len(source.cells) {
+		return source.cells[row][columnIndex].Values(), true, nil
+	}
+	value := source.values[row]
+	values, present, err := e.propertyValues(value, property)
+	if err != nil {
+		return nil, false, e.unevaluable(expression, property, value, err)
+	}
+	return values, present, nil
 }
 
 func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, error) {
@@ -796,6 +813,10 @@ func compareValue(actual Value, operator, expected string) (bool, error) {
 		// A bare number compares against the magnitude in the quantity's own unit.
 		magnitude, _ := actual.Magnitude()
 		return compareValue(magnitude, operator, expected)
+	case ValueElement:
+		// An element compares as the qualified name a cell prints it by.
+		sym, _ := actual.Element()
+		return compareText(symbols.FQNOf(sym), operator, expected)
 	default:
 		return false, errComparison
 	}
@@ -853,6 +874,10 @@ func (e *executor) compareOrdered(left, right Value) (int, error) {
 		l, _ := left.String()
 		r, _ := right.String()
 		return strings.Compare(l, r), nil
+	case ValueElement:
+		l, _ := left.Element()
+		r, _ := right.Element()
+		return strings.Compare(symbols.FQNOf(l), symbols.FQNOf(r)), nil
 	case ValueBoolean:
 		l, _ := left.Boolean()
 		r, _ := right.Boolean()

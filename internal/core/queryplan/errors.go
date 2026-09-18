@@ -41,6 +41,7 @@ const (
 	ErrorColumnType             ErrorKind = "column-type"
 	ErrorDuplicateColumn        ErrorKind = "duplicate-column"
 	ErrorEmptyProjection        ErrorKind = "empty-projection"
+	ErrorColumnAggregate        ErrorKind = "column-aggregate"
 )
 
 // Error is a typed query-planning failure with its source location.
@@ -130,7 +131,7 @@ func (e *Error) Error() string {
 			e.Expected,
 		)
 	case ErrorInvalidColumn:
-		return fmt.Sprintf("query %s must build the columns of Project from Column(name, expression) invocations", e.Query)
+		return fmt.Sprintf("query %s must build the columns of Project from Column(name, expression) or RelatedColumn(name, relationshipKind, direction, maxDepth, aggregate) invocations", e.Query)
 	case ErrorColumnName:
 		return fmt.Sprintf("query %s must name each computed column with a string literal", e.Query)
 	case ErrorUnknownColumnProperty:
@@ -149,6 +150,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s projects column %s more than once", e.Query, e.Parameter)
 	case ErrorEmptyProjection:
 		return fmt.Sprintf("query %s must project at least one property or computed column", e.Query)
+	case ErrorColumnAggregate:
+		return fmt.Sprintf("query %s column %s does not support aggregate %q", e.Query, e.Target, e.Actual)
 	default:
 		return fmt.Sprintf("query planning failed for %s", e.Query)
 	}

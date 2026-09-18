@@ -742,7 +742,7 @@ func (c *compiler) compileInvocation(
 		}
 	}
 	targetName := symbols.FQNOf(target)
-	if targetName == columnFQN {
+	if targetName == columnFQN || targetName == relatedColumnFQN {
 		return typedExpression{}, &Error{
 			Kind:   ErrorInvalidColumn,
 			Query:  symbols.FQNOf(query),
@@ -866,7 +866,7 @@ func (c *compiler) compileBuiltinArguments(
 		args := make([]Argument, 0, len(expression.Args))
 		for i, node := range expression.Args {
 			if targetParams[i].Type == columnSpecFQN {
-				columns, err := c.compileColumns(query, owner, params, node)
+				columns, err := c.compileColumns(query, owner, params, node, dependency)
 				if err != nil {
 					return nil, err
 				}
@@ -956,7 +956,7 @@ func (c *compiler) compileNamedArguments(
 			continue
 		}
 		if param.Type == columnSpecFQN {
-			columns, err := c.compileColumns(query, owner, callerParams, node)
+			columns, err := c.compileColumns(query, owner, callerParams, node, dependency)
 			if err != nil {
 				return nil, err
 			}
