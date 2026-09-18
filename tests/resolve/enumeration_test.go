@@ -66,7 +66,7 @@ func TestAdmittedChildrenMatchWhatResolves(t *testing.T) {
 		offered[sym.Name] = true
 	}
 	for _, child := range children {
-		_, reachable := r.ResolveQualified(scope, qualifiedName("Kit", child.Name))
+		_, reachable := r.ResolveQualified(scope, ast.QualifiedNameOf("Kit", child.Name))
 		if offered[child.Name] != reachable {
 			t.Errorf("Kit::%s offered = %v, but resolving it = %v", child.Name, offered[child.Name], reachable)
 		}
@@ -134,15 +134,6 @@ func importsOf(t *testing.T, scope *symbols.Scope) []*ast.Import {
 		}
 	}
 	return out
-}
-
-// qualifiedName builds the name a qualified reference to segments would parse as.
-func qualifiedName(segments ...string) *ast.QualifiedName {
-	qn := &ast.QualifiedName{}
-	for _, segment := range segments {
-		qn.Parts = append(qn.Parts, ast.NameSegment{Text: segment})
-	}
-	return qn
 }
 
 func namesOf(syms []*symbols.Symbol) []string {

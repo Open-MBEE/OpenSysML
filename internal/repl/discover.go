@@ -56,7 +56,7 @@ func (s *Session) doSearch(substr string) ([]string, bool, error) {
 		matches = append(matches, match{
 			fqn:    fqn,
 			kind:   sym.Notation(),
-			onName: strings.Contains(suggest.LastSegment(lower), want),
+			onName: strings.Contains(symbols.LastSegment(lower), want),
 		})
 	}
 	if len(matches) == 0 {
@@ -132,7 +132,7 @@ func (s *Session) suggestSymbol(name string) []string {
 	if idx == nil {
 		return nil
 	}
-	simple := suggest.LastSegment(name)
+	simple := symbols.LastSegment(name)
 	if hits := suggest.Nearest(simple, s.declaredSymbolNames()); len(hits) > 0 {
 		return hits
 	}

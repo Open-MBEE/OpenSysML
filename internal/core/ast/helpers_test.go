@@ -33,3 +33,12 @@ func TestDeclMembers(t *testing.T) {
 		t.Fatalf("nil node: got %v, want nil", got)
 	}
 }
+
+func TestQualifiedNameOf(t *testing.T) {
+	if got := QualifiedNameOf().Text(); got != "" {
+		t.Fatalf("no segments: got %q, want empty", got)
+	}
+	if got, want := QualifiedNameOf("A", "'b c'", "D").Text(), "A::'b c'::D"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
