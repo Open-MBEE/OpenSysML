@@ -41,6 +41,12 @@
       <ownedAttribute xmi:type="uml:Property" xmi:id="_half" name="half"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
         <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_half0" value="0"/>
       </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_quarter" name="quarter"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_quarter0" value="0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_eighth" name="eighth"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_eighth0" value="0.0"/>
+      </ownedAttribute>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_ratio" name="ratio"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
         <defaultValue xmi:type="uml:LiteralReal" xmi:id="_ratio0" value="0.0"/>
       </ownedAttribute>
@@ -120,6 +126,14 @@
           <language>Java</language>
           <body>half = ticks / 2; ratio = total / 2;</body>
         </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_quarterly" name="quarterly">
+          <language>Java 1.8.0_202</language>
+          <body>quarter = ticks / 4;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_cc" name="cc">
+          <language>JavaCC</language>
+          <body>eighth = ticks / 8;</body>
+        </node>
         <node xmi:type="uml:OpaqueAction" xmi:id="_judge" name="judge">
           <inputValue xmi:type="uml:ValuePin" xmi:id="_judgeok" name="ok"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
             <value xmi:type="uml:OpaqueExpression" xmi:id="_judgeok0">
@@ -146,7 +160,9 @@
         <edge xmi:type="uml:ControlFlow" xmi:id="_c1" source="_init" target="_sense"/>
         <edge xmi:type="uml:ObjectFlow" xmi:id="_o1" source="_sensey" target="_recordv"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_c2" source="_record" target="_split"/>
-        <edge xmi:type="uml:ControlFlow" xmi:id="_c3" source="_split" target="_judge"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c3" source="_split" target="_quarterly"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c3b" source="_quarterly" target="_cc"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c3c" source="_cc" target="_judge"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_c4" source="_judge" target="_final"/>
       </ownedBehavior>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_skip" name="Skip">

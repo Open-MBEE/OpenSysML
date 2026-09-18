@@ -212,15 +212,16 @@ func dialectOf(lang string) dialect {
 	return dialectNone
 }
 
-// javaLabel reports whether the lower-cased label names Java itself, bare or
-// with a version (`java 8`, `java 1.8`); `javacc` or `java expression language` is not Java.
+// javaLabel reports whether the lower-cased label names Java itself: bare, or followed by
+// one version token that starts with a digit (`java 8`, `java 1.8.0_202`, `java 17.0.2+8`,
+// `java 11-ea`); `javacc` or `java expression language` is another language.
 func javaLabel(l string) bool {
 	v, ok := strings.CutPrefix(l, "java")
 	if !ok {
 		return false
 	}
 	v = strings.TrimLeft(v, " ")
-	return v == "" || strings.Trim(v, "0123456789.") == "" && isDigit(v[0])
+	return v == "" || isDigit(v[0]) && !strings.ContainsAny(v, " \t")
 }
 
 // translateExpr translates body as one expression read in sc yielding what

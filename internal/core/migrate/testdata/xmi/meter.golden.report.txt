@@ -1,7 +1,7 @@
 # SysML v1 to v2 migration report: meter.xmi
-# migrated 106 element(s): 81 mapped, 25 approximated, 0 unmapped (0 skipped as profile or library content)
+# migrated 112 element(s): 86 mapped, 26 approximated, 0 unmapped (0 skipped as profile or library content)
 
-## approximated (25)
+## approximated (26)
 ControlFlow	Meter::Arm::<ControlFlow>	_a2	(the guard [{JavaScript} ready and enabled] is kept as a comment and the edge written unguarded: the text "and" is not expression syntax: text follows the expression)
 Parameter	Meter::Arm::armed	_armed	-> Meter::Arm::armed	(default value not migrated: the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted)
 OpaqueAction	Meter::Arm::fuse	_fuse	-> fuse	(the body is kept as a comment: the text "and" is not expression syntax: a statement ends at `;` or a newline)
@@ -10,6 +10,7 @@ OpaqueAction	Meter::Flip::huge	_huge	-> huge	(the body is kept as a comment: the
 OpaqueAction	Meter::Flip::match	_match	-> match	(the body is kept as a comment: the types at "mode =" disagree: a Gauge is assigned to the Mode mode holds)
 OpaqueAction	Meter::Flip::narrow	_narrow	-> narrow	(the body is kept as a comment: the types at "hand =" disagree: a Gauge is assigned to the Needle hand holds)
 OpaqueAction	Meter::Flip::pick	_pick	-> pick	(the body is kept as a comment: the types at "count =" disagree: a Mode is assigned to the Integer count holds)
+OpaqueAction	Meter::Measure::cc	_cc	-> cc	(the JavaCC body is written as v2 assignments)
 ValuePin	Meter::Measure::judge::ok	_judgeok	-> Meter::Measure::judge.ok	(the value pin's value {JavaScript} Math.sqrt(total) is not written: the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted)
 ObjectFlow	Meter::Skip::<ObjectFlow>	_o2	(the flow is kept as a comment: the body of 'idle' never assigns 'z', so no value leaves it)
 ObjectFlow	Meter::Skip::<ObjectFlow>	_o3	(the flow is kept as a comment: its source 'dark' is not migrated, so no value reaches 'q')
@@ -28,7 +29,7 @@ Property	Meter::square	_square	-> Meter::square	(default value not migrated: the
 Property	Meter::tag	_tag	-> Meter::tag	(default value not migrated: the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset)
 Property	Meter::top	_top	-> Meter::top	(default value not migrated: the types at "cells.reading" disagree: the expression is a collection, not the one value wanted)
 
-## mapped (81)
+## mapped (86)
 «Block» Class	Gauge	_gauge	-> Gauge
 Activity	Gauge::Tick	_tick	-> Gauge::Tick
 ActivityFinalNode	Gauge::Tick::<ActivityFinalNode>	_tfinal	-> final
@@ -57,12 +58,15 @@ Activity	Meter::Measure	_measure	-> Meter::Measure
 ActivityFinalNode	Meter::Measure::<ActivityFinalNode>	_final	-> final
 ControlFlow	Meter::Measure::<ControlFlow>	_c2
 ControlFlow	Meter::Measure::<ControlFlow>	_c3
+ControlFlow	Meter::Measure::<ControlFlow>	_c3b
+ControlFlow	Meter::Measure::<ControlFlow>	_c3c
 ControlFlow	Meter::Measure::<ControlFlow>	_c4
 InitialNode	Meter::Measure::<InitialNode>	_init	-> start
 ObjectFlow	Meter::Measure::<ObjectFlow>	_o1
 OpaqueAction	Meter::Measure::judge	_judge	-> judge	(the JavaScript body is translated to v2)
 ValuePin	Meter::Measure::judge::m	_judgem	-> Meter::Measure::judge.m
 ValuePin	Meter::Measure::judge::n	_judgen	-> Meter::Measure::judge.n
+OpaqueAction	Meter::Measure::quarterly	_quarterly	-> quarterly	(the Java 1.8.0_202 body is translated to v2)
 OpaqueAction	Meter::Measure::record	_record	-> record	(the JavaScript body is translated to v2)
 InputPin	Meter::Measure::record::v	_recordv	-> Meter::Measure::record.v
 OpaqueAction	Meter::Measure::sense	_sense	-> sense	(the JavaScript body is translated to v2)
@@ -94,12 +98,14 @@ Property	Meter::cells	_cells	-> Meter::cells
 Property	Meter::count	_count	-> Meter::count
 Property	Meter::cube	_cube	-> Meter::cube	(the JavaScript body is translated to v2)
 Property	Meter::dial	_dial	-> Meter::dial
+Property	Meter::eighth	_eighth	-> Meter::eighth
 Property	Meter::enabled	_enabled	-> Meter::enabled
 Property	Meter::flag	_flag	-> Meter::flag
 Property	Meter::half	_half	-> Meter::half
 Property	Meter::hand	_hand	-> Meter::hand
 Property	Meter::label	_label	-> Meter::label
 Property	Meter::mode	_mmode	-> Meter::mode
+Property	Meter::quarter	_quarter	-> Meter::quarter
 Property	Meter::ratio	_ratio	-> Meter::ratio
 Property	Meter::ready	_ready	-> Meter::ready
 Property	Meter::shown	_shown	-> Meter::shown	(the JavaScript body is translated to v2)

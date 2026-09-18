@@ -333,8 +333,8 @@ translation is always complete or absent — never partial.
 
 **Scripts** (`language` JavaScript, ECMAScript, Java, or none) are read as statements. A
 JavaScript label may name its engine (`Javascript Rhino`, `Nashorn`); a Java label is `Java`
-alone or with a version (`Java 8`), so `JavaCC` or `Java Expression Language` is a language
-the translator does not read, not Java:
+alone or followed by one version (`Java 8`, `Java 1.8.0_202`, `Java 17.0.2+8`), so `JavaCC`
+or `Java Expression Language` is a language the translator does not read, not Java:
 
 | Script | v2 |
 |---|---|
