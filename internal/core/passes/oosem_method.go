@@ -2,10 +2,10 @@ package passes
 
 import (
 	"fmt"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -43,7 +43,7 @@ func (OOSEMMethodPass) Run(ctx *Context, name string, root *ast.RootNamespace) [
 	if a == nil {
 		return nil
 	}
-	a.union = oosemUnionOf(ctx, a)
+	a.union = oosemUnionOf(ctx)
 	if !ctx.Gathers().Gathered(name) {
 		a.local = newOOSEMFacts()
 		a.facts = a.local

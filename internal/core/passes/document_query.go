@@ -2,10 +2,10 @@ package passes
 
 import (
 	"errors"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
