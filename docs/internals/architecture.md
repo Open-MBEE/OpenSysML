@@ -736,6 +736,9 @@ go test -v -run TestRuntimeRobustness -timeout 60s ./internal/core/runtime
 The three pilot oracles read OMG-published material, which is sometimes wrong itself.
 `internal/errata` is the registry of those defects: file, line, published bytes, the specification
 clause violated, the derivation, and the corrected text where the intended reading is unambiguous.
+The overlay mechanism and the entries for the bundled standard library live in the product's
+`internal/core/libs/errata`, which `internal/core/libs` applies on read; the registry adds the
+corpus entries and the corrected copy of a corpus root an oracle runs over a second time.
 The published corpus is never written to — corrections are applied to a copy under the oracle's
 output directory — and an entry whose published text no longer matches the bytes on disk fails a
 test rather than rotting. Each oracle reports both censuses; the as-published one stays the

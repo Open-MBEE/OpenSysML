@@ -58,7 +58,7 @@ func erratumSuite(s suite, overlay *errata.Overlay, repo, out string, jobs int) 
 		return nil, 0, nil
 	}
 	corrected := filepath.Join(out, "errata-corpora", s.Name)
-	entries, err := overlay.Materialize(repo, s.Dir, corrected)
+	entries, err := errata.Materialize(overlay, repo, s.Dir, corrected)
 	if err != nil {
 		return nil, 0, err
 	}

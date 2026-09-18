@@ -8,13 +8,13 @@ import (
 	"testing"
 )
 
-const committed = "../stdlib.snapshot"
+const committed = "../../../" + snapshotPath
 
-// TestCommittedSnapshotIsCurrent is the drift gate `make stdlib-snapshot-check` runs,
-// in-process: the embedded library must regenerate to the committed snapshot byte for byte.
+// TestCommittedSnapshotIsCurrent is the drift gate `make stdlib-snapshot-check` runs, in-process:
+// the embedded library must regenerate to the snapshot committed under the repository root.
 func TestCommittedSnapshotIsCurrent(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{"-check", "-out", committed}, &stdout, &stderr); code != 0 {
+	if code := run([]string{"-check"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("run -check = %d, want 0\n%s", code, stderr.String())
 	}
 	if stdout.Len() != 0 || stderr.Len() != 0 {
@@ -61,13 +61,38 @@ func TestCheckRejectsAStaleOrMissingSnapshot(t *testing.T) {
 	}
 }
 
+// TestCheckResolvesARelativeOutputAtTheRepositoryRoot: `go run -C tools` starts
+// the generator inside the tools module, yet a relative -out names the committed
+// snapshot as the repository holds it.
+func TestCheckResolvesARelativeOutputAtTheRepositoryRoot(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"-check", "-out", snapshotPath}, &stdout, &stderr); code != 0 {
+		t.Fatalf("run -check -out %s = %d, want 0\n%s", snapshotPath, code, stderr.String())
+	}
+}
+
+// TestRunWritesAnAbsoluteOutputFromOutsideTheRepository: with -out absolute the
+// generator never looks for the repository, so it runs from any directory.
+func TestRunWritesAnAbsoluteOutputFromOutsideTheRepository(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	out := filepath.Join(dir, "stdlib.snapshot")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"-out", out}, &stdout, &stderr); code != 0 {
+		t.Fatalf("run -out %s from %s = %d, want 0\n%s", out, dir, code, stderr.String())
+	}
+	if _, err := os.Stat(out); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRunReportsAnUnwritableOutput(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	out := filepath.Join(t.TempDir(), "missing", "stdlib.snapshot")
 	if code := run([]string{"-out", out}, &stdout, &stderr); code != 1 {
 		t.Fatalf("run = %d, want 1", code)
 	}
-	if !strings.HasPrefix(stderr.String(), "gensnapshot: ") {
+	if !strings.HasPrefix(stderr.String(), "snapshot: ") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
@@ -77,7 +102,7 @@ func TestRunPrintsUsageForHelp(t *testing.T) {
 	if code := run([]string{"-h"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("run -h = %d, want 0", code)
 	}
-	if !strings.Contains(stderr.String(), "Usage of gensnapshot:") || !strings.Contains(stderr.String(), "-check") {
+	if !strings.Contains(stderr.String(), "Usage of snapshot:") || !strings.Contains(stderr.String(), "-check") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 	if stdout.Len() != 0 {

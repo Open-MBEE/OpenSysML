@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/envvar"
-	"github.com/Open-MBEE/OpenSysML/internal/errata"
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs/errata"
 )
 
 //go:embed stdlib
@@ -51,12 +51,12 @@ func EmbeddedSource() Source {
 }
 
 // BundledSource returns the standard library a process loads when no directory
-// overrides it: the published text with the corrections declared in
-// internal/errata applied on read. The embedded snapshot is generated from it.
+// overrides it: the published text with the corrections declared in the errata
+// package beside it applied on read. The embedded snapshot is generated from it.
 // A registry that fails to load makes every read fail rather than serve the
 // published text uncorrected.
 func BundledSource() Source {
-	overlay, err := errata.Load()
+	overlay, err := errata.Library()
 	if err != nil {
 		return &failingSource{published: EmbeddedSource(), err: err}
 	}

@@ -779,7 +779,7 @@ structural decisions (`internal/core/export/convert.go`), so the profile is most
 layer: property name → defining metaclass.
 
 **Done:** the table and the gate. `internal/core/rdf/ontology` holds the term table generated
-from `SysML.owl` by `internal/core/rdf/ontology/gen` from a local checkout (version `202407`,
+from `SysML.owl` by `tools/gen/ontology` from a local checkout (version `202407`,
 upstream commit in the generated header): 411 properties spanning only **336 distinct unqualified
 names — 59 names are declared by more than one metaclass** (`type`, `value`, `source`, `target`,
 …), so the unqualified convention is genuinely lossy in the other direction and a profile encoder

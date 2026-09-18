@@ -71,7 +71,7 @@ func runErrata(report *Report, overlay *errata.Overlay, adj adjudication, out st
 	}
 
 	corrected := filepath.Join(out, "errata-corpus")
-	if _, err := overlay.Materialize(adj.repo, adj.corpusDir, corrected); err != nil {
+	if _, err := errata.Materialize(overlay, adj.repo, adj.corpusDir, corrected); err != nil {
 		return err
 	}
 	defer func() {
