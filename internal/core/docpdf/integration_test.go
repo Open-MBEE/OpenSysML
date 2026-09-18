@@ -148,7 +148,7 @@ func TestRenderFormulasWithInstalledKatex(t *testing.T) {
 // TestRenderStateReportWithInstalledEngines renders the state-and-event report
 // golden through each installed converter, and skips otherwise.
 func TestRenderStateReportWithInstalledEngines(t *testing.T) {
-	golden, err := os.ReadFile(filepath.Join("..", "core", "docrender", "testdata", "state_report.golden.md"))
+	golden, err := os.ReadFile(filepath.Join("..", "docrender", "testdata", "state_report.golden.md"))
 	if err != nil {
 		t.Fatalf("read golden: %v", err)
 	}

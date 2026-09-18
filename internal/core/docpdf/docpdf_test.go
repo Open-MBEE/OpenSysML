@@ -539,7 +539,7 @@ func TestRenderNoPDF(t *testing.T) {
 }
 
 func TestParseTelescopeGolden(t *testing.T) {
-	golden, err := os.ReadFile(filepath.Join("..", "core", "docrender", "testdata", "telescope_report.golden.md"))
+	golden, err := os.ReadFile(filepath.Join("..", "docrender", "testdata", "telescope_report.golden.md"))
 	if err != nil {
 		t.Fatalf("read golden: %v", err)
 	}
@@ -584,7 +584,7 @@ func TestParseTelescopeGolden(t *testing.T) {
 // TestParseStateReportGolden lays out the state-and-event report: three captioned
 // tables and two lists of row summaries, unit brackets escaped, state paths literal.
 func TestParseStateReportGolden(t *testing.T) {
-	golden, err := os.ReadFile(filepath.Join("..", "core", "docrender", "testdata", "state_report.golden.md"))
+	golden, err := os.ReadFile(filepath.Join("..", "docrender", "testdata", "state_report.golden.md"))
 	if err != nil {
 		t.Fatalf("read golden: %v", err)
 	}

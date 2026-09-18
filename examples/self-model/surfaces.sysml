@@ -297,7 +297,7 @@ package OpenSysMLSurfaces {
     // The only stage that leaves the process: the tree becomes prepared
     // Markdown, its diagrams become images, and a converter makes the PDF.
     part def PdfBackend :> CodeUnit {
-        attribute :>> goPackage = "internal/docpdf";
+        attribute :>> goPackage = "internal/core/docpdf";
         attribute form : String = "pdf";
         attribute engines : String = "weasyprint, pandoc, prince";
         attribute diagramTool : String = "mmdc";

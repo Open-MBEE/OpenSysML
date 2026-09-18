@@ -2,7 +2,7 @@
 
 Status: **implemented, except the PDF migration** — `docrender.HTML`, `-doc-form html`, the
 stylesheet options and linked HTML sets ship; the PDF engines still read the Markdown-derived
-HTML of `internal/docpdf` (see [Rendering a document as HTML](../reference/cli.md#rendering-a-document-as-html)
+HTML of `internal/core/docpdf` (see [Rendering a document as HTML](../reference/cli.md#rendering-a-document-as-html)
 for the user-facing surface). This page records the design agreed for rendering documents as HTML
 directly from the document IR, the class and attribute vocabulary that makes the output styleable,
 and what the change does to the existing PDF backend.
@@ -12,9 +12,9 @@ and what the change does to the existing PDF backend.
 The problem this page set out to solve, as it stood: `-doc-form` wrote Markdown or PDF, and there
 was no HTML form at all. HTML did exist inside
 the toolchain, but only as an intermediate for the PDF converters that read HTML — WeasyPrint
-and Prince — and it is built the long way round: `internal/docpdf/markdown.go` re-parses
+and Prince — and it is built the long way round: `internal/core/docpdf/markdown.go` re-parses
 docrender's Markdown back into flat presentation blocks (heading, paragraph, caption, table,
-list, mermaid, anchor) and `internal/docpdf/html.go` writes those blocks as a page with an
+list, mermaid, anchor) and `internal/core/docpdf/html.go` writes those blocks as a page with an
 inline print stylesheet. That intermediate was a deliberate choice — it keeps the PDF layer
 independent of the document IR — and it has two consequences.
 
@@ -338,7 +338,7 @@ with the PDF backend, where its `@page` rules belong, and is layered the same wa
 Once `docrender` writes HTML from the IR, the intermediate in `docpdf` is redundant and its
 losses are unnecessary. The HTML-input converters (WeasyPrint, Prince) are handed the backend's
 HTML with the print stylesheet, and the Markdown-input converter (pandoc) keeps receiving
-Markdown, so all three engines keep working. That deletes `internal/docpdf/markdown.go`,
+Markdown, so all three engines keep working. That deletes `internal/core/docpdf/markdown.go`,
 `html.go` and `inline.go` — the block parser, the page writer and the Markdown-inline-to-HTML
 translator — and with them the caption marker convention in `docrender.Markdown`, the
 `[…]{.caption}` rewrite for pandoc, and the `<br>` fold in table cells. `docpdf` keeps what it

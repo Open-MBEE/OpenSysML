@@ -2983,7 +2983,7 @@ planning failures.
 evaluated document tree written out as a backend-specific artifact. The renderer consumes only the
 document IR — never plans, symbols or ASTs — so a rendering cannot drift from what evaluation
 produced. Markdown and HTML are backends of equal standing, each reading the same tree; PDF output
-(`internal/docpdf`) converts the Markdown through external converter subprocesses, so the binary
+(`internal/core/docpdf`) converts the Markdown through external converter subprocesses, so the binary
 links no PDF renderer and the IR stays presentation-neutral.
 
 | Rule | Implementation (file:function) | Tests | Status |
