@@ -46,7 +46,7 @@ func (MOSAPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.D
 		return nil
 	}
 	a.union = mosaUnionOf(ctx)
-	if !ctx.Gathers().Gathered(name) {
+	if !ctx.Gathers().Has(name) {
 		a.local = newMOSAFacts()
 		a.facts = a.local
 		a.gather(rootScope)
