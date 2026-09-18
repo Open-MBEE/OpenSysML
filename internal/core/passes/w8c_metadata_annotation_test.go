@@ -466,9 +466,9 @@ func TestMetadataBodyValueIsJudgedInTheBodyScope(t *testing.T) {
 }
 
 // Stochastic::Probability::p is read by the run when its decision is reached, so a
-// value only the run decides is accepted there, in both spellings, while the same
-// value bound to another metadata type's feature, or to another feature of a
-// Probability, is judged model-level as any metadata value is.
+// value only the run decides is accepted there, in both spellings. Bound to another
+// metadata type's feature — a subtype's inherited p included, since lowering reads
+// only a Probability itself — it is judged model-level as any metadata value is.
 func TestProbabilityWeightMayBeDecidedByTheRun(t *testing.T) {
 	src := `package P {
 	private import ScalarValues::*;
@@ -491,7 +491,7 @@ func TestProbabilityWeightMayBeDecidedByTheRun(t *testing.T) {
 	for _, d := range only(w8cLibraryDiagnostics(t, "probability-weight.sysml", src), "metadata-value-not-evaluable") {
 		got = append(got, strings.TrimSpace(src[d.Span.Offset:d.Span.End()]))
 	}
-	want := []string{"= label", "= pFast"}
+	want := []string{"= pFast", "= label", "= pFast"}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("findings %q, want %q", got, want)
 	}

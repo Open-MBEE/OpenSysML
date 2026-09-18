@@ -86,7 +86,7 @@ func (m *Model) collectInevaluableValues(owner *symbols.Symbol, scope *symbols.S
 			continue
 		}
 		target := m.metadataBodyTargetOf(owner, scope, usage)
-		if usage.Value != nil && !RunDecidedMetadataFeature(target) && !m.ModelLevelEvaluable(scope, usage.Value) {
+		if usage.Value != nil && !RunDecidedMetadataFeature(owner, target) && !m.ModelLevelEvaluable(scope, usage.Value) {
 			*out = append(*out, usage.Value)
 		}
 		m.collectInevaluableValues(target, valueScope(scope, usage), usage.Members, out)

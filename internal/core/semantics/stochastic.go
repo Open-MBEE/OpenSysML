@@ -9,8 +9,11 @@ const (
 	ProbabilityFeature = "p"
 )
 
-// RunDecidedMetadataFeature reports a metadata feature whose value the run reads
-// rather than the model: Probability::p is read when its decision is reached.
-func RunDecidedMetadataFeature(feature *symbols.Symbol) bool {
-	return feature != nil && symbols.FQNOf(feature) == ProbabilityFQN+"::"+ProbabilityFeature
+// RunDecidedMetadataFeature reports a feature of the annotation type def whose
+// value the run reads rather than the model: p of a Probability itself, which is
+// read when its decision is reached. A subtype has no runtime reader, so none of its.
+func RunDecidedMetadataFeature(def, feature *symbols.Symbol) bool {
+	return def != nil && feature != nil &&
+		symbols.FQNOf(def) == ProbabilityFQN &&
+		symbols.FQNOf(feature) == ProbabilityFQN+"::"+ProbabilityFeature
 }
