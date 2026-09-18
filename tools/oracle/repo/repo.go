@@ -52,3 +52,13 @@ func declares(path, module string) bool {
 	}
 	return false
 }
+
+// Resolve anchors a path flag at root: a relative path counts from the
+// repository root, since `go run -C tools` runs every tool from the tools
+// module; an absolute or empty path is returned as given.
+func Resolve(root, path string) string {
+	if path == "" || filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(root, path)
+}

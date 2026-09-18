@@ -38,3 +38,20 @@ func TestRootFromRejectsATreeWithoutTheModule(t *testing.T) {
 		t.Fatal("a tree declaring another module was taken for the repository")
 	}
 }
+
+func TestResolveAnchorsRelativePathsAtTheRoot(t *testing.T) {
+	root := filepath.Join(string(filepath.Separator), "repo")
+	abs := filepath.Join(string(filepath.Separator), "elsewhere", "out")
+	cases := map[string]string{
+		"":                      "",
+		abs:                     abs,
+		"build/out":             filepath.Join(root, "build", "out"),
+		"../sibling/out":        filepath.Join(filepath.Dir(root), "sibling", "out"),
+		"docs/project/pin.json": filepath.Join(root, "docs", "project", "pin.json"),
+	}
+	for given, want := range cases {
+		if got := Resolve(root, given); got != want {
+			t.Errorf("Resolve(%q, %q) = %q, want %q", root, given, got, want)
+		}
+	}
+}
