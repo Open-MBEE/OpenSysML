@@ -1,7 +1,7 @@
 # SysML v1 to v2 migration report: meter.xmi
-# migrated 90 element(s): 71 mapped, 19 approximated, 0 unmapped (0 skipped as profile or library content)
+# migrated 93 element(s): 72 mapped, 21 approximated, 0 unmapped (0 skipped as profile or library content)
 
-## approximated (19)
+## approximated (21)
 OpaqueAction	Meter::Flip::bump	_bump	-> bump	(the body is kept as a comment: the types at "+" disagree: an operand is a Mode, not a number)
 OpaqueAction	Meter::Flip::huge	_huge	-> huge	(the body is kept as a comment: the construct "9007199254740993" is outside the translated subset: a script rounds a whole number beyond 9007199254740991 to the nearest floating-point value)
 OpaqueAction	Meter::Flip::match	_match	-> match	(the body is kept as a comment: the types at "mode =" disagree: a Gauge is assigned to the Mode mode holds)
@@ -19,10 +19,12 @@ OpaqueAction	Meter::Sweep::span	_span	-> span	(the body is kept as a comment: th
 OpaqueAction	Meter::Sweep::spread	_spread	-> spread	(the body is kept as a comment: the types at "+" disagree: an operand is a collection, not a number)
 CallBehaviorAction	Meter::Sweep::ticking	_ticking	-> ticking	(its swimlane represents this.cells, a collection of objects, so none of them performs the call, which runs in the caller's context; the behavior belongs to Gauge and runs here in the caller's context)
 Property	Meter::gain	_gain	-> Meter::gain	(default value not migrated: the call "total" is not in the translated function table)
+Property	Meter::pointer	_pointer	-> Meter::pointer	(default value not migrated: the types at "count > 0 ? dial : hand" disagree: the expression is a Gauge, not the Needle wanted)
 Property	Meter::square	_square	-> Meter::square	(default value not migrated: the construct "-total **" is outside the translated subset: JavaScript parenthesizes a unary operand of `**`)
 Property	Meter::tag	_tag	-> Meter::tag	(default value not migrated: the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset)
+Property	Meter::top	_top	-> Meter::top	(default value not migrated: the types at "cells.reading" disagree: the expression is a collection, not the one value wanted)
 
-## mapped (71)
+## mapped (72)
 «Block» Class	Gauge	_gauge	-> Gauge
 Activity	Gauge::Tick	_tick	-> Gauge::Tick
 ActivityFinalNode	Gauge::Tick::<ActivityFinalNode>	_tfinal	-> final
@@ -87,6 +89,7 @@ Property	Meter::hand	_hand	-> Meter::hand
 Property	Meter::label	_label	-> Meter::label
 Property	Meter::mode	_mmode	-> Meter::mode
 Property	Meter::ratio	_ratio	-> Meter::ratio
+Property	Meter::shown	_shown	-> Meter::shown	(the JavaScript body is translated to v2)
 Property	Meter::ticks	_ticks	-> Meter::ticks
 Property	Meter::total	_total	-> Meter::total
 Enumeration	Mode	_mode	-> Mode

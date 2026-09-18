@@ -701,7 +701,7 @@ func (a *activity) guard(e *xmi.Element, input string) guardText {
 	var ok bool
 	if g.Type == "OpaqueExpression" {
 		body, lang := opaqueBody(g)
-		expr, ok, note = a.m.behaviorExprAs(body, lang, e, "Boolean")
+		expr, ok, note = a.m.behaviorExprAs(body, lang, e, oneOf("Boolean"))
 	} else {
 		expr, ok, note = a.m.behaviorValue(g, e)
 	}

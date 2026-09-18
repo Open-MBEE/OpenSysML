@@ -199,6 +199,13 @@ func manyValued(f *xmi.Element) bool {
 	return ok && upper != 1
 }
 
+// wantedOf is what a value of feature f must be: of the type f holds, and
+// one value unless f holds several.
+func (m *migration) wantedOf(f *xmi.Element) wanted {
+	t := m.typedAs(f)
+	return wanted{scalar: m.scalarBase(t), object: m.nonScalar(t), single: !manyValued(f)}
+}
+
 // nonScalar names t, then every type generalizing it, when its values are
 // known to be no scalar: an enumeration, a block or another classifier, or a
 // value type whose every base is one such.
@@ -278,16 +285,16 @@ func (m *migration) noted(scope *xmi.Element, note string) {
 	m.add(scope, Mapped, "", note)
 }
 
-// translatedExpr translates an opaque body as one expression read at scope,
-// wanting a scalar ("" for any); the note is for the report and the refusal
-// is returned when the body has no v2 form, with the v2 text checked to parse.
-func (m *migration) translatedExpr(body, lang string, scope *xmi.Element, want string) (expr, note string, err *refusal) {
+// translatedExpr translates an opaque body as one expression read at scope
+// yielding what want asks for; the note is for the report and the refusal is
+// returned when the body has no v2 form, with the v2 text checked to parse.
+func (m *migration) translatedExpr(body, lang string, scope *xmi.Element, want wanted) (expr, note string, err *refusal) {
 	s := m.bodyScope(scope)
 	t, err := translateExpr(body, lang, s, want)
 	if err != nil {
 		return "", "", err
 	}
-	expr = spellFor(want, t)
+	expr = spellFor(want.scalar, t)
 	if _, ok := parseExpr(expr); !ok {
 		return "", "", &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(expr) + " is not v2 expression syntax"}
 	}
@@ -326,7 +333,7 @@ func (m *migration) symbolicDuration(text, lang string, scope *xmi.Element) (exp
 	if body == "" {
 		return "", false, "the duration has no expression"
 	}
-	expr, ok, note = m.behaviorExprAs(body, lang, scope, "Real")
+	expr, ok, note = m.behaviorExprAs(body, lang, scope, oneOf("Real"))
 	if !ok {
 		return "", false, note
 	}

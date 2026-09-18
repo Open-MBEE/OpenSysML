@@ -276,6 +276,9 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 		"assign this.count := 9007199254740991;",
 		"assign this.dial := this.hand;",
 		"attribute cube : ScalarValues::Real default = -(total ** 3);",
+		"ref part shown : Gauge default = if (count > 0) ? dial else hand;",
+		`/* default value not migrated: {JavaScript} count > 0 ? dial : hand — the types at "count > 0 ? dial : hand" disagree: the expression is a Gauge, not the Needle wanted */`,
+		`/* default value not migrated: {JavaScript} cells.reading — the types at "cells.reading" disagree: the expression is a collection, not the one value wanted */`,
 		`/* default value not migrated: {JavaScript} total(count) — the call "total" is not in the translated function table */`,
 		`/* default value not migrated: {JavaScript} label + "!" — the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset */`,
 		"/* default value not migrated: {JavaScript} -total ** 2 — the construct \"-total **\" is outside the translated subset: JavaScript parenthesizes a unary operand of `**` */",
@@ -290,15 +293,20 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 	wantNoLine(t, r.Notation, "assign this.count := this.mode;")
 	wantNoLine(t, r.Notation, "assign this.mode := this.dial;")
 	wantNoLine(t, r.Notation, "assign this.count := 9007199254740993;")
+	wantNoLine(t, r.Notation, "ref part pointer : Needle default = if (count > 0) ? dial else hand;")
+	wantNoLine(t, r.Notation, "attribute top : ScalarValues::Real default = cells.reading;")
 	wantClean(t, "t.sysml", r)
 	wantNote(t, r, "_smile", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_widen", migrate.Mapped, "the JavaScript body is translated to v2")
+	wantNote(t, r, "_shown", migrate.Mapped, "the JavaScript body is translated to v2")
 	for id, want := range map[string]string{
-		"_bump":   `the types at "+" disagree: an operand is a Mode, not a number`,
-		"_pick":   `the types at "count =" disagree: a Mode is assigned to the Integer count holds`,
-		"_match":  `the types at "mode =" disagree: a Gauge is assigned to the Mode mode holds`,
-		"_narrow": `the types at "hand =" disagree: a Gauge is assigned to the Needle hand holds`,
-		"_huge":   `the construct "9007199254740993" is outside the translated subset: a script rounds a whole number beyond 9007199254740991 to the nearest floating-point value`,
+		"_bump":    `the types at "+" disagree: an operand is a Mode, not a number`,
+		"_pick":    `the types at "count =" disagree: a Mode is assigned to the Integer count holds`,
+		"_match":   `the types at "mode =" disagree: a Gauge is assigned to the Mode mode holds`,
+		"_narrow":  `the types at "hand =" disagree: a Gauge is assigned to the Needle hand holds`,
+		"_huge":    `the construct "9007199254740993" is outside the translated subset: a script rounds a whole number beyond 9007199254740991 to the nearest floating-point value`,
+		"_pointer": `the types at "count > 0 ? dial : hand" disagree: the expression is a Gauge, not the Needle wanted`,
+		"_top":     `the types at "cells.reading" disagree: the expression is a collection, not the one value wanted`,
 	} {
 		wantNote(t, r, id, migrate.Approximated, want)
 	}

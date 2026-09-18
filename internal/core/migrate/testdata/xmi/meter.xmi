@@ -68,6 +68,24 @@
           <body>-(total ** 3)</body>
         </defaultValue>
       </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_shown" name="shown" type="_gauge">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_shown0">
+          <language>JavaScript</language>
+          <body>count > 0 ? dial : hand</body>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pointer" name="pointer" type="_needle">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_pointer0">
+          <language>JavaScript</language>
+          <body>count > 0 ? dial : hand</body>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_top" name="top"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_top0">
+          <language>JavaScript</language>
+          <body>cells.reading</body>
+        </defaultValue>
+      </ownedAttribute>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_measure" name="Measure">
         <node xmi:type="uml:InitialNode" xmi:id="_init"/>
         <node xmi:type="uml:OpaqueAction" xmi:id="_sense" name="sense">

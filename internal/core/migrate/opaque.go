@@ -110,6 +110,25 @@ type translated struct {
 	lit    string
 }
 
+// wanted is the type a translated expression must yield: what the feature
+// holding it holds (scalar and object as on opaqueRef), one value when single;
+// the zero value wants any value.
+type wanted struct {
+	scalar string
+	object []string
+	single bool
+}
+
+// oneOf wants one value of scalar ("" for any scalar or object).
+func oneOf(scalar string) wanted {
+	return wanted{scalar: scalar, single: true}
+}
+
+// target is the wanted type as the value a feature of that type reads.
+func (w wanted) target() translated {
+	return translated{scalar: w.scalar, object: w.object}
+}
+
 // held names what t is known to hold, for a refusal: its scalar, its
 // non-scalar type, or "" when nothing is known.
 func (t translated) held() string {
@@ -193,9 +212,9 @@ func dialectOf(lang string) dialect {
 	return dialectNone
 }
 
-// translateExpr translates body as one expression read in sc; want names the
-// scalar it must yield, "" for any. The expression is complete or refused.
-func translateExpr(body, lang string, sc opaqueScope, want string) (translated, *refusal) {
+// translateExpr translates body as one expression read in sc yielding what
+// want asks for. The expression is complete or refused.
+func translateExpr(body, lang string, sc opaqueScope, want wanted) (translated, *refusal) {
 	d := dialectOf(lang)
 	if d == dialectNone {
 		return translated{}, &refusal{kind: refusedLanguage, token: lang}
@@ -207,9 +226,13 @@ func translateExpr(body, lang string, sc opaqueScope, want string) (translated, 
 	if err != nil {
 		return translated{}, err
 	}
-	if want != "" && t.held() != "" && !assignableTo(translated{scalar: want}, t) {
+	if want.single && t.plural {
 		return translated{}, &refusal{kind: refusedType, token: body,
-			why: "the expression is a " + t.held() + ", not the " + want + " wanted"}
+			why: "the expression is a collection, not the one value wanted"}
+	}
+	if target := want.target(); target.held() != "" && t.held() != "" && !assignableTo(target, t) {
+		return translated{}, &refusal{kind: refusedType, token: body,
+			why: "the expression is a " + t.held() + ", not the " + target.held() + " wanted"}
 	}
 	return t, nil
 }

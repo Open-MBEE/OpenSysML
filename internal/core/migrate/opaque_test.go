@@ -127,7 +127,7 @@ func TestTranslateExpr(t *testing.T) {
 		if strings.HasPrefix(body, "Mean") {
 			body = strings.Replace(body, "Mean", "t", 1)
 		}
-		got, err := translateExpr(body, c.lang, testScope, c.want)
+		got, err := translateExpr(body, c.lang, testScope, oneOf(c.want))
 		if err != nil {
 			t.Errorf("%s %q: refused: %s", c.lang, c.body, err.note())
 			continue
@@ -137,6 +137,36 @@ func TestTranslateExpr(t *testing.T) {
 		}
 		if _, ok := parseExpr(got.expr); !ok {
 			t.Errorf("%s %q: translation %q does not parse as a v2 expression", c.lang, c.body, got.expr)
+		}
+	}
+}
+
+// A value wanted as a non-scalar type is held by it or a type specializing it,
+// and a collection is taken where several values are held.
+func TestTranslateExprWanted(t *testing.T) {
+	tank := wanted{object: []string{"Tank"}, single: true}
+	cases := []struct {
+		body string
+		want wanted
+		expr string
+	}{
+		{"drum", tank, "this.drum"},
+		{"GS_Found ? drum : vat", tank, "if this.GS_Found ? this.drum else this.vat"},
+		{"tank", wanted{object: []string{"Drum", "Tank"}}, ""},
+		{"tanks", wanted{object: []string{"Tank"}}, "this.tanks"},
+		{"xs", wanted{scalar: "Real"}, "this.xs"},
+		{"tanks", tank, ""},
+		{"i", tank, ""},
+	}
+	for _, c := range cases {
+		got, err := translateExpr(c.body, "JavaScript", testScope, c.want)
+		switch {
+		case c.expr == "" && err == nil:
+			t.Errorf("%q wanted as %+v: translated %q, want a refusal", c.body, c.want, got.expr)
+		case c.expr != "" && err != nil:
+			t.Errorf("%q wanted as %+v: refused: %s", c.body, c.want, err.note())
+		case err == nil && got.expr != c.expr:
+			t.Errorf("%q wanted as %+v: got %q, want %q", c.body, c.want, got.expr, c.expr)
 		}
 	}
 }
@@ -313,15 +343,24 @@ func TestTranslateRefusals(t *testing.T) {
 		{"Java", "t ** 2", false, refusedConstruct, "**"},
 		{"JavaScript", "Math.sqrt(t)", false, refusedType, "Math.sqrt(t)"},
 		{"JavaScript", "-1", false, refusedType, "-1"},
+		{"JavaScript", "GS_Found ? drum : vat", false, refusedType, "GS_Found ? drum : vat"},
+		{"JavaScript", "i", false, refusedType, "i"},
+		{"JavaScript", "tank", false, refusedType, "tank"},
+		{"JavaScript", "xs", false, refusedType, "xs"},
+		{"JavaScript", "tanks", false, refusedType, "tanks"},
 	}
 	for _, c := range cases {
 		var err *refusal
-		want := ""
+		want := wanted{}
 		switch c.body {
 		case "Retries", "state", "Math.sqrt(t)":
-			want = "Boolean"
+			want = oneOf("Boolean")
 		case "-1":
-			want = "Natural"
+			want = oneOf("Natural")
+		case "GS_Found ? drum : vat", "i", "tank":
+			want = wanted{object: []string{"Drum", "Tank"}, single: true}
+		case "xs", "tanks":
+			want = oneOf("")
 		}
 		if c.statements {
 			_, err = translateStatements(c.body, c.lang, testScope)

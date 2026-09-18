@@ -20,13 +20,13 @@ import (
 // valueExpr writes a UML value specification as a v2 expression. ok is false
 // when it has no v2 form; note explains an approximation or the refusal.
 func (m *migration) valueExpr(v, scope *xmi.Element) (expr string, ok bool, note string) {
-	return m.valueExprAs(v, scope, "")
+	return m.valueExprAs(v, scope, wanted{})
 }
 
-// valueExprAs writes a value specification wanted as the scalar want ("" for
-// any): an opaque body in the translated subset is translated, else copied
-// when it is already v2 whose names resolve from scope.
-func (m *migration) valueExprAs(v, scope *xmi.Element, want string) (expr string, ok bool, note string) {
+// valueExprAs writes a value specification yielding what want asks for: an
+// opaque body in the translated subset is translated, else copied when it is
+// already v2 whose names resolve from scope.
+func (m *migration) valueExprAs(v, scope *xmi.Element, want wanted) (expr string, ok bool, note string) {
 	switch v.Type {
 	case "LiteralInteger", "LiteralUnlimitedNatural":
 		val := v.Attrs["value"]
@@ -167,7 +167,7 @@ func valueOwner(v, scope *xmi.Element) *xmi.Element {
 // A literal that spells no value of that type is refused, not copied.
 func (m *migration) featureValue(v, f, scope *xmi.Element) (expr string, ok bool, note string) {
 	t := m.model.Ref(f, "type")
-	expr, ok, note = m.valueExprAs(v, scope, m.scalarBase(t))
+	expr, ok, note = m.valueExprAs(v, scope, m.wantedOf(f))
 	if !ok {
 		return expr, ok, note
 	}

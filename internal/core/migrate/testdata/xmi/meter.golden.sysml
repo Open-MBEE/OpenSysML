@@ -31,6 +31,13 @@ part def Meter {
         /* default value not migrated: {JavaScript} -total ** 2 — the construct "-total **" is outside the translated subset: JavaScript parenthesizes a unary operand of `**` */
     }
     attribute cube : ScalarValues::Real default = -(total ** 3);
+    ref part shown : Gauge default = if (count > 0) ? dial else hand;
+    ref part pointer : Needle {
+        /* default value not migrated: {JavaScript} count > 0 ? dial : hand — the types at "count > 0 ? dial : hand" disagree: the expression is a Gauge, not the Needle wanted */
+    }
+    attribute top : ScalarValues::Real {
+        /* default value not migrated: {JavaScript} cells.reading — the types at "cells.reading" disagree: the expression is a collection, not the one value wanted */
+    }
     action def Measure {
         first start then sense;
         action sense {

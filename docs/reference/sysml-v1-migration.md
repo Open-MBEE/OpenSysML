@@ -349,9 +349,10 @@ whose language the translator reads but whose text it refuses is never re-read a
 the refusal is final, and the body is a comment.
 
 A translation is emitted only when every name resolves to a written feature visible where the
-statement lands, the scalar types agree wherever they can be told (a guard is `Boolean`, an
-assignment fits its target, the value of a typed pin or result is of the pin's scalar type, a
-duration is `Real`), and the result parses with the v2 parser.
+statement lands, the types agree wherever they can be told (a guard is `Boolean`, an
+assignment fits its target, a default or the value of a typed pin or result is of the feature's
+type — its scalar, or a block or enumeration it is or specializes — and one value unless the
+feature holds several, a duration is `Real`), and the result parses with the v2 parser.
 
 ## The report
 

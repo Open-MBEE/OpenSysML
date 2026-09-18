@@ -255,8 +255,8 @@ func (m *migration) behaviorValue(v, scope *xmi.Element) (expr string, ok bool, 
 }
 
 // typedBehaviorValue writes v as the value of feature f, read inside scope: a
-// translated body must yield the scalar f holds, and a literal, opaque or
-// not, is checked against that type.
+// translated body must yield what f holds, and a literal, opaque or not, is
+// checked against that type.
 func (m *migration) typedBehaviorValue(v, f, scope *xmi.Element) (expr string, ok bool, note string) {
 	if v.Type != "OpaqueExpression" {
 		return m.featureValue(v, f, scope)
@@ -264,7 +264,7 @@ func (m *migration) typedBehaviorValue(v, f, scope *xmi.Element) (expr string, o
 	t := m.model.Ref(f, "type")
 	sv := m.scalarBase(t)
 	body, lang := opaqueBody(v)
-	expr, ok, note = m.behaviorExprAs(body, lang, scope, sv)
+	expr, ok, note = m.behaviorExprAs(body, lang, scope, m.wantedOf(f))
 	if !ok {
 		return expr, ok, note
 	}
@@ -291,19 +291,19 @@ func (m *migration) typedBehaviorValue(v, f, scope *xmi.Element) (expr string, o
 // behaviorExpr writes text as a v2 expression read inside scope, or refuses
 // with the reason: it is not expression syntax, or a name resolves to nothing.
 func (m *migration) behaviorExpr(text, lang string, scope *xmi.Element) (expr string, ok bool, note string) {
-	return m.behaviorExprAs(text, lang, scope, "")
+	return m.behaviorExprAs(text, lang, scope, wanted{})
 }
 
-// behaviorExprAs is behaviorExpr wanting a scalar ("" for any): a body in a
+// behaviorExprAs is behaviorExpr yielding what want asks for: a body in a
 // language the translator reads is translated first, then read as v2 syntax.
-func (m *migration) behaviorExprAs(text, lang string, scope *xmi.Element, want string) (expr string, ok bool, note string) {
+func (m *migration) behaviorExprAs(text, lang string, scope *xmi.Element, want wanted) (expr string, ok bool, note string) {
 	expr, ok, note, _ = m.behaviorExprHow(text, lang, scope, want)
 	return expr, ok, note
 }
 
 // behaviorExprHow is behaviorExprAs also reporting whether the translator
 // wrote the expression, rather than the body being v2 syntax already.
-func (m *migration) behaviorExprHow(text, lang string, scope *xmi.Element, want string) (expr string, ok bool, note string, translated bool) {
+func (m *migration) behaviorExprHow(text, lang string, scope *xmi.Element, want wanted) (expr string, ok bool, note string, translated bool) {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return "", false, "the expression has no body", false
@@ -609,7 +609,7 @@ func (m *migration) calcExprHow(e *xmi.Element) (expr string, ok bool, note stri
 	if body == "" {
 		return "", false, "the behavior has no body", false
 	}
-	return m.behaviorExprHow(body, lang, e, "")
+	return m.behaviorExprHow(body, lang, e, wanted{})
 }
 
 // calcBody writes an opaque or function behavior's parameters and result expression.
