@@ -45,36 +45,51 @@ func (s *Session) CompareResults(results *simresults.Results, opts CompareOption
 		return []Verdict{unresolvedVerdict("compare", "the results index no run configuration")}
 	}
 	var verdicts []Verdict
-	matched := make([]bool, len(opts.Only))
+	selected, refused := opts.selection(results.Configurations)
 	for i := range results.Configurations {
 		cfg := &results.Configurations[i]
-		if !opts.selects(cfg, matched) {
+		if len(opts.Only) > 0 && !selected[i] {
 			continue
 		}
 		verdicts = append(verdicts, s.withTrace(s.compareVerdict(cfg, opts)))
 	}
-	for i, name := range opts.Only {
-		if !matched[i] {
-			verdicts = append(verdicts, unresolvedVerdict("compare "+name, fmt.Sprintf("no configuration is named %s", name)))
-		}
-	}
-	return verdicts
+	return append(verdicts, refused...)
 }
 
-// selects reports whether the configuration is among those asked for, marking
-// in matched every name of Only that names it.
-func (o CompareOptions) selects(cfg *simresults.ConfigurationResults, matched []bool) bool {
-	if len(o.Only) == 0 {
-		return true
-	}
-	selected := false
-	for i, name := range o.Only {
-		if name == cfg.ID || sameName(name, cfg.Name) {
-			matched[i] = true
-			selected = true
+// selection resolves each name of Only to the one configuration it names — by
+// id or qualified name, or by simple name when one alone bears it — marking it
+// in selected; a name naming none or several is a refusal instead.
+func (o CompareOptions) selection(cfgs []simresults.ConfigurationResults) (selected []bool, refused []Verdict) {
+	selected = make([]bool, len(cfgs))
+	for _, name := range o.Only {
+		var exact, simple []int
+		for i := range cfgs {
+			switch {
+			case name == cfgs[i].ID || name == cfgs[i].Name:
+				exact = append(exact, i)
+			case sameName(name, cfgs[i].Name):
+				simple = append(simple, i)
+			}
+		}
+		found := exact
+		if len(found) == 0 {
+			found = simple
+		}
+		switch len(found) {
+		case 1:
+			selected[found[0]] = true
+		case 0:
+			refused = append(refused, unresolvedVerdict("compare "+name, fmt.Sprintf("no configuration is named %s", name)))
+		default:
+			names := make([]string, len(found))
+			for j, i := range found {
+				names[j] = cfgs[i].Name
+			}
+			refused = append(refused, unresolvedVerdict("compare "+name,
+				fmt.Sprintf("%d configurations are named %s (%s); name one by its qualified name", len(found), name, strings.Join(names, ", "))))
 		}
 	}
-	return selected
+	return selected, refused
 }
 
 // sameName reports whether name is qualified, the last segment of it, quoted or bare.
@@ -175,17 +190,21 @@ func comparisonTable(cfg *simresults.ConfigurationResults, table runtime.SweepTa
 			notes = append(notes, fmt.Sprintf("note: no snapshot holds a number for %s", name))
 			continue
 		}
-		ran, units, held := runValues(table, feature)
+		ran, units, other := runValues(table, feature)
 		cells = append(cells, statisticsRow(name, "tool", stored, ""))
 		d := runtime.Distribute(ran)
 		switch {
-		case !held:
+		case len(ran) == 0 && other == 0:
 			cells = append(cells, []string{"", "OpenSysML (" + feature + ")", "0", "", "", "", "", ""})
 			notes = append(notes, fmt.Sprintf("note: no completed run produced %s, which answers %s", feature, name))
 			continue
 		case d == nil:
 			cells = append(cells, []string{"", "OpenSysML (" + feature + ")", "0", "", "", "", "", ""})
 			notes = append(notes, fmt.Sprintf("note: %s holds no number in any completed run, so %s is not compared", feature, name))
+			continue
+		case other > 0:
+			cells = append(cells, []string{"", "OpenSysML (" + feature + ")", fmt.Sprint(len(ran)), "", "", "", "", ""})
+			notes = append(notes, fmt.Sprintf("note: %s holds no number in %d of the %d completed run(s) that produced it, so %s is not compared", feature, other, other+len(ran), name))
 			continue
 		case len(units) > 1:
 			cells = append(cells, []string{"", "OpenSysML (" + feature + ")", fmt.Sprint(len(ran)), "", "", "", "", ""})
@@ -233,10 +252,10 @@ func comparedObservables(cfg *simresults.ConfigurationResults, observe []Observa
 	return pairs
 }
 
-// runValues collects the numbers a feature came to in the completed runs and the
-// distinct units they came in, in order of first appearance ("" for a bare number);
-// held says whether any completed run produced the feature at all.
-func runValues(table runtime.SweepTable, feature string) (numbers []semantics.Value, units []string, held bool) {
+// runValues collects the numbers a feature came to in the completed runs, the
+// distinct units they came in, in order of first appearance ("" for a bare number),
+// and how many completed runs produced the feature as no number.
+func runValues(table runtime.SweepTable, feature string) (numbers []semantics.Value, units []string, other int) {
 	for _, row := range table.Rows {
 		if row.Err != nil {
 			continue
@@ -245,20 +264,22 @@ func runValues(table runtime.SweepTable, feature string) (numbers []semantics.Va
 			if out.Name != feature {
 				continue
 			}
-			held = true
-			if n, ok := runtime.MagnitudeValue(out.Value); ok {
-				numbers = append(numbers, n)
-				unit := ""
-				if q := out.Value.Quantity(); q != nil {
-					unit = q.Unit.String()
-				}
-				if !slices.Contains(units, unit) {
-					units = append(units, unit)
-				}
+			n, ok := runtime.MagnitudeValue(out.Value)
+			if !ok {
+				other++
+				continue
+			}
+			numbers = append(numbers, n)
+			unit := ""
+			if q := out.Value.Quantity(); q != nil {
+				unit = q.Unit.String()
+			}
+			if !slices.Contains(units, unit) {
+				units = append(units, unit)
 			}
 		}
 	}
-	return numbers, units, held
+	return numbers, units, other
 }
 
 // unitList spells the units numbers came in, a bare number's as "none".

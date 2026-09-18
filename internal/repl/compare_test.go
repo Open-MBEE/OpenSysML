@@ -127,3 +127,66 @@ func TestComparisonTableRefusesMixedUnits(t *testing.T) {
 		t.Errorf("one unit not compared in it:\n%s", got)
 	}
 }
+
+// An observable some completed runs produce as no number — a boolean, a string —
+// is not compared over the runs that produced a number, whichever come first: the
+// note counts the runs that hold no number, as it says when none does.
+func TestComparisonTableRefusesNonnumericRuns(t *testing.T) {
+	number := func(n float64) runtime.Value {
+		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: n}}
+	}
+	flag := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: true}}
+	row := func(v runtime.Value) runtime.SweepRow {
+		return runtime.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: v}}}
+	}
+	cfg := &compareResults("'Group 1'", 2).Configurations[0]
+	for name, rows := range map[string][]runtime.SweepRow{
+		"number first":     {row(number(2)), row(flag), row(number(4))},
+		"no number first":  {row(flag), row(number(2)), row(number(4))},
+		"failed run apart": {row(number(2)), {Err: fmt.Errorf("boom")}, row(flag), row(number(4))},
+	} {
+		got := strings.Join(comparisonTable(cfg, runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: rows}, nil), "\n")
+		if !strings.Contains(got, "note: target.total holds no number in 1 of the 3 completed run(s) that produced it, so total is not compared") {
+			t.Errorf("%s: a run holding no number is not counted:\n%s", name, got)
+		}
+		if strings.Contains(got, "difference") {
+			t.Errorf("%s: a difference is given over runs holding no number:\n%s", name, got)
+		}
+	}
+	none := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{row(flag), row(flag)}}
+	got := strings.Join(comparisonTable(cfg, none, nil), "\n")
+	if !strings.Contains(got, "note: target.total holds no number in any completed run, so total is not compared") {
+		t.Errorf("no run holding a number:\n%s", got)
+	}
+}
+
+// A simple name naming configurations of several packages compares none of them
+// and says which it could name; an id or a qualified name compares its one.
+func TestCompareRefusesAnAmbiguousName(t *testing.T) {
+	s := compareSession(t)
+	seed := uint64(1)
+	results := compareResults("'Group 1'", 2)
+	twin := results.Configurations[0]
+	twin.ID, twin.Name = "_d", "Other::'Group 1'"
+	results.Configurations = append(results.Configurations, twin)
+
+	got := s.CompareResults(results, CompareOptions{Seed: &seed, Only: []string{"Group 1"}})
+	if len(got) != 1 || got[0].Holds() || got[0].Subject != "compare Group 1" {
+		t.Fatalf("an ambiguous name = %+v, want one refusal", got)
+	}
+	if lines := strings.Join(got[0].Lines, "\n"); !strings.Contains(lines, "2 configurations are named Group 1 (Cfg::'Group 1', Other::'Group 1')") {
+		t.Errorf("the refusal does not list the configurations:\n%s", lines)
+	}
+
+	for name, subject := range map[string]string{"Cfg::'Group 1'": "compare Cfg::'Group 1'", "_d": "compare Other::'Group 1'"} {
+		got := s.CompareResults(results, CompareOptions{Seed: &seed, Only: []string{name}})
+		if len(got) != 1 || got[0].Subject != subject {
+			t.Errorf("%s = %+v, want the one configuration %s", name, got, subject)
+		}
+	}
+	one := results.Configurations[:1]
+	got = s.CompareResults(&simresults.Results{Source: results.Source, Configurations: one}, CompareOptions{Seed: &seed, Only: []string{"Group 1", "'Group 1'"}})
+	if len(got) != 1 || !got[0].Holds() {
+		t.Errorf("a simple name borne by one configuration = %+v, want it compared once", got)
+	}
+}

@@ -1050,8 +1050,9 @@ or nest index each snapshot once. The sidecar is read strictly: an unknown field
 `configurations`, or malformed JSON is refused naming the file.
 
 `-compare-results <file>` on the migrated model then runs every configuration the sidecar
-indexes — or those `-action` names, an `-action` no configuration bears failing the check on
-its own (`no configuration is named Group 9`) beside the ones compared — under its recorded
+indexes — or those `-action` names by id, qualified name or a simple name one alone bears, an
+`-action` no configuration bears (`no configuration is named Group 9`) or several do (`2
+configurations are named Group 1 (…)`) failing the check on its own beside the ones compared — under its recorded
 count and policy, or the `-runs`, `-draws` and `-seed` given, and tables the tool's and
 OpenSysML's distributions side by side:
 

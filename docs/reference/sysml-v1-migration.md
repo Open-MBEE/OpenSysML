@@ -362,7 +362,8 @@ A stored observable is read off the target by default (`Time_Acq_Total` beside
 `target.Time_Acq_Total`), or off the feature `-observe Time_Acq_Total=clock` names, so a total
 the tool read from its time variable is set beside the run's clock. An observable the completed
 runs produce in more than one unit (a quantity in some, a bare number or another unit in others)
-has no one distribution to set beside the tool's and is noted, not pooled. The numbers are printed
+has no one distribution to set beside the tool's and is noted, not pooled; so is one some completed
+runs produce as no number, with the count of those runs. The numbers are printed
 as they are: a difference is a fact about the migration's fidelity, to be read against the
 report's approximations, not tuned away.
 
