@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
@@ -45,9 +46,10 @@ func (a *activity) portReceiver(port, t, op *xmi.Element) (receiver, note string
 
 // connectedReceiver follows the connectors of classifier c from its port to the
 // path of the part, or the part's port, whose type has operation op; the reason
-// when none does.
+// when none does, or when several do, since the source names no one of them.
 func (m *migration) connectedReceiver(c, port, op *xmi.Element) (string, string) {
 	joined := 0
+	var paths []string
 	for _, cn := range m.connectorsOf(c) {
 		segs, note := m.connectorEnds(cn, c)
 		if note != "" {
@@ -59,13 +61,18 @@ func (m *migration) connectedReceiver(c, port, op *xmi.Element) (string, string)
 			}
 			joined++
 			other := segs[1-i]
-			if path, ok := m.operationHolder(other, op); ok {
-				return path, ""
+			if path, ok := m.operationHolder(other, op); ok && !slices.Contains(paths, path) {
+				paths = append(paths, path)
 			}
 		}
 	}
-	if joined == 0 {
+	switch {
+	case joined == 0:
 		return "", "no connector of " + qualifiedName(c) + " joins its port " + m.nameFor(port) + " to a part"
+	case len(paths) == 1:
+		return paths[0], ""
+	case len(paths) > 1:
+		return "", "the port " + m.nameFor(port) + " of " + qualifiedName(c) + " connects to several parts whose types have the operation " + m.nameOf(op) + " (" + strings.Join(paths, ", ") + "), and the call names no one of them"
 	}
 	return "", "the port " + m.nameFor(port) + " of " + qualifiedName(c) + " connects to no part whose type has the operation " + m.nameOf(op)
 }

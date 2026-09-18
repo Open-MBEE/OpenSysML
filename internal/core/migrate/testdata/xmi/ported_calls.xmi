@@ -30,10 +30,20 @@
     <packagedElement xmi:type="uml:Class" xmi:id="_drive" name="Drive">
       <ownedAttribute xmi:type="uml:Port" xmi:id="_p" name="p" type="_cmdIf" aggregation="composite"/>
       <ownedAttribute xmi:type="uml:Port" xmi:id="_loose" name="loose" type="_cmdIf" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_split" name="split" type="_cmdIf" aggregation="composite"/>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_motorPart" name="motor" type="_motor" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_sparePart" name="spare" type="_motor" aggregation="composite"/>
       <ownedConnector xmi:type="uml:Connector" xmi:id="_c">
         <end xmi:type="uml:ConnectorEnd" xmi:id="_c1" role="_p"/>
         <end xmi:type="uml:ConnectorEnd" xmi:id="_c2" role="_cmd" partWithPort="_motorPart"/>
+      </ownedConnector>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_cs1">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_cs1a" role="_split"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_cs1b" role="_cmd" partWithPort="_motorPart"/>
+      </ownedConnector>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_cs2">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_cs2a" role="_split"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_cs2b" role="_cmd" partWithPort="_sparePart"/>
       </ownedConnector>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
         <node xmi:type="uml:InitialNode" xmi:id="_init"/>
@@ -73,6 +83,14 @@
           <argument xmi:type="uml:InputPin" xmi:id="_callLooseRpm" name="rpm"/>
         </node>
         <edge xmi:type="uml:ObjectFlow" xmi:id="_of4" source="_fiveOut" target="_callLooseRpm"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_six" name="six">
+          <value xmi:type="uml:LiteralReal" xmi:id="_sixV" value="6.0"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_sixOut" name="result"/>
+        </node>
+        <node xmi:type="uml:CallOperationAction" xmi:id="_callSplit" name="spin over split" operation="_spin" onPort="_split">
+          <argument xmi:type="uml:InputPin" xmi:id="_callSplitRpm" name="rpm"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of5" source="_sixOut" target="_callSplitRpm"/>
       </ownedBehavior>
     </packagedElement>
   </uml:Model>

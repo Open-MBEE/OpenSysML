@@ -16,8 +16,12 @@ part def Motor {
 part def Drive {
     port p : MotorCmd;
     port loose : MotorCmd;
+    port split : MotorCmd;
     part motor : Motor;
+    part spare : Motor;
     bind p = motor.cmd;
+    bind split = motor.cmd;
+    bind split = spare.cmd;
     action def Run {
         first start then thirty;
         action thirty {
@@ -46,12 +50,21 @@ part def Drive {
         flow forty.result to 'spin over cmd'.rpm;
     }
     action def Stray {
-        first start then five;
+        first start then 'fork';
+        fork 'fork';
+        first 'fork' then five;
+        first 'fork' then six;
         action five {
             out result = 5.0;
         }
         first five then 'spin over loose';
         action 'spin over loose' : Motor::Spin;
+        action six {
+            out result = 6.0;
+        }
+        first six then 'spin over split';
+        action 'spin over split' : Motor::Spin;
         flow five.result to 'spin over loose'.rpm;
+        flow six.result to 'spin over split'.rpm;
     }
 }

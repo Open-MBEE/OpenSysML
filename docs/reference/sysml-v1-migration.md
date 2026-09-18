@@ -386,8 +386,9 @@ no attribute of the signal supplies, since v2 does not run an action holding no 
 connector paths are: a connector of the caller's block from that port to a port of a part
 whose type owns the operation makes the call a perform of the part's usage,
 `perform action 'spin over p' ::> motor.spin;`; a port of the target itself names the target;
-a port no connector joins leaves the call an action typed by the operation, running in the
-caller's context, and the report says so.
+a port no connector joins, or one whose connectors reach several parts that own the operation
+(the call names no one of them), leaves the call an action typed by the operation, running in
+the caller's context, and the report says so.
 
 **Running a migrated behavior.** Instantiate the block whose classifier behavior the activity
 or state machine is, then step it or run it many times with the model seed:
