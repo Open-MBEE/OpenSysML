@@ -41,9 +41,8 @@ var permitted = map[string][]string{
 	"tooling":     layers,
 }
 
-// packageLayer assigns every package under internal/, cmd/, api/ and client/
-// to a layer; a package the table does not name fails the test, as does an
-// internal/ or cmd/ entry the module no longer has (tools/ is its own module).
+// packageLayer assigns every package under internal/, cmd/, api/ and client/ to a
+// layer; an unnamed package fails, as does an entry the root module no longer has.
 var packageLayer = map[string]string{
 	"internal/core/source":       "foundation",
 	"internal/core/ast":          "foundation",
