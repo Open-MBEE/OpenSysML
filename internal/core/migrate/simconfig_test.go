@@ -84,7 +84,7 @@ func TestSimulationConfigReportsWhatItCannotRun(t *testing.T) {
   <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c1" base_Class="_g1"
       numberOfRuns="1" durationSimulationMode="random" treatAllClassifiersAsActive="false"/>
   <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c2" base_Class="_g2"
-      executionTarget="_missing"/>
+      executionTarget="_missing" numberOfRuns="9223372036854775808"/>
   <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c3" base_Class="_g3"
       executionTarget="_s0 _o0"/>`)
 	for _, line := range []string{
@@ -96,9 +96,13 @@ func TestSimulationConfigReportsWhatItCannotRun(t *testing.T) {
 		"draws = Simulation::DrawPolicy::random;",
 		"/* «SimulationConfig» settings of the simulation tool: treatAllClassifiersAsActive = false */",
 		"action def 'Group 2' {",
+		"/* «SimulationConfig» settings of the simulation tool: numberOfRuns = 9223372036854775808 */",
 		"action def 'Group 3' {",
 	} {
 		wantLine(t, r.Notation, line)
+	}
+	if strings.Contains(string(r.Notation), "runs = 9223372036854775808;") {
+		t.Errorf("a run count beyond int64 is recorded as metadata:\n%s", r.Notation)
 	}
 	if strings.Contains(string(r.Notation), "perform action run") {
 		t.Errorf("a configuration performs a behavior no target has:\n%s", r.Notation)
@@ -111,6 +115,7 @@ func TestSimulationConfigReportsWhatItCannotRun(t *testing.T) {
 	wantNote(t, r, "_g1", migrate.Approximated, "names no execution target")
 	wantNote(t, r, "_g1", migrate.Approximated, "treatAllClassifiersAsActive = false has no v2 form")
 	wantNote(t, r, "_g2", migrate.Approximated, `the execution target "_missing" is outside the document`)
+	wantNote(t, r, "_g2", migrate.Approximated, `numberOfRuns = "9223372036854775808" exceeds the runs a Monte Carlo can make, so it is not recorded as Simulation::Configuration::runs`)
 	wantNote(t, r, "_g3", migrate.Approximated, "names 2 execution targets, and a run has one object to run on")
 	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
 		t.Errorf("the migrated configurations do not analyse clean: %v\n%s", errs, r.Notation)

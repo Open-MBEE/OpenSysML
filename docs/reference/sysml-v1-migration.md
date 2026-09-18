@@ -316,8 +316,9 @@ action def 'Group 0' {
   read from the model but the harness below applies. `timeVariableName`, `startTime`, `stepSize`,
   `timeUnit` and `runForksInParallel` are recorded as `timeVariable`, `startTime`, `stepSize`,
   `timeUnit` and `parallelForks`: they describe the clock the tool ran on, and OpenSysML's clock
-  is the run's own, so they are recorded, not applied. A mode that is none of the four policies
-  is kept among the tool's other tags in the trailing comment, as are `animationSpeed`,
+  is the run's own, so they are recorded, not applied. A mode that is none of the four policies,
+  and a run count beyond what a Monte Carlo can make (a 64-bit count), are kept among the
+  tool's other tags in the trailing comment, as are `animationSpeed`,
   `silent` and every setting with no v2 meaning; `autostartActiveObjects` and
   `treatAllClassifiersAsActive` set to true state what every v2 object does anyway, so they are
   consumed, and set to false they are kept in the comment and reported as having no v2 form.

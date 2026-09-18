@@ -74,10 +74,15 @@ var activeObjectSettings = map[string]string{
 	"autostartActiveObjects":      "a v2 object starts its classifier behavior when it is created",
 }
 
+// naturalSetting writes a count the runtime can hold: a natural number within int64.
 func naturalSetting(v string) (string, string) {
-	n, ok := new(big.Int).SetString(strings.TrimSpace(v), 10)
+	v = strings.TrimSpace(v)
+	n, ok := new(big.Int).SetString(v, 10)
 	if !ok || n.Sign() < 0 {
 		return "", "is not a natural number"
+	}
+	if !n.IsInt64() {
+		return "", "exceeds the runs a Monte Carlo can make"
 	}
 	return n.String(), ""
 }
@@ -205,11 +210,7 @@ func (m *migration) configurationSettings(s *xmi.Stereotype) (settings configura
 		settings.lines = append(settings.lines, c.attribute+" = "+lit+";")
 		switch c.tag {
 		case "numberOfRuns":
-			if n, err := strconv.ParseInt(lit, 10, 64); err == nil {
-				settings.runs = n
-			} else {
-				notes = append(notes, "«SimulationConfig» numberOfRuns = "+lit+" exceeds the runs a Monte Carlo can make")
-			}
+			settings.runs, _ = strconv.ParseInt(lit, 10, 64)
 		case "durationSimulationMode":
 			settings.draws = strings.TrimPrefix(lit, "Simulation::DrawPolicy::")
 		}
