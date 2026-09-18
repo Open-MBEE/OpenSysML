@@ -232,6 +232,13 @@ not a feature of the model but a simulation setting, so a body reading it stays 
 the total duration of a run is what the runtime's clock reports at its end, which `%runs`
 measures directly.
 
+An action whose input pin must hold a value (`lower` of 1 or more) but which only flows from
+parameters nothing values can never fire — the token would wait forever at it — so it is written
+and reported as approximated with the pin that starves it, and the report on the activity says
+which of its parameters the caller has to value. A call whose target pin is fed from a part of
+the context block, or from the activity's `context` parameter, performs the callee on that
+object, `perform action x ::> drive.motor.spin;`.
+
 **Durations and probabilities.** A `DurationConstraint` on an action is a wait the action's
 token takes before it: `accept after 3.0 [SI::s]` for a point interval, and
 `accept after RandomFunctions::uniform(1.0, 80.0) [SI::s]` for a proper one — a draw from
@@ -259,6 +266,25 @@ reads the accepted signal: the accept names it, `accept sig : Sig`, and the para
 signal fits are bound to that name. Entry, do and exit behaviors owned by the state are inline
 action bodies, on a submachine state as on any other; those it only refers to are `entry x;`
 references.
+
+A state whose entry or do behavior takes parameters is entered by transitions that carry no
+arguments, so the parameters are valued from the signal those transitions accept when every
+transition into the state accepts the same signal and its attributes match the parameters in
+order, type and multiplicity: the `state def` declares an item of the signal's type,
+`item setPoint : SetPoint;`, each transition into the state assigns what it accepted to it,
+`accept setPoint2 : SetPoint … assign setPoint := setPoint2;`, and the behavior's parameters
+read its attributes, `in target : ScalarValues::Real = setPoint.level;`. A state some
+transition enters without a signal — from the initial pseudostate, on a time or change event,
+or carrying a different signal — or whose parameters the signal's attributes do not fit, keeps
+the parameters unvalued and the report says which transition or attribute is the reason; an
+exit behavior with parameters is refused the same way, since nothing of the exit carries a
+signal.
+
+A trigger naming a port of the behavior's owner is `accept Sig via rx`; one naming a port of
+another block is written without it and the report says whose port it is. A trigger naming no
+port is written plain, and when the document's connectors and delegations carry its signal to a
+port of the owner it is also written accepting via each such port, so a message a connector
+delivers to the port is taken as one addressed to the object is.
 
 A transition whose ends lie in different regions or nesting levels names the far end by its
 path — `transition first Idle accept Resume then Work::Run;` — which the runtime executes as

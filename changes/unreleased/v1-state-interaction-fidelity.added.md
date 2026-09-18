@@ -25,3 +25,18 @@
   the part as performer and binds the callee's inputs from its body, and an accept payload is
   visible from the body of a typed usage in the same action body, so a nested typed action can
   read the accepted message (`in level = msg.level`).
+- **A migrated state values its entry and do parameters from the signal that enters it.** When
+  every transition into a state accepts the same signal and its attributes fit the behavior's
+  parameters in order, type and multiplicity, the `state def` keeps the signal in an item
+  (`item setPoint : SetPoint;`) each transition assigns and the parameters read
+  (`in target : ScalarValues::Real = setPoint.level;`); a state entered without a signal or with
+  one that does not fit is reported with the transition or attribute that is the reason. A
+  trigger naming no port is also written accepting via each port of the owner the document's
+  connectors and delegations carry its signal to, and an activity whose required input pin only
+  parameters nothing values flow into is reported as never firing instead of written to wait.
+- **A `via` path can start at a bound reference, and delegated, redefined and untyped ports
+  route.** `send … via ctx.p` from a behavior whose `ctx` is bound to another object leaves that
+  object's port; a part's port is known to the connectors its type inherits under the name the
+  part was declared with before redefinition; a `ref` usage holds what is bound to it rather than
+  an object of its own; and an untyped `port` materializes as a `Ports::Port`, so a binding
+  connector can join it and a signal sent inward over it reaches the bound part's machine.
