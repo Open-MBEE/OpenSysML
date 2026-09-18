@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/fixtures"
+	"github.com/Open-MBEE/OpenSysML/tests/fixtures"
 )
 
 // libraryBlockName names the generated block carrying the per-library table.

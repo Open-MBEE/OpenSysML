@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/fixtures"
 	"github.com/Open-MBEE/OpenSysML/internal/grpc"
+	"github.com/Open-MBEE/OpenSysML/tests/fixtures"
 )
 
 // expectedValue is the fixture encoding of a pb.Value: the oneof field name

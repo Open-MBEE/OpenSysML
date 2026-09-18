@@ -17,7 +17,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/fixtures"
+	"github.com/Open-MBEE/OpenSysML/tests/fixtures"
 )
 
 var updateLibraryCensus = flag.Bool("update-library-census", false, "Rewrite docs/project/analysis-library-census.json from this run")
