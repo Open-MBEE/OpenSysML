@@ -18,9 +18,9 @@ library package Simulation {
 		doc
 		/*
 		 * How a run resolves a RandomFunctions draw: random takes a seeded draw,
-		 * min and max the lower and upper bound of the distribution, and average
-		 * its midpoint. A run is given the policy as -draws on the command line or
-		 * %draws in the REPL; random is the default.
+		 * min and max the least and greatest value of the distribution, and
+		 * average its mean. A run is given the policy as -draws on the command
+		 * line or %draws in the REPL; random is the default.
 		 */
 		random;
 		min;

@@ -97,6 +97,8 @@ returned over the service yet.
 | Slot of a part, item or constraint property holding one instance | `individual part :>> x : 'the instance';` — `ref` when the property is | mapped |
 | Slot of a part, item or constraint property holding several instances | `part :>> x [n];` then one `individual part : 'the instance' :> x;` each | mapped |
 | InstanceSpecification of a value type | `attribute` typed by it, holding its slot values (an individual cannot specialize an attribute def) | mapped |
+| InstanceSpecification naming no classifier, whose slots are of features of one block (a simulation tool's result snapshot) | the `individual part def` of the owner of its slots' features, with its slots; the note says which owner classified it | mapped |
+| InstanceSpecification naming no classifier and holding no slot of a written feature | comment | **unmapped** — nothing classifies it |
 | Slot contradicting its feature (more values than the multiplicity allows, a repeated value of a unique feature, a feature of a classifier the instance is not written to specialize, an instance that is not of the property's type or of its default individual, a value outside the document) | comment | **unmapped** |
 | Slot of a port, or of an untyped property | comment (no individual can type a port; a `ref` without a type takes none) | **unmapped** |
 | Property whose default is an InstanceSpecification of a block | the individual added to the usage's types, or its only type when the property is untyped; no `default` (a definition is not a v2 value). A port, a usage of another kind than the individual, or a usage whose type the individual is not an instance of, keeps its types and the default is a comment | approximated |
@@ -144,13 +146,20 @@ returned over the service yet.
 | CallBehaviorAction | `action x : Def;` with `bind`/`flow` for its pins; a call of a state machine, of a behavior with no v2 declaration, or of no behavior at all | mapped / **unmapped** |
 | CallOperationAction | `action x : Owner::Op;`, or `perform action x ::> target.op;` when the target pin's value is an object whose type owns the operation | mapped |
 | ControlFlow | `first a then b;`, `if <guard>` when the guard parses and resolves; otherwise the guard text as a comment and the edge unguarded | mapped / approximated |
-| «Probability» on the edges out of a decision | `first d then x { @Stochastic::Probability { p = <value>; } }` when every edge carries one; weights not summing to 1 are scaled by their sum; a value outside `[0, 1]`, or a decision only some of whose edges carry one, is written unweighted | mapped / approximated |
+| «Probability» on the edges out of a decision, a number | `first d then x { @Stochastic::Probability { p = <value>; } }`; constants not summing to 1 are scaled by their sum; a value outside `[0, 1]` leaves the decision unweighted | mapped / approximated |
+| «Probability» naming a property (by name or `xmi:id`) visible from the activity — its own, or one of the block whose classifier behavior it is, inherited included — typed by a numeric value type and holding one value | `p = <property>;`, a reference the run reads from the object performing the action when the decision is reached, checking then that it lies in `[0, 1]` and the branches sum to 1 | mapped |
+| «Probability» naming a property that is not visible, private to another block, not numeric, or of a multiplicity other than one; naming an element that is no property; or no property or number at all | the decision is written unweighted; the note says what the tag names and why it is no weight | approximated |
+| Edge out of a weighted decision carrying no «Probability» | weighted with its share of what the marked edges leave of 1 — a constant, or `1.0 - <property>` read when the decision is reached | approximated |
+| «SimulationConfig» (MagicDraw's SimulationProfile) | `action def` holding `@Simulation::Configuration { runs = …; draws = …; timeVariable = …; startTime = …; stepSize = …; timeUnit = …; parallelForks = …; }`, `part target : <the migrated executionTarget>;` and `perform action run ::> target.<its classifier behavior>;` (see [Run configurations](#run-configurations)); its remaining tags a comment | mapped |
+| «SimulationConfig» whose `executionTarget` is absent, several, outside the document, not migrated, or written as something no part can be typed by; whose target has no classifier behavior, or one that is a state machine | the `action def` with its metadata and, where the target is written, its `target` part, performing nothing; the note says why | approximated |
+| «SimulationConfig» `durationSimulationMode` that is none of `min`, `max`, `average`, `random` | kept among the tags in the comment | approximated |
+| Result snapshots of a «SimulationConfig» (the instances under its `resultLocation` packages classified — by name or by their slots — by its target's classifiers) | the individuals above, and one row per snapshot in the JSON `-migration-results` writes, its numeric slots by defining feature; a slot holding no one finite number is counted in the configuration's notes | mapped |
 | ObjectFlow | `flow a.out to b.in;`, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated is a comment | mapped / approximated |
 | SendSignalAction | `action x send new Sig(args) to <target>;`, `via <port>` when `onPort` is set; the target is read from the target pin's flow: `this`, `this.part` where a structural read feeds the pin, else the pin itself (`in target;` bound to what feeds it, an activity parameter or another node's output), which the runtime evaluates to the object it holds | mapped / approximated |
 | AcceptEventAction | `action x accept p : Sig;` (signal trigger), `accept after <d> [SI::s]` (relative TimeEvent), `accept when <cond>` (ChangeEvent) | mapped |
 | AcceptEventAction on an absolute TimeEvent (`when` is an instant, not a duration) | comment | **unmapped** — no literal writes a `TimeInstantValue` |
 | OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve (a script's `x = expr;` statements are read as assignments); otherwise the body as a comment inside `action x { }` naming the language | mapped / approximated |
-| DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds | approximated (a tool's min/max/random mode is a run setting) |
+| DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds | approximated (a tool's min/max/average/random mode is the run's `-draws` policy, which its configuration records) |
 | DurationConstraint whose bounds are not numbers with time units (`setup s`), DurationObservation, TimeObservation | comment | **unmapped** — the runtime reports a run's clock |
 | ActivityPartition | comment naming the partition and its nodes (`perform … by` has no legal form for a partition of arbitrary nodes) | approximated |
 | StructuredActivityNode, SequenceNode | `action x { }` holding the nested flow | mapped |
@@ -191,8 +200,8 @@ The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://
 (27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB
 of notation that passes the gate below in a few seconds, and its Turtle in a few more. Five
 elements in six map or are approximated; the unmapped rest is dominated by absolute and
-unparseable time events, call actions that call no behavior, instance specifications without a
-classifier, simulation verdicts stored in slots of constraint properties, and views.
+unparseable time events, call actions that call no behavior, simulation verdicts stored in
+slots of constraint properties, and views.
 
 ## Behaviors
 
@@ -219,14 +228,24 @@ measures directly.
 token takes before it: `accept after 3.0 [SI::s]` for a point interval, and
 `accept after RandomFunctions::uniform(1.0, 80.0) [SI::s]` for a proper one — a draw from
 the [model seed](../guide/06-behavior.md#seeds-where-the-draws-come-from). A simulation
-tool's `min`/`max`/`random` duration mode belongs to its run configuration, not to the model,
-so the interval is migrated faithfully as a random duration; a run with `-seed`/`%seed`
-reproduces the tool's random mode, and the fixed modes are a run setting to add rather than a
-fact to bake into the notation. «Probability» on the edges out of a decision is written as
-`@Stochastic::Probability { p = 0.5; }` on each succession when every edge carries one — the
-rule v1 states itself — and the weights are scaled to sum to 1 when they do not; a decision
-with weights on only some edges, or a weight outside `[0, 1]`, is written unweighted and the
-report says why. Guards that are opaque English (`[Align BTO]`) are kept as comments and the
+tool's `min`/`max`/`average`/`random` duration mode belongs to its run configuration, not to
+the model, so the interval is migrated faithfully as a random duration and the mode is the
+[draw policy](../guide/06-behavior.md#draw-policies-min-max-average-and-random) of the run —
+`-draws random -seed <n>` reproduces the tool's random mode, `-draws max` its max mode — which
+each migrated configuration records (below). «Probability» on the edges out of a decision is
+written as `@Stochastic::Probability { p = … }` on each succession: a tag that is a number is
+the constant `p = 0.5;`, and one that names a property of the activity or of the block whose
+classifier behavior it is — the v1 idiom of an analysis block whose `ProbabilityBTOOP : Real`
+each run configuration sets to `1.0` or `0.0` through its execution target's slots — is the
+reference `p = ProbabilityBTOOP;`, which the run reads from the object performing the action
+when the decision is reached, so the same behavior takes different odds on differently
+configured objects. The property must be reachable from the action's execution context: a
+numeric property holding one value, visible from the activity or inherited by its context
+block; a tag naming anything else leaves the decision unweighted and the report says what it
+names. An edge without a tag beside tagged ones takes its share of the remainder, `1.0 -
+ProbabilityBTOOP` when the tagged one is a reference; constants that do not sum to 1 are scaled
+by their sum, and a constant outside `[0, 1]` leaves the decision unweighted, each reported.
+Guards that are opaque English (`[Align BTO]`) are kept as comments and the
 edge written unguarded, so such a decision is a scheduling choice the runtime draws at random
 with the model seed; the report says so.
 
@@ -257,6 +276,84 @@ or state machine is, then step it or run it many times with the model seed:
 mean, max, p50 and p90 with a histogram, and `sysml model.sysml -action <name> -runs 100 -seed 1`
 does the same from the command line.
 
+## Run configurations
+
+A simulation tool's run configuration — MagicDraw's «SimulationConfig», recognised by the
+provenance of its profile (`…/schemas/SimulationProfile.xmi`), not by its name — states which
+object a behavior ran on, how many times, and how the tool resolved its random durations. Each
+becomes an `action def` a user runs as any other:
+
+```sysml
+action def 'Group 0' {
+    @Simulation::Configuration {
+        runs = 1000;
+        draws = Simulation::DrawPolicy::random;
+        timeVariable = "simtime";
+        startTime = 0.0;
+        stepSize = 0.01;
+        timeUnit = "second";
+        parallelForks = true;
+    }
+    part target : Analysis::'Analysis Group 0';
+    perform action run ::> target.'acquire Target - Logical';
+    /* results of the simulation tool: 13 snapshot(s) in Analysis::Results::'Group 0' holding ProbabilityBTOOP, Time_Acq_Total, … */
+    /* «SimulationConfig» settings of the simulation tool: animationSpeed = 97; silent = true; … */
+}
+```
+
+- The `executionTarget` is the `target` part, typed by the individual the target instance
+  became — so its slots, the configuration's property values, are the attributes the run reads,
+  its «Probability» references included — and the classifier behavior of the target's
+  classifier (the nearest written one, up the generalizations) is performed on it by `run`. A
+  target that is absent, several, outside the document, not migrated, or written as a
+  definition no part can be typed by (a port def, an attribute def), a classifier with no
+  classifier behavior, and a classifier behavior that is a state machine each leave the
+  configuration performing nothing, with the reason in the report and the `action def` still
+  written, holding its metadata and whatever part it could.
+- `numberOfRuns` and `durationSimulationMode` are the `runs` and `draws` of
+  [`Simulation::Configuration`](../guide/06-behavior.md#draw-policies-min-max-average-and-random):
+  the count to pass as `-runs` and the policy to pass as `-draws`, which OpenSysML's runs do not
+  read from the model but the harness below applies. `timeVariableName`, `startTime`, `stepSize`,
+  `timeUnit` and `runForksInParallel` are recorded as `timeVariable`, `startTime`, `stepSize`,
+  `timeUnit` and `parallelForks`: they describe the clock the tool ran on, and OpenSysML's clock
+  is the run's own, so they are recorded, not applied. A mode that is none of the four policies
+  is kept among the tool's other tags in the trailing comment, as are `animationSpeed`,
+  `silent` and every setting with no v2 meaning; `autostartActiveObjects` and
+  `treatAllClassifiersAsActive` set to true state what every v2 object does anyway, so they are
+  consumed, and set to false they are kept in the comment and reported as having no v2 form.
+- The tool's own results — the snapshots it stored of the configuration's runs under its
+  `resultLocation` packages, one instance per run whose slots hold the observed values, most
+  naming no classifier — are migrated as individuals of the block their slots' features belong
+  to, and indexed per configuration in the JSON sidecar
+  `-convert sysml … -migration-results results.json` writes beside the notation:
+
+  ```json
+  {"source": "model.xmi", "configurations": [
+    {"id": "_g0", "name": "Group 0", "runs": 1000, "draws": "random",
+     "target": "target", "behavior": "run", "resultLocation": "Analysis::Results::Group 0",
+     "observables": ["Time_Acq_Total", "Time_Dither"],
+     "snapshots": [{"id": "_s1", "name": "Acq 1", "values": {"Time_Acq_Total": 80.228, "Time_Dither": 0.0}}],
+     "notes": ["the slot of Verdict holds a LiteralBoolean, which is no number in 13 snapshot(s), so it is not among the results"]}]}
+  ```
+
+  A JSON sidecar rather than a v2 result table, because the snapshots are the tool's
+  measurements of the *tool's* run, not facts of the model: the notation carries them as
+  individuals a reader can inspect, and the sidecar carries them in the form the comparison
+  reads without re-parsing the model. A `resultLocation` outside the document, a snapshot slot
+  with no defining feature in the document or holding no one finite number, and a target with
+  no classifier to match snapshots against are each noted in the configuration's `notes`.
+
+`sysml model.sysml -compare-results results.json` then runs every configuration the sidecar
+indexes — with its `runs` and `draws`, or the `-runs` and `-draws` given, seeded from `-seed` —
+and prints, per observable, the tool's and OpenSysML's min, mean, p50, p90 and max with their
+relative difference; see
+[Comparing a migrated configuration with the tool's results](cli.md#comparing-a-migrated-configuration-with-the-tools-results).
+A stored observable is read off the target by default (`Time_Acq_Total` beside
+`target.Time_Acq_Total`), or off the feature `-observe Time_Acq_Total=clock` names, so a total
+the tool read from its time variable is set beside the run's clock. The numbers are printed
+as they are: a difference is a fact about the migration's fidelity, to be read against the
+report's approximations, not tuned away.
+
 ## The report
 
 Nothing is dropped silently. Every element the reader saw is in the report exactly once with
@@ -272,7 +369,9 @@ The text form (default) groups by verdict, unmapped first, one line per element:
 stereotypes, qualified v1 name, `xmi:id`, the v2 name it became, and a note. The JSON form
 (`-migration-report x.json`) is the same content as `{source, exporter, entries: [{id, kind,
 name, target, verdict, note}]}` for tooling. Without `-migration-report`, the one-line summary
-goes to stderr.
+goes to stderr. `-migration-results x.json` writes beside it the
+[result snapshots](#run-configurations) of every run configuration, and reports what it wrote
+in one line: `results of 3 run configuration(s): 2 with 15 stored snapshot(s)`.
 
 ## Guarantees
 

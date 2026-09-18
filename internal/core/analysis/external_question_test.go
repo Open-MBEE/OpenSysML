@@ -96,6 +96,33 @@ func TestWireQuestionCarriesTheModelSeed(t *testing.T) {
 	}
 }
 
+// A question carries a fixed draw policy as -draws spells it and none under random,
+// the default; the policy a held context was given is the one its question carries.
+func TestWireQuestionCarriesTheDrawPolicy(t *testing.T) {
+	f := parseFixture(t)
+	ctx := f.context(t)
+	perform := func(*runtime.Context) (Answer, error) { return Answer{Claim: ClaimHolds}, nil }
+	for _, policy := range []runtime.DrawPolicy{runtime.DrawMin, runtime.DrawMax, runtime.DrawAverage} {
+		t.Run(policy.String(), func(t *testing.T) {
+			q := Question{Kind: Evaluate, Subject: "test::Tank::low", Schedule: ctx.Schedule(), Draws: policy, Perform: perform}
+			line := wired(t, Held(ctx), q)
+			if want := `"draws":"` + policy.String() + `"`; !strings.Contains(line, want) {
+				t.Fatalf("the host wrote %s, want it to carry %s", line, want)
+			}
+		})
+	}
+	if strings.Contains(wired(t, Held(ctx), Question{Kind: Evaluate, Subject: "test::Tank::low", Schedule: ctx.Schedule(), Perform: perform}), "draws") {
+		t.Fatal("a question drawing at random named a policy")
+	}
+	if got := DrawsOf(nil); got != runtime.DrawRandom {
+		t.Fatalf("no context draws under %s, want random", got)
+	}
+	ctx.SetDrawPolicy(runtime.DrawAverage)
+	if got := DrawsOf(ctx); got != runtime.DrawAverage {
+		t.Fatalf("the held context draws under %s, want average", got)
+	}
+}
+
 // The model seed a held context was given is the one its question carries, and the
 // registry hands a request's seed to the question it asks.
 func TestModelSeedOfAContextAndARequest(t *testing.T) {
