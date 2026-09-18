@@ -388,6 +388,7 @@ github.com/Open-MBEE/OpenSysML
 ├── clients/python/         # Python client bindings (opensysml)
 ├── clients/rust/           # Rust client (opensysml) and its conformance runner
 ├── docs/                   # Design specs, architecture docs
+├── tests/                  # Black-box suites and their fixtures (tests/parser, …)
 └── testdata/               # Test fixtures (.sysml, .kerml)
 ```
 

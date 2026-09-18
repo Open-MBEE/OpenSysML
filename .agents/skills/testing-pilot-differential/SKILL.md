@@ -533,7 +533,7 @@ d=/tmp/ref && mkdir -p $d && cp f.sysml $d/
   is visible without a golden. It cannot distinguish `first a.b then c.d` as SuccessionAsUsage
   from InitialNode (both print identically) — for that read the committed `.golden`
   (`Usage kind="succession"` with two `FeatureChainExpr` ends vs `(InitialNode …)`).
-- Golden fixtures under `internal/core/parser/testdata/parse/` are only non-vacuous if the parent
+- Golden fixtures under `tests/parser/testdata/parse/` are only non-vacuous if the parent
   binary *rejects* the same input; confirm that with `/tmp/sysml-main` rather than assuming it.
 
 ## Running the pilot validator directly
@@ -717,7 +717,7 @@ from HEAD alone, and the second is the risk when a rule is rewritten to match a 
 When a parser fix adds `TestNegative` rows for forms that must stay rejected, a passing row proves
 nothing on its own — the input may be rejected by an unrelated earlier error. Flip the guard the
 fix introduced (e.g. `if allowBody && p.accept2(lexer.LBrace)` → `if p.accept2(lexer.LBrace)`),
-rerun `go test ./internal/core/parser -run TestNegative`, and check *which* rows fail. Rows that
+rerun `go test ./tests/parser ./internal/core/parser -run TestNegative`, and check *which* rows fail. Rows that
 still pass under the mutation are guarding a different code path (a package-level `then` is caught
 by `expected a namespace member` before it ever reaches `parseSuccessionEdge`), which is worth
 saying out loud rather than claiming all rows guard the new guard. Restore from a `cp` backup and

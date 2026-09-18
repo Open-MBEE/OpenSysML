@@ -122,10 +122,10 @@ Grammar conformance is validated by parsing **OMG's own files**:
    - See: `docs/project/training-examples.md`
 
 3. **Golden AST tests** - 33 fixtures with expected AST output
-   - See: `internal/core/parser/testdata/parse/`
+   - See: `tests/parser/testdata/parse/`
 
 4. **Negative tests** - 36 test cases for error recovery
-   - See: `internal/core/parser/negative_test.go`
+   - See: `tests/parser/negative_test.go`
 
 ## Hand-Written Parser
 

@@ -1,16 +1,20 @@
-package parser
+package parser_test
 
 import (
+	"flag"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
-// TestGolden verifies parser AST output matches golden snapshots (Phase 2, Task 2.1)
+var update = flag.Bool("update", false, "rewrite the golden files from the current parse")
+
+// TestGolden verifies parser AST output matches golden snapshots.
 func TestGolden(t *testing.T) {
 	fixtures := filepath.Join("testdata", "parse")
 	entries, err := os.ReadDir(fixtures)
@@ -38,7 +42,7 @@ func TestGolden(t *testing.T) {
 			}
 
 			sf := source.New(name, data)
-			p := New(sf)
+			p := parser.New(sf)
 			root := p.ParseFile()
 
 			if len(p.Diagnostics) > 0 {

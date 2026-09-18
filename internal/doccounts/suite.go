@@ -21,7 +21,8 @@ const (
 	runtimeDir            = "internal/core/runtime"
 	runtimeConformanceDir = runtimeDir + "/testdata/conformance"
 	parserDir             = "internal/core/parser"
-	parserGoldenDir       = parserDir + "/testdata/parse"
+	parserSuiteDir        = "tests/parser"
+	parserGoldenDir       = parserSuiteDir + "/testdata/parse"
 	grpcDir               = "internal/grpc"
 	grpcConformanceDir    = grpcDir + "/testdata/conformance"
 	lspDir                = "internal/lsp"
@@ -69,9 +70,10 @@ type GoldenCounts struct {
 	KerML int
 }
 
-// NegativeCounts are the parser's first-level negative subtests: the table of
-// TestNegative, every `TestNegative*` function, those of them whose name says
-// KerML, and every parser test whose name says Negative.
+// NegativeCounts are the parser's first-level negative subtests across the
+// black-box suite and the package's own tests: the table of TestNegative,
+// every `TestNegative*` function, those of them whose name says KerML, and
+// every parser test whose name says Negative.
 type NegativeCounts struct {
 	Table    int
 	Prefixed int
@@ -93,10 +95,15 @@ func ReadSuiteCounts(root string) (SuiteCounts, error) {
 	if counts.GoldenASTs, err = readGoldenCounts(filepath.Join(root, filepath.FromSlash(parserGoldenDir))); err != nil {
 		return counts, err
 	}
-	parserTests, err := parseTestFiles(filepath.Join(root, filepath.FromSlash(parserDir)))
+	parserTests, err := parseTestFiles(filepath.Join(root, filepath.FromSlash(parserSuiteDir)))
 	if err != nil {
 		return counts, err
 	}
+	packageTests, err := parseTestFiles(filepath.Join(root, filepath.FromSlash(parserDir)))
+	if err != nil {
+		return counts, err
+	}
+	parserTests = append(parserTests, packageTests...)
 	if counts.Negatives, err = readNegativeCounts(parserTests); err != nil {
 		return counts, err
 	}

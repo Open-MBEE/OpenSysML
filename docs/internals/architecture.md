@@ -80,6 +80,7 @@ github.com/Open-MBEE/OpenSysML
 ├── clients/python/         # Python client bindings (opensysml)
 ├── clients/rust/           # Rust client (opensysml) and its conformance runner
 ├── api/proto/              # Protobuf service definitions
+├── tests/                  # Black-box suites and their fixtures (tests/parser, …)
 ├── testdata/               # Test fixtures (.sysml, .kerml)
 ├── examples/               # Example models and demos
 └── docs/                   # Documentation
@@ -330,8 +331,8 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - Lowering to execution IR lives in `internal/core/lower/` (`ToActionGraph`, `ToStateGraph`)
 
 **Testing:**
-- **Golden ASTs**: `internal/core/parser/testdata/parse/` — count in [the measured counts](../project/spec-compliance.md)
-- **Negative tests**: `internal/core/parser/negative_test.go` — count in [the measured counts](../project/spec-compliance.md)
+- **Golden ASTs**: `tests/parser/testdata/parse/` — count in [the measured counts](../project/spec-compliance.md)
+- **Negative tests**: `tests/parser/negative_test.go` and the `*Negative*` tests beside the parser — count in [the measured counts](../project/spec-compliance.md)
 - **Unit tests**: `action_executor_test.go`, `state_executor_test.go` (action, state)
 - **Conformance gate**: `.sysml` + `.expected.json` pairs, all passing - `conformance_test.go` — counts and per-category breakdown in [the measured counts](../project/spec-compliance.md); a case whose model admits several results lists them as `outcomes`, each cited to [the semantic oracle](../project/behavior-semantic-oracle.md), and is explored to prove every one reachable and nothing else; `TestExecutionConformanceUnderPolicies` re-runs the suite under `declared` and `seed:1`
 - **Golden traces**: `.trace.golden` files - `trace_test.go` — count in [the measured counts](../project/spec-compliance.md); `.trace.order` files state the partial order a trace must respect (`a < b`), and a case with `outcomes` owns a `<case>.<policy>.trace.golden` per sweep policy
@@ -605,7 +606,7 @@ go test -v -run TestStdlibConformance ./internal/core/libs
 
 #### 2. Golden AST Snapshots
 - **Purpose:** Verify AST structure matches expected output
-- **Location:** `internal/core/parser/golden_test.go`
+- **Location:** `tests/parser/golden_test.go`
 - **Fixtures:** `testdata/parse/*.sysml` and `*.kerml` (one representative file per construct)
 - **Goldens:** `testdata/parse/*.golden` (AST dumps)
 - **Acceptance:** Parse output matches golden file
@@ -629,7 +630,7 @@ go test -v -run TestStdlibConformance ./internal/core/libs
 
 #### 4. Negative Test Suite
 - **Purpose:** Verify parser rejects malformed input gracefully
-- **Location:** `internal/core/parser/negative_test.go`
+- **Location:** `tests/parser/negative_test.go`
 - **Test:** `TestNegative`, one subtest per malformed input
 - **Acceptance:** each case produces diagnostics rather than panicking
 - **Coverage:** Unclosed blocks, unexpected tokens, invalid syntax, incomplete behavioral members
@@ -651,7 +652,7 @@ New behavioral features (actions, states, calc, constraints, requirements) requi
 
 #### 1. Golden AST Fixtures
 - **Purpose:** Lock in parse structure before execution changes
-- **Location:** `internal/core/parser/testdata/parse/` (behavioral fixtures)
+- **Location:** `tests/parser/testdata/parse/` (behavioral fixtures)
 - **Coverage:** the behavioral fixtures (action, calc, constraint, requirement, state) among the whole set
 - **Acceptance:** `TestGolden` passes, AST dumps match expectations
 - **Update flag:** `go test -run TestGolden -update`
@@ -791,7 +792,7 @@ When adding parser support for new SysML v2 constructs:
 
 When adding execution support for behavioral constructs (actions, states, calc, constraints, requirements):
 
-1. ✅ Add golden AST fixture to `internal/core/parser/testdata/parse/` (if not already covered)
+1. ✅ Add golden AST fixture to `tests/parser/testdata/parse/` (if not already covered)
 2. ✅ Implement semantics in `internal/core/runtime/` (executor or evaluator)
 3. ✅ Add conformance case: `.sysml` + `.expected.json` in `internal/core/runtime/testdata/conformance/`
 4. ✅ Add golden trace case: `.trace.golden` for ordering-sensitive features (fork/join, transitions)

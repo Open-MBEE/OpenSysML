@@ -97,9 +97,9 @@ go test ./internal/core/parser
 **Parser-specific tests:** When modifying the parser, ensure the four-layer test contract passes:
 
 1. **Conformance gate:** `go test -run TestStdlibConformance ./internal/core/libs`
-2. **Golden ASTs:** `go test -run TestGolden ./internal/core/parser`
-3. **Negative tests:** `go test -run TestNegative ./internal/core/parser`
-4. **Update goldens** (after intentional changes): `go test -run TestGolden -update ./internal/core/parser`
+2. **Golden ASTs:** `go test -run TestGolden ./tests/parser`
+3. **Negative tests:** `go test -run TestNegative ./tests/parser ./internal/core/parser`
+4. **Update goldens** (after intentional changes): `go test -run TestGolden -update ./tests/parser`
 
 See [docs/internals/architecture.md](docs/internals/architecture.md#parser-test-contract) for full details on the parser testing contract.
 
@@ -326,6 +326,7 @@ github.com/Open-MBEE/OpenSysML
 │   ├── reference/         # CLI, REPL, environment, APIs, RDF mapping
 │   ├── internals/         # Architecture, testing, performance, design notes
 │   └── project/           # Compliance, roadmap, releasing, measurements
+├── tests/                 # Black-box suites and their fixtures (tests/parser, …)
 ├── testdata/              # Test fixtures
 └── .circleci/             # CI configuration
 ```

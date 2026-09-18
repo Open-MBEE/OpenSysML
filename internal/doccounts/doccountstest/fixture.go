@@ -55,14 +55,14 @@ func WriteSuiteFixture(t TB, root string) {
 	Write(t, root, conformance+"calc_a.declared.trace.golden", "trace\n")
 	Write(t, root, conformance+"known_failures.txt", "# none\n")
 
-	parse := "internal/core/parser/testdata/parse/"
+	parse := "tests/parser/testdata/parse/"
 	for _, name := range []string{"a.sysml", "b.sysml", "c.kerml"} {
 		Write(t, root, parse+name, "package P;\n")
 		Write(t, root, parse+name[:len(name)-len(filepath.Ext(name))]+".golden", "AST\n")
 	}
 	Write(t, root, parse+"README.md", "not a fixture\n")
 
-	Write(t, root, "internal/core/parser/negative_test.go", `package parser
+	Write(t, root, "tests/parser/negative_test.go", `package parser_test
 
 import "testing"
 
@@ -79,11 +79,15 @@ func TestNegativeKerML(t *testing.T) {
 	}
 }
 
+func TestGolden(t *testing.T) {}
+`)
+	Write(t, root, "internal/core/parser/negative_test.go", `package parser
+
+import "testing"
+
 func TestOtherNegative(t *testing.T) {
 	t.Run("only", func(t *testing.T) {})
 }
-
-func TestGolden(t *testing.T) {}
 `)
 	Write(t, root, "internal/core/runtime/robustness_test.go", `package runtime
 
