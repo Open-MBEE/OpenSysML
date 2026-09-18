@@ -3,6 +3,7 @@ package queryplan
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -21,7 +22,13 @@ const (
 	// OperationObjects enumerates the objects a session holds, by type.
 	OperationObjects Operation = "objects"
 	// OperationVerdicts checks the assertions about each source row's object.
-	OperationVerdicts        Operation = "verdicts"
+	OperationVerdicts Operation = "verdicts"
+	// OperationStates lists the active states of each source row's object.
+	OperationStates Operation = "states"
+	// OperationInState lists the session's objects whose machine is in a state.
+	OperationInState Operation = "in-state"
+	// OperationEvents reads the session's trace as time-ordered rows.
+	OperationEvents          Operation = "events"
 	OperationRelatedElements Operation = "related-elements"
 	OperationWhereType       Operation = "where-type"
 	OperationWhereMetadata   Operation = "where-metadata"
@@ -44,6 +51,8 @@ const (
 	LiteralBoolean  LiteralKind = "boolean"
 	LiteralInfinity LiteralKind = "infinity"
 	LiteralNull     LiteralKind = "null"
+	// LiteralQuantity is a magnitude in a unit, `2.5 [s]`, folded at planning.
+	LiteralQuantity LiteralKind = "quantity"
 )
 
 // Multiplicity is a query parameter's effective cardinality.
@@ -84,6 +93,7 @@ type Expression struct {
 	target    string
 	literal   LiteralKind
 	value     string
+	quantity  *semantics.Quantity
 	element   *symbols.Symbol
 	arguments []Argument
 	origin    provenance.Origin
@@ -97,6 +107,15 @@ func (e Expression) Target() string { return e.target }
 
 // Literal returns the kind and source value of a literal expression.
 func (e Expression) Literal() (LiteralKind, string) { return e.literal, e.value }
+
+// Quantity returns an independent copy of a quantity literal's folded value and
+// whether the expression is one.
+func (e Expression) Quantity() (semantics.Quantity, bool) {
+	if e.literal != LiteralQuantity || e.quantity == nil {
+		return semantics.Quantity{}, false
+	}
+	return e.quantity.Clone(), true
+}
 
 // Element returns the model element an element expression binds.
 func (e Expression) Element() (*symbols.Symbol, bool) {

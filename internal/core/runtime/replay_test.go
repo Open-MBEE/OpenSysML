@@ -694,7 +694,7 @@ func TestReplayRefusesAMoveNotEnabled(t *testing.T) {
 	}{
 		{"token not able", "step 3: 9@zzz first of 2@a, 9@zzz", 1, "9@zzz is not able to act (able to act: 2@a, 3@b, 4@c)"},
 		{"alternative not able", "step 3: 2@a first of 2@a, 9@zzz", 1, "9@zzz is not able to act"},
-		{"token order where one token acts", "step 1: 1@a first of 1@a, 2@b", 1, "is not able to act"},
+		{"token order where one token acts", "step 1: 1@a first of 1@a, 2@b", 1, "the run is at step 3 and step 1 had no such move"},
 		{"step already past", "step 1: decision select -> 1->warn", 1, "step 1 had no such move"},
 		{"branch not holding", orders + "step 7: decision select -> 3->nowhere", 3, "3->nowhere is not enabled (enabled: 1->warn, 2->alarm)"},
 		{"branch at the wrong place", orders + "step 7: decision elsewhere -> 1->warn", 3, "the run faced"},
@@ -789,7 +789,8 @@ func TestReplayFollowsAnOrderDrawnAfterTheClockRetriesAStep(t *testing.T) {
 }
 
 // A move kept for the clock's retry is bounded by presence and by the retry: an
-// alternative absent from the step is refused at once, and one present but parked
+// alternative absent from the step, which a nested performance's step of the same
+// number might yet hold, is refused at the retry, and one present but parked
 // on an accept no send answers is refused when the step ends without a retry —
 // whether the other token acts or none does, in which case the run is deadlocked.
 func TestReplayRefusesAParkedTokenTheClockCannotEnable(t *testing.T) {
@@ -841,8 +842,8 @@ func TestReplayRefusesAParkedTokenTheClockCannotEnable(t *testing.T) {
 		line  string
 		faced string
 	}{
-		{"alternative absent", fresh, run, "step 3: 2@performed first of 2@performed, 9@zzz", "step 3: 9@zzz is not able to act (able to act: 2@performed)"},
-		{"token absent beside one parked", fresh, run, "step 3: 9@zzz first of 3@direct, 9@zzz", "step 3: 9@zzz is not able to act (able to act: 2@performed)"},
+		{"alternative absent", fresh, run, "step 3: 2@performed first of 2@performed, 9@zzz", "step 3: 9@zzz is not able to act (able to act: 2@performed, 3@direct)"},
+		{"token absent beside one parked", fresh, run, "step 3: 9@zzz first of 3@direct, 9@zzz", "step 3: 9@zzz is not able to act (able to act: 2@performed, 3@direct)"},
 		{"parked beside a token that acts", oneParked, oneParkedRun, "step 4: 3@listener first of 2@reader, 3@listener", "step 4: 3@listener is not able to act (able to act: 2@reader)"},
 		{"parked in a deadlock", bothParked, bothParkedRun, "step 3: 2@reader first of 2@reader, 3@listener", "step 3: 2@reader is not able to act (none is able to act)"},
 	}

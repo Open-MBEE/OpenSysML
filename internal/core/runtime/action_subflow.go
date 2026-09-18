@@ -129,7 +129,8 @@ func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error)
 }
 
 // driveSubflow steps the flow's tokens until its last one retires, pausing the
-// body where a breakpoint is met or the flow waits.
+// body where a breakpoint is met or the flow waits; a body run one statement at
+// a time yields once a node is performed, before the next node to perform.
 func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
 	perf := f.perf
 	for perf.live > 0 {
@@ -141,7 +142,7 @@ func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
 		if err := e.chargeActionStep(); err != nil {
 			return err
 		}
-		moved, err := e.stepSubflow(perf)
+		moved, performed, err := e.stepSubflow(perf)
 		if err != nil {
 			return err
 		}
@@ -156,7 +157,15 @@ func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
 				return err
 			}
 		}
+		if performed {
+			e.ctx.bodyPerformed()
+		}
 		if moved {
+			if e.nextStepPerforms(perf) {
+				if err := e.ctx.yieldBody(); err != nil {
+					return err
+				}
+			}
 			continue
 		}
 		if e.waitsOnClock(perf) && !e.hasDueTimeWait(perf) && !e.hasDueHeldRun(perf) {
@@ -187,32 +196,42 @@ func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
 	return nil
 }
 
-// stepSubflow steps every token of perf's flow once and reports whether any moved,
-// which a retired, forked or relocated token did.
-func (e *ActionExecutor) stepSubflow(perf *actionFrame) (bool, error) {
+// stepSubflow steps every token of perf's flow once and reports whether any moved
+// — which a retired, forked or relocated token did — and whether one performed
+// the node it stood at.
+func (e *ActionExecutor) stepSubflow(perf *actionFrame) (moved, performed bool, err error) {
 	before := e.subflowLocations(perf)
+	performing := e.performingTokens(perf)
 	defer e.beginSweep()()
 	order := e.beginStepOrder()
 	endWrites := e.beginStepWrites(e.stepCount + 1)
-	var err error
 	eligible := func(t Token) bool { return t.inFlowOf(perf) }
-	if e.ctx.scheduling().oneMove() {
+	oneMove := e.ctx.scheduling().oneMove()
+	if oneMove {
 		// Paused work that would only pause again is no alternative to pick.
 		eligible = func(t Token) bool { return t.inFlowOf(perf) && (t.body == nil || t.resumable()) }
 	}
-	schedule := e.scheduleTokens(&order, eligible)
+	candidates := e.stepCandidates(&order, eligible)
+	schedule := e.ctx.scheduling().scheduleStep(candidates)
+	var acted []int64
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		i := e.tokenIndex(id)
 		if i < 0 || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {
 			schedule.Acted(id, false)
 			continue
 		}
-		var acted bool
-		acted, err = e.stepTokenNoting(i, &order)
-		schedule.Acted(id, acted)
+		var did bool
+		did, err = e.stepTokenNoting(i, &order)
+		if did {
+			acted = append(acted, id)
+		}
+		schedule.Acted(id, did)
 		if err != nil {
 			break
 		}
+	}
+	if oneMove && candidates.leftReady(acted) {
+		e.leftStanding = true
 	}
 	endWrites()
 	e.noteTokenOrder(e.stepCount+1, order, schedule)
@@ -220,18 +239,21 @@ func (e *ActionExecutor) stepSubflow(perf *actionFrame) (bool, error) {
 		err = refused
 	}
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 	after := e.subflowLocations(perf)
-	if len(after) != len(before) {
-		return true, nil
-	}
+	moved = len(after) != len(before)
 	for id, location := range after {
 		if before[id] != location {
-			return true, nil
+			moved = true
 		}
 	}
-	return false, nil
+	for id := range performing {
+		if at, ok := after[id]; !ok || at != before[id] {
+			moved, performed = true, true
+		}
+	}
+	return moved, performed, nil
 }
 
 // subflowLocations returns where each token of perf's flow sits, by token ID.
@@ -241,6 +263,39 @@ func (e *ActionExecutor) subflowLocations(perf *actionFrame) map[int64]ast.Node 
 		locations[e.tokens[idx].ID] = e.tokens[idx].Location
 	}
 	return locations
+}
+
+// performingTokens returns the IDs of the tokens of perf's flow standing at a node
+// their next step performs.
+func (e *ActionExecutor) performingTokens(perf *actionFrame) map[int64]bool {
+	performing := make(map[int64]bool)
+	for _, idx := range e.tokensIn(perf) {
+		if t := e.tokens[idx]; e.performs(t.frame, t.Location) {
+			performing[t.ID] = true
+		}
+	}
+	return performing
+}
+
+// nextStepPerforms reports whether a token of perf's flow stands at a node its
+// next step performs.
+func (e *ActionExecutor) nextStepPerforms(perf *actionFrame) bool {
+	return len(e.performingTokens(perf)) > 0
+}
+
+// performs reports a node a token's step performs — an action or a statement node
+// — rather than routes through (a control node) or waits at (an accept, whose
+// step is its wait's end).
+func (e *ActionExecutor) performs(frame *actionFrame, node ast.Node) bool {
+	switch n := node.(type) {
+	case *ast.Usage:
+		_, accept := e.graphOf(frame).Accepts[n]
+		return !accept
+	case *ast.ActionExecutionNode, *ast.WhileLoopActionNode, *ast.IfActionNode,
+		*ast.AssignmentActionNode, *ast.SendStatement, *ast.TerminateStatement:
+		return true
+	}
+	return false
 }
 
 // tokensIn returns the indices of the tokens running in perf's flow or one nested

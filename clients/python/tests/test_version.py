@@ -154,16 +154,29 @@ def test_setup_py_is_gone():
     assert not os.path.exists(os.path.join(PYTHON_DIR, "setup.py"))
 
 
+def _core_tag(version):
+    """The SemVer core tag naming a PEP 440 version: 0.5.0rc1 is tagged v0.5.0-rc1."""
+    parsed = Version(version)
+    tag = f"v{parsed.base_version}"
+    if parsed.pre is not None:
+        phase, number = parsed.pre
+        tag += f"-{ {'a': 'alpha', 'b': 'beta', 'rc': 'rc'}[phase] }.{number}"
+    return tag
+
+
+TAG = _core_tag(VERSION)
+
+
 def test_version_from_tag_accepts_the_matching_tag():
-    """A tag naming the declared version yields that version."""
-    assert check_version.version_from_tag(f"opensysml-v{VERSION}") == VERSION
+    """The core tag naming the declared version yields that version."""
+    assert check_version.version_from_tag(TAG) == VERSION
 
 
 @pytest.mark.parametrize("tag, expected", [
     ("", "reads CIRCLE_TAG"),
-    ("v0.0.5", "does not start with"),
-    ("opensysml-0.1.0", "does not start with"),
-    ("opensysml-v9.9.9", "declares"),
+    (f"opensysml-v{VERSION}", "does not start with"),
+    ("0.1.0", "does not start with"),
+    ("v9.9.9", "declares"),
 ])
 def test_version_from_tag_rejects(tag, expected):
     """A tag that would publish the wrong version fails, with a reason."""
@@ -186,7 +199,7 @@ def test_pre_release_detection(version, pre):
 def test_check_version_cli_reports_the_version():
     """The job reads the version to publish off this script's stdout."""
     out = subprocess.run(
-        [sys.executable, CHECK_VERSION, "--tag", f"opensysml-v{VERSION}"],
+        [sys.executable, CHECK_VERSION, "--tag", TAG],
         capture_output=True, text=True, check=True,
     )
     assert out.stdout.strip() == VERSION
@@ -195,7 +208,7 @@ def test_check_version_cli_reports_the_version():
 def test_check_version_cli_fails_on_a_mismatched_tag():
     """A mismatch fails the job before anything is built or uploaded."""
     out = subprocess.run(
-        [sys.executable, CHECK_VERSION, "--tag", "opensysml-v9.9.9"],
+        [sys.executable, CHECK_VERSION, "--tag", "v9.9.9"],
         capture_output=True, text=True,
     )
     assert out.returncode == 1

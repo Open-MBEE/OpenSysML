@@ -68,10 +68,13 @@ type runCapture struct {
 	clockRun          *runState
 }
 
-// traceCapture is a recorder's state at the mark. Entries are only appended to or
-// replaced wholesale, so the slice header at the mark still reads what they were.
+// traceCapture is a recorder's state at the mark. Records are only appended to, cut
+// from the front or replaced wholesale, so the slice header at the mark still reads what they were.
 type traceCapture struct {
-	entries []string
+	records []TraceRecord
+	printed int
+	dropped int
+	horizon float64
 	enabled bool
 	depth   int
 }
@@ -80,12 +83,17 @@ func captureTrace(tr *TraceRecorder) traceCapture {
 	if tr == nil {
 		return traceCapture{}
 	}
-	return traceCapture{entries: tr.entries, enabled: tr.enabled, depth: tr.depth}
+	return traceCapture{
+		records: tr.records, printed: tr.printed, dropped: tr.dropped, horizon: tr.horizon,
+		enabled: tr.enabled, depth: tr.depth,
+	}
 }
 
 func (c traceCapture) restore(tr *TraceRecorder) {
 	if tr != nil {
-		tr.entries, tr.enabled, tr.depth = c.entries, c.enabled, c.depth
+		tr.records, tr.enabled, tr.depth = c.records, c.enabled, c.depth
+		tr.dropped, tr.horizon = c.dropped, c.horizon
+		tr.printed = min(c.printed, len(c.records))
 	}
 }
 
@@ -96,6 +104,7 @@ type runStateCapture struct {
 	state           *runState
 	steps, elements int64
 	notes           []RunNote
+	scheduler       *scheduler
 	restoreSchedule func()
 	calcUsageRuns   map[int64]map[calcUsageKey]*calcRun
 	calcOutputs     []mapState[string, Value]
@@ -359,6 +368,7 @@ func (s *Snapshot) captureRunState(state *runState) {
 	s.runStates = append(s.runStates, runStateCapture{
 		state: state, steps: state.steps, elements: state.elements,
 		notes:           slices.Clone(state.notes),
+		scheduler:       state.scheduler,
 		restoreSchedule: state.scheduler.mark(),
 		calcUsageRuns:   cloneCalcUsageRuns(state.calcUsageRuns),
 		calcOutputs:     captureCalcOutputs(state.calcUsageRuns),
@@ -368,6 +378,7 @@ func (s *Snapshot) captureRunState(state *runState) {
 func (c runStateCapture) restore() {
 	c.state.steps, c.state.elements = c.steps, c.elements
 	c.state.notes = slices.Clone(c.notes)
+	c.state.scheduler = c.scheduler
 	c.restoreSchedule()
 	clear(c.state.calcUsageRuns)
 	maps.Copy(c.state.calcUsageRuns, cloneCalcUsageRuns(c.calcUsageRuns))
@@ -416,6 +427,7 @@ type actionCapture struct {
 	steps, stepsSpent int64
 	inRun, held       bool
 	moved             bool
+	leftStanding      bool
 	awaiting          *actionFrame
 	firedBreakpoints  mapState[breakpointVisit, bool]
 	traversals        []Traversal
@@ -435,6 +447,7 @@ func (e *ActionExecutor) capture() actionCapture {
 		nextTokenID: e.nextTokenID, stepCount: e.stepCount, sweep: e.sweep, sweeps: e.sweeps,
 		pausedAt: e.pausedAt, released: e.released, pauses: e.pauses,
 		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
+		leftStanding:     e.leftStanding,
 		firedBreakpoints: captureMap(e.firedBreakpoints),
 		traversals:       cloneTraversals(e.traversals),
 		traversalBase:    e.traversalBase,
@@ -453,7 +466,7 @@ func (c actionCapture) restore() {
 	e.state, e.nextTokenID, e.stepCount, e.sweep, e.sweeps = c.state, c.nextTokenID, c.stepCount, c.sweep, c.sweeps
 	e.pausedAt, e.released, e.pauses = c.pausedAt, c.released, c.pauses
 	e.steps, e.stepsSpent, e.inRun, e.held = c.steps, c.stepsSpent, c.inRun, c.held
-	e.moved, e.awaiting = c.moved, c.awaiting
+	e.moved, e.awaiting, e.leftStanding = c.moved, c.awaiting, c.leftStanding
 	e.firedBreakpoints = c.firedBreakpoints.restore()
 	e.traversals, e.traversalBase = cloneTraversals(c.traversals), c.traversalBase
 	e.driven.state = c.driven

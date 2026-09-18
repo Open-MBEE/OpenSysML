@@ -93,6 +93,10 @@ var (
 	// neither an argument nor a declared default.
 	ErrUnboundParameter = errors.New("unbound parameter")
 
+	// ErrPerformerNotObject is returned when the operand of a `part.callee` performance
+	// denotes no single object for the callee to run as.
+	ErrPerformerNotObject = errors.New("performer is not an object")
+
 	// ErrUnknownParameter is returned when a named argument does not name any
 	// input parameter of the invoked calc.
 	ErrUnknownParameter = errors.New("unknown parameter")

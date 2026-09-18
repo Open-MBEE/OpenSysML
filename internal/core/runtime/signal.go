@@ -93,10 +93,29 @@ type Call struct {
 // A message posted with a destination but no Delivery — one injected from
 // outside the model — is held to the destination it names.
 func (ctx *Context) PostMessage(msg Message) {
+	ctx.postFrom(msg, nil, nil)
+}
+
+// postFrom puts a message on the bus as PostMessage does, recording the object
+// and behavior that sent it in the trace; nil is a message from outside the run.
+func (ctx *Context) postFrom(msg Message, from *Instance, behavior *symbols.Symbol) {
 	if msg.Delivery == DeliverAnyone {
 		msg.Delivery = deliveryOf(msg)
 	}
 	ctx.messages = append(ctx.messages, msg)
+	if ctx.trace != nil {
+		target, _ := ctx.Instance(msg.Object)
+		ctx.trace.RecordSend(TraceOrigin{At: ctx.clock.now, Object: from, Behavior: behavior}, msg, target)
+	}
+}
+
+// acceptedEventName names what an accepted message carries: the event feature
+// it was sent from, else its signal type.
+func acceptedEventName(msg Message) string {
+	if msg.EventName != "" {
+		return msg.EventName
+	}
+	return msg.SignalType
 }
 
 // deliveryOf is what the fields of a message name as its destination, most
@@ -341,7 +360,7 @@ func (ctx *Context) portInstanceID(holder *Instance, port string) (int64, error)
 // carry inward after conjugation. A send that reaches none of them is delivered
 // nowhere, which is a typed error rather than a message quietly dropped — the
 // model asked for a delivery the connections it declares cannot make.
-func (ctx *Context) postVia(conns []lower.Connection, msg Message, send lower.Send, self *Instance) error {
+func (ctx *Context) postVia(conns []lower.Connection, msg Message, send lower.Send, self *Instance, behavior *symbols.Symbol) error {
 	if send.Receiver != "" && send.Scope != nil {
 		sym, ok := ctx.portSymbol(send.Scope, send.Target)
 		if !ok || sym == nil || sym.Kind != symbols.SymbolPortUsage ||
@@ -416,7 +435,7 @@ func (ctx *Context) postVia(conns []lower.Connection, msg Message, send lower.Se
 		routed = append(routed, copied)
 	}
 	for _, m := range routed {
-		ctx.PostMessage(m)
+		ctx.postFrom(m, self, behavior)
 	}
 	return nil
 }
@@ -537,11 +556,17 @@ func objectAddress(object int64) (messageAddress, bool) {
 
 // postTo delivers an addressed send to every object its target resolves to,
 // one copy per address, each held to that object's own identity.
-func (ctx *Context) postTo(msg Message, send lower.Send, self *Instance) error {
+func (ctx *Context) postTo(msg Message, send lower.Send, self *Instance, behavior *symbols.Symbol) error {
 	addrs, err := ctx.resolveAddresses(send, self)
 	if err != nil {
 		return err
 	}
+	return ctx.postAt(msg, addrs, self, behavior)
+}
+
+// postAt delivers one copy of msg to each address, held to its object's identity.
+func (ctx *Context) postAt(msg Message, addrs []messageAddress, self *Instance, behavior *symbols.Symbol) error {
+	var err error
 	copies := make([]Message, 0, len(addrs))
 	for _, addr := range addrs {
 		copied := msg
@@ -556,7 +581,7 @@ func (ctx *Context) postTo(msg Message, send lower.Send, self *Instance) error {
 		copies = append(copies, copied)
 	}
 	for _, copied := range copies {
-		ctx.PostMessage(copied)
+		ctx.postFrom(copied, self, behavior)
 	}
 	return nil
 }
@@ -684,7 +709,12 @@ func (ctx *Context) featureAddresses(scope *symbols.Scope, self *Instance, segme
 	if err != nil || !ok {
 		return nil, err
 	}
-	owners := []*Instance{owner}
+	return ctx.addressesFrom([]*Instance{owner}, rest)
+}
+
+// addressesFrom walks rest through the instance graph from owners, one address
+// per port, receiving behavior or object reached, without duplicates.
+func (ctx *Context) addressesFrom(owners []*Instance, rest []string) ([]messageAddress, error) {
 	var out []messageAddress
 	seen := map[messageAddress]bool{}
 	add := func(addr messageAddress, built bool) {
@@ -726,11 +756,52 @@ func (ctx *Context) featureAddresses(scope *symbols.Scope, self *Instance, segme
 	return out, nil
 }
 
+// boundTargetAddresses resolves a target led by a binding of ec (a parameter, pin or
+// local holding objects), walking further segments through them; false where none leads it.
+func (ec *EvalContext) boundTargetAddresses(send lower.Send) ([]messageAddress, bool, error) {
+	if send.IsVia || send.Target == "" || strings.Contains(send.Target, "::") {
+		return nil, false, nil
+	}
+	segments := strings.Split(send.Target, ".")
+	root := segments[0]
+	if root == thisName {
+		return nil, false, nil
+	}
+	value, bound := ec.Lookup(root)
+	if !bound {
+		return nil, false, nil
+	}
+	var owners []*Instance
+	for _, held := range heldElements(value) {
+		if held.Kind != ValInstance {
+			return nil, true, &SendTargetValueError{Target: send.Target, Name: root, Value: FormatValue(value)}
+		}
+		if inst, ok := ec.ctx.instances[held.Instance]; ok {
+			owners = append(owners, inst)
+		}
+	}
+	if len(owners) == 0 {
+		return nil, true, &SendTargetValueError{Target: send.Target, Name: root, Value: FormatValue(value)}
+	}
+	addrs, err := ec.ctx.addressesFrom(owners, segments[1:])
+	if err != nil {
+		return nil, true, err
+	}
+	if len(addrs) == 0 {
+		return nil, true, &UnroutableSendError{Port: send.Target, Address: true}
+	}
+	return addrs, true, nil
+}
+
 // addressOwner answers which object a target's leading segments belong to: the
 // sending object, or one holding it, where the first names a feature of it, else the occurrence
 // the shortest prefix names in the send's scope — a prefix rather than one name,
 // since a namespace qualifies the occurrence in `P::alpha.inPort`.
 func (ctx *Context) addressOwner(scope *symbols.Scope, self *Instance, segments []string) (*Instance, []string, bool, error) {
+	// `this.…` reads from the sending object, the context occurrence of the send.
+	if segments[0] == thisName && len(segments) > 1 && self != nil {
+		return self, segments[1:], true, nil
+	}
 	// A name is a feature of the sending object, or of an object holding it: a
 	// nested object addresses a sibling through the object they belong to.
 	for up := self; up != nil; up = up.owner {
@@ -886,7 +957,7 @@ func isPerformanceEvent(sym *symbols.Symbol) bool {
 
 // send builds and posts the message a send statement describes; a message the
 // send cannot build or deliver leaves nothing building it created behind.
-func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Connection, s lower.Send, self *Instance) error {
+func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Connection, s lower.Send, self *Instance, behavior *symbols.Symbol) error {
 	mark, attached := len(ctx.created), len(ctx.objectBehaviors)
 	msg, err := ec.buildMessage(scope, s)
 	if err != nil {
@@ -894,22 +965,34 @@ func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Co
 		return err
 	}
 	built, started := len(ctx.created), len(ctx.objectBehaviors)
-	if err := ctx.post(conns, msg, s, self); err != nil {
+	if err := ctx.postFor(ec, conns, msg, s, self, behavior); err != nil {
 		ctx.abandonCreationBetween(mark, built, attached, started)
 		return err
 	}
 	return nil
 }
 
+// postFor posts a message as its send addressed it: to the objects a target
+// bound in ec holds, else as post routes it.
+func (ctx *Context) postFor(ec *EvalContext, conns []lower.Connection, msg Message, s lower.Send, self *Instance, behavior *symbols.Symbol) error {
+	if addrs, bound, err := ec.boundTargetAddresses(s); bound {
+		if err != nil {
+			return err
+		}
+		return ctx.postAt(msg, addrs, self, behavior)
+	}
+	return ctx.post(conns, msg, s, self, behavior)
+}
+
 // post delivers a built message the way the send addressed it: routed through
 // the connections of the sending port, or straight onto the bus. self is the
 // object performing the behavior that sent it, nil for a behavior no object
-// performs.
-func (ctx *Context) post(conns []lower.Connection, msg Message, send lower.Send, self *Instance) error {
+// performs; behavior is that behavior, which the trace names.
+func (ctx *Context) post(conns []lower.Connection, msg Message, send lower.Send, self *Instance, behavior *symbols.Symbol) error {
 	if send.IsVia {
-		return ctx.postVia(conns, msg, send, self)
+		return ctx.postVia(conns, msg, send, self, behavior)
 	}
-	return ctx.postTo(msg, send, self)
+	return ctx.postTo(msg, send, self, behavior)
 }
 
 // carriesEvent reports whether m was sent from the event feature an accept

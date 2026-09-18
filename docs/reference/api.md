@@ -41,6 +41,14 @@ some order is an `Outcome` whose `Error` is set, not a failure of the call. The 
 refuse each other's policies with `CodeInvalidArgument`, and exploring requires the
 `schedule_explore` capability alongside `schedule`.
 
+A `Session` (`opensysml.OpenSession(client, model)`) is the interactive counterpart of those
+one-run calls: it keeps its clock, its schedule (`SetSchedule`) and the objects it instantiated
+between calls, so `Instantiate`, `ActiveStates`, `Transitions`, `Accepts`, `Send`, `Advance`,
+`Perform`, `Feature`, `SetFeature`, `Evaluate` and `Members` play a model one step at a time and
+answer facts about it. It is in-process only — opened from a `New` client, refused by a `Dial`
+client with `CodeUnimplemented` — and is not part of the `Client` interface; the package README
+explains why.
+
 `ListEngines` names the analysis engines the service answers with, as `EngineInfo` in name order.
 `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` and `ValidateInstance` take `WithEngine(name)` and
 `RunAnalysis` and `ExploreAnalysis` take `Engine(name)`, and `Calculate` (`EvaluateCalc` with
@@ -443,6 +451,11 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
     now on resolve their choice points under; a run already under way keeps the one it started
     with. `explore` is refused with `ErrExploreUndriven`: an exploration replays whole runs over
     fresh contexts, so `Explore` drives it rather than one context running under it
+  - `Reschedule(policy SchedulePolicy) error` — `SetSchedule` reaching the runs driven call by
+    call as well — the clock and the behaviors the objects run — which choose under the policy
+    from their next step on as a run started under it would, their configurations, pending
+    events, clock and choices so far kept; the session surface's `SetSchedule`.
+    `ErrRescheduleMidRun` from inside a step
   - `Schedule() SchedulePolicy` — The policy the next run resolves its choice points under
   - `Clock() *Clock` — The simulation clock every executor of the context reads and waits on:
     `Now()` its current instant in `SI::s`, `Waits()` every state timer and action `accept
@@ -492,7 +505,8 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
   - `SchedulePolicyNames` — The accepted spellings, for usage text
   - `replay:<file>` follows the witness move for move — each choice point the run reaches takes
     the file's next line, which must name that step and pick among the alternatives the run
-    offers — and resolves the rest as `reverse` once the lines are spent. A run that could not
+    offers — and resolves the rest as `reverse` would, one token a step, once the lines are
+    spent. A run that could not
     follow a line, or ended with lines left over, keeps it: `Context.Unfollowed() error` is the
     `*ReplayError` (`Move`, `Choice`, `Faced`; `errors.Is(err, ErrReplayRefused)`) the run also
     fails with, nil when the witness was followed whole or the policy was another
@@ -506,9 +520,9 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
 - **`Explore(stop context.Context, policy SchedulePolicy, fresh func() (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error)`**
   — Run a behavior under `explore` once per linearization within the budget: each run starts
   from the `Context` `fresh` builds over the model and lowering they all share, records the
-  alternative taken at every choice point, and the next run replays that prefix up to its
-  frontier and takes the first untried alternative there, depth-first over the tree of choice
-  sequences. `run` performs one run and answers its `Outcome`; an error it returns is the
+  alternative taken at every choice point, and each later run replays a recorded prefix and takes
+  an untried alternative at its end — the first run's choice points each varied once, earliest
+  first, before any is varied twice. `run` performs one run and answers its `Outcome`; an error it returns is the
   `Outcome.Err` of an outcome of its own, so a run some orders fail is reported rather than
   ending the search. A `stop` that ends between runs ends the exploration with its error before
   the next context is built. A policy other than `explore` is `ErrNotExploring`; a replay that
@@ -790,10 +804,10 @@ repl.Loop(reader, os.Stdout, session)
 
 ## SysML v2 API & Services `Query`
 
-This section describes the structured API Query surface. OpenSysML also accepts
-OSLC Query text for element identification; see [OSLC Query text](oslc-query.md).
-The two surfaces intentionally differ: structured queries support `or`, while
-OSLC compound terms support only `and`, so neither surface subsumes the other.
+This section describes the structured API Query surface; [OSLC Query
+text](oslc-query.md) is the second spelling over the same elements, and
+[Which query is which](../manual/query-kinds.md) places both beside the
+document queries, `Evaluate` and `solve`.
 
 The gRPC service implements the query surface the **SysML v2 API & Services**
 standard defines, so a client that speaks that API — the
@@ -952,8 +966,9 @@ Where the standard is vague, these are the choices this implementation makes:
 
 ### Not supported — by design of the standard
 
-The standard's query model is deliberately weak, and this is an interop surface,
-not OpenSysML's expressive query story:
+The standard's query model is deliberately weak, and this is an interop
+surface; the [document queries](../manual/query-kinds.md) are the expressive
+one:
 
 - **No graph traversal and no transitive closure.** There is no "all elements
   under X", no "everything that specializes Y", no path expressions and no joins.

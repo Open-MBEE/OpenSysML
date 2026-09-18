@@ -91,7 +91,7 @@ scheduler has a choice:
 | Messages in flight | `Context.messages` (the message bus `send` posts to and `accept` consumes from, oldest first) | The bus contents in arrival order |
 | State configuration | `StateExecutor.activeConfig`, `stateStack`, `history`, `stateAttrs`, `stateData` | All of it |
 | Event queue | `StateExecutor.eventQueue` (a heap ordered by timestamp, completion first, then arrival), `deferred`, `timerScheduled`, `changeFired`, `changeWaits` | The queue as a sequence in dispatch order; the latches |
-| `do` behaviors | `StateExecutor.doActions` (in state-entry order, one action per round) | The pending statements of each |
+| `do` behaviors | `StateExecutor.doActions` (in state-entry order, one action per round) | The pending statements of each, and whether its last step left a token able to act standing — that decides a run left out, so a machine left standing is a state of its own |
 | Virtual time | `Context.clock` (`now` and the waiters on it), shared by every executor of the context | Captured, not explored |
 
 Not captured: the memo tables (`calcShapes`, `writeTargets`, `invocationTargets`, literal
@@ -156,8 +156,8 @@ time. Two consequences:
   `right { x := 2 }` admit `y = 2`. The checker takes the coarser reading — one body, one atomic
   step — and says so in the report. Statement-level interleaving multiplies the state space by
   the product of body lengths for no property a systems model states; the coarse reading is
-  also the one the executor implements, so the checker's outcomes are a superset of the
-  executor's rather than of a finer semantics it does not have. A later stage may add a
+  also the one the executor implements, so for an action the checker's outcomes are a superset
+  of the executor's rather than of a finer semantics it does not have. A later stage may add a
   `-granularity statement` mode if a property needs it.
 
 For a state machine the atomic unit is **one dispatch**: take one event off the queue, select
@@ -167,6 +167,14 @@ it completes or waits. Every executor on the invocation's clock — the behavior
 machines of the objects they materialize — moves one unit at a time, and the checker draws
 which moves as the clock's `runDue` draws it (`ChoiceDueOrder`): the executor drawn holds the
 turn until it has no move left at the instant, then the order is drawn again.
+
+A do step moves one token of the body's flow, and the machine may dispatch after each; the
+fixed policies instead advance every steppable token of the flow once a round and dispatch
+between rounds. That run — the whole round, then the dispatch — is an interleaving the checker's
+enumeration does not yet contain (`state_do_action_loop_timed_exit` pins it under `declared`
+alone), so for a machine with a looping `do` the checker's outcomes are not a superset of the
+fixed policies'. Whether a dispatch waits for the round or cuts it becomes a recorded choice
+point with the [region-order scheduling](region-order-scheduling.md) work.
 
 ### The choice points
 
@@ -395,10 +403,15 @@ A branch cut by a bound is reported as **incomplete**, distinctly from a deadloc
 The overall verdict is one of:
 
 - `no violation within bounds` — every schedule explored ended complete or was cut by a bound;
-  the bounds hit are listed.
-- `no violation, exhaustive` — every schedule ended complete and no bound was hit. This is the
-  only verdict that is a proof, and it is a proof relative to the atomicity rule and the
-  properties given.
+  the bounds hit are listed. The same verdict, listing `not enumerated: do round before
+  dispatch`, is a search whose moves left a run out: at a machine owing a dispatch after a `do` step
+  that moved one of several tokens able to act, the checker's one move dispatches, and the fixed
+  policies' run — the rest of the round, then the dispatch — is no move of its. That ordering becomes a
+  recorded choice point with the region-order scheduling work
+  ([design note](region-order-scheduling.md)).
+- `no violation, exhaustive` — every schedule ended complete, no bound was hit and no run was
+  left out. This is the only verdict that is a proof, and it is a proof relative to the
+  atomicity rule and the properties given.
 - `violation` — with the property, the state, and a witness schedule.
 - `divergent` — no violation, but a named feature ends differently on different schedules.
 
@@ -460,8 +473,9 @@ because those flags ask an `evaluate` question of the object, which is `run`'s t
 and `check`'s to refuse by name. `-json` carries the checker's answer inside the framework's `results[]`
 entry for the engine, with nothing on the wire: beside `claim`, `bounds` (every bound and
 whether it was reached) and `witness` (the replayed schedule), the entry gains a `check` object
-with `verdict`, `states`, `moves`, `depth`, `boundsHit`, `violations[]`, `divergent[]` (each
-feature's values, each with its witness choices and file `path`) and `outcomes[]`.
+with `verdict`, `states`, `moves`, `depth`, `boundsHit`, `notEnumerated`, `violations[]`,
+`divergent[]` (each feature's values, each with its witness choices and file `path`) and
+`outcomes[]`.
 
 REPL: `%engine check` selects the engine for `%action` and `%state` from then on — `%advance D`
 under it is the horizon of the machine checked — `%check-property`, `%check-diverge`,

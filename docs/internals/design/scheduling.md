@@ -95,7 +95,7 @@ A `SchedulePolicy` is parsed from one spelling and printed back to it:
 | `reverse` (default, zero value) | reverse spawn order | first in declaration order | last created |
 | `declared` | spawn order | first in declaration order | first created |
 | `seed:<n>` | shuffle of the tokens not parked | uniform draw | uniform draw |
-| `replay:<file>` | the witness's `step n: …` line, then `reverse` | the witness's line, then `reverse` | the witness's line, then `reverse` |
+| `replay:<file>` | the witness's `step n: …` line, then `reverse`'s pick alone | the witness's line, then `reverse` | the witness's line, then `reverse` |
 | `explore[:runs=N,depth=D]` | the exploration's plan | the exploration's plan | the exploration's plan |
 
 `reverse` is exactly what every run did before policies existed, so every `.expected.json` and
@@ -109,6 +109,10 @@ platform; `scheduler.mark` saves and restores that state around a probe, so prev
 move the generator. `Context.SetSchedule` sets the policy runs started from then on draw under; a
 run already under way keeps the one it started with, and `explore` is refused with
 `ErrExploreUndriven` because it is not a policy one context runs under (below).
+`Context.Reschedule` is the same change reaching the runs driven call by call too — the clock's
+and those of the behaviors the objects run — each given a scheduler started under the new policy
+where it stands, so a persistent session's turns from then on choose as a fresh run would; a
+snapshot restores the schedulers the runs had along with their marks.
 
 The scheduler lives in the run's `runState` beside the budget and the notes. A run driven call by
 call — a REPL `%action` or `%state` session — owns its `executorRun.state`, installed for each
@@ -119,10 +123,11 @@ own generator and an interleaved run neither consumes its draws nor inherits its
 — `ChoiceTaken.String` spellings, one per line up to the first blank line, so a checker's witness
 file with a trace body after its header serves as it stands — are followed one move at a time,
 each having to name the step the run is at and pick among the alternatives it offers, and once
-they are spent the run continues as `reverse`. A line the run cannot follow, or one left over at
-the end, is recorded as the run goes and reported by `Context.Unfollowed` as a `ReplayError`
-naming the move, its choice and what the run faced; the run is never quietly turned into another
-linearization. A refused move changes nothing: a transition draw is refused before the dispatch
+they are spent the run picks as `reverse` does, still one token a step — the witness was written
+by a run stepping so, and a sweep letting every token act would leave another trace. A line the
+run cannot follow, or one left over at the end, is recorded as the run goes and reported by
+`Context.Unfollowed` as a `ReplayError` naming the move, its choice and what the run faced; the
+run is never quietly turned into another linearization. A refused move changes nothing: a transition draw is refused before the dispatch
 fires (`broadcastEvent`), and a `choice` pseudostate's, drawn only once the compound transition's
 exits and incoming effects are made, or a join's, drawn one incoming segment at a time, undoes
 that move whole — exits, effects, the do behaviors the exits abandoned, what was traced and noted
@@ -138,17 +143,24 @@ fresh `Context`:
 1. The first run records each choice point it reaches as an `exploreSlot` (a `pick` among `n`
    alternatives, or which of the tokens able to act a step tries next) and takes the first
    alternative at each.
-2. `nextPrefix` walks the record backwards to the last slot with an untried alternative, keeps
-   the record up to it with that alternative advanced, and the next run replays that prefix and
-   takes first alternatives past it. This is a depth-first walk of the choice tree.
+2. `unexplored` leaves one prefix per slot the run owns with an untried alternative — the record
+   up to that slot with the alternative advanced — and a later run replays the prefix and takes
+   first alternatives past it. The queue (`explore_queue.go`) runs the prefixes in plan order:
+   those departing from the first run at one choice before any departing at two, and among them
+   the earliest choice varied first. So the first run's choice points are each varied once, from
+   the first, before any is varied twice: a choice met early with a long tail of choices behind
+   it is varied by the second run, not after every order of the tail, and a `runs` budget of one
+   more than the first run's choice points varies each of them at least once.
 3. A replay that does not meet the choice points its prefix planned — a different number of
    alternatives, or tokens able to act the plan did not find so — is `ErrExplorationDiverged`,
    and no outcome set is reported, since one could not be trusted.
 4. Runs stop when every alternative within depth is tried, or when the `runs` budget is reached;
    a slot resolved past the `depth` budget takes its first alternative and is not the
-   exploration's to vary. Either bound reached makes the `Exploration` incomplete, and
+   exploration's to vary, so a choice point deeper than `depth` is never varied however many
+   runs remain. Either bound reached makes the `Exploration` incomplete, and
    `Exploration.Status` says which; nothing is silently truncated. The default budget is
-   `DefaultExploreBudget`, 1024 runs and 64 choice points per run.
+   `DefaultExploreBudget`, 1024 runs and 64 choice points per run; a witness lists every choice
+   point its run met, so its length sizes `depth`.
 
 A fresh context per run is what makes replay sound: instances, identities, the message bus, the
 clock, object behaviors, calc memoization and the notes of one run cannot leak into the next.
@@ -184,7 +196,12 @@ Every element above has a test surface, documented for authors in
   without `outcomes` is not explored, on the expectation that it has one reachable outcome; when
   exploring it shows more, the fix is to derive its admissible set in the oracle and list it, not
   to pin the policy. A `schedule` pin of `reverse` says the case's result is one linearization,
-  kept only until its admissible set is derived or the bug it pins is fixed.
+  kept only until its admissible set is derived or the bug it pins is fixed. One case is pinned
+  the other way round: `state_do_action_loop_timed_exit` states the fixed policies' one result,
+  a whole `do` round then the dispatch, which `explore` and `check` — stepping the `do` flow one
+  token at a time and dispatching between tokens — do not yet reach; it gains `outcomes` when
+  that interleaving becomes a recorded choice
+  ([region-order scheduling](region-order-scheduling.md)).
 - `TestExecutionTrace` checks a case's `.trace.golden` under the default policy and, for a case
   with `outcomes`, a `<case>.<policy>.trace.golden` under each sweep policy; a `.trace.order`
   states the partial order — `a < b` per line — a trace must respect, checked beside the golden

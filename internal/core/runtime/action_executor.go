@@ -90,6 +90,9 @@ type ActionExecutor struct {
 	// moved is set once a token acted — a failed step included — or the body wrote a
 	// feature, and cleared when the start that attached the execution to its object settles.
 	moved bool
+	// leftStanding marks the body's latest one-token step as leaving a token able to
+	// act, one a sweep moving each token once would have moved after the one picked.
+	leftStanding bool
 	// awaiting is the subflow whose parked tokens a run waits on the clock for,
 	// nil for the action's own.
 	awaiting *actionFrame
@@ -214,7 +217,7 @@ func newActionExecutorOn(
 	self, occurrence *Instance,
 ) *ActionExecutor {
 	exec := &ActionExecutor{
-		performances: performances{ctx: ctx, self: self},
+		performances: performances{ctx: ctx, self: self, behavior: action},
 		action:       action,
 		performed:    performed,
 		tool:         tool,
@@ -2076,7 +2079,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 			}
 		}
 		if choice != nil {
-			e.ctx.noteChoice(*choice)
+			e.noteChoice(*choice)
 		}
 		e.move(token, successors[holding[pick]])
 		return nil
@@ -2215,6 +2218,10 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 			return nil
 		}
 		token.Wait = nil
+		if tr := e.trace(); tr != nil {
+			tr.RecordAccept(TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.action},
+				acceptedEventName(msg), msg.Payload)
+		}
 		if accept.ParamName != "" {
 			value, err := e.ctx.acceptedValue(&msg)
 			if err != nil {
@@ -2440,17 +2447,25 @@ func (e *ActionExecutor) armedWaits() []ClockWait {
 }
 
 // dueWork reports a token that can move at this instant (not parked nor paused on
-// the clock, due, or with a message in flight) in the flow awaiting the clock, else the action's.
+// the clock, not held at a join, due, or with a message in flight) in the flow
+// awaiting the clock, else the action's.
 func (e *ActionExecutor) dueWork() bool {
 	if e.released || (e.state != StateRunning && e.state != StateWaiting) {
 		return false
 	}
 	for _, token := range e.tokens {
-		if token.Wait == nil && !token.pausedOnClock() && token.inFlowOf(e.awaiting) {
+		if token.Wait == nil && !token.pausedOnClock() && !e.heldAtSync(token) && token.inFlowOf(e.awaiting) {
 			return true
 		}
 	}
 	return e.dueNow(e.awaiting)
+}
+
+// heldAtSync reports a token held at a synchronizing node for a succession into
+// it no token has arrived over yet: it cannot move until the arrival does.
+func (e *ActionExecutor) heldAtSync(t Token) bool {
+	consumed, held := e.arrivals(t)
+	return held && consumed == nil
 }
 
 // watchesChange reports a token parked at an `accept when`, which data written

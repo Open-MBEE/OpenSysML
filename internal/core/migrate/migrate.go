@@ -38,24 +38,48 @@ func Migrate(name string, data []byte) (*Result, error) {
 // FromModel migrates an already-read XMI model.
 func FromModel(name string, model *xmi.Model) *Result {
 	m := &migration{
-		model:    model,
-		report:   &Report{Source: name, Exporter: model.Exporter},
-		w:        &writer{},
-		names:    map[*xmi.Element]string{},
-		extras:   map[*xmi.Element][]func(){},
-		flows:    map[*xmi.Element][]*xmi.Element{},
-		outcomes: map[*xmi.Element]*flowOutcome{},
-		unplaced: map[*xmi.Element]*placement{},
-		taken:    map[*xmi.Element]map[string]bool{},
-		exposed:  map[*xmi.Element]string{},
+		model:     model,
+		report:    &Report{Source: name, Exporter: model.Exporter},
+		w:         &writer{},
+		names:     map[*xmi.Element]string{},
+		extras:    map[*xmi.Element][]func(){},
+		flows:     map[*xmi.Element][]*xmi.Element{},
+		outcomes:  map[*xmi.Element]*flowOutcome{},
+		unplaced:  map[*xmi.Element]*placement{},
+		taken:     map[*xmi.Element]map[string]bool{},
+		parallel:  map[*xmi.Element]string{},
+		exposed:   map[*xmi.Element]string{},
+		methodOf:  map[*xmi.Element]*xmi.Element{},
+		realizes:  map[*xmi.Element]*xmi.Element{},
+		opUsage:   map[*xmi.Element]string{},
+		deciding:  map[*xmi.Element]bool{},
+		bounded:   map[*xmi.Element][]*xmi.Element{},
+		triggered: map[*xmi.Element]bool{},
+		indexed:   map[string]int{},
 	}
 	m.prepare()
 	for _, root := range model.Roots {
 		m.root(root)
 	}
 	m.flushFlows()
+	m.unwrittenEvents()
 	m.extensions()
 	return &Result{Notation: []byte(m.w.String()), Report: m.report}
+}
+
+// unwrittenEvents reports the events whose triggers were never written: those
+// belong to behaviors that were not, or to initial transitions, which take none.
+func (m *migration) unwrittenEvents() {
+	var left []*xmi.Element
+	for ev := range m.triggered {
+		if !m.reported(ev) && !m.isLibrary(ev) {
+			left = append(left, ev)
+		}
+	}
+	sort.Slice(left, func(i, j int) bool { return left[i].ID < left[j].ID })
+	for _, ev := range left {
+		m.add(ev, Unmapped, "", "every trigger referring to the event is dropped: it belongs to a behavior that is not written, or to an initial transition")
+	}
 }
 
 // flowOutcome gathers what each realizing connector did for one item flow, so
@@ -106,23 +130,77 @@ type migration struct {
 	unplaced map[*xmi.Element]*placement
 	// taken holds synthesized names reserved in a body, by owner.
 	taken map[*xmi.Element]map[string]bool
+	// parallel names the parallel state each region of an orthogonal state is
+	// written in; a lone region is written inline and has no name of its own.
+	parallel map[*xmi.Element]string
 	// exposed notes, for each feature reached from outside its owner (through
 	// a connector path, a slot or a redefinition), what reaches it.
 	exposed map[*xmi.Element]string
 	// scope is the element whose body is being written; nil at the top level.
 	scope *xmi.Element
+	// methodOf maps each behavior that is the method of an operation to it.
+	methodOf map[*xmi.Element]*xmi.Element
+	// realizes maps a method's parameter to the operation's it stands for.
+	realizes map[*xmi.Element]*xmi.Element
+	// opUsage names, for each operation, the action usage of its owner that performs it.
+	opUsage map[*xmi.Element]string
+	// deciding holds each opaque behavior whose body is being checked for names
+	// it can see, which is written whichever declaration the check picks.
+	deciding map[*xmi.Element]bool
+	// bounded lists the duration constraints constraining each element.
+	bounded map[*xmi.Element][]*xmi.Element
+	// triggered holds each event some trigger refers to, which is reported where it is.
+	triggered map[*xmi.Element]bool
+	// bound gives, while a transition's effect is written, the expression over
+	// the accepted signal each of its parameters is bound to.
+	bound map[*xmi.Element]string
+	// indexed locates each element's report entry by id, so an element that
+	// several writers account for is reported once.
+	indexed map[string]int
 }
 
+// add records e's verdict. An element reported before keeps one entry: the
+// weaker verdict, the target that was written, and every distinct note.
 func (m *migration) add(e *xmi.Element, v Verdict, target, note string) {
-	if n, ok := m.names[e]; ok && e.Name != "" && n != e.Name {
+	if n, ok := m.names[e]; ok && e.Name != "" && n != e.Name && m.realizes[e] == nil {
 		if v == Mapped {
 			v = Approximated
 		}
 		note = joinNotes(note, "written as "+n+" since a sibling is also named "+e.Name)
 	}
+	if i, ok := m.indexed[e.ID]; ok && e.ID != "" {
+		en := &m.report.Entries[i]
+		if weaker(v, en.Verdict) {
+			en.Verdict = v
+		}
+		if en.Target == "" {
+			en.Target = target
+		}
+		if !strings.Contains(en.Note, note) {
+			en.Note = joinNotes(en.Note, note)
+		}
+		return
+	}
+	m.indexed[e.ID] = len(m.report.Entries)
 	m.report.Entries = append(m.report.Entries, Entry{
 		ID: e.ID, Kind: kindOf(e), Name: qualifiedName(e), Target: target, Verdict: v, Note: note,
 	})
+}
+
+// weaker reports whether verdict a says less was migrated than b.
+func weaker(a, b Verdict) bool {
+	rank := func(v Verdict) int {
+		switch v {
+		case Unmapped:
+			return 3
+		case Skipped:
+			return 2
+		case Approximated:
+			return 1
+		}
+		return 0
+	}
+	return rank(a) > rank(b)
 }
 
 // prepare walks the model once ahead of writing: it indexes the item flows
@@ -178,6 +256,19 @@ func (m *migration) prepare() {
 				}
 			}
 			m.placeDependency(e)
+		case "Operation":
+			if method := m.model.Ref(e, "method"); method != nil && method.Parent == e.Parent {
+				m.methodOf[method] = e
+				m.realizeParameters(e, method)
+			}
+		case "DurationConstraint":
+			for _, c := range m.model.Refs(e, "constrainedElement") {
+				m.bounded[c] = append(m.bounded[c], e)
+			}
+		case "Trigger":
+			if ev := m.model.Ref(e, "event"); ev != nil {
+				m.triggered[ev] = true
+			}
 		}
 		for _, c := range e.Children {
 			walk(c)
@@ -241,9 +332,9 @@ func (m *migration) hasFeature(c, f *xmi.Element) bool {
 // value type beside a block) has no feature to redefine.
 func (m *migration) slotClassifier(e, f *xmi.Element) *xmi.Element {
 	occurrences, values, _ := m.instanceClassifiers(e)
-	classifiers := occurrences
-	if len(occurrences) == 0 {
-		classifiers = values
+	classifiers := values
+	if len(occurrences) > 0 {
+		_, classifiers, _ = m.individualClassifiers(e)
 	}
 	for _, c := range classifiers {
 		if m.hasFeature(c, f) {
@@ -257,8 +348,8 @@ func (m *migration) slotClassifier(e, f *xmi.Element) *xmi.Element {
 // v2 members of one namespace must be distinct while UML allows the clash.
 func (m *migration) distinguish(e *xmi.Element) {
 	seen := map[string]bool{}
-	for _, c := range e.Children {
-		if c.Name == "" || ownerWritten(c.Role) {
+	for _, c := range namespaceMembers(e) {
+		if c.Name == "" {
 			continue
 		}
 		if !seen[c.Name] {
@@ -274,13 +365,38 @@ func (m *migration) distinguish(e *xmi.Element) {
 	}
 }
 
+// namespaceMembers lists the children of e written as members of its v2 body: its
+// own, and the named vertices of its one region, which v2 puts beside them.
+func namespaceMembers(e *xmi.Element) []*xmi.Element {
+	var members []*xmi.Element
+	inline := len(e.Owned("region")) == 1
+	for _, c := range e.Children {
+		switch {
+		case c.Role == "region":
+			if !inline {
+				continue
+			}
+			for _, v := range c.Owned("subvertex") {
+				if v.Type == "State" || pseudoKind(v) == "choice" || pseudoKind(v) == "junction" {
+					members = append(members, v)
+				}
+			}
+			members = append(members, c.Owned("transition")...)
+		case !ownerWritten(c.Role):
+			members = append(members, c)
+		}
+	}
+	return members
+}
+
 // ownerWritten reports whether a child in role is written by its owner rather
-// than as a member of its body.
+// than as a member of its body; an action's pins are, and it names them apart.
 func ownerWritten(role string) bool {
 	switch role {
 	case "ownedComment", "generalization", "lowerValue", "upperValue", "defaultValue",
 		"end", "specification", "type", "general", "annotatedElement", "body", "language",
-		"ownedEnd", "memberEnd", "value", "slot", "ownedLiteral", "ownedParameter", "region":
+		"ownedEnd", "memberEnd", "value", "slot", "ownedLiteral", "ownedParameter", "region",
+		"argument", "result", "inputValue", "outputValue", "object", "target", "insertAt", "removeAt":
 		return true
 	}
 	return false
@@ -330,8 +446,12 @@ func (m *migration) member(e *xmi.Element) {
 	case "ownedRule":
 		m.rule(e)
 		return
-	case "ownedOperation", "ownedReception":
-		m.unmapped(e, "operations and receptions are not migrated; v2 has no operation")
+	case "ownedReception":
+		m.reception(e)
+		return
+	}
+	if op := m.methodOf[e]; op != nil {
+		m.methodBehavior(e, op)
 		return
 	}
 	switch e.Type {
@@ -344,6 +464,9 @@ func (m *migration) member(e *xmi.Element) {
 	case "Comment":
 		// A comment in a non-ownedComment role is still a comment.
 		m.comment(e)
+		return
+	case "SignalEvent", "TimeEvent", "ChangeEvent", "CallEvent", "AnyReceiveEvent":
+		m.event(e)
 		return
 	}
 	m.classifier(e)
@@ -403,7 +526,7 @@ func (m *migration) classifier(e *xmi.Element) {
 		verdict = Approximated
 	}
 	var header strings.Builder
-	if e.Attrs["isAbstract"] == "true" && cat != catValue {
+	if (e.Attrs["isAbstract"] == "true" && cat != catValue) || m.abstractOperation(e) {
 		header.WriteString("abstract ")
 	}
 	if cat == catIndividualDef {
@@ -462,8 +585,16 @@ func (m *migration) classifier(e *xmi.Element) {
 		})
 		return
 	}
+	if behaviorCategory(cat) {
+		m.w.block(header.String(), func() { m.behaviorBody(e, cat) })
+		if e.Type == "Operation" {
+			m.operationFeature(e)
+		}
+		return
+	}
 	m.w.block(header.String(), func() {
 		m.body(e)
+		m.classifierBehavior(e)
 		m.stereotypeComments(e)
 	})
 }
@@ -537,16 +668,16 @@ func (m *migration) dangling(e *xmi.Element, roles ...string) string {
 
 // downgrade marks e's report entry approximated with a further note.
 func (m *migration) downgrade(e *xmi.Element, note string) {
-	for i := len(m.report.Entries) - 1; i >= 0; i-- {
-		en := &m.report.Entries[i]
-		if en.ID != e.ID {
-			continue
-		}
-		if en.Verdict == Mapped {
-			en.Verdict = Approximated
-		}
-		en.Note = joinNotes(en.Note, note)
+	i, ok := m.indexed[e.ID]
+	if !ok {
 		return
+	}
+	en := &m.report.Entries[i]
+	if en.Verdict == Mapped {
+		en.Verdict = Approximated
+	}
+	if !strings.Contains(en.Note, note) {
+		en.Note = joinNotes(en.Note, note)
 	}
 }
 
@@ -719,7 +850,7 @@ func (m *migration) valueSlot(e, slot, f *xmi.Element, dir string) ([]string, st
 		}
 	}
 	if conflict := m.slotConflict(f, vals); conflict != "" {
-		return nil, conflict + "; its values are " + strings.Join(vals, ", "), false
+		return nil, conflict + valuesNote(vals), false
 	}
 	value := ""
 	switch len(vals) {
@@ -766,7 +897,7 @@ func (m *migration) instanceSlot(e, slot, f *xmi.Element, kw, prefix string) ([]
 		refs = append(refs, m.ref(inst, e))
 	}
 	if conflict := m.slotConflict(f, refs); conflict != "" {
-		return nil, conflict + "; its values are " + strings.Join(refs, ", "), false
+		return nil, conflict + valuesNote(refs), false
 	}
 	name := writeName(m.nameFor(f))
 	lower, upper, ok := bounds(f)
@@ -815,13 +946,21 @@ func (m *migration) instanceOf(classifiers []*xmi.Element, t *xmi.Element) bool 
 func (m *migration) slotConflict(f *xmi.Element, vals []string) string {
 	n := len(vals)
 	lower, upper, ok := bounds(f)
-	if ok && n > 0 && (n < lower || (upper >= 0 && n > upper)) {
+	if ok && (n < lower || (upper >= 0 && n > upper)) {
 		return fmt.Sprintf("the slot holds %d value(s) for a feature of multiplicity %s", n, boundsText(lower, upper))
 	}
 	if dup := repeated(vals); dup != "" && f.Attrs["isUnique"] != "false" {
 		return "the slot repeats the value " + dup + " on a unique feature"
 	}
 	return ""
+}
+
+// valuesNote lists a slot's values after a conflict note; nothing for none.
+func valuesNote(vals []string) string {
+	if len(vals) == 0 {
+		return ""
+	}
+	return "; its values are " + strings.Join(vals, ", ")
 }
 
 // bounds returns a property's multiplicity as numbers, upper -1 for unbounded;
@@ -1019,6 +1158,10 @@ func (m *migration) featureKeyword(p *xmi.Element, owner category) (keyword, pre
 			return "part", "ref ", joinNotes(note, "shared aggregation is written as a reference part")
 		}
 		return "part", "ref ", note
+	case "action", "state", "calc":
+		// A property typed by a behavior holds a performance; only a perform
+		// or exhibit usage runs one, so the property is a reference.
+		return kw, "ref ", joinNotes(note, "a property typed by a behavior is written as a reference "+kw+" usage")
 	}
 	return kw, "", note
 }
@@ -1042,6 +1185,12 @@ func (m *migration) typeKeyword(t *xmi.Element) (keyword, note string) {
 		return "port", "a property typed by an interface block is written as a port"
 	case catRequirementDef:
 		return "requirement", ""
+	case catActionDef:
+		return "action", ""
+	case catStateDef:
+		return "state", ""
+	case catCalcDef:
+		return "calc", ""
 	case catNone, catLibrary:
 		return "attribute", "typed by library element " + t.Name + " with no known v2 counterpart"
 	case catUnmapped:
@@ -1313,11 +1462,39 @@ func (m *migration) written(e *xmi.Element) bool {
 	switch e.Type {
 	case "Property", "Port", "EnumerationLiteral":
 		return m.written(e.Parent)
+	case "Parameter":
+		p := e.Parent
+		if p == nil || (p.Type != "Operation" && !isBehavior(p)) {
+			return false
+		}
+		return m.written(p) || inlinedBehavior(p) && hasActionForm(p)
 	case "Association":
 		return e.Name != ""
 	}
+	if op := m.methodOf[e]; op != nil {
+		return m.written(op)
+	}
+	if inlinedBehavior(e) {
+		return false
+	}
 	cat, _ := m.classify(e)
 	return cat.keyword() != ""
+}
+
+// inlinedBehavior reports whether e is a behavior a state or transition owns, written
+// as its owner's entry, do, exit or effect action, which nothing else can name.
+func inlinedBehavior(e *xmi.Element) bool {
+	return isBehavior(e) && e.Parent != nil && (e.Parent.Type == "State" || e.Parent.Type == "Transition")
+}
+
+// hasActionForm reports whether behavior b is written inline as an action
+// body, parameters included, when a state or transition owns it.
+func hasActionForm(b *xmi.Element) bool {
+	switch b.Type {
+	case "Activity", "OpaqueBehavior", "FunctionBehavior":
+		return true
+	}
+	return false
 }
 
 // featureRef writes a reference to a property from a feature that redefines or
@@ -1327,6 +1504,32 @@ func (m *migration) featureRef(r *xmi.Element) string {
 		return writeName(m.nameOf(r))
 	}
 	return m.ref(r, m.scope)
+}
+
+// conform reports whether types a and b may be bound as v2 judges a binding: one
+// specializes the other, or both are numbers; an unknown type is trusted.
+func (m *migration) conform(a, b *xmi.Element) bool {
+	if a == nil || b == nil || a == b || m.inherits(a, b) || m.inherits(b, a) {
+		return true
+	}
+	sa, sb := m.scalarBase(a), m.scalarBase(b)
+	switch {
+	case sa != "" && sb != "":
+		return sa == sb || (numericScalar[sa] && numericScalar[sb])
+	case sa != "" || sb != "":
+		other := b
+		if sb != "" {
+			other = a
+		}
+		return !m.structuredValueType(other) && !m.written(other)
+	}
+	return !m.written(a) || !m.written(b)
+}
+
+// numericScalar lists the ScalarValues types that specialize Number, which
+// conform to one another for a binding as far as migration can tell.
+var numericScalar = map[string]bool{
+	"Natural": true, "Integer": true, "Rational": true, "Real": true, "Complex": true, "Number": true,
 }
 
 // inherits reports whether classifier e specializes general, transitively.
@@ -1347,6 +1550,38 @@ func (m *migration) inherits(e, general *xmi.Element) bool {
 		return false
 	}
 	return walk(e)
+}
+
+// signalAttributes lists the attributes a signal's constructor binds by position:
+// its own, then the inherited ones no attribute nearer the signal redefines or shadows.
+func (m *migration) signalAttributes(sig *xmi.Element) []*xmi.Element {
+	var attrs []*xmi.Element
+	seen := map[*xmi.Element]bool{}
+	redefined := map[*xmi.Element]bool{}
+	names := map[string]bool{}
+	var walk func(*xmi.Element)
+	walk = func(c *xmi.Element) {
+		if c == nil || seen[c] {
+			return
+		}
+		seen[c] = true
+		for _, p := range c.Owned("ownedAttribute") {
+			name := m.nameOf(p)
+			if redefined[p] || name != "" && names[name] {
+				continue
+			}
+			attrs = append(attrs, p)
+			names[name] = true
+			for _, r := range m.model.Refs(p, "redefinedProperty") {
+				redefined[r] = true
+			}
+		}
+		for _, g := range c.Owned("generalization") {
+			walk(m.model.Ref(g, "general"))
+		}
+	}
+	walk(sig)
+	return attrs
 }
 
 // typeRef writes the type of a feature: a ScalarValues type, a reference to a

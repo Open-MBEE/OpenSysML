@@ -613,8 +613,9 @@ func TestSelfModelQuestionFlowFollowsDispatcher(t *testing.T) {
 // on the way down, queues the next alternative of every choice it owns and no
 // more — up to the runs left, the plan never outgrowing the run budget, the
 // rest dropped and the runs bound hit — and the next run takes the prefix
-// queued deepest, so the queue always drains, and a finite choice tree within
-// the bounds proves while a tree either bound cut observes. The choice tree
+// queued first, every departure from the first run before any second one, so
+// the queue always drains, and a finite choice tree within the bounds proves
+// while a tree either bound cut observes. The choice tree
 // is a chain, each choice below alternative `below` of the one above: 1 has
 // the first run meet them all, 2 has each run meet one. The prefix in hand
 // when the exploration ends is the last run's: the choice it ended at and the
@@ -631,16 +632,16 @@ func TestSelfModelExplorationFlowDrainsQueue(t *testing.T) {
 		{"one schedule", nil, 1, 0, 0, false, false},
 		{"one binary choice, then leaves", map[string]string{"runsLeft": "3", "choicesAhead": "1"}, 2, 1, 2, false, false},
 		{"one choice of four, then leaves", map[string]string{"runsLeft": "8", "choicesAhead": "1", "alternatives": "4"}, 4, 1, 4, false, false},
-		{"two binary choices met by the first run", map[string]string{"runsLeft": "8", "choicesAhead": "2"}, 3, 1, 2, false, false},
-		{"two choices of three met by the first run", map[string]string{"runsLeft": "8", "choicesAhead": "2", "alternatives": "3"}, 5, 1, 3, false, false},
+		{"two binary choices met by the first run", map[string]string{"runsLeft": "8", "choicesAhead": "2"}, 3, 2, 2, false, false},
+		{"two choices of three met by the first run", map[string]string{"runsLeft": "8", "choicesAhead": "2", "alternatives": "3"}, 5, 2, 3, false, false},
 		{"a choice below the alternative a choice left", map[string]string{"runsLeft": "8", "choicesAhead": "2", "below": "2"}, 3, 2, 2, false, false},
 		{"a choice below the last alternative of a choice of three", map[string]string{"runsLeft": "8", "choicesAhead": "2", "alternatives": "3", "below": "3"}, 5, 2, 3, false, false},
-		{"three choices of three, each below the second alternative of the one above", map[string]string{"runsLeft": "64", "choicesAhead": "3", "alternatives": "3", "below": "2"}, 7, 1, 3, false, false},
+		{"three choices of three, each below the second alternative of the one above", map[string]string{"runsLeft": "64", "choicesAhead": "3", "alternatives": "3", "below": "2"}, 7, 3, 3, false, false},
 		{"three alternatives under a budget of three runs, exactly", map[string]string{"runsLeft": "3", "choicesAhead": "1", "alternatives": "3"}, 3, 1, 3, false, false},
 		{"three alternatives under a budget of two runs", map[string]string{"runsLeft": "2", "choicesAhead": "1", "alternatives": "3"}, 2, 1, 2, true, false},
 		{"four alternatives under a budget of three runs", map[string]string{"runsLeft": "3", "choicesAhead": "1", "alternatives": "4"}, 3, 1, 3, true, false},
-		{"two choices of three met by the first run under a budget of three runs", map[string]string{"runsLeft": "3", "choicesAhead": "2", "alternatives": "3"}, 3, 2, 3, true, false},
-		{"three choices of three, each below the second alternative, under a budget of three runs", map[string]string{"runsLeft": "3", "choicesAhead": "3", "alternatives": "3", "below": "2"}, 3, 2, 2, true, false},
+		{"two choices of three met by the first run under a budget of three runs", map[string]string{"runsLeft": "3", "choicesAhead": "2", "alternatives": "3"}, 3, 2, 2, true, false},
+		{"three choices of three, each below the second alternative, under a budget of three runs", map[string]string{"runsLeft": "3", "choicesAhead": "3", "alternatives": "3", "below": "2"}, 3, 1, 3, true, false},
 		{"two choices met by the first run under a depth bound of one", map[string]string{"runsLeft": "8", "choicesAhead": "2", "depth": "1"}, 2, 1, 2, false, true},
 		{"a choice below the second alternative of another under a depth bound of one", map[string]string{"runsLeft": "8", "choicesAhead": "2", "below": "2", "depth": "1"}, 2, 1, 2, false, true},
 		{"a choice of three below the second alternative of another under a depth bound of one", map[string]string{"runsLeft": "8", "choicesAhead": "2", "alternatives": "3", "below": "2", "depth": "1"}, 3, 1, 3, false, true},

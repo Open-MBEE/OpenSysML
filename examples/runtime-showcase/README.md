@@ -394,8 +394,8 @@ the spacecraft's, and `-advance` runs the one clock both parts share:
   Current state: transmitted | notRecharging
   Last event at: 241.0
   Remaining events: 0
-  500 choice points; %trace on to see them
-  Do behavior actions run: 405
+  592 choice points; %trace on to see them
+  Do behavior actions run: 808
   standing: value (observed: 1 run under reverse)
 ```
 
@@ -413,11 +413,11 @@ printf '%s\n' \
   '%state SpacecraftComms::mission.spacecraftVehicle' \
   '%advance 40' \
   '%eval in SpacecraftComms::mission.spacecraftVehicle : battery' \
-  '%advance 39' \
+  '%advance 40' \
   '%eval in SpacecraftComms::mission.spacecraftVehicle : data' \
   '%eval in SpacecraftComms::mission.groundStation : framesReceived' \
-  '%advance 41' \
-  '%advance 180' \
+  '%advance 42' \
+  '%advance 178' \
   '%current' \
   | ./bin/sysml -quiet examples/runtime-showcase/spacecraft-comms.sysml
 ```
@@ -429,18 +429,18 @@ printf '%s\n' \
   (…)
 ✓ battery (on SpacecraftComms::mission.spacecraftVehicle ID: 4)
   = 80
-✓ Advanced to 79.0 (41 event(s) processed)
+✓ Advanced to 80.0 (42 event(s) processed)
   Current state: lowPower | recharging
-  Last event at: 79.0
+  Last event at: 80.0
   (…)
 ✓ data (on SpacecraftComms::mission.spacecraftVehicle ID: 4)
-  = 52224
+  = 51200
 ✓ framesReceived (on SpacecraftComms::mission.groundStation ID: 2)
-  = 49
-✓ Advanced to 120.0 (1 event(s) processed)
+  = 50
+✓ Advanced to 122.0 (1 event(s) processed)
   Current state: transmitting | recharging
   (…)
-✓ Advanced to 300.0 (55 event(s) processed)
+✓ Advanced to 300.0 (54 event(s) processed)
   Current state: transmitted | notRecharging
   Last event at: 241.0
   (…)
@@ -453,54 +453,89 @@ Cannot progress: waiting on change condition: notRecharging: accept when (condit
 
 The ping crosses the link at t=30; ten frames later the battery is at 80 and
 the charging region wakes, so from here the battery loses a net 1 % a second;
-at t=79 the drain takes it under 40, `BatteryLow` interrupts the transmission
-with 49 frames counted at the station and 52 224 bytes left to send; charging
-alone, the battery passes 80 at t=120 and the change trigger restarts the
-transmission. The same cycle repeats once more — interrupted at t=162 with 91
-frames sent, resumed at t=204 — the last frame lands at t=213 and the battery
+at t=80 the drain takes it under 40, `BatteryLow` interrupts the transmission
+with 50 frames counted at the station and 51 200 bytes left to send; charging
+alone, the battery passes 80 at t=122 and the change trigger restarts the
+transmission. The same cycle repeats once more — interrupted at t=164 with 92
+frames sent, resumed at t=206 — the last frame lands at t=214 and the battery
 is full at t=241. The `Suspended` at the end is the machine's honest
 description of itself: `notRecharging` has a change trigger whose condition,
 `battery < 80`, is false, and nothing on the clock will make it true again.
 
 `-schedule` decides what the runtime does when several things fall due at the
-same instant, and this model has such instants. At t=79 three one-second timers
-expire together: the drain, the frame send and the charge. The drain runs and
-then asks `battery >= lowLevel`; whether the charge has already added its 1 %
-when it asks is the schedule's choice. Under `reverse` (the default) and
-`declared` it has not, the battery reads 39, and `BatteryLow` goes out at t=79
-with 49 frames sent. Under `seed:7` or `seed:42` it has, the battery reads 40,
-and the interruption comes a second later, at t=80, with 50 frames sent and the
-battery at 39 instead of 41:
+same instant, and this model has such instants: from t=42 on, three one-second
+timers expire together every second — the drain, the frame send and the charge
+— and every round both regions' do behaviors are due is a choice point, which
+the summary counts. A do behavior's flow advances one step a round, so in the round
+the timers expire the drain and the charge each run, in the order the schedule
+picks, and the drain's branch asks `battery >= lowLevel` only in the round
+after, when the charge's 1 % is in whichever way the round went: at t=79 the
+battery reads 40 and the transmission goes on, at t=80 it reads 39 and
+`BatteryLow` goes out. `reverse` (the default), `declared`, `seed:7` and
+`seed:42` all pass these checkpoints, and the `standing` line records which
+policy a run was observed under. What the model pins down is the end: every
+schedule reaches `transmitted | notRecharging` at t=241 with 100 frames
+received and the battery at 100.
+
+The two engines that run every schedule step finer than a round — one token of
+a `do` body at a time, the machine free to dispatch between two tokens — and so
+find a fork the fixed policies never take: at t=79 the order of the two regions'
+`do` rounds, which changes nothing under a whole-round policy, decides how many
+frames leave before `BatteryLow` interrupts. `-engine check` searches the choices
+exhaustively up to t=80 and tables the divergence — the battery ends as 39 or
+41, the data left as 52 224 or 53 248 bytes — with one witness per value, and
+`-check-witness <dir>` writes each to a file that `-schedule replay:<file>` runs
+again to the same values ([Checking every
+schedule](../../docs/reference/cli.md#checking-every-schedule-of-an-action-or-a-state-machine)).
+The fixed policies' own run — the whole round, then the dispatch, 39 with 51 200
+bytes left — is an interleaving neither engine enumerates yet; the guide states
+the limit ([a do behavior under `explore` and
+`check`](../../docs/guide/06-behavior.md#a-do-behavior-under-explore-and-check)):
 
 ```bash
-printf '%s\n' \
-  '%schedule seed:7' \
-  '%instantiate SpacecraftComms::mission' \
-  '%state SpacecraftComms::mission.spacecraftVehicle' \
-  '%advance 80' \
-  '%eval in SpacecraftComms::mission.groundStation : framesReceived' \
-  '%eval in SpacecraftComms::mission.spacecraftVehicle : battery' \
-  | ./bin/sysml -quiet examples/runtime-showcase/spacecraft-comms.sysml
+./bin/sysml -engine check -check-witness witnesses -instantiate SpacecraftComms::mission \
+  -state "SpacecraftComms::SpacecraftVehicle::modes SpacecraftComms::mission.spacecraftVehicle" \
+  -advance 80 examples/runtime-showcase/spacecraft-comms.sysml
 ```
 
 ```
-✓ Advanced to 80.0 (54 event(s) processed)
-  Current state: lowPower | recharging
-  Last event at: 80.0
+✗ State machine SpacecraftComms::SpacecraftVehicle::modes: divergent up to t=80.0 (421 states, 499 moves, depth 334)
+  divergent: this.battery ends as 39 or 41
+  divergent: this.data ends as 52224 or 53248
   (…)
-✓ framesReceived (on SpacecraftComms::mission.groundStation ID: 2)
-  = 50
-✓ battery (on SpacecraftComms::mission.spacecraftVehicle ID: 4)
-  = 39
 ```
 
-Both are correct runs of the model: it says nothing about which of three
-simultaneous timers fires first, so the runtime is free to pick, and the
-`standing` line records which policy it picked under. What the model does pin
-down is the end: every one of these schedules reaches
-`transmitted | notRecharging` at t=241 with 100 frames received and the battery
-at 100. The values along the way are a property of one schedule; the
-destination is a property of the model.
+`-schedule explore` samples the same choices one whole run at a time, and its
+budget has to fit this model: a run to t=80 meets 277 choice points — which
+token acts, at every step of the looping `do` bodies where two are able to, and
+which region's `do round` goes first, every second `transmitting` and
+`recharging` fall due together — so the default depth of 64 leaves the round at
+t=79 past the budget, taking its first alternative in every run, and
+`explore:runs=300` alone tables one outcome. Every choice point a run
+met is listed in its witness, which sizes the depth; within it, the runs vary
+each choice point of the first run once, earliest first, so one more run than
+the first run's choice points reaches every alternative of the round at t=79:
+
+```bash
+./bin/sysml -schedule explore:runs=300,depth=512 -instantiate SpacecraftComms::mission \
+  -state "SpacecraftComms::SpacecraftVehicle::modes SpacecraftComms::mission.spacecraftVehicle" \
+  -advance 80 examples/runtime-showcase/spacecraft-comms.sysml
+```
+
+```
+? explored SpacecraftComms::SpacecraftVehicle::modes: 2 outcomes
+outcome                                                           | linearizations | witness
+------------------------------------------------------------------+----------------+---------
+finalState recharging+lowPower; (…) this.battery = 39; (…) this.data = 52224; (…) | 4   | (…) do round at t=79.0: recharging first of transmitting, recharging; (…)
+finalState recharging+lowPower; (…) this.battery = 41; (…) this.data = 53248; (…) | 296 | (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
+incomplete: runs budget 300 hit after 300 runs
+```
+
+The second row is the first run and the 295 that vary a choice the outcome
+does not turn on; the first is the run that let `recharging` go first at t=79
+and three more that vary a choice to the same end. `incomplete` is honest: 300
+runs do not exhaust the orders of 277 choices, and the table is the same at any
+`-jobs`.
 
 ## Apollo 11
 

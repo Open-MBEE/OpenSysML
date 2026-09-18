@@ -1,0 +1,16 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "trace": true,
+  "instantiate": "test::Station",
+  "objects": [
+    {
+      "finalState": "pointed",
+      "stateVisits": ["observing", "pointed"],
+      "slots": {
+        "tel.azimuth": {"type": "Real", "value": 45.0},
+        "azimuth": {"type": "Real", "value": 90.0}
+      }
+    }
+  ]
+}

@@ -24,6 +24,12 @@ const (
 	catIndividualDef
 	catVerificationDef
 	catItemDef
+	// catActionDef is a behavior with a v2 action form: an activity, an
+	// operation, or an interaction whose messages are signal sends.
+	catActionDef
+	// catCalcDef is an opaque or function behavior computing a result.
+	catCalcDef
+	catStateDef
 	// catValue is an instance of a value type: an attribute usage holding its
 	// slot values, since an individual cannot specialize an attribute def.
 	catValue
@@ -58,6 +64,12 @@ func (c category) keyword() string {
 		return "verification def"
 	case catItemDef:
 		return "item def"
+	case catActionDef:
+		return "action def"
+	case catCalcDef:
+		return "calc def"
+	case catStateDef:
+		return "state def"
 	case catValue:
 		return "attribute"
 	}
@@ -434,7 +446,11 @@ func (m *migration) classify(e *xmi.Element) (category, string) {
 		if has(e, "TestCase") {
 			return catVerificationDef, "the test case's behavior is not migrated; only its verified requirements are"
 		}
-		return catUnmapped, "behaviors are not migrated yet"
+		return m.classifyBehavior(e)
+	case "Operation":
+		return catActionDef, ""
+	case "Reception":
+		return catUnmapped, "a reception names the signal its owner accepts, which the owner's behaviors carry as accept"
 	case "UseCase":
 		return catUnmapped, "use cases are not migrated yet"
 	case "Collaboration", "Node", "Device", "ExecutionEnvironment", "Artifact":

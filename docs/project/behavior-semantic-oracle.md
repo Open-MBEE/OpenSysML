@@ -365,6 +365,35 @@ run before `right`, and the exploration would have reported two outcomes complet
 in one order or the other, before `left2` can run, so `declared` (and `seed:1`) give `x = 2, y = 2`
 and `reverse` gives `x = 1, y = 1`.
 
+### Two writers of one feature before a long tail of closed choices: two values
+
+Fixture: `action_explore_early_race_long_tail` (explored, checked).
+
+```
+start → split ⇉ a { x := 1 } → p1 { p := 1 } → p2 { p := 2 } ─┐
+              ⇉ b { x := 2 } → q1 { q := 1 } → q2 { q := 2 } ─┤→ sync → done
+```
+
+Derived constraints:
+
+- `a` and `b` are each performed exactly once (ForkAction) and `sync` follows both branches
+  (JoinAction), so `x` is `1` or `2`, never `0`, at the end.
+- `p1` HappensBefore `p2` and `q1` HappensBefore `q2`, each branch writing its own feature, so
+  `p` and `q` both end `2` whatever the interleaving.
+
+Open: the order of `a` against `b`, and the interleaving of the two branches — the library links
+neither. The last write of `x` stands, so the two orders of the writes are two outcomes; the
+`C(6, 3) = 20` interleavings of the branches split ten and ten by which write comes last, so the
+twenty linearizations reach exactly two outcomes, `{x = 1, x = 2}`, ten each.
+
+Pinned outcome: that admissible set, stated as `outcomes` citing this section, and a `check`
+divergent over `x` alone. The case is what distinguishes an exploration's plan order: a run meets
+the one open choice first and closed ones after it, so a walk taking the deepest untried
+alternative first spends the ten orders under one write order before it varies the write order,
+and a budget under eleven runs tables one value; a walk varying every choice of the first run
+once before any twice tables both by the second run. `TestExploreVariesEveryChoiceOfTheFirstRunFirst`
+pins that order; the harness explores the case to its complete table of two.
+
 ### A performed action and a sibling accept due at one instant: which resumes first is open
 
 Fixture: `action_explore_performed_and_accept_due_together` (golden, explored).
@@ -983,7 +1012,8 @@ A completion event precedes both, never drawn.
 
 ### Do behaviors of sibling regions active at one instant: each proceeds, in which order is open
 
-Fixtures: `state_concurrent_do` (golden, explored), `state_concurrent_do_action_bodies_timed`
+Fixtures: `state_concurrent_do` (golden, explored), `state_anonymous_do_atomic` (golden, explored),
+`state_concurrent_inline_do_bodies` (golden, explored), `state_concurrent_do_action_bodies_timed`
 (golden, explored).
 
 ```
@@ -1014,7 +1044,13 @@ this section. The order is a choice point under every policy, reported as `choic
 t=0.0: states lwork, rwork react (unordered; took lwork first)`: `declared` and `reverse` take the
 order the states were entered in — a tool-defined order — and the default golden pins that
 linearization (`124356`); `seed:<n>` draws the order; `explore` varies it and must reach all four
-values and no other. `state_concurrent_do_action_bodies_timed` is the shape with action bodies
+values and no other. `state_anonymous_do_atomic` is the same machine with each body written as one
+inline action, `do action { … }`, of three statements: an inline body yields after each statement,
+so it interleaves as the one-action-per-statement form does and reaches the same four values, not
+`123456`. `state_concurrent_inline_do_bodies` writes the left body as a `for` loop over 1..2 followed
+by a statement and the right one as a statement followed by an `if` block of two: an iteration and a
+statement of a nested block are each one step, so the same four values and no other are reached.
+`state_concurrent_do_action_bodies_timed` is the shape with action bodies
 that wait on the clock: both behaviors pause at an `accept after 2 [s]` and are due again in the
 round at `t=2.0`, where the order of the two counts is open (`1324` entering order, `3124` the
 other), while the counts at `t=4.0` and `t=5.0` are alone in their rounds.

@@ -1980,7 +1980,7 @@ pub struct DocumentValue {
     /// Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
     #[prost(string, tag="7")]
     pub element_type: ::prost::alloc::string::String,
-    #[prost(oneof="document_value::Kind", tags="1, 2, 3, 4, 5, 6, 8, 9, 10")]
+    #[prost(oneof="document_value::Kind", tags="1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12")]
     pub kind: ::core::option::Option<document_value::Kind>,
 }
 /// Nested message and enum types in `DocumentValue`.
@@ -2009,6 +2009,12 @@ pub mod document_value {
         /// an object Instantiate created; bound and answered
         #[prost(message, tag="10")]
         Object(::prost::alloc::boxed::Box<super::DocumentObject>),
+        /// a row States answered; answered, never bound
+        #[prost(message, tag="11")]
+        State(::prost::alloc::boxed::Box<super::DocumentState>),
+        /// a row Events answered; answered, never bound
+        #[prost(message, tag="12")]
+        Event(::prost::alloc::boxed::Box<super::DocumentEvent>),
     }
 }
 /// DocumentObject is an object the service holds for the model, created by
@@ -2070,6 +2076,81 @@ pub struct DocumentVerdict {
     #[prost(string, repeated, tag="8")]
     pub verification: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
+/// DocumentState is one row a `States` query answered: an active leaf state of
+/// the state machine `object` exhibits, which the row stands for as its `element`
+/// when the model declares it.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DocumentState {
+    /// The object in the state, with the path the session reaches it by.
+    #[prost(message, optional, boxed, tag="1")]
+    pub object: ::core::option::Option<::prost::alloc::boxed::Box<DocumentObject>>,
+    /// The state machine, by the name the object exhibits it under (`lp`), else
+    /// its declared name.
+    #[prost(string, tag="2")]
+    pub machine: ::prost::alloc::string::String,
+    /// The leaf state's name.
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    /// The leaf state's path in its machine, composite states first (`on.dim`).
+    #[prost(string, tag="4")]
+    pub state_path: ::prost::alloc::string::String,
+    /// The leaf state's declaration as an element value; empty when the machine
+    /// declares no element for it.
+    #[prost(message, optional, boxed, tag="5")]
+    pub state: ::core::option::Option<::prost::alloc::boxed::Box<DocumentValue>>,
+    /// The orthogonal region the leaf is declared in; empty outside one.
+    #[prost(string, tag="6")]
+    pub region: ::prost::alloc::string::String,
+    /// The composite states enclosing the leaf, outermost first; each is active.
+    #[prost(string, repeated, tag="7")]
+    pub enclosing: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// DocumentEvent is one row an `Events` query answered: one record of the
+/// session's trace, in the order the run made it.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DocumentEvent {
+    /// "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    /// The clock's instant when the record was made: a quantity in the clock's
+    /// unit when the library reduces one, else a bare real of clock units.
+    #[prost(message, optional, boxed, tag="2")]
+    pub time: ::core::option::Option<::prost::alloc::boxed::Box<DocumentValue>>,
+    /// The object whose behavior made the record; unset for the run's own
+    /// records (a due-order choice, a message posted from outside the model).
+    #[prost(message, optional, boxed, tag="3")]
+    pub object: ::core::option::Option<::prost::alloc::boxed::Box<DocumentObject>>,
+    /// The behavior the record is about, by the name the object exhibits it
+    /// under, else its declared name; empty for the run's own records.
+    #[prost(string, tag="4")]
+    pub machine: ::prost::alloc::string::String,
+    /// The state entered, exited or stepped by an entry, exit or do record.
+    #[prost(string, tag="5")]
+    pub state: ::prost::alloc::string::String,
+    /// A fired transition's source and target states.
+    #[prost(string, tag="6")]
+    pub from: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub to: ::prost::alloc::string::String,
+    /// The object a send was addressed to; unset for every other kind and a
+    /// send addressed to no object.
+    #[prost(message, optional, boxed, tag="8")]
+    pub target: ::core::option::Option<::prost::alloc::boxed::Box<DocumentObject>>,
+    /// The signal or event accepted or sent, or the trigger a transition fired on.
+    #[prost(string, tag="9")]
+    pub event: ::prost::alloc::string::String,
+    /// An accept's payload, one `name = value` entry per parameter in name order.
+    #[prost(string, repeated, tag="10")]
+    pub payload: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// A choice's alternatives, in the order they were offered, and the one taken.
+    #[prost(string, repeated, tag="11")]
+    pub alternatives: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag="12")]
+    pub taken: ::prost::alloc::string::String,
+    /// The line the trace prints for the record.
+    #[prost(string, tag="13")]
+    pub text: ::prost::alloc::string::String,
+}
 /// DocumentQueryColumn is one projected property, in projection order.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct DocumentQueryColumn {
@@ -2088,7 +2169,8 @@ pub struct DocumentQueryCell {
 pub struct DocumentQueryRow {
     /// The selected element itself, an element value with its qualified name; an
     /// object value for a row over an object the service holds; a verdict value
-    /// for a row `Verdicts` answered.
+    /// for a row `Verdicts` answered; a state value for a row `States` answered;
+    /// an event value for a row `Events` answered.
     #[prost(message, optional, tag="1")]
     pub element: ::core::option::Option<DocumentValue>,
     #[prost(message, repeated, tag="2")]

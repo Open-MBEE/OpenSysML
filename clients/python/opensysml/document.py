@@ -11,8 +11,10 @@ A binding value is a plain Python value (``str``, ``int``, ``float``,
 naming a model element by qualified name, or an :class:`ObjectRef` naming an
 object the service holds for the model since ``instantiate`` — by id or by
 path (``"car.wheels[2]"``). Answered cells decode back to the same kinds, plus
-:data:`INFINITY` for an unbounded multiplicity and a :class:`DocumentVerdict`
-for a row a ``Verdicts`` query answered.
+:data:`INFINITY` for an unbounded multiplicity, a :class:`DocumentVerdict`
+for a row a ``Verdicts`` query answered, a :class:`DocumentState` for a row a
+``States`` query answered and a :class:`DocumentEvent` for a row an ``Events``
+query answered.
 """
 
 from dataclasses import dataclass
@@ -108,10 +110,84 @@ class DocumentVerdict:
         return f"{self.text}{where}: {self.status}"
 
 
+@dataclass(frozen=True)
+class DocumentState:
+    """A row a ``States`` query answered: one active leaf state of one object.
+
+    Answered only; binding one is refused.
+
+    Attributes:
+        object: The object whose state machine the row reads
+        machine: The exhibited state usage (``"lp"``), or the state def's name
+        name: The active leaf state's own name (``"dim"``)
+        path: The leaf's path from the machine's top level (``"on.dim"``)
+        state: The state usage's declaration
+        region: The orthogonal region declaring the leaf (``"light"``); empty
+            when the leaf is not in one
+        enclosing: The active composite states around the leaf, outermost first
+    """
+
+    object: ObjectRef
+    machine: str
+    name: str
+    path: str
+    state: Optional[ElementRef] = None
+    region: str = ""
+    enclosing: tuple = ()
+
+    def __str__(self):
+        return f"{self.object}.{self.machine} in {self.path}"
+
+
+@dataclass(frozen=True)
+class DocumentEvent:
+    """A row an ``Events`` query answered: one record of a session's trace.
+
+    Answered only; binding one is refused.
+
+    Attributes:
+        kind: ``"accept"``, ``"send"``, ``"transition"``, ``"entry"``,
+            ``"exit"``, ``"do"``, ``"choice"`` or ``"guard"``
+        time: The instant the record was written at, in the runtime clock's
+            unit — a :class:`~opensysml.values.Quantity` when the clock carries
+            one, a plain number otherwise
+        object: The object the record is about; ``None`` for a record of the
+            run as a whole
+        machine: The state machine the record is about, as
+            :attr:`DocumentState.machine` names it
+        state: The state entered, exited or run (entry, exit and do records)
+        from_state: The transition's source state
+        to_state: The transition's target state
+        target: The object a send was delivered to
+        event: The accepted or sent event's type name
+        payload: The accept's payload, one ``name = value`` text per attribute
+        alternatives: What a choice drew from, in order
+        taken: The alternative the choice took
+        text: The record as the trace prints it
+    """
+
+    kind: str
+    time: Union[Quantity, int, float]
+    text: str
+    object: Optional[ObjectRef] = None
+    machine: str = ""
+    state: str = ""
+    from_state: str = ""
+    to_state: str = ""
+    target: Optional[ObjectRef] = None
+    event: str = ""
+    payload: tuple = ()
+    alternatives: tuple = ()
+    taken: str = ""
+
+    def __str__(self):
+        return f"{self.time}: {self.text}"
+
+
 #: What a binding value or an answered cell value may be.
 DocumentValue = Union[
     ElementRef, ObjectRef, str, int, float, bool, Quantity, _Infinity,
-    DocumentVerdict,
+    DocumentVerdict, DocumentState, DocumentEvent,
 ]
 
 #: What ``bindings`` accepts for one parameter: one value or several.
@@ -125,19 +201,26 @@ class DocumentRow:
     Attributes:
         element: The selected element itself; for an object row, the usage the
             object is held under; for a row a ``Verdicts`` query answered, the
-            assertion checked
+            assertion checked; for a state or event row, the usage of the
+            object the row is about
         cells: One value sequence per column, in column order
         verdict: The :class:`DocumentVerdict` a row a ``Verdicts`` query
             answered carries; ``None`` for any other row
         object: The :class:`ObjectRef` a row over held objects is about — one
-            an ``Objects`` query enumerated, or a bound object's part; ``None``
-            for any other row
+            an ``Objects`` query enumerated, a bound object's part, or the
+            object a state or event row is about; ``None`` for any other row
+        state: The :class:`DocumentState` a row a ``States`` query answered
+            carries; ``None`` for any other row
+        event: The :class:`DocumentEvent` a row an ``Events`` query answered
+            carries; ``None`` for any other row
     """
 
     element: ElementRef
     cells: tuple
     verdict: Optional[DocumentVerdict] = None
     object: Optional[ObjectRef] = None
+    state: Optional[DocumentState] = None
+    event: Optional[DocumentEvent] = None
 
     def __getitem__(self, index):
         return self.cells[index]
@@ -223,6 +306,12 @@ def _bound_value(parameter, value):
             f"binding {parameter!r} cannot carry {value!r}: a verdict is "
             f"answered by queries, not bound to them"
         )
+    if isinstance(value, (DocumentState, DocumentEvent)):
+        what = "a state" if isinstance(value, DocumentState) else "an event"
+        raise DocumentQueryError(
+            f"binding {parameter!r} cannot carry {value!r}: {what} row is "
+            f"answered by queries, not bound to them"
+        )
     raise DocumentQueryError(
         f"binding {parameter!r} cannot carry {value!r}: a binding is a str, "
         f"int, float, bool, Quantity, ElementRef or ObjectRef"
@@ -257,7 +346,7 @@ def result_of(response):
 
 
 def _row_of(row):
-    """One answered row; a verdict row stands for the assertion it checked."""
+    """One answered row; a verdict, state or event row keeps its typed value."""
     cells = tuple(
         tuple(_value_of(value) for value in cell.values)
         for cell in row.cells
@@ -269,6 +358,15 @@ def _row_of(row):
     if kind == "object":
         obj = _value_of(row.element)
         return DocumentRow(element=obj.element, cells=cells, object=obj)
+    if kind == "state":
+        state = _value_of(row.element)
+        return DocumentRow(
+            element=state.object.element, cells=cells, object=state.object, state=state,
+        )
+    if kind == "event":
+        event = _value_of(row.element)
+        element = event.object.element if event.object else ElementRef(id="")
+        return DocumentRow(element=element, cells=cells, object=event.object, event=event)
     return DocumentRow(element=_element_of(row.element), cells=cells)
 
 
@@ -315,6 +413,39 @@ def _value_of(value):
             reason=verdict.reason,
             verification=tuple(verdict.verification),
         )
+    if kind == "state":
+        state = value.state
+        return DocumentState(
+            object=_object_of(state.object),
+            machine=state.machine,
+            name=state.name,
+            path=state.state_path,
+            state=_element_of(state.state) if state.HasField("state") else None,
+            region=state.region,
+            enclosing=tuple(state.enclosing),
+        )
+    if kind == "event":
+        event = value.event
+        return DocumentEvent(
+            kind=event.kind,
+            time=_value_of(event.time),
+            text=event.text,
+            object=_object_of(event.object) if event.HasField("object") else None,
+            machine=event.machine,
+            state=event.state,
+            from_state=getattr(event, "from"),
+            to_state=event.to,
+            target=_object_of(event.target) if event.HasField("target") else None,
+            event=event.event,
+            payload=tuple(event.payload),
+            alternatives=tuple(event.alternatives),
+            taken=event.taken,
+        )
     raise UnsupportedValueError(
         f"the service answered a document value this client cannot read: {value}"
     )
+
+
+def _object_of(obj):
+    """An answered ``DocumentObject`` as the :class:`ObjectRef` it names."""
+    return ObjectRef(id=obj.instance_id, path=obj.path, element=_element_of(obj.element))

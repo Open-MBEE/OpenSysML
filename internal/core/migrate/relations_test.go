@@ -812,6 +812,303 @@ func TestOpaqueExpressionsNeedVisibleNames(t *testing.T) {
 	}
 }
 
+// A body expression's parameters and the members it declares are names of its
+// own, not of the scope the opaque body is written in; only what the body
+// refers to beyond them must be visible there. A function after `->` is such a
+// name, as is anything written after the expression.
+func TestOpaqueBodyExpressionsBindTheirOwnNames(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_cb" name="Bound">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_s" name="s">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_sl"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_su" value="*"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_c" name="c">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_r1" name="bound">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_sp1">
+          <body>{ in v; v > c }</body>
+          <language>SysML</language>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_r2" name="scaled">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_sp2">
+          <body>{ in v; private attribute k = 2.0; v * k > c }</body>
+          <language>SysML</language>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r3" name="stray" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp3">
+          <body>{ in v; v > limit }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r4" name="each" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp4">
+          <body>s->forAll { in v; v > c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r5" name="twice" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp5">
+          <body>c > 0.0; attribute probe2 = c</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r6" name="bodied" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp6">
+          <body>c > 0.0 { doc /* none */ }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r7" name="nested" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp7">
+          <body>{ in v { attribute y = missing; } v > c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r8" name="deep" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp8">
+          <body>{ in v; private attribute k { attribute y = absent; } v > c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r9" name="asserted" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp9">
+          <body>{ in v { constraint { gone > 0 } } v > c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r10" name="bounded" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp10">
+          <body>{ in v; attribute y[lost]; v > c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r11" name="imported" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp11">
+          <body>{ in v { import Q::*; } v > c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_r12" name="documented">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_sp12">
+          <body>{ in v { doc /* the value */ } v > c }</body>
+          <language>SysML</language>
+        </defaultValue>
+      </ownedAttribute>
+    </packagedElement>`, `
+  <sysml:ConstraintBlock xmi:id="_s2" base_Class="_cb"/>`)
+	wantLine(t, r.Notation, "in attribute bound default = { in v; v > c };")
+	wantLine(t, r.Notation, "in attribute scaled default = { in v; private attribute k = 2.0; v * k > c };")
+	wantLine(t, r.Notation, "in attribute documented default = { in v { doc /* the value */ } v > c };")
+	for _, n := range []string{"stray", "each", "twice", "bodied", "nested", "deep", "asserted", "bounded", "imported"} {
+		wantNoLine(t, r.Notation, "constraint "+n)
+	}
+	for id, want := range map[string]string{
+		"_r3":  "opaque expression names limit, which nothing visible from Bound is called (language SysML)",
+		"_r4":  "opaque expression names forAll, which nothing visible from Bound is called (language SysML)",
+		"_r5":  "opaque expression is not v2 expression syntax (language SysML)",
+		"_r6":  "opaque expression is not v2 expression syntax (language SysML)",
+		"_r7":  "opaque expression names missing, which nothing visible from Bound is called (language SysML)",
+		"_r8":  "opaque expression names absent, which nothing visible from Bound is called (language SysML)",
+		"_r9":  "opaque expression names gone, which nothing visible from Bound is called (language SysML)",
+		"_r10": "opaque expression names lost, which nothing visible from Bound is called (language SysML)",
+		"_r11": "opaque expression is not v2 expression syntax (language SysML)",
+	} {
+		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Unmapped || es[0].Note != want {
+			t.Errorf("%s entries = %+v", id, es)
+		}
+	}
+	if diags := errors(t, "b.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+}
+
+// A feature chain on a body's own name is checked against the type the name
+// is declared with, and a qualified name starting in a standard-library package
+// against the library, which a v2 model reaches without importing it. An
+// unqualified library name is still not visible, and a chain on a name declared
+// without a type cannot be checked.
+func TestOpaqueBodyChainsAndLibraryNamesAreChecked(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_pt" name="Pt">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_x" name="x">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_cb" name="Bound">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_c" name="c">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_r1" name="pointed">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_sp1">
+          <body>{ in v : Pt; v.x > c }</body>
+          <language>SysML</language>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_r2" name="counted">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_sp2">
+          <body>{ in v : ScalarValues::Integer; v > c }</body>
+          <language>SysML</language>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_r3" name="weighed">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_sp3">
+          <body>{ in v : ISQ::mass; v.num > c }</body>
+          <language>SysML</language>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r4" name="astray" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp4">
+          <body>{ in v : Pt; v.missing > c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r5" name="untyped" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp5">
+          <body>{ in v; v.x > c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r6" name="misspelled" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp6">
+          <body>{ in v : ScalarValues::Nope; v > c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r7" name="unimported" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp7">
+          <body>{ in v : Integer; v > c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r8" name="chained" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp8">
+          <body>{ in v : ScalarValues::Integer; v.missing > c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+    </packagedElement>`, `
+  <sysml:ConstraintBlock xmi:id="_s2" base_Class="_cb"/>`)
+	wantLine(t, r.Notation, "in attribute pointed default = { in v : Pt; v.x > c };")
+	wantLine(t, r.Notation, "in attribute counted default = { in v : ScalarValues::Integer; v > c };")
+	wantLine(t, r.Notation, "in attribute weighed default = { in v : ISQ::mass; v.num > c };")
+	for _, n := range []string{"astray", "untyped", "misspelled", "unimported", "chained"} {
+		wantNoLine(t, r.Notation, "constraint "+n)
+	}
+	for id, want := range map[string]string{
+		"_r4": "opaque expression names v.missing, which nothing visible from Bound is called (language SysML)",
+		"_r5": "opaque expression reaches v.x through v, whose type it does not declare (language SysML)",
+		"_r6": "opaque expression names ScalarValues::Nope, which nothing visible from Bound is called (language SysML)",
+		"_r7": "opaque expression names Integer, which nothing visible from Bound is called (language SysML)",
+		"_r8": "opaque expression names v.missing, which nothing visible from Bound is called (language SysML)",
+	} {
+		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Unmapped || es[0].Note != want {
+			t.Errorf("%s entries = %+v", id, es)
+		}
+	}
+	if diags := errors(t, "b.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+}
+
+func TestOpaqueBodiesCheckCastBoundsAndUsageEnds(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_pt" name="Pt">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_x" name="x">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_link" name="Link"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_cb" name="Bound">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_c" name="c">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_castMissing" name="castMissing" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_castMissingValue">
+          <body>(as Pt[missing])</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_castPresent" name="castPresent" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_castPresentValue">
+          <body>(as Pt[c])</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_connectionMissing" name="connectionMissing" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_connectionMissingValue">
+          <body>{ connection link : Link connect c to missing; c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_connectionPresent" name="connectionPresent" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_connectionPresentValue">
+          <body>{ connection link : Link connect c to c; c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_connectionDeclaredPresent" name="connectionDeclaredPresent" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_connectionDeclaredPresentValue">
+          <body>{ connection link : Link connect src references c to dst references c { attribute x = src; } c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_connectionDeclaredMissing" name="connectionDeclaredMissing" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_connectionDeclaredMissingValue">
+          <body>{ connection link : Link connect src references c to dst references c { attribute x = other; } c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_flowMissing" name="flowMissing" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_flowMissingValue">
+          <body>{ flow f from c to missing; c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_flowPresent" name="flowPresent" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_flowPresentValue">
+          <body>{ flow f from c to c; c }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_param" name="param" constrainedElement="_cb">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_paramValue">
+          <body>{ in v : Pt; (as Pt[v.x]) }</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+    </packagedElement>`, `
+  <sysml:ConstraintBlock xmi:id="_s1" base_Class="_cb"/>`)
+
+	for _, name := range []string{"castPresent", "connectionPresent", "connectionDeclaredPresent", "flowPresent", "param"} {
+		wantLine(t, r.Notation, "constraint "+name+" { ")
+	}
+	for _, name := range []string{"castMissing", "connectionMissing", "connectionDeclaredMissing", "flowMissing"} {
+		wantNoLine(t, r.Notation, "constraint "+name+" { ")
+	}
+	for _, id := range []string{"_castPresent", "_connectionPresent", "_connectionDeclaredPresent", "_flowPresent", "_param"} {
+		es := entriesFor(r, id)
+		if len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "copied verbatim") {
+			t.Errorf("%s entries = %+v", id, es)
+		}
+	}
+	for id, want := range map[string]string{
+		"_castMissing":               "opaque expression names missing, which nothing visible from Bound is called (language SysML)",
+		"_connectionMissing":         "opaque expression names missing, which nothing visible from Bound is called (language SysML)",
+		"_connectionDeclaredMissing": "opaque expression names other, which nothing visible from Bound is called (language SysML)",
+		"_flowMissing":               "opaque expression names missing, which nothing visible from Bound is called (language SysML)",
+	} {
+		es := entriesFor(r, id)
+		if len(es) != 1 || es[0].Verdict != migrate.Unmapped || es[0].Note != want {
+			t.Errorf("%s entries = %+v", id, es)
+		}
+	}
+}
+
 // isOrdered and isUnique=false are written as the ordered and nonunique
 // modifiers, on properties and association ends alike.
 func TestCollectionModifiersAreWritten(t *testing.T) {
@@ -1100,7 +1397,7 @@ func TestOpaqueExpressionsNeedWrittenAccessibleNames(t *testing.T) {
 	wantLine(t, r.Notation, "private attribute hidden : ScalarValues::Real;")
 	wantLine(t, r.Notation, "constraint kept { secret + 1 > 0 }")
 	wantNoLine(t, r.Notation, "constraint ran")
-	wantNote(t, r, "_r1", migrate.Unmapped, "opaque expression names run, which nothing visible from Bound is called")
+	wantNote(t, r, "_r1", migrate.Unmapped, "opaque expression names run, which is the action def Bound::run, not a value an expression can read")
 	wantNote(t, r, "_secret", migrate.Approximated, "private visibility is not written: an expression in Bound names it")
 	wantClean(t, "access.sysml", r)
 }

@@ -31,7 +31,7 @@ compatibility shim, and the project renamed rather than aliased.
 | `~/.pysysml` state directory | `~/.opensysml` |
 | `PySysMLError` | `OpenSysMLError` |
 | `pysysml-generate` | `opensysml-generate` |
-| `pysysml-v*` release tag | `opensysml-v*` |
+| `pysysml-v*` release tag | the core's `v*` tag, at the core's version |
 
 The API is otherwise unchanged, as is the `sysml-grpc` service binary and its
 wire protocol, so a new client talks to an already-installed service. A

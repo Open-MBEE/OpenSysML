@@ -1,0 +1,14 @@
+do: busy
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "s1 " -> "s1 "
+    eval operator + -> "s1 "
+exit: busy (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "s1 "
+      eval literal "exit " -> "exit "
+    eval operator + -> "s1 exit "
+enter: halted
+transition: busy -> halted (event: accept Stop)

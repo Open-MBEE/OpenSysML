@@ -323,9 +323,10 @@
       color: var(--md-typeset-a-color);
       text-decoration: underline;
     }
+    /* Four oracles: explicit column counts so they never wrap 3 + 1. */
     .osml-referee__grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+      grid-template-columns: repeat(4, 1fr);
       gap: .8rem;
     }
     .osml-referee__oracle {
@@ -446,9 +447,15 @@
       color: var(--md-default-fg-color--light);
     }
 
+    @media screen and (max-width: 76.1875em) {
+      .osml-referee__grid { grid-template-columns: repeat(2, 1fr); }
+    }
     @media screen and (max-width: 59.9375em) {
       .osml-hero__inner { grid-template-columns: 1fr; }
       .osml-hero h1 { font-size: 1.55rem; }
+    }
+    @media screen and (max-width: 29.9375em) {
+      .osml-referee__grid { grid-template-columns: 1fr; }
     }
   </style>
 {% endblock %}

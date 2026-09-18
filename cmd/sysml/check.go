@@ -583,9 +583,6 @@ func runChecks(files []string, exprs []string, c checks) int {
 		}
 		rep.verdict(sess.RunAnalysis(invocation))
 	}
-	for _, invocation := range c.queries {
-		rep.verdict(sess.RunDocumentQuery(invocation))
-	}
 	// With -advance every behavior named is started first and the clock they share
 	// is moved once, so an action's signal reaches a machine that accepts it later;
 	// under the check engine it bounds the search of the invocation's schedules.
@@ -593,10 +590,11 @@ func runChecks(files []string, exprs []string, c checks) int {
 		for _, v := range sess.RunFor(behaviors(c.actions), behaviors(c.states), advance) {
 			rep.verdict(v)
 		}
+		c.runQueries(sess, rep)
 		return rep.finish()
 	}
 	for _, value := range c.actions {
-		name, performer := splitPerformer(value)
+		name, performer := repl.SplitBehavior(value)
 		if c.runs.given {
 			rep.verdict(sess.RunRuns(name, performer, c.runs.value, c.seed.value, c.observe))
 			continue
@@ -604,18 +602,27 @@ func runChecks(files []string, exprs []string, c checks) int {
 		rep.verdict(sess.RunAction(name, performer...))
 	}
 	for _, value := range c.states {
-		name, performer := splitPerformer(value)
+		name, performer := repl.SplitBehavior(value)
 		rep.verdict(sess.RunStateMachine(name, performer...))
 	}
+	c.runQueries(sess, rep)
 
 	return rep.finish()
+}
+
+// runQueries executes each -run-query after the behaviors named have run, so a
+// query over the session's states or trace reads what the run did.
+func (c *checks) runQueries(sess *repl.Session, rep *reporter) {
+	for _, invocation := range c.queries {
+		rep.verdict(sess.RunDocumentQuery(invocation))
+	}
 }
 
 // behaviors reads `-action`/`-state` values as the behaviors they name.
 func behaviors(values []string) []repl.Behavior {
 	out := make([]repl.Behavior, 0, len(values))
 	for _, value := range values {
-		name, performer := splitPerformer(value)
+		name, performer := repl.SplitBehavior(value)
 		out = append(out, repl.Behavior{Name: name, Performer: performer})
 	}
 	return out
@@ -639,17 +646,6 @@ func reportedErrors(diags []repl.Diagnostic) bool {
 		}
 	}
 	return false
-}
-
-// splitPerformer splits a `-action`/`-state` value into the behavior's name and
-// the object performing it, which is the word after it as `%action` takes it:
-// `-action "Drive rover1"`.
-func splitPerformer(value string) (string, []string) {
-	fields := strings.Fields(value)
-	if len(fields) == 0 {
-		return "", nil
-	}
-	return fields[0], fields[1:]
 }
 
 func fileExists(path string) bool {

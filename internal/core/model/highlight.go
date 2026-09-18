@@ -8,23 +8,26 @@ import (
 )
 
 // HighlightTokens returns the semantic tokens of a document, ordered by source
-// position. Returns nil for unknown documents. A bundled library document is
-// highlighted from its text like a workspace one.
-func (w *Workspace) HighlightTokens(name string) []highlight.Token {
-	doc := w.Document(name)
-	if doc == nil {
-		doc = w.LibraryDocument(name)
-	}
-	if doc == nil {
-		return nil
-	}
+// position, with the content they index; the workspace or bundled library
+// document is chosen under one lock, so neither an edit nor a close can split
+// or lose them. Nil for unknown documents.
+func (w *Workspace) HighlightTokens(name string) ([]byte, []highlight.Token) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	doc := w.docs[name]
+	if doc == nil {
+		if lib, isLibrary := w.libraryNameLocked(name); isLibrary {
+			doc = w.libraryDocumentLocked(lib)
+		}
+	}
+	if doc == nil {
+		return nil, nil
+	}
 	var out []highlight.Token
 	w.queryLocked(name, func(resolver *resolve.Resolver, _ *semantics.Model) {
 		out = highlight.Tokens(doc.Content, doc.AST, doc.Scope, resolution{r: resolver})
 	})
-	return out
+	return doc.Content, out
 }
 
 // resolution answers highlighting queries from one resolver, so the memoized

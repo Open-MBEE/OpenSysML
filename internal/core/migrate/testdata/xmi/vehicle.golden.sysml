@@ -48,8 +48,14 @@ package 'Vehicle Design' {
         flow fuelIn.fuel to engine.fuelPort.fuel;
         bind mass = massLimit.m;
         connect speedOut to engine.piston.p;
-        /* not migrated: Operation 'start' — operations and receptions are not migrated; v2 has no operation */
-        /* not migrated: StateMachine 'Vehicle States' — behaviors are not migrated yet */
+        abstract action def start {
+            in key : ScalarValues::Integer;
+        }
+        action 'start 2' : start;
+        state def 'Vehicle States' {
+            /* the region has no initial pseudostate: nothing enters it */
+            state Off;
+        }
         constraint 'positive mass' { mass > 0 }
         part def Chassis {
             attribute mass : 'Vehicle Design'::'Value Types'::Mass;
@@ -94,7 +100,7 @@ package 'Vehicle Design' {
         attribute :>> mass = 1350.5;
         attribute :>> color = 'Vehicle Design'::'Value Types'::Color::blue;
     }
-    /* not migrated: Activity 'Drive' — behaviors are not migrated yet */
+    action def Drive;
 }
 package Requirements {
     requirement def <R1> 'Mass Requirement' {
@@ -114,9 +120,11 @@ package Requirements {
         end #RequirementDerivation::derive derivedRequirement : 'Engine Mass Requirement';
     }
     /* not migrated: «Verify» Abstraction (_dep_verify_block) — a verify whose client is not a test case has no v2 form; applied stereotypes «Verify» */
-    /* not migrated: «Refine» Abstraction (_dep_refine) — its end Vehicle Design::Drive is not migrated; applied stereotypes «Refine» */
+    dependency 'Vehicle Design'::Drive to 'Speed Requirement' {
+        @ModelingMetadata::Refinement;
+    }
     dependency 'Speed Requirement' to 'Vehicle Design'::Engine; /* «Trace» */
-    /* not migrated: «Allocate» Abstraction (_dep_allocate) — its end Vehicle Design::Drive is not migrated; applied stereotypes «Allocate» */
+    allocate 'Vehicle Design'::Drive to 'Vehicle Design'::Engine;
     allocate 'Vehicle Design'::Motor to 'Vehicle Design'::Engine;
     dependency 'Vehicle Design'::Wheel to 'Vehicle Design'::Engine;
     verification def 'Mass Test' {

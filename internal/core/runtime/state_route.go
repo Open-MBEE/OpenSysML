@@ -227,7 +227,7 @@ func (e *StateExecutor) resolveChoice(r route) (route, error) {
 	if err != nil {
 		return route{}, err
 	}
-	e.ctx.noteAll(notes)
+	e.noteAll(notes)
 	if len(enabled) == 0 {
 		return route{}, fmt.Errorf("%w: choice %s: no guard evaluated to true", ErrChoiceWithoutBranch, choice.Name)
 	}
@@ -247,7 +247,7 @@ func (e *StateExecutor) resolveChoice(r route) (route, error) {
 	if err == nil {
 		r, err = e.settleDraws(r)
 	}
-	e.ctx.noteAll(r.notes)
+	e.noteAll(r.notes)
 	r.notes = nil
 	return r, err
 }
@@ -678,7 +678,7 @@ func (e *StateExecutor) travelResolving(trans *lower.Transition, from *ast.State
 	if r.draw != nil {
 		var err error
 		r, err = e.settleDraws(r)
-		e.ctx.noteAll(r.notes)
+		e.noteAll(r.notes)
 		r.notes = nil
 		if err != nil {
 			return err

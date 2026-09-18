@@ -21,6 +21,9 @@ type performances struct {
 	self  *Instance
 	root  *actionFrame
 	owner performanceOwner
+	// behavior is the action or state machine the trace names as making what
+	// these performances send and draw; nil for a body no behavior owns.
+	behavior *symbols.Symbol
 	// flow is the executor holding the tokens these performances run under, which a
 	// terminate drops when it ends one of them.
 	flow *ActionExecutor
@@ -1191,7 +1194,7 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 	if e.ctx.actionDepth >= maxActionNestingDepth {
 		return nil, fmt.Errorf(
 			"action invocation nested more than %d deep at %s (recursive action?)",
-			maxActionNestingDepth, qualifiedNameText(inv.target),
+			maxActionNestingDepth, inv.name(),
 		)
 	}
 
@@ -1219,13 +1222,22 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 	if err := checkInputsBound(inv, params, inputs); err != nil {
 		return nil, err
 	}
+	performer := e.self
+	if inv.chain != nil {
+		ec := e.evalContextAround(perf, nodeScope(perf.flow, perf.node))
+		ec.inBehaviorBody = true
+		defer ec.beginStep()()
+		if performer, err = e.ctx.performerOf(ec, inv, e.self); err != nil {
+			return nil, err
+		}
+	}
 
-	callee, err := e.ctx.beginCallee(inv.performed(sym), sym, e.self, inputs)
+	callee, err := e.ctx.beginCallee(inv.performed(sym), sym, performer, inputs)
 	if err != nil {
-		return nil, fmt.Errorf("invoke action %s: %w", qualifiedNameText(inv.target), err)
+		return nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
 	}
 	sort.Strings(out)
-	callee.name, callee.out = qualifiedNameText(inv.target), out
+	callee.name, callee.out = inv.name(), out
 	return callee, nil
 }
 
@@ -1256,7 +1268,7 @@ func checkInputsBound(inv actionInvocation, params []actionParameter, inputs map
 			continue
 		}
 		return fmt.Errorf("%w: action %s: input parameter %s is bound by no argument",
-			ErrUnboundParameter, qualifiedNameText(inv.target), param.Name)
+			ErrUnboundParameter, inv.name(), param.Name)
 	}
 	return nil
 }
