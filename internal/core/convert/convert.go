@@ -17,6 +17,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
+	"github.com/Open-MBEE/OpenSysML/internal/core/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -231,7 +232,7 @@ func trimTrailingTrivia(text string) string {
 type Migration struct {
 	Output  []byte
 	Report  *migrate.Report
-	Results *migrate.Results
+	Results *simresults.Results
 }
 
 // Migrate reads a SysML v1 model in XMI and writes it in the to format.

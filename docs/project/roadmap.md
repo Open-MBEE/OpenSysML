@@ -2646,7 +2646,7 @@ A package imports only the layers below it:
 | semantic IR | `lower`, `queryplan`, `docplan` |
 | validation | `passes`, split by domain, `rename`, `edit` |
 | execution | `runtime`, `solve`, `smt`, `analysis`, `engines`, `objref`, the `graphs:1` form |
-| translation | `rdf`, `export`, `migrate`, `convert` (the conversion entry point), one `xmi`, `codegen`, `interop/*` |
+| translation | `rdf`, `export`, `migrate`, `simresults` (the migration's result sidecar), `convert` (the conversion entry point), one `xmi`, `codegen`, `interop/*` |
 | documents | `queryexec`, `docir`, `docrender`, `docpdf` |
 | workspace | `model`, `libs`, `project`, `envvar` |
 | frontends | `protoconv`, `repl`, `lsp`, `grpc`, `stdiorpc`, `usage`, `cmd/*` |

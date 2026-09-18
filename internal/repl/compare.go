@@ -7,9 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/simresults"
 )
 
 // CompareOptions say how migrated run configurations are run beside the
@@ -39,7 +39,7 @@ type ObservablePair struct {
 // it — on its target, for its run count, under its draw policy — and reports
 // the tool's distribution of every observable beside the runs', one verdict
 // per configuration. Numbers are read as they are; nothing is scaled or tuned.
-func (s *Session) CompareResults(results *migrate.Results, opts CompareOptions) []Verdict {
+func (s *Session) CompareResults(results *simresults.Results, opts CompareOptions) []Verdict {
 	defer s.enter()()
 	if results == nil || len(results.Configurations) == 0 {
 		return []Verdict{unresolvedVerdict("compare", "the results index no run configuration")}
@@ -59,7 +59,7 @@ func (s *Session) CompareResults(results *migrate.Results, opts CompareOptions) 
 }
 
 // selects reports whether the configuration is among those asked for.
-func (o CompareOptions) selects(cfg *migrate.ConfigurationResults) bool {
+func (o CompareOptions) selects(cfg *simresults.ConfigurationResults) bool {
 	if len(o.Only) == 0 {
 		return true
 	}
@@ -85,7 +85,7 @@ func sameName(name, qualified string) bool {
 
 // compareVerdict compares one configuration: a refusal names what the runs
 // cannot be made without, else the table of both distributions.
-func (s *Session) compareVerdict(cfg *migrate.ConfigurationResults, opts CompareOptions) Verdict {
+func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, opts CompareOptions) Verdict {
 	label := "compare " + cfg.Name
 	if len(cfg.Snapshots) == 0 {
 		return unresolvedVerdict(label, withNotes("the tool stored no result of the configuration to compare with", cfg.Notes))
@@ -155,7 +155,7 @@ func (s *Session) compareVerdict(cfg *migrate.ConfigurationResults, opts Compare
 
 // comparisonTable is one row per observable and side — the tool's stored
 // numbers, the runs' values, and the relative difference of each statistic.
-func comparisonTable(cfg *migrate.ConfigurationResults, table runtime.SweepTable, observe []ObservablePair) []string {
+func comparisonTable(cfg *simresults.ConfigurationResults, table runtime.SweepTable, observe []ObservablePair) []string {
 	cells := [][]string{{"observable", "source", "runs", "min", "mean", "p50", "p90", "max"}}
 	var notes []string
 	for _, pair := range comparedObservables(cfg, observe) {
@@ -206,7 +206,7 @@ func comparisonTable(cfg *migrate.ConfigurationResults, table runtime.SweepTable
 // none was; one naming no feature is read from the feature of its own name that
 // the target object holds — `target.Time_Total` — or the bare name when the
 // configuration runs on no target.
-func comparedObservables(cfg *migrate.ConfigurationResults, observe []ObservablePair) []ObservablePair {
+func comparedObservables(cfg *simresults.ConfigurationResults, observe []ObservablePair) []ObservablePair {
 	pairs := make([]ObservablePair, 0, max(len(observe), len(cfg.Observables)))
 	if len(observe) == 0 {
 		for _, name := range cfg.Observables {

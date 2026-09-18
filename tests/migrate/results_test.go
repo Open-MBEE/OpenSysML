@@ -9,6 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
 
@@ -85,11 +86,11 @@ func TestResultSnapshotsAreIndexedPerConfiguration(t *testing.T) {
 		t.Fatalf("results = %+v, want one configuration", r.Results)
 	}
 	got := r.Results.Configurations[0]
-	want := migrate.ConfigurationResults{
+	want := simresults.ConfigurationResults{
 		ID: "_g0", Name: "'Group 0'", Runs: 4, Draws: "average",
 		Target: "target", Behavior: "run", Location: "Results",
 		Observables: []string{"pA", "pB"},
-		Snapshots: []migrate.Snapshot{
+		Snapshots: []simresults.Snapshot{
 			{ID: "_r1", Name: "run 1", Values: map[string]float64{"pA": 1.0, "pB": 3}},
 			{ID: "_r2", Name: "run 2", Values: map[string]float64{"pA": 1.0, "pB": 0}},
 			{ID: "_r3", Values: map[string]float64{"pB": 0.25}},
@@ -190,7 +191,7 @@ func TestResultSnapshotsOfAnotherConfigurationAreLeftOut(t *testing.T) {
 	wantNote(t, r, "_g2", migrate.Mapped, "")
 }
 
-func snapshotIDs(c migrate.ConfigurationResults) []string {
+func snapshotIDs(c simresults.ConfigurationResults) []string {
 	var ids []string
 	for _, s := range c.Snapshots {
 		ids = append(ids, s.ID)
@@ -324,14 +325,14 @@ func TestResultsSidecarRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	read, err := migrate.ReadResults(strings.NewReader(string(data)))
+	read, err := simresults.Read(strings.NewReader(string(data)))
 	if err != nil {
 		t.Fatalf("ReadResults: %v", err)
 	}
 	if !reflect.DeepEqual(read, r.Results) {
 		t.Errorf("the sidecar read back is not the one written:\n%s", data)
 	}
-	if _, err := migrate.ReadResults(strings.NewReader(string(data) + "\n\n")); err != nil {
+	if _, err := simresults.Read(strings.NewReader(string(data) + "\n\n")); err != nil {
 		t.Errorf("ReadResults(document then whitespace) error = %v", err)
 	}
 	for name, text := range map[string]string{
@@ -344,7 +345,7 @@ func TestResultsSidecarRoundTrip(t *testing.T) {
 		"trailing garbage":  string(data) + " results: none",
 		"an unclosed tail":  string(data) + `{"source": "t.xmi"`,
 	} {
-		if _, err := migrate.ReadResults(strings.NewReader(text)); err == nil || !strings.Contains(err.Error(), "not the JSON -migration-results writes") {
+		if _, err := simresults.Read(strings.NewReader(text)); err == nil || !strings.Contains(err.Error(), "not the JSON -migration-results writes") {
 			t.Errorf("ReadResults(%s) error = %v", name, err)
 		}
 	}

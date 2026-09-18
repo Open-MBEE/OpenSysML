@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
 )
@@ -134,7 +135,7 @@ func (m *migration) simulationConfig(e *xmi.Element, header, note string) {
 	settings, unread, notes := m.configurationSettings(s)
 	target := m.configurationTarget(s)
 	notes = append(notes, target.notes...)
-	results := ConfigurationResults{ID: e.ID, Name: m.v2Name(e), Runs: settings.runs, Draws: settings.draws, Observables: []string{}, Snapshots: []Snapshot{}}
+	results := simresults.ConfigurationResults{ID: e.ID, Name: m.v2Name(e), Runs: settings.runs, Draws: settings.draws, Observables: []string{}, Snapshots: []simresults.Snapshot{}}
 	notes = append(notes, m.resultSnapshots(&results, s, target)...)
 	note = joinNotes(note, strings.Join(notes, "; "))
 	m.add(e, verdictFor(note), m.v2Name(e), note)
@@ -169,7 +170,7 @@ func (m *migration) simulationConfig(e *xmi.Element, header, note string) {
 
 // resultsComment says what the tool stored of the configuration's runs and
 // where; the snapshots themselves are written as individuals in their package.
-func resultsComment(r ConfigurationResults) string {
+func resultsComment(r simresults.ConfigurationResults) string {
 	text := "results of the simulation tool: " + strconv.Itoa(len(r.Snapshots)) + " snapshot(s) in " + r.Location
 	if len(r.Observables) > 0 {
 		text += " holding " + strings.Join(r.Observables, ", ")

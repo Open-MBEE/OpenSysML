@@ -87,6 +87,7 @@ var packageLayer = map[string]string{
 	"internal/core/convert":      "translation",
 	"internal/core/export":       "translation",
 	"internal/core/migrate":      "translation",
+	"internal/core/simresults":   "translation",
 	"internal/core/xmi":          "translation",
 	"internal/core/codegen":      "translation",
 	"internal/interop/flexo":     "translation",

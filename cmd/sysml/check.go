@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
 
@@ -345,13 +345,13 @@ func (c *checks) compareMisuse() string {
 }
 
 // readResults reads the -compare-results sidecar, naming the file in what went wrong.
-func readResults(path string) (*migrate.Results, error) {
+func readResults(path string) (*simresults.Results, error) {
 	f, err := os.Open(path) // #nosec G304 -- the operator names the sidecar on the command line
 	if err != nil {
 		return nil, fmt.Errorf("-compare-results: %w", err)
 	}
 	defer f.Close()
-	results, err := migrate.ReadResults(f)
+	results, err := simresults.Read(f)
 	if err != nil {
 		return nil, fmt.Errorf("-compare-results %s: %w", path, err)
 	}

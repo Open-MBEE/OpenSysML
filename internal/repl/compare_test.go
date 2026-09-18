@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/simresults"
 )
 
 // compareModel: a target whose behavior shaky fails on some draws (10 / k, k drawn
@@ -39,12 +39,12 @@ func compareSession(t *testing.T) *Session {
 	return s
 }
 
-func compareResults(name string, runs int64) *migrate.Results {
-	return &migrate.Results{Source: "probe.xmi", Configurations: []migrate.ConfigurationResults{{
+func compareResults(name string, runs int64) *simresults.Results {
+	return &simresults.Results{Source: "probe.xmi", Configurations: []simresults.ConfigurationResults{{
 		ID: "_c", Name: "Cfg::" + name, Runs: runs, Target: "target", Behavior: "run",
 		Location:    "Results",
 		Observables: []string{"total"},
-		Snapshots: []migrate.Snapshot{
+		Snapshots: []simresults.Snapshot{
 			{ID: "_r1", Values: map[string]float64{"total": 4.0}},
 			{ID: "_r2", Values: map[string]float64{"total": 6.0}},
 		},

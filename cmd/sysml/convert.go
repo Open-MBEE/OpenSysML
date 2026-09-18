@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/core/project"
+	"github.com/Open-MBEE/OpenSysML/internal/core/simresults"
 )
 
 // deprecatedFlag rejects a flag that has been replaced, so the old spelling
@@ -152,7 +153,7 @@ func migrationResultsMisuse(from convert.Format, input string) error {
 
 // writeMigrationResults writes the result snapshots the migration indexed to the
 // -migration-results file as JSON, for -compare-results to read against the migrated model.
-func writeMigrationResults(results *migrate.Results) error {
+func writeMigrationResults(results *simresults.Results) error {
 	if migrationResults == "" {
 		return nil
 	}

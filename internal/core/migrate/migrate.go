@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
 )
 
@@ -23,7 +24,7 @@ const (
 type Result struct {
 	Notation []byte
 	Report   *Report
-	Results  *Results
+	Results  *simresults.Results
 }
 
 // Migrate reads a SysML v1 model as UML XMI, or a zip archive (such as a
@@ -42,7 +43,7 @@ func FromModel(name string, model *xmi.Model) *Result {
 	m := &migration{
 		model:     model,
 		report:    &Report{Source: name, Exporter: model.Exporter},
-		results:   &Results{Source: name, Configurations: []ConfigurationResults{}},
+		results:   &simresults.Results{Source: name, Configurations: []simresults.ConfigurationResults{}},
 		w:         &writer{},
 		names:     map[*xmi.Element]string{},
 		extras:    map[*xmi.Element][]func(){},
@@ -121,7 +122,7 @@ type migration struct {
 	model  *xmi.Model
 	report *Report
 	// results index the run configurations' result snapshots.
-	results *Results
+	results *simresults.Results
 	w       *writer
 	// names holds the names synthesized for anonymous elements.
 	names map[*xmi.Element]string

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
+	"github.com/Open-MBEE/OpenSysML/internal/core/simresults"
 )
 
 // simconfigXMI is a v1 model with a «SimulationConfig» whose result package holds
@@ -36,7 +36,7 @@ func TestMigrationResultsThroughCLI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var results migrate.Results
+	var results simresults.Results
 	if err := json.Unmarshal(body, &results); err != nil {
 		t.Fatalf("the sidecar is not JSON: %v\n%s", err, body)
 	}
