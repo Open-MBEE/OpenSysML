@@ -1511,6 +1511,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 	if err := refuseTransitionProbability(graph, member, scope); err != nil {
 		return nil, err
 	}
+	via, _ := ViaPortPath(member.Via)
 	return &Transition{
 		Name:      member.Name,
 		Decl:      member,
@@ -1519,7 +1520,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 		Trigger:   classifyTrigger(member.Trigger),
 		Guard:     member.Guard,
 		Effect:    transitionEffects(member, bodyScope, graph.resolver),
-		Via:       ViaPortPath(member.Via),
+		Via:       via,
 		Scope:     scope,
 		BodyScope: bodyScope,
 	}, nil

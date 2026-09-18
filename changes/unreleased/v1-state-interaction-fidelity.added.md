@@ -46,7 +46,8 @@
 - **A `via` path can start at a bound reference, and delegated, redefined and untyped ports
   route.** `send … via ctx.p` from a behavior whose `ctx` is bound to another object leaves that
   object's port even when the performer owns a feature of the same name, the binding shadowing
-  it as it does in every other expression; a part's port is known to the connectors its type inherits under the name the
+  it as it does in every other expression, while `via this.ctx.p` stays the performer's own;
+  a part's port is known to the connectors its type inherits under the name the
   part was declared with before redefinition; a `ref` usage holds what is bound to it rather than
   an object of its own; and an untyped `port` materializes as a `Ports::Port`, so a binding
   connector can join it and a signal sent inward over it reaches the bound part's machine.

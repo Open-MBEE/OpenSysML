@@ -12,7 +12,7 @@ func (ec *EvalContext) viaSender(send lower.Send, self *Instance) (lower.Send, *
 	if !send.IsVia || !send.TargetPath {
 		return send, self, nil
 	}
-	holder, port, err := ec.viaHolder(send.Target, self)
+	holder, port, err := ec.viaHolder(send.Target, send.ViaSelf, self)
 	if err != nil {
 		return send, self, err
 	}
@@ -25,11 +25,11 @@ func (ec *EvalContext) viaSender(send lower.Send, self *Instance) (lower.Send, *
 
 // viaHolder returns the object whose port a via path names and the port's name: self and
 // the path as written, unless the behavior binds the root, which shadows a same-named
-// feature of self as it does in any expression.
-func (ec *EvalContext) viaHolder(path string, self *Instance) (*Instance, string, error) {
+// feature of self as it does in any expression. A path written from `this` is self's.
+func (ec *EvalContext) viaHolder(path string, viaSelf bool, self *Instance) (*Instance, string, error) {
 	segments := strings.Split(path, ".")
 	root := segments[0]
-	if len(segments) < 2 || root == thisName {
+	if viaSelf || len(segments) < 2 {
 		return self, path, nil
 	}
 	value, bound := ec.Lookup(root)

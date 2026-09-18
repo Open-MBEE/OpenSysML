@@ -949,7 +949,7 @@ func (e *ActionExecutor) acceptMatch(frame *actionFrame, accept lower.Accept, us
 		} else if !ec.carriesEvent(m, accept.SubsetsEvent) {
 			return false
 		}
-		holder, port, err := ec.viaHolder(accept.ViaPort, e.self)
+		holder, port, err := ec.viaHolder(accept.ViaPort, accept.ViaSelf, e.self)
 		if err != nil {
 			failed = err
 			return false
