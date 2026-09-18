@@ -4,7 +4,6 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -86,7 +85,7 @@ func (v Verdict) Summary() string {
 
 // VerdictValue constructs a verdict value; its declaration is the assertion.
 func VerdictValue(verdict Verdict) Value {
-	return Value{kind: ValueVerdict, verdict: &verdict, origin: provenance.Symbol(verdict.assertion)}
+	return Value{kind: ValueVerdict, verdict: &verdict, origin: verdict.assertion.Origin()}
 }
 
 // Verdict returns the value's verdict and whether it is a verdict value.

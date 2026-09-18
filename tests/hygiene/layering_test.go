@@ -54,12 +54,11 @@ var packageLayer = map[string]string{
 	"internal/core/parser": "syntax",
 	"internal/core/format": "syntax",
 
-	"internal/core/symbols":    "semantics",
-	"internal/core/suggest":    "semantics",
-	"internal/core/resolve":    "semantics",
-	"internal/core/semantics":  "semantics",
-	"internal/core/provenance": "semantics",
-	"internal/core/identity":   "semantics",
+	"internal/core/symbols":   "semantics",
+	"internal/core/suggest":   "semantics",
+	"internal/core/resolve":   "semantics",
+	"internal/core/semantics": "semantics",
+	"internal/core/identity":  "semantics",
 
 	"internal/core/lower":     "semantic IR",
 	"internal/core/queryplan": "semantic IR",

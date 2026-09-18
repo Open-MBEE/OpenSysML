@@ -8,7 +8,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -99,7 +98,7 @@ func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Res
 	}
 	name := symbols.FQNOf(entry)
 	if entry == nil || entry == base || entry.Kind != symbols.SymbolCalcDef || !model.Conforms(entry, base) {
-		return nil, &Error{Kind: ErrorNotQueryDefinition, Query: name, Origin: provenance.Symbol(entry)}
+		return nil, &Error{Kind: ErrorNotQueryDefinition, Query: name, Origin: entry.Origin()}
 	}
 	c := &compiler{
 		index:          index,
@@ -152,7 +151,7 @@ func (c *compiler) compileDefinition(sym *symbols.Symbol) error {
 		return &Error{
 			Kind:   ErrorMissingResultParameter,
 			Query:  symbols.FQNOf(sym),
-			Origin: provenance.Symbol(sym),
+			Origin: sym.Origin(),
 		}
 	}
 	resultExpression, err := c.resultExpression(sym)
@@ -172,7 +171,7 @@ func (c *compiler) compileDefinition(sym *symbols.Symbol) error {
 		result:       result,
 		expression:   expression.expression,
 		dependencies: dependencies,
-		origin:       provenance.Symbol(sym),
+		origin:       sym.Origin(),
 	})
 	return nil
 }
@@ -231,7 +230,7 @@ func (c *compiler) compileSignature(sym *symbols.Symbol, dependency func(string)
 				Kind:      ErrorInvalidParameter,
 				Query:     symbols.FQNOf(sym),
 				Parameter: param.Name,
-				Origin:    provenance.Symbol(item.Symbol),
+				Origin:    item.Symbol.Origin(),
 			}
 		}
 		params = append(params, param)
@@ -250,7 +249,7 @@ func (c *compiler) parameter(sym *symbols.Symbol) Parameter {
 		Name:         sym.Name,
 		Type:         c.parameterType(sym),
 		Multiplicity: c.parameterMultiplicity(sym),
-		Origin:       provenance.Symbol(sym),
+		Origin:       sym.Origin(),
 	}
 }
 
@@ -276,14 +275,14 @@ func (c *compiler) compileDefault(
 				Kind:      ErrorUnsupportedDefault,
 				Query:     symbols.FQNOf(query),
 				Parameter: param.Name,
-				Origin:    provenance.Symbol(candidate),
+				Origin:    candidate.Origin(),
 			}
 		}
 		value, err := c.compileDefaultExpression(query, owner, param.Name, params, usage.Value, dependency)
 		if err != nil {
 			return err
 		}
-		if err := c.validateDefault(query, *param, value, provenance.Node(owner.DocName, usage.Value)); err != nil {
+		if err := c.validateDefault(query, *param, value, symbols.NodeOrigin(owner.DocName, usage.Value)); err != nil {
 			return err
 		}
 		param.HasDefault = true
@@ -300,7 +299,7 @@ func (c *compiler) validateDefault(
 	query *symbols.Symbol,
 	param Parameter,
 	value typedExpression,
-	origin provenance.Origin,
+	origin symbols.Origin,
 ) error {
 	if actual, ok := c.valueTypeConforms(param, value); !ok {
 		return &Error{
@@ -452,7 +451,7 @@ func (c *compiler) resultExpression(sym *symbols.Symbol) (effectiveResult, error
 		return effectiveResult{}, &Error{
 			Kind:   ErrorMissingResult,
 			Query:  symbols.FQNOf(sym),
-			Origin: provenance.Symbol(sym),
+			Origin: sym.Origin(),
 		}
 	case 1:
 		return results[0], nil
@@ -460,7 +459,7 @@ func (c *compiler) resultExpression(sym *symbols.Symbol) (effectiveResult, error
 		return effectiveResult{}, &Error{
 			Kind:   ErrorConflictingResult,
 			Query:  symbols.FQNOf(sym),
-			Origin: provenance.Symbol(sym),
+			Origin: sym.Origin(),
 		}
 	}
 }
@@ -530,7 +529,7 @@ func (c *compiler) declaredResult(sym *symbols.Symbol) (effectiveResult, bool, e
 		return effectiveResult{}, false, &Error{
 			Kind:   ErrorUnsupportedResult,
 			Query:  name,
-			Origin: provenance.Symbol(sym),
+			Origin: sym.Origin(),
 		}
 	}
 
@@ -544,7 +543,7 @@ func (c *compiler) declaredResult(sym *symbols.Symbol) (effectiveResult, bool, e
 				return effectiveResult{}, false, &Error{
 					Kind:   ErrorUnsupportedResult,
 					Query:  name,
-					Origin: provenance.Node(sym.DocName, binding.Decl),
+					Origin: symbols.NodeOrigin(sym.DocName, binding.Decl),
 				}
 			}
 			expression = binding.Ends[1-i].Expr
@@ -601,7 +600,7 @@ func (c *compiler) compileExpression(
 			expression: Expression{
 				operation: OperationSequence,
 				arguments: args,
-				origin:    provenance.Node(owner.DocName, node),
+				origin:    symbols.NodeOrigin(owner.DocName, node),
 			},
 			types:             types,
 			elements:          elements,
@@ -637,13 +636,13 @@ func (c *compiler) compileExpression(
 		return typedExpression{}, &Error{
 			Kind:   ErrorUnsupportedExpression,
 			Query:  symbols.FQNOf(query),
-			Origin: provenance.Node(owner.DocName, node),
+			Origin: symbols.NodeOrigin(owner.DocName, node),
 		}
 	default:
 		return typedExpression{}, &Error{
 			Kind:   ErrorUnsupportedExpression,
 			Query:  symbols.FQNOf(query),
-			Origin: provenance.Node(owner.DocName, node),
+			Origin: symbols.NodeOrigin(owner.DocName, node),
 		}
 	}
 }
@@ -658,8 +657,8 @@ func (c *compiler) compileReference(
 	unknown := &Error{
 		Kind:      ErrorUnknownParameter,
 		Query:     symbols.FQNOf(query),
-		Parameter: expression.Name.Text(),
-		Origin:    provenance.Node(owner.DocName, expression),
+		Parameter: qualifiedName(expression.Name),
+		Origin:    symbols.NodeOrigin(owner.DocName, expression),
 	}
 	target, ok := c.resolver.ResolveQualified(owner.Scope, expression.Name)
 	if !ok || target == nil {
@@ -676,7 +675,7 @@ func (c *compiler) compileReference(
 			expression: Expression{
 				operation: OperationParameter,
 				target:    param.Symbol.Name,
-				origin:    provenance.Node(owner.DocName, expression),
+				origin:    symbols.NodeOrigin(owner.DocName, expression),
 			},
 			types:        symbolSlice(c.parameterTypeSymbol(param.Symbol)),
 			multiplicity: c.parameterMultiplicity(param.Symbol),
@@ -690,7 +689,7 @@ func (c *compiler) compileReference(
 			operation: OperationElement,
 			target:    symbols.FQNOf(target),
 			element:   target,
-			origin:    provenance.Node(owner.DocName, expression),
+			origin:    symbols.NodeOrigin(owner.DocName, expression),
 		},
 		elements:     []*symbols.Symbol{target},
 		multiplicity: Multiplicity{Lower: 1, Upper: 1, Known: true},
@@ -713,13 +712,13 @@ func (c *compiler) compileInvocation(
 	expression *ast.InvocationExpr,
 	dependency func(string),
 ) (typedExpression, error) {
-	name := expression.Type.Text()
+	name := qualifiedName(expression.Type)
 	if expression.Operand != nil {
 		return typedExpression{}, &Error{
 			Kind:   ErrorUnsupportedExpression,
 			Query:  symbols.FQNOf(query),
 			Target: name,
-			Origin: provenance.Node(owner.DocName, expression),
+			Origin: symbols.NodeOrigin(owner.DocName, expression),
 		}
 	}
 	selection := c.model.SelectCall(owner.Scope, expression, semantics.PerformsBehavior)
@@ -729,7 +728,7 @@ func (c *compiler) compileInvocation(
 			Query:  symbols.FQNOf(query),
 			Target: name,
 			Path:   qualifiedNames(selection.Tied),
-			Origin: provenance.Node(owner.DocName, expression),
+			Origin: symbols.NodeOrigin(owner.DocName, expression),
 		}
 	}
 	target := selection.Called()
@@ -738,7 +737,7 @@ func (c *compiler) compileInvocation(
 			Kind:   ErrorUnknownInvocation,
 			Query:  symbols.FQNOf(query),
 			Target: name,
-			Origin: provenance.Node(owner.DocName, expression),
+			Origin: symbols.NodeOrigin(owner.DocName, expression),
 		}
 	}
 	targetName := symbols.FQNOf(target)
@@ -746,7 +745,7 @@ func (c *compiler) compileInvocation(
 		return typedExpression{}, &Error{
 			Kind:   ErrorInvalidColumn,
 			Query:  symbols.FQNOf(query),
-			Origin: provenance.Node(owner.DocName, expression),
+			Origin: symbols.NodeOrigin(owner.DocName, expression),
 		}
 	}
 	if operation, ok := builtins[targetName]; ok {
@@ -776,7 +775,7 @@ func (c *compiler) compileInvocation(
 				operation: operation.operation,
 				target:    targetName,
 				arguments: args,
-				origin:    provenance.Node(owner.DocName, expression),
+				origin:    symbols.NodeOrigin(owner.DocName, expression),
 			},
 			types:        symbolSlice(c.typeSymbol(targetResult.Type)),
 			multiplicity: targetResult.Multiplicity,
@@ -787,7 +786,7 @@ func (c *compiler) compileInvocation(
 			Kind:   ErrorUnknownInvocation,
 			Query:  symbols.FQNOf(query),
 			Target: targetName,
-			Origin: provenance.Node(owner.DocName, expression),
+			Origin: symbols.NodeOrigin(owner.DocName, expression),
 		}
 	}
 	if len(expression.Args) > 0 {
@@ -795,11 +794,11 @@ func (c *compiler) compileInvocation(
 			Kind:   ErrorPositionalQueryArgs,
 			Query:  symbols.FQNOf(query),
 			Target: targetName,
-			Origin: provenance.Node(owner.DocName, expression),
+			Origin: symbols.NodeOrigin(owner.DocName, expression),
 		}
 	}
 
-	call := provenance.Node(owner.DocName, expression)
+	call := symbols.NodeOrigin(owner.DocName, expression)
 	closesCycle := c.signatureState[target] == stateVisiting
 	targetParams, targetResult, err := c.signature(target, ignoreDependency)
 	if err != nil {
@@ -827,7 +826,7 @@ func (c *compiler) compileInvocation(
 			operation: OperationInvoke,
 			target:    targetName,
 			arguments: args,
-			origin:    provenance.Node(owner.DocName, expression),
+			origin:    symbols.NodeOrigin(owner.DocName, expression),
 		},
 		types:        symbolSlice(c.typeSymbol(targetResult.Type)),
 		multiplicity: targetResult.Multiplicity,
@@ -848,8 +847,8 @@ func (c *compiler) compileBuiltinArguments(
 			return nil, &Error{
 				Kind:   ErrorArgumentCount,
 				Query:  symbols.FQNOf(query),
-				Target: expression.Type.Text(),
-				Origin: provenance.Node(owner.DocName, expression),
+				Target: qualifiedName(expression.Type),
+				Origin: symbols.NodeOrigin(owner.DocName, expression),
 			}
 		}
 		// Trailing defaulted parameters may be omitted positionally.
@@ -858,8 +857,8 @@ func (c *compiler) compileBuiltinArguments(
 				return nil, &Error{
 					Kind:   ErrorArgumentCount,
 					Query:  symbols.FQNOf(query),
-					Target: expression.Type.Text(),
-					Origin: provenance.Node(owner.DocName, expression),
+					Target: qualifiedName(expression.Type),
+					Origin: symbols.NodeOrigin(owner.DocName, expression),
 				}
 			}
 		}
@@ -882,7 +881,7 @@ func (c *compiler) compileBuiltinArguments(
 				target,
 				targetParams[i],
 				value,
-				provenance.Node(owner.DocName, node),
+				symbols.NodeOrigin(owner.DocName, node),
 			); err != nil {
 				return nil, err
 			}
@@ -895,7 +894,7 @@ func (c *compiler) compileBuiltinArguments(
 		query,
 		owner,
 		params,
-		expression.Type.Text(),
+		qualifiedName(expression.Type),
 		targetParams,
 		expression,
 		dependency,
@@ -918,14 +917,14 @@ func (c *compiler) compileNamedArguments(
 		known[param.Name] = param
 	}
 	for _, arg := range named {
-		name := arg.Name.Text()
+		name := qualifiedName(arg.Name)
 		if _, exists := bound[name]; exists {
 			return nil, &Error{
 				Kind:      ErrorDuplicateArgument,
 				Query:     symbols.FQNOf(query),
 				Target:    target,
 				Parameter: name,
-				Origin:    provenance.Node(owner.DocName, arg.Value),
+				Origin:    symbols.NodeOrigin(owner.DocName, arg.Value),
 			}
 		}
 		if _, ok := known[name]; !ok {
@@ -934,7 +933,7 @@ func (c *compiler) compileNamedArguments(
 				Query:     symbols.FQNOf(query),
 				Target:    target,
 				Parameter: name,
-				Origin:    provenance.Node(owner.DocName, arg.Value),
+				Origin:    symbols.NodeOrigin(owner.DocName, arg.Value),
 			}
 		}
 		bound[name] = arg.Value
@@ -950,7 +949,7 @@ func (c *compiler) compileNamedArguments(
 					Query:     symbols.FQNOf(query),
 					Target:    target,
 					Parameter: param.Name,
-					Origin:    provenance.Node(owner.DocName, expression),
+					Origin:    symbols.NodeOrigin(owner.DocName, expression),
 				}
 			}
 			continue
@@ -972,7 +971,7 @@ func (c *compiler) compileNamedArguments(
 			target,
 			param,
 			value,
-			provenance.Node(owner.DocName, node),
+			symbols.NodeOrigin(owner.DocName, node),
 		); err != nil {
 			return nil, err
 		}
@@ -982,7 +981,7 @@ func (c *compiler) compileNamedArguments(
 }
 
 // closeCycle relocates a composition cycle to the invocation that closed it.
-func closeCycle(err error, closes bool, call provenance.Origin) error {
+func closeCycle(err error, closes bool, call symbols.Origin) error {
 	if planning, ok := err.(*Error); ok && planning.Kind == ErrorCompositionCycle && closes {
 		planning.Origin = call
 	}
@@ -1006,7 +1005,7 @@ func (c *compiler) cycleError(target *symbols.Symbol) error {
 		Kind:   ErrorCompositionCycle,
 		Query:  symbols.FQNOf(target),
 		Path:   path,
-		Origin: provenance.Symbol(target),
+		Origin: target.Origin(),
 	}
 }
 
@@ -1022,7 +1021,7 @@ func (c *compiler) literalExpression(
 			operation: OperationLiteral,
 			literal:   kind,
 			value:     value,
-			origin:    provenance.Node(query.DocName, node),
+			origin:    symbols.NodeOrigin(query.DocName, node),
 		},
 		types:        symbolSlice(c.typeSymbol(typeName)),
 		multiplicity: Multiplicity{Lower: 1, Upper: 1, Known: true},
@@ -1041,7 +1040,7 @@ func (c *compiler) quantityExpression(
 		return typedExpression{}, &Error{
 			Kind:   ErrorUnsupportedExpression,
 			Query:  symbols.FQNOf(query),
-			Origin: provenance.Node(owner.DocName, node),
+			Origin: symbols.NodeOrigin(owner.DocName, node),
 		}
 	}
 	return typedExpression{
@@ -1050,7 +1049,7 @@ func (c *compiler) quantityExpression(
 			literal:   LiteralQuantity,
 			value:     quantity.String(),
 			quantity:  &quantity,
-			origin:    provenance.Node(owner.DocName, node),
+			origin:    symbols.NodeOrigin(owner.DocName, node),
 		},
 		multiplicity: Multiplicity{Lower: 1, Upper: 1, Known: true},
 	}, nil
@@ -1061,7 +1060,7 @@ func (c *compiler) validateArgument(
 	target string,
 	param Parameter,
 	value typedExpression,
-	origin provenance.Origin,
+	origin symbols.Origin,
 ) error {
 	if actual, ok := c.valueTypeConforms(param, value); !ok {
 		return &Error{
@@ -1215,6 +1214,20 @@ func multiplicityString(multiplicity Multiplicity) string {
 		upper = "*"
 	}
 	return "[" + strconv.FormatInt(multiplicity.Lower, 10) + ".." + upper + "]"
+}
+
+func qualifiedName(name *ast.QualifiedName) string {
+	if name == nil {
+		return ""
+	}
+	out := ""
+	for i, part := range name.Parts {
+		if i > 0 {
+			out += "::"
+		}
+		out += part.Text
+	}
+	return out
 }
 
 func qualifiedNames(syms []*symbols.Symbol) []string {
