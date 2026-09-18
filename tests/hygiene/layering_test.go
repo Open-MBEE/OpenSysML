@@ -84,6 +84,7 @@ var packageLayer = map[string]string{
 
 	"internal/core/rdf":          "translation",
 	"internal/core/rdf/ontology": "translation",
+	"internal/core/convert":      "translation",
 	"internal/core/export":       "translation",
 	"internal/core/migrate":      "translation",
 	"internal/core/xmi":          "translation",
@@ -137,6 +138,7 @@ var tolerated = map[string][]string{
 // removed is the imports the layering took out, importer → imported; reintroducing
 // one fails even where the layer table would permit it.
 var removed = map[string][]string{
+	"internal/core/export":  {"internal/core/migrate"},
 	"internal/core/runtime": {"internal/core/parser", "internal/core/passes"},
 	"internal/repl":         {"internal/grpc"},
 }
