@@ -58,6 +58,7 @@ func FromModel(name string, model *xmi.Model) *Result {
 		indexed:   map[string]int{},
 		lanes:     map[*xmi.Element]*lanes{},
 		usageOf:   map[*xmi.Element]string{},
+		pins:      map[*xmi.Element]pinDecl{},
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -164,6 +165,8 @@ type migration struct {
 	// usageOf names, for each activity a lane's object performs, the action
 	// usage of the activity's owner that performs it.
 	usageOf map[*xmi.Element]string
+	// pins records how each declared pin is written, for the bodies that name it.
+	pins map[*xmi.Element]pinDecl
 	// clocks memoizes the names a simulation configuration gives the clock.
 	clocks map[string]string
 	// observed memoizes, per observation, the durations and time expressions that read it.

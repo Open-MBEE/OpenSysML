@@ -60,7 +60,7 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	}
 	wantClean(t, "t.sysml", r)
 	wantNote(t, r, "_set", migrate.Mapped, "the JavaScript body is translated to v2; names resolve against the context's tcs, read as this.tcs")
-	wantNote(t, r, "_stamp0", migrate.Mapped, "the clock variable reads the local clock")
+	wantNote(t, r, "_stamp0", migrate.Mapped, "the clock variable simtime, named by 2 simulation configurations, reads the local clock")
 	wantNote(t, r, "_e5", migrate.Mapped, "the JavaScript body is translated to v2; names resolve against the context's tcs, read as this.tcs")
 	wantNote(t, r, "_e6", migrate.Mapped, "the English body is translated to v2; names resolve against the context's tcs, read as this.tcs")
 	wantNote(t, r, "_lane", migrate.Mapped, "read as this.tcs")
@@ -97,7 +97,9 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 // a lane representing the context classifier; one representing nothing; one
 // whose represents refers outside the document; a node in no lane. The nodes
 // are listed on the lanes in both encodings, the lane's node list and the
-// node's inPartition.
+// node's inPartition. Two lanes are dimensions: a node in both, whose objects
+// differ, resolves through neither; a node in a dimension and a lane
+// representing nothing, or two lanes representing the same object, resolves.
 func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 	r := migrateXMI(t, "plant")
 	for _, line := range []string{
@@ -107,16 +109,25 @@ func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 		"assign this.level := this.tank.volume;",
 		"assign this.level := this.level + 1;",
 		"assign this.level := this.level + this.tank.volume;",
+		"assign this.pump.on := true;",
+		"assign this.tank.volume := this.tank.volume + 1;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
+	wantNoLine(t, r.Notation, "assign this.tank.volume := 0;")
+	wantNoLine(t, r.Notation, "assign this.pump.volume := 0;")
 	wantClean(t, "t.sysml", r)
 	wantNote(t, r, "_inner", migrate.Mapped, "the partition represents valve of the enclosing partition's object, read as this.tank.valve")
 	wantNote(t, r, "_outer", migrate.Mapped, "the partition represents the context's tank, read as this.tank")
 	wantNote(t, r, "_self", migrate.Mapped, "the partition represents the context object itself, a Plant")
 	wantNote(t, r, "_unset", migrate.Approximated, "the partition represents nothing")
 	wantNote(t, r, "_gone", migrate.Approximated, "the partition represents an element outside the document")
-	wantNote(t, r, "_idle", migrate.Approximated, "read as this.tank")
+	wantNote(t, r, "_idle", migrate.Mapped, "the partition represents the context's tank, read as this.tank")
+	wantNote(t, r, "_spare", migrate.Approximated, "read as this.tank, but nothing in it names the object's features")
+	wantNote(t, r, "_pumps", migrate.Mapped, "read as this.pump; 'torn' it holds are also in a partition representing another object, so names in them resolve through no partition")
+	wantNote(t, r, "_torn", migrate.Approximated, `the name "volume" resolves to nothing readable: nothing visible from Plant::Fill::torn is called volume; it is in the partitions 'Tank' (this.tank) and 'Pump' (this.pump), which represent different objects, so names resolve through no partition`)
+	wantNote(t, r, "_prime", migrate.Mapped, "names resolve against the context's pump, read as this.pump")
+	wantNote(t, r, "_twice", migrate.Mapped, "names resolve against the context's tank, read as this.tank")
 	wantNote(t, r, "_openv", migrate.Mapped, "names resolve against valve of the enclosing partition's object, read as this.tank.valve")
 	wantNote(t, r, "_note", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_free", migrate.Mapped, "the JavaScript body is translated to v2")
@@ -125,7 +136,7 @@ func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 	meta(t, s, "%instantiate Plant")
 	wantVerdict(t, s.RunAction("Plant::Fill", "Plant"))
 	runs := strings.Join(s.RunRuns("Plant::Fill", []string{"Plant"}, 1, 1, []string{"this.level", "this.runs"}).Lines, "\n")
-	for _, want := range []string{"this.level: 1 run(s), min 7.0", "this.runs: 1 run(s), min 1"} {
+	for _, want := range []string{"this.level: 1 run(s), min 9.0", "this.runs: 1 run(s), min 1"} {
 		if !strings.Contains(runs, want) {
 			t.Errorf("runs lack %q:\n%s", want, runs)
 		}
@@ -133,9 +144,9 @@ func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 }
 
 // The reactor fixture has a configured clock variable named other than the
-// default, a JavaScript function behavior and defaults the translator writes,
-// and bodies of each kind the translator refuses, kept as comments with a
-// typed reason.
+// default, which a parameter or property of the same name shadows, a
+// JavaScript function behavior and defaults the translator writes, and bodies
+// of each kind the translator refuses, kept as comments with a typed reason.
 func TestTranslatorRefusalsAndConfiguredClockName(t *testing.T) {
 	r := migrateXMI(t, "reactor")
 	for _, line := range []string{
@@ -145,18 +156,33 @@ func TestTranslatorRefusalsAndConfiguredClockName(t *testing.T) {
 		"assign this.started := localClock.currentTime;",
 		"attribute k : ScalarValues::Integer;",
 		"assign n := n * k;",
+		"assign y := x * this.power;",
+		"d == t_sim * 2",
+		"attribute reading : ScalarValues::Real default = t_sim + 1;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
+	wantNoLine(t, r.Notation, "d == localClock.currentTime * 2")
+	wantNoLine(t, r.Notation, "attribute reading : ScalarValues::Real default = localClock.currentTime + 1;")
+	wantNoLine(t, r.Notation, "attribute x : ScalarValues::Integer;")
+	wantNoLine(t, r.Notation, "attribute power : ScalarValues::Integer;")
+	wantNoLine(t, r.Notation, "assign y := x * 2;")
 	wantNoLine(t, r.Notation, "assign this.power := this.label + 1;")
 	wantNoLine(t, r.Notation, "assign x := x * 2;")
 	wantNoLine(t, r.Notation, "assign a := a + step;")
 	wantClean(t, "t.sysml", r)
 	wantNote(t, r, "_energy", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_limit", migrate.Mapped, "the JavaScript body is translated to v2")
-	wantNote(t, r, "_mark", migrate.Mapped, "the clock variable reads the local clock")
+	wantNote(t, r, "_mark", migrate.Mapped, "the clock variable t_sim, named by the configuration Run, reads the local clock")
+	wantNote(t, r, "_delay", migrate.Mapped, "the JavaScript body is translated to v2")
+	wantNote(t, r, "_reading", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_double", migrate.Mapped, "the JavaScript body is translated to v2")
+	wantNote(t, r, "_gain", migrate.Mapped, "the JavaScript body is translated to v2")
 	for id, want := range map[string]string{
+		"_shadow":  `the construct "var power" is outside the translated subset: power is already a feature here, which a declaration would shadow`,
+		"_pinned":  `the construct "var x" is outside the translated subset: x is already a feature here, which a declaration would shadow`,
+		"_relay":   `the construct "x" is outside the translated subset: an input pin is not assigned`,
+		"_bare":    `the name "raw.level" resolves to nothing readable: Reactor::Cycle::bare::raw has no type, so no feature level`,
 		"_scale":   `the construct "x" is outside the translated subset: an in parameter is not assigned`,
 		"_shift":   `the construct "a" is outside the translated subset: an in parameter is not assigned`,
 		"_loop":    `the construct "for" is outside the translated subset`,
@@ -169,5 +195,14 @@ func TestTranslatorRefusalsAndConfiguredClockName(t *testing.T) {
 		"_partial": `the call "label.trim" is not in the translated function table`,
 	} {
 		wantNote(t, r, id, migrate.Approximated, want)
+	}
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Reactor")
+	v := s.RunAction("Reactor::Cycle", "Reactor")
+	wantVerdict(t, v)
+	// gain reads its value pin x = 1.5 and the context's power = 4 into its out pin.
+	if lines := strings.Join(v.Lines, "\n"); !strings.Contains(lines, "gain.y = 6.0") {
+		t.Errorf("run lacks gain.y = 6.0:\n%s", lines)
 	}
 }

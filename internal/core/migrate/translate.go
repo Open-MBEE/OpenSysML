@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,35 +26,57 @@ type bodyScope struct {
 	m       *migration
 	scope   *xmi.Element
 	lane    *lane
-	viaLane bool // a name resolved against the lane's object
-	clock   bool // the body reads the simulation clock
+	clash   string // why no lane applies, when partitions of different dimensions hold the scope
+	viaLane bool   // a name resolved against the lane's object
+	clock   string // the clock variable the body reads and who names it; "" when it does not
 }
 
 // bodyScope makes the scope an opaque body read at scope is translated in.
 func (m *migration) bodyScope(scope *xmi.Element) *bodyScope {
-	return &bodyScope{m: m, scope: scope, lane: m.laneAt(scope)}
+	l, clash := m.laneAt(scope)
+	return &bodyScope{m: m, scope: scope, lane: l, clash: clash}
 }
 
-// laneAt is the innermost partition holding e, a node, edge or pin of an
-// activity, or something one owns; nil outside every partition.
-func (m *migration) laneAt(e *xmi.Element) *lane {
-	var act *xmi.Element
+// laneAt is the partition e, a node, edge or pin of an activity, or something
+// one owns, resolves names against; nil outside every partition, or with why
+// none applies when partitions of different dimensions hold it.
+func (m *migration) laneAt(e *xmi.Element) (*lane, string) {
+	ls, act := m.lanesAround(e)
+	for cur := e; ls != nil && cur != act; cur = cur.Parent {
+		if l := ls.laneOf(m, cur); l != nil {
+			return l, ""
+		}
+		if why := ls.clashNote(cur); why != "" {
+			return nil, why
+		}
+	}
+	return nil, ""
+}
+
+// useLane records that a name at e resolved through lane l, the lane laneAt found.
+func (m *migration) useLane(e *xmi.Element, l *lane) {
+	ls, act := m.lanesAround(e)
+	for cur := e; ls != nil && cur != act; cur = cur.Parent {
+		if ls.laneOf(m, cur) == l {
+			ls.use(cur, l)
+			return
+		}
+	}
+	l.used = true
+}
+
+// lanesAround is the partition index of the activity e is inside, with the
+// activity; nil when e is in none or is the activity itself.
+func (m *migration) lanesAround(e *xmi.Element) (*lanes, *xmi.Element) {
 	for cur := e; cur != nil; cur = cur.Parent {
 		if cur.Type == "Activity" {
-			act = cur
-			break
+			if cur == e {
+				return nil, nil
+			}
+			return m.lanesOf(cur), cur
 		}
 	}
-	if act == nil || act == e {
-		return nil
-	}
-	ls := m.lanesOf(act)
-	for cur := e; cur != nil && cur != act; cur = cur.Parent {
-		if l := ls.laneOf(m, cur); l != nil {
-			return l
-		}
-	}
-	return nil
+	return nil, nil
 }
 
 // feature resolves a dotted name: `this` and the names of the lane's object
@@ -80,28 +103,34 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 			}
 			return opaqueRef{expr: expr}, nil
 		}
+	} else if p, d := m.pinNamed(s.scope, path[0]); p != nil {
+		if write && len(path) == 1 && d.dir == "in" {
+			return opaqueRef{}, &refusal{kind: refusedConstruct, token: full, why: "an input pin is not assigned"}
+		}
+		expr, f = writeName(d.name), p
 	} else {
 		name := path[0]
-		if len(path) == 1 && m.isClockName(name) {
-			if write {
-				return opaqueRef{}, &refusal{kind: refusedConstruct, token: name, why: "the simulation clock is read, never assigned"}
-			}
-			s.clock = true
-			return opaqueRef{expr: clockRead, scalar: "Real"}, nil
-		}
 		if lf := m.laneFeature(s.lane, name); lf != nil {
 			expr, f = s.lane.expr+"."+writeName(m.nameOf(lf)), lf
 			s.viaLane = true
 		} else {
 			visible, hidden := m.visibleFrom(s.scope)
 			f = visible[name]
+			// The clock variable is the tool's global; any feature of that name shadows it.
+			if by, clock := m.clockNames()[name]; clock && f == nil && hidden[name] == nil && len(path) == 1 {
+				if write {
+					return opaqueRef{}, &refusal{kind: refusedConstruct, token: name, why: "the simulation clock is read, never assigned"}
+				}
+				s.clock = name + ", " + by
+				return opaqueRef{expr: clockRead, scalar: "Real"}, nil
+			}
 			switch {
 			case f == nil && hidden[name] != nil:
 				return opaqueRef{}, &refusal{kind: refusedName, token: name,
 					why: "it is private to " + qualifiedName(hidden[name].Parent)}
 			case f == nil:
 				return opaqueRef{}, &refusal{kind: refusedName, token: name,
-					why: "nothing visible from " + qualifiedName(s.scope) + " is called " + name}
+					why: joinNotes("nothing visible from "+qualifiedName(s.scope)+" is called "+name, s.clash)}
 			case f.Type != "Property" && f.Type != "Port" && f.Type != "Parameter":
 				return opaqueRef{}, &refusal{kind: refusedName, token: name,
 					why: "it is " + kindOf(f) + " " + qualifiedName(f) + ", not a feature a body reads"}
@@ -113,7 +142,12 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 		}
 	}
 	for _, step := range path[1:] {
-		visible, hidden := m.membersOf(f, memberAny)
+		typ := m.typedAs(f)
+		if typ == nil {
+			return opaqueRef{}, &refusal{kind: refusedName, token: full,
+				why: qualifiedName(f) + " has no type, so no feature " + step}
+		}
+		visible, hidden := m.membersOf(typ, memberAny)
 		next := visible[step]
 		switch {
 		case next == nil && hidden[step] != nil:
@@ -133,14 +167,27 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 		return opaqueRef{}, &refusal{kind: refusedConstruct, token: full, why: "an in parameter is not assigned"}
 	}
 	if s.lane != nil && s.viaLane {
-		s.lane.used = true
+		m.useLane(s.scope, s.lane)
 	}
 	_, upper, ok := bounds(f)
 	return opaqueRef{
 		expr:   expr,
-		scalar: m.scalarBase(m.model.Ref(f, "type")),
+		scalar: m.scalarBase(m.typedAs(f)),
 		plural: ok && upper != 1,
 	}, nil
+}
+
+// typedAs is the classifier typing f: a pin's as declared, else its own type;
+// for anything but a feature or pin, f itself, whose members are its own.
+func (m *migration) typedAs(f *xmi.Element) *xmi.Element {
+	if d, ok := m.pins[f]; ok {
+		return d.typ
+	}
+	switch f.Type {
+	case "Property", "Port", "Parameter":
+		return m.model.Ref(f, "type")
+	}
+	return f
 }
 
 // note says how the body's names were read, for the report entry of what it became.
@@ -152,8 +199,8 @@ func (s *bodyScope) note(lang string) string {
 	if s.viaLane && s.lane != nil {
 		note = joinNotes(note, "names resolve against "+strings.TrimPrefix(s.lane.note, "the partition represents "))
 	}
-	if s.clock {
-		note = joinNotes(note, "the clock variable reads the local clock")
+	if s.clock != "" {
+		note = joinNotes(note, "the clock variable "+s.clock+", reads the local clock")
 	}
 	return note
 }
@@ -200,7 +247,10 @@ func (m *migration) translatedStatements(body, lang string, scope *xmi.Element) 
 			return nil, "", &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(line) + " is not v2 syntax"}
 		}
 	}
-	return lines, s.note(lang), nil
+	if note = s.note(lang); note == "" {
+		note = "the body is translated to v2"
+	}
+	return lines, note, nil
 }
 
 // symbolicDuration reads a duration written as an expression, optionally
@@ -246,19 +296,12 @@ func parseStatement(line string) bool {
 	return ok && len(def.Members) == 1
 }
 
-// isClockName reports whether name is what a simulation configuration in the
-// document calls the clock variable.
-func (m *migration) isClockName(name string) bool {
-	_, ok := m.clockNames()[name]
-	return ok
-}
-
 // defaultClockName is what the simulation toolkit calls the clock variable
 // when no configuration renames it.
 const defaultClockName = "simtime"
 
-// clockNames maps each name a SimulationConfig gives the clock variable to the
-// configuration naming it. The simulation profile calls it simtime unless a
+// clockNames maps each name a SimulationConfig gives the clock variable to who
+// names it, for the report. The simulation profile calls it simtime unless a
 // configuration says otherwise; a document without the profile has no clock variable.
 func (m *migration) clockNames() map[string]string {
 	if m.clocks != nil {
@@ -285,6 +328,7 @@ func (m *migration) clockNames() map[string]string {
 		walk(r)
 	}
 	sort.Slice(configs, func(i, j int) bool { return configs[i].ID < configs[j].ID })
+	namers := map[string][]*xmi.Element{}
 	for _, e := range configs {
 		for _, s := range e.Stereotypes {
 			if !isSimulationProfile(s) || s.Name != "SimulationConfig" {
@@ -294,13 +338,20 @@ func (m *migration) clockNames() map[string]string {
 			if name == "" {
 				name = defaultClockName
 			}
-			if _, ok := m.clocks[name]; !ok {
-				m.clocks[name] = qualifiedName(e)
+			if !slices.Contains(namers[name], e) {
+				namers[name] = append(namers[name], e)
 			}
 		}
 	}
+	for name, by := range namers {
+		if len(by) == 1 {
+			m.clocks[name] = "named by the configuration " + qualifiedName(by[0])
+		} else {
+			m.clocks[name] = "named by " + strconv.Itoa(len(by)) + " simulation configurations"
+		}
+	}
 	if profiled && len(m.clocks) == 0 {
-		m.clocks[defaultClockName] = "the simulation profile's default"
+		m.clocks[defaultClockName] = "the simulation profile's default name"
 	}
 	return m.clocks
 }

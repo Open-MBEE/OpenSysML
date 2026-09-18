@@ -1,6 +1,9 @@
 part def 'Group 0' {
     /* applied stereotype «SimulationConfig»: durationSimulationMode = random; numberOfRuns = 6; timeVariableName = simtime */
 }
+part def 'Group 1' {
+    /* applied stereotype «SimulationConfig»: durationSimulationMode = max; numberOfRuns = 1 */
+}
 part def TCS {
     attribute i : ScalarValues::Integer default = 0;
     attribute Retries : ScalarValues::Integer default = 4;

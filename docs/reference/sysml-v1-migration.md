@@ -224,14 +224,23 @@ owning block; a nested partition reads through its enclosing ones (`this.tank.va
 a partition representing the context block itself reads `this`. A node in no partition, and a
 partition whose `represents` is unset, names an id the document does not define, a property
 with no v2 type, or a classifier the activity does not run in, fall back to the activity and
-its block, and the partition's report line says which of these it is. The partition's comment
-stays as documentation of its membership; its verdict is *mapped* when a name was resolved
-through it.
+its block, and the partition's report line says which of these it is. A node held by two
+partitions that do not nest — a diagram's two dimensions — resolves through the one that
+represents an object when the other represents nothing, and through either when both represent
+the same object; when they represent different objects, no partition applies, the node's names
+fall back to the activity and its block, and both the node's and the partitions' report lines
+say so. The partition's comment stays as documentation of its membership; its verdict is
+*mapped* when a name was resolved through it.
 
 **The clock.** The tool's time variable — `simtime`, or whatever the model's
 `SimulationConfig.timeVariableName` names — reads the simulation clock, so a body reading it
-is executable: `Time_Acq_Total = simtime;` is `assign this.Time_Acq_Total := localClock.currentTime;`,
-and `Time_Acq_Total = simtime - Time_Acq_Total;` the elapsed time since. `localClock.currentTime`
+is executable; the report line names the configuration that names it, or counts the
+configurations when several do. The variable is the tool's global — every configuration's
+name is recognized in every body, whichever activity the configuration targets — so a
+parameter, pin or property of the same name visible where the body lands shadows it and is
+read as that feature. `Time_Acq_Total = simtime;` is
+`assign this.Time_Acq_Total := localClock.currentTime;`, and
+`Time_Acq_Total = simtime - Time_Acq_Total;` the elapsed time since. `localClock.currentTime`
 is the standard library's own form (`Occurrences::Occurrence::localClock`, a `Clock` whose
 `currentTime` the [runtime](../guide/06-behavior.md#reading-the-clock) evaluates against the
 run's clock), so a migrated model needs no extension library and the attribute is one a run
@@ -299,7 +308,7 @@ translation is always complete or absent — never partial.
 | Script | v2 |
 |---|---|
 | `x = e;` `x += e;` `-=` `*=` `/=` `x++` `x--` | `assign x := e;` `assign x := x + e;` … |
-| `var x = e;` `let x = e;` `const x = e;` (one name, initialized) | `attribute x : ScalarValues::T;` `assign x := e;` with `T` the type of `e`; a later assignment to a `const` is refused |
+| `var x = e;` `let x = e;` `const x = e;` (one name, initialized) | `attribute x : ScalarValues::T;` `assign x := e;` with `T` the type of `e`; a later assignment to a `const` is refused, as is a declaration of a name already declared, of a pin, parameter or property visible where the body lands, or of a member every action has (`start`, `done`, `self`) |
 | several statements, on `;` or newlines | a sequence of the above |
 | integer, real, Boolean and string literals | the same literal |
 | `a`, `a.b.c` naming features that resolve | `this.a`, `this.a.b.c` (through the swimlane's object when it has one) |
@@ -316,8 +325,8 @@ translation is always complete or absent — never partial.
 **Refusals.** Anything else is refused, and the report line carries the reason with the token
 that caused it: a language not in the table (`the language "Groovy" is not translated`), text
 that is not expression syntax, a construct outside the subset (`for`, `while`, `if` statements,
-`new`, `function`, a declaration of several names, an assignment to a `const` or to an `in`
-parameter, a string method, a regular expression, an expression that assigns nothing, text
+`new`, `function`, a declaration of several names or of a name a feature already has, an
+assignment to a `const`, to an `in` parameter or to an input pin, a string method, a regular expression, an expression that assigns nothing, text
 after the one expression a guard or default is), a call not in the table (`the call "print" is not in the
 translated function table`), a name that resolves to nothing readable (`this.` in a context with
 no object, a property of no v2 type, a name no scope defines), or types that disagree (an

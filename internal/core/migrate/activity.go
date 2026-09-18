@@ -960,6 +960,7 @@ func (a *activity) declarePins(n *xmi.Element, ins, outs []*xmi.Element, typed b
 			if i < len(byPos) {
 				pname := a.m.nameFor(byPos[i])
 				a.names[pin] = pname
+				a.m.pins[pin] = pinDecl{name: pname, dir: dir, typ: a.m.model.Ref(byPos[i], "type")}
 				a.m.add(pin, Mapped, a.m.v2Name(n)+"."+pname, "the pin stands for the parameter "+pname+" of the definition, which the flows name")
 				return
 			}
@@ -979,6 +980,7 @@ func (a *activity) declarePins(n *xmi.Element, ins, outs []*xmi.Element, typed b
 		}
 		used[pname] = true
 		a.names[pin] = pname
+		a.m.pins[pin] = pinDecl{name: pname, dir: dir, typ: a.pinClassifier(pin)}
 		typ, note := a.m.typeRef(a.pinClassifier(pin), a.def)
 		decl := dir + " " + writeName(pname)
 		if typ != "" {
@@ -1005,6 +1007,24 @@ func (a *activity) declarePins(n *xmi.Element, ins, outs []*xmi.Element, typed b
 	for i, pin := range outs {
 		declare(pin, "out", outParams, i)
 	}
+}
+
+// pinDecl is how a pin is declared: the v2 name and direction of the parameter
+// written for it, and the classifier typing it.
+type pinDecl struct {
+	name, dir string
+	typ       *xmi.Element
+}
+
+// pinNamed is the pin of node n a body names, with its declaration; nil when none.
+func (m *migration) pinNamed(n *xmi.Element, name string) (*xmi.Element, pinDecl) {
+	pins := append(inputPins(n), append(n.Owned("result"), n.Owned("outputValue")...)...)
+	for _, p := range pins {
+		if d, ok := m.pins[p]; ok && m.nameOf(p) == name {
+			return p, d
+		}
+	}
+	return nil, pinDecl{}
 }
 
 // pinClassifier is the classifier a pin is typed by: its own type, else the
@@ -1711,12 +1731,22 @@ func (a *activity) partitionEntry(g *xmi.Element) {
 	case l == nil:
 		a.m.add(g, Approximated, "", kept)
 	case l.used:
-		a.m.add(g, Mapped, "", l.note)
+		a.m.add(g, Mapped, "", joinNotes(l.note, a.clashNote(l)))
 	case l.expr != "":
-		a.m.add(g, Approximated, "", kept+"; "+l.note+", but nothing in it names the object's features")
+		a.m.add(g, Approximated, "", joinNotes(kept+"; "+l.note+", but nothing in it names the object's features", a.clashNote(l)))
 	default:
 		a.m.add(g, Approximated, "", kept+"; "+l.note)
 	}
+}
+
+// clashNote names the nodes of lane l that another partition, representing a
+// different object, also holds; "" when there are none.
+func (a *activity) clashNote(l *lane) string {
+	clashing := a.m.lanesOf(a.act).clashing(l)
+	if len(clashing) == 0 {
+		return ""
+	}
+	return strings.Join(clashing, ", ") + " it holds are also in a partition representing another object, so names in them resolve through no partition"
 }
 
 // rules writes the activity's constraints the nodes did not consume.

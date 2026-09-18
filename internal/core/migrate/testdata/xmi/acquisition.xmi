@@ -6,6 +6,7 @@
   <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
 
     <packagedElement xmi:type="uml:Class" xmi:id="_config" name="Group 0"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_config1" name="Group 1"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_tcsb" name="TCS">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_i" name="i"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
         <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_i0" value="0"/>
@@ -105,4 +106,5 @@ GS_Found = false;</body>
   <sysml:Block xmi:id="_s1" base_Class="_obs"/>
   <sysml:Block xmi:id="_s2" base_Class="_tcsb"/>
   <SimulationProfile:SimulationConfig xmi:id="_s3" base_Class="_config" timeVariableName="simtime" durationSimulationMode="random" numberOfRuns="6"/>
+  <SimulationProfile:SimulationConfig xmi:id="_s4" base_Class="_config1" durationSimulationMode="max" numberOfRuns="1"/>
 </xmi:XMI>

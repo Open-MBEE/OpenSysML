@@ -32,6 +32,15 @@ action def Double {
     }
     first body then done;
 }
+calc def Delay {
+    in t_sim : ScalarValues::Real;
+    out d : ScalarValues::Real;
+    d == t_sim * 2
+}
+part def Gauge {
+    attribute t_sim : ScalarValues::Real default = 4.0;
+    attribute reading : ScalarValues::Real default = t_sim + 1;
+}
 part def Reactor {
     attribute power : ScalarValues::Real default = 3.0;
     attribute limit : ScalarValues::Real default = RealFunctions::min(power * 2, 5);
@@ -88,7 +97,41 @@ part def Reactor {
              * power = power + 1; label = label.trim();
              */
         }
-        first partial then final;
+        first partial then shadow;
+        action shadow {
+            /* body not migrated (the construct "var power" is outside the translated subset: power is already a feature here, which a declaration would shadow) {JavaScript}:
+             * var power = 1; power += 1;
+             */
+        }
+        first shadow then pinned;
+        action pinned {
+            in x : ScalarValues::Real;
+            /* body not migrated (the construct "var x" is outside the translated subset: x is already a feature here, which a declaration would shadow) {JavaScript}:
+             * var x = 1; x += 1;
+             */
+        }
+        first pinned then relay;
+        action relay {
+            in x : ScalarValues::Real;
+            out y : ScalarValues::Real;
+            /* body not migrated (the construct "x" is outside the translated subset: an input pin is not assigned) {JavaScript}:
+             * y = x * 2; x = y;
+             */
+        }
+        first relay then gain;
+        action gain {
+            in x : ScalarValues::Real = 1.5;
+            out y : ScalarValues::Real;
+            assign y := x * this.power;
+        }
+        first gain then bare;
+        action bare {
+            in raw;
+            /* body not migrated (the name "raw.level" resolves to nothing readable: Reactor::Cycle::bare::raw has no type, so no feature level) {JavaScript}:
+             * power = raw.level;
+             */
+        }
+        first bare then final;
         action final terminate;
     }
 }

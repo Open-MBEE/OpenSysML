@@ -566,6 +566,9 @@ func (p *opaqueParser) declaration() ([]string, *refusal) {
 	if !p.next(true).isPunct("=") {
 		return nil, &refusal{kind: refusedConstruct, token: kw.text + " " + name.text, why: "only a declaration of one name with an initial value is translated"}
 	}
+	if err := p.declarable(kw.text, name.text); err != nil {
+		return nil, err
+	}
 	value, err := p.expr()
 	if err != nil {
 		return nil, err
@@ -582,6 +585,26 @@ func (p *opaqueParser) declaration() ([]string, *refusal) {
 		"attribute " + target + " : ScalarValues::" + value.scalar + ";",
 		"assign " + target + " := " + value.expr + ";",
 	}, nil
+}
+
+// declarable refuses a declaration whose name the action body already has: a
+// local declared before, a member every action inherits, or a feature the
+// scope reads by that name, which a second declaration would make ambiguous.
+func (p *opaqueParser) declarable(kw, name string) *refusal {
+	token := kw + " " + name
+	if _, ok := p.locals[name]; ok {
+		return &refusal{kind: refusedConstruct, token: token, why: name + " is declared again"}
+	}
+	if inheritedActionNames()[name] {
+		return &refusal{kind: refusedConstruct, token: token, why: name + " is a member every action has"}
+	}
+	if _, any := p.sc.(anyScope); any {
+		return nil
+	}
+	if _, err := p.sc.feature([]string{name}, false); err == nil {
+		return &refusal{kind: refusedConstruct, token: token, why: name + " is already a feature here, which a declaration would shadow"}
+	}
+	return nil
 }
 
 // step writes `x++` or `x--` as an assignment.

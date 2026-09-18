@@ -1,7 +1,9 @@
 package migrate
 
 import (
+	"slices"
 	"sort"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
 )
@@ -22,10 +24,23 @@ type lane struct {
 	used       bool         // whether a name or a call resolved through the lane
 }
 
+// use records that a name or a call at e resolved through lane l, and so
+// through every other partition holding e that represents the same object.
+func (ls *lanes) use(e *xmi.Element, l *lane) {
+	l.used = true
+	for _, o := range ls.of[e] {
+		if o.expr == l.expr {
+			o.used = true
+		}
+	}
+}
+
 // lanes indexes the partitions of one activity by the nodes and edges they hold.
 type lanes struct {
-	all []*lane
-	of  map[*xmi.Element]*lane // node or edge → the innermost partition holding it
+	all    []*lane
+	of     map[*xmi.Element][]*lane // node or edge → every partition holding it
+	picked map[*xmi.Element]*lane   // node or edge → the partition its names resolve against
+	clash  map[*xmi.Element][]*lane // node or edge → partitions of different dimensions naming different objects
 }
 
 // lanesOf indexes the partitions of an activity once, before its nodes are written.
@@ -33,7 +48,7 @@ func (m *migration) lanesOf(act *xmi.Element) *lanes {
 	if ls, ok := m.lanes[act]; ok {
 		return ls
 	}
-	ls := &lanes{of: map[*xmi.Element]*lane{}}
+	ls := &lanes{of: map[*xmi.Element][]*lane{}, picked: map[*xmi.Element]*lane{}, clash: map[*xmi.Element][]*lane{}}
 	m.lanes[act] = ls
 	ctx := m.contextClassifier(act)
 	var index func(g *xmi.Element, parent *lane)
@@ -41,11 +56,8 @@ func (m *migration) lanesOf(act *xmi.Element) *lanes {
 		l := &lane{g: g, parent: parent}
 		m.resolveLane(l, ctx)
 		ls.all = append(ls.all, l)
-		for _, n := range m.model.Refs(g, "node") {
-			ls.of[n] = l
-		}
-		for _, e := range m.model.Refs(g, "edge") {
-			ls.of[e] = l
+		for _, n := range append(m.model.Refs(g, "node"), m.model.Refs(g, "edge")...) {
+			ls.hold(n, l)
 		}
 		for _, sub := range g.Owned("subpartition") {
 			index(sub, l)
@@ -56,18 +68,91 @@ func (m *migration) lanesOf(act *xmi.Element) *lanes {
 			index(g, nil)
 		}
 	}
-	// A node may name its partitions itself; the innermost one holds it.
+	// A node may name its partitions itself, the same membership seen from its side.
 	for _, n := range append(act.Owned("node"), act.Owned("edge")...) {
-		if ls.of[n] != nil {
-			continue
-		}
 		for _, g := range m.model.Refs(n, "inPartition") {
-			if l := ls.find(g); l != nil && (ls.of[n] == nil || l.depth() > ls.of[n].depth()) {
-				ls.of[n] = l
+			if l := ls.find(g); l != nil {
+				ls.hold(n, l)
 			}
 		}
 	}
 	return ls
+}
+
+// hold records that partition l holds e, once.
+func (ls *lanes) hold(e *xmi.Element, l *lane) {
+	if !slices.Contains(ls.of[e], l) {
+		ls.of[e] = append(ls.of[e], l)
+	}
+}
+
+// pick settles which of the partitions holding e its names resolve against:
+// the innermost when they nest in one chain, else the one naming an object;
+// several naming different objects are a clash, and nothing is picked.
+func (ls *lanes) pick(e *xmi.Element) *lane {
+	if l, ok := ls.picked[e]; ok {
+		return l
+	}
+	held := ls.of[e]
+	var inner, named []*lane
+	for _, l := range held {
+		if !slices.ContainsFunc(held, func(o *lane) bool { return o != l && o.within(l) }) {
+			inner = append(inner, l)
+		}
+	}
+	for _, l := range inner {
+		if l.expr != "" && !slices.ContainsFunc(named, func(o *lane) bool { return o.expr == l.expr }) {
+			named = append(named, l)
+		}
+	}
+	var l *lane
+	switch {
+	case len(inner) == 1:
+		l = inner[0]
+	case len(named) == 1:
+		l = named[0]
+	case len(named) > 1:
+		ls.clash[e] = named
+	}
+	ls.picked[e] = l
+	return l
+}
+
+// within reports whether l is nested in o, at any depth.
+func (l *lane) within(o *lane) bool {
+	for p := l.parent; p != nil; p = p.parent {
+		if p == o {
+			return true
+		}
+	}
+	return false
+}
+
+// clashNote says why names in e resolve against no partition: it is in
+// partitions of different dimensions that name different objects; "" when not.
+func (ls *lanes) clashNote(e *xmi.Element) string {
+	named := ls.clash[e]
+	if len(named) == 0 {
+		return ""
+	}
+	parts := make([]string, len(named))
+	for i, l := range named {
+		parts[i] = describe(l.g) + " (" + l.expr + ")"
+	}
+	return "it is in the partitions " + strings.Join(parts, " and ") + ", which represent different objects, so names resolve through no partition"
+}
+
+// clashing lists, for the report of partition l, the nodes it holds together
+// with another partition naming a different object.
+func (ls *lanes) clashing(l *lane) []string {
+	var nodes []string
+	for e, named := range ls.clash {
+		if slices.Contains(named, l) {
+			nodes = append(nodes, describe(e))
+		}
+	}
+	sort.Strings(nodes)
+	return nodes
 }
 
 // find returns the lane of a partition element.
@@ -80,28 +165,19 @@ func (ls *lanes) find(g *xmi.Element) *lane {
 	return nil
 }
 
-// depth is how many partitions enclose the lane.
-func (l *lane) depth() int {
-	d := 0
-	for p := l.parent; p != nil; p = p.parent {
-		d++
-	}
-	return d
-}
-
-// laneOf returns the innermost partition holding a node or edge of the
-// activity; an edge in none is held by its source's partition, then its target's.
+// laneOf returns the partition a node or edge of the activity resolves names
+// against; an edge in none is held by its source's partition, then its target's.
 func (ls *lanes) laneOf(m *migration, e *xmi.Element) *lane {
 	if ls == nil {
 		return nil
 	}
-	if l := ls.of[e]; l != nil {
+	if l := ls.pick(e); l != nil || len(ls.of[e]) > 0 {
 		return l
 	}
 	if e.Type == "ControlFlow" || e.Type == "ObjectFlow" {
 		for _, role := range []string{"source", "target"} {
 			if n := m.model.Ref(e, role); n != nil {
-				if l := ls.of[ownerNode(n)]; l != nil {
+				if l := ls.pick(ownerNode(n)); l != nil {
 					return l
 				}
 			}
@@ -257,7 +333,7 @@ func (m *migration) lanePerformer(n *xmi.Element) (obj string, b *xmi.Element) {
 	if cat, _ := m.classify(b); cat != catActionDef {
 		return "", nil
 	}
-	l := m.laneAt(n)
+	l, _ := m.laneAt(n)
 	if l == nil || l.expr == "" || l.expr == "this" || l.typ == nil {
 		return "", nil
 	}
@@ -265,7 +341,7 @@ func (m *migration) lanePerformer(n *xmi.Element) (obj string, b *xmi.Element) {
 	if owner == nil || (l.typ != owner && !m.inherits(l.typ, owner)) {
 		return "", nil
 	}
-	l.used = true
+	m.useLane(n, l)
 	return l.expr, b
 }
 
