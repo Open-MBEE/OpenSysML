@@ -436,7 +436,7 @@ func (m *migration) classify(e *xmi.Element) (category, string) {
 			return catUnmapped, "units and quantity kinds are not migrated; use the SI and ISQ libraries"
 		}
 		if len(m.classifiersOf(e)) == 0 {
-			return catUnmapped, "an instance specification without a classifier has no v2 form"
+			return catUnmapped, joinNotes("an instance specification without a classifier has no v2 form", m.snapshots[e].note)
 		}
 		occurrences, values, note := m.instanceClassifiers(e)
 		switch {
@@ -505,9 +505,9 @@ func rootOf(e *xmi.Element) *xmi.Element {
 // be typed by, and a note over those it can use as neither.
 func (m *migration) instanceClassifiers(e *xmi.Element) (occurrences, values []*xmi.Element, note string) {
 	var notes []string
-	if len(m.model.Refs(e, "classifier")) == 0 {
-		for _, c := range m.classifiersOf(e) {
-			notes = append(notes, "classified by "+qualifiedName(c)+", the owner of its slots' defining features, since it names no classifier")
+	if snap, ok := m.snapshots[e]; ok && len(m.model.Refs(e, "classifier")) == 0 {
+		for _, c := range snap.classifiers {
+			notes = append(notes, "classified by "+qualifiedName(c)+", the owner of its slots' defining features, since it names no classifier and is a result snapshot of "+"the run configuration "+describe(snap.config))
 		}
 	}
 	for _, c := range m.classifiersOf(e) {
@@ -527,30 +527,14 @@ func (m *migration) instanceClassifiers(e *xmi.Element) (occurrences, values []*
 	return occurrences, values, strings.Join(notes, "; ")
 }
 
-// classifiersOf is the classifiers an instance names, or, when it names none,
-// the owners of its slots' defining features: a slot is of a feature of the
-// instance's classifier, so the owner classifies it. Result snapshots of
-// simulation tools name none.
+// classifiersOf is the classifiers an instance names, or, when it names none
+// and is a result snapshot under a run configuration's result location, the
+// one its slots prove it of (indexSnapshots). Any other classifier-less instance has none.
 func (m *migration) classifiersOf(e *xmi.Element) []*xmi.Element {
 	if named := m.model.Refs(e, "classifier"); len(named) > 0 {
 		return named
 	}
-	var owners []*xmi.Element
-	seen := map[*xmi.Element]bool{}
-	for _, slot := range e.Owned("slot") {
-		f := m.model.Ref(slot, "definingFeature")
-		if f == nil || f.IsProxy() || f.Parent == nil || f.Parent.Type == "" || seen[f.Parent] {
-			continue
-		}
-		switch f.Parent.Type {
-		case "Class", "Actor", "DataType", "PrimitiveType", "Enumeration", "Signal", "Interface", "AssociationClass":
-		default:
-			continue
-		}
-		seen[f.Parent] = true
-		owners = append(owners, f.Parent)
-	}
-	return owners
+	return m.snapshots[e].classifiers
 }
 
 // individualClassifiers returns the kind an individual takes from its first classifier

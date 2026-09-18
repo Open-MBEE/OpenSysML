@@ -60,6 +60,7 @@ func FromModel(name string, model *xmi.Model) *Result {
 		deciding:  map[*xmi.Element]bool{},
 		bounded:   map[*xmi.Element][]*xmi.Element{},
 		triggered: map[*xmi.Element]bool{},
+		snapshots: map[*xmi.Element]snapshotTyping{},
 		indexed:   map[string]int{},
 	}
 	m.prepare()
@@ -160,6 +161,9 @@ type migration struct {
 	bounded map[*xmi.Element][]*xmi.Element
 	// triggered holds each event some trigger refers to, which is reported where it is.
 	triggered map[*xmi.Element]bool
+	// snapshots types each classifier-less instance under a run configuration's
+	// result location by what its slots prove it a snapshot of.
+	snapshots map[*xmi.Element]snapshotTyping
 	// bound gives, while a transition's effect is written, the expression over
 	// the accepted signal each of its parameters is bound to.
 	bound map[*xmi.Element]string
@@ -214,12 +218,16 @@ func weaker(a, b Verdict) bool {
 
 // prepare walks the model once ahead of writing: it indexes the item flows
 // by realizing connector, names every anonymous feature that is referred to,
-// and then exposes the features the connectors and slots that will be written reach.
+// types the run configurations' result snapshots, and then exposes the
+// features the connectors and slots that will be written reach.
 func (m *migration) prepare() {
-	var reachers []*xmi.Element
+	var reachers, configs []*xmi.Element
 	var walk func(e *xmi.Element)
 	walk = func(e *xmi.Element) {
 		m.distinguish(e)
+		if simulationConfig(e) != nil {
+			configs = append(configs, e)
+		}
 		switch e.Type {
 		case "InformationFlow":
 			if cs := m.model.Refs(e, "realizingConnector"); len(cs) > 0 {
@@ -288,6 +296,7 @@ func (m *migration) prepare() {
 			walk(r)
 		}
 	}
+	m.indexSnapshots(configs)
 	for _, e := range reachers {
 		m.exposeReached(e)
 	}

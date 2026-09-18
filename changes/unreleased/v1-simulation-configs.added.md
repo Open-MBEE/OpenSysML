@@ -33,9 +33,10 @@
   for the one object each of its own parts denotes, so `-observe target.duration` reads
   the target's attribute after the run.
 - **The tool's results come across, and a harness compares them.** `-migration-results
-  <file>` writes a JSON sidecar indexing the tool's result-snapshot instances — classifier-less
-  or typed, found under each configuration's `resultLocation` or result package — per
-  configuration and observable; `sysml <migrated>.sysml -compare-results <file> [-action
+  <file>` writes a JSON sidecar indexing the tool's result-snapshot instances — typed, or
+  classifier-less under a configuration's `resultLocation` with slots of features of one lineage
+  of blocks the target is of, which types them; a classifier-less instance anywhere else stays
+  unmapped — per configuration and observable; `sysml <migrated>.sysml -compare-results <file> [-action
   <configuration>...] [-runs <n>] [-draws <policy>] [-seed <s>] [-observe <stored>[=<feature>]...]`
   runs each configuration with its recorded run count and policy, or the ones given, and
   reports the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with the

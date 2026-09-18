@@ -218,6 +218,104 @@ func (m *migration) descendantInstances(pkg *xmi.Element) []*xmi.Element {
 	return out
 }
 
+// snapshotTyping is what a classifier-less instance's slots prove under a result
+// location: the target classifier it is a snapshot of, or why none.
+type snapshotTyping struct {
+	classifiers []*xmi.Element
+	config      *xmi.Element
+	note        string
+}
+
+// indexSnapshots types each classifier-less instance under a run configuration's
+// result location by the target classifier its slots prove it a snapshot of.
+func (m *migration) indexSnapshots(configs []*xmi.Element) {
+	for _, cfg := range configs {
+		s := simulationConfig(cfg)
+		_, classifiers, _ := m.targetClassifiers(s)
+		typed := m.classifierClosure(classifiers)
+		seen := map[*xmi.Element]bool{}
+		for _, id := range s.IDs("resultLocation") {
+			pkg := m.model.Lookup(id)
+			if pkg == nil || pkg.IsProxy() || seen[pkg] {
+				continue
+			}
+			seen[pkg] = true
+			for _, inst := range m.descendantInstances(pkg) {
+				if len(m.model.Refs(inst, "classifier")) > 0 {
+					continue
+				}
+				typing := m.snapshotTyping(inst, cfg, typed)
+				if prev, ok := m.snapshots[inst]; ok && (prev.classifiers != nil || typing.classifiers == nil) {
+					continue
+				}
+				m.snapshots[inst] = typing
+			}
+		}
+	}
+}
+
+// snapshotTyping types inst by the owners of its slots' features when they are one
+// lineage ending in one of typed (cfg's target classifiers and their generals), else says why not.
+func (m *migration) snapshotTyping(inst, cfg *xmi.Element, typed map[*xmi.Element]bool) snapshotTyping {
+	owners := m.slotOwners(inst)
+	if len(owners) == 0 {
+		return snapshotTyping{config: cfg}
+	}
+	names := make([]string, len(owners))
+	for i, o := range owners {
+		names[i] = qualifiedName(o)
+	}
+	where := " under the result location of the run configuration " + describe(cfg)
+	special := m.mostSpecial(owners)
+	switch {
+	case special == nil:
+		return snapshotTyping{config: cfg, note: "its slots are of features of " + strings.Join(names, ", ") + ", none a special of all the others, so no one classifier is inferred" + where}
+	case !typed[special]:
+		return snapshotTyping{config: cfg, note: "its slots are of features of " + strings.Join(names, ", ") + ", neither a classifier of the configuration's target nor a general of one, so it is no snapshot of a run on it" + where}
+	}
+	return snapshotTyping{classifiers: []*xmi.Element{special}, config: cfg}
+}
+
+// slotOwners lists, in slot order, the classifiers in the document owning the
+// defining features of inst's slots, each once.
+func (m *migration) slotOwners(inst *xmi.Element) []*xmi.Element {
+	var owners []*xmi.Element
+	seen := map[*xmi.Element]bool{}
+	for _, slot := range inst.Owned("slot") {
+		f := m.model.Ref(slot, "definingFeature")
+		if f == nil || f.IsProxy() || f.Parent == nil || seen[f.Parent] {
+			continue
+		}
+		switch f.Parent.Type {
+		case "Class", "Actor", "DataType", "PrimitiveType", "Enumeration", "Signal", "Interface", "AssociationClass":
+		default:
+			continue
+		}
+		seen[f.Parent] = true
+		owners = append(owners, f.Parent)
+	}
+	return owners
+}
+
+// mostSpecial is the one of classifiers every other is a general of, or nil
+// when they are no one lineage.
+func (m *migration) mostSpecial(classifiers []*xmi.Element) *xmi.Element {
+	for _, c := range classifiers {
+		closure := m.classifierClosure([]*xmi.Element{c})
+		lineage := true
+		for _, o := range classifiers {
+			if !closure[o] {
+				lineage = false
+				break
+			}
+		}
+		if lineage {
+			return c
+		}
+	}
+	return nil
+}
+
 // isSnapshotOf reports whether inst is classified, by name or by its slots' features,
 // by one of typed or a special of one.
 func (m *migration) isSnapshotOf(inst *xmi.Element, typed map[*xmi.Element]bool) bool {

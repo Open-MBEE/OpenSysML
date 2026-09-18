@@ -282,6 +282,67 @@ func TestReferenceTagsListingSeveralIDsAreSplit(t *testing.T) {
 	wantClean(t, "t.sysml", r)
 }
 
+// The owners of its slots' features type a classifier-less instance only where
+// they prove it a result snapshot: under a configuration's result location,
+// forming one lineage that ends in the target's classifier or a general of it.
+// One elsewhere, one whose slots are of two unrelated classes, and one whose
+// slots are of a class the target is not of name no classifier and stay unmapped.
+func TestSlotOwnersTypeOnlyResultSnapshots(t *testing.T) {
+	r := migrateDocument(t, storedResults+`
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_loose" name="loose">
+      <slot xmi:type="uml:Slot" xmi:id="_looseb" definingFeature="_pb">
+        <value xmi:type="uml:LiteralReal" xmi:id="_loosebv" value="0.5"/>
+      </slot>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_late" name="Late">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r5" name="run 5">
+        <slot xmi:type="uml:Slot" xmi:id="_r5a" definingFeature="_pa2">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r5av" value="1.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r5b" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r5bv" value="0.5"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_split" name="split">
+        <slot xmi:type="uml:Slot" xmi:id="_splitb" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_splitbv" value="0.5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_splito" definingFeature="_po">
+          <value xmi:type="uml:LiteralReal" xmi:id="_splitov" value="2.0"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_foreign" name="foreign">
+        <slot xmi:type="uml:Slot" xmi:id="_foreigno" definingFeature="_po">
+          <value xmi:type="uml:LiteralReal" xmi:id="_foreignov" value="2.0"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Block xmi:id="_s2" base_Class="_sure"/>
+  <sysml:Block xmi:id="_s3" base_Class="_other"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
+      executionTarget="_s0" resultLocation="_results _late"/>`)
+	wantNote(t, r, "_loose", migrate.Unmapped, "an instance specification without a classifier has no v2 form")
+	wantNoLine(t, r.Notation, "individual part def loose")
+	wantNote(t, r, "_r3", migrate.Approximated, "classified by Chooser, the owner of its slots' defining features, since it names no classifier and is a result snapshot of the run configuration 'Group 0'")
+	wantNote(t, r, "_r5", migrate.Approximated, "classified by Sure, the owner of its slots' defining features, since it names no classifier and is a result snapshot of the run configuration 'Group 0'")
+	wantLine(t, r.Notation, "individual part def 'run 5' :> Sure {")
+	wantNote(t, r, "_split", migrate.Unmapped, "its slots are of features of Chooser, Other, none a special of all the others, so no one classifier is inferred under the result location of the run configuration 'Group 0'")
+	wantNote(t, r, "_foreign", migrate.Unmapped, "its slots are of features of Other, neither a classifier of the configuration's target nor a general of one, so it is no snapshot of a run on it under the result location of the run configuration 'Group 0'")
+	configs := r.Results.Configurations
+	if len(configs) != 1 {
+		t.Fatalf("results index %d configuration(s), want 1", len(configs))
+	}
+	var ids []string
+	for _, s := range configs[0].Snapshots {
+		ids = append(ids, s.ID)
+	}
+	if want := []string{"_r1", "_r2", "_r3", "_r4", "_r5"}; !slices.Equal(ids, want) {
+		t.Errorf("snapshots indexed %v, want %v", ids, want)
+	}
+	wantClean(t, "t.sysml", r)
+}
+
 // Result locations that repeat or nest — a package and a sub-package of it —
 // index each snapshot once, so a stored run counts once in the distribution.
 func TestOverlappingResultLocationsIndexEachSnapshotOnce(t *testing.T) {

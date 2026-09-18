@@ -244,24 +244,24 @@ type executionTarget struct {
 	notes       []string
 }
 
-// configurationTarget resolves the execution target of a configuration; it
-// notes whatever it cannot.
-func (m *migration) configurationTarget(s *xmi.Stereotype) executionTarget {
+// targetClassifiers resolves a configuration's execution target and the part
+// defs its part is typed by; note says why there are none, t being nil when
+// the target itself is unusable.
+func (m *migration) targetClassifiers(s *xmi.Stereotype) (t *xmi.Element, classifiers []*xmi.Element, note string) {
 	ids := s.IDs("executionTarget")
 	switch {
 	case len(ids) == 0:
-		return executionTarget{notes: []string{"the configuration names no execution target, so it runs no behavior"}}
+		return nil, nil, "the configuration names no execution target, so it runs no behavior"
 	case len(ids) > 1:
-		return executionTarget{notes: []string{"the configuration names " + strconv.Itoa(len(ids)) + " execution targets, and a run has one object to run on"}}
+		return nil, nil, "the configuration names " + strconv.Itoa(len(ids)) + " execution targets, and a run has one object to run on"
 	}
-	t := m.model.Lookup(ids[0])
+	t = m.model.Lookup(ids[0])
 	if t == nil || t.IsProxy() {
-		return executionTarget{notes: []string{"the execution target " + strconv.Quote(ids[0]) + " is outside the document, so the configuration runs no behavior"}}
+		return nil, nil, "the execution target " + strconv.Quote(ids[0]) + " is outside the document, so the configuration runs no behavior"
 	}
 	if m.isLibrary(t) || !m.written(t) {
-		return executionTarget{notes: []string{"the execution target " + describe(t) + " is not migrated, so the configuration runs no behavior"}}
+		return nil, nil, "the execution target " + describe(t) + " is not migrated, so the configuration runs no behavior"
 	}
-	var classifiers []*xmi.Element
 	cat, why := m.classify(t)
 	switch cat {
 	case catPartDef:
@@ -269,17 +269,26 @@ func (m *migration) configurationTarget(s *xmi.Stereotype) executionTarget {
 	case catIndividualDef:
 		kind, written, _ := m.individualClassifiers(t)
 		if kind != catPartDef {
-			return executionTarget{notes: []string{"the execution target " + describe(t) + " is written as an " + individualKeyword(kind) + ", which no part can be typed by, so the configuration runs no behavior"}}
+			return nil, nil, "the execution target " + describe(t) + " is written as an " + individualKeyword(kind) + ", which no part can be typed by, so the configuration runs no behavior"
 		}
 		classifiers = written
 	default:
-		return executionTarget{notes: []string{joinNotes("the execution target "+describe(t)+" is written as a "+cat.keyword()+", which no part can be typed by, so the configuration runs no behavior", why)}}
+		return nil, nil, joinNotes("the execution target "+describe(t)+" is written as a "+cat.keyword()+", which no part can be typed by, so the configuration runs no behavior", why)
+	}
+	if len(classifiers) == 0 {
+		return t, nil, "the execution target " + describe(t) + " has no written classifier, so no behavior of it is performed"
+	}
+	return t, classifiers, ""
+}
+
+// configurationTarget resolves the execution target of a configuration; it
+// notes whatever it cannot.
+func (m *migration) configurationTarget(s *xmi.Stereotype) executionTarget {
+	t, classifiers, note := m.targetClassifiers(s)
+	if note != "" {
+		return executionTarget{element: t, notes: []string{note}}
 	}
 	target := executionTarget{element: t, classifiers: classifiers}
-	if len(classifiers) == 0 {
-		target.notes = []string{"the execution target " + describe(t) + " has no written classifier, so no behavior of it is performed"}
-		return target
-	}
 	behavior := m.inheritedClassifierBehavior(classifiers)
 	if behavior == nil {
 		target.notes = []string{"neither " + qualifiedName(classifiers[0]) + " nor any general of it has a classifier behavior, so the configuration only holds " + describe(t)}

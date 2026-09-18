@@ -97,8 +97,8 @@ returned over the service yet.
 | Slot of a part, item or constraint property holding one instance | `individual part :>> x : 'the instance';` — `ref` when the property is | mapped |
 | Slot of a part, item or constraint property holding several instances | `part :>> x [n];` then one `individual part : 'the instance' :> x;` each | mapped |
 | InstanceSpecification of a value type | `attribute` typed by it, holding its slot values (an individual cannot specialize an attribute def) | mapped |
-| InstanceSpecification naming no classifier, whose slots are of features of one block (a simulation tool's result snapshot) | the `individual part def` of the owner of its slots' features, with its slots; the note says which owner classified it | mapped |
-| InstanceSpecification naming no classifier and holding no slot of a written feature | comment | **unmapped** — nothing classifies it |
+| InstanceSpecification naming no classifier, under a `SimulationConfig`'s `resultLocation`, whose slots are of features of one lineage of blocks ending in the configuration's target classifier or a general of it (a simulation tool's result snapshot) | the `individual part def` of the most special of those blocks, with its slots; the note says which owner classified it and for which configuration | mapped |
+| InstanceSpecification naming no classifier, anywhere else, or under a `resultLocation` with slots of features of blocks that are no one lineage or none the target is of | comment | **unmapped** — nothing classifies it; under a `resultLocation` the note says which owners its slots have and why they type no snapshot |
 | Slot contradicting its feature (more values than the multiplicity allows, a repeated value of a unique feature, a feature of a classifier the instance is not written to specialize, an instance that is not of the property's type or of its default individual, a value outside the document) | comment | **unmapped** |
 | Slot of a port, or of an untyped property | comment (no individual can type a port; a `ref` without a type takes none) | **unmapped** |
 | Property whose default is an InstanceSpecification of a block | the individual added to the usage's types, or its only type when the property is untyped; no `default` (a definition is not a v2 value). A port, a usage of another kind than the individual, or a usage whose type the individual is not an instance of, keeps its types and the default is a comment | approximated |
@@ -324,8 +324,10 @@ action def 'Group 0' {
   consumed, and set to false they are kept in the comment and reported as having no v2 form.
 - The tool's own results — the snapshots it stored of the configuration's runs under its
   `resultLocation` packages, one instance per run whose slots hold the observed values, most
-  naming no classifier — are migrated as individuals of the block their slots' features belong
-  to, and indexed per configuration in the JSON sidecar
+  naming no classifier — are migrated as individuals of the most special block their slots'
+  features belong to, provided those blocks are one lineage ending in the configuration's target
+  classifier or a general of it (a classifier-less instance anywhere else, or whose slots are of
+  unrelated blocks, is unmapped with the reason), and indexed per configuration in the JSON sidecar
   `-convert sysml … -migration-results results.json` writes beside the notation:
 
   ```json
