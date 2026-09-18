@@ -1043,14 +1043,8 @@ func (e *StateExecutor) firingOn(event *Event, fire func() (bool, error)) (bool,
 	return fire()
 }
 
-// dispatchInOrder fires the chosen candidates through fire as the queues of one
-// front: each firing's units — the exits, the effects, the entries — in their
-// order, the policy drawing which firing's next unit runs while two or more have
-// one. The candidates whose transitions meet at one join are one firing, fired
-// whole by the first. A firing whose leaf a unit before it left, or whose guard
-// one falsified — armed reads it as firing would — is void of a unit: no
-// alternative, run in its turn once no firing has one, as fire then finds.
-// where names the occurrence dispatched, for the choice each draw reports.
+// dispatchInOrder fires the candidates as queues of one front, drawing which firing's next
+// unit runs; a firing left or disarmed by an earlier unit is void. where names the occurrence.
 func (e *StateExecutor) dispatchInOrder(
 	where string,
 	candidates []dispatchCandidate,
@@ -4421,9 +4415,8 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 	return nil
 }
 
-// exitRegionsBelow exits the active state of each of owner's regions, and the
-// states between it and owner, as queues of an exit front: the regions' exits
-// are drawn one unit at a time, each region's innermost first.
+// exitRegionsBelow exits each region's active state and the states up to owner as queues of
+// an exit front, drawn one unit at a time, each region's innermost first.
 func (e *StateExecutor) exitRegionsBelow(owner *ast.StateNode, regions []*ast.StateRegion, active map[*ast.StateRegion]*ast.StateNode) error {
 	var bodies []func() error
 	for _, region := range regions {

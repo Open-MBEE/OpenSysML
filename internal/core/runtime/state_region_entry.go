@@ -46,10 +46,8 @@ func (e *StateExecutor) enterRegionsInto(container *ast.StateNode, regions []*as
 	return e.enterRegions(container, entries, true)
 }
 
-// enterRegions enters the regions as queues of an entry front, each queue the
-// region's units in their order: queues of the front under way when a queue of
-// it is running, which waits for them when wait says, or a front of their own,
-// drawn one unit at a time; one region alone is entered as it stands.
+// enterRegions enters the regions as queues of an entry front (the one under way, waited
+// for when wait says, or a front of their own), one unit drawn at a time.
 func (e *StateExecutor) enterRegions(container *ast.StateNode, entries []*regionEntry, wait bool) error {
 	bodies := make([]func() error, len(entries))
 	for i, entry := range entries {
@@ -62,12 +60,8 @@ func (e *StateExecutor) enterRegions(container *ast.StateNode, entries []*region
 	return e.performUnits(ChoiceEntryOrder, where, bodies, wait)
 }
 
-// enterForkBranches enters the owner's regions through the fork's branches, one
-// queue per region: its branch's effect, the rest of the way down to the owner —
-// entered once, by whichever branch is drawn first — then its target. A region
-// no branch enters starts as usual once the way down is entered. The do
-// behaviors of the states entered on the way down start once all have,
-// innermost first, as after an ordinary entry.
+// enterForkBranches enters the owner's regions as one queue per region: the branch's effect,
+// the way down (entered once, by the first drawn), then its target; unentered regions start as usual.
 func (e *StateExecutor) enterForkBranches(fork *ast.PseudostateNode, plan *lower.ForkPlan, above *lazyEntry) error {
 	targets := plan.Targets()
 	regions := e.graph.CompositeStates[plan.Owner]
@@ -139,9 +133,8 @@ func (e *StateExecutor) runBranchEffect(branch *lower.Transition) error {
 	return nil
 }
 
-// enterRegion enters one region: the state it starts in, entering every state
-// on the way down to it as a transition does. A start its entry guards decide
-// is drawn before they are read, so they read what the units before it wrote.
+// enterRegion enters one region down to the state it starts in, as a transition does; a start
+// its guards decide is drawn before they are read, so they read what earlier units wrote.
 func (e *StateExecutor) enterRegion(w *regionEntry) error {
 	if w.target == nil && e.graph.RegionState[w.region] == nil && len(e.graph.StartOf(w.region)) > 0 {
 		if err := e.unitAhead(ChoiceEntryOrder, e.startHead(w.region, w.container)); err != nil {
@@ -165,9 +158,8 @@ func (e *StateExecutor) enterRegion(w *regionEntry) error {
 	return nil
 }
 
-// startHead names the unit that enters where body starts: the entry of the first
-// state on the way below above when the first start transition has no guard, else
-// the start itself, its state known once its guards are read.
+// startHead names the unit entering where body starts: the first state below above when the
+// start transition has no guard, else the start itself, its state known once guards are read.
 func (e *StateExecutor) startHead(body ast.Node, above *ast.StateNode) unitHead {
 	starts := e.graph.StartOf(body)
 	if len(starts) > 0 && starts[0].Guard == nil {
@@ -200,10 +192,8 @@ func (e *StateExecutor) regionStart(w *regionEntry) (*ast.StateNode, error) {
 }
 
 // enterLazily enters the way down as far as the first upto states of the chain.
-// A state on the way is activated without its do behavior; the region the chain
-// passes through is left to the states below, its other regions start as usual
-// — alongside the way down, when a front draws it — and the owner's regions are
-// the branches' to enter.
+// A state on the way is activated without its do behavior; the region the chain passes
+// through is left to the states below, its other regions start as usual (drawn on a front).
 func (e *StateExecutor) enterLazily(l *lazyEntry, upto int) error {
 	for ; l.next < upto; l.next++ {
 		state := l.chain[l.next]

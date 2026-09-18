@@ -660,13 +660,9 @@ func TestJunctionBranchDeadEndKeepsItsNotes(t *testing.T) {
 	}
 }
 
-// A junction with two branches enabled in one region, whose incoming guard the
-// other region's effect disarms: the branch is drawn only as the transition
-// fires, after the units before it, so a witness lists the entry and firing-unit
-// draws first and a run in which the disarming effect runs before b1's exit draws
-// nothing at the junction. The silent exits and entries ride with the effect of
-// their firing, so each firing is one draw and a target's entry follows its
-// effect. Every witness, and the choices every seed takes, replay to the same run.
+// A junction's branch is drawn only as its transition fires, after the entry and
+// firing-unit draws before it; a run whose sibling effect disarms the junction
+// first draws nothing there. Every witness and every seed's choices replay.
 func TestExploreJunctionDrawnAsTransitionFires(t *testing.T) {
 	m := parseExploreModel(t, `package test {
 		state def Machine {
@@ -885,13 +881,9 @@ func TestExploreHistoryDefaultThroughJunction(t *testing.T) {
 	}
 }
 
-// One event enabling a transition in each of two regions: the library orders
-// neither first, so exploration draws the two firings' order, the region's entry
-// order drawn before them; each firing's silent exit and entry ride with its
-// effect, so it is one draw. Every policy reports the order it took as entry
-// and firing-unit choice points, `reverse` and `declared` taking declaration
-// order and seeds reaching both effect orders. A change occurrence raising both
-// regions' conditions at once is dispatched the same way.
+// One event enabling a transition in each of two regions: exploration draws the
+// entry order and then the firings' order (each firing's silent exit and entry
+// ride with its effect), every policy reporting both; a change occurrence likewise.
 func TestExploreSiblingRegionOrder(t *testing.T) {
 	t.Run("event", func(t *testing.T) {
 		m := parseExploreModel(t, `package test {
@@ -936,11 +928,8 @@ func TestExploreSiblingRegionOrder(t *testing.T) {
 	})
 }
 
-// checkSiblingRegionOrder runs Machine, sending signal if named, and checks that
-// exploration reaches the four outcomes (both entry orders, both firing orders),
-// that the fixed policies take declaration order at every draw and report them,
-// and that seeds reach both effect orders; where spells the firing's trigger.
-// `last` reads 2 where a's effect ran first.
+// checkSiblingRegionOrder checks exploration reaches both entry and both firing orders
+// (`last` reads 2 where a's effect ran first), fixed policies take declaration order and report it.
 func checkSiblingRegionOrder(t *testing.T, m *exploreModel, signal, where string, want []string) {
 	sym := m.state(t, "Machine")
 	run := func(ctx *Context) (Outcome, error) {

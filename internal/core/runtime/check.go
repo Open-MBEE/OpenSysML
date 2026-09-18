@@ -238,9 +238,8 @@ func (e *CheckStopped) Unwrap() error { return e.Cause }
 // fresh makes. Every violation and every final value carries the witness a
 // replay of the same starter follows (Replay). It stops with a CheckStopped
 // when stop ends first; it fails when the run refused a move it selected.
-// The start itself draws choice points — the order a machine enters its regions
-// in — so it is begun once per way of resolving them, each in a fresh context,
-// and the search runs from every state a start reaches.
+// The start draws choice points itself (region entry order), so it is begun once per way of
+// resolving them and the search runs from every state a start reaches.
 func Check(stop context.Context, fresh func() (*Context, error), start Starter, budget CheckBudget, opts CheckOptions, props []CheckProperty) (*CheckReport, error) {
 	c := &checker{
 		budget:         budget,
@@ -266,9 +265,8 @@ func Check(stop context.Context, fresh func() (*Context, error), start Starter, 
 	return c.result(), nil
 }
 
-// searchFrom begins the invocation in a fresh context with the start's choice
-// points resolved by picks, searches from the state reached, and returns the pick
-// sequences taking each other alternative of the choice points drawn past picks.
+// searchFrom begins the invocation with the start's choice points resolved by picks, searches
+// from the state reached, and returns the pick sequences taking each other alternative drawn.
 func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error), start Starter, picks []int) ([][]int, error) {
 	ctx, err := fresh()
 	if err != nil {

@@ -1059,9 +1059,8 @@ func TestRegionOrderChoiceNamesTheOccurrenceNotTheTakenTrigger(t *testing.T) {
 	t.Fatal("no seed up to 32 took b1 first; the case does not exercise the alternate draw")
 }
 
-// firstRegionOrderChoice returns the first draw among the firings of a
-// dispatch, checking the run's notes are the entry order and those draws alone
-// and every draw of the dispatch is named alike.
+// firstRegionOrderChoice returns the dispatch's first draw among its firings, checking the
+// run's notes are the entry order and those draws alone, every draw of the dispatch named alike.
 func firstRegionOrderChoice(t *testing.T, label string, notes []RunNote, alternatives string) ChoicePoint {
 	t.Helper()
 	var firings []ChoicePoint

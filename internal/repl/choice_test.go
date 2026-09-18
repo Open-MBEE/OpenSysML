@@ -148,10 +148,8 @@ package Debug {
 	rejects(t, out, "choice point")
 }
 
-// One event enabling a transition in each of two orthogonal regions draws the
-// order of the two firings under the default policy, one choice: each firing's
-// silent exit and entry ride with its effect. Counted in the summary line, and
-// shown in the trace when it is on.
+// One event enabling a transition in each of two regions draws the firings' order under the
+// default policy, one choice: counted in the summary line, shown in the trace when it is on.
 func TestAdvanceReportsRegionOrderChoice(t *testing.T) {
 	src := `
 package Debug {

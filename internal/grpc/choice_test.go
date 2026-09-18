@@ -254,10 +254,8 @@ package Test {
 	}
 }
 
-// One event enabling a transition in each of two orthogonal regions draws the
-// order the regions are entered and the order the two firings' units run, one
-// choice per unit boundary, on the state response under the default policy;
-// `seed:1` takes another order.
+// One event enabling a transition in each of two regions draws the entry order and the
+// firings' unit order on the state response under the default policy; `seed:1` takes another.
 func TestExecuteState_RegionOrderChoiceDiagnostics(t *testing.T) {
 	srv := mustNewService(t, 10)
 

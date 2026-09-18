@@ -639,10 +639,8 @@ func (e *StateExecutor) exitAhead(states []*ast.StateNode) error {
 	return err
 }
 
-// travel takes a compound transition along r as one move: a draw it is open at is
-// made first, then at each choice it leaves the states every branch leaves, runs
-// the effects of the segments into it and reads its guards; move then finishes
-// the settled rest with the effects left.
+// travel takes a compound transition along r as one move: at each choice it leaves what every
+// branch leaves, runs the effects into it and reads its guards; move finishes the settled rest.
 func (e *StateExecutor) travel(trans *lower.Transition, from *ast.StateNode, r route, exits exitPlan, enters entryPlan, move func([]routeEffect, *ast.StateNode) error) error {
 	savedLeft, savedEntered := e.leftAhead, e.enteredAhead
 	e.leftAhead, e.enteredAhead = nil, nil

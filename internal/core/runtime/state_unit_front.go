@@ -10,22 +10,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 )
 
-// A front is where the executor performs the units of several regions — a
-// fork's branches, the regions of a composite it enters or exits, the firings
-// one occurrence selected — one at a time, drawing which region's next unit runs
-// while two or more have one. Each region's units run in the order the executor
-// always performed them, as a coroutine that yields before every unit; the front
-// resumes the one drawn. Under `declared` the lowest queue with a unit is drawn,
-// so the front performs the very sequence the executor did before it drew anything.
-// A front lives within one move: a refused draw fails the move, whose mark undoes
-// every unit performed, so no snapshot ever holds a front.
+// A front performs the units of several regions one at a time, drawing which advances while two
+// or more have one; each region is a coroutine yielding before every unit. It lives within one move.
 
 // errFrontClosed is what a queue's unit returns once its front closed under it.
 var errFrontClosed = errors.New("front closed")
 
-// The Where of an entry order names the composite whose regions are entered, or
-// the fork whose branches are; an exit order names the composite exited; a
-// region order among the units of firings names the occurrence they react to.
+// An entry order's Where names the composite or fork entered, an exit order's the composite
+// exited, and a region order among firing units the occurrence they react to.
 const (
 	firingWherePrefix   = "on "
 	enteringWherePrefix = "entering "
@@ -80,10 +72,8 @@ type unitFront struct {
 	outer   *unitFront
 }
 
-// unitQueue is one region's remaining units: the coroutine performing them and
-// the head it yielded, the unit it performs next when resumed. A queue drawn for
-// a unit it has yet to name (a start a guard decides) is prepaid for that unit.
-// A queue spawned at a head starts its coroutine when first drawn, for that head.
+// unitQueue is one region's remaining units: the coroutine performing them and the head it
+// yielded. A queue drawn for a unit it has yet to name is prepaid; one spawned at a head starts when drawn.
 type unitQueue struct {
 	front   *unitFront
 	head    unitHead
@@ -99,14 +89,8 @@ type unitQueue struct {
 	firing  firingScope
 }
 
-// unitHead describes a queue's next unit. A shared unit is one several queues
-// may perform, entered once by whichever is drawn first: the others drop it as
-// dropped reports. A queue waiting on something a sibling does (its owner's
-// entry, the queues it spawned) has no unit until until holds. A queue void of
-// a unit (a firing a sibling's unit disabled) is no alternative while void holds;
-// it runs to its end, performing nothing, once no queue has a unit. A silent
-// unit performs no behavior: it goes with the queue's performing unit next to
-// it rather than being a draw of its own (see advance).
+// unitHead is a queue's next unit: shared (performed once, by the first drawn), waiting (until
+// holds), void (a disabled firing, run last performing nothing) or silent (rides with the next performing unit).
 type unitHead struct {
 	label   string
 	at      ast.Node
@@ -117,10 +101,8 @@ type unitHead struct {
 	silent  bool
 }
 
-// firingScope is the state of the firing a queue's units belong to — the
-// occurrence taken, what a compound transition under way left and entered ahead,
-// its mark, the trigger arguments it bound — kept with the queue while another
-// queue's units run, so two firings interleaved read each their own.
+// firingScope is the state of a queue's firing (occurrence, what it left and entered ahead,
+// mark, bound trigger arguments), kept aside while another queue's units run.
 type firingScope struct {
 	event        *Event
 	change       *lower.Transition
@@ -200,10 +182,8 @@ func (e *StateExecutor) bindData(name string, value Value) {
 	}
 }
 
-// restoreData snapshots the named entries of the machine's data and returns the
-// function putting them back, deleting the ones that were not there before. In
-// a front the entries are the running queue's firing's, put back when it unbinds
-// them and kept out of the way while another queue's units run.
+// restoreData snapshots the named data entries and returns the function putting them back,
+// deleting the ones that were absent; a front swaps a firing's bindings in and out this way.
 func (e *StateExecutor) restoreData(names []ast.NameSegment) func() {
 	q := e.runningQueue()
 	if q == nil {
@@ -243,10 +223,8 @@ func (e *StateExecutor) openFront(kind ChoiceKind, where string) *unitFront {
 	return f
 }
 
-// performUnits performs the bodies, each one region's units in their order, as
-// queues of a front of the kind: the front under way when a queue of it is
-// running, which waits for them when wait says, or a front of their own at where,
-// drawn one unit at a time. One body alone is performed as it stands.
+// performUnits performs the bodies as queues of a front of the kind (the one under way, waited
+// for when wait says, or a front of their own at where); one body alone runs as it stands.
 func (e *StateExecutor) performUnits(kind ChoiceKind, where string, bodies []func() error, wait bool) error {
 	if e.inFront(kind) {
 		return e.spawnUnits(kind, bodies, wait)
@@ -302,10 +280,8 @@ func (f *unitFront) close() {
 	f.exec.front = f.outer
 }
 
-// spawn adds a queue performing body and runs it to its first head. A queue a
-// running queue spawns, for a region nested in its own, goes right before it:
-// the lowest queue is drawn first under `declared`, and the nested region was
-// entered before the spawning region went on.
+// spawn adds a queue performing body and runs it to its first head; a queue spawned by a
+// running one goes right before it, as the nested region was entered before its spawner went on.
 func (f *unitFront) spawn(body func() error) *unitQueue {
 	q := f.add(body)
 	q.start()
@@ -313,9 +289,8 @@ func (f *unitFront) spawn(body func() error) *unitQueue {
 	return q
 }
 
-// spawnAt adds a queue performing body whose first unit head names; the body
-// runs when the queue is first drawn, performing that unit without a draw of
-// its own. A body deciding first whether it has a unit at all is spawned so.
+// spawnAt adds a queue whose first unit head names; body runs when the queue is first drawn,
+// performing that unit without a draw of its own.
 func (f *unitFront) spawnAt(head unitHead, body func() error) *unitQueue {
 	q := f.add(body)
 	q.head = head
@@ -368,9 +343,8 @@ func (f *unitFront) resume(q *unitQueue, perform bool) {
 	q.head = head
 }
 
-// unit yields before a unit of the running queue and reports whether to perform
-// it; a unit no front orders is performed at once. A front of another kind
-// orders coarser units this one is part of.
+// unit yields before a unit of the running queue and reports whether to perform it; a unit
+// no front of this kind orders is performed at once.
 func (e *StateExecutor) unit(kind ChoiceKind, head unitHead) (bool, error) {
 	f := e.front
 	if f == nil || !f.accepts(kind) || f.current == nil {
@@ -464,9 +438,8 @@ func (f *unitFront) drain() (err error) {
 	}
 }
 
-// advance performs the drawn queue's units through its next performing one and
-// the silent units after it, up to the one performing next; it stops early where
-// a sibling's readiness changes, so `declared` keeps its unit-for-unit sequence.
+// advance performs the drawn queue's next performing unit and the silent units around it,
+// stopping early where a sibling's readiness changes so `declared` keeps its sequence.
 func (f *unitFront) advance(q *unitQueue) {
 	others := f.readyExcept(q)
 	performed := false
@@ -547,9 +520,8 @@ func (f *unitFront) finished() bool {
 	return true
 }
 
-// labels spells the ready queues' next units, the alternatives of the draw; a
-// state whose name another region's state shares, as typed regions' states do,
-// is told apart by its region, as stateNames tells states of one name apart.
+// labels spells the ready queues' next units, the draw's alternatives; a state sharing its
+// name with another region's is told apart by its region, as stateNames does.
 func (f *unitFront) labels(ready []*unitQueue) []string {
 	labels := make([]string, len(ready))
 	for i, q := range ready {

@@ -72,9 +72,8 @@ func TestEngineCheckWitnessesTheSpacecraftRaceAndReplaysEach(t *testing.T) {
 // TestExploreTablesTheSpacecraftRaceWithinItsBudget checks -schedule explore on the
 // showcase's spacecraft: a run to t=80 meets more choice points than the default
 // depth, so the round at t=79 is varied only once depth covers it, and then by the
-// run after the first run's choice points, in one table under any -jobs. The
-// order the two regions of `modes` are entered in is drawn first and tells the
-// 41 outcome's two visit orders apart.
+// run after the first run's choice points, in one table under any -jobs; the entry
+// order of `modes`' two regions is drawn first, telling the 41 outcome's visit orders apart.
 func TestExploreTablesTheSpacecraftRaceWithinItsBudget(t *testing.T) {
 	binary := buildCLI(t)
 	explore := func(budget string, jobs string) runOutcome {

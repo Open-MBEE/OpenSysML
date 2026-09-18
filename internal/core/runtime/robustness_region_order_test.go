@@ -42,10 +42,8 @@ const regionOrderModel = `package test {
 	}
 }`
 
-// TestRuntimeRobustnessRegionOrder exercises the failure modes of the drawn
-// order of orthogonal regions: a witness line naming a unit the front does not
-// hold is a typed refusal that leaves the machine's data as the move found it,
-// and a front too wide for the budget is an incomplete exploration, not a hang.
+// TestRuntimeRobustnessRegionOrder: a witness naming a unit the front does not hold is a
+// typed refusal leaving the data as the move found it; a front beyond the budget is no hang.
 func TestRuntimeRobustnessRegionOrder(t *testing.T) {
 	t.Run("entry_order_naming_a_region_the_front_does_not_hold", testEntryOrderNamingARegionTheFrontDoesNotHold)
 	t.Run("firing_unit_order_naming_a_unit_of_no_firing", testFiringUnitOrderNamingAUnitOfNoFiring)
@@ -83,9 +81,8 @@ func refusedRegionOrderReplay(t *testing.T, lines string, signals int) (*ReplayE
 	return refused, FormatValue(exec.StateData()["log"])
 }
 
-// testEntryOrderNamingARegionTheFrontDoesNotHold: an entry-order line naming a
-// state no region is about to enter is refused at the draw, before either
-// region's entry runs.
+// testEntryOrderNamingARegionTheFrontDoesNotHold: an entry-order line naming a state no
+// region is about to enter is refused at the draw, before either region's entry runs.
 func testEntryOrderNamingARegionTheFrontDoesNotHold(t *testing.T) {
 	refused, log := refusedRegionOrderReplay(t, "entering work: zork(entry) first of l1(entry), zork(entry)\n", 1)
 	if refused.Move != 1 || !strings.Contains(refused.Error(), "zork(entry) is not enabled (enabled: l1(entry), r1(entry))") {
@@ -110,9 +107,8 @@ func testFiringUnitOrderNamingAUnitOfNoFiring(t *testing.T) {
 	}
 }
 
-// testExitOrderNamingAStateNotBeingLeft: an exit-order line naming a state the
-// transition does not leave is refused before either region's exit runs. l2's
-// silent entry rides with its firing's effect, so no line names it.
+// testExitOrderNamingAStateNotBeingLeft: an exit-order line naming a state the transition
+// does not leave is refused before either region's exit runs (l2's silent entry has no line).
 func testExitOrderNamingAStateNotBeingLeft(t *testing.T) {
 	refused, log := refusedRegionOrderReplay(t,
 		"entering work: l1(entry) first of l1(entry), r1(entry)\n"+
@@ -127,9 +123,8 @@ func testExitOrderNamingAStateNotBeingLeft(t *testing.T) {
 	}
 }
 
-// testDeepWideFrontBeyondTheRunBudget: a parallel state three deep and three
-// wide has more entry linearizations than the default budget's runs; the
-// exploration reports the budget hit, the same way twice, rather than hang.
+// testDeepWideFrontBeyondTheRunBudget: a parallel state three deep and three wide has more
+// entry linearizations than the budget's runs; the exploration reports that, the same way twice.
 func testDeepWideFrontBeyondTheRunBudget(t *testing.T) {
 	region := func(name string) string {
 		return "state " + name + " { entry; then s; state s { entry { assign n := n + 1; } } }\n"

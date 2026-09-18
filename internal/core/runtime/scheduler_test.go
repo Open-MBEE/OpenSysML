@@ -507,9 +507,8 @@ func TestSharedAncestorChoiceDrawsOnce(t *testing.T) {
 	}
 }
 
-// checkSharedAncestorDraws checks a run through busy drew its regions' entry,
-// the one transition out of busy, its regions' exit and the transition after,
-// each taking the seed's next draw.
+// checkSharedAncestorDraws checks a run through busy drew its regions' entry, the transition
+// out of busy, its regions' exit and the transition after, each taking the seed's next draw.
 func checkSharedAncestorDraws(t *testing.T, name string, policy SchedulePolicy, choices []ChoicePoint, visited []string) {
 	t.Helper()
 	kinds := []ChoiceKind{ChoiceEntryOrder, ChoiceTransition, ChoiceExitOrder, ChoiceTransition}
