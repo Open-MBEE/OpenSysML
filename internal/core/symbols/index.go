@@ -1432,7 +1432,7 @@ func extractWildcardImports(decl ast.Node, scope *Scope) []WildcardImport {
 			continue
 		}
 		wi := WildcardImport{
-			Target:  qualifiedNameText(imp.Imported),
+			Target:  imp.Imported.Text(),
 			Private: imp.Visibility == ast.VisibilityPrivate,
 		}
 		if imp.FilterExpr != nil {
@@ -1441,30 +1441,6 @@ func extractWildcardImports(decl ast.Node, scope *Scope) []WildcardImport {
 		out = append(out, wi)
 	}
 	return out
-}
-
-// qualifiedNameText renders a QualifiedName as "A::B::C".
-func qualifiedNameText(qn *ast.QualifiedName) string {
-	if qn == nil {
-		return ""
-	}
-	var parts []string
-	for _, seg := range qn.Parts {
-		parts = append(parts, seg.Text)
-	}
-	return joinQualifiedName(parts)
-}
-
-// joinQualifiedName joins parts with "::".
-func joinQualifiedName(parts []string) string {
-	result := ""
-	for i, part := range parts {
-		if i > 0 {
-			result += "::"
-		}
-		result += part
-	}
-	return result
 }
 
 // LookupQualified returns the symbols a qualified reference from outside the

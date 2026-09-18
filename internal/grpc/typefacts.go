@@ -104,7 +104,7 @@ func (sc *SymbolContext) specializationsOf(sym *symbols.Symbol) []*pb.Specializa
 		}
 		spec := &pb.Specialization{
 			Kind:     kind,
-			Declared: semantics.QualifiedNameText(qn),
+			Declared: qn.Text(),
 		}
 		if target := sc.resolveFrom(sym, qn); target != nil {
 			spec.TargetId = sc.Index.GetFQN(target)
@@ -169,7 +169,7 @@ func (sc *SymbolContext) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *pb
 		if qn == nil {
 			continue
 		}
-		info.Declared = semantics.QualifiedNameText(qn)
+		info.Declared = qn.Text()
 		if target := sc.resolveFrom(sym, qn); target != nil {
 			info.ResolvedId = sc.Index.GetFQN(target)
 			info.ResolvedKind = target.Kind.String()

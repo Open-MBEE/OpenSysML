@@ -1152,7 +1152,7 @@ func bindingEndText(end ast.Node) string {
 	case *ast.FeatureReference:
 		return bindingEndText(n.Name)
 	case *ast.QualifiedName:
-		return qualifiedNameText(n)
+		return n.Text()
 	case *ast.FeatureChainExpr:
 		return bindingEndText(n.Operand) + "." + ast.SimpleName(n.Member)
 	}

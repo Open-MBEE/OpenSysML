@@ -1,6 +1,10 @@
 package ast
 
-import "github.com/Open-MBEE/OpenSysML/internal/core/source"
+import (
+	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+)
 
 // Visibility mirrors SysML VisibilityKind.
 type Visibility int
@@ -39,6 +43,18 @@ type QualifiedName struct {
 func (q *QualifiedName) SetSingleton(seg NameSegment) {
 	q.part0[0] = seg
 	q.Parts = q.part0[:1:1]
+}
+
+// Text renders the name as written, "A::B::C", and "" for a nil name.
+func (q *QualifiedName) Text() string {
+	if q == nil {
+		return ""
+	}
+	parts := make([]string, len(q.Parts))
+	for i, part := range q.Parts {
+		parts[i] = part.Text
+	}
+	return strings.Join(parts, "::")
 }
 
 // AsQualifiedName unwraps the two forms a name reference parses to: a bare
