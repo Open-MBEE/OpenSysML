@@ -45,30 +45,36 @@ func (s *Session) CompareResults(results *simresults.Results, opts CompareOption
 		return []Verdict{unresolvedVerdict("compare", "the results index no run configuration")}
 	}
 	var verdicts []Verdict
+	matched := make([]bool, len(opts.Only))
 	for i := range results.Configurations {
 		cfg := &results.Configurations[i]
-		if !opts.selects(cfg) {
+		if !opts.selects(cfg, matched) {
 			continue
 		}
 		verdicts = append(verdicts, s.withTrace(s.compareVerdict(cfg, opts)))
 	}
-	if len(verdicts) == 0 {
-		return []Verdict{unresolvedVerdict("compare", fmt.Sprintf("no configuration is named %s", strings.Join(opts.Only, ", ")))}
+	for i, name := range opts.Only {
+		if !matched[i] {
+			verdicts = append(verdicts, unresolvedVerdict("compare "+name, fmt.Sprintf("no configuration is named %s", name)))
+		}
 	}
 	return verdicts
 }
 
-// selects reports whether the configuration is among those asked for.
-func (o CompareOptions) selects(cfg *simresults.ConfigurationResults) bool {
+// selects reports whether the configuration is among those asked for, marking
+// in matched every name of Only that names it.
+func (o CompareOptions) selects(cfg *simresults.ConfigurationResults, matched []bool) bool {
 	if len(o.Only) == 0 {
 		return true
 	}
-	for _, name := range o.Only {
+	selected := false
+	for i, name := range o.Only {
 		if name == cfg.ID || sameName(name, cfg.Name) {
-			return true
+			matched[i] = true
+			selected = true
 		}
 	}
-	return false
+	return selected
 }
 
 // sameName reports whether name is qualified, the last segment of it, quoted or bare.

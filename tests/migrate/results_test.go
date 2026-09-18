@@ -456,6 +456,17 @@ func TestComparisonRunsEachConfigurationBesideItsStoredResults(t *testing.T) {
 	if lines := strings.Join(missing[0].Lines, "\n"); missing[0].Holds() || !strings.Contains(lines, "no configuration is named Group 9") {
 		t.Errorf("a comparison of no configuration = %s:\n%s", missing[0].Status, lines)
 	}
+	// A name no configuration bears is refused beside the ones compared, never dropped.
+	mixed := s.CompareResults(r.Results, repl.CompareOptions{Only: []string{"Group 0", "Group 9", "_g0", "Group 10"}})
+	if len(mixed) != 3 || !mixed[0].Holds() || mixed[0].Subject != "compare 'Group 0'" {
+		t.Fatalf("a comparison naming a configuration twice and two unknown = %d verdict(s), want its one table and two refusals: %+v", len(mixed), mixed)
+	}
+	for i, name := range []string{"Group 9", "Group 10"} {
+		v := mixed[i+1]
+		if lines := strings.Join(v.Lines, "\n"); v.Holds() || v.Subject != "compare "+name || !strings.Contains(lines, "no configuration is named "+name) {
+			t.Errorf("the refusal of %s = %s %q:\n%s", name, v.Status, v.Subject, lines)
+		}
+	}
 	// -observe pairs a stored observable with the run feature answering it.
 	paired := s.CompareResults(r.Results, repl.CompareOptions{Observe: []repl.ObservablePair{{Stored: "pB", Feature: "target.pA"}, {Stored: "pC", Feature: "clock"}}})
 	lines = strings.Join(paired[0].Lines, "\n")

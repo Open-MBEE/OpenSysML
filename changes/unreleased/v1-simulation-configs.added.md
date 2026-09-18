@@ -41,4 +41,5 @@
   reports the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with the
   relative difference; a configuration with no stored snapshots, a stored observable no run
   holds and a non-numeric one are reported, never left out, and a run that fails fails the
-  comparison with its error under the table. The numbers are reported as run.
+  comparison with its error under the table; an `-action` no configuration bears fails the
+  check beside the ones compared. The numbers are reported as run.
