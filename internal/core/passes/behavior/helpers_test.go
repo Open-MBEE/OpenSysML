@@ -18,39 +18,6 @@ func newTestIndexFromDoc(name string, root *ast.RootNamespace) *symbols.Index {
 	return idx
 }
 
-func newTestIndex() *symbols.Index {
-	return libs.NewModelIndex()
-}
-
-func w8cLibraryMessagesIn(t *testing.T, name, src string) []string {
-	t.Helper()
-	sf := source.New(name, []byte(src))
-	root := parser.New(sf).ParseFile()
-	idx := newTestIndex()
-	idx.AddDocument(name, root)
-	idx.ExpandWildcardImports()
-	var out []string
-	for _, d := range passes.Analyze(name, root, nil, idx) {
-		out = append(out, d.Message)
-	}
-	return out
-}
-
-func w8cCount(msgs []string, want string) int {
-	var n int
-	for _, msg := range msgs {
-		if msg == want {
-			n++
-		}
-	}
-	return n
-}
-
-const (
-	msgOnlyOneMultiplicity = "Only one multiplicity is allowed"
-	msgMustBeCrossFeature  = "Must be the cross feature"
-)
-
 // endpointDiags runs the name-resolution tier over src, the tier an endpoint
 // name is resolved at.
 func endpointDiags(t *testing.T, src string) []diag.Diagnostic {

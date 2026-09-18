@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes/behavior"
@@ -946,7 +947,7 @@ func TestControlNodeOtherDocumentFaultsDoNotGateInheritedNodes(t *testing.T) {
 		if strings.Index(src, "Missing8") != strings.Index(base, text) {
 			t.Fatalf("Missing8 at %d, want %d", strings.Index(src, "Missing8"), strings.Index(base, text))
 		}
-		idx := newTestIndex()
+		idx := libs.NewModelIndex()
 		baseRoot := parser.New(source.New("base.sysml", []byte(base))).ParseFile()
 		idx.AddDocument("base.sysml", baseRoot)
 		p := parser.New(source.New("d.sysml", []byte(src)))
