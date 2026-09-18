@@ -1,4 +1,6 @@
-package model
+// Package corpus holds the gates over the pinned OMG corpora and the RDF round
+// trip of every model under examples/.
+package corpus
 
 import (
 	"fmt"
@@ -9,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
@@ -42,7 +45,7 @@ var trainingGate = corpusGate{
 	name: "training",
 	roots: []corpusRoot{{
 		name:       "training",
-		dir:        "../../../examples/sysml-v2-training",
+		dir:        "../../examples/sysml-v2-training",
 		errorsOnly: true,
 		sysmlOnly:  true,
 	}},
@@ -57,9 +60,9 @@ var trainingGate = corpusGate{
 var pilotCorporaGate = corpusGate{
 	name: "pilot-corpora",
 	roots: []corpusRoot{
-		{name: "kerml-examples", dir: "../../../examples/pilot-corpora/kerml-examples"},
-		{name: "sysml-examples", dir: "../../../examples/pilot-corpora/sysml-examples"},
-		{name: "sysml-validation", dir: "../../../examples/pilot-corpora/sysml-validation"},
+		{name: "kerml-examples", dir: "../../examples/pilot-corpora/kerml-examples"},
+		{name: "sysml-examples", dir: "../../examples/pilot-corpora/sysml-examples"},
+		{name: "sysml-validation", dir: "../../examples/pilot-corpora/sysml-validation"},
 	},
 	expected:   "testdata/pilot_corpora_expected.txt",
 	requireEnv: "OPENSYSML_REQUIRE_PILOT_CORPORA",
@@ -79,7 +82,7 @@ func (g corpusGate) skip(t *testing.T, reason string) {
 	fmt.Fprintf(os.Stderr, "\n!!! GATE NOT RUN: %s SKIPPED - %s.\n"+
 		"!!! %s\n"+
 		"!!! %s\n"+
-		"!!!   go test -count=1 ./internal/core/model -run %s\n"+
+		"!!!   go test -count=1 ./tests/corpus -run %s\n"+
 		"!!! CI sets %s=1, where an absent corpus fails instead of skipping.\n\n",
 		t.Name(), reason, g.absent, g.fetch, g.runPattern, g.requireEnv)
 	t.Skip(g.skipHint)
@@ -167,7 +170,7 @@ func (g corpusGate) batchCounts(t *testing.T, root corpusRoot, files []string) m
 	t.Helper()
 
 	got := make(map[string]int, len(files))
-	ws := NewWorkspace()
+	ws := model.NewWorkspace()
 	current := ""
 	defer func() {
 		if r := recover(); r != nil {

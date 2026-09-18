@@ -1,6 +1,6 @@
 ---
 name: testing-pilot-corpora-gate
-description: How to verify the four OMG corpus gates (internal/core/model/corpus_gate_test.go + pilot_corpora_test.go + training_examples_test.go and their testdata expectations) end to end on Linux — running both gates, proving the baselines are reproducible/machine-independent, the adversarial mutations that must fail, absence handling per root, and exercising the shared pilot-pin.sh downloader.
+description: How to verify the four OMG corpus gates (tests/corpus/corpus_gate_test.go + pilot_corpora_test.go + training_examples_test.go and their testdata expectations) end to end on Linux — running both gates, proving the baselines are reproducible/machine-independent, the adversarial mutations that must fail, absence handling per root, and exercising the shared pilot-pin.sh downloader.
 ---
 
 # Testing the OMG corpus gates (training assertion + pilot-corpora ratchet)
@@ -8,7 +8,7 @@ description: How to verify the four OMG corpus gates (internal/core/model/corpus
 Shell-only; no GUI or recording needed. One full `./internal/core/model` run is ~60s; the two
 corpus tests alone are ~4s, so iterate with `-run` and only do the full run at the start/end.
 
-Four pinned OMG model roots, **one mechanism, two policies** (`internal/core/model/corpus_gate_test.go`):
+Four pinned OMG model roots, **one mechanism, two policies** (`tests/corpus/corpus_gate_test.go`):
 
 | root | dir | policy | expectation file |
 |---|---|---|---|
@@ -46,8 +46,8 @@ output with `grep -E "a|b"` breaks when a pattern starts with `-`; use `grep -E 
 ## Reproducibility of the baselines
 
 ```bash
-go test -count=1 ./internal/core/model -run TestPilotCorporaDiagnostics    -update-pilot-corpora
-go test -count=1 ./internal/core/model -run TestTrainingExamplesSemanticErrors -update-training
+go test -count=1 ./tests/corpus -run TestPilotCorporaDiagnostics    -update-pilot-corpora
+go test -count=1 ./tests/corpus -run TestTrainingExamplesSemanticErrors -update-training
 git diff --exit-code -- internal/core/model/testdata/
 ```
 
@@ -55,12 +55,12 @@ Regeneration must be byte-identical across runs, from a different cwd
 (`cd /tmp && XDG_CACHE_HOME=$(mktemp -d) go test -C <repo> ...`) and with a fresh `XDG_CACHE_HOME` —
 each test sets `XDG_CACHE_HOME` to a temp dir itself, which is what makes it machine-independent.
 Also check no absolute paths leak:
-`grep -nE '(^|[[:space:]])/(home|tmp|Users)' internal/core/model/testdata/*_expected.txt` must find nothing.
+`grep -nE '(^|[[:space:]])/(home|tmp|Users)' tests/corpus/testdata/*_expected.txt` must find nothing.
 
 ## Adversarial mutations that must each fail (restore with `git checkout --` after each)
 
-Mutate `internal/core/model/testdata/pilot_corpora_expected.txt` and re-run
-`OPENSYSML_REQUIRE_PILOT_CORPORA=1 go test -count=1 ./internal/core/model -run TestPilotCorporaDiagnostics`:
+Mutate `tests/corpus/testdata/pilot_corpora_expected.txt` and re-run
+`OPENSYSML_REQUIRE_PILOT_CORPORA=1 go test -count=1 ./tests/corpus -run TestPilotCorporaDiagnostics`:
 
 | mutation | expected message |
 |---|---|
@@ -106,7 +106,7 @@ For each of the four roots, in three shapes (moved aside / empty-but-present / o
   `... holds no model files: ...`
 - without it → exit 0 with `--- SKIP` plus the `!!! GATE NOT RUN` stderr banner naming the right
   fetch script for that gate.
-- CI catch: `go test -count=1 -v ./internal/core/model -run 'TestTrainingExamples|TestCorpusGates' | tee corpus-gate.log`
+- CI catch: `go test -count=1 -v ./tests/corpus -run 'TestTrainingExamples|TestCorpusGates' | tee corpus-gate.log`
   then `grep -qE '^\s*--- SKIP' corpus-gate.log`. Note an absent **pilot** root surfaces in that CI
   command only as `--- SKIP: TestCorpusGatesCacheStateIndependent/pilot-corpora` (the ratchet test
   itself is not in the `-run` pattern) — the grep still catches it, and that is worth verifying.

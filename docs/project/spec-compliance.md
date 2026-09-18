@@ -2496,7 +2496,7 @@ there, and every other page links here rather than restating them (CONTRIBUTING.
 **Quality Gates:**
 - Parser: 103/103 stdlib files clean (94 vendored OMG, 9 OpenSysML extensions)
 - Execution conformance: every case passing, with `known_failures.txt` empty
-- Training examples: 100/100 clean (no files recorded in `internal/core/model/testdata/training_examples_expected.txt`)
+- Training examples: 100/100 clean (no files recorded in `tests/corpus/testdata/training_examples_expected.txt`)
 - No regressions: All tests pass on every commit
 
 > The training-example gate needs the corpus, which is not vendored: run

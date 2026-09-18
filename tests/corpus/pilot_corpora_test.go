@@ -1,4 +1,4 @@
-package model
+package corpus
 
 import (
 	"flag"
@@ -14,7 +14,7 @@ const pilotCorporaExpectedHeader = "# Files in the pinned OMG pilot corpora that
 	"# severity, as \"<diagnostic count>\\t<root>/<path>\". These are our verdicts\n" +
 	"# alone, not a comparison against the reference implementation; see\n" +
 	"# docs/project/pilot-corpora.md. Regenerate with:\n" +
-	"#   go test ./internal/core/model -run TestPilotCorporaDiagnostics -update-pilot-corpora\n"
+	"#   go test ./tests/corpus -run TestPilotCorporaDiagnostics -update-pilot-corpora\n"
 
 // The three pinned OMG pilot corpora are a per-file ratchet on our own verdicts:
 // every file's diagnostic count of every severity is recorded in
