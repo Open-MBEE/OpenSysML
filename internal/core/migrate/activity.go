@@ -59,6 +59,8 @@ type activity struct {
 	edgeSelf    map[*xmi.Element]bool
 	// inert marks the nodes written as placeholders, whose output pins no value reaches.
 	inert map[*xmi.Element]bool
+	// unassigned marks the output pins a translated body never assigns.
+	unassigned map[*xmi.Element]bool
 	// dataOnly marks the object flows that carry a value into an action without
 	// starting it: a control flow leads to the action, and that is what starts it.
 	dataOnly map[*xmi.Element]bool
@@ -94,6 +96,7 @@ func (m *migration) newActivity(act, def *xmi.Element) *activity {
 		edgeSelf:    map[*xmi.Element]bool{},
 		written:     map[[2]*xmi.Element]bool{},
 		inert:       map[*xmi.Element]bool{},
+		unassigned:  map[*xmi.Element]bool{},
 		before:      map[*xmi.Element]*stamp{},
 		after:       map[*xmi.Element]*stamp{},
 		nodes:       act.Owned("node"),
@@ -1133,6 +1136,14 @@ func (a *activity) objectFlow(e *xmi.Element) {
 			}
 			continue
 		}
+		if a.unassigned[s] {
+			a.m.w.line("/* flow " + from + " to " + to + " not written: the body of " + describe(s.Parent) + " never assigns " + from + " */")
+			a.m.add(e, Approximated, "", "the flow is kept as a comment: the body of "+describe(s.Parent)+" never assigns "+describe(s)+", so no value leaves it")
+			if nodeKind(tgt) == nodePin {
+				a.m.add(tgt.Parent, Approximated, "", "its input "+to+" receives no value, since the body of "+describe(s.Parent)+" never assigns "+from+"; the action cannot be performed until one is bound")
+			}
+			continue
+		}
 		st, tt := a.endType(s), a.endType(tgt)
 		if !a.m.conform(st, tt) {
 			a.m.w.line("/* flow " + from + " to " + to + " not written: " + qualifiedName(st) + " and " + qualifiedName(tt) + " do not conform */")
@@ -1292,18 +1303,33 @@ func (a *activity) receiverOf(t, op *xmi.Element) (receiver, note string, ok boo
 // a sequence of them, else with the body kept as a comment; its pins stay unwritten.
 func (a *activity) opaqueAction(n *xmi.Element, name string) {
 	body, lang := opaqueBody(n)
-	a.inert[n] = true
 	a.m.w.block("action "+name, func() {
 		a.pins(n, false, nil)
 		lines, ok, note := a.m.statements(body, lang, n)
 		if !ok {
+			a.inert[n] = true
 			a.m.opaqueComment(body, lang, note)
 			a.m.add(n, Approximated, name, "the body is kept as a comment: "+note)
 			return
 		}
 		a.m.w.lines(lines)
+		a.markUnassigned(n, lines)
 		a.m.add(n, verdictFor(note), name, note)
 	})
+}
+
+// markUnassigned records the output pins of n that the written body lines
+// never assign, so the flows leaving them are not written.
+func (a *activity) markUnassigned(n *xmi.Element, lines []string) {
+	for _, p := range append(n.Owned("result"), n.Owned("outputValue")...) {
+		d, ok := a.m.pins[p]
+		if !ok {
+			continue
+		}
+		if !slices.ContainsFunc(lines, func(l string) bool { return strings.HasPrefix(l, "assign "+writeName(d.name)+" :=") }) {
+			a.unassigned[p] = true
+		}
+	}
 }
 
 // valueAction writes a value specification action as an action whose result

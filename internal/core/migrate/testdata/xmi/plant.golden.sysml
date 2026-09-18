@@ -28,6 +28,7 @@ part def Plant {
              * volume = 0;
              */
         }
+        /* guard not migrated: [{JavaScript} on] — the name "on" resolves to nothing readable: nothing visible from Plant::Fill::<ControlFlow> is called on; its source 'torn' is in the partitions 'Tank' (this.tank) and 'Pump' (this.pump), which represent different objects, so names resolve through no partition */
         first torn then prime;
         action prime {
             assign this.pump.on := true;

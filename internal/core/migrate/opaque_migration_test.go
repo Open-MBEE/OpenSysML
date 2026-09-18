@@ -98,7 +98,8 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 // whose represents refers outside the document; a node in no lane. The nodes
 // are listed on the lanes in both encodings, the lane's node list and the
 // node's inPartition. Two lanes are dimensions: a node in both, whose objects
-// differ, resolves through neither; a node in a dimension and a lane
+// differ, resolves through neither, and so does the guard of an edge leaving
+// it, though the edge's target resolves; a node in a dimension and a lane
 // representing nothing, or two lanes representing the same object, resolves.
 func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 	r := migrateXMI(t, "plant")
@@ -116,7 +117,9 @@ func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 	}
 	wantNoLine(t, r.Notation, "assign this.tank.volume := 0;")
 	wantNoLine(t, r.Notation, "assign this.pump.volume := 0;")
+	wantNoLine(t, r.Notation, "if this.pump.on")
 	wantClean(t, "t.sysml", r)
+	wantNote(t, r, "_f3a", migrate.Approximated, `the guard [{JavaScript} on] is kept as a comment and the edge written unguarded: the name "on" resolves to nothing readable: nothing visible from Plant::Fill::<ControlFlow> is called on; its source 'torn' is in the partitions 'Tank' (this.tank) and 'Pump' (this.pump), which represent different objects, so names resolve through no partition`)
 	wantNote(t, r, "_inner", migrate.Mapped, "the partition represents valve of the enclosing partition's object, read as this.tank.valve")
 	wantNote(t, r, "_outer", migrate.Mapped, "the partition represents the context's tank, read as this.tank")
 	wantNote(t, r, "_self", migrate.Mapped, "the partition represents the context object itself, a Plant")
@@ -204,5 +207,44 @@ func TestTranslatorRefusalsAndConfiguredClockName(t *testing.T) {
 	// gain reads its value pin x = 1.5 and the context's power = 4 into its out pin.
 	if lines := strings.Join(v.Lines, "\n"); !strings.Contains(lines, "gain.y = 6.0") {
 		t.Errorf("run lacks gain.y = 6.0:\n%s", lines)
+	}
+}
+
+// The meter fixture chains opaque actions through their pins: a translated body
+// assigns its output pin, and the object flow carries the value to the next
+// action's input, which its body reads; a Java body divides two integers and two
+// reals. A translated body that never assigns its output pin, like a body that
+// is not translated, leaves the flow from that pin unwritten, with the reason.
+func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
+	r := migrateXMI(t, "meter")
+	for _, line := range []string{
+		"assign y := x * 2;",
+		"flow sense.y to record.v;",
+		"assign this.total := v + 1;",
+		"assign this.half := RealFunctions::floor((this.ticks - this.ticks % 2) / 2);",
+		"assign this.ratio := this.total / 2;",
+		"/* flow idle.z to sink.w not written: the body of 'idle' never assigns idle.z */",
+		"/* flow dark.q to drain.w not written: 'dark' is not migrated and produces no value */",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "flow idle.z to sink.w;")
+	wantNoLine(t, r.Notation, "flow dark.q to drain.w;")
+	wantClean(t, "t.sysml", r)
+	wantNote(t, r, "_sense", migrate.Mapped, "the JavaScript body is translated to v2")
+	wantNote(t, r, "_o1", migrate.Mapped, "")
+	wantNote(t, r, "_split", migrate.Mapped, "the Java body is translated to v2")
+	wantNote(t, r, "_o2", migrate.Approximated, "the flow is kept as a comment: the body of 'idle' never assigns 'z', so no value leaves it")
+	wantNote(t, r, "_sink", migrate.Approximated, "its input sink.w receives no value, since the body of 'idle' never assigns idle.z; the action cannot be performed until one is bound")
+	wantNote(t, r, "_o3", migrate.Approximated, "the flow is kept as a comment: its source 'dark' is not migrated, so no value reaches 'q'")
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Meter")
+	wantVerdict(t, s.RunAction("Meter::Measure", "Meter"))
+	runs := strings.Join(s.RunRuns("Meter::Measure", []string{"Meter"}, 1, 1, []string{"this.total", "this.half", "this.ratio"}).Lines, "\n")
+	for _, want := range []string{"this.total: 1 run(s), min 4.0", "this.half: 1 run(s), min 3", "this.ratio: 1 run(s), min 2.0"} {
+		if !strings.Contains(runs, want) {
+			t.Errorf("runs lack %q:\n%s", want, runs)
+		}
 	}
 }

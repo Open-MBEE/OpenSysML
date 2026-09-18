@@ -43,10 +43,15 @@ func (m *migration) bodyScope(scope *xmi.Element) *bodyScope {
 func (m *migration) laneAt(e *xmi.Element) (*lane, string) {
 	ls, act := m.lanesAround(e)
 	for cur := e; ls != nil && cur != act; cur = cur.Parent {
-		if l := ls.laneOf(m, cur); l != nil {
+		h, role := ls.holder(m, cur)
+		if l := ls.pick(h); l != nil {
 			return l, ""
 		}
-		if why := ls.clashNote(cur); why != "" {
+		subject := "it"
+		if role != "" {
+			subject = "its " + role + " " + describe(h)
+		}
+		if why := ls.clashNote(h, subject); why != "" {
 			return nil, why
 		}
 	}

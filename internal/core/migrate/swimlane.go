@@ -128,9 +128,10 @@ func (l *lane) within(o *lane) bool {
 	return false
 }
 
-// clashNote says why names in e resolve against no partition: it is in
-// partitions of different dimensions that name different objects; "" when not.
-func (ls *lanes) clashNote(e *xmi.Element) string {
+// clashNote says why names in e resolve against no partition: subject, e or
+// the node an edge leaves, is in partitions of different dimensions that name
+// different objects; "" when not.
+func (ls *lanes) clashNote(e *xmi.Element, subject string) string {
 	named := ls.clash[e]
 	if len(named) == 0 {
 		return ""
@@ -139,7 +140,7 @@ func (ls *lanes) clashNote(e *xmi.Element) string {
 	for i, l := range named {
 		parts[i] = describe(l.g) + " (" + l.expr + ")"
 	}
-	return "it is in the partitions " + strings.Join(parts, " and ") + ", which represent different objects, so names resolve through no partition"
+	return subject + " is in the partitions " + strings.Join(parts, " and ") + ", which represent different objects, so names resolve through no partition"
 }
 
 // clashing lists, for the report of partition l, the nodes it holds together
@@ -166,24 +167,28 @@ func (ls *lanes) find(g *xmi.Element) *lane {
 }
 
 // laneOf returns the partition a node or edge of the activity resolves names
-// against; an edge in none is held by its source's partition, then its target's.
+// against: the one holding it, else the one holding the node an edge leaves.
 func (ls *lanes) laneOf(m *migration, e *xmi.Element) *lane {
 	if ls == nil {
 		return nil
 	}
-	if l := ls.pick(e); l != nil || len(ls.of[e]) > 0 {
-		return l
+	h, _ := ls.holder(m, e)
+	return ls.pick(h)
+}
+
+// holder is the element whose partitions decide e's: e itself when partitions
+// hold it or it is a node; an edge in none, the node of its source end when
+// partitions hold that, else of its target end; with the end's role, "" for e.
+func (ls *lanes) holder(m *migration, e *xmi.Element) (*xmi.Element, string) {
+	if len(ls.of[e]) > 0 || (e.Type != "ControlFlow" && e.Type != "ObjectFlow") {
+		return e, ""
 	}
-	if e.Type == "ControlFlow" || e.Type == "ObjectFlow" {
-		for _, role := range []string{"source", "target"} {
-			if n := m.model.Ref(e, role); n != nil {
-				if l := ls.pick(ownerNode(n)); l != nil {
-					return l
-				}
-			}
+	for _, role := range []string{"source", "target"} {
+		if n := m.model.Ref(e, role); n != nil && len(ls.of[ownerNode(n)]) > 0 {
+			return ownerNode(n), role
 		}
 	}
-	return nil
+	return e, ""
 }
 
 // resolveLane finds how the activity, whose context object is a ctx, reads

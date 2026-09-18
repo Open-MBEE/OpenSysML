@@ -1,0 +1,39 @@
+# SysML v1 to v2 migration report: meter.xmi
+# migrated 33 element(s): 28 mapped, 5 approximated, 0 unmapped (0 skipped as profile or library content)
+
+## approximated (5)
+ObjectFlow	Meter::Skip::<ObjectFlow>	_o2	(the flow is kept as a comment: the body of 'idle' never assigns 'z', so no value leaves it)
+ObjectFlow	Meter::Skip::<ObjectFlow>	_o3	(the flow is kept as a comment: its source 'dark' is not migrated, so no value reaches 'q')
+OpaqueAction	Meter::Skip::dark	_dark	-> dark	(the body is kept as a comment: the statement assigns q, which nothing visible from Meter::Skip::dark is called (language Python))
+OpaqueAction	Meter::Skip::drain	_drain	-> drain	(the JavaScript body is translated to v2; its input drain.w receives no value, since 'dark' is not migrated; the action cannot be performed until one is bound)
+OpaqueAction	Meter::Skip::sink	_sink	-> sink	(the JavaScript body is translated to v2; its input sink.w receives no value, since the body of 'idle' never assigns idle.z; the action cannot be performed until one is bound)
+
+## mapped (28)
+«Block» Class	Meter	_meter	-> Meter
+Activity	Meter::Measure	_measure	-> Meter::Measure
+ActivityFinalNode	Meter::Measure::<ActivityFinalNode>	_final	-> final
+ControlFlow	Meter::Measure::<ControlFlow>	_c2
+ControlFlow	Meter::Measure::<ControlFlow>	_c3
+InitialNode	Meter::Measure::<InitialNode>	_init	-> start
+ObjectFlow	Meter::Measure::<ObjectFlow>	_o1
+OpaqueAction	Meter::Measure::record	_record	-> record	(the JavaScript body is translated to v2)
+InputPin	Meter::Measure::record::v	_recordv	-> Meter::Measure::record.v
+OpaqueAction	Meter::Measure::sense	_sense	-> sense	(the JavaScript body is translated to v2)
+ValuePin	Meter::Measure::sense::x	_sensex	-> Meter::Measure::sense.x
+OutputPin	Meter::Measure::sense::y	_sensey	-> Meter::Measure::sense.y
+OpaqueAction	Meter::Measure::split	_split	-> split	(the Java body is translated to v2)
+Activity	Meter::Skip	_skip	-> Meter::Skip
+ActivityFinalNode	Meter::Skip::<ActivityFinalNode>	_sfinal	-> final
+ControlFlow	Meter::Skip::<ControlFlow>	_s2
+ControlFlow	Meter::Skip::<ControlFlow>	_s3
+InitialNode	Meter::Skip::<InitialNode>	_sinit	-> start
+OutputPin	Meter::Skip::dark::q	_darkq	-> Meter::Skip::dark.q
+InputPin	Meter::Skip::drain::w	_drainw	-> Meter::Skip::drain.w
+OpaqueAction	Meter::Skip::idle	_idle	-> idle	(the JavaScript body is translated to v2)
+OutputPin	Meter::Skip::idle::z	_idlez	-> Meter::Skip::idle.z
+InputPin	Meter::Skip::sink::w	_sinkw	-> Meter::Skip::sink.w
+Property	Meter::half	_half	-> Meter::half
+Property	Meter::ratio	_ratio	-> Meter::ratio
+Property	Meter::ticks	_ticks	-> Meter::ticks
+Property	Meter::total	_total	-> Meter::total
+Model	Model	_m	(the root model's members are written at the top level)

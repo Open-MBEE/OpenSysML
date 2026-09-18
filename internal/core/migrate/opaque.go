@@ -142,17 +142,23 @@ type dialect int
 
 const (
 	dialectNone    dialect = iota // a language the translator does not read
-	dialectScript                 // JavaScript, ECMAScript, Java or no language
+	dialectScript                 // JavaScript, ECMAScript or no language
+	dialectJava                   // Java, whose `/` of two whole numbers drops the remainder
 	dialectEnglish                // English or natural-language text
 )
+
+// script reports whether the dialect is a script, read as statements and expressions.
+func (d dialect) script() bool { return d == dialectScript || d == dialectJava }
 
 // dialectOf classifies an opaque body's language.
 func dialectOf(lang string) dialect {
 	l := strings.ToLower(strings.TrimSpace(lang))
 	switch {
 	case l == "", strings.HasPrefix(l, "javascript"), strings.HasPrefix(l, "ecmascript"),
-		l == "js", strings.HasPrefix(l, "java"), strings.HasPrefix(l, "rhino"), strings.HasPrefix(l, "nashorn"):
+		l == "js", strings.HasPrefix(l, "rhino"), strings.HasPrefix(l, "nashorn"):
 		return dialectScript
+	case strings.HasPrefix(l, "java"):
+		return dialectJava
 	case l == "english", l == "natural", strings.HasPrefix(l, "natural language"), l == "text", l == "plain":
 		return dialectEnglish
 	}
@@ -730,7 +736,9 @@ func (p *opaqueParser) assignment(path []string, op string) ([]string, *refusal)
 			return nil, &refusal{kind: refusedType, token: name + " " + op, why: "the operation needs numbers"}
 		}
 		held := translated{expr: target.expr, scalar: target.scalar, atomic: true}
-		value = binary(held, op[:1], value, arithmeticLoose(op[:1]), arithmeticScalar(op[:1], target.scalar, value.scalar))
+		if value, err = p.arithmeticOf(held, op[:1], value); err != nil {
+			return nil, err
+		}
 	}
 	if value.plural != target.plural {
 		return nil, &refusal{kind: refusedType, token: name + " " + op, why: "one side is a collection and the other a single value"}
@@ -953,8 +961,38 @@ func (p *opaqueParser) arithmetic(next func() (translated, *refusal), ops ...str
 		if err := numbersAt(op, left, right); err != nil {
 			return translated{}, err
 		}
-		left = binary(left, op, right, arithmeticLoose(op), arithmeticScalar(op, left.scalar, right.scalar))
+		if left, err = p.arithmeticOf(left, op, right); err != nil {
+			return translated{}, err
+		}
 	}
+}
+
+// arithmeticOf writes left op right. Java's `/` of two whole numbers drops the
+// remainder, so it is written as that quotient, or refused when the operands'
+// types cannot tell whether it does.
+func (p *opaqueParser) arithmeticOf(left translated, op string, right translated) (translated, *refusal) {
+	if op == "/" && p.d == dialectJava {
+		switch {
+		case wholeScalar(left.scalar) && wholeScalar(right.scalar):
+			return javaQuotient(left, right), nil
+		case !realScalar(left.scalar) && !realScalar(right.scalar):
+			side := left
+			if side.scalar != "" {
+				side = right
+			}
+			return translated{}, &refusal{kind: refusedType, token: "/",
+				why: "Java divides two whole numbers without remainder, and whether " + side.expr + " holds one cannot be told"}
+		}
+	}
+	return binary(left, op, right, arithmeticLoose(op), arithmeticScalar(op, left.scalar, right.scalar)), nil
+}
+
+// javaQuotient writes Java's `/` over whole numbers x and y: the exact quotient
+// of x less its remainder, an integer, as the Integer floor returns.
+func javaQuotient(x, y translated) translated {
+	rem := binary(x, "%", y, looseMultiplicative, "Integer")
+	exact := binary(binary(x, "-", rem, looseAdditive, "Integer"), "/", y, looseMultiplicative, "Real")
+	return translated{expr: "RealFunctions::floor(" + exact.expr + ")", scalar: "Integer", atomic: true}
 }
 
 // unary reads `-x`, `+x`, `!x` and in English `not x`.
@@ -1021,11 +1059,11 @@ func (p *opaqueParser) primary() (translated, *refusal) {
 	case tokIdent:
 		switch {
 		case tok.word("true") || tok.word("false"):
-			if p.d == dialectScript && tok.text != strings.ToLower(tok.text) {
+			if p.d.script() && tok.text != strings.ToLower(tok.text) {
 				return translated{}, &refusal{kind: refusedName, token: tok.text, why: "a script spells its Booleans in lower case"}
 			}
 			return translated{expr: strings.ToLower(tok.text), scalar: "Boolean", atomic: true, lit: "boolean"}, nil
-		case p.d == dialectScript && scriptReserved[tok.text]:
+		case p.d.script() && scriptReserved[tok.text]:
 			return translated{}, &refusal{kind: refusedConstruct, token: tok.text}
 		}
 		p.i--
@@ -1242,8 +1280,6 @@ func realScalar(s string) bool {
 	return s == "Real" || s == "Rational" || s == "Number" || s == "Complex"
 }
 
-// arithmeticScalar is the scalar an arithmetic operator yields: integers stay
-// integers except under `/`, which a script computes as a real.
 // arithmeticLoose is the looseness of an arithmetic operator.
 func arithmeticLoose(op string) int {
 	if op == "+" || op == "-" {
@@ -1252,6 +1288,8 @@ func arithmeticLoose(op string) int {
 	return looseMultiplicative
 }
 
+// arithmeticScalar is the scalar an arithmetic operator yields: integers stay
+// integers except under `/`, which a script computes as a real.
 func arithmeticScalar(op, a, b string) string {
 	switch {
 	case op == "/":

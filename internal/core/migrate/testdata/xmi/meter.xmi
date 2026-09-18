@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Class" xmi:id="_meter" name="Meter">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_total" name="total"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_total0" value="0.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ticks" name="ticks"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_ticks0" value="7"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_half" name="half"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_half0" value="0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ratio" name="ratio"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_ratio0" value="0.0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_measure" name="Measure">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_sense" name="sense">
+          <inputValue xmi:type="uml:ValuePin" xmi:id="_sensex" name="x"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+            <value xmi:type="uml:LiteralReal" xmi:id="_sensex0" value="1.5"/>
+          </inputValue>
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_sensey" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language>
+          <body>y = x * 2;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_record" name="record">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_recordv" name="v"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language>
+          <body>total = v + 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_split" name="split">
+          <language>Java</language>
+          <body>half = ticks / 2; ratio = total / 2;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c1" source="_init" target="_sense"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o1" source="_sensey" target="_recordv"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c2" source="_record" target="_split"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c3" source="_split" target="_final"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_skip" name="Skip">
+        <node xmi:type="uml:InitialNode" xmi:id="_sinit"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_idle" name="idle">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_idlez" name="z"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language>
+          <body>total = total * 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_sink" name="sink">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_sinkw" name="w"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language>
+          <body>total = w;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_dark" name="dark">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_darkq" name="q"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>Python</language>
+          <body>q = 1</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_drain" name="drain">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_drainw" name="w"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language>
+          <body>total = w;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_sfinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_s1" source="_sinit" target="_idle"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o2" source="_idlez" target="_sinkw"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_s2" source="_sink" target="_dark"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o3" source="_darkq" target="_drainw"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_s3" source="_drain" target="_sfinal"/>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_meter"/>
+</xmi:XMI>

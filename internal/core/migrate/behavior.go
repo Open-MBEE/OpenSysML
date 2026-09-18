@@ -415,7 +415,7 @@ func (m *migration) statements(body, lang string, scope *xmi.Element) (lines []s
 		return nil, false, "the body is empty"
 	}
 	var refused *refusal
-	if dialectOf(lang) == dialectScript {
+	if dialectOf(lang).script() {
 		lines, note, refused = m.translatedStatements(body, lang, scope)
 		if refused == nil {
 			m.noted(scope, note)

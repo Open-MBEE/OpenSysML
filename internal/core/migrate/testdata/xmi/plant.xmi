@@ -85,7 +85,12 @@
         <edge xmi:type="uml:ControlFlow" xmi:id="_f1" source="_init" target="_openv"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f2" source="_openv" target="_fillv"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f3" source="_fillv" target="_torn"/>
-        <edge xmi:type="uml:ControlFlow" xmi:id="_f3a" source="_torn" target="_prime"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f3a" source="_torn" target="_prime">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_g3a">
+            <language>JavaScript</language>
+            <body>on</body>
+          </guard>
+        </edge>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f3b" source="_prime" target="_twice"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f3c" source="_twice" target="_count"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f4" source="_count" target="_note"/>
