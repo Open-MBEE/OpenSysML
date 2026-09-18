@@ -103,7 +103,8 @@ func run(out, log io.Writer, o options) error {
 	if err != nil {
 		return err
 	}
-	suiteRoot := o.suite
+	o.keep = repo.Resolve(root, o.keep)
+	suiteRoot := repo.Resolve(root, o.suite)
 	if suiteRoot == "" {
 		suiteRoot = filepath.Join(root, filepath.FromSlash(pssm.DefaultRoot))
 	}

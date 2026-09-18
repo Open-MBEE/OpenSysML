@@ -80,7 +80,7 @@ func Main(args []string, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "pilot-exec-diff: %v\n", err)
 		return 1
 	}
-	launcher := *launcherFlag
+	launcher := repo.Resolve(root, *launcherFlag)
 	if launcher == "" {
 		launcher = filepath.Join(root, "build", "pilot-evaluator", "eval-sysml")
 	}
@@ -92,7 +92,7 @@ func Main(args []string, stderr io.Writer) int {
 		return 1
 	}
 
-	casesDir := *casesFlag
+	casesDir := repo.Resolve(root, *casesFlag)
 	if casesDir == "" {
 		casesDir = filepath.Join(root, filepath.FromSlash(defaultCases))
 	}
@@ -101,7 +101,7 @@ func Main(args []string, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "pilot-exec-diff: %v\n", err)
 		return 1
 	}
-	out := *outFlag
+	out := repo.Resolve(root, *outFlag)
 	if out == "" {
 		out = filepath.Join(root, "build", "pilot-exec-diff")
 	}

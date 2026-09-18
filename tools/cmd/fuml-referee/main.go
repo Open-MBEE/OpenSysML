@@ -105,6 +105,7 @@ func run(out, log io.Writer, o options) error {
 	if err != nil {
 		return err
 	}
+	o.suite, o.keep = repo.Resolve(root, o.suite), repo.Resolve(root, o.keep)
 	dir, err := locate(root, o.suite)
 	if errors.Is(err, fuml.ErrSuiteAbsent) {
 		if !fuml.Required() {

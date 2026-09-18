@@ -110,11 +110,13 @@ type options struct {
 // that are missing: the pilot validator is required, SysIDE only when named.
 func (o *options) resolve() error {
 	var err error
-	if o.repo == "" {
-		if o.repo, err = repo.Root(); err != nil {
-			return err
-		}
+	if o.repo, err = repo.Choose(o.repo); err != nil {
+		return err
 	}
+	o.validator = repo.Resolve(o.repo, o.validator)
+	o.kermlValidator = repo.Resolve(o.repo, o.kermlValidator)
+	o.syside = repo.Resolve(o.repo, o.syside)
+	o.out = repo.Resolve(o.repo, o.out)
 	if o.validator == "" {
 		o.validator = filepath.Join(o.repo, "build", "pilot-sysml-validator", "validate-sysml-batch")
 	}

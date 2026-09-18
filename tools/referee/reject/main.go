@@ -114,14 +114,11 @@ func run(opts options) error {
 	if err != nil {
 		return err
 	}
-	root := opts.repo
-	if root == "" {
-		root, err = repo.Root()
-		if err != nil {
-			return err
-		}
+	root, err := repo.Choose(opts.repo)
+	if err != nil {
+		return err
 	}
-	validator, kermlValidator := opts.validator, opts.kermlValidator
+	validator, kermlValidator := repo.Resolve(root, opts.validator), repo.Resolve(root, opts.kermlValidator)
 	if validator == "" {
 		validator = filepath.Join(root, "build", "pilot-sysml-validator", "validate-sysml-batch")
 	}
@@ -130,9 +127,9 @@ func run(opts options) error {
 	}
 	corpusDir := defaultCorpus
 	if opts.corpus != "" {
-		corpusDir = relativeTo(root, opts.corpus)
+		corpusDir = relativeTo(root, repo.Resolve(root, opts.corpus))
 	}
-	out := opts.out
+	out := repo.Resolve(root, opts.out)
 	if out == "" {
 		out = filepath.Join(root, "build", "pilot-reject")
 	}
@@ -315,9 +312,11 @@ func readCase(repo, dir, rel string) (*Case, error) {
 	return &Case{Path: rel, Source: src, Rule: strings.TrimSpace(rule)}, nil
 }
 
+// relativeTo is the corpus directory as the report names it: slash-separated
+// and relative to the repository, which every path reaching it is under or beside.
 func relativeTo(repo, path string) string {
 	rel, err := filepath.Rel(repo, path)
-	if err != nil || strings.HasPrefix(rel, "..") {
+	if err != nil {
 		return path
 	}
 	return filepath.ToSlash(rel)

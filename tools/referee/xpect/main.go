@@ -55,16 +55,13 @@ func Main(args []string, stderr io.Writer) int {
 		}
 		return 2
 	}
-	if *repoDir == "" {
-		root, err := repo.Root()
-		if err != nil {
-			fmt.Fprintf(stderr, "pilot-xpect: %v\n", err)
-			return 1
-		}
-		*repoDir = root
+	root, err := repo.Choose(*repoDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "pilot-xpect: %v\n", err)
+		return 1
 	}
 
-	if err := run(*repoDir, *out, *jobs, *update, *check); err != nil {
+	if err := run(root, repo.Resolve(root, *out), *jobs, *update, *check); err != nil {
 		fmt.Fprintf(stderr, "pilot-xpect: %v\n", err)
 		return 1
 	}
