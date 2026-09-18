@@ -861,6 +861,47 @@ the two target entries logged beside the owner's and the branches joined again a
 lists the ten interleavings of its two branches — each with the two exit orders of the join —
 among its `outcomes` citing this section beside the join's own.
 
+### Regions left together: each exits, in which order is open
+
+Fixture: `state_region_exit_order` (golden, explored).
+
+```
+work parallel { exit { log += "work(exit) " }
+                left:  outerL { exit { log += "outerL(exit) " }; innerL { exit { log += "innerL(exit) " } } }
+                right: r { exit { log += "r(exit) " } } }
+work ─ accept Stop → done
+```
+
+Derived constraints:
+
+- Leaving `work` ends the performance of each of its regions; every step of a substate is an
+  `enclosedPerformance` of the enclosing state performance, "happening during" it
+  (`StatePerformances.kerml`), and the owner's exit is its last step
+  (`succession [*] middle then [1] exit`), so `innerL(exit)` precedes `outerL(exit)`, and both
+  it and `r(exit)` precede `work(exit)`.
+- No succession in `StatePerformances.kerml` joins a step of one region's performance to a step
+  of a sibling's, so nothing orders `r(exit)` against `left`'s two exits.
+- Every exit appends to `log`, so `log` records the interleaving.
+
+Open: the order across the regions. `r(exit)` falls before, between or after
+`innerL(exit) outerL(exit)`: three interleavings.
+
+Pinned outcome: the admissible set of the three interleavings, each ending `work(exit)`, stated as
+`outcomes` citing this section; exploration reaches each three times over, once per order of the
+unlogged start entries the visits tell apart (9 runs, 9 outcomes, complete). The order is drawn
+one unit at a time among the regions with an exit left — a region's nested exits are its queue,
+innermost first, and a draw advances one — and is reported as `choice exiting work: next
+innerL(exit), r(exit) (unordered; took innerL(exit) first)` under `seed:<n>`, `explore` and
+`replay`; `declared` and `reverse` take the regions in declaration order at every unit — a
+tool-defined order, the run every fixture was recorded under — and the default golden pins that
+linearization (`innerL outerL r work`). A region whose active state is itself parallel has that
+state's regions leave as queues of their own on the same front, and the state's exit waits for
+them: `state_join_of_machine_regions_from_nested_source` lists the two exit orders of `inner`'s
+regions beside the two join orders among its `outcomes` citing this section. The existing fixtures
+whose regions are left together and whose outcomes the log tells apart list every exit order among
+their `outcomes` citing this section beside the one their own openness cites, the default golden of
+each pinning the declaration-order linearization.
+
 ### Transitions in sibling regions enabled by one event: each fires, in which order is open
 
 Fixture: `state_explore_region_order` (golden, explored).

@@ -13,6 +13,7 @@ stmt assign log
     eval literal "r1(entry) " -> "r1(entry) "
   eval operator + -> "l1(entry) r1(entry) "
 transition: r0 -> r1 (event: accept Go)
+choice exiting work: next l1(exit), r1(exit) (unordered; took l1(exit) first)
 exit: l1
 exit: r1
 exit: work

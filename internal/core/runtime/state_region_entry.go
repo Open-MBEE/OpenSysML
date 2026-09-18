@@ -164,10 +164,14 @@ func (e *StateExecutor) unguardedStart(owner ast.Node) *ast.StateNode {
 func unwrapped(err error) error { return err }
 
 // mayDrawOrder reports whether entering or leaving target may draw an order: an
-// orthogonal state of two or more regions is target, above it or below it.
+// orthogonal state of two or more regions is target, above it or below it, or
+// the machine's own regions are orthogonal.
 func (e *StateExecutor) mayDrawOrder(target *ast.StateNode) bool {
 	if target == nil {
 		return false
+	}
+	if len(e.graph.TopRegions) >= 2 {
+		return true
 	}
 	for _, state := range e.graph.CompositeStateOrder {
 		if len(e.graph.CompositeStates[state]) < 2 {

@@ -2267,7 +2267,7 @@ func (e *StateExecutor) fireHistoryTransition(trans *lower.Transition, hist *ast
 		return err
 	}
 	currentState := e.moveOrigin()
-	return e.travelChoosing(e.drawsBeyond(hist) || e.mayDrawOrder(owner), trans, currentState, r,
+	return e.travelChoosing(e.drawsBeyond(hist) || e.mayDrawOrder(currentState) || e.mayDrawOrder(owner), trans, currentState, r,
 		func(*ast.StateNode) []*ast.StateNode { return e.exitedByMove(currentState, trans, owner) },
 		func(*ast.StateNode) []*ast.StateNode { return e.enteredByMove(currentState, trans, owner) },
 		func(effects []routeEffect, _ *ast.StateNode) error {
@@ -4281,52 +4281,28 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 		})
 	}
 
-	// Check if this state is a composite state with regions
-	regions, isComposite := e.graph.CompositeStates[state]
-
-	// The active configuration of every composite state lives in one map, so only
-	// this state's own regions may be recorded or torn down here: touching the
-	// whole map would stop the regions of an enclosing composite state too.
-	active := make(map[*ast.StateRegion]*ast.StateNode, len(regions))
-	for _, region := range regions {
-		if regionState, isActive := e.activeConfig.regionStates[region]; isActive {
-			active[region] = regionState
+	// The active state of each of this state's regions is exited first, the
+	// regions' order drawn.
+	if regions, isComposite := e.graph.CompositeStates[state]; isComposite {
+		front := e.exitFront(exitingWherePrefix+state.Name, state.Span())
+		e.addExitQueues(front, nil, state, regions, exitRegionStateWrap)
+		if err := front.drain(); err != nil {
+			return err
 		}
 	}
+	return e.exitOwn(state)
+}
 
-	// Remember the configuration being left, so a history pseudostate owned by
-	// this state or by its parent can restore it.
-	for region, regionState := range active {
-		if regionState != state {
-			e.recordRegionHistory(region, regionState)
-		}
-	}
+// exitOwn is the exit of one state, its regions already left: the do behavior it
+// abandons, the exit it records and the exit behaviors it runs.
+func (e *StateExecutor) exitOwn(state *ast.StateNode) error {
+	// Remember the state being left, so a history pseudostate owned by its parent
+	// can restore it.
 	if parent := e.graph.ParentState[state]; parent != nil {
 		e.recordChildHistory(parent, state)
 	} else if e.graph.Machine != nil && e.graph.RegionOf[state] == nil && !e.graph.HiddenStates[state] {
 		e.recordChildHistory(e.graph.Machine, state)
 	}
-
-	// Exit the active state of each of this state's regions, in declaration order.
-	if isComposite {
-		for _, region := range regions {
-			regionState, isActive := active[region]
-			if !isActive {
-				continue
-			}
-			// Clear the entry first: the recursive exit walks the same map, and the
-			// region still pointing at regionState would exit it a second time.
-			delete(e.activeConfig.regionStates, region)
-			// A region's active state may be nested below the region, so exit it and
-			// the states between it and this one: their exit behaviors run too.
-			for current := regionState; current != nil && current != state; current = e.graph.ParentState[current] {
-				if err := e.exitState(current); err != nil {
-					return fmt.Errorf("exit region state: %w", err)
-				}
-			}
-		}
-	}
-
 	if e.leftAhead[state] {
 		e.activeConfig.simpleState = nil
 		return nil

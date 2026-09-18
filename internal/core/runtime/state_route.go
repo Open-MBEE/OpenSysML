@@ -632,7 +632,7 @@ func (e *StateExecutor) exitAhead(states []*ast.StateNode) error {
 // of the segments into it and reads its guards; move then finishes the settled
 // rest with the effects left.
 func (e *StateExecutor) travel(trans *lower.Transition, from *ast.StateNode, r route, exits exitPlan, enters entryPlan, move func([]routeEffect, *ast.StateNode) error) error {
-	return e.travelChoosing(r.choice != nil || r.draw != nil || e.mayDrawOrder(r.target), trans, from, r, exits, enters, move)
+	return e.travelChoosing(r.choice != nil || r.draw != nil || e.mayDrawOrder(from) || e.mayDrawOrder(r.target), trans, from, r, exits, enters, move)
 }
 
 // travelChoosing is travel where choosing says whether a draw lies on the way, on

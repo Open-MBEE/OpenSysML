@@ -1,0 +1,22 @@
+exit: innerL (exit action)
+stmt assign log
+    eval feature log -> ""
+    eval literal "innerL(exit) " -> "innerL(exit) "
+  eval operator + -> "innerL(exit) "
+exit: outerL (exit action)
+stmt assign log
+    eval feature log -> "innerL(exit) "
+    eval literal "outerL(exit) " -> "outerL(exit) "
+  eval operator + -> "innerL(exit) outerL(exit) "
+exit: r (exit action)
+stmt assign log
+    eval feature log -> "innerL(exit) outerL(exit) "
+    eval literal "r(exit) " -> "r(exit) "
+  eval operator + -> "innerL(exit) outerL(exit) r(exit) "
+exit: work (exit action)
+stmt assign log
+    eval feature log -> "innerL(exit) outerL(exit) r(exit) "
+    eval literal "work(exit) " -> "work(exit) "
+  eval operator + -> "innerL(exit) outerL(exit) r(exit) work(exit) "
+enter: done
+transition: work -> done (event: accept Stop)

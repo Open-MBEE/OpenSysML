@@ -1239,6 +1239,76 @@ func TestExploreForkBranchOrder(t *testing.T) {
 	assertWitnessesReplay(t, x, fresh, run)
 }
 
+// Leaving a parallel state draws the same way among the regions with an exit
+// left: a region's nested exits stay innermost first, the sibling's one exit
+// falls anywhere among them, and the owner's own exit comes last. The three exit
+// orders compound with the three orders of the unlogged entries the visits tell
+// apart: nine linearizations, nine outcomes. The fixed policies take declaration
+// order and report no draw.
+func TestExploreRegionExitOrder(t *testing.T) {
+	fresh, run := conformanceMachine(t, "state_region_exit_order", "Stop")
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 9 || len(x.Outcomes) != 9 {
+		t.Fatalf("status %q with %d outcomes, want complete (9 runs) reaching 9", x.Status(), len(x.Outcomes))
+	}
+	var logs []string
+	for _, o := range x.Outcomes {
+		if o.Linearizations != 1 {
+			t.Errorf("%s reached by %d linearizations, want 1", o.Outcome, o.Linearizations)
+		}
+		exits := 0
+		for _, c := range o.Witness {
+			switch {
+			case c.Kind == ChoiceEntryOrder && c.Where == "entering work":
+			case c.Kind == ChoiceExitOrder && c.Where == "exiting work":
+				exits++
+			default:
+				t.Errorf("%s drew %s, want every draw an order entering or exiting work", o.Outcome, c)
+			}
+		}
+		if exits < 1 || exits > 2 {
+			t.Errorf("%s drew the exit order %d times, want 1 or 2: a two-unit queue beside a one-unit one", o.Outcome, exits)
+		}
+		log := o.Outcome.String()[strings.Index(o.Outcome.String(), "log = "):]
+		if !strings.Contains(log, "innerL(exit) ") || strings.Index(log, "innerL(exit) ") > strings.Index(log, "outerL(exit) ") {
+			t.Errorf("%s leaves outerL before innerL", o.Outcome)
+		}
+		if !slices.Contains(logs, log) {
+			logs = append(logs, log)
+		}
+	}
+	if len(logs) != 3 {
+		t.Fatalf("logs %v, want three distinct interleavings", logs)
+	}
+	assertWitnessesReplay(t, x, fresh, run)
+	const declaredOrder = "innerL(exit) outerL(exit) r(exit) work(exit) "
+	for _, spelling := range []string{"reverse", "declared", "seed:1"} {
+		ctx, _ := fresh()
+		mustSchedule(t, ctx, mustPolicy(t, spelling))
+		outcome, err := run(ctx)
+		if err != nil {
+			t.Fatalf("%s: %v", spelling, err)
+		}
+		var drawn []ChoiceKind
+		for _, c := range ctx.Choices() {
+			drawn = append(drawn, c.Choice().Kind)
+		}
+		switch spelling {
+		case "seed:1":
+			if !slices.Contains(logs, outcome.String()[strings.Index(outcome.String(), "log = "):]) || !slices.Contains(drawn, ChoiceExitOrder) {
+				t.Errorf("seed:1 reached %s drawing %v, want an explored outcome with the exit order reported", outcome, drawn)
+			}
+		default:
+			if !strings.Contains(outcome.String(), declaredOrder) || slices.Contains(drawn, ChoiceExitOrder) {
+				t.Errorf("%s reached %s drawing %v, want declaration order without an exit-order choice", spelling, outcome, drawn)
+			}
+		}
+	}
+}
+
 // A body paused on the clock whose wait is over is a token able to act, so it is
 // an alternative to a sibling parked accept due at the same instant, not work
 // swept up after the sibling has acted.

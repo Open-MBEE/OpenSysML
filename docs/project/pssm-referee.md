@@ -137,7 +137,10 @@ which replays the run once per linearization of its choice points. The set of `l
 reachable is compared with the test's set of admitted traces **as sets, in both directions**: a
 reachable trace the suite does not admit is a failure naming that trace, an admitted trace the
 runtime never reaches is a failure naming it. A run that ends in a typed runtime error, or that
-exhausts the exploration budget, is a failure whose reason names the error. Each run is bounded
+exhausts the exploration budget, is a failure whose reason names the error. The exploration
+budget is 4096 runs of 64 draws each, four times the `explore` policy's default: *Event 016 B*
+enters and leaves orthogonal states nested two deep with each region firing, and the orders the
+runtime draws among their entries, firings and exits reach 1152 linearizations. Each run is bounded
 by the runtime's budgets and their environment overrides (`OPENSYSML_MAX_STEPS` and the others
 the `sysml` command honors), except that the step budget defaults to 100 000 rather than the
 runtime's ten million: a translated test that needs more is looping, and the smaller bound

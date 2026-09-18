@@ -430,22 +430,13 @@ func (e *StateExecutor) exitRegionOwnerTo(owner, lca *ast.StateNode) error {
 }
 
 // leaveTopRegions leaves the machine's own orthogonal regions, which no state
-// owns: every region is exited in declaration order and the target — outside
-// all of them — is then entered as the machine's single active state.
+// owns: every region is exited, their order drawn, and the target — outside all
+// of them — is then entered as the machine's single active state.
 func (e *StateExecutor) leaveTopRegions(trans *lower.Transition, effects []routeEffect, source, target *ast.StateNode) error {
-	for _, region := range e.graph.TopRegions {
-		active, ok := e.activeConfig.regionStates[region]
-		if !ok {
-			continue
-		}
-		delete(e.activeConfig.regionStates, region)
-		leaving := make([]*ast.StateNode, 0)
-		for current := active; current != nil; current = e.graph.ParentState[current] {
-			leaving = append(leaving, current)
-		}
-		if err := e.exitStates(leaving); err != nil {
-			return err
-		}
+	front := e.exitFront(exitingWherePrefix+e.stateMachine.Name, e.stateMachine.DeclSpan)
+	e.addExitQueues(front, nil, nil, e.graph.TopRegions, exitStateWrap)
+	if err := front.drain(); err != nil {
+		return err
 	}
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
 	e.activeConfig.simpleState = nil

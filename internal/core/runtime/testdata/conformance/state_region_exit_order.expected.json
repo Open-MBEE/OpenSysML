@@ -1,0 +1,20 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Stop"}],
+	"outcomes": [
+		{
+			"finalState": "done",
+			"outputs": {"log": {"type": "String", "value": "innerL(exit) outerL(exit) r(exit) work(exit) "}}
+		},
+		{
+			"finalState": "done",
+			"outputs": {"log": {"type": "String", "value": "innerL(exit) r(exit) outerL(exit) work(exit) "}}
+		},
+		{
+			"finalState": "done",
+			"outputs": {"log": {"type": "String", "value": "r(exit) innerL(exit) outerL(exit) work(exit) "}}
+		}
+	],
+	"admissible": "Regions left together: each exits, in which order is open"
+}

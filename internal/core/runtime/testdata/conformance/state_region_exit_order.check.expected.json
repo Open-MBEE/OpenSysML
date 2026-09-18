@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"log": ["\"innerL(exit) outerL(exit) r(exit) work(exit) \"", "\"innerL(exit) r(exit) outerL(exit) work(exit) \"", "\"r(exit) innerL(exit) outerL(exit) work(exit) \""]},
+	"agreed": {"finalState": "done"}
+}

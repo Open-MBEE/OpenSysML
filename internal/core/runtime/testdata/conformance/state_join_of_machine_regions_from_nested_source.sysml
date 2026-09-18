@@ -1,7 +1,9 @@
 // A join of the machine's own orthogonal regions, one segment leaving a state
 // nested in an orthogonal state of a region: the segment exits its source, the
 // orthogonal state's other region and the orthogonal state itself, once each, and
-// the machine's regions are left with no state exited a second time.
+// the machine's regions are left with no state exited a second time. The order of
+// the two segments and of the orthogonal state's two exits are open (the oracle's
+// sections on transitions into a join and on regions left together).
 package Test {
 	private import ScalarValues::*;
 
