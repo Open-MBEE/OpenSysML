@@ -92,14 +92,14 @@ func TestRunActionExploresNoChoiceInOneRun(t *testing.T) {
 // reached within it are still tabled.
 func TestRunActionExploreReportsTheBudgetHit(t *testing.T) {
 	s := loadSource(t, exploreRaceSource)
-	if err := s.SetSchedule(mustSchedule(t, "explore:runs=2")); err != nil {
+	if err := s.SetSchedule(mustSchedule(t, "explore:runs=3")); err != nil {
 		t.Fatal(err)
 	}
 	v := s.RunAction("Race::race")
 	if v.Status != VerdictUnresolved {
 		t.Errorf("status = %v, want unresolved", v.Status)
 	}
-	wants(t, strings.Join(v.Lines, "\n"), "? explored Race::race: 2 outcomes", "incomplete: runs budget 2 hit after 2 runs")
+	wants(t, strings.Join(v.Lines, "\n"), "? explored Race::race: 2 outcomes", "incomplete: runs budget 3 hit after 3 runs")
 	if v.Exploration == nil || v.Exploration.Complete || strings.Join(v.Exploration.BudgetsHit, ",") != "runs" {
 		t.Errorf("exploration = %+v", v.Exploration)
 	}
@@ -113,6 +113,8 @@ func TestRunActionExploreReportsTheBudgetHit(t *testing.T) {
 
 // With tracing on, the trace shown per outcome is its witness run's: one token
 // moves per explored step, so the last write to x is the witness's last move.
+// Runs vary the first run's choices earliest first: run 2 takes 3@b first at
+// step 3, run 3 varies run 1's step 4, and run 5 is the second below 3@b.
 func TestRunActionExploreTracesTheWitnessOfEachOutcome(t *testing.T) {
 	s := loadSource(t, exploreRaceSource)
 	run(t, s, "%trace on")
@@ -122,11 +124,11 @@ func TestRunActionExploreTracesTheWitnessOfEachOutcome(t *testing.T) {
 	out := strings.Join(s.RunAction("Race::race").Lines, "\n")
 	wantsInOrder(t, out,
 		"complete (6 runs)",
-		"trace of outcome 1's witness (run 4):",
+		"trace of outcome 1's witness (run 5):",
 		"took 3@b first",
 		"took 4@c first",
 		"eval literal 1 -> 1",
-		"trace of outcome 2's witness (run 2):",
+		"trace of outcome 2's witness (run 3):",
 		"took 2@a first",
 		"took 4@c first",
 		"eval literal 2 -> 2",
@@ -664,6 +666,57 @@ func TestRunForExploresEveryDueOrder(t *testing.T) {
 	verdicts = s.RunFor([]Behavior{{Name: "Shared::Lamp::nothing"}}, []Behavior{glow}, 3)
 	if len(verdicts) != 1 || verdicts[0].Status != VerdictUnresolved {
 		t.Fatalf("verdicts = %+v, want one unresolved", verdicts)
+	}
+}
+
+// exploreRegionsSource has a machine starting in a parallel state whose two
+// regions each log their own entry and their start state's.
+const exploreRegionsSource = `
+package Regions {
+	private import ScalarValues::*;
+	state def Pair {
+		attribute log : String = "";
+		entry; then work;
+		state work parallel {
+			state left {
+				entry { assign log := log + "left "; } then l;
+				state l { entry { assign log := log + "l "; } }
+			}
+			state right {
+				entry { assign log := log + "right "; } then r;
+				state r { entry { assign log := log + "r "; } }
+			}
+		}
+	}
+}
+`
+
+// RunStateMachine under explore draws the order a parallel state's regions are
+// entered in one unit at a time: the six linearizations of two chains of two
+// are tabled, each witnessed by its entry-order lines, and the table is the same
+// on every run.
+func TestRunStateMachineExploresEveryRegionEntryOrder(t *testing.T) {
+	s := loadSource(t, exploreRegionsSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	v := s.RunStateMachine("Regions::Pair")
+	if v.Status != VerdictHolds {
+		t.Fatalf("status = %v, want holds:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+	}
+	out := strings.Join(v.Lines, "\n")
+	wantsInOrder(t, out,
+		"✓ explored Regions::Pair: 6 outcomes",
+		"outcome                                                    | linearizations | witness",
+		`finalState l+r; visits work, l, r; log = "left l right r " | 1              | entering work: left(entry) first of left(entry), right(entry); entering work: l(entry) first of l(entry), right(entry)`,
+		`finalState l+r; visits work, l, r; log = "left right l r " | 1              | entering work: left(entry) first of left(entry), right(entry); entering work: right(entry) first of l(entry), right(entry); entering work: l(entry) first of l(entry), r(entry)`,
+		`finalState l+r; visits work, l, r; log = "right left l r " | 1              | entering work: right(entry) first of left(entry), right(entry); entering work: left(entry) first of left(entry), r(entry); entering work: l(entry) first of l(entry), r(entry)`,
+		`finalState l+r; visits work, r, l; log = "left right r l " | 1              | entering work: left(entry) first of left(entry), right(entry); entering work: right(entry) first of l(entry), right(entry); entering work: r(entry) first of l(entry), r(entry)`,
+		`finalState l+r; visits work, r, l; log = "right left r l " | 1              | entering work: right(entry) first of left(entry), right(entry); entering work: left(entry) first of left(entry), r(entry); entering work: r(entry) first of l(entry), r(entry)`,
+		`finalState l+r; visits work, r, l; log = "right r left l " | 1              | entering work: right(entry) first of left(entry), right(entry); entering work: r(entry) first of left(entry), r(entry)`,
+		"complete (6 runs)")
+	if again := s.RunStateMachine("Regions::Pair"); strings.Join(again.Lines, "\n") != out {
+		t.Errorf("exploration rendered\n%s\nthen\n%s", out, strings.Join(again.Lines, "\n"))
 	}
 }
 

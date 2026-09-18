@@ -1,0 +1,90 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [
+		{
+			"signal": "Go"
+		},
+		{
+			"signal": "Pause"
+		},
+		{
+			"signal": "Resume"
+		}
+	],
+	"outcomes": [
+		{
+			"finalState": "l2+r2",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "l2(entry) r2(entry) l2(exit) r2(exit) l2(entry) r2(entry) "
+				}
+			}
+		},
+		{
+			"finalState": "l2+r2",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "l2(entry) r2(entry) l2(exit) r2(exit) r2(entry) l2(entry) "
+				}
+			}
+		},
+		{
+			"finalState": "l2+r2",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "l2(entry) r2(entry) r2(exit) l2(exit) l2(entry) r2(entry) "
+				}
+			}
+		},
+		{
+			"finalState": "l2+r2",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "l2(entry) r2(entry) r2(exit) l2(exit) r2(entry) l2(entry) "
+				}
+			}
+		},
+		{
+			"finalState": "l2+r2",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "r2(entry) l2(entry) l2(exit) r2(exit) l2(entry) r2(entry) "
+				}
+			}
+		},
+		{
+			"finalState": "l2+r2",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "r2(entry) l2(entry) l2(exit) r2(exit) r2(entry) l2(entry) "
+				}
+			}
+		},
+		{
+			"finalState": "l2+r2",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "r2(entry) l2(entry) r2(exit) l2(exit) l2(entry) r2(entry) "
+				}
+			}
+		},
+		{
+			"finalState": "l2+r2",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "r2(entry) l2(entry) r2(exit) l2(exit) r2(entry) l2(entry) "
+				}
+			}
+		}
+	],
+	"admissible": "Regions of a parallel state entered on one occurrence: each is entered, in which order is open"
+}

@@ -7,25 +7,30 @@ stmt assign log
     eval feature log -> "idle(exit) "
     eval literal "T1(effect) " -> "T1(effect) "
   eval operator + -> "idle(exit) T1(effect) "
+choice fork split: next split->a(effect), split->b(effect) (unordered; took split->a(effect) first)
 stmt assign log
     eval feature log -> "idle(exit) T1(effect) "
     eval literal "T1.1(effect) " -> "T1.1(effect) "
   eval operator + -> "idle(exit) T1(effect) T1.1(effect) "
+choice fork split: next outer(entry), split->b(effect) (unordered; took outer(entry) first)
 enter: outer (entry action)
 stmt assign log
     eval feature log -> "idle(exit) T1(effect) T1.1(effect) "
     eval literal "outer(entry) " -> "outer(entry) "
   eval operator + -> "idle(exit) T1(effect) T1.1(effect) outer(entry) "
+choice fork split: next p(entry), work(entry), split->b(effect) (unordered; took p(entry) first)
 enter: p (entry action)
 stmt assign log
     eval feature log -> "idle(exit) T1(effect) T1.1(effect) outer(entry) "
     eval literal "p(entry) " -> "p(entry) "
   eval operator + -> "idle(exit) T1(effect) T1.1(effect) outer(entry) p(entry) "
+choice fork split: next work(entry), split->b(effect) (unordered; took work(entry) first)
 enter: work (entry action)
 stmt assign log
     eval feature log -> "idle(exit) T1(effect) T1.1(effect) outer(entry) p(entry) "
     eval literal "work(entry) " -> "work(entry) "
   eval operator + -> "idle(exit) T1(effect) T1.1(effect) outer(entry) p(entry) work(entry) "
+choice fork split: next a(entry), split->b(effect) (unordered; took a(entry) first)
 enter: a (entry action)
 stmt assign log
     eval feature log -> "idle(exit) T1(effect) T1.1(effect) outer(entry) p(entry) work(entry) "
@@ -47,6 +52,7 @@ transition: a -> done
 exit: b
 enter: done
 transition: b -> done
+choice exiting work: next left.done(exit), right.done(exit) (unordered; took left.done(exit) first)
 exit: done
 exit: done
 exit: work
@@ -59,6 +65,7 @@ stmt assign log
   eval operator + -> "idle(exit) T1(effect) T1.1(effect) outer(entry) p(entry) work(entry) a(entry) T1.2(effect) b(entry) p(exit) "
 enter: done
 transition: p -> done (event: accept Stop)
+choice exiting outer: next main.done(exit), aside.done(exit) (unordered; took main.done(exit) first)
 exit: done
 exit: done
 exit: outer (exit action)

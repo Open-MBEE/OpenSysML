@@ -155,7 +155,8 @@ type CheckVerdict int
 const (
 	// CheckExhaustive found no violation and every schedule, up to equivalence, was searched.
 	CheckExhaustive CheckVerdict = iota
-	// CheckWithinBounds found no violation among the schedules the bounds let it search.
+	// CheckWithinBounds found no violation among the schedules the bounds, or the
+	// checker's own moves (NotEnumerated), let it search.
 	CheckWithinBounds
 	// CheckViolation found a violation.
 	CheckViolation
@@ -188,6 +189,9 @@ type CheckReport struct {
 	// BoundsHit names the bounds the search ran into: `depth`, `states`, and the
 	// executor's budgets by name (ExecutorBounds); none when exhaustive.
 	BoundsHit []string
+	// NotEnumerated names the interleavings the search met that its moves leave
+	// out (NotEnumeratedDoRound); none when its moves span every schedule.
+	NotEnumerated []string
 	// Limits are the executor's budgets the search ran under.
 	Limits Budgets
 	// Horizon is the instant the search stopped the clock at: no schedule was
@@ -208,6 +212,9 @@ func (r *CheckReport) Status() string {
 	s += fmt.Sprintf(" (%d states, %d moves, depth %d", r.States, r.Moves, r.MaxDepth)
 	if len(r.BoundsHit) > 0 {
 		s += "; bounds hit: " + strings.Join(r.BoundsHit, ", ")
+	}
+	if len(r.NotEnumerated) > 0 {
+		s += "; not enumerated: " + strings.Join(r.NotEnumerated, ", ")
 	}
 	return s + ")"
 }
@@ -231,20 +238,10 @@ func (e *CheckStopped) Unwrap() error { return e.Cause }
 // fresh makes. Every violation and every final value carries the witness a
 // replay of the same starter follows (Replay). It stops with a CheckStopped
 // when stop ends first; it fails when the run refused a move it selected.
+// The start draws choice points itself (region entry order), so it is begun once per way of
+// resolving them and the search runs from every state a start reaches.
 func Check(stop context.Context, fresh func() (*Context, error), start Starter, budget CheckBudget, opts CheckOptions, props []CheckProperty) (*CheckReport, error) {
-	ctx, err := fresh()
-	if err != nil {
-		return nil, err
-	}
-	script := &checkScript{due: -1}
-	if err := ctx.SetSchedule(checkPolicy(script)); err != nil {
-		return nil, err
-	}
-	if ctx.Trace() == nil {
-		ctx.SetTrace(NewTraceRecorder())
-	}
 	c := &checker{
-		ctx:            ctx,
 		budget:         budget,
 		opts:           opts,
 		props:          props,
@@ -253,13 +250,56 @@ func Check(stop context.Context, fresh func() (*Context, error), start Starter, 
 		finals:         make(map[string]int),
 		futures:        make(map[futureKey]lower.Footprint),
 		machineFutures: make(map[*lower.StateGraph]lower.Footprint),
-		budgets:        ctx.Budgets(),
 	}
-	run, err := beginInvocation(ctx, start)
+	starts := [][]int{nil}
+	for i := 0; i < len(starts); i++ {
+		if err := stop.Err(); err != nil {
+			return nil, c.stopped(err)
+		}
+		more, err := c.searchFrom(stop, fresh, start, starts[i])
+		if err != nil {
+			return nil, err
+		}
+		starts = append(starts, more...)
+	}
+	if err := stop.Err(); err != nil {
+		return nil, c.stopped(err)
+	}
+	if err := c.divergeReached(); err != nil {
+		return nil, err
+	}
+	return c.result(), nil
+}
+
+// searchFrom begins the invocation with the start's choice points resolved by picks, searches
+// from the state reached, and returns the pick sequences taking each other alternative drawn.
+func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error), start Starter, picks []int) ([][]int, error) {
+	ctx, err := fresh()
 	if err != nil {
-		// Failing to start fails on every schedule: a violation with no move.
+		return nil, err
+	}
+	if err := ctx.SetSchedule(checkPolicy(&checkScript{due: -1, picks: picks})); err != nil {
+		return nil, err
+	}
+	if ctx.Trace() == nil {
+		ctx.SetTrace(NewTraceRecorder())
+	}
+	c.ctx, c.budgets = ctx, ctx.Budgets()
+	run, err := beginInvocation(ctx, start)
+	check := run.checking()
+	if check.refused != nil {
+		return nil, check.refused
+	}
+	var more [][]int
+	for i, choice := range check.drawn {
+		for alt := 1; alt < len(choice.Alternatives); alt++ {
+			more = append(more, slices.Concat(picks, make([]int, i), []int{alt}))
+		}
+	}
+	if err != nil {
+		// Failing to start fails on every schedule from it: a violation with no move.
 		c.violate(Violation{Kind: ViolationFailure, Err: err, Witness: c.failing(err)})
-		return c.result(), nil
+		return more, nil
 	}
 	defer run.inv.Release()
 	if err := run.inv.started(ctx); err != nil {
@@ -272,10 +312,7 @@ func Check(stop context.Context, fresh func() (*Context, error), start Starter, 
 	if err := c.search(stop); err != nil {
 		return nil, err
 	}
-	if err := c.divergeReached(); err != nil {
-		return nil, err
-	}
-	return c.result(), nil
+	return more, nil
 }
 
 // checker is one search in progress.
@@ -301,6 +338,8 @@ type checker struct {
 	moves    int
 	maxDepth int
 	bounds   []string
+	// notEnumerated names the interleavings the moves left out at states visited.
+	notEnumerated []string
 
 	violations []Violation
 	// finals indexes result.Finals by outcome identity.
@@ -383,6 +422,13 @@ func (c *checker) hit(bound string) {
 	}
 }
 
+// leaveOut records an interleaving the search's moves leave out at a state it visited.
+func (c *checker) leaveOut(name string) {
+	if !slices.Contains(c.notEnumerated, name) {
+		c.notEnumerated = append(c.notEnumerated, name)
+	}
+}
+
 // violate records the violation; a property is reported once, by the shortest
 // schedule found to reach a state where it is false.
 func (c *checker) violate(v Violation) {
@@ -435,7 +481,7 @@ func (c *checker) search(stop context.Context) error {
 	for len(c.stack) > 0 {
 		if err := stop.Err(); err != nil {
 			c.releaseAll()
-			return &CheckStopped{States: len(c.visited), Moves: c.moves, MaxDepth: c.maxDepth, Cause: err}
+			return c.stopped(err)
 		}
 		f := c.stack[len(c.stack)-1]
 		if f.next >= len(f.moves) {
@@ -458,6 +504,11 @@ func (c *checker) search(stop context.Context) error {
 		}
 	}
 	return nil
+}
+
+// stopped is the check ended by its caller, with what it had searched so far.
+func (c *checker) stopped(cause error) error {
+	return &CheckStopped{States: len(c.visited), Moves: c.moves, MaxDepth: c.maxDepth, Cause: cause}
 }
 
 // cut marks the frame's state as one the depth bound cut a schedule through.
@@ -550,11 +601,15 @@ func (c *checker) complete(depth int) error {
 	return nil
 }
 
-// visit records the stable state the invocation stands in, evaluating the
-// properties at a new one; seen is nil when the states bound keeps the search out.
+// visit records the stable state the invocation stands in, noting the runs its moves
+// leave out, evaluating the properties at a new one; seen is nil when the states bound
+// keeps the search out.
 func (c *checker) visit(depth int) (form canonicalForm, key stateKey, seen *visitedState, visited bool, err error) {
 	form = c.run.canonicalState()
 	key = form.key()
+	for _, name := range c.run.leftOut() {
+		c.leaveOut(name)
+	}
 	if seen, visited = c.visited[key]; !visited {
 		if c.budget.States > 0 && len(c.visited) >= c.budget.States {
 			c.hit("states")
@@ -1129,9 +1184,10 @@ func (c *checker) calleeFlow(graph *lower.ActionGraph, node ast.Node, callee *sy
 }
 
 // divergeReached fails the check when a path only a performance could tell was held
-// at no state of an exhaustive search; a bounded one may have stopped short of it.
+// at no state of an exhaustive search; a bounded one — a bound hit, or a run its
+// moves leave out — may have stopped short of it.
 func (c *checker) divergeReached() error {
-	if len(c.bounds) > 0 {
+	if len(c.bounds) > 0 || len(c.notEnumerated) > 0 {
 		return nil
 	}
 	for _, name := range c.opts.Diverge {
@@ -1145,14 +1201,15 @@ func (c *checker) divergeReached() error {
 // result assembles what the search found.
 func (c *checker) result() *CheckReport {
 	r := &CheckReport{
-		States:     len(c.visited),
-		Moves:      c.moves,
-		MaxDepth:   c.maxDepth,
-		BoundsHit:  c.bounds,
-		Limits:     c.ctx.Budgets(),
-		Horizon:    c.horizon(),
-		Violations: c.violations,
-		Finals:     slices.Clone(c.results),
+		States:        len(c.visited),
+		Moves:         c.moves,
+		MaxDepth:      c.maxDepth,
+		BoundsHit:     c.bounds,
+		NotEnumerated: c.notEnumerated,
+		Limits:        c.ctx.Budgets(),
+		Horizon:       c.horizon(),
+		Violations:    c.violations,
+		Finals:        slices.Clone(c.results),
 	}
 	sort.Slice(r.Finals, func(i, j int) bool { return r.Finals[i].identity < r.Finals[j].identity })
 	r.Divergent = divergences(r.Finals)
@@ -1161,7 +1218,7 @@ func (c *checker) result() *CheckReport {
 		r.Verdict = CheckViolation
 	case len(r.Divergent) > 0:
 		r.Verdict = CheckDivergent
-	case len(r.BoundsHit) > 0:
+	case len(r.BoundsHit) > 0 || len(r.NotEnumerated) > 0:
 		r.Verdict = CheckWithinBounds
 	default:
 		r.Verdict = CheckExhaustive
@@ -1216,6 +1273,11 @@ const (
 	BoundElements    = "elements"
 	BoundBehaviors   = "behaviors"
 )
+
+// NotEnumeratedDoRound names the interleaving the checker leaves out at a machine
+// owing a dispatch after a do step that left a token able to act standing: its one
+// move dispatches, where the fixed policies move the rest of the round first.
+const NotEnumeratedDoRound = "do round before dispatch"
 
 // ExecutorBounds lists the executor budgets a bound hit may name, in report order.
 var ExecutorBounds = []string{BoundSteps, BoundActionSteps, BoundEvents, BoundDoSteps, BoundElements, BoundBehaviors}

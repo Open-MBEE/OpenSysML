@@ -1,5 +1,6 @@
 {
   "type": "state",
+  "schedule": "reverse",
   "libraries": true,
   "events": [
     {"signal": "pause", "args": null}

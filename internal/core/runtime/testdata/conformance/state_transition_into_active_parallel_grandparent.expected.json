@@ -1,5 +1,6 @@
 {
   "type": "state",
+  "schedule": "reverse",
   "trace": true,
   "events": [
     {"signal": "Up", "args": null},

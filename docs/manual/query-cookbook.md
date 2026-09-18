@@ -737,7 +737,8 @@ RelatedElements(
 	source = <elements>,
 	relationshipKind = "<kind>",   // specialization, subsetting, redefinition,
 	                                // typing, connection, allocation,
-	                                // satisfaction or verification
+	                                // satisfaction, verification,
+	                                // derivation or refinement
 	direction = "<direction>",     // outgoing or incoming
 	maxDepth = <n>
 )
@@ -846,6 +847,103 @@ $ sysml cookbook.sysml -run-query "Cookbook::VerifiedBy req=Cookbook::massRequir
   Row 1: Cookbook::massVerification
 ```
 
+### Derive relationships
+
+A requirement derivation is a connection conforming to the domain library's
+`RequirementDerivation::Derivation` — typed by it, or written with the
+`#derivation` semantic metadata. The cookbook model derives three requirements
+from `massRequirement`, one of them at second hand:
+
+```sysml
+requirement mirrorMassRequirement;
+requirement segmentMassRequirement;
+requirement instrumentMassRequirement;
+connection deriveMirrorMass : RequirementDerivation::Derivation
+	connect massRequirement to mirrorMassRequirement;
+#RequirementDerivation::derivation connection deriveInstrumentMass
+	connect massRequirement to instrumentMassRequirement;
+#RequirementDerivation::derivation connection deriveSegmentMass
+	connect mirrorMassRequirement to segmentMassRequirement;
+```
+
+The `derivation` kind runs from the original requirement to each derived one,
+so the requirements derived from an original — transitively, to `maxDepth` —
+are an **outgoing** traversal, and the original(s) a derived requirement traces
+back to are an incoming one:
+
+```sysml
+calc def DerivedFrom :> Query {
+	in req : Element;
+	RelatedElements(
+		source = req,
+		relationshipKind = "derivation",
+		direction = "outgoing",
+		maxDepth = 2
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::DerivedFrom req=Cookbook::massRequirement"
+✓ Query Cookbook::DerivedFrom returned 3 rows
+  Row 1: Cookbook::mirrorMassRequirement
+  Row 2: Cookbook::instrumentMassRequirement
+  Row 3: Cookbook::segmentMassRequirement
+```
+
+Which end is the original is read from the derivation itself: an end
+subsetting `originalRequirements` or tagged `#original` is the original, one
+subsetting `derivedRequirements` or tagged `#derive` is derived, and a
+connection typed by a `connection def` specializing `Derivation` inherits the
+roles its definition's ends state. An end that states no role takes the one
+left over: it is the original when no other end is, and derived otherwise —
+so `connect (a, b, c)` with no stated roles derives `b` and `c` from `a`, and
+an unmarked end beside an `#original` end is derived. A `connection def`
+specializing `Derivation` whose ends are typed by requirement definitions —
+the form the v1 migrator writes — relates those definitions the same way,
+through the ends it inherits from a general definition as well as its own; an
+end that redefines an inherited end keeps that end's role and, when it declares
+no type, its type. A plain connection between two requirements is not a
+derivation.
+
+### Refine relationships
+
+A refinement is a `dependency` annotated `@ModelingMetadata::Refinement`,
+as a prefix (`#refinement dependency ...`) or in its body (`{ @Refinement; }`).
+The cookbook model states one from a part definition to the requirement it
+refines:
+
+```sysml
+#ModelingMetadata::refinement dependency mirrorRefinesMass
+	from MirrorAssembly to mirrorMassRequirement;
+```
+
+The `refinement` kind runs from each client of the dependency to each of its
+suppliers, so "what refines this requirement" is an **incoming** traversal
+from the requirement:
+
+```sysml
+calc def RefinedBy :> Query {
+	in req : Element;
+	RelatedElements(
+		source = req,
+		relationshipKind = "refinement",
+		direction = "incoming",
+		maxDepth = 1
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::RefinedBy req=Cookbook::mirrorMassRequirement"
+✓ Query Cookbook::RefinedBy returned 1 row
+  Row 1: Cookbook::MirrorAssembly
+```
+
+A dependency with several clients or suppliers relates every client to every
+supplier. A dependency without the `Refinement` metadata states no refinement
+edge.
+
 ### Specialization (and the other structural kinds)
 
 `specialization`, `subsetting`, `redefinition` and `typing` traverse the
@@ -928,15 +1026,18 @@ calc def UnsatisfiedRequirements :> Query {
 The model's `pointingRequirement` (declared at the end of the package with
 its definition and two nested requirements) is verified by
 `pointingVerification` but satisfied by nothing, and neither are its
-children:
+children or the three requirements derived from `massRequirement`:
 
 ```console
 $ sysml cookbook.sysml -run-query "Cookbook::UnsatisfiedRequirements root=Cookbook"
-✓ Query Cookbook::UnsatisfiedRequirements returned 4 rows
+✓ Query Cookbook::UnsatisfiedRequirements returned 7 rows
   Row 1: Cookbook::PointingRequirement
   Row 2: Cookbook::pointingRequirement
-  Row 3: Cookbook::pointingRequirement::slewRequirement
-  Row 4: Cookbook::pointingRequirement::trackingRequirement
+  Row 3: Cookbook::mirrorMassRequirement
+  Row 4: Cookbook::segmentMassRequirement
+  Row 5: Cookbook::instrumentMassRequirement
+  Row 6: Cookbook::pointingRequirement::slewRequirement
+  Row 7: Cookbook::pointingRequirement::trackingRequirement
 ```
 
 `UnverifiedRequirements` is the same recipe with
@@ -944,10 +1045,13 @@ $ sysml cookbook.sysml -run-query "Cookbook::UnsatisfiedRequirements root=Cookbo
 
 ```console
 $ sysml cookbook.sysml -run-query "Cookbook::UnverifiedRequirements root=Cookbook"
-✓ Query Cookbook::UnverifiedRequirements returned 3 rows
+✓ Query Cookbook::UnverifiedRequirements returned 6 rows
   Row 1: Cookbook::PointingRequirement
-  Row 2: Cookbook::pointingRequirement::slewRequirement
-  Row 3: Cookbook::pointingRequirement::trackingRequirement
+  Row 2: Cookbook::mirrorMassRequirement
+  Row 3: Cookbook::segmentMassRequirement
+  Row 4: Cookbook::instrumentMassRequirement
+  Row 5: Cookbook::pointingRequirement::slewRequirement
+  Row 6: Cookbook::pointingRequirement::trackingRequirement
 ```
 
 Rows keep their order and any projected columns, so `WhereRelated` composes
@@ -989,11 +1093,14 @@ calc def VerifiedButUnsatisfied :> Query {
 
 ```console
 $ sysml cookbook.sysml -run-query "Cookbook::UncoveredRequirements root=Cookbook"
-✓ Query Cookbook::UncoveredRequirements returned 4 rows
+✓ Query Cookbook::UncoveredRequirements returned 7 rows
   Row 1: Cookbook::PointingRequirement
   Row 2: Cookbook::pointingRequirement
-  Row 3: Cookbook::pointingRequirement::slewRequirement
-  Row 4: Cookbook::pointingRequirement::trackingRequirement
+  Row 3: Cookbook::mirrorMassRequirement
+  Row 4: Cookbook::segmentMassRequirement
+  Row 5: Cookbook::instrumentMassRequirement
+  Row 6: Cookbook::pointingRequirement::slewRequirement
+  Row 7: Cookbook::pointingRequirement::trackingRequirement
 ```
 
 ```console
@@ -1046,7 +1153,8 @@ $ sysml cookbook.sysml -run-query "Cookbook::RequirementTree root=Cookbook::poin
 ```
 
 Rooted at the package, the same query lists `PointingRequirement`,
-`massRequirement` and `pointingRequirement` with its two children beneath it.
+`massRequirement` and its three derived requirements, and
+`pointingRequirement` with its two children beneath it.
 The [requirements example](examples/requirements.sysml) renders such a tree
 as the last table of its report, [`requirements.md`](examples/requirements.md).
 

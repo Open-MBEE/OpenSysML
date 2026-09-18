@@ -31,12 +31,13 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   resolves what the library leaves unordered, reports each such choice without changing the
   run, takes another linearization under `declared` or `seed:<n>`, and enumerates every one
   within a budget under `explore`
-- **[Recording the order of orthogonal regions](region-order-scheduling.md)** — a design, not
-  yet implemented: the entry and exit of a composite state's regions, the units of the firings
-  one occurrence selects across regions, and a do step against a dispatch as recorded choice
-  points, with the kinds, the trace and witness lines, what each policy does at each, the
-  rollback of a refused replay, the choice-point budget, the alignment row on firing
-  granularity, and the two decisions left to the maintainers
+- **[Recording the order of orthogonal regions](region-order-scheduling.md)** — the entry and
+  exit of a composite state's regions and the units of the firings one occurrence selects
+  across regions as recorded choice points drawn on one front, with the kinds, the trace and
+  witness lines, what each policy does at each, the rollback of a refused replay, the
+  choice-point budget and the alignment row on firing granularity; and the designs, not yet
+  implemented, of a do step against a dispatch and of a completion's firing inside the entry
+  front
 - **[Orthogonal regions](orthogonal-regions.md)** — concurrent substates, in the standard
   `parallel` notation; the bundled libraries give them no performance, so UML 2.5.1 supplies
   the semantics

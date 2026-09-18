@@ -365,6 +365,35 @@ run before `right`, and the exploration would have reported two outcomes complet
 in one order or the other, before `left2` can run, so `declared` (and `seed:1`) give `x = 2, y = 2`
 and `reverse` gives `x = 1, y = 1`.
 
+### Two writers of one feature before a long tail of closed choices: two values
+
+Fixture: `action_explore_early_race_long_tail` (explored, checked).
+
+```
+start → split ⇉ a { x := 1 } → p1 { p := 1 } → p2 { p := 2 } ─┐
+              ⇉ b { x := 2 } → q1 { q := 1 } → q2 { q := 2 } ─┤→ sync → done
+```
+
+Derived constraints:
+
+- `a` and `b` are each performed exactly once (ForkAction) and `sync` follows both branches
+  (JoinAction), so `x` is `1` or `2`, never `0`, at the end.
+- `p1` HappensBefore `p2` and `q1` HappensBefore `q2`, each branch writing its own feature, so
+  `p` and `q` both end `2` whatever the interleaving.
+
+Open: the order of `a` against `b`, and the interleaving of the two branches — the library links
+neither. The last write of `x` stands, so the two orders of the writes are two outcomes; the
+`C(6, 3) = 20` interleavings of the branches split ten and ten by which write comes last, so the
+twenty linearizations reach exactly two outcomes, `{x = 1, x = 2}`, ten each.
+
+Pinned outcome: that admissible set, stated as `outcomes` citing this section, and a `check`
+divergent over `x` alone. The case is what distinguishes an exploration's plan order: a run meets
+the one open choice first and closed ones after it, so a walk taking the deepest untried
+alternative first spends the ten orders under one write order before it varies the write order,
+and a budget under eleven runs tables one value; a walk varying every choice of the first run
+once before any twice tables both by the second run. `TestExploreVariesEveryChoiceOfTheFirstRunFirst`
+pins that order; the harness explores the case to its complete table of two.
+
 ### A performed action and a sibling accept due at one instant: which resumes first is open
 
 Fixture: `action_explore_performed_and_accept_due_together` (golden, explored).
@@ -687,8 +716,8 @@ route = 2}`, stated as `outcomes` citing this section; exploration reaches each 
 outcomes, complete). The branch is drawn only as b's transition fires, after the region order is
 drawn: a witness reads `on accept Go: b1 first of a1, b1; junction split -> 2->right`, in that
 order, and the run in which a fires first draws nothing at the junction, so replaying its
-witness meets no draw it does not list. The golden pins the a-first linearization, `seed:1` the
-other one.
+witness meets no draw it does not list. The golden pins the a-first linearization, and so does the
+`seed:1` golden, whose draw falls the same way; the b-first runs are exploration's.
 
 ### A junction's guards are read once, as its incoming transition is selected: a branch enabled then is taken though another region's effect since made its guard unevaluable
 
@@ -716,7 +745,8 @@ Open: the region order, and which enabled branch b takes.
 Pinned outcome: the admissible set `{a2+left with route = 1, a2+right with route = 2}`, stated as
 `outcomes` citing this section; exploration reaches each once per region order (4 runs, 2
 outcomes, complete), the a-first run through the second branch among them. The golden pins the
-a-first linearization through the first branch, `seed:1` the b-first one.
+a-first linearization through the first branch, and the `seed:1` golden, its draws falling the same
+way, the same one; the b-first runs are exploration's.
 
 ### Every junction guard on a route is read once, as its transition is selected: a junction beyond a draw takes the branch enabled then though another region's effect since changed what its guards read
 
@@ -745,7 +775,8 @@ Open: the region order, and which of `split`'s enabled branches b takes.
 Pinned outcome: the admissible set `{a2+left with route = 11, a2+left with route = 12}`, stated as
 `outcomes` citing this section; exploration reaches each once per region order (4 runs, 2
 outcomes, complete), the a-first runs among them. The golden pins the a-first linearization
-through the first branch, `seed:1` the b-first one.
+through the first branch, and the `seed:1` golden, its draws falling the same way, the same one;
+the b-first runs are exploration's.
 
 ### A history without a record takes its default transition through a junction with two branches enabled: exactly one is taken, which one is open
 
@@ -774,7 +805,8 @@ transition, and a seed replays it. The golden pins the first branch, `seed:1` th
 
 ### Transitions in sibling regions enabled by one event: each fires, in which order is open
 
-Fixture: `state_explore_region_order` (golden, explored).
+Fixtures: `state_explore_region_order` (golden, explored), `state_firing_units_interleaved`
+(golden, explored).
 
 ```
 work parallel { a: a1 ─ accept Go { last := 1 } → a2
@@ -799,21 +831,104 @@ Open: which region's transition fires first. The two orders reach two outcomes, 
 `last` and by the order `a2` and `b2` are visited in.
 
 Pinned outcome: the admissible set `{last = 2 visiting a2 then b2, last = 1 visiting b2 then a2}`,
-stated as `outcomes` citing this section. The order is a choice point under every policy, reported
-as `choice on accept Go: states a1, b1 react (unordered; took a1 first)`: `declared` and `reverse`
-fire the selected transitions in region declaration order — a tool-defined order — and the default
-golden pins that linearization (`a` first, `last = 2`); `seed:<n>` draws the order, and the `seed:1`
-golden pins the other one (`b` first, `last = 1`); `explore` varies it (`took b1 first` in the
-witness of the second outcome) and must reach both outcomes and no other, in two runs. The fixtures
+stated as `outcomes` citing this section. The order is a choice point under every policy, drawn one
+unit at a time — a firing's source exit, its effect and its target entry are its units, and the
+draw is among the firings with a unit left — and reported as `choice on accept Go: next a1(exit),
+b1(exit) (unordered; took a1(exit) first)`: `declared` and `reverse` take the firings whole in region
+declaration order — a tool-defined order — and the default golden pins that linearization (`a`
+first, `last = 2`); `seed:<n>` draws each unit, the `seed:1` golden's draws falling on the same
+order; `explore` varies every draw (`took b1(exit) first` in the witness of the second
+outcome) and must reach both outcomes and no other. Here the finer grain reaches no third outcome,
+since each region logs one write. `state_firing_units_interleaved` logs each source's exit and each
+effect, so the grain shows: the units of one firing keep their order (`transitionLinkSource then
+effect`, `TransitionPerformances.kerml`), no succession joins them to the other firing's, and the
+six linearizations of two chains of two — a source's exit falling between the other firing's exit
+and effect among them — are the admissible set, each followed by the join's segment. The fixtures
 `state_call_trigger_regions`, `state_composite_region_depth_order`,
 `state_composite_region_deeper_first` and `state_parallel_broadcast` are this same shape and list
 both orders as `outcomes` citing this section, the default golden of each pinning the
 declaration-order linearization. `state_change_region_order` is the shape with a change
 occurrence in place of the signal — one write of `temp` raises `temp > 20` in both regions at once
 — and lists the same two outcomes: a change occurrence is an event like any other, so the poll
-that dispatches it draws the region order the same way (`choice on change: states a1, b1 react
-(unordered; took a1 first)`), and no order between the two raised conditions is derivable from the
+that dispatches it draws the region order the same way (`choice on change: next a1(exit), b1(exit)
+(unordered; took a1(exit) first)`), and no order between the two raised conditions is derivable from the
 library either.
+
+### Regions of a parallel state entered on one occurrence: each is entered, in which order is open
+
+Fixtures: `state_region_entry_order` (golden, explored), `state_region_entry_order_uneven` (golden,
+explored), `state_fork_branch_order` (golden, explored), `state_region_entry_nested_front` (golden,
+explored), `state_history_restore_order` (golden, explored).
+
+```
+idle ─ accept Go → work parallel { left:  { entry { log += "left(entry) " } ; entry; then l { entry { log += "l(entry) " } } }
+                                   right: { entry { log += "right(entry) " } ; entry; then r { entry { log += "r(entry) " } } } }
+```
+
+Derived constraints:
+
+- Entering a parallel state starts one substate performance per region, and those are concurrent
+  (SysML v2 §7.18.1: parallel substates are "performed concurrently"). Within a region the library
+  fixes the order the trace logs: the region's own entry precedes the entry of the state its
+  initial transition reaches (`StatePerformances.kerml` `StatePerformance`: `succession [1] entry
+  then [*] middle`, the substates being `middle` steps), so `left(entry) < l(entry)` and
+  `right(entry) < r(entry)`.
+- No succession joins a step of one region's chain to a step of the other's, and the owner's entry
+  precedes both chains (the regions are its `middle`), so the library leaves the two chains
+  unordered against each other.
+- Every entry appends to `log`, so `log` records the interleaving.
+
+Open: the interleaving of the two chains. Two chains of two have six linearizations.
+
+Pinned outcome: the admissible set of those six values of `log`, stated as `outcomes` citing this
+section. The order is a choice point under every policy, drawn one unit at a time among the regions
+with an entry left and reported as `choice entering work: next left(entry), right(entry) (unordered;
+took left(entry) first)`; `declared` and `reverse` take the regions whole in declaration order — a
+tool-defined order — and the default golden pins that linearization; `seed:<n>` draws each unit;
+`explore` varies every draw and must reach all six and no other. `state_region_entry_order_uneven`
+is the shape with one chain of one (`left` logs its entry, `l` nothing) and one of two: three
+linearizations. `state_fork_branch_order` reaches the two regions through a fork instead of the
+owner's initial transitions: each branch is a chain of its segment's effect then its target's entry,
+the owner's entry is one performance (`Actions.sysml` `ForkAction`, one performance of every target,
+of one `work`) performed by whichever branch is drawn to it first and preceding both targets, so the
+four linearizations of `{T1.1(effect), T1.2(effect)}` around `work(entry)` are the set.
+`state_region_entry_nested_front` makes one region's start state itself parallel: its two regions'
+entries join the front the sibling region is drawn from, three chains of one, six linearizations.
+`state_history_restore_order` restores two regions through a deep history: the restore enters the
+recorded states as a front drawn the same way, and the fixture's eight outcomes are its two entry
+orders on the first occurrence, two exit orders on leaving (the next section) and two restore
+orders.
+
+### Regions of a parallel state left on one occurrence: each is exited, in which order is open
+
+Fixtures: `state_region_exit_order` (golden, explored), `state_history_restore_order` (golden,
+explored).
+
+```
+work parallel { left:  l { exit { log += "l(exit) " } }
+                right: outer { exit { log += "outer(exit) " } ; r { exit { log += "r(exit) " } } } }
+  exit { log += "work(exit) " }
+work ─ accept Go → rest
+```
+
+Derived constraints:
+
+- A transition leaving `work` ends every active substate performance before `work`'s own exit
+  (`StatePerformances.kerml` `StatePerformance`: `succession [*] middle then [1] exit`), and a
+  nested state's exit precedes its parent's by the same succession one level down: `r(exit) <
+  outer(exit)`, and both of `l(exit)` and `outer(exit)` before `work(exit)`.
+- The two regions are concurrent substate performances; no succession joins `l`'s exit to `r`'s or
+  `outer`'s, so the chain of one and the chain of two are unordered against each other.
+
+Open: the interleaving of the two chains. A chain of one and a chain of two have three
+linearizations.
+
+Pinned outcome: the admissible set of those three values of `log`, each ending in `work(exit)`,
+stated as `outcomes` citing this section. The order is a choice point under every policy, drawn one
+unit at a time among the regions with an exit left and reported as `choice exiting work: next
+l(exit), r(exit) (unordered; took l(exit) first)`; `declared` and `reverse` leave the regions whole
+in declaration order — a tool-defined order — and the default golden pins that linearization;
+`seed:<n>` draws each unit; `explore` varies every draw and must reach all three and no other.
 
 ### Two time events due at one instant: each dispatches, in which order is open
 
@@ -932,7 +1047,8 @@ each ending `outer(exit) sync(effect) rest(entry)`, stated as `outcomes` citing 
 order is a choice point under every policy, reported as `choice join sync: states l1, r1 react
 (unordered; took l1 first)`: `declared` and `reverse` take source declaration order — a tool-defined
 order — and the default golden pins that linearization (`left` first); `seed:<n>` draws the order,
-and the `seed:1` golden pins the other; `explore` varies it and must reach both outcomes and no
+the `seed:1` golden's draw falling on the same one after entering the regions right first;
+`explore` varies it and must reach both outcomes and no
 other, in two runs. Each segment exits its source and runs its effect before the next segment is
 drawn (`exit: l1`, `assign log`, `exit: r1`, `assign log` in the golden), so the incoming effects
 interleave with the sources' exits only as the segments do, never across one segment.

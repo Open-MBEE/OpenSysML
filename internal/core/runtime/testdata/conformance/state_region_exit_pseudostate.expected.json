@@ -1,5 +1,6 @@
 {
   "type": "state",
+  "schedule": "reverse",
   "finalState": "stopped",
   "stateVisits": ["working", "lstart", "rstart", "lwork", "rwork", "stopped"],
   "outputs": {

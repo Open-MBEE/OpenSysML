@@ -5,8 +5,23 @@ OpenSysML's `sysml-lsp` server: diagnostics, hover, go-to-definition, document
 symbols, typed completion, a live diagram panel, and Markdown rendering of
 native document definitions.
 
-This extension is built and side-loaded from this repository. It is deliberately
-**not published** to the Visual Studio Marketplace or Open VSX.
+This extension is side-loaded. It is deliberately **not published** to the Visual
+Studio Marketplace or Open VSX.
+
+## Install from the nightly snapshot
+
+Every night the newest green `develop` commit is packaged as `opensysml-sysml.vsix`
+and attached to the [`nightly`](https://github.com/Open-MBEE/OpenSysML/releases/tag/nightly)
+prerelease, beside the `sysml-lsp` it was built with (see
+[docs/project/nightly.md](../../docs/project/nightly.md)):
+
+```bash
+curl -fsSLO https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml-sysml.vsix
+code --install-extension opensysml-sysml.vsix
+```
+
+Its version is `<manifest version>-nightly-<yyyymmdd>-<commit>`, so a later night
+installs over an earlier one as an update.
 
 ## Build and side-load
 

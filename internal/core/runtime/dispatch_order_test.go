@@ -9,7 +9,7 @@ import (
 
 // dispatchOrderRun advances one machine, whose two regions each arm a timer
 // falling due at t=2, under policy; it returns the value the effects left in
-// `last` and the run's choices.
+// `last` and the choices of the machine's entry and of the advance, in order.
 func dispatchOrderRun(t *testing.T, policy SchedulePolicy) (int64, []ChoicePoint) {
 	t.Helper()
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
@@ -45,6 +45,7 @@ func dispatchOrderRun(t *testing.T, policy SchedulePolicy) (int64, []ChoicePoint
 	if err != nil {
 		t.Fatalf("create machine: %v", err)
 	}
+	choices := ctx.Choices()
 	if _, err := ctx.Advance(3); err != nil {
 		t.Fatalf("%s: Advance: %v", policy, err)
 	}
@@ -52,7 +53,7 @@ func dispatchOrderRun(t *testing.T, policy SchedulePolicy) (int64, []ChoicePoint
 	if last.Kind != ValConst {
 		t.Fatalf("%s: last = %v, want an integer", policy, last)
 	}
-	return last.Const.Int, ctx.Choices()
+	return last.Const.Int, append(choices, ctx.Choices()...)
 }
 
 // Two time triggers falling due at one instant are a dispatch-order choice: the
@@ -67,10 +68,10 @@ func TestDispatchOrderChoice(t *testing.T) {
 		if last != tc.last {
 			t.Errorf("%s: last = %d, want %d (arrival order kept)", tc.policy, last, tc.last)
 		}
-		if len(choices) != 1 {
-			t.Fatalf("%s: choices = %v, want the one dispatch-order choice", tc.policy, choices)
+		if len(choices) != 2 || choices[0].Kind != ChoiceEntryOrder {
+			t.Fatalf("%s: choices = %v, want the regions' entry order and the one dispatch-order choice", tc.policy, choices)
 		}
-		c := choices[0]
+		c := choices[1]
 		if c.Kind != ChoiceDispatchOrder || c.Where != "events at t=2.0" || c.Taken != 0 {
 			t.Errorf("%s: choice = %+v, want a dispatch order at t=2.0 taking the first", tc.policy, c)
 		}
@@ -95,8 +96,8 @@ func TestDispatchOrderChoice(t *testing.T) {
 	seen := map[int64]bool{}
 	for seed := 0; seed < 16; seed++ {
 		last, choices := dispatchOrderRun(t, mustPolicy(t, fmt.Sprintf("seed:%d", seed)))
-		if len(choices) != 1 || choices[0].Kind != ChoiceDispatchOrder {
-			t.Fatalf("seed:%d: choices = %v, want one dispatch-order choice", seed, choices)
+		if len(choices) != 2 || choices[1].Kind != ChoiceDispatchOrder {
+			t.Fatalf("seed:%d: choices = %v, want the entry order and one dispatch-order choice", seed, choices)
 		}
 		seen[last] = true
 	}
@@ -109,13 +110,13 @@ func TestDispatchOrderChoice(t *testing.T) {
 // naming an event not due.
 func TestDispatchOrderReplay(t *testing.T) {
 	_, choices := dispatchOrderRun(t, mustPolicy(t, "seed:1"))
-	witness := choices[0].Choice()
+	entry, witness := choices[0].Choice(), choices[1].Choice()
 	witness.Taken, witness.Took = 1, witness.Among[1]
-	last, replayed := dispatchOrderRun(t, ReplayPolicy([]ChoiceTaken{witness}))
+	last, replayed := dispatchOrderRun(t, ReplayPolicy([]ChoiceTaken{entry, witness}))
 	if last != 1 {
 		t.Errorf("replaying the second-first order left last = %d, want 1", last)
 	}
-	if len(replayed) != 1 || replayed[0].Taken != 1 {
-		t.Errorf("replay choices = %v, want the dispatch order taking the second", replayed)
+	if len(replayed) != 2 || replayed[1].Taken != 1 {
+		t.Errorf("replay choices = %v, want the entry order and the dispatch order taking the second", replayed)
 	}
 }

@@ -1,5 +1,6 @@
 {
   "type": "instance",
+  "schedule": "reverse",
   "libraries": true,
   "trace": true,
   "instantiate": "test::unit",

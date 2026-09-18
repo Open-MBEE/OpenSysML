@@ -7,15 +7,18 @@ stmt assign log
     eval feature log -> "outer(entry) p(entry) a(exit) "
     eval literal "T1(effect) " -> "T1(effect) "
   eval operator + -> "outer(entry) p(entry) a(exit) T1(effect) "
+choice fork split: next split->x(effect), split->y(effect) (unordered; took split->x(effect) first)
 stmt assign log
     eval feature log -> "outer(entry) p(entry) a(exit) T1(effect) "
     eval literal "T1.1(effect) " -> "T1.1(effect) "
   eval operator + -> "outer(entry) p(entry) a(exit) T1(effect) T1.1(effect) "
+choice fork split: next work(entry), split->y(effect) (unordered; took work(entry) first)
 enter: work (entry action)
 stmt assign log
     eval feature log -> "outer(entry) p(entry) a(exit) T1(effect) T1.1(effect) "
     eval literal "work(entry) " -> "work(entry) "
   eval operator + -> "outer(entry) p(entry) a(exit) T1(effect) T1.1(effect) work(entry) "
+choice fork split: next x(entry), split->y(effect) (unordered; took x(entry) first)
 enter: x (entry action)
 stmt assign log
     eval feature log -> "outer(entry) p(entry) a(exit) T1(effect) T1.1(effect) work(entry) "
@@ -37,6 +40,7 @@ transition: x -> done
 exit: y
 enter: done
 transition: y -> done
+choice exiting work: next one.done(exit), two.done(exit) (unordered; took one.done(exit) first)
 exit: done
 exit: done
 exit: work
@@ -49,6 +53,7 @@ stmt assign log
   eval operator + -> "outer(entry) p(entry) a(exit) T1(effect) T1.1(effect) work(entry) x(entry) T1.2(effect) y(entry) p(exit) "
 enter: done
 transition: p -> done (event: accept Go)
+choice exiting outer: next left.done(exit), right.done(exit) (unordered; took left.done(exit) first)
 exit: done
 exit: done
 exit: outer (exit action)

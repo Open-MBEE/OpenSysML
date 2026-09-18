@@ -10,7 +10,7 @@ import (
 )
 
 // `explore` replays a run from a fresh context per linearization: a recorded
-// choice prefix, then the first untried alternative, depth-first, within a budget.
+// choice prefix, then the first untried alternative, earliest first, within a budget.
 
 // ExploreBudget bounds an exploration: how many runs it may make and how many
 // choice points one run may resolve before the rest take their first alternative.
@@ -71,7 +71,7 @@ func (c ChoiceTaken) String() string {
 		return fmt.Sprintf("step %d: %s -> %s%s", c.Step, choiceLabel(c.Where), choiceLabel(c.Took), c.weightedTail())
 	case ChoiceTransition:
 		return fmt.Sprintf("%s -> %s%s", choiceLabel(c.Where), choiceLabel(c.Took), c.weightedTail())
-	case ChoiceRegionOrder, ChoiceDueOrder, ChoiceDispatchOrder:
+	case ChoiceRegionOrder, ChoiceDueOrder, ChoiceDispatchOrder, ChoiceEntryOrder, ChoiceExitOrder:
 		return fmt.Sprintf("%s: %s first of %s", choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
 	}
 	return fmt.Sprintf("%s -> %s", c.Kind, choiceLabel(c.Took))
@@ -439,13 +439,13 @@ func (s exploreSlot) describePlan() string {
 	return fmt.Sprintf("alternative %d of %d", s.taken+1, s.alternatives)
 }
 
-// unexplored is the prefixes this run leaves to explore, deepest first: for each choice
+// unexplored is the prefixes this run leaves to explore, earliest first: for each choice
 // the run owns — the last its prefix planned and every one it made below — the record up
 // to that choice taking its next alternative, when one is untried within depth. The
 // choices before the last planned one belong to the runs that planned them.
 func (r *exploreRun) unexplored() [][]exploreSlot {
 	var next [][]exploreSlot
-	for i := len(r.record) - 1; i >= 0 && i >= len(r.prefix)-1; i-- {
+	for i := max(len(r.prefix)-1, 0); i < len(r.record); i++ {
 		slot := r.record[i]
 		if slot.beyond || slot.taken+1 >= slot.alternatives {
 			continue

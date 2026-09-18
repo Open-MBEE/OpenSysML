@@ -1,0 +1,33 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Telescope"
+          (Membership visibility="default"
+            (Definition kind="action" abstract=false variation=false name="Point"))
+          (Membership visibility="default"
+            (Usage kind="action" name="point" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Point
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Station"
+          (Membership visibility="default"
+            (Usage kind="part" name="tel" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Telescope
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Definition kind="action" abstract=false variation=false name="Observe"
+              (InitialNode name="start" successor="pt")
+              (Usage kind="action" name="pt" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+                (Relationship kind="references" target=(expr)
+                  (FeatureChainExpr member="point"
+                    (FeatureReference name="tel"))))
+              (Usage kind="action" name="again" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+                (Relationship kind="references" target=(expr)
+                  (FeatureChainExpr member="point"
+                    (FeatureReference name="tel"))))
+              (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="perform"
+                (Relationship kind="references" target=(expr)
+                  (FeatureChainExpr member="point"
+                    (FeatureReference name="tel"))))
+              (InitialNode name="pt" successor="done"))))))))

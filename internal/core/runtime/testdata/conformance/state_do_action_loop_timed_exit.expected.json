@@ -1,0 +1,10 @@
+{
+    "type": "state",
+    "libraries": true,
+    "finalState": "heard+finished",
+    "outputs": {
+        "left": { "type": "Integer", "value": 1 },
+        "right": { "type": "Integer", "value": 1 },
+        "late": { "type": "Integer", "value": 1 }
+    }
+}

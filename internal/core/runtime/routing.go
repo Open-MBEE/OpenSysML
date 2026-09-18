@@ -25,6 +25,24 @@ var ErrSendPortTypeMismatch = errors.New("send message type is not carried by th
 // ErrUnreachableSendReceiver reports a routed receiver that cannot be resolved.
 var ErrUnreachableSendReceiver = errors.New("send receiver is unreachable")
 
+// ErrSendTargetNotObject reports an addressed send whose target is a binding of
+// the sending behavior holding no object.
+var ErrSendTargetNotObject = errors.New("send target holds no object")
+
+// SendTargetValueError gives the bound target that holds no object, and what it holds.
+type SendTargetValueError struct {
+	Target string // the target as written
+	Name   string // the binding leading it
+	Value  string // what the binding holds, formatted
+}
+
+func (e *SendTargetValueError) Error() string {
+	return fmt.Sprintf("%s: %q holds %s, which is no object to address %q to",
+		ErrSendTargetNotObject, e.Name, e.Value, e.Target)
+}
+
+func (e *SendTargetValueError) Unwrap() error { return ErrSendTargetNotObject }
+
 // UnknownSendPortError gives the routed send's invalid port and receiver.
 type UnknownSendPortError struct {
 	Port     string

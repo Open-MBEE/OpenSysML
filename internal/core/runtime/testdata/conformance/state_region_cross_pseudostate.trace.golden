@@ -1,5 +1,6 @@
 exit: start
 enter: running
+choice entering running: next lstart(entry), rstart(entry) (unordered; took lstart(entry) first)
 enter: lstart
 enter: rstart
 transition: start -> running
