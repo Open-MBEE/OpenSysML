@@ -169,8 +169,9 @@ type FreeInput struct {
 	Domain string `json:"domain,omitempty"`
 }
 
-// Sweep is a sweep question's domain; a Monte Carlo states runs and a seed and no range.
-// Seed is present, zero included, whenever the rows are drawn from it.
+// Sweep is a sweep question's domain; a Monte Carlo states runs and no range, with a
+// seed unless its runs draw nothing at random (a fixed Draws policy). Seed is present,
+// zero included, whenever the rows are drawn from it.
 type Sweep struct {
 	Ranges  []Range `json:"ranges"`
 	Sampled bool    `json:"sampled,omitempty"`

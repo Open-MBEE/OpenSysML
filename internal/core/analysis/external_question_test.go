@@ -23,8 +23,9 @@ func wired(t *testing.T, model *Model, q Question) string {
 }
 
 // A sweep's seed goes on the wire whenever rows are drawn from it, a seed of 0 included,
-// and stays off it for a swept table, which draws nothing; an engine reading the line can
-// tell an unseeded sweep from one seeded with 0.
+// and stays off it for a swept table, which draws nothing, and for a Monte Carlo under
+// a fixed draw policy, whose runs derive no seed; an engine reading the line can tell an
+// unseeded sweep from one seeded with 0.
 func TestWireSweepKeepsAZeroSeed(t *testing.T) {
 	f := parseFixture(t)
 	ctx := f.context(t)
@@ -43,6 +44,7 @@ func TestWireSweepKeepsAZeroSeed(t *testing.T) {
 		{"sampled seed 0", sampled, `"sampled":true,"samples":4,"seed":0}`},
 		{"runs seed 0", runtime.MonteCarloPlan(3, 0), `"sweep":{"ranges":[],"seed":0,"runs":3}`},
 		{"runs seed 7", runtime.MonteCarloPlan(3, 7), `"sweep":{"ranges":[],"seed":7,"runs":3}`},
+		{"runs without a seed", runtime.SeedlessMonteCarloPlan(3), `"sweep":{"ranges":[],"runs":3}`},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
