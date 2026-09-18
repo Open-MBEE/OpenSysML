@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-const modulePath = "github.com/Open-MBEE/OpenSysML"
+const module = "github.com/Open-MBEE/OpenSysML"
 
 // dependencies lists the import paths of pkg and everything it links.
 func dependencies(t *testing.T, pkg string) []string {
@@ -27,8 +27,8 @@ func TestREPLDoesNotDependOnTheService(t *testing.T) {
 	for _, pkg := range []string{"./internal/repl", "./cmd/sysml"} {
 		for _, dep := range dependencies(t, pkg) {
 			switch {
-			case dep == modulePath+"/internal/grpc",
-				dep == modulePath+"/api/proto/protoconnect",
+			case dep == module+"/internal/grpc",
+				dep == module+"/api/proto/protoconnect",
 				strings.HasPrefix(dep, "connectrpc.com/"):
 				t.Errorf("%s depends on %s", pkg, dep)
 			}
@@ -48,15 +48,15 @@ func TestProtoconvImportsOnlyTheMessages(t *testing.T) {
 	for _, imp := range strings.Fields(string(out)) {
 		switch {
 		case !strings.Contains(imp, "."),
-			imp == modulePath+"/api/proto",
-			strings.HasPrefix(imp, modulePath+"/internal/core/"),
+			imp == module+"/api/proto",
+			strings.HasPrefix(imp, module+"/internal/core/"),
 			strings.HasPrefix(imp, "google.golang.org/protobuf/"):
 		default:
 			t.Errorf("internal/protoconv imports %s", imp)
 		}
 	}
 	for _, dep := range dependencies(t, "./internal/protoconv") {
-		if dep == modulePath+"/internal/grpc" || strings.HasPrefix(dep, "connectrpc.com/") {
+		if dep == module+"/internal/grpc" || strings.HasPrefix(dep, "connectrpc.com/") {
 			t.Errorf("internal/protoconv depends on %s", dep)
 		}
 	}
