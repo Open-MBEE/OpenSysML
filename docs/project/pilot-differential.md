@@ -217,7 +217,7 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-examples` | 99 | 95 | 7 | 0 | 0 | 0 | 7 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
-| `testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
+| `tests/testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
 | `examples` | 43 | 30 | 13 | 1171 | 4 | 2 | 7 | 1165 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
 | **Total** | **378** | **347** | **79** | **1226** | **38** | **3** | **38** | **1185** |

@@ -80,8 +80,7 @@ github.com/Open-MBEE/OpenSysML
 ├── clients/python/         # Python client bindings (opensysml)
 ├── clients/rust/           # Rust client (opensysml) and its conformance runner
 ├── api/proto/              # Protobuf service definitions
-├── tests/                  # Black-box suites and their fixtures (tests/parser, …)
-├── testdata/               # Test fixtures (.sysml, .kerml)
+├── tests/                  # Black-box suites, benchmarks, shared fixtures (tests/parser, tests/testdata, …)
 ├── examples/               # Example models and demos
 └── docs/                   # Documentation
 ```
@@ -779,7 +778,7 @@ Calc/constraint/requirement functional. Action/state executor infrastructure com
 ### Unit & Integration Tests
 - **Unit tests:** Per-package test coverage (lexer, parser, semantics, runtime)
 - **Integration tests:** End-to-end REPL/runtime scenarios
-- **Test fixtures:** `testdata/*.sysml`, `testdata/*.kerml`
+- **Test fixtures:** `tests/testdata/*.sysml`, `tests/testdata/*.kerml`
 - **Golden files:** Expected parse/resolve/diagnostic outputs
 - **Verification:** `go test ./...` (all tests pass), `go build ./...` (clean build)
 

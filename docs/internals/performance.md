@@ -79,12 +79,12 @@ variable is unset:
 OPENSYSML_BENCH_MODEL=/path/to/model go test ./internal/core/parser -run '^$' -bench ParseModel -benchmem
 ```
 
-`internal/perfbench/model_bench_test.go` times the whole load of the same directory
+`tests/perf/model_bench_test.go` times the whole load of the same directory
 as one REPL session — library, resolution and validation included — and fails if the
 model has errors, so the measured load is a clean one:
 
 ```bash
-OPENSYSML_BENCH_MODEL=/path/to/model go test ./internal/perfbench -run '^$' -bench REPLLoadModel -benchmem
+OPENSYSML_BENCH_MODEL=/path/to/model go test ./tests/perf -run '^$' -bench REPLLoadModel -benchmem
 ```
 
 ## A real model: Apollo 11

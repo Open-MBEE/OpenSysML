@@ -1,6 +1,6 @@
-// Package perfbench holds the benchmarks behind docs/project/performance-profile-2026-09.md.
-// Run with: go test ./internal/perfbench -run '^$' -bench . -benchmem
-package perfbench
+// Package perf holds the benchmarks behind docs/project/performance-profile-2026-09.md.
+// Run with: go test ./tests/perf -run '^$' -bench . -benchmem
+package perf
 
 import (
 	"context"

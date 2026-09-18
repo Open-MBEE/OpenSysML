@@ -1,4 +1,4 @@
-package perfbench
+package perf
 
 import (
 	"bytes"

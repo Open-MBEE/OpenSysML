@@ -100,8 +100,11 @@ internal/core/
 internal/lsp/            LSP protocol implementation
 internal/repl/           REPL loop
 tests/                   black-box suites and their fixtures
+  hygiene/               module-wide checks (no production code imports testing)
+  perf/                  benchmark harness (go test ./tests/perf -run '^$' -bench .)
+  testutil/              gobuild (build a command under test), graphcmp (pointer-graph comparison)
   parser/                golden ASTs (TestGolden, -update) and negative cases, with testdata/parse
-testdata/                shared fixtures (.sysml, .kerml, .golden)
+  testdata/              shared fixtures (.sysml, .kerml, .golden)
 examples/                example models and demos
 docs/                    guide/ (handbook), reference/, internals/, project/ (status)
 ```
@@ -141,7 +144,7 @@ Then update `docs/project/spec-compliance.md` mapping: semantic rule → impleme
 ### 5.3 General
 - Unit tests live beside code as `*_test.go`, one concern per test.
 - Design/adjust tests **before or alongside** implementation; don't retrofit weak tests afterward.
-- Prefer real SysML models in `testdata/` over hand-built ASTs when exercising end-to-end behavior; hand-built ASTs are fine for targeted unit tests.
+- Prefer real SysML models in `tests/testdata/` over hand-built ASTs when exercising end-to-end behavior; hand-built ASTs are fine for targeted unit tests.
 
 ---
 

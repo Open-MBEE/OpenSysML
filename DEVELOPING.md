@@ -75,7 +75,7 @@ Each main package (`cmd/sysml`, `cmd/sysml-lsp`, `cmd/sysml-grpc`) carries a
 automatically (`-pgo=auto` is the default; pass `-pgo=off` to compare against an
 unoptimized build). The three files are identical: one profile of a
 representative mix — the core test suites, the calc and REPL benchmarks, the
-gRPC service, the `internal/perfbench` harness, and the `sysml` CLI validating
+gRPC service, the `tests/perf` harness, and the `sysml` CLI validating
 every example and corpus model in the checkout.
 
 `make test` and `make coverage` pass `-pgo=off`: a coverage-instrumented

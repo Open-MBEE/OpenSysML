@@ -2251,7 +2251,7 @@ Three cheap, high-signal sweeps:
      diff <(./bin/sysml -quiet /tmp/sweep.sysml </dev/null 2>&1) \
           <(/tmp/mainwt/sysml-main -quiet /tmp/sweep.sysml </dev/null 2>&1) >/dev/null \
        || { d=$((d+1)); echo "DIFF: $f"; }
-   done < <(find examples testdata internal/repl/testdata -name '*.sysml' -print0)
+   done < <(find examples tests/testdata internal/repl/testdata -name '*.sysml' -print0)
    echo "compared $n, differing $d"
    ```
    A `for f in $(find …)` loop word-splits those paths and silently compares nothing for them: on
@@ -3107,7 +3107,7 @@ is reached through a stdlib **alias** currently does **not** warn even though th
 Cheap false-positive sweep, worth running for any diagnostic-adding pass:
 
 ```bash
-for f in $(find examples testdata -name '*.sysml'); do ./bin/sysml -validate "$f" 2>&1 \
+for f in $(find examples tests/testdata -name '*.sysml'); do ./bin/sysml -validate "$f" 2>&1 \
   | grep 'incommensurable quantities'; done   # expect no output (403 files, ~90 s)
 ```
 
@@ -4983,7 +4983,7 @@ Pitfalls that cost time:
   The same text in a `.sysml` file can fail earlier with `only a definition may specialize; found a
   usage`, masking the behaviour under test.
 - A batch regression sweep is cheap and is the strongest "no false positives" evidence: run every
-  file in `examples/` and `testdata/{passes,resolve}` under both binaries and require byte-identical
+  file in `examples/` and `tests/testdata/{passes,resolve}` under both binaries and require byte-identical
   output plus matching exit status.
 - Cold vs warm run under a scratch `XDG_CACHE_HOME` catches resolution that depends on the on-disk
   symbol index; diagnostics must be byte-identical.
@@ -5694,7 +5694,7 @@ tells you which one ran without any debug flag.
   `KerML::Kernel::Interaction` and `Connector::association` from `%search` — that is the failure
   this check exists for. `TestDecodeSnapshotRejectsCorruption` covers the same flips in-process.
 - Differential battery that proved behavior-neutrality: run `-validate` over
-  `examples/*.sysml` + `testdata/passes/*.sysml`, a piped REPL transcript (`%load` robot demo,
+  `examples/*.sysml` + `tests/testdata/passes/*.sysml`, a piped REPL transcript (`%load` robot demo,
   `%search`, `%eval 1 [SI::m] + 2 [SI::m]`, `%instantiate`/`%features`, `%print`), `-e 2+3` and
   `-convert ttl -o /dev/stdout`, each with `echo "exit=$?"` appended, under snapshot / edited-copy
   (cold and warm `XDG_CACHE_HOME`) / unmodified-copy / merge-base binary, then `diff -r` the four

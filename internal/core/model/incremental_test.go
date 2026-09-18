@@ -364,7 +364,7 @@ func fixtureSets(t *testing.T) map[string]map[string][]byte {
 			add("examples", e.Name(), path)
 		}
 	}
-	dirs, err := os.ReadDir("../../../testdata")
+	dirs, err := os.ReadDir("../../../tests/testdata")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -372,7 +372,7 @@ func fixtureSets(t *testing.T) map[string]map[string][]byte {
 		if !e.IsDir() {
 			continue
 		}
-		path := filepath.Join("../../../testdata", e.Name())
+		path := filepath.Join("../../../tests/testdata", e.Name())
 		for _, f := range modelFiles(t, path) {
 			add("testdata/"+e.Name(), filepath.ToSlash(f), filepath.Join(path, f))
 		}
