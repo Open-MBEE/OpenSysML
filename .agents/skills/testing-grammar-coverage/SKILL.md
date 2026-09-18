@@ -1,9 +1,9 @@
 ---
 name: testing-grammar-coverage
-description: How to verify the advisory grammar-production coverage harness (cmd/grammar-coverage + scripts/download-pilot-grammars.sh) end to end on Linux — provisioning the pinned OMG Xtext grammars, reproducing the committed compact baseline, checking the per-file-evidence property, and the adversarial paths worth trying.
+description: How to verify the advisory grammar-production coverage harness (tools/census/grammar + scripts/download-pilot-grammars.sh) end to end on Linux — provisioning the pinned OMG Xtext grammars, reproducing the committed compact baseline, checking the per-file-evidence property, and the adversarial paths worth trying.
 ---
 
-# Testing the grammar-coverage harness (`cmd/grammar-coverage`)
+# Testing the grammar-coverage harness (`tools/census/grammar`)
 
 Sibling of the pilot-differential harness (see `testing-pilot-differential/SKILL.md` — the same
 pin, the same "committed artifact, testable by reproduction" shape, the same Konsole recording
@@ -31,7 +31,7 @@ form-level unseen diagnostics.
 ```bash
 rm -rf build/pilot-grammars build/grammar-coverage
 ./scripts/download-pilot-grammars.sh          # 3 .xtext + PILOT_TAG (2026-08) under build/pilot-grammars
-go run ./cmd/grammar-coverage -baseline /tmp/nb.json     # ~15 s
+go run -C tools ./cmd/grammar-coverage -baseline /tmp/nb.json     # ~15 s
 cmp /tmp/nb.json docs/project/grammar-coverage-baseline.json    # must be silent
 ```
 
@@ -96,9 +96,9 @@ the file it drops into the REPL and blocks, so the next typed command is swallow
 
 ## Measuring an extra corpus root
 
-There is no flag for extra scanned roots (`cmd/grammar-coverage` takes only `-repo`, `-grammars`,
+There is no flag for extra scanned roots (`tools/census/grammar` takes only `-repo`, `-grammars`,
 `-out`, `-baseline`), so claims of the form "corpus X closes the unseen-form gap" need a temporary
-`corpusRoot` appended to `evidenceRoots` in `cmd/grammar-coverage/corpus.go`, then reverted. Example
+`corpusRoot` appended to `evidenceRoots` in `tools/census/grammar/corpus.go`, then reverted. Example
 at `PILOT_TAG=2026-07`: adding `tools/referee/reject/testdata/negative` contributes 119 files / 842
 lines and takes unseen forms 5 → 0 with `indistinguishable` unchanged at 244. Such a configuration
 is not reproduced by CI, so report it as a local measurement, not a baseline movement.

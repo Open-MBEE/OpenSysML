@@ -1,13 +1,4 @@
-// Command doc-counts rewrites the documentation lines that are a function of the
-// committed oracle baselines, of the committed analysis-library census or of
-// known_failures.txt, so no contributor types them. It reads them through
-// internal/doccounts, which the guard in tools/referee/diff reads too, and rewrites
-// nothing else in the files it touches. The figures that move with every test and
-// fixture — the compliance map's row census and the test-suite inventory — are
-// not written anywhere: the documentation build counts them, and -check refuses a
-// tree that states one (-site-blocks prints what the build renders). Run it with
-// `make docs-counts`.
-package main
+package doccounts
 
 import (
 	"encoding/json"
@@ -19,46 +10,66 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/doccounts"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )
 
-func main() {
-	root := flag.String("root", ".", "repository root the documentation paths are relative to")
-	checkOnly := flag.Bool("check", false, "verify that generated documentation is current without writing")
-	siteBlocks := flag.Bool("site-blocks", false, "print, as JSON by page and block name, the blocks the documentation build renders")
-	flag.Parse()
-	if flag.NArg() != 0 {
-		fmt.Fprintf(os.Stderr, "doc-counts: unexpected argument %q\n", flag.Arg(0))
-		os.Exit(2)
+// Main is the doc-counts command: it rewrites the documentation lines that are a
+// function of the committed oracle baselines, of the committed analysis-library
+// census or of known_failures.txt, so no contributor types them, and rewrites
+// nothing else in the files it touches. The figures that move with every test
+// and fixture — the compliance map's row census and the test-suite inventory —
+// are not written anywhere: the documentation build counts them, and -check
+// refuses a tree that states one (-site-blocks prints what the build renders).
+// It returns the process exit status.
+func Main(args []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("doc-counts", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	root := flags.String("root", "", "repository root the documentation paths are relative to (default: the product module root)")
+	checkOnly := flags.Bool("check", false, "verify that generated documentation is current without writing")
+	siteBlocks := flags.Bool("site-blocks", false, "print, as JSON by page and block name, the blocks the documentation build renders")
+	if err := flags.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return 0
+		}
+		return 2
+	}
+	if flags.NArg() != 0 {
+		fmt.Fprintf(stderr, "doc-counts: unexpected argument %q\n", flags.Arg(0))
+		return 2
 	}
 	if *siteBlocks && *checkOnly {
-		fmt.Fprintln(os.Stderr, "doc-counts: -site-blocks and -check exclude each other")
-		os.Exit(2)
+		fmt.Fprintln(stderr, "doc-counts: -site-blocks and -check exclude each other")
+		return 2
+	}
+	dir, err := repo.Choose(*root)
+	if err != nil {
+		fmt.Fprintf(stderr, "doc-counts: %v\n", err)
+		return 1
 	}
 	if *siteBlocks {
-		if err := renderSiteBlocks(*root, os.Stdout); err != nil {
-			fmt.Fprintf(os.Stderr, "doc-counts: %v\n", err)
-			os.Exit(1)
+		if err := renderSiteBlocks(dir, stdout); err != nil {
+			fmt.Fprintf(stderr, "doc-counts: %v\n", err)
+			return 1
 		}
-		return
+		return 0
 	}
 	var rewritten int
-	var err error
 	if *checkOnly {
-		rewritten, err = check(*root, os.Stdout)
+		rewritten, err = check(dir, stdout)
 	} else {
-		rewritten, err = run(*root, os.Stdout)
+		rewritten, err = run(dir, stdout)
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "doc-counts: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "doc-counts: %v\n", err)
+		return 1
 	}
 	if *checkOnly && rewritten > 0 {
-		os.Exit(1)
+		return 1
 	}
 	if rewritten == 0 {
-		fmt.Fprintln(os.Stdout, "doc-counts: already current")
+		fmt.Fprintln(stdout, "doc-counts: already current")
 	}
+	return 0
 }
 
 // run restates every derived line from the census and reports how many files it
@@ -100,11 +111,11 @@ func check(root string, out io.Writer) (int, error) {
 // renderSiteBlocks prints the blocks the documentation build renders, as
 // {"<page>": {"<block>": "<text>"}}, for the MkDocs hook to splice in.
 func renderSiteBlocks(root string, out io.Writer) error {
-	figures, err := doccounts.ReadFigures(root)
+	figures, err := ReadFigures(root)
 	if err != nil {
 		return err
 	}
-	rendered, err := doccounts.RenderSiteBlocks(figures)
+	rendered, err := RenderSiteBlocks(figures)
 	if err != nil {
 		return err
 	}
@@ -121,18 +132,18 @@ type rewrite struct {
 }
 
 func pendingRewrites(root string) ([]rewrite, error) {
-	compliance, _, err := readFile(root, doccounts.SpecCompliancePath)
+	compliance, _, err := readFile(root, SpecCompliancePath)
 	if err != nil {
 		return nil, err
 	}
-	counts := doccounts.CountRules(compliance)
+	counts := CountRules(compliance)
 	if counts.Total == 0 {
-		return nil, fmt.Errorf("%s states no rule rows", doccounts.SpecCompliancePath)
+		return nil, fmt.Errorf("%s states no rule rows", SpecCompliancePath)
 	}
 	if counts.KnownFailure != 0 {
-		return nil, fmt.Errorf("%s: %d 🚧 rows; give them a status the census states", doccounts.SpecCompliancePath, counts.KnownFailure)
+		return nil, fmt.Errorf("%s: %d 🚧 rows; give them a status the census states", SpecCompliancePath, counts.KnownFailure)
 	}
-	figures, err := doccounts.ReadFigures(root)
+	figures, err := ReadFigures(root)
 	if err != nil {
 		return nil, err
 	}
@@ -144,27 +155,27 @@ func pendingRewrites(root string) ([]rewrite, error) {
 			return nil, err
 		}
 		updated := content
-		for _, line := range doccounts.BaselineLines() {
+		for _, line := range BaselineLines() {
 			if line.Path != path {
 				continue
 			}
-			if updated, err = doccounts.RewriteBaselineLine(updated, line, figures.Refereed); err != nil {
+			if updated, err = RewriteBaselineLine(updated, line, figures.Refereed); err != nil {
 				return nil, err
 			}
 		}
-		for _, block := range doccounts.Blocks() {
+		for _, block := range Blocks() {
 			if block.Path != path {
 				continue
 			}
-			if updated, err = doccounts.RewriteBlock(updated, block, figures); err != nil {
+			if updated, err = RewriteBlock(updated, block, figures); err != nil {
 				return nil, err
 			}
 		}
-		for _, block := range doccounts.SiteBlocks() {
+		for _, block := range SiteBlocks() {
 			if block.Path != path {
 				continue
 			}
-			if err := doccounts.CheckSiteBlock(updated, block); err != nil {
+			if err := CheckSiteBlock(updated, block); err != nil {
 				return nil, err
 			}
 		}
@@ -218,21 +229,21 @@ func checkWritable(root, path string) error {
 func paths() []string {
 	var ordered []string
 	seen := map[string]bool{}
-	for _, line := range doccounts.BaselineLines() {
+	for _, line := range BaselineLines() {
 		if seen[line.Path] {
 			continue
 		}
 		seen[line.Path] = true
 		ordered = append(ordered, line.Path)
 	}
-	for _, block := range doccounts.Blocks() {
+	for _, block := range Blocks() {
 		if seen[block.Path] {
 			continue
 		}
 		seen[block.Path] = true
 		ordered = append(ordered, block.Path)
 	}
-	for _, path := range doccounts.SitePaths() {
+	for _, path := range SitePaths() {
 		if seen[path] {
 			continue
 		}

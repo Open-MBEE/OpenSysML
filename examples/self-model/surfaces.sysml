@@ -429,13 +429,13 @@ package OpenSysMLSurfaces {
     }
 
     #Oracle part def GrammarCoverage :> ConformanceOracle {
-        attribute :>> goPackage = "cmd/grammar-coverage";
+        attribute :>> goPackage = "tools/census/grammar";
         attribute :>> reference = "OMG Xtext grammars";
         attribute :>> baseline = "docs/project/grammar-coverage-baseline.json";
     }
 
     #Oracle part def DocCounts :> ConformanceOracle {
-        attribute :>> goPackage = "cmd/doc-counts";
+        attribute :>> goPackage = "tools/census/doccounts";
         attribute :>> reference = "the measured repository";
         attribute :>> baseline = "docs/project/spec-compliance.md";
     }
@@ -459,7 +459,7 @@ package OpenSysMLSurfaces {
     // What the oracles lean on: a pinned reference, an errata overlay for the
     // defects in OMG-published material, and the census the status page reads.
     part def OraclePin :> CodeUnit {
-        attribute :>> goPackage = "internal/baseline";
+        attribute :>> goPackage = "tools/oracle/baseline";
         attribute recordsPin : Boolean = true;
         attribute recordsBridgeSource : Boolean = true;
         attribute recordsCorpusProvenance : Boolean = true;
@@ -471,7 +471,7 @@ package OpenSysMLSurfaces {
     }
 
     part def StatusCensus :> CodeUnit {
-        attribute :>> goPackage = "internal/doccounts";
+        attribute :>> goPackage = "tools/census/doccounts";
         attribute countsStatusMarkers : Boolean = true;
     }
 

@@ -3,7 +3,7 @@ package main
 import (
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/junit"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/junit"
 )
 
 // junitReport renders the report as JUnit XML: one suite per configuration and

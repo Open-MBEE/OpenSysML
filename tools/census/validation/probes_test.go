@@ -1,4 +1,4 @@
-package main
+package validation
 
 import (
 	"os"
@@ -7,13 +7,14 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )
 
 // TestProbesReportTheirConstraint is the evidence behind every ✅/⚠️ row of the
 // census: each probe is a minimal violating model, and we must report the
 // diagnostic its header names at the severity it names.
 func TestProbesReportTheirConstraint(t *testing.T) {
-	root, err := moduleRoot()
+	root, err := repo.Root()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -21,9 +21,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/internal/baseline"
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/errata"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )

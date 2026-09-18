@@ -1,4 +1,4 @@
-package main
+package doccounts
 
 import (
 	"encoding/json"
@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/doccounts"
-	"github.com/Open-MBEE/OpenSysML/internal/doccounts/doccountstest"
+	"github.com/Open-MBEE/OpenSysML/internal/fixtures"
+	"github.com/Open-MBEE/OpenSysML/tools/census/doccounts/doccountstest"
 )
 
 const (
@@ -77,32 +77,32 @@ func TestRunRewritesEveryDerivedLineAndIsIdempotent(t *testing.T) {
 		t.Fatalf("first run rewrote %d files, want 3", rewritten)
 	}
 	first := map[string]string{}
-	for _, path := range []string{doccounts.ReadmePath, doccounts.ArchitecturePath, doccounts.SpecCompliancePath} {
+	for _, path := range []string{ReadmePath, ArchitecturePath, SpecCompliancePath} {
 		first[path] = read(t, root, path)
 		if strings.Contains(first[path], "stale") {
 			t.Fatalf("%s keeps a stale block:\n%s", path, first[path])
 		}
 	}
-	if !strings.Contains(first[doccounts.ArchitecturePath], "status of each tracked rule stays in [spec compliance]") {
-		t.Fatalf("bookkeeping line not restated:\n%s", first[doccounts.ArchitecturePath])
+	if !strings.Contains(first[ArchitecturePath], "status of each tracked rule stays in [spec compliance]") {
+		t.Fatalf("bookkeeping line not restated:\n%s", first[ArchitecturePath])
 	}
-	if !strings.Contains(first[doccounts.ArchitecturePath], "Nothing else on this line's neighbours moves.") {
+	if !strings.Contains(first[ArchitecturePath], "Nothing else on this line's neighbours moves.") {
 		t.Fatal("architecture lost a neighbouring line")
 	}
-	if sentence := "(<!-- doc-counts:begin conformance-passing -->every conformance case passing<!-- doc-counts:end conformance-passing -->)."; !strings.Contains(first[doccounts.ReadmePath], sentence) {
-		t.Fatalf("README lacks %q:\n%s", sentence, first[doccounts.ReadmePath])
+	if sentence := "(<!-- doc-counts:begin conformance-passing -->every conformance case passing<!-- doc-counts:end conformance-passing -->)."; !strings.Contains(first[ReadmePath], sentence) {
+		t.Fatalf("README lacks %q:\n%s", sentence, first[ReadmePath])
 	}
 	for _, sentence := range []string{
 		"- Execution conformance: <!-- doc-counts:begin inventory-conformance -->the conformance cases<!-- doc-counts:end inventory-conformance --> — kept prose",
 		"| b | ⚠️ Approximate |",
 		"<!-- doc-counts:begin lsp-tests -->the LSP test functions<!-- doc-counts:end lsp-tests -->, plus kept prose.",
 	} {
-		if !strings.Contains(first[doccounts.SpecCompliancePath], sentence) {
-			t.Fatalf("compliance map lacks %q (a site block is rendered by the build, not written):\n%s", sentence, first[doccounts.SpecCompliancePath])
+		if !strings.Contains(first[SpecCompliancePath], sentence) {
+			t.Fatalf("compliance map lacks %q (a site block is rendered by the build, not written):\n%s", sentence, first[SpecCompliancePath])
 		}
 	}
-	compliance := read(t, root, doccounts.SpecCompliancePath)
-	first[doccounts.SpecCompliancePath] = compliance
+	compliance := read(t, root, SpecCompliancePath)
+	first[SpecCompliancePath] = compliance
 	if !strings.Contains(compliance, "| `Alpha` | 2 | 1 | 1 | 0 |") || strings.Contains(compliance, "old library table") {
 		t.Fatalf("the library table is not restated from the census:\n%s", compliance)
 	}
@@ -128,36 +128,36 @@ func TestRunRewritesEveryDerivedLineAndIsIdempotent(t *testing.T) {
 // a partly restated tree would state two different censuses at once.
 func TestRunWritesNothingWhenALaterFileCannotBeRewritten(t *testing.T) {
 	root := writeFixture(t)
-	writeAt(t, root, doccounts.ArchitecturePath, "**Row bookkeeping:** reworded, and no longer the line the pattern states.\n")
-	before := read(t, root, doccounts.ReadmePath)
+	writeAt(t, root, ArchitecturePath, "**Row bookkeeping:** reworded, and no longer the line the pattern states.\n")
+	before := read(t, root, ReadmePath)
 
 	if _, err := run(root, io.Discard); err == nil {
 		t.Fatal("want an error for a derived line the pattern does not match")
 	}
-	if read(t, root, doccounts.ReadmePath) != before {
+	if read(t, root, ReadmePath) != before {
 		t.Fatal("a failed run rewrote an earlier file")
 	}
 }
 
 func TestRunWritesNothingWhenAFileIsNotWritable(t *testing.T) {
 	root := writeFixture(t)
-	readonly := filepath.Join(root, filepath.FromSlash(doccounts.ArchitecturePath))
+	readonly := filepath.Join(root, filepath.FromSlash(ArchitecturePath))
 	if err := os.Chmod(readonly, 0o444); err != nil {
 		t.Fatalf("chmod: %v", err)
 	}
-	before := read(t, root, doccounts.ReadmePath)
+	before := read(t, root, ReadmePath)
 
 	if _, err := run(root, io.Discard); err == nil {
 		t.Fatal("want an error for a file that cannot be written")
 	}
-	if read(t, root, doccounts.ReadmePath) != before {
+	if read(t, root, ReadmePath) != before {
 		t.Fatal("a failed run rewrote an earlier file")
 	}
 }
 
 func TestRunReportsAMapWithNoRuleRows(t *testing.T) {
 	root := t.TempDir()
-	writeAt(t, root, doccounts.SpecCompliancePath, "# Compliance\n")
+	writeAt(t, root, SpecCompliancePath, "# Compliance\n")
 	if _, err := run(root, io.Discard); err == nil {
 		t.Fatal("want an error when the compliance map states no rule rows")
 	}
@@ -165,7 +165,7 @@ func TestRunReportsAMapWithNoRuleRows(t *testing.T) {
 
 func TestRunReportsAKnownFailureRow(t *testing.T) {
 	root := writeFixture(t)
-	writeAt(t, root, doccounts.SpecCompliancePath, fixtureCompliance+"| c | 🚧 Known failure |\n")
+	writeAt(t, root, SpecCompliancePath, fixtureCompliance+"| c | 🚧 Known failure |\n")
 	if _, err := run(root, io.Discard); err == nil || !strings.Contains(err.Error(), "🚧") {
 		t.Fatalf("want an error naming the 🚧 row, got %v", err)
 	}
@@ -173,7 +173,7 @@ func TestRunReportsAKnownFailureRow(t *testing.T) {
 
 func TestCheckReportsStaleFilesWithoutWriting(t *testing.T) {
 	root := writeFixture(t)
-	before := read(t, root, doccounts.ReadmePath)
+	before := read(t, root, ReadmePath)
 	var output strings.Builder
 	stale, err := check(root, &output)
 	if err != nil {
@@ -187,10 +187,10 @@ func TestCheckReportsStaleFilesWithoutWriting(t *testing.T) {
 			t.Fatalf("check report lacks %q:\n%s", name, output.String())
 		}
 	}
-	if read(t, root, doccounts.ReadmePath) != before {
+	if read(t, root, ReadmePath) != before {
 		t.Fatal("check mode changed README.md")
 	}
-	if read(t, root, doccounts.SpecCompliancePath) != fixtureCompliance {
+	if read(t, root, SpecCompliancePath) != fixtureCompliance {
 		t.Fatal("check mode changed the compliance map")
 	}
 }
@@ -210,7 +210,7 @@ func TestCheckReportsAnEditedCensusFigure(t *testing.T) {
 	if moved == fixtureLibraryCensus {
 		t.Fatal("the fixture census did not move")
 	}
-	writeAt(t, root, doccounts.LibraryCensusPath, moved)
+	writeAt(t, root, fixtures.LibraryCensusPath, moved)
 	var output strings.Builder
 	stale, err := check(root, &output)
 	if err != nil {
@@ -228,12 +228,12 @@ func TestCheckReportsAnEditedCensusFigure(t *testing.T) {
 // compliance map without the markers is an error, not a map without a table.
 func TestRunReportsACensusMissingItsBlock(t *testing.T) {
 	root := writeFixture(t)
-	writeAt(t, root, doccounts.SpecCompliancePath, "# Compliance\n\n| Rule | Status |\n|---|---|\n| a | ✅ Faithful |\n")
-	before := read(t, root, doccounts.ReadmePath)
+	writeAt(t, root, SpecCompliancePath, "# Compliance\n\n| Rule | Status |\n|---|---|\n| a | ✅ Faithful |\n")
+	before := read(t, root, ReadmePath)
 	if _, err := run(root, io.Discard); err == nil || !strings.Contains(err.Error(), "analysis-libraries") {
 		t.Fatalf("want an error naming the missing block, got %v", err)
 	}
-	if read(t, root, doccounts.ReadmePath) != before {
+	if read(t, root, ReadmePath) != before {
 		t.Fatal("a failed run rewrote an earlier file")
 	}
 }
@@ -245,7 +245,7 @@ func TestCheckFailsOnAMutatedFigure(t *testing.T) {
 	if _, err := run(root, io.Discard); err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	for _, block := range doccounts.Blocks() {
+	for _, block := range Blocks() {
 		t.Run(block.Path+"/"+block.Name, func(t *testing.T) {
 			current := read(t, root, block.Path)
 			defer writeAt(t, root, block.Path, current)
@@ -290,7 +290,7 @@ func TestAMutatedSuiteTreeMovesTheSiteBlocksAlone(t *testing.T) {
 		t.Fatalf("a new conformance case left %d files stale, want none:\n%s", stale, output.String())
 	}
 	rendered := siteBlocksOf(t, root)
-	compliance := rendered[doccounts.SpecCompliancePath]
+	compliance := rendered[SpecCompliancePath]
 	if got := compliance["inventory-conformance"]; !strings.Contains(got, "8 conformance cases") || !strings.Contains(got, "state×2") {
 		t.Fatalf("the build does not render the new case: %q", got)
 	}
@@ -327,7 +327,7 @@ func TestSiteBlocksRenderTheTreeAsJSON(t *testing.T) {
 	if got := len(rendered); got != 1 {
 		t.Fatalf("rendered %d pages, want the compliance map alone: %v", got, rendered)
 	}
-	compliance := rendered[doccounts.SpecCompliancePath]
+	compliance := rendered[SpecCompliancePath]
 	want := doccountstest.Expected
 	for name, text := range map[string]string{
 		"inventory-conformance": want.ConformanceSummary,
@@ -342,7 +342,7 @@ func TestSiteBlocksRenderTheTreeAsJSON(t *testing.T) {
 		}
 	}
 	var names []string
-	for _, block := range doccounts.SiteBlocks() {
+	for _, block := range SiteBlocks() {
 		names = append(names, block.Name)
 	}
 	for name := range compliance {
@@ -362,7 +362,7 @@ func TestCheckRefusesAFigureInASiteBlock(t *testing.T) {
 	if _, err := run(root, io.Discard); err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	for _, block := range doccounts.SiteBlocks() {
+	for _, block := range SiteBlocks() {
 		t.Run(block.Name, func(t *testing.T) {
 			current := read(t, root, block.Path)
 			defer writeAt(t, root, block.Path, current)
@@ -387,7 +387,7 @@ func TestCheckRefusesAFigureInASiteBlock(t *testing.T) {
 // block: the page must carry every site block registered for it.
 func TestRunReportsAMissingSiteBlock(t *testing.T) {
 	root := writeFixture(t)
-	writeAt(t, root, doccounts.SpecCompliancePath, strings.Replace(fixtureCompliance, "<!-- doc-counts:begin lsp-tests -->the LSP test functions<!-- doc-counts:end lsp-tests -->", "the LSP test functions", 1))
+	writeAt(t, root, SpecCompliancePath, strings.Replace(fixtureCompliance, "<!-- doc-counts:begin lsp-tests -->the LSP test functions<!-- doc-counts:end lsp-tests -->", "the LSP test functions", 1))
 	if _, err := run(root, io.Discard); err == nil || !strings.Contains(err.Error(), "lsp-tests") {
 		t.Fatalf("want an error naming the missing block, got %v", err)
 	}
@@ -409,8 +409,8 @@ func siteBlocksOf(t *testing.T, root string) map[string]map[string]string {
 // TestSiteBlocksOfTheCommittedTreeRender keeps the build from failing on the
 // tree as committed: every site block renders, and none is empty.
 func TestSiteBlocksOfTheCommittedTreeRender(t *testing.T) {
-	rendered := siteBlocksOf(t, "../..")
-	if pages, want := pagesOf(rendered), slices.Sorted(slices.Values(doccounts.SitePaths())); !slices.Equal(pages, want) {
+	rendered := siteBlocksOf(t, "../../..")
+	if pages, want := pagesOf(rendered), slices.Sorted(slices.Values(SitePaths())); !slices.Equal(pages, want) {
 		t.Fatalf("rendered pages %v, want %v", pages, want)
 	}
 	for page, blocks := range rendered {
@@ -430,19 +430,19 @@ func pagesOf(rendered map[string]map[string]string) []string {
 // page must carry every block registered for it.
 func TestRunReportsAMissingSuiteBlock(t *testing.T) {
 	root := writeFixture(t)
-	writeAt(t, root, doccounts.ReadmePath, strings.Replace(fixtureReadme+fixtureBookkeeping, "<!-- doc-counts:begin conformance-passing -->stale<!-- doc-counts:end conformance-passing -->", "889/889", 1))
-	before := read(t, root, doccounts.SpecCompliancePath)
+	writeAt(t, root, ReadmePath, strings.Replace(fixtureReadme+fixtureBookkeeping, "<!-- doc-counts:begin conformance-passing -->stale<!-- doc-counts:end conformance-passing -->", "889/889", 1))
+	before := read(t, root, SpecCompliancePath)
 	if _, err := run(root, io.Discard); err == nil || !strings.Contains(err.Error(), "conformance-passing") {
 		t.Fatalf("want an error naming the missing block, got %v", err)
 	}
-	if read(t, root, doccounts.SpecCompliancePath) != before {
+	if read(t, root, SpecCompliancePath) != before {
 		t.Fatal("a failed run rewrote another file")
 	}
 }
 
 func TestCheckCommittedTreeIsCurrent(t *testing.T) {
 	var output strings.Builder
-	stale, err := check("../..", &output)
+	stale, err := check("../../..", &output)
 	if err != nil {
 		t.Fatalf("check committed tree: %v", err)
 	}
@@ -454,26 +454,15 @@ func TestCheckCommittedTreeIsCurrent(t *testing.T) {
 func writeFixture(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	writeAt(t, root, doccounts.SpecCompliancePath, fixtureCompliance)
-	writeAt(t, root, doccounts.ReadmePath, fixtureReadme+fixtureBookkeeping)
-	writeAt(t, root, doccounts.ArchitecturePath, fixtureBookkeeping)
+	writeAt(t, root, SpecCompliancePath, fixtureCompliance)
+	writeAt(t, root, ReadmePath, fixtureReadme+fixtureBookkeeping)
+	writeAt(t, root, ArchitecturePath, fixtureBookkeeping)
 	doccountstest.WriteSuiteFixture(t, root)
 	writeAt(t, root, "docs/project/pilot-differential-baseline.json", fixtureDifferentialBaseline)
 	writeAt(t, root, "docs/project/pilot-xpect-baseline.json", fixtureXpectBaseline)
 	writeAt(t, root, "docs/project/pilot-rejection-baseline.json", fixtureRejectionBaseline)
-	writeAt(t, root, doccounts.LibraryCensusPath, fixtureLibraryCensus)
+	writeAt(t, root, fixtures.LibraryCensusPath, fixtureLibraryCensus)
 	return root
-}
-
-func writeAt(t *testing.T, root, path, content string) {
-	t.Helper()
-	full := filepath.Join(root, filepath.FromSlash(path))
-	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
-	}
 }
 
 func read(t *testing.T, root, path string) string {

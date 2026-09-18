@@ -12,7 +12,7 @@ import (
 )
 
 // suiteDir is the committed suite, read from the repository root.
-const suiteDir = "../../conformance"
+const suiteDir = "../../../conformance"
 
 func loadSuite(t *testing.T) []*Scenario {
 	t.Helper()

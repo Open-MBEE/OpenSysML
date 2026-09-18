@@ -1,6 +1,6 @@
 // Package doccounts is the one census of the compliance map's status markers and
 // the one statement of which documentation lines derive from the oracle baselines:
-// the guard in tools/referee/diff checks those lines, cmd/doc-counts rewrites them. The
+// the guard in tools/referee/diff checks those lines, tools/cmd/doc-counts rewrites them. The
 // rule census itself is counted at documentation-build time (scripts/mkdocs_census.py)
 // and is never written into a committed file.
 package doccounts
@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/Open-MBEE/OpenSysML/internal/fixtures"
 )
 
 // Paths of the compliance map and of the files carrying a derived line, relative
@@ -407,7 +409,7 @@ func RenderSiteBlocks(figures Figures) (map[string]map[string]string, error) {
 // oracle baselines and library census, and the test-suite figures counted from the tree.
 type Figures struct {
 	Refereed RefereedCounts
-	Library  LibraryCensus
+	Library  fixtures.LibraryCensus
 	Suite    SuiteCounts
 }
 
@@ -417,7 +419,7 @@ func ReadFigures(root string) (Figures, error) {
 	if err != nil {
 		return Figures{}, err
 	}
-	library, err := ReadLibraryCensus(root)
+	library, err := fixtures.ReadLibraryCensus(root)
 	if err != nil {
 		return Figures{}, err
 	}
@@ -572,7 +574,7 @@ func RewriteBlock(content string, spec Block, figures Figures) (string, error) {
 // consumer's own link prefix.
 type blockTemplateData struct {
 	RefereedCounts
-	Library    LibraryCensus
+	Library    fixtures.LibraryCensus
 	Table      string
 	Suite      suiteFigures
 	Name       string

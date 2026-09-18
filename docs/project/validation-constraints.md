@@ -2,9 +2,9 @@
 
 **Pilot:** [SysML v2 Pilot Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation) release `2026-08`, commit `692170b71867353b8f90341e61556f49a5beb0e5`, artifact `jupyter-sysml-kernel 0.62.0` — the pin in `scripts/pilot-pin.sh`
 **Jar:** `jupyter-sysml-kernel-0.62.0-all.jar` (`sha256:b1ad9d64b1f0c75730facf25a5e2856bc9df2bb4bd39476df2fdf5ae68cd9350`), provisioned by `./scripts/download-pilot-validator.sh`
-**Run:** `go run ./cmd/validation-census` (restates the **Pilot**, **Jar** and **Census** lines from the baseline); `go run ./cmd/validation-census -check` (the gate); `go run ./cmd/validation-census -update` (re-extracts the names from the jar, keeping every recorded status)
+**Run:** `go run -C tools ./cmd/validation-census` (restates the **Pilot**, **Jar** and **Census** lines from the baseline); `go run -C tools ./cmd/validation-census -check` (the gate); `go run -C tools ./cmd/validation-census -update` (re-extracts the names from the jar, keeping every recorded status)
 **Baseline:** [validation-constraints-baseline.json](validation-constraints-baseline.json) — the constraint names read from the pinned jar, with the pin, the jar digest, the extraction method and each name's census status
-**Evidence:** `cmd/validation-census/testdata/probes/` — one minimal violating model per implemented row, run by `go test ./cmd/validation-census`
+**Evidence:** `tools/census/validation/testdata/probes/` — one minimal violating model per implemented row, run by `go test -C tools ./census/validation`
 
 **Names:** the file and type names quoted in the Implementation column are the code's own
 identifiers, prefixes included (`w8c_`, `W10B…`); they name nothing outside the source tree, and a
@@ -23,7 +23,7 @@ the diagnostic it reports was recorded as that row's probe.
 **Census:** 162 of 217 named constraints are reported by OpenSysML — 156 ✅ faithful and 6 ⚠️ approximate; 1 ❌ not implemented, 1 ⛔ deliberate, 0 🚧 known failure, 53 ❔ unknown.
 
 The figures on that line, and the pin and digest quoted above, are written by
-`go run ./cmd/validation-census` from the baseline; `-check` fails on a hand-edited figure or
+`go run -C tools ./cmd/validation-census` from the baseline; `-check` fails on a hand-edited figure or
 provenance value, on a table row the baseline does not record, on
 a baseline name the table lacks, on an implemented row without a probe, on an implemented row's
 *Implementation* cell that cites no `internal/….go:function` location, cites one whose
@@ -51,9 +51,9 @@ Same vocabulary as [spec-compliance.md](spec-compliance.md), plus one value for 
 
 ### Evidence
 
-Every ✅ and ⚠️ row has a probe under `cmd/validation-census/testdata/probes/<constraint>.{kerml,sysml}`:
+Every ✅ and ⚠️ row has a probe under `tools/census/validation/testdata/probes/<constraint>.{kerml,sysml}`:
 a minimal model that violates the constraint, headed by the constraint name and the severity and
-message fragment OpenSysML must report for it. `go test ./cmd/validation-census` runs each probe
+message fragment OpenSysML must report for it. `go test -C tools ./census/validation` runs each probe
 through the workspace and fails if the diagnostic is missing; `-check` fails if an implemented
 row has no probe (a row both validators declare needs one probe per notation, `.kerml` and
 `.sysml`, because the two mappings differ) or a probe names a row that is not implemented. The probes were also run through
@@ -69,7 +69,7 @@ census adds no corpus cases.
 
 ### How the names were read
 
-`cmd/validation-census/jar.go` opens the pinned jar, reads the two validator classes
+`tools/census/validation/jar.go` opens the pinned jar, reads the two validator classes
 (`org/omg/kerml/xtext/validation/KerMLValidator.class`,
 `org/omg/sysml/xtext/validation/SysMLValidator.class`), parses each class file's constant pool
 and keeps every `CONSTANT_String` matching `^(in)?validate[A-Za-z]+_?$`. The Xtend sources

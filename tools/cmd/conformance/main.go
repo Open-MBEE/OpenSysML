@@ -23,7 +23,8 @@ import (
 	_ "github.com/Open-MBEE/OpenSysML/api/proto" // registers the schema this runner reflects over
 	"google.golang.org/protobuf/reflect/protoregistry"
 
-	"github.com/Open-MBEE/OpenSysML/internal/junit"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/junit"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -40,9 +41,9 @@ var knownProtocols = map[string]struct{}{"grpc": {}, "connect": {}, "connect-jso
 
 func main() {
 	var (
-		dir       = flag.String("dir", "conformance", "conformance suite directory (scenarios/ and fixtures/)")
-		binary    = flag.String("binary", "", "sysml-grpc binary to test; built from ./cmd/sysml-grpc when empty")
-		repoRoot  = flag.String("repo", ".", "repository root to build the service from")
+		dir       = flag.String("dir", "", "conformance suite directory (scenarios/ and fixtures/; default: <repo>/conformance)")
+		binary    = flag.String("binary", "", "sysml-grpc binary to test; built from <repo>/cmd/sysml-grpc when empty")
+		repoRoot  = flag.String("repo", "", "repository root to build the service from (default: the product module root above the working directory)")
 		report    = flag.String("report", "", "write the machine-readable summary to this file (- for stdout)")
 		junitOut  = flag.String("junit", "", "also write the results as JUnit XML to this file")
 		run       = flag.String("run", "", "run only the scenarios whose id matches this regular expression")
@@ -54,10 +55,18 @@ func main() {
 	)
 	flag.Parse()
 
+	root, err := repo.Choose(*repoRoot)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "conformance: %v\n", err)
+		os.Exit(1)
+	}
+	if *dir == "" {
+		*dir = filepath.Join(root, "conformance")
+	}
 	opts := options{
 		dir:       *dir,
 		binary:    *binary,
-		repoRoot:  *repoRoot,
+		repoRoot:  root,
 		report:    *report,
 		junit:     *junitOut,
 		run:       *run,

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/doccounts/doccountstest"
+	"github.com/Open-MBEE/OpenSysML/tools/census/doccounts/doccountstest"
 )
 
 func TestReadSuiteCountsCountsTheTreeAsTheGatesDo(t *testing.T) {

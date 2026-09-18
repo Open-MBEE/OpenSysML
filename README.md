@@ -519,7 +519,7 @@ so a CI system can render them without parsing text:
 
 ```bash
 make conformance      # bin/conformance-report.json + bin/conformance-report.xml
-go run ./cmd/conformance -report - -junit bin/conformance-report.xml
+go run -C tools ./cmd/conformance -report - -junit ../bin/conformance-report.xml
 go run -C tools ./cmd/pilot-diff   # build/pilot-diff/pilot-diff.{txt,json,xml,sarif}
 ```
 

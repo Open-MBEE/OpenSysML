@@ -1,4 +1,4 @@
-// Command validation-census keeps the census of the pilot's named validation
+// Package validation keeps the census of the pilot's named validation
 // constraints honest: docs/project/validation-constraints-baseline.json records
 // the names extracted from the pinned pilot jar with each one's census status,
 // docs/project/validation-constraints.md is the table a reader consults, and
@@ -15,8 +15,9 @@
 // attributes to a constraint is listed on its row,
 // the summary figures are current, and — when the pinned jar is provisioned or
 // -require-jar is set — the baseline still lists what the jar contains. -update
-// re-extracts the list from the jar, keeping every recorded status.
-package main
+// re-extracts the list from the jar, keeping every recorded status. Run it with
+// `go run -C tools ./cmd/validation-census`.
+package validation
 
 import (
 	"errors"
@@ -28,44 +29,50 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/baseline"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )
 
-func main() {
-	repo := flag.String("repo", "", "repository root (default: the module root above the working directory)")
-	jar := flag.String("jar", "", "pinned pilot jar (default: the artifact scripts/download-pilot-validator.sh provisions under build/)")
-	check := flag.Bool("check", false, "verify the baseline, the census document and the jar agree, without writing")
-	requireJar := flag.Bool("require-jar", false, "fail rather than skip the jar comparison when the jar is absent")
-	update := flag.Bool("update", false, "re-extract the constraint list from the jar into the baseline, keeping recorded statuses")
-	flag.Parse()
-	if flag.NArg() != 0 {
-		fmt.Fprintf(os.Stderr, "validation-census: unexpected argument %q\n", flag.Arg(0))
-		os.Exit(2)
-	}
-	root := *repo
-	if root == "" {
-		var err error
-		if root, err = moduleRoot(); err != nil {
-			fmt.Fprintf(os.Stderr, "validation-census: %v\n", err)
-			os.Exit(1)
+// Main is the validation-census command; it returns the process exit status.
+func Main(args []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("validation-census", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	repoDir := flags.String("repo", "", "repository root (default: the module root above the working directory)")
+	jar := flags.String("jar", "", "pinned pilot jar (default: the artifact scripts/download-pilot-validator.sh provisions under build/)")
+	check := flags.Bool("check", false, "verify the baseline, the census document and the jar agree, without writing")
+	requireJar := flags.Bool("require-jar", false, "fail rather than skip the jar comparison when the jar is absent")
+	update := flags.Bool("update", false, "re-extract the constraint list from the jar into the baseline, keeping recorded statuses")
+	if err := flags.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return 0
 		}
+		return 2
+	}
+	if flags.NArg() != 0 {
+		fmt.Fprintf(stderr, "validation-census: unexpected argument %q\n", flags.Arg(0))
+		return 2
+	}
+	root, err := repo.Choose(*repoDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "validation-census: %v\n", err)
+		return 1
 	}
 	opts := options{jar: *jar, requireJar: *requireJar}
-	var err error
 	switch {
 	case *update && *check:
 		err = fmt.Errorf("-update and -check are exclusive")
 	case *update:
-		err = runUpdate(root, opts, os.Stdout)
+		err = runUpdate(root, opts, stdout)
 	case *check:
-		err = runCheck(root, opts, os.Stdout)
+		err = runCheck(root, opts, stdout)
 	default:
-		err = runWrite(root, opts, os.Stdout)
+		err = runWrite(root, opts, stdout)
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "validation-census: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "validation-census: %v\n", err)
+		return 1
 	}
+	return 0
 }
 
 type options struct {
@@ -258,22 +265,4 @@ func compareJar(root string, base *Baseline, opts options, out io.Writer) error 
 	}
 	fmt.Fprintf(out, "validation-census: %s lists the %d constraints %s contains\n", baselinePath, len(extracted), filepath.Base(jar))
 	return nil
-}
-
-// moduleRoot walks up from the working directory to the directory holding go.mod.
-func moduleRoot() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", fmt.Errorf("no go.mod found above the working directory; pass -repo")
-		}
-		dir = parent
-	}
 }

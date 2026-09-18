@@ -91,7 +91,7 @@ entry for the same file, path outside `errata.Roots`.
 
 ## Doc gate
 
-`make docs-counts` → `doc-counts: already current`; `go run ./cmd/doc-counts -check` → exit 0.
+`make docs-counts` → `doc-counts: already current`; `go run -C tools ./cmd/doc-counts -check` → exit 0.
 Mutating the generated "Declared errata:" sentence in `README.md` (e.g. `325 of 353` → `326 of 353`)
 must make `-check` exit 1 with `README.md is stale` and a line diff; restore with `git checkout README.md`.
 

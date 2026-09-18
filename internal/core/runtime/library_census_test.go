@@ -17,7 +17,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/doccounts"
+	"github.com/Open-MBEE/OpenSysML/internal/fixtures"
 )
 
 var updateLibraryCensus = flag.Bool("update-library-census", false, "Rewrite docs/project/analysis-library-census.json from this run")
@@ -105,18 +105,18 @@ var censusSentinels = []struct {
 // TestAnalysisLibraryCensus records, per callable library declaration, whether its
 // invocation evaluated, was refused by a typed error or was wrong, and pins the committed file.
 func TestAnalysisLibraryCensus(t *testing.T) {
-	census := doccounts.LibraryCensus{Command: libraryCensusCommand}
+	census := fixtures.LibraryCensus{Command: libraryCensusCommand}
 	for _, pkg := range censusPackages {
 		census.Packages = append(census.Packages, measureLibraryPackage(t, pkg))
 	}
 	if t.Failed() {
 		t.Fatal("the census has probe defects above; the committed file is not compared")
 	}
-	got, err := doccounts.FormatLibraryCensus(census)
+	got, err := fixtures.FormatLibraryCensus(census)
 	if err != nil {
 		t.Fatalf("census: %v", err)
 	}
-	path := filepath.Join("..", "..", "..", filepath.FromSlash(doccounts.LibraryCensusPath))
+	path := filepath.Join("..", "..", "..", filepath.FromSlash(fixtures.LibraryCensusPath))
 	if *updateLibraryCensus {
 		if err := os.WriteFile(path, got, 0o644); err != nil { // #nosec G306 -- a committed documentation file
 			t.Fatal(err)
@@ -129,7 +129,7 @@ func TestAnalysisLibraryCensus(t *testing.T) {
 	}
 	if string(want) != string(got) {
 		t.Errorf("%s disagrees with this run; run `%s` and commit the result\n%s",
-			doccounts.LibraryCensusPath, libraryCensusCommand, censusDiff(string(want), string(got)))
+			fixtures.LibraryCensusPath, libraryCensusCommand, censusDiff(string(want), string(got)))
 	}
 }
 
@@ -159,19 +159,19 @@ func TestAnalysisLibraryCensusProbesEveryDeclaration(t *testing.T) {
 
 // measureLibraryPackage runs every probe of a package against a fresh context
 // over the standard library and records the verdicts.
-func measureLibraryPackage(t *testing.T, pkg censusPackage) doccounts.LibraryPackage {
+func measureLibraryPackage(t *testing.T, pkg censusPackage) fixtures.LibraryPackage {
 	t.Helper()
 	if _, err := libs.DefaultSource().Read(pkg.path); err != nil {
 		t.Errorf("%s: %v", pkg.name, err)
 	}
 	ctx := newLibraryContext(t, libs.NewModelIndex())
-	measured := doccounts.LibraryPackage{
+	measured := fixtures.LibraryPackage{
 		Name:         pkg.name,
 		Path:         pkg.path,
 		Declarations: callableDeclarations(t, ctx, pkg.name),
 		Evaluated:    []string{},
-		Refused:      []doccounts.LibraryRefusal{},
-		Wrong:        []doccounts.LibraryMismatch{},
+		Refused:      []fixtures.LibraryRefusal{},
+		Wrong:        []fixtures.LibraryMismatch{},
 	}
 	for _, probe := range pkg.probes {
 		verdict := runLibraryProbe(t, probe)
@@ -182,15 +182,15 @@ func measureLibraryPackage(t *testing.T, pkg censusPackage) doccounts.LibraryPac
 				t.Errorf("%s: refused by an error typed by no sentinel the census knows: %v", probe.decl, verdict.err)
 				continue
 			}
-			measured.Refused = append(measured.Refused, doccounts.LibraryRefusal{
+			measured.Refused = append(measured.Refused, fixtures.LibraryRefusal{
 				Declaration: probe.decl, Error: name, Message: verdict.err.Error(),
 			})
 		case verdict.undetermined != nil:
-			measured.Refused = append(measured.Refused, doccounts.LibraryRefusal{
+			measured.Refused = append(measured.Refused, fixtures.LibraryRefusal{
 				Declaration: probe.decl, Error: undeterminedRefusal, Message: verdict.undetermined.Reason(),
 			})
 		case len(verdict.problems) > 0:
-			measured.Wrong = append(measured.Wrong, doccounts.LibraryMismatch{
+			measured.Wrong = append(measured.Wrong, fixtures.LibraryMismatch{
 				Declaration: probe.decl, Mismatch: strings.Join(verdict.problems, "; "),
 			})
 		default:

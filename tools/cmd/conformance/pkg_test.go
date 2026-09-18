@@ -70,7 +70,7 @@ func TestSuitePassesOverTheWire(t *testing.T) {
 	}
 	binary := filepath.Join(t.TempDir(), "sysml-grpc")
 	build := exec.Command("go", gobuild.Args(binary)...)
-	build.Dir = filepath.Join("..", "sysml-grpc")
+	build.Dir = filepath.Join("..", "..", "..", "cmd", "sysml-grpc")
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("building sysml-grpc: %v\n%s", err, out)
 	}

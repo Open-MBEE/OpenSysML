@@ -92,7 +92,7 @@ jobs:
       # classes declare; only here is the jar present to compare against.
       - name: Validation-constraint baseline lists what the pinned jar contains
         if: ${{ !cancelled() }}
-        run: go run ./cmd/validation-census -check -require-jar
+        run: go run -C tools ./cmd/validation-census -check -require-jar
 
       # The reports themselves, so a failing run can be read without
       # reproducing the environment.

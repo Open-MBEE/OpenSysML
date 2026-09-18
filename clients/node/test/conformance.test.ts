@@ -114,7 +114,7 @@ for (const mutation of Object.keys(MUTATIONS)) {
   });
 }
 
-test("the command line mirrors cmd/conformance's flags", () => {
+test("the command line mirrors tools/cmd/conformance's flags", () => {
   const options = parseOptions(["--binary", "bin/sysml-grpc", "--protocols", " grpc, connect ", "--allow-skips", "-v", "--mutate", "shift-integer"]);
   assert.equal(options.binary, "bin/sysml-grpc");
   assert.deepEqual(options.protocols, ["grpc", "connect"]);

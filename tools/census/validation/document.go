@@ -1,4 +1,4 @@
-package main
+package validation
 
 import (
 	"fmt"
@@ -168,7 +168,7 @@ func checkDocument(root, content string, base *Baseline) error {
 		return err
 	}
 	if rewritten != content {
-		return fmt.Errorf("%s: a derived line is stale; run `go run ./cmd/validation-census`", censusDocPath)
+		return fmt.Errorf("%s: a derived line is stale; run `go run -C tools ./cmd/validation-census`", censusDocPath)
 	}
 	rows, err := parseTable(content)
 	if err != nil {
@@ -274,7 +274,7 @@ func checkNegativeCase(root string, r row, name string) []string {
 }
 
 // probesDir holds the minimal violating models that back every implemented row.
-const probesDir = "cmd/validation-census/testdata/probes"
+const probesDir = "tools/census/validation/testdata/probes"
 
 // probe is one violating model and the diagnostic it expects from us.
 type probe struct {

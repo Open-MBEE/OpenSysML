@@ -13,7 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/Open-MBEE/OpenSysML/internal/doccounts"
+	"github.com/Open-MBEE/OpenSysML/tools/census/doccounts"
 )
 
 const (

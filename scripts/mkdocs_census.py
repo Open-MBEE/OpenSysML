@@ -3,7 +3,7 @@
 docs/project/spec-compliance.md carries a `<!-- doc-counts:begin census -->` …
 `<!-- doc-counts:end census -->` block instead of literal counts, so a pull request
 that adds a row never rewrites a shared line. This hook replaces the block with the
-census it counts from the page's own rows; `internal/doccounts` counts rows the same way.
+census it counts from the page's own rows; `tools/census/doccounts` counts rows the same way.
 """
 
 import logging

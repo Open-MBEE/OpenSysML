@@ -1,4 +1,4 @@
-// Command grammar-coverage measures which productions of the OMG Xtext
+// Package grammar measures which productions of the OMG Xtext
 // grammars our test inputs exercise, on input-presence evidence: for every rule,
 // fragment, enum and terminal of KerML.xtext, KerMLExpressions.xtext and
 // SysML.xtext it searches the corpora we already parse for the literals the
@@ -12,47 +12,55 @@
 //
 // It is advisory: nothing in the build or the test suite depends on it, and it
 // only reads the corpora. Provision the grammars with
-// scripts/download-pilot-grammars.sh, then run `go run ./cmd/grammar-coverage`.
+// scripts/download-pilot-grammars.sh, then run `go run -C tools ./cmd/grammar-coverage`.
 // -baseline refreshes the committed docs/project/grammar-coverage-baseline.json,
 // which carries the counts and the gaps rather than every row. See
 // docs/project/grammar-coverage.md.
-package main
+package grammar
 
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )
 
-func main() {
-	repo := flag.String("repo", "", "repository root (default: the module root containing this command)")
-	grammars := flag.String("grammars", "", "directory holding the .xtext grammars (default: <repo>/build/pilot-grammars)")
-	out := flag.String("out", "", "output directory for the reports (default: <repo>/build/grammar-coverage)")
-	baseline := flag.String("baseline", "", "also write the compact baseline JSON to this file")
-	flag.Parse()
-
-	if err := run(*repo, *grammars, *out, *baseline); err != nil {
-		fmt.Fprintf(os.Stderr, "grammar-coverage: %v\n", err)
-		os.Exit(1)
+// Main is the grammar-coverage command; it returns the process exit status.
+func Main(args []string, stderr io.Writer) int {
+	flags := flag.NewFlagSet("grammar-coverage", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	repoDir := flags.String("repo", "", "repository root (default: the module root containing this command)")
+	grammars := flags.String("grammars", "", "directory holding the .xtext grammars (default: <repo>/build/pilot-grammars)")
+	out := flags.String("out", "", "output directory for the reports (default: <repo>/build/grammar-coverage)")
+	baseline := flags.String("baseline", "", "also write the compact baseline JSON to this file")
+	if err := flags.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return 0
+		}
+		return 2
 	}
+	if err := run(*repoDir, *grammars, *out, *baseline); err != nil {
+		fmt.Fprintf(stderr, "grammar-coverage: %v\n", err)
+		return 1
+	}
+	return 0
 }
 
-func run(repo, grammarDir, out, baseline string) error {
-	var err error
-	if repo == "" {
-		repo, err = moduleRoot()
-		if err != nil {
-			return err
-		}
+func run(repoDir, grammarDir, out, baseline string) error {
+	repoDir, err := repo.Choose(repoDir)
+	if err != nil {
+		return err
 	}
 	if grammarDir == "" {
-		grammarDir = filepath.Join(repo, "build", "pilot-grammars")
+		grammarDir = filepath.Join(repoDir, "build", "pilot-grammars")
 	}
 	if out == "" {
-		out = filepath.Join(repo, "build", "grammar-coverage")
+		out = filepath.Join(repoDir, "build", "grammar-coverage")
 	}
 
 	files, err := grammarFiles(grammarDir)
@@ -83,7 +91,7 @@ func run(repo, grammarDir, out, baseline string) error {
 	if err != nil {
 		return err
 	}
-	index, err := buildLiteralIndex(repo, evidenceRoots, lits)
+	index, err := buildLiteralIndex(repoDir, evidenceRoots, lits)
 	if err != nil {
 		return err
 	}
@@ -92,7 +100,7 @@ func run(repo, grammarDir, out, baseline string) error {
 		corpusFiles += root.Files
 	}
 	if corpusFiles == 0 {
-		return fmt.Errorf("no .sysml or .kerml files found under %s: is -repo right?", repo)
+		return fmt.Errorf("no .sysml or .kerml files found under %s: is -repo right?", repoDir)
 	}
 	fmt.Fprintf(os.Stderr, "searched %d corpus file(s) for %d distinct literal(s)\n", corpusFiles, len(lits.order))
 
@@ -153,22 +161,4 @@ func pilotTag(dir string) string {
 		return "unknown"
 	}
 	return strings.TrimSpace(string(data))
-}
-
-// moduleRoot walks up from the working directory to the directory holding go.mod.
-func moduleRoot() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", fmt.Errorf("no go.mod found above the working directory; pass -repo")
-		}
-		dir = parent
-	}
 }

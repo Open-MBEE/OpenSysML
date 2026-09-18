@@ -362,8 +362,8 @@ When a change needs documenting:
   compliance map's test inventory are `<!-- doc-counts:begin inventory-… -->` blocks whose
   committed text names what is counted and states no figure; the site build
   (`scripts/mkdocs_suite_figures.py`, run by `make docs`) splices in the figures from
-  `go run ./cmd/doc-counts -site-blocks`, which counts the tree the way the gates enumerate it.
-  `go run ./cmd/doc-counts -check` refuses a figure typed into one of those blocks, so adding a
+  `go run -C tools ./cmd/doc-counts -site-blocks`, which counts the tree the way the gates enumerate it.
+  `go run -C tools ./cmd/doc-counts -check` refuses a figure typed into one of those blocks, so adding a
   test or a fixture is the whole change and two branches cannot conflict on a count. `README.md`
   names the gates without their counts; the one suite figure still committed there is whether
   every conformance case passes, which moves with `known_failures.txt` alone.

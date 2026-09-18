@@ -140,7 +140,7 @@ pgo-profile: ## Regenerate cmd/*/default.pgo, the CPU profile go build optimizes
 conformance: ## Run the language-independent conformance suite against sysml-grpc
 	@echo "Running the conformance suite..."
 	@mkdir -p $(BIN_DIR)
-	go run ./cmd/conformance -withhold-capabilities strict_conformance,oslc_query -report $(BIN_DIR)/conformance-report.json -junit $(BIN_DIR)/conformance-report.xml
+	go run -C $(TOOLS_DIR) ./cmd/conformance -withhold-capabilities strict_conformance,oslc_query -report $(CURDIR)/$(BIN_DIR)/conformance-report.json -junit $(CURDIR)/$(BIN_DIR)/conformance-report.xml
 	@echo "✓ Conformance suite passed ($(BIN_DIR)/conformance-report.json, $(BIN_DIR)/conformance-report.xml)"
 
 conformance-rust: ## Run the conformance suite with the blocking Rust client
@@ -151,7 +151,7 @@ conformance-rust: ## Run the conformance suite with the blocking Rust client
 conformance-pkg: ## Run the conformance suite through the public Go API (client/opensysml)
 	@echo "Running the conformance suite through client/opensysml..."
 	@mkdir -p $(BIN_DIR)
-	go run ./cmd/conformance -protocols pkg,pkg-connect -allow-skips -report $(BIN_DIR)/conformance-pkg-report.json
+	go run -C $(TOOLS_DIR) ./cmd/conformance -protocols pkg,pkg-connect -allow-skips -report $(CURDIR)/$(BIN_DIR)/conformance-pkg-report.json
 	@echo "✓ Conformance suite passed through client/opensysml ($(BIN_DIR)/conformance-pkg-report.json)"
 
 test: ## Run Go tests with race detection and coverage
@@ -361,11 +361,10 @@ self-model: build-sysml ## Render the architecture self-model's views (see examp
 
 docs-counts: ## Regenerate and verify the committed documentation counts; the test-suite figures are counted when the site is built
 	@echo "Regenerating the documentation count lines and refereed figures..."
-	go run ./cmd/doc-counts
-	go run ./cmd/doc-counts -check
-	go run ./cmd/validation-census -check
-	go test -count=1 ./cmd/doc-counts ./cmd/validation-census
-	go test -C $(TOOLS_DIR) -count=1 ./referee/diff ./referee/reject
+	go run -C $(TOOLS_DIR) ./cmd/doc-counts
+	go run -C $(TOOLS_DIR) ./cmd/doc-counts -check
+	go run -C $(TOOLS_DIR) ./cmd/validation-census -check
+	go test -C $(TOOLS_DIR) -count=1 ./census/doccounts ./census/validation ./referee/diff ./referee/reject
 	@echo "✓ Documentation counts and refereed figures are current"
 
 docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle figures, changelog fragments and the build-time census and test-suite figures

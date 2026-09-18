@@ -218,14 +218,14 @@ The test-suite figures above are counted from `go test -v` at the tag. The other
 repeat them (`README.md`, `docs/project/spec-compliance.md`, `docs/internals/architecture.md`)
 were typed in by hand at the tag and lagged it — last recounted at `074f9c4b7` (#245), they read
 889 conformance cases where the tag has 894. Since #291, on `develop` after the tag, they are
-generated: `cmd/doc-counts` counts the conformance cases, golden ASTs, golden traces, negative
+generated: `tools/cmd/doc-counts` counts the conformance cases, golden ASTs, golden traces, negative
 parser subtests, runtime and gRPC robustness cases and top-level `Test` functions from the tree
 the way the gates enumerate them (the conformance cases through `internal/fixtures`, which the
 runtime and gRPC conformance tests read too), `make docs-counts` writes them into marker blocks
-beside the refereed pilot figures, and `go run ./cmd/doc-counts -check` fails in CI when a block
+beside the refereed pilot figures, and `go run -C tools ./cmd/doc-counts -check` fails in CI when a block
 and the tree disagree, so the surfaces cannot drift from the gate table again. They have since
 left git altogether: the site build counts them into the compliance map's test inventory
-(`scripts/mkdocs_suite_figures.py` over `go run ./cmd/doc-counts -site-blocks`), the committed
+(`scripts/mkdocs_suite_figures.py` over `go run -C tools ./cmd/doc-counts -site-blocks`), the committed
 pages name what is counted without a figure, and a branch adding a test rewrites no shared line.
 The tests-and-subtests total of a run, which only a run can state, is no longer quoted anywhere. At
 `develop`'s head the blocks read 1013 conformance cases, 307 default and 80 per-policy trace
@@ -495,7 +495,7 @@ public callable declaration of the six packages, invokes each through the runtim
 representative model and records whether the value passed its check, which typed error refused
 it, or what the value got wrong; the verdicts are committed to
 `docs/project/analysis-library-census.json`, `make docs-counts` renders them as the table in
-`spec-compliance.md` with every refusal listed by name and error, and `go run ./cmd/doc-counts
+`spec-compliance.md` with every refusal listed by name and error, and `go run -C tools ./cmd/doc-counts
 -check` fails when the table and the file disagree. At `develop`'s head it reads 76 declarations,
 53 evaluated, 23 refused by name, 0 wrong: `SampledFunctions` 5 of 5, `TradeStudies` 6 of 7,
 `VectorFunctions` 30 of 39, `OccurrenceFunctions` 6 of 8, `StateSpaceRepresentation` 6 of 17
@@ -2152,7 +2152,7 @@ client's optional in-process mode, the embedded target) restrict it. The client 
 ## I5 — the conformance suite as a kernel contract
 
 `conformance/` is written as the contract between `sysml-grpc` and its clients, and that is the
-only direction its runner exercises: `cmd/conformance` builds `./cmd/sysml-grpc` (or takes
+only direction its runner exercises: `tools/cmd/conformance` builds `./cmd/sysml-grpc` (or takes
 `-binary`), starts the process itself and drives it over the three protocols. Nothing runs it
 against a service that is *not* this repository's Go binary, so a second implementation of
 `sysml.proto` — a kernel in another language behind the same clients — has no way to state how
@@ -2903,7 +2903,7 @@ an empty action end its performance. The decision is the release checklist's, re
   the others or anything below; **R4**'s Windows installer is proven by two tagged releases. The
   engineering item that sat beside them — the test-suite figures in `README.md` and
   `spec-compliance.md`, hand-typed and lagging the gate table — is closed by #291 on `develop`:
-  `cmd/doc-counts` generates and checks them as it does the pilot figures.
+  `tools/cmd/doc-counts` generates and checks them as it does the pilot figures.
 - **Track L.** L3–L6 landed (#830, #821, #818, #825/#861) and L7 in #292 on `develop` after the
   tag. Nothing remains in the track; its census moves with the runtime, adjudicated per change.
 - **Track N.** N2.1 (records and enums) first, since compiling an analysis case and the

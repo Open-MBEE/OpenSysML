@@ -1,4 +1,4 @@
-package main
+package validation
 
 import (
 	"bytes"
@@ -9,14 +9,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/baseline"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )
 
 // TestCensusIsCurrent is the gate in test form: the committed baseline, the
 // census document and the probes must agree, and the baseline must list what
 // the pinned jar contains whenever the jar is provisioned.
 func TestCensusIsCurrent(t *testing.T) {
-	root, err := moduleRoot()
+	root, err := repo.Root()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +30,7 @@ func TestCensusIsCurrent(t *testing.T) {
 // TestExtractionMatchesBaseline compares a fresh extraction with the committed
 // baseline when the jar is provisioned, so a stale baseline fails here too.
 func TestExtractionMatchesBaseline(t *testing.T) {
-	root, err := moduleRoot()
+	root, err := repo.Root()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,15 +87,15 @@ func TestRecordedDateFollowsContent(t *testing.T) {
 // baseline carrying an old date, reading the jar through a renamed link; it must
 // not change a byte, and the result must pass -check.
 func TestUpdateIsIdempotentAcrossDays(t *testing.T) {
-	repo, err := moduleRoot()
+	checkout, err := repo.Root()
 	if err != nil {
 		t.Fatal(err)
 	}
-	pin, err := baseline.ReadPin(repo)
+	pin, err := baseline.ReadPin(checkout)
 	if err != nil {
 		t.Fatal(err)
 	}
-	jar, present, err := options{}.jarPath(repo, pin)
+	jar, present, err := options{}.jarPath(checkout, pin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +104,7 @@ func TestUpdateIsIdempotentAcrossDays(t *testing.T) {
 	}
 	root := t.TempDir()
 	for _, rel := range []string{baseline.PinPath, baselinePath} {
-		content, err := os.ReadFile(filepath.Join(repo, filepath.FromSlash(rel)))
+		content, err := os.ReadFile(filepath.Join(checkout, filepath.FromSlash(rel)))
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -8,7 +8,7 @@ import (
 )
 
 func TestReadPinResolvesTheRepositorysPin(t *testing.T) {
-	pin, err := ReadPin("../..")
+	pin, err := ReadPin("../../..")
 	if err != nil {
 		t.Fatal(err)
 	}
