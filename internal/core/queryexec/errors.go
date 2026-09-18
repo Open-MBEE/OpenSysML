@@ -66,6 +66,8 @@ const (
 	ErrorInvalidInterval ErrorKind = "invalid-interval"
 	// ErrorTraceTruncated: Events reaches back to records the session's bounded trace has dropped.
 	ErrorTraceTruncated ErrorKind = "trace-truncated"
+	// ErrorUndeclaredRow: a RelatedColumn was to traverse from a row no element declares.
+	ErrorUndeclaredRow ErrorKind = "undeclared-row"
 )
 
 // Error is a typed query-execution failure with plan provenance.
@@ -86,6 +88,14 @@ type Error struct {
 
 func (e *Error) Unwrap() error { return e.Cause }
 
+// column names the projected column an error arose in, when it did in one.
+func (e *Error) column() string {
+	if e.Property == "" {
+		return ""
+	}
+	return " column " + e.Property
+}
+
 func (e *Error) Error() string {
 	switch e.Kind {
 	case ErrorInvalidContext:
@@ -103,9 +113,9 @@ func (e *Error) Error() string {
 	case ErrorUnsupportedOperation:
 		return fmt.Sprintf("query %s operation %s is not executable in this engine version", e.Query, e.Operation)
 	case ErrorInvalidArgument:
-		return fmt.Sprintf("query %s operation %s has invalid argument %s", e.Query, e.Operation, e.Parameter)
+		return fmt.Sprintf("query %s operation %s%s has invalid argument %s", e.Query, e.Operation, e.column(), e.Parameter)
 	case ErrorInvalidOperator:
-		return fmt.Sprintf("query %s operation %s does not support %q", e.Query, e.Operation, e.Actual)
+		return fmt.Sprintf("query %s operation %s%s does not support %q", e.Query, e.Operation, e.column(), e.Actual)
 	case ErrorInvalidOrder:
 		if e.Expected != "" || e.Actual != "" {
 			return fmt.Sprintf("query %s cannot order property %s across incommensurable units %s and %s", e.Query, e.Property, e.Expected, e.Actual)
@@ -116,7 +126,7 @@ func (e *Error) Error() string {
 	case ErrorUnknownClassification:
 		return fmt.Sprintf("query %s references unknown classification %s", e.Query, e.Actual)
 	case ErrorUnknownRelationship:
-		return fmt.Sprintf("query %s does not support relationship kind %q", e.Query, e.Actual)
+		return fmt.Sprintf("query %s%s does not support relationship kind %q", e.Query, e.column(), e.Actual)
 	case ErrorUnevaluableFeature:
 		message := fmt.Sprintf("query %s cannot evaluate feature %s", e.Query, e.Property)
 		if e.Target != "" {
@@ -135,6 +145,9 @@ func (e *Error) Error() string {
 	case ErrorInvocationBudget:
 		return fmt.Sprintf("query %s exceeded the invocation budget invoking %s", e.Query, e.Target)
 	case ErrorVisitBudget:
+		if e.Property != "" {
+			return fmt.Sprintf("query %s exceeded its visit budget in column %s", e.Query, e.Property)
+		}
 		return fmt.Sprintf("query %s exceeded its visit budget", e.Query)
 	case ErrorNoRuntime:
 		return fmt.Sprintf("query %s operation %s reads a session's objects, and this execution has no session: instantiate an object first", e.Query, e.Operation)
@@ -150,6 +163,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s operation %s applies to model elements, not to state %s", e.Query, e.Operation, e.Target)
 	case ErrorEventRow:
 		return fmt.Sprintf("query %s operation %s applies to model elements, not to event %s", e.Query, e.Operation, e.Target)
+	case ErrorUndeclaredRow:
+		return fmt.Sprintf("query %s operation %s%s traverses from %s, which no element declares", e.Query, e.Operation, e.column(), e.Target)
 	case ErrorNotHeld:
 		return fmt.Sprintf("query %s operation %s reads the objects of %s, and the session holds none", e.Query, e.Operation, e.Target)
 	case ErrorNoStateMachine:

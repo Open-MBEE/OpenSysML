@@ -62,9 +62,12 @@ sequences):
 | `WhereName` | Keep elements whose name passes a comparison |
 | `WhereFeature` | Keep elements whose attribute value passes a comparison |
 | `OrderBy` | Sort by a property, with explicit missing- and multiple-value policies |
-| `Project` | Turn elements into rows of named, typed columns |
+| `Project` | Turn elements into rows of named, typed columns — declared properties, computed `Column` expressions and `RelatedColumn` cells holding the elements a relationship reaches from each row, their count or whether there are any |
 | `Objects` | The objects the session holds that are of a type, each under its path; every other operation accepts an object where it accepts an element and reads what the object holds ([Objects the session holds](query-cookbook.md#objects-the-session-holds)) |
 | `Verdicts` | One row per assertion checked on the object behind each source row — its verdict, path, kind and reason ([Which constraints and requirements hold](query-cookbook.md#which-constraints-and-requirements-hold)) |
+| `WhereRelated` | Keep elements by whether at least one element is reachable over a named relationship kind (`exists = true`, the default) or none is (`exists = false`) — the coverage filter behind "which requirements does nothing satisfy" ([Coverage](query-cookbook.md#coverage)) |
+| `Except` | The rows of one sequence not present in another, once each in order |
+| `Union` | One sequence followed by the rows of another not already present, each once |
 
 Document queries are one of several query surfaces the project has; [Which
 query is which](query-kinds.md) draws the boundaries between them.

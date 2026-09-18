@@ -424,4 +424,8 @@ A few details worth pausing on:
   notation.
 - **The traversal queries feed tables.** `SatisfyingParts` and
   `VerifyingElements` are the cookbook's satisfy/verify recipes with a
-  `Project` on the end, which is all a traceability table is.
+  `Project` on the end — one table per requirement, with `req` bound. A
+  single matrix over every requirement is a `Project` whose `columns` are
+  `RelatedColumn(...)` entries; see the cookbook's
+  [traceability matrix](query-cookbook.md#traceability-matrix) recipe and
+  the [traceability example](examples/traceability.md) built on it.
