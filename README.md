@@ -307,7 +307,7 @@ The project is under active development, with the core infrastructure operationa
 | Public Go API (`client/opensysml`) | ✅ Complete for its v1 scope: parse, diagnostics, symbols, evaluation, instantiation and capability negotiation, answered in process or over Connect, with the edit API, conversion, verification, behaviour execution and Query out of scope ([client/opensysml/README.md](client/opensysml/README.md)) |
 | Python client library | ✅ Complete for the RPCs that exist (connection lifecycle, parse/symbols/eval/instantiate/execute, constraint/requirement/satisfaction/calc verification, conversion, edits, Query, IPython hooks, DataFrame) |
 | Rust client library | 🚧 Blocking v1 client for parse, diagnostics, symbols, evaluation and instantiation; see the [Rust client README](clients/rust/README.md) |
-| Java client library | ✅ Complete for its v1 scope, with the remaining scope stated explicitly: connection lifecycle, parse/symbols/eval/instantiate and capability negotiation, with the edit API, conversion, verification, behaviour execution and Query out of scope. Connect protocol over the JDK's own HTTP client, so no gRPC or Netty reaches a host application ([clients/java/README.md](clients/java/README.md)) |
+| Java client library | ✅ Connection lifecycle, parse/symbols/eval/instantiate and capability negotiation, plus typed immutable results for behaviour execution and exploration, verification and validation, calculation, analysis with engine selection, and structured and OSLC query; the edit API, multi-document parsing, conversion, sweeps and the document RPCs are stated as out of scope. Connect protocol over the JDK's own HTTP client, so no gRPC or Netty reaches a host application ([clients/java/README.md](clients/java/README.md)) |
 | Node/TypeScript client library | ✅ Complete for the same v1 scope, in Node and the browser, over the Connect protocol with protobuf bodies and no native addon; values arrive as discriminated unions ([clients/node/README.md](clients/node/README.md)) |
 
 <!-- doc-counts:begin refereed-figures -->
@@ -548,9 +548,10 @@ how to choose; [guide chapter 9](docs/guide/09-clients.md) works through each on
 | Java, `org.openmbee:opensysml-client` | Connect, over the JDK's own HTTP client | not yet | [Java API](docs/reference/java-api.md) |
 | Rust, `opensysml` | Connect, blocking, no async runtime | not yet | [Rust API](docs/reference/rust-api.md) |
 
-The Go and Python clients cover every RPC the service serves; Node, Java and Rust cover a v1
+The Go and Python clients cover every RPC the service serves; Node and Rust cover a v1
 subset — connection lifecycle, capability negotiation, parsing, diagnostics, symbol lookup,
-evaluation and instantiation — enumerated in the client libraries page.
+evaluation and instantiation — and Java adds execution, verification, calculation, analysis and
+query to it, as enumerated in the client libraries page.
 
 ### Python
 
