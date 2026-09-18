@@ -5,7 +5,7 @@ modules behind them. For a task-oriented walkthrough, see [guide chapter 9](../g
 
 ## Latency
 
-Measured on this repo's benchmark (`clients/python/scripts/bench_latency.py`, 8-core
+Measured on this repo's benchmark (`client/python/scripts/bench_latency.py`, 8-core
 x86-64 Linux, loopback, 20 part definitions / 808 bytes, 200 iterations, warm
 `Connection`):
 
@@ -19,7 +19,7 @@ x86-64 Linux, loopback, 20 part definitions / 808 bytes, 200 iterations, warm
 | `convert` ttl → sysml | 1.2 ms | 1.5 ms | 2.7 ms |
 
 Reproduce with `make build-grpc && bin/sysml-grpc` and
-`python clients/python/scripts/bench_latency.py --iterations 200`.
+`python client/python/scripts/bench_latency.py --iterations 200`.
 
 The shape matters more than the absolute numbers: a parse costs two orders of
 magnitude more than a query on the parsed result, because it loads the standard
@@ -142,7 +142,7 @@ a property that carries the annotation and performs the delegation, so the types
 and the code that implements them cannot drift apart, and there is one artifact to
 commit. Output is deterministic (definitions ordered by fully-qualified name, base
 classes first, and nothing environment-dependent written), so it can be committed
-and diffed; `clients/python/tests/golden/vehicle_types.py` is exactly that.
+and diffed; `client/python/tests/golden/vehicle_types.py` is exactly that.
 
 Generated classes are views, not copies: attribute access goes to the underlying
 feature value on every read, and Tier 1 behaviour is preserved. A feature value that
@@ -260,16 +260,16 @@ per call.
 ## Development
 
 ```bash
-pytest clients/python/tests/                    # unit tests
-pytest -m integration clients/python/tests/     # needs a running sysml-grpc
+pytest client/python/tests/                    # unit tests
+pytest -m integration client/python/tests/     # needs a running sysml-grpc
 
 # Tests needing a service skip without one; CI sets this so an absent service
 # fails the run instead of quietly passing.
-OPENSYSML_REQUIRE_SERVICE=1 pytest clients/python/tests/
+OPENSYSML_REQUIRE_SERVICE=1 pytest client/python/tests/
 
 # Regenerate the committed golden generated file (needs a running sysml-grpc)
 python -m opensysml.generate internal/repl/testdata/vehicle_package.sysml \
-    -o clients/python/tests/golden/vehicle_types.py
+    -o client/python/tests/golden/vehicle_types.py
 
 # Regenerate protobuf bindings (from the repository root)
 pip install grpcio-tools

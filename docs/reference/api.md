@@ -819,7 +819,7 @@ can filter a model OpenSysML parsed. The standard's schema is authoritative:
 
 **Implementation:** `internal/grpc/query.go` (`Service.Query`), reported from
 `GetServerInfo` as the `query` capability. Python: `model.query(...)`
-(`clients/python/opensysml/query.py`). The JSON a hand-written client sends and
+(`client/python/opensysml/query.py`). The JSON a hand-written client sends and
 receives for this call is shown, captured, on
 [the wire contract](wire-contract.md#query).
 
@@ -997,7 +997,7 @@ rpc RenderDocument(RenderDocumentRequest) returns (RenderDocumentResponse);
 `Service.RenderDocument`), reported from `GetServerInfo` as the
 `document_query` and `render_document` capabilities. Python:
 `model.run_document_query(...)` and `model.render_document(...)`
-(`clients/python/opensysml/document.py`). The JSON shape of a binding and of the
+(`client/python/opensysml/document.py`). The JSON shape of a binding and of the
 result table, captured, is on [the wire contract](wire-contract.md#rundocumentquery).
 
 Both name a loaded model by its hash and a definition by qualified name, and

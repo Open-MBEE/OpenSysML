@@ -5,14 +5,14 @@ where its v1 surface stops. To choose between the clients, see
 [client libraries](clients.md); for a task-oriented walkthrough, see
 [guide chapter 9](../guide/09-clients.md#from-node-or-a-browser). The client's own
 notes on packaging and its conformance run are in
-[clients/node/README.md](../../clients/node/README.md).
+[client/node/README.md](../../client/node/README.md).
 
 ```bash
 npm install @opensysml/client        # once the first release is published
 ```
 
 Nothing is published yet, so a checkout builds it: `npm install && npm run build`
-in `clients/node`.
+in `client/node`.
 
 ## The two entry points
 
@@ -179,7 +179,7 @@ cache when nothing above resolved, verifying it against the digests pinned in th
 published `release-digests.json`, else against the release's sigstore-signed
 `SHA256SUMS.txt`; a release neither pins nor signs is refused unless
 `$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD` accepts same-origin trust explicitly.
-[clients/node/README.md](../../clients/node/README.md) documents the download and
+[client/node/README.md](../../client/node/README.md) documents the download and
 its trust model in full.
 
 A private child is started with `-port 0 -health-port 0 -report-address

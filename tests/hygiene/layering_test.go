@@ -66,7 +66,6 @@ var packageLayer = map[string]string{
 	"internal/core/view":      "semantic IR",
 
 	"internal/core/passes": "validation",
-	"internal/core/rename": "validation",
 	"internal/core/edit":   "validation",
 
 	"internal/core/runtime":             "execution",
