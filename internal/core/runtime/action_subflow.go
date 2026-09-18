@@ -206,23 +206,32 @@ func (e *ActionExecutor) stepSubflow(perf *actionFrame) (moved, performed bool, 
 	order := e.beginStepOrder()
 	endWrites := e.beginStepWrites(e.stepCount + 1)
 	eligible := func(t Token) bool { return t.inFlowOf(perf) }
-	if e.ctx.scheduling().oneMove() {
+	oneMove := e.ctx.scheduling().oneMove()
+	if oneMove {
 		// Paused work that would only pause again is no alternative to pick.
 		eligible = func(t Token) bool { return t.inFlowOf(perf) && (t.body == nil || t.resumable()) }
 	}
-	schedule := e.scheduleTokens(&order, eligible)
+	candidates := e.stepCandidates(&order, eligible)
+	schedule := e.ctx.scheduling().scheduleStep(candidates)
+	var acted []int64
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		i := e.tokenIndex(id)
 		if i < 0 || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {
 			schedule.Acted(id, false)
 			continue
 		}
-		var acted bool
-		acted, err = e.stepTokenNoting(i, &order)
-		schedule.Acted(id, acted)
+		var did bool
+		did, err = e.stepTokenNoting(i, &order)
+		if did {
+			acted = append(acted, id)
+		}
+		schedule.Acted(id, did)
 		if err != nil {
 			break
 		}
+	}
+	if oneMove && candidates.leftReady(acted) {
+		e.leftStanding = true
 	}
 	endWrites()
 	e.noteTokenOrder(e.stepCount+1, order, schedule)

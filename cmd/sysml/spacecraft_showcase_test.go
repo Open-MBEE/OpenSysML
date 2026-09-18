@@ -32,6 +32,7 @@ func TestEngineCheckWitnessesTheSpacecraftRaceAndReplaysEach(t *testing.T) {
 	wantReport(t, got, 1,
 		"divergent: this.battery ends as 39 or 41",
 		"divergent: this.data ends as 52224 or 53248",
+		"; not enumerated: do round before dispatch)",
 		"standing: sensitive (witnessed:", "replayed)")
 	rejectReport(t, got, "disagrees with the witness", "not covered")
 
