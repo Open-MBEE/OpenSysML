@@ -242,22 +242,66 @@ func TestCheckStopsWhenCancelled(t *testing.T) {
 	}
 }
 
-// A check stopped while its start's own draws are being enumerated reports the stop, not
-// a report over the starts it never began: the machine here draws its entry order at the
-// start and rests at once, so no search ever reads the stop.
+// A check stopped while its start's own draws are being enumerated begins no further start
+// and reports the stop: the machine here draws its entry order at the start and rests at
+// once, so no search ever reads the stop.
 func TestCheckStopsWhenCancelledAmongStarts(t *testing.T) {
 	m := parseExploreModel(t, `package test {
-		state machine parallel {
-			state left { entry; then l; state l; }
-			state right { entry; then r; state r; }
+		state def Region { entry; then r1; state r1; }
+		state machine {
+			entry; then work;
+			state work parallel {
+				state a : Region;
+				state b : Region;
+			}
 		}
 	}`)
 	stop, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := Check(stop, m.fresh, starterOf(m.state(t, "machine")), CheckBudget{}, reduced(), nil)
+	starts := 0
+	fresh := func() (*Context, error) {
+		starts++
+		return m.fresh()
+	}
+	_, err := Check(stop, fresh, invocationOf(nil, []*symbols.Symbol{m.state(t, "machine")}), CheckBudget{}, reduced(), nil)
 	var stopped *CheckStopped
 	if !errors.As(err, &stopped) || !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want CheckStopped wrapping context.Canceled", err)
+	}
+	if starts != 0 {
+		t.Fatalf("starts = %d, want none begun after the stop", starts)
+	}
+}
+
+// A stop raised while the last start is running, past the poll that opened it, is still
+// reported rather than swallowed by the report over the starts that did finish.
+func TestCheckStopsWhenCancelledDuringLastStart(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		state def Region { entry; then r1; state r1; }
+		state machine {
+			entry; then work;
+			state work parallel {
+				state a : Region;
+				state b : Region;
+			}
+		}
+	}`)
+	stop, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	starts := 0
+	fresh := func() (*Context, error) {
+		if starts++; starts == 2 {
+			cancel()
+		}
+		return m.fresh()
+	}
+	_, err := Check(stop, fresh, invocationOf(nil, []*symbols.Symbol{m.state(t, "machine")}), CheckBudget{}, reduced(), nil)
+	var stopped *CheckStopped
+	if !errors.As(err, &stopped) || !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v, want CheckStopped wrapping context.Canceled", err)
+	}
+	if starts != 2 {
+		t.Fatalf("starts = %d, want the two entry orders", starts)
 	}
 }
 

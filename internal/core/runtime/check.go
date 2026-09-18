@@ -262,6 +262,9 @@ func Check(stop context.Context, fresh func() (*Context, error), start Starter, 
 		}
 		starts = append(starts, more...)
 	}
+	if err := stop.Err(); err != nil {
+		return nil, c.stopped(err)
+	}
 	if err := c.divergeReached(); err != nil {
 		return nil, err
 	}
