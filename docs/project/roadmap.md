@@ -2455,7 +2455,7 @@ under every schedule the explorer reaches and requires the values left in its ou
 to be the reference's. `cmd/fuml-referee` files 55 activities as 15 `pass` / 0 `fail` / 36
 `not-expressible` / 4 `differs-by-design` (an action the reference fires once per object token),
 pinned in `docs/project/fuml-referee-baseline.json` and checked in CI by
-`go run ./cmd/fuml-referee -check`; [fuml-referee.md](fuml-referee.md) records the translation
+`go run -C tools ./cmd/fuml-referee -check`; [fuml-referee.md](fuml-referee.md) records the translation
 rules and every row. What remains is the `not-expressible` bucket, which is the emitter's, not
 the runtime's: object creation, structural-feature actions, accept-event actions and active
 classes have no translation yet, and each one added moves rows into `pass` or `fail`.

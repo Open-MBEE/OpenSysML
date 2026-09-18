@@ -17,9 +17,9 @@ env:
   # Same for the three pinned OMG pilot corpora, which are downloaded below and
   # gated by internal/core/model/pilot_corpora_test.go.
   OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
-  # Same for the pinned OMG PSSM test suite, gated by internal/pssm and cmd/pssm-referee.
+  # Same for the pinned OMG PSSM test suite, gated by tools/referee/pssm and tools/cmd/pssm-referee.
   OPENSYSML_REQUIRE_PSSM_SUITE: "1"
-  # Same for the pinned fUML reference-implementation suite, gated by internal/fuml.
+  # Same for the pinned fUML reference-implementation suite, gated by tools/referee/fuml.
   OPENSYSML_REQUIRE_FUML_SUITE: "1"
   # Same for the pilot's XMI of the standard library, downloaded below and
   # compared against by internal/core/identity (TestPilotLibraryXMI).
@@ -370,7 +370,7 @@ jobs:
       # The pilot corpora gate on its own, for the same reason: its per-root
       # verdict lines are the reviewable output, and a skip must not pass.
       # It gates our own diagnostics only; the comparison against the reference
-      # implementation (cmd/pilot-diff) needs Java validators and is not run here.
+      # implementation (tools/referee/diff) needs Java validators and is not run here.
       - name: Run pilot corpora gate
         run: |
           set -o pipefail
@@ -397,7 +397,7 @@ jobs:
       - name: Run PSSM suite gates
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/pssm -run 'TestSuiteRead|TestSuiteClassification|TestEmitSuite' | tee pssm-gate.log
+          go test -C tools -count=1 -v ./referee/pssm -run 'TestSuiteRead|TestSuiteClassification|TestEmitSuite' | tee pssm-gate.log
           if grep -qE '^\s*--- SKIP' pssm-gate.log; then
             echo "error: the PSSM suite gate skipped" >&2
             exit 1
@@ -405,13 +405,13 @@ jobs:
 
       # Bucket counts only, never pass/fail; see docs/project/pssm-referee.md.
       - name: PSSM referee reproduces its baseline counts
-        run: go run ./cmd/pssm-referee -check
+        run: go run -C tools ./cmd/pssm-referee -check
 
       # The fUML reader and classifier over the pinned models on their own, likewise.
       - name: Run fUML suite gates
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/fuml -run 'TestSuite' | tee fuml-gate.log
+          go test -C tools -count=1 -v ./referee/fuml -run 'TestSuite' | tee fuml-gate.log
           if grep -qE '^\s*--- SKIP' fuml-gate.log; then
             echo "error: the fUML suite gate skipped" >&2
             exit 1
@@ -419,7 +419,7 @@ jobs:
 
       # Bucket counts only, never pass/fail; see docs/project/fuml-referee.md.
       - name: fUML referee reproduces its baseline counts
-        run: go run ./cmd/fuml-referee -check
+        run: go run -C tools ./cmd/fuml-referee -check
 
       # The RDF round-trip ratchet over every example on its own, so its
       # per-verdict counts are legible in the log and a skip must not pass.

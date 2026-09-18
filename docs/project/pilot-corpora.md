@@ -47,7 +47,7 @@ The two *policies* over that mechanism deliberately differ:
   recorded. `-update-training` refuses to write a per-file count, so the assertion cannot be
   ratcheted into a baseline by a future PR with a plausible-sounding justification.
 - **The other three ratchet.** They are not clean under our implementation (109, 10 and 72 files'
-  worth of diagnostics the reference does not report, per `cmd/pilot-diff`), so there is nothing to
+  worth of diagnostics the reference does not report, per `tools/referee/diff`), so there is nothing to
   assert yet; the per-file counts are pinned instead, and every movement in either direction has to
   be adjudicated.
 
@@ -68,7 +68,7 @@ un-gate the other.
   measured. Many of them are diagnostics the reference implementation does not report; the starting
   baseline is where the implementation actually is, not where it should be.
 - **It is not a comparison against the reference implementation.** That is
-  [pilot-differential.md](pilot-differential.md) (`go run ./cmd/pilot-diff`), which needs the pinned
+  [pilot-differential.md](pilot-differential.md) (`go run -C tools ./cmd/pilot-diff`), which needs the pinned
   Java validators, is advisory, and is deliberately not wired into CI. This gate needs no validator:
   it is pure Go and runs in seconds, which is why it can gate every PR.
 - **It does not adjudicate.** Like the [training-examples](training-examples.md) gate, the
@@ -82,8 +82,8 @@ un-gate the other.
 - Every file of a root is opened into one workspace **before** any diagnostic is read, because the
   corpora import across files: diagnosing a file while later ones are unopened would measure the
   alphabetical order of the corpus rather than the implementation. This is what the training gate
-  and `cmd/pilot-diff` both do.
-- Each root is loaded as one batch per language, mirroring `cmd/pilot-diff`, where a KerML file and
+  and `tools/referee/diff` both do.
+- Each root is loaded as one batch per language, mirroring `tools/referee/diff`, where a KerML file and
   a SysML file do not share a resource set.
 - Diagnostics of **every** severity are counted, not errors alone, so a warning that appears or
   disappears is a movement the gate reports. Only the count is recorded, so a diagnostic that merely

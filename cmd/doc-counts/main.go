@@ -1,7 +1,7 @@
 // Command doc-counts rewrites the documentation lines that are a function of the
 // committed oracle baselines, of the committed analysis-library census or of
 // known_failures.txt, so no contributor types them. It reads them through
-// internal/doccounts, which the guard in cmd/pilot-diff reads too, and rewrites
+// internal/doccounts, which the guard in tools/referee/diff reads too, and rewrites
 // nothing else in the files it touches. The figures that move with every test and
 // fixture — the compliance map's row census and the test-suite inventory — are
 // not written anywhere: the documentation build counts them, and -check refuses a

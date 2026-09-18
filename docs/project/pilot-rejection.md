@@ -4,7 +4,7 @@ Every other oracle in this project is one-directional. The
 [differential](pilot-differential.md) compares diagnostics over the OMG corpora — models written
 to *demonstrate* the notation, so almost all of them are valid — and therefore measures notation
 the reference accepts and we reject. Nothing in it tests the opposite direction: does OpenSysML
-**reject** what the reference rejects? `cmd/pilot-reject` answers that with a hand-written
+**reject** what the reference rejects? `tools/referee/reject` answers that with a hand-written
 negative corpus, validated by both implementations. A case the pinned pilot rejects and we accept
 is a **permissiveness gap** — the finding this oracle exists to surface.
 
@@ -40,7 +40,7 @@ typing) are refereed under the same conditions our workspace validates under.
 
 ## Corpus derivation
 
-The corpus is committed under `cmd/pilot-reject/testdata/negative/`. Every file's first line is a
+The corpus is committed under `tools/referee/reject/testdata/negative/`. Every file's first line is a
 mandatory header — `// Invalid: <rule> (<citation>).` — naming the one rule the case violates and
 where that rule comes from; the harness refuses a corpus file without it. Cases were derived
 systematically from four sources, one subdirectory each:
@@ -126,9 +126,9 @@ testable. The pilot's verdict on each case is externally refereed; the choice of
 
 ```bash
 ./scripts/download-pilot-reject-validators.sh   # once; needs Java 17+ and Maven
-go run ./cmd/pilot-reject                       # -conformance auto, the committed baseline
-go run ./cmd/pilot-reject -conformance default  # every case judged as the CLI judges by default
-go run ./cmd/pilot-reject -conformance strict   # every case judged as conforming SysML v2
+go run -C tools ./cmd/pilot-reject                       # -conformance auto, the committed baseline
+go run -C tools ./cmd/pilot-reject -conformance default  # every case judged as the CLI judges by default
+go run -C tools ./cmd/pilot-reject -conformance strict   # every case judged as conforming SysML v2
 ```
 
 `-conformance` decides which question our side is asked. `auto` asks the `extensions/` cases —
@@ -548,7 +548,7 @@ parser's body policy, the third the namespace member dispatch that rejects a `th
 
 ## Guard
 
-`TestPilotRejectionDocumentCountsMatchBaseline` (in `cmd/pilot-reject`) re-derives every count in
+`TestPilotRejectionDocumentCountsMatchBaseline` (in `tools/referee/reject`) re-derives every count in
 this document after applying the three approved closures to
 [pilot-rejection-baseline.json](pilot-rejection-baseline.json). The README and skill remain
 checked against that committed baseline until its separate refresh. The guard reads only committed
@@ -566,11 +566,11 @@ both and what each of them cannot catch.
 
 The rejection census is reported twice, as published and with the [declared
 errata](errata-overlay.md) applied. Every case here is one we wrote ourselves, so no declared
-correction lies under `cmd/pilot-reject/testdata/negative` and the two figures coincide — stated as
+correction lies under `tools/referee/reject/testdata/negative` and the two figures coincide — stated as
 such rather than left to look like a measurement:
 
 ```
-no declared correction lies under cmd/pilot-reject/testdata/negative, so the errata-applied
+no declared correction lies under tools/referee/reject/testdata/negative, so the errata-applied
 corpus is byte-identical to the published one and both figures coincide
 ```
 

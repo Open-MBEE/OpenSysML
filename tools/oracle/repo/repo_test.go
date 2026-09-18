@@ -39,6 +39,31 @@ func TestRootFromRejectsATreeWithoutTheModule(t *testing.T) {
 	}
 }
 
+// TestChooseAnchorsARelativeRepositoryAtTheRoot: from inside the tools module,
+// `-repo .` is the product repository and `-repo ../x` its sibling, never tools/.
+func TestChooseAnchorsARelativeRepositoryAtTheRoot(t *testing.T) {
+	root, err := Root()
+	if err != nil {
+		t.Fatal(err)
+	}
+	abs := filepath.Join(string(filepath.Separator), "elsewhere", "checkout")
+	cases := map[string]string{
+		"":           root,
+		".":          root,
+		"../sibling": filepath.Join(filepath.Dir(root), "sibling"),
+		abs:          abs,
+	}
+	for given, want := range cases {
+		got, err := Choose(given)
+		if err != nil {
+			t.Fatalf("Choose(%q): %v", given, err)
+		}
+		if got != want {
+			t.Errorf("Choose(%q) = %q, want %q", given, got, want)
+		}
+	}
+}
+
 func TestNeedsRootForAnyEmptyOrRelativePath(t *testing.T) {
 	abs := filepath.Join(string(filepath.Separator), "elsewhere", "out")
 	if NeedsRoot(abs, abs) {

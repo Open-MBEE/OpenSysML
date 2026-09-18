@@ -405,25 +405,25 @@ package OpenSysMLSurfaces {
     }
 
     #Oracle part def RejectionOracle :> ConformanceOracle {
-        attribute :>> goPackage = "cmd/pilot-reject";
+        attribute :>> goPackage = "tools/referee/reject";
         attribute :>> reference = "pilot validator";
         attribute :>> baseline = "docs/project/pilot-rejection-baseline.json";
     }
 
     #Oracle part def DifferentialOracle :> ConformanceOracle {
-        attribute :>> goPackage = "cmd/pilot-diff";
+        attribute :>> goPackage = "tools/referee/diff";
         attribute :>> reference = "pilot validator";
         attribute :>> baseline = "docs/project/pilot-differential-baseline.json";
     }
 
     #Oracle part def XpectOracle :> ConformanceOracle {
-        attribute :>> goPackage = "cmd/pilot-xpect";
+        attribute :>> goPackage = "tools/referee/xpect";
         attribute :>> reference = "pilot Xpect suites";
         attribute :>> baseline = "docs/project/pilot-xpect-baseline.json";
     }
 
     #Oracle part def ExecutionReferee :> ConformanceOracle {
-        attribute :>> goPackage = "cmd/pilot-exec-diff";
+        attribute :>> goPackage = "tools/referee/exec";
         attribute :>> reference = "pilot expression evaluator";
         attribute :>> baseline = "docs/project/pilot-execution-referee.md";
     }
@@ -466,7 +466,7 @@ package OpenSysMLSurfaces {
     }
 
     part def Errata :> CodeUnit {
-        attribute :>> goPackage = "internal/errata, internal/core/libs/errata";
+        attribute :>> goPackage = "tools/oracle/errata, internal/core/libs/errata";
         attribute overlaysPublishedMaterial : Boolean = true;
     }
 

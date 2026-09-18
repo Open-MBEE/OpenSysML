@@ -35,7 +35,7 @@ func TestStrictConformanceDecidesTheExitStatus(t *testing.T) {
 // nonstandard-notation warning by default and an error under -strict.
 func TestStateBodyExtensionsAreReportedByDefault(t *testing.T) {
 	binary := buildCLI(t)
-	const corpus = "../pilot-reject/testdata/negative/extensions/"
+	const corpus = "../../tools/referee/reject/testdata/negative/extensions/"
 	for _, tc := range []struct{ file, notation string }{
 		{"x02-choice-pseudostate.sysml", "`choice <name>;`"},
 		{"x03-junction-pseudostate.sysml", "`junction <name>;`"},

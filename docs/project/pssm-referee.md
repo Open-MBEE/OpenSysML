@@ -5,7 +5,7 @@
 > defines each one; this record cites them so a test's verdict can be read against the row it
 > reports on. Test names such as *Deferred 004 A* are the suite's own.
 
-`cmd/pssm-referee` runs the OMG *Precise Semantics of UML State Machines* (PSSM) test suite,
+`tools/cmd/pssm-referee` runs the OMG *Precise Semantics of UML State Machines* (PSSM) test suite,
 translated by rule into SysML v2 textual notation, against this runtime, and files every test in
 one of four buckets. It is advisory and opt-in: CI compares the committed **bucket counts**,
 never a pass/fail verdict, and a movement in any count is adjudicated in the change that moves
@@ -47,7 +47,7 @@ caller names. This is open decision 6 of the alignment note, taken as its lean.
 
 ## Reading and classifying
 
-`internal/pssm` reads the suite's UML subset — state machines, regions, vertices of every kind
+`tools/referee/pssm` reads the suite's UML subset — state machines, regions, vertices of every kind
 (states, initial, final, junction, choice, fork, join, shallow and deep history, entry and exit
 points, terminate), transitions with their kind, triggers, guards and effects, signal and call
 events, the opaque and activity behaviors whose bodies are `trace("…")` calls, the `Tester` and
@@ -97,7 +97,7 @@ each is listed with its reason in the note under
 
 ## Translating
 
-The emitter (`internal/pssm/emit.go`) produces one in-memory SysML v2 model per expressible
+The emitter (`tools/referee/pssm/emit.go`) produces one in-memory SysML v2 model per expressible
 test, following the note's table and its worked example:
 
 - The state machine becomes a state usage `M` in a package named for the test, with a `String`
@@ -142,7 +142,7 @@ by the runtime's budgets and their environment overrides (`OPENSYSML_MAX_STEPS` 
 the `sysml` command honors), except that the step budget defaults to 100 000 rather than the
 runtime's ten million: a translated test that needs more is looping, and the smaller bound
 reports the runaway in a second rather than minutes, and that the exploration runs 4096
-linearizations rather than the runtime's default 1024 (`internal/pssm/run.go:DefaultBudget`):
+linearizations rather than the runtime's default 1024 (`tools/referee/pssm/run.go:DefaultBudget`):
 the most a test draws once region entry, exit and firing units are choice points is
 *Event 016 B*'s 1152 linearizations (three firings across nested orthogonal regions), past the
 default, and a test that exhausts the budget fails rather than reports what it reached.
@@ -157,7 +157,7 @@ default, and a test that exhausts the budget fails rather than reports what it r
 | `pass` | the test is expressible and the reachable set equals the admitted set |
 | `fail` | the test is expressible and the sets differ, or the run errored or exhausted its budget; the reason names every extra and missing trace or the error |
 | `not-expressible` | the classifier found a construct with no spelling or no translation; the reason names it |
-| `differs-by-design` | the test would be a `fail`, **and** the committed table `internal/pssm/rows.go:TestRows` maps it to a note row whose verdict is *differs because v2 differs* |
+| `differs-by-design` | the test would be a `fail`, **and** the committed table `tools/referee/pssm/rows.go:TestRows` maps it to a note row whose verdict is *differs because v2 differs* |
 
 A fifth bucket, `terminate-gap`, held the three tests that reach a terminate pseudostate
 while the runtime parsed and lowered `terminate` without executing it. It is retired rather
@@ -190,10 +190,10 @@ the units of the firings one occurrence selects), `terminate` executing
 classification, the join incoming-effects fix, the junction branch-choice fix (finding 8) and
 the segment-effect fix (finding 10) described below, and with every remaining failure
 attributed, as
-`docs/project/pssm-referee-baseline.json`; regenerate with `go run ./cmd/pssm-referee -update`,
+`docs/project/pssm-referee-baseline.json`; regenerate with `go run -C tools ./cmd/pssm-referee -update`,
 check with `-check`. The counts are the gate; the rows are for whoever adjudicates a moved count.
 The figures below are as measured when this record was last updated and are not the current
-baseline — `go run ./cmd/pssm-referee` prints the current ones.
+baseline — `go run -C tools ./cmd/pssm-referee` prints the current ones.
 
 | Bucket | Tests |
 |---|---:|
@@ -678,12 +678,12 @@ site and to finding 11, the termination itself reaching an admitted trace in eac
 
 ```sh
 ./scripts/download-pssm-suite.sh                  # once; verifies the pinned SHA-256
-go run ./cmd/pssm-referee                         # summary and per-bucket rows
-go run ./cmd/pssm-referee -json                   # the full report, byte-identical for any -jobs
-go run ./cmd/pssm-referee -check                  # exit 1 unless the counts reproduce the baseline
-go run ./cmd/pssm-referee -filter "Deferred 004"  # one test's rows
-go run ./cmd/pssm-referee -keep build/pssm/models # write the translated models for debugging
-OPENSYSML_REQUIRE_PSSM_SUITE=1 go test ./internal/pssm/...   # the classifier and emitter gates
+go run -C tools ./cmd/pssm-referee                         # summary and per-bucket rows
+go run -C tools ./cmd/pssm-referee -json                   # the full report, byte-identical for any -jobs
+go run -C tools ./cmd/pssm-referee -check                  # exit 1 unless the counts reproduce the baseline
+go run -C tools ./cmd/pssm-referee -filter "Deferred 004"  # one test's rows
+go run -C tools ./cmd/pssm-referee -keep build/pssm/models # write the translated models for debugging
+OPENSYSML_REQUIRE_PSSM_SUITE=1 go test -C tools ./referee/pssm/...   # the classifier and emitter gates
 ```
 
 CI downloads the suite and runs `-check` with `OPENSYSML_REQUIRE_PSSM_SUITE=1`; on a checkout

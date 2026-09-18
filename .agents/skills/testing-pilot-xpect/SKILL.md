@@ -1,9 +1,9 @@
 ---
 name: testing-pilot-xpect
-description: How to verify the advisory pilot Xpect oracle harness (cmd/pilot-xpect + scripts/download-pilot-xpect.sh) end to end on Linux — provisioning the pinned .xt suites, reproducing the committed baseline, proving determinism under -jobs concurrency, spot-checking the oracle's truthfulness against an independent surface, and the adversarial mutations worth trying.
+description: How to verify the advisory pilot Xpect oracle harness (tools/referee/xpect + scripts/download-pilot-xpect.sh) end to end on Linux — provisioning the pinned .xt suites, reproducing the committed baseline, proving determinism under -jobs concurrency, spot-checking the oracle's truthfulness against an independent surface, and the adversarial mutations worth trying.
 ---
 
-# Testing the pilot Xpect oracle harness (`cmd/pilot-xpect`)
+# Testing the pilot Xpect oracle harness (`tools/referee/xpect`)
 
 Third sibling of `testing-pilot-differential` and `testing-grammar-coverage` (same pin
 `scripts/pilot-pin.sh`, same "committed artifact, testable by reproduction" shape, same
@@ -24,7 +24,7 @@ front end. Only `exportedObjects` (1 assertion) is still `not adjudicated`.
 ## The core check (~5 s per run)
 
 ```bash
-rm -rf build/pilot-xpect && go run ./cmd/pilot-xpect
+rm -rf build/pilot-xpect && go run -C tools ./cmd/pilot-xpect
 cmp build/pilot-xpect/pilot-xpect.json docs/project/pilot-xpect-baseline.json   # must be silent
 ```
 
@@ -64,7 +64,7 @@ visibility fixtures declare file-wide silence and the protected-import errors at
 implementation satisfies both.
 Read the live totals from the baseline rather than this paragraph; it is an anchor, not the check.
 
-**`wording-only` is a verdict, not a tolerance.** `cmd/pilot-xpect/wording.go` admits a row into
+**`wording-only` is a verdict, not a tolerance.** `tools/referee/xpect/wording.go` admits a row into
 agreement only when the declared and our message state the same rule about the same element; the
 caller has already matched severity and offset, and those two alone are never enough. Rows that keep
 the offset but change the rule stay `same-location` disagreements, so a jump in `agree` after
@@ -89,7 +89,7 @@ the same direction.
 
 **A wave that moves the verdicts must also rebaseline.** `cmp` against
 `docs/project/pilot-xpect-baseline.json` is the only thing that catches a missed rebaseline:
-`cmd/pilot-diff`'s `TestW6FXpectDocumentCountsMatchBaseline` only guards `pilot-xpect.md`
+`tools/referee/diff`'s `TestW6FXpectDocumentCountsMatchBaseline` only guards `pilot-xpect.md`
 *against the baseline JSON*, so a branch that leaves **both** stale still passes `go test ./...`.
 Always run the `cmp` explicitly and diff `jq .totals` of the two — this was a real finding on the
 wave-8F branch (harness emitted 564/762/0 while the committed baseline and doc still held
@@ -104,7 +104,7 @@ See `testing-pilot-differential/SKILL.md` for the complete mechanical-guard scop
 into one shared result slice). Test it explicitly, not just by repeating the default run:
 
 ```bash
-for j in 1 3 16 0; do go run ./cmd/pilot-xpect -jobs $j -out /tmp/xj$j; done
+for j in 1 3 16 0; do go run -C tools ./cmd/pilot-xpect -jobs $j -out /tmp/xj$j; done
 for j in 1 3 16 0; do cmp /tmp/xj$j/pilot-xpect.json docs/project/pilot-xpect-baseline.json; done
 ```
 
@@ -131,7 +131,7 @@ for j in 1 3 16 0; do cmp /tmp/xj$j/pilot-xpect.json docs/project/pilot-xpect-ba
 
 ## No-corpus degradation
 
-`mv` the corpus aside, then `go run ./cmd/pilot-xpect -out /tmp/nocorpus` → **exit 1**, stderr
+`mv` the corpus aside, then `go run -C tools ./cmd/pilot-xpect -out /tmp/nocorpus` → **exit 1**, stderr
 `skipping kerml: build/pilot-xpect-corpus/kerml is absent (run scripts/download-pilot-xpect.sh)`
 (same for sysml) then `pilot-xpect: no suite found under build/pilot-xpect-corpus; …`, and
 `/tmp/nocorpus` is never created. It must never exit 0 or report 100 % agreement.
@@ -172,7 +172,7 @@ sibling files:
   files its `XPECT_SETUP` `ResourceSet` names, insert `alias __pN for <name with '.' → '::'>;` into
   the *same namespace* as the anchor, and read `publishDiagnostics`: an in-scope name is clean, an
   out-of-scope one gives `unresolved reference: …`. `model.VisibleNames`/`ElementOnPath`/`FQNOf`/
-  `ScopeAt` have no caller outside `cmd/pilot-xpect/scope.go` (grep to re-confirm), so the LSP
+  `ScopeAt` have no caller outside `tools/referee/xpect/scope.go` (grep to re-confirm), so the LSP
   really is an independent surface.
 - **Caveat that will confuse you:** a scope "missing" name is missing from the *enumeration*, not
   from the resolver. `VisibleNames` truncates a path at the first repeated element, so e.g.
@@ -190,7 +190,7 @@ library file* arrive attached to the file under test. The harness drops them **b
 `source.Span` carries no file identity, so "outside the fixture's model text" (past EOF, or inside a
 note per `xtFile.Noted`) is the only signal. That filter can only make the comparison weaker, so
 audit it rather than trusting the count. The cheap, decisive probe is a throwaway
-`cmd/pilot-xpect/zz_tmp_*_test.go` (package `main`, delete it afterwards) that walks the corpus,
+`tools/referee/xpect/zz_tmp_*_test.go` (package `main`, delete it afterwards) that walks the corpus,
 calls `loadResourceSet` + `ws.Diagnostics(main)` exactly as `compareFile` does, and for each
 diagnostic where `foreignDiagnostic(f, off)` is true prints the offset, the fixture's own text at
 that span, and the text at the *same span* in every declared resource. Provenance is proven when the
@@ -213,7 +213,7 @@ must give `disagree … extra 1 (sysml::Class: NameEscape::zzz_extra)`.
 A wave that claims "N rows recovered" must also be shown to have given nothing back — a net total
 can hide an equal-sized swap, and on a stacked branch the committed baseline is often deliberately
 stale, so `cmp` against `docs/project/pilot-xpect-baseline.json` cannot serve as the check. Capture
-the pre-change run as a snapshot (`go run ./cmd/pilot-xpect -out build/pilot-xpect-before` on the
+the pre-change run as a snapshot (`go run -C tools ./cmd/pilot-xpect -out build/pilot-xpect-before` on the
 parent commit, or `git show <parent>:docs/project/pilot-xpect-baseline.json`) and diff the *keys* of
 the non-`agree` rows, keyed on `suite name + file path + row line + row kind`:
 
@@ -401,8 +401,8 @@ restore and re-`cmp` against the baseline afterwards.
 ## Test-suite liveness
 
 ```bash
-go test -count=1 ./cmd/pilot-xpect
-OPENSYSML_REQUIRE_PILOT_XPECT=1 go test -count=1 ./cmd/pilot-xpect
+go test -C tools -count=1 ./referee/xpect
+OPENSYSML_REQUIRE_PILOT_XPECT=1 go test -C tools -count=1 ./referee/xpect
 ```
 
 With the corpus moved aside the plain run **skips** (`ok`, 0.001 s) and the `REQUIRE` run **fails**
@@ -415,7 +415,7 @@ census in `w5c_census_test.go` is live two ways: perturb one pinned triple (e.g.
 
 ## Regression neighbour
 
-`go run ./cmd/pilot-diff` (~1m12s) must still print the headline the *committed* baseline holds —
+`go run -C tools ./cmd/pilot-diff` (~1m12s) must still print the headline the *committed* baseline holds —
 after the Legend of the Red Dragon example left for its own repository at the `2026-08` pin that is `378 file(s), 347 fully agreeing; 38 agreed diagnostic(s), 38
 only ours, 1185 only the pilot's`. Read the number out of
 `docs/project/pilot-differential-baseline.json` rather than trusting this line, since a landing fix
@@ -434,7 +434,7 @@ mkdir -p /tmp/osml-main/build
 ln -s "$PWD/build/pilot-xpect-corpus"       /tmp/osml-main/build/pilot-xpect-corpus
 ln -s "$PWD/examples/pilot-corpora"         /tmp/osml-main/examples/pilot-corpora
 ln -s "$PWD/examples/sysml-v2-training"     /tmp/osml-main/examples/sysml-v2-training
-(cd /tmp/osml-main && go run ./cmd/pilot-xpect -out /tmp/xpect-main)
+(cd /tmp/osml-main && go run -C tools ./cmd/pilot-xpect -out /tmp/xpect-main)
 ```
 
 The corpora are gitignored, so a fresh worktree has none — symlinking them in is what makes the
@@ -450,7 +450,7 @@ stale. Confirm the intent with the lead before filing it — measure and report 
 
 **Do not forget `make docs-counts`.** Adding rows to `docs/project/spec-compliance.md` without
 regenerating the three derived count lines (`README.md`, `docs/internals/architecture.md`,
-`docs/project/spec-compliance.md:13`) fails `cmd/pilot-diff`'s
+`docs/project/spec-compliance.md:13`) fails `tools/referee/diff`'s
 `TestPilotDifferentialDocumentCountsMatchBaseline` (`coverage total: want 690 …, got 688 — run
 \`make docs-counts\``). This is only visible in a full `go test ./...`, so always run the whole gate,
 and confirm the same test passes on the base revision before calling it a branch regression.

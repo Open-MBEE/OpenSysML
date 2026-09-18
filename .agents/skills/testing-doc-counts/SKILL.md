@@ -49,7 +49,7 @@ and a census JSON mutated by hand (a declaration dropped from `evaluated`) must 
 The compliance map's own row census (`The map below tracks N semantic rules: …`) is **not** committed
 anywhere: `scripts/mkdocs_census.py` counts it from the rows and fills the
 `<!-- doc-counts:begin census -->` block in `docs/project/spec-compliance.md` while the site builds
-(`make docs`). `doc-counts` and the `cmd/pilot-diff` guard only refuse a `🚧` row. Test the hook with
+(`make docs`). `doc-counts` and the `tools/referee/diff` guard only refuse a `🚧` row. Test the hook with
 `python3 scripts/mkdocs_census-test.py`, and prove it live by grepping the built
 `site/project/spec-compliance/index.html` for `semantic rules:` after adding a row.
 
@@ -79,8 +79,8 @@ Inputs to the refereed figures are the three committed baselines
 blocks, is also a consumer.
 
 `make docs-counts` = generate → `go run ./cmd/doc-counts -check` → `go run ./cmd/validation-census
--check` → `go test -count=1 ./cmd/pilot-diff ./cmd/pilot-reject ./cmd/doc-counts
-./cmd/validation-census`.
+-check` → `go test -count=1 ./cmd/doc-counts ./cmd/validation-census` →
+`go test -C tools -count=1 ./referee/diff ./referee/reject`.
 
 Adding a test or fixture anywhere in the module moves a site figure and **nothing committed**:
 `-check` stays `already current`, `-site-blocks` and the built site change. Only a baseline, the
@@ -203,7 +203,7 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
   `go test -v` enumeration does not reproduce is a counting bug, not a fixture landing.
 - **Live oracle reproduction is a separate claim** from doc↔baseline consistency: the guards read
   only committed JSON. Run all three under a fresh cache
-  (`XDG_CACHE_HOME=$(mktemp -d) go run ./cmd/pilot-{xpect,reject,diff} -out /tmp/oN`) and `cmp`
+  (`XDG_CACHE_HOME=$(mktemp -d) go run -C tools ./cmd/pilot-{xpect,reject,diff} -out /tmp/oN`) and `cmp`
   each against its committed baseline.
 
 ## Gotchas

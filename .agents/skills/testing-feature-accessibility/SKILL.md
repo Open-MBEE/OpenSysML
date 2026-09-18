@@ -127,7 +127,7 @@ Clean: a body naming its own / inherited / redefined feature; `s.mass` via a req
 go build ./... && go vet ./... && gofmt -l . && go test ./...
 OPENSYSML_REQUIRE_TRAINING_CORPUS=1 OPENSYSML_REQUIRE_PILOT_CORPORA=1 \
   go test -count=1 ./internal/core/model -run 'TestTrainingExamples|TestPilotCorpora|TestCorpusGates'
-go run ./cmd/pilot-diff    # summary also lands in build/pilot-diff/pilot-diff.txt lines 5-7
+go run -C tools ./cmd/pilot-diff    # summary also lands in build/pilot-diff/pilot-diff.txt lines 5-7
 ```
 
 `pilot-diff` takes a couple of minutes and writes only under `build/` (gitignored) — confirm

@@ -61,11 +61,11 @@
         "dir": "examples",
         "origin": "ours",
         "files": 43,
-        "digest": "sha256:36a27294848b034b37080c1eccc1fd53b681b2292d53d69c6aa6f03485c8386f"
+        "digest": "sha256:7318a0c883587e7f2d96c6f8b182d0a9406536dedbc354a6aa5505496b176118"
       },
       {
         "name": "probes",
-        "dir": "cmd/pilot-diff/testdata",
+        "dir": "tools/referee/diff/testdata",
         "origin": "ours",
         "files": 4,
         "digest": "sha256:b0153c55bbfcdacabab911725dc44e0e7f4d3a501a281b1f3f2a13cda19737c6"
@@ -6010,7 +6010,7 @@
     },
     {
       "name": "probes",
-      "dir": "cmd/pilot-diff/testdata",
+      "dir": "tools/referee/diff/testdata",
       "totals": {
         "files": 4,
         "filesFullyAgreeing": 1,

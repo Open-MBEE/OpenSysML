@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/internal/errata"
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs/errata"
 )
 
 // PinPath is the single source of the pilot pin every oracle resolves its
