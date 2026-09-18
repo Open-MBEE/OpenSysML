@@ -18,20 +18,25 @@ type AboutUnion interface {
 	RegatherAbout(ctx *Context, g *Gathers, changed map[string]bool)
 }
 
+// Gathers holds workspace-wide audit state and the unions built from documents.
 type Gathers struct {
 	mu     sync.Mutex
 	docs   map[string]bool
 	unions map[string]Union
 }
 
+// NewGathers returns gathers with nothing gathered yet.
 func NewGathers() *Gathers { return &Gathers{} }
 
+// Reset forgets every gathered document and union.
 func (g *Gathers) Reset() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.docs, g.unions = nil, nil
 }
 
+// documents lists the workspace documents gathered, sorted, learning them on
+// first use.
 func (g *Gathers) documents(ctx *Context) []string {
 	if g.docs == nil {
 		g.docs = map[string]bool{}
@@ -44,6 +49,7 @@ func (g *Gathers) documents(ctx *Context) []string {
 	return SortedKeys(g.docs)
 }
 
+// workspaceRoot returns the root of a non-library workspace document, or nil.
 func (g *Gathers) workspaceRoot(ctx *Context, doc string) *symbols.Scope {
 	var root *symbols.Scope
 	ctx.Resolver().Untracked(func() {
@@ -54,14 +60,7 @@ func (g *Gathers) workspaceRoot(ctx *Context, doc string) *symbols.Scope {
 	return root
 }
 
-func (g *Gathers) Gathered(doc string) bool { return g.docs[doc] }
-
-func (g *Gathers) Has(doc string) bool {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	return g.docs[doc]
-}
-
+// Gather runs f over doc's root in doc's own resolver frame.
 func (g *Gathers) Gather(ctx *Context, doc string, f func(root *symbols.Scope)) {
 	ctx.Resolver().Gather(doc, func() {
 		if root := ctx.Index.DocumentRoot(doc); root != nil {
@@ -70,6 +69,19 @@ func (g *Gathers) Gather(ctx *Context, doc string, f func(root *symbols.Scope)) 
 	})
 }
 
+// Gathered reports whether doc is among the gathered workspace documents.
+// It is unlocked for unions inside Regather/RegatherAbout, which run under the lock.
+func (g *Gathers) Gathered(doc string) bool { return g.docs[doc] }
+
+// Has reports whether doc is among the gathered workspace documents, with locking.
+func (g *Gathers) Has(doc string) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.docs[doc]
+}
+
+// Regather updates the requested documents and reports changed union keys.
+// Nothing is gathered for a union no analysis has asked for yet.
 func (g *Gathers) Regather(ctx *Context, docs map[string]bool) []string {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -106,6 +118,8 @@ func (g *Gathers) Regather(ctx *Context, docs map[string]bool) []string {
 	return SortedKeys(changed)
 }
 
+// UnionOf returns the union under key, built on first use over every gathered
+// document.
 func (g *Gathers) UnionOf(ctx *Context, key string, build func() Union) Union {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -126,18 +140,23 @@ func (g *Gathers) UnionOf(ctx *Context, key string, build func() Union) Union {
 	return u
 }
 
+// Union returns the union under key if built, else nil.
 func (g *Gathers) Union(key string) Union {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.unions[key]
 }
 
+// AboutGather names the gather of the `about`-annotated elements no workspace
+// document declares.
 const AboutGather = "\x00identity"
 
+// CountSet is a union of per-document sets.
 type CountSet[K comparable] map[K]int
 
 func (s CountSet[K]) Has(k K) bool { return s[k] > 0 }
 
+// Move replaces one document's contribution and names flipped memberships.
 func Move[K comparable](s CountSet[K], old, cur map[K]bool, name func(K) string, changed map[string]bool) {
 	before := map[K]bool{}
 	for k := range old {
@@ -166,6 +185,7 @@ func Move[K comparable](s CountSet[K], old, cur map[K]bool, name func(K) string,
 	}
 }
 
+// SortedKeys returns the sorted keys of a boolean set.
 func SortedKeys(m map[string]bool) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {
@@ -175,6 +195,7 @@ func SortedKeys(m map[string]bool) []string {
 	return out
 }
 
+// unionKeys returns sorted keys of a union map.
 func unionKeys(m map[string]Union) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {

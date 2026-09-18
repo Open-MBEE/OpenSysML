@@ -2,10 +2,10 @@ package passes
 
 import (
 	"fmt"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -45,7 +45,7 @@ func (MOSAPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.D
 	if a == nil {
 		return nil
 	}
-	a.union = mosaUnionOf(ctx, a)
+	a.union = mosaUnionOf(ctx)
 	if !ctx.Gathers().Gathered(name) {
 		a.local = newMOSAFacts()
 		a.facts = a.local

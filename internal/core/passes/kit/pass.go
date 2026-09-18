@@ -75,7 +75,7 @@ type Options struct {
 	Conformance conformance.Mode
 }
 
-// NewContext builds a Context for a document, in the default mode.
+// NewContext builds a Context; newModel makes the semantic model on first use of Model().
 func NewContext(name string, kind source.Kind, idx *symbols.Index, parseDiags []diag.Diagnostic, opts Options, newModel func(*resolve.Resolver) *semantics.Model) *Context {
 	return &Context{Name: name, Kind: kind, Index: idx, ParseDiagnostics: parseDiags, Options: opts, newModel: newModel}
 }
@@ -95,7 +95,7 @@ func (c *Context) Gathers() *Gathers {
 	return c.gathers
 }
 
-// setFailures records the blocking spans of the tiers below the pass about to
+// SetFailures records the blocking spans of the tiers below the pass about to
 // run. Only the registry calls it, once per pass.
 func (c *Context) SetFailures(spans []source.Span) { c.failures = spans }
 
@@ -109,6 +109,7 @@ func (c *Context) DownstreamOfFailure(ref ast.Node) bool {
 	return c.DownstreamSpan(ref.Span())
 }
 
+// DownstreamSpan reports whether span contains a blocking failure.
 func (c *Context) DownstreamSpan(span source.Span) bool {
 	if c == nil {
 		return false

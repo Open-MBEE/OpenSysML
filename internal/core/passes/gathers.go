@@ -8,20 +8,21 @@ type Gathers = kit.Gathers
 // NewGathers returns gathers with nothing gathered yet.
 func NewGathers() *Gathers { return kit.NewGathers() }
 
-func oosemUnionOf(ctx *Context, a *oosemAudit) *oosemUnion {
-	_ = a
+// oosemUnionOf returns the workspace-wide OOSEM union.
+func oosemUnionOf(ctx *Context) *oosemUnion {
 	return ctx.Gathers().UnionOf(ctx, "oosem", func() kit.Union {
 		return newOOSEMUnion()
 	}).(*oosemUnion)
 }
 
-func mosaUnionOf(ctx *Context, a *mosaAudit) *mosaUnion {
-	_ = a
+// mosaUnionOf returns the workspace-wide MOSA union.
+func mosaUnionOf(ctx *Context) *mosaUnion {
 	return ctx.Gathers().UnionOf(ctx, "mosa", func() kit.Union {
 		return newMOSAUnion()
 	}).(*mosaUnion)
 }
 
+// identityUnionOf returns the workspace-wide identity union.
 func identityUnionOf(ctx *Context) *identityUnion {
 	return ctx.Gathers().UnionOf(ctx, "identity", func() kit.Union {
 		return newIdentityUnion()
