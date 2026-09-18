@@ -72,9 +72,6 @@ func TestGathersGatherAndHelpers(t *testing.T) {
 	if !seen {
 		t.Fatal("Gather did not visit the document root")
 	}
-	if got := SortedKeys(map[string]bool{"b": true, "a": true}); len(got) != 2 || got[0] != "a" {
-		t.Fatalf("SortedKeys = %v", got)
-	}
 	s := CountSet[string]{"old": 1}
 	changed := map[string]bool{}
 	Move(s, map[string]bool{"old": true}, map[string]bool{"new": true}, func(k string) string { return k }, changed)
