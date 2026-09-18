@@ -7,15 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
 )
 
-// The fixture testdata/xmi/ported_calls.xmi is a drive whose port a connector
-// joins to its motor's command port; its activities call the motor's operation
-// over the drive's port, over the motor's own port on the read part, and over a
-// port no connector joins. A call over the caller's port performs the
-// operation's usage on the part the caller's connector joins to that port; one
-// over the target's own port performs it on the target, the port left
-// unwritten; one over a port no connector joins stays in the caller's context
-// with the reason. Running the drive's activity spins its motor through both
-// calls.
+// testdata/xmi/ported_calls.xmi: a call over the caller's port performs the operation on the part
+// its connector joins to; one over the target's own port stays on the target; an unjoined port is reported.
 func TestCallOperationOverPortsReachesTheConnectedPart(t *testing.T) {
 	r := migrateFixtureFile(t, "ported_calls")
 	for _, line := range []string{

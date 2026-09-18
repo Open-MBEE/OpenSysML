@@ -12,7 +12,7 @@ Message	Rig::Spinup::new	_mNew	(the message creates this.drive.motor, a part tha
 Parameter	Motor::Spin::result	_spRes	-> Motor::Spin::result	(the return parameter is written as an out parameter)
 AddStructuralFeatureValueAction	Motor::Spinning::set speed	_set	-> 'set speed'	(no edge leads to the node, so it starts with the activity)
 Interaction	Rig::Spinup	_spinup	-> Rig::Spinup	(written as a scenario of 8 steps, one per message in occurrence order; the lifelines' own behavior is not part of it)
-«TestCase» Interaction	Rig::Spinup Test	_tc	-> Rig::'Spinup Test'	(written as a scenario of 1 step, one per message in occurrence order; the lifelines' own behavior is not part of it)
+«TestCase» Interaction	Rig::Spinup Test	_tc	-> Rig::'Spinup Test'	(written as a scenario of 1 step, one per message in occurrence order; the lifelines' own behavior is not part of it; the test case has no return parameter, so the verification case states no verdict and is inconclusive once its steps complete)
 Message	Rig::Spinup::brake	_mBrake	-> brake	(written as a call of Brake on this.drive.motor; the asynchronous call is performed to completion before the next step: an action performs what it calls)
 Message	Rig::Spinup::spun	_mRet	-> spun	(written as the assignment of the call spin's results to this.ctrl; the value 30.0 the reply states for result is the operation's own result, which the call computes)
 

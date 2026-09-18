@@ -26,6 +26,11 @@ type scenario struct {
 	calls []*scenarioStep
 	// others are the fragments that order nothing: executions, invariants, orderings.
 	others []*xmi.Element
+	// waited holds the duration constraints written as waits before a step.
+	waited map[*xmi.Element]bool
+	// names gives each stepped message its step's name; last is the latest one.
+	names map[*xmi.Element]string
+	last  string
 }
 
 // lifelineRef is the object a lifeline stands for: the feature path that reads
@@ -139,6 +144,8 @@ func (m *migration) scenario(e *xmi.Element, self string) (*scenario, string) {
 		lines:  map[*xmi.Element]lifelineRef{},
 		used:   map[string]bool{"start": true, "done": true},
 		placed: map[*xmi.Element]bool{},
+		waited: map[*xmi.Element]bool{},
+		names:  map[*xmi.Element]string{},
 	}
 	for i, f := range e.Owned("fragment") {
 		s.order[f] = i
@@ -532,10 +539,8 @@ func (s *scenario) parameterFor(arg *xmi.Element, targets []*xmi.Element, i int)
 	return nil
 }
 
-// bindArguments writes a message's arguments as bindings of the targets: a
-// signal's attributes or an operation's in parameters, by name or position.
-// When required, a target without a default that no argument binds is reported
-// as "unbound: ..." for the caller to refuse the message on.
+// bindArguments writes a message's arguments as bindings of the targets, by name or position;
+// when required, a target no argument binds is reported as "unbound: ..." for the caller to refuse on.
 func (s *scenario) bindArguments(msg *xmi.Element, targets []*xmi.Element, what string, required bool) (string, string) {
 	var out []string
 	var note string
@@ -752,9 +757,19 @@ func (s *scenario) write() {
 		s.m.add(o, Skipped, "", "the general ordering is not written: the steps run in fragment order")
 	}
 	for _, r := range s.e.Owned("ownedRule") {
+		if s.waited[r] {
+			continue
+		}
+		if r.Type == "DurationConstraint" {
+			s.m.unmapped(r, "the duration constraint is on no message the scenario steps, so no step waits for it")
+			continue
+		}
 		s.m.unmapped(r, "a "+r.Type+" on an interaction has no form in a scenario")
 	}
 	for _, o := range s.e.Owned("observation") {
+		if s.waited[o] {
+			continue
+		}
 		s.m.unmapped(o, "a "+o.Type+" has no v2 form")
 	}
 	n := countSteps(s.steps)
@@ -762,8 +777,23 @@ func (s *scenario) write() {
 	if n == 1 {
 		steps = "step"
 	}
-	s.m.add(s.e, Approximated, s.m.v2Name(s.e), "written as a scenario of "+strconv.Itoa(n)+" "+steps+
-		", one per message in occurrence order; the lifelines' own behavior is not part of it")
+	note := "written as a scenario of " + strconv.Itoa(n) + " " + steps +
+		", one per message in occurrence order; the lifelines' own behavior is not part of it"
+	if has(s.e, "TestCase") {
+		note = joinNotes(note, s.verdictNote())
+	}
+	s.m.add(s.e, Approximated, s.m.v2Name(s.e), note)
+}
+
+// verdictNote says how the verification case written from a test case reaches a
+// verdict: a return parameter is its verdict, and without one it stays inconclusive.
+func (s *scenario) verdictNote() string {
+	for _, p := range s.e.Owned("ownedParameter") {
+		if p.Attrs["direction"] == "return" {
+			return "its verdict is the return parameter " + s.m.nameFor(p) + ", which no step binds"
+		}
+	}
+	return "the test case has no return parameter, so the verification case states no verdict and is inconclusive once its steps complete"
 }
 
 // countSteps counts the messages a body of steps and its fragments write.
@@ -795,6 +825,9 @@ func (s *scenario) writeSteps(steps []*scenarioStep) {
 // "" when the step writes no node.
 func (s *scenario) step(step *scenarioStep, prev string) string {
 	m := s.m
+	if step.kind == stepSend || step.kind == stepCall || step.kind == stepReply && len(step.assigns) > 0 {
+		prev = s.waits(step, prev)
+	}
 	switch step.kind {
 	case stepSend:
 		m.w.line("action " + step.name + " send new " + m.ref(step.signal, s.e) + "(" + step.args + ") to " + step.receiver.path + ";")
@@ -870,6 +903,150 @@ func (s *scenario) step(step *scenarioStep, prev string) string {
 	}
 	m.w.line("first " + prev + " then " + step.name + ";")
 	return step.name
+}
+
+// waits chains the duration constraints on a message step as waits after prev and returns the
+// node the step follows: a constraint between two messages is waited for before the later one.
+func (s *scenario) waits(step *scenarioStep, prev string) string {
+	for _, dc := range s.constraintsOn(step.msg) {
+		if s.waited[dc] {
+			continue
+		}
+		from, ok := s.waitFrom(dc, step)
+		if !ok {
+			continue
+		}
+		s.waited[dc] = true
+		expr, note, ok := s.waitExpr(dc)
+		if !ok {
+			s.m.w.lines(commentLines("duration constraint on " + step.name + " not migrated — " + note))
+			s.m.add(dc, Unmapped, "", note)
+			continue
+		}
+		name := writeName(freshIn(s.used, "wait"))
+		s.m.w.line("action " + name + " accept after " + expr + " [SI::s];")
+		s.m.w.line("first " + prev + " then " + name + ";")
+		prev = name
+		s.m.add(dc, Approximated, name, joinNotes(from+", written as the wait "+name+" before "+step.name, note))
+		s.observationsDone(dc, name, step.name)
+	}
+	s.names[step.msg] = step.name
+	s.last = step.name
+	return prev
+}
+
+// constraintsOn lists the duration constraints on a message or on either of
+// its occurrences, each once.
+func (s *scenario) constraintsOn(msg *xmi.Element) []*xmi.Element {
+	var out []*xmi.Element
+	seen := map[*xmi.Element]bool{}
+	for _, e := range s.messageEnds(msg) {
+		for _, dc := range s.m.bounded[e] {
+			if !seen[dc] {
+				seen[dc] = true
+				out = append(out, dc)
+			}
+		}
+	}
+	return out
+}
+
+// messageEnds lists a message and the occurrences that send and receive it.
+func (s *scenario) messageEnds(msg *xmi.Element) []*xmi.Element {
+	ends := []*xmi.Element{msg}
+	for _, role := range []string{"sendEvent", "receiveEvent"} {
+		if ev := s.m.model.Ref(msg, role); ev != nil {
+			ends = append(ends, ev)
+		}
+	}
+	return ends
+}
+
+// messageOf is the message an element constrains: itself, or the one an
+// occurrence sends or receives.
+func (s *scenario) messageOf(e *xmi.Element) *xmi.Element {
+	if e.Type == "Message" {
+		return e
+	}
+	return s.m.model.Ref(e, "message")
+}
+
+// waitFrom says what a duration constraint on a step's message measures, and
+// whether the step is the one to wait before: the message's own duration, or
+// the time since the other message it constrains, once that has been stepped.
+func (s *scenario) waitFrom(dc *xmi.Element, step *scenarioStep) (string, bool) {
+	var other *xmi.Element
+	for _, c := range s.m.model.Refs(dc, "constrainedElement") {
+		if m := s.messageOf(c); m != nil && m != step.msg {
+			other = m
+		}
+	}
+	if other == nil {
+		return "the message's duration; a v2 send arrives at once, so the step waits for it first", true
+	}
+	name, done := s.names[other]
+	if !done {
+		return "", false
+	}
+	if s.last != name {
+		return "the time from " + name + ", measured from the step before " + step.name + " since steps lie between them", true
+	}
+	return "the time from " + name, true
+}
+
+// waitExpr writes the wait a duration constraint's interval stands for: a fixed
+// delay for a point or half-open interval, a uniform draw over it otherwise.
+func (s *scenario) waitExpr(dc *xmi.Element) (expr, note string, ok bool) {
+	spec := firstOwned(dc, "specification")
+	if spec == nil || spec.Type != "DurationInterval" && spec.Type != "Interval" {
+		return "", "the duration constraint has no interval", false
+	}
+	m := s.m
+	lo, lok, lnote := m.durationExpr(m.model.Ref(spec, "min"), s.e)
+	hi, hok, hnote := m.durationExpr(m.model.Ref(spec, "max"), s.e)
+	if bound, bnote, ok := m.openBound(spec, lo, lok, hi, hok); ok {
+		return bound, joinNotes(bnote, "so the wait is a fixed "+bound+" s"), true
+	}
+	if !lok || !hok {
+		note := lnote
+		if !lok && m.model.Ref(spec, "min") == nil {
+			note = "the interval has no min"
+		}
+		if !hok {
+			note = joinNotes(note, hnote)
+			if m.model.Ref(spec, "max") == nil {
+				note = joinNotes(note, "the interval has no max")
+			}
+		}
+		return "", note, false
+	}
+	note = joinNotes(lnote, hnote)
+	lf, lerr := strconv.ParseFloat(lo, 64)
+	hf, herr := strconv.ParseFloat(hi, 64)
+	switch {
+	case lerr == nil && herr == nil && lf > hf:
+		return "", "the interval's min " + lo + " exceeds its max " + hi, false
+	case lo == hi:
+		return lo, joinNotes(note, "a fixed wait of "+lo+" s"), true
+	}
+	return "RandomFunctions::uniform(" + lo + ", " + hi + ")",
+		joinNotes(note, "a wait drawn uniformly over ["+lo+", "+hi+"] s; a tool's fixed min or max mode is a run setting, not the model's"), true
+}
+
+// observationsDone reports the duration observations a written constraint's
+// bounds refer to as realized by the wait.
+func (s *scenario) observationsDone(dc *xmi.Element, wait, step string) {
+	spec := firstOwned(dc, "specification")
+	for _, role := range []string{"min", "max"} {
+		v := s.m.model.Ref(spec, role)
+		for v != nil && (v.Type == "Duration" || v.Type == "TimeExpression") {
+			for _, o := range s.m.model.Refs(v, "observation") {
+				s.waited[o] = true
+				s.m.add(o, Approximated, wait, "the duration it observes is written as the wait "+wait+" before "+step)
+			}
+			v = firstOwned(v, "expr")
+		}
+	}
 }
 
 // branches writes the operands of an alt or opt from i on as an if with an else.

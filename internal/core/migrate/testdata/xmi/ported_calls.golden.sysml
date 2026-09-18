@@ -17,7 +17,7 @@ part def Drive {
     port p : MotorCmd;
     port loose : MotorCmd;
     part motor : Motor;
-    connect p to motor.cmd;
+    bind p = motor.cmd;
     action def Run {
         first start then thirty;
         action thirty {

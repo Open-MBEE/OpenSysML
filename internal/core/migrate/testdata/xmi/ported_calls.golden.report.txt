@@ -10,7 +10,7 @@ Interface	MotorCmd	_cmdIf	-> MotorCmd	(a UML interface is written as a port def)
 
 ## mapped (35)
 «Block» Class	Drive	_drive	-> Drive
-Connector	Drive::<Connector>	_c
+Connector	Drive::<Connector>	_c	(the connector delegates the owner's port to the part's, so it is written as a binding, which relays a message either way)
 Activity	Drive::Run	_run	-> Drive::Run
 ActivityFinalNode	Drive::Run::<ActivityFinalNode>	_final	-> final
 ControlFlow	Drive::Run::<ControlFlow>	_e2

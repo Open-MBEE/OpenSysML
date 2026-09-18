@@ -69,6 +69,7 @@ func (m *migration) behaviorBody(e *xmi.Element, cat category) {
 		m.interactionBody(e)
 	case e.Type == "Activity":
 		m.parameters(e, e)
+		m.contextParameter(e)
 		m.activityBody(e, e)
 	default:
 		m.parameters(e, e)
@@ -219,7 +220,11 @@ func (m *migration) parameter(p, scope *xmi.Element, declared map[string]bool) {
 	}
 	v := verdictFor(note)
 	if isBound {
-		note = joinNotes("bound to "+bound+", the signal the transition accepts", note)
+		what := m.boundNote
+		if what == "" {
+			what = "the signal the transition accepts"
+		}
+		note = joinNotes("bound to "+bound+", "+what, note)
 	}
 	m.add(p, v, m.v2Name(p), note)
 	m.w.block(b.String(), func() {
@@ -478,6 +483,26 @@ func realLiteral(v float64) string {
 		s += ".0"
 	}
 	return s
+}
+
+// openBound is the one bound of a duration interval whose other bound is
+// absent — unset, or a duration without an expression: an interval open on one
+// side is waited for at the bound it has.
+func (m *migration) openBound(spec *xmi.Element, lo string, lok bool, hi string, hok bool) (bound, note string, ok bool) {
+	absent := func(role string) bool {
+		v := m.model.Ref(spec, role)
+		for v != nil && (v.Type == "Duration" || v.Type == "TimeExpression") {
+			v = firstOwned(v, "expr")
+		}
+		return v == nil
+	}
+	switch {
+	case lok && !hok && absent("max"):
+		return lo, "the interval has no max", true
+	case hok && !lok && absent("min"):
+		return hi, "the interval has no min", true
+	}
+	return "", "", false
 }
 
 // durationExpr writes a UML duration value as a v2 expression in seconds: a scaled

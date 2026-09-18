@@ -8,21 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
 )
 
-// The fixture testdata/xmi/plant_states.xmi is a block whose classifier
-// behavior is a state machine with transitions crossing region boundaries in
-// both directions, a junction with an else branch, a fork and join around a
-// state of two regions, a shallow and a deep history, a submachine state
-// entered and left through its entry and exit points, an internal transition on
-// a plain state, a local transition, an absolute time event, and a signal event
-// no trigger refers to. A transition whose ends lie in different regions names
-// the nested end by its path; a junction and its else guard become a junction
-// pseudostate with an unguarded branch; fork and join pseudostates keep their
-// kind; a shallow or deep history is a history member; an entry or exit point
-// is a state of the submachine's state def that a connection point reference
-// names through the submachine state; an internal transition on a plain state
-// is a self transition; a local transition is written external and noted; a
-// literal absolute time is a TimeInstantValue attribute the transition accepts
-// at, one that is not is reported; an event no trigger refers to is skipped.
+// testdata/xmi/plant_states.xmi: cross-region transitions, junction, fork/join, histories, entry/exit
+// points, internal and local transitions and absolute time events are written; an orphan event is skipped.
 func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 	r := migrateFixtureFile(t, "plant_states")
 	for _, line := range []string{

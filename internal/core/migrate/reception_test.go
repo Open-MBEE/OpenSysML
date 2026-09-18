@@ -7,16 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
 )
 
-// The fixture testdata/xmi/heater_receptions.xmi is a block with a reception
-// whose method stores the signal's attribute, a reception without a method, one
-// whose method is a state machine, one whose signal is not in the document, and
-// a reception parameter that matches no attribute of its signal. A reception
-// with a method becomes an action def of the block that accepts the signal and
-// performs the method, its in parameters bound to the payload's attributes of
-// the same name; one without a method only accepts; a state machine method and
-// a signal outside the document are refused with the reason. Performing the
-// usage on an object of the block and sending it the signal runs the method on
-// that object.
+// testdata/xmi/heater_receptions.xmi: a reception with a method accepts its signal and performs the
+// method with the payload bound; one without only accepts; unmigratable methods and signals are refused.
 func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 	r := migrateFixtureFile(t, "heater_receptions")
 	for _, line := range []string{

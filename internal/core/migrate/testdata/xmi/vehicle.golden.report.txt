@@ -76,7 +76,7 @@ Property	Vehicle Design::Value Types::StartSignal::key	_sig_start_key	-> 'Vehicl
 Comment	Vehicle Design::Vehicle::<Comment>	_cmt_vehicle
 Comment	Vehicle Design::Vehicle::<Comment>	_cmt_vehicle_2
 «BindingConnector» Connector	Vehicle Design::Vehicle::<Connector>	_conn_bind
-Connector	Vehicle Design::Vehicle::<Connector>	_conn_nested
+Connector	Vehicle Design::Vehicle::<Connector>	_conn_nested	(the connector delegates the owner's port to the part's, so it is written as a binding, which relays a message either way)
 «Block» Class	Vehicle Design::Vehicle::Chassis	_blk_chassis	-> 'Vehicle Design'::Vehicle::Chassis
 Property	Vehicle Design::Vehicle::Chassis::mass	_prop_chassis_mass	-> 'Vehicle Design'::Vehicle::Chassis::mass
 StateMachine	Vehicle Design::Vehicle::Vehicle States	_sm_vehicle	-> 'Vehicle Design'::Vehicle::'Vehicle States'
@@ -86,7 +86,7 @@ Property	Vehicle Design::Vehicle::color	_prop_color	-> 'Vehicle Design'::Vehicle
 «FullPort» Port	Vehicle Design::Vehicle::diag	_port_untyped	-> 'Vehicle Design'::Vehicle::diag
 Property	Vehicle Design::Vehicle::driver	_prop_driver	-> 'Vehicle Design'::Vehicle::driver
 Property	Vehicle Design::Vehicle::engine	_prop_engine	-> 'Vehicle Design'::Vehicle::engine
-Connector	Vehicle Design::Vehicle::fuel line	_conn_fuel	-> 'Vehicle Design'::Vehicle::'fuel line'
+Connector	Vehicle Design::Vehicle::fuel line	_conn_fuel	-> 'Vehicle Design'::Vehicle::'fuel line'	(the connector delegates the owner's port to the part's, so it is written as a binding, which relays a message either way)
 «ProxyPort» Port	Vehicle Design::Vehicle::fuelIn	_port_fuelIn	-> 'Vehicle Design'::Vehicle::fuelIn
 Property	Vehicle Design::Vehicle::isElectric	_prop_isElectric	-> 'Vehicle Design'::Vehicle::isElectric
 Property	Vehicle Design::Vehicle::mass	_prop_mass	-> 'Vehicle Design'::Vehicle::mass

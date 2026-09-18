@@ -7,17 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
 )
 
-// The fixture testdata/xmi/rig_interactions.xmi is a rig whose controller part
-// calls an operation on a motor nested in a drive part, receives the reply into
-// an attribute, and sends signals inside alt, opt, loop and par fragments; a
-// second interaction stands a lifeline for a property no part of the rig
-// reaches, a third is a test case. A call message performs the operation's
-// usage on the object its lifeline stands for, reached through the part tree,
-// with its arguments bound by position and by name; the reply assigns the
-// call's result to the attribute it names; alt, opt, loop and par fragments
-// become if, if, for and fork; a create message is reported, as is a timing
-// trace of state invariants. The scenario validates, runs, and leaves the motor
-// spinning at the last rpm and the controller holding the first.
+// testdata/xmi/rig_interactions.xmi: call and reply messages perform the operation on the lifeline's
+// object and assign its result; alt/opt/loop/par become if/if/for/fork; create messages are reported.
 func TestInteractionCallsRepliesAndFragments(t *testing.T) {
 	r := migrateFixtureFile(t, "rig_interactions")
 	for _, line := range []string{

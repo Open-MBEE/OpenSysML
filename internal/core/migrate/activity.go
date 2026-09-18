@@ -28,9 +28,11 @@ func (m *migration) activityBody(act, def *xmi.Element) {
 
 // activity writes one node graph: an activity's, or a structured node's.
 type activity struct {
-	m     *migration
-	act   *xmi.Element // the owner of the nodes and edges
-	def   *xmi.Element // the element whose v2 body is written; names are distinct in it
+	m   *migration
+	act *xmi.Element // the owner of the nodes and edges
+	def *xmi.Element // the element whose v2 body is written; names are distinct in it
+	// ctx is the parameter the actions act on in place of this, when they take one.
+	ctx   *behaviorContext
 	names map[*xmi.Element]string
 	used  map[string]bool
 	// next lists, for each node, the nodes its edges lead to, once each; succ the
@@ -46,6 +48,10 @@ type activity struct {
 	waits  map[*xmi.Element]waitNode
 	// selfFed marks pins the object read by a ReadSelfAction flows into.
 	selfFed map[*xmi.Element]bool
+	// fed marks the pins some object flow leads into, whatever produces it.
+	fed map[*xmi.Element]bool
+	// starved maps each action that never fires to the input pin no value reaches.
+	starved map[*xmi.Element]*xmi.Element
 	// pinType is the classifier an untyped pin is declared with, when what
 	// the pin feeds settles it.
 	pinType map[*xmi.Element]*xmi.Element
@@ -76,7 +82,7 @@ type activity struct {
 
 func (m *migration) newActivity(act, def *xmi.Element) *activity {
 	a := &activity{
-		m: m, act: act, def: def,
+		m: m, act: act, def: def, ctx: m.contextOf(enclosingActivity(def)),
 		names:       map[*xmi.Element]string{},
 		used:        inheritedActionNames(),
 		next:        map[*xmi.Element][]*xmi.Element{},
@@ -87,6 +93,8 @@ func (m *migration) newActivity(act, def *xmi.Element) *activity {
 		merges:      map[*xmi.Element]string{},
 		waits:       map[*xmi.Element]waitNode{},
 		selfFed:     map[*xmi.Element]bool{},
+		fed:         map[*xmi.Element]bool{},
+		starved:     map[*xmi.Element]*xmi.Element{},
 		pinType:     map[*xmi.Element]*xmi.Element{},
 		payload:     map[*xmi.Element]*xmi.Element{},
 		sources:     map[*xmi.Element][]*xmi.Element{},
@@ -105,6 +113,9 @@ func (m *migration) newActivity(act, def *xmi.Element) *activity {
 				a.used[m.nameOf(c)] = true
 			}
 		}
+	}
+	if a.ctx != nil {
+		a.used[a.ctx.name] = true
 	}
 	// Every action inherits start and done, which shadow outer names.
 	m.take(def, "start")
@@ -227,6 +238,13 @@ func (a *activity) write() {
 	a.link()
 	a.resolveData()
 	for _, n := range a.nodes {
+		if nodeKind(n) == nodeAction {
+			if pin := a.starvedPin(n); pin != nil {
+				a.starved[n] = pin
+			}
+		}
+	}
+	for _, n := range a.nodes {
 		if k := nodeKind(n); k == nodeAction || k == nodeControl || k == nodeBuffer || k == nodeFinal {
 			a.entries(n)
 		}
@@ -309,6 +327,7 @@ func (a *activity) resolveData() {
 		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
 		if src != nil && tgt != nil {
 			into[tgt] = append(into[tgt], src)
+			a.fed[tgt] = true
 		}
 	}
 	var trace func(e *xmi.Element, seen map[*xmi.Element]bool) []*xmi.Element
@@ -353,6 +372,10 @@ func (a *activity) resolveData() {
 // into an activity final, which one token ends), a wait when a duration bounds it.
 func (a *activity) entries(n *xmi.Element) {
 	name := writeName(a.name(n, baseName(n)))
+	if a.starved[n] != nil {
+		a.entry[n] = name
+		return
+	}
 	if delay, ok := a.waitFor(n); ok {
 		w := writeName(a.fresh("wait"))
 		a.waits[n] = waitNode{w, delay}
@@ -381,6 +404,9 @@ func (a *activity) endpointIn(n *xmi.Element) string {
 	case nodeInitial, nodeParam, nodePin:
 		return ""
 	}
+	if a.starved[n] != nil {
+		return ""
+	}
 	return a.entry[n]
 }
 
@@ -397,6 +423,8 @@ func (a *activity) unwritableTarget(e *xmi.Element) string {
 		return "which another document defines"
 	case nodeKind(n) == nodeInitial:
 		return "an initial node, which nothing may lead to"
+	case a.starved[n] != nil:
+		return "which never fires: no value reaches its input pin " + describe(a.starved[n])
 	case a.entry[n] == "":
 		return "which is not a node of the activity"
 	}
@@ -428,6 +456,10 @@ func (a *activity) startSuccessions() {
 			// A join or merge nothing leads to would never fire.
 			continue
 		}
+		if a.starved[n] != nil {
+			seen[n] = true
+			continue
+		}
 		seen[n] = true
 		targets = append(targets, n)
 		a.m.add(n, Approximated, "", "no edge leads to the node, so it starts with the activity")
@@ -450,6 +482,63 @@ func (a *activity) startSuccessions() {
 			a.m.w.line("first " + from + " then " + to + ";")
 		}
 	}
+	for _, n := range a.nodes {
+		if nodeKind(n) != nodeInitial {
+			continue
+		}
+		for _, e := range a.succ[n] {
+			if a.endpointIn(ownerNode(a.m.model.Ref(e, "target"))) == "" {
+				a.unwritableEdge(e)
+			}
+		}
+	}
+}
+
+// starvedPin returns an input pin of n that must hold a value for n to fire but
+// that nothing fills: no object flow feeds it, or only parameters taking no value
+// do, and it is no value pin; nil when every pin is served.
+func (a *activity) starvedPin(n *xmi.Element) *xmi.Element {
+	for _, pin := range inputPins(n) {
+		switch {
+		case nodeKind(pin) != nodePin, pin.Type == "ActionInputPin", a.selfFed[pin]:
+			continue
+		case pin.Type == "ValuePin" && firstOwned(pin, "value") != nil:
+			continue
+		case a.fed[pin] && !a.unvaluedSources(pin):
+			continue
+		}
+		if lv := firstOwned(pin, "lowerValue"); lv != nil && boundValue(lv) == "0" {
+			continue
+		}
+		return pin
+	}
+	return nil
+}
+
+// unvaluedSources reports whether what flows into a pin is known to carry no
+// value: every producer is a parameter node whose parameter takes none.
+func (a *activity) unvaluedSources(pin *xmi.Element) bool {
+	srcs := a.sources[pin]
+	if len(srcs) == 0 {
+		return false
+	}
+	for _, s := range srcs {
+		if nodeKind(s) != nodeParam || !a.m.unvalued[a.m.model.Ref(s, "parameter")] {
+			return false
+		}
+	}
+	return true
+}
+
+// starvation notes on an action that never fires why, and that no succession
+// reaches or leaves it; its edges are reported as they are met.
+func (a *activity) starvation(n *xmi.Element) {
+	pin := a.starved[n]
+	why := "no object flow feeds it and it holds no value"
+	if a.fed[pin] {
+		why = "only parameters taking no value flow into it"
+	}
+	a.m.add(n, Approximated, "", "the action never fires: its input pin "+describe(pin)+" must hold a value, but "+why+"; no succession leads to it or leaves it, where v1 would wait on it forever")
 }
 
 // waitFor writes the delay a duration constraint on e stands for: a fixed
@@ -470,6 +559,10 @@ func (a *activity) waitFor(e *xmi.Element) (string, bool) {
 	}
 	lo, lok, lnote := a.m.durationExpr(a.m.model.Ref(spec, "min"), a.act)
 	hi, hok, hnote := a.m.durationExpr(a.m.model.Ref(spec, "max"), a.act)
+	if bound, bnote, ok := a.m.openBound(spec, lo, lok, hi, hok); ok {
+		a.m.add(dc, Approximated, a.m.v2Name(a.def), joinNotes(bnote, "so the wait is a fixed "+bound+" s before "+describe(e)))
+		return bound + " [SI::s]", true
+	}
 	if !lok || !hok {
 		note := lnote
 		if !lok && a.m.model.Ref(spec, "min") == nil {
@@ -511,6 +604,13 @@ func (a *activity) unmappedWait(dc, e *xmi.Element, note string) {
 // successions writes the successions out of n: through a fork when an
 // ordinary node has several, guarded and weighted out of a decision.
 func (a *activity) successions(n *xmi.Element) {
+	if a.starved[n] != nil {
+		a.starvation(n)
+		for _, e := range a.succ[n] {
+			a.m.add(e, Unmapped, "", "the edge leaves "+describe(n)+", which never fires, so no token travels it")
+		}
+		return
+	}
 	from := writeName(a.name(n, baseName(n)))
 	outs := a.succ[n]
 	if len(outs) > 1 && n.Type != "ForkNode" && n.Type != "DecisionNode" {
@@ -659,7 +759,7 @@ func (a *activity) isElse(e *xmi.Element) bool {
 // carries, which its guards are compared with; "" when nothing names it.
 func (a *activity) decisionInput(n *xmi.Element) string {
 	if a.selfFed[n] {
-		return "this"
+		return a.self()
 	}
 	if srcs := a.sources[n]; len(srcs) == 1 {
 		if ref, ok := a.pinRef(srcs[0]); ok {
@@ -1083,6 +1183,14 @@ func (a *activity) objectFlow(e *xmi.Element) {
 			continue
 		}
 		a.written[[2]*xmi.Element{s, tgt}] = true
+		if nodeKind(s) == nodeParam && a.m.unvalued[a.m.model.Ref(s, "parameter")] {
+			a.m.w.line("/* flow " + from + " to " + to + " not written: the parameter " + from + " takes no value */")
+			a.m.add(e, Approximated, "", "the flow is kept as a comment: its source, the parameter "+from+", takes no value, so none reaches "+describe(tgt))
+			if nodeKind(tgt) == nodePin {
+				a.m.add(tgt.Parent, Approximated, "", "its input "+to+" receives no value, since the parameter "+from+" takes none")
+			}
+			continue
+		}
 		if a.inert[s.Parent] {
 			a.m.w.line("/* flow " + from + " to " + to + " not written: " + describe(s.Parent) + " is not migrated and produces no value */")
 			a.m.add(e, Approximated, "", "the flow is kept as a comment: its source "+describe(s.Parent)+" is not migrated, so no value reaches "+describe(s))
@@ -1130,8 +1238,17 @@ func (a *activity) callBehavior(n *xmi.Element, name string) {
 		a.m.w.line("action " + name + " : " + a.m.ref(b, a.def) + ";")
 		a.pins(n, true, b.Owned("ownedParameter"))
 		note := ""
-		if owner, here := classifierOf(b), classifierOf(a.act); owner != nil && owner != here && (here == nil || !a.m.inherits(here, owner)) {
+		if owner, here := classifierOf(b), a.selfType(); owner != nil && owner != here && (here == nil || !a.m.inherits(here, owner)) {
 			note = "the behavior belongs to " + qualifiedName(owner) + " and runs here in the caller's context"
+		}
+		if c := a.m.contextOf(b); c != nil {
+			expr, cnote := a.contextArgument(c)
+			if expr != "" {
+				a.m.w.line("bind " + name + "." + writeName(c.name) + " = " + expr + ";")
+				a.m.add(n, Mapped, name, cnote)
+			} else {
+				note = joinNotes(note, cnote)
+			}
 		}
 		a.m.add(n, verdictFor(note), name, note)
 	case catCalcDef:
@@ -1159,10 +1276,11 @@ func (a *activity) callBehavior(n *xmi.Element, name string) {
 }
 
 // classifierOf returns the classifier a behavior belongs to: the nearest
-// enclosing element that is neither a behavior nor an operation, nil for a package.
+// enclosing element that is no behavior, operation or part of a state machine,
+// nil for a package.
 func classifierOf(b *xmi.Element) *xmi.Element {
 	for cur := b.Parent; cur != nil; cur = cur.Parent {
-		if isBehavior(cur) || cur.Type == "Operation" {
+		if behaviorScope(cur) {
 			continue
 		}
 		if cur.Type == "Package" || cur.Type == "Model" || cur.Type == "Profile" {
@@ -1233,11 +1351,10 @@ func (a *activity) receiverOf(t, op *xmi.Element) (receiver, note string, ok boo
 		return "", "the call runs in the caller's context: the target " + obj + " is a " + qualifiedName(typ) + ", which has no operation " + a.m.nameOf(op), false
 	}
 	usage := writeName(a.m.operationUsage(op))
-	if obj == "this" {
-		return usage, "the target is this, whose usage " + usage + " the call performs", true
+	if obj == a.self() {
+		return a.on(obj, usage), "the target is " + obj + ", whose usage " + usage + " the call performs", true
 	}
-	path := strings.TrimPrefix(obj, "this.")
-	return path + "." + usage, "the call performs the usage " + usage + " of the target " + obj, true
+	return a.on(obj, usage), "the call performs the usage " + usage + " of the target " + obj, true
 }
 
 // opaqueAction writes an opaque action as an action of assignments when its body is
@@ -1307,7 +1424,7 @@ func (a *activity) valueAction(n *xmi.Element, name string) {
 // and so on down); typ is that object's classifier, nil when it is not known.
 func (a *activity) objectOf(pin *xmi.Element) (expr string, typ *xmi.Element, ok bool) {
 	if a.selfFed[pin] {
-		return "this", classifierOf(a.act), true
+		return a.self(), a.selfType(), true
 	}
 	srcs := a.sources[pin]
 	if len(srcs) != 1 || srcs[0].Parent == nil || srcs[0].Parent.Type != "ReadStructuralFeatureAction" {
@@ -1329,7 +1446,7 @@ func (a *activity) objectOf(pin *xmi.Element) (expr string, typ *xmi.Element, ok
 // its object pin holds, or this when the pin is absent or nothing feeds it.
 func (a *activity) readObject(obj *xmi.Element) (expr string, typ *xmi.Element, ok bool) {
 	if obj == nil || len(a.sources[obj]) == 0 && !a.selfFed[obj] {
-		return "this", classifierOf(a.act), true
+		return a.self(), a.selfType(), true
 	}
 	return a.objectOf(obj)
 }
@@ -1454,15 +1571,18 @@ func (a *activity) sendSignal(n *xmi.Element, name string) {
 		note = anote
 		line := "send new " + a.m.ref(sig, a.def) + "(" + strings.Join(args, ", ") + ")"
 		if port := a.m.model.Ref(n, "onPort"); port != nil {
-			if a.m.written(port) && a.m.ownedByClassifier(port, a.act) {
-				line += " via this." + writeName(a.m.nameOf(port))
-			} else {
-				note = "the port " + qualifiedName(port) + " is no port of the sender's type; the signal is sent to the sender"
+			switch {
+			case !a.m.written(port):
+				note = "the port " + qualifiedName(port) + " has no v2 declaration; the signal is sent to the sender"
+			case a.hasPort(port):
+				line += " via " + a.self() + "." + writeName(a.m.nameOf(port))
+			default:
+				note = "the port " + qualifiedName(port) + " is no port of the object the sender acts on; the signal is sent to the sender"
 			}
 		} else if t := firstOwned(n, "target"); t != nil {
 			obj, _, ok := a.objectOf(t)
 			switch {
-			case ok && obj == "this":
+			case ok && obj == a.self():
 			case ok:
 				line += " to " + obj
 			case len(a.sources[t]) > 0:
@@ -1529,10 +1649,15 @@ func (a *activity) trigger(t, n *xmi.Element) (clause, note string, ok bool) {
 	}
 	clause, note, ok = a.m.triggerClause(ev, a.act, a.resultName(n))
 	if ok {
-		a.m.add(t, Mapped, "", "")
-		if sig := a.m.model.Ref(ev, "signal"); ev.Type == "SignalEvent" && sig != nil && len(n.Owned("result")) > 0 {
-			a.payload[n.Owned("result")[0]] = sig
+		tnote := ""
+		if sig := a.m.model.Ref(ev, "signal"); ev.Type == "SignalEvent" && sig != nil {
+			clause, tnote = a.m.actionRoute(clause, t, a.selfType(), a.act, a.viaPrefix(), sig)
+			if len(n.Owned("result")) > 0 {
+				a.payload[n.Owned("result")[0]] = sig
+			}
 		}
+		a.m.add(t, verdictFor(tnote), "", tnote)
+		note = joinNotes(note, tnote)
 	}
 	return clause, note, ok
 }

@@ -603,7 +603,7 @@ func TestNestedPathAsWhitespaceSeparatedAttribute(t *testing.T) {
   <sysml:Block xmi:id="_s5" base_Class="_fleet"/>
   <sysml:NestedConnectorEnd xmi:id="_nce" base_ConnectorEnd="_e2" propertyPath="_p_car
       _p_engine _p_piston"/>`)
-	wantLine(t, r.Notation, "connection feed connect 'out' to car.engine.piston.'in';")
+	wantLine(t, r.Notation, "binding feed bind 'out' = car.engine.piston.'in';")
 	if es := entriesFor(r, "_conn"); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 		t.Errorf("entries for _conn = %+v", es)
 	}

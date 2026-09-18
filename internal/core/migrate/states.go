@@ -18,16 +18,15 @@ func (m *migration) stateMachineBody(sm *xmi.Element) {
 	}
 	used := m.nameMachine(sm)
 	m.instants(sm, used)
+	m.carriers(sm, used)
 	for _, cp := range sm.Owned("connectionPoint") {
 		m.connectionPoint(cp)
 	}
-	m.regions(sm, sm.Owned("region"), false, func() {})
+	m.regions(sm, m.populatedRegions(sm), false, func() {})
 }
 
-// nameMachine names, ahead of writing, every vertex of a state machine down
-// through its nested regions, so a transition can name a target in another
-// region or in a submachine before that region is written; it returns the
-// names taken in the state def's own body.
+// nameMachine names every vertex of a machine down through its nested regions ahead of writing,
+// so a transition can target another region or a submachine; it returns the names in the state def's body.
 func (m *migration) nameMachine(sm *xmi.Element) map[string]bool {
 	if used, ok := m.regionUsed[sm]; ok {
 		return used
@@ -69,9 +68,24 @@ func (m *migration) nameRegion(r *xmi.Element, used map[string]bool) {
 	for _, v := range r.Owned("subvertex") {
 		m.nameVertex(v, used)
 		if v.Type == "State" {
-			m.nameRegions(v.Owned("region"), inheritedStateNamesSet())
+			m.nameRegions(m.populatedRegions(v), inheritedStateNamesSet())
 		}
 	}
+}
+
+// populatedRegions returns the regions of a machine or state that hold a
+// vertex; an empty one has nothing to enter, so it is skipped rather than
+// written as a sub-state no entry starts.
+func (m *migration) populatedRegions(owner *xmi.Element) []*xmi.Element {
+	var out []*xmi.Element
+	for _, r := range owner.Owned("region") {
+		if len(r.Owned("subvertex")) == 0 {
+			m.add(r, Skipped, "", unreferencedNote+": the region holds no vertex, so nothing enters it and no state is written for it")
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
 }
 
 // nameVertex gives a vertex that is written as a member its name in the body
@@ -120,7 +134,11 @@ func (m *migration) regions(owner *xmi.Element, regions []*xmi.Element, entered 
 	switch len(regions) {
 	case 0:
 		between()
-		m.w.lines(commentLines("the " + kindOf(owner) + " has no region"))
+		if len(owner.Owned("region")) == 0 {
+			m.w.lines(commentLines("the " + kindOf(owner) + " has no region"))
+		} else {
+			m.w.lines(commentLines("the " + kindOf(owner) + "'s regions hold no vertex: nothing enters them"))
+		}
 	case 1:
 		st := m.region(regions[0])
 		st.enter(entered)
@@ -368,10 +386,8 @@ func (s *stateRegion) vertex(v *xmi.Element) {
 	}
 }
 
-// connectionPoint writes an entry or exit point as a state of the state def:
-// a submachine state is entered at the entry point's state, whose transition
-// leads on, and a transition into the exit point's state at once completes
-// the transition the submachine state leaves through it with.
+// connectionPoint writes an entry or exit point as a state of the state def: entered at the entry
+// point's state, and leaving through the exit point's state completes the submachine state's transition.
 func (m *migration) connectionPoint(v *xmi.Element) {
 	name, ok := m.vertexNames[v]
 	if !ok {
@@ -408,7 +424,7 @@ func (s *stateRegion) state(v *xmi.Element) {
 		}
 		s.m.add(v, Mapped, name, "")
 	}
-	regions := v.Owned("region")
+	regions := s.m.populatedRegions(v)
 	entry, do, exit := firstOwned(v, "entry"), firstOwned(v, "doActivity"), firstOwned(v, "exit")
 	inv := firstOwned(v, "stateInvariant")
 	if entry == nil && do == nil && exit == nil && inv == nil && len(regions) == 0 && len(defers) == 0 {
@@ -515,6 +531,19 @@ func (m *migration) inlineBehavior(kw string, b, owner *xmi.Element) bool {
 	saved := m.scope
 	m.scope = b
 	defer func() { m.scope = saved }()
+	if owner.Type != "Transition" {
+		bound := m.carrierBindings(owner, b)
+		switch {
+		case bound != nil && kw != "exit action":
+			savedBound, savedNote := m.bound, m.boundNote
+			m.bound, m.boundNote = bound, "an attribute of the signal the transitions into the state accept"
+			defer func() { m.bound, m.boundNote = savedBound, savedNote }()
+		case owner.Type == "State":
+			m.unbound(b, joinNotes("a state performs its "+kw+" with no arguments", m.carrierWhy(owner, kw)))
+		default:
+			m.unbound(b, "a state performs its "+kw+" with no arguments; only a transition's effect receives the accepted signal")
+		}
+	}
 	header := kw
 	if name := m.nameOf(b); name != "" {
 		if inheritedStateNames[name] {
@@ -540,9 +569,12 @@ func (m *migration) inlineBehavior(kw string, b, owner *xmi.Element) bool {
 			m.parameters(b, b)
 			if ok {
 				m.w.lines(lines)
-				return
+			} else {
+				m.opaqueComment(body, lang, note)
 			}
-			m.opaqueComment(body, lang, note)
+			if m.keeping != "" {
+				m.w.line(m.keeping)
+			}
 		})
 		if ok {
 			m.add(b, Approximated, m.v2Name(b), "the "+langName(lang)+" body is written as v2 assignments")
@@ -725,6 +757,8 @@ func (s *stateRegion) transition(t *xmi.Element) {
 	guard, gnote := s.guard(t, src)
 	eff := firstOwned(t, "effect")
 	var accepts []acceptance
+	var info []string
+	written := 0
 	if gnote != "" {
 		notes = append(notes, gnote)
 	}
@@ -740,15 +774,27 @@ func (s *stateRegion) transition(t *xmi.Element) {
 		if eff != nil {
 			a = s.payload(t, eff, ev)
 		}
+		if c := s.m.carrierOf[tgt]; c != nil && ev.Type == "SignalEvent" && s.m.model.Ref(ev, "signal") == c.sig {
+			if a.payload == "" {
+				a.payload = s.payloadName(eff, c.sig)
+			}
+			a.keeping = s.m.keep(tgt, c.sig, a.payload)
+		}
 		clause, note, ok := s.m.triggerClause(ev, t, a.payload)
 		if !ok {
 			s.m.add(tr, Unmapped, "", note)
 			notes = append(notes, "a trigger is dropped: "+note)
 			continue
 		}
-		s.m.add(tr, verdictFor(note), "", note)
+		written++
 		a.clause = " " + clause
-		accepts = append(accepts, a)
+		routes, rinfo, rnote := s.routes(tr, ev, a)
+		if rinfo != "" {
+			info = append(info, rinfo)
+		}
+		note = joinNotes(note, rnote)
+		s.m.add(tr, verdictFor(note), "", joinNotes(note, rinfo))
+		accepts = append(accepts, routes...)
 	}
 	if len(triggers) > 0 && len(accepts) == 0 {
 		s.m.w.lines(commentLines("transition " + describe(t) + " from " + from + " to " + to + " not migrated — " + strings.Join(notes, "; ")))
@@ -760,8 +806,8 @@ func (s *stateRegion) transition(t *xmi.Element) {
 		if eff != nil {
 			s.m.unbound(eff, "the transition accepts no signal")
 		}
-	} else if len(accepts) > 1 {
-		notes = append(notes, "written as "+strconv.Itoa(len(accepts))+" transitions, one per trigger")
+	} else if written > 1 {
+		notes = append(notes, "written as "+strconv.Itoa(written)+" transitions, one per trigger")
 	}
 	tname := ""
 	if s.m.nameOf(t) != "" {
@@ -777,16 +823,20 @@ func (s *stateRegion) transition(t *xmi.Element) {
 			line += writeName(n) + " "
 		}
 		line += "first " + from + accept.clause + guard
-		if eff != nil {
-			if i > 0 {
-				s.m.downgrade(eff, "run by each of the transitions written for its triggers")
+		if eff != nil || accept.keeping != "" {
+			if i > 0 && eff != nil {
+				s.m.downgrade(eff, "run by each of the transitions written for it")
 			}
 			s.m.w.line(line)
 			s.m.w.indented(func() {
-				saved := s.m.bound
-				s.m.bound = accept.bound
-				s.m.inlineBehavior("do action", eff, t)
-				s.m.bound = saved
+				if eff == nil {
+					s.m.w.block("do action", func() { s.m.w.line(accept.keeping) })
+				} else {
+					saved, savedKeep := s.m.bound, s.m.keeping
+					s.m.bound, s.m.keeping = accept.bound, accept.keeping
+					s.m.inlineBehavior("do action", eff, t)
+					s.m.bound, s.m.keeping = saved, savedKeep
+				}
 				s.m.w.line("then " + to + ";")
 			})
 			continue
@@ -794,7 +844,26 @@ func (s *stateRegion) transition(t *xmi.Element) {
 		s.m.w.line(line + " then " + to + ";")
 	}
 	note := strings.Join(notes, "; ")
-	s.m.add(t, verdictFor(note), tname, note)
+	s.m.add(t, verdictFor(note), tname, joinNotes(note, strings.Join(info, "; ")))
+}
+
+// routes writes the acceptances a trigger stands for: as read when taken from the object itself,
+// and via each port the trigger names or the signal arrives at. info says what was added, note what was dropped.
+func (s *stateRegion) routes(tr, ev *xmi.Element, a acceptance) (routes []acceptance, info, note string) {
+	sig := s.m.model.Ref(ev, "signal")
+	if ev.Type != "SignalEvent" || sig == nil {
+		return []acceptance{a}, "", ""
+	}
+	ports, direct, info, note := s.m.portRoutes(tr, classifierOf(tr), sig)
+	if direct {
+		routes = append(routes, a)
+	}
+	for _, p := range ports {
+		via := a
+		via.clause = a.clause + " via " + writeName(s.m.nameFor(p))
+		routes = append(routes, via)
+	}
+	return routes, info, note
 }
 
 // reentryObservable reports whether leaving and re-entering state v runs a
@@ -811,11 +880,13 @@ func (m *migration) reentryObservable(v *xmi.Element) bool {
 }
 
 // acceptance is one written trigger: its accept clause, the name the clause
-// gives the accepted signal, and the effect parameters bound to that name.
+// gives the accepted signal, the effect parameters bound to that name, and the
+// statement keeping the signal for the state entered.
 type acceptance struct {
 	clause  string
 	payload string
 	bound   map[*xmi.Element]string
+	keeping string
 }
 
 // payload binds the effect's parameters to the signal a trigger accepts, as a
@@ -835,29 +906,42 @@ func (s *stateRegion) payload(t, eff, ev *xmi.Element) acceptance {
 		s.m.unbound(eff, "the effect is written once, as its own action def, so only a transition owning it can pass the accepted "+s.m.nameFor(sig))
 		return acceptance{}
 	}
-	used := map[string]bool{}
-	for _, p := range eff.Owned("ownedParameter") {
-		used[s.m.nameFor(p)] = true
-	}
-	name := freshIn(used, lowerFirst(s.m.nameFor(sig)))
-	a := acceptance{payload: writeName(name), bound: map[*xmi.Element]string{}}
+	a := acceptance{payload: s.payloadName(eff, sig), bound: map[*xmi.Element]string{}}
 	for _, p := range params {
 		typ := s.m.model.Ref(p, "type")
 		switch {
 		case typ == sig || typ != nil && s.m.inherits(sig, typ), typ == nil && len(params) == 1:
-			a.bound[p] = a.payload
+			a.bound[p] = writeName(a.payload)
 		case typ == nil:
+			s.m.unvalued[p] = true
 			s.m.add(p, Approximated, "", "the parameter takes no value: it is untyped, and the transition passes only the accepted "+s.m.nameFor(sig))
 		default:
+			s.m.unvalued[p] = true
 			s.m.add(p, Approximated, "", "the parameter takes no value: the transition passes only the accepted "+s.m.nameFor(sig)+", which is no "+s.m.nameFor(typ))
 		}
 	}
 	return a
 }
 
+// payloadName names the signal an accept clause binds, clear of the effect's
+// parameters.
+func (s *stateRegion) payloadName(eff, sig *xmi.Element) string {
+	used := map[string]bool{}
+	for _, c := range s.m.carrierOf {
+		used[c.holder] = true
+	}
+	if eff != nil {
+		for _, p := range eff.Owned("ownedParameter") {
+			used[s.m.nameFor(p)] = true
+		}
+	}
+	return freshIn(used, lowerFirst(s.m.nameFor(sig)))
+}
+
 // unbound notes on each in parameter of an effect why it takes no value.
 func (m *migration) unbound(eff *xmi.Element, why string) {
 	for _, p := range inParameters(eff) {
+		m.unvalued[p] = true
 		m.add(p, Approximated, "", "the parameter takes no value: "+why)
 	}
 }

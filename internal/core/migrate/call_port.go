@@ -14,13 +14,12 @@ func (a *activity) portReceiver(port, t, op *xmi.Element) (receiver, note string
 		return "", "the call runs in the caller's context: the port " + qualifiedName(port) + " it goes through has no v2 declaration", false
 	}
 	usage := writeName(a.m.operationUsage(op))
-	ctx := classifierOf(a.act)
-	if ctx != nil && a.m.hasFeature(ctx, port) {
-		path, why := a.m.connectedReceiver(ctx, port, op)
+	if a.hasPort(port) {
+		path, why := a.m.connectedReceiver(a.selfType(), port, op)
 		if why != "" {
 			return "", "the call runs in the caller's context: " + why, false
 		}
-		return path + "." + usage, "the call performs the usage " + usage + " of the part connected to the port " + a.m.nameFor(port), true
+		return a.on(a.self(), path+"."+usage), "the call performs the usage " + usage + " of the part connected to the port " + a.m.nameFor(port), true
 	}
 	obj, typ, found := a.objectOf(t)
 	switch {
@@ -31,20 +30,17 @@ func (a *activity) portReceiver(port, t, op *xmi.Element) (receiver, note string
 	case !a.m.hasFeature(typ, port):
 		return "", "the call runs in the caller's context: the target " + obj + " is a " + qualifiedName(typ) + ", which has no port " + a.m.nameFor(port), false
 	}
-	path := strings.TrimPrefix(obj, "this.") + "." + writeName(a.m.nameFor(port))
-	if obj == "this" {
-		path = writeName(a.m.nameFor(port))
-	}
+	path := a.on(obj, writeName(a.m.nameFor(port)))
 	if pt := a.m.model.Ref(port, "type"); pt != nil && a.m.hasFeature(pt, op) {
 		return path + "." + usage, "the call performs the usage " + usage + " of the target's port " + path, true
 	}
 	if !a.m.hasFeature(typ, op) {
 		return "", "the call runs in the caller's context: neither the target " + obj + " nor its port " + a.m.nameFor(port) + " has the operation " + a.m.nameOf(op), false
 	}
-	if obj == "this" {
-		return usage, "the target is this, whose usage " + usage + " the call performs; its port " + a.m.nameFor(port) + " is not written, as a v2 perform names the operation on the object", true
+	if obj == a.self() {
+		return a.on(obj, usage), "the target is " + obj + ", whose usage " + usage + " the call performs; its port " + a.m.nameFor(port) + " is not written, as a v2 perform names the operation on the object", true
 	}
-	return strings.TrimPrefix(obj, "this.") + "." + usage, "the call performs the usage " + usage + " of the target " + obj + "; its port " + a.m.nameFor(port) + " is not written, as a v2 perform names the operation on the object", true
+	return a.on(obj, usage), "the call performs the usage " + usage + " of the target " + obj + "; its port " + a.m.nameFor(port) + " is not written, as a v2 perform names the operation on the object", true
 }
 
 // connectedReceiver follows the connectors of classifier c from its port to the

@@ -119,15 +119,8 @@ const ovenMachine = `
 const ovenApplications = `
   <sysml:Block xmi:id="_s1" base_Class="_oven"/>`
 
-// Two regions of one state become the sub-states of a parallel state, a
-// JavaScript entry or exit behavior an entry or exit action of assignments, a
-// choice a choice pseudostate whose else guard is the unguarded branch, a guard
-// that is a v2 expression an if clause, a change event an accept when, an
-// absolute time event a TimeInstantValue attribute the transition accepts at,
-// an internal transition a self transition, and a transition with two triggers
-// two transitions. The result runs: On enters both regions, the tick alternates
-// the light, the change event fires when the temperature is raised, On leaves
-// through the choice on the counter, and the clock reaches the instant.
+// Orthogonal regions, a choice with an else branch, v2 guards, change and absolute time
+// events, an internal transition and a two-trigger transition are written executably. The result runs.
 func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 	r := migrateDocument(t, ovenMachine, ovenApplications)
 	for _, line := range []string{
@@ -297,6 +290,10 @@ const pipelineActivity = `
         <argument xmi:type="uml:InputPin" xmi:id="_callPIn" name="seed"/>
         <result xmi:type="uml:OutputPin" xmi:id="_callPOut" name="total"/>
       </node>
+      <node xmi:type="uml:CallBehaviorAction" xmi:id="_stray" name="stray" behavior="_double">
+        <argument xmi:type="uml:InputPin" xmi:id="_strayIn" name="x"/>
+        <result xmi:type="uml:OutputPin" xmi:id="_strayOut" name="y"/>
+      </node>
       <edge xmi:type="uml:ObjectFlow" xmi:id="_rOf1" source="_seedOut" target="_callPIn"/>
       <edge xmi:type="uml:ObjectFlow" xmi:id="_rOf2" source="_callPOut" target="_rOutN"/>
     </packagedElement>`
@@ -306,7 +303,9 @@ const pipelineActivity = `
 // from the call's result to a parameter node the binding of the out
 // parameter, a function behavior a calc def the call evaluates, and a
 // partition a comment naming its nodes. A driver feeding the pipeline a
-// literal through a value specification action runs and yields the double.
+// literal through a value specification action runs and yields the double; a
+// call nothing leads to whose input pin nothing feeds never fires, so no
+// succession starts it.
 func TestActivityParametersFlowThroughNestedCalls(t *testing.T) {
 	r := migrateDocument(t, pipelineActivity, "")
 	for _, line := range []string{
@@ -330,14 +329,19 @@ func TestActivityParametersFlowThroughNestedCalls(t *testing.T) {
 		"out result = 21.0;",
 		"flow seed.result to pipeline.seed;",
 		"bind answer = pipeline.total;",
+		"action stray : Double;",
 	} {
 		wantLine(t, r.Notation, line)
+	}
+	if strings.Contains(string(r.Notation), "then stray;") {
+		t.Errorf("a succession starts the call whose input nothing feeds:\n%s", r.Notation)
 	}
 	wantNote(t, r, "_lane", migrate.Approximated, "")
 	wantNote(t, r, "_pInN", migrate.Mapped, "")
 	wantNote(t, r, "_pOf1", migrate.Mapped, "")
 	wantNote(t, r, "_twice", migrate.Mapped, "")
 	wantNote(t, r, "_seedV", migrate.Approximated, "no edge leads to the node, so it starts with the activity")
+	wantNote(t, r, "_stray", migrate.Approximated, "the action never fires: its input pin 'x' must hold a value, but no object flow feeds it")
 	wantNote(t, r, "_rOf1", migrate.Mapped, "")
 
 	s := session(t, r)
@@ -358,6 +362,12 @@ const handshakeInteraction = `
       </ownedAttribute>
     </packagedElement>
     <packagedElement xmi:type="uml:Signal" xmi:id="_rep" name="Reply"/>
+    <packagedElement xmi:type="uml:Duration" xmi:id="_hsMin">
+      <expr xmi:type="uml:LiteralString" xmi:id="_hsMinV" value="2s"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Duration" xmi:id="_hsMax">
+      <expr xmi:type="uml:LiteralString" xmi:id="_hsMaxV" value="4s"/>
+    </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_node" name="Node"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_net" name="Net">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_a" name="a" type="_node" aggregation="composite"/>
@@ -376,6 +386,10 @@ const handshakeInteraction = `
         <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_hsDur">
           <constrainedElement xmi:idref="_sReq"/>
           <constrainedElement xmi:idref="_rRep"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_hsDI" min="_hsMin" max="_hsMax"/>
+        </ownedRule>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_hsDur2">
+          <constrainedElement xmi:idref="_mReq"/>
         </ownedRule>
       </ownedBehavior>
       <ownedBehavior xmi:type="uml:Interaction" xmi:id="_rpc" name="RemoteCall">
@@ -391,18 +405,19 @@ const handshakeApplications = `
   <sysml:Block xmi:id="_s1" base_Class="_node"/>
   <sysml:Block xmi:id="_s2" base_Class="_net"/>`
 
-// An interaction whose messages are all signals sent to the block's parts
-// becomes a scenario action def of sends in occurrence order, its arguments
-// the signal's attribute values and its duration constraint reported; one
-// carrying a call of no operation is unmapped with the message named. The scenario runs.
+// A signal-only interaction becomes a scenario action def of sends in occurrence order with
+// duration waits; a malformed duration or a call of no operation is reported. The scenario runs.
 func TestInteractionMigratesToAScenarioOfSends(t *testing.T) {
 	r := migrateDocument(t, handshakeInteraction, handshakeApplications)
 	for _, line := range []string{
 		"action def Handshake {",
+		"/* duration constraint on request not migrated — the duration constraint has no interval */",
 		"action request send new Request(n = 7) to this.b;",
 		"first start then request;",
+		"action wait accept after RandomFunctions::uniform(2.0, 4.0) [SI::s];",
+		"first request then wait;",
 		"action reply send new Reply() to this.a;",
-		"first request then reply;",
+		"first wait then reply;",
 		"first reply then done;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -413,11 +428,13 @@ func TestInteractionMigratesToAScenarioOfSends(t *testing.T) {
 	wantNote(t, r, "_hs", migrate.Approximated, "written as a scenario of 2 steps, one per message in occurrence order")
 	wantNote(t, r, "_mReq", migrate.Mapped, "written as a send to this.b")
 	wantNote(t, r, "_la", migrate.Mapped, "the lifeline stands for this.a, which the steps address")
-	wantNote(t, r, "_hsDur", migrate.Unmapped, "a DurationConstraint on an interaction has no form in a scenario")
+	wantNote(t, r, "_hsDur", migrate.Approximated, "the time from request, written as the wait wait before reply")
+	wantNote(t, r, "_hsDur2", migrate.Unmapped, "the duration constraint has no interval")
 	wantNote(t, r, "_rpc", migrate.Unmapped, "the message 'call' names no operation")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Net")
+	meta(t, s, "%seed 1")
 	meta(t, s, "%action Net::Handshake #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
 		t.Errorf("the scenario did not run to completion:\n%s", out)
