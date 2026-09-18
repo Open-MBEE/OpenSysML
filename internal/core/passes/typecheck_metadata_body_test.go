@@ -54,3 +54,33 @@ func TestMetadataBodyValueWithItsOwnTypeIsJudgedByIt(t *testing.T) {
 		}
 	}`, "cannot bind String value to a feature typed by Real")
 }
+
+// A metadata body value binds as any bound value does: its element count against the
+// restated feature's multiplicity and its non-scalar values against its declared type.
+func TestMetadataBodyValueIsBoundByTheRestatedFeatureWhole(t *testing.T) {
+	wantDiags(t, `package P {
+		enum def Level { low; high; }
+		part def Wheel;
+		metadata def Weight {
+			attribute p : ScalarValues::Real[1];
+			attribute all : ScalarValues::Real[*];
+			attribute level : Level;
+			ref part wheel : Wheel;
+		}
+		part def Rig {
+			part fine { @Weight { p = 0.5; all = (0.3, 0.7); level = Level::high; } }
+			part pair { @Weight { p = (0.3, 0.7); } }
+			part redefined { @Weight { :>> p = (0.3, 0.7); } }
+			part restated { metadata weighed : Weight { p = (0.3, 0.7); } }
+			part twice { @Weight { all = (0.3, 0.3); } }
+			part leveled { @Weight { level = 3; } }
+			part wheeled { @Weight { wheel = 3; } }
+		}
+	}`,
+		"2 value(s) bound to a feature with multiplicity upper bound 1",
+		"2 value(s) bound to a feature with multiplicity upper bound 1",
+		"2 value(s) bound to a feature with multiplicity upper bound 1",
+		"0.3 (a Real) is written at positions 1 and 2 of a unique feature",
+		"cannot bind Natural value to a feature typed by Level",
+		"cannot bind Natural value to a feature typed by Wheel")
+}

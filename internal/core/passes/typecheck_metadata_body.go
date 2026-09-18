@@ -2,28 +2,25 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// checkPrefixMetadata types the body of an `@M { f = v; }` annotation: each
-// body feature as the usage it is, and each value against the type of the
-// feature of M it restates, which the body feature declares no type of its own for.
+// checkPrefixMetadata types the body of an `@M { f = v; }` annotation: each body
+// feature as the usage it is, a value bound to a restated feature of M as bound to it.
 func (tc *typeChecker) checkPrefixMetadata(scope *symbols.Scope, prefix *ast.PrefixMetadata) {
 	if prefix == nil || len(prefix.Body) == 0 {
 		return
 	}
 	body := childScopeOr(scope, prefix)
-	tc.walk(body, prefix.Body)
-	if prefix.Type == nil {
-		return
+	if prefix.Type != nil {
+		tc.markMetadataBindings(tc.expr.resolveTarget(scope, prefix.Type), body, prefix.Body)
 	}
-	tc.checkMetadataBindings(tc.expr.resolveTarget(scope, prefix.Type), body, prefix.Body)
+	tc.walk(body, prefix.Body)
 }
 
-// checkMetadataUsageBody types the values the body of `metadata m : M { f = v; }`
-// binds against the features of M they restate; the walk typed the body's usages.
-func (tc *typeChecker) checkMetadataUsageBody(scope *symbols.Scope, u *ast.Usage) {
+// markMetadataUsageBody marks the values the body of `metadata m : M { f = v; }` binds
+// to the features of M they restate, ahead of the walk that checks them.
+func (tc *typeChecker) markMetadataUsageBody(scope *symbols.Scope, u *ast.Usage) {
 	if u.Kind != ast.UsageMetadata || len(u.Members) == 0 {
 		return
 	}
@@ -31,14 +28,14 @@ func (tc *typeChecker) checkMetadataUsageBody(scope *symbols.Scope, u *ast.Usage
 		if rel == nil || rel.Kind != ast.RelTyping || rel.Target == nil {
 			continue
 		}
-		tc.checkMetadataBindings(tc.expr.resolveTarget(scope, rel.Target), childScopeOr(scope, u), u.Members)
+		tc.markMetadataBindings(tc.expr.resolveTarget(scope, rel.Target), childScopeOr(scope, u), u.Members)
 		return
 	}
 }
 
-// checkMetadataBindings checks, at every depth of a metadata body whose type is
-// owner, that a value bound to a restated feature is of that feature's scalar type.
-func (tc *typeChecker) checkMetadataBindings(owner *symbols.Symbol, scope *symbols.Scope, body []ast.Node) {
+// markMetadataBindings records, at every depth of a metadata body whose type is owner,
+// the feature of owner each body declaration typed by nothing of its own restates.
+func (tc *typeChecker) markMetadataBindings(owner *symbols.Symbol, scope *symbols.Scope, body []ast.Node) {
 	if owner == nil {
 		return
 	}
@@ -52,16 +49,23 @@ func (tc *typeChecker) checkMetadataBindings(owner *symbols.Symbol, scope *symbo
 			continue
 		}
 		if usage.Value != nil && !hasTypingRelationship(usage.Relationships) {
-			want := semantics.PrimUnknown
-			if typ := tc.expr.featureValueType(target); typ != nil {
-				want = tc.expr.model.PrimTypeOf(typ)
+			if tc.metadataTargets == nil {
+				tc.metadataTargets = map[*ast.Usage]*symbols.Symbol{}
 			}
-			for _, element := range valueElements(usage.Value) {
-				tc.expr.checkScalarBinding(element, tc.expr.silent().infer(scope, element), want)
-			}
+			tc.metadataTargets[usage] = target
 		}
-		tc.checkMetadataBindings(target, childScopeOr(scope, usage), usage.Members)
+		tc.markMetadataBindings(target, childScopeOr(scope, usage), usage.Members)
 	}
+}
+
+// checkMetadataBinding checks the value of a marked body declaration as bound to the
+// feature it restates: by that feature's types, dimension, multiplicity and uniqueness.
+func (tc *typeChecker) checkMetadataBinding(scope *symbols.Scope, u *ast.Usage, target *symbols.Symbol) {
+	td, ok := featureDeclOf(target.Decl)
+	if !ok {
+		return
+	}
+	tc.expr.checkBoundValue(scope, target.OwnerScope, td, u.Value, nil)
 }
 
 // metadataBodyTarget is the feature of owner a body declaration restates: the one
