@@ -10,6 +10,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 const complexWireModel = `
@@ -38,7 +39,7 @@ package C {
 // of Reals a client would read as two values.
 func TestComplexToProto(t *testing.T) {
 	idx := symbols.NewIndex()
-	pv := ValueToProto(runtime.NewComplex(complex(1.5, -2)), idx)
+	pv := protoconv.ValueToProto(runtime.NewComplex(complex(1.5, -2)), idx)
 	c := pv.GetComplex()
 	if c == nil {
 		t.Fatalf("got kind %T, want complex", pv.GetKind())
@@ -50,13 +51,13 @@ func TestComplexToProto(t *testing.T) {
 	seq := runtime.NewSequence()
 	seq.Append(runtime.NewComplex(complex(1, 2)))
 	seq.Append(runtime.NewComplex(complex(3, 4)))
-	pv = ValueToProto(runtime.NewSequenceValue(seq), idx)
+	pv = protoconv.ValueToProto(runtime.NewSequenceValue(seq), idx)
 	elements := pv.GetSequence().GetElements()
 	if len(elements) != 2 {
 		t.Fatalf("a sequence of two Complex values crossed as %d elements", len(elements))
 	}
 	for i, want := range []complex128{complex(1, 2), complex(3, 4)} {
-		if got := ProtoToComplex(elements[i].GetComplex()); got != want {
+		if got := protoconv.ProtoToComplex(elements[i].GetComplex()); got != want {
 			t.Errorf("element %d = %v, want %v", i, got, want)
 		}
 	}
@@ -67,18 +68,18 @@ func TestComplexToProto(t *testing.T) {
 func TestComplexRoundTrip(t *testing.T) {
 	idx := symbols.NewIndex()
 	for _, z := range []complex128{complex(0, 0), complex(1.5, -2), complex(-0.25, 1e300), complex(3, 0)} {
-		back, err := ProtoToValueIn(ValueToProto(runtime.NewComplex(z), idx), idx, nil)
+		back, err := protoconv.ProtoToValueIn(protoconv.ValueToProto(runtime.NewComplex(z), idx), idx, nil)
 		if err != nil {
-			t.Fatalf("ProtoToValueIn(%v): %v", z, err)
+			t.Fatalf("protoconv.ProtoToValueIn(%v): %v", z, err)
 		}
 		if back.Kind != runtime.ValComplex || back.Complex() != z {
 			t.Errorf("round trip of %v = %s (%v)", z, back.Kind, back)
 		}
 	}
 
-	empty, err := ProtoToValueIn(&pb.Value{Kind: &pb.Value_Complex{Complex: &pb.Complex{}}}, idx, nil)
+	empty, err := protoconv.ProtoToValueIn(&pb.Value{Kind: &pb.Value_Complex{Complex: &pb.Complex{}}}, idx, nil)
 	if err != nil {
-		t.Fatalf("ProtoToValueIn(empty Complex): %v", err)
+		t.Fatalf("protoconv.ProtoToValueIn(empty Complex): %v", err)
 	}
 	if empty.Kind != runtime.ValComplex || empty.Complex() != 0 {
 		t.Errorf("empty Complex message = %v, want 0 + 0i", empty)
@@ -97,7 +98,7 @@ func TestComplexValuesCapability(t *testing.T) {
 	}
 
 	srv := mustNewServiceWithout(t, CapabilityComplexValues)
-	pv := &pb.Value{Kind: &pb.Value_Complex{Complex: ComplexToProto(complex(0, 1))}}
+	pv := &pb.Value{Kind: &pb.Value_Complex{Complex: protoconv.ComplexToProto(complex(0, 1))}}
 	srv.filterValueCapabilities(pv)
 	if want := "unsupported: complex number 0.0 + 1.0i"; pv.GetNull() != want {
 		t.Errorf("withheld complex = %v, want null %q", pv, want)
@@ -126,7 +127,7 @@ func TestComplexCrossesEveryValueSurface(t *testing.T) {
 	if err != nil || eval.Error != "" {
 		t.Fatalf("Evaluate: err = %v, error = %q", err, eval.GetError())
 	}
-	if got := ProtoToComplex(eval.Result.GetComplex()); eval.Result.GetComplex() == nil || got != complex(1.5, -2) {
+	if got := protoconv.ProtoToComplex(eval.Result.GetComplex()); eval.Result.GetComplex() == nil || got != complex(1.5, -2) {
 		t.Errorf("Evaluate result = %v, want complex 1.5 - 2.0i", eval.Result)
 	}
 
@@ -135,7 +136,7 @@ func TestComplexCrossesEveryValueSurface(t *testing.T) {
 		t.Fatalf("Instantiate: err = %v, error = %q", err, inst.GetError())
 	}
 	z := inst.Instance.FeatureValues["z"]
-	if z == nil || z.Error != "" || z.Value.GetComplex() == nil || ProtoToComplex(z.Value.GetComplex()) != complex(1.5, -2) {
+	if z == nil || z.Error != "" || z.Value.GetComplex() == nil || protoconv.ProtoToComplex(z.Value.GetComplex()) != complex(1.5, -2) {
 		t.Errorf("feature value z = %v, want complex 1.5 - 2.0i", z)
 	}
 	zs := inst.Instance.FeatureValues["zs"]
@@ -143,7 +144,7 @@ func TestComplexCrossesEveryValueSurface(t *testing.T) {
 		t.Fatalf("feature value zs = %v, want two values", zs)
 	}
 	for i, want := range []complex128{complex(1, 2), complex(3, 4)} {
-		if zs.Values[i].GetComplex() == nil || ProtoToComplex(zs.Values[i].GetComplex()) != want {
+		if zs.Values[i].GetComplex() == nil || protoconv.ProtoToComplex(zs.Values[i].GetComplex()) != want {
 			t.Errorf("zs[%d] = %v, want complex %v", i, zs.Values[i], want)
 		}
 	}
@@ -151,12 +152,12 @@ func TestComplexCrossesEveryValueSurface(t *testing.T) {
 	act, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
 		ModelHash:      parsed.ModelHash,
 		ActionSymbolId: "C::conj",
-		Inputs:         map[string]*pb.Value{"z": {Kind: &pb.Value_Complex{Complex: ComplexToProto(complex(2, 5))}}},
+		Inputs:         map[string]*pb.Value{"z": {Kind: &pb.Value_Complex{Complex: protoconv.ComplexToProto(complex(2, 5))}}},
 	})
 	if err != nil || act.Error != "" {
 		t.Fatalf("ExecuteAction: err = %v, error = %q", err, act.GetError())
 	}
-	if w := act.Outputs["w"]; w.GetComplex() == nil || ProtoToComplex(w.GetComplex()) != complex(2, -5) {
+	if w := act.Outputs["w"]; w.GetComplex() == nil || protoconv.ProtoToComplex(w.GetComplex()) != complex(2, -5) {
 		t.Errorf("output w = %v, want complex 2.0 - 5.0i", w)
 	}
 
@@ -175,7 +176,7 @@ func TestComplexCrossesEveryValueSurface(t *testing.T) {
 }
 
 func TestValueCarriesComplex(t *testing.T) {
-	z := &pb.Value{Kind: &pb.Value_Complex{Complex: ComplexToProto(complex(1, 2))}}
+	z := &pb.Value{Kind: &pb.Value_Complex{Complex: protoconv.ComplexToProto(complex(1, 2))}}
 	one := &pb.Value{Kind: &pb.Value_IntValue{IntValue: 1}}
 	sequence := func(elements ...*pb.Value) *pb.Value {
 		return &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: elements}}}
@@ -193,8 +194,8 @@ func TestValueCarriesComplex(t *testing.T) {
 		{"nested sequence with a complex", sequence(one, sequence(sequence(z))), true},
 		{"empty sequence", sequence(), false},
 	} {
-		if got := ValueCarriesComplex(testcase.value); got != testcase.want {
-			t.Errorf("ValueCarriesComplex(%s) = %v, want %v", testcase.name, got, testcase.want)
+		if got := protoconv.ValueCarriesComplex(testcase.value); got != testcase.want {
+			t.Errorf("protoconv.ValueCarriesComplex(%s) = %v, want %v", testcase.name, got, testcase.want)
 		}
 	}
 }
@@ -208,7 +209,7 @@ func TestComplexInputNeedsComplexValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)
 	}
-	z := &pb.Value{Kind: &pb.Value_Complex{Complex: ComplexToProto(complex(2, 5))}}
+	z := &pb.Value{Kind: &pb.Value_Complex{Complex: protoconv.ComplexToProto(complex(2, 5))}}
 	nested := &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: []*pb.Value{
 		{Kind: &pb.Value_IntValue{IntValue: 1}},
 		{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: []*pb.Value{z}}}},
@@ -241,7 +242,7 @@ func TestComplexInputNeedsComplexValues(t *testing.T) {
 	if err != nil || calc.Error != "" {
 		t.Fatalf("EvaluateCalc: err = %v, error = %q", err, calc.GetError())
 	}
-	if calc.Result.GetComplex() == nil || ProtoToComplex(calc.Result.GetComplex()) != complex(2, 5) {
+	if calc.Result.GetComplex() == nil || protoconv.ProtoToComplex(calc.Result.GetComplex()) != complex(2, 5) {
 		t.Errorf("echo(2 + 5i) = %v, want the complex back", calc.Result)
 	}
 }

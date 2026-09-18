@@ -13,13 +13,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast/astcodec"
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // msgModelNotFound formats the not-found status for an unknown model hash.
@@ -394,42 +395,42 @@ func (s *Service) requireCapability(capability string) error {
 // requireValueCapabilities refuses a supplied value of a kind whose capability
 // is unavailable, rather than reading it as something else.
 func (s *Service) requireValueCapabilities(pv *pb.Value) error {
-	if ValueCarriesComplex(pv) {
+	if protoconv.ValueCarriesComplex(pv) {
 		if err := s.requireCapability(CapabilityComplexValues); err != nil {
 			return err
 		}
 	}
-	if ValueCarriesStructured(pv) {
+	if protoconv.ValueCarriesStructured(pv) {
 		if err := s.requireCapability(CapabilityStructuredValues); err != nil {
 			return err
 		}
 	}
-	if ValueCarriesMeasurementRef(pv) {
+	if protoconv.ValueCarriesMeasurementRef(pv) {
 		if err := s.requireCapability(CapabilityMeasurementRefs); err != nil {
 			return err
 		}
 	}
-	if ValueCarriesFunction(pv) {
+	if protoconv.ValueCarriesFunction(pv) {
 		if err := s.requireCapability(CapabilityFunctionValues); err != nil {
 			return err
 		}
 	}
-	if ValueCarriesInfinity(pv) {
+	if protoconv.ValueCarriesInfinity(pv) {
 		if err := s.requireCapability(CapabilityInfinityValue); err != nil {
 			return err
 		}
 	}
-	if ValueCarriesSet(pv) {
+	if protoconv.ValueCarriesSet(pv) {
 		if err := s.requireCapability(CapabilitySetValues); err != nil {
 			return err
 		}
 	}
-	if ValueCarriesTensor(pv) {
+	if protoconv.ValueCarriesTensor(pv) {
 		if err := s.requireCapability(CapabilityTensorValues); err != nil {
 			return err
 		}
 	}
-	if ValueCarriesMetaobject(pv) {
+	if protoconv.ValueCarriesMetaobject(pv) {
 		return s.requireCapability(CapabilityMetaobjectValues)
 	}
 	return nil
@@ -528,7 +529,7 @@ func (s *Service) ParseFile(ctx context.Context, req *pb.ParseFileRequest) (*pb.
 		return nil, err
 	}
 
-	mode := conformance.ModeOf(req.StrictConformance)
+	mode := diag.ConformanceModeOf(req.StrictConformance)
 	modelHash, model := s.parseModel([]sourceInput{input}, mode)
 	return s.buildParseResponse(modelHash, model), nil
 }
@@ -564,7 +565,7 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 		inputs = append(inputs, input)
 	}
 
-	modelHash, model := s.parseModel(inputs, conformance.ModeOf(req.StrictConformance))
+	modelHash, model := s.parseModel(inputs, diag.ConformanceModeOf(req.StrictConformance))
 	roots := make([]*pb.SymbolInfo, 0, len(model.Documents))
 	for _, doc := range model.Documents {
 		roots = append(roots, s.rootSymbol(model, doc))
@@ -634,7 +635,7 @@ func fileInput(path string) (sourceInput, error) {
 // gating in AGENTS.md §4: a document that failed to parse contributes no symbols,
 // so analyzing its siblings would report names as unresolved that the model
 // declares.
-func (s *Service) parseModel(inputs []sourceInput, mode conformance.Mode) (string, *CachedModel) {
+func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (string, *CachedModel) {
 	// Keyed by what was read, not by the hash a request carried: a hash
 	// disagreeing with its content would serve another model. Each document's
 	// name is part of the key, since its diagnostics name the document they came
@@ -684,7 +685,7 @@ func (s *Service) parseModel(inputs []sourceInput, mode conformance.Mode) (strin
 	if parsedClean {
 		for i, doc := range documents {
 			doc.PassesDiags = passes.AnalyzeWithOptions(inputs[i].name, inputs[i].kind, doc.Root,
-				make([]passes.Diagnostic, 0), idx, passes.Options{Conformance: mode})
+				make([]diag.Diagnostic, 0), idx, passes.Options{Conformance: mode})
 		}
 	}
 
@@ -887,7 +888,7 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 
 	// Serializing the graph materializes the objects under the root, so it is
 	// part of the creation: past the held-objects bound, none of them stays.
-	var graph InstanceGraph
+	var graph protoconv.InstanceGraph
 	inst, err := runtimeCtx.InstantiateRead(sym, func(inst *runtime.Instance) error {
 		graph = s.instanceGraphToProto(runtimeCtx, inst, cached.Index)
 		for _, err := range graph.Errors {
@@ -954,7 +955,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if err := s.requireValueCapabilities(pv); err != nil {
 				return nil, nil, err
 			}
-			val, cerr := ProtoToRuntimeValue(ctx, pv, cached.Index, ctx.Semantics())
+			val, cerr := protoconv.ProtoToRuntimeValue(ctx, pv, cached.Index, ctx.Semantics())
 			if cerr != nil {
 				return nil, &pb.ExecuteActionResponse{
 					Error: fmt.Sprintf("input %q could not be read: %v", name, cerr),

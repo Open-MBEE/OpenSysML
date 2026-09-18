@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/client/opensysml"
-	"github.com/Open-MBEE/OpenSysML/internal/testutil/gobuild"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 // TestSuitePassesThroughThePublicGoAPI runs the committed suite in process over

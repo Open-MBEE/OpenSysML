@@ -5,19 +5,20 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // kermlLibraryDiags analyzes src as KerML against the bundled library and returns
 // the diagnostics a binding reports, as libraryDiags does for SysML.
-func kermlLibraryDiags(t *testing.T, src string) []Diagnostic {
+func kermlLibraryDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	idx := newTestIndex()
 	root := parser.New(source.New("<t>.kerml", []byte(src))).ParseFile()
 	idx.AddDocument("<t>.kerml", root)
 	idx.ExpandWildcardImports()
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range Analyze("<t>.kerml", root, nil, idx) {
 		if d.Source == "type" || d.Source == "name-resolution" {
 			out = append(out, d)
@@ -27,7 +28,7 @@ func kermlLibraryDiags(t *testing.T, src string) []Diagnostic {
 }
 
 // wantMessages checks that diags carry exactly the messages wanted, in order.
-func wantMessages(t *testing.T, diags []Diagnostic, want ...string) {
+func wantMessages(t *testing.T, diags []diag.Diagnostic, want ...string) {
 	t.Helper()
 	if len(diags) != len(want) {
 		t.Fatalf("expected %d diagnostic(s) %q, got %v", len(want), want, diags)

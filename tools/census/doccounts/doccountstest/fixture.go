@@ -123,7 +123,7 @@ func TestRuntimeRobustnessSignals(t *testing.T) {
 	t.Run("g", func(t *testing.T) {})
 }
 `)
-	grpc := "internal/grpc/testdata/conformance/"
+	grpc := "tests/grpc/testdata/conformance/"
 	Write(t, root, grpc+"a.expected.json", "{}\n")
 	Write(t, root, grpc+"b.expected.json", "{}\n")
 	Write(t, root, grpc+"b.check.expected.json", "{}\n")
@@ -151,8 +151,8 @@ import "testing"
 func TestHover(t *testing.T) {}
 `)
 	Write(t, root, "internal/skipped/testdata/ignored_test.go", "package ignored\n\nimport \"testing\"\n\nfunc TestIgnored(t *testing.T) {}\n")
-	Write(t, root, "clients/nested/go.mod", "module example.com/nested\n")
-	Write(t, root, "clients/nested/nested_test.go", "package nested\n\nimport \"testing\"\n\nfunc TestNested(t *testing.T) {}\n")
+	Write(t, root, "client/nested/go.mod", "module example.com/nested\n")
+	Write(t, root, "client/nested/nested_test.go", "package nested\n\nimport \"testing\"\n\nfunc TestNested(t *testing.T) {}\n")
 }
 
 // Write writes content at path, relative to root, creating the directories.

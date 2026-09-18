@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
 
@@ -66,7 +66,7 @@ func TestFixtureGraphCoversTheGaps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read %s: %v", fixtures[0].fixturePath, err)
 	}
-	graph, err := export.SysMLToRDF("model.sysml", model)
+	graph, err := convert.SysMLToRDF("model.sysml", model)
 	if err != nil {
 		t.Fatalf("convert the fixture: %v", err)
 	}

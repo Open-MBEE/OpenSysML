@@ -4,7 +4,6 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -1034,21 +1033,21 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		case "body":
 			return m.reflectiveCommentBody(sym, d.BodySpan)
 		case "locale":
-			return stringOrEmpty(lexer.StringValue(d.Locale)), true
+			return stringOrEmpty(source.StringValue(d.Locale)), true
 		}
 	case *ast.Documentation:
 		switch feature {
 		case "body":
 			return m.reflectiveCommentBody(sym, d.BodySpan)
 		case "locale":
-			return stringOrEmpty(lexer.StringValue(d.Locale)), true
+			return stringOrEmpty(source.StringValue(d.Locale)), true
 		}
 	case *ast.TextualRepresentation:
 		switch feature {
 		case "body":
 			return m.reflectiveCommentBody(sym, d.BodySpan)
 		case "language":
-			return stringOrEmpty(lexer.StringValue(d.Language)), true
+			return stringOrEmpty(source.StringValue(d.Language)), true
 		}
 	case *ast.Definition:
 		switch feature {

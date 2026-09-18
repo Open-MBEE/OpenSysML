@@ -3,6 +3,8 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // The constraint an assume/require member owns is a constraint usage, so it is
@@ -19,12 +21,12 @@ const ownedConstraintPrelude = `package L {
 // ownedVsOrdinary analyzes a requirement declaring decl as an owned constraint
 // (`require`, then `assume`) and as an ordinary usage, and returns the
 // diagnostics of one code on each, with the ordinary form's asserted first.
-func ownedVsOrdinary(t *testing.T, analyze func(*testing.T, string) []Diagnostic, code, decl, wantSpan string) (ordinary, require, assume Diagnostic) {
+func ownedVsOrdinary(t *testing.T, analyze func(*testing.T, string) []diag.Diagnostic, code, decl, wantSpan string) (ordinary, require, assume diag.Diagnostic) {
 	t.Helper()
 	forms := []struct{ name, keyword string }{
 		{"ordinary", ""}, {"require", "require "}, {"assume", "assume "},
 	}
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, form := range forms {
 		src := ownedConstraintPrelude + "package P {\n\tprivate import L::*;\n\trequirement def R {\n\t\t" +
 			form.keyword + "constraint " + decl + "\n\t}\n}\n"

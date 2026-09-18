@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -21,7 +22,7 @@ type W10BIndividualTypingPass struct{}
 
 func (W10BIndividualTypingPass) Level() PassLevel { return LevelType }
 
-func (W10BIndividualTypingPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W10BIndividualTypingPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -30,7 +31,7 @@ func (W10BIndividualTypingPass) Run(ctx *Context, name string, root *ast.RootNam
 		return nil
 	}
 	resolver := ctx.Resolver()
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	w8dWalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		u, ok := sym.Decl.(*ast.Usage)
 		if !ok || (!u.IsIndividual && u.Kind != ast.UsageIndividual) {
@@ -43,8 +44,8 @@ func (W10BIndividualTypingPass) Run(ctx *Context, name string, root *ast.RootNam
 		case n > 1:
 			msg = msgIndividualManyTypes
 		}
-		diags = append(diags, Diagnostic{
-			Severity: SeverityError,
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     u.Span(),
 			Message:  msg,
 			Code:     "individual-typing",
@@ -83,7 +84,7 @@ type W10BPortionOwnerPass struct{}
 
 func (W10BPortionOwnerPass) Level() PassLevel { return LevelConstraint }
 
-func (W10BPortionOwnerPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W10BPortionOwnerPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -91,14 +92,14 @@ func (W10BPortionOwnerPass) Run(ctx *Context, name string, root *ast.RootNamespa
 	if rootScope == nil {
 		return nil
 	}
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	w8dWalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		u, ok := sym.Decl.(*ast.Usage)
 		if !ok || u.Portion == ast.PortionNone || w10bOwnedByOccurrence(sym) {
 			return
 		}
-		diags = append(diags, Diagnostic{
-			Severity: SeverityError,
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     u.Span(),
 			Message:  msgPortionOwner,
 			Code:     "portion-owner",

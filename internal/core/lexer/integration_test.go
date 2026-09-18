@@ -28,7 +28,7 @@ func tokenizeFile(t *testing.T, path string) (*source.SourceFile, []Token) {
 }
 
 func TestFixturesNoErrors(t *testing.T) {
-	for _, f := range []string{"../../../testdata/lex/basic.sysml", "../../../testdata/lex/basic.kerml"} {
+	for _, f := range []string{"../../../tests/testdata/lex/basic.sysml", "../../../tests/testdata/lex/basic.kerml"} {
 		_, toks := tokenizeFile(t, f)
 		for _, tk := range toks {
 			if tk.Kind == Error {
@@ -39,7 +39,7 @@ func TestFixturesNoErrors(t *testing.T) {
 }
 
 func TestFixturesRoundTrip(t *testing.T) {
-	for _, f := range []string{"../../../testdata/lex/basic.sysml", "../../../testdata/lex/basic.kerml"} {
+	for _, f := range []string{"../../../tests/testdata/lex/basic.sysml", "../../../tests/testdata/lex/basic.kerml"} {
 		sf, toks := tokenizeFile(t, f)
 		var rebuilt []byte
 		for _, tk := range toks {

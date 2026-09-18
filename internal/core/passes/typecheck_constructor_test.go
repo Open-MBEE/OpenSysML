@@ -3,13 +3,15 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // constructorDiags is every type-tier diagnostic the full registry, library
 // loaded, reports for src.
-func constructorDiags(t *testing.T, src string) []Diagnostic {
+func constructorDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range analyzeAll(t, "ctor.sysml", src) {
 		if d.Source == "type" {
 			out = append(out, d)
@@ -38,13 +40,13 @@ func constructorModel(send string) string {
 
 // assertOneConstructorDiag checks that got is one error spanning at whose
 // message reads want.
-func assertOneConstructorDiag(t *testing.T, src string, got []Diagnostic, at, want string) {
+func assertOneConstructorDiag(t *testing.T, src string, got []diag.Diagnostic, at, want string) {
 	t.Helper()
 	if len(got) != 1 {
 		t.Fatalf("expected one diagnostic, got %+v", got)
 	}
 	d := got[0]
-	if d.Severity != SeverityError {
+	if d.Severity != diag.SeverityError {
 		t.Errorf("severity %v, want an error", d.Severity)
 	}
 	if spanned := strings.TrimSpace(src[d.Span.Offset:d.Span.End()]); spanned != at {

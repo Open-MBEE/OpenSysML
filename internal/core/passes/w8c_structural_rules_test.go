@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
@@ -52,7 +53,7 @@ func TestW8CReferenceSubsettingLegal(t *testing.T) {
 
 func TestW8CTopLevelImportMustBePrivate(t *testing.T) {
 	src := "public import ScalarValues::*;\npackage P {\n\tpublic import ScalarValues::*;\n}"
-	var got []Diagnostic
+	var got []diag.Diagnostic
 	for _, d := range w8cLibraryDiagnostics(t, "import-public.kerml", src) {
 		if d.Message == msgTopLevelImportPrivate {
 			got = append(got, d)

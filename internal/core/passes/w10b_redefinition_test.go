@@ -1,10 +1,14 @@
 package passes
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+)
 
 // spanText returns the source text a diagnostic covers, so a test can assert
 // the location the reference names rather than an offset.
-func spanText(src string, d Diagnostic) string {
+func spanText(src string, d diag.Diagnostic) string {
 	if d.Span.Offset < 0 || d.Span.End() > len(src) {
 		return ""
 	}
@@ -26,7 +30,7 @@ func TestW10BPackageLevelRedefinitionIsReported(t *testing.T) {
 	if diags[0].Message != msgRedefinePackageLevel {
 		t.Errorf("message = %q, want %q", diags[0].Message, msgRedefinePackageLevel)
 	}
-	if diags[0].Severity != SeverityError {
+	if diags[0].Severity != diag.SeverityError {
 		t.Errorf("severity = %v, want an error", diags[0].Severity)
 	}
 	// The diagnostic sits on the redefined reference, as in the reference.
@@ -100,7 +104,7 @@ func TestW10BEndFeatureRedefinitionIsReported(t *testing.T) {
 	if diags[0].Message != msgRedefineEndFeature {
 		t.Errorf("message = %q, want %q", diags[0].Message, msgRedefineEndFeature)
 	}
-	if diags[0].Severity != SeverityError {
+	if diags[0].Severity != diag.SeverityError {
 		t.Errorf("severity = %v, want an error", diags[0].Severity)
 	}
 }

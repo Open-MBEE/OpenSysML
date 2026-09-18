@@ -2,10 +2,10 @@ package parser
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
-	"github.com/Open-MBEE/OpenSysML/internal/core/quickfix"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -373,7 +373,7 @@ func (p *Parser) expectBodyOrEnd(what string) bool {
 
 // missingTerminator reports the terminator a construct lacks: on its last token when
 // the next one starts a later line or ends the body, else on that unexpected token.
-func (p *Parser) missingTerminator(unexpected, missing string, fixes ...quickfix.Fix) {
+func (p *Parser) missingTerminator(unexpected, missing string, fixes ...diag.Fix) {
 	next := p.peek()
 	last, ok := p.lastToken()
 	if !ok {
@@ -392,10 +392,10 @@ func (p *Parser) missingTerminator(unexpected, missing string, fixes ...quickfix
 
 // insertSemicolonFix is the edit that writes the missing `;` where the last
 // consumed token ends.
-func (p *Parser) insertSemicolonFix() quickfix.Fix {
-	return quickfix.Fix{
+func (p *Parser) insertSemicolonFix() diag.Fix {
+	return diag.Fix{
 		Title:     "Insert ';'",
-		Edits:     []quickfix.Edit{quickfix.Insert(p.lastEnd(), ";")},
+		Edits:     []diag.Edit{diag.Insert(p.lastEnd(), ";")},
 		Preferred: true,
 	}
 }
@@ -424,7 +424,7 @@ func (p *Parser) error(sp source.Span, msg string) {
 
 // errorWithFixes records an ill-formed-parse diagnostic that unambiguous edits
 // resolve.
-func (p *Parser) errorWithFixes(sp source.Span, msg string, fixes ...quickfix.Fix) {
+func (p *Parser) errorWithFixes(sp source.Span, msg string, fixes ...diag.Fix) {
 	p.Diagnostics = append(p.Diagnostics, Diagnostic{Span: sp, Message: msg, Fixes: fixes})
 }
 

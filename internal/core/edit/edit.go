@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -163,7 +164,7 @@ type Model struct {
 	// ParseDiags and SemDiags are what the original was found to have, so a
 	// refusal reports the errors an edit introduced and not ones it inherited.
 	ParseDiags []parser.Diagnostic
-	SemDiags   []passes.Diagnostic
+	SemDiags   []diag.Diagnostic
 	// NewIndex hands out an index carrying the libraries the model was analyzed
 	// against and every other document of Index, but none under Source's name,
 	// for analyzing the edited notation. Nil checks syntax alone.
@@ -190,7 +191,7 @@ type Model struct {
 type Document struct {
 	Source     *source.SourceFile
 	ParseDiags []parser.Diagnostic
-	SemDiags   []passes.Diagnostic
+	SemDiags   []diag.Diagnostic
 }
 
 // inDocument is m read as the document named name: m itself for the edited one,

@@ -3,10 +3,11 @@ package grpc
 import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // attributesOf reports the attributes an element declares and inherits, a
@@ -172,7 +173,7 @@ func (sc *SymbolContext) attributeValue(sym *symbols.Symbol) (*pb.Value, string)
 	if !ok {
 		return nil, unit
 	}
-	return ValueToProto(runtime.Value{Kind: runtime.ValConst, Const: val}, sc.Index), unit
+	return protoconv.ValueToProto(runtime.Value{Kind: runtime.ValConst, Const: val}, sc.Index), unit
 }
 
 // writesValue reports whether an attribute's declaration states a default of
@@ -185,5 +186,5 @@ func writesValue(sym *symbols.Symbol) bool {
 // unquote reads the text a string literal spells, so a reported attribute value
 // is the same string evaluating the literal answers.
 func unquote(s string) string {
-	return lexer.StringValue(s)
+	return source.StringValue(s)
 }

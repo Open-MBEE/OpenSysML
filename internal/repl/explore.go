@@ -8,10 +8,10 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -380,7 +380,7 @@ func (s *Session) checkFreshPath(label string, root *symbols.Symbol, path []obje
 		if feat == nil {
 			return freshPathError(label, seg, "%s has no feature %q%s", label, seg.Name, walker.DeclaredFeatureHint(features))
 		}
-		shown := lexer.NameText(seg.Name)
+		shown := source.NameText(seg.Name)
 		if ctx.Semantics().IsDataType(feat.Type) {
 			return freshPathError(label, seg, "%s of %s holds a value, not an object", shown, label)
 		}

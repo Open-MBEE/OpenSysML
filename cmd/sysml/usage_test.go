@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 )
 
 // The help states the RDF mapping's status in the same wording a conversion
@@ -15,7 +15,7 @@ func TestPrintUsageStatesTheExperimentalNotice(t *testing.T) {
 	printUsage(&help)
 
 	unwrapped := strings.Join(strings.Fields(help.String()), " ")
-	if !strings.Contains(unwrapped, export.ExperimentalNotice) {
+	if !strings.Contains(unwrapped, convert.ExperimentalNotice) {
 		t.Errorf("the help does not state the notice:\n%s", help.String())
 	}
 	for _, line := range strings.Split(help.String(), "\n") {

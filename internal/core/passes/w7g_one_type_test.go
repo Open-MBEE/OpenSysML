@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 func TestW7GTwoTypesOnAOneTypeUsageIsAnError(t *testing.T) {
@@ -28,7 +29,7 @@ func TestW7GTwoTypesOnAOneTypeUsageIsAnError(t *testing.T) {
 		if !want[d.Message] {
 			t.Fatalf("unexpected message %q", d.Message)
 		}
-		if d.Severity != SeverityError {
+		if d.Severity != diag.SeverityError {
 			t.Fatalf("the reference reports an error, got %v", d.Severity)
 		}
 	}

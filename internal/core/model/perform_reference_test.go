@@ -3,7 +3,7 @@ package model
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // The two OMG training models that a performed action's members are reachable
@@ -106,7 +106,7 @@ func TestPerformedActionMembersResolve(t *testing.T) {
 			ws := NewWorkspace()
 			ws.Open("t.sysml", []byte(tc.src), 1)
 			for _, d := range ws.Diagnostics("t.sysml") {
-				if d.Severity == passes.SeverityError {
+				if d.Severity == diag.SeverityError {
 					t.Errorf("unexpected error: %s", d.Message)
 				}
 			}

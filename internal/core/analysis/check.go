@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/fsutil"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // CheckEngineName is the name of the engine that searches an action's schedules explicitly.
@@ -333,7 +333,7 @@ func WriteWitness(path, text string) (err error) {
 	if err = f.Close(); err != nil {
 		return err
 	}
-	return fsutil.Replace(f.Name(), path)
+	return source.ReplaceFile(f.Name(), path)
 }
 
 // ViolationFile names the witness of the n-th violation of the subject, performed by

@@ -9,10 +9,11 @@ import (
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // quantityModel exercises every shape of quantity a feature value can hold: one written
@@ -162,7 +163,7 @@ func TestQuantityRoundTrip(t *testing.T) {
 		t.Run(expr, func(t *testing.T) {
 			sent := mustEvaluateQuantity(t, srv, modelHash, expr)
 
-			val, err := ProtoToValueIn(&pb.Value{Kind: &pb.Value_Quantity{Quantity: sent}}, idx, sem)
+			val, err := protoconv.ProtoToValueIn(&pb.Value{Kind: &pb.Value_Quantity{Quantity: sent}}, idx, sem)
 			if err != nil {
 				t.Fatalf("ProtoToValueIn: %v", err)
 			}
@@ -170,7 +171,7 @@ func TestQuantityRoundTrip(t *testing.T) {
 				t.Fatalf("kind = %v, want a quantity", val.Kind)
 			}
 
-			back := QuantityToProto(val.Quantity())
+			back := protoconv.QuantityToProto(val.Quantity())
 			if back.GetUnit() != sent.GetUnit() {
 				t.Errorf("unit = %q, want %q", back.GetUnit(), sent.GetUnit())
 			}
@@ -205,14 +206,14 @@ func TestSetOfPointsReadForARuntime(t *testing.T) {
 	)
 
 	rt, _ := srv.newRuntime(cached)
-	if _, err := ProtoToRuntimeValue(rt, sent, idx, sem); !errors.Is(err, ErrSetElementRepeated) {
-		t.Errorf("ProtoToRuntimeValue({293.15 K, 20.0 °C_abs}) = %v, want %v", err, ErrSetElementRepeated)
+	if _, err := protoconv.ProtoToRuntimeValue(rt, sent, idx, sem); !errors.Is(err, protoconv.ErrSetElementRepeated) {
+		t.Errorf("protoconv.ProtoToRuntimeValue({293.15 K, 20.0 °C_abs}) = %v, want %v", err, protoconv.ErrSetElementRepeated)
 	}
-	points, err := ProtoToRuntimeValue(rt, setOf(&pb.Value{Kind: &pb.Value_Quantity{Quantity: celsius}}), idx, sem)
+	points, err := protoconv.ProtoToRuntimeValue(rt, setOf(&pb.Value{Kind: &pb.Value_Quantity{Quantity: celsius}}), idx, sem)
 	if err != nil || points.Kind != runtime.ValSet {
-		t.Fatalf("ProtoToRuntimeValue({20.0 °C_abs}) = %s, %v, want a set", runtime.FormatValue(points), err)
+		t.Fatalf("protoconv.ProtoToRuntimeValue({20.0 °C_abs}) = %s, %v, want a set", runtime.FormatValue(points), err)
 	}
-	inKelvin, err := ProtoToValueIn(&pb.Value{Kind: &pb.Value_Quantity{Quantity: kelvin}}, idx, sem)
+	inKelvin, err := protoconv.ProtoToValueIn(&pb.Value{Kind: &pb.Value_Quantity{Quantity: kelvin}}, idx, sem)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,9 +221,9 @@ func TestSetOfPointsReadForARuntime(t *testing.T) {
 		t.Errorf("{20.0 °C_abs} read for a runtime does not hold 293.15 K")
 	}
 
-	val, err := ProtoToValueIn(sent, idx, sem)
+	val, err := protoconv.ProtoToValueIn(sent, idx, sem)
 	if err != nil || val.Kind != runtime.ValSet || val.Set().Size() != 2 {
-		t.Errorf("ProtoToValueIn({293.15 K, 20.0 °C_abs}) = %s, %v, want two members judged with no runtime", runtime.FormatValue(val), err)
+		t.Errorf("protoconv.ProtoToValueIn({293.15 K, 20.0 °C_abs}) = %s, %v, want two members judged with no runtime", runtime.FormatValue(val), err)
 	}
 }
 
@@ -231,7 +232,7 @@ func TestSetOfPointsReadForARuntime(t *testing.T) {
 func mustUnitTerm(t *testing.T, sent *pb.Quantity, idx *symbols.Index, sem *semantics.Model) semantics.UnitTerm {
 	t.Helper()
 
-	val, err := ProtoToQuantity(sent, idx, sem)
+	val, err := protoconv.ProtoToQuantity(sent, idx, sem)
 	if err != nil {
 		t.Fatalf("ProtoToQuantity: %v", err)
 	}
@@ -256,7 +257,7 @@ func TestQuantityFromWireIsNormalized(t *testing.T) {
 		}},
 	}
 
-	val, err := ProtoToQuantity(byHand, idx, sem)
+	val, err := protoconv.ProtoToQuantity(byHand, idx, sem)
 	if err != nil {
 		t.Fatalf("ProtoToQuantity: %v", err)
 	}
@@ -272,8 +273,8 @@ func TestQuantityFromWireNeedsTheModel(t *testing.T) {
 	srv, modelHash, idx, sem := mustQuantityModel(t)
 	sent := mustEvaluateQuantity(t, srv, modelHash, "5.0 [SI::kg]")
 
-	if _, err := ProtoToQuantity(sent, nil, nil); !errors.Is(err, ErrQuantityNeedsIndex) {
-		t.Errorf("without an index: err = %v, want ErrQuantityNeedsIndex", err)
+	if _, err := protoconv.ProtoToQuantity(sent, nil, nil); !errors.Is(err, protoconv.ErrQuantityNeedsIndex) {
+		t.Errorf("without an index: err = %v, want protoconv.ErrQuantityNeedsIndex", err)
 	}
 
 	unknown := &pb.Quantity{
@@ -281,8 +282,8 @@ func TestQuantityFromWireNeedsTheModel(t *testing.T) {
 		Unit:      "Made::up",
 		UnitTerm:  &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{{UnitId: "Made::up", Exponent: 1}}},
 	}
-	if _, err := ProtoToQuantity(unknown, idx, sem); !errors.Is(err, ErrUnknownBaseUnit) {
-		t.Errorf("over an undeclared base unit: err = %v, want ErrUnknownBaseUnit", err)
+	if _, err := protoconv.ProtoToQuantity(unknown, idx, sem); !errors.Is(err, protoconv.ErrUnknownBaseUnit) {
+		t.Errorf("over an undeclared base unit: err = %v, want protoconv.ErrUnknownBaseUnit", err)
 	}
 
 	for _, scale := range []*pb.UnitTerm{
@@ -295,8 +296,8 @@ func TestQuantityFromWireNeedsTheModel(t *testing.T) {
 			Unit:      "SI::m",
 			UnitTerm:  scale,
 		}
-		if _, err := ProtoToQuantity(unusable, idx, sem); !errors.Is(err, ErrUnitScaleUnusable) {
-			t.Errorf("over scale %g/%g: err = %v, want ErrUnitScaleUnusable",
+		if _, err := protoconv.ProtoToQuantity(unusable, idx, sem); !errors.Is(err, protoconv.ErrUnitScaleUnusable) {
+			t.Errorf("over scale %g/%g: err = %v, want protoconv.ErrUnitScaleUnusable",
 				scale.ScaleNum, scale.ScaleDen, err)
 		}
 	}
@@ -307,8 +308,8 @@ func TestQuantityFromWireNeedsTheModel(t *testing.T) {
 			Unit:      "SI::m",
 			UnitTerm:  &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{{UnitId: "SI::metre", Exponent: exponent}}},
 		}
-		if _, err := ProtoToQuantity(unusable, idx, sem); !errors.Is(err, ErrUnitExponentUnusable) {
-			t.Errorf("over exponent %g: err = %v, want ErrUnitExponentUnusable", exponent, err)
+		if _, err := protoconv.ProtoToQuantity(unusable, idx, sem); !errors.Is(err, protoconv.ErrUnitExponentUnusable) {
+			t.Errorf("over exponent %g: err = %v, want protoconv.ErrUnitExponentUnusable", exponent, err)
 		}
 	}
 
@@ -320,12 +321,12 @@ func TestQuantityFromWireNeedsTheModel(t *testing.T) {
 			{UnitId: "SI::metre", Exponent: math.MaxFloat64},
 		}},
 	}
-	if _, err := ProtoToQuantity(overflowing, idx, sem); !errors.Is(err, ErrUnitExponentUnusable) {
-		t.Errorf("over repeated exponents summing past the largest double: err = %v, want ErrUnitExponentUnusable", err)
+	if _, err := protoconv.ProtoToQuantity(overflowing, idx, sem); !errors.Is(err, protoconv.ErrUnitExponentUnusable) {
+		t.Errorf("over repeated exponents summing past the largest double: err = %v, want protoconv.ErrUnitExponentUnusable", err)
 	}
 
 	noMagnitude := &pb.Quantity{Unit: "SI::kg"}
-	if _, err := ProtoToQuantity(noMagnitude, idx, sem); err == nil {
+	if _, err := protoconv.ProtoToQuantity(noMagnitude, idx, sem); err == nil {
 		t.Error("a quantity with no magnitude must be reported, not read as zero")
 	}
 }
@@ -341,8 +342,8 @@ func TestQuantityOverSomethingThatIsNotAUnit(t *testing.T) {
 		Unit:      "P::Car",
 		UnitTerm:  &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{{UnitId: "P::Car", Exponent: 1}}},
 	}
-	if _, err := ProtoToQuantity(overAPart, idx, sem); !errors.Is(err, ErrNotAMeasurementUnit) {
-		t.Errorf("over a part: err = %v, want ErrNotAMeasurementUnit", err)
+	if _, err := protoconv.ProtoToQuantity(overAPart, idx, sem); !errors.Is(err, protoconv.ErrNotAMeasurementUnit) {
+		t.Errorf("over a part: err = %v, want protoconv.ErrNotAMeasurementUnit", err)
 	}
 
 	// An empty name is a lookup of the document root, which would otherwise
@@ -352,8 +353,8 @@ func TestQuantityOverSomethingThatIsNotAUnit(t *testing.T) {
 		Unit:      "made up",
 		UnitTerm:  &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{{Exponent: 1}}},
 	}
-	if _, err := ProtoToQuantity(unnamed, idx, sem); !errors.Is(err, ErrUnknownBaseUnit) {
-		t.Errorf("over an unnamed factor: err = %v, want ErrUnknownBaseUnit", err)
+	if _, err := protoconv.ProtoToQuantity(unnamed, idx, sem); !errors.Is(err, protoconv.ErrUnknownBaseUnit) {
+		t.Errorf("over an unnamed factor: err = %v, want protoconv.ErrUnknownBaseUnit", err)
 	}
 
 	// A measurement scale is the whole reduction of a point on it, never a factor
@@ -366,8 +367,8 @@ func TestQuantityOverSomethingThatIsNotAUnit(t *testing.T) {
 			{UnitId: "SI::second", Exponent: 1},
 		}},
 	}
-	if _, err := ProtoToQuantity(scaleTimesUnit, idx, sem); !errors.Is(err, ErrScaleNotAFactor) {
-		t.Errorf("over a scale times a unit: err = %v, want ErrScaleNotAFactor", err)
+	if _, err := protoconv.ProtoToQuantity(scaleTimesUnit, idx, sem); !errors.Is(err, protoconv.ErrScaleNotAFactor) {
+		t.Errorf("over a scale times a unit: err = %v, want protoconv.ErrScaleNotAFactor", err)
 	}
 	scaleSquared := &pb.Quantity{
 		Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 1},
@@ -376,8 +377,8 @@ func TestQuantityOverSomethingThatIsNotAUnit(t *testing.T) {
 			{UnitId: "SI::degree celsius (absolute temperature scale)", Exponent: 2},
 		}},
 	}
-	if _, err := ProtoToQuantity(scaleSquared, idx, sem); !errors.Is(err, ErrScaleNotAFactor) {
-		t.Errorf("over a scale squared: err = %v, want ErrScaleNotAFactor", err)
+	if _, err := protoconv.ProtoToQuantity(scaleSquared, idx, sem); !errors.Is(err, protoconv.ErrScaleNotAFactor) {
+		t.Errorf("over a scale squared: err = %v, want protoconv.ErrScaleNotAFactor", err)
 	}
 }
 
@@ -450,13 +451,13 @@ func TestQuantityWithoutItsReduction(t *testing.T) {
 		Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 5},
 		Unit:      "Furlongs::furlong",
 	}
-	if _, err := ProtoToQuantity(unreduced, idx, sem); !errors.Is(err, ErrUnitNotReduced) {
-		t.Errorf("error = %v, want %v", err, ErrUnitNotReduced)
+	if _, err := protoconv.ProtoToQuantity(unreduced, idx, sem); !errors.Is(err, protoconv.ErrUnitNotReduced) {
+		t.Errorf("error = %v, want %v", err, protoconv.ErrUnitNotReduced)
 	}
 
 	// A magnitude under no unit at all is dimension one, which is what it says.
 	dimensionless := &pb.Quantity{Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 5}}
-	val, err := ProtoToQuantity(dimensionless, idx, sem)
+	val, err := protoconv.ProtoToQuantity(dimensionless, idx, sem)
 	if err != nil {
 		t.Fatalf("ProtoToQuantity: %v", err)
 	}
@@ -731,7 +732,7 @@ package Imperial {
 // unit or two units bear, or a scaled reduction sent nameless.
 func TestOpaqueUnitFactorsSurviveTheWire(t *testing.T) {
 	srv := mustNewService(t, 4)
-	source := `package Q {
+	modelText := `package Q {
 	private import ScalarValues::*;
 	private import SI::*;
 	calc def Times { in a; in b; a * b }
@@ -751,7 +752,7 @@ package Imperial {
 	attribute <fathom> 'fathom' : LengthUnit { :>> unitConversion: ConversionByConvention { :>> referenceUnit = m; :>> conversionFactor = 1.8288; } }
 }
 `
-	hash := mustVerifyModel(t, srv, source, "opaque-factors-survive-the-wire")
+	hash := mustVerifyModel(t, srv, modelText, "opaque-factors-survive-the-wire")
 	evaluate := func(calc string, args ...*pb.Quantity) *pb.Quantity {
 		t.Helper()
 		req := &pb.EvaluateCalcRequest{ModelHash: hash, SymbolId: calc}
@@ -863,7 +864,7 @@ package Imperial {
 	for _, text := range []string{"it's", `back\slash`, "metres\nper second", "metres\r\nper second", `'A/m'*m`} {
 		t.Run(fmt.Sprintf("opaque %q", text), func(t *testing.T) {
 			opaque := sent(text, speedTerm)
-			spelt := lexer.UnrestrictedNameText(text)
+			spelt := source.UnrestrictedNameText(text)
 			composed := evaluate("Q::Times", second, opaque)
 			if got := describeQuantity(composed); got != fmt.Sprintf("6 [%s*SI::s] = SI::metre", spelt) {
 				t.Fatalf("SI::s * %q = %s, want 6 [%s*SI::s] = SI::metre", text, got, spelt)
@@ -933,8 +934,8 @@ func TestQuantityFromWireRejectsUnitTextItsReductionContradicts(t *testing.T) {
 				Unit:      tc.unit,
 				UnitTerm:  tc.term,
 			}
-			if _, err := ProtoToQuantity(pq, idx, sem); !errors.Is(err, ErrUnitTextMismatch) {
-				t.Errorf("ProtoToQuantity(%s over %s) err = %v, want ErrUnitTextMismatch",
+			if _, err := protoconv.ProtoToQuantity(pq, idx, sem); !errors.Is(err, protoconv.ErrUnitTextMismatch) {
+				t.Errorf("protoconv.ProtoToQuantity(%s over %s) err = %v, want protoconv.ErrUnitTextMismatch",
 					tc.unit, describeUnitTerm(tc.term), err)
 			}
 		})
@@ -961,20 +962,20 @@ func TestQuantityFromWireRejectsUnitTextItsReductionContradicts(t *testing.T) {
 				Unit:      tc.unit,
 				UnitTerm:  tc.term,
 			}
-			if _, err := ProtoToQuantity(pq, idx, sem); !errors.Is(err, ErrUnitTextMismatch) {
-				t.Errorf("ProtoToQuantity(%s over %s) err = %v, want ErrUnitTextMismatch",
+			if _, err := protoconv.ProtoToQuantity(pq, idx, sem); !errors.Is(err, protoconv.ErrUnitTextMismatch) {
+				t.Errorf("protoconv.ProtoToQuantity(%s over %s) err = %v, want protoconv.ErrUnitTextMismatch",
 					tc.unit, describeUnitTerm(tc.term), err)
 			}
 		})
 	}
 	for _, unit := range []string{"SI::'°C_abs'", "'°C_abs'"} {
-		point, err := ProtoToQuantity(&pb.Quantity{
+		point, err := protoconv.ProtoToQuantity(&pb.Quantity{
 			Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 20},
 			Unit:      unit,
 			UnitTerm:  celsius,
 		}, idx, sem)
 		if err != nil {
-			t.Fatalf("ProtoToQuantity(%s over its scale): %v", unit, err)
+			t.Fatalf("protoconv.ProtoToQuantity(%s over its scale): %v", unit, err)
 		}
 		if got := point.Quantity().Unit.Product.Powers; len(got) != 1 || got[0].Unit == nil || !sem.IsMeasurementScale(got[0].Unit) {
 			t.Errorf("%s over its scale read as %v, want the scale by declaration", unit, point.Quantity().Unit.Product)
@@ -986,13 +987,13 @@ func TestQuantityFromWireRejectsUnitTextItsReductionContradicts(t *testing.T) {
 		unit string
 		term *pb.UnitTerm
 	}{{"UTC", celsius}, {"'°C_abs'", kelvin}} {
-		val, err := ProtoToQuantity(&pb.Quantity{
+		val, err := protoconv.ProtoToQuantity(&pb.Quantity{
 			Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 20},
 			Unit:      tc.unit,
 			UnitTerm:  tc.term,
 		}, idx, sem)
 		if err != nil {
-			t.Fatalf("ProtoToQuantity(%s over %s): %v", tc.unit, describeUnitTerm(tc.term), err)
+			t.Fatalf("protoconv.ProtoToQuantity(%s over %s): %v", tc.unit, describeUnitTerm(tc.term), err)
 		}
 		if got := val.Quantity().Unit.Product.Powers; len(got) != 1 || got[0].Unit != nil {
 			t.Errorf("%s over %s read as %v, want one opaque unit", tc.unit, describeUnitTerm(tc.term), val.Quantity().Unit.Product)
@@ -1008,8 +1009,8 @@ func TestQuantityFromWireRejectsUnitTextItsReductionContradicts(t *testing.T) {
 			{UnitId: "SI::metre", Exponent: 1},
 		}},
 	}
-	if _, err := ProtoToQuantity(agreeing, idx, sem); err != nil {
-		t.Errorf("ProtoToQuantity(SI::m/SI::s over metre·second^-1): %v", err)
+	if _, err := protoconv.ProtoToQuantity(agreeing, idx, sem); err != nil {
+		t.Errorf("protoconv.ProtoToQuantity(SI::m/SI::s over metre·second^-1): %v", err)
 	}
 
 	// A scale off by the rounding of composing it another way is the same scale,
@@ -1020,9 +1021,9 @@ func TestQuantityFromWireRejectsUnitTextItsReductionContradicts(t *testing.T) {
 		Unit:      "SI::km",
 		UnitTerm:  &pb.UnitTerm{ScaleNum: 1000 * (1 + 0x1p-52), ScaleDen: 1, Factors: kilometres.GetFactors()},
 	}
-	val, err := ProtoToQuantity(noisy, idx, sem)
+	val, err := protoconv.ProtoToQuantity(noisy, idx, sem)
 	if err != nil {
-		t.Fatalf("ProtoToQuantity(SI::km over a scale one ulp off): %v", err)
+		t.Fatalf("protoconv.ProtoToQuantity(SI::km over a scale one ulp off): %v", err)
 	}
 	if got := val.Quantity().Unit.Term.Scale; got != semantics.UnitScale(1000) {
 		t.Errorf("SI::km read over a scale one ulp off keeps scale %v, want the model's 1000", got)

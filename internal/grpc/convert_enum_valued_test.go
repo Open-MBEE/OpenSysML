@@ -6,6 +6,7 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // valuedEnumModel declares an enumeration whose literals are Integers, and an
@@ -78,7 +79,7 @@ func TestScalarValuedEnumLiteralCrossesAsLiteral(t *testing.T) {
 	}
 	// A literal that is only its identity carries no value.
 	idx, red := enumWireIndex(t, "D::Color::red")
-	if lit := ValueToProto(runtime.NewEnumLiteral(red), idx).GetEnumLiteral(); lit.GetValue() != nil {
+	if lit := protoconv.ValueToProto(runtime.NewEnumLiteral(red), idx).GetEnumLiteral(); lit.GetValue() != nil {
 		t.Errorf("Color::red: value: got %v, want none", lit.GetValue())
 	}
 }
@@ -124,12 +125,12 @@ func TestScalarValuedEnumLiteralRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EnumerationLiteralValue: %v", err)
 	}
-	pv := ValueToProto(original, idx)
+	pv := protoconv.ValueToProto(original, idx)
 	wantLevelHigh(t, "Level::high", pv)
 
 	for name, back := range map[string]func() (runtime.Value, error){
-		"with runtime":    func() (runtime.Value, error) { return ProtoToRuntimeValue(rt, pv, idx, sem) },
-		"without runtime": func() (runtime.Value, error) { return ProtoToValueIn(pv, idx, sem) },
+		"with runtime":    func() (runtime.Value, error) { return protoconv.ProtoToRuntimeValue(rt, pv, idx, sem) },
+		"without runtime": func() (runtime.Value, error) { return protoconv.ProtoToValueIn(pv, idx, sem) },
 	} {
 		got, err := back()
 		if err != nil {

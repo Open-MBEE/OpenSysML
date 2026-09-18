@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -32,7 +33,7 @@ type W8DConnectorFeaturingPass struct{}
 
 func (W8DConnectorFeaturingPass) Level() PassLevel { return LevelConstraint }
 
-func (W8DConnectorFeaturingPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W8DConnectorFeaturingPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -41,7 +42,7 @@ func (W8DConnectorFeaturingPass) Run(ctx *Context, name string, root *ast.RootNa
 		return nil
 	}
 	cc := &constraintChecker{model: ctx.Model(), resolver: ctx.Resolver(), seen: make(map[*symbols.Symbol]bool)}
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	w8dWalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		u, ok := sym.Decl.(*ast.Usage)
 		if !ok || !w8dConnectorKinds[u.Kind] {
@@ -73,8 +74,8 @@ func (W8DConnectorFeaturingPass) Run(ctx *Context, name string, root *ast.RootNa
 			if w8dEndAccessible(cc, contexts, target) {
 				continue
 			}
-			diags = append(diags, Diagnostic{
-				Severity: SeverityError,
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.SeverityError,
 				Span:     end.Span(),
 				Message:  msgConnectorTypeFeaturing,
 				Code:     "connector-type-featuring",

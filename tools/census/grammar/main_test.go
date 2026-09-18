@@ -21,7 +21,7 @@ func TestRunReportsProgressToTheSuppliedWriter(t *testing.T) {
 		}
 	}
 	write("build/pilot-grammars/Toy.xtext", "grammar org.example.Toy\n\nPackage : 'package' declaredName = Name ';' ;\n\nterminal Name : ('a'..'z')+ ;\n")
-	write("testdata/model.sysml", "package p;\n")
+	write("tests/testdata/model.sysml", "package p;\n")
 
 	var log strings.Builder
 	if err := run(repo, "", filepath.Join(repo, "out"), filepath.Join(repo, "baseline.json"), &log); err != nil {

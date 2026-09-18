@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -16,8 +17,8 @@ func (cc *constraintChecker) checkReturnParameterOwner(sym *symbols.Symbol) {
 	if !ok || !usage.IsResult || sym.OwnerScope == nil || functionBodyScope(sym.OwnerScope) {
 		return
 	}
-	cc.diags = append(cc.diags, Diagnostic{
-		Severity: SeverityError,
+	cc.diags = append(cc.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     usage.Span(),
 		Message:  msgReturnParameterOwner,
 		Code:     "return-parameter-owner",

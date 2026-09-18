@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -45,7 +46,7 @@ type W11AUsageTypingPass struct{}
 
 func (W11AUsageTypingPass) Level() PassLevel { return LevelType }
 
-func (W11AUsageTypingPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W11AUsageTypingPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -60,7 +61,7 @@ func (W11AUsageTypingPass) Run(ctx *Context, name string, root *ast.RootNamespac
 
 type w11aUsageChecker struct {
 	resolver *resolve.Resolver
-	diags    []Diagnostic
+	diags    []diag.Diagnostic
 }
 
 func (c *w11aUsageChecker) check(sym *symbols.Symbol) {
@@ -86,8 +87,8 @@ func (c *w11aUsageChecker) check(sym *symbols.Symbol) {
 		if isCompatibleTyping(u.Kind, u.Direction, typ.sym.Kind, false) {
 			continue
 		}
-		c.diags = append(c.diags, Diagnostic{
-			Severity: SeverityError,
+		c.diags = append(c.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     u.Span(),
 			Message:  msg,
 			Code:     code,
@@ -125,8 +126,8 @@ func (c *w11aUsageChecker) checkReference(sym *symbols.Symbol, u *ast.Usage) {
 			}
 			continue
 		}
-		c.diags = append(c.diags, Diagnostic{
-			Severity: SeverityError,
+		c.diags = append(c.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     rel.Target.Span(),
 			Message:  want.msg,
 			Code:     "usage-reference-kind",
@@ -144,8 +145,8 @@ func (c *w11aUsageChecker) checkIncludedUseCase(usage, target *symbols.Symbol) {
 		if compatibleTyping(ast.UsageUseCase, ast.DirNone, typ.sym.Kind) {
 			continue
 		}
-		c.diags = append(c.diags, Diagnostic{
-			Severity: SeverityError,
+		c.diags = append(c.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     usage.Decl.Span(),
 			Message:  oneTypeUsageMessages[ast.UsageUseCase],
 			Code:     "one-type",

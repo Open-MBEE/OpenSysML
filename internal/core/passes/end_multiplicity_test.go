@@ -3,16 +3,18 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 const endFeatureMultiplicityCode = "end-feature-multiplicity"
 
 // endMultiplicityTexts is the source text under each end-multiplicity warning.
-func endMultiplicityTexts(t *testing.T, diags []Diagnostic, src string) []string {
+func endMultiplicityTexts(t *testing.T, diags []diag.Diagnostic, src string) []string {
 	t.Helper()
 	var out []string
 	for _, d := range only(diags, endFeatureMultiplicityCode) {
-		if d.Severity != SeverityWarning {
+		if d.Severity != diag.SeverityWarning {
 			t.Errorf("severity = %v, want a warning", d.Severity)
 		}
 		if d.Message != msgEndFeatureMultiplicity {

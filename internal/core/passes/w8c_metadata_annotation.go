@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -22,7 +23,7 @@ const (
 
 func (MetadataAnnotationPass) Level() PassLevel { return LevelType }
 
-func (MetadataAnnotationPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (MetadataAnnotationPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -44,7 +45,7 @@ func (MetadataAnnotationPass) Run(ctx *Context, name string, root *ast.RootNames
 
 type metadataAnnotationChecker struct {
 	model *semantics.Model
-	diags []Diagnostic
+	diags []diag.Diagnostic
 }
 
 // checkSymbol checks each annotation of sym's declaration. The annotated element
@@ -135,8 +136,8 @@ func (c *metadataAnnotationChecker) checkMetadataUsage(sym *symbols.Symbol, u *a
 }
 
 func (c *metadataAnnotationChecker) reportCannotAnnotate(span source.Span, metaclass string) {
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message:  msgCannotAnnotate + metaclass,
 		Code:     "metadata-annotated-element",
@@ -148,8 +149,8 @@ func (c *metadataAnnotationChecker) reportCannotAnnotate(span source.Span, metac
 // binds model-level evaluable values.
 func (c *metadataAnnotationChecker) checkBody(scope *symbols.Scope, prefix *ast.PrefixMetadata) {
 	for _, node := range c.model.MetadataBodyViolations(scope, prefix) {
-		c.diags = append(c.diags, Diagnostic{
-			Severity: SeverityError,
+		c.diags = append(c.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     node.Span(),
 			Message:  msgOwningTypeFeature,
 			Code:     "metadata-owning-type-feature",
@@ -157,8 +158,8 @@ func (c *metadataAnnotationChecker) checkBody(scope *symbols.Scope, prefix *ast.
 		})
 	}
 	for _, value := range c.model.MetadataBodyInevaluableValues(scope, prefix) {
-		c.diags = append(c.diags, Diagnostic{
-			Severity: SeverityError,
+		c.diags = append(c.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     metadataValueSpan(prefix.Body, value),
 			Message:  msgFilterNotEvaluable,
 			Code:     "metadata-value-not-evaluable",

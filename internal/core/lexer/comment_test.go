@@ -1,6 +1,10 @@
 package lexer
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+)
 
 func TestCommentBody(t *testing.T) {
 	cases := []struct{ name, raw, want string }{
@@ -33,8 +37,8 @@ func TestCommentBody(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := CommentBody(tc.raw); got != tc.want {
-				t.Errorf("CommentBody(%q) = %q, want %q", tc.raw, got, tc.want)
+			if got := source.CommentBody(tc.raw); got != tc.want {
+				t.Errorf("source.CommentBody(%q) = %q, want %q", tc.raw, got, tc.want)
 			}
 		})
 	}

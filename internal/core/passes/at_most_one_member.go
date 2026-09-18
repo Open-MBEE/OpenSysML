@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -57,8 +58,8 @@ func (cc *constraintChecker) checkAtMostOneRole(sym *symbols.Symbol, owned []ast
 	switch {
 	case len(owned)+len(inherited) <= 1:
 	case len(owned) == 0:
-		cc.diags = append(cc.diags, Diagnostic{
-			Severity: SeverityError,
+		cc.diags = append(cc.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     sym.Decl.Span(),
 			Message:  msg,
 			Code:     code,
@@ -123,8 +124,8 @@ func (cc *constraintChecker) reportSubjectParameterPosition(sym *symbols.Symbol,
 			break
 		}
 	}
-	cc.diags = append(cc.diags, Diagnostic{
-		Severity: SeverityError,
+	cc.diags = append(cc.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message:  msgSubjectParameterPosition,
 		Code:     "subject-parameter-position",
@@ -161,7 +162,7 @@ func declMultiplicity(decl ast.Node) *ast.Multiplicity {
 
 // typeMembers is the body of a type declaration, in either language.
 func typeMembers(decl ast.Node) []ast.Node {
-	if members := declMembers(decl); members != nil {
+	if members := ast.DeclMembers(decl); members != nil {
 		return members
 	}
 	if ns, ok := decl.(*ast.Namespace); ok {
@@ -195,8 +196,8 @@ func (cc *constraintChecker) reportExtraMembers(members []ast.Node, msg, code st
 
 func (cc *constraintChecker) reportEachMember(members []ast.Node, msg, code string) {
 	for _, m := range members {
-		cc.diags = append(cc.diags, Diagnostic{
-			Severity: SeverityError,
+		cc.diags = append(cc.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     m.Span(),
 			Message:  msg,
 			Code:     code,

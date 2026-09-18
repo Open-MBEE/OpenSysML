@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -22,7 +23,7 @@ type W9CBoundFeatureTypesPass struct{}
 
 func (W9CBoundFeatureTypesPass) Level() PassLevel { return LevelType }
 
-func (W9CBoundFeatureTypesPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W9CBoundFeatureTypesPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -42,7 +43,7 @@ type w9cBindingChecker struct {
 	model    *semantics.Model
 	resolver *resolve.Resolver
 	idx      *symbols.Index
-	diags    []Diagnostic
+	diags    []diag.Diagnostic
 }
 
 func (c *w9cBindingChecker) check(sym *symbols.Symbol) {
@@ -231,9 +232,9 @@ func (c *w9cBindingChecker) report(span source.Span) {
 }
 
 // w9cDiagnostic is the warning that two bound features have non-conforming types, at span.
-func w9cDiagnostic(span source.Span) Diagnostic {
-	return Diagnostic{
-		Severity: SeverityWarning,
+func w9cDiagnostic(span source.Span) diag.Diagnostic {
+	return diag.Diagnostic{
+		Severity: diag.SeverityWarning,
 		Span:     span,
 		Message:  msgW9CBoundFeatureTypes,
 		Code:     "bound-feature-types",

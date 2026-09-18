@@ -516,7 +516,7 @@ reaches paths that used to stop at the first behavioral node. What to know:
   it on the declaration before the one it prefixes — worth re-probing if the parser changes.
 - `export.ExperimentalNotice` (internal/core/export/experimental.go) is printed verbatim by the CLI
   (stderr), `%save` and `ConvertResponse`, and the same wording is duplicated in
-  `cmd/sysml/main.go`, `clients/python/opensysml/`, `api/proto/` and `docs/guide/`. Check every copy whenever
+  `cmd/sysml/main.go`, `client/python/opensysml/`, `api/proto/` and `docs/guide/`. Check every copy whenever
   the mapping's coverage changes.
 
 ### Checking the experimental notice's copies (PR #271)
@@ -530,7 +530,7 @@ the *documented* claims by running them:
   "Turtle is normalized." and "Every run that converts RDF". `cmd/sysml/main.go`'s `wrapped(…, 78)`
   wraps on `strings.Fields`, so also assert every line's **rune** count ≤ 78 — the notice contains
   `§` (2 bytes), so a byte-based wrapper would pass a naive byte check.
-- `clients/python/opensysml/conversion.py:EXPERIMENTAL_NOTICE` should equal the same literal; compare it in
+- `client/python/opensysml/conversion.py:EXPERIMENTAL_NOTICE` should equal the same literal; compare it in
   Python against the Go file directly.
 - The client fallback lives in `Connection.convert` (`connection.py`, `response.experimental_notice
   or EXPERIMENTAL_NOTICE`). To exercise it, wrap the stub: `Connection._stub` is a read-only
@@ -546,7 +546,7 @@ the *documented* claims by running them:
   substate member") and its prose "a model whose point is a behavior does not [convert]" are wrong
   since #270 — the model converts, and all ten `examples/parser_features_demo_*.kerml` convert too.
   Grep for the *old* wording (`model structure only`, `bodies state behavior`) across `docs/ cmd/
-  clients/python/ api/proto/ internal/` to catch leftover copies, and check re-worded prose paragraphs did
+  client/python/ api/proto/ internal/` to catch leftover copies, and check re-worded prose paragraphs did
   not leave one line far wider than its siblings (`awk '{print NR": "length($0)}'`).
 
 ### Round-trip fidelity of a declaration head (PR #272)
@@ -1522,7 +1522,7 @@ Traps worth re-checking after any doc or REPL edit:
 
 ## The gRPC service and the `opensysml` Python client
 
-The REPL is not the only user-facing surface: `cmd/sysml-grpc` plus `clients/python/opensysml` is the path a
+The REPL is not the only user-facing surface: `cmd/sysml-grpc` plus `client/python/opensysml` is the path a
 Python user takes, and the two can disagree. When a change touches `internal/grpc/convert.go` or
 the runtime's slot evaluation, **test both and diff them** — that comparison is the highest-value
 assertion available.
@@ -1531,11 +1531,11 @@ assertion available.
 export PATH=/usr/local/go/bin:$PATH
 make build && make build-grpc              # -> bin/sysml, bin/sysml-grpc
 mkdir -p ~/.opensysml/bin && cp bin/sysml-grpc ~/.opensysml/bin/   # where the client looks
-pip install -e clients/python/
+pip install -e client/python/
 ```
 
 Do **not** start the service by hand for model-semantics work. `Connection._ensure_service`
-(`clients/python/opensysml/connection.py`) spawns a **private child** of the interpreter on `-port 0` and
+(`client/python/opensysml/connection.py`) spawns a **private child** of the interpreter on `-port 0` and
 learns the address from the child's stdout, which is the realistic user path. There is no pidfile,
 no lockfile and no adoption of a service the client did not start: a service you started yourself is
 reached only by naming it (`connect(host, port)`, `OPENSYSML_SERVICE=host:port`, or
@@ -1559,7 +1559,7 @@ real time:
   `addr=:0`, so a naive `grep -o 'addr=[^ ]*' | head -1` grabs the health line and you dial port 0
   ("Connection refused"). Always filter on `gRPC server listening` first, and take the port with
   `${ADDR##*:}` — `cut -d: -f3` yields `]` for `[::]:41325`.
-- Expected values at 0cf94e80 for `internal/grpc/testdata/conformance/instantiate_derived_slot.sysml`:
+- Expected values at 0cf94e80 for `tests/grpc/testdata/conformance/instantiate_derived_slot.sysml`:
   `mass` → `materialized=True kind=real_value 1500.0`, `doubled` → `real_value 3000.0`; a missing
   model path raises `opensysml.errors.ModelFileNotFoundError` ("file not found: open …") and the
   server logs `code = NotFound` for `/sysml.SysMLService/ParseFile` while staying alive. An already
@@ -1577,7 +1577,7 @@ real time:
 resolves to in a tool shell may be another project's venv, and a venv built from it gets a
 mismatched `sys.path` — `pyvenv.cfg` naming one minor version while `bin/python` runs another, so
 the editable install lands in a `site-packages` the interpreter never searches and `import opensysml`
-(or `import grpc`) fails right after a *successful* `pip install -e clients/python/`. Always build the venv
+(or `import grpc`) fails right after a *successful* `pip install -e client/python/`. Always build the venv
 from an explicit real interpreter (`/home/ubuntu/.pyenv/versions/3.12.8/bin/python3.12 -m venv ~/pv`,
 or `/usr/bin/python3.10`) and verify `<venv>/bin/python -c 'import opensysml'` before blaming the
 client. `$HOME/pv` is created by the blueprint, so prefer reusing it.
@@ -1630,7 +1630,7 @@ OPENSYSML_GRPC_VERSION=v0.0.7 python -c '...connect(port=50099)...'   # -> Stale
   process (two `connect()`s): 1 → 2 → 1, the service still serving the remaining holder and stopped
   only when the last one closes. Across two processes there is nothing to share: each starts its own.
 - **A leftover service may be answering 50051 from a path you never built.** A previous session can
-  leave e.g. `/tmp/sysml-grpc` listening, in which case `python -m pytest clients/python/tests/test_runtime_integration.py`
+  leave e.g. `/tmp/sysml-grpc` listening, in which case `python -m pytest client/python/tests/test_runtime_integration.py`
   reports `N passed` in ~0.05 s against *unknown* code — the integration suite neither skips nor
   tells you whose binary served it, so a green run proves nothing about your commit. Before trusting
   any client result, run `pgrep -af sysml-grpc` — `-x` does find `/tmp/sysml-grpc` (it matches the
@@ -1697,7 +1697,7 @@ Suite baseline: `cd python && python -m pytest tests/ -q` with no service runnin
 `148 passed, 24 skipped` (~40s; it was `75 passed, 18 skipped` before the Tier 1/Tier 2 client
 work), and `158 passed, 14 skipped` with a service running. As of the 0.0.8 prep branch
 (`b0f5f23`) that baseline is `368 passed, 26 skipped` in ~42 s from the repo root
-(`python -m pytest clients/python/tests/ -q`), with one expected `UserWarning` from
+(`python -m pytest client/python/tests/ -q`), with one expected `UserWarning` from
 `test_a_cache_survives_a_replacement_that_cannot_be_downloaded` — re-measure rather than trusting an
 older count. The skips are the integration
 tests gating on a live service. `pytest` is **not**
@@ -1717,7 +1717,7 @@ To hold a service alive for a whole test run, keep a client process open, e.g.
 `(setsid python -c "import opensysml,time; opensysml.connect(); time.sleep(300)" &)` — a plain
 backgrounded `python -c` from a non-tty shell may exit before it prints, so verify the port.
 
-Download paths (`clients/python/opensysml/binary.py`) are testable without a real release: move
+Download paths (`client/python/opensysml/binary.py`) are testable without a real release: move
 `~/.opensysml/bin/sysml-grpc` aside, unset `OPENSYSML_GRPC_VERSION`, and call `ensure_binary()`,
 `resolve_latest_version()`, `download_binary('latest')`. All three must raise `ConnectionError`
 naming the path or URL. `OPENSYSML_GITHUB_REPO` overrides the repo. Beware: these hit the
@@ -1766,7 +1766,7 @@ worth asserting, with the wording each produces:
 
 #### Proving a *pinned release digest* really unblocks a download (PR #316)
 
-`PINNED_SHA256` in `clients/python/opensysml/binary.py` is what `download_binary(version)` verifies against;
+`PINNED_SHA256` in `client/python/opensysml/binary.py` is what `download_binary(version)` verifies against;
 without an entry for the tag, `expected_digest` raises `UnpinnedReleaseError` (a subclass of
 `ChecksumMismatchError`) instead of trusting the `.sha256` served beside the asset. Verifying a new
 pin end to end needs a **real download**, so isolate the cache first:
@@ -1789,10 +1789,10 @@ pin end to end needs a **real download**, so isolate the cache first:
   `sysml-grpc.tmp` behind: a published-but-unpinned tag (v0.0.9 is the standing example) ⇒
   `UnpinnedReleaseError`; and an in-memory tampered pin (`PINNED_SHA256[…][asset] = '0'*64`) ⇒
   `ChecksumMismatchError` naming both digests, refused before the ~24 MB binary is installed.
-- `clients/python/scripts/pin_release_checksums.py --check` re-hashes every pinned asset and is the only
+- `client/python/scripts/pin_release_checksums.py --check` re-hashes every pinned asset and is the only
   coverage for the darwin/windows pins on a Linux box. It needs a token:
-  `GITHUB_TOKEN=$(gh auth token) python clients/python/scripts/pin_release_checksums.py --check` (exit 0 and
-  one digest line per asset). Confirm it is not vacuous by copying `clients/python/` aside, corrupting one
+  `GITHUB_TOKEN=$(gh auth token) python client/python/scripts/pin_release_checksums.py --check` (exit 0 and
+  one digest line per asset). Confirm it is not vacuous by copying `client/python/` aside, corrupting one
   digest and re-running — it must exit 1 with `… now hashes to X, but Y is pinned`.
 
 #### Service start-up timing and its failure paths (PR #250)
@@ -1801,7 +1801,7 @@ pin end to end needs a **real download**, so isolate the cache first:
 (`START_PROBE_INITIAL_DELAY` 10 ms, doubling to `START_PROBE_MAX_DELAY` 250 ms) until
 `START_TIMEOUT` (2.5 s). Timing claims here need a **contrast run against the parent revision**,
 which needs no rebuild since opensysml is pure Python: `git worktree add /tmp/mainwt main`, copy the
-generated `clients/python/opensysml/proto/*.py` in if they are missing, then run the same script twice, once
+generated `client/python/opensysml/proto/*.py` in if they are missing, then run the same script twice, once
 plain and once with `PYTHONPATH=/tmp/mainwt/python`, on the *same* `$HOME/pv` venv. Numbers seen at
 c590253e on a free port with nothing listening: **21 ms on the branch vs 515 ms on main**; the
 connection must then really work (`conn.load_from_content(...)` + `Model.eval('1 + 1') == 2`), since
@@ -1850,7 +1850,7 @@ The verification questions the REPL answers with `%constraint`, `%requirement`, 
 verify_requirement / verify_satisfaction / satisfied / calc`. Testing them from Python:
 
 - Use a **clean venv** — the box's default `python3` may carry an incompatible `protobuf`, which
-  fails at `import opensysml`. A venv with `pip install -e clients/python/` (e.g. `~/pv`) is the reliable
+  fails at `import opensysml`. A venv with `pip install -e client/python/` (e.g. `~/pv`) is the reliable
   interpreter; rebuild with `make build-grpc` and **re-copy** `bin/sysml-grpc` to
   `~/.opensysml/bin/` after every rebuild or the client silently auto-starts the old binary.
 - Argument order bites: `Connection.eval(expression, model_hash)`,
@@ -1985,7 +1985,7 @@ exit 0), never an error mentioning the cache.
 
 ### The `Query` RPC / `model.query(...)` (SysML v2 API & Services, PR #155)
 
-`internal/grpc/query.go` + `clients/python/opensysml/query.py` implement the standard's Query resource
+`internal/grpc/query.go` + `client/python/opensysml/query.py` implement the standard's Query resource
 (`scope`/`select`/`where`, `PrimitiveConstraint` with `=`/`>`/`<` and `inverse`,
 `CompositeConstraint` with `and`/`or`). Testing notes that generalize:
 
@@ -2056,13 +2056,13 @@ attributes (`Level { low { :>> n = 1; } high { :>> n = 9; } }`), read as `eval("
   `main`'s quantity support landed. After any merge that touches the `Value` oneof, re-run both
   arms *on the same part* (one `part def` with `attribute c : Color = Color::red;` **and**
   `attribute mass = 1500.0 [SI::kg];`): a field-number mismatch shows up as `None`/`unsupported`,
-  not as an exception. `clients/python/tests/test_wire_compat.py` pins the numbers at unit level.
+  not as an exception. `client/python/tests/test_wire_compat.py` pins the numbers at unit level.
 - **Incoming values go through one converter.** `ProtoToValueIn(pv, idx, sem)` in
   `internal/grpc/convert.go` dispatches the quantity and literal arms and recurses into sequences;
   it is called from `internal/grpc/service.go` (action inputs) and `internal/grpc/verify.go` (calc
   arguments). The error wording is layer-specific and worth asserting verbatim:
   calc → `calc argument could not be read: …`, action → `input "c" could not be read: …`.
-- **Identity is `literal_id` alone** (`clients/python/opensysml/enumeration.py` marks `enumeration_id` and
+- **Identity is `literal_id` alone** (`client/python/opensysml/enumeration.py` marks `enumeration_id` and
   `name` `compare=False`). Comparing two *wire-populated* literals passes even when this is broken,
   so always include the bare-vs-populated cases: with `bare = EnumLiteral("D::Color::red")` and the
   feature value, assert `bare == car.c`, `hash(bare) == hash(car.c)`,
@@ -2111,7 +2111,7 @@ the **live service** (so it auto-starts `sysml-grpc`) and prints/writes one clas
 definition deriving from `opensysml.typed.TypedObject`. Useful facts when testing it:
 
 - The reference fixture is `internal/repl/testdata/vehicle_package.sysml` and the committed
-  golden is `clients/python/tests/golden/vehicle_types.py`; `cmp` them for a byte-for-byte assertion and
+  golden is `client/python/tests/golden/vehicle_types.py`; `cmp` them for a byte-for-byte assertion and
   generate twice + `cmp` for determinism. Emission is FQN-ordered with base classes first.
 - Only instance feature usages become properties (`attribute/part/item/occurrence/port/enum`);
   `calc`, `constraint` and `requirement` members are deliberately absent — a generated class
@@ -2157,7 +2157,7 @@ definition deriving from `opensysml.typed.TypedObject`. Useful facts when testin
   binary), not `pkill -f 'bin/sysml-grpc'` — that pattern also matches the tool shell running the
   command and kills your own session. Rebuilding leaves the old process serving a `(deleted)`
   binary, which silently tests the previous revision.
-- `clients/python/tests/test_lifecycle.py::TestLifecycleRobustness::test_service_shuts_down_when_last_process_exits`
+- `client/python/tests/test_lifecycle.py::TestLifecycleRobustness::test_service_shuts_down_when_last_process_exits`
   fails (`FileNotFoundError: ~/.opensysml/sysml-grpc.pid`) whenever an externally started service is
   already listening on 50051 — a known service-ownership gap, reproducible on `main`. Confirm on a
   `main` worktree before reporting it as a regression.
@@ -2251,7 +2251,7 @@ Three cheap, high-signal sweeps:
      diff <(./bin/sysml -quiet /tmp/sweep.sysml </dev/null 2>&1) \
           <(/tmp/mainwt/sysml-main -quiet /tmp/sweep.sysml </dev/null 2>&1) >/dev/null \
        || { d=$((d+1)); echo "DIFF: $f"; }
-   done < <(find examples testdata internal/repl/testdata -name '*.sysml' -print0)
+   done < <(find examples tests/testdata internal/repl/testdata -name '*.sysml' -print0)
    echo "compared $n, differing $d"
    ```
    A `for f in $(find …)` loop word-splits those paths and silently compares nothing for them: on
@@ -2581,7 +2581,7 @@ DISPLAY=:0 wmctrl -r :ACTIVE: -b add,maximized_vert,maximized_horz
 
 Enlarge the font before recording with the `ctrl+plus` key combo a few times (`ctrl+shift+plus`
 types literal `+` characters into the shell instead of zooming). Konsole starts a shell whose PATH
-lacks the Python that `pip install -e clients/python/` installed into, so `import opensysml` fails there while
+lacks the Python that `pip install -e client/python/` installed into, so `import opensysml` fails there while
 it works from a tool shell; run `source ~/opensysml-venv/bin/activate` (or
 whichever interpreter `python -c 'import sys; print(sys.executable)'` reports in the tool shell)
 as a setup step before recording. `~/opensysml-venv` may not exist at all, and the default `python3`
@@ -2589,7 +2589,7 @@ on PATH can be another project's venv (e.g. `~/repos/fprime/fprime-venv`) whose 
 `google.protobuf` makes `import opensysml` die with
 `cannot import name 'runtime_version' from 'google.protobuf'`. The reliable fallback is a throwaway
 venv off the system interpreter:
-`/usr/bin/python3 -m venv /tmp/pv && /tmp/pv/bin/pip install -e clients/python/` (~1 min), then
+`/usr/bin/python3 -m venv /tmp/pv && /tmp/pv/bin/pip install -e client/python/` (~1 min), then
 `source /tmp/pv/bin/activate` in Konsole. Also re-copy the freshly built service
 (`make build-grpc && cp bin/sysml-grpc ~/.opensysml/bin/`) or the auto-start path serves a stale
 revision. Discover expected values with the
@@ -3107,7 +3107,7 @@ is reached through a stdlib **alias** currently does **not** warn even though th
 Cheap false-positive sweep, worth running for any diagnostic-adding pass:
 
 ```bash
-for f in $(find examples testdata -name '*.sysml'); do ./bin/sysml -validate "$f" 2>&1 \
+for f in $(find examples tests/testdata -name '*.sysml'); do ./bin/sysml -validate "$f" 2>&1 \
   | grep 'incommensurable quantities'; done   # expect no output (403 files, ~90 s)
 ```
 
@@ -3131,7 +3131,7 @@ number rather than quoting the table.
   71 / 44 / 44 (65 / 38 / 38 counting the 110 `.sysml` files alone — state the denominator, since
   the published limitation counts both languages).
 - **Counted rows go stale fast, and the Python row depends on the environment.** With no service
-  listening `pytest clients/python/tests/ -q` was 369 passed / 26 skipped at 0.0.8; with a service already
+  listening `pytest client/python/tests/ -q` was 369 passed / 26 skipped at 0.0.8; with a service already
   listening the integration tests run instead of skipping (since PR #204 nothing fails either way,
   and CI now starts a service). Say which way a row was measured. `go test -race -count=1 ./...`
   was 3,682 pass / 5 skip / 3,687 total at 0.0.8, and 4,440 / 7 / 4,447 at 0.0.9 — recount rather
@@ -3143,7 +3143,7 @@ number rather than quoting the table.
   spec-compliance rather than adding a fifth copy.
 - **Error-class claims: check the export path.** A class can exist in `opensysml.errors` and be absent
   from the package surface — `hasattr(opensysml, name)` is the check, and
-  `TestPackageSurface` in `clients/python/tests/test_errors.py` now locks every exception in
+  `TestPackageSurface` in `client/python/tests/test_errors.py` now locks every exception in
   `errors.__all__` onto `opensysml`.
 - **LSP capability claims** are cheap to check with a framed JSON-RPC driver: assert
   `semanticTokensProvider` has `full: true`, `range: true` and no `delta` key anywhere, that
@@ -3572,11 +3572,11 @@ name written in a previous run's plan: a rebuilt model can end up with a differe
 bug mid-recording. Typing `clear` at the `sysml>` prompt is parsed as SysML and errors — `%quit`
 first, then clear at the shell (this also rules out `clear; %load …` as a one-liner).
 
-`clients/python/scripts/pin_release_checksums.py --check` hits the GitHub releases API for every pinned
+`client/python/scripts/pin_release_checksums.py --check` hits the GitHub releases API for every pinned
 asset and dies with `HTTP Error 403: rate limit exceeded` once the unauthenticated budget is spent;
 it reads `$GITHUB_TOKEN`. Set it without putting the token on camera:
 `read -rs GITHUB_TOKEN; export GITHUB_TOKEN`. Careful with `--version <tag> --write`: it edits
-`clients/python/opensysml/binary.py`, so `git checkout clients/python/opensysml/binary.py` afterwards. For the
+`client/python/opensysml/binary.py`, so `git checkout client/python/opensysml/binary.py` afterwards. For the
 "release publishes no assets" refusal use an old tag (`v0.0.4`) — v0.0.5..v0.0.8 all publish
 binaries now. The unpinned-download refusal is testable offline-ish with
 `HOME=/tmp/fakehome $PY -c "...ensure_binary(version='v9.9.9')"`, which keeps the real
@@ -3653,7 +3653,7 @@ type get it: an untyped derived attribute (`attribute derivedSpeed = 10.0 [SI::m
 has no type facts and still generates `-> object` / `_t.as_object`, even though the runtime value is
 a `Quantity`. Don't read that as a bug in the quantity typing.
 
-To make mypy actually enforce it, **set `MYPYPATH` to the repo's `clients/python/` directory** — without it
+To make mypy actually enforce it, **set `MYPYPATH` to the repo's `client/python/` directory** — without it
 mypy cannot resolve the editable-installed `opensysml`, silently treats `_t.Quantity` as `Any` and
 reports *no* errors on obvious misuse (a false pass that looks like a passing test):
 
@@ -4186,7 +4186,7 @@ Two cases need process work rather than a Python call:
 
 ### Traps that cost time when re-testing the edit surface
 
-- **`clients/python/tests/test_edit.py`'s `real_service` fixture prefers `<repo>/bin/sysml-grpc` over
+- **`client/python/tests/test_edit.py`'s `real_service` fixture prefers `<repo>/bin/sysml-grpc` over
   `~/.opensysml/bin/sysml-grpc`** (`GRPC_BINARIES`, test_edit.py:61). A stale `bin/sysml-grpc` left
   from an earlier snapshot therefore fails all 13 `TestEditRoundTripAgainstRealService` cases with
   `MissingCapabilityError('apply_edits')` / `assert has('apply_edits') == False`, which reads like a
@@ -4904,7 +4904,7 @@ at the prompt; it parses as a model line and produces `expected a namespace memb
 A kindless parameter (`in x : Real`, `out mass : Real`) is a kindless/attribute usage, so
 `sysml -convert=turtle` emits `a sysml:AttributeUsage`. Hand-written fixtures are often *not*
 discriminating (both old and new binaries agree); the repo fixture
-`internal/core/export/testdata/convert/views_flows_parameters.sysml` is, because its
+`tests/export/testdata/convert/views_flows_parameters.sysml` is, because its
 `action def Measure { out mass : Real; }` prints `AttributeUsage` on the new binary and
 `PartUsage` on a parent-commit binary. Prefer an A/B against `/tmp/old-sysml` over asserting a
 single output.
@@ -4983,7 +4983,7 @@ Pitfalls that cost time:
   The same text in a `.sysml` file can fail earlier with `only a definition may specialize; found a
   usage`, masking the behaviour under test.
 - A batch regression sweep is cheap and is the strongest "no false positives" evidence: run every
-  file in `examples/` and `testdata/{passes,resolve}` under both binaries and require byte-identical
+  file in `examples/` and `tests/testdata/{passes,resolve}` under both binaries and require byte-identical
   output plus matching exit status.
 - Cold vs warm run under a scratch `XDG_CACHE_HOME` catches resolution that depends on the on-disk
   symbol index; diagnostics must be byte-identical.
@@ -5031,7 +5031,7 @@ testable entirely through the real service plus the Python client; the strongest
 export PATH=/usr/local/go/bin:$PATH
 make build-grpc && cp bin/sysml-grpc ~/.opensysml/bin/
 XDG_CACHE_HOME=$(mktemp -d) ./bin/sysml-grpc -port 50123 &     # -port, not -addr
-/home/ubuntu/pv/bin/pip install -e clients/python/                     # see the venv trap above
+/home/ubuntu/pv/bin/pip install -e client/python/                     # see the venv trap above
 ```
 
 - Drive it with `opensysml.connect(port=50123, auto_start=False)` and
@@ -5117,7 +5117,7 @@ back to assumed `1..1`), so silence-vs-warning is the discriminator; `[0..1]` ag
 ### gRPC/Python control when library attributes are NOT withheld
 With no L3-3 projection, `GetSymbol` on a part returns own attributes **first, in declaration
 order**, then ~55 inherited from `Occurrences`/`Objects`/`Base` (e.g. `demo::Car` in
-`internal/grpc/testdata/conformance/symbol_attributes.sysml`: 6 own + 55 = 61). Assert the head
+`tests/grpc/testdata/conformance/symbol_attributes.sysml`: 6 own + 55 = 61). Assert the head
 order and that the client can read every row; don't assert a total.
 Two traps that reproduce on **base too** (do not attribute them to a record-format PR):
 - A `@Metadata` annotation written *inside* a part def collapses that symbol's gRPC attribute list
@@ -5175,7 +5175,7 @@ some older baseline is a **separate known regression**, not a perf-PR failure.
 
 ## Testing generated typed views (Tier 2) over a live service
 
-The typed helpers in `clients/python/opensysml/typed.py` are only reachable through *generated* modules, so
+The typed helpers in `client/python/opensysml/typed.py` are only reachable through *generated* modules, so
 assert on generated code, never on hand-built protobuf messages:
 
 ```bash
@@ -5217,8 +5217,8 @@ package next to your scratch script, swap in the parent revision's file, and re-
 with `PYTHONPATH`:
 
 ```bash
-cp -r clients/python/opensysml /home/ubuntu/scratch/prefix/
-git show <fix-sha>^:clients/python/opensysml/typed.py > /home/ubuntu/scratch/prefix/opensysml/typed.py
+cp -r client/python/opensysml /home/ubuntu/scratch/prefix/
+git show <fix-sha>^:client/python/opensysml/typed.py > /home/ubuntu/scratch/prefix/opensysml/typed.py
 PYTHONPATH=/home/ubuntu/scratch/prefix /home/ubuntu/pv/bin/python run.py   # must fail where the fix bites
 ```
 
@@ -5253,7 +5253,7 @@ provisions `~/pv`, but it can be stale — check before trusting it, and reinsta
 
 ```bash
 ~/pv/bin/python -c "import opensysml, grpc, google.protobuf as p; print(p.__version__)" \
-  || ~/pv/bin/pip install -e clients/python/
+  || ~/pv/bin/pip install -e client/python/
 ```
 
 Client API names that are easy to guess wrong: `Connection(port=…, auto_start=False)`,
@@ -5369,7 +5369,7 @@ answers arrive first, so ids are mandatory. Closing stdin ends a healthy session
 
 ### The benchmark harness
 
-`~/pv/bin/python clients/python/scripts/bench_transports.py --iterations 30 --spawns 3 --json out.json`
+`~/pv/bin/python client/python/scripts/bench_transports.py --iterations 30 --spawns 3 --json out.json`
 runs in a couple of minutes and reproduces the published *shape*: large-model `Query` costs
 ~6-7 ms in protobuf on all transports and ~40-47 ms in JSON (≈6-7×, serialization CPU, not
 bytes), cold start is ~4 ms for stdio vs ~6-8 ms over TCP, and every small-payload cell has an
@@ -5694,7 +5694,7 @@ tells you which one ran without any debug flag.
   `KerML::Kernel::Interaction` and `Connector::association` from `%search` — that is the failure
   this check exists for. `TestDecodeSnapshotRejectsCorruption` covers the same flips in-process.
 - Differential battery that proved behavior-neutrality: run `-validate` over
-  `examples/*.sysml` + `testdata/passes/*.sysml`, a piped REPL transcript (`%load` robot demo,
+  `examples/*.sysml` + `tests/testdata/passes/*.sysml`, a piped REPL transcript (`%load` robot demo,
   `%search`, `%eval 1 [SI::m] + 2 [SI::m]`, `%instantiate`/`%features`, `%print`), `-e 2+3` and
   `-convert ttl -o /dev/stdout`, each with `echo "exit=$?"` appended, under snapshot / edited-copy
   (cold and warm `XDG_CACHE_HOME`) / unmodified-copy / merge-base binary, then `diff -r` the four
@@ -5707,7 +5707,7 @@ tells you which one ran without any debug flag.
   `grep -v '^'` and filters everything. Filter on `'= 5'` / `'sysml:'` instead.
 - Konsole starts at a small font: `Ctrl++` three times before recording makes memstats lines legible.
 - The blueprint's venv is `~/pv` (see the maintenance block), but it can exist without the editable
-  `opensysml` install; `~/pv/bin/pip install -e clients/python` (or a fresh `python3 -m venv`) takes
+  `opensysml` install; `~/pv/bin/pip install -e client/python` (or a fresh `python3 -m venv`) takes
   under a minute and the non-tty one-shot `python script.py` with auto-start worked (35 ms connect).
 
 ## Library feature tiers on `%features`/`%eval` (PR #830) and headless screenshot fallback
@@ -5750,7 +5750,7 @@ when you try to prove this from the binary:
   against both cold and the default-path transcript.
 - `printf "$CMDS"` with `%load` in the variable is a format-string bug (`0ad …` on line 1): use a
   heredoc file and `./bin/sysml < cmds.txt`, or `printf '%%load …'`.
-- `pip install -e clients/python/` into `~/pv` took ~1 min; `sysml-grpc -port 50123 -health-port 0`
+- `pip install -e client/python/` into `~/pv` took ~1 min; `sysml-grpc -port 50123 -health-port 0`
   then `opensysml.connect(port=50123, auto_start=False)`. `Model.load` needs an **absolute** path
   (the service resolves relative paths against *its* cwd). `pkill -x sysml-grpc`, never `-f`.
 
@@ -5918,7 +5918,7 @@ and use <kbd>Shift</kbd>+<kbd>PageUp</kbd>.
   attribute access (`inst.dir`) raises `FeatureValueError` by design. `m.eval('2 [m] * 3')` on the
   model fails with `unresolved unit m` (model-scope eval sees no SI import) — use unitless
   expressions (`m.eval('3 * 4')`) as the service-survival check. A throwaway venv
-  (`python3 -m venv ~/pr-venv && ~/pr-venv/bin/pip install -e clients/python`) is ~1 min; drive the
+  (`python3 -m venv ~/pr-venv && ~/pr-venv/bin/pip install -e client/python`) is ~1 min; drive the
   freshly built `./bin/sysml-grpc -port 50123` with `auto_start=False`.
 
 ## Sets, tensors, and capability refusal

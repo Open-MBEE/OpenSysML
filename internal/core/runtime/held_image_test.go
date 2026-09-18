@@ -313,7 +313,7 @@ func TestHeldImageRefusesARunFollowingAWitness(t *testing.T) {
 func TestHeldImageCarriesAParkedAction(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, waiterSource)
 	pkg := resolveSymbol(t, root, "test")
-	src := NewContext(NewModel(model, resolver), 10000)
+	src := NewContext(typedModel(model, resolver), 10000)
 	waiter, err := src.Instantiate(resolveSymbol(t, pkg.Scope, "Waiter"))
 	if err != nil {
 		t.Fatalf("Instantiate Waiter: %v", err)
@@ -462,7 +462,7 @@ func TestHeldImageCarriesAPausedStateMachine(t *testing.T) {
 func TestHeldImageCarriesAPausedAction(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, waiterSource)
 	pkg := resolveSymbol(t, root, "test")
-	src := NewContext(NewModel(model, resolver), 10000)
+	src := NewContext(typedModel(model, resolver), 10000)
 	waiter, err := src.Instantiate(resolveSymbol(t, pkg.Scope, "Waiter"))
 	if err != nil {
 		t.Fatalf("Instantiate Waiter: %v", err)
@@ -1210,7 +1210,7 @@ func TestHeldImageServesConcurrentSweeps(t *testing.T) {
 			go func(level int64) {
 				defer wg.Done()
 				resolver := resolve.New(idx)
-				dst := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
+				dst := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
 				if err := img.Materialize(dst); err != nil {
 					errs <- fmt.Errorf("Materialize: %w", err)
 					return

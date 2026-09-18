@@ -4,7 +4,7 @@
 // positives) and the ones only the pilot reports (candidate gaps).
 //
 // It is advisory: nothing in the build or the test suite depends on it, and it
-// never touches internal/core/model/testdata/training_examples_expected.txt.
+// never touches tests/corpus/testdata/training_examples_expected.txt.
 // Provision the reference validator with scripts/download-pilot-sysml-validator.sh,
 // then run `go run -C tools ./cmd/pilot-diff`. See docs/project/pilot-differential.md.
 package diff
@@ -51,7 +51,7 @@ var defaultRoots = []corpusRoot{
 	{Name: "pilot-examples", Dir: "examples/pilot-corpora/sysml-examples", Pinned: true},
 	{Name: "pilot-validation", Dir: "examples/pilot-corpora/sysml-validation", Pinned: true},
 	{Name: "kerml-examples", Dir: "examples/pilot-corpora/kerml-examples", Pinned: true},
-	{Name: "testdata", Dir: "testdata"},
+	{Name: "testdata", Dir: "tests/testdata"},
 	{Name: "examples", Dir: "examples", Skip: []string{"sysml-v2-training", "pilot-corpora"}},
 	// Hand-written models for behaviour classes the corpora do not cover, such
 	// as redefining a feature inherited through an alias.

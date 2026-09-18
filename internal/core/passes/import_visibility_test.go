@@ -3,21 +3,22 @@ package passes
 import (
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // analyzeSrc returns every diagnostic src produces, the parser's included.
-func analyzeSrc(t *testing.T, src string) []Diagnostic {
+func analyzeSrc(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	root, parseDiags, idx := analyzeInputs(t, "<t>", src)
 	return Analyze("<t>", root, parseDiags, idx)
 }
 
 // importVisibilityDiags returns the import-visibility findings of src.
-func importVisibilityDiags(t *testing.T, src string) []Diagnostic {
+func importVisibilityDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range analyzeSrc(t, src) {
 		if d.Code == "import-visibility" {
 			out = append(out, d)
@@ -80,7 +81,7 @@ func TestImportVisibilityErrorsOnTheKeyword(t *testing.T) {
 		t.Fatalf("got %d diagnostics, want 1: %v", len(diags), diags)
 	}
 	d := diags[0]
-	if d.Severity != SeverityError {
+	if d.Severity != diag.SeverityError {
 		t.Errorf("severity = %v, want error", d.Severity)
 	}
 	if d.Source != "syntax" {
@@ -100,7 +101,7 @@ func TestImportVisibilityChangesSeverityOnly(t *testing.T) {
 
 	var errored bool
 	for _, d := range (GrammarViolationPass{}).Run(NewContext("<t>", idx, parseDiags), "<t>", root) {
-		if d.Code == "import-visibility" && d.Severity == SeverityError {
+		if d.Code == "import-visibility" && d.Severity == diag.SeverityError {
 			errored = true
 		}
 	}
@@ -112,7 +113,7 @@ func TestImportVisibilityChangesSeverityOnly(t *testing.T) {
 	for _, d := range (NameResolutionPass{}).Run(NewContext("<t>", idx, nil), "<t>", root) {
 		if d.Code == "unresolved" {
 			unresolved = true
-		} else if d.Severity == SeverityError {
+		} else if d.Severity == diag.SeverityError {
 			t.Errorf("unexpected name-resolution error, so the bare import changed model reading: %+v", d)
 		}
 	}
@@ -129,7 +130,7 @@ func TestImportVisibilityDoesNotGateHigherTiers(t *testing.T) {
 	for _, d := range analyzeSrc(t, src) {
 		switch d.Code {
 		case "import-visibility":
-			importError = d.Severity == SeverityError
+			importError = d.Severity == diag.SeverityError
 		case "unresolved":
 			unresolved = true
 		}

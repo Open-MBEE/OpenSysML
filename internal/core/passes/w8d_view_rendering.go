@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -19,7 +20,7 @@ type W8DViewRenderingPass struct{}
 
 func (W8DViewRenderingPass) Level() PassLevel { return LevelConstraint }
 
-func (W8DViewRenderingPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W8DViewRenderingPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -27,14 +28,14 @@ func (W8DViewRenderingPass) Run(ctx *Context, name string, root *ast.RootNamespa
 	if rootScope == nil {
 		return nil
 	}
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	w8dWalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		msg, ok := w8dViewRenderingMessage(sym.Decl)
 		if !ok {
 			return
 		}
 		var renderings []ast.Node
-		for _, member := range declMembers(sym.Decl) {
+		for _, member := range ast.DeclMembers(sym.Decl) {
 			if u, isUsage := unwrapType(member).(*ast.Usage); isUsage && u.Kind == ast.UsageViewRendering {
 				renderings = append(renderings, member)
 			}
@@ -45,8 +46,8 @@ func (W8DViewRenderingPass) Run(ctx *Context, name string, root *ast.RootNamespa
 		// The reference errors on every rendering after the first, leaving the
 		// first as the view's rendering.
 		for _, extra := range renderings[1:] {
-			diags = append(diags, Diagnostic{
-				Severity: SeverityError,
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.SeverityError,
 				Span:     extra.Span(),
 				Message:  msg,
 				Code:     "only-one-view-rendering",

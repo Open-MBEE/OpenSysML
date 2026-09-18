@@ -17,6 +17,8 @@ type DeclaredReader struct {
 }
 
 // NewDeclaredReader creates a reader over a fresh, behavior-free runtime context.
+// model carries the checker's argument typing, as NewModel requires: a feature
+// valued by a call is read through it, and fails with ErrNoArgumentTyper without one.
 func NewDeclaredReader(model *semantics.Model, resolver *resolve.Resolver) *DeclaredReader {
 	ctx := NewContext(NewModel(model, resolver), DefaultMaxSteps)
 	ctx.declarative = true

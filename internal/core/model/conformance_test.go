@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 )
 
@@ -16,23 +16,23 @@ const extensionModel = "package P { attribute def Alarm; state def S { state a {
 
 func TestWorkspaceDefaultsToTheDefaultMode(t *testing.T) {
 	ws := NewWorkspace()
-	if ws.ConformanceMode() != conformance.ModeDefault {
+	if ws.ConformanceMode() != diag.ConformanceDefault {
 		t.Fatalf("mode = %v, want default", ws.ConformanceMode())
 	}
 	ws.Open("a.sysml", []byte(extensionModel), 1)
 	for _, d := range ws.Diagnostics("a.sysml") {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Fatalf("default mode must accept our notation, got %+v", d)
 		}
 	}
 }
 
 func TestWorkspaceStrictModeRejectsExtensionNotation(t *testing.T) {
-	ws := NewWorkspace(WithConformanceMode(conformance.ModeStrict))
+	ws := NewWorkspace(WithConformanceMode(diag.ConformanceStrict))
 	ws.Open("a.sysml", []byte(extensionModel), 1)
 	var errs int
 	for _, d := range ws.Diagnostics("a.sysml") {
-		if d.Severity == passes.SeverityError && d.Code == passes.CodeNonstandardNotation {
+		if d.Severity == diag.SeverityError && d.Code == passes.CodeNonstandardNotation {
 			errs++
 		}
 	}
@@ -46,21 +46,21 @@ func TestWorkspaceStrictModeRejectsExtensionNotation(t *testing.T) {
 func TestSetConformanceModeReanalyses(t *testing.T) {
 	ws := NewWorkspace()
 	ws.Open("a.sysml", []byte(extensionModel), 1)
-	if severities := conformanceSeverities(ws, "a.sysml"); severities[passes.SeverityError] != 0 {
+	if severities := conformanceSeverities(ws, "a.sysml"); severities[diag.SeverityError] != 0 {
 		t.Fatalf("default mode errored: %+v", ws.Diagnostics("a.sysml"))
 	}
-	ws.SetConformanceMode(conformance.ModeStrict)
-	if conformanceSeverities(ws, "a.sysml")[passes.SeverityError] == 0 {
+	ws.SetConformanceMode(diag.ConformanceStrict)
+	if conformanceSeverities(ws, "a.sysml")[diag.SeverityError] == 0 {
 		t.Fatalf("after switching to strict: %+v", ws.Diagnostics("a.sysml"))
 	}
-	ws.SetConformanceMode(conformance.ModeDefault)
-	if conformanceSeverities(ws, "a.sysml")[passes.SeverityError] != 0 {
+	ws.SetConformanceMode(diag.ConformanceDefault)
+	if conformanceSeverities(ws, "a.sysml")[diag.SeverityError] != 0 {
 		t.Fatalf("after switching back to default: %+v", ws.Diagnostics("a.sysml"))
 	}
 }
 
-func conformanceSeverities(ws *Workspace, name string) map[passes.Severity]int {
-	out := map[passes.Severity]int{}
+func conformanceSeverities(ws *Workspace, name string) map[diag.Severity]int {
+	out := map[diag.Severity]int{}
 	for _, d := range ws.Diagnostics(name) {
 		out[d.Severity]++
 	}
@@ -82,7 +82,7 @@ func TestDefaultModeIsUnchangedOverTheExamples(t *testing.T) {
 		}
 		implicit := NewWorkspace()
 		implicit.Open(rel, content, 1)
-		named := NewWorkspace(WithConformanceMode(conformance.ModeDefault))
+		named := NewWorkspace(WithConformanceMode(diag.ConformanceDefault))
 		named.Open(rel, content, 1)
 		want, got := implicit.Diagnostics(rel), named.Diagnostics(rel)
 		if len(want) != len(got) {

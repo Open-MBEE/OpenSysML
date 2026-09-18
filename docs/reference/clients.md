@@ -134,11 +134,11 @@ scenarios and comparing the same results:
 make conformance             # the reference runner: gRPC, Connect, Connect-JSON
 make conformance-pkg         # the public Go API, in process and remote
 make conformance-rust
-npm --prefix clients/node run conformance -- --allow-skips
+npm --prefix client/node run conformance -- --allow-skips
 ```
 
 The Java runner is launched from its own classpath rather than by a Maven goal; the two exact
-commands are given in [clients/java/README.md](../../clients/java/README.md#conformance).
+commands are given in [client/java/README.md](../../client/java/README.md#conformance).
 
 The reference runner also takes `-junit <file>`, writing the same run as JUnit XML (one suite per
 configuration and protocol, one case per scenario). That is what `make conformance` stores beside

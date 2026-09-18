@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -20,7 +21,7 @@ func (EndFeaturePass) Level() PassLevel { return LevelConstraint }
 // ElementScoped: each end feature gates on its own head.
 func (EndFeaturePass) ElementScoped() { /* marker: per-element gating */ }
 
-func (EndFeaturePass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (EndFeaturePass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -28,10 +29,10 @@ func (EndFeaturePass) Run(ctx *Context, name string, root *ast.RootNamespace) []
 	if rootScope == nil {
 		return nil
 	}
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	report := func(u *ast.Usage, message, code string) {
-		diags = append(diags, Diagnostic{
-			Severity: SeverityError,
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     w8cUsageHead(u),
 			Message:  message,
 			Code:     code,

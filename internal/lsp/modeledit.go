@@ -13,7 +13,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	modeledit "github.com/Open-MBEE/OpenSysML/internal/core/edit"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -550,7 +549,7 @@ func nodeOwners(sym *symbols.Symbol) ([]renderOwner, bool) {
 // notationName spells sym's qualified name as the notation does, each name
 // quoted on its own, which is how opensysml/applyModelEdit reads a target.
 func notationName(sym *symbols.Symbol) string {
-	return lexer.QualifiedNameOf(symbols.NameChain(sym))
+	return source.QualifiedNameOf(symbols.NameChain(sym))
 }
 
 // nodeSymbol is the declaration a rendering node or edge was built from, named

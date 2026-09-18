@@ -3,7 +3,7 @@ package model
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 func TestMessageTargetEventResolution(t *testing.T) {
@@ -27,7 +27,7 @@ func TestMessageTargetEventResolution(t *testing.T) {
 
 	var errs []string
 	for _, d := range diags {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			errs = append(errs, d.Message)
 			t.Logf("ERROR: %s", d.Message)
 		}

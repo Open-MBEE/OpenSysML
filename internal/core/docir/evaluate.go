@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/docplan"
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
@@ -361,7 +360,7 @@ func (e *evaluator) templateRuns(
 }
 
 // blankMath reports a math column run whose row supplies no LaTeX to typeset.
-func (e *evaluator) blankMath(node docplan.Content, template docplan.ColumnRun, number int, origin provenance.Origin) error {
+func (e *evaluator) blankMath(node docplan.Content, template docplan.ColumnRun, number int, origin symbols.Origin) error {
 	return &Error{
 		Kind:     ErrorBlankMath,
 		Document: e.document,

@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -279,7 +278,7 @@ func (e constElement) valueText() string {
 // constElement decides an element's value statically, or reports it cannot.
 func (ec *exprChecker) constElement(scope *symbols.Scope, element ast.Node) (constElement, bool) {
 	if s, ok := element.(*ast.LiteralString); ok {
-		text := lexer.StringValue(s.Value)
+		text := source.StringValue(s.Value)
 		return constElement{str: text, text: strconv.Quote(text) + " (string)"}, true
 	}
 	if v, ok := ec.model.Eval(element); ok && v.Kind != semantics.ValInfinity {
@@ -639,7 +638,7 @@ func (ec *exprChecker) invocationResultParameter(scope *symbols.Scope, value ast
 		return nil
 	}
 	var sym *symbols.Symbol
-	if chain := ChainCallee(inv); chain != nil {
+	if chain := semantics.ChainCallee(inv); chain != nil {
 		sym, _ = ec.resolver.ResolveTarget(scope, chain)
 	} else if inv.Type != nil {
 		// The arguments type silently, but under the chains being typed: one whose

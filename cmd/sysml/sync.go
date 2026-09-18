@@ -8,11 +8,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/project"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/flexo"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
 )
@@ -286,21 +287,21 @@ func syncStatePath(model string, apply bool) (string, error) {
 // loadSyncGraph reads a graph for the sync: Turtle as-is, notation converted
 // through the identity-carrying RDF mapping.
 func loadSyncGraph(path string) (*rdf.Graph, error) {
-	format, err := export.FormatOfPath(path)
+	format, err := convert.FormatOfPath(path)
 	if err != nil {
-		return nil, export.Advise(err, export.ExtensionAdvice)
+		return nil, convert.Advise(err, convert.ExtensionAdvice)
 	}
 	name, data, err := project.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 	switch format {
-	case export.FormatTurtle:
+	case convert.FormatTurtle:
 		return rdf.ParseTurtle(data)
-	case export.FormatXMI:
+	case convert.FormatXMI:
 		return nil, fmt.Errorf("%s is SysML v1 XMI, which a sync cannot read; migrate it first with `sysml %s -convert sysml -o model.sysml`", path, path)
 	}
-	return export.SysMLToRDF(name, data)
+	return convert.SysMLToRDF(name, data)
 }
 
 // loadSyncState reads the sync state file, if any, and refuses one pinning
@@ -360,7 +361,7 @@ func prepareAnnotation(local *rdf.Graph, model string, set *reposync.ChangeSet, 
 		a.clauses = append(a.clauses, clause)
 	}
 	a.notation = []byte(out.String())
-	if _, err := export.SysMLToRDF(name, a.notation); err != nil {
+	if _, err := convert.SysMLToRDF(name, a.notation); err != nil {
 		return nil, fmt.Errorf("the annotated notation does not analyze: %w", err)
 	}
 	return a, nil
@@ -394,7 +395,7 @@ func annotationPath(g *rdf.Graph, subject string) string {
 				return ""
 			}
 		}
-		segments = append([]string{lexer.NameText(name)}, segments...)
+		segments = append([]string{source.NameText(name)}, segments...)
 		owner, ok := g.Object(term, rdf.SysML+"owningNamespace")
 		if !ok {
 			break

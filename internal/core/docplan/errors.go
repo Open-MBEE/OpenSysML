@@ -3,7 +3,7 @@ package docplan
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
 
@@ -70,7 +70,7 @@ type Error struct {
 	Parameter string
 	Expected  string
 	Actual    string
-	Origin    provenance.Origin
+	Origin    symbols.Origin
 	Err       error
 }
 

@@ -3,7 +3,16 @@ package parser
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
+
+// ParseOneExpression parses text, read from origin, as exactly one expression; false
+// for anything else: a diagnostic, a trailing remainder, or no expression at all.
+func ParseOneExpression(origin, text string) (ast.Node, bool) {
+	p := New(source.New(origin, []byte(text)))
+	expr := p.ParseExpression()
+	return expr, expr != nil && len(p.Diagnostics) == 0 && p.Offset() == len(text)
+}
 
 // ParseExpression parses a full expression (conditional at the lowest level).
 func (p *Parser) ParseExpression() ast.Node {

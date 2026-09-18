@@ -90,7 +90,7 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
   errors + 1 `kind-mismatch` + 8 `unmapped` warnings appeared instead. Tier unblocking is the
   normal consequence of accepting new syntax, so expect it — but each newly revealed only-ours
   *error* is a fresh candidate false positive and should be named in the report even when the
-  committed per-file ratchet (`internal/core/model/testdata/pilot_corpora_expected.txt`) already
+  committed per-file ratchet (`tests/corpus/testdata/pilot_corpora_expected.txt`) already
   records the new number.
 - `TestPilotDifferentialDocumentCountsMatchBaseline` reads only the *committed* baseline JSON, so
   it proves doc ↔ baseline consistency and cannot detect a committed baseline that no longer
@@ -125,7 +125,7 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
   clean, exit 0; `build/pilot-validator/validate-sysml` on the same argv reports
   `Couldn't resolve reference to Namespace 'PkgB'` — order dependence, exit 1.
 - `Duplicate of other owned member name` is **not** a wrapper artifact: it reproduces on a
-  single file in isolation under both oracles (e.g. `testdata/passes/corpus_notation.sysml`
+  single file in isolation under both oracles (e.g. `tests/testdata/passes/corpus_notation.sysml`
   lines 33/34, the `timeslice item item1` / `snapshot item item1` inside `item item1`), with
   or without `--root`, and its count does not grow with batch size. 25 warnings (summed `xK`
   multiplicities, over 7 files of `testdata` and `examples`) remain in the F6 report; 23 of
@@ -392,7 +392,7 @@ pilot-side diagnostics for it (observed: 6 pilot-only + 1 agreed on that one fil
 Since F34, language is a per-file property (`source.KindOf`), so a root collects both extensions
 and runs one reference invocation per language over all of that language's files. stderr prints one
 line per language per root (`testdata: 10 SysML file(s)` then `testdata: 1 KerML file(s)`), and our
-own `.kerml` fixtures under `testdata/` and `examples/` are compared.
+own `.kerml` fixtures under `tests/testdata/` and `examples/` are compared.
 
 The control for a dispatch change: a synthetic repo with byte-identical `testdata/adv.sysml` and
 `testdata/adv.kerml`, run at HEAD and in a parent worktree (`-repo` plus absolute validator flags).
@@ -429,7 +429,7 @@ The shared helper `diagsIn` (`internal/core/passes/typecheck_kerml_language_test
 that names a library type (`Base::Anything`, `Objects::Object`, …) collects `name-resolution`
 errors, which **skip the type tier entirely** — so a test that asserts "zero `type` diagnostics"
 over such a fixture passes no matter what the type checker does. Observed at `5ac8b6fb`:
-`testdata/passes/f90_conjugation.kerml` yields 3 `unresolved reference: Base::Anything`
+`tests/testdata/passes/f90_conjugation.kerml` yields 3 `unresolved reference: Base::Anything`
 name-resolution diagnostics and 0 type diagnostics, and
 `TestF90KerMLConjugationIsNotAPortTyping` therefore still **PASSED** with the fix reverted, while
 its inline-source sibling `TestF90KerMLConjugationFormsAreClean` (short snippets naming no library

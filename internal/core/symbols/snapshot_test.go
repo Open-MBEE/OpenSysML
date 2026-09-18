@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/pack"
-	"github.com/Open-MBEE/OpenSysML/internal/testutil/graphcmp"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/graphcmp"
 )
 
 // unobservable is state two equal indexes may hold differently: lookup caches

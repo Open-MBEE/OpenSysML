@@ -3,16 +3,18 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
-func assignmentReferentFindings(t *testing.T, src string, warm bool) []Diagnostic {
+func assignmentReferentFindings(t *testing.T, src string, warm bool) []diag.Diagnostic {
 	t.Helper()
 	return assignmentDiags(t, src, warm, "assignment-referent-time-varying")
 }
 
-func assignmentDiags(t *testing.T, src string, warm bool, code string) []Diagnostic {
+func assignmentDiags(t *testing.T, src string, warm bool, code string) []diag.Diagnostic {
 	t.Helper()
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, diag := range w9cLibraryDiags(t, src, warm) {
 		if diag.Code == code {
 			out = append(out, diag)
@@ -118,9 +120,9 @@ func TestAssignmentReferentNonFeatureRejected(t *testing.T) {
 			src := prefix + tc.target + " := null; assign i.a := null; } }"
 			for _, warm := range []bool{false, true} {
 				all := w9cLibraryDiags(t, src, warm)
-				var got []Diagnostic
+				var got []diag.Diagnostic
 				for _, d := range all {
-					if d.Severity == SeverityError {
+					if d.Severity == diag.SeverityError {
 						got = append(got, d)
 					}
 				}
@@ -147,7 +149,7 @@ func TestAssignmentReferentNonFeatureRejectedWithoutLibrary(t *testing.T) {
 	root, pd, idx := analyzeInputs(t, "a.sysml", src)
 	var got []string
 	for _, d := range Analyze("a.sysml", root, pd, idx) {
-		if d.Severity == SeverityError {
+		if d.Severity == diag.SeverityError {
 			got = append(got, d.Code+": "+d.Message)
 		}
 	}
@@ -250,7 +252,7 @@ func TestAssignmentReferentExpressionTargetIsSyntaxError(t *testing.T) {
 		root, pd, idx := analyzeInputs(t, "a.sysml", src)
 		var codes []string
 		for _, d := range Analyze("a.sysml", root, pd, idx) {
-			if d.Severity == SeverityError {
+			if d.Severity == diag.SeverityError {
 				codes = append(codes, d.Code)
 			}
 		}

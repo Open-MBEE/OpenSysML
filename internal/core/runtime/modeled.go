@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
@@ -163,9 +163,9 @@ func (d DrawPoint) String() string { return d.Draw.String() }
 func (d DrawPoint) Location() (string, source.Span) { return "", source.Span{} }
 
 // Diagnostic is the draw as an informational finding about the run.
-func (d DrawPoint) Diagnostic() passes.Diagnostic {
-	return passes.Diagnostic{
-		Severity: passes.SeverityInfo,
+func (d DrawPoint) Diagnostic() diag.Diagnostic {
+	return diag.Diagnostic{
+		Severity: diag.SeverityInfo,
 		Message:  "random draw: " + d.Describe(),
 		Code:     DrawDiagnosticCode,
 		Source:   "runtime",

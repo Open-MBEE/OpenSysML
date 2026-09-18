@@ -273,7 +273,7 @@ func computesResult(calc *symbols.Symbol) bool {
 	if scope == nil {
 		scope = calc.OwnerScope
 	}
-	return Returns(CalcBody(calc.Decl, declMembers(calc.Decl), scope))
+	return Returns(CalcBody(calc.Decl, ast.DeclMembers(calc.Decl), scope))
 }
 
 // lowerIntegrator reads the scheme the model binds integrate to: one of those the

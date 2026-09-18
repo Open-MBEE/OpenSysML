@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
 
-const exportFixturesDir = "../export/testdata/convert"
+const exportFixturesDir = "../../../tests/export/testdata/convert"
 
 // The RDF mapping's structural predicates alone must carry a model back to
 // notation that analyses exactly as the original did: the source text is
@@ -26,7 +26,7 @@ func TestNotationFromTheGraphAloneAnalysesLikeTheOriginal(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			turtle, err := export.Convert(fixture, src, export.FormatSysML, export.FormatTurtle)
+			turtle, err := convert.Convert(fixture, src, convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("notation -> Turtle: %v", err)
 			}
@@ -43,7 +43,7 @@ func TestNotationFromTheGraphAloneAnalysesLikeTheOriginal(t *testing.T) {
 			if structural.Len() == graph.Len() {
 				t.Fatal("no source text was recorded, so stripping it proves nothing")
 			}
-			back, err := export.Convert("back.ttl", rdf.WriteTurtle(structural), export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert("back.ttl", rdf.WriteTurtle(structural), convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("Turtle -> notation: %v", err)
 			}

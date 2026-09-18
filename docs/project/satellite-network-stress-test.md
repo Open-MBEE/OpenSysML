@@ -15,7 +15,7 @@ smallest models carry ±30% of noise from the machine, which the trend does not.
 
 ## The workload
 
-`internal/stressmodel` generates the model; `tools/cmd/stress-model` writes it out:
+`tests/stressmodel` generates the model; `tools/cmd/stress-model` writes it out:
 
 ```bash
 go run -C tools ./cmd/stress-model -planes 8 -satellites 25 -ground-stations 20 -stats > constellation.sysml
@@ -112,11 +112,11 @@ million elements (10 000 of these satellites) and 32 GiB about 3.8 million.
 The peak RSS above is mostly transient: the parser's and the resolver's
 garbage. What a session keeps alive once the model is loaded — the size that
 bounds a long-lived REPL, LSP or gRPC session rather than a single run — is
-measured in-process by `BenchmarkLoad` in `internal/stressmodel`, which
+measured in-process by `BenchmarkLoad` in `tests/stressmodel`, which
 collects before and after a load and reports the difference:
 
 ```bash
-go test ./internal/stressmodel -run '^$' -bench Load -benchmem -benchtime 3x
+go test ./tests/stressmodel -run '^$' -bench Load -benchmem -benchtime 3x
 ```
 
 | satellites | elements | load wall | live heap held | held / element | allocated / element |

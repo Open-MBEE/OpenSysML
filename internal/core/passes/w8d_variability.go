@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -27,7 +28,7 @@ type W8DVariabilityPass struct{}
 
 func (W8DVariabilityPass) Level() PassLevel { return LevelConstraint }
 
-func (W8DVariabilityPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W8DVariabilityPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -42,7 +43,7 @@ func (W8DVariabilityPass) Run(ctx *Context, name string, root *ast.RootNamespace
 
 type w8dVariabilityChecker struct {
 	resolver *resolve.Resolver
-	diags    []Diagnostic
+	diags    []diag.Diagnostic
 }
 
 func (vc *w8dVariabilityChecker) check(sym *symbols.Symbol) {
@@ -58,7 +59,7 @@ func (vc *w8dVariabilityChecker) check(sym *symbols.Symbol) {
 func (vc *w8dVariabilityChecker) checkMembers(sym *symbols.Symbol) {
 	_, isUsage := sym.Decl.(*ast.Usage)
 	isEnum := sym.Kind == symbols.SymbolEnumerationDef
-	for _, member := range declMembers(sym.Decl) {
+	for _, member := range ast.DeclMembers(sym.Decl) {
 		node := unwrapType(member)
 		if _, ok := node.(*ast.SubjectMember); ok {
 			vc.reportMember(sym, member.Span(), "")
@@ -88,8 +89,8 @@ func (vc *w8dVariabilityChecker) reportMember(owner *symbols.Symbol, span source
 		msg = fmt.Sprintf("%s cannot own %s: %s; declare %s as an enumerated value or in an attribute definition that %s specializes",
 			w8dVariationNoun(owner), member, msgEnumerationIsVariation, member, w8dSymbolName(owner))
 	}
-	vc.diags = append(vc.diags, Diagnostic{
-		Severity: SeverityError,
+	vc.diags = append(vc.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message:  msg,
 		Code:     "variation-member-not-variant",
@@ -120,8 +121,8 @@ func (vc *w8dVariabilityChecker) checkSpecializations(sym *symbols.Symbol) {
 		if !ok || general == sym || !semantics.IsVariation(general) {
 			continue
 		}
-		vc.diags = append(vc.diags, Diagnostic{
-			Severity: SeverityError,
+		vc.diags = append(vc.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     rel.Target.Span(),
 			Message:  w8dSpecializationMessage(sym, general, rel.Kind),
 			Code:     "variation-specialization",

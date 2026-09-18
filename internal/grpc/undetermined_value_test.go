@@ -9,6 +9,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 const undeterminedModel = `package Demo {
@@ -104,7 +105,7 @@ func TestEvaluate_ConstantOperandFoldsBesideUndetermined(t *testing.T) {
 func TestValueToProto_UndeterminedIsNotUnset(t *testing.T) {
 	one := semantics.Bound{Value: 1, Known: true}
 	val := runtime.NewUndeterminedValue("u has no value in the model", semantics.Range{Lower: one, Upper: one})
-	got := ValueToProtoIn(nil, val, nil)
+	got := protoconv.ValueToProtoIn(nil, val, nil)
 	u, ok := got.GetKind().(*pb.Value_Undetermined)
 	if !ok {
 		t.Fatalf("kind = %T, want undetermined", got.GetKind())
@@ -120,14 +121,14 @@ func TestValueToProto_UndeterminedIsNotUnset(t *testing.T) {
 // Undetermined is something to read and not to supply, as unset is.
 func TestProtoToValue_RejectsUndetermined(t *testing.T) {
 	arm := &pb.Value{Kind: &pb.Value_Undetermined{Undetermined: &pb.Undetermined{Reason: "x"}}}
-	if _, err := ProtoToValueIn(arm, nil, nil); !errors.Is(err, ErrUndeterminedNotAccepted) {
-		t.Errorf("err = %v, want %v", err, ErrUndeterminedNotAccepted)
+	if _, err := protoconv.ProtoToValueIn(arm, nil, nil); !errors.Is(err, protoconv.ErrUndeterminedNotAccepted) {
+		t.Errorf("err = %v, want %v", err, protoconv.ErrUndeterminedNotAccepted)
 	}
 	seq := &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{
 		Elements: []*pb.Value{{Kind: &pb.Value_IntValue{IntValue: 1}}, arm},
 	}}}
-	if _, err := ProtoToValueIn(seq, nil, nil); !errors.Is(err, ErrUndeterminedNotAccepted) {
-		t.Errorf("in a sequence: err = %v, want %v", err, ErrUndeterminedNotAccepted)
+	if _, err := protoconv.ProtoToValueIn(seq, nil, nil); !errors.Is(err, protoconv.ErrUndeterminedNotAccepted) {
+		t.Errorf("in a sequence: err = %v, want %v", err, protoconv.ErrUndeterminedNotAccepted)
 	}
 }
 

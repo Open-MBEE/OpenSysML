@@ -589,7 +589,7 @@ func (idx *Index) expandImporter(pkgFQN string) {
 		direct := [][]ElementFilter{gate}
 		for _, child := range idx.exportedChildren(targetFQN) {
 			// Extract child's primary name
-			childName := lastSegment(child.Name)
+			childName := LastSegment(child.Name)
 			idx.reexportGated(joinFQN(pkgFQN, childName), child, imp.doc, imp.private,
 				idx.routesOnward(imp.doc, targetFQN, childName, child, direct))
 
@@ -1432,7 +1432,7 @@ func extractWildcardImports(decl ast.Node, scope *Scope) []WildcardImport {
 			continue
 		}
 		wi := WildcardImport{
-			Target:  qualifiedNameText(imp.Imported),
+			Target:  imp.Imported.Text(),
 			Private: imp.Visibility == ast.VisibilityPrivate,
 		}
 		if imp.FilterExpr != nil {
@@ -1441,30 +1441,6 @@ func extractWildcardImports(decl ast.Node, scope *Scope) []WildcardImport {
 		out = append(out, wi)
 	}
 	return out
-}
-
-// qualifiedNameText renders a QualifiedName as "A::B::C".
-func qualifiedNameText(qn *ast.QualifiedName) string {
-	if qn == nil {
-		return ""
-	}
-	var parts []string
-	for _, seg := range qn.Parts {
-		parts = append(parts, seg.Text)
-	}
-	return joinQualifiedName(parts)
-}
-
-// joinQualifiedName joins parts with "::".
-func joinQualifiedName(parts []string) string {
-	result := ""
-	for i, part := range parts {
-		if i > 0 {
-			result += "::"
-		}
-		result += part
-	}
-	return result
 }
 
 // LookupQualified returns the symbols a qualified reference from outside the
@@ -1745,7 +1721,7 @@ func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) 
 	children := idx.lookupDirectChildren(key)
 	byName = make(map[string][]*Symbol, len(children))
 	for _, sym := range children {
-		leaf := lastSegment(sym.Name)
+		leaf := LastSegment(sym.Name)
 		byName[leaf] = append(byName[leaf], sym)
 		if sym.ShortName != "" && sym.ShortName != leaf {
 			byName[sym.ShortName] = append(byName[sym.ShortName], sym)
@@ -1759,8 +1735,8 @@ func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) 
 	return byName[name]
 }
 
-// lastSegment returns the last "::"-separated segment of a possibly qualified name.
-func lastSegment(name string) string {
+// LastSegment is the simple name a "::"-qualified name ends in, or name itself.
+func LastSegment(name string) string {
 	if i := lastSeparator(name); i >= 0 {
 		return name[i+2:]
 	}

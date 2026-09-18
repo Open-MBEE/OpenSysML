@@ -5,7 +5,7 @@ import (
 
 	"go.lsp.dev/protocol"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // strictConformanceKey is the setting an editor sets to ask the strict question,
@@ -23,7 +23,7 @@ func (s *Server) applyConformanceSettings(payload any) bool {
 	if !ok {
 		return false
 	}
-	s.ws.SetConformanceMode(conformance.ModeOf(strict))
+	s.ws.SetConformanceMode(diag.ConformanceModeOf(strict))
 	return true
 }
 

@@ -4,13 +4,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // libraryTypeDiags analyzes src against the standard library, so a check keyed
 // off library types — the dimensional warning — is exercised as written.
-func libraryTypeDiags(t *testing.T, src string) []Diagnostic {
+func libraryTypeDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 
 	idx := newTestIndex()
@@ -18,7 +19,7 @@ func libraryTypeDiags(t *testing.T, src string) []Diagnostic {
 	idx.AddDocument("<t>", root)
 	idx.ExpandWildcardImports()
 
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range Analyze("<t>", root, nil, idx) {
 		if d.Source == "type" {
 			out = append(out, d)
@@ -99,14 +100,14 @@ func TestCalcBodyImplicitResultWarnsOnDimensions(t *testing.T) {
 			mass < 1000.0 [m]
 		}
 	}`)
-	var warnings []Diagnostic
+	var warnings []diag.Diagnostic
 	for _, d := range diags {
 		if strings.Contains(d.Message, "incommensurable quantities") {
-			if d.Severity != SeverityWarning {
+			if d.Severity != diag.SeverityWarning {
 				t.Errorf("dimensional diagnostic is %v, want a warning: %s", d.Severity, d.Message)
 			}
 			warnings = append(warnings, d)
-		} else if d.Severity == SeverityError {
+		} else if d.Severity == diag.SeverityError {
 			t.Errorf("unexpected type error: %s", d.Message)
 		}
 	}

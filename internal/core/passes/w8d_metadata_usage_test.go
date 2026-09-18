@@ -1,6 +1,10 @@
 package passes
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+)
 
 // MetadataUsage_Invalid.sysml.xt: a metadata body feature that redefines no
 // feature of the metadata definition is an error at the feature. Prefix
@@ -48,7 +52,7 @@ func TestW8DMetadataUsageTypeMustBeConcrete(t *testing.T) {
 	}
 }
 `
-	var concrete []Diagnostic
+	var concrete []diag.Diagnostic
 	for _, d := range w8dDiags(t, prefix) {
 		if d.Message == msgMetadataConcreteType {
 			concrete = append(concrete, d)

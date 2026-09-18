@@ -51,7 +51,7 @@
       },
       {
         "name": "testdata",
-        "dir": "testdata",
+        "dir": "tests/testdata",
         "origin": "ours",
         "files": 18,
         "digest": "sha256:e94ae1ca4106335c99633228ca4ebd5b8f5c70a09040590646b660c2cbb2d366"
@@ -61,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 43,
-        "digest": "sha256:eb8f02f9f9c89343dd06f27a07ee1b62b2e22ec92f221da36bad541d5e14f9e3"
+        "digest": "sha256:69805c11fbb7832816bd78f84a476b9085fe06aa9dfcbbb0eeb5d21841f6f40c"
       },
       {
         "name": "probes",
@@ -316,7 +316,7 @@
     },
     {
       "name": "testdata",
-      "dir": "testdata",
+      "dir": "tests/testdata",
       "totals": {
         "files": 18,
         "filesFullyAgreeing": 10,

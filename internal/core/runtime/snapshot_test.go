@@ -749,7 +749,7 @@ func TestSnapshotStepsReachAPendingCompositeCompletionAndAHeldDeferral(t *testin
 
 func TestSnapshotRefusesMidRun(t *testing.T) {
 	resolver := resolve.New(symbols.NewIndex())
-	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10)
+	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10)
 	ctx.runDepth++
 	if _, err := ctx.Snapshot(); !errors.Is(err, ErrSnapshotMidRun) {
 		t.Fatalf("snapshot inside a run: got %v, want ErrSnapshotMidRun", err)

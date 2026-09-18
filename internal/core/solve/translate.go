@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -914,7 +913,7 @@ func dimensionText(dim semantics.Dimension) string {
 // unquote strips the quotes a string literal's raw text carries, as the
 // evaluator does.
 func unquote(text string) string {
-	return lexer.StringValue(text)
+	return source.StringValue(text)
 }
 
 // describe names a node as the notation writes it, for a refusal.

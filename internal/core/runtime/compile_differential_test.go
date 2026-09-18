@@ -23,7 +23,7 @@ import (
 var differentialRoots = []string{
 	filepath.Join("testdata", "conformance"),
 	filepath.Join("testdata", "compiled"),
-	filepath.Join("..", "..", "..", "testdata"),
+	filepath.Join("..", "..", "..", "tests", "testdata"),
 	filepath.Join("..", "..", "..", "examples"),
 	filepath.Join("..", "..", "..", "docs", "manual", "examples"),
 }
@@ -121,9 +121,9 @@ func differentialFile(t *testing.T, path string, reasons map[string]int) (eligib
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	compiled := NewContext(NewModel(model, resolver), differentialMaxSteps)
+	compiled := NewContext(typedModel(model, resolver), differentialMaxSteps)
 	compiled.SetCalcCompile(true)
-	reference := NewContext(NewModel(model, resolver), differentialMaxSteps)
+	reference := NewContext(typedModel(model, resolver), differentialMaxSteps)
 	reference.SetCalcCompile(false)
 
 	root := idx.DocumentRoot(path)

@@ -139,7 +139,7 @@ The client API is documented in [reference/python-api.md](../reference/python-ap
 
 `notation → RDF → notation` gives back an equivalent model, and
 `notation → RDF → notation → RDF` gives back the *same graph*. This is the property the test
-suite checks over the fixtures in `internal/core/export/testdata/convert/`.
+suite checks over the fixtures in `tests/export/testdata/convert/`.
 
 The notation that comes out of a round trip is the source itself when the graph still carries it:
 every element written to `.ttl` carries its lines as `sysx:sourceText`, comments and blank lines

@@ -290,7 +290,7 @@ func (m *Model) DescribesReference(typ, member *symbols.Symbol) bool {
 	}
 	// A usage nested in a described reference (a transformation's rotationMatrix)
 	// describes it too.
-	for cur := typ; cur != nil; cur = ownerOf(cur) {
+	for cur := typ; cur != nil; cur = cur.Owner() {
 		if m.IsDescribedReference(cur) {
 			return true
 		}

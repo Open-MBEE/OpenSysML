@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -20,7 +21,7 @@ func (VariantOwnerPass) Level() PassLevel { return LevelConstraint }
 // owner a variation, not on faults elsewhere in the document.
 func (VariantOwnerPass) ElementScoped() { /* marker: per-element gating */ }
 
-func (VariantOwnerPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (VariantOwnerPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -28,7 +29,7 @@ func (VariantOwnerPass) Run(ctx *Context, name string, root *ast.RootNamespace) 
 	if rootScope == nil {
 		return nil
 	}
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	model := ctx.Model()
 	w8dWalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		if d, ok := variantOwnerDiagnostic(ctx, model, sym); ok {
@@ -40,18 +41,18 @@ func (VariantOwnerPass) Run(ctx *Context, name string, root *ast.RootNamespace) 
 
 // variantOwnerDiagnostic judges one declared variant. An enumeration body admits
 // no `variant` keyword: its values are variants already.
-func variantOwnerDiagnostic(ctx *Context, model *semantics.Model, sym *symbols.Symbol) (Diagnostic, bool) {
+func variantOwnerDiagnostic(ctx *Context, model *semantics.Model, sym *symbols.Symbol) (diag.Diagnostic, bool) {
 	if !semantics.DeclaresVariant(sym) || ctx.DownstreamOfFailure(sym.Decl) {
-		return Diagnostic{}, false
+		return diag.Diagnostic{}, false
 	}
 	msg := msgVariantOutsideVariation
 	if owner := semantics.EnumerationDefinitionOwning(sym); owner != nil {
 		msg = fmt.Sprintf("`variant` is not written in enumeration definition %s: every enumerated value of an enumeration definition is already a variant; drop the keyword", w8dSymbolName(owner))
 	} else if variantOwnerUnsound(ctx, sym) || model.VariationPointOwning(sym) != nil {
-		return Diagnostic{}, false
+		return diag.Diagnostic{}, false
 	}
-	return Diagnostic{
-		Severity: SeverityError,
+	return diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     sym.Decl.Span(),
 		Message:  msg,
 		Code:     "variant-outside-variation",

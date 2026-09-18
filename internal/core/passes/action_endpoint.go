@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -22,7 +23,7 @@ func (ActionEndpointPass) Level() PassLevel { return LevelNameResolution }
 func (ActionEndpointPass) ElementScoped() { /* marker: per-element gating */ }
 
 // Run checks named endpoints in every action body in the document.
-func (ActionEndpointPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (ActionEndpointPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -37,7 +38,7 @@ func (ActionEndpointPass) Run(ctx *Context, name string, root *ast.RootNamespace
 
 type actionEndpointChecker struct {
 	ctx   *Context
-	diags []Diagnostic
+	diags []diag.Diagnostic
 }
 
 // walk visits package, namespace, declaration, and behavioral body members.
@@ -108,7 +109,7 @@ func (c *actionEndpointChecker) checkBody(decl ast.Node, scope *symbols.Scope) {
 	if err != nil {
 		return
 	}
-	for _, member := range declMembers(decl) {
+	for _, member := range ast.DeclMembers(decl) {
 		n := unwrapMembership(member)
 		switch v := n.(type) {
 		case *ast.InitialNode:
@@ -173,8 +174,8 @@ func (c *actionEndpointChecker) checkEndpoint(
 		c.ctx.DownstreamOfFailure(subject) {
 		return
 	}
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     ref.Span(),
 		Message:  "succession endpoint " + actionEndpointText(ref) + " is not an action node",
 		Code:     CodeEndpointNotANode,

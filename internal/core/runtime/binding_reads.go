@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -292,11 +291,11 @@ func (ctx *Context) resolveAliasTarget(sym *symbols.Symbol) (*symbols.Symbol, bo
 
 // selectInvocation is the checker's selection of the declaration e calls, recorded by the
 // candidates the call chose among and what each of them declares.
-func (ctx *Context) selectInvocation(scope *symbols.Scope, e *ast.InvocationExpr, performs semantics.Performs) *semantics.InvocationSelection {
+func (ctx *Context) selectInvocation(scope *symbols.Scope, e *ast.InvocationExpr, performs semantics.Performs) (*semantics.InvocationSelection, error) {
 	if reads, _ := ctx.readsUnderWay(); reads != nil {
 		ctx.noteInvocationRead(scope, e.Type, ctx.model.resolver.InvocationCandidates(scope, e.Type))
 	}
-	return passes.SelectInvocation(ctx.model.resolver, ctx.model.semantics, scope, e, performs)
+	return ctx.model.selectCall(scope, e, performs)
 }
 
 // noteInvocationRead records the candidates a call of qn chose among and what each declares.

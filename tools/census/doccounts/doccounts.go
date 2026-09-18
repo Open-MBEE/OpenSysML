@@ -15,7 +15,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/Open-MBEE/OpenSysML/internal/fixtures"
+	"github.com/Open-MBEE/OpenSysML/tests/fixtures"
 )
 
 // Paths of the compliance map and of the files carrying a derived line, relative

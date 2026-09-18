@@ -24,7 +24,7 @@ package test {
 func carryContexts(t *testing.T) (held, row *Context, scope *symbols.Scope, eval func(string) Value) {
 	t.Helper()
 	model, resolver, root := parseAndBuildModel(t, carrySrc)
-	m := NewModel(model, resolver)
+	m := typedModel(model, resolver)
 	held, row = NewContext(m, 10000), NewContext(m, 10000)
 	pkg, _ := root.LookupLocal("test")
 	scope = pkg.Scope

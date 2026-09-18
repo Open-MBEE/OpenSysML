@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -46,7 +47,7 @@ func TestW10BStructuralReportsTheExtraMember(t *testing.T) {
 		case msgOnlyOneEntryAction, msgOnlyOneDoAction, msgOnlyOneExitAction,
 			msgOnlyOneReturn, msgPortDefComposite, msgPortUsageComposite:
 			byMessage[d.Message]++
-			if d.Severity != SeverityError {
+			if d.Severity != diag.SeverityError {
 				t.Errorf("%q severity = %v, want an error", d.Message, d.Severity)
 			}
 		}

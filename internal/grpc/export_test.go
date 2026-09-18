@@ -10,7 +10,7 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 )
 
 // The REPL imports this package for its feature-value serialization, so a test
@@ -340,7 +340,7 @@ func TestConvertTolerantWritesNotationAnyway(t *testing.T) {
 // with from_format xmi, and a .xmi file whose format is inferred.
 func TestConvertMigratesXMI(t *testing.T) {
 	srv := mustNewService(t, 10)
-	path := filepath.Join("..", "core", "migrate", "testdata", "xmi", "vehicle.xmi")
+	path := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -357,7 +357,7 @@ func TestConvertMigratesXMI(t *testing.T) {
 			if resp.Error != "" {
 				t.Fatalf("conversion refused: %s", resp.Error)
 			}
-			if resp.FromFormat != "xmi" || !resp.Experimental || resp.ExperimentalNotice != export.MigrationNotice {
+			if resp.FromFormat != "xmi" || !resp.Experimental || resp.ExperimentalNotice != convert.MigrationNotice {
 				t.Errorf("from_format %q, experimental %v, notice %q; want xmi, true, the migration notice", resp.FromFormat, resp.Experimental, resp.ExperimentalNotice)
 			}
 			if !strings.Contains(resp.Content, "part def Vehicle") {

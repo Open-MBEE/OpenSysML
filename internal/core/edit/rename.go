@@ -5,7 +5,6 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/rename"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -32,11 +31,11 @@ func (m Model) renameSplices(i int, op Operation, sym *symbols.Symbol) ([]splice
 	if len(elsewhere) > 0 {
 		return nil, referencedElsewhere(i, m.Source.Name(), op.Target, elsewhere)
 	}
-	checked := make([]rename.Occurrence, 0, len(occurrences))
+	checked := make([]RenameOccurrence, 0, len(occurrences))
 	for _, occ := range occurrences {
-		checked = append(checked, occ.Occurrence)
+		checked = append(checked, occ.RenameOccurrence)
 	}
-	if c := rename.Check(r, sem, sym, ident.Name, op.NewName, checked); c != nil {
+	if c := CheckRename(r, sem, sym, ident.Name, op.NewName, checked); c != nil {
 		e := &Error{Failure: FailureInvalidName, OperationIndex: i, Message: c.Error()}
 		if c.Site != "" {
 			e.Referrers = []Referrer{{Name: c.Site, Document: occurrences[c.Occurrence].doc}}
@@ -58,7 +57,7 @@ func (m Model) renameSplices(i int, op Operation, sym *symbols.Symbol) ([]splice
 
 // occurrence is a reference a rename rewrites and the document it is written in.
 type occurrence struct {
-	rename.Occurrence
+	RenameOccurrence
 	doc string
 }
 
@@ -98,7 +97,7 @@ func (m Model) renameOccurrences(r *resolve.Resolver, sym *symbols.Symbol, ident
 				}
 				seen[segment.Span.Offset] = true
 				if rewritable {
-					found = append(found, occurrence{Occurrence: rename.Occurrence{Ref: ref, Part: part}, doc: doc})
+					found = append(found, occurrence{RenameOccurrence: RenameOccurrence{Ref: ref, Part: part}, doc: doc})
 					continue
 				}
 				referrer, ok := m.referrer(r, doc, ref, segment.Span.Offset)

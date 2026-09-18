@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Open-MBEE/OpenSysML/internal/stressmodel"
+	"github.com/Open-MBEE/OpenSysML/tests/stressmodel"
 )
 
 func main() {

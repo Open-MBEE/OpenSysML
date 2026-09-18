@@ -8,7 +8,8 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -198,7 +199,7 @@ func (s *Session) Views() ([]model.ViewInfo, error) {
 	}
 	var out []model.ViewInfo
 	for _, sym := range s.symbolsInLoadOrder(model.DeclaredViews) {
-		info := model.ViewInfo{Name: s.viewElementFQN(sym), Supported: true, Origin: provenance.Symbol(sym)}
+		info := model.ViewInfo{Name: s.viewElementFQN(sym), Supported: true, Origin: sym.Origin()}
 		kind, _, err := renderer.KindOf(sym)
 		switch {
 		case err == nil:
@@ -404,9 +405,10 @@ func (r *reportRuntime) runtime() (*runtime.Context, error) {
 		return nil, fmt.Errorf("no document loaded")
 	}
 	resolver := resolve.New(idx)
-	sem := semantics.NewModel(resolver)
+	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(r.session.sessionSourceText())
 	model := runtime.NewModel(sem, resolver)
+	model.SetExpressionParser(parser.ParseOneExpression)
 	for _, doc := range r.session.sessionDocs() {
 		model.RegisterSource(source.New(doc.Name, doc.Content))
 	}

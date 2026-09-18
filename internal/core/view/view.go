@@ -17,7 +17,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -500,7 +499,7 @@ func (r *Renderer) notationName(sym *symbols.Symbol) string {
 	if len(names) == 0 || len(names) == 1 && names[0] == "" {
 		return ""
 	}
-	return lexer.QualifiedNameOf(names)
+	return source.QualifiedNameOf(names)
 }
 
 // localName is a symbol's own name as the notation writes it, empty for an
@@ -514,7 +513,7 @@ func nameText(name string) string {
 	if name == "" {
 		return ""
 	}
-	return lexer.NameText(name)
+	return source.NameText(name)
 }
 
 // declKind names an element the way the notation declares it — "part def",
@@ -581,7 +580,7 @@ func referenceText(node ast.Node) string {
 		default:
 			sb.WriteString("::")
 		}
-		sb.WriteString(lexer.NameText(part.Text))
+		sb.WriteString(source.NameText(part.Text))
 	}
 	return sb.String()
 }
@@ -598,7 +597,7 @@ func simpleName(fqn string) string {
 // notationName writes a reference read as joined qualified text (a `render`
 // target, an accepted signal, a `via` port) as the notation does.
 func notationName(fqn string) string {
-	return lexer.QualifiedNameText(fqn)
+	return source.QualifiedNameText(fqn)
 }
 
 // qualifiedText renders a name reference as it was written, dotted chains

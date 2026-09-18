@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -62,8 +63,8 @@ func (cc *constraintChecker) checkFeatureValueOverriding(sym *symbols.Symbol) {
 			continue
 		}
 		name := cc.featureName(redefined)
-		cc.diags = append(cc.diags, Diagnostic{
-			Severity: SeverityError,
+		cc.diags = append(cc.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     value.span,
 			Message: fmt.Sprintf(
 				"cannot override the binding value of %s: a value written with `=` is fixed for every feature redefining it; "+

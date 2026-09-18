@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
@@ -12,15 +13,15 @@ import (
 // operatorDiags is the type-tier diagnostics under code of src, analysed as a
 // document named name against the bundled library; the name's extension
 // decides the language.
-func operatorDiags(t *testing.T, name, code, src string) []Diagnostic {
+func operatorDiags(t *testing.T, name, code, src string) []diag.Diagnostic {
 	t.Helper()
 	root := parser.New(source.New(name, []byte(src))).ParseFile()
 	idx := newTestIndex()
 	idx.AddDocument(name, root)
 	idx.ExpandWildcardImports()
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range Analyze(name, root, nil, idx) {
-		if d.Severity == SeverityError && d.Source != "type" {
+		if d.Severity == diag.SeverityError && d.Source != "type" {
 			t.Fatalf("%s does not analyse cleanly: %v", name, d)
 		}
 		if d.Code == code {
@@ -37,7 +38,7 @@ func wantOperatorDiags(t *testing.T, name, code, src string, want ...string) {
 	diags := operatorDiags(t, name, code, src)
 	var got []string
 	for _, d := range diags {
-		if d.Severity != SeverityWarning {
+		if d.Severity != diag.SeverityWarning {
 			t.Errorf("%v is not a warning", d)
 		}
 		pos := source.New(name, []byte(src)).Lines().PosAt(d.Span.Offset)
@@ -451,7 +452,7 @@ func TestOperatorRulesInMultiplicityBoundsSurviveUnrelatedErrors(t *testing.T) {
 		switch {
 		case d.Code == codeCastConformance:
 			casts++
-		case d.Severity == SeverityError:
+		case d.Severity == diag.SeverityError:
 			errs++
 		}
 	}

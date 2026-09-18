@@ -9,6 +9,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 const enumWireModel = `package D {
@@ -34,7 +35,7 @@ func enumWireIndex(t *testing.T, fqn string) (*symbols.Index, *symbols.Symbol) {
 func TestEnumLiteralToProto(t *testing.T) {
 	idx, red := enumWireIndex(t, "D::Color::red")
 
-	pv := ValueToProto(runtime.NewEnumLiteral(red), idx)
+	pv := protoconv.ValueToProto(runtime.NewEnumLiteral(red), idx)
 	lit := pv.GetEnumLiteral()
 	if lit == nil {
 		t.Fatalf("got kind %T, want enum_literal", pv.GetKind())
@@ -56,7 +57,7 @@ func TestEnumLiteralRoundTrip(t *testing.T) {
 	idx, red := enumWireIndex(t, "D::Color::red")
 	original := runtime.NewEnumLiteral(red)
 
-	back, err := ProtoToValueIn(ValueToProto(original, idx), idx, nil)
+	back, err := protoconv.ProtoToValueIn(protoconv.ValueToProto(original, idx), idx, nil)
 	if err != nil {
 		t.Fatalf("ProtoToValueIn: %v", err)
 	}
@@ -82,7 +83,7 @@ func TestEnumLiteralRoundTripInSequence(t *testing.T) {
 	seq.Append(runtime.NewEnumLiteral(red))
 	seq.Append(runtime.NewEnumLiteral(green[0]))
 
-	back, err := ProtoToValueIn(ValueToProto(runtime.NewSequenceValue(seq), idx), idx, nil)
+	back, err := protoconv.ProtoToValueIn(protoconv.ValueToProto(runtime.NewSequenceValue(seq), idx), idx, nil)
 	if err != nil {
 		t.Fatalf("ProtoToValueIn: %v", err)
 	}
@@ -108,14 +109,14 @@ func TestEnumLiteralUnresolvedIsAnError(t *testing.T) {
 	}
 	for name, lit := range cases {
 		pv := &pb.Value{Kind: &pb.Value_EnumLiteral{EnumLiteral: lit}}
-		if _, err := ProtoToValueIn(pv, idx, nil); err == nil {
+		if _, err := protoconv.ProtoToValueIn(pv, idx, nil); err == nil {
 			t.Errorf("%s: got no error, want one", name)
 		}
 	}
 
 	// Without a model there is nothing to resolve against, which is an error too.
 	pv := &pb.Value{Kind: &pb.Value_EnumLiteral{EnumLiteral: &pb.EnumLiteral{LiteralId: "D::Color::red"}}}
-	if _, err := ProtoToValueIn(pv, nil, nil); err == nil || !strings.Contains(err.Error(), "no model") {
+	if _, err := protoconv.ProtoToValueIn(pv, nil, nil); err == nil || !strings.Contains(err.Error(), "no model") {
 		t.Errorf("no index: got %v, want a no-model error", err)
 	}
 }
@@ -164,7 +165,7 @@ func TestEnumValuesCapabilityReported(t *testing.T) {
 func TestEnumLiteralWithoutDeclarationIsUnsupported(t *testing.T) {
 	idx, _ := enumWireIndex(t, "D::Color::red")
 
-	pv := ValueToProto(runtime.Value{Kind: runtime.ValEnumLiteral}, idx)
+	pv := protoconv.ValueToProto(runtime.Value{Kind: runtime.ValEnumLiteral}, idx)
 	if got := pv.GetNull(); !strings.Contains(got, "unresolved enumeration literal") {
 		t.Errorf("got %q, want an unresolved-literal null", got)
 	}

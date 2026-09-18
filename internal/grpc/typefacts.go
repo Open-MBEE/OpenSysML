@@ -1,7 +1,6 @@
 package grpc
 
 import (
-	"strconv"
 	"sync"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -10,6 +9,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // fqnScalarQuantityValue is the library type every quantity value specializes.
@@ -50,9 +50,8 @@ func (sc *SymbolContext) Lock() func() {
 // NewSymbolContext builds a conversion context over a symbol index.
 func NewSymbolContext(idx *symbols.Index) *SymbolContext {
 	resolver := resolve.New(idx)
-	sem := semantics.NewModel(resolver)
+	sem := passes.NewTypedModel(resolver)
 	resolver.SetModel(sem)
-	sem.SetArgumentTyper(passes.NewArgumentTyper(resolver, sem))
 	return &SymbolContext{Index: idx, Resolver: resolver, Semantics: sem}
 }
 
@@ -105,7 +104,7 @@ func (sc *SymbolContext) specializationsOf(sym *symbols.Symbol) []*pb.Specializa
 		}
 		spec := &pb.Specialization{
 			Kind:     kind,
-			Declared: semantics.QualifiedNameText(qn),
+			Declared: qn.Text(),
 		}
 		if target := sc.resolveFrom(sym, qn); target != nil {
 			spec.TargetId = sc.Index.GetFQN(target)
@@ -137,20 +136,9 @@ func (sc *SymbolContext) multiplicityOf(sym *symbols.Symbol) *pb.MultiplicityInf
 		return nil
 	}
 	return &pb.MultiplicityInfo{
-		Lower: boundText(rng.Lower),
-		Upper: boundText(rng.Upper),
+		Lower: protoconv.BoundText(rng.Lower),
+		Upper: protoconv.BoundText(rng.Upper),
 	}
-}
-
-// boundText renders a multiplicity bound; an unevaluable one renders empty.
-func boundText(b semantics.Bound) string {
-	if !b.Known {
-		return ""
-	}
-	if b.Infinite {
-		return "*"
-	}
-	return strconv.FormatInt(b.Value, 10)
 }
 
 // typeInfoOf derives the static type facts of a def or usage. Anything the
@@ -181,7 +169,7 @@ func (sc *SymbolContext) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *pb
 		if qn == nil {
 			continue
 		}
-		info.Declared = semantics.QualifiedNameText(qn)
+		info.Declared = qn.Text()
 		if target := sc.resolveFrom(sym, qn); target != nil {
 			info.ResolvedId = sc.Index.GetFQN(target)
 			info.ResolvedKind = target.Kind.String()

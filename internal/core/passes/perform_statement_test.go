@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
@@ -85,7 +86,7 @@ func (d performDecl) body() string {
 	return `out code : Integer;`
 }
 
-func performStatementDiags(t *testing.T, a, b performDecl, arg string) []Diagnostic {
+func performStatementDiags(t *testing.T, a, b performDecl, arg string) []diag.Diagnostic {
 	t.Helper()
 	src := fmt.Sprintf(performStatementSrc, a.kind, a.paramType, a.body(), b.kind, b.paramType, b.body(), arg)
 	return libraryDiagsOf(performStatementModel(t, src))

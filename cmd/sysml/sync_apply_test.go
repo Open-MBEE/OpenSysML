@@ -13,7 +13,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/flexo"
 )
@@ -239,7 +239,7 @@ func writeModel(t *testing.T, dir, name, src string) string {
 
 func liveGraph(t *testing.T, src string) *rdf.Graph {
 	t.Helper()
-	graph, err := export.SysMLToRDF("repo.sysml", []byte(src))
+	graph, err := convert.SysMLToRDF("repo.sysml", []byte(src))
 	if err != nil {
 		t.Fatal(err)
 	}
