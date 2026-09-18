@@ -67,6 +67,7 @@ var packageLayer = map[string]string{
 
 	"internal/core/passes":          "validation",
 	"internal/core/passes/kit":      "validation",
+	"internal/core/passes/behavior": "validation",
 	"internal/core/passes/document": "validation",
 	"internal/core/passes/diagram":  "validation",
 	"internal/core/passes/identity": "validation",
