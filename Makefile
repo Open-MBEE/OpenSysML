@@ -8,7 +8,9 @@ BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GO_VERSION ?= $(shell go version | awk '{print $$3}')
 
 # Build flags
-LDFLAGS := -X main.Version=$(VERSION) \
+# -s -w drop the symbol table and DWARF; version stamps, build info and stack traces stay.
+LDFLAGS := -s -w \
+           -X main.Version=$(VERSION) \
            -X main.Commit=$(COMMIT) \
            -X main.BuildTime=$(BUILD_TIME) \
            -X main.GoVersion=$(GO_VERSION)
@@ -329,9 +331,10 @@ vscode-build: ## Type-check and bundle the VS Code extension
 	cd $(VSCODE_DIR) && npm ci && npm run typecheck && npm run build
 	@echo "✓ Built $(VSCODE_DIR)/dist/extension.js"
 
-vscode-package: ## Package the VS Code extension as a .vsix for side-loading
+vscode-package: ## Package the VS Code extension as a .vsix for side-loading (VSIX_VERSION= stamps a version other than the manifest's)
 	@echo "Packaging the VS Code extension..."
-	cd $(VSCODE_DIR) && npm ci && npm run package
+	@# `npm run package -- <args>` appends the arguments to the script's last command, `vsce package`.
+	cd $(VSCODE_DIR) && npm ci && npm run package $(if $(VSIX_VERSION),-- $(VSIX_VERSION) --no-update-package-json)
 	@echo "✓ Packaged $(VSCODE_DIR)/opensysml-sysml.vsix"
 
 self-model: build-sysml ## Render the architecture self-model's views (see examples/self-model/README.md)

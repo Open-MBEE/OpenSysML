@@ -1,6 +1,7 @@
 exit: start
 enter: Outer
 enter: Work
+choice entering Work: next l1(entry), r1(entry) (unordered; took l1(entry) first)
 enter: l1
 enter: r1
 transition: start -> Work (event: accept go)

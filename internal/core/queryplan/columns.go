@@ -10,17 +10,20 @@ import (
 )
 
 const (
-	columnFQN     = "DocumentQueries::Column"
-	columnSpecFQN = "DocumentQueries::ColumnSpec"
+	columnFQN        = "DocumentQueries::Column"
+	columnSpecFQN    = "DocumentQueries::ColumnSpec"
+	relatedColumnFQN = "DocumentQueries::RelatedColumn"
 )
 
 // compileColumns compiles Project's columns argument: a sequence of
-// Column(name, expression) invocations into a planned column sequence.
+// Column(name, expression) and RelatedColumn(...) invocations into a
+// planned column sequence.
 func (c *compiler) compileColumns(
 	query *symbols.Symbol,
 	owner *symbols.Symbol,
 	params []Parameter,
 	node ast.Node,
+	dependency func(string),
 ) (Expression, error) {
 	var elements []ast.Node
 	switch value := node.(type) {
@@ -32,7 +35,7 @@ func (c *compiler) compileColumns(
 	}
 	args := make([]Argument, 0, len(elements))
 	for _, element := range elements {
-		column, err := c.compileColumn(query, owner, params, element)
+		column, err := c.compileColumn(query, owner, params, element, dependency)
 		if err != nil {
 			return Expression{}, err
 		}
@@ -50,6 +53,7 @@ func (c *compiler) compileColumn(
 	owner *symbols.Symbol,
 	params []Parameter,
 	node ast.Node,
+	dependency func(string),
 ) (Expression, error) {
 	invalid := &Error{
 		Kind:   ErrorInvalidColumn,
@@ -61,26 +65,24 @@ func (c *compiler) compileColumn(
 		return Expression{}, invalid
 	}
 	selection := c.model.SelectCall(owner.Scope, invocation, semantics.PerformsBehavior)
-	if selection.Ambiguous || symbols.FQNOf(selection.Called()) != columnFQN {
+	if selection.Ambiguous {
+		return Expression{}, invalid
+	}
+	switch symbols.FQNOf(selection.Called()) {
+	case relatedColumnFQN:
+		return c.compileRelatedColumn(query, owner, params, selection.Called(), invocation, dependency)
+	case columnFQN:
+	default:
 		return Expression{}, invalid
 	}
 	nameNode, expressionNode, err := c.columnArguments(query, owner, invocation)
 	if err != nil {
 		return Expression{}, err
 	}
-	literal, ok := nameNode.(*ast.LiteralString)
-	if ok {
-		_, err := strconv.Unquote(literal.Value)
-		ok = err == nil
+	name, err := c.columnName(query, owner, nameNode)
+	if err != nil {
+		return Expression{}, err
 	}
-	if !ok {
-		return Expression{}, &Error{
-			Kind:   ErrorColumnName,
-			Query:  symbols.FQNOf(query),
-			Origin: provenance.Node(owner.DocName, nameNode),
-		}
-	}
-	name, _ := strconv.Unquote(literal.Value)
 	if expressionNode == nil {
 		return Expression{}, &Error{
 			Kind:      ErrorMissingArgument,
@@ -101,6 +103,24 @@ func (c *compiler) compileColumn(
 		arguments: arguments,
 		origin:    provenance.Node(owner.DocName, node),
 	}, nil
+}
+
+// columnName reads a column's name, which must be a string literal.
+func (c *compiler) columnName(query, owner *symbols.Symbol, nameNode ast.Node) (string, error) {
+	literal, ok := nameNode.(*ast.LiteralString)
+	if ok {
+		_, err := strconv.Unquote(literal.Value)
+		ok = err == nil
+	}
+	if !ok {
+		return "", &Error{
+			Kind:   ErrorColumnName,
+			Query:  symbols.FQNOf(query),
+			Origin: provenance.Node(owner.DocName, nameNode),
+		}
+	}
+	name, _ := strconv.Unquote(literal.Value)
+	return name, nil
 }
 
 // columnArguments normalizes Column's positional or named arguments into the
@@ -479,10 +499,93 @@ func staticStrings(value Expression) []string {
 		}
 		return out
 	}
+	if text, ok := staticString(value); ok {
+		return []string{text}
+	}
+	return nil
+}
+
+// staticString reads a planned string literal; false for any other value.
+func staticString(value Expression) (string, bool) {
 	if value.operation == OperationLiteral && value.literal == LiteralString {
 		if text, err := strconv.Unquote(value.value); err == nil {
-			return []string{text}
+			return text, true
+		}
+	}
+	return "", false
+}
+
+// relatedColumnNameNode finds the name argument of a RelatedColumn invocation,
+// positional or named; nil when it is absent.
+func relatedColumnNameNode(invocation *ast.InvocationExpr) ast.Node {
+	if len(invocation.Args) > 0 {
+		return invocation.Args[0]
+	}
+	for _, arg := range invocation.NamedArgs {
+		if qualifiedName(arg.Name) == "name" {
+			return arg.Value
 		}
 	}
 	return nil
+}
+
+// compileRelatedColumn compiles RelatedColumn(name, relationshipKind,
+// direction, maxDepth, aggregate) into a planned related column named by its
+// target, whose arguments are type-checked against the library signature.
+func (c *compiler) compileRelatedColumn(
+	query *symbols.Symbol,
+	owner *symbols.Symbol,
+	params []Parameter,
+	target *symbols.Symbol,
+	invocation *ast.InvocationExpr,
+	dependency func(string),
+) (Expression, error) {
+	name := ""
+	if nameNode := relatedColumnNameNode(invocation); nameNode != nil {
+		literal, err := c.columnName(query, owner, nameNode)
+		if err != nil {
+			return Expression{}, err
+		}
+		name = literal
+	}
+	targetParams, _, err := c.signature(target, ignoreDependency)
+	if err != nil {
+		return Expression{}, err
+	}
+	args, err := c.compileBuiltinArguments(
+		query,
+		owner,
+		params,
+		invocation,
+		relatedColumnFQN,
+		targetParams,
+		dependency,
+	)
+	if err != nil {
+		return Expression{}, err
+	}
+	arguments := make([]Argument, 0, len(args))
+	for _, arg := range args {
+		if arg.Name == "name" {
+			continue
+		}
+		if arg.Name == "aggregate" {
+			if aggregate, literal := staticString(arg.Value); literal && !RelatedAggregateSupported(aggregate) {
+				return Expression{}, &Error{
+					Kind:   ErrorColumnAggregate,
+					Query:  symbols.FQNOf(query),
+					Target: name,
+					Actual: aggregate,
+					Origin: arg.Value.origin,
+				}
+			}
+		}
+		arguments = append(arguments, arg)
+	}
+	return Expression{
+		operation: OperationRelatedColumn,
+		target:    name,
+		arguments: arguments,
+		origin:    provenance.Node(owner.DocName, invocation),
+	}, nil
 }

@@ -81,11 +81,19 @@
   }
 
   .sysml-document .sysml-table,
+  .sysml-document .sysml-table tr,
   .sysml-document .sysml-diagram,
   .sysml-document .sysml-formula,
   .sysml-document .sysml-entry {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  /* A cell holding long unbreakable tokens wraps rather than pushing the
+     rightmost columns past the page edge. */
+  .sysml-document .sysml-table th,
+  .sysml-document .sysml-table td {
+    overflow-wrap: anywhere;
   }
 
   .sysml-document .sysml-diagram img {

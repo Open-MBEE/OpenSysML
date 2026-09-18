@@ -1,5 +1,6 @@
 {
   "type": "state",
+  "schedule": "reverse",
   "finalState": "x0+a+b",
   "stateVisits": [
     "idle",

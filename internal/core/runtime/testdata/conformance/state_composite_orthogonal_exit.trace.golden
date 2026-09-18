@@ -1,5 +1,6 @@
 exit: start
 enter: Working
+choice entering Working: next lstart(entry), rstart(entry) (unordered; took lstart(entry) first)
 enter: lstart
 enter: rstart
 transition: start -> Working
@@ -9,6 +10,7 @@ transition: lstart -> lwork
 exit: rstart
 enter: rwork
 transition: rstart -> rwork
+choice exiting Working: next lwork(exit), rwork(exit) (unordered; took lwork(exit) first)
 exit: lwork (exit action)
 stmt assign log
       eval feature log -> 0

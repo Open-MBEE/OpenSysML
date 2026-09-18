@@ -499,19 +499,21 @@ the limit ([a do behavior under `explore` and
 ```
 
 ```
-✗ State machine SpacecraftComms::SpacecraftVehicle::modes: divergent up to t=80.0 (421 states, 499 moves, depth 334)
+✗ State machine SpacecraftComms::SpacecraftVehicle::modes: divergent up to t=80.0 (842 states, 998 moves, depth 334)
   divergent: this.battery ends as 39 or 41
   divergent: this.data ends as 52224 or 53248
   (…)
 ```
 
 `-schedule explore` samples the same choices one whole run at a time, and its
-budget has to fit this model: a run to t=80 meets 277 choice points — which
+budget has to fit this model: a run to t=80 meets 278 choice points — which
+region of `modes` is entered first, which
 token acts, at every step of the looping `do` bodies where two are able to, and
 which region's `do round` goes first, every second `transmitting` and
 `recharging` fall due together — so the default depth of 64 leaves the round at
 t=79 past the budget, taking its first alternative in every run, and
-`explore:runs=300` alone tables one outcome. Every choice point a run
+`explore:runs=300` alone tables the 41 outcome only, once per order the two
+regions are entered in. Every choice point a run
 met is listed in its witness, which sizes the depth; within it, the runs vary
 each choice point of the first run once, earliest first, so one more run than
 the first run's choice points reaches every alternative of the round at t=79:
@@ -523,18 +525,23 @@ the first run's choice points reaches every alternative of the round at t=79:
 ```
 
 ```
-? explored SpacecraftComms::SpacecraftVehicle::modes: 2 outcomes
+? explored SpacecraftComms::SpacecraftVehicle::modes: 3 outcomes
 outcome                                                           | linearizations | witness
 ------------------------------------------------------------------+----------------+---------
-finalState recharging+lowPower; (…) this.battery = 39; (…) this.data = 52224; (…) | 4   | (…) do round at t=79.0: recharging first of transmitting, recharging; (…)
-finalState recharging+lowPower; (…) this.battery = 41; (…) this.data = 53248; (…) | 296 | (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
+finalState recharging+lowPower; visits notRecharging, waitingGSPing, (…) this.battery = 41; (…) this.data = 53248; (…) | 22  | entering modes: notRecharging(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
+finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 39; (…) this.data = 52224; (…) | 4   | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: recharging first of transmitting, recharging; (…)
+finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 41; (…) this.data = 53248; (…) | 274 | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
 incomplete: runs budget 300 hit after 300 runs
 ```
 
-The second row is the first run and the 295 that vary a choice the outcome
-does not turn on; the first is the run that let `recharging` go first at t=79
-and three more that vary a choice to the same end. `incomplete` is honest: 300
-runs do not exhaust the orders of 277 choices, and the table is the same at any
+The third row is the first run and the 273 that vary a choice the outcome
+does not turn on; the second is the run that let `recharging` go first at t=79
+and three more that vary a choice to the same end; the first is the run that
+entered `notRecharging` before `waitingGSPing` — the order the two regions of
+`modes` are entered in is a recorded choice, told apart by the visits — and the
+21 runs left in the budget once the first run's choices were varied, which vary
+that run's. `incomplete` is honest: 300 runs do not exhaust the orders of 278
+choices, and the table is the same at any
 `-jobs`.
 
 ## Apollo 11

@@ -39,6 +39,13 @@ const (
 	OperationColumn          Operation = "column"
 	OperationRowProperty     Operation = "row-property"
 	OperationColumnOperator  Operation = "column-operator"
+	// OperationRelatedColumn projects the elements a relationship reaches from each row.
+	OperationRelatedColumn Operation = "related-column"
+	// OperationWhereRelated keeps the source rows by whether a related element exists.
+	OperationWhereRelated Operation = "where-related"
+	// OperationExcept and OperationUnion are the ordered set operations over rows.
+	OperationExcept Operation = "except"
+	OperationUnion  Operation = "union"
 )
 
 // LiteralKind classifies a literal retained in a query plan.
@@ -210,4 +217,20 @@ func (p *Program) Definitions() []Definition {
 		out[i] = definition.clone()
 	}
 	return out
+}
+
+// The aggregates a related column reduces its traversal to.
+const (
+	RelatedAggregateList  = "list"
+	RelatedAggregateCount = "count"
+	RelatedAggregateAny   = "any"
+)
+
+// RelatedAggregateSupported reports whether aggregate names a related-column aggregate.
+func RelatedAggregateSupported(aggregate string) bool {
+	switch aggregate {
+	case RelatedAggregateList, RelatedAggregateCount, RelatedAggregateAny:
+		return true
+	}
+	return false
 }

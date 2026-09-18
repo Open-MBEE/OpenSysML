@@ -1,5 +1,6 @@
 {
   "type": "state",
+  "schedule": "reverse",
   "events": [
     {"signal": "Abort", "args": null}
   ],

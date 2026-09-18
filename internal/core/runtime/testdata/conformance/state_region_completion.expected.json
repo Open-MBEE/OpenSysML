@@ -1,5 +1,6 @@
 {
     "type": "state",
+    "schedule": "reverse",
     "events": [
         {"signal": "First", "args": null},
         {"signal": "Second", "args": null}

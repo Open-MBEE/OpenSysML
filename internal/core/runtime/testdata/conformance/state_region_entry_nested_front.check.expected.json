@@ -1,0 +1,16 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"p(entry) q(entry) right(entry) \"",
+			"\"p(entry) right(entry) q(entry) \"",
+			"\"q(entry) p(entry) right(entry) \"",
+			"\"q(entry) right(entry) p(entry) \"",
+			"\"right(entry) p(entry) q(entry) \"",
+			"\"right(entry) q(entry) p(entry) \""
+		]
+	},
+	"agreed": {
+		"finalState": "inner+p1+q1+r"
+	}
+}

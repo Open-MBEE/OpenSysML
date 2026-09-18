@@ -9,7 +9,8 @@ import (
 
 // Relationship kinds RelatedElements traverses. A lineage kind follows the
 // declared relationships of the element itself; the others follow edges other
-// declarations state about it (a connector usage, a satisfy/verify assertion).
+// declarations state about it (a connector usage, a satisfy/verify assertion,
+// a requirement derivation, a refinement dependency).
 const (
 	relationshipSpecialization = "specialization"
 	relationshipSubsetting     = "subsetting"
@@ -19,6 +20,8 @@ const (
 	relationshipAllocation     = "allocation"
 	relationshipSatisfaction   = "satisfaction"
 	relationshipVerification   = "verification"
+	relationshipDerivation     = "derivation"
+	relationshipRefinement     = "refinement"
 )
 
 // Traversal directions: outgoing follows an edge from its source to its
@@ -54,25 +57,55 @@ func newRelationshipTables() *relationshipTables {
 	return &relationshipTables{entries: make(map[string]*relationshipEdges)}
 }
 
+// relationshipWalk is the validated relationshipKind, direction and maxDepth
+// arguments of an operation traversing relationships.
+type relationshipWalk struct {
+	kind      string
+	direction string
+	maxDepth  int64
+}
+
 func (e *executor) evaluateRelated(expression queryplan.Expression) (sequence, error) {
 	source, err := e.elementArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
-	kind, err := e.stringArgument(expression, "relationshipKind")
+	walk, err := e.relationshipArguments(expression)
 	if err != nil {
 		return sequence{}, err
+	}
+	seeds := make([]*symbols.Symbol, len(source.values))
+	for i, value := range source.values {
+		seeds[i], _ = value.Element()
+	}
+	var result sequence
+	err = e.traverseRelated(expression, walk, seeds, func(neighbor *symbols.Symbol) bool {
+		result.values = append(result.values, ElementValue(neighbor))
+		return true
+	})
+	if err != nil {
+		return sequence{}, err
+	}
+	return result, nil
+}
+
+// relationshipArguments reads and validates the relationshipKind, direction and
+// maxDepth arguments, reporting an unsupported kind or direction as a typed error.
+func (e *executor) relationshipArguments(expression queryplan.Expression) (relationshipWalk, error) {
+	kind, err := e.stringArgument(expression, "relationshipKind")
+	if err != nil {
+		return relationshipWalk{}, err
 	}
 	direction, err := e.stringArgument(expression, "direction")
 	if err != nil {
-		return sequence{}, err
+		return relationshipWalk{}, err
 	}
 	maxDepth, err := e.integerArgument(expression, "maxDepth")
 	if err != nil {
-		return sequence{}, err
+		return relationshipWalk{}, err
 	}
 	if !supportedRelationship(kind) {
-		return sequence{}, &Error{
+		return relationshipWalk{}, &Error{
 			Kind:      ErrorUnknownRelationship,
 			Query:     e.definition.Name(),
 			Operation: expression.Operation(),
@@ -81,29 +114,38 @@ func (e *executor) evaluateRelated(expression queryplan.Expression) (sequence, e
 		}
 	}
 	if direction != directionOutgoing && direction != directionIncoming {
-		return sequence{}, e.operatorError(expression, direction)
+		return relationshipWalk{}, e.operatorError(expression, direction)
 	}
+	return relationshipWalk{kind: kind, direction: direction, maxDepth: maxDepth}, nil
+}
+
+// traverseRelated walks the relationship breadth-first from the seeds to maxDepth, charging
+// the visit budget and calling visit once per newly reached element until it returns false.
+func (e *executor) traverseRelated(
+	expression queryplan.Expression,
+	walk relationshipWalk,
+	seeds []*symbols.Symbol,
+	visit func(*symbols.Symbol) bool,
+) error {
 	type pending struct {
 		sym   *symbols.Symbol
 		depth int64
 	}
-	queue := make([]pending, 0, len(source.values))
+	queue := make([]pending, 0, len(seeds))
 	seen := make(map[symbols.ElementKey]struct{})
-	for _, value := range source.values {
-		sym, _ := value.Element()
+	for _, sym := range seeds {
 		seen[symbols.KeyOf(sym)] = struct{}{}
 		queue = append(queue, pending{sym: sym})
 	}
-	var result sequence
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
-		if next.depth >= maxDepth {
+		if next.depth >= walk.maxDepth {
 			continue
 		}
-		neighbors, err := e.relatedNeighbors(expression, kind, direction, next.sym)
+		neighbors, err := e.relatedNeighbors(expression, walk.kind, walk.direction, next.sym)
 		if err != nil {
-			return sequence{}, err
+			return err
 		}
 		for _, neighbor := range neighbors {
 			key := symbols.KeyOf(neighbor)
@@ -111,14 +153,16 @@ func (e *executor) evaluateRelated(expression queryplan.Expression) (sequence, e
 				continue
 			}
 			if !e.consumeVisit() {
-				return sequence{}, e.budgetError(expression)
+				return e.budgetError(expression)
 			}
 			seen[key] = struct{}{}
-			result.values = append(result.values, ElementValue(neighbor))
+			if !visit(neighbor) {
+				return nil
+			}
 			queue = append(queue, pending{sym: neighbor, depth: next.depth + 1})
 		}
 	}
-	return result, nil
+	return nil
 }
 
 func supportedRelationship(kind string) bool {
@@ -127,7 +171,8 @@ func supportedRelationship(kind string) bool {
 	}
 	switch kind {
 	case relationshipConnection, relationshipAllocation,
-		relationshipSatisfaction, relationshipVerification:
+		relationshipSatisfaction, relationshipVerification,
+		relationshipDerivation, relationshipRefinement:
 		return true
 	}
 	return false
@@ -212,7 +257,8 @@ func (e *executor) scanScope(expression queryplan.Expression, edges *relationshi
 
 // scanSymbol records the edges the given symbol's declaration states: the
 // resolved targets of a lineage relationship, the resolved end features of a
-// connector usage, or the subject and requirement of a satisfaction assertion.
+// connector usage, the subject and requirement of a satisfaction assertion,
+// the requirements of a derivation, or the ends of a refinement dependency.
 func (e *executor) scanSymbol(edges *relationshipEdges, kind string, sym *symbols.Symbol) {
 	if relKind, lineage := lineageKinds[kind]; lineage {
 		for _, target := range e.lineageTargets(sym, relKind) {
@@ -225,6 +271,10 @@ func (e *executor) scanSymbol(edges *relationshipEdges, kind string, sym *symbol
 		e.scanConnector(edges, kind, sym)
 	case relationshipSatisfaction, relationshipVerification:
 		e.scanSatisfaction(edges, kind, sym)
+	case relationshipDerivation:
+		e.scanDerivation(edges, sym)
+	case relationshipRefinement:
+		e.scanRefinement(edges, sym)
 	}
 }
 

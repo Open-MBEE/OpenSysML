@@ -65,6 +65,9 @@ type checkedExecutor interface {
 	// enabledMoves lists the moves of the executor's state, each with the picks
 	// naming it among its siblings.
 	enabledMoves() []enabledMove
+	// leftOut names the interleaving of the executor's state its moves leave out
+	// (NotEnumeratedDoRound), "" where they span every one.
+	leftOut() string
 	// stepOne makes one unit of the executor's work under the policy the run is
 	// under: the move the `check` policy scripts, or the one a replay's witness fixes.
 	stepOne() error
@@ -111,6 +114,9 @@ func (m enabledMove) sameUnit(o enabledMove) bool {
 func (m enabledMove) same(o enabledMove) bool {
 	return m.sameUnit(o) && slices.Equal(m.Picks, o.Picks)
 }
+
+// leftOut is "": an action's moves are every token able to act.
+func (e *ActionExecutor) leftOut() string { return "" }
 
 // enabledMoves lists the moves of the state in token-ID order, each with no pick
 // yet: the tokens able to act, and those whose parked wait fails as a typed error.
@@ -204,6 +210,22 @@ func (e *StateExecutor) enabledMoves() []enabledMove {
 		return moves
 	}
 	return e.doMoves(e.dueRound())
+}
+
+// leftOut is NotEnumeratedDoRound at a machine owing a dispatch while a do
+// behavior its closed round stepped one token at a time can go on: a fixed policy
+// moves each ready token before the dispatch, a run the checker has no move making.
+func (e *StateExecutor) leftOut() string {
+	defer e.ctx.beginExecutorRun(&e.driven)()
+	if (e.state != StateRunning && e.state != StateSuspended) || !e.roundDone || len(e.dispatchMoves()) == 0 {
+		return ""
+	}
+	for _, act := range e.doActions {
+		if act.run != nil && act.run.host.flow.leftStanding && act.due(e.ctx) {
+			return NotEnumeratedDoRound
+		}
+	}
+	return ""
 }
 
 // dueRound lists the do actions the next do step picks among: the round under

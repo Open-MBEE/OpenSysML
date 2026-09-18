@@ -58,12 +58,13 @@ type checkedReport struct {
 				Choices  []string `json:"choices"`
 			} `json:"witness"`
 			Check *struct {
-				Verdict    string   `json:"verdict"`
-				States     int      `json:"states"`
-				Moves      int      `json:"moves"`
-				Depth      int      `json:"depth"`
-				BoundsHit  []string `json:"boundsHit"`
-				Violations []struct {
+				Verdict       string   `json:"verdict"`
+				States        int      `json:"states"`
+				Moves         int      `json:"moves"`
+				Depth         int      `json:"depth"`
+				BoundsHit     []string `json:"boundsHit"`
+				NotEnumerated []string `json:"notEnumerated"`
+				Violations    []struct {
 					Kind    string   `json:"kind"`
 					Name    string   `json:"name"`
 					Error   string   `json:"error"`
@@ -364,6 +365,43 @@ func TestEngineCheckNamesTheBoundsItHits(t *testing.T) {
 	// The plan's clock ending stops the search: incomplete, naming time, not a verdict.
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-action", "Mission::race", "-check-timeout", "1ns"),
 		2, "? Action Mission::race: incomplete: time", "standing: not covered")
+}
+
+// A run the checker's moves leave out is named on the verdict as a bound is, and
+// the check is within bounds, not exhaustive: at the round a looping `do` body's
+// branches are due together with a timed exit, the fixed policies finish the round
+// before the dispatch, and the checker's one move dispatches. The two regions'
+// entry order is drawn, so each outcome is tabled with either order.
+func TestEngineCheckNamesTheDoRoundItLeavesOut(t *testing.T) {
+	binary := buildCLI(t)
+	model, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "runtime", "testdata", "conformance", "state_do_action_loop_timed_exit.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := check(t, binary, string(model), "-engine", "check", "-state", "test::Machine")
+	wantReport(t, got, 2,
+		"? State machine test::Machine: no violation within bounds (18 states, 18 moves, depth 7; not enumerated: do round before dispatch)",
+		"outcome: finalState heard+finished; visits looping, waiting, finished, heard; late = 1; left = 1; right = 0",
+		"outcome: finalState heard+finished; visits waiting, looping, finished, heard; late = 1; left = 1; right = 0",
+		"standing: outcomes (bounded over schedules: 18 states, 18 moves searched, not enumerated: do round before dispatch)")
+	rejectReport(t, got, "exhaustive", "bounds hit", "(reached)")
+
+	got = check(t, binary, string(model), "-json", "-engine", "check", "-state", "test::Machine")
+	var report checkedReport
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.output())
+	}
+	r := report.Checks[0].Results[0]
+	if got.status != 2 || r.Claim != "outcomes" || r.Strength != "bounded" || r.Check.Verdict != "no violation within bounds" ||
+		len(r.Check.BoundsHit) != 0 || strings.Join(r.Check.NotEnumerated, ";") != "do round before dispatch" {
+		t.Errorf("the run left out is misreported:\n%s", got.stdout)
+	}
+	for _, b := range r.Bounds {
+		if b.Reached {
+			t.Errorf("a search within its bounds reports %s reached", b.Name)
+		}
+	}
 }
 
 // A check flag under -engine all puts the action to check and explore together:

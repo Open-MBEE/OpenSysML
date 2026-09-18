@@ -32,6 +32,7 @@ func TestEngineCheckWitnessesTheSpacecraftRaceAndReplaysEach(t *testing.T) {
 	wantReport(t, got, 1,
 		"divergent: this.battery ends as 39 or 41",
 		"divergent: this.data ends as 52224 or 53248",
+		"; not enumerated: do round before dispatch)",
 		"standing: sensitive (witnessed:", "replayed)")
 	rejectReport(t, got, "disagrees with the witness", "not covered")
 
@@ -71,7 +72,8 @@ func TestEngineCheckWitnessesTheSpacecraftRaceAndReplaysEach(t *testing.T) {
 // TestExploreTablesTheSpacecraftRaceWithinItsBudget checks -schedule explore on the
 // showcase's spacecraft: a run to t=80 meets more choice points than the default
 // depth, so the round at t=79 is varied only once depth covers it, and then by the
-// run after the first run's choice points, in one table under any -jobs.
+// run after the first run's choice points, in one table under any -jobs; the entry
+// order of `modes`' two regions is drawn first, telling the 41 outcome's visit orders apart.
 func TestExploreTablesTheSpacecraftRaceWithinItsBudget(t *testing.T) {
 	binary := buildCLI(t)
 	explore := func(budget string, jobs string) runOutcome {
@@ -79,14 +81,15 @@ func TestExploreTablesTheSpacecraftRaceWithinItsBudget(t *testing.T) {
 	}
 
 	shallow := explore("runs=300", "1")
-	wantReport(t, shallow, 2, "? explored SpacecraftComms::SpacecraftVehicle::modes: 1 outcome",
+	wantReport(t, shallow, 2, "? explored SpacecraftComms::SpacecraftVehicle::modes: 2 outcomes",
 		"this.battery = 41; this.chargePerSecond = 1; this.data = 53248;",
+		"entering modes: notRecharging(entry) first of waitingGSPing(entry), notRecharging(entry)",
 		"do round at t=79.0: transmitting first of transmitting, recharging",
 		"incomplete: runs budget 300 and depth budget 64 hit after 300 runs")
 	rejectReport(t, shallow, "this.battery = 39;")
 
 	got := explore("runs=300,depth=512", "1")
-	wantReport(t, got, 2, "? explored SpacecraftComms::SpacecraftVehicle::modes: 2 outcomes",
+	wantReport(t, got, 2, "? explored SpacecraftComms::SpacecraftVehicle::modes: 3 outcomes",
 		"this.battery = 39; this.chargePerSecond = 1; this.data = 52224;",
 		"this.battery = 41; this.chargePerSecond = 1; this.data = 53248;",
 		"do round at t=79.0: recharging first of transmitting, recharging",
@@ -97,9 +100,9 @@ func TestExploreTablesTheSpacecraftRaceWithinItsBudget(t *testing.T) {
 		t.Errorf("under -jobs 4:\n%s\nwant\n%s", again.output(), got.output())
 	}
 
-	// The first run meets 277 choice points; each is varied once by run 278.
-	wantReport(t, explore("runs=278,depth=512", "1"), 2,
-		"? explored SpacecraftComms::SpacecraftVehicle::modes: 2 outcomes", "incomplete: runs budget 278 hit after 278 runs")
+	// The first run meets 278 choice points; each is varied once by run 279.
+	wantReport(t, explore("runs=279,depth=512", "1"), 2,
+		"? explored SpacecraftComms::SpacecraftVehicle::modes: 3 outcomes", "incomplete: runs budget 279 hit after 279 runs")
 }
 
 var evaluated = regexp.MustCompile(`✓ (battery|data|framesReceived) \(on [^)]*\)\n  = (\d+)`)

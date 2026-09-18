@@ -148,9 +148,8 @@ package Debug {
 	rejects(t, out, "choice point")
 }
 
-// One event enabling a transition in each of two orthogonal regions is a
-// region-order choice under the default policy: counted in the summary line,
-// and shown in the trace when it is on.
+// One event enabling a transition in each of two regions draws the firings' order under the
+// default policy, one choice: counted in the summary line, shown in the trace when it is on.
 func TestAdvanceReportsRegionOrderChoice(t *testing.T) {
 	src := `
 package Debug {
@@ -185,7 +184,7 @@ package Debug {
 	run(t, s, "%send Go")
 	out = run(t, s, "%advance 1")
 	wants(t, out,
-		"choice on accept Go: states a1, b1 react (unordered; took a1 first)",
+		"choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)",
 		"  1 choice point")
 	rejects(t, out, "%trace on to see them")
 }
