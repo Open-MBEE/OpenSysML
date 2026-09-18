@@ -41,6 +41,21 @@ action def Delay {
     }
     first body then done;
 }
+calc def Floor {
+    in x : ScalarValues::Real;
+    out whole : ScalarValues::Integer;
+    RealFunctions::floor(x)
+}
+calc def Ceil {
+    in x : ScalarValues::Real;
+    out whole : ScalarValues::Integer;
+    -RealFunctions::floor(-x)
+}
+calc def Round {
+    in x : ScalarValues::Real;
+    out whole : ScalarValues::Real;
+    RealFunctions::floor(x + 0.5)
+}
 action def Root {
     in x : ScalarValues::Real;
     out ok : ScalarValues::Boolean;

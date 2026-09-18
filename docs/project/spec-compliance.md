@@ -1490,7 +1490,7 @@ restores library symbols without their AST).
 
 | Semantic Rule | Implementation | Test Case | Status |
 |--------------|----------------|-----------|--------|
-| `RealFunctions`: `sqrt`, `abs`, `floor`, `round`, `max`, `min` | `runtime/library_functions.go` | `TestLibraryFunctionValues` | ✅ Faithful |
+| `RealFunctions`: `sqrt`, `abs`, `floor`, `round`, `max`, `min`; `floor` and `round` return an Integer and report a whole Real at or beyond 2⁶³ as `ErrArithmeticOverflow` rather than a wrapped `int64` | `runtime/library_functions.go` `integerResult` | `TestLibraryFunctionValues`, `TestLibraryFunctionErrors`; `migrate/opaque_migration_test.go:TestTranslatedRoundingsStopAtTheIntegerRange` (a migrated `Math.floor`/`ceil`/`round` at the boundary) | ✅ Faithful |
 | `RationalFunctions`/`NumericalFunctions`: `abs`, `max`, `min` (kind-preserving), `isZero`, `isUnit` | `runtime/library_functions.go` | `TestLibraryFunctionValues` | ✅ Faithful |
 | `IntegerFunctions`: `abs`, `max`, `min`; `NaturalFunctions`: `max`, `min` | `runtime/library_functions.go` | `TestLibraryFunctionValues` | ✅ Faithful |
 | `TrigFunctions`: `sin`, `cos`, `tan`, `cot`, `arcsin`, `arccos`, `arctan` | `runtime/library_functions.go` | `TestLibraryFunctionValues` | ✅ Faithful |

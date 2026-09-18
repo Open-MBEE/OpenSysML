@@ -15,12 +15,16 @@ part def Observatory {
     part tcs : TCS;
     attribute Time_Acq_Total : ScalarValues::Real default = 0.0;
     action def Acquire {
-        attribute 'Time_Loop start' : ScalarValues::Real default = 0.0;
-        attribute Time_Loop : ScalarValues::Real default = 0.0;
-        attribute 'Time_Between start' : ScalarValues::Real default = 0.0;
-        attribute Time_Between : ScalarValues::Real default = 0.0;
-        attribute 'Time_Attempt start' : ScalarValues::Real default = 0.0;
-        attribute Time_Attempt : ScalarValues::Real default = 0.0;
+        attribute 'Time_Loop start' : ScalarValues::Real [0..1];
+        attribute Time_Loop : ScalarValues::Real [0..1];
+        attribute 'Time_Between start' : ScalarValues::Real [0..1];
+        attribute Time_Between : ScalarValues::Real [0..1];
+        attribute 'Time_Attempt start' : ScalarValues::Real [0..1];
+        attribute Time_Attempt : ScalarValues::Real [0..1];
+        attribute 'Time_Never start' : ScalarValues::Real [0..1];
+        attribute Time_Never : ScalarValues::Real [0..1];
+        attribute 'Time_Unfinished start' : ScalarValues::Real [0..1];
+        attribute Time_Unfinished : ScalarValues::Real [0..1];
         first start then 'start timer';
         action 'start timer' {
             assign this.Time_Acq_Total := localClock.currentTime;
@@ -28,6 +32,7 @@ part def Observatory {
         first 'start timer' then stamp;
         action stamp {
             assign 'Time_Loop start' := localClock.currentTime;
+            assign 'Time_Unfinished start' := localClock.currentTime;
         }
         first stamp then 'first attempt';
         action 'first attempt' {
@@ -50,14 +55,19 @@ part def Observatory {
         action attempt;
         first attempt then stamp6;
         action stamp6 {
-            assign Time_Attempt := localClock.currentTime - 'Time_Attempt start';
+            if 'Time_Attempt start'->SequenceFunctions::notEmpty() {
+                assign Time_Attempt := localClock.currentTime - 'Time_Attempt start';
+            }
         }
         first stamp6 then 'decide';
         decide 'decide';
         first 'decide' if this.tcs.i >= this.tcs.Retries then stamp4;
         first 'decide' if not this.tcs.GS_Found and not this.tcs.'Guide Star Lost' and this.tcs.i < this.tcs.Retries then 'next attempt';
+        first 'decide' if false then stamp7;
         action stamp4 {
-            assign Time_Between := localClock.currentTime - 'Time_Between start';
+            if 'Time_Between start'->SequenceFunctions::notEmpty() {
+                assign Time_Between := localClock.currentTime - 'Time_Between start';
+            }
         }
         first stamp4 then 'guide star found';
         action 'guide star found' {
@@ -65,19 +75,40 @@ part def Observatory {
         }
         first 'guide star found' then stamp2;
         action stamp2 {
-            assign Time_Loop := localClock.currentTime - 'Time_Loop start';
+            if 'Time_Loop start'->SequenceFunctions::notEmpty() {
+                assign Time_Loop := localClock.currentTime - 'Time_Loop start';
+            }
+            if 'Time_Never start'->SequenceFunctions::notEmpty() {
+                assign Time_Never := localClock.currentTime - 'Time_Never start';
+            }
         }
-        first stamp2 then 'stop timer';
+        first stamp2 then merge2;
         action 'next attempt' {
             assign this.tcs.i := this.tcs.i + 1;
         }
         first 'next attempt' then 'merge';
+        action stamp7 {
+            assign 'Time_Never start' := localClock.currentTime;
+        }
+        first stamp7 then abort;
+        action abort {
+            assign this.tcs.GS_Found := false;
+        }
+        first abort then stamp8;
+        action stamp8 {
+            if 'Time_Unfinished start'->SequenceFunctions::notEmpty() {
+                assign Time_Unfinished := localClock.currentTime - 'Time_Unfinished start';
+            }
+        }
+        first stamp8 then merge2;
         action 'stop timer' {
             assign this.Time_Acq_Total := localClock.currentTime - this.Time_Acq_Total;
         }
         first 'stop timer' then final;
+        merge merge2;
+        first merge2 then 'stop timer';
         action final terminate;
-        /* partition 'Telescope Control' represents Observatory::tcs: first attempt, attempt, decide, guide star found, next attempt */
+        /* partition 'Telescope Control' represents Observatory::tcs: first attempt, attempt, decide, guide star found, next attempt, abort */
     }
 }
 /* not migrated: TimeEvent (_te1) — no trigger refers to the event; the time event's time is not written: the duration "ditSetup s" is neither a number with a time unit nor an expression: names ditSetup, which nothing visible from Model is called */

@@ -14,7 +14,8 @@ type stamp struct {
 }
 
 // timing is what a duration observation between two nodes of an activity
-// becomes: an attribute holding the elapsed clock, stamped at each end.
+// becomes: a [0..1] attribute holding the elapsed clock, stamped at each end
+// and left without a value, not zero, by a run that does not reach both.
 type timing struct {
 	o              *xmi.Element
 	from, to       *xmi.Element
@@ -39,7 +40,10 @@ func (a *activity) timings() {
 		t.start = a.fresh(t.name + " start")
 		a.timed = append(a.timed, t)
 		a.stampAt(t.from, t.fromEnd, "assign "+writeName(t.start)+" := "+clockRead+";")
-		a.stampAt(t.to, t.toEnd, "assign "+writeName(t.name)+" := "+clockRead+" - "+writeName(t.start)+";")
+		a.stampAt(t.to, t.toEnd,
+			"if "+writeName(t.start)+"->SequenceFunctions::notEmpty() {",
+			"    assign "+writeName(t.name)+" := "+clockRead+" - "+writeName(t.start)+";",
+			"}")
 	}
 }
 
@@ -98,7 +102,7 @@ func (a *activity) timingOf(o *xmi.Element) (*timing, string) {
 
 // stampAt schedules a clock read at one end of node n: before it starts, or
 // after it ends and before anything it leads to.
-func (a *activity) stampAt(n *xmi.Element, end bool, line string) {
+func (a *activity) stampAt(n *xmi.Element, end bool, lines ...string) {
 	stamps := a.before
 	if end {
 		stamps = a.after
@@ -108,15 +112,15 @@ func (a *activity) stampAt(n *xmi.Element, end bool, line string) {
 		s = &stamp{name: writeName(a.fresh("stamp"))}
 		stamps[n] = s
 	}
-	s.lines = append(s.lines, line)
+	s.lines = append(s.lines, lines...)
 }
 
 // timingAttributes declares the attributes the timings read the clock into.
 func (a *activity) timingAttributes() {
 	for _, t := range a.timed {
-		a.m.w.line("attribute " + writeName(t.start) + " : ScalarValues::Real default = 0.0;")
-		a.m.w.line("attribute " + writeName(t.name) + " : ScalarValues::Real default = 0.0;")
-		note := "the elapsed clock from the " + endName(t.fromEnd) + " of " + describe(t.from) + " to the " + endName(t.toEnd) + " of " + describe(t.to) + " is assigned to the attribute " + t.name + ", in seconds"
+		a.m.w.line("attribute " + writeName(t.start) + " : ScalarValues::Real [0..1];")
+		a.m.w.line("attribute " + writeName(t.name) + " : ScalarValues::Real [0..1];")
+		note := "the elapsed clock from the " + endName(t.fromEnd) + " of " + describe(t.from) + " to the " + endName(t.toEnd) + " of " + describe(t.to) + " is assigned to the attribute " + t.name + ", in seconds, and left without a value by a run that does not reach both"
 		a.m.add(t.o, Mapped, a.m.v2Name(a.def)+"."+t.name, note)
 	}
 }

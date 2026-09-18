@@ -30,7 +30,7 @@
         <defaultValue xmi:type="uml:LiteralReal" xmi:id="_tacq0" value="0.0"/>
       </ownedAttribute>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_acq" name="Acquire">
-        <group xmi:type="uml:ActivityPartition" xmi:id="_lane" name="Telescope Control" represents="_tcs" node="_set _attempt _decide _found _bump" edge="_e5 _e6"/>
+        <group xmi:type="uml:ActivityPartition" xmi:id="_lane" name="Telescope Control" represents="_tcs" node="_set _attempt _decide _found _bump _abort" edge="_e5 _e6 _e10"/>
         <node xmi:type="uml:InitialNode" xmi:id="_init"/>
         <node xmi:type="uml:OpaqueAction" xmi:id="_stamp0" name="start timer">
           <language>JavaScript</language>
@@ -52,10 +52,15 @@ GS_Found = false;</body>
           <language>JavaScript</language>
           <body>i += 1;</body>
         </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_abort" name="abort">
+          <language>JavaScript</language>
+          <body>GS_Found = false;</body>
+        </node>
         <node xmi:type="uml:OpaqueAction" xmi:id="_stamp1" name="stop timer">
           <language>JavaScript</language>
           <body>Time_Acq_Total = simtime - Time_Acq_Total;</body>
         </node>
+        <node xmi:type="uml:MergeNode" xmi:id="_done"/>
         <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_stamp0"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_stamp0" target="_set"/>
@@ -74,8 +79,16 @@ GS_Found = false;</body>
             <body>not GS_Found and not Guide Star Lost and i &lt; Retries</body>
           </guard>
         </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e10" source="_decide" target="_abort">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_g10">
+            <language>English</language>
+            <body>FALSE</body>
+          </guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e11" source="_abort" target="_done"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e7" source="_bump" target="_merge"/>
-        <edge xmi:type="uml:ControlFlow" xmi:id="_e8" source="_found" target="_stamp1"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e8" source="_found" target="_done"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e12" source="_done" target="_stamp1"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e9" source="_stamp1" target="_final"/>
         <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_dc" name="settle">
           <constrainedElement xmi:idref="_attempt"/>
@@ -91,6 +104,14 @@ GS_Found = false;</body>
         </observation>
         <observation xmi:type="uml:DurationObservation" xmi:id="_single" name="Time_Attempt">
           <event xmi:idref="_attempt"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_never" name="Time_Never">
+          <event xmi:idref="_abort"/>
+          <event xmi:idref="_found"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_unfinished" name="Time_Unfinished">
+          <event xmi:idref="_set"/>
+          <event xmi:idref="_abort"/>
         </observation>
         <observation xmi:type="uml:DurationObservation" xmi:id="_astray" name="Time_Astray">
           <event xmi:idref="_tcs"/>

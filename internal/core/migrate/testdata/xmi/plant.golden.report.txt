@@ -1,14 +1,15 @@
 # SysML v1 to v2 migration report: plant.xmi
-# migrated 60 element(s): 55 mapped, 5 approximated, 0 unmapped (0 skipped as profile or library content)
+# migrated 62 element(s): 56 mapped, 6 approximated, 0 unmapped (0 skipped as profile or library content)
 
-## approximated (5)
+## approximated (6)
 ControlFlow	Plant::Fill::<ControlFlow>	_f3a	(the guard [{JavaScript} on] is kept as a comment and the edge written unguarded: the name "on" resolves to nothing readable: nothing visible from Plant::Fill::<ControlFlow> is called on; its source 'torn' is in the partitions 'Tank' (this.tank) and 'Pump' (this.pump), which represent different objects, so names resolve through no partition)
 ActivityPartition	Plant::Fill::Elsewhere	_gone	(a partition names who performs its nodes; it is kept as a comment; the partition represents an element outside the document)
 ActivityPartition	Plant::Fill::Operator	_unset	(a partition names who performs its nodes; it is kept as a comment; the partition represents nothing)
 ActivityPartition	Plant::Fill::Spare	_spare	(a partition names who performs its nodes; it is kept as a comment; the partition represents the context's tank, read as this.tank, but nothing in it names the object's features)
+OpaqueAction	Plant::Fill::mine	_mine	-> mine	(the body is kept as a comment: the name "this.level" resolves to nothing readable: Tank has no feature level)
 OpaqueAction	Plant::Fill::torn	_torn	-> torn	(the body is kept as a comment: the name "volume" resolves to nothing readable: nothing visible from Plant::Fill::torn is called volume; it is in the partitions 'Tank' (this.tank) and 'Pump' (this.pump), which represent different objects, so names resolve through no partition)
 
-## mapped (55)
+## mapped (56)
 «Block» Class	Control	_control	-> Control
 Property	Control::rack	_crack	-> Control::rack
 «Block» Class	Controller	_controller	-> Controller
@@ -24,6 +25,7 @@ ControlFlow	Plant::Fill::<ControlFlow>	_f2
 ControlFlow	Plant::Fill::<ControlFlow>	_f3
 ControlFlow	Plant::Fill::<ControlFlow>	_f3b
 ControlFlow	Plant::Fill::<ControlFlow>	_f3c
+ControlFlow	Plant::Fill::<ControlFlow>	_f3d
 ControlFlow	Plant::Fill::<ControlFlow>	_f4
 ControlFlow	Plant::Fill::<ControlFlow>	_f5
 ControlFlow	Plant::Fill::<ControlFlow>	_f6

@@ -54,7 +54,13 @@ part def Plant {
         action twice {
             assign this.tank.volume := this.tank.volume + 1;
         }
-        first twice then 'count run';
+        first twice then mine;
+        action mine {
+            /* body not migrated (the name "this.level" resolves to nothing readable: Tank has no feature level) {JavaScript}:
+             * this.level = 1;
+             */
+        }
+        first mine then 'count run';
         action 'count run' {
             assign this.runs := this.runs + 1;
         }
@@ -80,7 +86,7 @@ part def Plant {
         }
         first light then final;
         action final terminate;
-        /* partition 'Tank' represents Plant::tank: fill tank, torn, twice */
+        /* partition 'Tank' represents Plant::tank: fill tank, torn, twice, mine */
         /* partition 'Valve' in 'Tank' represents Tank::valve: open valve */
         /* partition 'Plant' represents Plant: count run */
         /* partition 'Operator': prime, note level */

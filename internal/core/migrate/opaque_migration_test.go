@@ -53,11 +53,16 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 		"if not this.tcs.GS_Found and not this.tcs.'Guide Star Lost' and this.tcs.i < this.tcs.Retries",
 		"action wait accept after this.tcs.ditSetup [SI::s];",
 		"action attempt;",
-		"attribute Time_Loop : ScalarValues::Real default = 0.0;",
-		":= localClock.currentTime - 'Time_Loop start';",
+		"attribute 'Time_Loop start' : ScalarValues::Real [0..1];",
+		"attribute Time_Loop : ScalarValues::Real [0..1];",
+		"if 'Time_Loop start'->SequenceFunctions::notEmpty() {",
+		"assign Time_Loop := localClock.currentTime - 'Time_Loop start';",
+		"if 'Time_Never start'->SequenceFunctions::notEmpty() {",
+		"assign 'Time_Unfinished start' := localClock.currentTime;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
+	wantNoLine(t, r.Notation, "start' : ScalarValues::Real default")
 	wantClean(t, "t.sysml", r)
 	wantNote(t, r, "_set", migrate.Mapped, "the JavaScript body is translated to v2; names resolve against the context's tcs, read as this.tcs")
 	wantNote(t, r, "_stamp0", migrate.Mapped, "the clock variable simtime, named by 2 simulation configurations, reads the local clock")
@@ -68,7 +73,9 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	wantNote(t, r, "_dc", migrate.Approximated, `the duration "ditSetup s" is read as the expression this.tcs.ditSetup, in seconds`)
 	wantNote(t, r, "_span", migrate.Mapped, "from the start of 'first attempt' to the end of 'guide star found' is assigned to the attribute Time_Loop, in seconds")
 	wantNote(t, r, "_between", migrate.Mapped, "from the end of 'first attempt' to the start of 'guide star found' is assigned to the attribute Time_Between, in seconds")
-	wantNote(t, r, "_single", migrate.Mapped, "from the start of 'attempt' to the end of 'attempt' is assigned to the attribute Time_Attempt, in seconds")
+	wantNote(t, r, "_single", migrate.Mapped, "from the start of 'attempt' to the end of 'attempt' is assigned to the attribute Time_Attempt, in seconds, and left without a value by a run that does not reach both")
+	wantNote(t, r, "_never", migrate.Mapped, "from the start of 'abort' to the end of 'guide star found' is assigned to the attribute Time_Never")
+	wantNote(t, r, "_unfinished", migrate.Mapped, "from the start of 'first attempt' to the end of 'abort' is assigned to the attribute Time_Unfinished")
 	wantNote(t, r, "_astray", migrate.Unmapped, "is not a node of the activity")
 	wantNote(t, r, "_blank", migrate.Unmapped, "observes no event")
 
@@ -92,6 +99,24 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	if strings.Contains(runs, "error") {
 		t.Errorf("runs report an error:\n%s", runs)
 	}
+	// The abort branch is never taken: the observation starting there and the one
+	// ending there hold no value in any run, so neither is a column nor a zero,
+	// while the stamp the unfinished one did take is.
+	all := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 2, 1, nil).Lines, "\n")
+	for _, want := range []string{"| Time_Loop ", "Time_Loop: 2 run(s)", "Time_Unfinished start: 2 run(s), min 0.0"} {
+		if !strings.Contains(all, want) {
+			t.Errorf("runs lack %q:\n%s", want, all)
+		}
+	}
+	for _, absent := range []string{"Time_Never", "| Time_Unfinished |", "Time_Unfinished:", "error"} {
+		if strings.Contains(all, absent) {
+			t.Errorf("runs mention %q:\n%s", absent, all)
+		}
+	}
+	never := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 2, 1, []string{"Time_Never"}).Lines, "\n")
+	if !strings.Contains(never, "error: invalid run request: no completed run of Observatory::Acquire produced a value named Time_Never") {
+		t.Errorf("observing the never-stamped duration:\n%s", never)
+	}
 }
 
 // The plant fixture is an activity with partitions of every shape: an outer lane
@@ -104,7 +129,8 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 // it, though the edge's target resolves; a node in a dimension and a lane
 // representing nothing, or two lanes representing the same object, resolves.
 // A lane representing a classifier, or a property of one, four and five
-// composite parts below the context resolves through the whole chain.
+// composite parts below the context resolves through the whole chain. An
+// explicit `this` in a lane is the lane's object, never the context block.
 func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 	r := migrateXMI(t, "plant")
 	for _, line := range []string{
@@ -124,6 +150,8 @@ func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 	wantNoLine(t, r.Notation, "assign this.tank.volume := 0;")
 	wantNoLine(t, r.Notation, "assign this.pump.volume := 0;")
 	wantNoLine(t, r.Notation, "if this.pump.on")
+	wantNoLine(t, r.Notation, "assign this.level := 1;")
+	wantNoLine(t, r.Notation, "assign this.tank.level := 1;")
 	wantClean(t, "t.sysml", r)
 	wantNote(t, r, "_f3a", migrate.Approximated, `the guard [{JavaScript} on] is kept as a comment and the edge written unguarded: the name "on" resolves to nothing readable: nothing visible from Plant::Fill::<ControlFlow> is called on; its source 'torn' is in the partitions 'Tank' (this.tank) and 'Pump' (this.pump), which represent different objects, so names resolve through no partition`)
 	wantNote(t, r, "_inner", migrate.Mapped, "the partition represents valve of the enclosing partition's object, read as this.tank.valve")
@@ -143,6 +171,7 @@ func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 	wantNote(t, r, "_deep", migrate.Mapped, "the partition represents the context's part site.control.rack.controller, a Controller")
 	wantNote(t, r, "_ledlane", migrate.Mapped, "the partition represents Controller::led, read as this.site.control.rack.controller.led")
 	wantNote(t, r, "_arm", migrate.Mapped, "names resolve against the context's part site.control.rack.controller, a Controller")
+	wantNote(t, r, "_mine", migrate.Approximated, `the name "this.level" resolves to nothing readable: Tank has no feature level`)
 	wantNote(t, r, "_light", migrate.Mapped, "names resolve against Controller::led, read as this.site.control.rack.controller.led")
 
 	s := session(t, r)
@@ -230,6 +259,40 @@ func TestTranslatorRefusalsAndConfiguredClockName(t *testing.T) {
 	// gain reads its value pin x = 1.5 and the context's power = 4 into its out pin.
 	if lines := strings.Join(v.Lines, "\n"); !strings.Contains(lines, "gain.y = 6.0") {
 		t.Errorf("run lacks gain.y = 6.0:\n%s", lines)
+	}
+}
+
+// Migrated Math.floor/ceil/round are exact through the least Integer and a typed
+// overflow, never a wrapped Integer, at or beyond 2^63.
+func TestTranslatedRoundingsStopAtTheIntegerRange(t *testing.T) {
+	r := migrateXMI(t, "reactor")
+	for _, line := range []string{
+		"calc def Floor {",
+		"    RealFunctions::floor(x)\n",
+		"    -RealFunctions::floor(-x)\n",
+		"    RealFunctions::floor(x + 0.5)\n",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	s := session(t, r)
+	for _, tc := range []struct{ call, want string }{
+		{"Floor(2.7)", "= 2"},
+		{"Floor(-2.1)", "= -3"},
+		{"Floor(9223372036854774784.0)", "= 9223372036854774784"},
+		{"Floor(-9223372036854775808.0)", "= -9223372036854775808"},
+		{"Ceil(-9223372036854774784.5)", "= -9223372036854774784"},
+		{"Round(9007199254740993.0)", "= 9007199254740992"},
+		{"Round(-2.5)", "= -2"},
+		{"Floor(9223372036854775808.0)", "arithmetic overflow: 9.223372036854776e+18 exceeds the Integer range"},
+		{"Floor(1.0e20)", "arithmetic overflow: 1e+20 exceeds the Integer range"},
+		{"Ceil(1.0e20)", "arithmetic overflow: -1e+20 exceeds the Integer range"},
+		{"Round(1.0e20)", "arithmetic overflow: 1e+20 exceeds the Integer range"},
+		{"Round(-1.0e20)", "arithmetic overflow: -1e+20 exceeds the Integer range"},
+	} {
+		v := s.RunCalc(tc.call)
+		if lines := strings.Join(v.Lines, "\n"); !strings.Contains(lines, tc.want) {
+			t.Errorf("%s: want %q:\n%s", tc.call, tc.want, lines)
+		}
 	}
 }
 

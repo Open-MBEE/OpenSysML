@@ -152,7 +152,7 @@ returned over the service yet.
 | OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve, or is a JavaScript body of the [subset](#the-opaque-language-subset): `i = 1; GS_Found = true;` is a sequence of `assign` statements, `i += 1` an assignment of `i + 1`, `var t = 0` a local `attribute`; names resolve against the swimlane's represented object first, then the activity, then the owning block; otherwise the body as a comment inside `action x { }` naming the language and the token refused | mapped / approximated |
 | DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds; a symbolic bound (`ditSetup s`, `setup * 2 min`) is an expression whose names resolve like an action body's, `accept after this.tcs.ditSetup [SI::s]` | approximated (a tool's min/max/random mode is a run setting) |
 | DurationConstraint whose bounds name nothing the activity can read | comment | **unmapped** — the note names the unresolved name |
-| DurationObservation whose events are two nodes of one activity | an `attribute <name> : Real` of the `action def`, stamped with `localClock.currentTime` when the first node starts and assigned the elapsed clock when the second ends (`assign this.T := localClock.currentTime - this.T;`); one node observed is its own duration; the attribute is one a run can `-observe` | mapped |
+| DurationObservation whose events are two nodes of one activity | an `attribute <name> : Real [0..1]` of the `action def`, stamped with `localClock.currentTime` when the first node starts and assigned the elapsed clock when the second ends (`assign T := localClock.currentTime - 'T start';`, guarded on the stamp having happened); one node observed is its own duration; the attribute is one a run can `-observe`, and a run that does not reach both nodes leaves it without a value | mapped |
 | DurationObservation whose events are not nodes of the activity, or none; a DurationObservation or TimeObservation owned outside an activity; TimeObservation | comment | **unmapped** — the note names the events, or the owner |
 | ActivityPartition | comment naming the partition, what it `represents` and its nodes; a name a body or guard in the partition uses is resolved against the represented property first and written through it, `this.tcs.i` for a partition representing the part `tcs` (a nested partition through its enclosing ones, `this.tank.valve.open`; a partition representing the context block itself, `this.x`) | mapped when the partition resolved a name / approximated when nothing in it needed one, when `represents` is unset, names nothing the document defines, a property of no v2 type, or a classifier the activity does not run in |
 | StructuredActivityNode, SequenceNode | `action x { }` holding the nested flow | mapped |
@@ -224,7 +224,11 @@ owning block; a nested partition reads through its enclosing ones (`this.tank.va
 partition representing the context block itself reads `this`, and one representing a classifier,
 or a property of one, that the context holds only through a chain of composite parts reads
 through the whole chain, however long (`this.site.control.rack.controller.status`), when exactly
-one such chain exists. A node in no partition, and a
+one such chain exists. A body's explicit `this` is the same object: the tool runs a node in a
+partition in the represented object's context, so `this.status = true` there is the part's
+`status`, and a feature the part lacks is refused (`Tank has no feature level`) rather than read
+from the context block — a node that needs the block's own features sits outside the partition
+or in one representing the block. A node in no partition, and a
 partition whose `represents` is unset, names an id the document does not define, a property
 with no v2 type, or a classifier the activity does not run in, fall back to the activity and
 its block, and the partition's report line says which of these it is. A node held by two
@@ -264,7 +268,10 @@ execution enters it or the instant it exits, as UML defines; UML gives the omitt
 default, and the span then covers both nodes whole, from the first's start to the second's
 end; a node executed again in a loop
 stamps again, so the attribute holds the span between the latest executions of the two
-nodes); observations whose events are not nodes of the activity,
+nodes). Both attributes are `[0..1]` with no default, and the elapsed clock is assigned only
+when the stamp has happened, so a run that reaches neither node, or only one, leaves the
+attribute without a value — a blank cell in the `-observe` table, outside the summary — rather
+than a duration of zero; observations whose events are not nodes of the activity,
 and observations owned outside any activity, are comments whose report line says which.
 
 **Durations and probabilities.** A `DurationConstraint` on an action is a wait the action's
@@ -330,7 +337,7 @@ translation is always complete or absent — never partial.
 | `a`, `a.b.c` naming features that resolve | `this.a`, `this.a.b.c` (through the swimlane's object when it has one) |
 | `+ - * / %`, comparisons, `&& \|\| !`, parentheses | `+ - * / %`, comparisons, `and or not`, parentheses; a Java body's `/` of two whole numbers drops the remainder, so it is `OpenSysMLMathFunctions::quotient(x, y)` (the exact Integer quotient truncated toward zero, refused at run time only for the least Integer by `-1`, whose quotient no Integer holds), and is refused when the operands' types cannot tell whether both are whole. Whole-number arithmetic is the exact arithmetic of a v2 `Integer`: a script that rounds a result beyond 2⁵³ to a `Number`, or a Java `int`/`long` that wraps past its range, computes something else there, which the translation does not reproduce — the translated feature holds the modeler's `Integer`, not a floating-point or fixed-width number |
 | `c ? a : b` | `if c ? a else b` when `a` and `b` are of one scalar type |
-| `Math.min` `Math.max` `Math.abs` `Math.floor` `Math.ceil` `Math.round` `Math.sqrt` `Math.pow`, `a ** b` | `RealFunctions::min` … `RealFunctions::sqrt`, `**`; `Math.ceil(x)` is `-RealFunctions::floor(-x)` and `Math.round(x)` is `RealFunctions::floor(x + 0.5)`, which rounds a half toward +∞ as JavaScript does; `-a ** b` is refused, as JavaScript rejects a unary operand of `**` without parentheses, and a Java body's `**` is refused, Java having no such operator |
+| `Math.min` `Math.max` `Math.abs` `Math.floor` `Math.ceil` `Math.round` `Math.sqrt` `Math.pow`, `a ** b` | `RealFunctions::min` … `RealFunctions::sqrt`, `**`; `Math.ceil(x)` is `-RealFunctions::floor(-x)` and `Math.round(x)` is `RealFunctions::floor(x + 0.5)`, which rounds a half toward +∞ as JavaScript does. The three are the library's `Integer` floor, so their result is exact up to the `Integer` range and a whole Real at or beyond 2⁶³ (or the negation `Math.ceil` takes of the least Integer), which the script would keep as a `Number` and Java's `Math.round` would clamp to a `long`, is a typed arithmetic-overflow error at run time, never a wrapped Integer; `-a ** b` is refused, as JavaScript rejects a unary operand of `**` without parentheses, and a Java body's `**` is refused, Java having no such operator |
 | `java.util.Collections.max(s)` / `.min(s)` | `RealFunctions::max(s)` / `RealFunctions::min(s)` over a collection |
 | the tool's time variable (`simtime`) | `localClock.currentTime` |
 

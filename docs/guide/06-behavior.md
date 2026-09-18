@@ -1092,7 +1092,9 @@ own derived from `<seed>` and the run number — so run 3 of seed 7 is the same 
 platform, and can be repeated alone with `%seed <its seed>` — and table what each run's named
 features, and `clock`, the simulation time it completed at, came to. Without observables every
 feature the action holds and the clock are tabled; `clock` names the clock only, so a feature of
-that name is not reported. Below the table each numeric observable is
+that name is not reported. A feature a run left without a value (an `attribute t : Real [0..1];`
+no statement of that run assigned) is a blank cell of its row, outside the summary, and an
+observable no completed run gave a value is refused. Below the table each numeric observable is
 summarised over the runs that completed: the minimum, mean and maximum, the nearest-rank p50
 and p90, and a histogram; a non-numeric observable is counted by value.
 

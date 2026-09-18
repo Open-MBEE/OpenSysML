@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: acquisition.xmi
-# migrated 41 element(s): 34 mapped, 3 approximated, 4 unmapped (0 skipped as profile or library content)
+# migrated 48 element(s): 41 mapped, 3 approximated, 4 unmapped (0 skipped as profile or library content)
 
 ## unmapped (4)
 TimeEvent	<TimeEvent>	_te1	(no trigger refers to the event; the time event's time is not written: the duration "ditSetup s" is neither a number with a time unit nor an expression: names ditSetup, which nothing visible from Model is called)
@@ -12,7 +12,7 @@ DurationObservation	Observatory::Acquire::Time_Blank	_blank	(the observation obs
 «SimulationConfig» Class	Group 1	_config1	-> 'Group 1'	(a plain UML class without «Block» is written as a part def)
 DurationConstraint	Observatory::Acquire::settle	_dc	-> Observatory::Acquire	(the duration "ditSetup s" is read as the expression this.tcs.ditSetup, in seconds; the duration "ditSetup s" is read as the expression this.tcs.ditSetup, in seconds; written as a fixed wait of this.tcs.ditSetup s before 'attempt')
 
-## mapped (34)
+## mapped (41)
 Model	Model	_m	(the root model's members are written at the top level)
 «Block» Class	Observatory	_obs	-> Observatory
 Activity	Observatory::Acquire	_acq	-> Observatory::Acquire
@@ -23,16 +23,23 @@ ControlFlow	Observatory::Acquire::<ControlFlow>	_e4
 ControlFlow	Observatory::Acquire::<ControlFlow>	_e4b
 ControlFlow	Observatory::Acquire::<ControlFlow>	_e5	(the JavaScript body is translated to v2; names resolve against the context's tcs, read as this.tcs)
 ControlFlow	Observatory::Acquire::<ControlFlow>	_e6	(the English body is translated to v2; names resolve against the context's tcs, read as this.tcs)
+ControlFlow	Observatory::Acquire::<ControlFlow>	_e10	(the English body is translated to v2)
 ControlFlow	Observatory::Acquire::<ControlFlow>	_e8
 ControlFlow	Observatory::Acquire::<ControlFlow>	_e7
+ControlFlow	Observatory::Acquire::<ControlFlow>	_e11
 ControlFlow	Observatory::Acquire::<ControlFlow>	_e9
+ControlFlow	Observatory::Acquire::<ControlFlow>	_e12
 DecisionNode	Observatory::Acquire::<DecisionNode>	_decide	-> 'decide'
 InitialNode	Observatory::Acquire::<InitialNode>	_init	-> start
 MergeNode	Observatory::Acquire::<MergeNode>	_merge	-> 'merge'
+MergeNode	Observatory::Acquire::<MergeNode>	_done	-> merge2
 ActivityPartition	Observatory::Acquire::Telescope Control	_lane	(the partition represents the context's tcs, read as this.tcs)
-DurationObservation	Observatory::Acquire::Time_Attempt	_single	-> Observatory::Acquire.Time_Attempt	(the elapsed clock from the start of 'attempt' to the end of 'attempt' is assigned to the attribute Time_Attempt, in seconds)
-DurationObservation	Observatory::Acquire::Time_Between	_between	-> Observatory::Acquire.Time_Between	(the elapsed clock from the end of 'first attempt' to the start of 'guide star found' is assigned to the attribute Time_Between, in seconds)
-DurationObservation	Observatory::Acquire::Time_Loop	_span	-> Observatory::Acquire.Time_Loop	(the elapsed clock from the start of 'first attempt' to the end of 'guide star found' is assigned to the attribute Time_Loop, in seconds)
+DurationObservation	Observatory::Acquire::Time_Attempt	_single	-> Observatory::Acquire.Time_Attempt	(the elapsed clock from the start of 'attempt' to the end of 'attempt' is assigned to the attribute Time_Attempt, in seconds, and left without a value by a run that does not reach both)
+DurationObservation	Observatory::Acquire::Time_Between	_between	-> Observatory::Acquire.Time_Between	(the elapsed clock from the end of 'first attempt' to the start of 'guide star found' is assigned to the attribute Time_Between, in seconds, and left without a value by a run that does not reach both)
+DurationObservation	Observatory::Acquire::Time_Loop	_span	-> Observatory::Acquire.Time_Loop	(the elapsed clock from the start of 'first attempt' to the end of 'guide star found' is assigned to the attribute Time_Loop, in seconds, and left without a value by a run that does not reach both)
+DurationObservation	Observatory::Acquire::Time_Never	_never	-> Observatory::Acquire.Time_Never	(the elapsed clock from the start of 'abort' to the end of 'guide star found' is assigned to the attribute Time_Never, in seconds, and left without a value by a run that does not reach both)
+DurationObservation	Observatory::Acquire::Time_Unfinished	_unfinished	-> Observatory::Acquire.Time_Unfinished	(the elapsed clock from the start of 'first attempt' to the end of 'abort' is assigned to the attribute Time_Unfinished, in seconds, and left without a value by a run that does not reach both)
+OpaqueAction	Observatory::Acquire::abort	_abort	-> abort	(the JavaScript body is translated to v2; names resolve against the context's tcs, read as this.tcs)
 CallBehaviorAction	Observatory::Acquire::attempt	_attempt	-> attempt	(names resolve against the context's tcs, read as this.tcs; a step with a duration and no further behavior)
 OpaqueAction	Observatory::Acquire::first attempt	_set	-> 'first attempt'	(the JavaScript body is translated to v2; names resolve against the context's tcs, read as this.tcs)
 OpaqueAction	Observatory::Acquire::guide star found	_found	-> 'guide star found'	(the JavaScript body is translated to v2; names resolve against the context's tcs, read as this.tcs)

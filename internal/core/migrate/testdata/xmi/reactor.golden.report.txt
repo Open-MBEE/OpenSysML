@@ -1,8 +1,10 @@
 # SysML v1 to v2 migration report: reactor.xmi
-# migrated 70 element(s): 50 mapped, 20 approximated, 0 unmapped (0 skipped as profile or library content)
+# migrated 79 element(s): 56 mapped, 23 approximated, 0 unmapped (0 skipped as profile or library content)
 
-## approximated (20)
+## approximated (23)
+Parameter	Ceil::whole	_pcr	-> Ceil::whole	(the return parameter is written as an out parameter)
 Parameter	Energy::result	_pr	-> Energy::result	(the return parameter is written as an out parameter)
+Parameter	Floor::whole	_pfr	-> Floor::whole	(the return parameter is written as an out parameter)
 OpaqueAction	Reactor::Cycle::alloc	_alloc	-> alloc	(the body is kept as a comment: the construct "new" is outside the translated subset)
 OpaqueAction	Reactor::Cycle::bare	_bare	-> bare	(the body is kept as a comment: the name "raw.level" resolves to nothing readable: Reactor::Cycle::bare::raw has no type, so no feature level)
 OpaqueAction	Reactor::Cycle::loop	_loop	-> 'loop'	(the body is kept as a comment: the construct "for" is outside the translated subset)
@@ -17,13 +19,16 @@ OpaqueAction	Reactor::Cycle::stray	_stray	-> stray	(the body is kept as a commen
 OpaqueAction	Reactor::Cycle::trim	_trim	-> trim	(the body is kept as a comment: the call "label.trim" is not in the translated function table)
 FunctionBehavior	Root	_root	-> Root	(the body is kept as a comment: as the result expression, the types at "Math.sqrt(x)" disagree: the expression is a Real, not the Boolean wanted; as statements, the call "Math.sqrt" is not in the translated function table: a call is not a statement of the subset)
 Parameter	Root::ok	_prok	-> Root::ok	(the return parameter is written as an out parameter)
+Parameter	Round::whole	_prdr	-> Round::whole	(the return parameter is written as an out parameter)
 «SimulationConfig» Class	Run	_config	-> Run	(a plain UML class without «Block» is written as a part def)
 OpaqueBehavior	Scale	_scale	-> Scale	(the body is kept as a comment: the construct "x" is outside the translated subset: an in parameter is not assigned)
 OpaqueBehavior	Shift	_shift	-> Shift	(the body is kept as a comment: the construct "a" is outside the translated subset: an in parameter is not assigned)
 FunctionBehavior	Split	_split	-> Split	(the body is kept as a comment: as the result expression, the behavior has 2 output parameters; one result expression can stand for none of them; as statements, the construct "x" is outside the translated subset: an expression that assigns nothing is not a statement of the subset)
 Parameter	Split::hi	_pshi	-> Split::hi	(the return parameter is written as an out parameter)
 
-## mapped (50)
+## mapped (56)
+FunctionBehavior	Ceil	_ceil	-> Ceil	(the JavaScript body is translated to v2)
+Parameter	Ceil::x	_pcx	-> Ceil::x
 OpaqueBehavior	Delay	_delay	-> Delay	(the JavaScript body is translated to v2)
 Parameter	Delay::d	_pd	-> Delay::d
 Parameter	Delay::t_sim	_pts	-> Delay::t_sim
@@ -33,6 +38,8 @@ FunctionBehavior	Energy	_energy	-> Energy	(the JavaScript body is translated to 
 Parameter	Energy::E_0	_pe0	-> Energy::E_0
 Parameter	Energy::P	_pp	-> Energy::P
 Parameter	Energy::dt	_pdt	-> Energy::dt
+FunctionBehavior	Floor	_floor	-> Floor	(the JavaScript body is translated to v2)
+Parameter	Floor::x	_pfx	-> Floor::x
 «Block» Class	Gauge	_gauge	-> Gauge
 Property	Gauge::reading	_reading	-> Gauge::reading	(the JavaScript body is translated to v2)
 Property	Gauge::t_sim	_gts	-> Gauge::t_sim
@@ -68,6 +75,8 @@ Property	Reactor::limit	_limit	-> Reactor::limit	(the JavaScript body is transla
 Property	Reactor::power	_power	-> Reactor::power
 Property	Reactor::started	_started	-> Reactor::started
 Parameter	Root::x	_prx	-> Root::x
+FunctionBehavior	Round	_round	-> Round	(the JavaScript body is translated to v2)
+Parameter	Round::x	_prdx	-> Round::x
 Parameter	Scale::x	_px	-> Scale::x
 Parameter	Scale::y	_py	-> Scale::y
 Parameter	Shift::a	_pa	-> Shift::a
