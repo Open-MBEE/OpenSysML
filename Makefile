@@ -8,7 +8,9 @@ BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GO_VERSION ?= $(shell go version | awk '{print $$3}')
 
 # Build flags
-LDFLAGS := -X main.Version=$(VERSION) \
+# -s -w drop the symbol table and DWARF; version stamps, build info and stack traces stay.
+LDFLAGS := -s -w \
+           -X main.Version=$(VERSION) \
            -X main.Commit=$(COMMIT) \
            -X main.BuildTime=$(BUILD_TIME) \
            -X main.GoVersion=$(GO_VERSION)
