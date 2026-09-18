@@ -40,3 +40,13 @@
   part was declared with before redefinition; a `ref` usage holds what is bound to it rather than
   an object of its own; and an untyped `port` materializes as a `Ports::Port`, so a binding
   connector can join it and a signal sent inward over it reaches the bound part's machine.
+- **A migrated call or send that v1 fires without a required value keeps its place and performs
+  nothing.** A call passing no argument for a parameter that must hold a value, or a call or
+  signal send whose pin is fed only by flows no value travels — from a parameter nothing values,
+  an unmigrated opaque action, or a callee whose own activity gives that `out` parameter no
+  value, judged through any depth of nesting — is written as an empty action carrying the token,
+  with the reason in its comment and report line, and the object flow is kept as a comment
+  rather than written from a feature that will hold nothing. Control and buffer nodes only
+  object flows lead to route their values from source to pin, a control node no edge leaves
+  ends the token as `done` does, and an action fed by an object flow from outside its control
+  path waits for the value only when the producer runs on every pass of the surrounding loop.

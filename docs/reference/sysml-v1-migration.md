@@ -239,6 +239,34 @@ which of its parameters the caller has to value. A call whose target pin is fed 
 the context block, or from the activity's `context` parameter, performs the callee on that
 object, `perform action x ::> drive.motor.spin;`.
 
+**Values that never arrive.** v1 lets a call or a signal send fire holding no value for a
+parameter or attribute that must have one; v2 does not admit a typed perform or `send new
+Sig(x)` with an input unbound, so such a step keeps its place in the flow but performs nothing:
+it is written as an empty action carrying the token, with the reason in its comment and in the
+report. The reasons are the ones the model itself decides: the call passes no argument for a
+required parameter (one with no default and a lower bound above zero; `out` and `return`
+parameters and the operation's target pin are not arguments), or the pin it passes is fed only
+by flows no value travels — from a parameter nothing values, from an action that is not
+migrated (an opaque action's result), or from a call whose callee gives that `out` parameter
+no value, judged by the same analysis of the callee's own activity, through any depth of
+nesting. Every such object flow is kept as a comment naming its source, never written as a
+`flow` from a feature that will hold nothing, and the receiving action's report line says which
+input receives no value. A call whose callee acts on an object the caller does not hold — the
+method reads ports of its block, and the caller is a behavior of another block with no part of
+that type — is refused the same way, since running it on the caller's object would go through
+ports it lacks.
+
+**Control nodes carrying data.** A fork, join, merge, decision or buffer node that lies on no
+control path and whose every outgoing edge leads to an action's pin routes values, not control:
+the flows through it are written from their sources to the pins it leads to, and the node
+itself is reported as routing data only. A control node no edge leaves ends the token that reaches it, as
+`done` does, and one no edge reaches is skipped as a node nothing refers to. An action whose
+input is fed by an object flow from an action outside its control path waits for the value as
+well as for the control flow — a `join` of the two — but only when the producer runs on every
+pass of the surrounding loop; a producer a later pass can skip, through a decision or a guarded
+edge, is not waited on, since the wait would starve the consumer where v1 would go on with the
+value the last pass left.
+
 **Durations and probabilities.** A `DurationConstraint` on an action is a wait the action's
 token takes before it: `accept after 3.0 [SI::s]` for a point interval, and
 `accept after RandomFunctions::uniform(1.0, 80.0) [SI::s]` for a proper one — a draw from
