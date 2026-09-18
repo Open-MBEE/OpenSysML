@@ -146,10 +146,9 @@ func (c *Context) Resolver() *resolve.Resolver {
 // the shared resolver so constraint passes reuse one memoized instance.
 func (c *Context) Model() *semantics.Model {
 	if c.model == nil {
-		c.model = semantics.NewModel(c.Resolver())
+		c.model = NewTypedModel(c.Resolver())
 		// Attach model to resolver for inheritance-aware member resolution
 		c.Resolver().SetModel(c.model)
-		c.model.SetArgumentTyper(NewArgumentTyper(c.Resolver(), c.model))
 	}
 	return c.model
 }

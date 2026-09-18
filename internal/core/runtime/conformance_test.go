@@ -424,7 +424,7 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	model := semantics.NewModel(resolver)
 	model.SetSourceText(source.TextOf(sources, nil))
 	fresh := func() *Context {
-		ctx := NewContext(NewModel(model, resolver), 10000)
+		ctx := NewContext(typedModel(model, resolver), 10000)
 		if expected.ModelSeed != nil {
 			ctx.SetModelSeed(*expected.ModelSeed)
 		}

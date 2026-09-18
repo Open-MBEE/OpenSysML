@@ -15,9 +15,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
@@ -253,7 +253,7 @@ func parsePilot(t *testing.T) *pilot {
 
 func (p *pilot) semantics() (*runtime.Model, error) {
 	resolver := resolve.New(p.idx)
-	return runtime.NewModel(semantics.NewModel(resolver), resolver), nil
+	return runtime.NewModel(passes.NewTypedModel(resolver), resolver), nil
 }
 
 func (p *pilot) fresh(w *Worker) (*runtime.Context, error) {

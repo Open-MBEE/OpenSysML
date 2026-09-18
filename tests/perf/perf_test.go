@@ -265,7 +265,7 @@ func BenchmarkFeaturesOf(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		r := resolve.New(idx)
-		m := semantics.NewModel(r)
+		m := passes.NewTypedModel(r)
 		ctx := runtime.NewContext(runtime.NewModel(m, r), 100000)
 		for _, t := range types {
 			_ = ctx.FeaturesOf(t)
@@ -338,7 +338,7 @@ func newRT(tb testing.TB, src []byte) *rt {
 	idx.AddDocument("m.sysml", root)
 	idx.ExpandWildcardImports()
 	r := resolve.New(idx)
-	m := semantics.NewModel(r)
+	m := passes.NewTypedModel(r)
 	ctx := runtime.NewContext(runtime.NewModel(m, r), 10_000_000)
 	return &rt{idx: idx, res: r, sem: m, ctx: ctx, root: idx.DocumentRoot("m.sysml")}
 }

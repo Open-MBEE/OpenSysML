@@ -303,7 +303,7 @@ func TestUnevaluableLibraryFeatureIsATypedError(t *testing.T) {
 	idx.AddDocument("<test>", parseAndBuild(t, `package test { part def P :> Lib::Base; }`))
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
+	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
 
 	obj, err := ctx.Instantiate(oneSymbol(t, idx, "test::P"))
 	if err != nil {

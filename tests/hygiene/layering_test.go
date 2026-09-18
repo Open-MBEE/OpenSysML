@@ -131,13 +131,14 @@ var tolerated = map[string][]string{
 	"internal/core/identity":            {"internal/core/rdf"},
 	"internal/core/migrate":             {"internal/core/libs"},
 	"internal/core/passes":              {"internal/core/rdf"},
-	"internal/core/runtime":             {"internal/core/envvar", "internal/core/parser", "internal/core/passes"},
+	"internal/core/runtime":             {"internal/core/envvar", "internal/core/parser"},
 }
 
-// removed is the imports the layer table would permit that the layering took
-// out, importer → imported; reintroducing one fails.
+// removed is the imports the layering took out, importer → imported; reintroducing
+// one fails even where the layer table would permit it.
 var removed = map[string][]string{
-	"internal/repl": {"internal/grpc"},
+	"internal/core/runtime": {"internal/core/passes"},
+	"internal/repl":         {"internal/grpc"},
 }
 
 // TestPackageLayering checks the import graph against the layer tables: every

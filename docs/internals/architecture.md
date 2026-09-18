@@ -151,6 +151,10 @@ source → lexer → parser → AST → symbol index → resolve → passes
   - `Value{Kind ValueKind, Int, Real, Bool}` — int/real/bool/infinity only
   - Returns `ok=false` for feature refs, strings, null, invocations, collections
   - **Runtime Tier 3 extends this to full evaluator**
+- **`invocation.go`:**
+  - `SelectCall(scope, e, performs)` / `SelectInvocation(scope, e, args, performs)` — overload selection for a call, memoized per call site
+  - `InvocationArgs(e)`, `ChainCallee(e)` — the positional arguments and the chain a call `x.f(a)` applies, as the checker and the runtime both read them
+  - `ArgumentTyper` — the seam through which the checker's static argument typing (`passes.NewArgumentTyper`) is installed with `SetArgumentTyper`; `HasArgumentTyper` reports whether one is. Without one, `SelectCall` types arguments by arity and names alone
 
 ### 6. Validation Passes (`internal/core/passes`)
 
@@ -163,6 +167,7 @@ source → lexer → parser → AST → symbol index → resolve → passes
 - **Tiered execution:** a document-scoped pass at a higher tier is skipped once a lower tier errors; a pass marked `ElementScoped` runs and gates itself per subject through `Context.DownstreamOfFailure` ([element-scoped tier gating](../project/element-scoped-tier-gating.md))
 - **Diagnostics:** `Diagnostic` and `Severity` live in `internal/core/diag`, a leaf package beside `source` and `quickfix`, so the runtime and the parser report findings in the same type without importing the validation suite
 - **Quick fixes:** A `Diagnostic` carries the `quickfix.Fix` values (`internal/core/quickfix`) the layer reporting it attached, so an editor offers edits without parsing messages
+- **Argument typing:** `NewArgumentTyper` is the checker's expression typing as a `semantics.ArgumentTyper`; `NewTypedModel(resolver)` is a semantic model with it installed, which is what every path that builds a `runtime.Model` (REPL, LSP workspace, gRPC cache, the analysis drivers) constructs. The runtime never installs it itself: a call selected on a model without one fails with `runtime.ErrNoArgumentTyper` rather than selecting on weaker typing than validation used, and `internal/hygiene` checks the production construction sites
 
 ### 6a. Highlighting (`internal/core/highlight`)
 
@@ -249,7 +254,7 @@ Harden `MembersOf` into stable, ordered **effective-feature list** per type:
 Full evaluator with **user-defined calc invocation**, **constraint evaluation**, and **requirement evaluation**:
 - Feature access `x.y.z` resolved against instance feature values
 - KerML operator library (`->select`, `->collect`, `size`, string ops)
-- **Calc invocation:** Resolve calc symbol → extract params/return → bind args to parameters → evaluate return expression
+- **Calc invocation:** Resolve calc symbol → extract params/return → bind args to parameters → evaluate return expression. Overloads are selected through `semantics.Model.SelectCall` with the argument typing the model carries (`ErrNoArgumentTyper` when it carries none)
 - **Function values** (`function_value.go`, `ValFunction`): a calc definition, a calc usage with an unsupplied input or an `in calc` parameter read as a value is the calc's lowered `calcShape` plus the environment it was read in — declaring scope, the object it was read off, and, for a calc declared inside a behavior body, the frames through the innermost active run of that behavior (`EvalContext.enclosingRun`, by `frame.runs`) — never a caller's frames, and none when no such run is active. Invoking one (`f(a)` through a calc-typed parameter, or `SampledFunctions::Sample` applying its `calculation`) takes the calc invocation path (`invokeCalcShapeIn`), never a closure over statements; `ValExpr` remains the distinct kind for an expression body a collection operation evaluates per element
 - **Constraint evaluation:** Extract `assert`/`assume` members → evaluate boolean expressions → check satisfaction (with optional `not` negation)
 - **Requirement evaluation:** Extract `subject`/`assume`/`require`/`actor` members → validate bindings → evaluate conditions

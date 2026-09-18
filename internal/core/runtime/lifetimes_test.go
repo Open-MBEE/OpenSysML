@@ -2,9 +2,10 @@ package runtime
 
 import (
 	"errors"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // lifetimeFixture instantiates test::<name> of src and answers the object and a

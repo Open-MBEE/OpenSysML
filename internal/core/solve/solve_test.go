@@ -7,9 +7,9 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -40,7 +40,7 @@ func fixtureDocuments(t *testing.T, docs ...document) (*runtime.Context, *symbol
 	}
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), 10000)
+	ctx := runtime.NewContext(runtime.NewModel(passes.NewTypedModel(resolver), resolver), 10000)
 	for _, sf := range sources {
 		ctx.Model().RegisterSource(sf)
 	}

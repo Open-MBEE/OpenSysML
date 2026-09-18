@@ -28,7 +28,7 @@ func TestQuantityCalculationsAreAllDispatchable(t *testing.T) {
 	idx := libs.NewModelIndex()
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	ctx := NewContext(NewModel(model, resolver), 10000)
+	ctx := NewContext(typedModel(model, resolver), 10000)
 
 	for pkg, path := range packages {
 		t.Run(pkg, func(t *testing.T) {

@@ -628,7 +628,7 @@ func contextOverDocs(t *testing.T, docs [][2]string) *Context {
 		idx.AddDocument(doc[0], parser.New(source.New(doc[0], []byte(doc[1]))).ParseFile())
 	}
 	resolver := resolve.New(idx)
-	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
+	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
 	for _, doc := range docs {
 		ctx.Model().RegisterSource(source.New(doc[0], []byte(doc[1])))
 	}

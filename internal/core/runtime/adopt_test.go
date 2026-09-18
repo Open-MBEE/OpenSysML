@@ -978,7 +978,7 @@ func crateContextOver(t *testing.T, lib string, vouch bool) *Context {
 	idx.AddDocument("<test>", parser.New(source.New("<test>", []byte(crateSrc))).ParseFile())
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
+	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
 	ctx.Model().RegisterSource(source.New("<test>", []byte(crateSrc)))
 	ctx.Model().RegisterSource(source.New("Shapes.sysml", []byte(lib)))
 	return ctx
@@ -1427,7 +1427,7 @@ func documentContextOver(t *testing.T, src string) (*Context, *symbols.Scope) {
 	scope := symbols.Build(file)
 	symbols.SetDocName(scope, "<test>")
 	resolver := resolve.New(idx)
-	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
+	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
 	ctx.Model().RegisterSource(source.New("<test>", []byte(src)))
 	ctx.Model().RegisterScope(scope)
 	return ctx, scope

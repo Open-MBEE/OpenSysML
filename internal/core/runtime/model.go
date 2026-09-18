@@ -1,15 +1,30 @@
 package runtime
 
 import (
+	"errors"
+	"sort"
+
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
-	"sort"
 )
+
+// ErrNoArgumentTyper reports a call reached on a semantic model with no argument
+// typing installed: the run would select among overloads by arity alone, weaker
+// than the checker did, so it selects nothing.
+var ErrNoArgumentTyper = errors.New("no argument typing installed on the semantic model")
+
+// selectCall is the declaration e calls in scope as the checker selects it, from the
+// semantic model's typing of the arguments; ErrNoArgumentTyper when none is installed.
+func (m *Model) selectCall(scope *symbols.Scope, e *ast.InvocationExpr, performs semantics.Performs) (*semantics.InvocationSelection, error) {
+	if !m.semantics.HasArgumentTyper() {
+		return nil, ErrNoArgumentTyper
+	}
+	return m.semantics.SelectCall(scope, e, performs), nil
+}
 
 // Model is the model-derived part of execution: the semantic model and resolver a
 // run reads, and what is memoized from them — calc shapes, write targets,
@@ -126,13 +141,11 @@ type Model struct {
 
 // NewModel builds the model-derived part of execution over a semantic model and
 // the resolver it resolves names with; either may be nil for a context that
-// evaluates literals alone. Contexts are built over it with NewContext.
+// evaluates literals alone. The caller installs the checker's argument typing on
+// sem (semantics.Model.SetArgumentTyper) before any call is selected; a run that
+// selects a call without one fails with ErrNoArgumentTyper. Contexts are built
+// over it with NewContext.
 func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
-	if sem != nil {
-		// Calls the model selects on its own (document queries, signal payloads) then
-		// pick the overload the checker's argument typing picks.
-		sem.SetArgumentTyper(passes.NewArgumentTyper(resolver, sem))
-	}
 	return &Model{
 		semantics:           sem,
 		resolver:            resolver,

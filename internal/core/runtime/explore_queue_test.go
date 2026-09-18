@@ -41,7 +41,7 @@ func (w *exploreWorkers) fresh(job int) (*Context, error) {
 	m, ok := w.workers[job]
 	if !ok {
 		resolver := resolve.New(w.idx)
-		m = NewModel(semantics.NewModel(resolver), resolver)
+		m = typedModel(semantics.NewModel(resolver), resolver)
 		w.workers[job] = m
 	}
 	w.mu.Unlock()

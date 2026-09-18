@@ -50,7 +50,7 @@ func sweepJobsFixture(t *testing.T) (func(job int) (*Context, error), *symbols.S
 	idx.ExpandWildcardImports()
 	fresh := func(int) (*Context, error) {
 		resolver := resolve.New(idx)
-		return NewContext(NewModel(semantics.NewModel(resolver), resolver), 50_000_000), nil
+		return NewContext(typedModel(semantics.NewModel(resolver), resolver), 50_000_000), nil
 	}
 	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
 	if !ok || pkg.Scope == nil {

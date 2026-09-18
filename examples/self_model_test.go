@@ -495,7 +495,7 @@ func TestSelfModelWorkersAreIsolated(t *testing.T) {
 		Semantics: func() (*runtime.Model, error) {
 			built++
 			resolver := resolve.New(idx)
-			return runtime.NewModel(semantics.NewModel(resolver), resolver), nil
+			return runtime.NewModel(passes.NewTypedModel(resolver), resolver), nil
 		},
 		Fresh: func(w *analysis.Worker) (*runtime.Context, error) {
 			return runtime.NewContext(w.Model, 1000), nil
@@ -1407,7 +1407,7 @@ func analyseSelfModel(t *testing.T) (*symbols.Index, *runtime.Context) {
 		idx.AddDocument(name, parser.New(source.New(name, content)).ParseFile())
 	}
 	resolver := resolve.New(idx)
-	return idx, runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), 100000)
+	return idx, runtime.NewContext(runtime.NewModel(passes.NewTypedModel(resolver), resolver), 100000)
 }
 
 // modelInstance is an instantiated definition of the self-model, read by feature.

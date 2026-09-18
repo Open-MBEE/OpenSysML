@@ -49,6 +49,12 @@ func (m *Model) SetArgumentTyper(t ArgumentTyper) {
 	clear(m.invocations)
 }
 
+// HasArgumentTyper reports whether the checker's argument typing is installed, so
+// SelectCall selects what the checker selects rather than by arity and names alone.
+func (m *Model) HasArgumentTyper() bool {
+	return m != nil && m.arguments != nil
+}
+
 // sameTyping reports whether two typers are one typing: equal values of a
 // comparable type. A typer that cannot be compared is taken as new.
 func sameTyping(a, b ArgumentTyper) bool {
@@ -120,6 +126,25 @@ func untypedArguments(e *ast.InvocationExpr) []Argument {
 		}
 	}
 	return args
+}
+
+// InvocationArgs returns e's positional arguments, the receiver of `x->f(a)`
+// first; the operand of a chain call `x.f(a)` is the calc applied, not an argument.
+func InvocationArgs(e *ast.InvocationExpr) []ast.Node {
+	if e.Operand == nil || ChainCallee(e) != nil {
+		return e.Args
+	}
+	return append([]ast.Node{e.Operand}, e.Args...)
+}
+
+// ChainCallee is the feature chain a call `x.f(a)` applies (KerMLExpressions
+// InstantiatedTypeMember → OwnedFeatureChain), nil for `T(a)` and `x->T(a)`.
+func ChainCallee(e *ast.InvocationExpr) *ast.FeatureChainExpr {
+	if e.Type != nil {
+		return nil
+	}
+	chain, _ := e.Operand.(*ast.FeatureChainExpr)
+	return chain
 }
 
 // Performs is what a call site does with the declaration it names, which

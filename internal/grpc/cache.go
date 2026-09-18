@@ -14,9 +14,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -91,7 +91,7 @@ func (m *CachedModel) worker() (*analysis.Worker, func()) {
 // Semantics is the model-derived runtime part as an analysis.Model builds one.
 func (m *CachedModel) Semantics() (*runtime.Model, error) {
 	resolver := resolve.New(m.Index)
-	sem := semantics.NewModel(resolver)
+	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(cachedSourceText(m))
 	model := runtime.NewModel(sem, resolver)
 	for _, doc := range m.Documents {

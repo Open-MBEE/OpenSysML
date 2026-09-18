@@ -270,7 +270,7 @@ func loadTraceCase(t *testing.T, conformanceDir, testName string, expected Expec
 	idx, _ := indexCaseDocuments(t, conformanceDir, src, file, expected)
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	ctx := NewContext(NewModel(model, resolver), 10000)
+	ctx := NewContext(typedModel(model, resolver), 10000)
 	if expected.ModelSeed != nil {
 		ctx.SetModelSeed(*expected.ModelSeed)
 	}

@@ -23,6 +23,14 @@ func NewArgumentTyper(resolver *resolve.Resolver, model *semantics.Model) semant
 	return argumentTyper{resolver: resolver, model: model}
 }
 
+// NewTypedModel is a semantic model over resolver with the checker's argument typing
+// installed: what every path that hands a model to the runtime builds.
+func NewTypedModel(resolver *resolve.Resolver) *semantics.Model {
+	model := semantics.NewModel(resolver)
+	model.SetArgumentTyper(NewArgumentTyper(resolver, model))
+	return model
+}
+
 // argumentTyper is the checker's argument typing as the semantic model consumes
 // it, so a call it reads on its own selects what the checker selects.
 type argumentTyper struct {
@@ -44,7 +52,7 @@ type argumentTypes struct {
 
 // argumentTypes types e's arguments once, so nested errors report once.
 func (ec *exprChecker) argumentTypes(scope *symbols.Scope, e *ast.InvocationExpr) argumentTypes {
-	args := InvocationArgs(e)
+	args := semantics.InvocationArgs(e)
 	types := argumentTypes{
 		positional: make([]semantics.Argument, len(args)),
 		named:      make([]semantics.Argument, len(e.NamedArgs)),
@@ -56,25 +64,6 @@ func (ec *exprChecker) argumentTypes(scope *symbols.Scope, e *ast.InvocationExpr
 		types.named[i] = ec.argument(scope, arg.Value, arg.Name)
 	}
 	return types
-}
-
-// InvocationArgs returns e's positional arguments, the receiver of `x->f(a)`
-// first; the operand of a chain call `x.f(a)` is the calc applied, not an argument.
-func InvocationArgs(e *ast.InvocationExpr) []ast.Node {
-	if e.Operand == nil || ChainCallee(e) != nil {
-		return e.Args
-	}
-	return append([]ast.Node{e.Operand}, e.Args...)
-}
-
-// ChainCallee is the feature chain a call `x.f(a)` applies (KerMLExpressions
-// InstantiatedTypeMember → OwnedFeatureChain), nil for `T(a)` and `x->T(a)`.
-func ChainCallee(e *ast.InvocationExpr) *ast.FeatureChainExpr {
-	if e.Type != nil {
-		return nil
-	}
-	chain, _ := e.Operand.(*ast.FeatureChainExpr)
-	return chain
 }
 
 // selectInvocation records the declaration e calls given the types of its arguments.
