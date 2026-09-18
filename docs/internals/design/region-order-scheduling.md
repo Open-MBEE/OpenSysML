@@ -290,7 +290,11 @@ is no move, so `Check` begins the invocation once per way of resolving the start
 (`searchFrom`, from `picks` of `nil` on) and searches from every configuration a start reaches;
 the start's draws are the first slots of every witness. Every move stays one executor acting one
 unit as `enabledMove` defines it; what grows is the pick sequence of a dispatch entering several
-regions.
+regions. In the reduction corpus (`testdata/check/reduction_expected.txt`) the two join models of
+a parallel state grew with the draws — `por_state_join_exit`, three regions, from 12 states and
+14 moves to 72 and 84; `por_state_join_guard`, two regions, from 12 and 14 to 24 and 28 — the
+start's entry orders and the join's exit orders now being configurations of their own. Their
+reduced counts equal their unreduced ones after as before: neither model had a reduction to lose.
 
 The step-order site is to reach the checker as a change to `enabledMoves`: the due do steps and
 the dispatch enabled *together* rather than the do round first, one move each, which is the
