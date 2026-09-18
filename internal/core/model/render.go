@@ -10,7 +10,6 @@ import (
 	"unicode"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -74,7 +73,7 @@ func (w *Workspace) Views(doc string) ([]ViewInfo, *Document) {
 // whitespace the parser reads into a declaration's span, so that a cursor
 // between two declarations is in neither.
 func declarationOrigin(doc *Document, sym *symbols.Symbol) view.Origin {
-	origin := provenance.Symbol(sym)
+	origin := sym.Origin()
 	if !origin.Located() || origin.Doc != doc.Name || origin.Span.End() > len(doc.Content) {
 		return origin
 	}

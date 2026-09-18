@@ -197,7 +197,7 @@ package OpenSysMLSurfaces {
     // A document name and a span, carried from a declaration to whatever is
     // derived from it; a synthetic artifact carries the unlocated origin.
     part def Provenance :> CodeUnit {
-        attribute :>> goPackage = "internal/core/provenance";
+        attribute :>> goPackage = "internal/core/symbols";
         attribute keyedByDocumentAndSpan : Boolean = true;
         attribute consumers : String = "internal/core/docir, internal/core/view, internal/core/queryplan";
         out item origins : SourceSpan;
