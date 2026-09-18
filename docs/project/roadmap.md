@@ -2714,7 +2714,9 @@ tools/
   cmd/        one main per program
 ```
 
-Every program runs as `go run -C tools ./cmd/<name>`; `report` took `writeReports` and the
+Every program runs as `go run -C tools ./cmd/<name>`, and because `-C` starts it inside the
+tools module, a relative path given to any of its flags (`-out`, `-baseline`, `-junit`, …) counts
+from the repository root, which `repo.Resolve` applies; `report` took `writeReports` and the
 four verdict buckets the fUML and PSSM referees share, `repo` took `moduleRoot`, and the copies
 are gone. `errata` is split: the overlay the standard library applies is
 `internal/core/libs/errata` (product), the registry the oracles read is `tools/oracle/errata`.
