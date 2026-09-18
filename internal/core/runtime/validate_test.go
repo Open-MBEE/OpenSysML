@@ -1,6 +1,10 @@
 package runtime
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+)
 
 const exactBudgetSrc = `package test {
 	private import ScalarValues::Real;
@@ -61,5 +65,54 @@ func TestValidateObjectExactBudgetIsComplete(t *testing.T) {
 	}
 	if report.Valid() {
 		t.Error("budget one short: valid = true, want false")
+	}
+}
+
+const carriedSatisfactionSrc = `package test {
+	private import ScalarValues::Real;
+
+	part def Bus {
+		attribute dryMass : Real;
+	}
+	requirement def MassLimit {
+		subject bus : Bus;
+		require constraint { bus.dryMass <= 1200.0 }
+	}
+	requirement massLimit : MassLimit;
+
+	part spacecraft {
+		part bus : Bus {
+			attribute :>> dryMass = 1150.0;
+		}
+		satisfy massLimit by bus;
+	}
+}`
+
+// A satisfaction the validated object's own type states is also found in the
+// document scope it is stated in; when the two are symbols of different scope
+// trees over one document, it is still one assertion, checked and reported once.
+func TestValidateObjectReportsACarriedSatisfactionOnceAcrossScopeTrees(t *testing.T) {
+	file := parseAndBuild(t, carriedSatisfactionSrc)
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", file)
+	spacecraft, err := ctx.Instantiate(lookupOne(t, idx, "test::spacecraft"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	// Re-indexing the document builds a second scope tree over the same nodes.
+	idx.AddDocument("<test>", file)
+	idx.ExpandWildcardImports()
+
+	report, err := ctx.ValidateObject(spacecraft, []*symbols.Scope{idx.DocumentRoot("<test>")})
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	if len(report.Verdicts) != 1 {
+		for _, v := range report.Verdicts {
+			t.Logf("verdict: %s on %v: %v", v.Text, v.Path, v.Status)
+		}
+		t.Fatalf("%d verdict(s), want the satisfaction once", len(report.Verdicts))
+	}
+	if v := report.Verdicts[0]; v.Kind != AssertionSatisfaction || v.Status != ValidationHolds {
+		t.Errorf("verdict = %s %v, want a holding satisfaction", v.Kind, v.Status)
 	}
 }

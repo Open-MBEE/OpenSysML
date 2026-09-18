@@ -296,4 +296,43 @@ library package DocumentQueries {
 		attribute palette : String[0..1];
 		ref source : Element[0..1];
 	}
+
+	/* A relationship-derived Project column: the elements RelatedElements
+	 * reaches from each row, as a "list" (default), a "count" or "any". */
+	calc def RelatedColumn {
+		in name : String[1];
+		in relationshipKind : String[1];
+		in direction : String[1];
+		in maxDepth : Integer[1];
+		in aggregate : String[1] = "list";
+		return result : ColumnSpec[1];
+	}
+
+	/* WhereRelated: the source rows with at least one element reachable by the
+	 * relationship kind and direction of RelatedElements within maxDepth
+	 * (exists = true), or with none (exists = false). */
+	calc def WhereRelated {
+		in source : Element[0..*] ordered;
+		in relationshipKind : String[1];
+		in direction : String[1];
+		in maxDepth : Integer[1];
+		in exists : Boolean[1] = true;
+		return result : Element[0..*] ordered;
+	}
+
+	/* Except: the source rows whose element, object, verdict, state or event
+	 * is not among exclude, once each in source order. */
+	calc def Except {
+		in source : Element[0..*] ordered;
+		in exclude : Element[0..*] ordered;
+		return result : Element[0..*] ordered;
+	}
+
+	/* Union: the source rows, then the rows of other not already present, in
+	 * order with duplicates removed. */
+	calc def Union {
+		in source : Element[0..*] ordered;
+		in other : Element[0..*] ordered;
+		return result : Element[0..*] ordered;
+	}
 }

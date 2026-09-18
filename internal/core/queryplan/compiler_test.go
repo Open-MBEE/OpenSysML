@@ -1151,6 +1151,9 @@ func TestDocumentQueryVocabularyIsBundled(t *testing.T) {
 		"DocumentQueries::WhereFeature",
 		"DocumentQueries::OrderBy",
 		"DocumentQueries::Project",
+		"DocumentQueries::WhereRelated",
+		"DocumentQueries::Except",
+		"DocumentQueries::Union",
 	} {
 		if got := symbols.PreferDeclared(fixture.index.LookupQualified(name)); len(got) != 1 {
 			t.Errorf("bundled declaration %s: got %d symbols", name, len(got))
