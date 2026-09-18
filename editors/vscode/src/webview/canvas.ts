@@ -224,7 +224,7 @@ function outlineOf(entry: PlacedNode): SVGElement {
         x: String(x), y: String(y), width: String(width), height: String(height),
         class: classes.join(" "),
       };
-      if (classes[1] === "usage") {
+      if (classes[1] !== "definition") {
         attrs.rx = String(CORNER);
       }
       return element("rect", attrs);
@@ -232,8 +232,8 @@ function outlineOf(entry: PlacedNode): SVGElement {
   }
 }
 
-// boxClass is what a box is drawn as, the way the PlantUML form stereotypes it: a
-// package, a definition or an orthogonal region keeps square corners, a usage is rounded.
+// boxClass is what a box is drawn as, the way the PlantUML form stereotypes it; the
+// looks pick corner and border by it, a definition alone square in every look.
 function boxClass(kind: string): "package" | "definition" | "region" | "usage" {
   if (kind.split(" ").includes("package")) {
     return "package";
