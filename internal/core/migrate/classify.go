@@ -435,7 +435,7 @@ func (m *migration) classify(e *xmi.Element) (category, string) {
 		if has(e, "Unit", "QuantityKind") {
 			return catUnmapped, "units and quantity kinds are not migrated; use the SI and ISQ libraries"
 		}
-		if len(m.model.Refs(e, "classifier")) == 0 {
+		if len(m.classifiersOf(e)) == 0 {
 			return catUnmapped, "an instance specification without a classifier has no v2 form"
 		}
 		occurrences, values, note := m.instanceClassifiers(e)
@@ -505,7 +505,12 @@ func rootOf(e *xmi.Element) *xmi.Element {
 // be typed by, and a note over those it can use as neither.
 func (m *migration) instanceClassifiers(e *xmi.Element) (occurrences, values []*xmi.Element, note string) {
 	var notes []string
-	for _, c := range m.model.Refs(e, "classifier") {
+	if len(m.model.Refs(e, "classifier")) == 0 {
+		for _, c := range m.classifiersOf(e) {
+			notes = append(notes, "classified by "+qualifiedName(c)+", the owner of its slots' defining features, since it names no classifier")
+		}
+	}
+	for _, c := range m.classifiersOf(e) {
 		if c.IsProxy() || m.isLibrary(c) {
 			notes = append(notes, "the instance's classifier "+c.Name+" is outside the document or in a library, so it has no v2 definition to specialize")
 			continue
@@ -520,6 +525,32 @@ func (m *migration) instanceClassifiers(e *xmi.Element) (occurrences, values []*
 		}
 	}
 	return occurrences, values, strings.Join(notes, "; ")
+}
+
+// classifiersOf is the classifiers an instance names, or, when it names none,
+// the owners of its slots' defining features: a slot is of a feature of the
+// instance's classifier, so the owner classifies it. Result snapshots of
+// simulation tools name none.
+func (m *migration) classifiersOf(e *xmi.Element) []*xmi.Element {
+	if named := m.model.Refs(e, "classifier"); len(named) > 0 {
+		return named
+	}
+	var owners []*xmi.Element
+	seen := map[*xmi.Element]bool{}
+	for _, slot := range e.Owned("slot") {
+		f := m.model.Ref(slot, "definingFeature")
+		if f == nil || f.IsProxy() || f.Parent == nil || f.Parent.Type == "" || seen[f.Parent] {
+			continue
+		}
+		switch f.Parent.Type {
+		case "Class", "Actor", "DataType", "PrimitiveType", "Enumeration", "Signal", "Interface", "AssociationClass":
+		default:
+			continue
+		}
+		seen[f.Parent] = true
+		owners = append(owners, f.Parent)
+	}
+	return owners
 }
 
 // individualClassifiers returns the kind an individual takes from its first classifier

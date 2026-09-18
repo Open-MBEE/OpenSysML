@@ -2992,13 +2992,17 @@ func TestConvertFromXMI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	notation, report, err := export.Migrate("vehicle.xmi", data, export.FormatSysML)
+	migrated, err := export.Migrate("vehicle.xmi", data, export.FormatSysML)
 	if err != nil {
 		t.Fatalf("Migrate to notation: %v", err)
 	}
-	if report == nil || len(report.Entries) == 0 {
+	if migrated.Report == nil || len(migrated.Report.Entries) == 0 {
 		t.Fatal("Migrate returned no report")
 	}
+	if migrated.Results == nil {
+		t.Fatal("Migrate returned no results index")
+	}
+	notation := migrated.Output
 	if !strings.Contains(string(notation), "part def Vehicle") {
 		t.Errorf("migrated notation lacks the Vehicle block:\n%s", notation)
 	}
@@ -3006,11 +3010,11 @@ func TestConvertFromXMI(t *testing.T) {
 		t.Errorf("Convert from XMI differs from Migrate: %v", err)
 	}
 
-	turtle, _, err := export.Migrate("vehicle.xmi", data, export.FormatTurtle)
+	asTurtle, err := export.Migrate("vehicle.xmi", data, export.FormatTurtle)
 	if err != nil {
 		t.Fatalf("Migrate to Turtle: %v", err)
 	}
-	graph, err := rdf.ParseTurtle(turtle)
+	graph, err := rdf.ParseTurtle(asTurtle.Output)
 	if err != nil {
 		t.Fatalf("migrated Turtle does not parse: %v", err)
 	}
@@ -3022,7 +3026,7 @@ func TestConvertFromXMI(t *testing.T) {
 	if _, err := export.Convert("model.sysml", []byte("package P;"), export.FormatSysML, export.FormatXMI); !errors.As(err, &notWritable) {
 		t.Errorf("writing XMI: got %v, want a NotWritableError", err)
 	}
-	if _, _, err := export.Migrate("vehicle.xmi", data, export.FormatXMI); !errors.As(err, &notWritable) {
+	if _, err := export.Migrate("vehicle.xmi", data, export.FormatXMI); !errors.As(err, &notWritable) {
 		t.Errorf("migrating to XMI: got %v, want a NotWritableError", err)
 	}
 	if _, err := export.Convert("model.sysml", []byte("package P;"), export.FormatXMI, export.FormatSysML); err == nil {

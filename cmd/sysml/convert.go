@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -66,18 +67,24 @@ func runConvert(files []string) error {
 	if migrationReport != "" && input != "-" && samePath(migrationReport, input) {
 		return fmt.Errorf("-migration-report names the model being migrated, %s; the report would replace it", input)
 	}
+	if err := migrationResultsMisuse(from, input); err != nil {
+		return err
+	}
 	// A v2 model may be rewritten in place; a v1 model would be lost.
 	if from == export.FormatXMI && outputPath != "" && input != "-" && samePath(outputPath, input) {
 		return fmt.Errorf("-o names the model being migrated, %s; the v1 model would be replaced by its migration", input)
 	}
 	var out []byte
 	if from == export.FormatXMI {
-		var report *migrate.Report
-		out, report, err = export.Migrate(name, data, to)
+		migrated, err := export.Migrate(name, data, to)
 		if err != nil {
 			return err
 		}
-		if err := writeMigrationReport(report); err != nil {
+		out = migrated.Output
+		if err := writeMigrationReport(migrated.Report); err != nil {
+			return err
+		}
+		if err := writeMigrationResults(migrated.Results); err != nil {
 			return err
 		}
 	} else {
@@ -121,6 +128,41 @@ func writeMigrationReport(report *migrate.Report) error {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "wrote %s (migration report: %s)\n", migrationReport, report.Summary())
+	return nil
+}
+
+// migrationResultsMisuse reports why -migration-results writes nothing: a v2 input
+// has no tool results to index, and the sidecar must not replace the model or report.
+func migrationResultsMisuse(from export.Format, input string) error {
+	switch {
+	case migrationResults == "":
+		return nil
+	case from != export.FormatXMI:
+		return fmt.Errorf("-migration-results indexes the result snapshots of a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
+	case outputPath != "" && samePath(migrationResults, outputPath):
+		return fmt.Errorf("-migration-results and -o both name %s; the results would be replaced by the model", outputPath)
+	case migrationReport != "" && samePath(migrationResults, migrationReport):
+		return fmt.Errorf("-migration-results and -migration-report both name %s; the results would be replaced by the report", migrationReport)
+	case input != "-" && samePath(migrationResults, input):
+		return fmt.Errorf("-migration-results names the model being migrated, %s; the results would replace it", input)
+	}
+	return nil
+}
+
+// writeMigrationResults writes the result snapshots the migration indexed to the
+// -migration-results file as JSON, for -compare-results to read against the migrated model.
+func writeMigrationResults(results *migrate.Results) error {
+	if migrationResults == "" {
+		return nil
+	}
+	body, err := json.MarshalIndent(results, "", "  ")
+	if err != nil {
+		return err
+	}
+	if _, err := export.WriteFile(migrationResults, append(body, '\n')); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "wrote %s (%s)\n", migrationResults, results.Summary())
 	return nil
 }
 

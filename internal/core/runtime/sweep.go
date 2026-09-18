@@ -104,15 +104,17 @@ type SweepPlan struct {
 	Runs    int64
 	// MonteCarlo marks a plan made by MonteCarloPlan, whatever number of runs it asks for.
 	MonteCarlo bool
+	// Seedless marks a Monte Carlo whose runs derive no model seed: made by SeedlessMonteCarloPlan.
+	Seedless bool
 }
 
 // IsMonteCarlo reports whether the plan runs one behavior repeatedly: made by
 // MonteCarloPlan, or stating runs.
 func (p SweepPlan) IsMonteCarlo() bool { return p.MonteCarlo || p.Runs != 0 }
 
-// Drawn reports whether the plan's rows come from Seed: a sampled sweep or a Monte
-// Carlo; a swept table steps its ranges and draws nothing.
-func (p SweepPlan) Drawn() bool { return p.Sampled || p.IsMonteCarlo() }
+// Drawn reports whether the plan's rows come from Seed: a sampled sweep or a seeded
+// Monte Carlo; a swept table steps its ranges, a seedless Monte Carlo derives no seed.
+func (p SweepPlan) Drawn() bool { return p.Sampled || (p.IsMonteCarlo() && !p.Seedless) }
 
 // SweepRunResult is what one run of a sweep produced. A calc's returned value is
 // reported as an output named "result", so a calc row and a case row read alike.
@@ -159,19 +161,22 @@ type SweepTable struct {
 	Sampled bool
 	Seed    uint64
 	Runs    int64
-	Rows    []SweepRow
+	// Seedless marks a Monte Carlo whose runs derived no model seed from Seed.
+	Seedless bool
+	Rows     []SweepRow
 }
 
 // NewSweepTable is the table of a plan before any row is run: the target, the
 // parameters and their types in plan order, and how the rows are drawn.
 func NewSweepTable(target string, plan SweepPlan) SweepTable {
 	table := SweepTable{
-		Target:  target,
-		Params:  make([]string, 0, len(plan.Ranges)),
-		Types:   make([]SweepType, 0, len(plan.Ranges)),
-		Sampled: plan.Sampled,
-		Seed:    plan.Seed,
-		Runs:    plan.Runs,
+		Target:   target,
+		Params:   make([]string, 0, len(plan.Ranges)),
+		Types:    make([]SweepType, 0, len(plan.Ranges)),
+		Sampled:  plan.Sampled,
+		Seed:     plan.Seed,
+		Runs:     plan.Runs,
+		Seedless: plan.Seedless,
 	}
 	if plan.IsMonteCarlo() {
 		table.Params = append(table.Params, RunParam)

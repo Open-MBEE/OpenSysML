@@ -1,0 +1,135 @@
+package main
+
+import (
+	"encoding/json"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
+)
+
+// simconfigXMI is a v1 model with a «SimulationConfig» whose result package holds
+// the snapshots a simulation tool stored of its runs.
+var simconfigXMI = filepath.Join("..", "..", "internal", "core", "migrate", "testdata", "xmi", "simconfig.xmi")
+
+// TestMigrationResultsThroughCLI checks -migration-results writes the sidecar
+// -compare-results reads: the configuration's runs and draws, its target and
+// behavior, and the numbers of every snapshot; then that the migrated model is
+// run against it — under the configured count and policy, and under -runs,
+// -seed, -draws, -observe and -action instead — and that misuse is refused.
+func TestMigrationResultsThroughCLI(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model, sidecar := filepath.Join(dir, "model.sysml"), filepath.Join(dir, "results.json")
+
+	migrated := runCommand(t, exec.Command(binary, simconfigXMI, "-convert", "sysml", "-o", model, "-migration-results", sidecar))
+	if migrated.status != 0 {
+		t.Fatalf("migrating failed: %s", migrated.output())
+	}
+	if !strings.Contains(migrated.stderr, "wrote "+sidecar+" (results of 1 run configuration(s): 1 with 4 stored snapshot(s))") {
+		t.Errorf("the sidecar summary belongs on stderr:\n%s", migrated.output())
+	}
+	body, err := os.ReadFile(sidecar)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var results migrate.Results
+	if err := json.Unmarshal(body, &results); err != nil {
+		t.Fatalf("the sidecar is not JSON: %v\n%s", err, body)
+	}
+	if results.Source != simconfigXMI || len(results.Configurations) != 1 {
+		t.Fatalf("sidecar = %s", body)
+	}
+	cfg := results.Configurations[0]
+	if cfg.Name != "'Group 0'" || cfg.Runs != 4 || cfg.Draws != "average" || cfg.Target != "target" || cfg.Behavior != "run" ||
+		cfg.Location != "Results" || strings.Join(cfg.Observables, ",") != "pA,pB" || len(cfg.Snapshots) != 4 {
+		t.Errorf("configuration = %+v", cfg)
+	}
+
+	compare := func(args ...string) runOutcome {
+		return runCommand(t, exec.Command(binary, append([]string{model, "-compare-results", sidecar}, args...)...))
+	}
+	configured := compare()
+	if configured.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", configured.status, configured.output())
+	}
+	for _, want := range []string{
+		"compare 'Group 0' — 4 stored run(s) in Results; 4 run(s) by OpenSysML, draws average\n",
+		"pA         | tool                  | 4    | 0.25    | 0.625  | 0.5     | 1.0   | 1.0",
+		"           | OpenSysML (target.pA) | 4    | 1.0     | 1.0    | 1.0     | 1.0   | 1.0",
+		"           | difference            |      | +300.0% | +60.0% | +100.0% | +0.0% | +0.0%",
+		"pB         | tool                  | 2    | 0.0     | 1.5    | 0.0     | 3.0   | 3.0",
+		"           | OpenSysML (target.pB) | 0    |",
+		"note: target.pB holds no number in any completed run, so pB is not compared",
+		"note: the slot of flag holds a LiteralBoolean, which is no number in 1 snapshot(s), so it is not among the results",
+	} {
+		if !strings.Contains(configured.stdout, want) {
+			t.Errorf("the comparison lacks %q:\n%s", want, configured.output())
+		}
+	}
+	if strings.Contains(configured.output(), "SysML v2 REPL") {
+		t.Errorf("-compare-results left a prompt:\n%s", configured.output())
+	}
+
+	overridden := compare("-runs", "3", "-seed", "5", "-draws", "random", "-observe", "pA", "-observe", "pB=target.pA", "-action", "Group 0")
+	if overridden.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", overridden.status, overridden.output())
+	}
+	for _, want := range []string{
+		"compare 'Group 0' — 4 stored run(s) in Results; 3 run(s) by OpenSysML, draws random, seed 5\n",
+		"           | OpenSysML (target.pA) | 3    | 1.0       | 1.0    | 1.0       | 1.0    | 1.0",
+		"pB         | tool                  | 2    | 0.0       | 1.5    | 0.0       | 3.0    | 3.0",
+		"           | difference            |      | +1 (of 0) | -33.3% | +1 (of 0) | -66.7% | -66.7%",
+	} {
+		if !strings.Contains(overridden.stdout, want) {
+			t.Errorf("the overridden comparison lacks %q:\n%s", want, overridden.output())
+		}
+	}
+
+	asJSON := compare("-json")
+	if asJSON.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", asJSON.status, asJSON.output())
+	}
+	var report struct {
+		Status string `json:"status"`
+		Checks []struct {
+			Subject string   `json:"subject"`
+			Status  string   `json:"status"`
+			Lines   []string `json:"lines"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(asJSON.stdout), &report); err != nil {
+		t.Fatalf("-json wrote no JSON: %v\n%s", err, asJSON.output())
+	}
+	if report.Status != "holds" || len(report.Checks) != 1 || report.Checks[0].Subject != "compare 'Group 0'" || len(report.Checks[0].Lines) < 8 {
+		t.Errorf("-json report = %s", asJSON.stdout)
+	}
+
+	for name, tc := range map[string]struct {
+		args []string
+		want string
+	}{
+		"unknown configuration":   {[]string{model, "-compare-results", sidecar, "-action", "Group 9"}, "no configuration is named Group 9"},
+		"missing sidecar":         {[]string{model, "-compare-results", filepath.Join(dir, "none.json")}, "-compare-results: open"},
+		"sidecar not JSON":        {[]string{model, "-compare-results", model}, "the results are not the JSON -migration-results writes"},
+		"with convert":            {[]string{model, "-compare-results", sidecar, "-convert", "ttl"}, "cannot be combined with -convert"},
+		"results without xmi":     {[]string{model, "-convert", "ttl", "-migration-results", sidecar}, "-migration-results indexes the result snapshots of a SysML v1 migration"},
+		"results without convert": {[]string{model, "-migration-results", sidecar}, "-migration-results accompanies -convert"},
+		"results over the model":  {[]string{simconfigXMI, "-convert", "sysml", "-o", sidecar, "-migration-results", sidecar}, "-migration-results and -o both name"},
+		"results over the report": {[]string{simconfigXMI, "-convert", "sysml", "-migration-report", sidecar, "-migration-results", sidecar}, "-migration-results and -migration-report both name"},
+		"results over the input":  {[]string{simconfigXMI, "-convert", "sysml", "-migration-results", simconfigXMI}, "names the model being migrated"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := runCommand(t, exec.Command(binary, tc.args...))
+			if got.status == 0 {
+				t.Fatalf("expected a non-zero exit, got:\n%s", got.output())
+			}
+			if !strings.Contains(got.output(), tc.want) {
+				t.Errorf("expected %q in the error, got:\n%s", tc.want, got.output())
+			}
+		})
+	}
+}

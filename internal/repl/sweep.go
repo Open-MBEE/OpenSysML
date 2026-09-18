@@ -660,7 +660,7 @@ func sweepValues(table runtime.SweepTable, rows []VerdictRow) []NamedValue {
 		{Name: "runs", Value: strconv.Itoa(len(rows))},
 		{Name: "failed", Value: strconv.Itoa(failed)},
 	}
-	if table.Sampled || table.Runs > 0 {
+	if table.Sampled || (table.Runs > 0 && !table.Seedless) {
 		values = append(values, NamedValue{Name: "seed", Value: strconv.FormatUint(table.Seed, 10)})
 	}
 	return values
@@ -915,6 +915,8 @@ func distributionCall(text string) (string, bool) {
 func sweepTableLines(table runtime.SweepTable) []string {
 	header := fmt.Sprintf("sweep %s — %d run(s)", table.Target, len(table.Rows))
 	switch {
+	case table.Runs > 0 && table.Seedless:
+		header = fmt.Sprintf("runs %s — %d run(s), no seed", table.Target, len(table.Rows))
 	case table.Runs > 0:
 		header = fmt.Sprintf("runs %s — %d run(s), seed %d", table.Target, len(table.Rows), table.Seed)
 	case table.Sampled:

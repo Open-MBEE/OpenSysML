@@ -47,7 +47,8 @@ func TestSimulationConfigBecomesARunnableActionDef(t *testing.T) {
 		"parallelForks = true;",
 		"part target : sure;",
 		"perform action run ::> target.choose;",
-		"/* «SimulationConfig» settings of the simulation tool: animationSpeed = 95; resultLocation = Results; silent = true */",
+		"/* results of the simulation tool: 0 snapshot(s) in Results */",
+		"/* «SimulationConfig» settings of the simulation tool: animationSpeed = 95; silent = true */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -64,7 +65,7 @@ func TestSimulationConfigBecomesARunnableActionDef(t *testing.T) {
 	s := session(t, r)
 	meta(t, s, "%seed 1")
 	wantVerdict(t, s.RunAction("Group 0"))
-	runs := s.RunRuns("Group 0", nil, 5, 1, nil)
+	runs := s.RunRuns("Group 0", nil, 5, seedOf(1), nil)
 	if lines := strings.Join(runs.Lines, "\n"); !runs.Holds() || !strings.Contains(lines, "5 run(s)") {
 		t.Errorf("Monte Carlo runs of the configuration = %s:\n%s", runs.Status, lines)
 	}
@@ -107,3 +108,6 @@ func TestSimulationConfigReportsWhatItCannotRun(t *testing.T) {
 		t.Errorf("the migrated configurations do not analyse clean: %v\n%s", errs, r.Notation)
 	}
 }
+
+// seedOf is a seed as RunRuns takes it, named.
+func seedOf(seed uint64) *uint64 { return &seed }

@@ -105,47 +105,48 @@ func writableFile(dir, name string) (string, bool) {
 
 // CLI flags
 var (
-	evalExprs       stringSlice
-	showHelp        bool
-	showMan         bool
-	showVersion     bool
-	debugMode       bool
-	quietMode       bool
-	traceMode       bool
-	schedule        schedulePolicy
-	listEngines     bool
-	probeEngines    bool
-	engine          engineSelection
-	jobsFlag        jobsSetting
-	convertFormat   string
-	queryText       string
-	outputPath      string
-	fromFormat      string
-	migrationReport string
-	renderView      string
-	renderAllDir    string
-	renderForm      string
-	renderPalette   string
-	renderDoc       string
-	renderDocsDir   string
-	docForm         string
-	diagramForm     string
-	pdfEngine       string
-	pdfTitlePage    bool
-	pdfTOC          bool
-	pdfNumbering    bool
-	htmlCSS         stringSlice
-	htmlNoCSS       bool
-	htmlShowCSS     bool
-	htmlFragment    bool
-	htmlMermaid     string
-	htmlMath        string
-	htmlTheme       string
-	strictMode      bool
-	modelChecks     checks
-	compileCalc     string
-	compileTarget   string
-	compileSource   bool
+	evalExprs        stringSlice
+	showHelp         bool
+	showMan          bool
+	showVersion      bool
+	debugMode        bool
+	quietMode        bool
+	traceMode        bool
+	schedule         schedulePolicy
+	listEngines      bool
+	probeEngines     bool
+	engine           engineSelection
+	jobsFlag         jobsSetting
+	convertFormat    string
+	queryText        string
+	outputPath       string
+	fromFormat       string
+	migrationReport  string
+	migrationResults string
+	renderView       string
+	renderAllDir     string
+	renderForm       string
+	renderPalette    string
+	renderDoc        string
+	renderDocsDir    string
+	docForm          string
+	diagramForm      string
+	pdfEngine        string
+	pdfTitlePage     bool
+	pdfTOC           bool
+	pdfNumbering     bool
+	htmlCSS          stringSlice
+	htmlNoCSS        bool
+	htmlShowCSS      bool
+	htmlFragment     bool
+	htmlMermaid      string
+	htmlMath         string
+	htmlTheme        string
+	strictMode       bool
+	modelChecks      checks
+	compileCalc      string
+	compileTarget    string
+	compileSource    bool
 
 	syncDiffWith       string
 	syncApplyTo        string
@@ -433,6 +434,14 @@ func runCLI() int {
 	}
 	if migrationReport != "" && convertFormat == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -migration-report accompanies -convert of a SysML v1 model; write `sysml model.xmi -convert sysml -migration-report report.txt`")
+		return 2
+	}
+	if migrationResults != "" && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -migration-results accompanies -convert of a SysML v1 model; write `sysml model.xmi -convert sysml -migration-results results.json`")
+		return 2
+	}
+	if modelChecks.compare != "" && (convertFormat != "" || renderView != "" || renderAllDir != "" || renderDoc != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0 || compileCalc != "" || syncDiffWith != "" || syncApplyTo != "") {
+		fmt.Fprintln(os.Stderr, "sysml: -compare-results runs the migrated model against the tool's results; it cannot be combined with -convert, -render, -render-all, -render-document, -render-documents, -query, -eval, -compile, -sync-diff or -sync-apply")
 		return 2
 	}
 

@@ -127,22 +127,29 @@ func drawPolicySetting(v string) (string, string) {
 func (m *migration) simulationConfig(e *xmi.Element, header, note string) {
 	s := simulationConfig(e)
 	settings, unread, notes := m.configurationSettings(s)
-	target, usage, targetNotes := m.configurationTarget(e, s)
-	notes = append(notes, targetNotes...)
+	target := m.configurationTarget(s)
+	notes = append(notes, target.notes...)
+	results := ConfigurationResults{ID: e.ID, Name: m.v2Name(e), Runs: settings.runs, Draws: settings.draws, Observables: []string{}, Snapshots: []Snapshot{}}
+	notes = append(notes, m.resultSnapshots(&results, s, target.classifiers)...)
 	note = joinNotes(note, strings.Join(notes, "; "))
 	m.add(e, verdictFor(note), m.v2Name(e), note)
 	m.w.block(header, func() {
 		saved := m.scope
 		m.scope = e
 		m.comments(e)
-		m.w.block("@Simulation::Configuration", func() { m.w.lines(settings) })
-		if target != nil {
+		m.w.block("@Simulation::Configuration", func() { m.w.lines(settings.lines) })
+		if target.element != nil {
 			part := m.freshName(e, "target")
-			m.w.line("part " + writeName(part) + " : " + m.ref(target, e) + ";")
-			if usage != "" {
+			results.Target = part
+			m.w.line("part " + writeName(part) + " : " + m.ref(target.element, e) + ";")
+			if target.usage != "" {
 				run := m.freshName(e, "run")
-				m.w.line("perform action " + writeName(run) + " ::> " + writeName(part) + "." + writeName(usage) + ";")
+				results.Behavior = run
+				m.w.line("perform action " + writeName(run) + " ::> " + writeName(part) + "." + writeName(target.usage) + ";")
 			}
+		}
+		if results.Location != "" {
+			m.w.lines(commentLines(resultsComment(results)))
 		}
 		if len(unread) > 0 {
 			m.w.lines(commentLines("«SimulationConfig» settings of the simulation tool: " + strings.Join(unread, "; ")))
@@ -152,13 +159,32 @@ func (m *migration) simulationConfig(e *xmi.Element, header, note string) {
 		m.classifierBehavior(e)
 		m.stereotypeComments(e)
 	})
+	m.results.Configurations = append(m.results.Configurations, results)
+}
+
+// resultsComment says what the tool stored of the configuration's runs and
+// where; the snapshots themselves are written as individuals in their package.
+func resultsComment(r ConfigurationResults) string {
+	text := "results of the simulation tool: " + strconv.Itoa(len(r.Snapshots)) + " snapshot(s) in " + r.Location
+	if len(r.Observables) > 0 {
+		text += " holding " + strings.Join(r.Observables, ", ")
+	}
+	return text
+}
+
+// configurationValues are the Simulation::Configuration attributes a
+// configuration sets, as written, with the two a harness runs it under.
+type configurationValues struct {
+	lines []string
+	runs  int64
+	draws string
 }
 
 // configurationSettings writes the Simulation::Configuration attributes a
 // «SimulationConfig» application sets, lists the tags it keeps as a comment,
 // and notes the tags with no v2 form.
-func (m *migration) configurationSettings(s *xmi.Stereotype) (settings, unread, notes []string) {
-	recorded := map[string]bool{"executionTarget": true}
+func (m *migration) configurationSettings(s *xmi.Stereotype) (settings configurationValues, unread, notes []string) {
+	recorded := map[string]bool{"executionTarget": true, "resultLocation": true}
 	for _, c := range configurationSettings {
 		recorded[c.tag] = true
 		vs := s.Tags[c.tag]
@@ -176,7 +202,17 @@ func (m *migration) configurationSettings(s *xmi.Stereotype) (settings, unread, 
 			unread = append(unread, c.tag+" = "+vs[0])
 			continue
 		}
-		settings = append(settings, c.attribute+" = "+lit+";")
+		settings.lines = append(settings.lines, c.attribute+" = "+lit+";")
+		switch c.tag {
+		case "numberOfRuns":
+			if n, err := strconv.ParseInt(lit, 10, 64); err == nil {
+				settings.runs = n
+			} else {
+				notes = append(notes, "«SimulationConfig» numberOfRuns = "+lit+" exceeds the runs a Monte Carlo can make")
+			}
+		case "durationSimulationMode":
+			settings.draws = strings.TrimPrefix(lit, "Simulation::DrawPolicy::")
+		}
 	}
 	for tag, means := range activeObjectSettings {
 		recorded[tag] = true
@@ -196,23 +232,32 @@ func (m *migration) configurationSettings(s *xmi.Stereotype) (settings, unread, 
 	return settings, unread, notes
 }
 
-// configurationTarget resolves the execution target of the configuration e, the
-// definition its part is typed by, and the usage of that part by which a run
-// performs the target's classifier behavior; it notes whatever it cannot.
-func (m *migration) configurationTarget(e *xmi.Element, s *xmi.Stereotype) (target *xmi.Element, usage string, notes []string) {
+// executionTarget is a configuration's target as resolved: the element its
+// part is typed by, the classifiers of that element, the usage of the part by
+// which a run performs their classifier behavior, and what could not be resolved.
+type executionTarget struct {
+	element     *xmi.Element
+	classifiers []*xmi.Element
+	usage       string
+	notes       []string
+}
+
+// configurationTarget resolves the execution target of a configuration; it
+// notes whatever it cannot.
+func (m *migration) configurationTarget(s *xmi.Stereotype) executionTarget {
 	ids := s.Tags["executionTarget"]
 	switch {
 	case len(ids) == 0:
-		return nil, "", []string{"the configuration names no execution target, so it runs no behavior"}
+		return executionTarget{notes: []string{"the configuration names no execution target, so it runs no behavior"}}
 	case len(ids) > 1:
-		return nil, "", []string{"the configuration names " + strconv.Itoa(len(ids)) + " execution targets, and a run has one object to run on"}
+		return executionTarget{notes: []string{"the configuration names " + strconv.Itoa(len(ids)) + " execution targets, and a run has one object to run on"}}
 	}
 	t := m.model.Lookup(ids[0])
 	if t == nil || t.IsProxy() {
-		return nil, "", []string{"the execution target " + strconv.Quote(ids[0]) + " is outside the document, so the configuration runs no behavior"}
+		return executionTarget{notes: []string{"the execution target " + strconv.Quote(ids[0]) + " is outside the document, so the configuration runs no behavior"}}
 	}
 	if m.isLibrary(t) || !m.written(t) {
-		return nil, "", []string{"the execution target " + describe(t) + " is not migrated, so the configuration runs no behavior"}
+		return executionTarget{notes: []string{"the execution target " + describe(t) + " is not migrated, so the configuration runs no behavior"}}
 	}
 	var classifiers []*xmi.Element
 	cat, why := m.classify(t)
@@ -222,27 +267,32 @@ func (m *migration) configurationTarget(e *xmi.Element, s *xmi.Stereotype) (targ
 	case catIndividualDef:
 		kind, written, _ := m.individualClassifiers(t)
 		if kind != catPartDef {
-			return nil, "", []string{"the execution target " + describe(t) + " is written as an " + individualKeyword(kind) + ", which no part can be typed by, so the configuration runs no behavior"}
+			return executionTarget{notes: []string{"the execution target " + describe(t) + " is written as an " + individualKeyword(kind) + ", which no part can be typed by, so the configuration runs no behavior"}}
 		}
 		classifiers = written
 	default:
-		return nil, "", []string{joinNotes("the execution target "+describe(t)+" is written as a "+cat.keyword()+", which no part can be typed by, so the configuration runs no behavior", why)}
+		return executionTarget{notes: []string{joinNotes("the execution target "+describe(t)+" is written as a "+cat.keyword()+", which no part can be typed by, so the configuration runs no behavior", why)}}
 	}
+	target := executionTarget{element: t, classifiers: classifiers}
 	if len(classifiers) == 0 {
-		return t, "", []string{"the execution target " + describe(t) + " has no written classifier, so no behavior of it is performed"}
+		target.notes = []string{"the execution target " + describe(t) + " has no written classifier, so no behavior of it is performed"}
+		return target
 	}
 	behavior := m.inheritedClassifierBehavior(classifiers)
 	if behavior == nil {
-		return t, "", []string{"neither " + qualifiedName(classifiers[0]) + " nor any general of it has a classifier behavior, so the configuration only holds " + describe(t)}
+		target.notes = []string{"neither " + qualifiedName(classifiers[0]) + " nor any general of it has a classifier behavior, so the configuration only holds " + describe(t)}
+		return target
 	}
 	_, usage, bcat := m.classifierBehaviorUsage(behavior)
 	switch bcat {
 	case catActionDef:
-		return t, usage, nil
+		target.usage = usage
 	case catStateDef:
-		return t, "", []string{"the classifier behavior of " + qualifiedName(behavior) + " is a state machine, which a run performs as no action; the configuration only holds " + describe(t)}
+		target.notes = []string{"the classifier behavior of " + qualifiedName(behavior) + " is a state machine, which a run performs as no action; the configuration only holds " + describe(t)}
+	default:
+		target.notes = []string{"the classifier behavior of " + qualifiedName(behavior) + " is written as a " + bcat.keyword() + ", not an action def, so no action is performed"}
 	}
-	return t, "", []string{"the classifier behavior of " + qualifiedName(behavior) + " is written as a " + bcat.keyword() + ", not an action def, so no action is performed"}
+	return target
 }
 
 // inheritedClassifierBehavior finds, breadth first through generalizations,

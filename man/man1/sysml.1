@@ -88,6 +88,13 @@ this directory for each violation and each divergent value \(em the inputs the
 solver chose, the schedule's choices, a blank line, then the run's trace \(em
 which \-schedule replay:<file> and %replay follow
 .TP
+.BI \-compare\-results " string"
+Run every configuration this \-migration\-results file indexes with its
+numberOfRuns and durationSimulationMode \(em or the \-runs and \-draws given,
+seeded from \-seed \(em and report the tool's and OpenSysML's min, mean, p50,
+p90 and max of each observable with their relative difference; \-action names
+the configurations to compare
+.TP
 .BI \-compile " string"
 Compile this calc def to a native executable named by \-o, as \-compile
 Pkg::Fib
@@ -225,12 +232,20 @@ from the OS
 With \-convert from xmi: write the element\-by\-element migration report to
 this file (JSON when it ends in .json, text otherwise)
 .TP
+.BI \-migration\-results " string"
+With \-convert from xmi: write the run configurations and the result snapshots
+the simulation tool stored for them to this JSON file, for \-compare\-results
+to read against the migrated model
+.TP
 .BI \-o " string"
 Write conversion output to this file (shorthand)
 .TP
 .BI \-observe " clock"
 Report this feature of the \-runs action, or clock for the time it completed
-at; default every feature it holds and the clock (repeatable)
+at; default every feature it holds and the clock (repeatable). With
+\-compare\-results, compare this stored observable, read from the target's
+feature of its own name, or \-observe <observable>=<feature> to read it from
+another feature of the run; default every stored observable
 .TP
 .BI \-output " string"
 Write conversion output to this file (default: stdout)
@@ -292,7 +307,8 @@ Execute this document query and report its rows, as \-run\-query
 .BI \-runs " value"
 Run the \-action this many times, each run's modeled randomness (weighted
 decisions, random functions) seeded from \-seed, and report the table of the
-\-observe features with each one's distribution; needs \-seed
+\-observe features with each one's distribution; needs \-seed unless \-draws
+is min, max or average
 .TP
 .BI \-samples " value"
 Draw this many values uniformly from each \-sweep range instead of stepping

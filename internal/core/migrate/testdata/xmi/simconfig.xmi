@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_chooser" name="Chooser" classifierBehavior="_act">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pa" name="pA">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_pav" value="0.25"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pb" name="pB">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_pbv" value="NaN"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_flag" name="flag">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_act" name="Choose">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:DecisionNode" xmi:id="_decide"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_a" name="a"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_b" name="b"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e0" source="_init" target="_decide"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ea" source="_decide" target="_a"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_eb" source="_decide" target="_b"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_fa" source="_a" target="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_fb" source="_b" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_sure" name="Sure">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g" general="_chooser"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pa2" name="pA" redefinedProperty="_pa">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_pa2v" value="1.0"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_s0" name="sure" classifier="_sure"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_other" name="Other">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_po" name="pOther">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_g0" name="Group 0"/>
+    <packagedElement xmi:type="uml:Package" xmi:id="_results" name="Results">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r1" name="run 1" classifier="_sure">
+        <slot xmi:type="uml:Slot" xmi:id="_r1a" definingFeature="_pa">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r1av" value="1.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r1b" definingFeature="_pb">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_r1bv" value="3"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r1f" definingFeature="_flag">
+          <value xmi:type="uml:LiteralBoolean" xmi:id="_r1fv" value="true"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r1x" definingFeature="_pa">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r1xv" value="NaN"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r1n">
+          <definingFeature href="Analysis.mdzip#_n">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="Analysis::MonteCarlo::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_r1nv" value="5"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r2" name="run 2" classifier="_sure">
+        <slot xmi:type="uml:Slot" xmi:id="_r2a" definingFeature="_pa">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r2av" value="0.5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r2b" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r2bv"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r3">
+        <slot xmi:type="uml:Slot" xmi:id="_r3a" definingFeature="_pa">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r3av" value="0.25"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Package" xmi:id="_more" name="More">
+        <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r4" name="run 4" classifier="_chooser">
+          <slot xmi:type="uml:Slot" xmi:id="_r4a" definingFeature="_pa">
+            <value xmi:type="uml:LiteralReal" xmi:id="_r4av" value="0.75"/>
+          </slot>
+        </packagedElement>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_o1" name="other" classifier="_other">
+        <slot xmi:type="uml:Slot" xmi:id="_o1a" definingFeature="_po">
+          <value xmi:type="uml:LiteralReal" xmi:id="_o1av" value="9.0"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Block xmi:id="_s2" base_Class="_sure"/>
+  <sysml:Block xmi:id="_s3" base_Class="_other"/>
+  <SimulationProfile:SimulationConfig xmlns:SimulationProfile="http://www.magicdraw.com/schemas/SimulationProfile.xmi" xmi:id="_c0" base_Class="_g0"
+      executionTarget="_s0" resultLocation="_results" numberOfRuns="4" durationSimulationMode="average"/>
+</xmi:XMI>

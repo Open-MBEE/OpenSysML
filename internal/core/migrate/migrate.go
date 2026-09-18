@@ -18,10 +18,12 @@ const (
 	commentPrefix = "comment "
 )
 
-// Result is a migration's output: the v2 notation and the report over it.
+// Result is a migration's output: the v2 notation, the report over it, and
+// the result snapshots of its run configurations.
 type Result struct {
 	Notation []byte
 	Report   *Report
+	Results  *Results
 }
 
 // Migrate reads a SysML v1 model as UML XMI, or a zip archive (such as a
@@ -40,6 +42,7 @@ func FromModel(name string, model *xmi.Model) *Result {
 	m := &migration{
 		model:     model,
 		report:    &Report{Source: name, Exporter: model.Exporter},
+		results:   &Results{Source: name, Configurations: []ConfigurationResults{}},
 		w:         &writer{},
 		names:     map[*xmi.Element]string{},
 		extras:    map[*xmi.Element][]func(){},
@@ -65,7 +68,7 @@ func FromModel(name string, model *xmi.Model) *Result {
 	m.flushFlows()
 	m.unwrittenEvents()
 	m.extensions()
-	return &Result{Notation: []byte(m.w.String()), Report: m.report}
+	return &Result{Notation: []byte(m.w.String()), Report: m.report, Results: m.results}
 }
 
 // unwrittenEvents reports the events whose triggers were never written: those
@@ -117,7 +120,9 @@ func (m *migration) extensions() {
 type migration struct {
 	model  *xmi.Model
 	report *Report
-	w      *writer
+	// results index the run configurations' result snapshots.
+	results *Results
+	w       *writer
 	// names holds the names synthesized for anonymous elements.
 	names map[*xmi.Element]string
 	// extras are members other elements contribute to a body: a Satisfy is

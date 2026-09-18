@@ -303,7 +303,7 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
 		// The object sure fixes pA at 1.0, so its run holds and always takes a.
 		meta(t, s, "%instantiate sure")
 		wantVerdict(t, s.RunAction("Chooser::Choose", "sure"))
-		runs := s.RunRuns("Chooser::Choose", []string{"sure"}, 5, 1, nil)
+		runs := s.RunRuns("Chooser::Choose", []string{"sure"}, 5, seedOf(1), nil)
 		if lines := strings.Join(runs.Lines, "\n"); !runs.Holds() || !strings.Contains(lines, "5 run(s)") {
 			t.Errorf("Monte Carlo runs on the object sure = %s:\n%s", runs.Status, lines)
 		}
