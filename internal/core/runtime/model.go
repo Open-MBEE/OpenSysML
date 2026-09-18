@@ -151,9 +151,11 @@ type ExpressionParser func(origin, text string) (ast.Node, bool)
 // to read with no ExpressionParser installed on its Model.
 var ErrNoExpressionParser = errors.New("no expression parser installed on the runtime model")
 
-// SetExpressionParser installs the parser the Model reads witness input values and tool units with.
+// SetExpressionParser installs the parser the Model reads witness input values and tool
+// units with; units the previous parser read are forgotten, so every lookup goes through it.
 func (m *Model) SetExpressionParser(parse ExpressionParser) {
 	m.parse = parse
+	clear(m.toolUnits)
 }
 
 // parseOneExpression reads text as exactly one expression with the installed parser; ok is

@@ -82,4 +82,18 @@ func TestRuntimeWithoutExpressionParserRefusesText(t *testing.T) {
 			t.Fatalf("UnitOf = %v, want ErrNoExpressionParser", err)
 		}
 	})
+	t.Run("replaced parser forgets the units the previous one read", func(t *testing.T) {
+		idx, _, parsing := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, toolModel))
+		pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+		if !ok || pkg.Scope == nil {
+			t.Fatal("test package not indexed")
+		}
+		if _, err := parsing.UnitOf(pkg.Scope, "m/s**2"); err != nil {
+			t.Fatalf("UnitOf with the parser installed: %v", err)
+		}
+		parsing.Model().SetExpressionParser(nil)
+		if _, err := parsing.UnitOf(pkg.Scope, "m/s**2"); !errors.Is(err, ErrNoExpressionParser) {
+			t.Fatalf("UnitOf after removing the parser = %v, want ErrNoExpressionParser", err)
+		}
+	})
 }
