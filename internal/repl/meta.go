@@ -17,6 +17,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -1077,7 +1078,7 @@ func mismatchInExpr(expr string, operand *runtime.OperandTypeError, base int) bo
 // literals alone and nothing a session declares.
 func emptyRuntime(budgets runtime.Budgets) (*runtime.Context, error) {
 	resolver := resolve.New(libs.NewModelIndex())
-	ctx := runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), budgets.MaxSteps)
+	ctx := runtime.NewContext(runtime.NewModel(passes.NewTypedModel(resolver), resolver), budgets.MaxSteps)
 	if err := ctx.SetBudgets(budgets); err != nil {
 		return nil, err
 	}

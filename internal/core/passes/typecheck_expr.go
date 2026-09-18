@@ -917,10 +917,10 @@ func (ec *exprChecker) inferInvocation(scope *symbols.Scope, e *ast.InvocationEx
 // inferNodeInvocation is inferInvocation for an invocation performed by node (nil for a bare
 // call).
 func (ec *exprChecker) inferNodeInvocation(scope *symbols.Scope, e *ast.InvocationExpr, node *symbols.Symbol) semantics.PrimType {
-	args := InvocationArgs(e)
+	args := semantics.InvocationArgs(e)
 	// Typed once, for selecting the overload, so nested errors report once.
 	argTypes := ec.argumentTypes(scope, e)
-	if chain := ChainCallee(e); chain != nil {
+	if chain := semantics.ChainCallee(e); chain != nil {
 		return ec.inferChainInvocation(scope, e, chain, args, node)
 	}
 	if e.Type == nil {
@@ -1268,7 +1268,7 @@ func (ec *exprChecker) checkNamedArguments(scope *symbols.Scope, call invocation
 	e, sym, args, params := call.e, call.sym, call.args, call.params
 	// A receiver binds by position, which named arguments leave unstated; runtime/eval.go
 	// reports the same call.
-	if e.Operand != nil && ChainCallee(e) == nil {
+	if e.Operand != nil && semantics.ChainCallee(e) == nil {
 		report(e.Span(), "%s cannot be called with a receiver and named arguments", sym.Name)
 		return
 	}

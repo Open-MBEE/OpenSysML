@@ -638,7 +638,7 @@ func (ec *exprChecker) invocationResultParameter(scope *symbols.Scope, value ast
 		return nil
 	}
 	var sym *symbols.Symbol
-	if chain := ChainCallee(inv); chain != nil {
+	if chain := semantics.ChainCallee(inv); chain != nil {
 		sym, _ = ec.resolver.ResolveTarget(scope, chain)
 	} else if inv.Type != nil {
 		// The arguments type silently, but under the chains being typed: one whose

@@ -58,7 +58,7 @@ func parseLibraryModel(t *testing.T, text string) *exploreModel {
 }
 
 func (m *exploreModel) fresh() (*Context, error) {
-	return NewContext(NewModel(m.model, m.resolver), 10000), nil
+	return NewContext(typedModel(m.model, m.resolver), 10000), nil
 }
 
 func (m *exploreModel) action(t *testing.T, name string) *symbols.Symbol {
@@ -1058,7 +1058,7 @@ func TestExploreDueOrder(t *testing.T) {
 	for i, name := range names {
 		syms[i] = namedOrFoundSymbol(t, idx, "test::"+name, root, ast.DefState, ast.UsageState)
 	}
-	fresh := func() (*Context, error) { return NewContext(NewModel(model, resolver), 10000), nil }
+	fresh := func() (*Context, error) { return NewContext(typedModel(model, resolver), 10000), nil }
 	run := func(ctx *Context) (Outcome, error) {
 		execs := make([]*StateExecutor, len(syms))
 		for i, sym := range syms {
@@ -1131,7 +1131,7 @@ func TestExplorePausedBodyDueIsAMove(t *testing.T) {
 	idx, model, _ := buildRuntimeWithLibraries(t, path, parseAndBuild(t, string(text)))
 	resolver := resolve.New(idx)
 	sym := namedOrFoundSymbol(t, idx, "test::wake", idx.DocumentRoot(path), ast.DefAction, ast.UsageAction)
-	fresh := func() (*Context, error) { return NewContext(NewModel(model, resolver), 10000), nil }
+	fresh := func() (*Context, error) { return NewContext(typedModel(model, resolver), 10000), nil }
 	run := func(ctx *Context) (Outcome, error) {
 		outputs, err := ctx.ExecuteAction(sym)
 		if err != nil {

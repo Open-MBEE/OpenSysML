@@ -4,7 +4,7 @@
 // # Usage Example
 //
 //	// Create the model-derived part once, then a runtime context over it
-//	model := runtime.NewModel(semantics.NewModel(resolver), resolver)
+//	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
 //	ctx := runtime.NewContext(model, runtime.DefaultMaxSteps)
 //
 //	// Instantiate a part

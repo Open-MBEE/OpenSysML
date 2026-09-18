@@ -10,6 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -38,7 +39,7 @@ func loadRenderFixture(t *testing.T, path string) renderFixture {
 	index.AddDocument(filepath.Base(path), root)
 	index.ExpandWildcardImports()
 	resolver := resolve.New(index)
-	return renderFixture{index: index, model: semantics.NewModel(resolver), resolver: resolver}
+	return renderFixture{index: index, model: passes.NewTypedModel(resolver), resolver: resolver}
 }
 
 func (f renderFixture) symbol(t *testing.T, name string) *symbols.Symbol {

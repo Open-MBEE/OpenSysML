@@ -5,7 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -216,12 +216,12 @@ func (ctx *Context) bodyReferences(scope *symbols.Scope, body *ast.BodyExpr, ope
 // written in the model; none for a call that denotes nothing or computes no result.
 func (ctx *Context) returnedArguments(scope *symbols.Scope, call *ast.InvocationExpr) []ast.Node {
 	var target *invocationTarget
-	if chain := passes.ChainCallee(call); chain != nil {
+	if chain := semantics.ChainCallee(call); chain != nil {
 		target = ctx.chainTarget(scope, chain, call.NamedArgs)
 	} else {
 		target = NewEvalContext(ctx, scope).invocationTarget(call)
 	}
-	positional := passes.InvocationArgs(call)
+	positional := semantics.InvocationArgs(call)
 	var args []ast.Node
 	switch {
 	case target.shape != nil:

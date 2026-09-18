@@ -1101,16 +1101,22 @@ func (e *EvalContext) buildMessage(scope *symbols.Scope, send lower.Send) (Messa
 
 	// `send shutDown() to self` sends the invoked behavioral feature carrying its
 	// arguments, never calling it; a calculation is called and its value sent.
-	if invocation, ok := send.Message.(*ast.InvocationExpr); ok && !e.invokesCalc(scope, invocation) {
-		msg, err := e.buildInvokedMessage(scope, invocation, target)
+	if invocation, ok := send.Message.(*ast.InvocationExpr); ok {
+		calls, err := e.invokesCalc(scope, invocation)
 		if err != nil {
 			return Message{}, err
 		}
-		msg.Event, msg.EventName = e.sentFeature(scope, invocation.Type)
-		if isBehaviorSymbol(msg.Event) {
-			msg.EventObject = objectID(e.self)
+		if !calls {
+			msg, err := e.buildInvokedMessage(scope, invocation, target)
+			if err != nil {
+				return Message{}, err
+			}
+			msg.Event, msg.EventName = e.sentFeature(scope, invocation.Type)
+			if isBehaviorSymbol(msg.Event) {
+				msg.EventObject = objectID(e.self)
+			}
+			return msg, nil
 		}
-		return msg, nil
 	}
 
 	value, err := e.Eval(send.Message)
@@ -1230,18 +1236,21 @@ func (ctx *Context) materializeMessage(msg Message) (Value, error) {
 
 // invokesCalc reports whether an invocation calls a calculation — the declaration
 // evaluating it would select — rather than naming a signal to send.
-func (e *EvalContext) invokesCalc(scope *symbols.Scope, invocation *ast.InvocationExpr) bool {
+func (e *EvalContext) invokesCalc(scope *symbols.Scope, invocation *ast.InvocationExpr) (bool, error) {
 	if invocation.Type == nil {
-		return false
+		return false, nil
 	}
 	if e.ctx == nil || e.ctx.model.resolver == nil || e.ctx.model.semantics == nil || scope == nil {
-		return false
+		return false, nil
 	}
-	sel := e.ctx.selectInvocation(scope, invocation, semantics.PerformsBehavior)
+	sel, err := e.ctx.selectInvocation(scope, invocation, semantics.PerformsBehavior)
+	if err != nil {
+		return false, err
+	}
 	if sel.Ambiguous {
-		return true
+		return true, nil
 	}
-	return e.ctx.model.semantics.Evaluates(sel.Called())
+	return e.ctx.model.semantics.Evaluates(sel.Called()), nil
 }
 
 // buildInvokedMessage builds the message of `send shutDown(7) to self`: the

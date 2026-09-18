@@ -550,9 +550,8 @@ func (w *Workspace) semanticsLocked() (*resolve.Resolver, *semantics.Model) {
 // the library alone, an edit's temporary index, or a read mid-way through an edit.
 func (w *Workspace) resolverOver(idx *symbols.Index) (*resolve.Resolver, *semantics.Model) {
 	resolver := resolve.New(idx)
-	sem := semantics.NewModel(resolver)
+	sem := passes.NewTypedModel(resolver)
 	resolver.SetModel(sem)
-	sem.SetArgumentTyper(passes.NewArgumentTyper(resolver, sem))
 	sem.SetSourceText(w.sourceText())
 	return resolver, sem
 }

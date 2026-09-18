@@ -50,9 +50,8 @@ func (sc *SymbolContext) Lock() func() {
 // NewSymbolContext builds a conversion context over a symbol index.
 func NewSymbolContext(idx *symbols.Index) *SymbolContext {
 	resolver := resolve.New(idx)
-	sem := semantics.NewModel(resolver)
+	sem := passes.NewTypedModel(resolver)
 	resolver.SetModel(sem)
-	sem.SetArgumentTyper(passes.NewArgumentTyper(resolver, sem))
 	return &SymbolContext{Index: idx, Resolver: resolver, Semantics: sem}
 }
 

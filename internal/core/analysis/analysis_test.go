@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -90,7 +91,7 @@ func parseModel(t *testing.T, model string) *fixture {
 	if !ok || pkg.Scope == nil {
 		t.Fatal("test package not indexed")
 	}
-	return &fixture{idx: idx, model: semantics.NewModel(resolver), resolver: resolver, pkg: pkg.Scope, source: sf}
+	return &fixture{idx: idx, model: passes.NewTypedModel(resolver), resolver: resolver, pkg: pkg.Scope, source: sf}
 }
 
 // fixtureSteps is the step limit every runtime over the fixture is built with.
@@ -100,7 +101,7 @@ const fixtureSteps = 10000
 // the fixture's source as a surface registers the files it read.
 func (f *fixture) semantics() (*runtime.Model, error) {
 	resolver := resolve.New(f.idx)
-	model := runtime.NewModel(semantics.NewModel(resolver), resolver)
+	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
 	model.RegisterSource(f.source)
 	return model, nil
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -129,7 +130,7 @@ func build(em *Emitted, budgets runtime.Budgets) (*symbols.Symbol, func(int) (*r
 		model, ok := models[job]
 		if !ok {
 			resolver := resolve.New(idx)
-			sem := semantics.NewModel(resolver)
+			sem := passes.NewTypedModel(resolver)
 			sem.SetSourceText(text)
 			model = runtime.NewModel(sem, resolver)
 			models[job] = model

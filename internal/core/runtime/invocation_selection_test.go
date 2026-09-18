@@ -60,6 +60,41 @@ func TestInvocationSelectionRobustness(t *testing.T) {
 	t.Run("action_call_argument_cannot_name_a_feature_out_of_scope", testActionCallArgumentCannotNameAFeatureOutOfScope)
 }
 
+// A model handed to the runtime without the checker's argument typing cannot
+// reach overload selection: the call fails with ErrNoArgumentTyper instead of
+// selecting on weaker, untyped arguments.
+func TestInvocationSelectionRequiresArgumentTyper(t *testing.T) {
+	src := `
+		package A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
+		package B { private import ScalarValues::*; calc def pick { in x : String; return : Integer = 2; } }
+		package test {
+			private import ScalarValues::*;
+			private import A::*;
+			private import B::*;
+			calc chooseInt { in v : Integer; pick(v) }
+		}
+	`
+	idx := libs.NewModelIndex()
+	idx.AddDocument("<test>", parseAndBuild(t, src))
+	idx.ExpandWildcardImports()
+	resolver := resolve.New(idx)
+	sem := semantics.NewModel(resolver)
+	if sem.HasArgumentTyper() {
+		t.Fatal("a fresh semantic model must not carry an argument typer")
+	}
+	ctx := NewContext(NewModel(sem, resolver), 10000)
+	rootScope := idx.DocumentRoot("<test>")
+	sym := findSymbolByName(rootScope, "chooseInt", ast.DefCalc)
+	if sym == nil {
+		t.Fatal("chooseInt calc not found")
+	}
+	arg := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 3}}
+	_, err := ctx.InvokeCalc(sym, []Value{arg}, rootScope)
+	if !errors.Is(err, ErrNoArgumentTyper) {
+		t.Fatalf("InvokeCalc error = %v, want ErrNoArgumentTyper", err)
+	}
+}
+
 // overloadedActionsSrc declares two imported same-named actions, told apart
 // by the type of their one input.
 const overloadedActionsSrc = `
@@ -1182,7 +1217,7 @@ func testBareCallSelectsAmongOtherDocumentsRootDeclarations(t *testing.T) {
 	`))
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
+	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
 	rootScope := idx.DocumentRoot("<test>")
 	for calc, want := range map[string]int64{"byInt": 1, "byString": 2, "byBool": 3} {
 		sym := findSymbolByName(rootScope, calc, ast.DefCalc)
@@ -1226,7 +1261,7 @@ func testBareCallReachesPrivateRootDeclarationsOfOtherDocuments(t *testing.T) {
 	`))
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
+	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
 	rootScope := idx.DocumentRoot("<test>")
 	for calc, want := range map[string]int64{"byInt": 1, "byString": 2, "byBool": 3} {
 		sym := findSymbolByName(rootScope, calc, ast.DefCalc)

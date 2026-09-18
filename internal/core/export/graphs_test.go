@@ -11,9 +11,9 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -135,7 +135,7 @@ func graphsModel(t *testing.T) (*runtime.Model, *symbols.Index) {
 	}
 	idx.AddDocument(path, file)
 	resolver := resolve.New(idx)
-	model := runtime.NewModel(semantics.NewModel(resolver), resolver)
+	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
 	model.RegisterSource(sf)
 	return model, idx
 }
@@ -450,7 +450,7 @@ func TestGraphsAreByteStable(t *testing.T) {
 			go func(j int) {
 				defer wg.Done()
 				resolver := resolve.New(idx)
-				m := runtime.NewModel(semantics.NewModel(resolver), resolver)
+				m := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
 				for _, sf := range model.Sources() {
 					m.RegisterSource(sf)
 				}
@@ -497,7 +497,7 @@ func TestSourcesOfListsEveryDocumentInOrder(t *testing.T) {
 	if _, err := SourcesOf(nil); !errors.Is(err, ErrNoSources) {
 		t.Errorf("SourcesOf(nil) = %v, want ErrNoSources", err)
 	}
-	if _, err := SourcesOf(runtime.NewModel(semantics.NewModel(nil), nil)); !errors.Is(err, ErrNoSources) {
+	if _, err := SourcesOf(runtime.NewModel(passes.NewTypedModel(nil), nil)); !errors.Is(err, ErrNoSources) {
 		t.Errorf("SourcesOf(empty) = %v, want ErrNoSources", err)
 	}
 }

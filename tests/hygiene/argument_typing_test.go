@@ -1,0 +1,172 @@
+package hygiene
+
+import (
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"os/exec"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"testing"
+)
+
+const (
+	runtimePkg = "github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	passesPkg  = "github.com/Open-MBEE/OpenSysML/internal/core/passes"
+)
+
+// Frontends whose runtime models the check must keep seeing; a restructuring
+// that hides one of these construction sites from the walk fails here.
+var runtimeModelFrontends = []string{
+	"internal/repl/session.go",
+	"internal/grpc/cache.go",
+	"internal/core/model/runtime.go",
+}
+
+// TestRuntimeModelsCarryArgumentTyping pins that every production site that
+// hands a semantic model to runtime.NewModel built it with passes.NewTypedModel,
+// so the runtime selects overloads with the checker's argument typing and its
+// missing-typer error stays unreachable from the shipped frontends.
+func TestRuntimeModelsCarryArgumentTyping(t *testing.T) {
+	cmd := exec.Command("go", "list", "-f", "{{.Dir}} {{join .GoFiles \" \"}}", "./...")
+	cmd.Dir = "../.."
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("go list: %v", err)
+	}
+	root, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fset := token.NewFileSet()
+	sites := map[string]bool{}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		fields := strings.Fields(line)
+		for _, name := range fields[1:] {
+			path := filepath.Join(fields[0], name)
+			file, err := parser.ParseFile(fset, path, nil, 0)
+			if err != nil {
+				t.Fatalf("parse %s: %v", path, err)
+			}
+			rel, _ := filepath.Rel(root, path)
+			rel = filepath.ToSlash(rel)
+			for _, site := range runtimeModelSites(file) {
+				sites[rel] = true
+				if !site.typed {
+					t.Errorf("%s: runtime.NewModel receives a semantic model not built by passes.NewTypedModel (%s)",
+						fset.Position(site.call.Pos()), site.reason)
+				}
+			}
+		}
+	}
+	for _, want := range runtimeModelFrontends {
+		if !sites[want] {
+			t.Errorf("%s: expected a runtime.NewModel construction site", want)
+		}
+	}
+	var seen []string
+	for s := range sites {
+		seen = append(seen, s)
+	}
+	sort.Strings(seen)
+	t.Logf("runtime.NewModel sites checked: %s", strings.Join(seen, ", "))
+}
+
+type runtimeModelSite struct {
+	call   *ast.CallExpr
+	typed  bool
+	reason string
+}
+
+// runtimeModelSites lists the runtime.NewModel calls in file and whether each
+// first argument is a passes.NewTypedModel call, directly or through a local
+// assigned from one and never reassigned within the enclosing declaration.
+func runtimeModelSites(file *ast.File) []runtimeModelSite {
+	runtimeName, passesName := "", ""
+	for _, imp := range file.Imports {
+		path, _ := strconv.Unquote(imp.Path.Value)
+		switch path {
+		case runtimePkg:
+			runtimeName = importName(imp, "runtime")
+		case passesPkg:
+			passesName = importName(imp, "passes")
+		}
+	}
+	if runtimeName == "" {
+		return nil
+	}
+	var sites []runtimeModelSite
+	for _, decl := range file.Decls {
+		ast.Inspect(decl, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok || !isSelectorCall(call, runtimeName, "NewModel") || len(call.Args) == 0 {
+				return true
+			}
+			site := runtimeModelSite{call: call}
+			switch arg := call.Args[0].(type) {
+			case *ast.CallExpr:
+				site.typed = passesName != "" && isSelectorCall(arg, passesName, "NewTypedModel")
+				if !site.typed {
+					site.reason = "argument is a call other than passes.NewTypedModel"
+				}
+			case *ast.Ident:
+				site.typed, site.reason = assignedFromTypedModel(decl, arg.Name, passesName)
+			default:
+				site.reason = "argument is neither a call nor a local"
+			}
+			sites = append(sites, site)
+			return true
+		})
+	}
+	return sites
+}
+
+func importName(imp *ast.ImportSpec, base string) string {
+	if imp.Name != nil {
+		return imp.Name.Name
+	}
+	return base
+}
+
+func isSelectorCall(call *ast.CallExpr, pkg, fn string) bool {
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok || sel.Sel.Name != fn {
+		return false
+	}
+	x, ok := sel.X.(*ast.Ident)
+	return ok && x.Name == pkg
+}
+
+// assignedFromTypedModel reports whether every assignment to name within decl
+// gives it a passes.NewTypedModel call, and that at least one such assignment exists.
+func assignedFromTypedModel(decl ast.Decl, name, passesName string) (bool, string) {
+	assigned, typed := 0, 0
+	ast.Inspect(decl, func(n ast.Node) bool {
+		as, ok := n.(*ast.AssignStmt)
+		if !ok {
+			return true
+		}
+		for i, lhs := range as.Lhs {
+			id, ok := lhs.(*ast.Ident)
+			if !ok || id.Name != name {
+				continue
+			}
+			assigned++
+			if i < len(as.Rhs) && len(as.Rhs) == len(as.Lhs) {
+				if call, ok := as.Rhs[i].(*ast.CallExpr); ok && passesName != "" && isSelectorCall(call, passesName, "NewTypedModel") {
+					typed++
+				}
+			}
+		}
+		return true
+	})
+	switch {
+	case assigned == 0:
+		return false, name + " is not assigned in the enclosing declaration"
+	case typed != assigned:
+		return false, name + " is assigned from something other than passes.NewTypedModel"
+	}
+	return true, ""
+}

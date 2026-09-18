@@ -17,9 +17,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -99,7 +99,7 @@ func corpusDocument(t *testing.T, name string, c corpusCase) (*document, *symbol
 	model := &analysis.Model{
 		Semantics: func() (*runtime.Model, error) {
 			resolver := resolve.New(idx)
-			m := runtime.NewModel(semantics.NewModel(resolver), resolver)
+			m := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
 			m.RegisterSource(sf)
 			return m, nil
 		},
