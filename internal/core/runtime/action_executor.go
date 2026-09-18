@@ -2716,9 +2716,9 @@ func (e *ActionExecutor) Results() map[string]Value {
 	return results
 }
 
-// collectPartsHeld adds the attributes held by the object each part or item usage
-// the action declares denotes, keyed `part.attribute`; one the run never denoted,
-// or that denotes several objects, is left out.
+// collectPartsHeld adds the attributes held by the object each part or item usage the
+// action declares denotes, keyed `part.attribute`. A usage denotes one object for the
+// context, which every activation reads; one never denoted, or of several, is left out.
 func (e *ActionExecutor) collectPartsHeld(into map[string]Value) {
 	if e.action == nil || e.action.Scope == nil {
 		return
