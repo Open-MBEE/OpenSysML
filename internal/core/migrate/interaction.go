@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -260,15 +261,16 @@ func (s *scenario) lifeline(line *xmi.Element) (lifelineRef, string) {
 }
 
 // partPaths lists the feature paths from classifier c to property p through the
-// parts, ports and references c and their types own or inherit, nearest first.
+// parts, ports and references c and their types own or inherit, nearest first; a
+// type is not re-entered along its own path, while sibling parts of one type each count.
 func (m *migration) partPaths(c, p *xmi.Element) []string {
 	var paths []string
 	type node struct {
-		c    *xmi.Element
-		path []string
+		c     *xmi.Element
+		path  []string
+		along []*xmi.Element
 	}
-	queue := []node{{c: c}}
-	seen := map[*xmi.Element]bool{c: true}
+	queue := []node{{c: c, along: []*xmi.Element{c}}}
 	for len(queue) > 0 && len(paths) < 2 {
 		n := queue[0]
 		queue = queue[1:]
@@ -282,11 +284,10 @@ func (m *migration) partPaths(c, p *xmi.Element) []string {
 				continue
 			}
 			t := m.model.Ref(f, "type")
-			if t == nil || seen[t] || !isBlockLike(t) {
+			if t == nil || slices.Contains(n.along, t) || !isBlockLike(t) {
 				continue
 			}
-			seen[t] = true
-			queue = append(queue, node{c: t, path: path})
+			queue = append(queue, node{c: t, path: path, along: append(append([]*xmi.Element{}, n.along...), t)})
 		}
 	}
 	return paths
@@ -557,7 +558,7 @@ func (s *scenario) bindArguments(msg *xmi.Element, targets []*xmi.Element, what 
 		}
 		expr, ok, vnote := s.m.typedBehaviorValue(arg, t, s.e)
 		if !ok {
-			if required && firstOwned(t, "defaultValue") == nil {
+			if required && requiresValue(t) {
 				return "", "unbound: leaves the parameter " + s.m.nameOf(t) + " unbound: the argument " + describeValue(arg) + " is not written: " + vnote
 			}
 			note = joinNotes(note, "the argument "+describeValue(arg)+" for "+s.m.nameOf(t)+" is dropped: "+vnote)
@@ -569,8 +570,8 @@ func (s *scenario) bindArguments(msg *xmi.Element, targets []*xmi.Element, what 
 	}
 	if required {
 		for _, t := range targets {
-			if !bound[t] && firstOwned(t, "defaultValue") == nil {
-				return "", "unbound: binds no argument to the parameter " + s.m.nameOf(t) + ", which has no default"
+			if !bound[t] && requiresValue(t) {
+				return "", "unbound: binds no argument to the parameter " + s.m.nameOf(t) + ", which must hold a value"
 			}
 		}
 	}

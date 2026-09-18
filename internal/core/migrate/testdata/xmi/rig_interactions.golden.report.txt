@@ -1,12 +1,13 @@
 # SysML v1 to v2 migration report: rig_interactions.xmi
-# migrated 82 element(s): 71 mapped, 6 approximated, 5 unmapped (1 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 87 element(s): 75 mapped, 6 approximated, 6 unmapped (1 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## unmapped (5)
+## unmapped (6)
 Interaction	Rig::Astray	_astray	(the lifeline 'o' stands for 'motor' of Other, which no part of Rig reaches)
 Interaction	Rig::Spinup at 12.01	_trace	(the interaction has no message: it records 2 state invariant(s) under 2 time constraint(s), a timing trace, which no scenario step performs)
 MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sNew	(the occurrence belongs to the message 'new', which is not written)
 MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rNew	(the occurrence belongs to the message 'new', which is not written)
 Message	Rig::Spinup::new	_mNew	(the message creates this.drive.motor, a part that exists for as long as its owner does; the steps after it address it as it is)
+Interaction	Twin::Twinned	_twinned	(the lifeline 'm' stands for 'motor', which Twin reaches as both left.motor and right.motor)
 
 ## approximated (6)
 Parameter	Motor::Spin::result	_spRes	-> Motor::Spin::result	(the return parameter is written as an out parameter)
@@ -16,7 +17,7 @@ Interaction	Rig::Spinup	_spinup	-> Rig::Spinup	(written as a scenario of 8 steps
 Message	Rig::Spinup::brake	_mBrake	-> brake	(written as a call of Brake on this.drive.motor; the asynchronous call is performed to completion before the next step: an action performs what it calls)
 Message	Rig::Spinup::spun	_mRet	-> spun	(written as the assignment of the call spin's results to this.ctrl; the value 30.0 the reply states for result is the operation's own result, which the call computes)
 
-## mapped (71)
+## mapped (75)
 «Block» Class	Controller	_ctrl	-> Controller
 Property	Controller::got	_got	-> Controller::got
 Signal	Done	_done	-> Done
@@ -28,6 +29,7 @@ Model	Model	_m	(the root model's members are written at the top level)
 «Block» Class	Motor	_motor	-> Motor
 Operation	Motor::Brake	_brake	-> Motor::Brake	(its owner's usage brake performs it, as a call on an object does)
 Parameter	Motor::Brake::force	_brForce	-> Motor::Brake::force
+Parameter	Motor::Brake::hold	_brHold	-> Motor::Brake::hold
 Operation	Motor::Spin	_spin	-> Motor::Spin	(its owner's usage spin performs it, as a call on an object does)
 Parameter	Motor::Spin::rpm	_spRpm	-> Motor::Spin::rpm
 Parameter	Motor::Spin::times	_spTimes	-> Motor::Spin::times
@@ -88,6 +90,9 @@ Message	Rig::Spinup::spin	_mSpin	-> spin	(written as a call of Spin on this.driv
 Property	Rig::ctrl	_rCtrl	-> Rig::ctrl
 Property	Rig::drive	_rDrive	-> Rig::drive
 Property	Rig::mode	_mode	-> Rig::mode
+«Block» Class	Twin	_twin	-> Twin
+Property	Twin::left	_tLeft	-> Twin::left
+Property	Twin::right	_tRight	-> Twin::right
 
 ## skipped (1)
 BehaviorExecutionSpecification	Rig::Spinup::<BehaviorExecutionSpecification>	_exec	(the execution spans the steps between its occurrences, which run in order without it)

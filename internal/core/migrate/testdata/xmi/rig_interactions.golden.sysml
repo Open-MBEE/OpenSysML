@@ -23,6 +23,7 @@ part def Motor {
     action spin : Spin;
     abstract action def Brake {
         in force : ScalarValues::Real;
+        in hold : ScalarValues::Integer[0..1];
     }
     action brake : Brake;
 }
@@ -34,6 +35,11 @@ part def Controller {
 }
 part def Other {
     part motor : Motor;
+}
+part def Twin {
+    part left : Drive;
+    part right : Drive;
+    /* not migrated: Interaction 'Twinned' — the lifeline 'm' stands for 'motor', which Twin reaches as both left.motor and right.motor */
 }
 part def Rig {
     part ctrl : Controller;

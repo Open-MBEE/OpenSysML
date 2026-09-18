@@ -333,13 +333,16 @@ region, or a terminate pseudostate, is written to `done`.
 **Interactions.** An interaction owned by a block is a scenario: an `action def` of the block
 whose steps are the messages in the order their occurrences take on the lifelines. Each
 lifeline is resolved to a feature path from the block through its parts, ports and references
-and their types — `drive.motor` — or to an `in` parameter of the interaction, and a lifeline
-that resolves to nothing, to two paths, to an `out` parameter or through a `selector` refuses
-the whole interaction, since the scenario could not address its steps. A signal message is
+and their types — `drive.motor` — or to an `in` parameter of the interaction (two parts of one
+type are two paths, `left.motor` and `right.motor`, so a lifeline standing for their shared
+`motor` is ambiguous), and a lifeline that resolves to nothing, to two paths, to an `out`
+parameter or through a `selector` refuses the whole interaction, since the scenario could not
+address its steps. A signal message is
 `send new Sig(n = 3) to this.drive.motor;`; a call message is a typed perform of the
 operation's usage on the object, `perform action spin : Motor::Spin ::> drive.motor.spin
 { in rpm = 30.0; }`, its arguments bound to the operation's `in` parameters by name or by
-position; a reply assigns the call's `out` to the attribute of the caller's lifeline the reply
+position, and a call that leaves a required parameter (no default, lower bound above zero)
+unbound refuses the interaction; a reply assigns the call's `out` to the attribute of the caller's lifeline the reply
 names. Combined fragments become the corresponding action structure when their guards are v2
 expressions whose names resolve — `if`/`else` for `alt` and `opt`, `for`/`while` for `loop`,
 `fork`/`join` for `par` — and refuse the interaction, quoting the guard, when they are not.

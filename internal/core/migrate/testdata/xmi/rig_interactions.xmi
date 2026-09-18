@@ -31,6 +31,11 @@
         <ownedParameter xmi:type="uml:Parameter" xmi:id="_brForce" name="force" direction="in">
           <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
         </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_brHold" name="hold" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_brHoldL" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_brHoldU" value="1"/>
+        </ownedParameter>
       </ownedOperation>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_spinning" name="Spinning" specification="_spin">
         <ownedParameter xmi:type="uml:Parameter" xmi:id="_spRpm2" name="rpm" direction="in">
@@ -66,6 +71,15 @@
     </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_other" name="Other">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_oMotor" name="motor" type="_motor" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_twin" name="Twin">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_tLeft" name="left" type="_drive" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_tRight" name="right" type="_drive" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_twinned" name="Twinned">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_ltm" name="m" represents="_dMotor"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_sTGo" covered="_ltm" message="_mTGo"/>
+        <message xmi:type="uml:Message" xmi:id="_mTGo" name="go" messageSort="asynchSignal" signature="_go" receiveEvent="_sTGo"/>
+      </ownedBehavior>
     </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_rCtrl" name="ctrl" type="_ctrl" aggregation="composite"/>
@@ -177,5 +191,6 @@
   <sysml:Block xmi:id="_s3" base_Class="_ctrl"/>
   <sysml:Block xmi:id="_s4" base_Class="_other"/>
   <sysml:Block xmi:id="_s5" base_Class="_rig"/>
+  <sysml:Block xmi:id="_s7" base_Class="_twin"/>
   <sysml:TestCase xmi:id="_s6" base_Behavior="_tc"/>
 </xmi:XMI>

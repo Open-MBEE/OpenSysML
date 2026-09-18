@@ -7,7 +7,9 @@
   resolved to the feature path through the block's parts, ports and references or to an `in`
   parameter, and `alt`/`opt`/`loop`/`par` fragments are `if`/`for`/`while`/`fork` structures
   when their guards parse and resolve. A lifeline or guard that does not resolve, a create or
-  delete message and a message-less timing trace are refused with the reason. A Reception is
+  delete message and a message-less timing trace are refused with the reason, as is a call
+  leaving an `in` parameter with no default and a lower bound above zero unbound; two parts of
+  one type are two paths, so a lifeline standing for a part of that type is ambiguous. A Reception is
   an `action def` of the block that accepts its signal and runs its method with the signal's
   attributes bound to the method's parameters of the same name, so a signal sent to the object
   runs the method against the object. State machines gain transitions across regions and

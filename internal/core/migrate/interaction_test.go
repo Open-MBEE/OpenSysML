@@ -45,6 +45,7 @@ func TestInteractionCallsRepliesAndFragments(t *testing.T) {
 		"first parEnd then opt;",
 		"first opt then done;",
 		"/* not migrated: Interaction 'Astray' — the lifeline 'o' stands for 'motor' of Other, which no part of Rig reaches */",
+		"/* not migrated: Interaction 'Twinned' — the lifeline 'm' stands for 'motor', which Twin reaches as both left.motor and right.motor */",
 		"verification def 'Spinup Test' {",
 		"subject context : Rig;",
 		"perform action spin : Motor::Spin ::> context.drive.motor.spin { in rpm = 12.0; }",
@@ -59,12 +60,13 @@ func TestInteractionCallsRepliesAndFragments(t *testing.T) {
 	wantNote(t, r, "_alt", migrate.Mapped, "written as the action alt, an if over the operands")
 	wantNote(t, r, "_altFast", migrate.Mapped, "its guard is the condition [this.mode == 1]")
 	wantNote(t, r, "_altElseG", migrate.Mapped, "the guard is the operand's condition")
-	wantNote(t, r, "_mBrake", migrate.Approximated, "the asynchronous call is performed to completion before the next step")
+	wantNote(t, r, "_mBrake", migrate.Approximated, "written as a call of Brake on this.drive.motor; the asynchronous call is performed to completion before the next step")
 	wantNote(t, r, "_loop", migrate.Mapped, "written as the action 'loop', a for over the operands")
 	wantNote(t, r, "_par", migrate.Mapped, "written as the action par, a fork over the operands")
 	wantNote(t, r, "_mNew", migrate.Unmapped, "the message creates this.drive.motor, a part that exists for as long as its owner does")
 	wantNote(t, r, "_sNew", migrate.Unmapped, "the occurrence belongs to the message 'new', which is not written")
 	wantNote(t, r, "_astray", migrate.Unmapped, "the lifeline 'o' stands for 'motor' of Other, which no part of Rig reaches")
+	wantNote(t, r, "_twinned", migrate.Unmapped, "the lifeline 'm' stands for 'motor', which Twin reaches as both left.motor and right.motor")
 	wantNote(t, r, "_tc", migrate.Approximated, "written as a scenario of 1 step")
 	wantNote(t, r, "_trace", migrate.Unmapped, "the interaction has no message: it records 2 state invariant(s) under 2 time constraint(s), a timing trace, which no scenario step performs")
 
