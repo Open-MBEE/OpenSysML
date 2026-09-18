@@ -1,6 +1,4 @@
-// Package fsutil holds the file-system operations more than one package
-// spells alike.
-package fsutil
+package source
 
 import (
 	"errors"
@@ -9,12 +7,12 @@ import (
 	"syscall"
 )
 
-// Replace renames source over target, atomically where the platform allows.
+// ReplaceFile renames source over target, atomically where the platform allows.
 // Where the platform refuses a rename over what is at target, it retries
 // after removing that; any other failure — the source missing, another
 // device — leaves the target as it was. A target that is a link is replaced,
 // never followed.
-func Replace(source, target string) error {
+func ReplaceFile(source, target string) error {
 	err := os.Rename(source, target)
 	if err == nil || !targetInTheWay(err) {
 		return err

@@ -1,4 +1,4 @@
-package fsutil
+package source
 
 import (
 	"os"
@@ -27,7 +27,7 @@ func TestReplaceOverExistingFile(t *testing.T) {
 	source, target := filepath.Join(dir, "new"), filepath.Join(dir, "old")
 	writeFile(t, source, "new\n")
 	writeFile(t, target, "old\n")
-	if err := Replace(source, target); err != nil {
+	if err := ReplaceFile(source, target); err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, target); got != "new\n" {
@@ -48,7 +48,7 @@ func TestReplaceRetriesAfterRemovingTarget(t *testing.T) {
 	if err := os.Mkdir(target, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := Replace(source, target); err != nil {
+	if err := ReplaceFile(source, target); err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, target); got != "new\n" {
@@ -64,7 +64,7 @@ func TestReplaceKeepsTargetWhenItCannotBeRemoved(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(target, "kept"), "kept\n")
-	if err := Replace(source, target); err == nil {
+	if err := ReplaceFile(source, target); err == nil {
 		t.Fatal("replaced a directory that cannot be removed")
 	}
 	if got := readFile(t, filepath.Join(target, "kept")); got != "kept\n" {
@@ -85,7 +85,7 @@ func TestReplaceDirectoryOverFile(t *testing.T) {
 	}
 	writeFile(t, filepath.Join(source, "inside"), "inside\n")
 	writeFile(t, target, "old\n")
-	if err := Replace(source, target); err != nil {
+	if err := ReplaceFile(source, target); err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, filepath.Join(target, "inside")); got != "inside\n" {
@@ -102,7 +102,7 @@ func TestReplaceKeepsTargetWhenSourceIsMissing(t *testing.T) {
 	dir := t.TempDir()
 	source, target := filepath.Join(dir, "missing"), filepath.Join(dir, "old")
 	writeFile(t, target, "old\n")
-	if err := Replace(source, target); !os.IsNotExist(err) {
+	if err := ReplaceFile(source, target); !os.IsNotExist(err) {
 		t.Fatalf("Replace of a missing source: %v, want its absence reported", err)
 	}
 	if got := readFile(t, target); got != "old\n" {
@@ -118,7 +118,7 @@ func TestReplaceReplacesLinkNotItsTarget(t *testing.T) {
 	if err := os.Symlink(elsewhere, target); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
-	if err := Replace(source, target); err != nil {
+	if err := ReplaceFile(source, target); err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, elsewhere); got != "elsewhere\n" {
