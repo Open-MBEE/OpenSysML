@@ -107,6 +107,7 @@ var packageLayer = map[string]string{
 	"api/proto":              "frontends",
 	"api/proto/protoconnect": "frontends",
 	"client/opensysml":       "frontends",
+	"internal/protoconv":     "frontends",
 	"internal/repl":          "frontends",
 	"internal/lsp":           "frontends",
 	"internal/grpc":          "frontends",
@@ -135,7 +136,9 @@ var tolerated = map[string][]string{
 
 // removed is the imports the layer table would permit that the layering took
 // out, importer → imported; reintroducing one fails.
-var removed = map[string][]string{}
+var removed = map[string][]string{
+	"internal/repl": {"internal/grpc"},
+}
 
 // TestPackageLayering checks the import graph against the layer tables: every
 // package has a layer, and the imports outside permitted are exactly the tolerated ones.

@@ -1,7 +1,6 @@
 package grpc
 
 import (
-	"strconv"
 	"sync"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -10,6 +9,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // fqnScalarQuantityValue is the library type every quantity value specializes.
@@ -137,20 +137,9 @@ func (sc *SymbolContext) multiplicityOf(sym *symbols.Symbol) *pb.MultiplicityInf
 		return nil
 	}
 	return &pb.MultiplicityInfo{
-		Lower: boundText(rng.Lower),
-		Upper: boundText(rng.Upper),
+		Lower: protoconv.BoundText(rng.Lower),
+		Upper: protoconv.BoundText(rng.Upper),
 	}
-}
-
-// boundText renders a multiplicity bound; an unevaluable one renders empty.
-func boundText(b semantics.Bound) string {
-	if !b.Known {
-		return ""
-	}
-	if b.Infinite {
-		return "*"
-	}
-	return strconv.FormatInt(b.Value, 10)
 }
 
 // typeInfoOf derives the static type facts of a def or usage. Anything the

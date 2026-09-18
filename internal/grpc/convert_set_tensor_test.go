@@ -11,6 +11,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // setTensorWireModel yields a set and tensors of rank two and three as feature
@@ -108,7 +109,7 @@ func TestSetRoundTrip(t *testing.T) {
 				t.Errorf("%s elements on the wire in order %s, want %s", tc.expr, got, tc.want)
 			}
 
-			back, err := ProtoToValueIn(pv, idx, sem)
+			back, err := protoconv.ProtoToValueIn(pv, idx, sem)
 			if err != nil {
 				t.Fatalf("ProtoToValueIn: %v", err)
 			}
@@ -124,11 +125,11 @@ func TestSetRoundTrip(t *testing.T) {
 	// A client may send the elements in any order: the set read is the same.
 	written := setOf(intValue(3), intValue(1), intValue(2))
 	canonical := setOf(intValue(1), intValue(2), intValue(3))
-	a, err := ProtoToValueIn(written, idx, sem)
+	a, err := protoconv.ProtoToValueIn(written, idx, sem)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := ProtoToValueIn(canonical, idx, sem)
+	b, err := protoconv.ProtoToValueIn(canonical, idx, sem)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,23 +139,23 @@ func TestSetRoundTrip(t *testing.T) {
 
 	// The empty set, a set of sets and a set nested in a sequence read back as
 	// themselves, the nested sets deduplicated by set equality.
-	empty, err := ProtoToValueIn(setOf(), idx, sem)
+	empty, err := protoconv.ProtoToValueIn(setOf(), idx, sem)
 	if err != nil || empty.Kind != runtime.ValSet || empty.Set().Size() != 0 {
 		t.Errorf("empty set read back as %v, %v", empty, err)
 	}
 	nested := setOf(written, setOf())
-	back, err := ProtoToValueIn(nested, idx, sem)
+	back, err := protoconv.ProtoToValueIn(nested, idx, sem)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := runtime.FormatValue(back); got != "Set{Set{}, Set{1, 2, 3}}" {
 		t.Errorf("set of sets read back as %s", got)
 	}
-	if got := runtime.FormatValue(displayValue(ValueToProto(back, idx))); got != "Set{Set{}, Set{1, 2, 3}}" {
+	if got := runtime.FormatValue(displayValue(protoconv.ValueToProto(back, idx))); got != "Set{Set{}, Set{1, 2, 3}}" {
 		t.Errorf("set of sets crossed as %s", got)
 	}
 	seq := &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: []*pb.Value{written, intValue(4)}}}}
-	back, err = ProtoToValueIn(seq, idx, sem)
+	back, err = protoconv.ProtoToValueIn(seq, idx, sem)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,27 +178,27 @@ func TestMalformedSetsAreRejected(t *testing.T) {
 		val  *pb.Value
 		want error
 	}{
-		{"repeated integer", setOf(intValue(1), intValue(2), intValue(1)), ErrSetElementRepeated},
-		{"repeated string", setOf(stringValue("a"), stringValue("a")), ErrSetElementRepeated},
-		{"repeated nested set", setOf(setOf(intValue(1)), setOf(intValue(1))), ErrSetElementRepeated},
-		{"nested sets equal in another order", setOf(setOf(intValue(1), intValue(2)), setOf(intValue(2), intValue(1))), ErrSetElementRepeated},
-		{"Integer and the equal Real", setOf(intValue(1), realValue(1)), ErrSetElementRepeated},
-		{"null and the empty sequence", setOf(&pb.Value{Kind: &pb.Value_Null{}}, sequenceValue()), ErrSetElementRepeated},
-		{"empty set and the empty sequence", setOf(setOf(), sequenceValue()), ErrSetElementRepeated},
-		{"unset element", setOf(&pb.Value{Kind: &pb.Value_Unset{Unset: true}}), ErrUnsetNotAccepted},
-		{"malformed element", setOf(arrayValue([]int64{0})), ErrArrayDimensionNotPositive},
+		{"repeated integer", setOf(intValue(1), intValue(2), intValue(1)), protoconv.ErrSetElementRepeated},
+		{"repeated string", setOf(stringValue("a"), stringValue("a")), protoconv.ErrSetElementRepeated},
+		{"repeated nested set", setOf(setOf(intValue(1)), setOf(intValue(1))), protoconv.ErrSetElementRepeated},
+		{"nested sets equal in another order", setOf(setOf(intValue(1), intValue(2)), setOf(intValue(2), intValue(1))), protoconv.ErrSetElementRepeated},
+		{"Integer and the equal Real", setOf(intValue(1), realValue(1)), protoconv.ErrSetElementRepeated},
+		{"null and the empty sequence", setOf(&pb.Value{Kind: &pb.Value_Null{}}, sequenceValue()), protoconv.ErrSetElementRepeated},
+		{"empty set and the empty sequence", setOf(setOf(), sequenceValue()), protoconv.ErrSetElementRepeated},
+		{"unset element", setOf(&pb.Value{Kind: &pb.Value_Unset{Unset: true}}), protoconv.ErrUnsetNotAccepted},
+		{"malformed element", setOf(arrayValue([]int64{0})), protoconv.ErrArrayDimensionNotPositive},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := ProtoToValueIn(tc.val, idx, sem)
+			_, err := protoconv.ProtoToValueIn(tc.val, idx, sem)
 			if !errors.Is(err, tc.want) {
-				t.Fatalf("ProtoToValueIn = %v, want %v", err, tc.want)
+				t.Fatalf("protoconv.ProtoToValueIn = %v, want %v", err, tc.want)
 			}
 		})
 	}
 
 	// A set is not the sequence of its members: the two are distinct members of a set.
-	val, err := ProtoToValueIn(setOf(setOf(intValue(1), intValue(2)), sequenceValue(intValue(1), intValue(2)), sequenceValue(intValue(2), intValue(1))), idx, sem)
+	val, err := protoconv.ProtoToValueIn(setOf(setOf(intValue(1), intValue(2)), sequenceValue(intValue(1), intValue(2)), sequenceValue(intValue(2), intValue(1))), idx, sem)
 	if err != nil || val.Kind != runtime.ValSet || val.Set().Size() != 3 {
 		t.Fatalf("a set holding a set and the two sequences of its members = %s, %v, want three members", runtime.FormatValue(val), err)
 	}
@@ -220,7 +221,7 @@ func TestSetHoldingAMemberWithNoWireFormIsWithheldWhole(t *testing.T) {
 		t.Fatalf("two frames read from two objects make a set of %d", set.Size())
 	}
 	const want = "unsupported: set Set{spatialCF [], spatialCF []} holding coordinate frame spatialCF []"
-	if pv := ValueToProto(runtime.NewSetValue(set), nil); pv.GetNull() != want {
+	if pv := protoconv.ValueToProto(runtime.NewSetValue(set), nil); pv.GetNull() != want {
 		t.Errorf("set of two frames crossed as %v, want null %q", pv, want)
 	}
 	seq := runtime.NewSequence()
@@ -228,7 +229,7 @@ func TestSetHoldingAMemberWithNoWireFormIsWithheldWhole(t *testing.T) {
 		seq.Append(frame)
 	}
 	seq.Append(runtime.NewSetValue(set))
-	pv := ValueToProto(runtime.NewSequenceValue(seq), nil)
+	pv := protoconv.ValueToProto(runtime.NewSequenceValue(seq), nil)
 	elems := pv.GetSequence().GetElements()
 	if len(elems) != 3 || elems[0].GetNull() != "unsupported: coordinate frame spatialCF []" || elems[2].GetNull() != want {
 		t.Errorf("sequence of two frames and their set crossed as %v", pv)
@@ -239,13 +240,13 @@ func TestSetHoldingAMemberWithNoWireFormIsWithheldWhole(t *testing.T) {
 	mixed := runtime.NewSet()
 	mixed.Add(runtime.NewStringValue("a"))
 	mixed.Add(frames[0])
-	if pv := ValueToProto(runtime.NewSetValue(mixed), nil); pv.GetNull() != `unsupported: set Set{"a", spatialCF []} holding coordinate frame spatialCF []` {
+	if pv := protoconv.ValueToProto(runtime.NewSetValue(mixed), nil); pv.GetNull() != `unsupported: set Set{"a", spatialCF []} holding coordinate frame spatialCF []` {
 		t.Errorf("set of a string and a frame crossed as %v", pv)
 	}
 	outer := runtime.NewSet()
 	outer.Add(runtime.NewSetValue(mixed))
 	outer.Add(runtime.NewStringValue("b"))
-	if pv := ValueToProto(runtime.NewSetValue(outer), nil); !strings.HasPrefix(pv.GetNull(), `unsupported: set Set{"b", Set{"a", spatialCF []}} holding set `) {
+	if pv := protoconv.ValueToProto(runtime.NewSetValue(outer), nil); !strings.HasPrefix(pv.GetNull(), `unsupported: set Set{"b", Set{"a", spatialCF []}} holding set `) {
 		t.Errorf("set nesting the set crossed as %v", pv)
 	}
 }
@@ -336,7 +337,7 @@ func TestTensorQuantityRoundTrip(t *testing.T) {
 				t.Errorf("%s crossed as %s, want %s", tc.expr, got, tc.want)
 			}
 
-			back, err := ProtoToValueIn(pv, idx, sem)
+			back, err := protoconv.ProtoToValueIn(pv, idx, sem)
 			if err != nil {
 				t.Fatalf("ProtoToValueIn: %v", err)
 			}
@@ -357,21 +358,21 @@ func TestTensorQuantityRoundTrip(t *testing.T) {
 
 	// A tensor of rank one is its own kind, as it is in the runtime.
 	metre := mustEvaluateQuantity(t, srv, modelHash, "3 [SI::m]")
-	line, err := ProtoToValueIn(tensorQuantityValue([]int64{2}, metre, metre), idx, sem)
+	line, err := protoconv.ProtoToValueIn(tensorQuantityValue([]int64{2}, metre, metre), idx, sem)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if line.Kind != runtime.ValTensorQuantity || runtime.FormatValue(line) != "Tensor(2)[3, 3] [SI::m]" {
 		t.Errorf("rank-one tensor read back as %s %s", line.Kind, runtime.FormatValue(line))
 	}
-	if pv := ValueToProto(line, idx); pv.GetTensorQuantity() == nil {
+	if pv := protoconv.ValueToProto(line, idx); pv.GetTensorQuantity() == nil {
 		t.Errorf("rank-one tensor crossed as %T", pv.GetKind())
 	}
 
 	// A tensor with no magnitude in a component still has no wire form.
 	num := []semantics.Value{{Kind: semantics.ValInt, Int: 1}, {}}
 	units := []runtime.Unit{line.TensorQuantity().Units[0], line.TensorQuantity().Units[0]}
-	pv := ValueToProto(runtime.NewTensorQuantityValue([]int64{2}, num, units), idx)
+	pv := protoconv.ValueToProto(runtime.NewTensorQuantityValue([]int64{2}, num, units), idx)
 	if pv.GetNull() != "unsupported: tensor quantity with a non-numeric component" {
 		t.Errorf("tensor with a non-numeric component crossed as %v", pv)
 	}
@@ -382,7 +383,7 @@ func mustEvaluateTensor(t *testing.T, srv *Service, modelHash, expr string) *run
 	t.Helper()
 	cached, _ := srv.cache.Get(modelHash)
 	idx, sem := cached.Index, NewSymbolContext(cached.Index).Semantics
-	val, err := ProtoToValueIn(mustEvaluate(t, srv, modelHash, expr), idx, sem)
+	val, err := protoconv.ProtoToValueIn(mustEvaluate(t, srv, modelHash, expr), idx, sem)
 	if err != nil || val.Kind != runtime.ValTensorQuantity {
 		t.Fatalf("%s = %v, %v; want a tensor", expr, val, err)
 	}
@@ -404,20 +405,20 @@ func TestMalformedTensorQuantitiesAreRejected(t *testing.T) {
 		val  *pb.Value
 		want error
 	}{
-		{"too few components", tensorQuantityValue([]int64{2, 2, 2}, metre, metre, metre, metre, metre, metre, metre), ErrTensorShapeMismatch},
-		{"too many components", tensorQuantityValue([]int64{2, 2}, metre, metre, metre, metre, metre), ErrTensorShapeMismatch},
-		{"rank 0 without its component", tensorQuantityValue(nil), ErrTensorShapeMismatch},
-		{"zero dimension", tensorQuantityValue([]int64{0, 2}), ErrTensorDimensionNotPositive},
-		{"negative dimension", tensorQuantityValue([]int64{2, -1}), ErrTensorDimensionNotPositive},
-		{"overflowing shape", tensorQuantityValue([]int64{1 << 40, 1 << 40}, metre), ErrTensorShapeMismatch},
-		{"unreduced unit", tensorQuantityValue([]int64{1}, unreduced), ErrUnitNotReduced},
-		{"missing component", tensorQuantityValue([]int64{1}, nil), ErrTensorComponentMissing},
+		{"too few components", tensorQuantityValue([]int64{2, 2, 2}, metre, metre, metre, metre, metre, metre, metre), protoconv.ErrTensorShapeMismatch},
+		{"too many components", tensorQuantityValue([]int64{2, 2}, metre, metre, metre, metre, metre), protoconv.ErrTensorShapeMismatch},
+		{"rank 0 without its component", tensorQuantityValue(nil), protoconv.ErrTensorShapeMismatch},
+		{"zero dimension", tensorQuantityValue([]int64{0, 2}), protoconv.ErrTensorDimensionNotPositive},
+		{"negative dimension", tensorQuantityValue([]int64{2, -1}), protoconv.ErrTensorDimensionNotPositive},
+		{"overflowing shape", tensorQuantityValue([]int64{1 << 40, 1 << 40}, metre), protoconv.ErrTensorShapeMismatch},
+		{"unreduced unit", tensorQuantityValue([]int64{1}, unreduced), protoconv.ErrUnitNotReduced},
+		{"missing component", tensorQuantityValue([]int64{1}, nil), protoconv.ErrTensorComponentMissing},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := ProtoToValueIn(tc.val, idx, sem)
+			_, err := protoconv.ProtoToValueIn(tc.val, idx, sem)
 			if !errors.Is(err, tc.want) {
-				t.Fatalf("ProtoToValueIn = %v, want %v", err, tc.want)
+				t.Fatalf("protoconv.ProtoToValueIn = %v, want %v", err, tc.want)
 			}
 		})
 	}
@@ -478,8 +479,8 @@ func TestSetAndTensorCrossEveryValueSurface(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EvaluateCalc(repeated): %v", err)
 	}
-	if !strings.Contains(calc.Error, ErrSetElementRepeated.Error()) {
-		t.Errorf("EvaluateCalc(repeated) error = %q, want one naming %v", calc.Error, ErrSetElementRepeated)
+	if !strings.Contains(calc.Error, protoconv.ErrSetElementRepeated.Error()) {
+		t.Errorf("EvaluateCalc(repeated) error = %q, want one naming %v", calc.Error, protoconv.ErrSetElementRepeated)
 	}
 	calc, err = srv.EvaluateCalc(ctx, &pb.EvaluateCalcRequest{ModelHash: modelHash, SymbolId: "W::rank", Arguments: []*pb.Value{
 		tensorQuantityValue([]int64{2}, mustEvaluateQuantity(t, srv, modelHash, "3 [SI::m]")),
@@ -487,8 +488,8 @@ func TestSetAndTensorCrossEveryValueSurface(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EvaluateCalc(misshapen): %v", err)
 	}
-	if !strings.Contains(calc.Error, ErrTensorShapeMismatch.Error()) {
-		t.Errorf("EvaluateCalc(misshapen) error = %q, want one naming %v", calc.Error, ErrTensorShapeMismatch)
+	if !strings.Contains(calc.Error, protoconv.ErrTensorShapeMismatch.Error()) {
+		t.Errorf("EvaluateCalc(misshapen) error = %q, want one naming %v", calc.Error, protoconv.ErrTensorShapeMismatch)
 	}
 }
 
@@ -529,7 +530,7 @@ func TestSetAndTensorCapabilities(t *testing.T) {
 		t.Errorf("W::cube without %s = %v, want a tensor", CapabilitySetValues, got)
 	}
 	noComplex := mustNewServiceWithout(t, CapabilityComplexValues)
-	pv := setOf(intValue(1), &pb.Value{Kind: &pb.Value_Complex{Complex: ComplexToProto(complex(0, 1))}})
+	pv := setOf(intValue(1), &pb.Value{Kind: &pb.Value_Complex{Complex: protoconv.ComplexToProto(complex(0, 1))}})
 	noComplex.filterValueCapabilities(pv)
 	if want := "unsupported: set Set{1, 0.0 + 1.0i} holding complex number 0.0 + 1.0i"; pv.GetNull() != want {
 		t.Errorf("set of a complex without complex_values = %v, want null %q", pv, want)
@@ -601,11 +602,11 @@ func TestValueCarriesSetAndTensor(t *testing.T) {
 		{"set of tensors", setOf(tensor), true, true},
 		{"vector quantity", vectorQuantityValue(&pb.Quantity{Unit: "m"}), false, false},
 	} {
-		if got := ValueCarriesSet(tc.value); got != tc.set {
-			t.Errorf("ValueCarriesSet(%s) = %v, want %v", tc.name, got, tc.set)
+		if got := protoconv.ValueCarriesSet(tc.value); got != tc.set {
+			t.Errorf("protoconv.ValueCarriesSet(%s) = %v, want %v", tc.name, got, tc.set)
 		}
-		if got := ValueCarriesTensor(tc.value); got != tc.tensr {
-			t.Errorf("ValueCarriesTensor(%s) = %v, want %v", tc.name, got, tc.tensr)
+		if got := protoconv.ValueCarriesTensor(tc.value); got != tc.tensr {
+			t.Errorf("protoconv.ValueCarriesTensor(%s) = %v, want %v", tc.name, got, tc.tensr)
 		}
 	}
 }

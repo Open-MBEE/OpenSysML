@@ -13,10 +13,12 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast/astcodec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // Session is one retained run of a cached model: a runtime context of its own,
@@ -257,7 +259,7 @@ func (ss *Session) FeatureValue(object int64, feature string) (*pb.FeatureValue,
 		}
 		return out, nil
 	}
-	for _, elem := range collectionElements(fv.Values) {
+	for _, elem := range objref.CollectionElements(fv.Values) {
 		out.Values = append(out.Values, ss.svc.valueToProto(ss.rt, elem, ss.cached.Index))
 	}
 	return out, nil
@@ -710,7 +712,7 @@ func (ss *Session) value(name string, pv *pb.Value) (runtime.Value, error) {
 	if err := ss.svc.requireValueCapabilities(pv); err != nil {
 		return runtime.Value{}, err
 	}
-	val, err := ProtoToRuntimeValue(ss.rt, pv, ss.cached.Index, ss.rt.Semantics())
+	val, err := protoconv.ProtoToRuntimeValue(ss.rt, pv, ss.cached.Index, ss.rt.Semantics())
 	if err != nil {
 		return runtime.Value{}, sessionFailuref("value %q could not be read: %v", name, err)
 	}

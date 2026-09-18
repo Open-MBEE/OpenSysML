@@ -11,7 +11,7 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // featuresUsage is how %features is written: an object, how far to expand what it
@@ -20,7 +20,7 @@ const featuresUsage = "usage: %features <object> [all|depth <n>] [json]"
 
 // maxFeatureGraphInstances bounds a JSON listing as maxFeatureValueLines bounds a
 // text one, at the count the API serializes for one object.
-var maxFeatureGraphInstances = grpc.DefaultGraphBounds().Instances
+var maxFeatureGraphInstances = protoconv.DefaultGraphBounds().Instances
 
 // featureListing is how far %features expands an object, and in which form. A
 // bound the user lifted is math.MaxInt.
@@ -84,8 +84,8 @@ func (l featureListing) truncationHint(name string) string {
 // the REPL. A graph the object bound cut short says so as a warning, since the
 // listing that comes back is a real answer about part of the run.
 func (s *Session) featuresJSON(ctx *runtime.Context, inst *runtime.Instance, name string, listing featureListing) ([]string, bool, error) {
-	bounds := grpc.GraphBounds{Depth: listing.depth, Instances: listing.budget}
-	graph := grpc.InstanceGraphToProtoWithin(ctx, inst, s.symbolIndex(), bounds)
+	bounds := protoconv.GraphBounds{Depth: listing.depth, Instances: listing.budget}
+	graph := protoconv.InstanceGraphToProtoWithin(ctx, inst, s.symbolIndex(), bounds)
 
 	resp := &pb.InstantiateResponse{Instance: graph.Root, Instances: graph.All}
 	// A feature value the graph reports as an error is one the session could not

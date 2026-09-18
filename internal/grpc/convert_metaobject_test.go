@@ -10,6 +10,7 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // metaobjectWireModel yields metaobjects through `meta` and `.metadata`, and
@@ -73,7 +74,7 @@ func TestMetaobjectRoundTrip(t *testing.T) {
 		t.Errorf("M::notADefinition crossed as %v, want ()", got)
 	}
 
-	back, err := ProtoToValueIn(elems[1], idx, sem)
+	back, err := protoconv.ProtoToValueIn(elems[1], idx, sem)
 	if err != nil {
 		t.Fatalf("ProtoToValueIn: %v", err)
 	}
@@ -86,15 +87,15 @@ func TestMetaobjectRoundTrip(t *testing.T) {
 	if idx.GetFQN(back.MetaobjectElement()) != want.ElementId || idx.GetFQN(back.MetaobjectClass()) != want.MetaclassId {
 		t.Errorf("round trip names %s : %s", idx.GetFQN(back.MetaobjectElement()), idx.GetFQN(back.MetaobjectClass()))
 	}
-	again := ValueToProto(back, idx)
+	again := protoconv.ValueToProto(back, idx)
 	if got := again.GetMetaobject(); got.GetElementId() != want.ElementId || got.GetMetaclassId() != want.MetaclassId {
 		t.Errorf("re-sent as %v, want %v", again, want)
 	}
 
 	// A client may omit the metaclass: the model's is used.
-	bare, err := ProtoToValueIn(metaobjectValue("M::seatBelt", ""), idx, sem)
+	bare, err := protoconv.ProtoToValueIn(metaobjectValue("M::seatBelt", ""), idx, sem)
 	if err != nil {
-		t.Fatalf("ProtoToValueIn without metaclass_id: %v", err)
+		t.Fatalf("protoconv.ProtoToValueIn without metaclass_id: %v", err)
 	}
 	if idx.GetFQN(bare.MetaobjectClass()) != want.MetaclassId {
 		t.Errorf("metaobject without metaclass_id read back under %s", idx.GetFQN(bare.MetaobjectClass()))
@@ -117,25 +118,25 @@ func TestMalformedMetaobjectsAreRejected(t *testing.T) {
 		val  *pb.Value
 		want error
 	}{
-		{"empty element_id", metaobjectValue("", "KerML::Feature"), ErrMetaobjectUnbound},
-		{"unknown element", metaobjectValue("M::nope", ""), ErrMetaobjectUnbound},
-		{"metaclass of another kind", metaobjectValue("M::seatBelt", "SysML::Systems::PartDefinition"), ErrMetaclassMismatch},
-		{"metaclass the element conforms to but is not", metaobjectValue("M::seatBelt", "KerML::Feature"), ErrMetaclassMismatch},
-		{"nested in a sequence", sequenceValue(intValue(1), metaobjectValue("M::nope", "")), ErrMetaobjectUnbound},
+		{"empty element_id", metaobjectValue("", "KerML::Feature"), protoconv.ErrMetaobjectUnbound},
+		{"unknown element", metaobjectValue("M::nope", ""), protoconv.ErrMetaobjectUnbound},
+		{"metaclass of another kind", metaobjectValue("M::seatBelt", "SysML::Systems::PartDefinition"), protoconv.ErrMetaclassMismatch},
+		{"metaclass the element conforms to but is not", metaobjectValue("M::seatBelt", "KerML::Feature"), protoconv.ErrMetaclassMismatch},
+		{"nested in a sequence", sequenceValue(intValue(1), metaobjectValue("M::nope", "")), protoconv.ErrMetaobjectUnbound},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := ProtoToValueIn(tc.val, idx, sem)
+			_, err := protoconv.ProtoToValueIn(tc.val, idx, sem)
 			if !errors.Is(err, tc.want) {
-				t.Fatalf("ProtoToValueIn = %v, want %v", err, tc.want)
+				t.Fatalf("protoconv.ProtoToValueIn = %v, want %v", err, tc.want)
 			}
 			if !strings.Contains(err.Error(), tc.val.GetMetaobject().GetElementId()) && tc.val.GetMetaobject() != nil && tc.val.GetMetaobject().GetElementId() != "" {
 				t.Errorf("error %q does not name the element", err)
 			}
 		})
 	}
-	if _, err := ProtoToValueIn(metaobjectValue("M::seatBelt", ""), idx, nil); !errors.Is(err, ErrMetaobjectUnbound) {
-		t.Errorf("ProtoToValueIn without a model = %v, want %v", err, ErrMetaobjectUnbound)
+	if _, err := protoconv.ProtoToValueIn(metaobjectValue("M::seatBelt", ""), idx, nil); !errors.Is(err, protoconv.ErrMetaobjectUnbound) {
+		t.Errorf("protoconv.ProtoToValueIn without a model = %v, want %v", err, protoconv.ErrMetaobjectUnbound)
 	}
 }
 
@@ -181,12 +182,12 @@ func TestAmbiguousMetaobjectIsRejected(t *testing.T) {
 	if n := len(idx.LookupQualified("M::seatBelt")); n != 2 {
 		t.Fatalf("M::seatBelt resolves to %d elements, want the two declarations", n)
 	}
-	_, err = ProtoToValueIn(metaobjectValue("M::seatBelt", ""), idx, sem)
-	if !errors.Is(err, ErrMetaobjectAmbiguous) || !strings.Contains(err.Error(), "M::seatBelt") {
-		t.Fatalf("ProtoToValueIn = %v, want %v naming M::seatBelt", err, ErrMetaobjectAmbiguous)
+	_, err = protoconv.ProtoToValueIn(metaobjectValue("M::seatBelt", ""), idx, sem)
+	if !errors.Is(err, protoconv.ErrMetaobjectAmbiguous) || !strings.Contains(err.Error(), "M::seatBelt") {
+		t.Fatalf("protoconv.ProtoToValueIn = %v, want %v naming M::seatBelt", err, protoconv.ErrMetaobjectAmbiguous)
 	}
-	if _, err := ProtoToValueIn(metaobjectValue("M::V", ""), idx, sem); err != nil {
-		t.Errorf("ProtoToValueIn(M::V), declared once: %v", err)
+	if _, err := protoconv.ProtoToValueIn(metaobjectValue("M::V", ""), idx, sem); err != nil {
+		t.Errorf("protoconv.ProtoToValueIn(M::V), declared once: %v", err)
 	}
 }
 
@@ -220,8 +221,8 @@ func TestMetaobjectCrossesAsCalcArgument(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EvaluateCalc(mismatched): %v", err)
 	}
-	if !strings.Contains(calc.Error, ErrMetaclassMismatch.Error()) {
-		t.Errorf("EvaluateCalc(mismatched) error = %q, want one naming %v", calc.Error, ErrMetaclassMismatch)
+	if !strings.Contains(calc.Error, protoconv.ErrMetaclassMismatch.Error()) {
+		t.Errorf("EvaluateCalc(mismatched) error = %q, want one naming %v", calc.Error, protoconv.ErrMetaclassMismatch)
 	}
 }
 
@@ -263,10 +264,10 @@ func TestMetaobjectCapability(t *testing.T) {
 		t.Errorf("set of metaobjects without %s = %q, want %q", CapabilityMetaobjectValues, set.GetNull(), want)
 	}
 
-	if !ValueCarriesMetaobject(sequenceValue(intValue(1), setOf(metaobjectValue("M::seatBelt", "")))) {
-		t.Error("ValueCarriesMetaobject misses a metaobject nested in a set in a sequence")
+	if !protoconv.ValueCarriesMetaobject(sequenceValue(intValue(1), setOf(metaobjectValue("M::seatBelt", "")))) {
+		t.Error("protoconv.ValueCarriesMetaobject misses a metaobject nested in a set in a sequence")
 	}
-	if ValueCarriesMetaobject(sequenceValue(intValue(1), stringValue("meta"))) {
-		t.Error("ValueCarriesMetaobject reports one where there is none")
+	if protoconv.ValueCarriesMetaobject(sequenceValue(intValue(1), stringValue("meta"))) {
+		t.Error("protoconv.ValueCarriesMetaobject reports one where there is none")
 	}
 }
