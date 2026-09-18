@@ -269,6 +269,30 @@ func TestExecuteRelatedColumnChargesTableConstructionToTheVisitBudget(t *testing
 	}
 }
 
+// "any" is an existence test: it stops at the first element reached, so a
+// budget that cannot afford the whole list still answers it.
+func TestExecuteRelatedColumnAnyStopsAtTheFirstElement(t *testing.T) {
+	fixture := loadExecutionFixtureFile(t, traceMatrixFixture)
+	mirror := ElementValue(fixture.symbol(t, "MirrorAssembly"))
+	// Outgoing lineage reads the declaration itself, so the budget pays only
+	// for the elements reached: two for the list, one for any.
+	_, err := fixture.traced(t, mirror, "specialization", "outgoing", 3, "list", Options{VisitBudget: 1})
+	executionError(t, err, ErrorVisitBudget)
+
+	any, err := fixture.traced(t, mirror, "specialization", "outgoing", 3, "any", Options{VisitBudget: 1})
+	if err != nil {
+		t.Fatalf("any: %v", err)
+	}
+	assertColumn(t, cellsByColumn(t, any), "related", [][]string{{"true"}})
+
+	// A row that reaches nothing still walks its whole (empty) frontier.
+	none, err := fixture.traced(t, ElementValue(fixture.symbol(t, "Subsystem")), "specialization", "outgoing", 3, "any", Options{VisitBudget: 1})
+	if err != nil {
+		t.Fatalf("none: %v", err)
+	}
+	assertColumn(t, cellsByColumn(t, none), "related", [][]string{{"false"}})
+}
+
 func TestExecuteRelatedColumnsFilterAndOrderDownstream(t *testing.T) {
 	fixture := loadExecutionFixtureFile(t, traceMatrixFixture)
 	root := fixture.observatory(t)

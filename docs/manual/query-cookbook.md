@@ -1175,7 +1175,7 @@ named relationship from each row's element — the same kinds, directions and
 depth bound as `RelatedElements` — and fills a cell with what it reaches.
 The `aggregate` chooses the cell's shape: `"list"` (the default) holds the
 related elements, `"count"` how many there are, `"any"` whether there is at
-least one.
+least one — an existence test that stops at the first element it reaches.
 
 The cookbook model's `Traceability` package holds three requirements, a
 `spacecraft` whose parts satisfy them and three verification cases, two of

@@ -34,9 +34,8 @@ func (e *executor) relatedColumnOf(plan queryplan.Expression) (*relatedColumn, e
 	return column, nil
 }
 
-// evaluateRelatedCell traverses from the row's declaration and reduces the
-// reached elements to the column's aggregate: the ordered list, its count, or
-// whether it is non-empty.
+// evaluateRelatedCell traverses from the row's declaration to the column's
+// aggregate: the ordered list, its count, or whether any exists (stopping at the first).
 func (e *executor) evaluateRelatedCell(column computedColumn, row Value) ([]Value, error) {
 	related := column.related
 	root := row.Declaration()
@@ -50,6 +49,13 @@ func (e *executor) evaluateRelatedCell(column computedColumn, row Value) ([]Valu
 			Origin:    related.plan.Origin(),
 		}
 	}
+	if related.aggregate == queryplan.RelatedAggregateAny {
+		found, err := e.hasRelated(related.plan, related.walk, root)
+		if err != nil {
+			return nil, columnScoped(err, column.name)
+		}
+		return []Value{BooleanValue(found)}, nil
+	}
 	var values []Value
 	err := e.traverseRelated(related.plan, related.walk, []*symbols.Symbol{root}, func(neighbor *symbols.Symbol) bool {
 		values = append(values, ElementValue(neighbor))
@@ -58,14 +64,10 @@ func (e *executor) evaluateRelatedCell(column computedColumn, row Value) ([]Valu
 	if err != nil {
 		return nil, columnScoped(err, column.name)
 	}
-	switch related.aggregate {
-	case queryplan.RelatedAggregateCount:
+	if related.aggregate == queryplan.RelatedAggregateCount {
 		return []Value{IntegerValue(int64(len(values)))}, nil
-	case queryplan.RelatedAggregateAny:
-		return []Value{BooleanValue(len(values) > 0)}, nil
-	default:
-		return values, nil
 	}
+	return values, nil
 }
 
 // columnScoped names the projected column an execution error arose in.
