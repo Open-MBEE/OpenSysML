@@ -349,7 +349,8 @@ action def 'Group 0' {
   repeat or nest (a package and a sub-package of it) index each snapshot once. A
   `resultLocation` outside the document, a snapshot slot with no defining feature in the
   document or holding no one finite number, a feature two slots of one snapshot hold numbers
-  for (left out of that snapshot: it has no one result there), and a target with no
+  for (left out of that snapshot: it has no one result there, so it also records no other
+  value than the target configures and does not put the snapshot out), and a target with no
   classifier to match snapshots against are each noted in the configuration's `notes`.
 
 `sysml model.sysml -compare-results results.json` then runs every configuration the sidecar

@@ -152,17 +152,23 @@ func (m *migration) configuredValues(target executionTarget) map[*xmi.Element]fl
 	return configured
 }
 
-// recordsOtherValues names the configured features whose value inst records
-// as another number: such a snapshot is of a run on another configuration.
+// recordsOtherValues names the configured features whose value inst records, in
+// one slot, as another number: such a snapshot is of a run on another configuration.
+// A feature held by several slots records no one value and is left to resultSnapshots.
 func (m *migration) recordsOtherValues(inst *xmi.Element, configured map[*xmi.Element]float64) []string {
-	var differ []string
+	held := map[*xmi.Element][]float64{}
 	for _, slot := range inst.Owned("slot") {
 		f := m.model.Ref(slot, "definingFeature")
-		want, ok := configured[f]
-		if !ok {
+		if _, ok := configured[f]; !ok {
 			continue
 		}
-		if _, value, reason := m.snapshotSlot(slot); reason == "" && value != want {
+		if _, value, reason := m.snapshotSlot(slot); reason == "" {
+			held[f] = append(held[f], value)
+		}
+	}
+	var differ []string
+	for f, values := range held {
+		if len(values) == 1 && values[0] != configured[f] {
 			differ = append(differ, f.Name)
 		}
 	}

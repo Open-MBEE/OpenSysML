@@ -373,6 +373,8 @@ func TestOverlappingResultLocationsIndexEachSnapshotOnce(t *testing.T) {
 // A snapshot holding two numbers for one feature over two slots has no one result
 // for it: the feature is left out of that snapshot with a note, whichever slot comes
 // first or last, while its other features and the other snapshots keep their numbers.
+// Held twice, a feature the target configures records no other value either, so the
+// snapshot stays; recorded once as another number, it is of another configuration.
 func TestRepeatedSnapshotSlotsHoldNoResult(t *testing.T) {
 	r := migrateDocument(t, storedResults+`
     <packagedElement xmi:type="uml:Package" xmi:id="_twice" name="Twice">
@@ -395,6 +397,25 @@ func TestRepeatedSnapshotSlotsHoldNoResult(t *testing.T) {
           <value xmi:type="uml:LiteralReal" xmi:id="_r6bv" value="40.0"/>
         </slot>
       </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r7" name="run 7" classifier="_sure">
+        <slot xmi:type="uml:Slot" xmi:id="_r7a1" definingFeature="_pa">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r7a1v" value="1.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r7a2" definingFeature="_pa">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r7a2v" value="0.5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r7b" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r7bv" value="50.0"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r8" name="run 8" classifier="_sure">
+        <slot xmi:type="uml:Slot" xmi:id="_r8a" definingFeature="_pa">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r8av" value="0.5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r8b" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r8bv" value="60.0"/>
+        </slot>
+      </packagedElement>
     </packagedElement>`, `
   <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
   <sysml:Block xmi:id="_s2" base_Class="_sure"/>
@@ -408,17 +429,23 @@ func TestRepeatedSnapshotSlotsHoldNoResult(t *testing.T) {
 	want := []simresults.Snapshot{
 		{ID: "_r5", Name: "run 5", Values: map[string]float64{"pA": 1.0}},
 		{ID: "_r6", Name: "run 6", Values: map[string]float64{"pB": 40.0}},
+		{ID: "_r7", Name: "run 7", Values: map[string]float64{"pB": 50.0}},
 	}
 	if !reflect.DeepEqual(configs[0].Snapshots, want) {
 		t.Errorf("snapshots = %+v, want %+v", configs[0].Snapshots, want)
 	}
-	if values := configs[0].Values("pB"); !reflect.DeepEqual(values, []float64{40.0}) {
-		t.Errorf("Values(pB) = %v, want [40]", values)
+	if values := configs[0].Values("pB"); !reflect.DeepEqual(values, []float64{40.0, 50.0}) {
+		t.Errorf("Values(pB) = %v, want [40 50]", values)
 	}
-	if notes := []string{"the slot of pB holds 3 numbers over as many slots, and a result is one number in 1 snapshot(s), so it is not among the results"}; !reflect.DeepEqual(configs[0].Notes, notes) {
+	notes := []string{
+		"the slot of pA holds 2 numbers over as many slots, and a result is one number in 1 snapshot(s), so it is not among the results",
+		"the slot of pB holds 3 numbers over as many slots, and a result is one number in 1 snapshot(s), so it is not among the results",
+		"1 snapshot(s) record other values of pA than the target configures, so they are of another configuration and not among the results",
+	}
+	if !reflect.DeepEqual(configs[0].Notes, notes) {
 		t.Errorf("notes = %q, want %q", configs[0].Notes, notes)
 	}
-	wantLine(t, r.Notation, "/* results of the simulation tool: 2 snapshot(s) in Twice holding pA, pB */")
+	wantLine(t, r.Notation, "/* results of the simulation tool: 3 snapshot(s) in Twice holding pA, pB */")
 	wantClean(t, "t.sysml", r)
 }
 
