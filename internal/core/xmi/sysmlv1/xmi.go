@@ -383,7 +383,7 @@ func (m *Model) parseDocument(data []byte) error {
 	}
 	typed := false
 	for _, attr := range start.Attr {
-		if xmi.IsXMINamespace(attr.Name.Space) && attr.Name.Local == "type" {
+		if xmi.IsXMINamespace(attr.Name.Space) && attr.Name.Local == "type" && local(attr.Value) != "" {
 			typed = true
 			break
 		}
