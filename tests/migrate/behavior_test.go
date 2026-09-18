@@ -358,7 +358,62 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
   <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="0.5"/>`)
 		wantNote(t, r, "_ea", migrate.Approximated, "is neither a number nor the name of a property visible from the activity")
 	})
+	t.Run("every numeric type binds and is checked when drawn", func(t *testing.T) {
+		r := migrateDocument(t, widerChooser, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="phase"/>
+  <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="count"/>`)
+		wantLine(t, r.Notation, "attribute phase : ScalarValues::Complex default = 1.0;")
+		wantLine(t, r.Notation, "attribute count : ScalarValues::Number default = 0.0;")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = phase; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = count; } }")
+		wantNote(t, r, "_ea", migrate.Mapped, "the probability reads the property phase")
+		wantNote(t, r, "_eb", migrate.Mapped, "the probability reads the property count")
+		if errs := errors(t, "chooser.sysml", r.Notation); len(errs) > 0 {
+			t.Errorf("Complex and Number weights do not analyse clean: %v\n%s", errs, r.Notation)
+		}
+		s := session(t, r)
+		meta(t, s, "%seed 1")
+		wantVerdict(t, s.RunAction("Chooser::Choose"))
+		// A value the type admits but no probability is: refused at the decision.
+		r = migrateDocument(t, strings.Replace(widerChooser, `value="0.0"`, `value="2.0"`, 1), `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="phase"/>
+  <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="count"/>`)
+		s = session(t, r)
+		meta(t, s, "%seed 1")
+		v := s.RunAction("Chooser::Choose")
+		if v.Holds() || !strings.Contains(strings.Join(v.Lines, "\n"), "not a probability in [0, 1]") {
+			t.Errorf("a run with count = 2.0 = %s:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+		}
+	})
 }
+
+// widerChooser is a block whose decision weights are properties typed by the
+// wider numeric value types Complex and Number rather than Real.
+const widerChooser = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_chooser" name="Chooser" classifierBehavior="_act">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_phase" name="phase">
+        <type xmi:type="uml:DataType" href="http://www.omg.org/spec/SysML/20181001/PrimitiveValueTypes.xmi#Complex"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_phasev" value="1.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_count" name="count">
+        <type xmi:type="uml:DataType" href="http://www.omg.org/spec/SysML/20181001/PrimitiveValueTypes.xmi#Number"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_countv" value="0.0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_act" name="Choose">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:DecisionNode" xmi:id="_decide"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_a" name="a"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_b" name="b"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e0" source="_init" target="_decide"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ea" source="_decide" target="_a"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_eb" source="_decide" target="_b"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_fa" source="_a" target="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_fb" source="_b" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>`
 
 // parallelEdges is a block whose classifier behavior joins the same two nodes by
 // several control flows: two guarded branches of a decision reach Retry, an else
