@@ -100,6 +100,40 @@ func TestStereotypes(t *testing.T) {
 	}
 }
 
+func TestStereotypeExtensionIsRecorded(t *testing.T) {
+	src := `<?xml version="1.0"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="M"/>
+  <sysml:Block xmi:id="_s" base_Class="_c">
+    <xmi:Extension extender="MagicDraw">
+      <foo xmi:type="uml:Diagram" xmi:id="_d" name="D"/>
+    </xmi:Extension>
+  </sysml:Block>
+</xmi:XMI>`
+	m, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Stereotypes) != 1 {
+		t.Fatalf("stereotypes = %+v", m.Stereotypes)
+	}
+	if _, ok := m.Stereotypes[0].Tags["Extension"]; ok {
+		t.Fatalf("Extension tag = %+v", m.Stereotypes[0].Tags["Extension"])
+	}
+	if len(m.Extensions) != 1 {
+		t.Fatalf("extensions = %+v", m.Extensions)
+	}
+	ext := m.Extensions[0]
+	if ext.Extender != "MagicDraw" || ext.Owner != nil || len(ext.Elements) != 1 {
+		t.Fatalf("extension = %+v", ext)
+	}
+	if got := ext.Elements[0]; got.ID != "_d" || got.Type != "uml:Diagram" || got.Name != "D" {
+		t.Errorf("extension element = %+v", got)
+	}
+}
+
 // archive zips the entries after a prefix, as a self-extracting stub is.
 func archive(t *testing.T, prefix string, entries map[string][]byte) []byte {
 	t.Helper()

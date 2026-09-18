@@ -481,6 +481,10 @@ func (m *Model) newStereotype(raw *xmi.Element) *Stereotype {
 		}
 	}
 	for _, child := range raw.Children {
+		if xmi.IsXMINamespace(child.Space) {
+			m.special(child, nil, nil)
+			continue
+		}
 		if value := child.Attr("idref"); value != "" {
 			s.Tags[child.Tag] = append(s.Tags[child.Tag], value)
 		} else if value := child.Href(); value != "" {
