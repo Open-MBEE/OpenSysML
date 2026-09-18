@@ -18,13 +18,13 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/docpdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/highlight"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
@@ -35,7 +35,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
-	"github.com/Open-MBEE/OpenSysML/internal/docpdf"
 	service "github.com/Open-MBEE/OpenSysML/internal/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
 	"github.com/Open-MBEE/OpenSysML/internal/lsp"
@@ -162,7 +161,7 @@ func TestSelfModelFiguresMatchImplementation(t *testing.T) {
 		attribute string
 		actual    int
 	}{
-		{"keywordCount", len(lexer.Keywords())},
+		{"keywordCount", len(source.Keywords())},
 		{"bundledFileCount", len(libs.DefaultSource().List())},
 		{"tierCount", int(passes.LevelConstraint) + 1},
 	}

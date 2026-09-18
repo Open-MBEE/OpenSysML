@@ -3,7 +3,7 @@ package runtime
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -72,7 +72,7 @@ func (ctx *Context) HeldObjects(inst *Instance) ([]HeldObject, error) {
 			continue
 		}
 		read[fv] = true
-		segment := lexer.NameText(of.Name)
+		segment := source.NameText(of.Name)
 		if fv.Values.Kind == ValInvalid {
 			reach(of.Name, segment, false, fv.Value)
 			continue

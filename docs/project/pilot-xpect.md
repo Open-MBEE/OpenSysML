@@ -4,7 +4,7 @@
 
 **Reference:** the OMG pilot implementation's own Xpect test suites, [`org.omg.kerml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-08/org.omg.kerml.xpect.tests) and [`org.omg.sysml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-08/org.omg.sysml.xpect.tests), at release `2026-08`, commit `692170b71867353b8f90341e61556f49a5beb0e5` — the same pin as the corpora and the reference validators (`scripts/pilot-pin.sh`)
 **Provision:** `./scripts/download-pilot-xpect.sh` (the shared downloader of `scripts/pilot-pin.sh`, restricted to `*.xt`: the clone is refused unless the tag resolves to the pinned commit, each suite is stamped with the pin it was fetched at, and a suite stamped otherwise or not at all is re-fetched; writes `build/pilot-xpect-corpus/{kerml,sysml}`, gitignored, not vendored — under `build/` rather than `examples/` because the `.kerml`/`.sysml` models the suites ship are inputs to this harness, and everything that walks `examples/` would otherwise adopt them)
-**Run:** `go run ./cmd/pilot-xpect` (writes `build/pilot-xpect/pilot-xpect.txt` and `build/pilot-xpect/pilot-xpect.json`)
+**Run:** `go run -C tools ./cmd/pilot-xpect` (writes `build/pilot-xpect/pilot-xpect.txt` and `build/pilot-xpect/pilot-xpect.json`)
 **Baseline:** the last committed run is [pilot-xpect-baseline.json](pilot-xpect-baseline.json), which carries every non-agreeing row, so a later run can be diffed against it; `-update` re-records it and `-check` fails unless a fresh run reproduces it
 **Status:** advisory only — nothing here gates CI, for the same reason [pilot-differential.md](pilot-differential.md) does not: the corpus is an unvendored network fetch at the pinned tag, and this is a report, not a ratchet
 
@@ -91,7 +91,7 @@ when one is admitted:
 
 Wording-only is not a tolerance and is not granted on span and severity alone: the harness requires
 the declared and our message to state the same rule about the same element
-(`cmd/pilot-xpect/wording.go`). A different rule landing on the same token stays a disagreement, and
+(`tools/referee/xpect/wording.go`). A different rule landing on the same token stays a disagreement, and
 those rows are what the `same-location` tolerance now holds.
 
 No tolerance ever turns a disagreement into an agreement. Weaker rules are recorded beside each
@@ -295,7 +295,7 @@ references; all 14 are admitted as wording-only. **The trade the specialization-
 it was the harness's reading rather than a contradiction in the corpus:** it cost `noErrors`
 six rows because those fixtures declare file-wide silence *and* the protected-import errors it
 restores, and the anchor-and-residue work showed that Xpect scores a `noErrors` note against what its sibling
-expectations leave over, not against total silence (`consumedLine`, `cmd/pilot-xpect/compare.go`).
+expectations leave over, not against total silence (`consumedLine`, `tools/referee/xpect/compare.go`).
 With that modelled, the six rows close without exempting a fixture or widening the wording-only class,
 and **no expectation in this suite is now recorded as unsatisfiable.** The 42 private/protected rejections of the earlier import round are unchanged.
 
@@ -744,7 +744,7 @@ nine rows left after that were **one** enumeration rule and **one** harness rule
 2. **Which occurrence of the declared text a `scope` note anchors at (`missing-and-extra`, 1 row).**
    The `at` text names the *reference* the question is about, so an occurrence that starts a longer
    identifier — `c_Public` in `specializes c_Public_Id` — is the anchor when it carries one, and
-   otherwise the first whole identifier is (`scopeAnchor`, `cmd/pilot-xpect/scope.go`). That is a
+   otherwise the first whole identifier is (`scopeAnchor`, `tools/referee/xpect/scope.go`). That is a
    harness rule, not a rule about our behaviour, and it closes
    `imports/recursive/ShortName_Import_Valid1.kerml.xt`:25 — previously classified a pilot limitation
    — without loosening diagnostic matching, which still requires a whole identifier.
@@ -761,7 +761,7 @@ name any accessible feature, so its scope is the whole one. The harness had pass
 reading straight through, and the 27 `subsets` anchors of the `*_Rdef` fixtures — `feature B subsets
 A`, `feature B subsets test::A` — were then enumerated inherited-only and reported the declared
 names as missing (25 rows `missing-names`, 2 `missing-and-extra`). `narrowsToInherited`
-(`cmd/pilot-xpect/scope.go`) narrows for a redefinition and not for a subsetting; locked by
+(`tools/referee/xpect/scope.go`) narrows for a redefinition and not for a subsetting; locked by
 `TestOnlyARedefinitionNarrowsTheScope`. This is a rule about how the harness reads an anchor, not
 about our behaviour, and no row moved against the committed baseline.
 
@@ -801,7 +801,7 @@ global namespace where every root's members are reachable.
 **2. `noErrors` is Xpect's residue, not "no error anywhere".** Xpect matches each issue against the
 expectations' regions and fails a file on what is left over, so an error a sibling `errors`
 expectation declares is not the file's residue. The harness now models that
-(`consumedLine`, `cmd/pilot-xpect/compare.go`) — which is what the six protected-import
+(`consumedLine`, `tools/referee/xpect/compare.go`) — which is what the six protected-import
 contradictions above were really about, and it closes them without exempting a fixture or extending
 the wording-only class.
 

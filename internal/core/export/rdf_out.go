@@ -861,7 +861,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(subject, e.sysml(pAnnotatedElement), e.reference(about))
 		}
 		if n.Locale != "" {
-			e.graph.Add(subject, e.sysml(pLocale), rdf.String(lexer.StringValue(n.Locale)))
+			e.graph.Add(subject, e.sysml(pLocale), rdf.String(source.StringValue(n.Locale)))
 		}
 		e.graph.Add(subject, e.sysml(pBody), rdf.String(commentBody(e.src.slice(n.BodySpan))))
 		return nil
@@ -874,7 +874,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 	case *ast.TextualRepresentation:
 		head(rdf.SysMLTerm("TextualRepresentation"))
 		e.ident(subject, n.Ident)
-		e.graph.Add(subject, e.sysml(pLanguage), rdf.String(lexer.StringValue(n.Language)))
+		e.graph.Add(subject, e.sysml(pLanguage), rdf.String(source.StringValue(n.Language)))
 		e.graph.Add(subject, e.sysml(pBody), rdf.String(commentBody(e.src.slice(n.BodySpan))))
 		return nil
 
@@ -1326,7 +1326,7 @@ func (e *encoder) sysx(name string) rdf.Term  { return rdf.OpenSysMLTerm(name) }
 func (e *encoder) documentation(subject rdf.Term, n *ast.Documentation) {
 	e.ident(subject, n.Ident)
 	if n.Locale != "" {
-		e.graph.Add(subject, e.sysml(pLocale), rdf.String(lexer.StringValue(n.Locale)))
+		e.graph.Add(subject, e.sysml(pLocale), rdf.String(source.StringValue(n.Locale)))
 	}
 	e.graph.Add(subject, e.sysml(pBody), rdf.String(commentBody(e.src.slice(n.BodySpan))))
 }

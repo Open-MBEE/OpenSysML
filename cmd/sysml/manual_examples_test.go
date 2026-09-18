@@ -166,3 +166,75 @@ func TestManualRequirementsExample(t *testing.T) {
 		}
 	}
 }
+
+// TestManualTraceabilityExample runs the manual's traceability example end to
+// end: one matrix query lists every requirement with its satisfiers, verifiers
+// and verification count, and the report's Markdown matches its committed output.
+func TestManualTraceabilityExample(t *testing.T) {
+	binary := buildCLI(t)
+	examples := filepath.Join("..", "..", "docs", "manual", "examples")
+	source := filepath.Join(examples, "traceability.sysml")
+
+	query := exec.Command(binary, source, "-run-query", "Traceability::TraceMatrix root=Traceability::specification")
+	output, err := query.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run query: %v\n%s", err, output)
+	}
+	for _, want := range []string{
+		"returned 4 rows",
+		"Columns: shortName, name, satisfiedBy, verifiedBy, verifications",
+		`shortName = "SC-2"`,
+		"satisfiedBy = Traceability::spacecraft::antenna",
+		"verifiedBy = [Traceability::gainTest, Traceability::gainAnalysis]",
+		"verifications = 2",
+		`shortName = "SC-4"`,
+		"satisfiedBy = (none)",
+		"verifiedBy = (none)",
+		"verifications = 0",
+	} {
+		if !strings.Contains(string(output), want) {
+			t.Errorf("query output is missing %q:\n%s", want, output)
+		}
+	}
+
+	committed, err := os.ReadFile(filepath.Join(examples, "traceability.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(t.TempDir(), "traceability.md")
+	render := exec.Command(binary, source, "-render-document", "Traceability::TraceabilityReport", "-o", out)
+	if output, err := render.CombinedOutput(); err != nil {
+		t.Fatalf("render: %v\n%s", err, output)
+	}
+	written, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(written) != string(committed) {
+		t.Errorf("rendered example differs from docs/manual/examples/traceability.md:\n%s", written)
+	}
+	for _, want := range []string{
+		"| SC-2 | downlinkGain | Traceability::spacecraft::antenna | Traceability::gainTest, Traceability::gainAnalysis | 2 |",
+		"| SC-4 | passivation |  |  | 0 |",
+		"| satisfaction |  | Traceability::spacecraft.radiator | violated | radiator.area >= 2.0 |",
+	} {
+		if !strings.Contains(string(written), want) {
+			t.Errorf("Markdown is missing %q:\n%s", want, written)
+		}
+	}
+
+	page := exec.Command(binary, source, "-render-document", "Traceability::TraceabilityReport", "-doc-form", "html")
+	html, err := page.Output()
+	if err != nil {
+		t.Fatalf("render HTML: %v", err)
+	}
+	for _, want := range []string{
+		`data-element="Traceability::gainTest"`,
+		`data-element="Traceability::gainAnalysis"`,
+		`<td class="sysml-cell" data-column="verifications" data-value-kind="integer"><span class="sysml-value" data-value-kind="integer">2</span></td>`,
+	} {
+		if !strings.Contains(string(html), want) {
+			t.Errorf("HTML is missing %q:\n%s", want, html)
+		}
+	}
+}

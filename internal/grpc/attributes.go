@@ -3,9 +3,9 @@ package grpc
 import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -185,5 +185,5 @@ func writesValue(sym *symbols.Symbol) bool {
 // unquote reads the text a string literal spells, so a reported attribute value
 // is the same string evaluating the literal answers.
 func unquote(s string) string {
-	return lexer.StringValue(s)
+	return source.StringValue(s)
 }

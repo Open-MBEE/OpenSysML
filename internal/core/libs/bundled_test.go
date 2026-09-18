@@ -6,14 +6,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/errata"
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs/errata"
 )
 
 // TestBundledSourceIsThePublishedTextPlusTheDeclaredErrata pins what a process
 // loads: every published file, byte-identical except at the lines the errata
 // registry corrects, and the published source unchanged by the reads.
 func TestBundledSourceIsThePublishedTextPlusTheDeclaredErrata(t *testing.T) {
-	overlay, err := errata.Load()
+	overlay, err := errata.Library()
 	if err != nil {
 		t.Fatalf("load the errata registry: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestBundledSourceHasItsOwnDigest(t *testing.T) {
 // TestDefaultSourceDoesNotCorrectAnOverride pins that a LibraryPathEnvVar
 // directory is read as it stands, even when it holds the published text.
 func TestDefaultSourceDoesNotCorrectAnOverride(t *testing.T) {
-	overlay, err := errata.Load()
+	overlay, err := errata.Library()
 	if err != nil {
 		t.Fatal(err)
 	}

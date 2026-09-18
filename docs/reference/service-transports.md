@@ -218,8 +218,8 @@ scenario list once per protocol — gRPC, Connect with a protobuf body, Connect 
 
 ```console
 $ make conformance                                    # all three protocols
-$ go run ./cmd/conformance -protocols connect-json    # one of them
-$ go run ./cmd/conformance -transport grpc -protocols grpc
+$ go run -C tools ./cmd/conformance -protocols connect-json    # one of them
+$ go run -C tools ./cmd/conformance -transport grpc -protocols grpc
 ```
 
 The JSON-specific edge cases above (`int64` as a string, the error shape) are exactly what that

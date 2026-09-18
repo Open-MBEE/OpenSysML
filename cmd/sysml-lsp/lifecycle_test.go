@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/internal/testutil/gobuild"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 // The binary is what an editor starts, so the lifecycle is tested through it:

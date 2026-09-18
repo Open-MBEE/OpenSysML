@@ -212,7 +212,7 @@ The model describes this implementation, so it goes stale the way documentation 
 things push back, all in [`../self_model_test.go`](../self_model_test.go): the model must
 analyse clean, its invariant requirements must evaluate true, and the facts it declares are
 read back out of the analysed model and compared against the implementation. The figures
-first — the keyword count against `lexer.Keywords()`, the bundled library count against
+first — the keyword count against `source.Keywords()`, the bundled library count against
 `libs.DefaultSource()`, the tier count against `passes.PassLevel`, and every `goPackage` and
 file path against the directory or file it names. Then each part of the model against the
 package it describes: the pass registry against `passes.DefaultRegistry()` (every registered

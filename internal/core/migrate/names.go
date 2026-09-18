@@ -6,17 +6,17 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
 )
 
 // writeName writes a v1 name as a v2 name: bare when it is a basic identifier
 // no keyword reserves, quoted as an unrestricted name otherwise.
 func writeName(name string) string {
-	if lexer.IsIdentifier(name) && !lexer.IsKeyword(name) {
+	if source.IsIdentifier(name) && !source.IsKeyword(name) {
 		return name
 	}
-	return lexer.UnrestrictedNameText(name)
+	return source.UnrestrictedNameText(name)
 }
 
 // nameOf returns the v2 name of an element: its own, or the one synthesized

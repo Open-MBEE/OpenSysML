@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -802,7 +802,7 @@ func (ctx *Context) carrierLabels(carriers []carrier) []string {
 func qualifiedText(names []string) string {
 	parts := make([]string, len(names))
 	for i, name := range names {
-		parts[i] = lexer.NameText(name)
+		parts[i] = source.NameText(name)
 	}
 	return strings.Join(parts, "::")
 }

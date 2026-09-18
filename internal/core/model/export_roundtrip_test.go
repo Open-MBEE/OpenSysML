@@ -11,7 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
 
-const exportFixturesDir = "../export/testdata/convert"
+const exportFixturesDir = "../../../tests/export/testdata/convert"
 
 // The RDF mapping's structural predicates alone must carry a model back to
 // notation that analyses exactly as the original did: the source text is

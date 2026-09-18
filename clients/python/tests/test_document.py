@@ -62,13 +62,13 @@ VERDICT_FIXTURE = os.path.join(
 #: The service's object fixture: a car with wheels, a spare wheel, and
 #: queries over the objects the service holds — bound, enumerated, checked.
 OBJECT_FIXTURE = os.path.join(
-    REPO_ROOT, "internal", "grpc", "testdata", "conformance",
+    REPO_ROOT, "tests", "grpc", "testdata", "conformance",
     "document_query_object_by_path.sysml",
 )
 #: The service's state fixture: a lamp exhibiting a state machine with an
 #: orthogonal region, and queries over its states and its trace.
 STATE_FIXTURE = os.path.join(
-    REPO_ROOT, "internal", "grpc", "testdata", "conformance",
+    REPO_ROOT, "tests", "grpc", "testdata", "conformance",
     "document_query_states.sysml",
 )
 

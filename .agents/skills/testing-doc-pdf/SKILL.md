@@ -1,6 +1,6 @@
 ---
 name: testing-doc-pdf
-description: How to end-to-end test the sysml PDF document backend (internal/docpdf + -doc-form pdf) on Linux — provisioning the pinned WeasyPrint/mermaid/KaTeX toolchain, rendering the worked example and the docrender goldens, and proving inline runs, anchors, links and LaTeX formulas render rather than appearing literal.
+description: How to end-to-end test the sysml PDF document backend (internal/core/docpdf + -doc-form pdf) on Linux — provisioning the pinned WeasyPrint/mermaid/KaTeX toolchain, rendering the worked example and the docrender goldens, and proving inline runs, anchors, links and LaTeX formulas render rather than appearing literal.
 ---
 
 # Testing the PDF document backend
@@ -13,7 +13,7 @@ description: How to end-to-end test the sysml PDF document backend (internal/doc
   - `OPENSYSML_MMDC_PUPPETEER=$PWD/build/doc-pdf/mermaid/puppeteer.json`
   - `OPENSYSML_PANDOC=$PWD/build/doc-pdf/pandoc-3.10.2/bin/pandoc` (for `-pdf-engine pandoc`)
   - `OPENSYSML_KATEX=$PWD/build/doc-pdf/katex/node_modules/.bin/katex` (only a document with formulas needs it)
-- `go test -run Installed ./internal/docpdf` runs the real-toolchain integration tests (they skip per missing tool); the rest of the package's tests use fake tools and need nothing installed.
+- `go test -run Installed ./internal/core/docpdf` runs the real-toolchain integration tests (they skip per missing tool); the rest of the package's tests use fake tools and need nothing installed.
 
 ## Rendering
 - Worked example: `bin/sysml docs/manual/examples/observatory.sysml -render-document Observatory::MassReport -doc-form pdf -pdf-title-page -pdf-toc -pdf-number-sections -o /tmp/observatory.pdf`. It exercises emphasis, code span, external Link, Ref (`#breakdown`), a standalone `<a id="breakdown"></a>` anchor line, grouped table (`**zone: ...**` headings), numbered list and two mermaid diagrams.

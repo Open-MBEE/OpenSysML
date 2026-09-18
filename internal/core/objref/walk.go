@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -54,43 +54,43 @@ func (w Walker) Walk(inst *runtime.Instance, label string, segments []Segment) (
 			if _, has := inst.FeatureValues[seg.Name]; !has {
 				return nil, "", pathError(label, seg, "%s has no feature %q%s", label, seg.Name, w.featureListHint(inst))
 			}
-			perr := pathError(label, seg, "%s of %s could not be materialized: %v", lexer.NameText(seg.Name), label, err)
+			perr := pathError(label, seg, "%s of %s could not be materialized: %v", source.NameText(seg.Name), label, err)
 			perr.Err = err
 			return nil, "", perr
 		}
 		var val runtime.Value
-		next := label + "." + lexer.NameText(seg.Name)
+		next := label + "." + source.NameText(seg.Name)
 		if fv.Values.Kind != runtime.ValInvalid {
 			elements := CollectionElements(fv.Values)
 			switch {
 			case len(elements) == 0:
-				return nil, "", pathError(label, seg, "%s of %s holds no objects", lexer.NameText(seg.Name), label)
+				return nil, "", pathError(label, seg, "%s of %s holds no objects", source.NameText(seg.Name), label)
 			case seg.Index == 0:
 				return nil, "", pathError(label, seg, "%s of %s holds %d %s: pick one by index, %s[1] to %s[%d]",
-					lexer.NameText(seg.Name), label, len(elements), plural(len(elements), "object", "objects"), lexer.NameText(seg.Name), lexer.NameText(seg.Name), len(elements))
+					source.NameText(seg.Name), label, len(elements), plural(len(elements), "object", "objects"), source.NameText(seg.Name), source.NameText(seg.Name), len(elements))
 			case seg.Index > len(elements):
 				return nil, "", pathError(label, seg, "%s of %s holds %d %s, so %s names none (indexes run from 1 to %d)",
-					lexer.NameText(seg.Name), label, len(elements), plural(len(elements), "object", "objects"), seg.Text, len(elements))
+					source.NameText(seg.Name), label, len(elements), plural(len(elements), "object", "objects"), seg.Text, len(elements))
 			}
 			val = elements[seg.Index-1]
 			next = fmt.Sprintf("%s[%d]", next, seg.Index)
 		} else {
 			if seg.Index > 0 {
 				return nil, "", pathError(label, seg, "%s of %s holds one value and takes no index: write %s, not %s",
-					lexer.NameText(seg.Name), label, lexer.NameText(seg.Name), seg.Text)
+					source.NameText(seg.Name), label, source.NameText(seg.Name), seg.Text)
 			}
 			val = fv.Value
 		}
 		id, isObject := val.Object()
 		switch {
 		case val.Kind == runtime.ValInvalid:
-			return nil, "", pathError(label, seg, "%s of %s holds no object", lexer.NameText(seg.Name), label)
+			return nil, "", pathError(label, seg, "%s of %s holds no object", source.NameText(seg.Name), label)
 		case !isObject || ctx.HoldsNoValue(val):
-			return nil, "", pathError(label, seg, "%s of %s holds a value (%s), not an object", lexer.NameText(seg.Name), label, w.format(val))
+			return nil, "", pathError(label, seg, "%s of %s holds a value (%s), not an object", source.NameText(seg.Name), label, w.format(val))
 		}
 		child, ok := ctx.Instance(id)
 		if !ok {
-			return nil, "", pathError(label, seg, "%s of %s holds object #%d, which is no longer held", lexer.NameText(seg.Name), label, id)
+			return nil, "", pathError(label, seg, "%s of %s holds object #%d, which is no longer held", source.NameText(seg.Name), label, id)
 		}
 		inst, label = child, next
 	}

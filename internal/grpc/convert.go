@@ -11,7 +11,6 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -1150,13 +1149,13 @@ func textSpellsUnit(text string, unit *symbols.Symbol, idx *symbols.Index, sem *
 	if expr == nil || len(p.Diagnostics) > 0 || p.Offset() != len(text) {
 		return false
 	}
-	spellings := []string{lexer.NameText(unit.Name)}
+	spellings := []string{source.NameText(unit.Name)}
 	if unit.ShortName != "" {
-		spellings = append(spellings, lexer.NameText(unit.ShortName))
+		spellings = append(spellings, source.NameText(unit.ShortName))
 	}
 	product, err := sem.UnitProductOfExprBy(expr, func(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
 		if len(qn.Parts) == 1 {
-			return unit, slices.Contains(spellings, lexer.NameText(qn.Parts[0].Text))
+			return unit, slices.Contains(spellings, source.NameText(qn.Parts[0].Text))
 		}
 		matches := idx.LookupQualified(semantics.QualifiedNameText(qn))
 		if len(matches) != 1 {
@@ -1453,7 +1452,7 @@ func unnamedUnitProduct(term semantics.UnitTerm) semantics.UnitProduct {
 	}
 	product := semantics.UnitProduct{}
 	for _, f := range term.Factors {
-		name := lexer.QualifiedNameText(symbols.FQNOf(f.Unit))
+		name := source.QualifiedNameText(symbols.FQNOf(f.Unit))
 		product = product.Times(semantics.NamedUnitProduct(f.Unit, name, false).Pow(f.Exponent))
 	}
 	return product

@@ -182,6 +182,7 @@ nav:
       - Limitations and troubleshooting: manual/troubleshooting.md
       - Worked example output: manual/examples/observatory.md
       - Requirements example output: manual/examples/requirements.md
+      - Traceability example output: manual/examples/traceability.md
   - Reference:
       - reference/README.md
       - CLI: reference/cli.md

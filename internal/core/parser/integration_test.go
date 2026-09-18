@@ -15,8 +15,8 @@ var update = flag.Bool("update", false, "update golden files")
 
 func runGolden(t *testing.T, name string) {
 	t.Helper()
-	srcPath := filepath.Join("..", "..", "..", "testdata", "parse", name+".sysml")
-	goldenPath := filepath.Join("..", "..", "..", "testdata", "parse", name+".golden")
+	srcPath := filepath.Join("..", "..", "..", "tests", "testdata", "parse", name+".sysml")
+	goldenPath := filepath.Join("..", "..", "..", "tests", "testdata", "parse", name+".golden")
 
 	data, err := os.ReadFile(srcPath)
 	if err != nil {

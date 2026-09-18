@@ -8,9 +8,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
@@ -515,7 +515,7 @@ func (s *Session) featureCompletions(shape objectShape, prefix, partial string) 
 		if feat.Name == "" || !s.holdsObjects(shape, feat) {
 			continue
 		}
-		name := prefix + lexer.NameText(feat.Name)
+		name := prefix + source.NameText(feat.Name)
 		if feat.Scalar() {
 			candidates = append(candidates, name)
 			continue
@@ -601,7 +601,7 @@ func (s *Session) nameCompletions(word string) []string {
 	}
 
 	for _, name := range s.declaredSymbolNames() {
-		add(lexer.NameText(name))
+		add(source.NameText(name))
 	}
 	for _, b := range runtime.Builtins() {
 		add(b.Name)

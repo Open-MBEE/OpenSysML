@@ -218,14 +218,14 @@ The test-suite figures above are counted from `go test -v` at the tag. The other
 repeat them (`README.md`, `docs/project/spec-compliance.md`, `docs/internals/architecture.md`)
 were typed in by hand at the tag and lagged it — last recounted at `074f9c4b7` (#245), they read
 889 conformance cases where the tag has 894. Since #291, on `develop` after the tag, they are
-generated: `cmd/doc-counts` counts the conformance cases, golden ASTs, golden traces, negative
+generated: `tools/cmd/doc-counts` counts the conformance cases, golden ASTs, golden traces, negative
 parser subtests, runtime and gRPC robustness cases and top-level `Test` functions from the tree
 the way the gates enumerate them (the conformance cases through `internal/fixtures`, which the
 runtime and gRPC conformance tests read too), `make docs-counts` writes them into marker blocks
-beside the refereed pilot figures, and `go run ./cmd/doc-counts -check` fails in CI when a block
+beside the refereed pilot figures, and `go run -C tools ./cmd/doc-counts -check` fails in CI when a block
 and the tree disagree, so the surfaces cannot drift from the gate table again. They have since
 left git altogether: the site build counts them into the compliance map's test inventory
-(`scripts/mkdocs_suite_figures.py` over `go run ./cmd/doc-counts -site-blocks`), the committed
+(`scripts/mkdocs_suite_figures.py` over `go run -C tools ./cmd/doc-counts -site-blocks`), the committed
 pages name what is counted without a figure, and a branch adding a test rewrites no shared line.
 The tests-and-subtests total of a run, which only a run can state, is no longer quoted anywhere. At
 `develop`'s head the blocks read 1013 conformance cases, 307 default and 80 per-policy trace
@@ -495,7 +495,7 @@ public callable declaration of the six packages, invokes each through the runtim
 representative model and records whether the value passed its check, which typed error refused
 it, or what the value got wrong; the verdicts are committed to
 `docs/project/analysis-library-census.json`, `make docs-counts` renders them as the table in
-`spec-compliance.md` with every refusal listed by name and error, and `go run ./cmd/doc-counts
+`spec-compliance.md` with every refusal listed by name and error, and `go run -C tools ./cmd/doc-counts
 -check` fails when the table and the file disagree. At `develop`'s head it reads 76 declarations,
 53 evaluated, 23 refused by name, 0 wrong: `SampledFunctions` 5 of 5, `TradeStudies` 6 of 7,
 `VectorFunctions` 30 of 39, `OccurrenceFunctions` 6 of 8, `StateSpaceRepresentation` 6 of 17
@@ -779,7 +779,7 @@ structural decisions (`internal/core/export/convert.go`), so the profile is most
 layer: property name → defining metaclass.
 
 **Done:** the table and the gate. `internal/core/rdf/ontology` holds the term table generated
-from `SysML.owl` by `internal/core/rdf/ontology/gen` from a local checkout (version `202407`,
+from `SysML.owl` by `tools/gen/ontology` from a local checkout (version `202407`,
 upstream commit in the generated header): 411 properties spanning only **336 distinct unqualified
 names — 59 names are declared by more than one metaclass** (`type`, `value`, `source`, `target`,
 …), so the unqualified convention is genuinely lossy in the other direction and a profile encoder
@@ -2152,7 +2152,7 @@ client's optional in-process mode, the embedded target) restrict it. The client 
 ## I5 — the conformance suite as a kernel contract
 
 `conformance/` is written as the contract between `sysml-grpc` and its clients, and that is the
-only direction its runner exercises: `cmd/conformance` builds `./cmd/sysml-grpc` (or takes
+only direction its runner exercises: `tools/cmd/conformance` builds `./cmd/sysml-grpc` (or takes
 `-binary`), starts the process itself and drives it over the three protocols. Nothing runs it
 against a service that is *not* this repository's Go binary, so a second implementation of
 `sysml.proto` — a kernel in another language behind the same clients — has no way to state how
@@ -2455,7 +2455,7 @@ under every schedule the explorer reaches and requires the values left in its ou
 to be the reference's. `cmd/fuml-referee` files 55 activities as 15 `pass` / 0 `fail` / 36
 `not-expressible` / 4 `differs-by-design` (an action the reference fires once per object token),
 pinned in `docs/project/fuml-referee-baseline.json` and checked in CI by
-`go run ./cmd/fuml-referee -check`; [fuml-referee.md](fuml-referee.md) records the translation
+`go run -C tools ./cmd/fuml-referee -check`; [fuml-referee.md](fuml-referee.md) records the translation
 rules and every row. What remains is the `not-expressible` bucket, which is the emitter's, not
 the runtime's: object creation, structural-feature actions, accept-event actions and active
 classes have no translation yet, and each one added moves rows into `pass` or `fail`.
@@ -2490,10 +2490,13 @@ service, and test-only and referee packages sit beside the product packages with
 them apart. Nothing here changes what any binary does; the track is the separation of the
 parser, the semantic engine, the runtime and the translation utilities into layers that can each
 be built, tested and reasoned about without the layers above them, whether or not they ever ship
-separately. It is **not started**, and deliberately so: the moves touch files every open pull
-request touches, so the track is scheduled for the 0.9.0 cycle, after the pull requests open
-against `develop` at this baseline have landed, with the small items first and the two large ones
-last. Measured at `develop` `530c04667` (#354), non-test lines and `go list` import edges.
+separately. It was deliberately **not started** before the 0.9.0 cycle: the moves touch files
+every open pull request touches, so the track waited for the pull requests open against
+`develop` at this baseline to land, with the small items first and the two large ones last; the
+tooling module (P3) is the first item in. The figures below are the baseline the track started
+from. Measured at `develop` `530c04667` (#354), non-test lines and `go list` import edges; the
+binary, test and directory figures below at `develop` `206760826` (#384), where the module has
+70 packages under `internal/`.
 
 ## Where the module stands
 
@@ -2554,6 +2557,58 @@ What is in `internal/` that is not product code, or is in the wrong place:
   core; `internal/docpdf` is the PDF backend of the `core/docrender` pipeline and the only part of
   it outside `core/`.
 
+### What the binaries carry
+
+`sysml` built by `make build` on linux/amd64 is 50.0 MB (`sysml-grpc` 49.0 MB, `sysml-lsp`
+29.0 MB). Of its symbol bytes 66% are `internal/*` code, 15.5% are gRPC-go, Connect, protobuf,
+`net/http` and `crypto/tls`, and the rest is the Go runtime and standard library; the embedded
+standard library is 5.4 MB of data (the 1.8 MB source tree and the 3.6 MB parsed snapshot).
+Three things follow:
+
+- **Test code is not in the binaries.** Go compiles no `_test.go` file into a non-test build,
+  and `go list -deps` shows none of `hygiene`, `perfbench`, `testutil/*`, `fixtures`,
+  `doccounts/doccountstest`, `junit` or `baseline` linked into `sysml`, `sysml-lsp` or
+  `sysml-grpc`. Moving tests out of `internal/` tidies the tree; it changes no binary.
+- **Debug data was.** The Makefile's `LDFLAGS` stamped versions and nothing else, so the
+  binaries shipped their symbol table and DWARF; `-s -w` drops both and takes `sysml` to
+  37.2 MB with the version stamps, build info and stack traces intact. That is a build-flag
+  change, made outside this track.
+- **One import costs a quarter of the REPL binary.** A probe linking every `internal` package
+  `sysml` reaches except `repl` and `grpc` is 17.6 MB; the same probe plus `internal/grpc` is
+  30.3 MB. The `repl → grpc` edge above, taken for one instance-graph conversion, pulls
+  gRPC-go, Connect, HTTP/2 and TLS into the terminal binary. The conversion package of P1 keeps
+  the protobuf runtime (the REPL emits the API's JSON shape on purpose) and drops the rest;
+  `net/http` stays because `interop/flexo` and `interop/reposync` are HTTP clients. `sysml`
+  stripped and without the service layer is about 25 MB.
+
+### What is test code
+
+346k lines of the module are tests, against 304k lines of product, in 1,289 `_test.go` files;
+1,207 of them declare the package they test (white-box, reaching unexported identifiers) and 82
+declare an external `_test` package. 114 test files walk a `testdata` directory; the 22
+`testdata` directories under `internal/` and `cmd/` hold 19 MB, 11 MB of it the runtime's
+conformance and trace fixtures, and add 32 directories to the tree. Go requires a white-box test
+to sit in its package's directory, so the unit tests stay where they are; what can move is the
+black-box suites, every `testdata` tree, the two test-only packages and the four test-support
+packages.
+
+### What is duplicated
+
+Identically named unexported helpers defined in four or more non-test packages, each a copy:
+
+| helper | copies | where | belongs |
+|---|---|---|---|
+| `qualifiedNameText(*ast.QualifiedName) string` | 4 | `docplan`, `lower`, `runtime`, `symbols` | a method on `ast.QualifiedName` |
+| `ownerOf(*symbols.Symbol) *symbols.Symbol` | 6 | `codegen`, `edit`, `passes`, `resolve`, `semantics`, `view` | a method on `symbols.Symbol` |
+| `declMembers` | 4 | `lower`, `passes`, `runtime`, `semantics` | `ast` or `symbols` |
+| `lastSegment`, `qualifiedName` | 5 each | `export`, `queryexec`, `runtime`, `symbols`, `repl`; `export`, `migrate`, `queryplan`, `rename`, `solve` | `symbols` |
+| `sortedKeys` | 6 | across the module | the standard library's `slices` and `maps` |
+| `moduleRoot`, `writeReports`, `classify` | 5, 4, 5 | `cmd/pilot-diff`, `pilot-reject`, `pilot-xpect`, `grammar-coverage`, `validation-census` | one shared package of the tooling tree |
+
+The larger reuse gaps are the ones the edges above already name: two XMI readers, calc lowering
+in `runtime` rather than `lower`, invocation selection in `passes` reused by `runtime`, and the
+REPL reaching into `grpc` for a conversion.
+
 ## The syntax layer against the instance layer
 
 The instance model is clean: `runtime.Instance` is an id, a `*symbols.Symbol` and a map of
@@ -2591,6 +2646,18 @@ A package imports only the layers below it:
 | frontends | a shared proto conversion package, `repl`, `lsp`, `grpc`, `stdiorpc`, `usage`, `cmd/*` |
 | tooling | `baseline`, the errata registry, `fixtures`, `junit`, `doccounts`, `stressmodel`, `fuml`, `pssm`, `perfbench`, `hygiene`, `testutil`, never linked by a shipped binary |
 
+The tree says the same thing as the table. `internal/` today is 121 directories: 70 packages,
+32 `testdata` subtrees, the 17 data directories of the bundled standard library and two grouping
+directories, with 21 entries at the top and 41 under `core/`. The target is nine directories under
+`internal/`, one per layer — `syntax`, `semantic`, `ir`, `check`, `exec`, `translate`, `doc`,
+`workspace`, `frontend` — holding about 45 packages; a `tests/` tree at the repository root for
+the black-box suites and every fixture; and a `tools/` tree, a nested Go module of the same
+repository, for the eleven `cmd/` programs that are never released (`conformance`, `doc-counts`,
+`fuml-referee`, `grammar-coverage`, `pilot-diff`, `pilot-exec-diff`, `pilot-reject`,
+`pilot-xpect`, `pssm-referee`, `stress-model`, `validation-census`) and the ten packages only they
+link. The product `go.mod` then lists the product's dependencies and `go build ./...` at the root
+builds the product.
+
 A layering test beside `TestNoProductionCodeImportsTesting` — a table of layer → permitted layers
 checked against `go list -f '{{.Imports}}'` — pins each edge as it is removed; `make lint` is
 staticcheck and gosec and checks no import boundary today.
@@ -2606,28 +2673,92 @@ Each a pull request of its own, mechanical for any branch it crosses:
 3. `runtime → passes` for invocation selection: move `passes/invocation.go` into `semantics`.
 4. `runtime → parser`: the caller of `tool.go` hands the runtime the parsed tree.
 5. `repl → grpc`: move `InstanceGraphToProto` and `GraphBounds` to a proto conversion package
-   both frontends import.
+   both frontends import, depending on `api/proto` and the protobuf runtime only; this is the
+   item that takes gRPC-go and Connect out of `sysml`.
 6. `export → migrate, parser`: move `Migrate` and the notation parsing out of `convert.go` into
    the conversion entry point that calls them.
 
 With these the runtime links neither the validation suite nor the parser, and the REPL not the
 service layer.
 
-## P2 — a runtime-free translation module (not started)
+## P2 — the tests tree (not started)
+
+Create `tests/` at the repository root, one black-box package per suite, and move into it: the
+runtime's execution conformance and trace suites with their fixtures (`tests/conformance`); the
+four OMG corpus gates from `internal/core/model` and the RDF round-trip ratchet from
+`internal/core/export` (`tests/corpus`); the parser's golden ASTs and negative cases
+(`tests/parser`); the LSP, gRPC and REPL protocol suites; `TestNoProductionCodeImportsTesting`
+and the layering test (`tests/hygiene`); the benchmarks of `perfbench` (`tests/perf`); the 82
+external test files; and `testutil/*`, `fixtures` and `doccounts/doccountstest` as the tree's
+support packages. Every `testdata` directory moves beside its driver under `tests/testdata/`, the
+top-level `testdata/` with them. A driver that reached into its package's unexported identifiers
+is rewritten against the exported surface, not given an export shim. The corpus policies do not
+move: the training corpus stays an assertion, the pilot roots and the round trip stay per-file
+ratchets, and the download scripts and require-variables stay as `AGENTS.md` §2 states them. This
+removes 32 `testdata` subtrees and six packages from `internal/` — 121 directories to about 80.
+
+## P3 — the tooling module (landed, unreleased)
+
+The eleven unreleased `cmd/` programs and the packages only they link — `baseline`, `junit`,
+`fuml`, `pssm`, `xmi`, `doccounts`, `core/libs/gensnapshot`, `core/rdf/ontology/gen` — are in
+`tools/`, a nested Go module of the repository (`tools/go.mod`, `replace … => ../`), laid out
+by what each tool does rather than one directory per OMG artefact, which is how `fuml`, `pssm`,
+`xmi`, `baseline` and `junit` came to sit as five siblings of the compiler (#394, #400, #404):
+
+```text
+tools/
+  referee/    fuml pssm xpect diff reject exec   the oracles, one package each
+  oracle/     xmi baseline junit errata report repo    what every referee shares
+  census/     validation grammar doccounts       the counting gates
+  gen/        snapshot ontology                  generators
+  cmd/        one main per program
+```
+
+Every program runs as `go run -C tools ./cmd/<name>`, and because `-C` starts it inside the
+tools module, a relative path given to any of its flags (`-out`, `-baseline`, `-junit`, …) counts
+from the repository root, which `repo.Resolve` applies; `report` took `writeReports` and the
+four verdict buckets the fUML and PSSM referees share, `repo` took `moduleRoot`, and the copies
+are gone. `errata` is split: the overlay the standard library applies is
+`internal/core/libs/errata` (product), the registry the oracles read is `tools/oracle/errata`.
+There is no `go.work`: `go build ./...` and `go test ./...` at the root are product-only, and
+`make test` and `make lint` run both modules. Two of the listed packages stay in the product
+because product tests import them and a test cannot import the nested module without a cyclic
+requirement: `internal/fixtures`, which also took the analysis-library census schema that the
+runtime's own test writes and `tools/census/doccounts` counts, and `internal/stressmodel`, whose
+generator `internal/core/model`'s incremental test drives (only `cmd/stress-model` moved).
+`docpdf` is `internal/core/docpdf`, beside `docrender`; `envvar` and `project` already sat beside
+`model`, and whether they fold into it is P4's question. Measured at `develop` `1e44c746c`
+before and after the four pull requests: `go list -deps ./cmd/sysml` 368 → 368 (nothing moved
+was on a shipped binary's path, and `go list -deps` of the three binaries names no package of
+`tools/`); directories under `internal/` 119 → 110, 21 → 13 entries at the top and 70 → 61
+packages. Still to do here: split `passes` by domain — core, behavior, document, diagram,
+identity — with registration left central, once the runtime no longer imports it.
+
+## P4 — one-file packages and shared helpers (not started)
+
+Fold the 18 single-file packages into the package that owns the concept: `core/engines`
+(36 lines), `fsutil` (38), `core/provenance` (47), `core/envvar` (49), `core/conformance` (56),
+`core/quickfix` (66), `core/rename` (162), `core/identity/normative` into `identity`,
+`core/analysis/enginewire` into `analysis`, and the tooling and test-support ones P2 and P3
+already move. Then give `qualifiedNameText` and `declMembers` a home in `ast`, `ownerOf`,
+`lastSegment` and `qualifiedName` one in `symbols`, replace `sortedKeys` with `slices.Sorted`
+over `maps.Keys`, and delete the copies. About 52 packages become about 45.
+
+## P5 — a runtime-free translation module (not started)
 
 Move the `graphs:1` form and `GraphsVersion` from `export` to the execution layer, so `analysis`
 no longer imports `export`; then audit `graphs_*.go` for the runtime types it still names and
 reduce it to `lower` and `semantics`. Merge `internal/xmi` and `internal/core/xmi` into one
 reader with the two interpretations on top.
 
-## P3 — the product/tooling split (not started)
+## P6 — the layer directories (not started)
 
-Move `hygiene`, `perfbench` and the referee packages out of `internal/` into a tooling tree;
-split `errata` into the overlay the standard library applies and the registry the oracles read;
-move `envvar` and `project` beside `model`, and `docpdf` beside `docrender`. Then split `passes`
-by domain — core, behavior, document, diagram, identity — with registration left central.
+Rename the packages into the nine layer directories of the target and turn the layering test on
+for every layer. This is one pull request that rewrites every import path in the module and the
+only item of the track that cannot be rebased under an open branch, so it lands in a window with
+nothing else in flight, after P1–P5 have left the graph it pins otherwise clean.
 
-## P4 — an execution-owned IR (not started)
+## P7 — an execution-owned IR (not started)
 
 Give `lower`'s graphs their own node identities (an opaque id with the originating `ast.Node`
 kept for diagnostics), lower expressions once rather than interpreting the tree in two
@@ -2787,7 +2918,7 @@ an empty action end its performance. The decision is the release checklist's, re
   the others or anything below; **R4**'s Windows installer is proven by two tagged releases. The
   engineering item that sat beside them — the test-suite figures in `README.md` and
   `spec-compliance.md`, hand-typed and lagging the gate table — is closed by #291 on `develop`:
-  `cmd/doc-counts` generates and checks them as it does the pilot figures.
+  `tools/cmd/doc-counts` generates and checks them as it does the pilot figures.
 - **Track L.** L3–L6 landed (#830, #821, #818, #825/#861) and L7 in #292 on `develop` after the
   tag. Nothing remains in the track; its census moves with the runtime, adjudicated per change.
 - **Track N.** N2.1 (records and enums) first, since compiling an analysis case and the

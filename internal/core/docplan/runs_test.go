@@ -221,6 +221,35 @@ func TestCompileGroupedTableSeesComputedColumns(t *testing.T) {
 	}
 }
 
+// TestCompileGroupedTableSeesRelatedColumns locks that static projection
+// inspection recognizes RelatedColumn names for groupBy validation.
+func TestCompileGroupedTableSeesRelatedColumns(t *testing.T) {
+	fixture := loadPlanningFixture(t, `
+		calc def Coverage :> Query {
+			in root : Element;
+			Project(
+				source = OwnedElements(source = root),
+				properties = ("name"),
+				columns = (RelatedColumn("verified", "verification", "incoming", 1, "any"))
+			)
+		}
+		part telescope;
+		part def Report :> Document {
+			attribute redefines title = "Report";
+			part coverage : Table {
+				attribute redefines groupBy = "verified";
+				calc rows : Coverage {
+					in root = telescope;
+				}
+			}
+		}
+	`)
+	plan := fixture.mustCompile(t, "Report")
+	if got := plan.Content()[0].GroupBy(); got != "verified" {
+		t.Fatalf("groupBy = %q", got)
+	}
+}
+
 // TestCompileReportsRunAndGroupErrors locks the typed diagnostics for every
 // malformed inline-run and grouping form.
 func TestCompileReportsRunAndGroupErrors(t *testing.T) {

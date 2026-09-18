@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -196,7 +196,7 @@ func (ctx *Context) validateObjectWithin(root *Instance, scopes []*symbols.Scope
 	decided := map[satisfactionKey]bool{}
 	for i, obj := range w.objects {
 		for _, v := range ctx.satisfactionVerdicts(obj, stated) {
-			key := satisfactionKey{v.Element, v.Subject.ID}
+			key := satisfactionKey{declarationKeyOf(v.Element), v.Subject.ID}
 			if decided[key] {
 				continue
 			}
@@ -218,23 +218,41 @@ func (ctx *Context) validateObjectWithin(root *Instance, scopes []*symbols.Scope
 // satisfactionKey is one assertion decided about one object, so an assertion
 // resolving to the same nested object from two holders is reported once.
 type satisfactionKey struct {
-	assertion *symbols.Symbol
+	assertion declarationKey
 	subject   int64
 }
 
 // distinctAssertions keeps the first of each assertion, so one stated by a type
-// and again in a scope is checked once.
+// and again in a scope is checked once, whichever scope tree each symbol is from.
 func distinctAssertions(assertions []*SatisfyAssertion) []*SatisfyAssertion {
 	var out []*SatisfyAssertion
-	seen := map[*symbols.Symbol]bool{}
+	seen := map[declarationKey]bool{}
 	for _, a := range assertions {
-		if a == nil || a.Symbol == nil || seen[a.Symbol] {
+		if a == nil || a.Symbol == nil {
 			continue
 		}
-		seen[a.Symbol] = true
+		key := declarationKeyOf(a.Symbol)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
 		out = append(out, a)
 	}
 	return out
+}
+
+// declarationKey identifies a declaration the way sameDeclaration compares
+// symbols: by its node when it has one, otherwise by the symbol itself.
+type declarationKey struct {
+	decl   ast.Node
+	symbol *symbols.Symbol
+}
+
+func declarationKeyOf(sym *symbols.Symbol) declarationKey {
+	if sym.Decl != nil {
+		return declarationKey{decl: sym.Decl}
+	}
+	return declarationKey{symbol: sym}
 }
 
 // walkHeldObjects reaches the objects root holds, directly or through them, with
@@ -287,7 +305,7 @@ func (w *validationWalk) walk(obj *validatedObject, depth int) {
 			w.unread = append(w.unread, fmt.Errorf("%s: %w", strings.Join(append(obj.path, of.Name), "."), err))
 			continue
 		}
-		for _, child := range w.heldChildren(fv, lexer.NameText(of.Name)) {
+		for _, child := range w.heldChildren(fv, source.NameText(of.Name)) {
 			held := holding{parent: obj, name: of.Name, through: feat.Symbol, owner: feat.OwnerType}
 			if reached, ok := w.visited[child.inst.ID]; ok {
 				reached.holdings = append(reached.holdings, held)
@@ -444,7 +462,7 @@ func assertionText(usage *ast.Usage, sym *symbols.Symbol) string {
 		parts = append(parts, usage.Keyword)
 	}
 	if sym != nil && sym.Name != "" {
-		parts = append(parts, lexer.NameText(sym.Name))
+		parts = append(parts, source.NameText(sym.Name))
 	}
 	return strings.Join(parts, " ")
 }

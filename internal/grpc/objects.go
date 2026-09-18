@@ -12,11 +12,12 @@ import (
 	"sync"
 
 	"connectrpc.com/connect"
+
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -140,7 +141,7 @@ func (h *heldObjects) documentStatus(err error) error {
 func (h *heldObjects) roots() []queryexec.Root {
 	roots := make([]queryexec.Root, 0, len(h.named)+len(h.displaced))
 	for fqn, inst := range h.named {
-		roots = append(roots, queryexec.Root{Label: lexer.QualifiedNameText(fqn), Object: inst})
+		roots = append(roots, queryexec.Root{Label: source.QualifiedNameText(fqn), Object: inst})
 	}
 	sort.Slice(roots, func(i, j int) bool { return roots[i].Label < roots[j].Label })
 	displaced := slices.Clone(h.displaced)
@@ -268,7 +269,7 @@ func (h *heldObjects) resolvePath(ref objref.Ref) (*runtime.Instance, string, er
 	if err != nil {
 		return nil, "", err
 	}
-	return h.walked(walker.Walk(inst, lexer.QualifiedNameText(fqn), rest))
+	return h.walked(walker.Walk(inst, source.QualifiedNameText(fqn), rest))
 }
 
 // walked types a walk's failure: the path is the caller's, so an invalid
@@ -302,7 +303,7 @@ func (h *heldObjects) namedRoot(ref objref.Ref) (*runtime.Instance, string, []ob
 			return inst, fqn, ref.Segments[i:], nil
 		}
 		if i == head && head < len(ref.Segments) && objref.IsNamespace(sym) {
-			shown := lexer.QualifiedNameText(fqn)
+			shown := source.QualifiedNameText(fqn)
 			return nil, "", nil, statusErrorf(connect.CodeInvalidArgument,
 				"%q is not an object reference: %s is a %s, not an object: its member is written %s::%s",
 				ref.Text, shown, objref.NamespaceKind(sym), shown, ref.Segments[head].Text)
@@ -314,10 +315,10 @@ func (h *heldObjects) namedRoot(ref objref.Ref) (*runtime.Instance, string, []ob
 	if noInstance != "" {
 		if h.empty() {
 			return nil, "", nil, statusErrorf(connect.CodeNotFound,
-				"no instance of %q: the model holds no objects (Instantiate creates one)", lexer.QualifiedNameText(noInstance))
+				"no instance of %q: the model holds no objects (Instantiate creates one)", source.QualifiedNameText(noInstance))
 		}
 		return nil, "", nil, statusErrorf(connect.CodeNotFound,
-			"no instance of %q (use Instantiate first)", lexer.QualifiedNameText(noInstance))
+			"no instance of %q (use Instantiate first)", source.QualifiedNameText(noInstance))
 	}
 	return nil, "", nil, statusErrorf(connect.CodeNotFound, "symbol not found: %s", objref.JoinTyped(ref.Segments[:head]))
 }
@@ -349,7 +350,7 @@ func (h *heldObjects) lookup(segments []objref.Segment) (*symbols.Symbol, error)
 	}
 	names := make([]string, 0, len(found))
 	for _, sym := range found {
-		names = append(names, lexer.QualifiedNameText(h.idx.GetFQN(sym)))
+		names = append(names, source.QualifiedNameText(h.idx.GetFQN(sym)))
 	}
 	sort.Strings(names)
 	return nil, statusErrorf(connect.CodeInvalidArgument,

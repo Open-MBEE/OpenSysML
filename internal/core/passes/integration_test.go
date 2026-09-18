@@ -15,7 +15,7 @@ var updateGolden = flag.Bool("update", false, "update golden files")
 
 func runPassesGolden(t *testing.T, name string) {
 	t.Helper()
-	srcPath := filepath.Join("..", "..", "..", "testdata", "passes", name+".sysml")
+	srcPath := filepath.Join("..", "..", "..", "tests", "testdata", "passes", name+".sysml")
 	data, err := os.ReadFile(srcPath)
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
@@ -36,7 +36,7 @@ func runPassesGolden(t *testing.T, name string) {
 	}
 	got := b.String()
 
-	goldenPath := filepath.Join("..", "..", "..", "testdata", "passes", name+".golden")
+	goldenPath := filepath.Join("..", "..", "..", "tests", "testdata", "passes", name+".golden")
 	if *updateGolden {
 		if err := os.WriteFile(goldenPath, []byte(got), 0o644); err != nil {
 			t.Fatalf("write golden: %v", err)

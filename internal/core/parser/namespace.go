@@ -32,7 +32,7 @@ func (p *Parser) reservedWord(w string) bool {
 		// nonstandard-notation pass already reads it.
 		kind = source.KindSysML
 	}
-	return lexer.IsKeywordIn(w, kind)
+	return source.IsKeywordIn(w, kind)
 }
 
 // atNameOrKeyword reports whether the current token can begin a name segment,

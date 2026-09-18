@@ -1,0 +1,1 @@
+- **A wide table in a PDF document stays within the page.** The PDF stylesheet let a table grow past the text width when its cells held long unbreakable tokens such as qualified names, so the rightmost columns were cut off at the page edge; tables now take the text width and cells wrap anywhere they must.
