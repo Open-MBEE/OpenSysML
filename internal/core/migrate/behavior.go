@@ -609,7 +609,48 @@ func (m *migration) calcExprHow(e *xmi.Element) (expr string, ok bool, note stri
 	if body == "" {
 		return "", false, "the behavior has no body", false
 	}
-	return m.behaviorExprHow(body, lang, e, wanted{})
+	want, rnote := m.calcResult(e)
+	if rnote != "" {
+		return "", false, rnote, false
+	}
+	return m.behaviorExprHow(body, lang, e, want)
+}
+
+// calcResult is what a behavior's result expression must yield: the value of
+// its one return or output parameter; a behavior with none wants any value,
+// and with several the expression can stand for none of them.
+func (m *migration) calcResult(e *xmi.Element) (wanted, string) {
+	var outs []*xmi.Element
+	for _, p := range e.Owned("ownedParameter") {
+		if dir, _ := parameterDirection(p); dir != "in" {
+			outs = append(outs, p)
+		}
+	}
+	switch len(outs) {
+	case 0:
+		return wanted{}, ""
+	case 1:
+		return m.wantedOf(outs[0]), ""
+	}
+	return wanted{}, "the behavior has " + strconv.Itoa(len(outs)) + " output parameters; one result expression can stand for none of them"
+}
+
+// resultRefusal is why a body the translator reads whole as an expression is
+// still no result expression for e: its type, or which parameter it would be.
+func (m *migration) resultRefusal(e *xmi.Element) string {
+	body, lang := opaqueBody(e)
+	if dialectOf(lang) == dialectNone {
+		return ""
+	}
+	want, rnote := m.calcResult(e)
+	_, _, err := m.translatedExpr(body, lang, e, want)
+	switch {
+	case err == nil:
+		return rnote
+	case err.kind == refusedType:
+		return err.note()
+	}
+	return ""
 }
 
 // calcBody writes an opaque or function behavior's parameters and result expression.
@@ -629,6 +670,9 @@ func (m *migration) opaqueBehaviorBody(e, scope *xmi.Element) {
 	body, lang := opaqueBody(e)
 	lines, ok, note := m.statements(body, lang, scope)
 	if !ok {
+		if r := m.resultRefusal(e); r != "" && r != note {
+			note = "as the result expression, " + r + "; as statements, " + note
+		}
 		m.opaqueComment(body, lang, note)
 		m.downgrade(e, "the body is kept as a comment: "+note)
 		return

@@ -32,10 +32,29 @@ action def Double {
     }
     first body then done;
 }
-calc def Delay {
+action def Delay {
     in t_sim : ScalarValues::Real;
     out d : ScalarValues::Real;
-    d == t_sim * 2
+    first start then body;
+    action body {
+        assign d := t_sim * 2;
+    }
+    first body then done;
+}
+action def Root {
+    in x : ScalarValues::Real;
+    out ok : ScalarValues::Boolean;
+    /* body not migrated (as the result expression, the types at "Math.sqrt(x)" disagree: the expression is a Real, not the Boolean wanted; as statements, the call "Math.sqrt" is not in the translated function table: a call is not a statement of the subset) {JavaScript}:
+     * Math.sqrt(x)
+     */
+}
+action def Split {
+    in x : ScalarValues::Real;
+    out lo : ScalarValues::Real;
+    out hi : ScalarValues::Real;
+    /* body not migrated (as the result expression, the behavior has 2 output parameters; one result expression can stand for none of them; as statements, the construct "x" is outside the translated subset: an expression that assigns nothing is not a statement of the subset) {JavaScript}:
+     * x / 2
+     */
 }
 part def Gauge {
     attribute t_sim : ScalarValues::Real default = 4.0;

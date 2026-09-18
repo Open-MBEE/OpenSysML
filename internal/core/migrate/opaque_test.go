@@ -44,6 +44,9 @@ var testScope = fakeScope{
 	"vat":              {expr: "this.vat", object: []string{"Vat", "Tank"}},
 	"tcs.i":            {expr: "this.tcs.i", scalar: "Integer"},
 	"Guide Star Found": {expr: "this.'Guide Star Found'", scalar: "Boolean"},
+	"Guide Star":       {expr: "this.'Guide Star'", object: []string{"Star"}},
+	"Stage 2 Ready":    {expr: "this.'Stage 2 Ready'", scalar: "Boolean"},
+	"Retry Count":      {expr: "this.'Retry Count'", scalar: "Integer"},
 }
 
 func TestTranslateExpr(t *testing.T) {
@@ -120,6 +123,11 @@ func TestTranslateExpr(t *testing.T) {
 		{"English", "GS_Found or i == Retries", "", "this.GS_Found or this.i == this.Retries", "Boolean"},
 		{"English", "i >= Retries", "", "this.i >= this.Retries", "Boolean"},
 		{"English", "Guide Star Found", "Boolean", "this.'Guide Star Found'", "Boolean"},
+		{"English", "not Guide Star Found", "Boolean", "not this.'Guide Star Found'", "Boolean"},
+		{"English", "Guide Star Found and not Stage 2 Ready", "Boolean", "this.'Guide Star Found' and not this.'Stage 2 Ready'", "Boolean"},
+		{"English", "(Guide Star Found or GS_Found) and Retry Count >= Retries", "Boolean", "(this.'Guide Star Found' or this.GS_Found) and this.'Retry Count' >= this.Retries", "Boolean"},
+		{"English", "Retry Count = 1", "Boolean", "this.'Retry Count' == 1", "Boolean"},
+		{"English", "NOT Guide Star Found OR Stage 2 Ready", "Boolean", "not this.'Guide Star Found' or this.'Stage 2 Ready'", "Boolean"},
 		{"English", "Mean = 0.0", "", "this.t == 0.0", "Boolean"},
 	}
 	for _, c := range cases {
@@ -335,6 +343,11 @@ func TestTranslateRefusals(t *testing.T) {
 		{"JavaScript", "GS_Found = i", true, refusedType, "GS_Found ="},
 		{"JavaScript", "", true, refusedSyntax, ""},
 		{"JavaScript", "TRUE", false, refusedName, "TRUE"},
+		{"English", "Guide Star Lost", false, refusedName, "Guide Star Lost"},
+		{"English", "not Ready To Go", false, refusedName, "Ready To Go"},
+		{"English", "GS_Found and Guide Star Lost", false, refusedName, "Guide Star Lost"},
+		{"English", "Guide Star and GS_Found", false, refusedType, "and"},
+		{"JavaScript", "Guide Star Found", false, refusedSyntax, "Star"},
 		{"JavaScript", "-t ** 2", false, refusedConstruct, "-t **"},
 		{"JavaScript", "-2 ** 2", false, refusedConstruct, "-2 **"},
 		{"JavaScript", "+t ** 2", false, refusedConstruct, "+t **"},

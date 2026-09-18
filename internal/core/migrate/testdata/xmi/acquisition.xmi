@@ -17,6 +17,9 @@
       <ownedAttribute xmi:type="uml:Property" xmi:id="_gs" name="GS_Found"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
         <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_gs0" value="false"/>
       </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_lost" name="Guide Star Lost"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_lost0" value="false"/>
+      </ownedAttribute>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_dit" name="ditSetup"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
         <defaultValue xmi:type="uml:LiteralReal" xmi:id="_dit0" value="2.5"/>
       </ownedAttribute>
@@ -68,7 +71,7 @@ GS_Found = false;</body>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e6" source="_decide" target="_bump">
           <guard xmi:type="uml:OpaqueExpression" xmi:id="_g6">
             <language>English</language>
-            <body>not GS_Found and i &lt; Retries</body>
+            <body>not GS_Found and not Guide Star Lost and i &lt; Retries</body>
           </guard>
         </edge>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e7" source="_bump" target="_merge"/>

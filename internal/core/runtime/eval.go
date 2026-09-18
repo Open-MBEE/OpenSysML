@@ -1124,6 +1124,10 @@ func (ec *EvalContext) selfFeatureInScope(name string) bool {
 // instance has such a feature value; an error means the feature value exists but could not be
 // materialized.
 func (ec *EvalContext) selfFeatureValue(name string) (Value, bool, error) {
+	// A clock's currentTime, under any of its names, is the run's shared clock.
+	if now, isClock, err := ec.ctx.clockMember(ec.self, name); isClock {
+		return now, true, err
+	}
 	if _, ok := ec.self.FeatureValues[name]; !ok {
 		return Value{}, false, nil
 	}

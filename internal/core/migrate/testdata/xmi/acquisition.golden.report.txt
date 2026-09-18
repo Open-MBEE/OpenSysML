@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: acquisition.xmi
-# migrated 39 element(s): 32 mapped, 3 approximated, 4 unmapped (0 skipped as profile or library content)
+# migrated 40 element(s): 33 mapped, 3 approximated, 4 unmapped (0 skipped as profile or library content)
 
 ## unmapped (4)
 TimeEvent	<TimeEvent>	_te1	(no trigger refers to the event; the time event's time is not written: the duration "ditSetup s" is neither a number with a time unit nor an expression: names ditSetup, which nothing visible from Model is called)
@@ -12,7 +12,7 @@ DurationObservation	Observatory::Acquire::Time_Blank	_blank	(the observation obs
 «SimulationConfig» Class	Group 1	_config1	-> 'Group 1'	(a plain UML class without «Block» is written as a part def)
 DurationConstraint	Observatory::Acquire::settle	_dc	-> Observatory::Acquire	(the duration "ditSetup s" is read as the expression this.tcs.ditSetup, in seconds; the duration "ditSetup s" is read as the expression this.tcs.ditSetup, in seconds; written as a fixed wait of this.tcs.ditSetup s before 'attempt')
 
-## mapped (32)
+## mapped (33)
 Model	Model	_m	(the root model's members are written at the top level)
 «Block» Class	Observatory	_obs	-> Observatory
 Activity	Observatory::Acquire	_acq	-> Observatory::Acquire
@@ -42,6 +42,7 @@ Property	Observatory::Time_Acq_Total	_tacq	-> Observatory::Time_Acq_Total
 Property	Observatory::tcs	_tcs	-> Observatory::tcs
 «Block» Class	TCS	_tcsb	-> TCS
 Property	TCS::GS_Found	_gs	-> TCS::GS_Found
+Property	TCS::Guide Star Lost	_lost	-> TCS::'Guide Star Lost'
 Property	TCS::Retries	_retries	-> TCS::Retries
 Property	TCS::ditSetup	_dit	-> TCS::ditSetup
 Property	TCS::i	_i	-> TCS::i

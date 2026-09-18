@@ -50,7 +50,7 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 		"assign this.tcs.i := this.tcs.i + 1;",
 		"assign this.Time_Acq_Total := localClock.currentTime - this.Time_Acq_Total;",
 		"if this.tcs.i >= this.tcs.Retries",
-		"if not this.tcs.GS_Found and this.tcs.i < this.tcs.Retries",
+		"if not this.tcs.GS_Found and not this.tcs.'Guide Star Lost' and this.tcs.i < this.tcs.Retries",
 		"action wait accept after this.tcs.ditSetup [SI::s];",
 		"action attempt;",
 		"attribute Time_Loop : ScalarValues::Real default = 0.0;",
@@ -160,12 +160,18 @@ func TestTranslatorRefusalsAndConfiguredClockName(t *testing.T) {
 		"attribute k : ScalarValues::Integer;",
 		"assign n := n * k;",
 		"assign y := x * this.power;",
-		"d == t_sim * 2",
+		"assign d := t_sim * 2;",
 		"attribute reading : ScalarValues::Real default = t_sim + 1;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNoLine(t, r.Notation, "d == localClock.currentTime * 2")
+	wantNoLine(t, r.Notation, "assign d := localClock.currentTime * 2;")
+	wantNoLine(t, r.Notation, "d == t_sim * 2")
+	wantNoLine(t, r.Notation, "RealFunctions::sqrt(x)")
+	wantNoLine(t, r.Notation, "calc def Root {")
+	wantNoLine(t, r.Notation, "calc def Split {")
+	wantLine(t, r.Notation, "action def Root {")
+	wantLine(t, r.Notation, "action def Split {")
 	wantNoLine(t, r.Notation, "attribute reading : ScalarValues::Real default = localClock.currentTime + 1;")
 	wantNoLine(t, r.Notation, "attribute x : ScalarValues::Integer;")
 	wantNoLine(t, r.Notation, "attribute power : ScalarValues::Integer;")
@@ -196,6 +202,8 @@ func TestTranslatorRefusalsAndConfiguredClockName(t *testing.T) {
 		"_mixed":   `the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset`,
 		"_python":  `the Python body is written as v2 assignments`,
 		"_partial": `the call "label.trim" is not in the translated function table`,
+		"_root":    `the body is kept as a comment: as the result expression, the types at "Math.sqrt(x)" disagree: the expression is a Real, not the Boolean wanted; as statements, the call "Math.sqrt" is not in the translated function table: a call is not a statement of the subset`,
+		"_split":   `the body is kept as a comment: as the result expression, the behavior has 2 output parameters; one result expression can stand for none of them; as statements, the construct "x" is outside the translated subset: an expression that assigns nothing is not a statement of the subset`,
 	} {
 		wantNote(t, r, id, migrate.Approximated, want)
 	}

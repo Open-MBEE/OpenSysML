@@ -259,13 +259,7 @@ func wholeExprIn(body string, d dialect, sc opaqueScope) (translated, *refusal) 
 	if err != nil {
 		return translated{}, err
 	}
-	t, err := p.wholeExpr()
-	if err != nil && d == dialectEnglish {
-		if named, ok := p.wholeName(body); ok {
-			return named, nil
-		}
-	}
-	return t, err
+	return p.wholeExpr()
 }
 
 // statementsIn parses body as statements of dialect d, its names answered by sc.
@@ -636,24 +630,6 @@ func (p *opaqueParser) wholeExpr() (translated, *refusal) {
 	return t, nil
 }
 
-// wholeName reads an English body that is one property name, spaces and all.
-func (p *opaqueParser) wholeName(body string) (translated, bool) {
-	name := strings.TrimSpace(body)
-	for _, r := range name {
-		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_' && r != ' ' {
-			return translated{}, false
-		}
-	}
-	if name == "" || !strings.Contains(name, " ") {
-		return translated{}, false
-	}
-	ref, err := p.sc.feature([]string{name}, false)
-	if err != nil {
-		return translated{}, false
-	}
-	return ref.value(), true
-}
-
 // statements reads the body as script statements, each written as v2 lines.
 func (p *opaqueParser) statements() ([]string, *refusal) {
 	p.assigns = true
@@ -832,13 +808,23 @@ func (p *opaqueParser) target(path []string) (opaqueRef, *refusal) {
 	return p.sc.feature(path, true)
 }
 
-// path reads a dotted name.
+// englishWords are the words an English guard uses as operators, never as part of a name.
+var englishWords = map[string]bool{"and": true, "or": true, "not": true}
+
+// path reads a dotted name; in English a name may be several words (`Ready To Go`).
 func (p *opaqueParser) path() ([]string, *refusal) {
 	first := p.next(true)
 	if first.kind != tokIdent {
 		return nil, &refusal{kind: refusedSyntax, token: first.text, why: "a name is expected"}
 	}
 	path := []string{first.text}
+	if p.d == dialectEnglish && !p.peek(false).isPunct(".") {
+		name, err := p.spacedName(first.text)
+		if err != nil {
+			return nil, err
+		}
+		path[0] = name
+	}
 	for p.peek(false).isPunct(".") {
 		p.next(false)
 		step := p.next(true)
@@ -848,6 +834,28 @@ func (p *opaqueParser) path() ([]string, *refusal) {
 		path = append(path, step.text)
 	}
 	return path, nil
+}
+
+// spacedName extends an English name with the words that follow it up to the next
+// operator word: English juxtaposes nothing, so the run is one name or no name.
+func (p *opaqueParser) spacedName(first string) (string, *refusal) {
+	words := []string{first}
+	for j := p.i; ; j++ {
+		tok := p.toks[j]
+		if (tok.kind != tokIdent && tok.kind != tokNumber) || englishWords[strings.ToLower(tok.text)] {
+			break
+		}
+		words = append(words, tok.text)
+	}
+	if len(words) == 1 {
+		return first, nil
+	}
+	name := strings.Join(words, " ")
+	if _, err := p.sc.feature([]string{name}, false); err != nil {
+		return "", err
+	}
+	p.i += len(words) - 1
+	return name, nil
 }
 
 // expr reads a conditional expression, the top of the operator ladder.

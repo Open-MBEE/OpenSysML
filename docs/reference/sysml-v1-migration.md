@@ -175,7 +175,7 @@ returned over the service yet.
 | Absolute TimeEvent, TimeEvent whose `when` is not a number with a time unit | comment | **unmapped** |
 | Interaction | a scenario `action def` of `send`s in occurrence order, when every message is an asynchronous signal send received on a lifeline standing for a part of the interaction's owner | approximated |
 | Interaction with a synchronous call, a reply, a message to a lifeline that is not a part, or no message; DurationConstraint on an interaction | comment | **unmapped** — the reason names the message |
-| OpaqueBehavior, FunctionBehavior | `calc def` with its parameters when its one body is a v2 expression whose names resolve or a JavaScript expression of the [subset](#the-opaque-language-subset) (`Math.max(a, b)` → `RealFunctions::max(a, b)`); an `action def` whose body is the translated `assign` sequence when the script is statements; otherwise `action def` keeping the body as a comment and the report naming the token refused | mapped / approximated |
+| OpaqueBehavior, FunctionBehavior | `calc def` with its parameters when its one body is a v2 expression whose names resolve or a JavaScript expression of the [subset](#the-opaque-language-subset) (`Math.max(a, b)` → `RealFunctions::max(a, b)`) of the type of its one return or output parameter — a behavior with several has no one result and is written as an `action def`; an `action def` whose body is the translated `assign` sequence when the script is statements; otherwise `action def` keeping the body as a comment and the report naming the token refused | mapped / approximated |
 | Operation | `action def <Op>` owned by the owner, with its parameters; the `method` behavior is written as its body (an Activity as the flow, an OpaqueBehavior as expression or comment), its parameters standing for the operation's at the same position, direction and type under the operation's names; a method parameter matching none is declared and reported, since a call binds only the operation's; no method: `abstract action def`; an `action <op> : <Op>;` usage of the owner performs it, as a call on an object does | mapped |
 | Operation `precondition`, `postcondition`, `bodyCondition` | `assert constraint { <expr> }` in the action def when the expression parses and resolves; otherwise a comment | mapped / approximated |
 | Reception | comment on the `part def` naming the signal (the state machine's `accept sig : Sig` already carries it) | approximated |
@@ -330,8 +330,10 @@ translation is always complete or absent — never partial.
 | the tool's time variable (`simtime`) | `localClock.currentTime` |
 
 **English** (`language` English, natural language, text) is read as one Boolean expression:
-`TRUE` / `FALSE` / `true` / `false`; a property name of Boolean type, spaces and all; `not X`;
-`X and Y`; `X or Y`; comparisons written with `=` or `==`, `<`, `>`, `<=`, `>=`, `!=`.
+`TRUE` / `FALSE` / `true` / `false`; a property name, spaces and all; `not X`; `X and Y`;
+`X or Y`; comparisons written with `=` or `==`, `<`, `>`, `<=`, `>=`, `!=`; parentheses. A run
+of words between operators is one name (`not Guide Star Lost and i < Retries` reads the
+property `Guide Star Lost`), refused whole when nothing visible is called that.
 
 **Refusals.** Anything else is refused, and the report line carries the reason with the token
 that caused it: a language not in the table (`the language "Groovy" is not translated`), text
@@ -350,9 +352,10 @@ the refusal is final, and the body is a comment.
 
 A translation is emitted only when every name resolves to a written feature visible where the
 statement lands, the types agree wherever they can be told (a guard is `Boolean`, an
-assignment fits its target, a default or the value of a typed pin or result is of the feature's
-type — its scalar, or a block or enumeration it is or specializes — and one value unless the
-feature holds several, a duration is `Real`), and the result parses with the v2 parser.
+assignment fits its target, a default, the value of a typed pin or result, or the result
+expression of a `calc def` is of the feature's or the return parameter's type — its scalar, or a
+block or enumeration it is or specializes — and one value unless the feature holds several, a
+duration is `Real`), and the result parses with the v2 parser.
 
 ## The report
 

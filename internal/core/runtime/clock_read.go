@@ -47,7 +47,7 @@ func (ctx *Context) universalClockObject(fqn string) (Value, error) {
 // scale, seconds since the run began as `accept at` waits for it; any other
 // Clock the Kernel's bare number of seconds. Other members are not answered.
 func (ctx *Context) clockMember(inst *Instance, name string) (Value, bool, error) {
-	if name != currentTimeName || !ctx.isClock(inst) {
+	if !ctx.isClockTime(inst, name) {
 		return Value{}, false, nil
 	}
 	if ctx.conformsToLibrary(ctx.objectType(inst), timeClockFQN) {
@@ -59,4 +59,30 @@ func (ctx *Context) clockMember(inst *Instance, name string) (Value, bool, error
 // isClock reports whether inst is an object of a Clock, as the Kernel declares one.
 func (ctx *Context) isClock(inst *Instance) bool {
 	return inst != nil && ctx.conformsToLibrary(ctx.objectType(inst), clockFQN)
+}
+
+// isClockTime reports whether name, on inst, is a Clock's currentTime: the
+// feature itself or a redefinition of it (`attribute now :>> currentTime;`),
+// which is the same feature under another name.
+func (ctx *Context) isClockTime(inst *Instance, name string) bool {
+	if !ctx.isClock(inst) {
+		return false
+	}
+	if name == currentTimeName {
+		return true
+	}
+	typ := ctx.objectType(inst)
+	sym, ok := ctx.model.semantics.LookupMember(typ, name)
+	if !ok {
+		return false
+	}
+	for _, redefined := range ctx.redefinedFeatures(sym, typ) {
+		if redefined.Name != currentTimeName || redefined.OwnerScope == nil {
+			continue
+		}
+		if ctx.conformsToLibrary(redefined.OwnerScope.Owner(), clockFQN) {
+			return true
+		}
+	}
+	return false
 }

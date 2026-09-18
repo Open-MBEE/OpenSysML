@@ -37,6 +37,19 @@
       <language>JavaScript</language>
       <body>d = t_sim * 2;</body>
     </packagedElement>
+    <packagedElement xmi:type="uml:FunctionBehavior" xmi:id="_root" name="Root">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_prx" name="x" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_prok" name="ok" direction="return"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/></ownedParameter>
+      <language>JavaScript</language>
+      <body>Math.sqrt(x)</body>
+    </packagedElement>
+    <packagedElement xmi:type="uml:FunctionBehavior" xmi:id="_split" name="Split">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_psx" name="x" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pslo" name="lo" direction="out"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pshi" name="hi" direction="return"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <language>JavaScript</language>
+      <body>x / 2</body>
+    </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_gauge" name="Gauge">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_gts" name="t_sim"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
         <defaultValue xmi:type="uml:LiteralReal" xmi:id="_gts0" value="4.0"/>

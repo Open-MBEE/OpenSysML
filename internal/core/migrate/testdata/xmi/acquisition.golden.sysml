@@ -8,6 +8,7 @@ part def TCS {
     attribute i : ScalarValues::Integer default = 0;
     attribute Retries : ScalarValues::Integer default = 4;
     attribute GS_Found : ScalarValues::Boolean default = false;
+    attribute 'Guide Star Lost' : ScalarValues::Boolean default = false;
     attribute ditSetup : ScalarValues::Real default = 2.5;
 }
 part def Observatory {
@@ -48,7 +49,7 @@ part def Observatory {
         first stamp4 then 'decide';
         decide 'decide';
         first 'decide' if this.tcs.i >= this.tcs.Retries then 'guide star found';
-        first 'decide' if not this.tcs.GS_Found and this.tcs.i < this.tcs.Retries then 'next attempt';
+        first 'decide' if not this.tcs.GS_Found and not this.tcs.'Guide Star Lost' and this.tcs.i < this.tcs.Retries then 'next attempt';
         action 'guide star found' {
             assign this.tcs.GS_Found := true;
         }

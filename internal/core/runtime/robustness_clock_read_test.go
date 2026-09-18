@@ -12,6 +12,9 @@ import (
 func TestRuntimeRobustnessClockRead(t *testing.T) {
 	t.Run("current_time_is_not_assigned", testClockReadCurrentTimeNotAssigned)
 	t.Run("own_current_time_is_not_assigned", testClockReadOwnCurrentTimeNotAssigned)
+	t.Run("redefined_current_time_is_not_assigned", testClockReadRedefinedCurrentTimeNotAssigned)
+	t.Run("redefined_current_time_is_not_assigned_through_a_part", testClockReadRedefinedCurrentTimeNotAssignedThroughPart)
+	t.Run("redefined_current_time_reads_the_run_clock", testClockReadRedefinedCurrentTimeFollowsTheRunClock)
 	t.Run("clock_of_a_part_holding_no_object", testClockReadOfPartHoldingNoObject)
 	t.Run("current_time_reads_the_run_clock", testClockReadFollowsTheRunClock)
 	t.Run("time_instant_is_no_point_on_a_named_scale", testClockReadInstantAgainstNamedScale)
@@ -70,6 +73,82 @@ func testClockReadOwnCurrentTimeNotAssigned(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, src, "test::Chrono")
 	if !errors.Is(err, ErrClockNotAssignable) || !strings.Contains(err.Error(), "assignment to currentTime") {
 		t.Fatalf("error = %v, want ErrClockNotAssignable over a bare currentTime", err)
+	}
+}
+
+// chronoStamping is a Clock whose `now` redefines currentTime, performing Tick
+// with the tick body on entry, and a Station holding one, performing Observe.
+func chronoStamping(tick, observe string) string {
+	return `package test {
+		private import ScalarValues::*;
+		private import Clocks::*;
+		part def Chrono :> Clock {
+			attribute now :>> currentTime;
+			attribute seen : Real default = -1.0;
+			action def Tick {
+				first start then a;
+				action a { ` + tick + ` }
+				first a then done;
+			}
+			exhibit state run {
+				entry; then ticking;
+				state ticking { entry action tick : Tick; }
+			}
+		}
+		part def Station {
+			part chrono : Chrono;
+			attribute seen : Real default = -1.0;
+			action def Observe {
+				first start then a;
+				action a { ` + observe + ` }
+				first a then done;
+			}
+			exhibit state run {
+				entry; then observing;
+				state observing { entry action observe : Observe; }
+			}
+		}
+	}`
+}
+
+// testClockReadRedefinedCurrentTimeNotAssigned: a redefinition of currentTime is
+// the same feature under another name, so a write to it is refused too.
+func testClockReadRedefinedCurrentTimeNotAssigned(t *testing.T) {
+	_, _, err := instantiateWithLibraries(t, chronoStamping("assign now := 5.0;", ""), "test::Chrono")
+	if !errors.Is(err, ErrClockNotAssignable) || !strings.Contains(err.Error(), "assignment to now") {
+		t.Fatalf("error = %v, want ErrClockNotAssignable over a redefined currentTime", err)
+	}
+}
+
+// testClockReadRedefinedCurrentTimeNotAssignedThroughPart: the same write through
+// a part holding the clock is refused on the object the chain reaches.
+func testClockReadRedefinedCurrentTimeNotAssignedThroughPart(t *testing.T) {
+	_, _, err := instantiateWithLibraries(t, chronoStamping("", "assign chrono.now := 5.0;"), "test::Station")
+	if !errors.Is(err, ErrClockNotAssignable) || !strings.Contains(err.Error(), "assignment to chrono.now") {
+		t.Fatalf("error = %v, want ErrClockNotAssignable over chrono.now", err)
+	}
+}
+
+// testClockReadRedefinedCurrentTimeFollowsTheRunClock: a read of the redefining
+// name, bare or through a part, is the run clock, not a stored default; the
+// redefined name is no member of the redefining type any more.
+func testClockReadRedefinedCurrentTimeFollowsTheRunClock(t *testing.T) {
+	for _, c := range []struct{ tick, observe, root string }{
+		{"assign seen := now;", "", "test::Chrono"},
+		{"", "assign seen := chrono.now;", "test::Station"},
+	} {
+		body := c.tick + c.observe
+		ctx, inst, err := instantiateWithLibraries(t, chronoStamping(c.tick, c.observe), c.root)
+		if err != nil {
+			t.Fatalf("%s: %v", body, err)
+		}
+		fv, err := inst.GetFeatureValue(ctx, "seen")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := FormatValue(fv.Value); got != "0.0" {
+			t.Fatalf("%s: seen = %v, want the clock's instant zero", body, got)
+		}
 	}
 }
 
