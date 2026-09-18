@@ -2174,6 +2174,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	// the next step retries the match.
 	graph := e.graphOf(token.frame)
 	accept, isAccept := graph.Accepts[usage]
+	var payload *Value
 	if isAccept && accept.Trigger != nil {
 		// A trigger waits for time to pass or for a condition to hold rather
 		// than for a message, so it is answered here and not from the queue.
@@ -2235,12 +2236,19 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 			if err := e.setFrameFeature(token.frame, accept.ParamName, value); err != nil {
 				return err
 			}
+			payload = &value
 		}
 	}
 
 	perf, err := e.beginPerformance(token.frame, graph, usage, nil)
 	if err != nil {
 		return err
+	}
+	// The payload is the accept's own output pin as well, for a flow out of the node.
+	if payload != nil {
+		if err := e.setFrameFeature(perf, accept.ParamName, *payload); err != nil {
+			return err
+		}
 	}
 
 	// A node owning no flow, performing no action, is done in this step: a case

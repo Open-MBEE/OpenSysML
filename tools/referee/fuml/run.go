@@ -72,12 +72,11 @@ func Execute(stop context.Context, em *Emitted, x *ExpectedActivity, budget runt
 	if err != nil {
 		return nil, err
 	}
-	action, fresh, err := build(em, budgets)
+	action, classes, fresh, err := build(em, budgets)
 	if err != nil {
 		return nil, err
 	}
-	inputs, err := defaultInputs(em.Activity)
-	if err != nil {
+	if _, err := defaultInputs(nil, em, classes); err != nil {
 		return nil, err
 	}
 	policy, err := runtime.ExplorePolicy(budget)
@@ -85,6 +84,10 @@ func Execute(stop context.Context, em *Emitted, x *ExpectedActivity, budget runt
 		return nil, err
 	}
 	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
+		inputs, err := defaultInputs(ctx, em, classes)
+		if err != nil {
+			return runtime.Outcome{}, err
+		}
 		outputs, err := ctx.ExecuteActionWithInputs(action, inputs)
 		if err != nil {
 			return runtime.Outcome{}, err
@@ -104,23 +107,34 @@ func runBudgets() (runtime.Budgets, error) {
 	return runtime.BudgetsFromEnv()
 }
 
-// build parses the emitted model, resolves its action definition and prepares
-// a fresh context per exploration job.
-func build(em *Emitted, budgets runtime.Budgets) (*symbols.Symbol, func(int) (*runtime.Context, error), error) {
+// classLookup resolves a class of the model to the definition the emitted model
+// declares for it.
+type classLookup func(c *Class) (*symbols.Symbol, error)
+
+// build parses the emitted model, resolves its action definition and the
+// classes' definitions, and prepares a fresh context per exploration job.
+func build(em *Emitted, budgets runtime.Budgets) (*symbols.Symbol, classLookup, func(int) (*runtime.Context, error), error) {
 	src := source.New(em.Name, []byte(em.Text))
 	p := parser.New(src)
 	file := p.ParseFile()
 	for _, d := range p.Diagnostics {
-		return nil, nil, fmt.Errorf("%s: parse: %s", em.Name, d.Message)
+		return nil, nil, nil, fmt.Errorf("%s: parse: %s", em.Name, d.Message)
 	}
 	idx := libs.NewModelIndex()
 	idx.AddDocument(em.Name, file)
 	idx.ExpandWildcardImports()
-	matches := idx.LookupQualified(em.Qualified)
-	if len(matches) != 1 {
-		return nil, nil, fmt.Errorf("%s: %d symbols named %s, want 1", em.Name, len(matches), em.Qualified)
+	lookup := func(qualified string) (*symbols.Symbol, error) {
+		matches := idx.LookupQualified(qualified)
+		if len(matches) != 1 {
+			return nil, fmt.Errorf("%s: %d symbols named %s, want 1", em.Name, len(matches), qualified)
+		}
+		return matches[0], nil
 	}
-	action := matches[0]
+	action, err := lookup(em.Qualified)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	classes := func(c *Class) (*symbols.Symbol, error) { return lookup(Package + "::" + c.Name) }
 	text := source.TextOf(map[string]*source.SourceFile{em.Name: src}, nil)
 	var mu sync.Mutex
 	models := map[int]*runtime.Model{}
@@ -142,28 +156,94 @@ func build(em *Emitted, budgets runtime.Budgets) (*symbols.Symbol, func(int) (*r
 		}
 		return ctx, nil
 	}
-	return action, fresh, nil
+	return action, classes, fresh, nil
 }
 
 // defaultInputs is what the implementation passes for each input parameter when
-// a test runs an activity: the type's default value (0, false, "", 0.0).
-func defaultInputs(a *Activity) (map[string]runtime.Value, error) {
+// a test runs an activity: the type's default value (0, false, "", 0.0), and for
+// a class a fresh object of it whose every attribute holds its type's default.
+// The objects live in ctx; with none, only whether the defaults exist is checked.
+func defaultInputs(ctx *runtime.Context, em *Emitted, classes classLookup) (map[string]runtime.Value, error) {
+	a := em.Activity
 	inputs := map[string]runtime.Value{}
 	for _, p := range a.Inputs() {
-		switch p.Type.Name {
-		case "Integer":
-			inputs[p.Name] = runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt}}
-		case "Boolean":
-			inputs[p.Name] = runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValBool}}
-		case "Real":
-			inputs[p.Name] = runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal}}
-		case "String":
-			inputs[p.Name] = runtime.NewStringValue("")
-		default:
-			return nil, &TranslateError{a.Name, "parameter " + p.Name, "has no default value of type " + p.Type.String()}
+		v, err := defaultValue(ctx, em, classes, p.Type, "parameter "+p.Name, nil)
+		if err != nil {
+			return nil, err
 		}
+		inputs[p.Name] = v
 	}
 	return inputs, nil
+}
+
+// defaultValue is the implementation's default value of a type; an untyped
+// attribute defaults as a String does. making holds the classes whose object
+// is under construction, so a class holding one of itself is refused.
+func defaultValue(ctx *runtime.Context, em *Emitted, classes classLookup, t TypeRef, where string, making map[*Class]bool) (runtime.Value, error) {
+	a := em.Activity
+	switch t.Name {
+	case "Integer":
+		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt}}, nil
+	case "Boolean":
+		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValBool}}, nil
+	case "Real":
+		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal}}, nil
+	case "String":
+		return runtime.NewStringValue(""), nil
+	}
+	if t.Zero() {
+		return runtime.NewStringValue(""), nil
+	}
+	c := a.Model.ClassOf(t)
+	if c == nil {
+		return runtime.Value{}, &TranslateError{a.Name, where, "has no default value of type " + t.String()}
+	}
+	if making[c] {
+		return runtime.Value{}, &TranslateError{a.Name, where, "defaults a " + c.Name + " holding a " + c.Name + " without end"}
+	}
+	making = withClass(making, c)
+	attrs := c.AllAttributes()
+	defaults := make([]runtime.Value, len(attrs))
+	for i, attr := range attrs {
+		at := where + ", attribute " + c.Name + "." + attr.Name
+		if attr.Association != nil {
+			return runtime.Value{}, &TranslateError{a.Name, at, "an association end is not translated by the pilot emitter"}
+		}
+		v, err := defaultValue(ctx, em, classes, attr.Type, at, making)
+		if err != nil {
+			return runtime.Value{}, err
+		}
+		defaults[i] = v
+	}
+	if ctx == nil {
+		return runtime.Value{}, nil
+	}
+	sym, err := classes(c)
+	if err != nil {
+		return runtime.Value{}, err
+	}
+	inst, err := ctx.InstantiateRead(sym, func(inst *runtime.Instance) error {
+		for i, attr := range attrs {
+			if err := inst.SetFeatureValue(ctx, attr.Name, defaults[i]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return runtime.Value{}, err
+	}
+	return runtime.Value{Kind: runtime.ValInstance, Instance: inst.ID}, nil
+}
+
+// withClass is making with c added, leaving making as it was.
+func withClass(making map[*Class]bool, c *Class) map[*Class]bool {
+	out := make(map[*Class]bool, len(making)+1)
+	for k := range making {
+		out[k] = true
+	}
+	out[c] = true
+	return out
 }
 
 // producingNodes names the activity's own action nodes that hold a value at an
@@ -194,7 +274,7 @@ func compare(em *Emitted, x *runtime.Exploration, expected *ExpectedActivity) *E
 			errs[o.Outcome.Err.Error()] = true
 			continue
 		}
-		reached[renderOutputs(a, o.Outcome.Outputs)] = true
+		reached[renderOutputs(a, o.Outcome.Context(), o.Outcome.Outputs)] = true
 		for _, n := range producingNodes(em, o.Outcome.Outputs) {
 			produced[n] = true
 		}
@@ -229,55 +309,69 @@ func renderExpected(a *Activity, x *ExpectedActivity) string {
 			byName[o.Parameter] = o
 		}
 	}
+	r := &renderer{model: a.Model, numbers: map[string]int{}}
 	var lines []string
 	for _, p := range a.Outputs() {
 		var values []string
 		for _, v := range byName[p.Name].Values {
-			values = append(values, renderExpectedValue(v))
+			values = append(values, r.expected(v))
 		}
-		lines = append(lines, renderLine(p, values))
+		lines = append(lines, renderLine(p.Name, p.Multiplicity, values))
 	}
 	return strings.Join(lines, "\n")
 }
 
-// renderOutputs spells a run's output parameters as renderExpected does.
-func renderOutputs(a *Activity, outputs map[string]runtime.Value) string {
+// renderOutputs spells a run's output parameters as renderExpected does; the
+// objects they hold live in ctx.
+func renderOutputs(a *Activity, ctx *runtime.Context, outputs map[string]runtime.Value) string {
+	r := &renderer{model: a.Model, ctx: ctx, numbers: map[string]int{}}
 	var lines []string
 	for _, p := range a.Outputs() {
 		var values []string
 		if v, ok := outputs[p.Name]; ok {
-			values = renderRuntimeValues(v)
+			values = r.runtime(v)
 		}
-		lines = append(lines, renderLine(p, values))
+		lines = append(lines, renderLine(p.Name, p.Multiplicity, values))
 	}
 	return strings.Join(lines, "\n")
 }
 
-// renderLine spells one parameter's values: absent as `-`, a multi-valued
-// unordered parameter's sorted so that runs agreeing as multisets render alike.
-func renderLine(p *Parameter, values []string) string {
+// renderLine spells one feature's values: absent as `-`, a multi-valued
+// unordered feature's sorted so that runs agreeing as multisets render alike.
+func renderLine(name string, m Multiplicity, values []string) string {
 	if len(values) == 0 {
-		return p.Name + " = -"
+		return name + " = -"
 	}
-	if !p.Multiplicity.Ordered && p.Multiplicity.Upper != 1 {
+	if !m.Ordered && m.Upper != 1 {
 		sort.Strings(values)
 	}
-	return p.Name + " = " + strings.Join(values, ", ")
+	return name + " = " + strings.Join(values, ", ")
 }
 
-// renderExpectedValue spells a recorded primitive value canonically.
-func renderExpectedValue(v ExpectedValue) string {
+// renderer spells the implementation's values and the runtime's alike: a
+// primitive canonically, an object as `Type#n{feature = values; …}` at its first
+// mention and `#n` after, numbering objects by first mention so that neither
+// side's object ids show. An object's features are those its class declares and
+// inherits, in name order.
+type renderer struct {
+	model   *Model
+	ctx     *runtime.Context
+	numbers map[string]int
+}
+
+// expected spells a recorded value.
+func (r *renderer) expected(v ExpectedValue) string {
 	switch v.Kind {
 	case "Integer", "Boolean", "String":
 		var raw any
 		if err := json.Unmarshal(v.Value, &raw); err == nil {
-			switch r := raw.(type) {
+			switch raw := raw.(type) {
 			case float64:
-				return strconv.FormatInt(int64(r), 10)
+				return strconv.FormatInt(int64(raw), 10)
 			case bool:
-				return strconv.FormatBool(r)
+				return strconv.FormatBool(raw)
 			case string:
-				return strconv.Quote(r)
+				return strconv.Quote(raw)
 			}
 		}
 	case "Real":
@@ -287,16 +381,52 @@ func renderExpectedValue(v ExpectedValue) string {
 				return renderReal(f)
 			}
 		}
+	case "Reference":
+		if v.Referent != nil {
+			return r.expected(*v.Referent)
+		}
+	case "Object":
+		return r.expectedObject(v)
 	}
 	return v.Kind + string(v.Value)
 }
 
-// renderRuntimeValues spells a run's value, a sequence as its elements.
-func renderRuntimeValues(v runtime.Value) []string {
+// expectedObject spells a recorded object by the class its first type names.
+func (r *renderer) expectedObject(v ExpectedValue) string {
+	if n, seen := r.numbers[v.ID]; seen {
+		return "#" + strconv.Itoa(n)
+	}
+	n := len(r.numbers) + 1
+	r.numbers[v.ID] = n
+	typeName := strings.Join(v.Types, "&")
+	held := map[string][]ExpectedValue{}
+	for _, f := range v.Features {
+		held[f.Feature] = f.Values
+	}
+	var c *Class
+	if len(v.Types) == 1 {
+		c = r.model.ClassOf(TypeRef{Name: v.Types[0]})
+	}
+	if c == nil {
+		return typeName + "#" + strconv.Itoa(n) + "{?}"
+	}
+	var lines []string
+	for _, attr := range sortedAttributes(c) {
+		var values []string
+		for _, fv := range held[attr.Name] {
+			values = append(values, r.expected(fv))
+		}
+		lines = append(lines, renderLine(attr.Name, attr.Multiplicity, values))
+	}
+	return typeName + "#" + strconv.Itoa(n) + "{" + strings.Join(lines, "; ") + "}"
+}
+
+// runtime spells a run's value, a sequence as its elements.
+func (r *renderer) runtime(v runtime.Value) []string {
 	if seq := v.Sequence(); seq != nil {
 		var out []string
 		for _, e := range seq.Elements() {
-			out = append(out, renderRuntimeValues(e)...)
+			out = append(out, r.runtime(e)...)
 		}
 		return out
 	}
@@ -314,8 +444,60 @@ func renderRuntimeValues(v runtime.Value) []string {
 		case semantics.ValReal:
 			return []string{renderReal(v.Const.Real)}
 		}
+	case runtime.ValInstance:
+		// A valueless feature of a value type is materialized as an object that
+		// is no value, which every surface of the runtime reads as unset.
+		if r.ctx.HoldsNoValue(v) {
+			return nil
+		}
+		return []string{r.runtimeObject(v.Instance)}
 	}
 	return []string{runtime.FormatValue(v)}
+}
+
+// runtimeObject spells a run's object by the class its definition translates.
+func (r *renderer) runtimeObject(id int64) string {
+	key := "#" + strconv.FormatInt(id, 10)
+	if n, seen := r.numbers[key]; seen {
+		return "#" + strconv.Itoa(n)
+	}
+	n := len(r.numbers) + 1
+	r.numbers[key] = n
+	inst, ok := r.ctx.Instance(id)
+	if !ok || inst.Type == nil {
+		return "<unknown object>#" + strconv.Itoa(n)
+	}
+	typeName := inst.Type.Name
+	c := r.model.ClassOf(TypeRef{Name: typeName})
+	if c == nil {
+		return typeName + "#" + strconv.Itoa(n) + "{?}"
+	}
+	var lines []string
+	for _, attr := range sortedAttributes(c) {
+		fv, err := inst.GetFeatureValue(r.ctx, attr.Name)
+		if err != nil {
+			lines = append(lines, attr.Name+" = <error: "+err.Error()+">")
+			continue
+		}
+		var values []string
+		switch {
+		case !fv.Feature.Scalar():
+			if fv.Values.Kind != runtime.ValInvalid {
+				values = r.runtime(fv.Values)
+			}
+		case fv.Materialized && fv.Value.Kind != runtime.ValInvalid:
+			values = r.runtime(fv.Value)
+		}
+		lines = append(lines, renderLine(attr.Name, attr.Multiplicity, values))
+	}
+	return typeName + "#" + strconv.Itoa(n) + "{" + strings.Join(lines, "; ") + "}"
+}
+
+// sortedAttributes is the class's own and inherited attributes in name order.
+func sortedAttributes(c *Class) []*Property {
+	attrs := append([]*Property(nil), c.AllAttributes()...)
+	sort.Slice(attrs, func(i, j int) bool { return attrs[i].Name < attrs[j].Name })
+	return attrs
 }
 
 // renderReal spells a real so that the implementation's and the runtime's agree

@@ -21,6 +21,7 @@ type Model struct {
 
 	activities map[string]*Activity
 	classes    map[string]*Class
+	signals    map[string]*Signal
 }
 
 // Exception reports whether this is the exception-test model.
@@ -34,6 +35,70 @@ func (m *Model) Activity(id string) *Activity {
 // Class returns the class with the given XMI id, or nil.
 func (m *Model) Class(id string) *Class {
 	return m.classes[id]
+}
+
+// ClassOf returns the class a type reference names, by ID first and then by
+// name (a reference may carry either), or nil when it names none.
+func (m *Model) ClassOf(t TypeRef) *Class {
+	if m == nil || t.Zero() {
+		return nil
+	}
+	if c := m.classes[t.ID]; c != nil {
+		return c
+	}
+	var found *Class
+	for _, c := range m.Classes {
+		if c.Name != t.Name || t.Name == "" {
+			continue
+		}
+		if found != nil {
+			return nil
+		}
+		found = c
+	}
+	return found
+}
+
+// SignalOf returns the signal a type reference names, by ID first and then by
+// name, or nil when it names none or the name is ambiguous.
+func (m *Model) SignalOf(t TypeRef) *Signal {
+	if m == nil || t.Zero() {
+		return nil
+	}
+	if s := m.signals[t.ID]; s != nil {
+		return s
+	}
+	var found *Signal
+	for _, s := range m.Signals {
+		if s.Name != t.Name || t.Name == "" {
+			continue
+		}
+		if found != nil {
+			return nil
+		}
+		found = s
+	}
+	return found
+}
+
+// AllAttributes returns the class's attributes with those it inherits, each
+// once, generals before the classes specializing them.
+func (c *Class) AllAttributes() []*Property {
+	seen := map[*Class]bool{}
+	var out []*Property
+	var visit func(c *Class)
+	visit = func(c *Class) {
+		if c == nil || seen[c] {
+			return
+		}
+		seen[c] = true
+		for _, g := range c.Generals {
+			visit(c.Model.ClassOf(g))
+		}
+		out = append(out, c.Attributes...)
+	}
+	visit(c)
+	return out
 }
 
 // ActivityNamed returns the activity with the given name, or nil when none or
@@ -221,6 +286,7 @@ const (
 	ReadStructuralFeatureAction        NodeKind = "ReadStructuralFeatureAction"
 	AddStructuralFeatureValueAction    NodeKind = "AddStructuralFeatureValueAction"
 	RemoveStructuralFeatureValueAction NodeKind = "RemoveStructuralFeatureValueAction"
+	ClearStructuralFeatureAction       NodeKind = "ClearStructuralFeatureAction"
 	ReadExtentAction                   NodeKind = "ReadExtentAction"
 	ReadIsClassifiedObjectAction       NodeKind = "ReadIsClassifiedObjectAction"
 	ReclassifyObjectAction             NodeKind = "ReclassifyObjectAction"
@@ -446,11 +512,34 @@ type Class struct {
 
 // Signal is a uml:Signal declared by the model.
 type Signal struct {
-	ID         string
-	Name       string
+	ID    string
+	Name  string
+	Model *Model
+	// Generals are the signals it generalizes.
 	Generals   []TypeRef
 	Attributes []*Property
 	Line       int
+}
+
+// AllAttributes returns the signal's attributes with those it inherits, each
+// once, generals before the signals specializing them: the order a
+// SendSignalAction's argument pins follow.
+func (s *Signal) AllAttributes() []*Property {
+	seen := map[*Signal]bool{}
+	var out []*Property
+	var visit func(s *Signal)
+	visit = func(s *Signal) {
+		if s == nil || seen[s] {
+			return
+		}
+		seen[s] = true
+		for _, g := range s.Generals {
+			visit(s.Model.SignalOf(g))
+		}
+		out = append(out, s.Attributes...)
+	}
+	visit(s)
+	return out
 }
 
 // Association is a uml:Association declared by the model.

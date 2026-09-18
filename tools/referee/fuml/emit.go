@@ -60,9 +60,43 @@ func Emit(a *Activity) (*Emitted, error) {
 	if err != nil {
 		return nil, err
 	}
+	classes, err := classClosure(a, defs)
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range classes {
+		if names[c.Name] {
+			return nil, &TranslateError{a.Name, "class " + c.Name, "shares its name with an activity in the call closure"}
+		}
+		names[c.Name] = true
+	}
+	signals, err := signalClosure(a, defs, classes)
+	if err != nil {
+		return nil, err
+	}
+	for _, sg := range signals {
+		if names[sg.Name] {
+			return nil, &TranslateError{a.Name, "signal " + sg.Name, "shares its name with an activity or class of the closure"}
+		}
+		names[sg.Name] = true
+	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "package %s {\n\tprivate import ScalarValues::*;\n", Package)
+	fmt.Fprintf(&b, "package %s {\n\tprivate import ScalarValues::*;\n\tprivate import SequenceFunctions::*;\n\tprivate import ControlFunctions::*;\n", Package)
 	em := &Emitted{Name: a.Name + ".sysml", Qualified: Package + "::" + a.Name, Activity: a}
+	for _, sg := range signals {
+		text, err := emitSignal(a, sg)
+		if err != nil {
+			return nil, err
+		}
+		b.WriteString(text)
+	}
+	for _, c := range classes {
+		text, err := emitClass(a, c)
+		if err != nil {
+			return nil, err
+		}
+		b.WriteString(text)
+	}
 	for _, d := range defs {
 		text, s, err := emitActivity(d, names, spelled)
 		if err != nil {
@@ -105,6 +139,214 @@ func calledActivities(a *Activity) ([]*Activity, error) {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, nil
+}
+
+// classClosure is every class the definitions name — as the type of a parameter,
+// pin or attribute, as the classifier created, or as the owner of a feature
+// touched — with the classes those generalize, generals before their specializers.
+func classClosure(root *Activity, defs []*Activity) ([]*Class, error) {
+	m := root.Model
+	seen := map[*Class]bool{}
+	var out []*Class
+	var visit func(t TypeRef) error
+	visit = func(t TypeRef) error {
+		c := m.ClassOf(t)
+		if c == nil || seen[c] {
+			return nil
+		}
+		seen[c] = true
+		for _, g := range c.Generals {
+			if m.ClassOf(g) == nil {
+				return &TranslateError{root.Name, "class " + c.Name, "generalizes " + g.String() + ", which is no class of the model"}
+			}
+			if err := visit(g); err != nil {
+				return err
+			}
+		}
+		for _, p := range c.Attributes {
+			if err := visit(p.Type); err != nil {
+				return err
+			}
+		}
+		out = append(out, c)
+		return nil
+	}
+	for _, d := range defs {
+		for _, p := range d.Parameters {
+			if err := visit(p.Type); err != nil {
+				return nil, err
+			}
+		}
+		for _, n := range d.AllNodes() {
+			for _, t := range []TypeRef{n.Type, n.Classifier} {
+				if err := visit(t); err != nil {
+					return nil, err
+				}
+			}
+			if n.Feature != nil {
+				if err := visit(n.Feature.Owner); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+	return out, nil
+}
+
+// signalClosure is every signal the definitions name — as the type of a parameter,
+// pin or attribute, as the signal sent, or as an accept's trigger — with the
+// signals those generalize, generals before their specializers.
+func signalClosure(root *Activity, defs []*Activity, classes []*Class) ([]*Signal, error) {
+	m := root.Model
+	seen := map[*Signal]bool{}
+	var out []*Signal
+	var visit func(t TypeRef) error
+	visit = func(t TypeRef) error {
+		sg := m.SignalOf(t)
+		if sg == nil || seen[sg] {
+			return nil
+		}
+		seen[sg] = true
+		for _, g := range sg.Generals {
+			if m.SignalOf(g) == nil {
+				return &TranslateError{root.Name, "signal " + sg.Name, "generalizes " + g.String() + ", which is no signal of the model"}
+			}
+			if err := visit(g); err != nil {
+				return err
+			}
+		}
+		for _, p := range sg.Attributes {
+			if err := visit(p.Type); err != nil {
+				return err
+			}
+		}
+		out = append(out, sg)
+		return nil
+	}
+	for _, c := range classes {
+		for _, p := range c.Attributes {
+			if err := visit(p.Type); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for _, d := range defs {
+		for _, p := range d.Parameters {
+			if err := visit(p.Type); err != nil {
+				return nil, err
+			}
+		}
+		for _, n := range d.AllNodes() {
+			if err := visit(n.Type); err != nil {
+				return nil, err
+			}
+			if err := visit(n.Signal); err != nil {
+				return nil, err
+			}
+			for _, tr := range n.Triggers {
+				if err := visit(tr.Signal); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+	return out, nil
+}
+
+// emitSignal spells a signal as an attribute definition: a signal instance is a
+// value carried by a message, not an occurrence of its own. Its generals are its
+// supertypes, so a specialized signal satisfies an accept of its general.
+func emitSignal(root *Activity, sg *Signal) (string, error) {
+	var b strings.Builder
+	fmt.Fprintf(&b, "\tattribute def %s", quote(sg.Name))
+	for i, g := range sg.Generals {
+		sep := " :> "
+		if i > 0 {
+			sep = ", "
+		}
+		b.WriteString(sep + quote(root.Model.SignalOf(g).Name))
+	}
+	if len(sg.Attributes) == 0 {
+		b.WriteString(";\n")
+		return b.String(), nil
+	}
+	b.WriteString(" {\n")
+	for _, p := range sg.Attributes {
+		where := "attribute " + sg.Name + "." + p.Name
+		m := exactMultiplicity(p.Multiplicity)
+		switch {
+		case p.Type.Zero():
+			fmt.Fprintf(&b, "\t\tattribute %s%s;\n", quote(p.Name), m)
+		case scalarTypes[p.Type.Name] != "":
+			fmt.Fprintf(&b, "\t\tattribute %s : %s%s;\n", quote(p.Name), scalarTypes[p.Type.Name], m)
+		case root.Model.SignalOf(p.Type) != nil:
+			fmt.Fprintf(&b, "\t\tattribute %s : %s%s;\n", quote(p.Name), quote(root.Model.SignalOf(p.Type).Name), m)
+		default:
+			return "", &TranslateError{root.Name, where, "type " + p.Type.String() + " is not translated by the pilot emitter"}
+		}
+	}
+	b.WriteString("\t}\n")
+	return b.String(), nil
+}
+
+// emitClass spells a class as a part definition: an object of a class is an
+// occurrence with structural features, created and then written to. Its generals
+// are its supertypes, its attributes keep their multiplicity exactly.
+func emitClass(root *Activity, c *Class) (string, error) {
+	var b strings.Builder
+	fmt.Fprintf(&b, "\tpart def %s", quote(c.Name))
+	for i, g := range c.Generals {
+		sep := " :> "
+		if i > 0 {
+			sep = ", "
+		}
+		b.WriteString(sep + quote(root.Model.ClassOf(g).Name))
+	}
+	b.WriteString(" {\n")
+	for _, p := range c.Attributes {
+		decl, err := attributeDecl(root, c, p)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString("\t\t" + decl + "\n")
+	}
+	b.WriteString("\t}\n")
+	return b.String(), nil
+}
+
+// attributeDecl spells one attribute of a class: a primitive one an attribute,
+// one typed by a class a part (composite) or a reference to one, an untyped one
+// an attribute of no type.
+func attributeDecl(root *Activity, c *Class, p *Property) (string, error) {
+	where := "attribute " + c.Name + "." + p.Name
+	if p.Association != nil {
+		return "", &TranslateError{root.Name, where, "an association end is not translated by the pilot emitter"}
+	}
+	m := exactMultiplicity(p.Multiplicity)
+	switch {
+	case p.Type.Zero():
+		return fmt.Sprintf("attribute %s%s;", quote(p.Name), m), nil
+	case scalarTypes[p.Type.Name] != "":
+		return fmt.Sprintf("attribute %s : %s%s;", quote(p.Name), scalarTypes[p.Type.Name], m), nil
+	case root.Model.SignalOf(p.Type) != nil:
+		return fmt.Sprintf("attribute %s : %s%s;", quote(p.Name), quote(root.Model.SignalOf(p.Type).Name), m), nil
+	}
+	if t := root.Model.ClassOf(p.Type); t != nil {
+		kind := "ref part"
+		if p.Composite {
+			kind = "part"
+		}
+		return fmt.Sprintf("%s %s : %s%s;", kind, quote(p.Name), quote(t.Name), m), nil
+	}
+	return "", &TranslateError{root.Name, where, "type " + p.Type.String() + " is not translated by the pilot emitter"}
+}
+
+// exactMultiplicity spells a multiplicity as declared, `[1..1]` being the default.
+func exactMultiplicity(m Multiplicity) string {
+	if m.Lower == 1 && m.Upper == 1 && !m.Ordered && m.Unique {
+		return ""
+	}
+	return " " + m.String()
 }
 
 // spellParameters names every parameter: a called activity's is `Activity_name` when
@@ -273,7 +515,7 @@ func emitActivity(a *Activity, defs map[string]bool, spelled map[*Parameter]stri
 		if p.Direction == Return {
 			dir = "out"
 		}
-		t, err := e.typeOf(p.Type, "parameter "+p.Name)
+		t, err := e.parameterType(p)
 		if err != nil {
 			return "", nil, err
 		}
@@ -289,10 +531,11 @@ func emitActivity(a *Activity, defs map[string]bool, spelled map[*Parameter]stri
 	return b.String(), s, nil
 }
 
-// parameter spells a parameter. An optional output holds nothing until a token
-// arrives, so it is declared empty rather than left without a value.
+// parameter spells a parameter, t being its `: Type` or nothing. An optional
+// output holds nothing until a token arrives, so it is declared empty rather
+// than left without a value.
 func parameter(dir, name, t string, m Multiplicity) string {
-	decl := fmt.Sprintf("%s %s : %s%s", dir, quote(name), t, multiplicity(m))
+	decl := fmt.Sprintf("%s %s%s%s", dir, quote(name), t, multiplicity(m))
 	if dir == "out" && m.Lower == 0 {
 		decl += " = ()"
 	}
@@ -330,7 +573,21 @@ func multiplicity(m Multiplicity) string {
 	return "[0..*] nonunique"
 }
 
-// typeOf spells a primitive type; the pilot emitter has no spelling for a class.
+// parameterType spells a parameter's `: Type`; an untyped parameter stays
+// untyped, as the implementation runs it, and is spelled as nothing.
+func (e *emitter) parameterType(p *Parameter) (string, error) {
+	if p.Type.Zero() {
+		return "", nil
+	}
+	t, err := e.typeOf(p.Type, "parameter "+p.Name)
+	if err != nil {
+		return "", err
+	}
+	return " : " + t, nil
+}
+
+// typeOf spells a primitive type, a class of the model by its part definition,
+// or a signal by its attribute definition.
 func (e *emitter) typeOf(t TypeRef, where string) (string, error) {
 	if t.Zero() {
 		return "", &TranslateError{e.a.Name, where, "has no type"}
@@ -338,7 +595,13 @@ func (e *emitter) typeOf(t TypeRef, where string) (string, error) {
 	if name, ok := scalarTypes[t.Name]; ok {
 		return name, nil
 	}
-	return "", &TranslateError{e.a.Name, where, "type " + t.Name + " is not translated by the pilot emitter"}
+	if c := e.a.Model.ClassOf(t); c != nil {
+		return quote(c.Name), nil
+	}
+	if sg := e.a.Model.SignalOf(t); sg != nil {
+		return quote(sg.Name), nil
+	}
+	return "", &TranslateError{e.a.Name, where, "type " + t.String() + " is not translated by the pilot emitter"}
 }
 
 func (e *emitter) fail(where, reason string) error {
@@ -455,6 +718,16 @@ func (s *scope) declare(n *Node) error {
 		return s.callNode(n)
 	case StructuredActivityNode:
 		return s.structuredNode(n)
+	case CreateObjectAction:
+		return s.createNode(n)
+	case ReadSelfAction:
+		return s.selfNode(n)
+	case ReadStructuralFeatureAction, AddStructuralFeatureValueAction, RemoveStructuralFeatureValueAction, ClearStructuralFeatureAction:
+		return s.featureNode(n)
+	case SendSignalAction:
+		return s.sendNode(n)
+	case AcceptEventAction:
+		return s.acceptNode(n)
 	default:
 		return e.fail(n.Label(), string(n.Kind)+" is not translated by the pilot emitter")
 	}
@@ -484,6 +757,7 @@ func nodeName(n *Node) string {
 
 // parameterNode spells an activity parameter node: an input's reads the
 // parameter into a pin, an output's collects what arrives into the parameter.
+// An inout parameter has a node of each kind, told apart by the edges it has.
 func (s *scope) parameterNode(n *Node) error {
 	p := n.Parameter
 	if p == nil {
@@ -492,16 +766,16 @@ func (s *scope) parameterNode(n *Node) error {
 	if s.owner != nil {
 		return s.e.fail(n.Label(), "an activity parameter node inside a structured node is not translated by the pilot emitter")
 	}
-	t, err := s.e.typeOf(p.Type, "parameter "+p.Name)
+	t, err := s.e.parameterType(p)
 	if err != nil {
 		return err
 	}
 	name := s.names.name(nodeName(n))
 	s.pins[n] = "v"
 	feature := quote(s.e.spelled[p])
-	if p.Direction == In || p.Direction == InOut {
+	if p.Direction == In || p.Direction == InOut && len(n.Incoming) == 0 {
 		s.add(&snode{name: name, kind: kindAction, node: n,
-			decl: fmt.Sprintf("action %s { out v : %s%s = %s; }", quote(name), t, multiplicity(p.Multiplicity), feature)})
+			decl: fmt.Sprintf("action %s { out v%s%s = %s; }", quote(name), t, multiplicity(p.Multiplicity), feature)})
 		return nil
 	}
 	s.add(&snode{name: name, kind: kindAction, node: n, collector: true,
@@ -509,13 +783,13 @@ func (s *scope) parameterNode(n *Node) error {
 	return nil
 }
 
-// collect spells the body of an action that takes v and puts it into target: a
-// scalar is assigned, a multi-valued target is appended to.
+// collect spells the body of an action that takes v, of `: Type` t or untyped,
+// and puts it into target: a scalar is assigned, a multi-valued target appended to.
 func collect(target, t string, m Multiplicity) string {
 	if m.Upper == 1 {
-		return fmt.Sprintf("in v : %s[0..1]; assign %s := v;", t, target)
+		return fmt.Sprintf("in v%s[0..1]; assign %s := v;", t, target)
 	}
-	return fmt.Sprintf("in v : %s[0..*] nonunique; assign %s := (%s, v);", t, target, target)
+	return fmt.Sprintf("in v%s[0..*] nonunique; assign %s := (%s, v);", t, target, target)
 }
 
 // valueNode spells a value specification action: an action with one output pin
@@ -548,13 +822,19 @@ func (s *scope) valueNode(n *Node) error {
 	return nil
 }
 
-// literalTypes is the primitive type each literal kind evaluates to.
+// literalTypes is the primitive type each literal kind evaluates to. An unlimited
+// natural the classifier admits only positions a structural feature value, and a
+// position is spelled as an Integer, `*` as unlimited.
 var literalTypes = map[string]string{
-	"LiteralInteger": "Integer",
-	"LiteralBoolean": "Boolean",
-	"LiteralString":  "String",
-	"LiteralReal":    "Real",
+	"LiteralInteger":          "Integer",
+	"LiteralBoolean":          "Boolean",
+	"LiteralString":           "String",
+	"LiteralReal":             "Real",
+	"LiteralUnlimitedNatural": "Integer",
 }
+
+// unlimited is the Integer an unlimited natural `*` is spelled as: no position is negative.
+const unlimited = "-1"
 
 // literal spells a literal value of the given primitive type.
 func (e *emitter) literal(v *Value, t, where string) (string, error) {
@@ -590,8 +870,283 @@ func (e *emitter) literal(v *Value, t, where string) (string, error) {
 			return "", e.fail(where, fmt.Sprintf("LiteralReal %q does not spell a %s", text, t))
 		}
 		return strconv.FormatFloat(f, 'f', -1, 64) + realSuffix(f), nil
+	case "LiteralUnlimitedNatural":
+		if !v.Given {
+			text = "0"
+		}
+		if text == "*" {
+			text = unlimited
+		}
+		if n, err := strconv.ParseInt(text, 10, 64); err != nil || n < -1 || t != "Integer" {
+			return "", e.fail(where, fmt.Sprintf("LiteralUnlimitedNatural %q does not spell a position", v.Text))
+		}
+		return text, nil
 	}
 	return "", e.fail(where, v.Kind+" is not translated by the pilot emitter")
+}
+
+// createNode spells a create object action: an action whose result pin holds a
+// new occurrence of the class's part definition. Creating starts no behavior.
+func (s *scope) createNode(n *Node) error {
+	e := s.e
+	outs := n.Outputs()
+	if len(outs) != 1 || len(n.Inputs()) != 0 {
+		return e.fail(n.Label(), "a create object action has one result pin")
+	}
+	c := e.a.Model.ClassOf(n.Classifier)
+	if c == nil {
+		if e.a.Model.Activity(n.Classifier.ID) != nil || e.a.Model.ActivityNamed(n.Classifier.Name) != nil {
+			return e.fail(n.Label(), "creates an object of the activity "+n.Classifier.String()+
+				"; a behavior as an object is not translated by the pilot emitter")
+		}
+		return e.fail(n.Label(), "creates a "+n.Classifier.String()+", which is no class of the model")
+	}
+	name := s.names.name(nodeName(n))
+	s.pins[outs[0]] = "result"
+	s.add(&snode{name: name, kind: kindAction, node: n,
+		decl: fmt.Sprintf("action %s { out result : %s = new %s(); }", quote(name), quote(c.Name), quote(c.Name))})
+	return nil
+}
+
+// selfNode spells a read self action as `this`: the object whose owned behavior
+// the activity is. An activity no class owns has no self.
+func (s *scope) selfNode(n *Node) error {
+	e := s.e
+	if e.a.Owner == nil {
+		return e.fail(n.Label(), "reads self in an activity no class owns")
+	}
+	outs := n.Outputs()
+	if len(outs) != 1 || len(n.Inputs()) != 0 {
+		return e.fail(n.Label(), "a read self action has one result pin")
+	}
+	name := s.names.name(nodeName(n))
+	s.pins[outs[0]] = "result"
+	s.add(&snode{name: name, kind: kindAction, node: n,
+		decl: fmt.Sprintf("action %s { out result : %s = this; }", quote(name), quote(e.a.Owner.Name))})
+	return nil
+}
+
+// featureNode spells a structural feature action: an action taking the object
+// (and the value, and the position) at its pins, whose body reads the object's
+// feature onto its result pin or assigns the feature and hands the object on.
+func (s *scope) featureNode(n *Node) error {
+	e := s.e
+	f := n.Feature
+	if f == nil {
+		return e.fail(n.Label(), "names no structural feature")
+	}
+	if f.Association != nil {
+		return e.fail(n.Label(), "an association end is not translated by the pilot emitter")
+	}
+	if e.a.Model.ClassOf(f.Owner) == nil {
+		return e.fail(n.Label(), "touches a feature of "+f.Owner.String()+", which is no class of the model")
+	}
+	pins := map[string]*Node{}
+	for _, p := range n.Pins {
+		if pins[p.Role] != nil {
+			return e.fail(n.Label(), "has two "+p.Role+" pins")
+		}
+		pins[p.Role] = p
+	}
+	object := pins["object"]
+	if object == nil {
+		return e.fail(n.Label(), "has no object pin")
+	}
+	objectType, err := e.typeOf(orType(object.Type, f.Owner), pinLabel(object))
+	if err != nil {
+		return err
+	}
+	s.pins[object] = "object"
+	features := []string{fmt.Sprintf("in object : %s;", objectType)}
+	value := pins["value"]
+	writes := n.Kind == AddStructuralFeatureValueAction || n.Kind == RemoveStructuralFeatureValueAction
+	switch {
+	case value != nil && !writes:
+		return e.fail(n.Label(), "takes a value it has no use for")
+	case value == nil && writes:
+		return e.fail(n.Label(), "has no value pin")
+	case value != nil:
+		t, err := e.pinType(value)
+		if err != nil {
+			return err
+		}
+		s.pins[value] = "value"
+		features = append(features, fmt.Sprintf("in value : %s;", t))
+	}
+	position := pins["insertAt"]
+	if n.Kind == RemoveStructuralFeatureValueAction {
+		position = pins["removeAt"]
+	}
+	if position != nil {
+		s.pins[position] = position.Role
+		features = append(features, fmt.Sprintf("in %s : Integer;", position.Role))
+	}
+	result := pins["result"]
+	if n.Kind == ReadStructuralFeatureAction {
+		if result == nil {
+			return e.fail(n.Label(), "has no result pin")
+		}
+		s.pins[result] = "result"
+		m := multiplicity(Multiplicity{Upper: f.Upper, Ordered: f.Ordered, Unique: f.Unique})
+		t := ""
+		if rt := orType(result.Type, f.Type); !rt.Zero() {
+			if t, err = e.typeOf(rt, pinLabel(result)); err != nil {
+				return err
+			}
+			t = " : " + t
+		}
+		features = append(features, fmt.Sprintf("out result%s%s = object.%s;", t, m, quote(f.Name)))
+	} else {
+		if result != nil {
+			s.pins[result] = "result"
+			features = append(features, fmt.Sprintf("out result : %s = object;", objectType))
+		}
+		features = append(features, fmt.Sprintf("assign object.%s := %s;", quote(f.Name), featureUpdate(n, f, position != nil)))
+	}
+	name := s.names.name(nodeName(n))
+	s.add(&snode{name: name, kind: kindAction, node: n, pending: unfed(n),
+		decl: fmt.Sprintf("action %s { %s }", quote(name), strings.Join(features, " "))})
+	return nil
+}
+
+// sendNode spells a send signal action: an action taking the target object and
+// the signal's attribute values at its pins, whose body sends a new instance of
+// the signal to the target. The send completes without waiting, as fUML's does.
+func (s *scope) sendNode(n *Node) error {
+	e := s.e
+	sg := e.a.Model.SignalOf(n.Signal)
+	if sg == nil {
+		return e.fail(n.Label(), "sends "+n.Signal.String()+", which is no signal of the model")
+	}
+	if len(n.Outputs()) != 0 {
+		return e.fail(n.Label(), "a send signal action has no result pin")
+	}
+	var target *Node
+	var args []*Node
+	for _, p := range n.Inputs() {
+		switch p.Role {
+		case "target":
+			if target != nil {
+				return e.fail(n.Label(), "has two target pins")
+			}
+			target = p
+		case "argument":
+			args = append(args, p)
+		default:
+			return e.fail(n.Label(), "has a "+p.Role+" pin")
+		}
+	}
+	if target == nil {
+		return e.fail(n.Label(), "has no target pin")
+	}
+	attrs := sg.AllAttributes()
+	if len(args) != len(attrs) {
+		return e.fail(n.Label(), fmt.Sprintf("%s has %d attributes, the send has %d argument pins", sg.Name, len(attrs), len(args)))
+	}
+	targetType, err := e.pinType(target)
+	if err != nil {
+		return err
+	}
+	pins := newNamer("target")
+	s.pins[target] = "target"
+	features := []string{fmt.Sprintf("in target : %s;", targetType)}
+	var values []string
+	for i, p := range args {
+		t, err := e.pinType(p)
+		if err != nil {
+			return err
+		}
+		pn := pins.name(pinFeature(p, attrs[i].Name))
+		s.pins[p] = pn
+		features = append(features, fmt.Sprintf("in %s : %s%s;", quote(pn), t, multiplicity(p.Multiplicity)))
+		values = append(values, quote(attrs[i].Name)+" = "+quote(pn))
+	}
+	features = append(features, fmt.Sprintf("send new %s(%s) to target;", quote(sg.Name), strings.Join(values, ", ")))
+	name := s.names.name(nodeName(n))
+	s.add(&snode{name: name, kind: kindAction, node: n, pending: unfed(n),
+		decl: fmt.Sprintf("action %s { %s }", quote(name), strings.Join(features, " "))})
+	return nil
+}
+
+// acceptNode spells an accept event action as an accept node waiting for the
+// signal its trigger names, the accepted instance being its result pin. An
+// instance of a specialized signal satisfies an accept of its general, as in fUML.
+func (s *scope) acceptNode(n *Node) error {
+	e := s.e
+	if n.Unmarshall {
+		return e.fail(n.Label(), "unmarshalls the signal onto one pin per attribute, which the pilot emitter does not spell")
+	}
+	if len(n.Triggers) != 1 {
+		return e.fail(n.Label(), fmt.Sprintf("has %d triggers; a SysML v2 accept names one signal", len(n.Triggers)))
+	}
+	tr := n.Triggers[0]
+	if tr.Operation != nil {
+		return e.fail(n.Label(), "accepts a call event, which SysML v2 has no counterpart for")
+	}
+	sg := e.a.Model.SignalOf(tr.Signal)
+	if sg == nil {
+		return e.fail(n.Label(), "accepts "+tr.Signal.String()+", which is no signal of the model")
+	}
+	if len(n.Inputs()) != 0 {
+		return e.fail(n.Label(), "an accept event action has no input pin")
+	}
+	outs := n.Outputs()
+	if len(outs) > 1 {
+		return e.fail(n.Label(), "an accept event action of one signal has one result pin")
+	}
+	name := s.names.name(nodeName(n))
+	if len(outs) == 0 {
+		s.add(&snode{name: name, kind: kindAction, node: n, decl: fmt.Sprintf("action %s accept %s;", quote(name), quote(sg.Name))})
+		return nil
+	}
+	// The runtime binds the payload in the enclosing flow under its name as well as
+	// on the node, so the name is kept apart from every other of the scope.
+	payload := s.names.name(pinFeature(outs[0], "result"))
+	s.pins[outs[0]] = payload
+	s.add(&snode{name: name, kind: kindAction, node: n,
+		decl: fmt.Sprintf("action %s accept %s : %s;", quote(name), quote(payload), quote(sg.Name))})
+	return nil
+}
+
+// orType is t, or fallback when t names no type.
+func orType(t, fallback TypeRef) TypeRef {
+	if t.Zero() {
+		return fallback
+	}
+	return t
+}
+
+// featureUpdate spells what a feature holds after the action, as the reference
+// implementation computes it. Add: a replacing add or a single-valued feature
+// takes the value outright; otherwise a unique feature drops its old copy, and the
+// value goes at the position given, `*` appending and none inserting first.
+// Remove: every copy (removeDuplicates), the value at the position given, or the
+// first copy; a single-valued feature is emptied when it holds the value. Clear empties.
+func featureUpdate(n *Node, f *Property, positioned bool) string {
+	held := "object." + quote(f.Name)
+	switch {
+	case n.Kind == ClearStructuralFeatureAction:
+		return "()"
+	case n.Kind == AddStructuralFeatureValueAction && (n.ReplaceAll || f.Upper == 1):
+		return "value"
+	case n.Kind == AddStructuralFeatureValueAction:
+		base := held
+		if f.Unique {
+			base = "excluding(" + held + ", value)"
+		}
+		if !positioned {
+			return "(value, " + base + ")"
+		}
+		return fmt.Sprintf("if insertAt < 0 ? including(%s, value) else if insertAt == 0 ? (value, %s) else includingAt(%s, value, insertAt)", base, base, base)
+	case f.Upper == 1:
+		return fmt.Sprintf("if %s == value ? () else %s", held, held)
+	case n.RemoveDuplicates:
+		return "excluding(" + held + ", value)"
+	case positioned:
+		return fmt.Sprintf("if removeAt >= 1 and removeAt <= size(%s) ? excludingAt(%s, removeAt) else %s", held, held, held)
+	}
+	first := fmt.Sprintf("(1..size(%s))->select { in k; %s#(k) == value }#(1)", held, held)
+	return fmt.Sprintf("if includes(%s, value) ? excludingAt(%s, %s) else %s", held, held, first, held)
 }
 
 // realSuffix makes a real literal spell as one: an integral value gets `.0`.
@@ -875,7 +1430,7 @@ func (s *scope) boundaryIn(edge *Edge, pin *Node) error {
 	if !ok {
 		feature = s.names.name("in(" + pinLabel(pin) + ")")
 		s.boundary[pin] = feature
-		s.params = append(s.params, parameter("in", feature, t, pin.Multiplicity))
+		s.params = append(s.params, parameter("in", feature, " : "+t, pin.Multiplicity))
 	}
 	name := s.names.name("read(" + pinLabel(pin) + ")")
 	reader := s.add(&snode{name: name, kind: kindAction,
@@ -900,11 +1455,11 @@ func (s *scope) boundaryOut(edge *Edge, pin *Node) error {
 	if !ok {
 		feature = s.names.name("out(" + pinLabel(pin) + ")")
 		s.boundary[pin] = feature
-		s.params = append(s.params, parameter("out", feature, t, pin.Multiplicity))
+		s.params = append(s.params, parameter("out", feature, " : "+t, pin.Multiplicity))
 	}
 	name := s.names.name("write(" + pinLabel(pin) + ")")
 	writer := s.add(&snode{name: name, kind: kindAction, collector: true,
-		decl: fmt.Sprintf("action %s { %s }", quote(name), collect(quote(feature), t, pin.Multiplicity))})
+		decl: fmt.Sprintf("action %s { %s }", quote(name), collect(quote(feature), " : "+t, pin.Multiplicity))})
 	src := s.endpoint(pin)
 	if src == nil {
 		return s.e.fail(edgeLabel(edge), "leaves a node the emitter did not declare")
