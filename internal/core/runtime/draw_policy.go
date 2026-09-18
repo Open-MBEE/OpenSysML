@@ -78,22 +78,26 @@ func (e *DrawUnboundedError) Error() string {
 // Is makes every DrawUnboundedError match ErrDrawUnbounded.
 func (e *DrawUnboundedError) Is(target error) bool { return target == ErrDrawUnbounded }
 
-// SetDrawPolicy fixes how the runs started from now on resolve their random draws.
+// SetDrawPolicy fixes how the runs started from now on resolve their random draws;
+// a run under way, paused or not, keeps the policy it started under.
 func (ctx *Context) SetDrawPolicy(policy DrawPolicy) {
 	ctx.drawPolicy = policy
 }
 
-// DrawPolicy is the policy the runs' random draws resolve under.
+// DrawPolicy is the policy the runs started from now on resolve their random draws under.
 func (ctx *Context) DrawPolicy() DrawPolicy {
 	return ctx.drawPolicy
 }
 
 // DrawPolicyTaken is the policy the last run's draws were resolved under: the
 // witness's under a `replay` policy, whose recorded draws the run consumed, else
-// the context's own.
+// the one the run started under, else the context's own before any run.
 func (ctx *Context) DrawPolicyTaken() DrawPolicy {
 	if w, ok := ctx.schedule.Witness(); ok {
 		return w.DrawPolicy
+	}
+	if ctx.run != nil && ctx.run.scheduler != nil {
+		return ctx.run.scheduler.draws
 	}
 	return ctx.drawPolicy
 }

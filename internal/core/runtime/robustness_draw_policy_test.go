@@ -14,6 +14,8 @@ import (
 func TestRuntimeRobustnessDrawPolicy(t *testing.T) {
 	t.Run("normal_has_no_min_or_max", testNormalHasNoMinOrMax)
 	t.Run("degenerate_normal_is_its_mean_under_every_policy", testDegenerateNormalIsItsMeanUnderEveryPolicy)
+	t.Run("degenerate_normal_draws_nothing_at_random", testDegenerateNormalDrawsNothingAtRandom)
+	t.Run("policy_set_mid_run_waits_for_the_next_run", testPolicySetMidRunWaitsForTheNextRun)
 	t.Run("unbounded_timer_stops_the_run_where_it_parks", testUnboundedTimerStopsTheRunWhereItParks)
 	t.Run("unknown_policy_is_refused", testUnknownPolicyIsRefused)
 	t.Run("witness_draw_the_policy_cannot_make", testWitnessDrawThePolicyCannotMake)
@@ -93,6 +95,104 @@ func testDegenerateNormalIsItsMeanUnderEveryPolicy(t *testing.T) {
 	mustSchedule(t, replay, ReplayOf(w))
 	if _, err := replay.ExecuteAction(m.action(t, "draw")); err != nil {
 		t.Errorf("replaying the witness under min: %v", err)
+	}
+}
+
+// testDegenerateNormalDrawsNothingAtRandom: normal(mean, 0) makes no random choice,
+// so at random it needs no seed and leaves the seeded stream where the next draw finds it.
+func testDegenerateNormalDrawsNothingAtRandom(t *testing.T) {
+	m := parseLibraryModel(t, `
+		package test {
+			private import ScalarValues::*;
+			private import RandomFunctions::*;
+			action unseeded {
+				attribute g : Real = normal(5.0, 0.0);
+				first start; then done;
+			}
+			action alone {
+				attribute u : Real = uniform(2.0, 6.0);
+				first start; then done;
+			}
+			action after {
+				attribute g : Real = normal(5.0, 0.0);
+				attribute u : Real = uniform(2.0, 6.0);
+				first start; then done;
+			}
+		}`)
+	ctx, out, err := runUnderDraws(t, m, "unseeded", DrawRandom)
+	if err != nil {
+		t.Fatalf("normal(5.0, 0.0) at random without a seed: %v", err)
+	}
+	if got := realOut(t, out, "g"); got != 5 {
+		t.Errorf("g = %v, want the mean", got)
+	}
+	if draws := formatDraws(ctx.DrawsTaken()); draws != "draw normal(5.0, 0.0) = 5.0\n" {
+		t.Errorf("recorded %q, want the one draw of the mean", draws)
+	}
+	_, alone, err := runUnderDraws(t, m, "alone", DrawRandom, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, after, err := runUnderDraws(t, m, "after", DrawRandom, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if alone["u"].Const != after["u"].Const {
+		t.Errorf("u = %v after normal(5.0, 0.0), want %v: the degenerate normal consumed the stream", after["u"], alone["u"])
+	}
+}
+
+// testPolicySetMidRunWaitsForTheNextRun: a run keeps the policy it started under
+// while paused, its witness names that policy, and the next run takes the new one.
+func testPolicySetMidRunWaitsForTheNextRun(t *testing.T) {
+	m := parseLibraryModel(t, `
+		package test {
+			private import ScalarValues::*;
+			private import RandomFunctions::*;
+			action draw {
+				attribute u : Real = uniform(2.0, 6.0);
+				attribute v : Real;
+				first start;
+				then assign v := uniform(2.0, 6.0);
+				then done;
+			}
+		}`)
+	ctx, _ := m.fresh()
+	ctx.SetDrawPolicy(DrawMax)
+	exec, err := newActionExecutor(ctx, m.action(t, "draw"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.initialize(); err != nil {
+		t.Fatal(err)
+	}
+	if draws := formatDraws(ctx.DrawsTaken()); draws != "draw uniform(2.0, 6.0) = 6.0\n" {
+		t.Fatalf("initializing drew\n%swant u at max", draws)
+	}
+	ctx.SetDrawPolicy(DrawMin)
+	for !exec.State().Ended() {
+		if err := exec.Step(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if draws := formatDraws(ctx.DrawsTaken()); draws != "draw uniform(2.0, 6.0) = 6.0\ndraw uniform(2.0, 6.0) = 6.0\n" {
+		t.Errorf("the paused run drew\n%swant both draws at max, the policy it started under", draws)
+	}
+	if taken := ctx.DrawPolicyTaken(); taken != DrawMax {
+		t.Errorf("the run's witness would name %s, want max", taken)
+	}
+	if ctx.DrawPolicy() != DrawMin {
+		t.Errorf("the next run's policy is %s, want min", ctx.DrawPolicy())
+	}
+	out, err := ctx.ExecuteAction(m.action(t, "draw"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u, v := realOut(t, out, "u"), realOut(t, out, "v"); u != 2 || v != 2 {
+		t.Errorf("the next run drew u = %v, v = %v, want both at min", u, v)
+	}
+	if taken := ctx.DrawPolicyTaken(); taken != DrawMin {
+		t.Errorf("the next run drew by %s, want min", taken)
 	}
 }
 

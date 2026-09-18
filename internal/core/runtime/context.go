@@ -463,6 +463,10 @@ func (ctx *Context) schedulerUnder(policy SchedulePolicy) *scheduler {
 		s.replay.ctx = ctx
 	}
 	s.modeled = ctx.modeledUnder(policy, s.replay)
+	s.draws = ctx.drawPolicy
+	if s.replay != nil {
+		s.draws = s.replay.policy
+	}
 	return s
 }
 

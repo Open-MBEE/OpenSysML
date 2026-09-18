@@ -189,7 +189,7 @@ type distribution struct {
 // distribution's fixed point under a fixed policy, else one from the run's modeled
 // stream — noting it for the trace and the witness; a probe's draw is undone with the probe.
 func (ctx *Context) draw(what string, dist distribution) (semantics.Value, error) {
-	val, err := ctx.scheduling().draw(what, dist, ctx.drawPolicy)
+	val, err := ctx.scheduling().draw(what, dist)
 	if err != nil {
 		return semantics.Value{}, err
 	}

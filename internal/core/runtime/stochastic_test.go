@@ -1007,7 +1007,7 @@ func TestProbeRestoresTheModeledStream(t *testing.T) {
 	}
 	peek := func() semantics.Value {
 		saved := *ctx.run.scheduler.modeled.pcg
-		v, err := ctx.run.scheduler.draw("peek", unit, DrawRandom)
+		v, err := ctx.run.scheduler.draw("peek", unit)
 		if err != nil {
 			t.Fatal(err)
 		}
