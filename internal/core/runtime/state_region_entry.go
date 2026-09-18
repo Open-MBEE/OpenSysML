@@ -12,8 +12,7 @@ type regionEntry struct {
 	region    *ast.StateRegion
 	container *ast.StateNode
 	branches  map[*ast.StateRegion]*ast.StateNode
-	target    *ast.StateNode    // where the region starts instead of its own start, if anywhere
-	branch    *lower.Transition // the fork branch into the region, whose effect runs first, if any
+	target    *ast.StateNode // where the region starts instead of its own start, if anywhere
 }
 
 // lazyEntry is the chain of states a fork's branches still have to enter down to
