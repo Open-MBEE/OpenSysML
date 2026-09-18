@@ -15,6 +15,7 @@ package sysmlv1
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -356,11 +357,39 @@ func local(s string) string {
 	return s
 }
 
+func rootOf(data []byte) (xml.StartElement, error) {
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			return xml.StartElement{}, err
+		}
+		if start, ok := tok.(xml.StartElement); ok {
+			return start, nil
+		}
+	}
+}
+
 // errNotXMI reports a document whose root is not xmi:XMI or a UML element.
 var errNotXMI = errors.New("not an XMI document: expected an xmi:XMI or uml:Model root element")
 
 // parseDocument reads one document's elements and stereotype applications.
 func (m *Model) parseDocument(data []byte) error {
+	start, err := rootOf(data)
+	if err != nil {
+		return fmt.Errorf("parsing XMI: %w", err)
+	}
+	typed := false
+	for _, attr := range start.Attr {
+		if xmi.IsXMINamespace(attr.Name.Space) && attr.Name.Local == "type" {
+			typed = true
+			break
+		}
+	}
+	if !(xmi.IsXMINamespace(start.Name.Space) && start.Name.Local == "XMI") &&
+		!xmi.IsUMLNamespace(start.Name.Space) && !typed {
+		return errNotXMI
+	}
 	doc, err := xmi.Parse(bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("parsing XMI: %w", err)
@@ -371,9 +400,6 @@ func (m *Model) parseDocument(data []byte) error {
 			m.topLevel(child)
 		}
 		return nil
-	}
-	if !xmi.IsUMLNamespace(root.Space) && root.Type == "" {
-		return errNotXMI
 	}
 	m.topLevel(root)
 	return nil

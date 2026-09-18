@@ -3,6 +3,7 @@ package sysmlv1
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -275,6 +276,30 @@ func TestParseArchiveIgnoresUnrelatedXML(t *testing.T) {
 			t.Errorf("err = %v", err)
 		}
 	})
+}
+
+func TestParseSkipsMalformedNonXMIArchiveEntry(t *testing.T) {
+	model := []byte(`<?xml version="1.0"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101">
+  <uml:Model xmi:id="_m" name="M"/>
+</xmi:XMI>`)
+	m, err := Parse(archive(t, "", map[string][]byte{
+		"model.xmi":    model,
+		"settings.xml": []byte("<project><broken>"),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Lookup("_m") == nil {
+		t.Fatal("model entry was not read")
+	}
+
+	if _, err := Parse([]byte("<project/>")); !errors.Is(err, errNotXMI) {
+		t.Errorf("foreign root error = %v", err)
+	}
+	if _, err := Parse([]byte(`<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"><uml:Model>`)); err == nil || !strings.Contains(err.Error(), "parsing XMI") {
+		t.Errorf("truncated XMI error = %v", err)
+	}
 }
 
 func TestParseRejectsWrapperWithoutModel(t *testing.T) {
