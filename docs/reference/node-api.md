@@ -224,7 +224,7 @@ a model of several, is likewise reached through `connection.rpc` only.
 
 `npm run conformance -- --allow-skips --report report.json` runs the
 language-neutral suite through the public API, and emits the report shape
-`cmd/conformance` emits. 59 scenarios per protocol over `grpc`, `connect` and
+`tools/cmd/conformance` emits. 59 scenarios per protocol over `grpc`, `connect` and
 `connect-json`: 23 pass and 36 are skipped, being the 35 scenarios of the RPCs
 above plus one the public API cannot express (a `ParseFile` naming no source).
 `--mutate <name>` corrupts a response on its way through the client and each

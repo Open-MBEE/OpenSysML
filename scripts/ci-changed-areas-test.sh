@@ -58,6 +58,7 @@ case_ two-client-readmes docs,java,node clients/java/README.md clients/node/READ
 case_ two-clients java,node clients/java/pom.xml clients/node/tsconfig.json
 case_ go-source docs,go,java,node,python,rust,vscode internal/core/parser/parser.go
 case_ go-client docs,go,java,node,python,rust,vscode client/opensysml/client.go
+case_ go-tools docs,go,java,node,python,rust,vscode tools/gen/snapshot/main.go
 case_ proto docs,go,java,node,python,rust,vscode api/proto/sysml.proto
 case_ conformance docs,go,java,node,python,rust,vscode conformance/scenarios/01-server-info.json
 case_ workflow docs,go,java,node,python,rust,vscode .github/workflows/pr.yml

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/docpdf"
+	"github.com/Open-MBEE/OpenSysML/internal/core/docpdf"
 )
 
 // fakePDFTool writes an executable shell script into dir and returns its path.

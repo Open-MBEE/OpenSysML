@@ -263,7 +263,7 @@ implementations.
 
 ### Stage 5 — parity as a test
 
-Extend `cmd/conformance` so that every scenario runs on a third protocol beside `pkg` and
+Extend `tools/cmd/conformance` so that every scenario runs on a third protocol beside `pkg` and
 `pkg-connect`: `repl`, which submits the scenario's model to a REPL session and issues the
 meta-command that corresponds to the RPC, then compares the REPL's machine-readable output
 (`-json` where the CLI has it; a `SolveReport`, a `Verdict`) to the scenario's expected response

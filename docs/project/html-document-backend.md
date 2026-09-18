@@ -13,9 +13,9 @@ and what the change did to the PDF backend.
 The problem this page set out to solve, as it stood before either step landed: `-doc-form` wrote Markdown or PDF, and there
 was no HTML form at all. HTML did exist inside
 the toolchain, but only as an intermediate for the PDF converters that read HTML — WeasyPrint
-and Prince — and it was built the long way round: `internal/docpdf/markdown.go` re-parsed
+and Prince — and it was built the long way round: `internal/core/docpdf/markdown.go` re-parsed
 docrender's Markdown back into flat presentation blocks (heading, paragraph, caption, table,
-list, mermaid, anchor) and `internal/docpdf/html.go` wrote those blocks as a page with an
+list, mermaid, anchor) and `internal/core/docpdf/html.go` wrote those blocks as a page with an
 inline print stylesheet. That intermediate was a deliberate choice — it kept the PDF layer
 independent of the document IR — and it had two consequences.
 
@@ -340,7 +340,7 @@ Once `docrender` writes HTML from the IR, the intermediate in `docpdf` is redund
 losses are unnecessary. `docpdf.Render` takes the evaluated `docir.Document`; the HTML-input
 converters (WeasyPrint, Prince) are handed the backend's page with the print stylesheet, and
 the Markdown-input converter (pandoc) keeps receiving `docrender.Markdown`'s text, so all
-three engines keep working. `internal/docpdf/markdown.go`, `html.go` and `inline.go` — the
+three engines keep working. `internal/core/docpdf/markdown.go`, `html.go` and `inline.go` — the
 block parser, the page writer and the Markdown-inline-to-HTML translator — are gone, and with
 them the caption marker convention in `docrender.Markdown`, the `[…]{.caption}` rewrite for
 pandoc, and the `<br>` fold in table cells. `docpdf` keeps what it is actually for: locating
@@ -355,7 +355,7 @@ and `HTMLOptions.Math`, the one seam where a diagram block becomes its rasterize
 formula its typeset HTML. Rasterizers for other diagram forms plug into that seam beside
 `mermaid.go` without touching the renderer.
 
-The print stylesheet is `internal/docpdf/print.css`: `@page` geometry, the page counter, print
+The print stylesheet is `internal/core/docpdf/print.css`: `@page` geometry, the page counter, print
 fonts and breaks, and the print treatment of the `sysml-*` classes, in `@layer opensysml-print`
 declared after `@layer opensysml`. The cascade order for an HTML-input engine is the backend's
 default sheet and theme, the print layer, KaTeX's stylesheet when the document has formulas,

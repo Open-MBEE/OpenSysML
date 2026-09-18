@@ -9,10 +9,10 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/docpdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
-	"github.com/Open-MBEE/OpenSysML/internal/docpdf"
 	"github.com/Open-MBEE/OpenSysML/internal/fsutil"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )

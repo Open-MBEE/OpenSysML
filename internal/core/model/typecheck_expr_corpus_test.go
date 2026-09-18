@@ -39,7 +39,7 @@ func exprTypeDiagnosticLines(ws *Workspace, name string, content []byte) []strin
 // publishedStdlibDefects are the findings the expression type checker reports
 // in the standard library as OMG published it: each is a unit the SI or US
 // customary library types by a measurement unit of another dimension. The
-// errata registry (internal/errata) corrects the ones with an unambiguous
+// errata registry (tools/oracle/errata) corrects the ones with an unambiguous
 // reading, so the bundled library the checker loads no longer shows them;
 // documentedStdlibDefects have no such reading and stay. Both sets are
 // documented in docs/project/omg-issues.md ("Defects in the vendored quantity

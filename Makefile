@@ -60,6 +60,9 @@ SELF_MODEL_OUT ?= build/self-model
 # Where the commands the Go tests build and run write their coverage counters.
 GO_COUNTER_DIR := $(CURDIR)/build/gocoverdir
 LIBS_DIR := internal/core/libs
+# The development tools are a nested module; go's ./... at the root stops at
+# its go.mod, so every whole-tree target runs go a second time in it.
+TOOLS_DIR := tools
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc
@@ -137,7 +140,7 @@ pgo-profile: ## Regenerate cmd/*/default.pgo, the CPU profile go build optimizes
 conformance: ## Run the language-independent conformance suite against sysml-grpc
 	@echo "Running the conformance suite..."
 	@mkdir -p $(BIN_DIR)
-	go run ./cmd/conformance -withhold-capabilities strict_conformance,oslc_query -report $(BIN_DIR)/conformance-report.json -junit $(BIN_DIR)/conformance-report.xml
+	go run -C $(TOOLS_DIR) ./cmd/conformance -withhold-capabilities strict_conformance,oslc_query -report $(CURDIR)/$(BIN_DIR)/conformance-report.json -junit $(CURDIR)/$(BIN_DIR)/conformance-report.xml
 	@echo "✓ Conformance suite passed ($(BIN_DIR)/conformance-report.json, $(BIN_DIR)/conformance-report.xml)"
 
 conformance-rust: ## Run the conformance suite with the blocking Rust client
@@ -148,7 +151,7 @@ conformance-rust: ## Run the conformance suite with the blocking Rust client
 conformance-pkg: ## Run the conformance suite through the public Go API (client/opensysml)
 	@echo "Running the conformance suite through client/opensysml..."
 	@mkdir -p $(BIN_DIR)
-	go run ./cmd/conformance -protocols pkg,pkg-connect -allow-skips -report $(BIN_DIR)/conformance-pkg-report.json
+	go run -C $(TOOLS_DIR) ./cmd/conformance -protocols pkg,pkg-connect -allow-skips -report $(CURDIR)/$(BIN_DIR)/conformance-pkg-report.json
 	@echo "✓ Conformance suite passed through client/opensysml ($(BIN_DIR)/conformance-pkg-report.json)"
 
 test: ## Run Go tests with race detection and coverage
@@ -156,6 +159,7 @@ test: ## Run Go tests with race detection and coverage
 	@# Per-package timeout: under -race, passes and model run within 1% of go's 10m default.
 	@# -pgo=off: coverage plus cmd/*/default.pgo trips golang/go#80891 (link: fingerprint mismatch).
 	go test -v -race -pgo=off -timeout 30m -coverprofile=coverage.txt -covermode=atomic ./...
+	go test -C $(TOOLS_DIR) -v -race -pgo=off -timeout 30m ./...
 
 coverage: ## Write the coverage profile the SonarCloud scan reads
 	@echo "Writing coverage.txt..."
@@ -172,6 +176,10 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic ./...
 	go tool covdata textfmt -i=$(GO_COUNTER_DIR) -o $(GO_COUNTER_DIR)/profile.txt
 	tail -n +2 $(GO_COUNTER_DIR)/profile.txt >> coverage.txt
+	@# The tools' tests exercise product packages too; their profile credits those.
+	go test -C $(TOOLS_DIR) -count=1 -pgo=off -timeout 30m -coverpkg=github.com/Open-MBEE/OpenSysML/... -coverprofile=../coverage-tools.txt -covermode=atomic ./...
+	tail -n +2 coverage-tools.txt >> coverage.txt
+	rm coverage-tools.txt
 	@# -coverpkg repeats every block once per test binary; see the script's header.
 	python3 scripts/dedupe-coverage.py coverage.txt
 	@go tool cover -func=coverage.txt | tail -n 1
@@ -179,21 +187,24 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 lint: ## Run static analysis (staticcheck + gosec), as CI does
 	@echo "Running staticcheck..."
 	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
+	go run -C $(TOOLS_DIR) honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
 	@echo "Running gosec..."
 	@# Generated protobuf code is excluded: its unsafe.Pointer use (G103) comes
 	@# from protoc-gen-go and is not ours to change.
 	go run github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated ./...
+	go run -C $(TOOLS_DIR) github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated ./...
 	@echo "✓ Lint passed"
 
 test-short: ## Run Go tests without race detection
 	@echo "Running Go tests without race detection..."
 	go test -v ./...
+	go test -C $(TOOLS_DIR) -v ./...
 
 stdlib-snapshot: ## Regenerate the embedded snapshot of the bundled library after editing $(LIBS_DIR)/stdlib
 	go generate ./$(LIBS_DIR)
 
 stdlib-snapshot-check: ## Verify the committed library snapshot matches the bundled library, as CI does
-	go run ./$(LIBS_DIR)/gensnapshot -check -out $(LIBS_DIR)/stdlib.snapshot
+	go run -C $(TOOLS_DIR) ./gen/snapshot -check
 	@echo "✓ stdlib.snapshot is current"
 
 fuml-expected: ## Regenerate docs/project/fuml-referee-expected.json from the pinned fUML reference implementation (needs a JDK)
@@ -350,10 +361,10 @@ self-model: build-sysml ## Render the architecture self-model's views (see examp
 
 docs-counts: ## Regenerate and verify the committed documentation counts; the test-suite figures are counted when the site is built
 	@echo "Regenerating the documentation count lines and refereed figures..."
-	go run ./cmd/doc-counts
-	go run ./cmd/doc-counts -check
-	go run ./cmd/validation-census -check
-	go test -count=1 ./cmd/pilot-diff ./cmd/pilot-reject ./cmd/doc-counts ./cmd/validation-census
+	go run -C $(TOOLS_DIR) ./cmd/doc-counts
+	go run -C $(TOOLS_DIR) ./cmd/doc-counts -check
+	go run -C $(TOOLS_DIR) ./cmd/validation-census -check
+	go test -C $(TOOLS_DIR) -count=1 ./census/doccounts ./census/validation ./referee/diff ./referee/reject
 	@echo "✓ Documentation counts and refereed figures are current"
 
 docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle figures, changelog fragments and the build-time census and test-suite figures

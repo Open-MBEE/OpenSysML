@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The machine-readable result of a run, in the shape {@code cmd/conformance} writes so the two are
+ * The machine-readable result of a run, in the shape {@code tools/cmd/conformance} writes so the two are
  * comparable.
  */
 final class Report {

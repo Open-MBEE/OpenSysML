@@ -1,5 +1,5 @@
 // Runs the conformance suite in conformance/ through this client, over each
-// protocol asked for, and writes the report cmd/conformance writes.
+// protocol asked for, and writes the report tools/cmd/conformance writes.
 
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -63,7 +63,7 @@ export async function runSuite(options: RunOptions): Promise<Report> {
   const service = options.service ?? binary ?? "";
   const report: Report = { service, total: 0, passed: 0, failed: 0, skipped: 0, errored: 0, protocols: [] };
   // One connection held open for the run, so every protocol tests one service
-  // process and one parse cache, as cmd/conformance does.
+  // process and one parse cache, as tools/cmd/conformance does.
   const held = await connect({ timeoutMs: 60_000 });
   try {
     for (const name of options.protocols) {
@@ -136,7 +136,7 @@ async function open(
   return { runner, connection };
 }
 
-/** Builds the service the suite tests, the way cmd/conformance does. */
+/** Builds the service the suite tests, the way tools/cmd/conformance does. */
 function buildService(repo: string, workDir: string): string {
   const output = join(workDir, process.platform === "win32" ? "sysml-grpc.exe" : "sysml-grpc");
   execFileSync("go", ["build", "-o", output, "./cmd/sysml-grpc"], { cwd: resolve(repo), stdio: "inherit" });
@@ -160,7 +160,7 @@ function restore(name: string, value: string | undefined): void {
   }
 }
 
-/** Parses the command line, mirroring cmd/conformance's flags. */
+/** Parses the command line, mirroring tools/cmd/conformance's flags. */
 export function parseOptions(argv: string[]): RunOptions {
   const { values } = parseArgs({
     args: argv,

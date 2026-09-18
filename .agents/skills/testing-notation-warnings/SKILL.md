@@ -17,7 +17,7 @@ boundary each spelling sits.
 `bin/sysml` has **no** `-conformance` flag: asking for one prints
 `flag provided but not defined: -conformance` plus the whole usage block and exits **2**, which
 reads exactly like the model failing to analyse. `-conformance auto|default|strict` belongs to
-`cmd/pilot-reject` (and the other pilot harnesses) only. The CLI spelling is `-validate -strict`,
+`tools/referee/reject` (and the other pilot harnesses) only. The CLI spelling is `-validate -strict`,
 the REPL's is `%strict on`, and the LSP's is the `strictConformance` initialization option.
 
 ## Severity-only claims must be tested against the pass tiers, not just the message
@@ -300,7 +300,7 @@ than only checking the lines the task named.
 
 ## Verify oracle baselines against a LIVE run, not just against the docs
 
-`cmd/pilot-diff/doc_counts_test.go` guards documentation prose against the **committed**
+`tools/referee/diff/doc_counts_test.go` guards documentation prose against the **committed**
 `docs/project/pilot-xpect-baseline.json` / `pilot-rejection-baseline.json`. It therefore cannot
 notice that both the prose *and* the committed baseline have drifted away from what the code now
 does — they stay self-consistent while both go stale, and `go test ./...` stays green. A change
@@ -310,7 +310,7 @@ gated now surface.
 So always run the oracle and diff the totals yourself:
 
 ```bash
-go run ./cmd/pilot-xpect -jobs 8
+go run -C tools ./cmd/pilot-xpect -jobs 8
 cmp build/pilot-xpect/pilot-xpect.json docs/project/pilot-xpect-baseline.json   # may legitimately differ
 python3 -c "
 import json
@@ -332,7 +332,7 @@ worktree before escalating, because "the branch broke the oracle" and "the basel
 stale" need completely different responses:
 
 ```bash
-cd /home/ubuntu/wt-main && git log --oneline -1 && go run ./cmd/pilot-xpect -jobs 8
+cd /home/ubuntu/wt-main && git log --oneline -1 && go run -C tools ./cmd/pilot-xpect -jobs 8
 ```
 
 A worked example: xpect measured 939/387/0 live against a committed 845/481/18, which looked like a
@@ -375,10 +375,10 @@ obvious tests only catch one:
 So always pin the positive case on the **real binary**, not only in unit tests:
 
 ```bash
-G=cmd/pilot-reject/testdata/negative/grammar/g15-keyword-as-name.sysml   # part def part;
+G=tools/referee/reject/testdata/negative/grammar/g15-keyword-as-name.sysml   # part def part;
 sysml -validate        $G   # expect: warning only at 3:14, exit 0
 sysml -validate -strict $G   # expect: error at 3:14 + "did not analyse cleanly", exit 2
-go run ./cmd/pilot-reject -conformance strict   # expect 116 both reject / 3 pilot-only
+go run -C tools ./cmd/pilot-reject -conformance strict   # expect 116 both reject / 3 pilot-only
 ```
 
 A strict run that produces no error, or a rejection count slipping to 115/4, means the escalation
@@ -414,7 +414,7 @@ grep -n "Code[A-Za-z]* =" internal/core/passes/nonstandard_notation.go
 
 - The CLI strict flag is **`-strict`**, not `-conformance strict`. The latter is a flag-parse error:
   it dumps usage and exits 2, which looks exactly like a legitimate refusal and will silently fake
-  a "strict refuses" pass. Confirm with `sysml -h | grep -i strict`. (`cmd/pilot-reject` *does*
+  a "strict refuses" pass. Confirm with `sysml -h | grep -i strict`. (`tools/referee/reject` *does*
   take `-conformance default|strict` — the two binaries differ.)
 - There is no `-check` flag and no `%run` command. Use the check flags
   (`-instantiate`, `-constraint`, `-satisfy`, `-query`, ...) and `%strict on|off`.
@@ -525,7 +525,7 @@ Point the *same* parsing logic at `g15-keyword-as-name.sysml` on a build that pr
 (`85aa4140`): it must report exactly **1** duplicate span (`3:14` holding both `error` and
 `warning`), and the build under test must report **0** on that same file. Without that column, a
 regex that silently matches nothing looks identical to a clean result. Note g15 lives under
-`cmd/pilot-reject/testdata/`, which is *outside* the usual corpus roots, so the corpus scan alone
+`tools/referee/reject/testdata/`, which is *outside* the usual corpus roots, so the corpus scan alone
 never touches the one file that exercises the pair.
 
 ## Testing the *removal* of a notation spelling (the mirror image of adding a rule)

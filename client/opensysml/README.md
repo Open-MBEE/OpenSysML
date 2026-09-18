@@ -453,7 +453,7 @@ protocols of the reference runner:
 
 ```sh
 make conformance-pkg
-# or: go run ./cmd/conformance -protocols pkg,pkg-connect -allow-skips
+# or: go run -C tools ./cmd/conformance -protocols pkg,pkg-connect -allow-skips
 ```
 
 Two scenarios are reported as skips, because they state a request this API's

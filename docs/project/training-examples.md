@@ -192,7 +192,7 @@ The checking is narrowed, not dropped: `satisfy <non-requirement usage>` still
 reports (`satisfy target must be a requirement usage, found ...`), locked by
 `TestTypeCheckSatisfyNonRequirementUsageError` alongside the two positive cases in
 `internal/core/passes/typecheck_test.go`, and the parse shape is pinned by
-`internal/core/parser/testdata/parse/satisfy_reference.golden`.
+`tests/parser/testdata/parse/satisfy_reference.golden`.
 
 ### Verdicts for the implicit-parameter-redefinition re-pin (88/100)
 

@@ -1243,16 +1243,16 @@ Parser changes use four complementary layers:
 
 ```bash
 go test -run TestStdlibConformance ./internal/core/libs
-go test -run TestGolden ./internal/core/parser
-go test -run TestNegative ./internal/core/parser
+go test -run TestGolden ./tests/parser
+go test -run TestNegative ./tests/parser ./internal/core/parser
 go test ./internal/core/parser
 ```
 
-Golden fixtures live in `internal/core/parser/testdata/parse`. Update them only
+Golden fixtures live in `tests/parser/testdata/parse`. Update them only
 after an intentional AST change:
 
 ```bash
-go test -run TestGolden -update ./internal/core/parser
+go test -run TestGolden -update ./tests/parser
 ```
 
 Review every generated diff. A widespread snapshot change often identifies an

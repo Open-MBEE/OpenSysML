@@ -28,6 +28,7 @@ profile() {
 
 # Test-suite hot paths, including the corpus gates (model) and the stdlib gate (libs).
 profile tests-parser  ./internal/core/parser  -count=1
+profile tests-golden  ./tests/parser          -count=1
 profile tests-resolve ./internal/core/resolve -count=1
 profile tests-passes  ./internal/core/passes  -count=1
 profile tests-runtime ./internal/core/runtime -count=1

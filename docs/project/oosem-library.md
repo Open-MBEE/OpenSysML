@@ -136,4 +136,4 @@ names where OpenSysML's would not, and the library is written so both accept it.
 Prefix metadata before the two-word kind `use case` (`#systemUseCase use case def …`) was
 rejected as `expected a namespace member`, because the prefix lookahead in
 `parser.leadingPrefixIsDefUsage` only recognised single-token kind keywords. Fixed, with the
-golden fixture `internal/core/parser/testdata/parse/prefix_metadata_use_case.sysml`.
+golden fixture `tests/parser/testdata/parse/prefix_metadata_use_case.sysml`.

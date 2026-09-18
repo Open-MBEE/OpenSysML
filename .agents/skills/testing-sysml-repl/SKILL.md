@@ -66,7 +66,7 @@ None for local choice-pseudostate CLI/REPL testing.
 
 ## Model-level uncertainty versus object-level empty values
 
-Use `cmd/pilot-exec-diff/testdata/models/undetermined_operands.sysml` to
+Use `tools/referee/exec/testdata/models/undetermined_operands.sysml` to
 contrast model and object evaluation without inventing a fixture. Before
 instantiation, `%eval U::u` and
 `%eval SequenceFunctions::size(T::rack.gear)` answer `<undetermined>`,
@@ -2214,7 +2214,7 @@ Surfaces that *do* pass the real path, and are therefore the ones to test file-k
 
 - `sysml <file>.kerml -convert ttl` → `internal/core/export/convert.go:278 source.New(name, data)`.
 - the LSP / `model.newDocument` (`internal/core/model/document.go:26`) with a real URI.
-- the stdlib loader `internal/core/libs/loader.go` and `cmd/pilot-diff`.
+- the stdlib loader `internal/core/libs/loader.go` and `tools/referee/diff`.
 
 Only the *pass* layer has a compensating hack for the buffer's missing kind
 (`session.go dropKerMLNotationOfKerMLFiles` drops the `kerml-notation` warning for spans that came
@@ -5015,7 +5015,7 @@ suggestion is normal because `%search` sees the reference-derived index entry.
 `%search` and readline name completion browse the **raw symbol index** (`internal/repl/discover.go`,
 `complete.go`) and are *not* filtered by member visibility, so a `private` member is still listed
 even when resolution rejects every reference to it. The visibility-filtered surface is
-`model.Workspace.VisibleNames/VisibleNamesAt`, which today is reached only from `cmd/pilot-xpect`
+`model.Workspace.VisibleNames/VisibleNamesAt`, which today is reached only from `tools/referee/xpect`
 scope checks and not from any REPL meta-command — do not report a `%search` listing of a private
 name as a regression without A/B-ing it against the parent build first. `%view <name>` *is* useful
 for `expose`: it lists what a view exposes, and an `expose`/`import all` is expected to reach its
