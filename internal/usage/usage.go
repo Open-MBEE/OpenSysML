@@ -47,9 +47,8 @@ type Option struct {
 	// Aliases are the other spellings the flag set declares for the same
 	// setting, listed with the name rather than as entries of their own.
 	Aliases []string
-	// Arg is the placeholder the flag's argument is shown as, "<name>"; one
-	// written "[=<name>]" is optional and attaches to the flag. Empty for a
-	// boolean flag.
+	// Arg is the argument's placeholder, "<name>", or "[=<name>]" when optional;
+	// empty for a boolean flag.
 	Arg string
 }
 
