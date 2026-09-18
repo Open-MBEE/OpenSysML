@@ -1,0 +1,34 @@
+choice on accept Go: next l1(exit), r1(exit) (unordered; took l1(exit) first)
+exit: l1 (exit action)
+stmt assign log
+    eval feature log -> ""
+    eval literal "l1(exit) " -> "l1(exit) "
+  eval operator + -> "l1(exit) "
+choice on accept Go: next l1->l2(effect), r1(exit) (unordered; took l1->l2(effect) first)
+stmt assign log
+    eval feature log -> "l1(exit) "
+    eval literal "T1(effect) " -> "T1(effect) "
+  eval operator + -> "l1(exit) T1(effect) "
+enter: l2
+transition: l1 -> l2 (event: accept Go)
+exit: r1 (exit action)
+stmt assign log
+    eval feature log -> "l1(exit) T1(effect) "
+    eval literal "r1(exit) " -> "r1(exit) "
+  eval operator + -> "l1(exit) T1(effect) r1(exit) "
+stmt assign log
+    eval feature log -> "l1(exit) T1(effect) r1(exit) "
+    eval literal "T2(effect) " -> "T2(effect) "
+  eval operator + -> "l1(exit) T1(effect) r1(exit) T2(effect) "
+enter: r2
+transition: r1 -> r2 (event: accept Go)
+choice join sync: states l2, r2 react (unordered; took l2 first)
+exit: l2
+exit: r2
+exit: work
+stmt assign log
+    eval feature log -> "l1(exit) T1(effect) r1(exit) T2(effect) "
+    eval literal "T3(effect) " -> "T3(effect) "
+  eval operator + -> "l1(exit) T1(effect) r1(exit) T2(effect) T3(effect) "
+enter: done
+transition: work -> done

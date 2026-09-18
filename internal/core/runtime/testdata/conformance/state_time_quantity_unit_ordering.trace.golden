@@ -1,5 +1,6 @@
 exit: start
 enter: Working
+choice entering Working: next sstart(entry), fstart(entry) (unordered; took sstart(entry) first)
 enter: sstart
 enter: fstart
 transition: start -> Working

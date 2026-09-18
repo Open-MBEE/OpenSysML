@@ -4,6 +4,7 @@ stmt assign reentered
     eval feature reentered -> 0
     eval literal 1 -> 1
   eval operator + -> 1
+choice entering running: next lstart(entry), rstart(entry) (unordered; took lstart(entry) first)
 enter: lstart
 enter: rstart
 transition: start -> running

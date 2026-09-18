@@ -23,7 +23,7 @@ linearization a run took, the points at which it had a choice, and the rule it c
 ## Choice points (`choice.go`, `action_choice.go`)
 
 A `ChoicePoint` is one point where an executor had several enabled alternatives the library leaves
-unordered and took one by its scheduling rule. `ChoiceKind` names the seven:
+unordered and took one by its scheduling rule. `ChoiceKind` names the nine:
 
 | Kind | Where it is noted | Alternatives, canonically |
 |------|-------------------|---------------------------|
@@ -31,7 +31,9 @@ unordered and took one by its scheduling rule. `ChoiceKind` names the seven:
 | `ChoiceDecisionBranch` | `ActionExecutor.noteDecisionBranches` | the successions whose guards hold, by declaration position |
 | `ChoiceWriteOrder` | `stepWriteLedger.noteChoices` | the tokens that wrote one feature in one step; the write that stood is taken |
 | `ChoiceTransition` | `StateExecutor.chooseTransition`; `pickBranch` (`state_route.go`) | the transitions one event enables out of one state, by declaration position; or the branches of a `choice` or `junction` pseudostate enabled when its guards are read, labelled `choice <name>` or `junction <name>` |
-| `ChoiceRegionOrder` | `StateExecutor.chooseRegion`, drawn by `dispatchInOrder`; `chooseDoAction` (`do round at t=…`); `fireJoinIncoming` (`join <name>`) | the states whose transitions one occurrence selected, by name in declaration order; the one fired first is taken — likewise the states whose do behaviors are due in one round, and the sources of the transitions into a join that fires |
+| `ChoiceRegionOrder` | `dispatchInOrder`, drawn on the front of `state_unit_front.go` (`on <event>`); `chooseDoAction` (`do round at t=…`); `fireJoinIncoming` (`join <name>`) | the next unit — a source's exit, a segment's effect, a target's entry — of each firing one occurrence selected across regions, by source in declaration order; the one performed first is taken, and the entries and exits a firing nests are drawn on its front — likewise the states whose do behaviors are due in one round, and the sources of the transitions into a join that fires |
+| `ChoiceEntryOrder` | `enterRegionsInto` (`entering <state>`), `enterForkBranches` (`fork <name>`), a history's restore | the next entry unit of each region, branch or restored region of a composite state, in declaration order; the one performed first is taken. A unit performing no behavior rides with the performing unit beside it |
+| `ChoiceExitOrder` | `exitState` (`exiting <state>`) | the next exit unit of each region a state leaves, innermost first within a region, in declaration order; the one performed first is taken |
 | `ChoiceDueOrder` | `Context.runDue` (`advance.go`); the checker's run, one executor holding the turn until it has no move at the instant | the executors due at one instant, in creation order; the one run first is taken |
 | `ChoiceDispatchOrder` | `StateExecutor.nextEvent`, when the queue leaves several events unordered at its head | the events due at one instant the library does not order — time triggers with each other, a time trigger with a pool event of the same timestamp — labelled as the queue labels them; the one dispatched first is taken. A completion event goes before any of them and pool events keep their arrival order (`earlierFirstIncomingTransferSort`), so neither is a choice |
 
@@ -101,7 +103,12 @@ A `SchedulePolicy` is parsed from one spelling and printed back to it:
 `reverse` is exactly what every run did before policies existed, so every `.expected.json` and
 `.trace.golden` recorded before them still holds unchanged; that is the invariant the whole design
 is built to keep. Under `reverse` and `declared` a region-order pick is declaration order and is
-still reported — a fixed policy resolves the choice, it does not remove it.
+still reported — a fixed policy resolves the choice, it does not remove it — and so are the
+entry-order and exit-order draws, one `choice` line per draw in the trace golden of a fixture
+entering or leaving a state of two or more regions, its event order unchanged
+([region-order scheduling](region-order-scheduling.md)). One order the fixed policies take is
+not yet a recorded choice: a due do step against the dispatch at the head of the pool, drawn
+per token move of the do flow in that note's design.
 
 `SchedulePolicy.start` begins the resolutions of one run as a `scheduler`. A seeded one carries a
 `math/rand/v2` PCG the run consumes draw by draw, so the same seed replays the same run on every

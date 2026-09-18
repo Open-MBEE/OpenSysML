@@ -23,6 +23,7 @@ stmt assign log
     eval literal "leftDone(entry);" -> "leftDone(entry);"
   eval operator + -> "mid(entry);inner(entry);b(entry);inner(exit);up(effect);mid(exit);completion(effect);leftDone(entry);"
 transition: mid -> leftDone
+choice exiting outer: next leftDone(exit), b(exit) (unordered; took leftDone(exit) first)
 exit: leftDone
 exit: b (exit action)
 stmt assign log

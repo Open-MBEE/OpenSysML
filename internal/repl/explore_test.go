@@ -669,6 +669,57 @@ func TestRunForExploresEveryDueOrder(t *testing.T) {
 	}
 }
 
+// exploreRegionsSource has a machine starting in a parallel state whose two
+// regions each log their own entry and their start state's.
+const exploreRegionsSource = `
+package Regions {
+	private import ScalarValues::*;
+	state def Pair {
+		attribute log : String = "";
+		entry; then work;
+		state work parallel {
+			state left {
+				entry { assign log := log + "left "; } then l;
+				state l { entry { assign log := log + "l "; } }
+			}
+			state right {
+				entry { assign log := log + "right "; } then r;
+				state r { entry { assign log := log + "r "; } }
+			}
+		}
+	}
+}
+`
+
+// RunStateMachine under explore draws the order a parallel state's regions are
+// entered in one unit at a time: the six linearizations of two chains of two
+// are tabled, each witnessed by its entry-order lines, and the table is the same
+// on every run.
+func TestRunStateMachineExploresEveryRegionEntryOrder(t *testing.T) {
+	s := loadSource(t, exploreRegionsSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	v := s.RunStateMachine("Regions::Pair")
+	if v.Status != VerdictHolds {
+		t.Fatalf("status = %v, want holds:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+	}
+	out := strings.Join(v.Lines, "\n")
+	wantsInOrder(t, out,
+		"✓ explored Regions::Pair: 6 outcomes",
+		"outcome                                                    | linearizations | witness",
+		`finalState l+r; visits work, l, r; log = "left l right r " | 1              | entering work: left(entry) first of left(entry), right(entry); entering work: l(entry) first of l(entry), right(entry)`,
+		`finalState l+r; visits work, l, r; log = "left right l r " | 1              | entering work: left(entry) first of left(entry), right(entry); entering work: right(entry) first of l(entry), right(entry); entering work: l(entry) first of l(entry), r(entry)`,
+		`finalState l+r; visits work, l, r; log = "right left l r " | 1              | entering work: right(entry) first of left(entry), right(entry); entering work: left(entry) first of left(entry), r(entry); entering work: l(entry) first of l(entry), r(entry)`,
+		`finalState l+r; visits work, r, l; log = "left right r l " | 1              | entering work: left(entry) first of left(entry), right(entry); entering work: right(entry) first of l(entry), right(entry); entering work: r(entry) first of l(entry), r(entry)`,
+		`finalState l+r; visits work, r, l; log = "right left r l " | 1              | entering work: right(entry) first of left(entry), right(entry); entering work: left(entry) first of left(entry), r(entry); entering work: r(entry) first of l(entry), r(entry)`,
+		`finalState l+r; visits work, r, l; log = "right r left l " | 1              | entering work: right(entry) first of left(entry), right(entry); entering work: r(entry) first of left(entry), r(entry)`,
+		"complete (6 runs)")
+	if again := s.RunStateMachine("Regions::Pair"); strings.Join(again.Lines, "\n") != out {
+		t.Errorf("exploration rendered\n%s\nthen\n%s", out, strings.Join(again.Lines, "\n"))
+	}
+}
+
 // %schedule explore is a typed error at the prompt, leaving the policy in force,
 // and a session set to explore programmatically refuses to start a debugger
 // while still answering %schedule.

@@ -23,6 +23,7 @@ stmt assign fastEntries
     eval feature fastEntries -> 0
     eval literal 1 -> 1
   eval operator + -> 1
+choice entering fast: next start of state left, start of state right (unordered; took start of state left first)
   eval feature mode -> 2
   eval literal 1 -> 1
 eval operator == -> false

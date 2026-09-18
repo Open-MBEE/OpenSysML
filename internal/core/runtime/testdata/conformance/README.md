@@ -172,6 +172,7 @@ deterministic, so a case with an admissible set still keeps its exact golden tra
 The executor resolves the choice points a run reports — several steppable
 tokens in one step, several holding decision guards, several transitions out of
 one state enabled by one event, several orthogonal regions reacting to one event,
+several orthogonal regions or fork branches each with an entry or exit unit left,
 several executors due at one instant of the clock — under a scheduling policy,
 spelled the same way everywhere (`sysml -schedule`, `%schedule`, the `schedule`
 request field):
@@ -217,6 +218,22 @@ and the pin stays until the fix lands (`send_identity_same_named_ports` was
 pinned while the via-less `accept Ping` over-matched a transfer addressed to
 `alpha.inPort`; with a via-less accept held to the receiver the transfer reaches,
 `waiting` has one enabled transition and the case runs unpinned).
+
+The order in which orthogonal regions are entered, exited and stepped is a
+drawn choice point too (`ChoiceEntryOrder`, `ChoiceExitOrder`, the per-unit
+`ChoiceRegionOrder`; see `docs/internals/design/region-order-scheduling.md`), so
+`seed:1` also varies the region order a `stateVisits` list or a log pins. The
+cases *about* that order state the exact set of linearizations the library
+admits (`state_change_region_order`, `state_parallel_broadcast`,
+`state_composite_region_depth_order`, `state_fork_enters_regions_without_initial`,
+…); the cases whose subject is something else — a fork through inactive
+ancestors, deferral outranking a sibling region, a transition into an active
+parallel ancestor, history, terminate inside a region — pin `reverse` (which,
+like `declared`, takes the regions in declaration order), because their subject
+is not the order and an exact set for a nested fork or an orthogonal exit runs
+to dozens of interleavings once entry, exit and firing units are all drawn.
+Such a pin records the declared order as the run the case describes, not as
+the only run the library admits.
 
 A case with an admissible set also owns a `<case>.<policy>.trace.golden` for
 each sweep policy (`declared`, `seed-1` — a colon is not a portable file-name
