@@ -43,8 +43,9 @@ func (ctx *Context) universalClockObject(fqn string) (Value, error) {
 }
 
 // clockMember answers a Clock object's currentTime from the shared clock every
-// executor of the context advances: a Time::Clock reads a duration quantity, any
-// other Clock the Kernel's bare number of seconds. Other members are not answered.
+// executor of the context advances: a Time::Clock reads the instant on its own
+// scale, seconds since the run began as `accept at` waits for it; any other
+// Clock the Kernel's bare number of seconds. Other members are not answered.
 func (ctx *Context) clockMember(inst *Instance, name string) (Value, bool, error) {
 	if name != currentTimeName || !ctx.isClock(inst) {
 		return Value{}, false, nil
