@@ -4,8 +4,9 @@ package ast
 // the body whose metadata members annotate it (KerML 8.2.4 PrefixMetadataMember;
 // SysML.xtext UsageExtensionKeyword on SubjectUsage and RequirementConstraintUsage).
 // A document root's members annotate the root namespace, an annotation's body
-// members annotate the annotation itself, and a transition's or succession's body
-// members annotate that edge. ok is false for a node that carries neither.
+// members annotate the annotation itself, a transition's or succession's body
+// members annotate that edge, and a dependency's body members the dependency.
+// ok is false for a node that carries neither.
 func DeclaredMetadata(node Node) (prefixes []*PrefixMetadata, body []Node, ok bool) {
 	switch d := node.(type) {
 	case *RootNamespace:
@@ -29,6 +30,8 @@ func DeclaredMetadata(node Node) (prefixes []*PrefixMetadata, body []Node, ok bo
 	case *AssumeMember:
 		return d.Prefixes, d.Body, true
 	case *RequireMember:
+		return d.Prefixes, d.Body, true
+	case *Dependency:
 		return d.Prefixes, d.Body, true
 	default:
 		return nil, nil, false

@@ -9,7 +9,8 @@ import (
 
 // Relationship kinds RelatedElements traverses. A lineage kind follows the
 // declared relationships of the element itself; the others follow edges other
-// declarations state about it (a connector usage, a satisfy/verify assertion).
+// declarations state about it (a connector usage, a satisfy/verify assertion,
+// a requirement derivation, a refinement dependency).
 const (
 	relationshipSpecialization = "specialization"
 	relationshipSubsetting     = "subsetting"
@@ -19,6 +20,8 @@ const (
 	relationshipAllocation     = "allocation"
 	relationshipSatisfaction   = "satisfaction"
 	relationshipVerification   = "verification"
+	relationshipDerivation     = "derivation"
+	relationshipRefinement     = "refinement"
 )
 
 // Traversal directions: outgoing follows an edge from its source to its
@@ -127,7 +130,8 @@ func supportedRelationship(kind string) bool {
 	}
 	switch kind {
 	case relationshipConnection, relationshipAllocation,
-		relationshipSatisfaction, relationshipVerification:
+		relationshipSatisfaction, relationshipVerification,
+		relationshipDerivation, relationshipRefinement:
 		return true
 	}
 	return false
@@ -212,7 +216,8 @@ func (e *executor) scanScope(expression queryplan.Expression, edges *relationshi
 
 // scanSymbol records the edges the given symbol's declaration states: the
 // resolved targets of a lineage relationship, the resolved end features of a
-// connector usage, or the subject and requirement of a satisfaction assertion.
+// connector usage, the subject and requirement of a satisfaction assertion,
+// the requirements of a derivation, or the ends of a refinement dependency.
 func (e *executor) scanSymbol(edges *relationshipEdges, kind string, sym *symbols.Symbol) {
 	if relKind, lineage := lineageKinds[kind]; lineage {
 		for _, target := range e.lineageTargets(sym, relKind) {
@@ -225,6 +230,10 @@ func (e *executor) scanSymbol(edges *relationshipEdges, kind string, sym *symbol
 		e.scanConnector(edges, kind, sym)
 	case relationshipSatisfaction, relationshipVerification:
 		e.scanSatisfaction(edges, kind, sym)
+	case relationshipDerivation:
+		e.scanDerivation(edges, sym)
+	case relationshipRefinement:
+		e.scanRefinement(edges, sym)
 	}
 }
 
