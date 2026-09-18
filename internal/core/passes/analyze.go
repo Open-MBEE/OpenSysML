@@ -7,6 +7,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes/diagram"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes/document"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -61,7 +62,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(W8DVerificationPass{})
 	reg.Register(diagram.ViewRenderingPass{})
 	reg.Register(W8DMetadataUsagePass{})
-	reg.Register(IdentityMetadataPass{})
+	reg.Register(identity.MetadataPass{})
 	reg.Register(diagram.LayoutPass{})
 	reg.Register(RedefinitionConformancePass{})
 	reg.Register(W9CShortNameDistinguishabilityPass{})

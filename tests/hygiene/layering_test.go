@@ -69,6 +69,7 @@ var packageLayer = map[string]string{
 	"internal/core/passes/kit":      "validation",
 	"internal/core/passes/document": "validation",
 	"internal/core/passes/diagram":  "validation",
+	"internal/core/passes/identity": "validation",
 	"internal/core/edit":            "validation",
 
 	"internal/core/runtime":             "execution",
@@ -139,6 +140,7 @@ var removed = map[string][]string{
 	"internal/core/passes/kit":          {"internal/core/passes"},
 	"internal/core/passes/document":     {"internal/core/passes"},
 	"internal/core/passes/diagram":      {"internal/core/passes"},
+	"internal/core/passes/identity":     {"internal/core/passes"},
 	"internal/core/runtime":             {"internal/core/parser", "internal/core/passes"},
 	"internal/repl":                     {"internal/grpc"},
 }

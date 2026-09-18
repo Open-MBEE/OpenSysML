@@ -21,10 +21,3 @@ func mosaUnionOf(ctx *Context) *mosaUnion {
 		return newMOSAUnion()
 	}).(*mosaUnion)
 }
-
-// identityUnionOf returns the workspace-wide identity union.
-func identityUnionOf(ctx *Context) *identityUnion {
-	return ctx.Gathers().UnionOf(ctx, "identity", func() kit.Union {
-		return newIdentityUnion()
-	}).(*identityUnion)
-}
