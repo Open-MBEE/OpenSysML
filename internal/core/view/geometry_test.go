@@ -1,6 +1,7 @@
 package view
 
 import (
+	"maps"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -25,7 +26,7 @@ func findNode(t *testing.T, roots []*Node, name string) *Node {
 	}
 	walk(roots)
 	if found == nil {
-		t.Fatalf("no node %q; nodes: %v", name, sortedKeys(nodeNames(roots)))
+		t.Fatalf("no node %q; nodes: %v", name, slices.Sorted(maps.Keys(nodeNames(roots))))
 	}
 	return found
 }
@@ -191,7 +192,7 @@ func TestInheritedRegionsAreLocatedInTheirDefinitionsDocument(t *testing.T) {
 	walk(machine.Roots)
 	if len(regions) != 4 {
 		t.Fatalf("got %d regions, want 4 (sensing, acting, pumps, valves); notices %v, nodes %v",
-			len(regions), machine.Notices, sortedKeys(nodeNames(machine.Roots)))
+			len(regions), machine.Notices, slices.Sorted(maps.Keys(nodeNames(machine.Roots))))
 	}
 	for _, region := range regions {
 		if region.Origin.Doc != "regions.sysml" {
@@ -219,7 +220,7 @@ func TestInheritedTopLevelPseudostatesAreLocatedInTheirDefinitionsDocument(t *te
 		t.Errorf("pick is a %q, want a choice", pick.Kind)
 	}
 	if !slices.Contains(usage.Children, pick) {
-		t.Errorf("pick is not a child of the usage; its children are %v", sortedKeys(nodeNames(usage.Children)))
+		t.Errorf("pick is not a child of the usage; its children are %v", slices.Sorted(maps.Keys(nodeNames(usage.Children))))
 	}
 	if pick.Origin.Doc != "regions.sysml" {
 		t.Errorf("pick is located in %q, want regions.sysml, where Regions::Controller declares it", pick.Origin.Doc)
@@ -259,7 +260,7 @@ func TestInheritedNestedPseudostatesAreLocatedInTheirDefinitionsDocument(t *test
 			t.Errorf("%s is a %q, want a %s", tc.pseudo, pseudo.Kind, tc.kind)
 		}
 		if !slices.Contains(owner.Children, pseudo) {
-			t.Errorf("%s is not a child of %s; its children are %v", tc.pseudo, tc.owner, sortedKeys(nodeNames(owner.Children)))
+			t.Errorf("%s is not a child of %s; its children are %v", tc.pseudo, tc.owner, slices.Sorted(maps.Keys(nodeNames(owner.Children))))
 		}
 		if pseudo.Origin.Doc != "regions.sysml" {
 			t.Errorf("%s is located in %q, want regions.sysml, where its definition declares it", tc.pseudo, pseudo.Origin.Doc)
