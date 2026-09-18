@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Copy the pinned release digests into each client that ships them.
 
-`clients/release-digests.json` is the single table of per-release asset digests,
-written by `clients/python/scripts/pin_release_checksums.py`. A client verifies a
+`client/release-digests.json` is the single table of per-release asset digests,
+written by `client/python/scripts/pin_release_checksums.py`. A client verifies a
 download against the copy it ships, because a copy resolved at run time from
 outside the published artifact is not a pin, so each packaged client carries its
 own — a wheel cannot include a file above its project directory, and neither can
@@ -20,14 +20,14 @@ import sys
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TABLE = "release-digests.json"
-SOURCE = os.path.join(REPO_ROOT, "clients", TABLE)
+SOURCE = os.path.join(REPO_ROOT, "client", TABLE)
 
 #: Path, relative to the repository root, of every client's shipped copy.
 COPIES = (
-    os.path.join("clients", "python", "opensysml", TABLE),
-    os.path.join("clients", "node", TABLE),
-    os.path.join("clients", "java", "opensysml-client", "src", "main", "resources", TABLE),
-    os.path.join("clients", "rust", "opensysml", TABLE),
+    os.path.join("client", "python", "opensysml", TABLE),
+    os.path.join("client", "node", TABLE),
+    os.path.join("client", "java", "opensysml-client", "src", "main", "resources", TABLE),
+    os.path.join("client", "rust", "opensysml", TABLE),
 )
 
 
@@ -35,7 +35,7 @@ def sync(source=None, check=False):
     """Rewrite the copies, or report the ones that no longer match the source.
 
     Args:
-        source (str, optional): Path to clients/release-digests.json
+        source (str, optional): Path to client/release-digests.json
         check (bool): Report drift instead of correcting it
 
     Returns:
@@ -55,7 +55,7 @@ def sync(source=None, check=False):
             continue
         if check:
             drifted.append(
-                f"{relative} is not the table in clients/release-digests.json; "
+                f"{relative} is not the table in client/release-digests.json; "
                 f"run python3 scripts/sync-release-digests.py"
             )
             continue

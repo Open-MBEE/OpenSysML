@@ -319,8 +319,8 @@ github.com/Open-MBEE/OpenSysML
 ├── internal/lsp/          # LSP implementation
 ├── internal/grpc/         # gRPC service implementation
 ├── internal/repl/         # REPL implementation
-├── clients/python/        # Python client bindings (opensysml)
-├── clients/rust/          # Rust client (opensysml) and its conformance runner
+├── client/python/         # Python client bindings (opensysml)
+├── client/rust/           # Rust client (opensysml) and its conformance runner
 ├── docs/                  # Documentation
 │   ├── guide/             # The handbook, in reading order
 │   ├── reference/         # CLI, REPL, environment, APIs, RDF mapping
