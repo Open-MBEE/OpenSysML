@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -731,7 +731,7 @@ package Imperial {
 // unit or two units bear, or a scaled reduction sent nameless.
 func TestOpaqueUnitFactorsSurviveTheWire(t *testing.T) {
 	srv := mustNewService(t, 4)
-	source := `package Q {
+	modelText := `package Q {
 	private import ScalarValues::*;
 	private import SI::*;
 	calc def Times { in a; in b; a * b }
@@ -751,7 +751,7 @@ package Imperial {
 	attribute <fathom> 'fathom' : LengthUnit { :>> unitConversion: ConversionByConvention { :>> referenceUnit = m; :>> conversionFactor = 1.8288; } }
 }
 `
-	hash := mustVerifyModel(t, srv, source, "opaque-factors-survive-the-wire")
+	hash := mustVerifyModel(t, srv, modelText, "opaque-factors-survive-the-wire")
 	evaluate := func(calc string, args ...*pb.Quantity) *pb.Quantity {
 		t.Helper()
 		req := &pb.EvaluateCalcRequest{ModelHash: hash, SymbolId: calc}
@@ -863,7 +863,7 @@ package Imperial {
 	for _, text := range []string{"it's", `back\slash`, "metres\nper second", "metres\r\nper second", `'A/m'*m`} {
 		t.Run(fmt.Sprintf("opaque %q", text), func(t *testing.T) {
 			opaque := sent(text, speedTerm)
-			spelt := lexer.UnrestrictedNameText(text)
+			spelt := source.UnrestrictedNameText(text)
 			composed := evaluate("Q::Times", second, opaque)
 			if got := describeQuantity(composed); got != fmt.Sprintf("6 [%s*SI::s] = SI::metre", spelt) {
 				t.Fatalf("SI::s * %q = %s, want 6 [%s*SI::s] = SI::metre", text, got, spelt)

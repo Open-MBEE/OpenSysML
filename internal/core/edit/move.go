@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -547,7 +546,7 @@ func (mv *mover) respell(md *moved, ref reference, broken, intact int) error {
 		}
 		spelling = append(spelling, chain[j+1:]...)
 		if mv.trial(md, ref, broken, at, spelling, qn.Global) {
-			text := lexer.QualifiedNameOf(spelling)
+			text := source.QualifiedNameOf(spelling)
 			if qn.Global {
 				text = "$::" + text
 			}
@@ -557,14 +556,14 @@ func (mv *mover) respell(md *moved, ref reference, broken, intact int) error {
 	for n := 1; n <= len(chain); n++ {
 		spelling := chain[len(chain)-n:]
 		if mv.trial(md, ref, broken, at, spelling, false) {
-			return mv.respelled(qn, broken, lexer.QualifiedNameOf(spelling))
+			return mv.respelled(qn, broken, source.QualifiedNameOf(spelling))
 		}
 	}
 	if mv.trial(md, ref, broken, at, chain, true) {
-		return mv.respelled(qn, broken, "$::"+lexer.QualifiedNameOf(chain))
+		return mv.respelled(qn, broken, "$::"+source.QualifiedNameOf(chain))
 	}
 	return mv.refuseReference(ref, broken,
-		fmt.Sprintf("would not reach it as %s", lexer.QualifiedNameOf(chain)))
+		fmt.Sprintf("would not reach it as %s", source.QualifiedNameOf(chain)))
 }
 
 // namedOwners is sym after its named owners, outermost first: the elements

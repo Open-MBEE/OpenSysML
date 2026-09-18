@@ -25,7 +25,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/highlight"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
@@ -162,7 +161,7 @@ func TestSelfModelFiguresMatchImplementation(t *testing.T) {
 		attribute string
 		actual    int
 	}{
-		{"keywordCount", len(lexer.Keywords())},
+		{"keywordCount", len(source.Keywords())},
 		{"bundledFileCount", len(libs.DefaultSource().List())},
 		{"tierCount", int(passes.LevelConstraint) + 1},
 	}

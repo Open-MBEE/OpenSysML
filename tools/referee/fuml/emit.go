@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // Package is the package every translated model declares its action definitions in.
@@ -169,7 +169,7 @@ var identRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 // quote spells a name in the notation, quoting it unless it is a plain identifier.
 func quote(name string) string {
-	if identRe.MatchString(name) && !lexer.IsKeyword(name) {
+	if identRe.MatchString(name) && !source.IsKeyword(name) {
 		return name
 	}
 	return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(name) + "'"

@@ -314,7 +314,7 @@ whose own `Comment::body` and `Comment::locale` are the strings. Three agree:
 not a semantic difference: the pilot prints `LiteralString Turns.  (<uuid>)`, a body with a
 trailing space before its two-space id separator, which normalizes to `Turns. ` against the
 runtime's `"Turns."`: the pilot keeps the blank before `*/`, the runtime reads the body the way
-`Element::documentation` and LSP hover always have (`lexer.CommentBody`, delimiters and
+`Element::documentation` and LSP hover always have (`source.CommentBody`, delimiters and
 margin off), so the runtime's answer stands and the referee's normalizer is left honest rather
 than taught to trim. `.documentation.qualifiedName` is `pilot-silent`: the pilot prints nothing
 for it, and the runtime answers `()`, which is what `Element::qualifiedName` derives to for an

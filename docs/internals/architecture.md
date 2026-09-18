@@ -99,9 +99,10 @@ source → lexer → parser → AST → symbol index → resolve → passes
 ### 1. Source & Lexer (`internal/core/source`, `internal/core/lexer`)
 
 - **SourceFile:** Input file (.sysml or .kerml) with byte content
+- **Notation text:** `source` also owns the keyword sets (`Keywords`, `IsKeyword`, `IsKeywordIn`, `IsIdentifier`) and the helpers that read and write notation text without a parse — `NameText`/`QualifiedNameText`, `StringValue`/`StringText`, `CommentBody` — so layers that never tokenize (semantics, runtime, export) do not import the lexer
 - **Lexer:** Hand-written scanner producing tokens with full position tracking
 - **Trivia:** Comments and whitespace tracked as leading/trailing trivia
-- **Keywords:** ~200 SysML keywords (case-sensitive, pre-registered)
+- **Keywords:** ~200 SysML keywords (case-sensitive, taken from `source.Keywords()`)
 
 ### 2. Parser (`internal/core/parser`)
 

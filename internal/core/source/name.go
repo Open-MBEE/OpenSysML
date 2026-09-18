@@ -1,4 +1,4 @@
-package lexer
+package source
 
 import "strings"
 

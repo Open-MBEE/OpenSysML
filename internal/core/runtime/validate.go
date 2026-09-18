@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -305,7 +305,7 @@ func (w *validationWalk) walk(obj *validatedObject, depth int) {
 			w.unread = append(w.unread, fmt.Errorf("%s: %w", strings.Join(append(obj.path, of.Name), "."), err))
 			continue
 		}
-		for _, child := range w.heldChildren(fv, lexer.NameText(of.Name)) {
+		for _, child := range w.heldChildren(fv, source.NameText(of.Name)) {
 			held := holding{parent: obj, name: of.Name, through: feat.Symbol, owner: feat.OwnerType}
 			if reached, ok := w.visited[child.inst.ID]; ok {
 				reached.holdings = append(reached.holdings, held)
@@ -462,7 +462,7 @@ func assertionText(usage *ast.Usage, sym *symbols.Symbol) string {
 		parts = append(parts, usage.Keyword)
 	}
 	if sym != nil && sym.Name != "" {
-		parts = append(parts, lexer.NameText(sym.Name))
+		parts = append(parts, source.NameText(sym.Name))
 	}
 	return strings.Join(parts, " ")
 }

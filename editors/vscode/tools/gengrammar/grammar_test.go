@@ -57,7 +57,7 @@ func TestEveryKeywordIsHighlighted(t *testing.T) {
 		matchers = append(matchers, re)
 	}
 
-	for _, kw := range lexer.Keywords() {
+	for _, kw := range source.Keywords() {
 		matched := false
 		for _, re := range matchers {
 			if re.FindString(kw) == kw {
@@ -117,7 +117,7 @@ func TestContextualWordsAreLanguageSpecific(t *testing.T) {
 }
 
 // A word cannot be reserved and contextual at once: were one to be added to
-// lexer.Keywords(), generation must fail rather than reserve it quietly.
+// source.Keywords(), generation must fail rather than reserve it quietly.
 func TestRenderRejectsAReservedContextualWord(t *testing.T) {
 	if err := checkUnreserved(lexer.ContextualWords(source.KindUnknown), map[string]bool{"defer": true}); err == nil {
 		t.Error("checkUnreserved accepted a contextual word the lexer reserves, want an error")

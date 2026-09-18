@@ -332,7 +332,7 @@ node-coverage: ## Run Node client tests and write coverage-node.lcov
 	sed -e 's|^SF:|SF:$(NODE_DIR)/|' $(NODE_DIR)/coverage/lcov.info > coverage-node.lcov
 	@echo "✓ Wrote coverage-node.lcov"
 
-vscode-grammar: ## Regenerate the VS Code TextMate grammars from the lexer keywords
+vscode-grammar: ## Regenerate the VS Code TextMate grammars from the keyword lists
 	@echo "Generating TextMate grammars..."
 	go run ./$(VSCODE_DIR)/tools/gengrammar -out $(VSCODE_DIR)/syntaxes
 	@echo "✓ Grammars generated"

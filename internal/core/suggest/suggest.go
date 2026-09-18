@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -154,7 +154,7 @@ func Qualified(idx *symbols.Index, name string) []string {
 // `BaseFunctions::#::index` is no use as a suggestion.
 func typable(fqn string) bool {
 	for _, seg := range strings.Split(fqn, "::") {
-		if !lexer.IsIdentifier(seg) {
+		if !source.IsIdentifier(seg) {
 			return false
 		}
 	}
@@ -167,7 +167,7 @@ const globalRoot = "$::"
 // Name writes a registered name as it is typed back: quoted unless a basic name
 // spells it, so a name holding `::` is one segment however it reads.
 func Name(name string) string {
-	if lexer.IsIdentifier(name) {
+	if source.IsIdentifier(name) {
 		return name
 	}
 	return "'" + name + "'"
@@ -192,7 +192,7 @@ func Notation(fqn string) string {
 	rest, global := strings.CutPrefix(fqn, globalRoot)
 	segs := segments(rest)
 	for i, seg := range segs {
-		if !quoted(seg) && !lexer.IsIdentifier(seg) {
+		if !quoted(seg) && !source.IsIdentifier(seg) {
 			segs[i] = "'" + seg + "'"
 		}
 	}
@@ -236,7 +236,7 @@ func identifierRune(r rune) bool {
 // Unquoted returns the names, in the order given, that the identifier word starts
 // and that go on with a character no basic name holds: `SA` starts 'SA-506'.
 func Unquoted(word string, names []string) []string {
-	if !lexer.IsIdentifier(word) {
+	if !source.IsIdentifier(word) {
 		return nil
 	}
 	var out []string

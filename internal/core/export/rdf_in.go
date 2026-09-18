@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf/ontology"
@@ -1165,7 +1164,7 @@ func (d *decoder) identityOf(el *element) []identityAnnotation {
 			{"projectId", el.projectID}, {"branch", el.branch}, {"org", el.org},
 		} {
 			if f.value != "" {
-				fields = append(fields, fmt.Sprintf("%s = %s;", f.name, lexer.StringText(f.value)))
+				fields = append(fields, fmt.Sprintf("%s = %s;", f.name, source.StringText(f.value)))
 			}
 		}
 		out = append(out, identityAnnotation{"IdentityMetadata::ProjectRef", strings.Join(fields, " ")})
@@ -1175,7 +1174,7 @@ func (d *decoder) identityOf(el *element) []identityAnnotation {
 			d.implied++
 			return out
 		}
-		out = append(out, identityAnnotation{"IdentityMetadata::ElementId", fmt.Sprintf("id = %s;", lexer.StringText(el.elementID))})
+		out = append(out, identityAnnotation{"IdentityMetadata::ElementId", fmt.Sprintf("id = %s;", source.StringText(el.elementID))})
 	}
 	return out
 }
@@ -2124,7 +2123,7 @@ func (d *decoder) representationHead(el *element) (string, error) {
 		return "", d.missing(el, sysmlPrefix+pLanguage, "a textual representation states the language it is written in")
 	}
 	body, _ := d.stringOf(el, rdf.SysML+pBody)
-	words = append(words, "language", lexer.StringText(language))
+	words = append(words, "language", source.StringText(language))
 	return strings.Join(words, " ") + " /*" + body + "*/", nil
 }
 
@@ -2152,7 +2151,7 @@ func (d *decoder) localeWords(el *element) []string {
 	if !ok {
 		return nil
 	}
-	return []string{"locale", lexer.StringText(locale)}
+	return []string{"locale", source.StringText(locale)}
 }
 
 // keywordOr returns the kind keyword the author wrote, falling back to the
@@ -2279,7 +2278,7 @@ func (d *decoder) identWords(el *element) []string {
 // A reserved word lexes as a keyword rather than a name, so a name spelling one
 // needs the quotes too.
 func nameText(name string) string {
-	if lexer.IsIdentifier(name) && !lexer.IsKeyword(name) {
+	if source.IsIdentifier(name) && !source.IsKeyword(name) {
 		return name
 	}
 	return "'" + escapeName(name) + "'"
