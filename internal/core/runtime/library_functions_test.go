@@ -1277,7 +1277,7 @@ func checkBuiltinSignature(t *testing.T, ctx *Context, fqn string, sym *symbols.
 		return
 	}
 	var declared []declaredParam
-	for _, member := range declMembers(sym.Decl) {
+	for _, member := range unwrappedDeclMembers(sym.Decl) {
 		usage, ok := member.(*ast.Usage)
 		if !ok || (usage.Direction != ast.DirIn && usage.Direction != ast.DirInOut) {
 			continue

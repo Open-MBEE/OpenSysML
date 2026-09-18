@@ -47,7 +47,7 @@ type w10bStructuralChecker struct {
 }
 
 func (c *w10bStructuralChecker) check(decl ast.Node) {
-	members := declMembers(decl)
+	members := ast.DeclMembers(decl)
 	if len(members) == 0 {
 		return
 	}

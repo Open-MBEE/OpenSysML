@@ -35,7 +35,7 @@ func (W8DViewRenderingPass) Run(ctx *Context, name string, root *ast.RootNamespa
 			return
 		}
 		var renderings []ast.Node
-		for _, member := range declMembers(sym.Decl) {
+		for _, member := range ast.DeclMembers(sym.Decl) {
 			if u, isUsage := unwrapType(member).(*ast.Usage); isUsage && u.Kind == ast.UsageViewRendering {
 				renderings = append(renderings, member)
 			}

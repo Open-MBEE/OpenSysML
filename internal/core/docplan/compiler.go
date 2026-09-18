@@ -1516,7 +1516,7 @@ func (c *compiler) namedTarget(
 				Kind:     unknown,
 				Document: c.document,
 				Content:  c.contentName(member),
-				Actual:   qualifiedNameText(name),
+				Actual:   name.Text(),
 				Origin:   provenance.Node(candidate.DocName, declaration.Value),
 			}
 		}
@@ -1542,23 +1542,15 @@ func chainText(chain *ast.FeatureChainExpr) string {
 		operand = chainText(node)
 	case *ast.FeatureReference:
 		if node.Name != nil {
-			operand = qualifiedNameText(node.Name)
+			operand = node.Name.Text()
 		}
 	case *ast.QualifiedName:
-		operand = qualifiedNameText(node)
+		operand = node.Text()
 	}
 	if chain.Member == nil {
 		return operand
 	}
-	return operand + "." + qualifiedNameText(chain.Member)
-}
-
-func qualifiedNameText(name *ast.QualifiedName) string {
-	parts := make([]string, 0, len(name.Parts))
-	for _, part := range name.Parts {
-		parts = append(parts, part.Text)
-	}
-	return strings.Join(parts, "::")
+	return operand + "." + chain.Member.Text()
 }
 
 // rejectNestedContent rejects content blocks nested inside a content block,

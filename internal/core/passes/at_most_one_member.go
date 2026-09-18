@@ -162,7 +162,7 @@ func declMultiplicity(decl ast.Node) *ast.Multiplicity {
 
 // typeMembers is the body of a type declaration, in either language.
 func typeMembers(decl ast.Node) []ast.Node {
-	if members := declMembers(decl); members != nil {
+	if members := ast.DeclMembers(decl); members != nil {
 		return members
 	}
 	if ns, ok := decl.(*ast.Namespace); ok {

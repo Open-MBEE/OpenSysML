@@ -1293,7 +1293,7 @@ func (ec *exprChecker) checkNamedArguments(scope *symbols.Scope, call invocation
 		}
 		at := ec.namedParameter(scope, sym, params, arg.Name)
 		if at < 0 {
-			report(arg.Name.Span(), "%s: %s has no parameter named %q", msgInvocationParameterRedefinition, sym.Name, semantics.QualifiedNameText(arg.Name))
+			report(arg.Name.Span(), "%s: %s has no parameter named %q", msgInvocationParameterRedefinition, sym.Name, arg.Name.Text())
 			unknown = true
 			continue
 		}

@@ -939,7 +939,7 @@ func textSpellsUnit(text string, unit *symbols.Symbol, idx *symbols.Index, sem *
 		if len(qn.Parts) == 1 {
 			return unit, slices.Contains(spellings, source.NameText(qn.Parts[0].Text))
 		}
-		matches := idx.LookupQualified(semantics.QualifiedNameText(qn))
+		matches := idx.LookupQualified(qn.Text())
 		if len(matches) != 1 {
 			return nil, false
 		}
@@ -979,7 +979,7 @@ func unitProductOfText(text string, term semantics.UnitTerm, idx *symbols.Index,
 	}
 	var short []*ast.QualifiedName
 	product, err := sem.UnitProductOfExprBy(expr, func(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
-		if sym, ok := unitAt(semantics.QualifiedNameText(qn)); ok {
+		if sym, ok := unitAt(qn.Text()); ok {
 			return sym, true
 		}
 		if len(qn.Parts) == 1 && !slices.Contains(short, qn) {
@@ -1006,7 +1006,7 @@ func unitProductOfText(text string, term semantics.UnitTerm, idx *symbols.Index,
 	var matches []shortUnitReading
 	for _, reading := range readings {
 		product, err := sem.UnitProductOfExprBy(expr, func(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
-			if sym, ok := unitAt(semantics.QualifiedNameText(qn)); ok {
+			if sym, ok := unitAt(qn.Text()); ok {
 				return sym, true
 			}
 			sym, ok := reading.units[qn]
@@ -1050,15 +1050,15 @@ func partialUnitProduct(
 ) semantics.UnitProduct {
 	unreadNames := map[string]int{}
 	product, err := sem.UnitProductOfExprBy(expr, func(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
-		if sym, ok := unitAt(semantics.QualifiedNameText(qn)); ok {
+		if sym, ok := unitAt(qn.Text()); ok {
 			return sym, true
 		}
 		if len(qn.Parts) == 1 {
-			if units := unitsNamed(semantics.QualifiedNameText(qn), idx, sem); len(units) == 1 {
+			if units := unitsNamed(qn.Text(), idx, sem); len(units) == 1 {
 				return units[0], true
 			}
 		}
-		unreadNames[semantics.QualifiedNameText(qn)]++
+		unreadNames[qn.Text()]++
 		return nil, false
 	})
 	if err != nil {
@@ -1127,7 +1127,7 @@ func shortUnitReadings(names []*ast.QualifiedName, idx *symbols.Index, sem *sema
 	candidates := make([][]*symbols.Symbol, len(names))
 	total := 1
 	for i, qn := range names {
-		candidates[i] = unitsNamed(semantics.QualifiedNameText(qn), idx, sem)
+		candidates[i] = unitsNamed(qn.Text(), idx, sem)
 		total *= len(candidates[i])
 		if total == 0 || total > maxShortUnitReadings {
 			return nil

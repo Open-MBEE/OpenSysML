@@ -137,7 +137,7 @@ func (c *transitionChecker) checkMachine(decl ast.Node, scope *symbols.Scope) {
 		sources:    map[ast.Node]bool{},
 		unresolved: map[string]bool{},
 	}
-	c.walkBody(m, scope, declMembers(decl), decl)
+	c.walkBody(m, scope, ast.DeclMembers(decl), decl)
 
 	for _, ps := range m.routing {
 		if m.sources[ps] || m.unresolved[ps.Name] {
@@ -543,15 +543,4 @@ func bodyScope(scope *symbols.Scope, decl ast.Node) *symbols.Scope {
 		return child
 	}
 	return scope
-}
-
-// declMembers is the body of a definition or usage declaration.
-func declMembers(decl ast.Node) []ast.Node {
-	switch n := decl.(type) {
-	case *ast.Definition:
-		return n.Members
-	case *ast.Usage:
-		return n.Members
-	}
-	return nil
 }

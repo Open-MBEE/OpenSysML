@@ -367,7 +367,7 @@ func aliasTargetOf(decl ast.Node) string {
 	if !ok || a.For == nil {
 		return ""
 	}
-	return semantics.QualifiedNameText(a.For)
+	return a.For.Text()
 }
 
 // A record persists facts derived from sibling files — a unit's scale follows a

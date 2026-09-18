@@ -776,7 +776,7 @@ func lowerInheritedPinConnections(graph *ActionGraph, scope *symbols.Scope) erro
 	for _, body := range resolve.ActionGeneralBodies(scope) {
 		graph.inherited = append(graph.inherited, Inherited{Decl: body.Node(), Body: body})
 		nodes := inheritedNodeLookup(graph, body)
-		for _, member := range declMembers(body.Node()) {
+		for _, member := range ast.DeclMembers(body.Node()) {
 			u, ok := unwrapMembership(member).(*ast.Usage)
 			if !ok {
 				continue

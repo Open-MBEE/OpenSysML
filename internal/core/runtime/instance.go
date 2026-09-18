@@ -1141,7 +1141,7 @@ func isSubjectUsage(sym *symbols.Symbol) bool {
 // declaresFeatures reports whether a usage's own body restates or adds features,
 // which the object it materializes has to carry.
 func declaresFeatures(sym *symbols.Symbol) bool {
-	for _, member := range declMembers(sym.Decl) {
+	for _, member := range unwrappedDeclMembers(sym.Decl) {
 		usage, ok := member.(*ast.Usage)
 		if !ok {
 			continue
@@ -1194,7 +1194,7 @@ func (ctx *Context) restatedValueInBody(sym, typ *symbols.Symbol) string {
 	for _, f := range ctx.FeaturesOf(typ) {
 		inherited[f.Name] = true
 	}
-	for _, member := range declMembers(sym.Decl) {
+	for _, member := range unwrappedDeclMembers(sym.Decl) {
 		usage, ok := member.(*ast.Usage)
 		if !ok || !valuesAFeature(usage) {
 			continue
@@ -1265,7 +1265,7 @@ func valuesAFeature(usage *ast.Usage) bool {
 	if usage.Value != nil {
 		return true
 	}
-	for _, member := range declMembers(usage) {
+	for _, member := range unwrappedDeclMembers(usage) {
 		if nested, ok := member.(*ast.Usage); ok && valuesAFeature(nested) {
 			return true
 		}

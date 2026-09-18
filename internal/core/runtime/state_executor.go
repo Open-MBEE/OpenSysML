@@ -4480,9 +4480,9 @@ func stateActionName(u *ast.Usage) string {
 		}
 		switch target := rel.Target.(type) {
 		case *ast.QualifiedName:
-			return qualifiedNameText(target)
+			return target.Text()
 		case *ast.FeatureChainExpr:
-			return "feature chain " + qualifiedNameText(target.Member)
+			return "feature chain " + target.Member.Text()
 		}
 	}
 	return "<anonymous>"
