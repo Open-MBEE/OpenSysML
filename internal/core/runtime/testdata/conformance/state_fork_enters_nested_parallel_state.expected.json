@@ -1,5 +1,6 @@
 {
   "type": "state",
+  "schedule": "reverse",
   "finalState": "inner+a+q0+b",
   "stateVisits": ["idle", "work", "inner", "a", "q0", "b"],
   "outputs": {

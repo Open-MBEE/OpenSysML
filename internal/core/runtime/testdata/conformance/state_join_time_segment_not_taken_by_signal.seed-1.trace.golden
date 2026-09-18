@@ -1,4 +1,5 @@
-choice events at t=1.0: time b1 1->sync, time c1 1->c2, time d1 1->d2 (unordered; dispatched time c1 1->c2 first)
+choice events at t=1.0: time b1 1->sync, time c1 1->c2, time d1 1->d2 (unordered; dispatched time b1 1->sync first)
+choice events at t=1.0: time c1 1->c2, time d1 1->d2 (unordered; dispatched time c1 1->c2 first)
 exit: c1
 stmt action body
   stmt assign log
@@ -9,7 +10,6 @@ stmt action body
 materialize: Go #1
 enter: c2
 transition: c1 -> c2 (event: time)
-choice events at t=1.0: time b1 1->sync, time d1 1->d2, accept Go (unordered; dispatched time b1 1->sync first)
 choice events at t=1.0: time d1 1->d2, accept Go (unordered; dispatched time d1 1->d2 first)
 exit: d1
 stmt assign log

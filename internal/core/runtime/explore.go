@@ -71,7 +71,7 @@ func (c ChoiceTaken) String() string {
 		return fmt.Sprintf("step %d: %s -> %s%s", c.Step, choiceLabel(c.Where), choiceLabel(c.Took), c.weightedTail())
 	case ChoiceTransition:
 		return fmt.Sprintf("%s -> %s%s", choiceLabel(c.Where), choiceLabel(c.Took), c.weightedTail())
-	case ChoiceRegionOrder, ChoiceDueOrder, ChoiceDispatchOrder:
+	case ChoiceRegionOrder, ChoiceDueOrder, ChoiceDispatchOrder, ChoiceEntryOrder, ChoiceExitOrder:
 		return fmt.Sprintf("%s: %s first of %s", choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
 	}
 	return fmt.Sprintf("%s -> %s", c.Kind, choiceLabel(c.Took))

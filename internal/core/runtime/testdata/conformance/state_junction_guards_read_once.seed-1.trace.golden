@@ -1,15 +1,15 @@
   eval feature v -> 4
   eval literal 0 -> 0
 eval operator > -> true
-choice on accept Go: states a1, b1 react (unordered; took b1 first)
+choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)
+exit: a1
+stmt assign d
+  eval literal 0 -> 0
+enter: a2
+transition: a1 -> a2 (event: accept Go)
 choice junction split: transitions 1->left, 2->right (unordered; took 1->left)
 exit: b1
 stmt assign route
   eval literal 1 -> 1
 enter: left
 transition: b1 -> left (event: accept Go)
-exit: a1
-stmt assign d
-  eval literal 0 -> 0
-enter: a2
-transition: a1 -> a2 (event: accept Go)

@@ -1,7 +1,7 @@
   eval feature v -> 4
   eval literal 0 -> 0
 eval operator > -> true
-choice on accept Go: states a1, b1 react (unordered; took a1 first)
+choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)
 exit: a1
 stmt assign d
   eval literal 0 -> 0

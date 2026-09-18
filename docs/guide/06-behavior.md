@@ -613,8 +613,14 @@ token 2 stepped last. The other kinds read the same way: a decision with two hol
 `choice step 2: decision select branches 1->warn, 2->alarm hold (unordered; took 1->warn)`, two
 transitions out of one state enabled by one event are `choice state idle on accept Go: transitions
 1->left, 2->right (unordered; took 1->left)`, and two regions reacting to one event are
-`choice on accept Go: states a1, b1 react (unordered; took a1 first)` — `reverse` and `declared`
-take the regions in declaration order and report the pick, and `seed:<n>` may take `b1` first —
+`choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)` — each firing
+is drawn a unit at a time, its source's exit, its effect, its target's entry, so two firings may
+interleave; `reverse` and `declared` take the regions whole in declaration order and report each
+pick, and `seed:<n>` may take `b1(exit)` first. Entering a state of two regions draws the order
+of their entries the same way, `choice entering work: next left(entry), right(entry)
+(unordered; took left(entry) first)`, a fork's branches under `fork <name>` and the regions a
+state leaves under `exiting <state>`; the fixed policies take declaration order there too, so a
+model that ran before these draws were recorded runs the same and gains only the `choice` lines —
 and two executors due at one instant of the clock are `choice at t=5.0: due action watcher, state
 machine blinking of object #1 (unordered; ran state machine blinking of object #1 first)`. One
 executor alone due at an instant is not a choice and is not reported, so a model with a single
@@ -729,7 +735,8 @@ beside the token moved or one its move freed, where a fixed policy's round would
 *exhaustive*: its verdict is `no violation within bounds` (or `divergent`, when the schedules it
 did search disagree) with `not enumerated: do round before dispatch` naming the run it left out,
 and the standing is *bounded*. Whether the dispatch waits for the round or cuts it becomes a
-recorded choice point with the region-order scheduling work ([design
+recorded choice point — drawn per token move of the `do` flow — as the one site of the
+region-order scheduling work still open ([design
 note](../internals/design/region-order-scheduling.md)); until then, run a fixed policy beside the
 checker when a `do` behavior loops through timed waits. The witnesses such a check writes replay
 as any other: the search is short of a run, not wrong about the ones it made.

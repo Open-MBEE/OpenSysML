@@ -607,7 +607,7 @@ calc def UnknownKind :> Query {
 	in source : Element;
 	RelatedElements(
 		source = source,
-		relationshipKind = "refinement",
+		relationshipKind = "containment",
 		direction = "outgoing",
 		maxDepth = 1
 	)
