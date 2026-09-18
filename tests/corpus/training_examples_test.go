@@ -1,4 +1,4 @@
-package model
+package corpus
 
 import (
 	"flag"
@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 )
 
@@ -17,7 +18,7 @@ var updateTraining = flag.Bool("update-training", false,
 const trainingExpectedHeader = "# Files in the pinned OMG training corpus that still report semantic errors,\n" +
 	"# as \"<error count>\\t<path>\". See docs/project/training-examples.md for why each one\n" +
 	"# fails; regenerate with:\n" +
-	"#   go test ./internal/core/model -run TestTrainingExamplesSemanticErrors -update-training\n"
+	"#   go test ./tests/corpus -run TestTrainingExamplesSemanticErrors -update-training\n"
 
 // The OMG training corpus is an assertion, not a baseline: every file resolves
 // without a semantic error, so testdata/training_examples_expected.txt records
@@ -88,7 +89,7 @@ func TestRequirementDefinitionsFile(t *testing.T) {
 		t.Fatalf("read %s: %v", name, err)
 	}
 
-	ws := NewWorkspace()
+	ws := model.NewWorkspace()
 	ws.Open(name, content, 1)
 
 	for _, d := range ws.Diagnostics(name) {

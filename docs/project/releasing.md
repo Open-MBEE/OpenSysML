@@ -62,7 +62,7 @@ run it explicitly — the expected result is the pinned baseline, currently
 
 ```bash
 ./scripts/download-training-examples.sh
-OPENSYSML_REQUIRE_TRAINING_CORPUS=1 go test -count=1 ./internal/core/model -run TestTrainingExamples
+OPENSYSML_REQUIRE_TRAINING_CORPUS=1 go test -count=1 ./tests/corpus -run TestTrainingExamples
 ```
 
 A change in that count is a finding to adjudicate file by file, never a
