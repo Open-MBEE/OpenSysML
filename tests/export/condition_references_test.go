@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 )
 
@@ -68,7 +68,7 @@ func TestConditionReferencesRevalidateFromTheGraphAlone(t *testing.T) {
 	for _, fixture := range conditionReferenceFixtures {
 		t.Run(fixture.name, func(t *testing.T) {
 			src, turtle := readAndConvertFixture(t, fixture.name)
-			fromGraph, err := export.Convert("m.ttl", withoutSourceText(t, turtle), export.FormatTurtle, export.FormatSysML)
+			fromGraph, err := convert.Convert("m.ttl", withoutSourceText(t, turtle), convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation from the mapping alone: %v", err)
 			}
@@ -92,7 +92,7 @@ func readAndConvertFixture(t *testing.T, name string) (src, turtle []byte) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	turtle, err = export.Convert(path, src, export.FormatSysML, export.FormatTurtle)
+	turtle, err = convert.Convert(path, src, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}

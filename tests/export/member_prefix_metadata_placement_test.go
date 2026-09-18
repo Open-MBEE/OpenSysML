@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 )
 
 // Prefix metadata after a subject, actor, stakeholder, objective, variant,
@@ -65,7 +65,7 @@ func TestMemberPrefixMetadataPlacementRoundTrips(t *testing.T) {
 			t.Errorf("structural round trip lost %q:\n%s", want, back)
 		}
 	}
-	again, err := export.Convert("m.sysml", []byte(back), export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert("m.sysml", []byte(back), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("regenerated notation does not convert: %v\n%s", err, back)
 	}
@@ -83,8 +83,8 @@ func TestMemberPrefixMetadataBeforeKeywordDoesNotConvert(t *testing.T) {
 		"#M require constraint r : C;",
 	} {
 		src := "package P {\n\tmetadata def M;\n\tpart def T;\n\tconstraint def C;\n\trequirement def R {\n\t\t" + member + "\n\t}\n}\n"
-		_, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
-		var syntax *export.SyntaxError
+		_, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+		var syntax *convert.SyntaxError
 		if !errors.As(err, &syntax) {
 			t.Fatalf("%s: err = %v, want a syntax error", member, err)
 		}

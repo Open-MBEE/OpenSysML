@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 )
 
 // TestUnsupportedConversionMessages pins the text of a conversion refusal: the
@@ -65,12 +65,12 @@ func TestUnsupportedConversionMessages(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			out, err := export.Convert("m.sysml", []byte(tc.src), export.FormatSysML, export.FormatTurtle)
+			out, err := convert.Convert("m.sysml", []byte(tc.src), convert.FormatSysML, convert.FormatTurtle)
 			if tc.edit != nil {
 				if err != nil {
 					t.Fatalf("to turtle: %v", err)
 				}
-				_, err = export.Convert("m.ttl", tc.edit(t, out), export.FormatTurtle, export.FormatSysML)
+				_, err = convert.Convert("m.ttl", tc.edit(t, out), convert.FormatTurtle, convert.FormatSysML)
 			}
 			if err == nil {
 				t.Fatal("expected the conversion to be refused")
@@ -91,11 +91,11 @@ func TestUnsupportedConversionMessages(t *testing.T) {
 // the name advises the flag of the surface asked and the extension remedy the
 // other surface uses, so the two agree.
 func TestFormatRemedyNamesBothSurfaces(t *testing.T) {
-	_, err := export.FormatOfPath("model.txt")
+	_, err := convert.FormatOfPath("model.txt")
 	if err == nil {
 		t.Fatal("expected an unknown-format error")
 	}
-	advised := export.Advise(err, "pass -from, or "+export.ExtensionAdvice)
+	advised := convert.Advise(err, "pass -from, or "+convert.ExtensionAdvice)
 	want := `cannot tell the format of "model.txt": expected .sysml, .kerml or .ttl, ` +
 		"so pass -from, or name the file with a .sysml, .kerml or .ttl extension"
 	if advised.Error() != want {

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
@@ -87,7 +87,7 @@ func TestMigratedNotationAnalysesClean(t *testing.T) {
 // the structural predicates carry the round trip.
 func TestMigratedNotationRoundTripsThroughTurtle(t *testing.T) {
 	r := migrateFixture(t)
-	hop1, err := export.Convert("vehicle.sysml", r.Notation, export.FormatSysML, export.FormatTurtle)
+	hop1, err := convert.Convert("vehicle.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("notation -> Turtle: %v", err)
 	}
@@ -107,14 +107,14 @@ func TestMigratedNotationRoundTripsThroughTurtle(t *testing.T) {
 	if structural.Len() == g1.Len() {
 		t.Fatal("no sourceText was recorded, so stripping it proves nothing")
 	}
-	back, err := export.Convert("vehicle.ttl", rdf.WriteTurtle(structural), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("vehicle.ttl", rdf.WriteTurtle(structural), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("Turtle -> notation: %v", err)
 	}
 	for _, d := range errors(t, "back.sysml", back) {
 		t.Errorf("written-back notation: %v", d)
 	}
-	hop2, err := export.Convert("back.sysml", back, export.FormatSysML, export.FormatTurtle)
+	hop2, err := convert.Convert("back.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("written-back notation -> Turtle: %v", err)
 	}

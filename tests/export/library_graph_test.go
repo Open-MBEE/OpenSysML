@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 )
 
@@ -17,7 +17,7 @@ func libraryGraphWithoutSourceText(t *testing.T, name string) (turtle, stripped 
 	if err != nil {
 		t.Fatal(err)
 	}
-	turtle, err = export.Convert(name, src, export.FormatSysML, export.FormatTurtle)
+	turtle, err = convert.Convert(name, src, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestLibraryFilesComeBackFromTheGraphAlone(t *testing.T) {
 			}
 			keepsIDsWithoutSourceText(t, name, turtle)
 			copyName := "copy" + filepath.Ext(name)
-			second, err := export.Convert(copyName, []byte(back), export.FormatSysML, export.FormatTurtle)
+			second, err := convert.Convert(copyName, []byte(back), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("rebuilt notation to turtle: %v", err)
 			}
@@ -71,7 +71,7 @@ func TestLibraryFilesComeBackFromTheGraphAlone(t *testing.T) {
 			if again != back {
 				t.Errorf("the graph of the rebuilt notation writes different notation:\n%s", firstLineDifference([]byte(back), []byte(again)))
 			}
-			third, err := export.Convert(copyName, []byte(again), export.FormatSysML, export.FormatTurtle)
+			third, err := convert.Convert(copyName, []byte(again), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("second rebuilt notation to turtle: %v", err)
 			}

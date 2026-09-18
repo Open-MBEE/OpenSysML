@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
 )
@@ -14,7 +14,7 @@ import (
 // graphOf converts notation to the identity-carrying RDF graph the sync diffs.
 func graphOf(t *testing.T, src string) *rdf.Graph {
 	t.Helper()
-	graph, err := export.SysMLToRDF("m.sysml", []byte(src))
+	graph, err := convert.SysMLToRDF("m.sysml", []byte(src))
 	if err != nil {
 		t.Fatalf("convert to RDF: %v", err)
 	}
@@ -463,7 +463,7 @@ func TestWriteBackDeclaresMintedIDs(t *testing.T) {
 `))
 	rewritten := writeBack(t, local, map[string]string{"P__Wheel": "11111111-2222-4333-8444-555555555555"})
 	turtle := rdf.WriteTurtle(rewritten)
-	back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("read the rewritten graph back: %v\n%s", err, turtle)
 	}
@@ -515,7 +515,7 @@ func TestWriteBackKeepsDeclaredSiblingsInAnnotations(t *testing.T) {
 		t.Errorf("the written-back graph does not reconcile: %v", err)
 	}
 	turtle := rdf.WriteTurtle(out)
-	back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("read the rewritten graph back: %v\n%s", err, turtle)
 	}

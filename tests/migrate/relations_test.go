@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
 )
 
@@ -305,7 +305,7 @@ func TestRepeatedAnonymousDerivationsGetDistinctNames(t *testing.T) {
 	for _, d := range errors(t, "derive.sysml", r.Notation) {
 		t.Errorf("%v", d)
 	}
-	if _, err := export.Convert("derive.sysml", r.Notation, export.FormatSysML, export.FormatTurtle); err != nil {
+	if _, err := convert.Convert("derive.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -338,7 +338,7 @@ func TestShadowedReferencesAreGlobal(t *testing.T) {
 	for _, d := range errors(t, "shadow.sysml", r.Notation) {
 		t.Errorf("%v", d)
 	}
-	if _, err := export.Convert("shadow.sysml", r.Notation, export.FormatSysML, export.FormatTurtle); err != nil {
+	if _, err := convert.Convert("shadow.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -391,7 +391,7 @@ func TestUnwritableFeaturePartsAreDroppedWithNotes(t *testing.T) {
 	for _, d := range errors(t, "drop.sysml", r.Notation) {
 		t.Errorf("%v", d)
 	}
-	if _, err := export.Convert("drop.sysml", r.Notation, export.FormatSysML, export.FormatTurtle); err != nil {
+	if _, err := convert.Convert("drop.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -436,7 +436,7 @@ func TestClashingSiblingNamesAreDistinguished(t *testing.T) {
 	for _, d := range errors(t, "clash.sysml", r.Notation) {
 		t.Errorf("%v", d)
 	}
-	if _, err := export.Convert("clash.sysml", r.Notation, export.FormatSysML, export.FormatTurtle); err != nil {
+	if _, err := convert.Convert("clash.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -469,7 +469,7 @@ func TestConnectionEndYieldsItsNameToAMember(t *testing.T) {
 	for _, d := range errors(t, "end.sysml", r.Notation) {
 		t.Errorf("%v", d)
 	}
-	if _, err := export.Convert("end.sysml", r.Notation, export.FormatSysML, export.FormatTurtle); err != nil {
+	if _, err := convert.Convert("end.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -1149,7 +1149,7 @@ func TestCollectionModifiersAreWritten(t *testing.T) {
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}
-	ttl, err := export.Convert("t.sysml", r.Notation, export.FormatSysML, export.FormatTurtle)
+	ttl, err := convert.Convert("t.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1341,7 +1341,7 @@ func TestNamedRelationshipsKeepTheirNames(t *testing.T) {
 			t.Errorf("%s: entries = %+v, want %v %q", id, es, want.verdict, want.target)
 		}
 	}
-	if _, err := export.Convert("t.sysml", r.Notation, export.FormatSysML, export.FormatTurtle); err != nil {
+	if _, err := convert.Convert("t.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle); err != nil {
 		t.Fatalf("migrated notation does not convert: %v", err)
 	}
 }

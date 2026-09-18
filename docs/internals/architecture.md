@@ -72,6 +72,10 @@ github.com/Open-MBEE/OpenSysML
 │   ├── docir/              # Document plan evaluation → backend-agnostic document tree
 │   ├── lower/              # AST → execution IR (ActionGraph/StateGraph)
 │   ├── runtime/            # Execution engine (eval, instances, builtins)
+│   ├── rdf/                # RDF graphs, Turtle reading and writing, the SysML vocabulary
+│   ├── export/             # The RDF mapping: ToRDF (tree → graph) and ToSysML (graph → notation)
+│   ├── migrate/            # SysML v1 XMI → SysML v2 notation
+│   ├── convert/            # Conversion entry point: formats, Convert, Migrate, SyntaxError
 │   ├── model/              # Workspace, document management
 │   └── libs/               # Standard library bundling & caching
 ├── internal/lsp/           # LSP protocol implementation
@@ -225,6 +229,20 @@ source → lexer → parser → AST → symbol index → resolve → passes
   and all, which `TestSnapshotIndexMatchesFreshLoad` checks structurally.
 - **Facts cache:** `$XDG_CACHE_HOME/sysml-ls/libs` still holds derived facts for library sets
   the snapshot does not cover, keyed by content digest and build.
+
+### 9. Conversion (`internal/core/convert`, `internal/core/export`, `internal/core/migrate`)
+
+- **Entry point:** `internal/core/convert` names the formats (`ParseFormat`, `FormatOfPath`) and
+  drives every conversion `sysml -convert`, `%save`, `%print` and the service's `Convert` make:
+  `Convert`/`ConvertTolerant` parse notation and report a `SyntaxError`, `Migrate` runs the SysML
+  v1 migration and writes its notation, `SysMLToRDF` parses and encodes. `cmd/sysml`, `repl`,
+  `grpc` and `interop/flexo` call it; nothing below it imports it.
+- **The mapping:** `internal/core/export` translates between a parsed tree and a graph — `ToRDF`
+  and `ToSysML` — and never migrates; it parses only where the decoder needs the grammar (to
+  check preserved source text still encodes to the graph, to judge an expression's binding, and
+  to read names). `internal/core/migrate` reads SysML v1 XMI and writes SysML v2 notation, and
+  knows nothing of RDF. A hygiene test pins `export` free of `migrate` and the entry point as the
+  only package besides the CLI (which prints the migration report) that imports it.
 
 ---
 

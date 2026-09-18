@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity/normative"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
@@ -15,7 +16,7 @@ import (
 // idTurtle converts notation to Turtle, failing the test on error.
 func idTurtle(t *testing.T, src string) []byte {
 	t.Helper()
-	out, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	out, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -25,7 +26,7 @@ func idTurtle(t *testing.T, src string) []byte {
 // toNotation converts Turtle back to notation, failing the test on error.
 func toNotation(t *testing.T, turtle []byte) string {
 	t.Helper()
-	out, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	out, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v\n%s", err, turtle)
 	}
@@ -41,7 +42,7 @@ func roundTripsExactly(t *testing.T, src string) []byte {
 	if want := src; back != want {
 		t.Errorf("round trip changed the notation:\n--- want ---\n%s--- got ---\n%s", want, back)
 	}
-	second, err := export.Convert("m.sysml", []byte(back), export.FormatSysML, export.FormatTurtle)
+	second, err := convert.Convert("m.sysml", []byte(back), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("second hop to turtle: %v", err)
 	}
@@ -163,7 +164,7 @@ func TestOldGraphStillReads(t *testing.T) {
 `
 	turtle := idTurtle(t, src)
 	old := withoutTriples(t, withoutTriples(t, turtle, "sysml:elementId"), "sysx:declaredId")
-	back, err := export.Convert("m.ttl", old, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", old, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("old graph did not read: %v\n%s", err, old)
 	}
@@ -183,7 +184,7 @@ elmt:P
     sysml:elementId "P" ;
     sysml:annotatedElement <urn:sysmlv2:element:missing> .
 `
-	_, err := export.Convert("m.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
+	_, err := convert.Convert("m.ttl", []byte(turtle), convert.FormatTurtle, convert.FormatSysML)
 	if err == nil {
 		t.Fatal("a dangling id reference was not reported")
 	}
@@ -227,7 +228,7 @@ package Q {
 // document with one id: their IRIs coincide, and merging two elements into
 // one subject must be refused rather than silent.
 func TestMixedScopeCollisionIsRefused(t *testing.T) {
-	_, err := export.Convert("m.sysml", []byte(`package P {
+	_, err := convert.Convert("m.sysml", []byte(`package P {
 	@IdentityMetadata::ProjectRef { projectId = "proj-1"; branch = "a"; }
 	part def A {
 		@IdentityMetadata::ElementId { id = "shared"; }
@@ -242,7 +243,7 @@ package Q {
 package R {
 	@IdentityMetadata::ProjectRef { projectId = "proj-2"; }
 }
-`), export.FormatSysML, export.FormatTurtle)
+`), convert.FormatSysML, convert.FormatTurtle)
 	if err == nil {
 		t.Fatal("two elements landing on one IRI were not refused")
 	}
@@ -268,7 +269,7 @@ func TestExpressionNodesInheritAnnotatedID(t *testing.T) {
 	}
 	// The structural half must survive without the verbatim text.
 	stripped := withoutTriples(t, turtle, "sysx:sourceText")
-	if _, err := export.Convert("m.ttl", stripped, export.FormatTurtle, export.FormatSysML); err != nil {
+	if _, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML); err != nil {
 		t.Errorf("stripped graph did not read: %v", err)
 	}
 }
@@ -276,14 +277,14 @@ func TestExpressionNodesInheritAnnotatedID(t *testing.T) {
 // TestUnevaluatedElementIDIsRefused rejects an annotation whose id the graph
 // could not carry back, rather than silently dropping it.
 func TestUnevaluatedElementIDIsRefused(t *testing.T) {
-	_, err := export.Convert("m.sysml", []byte(`package P {
+	_, err := convert.Convert("m.sysml", []byte(`package P {
 	@IdentityMetadata::ProjectRef { projectId = "proj-1"; }
 	attribute origin = "el-";
 	part def A {
 		@IdentityMetadata::ElementId { id = origin; }
 	}
 }
-`), export.FormatSysML, export.FormatTurtle)
+`), convert.FormatSysML, convert.FormatTurtle)
 	if err == nil {
 		t.Fatal("a non-constant ElementId was not refused")
 	}
@@ -370,7 +371,7 @@ func TestQualifiedNameKeyedGraphStillLinks(t *testing.T) {
     sysml:owningNamespace <urn:sysmlv2:element:P> ;
     sysml:declaredName "A" .
 `
-	back, err := export.Convert("m.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", []byte(turtle), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("graph with foreign IRI base did not read: %v", err)
 	}
@@ -403,7 +404,7 @@ func TestUnnamedElementKeepsAnnotatedID(t *testing.T) {
 	if !strings.Contains(back, `@IdentityMetadata::ElementId { id = "anon-id"; }`) {
 		t.Errorf("unnamed element's annotated id was not re-materialized:\n%s", back)
 	}
-	second, err := export.Convert("m.sysml", []byte(back), export.FormatSysML, export.FormatTurtle)
+	second, err := convert.Convert("m.sysml", []byte(back), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("second hop to turtle: %v", err)
 	}
@@ -472,7 +473,7 @@ func TestAboutFormElementIDRoundTrips(t *testing.T) {
 	}
 	// Inlining the annotation gives the element a body, so the notation —
 	// not the first graph — is the fixed point the second hop must reach.
-	second, err := export.Convert("m.sysml", []byte(back), export.FormatSysML, export.FormatTurtle)
+	second, err := convert.Convert("m.sysml", []byte(back), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("second hop to turtle: %v", err)
 	}
@@ -485,7 +486,7 @@ func TestAboutFormElementIDRoundTrips(t *testing.T) {
 // membership id minted for another element: both live in the element
 // namespace, and merging them would corrupt the graph.
 func TestDeclaredIDCollidingWithMembershipIsRefused(t *testing.T) {
-	_, err := export.Convert("m.sysml", []byte(`package P {
+	_, err := convert.Convert("m.sysml", []byte(`package P {
 	@IdentityMetadata::ProjectRef { projectId = "proj-1"; }
 	part def A {
 		@IdentityMetadata::ElementId { id = "stable"; }
@@ -494,7 +495,7 @@ func TestDeclaredIDCollidingWithMembershipIsRefused(t *testing.T) {
 		@IdentityMetadata::ElementId { id = "stable_om"; }
 	}
 }
-`), export.FormatSysML, export.FormatTurtle)
+`), convert.FormatSysML, convert.FormatTurtle)
 	if err == nil {
 		t.Fatal("an id landing on a membership IRI was not refused")
 	}
@@ -565,7 +566,7 @@ func TestLibraryElementsCarryNormativeIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	turtle, err := export.Convert(name, src, export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert(name, src, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -592,7 +593,7 @@ func TestLibraryElementsCarryNormativeIDs(t *testing.T) {
 	if back != string(src) {
 		t.Errorf("the library file did not come back as written:\n%s", back)
 	}
-	second, err := export.Convert(name, []byte(back), export.FormatSysML, export.FormatTurtle)
+	second, err := convert.Convert(name, []byte(back), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("second hop to turtle: %v", err)
 	}
@@ -603,14 +604,14 @@ func TestLibraryElementsCarryNormativeIDs(t *testing.T) {
 	// so it has to state the ids the library text would have implied.
 	keepsIDsWithoutSourceText(t, name, turtle)
 	edited := append([]byte("// a copy of the library\n"), src...)
-	turtle, err = export.Convert("copy.kerml", edited, export.FormatSysML, export.FormatTurtle)
+	turtle, err = convert.Convert("copy.kerml", edited, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("edited copy to turtle: %v", err)
 	}
 	if got := string(withoutSourceText(t, turtle)); got != string(withoutSourceText(t, []byte(text))) {
 		t.Errorf("an edited copy rooted at the library's package is the library, yet its graph differs:\n%s", got)
 	}
-	user, err := export.Convert("user.kerml", []byte("package ScalarValues {\n\tdatatype Real;\n}\n"), export.FormatSysML, export.FormatTurtle)
+	user, err := convert.Convert("user.kerml", []byte("package ScalarValues {\n\tdatatype Real;\n}\n"), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("user package to turtle: %v", err)
 	}
@@ -620,7 +621,7 @@ func TestLibraryElementsCarryNormativeIDs(t *testing.T) {
 	}
 	// The library's exact bytes parsed as the other language are a user file: the
 	// digest matches, but the text was not read in the library document's grammar.
-	other, err := export.Convert("copy.sysml", src, export.FormatSysML, export.FormatTurtle)
+	other, err := convert.Convert("copy.sysml", src, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("copy in the other language to turtle: %v", err)
 	}
@@ -692,7 +693,7 @@ func TestBehavioralDeclaredIDsWithoutSourceText(t *testing.T) {
 	if loop == string(turtle) {
 		t.Fatalf("the loop's id is not where expected:\n%s", turtle)
 	}
-	_, err := export.Convert("m.ttl", withoutSourceText(t, []byte(loop)), export.FormatTurtle, export.FormatSysML)
+	_, err := convert.Convert("m.ttl", withoutSourceText(t, []byte(loop)), convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) || !strings.Contains(unsupported.What, "the loop") {
 		t.Fatalf("a loop with a foreign id was not refused: %v", err)
@@ -705,7 +706,7 @@ func TestBehavioralDeclaredIDsWithoutSourceText(t *testing.T) {
 func keepsIDsWithoutSourceText(t *testing.T, name string, turtle []byte) {
 	t.Helper()
 	back := toNotation(t, withoutSourceText(t, turtle))
-	again, err := export.Convert("copy"+filepath.Ext(name), []byte(back), export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert("copy"+filepath.Ext(name), []byte(back), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("rebuilt notation to turtle: %v\n%s", err, back)
 	}
@@ -788,7 +789,7 @@ func TestEffectivelyNamedLibraryMemberCarriesNormativeID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	turtle, err := export.Convert(name, src, export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert(name, src, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -820,7 +821,7 @@ func TestLibraryCopiesConvertAsTheLibrary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	turtle, err := export.Convert(name, src, export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert(name, src, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -835,7 +836,7 @@ func TestLibraryCopiesConvertAsTheLibrary(t *testing.T) {
 		{"annotated", strings.Replace(string(src), head, head+annotation, 1)},
 	} {
 		for _, as := range []string{"copy.kerml", name} {
-			got, err := export.Convert(as, []byte(tc.text), export.FormatSysML, export.FormatTurtle)
+			got, err := convert.Convert(as, []byte(tc.text), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("%s copy as %s to turtle: %v", tc.name, as, err)
 			}
@@ -863,7 +864,7 @@ func TestLibraryCopiesConvertAsTheLibrary(t *testing.T) {
 
 	// A root known only by its short name is registered under it, so it is the library too.
 	short := strings.Replace(string(src), head, "standard library package <Occurrences> {\r\n", 1)
-	got, err := export.Convert("copy.kerml", []byte(short), export.FormatSysML, export.FormatTurtle)
+	got, err := convert.Convert("copy.kerml", []byte(short), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("short-name copy to turtle: %v", err)
 	}

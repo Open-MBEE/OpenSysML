@@ -46,7 +46,7 @@ Every surface reports this status where it is used: the command line writes a
 `note:` to stderr, `%save` prints one, and `ConvertResponse` carries `experimental`
 and `experimental_notice`, which the Python client raises as an
 `ExperimentalFeatureWarning`. The wording is a single constant,
-`export.ExperimentalNotice`.
+`convert.ExperimentalNotice`.
 
 ## The RDF mapping
 
@@ -1469,7 +1469,8 @@ element it cannot place, rather than emitting a model with elements missing.
 | Package | Role |
 |---------|------|
 | `internal/core/rdf` | Triple/graph model, Turtle writer, Turtle parser |
-| `internal/core/export` | `ToRDF` (AST → graph), `ToSysML` (graph → notation), and the `Convert` entry point |
+| `internal/core/export` | `ToRDF` (AST → graph), `ToSysML` (graph → notation) |
+| `internal/core/convert` | The `Convert` entry point: format names, notation parsing, the SysML v1 migration |
 | `tests/corpus/roundtrip_test.go` | The per-file round-trip ratchet over every model under `examples/`, with its baseline in `testdata/corpus_roundtrip_expected.txt` ([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)) |
 | `internal/repl` | `%save` |
 | `cmd/sysml` | `-convert`, `-from`, `-o` |

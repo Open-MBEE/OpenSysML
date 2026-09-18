@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 )
 
@@ -37,7 +38,7 @@ const namedInvocations = `package Calls {
 // invocationTurtle converts the invocation model to Turtle without its source text.
 func invocationTurtle(t *testing.T) []byte {
 	t.Helper()
-	turtle, err := export.Convert("calls.kerml", []byte(namedInvocations), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("calls.kerml", []byte(namedInvocations), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -49,14 +50,14 @@ func invocationTurtle(t *testing.T) []byte {
 // constructor, and as the feature chain it applies to.
 func TestNamedFunctionInvocationsComeBackFromTheGraphAlone(t *testing.T) {
 	stripped := invocationTurtle(t)
-	back, err := export.Convert("calls.ttl", stripped, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("calls.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the graph alone: %v", err)
 	}
 	if string(back) != namedInvocations {
 		t.Errorf("invocations were not rebuilt from the graph:\n--- want ---\n%s--- got ---\n%s", namedInvocations, back)
 	}
-	again, err := export.Convert("calls.kerml", back, export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert("calls.kerml", back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
@@ -73,7 +74,7 @@ func TestInvocationOfAnUndefinedFunctionIsRefused(t *testing.T) {
 		t.Fatalf("the graph does not link the invoked function:\n%s", stripped)
 	}
 	dangling := strings.ReplaceAll(stripped, "sysml:function elmt:Calls__twice ;", "sysml:function elmt:Calls__nowhere ;")
-	_, err := export.Convert("calls.ttl", []byte(dangling), export.FormatTurtle, export.FormatSysML)
+	_, err := convert.Convert("calls.ttl", []byte(dangling), convert.FormatTurtle, convert.FormatSysML)
 	if err == nil {
 		t.Fatal("an invocation of an undefined function was written")
 	}
@@ -90,7 +91,7 @@ func TestInvocationWithoutAFunctionIsRefused(t *testing.T) {
 		t.Fatalf("the graph does not link the invoked function:\n%s", stripped)
 	}
 	nameless := strings.Replace(stripped, "    sysml:function elmt:Calls__twice ;\n", "", 1)
-	_, err := export.Convert("calls.ttl", []byte(nameless), export.FormatTurtle, export.FormatSysML)
+	_, err := convert.Convert("calls.ttl", []byte(nameless), convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("error is %T, want *export.UnsupportedError: %v", err, err)
