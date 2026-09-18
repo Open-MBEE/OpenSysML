@@ -397,6 +397,7 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 	r := migrateXMI(t, "meter")
 	for _, line := range []string{
 		`assign this.label := "` + "\U0001F600" + `";`,
+		`assign this.lit := this.label == "` + "\U0001F600" + `";`,
 		"assign this.count := 9007199254740991;",
 		"assign this.dial := this.hand;",
 		"attribute cube : ScalarValues::Real default = -(total ** 3);",
@@ -427,10 +428,14 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 	wantNoLine(t, r.Notation, "assign this.count := this.mode;")
 	wantNoLine(t, r.Notation, "assign this.mode := this.dial;")
 	wantNoLine(t, r.Notation, "assign this.count := 9007199254740993;")
+	if strings.Count(string(r.Notation), `assign this.lit := this.label == "`+"\U0001F600"+`";`) != 1 {
+		t.Errorf("the Java == on strings is written beside its equals:\n%s", r.Notation)
+	}
 	wantNoLine(t, r.Notation, "ref part pointer : Needle default = if (count > 0) ? dial else hand;")
 	wantNoLine(t, r.Notation, "attribute top : ScalarValues::Real default = cells.reading;")
 	wantClean(t, "t.sysml", r)
 	wantNote(t, r, "_smile", migrate.Mapped, "the JavaScript body is translated to v2")
+	wantNote(t, r, "_same", migrate.Mapped, "the Java body is translated to v2")
 	wantNote(t, r, "_widen", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_shown", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_latch", migrate.Mapped, "the JavaScript body is translated to v2")
@@ -443,6 +448,7 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 		"_match":   `the types at "mode =" disagree: a Gauge is assigned to the Mode mode holds`,
 		"_narrow":  `the types at "hand =" disagree: a Gauge is assigned to the Needle hand holds`,
 		"_huge":    `the construct "9007199254740993" is outside the translated subset: a script rounds a whole number beyond 9007199254740991 to the nearest floating-point value`,
+		"_alias":   "the construct \"==\" is outside the translated subset: Java compares strings by identity with `==`, which a comparison of their values does not reproduce; `equals` compares their content",
 		"_pointer": `the types at "count > 0 ? dial : hand" disagree: the expression is a Gauge, not the Needle wanted`,
 		"_top":     `the types at "cells.reading" disagree: the expression is a collection, not the one value wanted`,
 	} {
@@ -452,9 +458,11 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 	s := session(t, r)
 	meta(t, s, "%instantiate Meter")
 	wantVerdict(t, s.RunAction("Meter::Flip", "Meter"))
-	runs := strings.Join(s.RunRuns("Meter::Flip", []string{"Meter"}, 1, 1, []string{"this.count"}).Lines, "\n")
-	if want := "this.count: 1 run(s), min 9007199254740991"; !strings.Contains(runs, want) {
-		t.Errorf("runs lack %q:\n%s", want, runs)
+	runs := strings.Join(s.RunRuns("Meter::Flip", []string{"Meter"}, 1, 1, []string{"this.count", "this.lit"}).Lines, "\n")
+	for _, want := range []string{"this.count: 1 run(s), min 9007199254740991", "this.lit: true ×1"} {
+		if !strings.Contains(runs, want) {
+			t.Errorf("runs lack %q:\n%s", want, runs)
+		}
 	}
 }
 

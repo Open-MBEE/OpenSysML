@@ -230,6 +230,14 @@
           <language>JavaScript</language>
           <body>label = "\uD83D\uDE00"; count = 9007199254740991;</body>
         </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_same" name="same">
+          <language>Java</language>
+          <body>lit = label.equals("\uD83D\uDE00");</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_alias" name="alias">
+          <language>Java</language>
+          <body>lit = label == "\uD83D\uDE00";</body>
+        </node>
         <node xmi:type="uml:ActivityFinalNode" xmi:id="_ffinal"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f1" source="_finit" target="_bump"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f2" source="_bump" target="_pick"/>
@@ -238,7 +246,9 @@
         <edge xmi:type="uml:ControlFlow" xmi:id="_f7" source="_widen" target="_narrow"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f8" source="_narrow" target="_huge"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f5" source="_huge" target="_smile"/>
-        <edge xmi:type="uml:ControlFlow" xmi:id="_f6" source="_smile" target="_ffinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f6" source="_smile" target="_same"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f9" source="_same" target="_alias"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f10" source="_alias" target="_ffinal"/>
       </ownedBehavior>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_arm" name="Arm">
         <ownedParameter xmi:type="uml:Parameter" xmi:id="_armed" name="armed" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>

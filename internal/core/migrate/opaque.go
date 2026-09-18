@@ -976,6 +976,11 @@ func (p *opaqueParser) equality() (translated, *refusal) {
 		if _, ok := commonScalar(left, right); !ok {
 			return translated{}, &refusal{kind: refusedType, token: tok.text, why: "a " + left.held() + " is compared with a " + right.held()}
 		}
+		// Java's == on strings is identity, which no value comparison reproduces; equals compares content.
+		if p.d == dialectJava && (left.scalar == "String" || right.scalar == "String") {
+			return translated{}, &refusal{kind: refusedConstruct, token: tok.text,
+				why: "Java compares strings by identity with `" + tok.text + "`, which a comparison of their values does not reproduce; `equals` compares their content"}
+		}
 		right.expr = spellFor(left.scalar, right)
 		left = binary(left, v2, right, looseEquality, "Boolean")
 	}
@@ -1174,7 +1179,11 @@ func (p *opaqueParser) primary() (translated, *refusal) {
 	case tokNumber:
 		return numberLiteral(tok.text, p.d)
 	case tokString:
-		return translated{expr: stringLiteral(tok.text), scalar: "String", atomic: true, lit: "string"}, nil
+		lit := translated{expr: stringLiteral(tok.text), scalar: "String", atomic: true, lit: "string"}
+		if p.d == dialectJava && p.peek(false).isPunct(".") {
+			return p.literalMethod(lit)
+		}
+		return lit, nil
 	case tokIdent:
 		switch {
 		case tok.word("true") || tok.word("false"):
@@ -1237,30 +1246,25 @@ func (p *opaqueParser) name(path []string) (translated, *refusal) {
 // call reads the arguments of a call and writes the library function the table maps it to.
 func (p *opaqueParser) call(path []string) (translated, *refusal) {
 	fn := strings.Join(path, ".")
-	var args []translated
-	if !p.peek(true).isPunct(")") {
-		for {
-			arg, err := p.expr()
-			if err != nil {
-				return translated{}, err
-			}
-			args = append(args, arg)
-			sep := p.next(true)
-			if sep.isPunct(")") {
-				break
-			}
-			if !sep.isPunct(",") {
-				return translated{}, &refusal{kind: refusedSyntax, token: fn + "(", why: "the arguments are not closed"}
-			}
-		}
-	} else {
-		p.next(true)
+	args, err := p.arguments(fn)
+	if err != nil {
+		return translated{}, err
 	}
 	arity := func(n int) *refusal {
 		if len(args) != n {
 			return &refusal{kind: refusedCall, token: fn, why: fn + " takes " + strconv.Itoa(n) + " argument(s), not " + strconv.Itoa(len(args))}
 		}
 		return nil
+	}
+	if p.d == dialectJava && len(path) > 1 && path[len(path)-1] == "equals" {
+		if err := arity(1); err != nil {
+			return translated{}, err
+		}
+		recv, err := p.name(path[:len(path)-1])
+		if err != nil {
+			return translated{}, err
+		}
+		return stringEquals(recv, fn, args[0])
 	}
 	switch fn {
 	case "Math.max", "Math.min":
@@ -1345,6 +1349,70 @@ func (p *opaqueParser) call(path []string) (translated, *refusal) {
 		return translated{expr: s.operand() + "->ControlFunctions::reduce { in x; in y; " + extremum(which, s.scalar) + "(x, y) }", scalar: s.scalar, atomic: true}, nil
 	}
 	return translated{}, &refusal{kind: refusedCall, token: fn}
+}
+
+// arguments reads a call's arguments after its opening parenthesis, through the closing one.
+func (p *opaqueParser) arguments(fn string) ([]translated, *refusal) {
+	if p.peek(true).isPunct(")") {
+		p.next(true)
+		return nil, nil
+	}
+	var args []translated
+	for {
+		arg, err := p.expr()
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, arg)
+		sep := p.next(true)
+		if sep.isPunct(")") {
+			return args, nil
+		}
+		if !sep.isPunct(",") {
+			return nil, &refusal{kind: refusedSyntax, token: fn + "(", why: "the arguments are not closed"}
+		}
+	}
+}
+
+// literalMethod reads a Java method call on a string literal, `"a".equals(b)`.
+func (p *opaqueParser) literalMethod(lit translated) (translated, *refusal) {
+	p.next(false)
+	method := p.next(true)
+	if method.kind != tokIdent {
+		return translated{}, &refusal{kind: refusedSyntax, token: method.text, why: "a member name follows `.`"}
+	}
+	fn := lit.expr + "." + method.text
+	if !p.next(false).isPunct("(") {
+		return translated{}, &refusal{kind: refusedConstruct, token: fn, why: "a string has no members in the subset"}
+	}
+	args, err := p.arguments(fn)
+	if err != nil {
+		return translated{}, err
+	}
+	if method.text != "equals" {
+		return translated{}, &refusal{kind: refusedCall, token: fn}
+	}
+	if len(args) != 1 {
+		return translated{}, &refusal{kind: refusedCall, token: fn, why: fn + " takes 1 argument(s), not " + strconv.Itoa(len(args))}
+	}
+	return stringEquals(lit, fn, args[0])
+}
+
+// stringEquals writes Java's `a.equals(b)` on strings, the comparison of their
+// content, as `a == b`; a receiver or argument known not to be a string is refused.
+func stringEquals(recv translated, fn string, arg translated) (translated, *refusal) {
+	for _, side := range []translated{recv, arg} {
+		switch {
+		case side.plural:
+			return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated between strings, and this compares a collection"}
+		case side.held() != "" && side.scalar != "String":
+			return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated between strings, and this compares a " + side.held()}
+		}
+	}
+	if recv.held() == "" && arg.held() == "" {
+		return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated between strings, and neither side's type is known"}
+	}
+	return binary(recv, "==", arg, looseEquality, "Boolean"), nil
 }
 
 // extremum names the library max or min function for numbers of the given scalar.

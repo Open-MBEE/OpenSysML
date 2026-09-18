@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -117,6 +118,14 @@ func TestTranslateExpr(t *testing.T) {
 		{"Java", "Math.floor(t) + 1", "", "RealFunctions::floor(this.t) + 1", "Real"},
 		{"JavaScript", "Math.floor(t) + 1", "", "RealFunctions::floor(this.t) + 1", "Integer"},
 		{"JavaScript", "Math.ceil(t) / 2", "", "OpenSysMLMathFunctions::ceiling(this.t) / 2", "Real"},
+		{"JavaScript", `name == "ready"`, "", `this.name == "ready"`, "Boolean"},
+		{"JavaScript", `name !== "ready"`, "", `this.name != "ready"`, "Boolean"},
+		{"Java", `name.equals("ready")`, "", `this.name == "ready"`, "Boolean"},
+		{"Java", `"ready".equals(name)`, "", `"ready" == this.name`, "Boolean"},
+		{"Java", `!name.equals("ready")`, "", `not (this.name == "ready")`, "Boolean"},
+		{"Java", `mode.equals(name)`, "", `this.mode == this.name`, "Boolean"},
+		{"Java", "i == Retries", "", "this.i == this.Retries", "Boolean"},
+		{"Java", "mode == OFF", "", "this.mode == Modes::OFF", "Boolean"},
 		{"Java 8", "i / 2", "", "OpenSysMLMathFunctions::quotient(this.i, 2)", "Integer"},
 		{"java17", "i / 2", "", "OpenSysMLMathFunctions::quotient(this.i, 2)", "Integer"},
 		{"Java 1.8.0_202", "i / 2", "", "OpenSysMLMathFunctions::quotient(this.i, 2)", "Integer"},
@@ -271,6 +280,19 @@ func TestTranslateRefusals(t *testing.T) {
 		{"Java", "i / mode", false, refusedType, "/"},
 		{"Java", "i = Math.floor(t)", true, refusedType, "i ="},
 		{"Java", "i = Math.ceil(t)", true, refusedType, "i ="},
+		{"Java", `name == "ready"`, false, refusedConstruct, "=="},
+		{"Java", `name != "ready"`, false, refusedConstruct, "!="},
+		{"Java", `"ready" == mode`, false, refusedConstruct, "=="},
+		{"Java", "GS_Found = name == name", true, refusedConstruct, "=="},
+		{"Java", "name.equals(i)", false, refusedType, "name.equals"},
+		{"Java", "i.equals(1)", false, refusedType, "i.equals"},
+		{"Java", "mode.equals(OFF)", false, refusedType, "mode.equals"},
+		{"Java", "xs.equals(name)", false, refusedType, "xs.equals"},
+		{"Java", `name.equals("a", "b")`, false, refusedCall, "name.equals"},
+		{"Java", `"a".equals()`, false, refusedCall, `"a".equals`},
+		{"Java", `"a".trim()`, false, refusedCall, `"a".trim`},
+		{"Java", `"a".length`, false, refusedConstruct, `"a".length`},
+		{"JavaScript", `name.equals("ready")`, false, refusedCall, "name.equals"},
 		{"JavaScript", "while (GS_Found) i = 1", true, refusedConstruct, "while"},
 		{"JavaScript", "if (GS_Found) i = 1", true, refusedConstruct, "if"},
 		{"JavaScript", "var a = 1, b = 2", true, refusedConstruct, "var a"},
@@ -417,7 +439,7 @@ func TestTranslateRefusals(t *testing.T) {
 		if err.kind != c.kind || err.token != c.token {
 			t.Errorf("%s %q: refused with kind %d at %q (%s), want kind %d at %q", c.lang, c.body, err.kind, err.token, err.note(), c.kind, c.token)
 		}
-		if c.token != "" && !strings.Contains(err.note(), c.token) {
+		if c.token != "" && !strings.Contains(err.note(), strconv.Quote(c.token)) {
 			t.Errorf("%s %q: note %q does not carry the token %q", c.lang, c.body, err.note(), c.token)
 		}
 	}

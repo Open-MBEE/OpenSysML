@@ -154,7 +154,17 @@ part def Meter {
             assign this.label := "😀";
             assign this.count := 9007199254740991;
         }
-        first smile then final;
+        first smile then same;
+        action same {
+            assign this.lit := this.label == "😀";
+        }
+        first same then 'alias';
+        action 'alias' {
+            /* body not migrated (the construct "==" is outside the translated subset: Java compares strings by identity with `==`, which a comparison of their values does not reproduce; `equals` compares their content) {Java}:
+             * lit = label == "\uD83D\uDE00";
+             */
+        }
+        first 'alias' then final;
         action final terminate;
     }
     action def Arm {

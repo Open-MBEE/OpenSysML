@@ -1,10 +1,11 @@
 # SysML v1 to v2 migration report: meter.xmi
-# migrated 114 element(s): 88 mapped, 26 approximated, 0 unmapped (0 skipped as profile or library content)
+# migrated 118 element(s): 91 mapped, 27 approximated, 0 unmapped (0 skipped as profile or library content)
 
-## approximated (26)
+## approximated (27)
 ControlFlow	Meter::Arm::<ControlFlow>	_a2	(the guard [{JavaScript} ready and enabled] is kept as a comment and the edge written unguarded: the text "and" is not expression syntax: text follows the expression)
 Parameter	Meter::Arm::armed	_armed	-> Meter::Arm::armed	(default value not migrated: the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted)
 OpaqueAction	Meter::Arm::fuse	_fuse	-> fuse	(the body is kept as a comment: the text "and" is not expression syntax: a statement ends at `;` or a newline)
+OpaqueAction	Meter::Flip::alias	_alias	-> 'alias'	(the body is kept as a comment: the construct "==" is outside the translated subset: Java compares strings by identity with `==`, which a comparison of their values does not reproduce; `equals` compares their content)
 OpaqueAction	Meter::Flip::bump	_bump	-> bump	(the body is kept as a comment: the types at "+" disagree: an operand is a Mode, not a number)
 OpaqueAction	Meter::Flip::huge	_huge	-> huge	(the body is kept as a comment: the construct "9007199254740993" is outside the translated subset: a script rounds a whole number beyond 9007199254740991 to the nearest floating-point value)
 OpaqueAction	Meter::Flip::match	_match	-> match	(the body is kept as a comment: the types at "mode =" disagree: a Gauge is assigned to the Mode mode holds)
@@ -29,7 +30,7 @@ Property	Meter::square	_square	-> Meter::square	(default value not migrated: the
 Property	Meter::tag	_tag	-> Meter::tag	(default value not migrated: the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset)
 Property	Meter::top	_top	-> Meter::top	(default value not migrated: the types at "cells.reading" disagree: the expression is a collection, not the one value wanted)
 
-## mapped (88)
+## mapped (91)
 «Block» Class	Gauge	_gauge	-> Gauge
 Activity	Gauge::Tick	_tick	-> Gauge::Tick
 ActivityFinalNode	Gauge::Tick::<ActivityFinalNode>	_tfinal	-> final
@@ -51,7 +52,10 @@ ControlFlow	Meter::Flip::<ControlFlow>	_f7
 ControlFlow	Meter::Flip::<ControlFlow>	_f8
 ControlFlow	Meter::Flip::<ControlFlow>	_f5
 ControlFlow	Meter::Flip::<ControlFlow>	_f6
+ControlFlow	Meter::Flip::<ControlFlow>	_f9
+ControlFlow	Meter::Flip::<ControlFlow>	_f10
 InitialNode	Meter::Flip::<InitialNode>	_finit	-> start
+OpaqueAction	Meter::Flip::same	_same	-> same	(the Java body is translated to v2)
 OpaqueAction	Meter::Flip::smile	_smile	-> smile	(the JavaScript body is translated to v2)
 OpaqueAction	Meter::Flip::widen	_widen	-> widen	(the JavaScript body is translated to v2)
 Activity	Meter::Measure	_measure	-> Meter::Measure
