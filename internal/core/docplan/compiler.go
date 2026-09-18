@@ -3,6 +3,7 @@ package docplan
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1085,16 +1086,33 @@ func expressionColumns(program *queryplan.Program, expression queryplan.Expressi
 		queryplan.OperationWhereMetadata,
 		queryplan.OperationWhereName,
 		queryplan.OperationWhereFeature,
-		queryplan.OperationOrderBy:
-		for _, argument := range expression.Arguments() {
-			if argument.Name == "source" {
-				return expressionColumns(program, argument.Value)
-			}
+		queryplan.OperationOrderBy,
+		queryplan.OperationWhereRelated,
+		queryplan.OperationExcept:
+		return argumentColumns(program, expression, "source")
+	case queryplan.OperationUnion:
+		// Union keeps the columns both inputs share; execution refuses inputs
+		// whose columns differ, so a static mismatch is left to it.
+		source, sourceKnown := argumentColumns(program, expression, "source")
+		other, otherKnown := argumentColumns(program, expression, "other")
+		if !sourceKnown || !otherKnown || !slices.Equal(source, other) {
+			return nil, false
 		}
-		return nil, true
+		return source, true
 	default:
 		return nil, true
 	}
+}
+
+// argumentColumns resolves the columns of the named row argument; an absent
+// argument carries none.
+func argumentColumns(program *queryplan.Program, expression queryplan.Expression, name string) ([]string, bool) {
+	for _, argument := range expression.Arguments() {
+		if argument.Name == name {
+			return expressionColumns(program, argument.Value)
+		}
+	}
+	return nil, true
 }
 
 // literalStrings extracts the string literals of a planned argument value;

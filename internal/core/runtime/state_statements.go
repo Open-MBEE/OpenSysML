@@ -127,6 +127,7 @@ func (e *StateExecutor) startDoRun(behavior lower.StateBehavior) (*doRun, error)
 func (run *doRun) resume(ctx *Context) (*doRun, error) {
 	defer ctx.readingMail(&run.mail)()
 	defer func() { run.mail = nil }()
+	run.host.flow.leftStanding = false
 	for {
 		pause, paused := run.body.resume(ctx)
 		if !paused {
@@ -429,8 +430,11 @@ func statementInvocation(node ast.Node) (actionInvocation, bool) {
 		if inv := n.PerformedInvocation(); inv != nil {
 			return expressionInvocation(inv), true
 		}
-		if qn, ok := n.ActionRef.(*ast.QualifiedName); ok {
-			return actionInvocation{target: qn}, true
+		switch ref := n.ActionRef.(type) {
+		case *ast.QualifiedName:
+			return actionInvocation{target: ref}, true
+		case *ast.FeatureChainExpr:
+			return chainedInvocation(ref, nil)
 		}
 	case *ast.Usage:
 		return nestedInvocation(n)

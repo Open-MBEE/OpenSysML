@@ -202,6 +202,25 @@ func choiceKinds(choices []ChoiceTaken) []ChoiceKind {
 	return kinds
 }
 
+func countKind(kinds []ChoiceKind, kind ChoiceKind) int {
+	n := 0
+	for _, k := range kinds {
+		if k == kind {
+			n++
+		}
+	}
+	return n
+}
+
+// takenOf is the choices a run recorded as the moves of a witness.
+func takenOf(choices []ChoicePoint) []ChoiceTaken {
+	out := make([]ChoiceTaken, len(choices))
+	for i, c := range choices {
+		out[i] = c.Choice()
+	}
+	return out
+}
+
 // assertWitnessesReplay checks every outcome of an exploration: the run under its
 // witness reaches the outcome, and its choices are the witness's lines.
 func assertWitnessesReplay(t *testing.T, x *Exploration, fresh func() (*Context, error), run func(*Context) (Outcome, error)) {
@@ -379,13 +398,15 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 		sym := m.state(t, "Machine")
 		run := stateRun(sym, "go")
 		x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
-		if err != nil || !x.Complete() || x.Runs != 2 {
+		// Two entry orders, then the two orders of two firings, each one draw: its
+		// silent exit and entry ride with its effect.
+		if err != nil || !x.Complete() || x.Runs != 4 || len(x.Outcomes) != 4 {
 			t.Fatalf("explore: %v, %v", x, err)
 		}
 		assertWitnessesReplay(t, x, m.fresh, run)
 	})
-	// A dispatch draws every region's transition before the order they fire in, and
-	// notes each with its firing; the witness lists the draws, the run the firings.
+	// A dispatch draws every region's transition before the order its units fire
+	// in, and notes each with its firing; the witness lists the draws, the run the firings.
 	t.Run("regions with a conflict", func(t *testing.T) {
 		m := parseExploreModel(t, `package test {
 			private import ScalarValues::*;
@@ -403,12 +424,14 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 		sym := m.state(t, "Machine")
 		run := stateRun(sym, "go")
 		x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
-		if err != nil || !x.Complete() || x.Runs != 4 {
+		if err != nil || !x.Complete() || x.Runs != 8 {
 			t.Fatalf("explore: %v, %v", x, err)
 		}
 		for _, o := range x.Outcomes {
-			if kinds := choiceKinds(o.Witness); !reflect.DeepEqual(kinds, []ChoiceKind{ChoiceTransition, ChoiceRegionOrder}) {
-				t.Fatalf("witness %s draws %v, want the transition then the region order", FormatChoices(o.Witness), kinds)
+			kinds := choiceKinds(o.Witness)
+			if len(kinds) < 3 || kinds[0] != ChoiceEntryOrder || kinds[1] != ChoiceTransition ||
+				slices.ContainsFunc(kinds[2:], func(k ChoiceKind) bool { return k != ChoiceRegionOrder }) {
+				t.Fatalf("witness %s draws %v, want the entry, the transition then the unit order", FormatChoices(o.Witness), kinds)
 			}
 			outcome, choices, err := replayed(t, m.fresh, run, o.Witness)
 			if err != nil {
@@ -418,8 +441,11 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 			if outcome.String() != o.Outcome.String() {
 				t.Errorf("replaying %s reached %s, want %s", FormatChoices(o.Witness), outcome, o.Outcome)
 			}
-			if kinds := choiceKinds(choices); !reflect.DeepEqual(kinds, []ChoiceKind{ChoiceRegionOrder, ChoiceTransition}) {
-				t.Errorf("replaying %s noted %v, want the region order then the transition", FormatChoices(o.Witness), kinds)
+			// Replay notes the transition when its firing's first unit is reached.
+			if kinds := choiceKinds(choices); len(kinds) < 3 || kinds[0] != ChoiceEntryOrder || kinds[1] != ChoiceRegionOrder ||
+				countKind(kinds, ChoiceTransition) != 1 ||
+				slices.ContainsFunc(kinds[2:], func(k ChoiceKind) bool { return k != ChoiceRegionOrder && k != ChoiceTransition }) {
+				t.Errorf("replaying %s noted %v, want the entry, unit orders and one transition among them", FormatChoices(o.Witness), kinds)
 			}
 			got, want := strings.Split(FormatChoices(choices), "; "), strings.Split(FormatChoices(o.Witness), "; ")
 			slices.Sort(got)
@@ -629,7 +655,7 @@ func TestReplayRefusesAMoveNotEnabled(t *testing.T) {
 	}{
 		{"token not able", "step 3: 9@zzz first of 2@a, 9@zzz", 1, "9@zzz is not able to act (able to act: 2@a, 3@b, 4@c)"},
 		{"alternative not able", "step 3: 2@a first of 2@a, 9@zzz", 1, "9@zzz is not able to act"},
-		{"token order where one token acts", "step 1: 1@a first of 1@a, 2@b", 1, "is not able to act"},
+		{"token order where one token acts", "step 1: 1@a first of 1@a, 2@b", 1, "the run is at step 3 and step 1 had no such move"},
 		{"step already past", "step 1: decision select -> 1->warn", 1, "step 1 had no such move"},
 		{"branch not holding", orders + "step 7: decision select -> 3->nowhere", 3, "3->nowhere is not enabled (enabled: 1->warn, 2->alarm)"},
 		{"branch at the wrong place", orders + "step 7: decision elsewhere -> 1->warn", 3, "the run faced"},
@@ -724,7 +750,8 @@ func TestReplayFollowsAnOrderDrawnAfterTheClockRetriesAStep(t *testing.T) {
 }
 
 // A move kept for the clock's retry is bounded by presence and by the retry: an
-// alternative absent from the step is refused at once, and one present but parked
+// alternative absent from the step, which a nested performance's step of the same
+// number might yet hold, is refused at the retry, and one present but parked
 // on an accept no send answers is refused when the step ends without a retry —
 // whether the other token acts or none does, in which case the run is deadlocked.
 func TestReplayRefusesAParkedTokenTheClockCannotEnable(t *testing.T) {
@@ -776,8 +803,8 @@ func TestReplayRefusesAParkedTokenTheClockCannotEnable(t *testing.T) {
 		line  string
 		faced string
 	}{
-		{"alternative absent", fresh, run, "step 3: 2@performed first of 2@performed, 9@zzz", "step 3: 9@zzz is not able to act (able to act: 2@performed)"},
-		{"token absent beside one parked", fresh, run, "step 3: 9@zzz first of 3@direct, 9@zzz", "step 3: 9@zzz is not able to act (able to act: 2@performed)"},
+		{"alternative absent", fresh, run, "step 3: 2@performed first of 2@performed, 9@zzz", "step 3: 9@zzz is not able to act (able to act: 2@performed, 3@direct)"},
+		{"token absent beside one parked", fresh, run, "step 3: 9@zzz first of 3@direct, 9@zzz", "step 3: 9@zzz is not able to act (able to act: 2@performed, 3@direct)"},
 		{"parked beside a token that acts", oneParked, oneParkedRun, "step 4: 3@listener first of 2@reader, 3@listener", "step 4: 3@listener is not able to act (able to act: 2@reader)"},
 		{"parked in a deadlock", bothParked, bothParkedRun, "step 3: 2@reader first of 2@reader, 3@listener", "step 3: 2@reader is not able to act (none is able to act)"},
 	}
@@ -1042,7 +1069,7 @@ func TestReplayRefusesADoOrderMoveNotEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	witness, err := ParseChoices("do round at t=0.0: zork first of lwork, zork\n")
+	witness, err := ParseChoices("entering Interleave: lstart(entry) first of lstart(entry), rstart(entry)\ndo round at t=0.0: zork first of lwork, zork\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1053,7 +1080,7 @@ func TestReplayRefusesADoOrderMoveNotEnabled(t *testing.T) {
 	}
 	err = exec.RunToCompletion()
 	var refused *ReplayError
-	if !errors.As(err, &refused) || refused.Move != 1 || !strings.Contains(err.Error(), "zork is not enabled (enabled: lwork, rwork)") {
+	if !errors.As(err, &refused) || refused.Move != 2 || !strings.Contains(err.Error(), "zork is not enabled (enabled: lwork, rwork)") {
 		t.Fatalf("error %T %v, want the do-order move refused", err, err)
 	}
 	if seq := FormatValue(exec.StateData()["seq"]); seq != "1" {
@@ -1096,7 +1123,7 @@ func TestReplayRefusesATransitionMoveBeforeDoBehaviorsTakeTheMessage(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	witness, err := ParseChoices("state rwait on accept Go -> 3->nowhere\n")
+	witness, err := ParseChoices("entering Waiter: lwork(entry) first of lwork(entry), rwait(entry)\nstate rwait on accept Go -> 3->nowhere\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1111,7 +1138,7 @@ func TestReplayRefusesATransitionMoveBeforeDoBehaviorsTakeTheMessage(t *testing.
 	exec.SendSignal("Go", nil)
 	err = exec.RunToCompletion()
 	var refused *ReplayError
-	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 1 || !strings.Contains(err.Error(), "3->nowhere") {
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 2 || !strings.Contains(err.Error(), "3->nowhere") {
 		t.Fatalf("error %T %v, want the transition move refused", err, err)
 	}
 	if total := FormatValue(exec.StateData()["total"]); total != "0" {
@@ -1280,7 +1307,7 @@ func TestReplayRefusedChoiceUndoesTheHistoryDefaultsJunctionDraw(t *testing.T) {
 // of the run.
 func TestReplayRefusedChoiceUndoesTheJunctionDrawBeforeIt(t *testing.T) {
 	for name, tc := range map[string]struct {
-		model, stays string
+		model, entry, stays string
 	}{
 		"direct": {`package test {
 			private import ScalarValues::*;
@@ -1302,7 +1329,7 @@ func TestReplayRefusedChoiceUndoesTheJunctionDrawBeforeIt(t *testing.T) {
 				transition first pick if level > 7 then two;
 				transition first pick if level > 9 then three;
 			}
-		}`, "idle"},
+		}`, "", "idle"},
 		"in region": {`package test {
 			private import ScalarValues::*;
 			attribute def Go;
@@ -1329,15 +1356,16 @@ func TestReplayRefusedChoiceUndoesTheJunctionDrawBeforeIt(t *testing.T) {
 					state rest;
 				}
 			}
-		}`, "idle|rest"},
+		}`, "entering Machine: idle(entry) first of idle(entry), rest(entry)\n", "idle|rest"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			m := parseExploreModel(t, tc.model)
 			sym := m.state(t, "Machine")
-			witness, err := ParseChoices("junction split -> 2->pick\nchoice pick -> 3->three\n")
+			witness, err := ParseChoices(tc.entry + "junction split -> 2->pick\nchoice pick -> 3->three\n")
 			if err != nil {
 				t.Fatal(err)
 			}
+			move := len(witness)
 			ctx, err := m.fresh()
 			if err != nil {
 				t.Fatal(err)
@@ -1353,7 +1381,7 @@ func TestReplayRefusedChoiceUndoesTheJunctionDrawBeforeIt(t *testing.T) {
 			exec.SendSignal("Go", nil)
 			err = exec.RunToCompletion()
 			var refused *ReplayError
-			if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 2 || !strings.Contains(err.Error(), "3->three is not enabled (enabled: 1->one, 2->two)") {
+			if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != move || !strings.Contains(err.Error(), "3->three is not enabled (enabled: 1->one, 2->two)") {
 				t.Fatalf("error %T %v, want the choice move refused as not enabled", err, err)
 			}
 			data := exec.StateData()
@@ -1365,16 +1393,12 @@ func TestReplayRefusedChoiceUndoesTheJunctionDrawBeforeIt(t *testing.T) {
 			if got := activeStateNames(exec); got != tc.stays {
 				t.Errorf("the machine is in %s after the refusal, want %s", got, tc.stays)
 			}
-			for _, n := range ctx.Notes() {
-				if _, ok := n.(ChoicePoint); ok {
-					t.Errorf("the run noted %v, want the junction's draw undone with the move", n)
-				}
+			entered := witness[:move-2]
+			if got := FormatChoices(takenOf(ctx.Choices())); got != FormatChoices(entered) {
+				t.Errorf("the run recorded %v, want the entry's draws alone: the junction's draw is undone with the move", got)
 			}
-			if choices := ctx.Choices(); len(choices) != 0 {
-				t.Errorf("the run recorded %v, want no choice: the junction's draw is undone with the move", choices)
-			}
-			if taken := ctx.ChoicesTaken(); len(taken) != 0 {
-				t.Errorf("the context's witness holds %v, want no move: the junction's draw is undone with the move", taken)
+			if got := FormatChoices(ctx.ChoicesTaken()); got != FormatChoices(entered) {
+				t.Errorf("the context's witness holds %v, want the entry's moves alone: the junction's draw is undone with the move", got)
 			}
 		})
 	}
@@ -1492,7 +1516,7 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 		}
 	}`)
 	sym := m.state(t, "Machine")
-	witness, err := ParseChoices("join sync: b first of a, b, c\njoin sync: a first of a, b\n")
+	witness, err := ParseChoices("entering work: a(entry) first of a(entry), b(entry), c(entry)\nentering work: b(entry) first of b(entry), c(entry)\njoin sync: b first of a, b, c\njoin sync: a first of a, b\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1511,7 +1535,7 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 	exec.SendSignal("Go", nil)
 	err = exec.RunToCompletion()
 	var refused *ReplayError
-	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 2 {
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 4 {
 		t.Fatalf("error %T %v, want the join's second draw refused", err, err)
 	}
 	data := exec.StateData()
@@ -1528,11 +1552,11 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 	if len(exec.doActions) != 1 || exec.doActions[0].run == nil {
 		t.Errorf("do actions %v after the refusal, want a's do behavior paused as it was", exec.doActions)
 	}
-	if choices := ctx.Choices(); len(choices) != 0 {
-		t.Errorf("the run recorded %v, want no choice: a refused move is not one made", choices)
+	if got := FormatChoices(takenOf(ctx.Choices())); got != FormatChoices(witness[:2]) {
+		t.Errorf("the run recorded %v, want the entry's draws alone: a refused move is not one made", got)
 	}
-	if taken := ctx.ChoicesTaken(); len(taken) != 0 {
-		t.Errorf("the context holds %v, want no choice taken", taken)
+	if got := FormatChoices(ctx.ChoicesTaken()); got != FormatChoices(witness[:2]) {
+		t.Errorf("the context holds %v, want the entry's draws alone taken", got)
 	}
 	if got := trace.String(); strings.Contains(got, "choice join sync") || strings.Contains(got, "exit: b") {
 		t.Errorf("trace after the refusal holds the segment fired:\n%s", got)
@@ -1577,7 +1601,7 @@ func TestReplayRefusedJoinDrawUndoesTheSegmentsChoice(t *testing.T) {
 		}
 	}`)
 	sym := m.state(t, "Machine")
-	witness, err := ParseChoices("state a on accept Go -> 2->sync\non accept Go: a first of a, b, c\njoin sync: b first of a, b, c\njoin sync: a first of a, b\n")
+	witness, err := ParseChoices("entering work: a(entry) first of a(entry), b(entry), c(entry)\nentering work: b(entry) first of b(entry), c(entry)\nstate a on accept Go -> 2->sync\njoin sync: b first of a, b, c\njoin sync: a first of a, b\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1596,7 +1620,7 @@ func TestReplayRefusedJoinDrawUndoesTheSegmentsChoice(t *testing.T) {
 	exec.SendSignal("Go", nil)
 	err = exec.RunToCompletion()
 	var refused *ReplayError
-	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 4 {
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 5 {
 		t.Fatalf("error %T %v, want the join's second draw refused", err, err)
 	}
 	if got := FormatValue(exec.StateData()["log"]); got != `""` {
@@ -1607,16 +1631,11 @@ func TestReplayRefusedJoinDrawUndoesTheSegmentsChoice(t *testing.T) {
 			t.Errorf("%s is not active after the refusal, want every source where it was", name)
 		}
 	}
-	if choices := ctx.Choices(); len(choices) != 0 {
-		t.Errorf("the run recorded %v, want no choice: the draw among a's transitions is undone with the join", choices)
+	if got := FormatChoices(takenOf(ctx.Choices())); got != FormatChoices(witness[:2]) {
+		t.Errorf("the run recorded %v, want the entry's draws alone: the draw among a's transitions is undone with the join", got)
 	}
-	for _, n := range ctx.Notes() {
-		if _, ok := n.(ChoicePoint); ok {
-			t.Errorf("the run noted %v, want the draw among a's transitions undone with the join", n)
-		}
-	}
-	if taken := ctx.ChoicesTaken(); len(taken) != 0 {
-		t.Errorf("the context holds %v, want no choice taken", taken)
+	if got := FormatChoices(ctx.ChoicesTaken()); got != FormatChoices(witness[:2]) {
+		t.Errorf("the context holds %v, want the entry's draws alone taken", got)
 	}
 }
 

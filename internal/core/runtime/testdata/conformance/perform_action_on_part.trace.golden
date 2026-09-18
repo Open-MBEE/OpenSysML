@@ -1,0 +1,40 @@
+materialize: Station #1
+start: exhibited state machine run of #1
+materialize: run #2
+enter: observing (entry action)
+stmt perform
+step 1: token 1@pick
+  stmt assign result
+    eval literal 45.0 -> 45.0
+step 2: token 1@pt
+materialize: Telescope #3
+  eval feature tel -> instance#3
+step 1: token 1@set azimuth
+  eval feature az -> 45.0
+  stmt assign this.azimuth
+    eval feature value -> 45.0
+    eval feature this -> instance#3
+step 2: token 1@done
+step 3: no active tokens
+step 3: token 1@own
+  eval literal 90.0 -> 90.0
+step 1: token 1@turn
+  stmt assign this.azimuth
+    eval feature az -> 90.0
+    eval feature this -> instance#1
+step 2: token 1@done
+step 3: no active tokens
+step 4: token 1@done
+step 5: no active tokens
+run: exhibited state machine run of #1
+      eval feature tel -> instance#3
+    eval chain azimuth -> 45.0
+    eval literal 45.0 -> 45.0
+  eval operator == -> true
+    eval feature azimuth -> 90.0
+    eval literal 90.0 -> 90.0
+  eval operator == -> true
+eval operator and -> true
+exit: observing
+enter: pointed
+transition: observing -> pointed

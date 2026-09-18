@@ -33,7 +33,7 @@ func beginInvocation(ctx *Context, start Starter) (*invocationRun, error) {
 	defer r.enter()()
 	inv, err := start(ctx)
 	if err != nil {
-		return nil, err
+		return r, err
 	}
 	r.inv = inv
 	return r, nil
@@ -45,6 +45,12 @@ func (r *invocationRun) enter() func() {
 		r.state = r.ctx.newRunState()
 	}
 	return r.ctx.enterRun(r.state)
+}
+
+// checking is the run's resolution under the `check` policy, nil under another.
+func (r *invocationRun) checking() *checkRun {
+	defer r.enter()()
+	return r.ctx.scheduling().check
 }
 
 // enabledMoves lists the moves of the state: the turn holder's while it has one
@@ -65,6 +71,18 @@ func (r *invocationRun) enabledMoves() []enabledMove {
 		return all
 	}
 	return held
+}
+
+// leftOut names the interleavings the executors' moves leave out at the state, in executor order.
+func (r *invocationRun) leftOut() []string {
+	defer r.enter()()
+	var names []string
+	for _, exec := range r.inv.executors() {
+		if name := exec.leftOut(); name != "" && !slices.Contains(names, name) {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 // owners lists the executors with a move among moves, in executor order.

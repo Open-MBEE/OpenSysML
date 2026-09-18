@@ -11,9 +11,7 @@ import (
 // traversal run from each row's declaration, reduced by aggregate.
 type relatedColumn struct {
 	plan      queryplan.Expression
-	kind      string
-	direction string
-	maxDepth  int64
+	walk      relationshipWalk
 	aggregate string
 }
 
@@ -22,13 +20,7 @@ type relatedColumn struct {
 func (e *executor) relatedColumnOf(plan queryplan.Expression) (*relatedColumn, error) {
 	column := &relatedColumn{plan: plan, aggregate: queryplan.RelatedAggregateList}
 	var err error
-	if column.kind, err = e.stringArgument(plan, "relationshipKind"); err != nil {
-		return nil, columnScoped(err, plan.Target())
-	}
-	if column.direction, err = e.stringArgument(plan, "direction"); err != nil {
-		return nil, columnScoped(err, plan.Target())
-	}
-	if column.maxDepth, err = e.integerArgument(plan, "maxDepth"); err != nil {
+	if column.walk, err = e.relationshipArguments(plan); err != nil {
 		return nil, columnScoped(err, plan.Target())
 	}
 	if hasArgument(plan, "aggregate") {
@@ -38,9 +30,6 @@ func (e *executor) relatedColumnOf(plan queryplan.Expression) (*relatedColumn, e
 	}
 	if !queryplan.RelatedAggregateSupported(column.aggregate) {
 		return nil, columnScoped(e.invalidArgument(plan, "aggregate", column.aggregate), plan.Target())
-	}
-	if err := e.validateRelationship(plan, column.kind, column.direction); err != nil {
-		return nil, columnScoped(err, plan.Target())
 	}
 	return column, nil
 }
@@ -61,7 +50,11 @@ func (e *executor) evaluateRelatedCell(column computedColumn, row Value) ([]Valu
 			Origin:    related.plan.Origin(),
 		}
 	}
-	values, err := e.traverseRelated(related.plan, related.kind, related.direction, related.maxDepth, []*symbols.Symbol{root})
+	var values []Value
+	err := e.traverseRelated(related.plan, related.walk, []*symbols.Symbol{root}, func(neighbor *symbols.Symbol) bool {
+		values = append(values, ElementValue(neighbor))
+		return true
+	})
 	if err != nil {
 		return nil, columnScoped(err, column.name)
 	}

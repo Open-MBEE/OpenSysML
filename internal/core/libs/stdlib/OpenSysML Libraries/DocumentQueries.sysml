@@ -127,8 +127,8 @@ library package DocumentQueries {
 	calc def RelatedElements {
 		in source : Element[0..*] ordered;
 		/* relationshipKind: "specialization", "subsetting", "redefinition",
-		 * "typing", "connection", "allocation", "satisfaction" or
-		 * "verification"; direction: "outgoing" or "incoming". */
+		 * "typing", "connection", "allocation", "satisfaction", "verification",
+		 * "derivation" or "refinement"; direction: "outgoing" or "incoming". */
 		in relationshipKind : String[1];
 		in direction : String[1];
 		in maxDepth : Integer[1];
@@ -306,5 +306,33 @@ library package DocumentQueries {
 		in maxDepth : Integer[1];
 		in aggregate : String[1] = "list";
 		return result : ColumnSpec[1];
+	}
+
+	/* WhereRelated: the source rows with at least one element reachable by the
+	 * relationship kind and direction of RelatedElements within maxDepth
+	 * (exists = true), or with none (exists = false). */
+	calc def WhereRelated {
+		in source : Element[0..*] ordered;
+		in relationshipKind : String[1];
+		in direction : String[1];
+		in maxDepth : Integer[1];
+		in exists : Boolean[1] = true;
+		return result : Element[0..*] ordered;
+	}
+
+	/* Except: the source rows whose element, object, verdict, state or event
+	 * is not among exclude, once each in source order. */
+	calc def Except {
+		in source : Element[0..*] ordered;
+		in exclude : Element[0..*] ordered;
+		return result : Element[0..*] ordered;
+	}
+
+	/* Union: the source rows, then the rows of other not already present, in
+	 * order with duplicates removed. */
+	calc def Union {
+		in source : Element[0..*] ordered;
+		in other : Element[0..*] ordered;
+		return result : Element[0..*] ordered;
 	}
 }

@@ -41,6 +41,11 @@ const (
 	OperationColumnOperator  Operation = "column-operator"
 	// OperationRelatedColumn projects the elements a relationship reaches from each row.
 	OperationRelatedColumn Operation = "related-column"
+	// OperationWhereRelated keeps the source rows by whether a related element exists.
+	OperationWhereRelated Operation = "where-related"
+	// OperationExcept and OperationUnion are the ordered set operations over rows.
+	OperationExcept Operation = "except"
+	OperationUnion  Operation = "union"
 )
 
 // LiteralKind classifies a literal retained in a query plan.

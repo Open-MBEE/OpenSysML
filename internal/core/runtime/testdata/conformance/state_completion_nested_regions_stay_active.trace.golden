@@ -14,6 +14,7 @@ stmt action body
     eval operator + -> "l;r;"
 enter: done
 transition: rstart -> done (event: accept Second)
+choice exiting busy: next left.done(exit), right.done(exit) (unordered; took left.done(exit) first)
 exit: done
 exit: done
 exit: busy (exit action)

@@ -1009,8 +1009,9 @@ carry the same field with the same spellings and the same refusals.
 `outputs` the response carries `outcomes`, every distinct outcome any linearization reaches, and
 `exploration`, how the search ended. The service replays the run from the start, each replay a
 fresh executor over the same lowered model, following the recorded choices of an earlier run up
-to a frontier and taking the next untried alternative there, depth-first, until no alternative
-is untried or a budget is hit. Two runs that agree on the observables — an action's outputs — are
+to a frontier and taking the next untried alternative there — the first run's choice points each
+varied once, earliest first, before any is varied twice — until no alternative is untried or a
+budget is hit. Two runs that agree on the observables — an action's outputs — are
 one outcome, with `linearizations` counting how many reached it and `witness` the choice sequence
 of one that did, one entry per choice point spelling the alternatives and the one taken;
 `diagnostics` is what that witness run noted, shaped as the single-run `diagnostics` above.

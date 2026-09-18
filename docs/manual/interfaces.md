@@ -16,6 +16,8 @@ $ sysml model.sysml -render-document Observatory::MassReport \
     -doc-form pdf -pdf-engine weasyprint -doc-title-page -doc-toc \
     -doc-number-sections -o report.pdf
 $ sysml model.sysml -run-query "Observatory::SubsystemTable root=Observatory::telescope"
+$ sysml cookbook.sysml -instantiate Cookbook::telescope -run-query "Cookbook::Violated root=telescope"
+$ sysml model.sysml -instantiate Observatory::telescope -render-document Observatory::MassReport -o report.md
 ```
 
 | Flag | Meaning |
@@ -31,13 +33,20 @@ $ sysml model.sysml -run-query "Observatory::SubsystemTable root=Observatory::te
 | `-html-default-css` | Write the default stylesheet and exit |
 | `-html-fragment` | The document element alone, to embed in your own page |
 | `-run-query "<name> [<p>=<expr> ...]"` | Run one document query directly |
+| `-instantiate <name>` | Create an object first, so the query or document reads what it holds |
 | `-o <file>` | Output file; required for PDF |
 
 `-run-query` bindings are space-separated `parameter=expression` pairs after
-the query's qualified name. A name expression binds the element it refers to;
-quoted strings and numeric literals bind values. The exit code is non-zero
-on any planning, binding or execution error. Full details are in the
-[CLI reference](../reference/cli.md).
+the query's qualified name. A name expression binds the object `-instantiate`
+created under it while the run holds one, and the element it refers to
+otherwise; `#1` and `telescope.primaryMirror` bind a held object by id and by path;
+quoted strings and numeric literals bind values. A document binds its own
+parameters in the model, so `-instantiate` beside `-render-document` is enough
+for its queries to read the object's current values and to check it through
+`Verdicts` ([Objects the session holds](query-cookbook.md#objects-the-session-holds),
+[Which constraints and requirements hold](query-cookbook.md#which-constraints-and-requirements-hold)).
+The exit code is non-zero on any planning, binding or execution error. Full
+details are in the [CLI reference](../reference/cli.md).
 
 ## REPL
 
@@ -46,6 +55,17 @@ Inside `sysml`'s interactive session, the same two operations are commands:
 ```
 %run-query Observatory::SubsystemTable root=Observatory::telescope
 %render-document Observatory::MassReport
+```
+
+The bindings follow the CLI's rule over the objects the session holds: after
+`%instantiate telescope`, `root=telescope` binds the object rather than the
+usage, `#1` and `telescope.primaryMirror` bind one by id and by path, and a
+query over `Verdicts` prints one `<assertion> on <path>: <verdict>` line per
+row — the same sweep `%validate telescope` prints, as a query:
+
+```
+%instantiate Cookbook::telescope
+%run-query Cookbook::Violated root=telescope
 ```
 
 `%render-document` prints Markdown; PDF output is CLI-only. See the
@@ -62,11 +82,16 @@ The `sysml-lsp -grpc` service exposes two document RPCs, advertised as the
 - **`RenderDocument`** — render a named document definition; the reply
   carries the Markdown.
 
+Both run over the objects the service holds for the model: `Instantiate`
+creates one and keeps it for as long as the model stays cached, the
+counterpart of `%instantiate` and `-instantiate`, so a binding may name it by
+id or by path and a document renders its current values.
+
 The Python client wraps both on its model handle:
 
 ```python
 import opensysml
-from opensysml.document import ElementRef
+from opensysml.document import ElementRef, ObjectRef
 
 model = opensysml.load("observatory.sysml")
 
@@ -79,14 +104,31 @@ for row in result:             # DocumentRow: row.element, cells by column index
     print(row[0], row[1])
 
 markdown = model.render_document("Observatory::MassReport")
+
+cookbook = opensysml.load("cookbook.sysml")
+cookbook.instantiate("Cookbook::telescope")
+checks = cookbook.run_document_query(
+    "Cookbook::Violated",
+    bindings={"root": ObjectRef(path="Cookbook::telescope")},   # or ObjectRef(id=1)
+)
+for row in checks:             # row.element is the assertion, row.verdict its verdict
+    print(row.verdict)         # assert constraint lightweight on Cookbook::telescope.primaryMirror: violated
 ```
 
-Bindings accept an `ElementRef` (a model element by qualified name), `str`,
-`int`, `float`, `bool`, or a sequence of those. Query results decode the
-service's typed values back into Python values, with unbounded multiplicity
-as `opensysml.document.INFINITY`. Errors are typed exceptions
-(`InvalidRequestError`, `SymbolNotFoundError`, `MissingCapabilityError`,
-`ModelNotFoundError`). See the [API reference](../reference/api.md).
+Bindings accept an `ElementRef` (a model element by qualified name), an
+`ObjectRef` (an object `instantiate` built, by `id`, by `path` —
+`"Cookbook::telescope"`, `"#1"`, `"Cookbook::telescope.primaryMirror"` — or
+both), `str`, `int`,
+`float`, `bool`, or a sequence of those. Query results decode the service's
+typed values back into Python values, with unbounded multiplicity as
+`opensysml.document.INFINITY`, an object as an `ObjectRef` carrying `id`,
+`path` and the usage it stands for (`row.object` for a row over an object),
+and a `Verdicts` row's verdict as `row.verdict`, a `DocumentVerdict` carrying
+`assertion`, `kind`, `path`, `status` (`holds`, `violated`, `undecided`),
+`condition`, `reason` and `verification`. A verdict is answered, never bound.
+Errors are typed exceptions (`InvalidRequestError`, `SymbolNotFoundError`,
+`MissingCapabilityError`, `ModelNotFoundError`). See the
+[API reference](../reference/api.md).
 
 ## VS Code and LSP
 
