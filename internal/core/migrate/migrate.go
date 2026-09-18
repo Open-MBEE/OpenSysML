@@ -57,6 +57,7 @@ func FromModel(name string, model *xmi.Model) *Result {
 		triggered: map[*xmi.Element]bool{},
 		indexed:   map[string]int{},
 		lanes:     map[*xmi.Element]*lanes{},
+		routes:    map[[2]*xmi.Element]partRoute{},
 		usageOf:   map[*xmi.Element]string{},
 		pins:      map[*xmi.Element]pinDecl{},
 	}
@@ -162,6 +163,8 @@ type migration struct {
 	indexed map[string]int
 	// lanes indexes each activity's partitions by the nodes and edges they hold.
 	lanes map[*xmi.Element]*lanes
+	// routes memoizes, per classifier and target, the chains of composite parts between them.
+	routes map[[2]*xmi.Element]partRoute
 	// usageOf names, for each activity a lane's object performs, the action
 	// usage of the activity's owner that performs it.
 	usageOf map[*xmi.Element]string

@@ -304,15 +304,23 @@ var puncts = []string{
 	"+", "-", "*", "/", "%", "<", ">", "=", "!", "?", ":", "(", ")", ".", ",", ";", "[", "]", "{", "}",
 }
 
-// lexOpaque scans body into tokens; comments are dropped and newlines kept, as
-// a script ends a statement at one.
+// lineTerminator reports whether r ends a line as JavaScript reads it.
+func lineTerminator(r rune) bool {
+	return r == '\n' || r == '\r' || r == '\u2028' || r == '\u2029'
+}
+
+// lexOpaque scans body into tokens; comments are dropped and line ends kept,
+// as a script ends a statement at one. A block comment spanning lines is one.
 func lexOpaque(body string) ([]token, *refusal) {
 	var toks []token
 	s := body
 	for s != "" {
 		r, size := utf8.DecodeRuneInString(s)
 		switch {
-		case r == '\n':
+		case lineTerminator(r):
+			if strings.HasPrefix(s, "\r\n") {
+				size = 2
+			}
 			toks = append(toks, token{tokNewline, "\n"})
 			s = s[size:]
 			continue
@@ -320,7 +328,7 @@ func lexOpaque(body string) ([]token, *refusal) {
 			s = s[size:]
 			continue
 		case strings.HasPrefix(s, "//"):
-			if i := strings.IndexByte(s, '\n'); i >= 0 {
+			if i := strings.IndexFunc(s, lineTerminator); i >= 0 {
 				s = s[i:]
 			} else {
 				s = ""
@@ -330,6 +338,9 @@ func lexOpaque(body string) ([]token, *refusal) {
 			i := strings.Index(s[2:], "*/")
 			if i < 0 {
 				return nil, &refusal{kind: refusedSyntax, token: "/*", why: "the comment is not closed"}
+			}
+			if strings.ContainsFunc(s[2:2+i], lineTerminator) {
+				toks = append(toks, token{tokNewline, "\n"})
 			}
 			s = s[i+4:]
 			continue

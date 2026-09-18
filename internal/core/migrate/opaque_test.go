@@ -205,6 +205,11 @@ func TestTranslateStatements(t *testing.T) {
 		{"JavaScript", "t = clock\nt0 = clock - t;", []string{
 			"assign this.t := " + clockRead + ";", "assign this.t0 := " + clockRead + " - this.t;"}},
 		{"JavaScript", "// start\nt = 0.0; /* reset */ i = 0", []string{"assign this.t := 0.0;", "assign this.i := 0;"}},
+		{"JavaScript", "i = 1 /* explanation\n */ t = 2", []string{"assign this.i := 1;", "assign this.t := 2;"}},
+		{"JavaScript", "i = 1\r\nt = 2\ri = 2\u2028t = 3", []string{
+			"assign this.i := 1;", "assign this.t := 2;", "assign this.i := 2;", "assign this.t := 3;"}},
+		{"JavaScript", "i = 1 // one\rt = 2", []string{"assign this.i := 1;", "assign this.t := 2;"}},
+		{"JavaScript", "i = 1 /* one */ + 2", []string{"assign this.i := 1 + 2;"}},
 		{"JavaScript", "var n = i + 1; i = n * 2", []string{
 			"attribute n : ScalarValues::Integer;", "assign n := this.i + 1;", "assign this.i := n * 2;"}},
 		{"JavaScript", "this.tcs.i = Math.max(i, 0)", []string{"assign this.tcs.i := IntegerFunctions::max(this.i, 0);"}},
@@ -239,6 +244,7 @@ func TestTranslateRefusals(t *testing.T) {
 		{"OCL", "i > 1", false, refusedLanguage, "OCL"},
 		{"English", "i = 1", true, refusedLanguage, "English"},
 		{"JavaScript", "for (i = 0; i < 3; i++) t = 1", true, refusedConstruct, "for"},
+		{"JavaScript", "i = 1 /* one */ t = 2", true, refusedSyntax, "t"},
 		{"Java", "mode / 2", false, refusedType, "/"},
 		{"Java", "i / mode", false, refusedType, "/"},
 		{"JavaScript", "while (GS_Found) i = 1", true, refusedConstruct, "while"},

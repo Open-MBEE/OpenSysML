@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: plant.xmi
-# migrated 42 element(s): 37 mapped, 5 approximated, 0 unmapped (0 skipped as profile or library content)
+# migrated 60 element(s): 55 mapped, 5 approximated, 0 unmapped (0 skipped as profile or library content)
 
 ## approximated (5)
 ControlFlow	Plant::Fill::<ControlFlow>	_f3a	(the guard [{JavaScript} on] is kept as a comment and the edge written unguarded: the name "on" resolves to nothing readable: nothing visible from Plant::Fill::<ControlFlow> is called on; its source 'torn' is in the partitions 'Tank' (this.tank) and 'Pump' (this.pump), which represent different objects, so names resolve through no partition)
@@ -8,7 +8,14 @@ ActivityPartition	Plant::Fill::Operator	_unset	(a partition names who performs i
 ActivityPartition	Plant::Fill::Spare	_spare	(a partition names who performs its nodes; it is kept as a comment; the partition represents the context's tank, read as this.tank, but nothing in it names the object's features)
 OpaqueAction	Plant::Fill::torn	_torn	-> torn	(the body is kept as a comment: the name "volume" resolves to nothing readable: nothing visible from Plant::Fill::torn is called volume; it is in the partitions 'Tank' (this.tank) and 'Pump' (this.pump), which represent different objects, so names resolve through no partition)
 
-## mapped (37)
+## mapped (55)
+«Block» Class	Control	_control	-> Control
+Property	Control::rack	_crack	-> Control::rack
+«Block» Class	Controller	_controller	-> Controller
+Property	Controller::led	_cled	-> Controller::led
+Property	Controller::status	_status	-> Controller::status
+«Block» Class	Led	_led	-> Led
+Property	Led::lit	_lit	-> Led::lit
 Model	Model	_m	(the root model's members are written at the top level)
 «Block» Class	Plant	_plant	-> Plant
 Activity	Plant::Fill	_fill	-> Plant::Fill
@@ -21,15 +28,21 @@ ControlFlow	Plant::Fill::<ControlFlow>	_f4
 ControlFlow	Plant::Fill::<ControlFlow>	_f5
 ControlFlow	Plant::Fill::<ControlFlow>	_f6
 ControlFlow	Plant::Fill::<ControlFlow>	_f7
+ControlFlow	Plant::Fill::<ControlFlow>	_f8
+ControlFlow	Plant::Fill::<ControlFlow>	_f9
 InitialNode	Plant::Fill::<InitialNode>	_init	-> start
+ActivityPartition	Plant::Fill::Controller	_deep	(the partition represents the context's part site.control.rack.controller, a Controller)
 ActivityPartition	Plant::Fill::Idle	_idle	(the partition represents the context's tank, read as this.tank)
+ActivityPartition	Plant::Fill::Led	_ledlane	(the partition represents Controller::led, read as this.site.control.rack.controller.led)
 ActivityPartition	Plant::Fill::Plant	_self	(the partition represents the context object itself, a Plant)
 ActivityPartition	Plant::Fill::Pump	_pumps	(the partition represents the context's pump, read as this.pump; 'torn' it holds are also in a partition representing another object, so names in them resolve through no partition)
 ActivityPartition	Plant::Fill::Tank	_outer	(the partition represents the context's tank, read as this.tank; 'torn' it holds are also in a partition representing another object, so names in them resolve through no partition)
 ActivityPartition	Plant::Fill::Tank::Valve	_inner	(the partition represents valve of the enclosing partition's object, read as this.tank.valve)
+OpaqueAction	Plant::Fill::arm	_arm	-> arm	(the JavaScript body is translated to v2; names resolve against the context's part site.control.rack.controller, a Controller)
 OpaqueAction	Plant::Fill::count run	_count	-> 'count run'	(the JavaScript body is translated to v2; names resolve against the context object itself, a Plant)
 OpaqueAction	Plant::Fill::fill tank	_fillv	-> 'fill tank'	(the JavaScript body is translated to v2; names resolve against the context's tank, read as this.tank)
 OpaqueAction	Plant::Fill::free	_free	-> free	(the JavaScript body is translated to v2)
+OpaqueAction	Plant::Fill::light	_light	-> light	(the JavaScript body is translated to v2; names resolve against Controller::led, read as this.site.control.rack.controller.led)
 OpaqueAction	Plant::Fill::lost	_lost	-> lost	(the JavaScript body is translated to v2)
 OpaqueAction	Plant::Fill::note level	_note	-> 'note level'	(the JavaScript body is translated to v2)
 OpaqueAction	Plant::Fill::open valve	_openv	-> 'open valve'	(the JavaScript body is translated to v2; names resolve against valve of the enclosing partition's object, read as this.tank.valve)
@@ -38,9 +51,14 @@ OpaqueAction	Plant::Fill::twice	_twice	-> twice	(the JavaScript body is translat
 Property	Plant::level	_level	-> Plant::level
 Property	Plant::pump	_ppump	-> Plant::pump
 Property	Plant::runs	_runs	-> Plant::runs
+Property	Plant::site	_psite	-> Plant::site
 Property	Plant::tank	_ptank	-> Plant::tank
 «Block» Class	Pump	_pump	-> Pump
 Property	Pump::on	_on	-> Pump::on
+«Block» Class	Rack	_rack	-> Rack
+Property	Rack::controller	_rcontroller	-> Rack::controller
+«Block» Class	Site	_site	-> Site
+Property	Site::control	_scontrol	-> Site::control
 «Block» Class	Tank	_tank	-> Tank
 Property	Tank::valve	_tvalve	-> Tank::valve
 Property	Tank::volume	_volume	-> Tank::volume

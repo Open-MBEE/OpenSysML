@@ -224,7 +224,7 @@ func (m *migration) resolveLane(l *lane, ctx *xmi.Element) {
 			l.plural = manyValued(r)
 			l.note = "the partition represents the context's " + m.nameOf(r) + ", read as " + l.expr
 		default:
-			if path, plural := m.partPath(ctx, owner, 3); path != "" {
+			if path, plural := m.partPath(ctx, owner); path != "" {
 				l.expr = "this." + path + "." + name
 				l.plural = plural || manyValued(r)
 				l.note = "the partition represents " + qualifiedName(r) + ", read as " + l.expr
@@ -253,7 +253,7 @@ func (m *migration) resolveLane(l *lane, ctx *xmi.Element) {
 		l.expr = "this"
 		l.note = "the partition represents the context object itself, a " + qualifiedName(r)
 	default:
-		if path, plural := m.partPath(ctx, r, 3); path != "" {
+		if path, plural := m.partPath(ctx, r); path != "" {
 			l.expr, l.plural = "this."+path, plural
 			l.note = "the partition represents the context's part " + path + ", a " + qualifiedName(r)
 		} else {
@@ -265,52 +265,85 @@ func (m *migration) resolveLane(l *lane, ctx *xmi.Element) {
 	}
 }
 
-// partPath finds the one chain of parts from classifier c to an object of
-// classifier target, at most depth parts long; "" when none or several exist.
-// plural reports whether any part on the chain holds several objects.
-func (m *migration) partPath(c, target *xmi.Element, depth int) (path string, plural bool) {
-	var found []string
-	var many []bool
-	seen := map[*xmi.Element]bool{c: true}
-	var walk func(t *xmi.Element, prefix string, plural bool, left int)
-	walk = func(t *xmi.Element, prefix string, plural bool, left int) {
-		if left == 0 || len(found) > 1 {
-			return
-		}
-		visible, _ := m.membersOf(t, memberAny)
-		names := make([]string, 0, len(visible))
-		for name := range visible {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-		for _, name := range names {
-			p := visible[name]
-			if p.Type != "Property" || p.Attrs["aggregation"] != "composite" {
-				continue
-			}
-			pt := m.model.Ref(p, "type")
-			if pt == nil || pt.IsProxy() {
-				continue
-			}
-			path := prefix + writeName(name)
-			plural := plural || manyValued(p)
-			if pt == target || m.inherits(pt, target) {
-				found = append(found, path)
-				many = append(many, plural)
-				continue
-			}
-			if !seen[pt] {
-				seen[pt] = true
-				walk(pt, path+".", plural, left-1)
-				delete(seen, pt)
-			}
-		}
-	}
-	walk(c, "", false, depth)
-	if len(found) == 1 {
-		return found[0], many[0]
+// partPath finds the one chain of composite parts, of any length, from
+// classifier c to an object of classifier target; "" when none or several
+// exist. plural reports whether any part on the chain holds several objects.
+func (m *migration) partPath(c, target *xmi.Element) (path string, plural bool) {
+	r := m.partRoutes(c, target, map[*xmi.Element]bool{})
+	if r.count == 1 {
+		return r.path, r.plural
 	}
 	return "", false
+}
+
+// partRoute counts the chains of composite parts from one classifier to a
+// target, capped at two, and keeps the chain when there is exactly one.
+type partRoute struct {
+	count  int
+	path   string
+	plural bool
+	cut    bool // a chain was cut at a classifier already on the walk, so count depends on the walk
+}
+
+func (r *partRoute) add(path string, plural bool) {
+	if r.count == 0 {
+		r.path, r.plural = path, plural
+	}
+	r.count = min(r.count+1, 2)
+}
+
+// partRoutes walks the composite parts of t, memoizing each classifier's
+// routes to target once its count cannot depend on how it was reached.
+func (m *migration) partRoutes(t, target *xmi.Element, onWalk map[*xmi.Element]bool) partRoute {
+	key := [2]*xmi.Element{t, target}
+	if r, ok := m.routes[key]; ok {
+		return r
+	}
+	var r partRoute
+	onWalk[t] = true
+	visible, _ := m.membersOf(t, memberAny)
+	names := make([]string, 0, len(visible))
+	for name := range visible {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		if r.count == 2 {
+			break
+		}
+		p := visible[name]
+		if p.Type != "Property" || p.Attrs["aggregation"] != "composite" {
+			continue
+		}
+		pt := m.model.Ref(p, "type")
+		if pt == nil || pt.IsProxy() {
+			continue
+		}
+		step, many := writeName(name), manyValued(p)
+		switch {
+		case pt == target || m.inherits(pt, target):
+			r.add(step, many)
+		case onWalk[pt]:
+			r.cut = true
+		default:
+			sub := m.partRoutes(pt, target, onWalk)
+			r.cut = r.cut || sub.cut
+			switch sub.count {
+			case 1:
+				r.add(step+"."+sub.path, many || sub.plural)
+			case 2:
+				r.count = 2
+			}
+		}
+	}
+	delete(onWalk, t)
+	if r.count == 2 {
+		r.cut = false
+	}
+	if !r.cut {
+		m.routes[key] = r
+	}
+	return r
 }
 
 // contextClassifier is the classifier whose object is `this` inside e: the

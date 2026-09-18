@@ -103,6 +103,8 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 // differ, resolves through neither, and so does the guard of an edge leaving
 // it, though the edge's target resolves; a node in a dimension and a lane
 // representing nothing, or two lanes representing the same object, resolves.
+// A lane representing a classifier, or a property of one, four and five
+// composite parts below the context resolves through the whole chain.
 func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 	r := migrateXMI(t, "plant")
 	for _, line := range []string{
@@ -114,6 +116,8 @@ func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 		"assign this.level := this.level + this.tank.volume;",
 		"assign this.pump.on := true;",
 		"assign this.tank.volume := this.tank.volume + 1;",
+		"assign this.site.control.rack.controller.status := true;",
+		"assign this.site.control.rack.controller.led.lit := true;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -136,10 +140,19 @@ func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 	wantNote(t, r, "_openv", migrate.Mapped, "names resolve against valve of the enclosing partition's object, read as this.tank.valve")
 	wantNote(t, r, "_note", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_free", migrate.Mapped, "the JavaScript body is translated to v2")
+	wantNote(t, r, "_deep", migrate.Mapped, "the partition represents the context's part site.control.rack.controller, a Controller")
+	wantNote(t, r, "_ledlane", migrate.Mapped, "the partition represents Controller::led, read as this.site.control.rack.controller.led")
+	wantNote(t, r, "_arm", migrate.Mapped, "names resolve against the context's part site.control.rack.controller, a Controller")
+	wantNote(t, r, "_light", migrate.Mapped, "names resolve against Controller::led, read as this.site.control.rack.controller.led")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Plant")
 	wantVerdict(t, s.RunAction("Plant::Fill", "Plant"))
+	for _, path := range []string{"site.control.rack.controller.status", "site.control.rack.controller.led.lit"} {
+		if got := meta(t, s, "%eval in #1 : "+path); !strings.HasSuffix(got, "= true") {
+			t.Errorf("%s not assigned through the deep lane:\n%s", path, got)
+		}
+	}
 	runs := strings.Join(s.RunRuns("Plant::Fill", []string{"Plant"}, 1, 1, []string{"this.level", "this.runs"}).Lines, "\n")
 	for _, want := range []string{"this.level: 1 run(s), min 9.0", "this.runs: 1 run(s), min 1"} {
 		if !strings.Contains(runs, want) {

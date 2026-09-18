@@ -21,7 +21,28 @@
         <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_on0" value="false"/>
       </ownedAttribute>
     </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_led" name="Led">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_lit" name="lit"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_lit0" value="false"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_controller" name="Controller">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_status" name="status"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_status0" value="false"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_cled" name="led" type="_led" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_rack" name="Rack">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rcontroller" name="controller" type="_controller" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_control" name="Control">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_crack" name="rack" type="_rack" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_site" name="Site">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_scontrol" name="control" type="_control" aggregation="composite"/>
+    </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_plant" name="Plant">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_psite" name="site" type="_site" aggregation="composite"/>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_ptank" name="tank" type="_tank" aggregation="composite"/>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_ppump" name="pump" type="_pump" aggregation="composite"/>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_level" name="level"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
@@ -40,6 +61,8 @@
         <group xmi:type="uml:ActivityPartition" xmi:id="_idle" name="Idle" represents="_ptank" node="_twice"/>
         <group xmi:type="uml:ActivityPartition" xmi:id="_spare" name="Spare" represents="_ptank"/>
         <group xmi:type="uml:ActivityPartition" xmi:id="_pumps" name="Pump" represents="_ppump" node="_torn _prime" isDimension="true"/>
+        <group xmi:type="uml:ActivityPartition" xmi:id="_deep" name="Controller" represents="_controller" node="_arm"/>
+        <group xmi:type="uml:ActivityPartition" xmi:id="_ledlane" name="Led" represents="_cled" node="_light"/>
         <node xmi:type="uml:InitialNode" xmi:id="_init"/>
         <node xmi:type="uml:OpaqueAction" xmi:id="_openv" name="open valve">
           <language>JavaScript</language>
@@ -81,6 +104,14 @@
           <language>JavaScript</language>
           <body>level = level + tank.volume;</body>
         </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_arm" name="arm">
+          <language>JavaScript</language>
+          <body>status = true;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_light" name="light">
+          <language>JavaScript</language>
+          <body>lit = true;</body>
+        </node>
         <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f1" source="_init" target="_openv"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f2" source="_openv" target="_fillv"/>
@@ -96,7 +127,9 @@
         <edge xmi:type="uml:ControlFlow" xmi:id="_f4" source="_count" target="_note"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f5" source="_note" target="_lost"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f6" source="_lost" target="_free"/>
-        <edge xmi:type="uml:ControlFlow" xmi:id="_f7" source="_free" target="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f7" source="_free" target="_arm"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f8" source="_arm" target="_light"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f9" source="_light" target="_final"/>
       </ownedBehavior>
     </packagedElement>
   </uml:Model>
@@ -105,4 +138,9 @@
   <sysml:Block xmi:id="_s2" base_Class="_tank"/>
   <sysml:Block xmi:id="_s3" base_Class="_valve"/>
   <sysml:Block xmi:id="_s4" base_Class="_pump"/>
+  <sysml:Block xmi:id="_s5" base_Class="_site"/>
+  <sysml:Block xmi:id="_s6" base_Class="_control"/>
+  <sysml:Block xmi:id="_s7" base_Class="_rack"/>
+  <sysml:Block xmi:id="_s8" base_Class="_controller"/>
+  <sysml:Block xmi:id="_s9" base_Class="_led"/>
 </xmi:XMI>

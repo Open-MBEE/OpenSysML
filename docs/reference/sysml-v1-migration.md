@@ -220,8 +220,11 @@ block names the object whose features the nodes inside it read and write: a body
 the partition of the part `tcs` is `assign this.tcs.i := 1;`, and a guard `GS_Found` on an
 edge whose source sits in that partition is `if this.tcs.GS_Found`. Names are looked up in the
 represented object first, then among the activity's own parameters and locals, then in the
-owning block; a nested partition reads through its enclosing ones (`this.tank.valve.open`), and
-a partition representing the context block itself reads `this`. A node in no partition, and a
+owning block; a nested partition reads through its enclosing ones (`this.tank.valve.open`), a
+partition representing the context block itself reads `this`, and one representing a classifier,
+or a property of one, that the context holds only through a chain of composite parts reads
+through the whole chain, however long (`this.site.control.rack.controller.status`), when exactly
+one such chain exists. A node in no partition, and a
 partition whose `represents` is unset, names an id the document does not define, a property
 with no v2 type, or a classifier the activity does not run in, fall back to the activity and
 its block, and the partition's report line says which of these it is. A node held by two

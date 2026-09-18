@@ -8,7 +8,24 @@ part def Tank {
 part def Pump {
     attribute on : ScalarValues::Boolean default = false;
 }
+part def Led {
+    attribute lit : ScalarValues::Boolean default = false;
+}
+part def Controller {
+    attribute status : ScalarValues::Boolean default = false;
+    part led : Led;
+}
+part def Rack {
+    part controller : Controller;
+}
+part def Control {
+    part rack : Rack;
+}
+part def Site {
+    part control : Control;
+}
 part def Plant {
+    part site : Site;
     part tank : Tank;
     part pump : Pump;
     attribute level : ScalarValues::Real default = 0.0;
@@ -53,7 +70,15 @@ part def Plant {
         action free {
             assign this.level := this.level + this.tank.volume;
         }
-        first free then final;
+        first free then arm;
+        action arm {
+            assign this.site.control.rack.controller.status := true;
+        }
+        first arm then light;
+        action light {
+            assign this.site.control.rack.controller.led.lit := true;
+        }
+        first light then final;
         action final terminate;
         /* partition 'Tank' represents Plant::tank: fill tank, torn, twice */
         /* partition 'Valve' in 'Tank' represents Tank::valve: open valve */
@@ -63,5 +88,7 @@ part def Plant {
         /* partition 'Idle' represents Plant::tank: twice */
         /* partition 'Spare' represents Plant::tank */
         /* partition 'Pump' represents Plant::pump: torn, prime */
+        /* partition 'Controller' represents Controller: arm */
+        /* partition 'Led' represents Controller::led: light */
     }
 }
