@@ -163,7 +163,7 @@ package OpenSysMLSurfaces {
     // A fix carries the edit that applies it and points at the diagnostic it
     // answers; a diagnostic with no unambiguous repair offers none.
     part def QuickFixer :> CodeUnit {
-        attribute :>> goPackage = "internal/core/quickfix";
+        attribute :>> goPackage = "internal/core/diag";
         attribute editsAttached : Boolean = true;
         in item findings : Diagnostic;
         out item fixes : QuickFix;
