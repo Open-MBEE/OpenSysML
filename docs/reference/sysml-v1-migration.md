@@ -320,7 +320,7 @@ translation is always complete or absent — never partial.
 | `a`, `a.b.c` naming features that resolve | `this.a`, `this.a.b.c` (through the swimlane's object when it has one) |
 | `+ - * / %`, comparisons, `&& \|\| !`, parentheses | `+ - * / %`, comparisons, `and or not`, parentheses; a Java body's `/` of two whole numbers drops the remainder, so it is `RealFunctions::floor((x - x % y) / y)`, and is refused when the operands' types cannot tell whether both are whole |
 | `c ? a : b` | `if c ? a else b` when `a` and `b` are of one scalar type |
-| `Math.min` `Math.max` `Math.abs` `Math.floor` `Math.ceil` `Math.round` `Math.sqrt` `Math.pow` | `RealFunctions::min` … `RealFunctions::sqrt`, `**`; `Math.ceil(x)` is `-RealFunctions::floor(-x)` and `Math.round(x)` is `RealFunctions::floor(x + 0.5)`, which rounds a half toward +∞ as JavaScript does |
+| `Math.min` `Math.max` `Math.abs` `Math.floor` `Math.ceil` `Math.round` `Math.sqrt` `Math.pow`, `a ** b` | `RealFunctions::min` … `RealFunctions::sqrt`, `**`; `Math.ceil(x)` is `-RealFunctions::floor(-x)` and `Math.round(x)` is `RealFunctions::floor(x + 0.5)`, which rounds a half toward +∞ as JavaScript does; `-a ** b` is refused, as JavaScript rejects a unary operand of `**` without parentheses, and a Java body's `**` is refused, Java having no such operator |
 | `java.util.Collections.max(s)` / `.min(s)` | `RealFunctions::max(s)` / `RealFunctions::min(s)` over a collection |
 | the tool's time variable (`simtime`) | `localClock.currentTime` |
 
@@ -345,7 +345,8 @@ the refusal is final, and the body is a comment.
 
 A translation is emitted only when every name resolves to a written feature visible where the
 statement lands, the scalar types agree wherever they can be told (a guard is `Boolean`, an
-assignment fits its target, a duration is `Real`), and the result parses with the v2 parser.
+assignment fits its target, the value of a typed pin or result is of the pin's scalar type, a
+duration is `Real`), and the result parses with the v2 parser.
 
 ## The report
 

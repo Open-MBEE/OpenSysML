@@ -31,6 +31,30 @@
       <ownedAttribute xmi:type="uml:Property" xmi:id="_ratio" name="ratio"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
         <defaultValue xmi:type="uml:LiteralReal" xmi:id="_ratio0" value="0.0"/>
       </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_gain" name="gain"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_gain0">
+          <language>JavaScript</language>
+          <body>total(count)</body>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_tag" name="tag"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_tag0">
+          <language>JavaScript</language>
+          <body>label + "!"</body>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_square" name="square"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_square0">
+          <language>JavaScript</language>
+          <body>-total ** 2</body>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_cube" name="cube"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_cube0">
+          <language>JavaScript</language>
+          <body>-(total ** 3)</body>
+        </defaultValue>
+      </ownedAttribute>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_measure" name="Measure">
         <node xmi:type="uml:InitialNode" xmi:id="_init"/>
         <node xmi:type="uml:OpaqueAction" xmi:id="_sense" name="sense">
@@ -50,11 +74,34 @@
           <language>Java</language>
           <body>half = ticks / 2; ratio = total / 2;</body>
         </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_judge" name="judge">
+          <inputValue xmi:type="uml:ValuePin" xmi:id="_judgeok" name="ok"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+            <value xmi:type="uml:OpaqueExpression" xmi:id="_judgeok0">
+              <language>JavaScript</language>
+              <body>Math.sqrt(total)</body>
+            </value>
+          </inputValue>
+          <inputValue xmi:type="uml:ValuePin" xmi:id="_judgen" name="n"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+            <value xmi:type="uml:OpaqueExpression" xmi:id="_judgen0">
+              <language>JavaScript</language>
+              <body>Math.floor(total)</body>
+            </value>
+          </inputValue>
+          <inputValue xmi:type="uml:ValuePin" xmi:id="_judgem" name="m"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+            <value xmi:type="uml:OpaqueExpression" xmi:id="_judgem0">
+              <language>JavaScript</language>
+              <body>2.0</body>
+            </value>
+          </inputValue>
+          <language>JavaScript</language>
+          <body>count = n + m;</body>
+        </node>
         <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_c1" source="_init" target="_sense"/>
         <edge xmi:type="uml:ObjectFlow" xmi:id="_o1" source="_sensey" target="_recordv"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_c2" source="_record" target="_split"/>
-        <edge xmi:type="uml:ControlFlow" xmi:id="_c3" source="_split" target="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c3" source="_split" target="_judge"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c4" source="_judge" target="_final"/>
       </ownedBehavior>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_skip" name="Skip">
         <node xmi:type="uml:InitialNode" xmi:id="_sinit"/>

@@ -231,6 +231,17 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	wantNoLine(t, r.Notation, "flow idle.z to sink.w;")
 	wantNoLine(t, r.Notation, "flow dark.q to drain.w;")
 	wantClean(t, "t.sysml", r)
+	wantNote(t, r, "_judgeok", migrate.Approximated, `the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted`)
+	wantNote(t, r, "_judgen", migrate.Mapped, "")
+	wantNote(t, r, "_judgem", migrate.Mapped, "")
+	for _, line := range []string{
+		"in ok : ScalarValues::Boolean;",
+		"in n : ScalarValues::Integer = RealFunctions::floor(this.total);",
+		"in m : ScalarValues::Integer = 2;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "in ok : ScalarValues::Boolean = RealFunctions::sqrt(this.total);")
 	wantNote(t, r, "_sense", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_o1", migrate.Mapped, "")
 	wantNote(t, r, "_split", migrate.Mapped, "the Java body is translated to v2")
@@ -254,16 +265,26 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 // non-scalar type, is refused with both types named, while a value of a type
 // specializing the target's is assigned. A JavaScript whole number
 // beyond what its Number holds exactly is refused; one within it, and a string
-// spelling a character as a UTF-16 surrogate pair, are translated.
+// spelling a character as a UTF-16 surrogate pair, are translated. A default
+// in a language the translator reads is refused with it, never read as v2
+// even when its text is v2 syntax over visible names: a call outside the
+// table, string concatenation, and the `-x ** y` JavaScript itself rejects.
 func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 	r := migrateXMI(t, "meter")
 	for _, line := range []string{
 		`assign this.label := "` + "\U0001F600" + `";`,
 		"assign this.count := 9007199254740991;",
 		"assign this.dial := this.hand;",
+		"attribute cube : ScalarValues::Real default = -(total ** 3);",
+		`/* default value not migrated: {JavaScript} total(count) — the call "total" is not in the translated function table */`,
+		`/* default value not migrated: {JavaScript} label + "!" — the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset */`,
+		"/* default value not migrated: {JavaScript} -total ** 2 — the construct \"-total **\" is outside the translated subset: JavaScript parenthesizes a unary operand of `**` */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
+	wantNoLine(t, r.Notation, "default = total(count);")
+	wantNoLine(t, r.Notation, `default = label + "!";`)
+	wantNoLine(t, r.Notation, "default = -total ** 2;")
 	wantNoLine(t, r.Notation, "assign this.hand := this.dial;")
 	wantNoLine(t, r.Notation, "assign this.count := this.mode + 1;")
 	wantNoLine(t, r.Notation, "assign this.count := this.mode;")

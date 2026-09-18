@@ -14,6 +14,16 @@ part def Meter {
     attribute ticks : ScalarValues::Integer default = 7;
     attribute half : ScalarValues::Integer default = 0;
     attribute ratio : ScalarValues::Real default = 0.0;
+    attribute gain : ScalarValues::Real {
+        /* default value not migrated: {JavaScript} total(count) — the call "total" is not in the translated function table */
+    }
+    attribute tag : ScalarValues::String {
+        /* default value not migrated: {JavaScript} label + "!" — the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset */
+    }
+    attribute square : ScalarValues::Real {
+        /* default value not migrated: {JavaScript} -total ** 2 — the construct "-total **" is outside the translated subset: JavaScript parenthesizes a unary operand of `**` */
+    }
+    attribute cube : ScalarValues::Real default = -(total ** 3);
     action def Measure {
         first start then sense;
         action sense {
@@ -31,7 +41,14 @@ part def Meter {
             assign this.half := RealFunctions::floor((this.ticks - this.ticks % 2) / 2);
             assign this.ratio := this.total / 2;
         }
-        first split then final;
+        first split then judge;
+        action judge {
+            in ok : ScalarValues::Boolean;
+            in n : ScalarValues::Integer = RealFunctions::floor(this.total);
+            in m : ScalarValues::Integer = 2;
+            assign this.count := n + m;
+        }
+        first judge then final;
         action final terminate;
         flow sense.y to record.v;
     }

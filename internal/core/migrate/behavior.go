@@ -255,12 +255,16 @@ func (m *migration) behaviorValue(v, scope *xmi.Element) (expr string, ok bool, 
 }
 
 // typedBehaviorValue writes v as the value of feature f, read inside scope: a
-// literal, opaque or not, is checked against the type f holds.
+// translated body must yield the scalar f holds, and a literal, opaque or
+// not, is checked against that type.
 func (m *migration) typedBehaviorValue(v, f, scope *xmi.Element) (expr string, ok bool, note string) {
 	if v.Type != "OpaqueExpression" {
 		return m.featureValue(v, f, scope)
 	}
-	expr, ok, note = m.behaviorValue(v, scope)
+	t := m.model.Ref(f, "type")
+	sv := m.scalarBase(t)
+	body, lang := opaqueBody(v)
+	expr, ok, note = m.behaviorExprAs(body, lang, scope, sv)
 	if !ok {
 		return expr, ok, note
 	}
@@ -268,8 +272,6 @@ func (m *migration) typedBehaviorValue(v, f, scope *xmi.Element) (expr string, o
 	if kind == "" {
 		return expr, ok, note
 	}
-	t := m.model.Ref(f, "type")
-	sv := m.scalarBase(t)
 	if sv == "" {
 		if m.structuredValueType(t) || m.written(t) {
 			return "", false, "the literal " + expr + " is not a value of " + qualifiedName(t) + ", which has no scalar base"

@@ -96,6 +96,10 @@ func TestTranslateExpr(t *testing.T) {
 		{"JavaScript", "Math.ceil(t)", "", "-RealFunctions::floor(-this.t)", "Integer"},
 		{"JavaScript", "Math.sqrt(t)", "", "RealFunctions::sqrt(this.t)", "Real"},
 		{"JavaScript", "Math.pow(t, 2)", "", "this.t ** 2", "Real"},
+		{"JavaScript", "(-t) ** 2", "", "(-this.t) ** 2", "Real"},
+		{"JavaScript", "-(t ** 2)", "", "-(this.t ** 2)", "Real"},
+		{"JavaScript", "2 ** -i", "", "2 ** -this.i", "Real"},
+		{"JavaScript", "1", "Natural", "1", "Integer"},
 		{"Java", "java.util.Collections.max(xs)", "", "this.xs->ControlFunctions::reduce { in x; in y; RealFunctions::max(x, y) }", "Real"},
 		{"Java", "i / Retries", "", "RealFunctions::floor((this.i - this.i % this.Retries) / this.Retries)", "Integer"},
 		{"Java", "(i + 1) / 2 * 3", "", "RealFunctions::floor(((this.i + 1) - (this.i + 1) % 2) / 2) * 3", "Integer"},
@@ -301,12 +305,23 @@ func TestTranslateRefusals(t *testing.T) {
 		{"JavaScript", "GS_Found = i", true, refusedType, "GS_Found ="},
 		{"JavaScript", "", true, refusedSyntax, ""},
 		{"JavaScript", "TRUE", false, refusedName, "TRUE"},
+		{"JavaScript", "-t ** 2", false, refusedConstruct, "-t **"},
+		{"JavaScript", "-2 ** 2", false, refusedConstruct, "-2 **"},
+		{"JavaScript", "+t ** 2", false, refusedConstruct, "+t **"},
+		{"JavaScript", "!GS_Found ** 2", false, refusedConstruct, "not GS_Found **"},
+		{"JavaScript", "2 * -t ** 2", false, refusedConstruct, "-t **"},
+		{"Java", "t ** 2", false, refusedConstruct, "**"},
+		{"JavaScript", "Math.sqrt(t)", false, refusedType, "Math.sqrt(t)"},
+		{"JavaScript", "-1", false, refusedType, "-1"},
 	}
 	for _, c := range cases {
 		var err *refusal
 		want := ""
-		if c.body == "Retries" || c.body == "state" {
+		switch c.body {
+		case "Retries", "state", "Math.sqrt(t)":
 			want = "Boolean"
+		case "-1":
+			want = "Natural"
 		}
 		if c.statements {
 			_, err = translateStatements(c.body, c.lang, testScope)

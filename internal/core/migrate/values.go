@@ -89,6 +89,9 @@ func (m *migration) valueExprAs(v, scope *xmi.Element, want string) (expr string
 				m.noted(valueOwner(v, scope), note)
 				return expr, true, ""
 			}
+			if refused.final(lang) {
+				return "", false, refused.note()
+			}
 		}
 		refs, ok := exprRefs(body)
 		if !ok {

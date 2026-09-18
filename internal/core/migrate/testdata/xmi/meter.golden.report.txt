@@ -1,19 +1,23 @@
 # SysML v1 to v2 migration report: meter.xmi
-# migrated 60 element(s): 50 mapped, 10 approximated, 0 unmapped (0 skipped as profile or library content)
+# migrated 69 element(s): 55 mapped, 14 approximated, 0 unmapped (0 skipped as profile or library content)
 
-## approximated (10)
+## approximated (14)
 OpaqueAction	Meter::Flip::bump	_bump	-> bump	(the body is kept as a comment: the types at "+" disagree: an operand is a Mode, not a number)
 OpaqueAction	Meter::Flip::huge	_huge	-> huge	(the body is kept as a comment: the construct "9007199254740993" is outside the translated subset: a script rounds a whole number beyond 9007199254740991 to the nearest floating-point value)
 OpaqueAction	Meter::Flip::match	_match	-> match	(the body is kept as a comment: the types at "mode =" disagree: a Gauge is assigned to the Mode mode holds)
 OpaqueAction	Meter::Flip::narrow	_narrow	-> narrow	(the body is kept as a comment: the types at "hand =" disagree: a Gauge is assigned to the Needle hand holds)
 OpaqueAction	Meter::Flip::pick	_pick	-> pick	(the body is kept as a comment: the types at "count =" disagree: a Mode is assigned to the Integer count holds)
+ValuePin	Meter::Measure::judge::ok	_judgeok	-> Meter::Measure::judge.ok	(the value pin's value {JavaScript} Math.sqrt(total) is not written: the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted)
 ObjectFlow	Meter::Skip::<ObjectFlow>	_o2	(the flow is kept as a comment: the body of 'idle' never assigns 'z', so no value leaves it)
 ObjectFlow	Meter::Skip::<ObjectFlow>	_o3	(the flow is kept as a comment: its source 'dark' is not migrated, so no value reaches 'q')
 OpaqueAction	Meter::Skip::dark	_dark	-> dark	(the body is kept as a comment: the statement assigns q, which nothing visible from Meter::Skip::dark is called (language Python))
 OpaqueAction	Meter::Skip::drain	_drain	-> drain	(the JavaScript body is translated to v2; its input drain.w receives no value, since 'dark' is not migrated; the action cannot be performed until one is bound)
 OpaqueAction	Meter::Skip::sink	_sink	-> sink	(the JavaScript body is translated to v2; its input sink.w receives no value, since the body of 'idle' never assigns idle.z; the action cannot be performed until one is bound)
+Property	Meter::gain	_gain	-> Meter::gain	(default value not migrated: the call "total" is not in the translated function table)
+Property	Meter::square	_square	-> Meter::square	(default value not migrated: the construct "-total **" is outside the translated subset: JavaScript parenthesizes a unary operand of `**`)
+Property	Meter::tag	_tag	-> Meter::tag	(default value not migrated: the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset)
 
-## mapped (50)
+## mapped (55)
 «Block» Class	Gauge	_gauge	-> Gauge
 «Block» Class	Meter	_meter	-> Meter
 Activity	Meter::Flip	_flip	-> Meter::Flip
@@ -32,8 +36,12 @@ Activity	Meter::Measure	_measure	-> Meter::Measure
 ActivityFinalNode	Meter::Measure::<ActivityFinalNode>	_final	-> final
 ControlFlow	Meter::Measure::<ControlFlow>	_c2
 ControlFlow	Meter::Measure::<ControlFlow>	_c3
+ControlFlow	Meter::Measure::<ControlFlow>	_c4
 InitialNode	Meter::Measure::<InitialNode>	_init	-> start
 ObjectFlow	Meter::Measure::<ObjectFlow>	_o1
+OpaqueAction	Meter::Measure::judge	_judge	-> judge	(the JavaScript body is translated to v2)
+ValuePin	Meter::Measure::judge::m	_judgem	-> Meter::Measure::judge.m
+ValuePin	Meter::Measure::judge::n	_judgen	-> Meter::Measure::judge.n
 OpaqueAction	Meter::Measure::record	_record	-> record	(the JavaScript body is translated to v2)
 InputPin	Meter::Measure::record::v	_recordv	-> Meter::Measure::record.v
 OpaqueAction	Meter::Measure::sense	_sense	-> sense	(the JavaScript body is translated to v2)
@@ -51,6 +59,7 @@ OpaqueAction	Meter::Skip::idle	_idle	-> idle	(the JavaScript body is translated 
 OutputPin	Meter::Skip::idle::z	_idlez	-> Meter::Skip::idle.z
 InputPin	Meter::Skip::sink::w	_sinkw	-> Meter::Skip::sink.w
 Property	Meter::count	_count	-> Meter::count
+Property	Meter::cube	_cube	-> Meter::cube	(the JavaScript body is translated to v2)
 Property	Meter::dial	_dial	-> Meter::dial
 Property	Meter::half	_half	-> Meter::half
 Property	Meter::hand	_hand	-> Meter::hand

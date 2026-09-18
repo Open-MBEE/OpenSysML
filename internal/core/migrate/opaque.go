@@ -956,13 +956,27 @@ func (p *opaqueParser) multiplicative() (translated, *refusal) {
 }
 
 // power reads `a ** b`, which binds tighter than the unary operators do in v2.
+// JavaScript has no `-a ** b`: a unary operand of `**` must be parenthesized,
+// so the unparenthesized form is refused rather than read as v2's `-(a ** b)`.
 func (p *opaqueParser) power() (translated, *refusal) {
+	prefix := p.peek(true)
 	left, err := p.unary()
 	if err != nil {
 		return translated{}, err
 	}
 	if !p.peek(true).isPunct("**") {
 		return left, nil
+	}
+	if p.d == dialectJava {
+		return translated{}, &refusal{kind: refusedConstruct, token: "**", why: "Java has no exponentiation operator"}
+	}
+	if p.unaryPrefix(prefix) {
+		token := left.expr
+		if prefix.text == "+" {
+			token = "+" + token
+		}
+		return translated{}, &refusal{kind: refusedConstruct, token: token + " **",
+			why: "JavaScript parenthesizes a unary operand of `**`"}
 	}
 	p.next(true)
 	right, err := p.power()
@@ -1071,6 +1085,11 @@ func (p *opaqueParser) unary() (translated, *refusal) {
 		return translated{}, &refusal{kind: refusedConstruct, token: tok.text, why: "counting inside an expression has no v2 form"}
 	}
 	return p.postfix()
+}
+
+// unaryPrefix reports whether tok opens a unary expression of the dialect.
+func (p *opaqueParser) unaryPrefix(tok token) bool {
+	return tok.isPunct("-") || tok.isPunct("+") || tok.isPunct("!") || (p.d == dialectEnglish && tok.word("not"))
 }
 
 // postfix reads a primary and what follows it: indexing and counting are refused.
@@ -1392,8 +1411,8 @@ func assignableScalar(scalar string, value translated) bool {
 		return true
 	case realScalar(scalar) && isNumeric(value.scalar):
 		return true
-	case wholeScalar(scalar) && value.lit == "real":
-		_, ok := scalarLiteral("real", value.expr, value.expr, scalar)
+	case wholeScalar(scalar) && (value.lit == "real" || value.lit == "integer"):
+		_, ok := scalarLiteral(value.lit, value.expr, value.expr, scalar)
 		return ok
 	}
 	return false
