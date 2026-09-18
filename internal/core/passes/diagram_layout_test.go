@@ -106,9 +106,8 @@ func TestDiagramLayoutOddRoutePointsOnAnUnnamedTransitionIsAnError(t *testing.T)
 		"an unnamed transition of state def P::Machine: Route binds 3 values", "x, y pairs")
 }
 
-// A binding the model cannot evaluate is the metadata annotation check's report,
-// a value of another type than the feature's the type checker's; a constant of the
-// right type that is still no geometry — null, a pair where one number is due — is reported here.
+// An unevaluable binding is the metadata check's report, a mistyped one the type checker's;
+// a constant of the right type that is still no geometry (null, an odd pair) is reported here.
 func TestDiagramLayoutNonConstantValueIsAnError(t *testing.T) {
 	unevaluable := layoutModel(`	part def Pump {
 		attribute offset : ScalarValues::Real;
