@@ -114,7 +114,7 @@ func drawTriangular(ctx *Context, name string, args []semantics.Value) (semantic
 
 // drawNormal is RandomFunctions::normal: a finite Real about mean with sd >= 0
 // (zero draws mean); a tail overflowing to infinity is drawn again. Its average is
-// mean; it has no least or greatest value, so `min` and `max` refuse it.
+// mean; with sd > 0 it has no least or greatest value, so `min` and `max` refuse it.
 func drawNormal(ctx *Context, name string, args []semantics.Value) (semantics.Value, error) {
 	mean, sd := asReal(args[0]), asReal(args[1])
 	if err := finiteBounds(name, args); err != nil {
@@ -138,7 +138,7 @@ func drawNormal(ctx *Context, name string, args []semantics.Value) (semantics.Va
 			return v.Kind == semantics.ValReal && !math.IsInf(v.Real, 0) && !math.IsNaN(v.Real)
 		},
 		fixed: func(policy DrawPolicy) (semantics.Value, bool) {
-			if policy == DrawAverage {
+			if policy == DrawAverage || sd == 0 {
 				return drawnReal(mean), true
 			}
 			return semantics.Value{}, false

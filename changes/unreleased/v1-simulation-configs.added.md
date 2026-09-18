@@ -2,8 +2,8 @@
   `%draws` state how every `RandomFunctions` call of a run resolves: `random` (the default) draws
   from the seed as before; `min`, `max` and `average` take each call's least, greatest or mean
   value — `uniform(1, 80)` is `1`, `80` or `40.5`; `uniformInteger(1, 6)` averages to `4`;
-  `triangular` to `(lo + mode + hi) / 3`; `normal` averages to its mean and has no `min` or
-  `max`, which is a typed error naming the call — and need no seed, so a random duration
+  `triangular` to `(lo + mode + hi) / 3`; `normal` averages to its mean and, unless its
+  deviation is zero, has no `min` or `max`, which is a typed error naming the call — and need no seed, so a random duration
   becomes a fixed one and `-runs`/`%runs` run without `-seed` under a fixed policy (`%runs <n>
   <action>`, the seed left out). Weighted decisions draw from the seed whatever the policy and
   take their most probable branch unseeded. The policy is a property of the run's context, so
@@ -39,4 +39,5 @@
   runs each configuration with its recorded run count and policy, or the ones given, and
   reports the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with the
   relative difference; a configuration with no stored snapshots, a stored observable no run
-  holds and a non-numeric one are reported, never left out. The numbers are reported as run.
+  holds and a non-numeric one are reported, never left out, and a run that fails fails the
+  comparison with its error under the table. The numbers are reported as run.

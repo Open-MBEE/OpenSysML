@@ -18,11 +18,16 @@ func TestPrefixMetadataBodyValueMustConformToTheRestatedFeature(t *testing.T) {
 			part worded { @Weight { p = label; } }
 			part judged { @Weight { p = flag; } }
 			part tagged { @Weight { tag = n; } }
+			part literal { @Weight { p = "heavy"; } }
+			part widened { @Weight { p = 1; tag = "x"; } }
+			part counted { @Weight { tag = 2; } }
 		}
 	}`,
 		"cannot bind String value to a feature typed by Real",
 		"cannot bind Boolean value to a feature typed by Real",
-		"cannot bind Integer value to a feature typed by String")
+		"cannot bind Integer value to a feature typed by String",
+		"cannot bind String value to a feature typed by Real",
+		"cannot bind Natural value to a feature typed by String")
 }
 
 // The `metadata m : M { ... }` form and an explicit `:>>` in the body are checked alike.

@@ -38,8 +38,6 @@ func (tc *typeChecker) checkMetadataUsageBody(scope *symbols.Scope, u *ast.Usage
 
 // checkMetadataBindings checks, at every depth of a metadata body whose type is
 // owner, that a value bound to a restated feature is of that feature's scalar type.
-// A value the model decides is left to whatever reads the annotation, which
-// judges it as the value it evaluates to; one only a run decides has no reader before then.
 func (tc *typeChecker) checkMetadataBindings(owner *symbols.Symbol, scope *symbols.Scope, body []ast.Node) {
 	if owner == nil {
 		return
@@ -59,9 +57,6 @@ func (tc *typeChecker) checkMetadataBindings(owner *symbols.Symbol, scope *symbo
 				want = tc.expr.model.PrimTypeOf(typ)
 			}
 			for _, element := range valueElements(usage.Value) {
-				if tc.expr.model.ModelLevelEvaluable(scope, element) {
-					continue
-				}
 				tc.expr.checkScalarBinding(element, tc.expr.silent().infer(scope, element), want)
 			}
 		}

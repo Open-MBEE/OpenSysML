@@ -147,8 +147,8 @@ func (s *Session) compareVerdict(cfg *migrate.ConfigurationResults, opts Compare
 		lines = append(lines, "note: "+n)
 	}
 	status := VerdictHolds
-	if completed == 0 {
-		status = VerdictUnresolved
+	if len(failures) > 0 {
+		status = VerdictFails
 	}
 	return standing(Verdict{Subject: label, Status: status, Lines: lines}, answered)
 }

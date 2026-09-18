@@ -13,6 +13,7 @@ import (
 // error, never a panic, a silent default or a hang.
 func TestRuntimeRobustnessDrawPolicy(t *testing.T) {
 	t.Run("normal_has_no_min_or_max", testNormalHasNoMinOrMax)
+	t.Run("degenerate_normal_is_its_mean_under_every_policy", testDegenerateNormalIsItsMeanUnderEveryPolicy)
 	t.Run("unbounded_timer_stops_the_run_where_it_parks", testUnboundedTimerStopsTheRunWhereItParks)
 	t.Run("unknown_policy_is_refused", testUnknownPolicyIsRefused)
 	t.Run("witness_draw_the_policy_cannot_make", testWitnessDrawThePolicyCannotMake)
@@ -57,6 +58,41 @@ func testNormalHasNoMinOrMax(t *testing.T) {
 	}
 	if got := realOut(t, out, "g"); got != 12 {
 		t.Errorf("g = %v under average, want the mean", got)
+	}
+}
+
+// testDegenerateNormalIsItsMeanUnderEveryPolicy: normal(mean, 0) draws mean and
+// nothing else, so min, max and average resolve it to mean, as a witness under min records.
+func testDegenerateNormalIsItsMeanUnderEveryPolicy(t *testing.T) {
+	m := parseLibraryModel(t, `
+		package test {
+			private import ScalarValues::*;
+			private import RandomFunctions::*;
+			action draw {
+				attribute g : Real = normal(5.0, 0.0);
+				first start; then done;
+			}
+		}`)
+	for _, policy := range []DrawPolicy{DrawRandom, DrawMin, DrawMax, DrawAverage} {
+		ctx, out, err := runUnderDraws(t, m, "draw", policy, 7)
+		if err != nil {
+			t.Fatalf("%s: %v", policy, err)
+		}
+		if got := realOut(t, out, "g"); got != 5 {
+			t.Errorf("g = %v under %s, want the mean", got, policy)
+		}
+		if draws := ctx.DrawsTaken(); len(draws) != 1 || draws[0].String() != "draw normal(5.0, 0.0) = 5.0" {
+			t.Errorf("%s recorded %v, want the one draw of the mean", policy, draws)
+		}
+	}
+	w, err := ParseWitness("draws by min\ndraw normal(5.0, 0.0) = 5.0\nno choice points\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	replay, _ := m.fresh()
+	mustSchedule(t, replay, ReplayOf(w))
+	if _, err := replay.ExecuteAction(m.action(t, "draw")); err != nil {
+		t.Errorf("replaying the witness under min: %v", err)
 	}
 }
 

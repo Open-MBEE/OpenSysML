@@ -1172,7 +1172,7 @@ second knob here too: every run resolves its concurrency choices under `-schedul
   count, and an external engine put a Monte Carlo answers with a claim, not the table of runs.
 - **A draw policy resolves `RandomFunctions` only.** `min`, `max` and `average` fix the
   durations and values the four functions return; a weighted decision draws from the seed under
-  every policy, and `normal` has no `min` or `max`. Exploration and the checker enumerate a
+  every policy, and `normal` has no `min` or `max` unless its deviation is zero. Exploration and the checker enumerate a
   weighted decision's branches whatever the policy.
 
 ### Behaviors migrated from SysML v1
