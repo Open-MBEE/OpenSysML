@@ -10,6 +10,7 @@ import {
   type RenderResult,
   type ToWebview,
 } from "../protocol";
+import { type DiagramStyle, pilotLook, STYLE_LABELS, STYLES, styleOf } from "../style";
 import { MenuCommand, MenuItem, nodeMenu, paletteItems } from "./actions";
 import { cssEscape, drawCanvas, liftNode } from "./canvas";
 import { dragHint, Drop, dropOn } from "./drop";
@@ -37,6 +38,7 @@ declare function acquireVsCodeApi(): WebviewApi;
 const vscode = acquireVsCodeApi();
 const body = document.body;
 const picker = document.getElementById("view") as HTMLSelectElement;
+const styler = document.getElementById("style") as HTMLSelectElement;
 const kindLabel = document.getElementById("kind") as HTMLElement;
 const status = document.getElementById("status") as HTMLElement;
 const diagram = document.getElementById("diagram") as HTMLElement;
@@ -48,10 +50,12 @@ const adder = document.getElementById("add") as HTMLSelectElement;
 const menu = document.getElementById("menu") as HTMLUListElement;
 
 const documentURI = (JSON.parse(body.dataset.state ?? "{}") as { uri?: string }).uri ?? "";
-const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult };
+const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult; style?: string };
 let selected = saved.view ?? "";
-// A rendering saved by an older extension is normalized like a fresh one.
+// A rendering saved by an older extension is normalized like a fresh one, and
+// drawn in the look it was, or the default when it saved none.
 let last: RenderResult | undefined = saved.last === undefined ? undefined : normalizeRender(saved.last);
+let style: DiagramStyle = styleOf(saved.style);
 let selectedNode: string | undefined;
 /** The layout on screen, which gestures act on; undefined while a table or nothing is shown. */
 let layout: CanvasLayout | undefined;
@@ -67,12 +71,21 @@ let paletteEntries: MenuItem[] = [];
 // The extension's number for the drawing shown; an action names the drawing its ids came from.
 let drawn = 0;
 
+fillStyles();
+applyStyle(style);
+
 // The panel is torn down while it is hidden, so the rendering it last drew is
 // put back — dimmed until the server answers — rather than showing nothing.
 if (last) {
   draw(last);
   diagram.classList.add("stale");
 }
+
+// The look changes at once; the extension keeps the choice and renders for its palette.
+styler.addEventListener("change", () => {
+  applyStyle(styleOf(styler.value));
+  vscode.postMessage({ type: "style", style });
+});
 
 picker.addEventListener("change", () => {
   selected = picker.value;
@@ -120,9 +133,16 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
       return;
     case "render":
       // The number names what is on screen; a drawing that failed left the last one up.
+      applyStyle(message.style);
       if (draw(message.result)) {
         drawn = message.drawn;
+        if (message.hint !== undefined) {
+          showHint(message.hint);
+        }
       }
+      return;
+    case "style":
+      applyStyle(message.style);
       return;
     case "error":
       showError(message.message);
@@ -156,6 +176,26 @@ function fillPicker(views: PickerEntry[], pick: string): void {
   }
   picker.value = pick;
   showUndrawable(views);
+}
+
+// fillStyles lists the looks the diagram can be drawn in.
+function fillStyles(): void {
+  styler.replaceChildren();
+  for (const entry of STYLES) {
+    const option = document.createElement("option");
+    option.value = entry;
+    option.textContent = STYLE_LABELS[entry];
+    styler.append(option);
+  }
+}
+
+// applyStyle draws what is on screen in a look: the pilot's rules take over from the
+// editor's theme under every look but `theme`, and a palette's fills ride on each shape.
+function applyStyle(chosen: DiagramStyle): void {
+  style = chosen;
+  styler.value = chosen;
+  diagram.classList.toggle("pilot", pilotLook(chosen));
+  remember();
 }
 
 // showUndrawable says why a listed view is not drawable, since the picker only
@@ -622,5 +662,5 @@ function highlight(id: string | undefined): void {
 
 // remember keeps what the panel is showing, so a window reload restores it.
 function remember(): void {
-  vscode.setState({ uri: documentURI, view: selected, last });
+  vscode.setState({ uri: documentURI, view: selected, last, style });
 }

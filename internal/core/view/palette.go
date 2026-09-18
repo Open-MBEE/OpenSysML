@@ -158,6 +158,42 @@ func (f *familyFills) fill(node *Node) string {
 	return paletteFill(f.color(node), !isDefinitionKind(node.Kind))
 }
 
+// Fill is the colours a palette gives one node, `#RRGGBB`: the fill of its
+// box, and the border, which is the family colour the fill is tinted from.
+type Fill struct {
+	Fill   string
+	Border string
+}
+
+// Fills is the fill each node takes under the palette, by node ID, as the DOT and PlantUML
+// forms fill it; a node left black and white, and every node under no palette, is absent.
+func (r *Rendering) Fills(palette Palette) (map[string]Fill, error) {
+	if err := palette.check(); err != nil {
+		return nil, err
+	}
+	fills := map[string]Fill{}
+	if palette == "" || !r.Kind.SupportsPalette() {
+		return fills, nil
+	}
+	f := familyFills{palette: palette, tree: r.Kind == KindTree}
+	for _, root := range r.Roots {
+		f.collect(root)
+	}
+	var walk func(node *Node)
+	walk = func(node *Node) {
+		if f.filled(node) {
+			fills[node.ID] = Fill{Fill: f.fill(node), Border: f.color(node)}
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root)
+	}
+	return fills, nil
+}
+
 // The palettes' colours as their authors publish them, `#RRGGBB`. The
 // qualitative sets are in their published order; the sequential ramps are
 // matplotlib's viridis and cividis sampled at i/15 for i in 0..15.

@@ -530,6 +530,23 @@ pipeline's diagram output — and nothing there changed. The panel is a
 is edited as text with the diagram in step, and the editor's dirty state, undo and
 save are the text document's.
 
+The canvas has two looks, chosen by `opensysml.diagram.style` and the panel's
+**Style** list (`src/style.ts`): `theme`, which takes its colours from the VS Code
+theme, and the pilot visualizer's Standard B&W that the DOT and PlantUML forms
+follow (`docs/project/view-rendering-forms.md#style`), as CSS on the `pilot` class
+— white canvas, black text, 0.5 px `#181818` borders, square definitions and
+rounded usages by a class the node's kind gives its box, heavier packages, dashed
+regions, bold names over an italic keyword, 3 px arrowless connections, dashed
+flows, filled pseudo-states. The class changes no geometry the theme look draws (a
+definition alone is square there); the pilot rules square its packages and regions.
+A rendering answered after the setting moved is dropped, since the change queued a
+render in the new style. A palette is that look plus the `fill` and `border`
+the server puts on each node when the render request names one; the canvas sets
+them as custom properties on the node's shape and computes no colour itself, so
+the panel, DOT and PlantUML of one view agree hex for hex and the contrast rule
+lives in one place. The server advertises `openSysmlRenderPalette`; without it the
+panel asks for no palette, draws `pilot`, and says why under the diagram.
+
 ### Test contract
 
 - `edit`: goldens for a new annotation in a view body and inline, an update in
