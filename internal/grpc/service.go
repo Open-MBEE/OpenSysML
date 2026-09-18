@@ -13,7 +13,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast/astcodec"
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
@@ -525,7 +524,7 @@ func (s *Service) ParseFile(ctx context.Context, req *pb.ParseFileRequest) (*pb.
 		return nil, err
 	}
 
-	mode := conformance.ModeOf(req.StrictConformance)
+	mode := diag.ConformanceModeOf(req.StrictConformance)
 	modelHash, model := s.parseModel([]sourceInput{input}, mode)
 	return s.buildParseResponse(modelHash, model), nil
 }
@@ -561,7 +560,7 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 		inputs = append(inputs, input)
 	}
 
-	modelHash, model := s.parseModel(inputs, conformance.ModeOf(req.StrictConformance))
+	modelHash, model := s.parseModel(inputs, diag.ConformanceModeOf(req.StrictConformance))
 	roots := make([]*pb.SymbolInfo, 0, len(model.Documents))
 	for _, doc := range model.Documents {
 		roots = append(roots, s.rootSymbol(model, doc))
@@ -631,7 +630,7 @@ func fileInput(path string) (sourceInput, error) {
 // gating in AGENTS.md §4: a document that failed to parse contributes no symbols,
 // so analyzing its siblings would report names as unresolved that the model
 // declares.
-func (s *Service) parseModel(inputs []sourceInput, mode conformance.Mode) (string, *CachedModel) {
+func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (string, *CachedModel) {
 	// Keyed by what was read, not by the hash a request carried: a hash
 	// disagreeing with its content would serve another model. Each document's
 	// name is part of the key, since its diagnostics name the document they came

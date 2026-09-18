@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 )
@@ -17,7 +16,7 @@ const extensionModel = "package P { attribute def Alarm; state def S { state a {
 
 func TestWorkspaceDefaultsToTheDefaultMode(t *testing.T) {
 	ws := NewWorkspace()
-	if ws.ConformanceMode() != conformance.ModeDefault {
+	if ws.ConformanceMode() != diag.ConformanceDefault {
 		t.Fatalf("mode = %v, want default", ws.ConformanceMode())
 	}
 	ws.Open("a.sysml", []byte(extensionModel), 1)
@@ -29,7 +28,7 @@ func TestWorkspaceDefaultsToTheDefaultMode(t *testing.T) {
 }
 
 func TestWorkspaceStrictModeRejectsExtensionNotation(t *testing.T) {
-	ws := NewWorkspace(WithConformanceMode(conformance.ModeStrict))
+	ws := NewWorkspace(WithConformanceMode(diag.ConformanceStrict))
 	ws.Open("a.sysml", []byte(extensionModel), 1)
 	var errs int
 	for _, d := range ws.Diagnostics("a.sysml") {
@@ -50,11 +49,11 @@ func TestSetConformanceModeReanalyses(t *testing.T) {
 	if severities := conformanceSeverities(ws, "a.sysml"); severities[diag.SeverityError] != 0 {
 		t.Fatalf("default mode errored: %+v", ws.Diagnostics("a.sysml"))
 	}
-	ws.SetConformanceMode(conformance.ModeStrict)
+	ws.SetConformanceMode(diag.ConformanceStrict)
 	if conformanceSeverities(ws, "a.sysml")[diag.SeverityError] == 0 {
 		t.Fatalf("after switching to strict: %+v", ws.Diagnostics("a.sysml"))
 	}
-	ws.SetConformanceMode(conformance.ModeDefault)
+	ws.SetConformanceMode(diag.ConformanceDefault)
 	if conformanceSeverities(ws, "a.sysml")[diag.SeverityError] != 0 {
 		t.Fatalf("after switching back to default: %+v", ws.Diagnostics("a.sysml"))
 	}
@@ -83,7 +82,7 @@ func TestDefaultModeIsUnchangedOverTheExamples(t *testing.T) {
 		}
 		implicit := NewWorkspace()
 		implicit.Open(rel, content, 1)
-		named := NewWorkspace(WithConformanceMode(conformance.ModeDefault))
+		named := NewWorkspace(WithConformanceMode(diag.ConformanceDefault))
 		named.Open(rel, content, 1)
 		want, got := implicit.Diagnostics(rel), named.Diagnostics(rel)
 		if len(want) != len(got) {

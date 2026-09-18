@@ -3,7 +3,6 @@ package passes
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
@@ -24,7 +23,7 @@ var extensionInventory = []string{
 }
 
 // notationDiags runs the pass over a document in the named mode.
-func notationDiags(t *testing.T, name, src string, mode conformance.Mode) []diag.Diagnostic {
+func notationDiags(t *testing.T, name, src string, mode diag.ConformanceMode) []diag.Diagnostic {
 	t.Helper()
 	root, pd, idx := analyzeInputs(t, name, src)
 	if hasParseError(pd) {
@@ -38,8 +37,8 @@ func notationDiags(t *testing.T, name, src string, mode conformance.Mode) []diag
 // same constructs are reported, as errors.
 func TestExtensionInventoryIsAnErrorUnderStrictMode(t *testing.T) {
 	for _, src := range extensionInventory {
-		strict := notationDiags(t, "a.sysml", src, conformance.ModeStrict)
-		def := notationDiags(t, "a.sysml", src, conformance.ModeDefault)
+		strict := notationDiags(t, "a.sysml", src, diag.ConformanceStrict)
+		def := notationDiags(t, "a.sysml", src, diag.ConformanceDefault)
 		if len(strict) == 0 || len(strict) != len(def) {
 			t.Fatalf("%s: strict gave %d finding(s), default %d; want the same, non-zero count", src, len(strict), len(def))
 		}
@@ -64,12 +63,12 @@ func TestExtensionInventoryIsAnErrorUnderStrictMode(t *testing.T) {
 // errors on it and a KerML file stays silent in either mode.
 func TestKerMLNotationFollowsTheMode(t *testing.T) {
 	const src = "package P { namespace N; }"
-	for _, d := range notationDiags(t, "a.sysml", src, conformance.ModeStrict) {
+	for _, d := range notationDiags(t, "a.sysml", src, diag.ConformanceStrict) {
 		if d.Severity != diag.SeverityError || d.Code != CodeKerMLNotation {
 			t.Errorf("strict: got %+v, want a kerml-notation error", d)
 		}
 	}
-	if got := notationDiags(t, "a.kerml", src, conformance.ModeStrict); len(got) != 0 {
+	if got := notationDiags(t, "a.kerml", src, diag.ConformanceStrict); len(got) != 0 {
 		t.Errorf("a KerML file uses KerML notation: got %+v, want silence", got)
 	}
 }
@@ -86,7 +85,7 @@ func TestStandardNotationIsSilentUnderStrictMode(t *testing.T) {
 		"action def A { fork f; join j; merge m; decide d; }",
 		"package P { attribute done : Boolean; attribute region : Boolean; }",
 	} {
-		if got := notationDiags(t, "a.sysml", src, conformance.ModeStrict); len(got) != 0 {
+		if got := notationDiags(t, "a.sysml", src, diag.ConformanceStrict); len(got) != 0 {
 			t.Errorf("%s: got %+v, want silence under strict mode", src, got)
 		}
 	}
@@ -95,10 +94,10 @@ func TestStandardNotationIsSilentUnderStrictMode(t *testing.T) {
 // The strict severity is chosen by the mode alone, so an unnamed mode is the
 // default one.
 func TestNotationSeverity(t *testing.T) {
-	if got := notationSeverity(conformance.ModeStrict); got != diag.SeverityError {
+	if got := notationSeverity(diag.ConformanceStrict); got != diag.SeverityError {
 		t.Errorf("strict severity = %v, want error", got)
 	}
-	if got := notationSeverity(conformance.ModeDefault); got != diag.SeverityWarning {
+	if got := notationSeverity(diag.ConformanceDefault); got != diag.SeverityWarning {
 		t.Errorf("default severity = %v, want warning", got)
 	}
 }
@@ -111,8 +110,8 @@ func TestExtensionFindingsFollowTheMode(t *testing.T) {
 		{"requirement_constraint", "a.sysml", "analysis def An { attribute size; require constraint { size >= 1 } }", CodeNonstandardNotation},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			def := notationDiags(t, tc.file, tc.src, conformance.ModeDefault)
-			strict := notationDiags(t, tc.file, tc.src, conformance.ModeStrict)
+			def := notationDiags(t, tc.file, tc.src, diag.ConformanceDefault)
+			strict := notationDiags(t, tc.file, tc.src, diag.ConformanceStrict)
 			if len(def) != 1 || len(strict) != 1 {
 				t.Fatalf("got %d default and %d strict findings, want 1 each: %+v / %+v", len(def), len(strict), def, strict)
 			}
@@ -138,8 +137,8 @@ func TestRecoveredGrammarViolationsAreErrorsInEitherMode(t *testing.T) {
 		{"sysml_declaration_in_kerml", "a.kerml", "package P { part def Wheel; }", CodeSysMLNotation},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			def := notationDiags(t, tc.file, tc.src, conformance.ModeDefault)
-			strict := notationDiags(t, tc.file, tc.src, conformance.ModeStrict)
+			def := notationDiags(t, tc.file, tc.src, diag.ConformanceDefault)
+			strict := notationDiags(t, tc.file, tc.src, diag.ConformanceStrict)
 			if len(def) != 1 || len(strict) != 1 {
 				t.Fatalf("got %d default and %d strict findings, want 1 each: %+v / %+v", len(def), len(strict), def, strict)
 			}
@@ -167,7 +166,7 @@ func TestKeywordAsNameIsReportedOnceInEitherMode(t *testing.T) {
 		{"multiplicity", "a.sysml", "package P { multiplicity comment [1..1]; }"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			for _, mode := range []conformance.Mode{conformance.ModeDefault, conformance.ModeStrict} {
+			for _, mode := range []diag.ConformanceMode{diag.ConformanceDefault, diag.ConformanceStrict} {
 				root, pd, idx := analyzeInputs(t, tc.file, tc.src)
 				got := []diag.Diagnostic{}
 				for _, d := range AnalyzeWithOptions(tc.file, source.KindOf(tc.file), root, pd, idx,
@@ -198,7 +197,7 @@ func TestKeywordAsNameLeavesTheNamesTheGrammarAdmits(t *testing.T) {
 		// (stdlib Metadata/ImageMetadata.kerml).
 		{"a.sysml", "package U { attribute type : X; }"},
 	} {
-		if got := notationDiags(t, tc.name, tc.src, conformance.ModeStrict); len(got) != 0 {
+		if got := notationDiags(t, tc.name, tc.src, diag.ConformanceStrict); len(got) != 0 {
 			t.Errorf("%s: got %+v, want no finding", tc.src, got)
 		}
 	}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
@@ -56,7 +55,7 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 }
 
 // notationSeverity maps the mode onto extension-notation severity.
-func notationSeverity(mode conformance.Mode) diag.Severity {
+func notationSeverity(mode diag.ConformanceMode) diag.Severity {
 	if mode.IsStrict() {
 		return diag.SeverityError
 	}

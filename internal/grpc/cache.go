@@ -10,7 +10,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
@@ -39,7 +38,7 @@ type CachedModel struct {
 	Library   libs.Source    // the files the library in Index was built from, for their spans' text
 	// Mode is the conformance strictness the parse request asked for; an edit's
 	// notation is judged at the same strictness.
-	Mode conformance.Mode
+	Mode diag.ConformanceMode
 
 	symCtxOnce sync.Once
 	symCtx     *SymbolContext
