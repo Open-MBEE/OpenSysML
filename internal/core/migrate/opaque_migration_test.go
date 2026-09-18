@@ -66,7 +66,8 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	wantNote(t, r, "_lane", migrate.Mapped, "read as this.tcs")
 	wantNote(t, r, "_attempt", migrate.Mapped, "a step with a duration and no further behavior")
 	wantNote(t, r, "_dc", migrate.Approximated, `the duration "ditSetup s" is read as the expression this.tcs.ditSetup, in seconds`)
-	wantNote(t, r, "_span", migrate.Mapped, "is assigned to the attribute Time_Loop, in seconds")
+	wantNote(t, r, "_span", migrate.Mapped, "from the start of 'first attempt' to the end of 'guide star found' is assigned to the attribute Time_Loop, in seconds")
+	wantNote(t, r, "_between", migrate.Mapped, "from the end of 'first attempt' to the start of 'guide star found' is assigned to the attribute Time_Between, in seconds")
 	wantNote(t, r, "_single", migrate.Mapped, "from the start of 'attempt' to the end of 'attempt' is assigned to the attribute Time_Attempt, in seconds")
 	wantNote(t, r, "_astray", migrate.Unmapped, "is not a node of the activity")
 	wantNote(t, r, "_blank", migrate.Unmapped, "observes no event")
@@ -76,11 +77,12 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	meta(t, s, "%seed 1")
 	v := s.RunAction("Observatory::Acquire", "Observatory")
 	wantVerdict(t, v)
-	runs := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 5, 1, []string{"this.Time_Acq_Total", "Time_Loop", "Time_Attempt"}).Lines, "\n")
+	runs := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 5, 1, []string{"this.Time_Acq_Total", "Time_Loop", "Time_Between", "Time_Attempt"}).Lines, "\n")
 	// Four attempts of ditSetup = 2.5 s each: the loop ran until i reached Retries.
 	for _, want := range []string{
 		"this.Time_Acq_Total: 5 run(s), min 10.0, mean 10.0, max 10.0",
 		"Time_Loop: 5 run(s), min 10.0, mean 10.0, max 10.0",
+		"Time_Between: 5 run(s), min 10.0, mean 10.0, max 10.0",
 		"Time_Attempt: 5 run(s), min 2.5, mean 2.5, max 2.5",
 	} {
 		if !strings.Contains(runs, want) {

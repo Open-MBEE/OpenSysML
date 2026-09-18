@@ -17,6 +17,8 @@ part def Observatory {
     action def Acquire {
         attribute 'Time_Loop start' : ScalarValues::Real default = 0.0;
         attribute Time_Loop : ScalarValues::Real default = 0.0;
+        attribute 'Time_Between start' : ScalarValues::Real default = 0.0;
+        attribute Time_Between : ScalarValues::Real default = 0.0;
         attribute 'Time_Attempt start' : ScalarValues::Real default = 0.0;
         attribute Time_Attempt : ScalarValues::Real default = 0.0;
         first start then 'start timer';
@@ -32,24 +34,32 @@ part def Observatory {
             assign this.tcs.i := 1;
             assign this.tcs.GS_Found := false;
         }
-        first 'first attempt' then 'merge';
+        first 'first attempt' then stamp3;
+        action stamp3 {
+            assign 'Time_Between start' := localClock.currentTime;
+        }
+        first stamp3 then 'merge';
         merge 'merge';
-        first 'merge' then stamp3;
+        first 'merge' then stamp5;
         action wait accept after this.tcs.ditSetup [SI::s];
         first wait then attempt;
-        action stamp3 {
+        action stamp5 {
             assign 'Time_Attempt start' := localClock.currentTime;
         }
-        first stamp3 then wait;
+        first stamp5 then wait;
         action attempt;
-        first attempt then stamp4;
-        action stamp4 {
+        first attempt then stamp6;
+        action stamp6 {
             assign Time_Attempt := localClock.currentTime - 'Time_Attempt start';
         }
-        first stamp4 then 'decide';
+        first stamp6 then 'decide';
         decide 'decide';
-        first 'decide' if this.tcs.i >= this.tcs.Retries then 'guide star found';
+        first 'decide' if this.tcs.i >= this.tcs.Retries then stamp4;
         first 'decide' if not this.tcs.GS_Found and not this.tcs.'Guide Star Lost' and this.tcs.i < this.tcs.Retries then 'next attempt';
+        action stamp4 {
+            assign Time_Between := localClock.currentTime - 'Time_Between start';
+        }
+        first stamp4 then 'guide star found';
         action 'guide star found' {
             assign this.tcs.GS_Found := true;
         }

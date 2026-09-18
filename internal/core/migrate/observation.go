@@ -82,6 +82,7 @@ func (a *activity) timingOf(o *xmi.Element) (*timing, string) {
 		// element's own execution, from its entering to its exiting.
 		t.fromEnd, t.toEnd = false, true
 	} else {
+		// firstEvent is [0..2] with no default in UML; omitted, the span covers both nodes whole.
 		t.fromEnd, t.toEnd = at(0, false), at(1, true)
 	}
 	for _, end := range []struct {
