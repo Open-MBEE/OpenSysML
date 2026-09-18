@@ -3,7 +3,10 @@ package export
 import (
 	"bytes"
 	"errors"
+	"flag"
 	"maps"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -17,6 +20,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
+
+var update = flag.Bool("update", false, "rewrite the graphs goldens in testdata")
 
 // graphsFixture holds every shape the lowered graphs carry: a flow with a fork,
 // a join, a guarded decision, a nested body performing another action, and a
@@ -160,6 +165,32 @@ func exportGraphs(t *testing.T, model *runtime.Model, idx *symbols.Index, name s
 		t.Fatalf("MarshalGraphs: %v", err)
 	}
 	return g, data
+}
+
+func TestGraphsMatchTheGoldens(t *testing.T) {
+	model, idx := graphsModel(t)
+	for _, subject := range []string{"test::run", "test::Machine"} {
+		t.Run(subject, func(t *testing.T) {
+			_, got := exportGraphs(t, model, idx, subject)
+			golden := filepath.Join("testdata", map[string]string{
+				"test::run":     "graphs_run.golden",
+				"test::Machine": "graphs_machine.golden",
+			}[subject])
+			if *update {
+				if err := os.WriteFile(golden, got, 0o644); err != nil {
+					t.Fatalf("write %s: %v", golden, err)
+				}
+				return
+			}
+			want, err := os.ReadFile(golden)
+			if err != nil {
+				t.Fatalf("read %s: %v", golden, err)
+			}
+			if !bytes.Equal(got, want) {
+				t.Fatalf("graphs bytes differ from %s", golden)
+			}
+		})
+	}
 }
 
 func kinds(nodes []NodeForm) map[string]int {
