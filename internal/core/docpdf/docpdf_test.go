@@ -330,6 +330,22 @@ func TestPrintStylesheetKeepsTablesWithinThePage(t *testing.T) {
 	}
 }
 
+// TestPandocStylesheetKeepsTablesWithinThePage checks pandoc's stylesheet
+// holds the same table contract as the print stylesheet: full text width,
+// wrapped long tokens, and rows kept on one page rather than a whole table.
+func TestPandocStylesheetKeepsTablesWithinThePage(t *testing.T) {
+	css := stripCSSComments(pandocStylesheet)
+	for _, want := range []string{
+		"table {\n  border-collapse: collapse;\n  margin: 0.8em 0;\n  width: 100%;\n}",
+		"tr {\n  break-inside: avoid;\n  page-break-inside: avoid;\n}",
+		"th, td {\n  border: 0.5pt solid #666666;\n  padding: 0.3em 0.6em;\n  text-align: left;\n  overflow-wrap: anywhere;\n}",
+	} {
+		if !strings.Contains(css, want) {
+			t.Fatalf("pandoc stylesheet lacks %q: a wide cell would run off the page or a row split across pages", want)
+		}
+	}
+}
+
 func stripCSSComments(css string) string {
 	return regexp.MustCompile(`(?s)/\*.*?\*/`).ReplaceAllString(css, "")
 }
