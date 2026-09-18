@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
@@ -236,7 +235,7 @@ func TestRequirementConstraintOutsideARequirementBodyIsAnExtension(t *testing.T)
 // k02: the KerML grammar has no `part` declaration, so a SysML declaration
 // keyword in a .kerml file is reported, and the KerML spelling is silent.
 func TestSysMLDeclarationInKerMLIsReported(t *testing.T) {
-	got := notationDiags(t, "a.kerml", "package P { part def Wheel; }", conformance.ModeDefault)
+	got := notationDiags(t, "a.kerml", "package P { part def Wheel; }", diag.ConformanceDefault)
 	if len(got) != 1 || got[0].Severity != diag.SeverityError || got[0].Code != CodeSysMLNotation ||
 		!strings.Contains(got[0].Message, "`part` is SysML notation") {
 		t.Errorf("got %+v, want one sysml-notation error", got)

@@ -229,7 +229,7 @@ func (g *StateGraph) inheritedContent(decl ast.Node, declScope *symbols.Scope) (
 		owners = append(owners, superOwners...)
 		owners = append(owners, def)
 		g.recordInherited(def, body)
-		for _, member := range declMembers(def) {
+		for _, member := range ast.DeclMembers(def) {
 			members = append(members, inheritedMember{node: member, owner: def, scope: body})
 		}
 	}
@@ -256,17 +256,6 @@ func outerScope(body *symbols.Scope, decl ast.Node) *symbols.Scope {
 		return body.Parent()
 	}
 	return body
-}
-
-// declMembers is the body of a definition or usage.
-func declMembers(decl ast.Node) []ast.Node {
-	switch n := decl.(type) {
-	case *ast.Definition:
-		return n.Members
-	case *ast.Usage:
-		return n.Members
-	}
-	return nil
 }
 
 // newInstance is the materialization of the content state inherits, recorded so

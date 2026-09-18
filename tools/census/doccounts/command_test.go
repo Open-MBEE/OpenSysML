@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/fixtures"
+	"github.com/Open-MBEE/OpenSysML/tests/fixtures"
 	"github.com/Open-MBEE/OpenSysML/tools/census/doccounts/doccountstest"
 )
 

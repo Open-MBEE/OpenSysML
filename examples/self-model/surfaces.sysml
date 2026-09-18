@@ -163,7 +163,7 @@ package OpenSysMLSurfaces {
     // A fix carries the edit that applies it and points at the diagnostic it
     // answers; a diagnostic with no unambiguous repair offers none.
     part def QuickFixer :> CodeUnit {
-        attribute :>> goPackage = "internal/core/quickfix";
+        attribute :>> goPackage = "internal/core/diag";
         attribute editsAttached : Boolean = true;
         in item findings : Diagnostic;
         out item fixes : QuickFix;
@@ -197,7 +197,7 @@ package OpenSysMLSurfaces {
     // A document name and a span, carried from a declaration to whatever is
     // derived from it; a synthetic artifact carries the unlocated origin.
     part def Provenance :> CodeUnit {
-        attribute :>> goPackage = "internal/core/provenance";
+        attribute :>> goPackage = "internal/core/symbols";
         attribute keyedByDocumentAndSpan : Boolean = true;
         attribute consumers : String = "internal/core/docir, internal/core/view, internal/core/queryplan";
         out item origins : SourceSpan;

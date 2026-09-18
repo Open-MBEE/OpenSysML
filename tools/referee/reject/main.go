@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/errata"
@@ -226,13 +226,13 @@ func adjudicate(adj adjudication) (map[string]*Case, error) {
 		c.Mode = modeFor(adj.policy, c.Source).String()
 		cases[rel] = c
 	}
-	modes := make(map[string]conformance.Mode, len(cases))
+	modes := make(map[string]diag.ConformanceMode, len(cases))
 	// The default mode is evaluated for every case as well, so a case asked
 	// strictly reports what the default mode says instead of implying it agreed.
-	defaults := make(map[string]conformance.Mode, len(cases))
+	defaults := make(map[string]diag.ConformanceMode, len(cases))
 	for rel, c := range cases {
 		modes[rel] = modeFor(adj.policy, c.Source)
-		defaults[rel] = conformance.ModeDefault
+		defaults[rel] = diag.ConformanceDefault
 	}
 
 	for _, batch := range adj.batches {
@@ -279,7 +279,7 @@ func classify(c *Case, ours, oursDefault, theirs []string) {
 	case bucketOursOnly:
 		c.Ours = ours
 	}
-	if c.Mode == conformance.ModeStrict.String() {
+	if c.Mode == diag.ConformanceStrict.String() {
 		c.DefaultErrors = len(oursDefault)
 		c.DefaultBucket = bucketOf(len(oursDefault), len(theirs))
 	}

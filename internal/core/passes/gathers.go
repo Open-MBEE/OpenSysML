@@ -1,7 +1,8 @@
 package passes
 
 import (
-	"sort"
+	"maps"
+	"slices"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -39,7 +40,7 @@ func (g *Gathers) documents(ctx *Context) []string {
 			}
 		})
 	}
-	return sortedKeys(g.docs)
+	return slices.Sorted(maps.Keys(g.docs))
 }
 
 // workspaceRoot is the root scope of a workspace document — one the index
@@ -77,7 +78,7 @@ func (g *Gathers) Regather(ctx *Context, docs map[string]bool) []string {
 	todo := docs
 	changed := map[string]bool{}
 	about := todo[aboutGather]
-	for _, doc := range sortedKeys(todo) {
+	for _, doc := range slices.Sorted(maps.Keys(todo)) {
 		if doc == aboutGather {
 			continue
 		}
@@ -108,7 +109,7 @@ func (g *Gathers) Regather(ctx *Context, docs map[string]bool) []string {
 	if about && g.identity != nil {
 		g.identity.regatherAbout(ctx, g, changed)
 	}
-	return sortedKeys(changed)
+	return slices.Sorted(maps.Keys(changed))
 }
 
 // has reports whether doc is among the workspace documents gathered.
@@ -196,13 +197,4 @@ func move[K comparable](s countSet[K], old, cur map[K]bool, name func(K) string,
 			changed[name(k)] = true
 		}
 	}
-}
-
-func sortedKeys(m map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
 }

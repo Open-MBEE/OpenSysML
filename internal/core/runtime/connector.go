@@ -475,7 +475,7 @@ func (ctx *Context) anonymousConnectors(typeSym *symbols.Symbol) []*symbols.Symb
 		if decl != typeSym && ctx.libraryDeclared(decl) {
 			continue
 		}
-		for _, member := range declMembers(decl.Decl) {
+		for _, member := range unwrappedDeclMembers(decl.Decl) {
 			usage, ok := member.(*ast.Usage)
 			if !ok || usage.Ident.Name != "" || usage.Ident.ShortName != "" {
 				continue

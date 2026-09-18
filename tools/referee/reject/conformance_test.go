@@ -3,7 +3,7 @@ package reject
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 func TestParsePolicy(t *testing.T) {
@@ -26,13 +26,13 @@ func TestParsePolicy(t *testing.T) {
 func TestModeFor(t *testing.T) {
 	for _, tc := range []struct {
 		policy, source string
-		want           conformance.Mode
+		want           diag.ConformanceMode
 	}{
-		{policyAuto, "extensions", conformance.ModeStrict},
-		{policyAuto, "grammar", conformance.ModeDefault},
-		{policyAuto, "xpect", conformance.ModeDefault},
-		{policyDefault, "extensions", conformance.ModeDefault},
-		{policyStrict, "grammar", conformance.ModeStrict},
+		{policyAuto, "extensions", diag.ConformanceStrict},
+		{policyAuto, "grammar", diag.ConformanceDefault},
+		{policyAuto, "xpect", diag.ConformanceDefault},
+		{policyDefault, "extensions", diag.ConformanceDefault},
+		{policyStrict, "grammar", diag.ConformanceStrict},
 	} {
 		if got := modeFor(tc.policy, tc.source); got != tc.want {
 			t.Errorf("modeFor(%q, %q) = %v, want %v", tc.policy, tc.source, got, tc.want)

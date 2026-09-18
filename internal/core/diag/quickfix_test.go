@@ -1,4 +1,4 @@
-package quickfix
+package diag
 
 import (
 	"testing"

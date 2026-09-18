@@ -1,7 +1,6 @@
 package queryexec
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -50,7 +49,7 @@ func (s State) Label() string {
 
 // StateValue constructs a state value; its declaration is the state.
 func StateValue(state State) Value {
-	return Value{kind: ValueState, state: &state, origin: provenance.Symbol(state.symbol)}
+	return Value{kind: ValueState, state: &state, origin: state.symbol.Origin()}
 }
 
 // State returns the value's state and whether it is a state value.

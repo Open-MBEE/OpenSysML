@@ -1236,18 +1236,10 @@ func (ec *exprChecker) argumentTypeSymbol(scope *symbols.Scope, value ast.Node) 
 // typ binds: a feature every object of its kind has from a more general library.
 func notConstructible(feature, typ *symbols.Symbol) string {
 	msg := fmt.Sprintf("%s is not a feature a constructor of %s binds", feature.Name, typ.Name)
-	if owner := ownerOf(feature); owner != nil && owner != typ {
+	if owner := feature.Owner(); owner != nil && owner != typ {
 		msg += fmt.Sprintf(": %s declares it for every %s; redefine it in %s to bind it", owner.Name, owner.Name, typ.Name)
 	}
 	return msg
-}
-
-// ownerOf returns the type declaring feature, or nil.
-func ownerOf(feature *symbols.Symbol) *symbols.Symbol {
-	if feature.OwnerScope == nil {
-		return nil
-	}
-	return feature.OwnerScope.Owner()
 }
 
 // memberOf reports whether feature is a member typ declares or inherits.
@@ -1293,7 +1285,7 @@ func (ec *exprChecker) checkNamedArguments(scope *symbols.Scope, call invocation
 		}
 		at := ec.namedParameter(scope, sym, params, arg.Name)
 		if at < 0 {
-			report(arg.Name.Span(), "%s: %s has no parameter named %q", msgInvocationParameterRedefinition, sym.Name, semantics.QualifiedNameText(arg.Name))
+			report(arg.Name.Span(), "%s: %s has no parameter named %q", msgInvocationParameterRedefinition, sym.Name, arg.Name.Text())
 			unknown = true
 			continue
 		}

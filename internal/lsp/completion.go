@@ -8,7 +8,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -221,7 +220,7 @@ func declaredTypeText(sym *symbols.Symbol) string {
 			target = fr.Name
 		}
 		if qn, ok := target.(*ast.QualifiedName); ok {
-			return semantics.QualifiedNameText(qn)
+			return qn.Text()
 		}
 	}
 	return ""

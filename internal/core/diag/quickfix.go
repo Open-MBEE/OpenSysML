@@ -1,6 +1,4 @@
-// Package quickfix carries the source edits that resolve a diagnostic, attached
-// by the layer that reported it and rendered by an editor as a quick fix.
-package quickfix
+package diag
 
 import "github.com/Open-MBEE/OpenSysML/internal/core/source"
 

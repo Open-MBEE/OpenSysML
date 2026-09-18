@@ -319,7 +319,7 @@ func (ctx *Context) calcParameters(chain []*symbols.Symbol, aliases *map[string]
 	index := make(map[string]int)
 
 	for _, link := range chain {
-		for _, member := range declMembers(link.Decl) {
+		for _, member := range unwrappedDeclMembers(link.Decl) {
 			if subject, ok := subjectDeclaration(member); ok {
 				params = ctx.subjectParameter(params, index, aliases, link, member, subject)
 				continue
@@ -382,7 +382,7 @@ func (ctx *Context) calcBody(chain []*symbols.Symbol) ([]lower.Statement, *symbo
 	var owner *symbols.Symbol
 	for i := len(chain) - 1; i >= 0; i-- {
 		link := chain[i]
-		stmts := lower.CalcBodyWith(link.Decl, declMembers(link.Decl), link.Scope, ctx.Resolver())
+		stmts := lower.CalcBodyWith(link.Decl, unwrappedDeclMembers(link.Decl), link.Scope, ctx.Resolver())
 		if lower.Returns(stmts) {
 			return stmts, link
 		}
@@ -402,7 +402,7 @@ func unboundResultHint(chain []*symbols.Symbol) string {
 		if chain[i] == nil {
 			continue
 		}
-		members := declMembers(chain[i].Decl)
+		members := unwrappedDeclMembers(chain[i].Decl)
 		result := unboundResultParameter(members)
 		if result == nil {
 			continue
@@ -1057,7 +1057,7 @@ func (ctx *Context) redeclaresInputs(chain []*symbols.Symbol) bool {
 // owns, in declaration order.
 func (ctx *Context) ownedInputSymbols(sym *symbols.Symbol) []*symbols.Symbol {
 	var inputs []*symbols.Symbol
-	for _, member := range declMembers(sym.Decl) {
+	for _, member := range unwrappedDeclMembers(sym.Decl) {
 		usage, ok := member.(*ast.Usage)
 		if !ok || (usage.Direction != ast.DirIn && usage.Direction != ast.DirInOut) {
 			continue
@@ -1239,19 +1239,14 @@ func isStateSymbol(sym *symbols.Symbol) bool {
 	return sym.Kind == symbols.SymbolStateDef || sym.Kind == symbols.SymbolStateUsage
 }
 
-// declMembers returns the body members of a definition, usage or named owned
-// constraint, unwrapping the Membership wrappers the parser produces.
-func declMembers(decl ast.Node) []ast.Node {
-	var members []ast.Node
+// unwrappedDeclMembers is ast.DeclMembers extended to named owned constraints,
+// with the Membership wrappers the parser produces unwrapped.
+func unwrappedDeclMembers(decl ast.Node) []ast.Node {
 	if oc, ok := ast.OwnedConstraintOf(decl); ok {
 		return oc.Body
 	}
-	switch d := decl.(type) {
-	case *ast.Definition:
-		members = d.Members
-	case *ast.Usage:
-		members = d.Members
-	default:
+	members := ast.DeclMembers(decl)
+	if members == nil {
 		return nil
 	}
 

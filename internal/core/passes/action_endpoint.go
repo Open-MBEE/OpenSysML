@@ -109,7 +109,7 @@ func (c *actionEndpointChecker) checkBody(decl ast.Node, scope *symbols.Scope) {
 	if err != nil {
 		return
 	}
-	for _, member := range declMembers(decl) {
+	for _, member := range ast.DeclMembers(decl) {
 		n := unwrapMembership(member)
 		switch v := n.(type) {
 		case *ast.InitialNode:

@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
@@ -186,7 +185,7 @@ func TestObjectValueCarriesInstanceLabelAndDeclaration(t *testing.T) {
 	if _, ok := value.String(); ok {
 		t.Fatal("an object value is not a string")
 	}
-	if value.Origin() != provenance.Symbol(fixture.car.Type) {
+	if value.Origin() != fixture.car.Type.Origin() {
 		t.Fatalf("origin = %v, want the declaration car", value.Origin())
 	}
 	if _, _, ok := ObjectValue(nil, "gone").Object(); ok {

@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -121,7 +123,7 @@ func graphStats(graph *rdf.Graph, turtle []byte) GraphStats {
 	for _, triple := range graph.Triples() {
 		perNamespace[prefixOf(triple.Predicate.Value)]++
 	}
-	for _, prefix := range sortedKeys(perNamespace) {
+	for _, prefix := range slices.Sorted(maps.Keys(perNamespace)) {
 		stats.ByNamespace = append(stats.ByNamespace, PropertyStat{Property: prefix, Written: perNamespace[prefix]})
 	}
 	return stats
@@ -334,7 +336,7 @@ func (c *Client) measureSide(ctx context.Context, name, projectID string,
 		}
 	}
 
-	for _, property := range sortedKeys(properties) {
+	for _, property := range slices.Sorted(maps.Keys(properties)) {
 		side.Properties = append(side.Properties, *properties[property])
 	}
 	return side, nil
@@ -343,7 +345,7 @@ func (c *Client) measureSide(ctx context.Context, name, projectID string,
 // measureProperties records, for one element, which written properties came back
 // and which came back in a different shape, accumulating the per-property totals.
 func measureProperties(stat *ElementStat, element *writtenElement, read Element, properties map[string]*PropertyStat) {
-	for _, name := range sortedKeys(element.props) {
+	for _, name := range slices.Sorted(maps.Keys(element.props)) {
 		written := element.props[name]
 		total := properties[name]
 		if total == nil {
@@ -439,13 +441,4 @@ func rootsInModel(written map[string]*writtenElement) int {
 		}
 	}
 	return roots
-}
-
-func sortedKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
 }

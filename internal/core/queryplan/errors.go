@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // ErrorKind classifies a query-planning failure.
@@ -53,7 +53,7 @@ type Error struct {
 	Path      []string
 	Expected  string
 	Actual    string
-	Origin    provenance.Origin
+	Origin    symbols.Origin
 }
 
 func (e *Error) Error() string {

@@ -2,7 +2,6 @@
 package queryexec
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -47,12 +46,12 @@ type Value struct {
 	real     float64
 	boolean  bool
 	quantity *semantics.Quantity
-	origin   provenance.Origin
+	origin   symbols.Origin
 }
 
 // ElementValue constructs an element value with declaration provenance.
 func ElementValue(sym *symbols.Symbol) Value {
-	return Value{kind: ValueElement, element: sym, origin: provenance.Symbol(sym)}
+	return Value{kind: ValueElement, element: sym, origin: sym.Origin()}
 }
 
 // ObjectValue constructs a runtime object value under the label a session
@@ -60,7 +59,7 @@ func ElementValue(sym *symbols.Symbol) Value {
 func ObjectValue(inst *runtime.Instance, label string) Value {
 	value := Value{kind: ValueObject, object: inst, text: label}
 	if inst != nil {
-		value.origin = provenance.Symbol(objectDeclaration(inst))
+		value.origin = objectDeclaration(inst).Origin()
 	}
 	return value
 }
@@ -109,7 +108,7 @@ func constantValue(constant semantics.Value) (Value, bool) {
 	}
 }
 
-func valueAt(value Value, origin provenance.Origin) Value {
+func valueAt(value Value, origin symbols.Origin) Value {
 	value.origin = origin
 	return value
 }
@@ -191,7 +190,7 @@ func (v Value) Magnitude() (Value, bool) {
 }
 
 // Origin returns the source declaration behind the value.
-func (v Value) Origin() provenance.Origin { return v.origin }
+func (v Value) Origin() symbols.Origin { return v.origin }
 
 // Bindings supplies named values to an entry query.
 type Bindings map[string][]Value
@@ -199,26 +198,26 @@ type Bindings map[string][]Value
 // Column describes one ordered projected property.
 type Column struct {
 	name   string
-	origin provenance.Origin
+	origin symbols.Origin
 }
 
 // Name returns the projected property name.
 func (c Column) Name() string { return c.name }
 
 // Origin returns the query expression that projected the column.
-func (c Column) Origin() provenance.Origin { return c.origin }
+func (c Column) Origin() symbols.Origin { return c.origin }
 
 // Cell is one immutable projected value sequence.
 type Cell struct {
 	values []Value
-	origin provenance.Origin
+	origin symbols.Origin
 }
 
 // Values returns an independent copy of the cell values.
 func (c Cell) Values() []Value { return append([]Value(nil), c.values...) }
 
 // Origin returns the selected model element behind the cell.
-func (c Cell) Origin() provenance.Origin { return c.origin }
+func (c Cell) Origin() symbols.Origin { return c.origin }
 
 // isRow reports whether a value can be a query row: an element, an object, a
 // verdict, a state or an event.
@@ -260,13 +259,13 @@ func (r Row) Cells() []Cell {
 }
 
 // Origin returns the selected element's declaration provenance.
-func (r Row) Origin() provenance.Origin { return r.element.origin }
+func (r Row) Origin() symbols.Origin { return r.element.origin }
 
 // RowSet is an immutable ordered query result.
 type RowSet struct {
 	columns []Column
 	rows    []Row
-	origin  provenance.Origin
+	origin  symbols.Origin
 }
 
 // Columns returns an independent copy of the projected columns.
@@ -290,9 +289,9 @@ func (r *RowSet) Rows() []Row {
 }
 
 // Origin returns the entry query declaration.
-func (r *RowSet) Origin() provenance.Origin {
+func (r *RowSet) Origin() symbols.Origin {
 	if r == nil {
-		return provenance.Origin{}
+		return symbols.Origin{}
 	}
 	return r.origin
 }

@@ -316,7 +316,7 @@ func (m *Model) framingsDeclaredBy(view *symbols.Symbol) []viewFraming {
 
 // viewpointConformance evaluates one satisfy member of a view.
 func (m *Model) viewpointConformance(view, sat *symbols.Symbol, framings []viewFraming, exposed []*symbols.Symbol, eval ConcernEvaluator) ViewpointConformance {
-	out := ViewpointConformance{Satisfy: sat, SatisfiedIn: ownerOf(sat)}
+	out := ViewpointConformance{Satisfy: sat, SatisfiedIn: sat.Owner()}
 	target, ref := m.SatisfyTarget(sat)
 	out.Ref = ref
 	switch {
@@ -694,14 +694,6 @@ func quoteRef(ref string) string {
 		return "<none>"
 	}
 	return ref
-}
-
-// ownerOf returns the element declaring sym.
-func ownerOf(sym *symbols.Symbol) *symbols.Symbol {
-	if sym == nil || sym.OwnerScope == nil {
-		return nil
-	}
-	return sym.OwnerScope.Owner()
 }
 
 // IsViewpoint reports whether sym is a viewpoint usage or definition.

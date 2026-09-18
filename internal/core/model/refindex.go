@@ -3,7 +3,7 @@ package model
 import (
 	"sort"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/rename"
+	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -156,21 +156,21 @@ func (w *Workspace) referenceLocations(target *symbols.Symbol, keep func(refEntr
 // RenameConflict reports why renaming target's name (long or short, as written)
 // to newName is refused: the name already taken where target is declared, or a
 // reference in any workspace document that would read another element afterwards.
-func (w *Workspace) RenameConflict(target *symbols.Symbol, name, newName string) *rename.Conflict {
+func (w *Workspace) RenameConflict(target *symbols.Symbol, name, newName string) *edit.RenameConflict {
 	if target == nil {
 		return nil
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	var occurrences []rename.Occurrence
+	var occurrences []edit.RenameOccurrence
 	for _, e := range w.referencesLocked(symbols.KeyOf(target)) {
 		if e.named && e.text == name {
-			occurrences = append(occurrences, rename.Occurrence{Ref: e.ref, Part: e.part})
+			occurrences = append(occurrences, edit.RenameOccurrence{Ref: e.ref, Part: e.part})
 		}
 	}
-	var conflict *rename.Conflict
+	var conflict *edit.RenameConflict
 	w.queryLocked(target.DocName, func(r *resolve.Resolver, sem *semantics.Model) {
-		conflict = rename.Check(r, sem, target, name, newName, occurrences)
+		conflict = edit.CheckRename(r, sem, target, name, newName, occurrences)
 	})
 	return conflict
 }

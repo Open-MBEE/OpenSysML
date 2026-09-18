@@ -3,6 +3,8 @@ package symbols
 import (
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"sync"
 
@@ -367,7 +369,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 	}
 
 	// docKinds
-	keys := sortedKeys(idx.docKinds.own)
+	keys := slices.Sorted(maps.Keys(idx.docKinds.own))
 	e.w.Len(len(keys))
 	for _, k := range keys {
 		e.w.String(k)
@@ -375,7 +377,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 	}
 
 	// fqn
-	keys = sortedKeys(idx.fqn.own)
+	keys = slices.Sorted(maps.Keys(idx.fqn.own))
 	e.w.Len(len(keys))
 	for _, k := range keys {
 		e.w.String(k)
@@ -383,7 +385,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 	}
 
 	// contributions
-	keys = sortedKeys(idx.contributions.own)
+	keys = slices.Sorted(maps.Keys(idx.contributions.own))
 	e.w.Len(len(keys))
 	for _, k := range keys {
 		e.w.String(k)
@@ -396,12 +398,12 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 	}
 
 	// wildcardMeta
-	keys = sortedKeys(idx.wildcardMeta.own)
+	keys = slices.Sorted(maps.Keys(idx.wildcardMeta.own))
 	e.w.Len(len(keys))
 	for _, k := range keys {
 		e.w.String(k)
 		byDoc := idx.wildcardMeta.own[k]
-		docs := sortedKeys(byDoc)
+		docs := slices.Sorted(maps.Keys(byDoc))
 		e.w.Len(len(docs))
 		for _, doc := range docs {
 			e.w.String(doc)
@@ -417,7 +419,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 
 	// reexported, hidden
 	for _, table := range []*layer[string, symbolSet]{idx.reexported, idx.hidden} {
-		keys = sortedKeys(table.own)
+		keys = slices.Sorted(maps.Keys(table.own))
 		e.w.Len(len(keys))
 		for _, k := range keys {
 			e.w.String(k)
@@ -436,7 +438,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 		e.w.String(k.fqn)
 		e.sym(k.sym)
 		byDoc := idx.reexportDocs.own[k]
-		docs := sortedKeys(byDoc)
+		docs := slices.Sorted(maps.Keys(byDoc))
 		e.w.Len(len(docs))
 		for _, doc := range docs {
 			e.w.String(doc)
@@ -451,7 +453,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 	}
 
 	// docReexports
-	keys = sortedKeys(idx.docReexports.own)
+	keys = slices.Sorted(maps.Keys(idx.docReexports.own))
 	e.w.Len(len(keys))
 	for _, k := range keys {
 		e.w.String(k)
@@ -482,7 +484,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 	}
 
 	// children
-	keys = sortedKeys(idx.children.own)
+	keys = slices.Sorted(maps.Keys(idx.children.own))
 	e.w.Len(len(keys))
 	for _, k := range keys {
 		e.w.String(k)
@@ -490,7 +492,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 	}
 
 	// bySegment
-	keys = sortedKeys(idx.bySegment.own)
+	keys = slices.Sorted(maps.Keys(idx.bySegment.own))
 	e.w.Len(len(keys))
 	for _, k := range keys {
 		e.w.String(k)
@@ -498,7 +500,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 	}
 
 	// lastTargets
-	keys = sortedKeys(idx.lastTargets.own)
+	keys = slices.Sorted(maps.Keys(idx.lastTargets.own))
 	e.w.Len(len(keys))
 	for _, k := range keys {
 		e.w.String(k)
@@ -512,7 +514,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 	}
 
 	// libraryDocs
-	keys = sortedKeys(idx.libraryDocs.own)
+	keys = slices.Sorted(maps.Keys(idx.libraryDocs.own))
 	e.w.Len(len(keys))
 	for _, k := range keys {
 		e.w.String(k)
@@ -521,12 +523,12 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 	}
 
 	// nsFilters
-	keys = sortedKeys(idx.nsFilters.own)
+	keys = slices.Sorted(maps.Keys(idx.nsFilters.own))
 	e.w.Len(len(keys))
 	for _, k := range keys {
 		e.w.String(k)
 		byDoc := idx.nsFilters.own[k]
-		docs := sortedKeys(byDoc)
+		docs := slices.Sorted(maps.Keys(byDoc))
 		e.w.Len(len(docs))
 		for _, doc := range docs {
 			e.w.String(doc)
@@ -535,7 +537,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 	}
 
 	// aboutUsages
-	keys = sortedKeys(idx.aboutUsages)
+	keys = slices.Sorted(maps.Keys(idx.aboutUsages))
 	e.w.Len(len(keys))
 	for _, k := range keys {
 		e.w.String(k)

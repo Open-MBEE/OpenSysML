@@ -2,7 +2,6 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -71,7 +70,7 @@ type Context struct {
 // every existing caller gets: today's behavior, unchanged.
 type Options struct {
 	// Conformance is the strictness the notation is judged at.
-	Conformance conformance.Mode
+	Conformance diag.ConformanceMode
 }
 
 // NewContext builds a Context for a document, in the default mode.

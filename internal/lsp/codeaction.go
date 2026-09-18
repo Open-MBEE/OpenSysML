@@ -2,12 +2,12 @@ package lsp
 
 import (
 	"context"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"strings"
 
 	"go.lsp.dev/protocol"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/quickfix"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -86,7 +86,7 @@ func overlaps(a, b source.Span) bool {
 }
 
 // workspaceEdit renders a fix's edits as an edit of the document it applies to.
-func workspaceEdit(uri protocol.DocumentURI, content []byte, edits []quickfix.Edit) *protocol.WorkspaceEdit {
+func workspaceEdit(uri protocol.DocumentURI, content []byte, edits []diag.Edit) *protocol.WorkspaceEdit {
 	out := make([]protocol.TextEdit, 0, len(edits))
 	for _, edit := range edits {
 		span, text := edit.Render(content)

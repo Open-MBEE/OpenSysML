@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/quickfix"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -16,7 +16,7 @@ type Diagnostic struct {
 	Code string
 	// Fixes are the unambiguous edits resolving the diagnostic, offered by an
 	// editor as quick fixes.
-	Fixes []quickfix.Fix
+	Fixes []diag.Fix
 }
 
 // Recurring diagnostic messages, spelled once so every site that reports the

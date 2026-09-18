@@ -912,17 +912,5 @@ func UnitNameText(qn *ast.QualifiedName) string {
 	return strings.Join(parts, "::")
 }
 
-// QualifiedNameText renders a qualified name as "A::B::C".
-func QualifiedNameText(qn *ast.QualifiedName) string {
-	if qn == nil {
-		return ""
-	}
-	out := ""
-	for i, part := range qn.Parts {
-		if i > 0 {
-			out += "::"
-		}
-		out += part.Text
-	}
-	return out
-}
+// QualifiedNameText is (*ast.QualifiedName).Text; new callers use the method.
+func QualifiedNameText(qn *ast.QualifiedName) string { return qn.Text() }

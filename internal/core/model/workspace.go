@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
@@ -76,7 +75,7 @@ type libraryFile struct {
 type Option func(*Workspace)
 
 // WithConformanceMode analyzes this workspace's documents at mode.
-func WithConformanceMode(mode conformance.Mode) Option {
+func WithConformanceMode(mode diag.ConformanceMode) Option {
 	return func(w *Workspace) { w.analysis.Conformance = mode }
 }
 
@@ -202,7 +201,7 @@ func (w *Workspace) baseShows(name string) bool {
 }
 
 // ConformanceMode reports the strictness this workspace judges notation at.
-func (w *Workspace) ConformanceMode() conformance.Mode {
+func (w *Workspace) ConformanceMode() diag.ConformanceMode {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.analysis.Conformance
@@ -211,7 +210,7 @@ func (w *Workspace) ConformanceMode() conformance.Mode {
 // SetConformanceMode switches the mode for a live session — an LSP client
 // changing its setting, a REPL user asking the strict question — and drops the
 // cached diagnostics, which answered the other question.
-func (w *Workspace) SetConformanceMode(mode conformance.Mode) {
+func (w *Workspace) SetConformanceMode(mode diag.ConformanceMode) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.analysis.Conformance == mode {

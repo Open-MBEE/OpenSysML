@@ -169,9 +169,9 @@ source → lexer → parser → AST → symbol index → resolve → passes
 - **Context:** Exposes `Resolver()` + `Model()` (both lazy, memoized) and `DownstreamOfFailure(ref)` — did a lower tier report a blocking diagnostic inside this reference?
 - **DefaultRegistry:** SyntaxPass, NameResolutionPass, TypeCheckPass, ConstraintPass
 - **Tiered execution:** a document-scoped pass at a higher tier is skipped once a lower tier errors; a pass marked `ElementScoped` runs and gates itself per subject through `Context.DownstreamOfFailure` ([element-scoped tier gating](../project/element-scoped-tier-gating.md))
-- **Diagnostics:** `Diagnostic` and `Severity` live in `internal/core/diag`, a leaf package beside `source` and `quickfix`, so the runtime and the parser report findings in the same type without importing the validation suite
-- **Quick fixes:** A `Diagnostic` carries the `quickfix.Fix` values (`internal/core/quickfix`) the layer reporting it attached, so an editor offers edits without parsing messages
-- **Argument typing:** `NewArgumentTyper` is the checker's expression typing as a `semantics.ArgumentTyper`; `NewTypedModel(resolver)` is a semantic model with it installed, which is what every path that builds a `runtime.Model` (REPL, LSP workspace, gRPC cache, the analysis drivers) constructs. The runtime never installs it itself: a call selected on a model without one fails with `runtime.ErrNoArgumentTyper` rather than selecting on weaker typing than validation used, and `internal/hygiene` checks the production construction sites
+- **Diagnostics:** `Diagnostic` and `Severity` live in `internal/core/diag`, a leaf package beside `source`, so the runtime and the parser report findings in the same type without importing the validation suite; the strict/default conformance switch is `diag.ConformanceMode` in the same package
+- **Quick fixes:** A `Diagnostic` carries the `diag.Fix` values the layer reporting it attached, so an editor offers edits without parsing messages
+- **Argument typing:** `NewArgumentTyper` is the checker's expression typing as a `semantics.ArgumentTyper`; `NewTypedModel(resolver)` is a semantic model with it installed, which is what every path that builds a `runtime.Model` (REPL, LSP workspace, gRPC cache, the analysis drivers) constructs. The runtime never installs it itself: a call selected on a model without one fails with `runtime.ErrNoArgumentTyper` rather than selecting on weaker typing than validation used, and `tests/hygiene` checks the production construction sites
 
 ### 6a. Highlighting (`internal/core/highlight`)
 
@@ -193,7 +193,7 @@ source → lexer → parser → AST → symbol index → resolve → passes
   and the name it *writes* (an alias, where one was written), with the
   `resolve.Reference` it is a segment of. Find References matches either;
   Rename edits only the written name, and `RenameConflict` checks each
-  occurrence for capture through `internal/core/rename` — a trial reading of the
+  occurrence for capture through `edit.CheckRename` — a trial reading of the
   reference with that segment respelled (`Resolver.ProbeReading`, which keeps
   what each segment reached even where the whole name then fails), so a chain
   member is read in its operand's type, a redefinition target among the
@@ -345,7 +345,7 @@ Parse + model all behavioral bodies with unified fallback grammar:
    - `SetSchedule(policy)`, `Schedule()` — the policy runs started from now on resolve their choice points under (`explore` is refused: `Explore` drives it)
    - `Notes()`, `Choices()`, `UnevaluableGuards()` — what the last run recorded
 
-5. **Notation text the run reads** — the runtime imports no parser. The two places a run receives notation as text — a witness file's `input <feature> = <value>` lines (`replay.go`) and the unit a tool answers a value in (`tool.go`, `Context.UnitOf`) — are read through the `runtime.ExpressionParser` the frontend installs on the `Model` (`Model.SetExpressionParser`, normally `parser.ParseOneExpression`). Reaching either with none installed is the typed `ErrNoExpressionParser`, never a refused witness or a tool's malformed output; `internal/hygiene` checks that every shipped construction site installs it and that `internal/core/runtime` does not depend on `internal/core/parser`.
+5. **Notation text the run reads** — the runtime imports no parser. The two places a run receives notation as text — a witness file's `input <feature> = <value>` lines (`replay.go`) and the unit a tool answers a value in (`tool.go`, `Context.UnitOf`) — are read through the `runtime.ExpressionParser` the frontend installs on the `Model` (`Model.SetExpressionParser`, normally `parser.ParseOneExpression`). Reaching either with none installed is the typed `ErrNoExpressionParser`, never a refused witness or a tool's malformed output; `tests/hygiene` checks that every shipped construction site installs it and that `internal/core/runtime` does not depend on `internal/core/parser`.
 
 **Implementation:**
 - `context.go` (460 lines) — Public Execute/Invoke/Evaluate APIs, step budget enforcement
@@ -443,7 +443,7 @@ Parse + model all behavioral bodies with unified fallback grammar:
   and wherever a reference in any workspace document writes it
 - Refused with an error naming the element the new name would mean when that
   name is already taken where the element is declared, or when a rewritten
-  reference would afterwards read another element (`internal/core/rename`)
+  reference would afterwards read another element (`edit.CheckRename`)
 
 **Completion (textDocument/completion):**
 - Trigger characters: `:`, `.`
@@ -457,7 +457,7 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - Encoded relative to the previous token, split per line; no delta support
 
 **Code Actions (textDocument/codeAction):**
-- Quick fixes only, from the `quickfix.Fix` values parser and resolver
+- Quick fixes only, from the `diag.Fix` values parser and resolver
   diagnostics carry — spelling of an unresolved name, importing the namespace
   declaring it, inserting a semicolon the parser located exactly
 
