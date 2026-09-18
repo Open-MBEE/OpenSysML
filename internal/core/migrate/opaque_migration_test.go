@@ -248,3 +248,45 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 		}
 	}
 }
+
+// A feature typed by an enumeration or a block is known to hold no scalar: a
+// body that counts, compares or assigns it against a number, or against another
+// non-scalar type, is refused with both types named, while a value of a type
+// specializing the target's is assigned. A JavaScript whole number
+// beyond what its Number holds exactly is refused; one within it, and a string
+// spelling a character as a UTF-16 surrogate pair, are translated.
+func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
+	r := migrateXMI(t, "meter")
+	for _, line := range []string{
+		`assign this.label := "` + "\U0001F600" + `";`,
+		"assign this.count := 9007199254740991;",
+		"assign this.dial := this.hand;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "assign this.hand := this.dial;")
+	wantNoLine(t, r.Notation, "assign this.count := this.mode + 1;")
+	wantNoLine(t, r.Notation, "assign this.count := this.mode;")
+	wantNoLine(t, r.Notation, "assign this.mode := this.dial;")
+	wantNoLine(t, r.Notation, "assign this.count := 9007199254740993;")
+	wantClean(t, "t.sysml", r)
+	wantNote(t, r, "_smile", migrate.Mapped, "the JavaScript body is translated to v2")
+	wantNote(t, r, "_widen", migrate.Mapped, "the JavaScript body is translated to v2")
+	for id, want := range map[string]string{
+		"_bump":   `the types at "+" disagree: an operand is a Mode, not a number`,
+		"_pick":   `the types at "count =" disagree: a Mode is assigned to the Integer count holds`,
+		"_match":  `the types at "mode =" disagree: a Gauge is assigned to the Mode mode holds`,
+		"_narrow": `the types at "hand =" disagree: a Gauge is assigned to the Needle hand holds`,
+		"_huge":   `the construct "9007199254740993" is outside the translated subset: a script rounds a whole number beyond 9007199254740991 to the nearest floating-point value`,
+	} {
+		wantNote(t, r, id, migrate.Approximated, want)
+	}
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Meter")
+	wantVerdict(t, s.RunAction("Meter::Flip", "Meter"))
+	runs := strings.Join(s.RunRuns("Meter::Flip", []string{"Meter"}, 1, 1, []string{"this.count"}).Lines, "\n")
+	if want := "this.count: 1 run(s), min 9007199254740991"; !strings.Contains(runs, want) {
+		t.Errorf("runs lack %q:\n%s", want, runs)
+	}
+}

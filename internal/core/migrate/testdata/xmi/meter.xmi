@@ -3,7 +3,22 @@
          xmlns:uml="http://www.omg.org/spec/UML/20161101"
          xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
   <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Enumeration" xmi:id="_mode" name="Mode">
+      <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_off" name="off"/>
+      <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_on" name="on"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_gauge" name="Gauge"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_needle" name="Needle">
+      <generalization xmi:type="uml:Generalization" xmi:id="_needle_gen" general="_gauge"/>
+    </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_meter" name="Meter">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_mmode" name="mode" type="_mode"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_dial" name="dial" type="_gauge" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_hand" name="hand" type="_needle" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_count" name="count"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_count0" value="0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_label" name="label"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/></ownedAttribute>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_total" name="total"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
         <defaultValue xmi:type="uml:LiteralReal" xmi:id="_total0" value="0.0"/>
       </ownedAttribute>
@@ -70,8 +85,50 @@
         <edge xmi:type="uml:ObjectFlow" xmi:id="_o3" source="_darkq" target="_drainw"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_s3" source="_drain" target="_sfinal"/>
       </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_flip" name="Flip">
+        <node xmi:type="uml:InitialNode" xmi:id="_finit"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_bump" name="bump">
+          <language>JavaScript</language>
+          <body>count = mode + 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_pick" name="pick">
+          <language>JavaScript</language>
+          <body>count = mode;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_match" name="match">
+          <language>JavaScript</language>
+          <body>mode = dial;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_widen" name="widen">
+          <language>JavaScript</language>
+          <body>dial = hand;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_narrow" name="narrow">
+          <language>JavaScript</language>
+          <body>hand = dial;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_huge" name="huge">
+          <language>JavaScript</language>
+          <body>count = 9007199254740993;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_smile" name="smile">
+          <language>JavaScript</language>
+          <body>label = "\uD83D\uDE00"; count = 9007199254740991;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_ffinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f1" source="_finit" target="_bump"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f2" source="_bump" target="_pick"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f3" source="_pick" target="_match"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f4" source="_match" target="_widen"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f7" source="_widen" target="_narrow"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f8" source="_narrow" target="_huge"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f5" source="_huge" target="_smile"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f6" source="_smile" target="_ffinal"/>
+      </ownedBehavior>
     </packagedElement>
   </uml:Model>
 
   <sysml:Block xmi:id="_s1" base_Class="_meter"/>
+  <sysml:Block xmi:id="_s2" base_Class="_gauge"/>
+  <sysml:Block xmi:id="_s3" base_Class="_needle"/>
 </xmi:XMI>

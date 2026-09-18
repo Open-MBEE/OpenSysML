@@ -178,8 +178,47 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 	return opaqueRef{
 		expr:   expr,
 		scalar: m.scalarBase(m.typedAs(f)),
+		object: m.nonScalar(m.typedAs(f)),
 		plural: ok && upper != 1,
 	}, nil
+}
+
+// nonScalar names t, then every type generalizing it, when its values are
+// known to be no scalar: an enumeration, a block or another classifier, or a
+// value type whose every base is one such.
+func (m *migration) nonScalar(t *xmi.Element) []string {
+	type known struct {
+		names []string
+		ok    bool
+	}
+	memo := map[*xmi.Element]known{}
+	var types func(*xmi.Element) ([]string, bool)
+	types = func(t *xmi.Element) ([]string, bool) {
+		if t == nil || t.IsProxy() || m.scalarBase(t) != "" {
+			return nil, false
+		}
+		if k, seen := memo[t]; seen {
+			return k.names, k.ok
+		}
+		memo[t] = known{}
+		cat, _ := m.classify(t)
+		switch cat {
+		case catNone, catLibrary, catUnmapped:
+			return nil, false
+		}
+		names := []string{m.v2Name(t)}
+		for _, g := range t.Owned("generalization") {
+			general, ok := types(m.model.Ref(g, "general"))
+			if !ok && cat == catAttributeDef {
+				return nil, false
+			}
+			names = append(names, general...)
+		}
+		memo[t] = known{names, true}
+		return names, true
+	}
+	names, _ := types(t)
+	return names
 }
 
 // typedAs is the classifier typing f: a pin's as declared, else its own type;

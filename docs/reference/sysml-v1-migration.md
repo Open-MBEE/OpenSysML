@@ -316,7 +316,7 @@ translation is always complete or absent — never partial.
 | `x = e;` `x += e;` `-=` `*=` `/=` `x++` `x--` | `assign x := e;` `assign x := x + e;` … |
 | `var x = e;` `let x = e;` `const x = e;` (one name, initialized) | `attribute x : ScalarValues::T;` `assign x := e;` with `T` the type of `e`; a later assignment to a `const` is refused, as is a declaration of a name already declared, of a pin, parameter or property visible where the body lands, or of a member every action has (`start`, `done`, `self`) |
 | several statements, on `;` or newlines | a sequence of the above |
-| integer, real, Boolean and string literals | the same literal; a string's `\n` `\t` `\r` `\b` `\f` `\\` `\'` `\"` `\xHH` `\uHHHH` `\u{H…}` escapes and line continuations are decoded, while a legacy octal escape or a character the notation cannot spell (`\0`, `\v`, other control characters, a lone surrogate) is refused |
+| integer, real, Boolean and string literals | the same literal; a whole number is refused beyond what an `Integer` holds (2⁶³ − 1), and in a JavaScript body beyond 2⁵³ − 1, since the script would round it to a `Number` (a Java body's `long` is exact); a string's `\n` `\t` `\r` `\b` `\f` `\\` `\'` `\"` `\xHH` `\uHHHH` `\u{H…}` escapes and line continuations are decoded, a high and low surrogate escape pair as the one character they spell, while a legacy octal escape or a character the notation cannot spell (`\0`, `\v`, other control characters, a lone surrogate) is refused |
 | `a`, `a.b.c` naming features that resolve | `this.a`, `this.a.b.c` (through the swimlane's object when it has one) |
 | `+ - * / %`, comparisons, `&& \|\| !`, parentheses | `+ - * / %`, comparisons, `and or not`, parentheses; a Java body's `/` of two whole numbers drops the remainder, so it is `RealFunctions::floor((x - x % y) / y)`, and is refused when the operands' types cannot tell whether both are whole |
 | `c ? a : b` | `if c ? a else b` when `a` and `b` are of one scalar type |
@@ -336,7 +336,10 @@ assignment to a `const`, to an `in` parameter or to an input pin, a string metho
 after the one expression a guard or default is), a call not in the table (`the call "print" is not in the
 translated function table`), a name that resolves to nothing readable (`this.` in a context with
 no object, a property of no v2 type, a name no scope defines), or types that disagree (an
-`Integer` guard, a `Boolean` added to a `Real`, a plural where a scalar is wanted). A body
+`Integer` guard, a `Boolean` added to a `Real`, a plural where a scalar is wanted, a feature
+typed by an enumeration or a block where a number or Boolean is wanted, assigned to a feature
+of a type that neither is nor generalizes its own, or compared with or chosen beside one sharing
+no type with it). A feature whose type the migrator does not know is trusted to fit. A body
 whose language the translator reads but whose text it refuses is never re-read as v2 syntax:
 the refusal is final, and the body is a comment.
 

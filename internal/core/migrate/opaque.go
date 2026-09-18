@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf16"
 	"unicode/utf8"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
@@ -72,12 +73,20 @@ func (r *refusal) final(lang string) bool {
 	return r.kind != refusedLanguage && r.kind != refusedSyntax
 }
 
-// opaqueRef is what a scope answers for a name: the v2 expression reading it
-// and the scalar it holds ("" when unknown or not a scalar), plural for a collection.
+// opaqueRef is what a scope answers for a name: the v2 expression reading it,
+// the scalar it holds ("" when unknown or not a scalar), the non-scalar type
+// it is known to hold followed by every type that generalizes it (nil when a
+// scalar or unknown), plural for a collection.
 type opaqueRef struct {
 	expr   string
 	scalar string
+	object []string
 	plural bool
+}
+
+// value is the ref read as an expression.
+func (r opaqueRef) value() translated {
+	return translated{expr: r.expr, scalar: r.scalar, object: r.object, plural: r.plural, atomic: true}
 }
 
 // opaqueScope answers what the names of an opaque body mean where it is read;
@@ -87,16 +96,30 @@ type opaqueScope interface {
 }
 
 // translated is a v2 expression the translator produced, with what it knows
-// of its type; atomic is true when it needs no parentheses as an operand, loose
-// is the v2 precedence of its outermost operator when it is not atomic, and
-// lit names the literal kind when the expression is one literal.
+// of its type (scalar and object as on opaqueRef); atomic is true when it needs
+// no parentheses as an operand, loose is the v2 precedence of its outermost
+// operator when it is not atomic, and lit names the literal kind when the
+// expression is one literal.
 type translated struct {
 	expr   string
 	scalar string
+	object []string
 	plural bool
 	atomic bool
 	loose  int
 	lit    string
+}
+
+// held names what t is known to hold, for a refusal: its scalar, its
+// non-scalar type, or "" when nothing is known.
+func (t translated) held() string {
+	if t.scalar != "" {
+		return t.scalar
+	}
+	if len(t.object) > 0 {
+		return t.object[0]
+	}
+	return ""
 }
 
 // The v2 operators the translator writes, loosest last: an operand of a looser
@@ -179,9 +202,9 @@ func translateExpr(body, lang string, sc opaqueScope, want string) (translated, 
 	if err != nil {
 		return translated{}, err
 	}
-	if want != "" && t.scalar != "" && !assignableScalar(want, t) {
+	if want != "" && t.held() != "" && !assignableTo(translated{scalar: want}, t) {
 		return translated{}, &refusal{kind: refusedType, token: body,
-			why: "the expression is a " + t.scalar + ", not the " + want + " wanted"}
+			why: "the expression is a " + t.held() + ", not the " + want + " wanted"}
 	}
 	return t, nil
 }
@@ -396,21 +419,16 @@ func unescape(s string) (rune, int, *refusal) {
 		v, _ := strconv.ParseUint(hex, 16, 32)
 		r, n = rune(v), 3
 	case 'u':
-		hex, width := hexRun(s[1:], 4), 5
-		if strings.HasPrefix(s, "u{") {
-			hex = hexRun(s[2:], len(s))
-			width = 3 + len(hex)
-			if !strings.HasPrefix(s[2+len(hex):], "}") {
-				return 0, 0, &refusal{kind: refusedSyntax, token: `\u{` + hex, why: "a Unicode escape's brace is not closed"}
+		var err *refusal
+		if r, n, err = unicodeEscape(s); err != nil {
+			return 0, 0, err
+		}
+		// A high surrogate joined by a low one is a single character in UTF-16.
+		if utf16.IsSurrogate(r) && r < 0xDC00 && strings.HasPrefix(s[n:], `\u`) {
+			if lo, m, err := unicodeEscape(s[n+1:]); err == nil && utf16.IsSurrogate(lo) && lo >= 0xDC00 {
+				r, n = utf16.DecodeRune(r, lo), n+1+m
 			}
-		} else if len(hex) != 4 {
-			return 0, 0, &refusal{kind: refusedSyntax, token: `\u` + hex, why: "a Unicode escape needs four hex digits"}
 		}
-		v, err := strconv.ParseUint(hex, 16, 32)
-		if err != nil || v > unicode.MaxRune {
-			return 0, 0, &refusal{kind: refusedSyntax, token: `\` + s[:width], why: "a Unicode escape names no character"}
-		}
-		r, n = rune(v), width
 	case '\n':
 		return -1, n, nil
 	case '\r':
@@ -425,6 +443,26 @@ func unescape(s string) (rune, int, *refusal) {
 		return 0, 0, &refusal{kind: refusedConstruct, token: `\` + s[:n], why: "the notation spells no " + spelled}
 	}
 	return r, n, nil
+}
+
+// unicodeEscape reads the `\uHHHH` or `\u{H…}` escape whose backslash precedes s:
+// the code unit or point it names and the bytes read.
+func unicodeEscape(s string) (rune, int, *refusal) {
+	hex, width := hexRun(s[1:], 4), 5
+	if strings.HasPrefix(s, "u{") {
+		hex = hexRun(s[2:], len(s))
+		width = 3 + len(hex)
+		if !strings.HasPrefix(s[2+len(hex):], "}") {
+			return 0, 0, &refusal{kind: refusedSyntax, token: `\u{` + hex, why: "a Unicode escape's brace is not closed"}
+		}
+	} else if len(hex) != 4 {
+		return 0, 0, &refusal{kind: refusedSyntax, token: `\u` + hex, why: "a Unicode escape needs four hex digits"}
+	}
+	v, err := strconv.ParseUint(hex, 16, 32)
+	if err != nil || v > unicode.MaxRune {
+		return 0, 0, &refusal{kind: refusedSyntax, token: `\` + s[:width], why: "a Unicode escape names no character"}
+	}
+	return rune(v), width, nil
 }
 
 func isHex(c byte) bool { return isDigit(c) || strings.IndexByte("abcdefABCDEF", c) >= 0 }
@@ -585,7 +623,7 @@ func (p *opaqueParser) wholeName(body string) (translated, bool) {
 	if err != nil {
 		return translated{}, false
 	}
-	return translated{expr: ref.expr, scalar: ref.scalar, plural: ref.plural, atomic: true}, true
+	return ref.value(), true
 }
 
 // statements reads the body as script statements, each written as v2 lines.
@@ -678,7 +716,11 @@ func (p *opaqueParser) declaration() ([]string, *refusal) {
 		return nil, &refusal{kind: refusedConstruct, token: kw.text + " " + name.text, why: "only a declaration of one name is translated"}
 	}
 	if value.scalar == "" || value.plural {
-		return nil, &refusal{kind: refusedType, token: kw.text + " " + name.text, why: "the type the declaration holds cannot be told from its value"}
+		why := "the type the declaration holds cannot be told from its value"
+		if value.held() != "" {
+			why = "the value is a " + value.held() + ", not a scalar a local attribute holds"
+		}
+		return nil, &refusal{kind: refusedType, token: kw.text + " " + name.text, why: why}
 	}
 	p.locals[name.text] = local{scalar: value.scalar, constant: kw.text == "const"}
 	target := writeName(name.text)
@@ -714,8 +756,8 @@ func (p *opaqueParser) step(path []string, op string) ([]string, *refusal) {
 	if err != nil {
 		return nil, err
 	}
-	if target.scalar != "" && !isNumeric(target.scalar) {
-		return nil, &refusal{kind: refusedType, token: strings.Join(path, ".") + op, why: "a " + target.scalar + " is not counted"}
+	if held := target.value().held(); held != "" && !isNumeric(target.scalar) {
+		return nil, &refusal{kind: refusedType, token: strings.Join(path, ".") + op, why: "a " + held + " is not counted"}
 	}
 	return []string{"assign " + target.expr + " := " + target.expr + " " + op[:1] + " 1;"}, nil
 }
@@ -731,11 +773,11 @@ func (p *opaqueParser) assignment(path []string, op string) ([]string, *refusal)
 		return nil, err
 	}
 	name := strings.Join(path, ".")
+	held := target.value()
 	if op != "=" {
-		if (target.scalar != "" && !isNumeric(target.scalar)) || (value.scalar != "" && !isNumeric(value.scalar)) {
-			return nil, &refusal{kind: refusedType, token: name + " " + op, why: "the operation needs numbers"}
+		if err := numbersAt(name+" "+op, held, value); err != nil {
+			return nil, err
 		}
-		held := translated{expr: target.expr, scalar: target.scalar, atomic: true}
 		if value, err = p.arithmeticOf(held, op[:1], value); err != nil {
 			return nil, err
 		}
@@ -743,8 +785,8 @@ func (p *opaqueParser) assignment(path []string, op string) ([]string, *refusal)
 	if value.plural != target.plural {
 		return nil, &refusal{kind: refusedType, token: name + " " + op, why: "one side is a collection and the other a single value"}
 	}
-	if target.scalar != "" && value.scalar != "" && !assignableScalar(target.scalar, value) {
-		return nil, &refusal{kind: refusedType, token: name + " " + op, why: "a " + value.scalar + " is assigned to the " + target.scalar + " " + name + " holds"}
+	if held.held() != "" && value.held() != "" && !assignableTo(held, value) {
+		return nil, &refusal{kind: refusedType, token: name + " " + op, why: "a " + value.held() + " is assigned to the " + held.held() + " " + name + " holds"}
 	}
 	return []string{"assign " + target.expr + " := " + spellFor(target.scalar, value) + ";"}, nil
 }
@@ -790,8 +832,8 @@ func (p *opaqueParser) expr() (translated, *refusal) {
 		return cond, nil
 	}
 	p.next(true)
-	if cond.scalar != "" && cond.scalar != "Boolean" {
-		return translated{}, &refusal{kind: refusedType, token: "?", why: "the condition is a " + cond.scalar + ", not a Boolean"}
+	if cond.held() != "" && cond.scalar != "Boolean" {
+		return translated{}, &refusal{kind: refusedType, token: "?", why: "the condition is a " + cond.held() + ", not a Boolean"}
 	}
 	yes, err := p.expr()
 	if err != nil {
@@ -806,9 +848,9 @@ func (p *opaqueParser) expr() (translated, *refusal) {
 	}
 	scalar, ok := commonScalar(yes, no)
 	if !ok {
-		return translated{}, &refusal{kind: refusedType, token: "?", why: "the branches are a " + yes.scalar + " and a " + no.scalar}
+		return translated{}, &refusal{kind: refusedType, token: "?", why: "the branches are a " + yes.held() + " and a " + no.held()}
 	}
-	return translated{expr: "if " + cond.operand() + " ? " + yes.operand() + " else " + no.operand(), scalar: scalar, plural: yes.plural}, nil
+	return translated{expr: "if " + cond.operand() + " ? " + yes.operand() + " else " + no.operand(), scalar: scalar, object: commonObject(yes, no), plural: yes.plural}, nil
 }
 
 // binaryOp is an operator of the ladder: how it is spelled in the source and in v2.
@@ -841,8 +883,8 @@ func (p *opaqueParser) logical(next func() (translated, *refusal), op binaryOp, 
 			return translated{}, err
 		}
 		for _, side := range []translated{left, right} {
-			if side.scalar != "" && side.scalar != "Boolean" {
-				return translated{}, &refusal{kind: refusedType, token: tok.text, why: "an operand is a " + side.scalar + ", not a Boolean"}
+			if side.held() != "" && side.scalar != "Boolean" {
+				return translated{}, &refusal{kind: refusedType, token: tok.text, why: "an operand is a " + side.held() + ", not a Boolean"}
 			}
 		}
 		left = binary(left, op.v2, right, loose, "Boolean")
@@ -873,7 +915,7 @@ func (p *opaqueParser) equality() (translated, *refusal) {
 			return translated{}, err
 		}
 		if _, ok := commonScalar(left, right); !ok {
-			return translated{}, &refusal{kind: refusedType, token: tok.text, why: "a " + left.scalar + " is compared with a " + right.scalar}
+			return translated{}, &refusal{kind: refusedType, token: tok.text, why: "a " + left.held() + " is compared with a " + right.held()}
 		}
 		right.expr = spellFor(left.scalar, right)
 		left = binary(left, v2, right, looseEquality, "Boolean")
@@ -1005,8 +1047,8 @@ func (p *opaqueParser) unary() (translated, *refusal) {
 		if err != nil {
 			return translated{}, err
 		}
-		if x.scalar != "" && !isNumeric(x.scalar) {
-			return translated{}, &refusal{kind: refusedType, token: tok.text, why: "the operand is a " + x.scalar + ", not a number"}
+		if x.held() != "" && !isNumeric(x.scalar) {
+			return translated{}, &refusal{kind: refusedType, token: tok.text, why: "the operand is a " + x.held() + ", not a number"}
 		}
 		if tok.text == "+" {
 			return x, nil
@@ -1021,8 +1063,8 @@ func (p *opaqueParser) unary() (translated, *refusal) {
 		if err != nil {
 			return translated{}, err
 		}
-		if x.scalar != "" && x.scalar != "Boolean" {
-			return translated{}, &refusal{kind: refusedType, token: tok.text, why: "the operand is a " + x.scalar + ", not a Boolean"}
+		if x.held() != "" && x.scalar != "Boolean" {
+			return translated{}, &refusal{kind: refusedType, token: tok.text, why: "the operand is a " + x.held() + ", not a Boolean"}
 		}
 		return translated{expr: "not " + x.operandOf(looseUnary, true), scalar: "Boolean", loose: looseUnary}, nil
 	case tok.isPunct("++"), tok.isPunct("--"):
@@ -1053,7 +1095,7 @@ func (p *opaqueParser) primary() (translated, *refusal) {
 	tok := p.next(true)
 	switch tok.kind {
 	case tokNumber:
-		return numberLiteral(tok.text)
+		return numberLiteral(tok.text, p.d)
 	case tokString:
 		return translated{expr: stringLiteral(tok.text), scalar: "String", atomic: true, lit: "string"}, nil
 	case tokIdent:
@@ -1115,7 +1157,7 @@ func (p *opaqueParser) name(path []string) (translated, *refusal) {
 	if err != nil {
 		return translated{}, err
 	}
-	return translated{expr: ref.expr, scalar: ref.scalar, plural: ref.plural, atomic: true}, nil
+	return ref.value(), nil
 }
 
 // call reads the arguments of a call and writes the library function the table maps it to.
@@ -1216,8 +1258,8 @@ func (p *opaqueParser) call(path []string) (translated, *refusal) {
 		if !s.plural {
 			return translated{}, &refusal{kind: refusedType, token: fn, why: "the argument is a single value, not a collection"}
 		}
-		if s.scalar != "" && !isNumeric(s.scalar) {
-			return translated{}, &refusal{kind: refusedType, token: fn, why: "the collection holds " + s.scalar + " values, not numbers"}
+		if s.held() != "" && !isNumeric(s.scalar) {
+			return translated{}, &refusal{kind: refusedType, token: fn, why: "the collection holds " + s.held() + " values, not numbers"}
 		}
 		which := fn[strings.LastIndex(fn, ".")+1:]
 		return translated{expr: s.operand() + "->ControlFunctions::reduce { in x; in y; " + extremum(which, s.scalar) + "(x, y) }", scalar: s.scalar, atomic: true}, nil
@@ -1236,12 +1278,30 @@ func extremum(which, scalar string) string {
 	return "NumericalFunctions::" + which
 }
 
-// numberLiteral writes a script number as a v2 integer or real literal.
-func numberLiteral(text string) (translated, *refusal) {
+// maxSafeInteger is the largest whole number a script's floating-point Number
+// holds exactly; a longer spelling is rounded as the script reads it.
+const maxSafeInteger = 1<<53 - 1
+
+// numberLiteral writes a number of dialect d as a v2 integer or real literal.
+// A whole number is kept only where the source read it exactly and the
+// runtime's Integer holds it.
+func numberLiteral(text string, d dialect) (translated, *refusal) {
 	if strings.HasPrefix(text, "0x") || strings.HasPrefix(text, "0X") {
 		return translated{}, &refusal{kind: refusedConstruct, token: text, why: "a hexadecimal literal has no v2 form in the subset"}
 	}
 	if !strings.ContainsAny(text, ".eE") {
+		if len(text) > 1 && text[0] == '0' {
+			return translated{}, &refusal{kind: refusedConstruct, token: text, why: "a legacy octal literal"}
+		}
+		v, err := strconv.ParseInt(text, 10, 64)
+		switch {
+		case err != nil:
+			return translated{}, &refusal{kind: refusedConstruct, token: text,
+				why: "the whole number is beyond the " + strconv.FormatInt(math.MaxInt64, 10) + " an Integer holds"}
+		case d != dialectJava && v > maxSafeInteger:
+			return translated{}, &refusal{kind: refusedConstruct, token: text,
+				why: "a script rounds a whole number beyond " + strconv.FormatInt(maxSafeInteger, 10) + " to the nearest floating-point value"}
+		}
 		return translated{expr: text, scalar: "Integer", atomic: true, lit: "integer"}, nil
 	}
 	v, err := strconv.ParseFloat(text, 64)
@@ -1260,8 +1320,8 @@ func numbersAt(op string, sides ...translated) *refusal {
 		if s.plural {
 			return &refusal{kind: refusedType, token: op, why: "an operand is a collection, not a number"}
 		}
-		if s.scalar != "" && !isNumeric(s.scalar) {
-			return &refusal{kind: refusedType, token: op, why: "an operand is a " + s.scalar + ", not a number"}
+		if s.held() != "" && !isNumeric(s.scalar) {
+			return &refusal{kind: refusedType, token: op, why: "an operand is a " + s.held() + ", not a number"}
 		}
 	}
 	return nil
@@ -1303,11 +1363,14 @@ func arithmeticScalar(op, a, b string) string {
 }
 
 // commonScalar is the scalar two expressions share, or agree with as numbers;
-// ok is false when their known types conflict.
+// ok is false when their known types conflict: a non-scalar with any scalar,
+// or two non-scalars with no type in common.
 func commonScalar(a, b translated) (string, bool) {
 	switch {
 	case a.plural != b.plural:
 		return "", false
+	case len(a.object) > 0 || len(b.object) > 0:
+		return "", a.scalar == "" && b.scalar == "" && (len(a.object) == 0 || len(b.object) == 0 || commonObject(a, b) != nil)
 	case a.scalar == "":
 		return b.scalar, true
 	case b.scalar == "":
@@ -1334,6 +1397,44 @@ func assignableScalar(scalar string, value translated) bool {
 		return ok
 	}
 	return false
+}
+
+// assignableTo reports whether value may be held by the feature target reads:
+// a scalar as assignableScalar tells, a non-scalar by a value of no scalar
+// whose type, when known, is the target's or specializes it.
+func assignableTo(target, value translated) bool {
+	if len(target.object) > 0 || len(value.object) > 0 {
+		return target.scalar == "" && value.scalar == "" && conforms(value, target)
+	}
+	return assignableScalar(target.scalar, value)
+}
+
+// conforms reports whether a value of a's non-scalar type is one of b's: the
+// same type or one it specializes, or either type unknown.
+func conforms(a, b translated) bool {
+	if len(a.object) == 0 || len(b.object) == 0 {
+		return true
+	}
+	for _, t := range a.object {
+		if t == b.object[0] {
+			return true
+		}
+	}
+	return false
+}
+
+// commonObject is the most special non-scalar type both a and b are known to
+// hold, with what generalizes it; the known one when only one is known.
+func commonObject(a, b translated) []string {
+	if len(a.object) == 0 {
+		return b.object
+	}
+	for i, t := range a.object {
+		if conforms(b, translated{object: []string{t}}) {
+			return a.object[i:]
+		}
+	}
+	return nil
 }
 
 // spellFor writes value as held by a feature of scalar: a whole real literal
