@@ -73,6 +73,7 @@ var packageLayer = map[string]string{
 	"internal/core/smt":                 "execution",
 	"internal/core/analysis":            "execution",
 	"internal/core/analysis/enginewire": "execution",
+	"internal/core/analysis/modelform":  "execution",
 	"internal/core/engines":             "execution",
 	"internal/core/objref":              "execution",
 
@@ -116,14 +117,13 @@ var packageLayer = map[string]string{
 // tolerated is the imports the layer table does not permit and that still
 // exist, importer → imported; an entry whose edge is gone fails, so it only shrinks.
 var tolerated = map[string][]string{
-	"internal/core/analysis":            {"internal/core/export"},
-	"internal/core/analysis/enginewire": {"internal/core/export"},
-	"internal/core/codegen":             {"internal/core/passes"},
-	"internal/core/export":              {"internal/core/libs"},
-	"internal/core/identity":            {"internal/core/rdf"},
-	"internal/core/migrate":             {"internal/core/libs"},
-	"internal/core/passes":              {"internal/core/rdf"},
-	"internal/core/runtime":             {"internal/core/envvar"},
+	"internal/core/analysis/modelform": {"internal/core/libs"},
+	"internal/core/codegen":            {"internal/core/passes"},
+	"internal/core/export":             {"internal/core/libs"},
+	"internal/core/identity":           {"internal/core/rdf"},
+	"internal/core/migrate":            {"internal/core/libs"},
+	"internal/core/passes":             {"internal/core/rdf"},
+	"internal/core/runtime":            {"internal/core/envvar"},
 }
 
 // removed is the imports the layering took out, importer → imported; reintroducing

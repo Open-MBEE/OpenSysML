@@ -619,9 +619,9 @@ first stage delivers, since it is the gate every external witness passes through
    and `external_standing.go`), the wire types in `enginewire` with the schema at
    `docs/reference/engine-protocol.schema.json`, and the bounded process I/O of `process.go`
    shared with the tool engine (`OPENSYSML_TOOL_MAX_OUTPUT`, default 64 MiB, one message and
-   the captured standard error). `graphs:1` is `export.GraphsOf` over the lowered
+   the captured standard error). `graphs:1` is `modelform.GraphsOf` over the lowered
    `ActionGraph` and `StateGraph`, the footprints that `lower.Footprints` computes included;
-   `sources` is `export.SourcesOf`. Standing is the framework's: a `violated` schedule replays
+   `sources` is `modelform.SourcesOf`. Standing is the framework's: a `violated` schedule replays
    through `runtime.ReplaySchedule` under the `replay:` policy as the `check` engine's witnesses
    do, and the condition is evaluated at the move named, `sensitive` needs two replaying
    schedules that end the feature differently, `satisfiable` an assignment the solver query's
