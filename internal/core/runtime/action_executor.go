@@ -597,6 +597,13 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 		if done, err := e.stepOnce(atCurrentTime); err != nil {
 			return err
 		} else if done {
+			// A step that parked every token for a message pauses a body around the run.
+			if !atCurrentTime && e.state == StateWaiting && !e.canProceed(nil) {
+				if err := e.ctx.pauseForMessage(wait); err != nil {
+					e.held = paused(err)
+					return err
+				}
+			}
 			break
 		}
 	}
@@ -939,7 +946,12 @@ func (e *ActionExecutor) acceptMatch(frame *actionFrame, accept lower.Accept, us
 		} else if !ec.carriesEvent(m, accept.SubsetsEvent) {
 			return false
 		}
-		reaches, err := e.ctx.messageReaches(m, ActionNodeName(usage), accept.ViaPort, e.self)
+		holder, port, err := ec.viaHolder(accept.ViaPort, e.self)
+		if err != nil {
+			failed = err
+			return false
+		}
+		reaches, err := e.ctx.messageReaches(m, ActionNodeName(usage), port, holder)
 		if err != nil {
 			failed = err
 		}

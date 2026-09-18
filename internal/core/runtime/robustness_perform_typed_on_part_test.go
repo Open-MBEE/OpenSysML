@@ -6,10 +6,8 @@ import (
 	"testing"
 )
 
-// TestRuntimeRobustnessPerformTypedOnPart exercises `perform action x : Def ::>
-// part.action`, whose reference names the performer: the typing must not make
-// the caller perform the definition itself, and a reference that denotes no one
-// object or no action is refused as it is without the typing.
+// TestRuntimeRobustnessPerformTypedOnPart exercises `perform action x : Def ::> part.action`:
+// the typing must not make the caller perform Def itself, and a reference denoting no action is refused.
 func TestRuntimeRobustnessPerformTypedOnPart(t *testing.T) {
 	t.Run("reference_names_the_performer", testPerformTypedOnPartPerformer)
 	t.Run("performer_holds_no_object", testPerformTypedOnPartHoldingNoObject)

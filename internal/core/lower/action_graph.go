@@ -1144,8 +1144,8 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 		target, isPath := SendTarget(m.Target)
 		var targetSym *symbols.Symbol
 		if m.IsVia {
-			target, isPath = FeaturePath(m.Target), true
-			targetSym, _ = resolve.FeatureSymbolInScope(scope, strings.Split(target, "."))
+			target, isPath = ViaPortPath(m.Target), true
+			targetSym, _ = resolve.FeatureSymbolInScope(scope, strings.Split(FeaturePath(m.Target), "."))
 		}
 		message := m.Message
 		if message == nil {
@@ -1354,7 +1354,7 @@ func acceptPort(node *ast.Usage) string {
 		if rel == nil || rel.Kind != ast.RelVia {
 			continue
 		}
-		if name := FeaturePath(rel.Target); name != "" {
+		if name := ViaPortPath(rel.Target); name != "" {
 			return name
 		}
 	}

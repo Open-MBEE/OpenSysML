@@ -973,13 +973,18 @@ func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Co
 }
 
 // postFor posts a message as its send addressed it: to the objects a target
-// bound in ec holds, else as post routes it.
+// bound in ec holds, else as post routes it — from the object a via path through
+// a feature bound in ec leads to, where it does.
 func (ctx *Context) postFor(ec *EvalContext, conns []lower.Connection, msg Message, s lower.Send, self *Instance, behavior *symbols.Symbol) error {
 	if addrs, bound, err := ec.boundTargetAddresses(s); bound {
 		if err != nil {
 			return err
 		}
 		return ctx.postAt(msg, addrs, self, behavior)
+	}
+	s, self, err := ec.viaSender(s, self)
+	if err != nil {
+		return err
 	}
 	return ctx.post(conns, msg, s, self, behavior)
 }

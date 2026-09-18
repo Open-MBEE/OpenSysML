@@ -185,3 +185,13 @@ func FeaturePath(node ast.Node) string {
 	}
 	return ast.SimpleName(node)
 }
+
+// ViaPortPath renders the port a `via` names as the connector ends of the
+// sender's owner write it: `this.p` is the sender's own port p.
+func ViaPortPath(node ast.Node) string {
+	path := FeaturePath(node)
+	if rest, ok := strings.CutPrefix(path, "this."); ok && rest != "" {
+		return rest
+	}
+	return path
+}

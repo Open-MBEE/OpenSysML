@@ -1519,7 +1519,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 		Trigger:   classifyTrigger(member.Trigger),
 		Guard:     member.Guard,
 		Effect:    transitionEffects(member, bodyScope, graph.resolver),
-		Via:       FeaturePath(member.Via),
+		Via:       ViaPortPath(member.Via),
 		Scope:     scope,
 		BodyScope: bodyScope,
 	}, nil

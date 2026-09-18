@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -136,9 +137,7 @@ func (ctx *Context) ownerDeliveries(
 			break
 		}
 		owner := child.owner
-		for i := range sendingPaths {
-			sendingPaths[i] = child.ownerFeature + "." + sendingPaths[i]
-		}
+		sendingPaths, targetSyms = ctx.heldPortPaths(owner, child.ownerFeature, sendingPaths, targetSyms)
 		sendingPaths, targetSyms = ctx.boundPortPaths(owner, sendingPaths, targetSyms)
 		conns := ctx.realizedConnections(ctx.connectionsOf(owner), owner)
 		for _, conn := range conns {
@@ -179,6 +178,30 @@ func (ctx *Context) ownerDeliveries(
 		}
 	}
 	return out, mismatch, nil
+}
+
+// heldPortPaths prefixes the paths a port is known by from a held object with each
+// name the holder reads that object under, since a connector its type inherits
+// names the part by the name it was declared with before redefinition.
+func (ctx *Context) heldPortPaths(owner *Instance, feature string, paths []string, targets []*symbols.Symbol) ([]string, []*symbols.Symbol) {
+	names := []string{feature}
+	if owner.Type != nil {
+		for alias := range ctx.redefinitionAliases(owner.Type, feature) {
+			if alias != feature {
+				names = append(names, alias)
+			}
+		}
+	}
+	sort.Strings(names[1:])
+	var outPaths []string
+	var outTargets []*symbols.Symbol
+	for _, name := range names {
+		for i, path := range paths {
+			outPaths = append(outPaths, name+"."+path)
+			outTargets = append(outTargets, targets[i])
+		}
+	}
+	return outPaths, outTargets
 }
 
 // joinsAnyTarget reports whether a connection has an end naming one of the
