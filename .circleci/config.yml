@@ -518,7 +518,7 @@ jobs:
       # cannot rot untested.
       - run:
           name: Run conformance suite against -transport grpc
-          command: go run -C tools ./cmd/conformance -transport grpc -protocols grpc -report ../bin/conformance-grpc-transport-report.json
+          command: go run -C tools ./cmd/conformance -transport grpc -protocols grpc -report bin/conformance-grpc-transport-report.json
 
       - store_artifacts:
           path: bin/conformance-grpc-transport-report.json

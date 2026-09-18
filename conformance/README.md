@@ -9,7 +9,7 @@ programming language, or a client's object model. The reference runner is
 make conformance                       # the CI gate; writes bin/conformance-report.json and .xml
 go run -C tools ./cmd/conformance -v             # print each scenario's normalized response
 go run -C tools ./cmd/conformance -run evaluate  # only the scenarios whose id matches
-go run -C tools ./cmd/conformance -binary ../bin/sysml-grpc  # test a binary already built
+go run -C tools ./cmd/conformance -binary bin/sysml-grpc  # test a binary already built
 go run -C tools ./cmd/conformance -protocols grpc,connect,connect-json
 ```
 

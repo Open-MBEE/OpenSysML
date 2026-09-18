@@ -57,7 +57,7 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "validation-census: %v\n", err)
 		return 1
 	}
-	opts := options{jar: *jar, requireJar: *requireJar}
+	opts := options{jar: repo.Resolve(root, *jar), requireJar: *requireJar}
 	switch {
 	case *update && *check:
 		err = fmt.Errorf("-update and -check are exclusive")

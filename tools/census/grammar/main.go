@@ -56,6 +56,7 @@ func run(repoDir, grammarDir, out, baseline string) error {
 	if err != nil {
 		return err
 	}
+	grammarDir, out, baseline = repo.Resolve(repoDir, grammarDir), repo.Resolve(repoDir, out), repo.Resolve(repoDir, baseline)
 	if grammarDir == "" {
 		grammarDir = filepath.Join(repoDir, "build", "pilot-grammars")
 	}

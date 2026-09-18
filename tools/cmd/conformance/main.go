@@ -60,15 +60,19 @@ func main() {
 		fmt.Fprintf(os.Stderr, "conformance: %v\n", err)
 		os.Exit(1)
 	}
+	*dir = repo.Resolve(root, *dir)
 	if *dir == "" {
 		*dir = filepath.Join(root, "conformance")
 	}
+	if *report != "-" {
+		*report = repo.Resolve(root, *report)
+	}
 	opts := options{
 		dir:       *dir,
-		binary:    *binary,
+		binary:    repo.Resolve(root, *binary),
 		repoRoot:  root,
 		report:    *report,
-		junit:     *junitOut,
+		junit:     repo.Resolve(root, *junitOut),
 		run:       *run,
 		verbose:   *verbose,
 		allowSkip: *allowSkip,

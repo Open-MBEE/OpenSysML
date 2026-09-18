@@ -1092,7 +1092,7 @@ jobs:
       # The same suite against the legacy grpc-go transport, so -transport grpc
       # cannot rot untested.
       - name: Run conformance suite against -transport grpc
-        run: go run -C tools ./cmd/conformance -transport grpc -protocols grpc -report ../bin/conformance-grpc-transport-report.json
+        run: go run -C tools ./cmd/conformance -transport grpc -protocols grpc -report bin/conformance-grpc-transport-report.json
 
       # The same suite through the public Go API (client/opensysml); the pkg
       # protocol runs in-process and pkg-connect dials the service, so this proves
