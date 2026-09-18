@@ -462,6 +462,7 @@ const drawPolicyPrefix = "draws by "
 // spells them, then choices as ChoiceTaken.String spells them, one per line or joined by `; `, ending at the
 // first blank line after it. It says whether the text has a header.
 func readHeader(text string) (w Witness, headed bool, err error) {
+	policied := false
 	for i, line := range strings.Split(text, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -512,6 +513,9 @@ func readHeader(text string) (w Witness, headed bool, err error) {
 			if err == nil && (len(w.Draws) > 0 || len(w.Choices) > 0) {
 				err = &DrawParseError{Text: line, Reason: "the draw policy comes before the draws and the moves"}
 			}
+			if err == nil && policied {
+				err = &DrawParseError{Text: line, Reason: "the draw policy is named twice, and a witness draws by one"}
+			}
 			if err != nil {
 				var parse *DrawParseError
 				if !errors.As(err, &parse) {
@@ -520,7 +524,7 @@ func readHeader(text string) (w Witness, headed bool, err error) {
 				parse.Line = i + 1
 				return Witness{}, true, parse
 			}
-			w.DrawPolicy = policy
+			w.DrawPolicy, policied = policy, true
 			continue
 		}
 		if strings.HasPrefix(line, drawPrefix) {

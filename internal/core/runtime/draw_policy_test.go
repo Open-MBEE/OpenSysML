@@ -187,7 +187,7 @@ func TestRandomDrawPolicyIsTheSeededStream(t *testing.T) {
 
 // A witness of a fixed-policy run names the policy, reads back, and replays to the
 // same values with no seed on the replaying context; a witness that names a policy
-// after its draws is refused with a typed error.
+// after its draws, or names one twice, is refused with a typed error.
 func TestWitnessCarriesTheDrawPolicy(t *testing.T) {
 	m := parseLibraryModel(t, drawPolicyModel)
 	ctx, out, err := runUnderDraws(t, m, "draw", DrawMax)
@@ -232,6 +232,16 @@ func TestWitnessCarriesTheDrawPolicy(t *testing.T) {
 	}
 	if _, err := ParseWitness("draws by median\nno choice points\n"); !errors.As(err, &parse) || !errors.Is(err, ErrDrawPolicy) && !strings.Contains(err.Error(), "median") {
 		t.Errorf("an unknown policy parsed: %v", err)
+	}
+	for _, twice := range []string{
+		"draws by min\ndraws by max\ndraw uniform(0.0, 1.0) = 1.0\nno choice points\n",
+		"draws by max\ndraws by max\ndraw uniform(0.0, 1.0) = 1.0\nno choice points\n",
+		"draws by random\ndraws by random\nno choice points\n",
+	} {
+		_, err := ParseWitness(twice)
+		if !errors.As(err, &parse) || !strings.Contains(err.Error(), "named twice") || parse.Line != 2 {
+			t.Errorf("a witness naming its policy twice parsed: %v\n%s", err, twice)
+		}
 	}
 }
 

@@ -1003,7 +1003,8 @@ policy, and unseeded take their most probable branch (the first written, on a ti
 configuration migrated from a tool whose `max` mode still randomizes its decisions is run as
 `-draws max -seed <s>`. The policy is recorded in every witness the checker writes, as a
 `draws by <policy>` line ahead of its draws (a random run's witness carries no such line, so
-one written before reads as before), and `-schedule replay:<file>` runs under the recorded
+one written before reads as before; a witness naming a policy twice, the same or another, is
+refused), and `-schedule replay:<file>` runs under the recorded
 policy whatever `-draws` says, refusing a recorded draw the policy could not have made; a
 witness naming a fixed policy and recording no draw leaves them to it, each call resolving
 to the policy's point as the run did, while one recording some but not all is refused. A
