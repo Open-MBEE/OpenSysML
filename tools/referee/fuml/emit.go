@@ -70,9 +70,26 @@ func Emit(a *Activity) (*Emitted, error) {
 		}
 		names[c.Name] = true
 	}
+	signals, err := signalClosure(a, defs, classes)
+	if err != nil {
+		return nil, err
+	}
+	for _, sg := range signals {
+		if names[sg.Name] {
+			return nil, &TranslateError{a.Name, "signal " + sg.Name, "shares its name with an activity or class of the closure"}
+		}
+		names[sg.Name] = true
+	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "package %s {\n\tprivate import ScalarValues::*;\n\tprivate import SequenceFunctions::*;\n\tprivate import ControlFunctions::*;\n", Package)
 	em := &Emitted{Name: a.Name + ".sysml", Qualified: Package + "::" + a.Name, Activity: a}
+	for _, sg := range signals {
+		text, err := emitSignal(a, sg)
+		if err != nil {
+			return nil, err
+		}
+		b.WriteString(text)
+	}
 	for _, c := range classes {
 		text, err := emitClass(a, c)
 		if err != nil {
@@ -176,6 +193,102 @@ func classClosure(root *Activity, defs []*Activity) ([]*Class, error) {
 	return out, nil
 }
 
+// signalClosure is every signal the definitions name — as the type of a parameter,
+// pin or attribute, as the signal sent, or as an accept's trigger — with the
+// signals those generalize, generals before their specializers.
+func signalClosure(root *Activity, defs []*Activity, classes []*Class) ([]*Signal, error) {
+	m := root.Model
+	seen := map[*Signal]bool{}
+	var out []*Signal
+	var visit func(t TypeRef) error
+	visit = func(t TypeRef) error {
+		sg := m.SignalOf(t)
+		if sg == nil || seen[sg] {
+			return nil
+		}
+		seen[sg] = true
+		for _, g := range sg.Generals {
+			if m.SignalOf(g) == nil {
+				return &TranslateError{root.Name, "signal " + sg.Name, "generalizes " + g.String() + ", which is no signal of the model"}
+			}
+			if err := visit(g); err != nil {
+				return err
+			}
+		}
+		for _, p := range sg.Attributes {
+			if err := visit(p.Type); err != nil {
+				return err
+			}
+		}
+		out = append(out, sg)
+		return nil
+	}
+	for _, c := range classes {
+		for _, p := range c.Attributes {
+			if err := visit(p.Type); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for _, d := range defs {
+		for _, p := range d.Parameters {
+			if err := visit(p.Type); err != nil {
+				return nil, err
+			}
+		}
+		for _, n := range d.AllNodes() {
+			if err := visit(n.Type); err != nil {
+				return nil, err
+			}
+			if err := visit(n.Signal); err != nil {
+				return nil, err
+			}
+			for _, tr := range n.Triggers {
+				if err := visit(tr.Signal); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+	return out, nil
+}
+
+// emitSignal spells a signal as an attribute definition: a signal instance is a
+// value carried by a message, not an occurrence of its own. Its generals are its
+// supertypes, so a specialized signal satisfies an accept of its general.
+func emitSignal(root *Activity, sg *Signal) (string, error) {
+	var b strings.Builder
+	fmt.Fprintf(&b, "\tattribute def %s", quote(sg.Name))
+	for i, g := range sg.Generals {
+		sep := " :> "
+		if i > 0 {
+			sep = ", "
+		}
+		b.WriteString(sep + quote(root.Model.SignalOf(g).Name))
+	}
+	if len(sg.Attributes) == 0 {
+		b.WriteString(";\n")
+		return b.String(), nil
+	}
+	b.WriteString(" {\n")
+	for _, p := range sg.Attributes {
+		where := "attribute " + sg.Name + "." + p.Name
+		m := exactMultiplicity(p.Multiplicity)
+		switch {
+		case p.Type.Zero():
+			fmt.Fprintf(&b, "\t\tattribute %s%s;\n", quote(p.Name), m)
+		case scalarTypes[p.Type.Name] != "":
+			fmt.Fprintf(&b, "\t\tattribute %s : %s%s;\n", quote(p.Name), scalarTypes[p.Type.Name], m)
+		case root.Model.SignalOf(p.Type) != nil:
+			fmt.Fprintf(&b, "\t\tattribute %s : %s%s;\n", quote(p.Name), quote(root.Model.SignalOf(p.Type).Name), m)
+		default:
+			return "", &TranslateError{root.Name, where, "type " + p.Type.String() + " is not translated by the pilot emitter"}
+		}
+	}
+	b.WriteString("\t}\n")
+	return b.String(), nil
+}
+
 // emitClass spells a class as a part definition: an object of a class is an
 // occurrence with structural features, created and then written to. Its generals
 // are its supertypes, its attributes keep their multiplicity exactly.
@@ -215,6 +328,8 @@ func attributeDecl(root *Activity, c *Class, p *Property) (string, error) {
 		return fmt.Sprintf("attribute %s%s;", quote(p.Name), m), nil
 	case scalarTypes[p.Type.Name] != "":
 		return fmt.Sprintf("attribute %s : %s%s;", quote(p.Name), scalarTypes[p.Type.Name], m), nil
+	case root.Model.SignalOf(p.Type) != nil:
+		return fmt.Sprintf("attribute %s : %s%s;", quote(p.Name), quote(root.Model.SignalOf(p.Type).Name), m), nil
 	}
 	if t := root.Model.ClassOf(p.Type); t != nil {
 		kind := "ref part"
@@ -471,7 +586,8 @@ func (e *emitter) parameterType(p *Parameter) (string, error) {
 	return " : " + t, nil
 }
 
-// typeOf spells a primitive type, or a class of the model by its part definition.
+// typeOf spells a primitive type, a class of the model by its part definition,
+// or a signal by its attribute definition.
 func (e *emitter) typeOf(t TypeRef, where string) (string, error) {
 	if t.Zero() {
 		return "", &TranslateError{e.a.Name, where, "has no type"}
@@ -481,6 +597,9 @@ func (e *emitter) typeOf(t TypeRef, where string) (string, error) {
 	}
 	if c := e.a.Model.ClassOf(t); c != nil {
 		return quote(c.Name), nil
+	}
+	if sg := e.a.Model.SignalOf(t); sg != nil {
+		return quote(sg.Name), nil
 	}
 	return "", &TranslateError{e.a.Name, where, "type " + t.String() + " is not translated by the pilot emitter"}
 }
@@ -605,6 +724,10 @@ func (s *scope) declare(n *Node) error {
 		return s.selfNode(n)
 	case ReadStructuralFeatureAction, AddStructuralFeatureValueAction, RemoveStructuralFeatureValueAction, ClearStructuralFeatureAction:
 		return s.featureNode(n)
+	case SendSignalAction:
+		return s.sendNode(n)
+	case AcceptEventAction:
+		return s.acceptNode(n)
 	default:
 		return e.fail(n.Label(), string(n.Kind)+" is not translated by the pilot emitter")
 	}
@@ -883,6 +1006,105 @@ func (s *scope) featureNode(n *Node) error {
 	name := s.names.name(nodeName(n))
 	s.add(&snode{name: name, kind: kindAction, node: n, pending: unfed(n),
 		decl: fmt.Sprintf("action %s { %s }", quote(name), strings.Join(features, " "))})
+	return nil
+}
+
+// sendNode spells a send signal action: an action taking the target object and
+// the signal's attribute values at its pins, whose body sends a new instance of
+// the signal to the target. The send completes without waiting, as fUML's does.
+func (s *scope) sendNode(n *Node) error {
+	e := s.e
+	sg := e.a.Model.SignalOf(n.Signal)
+	if sg == nil {
+		return e.fail(n.Label(), "sends "+n.Signal.String()+", which is no signal of the model")
+	}
+	if len(n.Outputs()) != 0 {
+		return e.fail(n.Label(), "a send signal action has no result pin")
+	}
+	var target *Node
+	var args []*Node
+	for _, p := range n.Inputs() {
+		switch p.Role {
+		case "target":
+			if target != nil {
+				return e.fail(n.Label(), "has two target pins")
+			}
+			target = p
+		case "argument":
+			args = append(args, p)
+		default:
+			return e.fail(n.Label(), "has a "+p.Role+" pin")
+		}
+	}
+	if target == nil {
+		return e.fail(n.Label(), "has no target pin")
+	}
+	attrs := sg.AllAttributes()
+	if len(args) != len(attrs) {
+		return e.fail(n.Label(), fmt.Sprintf("%s has %d attributes, the send has %d argument pins", sg.Name, len(attrs), len(args)))
+	}
+	targetType, err := e.pinType(target)
+	if err != nil {
+		return err
+	}
+	pins := newNamer("target")
+	s.pins[target] = "target"
+	features := []string{fmt.Sprintf("in target : %s;", targetType)}
+	var values []string
+	for i, p := range args {
+		t, err := e.pinType(p)
+		if err != nil {
+			return err
+		}
+		pn := pins.name(pinFeature(p, attrs[i].Name))
+		s.pins[p] = pn
+		features = append(features, fmt.Sprintf("in %s : %s%s;", quote(pn), t, multiplicity(p.Multiplicity)))
+		values = append(values, quote(attrs[i].Name)+" = "+quote(pn))
+	}
+	features = append(features, fmt.Sprintf("send new %s(%s) to target;", quote(sg.Name), strings.Join(values, ", ")))
+	name := s.names.name(nodeName(n))
+	s.add(&snode{name: name, kind: kindAction, node: n, pending: unfed(n),
+		decl: fmt.Sprintf("action %s { %s }", quote(name), strings.Join(features, " "))})
+	return nil
+}
+
+// acceptNode spells an accept event action as an accept node waiting for the
+// signal its trigger names, the accepted instance being its result pin. An
+// instance of a specialized signal satisfies an accept of its general, as in fUML.
+func (s *scope) acceptNode(n *Node) error {
+	e := s.e
+	if n.Unmarshall {
+		return e.fail(n.Label(), "unmarshalls the signal onto one pin per attribute, which the pilot emitter does not spell")
+	}
+	if len(n.Triggers) != 1 {
+		return e.fail(n.Label(), fmt.Sprintf("has %d triggers; a SysML v2 accept names one signal", len(n.Triggers)))
+	}
+	tr := n.Triggers[0]
+	if tr.Operation != nil {
+		return e.fail(n.Label(), "accepts a call event, which SysML v2 has no counterpart for")
+	}
+	sg := e.a.Model.SignalOf(tr.Signal)
+	if sg == nil {
+		return e.fail(n.Label(), "accepts "+tr.Signal.String()+", which is no signal of the model")
+	}
+	if len(n.Inputs()) != 0 {
+		return e.fail(n.Label(), "an accept event action has no input pin")
+	}
+	outs := n.Outputs()
+	if len(outs) > 1 {
+		return e.fail(n.Label(), "an accept event action of one signal has one result pin")
+	}
+	name := s.names.name(nodeName(n))
+	if len(outs) == 0 {
+		s.add(&snode{name: name, kind: kindAction, node: n, decl: fmt.Sprintf("action %s accept %s;", quote(name), quote(sg.Name))})
+		return nil
+	}
+	// The runtime binds the payload in the enclosing flow under its name as well as
+	// on the node, so the name is kept apart from every other of the scope.
+	payload := s.names.name(pinFeature(outs[0], "result"))
+	s.pins[outs[0]] = payload
+	s.add(&snode{name: name, kind: kindAction, node: n,
+		decl: fmt.Sprintf("action %s accept %s : %s;", quote(name), quote(payload), quote(sg.Name))})
 	return nil
 }
 

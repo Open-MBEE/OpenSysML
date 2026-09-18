@@ -1042,7 +1042,17 @@ func lowerFeatures(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 	var features []Feature
 	for _, member := range node.Members {
 		m, ok := unwrapMembership(member).(*ast.Usage)
-		if !ok || !DeclaresNodeFeature(m) {
+		if !ok {
+			continue
+		}
+		if m.IsAccept {
+			// The payload parameter is the accept's output pin; a value on it is a trigger.
+			if m.Ident.Name != "" {
+				features = append(features, Feature{Name: m.Ident.Name, Direction: ast.DirOut, Node: m, Scope: scope})
+			}
+			continue
+		}
+		if !DeclaresNodeFeature(m) {
 			continue
 		}
 		name, _ := ast.EffectiveName(m)

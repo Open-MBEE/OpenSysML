@@ -455,7 +455,7 @@
       "class": "expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "not yet translated: attribute ActiveClass.signal1: type TestSignal is not translated by the pilot emitter"
+        "not yet translated: activity: an owned behavior of a class is not translated by the pilot emitter"
       ]
     },
     {
@@ -464,7 +464,7 @@
       "class": "expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "not yet translated: Accept(TestSignal): AcceptEventAction is not translated by the pilot emitter"
+        "not yet translated: Write(signal): touches a feature of TestSignalReceiver, which is no class of the model"
       ]
     },
     {
@@ -482,7 +482,7 @@
       "class": "expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "not yet translated: attribute ActiveClass.signal1: type TestSignal is not translated by the pilot emitter"
+        "not yet translated: Start(ActiveClass): StartObjectBehaviorAction is not translated by the pilot emitter"
       ]
     },
     {

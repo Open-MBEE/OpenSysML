@@ -662,3 +662,176 @@ func TestExecuteObjects(t *testing.T) {
 		t.Errorf("Reader: %+v", ex)
 	}
 }
+
+// signalModel exercises the signal rules: Ping carries a level, Pong specializes
+// it, Notifier sends a Pong to a Target it is given, Listener accepts a Ping onto
+// its result pin and then a bare Pong, and Carrier's attribute is a signal.
+const signalModel = `<?xml version="1.0" encoding="UTF-8"?>
+<uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="Signals">
+  <packagedElement xmi:type="uml:Signal" xmi:id="ping" name="Ping">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="level" name="level">` + integerType + `</ownedAttribute>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Signal" xmi:id="pong" name="Pong">
+    <generalization xmi:type="uml:Generalization" xmi:id="pongGen" general="ping"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Signal" xmi:id="idle" name="Idle"/>
+  <packagedElement xmi:type="uml:SignalEvent" xmi:id="pingEvent" signal="ping"/>
+  <packagedElement xmi:type="uml:SignalEvent" xmi:id="pongEvent" signal="pong"/>
+  <packagedElement xmi:type="uml:Class" xmi:id="target" name="Target"/>
+  <packagedElement xmi:type="uml:Class" xmi:id="carrier" name="Carrier">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="last" name="last" type="ping">
+      <lowerValue xmi:type="uml:LiteralInteger" xmi:id="lastLo"/>
+      <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="lastHi" value="1"/>
+    </ownedAttribute>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="notifier" name="Notifier">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="notifierTo" name="to" direction="in" type="target"/>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="notifierOut" name="sent" direction="out">` + integerType + `</ownedParameter>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="notifierToNode" name="Parameter(to)" parameter="notifierTo"/>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="v4" name="Value(4)">
+      <result xmi:type="uml:OutputPin" xmi:id="v4r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="v4v" value="4"/>
+    </node>
+    <node xmi:type="uml:ForkNode" xmi:id="notifierFork" name="Fork"/>
+    <node xmi:type="uml:SendSignalAction" xmi:id="sendPong" name="Send(Pong)" signal="pong">
+      <target xmi:type="uml:InputPin" xmi:id="sendPongTarget" name="target" type="target"/>
+      <argument xmi:type="uml:InputPin" xmi:id="sendPongLevel" name="level">` + integerType + `</argument>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="notifierOutNode" name="Parameter(sent)" parameter="notifierOut"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="n1" source="notifierToNode" target="sendPongTarget"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="n2" source="v4r" target="notifierFork"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="n3" source="notifierFork" target="sendPongLevel"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="n4" source="notifierFork" target="notifierOutNode"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="listener" name="Listener">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="listenerOut" name="heard" direction="out" type="ping">
+      <lowerValue xmi:type="uml:LiteralInteger" xmi:id="heardLo"/>
+      <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="heardHi" value="1"/>
+    </ownedParameter>
+    <node xmi:type="uml:InitialNode" xmi:id="listenerInit" name="Initial"/>
+    <node xmi:type="uml:AcceptEventAction" xmi:id="acceptPing" name="Accept(Ping)">
+      <result xmi:type="uml:OutputPin" xmi:id="acceptPingR" name="signal" type="ping"/>
+      <trigger xmi:type="uml:Trigger" xmi:id="pingTrigger" event="pingEvent"/>
+    </node>
+    <node xmi:type="uml:AcceptEventAction" xmi:id="acceptPong" name="Accept(Pong)">
+      <trigger xmi:type="uml:Trigger" xmi:id="pongTrigger" event="pongEvent"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="listenerOutNode" name="Parameter(heard)" parameter="listenerOut"/>
+    <edge xmi:type="uml:ControlFlow" xmi:id="l1" source="listenerInit" target="acceptPing"/>
+    <edge xmi:type="uml:ControlFlow" xmi:id="l2" source="acceptPing" target="acceptPong"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="l3" source="acceptPingR" target="listenerOutNode"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="unmarshaller" name="Unmarshaller">
+    <node xmi:type="uml:AcceptEventAction" xmi:id="acceptUnmarshalled" name="Accept(Ping)" isUnmarshall="true">
+      <result xmi:type="uml:OutputPin" xmi:id="acceptLevel" name="level">` + integerType + `</result>
+      <trigger xmi:type="uml:Trigger" xmi:id="unmarshallTrigger" event="pingEvent"/>
+    </node>
+  </packagedElement>
+</uml:Model>
+`
+
+// A signal is an attribute definition holding its attributes, specializing its
+// generals with `:>`, declared before the classes and activities that name it;
+// the closure follows the signals sent, accepted and typing parameters, pins and
+// attributes, and their generals, and leaves the rest out.
+func TestEmitSignals(t *testing.T) {
+	s := fixtureSuite(t, signalModel)
+	em := emitted(t, s, "Notifier")
+	wantLines(t, em,
+		"\tattribute def Ping {\n\t\tattribute level : Integer;\n\t}\n",
+		"\tattribute def Pong :> Ping;\n",
+		"\tpart def Target {\n\t}\n",
+		"in 'to' : Target;")
+	if strings.Index(em.Text, "attribute def Ping") > strings.Index(em.Text, "attribute def Pong") ||
+		strings.Index(em.Text, "attribute def Pong") > strings.Index(em.Text, "part def Target") {
+		t.Errorf("signals are not declared generals first, before the classes:\n%s", em.Text)
+	}
+	if strings.Contains(em.Text, "Idle") || strings.Contains(em.Text, "Carrier") {
+		t.Errorf("Idle or Carrier declared though Notifier never names them:\n%s", em.Text)
+	}
+	em = emitted(t, s, "Listener")
+	wantLines(t, em, "\tattribute def Ping {", "\tattribute def Pong :> Ping;\n", "out heard : Ping[0..1] = ();")
+	if strings.Contains(em.Text, "Target") {
+		t.Errorf("Target declared though Listener never names it:\n%s", em.Text)
+	}
+}
+
+// A signal typing a class's attribute is declared, and the attribute keeps its type.
+func TestEmitSignalTypedAttribute(t *testing.T) {
+	s := fixtureSuite(t, signalModel)
+	c := s.Tests.ClassOf(TypeRef{Name: "Carrier"})
+	if c == nil {
+		t.Fatal("no class Carrier")
+	}
+	root := fixtureActivity(t, s, "Listener")
+	text, err := emitClass(root, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text != "\tpart def Carrier {\n\t\tattribute last : Ping [0..1];\n\t}\n" {
+		t.Errorf("Carrier:\n%s", text)
+	}
+	signals, err := signalClosure(root, nil, []*Class{c})
+	if err != nil || len(signals) != 1 || signals[0].Name != "Ping" {
+		t.Errorf("signalClosure(Carrier) = %v, %v; want Ping", signals, err)
+	}
+}
+
+// A send signal action is an action taking the target and one value per
+// attribute of the signal, generals' included, whose body sends a new instance
+// to the target; it completes without waiting for a reply.
+func TestEmitSendSignal(t *testing.T) {
+	s := fixtureSuite(t, signalModel)
+	em := emitted(t, s, "Notifier")
+	wantLines(t, em,
+		"action 'Send(Pong)' { in target : Target; in level : Integer; send new Pong(level = level) to target; }",
+		"flow 'Parameter(to)'.v to 'Send(Pong)'.target;",
+		"flow 'Value(4)'.result to 'Send(Pong)'.level;",
+		"succession first Fork then 'Send(Pong)';")
+	if strings.Contains(em.Text, "accept") {
+		t.Errorf("a send waits:\n%s", em.Text)
+	}
+}
+
+// An accept event action with a result pin is an accept node binding the signal
+// received to the pin, typed by the trigger's signal; one without a pin is a
+// bare accept; an unmarshalling accept is a TranslateError.
+func TestEmitAcceptEvent(t *testing.T) {
+	s := fixtureSuite(t, signalModel)
+	em := emitted(t, s, "Listener")
+	wantLines(t, em,
+		"action 'Accept(Ping)' accept signal : Ping;",
+		"action 'Accept(Pong)' accept Pong;",
+		"succession first 'Accept(Ping)' then 'Accept(Ping) fork';",
+		"succession first 'Accept(Ping) fork' then 'Accept(Pong)';",
+		"flow 'Accept(Ping)'.signal to 'Parameter(heard)'.v;")
+	_, err := Emit(fixtureActivity(t, s, "Unmarshaller"))
+	var te *TranslateError
+	if !errors.As(err, &te) || te.Where != "Accept(Ping)" || !strings.Contains(te.Reason, "unmarshalls") {
+		t.Errorf("Emit(Unmarshaller) = %v, want a TranslateError on the unmarshalling accept", err)
+	}
+}
+
+// A send to an object that runs no behavior completes, the message left
+// pending; an accept nothing sends to is a run error the runtime types as an
+// accept deadlock — a finding about the run, not a construct left untranslated.
+func TestExecuteSignals(t *testing.T) {
+	s := fixtureSuite(t, signalModel)
+	notifier := fixtureActivity(t, s, "Notifier")
+	x := executed(notifier, []ExpectedOutput{integers("sent", 4)})
+	ex, err := Execute(context.Background(), emitted(t, s, "Notifier"), &x, DefaultBudget, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ex.Passed() || strings.Join(ex.Reached, "|") != "sent = 4" {
+		t.Errorf("Notifier: %+v", ex)
+	}
+	listener := fixtureActivity(t, s, "Listener")
+	x = executed(listener, []ExpectedOutput{{Parameter: "heard"}})
+	if ex, err = Execute(context.Background(), emitted(t, s, "Listener"), &x, DefaultBudget, 1); err != nil {
+		t.Fatal(err)
+	}
+	if ex.Passed() || len(ex.Errors) != 1 || !strings.Contains(ex.Errors[0], runtime.ErrAcceptDeadlock.Error()) {
+		t.Errorf("Listener: %+v", ex)
+	}
+}

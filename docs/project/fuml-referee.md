@@ -250,21 +250,31 @@ translation of the pilot activities and then generalized:
 | `CreateObjectAction` | `action <name> { out result : <Class> = new <Class>(); }` — a new occurrence on the result pin. Creation starts no behavior; that is `StartObjectBehaviorAction`'s (SM43) |
 | `ReadSelfAction` | `action <name> { out result : <Owner> = this; }` inside a class's owned behavior, `this` being the object performing it; in an activity no class owns there is no self, and the action is refused |
 | `ReadStructuralFeatureAction` | `action <name> { in object : <Class>; out result : <T> [m] = object.<f>; }` at the feature's multiplicity; the object arrives at the `object` pin as fUML's does |
+| `Signal` with `ownedAttribute`s and `generalization`s | `attribute def <Signal> :> <General> { attribute <p> : <T> [l..u]; … }` — an attribute definition, since a fUML signal instance is a value carried by a message and read by attribute, never an occurrence that performs anything; a signal with nothing to declare is `attribute def <Signal>;`. Every signal the closure names — sent, accepted, typing a parameter, a pin or an attribute of a class or of another signal — is declared once, generals first, before the classes and the activities, and a signal is found by id and then by name as a class is |
+| `SendSignalAction` | `action <name> { in target : <Class>; in <arg> : <T>; … send new <Signal>(<attr> = <arg>, …) to target; }` — the target object and one argument pin per attribute of the signal, inherited ones included, in the signal's attribute order; the body sends a new instance to the target and completes without waiting, as fUML's send does. A send with a result pin, without a target pin or with an argument count other than the signal's attribute count is refused |
+| `AcceptEventAction` of one `SignalEvent` | `action <name> accept <pin> : <Signal>;` — an accept node whose result pin is the instance accepted; without a result pin, `action <name> accept <Signal>;`. The runtime matches by conformance, so an instance of a specialized signal satisfies an accept of its general as fUML's `SignalEvent` matching does. An accept with several triggers, of a `CallEvent`, with an input pin or `isUnmarshall` (one pin per attribute) is refused |
 | `AddStructuralFeatureValueAction`, `RemoveStructuralFeatureValueAction`, `ClearStructuralFeatureAction` | `action <name> { in object : <Class>; in value : <T>; in insertAt : Integer; out result : <Class> = object; assign object.<f> := <held after>; }` — the result pin hands the original object on, as fUML §8.10.2's structural feature actions do, and the feature is assigned what the reference implementation computes it to hold afterwards: an add with `isReplaceAll`, or to a single-valued feature, the value; otherwise a unique feature dropping its old copy first, the value inserted at `insertAt` (`includingAt`, one-based; `*`, spelled `-1` since no position is negative, appending) or, with no position, first — the reference's `FirstChoiceStrategy` chooses position 1; a remove dropping every copy (`isRemoveDuplicates`, `excluding`), the copy at `removeAt` when there is one (`excludingAt`), or the first copy (`select` over the positions), a single-valued feature emptied when it holds the value; a clear emptying. The `insertAt`/`removeAt` pins are fed by `LiteralUnlimitedNatural` value specifications, which the emitter spells as `Integer` positions — the one place an unlimited natural has a spelling |
 
 The runtime executes a class as its object model executes any part: `new` materializes an
 instance whose features hold their declared multiplicity, `assign object.f := …` writes a
 feature through the same statement a user's action body writes with, and a violation of the
 feature's bounds is the runtime's typed error, so a translated write the bounds refuse is a
-`fail` naming it.
+`fail` naming it. A translated send posts its message through the runtime's signal routing,
+and an accept parks its node until a matching message arrives; the value accepted is bound
+to the node's result pin, from where the object flows carry it on
+(`accept_payload_flows_from_pin` in the execution-conformance fixtures pins that a
+`Calibrated` accepted as a `Reading` reaches the consumer with its attribute readable). An
+accept that nothing can ever satisfy is the runtime's typed `accept deadlock`, so an activity
+that waits for a signal no node of it sends is a `fail` naming the wait — where the reference
+implementation's `execute()` returns with the accepter registered and the outputs empty.
 
-Everything else the classifier calls expressible — a `Signal` as a type, `SendSignalAction`,
-`AcceptEventAction`, `StartObjectBehaviorAction`, an activity instantiated as an object, a
+Everything else the classifier calls expressible — `StartObjectBehaviorAction`, an activity
+instantiated as an object or owning attributes of its own (a UML behavior is a class), a
 class's owned or classifier behavior (and so `ReadSelfAction` in practice, until the behavior
 it reads self in is translated), an edge weight other than 1, an object-flow cycle through
 control nodes — is a **`TranslateError`** naming the activity,
-the node or edge, and the construct: `TestSignalReceiver: Accept(TestSignal): AcceptEventAction
-is not translated by the pilot emitter`. The classifier decides expressibility; the emitter
+the node or edge, and the construct: `TestSignalReceiver: Write(signal): touches a feature of
+TestSignalReceiver, which is no class of the model`. The classifier decides expressibility; the emitter
 decides what it can translate; a `TranslateError` on an expressible activity files the row
 `not-expressible` by the emitter, its reason `not yet translated:` and the construct, the
 row's `class` still `expressible` so the two judgments stay apart. Every translated model is
@@ -331,7 +341,7 @@ The committed baseline over the 55 activities of both models:
 | `pass` | 20 | `Copier`, `CopierCaller`, `SimpleDecision`, `ForkJoin`, `ForkMerge`, `NodeEnabler`, `TestNodeEnabler`, `TestIntegerFunctions`, `TestIntegerComparisonFunctions`, `TestRealFunctions`, `TestRealComparisonFunctions`, `TestStringFunctions`, `GenerateBooleanTestData`, `GenerateListTestData`, `TestListFunctions`, `TestGeneralizationAssembly`, `TestClassObjectCreator`, `TestClassWriterReader`, `TestClassAttributeWriter`, `TestClassAttributeValueRemover` |
 | `fail` | 0 | |
 | `differs-by-design` | 4 | `DecisionJoin`, `ForkMergeData`, `TestSimpleActivities`, `TestBooleanFunctions` |
-| `not-expressible` | 31 | the 15 of the test model and the 12 of the exception model listed above, by the classifier; and by the emitter, `TestSignalReceiver` (`AcceptEventAction`), `TestSpecializedSignalSend` (`CreateObjectAction` of an activity, `TestSignalReceiver`, as an object), `ActiveClassBehaviorSender` and `ActiveClassBehavior` (an attribute typed by a `Signal`) |
+| `not-expressible` | 31 | the 15 of the test model and the 12 of the exception model listed above, by the classifier; and by the emitter, `TestSignalReceiver` (a structural feature of the activity itself), `TestSpecializedSignalSend` (`CreateObjectAction` of an activity, `TestSignalReceiver`, as an object), `ActiveClassBehaviorSender` (`StartObjectBehaviorAction`) and `ActiveClassBehavior` (a class's owned behavior) |
 
 Every pilot activity the scope named runs: the eight control- and object-flow activities and
 the primitive-function tests pass with every linearization agreeing, seven of them with the
@@ -350,24 +360,37 @@ others in 1 or 2), and the object comparison is by class and feature values, nev
 
 **No row fails, and four are `not-expressible` by the emitter rather than the classifier**,
 each adjudicated as such: a `TranslateError` on the first construct the emitter meets that it
-does not yet spell, where the classifier holds the activity expressible — signal reception, a
-signal as an attribute's type, an activity instantiated as an object to be started and sent to.
-None reached the runtime. Each row keeps `class: expressible` and names the construct after
-`not yet translated:`, so the four are told apart from the classifier's 27 in the report and
-move to `pass` or `fail` only when the emitter grows a rule. Behind the first construct named
-stand `SendSignalAction`, `StartObjectBehaviorAction` and a class's classifier behavior, and the
-active-class rows depend on the object-lifecycle mapping the alignment note fixes: creation does
-not start a behavior; `StartObjectBehaviorAction` does.
+does not yet spell, where the classifier holds the activity expressible. None reached the
+runtime. Each row keeps `class: expressible` and names the construct after `not yet
+translated:`, so the four are told apart from the classifier's 27 in the report and move to
+`pass` or `fail` only when the emitter grows a rule. The signals themselves are translated —
+`TestSignal`, `SpecializedSignal :> TestSignal`, the sends and the accepts of all four
+activities spell — and what the four wait on is one construct: a UML behavior is a class, and
+the suite uses it as one. `TestSignalReceiver` owns an attribute `signal` and writes it
+through `ReadSelf`, so the object of `Write(signal)` is the activity's own performance;
+`TestSpecializedSignalSend` creates an object of `TestSignalReceiver` and starts it;
+`ActiveClassBehaviorSender` starts an `ActiveClass` whose classifier behavior
+`ActiveClassBehavior` reads self. All four depend on the object-lifecycle mapping the
+alignment note fixes: creation does not start a behavior; `StartObjectBehaviorAction` does.
 
 ### Movements since the previous baseline
 
 Five rows moved since the previous baseline (15 `pass`, 36 `not-expressible`): the emitter
 gained the rules for classes, object creation, `ReadSelfAction` and the structural feature
-actions (the construct map above), and the referee gained class-typed default inputs and the
-object rendering. No other row's bucket changed; the classifier's 27 rows and the four
-`differs-by-design` rows are byte-identical to the previous baseline's, and the four emitter
-rows that stay `not-expressible` name the next untranslated construct the emitter meets now
-that `CreateObjectAction` and the structural feature actions are spelled.
+actions, then for signals, `SendSignalAction` and `AcceptEventAction` (the construct map
+above), and the referee gained class-typed default inputs and the object rendering. No other
+row's bucket changed; the classifier's 27 rows and the four `differs-by-design` rows are
+byte-identical to the previous baseline's, and the four emitter rows that stay
+`not-expressible` name the next untranslated construct the emitter meets now that the object
+and signal constructs are spelled. The signal rules moved no row on their own: the two
+signal activities of the suite are also the two that use an activity as a class (an owned
+attribute written through `ReadSelf`; a `CreateObjectAction` of an activity, started), so
+their reasons sharpened — `TestSignalReceiver` from `Accept(TestSignal): AcceptEventAction`
+to `Write(signal): touches a feature of TestSignalReceiver, which is no class of the model` —
+and their bucket did not. The rules are proven over synthetic models instead (`TestEmitSignals`,
+`TestEmitSendSignal`, `TestEmitAcceptEvent`, `TestExecuteSignals`), where a `Pong :> Ping`
+sent with its inherited attribute reaches an accept of `Ping`, and an accept nothing sends to
+is the runtime's typed accept deadlock, a `fail` and never a `not-expressible`.
 
 | Activity | Movement | Adjudication |
 |---|---|---|
