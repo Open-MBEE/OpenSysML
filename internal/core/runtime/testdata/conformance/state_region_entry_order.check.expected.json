@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"log": ["\"outerL(entry) innerL(entry) outerR(entry) innerR(entry) \"", "\"outerL(entry) outerR(entry) innerL(entry) innerR(entry) \"", "\"outerL(entry) outerR(entry) innerR(entry) innerL(entry) \"", "\"outerR(entry) innerR(entry) outerL(entry) innerL(entry) \"", "\"outerR(entry) outerL(entry) innerL(entry) innerR(entry) \"", "\"outerR(entry) outerL(entry) innerR(entry) innerL(entry) \""]},
+	"agreed": {"finalState": "innerL+innerR"}
+}

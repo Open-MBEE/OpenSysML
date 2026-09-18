@@ -1,4 +1,4 @@
-choice on accept Go: states a, b react (unordered; took b first)
+choice on accept Go: states a, b react (unordered; took a first)
 choice join sync: states a, b react (unordered; took a first)
 exit: a (exit action)
 stmt action body

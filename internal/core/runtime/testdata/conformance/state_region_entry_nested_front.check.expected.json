@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"log": ["\"inner(entry) p0(entry) q0(entry) r0(entry) \"", "\"inner(entry) p0(entry) r0(entry) q0(entry) \"", "\"inner(entry) q0(entry) p0(entry) r0(entry) \"", "\"inner(entry) q0(entry) r0(entry) p0(entry) \"", "\"inner(entry) r0(entry) p0(entry) q0(entry) \"", "\"inner(entry) r0(entry) q0(entry) p0(entry) \"", "\"r0(entry) inner(entry) p0(entry) q0(entry) \"", "\"r0(entry) inner(entry) q0(entry) p0(entry) \""]},
+	"agreed": {"finalState": "inner+p0+q0+r0"}
+}

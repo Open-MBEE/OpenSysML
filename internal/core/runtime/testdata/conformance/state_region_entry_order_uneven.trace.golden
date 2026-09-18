@@ -1,0 +1,18 @@
+exit: idle
+enter: work
+enter: l0 (entry action)
+stmt assign log
+    eval feature log -> ""
+    eval literal "l0(entry) " -> "l0(entry) "
+  eval operator + -> "l0(entry) "
+enter: outerR (entry action)
+stmt assign log
+    eval feature log -> "l0(entry) "
+    eval literal "outerR(entry) " -> "outerR(entry) "
+  eval operator + -> "l0(entry) outerR(entry) "
+enter: innerR (entry action)
+stmt assign log
+    eval feature log -> "l0(entry) outerR(entry) "
+    eval literal "innerR(entry) " -> "innerR(entry) "
+  eval operator + -> "l0(entry) outerR(entry) innerR(entry) "
+transition: idle -> work (event: accept Go)

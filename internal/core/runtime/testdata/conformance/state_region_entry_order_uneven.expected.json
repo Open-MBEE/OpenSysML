@@ -1,0 +1,23 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Go"}],
+	"outcomes": [
+		{
+			"finalState": "l0+innerR",
+			"stateVisits": ["idle", "work", "l0", "outerR", "innerR"],
+			"outputs": {"log": {"type": "String", "value": "l0(entry) outerR(entry) innerR(entry) "}}
+		},
+		{
+			"finalState": "l0+innerR",
+			"stateVisits": ["idle", "work", "outerR", "l0", "innerR"],
+			"outputs": {"log": {"type": "String", "value": "outerR(entry) l0(entry) innerR(entry) "}}
+		},
+		{
+			"finalState": "l0+innerR",
+			"stateVisits": ["idle", "work", "outerR", "innerR", "l0"],
+			"outputs": {"log": {"type": "String", "value": "outerR(entry) innerR(entry) l0(entry) "}}
+		}
+	],
+	"admissible": "Regions entered together: each starts, in which order is open"
+}

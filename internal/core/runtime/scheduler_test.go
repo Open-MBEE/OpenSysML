@@ -448,8 +448,8 @@ func TestParkedTokensDrawNothing(t *testing.T) {
 
 // A composite state reached from every leaf of its orthogonal regions offers one
 // transition per dispatch or change poll: the choice among its enabled
-// transitions draws once, so the run takes the seed's first draw and its next
-// choice takes the second.
+// transitions draws once, so after the entry order drawn as its regions were
+// entered the run takes the seed's next draw and its next choice the one after.
 func TestSharedAncestorChoiceDrawsOnce(t *testing.T) {
 	const regions = `state busy parallel {
 				state left { entry; then l; state l; }
@@ -503,12 +503,15 @@ func TestSharedAncestorChoiceDrawsOnce(t *testing.T) {
 				t.Fatalf("%s %s: %v", tc.name, policy, err)
 			}
 			choices := ctx.Choices()
-			if len(choices) != 2 {
-				t.Fatalf("%s %s: choices = %v, want one out of busy and one after it (visited %v)",
+			if len(choices) != 3 || choices[0].Kind != ChoiceEntryOrder {
+				t.Fatalf("%s %s: choices = %v, want the entry order of busy, one out of busy and one after it (visited %v)",
 					tc.name, policy, choices, visited)
 			}
 			draws := policy.start()
-			for i, choice := range choices {
+			if want := draw(draws, 2); choices[0].Taken != want {
+				t.Errorf("%s %s: the entry order took %d, the seed's draw is %d", tc.name, policy, choices[0].Taken, want)
+			}
+			for i, choice := range choices[1:] {
 				if choice.Kind != ChoiceTransition {
 					t.Fatalf("%s %s: choice %d is %v, want a transition choice", tc.name, policy, i, choice)
 				}
@@ -523,7 +526,7 @@ func TestSharedAncestorChoiceDrawsOnce(t *testing.T) {
 
 // A composite state with several enabled transitions loses to a nested state that
 // also reacts: the choice it never got to make draws nothing, so the run's first
-// reported choice takes the seed's first draw.
+// transition choice takes the seed's draw right after the regions' entry order.
 func TestOutrankedChoiceDrawsNothing(t *testing.T) {
 	const after = `state low;
 			state high;
@@ -586,12 +589,15 @@ func TestOutrankedChoiceDrawsNothing(t *testing.T) {
 				t.Fatalf("%s %s: the nested transition did not fire (visited %v)", tc.name, policy, visited)
 			}
 			choices := ctx.Choices()
-			if len(choices) != 2 {
-				t.Fatalf("%s %s: choices = %v, want one out of busy and one after it (visited %v)",
+			if len(choices) != 3 || choices[0].Kind != ChoiceEntryOrder {
+				t.Fatalf("%s %s: choices = %v, want the entry order of busy, one out of busy and one after it (visited %v)",
 					tc.name, policy, choices, visited)
 			}
 			draws := policy.start()
-			for i, choice := range choices {
+			if want := draw(draws, 2); choices[0].Taken != want {
+				t.Errorf("%s %s: the entry order took %d, the seed's draw is %d", tc.name, policy, choices[0].Taken, want)
+			}
+			for i, choice := range choices[1:] {
 				if choice.Kind != ChoiceTransition {
 					t.Fatalf("%s %s: choice %d is %v, want a transition choice", tc.name, policy, i, choice)
 				}

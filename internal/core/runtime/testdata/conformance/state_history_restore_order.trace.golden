@@ -1,0 +1,37 @@
+choice on accept Go: states l0, r0 react (unordered; took l0 first)
+exit: l0
+enter: l1 (entry action)
+stmt assign log
+    eval feature log -> ""
+    eval literal "l1(entry) " -> "l1(entry) "
+  eval operator + -> "l1(entry) "
+transition: l0 -> l1 (event: accept Go)
+exit: r0
+enter: r1 (entry action)
+stmt assign log
+    eval feature log -> "l1(entry) "
+    eval literal "r1(entry) " -> "r1(entry) "
+  eval operator + -> "l1(entry) r1(entry) "
+transition: r0 -> r1 (event: accept Go)
+exit: l1
+exit: r1
+exit: work
+enter: paused (entry action)
+stmt assign log
+    eval feature log -> "l1(entry) r1(entry) "
+    eval literal "paused(entry) " -> "paused(entry) "
+  eval operator + -> "l1(entry) r1(entry) paused(entry) "
+transition: work -> paused (event: accept Pause)
+exit: paused
+enter: work
+enter: l1 (entry action)
+stmt assign log
+    eval feature log -> "l1(entry) r1(entry) paused(entry) "
+    eval literal "l1(entry) " -> "l1(entry) "
+  eval operator + -> "l1(entry) r1(entry) paused(entry) l1(entry) "
+enter: r1 (entry action)
+stmt assign log
+    eval feature log -> "l1(entry) r1(entry) paused(entry) l1(entry) "
+    eval literal "r1(entry) " -> "r1(entry) "
+  eval operator + -> "l1(entry) r1(entry) paused(entry) l1(entry) r1(entry) "
+transition: paused -> work (event: accept Resume)

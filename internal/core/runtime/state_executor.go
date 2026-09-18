@@ -2267,7 +2267,7 @@ func (e *StateExecutor) fireHistoryTransition(trans *lower.Transition, hist *ast
 		return err
 	}
 	currentState := e.moveOrigin()
-	return e.travelChoosing(e.drawsBeyond(hist), trans, currentState, r,
+	return e.travelChoosing(e.drawsBeyond(hist) || e.mayDrawEntering(owner), trans, currentState, r,
 		func(*ast.StateNode) []*ast.StateNode { return e.exitedByMove(currentState, trans, owner) },
 		func(*ast.StateNode) []*ast.StateNode { return e.enteredByMove(currentState, trans, owner) },
 		func(effects []routeEffect, _ *ast.StateNode) error {
@@ -2503,7 +2503,8 @@ func (e *StateExecutor) deepestRecorded(state *ast.StateNode, branches map[*ast.
 
 // fireForkTransition takes a transition into a fork: every outgoing branch is
 // taken at once, making one state active per orthogonal region of the composite
-// state that owns them.
+// state that owns them. The move is one whole: a refused draw among the branches
+// undoes the exits and effects ahead of it.
 func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.PseudostateNode) error {
 	plan, err := e.forkPlan(fork)
 	if err != nil {
@@ -2512,7 +2513,11 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 	owner := plan.Owner
 	e.noteFired(trans)
 	e.noteFired(e.graph.Transitions[fork]...)
+	return e.moveWhole(func() error { return e.forkMove(trans, fork, plan, owner) })
+}
 
+// forkMove is the fork's compound transition: the exits, the effect, the branches.
+func (e *StateExecutor) forkMove(trans *lower.Transition, fork *ast.PseudostateNode, plan *lower.ForkPlan, owner *ast.StateNode) error {
 	// Leave the source configuration down to the move's boundary, which stays
 	// active: states above it are neither exited nor entered again.
 	boundary, err := e.leaveForFork(trans, owner)
@@ -2529,12 +2534,10 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 	// enter the rest of the way down to the owner and their targets, bypassing
 	// the initial states of the regions they enter (PSSM §8.5.7).
 	above := e.forkEntry(boundary, owner)
-	if i := slices.Index(above.chain, e.graph.PseudostateOwner[fork]); i >= 0 {
-		if err := e.enterLazily(above, i+1); err != nil {
-			return err
-		}
+	if err := e.enterAboveFork(fork, above); err != nil {
+		return err
 	}
-	if err := e.enterForkBranches(plan, above); err != nil {
+	if err := e.enterForkBranches(fork, plan, above); err != nil {
 		return err
 	}
 	// A region the move re-entered on its way down keeps the state of that path.

@@ -256,7 +256,8 @@ package Test {
 
 // One event enabling a transition in each of two orthogonal regions is a
 // region-order choice on the state response under the default policy, and
-// `seed:1` takes the other order.
+// a seed takes the other order; a seed also reports the order the regions were
+// entered in, which the default keeps in declaration order without a choice.
 func TestExecuteState_RegionOrderChoiceDiagnostics(t *testing.T) {
 	srv := mustNewService(t, 10)
 
@@ -279,7 +280,7 @@ package Test {
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)
 	}
-	execute := func(schedule, wantVisited, wantChoice string) {
+	execute := func(schedule, wantVisited string, wantChoices ...string) {
 		t.Helper()
 		resp, err := srv.ExecuteState(context.Background(), &pb.ExecuteStateRequest{
 			ModelHash:            parseResp.ModelHash,
@@ -297,15 +298,22 @@ package Test {
 			t.Fatalf("%q: states visited %q, want %s", schedule, got, wantVisited)
 		}
 		choices := choiceDiagnostics(resp.Diagnostics)
-		if len(choices) != 1 {
-			t.Fatalf("%q: choice diagnostics = %v, want one", schedule, resp.Diagnostics)
+		if len(choices) != len(wantChoices) {
+			t.Fatalf("%q: choice diagnostics = %v, want %d", schedule, resp.Diagnostics, len(wantChoices))
 		}
-		if choices[0].Message != wantChoice || choices[0].Severity != "info" {
-			t.Errorf("%q: diagnostic = %s %q, want info %q", schedule, choices[0].Severity, choices[0].Message, wantChoice)
+		for i, want := range wantChoices {
+			if choices[i].Message != want || choices[i].Severity != "info" {
+				t.Errorf("%q: diagnostic = %s %q, want info %q", schedule, choices[i].Severity, choices[i].Message, want)
+			}
 		}
 	}
 	execute("", "work,a1,b1,a2,b2", "choice point: on accept Go: states a1, b1 react (unordered; took a1 first)")
-	execute("seed:1", "work,a1,b1,b2,a2", "choice point: on accept Go: states a1, b1 react (unordered; took b1 first)")
+	execute("seed:8", "work,a1,b1,b2,a2",
+		"choice point: entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first)",
+		"choice point: on accept Go: states a1, b1 react (unordered; took b1 first)")
+	execute("seed:1", "work,b1,a1,a2,b2",
+		"choice point: entering work: next a1(entry), b1(entry) (unordered; took b1(entry) first)",
+		"choice point: on accept Go: states a1, b1 react (unordered; took a1 first)")
 }
 
 // A guard the run read only to report a choice and could not evaluate is an

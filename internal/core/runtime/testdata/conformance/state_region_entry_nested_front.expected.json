@@ -1,0 +1,48 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Go"}],
+	"outcomes": [
+		{
+			"finalState": "inner+p0+q0+r0",
+			"stateVisits": ["idle", "work", "inner", "p0", "q0", "r0"],
+			"outputs": {"log": {"type": "String", "value": "inner(entry) p0(entry) q0(entry) r0(entry) "}}
+		},
+		{
+			"finalState": "inner+p0+q0+r0",
+			"stateVisits": ["idle", "work", "inner", "p0", "r0", "q0"],
+			"outputs": {"log": {"type": "String", "value": "inner(entry) p0(entry) r0(entry) q0(entry) "}}
+		},
+		{
+			"finalState": "inner+p0+q0+r0",
+			"stateVisits": ["idle", "work", "inner", "r0", "p0", "q0"],
+			"outputs": {"log": {"type": "String", "value": "inner(entry) r0(entry) p0(entry) q0(entry) "}}
+		},
+		{
+			"finalState": "inner+p0+q0+r0",
+			"stateVisits": ["idle", "work", "r0", "inner", "p0", "q0"],
+			"outputs": {"log": {"type": "String", "value": "r0(entry) inner(entry) p0(entry) q0(entry) "}}
+		},
+		{
+			"finalState": "inner+p0+q0+r0",
+			"stateVisits": ["idle", "work", "inner", "q0", "p0", "r0"],
+			"outputs": {"log": {"type": "String", "value": "inner(entry) q0(entry) p0(entry) r0(entry) "}}
+		},
+		{
+			"finalState": "inner+p0+q0+r0",
+			"stateVisits": ["idle", "work", "inner", "q0", "r0", "p0"],
+			"outputs": {"log": {"type": "String", "value": "inner(entry) q0(entry) r0(entry) p0(entry) "}}
+		},
+		{
+			"finalState": "inner+p0+q0+r0",
+			"stateVisits": ["idle", "work", "inner", "r0", "q0", "p0"],
+			"outputs": {"log": {"type": "String", "value": "inner(entry) r0(entry) q0(entry) p0(entry) "}}
+		},
+		{
+			"finalState": "inner+p0+q0+r0",
+			"stateVisits": ["idle", "work", "r0", "inner", "q0", "p0"],
+			"outputs": {"log": {"type": "String", "value": "r0(entry) inner(entry) q0(entry) p0(entry) "}}
+		}
+	],
+	"admissible": "Regions entered together: each starts, in which order is open"
+}

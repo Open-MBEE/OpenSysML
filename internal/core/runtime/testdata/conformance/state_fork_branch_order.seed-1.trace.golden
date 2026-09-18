@@ -1,0 +1,24 @@
+exit: idle
+stmt assign log
+    eval feature log -> ""
+    eval literal "T1(effect) " -> "T1(effect) "
+  eval operator + -> "T1(effect) "
+choice fork split: next T1a(effect), T1b(effect) (unordered; took T1b(effect) first)
+stmt assign log
+    eval feature log -> "T1(effect) "
+    eval literal "T1b(effect) " -> "T1b(effect) "
+  eval operator + -> "T1(effect) T1b(effect) "
+choice fork split: next T1a(effect), top(entry) (unordered; took T1a(effect) first)
+stmt assign log
+    eval feature log -> "T1(effect) T1b(effect) "
+    eval literal "T1a(effect) " -> "T1a(effect) "
+  eval operator + -> "T1(effect) T1b(effect) T1a(effect) "
+enter: top (entry action)
+stmt assign log
+    eval feature log -> "T1(effect) T1b(effect) T1a(effect) "
+    eval literal "top(entry) " -> "top(entry) "
+  eval operator + -> "T1(effect) T1b(effect) T1a(effect) top(entry) "
+choice fork split: next a(entry), b(entry) (unordered; took a(entry) first)
+enter: a
+enter: b
+transition: idle -> split

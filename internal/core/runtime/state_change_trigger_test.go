@@ -650,8 +650,13 @@ func TestChangeTriggerConsumesARiseIntoAnUnsynchronizedJoin(t *testing.T) {
 	if report.Verdict != CheckExhaustive {
 		t.Fatalf("check: %s, want exhaustive", report.Status())
 	}
-	if len(report.Finals) != 1 || report.Finals[0].Values["finalState"] != "a1+b1" || report.Finals[0].Values["log"] != `""` {
-		t.Fatalf("finals %+v, want one at a1+b1 with nothing logged", report.Finals)
+	if len(report.Finals) != 2 {
+		t.Fatalf("finals %+v, want one per entry order of Work's regions", report.Finals)
+	}
+	for _, final := range report.Finals {
+		if final.Values["finalState"] != "a1+b1" || final.Values["log"] != `""` {
+			t.Fatalf("final %+v, want a1+b1 with nothing logged", final)
+		}
 	}
 }
 

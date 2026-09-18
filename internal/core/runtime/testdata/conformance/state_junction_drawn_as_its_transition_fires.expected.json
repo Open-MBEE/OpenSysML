@@ -26,6 +26,30 @@
 				"armed": {"type": "Boolean", "value": false},
 				"route": {"type": "Integer", "value": 2}
 			}
+		},
+		{
+			"finalState": "a2+b1",
+			"stateVisits": ["work", "b1", "a1", "a2"],
+			"outputs": {
+				"armed": {"type": "Boolean", "value": false},
+				"route": {"type": "Integer", "value": 0}
+			}
+		},
+		{
+			"finalState": "a2+left",
+			"stateVisits": ["work", "b1", "a1", "left", "a2"],
+			"outputs": {
+				"armed": {"type": "Boolean", "value": false},
+				"route": {"type": "Integer", "value": 1}
+			}
+		},
+		{
+			"finalState": "a2+right",
+			"stateVisits": ["work", "b1", "a1", "right", "a2"],
+			"outputs": {
+				"armed": {"type": "Boolean", "value": false},
+				"route": {"type": "Integer", "value": 2}
+			}
 		}
 	],
 	"admissible": "A junction with two branches enabled in a region another region's reaction may disarm: drawn only as its transition fires"

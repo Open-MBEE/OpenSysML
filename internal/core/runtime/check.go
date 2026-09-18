@@ -231,20 +231,10 @@ func (e *CheckStopped) Unwrap() error { return e.Cause }
 // fresh makes. Every violation and every final value carries the witness a
 // replay of the same starter follows (Replay). It stops with a CheckStopped
 // when stop ends first; it fails when the run refused a move it selected.
+// A start that draws — a machine entering orthogonal regions — is searched once
+// per way of answering its draws, each from a fresh context.
 func Check(stop context.Context, fresh func() (*Context, error), start Starter, budget CheckBudget, opts CheckOptions, props []CheckProperty) (*CheckReport, error) {
-	ctx, err := fresh()
-	if err != nil {
-		return nil, err
-	}
-	script := &checkScript{due: -1}
-	if err := ctx.SetSchedule(checkPolicy(script)); err != nil {
-		return nil, err
-	}
-	if ctx.Trace() == nil {
-		ctx.SetTrace(NewTraceRecorder())
-	}
 	c := &checker{
-		ctx:            ctx,
 		budget:         budget,
 		opts:           opts,
 		props:          props,
@@ -253,29 +243,81 @@ func Check(stop context.Context, fresh func() (*Context, error), start Starter, 
 		finals:         make(map[string]int),
 		futures:        make(map[futureKey]lower.Footprint),
 		machineFutures: make(map[*lower.StateGraph]lower.Footprint),
-		budgets:        ctx.Budgets(),
 	}
-	run, err := beginInvocation(ctx, start)
-	if err != nil {
-		// Failing to start fails on every schedule: a violation with no move.
-		c.violate(Violation{Kind: ViolationFailure, Err: err, Witness: c.failing(err)})
-		return c.result(), nil
-	}
-	defer run.inv.Release()
-	if err := run.inv.started(ctx); err != nil {
-		return nil, err
-	}
-	c.inv, c.run = run.inv, run
-	if err := c.resolveDiverge(); err != nil {
-		return nil, err
-	}
-	if err := c.search(stop); err != nil {
-		return nil, err
+	// starts are the pick sequences left to start the invocation with, the last first.
+	starts := [][]int{nil}
+	for len(starts) > 0 {
+		picks := starts[len(starts)-1]
+		starts = starts[:len(starts)-1]
+		drawn, began, err := c.begin(fresh, start, picks)
+		if err != nil {
+			return nil, err
+		}
+		if !began {
+			continue
+		}
+		starts = append(starts, startsRevealed(picks, drawn)...)
+		err = c.search(stop)
+		c.inv.Release()
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := c.divergeReached(); err != nil {
 		return nil, err
 	}
 	return c.result(), nil
+}
+
+// begin starts the invocation in a fresh context, its start's draws answered by
+// picks, and reports the draws the start made past them. A start that fails is
+// a violation with no move, on which began is false; a pick the start could not
+// take is the run refusing a move.
+func (c *checker) begin(fresh func() (*Context, error), start Starter, picks []int) (drawn []ChoicePoint, began bool, err error) {
+	ctx, err := fresh()
+	if err != nil {
+		return nil, false, err
+	}
+	script := &checkScript{due: -1, picks: picks}
+	if err := ctx.SetSchedule(checkPolicy(script)); err != nil {
+		return nil, false, err
+	}
+	if ctx.Trace() == nil {
+		ctx.SetTrace(NewTraceRecorder())
+	}
+	c.ctx, c.budgets = ctx, ctx.Budgets()
+	run, err := beginInvocation(ctx, start)
+	if err != nil {
+		if errors.Is(err, ErrCheckRefused) {
+			return nil, false, err
+		}
+		c.violate(Violation{Kind: ViolationFailure, Err: err, Witness: c.failing(err)})
+		return nil, false, nil
+	}
+	if err := run.inv.started(ctx); err != nil {
+		run.inv.Release()
+		return nil, false, err
+	}
+	c.inv, c.run = run.inv, run
+	if c.nested == nil {
+		if err := c.resolveDiverge(); err != nil {
+			run.inv.Release()
+			return nil, false, err
+		}
+	}
+	return ctx.scheduling().check.drawn, true, nil
+}
+
+// startsRevealed lists the starts taking each other alternative of the draws a
+// start made past its picks, as reveal lists a move's, last to take first.
+func startsRevealed(picks []int, drawn []ChoicePoint) [][]int {
+	var starts [][]int
+	for i := len(drawn) - 1; i >= 0; i-- {
+		for alt := len(drawn[i].Alternatives) - 1; alt >= 1; alt-- {
+			starts = append(starts, slices.Concat(picks, make([]int, i), []int{alt}))
+		}
+	}
+	return starts
 }
 
 // checker is one search in progress.
@@ -1149,7 +1191,7 @@ func (c *checker) result() *CheckReport {
 		Moves:      c.moves,
 		MaxDepth:   c.maxDepth,
 		BoundsHit:  c.bounds,
-		Limits:     c.ctx.Budgets(),
+		Limits:     c.budgets,
 		Horizon:    c.horizon(),
 		Violations: c.violations,
 		Finals:     slices.Clone(c.results),

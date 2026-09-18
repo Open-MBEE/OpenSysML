@@ -1,0 +1,38 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Go"}],
+	"outcomes": [
+		{
+			"finalState": "innerL+innerR",
+			"stateVisits": ["idle", "work", "outerL", "innerL", "outerR", "innerR"],
+			"outputs": {"log": {"type": "String", "value": "outerL(entry) innerL(entry) outerR(entry) innerR(entry) "}}
+		},
+		{
+			"finalState": "innerL+innerR",
+			"stateVisits": ["idle", "work", "outerL", "outerR", "innerL", "innerR"],
+			"outputs": {"log": {"type": "String", "value": "outerL(entry) outerR(entry) innerL(entry) innerR(entry) "}}
+		},
+		{
+			"finalState": "innerL+innerR",
+			"stateVisits": ["idle", "work", "outerL", "outerR", "innerR", "innerL"],
+			"outputs": {"log": {"type": "String", "value": "outerL(entry) outerR(entry) innerR(entry) innerL(entry) "}}
+		},
+		{
+			"finalState": "innerL+innerR",
+			"stateVisits": ["idle", "work", "outerR", "outerL", "innerL", "innerR"],
+			"outputs": {"log": {"type": "String", "value": "outerR(entry) outerL(entry) innerL(entry) innerR(entry) "}}
+		},
+		{
+			"finalState": "innerL+innerR",
+			"stateVisits": ["idle", "work", "outerR", "outerL", "innerR", "innerL"],
+			"outputs": {"log": {"type": "String", "value": "outerR(entry) outerL(entry) innerR(entry) innerL(entry) "}}
+		},
+		{
+			"finalState": "innerL+innerR",
+			"stateVisits": ["idle", "work", "outerR", "innerR", "outerL", "innerL"],
+			"outputs": {"log": {"type": "String", "value": "outerR(entry) innerR(entry) outerL(entry) innerL(entry) "}}
+		}
+	],
+	"admissible": "Regions entered together: each starts, in which order is open"
+}

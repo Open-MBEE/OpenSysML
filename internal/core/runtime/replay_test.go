@@ -443,13 +443,14 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 		sym := m.state(t, "Machine")
 		run := stateRun(sym, "go")
 		x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
-		if err != nil || !x.Complete() || x.Runs != 2 {
+		if err != nil || !x.Complete() || x.Runs != 4 {
 			t.Fatalf("explore: %v, %v", x, err)
 		}
 		assertWitnessesReplay(t, x, m.fresh, run)
 	})
 	// A dispatch draws every region's transition before the order they fire in, and
-	// notes each with its firing; the witness lists the draws, the run the firings.
+	// notes each with its firing; the witness lists the draws, the run the firings,
+	// both after the entry order drawn as the regions were entered.
 	t.Run("regions with a conflict", func(t *testing.T) {
 		m := parseExploreModel(t, `package test {
 			private import ScalarValues::*;
@@ -467,12 +468,12 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 		sym := m.state(t, "Machine")
 		run := stateRun(sym, "go")
 		x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
-		if err != nil || !x.Complete() || x.Runs != 4 {
+		if err != nil || !x.Complete() || x.Runs != 8 {
 			t.Fatalf("explore: %v, %v", x, err)
 		}
 		for _, o := range x.Outcomes {
-			if kinds := choiceKinds(o.Witness); !reflect.DeepEqual(kinds, []ChoiceKind{ChoiceTransition, ChoiceRegionOrder}) {
-				t.Fatalf("witness %s draws %v, want the transition then the region order", FormatChoices(o.Witness), kinds)
+			if kinds := choiceKinds(o.Witness); !reflect.DeepEqual(kinds, []ChoiceKind{ChoiceEntryOrder, ChoiceTransition, ChoiceRegionOrder}) {
+				t.Fatalf("witness %s draws %v, want the entry order, the transition, then the region order", FormatChoices(o.Witness), kinds)
 			}
 			outcome, choices, err := replayed(t, m.fresh, run, o.Witness)
 			if err != nil {
@@ -482,8 +483,8 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 			if outcome.String() != o.Outcome.String() {
 				t.Errorf("replaying %s reached %s, want %s", FormatChoices(o.Witness), outcome, o.Outcome)
 			}
-			if kinds := choiceKinds(choices); !reflect.DeepEqual(kinds, []ChoiceKind{ChoiceRegionOrder, ChoiceTransition}) {
-				t.Errorf("replaying %s noted %v, want the region order then the transition", FormatChoices(o.Witness), kinds)
+			if kinds := choiceKinds(choices); !reflect.DeepEqual(kinds, []ChoiceKind{ChoiceEntryOrder, ChoiceRegionOrder, ChoiceTransition}) {
+				t.Errorf("replaying %s noted %v, want the entry order, the region order, then the transition", FormatChoices(o.Witness), kinds)
 			}
 			got, want := strings.Split(FormatChoices(choices), "; "), strings.Split(FormatChoices(o.Witness), "; ")
 			slices.Sort(got)
@@ -1260,6 +1261,91 @@ func TestReplayRefusedChoiceMoveChangesNothing(t *testing.T) {
 	}
 	if ctx.Unfollowed() == nil {
 		t.Error("the refusal is not reported for the run")
+	}
+}
+
+// A refused entry-order line undoes the move whole, whether the regions are
+// entered by a transition or through a fork: the exit and effect ahead of the
+// draw, the unit the first line entered — its state, its entry behavior, its do
+// behavior — are all undone, and neither line is a choice of the run.
+func TestReplayRefusedEntryOrderMoveChangesNothing(t *testing.T) {
+	for _, tc := range []struct{ name, into, where string }{
+		{"transition", "then work;", "entering work"},
+		{"fork", "then split;", "fork split"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := parseExploreModel(t, `package test {
+				private import ScalarValues::*;
+				attribute def Go;
+				state def Machine {
+					attribute level : Integer = 0;
+					attribute exited : Integer = 0;
+					attribute entered : Integer = 0;
+					entry; then idle;
+					state idle { exit assign exited := 1; }
+					fork split;
+					state work parallel {
+						state a {
+							entry; then a1;
+							state a1 {
+								entry assign entered := entered + 1;
+								do assign level := level + 100;
+								entry; then a2;
+								state a2 { entry assign entered := entered + 5; }
+							}
+						}
+						state b { entry; then b1; state b1 { entry assign entered := entered + 10; } }
+					}
+					transition first idle accept Go do assign level := 8 `+tc.into+`
+					transition first split then a1;
+					transition first split then b1;
+				}
+			}`)
+			sym := m.state(t, "Machine")
+			witness, err := ParseChoices(tc.where + ": a1(entry) first of a1(entry), b1(entry)\n" + tc.where + ": c1(entry) first of a2(entry), c1(entry)\n")
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, err := m.fresh()
+			if err != nil {
+				t.Fatal(err)
+			}
+			mustSchedule(t, ctx, ReplayPolicy(witness))
+			exec, err := ctx.CreateStateExecutor(sym)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := exec.RunToCompletion(); err != nil {
+				t.Fatalf("run to idle: %v", err)
+			}
+			exec.SendSignal("Go", nil)
+			err = exec.RunToCompletion()
+			var refused *ReplayError
+			if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 2 || !strings.Contains(err.Error(), "c1(entry) is not enabled (enabled: a2(entry), b1(entry))") {
+				t.Fatalf("error %T %v, want the entry order refused as not enabled", err, err)
+			}
+			data := exec.StateData()
+			for name, want := range map[string]string{"level": "0", "exited": "0", "entered": "0"} {
+				if got := FormatValue(data[name]); got != want {
+					t.Errorf("%s is %s after the refusal, want %s: the move is undone whole", name, got, want)
+				}
+			}
+			if state, ok := exec.CurrentState().(*ast.StateNode); !ok || state.Name != "idle" {
+				t.Errorf("the machine is in %v after the refusal, want idle", exec.CurrentState())
+			}
+			if len(exec.doActions) != 0 {
+				t.Errorf("do actions %v after the refusal, want none: a1's do behavior is undone with its entry", exec.doActions)
+			}
+			if visits := exec.GetStateVisits(); strings.Join(visits, ",") != "idle" {
+				t.Errorf("visits %v after the refusal, want idle alone", visits)
+			}
+			if choices := ctx.Choices(); len(choices) != 0 {
+				t.Errorf("the run recorded %v, want no choice: a refused move is not one made", choices)
+			}
+			if ctx.Unfollowed() == nil {
+				t.Error("the refusal is not reported for the run")
+			}
+		})
 	}
 }
 

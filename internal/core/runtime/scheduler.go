@@ -357,6 +357,19 @@ func (s *scheduler) replaying() bool {
 	return s.replay != nil && s.replay.following()
 }
 
+// keepsOrder reports whether the policy takes an order draw among sibling regions
+// in canonical order without recording it: `reverse` and `declared` do, and a
+// replay does at a draw its witness, recorded under one of them, has no line for.
+func (s *scheduler) keepsOrder(kind ChoiceKind) bool {
+	switch s.policy.kind {
+	case scheduleReverse, scheduleDeclared:
+		return true
+	case scheduleReplay:
+		return !s.replaying() || s.replay.choices[s.replay.next].Kind != kind
+	}
+	return false
+}
+
 // scheduleStep fixes how the step tries its tokens: reversed, declared,
 // seeded shuffle, or one at a time as the exploration or the witness picks them.
 func (s *scheduler) scheduleStep(tokens stepTokens) *tokenSchedule {

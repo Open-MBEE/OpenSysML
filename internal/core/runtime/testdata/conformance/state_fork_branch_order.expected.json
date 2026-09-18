@@ -1,0 +1,47 @@
+{
+	"type": "state",
+	"trace": true,
+	"outcomes": [
+		{
+			"finalState": "a+b",
+			"stateVisits": ["idle", "top", "a", "b"],
+			"outputs": {"log": {"type": "String", "value": "T1(effect) T1a(effect) T1b(effect) top(entry) "}}
+		},
+		{
+			"finalState": "a+b",
+			"stateVisits": ["idle", "top", "b", "a"],
+			"outputs": {"log": {"type": "String", "value": "T1(effect) T1a(effect) T1b(effect) top(entry) "}}
+		},
+		{
+			"finalState": "a+b",
+			"stateVisits": ["idle", "top", "a", "b"],
+			"outputs": {"log": {"type": "String", "value": "T1(effect) T1a(effect) top(entry) T1b(effect) "}}
+		},
+		{
+			"finalState": "a+b",
+			"stateVisits": ["idle", "top", "b", "a"],
+			"outputs": {"log": {"type": "String", "value": "T1(effect) T1a(effect) top(entry) T1b(effect) "}}
+		},
+		{
+			"finalState": "a+b",
+			"stateVisits": ["idle", "top", "a", "b"],
+			"outputs": {"log": {"type": "String", "value": "T1(effect) T1b(effect) T1a(effect) top(entry) "}}
+		},
+		{
+			"finalState": "a+b",
+			"stateVisits": ["idle", "top", "b", "a"],
+			"outputs": {"log": {"type": "String", "value": "T1(effect) T1b(effect) T1a(effect) top(entry) "}}
+		},
+		{
+			"finalState": "a+b",
+			"stateVisits": ["idle", "top", "a", "b"],
+			"outputs": {"log": {"type": "String", "value": "T1(effect) T1b(effect) top(entry) T1a(effect) "}}
+		},
+		{
+			"finalState": "a+b",
+			"stateVisits": ["idle", "top", "b", "a"],
+			"outputs": {"log": {"type": "String", "value": "T1(effect) T1b(effect) top(entry) T1a(effect) "}}
+		}
+	],
+	"admissible": "A fork into sibling regions: each branch runs its effect and enters its target, the shared owner is entered once after the first effect"
+}

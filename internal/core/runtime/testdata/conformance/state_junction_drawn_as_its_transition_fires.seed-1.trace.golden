@@ -1,14 +1,8 @@
 eval feature armed -> true
-eval feature armed -> true
-choice on accept Go: states a1, b1 react (unordered; took b1 first)
-choice junction split: transitions 1->left, 2->right (unordered; took 1->left)
-exit: b1
-stmt assign route
-  eval literal 1 -> 1
-enter: left
-transition: b1 -> left (event: accept Go)
+choice on accept Go: states a1, b1 react (unordered; took a1 first)
 exit: a1
 stmt assign armed
   eval literal false -> false
 enter: a2
 transition: a1 -> a2 (event: accept Go)
+eval feature armed -> false

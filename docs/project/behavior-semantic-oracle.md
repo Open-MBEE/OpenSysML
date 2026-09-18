@@ -772,6 +772,95 @@ recorded as a `ChoiceTransition` at `junction split` when the default route is t
 appears among the run's notes and choices and in the trace like a junction reached from a
 transition, and a seed replays it. The golden pins the first branch, `seed:1` the other one.
 
+### Regions entered together: each starts, in which order is open
+
+Fixtures: `state_region_entry_order` (golden, explored), `state_region_entry_order_uneven`
+(golden, explored), `state_region_entry_nested_front` (golden, explored),
+`state_history_restore_order` (golden, explored).
+
+```
+work parallel { left:  outerL { entry { log += "outerL(entry) " }; innerL { entry { log += "innerL(entry) " } } }
+                right: outerR { entry { log += "outerR(entry) " }; innerR { entry { log += "innerR(entry) " } } } }
+```
+
+Derived constraints:
+
+- Entering `work` starts a performance of each of its regions; parallel substates are "performed
+  concurrently" (SysML v2 §7.18.1), and no succession in `StatePerformances.kerml` joins a step
+  of one region's performance to a step of a sibling's.
+- Within a region the library orders the entries: a nested state performance is a step of its
+  owner's, happening during it, and the owner's `entry` precedes its `middle` steps
+  (`succession [1] entry then [*] middle`), so `outerL(entry)` precedes `innerL(entry)` and
+  `outerR(entry)` precedes `innerR(entry)`.
+- Every entry appends to `log`, so `log` records the interleaving, and the state visits record
+  it again.
+
+Open: the order across the regions. The two chains of two interleave in `4! / (2!·2!) = 6` ways,
+each keeping its own chain's order.
+
+Pinned outcome: the admissible set of the six interleavings, stated as `outcomes` citing this
+section; exploration reaches each once (6 runs, 6 outcomes, complete). The order is drawn one unit
+at a time among the regions with an entry left — a draw does not commit a region to run to the
+end of its chain — and is reported as `choice entering work: next outerL(entry), outerR(entry)
+(unordered; took outerL(entry) first)` under `seed:<n>`, `explore` and `replay`; `declared` and
+`reverse` take the regions in declaration order at every unit — a tool-defined order, the run
+every fixture was recorded under — and the default golden pins that linearization
+(`outerL innerL outerR innerR`). `state_region_entry_order_uneven` is the shape with one entry
+in `left` beside two in `right`: three interleavings (`l0` before, between or after
+`outerR innerR`). `state_region_entry_nested_front` starts `left` in a state that is itself
+parallel: `inner(entry)` is one unit of `left`'s chain, and the two regions it owns join the
+draw as chains of their own once it has run, so `r0(entry)` falls anywhere among
+`inner(entry)`, `p0(entry)` and `q0(entry)` while `inner(entry)` keeps ahead of the two it
+starts: eight interleavings. `state_history_restore_order` leaves `work` and re-enters it through
+its deep history: the restore enters the remembered state of each region as a start does, so the
+two restored entries `l1(entry)` and `r1(entry)` are drawn like the two starts were, and the
+set compounds the region order of the start (two unlogged entries, told apart by the visits),
+of the one `Go` both regions react to (the section on transitions in sibling regions), and of
+the restore: eight outcomes. The existing fixtures whose regions start together and whose
+outcomes the visits or a shared write tell apart list every entry order among their `outcomes`
+citing this section beside the one their own openness cites, the default golden of each pinning
+the declaration-order linearization.
+
+### A fork into sibling regions: each branch runs its effect and enters its target, the shared owner is entered once after the first effect
+
+Fixture: `state_fork_branch_order` (golden, explored).
+
+```
+idle ─ T1 { log += "T1(effect) " } → split ─ T1a { log += "T1a(effect) " } → top.left.a
+                                            ─ T1b { log += "T1b(effect) " } → top.right.b
+top parallel { entry { log += "top(entry) " } }
+```
+
+Derived constraints:
+
+- A fork is followed by exactly one performance of every target (`Actions.sysml` `ForkAction`),
+  so both branch transitions fire, each running its effect before its target's entry
+  (`TransitionPerformances.kerml`: `succession [*] effect then [1] transitionLink.laterOccurrence`).
+- `top` is the owner of both targets and holds one performance (KerML 1.0 §7.4.5): it is entered
+  once, and its entry precedes the entry of either target, a step happening during it
+  (`succession [1] entry then [*] middle`).
+- No succession joins one branch's performances to the other's, and none orders `top`'s entry
+  against either effect: the two chains `T1a(effect) < a(entry)` and `T1b(effect) < b(entry)`
+  are ordered only through `top(entry) < a(entry)`, `top(entry) < b(entry)`.
+
+Open: the order across the branches, and where the one entry of `top` falls. The executor enters
+the states on the way from the fork to a target as part of the branch that first gets past its
+effect — a tool-defined placement, the one every fork fixture was recorded under — so `top(entry)`
+follows the first effect and precedes the second or follows it, never precedes both.
+
+Pinned outcome: the admissible set `{T1a T1b top, T1a top T1b, T1b T1a top, T1b top T1a}` for the
+logged effects and entry, each with the two orders of the unlogged `a` and `b` entries the visits
+tell apart, stated as `outcomes` citing this section; exploration reaches each once (8 runs, 8
+outcomes, complete). The order is drawn one unit at a time among the branches with a unit left,
+`top`'s entry offered as the next unit of every branch whose effect has run and dropped from the
+others once one has entered it, and is reported as `choice fork split: next T1a(effect), T1b(effect)
+(unordered; took T1a(effect) first)` under `seed:<n>`, `explore` and `replay`; `declared` and
+`reverse` take the branches in declaration order at every unit, and the default golden pins that
+linearization (`T1a top a T1b b`). `state_fork_enters_regions_without_initial` is the shape with
+the two target entries logged beside the owner's and the branches joined again afterwards, and
+lists the ten interleavings of its two branches — each with the two exit orders of the join —
+among its `outcomes` citing this section beside the join's own.
+
 ### Transitions in sibling regions enabled by one event: each fires, in which order is open
 
 Fixture: `state_explore_region_order` (golden, explored).

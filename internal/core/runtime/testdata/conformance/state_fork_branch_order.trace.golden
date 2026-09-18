@@ -1,0 +1,21 @@
+exit: idle
+stmt assign log
+    eval feature log -> ""
+    eval literal "T1(effect) " -> "T1(effect) "
+  eval operator + -> "T1(effect) "
+stmt assign log
+    eval feature log -> "T1(effect) "
+    eval literal "T1a(effect) " -> "T1a(effect) "
+  eval operator + -> "T1(effect) T1a(effect) "
+enter: top (entry action)
+stmt assign log
+    eval feature log -> "T1(effect) T1a(effect) "
+    eval literal "top(entry) " -> "top(entry) "
+  eval operator + -> "T1(effect) T1a(effect) top(entry) "
+enter: a
+stmt assign log
+    eval feature log -> "T1(effect) T1a(effect) top(entry) "
+    eval literal "T1b(effect) " -> "T1b(effect) "
+  eval operator + -> "T1(effect) T1a(effect) top(entry) T1b(effect) "
+enter: b
+transition: idle -> split

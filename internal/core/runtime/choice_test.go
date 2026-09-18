@@ -1011,12 +1011,17 @@ func TestRegionOrderChoiceNamesTheOccurrenceNotTheTakenTrigger(t *testing.T) {
 		if _, _, err := ctx.ExecuteStateWithEvents(sym, nil); err != nil {
 			t.Fatalf("%s: execute: %v", spelling, err)
 		}
-		got := ctx.Notes()
-		if len(got) != 1 {
-			t.Fatalf("%s: notes %v, want the region-order choice alone", spelling, got)
+		var got []ChoicePoint
+		for _, note := range ctx.Notes() {
+			if choice, ok := note.(ChoicePoint); ok && choice.Kind != ChoiceEntryOrder {
+				got = append(got, choice)
+			}
 		}
-		choice, ok := got[0].(ChoicePoint)
-		if !ok || choice.Kind != ChoiceRegionOrder || strings.Join(choice.Alternatives, ", ") != "a1, b1" {
+		if len(got) != 1 {
+			t.Fatalf("%s: choices %v, want the region-order choice alone beside the entry order", spelling, got)
+		}
+		choice := got[0]
+		if choice.Kind != ChoiceRegionOrder || strings.Join(choice.Alternatives, ", ") != "a1, b1" {
 			t.Fatalf("%s: note %v, want a region-order choice among a1, b1", spelling, got[0])
 		}
 		return choice
