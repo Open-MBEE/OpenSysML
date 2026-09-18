@@ -8,13 +8,13 @@ import (
 	"testing"
 )
 
-const committed = "../stdlib.snapshot"
+const committed = "../../../" + snapshotPath
 
-// TestCommittedSnapshotIsCurrent is the drift gate `make stdlib-snapshot-check` runs,
-// in-process: the embedded library must regenerate to the committed snapshot byte for byte.
+// TestCommittedSnapshotIsCurrent is the drift gate `make stdlib-snapshot-check` runs, in-process:
+// the embedded library must regenerate to the snapshot committed under the repository root.
 func TestCommittedSnapshotIsCurrent(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{"-check", "-out", committed}, &stdout, &stderr); code != 0 {
+	if code := run([]string{"-check"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("run -check = %d, want 0\n%s", code, stderr.String())
 	}
 	if stdout.Len() != 0 || stderr.Len() != 0 {
@@ -67,7 +67,7 @@ func TestRunReportsAnUnwritableOutput(t *testing.T) {
 	if code := run([]string{"-out", out}, &stdout, &stderr); code != 1 {
 		t.Fatalf("run = %d, want 1", code)
 	}
-	if !strings.HasPrefix(stderr.String(), "gensnapshot: ") {
+	if !strings.HasPrefix(stderr.String(), "snapshot: ") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
@@ -77,7 +77,7 @@ func TestRunPrintsUsageForHelp(t *testing.T) {
 	if code := run([]string{"-h"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("run -h = %d, want 0", code)
 	}
-	if !strings.Contains(stderr.String(), "Usage of gensnapshot:") || !strings.Contains(stderr.String(), "-check") {
+	if !strings.Contains(stderr.String(), "Usage of snapshot:") || !strings.Contains(stderr.String(), "-check") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 	if stdout.Len() != 0 {

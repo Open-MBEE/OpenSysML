@@ -14,7 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-//go:generate go run ./gensnapshot -out stdlib.snapshot
+//go:generate go run -C ../../../tools ./gen/snapshot
 
 // stdlibSnapshot is the bundled library, parsed, indexed, expanded and frozen
 // at generation time, so that a process starts by decoding it instead of

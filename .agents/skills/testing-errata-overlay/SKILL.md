@@ -6,7 +6,9 @@ description: How to end-to-end test the declared-errata overlay (internal/errata
 # Testing the declared-errata overlay
 
 `internal/errata` declares defects in OMG-published reference material (file, line,
-as-published bytes, corrected bytes, spec citation, derivation). Each oracle driver reports its
+as-published bytes, corrected bytes, spec citation, derivation); the entry type, the overlay
+applied on read and the bundled library's entries are `internal/core/libs/errata`, which the
+registry builds on. Each oracle driver reports its
 census twice: as published (the conformance statement) and over a **materialised corrected
 copy**.
 
@@ -79,12 +81,13 @@ mutated `AsPublished` it must exit 1 with `F82: …:38 reads "…", the entry re
 
 ## Registry mutation matrix
 
-`cp internal/errata/errata.go /tmp/bak` first, apply one mutation at a time with a Python
-string replace (watch the trailing comma — a dropped `,` yields a *build* failure, which is not
-evidence the check works), run `go test -count=1 ./internal/errata`, then restore and confirm
-`git status --porcelain internal/errata` is empty. Mutations that must fail: AsPublished byte,
-empty Citation, empty Derivation, wrong Line, no-op Corrected, second entry for the same file,
-path outside `publishedRoots`.
+`cp internal/errata/errata.go /tmp/bak` first (library entries: `internal/core/libs/errata/errata.go`),
+apply one mutation at a time with a Python string replace (watch the trailing comma — a dropped
+`,` yields a *build* failure, which is not evidence the check works), run
+`go test -count=1 ./internal/errata ./internal/core/libs/errata`, then restore and confirm
+`git status --porcelain internal/errata internal/core/libs/errata` is empty. Mutations that must
+fail: AsPublished byte, empty Citation, empty Derivation, wrong Line, no-op Corrected, second
+entry for the same file, path outside `errata.Roots`.
 
 ## Doc gate
 

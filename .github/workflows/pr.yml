@@ -327,7 +327,9 @@ jobs:
           fi
 
       - name: Run Go vet
-        run: go vet ./...
+        run: |
+          go vet ./...
+          go vet -C tools ./...
 
       - name: Run static analysis (staticcheck + gosec)
         run: make lint

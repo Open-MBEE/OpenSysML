@@ -450,7 +450,7 @@ package OpenSysMLSurfaces {
 
     // The committed library snapshot must be the one a fresh build writes.
     #Oracle part def StdlibSnapshotGate :> ConformanceOracle {
-        attribute :>> goPackage = "internal/core/libs/gensnapshot";
+        attribute :>> goPackage = "tools/gen/snapshot";
         attribute :>> reference = "the bundled library files";
         attribute :>> baseline = "internal/core/libs/stdlib.snapshot";
         attribute :>> gating = true;
@@ -466,7 +466,7 @@ package OpenSysMLSurfaces {
     }
 
     part def Errata :> CodeUnit {
-        attribute :>> goPackage = "internal/errata";
+        attribute :>> goPackage = "internal/errata, internal/core/libs/errata";
         attribute overlaysPublishedMaterial : Boolean = true;
     }
 

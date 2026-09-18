@@ -89,7 +89,7 @@ func runErrata(root corpusRoot, files []string, overlay *errata.Overlay, ours, t
 		return erratumRun{}, nil
 	}
 	corrected := filepath.Join(opts.out, "errata-corpora", root.Name)
-	if _, err := overlay.Materialize(opts.repo, root.Dir, corrected); err != nil {
+	if _, err := errata.Materialize(overlay, opts.repo, root.Dir, corrected); err != nil {
 		return erratumRun{}, err
 	}
 	defer func() {

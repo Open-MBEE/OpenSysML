@@ -320,7 +320,7 @@ package OpenSysMLPipeline {
 
     // go generate writes the snapshot; the check target is what CI runs on it.
     part def SnapshotGenerator :> CodeUnit {
-        attribute :>> goPackage = "internal/core/libs/gensnapshot";
+        attribute :>> goPackage = "tools/gen/snapshot";
         attribute makeTarget : String = "stdlib-snapshot";
         attribute checkTarget : String = "stdlib-snapshot-check";
         out item snapshotBlob : LibrarySnapshot;
