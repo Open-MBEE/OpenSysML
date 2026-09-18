@@ -9,8 +9,16 @@ highlighting.
 
 The VS Code extension in [editors/vscode](../../editors/vscode) provides
 syntax highlighting for `.sysml` and `.kerml` and an LSP client that launches
-`sysml-lsp`. It is not published to any marketplace, so you build it and
-side-load it:
+`sysml-lsp`. It is not published to any marketplace, so you side-load it: either
+the `opensysml-sysml.vsix` the [nightly snapshot](../project/nightly.md) attaches,
+packaged from `develop` every night,
+
+```bash
+curl -fsSLO https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml-sysml.vsix
+code --install-extension opensysml-sysml.vsix
+```
+
+or one you build yourself from a checkout:
 
 ```bash
 make build                                    # builds bin/sysml-lsp

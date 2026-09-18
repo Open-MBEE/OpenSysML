@@ -92,14 +92,14 @@ func TestRunActionExploresNoChoiceInOneRun(t *testing.T) {
 // reached within it are still tabled.
 func TestRunActionExploreReportsTheBudgetHit(t *testing.T) {
 	s := loadSource(t, exploreRaceSource)
-	if err := s.SetSchedule(mustSchedule(t, "explore:runs=2")); err != nil {
+	if err := s.SetSchedule(mustSchedule(t, "explore:runs=3")); err != nil {
 		t.Fatal(err)
 	}
 	v := s.RunAction("Race::race")
 	if v.Status != VerdictUnresolved {
 		t.Errorf("status = %v, want unresolved", v.Status)
 	}
-	wants(t, strings.Join(v.Lines, "\n"), "? explored Race::race: 2 outcomes", "incomplete: runs budget 2 hit after 2 runs")
+	wants(t, strings.Join(v.Lines, "\n"), "? explored Race::race: 2 outcomes", "incomplete: runs budget 3 hit after 3 runs")
 	if v.Exploration == nil || v.Exploration.Complete || strings.Join(v.Exploration.BudgetsHit, ",") != "runs" {
 		t.Errorf("exploration = %+v", v.Exploration)
 	}
@@ -113,6 +113,8 @@ func TestRunActionExploreReportsTheBudgetHit(t *testing.T) {
 
 // With tracing on, the trace shown per outcome is its witness run's: one token
 // moves per explored step, so the last write to x is the witness's last move.
+// Runs vary the first run's choices earliest first: run 2 takes 3@b first at
+// step 3, run 3 varies run 1's step 4, and run 5 is the second below 3@b.
 func TestRunActionExploreTracesTheWitnessOfEachOutcome(t *testing.T) {
 	s := loadSource(t, exploreRaceSource)
 	run(t, s, "%trace on")
@@ -122,11 +124,11 @@ func TestRunActionExploreTracesTheWitnessOfEachOutcome(t *testing.T) {
 	out := strings.Join(s.RunAction("Race::race").Lines, "\n")
 	wantsInOrder(t, out,
 		"complete (6 runs)",
-		"trace of outcome 1's witness (run 4):",
+		"trace of outcome 1's witness (run 5):",
 		"took 3@b first",
 		"took 4@c first",
 		"eval literal 1 -> 1",
-		"trace of outcome 2's witness (run 2):",
+		"trace of outcome 2's witness (run 3):",
 		"took 2@a first",
 		"took 4@c first",
 		"eval literal 2 -> 2",

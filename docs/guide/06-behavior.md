@@ -680,9 +680,10 @@ runs no seed you tried happened to take.
 
 `explore` replays the behavior once per linearization. The first run records the alternative
 taken at each choice point; each later run is a fresh executor of the same loaded model — no
-object, message, clock, calc memo or note carries over — that follows the recorded prefix and
-takes the next untried alternative at the frontier, depth-first, until every choice sequence is
-spent or a budget is hit:
+object, message, clock, calc memo or note carries over — that follows a recorded prefix and
+takes an untried alternative at its end, until every choice sequence is spent or a budget is
+hit. The runs vary every choice point of the first run once, earliest first, before any is
+varied twice, so a choice met early is varied by the second run however many choices follow it:
 
 ```console
 $ sysml -schedule explore -action test::race action_explore_three_writers.sysml
@@ -721,10 +722,17 @@ pool. Under the fixed policies (`reverse`, `declared`, `seed:<n>`) a do behavior
 advances every steppable token once a round, and the machine dispatches only between rounds. The
 run a fixed policy makes — the whole round, then the dispatch — is therefore an interleaving
 `check`'s enumeration does not yet contain: a `do` behavior that a transition interrupts may end
-with a value under `reverse` that a `check` reporting *exhaustive* does not table. Whether the
-dispatch waits for the round or cuts it becomes a recorded choice point with the region-order
-scheduling work ([design note](../internals/design/region-order-scheduling.md)); until then, run
-a fixed policy beside the checker when a `do` behavior loops through timed waits.
+with a value under `reverse` that `check` does not table. A check that reaches such a state — a
+machine owing a dispatch after a `do` step that left a token able to act standing, one ready
+beside the token moved or one its move freed, where a fixed policy's round would have moved it too
+— therefore does not report
+*exhaustive*: its verdict is `no violation within bounds` (or `divergent`, when the schedules it
+did search disagree) with `not enumerated: do round before dispatch` naming the run it left out,
+and the standing is *bounded*. Whether the dispatch waits for the round or cuts it becomes a
+recorded choice point with the region-order scheduling work ([design
+note](../internals/design/region-order-scheduling.md)); until then, run a fixed policy beside the
+checker when a `do` behavior loops through timed waits. The witnesses such a check writes replay
+as any other: the search is short of a run, not wrong about the ones it made.
 
 The order of executors due at one instant of the clock is explored like any other choice:
 `sysml -schedule explore -instantiate Demo::beacon -action Demo::watcher -state
@@ -748,14 +756,14 @@ The budget is 1024 runs and 64 choice points per run unless `explore:runs=N,dept
 otherwise, and hitting it is never silent:
 
 ```console
-$ sysml -schedule explore:runs=2 -action test::race action_explore_three_writers.sysml
+$ sysml -schedule explore:runs=3 -action test::race action_explore_three_writers.sysml
 ✓ package test
 ? explored test::race: 2 outcomes
 outcome                                      | linearizations | witness
 ---------------------------------------------+----------------+------------------------------------------------------------------
 aRan = true; bRan = true; cRan = true; x = 2 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
-incomplete: runs budget 2 hit after 2 runs
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
+incomplete: runs budget 3 hit after 3 runs
 $ echo $?
 2
 ```
@@ -765,7 +773,12 @@ far and no more, the check is unresolved (`?`) and the exit status is `2` — th
 that decided nothing, as for an unevaluable verdict. Raise the budget it names
 (`explore:runs=4096`, `explore:depth=128`, or both) and run again; a model whose exploration stays
 incomplete at any budget you can afford has more linearizations than a table can carry, and a
-seed is the way to look at some of them.
+seed is the way to look at some of them. The two budgets bound different things: a choice point
+met past the `depth` budget takes its first alternative in every run and is never varied, however
+many runs remain, so a run of more choice points than `depth` — the witness column lists every
+one its run met — needs `depth` raised to at least that many before more runs can help; within
+`depth`, a `runs` budget of one more than the first run's choice points varies each of them at
+least once.
 
 The same spelling explores over the wire, where the response carries `outcomes` and an
 `exploration` status ([wire contract](../reference/wire-contract.md)), and from every client

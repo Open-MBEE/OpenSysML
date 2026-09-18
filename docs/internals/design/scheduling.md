@@ -143,17 +143,24 @@ fresh `Context`:
 1. The first run records each choice point it reaches as an `exploreSlot` (a `pick` among `n`
    alternatives, or which of the tokens able to act a step tries next) and takes the first
    alternative at each.
-2. `nextPrefix` walks the record backwards to the last slot with an untried alternative, keeps
-   the record up to it with that alternative advanced, and the next run replays that prefix and
-   takes first alternatives past it. This is a depth-first walk of the choice tree.
+2. `unexplored` leaves one prefix per slot the run owns with an untried alternative — the record
+   up to that slot with the alternative advanced — and a later run replays the prefix and takes
+   first alternatives past it. The queue (`explore_queue.go`) runs the prefixes in plan order:
+   those departing from the first run at one choice before any departing at two, and among them
+   the earliest choice varied first. So the first run's choice points are each varied once, from
+   the first, before any is varied twice: a choice met early with a long tail of choices behind
+   it is varied by the second run, not after every order of the tail, and a `runs` budget of one
+   more than the first run's choice points varies each of them at least once.
 3. A replay that does not meet the choice points its prefix planned — a different number of
    alternatives, or tokens able to act the plan did not find so — is `ErrExplorationDiverged`,
    and no outcome set is reported, since one could not be trusted.
 4. Runs stop when every alternative within depth is tried, or when the `runs` budget is reached;
    a slot resolved past the `depth` budget takes its first alternative and is not the
-   exploration's to vary. Either bound reached makes the `Exploration` incomplete, and
+   exploration's to vary, so a choice point deeper than `depth` is never varied however many
+   runs remain. Either bound reached makes the `Exploration` incomplete, and
    `Exploration.Status` says which; nothing is silently truncated. The default budget is
-   `DefaultExploreBudget`, 1024 runs and 64 choice points per run.
+   `DefaultExploreBudget`, 1024 runs and 64 choice points per run; a witness lists every choice
+   point its run met, so its length sizes `depth`.
 
 A fresh context per run is what makes replay sound: instances, identities, the message bus, the
 clock, object behaviors, calc memoization and the notes of one run cannot leak into the next.

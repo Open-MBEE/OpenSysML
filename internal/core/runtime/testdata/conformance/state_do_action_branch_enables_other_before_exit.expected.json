@@ -1,0 +1,9 @@
+{
+    "type": "state",
+    "libraries": true,
+    "finalState": "finished",
+    "outputs": {
+        "flag": { "type": "Integer", "value": 1 },
+        "seen": { "type": "Integer", "value": 0 }
+    }
+}

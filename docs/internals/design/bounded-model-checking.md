@@ -91,7 +91,7 @@ scheduler has a choice:
 | Messages in flight | `Context.messages` (the message bus `send` posts to and `accept` consumes from, oldest first) | The bus contents in arrival order |
 | State configuration | `StateExecutor.activeConfig`, `stateStack`, `history`, `stateAttrs`, `stateData` | All of it |
 | Event queue | `StateExecutor.eventQueue` (a heap ordered by timestamp, completion first, then arrival), `deferred`, `timerScheduled`, `changeFired`, `changeWaits` | The queue as a sequence in dispatch order; the latches |
-| `do` behaviors | `StateExecutor.doActions` (in state-entry order, one action per round) | The pending statements of each |
+| `do` behaviors | `StateExecutor.doActions` (in state-entry order, one action per round) | The pending statements of each, and whether its last step left a token able to act standing — that decides a run left out, so a machine left standing is a state of its own |
 | Virtual time | `Context.clock` (`now` and the waiters on it), shared by every executor of the context | Captured, not explored |
 
 Not captured: the memo tables (`calcShapes`, `writeTargets`, `invocationTargets`, literal
@@ -403,10 +403,15 @@ A branch cut by a bound is reported as **incomplete**, distinctly from a deadloc
 The overall verdict is one of:
 
 - `no violation within bounds` — every schedule explored ended complete or was cut by a bound;
-  the bounds hit are listed.
-- `no violation, exhaustive` — every schedule ended complete and no bound was hit. This is the
-  only verdict that is a proof, and it is a proof relative to the atomicity rule and the
-  properties given.
+  the bounds hit are listed. The same verdict, listing `not enumerated: do round before
+  dispatch`, is a search whose moves left a run out: at a machine owing a dispatch after a `do` step
+  that moved one of several tokens able to act, the checker's one move dispatches, and the fixed
+  policies' run — the rest of the round, then the dispatch — is no move of its. That ordering becomes a
+  recorded choice point with the region-order scheduling work
+  ([design note](region-order-scheduling.md)).
+- `no violation, exhaustive` — every schedule ended complete, no bound was hit and no run was
+  left out. This is the only verdict that is a proof, and it is a proof relative to the
+  atomicity rule and the properties given.
 - `violation` — with the property, the state, and a witness schedule.
 - `divergent` — no violation, but a named feature ends differently on different schedules.
 
@@ -468,8 +473,9 @@ because those flags ask an `evaluate` question of the object, which is `run`'s t
 and `check`'s to refuse by name. `-json` carries the checker's answer inside the framework's `results[]`
 entry for the engine, with nothing on the wire: beside `claim`, `bounds` (every bound and
 whether it was reached) and `witness` (the replayed schedule), the entry gains a `check` object
-with `verdict`, `states`, `moves`, `depth`, `boundsHit`, `violations[]`, `divergent[]` (each
-feature's values, each with its witness choices and file `path`) and `outcomes[]`.
+with `verdict`, `states`, `moves`, `depth`, `boundsHit`, `notEnumerated`, `violations[]`,
+`divergent[]` (each feature's values, each with its witness choices and file `path`) and
+`outcomes[]`.
 
 REPL: `%engine check` selects the engine for `%action` and `%state` from then on — `%advance D`
 under it is the horizon of the machine checked — `%check-property`, `%check-diverge`,
