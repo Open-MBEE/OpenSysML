@@ -72,8 +72,10 @@ github.com/Open-MBEE/OpenSysML
 │   ├── docir/              # Document plan evaluation → backend-agnostic document tree
 │   ├── lower/              # AST → execution IR (ActionGraph/StateGraph)
 │   ├── runtime/            # Execution engine (eval, instances, builtins)
+│   ├── analysis/           # Analysis questions, engines and the graphs:1/sources forms (analysis/modelform)
 │   ├── rdf/                # RDF graphs, Turtle reading and writing, the SysML vocabulary
 │   ├── export/             # The RDF mapping: ToRDF (tree → graph) and ToSysML (graph → notation)
+│   ├── xmi/                # XMI element tree indexed by xmi:id; xmi/sysmlv1 reads SysML v1 exports over it
 │   ├── migrate/            # SysML v1 XMI → SysML v2 notation
 │   ├── convert/            # Conversion entry point: formats, Convert, Migrate, SyntaxError
 │   ├── model/              # Workspace, document management

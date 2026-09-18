@@ -2855,12 +2855,24 @@ The pull requests land in this order, each cut from the one before it except whe
 #411 → #415 → #418 → #419 → #430 → #431 → #420 → #426 → #427 → #422, and then this
 document's update; #417 is cut from `develop` and merges anywhere in the sequence.
 
-## P5 — a runtime-free translation module (not started)
+## P5 — a runtime-free translation module (in review)
 
-Move the `graphs:1` form and `GraphsVersion` from `export` to the execution layer, so `analysis`
-no longer imports `export`; then audit `graphs_*.go` for the runtime types it still names and
-reduce it to `lower` and `semantics`. Merge `internal/xmi` and `internal/core/xmi` into one
-reader with the two interpretations on top.
+Three pull requests, each stacked on the one before:
+
+1. `analysis → export`: the `graphs:1` and `sources` forms an external engine receives —
+   `GraphsVersion`, `Graphs`, `GraphsOf`, `MarshalGraphs`, `Sources`, `SourcesOf` and their
+   refusals — live in `internal/core/analysis/modelform`, in the execution layer, with a golden
+   per graph kind pinning the emitted bytes. `export` keeps `ToRDF` and `ToSysML` and names no
+   runtime type: `go list -deps ./internal/core/export` (141 → 135 packages) lists neither
+   `runtime` nor `lower`, so the audit of `graphs_*.go` had nothing left to move.
+2. One XMI reader: `internal/core/xmi` is the generic XMI 2.5 element tree (moved from the
+   tooling module, where the fUML and PSSM referees still import it), and
+   `internal/core/xmi/sysmlv1` is the SysML v1 interpretation `migrate` reads — stereotype
+   applications, href proxies, MagicDraw archives — as a walk over that tree rather than a
+   second parser. The one reader rejects an `xmi:id` declared twice, as the referees' reader
+   always had.
+3. The layering test pins `analysis → export`, `export → runtime` and `export → lower` as
+   removed edges.
 
 ## P6 — the layer directories (not started)
 
