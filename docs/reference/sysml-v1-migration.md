@@ -188,6 +188,8 @@ returned over the service yet.
 | CombinedFragment with a guard that does not parse or resolve, an `alt` with an unguarded operand before its last, or of another operator (`critical`, `neg`, `assert`, `ignore`, `consider`, `break`) | comment: the whole interaction is refused | **unmapped** — the reason quotes the guard or names the operator |
 | Message `createMessage`, `deleteMessage`; a message without a signal or operation | comment where the step would go; the steps around it are written | **unmapped** — a part exists for as long as its owner does |
 | Message binding no argument to a parameter or signal attribute that must hold a value (no default, lower bound above zero), or one whose argument is not written | comment: the whole interaction is refused | **unmapped** — the reason names the parameter or attribute |
+| DurationConstraint on a message, or on the occurrences of two messages of a scenario | a wait before the message's step, `accept after lo [SI::s]` or `accept after RandomFunctions::uniform(lo, hi) [SI::s]` as for an action; between two messages, a wait before the later step when they are adjacent, else `fork`ed after the earlier step and `join`ed before the later one, so the steps between count toward the interval | approximated (a v2 send arrives at once; a tool's duration mode is a run setting) |
+| DurationConstraint between two messages of a scenario whose steps lie in different fragments (one in an `alt` operand, the other outside it) | comment before the later step | **unmapped** — a wait forked in one fragment cannot be joined in another |
 | Interaction with no message | comment naming what it records (state invariants under time constraints: a timing trace); DurationConstraint, TimeConstraint, observation on an interaction | **unmapped** — no scenario step performs it |
 | OpaqueBehavior, FunctionBehavior | `calc def` with its parameters when its one body is a v2 expression whose names resolve; otherwise `action def` keeping the body as a comment | mapped / approximated |
 | Operation | `action def <Op>` owned by the owner, with its parameters; the `method` behavior is written as its body (an Activity as the flow, an OpaqueBehavior as expression or comment), its parameters standing for the operation's at the same position, direction and type under the operation's names; a method parameter matching none is declared and reported, since a call binds only the operation's; no method: `abstract action def`; an `action <op> : <Op>;` usage of the owner performs it, as a call on an object does | mapped |
@@ -351,6 +353,12 @@ unbound refuses the interaction; a reply assigns the call's `out` to the attribu
 names. Combined fragments become the corresponding action structure when their guards are v2
 expressions whose names resolve — `if`/`else` for `alt` and `opt`, `for`/`while` for `loop`,
 `fork`/`join` for `par` — and refuse the interaction, quoting the guard, when they are not.
+A duration constraint on a message is a wait before its step, as on an action; one between
+two messages measures the interval from the earlier step to the later one, so it is a wait
+before the later step when nothing lies between them and otherwise a wait forked after the
+earlier step and joined before the later — the steps between count toward the interval, and
+the bound is drawn once at the earlier step. Two steps in different fragments cannot share a
+fork and join, so such a constraint is reported instead.
 Create and delete messages are comments where the step would go, since a part exists for as
 long as its owner does; the steps around them are written. An interaction with no message is
 not a scenario: the report names what it records (state invariants under time constraints are

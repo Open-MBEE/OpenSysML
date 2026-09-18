@@ -6,7 +6,9 @@
   as the assignment of the call's result to the caller lifeline's attribute; a lifeline is
   resolved to the feature path through the block's parts, ports and references or to an `in`
   parameter, and `alt`/`opt`/`loop`/`par` fragments are `if`/`for`/`while`/`fork` structures
-  when their guards parse and resolve. A lifeline or guard that does not resolve, a create or
+  when their guards parse and resolve; a duration constraint between two messages with steps
+  between them is a wait forked after the earlier step and joined before the later, so those
+  steps count toward the interval. A lifeline or guard that does not resolve, a create or
   delete message and a message-less timing trace are refused with the reason, as is a call
   or signal message leaving an `in` parameter or signal attribute — inherited ones included —
   with no default and a lower bound above zero unbound; two parts of

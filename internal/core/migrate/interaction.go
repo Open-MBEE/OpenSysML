@@ -32,6 +32,22 @@ type scenario struct {
 	// names gives each stepped message its step's name; last is the latest one.
 	names map[*xmi.Element]string
 	last  string
+	// chain places each message step in the succession chain it is written in; chains counts them.
+	chain  map[*xmi.Element]chainPos
+	chains int
+	// pending holds the waits forked after a message, to be joined before the later message they span to.
+	pending map[*xmi.Element]pendingWait
+}
+
+// chainPos is a step's position in a chain: the steps of one action body, seq operands inlined.
+type chainPos struct {
+	chain, pos int
+	step       *scenarioStep
+}
+
+// pendingWait is a wait forked after the step from, for a constraint a later step joins it before.
+type pendingWait struct {
+	wait, base, from, note string
 }
 
 // lifelineRef is the object a lifeline stands for: the feature path that reads
@@ -141,12 +157,14 @@ func (m *migration) scenario(e *xmi.Element, self string) (*scenario, string) {
 	defer func() { m.self = saved }()
 	s := &scenario{
 		m: m, e: e, context: context, self: self,
-		order:  map[*xmi.Element]int{},
-		lines:  map[*xmi.Element]lifelineRef{},
-		used:   map[string]bool{"start": true, "done": true},
-		placed: map[*xmi.Element]bool{},
-		waited: map[*xmi.Element]bool{},
-		names:  map[*xmi.Element]string{},
+		order:   map[*xmi.Element]int{},
+		lines:   map[*xmi.Element]lifelineRef{},
+		used:    map[string]bool{"start": true, "done": true},
+		placed:  map[*xmi.Element]bool{},
+		waited:  map[*xmi.Element]bool{},
+		names:   map[*xmi.Element]string{},
+		chain:   map[*xmi.Element]chainPos{},
+		pending: map[*xmi.Element]pendingWait{},
 	}
 	for i, f := range e.Owned("fragment") {
 		s.order[f] = i
@@ -815,6 +833,8 @@ func countSteps(steps []*scenarioStep) int {
 
 // writeSteps writes a body of steps chained from start to done.
 func (s *scenario) writeSteps(steps []*scenarioStep) {
+	s.chains++
+	s.indexChain(steps, s.chains, new(int))
 	prev := "start"
 	for _, step := range steps {
 		if next := s.step(step, prev); next != "" {
@@ -824,11 +844,32 @@ func (s *scenario) writeSteps(steps []*scenarioStep) {
 	s.m.w.line("first " + prev + " then done;")
 }
 
+// indexChain positions the steps of a chain, the operands of its seq fragments inlined.
+func (s *scenario) indexChain(steps []*scenarioStep, chain int, pos *int) {
+	for _, step := range steps {
+		if step.kind == stepSeq {
+			for _, o := range step.operands {
+				s.indexChain(o.steps, chain, pos)
+			}
+			continue
+		}
+		if step.msg != nil {
+			s.chain[step.msg] = chainPos{chain: chain, pos: *pos, step: step}
+		}
+		*pos++
+	}
+}
+
+// stepWaits reports whether a step writes a node the duration constraints on its message wait before.
+func stepWaits(step *scenarioStep) bool {
+	return step.kind == stepSend || step.kind == stepCall || step.kind == stepReply && len(step.assigns) > 0
+}
+
 // step writes one step after prev and returns the node the next step follows;
 // "" when the step writes no node.
 func (s *scenario) step(step *scenarioStep, prev string) string {
 	m := s.m
-	if step.kind == stepSend || step.kind == stepCall || step.kind == stepReply && len(step.assigns) > 0 {
+	if stepWaits(step) {
 		prev = s.waits(step, prev)
 	}
 	switch step.kind {
@@ -905,14 +946,29 @@ func (s *scenario) step(step *scenarioStep, prev string) string {
 		return prevInner
 	}
 	m.w.line("first " + prev + " then " + step.name + ";")
+	if step.msg != nil {
+		return s.startWaits(step)
+	}
 	return step.name
 }
 
 // waits chains the duration constraints on a message step as waits after prev and returns the
-// node the step follows: a constraint between two messages is waited for before the later one.
+// node the step follows: a constraint from an earlier message is waited for before the later one,
+// as a wait after the earlier one when they are adjacent, else by joining the wait forked after it.
 func (s *scenario) waits(step *scenarioStep, prev string) string {
 	for _, dc := range s.constraintsOn(step.msg) {
 		if s.waited[dc] {
+			continue
+		}
+		if p, ok := s.pending[dc]; ok {
+			s.waited[dc] = true
+			join := writeName(freshIn(s.used, p.base+"End"))
+			s.m.w.line("join " + join + ";")
+			s.m.w.line("first " + prev + " then " + join + ";")
+			s.m.w.line("first " + p.wait + " then " + join + ";")
+			prev = join
+			s.m.add(dc, Approximated, p.wait, joinNotes("the time from "+p.from+", written as the wait "+p.wait+" forked after it and joined before "+step.name, p.note))
+			s.observationsDone(dc, p.wait, step.name)
 			continue
 		}
 		from, ok := s.waitFrom(dc, step)
@@ -920,6 +976,12 @@ func (s *scenario) waits(step *scenarioStep, prev string) string {
 			continue
 		}
 		s.waited[dc] = true
+		if from == "" {
+			note := "the time it measures from " + s.names[s.otherEnd(dc, step.msg)] + " to " + step.name + " is not written: steps of other fragments lie between them, so no wait forked after the one can be joined before the other"
+			s.m.w.lines(commentLines("duration constraint on " + step.name + " not migrated — " + note))
+			s.m.add(dc, Unmapped, "", note)
+			continue
+		}
 		expr, note, ok := s.waitExpr(dc)
 		if !ok {
 			s.m.w.lines(commentLines("duration constraint on " + step.name + " not migrated — " + note))
@@ -936,6 +998,52 @@ func (s *scenario) waits(step *scenarioStep, prev string) string {
 	s.names[step.msg] = step.name
 	s.last = step.name
 	return prev
+}
+
+// startWaits forks, after a message step, the wait for each constraint from it to a later message
+// of its chain with steps between them, and returns the node the next step follows.
+func (s *scenario) startWaits(step *scenarioStep) string {
+	fork := ""
+	for _, dc := range s.constraintsOn(step.msg) {
+		if s.waited[dc] {
+			continue
+		}
+		if _, pending := s.pending[dc]; pending {
+			continue
+		}
+		other := s.otherEnd(dc, step.msg)
+		if other == nil || !s.spansChain(step, other) {
+			continue
+		}
+		expr, note, ok := s.waitExpr(dc)
+		if !ok {
+			s.waited[dc] = true
+			s.m.w.lines(commentLines("duration constraint from " + step.name + " not migrated — " + note))
+			s.m.add(dc, Unmapped, "", note)
+			continue
+		}
+		if fork == "" {
+			fork = writeName(freshIn(s.used, "timing"))
+			s.m.w.line("fork " + fork + ";")
+			s.m.w.line("first " + step.name + " then " + fork + ";")
+		}
+		base := freshIn(s.used, "wait")
+		wait := writeName(base)
+		s.m.w.line("action " + wait + " accept after " + expr + " [SI::s];")
+		s.m.w.line("first " + fork + " then " + wait + ";")
+		s.pending[dc] = pendingWait{wait: wait, base: base, from: step.name, note: note}
+	}
+	if fork == "" {
+		return step.name
+	}
+	return fork
+}
+
+// spansChain reports whether other is a later message of step's chain with steps between them,
+// so that a wait forked after step is joined before other.
+func (s *scenario) spansChain(step *scenarioStep, other *xmi.Element) bool {
+	a, b := s.chain[step.msg], s.chain[other]
+	return b.step != nil && b.chain == a.chain && b.pos > a.pos+1 && stepWaits(b.step)
 }
 
 // constraintsOn lists the duration constraints on a message or on either of
@@ -974,16 +1082,22 @@ func (s *scenario) messageOf(e *xmi.Element) *xmi.Element {
 	return s.m.model.Ref(e, "message")
 }
 
-// waitFrom says what a duration constraint on a step's message measures, and
-// whether the step is the one to wait before: the message's own duration, or
-// the time since the other message it constrains, once that has been stepped.
-func (s *scenario) waitFrom(dc *xmi.Element, step *scenarioStep) (string, bool) {
-	var other *xmi.Element
+// otherEnd is the message a duration constraint on msg measures from or to, nil
+// when it constrains msg alone.
+func (s *scenario) otherEnd(dc, msg *xmi.Element) *xmi.Element {
 	for _, c := range s.m.model.Refs(dc, "constrainedElement") {
-		if m := s.messageOf(c); m != nil && m != step.msg {
-			other = m
+		if m := s.messageOf(c); m != nil && m != msg {
+			return m
 		}
 	}
+	return nil
+}
+
+// waitFrom says what a duration constraint on a step's message measures, and whether the
+// step is the one to wait before: the message's own duration, or the time since the other
+// message it constrains once that has been stepped; "" when steps lie between the two.
+func (s *scenario) waitFrom(dc *xmi.Element, step *scenarioStep) (string, bool) {
+	other := s.otherEnd(dc, step.msg)
 	if other == nil {
 		return "the message's duration; a v2 send arrives at once, so the step waits for it first", true
 	}
@@ -992,7 +1106,7 @@ func (s *scenario) waitFrom(dc *xmi.Element, step *scenarioStep) (string, bool) 
 		return "", false
 	}
 	if s.last != name {
-		return "the time from " + name + ", measured from the step before " + step.name + " since steps lie between them", true
+		return "", true
 	}
 	return "the time from " + name, true
 }

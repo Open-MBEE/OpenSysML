@@ -441,6 +441,116 @@ func TestInteractionMigratesToAScenarioOfSends(t *testing.T) {
 	}
 }
 
+// timedInteraction sends a request, a probe that takes 4 s, and a reply that must come 10 s
+// after the request; a second interaction spans the same constraint into an opt fragment.
+const timedInteraction = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_treq" name="Request"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_tprb" name="Probe"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_trep" name="Reply"/>
+    <packagedElement xmi:type="uml:Duration" xmi:id="_tTen">
+      <expr xmi:type="uml:LiteralString" xmi:id="_tTenV" value="10s"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Duration" xmi:id="_tFour">
+      <expr xmi:type="uml:LiteralString" xmi:id="_tFourV" value="4s"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_tnode" name="Node"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_tnet" name="Net">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ta" name="a" type="_tnode" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_tb" name="b" type="_tnode" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_timed" name="Timed">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_tla" name="a" represents="_ta" coveredBy="_tsReq _tsPrb _trRep"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_tlb" name="b" represents="_tb" coveredBy="_trReq _trPrb _tsRep"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_tsReq" covered="_tla" message="_tmReq"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_trReq" covered="_tlb" message="_tmReq"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_tsPrb" covered="_tla" message="_tmPrb"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_trPrb" covered="_tlb" message="_tmPrb"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_tsRep" covered="_tlb" message="_tmRep"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_trRep" covered="_tla" message="_tmRep"/>
+        <message xmi:type="uml:Message" xmi:id="_tmReq" name="request" messageSort="asynchSignal" signature="_treq" sendEvent="_tsReq" receiveEvent="_trReq"/>
+        <message xmi:type="uml:Message" xmi:id="_tmPrb" name="probe" messageSort="asynchSignal" signature="_tprb" sendEvent="_tsPrb" receiveEvent="_trPrb"/>
+        <message xmi:type="uml:Message" xmi:id="_tmRep" name="reply" messageSort="asynchSignal" signature="_trep" sendEvent="_tsRep" receiveEvent="_trRep"/>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_tSpan">
+          <constrainedElement xmi:idref="_tsReq"/>
+          <constrainedElement xmi:idref="_trRep"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_tSpanI" min="_tTen" max="_tTen"/>
+        </ownedRule>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_tOwn">
+          <constrainedElement xmi:idref="_tmPrb"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_tOwnI" min="_tFour" max="_tFour"/>
+        </ownedRule>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_split" name="Split">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_sla" name="a" represents="_ta" coveredBy="_ssReq _ssPrb _srRep"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_slb" name="b" represents="_tb" coveredBy="_srReq _srPrb _ssRep"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_ssReq" covered="_sla" message="_smReq"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_srReq" covered="_slb" message="_smReq"/>
+        <fragment xmi:type="uml:CombinedFragment" xmi:id="_sOpt" interactionOperator="opt">
+          <operand xmi:type="uml:InteractionOperand" xmi:id="_sOptOp">
+            <guard xmi:type="uml:InteractionConstraint" xmi:id="_sOptG">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_sOptS"><body>1 &lt; 2</body></specification>
+            </guard>
+            <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_ssPrb" covered="_sla" message="_smPrb"/>
+            <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_srPrb" covered="_slb" message="_smPrb"/>
+            <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_ssRep" covered="_slb" message="_smRep"/>
+            <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_srRep" covered="_sla" message="_smRep"/>
+          </operand>
+        </fragment>
+        <message xmi:type="uml:Message" xmi:id="_smReq" name="request" messageSort="asynchSignal" signature="_treq" sendEvent="_ssReq" receiveEvent="_srReq"/>
+        <message xmi:type="uml:Message" xmi:id="_smPrb" name="probe" messageSort="asynchSignal" signature="_tprb" sendEvent="_ssPrb" receiveEvent="_srPrb"/>
+        <message xmi:type="uml:Message" xmi:id="_smRep" name="reply" messageSort="asynchSignal" signature="_trep" sendEvent="_ssRep" receiveEvent="_srRep"/>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_sSpan">
+          <constrainedElement xmi:idref="_ssReq"/>
+          <constrainedElement xmi:idref="_srRep"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_sSpanI" min="_tTen" max="_tTen"/>
+        </ownedRule>
+      </ownedBehavior>
+    </packagedElement>`
+
+const timedApplications = `
+  <sysml:Block xmi:id="_ts1" base_Class="_tnode"/>
+  <sysml:Block xmi:id="_ts2" base_Class="_tnet"/>`
+
+// A duration constraint spanning two messages with steps between them is a wait forked after the
+// first and joined before the second, so the steps between count toward it; one that spans into
+// another fragment is reported. The scenario completes at the constraint's bound, not after it.
+func TestSpanningDurationConstraintCountsTheStepsBetween(t *testing.T) {
+	r := migrateDocument(t, timedInteraction, timedApplications)
+	for _, line := range []string{
+		"action request send new Request() to this.b;",
+		"first start then request;",
+		"fork timing;",
+		"first request then timing;",
+		"action wait accept after 10.0 [SI::s];",
+		"first timing then wait;",
+		"action wait2 accept after 4.0 [SI::s];",
+		"first timing then wait2;",
+		"action probe send new Probe() to this.b;",
+		"first wait2 then probe;",
+		"join waitEnd;",
+		"first probe then waitEnd;",
+		"first wait then waitEnd;",
+		"action reply send new Reply() to this.a;",
+		"first waitEnd then reply;",
+		"first reply then done;",
+		"/* duration constraint on reply not migrated — the time it measures from request to reply is not written: steps of other fragments lie between them, so no wait forked after the one can be joined before the other */",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_tSpan", migrate.Approximated, "the time from request, written as the wait wait forked after it and joined before reply; a fixed wait of 10.0 s")
+	wantNote(t, r, "_tOwn", migrate.Approximated, "the message's duration; a v2 send arrives at once, so the step waits for it first, written as the wait wait2 before probe")
+	wantNote(t, r, "_sSpan", migrate.Unmapped, "the time it measures from request to reply is not written: steps of other fragments lie between them")
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Net")
+	meta(t, s, "%action Net::Timed #1")
+	if out := meta(t, s, "%advance 9.9"); strings.Contains(out, "completed") {
+		t.Errorf("the scenario completed before the 10 s the reply must come after the request:\n%s", out)
+	}
+	if out := meta(t, s, "%advance 0.1"); !strings.Contains(out, "Advanced to 10.0") || !strings.Contains(out, "completed") {
+		t.Errorf("the scenario did not complete at 10 s, the constraint's bound:\n%s", out)
+	}
+}
+
 // loggingMachine is a state machine whose state names its entry behavior, its
 // exit behavior and a nested state alike, as UML allows and v2 does not.
 const loggingMachine = `
