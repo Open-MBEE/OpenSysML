@@ -59,6 +59,11 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 		"assign Time_Loop := localClock.currentTime - 'Time_Loop start';",
 		"if 'Time_Never start'->SequenceFunctions::notEmpty() {",
 		"assign 'Time_Unfinished start' := localClock.currentTime;",
+		"first start then stamp9;",
+		"assign 'Time_Run start' := localClock.currentTime;",
+		"first stamp9 then 'start timer';",
+		"assign Time_Run := localClock.currentTime - 'Time_Run start';",
+		"first stamp10 then final;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -76,6 +81,8 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	wantNote(t, r, "_single", migrate.Mapped, "from the start of 'attempt' to the end of 'attempt' is assigned to the attribute Time_Attempt, in seconds, and left without a value by a run that does not reach both")
 	wantNote(t, r, "_never", migrate.Mapped, "from the start of 'abort' to the end of 'guide star found' is assigned to the attribute Time_Never")
 	wantNote(t, r, "_unfinished", migrate.Mapped, "from the start of 'first attempt' to the end of 'abort' is assigned to the attribute Time_Unfinished")
+	wantNote(t, r, "_run", migrate.Mapped, "from the start of (_init) to the start of (_final) is assigned to the attribute Time_Run")
+	wantNote(t, r, "_kickoff", migrate.Unmapped, "the observation reads the clock at the end of (_init), which is no action and so has no end of its own")
 	wantNote(t, r, "_astray", migrate.Unmapped, "is not a node of the activity")
 	wantNote(t, r, "_blank", migrate.Unmapped, "observes no event")
 
@@ -84,10 +91,12 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	meta(t, s, "%seed 1")
 	v := s.RunAction("Observatory::Acquire", "Observatory")
 	wantVerdict(t, v)
-	runs := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 5, 1, []string{"this.Time_Acq_Total", "Time_Loop", "Time_Between", "Time_Attempt"}).Lines, "\n")
-	// Four attempts of ditSetup = 2.5 s each: the loop ran until i reached Retries.
+	runs := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 5, 1, []string{"this.Time_Acq_Total", "Time_Loop", "Time_Between", "Time_Attempt", "Time_Run"}).Lines, "\n")
+	// Four attempts of ditSetup = 2.5 s each: the loop ran until i reached Retries,
+	// and the observation from the initial node to the final spans the whole run.
 	for _, want := range []string{
 		"this.Time_Acq_Total: 5 run(s), min 10.0, mean 10.0, max 10.0",
+		"Time_Run: 5 run(s), min 10.0, mean 10.0, max 10.0",
 		"Time_Loop: 5 run(s), min 10.0, mean 10.0, max 10.0",
 		"Time_Between: 5 run(s), min 10.0, mean 10.0, max 10.0",
 		"Time_Attempt: 5 run(s), min 2.5, mean 2.5, max 2.5",
@@ -262,14 +271,14 @@ func TestTranslatorRefusalsAndConfiguredClockName(t *testing.T) {
 	}
 }
 
-// Migrated Math.floor/ceil/round are exact through the least Integer and a typed
-// overflow, never a wrapped Integer, at or beyond 2^63.
+// Migrated Math.floor/ceil/round are exact through the least Integer, the ceiling
+// of which is a value, and a typed overflow, never a wrapped Integer, beyond.
 func TestTranslatedRoundingsStopAtTheIntegerRange(t *testing.T) {
 	r := migrateXMI(t, "reactor")
 	for _, line := range []string{
 		"calc def Floor {",
 		"    RealFunctions::floor(x)\n",
-		"    -RealFunctions::floor(-x)\n",
+		"    OpenSysMLMathFunctions::ceiling(x)\n",
 		"    RealFunctions::floor(x + 0.5)\n",
 	} {
 		wantLine(t, r.Notation, line)
@@ -280,12 +289,17 @@ func TestTranslatedRoundingsStopAtTheIntegerRange(t *testing.T) {
 		{"Floor(-2.1)", "= -3"},
 		{"Floor(9223372036854774784.0)", "= 9223372036854774784"},
 		{"Floor(-9223372036854775808.0)", "= -9223372036854775808"},
-		{"Ceil(-9223372036854774784.5)", "= -9223372036854774784"},
+		{"Ceil(-9223372036854774784.0)", "= -9223372036854774784"},
+		{"Ceil(-9223372036854775808.0)", "= -9223372036854775808"},
+		{"Ceil(2.1)", "= 3"},
+		{"Ceil(-2.9)", "= -2"},
 		{"Round(9007199254740993.0)", "= 9007199254740992"},
 		{"Round(-2.5)", "= -2"},
 		{"Floor(9223372036854775808.0)", "arithmetic overflow: 9.223372036854776e+18 exceeds the Integer range"},
 		{"Floor(1.0e20)", "arithmetic overflow: 1e+20 exceeds the Integer range"},
-		{"Ceil(1.0e20)", "arithmetic overflow: -1e+20 exceeds the Integer range"},
+		{"Ceil(9223372036854775808.0)", "arithmetic overflow: 9.223372036854776e+18 exceeds the Integer range"},
+		{"Ceil(1.0e20)", "arithmetic overflow: 1e+20 exceeds the Integer range"},
+		{"Ceil(-1.0e20)", "arithmetic overflow: -1e+20 exceeds the Integer range"},
 		{"Round(1.0e20)", "arithmetic overflow: 1e+20 exceeds the Integer range"},
 		{"Round(-1.0e20)", "arithmetic overflow: -1e+20 exceeds the Integer range"},
 	} {

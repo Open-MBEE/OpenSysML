@@ -1288,7 +1288,8 @@ func (p *opaqueParser) call(path []string) (translated, *refusal) {
 		}
 		switch fn {
 		case "Math.ceil":
-			return translated{expr: "-RealFunctions::floor(-" + args[0].operandOf(looseUnary, true) + ")", scalar: "Integer", loose: looseUnary}, nil
+			// -floor(-x) would overflow at the least Integer; the extension library's ceiling does not.
+			return translated{expr: "OpenSysMLMathFunctions::ceiling(" + args[0].expr + ")", scalar: "Integer", atomic: true}, nil
 		case "Math.round":
 			// JavaScript rounds a half toward +∞, where RealFunctions::round rounds it away from zero.
 			half := translated{expr: "0.5", scalar: "Real", atomic: true, lit: "real"}

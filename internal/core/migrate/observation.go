@@ -49,6 +49,7 @@ func (a *activity) timings() {
 
 // timingOf reads which nodes an observation spans and at which end of each, or
 // says why it spans none: it observes no events, or events that are not nodes here.
+// An initial node is a point the activity's start reaches, so it has a start but no end.
 func (a *activity) timingOf(o *xmi.Element) (*timing, string) {
 	events := a.m.model.Refs(o, "event")
 	if len(events) == 0 {
@@ -64,7 +65,7 @@ func (a *activity) timingOf(o *xmi.Element) (*timing, string) {
 		return nil, "the observation names more than two events"
 	}
 	for _, e := range events {
-		if k := nodeKind(e); e.Parent != a.act || k != nodeAction && k != nodeControl && k != nodeBuffer && k != nodeFinal {
+		if k := nodeKind(e); e.Parent != a.act || k != nodeAction && k != nodeControl && k != nodeBuffer && k != nodeFinal && k != nodeInitial {
 			return nil, "the observation's event " + describe(e) + " is not a node of the activity, so no elapsed clock can be read between its nodes"
 		}
 	}
@@ -101,7 +102,8 @@ func (a *activity) timingOf(o *xmi.Element) (*timing, string) {
 }
 
 // stampAt schedules a clock read at one end of node n: before it starts, or
-// after it ends and before anything it leads to.
+// after it ends and before anything it leads to. An initial node's start is
+// the activity's, so its stamp follows start (see startSuccessions).
 func (a *activity) stampAt(n *xmi.Element, end bool, lines ...string) {
 	stamps := a.before
 	if end {

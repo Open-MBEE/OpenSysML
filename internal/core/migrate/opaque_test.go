@@ -96,7 +96,7 @@ func TestTranslateExpr(t *testing.T) {
 		{"JavaScript", "Math.abs(t - t0)", "", "RealFunctions::abs(this.t - this.t0)", "Real"},
 		{"JavaScript", "Math.abs(i)", "", "IntegerFunctions::abs(this.i)", "Integer"},
 		{"JavaScript", "Math.floor(t)", "", "RealFunctions::floor(this.t)", "Integer"},
-		{"JavaScript", "Math.ceil(t)", "", "-RealFunctions::floor(-this.t)", "Integer"},
+		{"JavaScript", "Math.ceil(t)", "", "OpenSysMLMathFunctions::ceiling(this.t)", "Integer"},
 		{"JavaScript", "Math.sqrt(t)", "", "RealFunctions::sqrt(this.t)", "Real"},
 		{"JavaScript", "Math.pow(t, 2)", "", "this.t ** 2", "Real"},
 		{"JavaScript", "(-t) ** 2", "", "(-this.t) ** 2", "Real"},

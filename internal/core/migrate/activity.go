@@ -412,7 +412,8 @@ func (a *activity) unwritableTarget(e *xmi.Element) string {
 }
 
 // startSuccessions writes the successions from start to the initial nodes' targets
-// and to every node no edge leads to, forked when several, after the activity's wait.
+// and to every node no edge leads to, forked when several, after the initial
+// nodes' clock stamps and the activity's wait.
 func (a *activity) startSuccessions() {
 	var targets []*xmi.Element
 	seen := map[*xmi.Element]bool{}
@@ -441,9 +442,16 @@ func (a *activity) startSuccessions() {
 		a.m.add(n, Approximated, "", "no edge leads to the node, so it starts with the activity")
 	}
 	from := "start"
+	for _, n := range a.nodes {
+		if s, ok := a.before[n]; ok && nodeKind(n) == nodeInitial {
+			a.m.w.line("first " + from + " then " + s.name + ";")
+			a.m.w.block("action "+s.name, func() { a.m.w.lines(s.lines) })
+			from = s.name
+		}
+	}
 	if w, ok := a.waitFor(a.act); ok {
 		name := a.fresh("wait")
-		a.m.w.line("first start then " + writeName(name) + ";")
+		a.m.w.line("first " + from + " then " + writeName(name) + ";")
 		a.m.w.line("action " + writeName(name) + " accept after " + w + ";")
 		from = writeName(name)
 	}

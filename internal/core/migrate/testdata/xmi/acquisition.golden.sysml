@@ -25,7 +25,13 @@ part def Observatory {
         attribute Time_Never : ScalarValues::Real [0..1];
         attribute 'Time_Unfinished start' : ScalarValues::Real [0..1];
         attribute Time_Unfinished : ScalarValues::Real [0..1];
-        first start then 'start timer';
+        attribute 'Time_Run start' : ScalarValues::Real [0..1];
+        attribute Time_Run : ScalarValues::Real [0..1];
+        first start then stamp9;
+        action stamp9 {
+            assign 'Time_Run start' := localClock.currentTime;
+        }
+        first stamp9 then 'start timer';
         action 'start timer' {
             assign this.Time_Acq_Total := localClock.currentTime;
         }
@@ -104,9 +110,15 @@ part def Observatory {
         action 'stop timer' {
             assign this.Time_Acq_Total := localClock.currentTime - this.Time_Acq_Total;
         }
-        first 'stop timer' then final;
+        first 'stop timer' then stamp10;
         merge merge2;
         first merge2 then 'stop timer';
+        action stamp10 {
+            if 'Time_Run start'->SequenceFunctions::notEmpty() {
+                assign Time_Run := localClock.currentTime - 'Time_Run start';
+            }
+        }
+        first stamp10 then final;
         action final terminate;
         /* partition 'Telescope Control' represents Observatory::tcs: first attempt, attempt, decide, guide star found, next attempt, abort */
     }

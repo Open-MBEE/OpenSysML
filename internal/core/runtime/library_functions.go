@@ -130,11 +130,12 @@ func init() {
 	// OpenSysMLMathFunctions is the non-normative OpenSysML extension library
 	// (internal/core/libs/stdlib/OpenSysML Libraries/OpenSysMLMathFunctions.kerml),
 	// which declares the exponential, logarithmic and two-argument arctangent
-	// functions and the Integer quotient the OMG Kernel Function Library omits.
+	// functions, the ceiling and the Integer quotient the OMG Kernel Function Library omits.
 	registerLibraryFunction("OpenSysMLMathFunctions::exp", []string{"x"}, realUnary(math.Exp))
 	registerLibraryFunction("OpenSysMLMathFunctions::ln", []string{"x"}, naturalLog, positiveReal)
 	registerLibraryFunction("OpenSysMLMathFunctions::log", []string{"x", "base"}, logToBase, positiveReal, logarithmBase)
 	registerLibraryFunction("OpenSysMLMathFunctions::atan2", []string{"y", "x"}, atan2Real)
+	registerLibraryFunction("OpenSysMLMathFunctions::ceiling", []string{"x"}, ceilingToInteger)
 	registerLibraryFunction("OpenSysMLMathFunctions::quotient", []string{"x", "y"}, integerQuotient, integerDomain, integerDomain)
 
 	registerRandomFunctions()
@@ -681,6 +682,11 @@ func atan2Real(args []semantics.Value) (semantics.Value, error) {
 // floorToInteger is RealFunctions::floor, which returns Integer.
 func floorToInteger(args []semantics.Value) (semantics.Value, error) {
 	return integerResult(math.Floor(asReal(args[0])))
+}
+
+// ceilingToInteger is OpenSysMLMathFunctions::ceiling, which returns Integer.
+func ceilingToInteger(args []semantics.Value) (semantics.Value, error) {
+	return integerResult(math.Ceil(asReal(args[0])))
 }
 
 // roundToInteger is RealFunctions::round, which returns Integer. Halves round

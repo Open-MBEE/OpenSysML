@@ -49,7 +49,7 @@ calc def Floor {
 calc def Ceil {
     in x : ScalarValues::Real;
     out whole : ScalarValues::Integer;
-    -RealFunctions::floor(-x)
+    OpenSysMLMathFunctions::ceiling(x)
 }
 calc def Round {
     in x : ScalarValues::Real;
