@@ -380,9 +380,10 @@ func TestEngineCheckNamesTheDoRoundItLeavesOut(t *testing.T) {
 
 	got := check(t, binary, string(model), "-engine", "check", "-state", "test::Machine")
 	wantReport(t, got, 2,
-		"? State machine test::Machine: no violation within bounds (9 states, 9 moves, depth 7; not enumerated: do round before dispatch)",
+		"? State machine test::Machine: no violation within bounds (18 states, 18 moves, depth 7; not enumerated: do round before dispatch)",
+		"outcome: finalState heard+finished; visits looping, waiting, finished, heard; late = 1; left = 1; right = 0",
 		"outcome: finalState heard+finished; visits waiting, looping, finished, heard; late = 1; left = 1; right = 0",
-		"standing: outcomes (bounded over schedules: 9 states, 9 moves searched, not enumerated: do round before dispatch)")
+		"standing: outcomes (bounded over schedules: 18 states, 18 moves searched, not enumerated: do round before dispatch)")
 	rejectReport(t, got, "exhaustive", "bounds hit", "(reached)")
 
 	got = check(t, binary, string(model), "-json", "-engine", "check", "-state", "test::Machine")
