@@ -1,8 +1,8 @@
-// Package diag holds the diagnostic type every layer reports findings in.
+// Package diag holds the diagnostic type every layer reports findings in and
+// the quick-fix edits a diagnostic carries.
 package diag
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/quickfix"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -40,7 +40,7 @@ type Diagnostic struct {
 	Source   string // the pass ID that produced this diagnostic
 	// Fixes are the unambiguous edits resolving the diagnostic, offered by an
 	// editor as quick fixes.
-	Fixes []quickfix.Fix
+	Fixes []Fix
 	// Notation marks a finding about how the model is written rather than about
 	// what it means: the document still reads, so it does not gate higher tiers.
 	Notation bool

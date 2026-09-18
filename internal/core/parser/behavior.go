@@ -2,10 +2,10 @@ package parser
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
-	"github.com/Open-MBEE/OpenSysML/internal/core/quickfix"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -1797,42 +1797,42 @@ func isConditionReference(expr ast.Node) bool {
 
 // assertedConditionFixes rewrites `assert <condition>;` as the bare condition,
 // keeping a negation as `not (…)` so the condition means what it did.
-func (p *Parser) assertedConditionFixes(keyword source.Span, exprStart int, semi lexer.Token, hasSemi, negated bool) []quickfix.Fix {
+func (p *Parser) assertedConditionFixes(keyword source.Span, exprStart int, semi lexer.Token, hasSemi, negated bool) []diag.Fix {
 	prefix := source.Span{Offset: keyword.Offset, Len: exprStart - keyword.Offset}
 	if prefix.Len <= 0 {
 		return nil
 	}
 	if !negated {
-		edits := []quickfix.Edit{quickfix.Replace(prefix, "")}
+		edits := []diag.Edit{diag.Replace(prefix, "")}
 		if hasSemi {
-			edits = append(edits, quickfix.Replace(semi.Span, ""))
+			edits = append(edits, diag.Replace(semi.Span, ""))
 		}
-		return []quickfix.Fix{{Title: "write the condition without `" + p.src.Text(keyword) + "`", Edits: edits, Preferred: true}}
+		return []diag.Fix{{Title: "write the condition without `" + p.src.Text(keyword) + "`", Edits: edits, Preferred: true}}
 	}
 	// Without the semicolon there is nowhere to close the parenthesis.
 	if !hasSemi {
 		return nil
 	}
-	return []quickfix.Fix{{
+	return []diag.Fix{{
 		Title:     "write the condition as `not (…)`",
-		Edits:     []quickfix.Edit{quickfix.Replace(prefix, "not ("), quickfix.Replace(semi.Span, ")")},
+		Edits:     []diag.Edit{diag.Replace(prefix, "not ("), diag.Replace(semi.Span, ")")},
 		Preferred: true,
 	}}
 }
 
 // requirementConditionFixes rewrites `require <condition>;` as the constraint
 // declaration a requirement body admits (SysML.xtext RequirementConstraintUsage).
-func (p *Parser) requirementConditionFixes(keyword source.Span, exprStart int, semi lexer.Token, hasSemi bool) []quickfix.Fix {
+func (p *Parser) requirementConditionFixes(keyword source.Span, exprStart int, semi lexer.Token, hasSemi bool) []diag.Fix {
 	prefix := source.Span{Offset: keyword.Offset, Len: exprStart - keyword.Offset}
 	if prefix.Len <= 0 || !hasSemi {
 		return nil
 	}
 	word := p.src.Text(keyword)
-	return []quickfix.Fix{{
+	return []diag.Fix{{
 		Title: "state the condition as `" + word + " constraint { … }`",
-		Edits: []quickfix.Edit{
-			quickfix.Replace(prefix, word+" constraint { "),
-			quickfix.Replace(semi.Span, " }"),
+		Edits: []diag.Edit{
+			diag.Replace(prefix, word+" constraint { "),
+			diag.Replace(semi.Span, " }"),
 		},
 		Preferred: true,
 	}}
