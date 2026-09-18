@@ -138,7 +138,7 @@ func TestResultSnapshotsOfAnotherConfigurationAreLeftOut(t *testing.T) {
         <value xmi:type="uml:LiteralInteger" xmi:id="_s5bv" value="3"/>
       </slot>
       <slot xmi:type="uml:Slot" xmi:id="_s5f" definingFeature="_flag">
-        <value xmi:type="uml:LiteralBoolean" xmi:id="_s5fv" value="false"/>
+        <value xmi:type="uml:LiteralBoolean" xmi:id="_s5fv" value="true"/>
       </slot>
     </packagedElement>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_s6" name="chooser" classifier="_chooser"/>`, `
@@ -197,6 +197,194 @@ func snapshotIDs(c simresults.ConfigurationResults) []string {
 		ids = append(ids, s.ID)
 	}
 	return ids
+}
+
+// A feature the target sets to a Boolean, a string or an enumeration literal tells
+// its snapshots apart as a number does: one recording another value of it is of a
+// run on another configuration and left out, while a blank literal configures nothing
+// and a part, which a snapshot holds a copy of, tells nothing apart.
+func TestNonnumericConfiguredValuesTellSnapshotsApart(t *testing.T) {
+	const modes = `
+    <packagedElement xmi:type="uml:Enumeration" xmi:id="_mode" name="Mode">
+      <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_fast" name="fast"/>
+      <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_slow" name="slow"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_cell" name="Cell"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_cell1" name="cell 1" classifier="_cell"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_cell2" name="cell 2" classifier="_cell"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_on" name="on">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_label" name="label">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_gear" name="gear" type="_mode"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_cellp" name="cell" type="_cell" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_t" name="t">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_g0" name="Group 0"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_g1" name="Group 1"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_g2" name="Group 2"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_lit" name="lit" classifier="_rig">
+      <slot xmi:type="uml:Slot" xmi:id="_lit_on" definingFeature="_on">
+        <value xmi:type="uml:LiteralBoolean" xmi:id="_lit_onv" value="true"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_lit_label" definingFeature="_label">
+        <value xmi:type="uml:LiteralString" xmi:id="_lit_labelv" value="A"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_lit_gear" definingFeature="_gear">
+        <value xmi:type="uml:InstanceValue" xmi:id="_lit_gearv" instance="_fast"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_lit_cell" definingFeature="_cellp">
+        <value xmi:type="uml:InstanceValue" xmi:id="_lit_cellv" instance="_cell1"/>
+      </slot>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_dark" name="dark" classifier="_rig">
+      <slot xmi:type="uml:Slot" xmi:id="_dark_on" definingFeature="_on">
+        <value xmi:type="uml:LiteralBoolean" xmi:id="_dark_onv" value="false"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_dark_label" definingFeature="_label">
+        <value xmi:type="uml:LiteralString" xmi:id="_dark_labelv" value="A"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_dark_gear" definingFeature="_gear">
+        <value xmi:type="uml:InstanceValue" xmi:id="_dark_gearv" instance="_fast"/>
+      </slot>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_blank" name="blank" classifier="_rig">
+      <slot xmi:type="uml:Slot" xmi:id="_blank_on" definingFeature="_on">
+        <value xmi:type="uml:LiteralBoolean" xmi:id="_blank_onv"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_blank_label" definingFeature="_label">
+        <value xmi:type="uml:LiteralString" xmi:id="_blank_labelv" value=""/>
+      </slot>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_results" name="Results">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r1" name="run 1" classifier="_rig">
+        <slot xmi:type="uml:Slot" xmi:id="_r1on" definingFeature="_on">
+          <value xmi:type="uml:LiteralBoolean" xmi:id="_r1onv" value="true"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r1label" definingFeature="_label">
+          <value xmi:type="uml:LiteralString" xmi:id="_r1labelv" value="A"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r1gear" definingFeature="_gear">
+          <value xmi:type="uml:InstanceValue" xmi:id="_r1gearv" instance="_fast"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r1cell" definingFeature="_cellp">
+          <value xmi:type="uml:InstanceValue" xmi:id="_r1cellv" instance="_cell2"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r1t" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r1tv" value="1.0"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r2" name="run 2" classifier="_rig">
+        <slot xmi:type="uml:Slot" xmi:id="_r2on" definingFeature="_on">
+          <value xmi:type="uml:LiteralBoolean" xmi:id="_r2onv" value="false"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r2label" definingFeature="_label">
+          <value xmi:type="uml:LiteralString" xmi:id="_r2labelv" value="A"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r2gear" definingFeature="_gear">
+          <value xmi:type="uml:InstanceValue" xmi:id="_r2gearv" instance="_fast"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r2t" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r2tv" value="2.0"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r3" name="run 3" classifier="_rig">
+        <slot xmi:type="uml:Slot" xmi:id="_r3on" definingFeature="_on">
+          <value xmi:type="uml:LiteralBoolean" xmi:id="_r3onv" value="true"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r3label" definingFeature="_label">
+          <value xmi:type="uml:LiteralString" xmi:id="_r3labelv" value="B"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r3gear" definingFeature="_gear">
+          <value xmi:type="uml:InstanceValue" xmi:id="_r3gearv" instance="_slow"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r3t" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r3tv" value="3.0"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r4" name="run 4" classifier="_rig">
+        <slot xmi:type="uml:Slot" xmi:id="_r4on" definingFeature="_on">
+          <value xmi:type="uml:LiteralBoolean" xmi:id="_r4onv" value="true"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r4t" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r4tv" value="4.0"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>`
+	r := migrateDocument(t, modes, `
+  <sysml:Block xmi:id="_s1" base_Class="_rig"/>
+  <sysml:Block xmi:id="_s3" base_Class="_cell"/>
+  <sysml:ValueType xmi:id="_s2" base_DataType="_mode"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
+      executionTarget="_lit" resultLocation="_results"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c1" base_Class="_g1"
+      executionTarget="_dark" resultLocation="_results"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c2" base_Class="_g2"
+      executionTarget="_blank" resultLocation="_results"/>`)
+	if len(r.Results.Configurations) != 3 {
+		t.Fatalf("results index %d configuration(s), want 3", len(r.Results.Configurations))
+	}
+	// lit is on, labelled A, in gear fast: run 2 is off, run 3 labelled B in gear
+	// slow, and run 4 records neither label nor gear, so it cannot be told apart;
+	// run 1 holds its own copy of the cell, which is no other configuration.
+	lit := r.Results.Configurations[0]
+	if ids := snapshotIDs(lit); !reflect.DeepEqual(ids, []string{"_r1", "_r4"}) {
+		t.Errorf("the snapshots of lit are %v, want runs 1 and 4", ids)
+	}
+	if values := lit.Values("t"); !reflect.DeepEqual(values, []float64{1.0, 4.0}) {
+		t.Errorf("lit's t = %v, want [1 4]", values)
+	}
+	for _, want := range []string{
+		"1 snapshot(s) record other values of gear, label than the target configures, so they are of another configuration and not among the results",
+		"1 snapshot(s) record other values of on than the target configures, so they are of another configuration and not among the results",
+	} {
+		if !slices.Contains(lit.Notes, want) {
+			t.Errorf("lit notes %q, want %q among them", lit.Notes, want)
+		}
+	}
+	// dark is off: run 2 alone records that; run 3 differs on every discriminator.
+	dark := r.Results.Configurations[1]
+	if ids := snapshotIDs(dark); !reflect.DeepEqual(ids, []string{"_r2"}) {
+		t.Errorf("the snapshots of dark are %v, want run 2 alone", ids)
+	}
+	for _, want := range []string{
+		"1 snapshot(s) record other values of gear, label, on than the target configures, so they are of another configuration and not among the results",
+		"2 snapshot(s) record other values of on than the target configures, so they are of another configuration and not among the results",
+	} {
+		if !slices.Contains(dark.Notes, want) {
+			t.Errorf("dark notes %q, want %q among them", dark.Notes, want)
+		}
+	}
+	// blank leaves on and label without a value, so it configures nothing and keeps every run.
+	blank := r.Results.Configurations[2]
+	if ids := snapshotIDs(blank); !reflect.DeepEqual(ids, []string{"_r1", "_r2", "_r3", "_r4"}) {
+		t.Errorf("the snapshots of blank are %v, want all four", ids)
+	}
+	for _, note := range blank.Notes {
+		if strings.Contains(note, "another configuration") {
+			t.Errorf("blank leaves a snapshot out: %s", note)
+		}
+	}
+	// Only the numbers are results; the discriminators are noted as no number, once per snapshot holding them.
+	for _, want := range []string{
+		"the slot of on holds a LiteralBoolean, which is no number in 4 snapshot(s), so it is not among the results",
+		"the slot of label holds a LiteralString, which is no number in 3 snapshot(s), so it is not among the results",
+		"the slot of gear holds a InstanceValue, which is no number in 3 snapshot(s), so it is not among the results",
+		"the slot of cell holds a InstanceValue, which is no number in 1 snapshot(s), so it is not among the results",
+	} {
+		if !slices.Contains(blank.Notes, want) {
+			t.Errorf("blank notes %q, want %q among them", blank.Notes, want)
+		}
+	}
+	if !reflect.DeepEqual(blank.Observables, []string{"t"}) {
+		t.Errorf("blank observes %v, want t alone", blank.Observables)
+	}
+	wantClean(t, "t.sysml", r)
 }
 
 // A configuration whose results cannot be read says so: a result location

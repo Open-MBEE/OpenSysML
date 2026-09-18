@@ -62,7 +62,11 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *xmi.S
 					unread[name+" "+reason]++
 					continue
 				}
-				snap.Values[name] = value
+				if value.kind != kindNumber {
+					unread[name+" holds a "+value.spec+", which is no number"]++
+					continue
+				}
+				snap.Values[name] = value.number
 				held[name]++
 			}
 			for name, n := range held {
@@ -106,17 +110,17 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *xmi.S
 	return lost
 }
 
-// configuredValues is the number the target sets each of its features to — by a
+// configuredValues is the scalar the target sets each of its features to — by a
 // slot, else by the default of the most special property of its classifiers — that
 // a snapshot of a run on the target records too, under the property redefined as
-// well. A literal spelling no number sets nothing: that is how a tool leaves the
+// well. A literal spelling no value sets nothing: that is how a tool leaves the
 // observables its runs fill.
-func (m *migration) configuredValues(target executionTarget) map[*xmi.Element]float64 {
-	configured := map[*xmi.Element]float64{}
+func (m *migration) configuredValues(target executionTarget) map[*xmi.Element]scalarValue {
+	configured := map[*xmi.Element]scalarValue{}
 	if target.element == nil {
 		return configured
 	}
-	set := func(p *xmi.Element, value float64) {
+	set := func(p *xmi.Element, value scalarValue) {
 		for queue := []*xmi.Element{p}; len(queue) > 0; queue = queue[1:] {
 			p := queue[0]
 			if _, done := configured[p]; done {
@@ -130,10 +134,10 @@ func (m *migration) configuredValues(target executionTarget) map[*xmi.Element]fl
 		}
 	}
 	configures := func(p *xmi.Element, values []*xmi.Element) {
-		if len(values) != 1 || strings.TrimSpace(values[0].Attrs["value"]) == "" {
+		if len(values) != 1 || blankLiteral(values[0]) {
 			return
 		}
-		if value, reason := literalNumber(values[0]); reason == "" {
+		if value, reason := m.literalScalar(values[0]); reason == "" {
 			set(p, value)
 		}
 	}
@@ -153,10 +157,10 @@ func (m *migration) configuredValues(target executionTarget) map[*xmi.Element]fl
 }
 
 // recordsOtherValues names the configured features whose value inst records, in
-// one slot, as another number: such a snapshot is of a run on another configuration.
+// one slot, as another scalar: such a snapshot is of a run on another configuration.
 // A feature held by several slots records no one value and is left to resultSnapshots.
-func (m *migration) recordsOtherValues(inst *xmi.Element, configured map[*xmi.Element]float64) []string {
-	held := map[*xmi.Element][]float64{}
+func (m *migration) recordsOtherValues(inst *xmi.Element, configured map[*xmi.Element]scalarValue) []string {
+	held := map[*xmi.Element][]scalarValue{}
 	for _, slot := range inst.Owned("slot") {
 		f := m.model.Ref(slot, "definingFeature")
 		if _, ok := configured[f]; !ok {
@@ -333,13 +337,13 @@ func (m *migration) isSnapshotOf(inst *xmi.Element, typed map[*xmi.Element]bool)
 	return false
 }
 
-// snapshotSlot reads a slot as the number it holds for its defining feature; reason
-// says why it holds none.
-func (m *migration) snapshotSlot(slot *xmi.Element) (name string, value float64, reason string) {
+// snapshotSlot reads a slot as the one scalar it holds for its defining feature;
+// reason says why it holds none.
+func (m *migration) snapshotSlot(slot *xmi.Element) (name string, value scalarValue, reason string) {
 	f := m.model.Ref(slot, "definingFeature")
 	switch {
 	case f == nil:
-		return "(" + slot.ID + ")", 0, "names no defining feature in the document"
+		return "(" + slot.ID + ")", scalarValue{}, "names no defining feature in the document"
 	case f.IsProxy():
 		name = f.QualifiedName
 		if name == "" {
@@ -351,13 +355,13 @@ func (m *migration) snapshotSlot(slot *xmi.Element) (name string, value float64,
 	values := slot.Owned("value")
 	switch len(values) {
 	case 0:
-		return name, 0, "holds no value"
+		return name, scalarValue{}, "holds no value"
 	case 1:
 	default:
-		return name, 0, "holds " + strconv.Itoa(len(values)) + " values, and a result is one number"
+		return name, scalarValue{}, "holds " + strconv.Itoa(len(values)) + " values, and a result is one number"
 	}
-	if value, reason = literalNumber(values[0]); reason != "" {
-		return name, 0, reason
+	if value, reason = m.literalScalar(values[0]); reason != "" {
+		return name, scalarValue{}, reason
 	}
 	if f.IsProxy() {
 		return name, value, "is defined outside the document"
@@ -365,14 +369,65 @@ func (m *migration) snapshotSlot(slot *xmi.Element) (name string, value float64,
 	return name, value, ""
 }
 
-// literalNumber reads a value specification as the one finite number it holds;
-// reason says why it holds none. A numeric literal with no value is zero.
-func literalNumber(v *xmi.Element) (value float64, reason string) {
+// scalarValue is the one scalar a value specification spells — a finite number, a
+// Boolean, a string or an enumeration literal — with spec the UML kind it was read from.
+type scalarValue struct {
+	kind   string
+	spec   string
+	number float64
+	text   string
+}
+
+const (
+	kindNumber      = "number"
+	kindBoolean     = "boolean"
+	kindString      = "string"
+	kindEnumLiteral = "literal"
+)
+
+// blankLiteral reports whether v is a literal a tool left without a value.
+func blankLiteral(v *xmi.Element) bool {
+	return strings.HasPrefix(v.Type, "Literal") && strings.TrimSpace(v.Attrs["value"]) == ""
+}
+
+// literalScalar reads a value specification as the one scalar it holds; reason says
+// why it holds none. A numeric literal with no value is zero, a Boolean one false. An
+// instance value is a scalar only when it names an enumeration literal: a snapshot
+// holds copies of the parts of its object, which name no configuration.
+func (m *migration) literalScalar(v *xmi.Element) (value scalarValue, reason string) {
+	value.spec = v.Type
 	switch v.Type {
 	case "LiteralReal", "LiteralInteger", "LiteralUnlimitedNatural":
+		value.kind = kindNumber
+		value.number, reason = literalNumber(v)
+	case "LiteralBoolean":
+		value.kind = kindBoolean
+		switch text := strings.TrimSpace(v.Attrs["value"]); text {
+		case "true", "1":
+			value.text = "true"
+		case "false", "0", "":
+			value.text = "false"
+		default:
+			reason = "holds " + strconv.Quote(text) + ", which is no Boolean"
+		}
+	case "LiteralString":
+		value.kind, value.text = kindString, v.Attrs["value"]
 	default:
-		return 0, "holds a " + v.Type + ", which is no number"
+		if inst := m.model.Ref(v, "instance"); v.Type == "InstanceValue" && inst != nil && inst.Type == "EnumerationLiteral" {
+			value.kind, value.text = kindEnumLiteral, inst.ID
+			break
+		}
+		return scalarValue{}, "holds a " + v.Type + ", which is no number"
 	}
+	if reason != "" {
+		return scalarValue{}, reason
+	}
+	return value, ""
+}
+
+// literalNumber reads a numeric literal as the one finite number it holds; reason
+// says why it holds none. A numeric literal with no value is zero.
+func literalNumber(v *xmi.Element) (value float64, reason string) {
 	text := strings.TrimSpace(v.Attrs["value"])
 	if text == "" {
 		text = "0"
