@@ -2490,10 +2490,11 @@ service, and test-only and referee packages sit beside the product packages with
 them apart. Nothing here changes what any binary does; the track is the separation of the
 parser, the semantic engine, the runtime and the translation utilities into layers that can each
 be built, tested and reasoned about without the layers above them, whether or not they ever ship
-separately. It is **not started**, and deliberately so: the moves touch files every open pull
-request touches, so the track is scheduled for the 0.9.0 cycle, after the pull requests open
-against `develop` at this baseline have landed, with the small items first and the two large ones
-last. Measured at `develop` `530c04667` (#354), non-test lines and `go list` import edges; the
+separately. It was deliberately **not started** before the 0.9.0 cycle: the moves touch files
+every open pull request touches, so the track waited for the pull requests open against
+`develop` at this baseline to land, with the small items first and the two large ones last; the
+tooling module (P3) is the first item in. The figures below are the baseline the track started
+from. Measured at `develop` `530c04667` (#354), non-test lines and `go list` import edges; the
 binary, test and directory figures below at `develop` `206760826` (#384), where the module has
 70 packages under `internal/`.
 
@@ -2696,28 +2697,42 @@ move: the training corpus stays an assertion, the pilot roots and the round trip
 ratchets, and the download scripts and require-variables stay as `AGENTS.md` §2 states them. This
 removes 32 `testdata` subtrees and six packages from `internal/` — 121 directories to about 80.
 
-## P3 — the tooling module (not started)
+## P3 — the tooling module (landed, unreleased)
 
-Move the eleven unreleased `cmd/` programs and the packages only they link — `baseline`,
-`junit`, `fuml`, `pssm`, `xmi`, `stressmodel`, `doccounts`, `fixtures`, `core/libs/gensnapshot`,
-`core/rdf/ontology/gen` — into `tools/` as a nested module, laid out by what each tool does
-rather than one directory per OMG artefact, which is how `fuml`, `pssm`, `xmi`, `baseline` and
-`junit` came to sit as five siblings of the compiler:
+The eleven unreleased `cmd/` programs and the packages only they link — `baseline`, `junit`,
+`fuml`, `pssm`, `xmi`, `doccounts`, `core/libs/gensnapshot`, `core/rdf/ontology/gen` — are in
+`tools/`, a nested Go module of the repository (`tools/go.mod`, `replace … => ../`), laid out
+by what each tool does rather than one directory per OMG artefact, which is how `fuml`, `pssm`,
+`xmi`, `baseline` and `junit` came to sit as five siblings of the compiler (#394, #400, #404):
 
 ```text
 tools/
   referee/    fuml pssm xpect diff reject exec   the oracles, one package each
-  oracle/     xmi baseline errata report repo    what every referee shares
+  oracle/     xmi baseline junit errata report repo    what every referee shares
   census/     validation grammar doccounts       the counting gates
-  gen/        stressmodel snapshot ontology      generators
+  gen/        snapshot ontology                  generators
   cmd/        one main per program
 ```
 
-`report` takes `writeReports` and the bucket types `classify` shares, `repo` takes `moduleRoot`,
-and the copies go. Split `errata` into the overlay the standard library applies (product) and
-the registry the oracles read (tooling). Move `envvar` and `project` beside `model`, and `docpdf`
-beside `docrender`. Then split `passes` by domain — core, behavior, document, diagram, identity —
-with registration left central.
+Every program runs as `go run -C tools ./cmd/<name>`, and because `-C` starts it inside the
+tools module, a relative path given to any of its flags (`-out`, `-baseline`, `-junit`, …) counts
+from the repository root, which `repo.Resolve` applies; `report` took `writeReports` and the
+four verdict buckets the fUML and PSSM referees share, `repo` took `moduleRoot`, and the copies
+are gone. `errata` is split: the overlay the standard library applies is
+`internal/core/libs/errata` (product), the registry the oracles read is `tools/oracle/errata`.
+There is no `go.work`: `go build ./...` and `go test ./...` at the root are product-only, and
+`make test` and `make lint` run both modules. Two of the listed packages stay in the product
+because product tests import them and a test cannot import the nested module without a cyclic
+requirement: `internal/fixtures`, which also took the analysis-library census schema that the
+runtime's own test writes and `tools/census/doccounts` counts, and `internal/stressmodel`, whose
+generator `internal/core/model`'s incremental test drives (only `cmd/stress-model` moved).
+`docpdf` is `internal/core/docpdf`, beside `docrender`; `envvar` and `project` already sat beside
+`model`, and whether they fold into it is P4's question. Measured at `develop` `1e44c746c`
+before and after the four pull requests: `go list -deps ./cmd/sysml` 368 → 368 (nothing moved
+was on a shipped binary's path, and `go list -deps` of the three binaries names no package of
+`tools/`); directories under `internal/` 119 → 110, 21 → 13 entries at the top and 70 → 61
+packages. Still to do here: split `passes` by domain — core, behavior, document, diagram,
+identity — with registration left central, once the runtime no longer imports it.
 
 ## P4 — one-file packages and shared helpers (not started)
 
