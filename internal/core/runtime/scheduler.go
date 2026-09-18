@@ -281,6 +281,20 @@ func (t stepTokens) has(label string) bool {
 	return slices.ContainsFunc(t.ids, func(id int64) bool { return t.label(id) == label })
 }
 
+// leftReady reports, once the tokens in acted have, a token held by none that did
+// not act yet can now: one a sweep moving each token once would move this step.
+func (t stepTokens) leftReady(acted []int64) bool {
+	if len(acted) == 0 {
+		return false
+	}
+	for _, id := range t.ids {
+		if !t.held[id] && !slices.Contains(acted, id) && t.enabled(id) {
+			return true
+		}
+	}
+	return false
+}
+
 // hasAll reports whether the step has every token the labels name: the order
 // of a witness's step is this flow's move only when it does.
 func (t stepTokens) hasAll(labels []string) bool {

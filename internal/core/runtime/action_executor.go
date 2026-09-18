@@ -90,6 +90,9 @@ type ActionExecutor struct {
 	// moved is set once a token acted — a failed step included — or the body wrote a
 	// feature, and cleared when the start that attached the execution to its object settles.
 	moved bool
+	// leftStanding marks the body's latest one-token step as leaving a token able to
+	// act, one a sweep moving each token once would have moved after the one picked.
+	leftStanding bool
 	// awaiting is the subflow whose parked tokens a run waits on the clock for,
 	// nil for the action's own.
 	awaiting *actionFrame

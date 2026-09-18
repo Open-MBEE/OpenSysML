@@ -16,19 +16,25 @@ import (
 // timed transition leaves the state; nested puts the machine on a part two deep.
 func loopingDoModel(t *testing.T, nested bool) *exploreModel {
 	t.Helper()
+	more := ""
+	if nested {
+		more = `
+	part def Vehicle { exhibit state modes : Machine; }
+	part def Mission { part vehicle : Vehicle; }
+	part mission : Mission;
+`
+	}
+	return parseLibraryModel(t, loopingDoText(t, more))
+}
+
+// loopingDoText is the conformance case's text with more members in its package.
+func loopingDoText(t *testing.T, more string) string {
+	t.Helper()
 	text, err := os.ReadFile(filepath.Join("testdata", "conformance", "state_do_action_loop_timed_exit.sysml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if nested {
-		text = append(text[:len(text)-2], []byte(`
-	part def Vehicle { exhibit state modes : Machine; }
-	part def Mission { part vehicle : Vehicle; }
-	part mission : Mission;
-}
-`)...)
-	}
-	return parseLibraryModel(t, string(text))
+	return string(text[:len(text)-2]) + more + "}\n"
 }
 
 // nestedStateStarterOf starts the machine on the object the path reaches under an
@@ -54,7 +60,9 @@ func nestedStateStarterOf(part, sym *symbols.Symbol, path string, horizon Horizo
 // waits replays to its trace: at the round the body's branches are due together
 // the timed exit is due too, and the move the checker records there is the move
 // replay makes, whether the machine runs at top level or on a part nested in
-// another.
+// another. The check is within bounds, not exhaustive: at that round its one
+// move dispatches the exit, and the fixed policies' run — the round finished
+// first — is the interleaving it names as not enumerated.
 func TestCheckWitnessesOfALoopingDoRoundReplay(t *testing.T) {
 	for _, nested := range []bool{false, true} {
 		name := "top-level"
@@ -73,8 +81,11 @@ func TestCheckWitnessesOfALoopingDoRoundReplay(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if report.Verdict != CheckExhaustive || len(report.Finals) == 0 {
-				t.Fatalf("check: %s, want no violation, exhaustive, with finals", report.Status())
+			if report.Verdict != CheckWithinBounds || len(report.Finals) == 0 {
+				t.Fatalf("check: %s, want no violation within bounds, with finals", report.Status())
+			}
+			if len(report.BoundsHit) != 0 || !slices.Equal(report.NotEnumerated, []string{NotEnumeratedDoRound}) {
+				t.Fatalf("check: %s, want no bound hit and the do round before the dispatch not enumerated", report.Status())
 			}
 			for _, final := range report.Finals {
 				if final.Values["finalState"] != "heard+finished" || final.Values["late"] != "1" {
