@@ -1,8 +1,10 @@
-package passes
+package behavior_test
 
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/behavior"
 )
 
 // A parallel state orders nothing, so a succession written in one is an error
@@ -15,11 +17,11 @@ func TestW12DParallelStateSuccession(t *testing.T) {
 		state b;
 	}
 }`)
-	if len(got) != 1 || got[0].Code != CodeParallelStateTransition {
-		t.Fatalf("got %+v, want one %s", got, CodeParallelStateTransition)
+	if len(got) != 1 || got[0].Code != behavior.CodeParallelStateTransition {
+		t.Fatalf("got %+v, want one %s", got, behavior.CodeParallelStateTransition)
 	}
-	if got[0].Message != msgParallelStateTransition {
-		t.Errorf("message = %q, want %q", got[0].Message, msgParallelStateTransition)
+	if got[0].Message != behavior.MsgParallelStateTransition {
+		t.Errorf("message = %q, want %q", got[0].Message, behavior.MsgParallelStateTransition)
 	}
 }
 
@@ -33,8 +35,8 @@ func TestW12DParallelStateUsageTransition(t *testing.T) {
 		transition first a then b;
 	}
 }`)
-	if len(got) != 1 || got[0].Code != CodeParallelStateTransition {
-		t.Fatalf("got %+v, want one %s", got, CodeParallelStateTransition)
+	if len(got) != 1 || got[0].Code != behavior.CodeParallelStateTransition {
+		t.Fatalf("got %+v, want one %s", got, behavior.CodeParallelStateTransition)
 	}
 }
 
@@ -57,8 +59,8 @@ func TestW12DNestedParallelState(t *testing.T) {
 		}
 	}
 }`)
-	if len(got) != 1 || got[0].Code != CodeParallelStateTransition {
-		t.Fatalf("got %+v, want one %s", got, CodeParallelStateTransition)
+	if len(got) != 1 || got[0].Code != behavior.CodeParallelStateTransition {
+		t.Fatalf("got %+v, want one %s", got, behavior.CodeParallelStateTransition)
 	}
 }
 
@@ -73,11 +75,11 @@ func TestW12DAccepterSourceMustBeAState(t *testing.T) {
 	}
 }`
 	got := transitionDiags(t, src)
-	if len(got) != 1 || got[0].Code != CodeAccepterSourceNotState {
-		t.Fatalf("got %+v, want one %s", got, CodeAccepterSourceNotState)
+	if len(got) != 1 || got[0].Code != behavior.CodeAccepterSourceNotState {
+		t.Fatalf("got %+v, want one %s", got, behavior.CodeAccepterSourceNotState)
 	}
-	if got[0].Message != msgAccepterSourceNotState {
-		t.Errorf("message = %q, want %q", got[0].Message, msgAccepterSourceNotState)
+	if got[0].Message != behavior.MsgAccepterSourceNotState {
+		t.Errorf("message = %q, want %q", got[0].Message, behavior.MsgAccepterSourceNotState)
 	}
 	at := src[got[0].Span.Offset : got[0].Span.Offset+got[0].Span.Len]
 	if !strings.Contains(at, "A") || strings.Contains(at, "then") {

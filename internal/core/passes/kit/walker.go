@@ -178,3 +178,23 @@ func ChainSteps(target ast.Node) []ChainStep {
 		return []ChainStep{{Node: target, Span: target.Span()}}
 	}
 }
+
+// UnwrapMembership strips the membership a declaration reaches a body wrapped in.
+func UnwrapMembership(node ast.Node) ast.Node {
+	if membership, ok := node.(*ast.Membership); ok {
+		return membership.Member
+	}
+	return node
+}
+
+// BodyScope returns the scope decl declares into, or scope itself when the
+// scope builder gave it none.
+func BodyScope(scope *symbols.Scope, decl ast.Node) *symbols.Scope {
+	if scope == nil || decl == nil {
+		return scope
+	}
+	if child := scope.ChildFor(decl); child != nil {
+		return child
+	}
+	return scope
+}
