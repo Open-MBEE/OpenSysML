@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -264,12 +265,12 @@ func TestCollectionElementsHandlesSetAndSequence(t *testing.T) {
 		"sequence": runtime.NewSequenceValue(seq),
 		"set":      runtime.NewSetValue(set),
 	} {
-		if got := len(collectionElements(val)); got != 2 {
+		if got := len(objref.CollectionElements(val)); got != 2 {
 			t.Errorf("%s: got %d elements, want 2", name, got)
 		}
 	}
 
-	if got := collectionElements(runtime.Value{Kind: runtime.ValNull}); got != nil {
+	if got := objref.CollectionElements(runtime.Value{Kind: runtime.ValNull}); got != nil {
 		t.Errorf("non-collection: got %v, want nil", got)
 	}
 }

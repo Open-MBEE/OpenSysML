@@ -10,6 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // sweepResultName names a calc's returned value in a row, so a calc row and an
@@ -220,7 +221,7 @@ func (v *verifyContext) sweepValue(val *pb.Value, what string) (runtime.Value, *
 	if err := v.service.requireValueCapabilities(val); err != nil {
 		return runtime.Value{}, nil, err
 	}
-	out, err := ProtoToRuntimeValue(v.runtime, val, v.cached.Index, v.sem())
+	out, err := protoconv.ProtoToRuntimeValue(v.runtime, val, v.cached.Index, v.sem())
 	if err != nil {
 		return runtime.Value{}, &pb.RunSweepResponse{
 			Error:         fmt.Sprintf("sweep %s could not be read: %v", what, err),
@@ -349,7 +350,7 @@ func (r *rowIDs) value(v *pb.Value) {
 			r.id(&k.Function.SelfId)
 		}
 	}
-	for _, nested := range nestedValues(v) {
+	for _, nested := range protoconv.NestedValues(v) {
 		r.value(nested)
 	}
 }

@@ -76,6 +76,7 @@ github.com/Open-MBEE/OpenSysML
 │   └── libs/               # Standard library bundling & caching
 ├── internal/lsp/           # LSP protocol implementation
 ├── internal/repl/          # REPL loop implementation
+├── internal/protoconv/     # Runtime values and instance graphs ↔ API protobuf messages
 ├── internal/grpc/          # gRPC service implementation
 ├── clients/python/         # Python client bindings (opensysml)
 ├── clients/rust/           # Rust client (opensysml) and its conformance runner
@@ -531,6 +532,7 @@ See [the guide](../guide/) for VS Code configuration.
   - `runtime.Context.CreateActionExecutor()`, `runtime.Context.CreateStateExecutor()`
 - **Argument parsing:** `%calc` parses literal args via wrapper parsing (`part { attribute arg = <expr>; }`) + Membership unwrapping
 - **Debugging sessions:** Session tracks active ActionExecutor/StateExecutor for step-by-step control
+- **Protobuf output:** `%features … json` serializes the instance graph through `internal/protoconv` (`InstanceGraphToProtoWithin`, `GraphBounds`), the same conversion the gRPC service uses for `Instantiate`; the REPL, and so `sysml`, do not link the service or its transports
 
 ---
 

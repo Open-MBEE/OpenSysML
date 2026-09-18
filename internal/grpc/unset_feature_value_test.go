@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 const unsetFeatureValueModel = `
@@ -72,16 +73,16 @@ func TestInstantiate_UnsetFeatureValueContributesNoInstance(t *testing.T) {
 // Unset says what a feature value holds, which is something to read and not to supply, so
 // a caller sending it is told so rather than having it read as some value.
 func TestProtoToValue_RejectsUnset(t *testing.T) {
-	_, err := ProtoToValueIn(&pb.Value{Kind: &pb.Value_Unset{Unset: true}}, nil, nil)
-	if !errors.Is(err, ErrUnsetNotAccepted) {
-		t.Errorf("err = %v, want %v", err, ErrUnsetNotAccepted)
+	_, err := protoconv.ProtoToValueIn(&pb.Value{Kind: &pb.Value_Unset{Unset: true}}, nil, nil)
+	if !errors.Is(err, protoconv.ErrUnsetNotAccepted) {
+		t.Errorf("err = %v, want %v", err, protoconv.ErrUnsetNotAccepted)
 	}
 
 	seq := &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{
 		Elements: []*pb.Value{{Kind: &pb.Value_IntValue{IntValue: 1}}, {Kind: &pb.Value_Unset{Unset: true}}},
 	}}}
-	if _, err := ProtoToValueIn(seq, nil, nil); !errors.Is(err, ErrUnsetNotAccepted) {
-		t.Errorf("in a sequence: err = %v, want %v", err, ErrUnsetNotAccepted)
+	if _, err := protoconv.ProtoToValueIn(seq, nil, nil); !errors.Is(err, protoconv.ErrUnsetNotAccepted) {
+		t.Errorf("in a sequence: err = %v, want %v", err, protoconv.ErrUnsetNotAccepted)
 	}
 }
 

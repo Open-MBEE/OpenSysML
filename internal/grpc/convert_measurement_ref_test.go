@@ -12,6 +12,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // measurementRefWireModel yields a measurement reference as a feature value —
@@ -102,7 +103,7 @@ func TestMeasurementRefRoundTrip(t *testing.T) {
 			}
 
 			// A client echoing what the service sent gets the same reference back.
-			back, err := ProtoToValueIn(pv, idx, sem)
+			back, err := protoconv.ProtoToValueIn(pv, idx, sem)
 			if err != nil {
 				t.Fatalf("ProtoToValueIn: %v", err)
 			}
@@ -113,9 +114,9 @@ func TestMeasurementRefRoundTrip(t *testing.T) {
 				return
 			}
 			textOnly := measurementRefValue(tc.unit, "", pm.GetUnitTerm())
-			back, err = ProtoToValueIn(textOnly, idx, sem)
+			back, err = protoconv.ProtoToValueIn(textOnly, idx, sem)
 			if err != nil {
-				t.Fatalf("ProtoToValueIn(text only): %v", err)
+				t.Fatalf("protoconv.ProtoToValueIn(text only): %v", err)
 			}
 			assertSameRef(t, back, tc.unit, tc.unitID, tc.term)
 
@@ -124,9 +125,9 @@ func TestMeasurementRefRoundTrip(t *testing.T) {
 				return
 			}
 			idOnly := measurementRefValue("", tc.unitID, pm.GetUnitTerm())
-			back, err = ProtoToValueIn(idOnly, idx, sem)
+			back, err = protoconv.ProtoToValueIn(idOnly, idx, sem)
 			if err != nil {
-				t.Fatalf("ProtoToValueIn(unit_id only): %v", err)
+				t.Fatalf("protoconv.ProtoToValueIn(unit_id only): %v", err)
 			}
 			assertSameRef(t, back, tc.unit, tc.unitID, tc.term)
 		})
@@ -134,19 +135,19 @@ func TestMeasurementRefRoundTrip(t *testing.T) {
 
 	// A qualified spelling names the same declaration as the short one.
 	for _, text := range []string{"SI::km", "SI::kilometre", "kilometre"} {
-		back, err := ProtoToValueIn(measurementRefValue(text, "SI::kilometre", kilometreTerm()), idx, sem)
+		back, err := protoconv.ProtoToValueIn(measurementRefValue(text, "SI::kilometre", kilometreTerm()), idx, sem)
 		if err != nil {
-			t.Fatalf("ProtoToValueIn(%s): %v", text, err)
+			t.Fatalf("protoconv.ProtoToValueIn(%s): %v", text, err)
 		}
 		assertSameRef(t, back, text, "SI::kilometre", "1000/1·SI::metre")
 	}
 
 	// A reference read back converts by, and equals, the one the model holds.
-	km, err := ProtoToValueIn(mustEvaluate(t, srv, modelHash, "SI::km"), idx, sem)
+	km, err := protoconv.ProtoToValueIn(mustEvaluate(t, srv, modelHash, "SI::km"), idx, sem)
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := ProtoToValueIn(mustEvaluate(t, srv, modelHash, "SI::m"), idx, sem)
+	m, err := protoconv.ProtoToValueIn(mustEvaluate(t, srv, modelHash, "SI::m"), idx, sem)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +169,7 @@ func assertSameRef(t *testing.T, back runtime.Value, unit, unitID, term string) 
 	if unit != "" && ref.Unit.Text != unit {
 		t.Errorf("read back as %q, want %q", ref.Unit.Text, unit)
 	}
-	if got := describeUnitTerm(unitTermToProto(ref.Unit.Term)); got != term {
+	if got := describeUnitTerm(protoconv.UnitTermToProto(ref.Unit.Term)); got != term {
 		t.Errorf("read back reducing to %s, want %s", got, term)
 	}
 	gotID := ""
@@ -193,43 +194,43 @@ func TestMalformedMeasurementRefsAreRejected(t *testing.T) {
 		val  *pb.Value
 		want error
 	}{
-		{"empty", measurementRefValue("", "", nil), ErrMeasurementRefEmpty},
-		{"named unit without its reduction", measurementRefValue("km", "", nil), ErrUnitNotReduced},
-		{"declaration without its reduction", measurementRefValue("", "SI::kilometre", nil), ErrUnitNotReduced},
-		{"unusable scale", measurementRefValue("m", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: 0, Factors: metreTerm().Factors}), ErrUnitScaleUnusable},
-		{"zero scale", measurementRefValue("m", "", &pb.UnitTerm{ScaleNum: 0, ScaleDen: 1, Factors: metreTerm().Factors}), ErrUnitScaleUnusable},
-		{"NaN scale", measurementRefValue("m", "", &pb.UnitTerm{ScaleNum: math.NaN(), ScaleDen: 1, Factors: metreTerm().Factors}), ErrUnitScaleUnusable},
-		{"infinite scale", measurementRefValue("m", "", &pb.UnitTerm{ScaleNum: math.Inf(1), ScaleDen: 1, Factors: metreTerm().Factors}), ErrUnitScaleUnusable},
-		{"infinite denominator", measurementRefValue("m", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: math.Inf(-1), Factors: metreTerm().Factors}), ErrUnitScaleUnusable},
-		{"term-only NaN scale", measurementRefValue("", "", &pb.UnitTerm{ScaleNum: math.NaN(), ScaleDen: 1, Factors: metreTerm().Factors}), ErrUnitScaleUnusable},
-		{"term-only infinite scale", measurementRefValue("", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: math.Inf(1), Factors: metreTerm().Factors}), ErrUnitScaleUnusable},
-		{"NaN exponent", measurementRefValue("", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{{UnitId: "SI::metre", Exponent: math.NaN()}}}), ErrUnitExponentUnusable},
-		{"infinite exponent", measurementRefValue("", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{{UnitId: "SI::metre", Exponent: math.Inf(-1)}}}), ErrUnitExponentUnusable},
+		{"empty", measurementRefValue("", "", nil), protoconv.ErrMeasurementRefEmpty},
+		{"named unit without its reduction", measurementRefValue("km", "", nil), protoconv.ErrUnitNotReduced},
+		{"declaration without its reduction", measurementRefValue("", "SI::kilometre", nil), protoconv.ErrUnitNotReduced},
+		{"unusable scale", measurementRefValue("m", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: 0, Factors: metreTerm().Factors}), protoconv.ErrUnitScaleUnusable},
+		{"zero scale", measurementRefValue("m", "", &pb.UnitTerm{ScaleNum: 0, ScaleDen: 1, Factors: metreTerm().Factors}), protoconv.ErrUnitScaleUnusable},
+		{"NaN scale", measurementRefValue("m", "", &pb.UnitTerm{ScaleNum: math.NaN(), ScaleDen: 1, Factors: metreTerm().Factors}), protoconv.ErrUnitScaleUnusable},
+		{"infinite scale", measurementRefValue("m", "", &pb.UnitTerm{ScaleNum: math.Inf(1), ScaleDen: 1, Factors: metreTerm().Factors}), protoconv.ErrUnitScaleUnusable},
+		{"infinite denominator", measurementRefValue("m", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: math.Inf(-1), Factors: metreTerm().Factors}), protoconv.ErrUnitScaleUnusable},
+		{"term-only NaN scale", measurementRefValue("", "", &pb.UnitTerm{ScaleNum: math.NaN(), ScaleDen: 1, Factors: metreTerm().Factors}), protoconv.ErrUnitScaleUnusable},
+		{"term-only infinite scale", measurementRefValue("", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: math.Inf(1), Factors: metreTerm().Factors}), protoconv.ErrUnitScaleUnusable},
+		{"NaN exponent", measurementRefValue("", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{{UnitId: "SI::metre", Exponent: math.NaN()}}}), protoconv.ErrUnitExponentUnusable},
+		{"infinite exponent", measurementRefValue("", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{{UnitId: "SI::metre", Exponent: math.Inf(-1)}}}), protoconv.ErrUnitExponentUnusable},
 		{"repeated exponents overflowing", measurementRefValue("", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{
 			{UnitId: "SI::metre", Exponent: math.MaxFloat64},
 			{UnitId: "SI::metre", Exponent: math.MaxFloat64},
-		}}), ErrUnitExponentUnusable},
-		{"unknown base unit", measurementRefValue("furlong", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{{UnitId: "SI::furlong", Exponent: 1}}}), ErrUnknownBaseUnit},
-		{"factor over a part", measurementRefValue("M", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{{UnitId: "M::convert", Exponent: 1}}}), ErrNotAMeasurementUnit},
-		{"unnamed factor", measurementRefValue("x", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{{Exponent: 1}}}), ErrUnknownBaseUnit},
-		{"qualified text disagreeing with its reduction", measurementRefValue("SI::km", "", metreTerm()), ErrUnitTextMismatch},
-		{"composed text disagreeing with its reduction", measurementRefValue("SI::m * SI::s", "", metreTerm()), ErrUnitTextMismatch},
-		{"unknown declaration", measurementRefValue("km", "SI::furlong", kilometreTerm()), ErrUnknownMeasurementUnit},
-		{"declaration that is not a unit", measurementRefValue("", "M::convert", kilometreTerm()), ErrNotAMeasurementUnit},
-		{"declaration disagreeing with the reduction", measurementRefValue("km", "SI::kilometre", metreTerm()), ErrUnitTextMismatch},
-		{"text naming another declaration", measurementRefValue("m", "SI::kilometre", kilometreTerm()), ErrUnitIDMismatch},
-		{"text composing the declaration", measurementRefValue("km * km", "SI::kilometre", kilometreTerm()), ErrUnitIDMismatch},
-		{"text that is no name", measurementRefValue("km +", "SI::kilometre", kilometreTerm()), ErrUnitIDMismatch},
+		}}), protoconv.ErrUnitExponentUnusable},
+		{"unknown base unit", measurementRefValue("furlong", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{{UnitId: "SI::furlong", Exponent: 1}}}), protoconv.ErrUnknownBaseUnit},
+		{"factor over a part", measurementRefValue("M", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{{UnitId: "M::convert", Exponent: 1}}}), protoconv.ErrNotAMeasurementUnit},
+		{"unnamed factor", measurementRefValue("x", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{{Exponent: 1}}}), protoconv.ErrUnknownBaseUnit},
+		{"qualified text disagreeing with its reduction", measurementRefValue("SI::km", "", metreTerm()), protoconv.ErrUnitTextMismatch},
+		{"composed text disagreeing with its reduction", measurementRefValue("SI::m * SI::s", "", metreTerm()), protoconv.ErrUnitTextMismatch},
+		{"unknown declaration", measurementRefValue("km", "SI::furlong", kilometreTerm()), protoconv.ErrUnknownMeasurementUnit},
+		{"declaration that is not a unit", measurementRefValue("", "M::convert", kilometreTerm()), protoconv.ErrNotAMeasurementUnit},
+		{"declaration disagreeing with the reduction", measurementRefValue("km", "SI::kilometre", metreTerm()), protoconv.ErrUnitTextMismatch},
+		{"text naming another declaration", measurementRefValue("m", "SI::kilometre", kilometreTerm()), protoconv.ErrUnitIDMismatch},
+		{"text composing the declaration", measurementRefValue("km * km", "SI::kilometre", kilometreTerm()), protoconv.ErrUnitIDMismatch},
+		{"text that is no name", measurementRefValue("km +", "SI::kilometre", kilometreTerm()), protoconv.ErrUnitIDMismatch},
 		{"nested in a sequence", &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: []*pb.Value{
 			intValue(1), measurementRefValue("km", "", nil),
-		}}}}, ErrUnitNotReduced},
-		{"nested in an array", arrayValue([]int64{1}, measurementRefValue("", "", nil)), ErrMeasurementRefEmpty},
+		}}}}, protoconv.ErrUnitNotReduced},
+		{"nested in an array", arrayValue([]int64{1}, measurementRefValue("", "", nil)), protoconv.ErrMeasurementRefEmpty},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			val, err := ProtoToValueIn(tc.val, idx, sem)
+			val, err := protoconv.ProtoToValueIn(tc.val, idx, sem)
 			if !errors.Is(err, tc.want) {
-				t.Fatalf("ProtoToValueIn = %v, %v; want %v", val, err, tc.want)
+				t.Fatalf("protoconv.ProtoToValueIn = %v, %v; want %v", val, err, tc.want)
 			}
 			if val.Kind != runtime.ValInvalid {
 				t.Errorf("a rejected value was still returned: %v", val)
@@ -243,22 +244,22 @@ func TestMalformedMeasurementRefsAreRejected(t *testing.T) {
 		"unit_id":  measurementRefValue("", "SI::metre", &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1}),
 		"in array": arrayValue([]int64{1}, measurementRefValue("m", "", metreTerm())),
 	} {
-		if _, err := ProtoToValueIn(val, nil, nil); !errors.Is(err, ErrMeasurementRefNeedsIndex) {
-			t.Errorf("%s without an index: err = %v, want %v", name, err, ErrMeasurementRefNeedsIndex)
+		if _, err := protoconv.ProtoToValueIn(val, nil, nil); !errors.Is(err, protoconv.ErrMeasurementRefNeedsIndex) {
+			t.Errorf("%s without an index: err = %v, want %v", name, err, protoconv.ErrMeasurementRefNeedsIndex)
 		}
 	}
 	// A short name no declaration reducing so bears is a client's own label for
 	// the reduction, as a Quantity's is: it names no declaration.
-	label, err := ProtoToValueIn(measurementRefValue("km", "", metreTerm()), idx, sem)
+	label, err := protoconv.ProtoToValueIn(measurementRefValue("km", "", metreTerm()), idx, sem)
 	if err != nil || label.Kind != runtime.ValMeasurementRef {
 		t.Fatalf("short label = %v, %v; want a reference", label, err)
 	}
-	if ref := label.MeasurementRef(); ref.Declaration() != nil || ref.Unit.Text != "km" || describeUnitTerm(unitTermToProto(ref.Unit.Term)) != "SI::metre" {
+	if ref := label.MeasurementRef(); ref.Declaration() != nil || ref.Unit.Text != "km" || describeUnitTerm(protoconv.UnitTermToProto(ref.Unit.Term)) != "SI::metre" {
 		t.Errorf("short label read as %v naming %v, want an opaque km reducing to SI::metre", ref, ref.Declaration())
 	}
 
 	// A dimension-one reference names no base unit, so it needs none.
-	one, err := ProtoToValueIn(measurementRefValue("", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1}), nil, nil)
+	one, err := protoconv.ProtoToValueIn(measurementRefValue("", "", &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1}), nil, nil)
 	if err != nil || one.Kind != runtime.ValMeasurementRef || !one.MeasurementRef().Unit.Term.Dimensionless() {
 		t.Errorf("dimension one without an index = %v, %v; want a dimension-one reference", one, err)
 	}
@@ -336,8 +337,8 @@ func TestMeasurementRefCrossesEveryValueSurface(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EvaluateCalc(malformed): %v", err)
 	}
-	if !strings.Contains(calc.Error, ErrUnitIDMismatch.Error()) {
-		t.Errorf("EvaluateCalc(malformed) error = %q, want one naming %v", calc.Error, ErrUnitIDMismatch)
+	if !strings.Contains(calc.Error, protoconv.ErrUnitIDMismatch.Error()) {
+		t.Errorf("EvaluateCalc(malformed) error = %q, want one naming %v", calc.Error, protoconv.ErrUnitIDMismatch)
 	}
 }
 
@@ -429,11 +430,11 @@ func TestValueCarriesMeasurementRef(t *testing.T) {
 		{"sequence with a reference", sequence(one, sequence(metre)), true},
 		{"array of references", arrayValue([]int64{1}, metre), true},
 	} {
-		if got := ValueCarriesMeasurementRef(tc.value); got != tc.want {
-			t.Errorf("ValueCarriesMeasurementRef(%s) = %v, want %v", tc.name, got, tc.want)
+		if got := protoconv.ValueCarriesMeasurementRef(tc.value); got != tc.want {
+			t.Errorf("protoconv.ValueCarriesMeasurementRef(%s) = %v, want %v", tc.name, got, tc.want)
 		}
 	}
-	if ValueCarriesStructured(metre) {
+	if protoconv.ValueCarriesStructured(metre) {
 		t.Error("a bare reference is not a structured value")
 	}
 }
