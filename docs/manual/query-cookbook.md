@@ -60,6 +60,27 @@ package Cookbook {
 	}
 
 	// ... the recipe queries below ...
+
+	requirement def PointingRequirement {
+		doc /* The telescope holds a target within the stated accuracy. */
+	}
+	requirement <'REQ-2'> pointingRequirement : PointingRequirement {
+		doc /* The telescope points at a target to within 2 arcseconds. */
+		requirement <'REQ-2.1'> slewRequirement {
+			doc /* The mount reaches a new target within 60 seconds. */
+		}
+		requirement <'REQ-2.2'> trackingRequirement {
+			doc /* The mount tracks a target for 30 minutes without drift. */
+		}
+	}
+	verification def PointingTest;
+	verification pointingVerification : PointingTest {
+		objective {
+			verify pointingRequirement;
+		}
+	}
+
+	// ... and the coverage recipes ...
 }
 ```
 
@@ -951,6 +972,191 @@ $ sysml cookbook.sysml -run-query "Cookbook::Specializers general=Cookbook::Subs
 Traversal results are elements like any others — feed them into `Project` for
 a traceability table, as the [worked example](worked-example.md) does for its
 requirement section.
+
+## Coverage
+
+`RelatedElements` answers "what satisfies this requirement"; a traceability
+report also has to answer "which requirements does **nothing** satisfy".
+`WhereRelated` is that filter: it keeps each source row by whether at least
+one element is reachable from it over a relationship kind, and takes the same
+`relationshipKind`, `direction` and `maxDepth` as `RelatedElements` — every
+kind it accepts, the same typed errors for an unknown kind or direction, the
+same edge tables and visit budget:
+
+```sysml
+WhereRelated(
+	source = <elements>,
+	relationshipKind = "<kind>",
+	direction = "<direction>",
+	maxDepth = <n>,
+	exists = true            // keep rows with a related element (default),
+	                         // false keeps the rows with none
+)
+```
+
+The rows to check are the requirements under a root. `WhereType` matches
+nested requirement usages as well as top-level ones, and — because a
+`satisfy` usage *is* a `RequirementUsage` in the metamodel — the satisfaction
+assertions too, so the base recipe subtracts those with `Except`:
+
+```sysml
+calc def Requirements :> Query {
+	in root : Element;
+	Except(
+		source = Union(
+			source = WhereType(source = Descendants(source = root, maxDepth = 10), type = "RequirementDefinition"),
+			other = WhereType(source = Descendants(source = root, maxDepth = 10), type = "RequirementUsage")
+		),
+		exclude = WhereType(source = Descendants(source = root, maxDepth = 10), type = "SatisfyRequirementUsage")
+	)
+}
+
+calc def UnsatisfiedRequirements :> Query {
+	in root : Element;
+	WhereRelated(
+		source = Requirements(root = root),
+		relationshipKind = "satisfaction",
+		direction = "incoming",
+		maxDepth = 1,
+		exists = false
+	)
+}
+```
+
+The model's `pointingRequirement` (declared at the end of the package with
+its definition and two nested requirements) is verified by
+`pointingVerification` but satisfied by nothing, and neither are its
+children or the three requirements derived from `massRequirement`:
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::UnsatisfiedRequirements root=Cookbook"
+✓ Query Cookbook::UnsatisfiedRequirements returned 7 rows
+  Row 1: Cookbook::PointingRequirement
+  Row 2: Cookbook::pointingRequirement
+  Row 3: Cookbook::mirrorMassRequirement
+  Row 4: Cookbook::segmentMassRequirement
+  Row 5: Cookbook::instrumentMassRequirement
+  Row 6: Cookbook::pointingRequirement::slewRequirement
+  Row 7: Cookbook::pointingRequirement::trackingRequirement
+```
+
+`UnverifiedRequirements` is the same recipe with
+`relationshipKind = "verification"`:
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::UnverifiedRequirements root=Cookbook"
+✓ Query Cookbook::UnverifiedRequirements returned 6 rows
+  Row 1: Cookbook::PointingRequirement
+  Row 2: Cookbook::mirrorMassRequirement
+  Row 3: Cookbook::segmentMassRequirement
+  Row 4: Cookbook::instrumentMassRequirement
+  Row 5: Cookbook::pointingRequirement::slewRequirement
+  Row 6: Cookbook::pointingRequirement::trackingRequirement
+```
+
+Rows keep their order and any projected columns, so `WhereRelated` composes
+with `Project` and `OrderBy` like the other filters. Omitting `exists`
+keeps the covered rows instead; `maxDepth` bounds how far the walk looks
+for a related element, and each element it reaches charges the visit budget.
+
+### Set operations: `Except` and `Union`
+
+`Except(source, exclude)` keeps the rows of `source` not among `exclude`, in
+source order; `Union(source, other)` is every row of `source` followed by the
+rows of `other` not already present. Both emit each row once and identify a row the
+way `RelatedElements` de-duplicates: a model element by its declaration, an
+object the session holds by the object itself, a verdict by its assertion and
+the object it was checked on, a state by its object, machine and state path, and
+an event by its place in the trace — so `Verdicts`, `States` and `Events` tables
+can be combined too.
+Combining the two coverage queries gives the requirements with a gap of
+either kind, and subtracting one from the other the requirements with exactly
+one:
+
+```sysml
+calc def UncoveredRequirements :> Query {
+	in root : Element;
+	Union(
+		source = UnsatisfiedRequirements(root = root),
+		other = UnverifiedRequirements(root = root)
+	)
+}
+
+calc def VerifiedButUnsatisfied :> Query {
+	in root : Element;
+	Except(
+		source = UnsatisfiedRequirements(root = root),
+		exclude = UnverifiedRequirements(root = root)
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::UncoveredRequirements root=Cookbook"
+✓ Query Cookbook::UncoveredRequirements returned 7 rows
+  Row 1: Cookbook::PointingRequirement
+  Row 2: Cookbook::pointingRequirement
+  Row 3: Cookbook::mirrorMassRequirement
+  Row 4: Cookbook::segmentMassRequirement
+  Row 5: Cookbook::instrumentMassRequirement
+  Row 6: Cookbook::pointingRequirement::slewRequirement
+  Row 7: Cookbook::pointingRequirement::trackingRequirement
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::VerifiedButUnsatisfied root=Cookbook"
+✓ Query Cookbook::VerifiedButUnsatisfied returned 1 row
+  Row 1: Cookbook::pointingRequirement
+```
+
+`Except` keeps the source's projected columns; `Union` requires both inputs
+to be unprojected or to project the same columns, and is a typed error
+otherwise, since its rows share one table.
+
+## Requirement hierarchy
+
+A requirement tree is the requirement definitions and usages under a root —
+`Requirements` above — in hierarchy order. `Descendants` visits level by
+level, so sort by `qualifiedName`: an element's qualified name prefixes its
+children's, which puts each requirement directly above the ones nested in
+it. Projecting `shortName`, `name` and `documentation` gives the table a
+document renders:
+
+```sysml
+calc def RequirementTree :> Query {
+	in root : Element;
+	Project(
+		source = OrderBy(
+			source = Requirements(root = root),
+			property = "qualifiedName",
+			direction = "ascending",
+			missing = "last",
+			multiple = "error"
+		),
+		properties = ("shortName", "name", "documentation")
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::RequirementTree root=Cookbook::pointingRequirement"
+✓ Query Cookbook::RequirementTree returned 2 rows
+  Columns: shortName, name, documentation
+  Row 1: Cookbook::pointingRequirement::slewRequirement
+    shortName = "REQ-2.1"
+    name = "slewRequirement"
+    documentation = "The mount reaches a new target within 60 seconds."
+  Row 2: Cookbook::pointingRequirement::trackingRequirement
+    shortName = "REQ-2.2"
+    name = "trackingRequirement"
+    documentation = "The mount tracks a target for 30 minutes without drift."
+```
+
+Rooted at the package, the same query lists `PointingRequirement`,
+`massRequirement` and its three derived requirements, and
+`pointingRequirement` with its two children beneath it.
+The [requirements example](examples/requirements.sysml) renders such a tree
+as the last table of its report, [`requirements.md`](examples/requirements.md).
 
 ## Objects the session holds
 
