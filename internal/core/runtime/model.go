@@ -137,6 +137,33 @@ type Model struct {
 	// maps each declaration node to the symbol they declare for it, built on first use.
 	scopes   []*symbols.Scope
 	declared map[ast.Node]*symbols.Symbol
+
+	// parse reads the notation text a run receives as text: a witness file's input
+	// values and the units a tool answers in; installed by SetExpressionParser.
+	parse ExpressionParser
+}
+
+// ExpressionParser parses text, read from origin, as exactly one expression; false for
+// anything else. The caller that builds a Model supplies it; the runtime parses nothing itself.
+type ExpressionParser func(origin, text string) (ast.Node, bool)
+
+// ErrNoExpressionParser is the typed error a run returns on reaching notation text
+// to read with no ExpressionParser installed on its Model.
+var ErrNoExpressionParser = errors.New("no expression parser installed on the runtime model")
+
+// SetExpressionParser installs the parser the Model reads witness input values and tool units with.
+func (m *Model) SetExpressionParser(parse ExpressionParser) {
+	m.parse = parse
+}
+
+// parseOneExpression reads text as exactly one expression with the installed parser; ok is
+// false for text that is not one, err ErrNoExpressionParser when no parser is installed.
+func (m *Model) parseOneExpression(origin, text string) (expr ast.Node, ok bool, err error) {
+	if m.parse == nil {
+		return nil, false, ErrNoExpressionParser
+	}
+	expr, ok = m.parse(origin, text)
+	return expr, ok, nil
 }
 
 // NewModel builds the model-derived part of execution over a semantic model and

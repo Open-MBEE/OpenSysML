@@ -327,6 +327,8 @@ Parse + model all behavioral bodies with unified fallback grammar:
    - `SetSchedule(policy)`, `Schedule()` — the policy runs started from now on resolve their choice points under (`explore` is refused: `Explore` drives it)
    - `Notes()`, `Choices()`, `UnevaluableGuards()` — what the last run recorded
 
+5. **Notation text the run reads** — the runtime imports no parser. The two places a run receives notation as text — a witness file's `input <feature> = <value>` lines (`replay.go`) and the unit a tool answers a value in (`tool.go`, `Context.UnitOf`) — are read through the `runtime.ExpressionParser` the frontend installs on the `Model` (`Model.SetExpressionParser`, normally `parser.ParseOneExpression`). Reaching either with none installed is the typed `ErrNoExpressionParser`, never a refused witness or a tool's malformed output; `internal/hygiene` checks that every shipped construction site installs it and that `internal/core/runtime` does not depend on `internal/core/parser`.
+
 **Implementation:**
 - `context.go` (460 lines) — Public Execute/Invoke/Evaluate APIs, step budget enforcement
 - `action_executor.go` (729 lines) — Token-flow engine with nested actions, send statement

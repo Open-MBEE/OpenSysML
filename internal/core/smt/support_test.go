@@ -29,7 +29,9 @@ func fixture(t *testing.T, path, src string) (*runtime.Context, *symbols.Index) 
 	idx.AddDocument(path, parser.New(sf).ParseFile())
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := runtime.NewContext(runtime.NewModel(passes.NewTypedModel(resolver), resolver), 10000)
+	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
+	model.SetExpressionParser(parser.ParseOneExpression)
+	ctx := runtime.NewContext(model, 10000)
 	ctx.Model().RegisterSource(sf)
 	return ctx, idx
 }

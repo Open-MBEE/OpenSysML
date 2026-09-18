@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
+	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -43,6 +44,7 @@ func (w *Workspace) newRuntimeLocked() (*Runtime, error) {
 	resolver.SetModel(sem)
 	sem.SetSourceText(w.heldTextLocked())
 	model := runtime.NewModel(sem, resolver)
+	model.SetExpressionParser(parser.ParseOneExpression)
 	rt := &Runtime{model: model, index: idx, resolver: resolver, versions: make(map[string]int, len(w.docs)), generation: w.generation}
 	for _, name := range w.sortedDocNamesLocked() {
 		d := w.docs[name]

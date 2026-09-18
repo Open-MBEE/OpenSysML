@@ -94,6 +94,7 @@ func (m *CachedModel) Semantics() (*runtime.Model, error) {
 	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(cachedSourceText(m))
 	model := runtime.NewModel(sem, resolver)
+	model.SetExpressionParser(parser.ParseOneExpression)
 	for _, doc := range m.Documents {
 		model.RegisterSource(doc.Source)
 	}
