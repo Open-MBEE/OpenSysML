@@ -909,10 +909,19 @@ func collectStateContents(graph *StateGraph, state *ast.StateNode, scope *symbol
 	return nil
 }
 
-// stateless reports whether region is stood for by a state declaring no substates:
-// such a region starts in, and stays in, that state, so it needs no initial.
+// stateless reports whether region is stood for by a state declaring no substates
+// (behaviors, transitions and deferred events are not states): such a region
+// starts in, and stays in, that state, so it needs no initial.
 func (g *StateGraph) stateless(region *ast.StateRegion) bool {
-	return len(region.States) == 0 && g.RegionState[region] != nil
+	if g.RegionState[region] == nil {
+		return false
+	}
+	for _, member := range region.States {
+		if isParallelRegionMember(unwrapMembership(member)) {
+			return false
+		}
+	}
+	return true
 }
 
 // recordCompositeState registers a state's regions while retaining their
