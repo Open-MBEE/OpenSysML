@@ -26,9 +26,12 @@ reported.
 
 ## What it is
 
-`internal/errata` is a registry of corrections to published reference material — the OMG
+`tools/oracle/errata` is a registry of corrections to published reference material — the OMG
 example corpora the oracles read, and the standard library vendored under
-`internal/core/libs/stdlib`. One entry is one line of one file; a file may carry several:
+`internal/core/libs/stdlib`. The entry type, the overlay that applies corrections on read and
+the library's own entries are the product's `internal/core/libs/errata`; the registry adds the
+corpus entries and the corrected copy of a corpus root. One entry is one line of one file; a
+file may carry several:
 
 | Field | Meaning |
 |---|---|
@@ -67,7 +70,7 @@ verification failed and the entry was removed rather than re-pointed.
 ## The invariants, all of them tests
 
 - **The published corpus is never written to.** Corrections are applied to a copy
-  under the oracle's own output directory (`Overlay.Materialize`), which is
+  under the oracle's own output directory (`errata.Materialize`), which is
   removed after the run; `examples/pilot-corpora/` and the pilot checkout are
   read-only to this mechanism. A test copies a root, corrects the copy and
   asserts the published tree is byte-identical afterwards.
@@ -78,7 +81,7 @@ verification failed and the entry was removed rather than re-pointed.
   lines substituted, while `libs.EmbeddedSource` still serves the bytes as
   published. The two digest differently, so the snapshot decodes for the bundled
   text only. A directory named by `OPENSYSML_LIBRARY_PATH` is read as it stands.
-- **An entry cannot rot.** `Overlay.Materialize` (and `errata.ApplyAll` under it)
+- **An entry cannot rot.** `errata.Materialize` (and `errata.ApplyAll` under it)
   fails unless `AsPublished` still matches each entry's line on disk — the
   documented-only entries under the root included, so the report cannot list a
   defect the corpus no longer has — and re-vendoring the corpus invalidates the
@@ -90,7 +93,8 @@ verification failed and the entry was removed rather than re-pointed.
 - **No entry without provenance.** A missing citation, a missing derivation, a
   missing `omg-issues.md` row, a correction identical to the published text, a
   line that does not exist, or a path outside the published roots are all
-  rejected by `Entry.Validate` and covered by a test.
+  rejected — by `Entry.Validate`, or by `errata.New` for the roots — and covered
+  by a test.
 - **Documented-only entries substitute nothing.** An entry with no `Corrected`
   text is carried for provenance; both figures keep the published line.
 - **Errata are not a reclassification route.** The overlay changes no category in
@@ -109,7 +113,7 @@ applied. **The as-published figure is the conformance statement**; the
 errata-applied one is a secondary diagnostic, and the generated block in
 `README.md` and [architecture](../internals/architecture.md) says so in the same
 sentence it prints them. Both come from the same run and the same committed
-baseline (`internal/doccounts` reads the baselines' `errata` sections), so the
+baseline (`tools/census/doccounts` reads the baselines' `errata` sections), so the
 two figures cannot drift apart or be composed from different trees.
 
 Measured with fresh caches when the overlay landed:
@@ -118,7 +122,7 @@ Measured with fresh caches when the overlay landed:
 |---|---|---|
 | `pilot-diff` | 353 files, 325 fully agreeing; 32 agreed, 26 only ours, 61 only the pilot's | 353 files, **327** fully agreeing; 32 agreed, **24** only ours, 61 only the pilot's |
 | `pilot-xpect` | 428 `.xt` files, 1261 assertions, 1323 rows, 1295 agree, 28 disagree | identical — no declared correction lies under `build/pilot-xpect-corpus` |
-| `pilot-reject` | 120 cases: 120 both reject, 0 only the pilot rejects | identical — no declared correction lies under `cmd/pilot-reject/testdata/negative` |
+| `pilot-reject` | 120 cases: 120 both reject, 0 only the pilot rejects | identical — no declared correction lies under `tools/referee/reject/testdata/negative` |
 
 Where no correction applies, the oracle says so in that many words rather than
 printing a coincidentally equal number: *no declared correction lies under
@@ -148,8 +152,9 @@ of the entry and no pilot verdict has changed yet. When one does, the finding ca
    derivation, and the correction if the intended reading is unambiguous. Do not
    invent one to close a row — document it without a correction instead.
 3. Add the `errata.Entry`, copying the published line byte-for-byte, trailing
-   whitespace included.
-4. `go test ./internal/errata`, then re-run the three oracles with fresh caches
+   whitespace included: a corpus entry to the registry, a library entry to
+   `internal/core/libs/errata`.
+4. `go test ./internal/core/libs/errata` and `go test -C tools ./oracle/errata`, then re-run the three oracles with fresh caches
    and `make docs-counts`. A library entry also needs `go generate ./internal/core/libs`
    (the snapshot is built from the corrected text) and the two `internal/core/model`
    gates moved between their published and bundled sets.

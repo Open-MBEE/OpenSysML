@@ -5,7 +5,7 @@
 # can load exactly the resource set an XPECT_SETUP block declares.
 #
 # Like the other corpora these are not vendored: they belong to the OMG pilot
-# implementation and are licensed there. cmd/pilot-xpect skips a suite whose
+# implementation and are licensed there. tools/referee/xpect skips a suite whose
 # directory is absent, so this script is optional for building and testing.
 #
 # They live under build/ rather than examples/ deliberately: the .kerml and
@@ -32,4 +32,4 @@ pilot_fetch_subtrees \
 
 echo "Total $(pilot_count_files "$parent") .xt file(s) (the pin declares 303 KerML + 126 SysML = 429)."
 echo "Compare our behaviour against their declared expectations with:"
-echo "  go run ./cmd/pilot-xpect"
+echo "  go run -C tools ./cmd/pilot-xpect"

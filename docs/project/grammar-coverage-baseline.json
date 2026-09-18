@@ -39,7 +39,7 @@
     },
     {
       "name": "parser-fixtures",
-      "dir": "internal/core/parser/testdata/parse",
+      "dir": "tests/parser/testdata/parse",
       "files": 204,
       "lines": 4822
     },

@@ -53,7 +53,7 @@ models without running the constraint tier, so a model can start erroring in the
 suite stays green. Diff the flagged-file sets:
 
 ```bash
-sweep() { find examples testdata internal/core/parser/testdata internal/core/runtime/testdata \
+sweep() { find examples testdata tests/parser/testdata internal/core/runtime/testdata \
     -type f \( -name '*.sysml' -o -name '*.kerml' \) -print0 |
   while IFS= read -r -d '' f; do
     n=$("$1" "$f" </dev/null 2>&1 | grep -c 'Must be an accessible feature')
@@ -127,7 +127,7 @@ Clean: a body naming its own / inherited / redefined feature; `s.mass` via a req
 go build ./... && go vet ./... && gofmt -l . && go test ./...
 OPENSYSML_REQUIRE_TRAINING_CORPUS=1 OPENSYSML_REQUIRE_PILOT_CORPORA=1 \
   go test -count=1 ./internal/core/model -run 'TestTrainingExamples|TestPilotCorpora|TestCorpusGates'
-go run ./cmd/pilot-diff    # summary also lands in build/pilot-diff/pilot-diff.txt lines 5-7
+go run -C tools ./cmd/pilot-diff    # summary also lands in build/pilot-diff/pilot-diff.txt lines 5-7
 ```
 
 `pilot-diff` takes a couple of minutes and writes only under `build/` (gitignored) — confirm

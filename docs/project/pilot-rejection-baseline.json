@@ -1,7 +1,7 @@
 {
   "pilot": "2026-08 (jupyter-sysml-kernel 0.62.0)",
   "validator": "build/pilot-sysml-validator/validate-sysml-batch",
-  "corpus": "cmd/pilot-reject/testdata/negative",
+  "corpus": "tools/referee/reject/testdata/negative",
   "conformance": "auto",
   "provenance": {
     "pilotTag": "2026-08",
@@ -25,13 +25,13 @@
     "inputs": [
       {
         "name": "negative-corpus",
-        "dir": "cmd/pilot-reject/testdata/negative",
+        "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
         "files": 306,
         "digest": "sha256:b163959570c53c32063a871623b654c8879676374dcdf0856244edeac0ee85f2"
       }
     ],
-    "recorded": "2026-09-15"
+    "recorded": "2026-09-18"
   },
   "totals": {
     "cases": 306,
@@ -2987,6 +2987,6 @@
       "oursOnlyRejects": 9,
       "bothAccept": 0
     },
-    "note": "no declared correction lies under cmd/pilot-reject/testdata/negative, so the errata-applied corpus is byte-identical to the published one and both figures coincide"
+    "note": "no declared correction lies under tools/referee/reject/testdata/negative, so the errata-applied corpus is byte-identical to the published one and both figures coincide"
   }
 }

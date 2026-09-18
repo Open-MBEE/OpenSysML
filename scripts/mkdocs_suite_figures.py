@@ -3,9 +3,9 @@
 The test inventory of docs/project/spec-compliance.md carries inline
 `<!-- doc-counts:begin <name> -->` … `<!-- doc-counts:end <name> -->` blocks that
 name what is counted and state no figure, so a pull request adding a test or a
-fixture never rewrites a shared line. This hook runs `go run ./cmd/doc-counts
+fixture never rewrites a shared line. This hook runs `go run -C tools ./cmd/doc-counts
 -site-blocks`, which counts the tree the way the gates enumerate it, and splices
-the rendered sentences into the blocks; `go run ./cmd/doc-counts -check` refuses a
+the rendered sentences into the blocks; `go run -C tools ./cmd/doc-counts -check` refuses a
 figure typed into one.
 """
 
@@ -17,7 +17,7 @@ import subprocess
 log = logging.getLogger("mkdocs.hooks.suite_figures")
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-COMMAND = ("go", "run", "./cmd/doc-counts", "-site-blocks")
+COMMAND = ("go", "run", "-C", "tools", "./cmd/doc-counts", "-site-blocks")
 DOCS_DIR = "docs/"
 
 _rendered: dict[str, dict[str, str]] | None = None

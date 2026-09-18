@@ -1,9 +1,9 @@
 ---
 name: testing-pilot-differential
-description: How to verify the advisory pilot-implementation differential harness (cmd/pilot-diff + scripts/download-pilot-sysml-validator.sh) end to end on Linux — provisioning the batch SysML/KerML oracles, reproducing the committed baseline, and the adversarial paths (bad pin, missing tools, wrong flags) worth checking.
+description: How to verify the advisory pilot-implementation differential harness (tools/referee/diff + scripts/download-pilot-sysml-validator.sh) end to end on Linux — provisioning the batch SysML/KerML oracles, reproducing the committed baseline, and the adversarial paths (bad pin, missing tools, wrong flags) worth checking.
 ---
 
-# Testing the pilot differential harness (`cmd/pilot-diff`)
+# Testing the pilot differential harness (`tools/referee/diff`)
 
 **Since F6 (PR #397) the default SysML oracle is the plain-Java batch bridge
 `build/pilot-sysml-validator/validate-sysml-batch`, not the DeciSym CLI
@@ -14,11 +14,11 @@ compiles and runs against them). It loads every `.sysml` file of a corpus root i
 resource set (`SysMLUtil.readResource`/`addInputResource`) and only then validates, printing
 GNU-format diagnostics **relative to `--root`**. Consequences for testing:
 
-- `cmd/pilot-diff/order.go` (`orderByImports`) and `batchByBaseName` are **deleted**; one root
+- `tools/referee/diff/order.go` (`orderByImports`) and `batchByBaseName` are **deleted**; one root
   is exactly one invocation regardless of duplicate base names or import order. Anything in
   this file that still says "topologically sorted" or "split by basename" applies to history
   only. The KerML and SysML sides now share one `pilotDiagnostics`.
-- The pin `cmd/pilot-diff` reports comes from `build/pilot-sysml-validator/pilot-pin.txt`
+- The pin `tools/referee/diff` reports comes from `build/pilot-sysml-validator/pilot-pin.txt`
   (written by the new script), not from the DeciSym `pom.xml`.
 - `-validator /nonexistent` now says `run ./scripts/download-pilot-sysml-validator.sh`.
 - Measured after the Legend of the Red Dragon example left for its own repository at the `2026-08` pin, with a fresh library cache: `378 file(s), 347 fully agreeing; 38 agreed,
@@ -28,12 +28,12 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
   carried (`The opposite features 'owningType' … do not refer to each other`) are gone: the pilot
   fixed its `ownedDisjoining` delegate, and nothing on our side moved. `kerml-examples` carries no `syntax` diagnostic on either
   side. Refresh this paragraph with every rebaseline, and treat a stale one as a finding.
-- **`cmd/pilot-diff` has no `-jobs` flag.** Its full flag set is
+- **`tools/referee/diff` has no `-jobs` flag.** Its full flag set is
   `-repo -validator -kerml-validator -syside -out -timeout`; passing `-jobs` exits **2** with
-  `flag provided but not defined: -jobs`. Only `cmd/pilot-xpect` is job-parallel. So a PR that
+  `flag provided but not defined: -jobs`. Only `tools/referee/xpect` is job-parallel. So a PR that
   claims the differential is "deterministic across `-jobs` settings" is claiming something
   untestable — prove differential determinism instead with two or three *independent* fresh-cache
-  runs (`rm -rf /tmp/cN && XDG_CACHE_HOME=/tmp/cN go run ./cmd/pilot-diff -out /tmp/pd-runN`) and
+  runs (`rm -rf /tmp/cN && XDG_CACHE_HOME=/tmp/cN go run -C tools ./cmd/pilot-diff -out /tmp/pd-runN`) and
   compare each `pilot-diff.json` to the committed baseline with `cmp`, or hash all of them and
   assert a single distinct sha256.
 - **Assert the pilot column is non-empty before believing any census (the silent-zero trap).** If
@@ -78,7 +78,7 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
   goes stale exactly like the differential one, and a merge of `main` into the branch can move
   it. At wave 11E both branch and control measured `120 / 116 both reject / 4 pilot-only`
   while the committed baseline still held `114 / 6` — the two moved cases were `main`'s
-  metadata-evaluability work, not the branch's. Run `cmd/pilot-reject` on the control before
+  metadata-evaluability work, not the branch's. Run `tools/referee/reject` on the control before
   crediting a rejection delta to the PR, and compare with
   `diff <(jq -S 'del(.validator,.pilot)' a) <(jq -S 'del(.validator,.pilot)' b)` so the
   volatile pin/validator fields do not mask the real comparison.
@@ -98,7 +98,7 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
 - **Symlinked corpus roots are silently skipped.** The corpus walker does not follow symlinks, so a
   baseline worktree whose `examples/sysml-v2-training` or `examples/pilot-corpora` is a symlink into
   the real checkout drops that whole root from the report without warning — the file count simply
-  comes out lower. Run the baseline as `go run ./cmd/pilot-diff -repo <real-checkout>` instead.
+  comes out lower. Run the baseline as `go run -C tools ./cmd/pilot-diff -repo <real-checkout>` instead.
 - **Silence can be a tier artifact, not a missing rule.** A type-tier error suppresses every
   constraint-tier pass for the whole file, so when a CLI run is silent, prove the rule is live with a
   positive control in the same file shape before concluding anything.
@@ -107,7 +107,7 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
     `pilot-differential-baseline.json` (the existing guard);
   - differential headlines and `openSysMLDiagnostics`/`pilotDiagnostics`/`severityMismatch`
     lines in every `.agents/skills/**/SKILL.md` against the same baseline (the new guard in
-    `cmd/pilot-diff/w6f_skill_counts_test.go`);
+    `tools/referee/diff/w6f_skill_counts_test.go`);
   - the Totals block, per-kind table, per-suite table, and census prose in
     `docs/project/pilot-xpect.md` against `pilot-xpect-baseline.json`.
   - A live-looking headline is checked by default. `<!-- doc-count:historical -->` (optionally
@@ -158,7 +158,7 @@ regression — see "Isolating one change's effect" below.
   absent, so provisioning either is enough.
 - The SysML oracle: `./scripts/download-pilot-sysml-validator.sh` (needs `javac`). It compiles
   `scripts/pilot-sysml-validator/ValidateSysML.java` into
-  `build/pilot-sysml-validator/validate-sysml-batch`, which is what `cmd/pilot-diff` runs by
+  `build/pilot-sysml-validator/validate-sysml-batch`, which is what `tools/referee/diff` runs by
   default. It batch-loads: every file of a root enters one resource set before any is validated.
   The older `build/pilot-validator/validate-sysml` (the DeciSym interactive CLI) is still built by
   the provisioning script and is still the handiest way to ask the reference about a single file.
@@ -196,7 +196,7 @@ regression — see "Isolating one change's effect" below.
 ## The core check (fast, ~20 s per run)
 
 ```bash
-rm -rf build/pilot-diff && go run ./cmd/pilot-diff        # ~19 s wall, ~1 min CPU
+rm -rf build/pilot-diff && go run -C tools ./cmd/pilot-diff        # ~19 s wall, ~1 min CPU
 diff <(jq -S . docs/project/pilot-differential-baseline.json) \
      <(jq -S . build/pilot-diff/pilot-diff.json)          # must be empty
 ```
@@ -315,8 +315,8 @@ diff the two JSONs:
 
 ```bash
 git worktree add /tmp/wt-base <parent-sha>
-(cd /tmp/wt-base && go run ./cmd/pilot-diff -repo /path/to/real/checkout -out /tmp/pd-base)
-go run ./cmd/pilot-diff -out /tmp/pd-head
+(cd /tmp/wt-base && go run -C tools ./cmd/pilot-diff -repo /path/to/real/checkout -out /tmp/pd-base)
+go run -C tools ./cmd/pilot-diff -out /tmp/pd-head
 diff <(jq -S . /tmp/pd-base/pilot-diff.json) <(jq -S . /tmp/pd-head/pilot-diff.json)
 ```
 
@@ -407,7 +407,7 @@ whether you see it at all**, because only some surfaces analyse under the real f
 
 | Surface | Document name passed to `passes.Analyze` | Language honoured? |
 |---|---|---|
-| `cmd/pilot-diff` (`opensysml.go`, `ws.Open(rel, ...)`) | corpus-relative path with extension | **yes** |
+| `tools/referee/diff` (`opensysml.go`, `ws.Open(rel, ...)`) | corpus-relative path with extension | **yes** |
 | `sysml-lsp` / `sysml-grpc` (`internal/core/model/workspace.go`) | the opened file's URI/path | **yes** |
 | `cmd/sysml -validate <file>` (`internal/repl/session.go`) | the real path — `session.go` branches on `source.KindOf(origin)` | **yes** (verified at `5ac8b6fb`) |
 | `cmd/sysml` interactive REPL typing / stdin (`-`) | the constant `"<repl>"` | **no** — `KindUnknown`, so SysML rules |
@@ -450,7 +450,7 @@ Two cheap surfaces that *do* prove the split:
 
 1. **A synthetic two-language mini-repo through pilot-diff.** Put byte-identical content in
    `<tmp>/testdata/adv.sysml` and `<tmp>/examples/pilot-corpora/kerml-examples/adv.kerml`, then
-   `go run ./cmd/pilot-diff -repo <tmp> -validator <abs>/build/pilot-sysml-validator/validate-sysml-batch \
+   `go run -C tools ./cmd/pilot-diff -repo <tmp> -validator <abs>/build/pilot-sysml-validator/validate-sysml-batch \
    -kerml-validator <abs>/build/pilot-kerml-validator/validate-kerml -out <tmp-out>`.
    The other five roots warn `skipping ...: no .sysml files` and are skipped, which is fine.
    Read `pilot-diff.txt`: the message must appear under `adv.sysml` and be absent under
@@ -489,7 +489,7 @@ testing a PR that changes how a library element is classified *and* bumps `forma
 - Worth flagging to the author: a version bump only protects users who never ran an intermediate
   build of the same branch; if development churned through the same number, bumping once more is
   the cheap fix.
-- Cross-check the harness too: re-run `go run ./cmd/pilot-diff` under a fresh `XDG_CACHE_HOME` and
+- Cross-check the harness too: re-run `go run -C tools ./cmd/pilot-diff` under a fresh `XDG_CACHE_HOME` and
   diff the JSON against the ambient-cache run (observed identical at `501d70fd`) — otherwise the
   differential numbers you reproduce may be a property of your cache.
 
@@ -533,7 +533,7 @@ d=/tmp/ref && mkdir -p $d && cp f.sysml $d/
   is visible without a golden. It cannot distinguish `first a.b then c.d` as SuccessionAsUsage
   from InitialNode (both print identically) — for that read the committed `.golden`
   (`Usage kind="succession"` with two `FeatureChainExpr` ends vs `(InitialNode …)`).
-- Golden fixtures under `internal/core/parser/testdata/parse/` are only non-vacuous if the parent
+- Golden fixtures under `tests/parser/testdata/parse/` are only non-vacuous if the parent
   binary *rejects* the same input; confirm that with `/tmp/sysml-main` rather than assuming it.
 
 ## Running the pilot validator directly
@@ -601,7 +601,7 @@ directory first (or restore to a fresh path) and verify with `ls build/pilot-val
 ## The optional SysIDE third column (F7)
 
 `./scripts/download-syside.sh` builds Sensmetry SysIDE (`sensmetry/sysml-2ls`, pinned `0.9.1`,
-`2024-12` standard library) into `build/syside/`, and `cmd/pilot-diff` picks
+`2024-12` standard library) into `build/syside/`, and `tools/referee/diff` picks
 `build/syside/validate-syside` up automatically. Needs `node` (18+) and `pnpm`; ~15 s from a warm
 pnpm store, ~2 min cold. It is **static only** — SysIDE executes nothing, so it is never evidence
 about behavioral rows — and it never adjudicates: the two-way buckets and totals are byte-identical
@@ -610,10 +610,10 @@ either way.
 The two checks that actually distinguish working from broken:
 
 ```bash
-mv build/syside /tmp/syside-aside && go run ./cmd/pilot-diff -out /tmp/pd-two-way
+mv build/syside /tmp/syside-aside && go run -C tools ./cmd/pilot-diff -out /tmp/pd-two-way
 diff <(jq -S . docs/project/pilot-differential-baseline.json) \
      <(jq -S . /tmp/pd-two-way/pilot-diff.json)             # must be empty (no third column)
-mv /tmp/syside-aside build/syside && go run ./cmd/pilot-diff -out /tmp/pd-three-way
+mv /tmp/syside-aside build/syside && go run -C tools ./cmd/pilot-diff -out /tmp/pd-three-way
 jq '.totals, .syside.totals' /tmp/pd-three-way/pilot-diff.json
 ```
 
@@ -672,7 +672,7 @@ the pilot first): fake the pilot with a script that answers `--version` and exit
 build/pilot-validator/pom.xml` next to it (`pilotVersion` reads `<dir>/pom.xml`), point
 `-syside` at a `sleep 30` launcher and use `-timeout 3s` → exit 1,
 `… failed (signal: killed)`, no report. Fast iteration for all of these: `-repo /tmp/mini` with a
-copy of `cmd/pilot-diff/testdata` only (4 files, other roots just warn `skipping`).
+copy of `tools/referee/diff/testdata` only (4 files, other roots just warn `skipping`).
 
 Timings at `286f420f` (8 vCPU): two-way `1m14s`, three-way `2m44s`, SysIDE alone on 4 files ~11 s.
 SysIDE prints `Collected standard library: [...]` on **stdout**; the harness discards stdout, so
@@ -682,7 +682,7 @@ only stderr matters.
 
 `build/pilot-validator/validate-sysml <one file>` is a faithful oracle for this rule — the four
 messages reproduce on a single file with no `--root` — so hand fixtures are the right surface, and
-`cmd/pilot-diff` is *not*: a corpus-scale scan at `2836471c` found 0 only-ours and 23 pilot-only
+`tools/referee/diff` is *not*: a corpus-scale scan at `2836471c` found 0 only-ours and 23 pilot-only
 `Duplicate of …` diagnostics, and **all 23 sit on a line where the pilot itself emits a syntax
 error** (`namespace` in `.sysml`, imports without visibility), i.e. recovery collateral. So the
 harness cannot see gaps in this rule; only fixtures can.
@@ -717,7 +717,7 @@ from HEAD alone, and the second is the risk when a rule is rewritten to match a 
 When a parser fix adds `TestNegative` rows for forms that must stay rejected, a passing row proves
 nothing on its own — the input may be rejected by an unrelated earlier error. Flip the guard the
 fix introduced (e.g. `if allowBody && p.accept2(lexer.LBrace)` → `if p.accept2(lexer.LBrace)`),
-rerun `go test ./internal/core/parser -run TestNegative`, and check *which* rows fail. Rows that
+rerun `go test ./tests/parser ./internal/core/parser -run TestNegative`, and check *which* rows fail. Rows that
 still pass under the mutation are guarding a different code path (a package-level `then` is caught
 by `expected a namespace member` before it ever reaches `parseSuccessionEdge`), which is worth
 saying out loud rather than claiming all rows guard the new guard. Restore from a `cp` backup and
@@ -733,7 +733,7 @@ be discriminated instead of scoring it a pass.
 ## Recording
 
 This is CLI work: record a maximized Konsole on `DISPLAY=:0` (see the "Recording setup" section
-of `testing-sysml-repl/SKILL.md`). A single `go run ./cmd/pilot-diff` prints only four progress
+of `testing-sysml-repl/SKILL.md`). A single `go run -C tools ./cmd/pilot-diff` prints only four progress
 lines and a summary, so pair every run with the `jq`/`diff` command that turns it into a visible
 pass/fail line (`&& echo '... IDENTICAL'`), otherwise the video shows nothing checkable.
 

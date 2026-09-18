@@ -6,7 +6,7 @@
 // must be concrete" check is not possible here. See README.md.
 package ontology
 
-//go:generate go run ./gen -ontology $SYSMLV2_RDF_ONTOLOGY -out table.go
+//go:generate go run -C ../../../../tools ./gen/ontology -ontology $SYSMLV2_RDF_ONTOLOGY
 
 import (
 	"strings"

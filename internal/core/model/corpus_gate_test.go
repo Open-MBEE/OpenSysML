@@ -202,7 +202,7 @@ func (g corpusGate) batchCounts(t *testing.T, root corpusRoot, files []string) m
 }
 
 // languageBatches splits a root's files into one batch per language, SysML first:
-// as in cmd/pilot-diff, KerML and SysML files must not share a workspace.
+// as in tools/referee/diff, KerML and SysML files must not share a workspace.
 func languageBatches(files []string) [][]string {
 	var sysml, kerml []string
 	for _, rel := range files {

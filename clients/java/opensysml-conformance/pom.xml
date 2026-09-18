@@ -15,7 +15,7 @@
 
   <name>OpenSysML Java conformance runner</name>
   <description>Runs conformance/scenarios through the Java client's public API and writes the
-    report shape cmd/conformance writes. Not published: a test tool, not a library.</description>
+    report shape tools/cmd/conformance writes. Not published: a test tool, not a library.</description>
   <url>https://github.com/Open-MBEE/OpenSysML/tree/main/clients/java</url>
 
   <properties>

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Download the OMG PSSM state-machine test suite (ptc/18-11-06) into build/pssm/,
-# for the advisory referee in cmd/pssm-referee.
+# for the advisory referee in tools/cmd/pssm-referee.
 #
 # The suite is not vendored: it is OMG's, published under the specification's
 # terms, and this project downloads it exactly as it downloads the pilot corpora
@@ -87,4 +87,4 @@ mv -f "$work/.pssm-pin" "$stamp"
 
 echo "Downloaded $PSSM_SUITE_FILE ($(wc -c <"$suite" | tr -d ' ') bytes) to $target"
 echo "Run the referee with:"
-echo "  go run ./cmd/pssm-referee"
+echo "  go run -C tools ./cmd/pssm-referee"

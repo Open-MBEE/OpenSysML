@@ -80,6 +80,7 @@ github.com/Open-MBEE/OpenSysML
 ├── clients/python/         # Python client bindings (opensysml)
 ├── clients/rust/           # Rust client (opensysml) and its conformance runner
 ├── api/proto/              # Protobuf service definitions
+├── tests/                  # Black-box suites and their fixtures (tests/parser, …)
 ├── testdata/               # Test fixtures (.sysml, .kerml)
 ├── examples/               # Example models and demos
 └── docs/                   # Documentation
@@ -330,8 +331,8 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - Lowering to execution IR lives in `internal/core/lower/` (`ToActionGraph`, `ToStateGraph`)
 
 **Testing:**
-- **Golden ASTs**: `internal/core/parser/testdata/parse/` — count in [the measured counts](../project/spec-compliance.md)
-- **Negative tests**: `internal/core/parser/negative_test.go` — count in [the measured counts](../project/spec-compliance.md)
+- **Golden ASTs**: `tests/parser/testdata/parse/` — count in [the measured counts](../project/spec-compliance.md)
+- **Negative tests**: `tests/parser/negative_test.go` and the `*Negative*` tests beside the parser — count in [the measured counts](../project/spec-compliance.md)
 - **Unit tests**: `action_executor_test.go`, `state_executor_test.go` (action, state)
 - **Conformance gate**: `.sysml` + `.expected.json` pairs, all passing - `conformance_test.go` — counts and per-category breakdown in [the measured counts](../project/spec-compliance.md); a case whose model admits several results lists them as `outcomes`, each cited to [the semantic oracle](../project/behavior-semantic-oracle.md), and is explored to prove every one reachable and nothing else; `TestExecutionConformanceUnderPolicies` re-runs the suite under `declared` and `seed:1`
 - **Golden traces**: `.trace.golden` files - `trace_test.go` — count in [the measured counts](../project/spec-compliance.md); `.trace.order` files state the partial order a trace must respect (`a < b`), and a case with `outcomes` owns a `<case>.<policy>.trace.golden` per sweep policy
@@ -605,7 +606,7 @@ go test -v -run TestStdlibConformance ./internal/core/libs
 
 #### 2. Golden AST Snapshots
 - **Purpose:** Verify AST structure matches expected output
-- **Location:** `internal/core/parser/golden_test.go`
+- **Location:** `tests/parser/golden_test.go`
 - **Fixtures:** `testdata/parse/*.sysml` and `*.kerml` (one representative file per construct)
 - **Goldens:** `testdata/parse/*.golden` (AST dumps)
 - **Acceptance:** Parse output matches golden file
@@ -629,7 +630,7 @@ go test -v -run TestStdlibConformance ./internal/core/libs
 
 #### 4. Negative Test Suite
 - **Purpose:** Verify parser rejects malformed input gracefully
-- **Location:** `internal/core/parser/negative_test.go`
+- **Location:** `tests/parser/negative_test.go`
 - **Test:** `TestNegative`, one subtest per malformed input
 - **Acceptance:** each case produces diagnostics rather than panicking
 - **Coverage:** Unclosed blocks, unexpected tokens, invalid syntax, incomplete behavioral members
@@ -651,7 +652,7 @@ New behavioral features (actions, states, calc, constraints, requirements) requi
 
 #### 1. Golden AST Fixtures
 - **Purpose:** Lock in parse structure before execution changes
-- **Location:** `internal/core/parser/testdata/parse/` (behavioral fixtures)
+- **Location:** `tests/parser/testdata/parse/` (behavioral fixtures)
 - **Coverage:** the behavioral fixtures (action, calc, constraint, requirement, state) among the whole set
 - **Acceptance:** `TestGolden` passes, AST dumps match expectations
 - **Update flag:** `go test -run TestGolden -update`
@@ -730,11 +731,14 @@ go test -v -run TestRuntimeRobustness -timeout 60s ./internal/core/runtime
 
 ---
 
-### Declared errata (`internal/errata`)
+### Declared errata (`tools/oracle/errata`)
 
 The three pilot oracles read OMG-published material, which is sometimes wrong itself.
-`internal/errata` is the registry of those defects: file, line, published bytes, the specification
+`tools/oracle/errata` is the registry of those defects: file, line, published bytes, the specification
 clause violated, the derivation, and the corrected text where the intended reading is unambiguous.
+The overlay mechanism and the entries for the bundled standard library live in the product's
+`internal/core/libs/errata`, which `internal/core/libs` applies on read; the registry adds the
+corpus entries and the corrected copy of a corpus root an oracle runs over a second time.
 The published corpus is never written to — corrections are applied to a copy under the oracle's
 output directory — and an entry whose published text no longer matches the bytes on disk fails a
 test rather than rotting. Each oracle reports both censuses; the as-published one stays the
@@ -755,11 +759,11 @@ Every behavioral feature must have:
 <!-- doc-counts:begin refereed-figures -->
 **Measured against the pinned reference** (`PILOT_TAG=2026-08`, artifact `0.62.0`). Every number below is generated by `make docs-counts` from the committed baselines and gated; none of them is typed in by hand.
 
-- **Corpus agreement:** 347 of 378 files agree diagnostic-by-diagnostic; 38 diagnostics are ours alone and 1185 the reference's alone, and the first number must be read by root: our diagnostics against the reference's own corpora fell while our non-standard-notation warnings on our own example models rose ([differential](../project/pilot-differential.md), `go run ./cmd/pilot-diff`).
-- **Declared-diagnostic silence:** of the 512 declared `errors` rows in the reference's own Xpect suites, we report nothing for 0. 245 we report word-for-word; 248 wording-only and 7 location-only differences are agreement in substance and are not counted as gaps; 0 more we report as a warning and 2 elsewhere in the file ([Xpect oracle](../project/pilot-xpect.md), `go run ./cmd/pilot-xpect`).
+- **Corpus agreement:** 347 of 378 files agree diagnostic-by-diagnostic; 38 diagnostics are ours alone and 1185 the reference's alone, and the first number must be read by root: our diagnostics against the reference's own corpora fell while our non-standard-notation warnings on our own example models rose ([differential](../project/pilot-differential.md), `go run -C tools ./cmd/pilot-diff`).
+- **Declared-diagnostic silence:** of the 512 declared `errors` rows in the reference's own Xpect suites, we report nothing for 0. 245 we report word-for-word; 248 wording-only and 7 location-only differences are agreement in substance and are not counted as gaps; 0 more we report as a warning and 2 elsewhere in the file ([Xpect oracle](../project/pilot-xpect.md), `go run -C tools ./cmd/pilot-xpect`).
 - **Scope agreement:** 230 of 230 declared scope assertions match exactly (same source).
-- **Permissiveness gaps:** of 306 invalid models we wrote ourselves, the reference rejects 4 that we accept by default, and 293 both reject; 4 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](../project/pilot-rejection.md), `go run ./cmd/pilot-reject`).
-- **Declared errata:** the registry declares 12 defect(s) in the published reference material — 4 with a specification-derived correction, 8 documented without one, since no intended reading can be inferred ([OMG issues](../project/omg-issues.md), `internal/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 348 of 378 files agreeing, 37 diagnostics ours alone and 1185 the reference's alone, 0 declared rows we are silent on, and 0 of 306 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
+- **Permissiveness gaps:** of 306 invalid models we wrote ourselves, the reference rejects 4 that we accept by default, and 293 both reject; 4 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](../project/pilot-rejection.md), `go run -C tools ./cmd/pilot-reject`).
+- **Declared errata:** the registry declares 12 defect(s) in the published reference material — 4 with a specification-derived correction, 8 documented without one, since no intended reading can be inferred ([OMG issues](../project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 348 of 378 files agreeing, 37 diagnostics ours alone and 1185 the reference's alone, 0 declared rows we are silent on, and 0 of 306 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
 - **Self-assessed surface:** the action, state-machine and classifier-behavior rows have no external referee at all — the four refereed figures above cannot see them, because the pinned artifact evaluates expressions but executes neither actions nor state machines. [Spec compliance](../project/spec-compliance.md) counts them.
 
 What these numbers cannot show: the OMG corpora are demonstrations rather than an official conformance suite; the differential is one-directional, comparing the diagnostics the two implementations report on the same files; the Xpect suites are the pilot authors' test intent rather than a certification oracle; and none of these is a percentage of the specification — no global compliance figure is claimed anywhere.
@@ -791,7 +795,7 @@ When adding parser support for new SysML v2 constructs:
 
 When adding execution support for behavioral constructs (actions, states, calc, constraints, requirements):
 
-1. ✅ Add golden AST fixture to `internal/core/parser/testdata/parse/` (if not already covered)
+1. ✅ Add golden AST fixture to `tests/parser/testdata/parse/` (if not already covered)
 2. ✅ Implement semantics in `internal/core/runtime/` (executor or evaluator)
 3. ✅ Add conformance case: `.sysml` + `.expected.json` in `internal/core/runtime/testdata/conformance/`
 4. ✅ Add golden trace case: `.trace.golden` for ordering-sensitive features (fork/join, transitions)

@@ -377,7 +377,7 @@ the pinned release. Nothing in KerML 8.2 or SysML §7 admits `.*`, `.**`, `/`-se
 
 ## How the Xpect oracle reads its own assertions
 
-Two harness rules are decisions rather than measurements, and both live in `cmd/pilot-xpect`:
+Two harness rules are decisions rather than measurements, and both live in `tools/referee/xpect`:
 
 - **An `at "…"` clause runs to the last quote on the line.** Xpect does not escape quotes inside the
   clause, so reading to the *first* inner quote splits one assertion into a truncated expectation and
