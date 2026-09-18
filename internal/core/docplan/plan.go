@@ -3,7 +3,6 @@
 package docplan
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
@@ -71,7 +70,7 @@ type Run struct {
 	refRoot     *symbols.Symbol
 	ref         []string
 	refDocument string
-	origin      provenance.Origin
+	origin      symbols.Origin
 }
 
 // Kind returns the classification of the run.
@@ -97,7 +96,7 @@ func (r Run) RefPath() []string { return append([]string(nil), r.ref...) }
 func (r Run) RefDocument() string { return r.refDocument }
 
 // Origin returns the source declaration behind the run.
-func (r Run) Origin() provenance.Origin { return r.origin }
+func (r Run) Origin() symbols.Origin { return r.origin }
 
 func cloneRuns(runs []Run) []Run {
 	out := make([]Run, len(runs))
@@ -124,7 +123,7 @@ type ColumnRun struct {
 	style        RunStyle
 	styleColumn  string
 	targetColumn string
-	origin       provenance.Origin
+	origin       symbols.Origin
 }
 
 // Kind returns the classification of the column run.
@@ -145,7 +144,7 @@ func (r ColumnRun) StyleColumn() string { return r.styleColumn }
 func (r ColumnRun) TargetColumn() string { return r.targetColumn }
 
 // Origin returns the source declaration behind the column run.
-func (r ColumnRun) Origin() provenance.Origin { return r.origin }
+func (r ColumnRun) Origin() symbols.Origin { return r.origin }
 
 // BindingKind classifies one planned binding value.
 type BindingKind string
@@ -166,7 +165,7 @@ type BindingValue struct {
 	integer int64
 	real    float64
 	boolean bool
-	origin  provenance.Origin
+	origin  symbols.Origin
 }
 
 // Kind returns the classification of the value.
@@ -190,13 +189,13 @@ func (v BindingValue) Real() (float64, bool) { return v.real, v.kind == BindingR
 func (v BindingValue) Boolean() (bool, bool) { return v.boolean, v.kind == BindingBoolean }
 
 // Origin returns the source declaration behind the value.
-func (v BindingValue) Origin() provenance.Origin { return v.origin }
+func (v BindingValue) Origin() symbols.Origin { return v.origin }
 
 // Binding supplies planned values to one parameter of a referenced query.
 type Binding struct {
 	parameter string
 	values    []BindingValue
-	origin    provenance.Origin
+	origin    symbols.Origin
 }
 
 // Parameter returns the bound parameter name.
@@ -206,14 +205,14 @@ func (b Binding) Parameter() string { return b.parameter }
 func (b Binding) Values() []BindingValue { return append([]BindingValue(nil), b.values...) }
 
 // Origin returns the source declaration behind the binding.
-func (b Binding) Origin() provenance.Origin { return b.origin }
+func (b Binding) Origin() symbols.Origin { return b.origin }
 
 // QueryRef is a planned reference to a compiled query with its bindings.
 type QueryRef struct {
 	entry    string
 	program  *queryplan.Program
 	bindings []Binding
-	origin   provenance.Origin
+	origin   symbols.Origin
 }
 
 // Entry returns the fully-qualified name of the referenced query.
@@ -236,7 +235,7 @@ func (q *QueryRef) Bindings() []Binding {
 }
 
 // Origin returns the source declaration behind the reference.
-func (q *QueryRef) Origin() provenance.Origin { return q.origin }
+func (q *QueryRef) Origin() symbols.Origin { return q.origin }
 
 // DiagramRef is a planned reference to what a diagram renders: a declared
 // view usage, or a plain element with the rendering kind the diagram states.
@@ -247,7 +246,7 @@ type DiagramRef struct {
 	stated    string
 	direction view.Direction
 	palette   view.Palette
-	origin    provenance.Origin
+	origin    symbols.Origin
 }
 
 // View returns the declared view usage the diagram renders, when it names one.
@@ -269,7 +268,7 @@ func (d *DiagramRef) Direction() view.Direction { return d.direction }
 func (d *DiagramRef) Palette() view.Palette { return d.palette }
 
 // Origin returns the source declaration behind the reference.
-func (d *DiagramRef) Origin() provenance.Origin { return d.origin }
+func (d *DiagramRef) Origin() symbols.Origin { return d.origin }
 
 // Content is one planned content node: a section, paragraph, table, list,
 // definitions, formula, or diagram.
@@ -289,7 +288,7 @@ type Content struct {
 	query       *QueryRef
 	diagram     *DiagramRef
 	children    []Content
-	origin      provenance.Origin
+	origin      symbols.Origin
 }
 
 // Kind returns the classification of the node.
@@ -341,7 +340,7 @@ func (c Content) Diagram() *DiagramRef { return c.diagram }
 func (c Content) Children() []Content { return cloneContent(c.children) }
 
 // Origin returns the source declaration behind the node.
-func (c Content) Origin() provenance.Origin { return c.origin }
+func (c Content) Origin() symbols.Origin { return c.origin }
 
 func cloneContent(content []Content) []Content {
 	out := make([]Content, len(content))
@@ -374,7 +373,7 @@ type Plan struct {
 	name     string
 	title    string
 	content  []Content
-	origin   provenance.Origin
+	origin   symbols.Origin
 }
 
 // Compiled reports whether the plan was produced by Compile.
@@ -390,4 +389,4 @@ func (p *Plan) Title() string { return p.title }
 func (p *Plan) Content() []Content { return cloneContent(p.content) }
 
 // Origin returns the source declaration behind the document.
-func (p *Plan) Origin() provenance.Origin { return p.origin }
+func (p *Plan) Origin() symbols.Origin { return p.origin }

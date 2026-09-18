@@ -13,7 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/Open-MBEE/OpenSysML/internal/fixtures"
+	"github.com/Open-MBEE/OpenSysML/tests/fixtures"
 )
 
 // The directories the suite figures are counted from, relative to the root.

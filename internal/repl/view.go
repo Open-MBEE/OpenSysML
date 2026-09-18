@@ -10,7 +10,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -200,7 +199,7 @@ func (s *Session) Views() ([]model.ViewInfo, error) {
 	}
 	var out []model.ViewInfo
 	for _, sym := range s.symbolsInLoadOrder(model.DeclaredViews) {
-		info := model.ViewInfo{Name: s.viewElementFQN(sym), Supported: true, Origin: provenance.Symbol(sym)}
+		info := model.ViewInfo{Name: s.viewElementFQN(sym), Supported: true, Origin: sym.Origin()}
 		kind, _, err := renderer.KindOf(sym)
 		switch {
 		case err == nil:

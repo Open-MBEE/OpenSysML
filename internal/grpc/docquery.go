@@ -11,7 +11,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/core/query"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryplan"
@@ -377,7 +376,7 @@ func documentStatus(err error) error {
 
 // statusWithOrigin fails with the engine's message, naming the source
 // declaration behind the failure when the engine reports one.
-func statusWithOrigin(code connect.Code, err error, origin provenance.Origin) error {
+func statusWithOrigin(code connect.Code, err error, origin symbols.Origin) error {
 	if !origin.Located() {
 		return connect.NewError(code, err)
 	}

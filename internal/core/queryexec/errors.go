@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryplan"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // ErrorKind classifies a document-query execution failure.
@@ -81,7 +81,7 @@ type Error struct {
 	Path      []string
 	Expected  string
 	Actual    string
-	Origin    provenance.Origin
+	Origin    symbols.Origin
 	// Cause is the evaluator's reason an unevaluable feature could not be read.
 	Cause error
 }

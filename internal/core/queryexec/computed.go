@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -520,7 +519,7 @@ func (e *executor) columnError(
 	kind ErrorKind,
 	column string,
 	row Value,
-	origin provenance.Origin,
+	origin symbols.Origin,
 	operator string,
 	actual string,
 ) error {

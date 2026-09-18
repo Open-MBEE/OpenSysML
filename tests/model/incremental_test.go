@@ -14,7 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/stressmodel"
+	"github.com/Open-MBEE/OpenSysML/tests/stressmodel"
 )
 
 // A workspace edited incrementally (scripted and seeded random edits, reverts, closes,

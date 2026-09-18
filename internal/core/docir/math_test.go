@@ -3,8 +3,6 @@ package docir
 import (
 	"errors"
 	"testing"
-
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 )
 
 const mathModel = `
@@ -142,7 +140,7 @@ func TestEvaluateMathColumnMissingValue(t *testing.T) {
 	if evaluation.Query == "" || !evaluation.Origin.Located() {
 		t.Fatalf("error lacks query or origin: %+v", evaluation)
 	}
-	if want := provenance.Symbol(fixture.symbol(t, "telescope::stand")); evaluation.Origin != want {
+	if want := fixture.symbol(t, "telescope::stand").Origin(); evaluation.Origin != want {
 		t.Errorf("origin = %+v, want the stand element %+v", evaluation.Origin, want)
 	}
 }

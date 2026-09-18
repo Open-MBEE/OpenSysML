@@ -54,12 +54,11 @@ var packageLayer = map[string]string{
 	"internal/core/parser": "syntax",
 	"internal/core/format": "syntax",
 
-	"internal/core/symbols":    "semantics",
-	"internal/core/suggest":    "semantics",
-	"internal/core/resolve":    "semantics",
-	"internal/core/semantics":  "semantics",
-	"internal/core/provenance": "semantics",
-	"internal/core/identity":   "semantics",
+	"internal/core/symbols":   "semantics",
+	"internal/core/suggest":   "semantics",
+	"internal/core/resolve":   "semantics",
+	"internal/core/semantics": "semantics",
+	"internal/core/identity":  "semantics",
 
 	"internal/core/lower":     "semantic IR",
 	"internal/core/queryplan": "semantic IR",
@@ -114,9 +113,6 @@ var packageLayer = map[string]string{
 	"cmd/sysml":              "frontends",
 	"cmd/sysml-grpc":         "frontends",
 	"cmd/sysml-lsp":          "frontends",
-
-	"internal/fixtures":    "tooling",
-	"internal/stressmodel": "tooling",
 }
 
 // tolerated is the imports the layer table does not permit and that still
@@ -194,6 +190,10 @@ func TestPackageLayering(t *testing.T) {
 				continue
 			}
 			to := strings.TrimPrefix(imp, modulePath)
+			if strings.HasPrefix(to, "tests/") {
+				t.Errorf("%s imports %s; test support under tests/ is not reached from internal/ or cmd/", from, to)
+				continue
+			}
 			toLayer, ok := packageLayer[to]
 			if !ok {
 				t.Errorf("%s imports %s, which is not assigned to a layer", from, to)
