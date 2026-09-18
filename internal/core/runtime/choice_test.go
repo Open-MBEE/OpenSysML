@@ -949,8 +949,8 @@ func TestProbedGuardLeavesObjectIdentitiesUntouched(t *testing.T) {
 
 // A selected transition whose guard another region's reaction falsified before
 // its turn does not fire, so nothing about selecting it is reported; the
-// region order that let the other reaction go first is the run's choice, drawn
-// per unit until the effect falsifies the guard and the blocked firing drops out.
+// region order that let the other reaction go first is the run's choice: a's
+// silent exit rides with its effect, which falsifies the guard and drops b out.
 func TestNotesOfATransitionBlockedBeforeFiringAreDropped(t *testing.T) {
 	src := `package test {
 		private import ScalarValues::*;
@@ -990,7 +990,6 @@ func TestNotesOfATransitionBlockedBeforeFiringAreDropped(t *testing.T) {
 	want := []string{
 		"choice entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first)",
 		"choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)",
-		"choice on accept Go: next a1->a2(effect), b1(exit) (unordered; took a1->a2(effect) first)",
 	}
 	if got := noteStrings(ctx.Notes()); !slices.Equal(got, want) {
 		t.Fatalf("notes %v, want the entry and region-order choices alone: %v", got, want)
@@ -1248,7 +1247,8 @@ func TestLaterChangeGuardErrorIsNotAChoiceNorAFailure(t *testing.T) {
 // A composite state's change transition loses to a nested state's on the same rise
 // and parallel regions fire alongside: the rise reports which region reacts first
 // and, in the one state with two enabled, which transition; the outranked
-// composite state draws nothing.
+// composite state draws nothing. Neither firing performs a behavior, so each is
+// one draw of silent units.
 func TestChangeTransitionChoiceUnderHierarchyAndRegions(t *testing.T) {
 	src := `package test {
 		private import ScalarValues::*;
@@ -1295,7 +1295,6 @@ func TestChangeTransitionChoiceUnderHierarchyAndRegions(t *testing.T) {
 		"choice entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first)",
 		"choice on change: next a1(exit), b1(exit) (unordered; took a1(exit) first)",
 		"choice state a1 on change: transitions 1->a2, 2->a3 (unordered; took 1->a2)",
-		"choice on change: next a2(entry), b1(exit) (unordered; took a2(entry) first)",
 	}
 	if got := choiceStrings(ctx.Choices()); !slices.Equal(got, want) {
 		t.Fatalf("choices = %v, want exactly %v", got, want)

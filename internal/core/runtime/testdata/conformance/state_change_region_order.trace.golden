@@ -14,10 +14,8 @@ eval operator > -> true
 eval operator > -> true
 choice on change: next a1(exit), b1(exit) (unordered; took a1(exit) first)
 exit: a1
-choice on change: next a1->a2(effect), b1(exit) (unordered; took a1->a2(effect) first)
 stmt assign last
   eval literal 1 -> 1
-choice on change: next a2(entry), b1(exit) (unordered; took a2(entry) first)
 enter: a2
 transition: a1 -> a2 (event: change)
 exit: b1

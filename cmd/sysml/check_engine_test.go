@@ -370,7 +370,8 @@ func TestEngineCheckNamesTheBoundsItHits(t *testing.T) {
 // A run the checker's moves leave out is named on the verdict as a bound is, and
 // the check is within bounds, not exhaustive: at the round a looping `do` body's
 // branches are due together with a timed exit, the fixed policies finish the round
-// before the dispatch, and the checker's one move dispatches.
+// before the dispatch, and the checker's one move dispatches. The two regions'
+// entry order is drawn, so each outcome is tabled with either order.
 func TestEngineCheckNamesTheDoRoundItLeavesOut(t *testing.T) {
 	binary := buildCLI(t)
 	model, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "runtime", "testdata", "conformance", "state_do_action_loop_timed_exit.sysml"))
@@ -380,9 +381,10 @@ func TestEngineCheckNamesTheDoRoundItLeavesOut(t *testing.T) {
 
 	got := check(t, binary, string(model), "-engine", "check", "-state", "test::Machine")
 	wantReport(t, got, 2,
-		"? State machine test::Machine: no violation within bounds (9 states, 9 moves, depth 7; not enumerated: do round before dispatch)",
+		"? State machine test::Machine: no violation within bounds (18 states, 18 moves, depth 7; not enumerated: do round before dispatch)",
+		"outcome: finalState heard+finished; visits looping, waiting, finished, heard; late = 1; left = 1; right = 0",
 		"outcome: finalState heard+finished; visits waiting, looping, finished, heard; late = 1; left = 1; right = 0",
-		"standing: outcomes (bounded over schedules: 9 states, 9 moves searched, not enumerated: do round before dispatch)")
+		"standing: outcomes (bounded over schedules: 18 states, 18 moves searched, not enumerated: do round before dispatch)")
 	rejectReport(t, got, "exhaustive", "bounds hit", "(reached)")
 
 	got = check(t, binary, string(model), "-json", "-engine", "check", "-state", "test::Machine")

@@ -1,6 +1,5 @@
 choice on accept Go: next l1(exit), r1(exit) (unordered; took l1(exit) first)
 exit: l1
-choice on accept Go: next l2(entry), r1(exit) (unordered; took l2(entry) first)
 enter: l2 (entry action)
 stmt assign log
     eval feature log -> ""

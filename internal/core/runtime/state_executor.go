@@ -1089,9 +1089,12 @@ func (e *StateExecutor) dispatchInOrder(
 	err := e.moveWhole(func() error {
 		f := e.openFront(ChoiceRegionOrder, where)
 		for _, candidate := range firings {
-			head := unitHead{label: exitLabel(candidate.leaf), at: candidate.leaf, void: func() bool { return void(candidate) }}
+			head := unitHead{
+				label: exitLabel(candidate.leaf), at: candidate.leaf, void: func() bool { return void(candidate) },
+				silent: e.exitIsUnit(candidate.leaf) && e.silentExit(candidate.leaf),
+			}
 			if join, ok := candidate.chosen.Target.(*ast.PseudostateNode); ok && join.Kind == ast.PseudostateJoin {
-				head.label, head.at = join.Name+"(join)", join
+				head.label, head.at, head.silent = join.Name+"(join)", join, false
 			}
 			f.spawnAt(head, func() error { return firing(candidate) })
 		}
@@ -4248,7 +4251,7 @@ func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.S
 		return nil
 	}
 	if e.entryIsUnit(state) && !e.enteredAhead[state] {
-		if _, err := e.unit(ChoiceEntryOrder, unitHead{label: entryLabel(state), at: state}); err != nil {
+		if _, err := e.unit(ChoiceEntryOrder, unitHead{label: entryLabel(state), at: state, silent: e.silentEntry(state)}); err != nil {
 			return err
 		}
 	}
@@ -4391,7 +4394,7 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 		e.leftAhead[state] = true
 	}
 	if e.exitIsUnit(state) {
-		if _, err := e.unit(ChoiceExitOrder, unitHead{label: exitLabel(state), at: state}); err != nil {
+		if _, err := e.unit(ChoiceExitOrder, unitHead{label: exitLabel(state), at: state, silent: e.silentExit(state)}); err != nil {
 			return err
 		}
 	}

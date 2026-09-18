@@ -1,7 +1,6 @@
 eval feature armed -> true
 choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)
 exit: a1
-choice on accept Go: next a1->a2(effect), b1(exit) (unordered; took a1->a2(effect) first)
 stmt assign armed
   eval literal false -> false
 enter: a2

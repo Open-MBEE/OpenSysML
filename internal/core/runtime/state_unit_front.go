@@ -48,6 +48,19 @@ func (e *StateExecutor) exitIsUnit(state *ast.StateNode) bool {
 	return !e.graph.HiddenStates[state] || len(e.behaviorsOf(state).Exit) > 0
 }
 
+// silentEntry reports whether entering state performs no behavior: nothing a
+// sibling region's unit could observe or be observed by.
+func (e *StateExecutor) silentEntry(state *ast.StateNode) bool {
+	behaviors := e.behaviorsOf(state)
+	return len(behaviors.Entry) == 0 && len(behaviors.Do) == 0
+}
+
+// silentExit is silentEntry for leaving state.
+func (e *StateExecutor) silentExit(state *ast.StateNode) bool {
+	behaviors := e.behaviorsOf(state)
+	return len(behaviors.Exit) == 0 && len(behaviors.Do) == 0
+}
+
 // transitionLabel names a transition by its own name, or by its ends when it has none.
 func transitionLabel(trans *lower.Transition) string {
 	if trans.Name != "" {
@@ -91,7 +104,9 @@ type unitQueue struct {
 // dropped reports. A queue waiting on something a sibling does (its owner's
 // entry, the queues it spawned) has no unit until until holds. A queue void of
 // a unit (a firing a sibling's unit disabled) is no alternative while void holds;
-// it runs to its end, performing nothing, once no queue has a unit.
+// it runs to its end, performing nothing, once no queue has a unit. A silent
+// unit performs no behavior: it goes with the queue's performing unit next to
+// it rather than being a draw of its own (see advance).
 type unitHead struct {
 	label   string
 	at      ast.Node
@@ -99,6 +114,7 @@ type unitHead struct {
 	dropped func() bool
 	until   func() bool
 	void    func() bool
+	silent  bool
 }
 
 // firingScope is the state of the firing a queue's units belong to — the
@@ -444,8 +460,33 @@ func (f *unitFront) drain() (err error) {
 			}
 			f.exec.noteChoice(choice)
 		}
-		f.resume(ready[pick], true)
+		f.advance(ready[pick])
 	}
+}
+
+// advance performs the drawn queue's units through its next performing one and
+// the silent units after it, up to the one performing next; it stops early where
+// a sibling's readiness changes, so `declared` keeps its unit-for-unit sequence.
+func (f *unitFront) advance(q *unitQueue) {
+	others := f.readyExcept(q)
+	performed := false
+	for {
+		silent := q.head.silent
+		f.resume(q, true)
+		performed = performed || !silent
+		f.settle()
+		if q.done || !slices.Contains(f.ready(), q) || !slices.Equal(others, f.readyExcept(q)) {
+			return
+		}
+		if performed && !q.head.silent {
+			return
+		}
+	}
+}
+
+// readyExcept lists the ready queues other than q.
+func (f *unitFront) readyExcept(q *unitQueue) []*unitQueue {
+	return slices.DeleteFunc(f.ready(), func(r *unitQueue) bool { return r == q })
 }
 
 // settle resumes the queues whose wait is over and drops the shared units a

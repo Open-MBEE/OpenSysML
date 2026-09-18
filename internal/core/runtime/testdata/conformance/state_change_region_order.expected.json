@@ -7,36 +7,12 @@
 			"stateVisits": ["start", "work", "a1", "b1", "a2", "b2"],
 			"outputs": {
 				"temp": {"type": "Integer", "value": 30},
-				"last": {"type": "Integer", "value": 1}
-			}
-		},
-		{
-			"finalState": "a2+b2",
-			"stateVisits": ["start", "work", "a1", "b1", "a2", "b2"],
-			"outputs": {
-				"temp": {"type": "Integer", "value": 30},
 				"last": {"type": "Integer", "value": 2}
 			}
 		},
 		{
 			"finalState": "a2+b2",
 			"stateVisits": ["start", "work", "a1", "b1", "b2", "a2"],
-			"outputs": {
-				"temp": {"type": "Integer", "value": 30},
-				"last": {"type": "Integer", "value": 1}
-			}
-		},
-		{
-			"finalState": "a2+b2",
-			"stateVisits": ["start", "work", "a1", "b1", "b2", "a2"],
-			"outputs": {
-				"temp": {"type": "Integer", "value": 30},
-				"last": {"type": "Integer", "value": 2}
-			}
-		},
-		{
-			"finalState": "a2+b2",
-			"stateVisits": ["start", "work", "b1", "a1", "a2", "b2"],
 			"outputs": {
 				"temp": {"type": "Integer", "value": 30},
 				"last": {"type": "Integer", "value": 1}
@@ -56,14 +32,6 @@
 			"outputs": {
 				"temp": {"type": "Integer", "value": 30},
 				"last": {"type": "Integer", "value": 1}
-			}
-		},
-		{
-			"finalState": "a2+b2",
-			"stateVisits": ["start", "work", "b1", "a1", "b2", "a2"],
-			"outputs": {
-				"temp": {"type": "Integer", "value": 30},
-				"last": {"type": "Integer", "value": 2}
 			}
 		}
 	],

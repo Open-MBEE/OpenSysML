@@ -111,16 +111,16 @@ func testFiringUnitOrderNamingAUnitOfNoFiring(t *testing.T) {
 }
 
 // testExitOrderNamingAStateNotBeingLeft: an exit-order line naming a state the
-// transition does not leave is refused before either region's exit runs.
+// transition does not leave is refused before either region's exit runs. l2's
+// silent entry rides with its firing's effect, so no line names it.
 func testExitOrderNamingAStateNotBeingLeft(t *testing.T) {
 	refused, log := refusedRegionOrderReplay(t,
 		"entering work: l1(entry) first of l1(entry), r1(entry)\n"+
 			"on accept Go: l1(exit) first of l1(exit), r1(exit)\n"+
 			"on accept Go: l1->l2(effect) first of l1->l2(effect), r1(exit)\n"+
-			"on accept Go: l2(entry) first of l2(entry), r1(exit)\n"+
 			"exiting work: rest(exit) first of l2(exit), rest(exit)\n", 3)
-	if refused.Move != 5 || !strings.Contains(refused.Error(), "rest(exit) is not enabled (enabled: l2(exit), r2(exit))") {
-		t.Errorf("refused %v, want move 5 naming rest(exit) as not enabled among l2(exit), r2(exit)", refused)
+	if refused.Move != 4 || !strings.Contains(refused.Error(), "rest(exit) is not enabled (enabled: l2(exit), r2(exit))") {
+		t.Errorf("refused %v, want move 4 naming rest(exit) as not enabled among l2(exit), r2(exit)", refused)
 	}
 	if log != `"l1(entry) r1(entry) l1(exit) T1(effect) r1(exit) T2(effect) "` {
 		t.Errorf("log is %s after the refusal, want no exit of l2 or r2: none may run on a refused draw", log)

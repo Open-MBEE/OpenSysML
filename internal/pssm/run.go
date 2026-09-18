@@ -31,8 +31,10 @@ const LogAttribute = "log"
 const MaxSteps = 100000
 
 // DefaultBudget is the exploration budget a translated test is run under; a
-// test that exhausts it fails, since its reachable traces are then unknown.
-var DefaultBudget = runtime.DefaultExploreBudget
+// test that exhausts it fails, since its reachable traces are then unknown. The
+// suite's largest test (Event 016 B) has 1152 linearizations, past the runtime's
+// default of 1024 runs; the budget leaves room above it.
+var DefaultBudget = runtime.ExploreBudget{Runs: 4096, Depth: runtime.DefaultExploreBudget.Depth}
 
 // Execution is what running a translated model under the exploring scheduler
 // found, compared against the traces the suite admits.

@@ -3,10 +3,8 @@
 eval operator > -> true
 choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)
 exit: a1
-choice on accept Go: next a1->a2(effect), b1(exit) (unordered; took a1->a2(effect) first)
 stmt assign d
   eval literal 0 -> 0
-choice on accept Go: next a2(entry), b1(exit) (unordered; took a2(entry) first)
 enter: a2
 transition: a1 -> a2 (event: accept Go)
 choice junction split: transitions 1->left, 2->right (unordered; took 1->left)

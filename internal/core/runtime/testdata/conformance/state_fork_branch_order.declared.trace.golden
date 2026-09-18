@@ -10,7 +10,6 @@ stmt assign log
     eval feature log -> "T1.1(effect) "
     eval literal "work(entry) " -> "work(entry) "
   eval operator + -> "T1.1(effect) work(entry) "
-choice fork split: next a(entry), split->b(effect) (unordered; took a(entry) first)
 enter: a
 stmt assign log
     eval feature log -> "T1.1(effect) work(entry) "

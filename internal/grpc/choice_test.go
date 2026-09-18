@@ -309,14 +309,10 @@ package Test {
 	}
 	execute("", "work,a1,b1,a2,b2",
 		"choice point: entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first)",
-		"choice point: on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)",
-		"choice point: on accept Go: next a1->a2(effect), b1(exit) (unordered; took a1->a2(effect) first)",
-		"choice point: on accept Go: next a2(entry), b1(exit) (unordered; took a2(entry) first)")
+		"choice point: on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)")
 	execute("seed:1", "work,b1,a1,a2,b2",
 		"choice point: entering work: next a1(entry), b1(entry) (unordered; took b1(entry) first)",
-		"choice point: on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)",
-		"choice point: on accept Go: next a1->a2(effect), b1(exit) (unordered; took a1->a2(effect) first)",
-		"choice point: on accept Go: next a2(entry), b1(exit) (unordered; took a2(entry) first)")
+		"choice point: on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)")
 }
 
 // A guard the run read only to report a choice and could not evaluate is an

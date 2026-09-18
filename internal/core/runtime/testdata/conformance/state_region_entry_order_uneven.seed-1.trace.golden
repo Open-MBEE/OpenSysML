@@ -10,7 +10,6 @@ stmt assign log
     eval feature log -> "right(entry) "
     eval literal "left(entry) " -> "left(entry) "
   eval operator + -> "right(entry) left(entry) "
-choice entering work: next l(entry), r(entry) (unordered; took l(entry) first)
 enter: l
 enter: r (entry action)
 stmt assign log

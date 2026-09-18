@@ -14,7 +14,6 @@ stmt assign log
     eval feature log -> "T1(effect) T1.1(effect) "
     eval literal "work(entry) " -> "work(entry) "
   eval operator + -> "T1(effect) T1.1(effect) work(entry) "
-choice fork split: next left.done(entry), split->done(effect) (unordered; took left.done(entry) first)
 enter: done
 stmt assign log
     eval feature log -> "T1(effect) T1.1(effect) work(entry) "

@@ -664,8 +664,9 @@ func TestJunctionBranchDeadEndKeepsItsNotes(t *testing.T) {
 // other region's effect disarms: the branch is drawn only as the transition
 // fires, after the units before it, so a witness lists the entry and firing-unit
 // draws first and a run in which the disarming effect runs before b1's exit draws
-// nothing at the junction. Every witness, and the choices every seed takes,
-// replay to the same run.
+// nothing at the junction. The silent exits and entries ride with the effect of
+// their firing, so each firing is one draw and a target's entry follows its
+// effect. Every witness, and the choices every seed takes, replay to the same run.
 func TestExploreJunctionDrawnAsTransitionFires(t *testing.T) {
 	m := parseExploreModel(t, `package test {
 		state def Machine {
@@ -715,20 +716,16 @@ func TestExploreJunctionDrawnAsTransitionFires(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !x.Complete() || x.Runs != 66 {
-		t.Fatalf("status %q, want complete (66 runs)", x.Status())
+	if !x.Complete() || x.Runs != 6 {
+		t.Fatalf("status %q, want complete (6 runs)", x.Status())
 	}
 	// Each outcome's junction draw, "" where the disarming effect ran first.
 	want := map[string]string{
 		"finalState a2+b1; visits work, a1, b1, a2; armed = false; route = 0":           "",
 		"finalState a2+b1; visits work, b1, a1, a2; armed = false; route = 0":           "",
-		"finalState a2+left; visits work, a1, b1, a2, left; armed = false; route = 1":   "junction split -> 1->left",
 		"finalState a2+left; visits work, a1, b1, left, a2; armed = false; route = 1":   "junction split -> 1->left",
-		"finalState a2+left; visits work, b1, a1, a2, left; armed = false; route = 1":   "junction split -> 1->left",
 		"finalState a2+left; visits work, b1, a1, left, a2; armed = false; route = 1":   "junction split -> 1->left",
-		"finalState a2+right; visits work, a1, b1, a2, right; armed = false; route = 2": "junction split -> 2->right",
 		"finalState a2+right; visits work, a1, b1, right, a2; armed = false; route = 2": "junction split -> 2->right",
-		"finalState a2+right; visits work, b1, a1, a2, right; armed = false; route = 2": "junction split -> 2->right",
 		"finalState a2+right; visits work, b1, a1, right, a2; armed = false; route = 2": "junction split -> 2->right",
 	}
 	junctionDraw := func(taken []ChoiceTaken) string {
@@ -889,11 +886,12 @@ func TestExploreHistoryDefaultThroughJunction(t *testing.T) {
 }
 
 // One event enabling a transition in each of two regions: the library orders
-// neither first, so exploration interleaves the two firings' units every way,
-// the region's entry order drawn before them; every policy reports the order it
-// took as entry and firing-unit choice points, `reverse` and `declared` taking
-// declaration order and seeds reaching both effect orders. A change occurrence
-// raising both regions' conditions at once is dispatched the same way.
+// neither first, so exploration draws the two firings' order, the region's entry
+// order drawn before them; each firing's silent exit and entry ride with its
+// effect, so it is one draw. Every policy reports the order it took as entry
+// and firing-unit choice points, `reverse` and `declared` taking declaration
+// order and seeds reaching both effect orders. A change occurrence raising both
+// regions' conditions at once is dispatched the same way.
 func TestExploreSiblingRegionOrder(t *testing.T) {
 	t.Run("event", func(t *testing.T) {
 		m := parseExploreModel(t, `package test {
@@ -908,14 +906,10 @@ func TestExploreSiblingRegionOrder(t *testing.T) {
 			}
 		}`)
 		checkSiblingRegionOrder(t, m, "go", "on accept go", []string{
-			"finalState a2+b2; visits work, a1, b1, a2, b2; last = 1",
 			"finalState a2+b2; visits work, a1, b1, a2, b2; last = 2",
 			"finalState a2+b2; visits work, a1, b1, b2, a2; last = 1",
-			"finalState a2+b2; visits work, a1, b1, b2, a2; last = 2",
-			"finalState a2+b2; visits work, b1, a1, a2, b2; last = 1",
 			"finalState a2+b2; visits work, b1, a1, a2, b2; last = 2",
 			"finalState a2+b2; visits work, b1, a1, b2, a2; last = 1",
-			"finalState a2+b2; visits work, b1, a1, b2, a2; last = 2",
 		})
 	})
 	t.Run("change", func(t *testing.T) {
@@ -934,23 +928,19 @@ func TestExploreSiblingRegionOrder(t *testing.T) {
 			}
 		}`)
 		checkSiblingRegionOrder(t, m, "", "on change", []string{
-			"finalState a2+b2; visits start, work, a1, b1, a2, b2; last = 1; temp = 30",
 			"finalState a2+b2; visits start, work, a1, b1, a2, b2; last = 2; temp = 30",
 			"finalState a2+b2; visits start, work, a1, b1, b2, a2; last = 1; temp = 30",
-			"finalState a2+b2; visits start, work, a1, b1, b2, a2; last = 2; temp = 30",
-			"finalState a2+b2; visits start, work, b1, a1, a2, b2; last = 1; temp = 30",
 			"finalState a2+b2; visits start, work, b1, a1, a2, b2; last = 2; temp = 30",
 			"finalState a2+b2; visits start, work, b1, a1, b2, a2; last = 1; temp = 30",
-			"finalState a2+b2; visits start, work, b1, a1, b2, a2; last = 2; temp = 30",
 		})
 	})
 }
 
 // checkSiblingRegionOrder runs Machine, sending signal if named, and checks that
-// exploration reaches the eight outcomes (both entry orders, both effect orders
-// and both target-entry orders), that the fixed policies take declaration order
-// at every draw and report them, and that seeds reach both effect orders; where
-// spells the firing's trigger. `last` reads 2 where a's effect ran first.
+// exploration reaches the four outcomes (both entry orders, both firing orders),
+// that the fixed policies take declaration order at every draw and report them,
+// and that seeds reach both effect orders; where spells the firing's trigger.
+// `last` reads 2 where a's effect ran first.
 func checkSiblingRegionOrder(t *testing.T, m *exploreModel, signal, where string, want []string) {
 	sym := m.state(t, "Machine")
 	run := func(ctx *Context) (Outcome, error) {
@@ -977,8 +967,8 @@ func checkSiblingRegionOrder(t *testing.T, m *exploreModel, signal, where string
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !x.Complete() || x.Runs != 40 {
-		t.Fatalf("status %q, want complete (40 runs)", x.Status())
+	if !x.Complete() || x.Runs != 4 {
+		t.Fatalf("status %q, want complete (4 runs)", x.Status())
 	}
 	if got := outcomeTexts(x); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("outcomes %v, want %v", got, want)
@@ -1008,7 +998,7 @@ func checkSiblingRegionOrder(t *testing.T, m *exploreModel, signal, where string
 			t.Fatalf("%s: %v", spelling, err)
 		}
 		choices := ctx.Choices()
-		if len(ctx.Notes()) != len(choices) || len(choices) < 4 {
+		if len(ctx.Notes()) != len(choices) || len(choices) != 2 {
 			t.Fatalf("%s: notes %v, want the entry and firing-unit choices alone", spelling, ctx.Notes())
 		}
 		if choices[0].Kind != ChoiceEntryOrder || strings.Join(choices[0].Alternatives, ", ") != "a1(entry), b1(entry)" {
@@ -1026,12 +1016,12 @@ func checkSiblingRegionOrder(t *testing.T, m *exploreModel, signal, where string
 				t.Fatalf("%s: %v, want declaration order at every draw", spelling, c)
 			}
 		}
-		if got := outcome.String(); got != want[1] {
-			t.Fatalf("%s: outcome %q, want %q", spelling, got, want[1])
+		if got := outcome.String(); got != want[0] {
+			t.Fatalf("%s: outcome %q, want %q", spelling, got, want[0])
 		}
 	}
 	reached := make(map[string]string)
-	for _, spelling := range []string{"seed:1", "seed:7"} {
+	for _, spelling := range []string{"seed:1", "seed:8"} {
 		outcome, _ := under(spelling)
 		if !slices.Contains(want, outcome.String()) {
 			t.Fatalf("%s: outcome %q, want one explored", spelling, outcome)
@@ -1514,10 +1504,10 @@ func TestExploreSiblingRegionOrderNamesTypedRegions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !x.Complete() || x.Runs != 12 || len(x.Outcomes) != 1 || x.Outcomes[0].Linearizations != 12 {
-		t.Fatalf("status %q with %d outcomes, want complete (12 runs) reaching one outcome", x.Status(), len(x.Outcomes))
+	if !x.Complete() || x.Runs != 4 || len(x.Outcomes) != 1 || x.Outcomes[0].Linearizations != 4 {
+		t.Fatalf("status %q with %d outcomes, want complete (4 runs) reaching one outcome", x.Status(), len(x.Outcomes))
 	}
-	want := "entering work: a.r1(entry) first of a.r1(entry), b.r1(entry); on accept go: a.r1(exit) first of a.r1(exit), b.r1(exit); on accept go: a.r2(entry) first of a.r2(entry), b.r1(exit)"
+	want := "entering work: a.r1(entry) first of a.r1(entry), b.r1(entry); on accept go: a.r1(exit) first of a.r1(exit), b.r1(exit)"
 	if got := FormatChoices(x.Outcomes[0].Witness); got != want {
 		t.Fatalf("witness %q, want the regions naming the alternatives:\n%s", got, want)
 	}

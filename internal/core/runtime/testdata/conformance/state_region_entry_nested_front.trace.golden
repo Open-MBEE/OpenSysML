@@ -7,14 +7,12 @@ stmt assign log
     eval feature log -> ""
     eval literal "p(entry) " -> "p(entry) "
   eval operator + -> "p(entry) "
-choice entering work: next p1(entry), q(entry), right(entry) (unordered; took p1(entry) first)
 enter: p1
 choice entering work: next q(entry), right(entry) (unordered; took q(entry) first)
 stmt assign log
     eval feature log -> "p(entry) "
     eval literal "q(entry) " -> "q(entry) "
   eval operator + -> "p(entry) q(entry) "
-choice entering work: next q1(entry), right(entry) (unordered; took q1(entry) first)
 enter: q1
 stmt assign log
     eval feature log -> "p(entry) q(entry) "

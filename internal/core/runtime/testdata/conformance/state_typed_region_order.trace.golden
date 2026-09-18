@@ -6,7 +6,6 @@ enter: r1
 transition: start -> running
 choice on accept Step: next a.r1(exit), b.r1(exit) (unordered; took a.r1(exit) first)
 exit: r1
-choice on accept Step: next a.r2(entry), b.r1(exit) (unordered; took a.r2(entry) first)
 enter: r2
 transition: r1 -> r2 (event: accept Step)
 exit: r1

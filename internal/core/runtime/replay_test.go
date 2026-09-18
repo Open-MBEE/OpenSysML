@@ -398,8 +398,9 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 		sym := m.state(t, "Machine")
 		run := stateRun(sym, "go")
 		x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
-		// Two entry orders, then the twenty interleavings of two firings of three units.
-		if err != nil || !x.Complete() || x.Runs != 40 || len(x.Outcomes) != 8 {
+		// Two entry orders, then the two orders of two firings, each one draw: its
+		// silent exit and entry ride with its effect.
+		if err != nil || !x.Complete() || x.Runs != 4 || len(x.Outcomes) != 4 {
 			t.Fatalf("explore: %v, %v", x, err)
 		}
 		assertWitnessesReplay(t, x, m.fresh, run)
@@ -423,7 +424,7 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 		sym := m.state(t, "Machine")
 		run := stateRun(sym, "go")
 		x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
-		if err != nil || !x.Complete() || x.Runs != 80 {
+		if err != nil || !x.Complete() || x.Runs != 8 {
 			t.Fatalf("explore: %v, %v", x, err)
 		}
 		for _, o := range x.Outcomes {
