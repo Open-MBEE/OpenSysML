@@ -2700,9 +2700,21 @@ removes 32 `testdata` subtrees and six packages from `internal/` — 121 directo
 
 Move the eleven unreleased `cmd/` programs and the packages only they link — `baseline`,
 `junit`, `fuml`, `pssm`, `xmi`, `stressmodel`, `doccounts`, `fixtures`, `core/libs/gensnapshot`,
-`core/rdf/ontology/gen` — into `tools/` as a nested module; give it one `repo` package for
-`moduleRoot` and one `report` package for `writeReports` and the bucket types `classify` shares,
-deleting the copies. Split `errata` into the overlay the standard library applies (product) and
+`core/rdf/ontology/gen` — into `tools/` as a nested module, laid out by what each tool does
+rather than one directory per OMG artefact, which is how `fuml`, `pssm`, `xmi`, `baseline` and
+`junit` came to sit as five siblings of the compiler:
+
+```text
+tools/
+  referee/    fuml pssm xpect diff reject exec   the oracles, one package each
+  oracle/     xmi baseline errata report repo    what every referee shares
+  census/     validation grammar doccounts       the counting gates
+  gen/        stressmodel snapshot ontology      generators
+  cmd/        one main per program
+```
+
+`report` takes `writeReports` and the bucket types `classify` shares, `repo` takes `moduleRoot`,
+and the copies go. Split `errata` into the overlay the standard library applies (product) and
 the registry the oracles read (tooling). Move `envvar` and `project` beside `model`, and `docpdf`
 beside `docrender`. Then split `passes` by domain — core, behavior, document, diagram, identity —
 with registration left central.
