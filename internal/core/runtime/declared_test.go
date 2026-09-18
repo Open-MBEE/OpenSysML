@@ -54,6 +54,10 @@ package DerivedRepro {
 		calc scaled { in factor : Real; return : Real = factor * 2.0; }
 		attribute n : Real = scaled();
 	}
+	part def Invoking {
+		calc twice { in x : Real; return : Real = x * 2.0; }
+		attribute n : Real = twice(3.0);
+	}
 	part def Behaving {
 		attribute started : Boolean = false;
 		exhibit state running {
@@ -220,5 +224,29 @@ func TestDeclaredReaderAgreesWithTheRun(t *testing.T) {
 	}
 	if declared := quantityText(t, val); declared != ran || ran != "4570000 [kg]" {
 		t.Errorf("declared %s, run %s, want both 4570000 [kg]", declared, ran)
+	}
+}
+
+// A feature valued by a call reads through the model's argument typing: the
+// fixture's typed model evaluates it, and a fresh semantic model with none
+// installed fails with ErrNoArgumentTyper rather than selecting untyped.
+func TestDeclaredReaderSelectsCallsThroughTheArgumentTyper(t *testing.T) {
+	reader, resolver, scope := declaredReaderFixture(t)
+	invoking := symbolAt(t, resolver, scope, "Invoking")
+	val, err := reader.Read(invoking, "n")
+	if err != nil {
+		t.Fatalf("Invoking.n: %v", err)
+	}
+	if val.Kind != ValConst || val.Const.Kind != semantics.ValReal || val.Const.Real != 6.0 {
+		t.Errorf("Invoking.n = %s, want 6.0", describeValue(val))
+	}
+
+	untyped := semantics.NewModel(resolver)
+	if untyped.HasArgumentTyper() {
+		t.Fatal("a fresh semantic model must not carry an argument typer")
+	}
+	_, err = NewDeclaredReader(untyped, resolver).Read(invoking, "n")
+	if !errors.Is(err, ErrNoArgumentTyper) {
+		t.Fatalf("Invoking.n over an untyped model: err = %v, want ErrNoArgumentTyper", err)
 	}
 }

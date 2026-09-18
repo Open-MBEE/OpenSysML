@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,10 +26,21 @@ var runtimeModelFrontends = []string{
 	"internal/core/model/runtime.go",
 }
 
+// Runtime constructors that call NewModel on a semantic model handed to them,
+// and the production callers allowed to hand them one: the model each caller
+// passes is pinned typed by a test over its product path, since the walk cannot
+// see through the field or parameter it arrives in.
+var runtimeModelForwarders = map[string][]string{
+	"NewDeclaredReader": {"internal/core/queryexec/derived.go"},
+}
+
 // TestRuntimeModelsCarryArgumentTyping pins that every production site that
 // hands a semantic model to runtime.NewModel built it with passes.NewTypedModel,
 // so the runtime selects overloads with the checker's argument typing and its
-// missing-typer error stays unreachable from the shipped frontends.
+// missing-typer error stays unreachable from the shipped frontends. Inside the
+// runtime package, every unqualified NewModel call must sit in a constructor
+// listed in runtimeModelForwarders, whose callers are in turn confined to the
+// files listed there.
 func TestRuntimeModelsCarryArgumentTyping(t *testing.T) {
 	cmd := exec.Command("go", "list", "-f", "{{.Dir}} {{join .GoFiles \" \"}}", "./...")
 	cmd.Dir = "../.."
@@ -42,8 +54,11 @@ func TestRuntimeModelsCarryArgumentTyping(t *testing.T) {
 	}
 	fset := token.NewFileSet()
 	sites := map[string]bool{}
+	forwarders := map[string]bool{}
+	forwarderCallers := map[string]map[string]bool{}
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		fields := strings.Fields(line)
+		inRuntime := filepath.ToSlash(fields[0]) == filepath.ToSlash(filepath.Join(root, "internal/core/runtime"))
 		for _, name := range fields[1:] {
 			path := filepath.Join(fields[0], name)
 			file, err := parser.ParseFile(fset, path, nil, 0)
@@ -52,11 +67,31 @@ func TestRuntimeModelsCarryArgumentTyping(t *testing.T) {
 			}
 			rel, _ := filepath.Rel(root, path)
 			rel = filepath.ToSlash(rel)
+			if inRuntime {
+				for fn, call := range unqualifiedNewModelCalls(file) {
+					if _, ok := runtimeModelForwarders[fn]; !ok {
+						t.Errorf("%s: NewModel called inside %s, a runtime constructor not listed in runtimeModelForwarders",
+							fset.Position(call.Pos()), fn)
+					}
+					forwarders[fn] = true
+				}
+				continue
+			}
 			for _, site := range runtimeModelSites(file) {
 				sites[rel] = true
 				if !site.typed {
 					t.Errorf("%s: runtime.NewModel receives a semantic model not built by passes.NewTypedModel (%s)",
 						fset.Position(site.call.Pos()), site.reason)
+				}
+			}
+			for fn, call := range runtimeForwarderCalls(file) {
+				if forwarderCallers[fn] == nil {
+					forwarderCallers[fn] = map[string]bool{}
+				}
+				forwarderCallers[fn][rel] = true
+				if !slices.Contains(runtimeModelForwarders[fn], rel) {
+					t.Errorf("%s: runtime.%s receives a semantic model from a caller not listed in runtimeModelForwarders",
+						fset.Position(call.Pos()), fn)
 				}
 			}
 		}
@@ -66,12 +101,73 @@ func TestRuntimeModelsCarryArgumentTyping(t *testing.T) {
 			t.Errorf("%s: expected a runtime.NewModel construction site", want)
 		}
 	}
+	for fn, callers := range runtimeModelForwarders {
+		if !forwarders[fn] {
+			t.Errorf("runtime.%s no longer calls NewModel; drop it from runtimeModelForwarders", fn)
+		}
+		for _, want := range callers {
+			if !forwarderCallers[fn][want] {
+				t.Errorf("%s: expected a runtime.%s call", want, fn)
+			}
+		}
+	}
 	var seen []string
 	for s := range sites {
 		seen = append(seen, s)
 	}
 	sort.Strings(seen)
 	t.Logf("runtime.NewModel sites checked: %s", strings.Join(seen, ", "))
+}
+
+// unqualifiedNewModelCalls maps each top-level function of a runtime-package
+// file that calls NewModel to one such call.
+func unqualifiedNewModelCalls(file *ast.File) map[string]*ast.CallExpr {
+	calls := map[string]*ast.CallExpr{}
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Body == nil {
+			continue
+		}
+		ast.Inspect(fn.Body, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			if id, ok := call.Fun.(*ast.Ident); ok && id.Name == "NewModel" {
+				calls[fn.Name.Name] = call
+			}
+			return true
+		})
+	}
+	return calls
+}
+
+// runtimeForwarderCalls maps each forwarder in runtimeModelForwarders that file
+// calls through the runtime package to one such call.
+func runtimeForwarderCalls(file *ast.File) map[string]*ast.CallExpr {
+	runtimeName := ""
+	for _, imp := range file.Imports {
+		if path, _ := strconv.Unquote(imp.Path.Value); path == runtimePkg {
+			runtimeName = importName(imp, "runtime")
+		}
+	}
+	if runtimeName == "" {
+		return nil
+	}
+	calls := map[string]*ast.CallExpr{}
+	ast.Inspect(file, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		for fn := range runtimeModelForwarders {
+			if isSelectorCall(call, runtimeName, fn) {
+				calls[fn] = call
+			}
+		}
+		return true
+	})
+	return calls
 }
 
 type runtimeModelSite struct {
