@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 )
 
 // A model whose graph carries the notation itself as source text: comments,
@@ -538,7 +538,7 @@ const kermlBindings = `package Bindings {
 `
 
 func TestSourceTextIsReadInTheLanguageItWasWrittenIn(t *testing.T) {
-	turtle, err := export.Convert("m.kerml", []byte(kermlBindings), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.kerml", []byte(kermlBindings), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -564,7 +564,7 @@ func TestSourceTextIsReadInTheLanguageItWasWrittenIn(t *testing.T) {
 // language for it, and the check reads the text as such a buffer again.
 func TestSourceTextOfAnExtensionlessBufferIsReadAsOne(t *testing.T) {
 	src := "package P {\n    part def T;\n    // every T\n    part all : T;\n}\n"
-	turtle, err := export.Convert("<stdin>", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("<stdin>", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}

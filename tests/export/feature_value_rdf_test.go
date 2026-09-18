@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 )
 
@@ -77,7 +78,7 @@ func TestOwnedConstraintDeclarationsSurviveRDF(t *testing.T) {
 // written with the flag dropped or one of its values chosen.
 func TestFeatureValueFlagsWithoutAValueOrStatedTwiceAreReported(t *testing.T) {
 	src := "package P {\n\tprivate import ScalarValues::Integer;\n\tpart def V {\n\t\tattribute a : Integer default = 1;\n\t\tattribute b : Integer;\n\t}\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -88,7 +89,7 @@ func TestFeatureValueFlagsWithoutAValueOrStatedTwiceAreReported(t *testing.T) {
 	}
 	refused := func(name, graph string, wants ...string) {
 		t.Helper()
-		_, err := export.Convert("m.ttl", []byte(graph), export.FormatTurtle, export.FormatSysML)
+		_, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
 		var unsupported *export.UnsupportedError
 		if !errors.As(err, &unsupported) {
 			t.Fatalf("%s: expected an unsupported error, got %v", name, err)

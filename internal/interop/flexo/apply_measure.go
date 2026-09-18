@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
 )
@@ -93,11 +93,11 @@ func (a *ApplyRound) write(b *strings.Builder) {
 // then diffs revised against a change made behind the sync's back.
 func MeasureApply(ctx context.Context, c *Client, fixture string, model, revised []byte) (*ApplyReport, error) {
 	report := &ApplyReport{Fixture: filepath.Base(fixture), Revision: revisionName(fixture)}
-	local, err := export.SysMLToRDF(report.Fixture, model)
+	local, err := convert.SysMLToRDF(report.Fixture, model)
 	if err != nil {
 		return nil, fmt.Errorf("convert %s to RDF: %w", fixture, err)
 	}
-	revisedGraph, err := export.SysMLToRDF(report.Revision, revised)
+	revisedGraph, err := convert.SysMLToRDF(report.Revision, revised)
 	if err != nil {
 		return nil, fmt.Errorf("convert %s to RDF: %w", report.Revision, err)
 	}

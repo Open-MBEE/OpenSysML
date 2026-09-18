@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
@@ -171,11 +172,11 @@ func TestVisibilityIsStatedByTheMembership(t *testing.T) {
 // text the heads were written as, and without the compact owningNamespace triple
 // that a graph built from the abstract syntax would not carry.
 func TestOwnershipComesBackFromTheMembershipsAlone(t *testing.T) {
-	turtle, err := export.Convert("m.sysml", []byte(ownershipModel), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(ownershipModel), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	withText, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	withText, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -186,14 +187,14 @@ func TestOwnershipComesBackFromTheMembershipsAlone(t *testing.T) {
 	if strings.Contains(string(stripped), "owningNamespace") {
 		t.Fatal("the compact ownership triple was not stripped")
 	}
-	back, err := export.Convert("m.ttl", stripped, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the memberships alone: %v", err)
 	}
 	if string(back) != string(withText) {
 		t.Errorf("the memberships did not carry the tree\n--- with source text ---\n%s\n--- from the graph ---\n%s", withText, back)
 	}
-	again, err := export.Convert("m.sysml", back, export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
@@ -212,7 +213,7 @@ var elementSideOwnership = []string{"sysx:sourceText", "sysml:owningNamespace", 
 // owned by a membership that is an element in its own right, which no membership
 // edge states, so it alone floats to the root.
 func TestOwnershipComesBackFromTheMembershipSideAlone(t *testing.T) {
-	turtle, err := export.Convert("m.sysml", []byte(ownershipModel), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(ownershipModel), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -220,7 +221,7 @@ func TestOwnershipComesBackFromTheMembershipSideAlone(t *testing.T) {
 	for _, property := range elementSideOwnership {
 		stripped = withoutTriples(t, stripped, property)
 	}
-	back, err := export.Convert("m.ttl", stripped, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the membership side alone: %v", err)
 	}
@@ -247,7 +248,7 @@ action warm;
 // from the elements and the memberships gone with them, the tree flattens, which
 // is what makes those properties load-bearing.
 func TestWithoutAnyOwnershipPropertyTheTreeFlattens(t *testing.T) {
-	turtle, err := export.Convert("m.sysml", []byte(ownershipModel), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(ownershipModel), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -255,7 +256,7 @@ func TestWithoutAnyOwnershipPropertyTheTreeFlattens(t *testing.T) {
 	for _, property := range elementSideOwnership {
 		stripped = withoutTriples(t, stripped, property)
 	}
-	back, err := export.Convert("m.ttl", stripped, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -301,7 +302,7 @@ elmt:Outer__Vehicle
     sysml:declaredName "Vehicle" ;
     sysx:hasBody "false"^^xsd:boolean .
 `
-	back, err := export.Convert("compact.ttl", []byte(compact), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("compact.ttl", []byte(compact), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("a graph in the compact shape should still convert: %v", err)
 	}
@@ -332,7 +333,7 @@ elmt:Outer__Vehicle_om
     sysml:elementId "Outer__Vehicle_om" ;
     sysml:membershipOwningNamespace elmt:Outer .
 `
-	_, err := export.Convert("broken.ttl", []byte(broken), export.FormatTurtle, export.FormatSysML)
+	_, err := convert.Convert("broken.ttl", []byte(broken), convert.FormatTurtle, convert.FormatSysML)
 	if err == nil {
 		t.Fatal("a membership that owns nothing should be reported")
 	}
@@ -356,7 +357,7 @@ ex:r a sysml:OperatorExpression ; sysml:operator "+" ; sysml:argument ex:r_a, ex
 ex:r_a a sysml:LiteralInteger ; sysml:value "2"^^xsd:integer .
 ex:r_b a sysml:LiteralInteger ; sysml:value "3"^^xsd:integer .
 `
-	if _, err := export.Convert("m.ttl", []byte(graph), export.FormatTurtle, export.FormatSysML); err != nil {
+	if _, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML); err != nil {
 		t.Fatalf("the intact graph should convert: %v", err)
 	}
 	for _, tc := range []struct{ end, from, to, want string }{
@@ -367,7 +368,7 @@ ex:r_b a sysml:LiteralInteger ; sysml:value "3"^^xsd:integer .
 		if broken == graph {
 			t.Fatalf("the %s was not rewritten", tc.end)
 		}
-		_, err := export.Convert("m.ttl", []byte(broken), export.FormatTurtle, export.FormatSysML)
+		_, err := convert.Convert("m.ttl", []byte(broken), convert.FormatTurtle, convert.FormatSysML)
 		var unsupported *export.UnsupportedError
 		if !errors.As(err, &unsupported) {
 			t.Fatalf("a membership with an absent %s should be an UnsupportedError, got %v", tc.end, err)

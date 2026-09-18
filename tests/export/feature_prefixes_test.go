@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 )
 
@@ -23,16 +24,16 @@ func mappingAloneRoundTrip(t *testing.T, name string, src []byte) string {
 	t.Helper()
 	ext := filepath.Ext(name)
 	stem := strings.TrimSuffix(name, ext)
-	first, err := export.Convert(name, src, export.FormatSysML, export.FormatTurtle)
+	first, err := convert.Convert(name, src, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
 	stripped := withoutSourceLayout(t, first)
-	back, err := export.Convert(stem+".ttl", stripped, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert(stem+".ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the mapping alone: %v", err)
 	}
-	again, err := export.Convert(name, back, export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert(name, back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again from the mapping alone: %v\n--- notation ---\n%s", err, back)
 	}
@@ -157,11 +158,11 @@ func TestPortionFlagIsCarriedOrRefused(t *testing.T) {
     }
 }
 `)
-	kermlGraph, err := export.Convert("m.kerml", kerml, export.FormatSysML, export.FormatTurtle)
+	kermlGraph, err := convert.Convert("m.kerml", kerml, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sysmlGraph, err := export.Convert("m.sysml", sysml, export.FormatSysML, export.FormatTurtle)
+	sysmlGraph, err := convert.Convert("m.sysml", sysml, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +192,7 @@ func TestPortionFlagIsCarriedOrRefused(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			turtle := editTurtle(t, withoutSourceLayout(t, tc.graph), tc.old, tc.new)
-			back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 			var unsupported *export.UnsupportedError
 			if !errors.As(err, &unsupported) {
 				t.Fatalf("expected an UnsupportedError, got %v\n--- notation ---\n%s", err, back)
@@ -207,18 +208,18 @@ func TestPortionFlagIsCarriedOrRefused(t *testing.T) {
 	// exported do, reads back by its kind; re-exported, the implied flag is all it gains.
 	t.Run("sysml_portion_kind_without_flag", func(t *testing.T) {
 		src := []byte("package Portions {\n    occurrence def Car;\n    occurrence car : Car {\n        snapshot start : Car;\n    }\n}\n")
-		graph, err := export.Convert("m.sysml", src, export.FormatSysML, export.FormatTurtle)
+		graph, err := convert.Convert("m.sysml", src, convert.FormatSysML, convert.FormatTurtle)
 		if err != nil {
 			t.Fatal(err)
 		}
 		current := withoutSourceLayout(t, graph)
 		legacy := withoutTriples(t, current, "sysml:isPortion")
-		back, err := export.Convert("m.ttl", legacy, export.FormatTurtle, export.FormatSysML)
+		back, err := convert.Convert("m.ttl", legacy, convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("back to notation: %v", err)
 		}
 		checkSpelling(t, string(back), []string{"snapshot start : Car;"}, []string{"portion ", "composite"})
-		again, err := export.Convert("m.sysml", back, export.FormatSysML, export.FormatTurtle)
+		again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -231,11 +232,11 @@ func TestPortionFlagIsCarriedOrRefused(t *testing.T) {
 	// spelling follows: the language triple is what selects `const`.
 	t.Run("kerml_root_without_language", func(t *testing.T) {
 		src := []byte("package Prefixes {\n    class A;\n    class B {\n        const feature k : A;\n    }\n}\n")
-		graph, err := export.Convert("m.kerml", src, export.FormatSysML, export.FormatTurtle)
+		graph, err := convert.Convert("m.kerml", src, convert.FormatSysML, convert.FormatTurtle)
 		if err != nil {
 			t.Fatal(err)
 		}
-		back, err := export.Convert("m.ttl", withoutSourceText(t, graph), export.FormatTurtle, export.FormatSysML)
+		back, err := convert.Convert("m.ttl", withoutSourceText(t, graph), convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("back to notation: %v", err)
 		}

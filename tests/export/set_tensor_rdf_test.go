@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 )
 
 // setTensorModel values a Set from a repeating sequence and builds a rank-three
@@ -53,7 +53,7 @@ func TestSetAndTensorValuesRoundTripAsExpressions(t *testing.T) {
 	}
 
 	stripped := withoutSourceText(t, turtle)
-	back, err := export.Convert("m.ttl", stripped, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the expression trees alone: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestSetAndTensorValuesRoundTripAsExpressions(t *testing.T) {
 			t.Errorf("the expression trees alone should spell %q\n--- notation ---\n%s", want, back)
 		}
 	}
-	again, err := export.Convert("m.sysml", []byte(back), export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert("m.sysml", []byte(back), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}

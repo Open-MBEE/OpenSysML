@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 )
 
 // The Python client cannot import the Go constant, so it keeps a fallback copy
@@ -23,8 +23,8 @@ func TestPythonFallbackNoticeMatchesTheConstant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read EXPERIMENTAL_NOTICE from %s: %v", path, err)
 	}
-	if copied != export.ExperimentalNotice {
-		t.Errorf("the Python fallback notice has drifted from the constant\npython: %q\ngo:     %q", copied, export.ExperimentalNotice)
+	if copied != convert.ExperimentalNotice {
+		t.Errorf("the Python fallback notice has drifted from the constant\npython: %q\ngo:     %q", copied, convert.ExperimentalNotice)
 	}
 }
 

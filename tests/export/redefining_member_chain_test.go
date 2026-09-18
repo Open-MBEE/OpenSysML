@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
 
@@ -77,7 +77,7 @@ func TestShapeItemsChainsThroughRedefiningFacesBindInTheGraph(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	turtle, err := export.Convert(path, src, export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert(path, src, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}

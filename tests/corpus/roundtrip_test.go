@@ -15,6 +15,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -157,15 +158,15 @@ func corpusRoundTripFiles(t *testing.T) ([]string, map[string]int) {
 // corpusRoundTripVerdict classifies one model's notation -> Turtle -> notation
 // -> Turtle trip. An error means the harness failed, never a verdict.
 func corpusRoundTripVerdict(rel string, src []byte) (string, error) {
-	hop1, err := export.Convert(rel, src, export.FormatSysML, export.FormatTurtle)
+	hop1, err := convert.Convert(rel, src, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		return "refused:" + refusalClass(rel, err), nil
 	}
-	back, err := export.Convert(rel+".ttl", hop1, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert(rel+".ttl", hop1, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		return "unwritable", nil
 	}
-	hop2, err := export.Convert(rel, back, export.FormatSysML, export.FormatTurtle)
+	hop2, err := convert.Convert(rel, back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		return "unparseable", nil
 	}
@@ -224,7 +225,7 @@ var refusalSlug = regexp.MustCompile(`[^a-z0-9]+`)
 // location or identifiers, "syntax" for a parse failure, "error" otherwise.
 func refusalClass(name string, err error) string {
 	var unsupported *export.UnsupportedError
-	var syntax *export.SyntaxError
+	var syntax *convert.SyntaxError
 	switch {
 	case errors.As(err, &unsupported):
 		what := unsupported.What
@@ -415,7 +416,7 @@ func TestRefusalClass(t *testing.T) {
 		{"e.sysml", &export.UnsupportedError{What: "the ElementId annotation on Pkg::Part"}, "elementid-annotation"},
 		{"e.sysml", &export.UnsupportedError{What: "usage kind \"part\" at e.sysml:1:1"}, "usage-kind-part"},
 		{"e.sysml", &export.UnsupportedError{What: "an empty document"}, "an-empty-document"},
-		{"f.sysml", &export.SyntaxError{Name: "f.sysml", Messages: []string{"f.sysml:1:1: unexpected token"}}, "syntax"},
+		{"f.sysml", &convert.SyntaxError{Name: "f.sysml", Messages: []string{"f.sysml:1:1: unexpected token"}}, "syntax"},
 		{"g.sysml", errors.New("boom"), "error"},
 	}
 	for _, c := range cases {

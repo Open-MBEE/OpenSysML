@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 )
 
 // notationFromTheGraphAlone converts src to Turtle, strips the source text and
@@ -12,11 +12,11 @@ import (
 // match. The sourced path is the negative control: it replays src byte for byte.
 func notationFromTheGraphAlone(t *testing.T, name, src string) string {
 	t.Helper()
-	turtle, err := export.Convert(name, []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert(name, []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	sourced, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	sourced, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back with source text: %v", err)
 	}
@@ -24,11 +24,11 @@ func notationFromTheGraphAlone(t *testing.T, name, src string) string {
 		t.Errorf("the sourced path must replay the source\n got: %s\nwant: %s", sourced, src)
 	}
 	stripped := withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
-	back, err := export.Convert("m.ttl", stripped, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back from the graph alone: %v", err)
 	}
-	again, err := export.Convert(name, back, export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert(name, back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v\n%s", err, back)
 	}
@@ -95,7 +95,7 @@ func TestSysMLBindingOwnMultiplicityTakesTheDeclaredForm(t *testing.T) {
 	back := notationFromTheGraphAlone(t, "s.sysml", src)
 	wantFragments(t, back, "binding [1] bind a = b;", "binding bb[2] bind a = b;")
 	// A graph from another tool may state the bounds on a `bind` and no verb.
-	turtle, err := export.Convert("s.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("s.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestSysMLBindingOwnMultiplicityTakesTheDeclaredForm(t *testing.T) {
 	}
 	// The anonymous binding is the first end-binding head; state it as a `bind`.
 	turtle = []byte(strings.Replace(string(turtle), `sysx:endForm "equals" ;`, "sysx:endForm \"equals\" ;\n    sysx:declaredKeyword \"bind\" ;", 1))
-	back2, err := export.Convert("s.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	back2, err := convert.Convert("s.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back from a `bind` with its own bounds: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestSysMLBindingOwnMultiplicityTakesTheDeclaredForm(t *testing.T) {
 		t.Errorf("`bind [n]` hands the bounds to the first end:\n%s", back2)
 	}
 	wantFragments(t, string(back2), "binding [1] bind a = b;", "binding bb[2] bind a = b;")
-	again, err := export.Convert("s.sysml", back2, export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert("s.sysml", back2, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +217,7 @@ func TestGuardedSuccessionKeepsItsSyntax(t *testing.T) {
 		"public succession U first off if x == 5 then on;",
 		"succession V first on if x == 6 then off;",
 		"transition first off if x == 7 then on;")
-	turtle, err := export.Convert("d.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("d.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatal(err)
 	}
