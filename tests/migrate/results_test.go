@@ -309,6 +309,58 @@ func TestOverlappingResultLocationsIndexEachSnapshotOnce(t *testing.T) {
 	wantClean(t, "t.sysml", r)
 }
 
+// A snapshot holding two numbers for one feature over two slots has no one result
+// for it: the feature is left out of that snapshot with a note, whichever slot comes
+// first or last, while its other features and the other snapshots keep their numbers.
+func TestRepeatedSnapshotSlotsHoldNoResult(t *testing.T) {
+	r := migrateDocument(t, storedResults+`
+    <packagedElement xmi:type="uml:Package" xmi:id="_twice" name="Twice">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r5" name="run 5" classifier="_sure">
+        <slot xmi:type="uml:Slot" xmi:id="_r5b1" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r5b1v" value="10.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r5a" definingFeature="_pa">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r5av" value="1.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r5b2" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r5b2v" value="20.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r5b3" definingFeature="_pb">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_r5b3v" value="30"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r6" name="run 6" classifier="_sure">
+        <slot xmi:type="uml:Slot" xmi:id="_r6b" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r6bv" value="40.0"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Block xmi:id="_s2" base_Class="_sure"/>
+  <sysml:Block xmi:id="_s3" base_Class="_other"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
+      executionTarget="_s0" resultLocation="_twice"/>`)
+	configs := r.Results.Configurations
+	if len(configs) != 1 {
+		t.Fatalf("results index %d configuration(s), want 1", len(configs))
+	}
+	want := []simresults.Snapshot{
+		{ID: "_r5", Name: "run 5", Values: map[string]float64{"pA": 1.0}},
+		{ID: "_r6", Name: "run 6", Values: map[string]float64{"pB": 40.0}},
+	}
+	if !reflect.DeepEqual(configs[0].Snapshots, want) {
+		t.Errorf("snapshots = %+v, want %+v", configs[0].Snapshots, want)
+	}
+	if values := configs[0].Values("pB"); !reflect.DeepEqual(values, []float64{40.0}) {
+		t.Errorf("Values(pB) = %v, want [40]", values)
+	}
+	if notes := []string{"the slot of pB holds 3 numbers over as many slots, and a result is one number in 1 snapshot(s), so it is not among the results"}; !reflect.DeepEqual(configs[0].Notes, notes) {
+		t.Errorf("notes = %q, want %q", configs[0].Notes, notes)
+	}
+	wantLine(t, r.Notation, "/* results of the simulation tool: 2 snapshot(s) in Twice holding pA, pB */")
+	wantClean(t, "t.sysml", r)
+}
+
 // The sidecar is read back as written, and anything else is refused: JSON of
 // another shape, a field the sidecar never writes, or no source at all.
 func TestResultsSidecarRoundTrip(t *testing.T) {

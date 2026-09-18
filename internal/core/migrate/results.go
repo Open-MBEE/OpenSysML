@@ -16,7 +16,8 @@ import (
 
 // resultSnapshots reads into r the snapshots of the target's classifiers under the
 // resultLocation packages that record the values the target configures, each once
-// though the locations repeat or nest; lost says what of the results is outside the document.
+// though the locations repeat or nest. A feature two slots of a snapshot hold numbers
+// for has no one result there and is noted; lost says what is outside the document.
 func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *xmi.Stereotype, target executionTarget) (lost []string) {
 	ids := s.IDs("resultLocation")
 	if len(ids) == 0 {
@@ -54,6 +55,7 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *xmi.S
 				continue
 			}
 			snap := simresults.Snapshot{ID: inst.ID, Name: inst.Name, Values: map[string]float64{}}
+			held := map[string]int{}
 			for _, slot := range inst.Owned("slot") {
 				name, value, reason := m.snapshotSlot(slot)
 				if reason != "" {
@@ -61,6 +63,15 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *xmi.S
 					continue
 				}
 				snap.Values[name] = value
+				held[name]++
+			}
+			for name, n := range held {
+				if n > 1 {
+					delete(snap.Values, name)
+					unread[name+" holds "+strconv.Itoa(n)+" numbers over as many slots, and a result is one number"]++
+				}
+			}
+			for name := range snap.Values {
 				seenObservable[name] = true
 			}
 			r.Snapshots = append(r.Snapshots, snap)

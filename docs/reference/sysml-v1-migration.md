@@ -153,7 +153,7 @@ returned over the service yet.
 | «SimulationConfig» (MagicDraw's SimulationProfile) | `action def` holding `@Simulation::Configuration { runs = …; draws = …; timeVariable = …; startTime = …; stepSize = …; timeUnit = …; parallelForks = …; }`, `part target : <the migrated executionTarget>;` and `perform action run ::> target.<its classifier behavior>;` (see [Run configurations](#run-configurations)); its remaining tags a comment | mapped |
 | «SimulationConfig» whose `executionTarget` is absent, several, outside the document, not migrated, or written as something no part can be typed by; whose target has no classifier behavior, or one that is a state machine | the `action def` with its metadata and, where the target is written, its `target` part, performing nothing; the note says why | approximated |
 | «SimulationConfig» `durationSimulationMode` that is none of `min`, `max`, `average`, `random` | kept among the tags in the comment | approximated |
-| Result snapshots of a «SimulationConfig» (the instances under its `resultLocation` packages classified — by name or by their slots — by its target's classifiers, recording no other values of the features the target's slots set) | the individuals above, and one row per snapshot in the JSON `-migration-results` writes, its numeric slots by defining feature; a slot holding no one finite number is counted in the configuration's notes | mapped |
+| Result snapshots of a «SimulationConfig» (the instances under its `resultLocation` packages classified — by name or by their slots — by its target's classifiers, recording no other values of the features the target's slots set) | the individuals above, and one row per snapshot in the JSON `-migration-results` writes, its numeric slots by defining feature; a slot holding no one finite number, and a feature two slots hold numbers for, are counted in the configuration's notes | mapped |
 | ObjectFlow | `flow a.out to b.in;`, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated is a comment | mapped / approximated |
 | SendSignalAction | `action x send new Sig(args) to <target>;`, `via <port>` when `onPort` is set; the target is read from the target pin's flow: `this`, `this.part` where a structural read feeds the pin, else the pin itself (`in target;` bound to what feeds it, an activity parameter or another node's output), which the runtime evaluates to the object it holds | mapped / approximated |
 | AcceptEventAction | `action x accept p : Sig;` (signal trigger), `accept after <d> [SI::s]` (relative TimeEvent), `accept when <cond>` (ChangeEvent) | mapped |
@@ -346,8 +346,9 @@ action def 'Group 0' {
   package — is of another configuration and left out with a note counting it. Locations that
   repeat or nest (a package and a sub-package of it) index each snapshot once. A
   `resultLocation` outside the document, a snapshot slot with no defining feature in the
-  document or holding no one finite number, and a target with no classifier to match
-  snapshots against are each noted in the configuration's `notes`.
+  document or holding no one finite number, a feature two slots of one snapshot hold numbers
+  for (left out of that snapshot: it has no one result there), and a target with no
+  classifier to match snapshots against are each noted in the configuration's `notes`.
 
 `sysml model.sysml -compare-results results.json` then runs every configuration the sidecar
 indexes — with its `runs` and `draws`, or the `-runs` and `-draws` given, seeded from `-seed` —

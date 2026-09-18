@@ -1041,8 +1041,9 @@ one entry per configuration with its `name` (the qualified name of the generated
 which `-action` names), `runs`, `draws`, `target`, `behavior`, `resultLocation`, the
 `observables` its snapshots hold, one `snapshots` row per stored run with its numeric slot
 values, and `notes` stating every slot left out and why (a value that is no number, a defining
-feature the document does not hold, a result location holding no snapshot of the target's
-classifier); result locations that repeat or nest index each snapshot once. The sidecar is read strictly: an unknown field, a missing `source` or
+feature the document does not hold, a feature two slots of one snapshot hold numbers for, a
+result location holding no snapshot of the target's classifier); result locations that repeat
+or nest index each snapshot once. The sidecar is read strictly: an unknown field, a missing `source` or
 `configurations`, or malformed JSON is refused naming the file.
 
 `-compare-results <file>` on the migrated model then runs every configuration the sidecar
