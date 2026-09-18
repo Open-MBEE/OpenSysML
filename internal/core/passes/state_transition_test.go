@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -11,7 +12,7 @@ import (
 
 // transitionDiags runs the pass alone, so what it reports is not mixed with what
 // another tier reports about the same model.
-func transitionDiags(t *testing.T, src string) []Diagnostic {
+func transitionDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	sf := source.New("t.sysml", []byte(src))
 	p := parser.New(sf)
@@ -24,7 +25,7 @@ func transitionDiags(t *testing.T, src string) []Diagnostic {
 }
 
 // analyzeTransitions runs every tier, for a verdict another tier reports.
-func analyzeTransitions(t *testing.T, src string) []Diagnostic {
+func analyzeTransitions(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	sf := source.New("t.sysml", []byte(src))
 	p := parser.New(sf)
@@ -32,7 +33,7 @@ func analyzeTransitions(t *testing.T, src string) []Diagnostic {
 	if len(p.Diagnostics) != 0 {
 		t.Fatalf("unexpected parse diagnostics: %+v", p.Diagnostics)
 	}
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range Analyze("t.sysml", root, nil, newTestIndexFromDoc("t.sysml", root)) {
 		// The models here are written in our own state notation, which
 		// NonstandardNotationPass warns about; the verdict under test is another
@@ -55,14 +56,14 @@ func wantClean(t *testing.T, src string) {
 }
 
 // wantOneError fails unless the pass reports exactly the expected diagnostic.
-func wantOneError(t *testing.T, src, code, messagePart string) Diagnostic {
+func wantOneError(t *testing.T, src, code, messagePart string) diag.Diagnostic {
 	t.Helper()
 	got := transitionDiags(t, src)
 	if len(got) != 1 {
 		t.Fatalf("got %+v, want exactly one diagnostic", got)
 	}
 	d := got[0]
-	if d.Severity != SeverityError || d.Source != "state-transition" || d.Code != code {
+	if d.Severity != diag.SeverityError || d.Source != "state-transition" || d.Code != code {
 		t.Fatalf("got %+v, want severity=error source=state-transition code=%s", d, code)
 	}
 	if !strings.Contains(d.Message, messagePart) {
@@ -193,7 +194,7 @@ func TestTransitionTargetResolvingToNonVertexIsIllegal(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("got %+v, want exactly one diagnostic", got)
 	}
-	if got[0].Severity != SeverityError || got[0].Code != "not-a-vertex" {
+	if got[0].Severity != diag.SeverityError || got[0].Code != "not-a-vertex" {
 		t.Fatalf("got %+v, want an error coded not-a-vertex", got[0])
 	}
 	if len(transitionDiags(t, src)) != 0 {

@@ -15,6 +15,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/api/proto/protoconnect"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -129,7 +130,7 @@ func BenchmarkAnalyze(b *testing.B) {
 				b.StartTimer()
 				diags := passes.AnalyzeWithOptions("m.sysml", source.KindSysML, root, nil, idx, passes.Options{})
 				for _, d := range diags {
-					if d.Severity == passes.SeverityError {
+					if d.Severity == diag.SeverityError {
 						b.Fatalf("error: %s", d.Message)
 					}
 				}

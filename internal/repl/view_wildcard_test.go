@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 const wildcardViewModel = `package Fleet {
@@ -27,7 +27,7 @@ func wildcardViewSession(t *testing.T) *Session {
 	s := NewSession()
 	res := s.Submit(wildcardViewModel)
 	for _, d := range res.Diagnostics {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Fatalf("model did not load: %v", res.Diagnostics)
 		}
 	}

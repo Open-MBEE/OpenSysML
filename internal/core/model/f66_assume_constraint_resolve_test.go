@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // F66: the declaration an `assume`/`require constraint` owns resolves like any
@@ -24,7 +24,7 @@ func TestF66OwnedConstraintDeclarationResolves(t *testing.T) {
 
 	var errs []string
 	for _, d := range ws.Diagnostics("f66.sysml") {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			errs = append(errs, d.Message)
 		}
 	}
@@ -48,7 +48,7 @@ func TestF66OwnedConstraintMultiplicityBoundIsResolved(t *testing.T) {
 
 	var found bool
 	for _, d := range ws.Diagnostics("f66_bad.sysml") {
-		if d.Severity == passes.SeverityError && strings.Contains(d.Message, "missingBound") {
+		if d.Severity == diag.SeverityError && strings.Contains(d.Message, "missingBound") {
 			found = true
 		}
 	}

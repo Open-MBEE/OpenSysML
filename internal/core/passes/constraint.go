@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -24,7 +25,7 @@ const CodeConnectorEnds = "connector-ends"
 
 func (ConstraintPass) Level() PassLevel { return LevelConstraint }
 
-func (ConstraintPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (ConstraintPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -45,7 +46,7 @@ type constraintChecker struct {
 	model    *semantics.Model
 	resolver *resolve.Resolver
 	seen     map[*symbols.Symbol]bool
-	diags    []Diagnostic
+	diags    []diag.Diagnostic
 }
 
 // libraryDeclared reports whether sym is declared by bundled library content,
@@ -118,8 +119,8 @@ func (cc *constraintChecker) checkFlowEndSubsetting(sym *symbols.Symbol) {
 		if !ok || qn == nil || len(qn.Parts) != 1 {
 			continue
 		}
-		cc.diags = append(cc.diags, Diagnostic{
-			Severity: SeverityError,
+		cc.diags = append(cc.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     attachment.Attachment.Span(),
 			Message:  "a flow end must name the feature the payload flows from or to using dot notation",
 			Code:     "flow-end-subsetting",
@@ -144,8 +145,8 @@ func (cc *constraintChecker) checkViewSatisfyTarget(sym *symbols.Symbol) {
 	if target == nil || semantics.IsViewpoint(target) {
 		return
 	}
-	cc.diags = append(cc.diags, Diagnostic{
-		Severity: SeverityError,
+	cc.diags = append(cc.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     sym.DeclSpan,
 		Message: fmt.Sprintf(
 			"satisfy in a view body must name a viewpoint: %s is a %s, which frames no concern for the view to conform to",
@@ -175,8 +176,8 @@ func (cc *constraintChecker) checkSpecializationCycle(sym *symbols.Symbol) {
 			break
 		}
 	}
-	cc.diags = append(cc.diags, Diagnostic{
-		Severity: SeverityError,
+	cc.diags = append(cc.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message:  fmt.Sprintf("%s participates in a specialization cycle", sym.Name),
 		Code:     "specialization-cycle",
@@ -244,8 +245,8 @@ func (cc *constraintChecker) checkMultiplicityRange(sym *symbols.Symbol) {
 	if mult := semantics.UsageMultiplicityOf(sym); mult != nil {
 		span = mult.Span()
 	}
-	cc.diags = append(cc.diags, Diagnostic{
-		Severity: SeverityError,
+	cc.diags = append(cc.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message:  fmt.Sprintf("multiplicity lower bound exceeds upper bound on %s", sym.Name),
 		Code:     "multiplicity-range",
@@ -307,8 +308,8 @@ func (cc *constraintChecker) checkBinaryConnectorEnds(sym *symbols.Symbol) bool 
 		name = "this " + connectorKindName(sym)
 	}
 	for _, node := range excess {
-		cc.diags = append(cc.diags, Diagnostic{
-			Severity: SeverityError,
+		cc.diags = append(cc.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     node.Span(),
 			Message: fmt.Sprintf("%s has %d ends but specializes a binary link (%s), which cannot have more than two; "+
 				"drop the extra ends or specialize an n-ary link instead", name, total, semantics.BinaryConnectorBaseFQN),
@@ -345,8 +346,8 @@ func (cc *constraintChecker) checkConnectorEndRedefinition(sym *symbols.Symbol) 
 	}
 	declared := cc.model.ConnectorEndCount(general)
 	for _, end := range unmatched {
-		cc.diags = append(cc.diags, Diagnostic{
-			Severity: SeverityError,
+		cc.diags = append(cc.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     end.DeclSpan,
 			Message: fmt.Sprintf("end %s redefines no end of %s, which declares %d end(s)",
 				end.Name, general.Name, declared),
@@ -366,8 +367,8 @@ func (cc *constraintChecker) checkInterfaceEndConjugation(sym *symbols.Symbol) {
 	if !mismatch {
 		return
 	}
-	cc.diags = append(cc.diags, Diagnostic{
-		Severity: SeverityWarning,
+	cc.diags = append(cc.diags, diag.Diagnostic{
+		Severity: diag.SeverityWarning,
 		Span:     sym.DeclSpan,
 		Message: fmt.Sprintf(
 			"interface %s connects ports %s and %s, whose directed features are not conjugate; one end usually names the conjugate port (~%s)",
@@ -388,8 +389,8 @@ func (cc *constraintChecker) addConnectorEndsDiag(sym *symbols.Symbol, u *ast.Us
 	case len(u.ConnectorEnds) >= 1:
 		span = u.ConnectorEnds[0].Span()
 	}
-	cc.diags = append(cc.diags, Diagnostic{
-		Severity: SeverityError,
+	cc.diags = append(cc.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message:  msg,
 		Code:     CodeConnectorEnds,
@@ -430,8 +431,8 @@ func (cc *constraintChecker) checkUnnamedRedefinitionValue(sym *symbols.Symbol) 
 			"a member redefining %s takes the name %s only, so this value is not reachable by name as %s; declare a name or redefine one feature",
 			strings.Join(targets, " and "), targets[0], strings.Join(targets[1:], " or "))
 	}
-	cc.diags = append(cc.diags, Diagnostic{
-		Severity: SeverityWarning,
+	cc.diags = append(cc.diags, diag.Diagnostic{
+		Severity: diag.SeverityWarning,
 		Span:     u.Value.Span(),
 		Message:  message,
 		Code:     "redefinition-no-derived-name",
@@ -514,8 +515,8 @@ func (cc *constraintChecker) checkRedefinition(sym *symbols.Symbol) {
 		}
 
 		if !inherited {
-			cc.diags = append(cc.diags, Diagnostic{
-				Severity: SeverityError,
+			cc.diags = append(cc.diags, diag.Diagnostic{
+				Severity: diag.SeverityError,
 				Span:     rel.Target.Span(),
 				Message: fmt.Sprintf(
 					"%s redefines %s, but %s is not an inherited member of %s",
@@ -533,8 +534,8 @@ func (cc *constraintChecker) checkRedefinition(sym *symbols.Symbol) {
 
 		if usageType != nil && redefinedType != nil {
 			if !cc.model.Conforms(usageType, redefinedType) {
-				cc.diags = append(cc.diags, Diagnostic{
-					Severity: SeverityWarning,
+				cc.diags = append(cc.diags, diag.Diagnostic{
+					Severity: diag.SeverityWarning,
 					Span:     rel.Target.Span(),
 					Message: fmt.Sprintf(
 						"%s (typed by %s) redefines %s (typed by %s): types do not conform",

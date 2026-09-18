@@ -3,18 +3,19 @@ package passes
 import (
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // constraintDiagsKerML is constraintDiags for KerML notation fixtures.
-func constraintDiagsKerML(t *testing.T, src string) []Diagnostic {
+func constraintDiagsKerML(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	root := parser.New(source.New("<t>.kerml", []byte(src))).ParseFile()
 	idx := newTestIndex()
 	idx.AddDocument("<t>.kerml", root)
 	all := Analyze("<t>.kerml", root, nil, idx)
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range all {
 		if d.Source == "constraint" {
 			out = append(out, d)

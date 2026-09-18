@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -13,7 +14,7 @@ import (
 // w11aMessages are the messages of src's diagnostics, sorted.
 func w11aMessages(t *testing.T, src string, lib bool) []string {
 	t.Helper()
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	if lib {
 		diags = w9cLibraryDiags(t, src, false)
 	} else {

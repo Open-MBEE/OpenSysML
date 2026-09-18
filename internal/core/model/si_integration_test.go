@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 func TestSIWildcardImportIntegration(t *testing.T) {
@@ -20,7 +21,7 @@ func TestSIWildcardImportIntegration(t *testing.T) {
 
 	var errs []string
 	for _, d := range diags {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			errs = append(errs, d.Message)
 		}
 	}
@@ -44,7 +45,7 @@ func TestSIMemberImportIntegration(t *testing.T) {
 
 	var errs []string
 	for _, d := range diags {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			errs = append(errs, d.Message)
 		}
 	}

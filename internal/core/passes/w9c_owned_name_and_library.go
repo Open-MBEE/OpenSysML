@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -16,7 +17,7 @@ type W9CShortNameDistinguishabilityPass struct{}
 
 func (W9CShortNameDistinguishabilityPass) Level() PassLevel { return LevelNameResolution }
 
-func (W9CShortNameDistinguishabilityPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W9CShortNameDistinguishabilityPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -36,7 +37,7 @@ func (W9CShortNameDistinguishabilityPass) Run(ctx *Context, name string, root *a
 		}
 		byScope[scope] = append(byScope[scope], sym)
 	})
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	for _, scope := range order {
 		diags = append(diags, w9cShortNameConflicts(byScope[scope])...)
 	}
@@ -45,22 +46,22 @@ func (W9CShortNameDistinguishabilityPass) Run(ctx *Context, name string, root *a
 
 // w9cShortNameConflicts reports one diagnostic per member whose short name is
 // another member's name or short name, at the repeated identifier.
-func w9cShortNameConflicts(members []*symbols.Symbol) []Diagnostic {
+func w9cShortNameConflicts(members []*symbols.Symbol) []diag.Diagnostic {
 	uses := map[string][]*symbols.Symbol{}
 	for _, sym := range members {
 		for _, key := range w9cKeysOf(sym) {
 			uses[key.name] = append(uses[key.name], sym)
 		}
 	}
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	for _, sym := range members {
 		keys := w9cKeysOf(sym)
 		for _, key := range keys {
 			if len(uses[key.name]) < 2 || !w9cAnyShort(uses[key.name], key.name) {
 				continue
 			}
-			diags = append(diags, Diagnostic{
-				Severity: SeverityWarning,
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.SeverityWarning,
 				Span:     key.span,
 				Message:  "Duplicate of other owned member name",
 				Code:     "name-conflict",
@@ -150,14 +151,14 @@ type W9CUserStandardLibraryPass struct{}
 
 func (W9CUserStandardLibraryPass) Level() PassLevel { return LevelNameResolution }
 
-func (W9CUserStandardLibraryPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W9CUserStandardLibraryPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
 	if w9cIsLibraryDocument(ctx, name) {
 		return nil
 	}
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	var walk func(nodes []ast.Node)
 	walk = func(nodes []ast.Node) {
 		for _, node := range nodes {
@@ -166,8 +167,8 @@ func (W9CUserStandardLibraryPass) Run(ctx *Context, name string, root *ast.RootN
 				walk([]ast.Node{n.Member})
 			case *ast.Package:
 				if n.IsStandard {
-					diags = append(diags, Diagnostic{
-						Severity: SeverityWarning,
+					diags = append(diags, diag.Diagnostic{
+						Severity: diag.SeverityWarning,
 						Span:     source.Span{Offset: n.Span().Offset, Len: len("standard")},
 						Message:  "User library packages should not be marked as standard",
 						Code:     "library-package",

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // F71: `timeslice` names a KerML feature, so the parameter of `expr while` builds
@@ -38,7 +38,7 @@ func TestF71TimesliceParameterResolves(t *testing.T) {
 
 	var errs []string
 	for _, d := range ws.Diagnostics("f71.kerml") {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			errs = append(errs, d.Message)
 		}
 	}

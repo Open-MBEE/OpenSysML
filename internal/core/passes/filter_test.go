@@ -4,14 +4,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // filterDiags returns the element-filter findings of src.
-func filterDiags(t *testing.T, src string) []Diagnostic {
+func filterDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range analyzeFilterSource(t, src) {
 		if strings.HasPrefix(d.Code, "filter-") {
 			out = append(out, d)
@@ -20,7 +21,7 @@ func filterDiags(t *testing.T, src string) []Diagnostic {
 	return out
 }
 
-func analyzeFilterSource(t *testing.T, src string) []Diagnostic {
+func analyzeFilterSource(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	const name = "<t>.kerml"
 	root := parser.New(source.New(name, []byte(src))).ParseFile()
@@ -31,8 +32,8 @@ func analyzeFilterSource(t *testing.T, src string) []Diagnostic {
 }
 
 // only returns the findings with one code.
-func only(diags []Diagnostic, code string) []Diagnostic {
-	var out []Diagnostic
+func only(diags []diag.Diagnostic, code string) []diag.Diagnostic {
+	var out []diag.Diagnostic
 	for _, d := range diags {
 		if d.Code == code {
 			out = append(out, d)
@@ -43,8 +44,8 @@ func only(diags []Diagnostic, code string) []Diagnostic {
 
 // except returns the findings without one code, for tests whose subject is a
 // different rule.
-func except(diags []Diagnostic, code string) []Diagnostic {
-	var out []Diagnostic
+func except(diags []diag.Diagnostic, code string) []diag.Diagnostic {
+	var out []diag.Diagnostic
 	for _, d := range diags {
 		if d.Code != code {
 			out = append(out, d)
@@ -76,7 +77,7 @@ func TestFilterNotBooleanIsReported(t *testing.T) {
 			if len(diags) != 1 {
 				t.Fatalf("got %d filter-not-boolean diagnostics, want 1: %v", len(diags), diags)
 			}
-			if diags[0].Severity != SeverityError {
+			if diags[0].Severity != diag.SeverityError {
 				t.Errorf("severity = %v, want an error", diags[0].Severity)
 			}
 			if diags[0].Span.Len == 0 {
@@ -110,7 +111,7 @@ func TestFilterNotEvaluableIsReported(t *testing.T) {
 			if got := len(only(all, "filter-not-boolean")); got != 0 {
 				t.Fatalf("got %d filter-not-boolean diagnostics, want none: %v", got, all)
 			}
-			if diags[0].Severity != SeverityError {
+			if diags[0].Severity != diag.SeverityError {
 				t.Errorf("severity = %v, want an error", diags[0].Severity)
 			}
 			if diags[0].Span.Len == 0 {
@@ -250,7 +251,7 @@ func TestChainFilterDiagnosticsUseSemanticResultAndEvaluability(t *testing.T) {
 
 	type wantDiagnostic struct {
 		code     string
-		severity Severity
+		severity diag.Severity
 		message  string
 		text     string
 	}
@@ -260,24 +261,24 @@ func TestChainFilterDiagnosticsUseSemanticResultAndEvaluability(t *testing.T) {
 		want []wantDiagnostic
 	}{
 		{"metaclass Boolean chain", boolChain, []wantDiagnostic{
-			{"filter-not-evaluated", SeverityWarning, msgFilterNotEvaluated, "filter R1::N::m.a"},
-			{"feature-reference-featuring-types", SeverityError, msgSubsettingFeaturingTypes, "R1::N::m"},
+			{"filter-not-evaluated", diag.SeverityWarning, msgFilterNotEvaluated, "filter R1::N::m.a"},
+			{"feature-reference-featuring-types", diag.SeverityError, msgSubsettingFeaturingTypes, "R1::N::m"},
 		}},
 		{"metaclass integer chain", intChain, []wantDiagnostic{
-			{"filter-not-boolean", SeverityError, msgFilterNotBoolean, "filter R1::N::m.a"},
+			{"filter-not-boolean", diag.SeverityError, msgFilterNotBoolean, "filter R1::N::m.a"},
 		}},
 		{"chain comparison", comparison, []wantDiagnostic{
-			{"filter-not-evaluated", SeverityWarning, msgFilterNotEvaluated, "filter R1::N::m.a > 2"},
-			{"feature-reference-featuring-types", SeverityError, msgSubsettingFeaturingTypes, "R1::N::m"},
+			{"filter-not-evaluated", diag.SeverityWarning, msgFilterNotEvaluated, "filter R1::N::m.a > 2"},
+			{"feature-reference-featuring-types", diag.SeverityError, msgSubsettingFeaturingTypes, "R1::N::m"},
 		}},
 		{"struct-featured chain", structChain, []wantDiagnostic{
-			{"filter-not-evaluable", SeverityError, msgFilterNotEvaluable, "filter R1::T::s.x"},
+			{"filter-not-evaluable", diag.SeverityError, msgFilterNotEvaluable, "filter R1::T::s.x"},
 		}},
 		{"library metaclass chain", libraryChain, []wantDiagnostic{
-			{"filter-not-evaluated", SeverityWarning, msgFilterNotEvaluated, "filter KerML::Root::Element::owner.name"},
+			{"filter-not-evaluated", diag.SeverityWarning, msgFilterNotEvaluated, "filter KerML::Root::Element::owner.name"},
 		}},
 		{"package-level chain", packageChain, []wantDiagnostic{
-			{"filter-not-evaluated", SeverityWarning, msgFilterNotEvaluated, "filter R1::p.a"},
+			{"filter-not-evaluated", diag.SeverityWarning, msgFilterNotEvaluated, "filter R1::p.a"},
 		}},
 	}
 

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 )
 
@@ -97,19 +98,19 @@ func meta(t *testing.T, s *Session, line string) []string {
 	return out
 }
 
-func hasImportError(diags []passes.Diagnostic) bool {
+func hasImportError(diags []diag.Diagnostic) bool {
 	for _, d := range diags {
-		if d.Severity == passes.SeverityError && d.Code == "import-visibility" {
+		if d.Severity == diag.SeverityError && d.Code == "import-visibility" {
 			return true
 		}
 	}
 	return false
 }
 
-func notationErrors(diags []passes.Diagnostic) int {
+func notationErrors(diags []diag.Diagnostic) int {
 	var n int
 	for _, d := range diags {
-		if d.Severity == passes.SeverityError && d.Code == passes.CodeNonstandardNotation {
+		if d.Severity == diag.SeverityError && d.Code == passes.CodeNonstandardNotation {
 			n++
 		}
 	}

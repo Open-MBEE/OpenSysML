@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -21,8 +22,8 @@ func (cc *constraintChecker) checkAtMostOneConjugator(sym *symbols.Symbol) {
 			seen = true
 			continue
 		}
-		cc.diags = append(cc.diags, Diagnostic{
-			Severity: SeverityError,
+		cc.diags = append(cc.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     rel.Span(),
 			Message:  msgAtMostOneConjugator,
 			Code:     "type-conjugators",

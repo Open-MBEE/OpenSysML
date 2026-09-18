@@ -693,7 +693,7 @@ Workspace and document management.
   - `GetDocument(name string) (*Document, bool)`
   - `RemoveDocument(name string)`
   - `Index() *symbols.Index` — Global symbol index
-  - `Diagnostics(name string) []passes.Diagnostic`
+  - `Diagnostics(name string) []diag.Diagnostic`
 
 - **`Document`** — Single source file
   - `Name() string`

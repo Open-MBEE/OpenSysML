@@ -4,12 +4,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // w8dDiags analyses src with the default registry, as the CLI does.
-func w8dDiags(t *testing.T, src string) []Diagnostic {
+func w8dDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	root := parser.New(source.New("<t>", []byte(src))).ParseFile()
 	idx := newTestIndex()

@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -18,7 +19,7 @@ type ImplicitBasePass struct{}
 
 func (ImplicitBasePass) Level() PassLevel { return LevelConstraint }
 
-func (ImplicitBasePass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (ImplicitBasePass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -35,7 +36,7 @@ type implicitBaseChecker struct {
 	model   *semantics.Model
 	index   *symbols.Index
 	isKerML bool
-	diags   []Diagnostic
+	diags   []diag.Diagnostic
 }
 
 func (c *implicitBaseChecker) check(sym *symbols.Symbol) {
@@ -178,8 +179,8 @@ func (c *implicitBaseChecker) libraryType(fqn string) *symbols.Symbol {
 }
 
 func (c *implicitBaseChecker) report(span source.Span, msg, code string) {
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message:  msg,
 		Code:     code,

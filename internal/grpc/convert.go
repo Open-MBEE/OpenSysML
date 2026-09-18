@@ -11,8 +11,8 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -74,8 +74,8 @@ func int32Clamp(n int) int32 {
 	return int32(n)
 }
 
-// DiagnosticToProto converts a passes.Diagnostic to protobuf.
-func DiagnosticToProto(diag passes.Diagnostic, sf *source.SourceFile) *pb.Diagnostic {
+// DiagnosticToProto converts a diag.Diagnostic to protobuf.
+func DiagnosticToProto(diag diag.Diagnostic, sf *source.SourceFile) *pb.Diagnostic {
 	li := sf.Lines()
 	start := li.PosAt(diag.Span.Offset)
 	end := li.PosAt(diag.Span.End())

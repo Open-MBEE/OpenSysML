@@ -1,10 +1,14 @@
 package passes
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+)
 
 // dimensionDiags reports the type-tier diagnostics of a model written against
 // the bundled quantity libraries.
-func dimensionDiags(t *testing.T, body string) []Diagnostic {
+func dimensionDiags(t *testing.T, body string) []diag.Diagnostic {
 	t.Helper()
 	return libraryTypeDiags(t, "package P {\n"+
 		"private import ISQ::*;\nprivate import SI::*;\n"+body+"\n}")
@@ -16,7 +20,7 @@ func wantOneDimensionError(t *testing.T, body, want string) {
 	if len(diags) != 1 {
 		t.Fatalf("want exactly one type diagnostic, got %v", diags)
 	}
-	if diags[0].Severity != SeverityError {
+	if diags[0].Severity != diag.SeverityError {
 		t.Errorf("diagnostic is %v, want an error: %s", diags[0].Severity, diags[0].Message)
 	}
 	if diags[0].Message != want {
@@ -288,7 +292,7 @@ func wantOneDimensionWarning(t *testing.T, body, want string) {
 	if len(diags) != 1 {
 		t.Fatalf("want exactly one type diagnostic, got %v", diags)
 	}
-	if diags[0].Severity != SeverityWarning {
+	if diags[0].Severity != diag.SeverityWarning {
 		t.Errorf("diagnostic is %v, want a warning: %s", diags[0].Severity, diags[0].Message)
 	}
 	if diags[0].Message != want {

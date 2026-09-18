@@ -3,6 +3,8 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 const resultExpressionCode = "result-expression-at-most-one"
@@ -17,7 +19,7 @@ func resultExpressionDiags(t *testing.T, src string, wantSpans ...string) {
 		t.Fatalf("got %d diagnostics, want %d: %v", len(diags), len(wantSpans), diags)
 	}
 	for i, d := range diags {
-		if d.Severity != SeverityError {
+		if d.Severity != diag.SeverityError {
 			t.Errorf("severity = %v, want an error", d.Severity)
 		}
 		if d.Message != msgResultExpressionAtMostOne {

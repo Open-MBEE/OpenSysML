@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -33,7 +34,7 @@ type NonstandardNotationPass struct{}
 func (NonstandardNotationPass) Level() PassLevel { return LevelSyntax }
 
 // Run walks the document for extension and language-specific notation.
-func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if root == nil {
 		return nil
 	}
@@ -55,19 +56,19 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 }
 
 // notationSeverity maps the mode onto extension-notation severity.
-func notationSeverity(mode conformance.Mode) Severity {
+func notationSeverity(mode conformance.Mode) diag.Severity {
 	if mode.IsStrict() {
-		return SeverityError
+		return diag.SeverityError
 	}
-	return SeverityWarning
+	return diag.SeverityWarning
 }
 
 // notationWalker accumulates the diagnostics of one document.
 type notationWalker struct {
 	sysml bool
 	// severity applies to mode-sensitive extension findings.
-	severity          Severity
-	diags             []Diagnostic
+	severity          diag.Severity
+	diags             []diag.Diagnostic
 	inRequirementBody bool
 	// inActionBody records that the body being walked admits ActionBodyItem
 	// members (SysML.xtext:1367).
@@ -85,7 +86,7 @@ type notationWalker struct {
 
 // keywordNameSpans collects where the parser recovered a keyword written as a name,
 // which is the parser's own reading of the text rather than a re-derivation of it.
-func keywordNameSpans(diags []Diagnostic) map[int]bool {
+func keywordNameSpans(diags []diag.Diagnostic) map[int]bool {
 	spans := map[int]bool{}
 	for _, d := range diags {
 		if d.Code == CodeReservedKeywordName {
@@ -96,9 +97,9 @@ func keywordNameSpans(diags []Diagnostic) map[int]bool {
 }
 
 // hasParseError reports whether the parser errored on the document.
-func hasParseError(diags []Diagnostic) bool {
+func hasParseError(diags []diag.Diagnostic) bool {
 	for _, d := range diags {
-		if d.Severity == SeverityError {
+		if d.Severity == diag.SeverityError {
 			return true
 		}
 	}
@@ -337,7 +338,7 @@ func (w *notationWalker) kermlNamespace(n *ast.Namespace) {
 	if !w.sysml {
 		return
 	}
-	w.diags = append(w.diags, Diagnostic{
+	w.diags = append(w.diags, diag.Diagnostic{
 		Severity: w.severity,
 		Span:     keywordSpan(n, "namespace"),
 		Message: "`namespace` is KerML notation: the SysML v2 grammar has no namespace declaration, " +
@@ -357,7 +358,7 @@ func (w *notationWalker) kermlRelationships(rels []*ast.Relationship) {
 		if rel == nil || rel.Kind != ast.RelFeaturedBy {
 			continue
 		}
-		w.diags = append(w.diags, Diagnostic{
+		w.diags = append(w.diags, diag.Diagnostic{
 			Severity: w.severity,
 			Span:     rel.Span(),
 			Message: "`featured by` is KerML notation: the SysML v2 grammar has no featuring clause, " +
@@ -385,8 +386,8 @@ func (w *notationWalker) sysmlDeclaration(n ast.Node, keyword string) {
 	if w.sysml || keyword == "" || kermlDeclarationKeywords[keyword] {
 		return
 	}
-	w.diags = append(w.diags, Diagnostic{
-		Severity: SeverityError,
+	w.diags = append(w.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     keywordSpan(n, keyword),
 		Message: fmt.Sprintf("`%s` is SysML notation: the KerML grammar has no such declaration keyword, "+
 			"so move the declaration to a .sysml file", keyword),
@@ -404,8 +405,8 @@ func (w *notationWalker) keywordAsName(id ast.Identification) {
 	if !w.keywordName[id.NameSpan.Offset] {
 		return
 	}
-	w.diags = append(w.diags, Diagnostic{
-		Severity: SeverityError,
+	w.diags = append(w.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     id.NameSpan,
 		Message: fmt.Sprintf("%q is a reserved keyword, not a name the ID terminal admits; "+
 			"write '%s' to use it as a name", id.Name, id.Name),
@@ -416,7 +417,7 @@ func (w *notationWalker) keywordAsName(id ast.Identification) {
 
 // extension reports one construct as an OpenSysML extension.
 func (w *notationWalker) extension(span source.Span, construct, standard string) {
-	w.diags = append(w.diags, Diagnostic{
+	w.diags = append(w.diags, diag.Diagnostic{
 		Severity: w.severity,
 		Span:     span,
 		Message: fmt.Sprintf("%s is an OpenSysML extension with no SysML v2 production: %s",

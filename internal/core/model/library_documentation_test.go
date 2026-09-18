@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 )
 
 // libraryNotesModel renders the documentation of a standard-library element,
@@ -38,7 +38,7 @@ const libraryNotesModel = `package LibraryDocs {
 func TestRenderDocumentMarkdownReadsLibraryDocumentation(t *testing.T) {
 	ws := openDoc(t, "notes.sysml", libraryNotesModel)
 	for _, d := range ws.Diagnostics("notes.sysml") {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Fatalf("model did not analyse cleanly: %v", d)
 		}
 	}

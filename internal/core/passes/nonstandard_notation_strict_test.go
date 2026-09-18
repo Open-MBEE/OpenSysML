@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -23,7 +24,7 @@ var extensionInventory = []string{
 }
 
 // notationDiags runs the pass over a document in the named mode.
-func notationDiags(t *testing.T, name, src string, mode conformance.Mode) []Diagnostic {
+func notationDiags(t *testing.T, name, src string, mode conformance.Mode) []diag.Diagnostic {
 	t.Helper()
 	root, pd, idx := analyzeInputs(t, name, src)
 	if hasParseError(pd) {
@@ -43,10 +44,10 @@ func TestExtensionInventoryIsAnErrorUnderStrictMode(t *testing.T) {
 			t.Fatalf("%s: strict gave %d finding(s), default %d; want the same, non-zero count", src, len(strict), len(def))
 		}
 		for i, d := range strict {
-			if d.Severity != SeverityError {
+			if d.Severity != diag.SeverityError {
 				t.Errorf("%s: strict severity = %v, want error", src, d.Severity)
 			}
-			if def[i].Severity != SeverityWarning {
+			if def[i].Severity != diag.SeverityWarning {
 				t.Errorf("%s: default severity = %v, want warning", src, def[i].Severity)
 			}
 			if d.Code != CodeNonstandardNotation || d.Code != def[i].Code {
@@ -64,7 +65,7 @@ func TestExtensionInventoryIsAnErrorUnderStrictMode(t *testing.T) {
 func TestKerMLNotationFollowsTheMode(t *testing.T) {
 	const src = "package P { namespace N; }"
 	for _, d := range notationDiags(t, "a.sysml", src, conformance.ModeStrict) {
-		if d.Severity != SeverityError || d.Code != CodeKerMLNotation {
+		if d.Severity != diag.SeverityError || d.Code != CodeKerMLNotation {
 			t.Errorf("strict: got %+v, want a kerml-notation error", d)
 		}
 	}
@@ -94,10 +95,10 @@ func TestStandardNotationIsSilentUnderStrictMode(t *testing.T) {
 // The strict severity is chosen by the mode alone, so an unnamed mode is the
 // default one.
 func TestNotationSeverity(t *testing.T) {
-	if got := notationSeverity(conformance.ModeStrict); got != SeverityError {
+	if got := notationSeverity(conformance.ModeStrict); got != diag.SeverityError {
 		t.Errorf("strict severity = %v, want error", got)
 	}
-	if got := notationSeverity(conformance.ModeDefault); got != SeverityWarning {
+	if got := notationSeverity(conformance.ModeDefault); got != diag.SeverityWarning {
 		t.Errorf("default severity = %v, want warning", got)
 	}
 }
@@ -118,7 +119,7 @@ func TestExtensionFindingsFollowTheMode(t *testing.T) {
 			if def[0].Code != tc.code || strict[0].Code != tc.code {
 				t.Errorf("codes = %q / %q, want %q", def[0].Code, strict[0].Code, tc.code)
 			}
-			if def[0].Severity != SeverityWarning || strict[0].Severity != SeverityError {
+			if def[0].Severity != diag.SeverityWarning || strict[0].Severity != diag.SeverityError {
 				t.Errorf("severities = %v / %v, want warning then error", def[0].Severity, strict[0].Severity)
 			}
 			if def[0].Message != strict[0].Message || def[0].Span != strict[0].Span {
@@ -145,7 +146,7 @@ func TestRecoveredGrammarViolationsAreErrorsInEitherMode(t *testing.T) {
 			if def[0].Code != tc.code || strict[0].Code != tc.code {
 				t.Errorf("codes = %q / %q, want %q", def[0].Code, strict[0].Code, tc.code)
 			}
-			if def[0].Severity != SeverityError || strict[0].Severity != SeverityError {
+			if def[0].Severity != diag.SeverityError || strict[0].Severity != diag.SeverityError {
 				t.Errorf("severities = %v / %v, want errors", def[0].Severity, strict[0].Severity)
 			}
 			if def[0].Message != strict[0].Message || def[0].Span != strict[0].Span {
@@ -168,7 +169,7 @@ func TestKeywordAsNameIsReportedOnceInEitherMode(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			for _, mode := range []conformance.Mode{conformance.ModeDefault, conformance.ModeStrict} {
 				root, pd, idx := analyzeInputs(t, tc.file, tc.src)
-				got := []Diagnostic{}
+				got := []diag.Diagnostic{}
 				for _, d := range AnalyzeWithOptions(tc.file, source.KindOf(tc.file), root, pd, idx,
 					Options{Conformance: mode}) {
 					if d.Code == CodeReservedKeywordName {
@@ -178,7 +179,7 @@ func TestKeywordAsNameIsReportedOnceInEitherMode(t *testing.T) {
 				if len(got) != 1 {
 					t.Fatalf("%v: got %+v, want the keyword reported exactly once", mode, got)
 				}
-				if got[0].Severity != SeverityError {
+				if got[0].Severity != diag.SeverityError {
 					t.Errorf("%v: severity = %v, want error", mode, got[0].Severity)
 				}
 			}

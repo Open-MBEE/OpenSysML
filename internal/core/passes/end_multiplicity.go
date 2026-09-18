@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -36,8 +37,8 @@ func (cc *constraintChecker) checkFeatureEndFeatureMultiplicity(sym *symbols.Sym
 }
 
 func (cc *constraintChecker) reportEndMultiplicity(span source.Span) {
-	cc.diags = append(cc.diags, Diagnostic{
-		Severity: SeverityWarning,
+	cc.diags = append(cc.diags, diag.Diagnostic{
+		Severity: diag.SeverityWarning,
 		Span:     span,
 		Message:  msgEndFeatureMultiplicity,
 		Code:     "end-feature-multiplicity",

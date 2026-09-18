@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
 
@@ -61,13 +61,13 @@ func TestGoldenNotation(t *testing.T) {
 }
 
 // errors returns the error diagnostics the analyser reports for notation.
-func errors(t *testing.T, name string, notation []byte) []passes.Diagnostic {
+func errors(t *testing.T, name string, notation []byte) []diag.Diagnostic {
 	t.Helper()
 	ws := model.NewWorkspace()
 	ws.Open(name, notation, 1)
-	var errs []passes.Diagnostic
+	var errs []diag.Diagnostic
 	for _, d := range ws.Diagnostics(name) {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			errs = append(errs, d)
 		}
 	}

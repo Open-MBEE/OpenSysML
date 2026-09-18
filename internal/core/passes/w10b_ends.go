@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -22,7 +23,7 @@ type W10BEndKindPass struct{}
 
 func (W10BEndKindPass) Level() PassLevel { return LevelType }
 
-func (W10BEndKindPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W10BEndKindPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -46,12 +47,12 @@ func (W10BEndKindPass) Run(ctx *Context, name string, root *ast.RootNamespace) [
 
 type w10bEndChecker struct {
 	model *semantics.Model
-	diags []Diagnostic
+	diags []diag.Diagnostic
 }
 
 func (c *w10bEndChecker) report(node ast.Node, msg, code string) {
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     node.Span(),
 		Message:  msg,
 		Code:     code,

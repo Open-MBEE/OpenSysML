@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -82,7 +82,7 @@ type RunNote interface {
 	Describe() string
 	String() string
 	// Diagnostic is the note as an informational finding about the run.
-	Diagnostic() passes.Diagnostic
+	Diagnostic() diag.Diagnostic
 	// Location is the file and span of the declaration the note is about; file is
 	// "" when the runtime could not name one.
 	Location() (file string, span source.Span)
@@ -185,9 +185,9 @@ func (c ChoicePoint) Location() (string, source.Span) {
 
 // Diagnostic is the choice as a finding about the run: informational, since a
 // model is not wrong for admitting several orders and the run took one of them.
-func (c ChoicePoint) Diagnostic() passes.Diagnostic {
-	return passes.Diagnostic{
-		Severity: passes.SeverityInfo,
+func (c ChoicePoint) Diagnostic() diag.Diagnostic {
+	return diag.Diagnostic{
+		Severity: diag.SeverityInfo,
 		Span:     c.Span,
 		Message:  "choice point: " + c.Describe(),
 		Code:     ChoiceDiagnosticCode,
@@ -233,9 +233,9 @@ func (g UnevaluableGuard) Location() (string, source.Span) {
 
 // Diagnostic is the guard as a finding about the run: informational, since the
 // library selects no succession whose guard is not true and defines no failure.
-func (g UnevaluableGuard) Diagnostic() passes.Diagnostic {
-	return passes.Diagnostic{
-		Severity: passes.SeverityInfo,
+func (g UnevaluableGuard) Diagnostic() diag.Diagnostic {
+	return diag.Diagnostic{
+		Severity: diag.SeverityInfo,
 		Span:     g.Span,
 		Message:  "guard not evaluable: " + g.Describe(),
 		Code:     UnevaluableGuardCode,

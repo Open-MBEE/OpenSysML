@@ -1,6 +1,10 @@
 package passes
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+)
 
 // A conjugated type inverts the directions of its features, so specializing it
 // is meaningless (KerML validateSpecializationSpecificNotConjugated).
@@ -75,7 +79,7 @@ func TestConjugationDoesNotSpreadToOtherSpecifics(t *testing.T) {
 	}
 }
 
-func hasMessage(diags []Diagnostic, msg string) bool {
+func hasMessage(diags []diag.Diagnostic, msg string) bool {
 	for _, d := range diags {
 		if d.Message == msg {
 			return true

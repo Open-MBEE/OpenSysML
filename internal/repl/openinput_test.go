@@ -6,14 +6,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // hasSyntaxError reports whether a result carries a syntax error, which is what
 // an unreadable submission is reported as.
 func hasSyntaxError(res Result) bool {
 	for _, d := range res.Diagnostics {
-		if d.Source == "syntax" && d.Severity == passes.SeverityError {
+		if d.Source == "syntax" && d.Severity == diag.SeverityError {
 			return true
 		}
 	}
@@ -364,7 +364,7 @@ func TestOpenSubmissionKeepsWarningSeverity(t *testing.T) {
 
 	var warned bool
 	for _, d := range res.Diagnostics {
-		if d.Severity == passes.SeverityWarning && d.Code != "syntax" {
+		if d.Severity == diag.SeverityWarning && d.Code != "syntax" {
 			warned = true
 		}
 	}

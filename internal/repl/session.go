@@ -11,13 +11,13 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -70,7 +70,7 @@ type snippet struct {
 	// masked out of the analyzed buffer, and diags carries what its own parse
 	// found, mapped as the workspace maps a document's.
 	open  bool
-	diags []passes.Diagnostic
+	diags []diag.Diagnostic
 }
 
 // Session accumulates submissions into a single implicit <repl> document.
@@ -642,11 +642,11 @@ func (s *Session) text() string {
 
 // parseDiagnostics maps a parse of one submission the way the workspace maps a
 // document's: its errors carry the syntax code, its warnings their own.
-func parseDiagnostics(p *parser.Parser) []passes.Diagnostic {
-	out := make([]passes.Diagnostic, 0, len(p.Diagnostics)+len(p.Warnings))
+func parseDiagnostics(p *parser.Parser) []diag.Diagnostic {
+	out := make([]diag.Diagnostic, 0, len(p.Diagnostics)+len(p.Warnings))
 	for _, d := range p.Diagnostics {
-		out = append(out, passes.Diagnostic{
-			Severity: passes.SeverityError,
+		out = append(out, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     d.Span,
 			Message:  d.Message,
 			Code:     "syntax",
@@ -655,8 +655,8 @@ func parseDiagnostics(p *parser.Parser) []passes.Diagnostic {
 		})
 	}
 	for _, w := range p.Warnings {
-		out = append(out, passes.Diagnostic{
-			Severity: passes.SeverityWarning,
+		out = append(out, diag.Diagnostic{
+			Severity: diag.SeverityWarning,
 			Span:     w.Span,
 			Message:  w.Message,
 			Code:     w.Code,
@@ -683,8 +683,8 @@ func (s *Session) maskedSpans() []source.Span {
 
 // openDiagnostics reports the findings of the masked submissions, located in the
 // session buffer so every surface places them in the file they came from.
-func (s *Session) openDiagnostics() []passes.Diagnostic {
-	var out []passes.Diagnostic
+func (s *Session) openDiagnostics() []diag.Diagnostic {
+	var out []diag.Diagnostic
 	acc := 0
 	for _, sn := range s.snippets {
 		if sn.open {
@@ -703,15 +703,15 @@ func (s *Session) openDiagnostics() []passes.Diagnostic {
 // removed, so what the analysis finds is about the submissions that did parse
 // and is reported as it stands. Both session documents share the buffer's
 // coordinates, so their findings interleave by offset.
-func (s *Session) diagnostics() []passes.Diagnostic {
-	analyzed := append([]passes.Diagnostic{}, s.ws.Diagnostics(docName)...)
+func (s *Session) diagnostics() []diag.Diagnostic {
+	analyzed := append([]diag.Diagnostic{}, s.ws.Diagnostics(docName)...)
 	analyzed = append(analyzed, s.ws.Diagnostics(kermlDocName)...)
 	open := s.openDiagnostics()
 	if len(open) == 0 {
 		sort.SliceStable(analyzed, func(i, j int) bool { return analyzed[i].Span.Offset < analyzed[j].Span.Offset })
 		return analyzed
 	}
-	out := make([]passes.Diagnostic, 0, len(analyzed)+len(open))
+	out := make([]diag.Diagnostic, 0, len(analyzed)+len(open))
 	out = append(out, analyzed...)
 	out = append(out, open...)
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Span.Offset < out[j].Span.Offset })
