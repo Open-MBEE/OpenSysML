@@ -1,8 +1,10 @@
-package passes
+package kit
 
 import (
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -17,10 +19,10 @@ func TestW8DSymbolWalkCachePreservesOrder(t *testing.T) {
 	child.Define("child", childSymbol)
 	root.AddChild(child)
 
-	want := w8dCollectSymbols(root)
-	ctx := NewContext("test.sysml", symbols.NewIndex(), nil)
+	want := collectSymbols(root)
+	ctx := NewContext("test.sysml", source.KindSysML, symbols.NewIndex(), nil, Options{}, semantics.NewModel)
 	var got []*symbols.Symbol
-	w8dWalkSymbols(ctx, root, func(sym *symbols.Symbol) {
+	WalkSymbols(ctx, root, func(sym *symbols.Symbol) {
 		got = append(got, sym)
 	})
 	if len(got) != len(want) {
@@ -31,7 +33,7 @@ func TestW8DSymbolWalkCachePreservesOrder(t *testing.T) {
 			t.Fatalf("cached walk symbol %d = %p, direct walk = %p", i, got[i], want[i])
 		}
 	}
-	if cached := w8dSymbols(ctx, root); len(cached) != len(want) {
+	if cached := Symbols(ctx, root); len(cached) != len(want) {
 		t.Fatalf("cached symbol slice has %d symbols, want %d", len(cached), len(want))
 	}
 }
@@ -43,15 +45,15 @@ func TestW8CSymbolWalkCachePreservesOrder(t *testing.T) {
 	nested.Scope.Define("leaf", &symbols.Symbol{Name: "leaf"})
 	root.Define("nested", nested)
 
-	direct := &w8cWalker{}
+	direct := &Walker{}
 	var want []*symbols.Symbol
-	direct.walk(root, func(sym *symbols.Symbol) {
+	direct.Walk(root, func(sym *symbols.Symbol) {
 		want = append(want, sym)
 	})
-	ctx := NewContext("test.sysml", symbols.NewIndex(), nil)
-	w := &w8cWalker{ctx: ctx}
+	ctx := NewContext("test.sysml", source.KindSysML, symbols.NewIndex(), nil, Options{}, semantics.NewModel)
+	w := &Walker{Ctx: ctx}
 	var got []*symbols.Symbol
-	w.walk(root, func(sym *symbols.Symbol) {
+	w.Walk(root, func(sym *symbols.Symbol) {
 		got = append(got, sym)
 	})
 	if len(got) != len(want) {
@@ -71,12 +73,12 @@ func TestW8CWalkerDeduplicatesOverlappingScopes(t *testing.T) {
 	overlap.Define("shared", shared)
 	root.Define("shared", shared)
 
-	w := &w8cWalker{}
+	w := &Walker{}
 	var got []*symbols.Symbol
-	w.walk(root, func(sym *symbols.Symbol) {
+	w.Walk(root, func(sym *symbols.Symbol) {
 		got = append(got, sym)
 	})
-	w.walk(overlap, func(sym *symbols.Symbol) {
+	w.Walk(overlap, func(sym *symbols.Symbol) {
 		got = append(got, sym)
 	})
 	if len(got) != 1 || got[0] != shared {

@@ -2,6 +2,7 @@ package passes
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
@@ -25,8 +26,8 @@ func (KerMLSubsettingMetaclassPass) Run(ctx *Context, name string, root *ast.Roo
 		return nil
 	}
 	c := &kermlSubsettingMetaclassChecker{ctx: ctx}
-	w := &w8cWalker{ctx: ctx}
-	w.walk(rootScope, c.check)
+	w := &kit.Walker{Ctx: ctx}
+	w.Walk(rootScope, c.check)
 	return c.diags
 }
 
@@ -45,7 +46,7 @@ func (c *kermlSubsettingMetaclassChecker) check(sym *symbols.Symbol) {
 			c.ctx.DownstreamOfFailure(rel.Target) {
 			continue
 		}
-		target, ok := c.ctx.Resolver().ResolveTarget(w8cScopeOf(sym), rel.Target)
+		target, ok := c.ctx.Resolver().ResolveTarget(kit.DeclarationScope(sym), rel.Target)
 		if !ok || target == nil {
 			continue
 		}

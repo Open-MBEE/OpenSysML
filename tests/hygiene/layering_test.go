@@ -133,6 +133,7 @@ var removed = map[string][]string{
 	"internal/core/analysis":            {"internal/core/export"},
 	"internal/core/analysis/enginewire": {"internal/core/export"},
 	"internal/core/export":              {"internal/core/migrate", "internal/core/runtime", "internal/core/lower"},
+	"internal/core/passes/kit":          {"internal/core/passes"},
 	"internal/core/runtime":             {"internal/core/parser", "internal/core/passes"},
 	"internal/repl":                     {"internal/grpc"},
 }

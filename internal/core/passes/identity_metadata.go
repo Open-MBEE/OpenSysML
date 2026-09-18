@@ -34,7 +34,7 @@ func (IdentityMetadataPass) Run(ctx *Context, name string, root *ast.RootNamespa
 	}
 	// A project scope may span workspace documents, so uniqueness is judged
 	// over the union of their gathers; each document only reports its own elements.
-	union := ctx.Gathers().identitiesOf(ctx)
+	union := identityUnionOf(ctx)
 	c := &identityChecker{space: union.identityIndex, docRoot: rootScope}
 	if c.table = union.judged(ctx.Resolver(), name); c.table == nil {
 		c.table = identity.Build(ctx.Model(), ctx.Resolver(), rootScope)

@@ -2,6 +2,7 @@ package passes
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
@@ -44,8 +45,8 @@ func (MOSAPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.D
 	if a == nil {
 		return nil
 	}
-	a.union = ctx.Gathers().mosaOf(ctx, a)
-	if !ctx.Gathers().has(name) {
+	a.union = mosaUnionOf(ctx, a)
+	if !ctx.Gathers().Gathered(name) {
 		a.local = newMOSAFacts()
 		a.facts = a.local
 		a.gather(rootScope)
@@ -283,7 +284,7 @@ func (a *mosaAudit) effectiveMarks(sym *symbols.Symbol) mosaMarks {
 // gather records the kinds and annotations a document declares and the
 // conformances and satisfactions it states.
 func (a *mosaAudit) gather(root *symbols.Scope) {
-	w8dWalkSymbols(a.ctx, root, func(sym *symbols.Symbol) {
+	kit.WalkSymbols(a.ctx, root, func(sym *symbols.Symbol) {
 		if kind := a.kindOf(sym); kind != mosaNone {
 			a.facts.present[kind] = true
 		}
@@ -399,7 +400,7 @@ func (a *mosaAudit) annotatedWith(sym *symbols.Symbol, kind mosaMetadataKind) bo
 
 // check judges the document's own elements.
 func (a *mosaAudit) check(root *symbols.Scope) {
-	w8dWalkSymbols(a.ctx, root, func(sym *symbols.Symbol) {
+	kit.WalkSymbols(a.ctx, root, func(sym *symbols.Symbol) {
 		a.checkProprietary(sym)
 		usage, ok := sym.Decl.(*ast.Usage)
 		if !ok {
