@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -184,9 +184,9 @@ func (d ToolDivergence) Location() (string, source.Span) {
 
 // Diagnostic is the divergence as a finding about the run, a warning since the
 // results resting on the tool are not reproducible.
-func (d ToolDivergence) Diagnostic() passes.Diagnostic {
-	return passes.Diagnostic{
-		Severity: passes.SeverityWarning,
+func (d ToolDivergence) Diagnostic() diag.Diagnostic {
+	return diag.Diagnostic{
+		Severity: diag.SeverityWarning,
 		Span:     d.Span,
 		Message:  d.Describe(),
 		Code:     ToolDivergenceCode,

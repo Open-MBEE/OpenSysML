@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -23,7 +24,7 @@ const duplicateIDCode = "identity-duplicate-id"
 
 func (IdentityMetadataPass) Level() PassLevel { return LevelConstraint }
 
-func (IdentityMetadataPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (IdentityMetadataPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -48,7 +49,7 @@ type identityChecker struct {
 	table   *identity.Table
 	space   *identityIndex
 	docRoot *symbols.Scope
-	diags   []Diagnostic
+	diags   []diag.Diagnostic
 }
 
 // inDocument reports whether the info's symbol is declared in the document
@@ -287,8 +288,8 @@ func (c *identityChecker) reportSite(info *identity.Info) (source.Span, bool) {
 }
 
 func (c *identityChecker) errorf(span source.Span, code, format string, args ...any) {
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message:  fmt.Sprintf(format, args...),
 		Code:     code,

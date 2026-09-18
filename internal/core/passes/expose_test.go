@@ -3,6 +3,8 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // Expose is a ViewBodyItem alone (SysML.xtext): silent in a view usage, a notation
@@ -40,7 +42,7 @@ func TestExposeOwningBody(t *testing.T) {
 				t.Fatalf("got %d notation diagnostics, want %d: %v", len(got), tc.notation, got)
 			}
 			for _, d := range got {
-				if d.Code != CodeNonstandardNotation || d.Severity != SeverityWarning {
+				if d.Code != CodeNonstandardNotation || d.Severity != diag.SeverityWarning {
 					t.Errorf("got %+v, want a nonstandard-notation warning", d)
 				}
 				if !strings.Contains(d.Message, tc.wantsBody) {

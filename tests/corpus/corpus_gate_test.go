@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -191,7 +191,7 @@ func (g corpusGate) batchCounts(t *testing.T, root corpusRoot, files []string) m
 
 		var messages []string
 		for _, d := range ws.Diagnostics(rel) {
-			if root.errorsOnly && d.Severity != passes.SeverityError {
+			if root.errorsOnly && d.Severity != diag.SeverityError {
 				continue
 			}
 			messages = append(messages, d.Severity.String()+": "+d.Message)

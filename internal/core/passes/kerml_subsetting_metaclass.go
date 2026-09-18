@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -15,7 +16,7 @@ func (KerMLSubsettingMetaclassPass) Level() PassLevel { return LevelType }
 
 func (KerMLSubsettingMetaclassPass) ElementScoped() { /* marker: per-element gating */ }
 
-func (KerMLSubsettingMetaclassPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (KerMLSubsettingMetaclassPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil || ctx.Kind != source.KindKerML {
 		return nil
 	}
@@ -31,7 +32,7 @@ func (KerMLSubsettingMetaclassPass) Run(ctx *Context, name string, root *ast.Roo
 
 type kermlSubsettingMetaclassChecker struct {
 	ctx   *Context
-	diags []Diagnostic
+	diags []diag.Diagnostic
 }
 
 func (c *kermlSubsettingMetaclassChecker) check(sym *symbols.Symbol) {
@@ -56,8 +57,8 @@ func (c *kermlSubsettingMetaclassChecker) check(sym *symbols.Symbol) {
 		if target.Kind != symbols.SymbolKerMLType && !target.Kind.IsDefinition() {
 			continue
 		}
-		c.diags = append(c.diags, Diagnostic{
-			Severity: SeverityError,
+		c.diags = append(c.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     rel.Target.Span(),
 			Message:  fmt.Sprintf("%s target must be a feature, found %s", rel.Kind, target.Kind),
 			Code:     "type",

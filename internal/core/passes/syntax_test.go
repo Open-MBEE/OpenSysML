@@ -3,12 +3,13 @@ package passes
 import (
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 func TestSyntaxPassSurfacesParseDiagnostics(t *testing.T) {
-	parseDiags := []Diagnostic{
-		{Severity: SeverityError, Span: source.Span{Offset: 3, Len: 2}, Message: "expected '}'", Code: "syntax", Source: "syntax"},
+	parseDiags := []diag.Diagnostic{
+		{Severity: diag.SeverityError, Span: source.Span{Offset: 3, Len: 2}, Message: "expected '}'", Code: "syntax", Source: "syntax"},
 	}
 	ctx := NewContext("t", nil, parseDiags)
 	p := SyntaxPass{}

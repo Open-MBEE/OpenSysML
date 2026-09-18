@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -16,7 +17,7 @@ type ReferenceSubsettingPass struct{}
 
 func (ReferenceSubsettingPass) Level() PassLevel { return LevelConstraint }
 
-func (ReferenceSubsettingPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (ReferenceSubsettingPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -24,7 +25,7 @@ func (ReferenceSubsettingPass) Run(ctx *Context, name string, root *ast.RootName
 	if rootScope == nil {
 		return nil
 	}
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	w := &w8cWalker{ctx: ctx}
 	w.walk(rootScope, func(sym *symbols.Symbol) {
 		var refs []*ast.Relationship
@@ -34,8 +35,8 @@ func (ReferenceSubsettingPass) Run(ctx *Context, name string, root *ast.RootName
 			}
 		}
 		for _, rel := range refs[min(1, len(refs)):] {
-			diags = append(diags, Diagnostic{
-				Severity: SeverityError,
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.SeverityError,
 				Span:     rel.Target.Span(),
 				Message:  msgReferenceSubsettingAtMostOne,
 				Code:     "reference-subsetting-at-most-one",

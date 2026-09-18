@@ -1,6 +1,10 @@
 package passes
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+)
 
 func TestW7GSubsettingAFeatureOfAnotherTypeIsAnError(t *testing.T) {
 	const src = `package E {
@@ -16,7 +20,7 @@ func TestW7GSubsettingAFeatureOfAnotherTypeIsAnError(t *testing.T) {
 		if d.Message != msgSubsettingFeaturingTypes {
 			t.Fatalf("expected the reference's wording, got %q", d.Message)
 		}
-		if d.Severity != SeverityError {
+		if d.Severity != diag.SeverityError {
 			t.Fatalf("the reference reports an error, got %v", d.Severity)
 		}
 	}

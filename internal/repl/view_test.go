@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -31,7 +31,7 @@ func viewSession(t *testing.T) *Session {
 	s := NewSession()
 	res := s.Submit(viewModel)
 	for _, d := range res.Diagnostics {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Fatalf("model did not load: %v", res.Diagnostics)
 		}
 	}
@@ -168,7 +168,7 @@ func conformanceSession(t *testing.T) *Session {
 	s := NewSession()
 	res := s.Submit(conformanceModel)
 	for _, d := range res.Diagnostics {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Fatalf("model did not load: %v", res.Diagnostics)
 		}
 	}
@@ -215,7 +215,7 @@ func TestViewReportsAViolatedConcernPerElement(t *testing.T) {
     }
 }`)
 	for _, d := range res.Diagnostics {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Fatalf("the view did not load: %v", res.Diagnostics)
 		}
 	}
@@ -319,7 +319,7 @@ func TestViewLeavesNoAmbiguityForALaterCheck(t *testing.T) {
     }
 }`)
 	for _, d := range res.Diagnostics {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Fatalf("the view did not load: %v", res.Diagnostics)
 		}
 	}
@@ -376,7 +376,7 @@ func TestViewSharesTheObjectOfAQuotedName(t *testing.T) {
     view quotedView : StructureView { expose Quoted::'road car'; frame concern modularity : Modularity; }
 }`)
 	for _, d := range res.Diagnostics {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Fatalf("the view did not load: %v", res.Diagnostics)
 		}
 	}
@@ -424,7 +424,7 @@ func TestViewChecksAConcernWhoseSubjectIsAnything(t *testing.T) {
     view anyView { expose Demo::wheel; satisfy anything; frame concern named : Named; }
 }`)
 	for _, d := range res.Diagnostics {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Fatalf("the view did not load: %v", res.Diagnostics)
 		}
 	}

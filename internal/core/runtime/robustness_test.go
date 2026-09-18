@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
@@ -16418,7 +16419,7 @@ func testVerificationObjectiveSubjectRebound(t *testing.T) {
 	idx.ExpandWildcardImports()
 	var refusals []string
 	for _, d := range passes.Analyze("<test>", file, nil, idx) {
-		if d.Code == "feature-value-overriding" && d.Severity == passes.SeverityError {
+		if d.Code == "feature-value-overriding" && d.Severity == diag.SeverityError {
 			refusals = append(refusals, d.Message)
 		}
 	}

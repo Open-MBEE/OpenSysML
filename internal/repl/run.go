@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/project"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -118,12 +118,12 @@ func (s *Session) diagnosticLines() []string {
 	start := 0
 	for i, sn := range s.snippets {
 		end := start + len(sn.src)
-		var own []passes.Diagnostic
+		var own []diag.Diagnostic
 		for _, d := range diags {
 			if d.Span.Offset < start || (d.Span.Offset > end && i != len(s.snippets)-1) {
 				continue
 			}
-			if d.Severity != passes.SeverityError && s.verbosity <= VerbosityQuiet {
+			if d.Severity != diag.SeverityError && s.verbosity <= VerbosityQuiet {
 				continue
 			}
 			d.Span.Offset -= start
@@ -139,7 +139,7 @@ func (s *Session) diagnosticLines() []string {
 // syntax errors of a submission masked out of the buffer for not closing its own
 // text: a load whose file does not parse says why, and HasErrors is true, which is
 // what a non-interactive run exits on.
-func (s *Session) Diagnostics() []passes.Diagnostic {
+func (s *Session) Diagnostics() []diag.Diagnostic {
 	defer s.enter()()
 	return s.diagnostics()
 }
@@ -157,7 +157,7 @@ func (s *Session) HasErrors() bool {
 func (s *Session) hasAnalysisErrors() bool {
 	strict := s.ws.ConformanceMode().IsStrict()
 	for _, d := range s.diagnostics() {
-		if d.Blocking() || (strict && d.Severity == passes.SeverityError) {
+		if d.Blocking() || (strict && d.Severity == diag.SeverityError) {
 			return true
 		}
 	}

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -30,7 +31,7 @@ func TestNameResolutionPassReportsUnresolved(t *testing.T) {
 		t.Fatalf("expected an unresolved diagnostic, got none")
 	}
 	d := got[0]
-	if d.Source != "name-resolution" || d.Code != "unresolved" || d.Severity != SeverityError {
+	if d.Source != "name-resolution" || d.Code != "unresolved" || d.Severity != diag.SeverityError {
 		t.Fatalf("got %+v, want source=name-resolution code=unresolved severity=error", d)
 	}
 }
@@ -84,13 +85,13 @@ func TestNameResolutionPassResolvesARepeatedTopLevelNameToTheFirst(t *testing.T)
 	}
 	// The second P is not consulted, so its member is not reachable under P.
 	got = NameResolutionPass{}.Run(NewContext("d.sysml", idx, nil), "d.sysml", rootD)
-	if len(got) != 1 || got[0].Code != "unresolved" || got[0].Severity != SeverityError {
+	if len(got) != 1 || got[0].Code != "unresolved" || got[0].Severity != diag.SeverityError {
 		t.Fatalf("got %+v, want one unresolved error for P::Y", got)
 	}
 }
 
 // nameresDiags runs the pass over one document and returns its diagnostics.
-func nameresDiags(t *testing.T, src string) []Diagnostic {
+func nameresDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	ctx, root := nameresCtx(t, "a.sysml", src)
 	return NameResolutionPass{}.Run(ctx, "a.sysml", root)
@@ -189,7 +190,7 @@ func TestNameResolutionPassReportsInheritedNameConflict(t *testing.T) {
 		t.Fatalf("got %+v, want one diagnostic", got)
 	}
 	d := got[0]
-	if d.Code != "name-conflict" || d.Source != "name-resolution" || d.Severity != SeverityWarning {
+	if d.Code != "name-conflict" || d.Source != "name-resolution" || d.Severity != diag.SeverityWarning {
 		t.Fatalf("got %+v, want code=name-conflict source=name-resolution severity=warning", d)
 	}
 	if want := "Duplicate of inherited member name 'engine' from Vehicle"; d.Message != want {
@@ -237,7 +238,7 @@ func TestRenderReferenceToInheritedRenderingDuplicatesIt(t *testing.T) {
 		view def Base { rendering r : AsTree; }
 		view def Derived :> Base { render r; }
 	}`)
-	if len(got) != 1 || got[0].Code != "name-conflict" || got[0].Severity != SeverityWarning {
+	if len(got) != 1 || got[0].Code != "name-conflict" || got[0].Severity != diag.SeverityWarning {
 		t.Fatalf("got %+v, want one name-conflict warning", got)
 	}
 }

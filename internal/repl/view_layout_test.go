@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // A model positioning what its views draw: one inline Layout, one stated in the
@@ -56,7 +56,7 @@ func TestRenderKeepsTheLayoutVisible(t *testing.T) {
 	s := NewSession()
 	res := s.Submit(layoutModel)
 	for _, d := range res.Diagnostics {
-		if strings.HasPrefix(d.Code, "diagram-layout-") || d.Severity == passes.SeverityError {
+		if strings.HasPrefix(d.Code, "diagram-layout-") || d.Severity == diag.SeverityError {
 			t.Fatalf("the laid-out model drew %v", res.Diagnostics)
 		}
 	}

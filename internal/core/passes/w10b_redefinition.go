@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -43,8 +44,8 @@ func (cc *constraintChecker) checkW10BRedefinition(sym *symbols.Symbol) {
 }
 
 func (cc *constraintChecker) addRedefineDiag(target ast.Node, msg, code string) {
-	cc.diags = append(cc.diags, Diagnostic{
-		Severity: SeverityError,
+	cc.diags = append(cc.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     target.Span(),
 		Message:  msg,
 		Code:     code,

@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -49,8 +50,8 @@ func (cc *constraintChecker) checkSubsettingFeaturingTypes(sym *symbols.Symbol) 
 		if cc.redefinedAccessible(sym, target, map[*symbols.Symbol]bool{}) {
 			continue
 		}
-		cc.diags = append(cc.diags, Diagnostic{
-			Severity: SeverityError,
+		cc.diags = append(cc.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     rel.Target.Span(),
 			Message:  msgSubsettingFeaturingTypes,
 			Code:     "subsetting-featuring-types",

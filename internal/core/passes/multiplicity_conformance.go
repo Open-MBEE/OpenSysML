@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -42,8 +43,8 @@ func (cc *constraintChecker) checkMultiplicityConformance(sym *symbols.Symbol) {
 			continue
 		}
 		if redefines && !declaresEndFeature(sym) && lowerBoundWeakened(subRange, supRange) {
-			cc.diags = append(cc.diags, Diagnostic{
-				Severity: SeverityWarning,
+			cc.diags = append(cc.diags, diag.Diagnostic{
+				Severity: diag.SeverityWarning,
 				Span:     rel.Target.Span(),
 				Message:  msgRedefinitionMultiplicityConformance,
 				Code:     "redefinition-multiplicity",
@@ -51,8 +52,8 @@ func (cc *constraintChecker) checkMultiplicityConformance(sym *symbols.Symbol) {
 			})
 		}
 		if upperBoundWidened(subRange, supRange) {
-			cc.diags = append(cc.diags, Diagnostic{
-				Severity: SeverityWarning,
+			cc.diags = append(cc.diags, diag.Diagnostic{
+				Severity: diag.SeverityWarning,
 				Span:     rel.Target.Span(),
 				Message:  msgSubsettingMultiplicityConformance,
 				Code:     "subsetting-multiplicity",

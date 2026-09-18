@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -25,7 +26,7 @@ func (ElementFilterPass) Level() PassLevel { return LevelType }
 
 func (ElementFilterPass) ElementScoped() { /* marker: per-element gating */ }
 
-func (ElementFilterPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (ElementFilterPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -50,7 +51,7 @@ type filterChecker struct {
 	// expr applies the operator-expression rules to the condition's operators.
 	expr  *exprChecker
 	seen  map[*symbols.Scope]bool
-	diags []Diagnostic
+	diags []diag.Diagnostic
 }
 
 // walk checks the conditions every namespace in the scope subtree writes. A
@@ -125,27 +126,27 @@ const (
 )
 
 // filterDiagnostic renders one filter condition fault.
-func filterDiagnostic(p semantics.FilterProblem) Diagnostic {
+func filterDiagnostic(p semantics.FilterProblem) diag.Diagnostic {
 	switch p.Kind {
 	case semantics.FilterProblemNotBoolean:
-		return Diagnostic{
-			Severity: SeverityError,
+		return diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     p.Span,
 			Message:  msgFilterNotBoolean,
 			Code:     "filter-not-boolean",
 			Source:   "type",
 		}
 	case semantics.FilterProblemUnsupported:
-		return Diagnostic{
-			Severity: SeverityWarning,
+		return diag.Diagnostic{
+			Severity: diag.SeverityWarning,
 			Span:     p.Span,
 			Message:  msgFilterNotEvaluated,
 			Code:     "filter-not-evaluated",
 			Source:   "type",
 		}
 	}
-	return Diagnostic{
-		Severity: SeverityError,
+	return diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     p.Span,
 		Message:  msgFilterNotEvaluable,
 		Code:     "filter-not-evaluable",

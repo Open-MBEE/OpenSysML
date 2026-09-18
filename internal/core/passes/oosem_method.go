@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -26,7 +27,7 @@ const oosemSource = "oosem"
 
 func (OOSEMMethodPass) Level() PassLevel { return LevelConstraint }
 
-func (OOSEMMethodPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (OOSEMMethodPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -130,7 +131,7 @@ type oosemAudit struct {
 	kinds map[*symbols.Symbol]oosemKind
 	// typeKinds memoizes kindOfType: one type classifies every feature it types.
 	typeKinds map[*symbols.Symbol]oosemKind
-	diags     []Diagnostic
+	diags     []diag.Diagnostic
 }
 
 // newOOSEMAudit returns nil when the bundled OOSEM library is not loaded, since
@@ -544,8 +545,8 @@ func (a *oosemAudit) report(sym *symbols.Symbol, code, message string) {
 	if sym == nil || sym.Decl == nil {
 		return
 	}
-	a.diags = append(a.diags, Diagnostic{
-		Severity: SeverityWarning,
+	a.diags = append(a.diags, diag.Diagnostic{
+		Severity: diag.SeverityWarning,
 		Span:     sym.Decl.Span(),
 		Message:  message,
 		Code:     code,

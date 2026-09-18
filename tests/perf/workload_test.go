@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
@@ -160,7 +161,7 @@ func TestSyntheticModelValidates(t *testing.T) {
 	idx.AddDocument("perf.sysml", root)
 	idx.ExpandWildcardImports()
 	for _, d := range passes.AnalyzeWithOptions("perf.sysml", source.KindSysML, root, nil, idx, passes.Options{}) {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Errorf("synthetic model: %s", d.Message)
 		}
 	}

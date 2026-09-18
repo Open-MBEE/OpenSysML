@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -12,12 +13,12 @@ import (
 
 // diagsIn parses src as the document name given — whose extension decides the
 // language — and returns the diagnostics of one source.
-func diagsIn(t *testing.T, name, src, diagSource string) []Diagnostic {
+func diagsIn(t *testing.T, name, src, diagSource string) []diag.Diagnostic {
 	t.Helper()
 	root := parser.New(source.New(name, []byte(src))).ParseFile()
 	idx := newTestIndex()
 	idx.AddDocument(name, root)
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range Analyze(name, root, nil, idx) {
 		if d.Source == diagSource {
 			out = append(out, d)

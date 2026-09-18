@@ -4,11 +4,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
-func documentQueryDiagnostics(t *testing.T, body string) []Diagnostic {
+func documentQueryDiagnostics(t *testing.T, body string) []diag.Diagnostic {
 	t.Helper()
 	index := newTestIndex()
 	name := "queries.sysml"
@@ -24,11 +25,11 @@ package Fixture {
 	return Analyze(name, root, parserDiagnostics(p), index)
 }
 
-func parserDiagnostics(p *parser.Parser) []Diagnostic {
-	out := make([]Diagnostic, 0, len(p.Diagnostics))
+func parserDiagnostics(p *parser.Parser) []diag.Diagnostic {
+	out := make([]diag.Diagnostic, 0, len(p.Diagnostics))
 	for _, diagnostic := range p.Diagnostics {
-		out = append(out, Diagnostic{
-			Severity: SeverityError,
+		out = append(out, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     diagnostic.Span,
 			Message:  diagnostic.Message,
 			Source:   "parser",

@@ -3,13 +3,15 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // sendDiags is every diagnostic the full registry reports for src, filtered to
 // the codes the send-action rule and the invocation rule it activates report.
-func sendDiags(t *testing.T, src string) []Diagnostic {
+func sendDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range analyzeAll(t, "send.sysml", src) {
 		switch d.Code {
 		case CodeSendPayloadMissing, CodeSendToPort, CodeSendReceiverNotOccurrence,
@@ -32,7 +34,7 @@ const sendPrelude = `
 
 // assertOneSendDiag checks that got is the one diagnostic code at severity,
 // whose span reads at, and whose message mentions every want.
-func assertOneSendDiag(t *testing.T, src string, got []Diagnostic, code string, severity Severity, at string, wants ...string) {
+func assertOneSendDiag(t *testing.T, src string, got []diag.Diagnostic, code string, severity diag.Severity, at string, wants ...string) {
 	t.Helper()
 	if len(got) != 1 {
 		t.Fatalf("expected one %s diagnostic, got %+v", code, got)
@@ -98,7 +100,7 @@ func TestSendPayloadInvokingNonBehaviorIsReported(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			assertOneSendDiag(t, tc.src, sendDiags(t, tc.src), "invocation-not-behavior", SeverityError, tc.at, "Must invoke a behavior")
+			assertOneSendDiag(t, tc.src, sendDiags(t, tc.src), "invocation-not-behavior", diag.SeverityError, tc.at, "Must invoke a behavior")
 		})
 	}
 }
@@ -130,7 +132,7 @@ func TestSendToPortWarns(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			assertOneSendDiag(t, tc.src, sendDiags(t, tc.src), CodeSendToPort, SeverityWarning, tc.at, "'via'", "'to'")
+			assertOneSendDiag(t, tc.src, sendDiags(t, tc.src), CodeSendToPort, diag.SeverityWarning, tc.at, "'via'", "'to'")
 		})
 	}
 }
@@ -216,7 +218,7 @@ func TestSendArgumentNotAnOccurrenceWarns(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			assertOneSendDiag(t, tc.src, sendDiags(t, tc.src), tc.code, SeverityWarning, tc.at, "occurrence", tc.want)
+			assertOneSendDiag(t, tc.src, sendDiags(t, tc.src), tc.code, diag.SeverityWarning, tc.at, "occurrence", tc.want)
 		})
 	}
 }
@@ -264,7 +266,7 @@ func TestSendSubactionWithoutPayloadIsReported(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			assertOneSendDiag(t, tc.src, sendDiags(t, tc.src), CodeSendPayloadMissing, SeverityError, tc.at, "payload", "send new Msg() to receiver")
+			assertOneSendDiag(t, tc.src, sendDiags(t, tc.src), CodeSendPayloadMissing, diag.SeverityError, tc.at, "payload", "send new Msg() to receiver")
 		})
 	}
 }
@@ -446,7 +448,7 @@ func TestSendBodyPayloadResolvesInEveryHost(t *testing.T) {
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {
 			for _, d := range analyzeAll(t, "send.sysml", src) {
-				if d.Severity == SeverityError {
+				if d.Severity == diag.SeverityError {
 					t.Errorf("unexpected error: %s %s", d.Code, d.Message)
 				}
 			}
@@ -474,7 +476,7 @@ func TestSendBodyPayloadCheckedWhenTypePassIsGated(t *testing.T) {
 	}
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {
-			var unresolved []Diagnostic
+			var unresolved []diag.Diagnostic
 			for _, d := range analyzeAll(t, "send.sysml", src) {
 				if d.Code == "unresolved" {
 					unresolved = append(unresolved, d)
@@ -483,7 +485,7 @@ func TestSendBodyPayloadCheckedWhenTypePassIsGated(t *testing.T) {
 			if len(unresolved) != 1 || !strings.Contains(unresolved[0].Message, "Nowhere") {
 				t.Fatalf("expected one unresolved reference to Nowhere, got %+v", unresolved)
 			}
-			assertOneSendDiag(t, src, sendDiags(t, src), "invocation-not-behavior", SeverityError, "Sig", "Must invoke a behavior")
+			assertOneSendDiag(t, src, sendDiags(t, src), "invocation-not-behavior", diag.SeverityError, "Sig", "Must invoke a behavior")
 		})
 	}
 }
@@ -502,7 +504,7 @@ func TestSendGatesOnUnresolvedArguments(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			var unresolved []Diagnostic
+			var unresolved []diag.Diagnostic
 			for _, d := range analyzeAll(t, "send.sysml", tc.src) {
 				if d.Code == "unresolved" {
 					unresolved = append(unresolved, d)

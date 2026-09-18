@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast/astcodec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
@@ -679,7 +680,7 @@ func (s *Service) parseModel(inputs []sourceInput, mode conformance.Mode) (strin
 	if parsedClean {
 		for i, doc := range documents {
 			doc.PassesDiags = passes.AnalyzeWithOptions(inputs[i].name, inputs[i].kind, doc.Root,
-				make([]passes.Diagnostic, 0), idx, passes.Options{Conformance: mode})
+				make([]diag.Diagnostic, 0), idx, passes.Options{Conformance: mode})
 		}
 	}
 

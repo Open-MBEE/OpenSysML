@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -100,7 +101,7 @@ type W11AKerMLSpecializationPass struct{}
 
 func (W11AKerMLSpecializationPass) Level() PassLevel { return LevelType }
 
-func (W11AKerMLSpecializationPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W11AKerMLSpecializationPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -116,7 +117,7 @@ func (W11AKerMLSpecializationPass) Run(ctx *Context, name string, root *ast.Root
 type w11aSpecializationChecker struct {
 	resolver *resolve.Resolver
 	sysml    bool
-	diags    []Diagnostic
+	diags    []diag.Diagnostic
 }
 
 func (c *w11aSpecializationChecker) check(sym *symbols.Symbol) {
@@ -145,8 +146,8 @@ func (c *w11aSpecializationChecker) check(sym *symbols.Symbol) {
 			if c.sysml {
 				msg = w11aSysMLMessage(msg)
 			}
-			c.diags = append(c.diags, Diagnostic{
-				Severity: SeverityError,
+			c.diags = append(c.diags, diag.Diagnostic{
+				Severity: diag.SeverityError,
 				Span:     rel.Target.Span(),
 				Message:  msg,
 				Code:     "specialization-kind",

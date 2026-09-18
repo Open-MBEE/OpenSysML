@@ -156,10 +156,11 @@ source → lexer → parser → AST → symbol index → resolve → passes
 **Pluggable validation tiers:**
 
 - **PassLevel:** `{LevelSyntax, LevelNameResolution, LevelType, LevelConstraint}`
-- **Pass:** `{Level() PassLevel; Run(ctx, name, root) []Diagnostic}`
+- **Pass:** `{Level() PassLevel; Run(ctx, name, root) []diag.Diagnostic}`
 - **Context:** Exposes `Resolver()` + `Model()` (both lazy, memoized) and `DownstreamOfFailure(ref)` — did a lower tier report a blocking diagnostic inside this reference?
 - **DefaultRegistry:** SyntaxPass, NameResolutionPass, TypeCheckPass, ConstraintPass
 - **Tiered execution:** a document-scoped pass at a higher tier is skipped once a lower tier errors; a pass marked `ElementScoped` runs and gates itself per subject through `Context.DownstreamOfFailure` ([element-scoped tier gating](../project/element-scoped-tier-gating.md))
+- **Diagnostics:** `Diagnostic` and `Severity` live in `internal/core/diag`, a leaf package beside `source` and `quickfix`, so the runtime and the parser report findings in the same type without importing the validation suite
 - **Quick fixes:** A `Diagnostic` carries the `quickfix.Fix` values (`internal/core/quickfix`) the layer reporting it attached, so an editor offers edits without parsing messages
 
 ### 6a. Highlighting (`internal/core/highlight`)

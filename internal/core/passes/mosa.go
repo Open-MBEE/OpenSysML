@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -28,7 +29,7 @@ const mosaSource = "mosa"
 func (MOSAPass) Level() PassLevel { return LevelConstraint }
 
 // Run audits one workspace document against the MOSA rules.
-func (MOSAPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (MOSAPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -139,7 +140,7 @@ type mosaAudit struct {
 	kinds map[*symbols.Symbol]mosaKind
 	// typeKinds memoizes kindOfType: one type classifies every feature it types.
 	typeKinds map[*symbols.Symbol]mosaKind
-	diags     []Diagnostic
+	diags     []diag.Diagnostic
 }
 
 // newMOSAAudit returns nil when the bundled MOSA library is not loaded: a
@@ -614,8 +615,8 @@ func (a *mosaAudit) report(sym *symbols.Symbol, code, message string) {
 	if sym == nil || sym.Decl == nil {
 		return
 	}
-	a.diags = append(a.diags, Diagnostic{
-		Severity: SeverityWarning,
+	a.diags = append(a.diags, diag.Diagnostic{
+		Severity: diag.SeverityWarning,
 		Span:     sym.Decl.Span(),
 		Message:  message,
 		Code:     code,
