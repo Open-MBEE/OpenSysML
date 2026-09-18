@@ -135,6 +135,9 @@ type StateExecutor struct {
 	enteredAhead map[*ast.StateNode]bool
 	// moving marks a compound transition under way that a refused witness may undo.
 	moving *moveMark
+	// front is the site under way whose regions' units are drawn one at a time;
+	// it lives within one move, so no snapshot sees it.
+	front *unitFront
 
 	// changeRearmed collects, while a poll runs, the watches a state entry armed
 	// for a new activation, so the poll's earlier observation does not latch them.
@@ -1005,7 +1008,15 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, []string, error) {
 			return false, resumed, err
 		}
 	}
-	consumed, err := e.dispatchInOrder("on "+eventName(event), candidates, func(candidate dispatchCandidate, trans *lower.Transition, notes []RunNote) (bool, error) {
+	armed := func(candidate dispatchCandidate) (bool, error) {
+		unbind, err := e.bindTriggerArguments(candidate.chosen, event)
+		defer unbind()
+		if err != nil {
+			return false, err
+		}
+		return e.passesGuard(candidate.chosen)
+	}
+	consumed, err := e.dispatchInOrder(firingWherePrefix+eventName(event), candidates, armed, func(candidate dispatchCandidate, trans *lower.Transition, notes []RunNote) (bool, error) {
 		// The guard ran against the pre-dispatch data, so the arguments it read were
 		// unbound again; the effect needs them bound.
 		unbind, err := e.bindTriggerArguments(trans, event)
@@ -1032,41 +1043,75 @@ func (e *StateExecutor) firingOn(event *Event, fire func() (bool, error)) (bool,
 	return fire()
 }
 
-// dispatchInOrder fires the chosen candidates one at a time through fire, the
-// policy re-drawing among those still active since a reaction may leave a leaf;
-// where names the occurrence dispatched, for the choice each draw reports.
+// dispatchInOrder fires the candidates as queues of one front, drawing which firing's next
+// unit runs; a firing left or disarmed by an earlier unit is void. where names the occurrence.
 func (e *StateExecutor) dispatchInOrder(
 	where string,
 	candidates []dispatchCandidate,
+	armed func(dispatchCandidate) (bool, error),
 	fire func(dispatchCandidate, *lower.Transition, []RunNote) (bool, error),
 ) (bool, error) {
-	pending := slices.Clone(candidates)
 	acted := false
-	for len(pending) > 0 {
-		pending = slices.DeleteFunc(pending, func(c dispatchCandidate) bool { return !e.isActive(c.leaf) })
-		if len(pending) == 0 {
-			break
+	gone := func(candidate dispatchCandidate) bool { return !e.isActive(candidate.leaf) || e.state.Ended() }
+	// A guard that cannot be read is left to the firing, which reports the error.
+	void := func(candidate dispatchCandidate) bool {
+		if gone(candidate) {
+			return true
 		}
-		next, order := e.chooseRegion(where, pending)
-		candidate := pending[next]
-		pending = slices.Delete(pending, next, next+1)
-		notes := candidate.notes
-		if order != nil {
-			notes = append([]RunNote{order}, notes...)
-		}
-		if err := e.ctx.scheduling().refusal(); err != nil {
-			return acted, err
-		}
-		fired, err := fire(candidate, candidate.chosen, notes)
-		acted = acted || fired
-		if err != nil {
-			return acted, err
-		}
-		if e.state.Ended() {
-			break
-		}
+		var pass bool
+		var err error
+		e.preview(func() { pass, err = armed(candidate) })
+		return err == nil && !pass
 	}
-	return acted, nil
+	firing := func(candidate dispatchCandidate) error {
+		if gone(candidate) {
+			return nil
+		}
+		fired, err := fire(candidate, candidate.chosen, candidate.notes)
+		acted = acted || fired
+		return err
+	}
+	firings := joinFirings(candidates)
+	if len(firings) < 2 {
+		for _, candidate := range firings {
+			if err := firing(candidate); err != nil {
+				return acted, err
+			}
+		}
+		return acted, nil
+	}
+	err := e.moveWhole(func() error {
+		f := e.openFront(ChoiceRegionOrder, where)
+		for _, candidate := range firings {
+			head := unitHead{
+				label: e.exitLabel(candidate.leaf), at: candidate.leaf, void: func() bool { return void(candidate) },
+				silent: e.exitIsUnit(candidate.leaf) && e.silentExit(candidate.leaf),
+			}
+			if join, ok := candidate.chosen.Target.(*ast.PseudostateNode); ok && join.Kind == ast.PseudostateJoin {
+				head.label, head.at, head.silent = join.Name+"(join)", join, false
+			}
+			f.spawnAt(head, func() error { return firing(candidate) })
+		}
+		return f.drain()
+	})
+	return acted, err
+}
+
+// joinFirings is the candidates with those meeting at one join reduced to the
+// first of them, which fires the join's every segment.
+func joinFirings(candidates []dispatchCandidate) []dispatchCandidate {
+	firings := make([]dispatchCandidate, 0, len(candidates))
+	joins := make(map[*ast.PseudostateNode]bool)
+	for _, candidate := range candidates {
+		if join, ok := candidate.chosen.Target.(*ast.PseudostateNode); ok && join.Kind == ast.PseudostateJoin {
+			if joins[join] {
+				continue
+			}
+			joins[join] = true
+		}
+		firings = append(firings, candidate)
+	}
+	return firings
 }
 
 // dispatchCandidate is the state one active leaf selected for an event, the leaf
@@ -1188,20 +1233,6 @@ func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Tr
 		notes = append([]RunNote{choice}, notes...)
 	}
 	return transitions[candidate.enabled[pick]], notes
-}
-
-// chooseRegion resolves which of the candidates, all still able to fire, fires next:
-// the policy draws the pick and, with several candidates, the choice is reported.
-func (e *StateExecutor) chooseRegion(where string, pending []dispatchCandidate) (int, RunNote) {
-	if len(pending) < 2 {
-		return 0, nil
-	}
-	sources := make([]*ast.StateNode, len(pending))
-	for i, candidate := range pending {
-		sources[i] = candidate.source
-	}
-	choice := e.regionOrderChoice(where, sources)
-	return choice.Taken, choice
 }
 
 // regionOrderChoice is the choice among the states of several regions acting on
@@ -1663,7 +1694,7 @@ func (e *StateExecutor) bindTriggerArguments(trans *lower.Transition, event *Eve
 			return unbind, fmt.Errorf("call trigger %s: invocation carries no argument %q",
 				call.Operation, param.Text)
 		}
-		e.stateData[param.Text] = value
+		e.bindData(param.Text, value)
 	}
 	return unbind, nil
 }
@@ -1687,7 +1718,7 @@ func (e *StateExecutor) bindAcceptPayload(acceptEvent *ast.AcceptEvent, event *E
 		return unbind, fmt.Errorf("accept %s: %w", name.Text, err)
 	}
 	event.Payload = msg
-	e.stateData[name.Text] = value
+	e.bindData(name.Text, value)
 	return unbind, nil
 }
 
@@ -1699,9 +1730,9 @@ func orAnonymousSignal(signalType string) string {
 	return "the accepted " + signalType
 }
 
-// restoreData snapshots the named entries of the machine's data and returns the
-// function putting them back, deleting the ones that were not there before.
-func (e *StateExecutor) restoreData(names []ast.NameSegment) func() {
+// restoreSharedData snapshots the named entries of the machine's data and returns
+// the function putting them back, deleting the ones that were not there before.
+func (e *StateExecutor) restoreSharedData(names []ast.NameSegment) func() {
 	saved := make(map[string]Value, len(names))
 	held := make(map[string]bool, len(names))
 	for _, name := range names {
@@ -2295,7 +2326,7 @@ func (e *StateExecutor) fireHistoryTransition(trans *lower.Transition, hist *ast
 		return err
 	}
 	currentState := e.moveOrigin()
-	return e.travelChoosing(e.drawsBeyond(hist), trans, currentState, r,
+	return e.travel(trans, currentState, r,
 		func(*ast.StateNode) []*ast.StateNode { return e.exitedByMove(currentState, trans, owner) },
 		func(*ast.StateNode) []*ast.StateNode { return e.enteredByMove(currentState, trans, owner) },
 		func(effects []routeEffect, _ *ast.StateNode) error {
@@ -2421,32 +2452,6 @@ func (e *StateExecutor) defaultHistoryRoute(hist *ast.PseudostateNode, owner *as
 	return r, nil
 }
 
-// drawsBeyond reports whether a path out of ps through junctions may face a draw
-// the policy makes while the move is under way: a choice, or several branches out
-// of ps or a junction beyond it.
-func (e *StateExecutor) drawsBeyond(ps *ast.PseudostateNode) bool {
-	seen := map[*ast.PseudostateNode]bool{ps: true}
-	var visit func(ps *ast.PseudostateNode) bool
-	visit = func(ps *ast.PseudostateNode) bool {
-		branches := e.graph.Transitions[ps]
-		if len(branches) > 1 {
-			return true
-		}
-		for _, branch := range branches {
-			next, ok := branch.Target.(*ast.PseudostateNode)
-			if !ok || seen[next] {
-				continue
-			}
-			seen[next] = true
-			if next.Kind == ast.PseudostateChoice || visit(next) {
-				return true
-			}
-		}
-		return false
-	}
-	return visit(ps)
-}
-
 // historyEntry is the state a move into owner's history enters and each region's
 // branch, read after the exits; a nil state says to take the default transition.
 func (e *StateExecutor) historyEntry(hist *ast.PseudostateNode, owner *ast.StateNode) (*ast.StateNode, map[*ast.StateRegion]*ast.StateNode, error) {
@@ -2562,7 +2567,7 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 			return err
 		}
 	}
-	if err := e.enterForkBranches(plan, above); err != nil {
+	if err := e.enterForkBranches(fork, plan, above); err != nil {
 		return err
 	}
 	// A region the move re-entered on its way down keeps the state of that path.
@@ -2617,15 +2622,16 @@ func (e *StateExecutor) leaveForFork(trans *lower.Transition, owner *ast.StateNo
 	return keep, e.exitRegionTo(targetRegion, keep)
 }
 
-// exitRegionsOf leaves every region of owner, which stays active, in declaration
-// order: a fork reached from inside them restarts them all from its branches.
+// exitRegionsOf leaves every region of owner, which stays active, drawn one unit
+// at a time: a fork reached from inside them restarts them all from its branches.
 func (e *StateExecutor) exitRegionsOf(owner *ast.StateNode) error {
+	var bodies []func() error
 	for _, region := range e.graph.CompositeStates[owner] {
-		if err := e.exitRegionTo(region, owner); err != nil {
-			return err
+		if _, active := e.activeConfig.regionStates[region]; active {
+			bodies = append(bodies, func() error { return e.exitRegionTo(region, owner) })
 		}
 	}
-	return nil
+	return e.performUnits(ChoiceExitOrder, exitingWherePrefix+owner.Name, bodies, true)
 }
 
 // regionsExitPath lists the states exitRegionsOf exits.
@@ -4165,6 +4171,11 @@ func (e *StateExecutor) enterStartOf(state *ast.StateNode) (*ast.StateNode, erro
 		if _, orthogonal := e.graph.CompositeStates[leaf]; orthogonal {
 			return leaf, nil
 		}
+		if len(e.graph.StartOf(leaf)) > 0 {
+			if err := e.unitAhead(ChoiceEntryOrder, e.startHead(leaf, leaf)); err != nil {
+				return nil, err
+			}
+		}
 		start, err := e.startIn(leaf)
 		if err != nil {
 			return nil, err
@@ -4232,6 +4243,11 @@ func (e *StateExecutor) enterState(state *ast.StateNode) error {
 func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.StateRegion]*ast.StateNode) error {
 	if state == nil {
 		return nil
+	}
+	if e.entryIsUnit(state) && !e.enteredAhead[state] {
+		if _, err := e.unit(ChoiceEntryOrder, unitHead{label: e.entryLabel(state), at: state, silent: e.silentEntry(state)}); err != nil {
+			return err
+		}
 	}
 	if err := e.activateState(state); err != nil {
 		return err
@@ -4357,23 +4373,10 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 		e.recordChildHistory(e.graph.Machine, state)
 	}
 
-	// Exit the active state of each of this state's regions, in declaration order.
+	// Exit the active state of each of this state's regions, drawn one unit at a time.
 	if isComposite {
-		for _, region := range regions {
-			regionState, isActive := active[region]
-			if !isActive {
-				continue
-			}
-			// Clear the entry first: the recursive exit walks the same map, and the
-			// region still pointing at regionState would exit it a second time.
-			delete(e.activeConfig.regionStates, region)
-			// A region's active state may be nested below the region, so exit it and
-			// the states between it and this one: their exit behaviors run too.
-			for current := regionState; current != nil && current != state; current = e.graph.ParentState[current] {
-				if err := e.exitState(current); err != nil {
-					return fmt.Errorf("exit region state: %w", err)
-				}
-			}
+		if err := e.exitRegionsBelow(state, regions, active); err != nil {
+			return err
 		}
 	}
 
@@ -4383,6 +4386,11 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 	}
 	if e.exitingAhead {
 		e.leftAhead[state] = true
+	}
+	if e.exitIsUnit(state) {
+		if _, err := e.unit(ChoiceExitOrder, unitHead{label: e.exitLabel(state), at: state, silent: e.silentExit(state)}); err != nil {
+			return err
+		}
 	}
 
 	// Leaving the state abandons whatever is left of its do behavior, before the
@@ -4405,6 +4413,30 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 	e.activeConfig.simpleState = nil
 
 	return nil
+}
+
+// exitRegionsBelow exits each region's active state and the states up to owner as queues of
+// an exit front, drawn one unit at a time, each region's innermost first.
+func (e *StateExecutor) exitRegionsBelow(owner *ast.StateNode, regions []*ast.StateRegion, active map[*ast.StateRegion]*ast.StateNode) error {
+	var bodies []func() error
+	for _, region := range regions {
+		regionState, isActive := active[region]
+		if !isActive {
+			continue
+		}
+		// Clear the entry first: the recursive exit walks the same map, and the
+		// region still pointing at regionState would exit it a second time.
+		delete(e.activeConfig.regionStates, region)
+		bodies = append(bodies, func() error {
+			for current := regionState; current != nil && current != owner; current = e.graph.ParentState[current] {
+				if err := e.exitState(current); err != nil {
+					return fmt.Errorf("exit region state: %w", err)
+				}
+			}
+			return nil
+		})
+	}
+	return e.performUnits(ChoiceExitOrder, exitingWherePrefix+owner.Name, bodies, true)
 }
 
 // invokeNested performs an action from a state's entry/exit/effect behavior,

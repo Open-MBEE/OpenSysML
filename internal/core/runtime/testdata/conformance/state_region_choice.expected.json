@@ -1,5 +1,6 @@
 {
   "type": "state",
+  "schedule": "reverse",
   "finalState": "lfast+rwatch",
   "stateVisits": ["lstart", "rstart", "lidle", "rwatch", "lfast"],
   "outputs": {}

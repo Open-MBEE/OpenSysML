@@ -1,15 +1,17 @@
 exit: start
 enter: running
+choice entering running: next a.r1(entry), b.r1(entry) (unordered; took a.r1(entry) first)
 enter: r1
 enter: r1
 transition: start -> running
-choice on accept Step: states a.r1, b.r1 react (unordered; took a.r1 first)
+choice on accept Step: next a.r1(exit), b.r1(exit) (unordered; took a.r1(exit) first)
 exit: r1
 enter: r2
 transition: r1 -> r2 (event: accept Step)
 exit: r1
 enter: r2
 transition: r1 -> r2 (event: accept Step)
+choice exiting running: next a.r2(exit), b.r2(exit) (unordered; took a.r2(exit) first)
 exit: r2
 exit: r2
 exit: running

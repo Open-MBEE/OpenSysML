@@ -238,20 +238,10 @@ func (e *CheckStopped) Unwrap() error { return e.Cause }
 // fresh makes. Every violation and every final value carries the witness a
 // replay of the same starter follows (Replay). It stops with a CheckStopped
 // when stop ends first; it fails when the run refused a move it selected.
+// The start draws choice points itself (region entry order), so it is begun once per way of
+// resolving them and the search runs from every state a start reaches.
 func Check(stop context.Context, fresh func() (*Context, error), start Starter, budget CheckBudget, opts CheckOptions, props []CheckProperty) (*CheckReport, error) {
-	ctx, err := fresh()
-	if err != nil {
-		return nil, err
-	}
-	script := &checkScript{due: -1}
-	if err := ctx.SetSchedule(checkPolicy(script)); err != nil {
-		return nil, err
-	}
-	if ctx.Trace() == nil {
-		ctx.SetTrace(NewTraceRecorder())
-	}
 	c := &checker{
-		ctx:            ctx,
 		budget:         budget,
 		opts:           opts,
 		props:          props,
@@ -260,13 +250,56 @@ func Check(stop context.Context, fresh func() (*Context, error), start Starter, 
 		finals:         make(map[string]int),
 		futures:        make(map[futureKey]lower.Footprint),
 		machineFutures: make(map[*lower.StateGraph]lower.Footprint),
-		budgets:        ctx.Budgets(),
 	}
-	run, err := beginInvocation(ctx, start)
+	starts := [][]int{nil}
+	for i := 0; i < len(starts); i++ {
+		if err := stop.Err(); err != nil {
+			return nil, c.stopped(err)
+		}
+		more, err := c.searchFrom(stop, fresh, start, starts[i])
+		if err != nil {
+			return nil, err
+		}
+		starts = append(starts, more...)
+	}
+	if err := stop.Err(); err != nil {
+		return nil, c.stopped(err)
+	}
+	if err := c.divergeReached(); err != nil {
+		return nil, err
+	}
+	return c.result(), nil
+}
+
+// searchFrom begins the invocation with the start's choice points resolved by picks, searches
+// from the state reached, and returns the pick sequences taking each other alternative drawn.
+func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error), start Starter, picks []int) ([][]int, error) {
+	ctx, err := fresh()
 	if err != nil {
-		// Failing to start fails on every schedule: a violation with no move.
+		return nil, err
+	}
+	if err := ctx.SetSchedule(checkPolicy(&checkScript{due: -1, picks: picks})); err != nil {
+		return nil, err
+	}
+	if ctx.Trace() == nil {
+		ctx.SetTrace(NewTraceRecorder())
+	}
+	c.ctx, c.budgets = ctx, ctx.Budgets()
+	run, err := beginInvocation(ctx, start)
+	check := run.checking()
+	if check.refused != nil {
+		return nil, check.refused
+	}
+	var more [][]int
+	for i, choice := range check.drawn {
+		for alt := 1; alt < len(choice.Alternatives); alt++ {
+			more = append(more, slices.Concat(picks, make([]int, i), []int{alt}))
+		}
+	}
+	if err != nil {
+		// Failing to start fails on every schedule from it: a violation with no move.
 		c.violate(Violation{Kind: ViolationFailure, Err: err, Witness: c.failing(err)})
-		return c.result(), nil
+		return more, nil
 	}
 	defer run.inv.Release()
 	if err := run.inv.started(ctx); err != nil {
@@ -279,10 +312,7 @@ func Check(stop context.Context, fresh func() (*Context, error), start Starter, 
 	if err := c.search(stop); err != nil {
 		return nil, err
 	}
-	if err := c.divergeReached(); err != nil {
-		return nil, err
-	}
-	return c.result(), nil
+	return more, nil
 }
 
 // checker is one search in progress.
@@ -451,7 +481,7 @@ func (c *checker) search(stop context.Context) error {
 	for len(c.stack) > 0 {
 		if err := stop.Err(); err != nil {
 			c.releaseAll()
-			return &CheckStopped{States: len(c.visited), Moves: c.moves, MaxDepth: c.maxDepth, Cause: err}
+			return c.stopped(err)
 		}
 		f := c.stack[len(c.stack)-1]
 		if f.next >= len(f.moves) {
@@ -474,6 +504,11 @@ func (c *checker) search(stop context.Context) error {
 		}
 	}
 	return nil
+}
+
+// stopped is the check ended by its caller, with what it had searched so far.
+func (c *checker) stopped(cause error) error {
+	return &CheckStopped{States: len(c.visited), Moves: c.moves, MaxDepth: c.maxDepth, Cause: cause}
 }
 
 // cut marks the frame's state as one the depth bound cut a schedule through.

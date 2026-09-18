@@ -1,5 +1,6 @@
 exit: start
 enter: Outer
+choice entering Outer: next lstart(entry), rstart(entry) (unordered; took lstart(entry) first)
 enter: lstart
 enter: rstart
 transition: start -> Outer

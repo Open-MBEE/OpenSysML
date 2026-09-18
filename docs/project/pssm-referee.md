@@ -141,7 +141,12 @@ exhausts the exploration budget, is a failure whose reason names the error. Each
 by the runtime's budgets and their environment overrides (`OPENSYSML_MAX_STEPS` and the others
 the `sysml` command honors), except that the step budget defaults to 100 000 rather than the
 runtime's ten million: a translated test that needs more is looping, and the smaller bound
-reports the runaway in a second rather than minutes. `-jobs n` explores
+reports the runaway in a second rather than minutes, and that the exploration runs 4096
+linearizations rather than the runtime's default 1024 (`internal/pssm/run.go:DefaultBudget`):
+the most a test draws once region entry, exit and firing units are choice points is
+*Event 016 B*'s 1152 linearizations (three firings across nested orthogonal regions), past the
+default, and a test that exhausts the budget fails rather than reports what it reached.
+`-jobs n` explores
 `n` linearizations of one test at once; the report is byte-identical for any `n`, and
 `TestRefereeDeterministic` asserts it.
 
@@ -177,7 +182,9 @@ send with no receiver) are not state-machine rows and no test in the suite reach
 
 ## Baseline
 
-Recorded **2026-09-17** on develop commit **`c2bffb389`** with `terminate` executing
+Recorded **2026-09-18** on develop commit **`23a50b1d1`** with the order of orthogonal
+regions drawn as choice points at three of finding 9's four sites (region entry, region exit,
+the units of the firings one occurrence selects), `terminate` executing
 (alignment finding 1, SM38), the fork-entered-region fix
 (finding 6), the active-ancestor fix, the completion-choice fix, the guard-side-effect
 classification, the join incoming-effects fix, the junction branch-choice fix (finding 8) and
@@ -190,13 +197,42 @@ baseline — `go run ./cmd/pssm-referee` prints the current ones.
 
 | Bucket | Tests |
 |---|---:|
-| `pass` | 46 |
-| `fail` | 17 |
+| `pass` | 51 |
+| `fail` | 13 |
 | `not-expressible` | 38 |
-| `differs-by-design` | 2 |
+| `differs-by-design` | 1 |
 | **Total** | **103** |
 
 ### Movements since the previous baseline
+
+Five counts moved since the previous baseline (develop `c2bffb389` with `terminate`
+executing, 2026-09-17): the runtime draws the order in which a composite state's orthogonal
+regions and a fork's branches are entered, the order in which orthogonal regions are exited,
+and the order of the units — source exit, effect, target entry — of the firings one occurrence
+selects across regions, as choice points the schedule policy resolves and `explore` varies
+(`ChoiceEntryOrder`, `ChoiceExitOrder`, the per-unit `ChoiceRegionOrder`;
+[finding 9](#findings-about-our-own-conformance), three of its four sites). The default
+policy takes the order the runtime always took, so no trace it reached before is lost; what
+`explore` now reaches is the other linearizations. Five tests gain every admitted trace they
+missed and move to `pass`; two others stay `fail` with a changed reason; the six that depend on
+the site not yet implemented — a due do step against the dispatch at the head of the pool —
+or on the completion-firing interleaving of finding 11 keep their reasons byte for byte.
+
+| Test | Finding | Movement | Adjudication |
+|---|---|---|---|
+| Exiting 001 | 9 (fixed in part) | `fail` → `pass` | Expected. `S1` has two regions, `S1.1` (with `S1.1.1` inside) in the first and `S2.1` in the second; leaving `S1` exits `S1.1.1`, then `S1.1`, and `S2.1`, the library ordering a nested state's exit before its parent's and nothing across the regions. The two admitted traces not reached before, `S1.1.1(exit)::S2.1(exit)::S1.1(exit)::S1(exit)` and `S2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)`, are the other two linearizations of the chain `S1.1.1(exit)::S1.1(exit)` against `S2.1(exit)`, which the exit-order draw at `exiting S1` reaches (`state_region_exit_order` is the conformance fixture of the shape). All three admitted traces reached, nothing else |
+| Exiting 003 | 9 (fixed in part) | `fail` → `pass` | Expected. `S1.1` is itself parallel inside `S1`, with `S1.1.1` and `S1.2.1` one in each of its regions: the exit-order draw at `exiting S1.1` reaches `S1.2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)` beside the declared order. Both admitted traces reached, nothing else |
+| Fork 002 | 9 (fixed in part) | `fail` → `pass` | Expected. `T2` ends at a fork whose branches `T2.1` and `T2.2` enter the two regions of `S1` directly, `T2.2`'s target `S1.1` logging its entry: after `T2(effect)`, `S1(entry)` is entered once by whichever branch is drawn first, then the branches' effects and `S1.1(entry)` interleave with `T2.2(effect)` before `S1.1(entry)` and nothing across the branches. The three admitted traces not reached before are the other linearizations of the chain `T2.2(effect)::S1.1(entry)` against `T2.1(effect)`, which the entry-order draw at `fork` reaches (`state_fork_branch_order`). All four admitted traces reached, nothing else |
+| Terminate 001 | 1 (fixed), 9 (fixed in part) | `fail` → `pass` | Expected. The admitted trace not reached before, `S1(entry)::S2.1(entry)::S1.1(entry)::S2.1(exit)`, enters `S1`'s second region before its first: the entry-order draw at `entering S1` reaches it, and the termination — `S2.1` exited by its completion transition into the terminate pseudostate, `S1.1` left active and never exited, the machine ended — is the same in both. Both admitted traces reached, nothing else |
+| Deferred 006 C | — (SM15 row), 9 (fixed in part) | `differs-by-design` → `pass` | Expected once looked at, and a correction of the previous adjudication. `S1.1` and `S1.2`, one in each region of `S1`, each have a do activity parked at `accept Continue`, `S1.1` deferring `Continue` as well; the runtime dispatches the one `Continue` to both do activities (SM15's rule, which the test still reports on), and each logs as it takes it. The trace not reached before, `S1.2(doActivity)::S1.1(doActivity)`, was filed under SM15 as "the same rule" as *Deferred 006 B*'s; it was not — both do activities take the occurrence under either rule, and what the runtime never varied was the *order* they take it in, which follows the order the do activities were started, the region-entry order. The entry-order draw at `entering S1` reaches it. The previous `differs-by-design` verdict was therefore misattributed: SM15 is the reason *Deferred 006 B* stays there, not this variant's. Both admitted traces reached, nothing else; the row keeps its SM15 mapping as *Deferred 006 A* does (a pass reporting on the row) |
+| Transition 019 | SM34, 9 (fixed in part) | `fail` → `fail`, reason changed | Expected. The four admitted traces not reached before — both regions' exits before either effect, `S1.1(exit)::S2.1(exit)::T1.2(effect)::T2.2(effect)::…` and its kin, the steps of two firings interleaved — are reached: a firing is not atomic across regions, its exit and effect drawn one unit at a time against the sibling's (the granularity decision of the alignment note's SM21 row). Every one of the six admitted traces is reached. What the run reaches beyond them is six traces, not two: every admitted order of the exits and effects continued with the join's segments `T1.3` and `T2.3` in the order *opposite* to the regions' firing order, where PSSM fires each completion transition into `Join1` as its source's completion is dispatched and so follows the sources' order. That is SM34 alone — the runtime holds the join's segments until the join is ready and draws their order, the recorded tool choice — so the finding-9 part of the reason is closed and the test stays `fail` citing SM34 |
+| Terminate 002 | 1 (fixed), 9 (fixed in part) | `fail` → `fail`, reason changed | Expected in part. Of the four admitted traces not reached before, the one whose difference was the region-entry order alone, `S1(entry)::S2.1(entry)::S1.1(entry)::S1.1(doActivityPartI)`, is reached through the entry-order draw. The three still missing move the do activity's first segment: `S1(entry)::S1.1(entry)::S2.1(entry)` and `S1(entry)::S2.1(entry)::S1.1(entry)` dispatch `S2.1`'s terminating completion before it — the do-step site, designed and not yet implemented — and `S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)` runs it before the sibling region's entry, a step of a do behavior inside the entry front, the shape finding 11 records for a completion's firing. `fail` citing finding 9's do-step site and finding 11 |
+
+*Behavior 003 A* (the do-step site), *Transition 017* (the do-step site and finding 11), and
+*Entering 010*, *Entering 011*, *Junction 005*, *History 001-C* and *History 002-B* (finding 11)
+did not move and their reasons are byte-identical to the previous baseline's.
+
+### Movements before that
 
 Three counts moved since the previous baseline (develop `265045be5` with the segment-effect
 fix, 2026-09-16): the runtime executes `terminate` in every position the parser accepts
@@ -228,7 +264,7 @@ on what remains missing.
 No count moved between the baseline of develop `bcc6b13e0` (with the junction
 branch-choice fix, 2026-09-15) and the one that followed it (develop `46828f14f`, 2026-09-16).
 The baseline file changed all the same: the adjudication of
-the fourteen failures it left unattributed ([below](#fail-17)) added four tests to the
+the fourteen failures it left unattributed ([below](#fail-13)) added four tests to the
 committed table — *Junction 004* and *Join003* on SM32, *Join001* and *Transition 019* on
 SM34, both *differs, v2 silent* rows — so their rows now carry the row and its verdict, and
 their reasons the *reports on* line. All four stay `fail`, as a test mapped to a tool-choice
@@ -375,30 +411,30 @@ short trace to a budget exhaustion: with SM11 its `S1` now completes and fires `
 history, and the history-record timing of finding 7 makes that re-enter `S1.1` without end. The
 remaining failures' reasons are byte-identical to the previous baseline's.
 
-### `pass` (46)
+### `pass` (51)
 
 Behavior 001, Behavior 002, Behavior 003 B, Transition 001, Transition 007, Transition 011 C,
 Transition 015, Transition 016, Transition 020, Transition 022, Event 001, Event 002, Event 008, Event 009,
 Event 010, Event 015, Event 016 A (reports on SM11), Event 016 B, Event 017 A, Event 018, Entering 004,
-Entering 005, Exiting 002, Exiting 005, Choice 001 and Choice 002 (report on SM30), Choice 003,
+Entering 005, Exiting 001, Exiting 002, Exiting 003, Exiting 005, Fork 002, Choice 001 and Choice 002 (report on SM30), Choice 003,
 Choice 004, Final001 (reports on SM11), Deferred 001, Deferred 002, Deferred 003 (reports on
 SM7), Deferred 004 A and Deferred 004 B (report on SM7), Deferred 005, Deferred 006 A (reports
-on SM15: the runtime's rule and PSSM's agree on this variant), History 001-A, History 001-B,
+on SM15: the runtime's rule and PSSM's agree on this variant), Deferred 006 C (reports on SM15:
+both do activities take the occurrence under either rule, and their order is drawn), History 001-A, History 001-B,
 History 001-D, History 002-A, History 002-C (reports on SM28), History 002-D, Join002, Junction 001,
-Junction 003.
+Junction 003, Terminate 001.
 
-### `differs-by-design` (2)
+### `differs-by-design` (1)
 
 | Test | Row | Admitted trace not reached |
 |---|---|---|
 | Deferred 006 B | SM15 | `S2(doActivityPartI)::S2(doActivityPartII)` — PSSM gives the deferred occurrence to the do activity alone; the runtime dispatches it to every scope |
-| Deferred 006 C | SM15 | `S1.2(doActivity)::S1.1(doActivity)` — the same rule |
 
-### `fail` (17)
+### `fail` (13)
 
 Every failure is attributed. Five cite a *differs, v2 silent* row of the alignment note through
 the committed table: the suite's second opinion on a tool choice, which the row records and the
-test does not overturn. Twelve cite an open finding against this project — a gap of the runtime's,
+test does not overturn. Eight cite an open finding against this project — a gap of the runtime's,
 recorded [below](#findings-about-our-own-conformance) and in the alignment note, that a change
 of its own will close, moving the tests with it. None is a translation defect: each translated
 model was read against the test's UML, and every construct the test uses reaches the run.
@@ -411,9 +447,9 @@ model was read against the test's UML, and every construct the test uses reaches
 | Junction 004 | SM32 | run error: `junction S1_Junction1_2: no guard evaluated to true` — the junction on the default entry of `S1`'s second region, both of whose outgoing guards are false; PSSM's static evaluation disables the transition into `S1` as a whole, `S1` is never entered and the next occurrence fires `T3` from the source, admitting `T3(effect)`. The same rule as *Junction 002*'s, one region further in; the emitter carries both guards as `false` faithfully |
 | Join003 | SM32 | run error: `join Join1: no guard evaluated to true` — the join's only outgoing transition is guarded `value < 10` with `value` `15`; the runtime fires the join's segments together once both sources are active (SM34) and fails resolving the way out. PSSM fires the first completion transition into the join alone (a segment may end at a join, whose completion is waited for) and disables the second, whose entering the join would need a way through, so `S1` stays active for `T5`; admits `T1.2(effect)::T5(effect)` and `T1.4(effect)::T5(effect)`. SM32's rule at a join's way out |
 | Join001 | SM34 | reached `S1.1(exit)::T2.3(effect)::S2.1(exit)::T2.4(effect)::S1(exit)` and its mirror, `S1(exit)` after the last incoming segment's effect; PSSM admits `S1.1(exit)::T2.3(effect)::S2.1(exit)::S1(exit)::T2.4(effect)` and its mirror, `S1` left with the last source, before that segment's effect. The row records the runtime's place for the owner's exit — after every incoming effect, the library reading of the oracle's join section — and the test's own prose expected execution puts `S1(exit)` there too; its assertion does not |
-| Transition 019 | SM34, finding 9 | reached `S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::T2.3(effect)::T1.3(effect)` and its mirror, the join's segments in the order opposite to the regions' firing order: PSSM fires each completion transition into `Join1` when its source's completion is dispatched, so their order follows the sources', where the runtime holds them until the join is ready and draws the order (the row). The four admitted traces not reached put both regions' exits before either effect — the steps of two firings interleaved, finding 9's granularity — while the two that interleave each region's exit and effect are reached |
+| Transition 019 | SM34 | reached every one of the six admitted traces — the two regions' exits and effects in every order the library admits, a firing not atomic against its sibling's — and six more: each of those orders continued with the join's segments `T1.3` and `T2.3` in the order opposite to the regions' firing order, `S1.1(exit)::S2.1(exit)::T1.2(effect)::T2.2(effect)::T2.3(effect)::T1.3(effect)` among them. PSSM fires each completion transition into `Join1` when its source's completion is dispatched, so their order follows the sources'; the runtime holds them until the join is ready and draws the order (the row). Only the row remains |
 
-#### Citing a finding (12)
+#### Citing a finding (8)
 
 One line per test, from the baseline's `reasons`: what the run reached that the suite does not
 admit (`—` when every reached trace is admitted and the failure is only a missing one), and
@@ -422,18 +458,14 @@ quoted and the number given. The full sets are in the baseline file.
 
 | Test | Finding | Reached, not admitted | Admitted, not reached |
 |---|---|---|---|
-| Behavior 003 A | 9 (do step before dispatch) | — | `S1(entry)` (the machine's `AnotherSignal` transition dispatched before the do activity's first segment; `runStep` runs the do round before the dispatch) |
-| Transition 017 | 9 (do step before dispatch) | — | `T2(effect)::S1(entry)::S3.1(doActivity)::T3.1.2(effect)::T2.2(effect)::T3.2(effect)` and 6 more interleavings of `S3.1(doActivity)`, `T2.2(effect)`, `T3.1.2(effect)` (the eighth admitted order is reached) |
-| Entering 010 | 9 (region entry order) | — | `S1(entry)::T2.1(effect)::S1.1(entry)::S2.1(entry)` and `S1(entry)::T2.1(effect)::S2.1(entry)::S1.1(entry)` (the third admitted order is reached) |
-| Entering 011 | 9 (region entry order) | — | `S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S1.2(entry)` and 4 more orders of the two regions' initial effects and entries (the sixth admitted order is reached) |
-| Exiting 001 | 9 (region exit order) | — | `S1.1.1(exit)::S2.1(exit)::S1.1(exit)::S1(exit)` and `S2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)` (the third admitted order is reached) |
-| Exiting 003 | 9 (region exit order) | — | `S1.2.1(exit)::S1.1.1(exit)::S1.1(exit)::S1(exit)` (the other admitted order is reached) |
-| Fork 002 | 9 (region entry order) | — | `T2(effect)::S1(entry)::T2.1(effect)::T2.2(effect)::S1.1(entry)` and 2 more orders of the two branches' effects and `S1.1(entry)` (the fourth admitted order is reached) |
-| History 001-C | 9 (region entry and exit order) | — | `S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)` and 10 more orders of the two regions' entries and exits (the twelfth admitted order, the one the PSSM text prints, is reached) |
-| History 002-B | 9 (region entry and exit order) | — | `…::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)` and 4 more orders of the two regions' entries and exits (the sixth admitted order is reached) |
-| Junction 005 | 9 (region entry order) | — | `S1(entry)::T2.1(effect)::S2.1(entry)::T1.3(effect)::S1.2(exit)::S1(exit)` and `S1(entry)::T2.1(effect)::T1.3(effect)::S2.1(entry)::S1.2(exit)::S1(exit)` (the third admitted order, `T1.3(effect)` first after `S1(entry)`, is reached: the second region's initial effect and entry are admitted before or around the junction segment's effect) |
-| Terminate 001 | 9 (region entry order) | — | `S1(entry)::S2.1(entry)::S1.1(entry)::S2.1(exit)` (the other admitted order is reached; the termination — source exited, `S1.1` left active and unexited, the machine ended — is in both) |
-| Terminate 002 | 9 (region entry order, do step before dispatch) | — | `S1(entry)::S1.1(entry)::S2.1(entry)` and 3 more orders of the two regions' entries and the do activity's first segment, which PSSM admits before the terminating completion transition or not at all (the fifth admitted order is reached; the do activity's second segment is in none, aborted) |
+| Behavior 003 A | 9 (do step against the dispatch) | — | `S1(entry)` (the machine's `AnotherSignal` transition dispatched before the do activity's first segment; `runStep` runs the do round before the dispatch) |
+| Transition 017 | 9 (do step against the dispatch), 11, suite defect | — | `T2(effect)::S1(entry)::S3.1(doActivity)::T3.1.2(effect)::T2.2(effect)::T3.2(effect)` and 6 more interleavings of `S3.1(doActivity)`, `T2.2(effect)`, `T3.1.2(effect)` (the eighth admitted order is reached). Of the five that agree with the test's expected sequence, four place the do activity's segment after a completion's dispatch, the do-step site; three (two of those four among them) dispatch `T3.1.2`, the completion of `S3.1`'s region, before `T2.2`, the completion of `S1`'s other region — the two completions are dispatched in the order their sources were entered, and the entry of `S1`'s regions is not drawn because every unit of it is silent (`S2.1`, `S3.1` and `S3.1.1` have no entry behavior), the shape finding 11 records: the completion's firing, which does perform, drawn against the sibling region's units. The two that fire `T3.2`, `S3.1`'s completion transition, before `T3.1.2`, the completion out of its own region, and run the do activity's segment after `S3.1` was left, contradict the test's expected sequence and `StatePerformances.kerml` alike and are the suite's defect recorded in [`omg-issues.md`](omg-issues.md#pssm-transition-017-admits-a-parents-completion-before-its-regions) — no runtime reaches them, so the test stays `fail` on them once the other six are reached |
+| Entering 010 | 11 (completion firing against the entry front) | — | `S1(entry)::T2.1(effect)::S1.1(entry)::S2.1(entry)` and `S1(entry)::T2.1(effect)::S2.1(entry)::S1.1(entry)` (the third admitted order is reached; both fire `T2.1`, the second region's initial transition — a completion out of the translated start state — before the first region's explicit target `S1.1` is entered, where the runtime dispatches the completion as a step of its own after the entry) |
+| Entering 011 | 11 (completion firing against the entry front) | — | `S1(entry)::T1.1(effect)::S1.1(entry)::T2.1(effect)::S1.2(entry)` and 4 more orders of the two regions' initial effects and entries (the sixth admitted order is reached) |
+| History 001-C | 11 (completion firing against the entry front) | — | `S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::S2.2.2(entry)::S1(exit)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.2(entry)::S1(exit)` and 10 more orders of the two regions' entries and exits (the twelfth admitted order, the one the PSSM text prints, is reached; every missing one interleaves `S1.1(exit)::S1.2(entry)`, a completion's firing, with the other region's entry) |
+| History 002-B | 11 (completion firing against the entry front) | — | `…::S1(exit)::T3(effect)::S1(entry)::S1.1(exit)::S1.2(entry)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1(exit)` and 4 more orders of the two regions' entries and exits (the sixth admitted order is reached) |
+| Junction 005 | 11 (completion firing against the entry front) | — | `S1(entry)::T2.1(effect)::S2.1(entry)::T1.3(effect)::S1.2(exit)::S1(exit)` and `S1(entry)::T2.1(effect)::T1.3(effect)::S2.1(entry)::S1.2(exit)::S1(exit)` (the third admitted order, `T1.3(effect)` first after `S1(entry)`, is reached: the second region's initial effect `T2.1`, a completion out of the translated start state, and its target's entry are admitted before or around the junction segment's effect) |
+| Terminate 002 | 9 (do step against the dispatch), 11 | — | `S1(entry)::S1.1(entry)::S2.1(entry)` and 2 more orders of the two regions' entries and the do activity's first segment, which PSSM admits before the sibling region's entry, before the terminating completion transition or not at all (both admitted orders of the entries with the segment last are reached; the do activity's second segment is in none, aborted) |
 
 Every reason in full — each extra trace, each missing trace, each error — is in the baseline
 file's `reasons`.
@@ -467,11 +499,11 @@ test's constructs in its `reasons`.
 
 ## Findings about our own conformance
 
-The referee's classifier and runs surfaced five gaps that are this project's rather than SysML
+The referee's classifier and runs surfaced six gaps that are this project's rather than SysML
 v2's. Four — the first two found when the referee was added, the third by its exploration, the
-fourth by attributing the failures that remained — are fixed, each in a change of its own; one,
-found the same way, is open, and the tests that reach it stay `fail` citing it until a change
-of its own closes it:
+fourth by attributing the failures that remained — are fixed, each in a change of its own; one
+is fixed at three of its four sites, and one, found while fixing it, is open. The tests that
+reach an open site stay `fail` citing it until a change of its own closes it:
 
 - **The lowerer refused a fork into orthogonal regions that have no initial pseudostate**
   (*Fork 002*, *Join 001*; alignment finding 6). UML lets a fork's outgoing transitions enter
@@ -529,31 +561,63 @@ of its own closes it:
   (`state_junction_several_enabled_branches`, `state_junction_drawn_as_its_transition_fires`,
   `state_history_default_through_junction`, `explore_test.go:TestExploreStaticJunctionBranches`).
   The test passes; the movements table above adjudicates it.
-- **The order in which orthogonal regions are entered, exited and stepped is not a recorded
-  choice point** (*Entering 010*, *Entering 011*, *Exiting 001*, *Exiting 003*, *Fork 002*,
-  *History 001-C*, *History 002-B*, *Transition 019*, *Behavior 003 A*, *Transition 017*,
-  *Junction 005* since finding 10's fix, and *Terminate 001* and *Terminate 002* since the
-  runtime executes `terminate`; alignment finding 9, open). Every trace the runtime
-  reaches in these thirteen is one the suite
-  admits; what fails is the admitted traces it never reaches, because four sites order what PSSM
-  leaves concurrent and record no choice for `explore` to vary: the regions of a composite
-  state and a fork's branches are entered in declaration order
-  (`state_region_entry.go:enterRegionsInto`, `enterForkBranches`), exited in declaration order
-  (`state_executor.go:exitState`), the transitions one occurrence selects fire one whole firing
-  — source exit and effect — at a time (`dispatchInOrder`, SM21), and a do action due at the
-  instant steps before the occurrence at the head of the pool is dispatched (`runStep` runs the
-  do round first, SM13). Not a defect of behavior — SysML v2 §7.18.1 leaves parallel substates
-  and a `do` sub-performance concurrent, so the runtime's one linearization per site is one v2
-  admits — but a gap of exploration, and its fix is a scheduling design (each site stepped under
-  a draw the policy makes and a `ChoiceRegionOrder` records, as `dispatchInOrder` and
-  `runDoRound` already do among themselves, with the trace goldens of every fixture that enters
-  or leaves an orthogonal state moving), so it is recorded rather than made here. The design is
-  written — [recording the order of orthogonal regions](../internals/design/region-order-scheduling.md):
-  the unit each site draws, the choice kinds and their trace and witness lines, what each policy
-  does, the rollback of a refused replay, the budget, and the alignment row on firing
-  granularity — and stops at two decisions for the maintainers: whether trace goldens recorded
-  under the default policy may gain `choice` lines, and the two admitted traces of
-  *Transition 017* that no reading of the model produces.
+- **The order in which orthogonal regions are entered, exited and stepped was not a recorded
+  choice point** (alignment finding 9; fixed at three of its four sites, the fourth designed).
+  Thirteen tests reached only traces the suite admits and failed on admitted traces they never
+  reached, because four sites ordered what PSSM leaves concurrent and recorded no choice for
+  `explore` to vary. Not a defect of behavior — SysML v2 §7.18.1 leaves parallel substates and a
+  `do` sub-performance concurrent, so one linearization per site is one v2 admits — but a gap of
+  exploration, closed by the scheduling design
+  [recording the order of orthogonal regions](../internals/design/region-order-scheduling.md).
+  Three sites are implemented: the regions of a composite state, a fork's branches and the
+  regions a history restores are entered under a draw (`ChoiceEntryOrder`, `entering S1`,
+  `fork`; `state_region_entry.go`), orthogonal regions are exited under a draw
+  (`ChoiceExitOrder`, `exiting S1`; `state_executor.go:exitState`), and the firings one
+  occurrence selects across regions run one unit — source exit, effect, target entry — at a
+  time under a draw (`ChoiceRegionOrder`; `dispatchInOrder`), a firing not atomic against its
+  sibling's (the alignment note's SM21 row records the decision, argued from the KerML
+  successions, which order the units of one firing and nothing across two). Each region's units
+  run as a coroutine on a front (`state_unit_front.go`) that draws which region's next
+  behavior-performing unit runs while two or more have one, silent entries and exits riding with
+  the performing unit next to them so that exploration counts linearizations of behaviors, not
+  of bookkeeping; `declared` and `reverse` take declaration order, so no trace golden's event
+  order moved under the default and the goldens that record a draw gained `choice` lines alone;
+  seeds and `explore` reach the other orders; a witness names each draw and replay refuses one
+  the run does not offer, rolling the move back. Moved: *Exiting 001*, *Exiting 003*,
+  *Fork 002*, *Terminate 001* and *Deferred 006 C* to `pass`, and every admitted trace of
+  *Transition 019* is reached, leaving SM34 alone (the movements table above adjudicates each).
+  The fourth site — a due do step against the dispatch at the head of the pool — is designed
+  and not yet implemented: at each token move of a due do flow with an occurrence due at the
+  same instant, "dispatch it now" against "keep moving the do flow", `declared` finishing the
+  sweep before it dispatches as the fixed policies always did, `check` and `explore`
+  enumerating both. Until it lands, *Behavior 003 A*, *Transition 017* (which also reaches
+  finding 11, and whose two anomalous admitted traces are the suite's defect, recorded in
+  [`omg-issues.md`](omg-issues.md#pssm-transition-017-admits-a-parents-completion-before-its-regions),
+  so that it stays `fail` on those two once the other six are reached) and *Terminate 002* stay
+  `fail` citing it; `check` reports a run it cannot enumerate at that site as within bounds
+  (`notEnumerated`, the bounded verdict the do-round report gives) rather than exhaustive.
+- **A completion transition's firing is not drawn against the entry front it completes in**
+  (*Entering 010*, *Entering 011*, *Junction 005*, *History 001-C*, *History 002-B*; alignment
+  finding 11, open; one trace of *Terminate 002* has the same shape with a do behavior's step
+  in place of the completion's firing, and three of *Transition 017* have it between two
+  regions' completions, dispatched in the order their sources were entered where every entry
+  unit is silent and so not drawn). Found while implementing finding 9's
+  entry site: every admitted trace these five still miss interleaves the firing of a completion
+  transition — the initial transition of a region, translated as a completion out of a start
+  state (`T2.1(effect)` in *Entering 010*), or `S1.1(exit)::S1.2(entry)` in the History tests —
+  with the entry units of the sibling region *in the same step*. The runtime dispatches a
+  completion as a run-to-completion step of its own once the entry move has settled (SM9,
+  SM10), so no draw among the entry units reaches an order in which the completion fires before
+  the sibling's entry. PSSM, which fires the completion as soon as its source is complete and
+  the region's entry is still under way, admits both. Not a defect of behavior — the completion
+  does fire, once, with its effect — but a gap of exploration at a site the design did not
+  name. The proposed fix, written so a follow-up can implement it without re-deriving it, is the
+  design's section
+  [a pending completion inside the entry front](../internals/design/region-order-scheduling.md#finding-11-a-pending-completion-inside-the-entry-front):
+  a state whose entry leaves it complete offers its completion's firing as a unit of its
+  region's queue on the front that entered it, drawn against the sibling regions' remaining
+  units under `ChoiceRegionOrder`, `declared` taking it last so that the default order — the
+  step the runtime dispatches today — is unchanged and no trace golden moves under it.
 - **A segment leaving a junction inside a composite state ran its effect before the composite
   was entered** (*Junction 005*; alignment finding 10). The transition targets a junction in one
   region of the orthogonal `S1`, and `state_executor.go:moveTo` ran every effect of the route
@@ -574,8 +638,8 @@ of its own closes it:
   `state_junction_then_choice_inside_composite`,
   `state_history_default_junction_inside_nested`, each with its trace golden; no golden on
   `develop` moved). *Junction 005* now reaches an admitted trace and stays `fail` on the two it
-  still misses, which are finding 9's region-entry order; the movements table above
-  adjudicates it.
+  still misses, which interleave the second region's completion with the junction segment —
+  finding 11; the movements table of that baseline adjudicates it.
 
 ### The twenty failures the first baseline left unadjudicated
 
@@ -597,16 +661,18 @@ detail. By root cause:
 | Several completion transitions out of one state were not one choice | runtime defect, SM19 (fixed) | Event 015 | `pass` |
 | A guard whose behavior acts on the model | translation defect, the classifier (a construct with no translation) | Choice 005 | `not-expressible` |
 | A junction or join with no way through | missing alignment text, SM32 (*differs, v2 silent*) | Junction 004, Join003 | `fail`, citing SM32 |
-| The order of a join's segments | missing alignment text, SM34 (*differs, v2 silent*) | Transition 019 (also finding 9) | `fail`, citing SM34 |
-| Region entry, exit and do-step order is not a recorded choice | runtime gap, finding 9 (open) | Entering 010, Entering 011, Exiting 001, Exiting 003, History 001-C, History 002-B, Behavior 003 A, Transition 017 | `fail`, citing finding 9 |
-| A junction segment's effect before its owner's entry | runtime defect, finding 10 (fixed) | Junction 005 | `fail`, citing finding 9 for the region-entry orders left missing once the segment's effect follows `S1(entry)` |
+| The order of a join's segments | missing alignment text, SM34 (*differs, v2 silent*) | Transition 019 (finding 9's part closed) | `fail`, citing SM34 |
+| Region entry, exit and firing-unit order is not a recorded choice | runtime gap, finding 9 (fixed at these sites) | Exiting 001, Exiting 003 | `pass` |
+| A do step against the dispatch at the head of the pool is not a recorded choice | runtime gap, finding 9 (designed, not yet implemented) | Behavior 003 A, Transition 017 (also finding 11; two of its admitted traces are the suite's defect) | `fail`, citing finding 9 |
+| A completion's firing is not drawn against the entry front | runtime gap, finding 11 (open) | Entering 010, Entering 011, History 001-C, History 002-B | `fail`, citing finding 11 |
+| A junction segment's effect before its owner's entry | runtime defect, finding 10 (fixed) | Junction 005 | `fail`, citing finding 11 for the completion interleavings left missing once the segment's effect follows `S1(entry)` |
 
 *Fork 002* and *Join001*, which finding 6's fix brought out of `not-expressible` after that
-baseline, are attributed with them: *Fork 002* to finding 9 (region entry order) and *Join001*
-to SM34 (where the owner is left), each read against its requirement. So are *Terminate 001*
-and *Terminate 002*, which executing `terminate` brought out of `terminate-gap`: both to
-finding 9 (region entry order; for *002* the do step's place too), the termination itself
-reaching an admitted trace in each.
+baseline, are attributed with them: *Fork 002* to finding 9 (region entry order, now `pass`)
+and *Join001* to SM34 (where the owner is left), each read against its requirement. So are
+*Terminate 001* and *Terminate 002*, which executing `terminate` brought out of
+`terminate-gap`: *001* to finding 9's region-entry order (now `pass`), *002* to its do-step
+site and to finding 11, the termination itself reaching an admitted trace in each.
 
 ## Reproducing and CI
 

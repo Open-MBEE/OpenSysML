@@ -716,7 +716,8 @@ RelatedElements(
 	source = <elements>,
 	relationshipKind = "<kind>",   // specialization, subsetting, redefinition,
 	                                // typing, connection, allocation,
-	                                // satisfaction or verification
+	                                // satisfaction, verification,
+	                                // derivation or refinement
 	direction = "<direction>",     // outgoing or incoming
 	maxDepth = <n>
 )
@@ -824,6 +825,103 @@ $ sysml cookbook.sysml -run-query "Cookbook::VerifiedBy req=Cookbook::massRequir
 ✓ Query Cookbook::VerifiedBy returned 1 row
   Row 1: Cookbook::massVerification
 ```
+
+### Derive relationships
+
+A requirement derivation is a connection conforming to the domain library's
+`RequirementDerivation::Derivation` — typed by it, or written with the
+`#derivation` semantic metadata. The cookbook model derives three requirements
+from `massRequirement`, one of them at second hand:
+
+```sysml
+requirement mirrorMassRequirement;
+requirement segmentMassRequirement;
+requirement instrumentMassRequirement;
+connection deriveMirrorMass : RequirementDerivation::Derivation
+	connect massRequirement to mirrorMassRequirement;
+#RequirementDerivation::derivation connection deriveInstrumentMass
+	connect massRequirement to instrumentMassRequirement;
+#RequirementDerivation::derivation connection deriveSegmentMass
+	connect mirrorMassRequirement to segmentMassRequirement;
+```
+
+The `derivation` kind runs from the original requirement to each derived one,
+so the requirements derived from an original — transitively, to `maxDepth` —
+are an **outgoing** traversal, and the original(s) a derived requirement traces
+back to are an incoming one:
+
+```sysml
+calc def DerivedFrom :> Query {
+	in req : Element;
+	RelatedElements(
+		source = req,
+		relationshipKind = "derivation",
+		direction = "outgoing",
+		maxDepth = 2
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::DerivedFrom req=Cookbook::massRequirement"
+✓ Query Cookbook::DerivedFrom returned 3 rows
+  Row 1: Cookbook::mirrorMassRequirement
+  Row 2: Cookbook::instrumentMassRequirement
+  Row 3: Cookbook::segmentMassRequirement
+```
+
+Which end is the original is read from the derivation itself: an end
+subsetting `originalRequirements` or tagged `#original` is the original, one
+subsetting `derivedRequirements` or tagged `#derive` is derived, and a
+connection typed by a `connection def` specializing `Derivation` inherits the
+roles its definition's ends state. An end that states no role takes the one
+left over: it is the original when no other end is, and derived otherwise —
+so `connect (a, b, c)` with no stated roles derives `b` and `c` from `a`, and
+an unmarked end beside an `#original` end is derived. A `connection def`
+specializing `Derivation` whose ends are typed by requirement definitions —
+the form the v1 migrator writes — relates those definitions the same way,
+through the ends it inherits from a general definition as well as its own; an
+end that redefines an inherited end keeps that end's role and, when it declares
+no type, its type. A plain connection between two requirements is not a
+derivation.
+
+### Refine relationships
+
+A refinement is a `dependency` annotated `@ModelingMetadata::Refinement`,
+as a prefix (`#refinement dependency ...`) or in its body (`{ @Refinement; }`).
+The cookbook model states one from a part definition to the requirement it
+refines:
+
+```sysml
+#ModelingMetadata::refinement dependency mirrorRefinesMass
+	from MirrorAssembly to mirrorMassRequirement;
+```
+
+The `refinement` kind runs from each client of the dependency to each of its
+suppliers, so "what refines this requirement" is an **incoming** traversal
+from the requirement:
+
+```sysml
+calc def RefinedBy :> Query {
+	in req : Element;
+	RelatedElements(
+		source = req,
+		relationshipKind = "refinement",
+		direction = "incoming",
+		maxDepth = 1
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::RefinedBy req=Cookbook::mirrorMassRequirement"
+✓ Query Cookbook::RefinedBy returned 1 row
+  Row 1: Cookbook::MirrorAssembly
+```
+
+A dependency with several clients or suppliers relates every client to every
+supplier. A dependency without the `Refinement` metadata states no refinement
+edge.
 
 ### Specialization (and the other structural kinds)
 

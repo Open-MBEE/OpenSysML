@@ -72,7 +72,7 @@ const queryModel = `package Observatory {
 		in root : Element;
 		RelatedElements(
 			source = root,
-			relationshipKind = "refinement",
+			relationshipKind = "containment",
 			direction = "outgoing",
 			maxDepth = 1
 		)
@@ -127,7 +127,7 @@ func TestRunQueryFlag(t *testing.T) {
 
 	// An unsupported relationship kind is surfaced, not silently skipped.
 	wantReport(t, check(t, binary, queryModel, "-run-query", "UnknownRelatedQuery root=telescope"),
-		2, `does not support relationship kind "refinement"`)
+		2, `does not support relationship kind "containment"`)
 }
 
 // derivedModel declares attributes whose values are expressions over other

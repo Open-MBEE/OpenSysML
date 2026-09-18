@@ -16,6 +16,20 @@
 			"outputs": {
 				"last": {"type": "Integer", "value": 1}
 			}
+		},
+		{
+			"finalState": "a2+b2",
+			"stateVisits": ["work", "b1", "a1", "a2", "b2"],
+			"outputs": {
+				"last": {"type": "Integer", "value": 2}
+			}
+		},
+		{
+			"finalState": "a2+b2",
+			"stateVisits": ["work", "b1", "a1", "b2", "a2"],
+			"outputs": {
+				"last": {"type": "Integer", "value": 1}
+			}
 		}
 	],
 	"admissible": "Two time events due at one instant: each dispatches, in which order is open"
