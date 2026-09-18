@@ -38,7 +38,7 @@ func TestSysMLToRDFComposesTheParserAndTheMapping(t *testing.T) {
 // what it wrote, so the migrated notation and the converted Turtle agree with
 // the migration package's own output.
 func TestConvertFromXMIComposesTheMigration(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "migrate", "testdata", "xmi", "vehicle.xmi"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi"))
 	if err != nil {
 		t.Fatal(err)
 	}
