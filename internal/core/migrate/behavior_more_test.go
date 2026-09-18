@@ -600,6 +600,10 @@ const nestedCalls = `
     <packagedElement xmi:type="uml:Class" xmi:id="_nrig" name="Rig">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_nCtrl" name="ctrl" type="_nctl" aggregation="composite"/>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_nMotor" name="motor" type="_nmotor" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_nMode" name="mode">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_nMode0" value="2"/>
+      </ownedAttribute>
       <ownedBehavior xmi:type="uml:Interaction" xmi:id="_nested" name="Nested">
         <lifeline xmi:type="uml:Lifeline" xmi:id="_nlc" name="c" represents="_nCtrl" coveredBy="_nsA _nsB _nrRb _nrRa"/>
         <lifeline xmi:type="uml:Lifeline" xmi:id="_nlm" name="m" represents="_nMotor" coveredBy="_nrA _nrB _nsRb _nsRa"/>
@@ -624,6 +628,82 @@ const nestedCalls = `
           <argument xmi:type="uml:LiteralString" xmi:id="_nmRaArg" value="first ="/>
         </message>
       </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_either" name="Either">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_elc" name="c" represents="_nCtrl"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_elm" name="m" represents="_nMotor"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_esS" covered="_elc" message="_emS"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_erS" covered="_elm" message="_emS"/>
+        <fragment xmi:type="uml:CombinedFragment" xmi:id="_ealt" interactionOperator="alt">
+          <operand xmi:type="uml:InteractionOperand" xmi:id="_ealtFast">
+            <guard xmi:type="uml:InteractionConstraint" xmi:id="_ealtFastG">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_ealtFastS"><body>mode == 1</body></specification>
+            </guard>
+            <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_esR1" covered="_elm" message="_emR1"/>
+            <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_erR1" covered="_elc" message="_emR1"/>
+          </operand>
+          <operand xmi:type="uml:InteractionOperand" xmi:id="_ealtElse">
+            <guard xmi:type="uml:InteractionConstraint" xmi:id="_ealtElseG">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_ealtElseS"><body>else</body></specification>
+            </guard>
+            <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_esR2" covered="_elm" message="_emR2"/>
+            <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_erR2" covered="_elc" message="_emR2"/>
+          </operand>
+        </fragment>
+        <message xmi:type="uml:Message" xmi:id="_emS" name="spin" messageSort="synchCall" signature="_nspin" sendEvent="_esS" receiveEvent="_erS">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_emSRpm" value="20.0"/>
+        </message>
+        <message xmi:type="uml:Message" xmi:id="_emR1" name="fast" messageSort="reply" signature="_nspin" sendEvent="_esR1" receiveEvent="_erR1">
+          <argument xmi:type="uml:LiteralString" xmi:id="_emR1Arg" value="got ="/>
+        </message>
+        <message xmi:type="uml:Message" xmi:id="_emR2" name="slow" messageSort="reply" signature="_nspin" sendEvent="_esR2" receiveEvent="_erR2">
+          <argument xmi:type="uml:LiteralString" xmi:id="_emR2Arg" value="first ="/>
+        </message>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_twice" name="Twice">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_tlc" name="c" represents="_nCtrl"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_tlm" name="m" represents="_nMotor"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_tsS" covered="_tlc" message="_tmS"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_trS" covered="_tlm" message="_tmS"/>
+        <fragment xmi:type="uml:CombinedFragment" xmi:id="_topt" interactionOperator="opt">
+          <operand xmi:type="uml:InteractionOperand" xmi:id="_toptOp">
+            <guard xmi:type="uml:InteractionConstraint" xmi:id="_toptG">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_toptS"><body>mode == 1</body></specification>
+            </guard>
+            <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_tsR1" covered="_tlm" message="_tmR1"/>
+            <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_trR1" covered="_tlc" message="_tmR1"/>
+          </operand>
+        </fragment>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_tsR2" covered="_tlm" message="_tmR2"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_trR2" covered="_tlc" message="_tmR2"/>
+        <message xmi:type="uml:Message" xmi:id="_tmS" name="spin" messageSort="synchCall" signature="_nspin" sendEvent="_tsS" receiveEvent="_trS">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_tmSRpm" value="20.0"/>
+        </message>
+        <message xmi:type="uml:Message" xmi:id="_tmR1" name="early" messageSort="reply" signature="_nspin" sendEvent="_tsR1" receiveEvent="_trR1">
+          <argument xmi:type="uml:LiteralString" xmi:id="_tmR1Arg" value="got ="/>
+        </message>
+        <message xmi:type="uml:Message" xmi:id="_tmR2" name="late" messageSort="reply" signature="_nspin" sendEvent="_tsR2" receiveEvent="_trR2">
+          <argument xmi:type="uml:LiteralString" xmi:id="_tmR2Arg" value="first ="/>
+        </message>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_split" name="Split">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_plc" name="c" represents="_nCtrl"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_plm" name="m" represents="_nMotor"/>
+        <fragment xmi:type="uml:CombinedFragment" xmi:id="_ppar" interactionOperator="par">
+          <operand xmi:type="uml:InteractionOperand" xmi:id="_pparOp1">
+            <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_psS" covered="_plc" message="_pmS"/>
+            <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_prS" covered="_plm" message="_pmS"/>
+          </operand>
+          <operand xmi:type="uml:InteractionOperand" xmi:id="_pparOp2"/>
+        </fragment>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_psR" covered="_plm" message="_pmR"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_prR" covered="_plc" message="_pmR"/>
+        <message xmi:type="uml:Message" xmi:id="_pmS" name="spin" messageSort="synchCall" signature="_nspin" sendEvent="_psS" receiveEvent="_prS">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_pmSRpm" value="20.0"/>
+        </message>
+        <message xmi:type="uml:Message" xmi:id="_pmR" name="joined" messageSort="reply" signature="_nspin" sendEvent="_psR" receiveEvent="_prR">
+          <argument xmi:type="uml:LiteralString" xmi:id="_pmRArg" value="got ="/>
+        </message>
+      </ownedBehavior>
     </packagedElement>`
 
 const nestedApplications = `
@@ -631,8 +711,10 @@ const nestedApplications = `
   <sysml:Block xmi:id="_nb2" base_Class="_nmotor"/>
   <sysml:Block xmi:id="_nb3" base_Class="_nrig"/>`
 
-// Each reply answers the latest call of its operation between its lifelines that no earlier
-// reply has answered, so nested calls pair with their replies stack-like.
+// Each reply answers the latest call of its operation between its lifelines that no earlier reply
+// has answered, so nested calls pair with their replies stack-like. Alternative operands each
+// resolve from the calls open before their fragment, so every branch may answer the same call,
+// while a reply after a fragment that may already have answered its call answers none.
 func TestNestedRepliesAnswerTheirOwnCalls(t *testing.T) {
 	r := migrateDocument(t, nestedCalls, nestedApplications)
 	for _, line := range []string{
@@ -640,11 +722,21 @@ func TestNestedRepliesAnswerTheirOwnCalls(t *testing.T) {
 		"perform action inner : Motor::Spin ::> motor.spin { in rpm = 40.0; }",
 		"assign this.ctrl.got := inner.result;",
 		"assign this.ctrl.'first' := outer.result;",
+		"action def Either {",
+		"if this.mode == 1 {",
+		"assign this.ctrl.got := spin.result;",
+		"else {",
+		"assign this.ctrl.'first' := spin.result;",
+		"/* not migrated: Interaction 'Twice' — the message 'late' answers no call of Spin between its lifelines before it */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNote(t, r, "_nmRb", migrate.Mapped, "written as the assignment of the call inner's results to this.ctrl")
 	wantNote(t, r, "_nmRa", migrate.Mapped, "written as the assignment of the call outer's results to this.ctrl")
+	wantNote(t, r, "_emR1", migrate.Mapped, "written as the assignment of the call spin's results to this.ctrl")
+	wantNote(t, r, "_emR2", migrate.Mapped, "written as the assignment of the call spin's results to this.ctrl")
+	wantNote(t, r, "_twice", migrate.Unmapped, "the message 'late' answers no call of Spin between its lifelines before it")
+	wantNote(t, r, "_pmR", migrate.Approximated, "the result result is not bound: the reply is not in the fragment of the call it answers")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Rig")
@@ -657,6 +749,13 @@ func TestNestedRepliesAnswerTheirOwnCalls(t *testing.T) {
 	}
 	if out := meta(t, s, "%eval in #1 : ctrl.'first'"); !strings.Contains(out, "= 30.0") {
 		t.Errorf("the outer reply did not store the outer call's result:\n%s", out)
+	}
+	meta(t, s, "%action Rig::Either #1")
+	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
+		t.Errorf("the alternative scenario did not complete:\n%s", out)
+	}
+	if out := meta(t, s, "%eval in #1 : ctrl.'first'"); !strings.Contains(out, "= 20.0") {
+		t.Errorf("the else branch's reply did not store the call's result:\n%s", out)
 	}
 }
 

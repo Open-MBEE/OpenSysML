@@ -352,7 +352,10 @@ position, and a call that leaves a required parameter (no default, lower bound a
 unbound refuses the interaction; a reply answers the latest call of its operation between
 its lifelines that no earlier reply has answered, so nested calls pair with their replies
 stack-like, and assigns that call's `out` to the attribute of the caller's lifeline the reply
-names. Combined fragments become the corresponding action structure when their guards are v2
+names when the reply lies in the call's fragment or one nested in it. The operands of an `alt`,
+`opt` or `loop` are alternative paths, so each may answer a call made before the fragment, and a
+call answered on any of those paths (or made on only some of them) is open to no reply after the
+fragment. Combined fragments become the corresponding action structure when their guards are v2
 expressions whose names resolve — `if`/`else` for `alt` and `opt`, `for`/`while` for `loop`,
 `fork`/`join` for `par` — and refuse the interaction, quoting the guard, when they are not.
 A duration constraint on a message is a wait before its step, as on an action; one between

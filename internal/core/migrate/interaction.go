@@ -37,6 +37,8 @@ type scenario struct {
 	chains int
 	// pending holds the waits forked after a message, to be joined before the later message they span to.
 	pending map[*xmi.Element]pendingWait
+	// outer gives each operand's body the body of the fragment it is nested in.
+	outer map[*[]*scenarioStep]*[]*scenarioStep
 }
 
 // chainPos is a step's position in a chain: the steps of one action body, seq operands inlined.
@@ -165,6 +167,7 @@ func (m *migration) scenario(e *xmi.Element, self string) (*scenario, string) {
 		names:   map[*xmi.Element]string{},
 		chain:   map[*xmi.Element]chainPos{},
 		pending: map[*xmi.Element]pendingWait{},
+		outer:   map[*[]*scenarioStep]*[]*scenarioStep{},
 	}
 	for i, f := range e.Owned("fragment") {
 		s.order[f] = i
@@ -474,7 +477,7 @@ func (s *scenario) reply(step *scenarioStep) (*scenarioStep, string) {
 		case p == nil:
 			step.note = joinNotes(step.note, "the value "+describeValue(arg)+" has no out parameter of "+op.Name+" to stand for")
 			continue
-		case call.body != step.body:
+		case !s.within(step.body, call.body):
 			step.note = joinNotes(step.note, "the result "+s.m.nameOf(p)+" is not bound: the reply is not in the fragment of the call it answers")
 			continue
 		}
@@ -501,6 +504,16 @@ func (s *scenario) reply(step *scenarioStep) (*scenarioStep, string) {
 
 func sameLine(a, b *lifelineRef) bool {
 	return a != nil && b != nil && a.line == b.line
+}
+
+// within reports whether body is outer or a fragment operand nested in it, where outer's steps are in scope.
+func (s *scenario) within(body, outer *[]*scenarioStep) bool {
+	for ; body != nil; body = s.outer[body] {
+		if body == outer {
+			return true
+		}
+	}
+	return false
 }
 
 // assignmentOf reads a reply argument written as `attribute = value` (an
@@ -639,10 +652,16 @@ func (s *scenario) fragment(f *xmi.Element, body *[]*scenarioStep) (*scenarioSte
 			return nil, "is a " + kind + " fragment with " + strconv.Itoa(len(operands)) + " operands; it takes one"
 		}
 	}
+	// alt, opt and loop operands are alternative paths: each resolves from the calls open before the
+	// fragment, and only a call still unanswered on every path (a skipping one included) stays open after it.
+	branching := step.kind == stepAlt || step.kind == stepOpt || step.kind == stepLoop
+	in := slices.Clone(s.calls)
+	var outs [][]*scenarioStep
 	for i, o := range operands {
 		operand := &scenarioOperand{e: o}
 		var steps []*scenarioStep
 		operand.steps = steps
+		s.outer[&operand.steps] = body
 		guard := firstOwned(o, "guard")
 		var note string
 		switch step.kind {
@@ -672,16 +691,44 @@ func (s *scenario) fragment(f *xmi.Element, body *[]*scenarioStep) (*scenarioSte
 				return nil, "has a guard on an operand of a " + kind + " fragment, which runs its operands regardless"
 			}
 		}
+		if branching {
+			s.calls = slices.Clone(in)
+		}
 		steps, note = s.resolve(o.Owned("fragment"), nil, &operand.steps)
 		if note != "" {
 			return nil, note
 		}
 		operand.steps = steps
 		step.operands = append(step.operands, operand)
+		outs = append(outs, s.calls)
+	}
+	if branching {
+		if last := step.operands[len(step.operands)-1]; step.kind != stepAlt || last.guard != "" {
+			outs = append(outs, in)
+		}
+		s.calls = openOnEveryPath(in, outs)
 	}
 	step.base = freshIn(s.used, kind)
 	step.name = writeName(step.base)
 	return step, ""
+}
+
+// openOnEveryPath keeps the calls of in that every path in outs leaves unanswered.
+func openOnEveryPath(in []*scenarioStep, outs [][]*scenarioStep) []*scenarioStep {
+	var open []*scenarioStep
+	for _, c := range in {
+		everywhere := true
+		for _, out := range outs {
+			if !slices.Contains(out, c) {
+				everywhere = false
+				break
+			}
+		}
+		if everywhere {
+			open = append(open, c)
+		}
+	}
+	return open
 }
 
 // guard translates an interaction constraint: "" for none, true or else, the v2
