@@ -128,6 +128,7 @@ var tolerated = map[string][]string{
 	"internal/core/codegen":             {"internal/core/passes"},
 	"internal/core/export":              {"internal/core/libs"},
 	"internal/core/identity":            {"internal/core/rdf"},
+	"internal/core/passes/identity":     {"internal/core/rdf"},
 	"internal/core/migrate":             {"internal/core/libs"},
 	"internal/core/runtime":             {"internal/core/envvar"},
 }
