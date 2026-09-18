@@ -6,8 +6,8 @@ import (
 	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -155,9 +155,9 @@ func (ctx *Context) qualifiedUnitName(sym *symbols.Symbol) string {
 // unitSymbolName is the symbol a unit is written by (`km`), its name otherwise.
 func unitSymbolName(sym *symbols.Symbol) string {
 	if sym.ShortName != "" {
-		return lexer.NameText(sym.ShortName)
+		return source.NameText(sym.ShortName)
 	}
-	return lexer.NameText(sym.Name)
+	return source.NameText(sym.Name)
 }
 
 // composeMeasurementRefs is the unit a `*`, `/` or `**`/`^` (Real exponent) of

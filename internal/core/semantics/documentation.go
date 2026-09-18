@@ -2,7 +2,6 @@ package semantics
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -49,7 +48,7 @@ func (m *Model) commentBody(sym *symbols.Symbol, span source.Span) string {
 	if m.sourceText == nil || span.Len == 0 {
 		return ""
 	}
-	return lexer.CommentBody(m.sourceText(sym.DocName, span))
+	return source.CommentBody(m.sourceText(sym.DocName, span))
 }
 
 // documentationSymbols lists the `doc` members sym declares, in order, each once.

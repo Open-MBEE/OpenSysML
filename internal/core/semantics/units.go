@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -230,7 +230,7 @@ func (t UnitTerm) BaseProduct() UnitProduct {
 		if name == "" {
 			name = f.Unit.Name
 		}
-		out.Powers = append(out.Powers, UnitPower{Unit: f.Unit, Name: lexer.NameText(name), Exponent: f.Exponent})
+		out.Powers = append(out.Powers, UnitPower{Unit: f.Unit, Name: source.NameText(name), Exponent: f.Exponent})
 	}
 	return normalizeProduct(out)
 }
@@ -907,7 +907,7 @@ func UnitNameText(qn *ast.QualifiedName) string {
 	}
 	parts := make([]string, len(qn.Parts))
 	for i, part := range qn.Parts {
-		parts[i] = lexer.NameText(part.Text)
+		parts[i] = source.NameText(part.Text)
 	}
 	return strings.Join(parts, "::")
 }

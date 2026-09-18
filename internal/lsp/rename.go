@@ -6,7 +6,6 @@ import (
 
 	"go.lsp.dev/protocol"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -161,7 +160,7 @@ func validateNewName(name string) error {
 	if name == "" {
 		return fmt.Errorf("new name is empty")
 	}
-	if lexer.IsKeyword(name) {
+	if source.IsKeyword(name) {
 		return fmt.Errorf("%q is a keyword", name)
 	}
 	for i := 0; i < len(name); i++ {

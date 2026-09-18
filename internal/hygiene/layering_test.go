@@ -1,0 +1,257 @@
+package hygiene
+
+import (
+	"os/exec"
+	"sort"
+	"strings"
+	"testing"
+)
+
+const modulePath = "github.com/Open-MBEE/OpenSysML/"
+
+// layers is the module's layers from the bottom up, as the roadmap's package
+// layering track states them.
+var layers = []string{
+	"foundation",
+	"syntax",
+	"semantics",
+	"semantic IR",
+	"validation",
+	"execution",
+	"translation",
+	"documents",
+	"workspace",
+	"frontends",
+	"tooling",
+}
+
+// permitted names the layers each layer may import, its own included; execution
+// runs lowered IR, so it reaches neither syntax nor validation.
+var permitted = map[string][]string{
+	"foundation":  {"foundation"},
+	"syntax":      {"foundation", "syntax"},
+	"semantics":   {"foundation", "semantics"},
+	"semantic IR": {"foundation", "semantics", "semantic IR"},
+	"validation":  {"foundation", "syntax", "semantics", "semantic IR", "validation"},
+	"execution":   {"foundation", "semantics", "semantic IR", "execution"},
+	"translation": {"foundation", "syntax", "semantics", "semantic IR", "execution", "translation"},
+	"documents":   {"foundation", "semantics", "semantic IR", "execution", "translation", "documents"},
+	"workspace":   {"foundation", "syntax", "semantics", "semantic IR", "validation", "execution", "translation", "documents", "workspace"},
+	"frontends":   {"foundation", "syntax", "semantics", "semantic IR", "validation", "execution", "translation", "documents", "workspace", "frontends"},
+	"tooling":     layers,
+}
+
+// packageLayer assigns every package under internal/, cmd/, api/ and client/
+// to a layer; a package the table does not name fails the test.
+var packageLayer = map[string]string{
+	"internal/core/source":       "foundation",
+	"internal/core/ast":          "foundation",
+	"internal/core/ast/astcodec": "foundation",
+	"internal/core/pack":         "foundation",
+	"internal/core/quickfix":     "foundation",
+	"internal/fsutil":            "foundation",
+
+	"internal/core/lexer":  "syntax",
+	"internal/core/parser": "syntax",
+	"internal/core/format": "syntax",
+
+	"internal/core/symbols":            "semantics",
+	"internal/core/suggest":            "semantics",
+	"internal/core/resolve":            "semantics",
+	"internal/core/semantics":          "semantics",
+	"internal/core/conformance":        "semantics",
+	"internal/core/provenance":         "semantics",
+	"internal/core/identity":           "semantics",
+	"internal/core/identity/normative": "semantics",
+
+	"internal/core/lower":     "semantic IR",
+	"internal/core/queryplan": "semantic IR",
+	"internal/core/docplan":   "semantic IR",
+	"internal/core/view":      "semantic IR",
+
+	"internal/core/passes": "validation",
+	"internal/core/rename": "validation",
+	"internal/core/edit":   "validation",
+
+	"internal/core/runtime":             "execution",
+	"internal/core/solve":               "execution",
+	"internal/core/smt":                 "execution",
+	"internal/core/analysis":            "execution",
+	"internal/core/analysis/enginewire": "execution",
+	"internal/core/engines":             "execution",
+	"internal/core/objref":              "execution",
+
+	"internal/core/rdf":          "translation",
+	"internal/core/rdf/ontology": "translation",
+	"internal/core/export":       "translation",
+	"internal/core/migrate":      "translation",
+	"internal/core/xmi":          "translation",
+	"internal/core/codegen":      "translation",
+	"internal/interop/flexo":     "translation",
+	"internal/interop/reposync":  "translation",
+
+	"internal/core/query":     "documents",
+	"internal/core/queryexec": "documents",
+	"internal/core/docir":     "documents",
+	"internal/core/docrender": "documents",
+	"internal/docpdf":         "documents",
+
+	"internal/core/model":     "workspace",
+	"internal/core/highlight": "workspace",
+	"internal/core/libs":      "workspace",
+	"internal/core/project":   "workspace",
+	"internal/core/envvar":    "workspace",
+
+	"api/proto":              "frontends",
+	"api/proto/protoconnect": "frontends",
+	"client/opensysml":       "frontends",
+	"internal/repl":          "frontends",
+	"internal/lsp":           "frontends",
+	"internal/grpc":          "frontends",
+	"internal/stdiorpc":      "frontends",
+	"internal/usage":         "frontends",
+	"cmd/sysml":              "frontends",
+	"cmd/sysml-grpc":         "frontends",
+	"cmd/sysml-lsp":          "frontends",
+
+	"internal/baseline":                "tooling",
+	"internal/errata":                  "tooling",
+	"internal/fixtures":                "tooling",
+	"internal/junit":                   "tooling",
+	"internal/doccounts":               "tooling",
+	"internal/doccounts/doccountstest": "tooling",
+	"internal/stressmodel":             "tooling",
+	"internal/fuml":                    "tooling",
+	"internal/pssm":                    "tooling",
+	"internal/xmi":                     "tooling",
+	"internal/perfbench":               "tooling",
+	"internal/hygiene":                 "tooling",
+	"internal/testutil/gobuild":        "tooling",
+	"internal/testutil/graphcmp":       "tooling",
+	"internal/core/libs/gensnapshot":   "tooling",
+	"internal/core/rdf/ontology/gen":   "tooling",
+	"cmd/conformance":                  "tooling",
+	"cmd/doc-counts":                   "tooling",
+	"cmd/fuml-referee":                 "tooling",
+	"cmd/grammar-coverage":             "tooling",
+	"cmd/pilot-diff":                   "tooling",
+	"cmd/pilot-exec-diff":              "tooling",
+	"cmd/pilot-reject":                 "tooling",
+	"cmd/pilot-xpect":                  "tooling",
+	"cmd/pssm-referee":                 "tooling",
+	"cmd/stress-model":                 "tooling",
+	"cmd/validation-census":            "tooling",
+}
+
+// tolerated is the imports the layer table does not permit and that still
+// exist, importer → imported; an entry whose edge is gone fails, so it only shrinks.
+var tolerated = map[string][]string{
+	"internal/core/analysis":            {"internal/core/export"},
+	"internal/core/analysis/enginewire": {"internal/core/export"},
+	"internal/core/codegen":             {"internal/core/passes"},
+	"internal/core/export":              {"internal/core/libs"},
+	"internal/core/identity":            {"internal/core/rdf"},
+	"internal/core/libs":                {"internal/errata"},
+	"internal/core/migrate":             {"internal/core/libs"},
+	"internal/core/passes":              {"internal/core/rdf"},
+	"internal/core/runtime":             {"internal/core/envvar", "internal/core/parser", "internal/core/passes"},
+}
+
+// removed is the imports the layer table would permit that the layering took
+// out, importer → imported; reintroducing one fails.
+var removed = map[string][]string{}
+
+// TestPackageLayering checks the import graph against the layer tables: every
+// package has a layer, and the imports outside permitted are exactly the tolerated ones.
+func TestPackageLayering(t *testing.T) {
+	known := map[string]bool{}
+	for _, l := range layers {
+		known[l] = true
+	}
+	for pkg, layer := range packageLayer {
+		if !known[layer] {
+			t.Fatalf("%s is assigned to unknown layer %q", pkg, layer)
+		}
+	}
+	allowed := map[string]map[string]bool{}
+	for layer, targets := range permitted {
+		if !known[layer] {
+			t.Fatalf("permitted names unknown layer %q", layer)
+		}
+		allowed[layer] = map[string]bool{}
+		for _, target := range targets {
+			if !known[target] {
+				t.Fatalf("permitted[%q] names unknown layer %q", layer, target)
+			}
+			allowed[layer][target] = true
+		}
+	}
+	for _, l := range layers {
+		if allowed[l] == nil {
+			t.Fatalf("permitted has no entry for layer %q", l)
+		}
+	}
+
+	cmd := exec.Command("go", "list", "-f", "{{.ImportPath}} {{join .Imports \" \"}}", "./internal/...", "./cmd/...")
+	cmd.Dir = "../.."
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("go list: %v", err)
+	}
+
+	seen := map[string]bool{}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		fields := strings.Fields(line)
+		from := strings.TrimPrefix(fields[0], modulePath)
+		fromLayer, ok := packageLayer[from]
+		if !ok {
+			t.Errorf("%s is not assigned to a layer", from)
+			continue
+		}
+		for _, imp := range fields[1:] {
+			if !strings.HasPrefix(imp, modulePath) {
+				continue
+			}
+			to := strings.TrimPrefix(imp, modulePath)
+			toLayer, ok := packageLayer[to]
+			if !ok {
+				t.Errorf("%s imports %s, which is not assigned to a layer", from, to)
+				continue
+			}
+			if contains(removed[from], to) {
+				t.Errorf("%s imports %s again; the layering removed that edge", from, to)
+				continue
+			}
+			if allowed[fromLayer][toLayer] {
+				continue
+			}
+			if !contains(tolerated[from], to) {
+				t.Errorf("%s (%s) imports %s (%s); %s may import only %s", from, fromLayer, to, toLayer, fromLayer, strings.Join(permitted[fromLayer], ", "))
+				continue
+			}
+			seen[from+" -> "+to] = true
+		}
+	}
+
+	var stale []string
+	for from, tos := range tolerated {
+		for _, to := range tos {
+			if edge := from + " -> " + to; !seen[edge] {
+				stale = append(stale, edge)
+			}
+		}
+	}
+	sort.Strings(stale)
+	for _, edge := range stale {
+		t.Errorf("%s no longer exists; move it from tolerated to removed so it cannot return", edge)
+	}
+}
+
+func contains(list []string, s string) bool {
+	for _, x := range list {
+		if x == s {
+			return true
+		}
+	}
+	return false
+}

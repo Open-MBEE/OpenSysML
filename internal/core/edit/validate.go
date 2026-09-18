@@ -55,7 +55,7 @@ func checkName(i int, name string) error {
 	if name == "" {
 		return refuse("is empty")
 	}
-	if lexer.IsKeyword(name) {
+	if source.IsKeyword(name) {
 		return refuse("is a keyword")
 	}
 	lx := lexer.New(source.New("<name>", []byte(name)))

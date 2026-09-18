@@ -1,6 +1,10 @@
 package lexer
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+)
 
 // TestStringValue reads the escapes KerML §8.2.2 defines, and leaves text
 // carrying no escape as it was written.
@@ -25,8 +29,8 @@ func TestStringValue(t *testing.T) {
 		{"unquoted", "unquoted"},
 	}
 	for _, tt := range tests {
-		if got := StringValue(tt.raw); got != tt.want {
-			t.Errorf("StringValue(%s) = %q, want %q", tt.raw, got, tt.want)
+		if got := source.StringValue(tt.raw); got != tt.want {
+			t.Errorf("source.StringValue(%s) = %q, want %q", tt.raw, got, tt.want)
 		}
 	}
 }
@@ -46,12 +50,12 @@ func TestStringTextIsReadBackByStringValue(t *testing.T) {
 		{"it's", `"it's"`},
 		{"héllo 🚗", `"héllo 🚗"`},
 	} {
-		got := StringText(tt.value)
+		got := source.StringText(tt.value)
 		if got != tt.want {
-			t.Errorf("StringText(%q) = %s, want %s", tt.value, got, tt.want)
+			t.Errorf("source.StringText(%q) = %s, want %s", tt.value, got, tt.want)
 		}
-		if back := StringValue(got); back != tt.value {
-			t.Errorf("StringValue(StringText(%q)) = %q", tt.value, back)
+		if back := source.StringValue(got); back != tt.value {
+			t.Errorf("source.StringValue(StringText(%q)) = %q", tt.value, back)
 		}
 	}
 }

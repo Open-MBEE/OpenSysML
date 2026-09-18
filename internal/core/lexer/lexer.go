@@ -32,7 +32,7 @@ func (lx *Lexer) Next() Token {
 		return lx.scanSLNote(start) // // ...
 	case c == '/' && lx.peek(1) == '*':
 		return lx.scanBlockComment(start) // /* ... */
-	case isIdentStart(c):
+	case source.IsIdentStart(c):
 		return lx.scanIdentOrKeyword(start)
 	case c == '\'':
 		return lx.scanQuoted(start, '\'', UnrestrictedName)
@@ -182,7 +182,7 @@ func canStartToken(c byte) bool {
 	switch {
 	case c == ' ' || c == '\t' || c == '\r' || c == '\n':
 		return true
-	case isIdentStart(c):
+	case source.IsIdentStart(c):
 		return true
 	case isDigit(c):
 		return true
@@ -255,7 +255,7 @@ func (lx *Lexer) scanQuoted(start int, quote byte, kind Kind) Token {
 			// escape: consume backslash + next char if present
 			lx.pos++
 			if lx.pos < len(lx.src) {
-				if !IsEscapeChar(lx.src[lx.pos]) {
+				if !source.IsEscapeChar(lx.src[lx.pos]) {
 					badEscape = true
 				}
 				lx.pos++
@@ -287,17 +287,9 @@ func (lx *Lexer) consumeUntilStarSlash() bool {
 	return false
 }
 
-func isIdentStart(c byte) bool {
-	return c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-}
-
-func isIdentCont(c byte) bool {
-	return isIdentStart(c) || (c >= '0' && c <= '9')
-}
-
 func (lx *Lexer) scanIdentOrKeyword(start int) Token {
 	lx.pos++ // first char already known to be identStart
-	for lx.pos < len(lx.src) && isIdentCont(lx.src[lx.pos]) {
+	for lx.pos < len(lx.src) && source.IsIdentCont(lx.src[lx.pos]) {
 		lx.pos++
 	}
 	sp := lx.span(start)

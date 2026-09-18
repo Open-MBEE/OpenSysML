@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // Model is one test's state machine spelled in SysML v2 textual notation,
@@ -193,7 +193,7 @@ func identifier(path string) string {
 		}
 	}
 	name := b.String()
-	if name == "" || lexer.IsKeyword(name) {
+	if name == "" || source.IsKeyword(name) {
 		return "v_" + name
 	}
 	return name
@@ -201,10 +201,10 @@ func identifier(path string) string {
 
 // spell quotes a name the notation cannot take bare.
 func spell(name string) string {
-	if lexer.IsIdentifier(name) && !lexer.IsKeyword(name) {
+	if source.IsIdentifier(name) && !source.IsKeyword(name) {
 		return name
 	}
-	return lexer.UnrestrictedNameText(name)
+	return source.UnrestrictedNameText(name)
 }
 
 func (e *emitter) machine(b *strings.Builder) error {
@@ -965,7 +965,7 @@ func (e *emitter) steps(body *Body, where string, depth int) ([]step, error) {
 // inlines the method it names.
 func (e *emitter) stepCall(out *stepList, st Statement, where string, depth int) error {
 	if st.Name == "trace" && isSelf(st.Receiver) && len(st.Args) == 1 && st.Args[0].Kind == ExprLiteral && st.Args[0].Literal.Kind == LiteralString {
-		seg := lexer.StringText(st.Args[0].Literal.Text)
+		seg := source.StringText(st.Args[0].Literal.Text)
 		out.add(fmt.Sprintf(`assign log := if log == "" ? %s else log + "::" + %s;`, seg, seg))
 		return nil
 	}
@@ -1149,7 +1149,7 @@ func (e *emitter) literal(l *Literal) (string, error) {
 	}
 	switch l.Kind {
 	case LiteralString:
-		return lexer.StringText(l.Text), nil
+		return source.StringText(l.Text), nil
 	case LiteralBoolean, LiteralInteger, LiteralReal, LiteralUnlimitedNatural:
 		return l.String(), nil
 	}

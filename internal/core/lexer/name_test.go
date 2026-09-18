@@ -3,6 +3,8 @@ package lexer
 import (
 	"slices"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 func TestNameTextQuotesWhatIsNoBasicName(t *testing.T) {
@@ -23,8 +25,8 @@ func TestNameTextQuotesWhatIsNoBasicName(t *testing.T) {
 		// escaped a second time.
 		{`it\'s`, `'it\'s'`},
 	} {
-		if got := NameText(tc.name); got != tc.want {
-			t.Errorf("NameText(%q) = %q, want %q", tc.name, got, tc.want)
+		if got := source.NameText(tc.name); got != tc.want {
+			t.Errorf("source.NameText(%q) = %q, want %q", tc.name, got, tc.want)
 		}
 	}
 }
@@ -39,8 +41,8 @@ func TestQualifiedNameTextQuotesEachSegmentOnItsOwn(t *testing.T) {
 		{"Demo::My Vehicle", "Demo::'My Vehicle'"},
 		{"state::frame::ok", "'state'::'frame'::ok"},
 	} {
-		if got := QualifiedNameText(tc.fqn); got != tc.want {
-			t.Errorf("QualifiedNameText(%q) = %q, want %q", tc.fqn, got, tc.want)
+		if got := source.QualifiedNameText(tc.fqn); got != tc.want {
+			t.Errorf("source.QualifiedNameText(%q) = %q, want %q", tc.fqn, got, tc.want)
 		}
 	}
 }
@@ -55,8 +57,8 @@ func TestQualifiedNameOfQuotesEachNameOnItsOwn(t *testing.T) {
 		{[]string{"x", "y"}, "x::y"},
 		{[]string{"P", "x::y", "it\\'s"}, "P::'x::y'::'it\\'s'"},
 	} {
-		if got := QualifiedNameOf(tc.names); got != tc.want {
-			t.Errorf("QualifiedNameOf(%q) = %q, want %q", tc.names, got, tc.want)
+		if got := source.QualifiedNameOf(tc.names); got != tc.want {
+			t.Errorf("source.QualifiedNameOf(%q) = %q, want %q", tc.names, got, tc.want)
 		}
 	}
 }
@@ -72,17 +74,17 @@ func TestQualifiedNameSegmentsReadsTheNotationBack(t *testing.T) {
 		{"P::'x::y'::'it\\'s'", []string{"P", "x::y", "it\\'s"}},
 		{"'a b'::c", []string{"a b", "c"}},
 	} {
-		got, ok := QualifiedNameSegments(tc.text)
+		got, ok := source.QualifiedNameSegments(tc.text)
 		if !ok || !slices.Equal(got, tc.want) {
-			t.Errorf("QualifiedNameSegments(%q) = %q, %v, want %q", tc.text, got, ok, tc.want)
+			t.Errorf("source.QualifiedNameSegments(%q) = %q, %v, want %q", tc.text, got, ok, tc.want)
 		}
-		if back := QualifiedNameOf(got); back != tc.text {
-			t.Errorf("QualifiedNameOf(QualifiedNameSegments(%q)) = %q", tc.text, back)
+		if back := source.QualifiedNameOf(got); back != tc.text {
+			t.Errorf("source.QualifiedNameOf(QualifiedNameSegments(%q)) = %q", tc.text, back)
 		}
 	}
 	for _, bad := range []string{"", "x::", "::y", "'x", "''", "a'b", "'x'y", "x::'y"} {
-		if got, ok := QualifiedNameSegments(bad); ok {
-			t.Errorf("QualifiedNameSegments(%q) = %q, want a refusal", bad, got)
+		if got, ok := source.QualifiedNameSegments(bad); ok {
+			t.Errorf("source.QualifiedNameSegments(%q) = %q, want a refusal", bad, got)
 		}
 	}
 }

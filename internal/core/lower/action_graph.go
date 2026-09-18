@@ -11,8 +11,8 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -503,7 +503,7 @@ func TypeText(u *ast.Usage) string {
 		}
 		segments := make([]string, 0, len(qn.Parts))
 		for _, part := range qn.Parts {
-			segments = append(segments, lexer.NameText(part.Text))
+			segments = append(segments, source.NameText(part.Text))
 		}
 		text := strings.Join(segments, "::")
 		if qn.Global {
