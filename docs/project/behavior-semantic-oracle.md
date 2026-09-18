@@ -716,8 +716,8 @@ route = 2}`, stated as `outcomes` citing this section; exploration reaches each 
 outcomes, complete). The branch is drawn only as b's transition fires, after the region order is
 drawn: a witness reads `on accept Go: b1 first of a1, b1; junction split -> 2->right`, in that
 order, and the run in which a fires first draws nothing at the junction, so replaying its
-witness meets no draw it does not list. The golden pins the a-first linearization, `seed:1` the
-other one.
+witness meets no draw it does not list. The golden pins the a-first linearization, and so does the
+`seed:1` golden, whose draw falls the same way; the b-first runs are exploration's.
 
 ### A junction's guards are read once, as its incoming transition is selected: a branch enabled then is taken though another region's effect since made its guard unevaluable
 
@@ -745,7 +745,8 @@ Open: the region order, and which enabled branch b takes.
 Pinned outcome: the admissible set `{a2+left with route = 1, a2+right with route = 2}`, stated as
 `outcomes` citing this section; exploration reaches each once per region order (4 runs, 2
 outcomes, complete), the a-first run through the second branch among them. The golden pins the
-a-first linearization through the first branch, `seed:1` the b-first one.
+a-first linearization through the first branch, and the `seed:1` golden, its draws falling the same
+way, the same one; the b-first runs are exploration's.
 
 ### Every junction guard on a route is read once, as its transition is selected: a junction beyond a draw takes the branch enabled then though another region's effect since changed what its guards read
 
@@ -774,7 +775,8 @@ Open: the region order, and which of `split`'s enabled branches b takes.
 Pinned outcome: the admissible set `{a2+left with route = 11, a2+left with route = 12}`, stated as
 `outcomes` citing this section; exploration reaches each once per region order (4 runs, 2
 outcomes, complete), the a-first runs among them. The golden pins the a-first linearization
-through the first branch, `seed:1` the b-first one.
+through the first branch, and the `seed:1` golden, its draws falling the same way, the same one;
+the b-first runs are exploration's.
 
 ### A history without a record takes its default transition through a junction with two branches enabled: exactly one is taken, which one is open
 
@@ -834,8 +836,8 @@ unit at a time — a firing's source exit, its effect and its target entry are i
 draw is among the firings with a unit left — and reported as `choice on accept Go: next a1(exit),
 b1(exit) (unordered; took a1(exit) first)`: `declared` and `reverse` take the firings whole in region
 declaration order — a tool-defined order — and the default golden pins that linearization (`a`
-first, `last = 2`); `seed:<n>` draws each unit, and the `seed:1` golden pins the other order (`b`
-first, `last = 1`); `explore` varies every draw (`took b1(exit) first` in the witness of the second
+first, `last = 2`); `seed:<n>` draws each unit, the `seed:1` golden's draws falling on the same
+order; `explore` varies every draw (`took b1(exit) first` in the witness of the second
 outcome) and must reach both outcomes and no other. Here the finer grain reaches no third outcome,
 since each region logs one write. `state_firing_units_interleaved` logs each source's exit and each
 effect, so the grain shows: the units of one firing keep their order (`transitionLinkSource then
@@ -1045,7 +1047,8 @@ each ending `outer(exit) sync(effect) rest(entry)`, stated as `outcomes` citing 
 order is a choice point under every policy, reported as `choice join sync: states l1, r1 react
 (unordered; took l1 first)`: `declared` and `reverse` take source declaration order — a tool-defined
 order — and the default golden pins that linearization (`left` first); `seed:<n>` draws the order,
-and the `seed:1` golden pins the other; `explore` varies it and must reach both outcomes and no
+the `seed:1` golden's draw falling on the same one after entering the regions right first;
+`explore` varies it and must reach both outcomes and no
 other, in two runs. Each segment exits its source and runs its effect before the next segment is
 drawn (`exit: l1`, `assign log`, `exit: r1`, `assign log` in the golden), so the incoming effects
 interleave with the sources' exits only as the segments do, never across one segment.
