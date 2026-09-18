@@ -15,7 +15,7 @@ import (
 	liberrata "github.com/Open-MBEE/OpenSysML/internal/core/libs/errata"
 )
 
-const repoRoot = "../.."
+const repoRoot = "../../.."
 
 // requireEnv turns an absent corpus into a failure, as CI does for the gates.
 const requireEnv = "OPENSYSML_REQUIRE_PILOT_CORPORA"
