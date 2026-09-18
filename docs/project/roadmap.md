@@ -2681,21 +2681,44 @@ Each a pull request of its own, mechanical for any branch it crosses:
 With these the runtime links neither the validation suite nor the parser, and the REPL not the
 service layer.
 
-## P2 — the tests tree (not started)
+## P2 — the tests tree (in review)
 
-Create `tests/` at the repository root, one black-box package per suite, and move into it: the
-runtime's execution conformance and trace suites with their fixtures (`tests/conformance`); the
-four OMG corpus gates from `internal/core/model` and the RDF round-trip ratchet from
-`internal/core/export` (`tests/corpus`); the parser's golden ASTs and negative cases
-(`tests/parser`); the LSP, gRPC and REPL protocol suites; `TestNoProductionCodeImportsTesting`
-and the layering test (`tests/hygiene`); the benchmarks of `perfbench` (`tests/perf`); the 82
-external test files; and `testutil/*`, `fixtures` and `doccounts/doccountstest` as the tree's
-support packages. Every `testdata` directory moves beside its driver under `tests/testdata/`, the
-top-level `testdata/` with them. A driver that reached into its package's unexported identifiers
-is rewritten against the exported surface, not given an export shim. The corpus policies do not
-move: the training corpus stays an assertion, the pilot roots and the round trip stay per-file
-ratchets, and the download scripts and require-variables stay as `AGENTS.md` §2 states them. This
-removes 32 `testdata` subtrees and six packages from `internal/` — 121 directories to about 80.
+`tests/` at the repository root holds the black-box suites, one package per suite, each with its
+fixtures beside it (#392, #397, #395, #401): `TestNoProductionCodeImportsTesting` (`tests/hygiene`,
+where the layering test goes too); the benchmarks (`tests/perf`); the parser's golden ASTs and
+negative cases (`tests/parser`); the four OMG corpus gates and the RDF round-trip ratchet
+(`tests/corpus`); the gRPC conformance suite (`tests/grpc`); 81 of the 82 external test files, by
+package (`tests/export`, `resolve`, `semantics`, `migrate`, `reposync`, `suggest`, `identity`,
+`model`, `queryplan`, `ontology`); the top-level `testdata/` as `tests/testdata`; and `gobuild` and
+`graphcmp` as `tests/testutil`. The drivers that reached into their package's unexported identifiers
+were rewritten against the exported surface — the gRPC suite against `grpc.NewService` with its own
+unit-term formatter, the export suite with its own pilot-corpus loader — not given an export shim.
+The corpus policies did not move: the training corpus is an assertion, the pilot roots and the round
+trip per-file ratchets, and the download scripts and require-variables are as `AGENTS.md` §2 states
+them. Measured at the track's baseline `206760826` and after the four pull requests: `testdata`
+subtrees under `internal/` 32 → 22, packages 70 → 66, entries at the top 21 → 18 (`hygiene`,
+`perfbench` and `testutil` gone), external test files beside a product package 82 → 1; 34
+directories and 17 packages under `tests/`. With P3's moves the tree under `internal/` is 121
+directories → 97.
+
+What stayed, and why. The runtime's execution conformance and trace suites
+(`TestExecutionConformance`, `TestExecutionTrace`, `conformance_test.go`, `trace_test.go` and the 11
+MB under `internal/core/runtime/testdata`) are white-box in fact, not only by location: sixteen
+runtime-internal test files run the same cases through the driver's schema types, loaders and case
+runner, eleven of them reaching unexported `Context` state (snapshots, held images, replay, the
+explore queue), and about 1,700 of the 2,300 lines of `conformance_test.go` depend on the runtime. A
+`package runtime` test cannot import a package that imports `internal/core/runtime` — Go rejects it
+as an import cycle in test — so a shared harness under `tests/` cannot be reached from those files,
+and a copy of the runner in each tree is the duplication this track removes. The driver and its
+fixtures stay beside the runtime, and the census reads them there. The LSP and REPL suites stay too:
+the files that touch no unexported identifier still share package-local helpers with the white-box
+ones (`mustDebug`, `render` and `openRenameDoc` in `lsp`; `meta`, `submitModel` and `evalOK` in
+`repl`), and moving them would copy those rather than share them;
+`internal/grpc/oslc_query_repl_test.go` is the one external file left, reaching `mustNewService` and
+`queryModel` through `export_test.go`. And the thirteen `testdata` trees still under `internal/`
+belong to white-box drivers, so they sit beside them — a fixture moves with its driver, not on its
+own. Of the support packages the plan named, `fixtures` stays product-side and `doccountstest`
+went to `tools/census/doccounts` with its owner, as P3 records.
 
 ## P3 — the tooling module (landed, unreleased)
 
