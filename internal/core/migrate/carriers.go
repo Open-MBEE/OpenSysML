@@ -65,7 +65,7 @@ func (m *migration) carriers(sm *xmi.Element, used map[string]bool) {
 		used[m.nameFor(sig)] = true
 		holder := freshIn(used, lowerFirst(m.nameFor(sig)))
 		m.w.line("item " + writeName(holder) + " : " + m.ref(sig, sm) + ";")
-		m.carrierOf[v] = &carrier{holder: holder, sig: sig, attrs: sig.Owned("ownedAttribute")}
+		m.carrierOf[v] = &carrier{holder: holder, sig: sig, attrs: m.signalAttributes(sig)}
 		m.add(v, Approximated, "", "the parameters of its entry and do actions take the attributes of "+
 			m.nameFor(sig)+", the signal every transition into it accepts and keeps in "+holder+
 			", as a simulation passes a signal's properties to the parameters of a state's behaviors matching them by position and type")
@@ -153,10 +153,10 @@ func aOrAn(noun string) string {
 	return "a " + noun
 }
 
-// carrierMatch says why the parameters of a state's behaviors do not take the
-// attributes of sig: their number, position, type, order or multiplicity differ.
+// carrierMatch says why the parameters of a state's behaviors do not take the attributes
+// of sig, inherited ones included: their number, position, type, order or multiplicity differ.
 func (m *migration) carrierMatch(sig *xmi.Element, behaviors []*xmi.Element) string {
-	attrs := sig.Owned("ownedAttribute")
+	attrs := m.signalAttributes(sig)
 	for _, b := range behaviors {
 		params := inParameters(b)
 		if len(params) != len(attrs) {

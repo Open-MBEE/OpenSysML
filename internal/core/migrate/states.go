@@ -36,7 +36,7 @@ func (m *migration) nameMachine(sm *xmi.Element) map[string]bool {
 	for _, cp := range sm.Owned("connectionPoint") {
 		m.nameVertex(cp, used)
 	}
-	m.nameRegions(sm.Owned("region"), used)
+	m.nameRegions(m.populatedRegions(sm), used)
 	return used
 }
 

@@ -177,3 +177,77 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 		t.Errorf("the junction's else branch did not end the machine:\n%s", out)
 	}
 }
+
+// gateMachine has an empty region beside the one holding its states, and transitions
+// between Idle and the nested Busy::Inner across nesting levels.
+const gateMachine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_open" name="Open"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_shut" name="Shut"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_openEv" signal="_open"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_shutEv" signal="_shut"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_gate" name="Gate" classifierBehavior="_gsm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_gsm" name="Latch">
+        <region xmi:type="uml:Region" xmi:id="_gUnused" name="Unused"/>
+        <region xmi:type="uml:Region" xmi:id="_gMain" name="Main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_ginit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_gidle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_gbusy" name="Busy">
+            <region xmi:type="uml:Region" xmi:id="_gbr">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_gbinit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_ginner" name="Inner"/>
+              <transition xmi:type="uml:Transition" xmi:id="_gbt0" source="_gbinit" target="_ginner"/>
+              <transition xmi:type="uml:Transition" xmi:id="_gtOut" source="_ginner" target="_gidle">
+                <trigger xmi:type="uml:Trigger" xmi:id="_gtrOut" event="_shutEv"/>
+              </transition>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_gt0" source="_ginit" target="_gidle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_gtIn" source="_gidle" target="_ginner">
+            <trigger xmi:type="uml:Trigger" xmi:id="_gtrIn" event="_openEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+const gateApplications = `
+  <sysml:Block xmi:id="_g1" base_Class="_gate"/>`
+
+// An empty region is skipped when the machine's vertices are named as when they are
+// written, so the remaining region's states are inline and a transition across nesting
+// levels names its far end by a path that exists.
+func TestEmptyRegionLeavesNoPhantomPath(t *testing.T) {
+	r := migrateDocument(t, gateMachine, gateApplications)
+	for _, line := range []string{
+		"state def Latch {",
+		"entry; then Idle;",
+		"state Busy {",
+		"entry; then Inner;",
+		"transition first Idle accept Open then Busy::Inner;",
+		"transition first Inner accept Shut then Idle;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	if strings.Contains(string(r.Notation), "regions") {
+		t.Errorf("a parallel state was named for a machine with one populated region:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_gUnused", migrate.Skipped, "the region holds no vertex, so nothing enters it and no state is written for it")
+	wantNote(t, r, "_gtIn", migrate.Mapped, "the target 'Inner' lies in another region and is named by its path Busy::Inner")
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Gate")
+	meta(t, s, "%state Gate::Latch")
+	if out := meta(t, s, "%send Open"); !strings.Contains(out, "transition Idle -> Inner fires on it") {
+		t.Errorf("%%send Open: %s", out)
+	}
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Inner") {
+		t.Errorf("the transition did not enter Busy::Inner:\n%s", out)
+	}
+	if out := meta(t, s, "%send Shut"); !strings.Contains(out, "transition Inner -> Idle fires on it") {
+		t.Errorf("%%send Shut: %s", out)
+	}
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Idle") {
+		t.Errorf("the transition did not leave Busy for Idle:\n%s", out)
+	}
+}

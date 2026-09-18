@@ -30,10 +30,14 @@
   read the accepted message (`in level = msg.level`).
 - **A migrated state values its entry and do parameters from the signal that enters it.** When
   every transition into a state accepts the same signal and its attributes fit the behavior's
-  parameters in order, type and multiplicity, the `state def` keeps the signal in an item
+  parameters in order, type and multiplicity — the attributes the signal inherits from its
+  generals counted with its own — the `state def` keeps the signal in an item
   (`item setPoint : SetPoint;`) each transition assigns and the parameters read
   (`in target : ScalarValues::Real = setPoint.level;`); a state entered without a signal or with
   one that does not fit is reported with the transition or attribute that is the reason. A
+  region holding no vertex is skipped when the machine's states are named as when they are
+  written, so a machine whose other region is populated is written inline and a transition
+  across nesting levels names its far end by a path that exists. A
   trigger naming no port is also written accepting via each port of the owner the document's
   connectors and delegations carry its signal to, and an activity whose required input pin only
   parameters nothing values flow into is reported as never firing instead of written to wait.

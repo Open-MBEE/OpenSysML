@@ -285,7 +285,9 @@ edge written unguarded, so such a decision is a scheduling choice the runtime dr
 with the model seed; the report says so.
 
 **State machines.** A composite state's regions become sub-states of a `parallel` state, so
-the orthogonal regions run together; a submachine state is a `state` usage typed by the
+the orthogonal regions run together — a region holding no vertex is skipped as content
+nothing enters, so a machine whose one other region is populated is written inline and its
+paths hold no parallel state; a submachine state is a `state` usage typed by the
 referenced machine's `state def`, composing through any depth. Triggers are written on the
 transition that refers to them — `accept Sig`, `accept after 2.0 [SI::s]`,
 `accept when this.temperature > 200.0`, `accept at dawn` for an absolute time the `state def`
@@ -300,7 +302,8 @@ references.
 A state whose entry or do behavior takes parameters is entered by transitions that carry no
 arguments, so the parameters are valued from the signal those transitions accept when every
 transition into the state accepts the same signal and its attributes match the parameters in
-order, type and multiplicity: the `state def` declares an item of the signal's type,
+order, type and multiplicity — the signal's own attributes first, then those it inherits from
+its generals: the `state def` declares an item of the signal's type,
 `item setPoint : SetPoint;`, each transition into the state assigns what it accepted to it,
 `accept setPoint2 : SetPoint … assign setPoint := setPoint2;`, and the behavior's parameters
 read its attributes, `in target : ScalarValues::Real = setPoint.level;`. A state some

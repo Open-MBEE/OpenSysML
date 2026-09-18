@@ -216,3 +216,76 @@ func TestStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.T) {
 		t.Errorf("the internal transition's effect did not run: %s", out)
 	}
 }
+
+// dimmerMachine enters Lit on Fine, a signal whose own attribute hold precedes the level it
+// inherits from Setting; Lit's entry takes both in that order.
+const dimmerMachine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_setting" name="Setting">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_stLevel" name="level">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_fine" name="Fine">
+      <generalization xmi:type="uml:Generalization" xmi:id="_fineGen" general="_setting"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_fnHold" name="hold">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_fineEv" signal="_fine"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_dimmer" name="Dimmer" classifierBehavior="_dsm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_dlast" name="last">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_dlast0" value="0.0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_dsm" name="Dim">
+        <region xmi:type="uml:Region" xmi:id="_dr">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_dinit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_ddark" name="Dark"/>
+          <subvertex xmi:type="uml:State" xmi:id="_dlit" name="Lit">
+            <entry xmi:type="uml:OpaqueBehavior" xmi:id="_dprime">
+              <ownedParameter xmi:type="uml:Parameter" xmi:id="_dprimeH" name="keep" direction="in">
+                <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+              </ownedParameter>
+              <ownedParameter xmi:type="uml:Parameter" xmi:id="_dprimeL" name="target" direction="in">
+                <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+              </ownedParameter>
+              <language>JavaScript</language>
+              <body>last = target;</body>
+            </entry>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_dt0" source="_dinit" target="_ddark"/>
+          <transition xmi:type="uml:Transition" xmi:id="_dt1" source="_ddark" target="_dlit">
+            <trigger xmi:type="uml:Trigger" xmi:id="_dtr1" event="_fineEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+const dimmerApplications = `
+  <sysml:Block xmi:id="_d1" base_Class="_dimmer"/>`
+
+// A state's parameters take the attributes the signal inherits as well as its own,
+// so an entry reading an inherited level is valued when the derived signal arrives.
+func TestStateBehaviorsTakeInheritedSignalAttributes(t *testing.T) {
+	r := migrateDocument(t, dimmerMachine, dimmerApplications)
+	for _, line := range []string{
+		"item fine : Fine;",
+		"in keep : ScalarValues::Boolean = fine.hold;",
+		"in target : ScalarValues::Real = fine.level;",
+		"assign this.last := target;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_dprimeL", migrate.Mapped, "bound to fine.level, an attribute of the signal the transitions into the state accept")
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Dimmer")
+	meta(t, s, "%state Dimmer::Dim")
+	if out := meta(t, s, "%send Fine(hold=true, level=2.5)"); !strings.Contains(out, "transition Dark -> Lit fires on it") {
+		t.Errorf("%%send Fine: %s", out)
+	}
+	meta(t, s, "%step")
+	if out := meta(t, s, "%eval in #1 : last"); !strings.Contains(out, "= 2.5") {
+		t.Errorf("the entry action did not read the inherited level: %s", out)
+	}
+}
