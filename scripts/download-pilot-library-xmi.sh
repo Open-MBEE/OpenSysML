@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Download the pilot's XMI serialization of the standard library into
 # build/pilot-library-xmi/, for the normative identity gate in
-# internal/core/identity (TestPilotLibraryXMI).
+# tests/identity (TestPilotLibraryXMI).
 #
 # The XMI carries the element ids the pilot fixes for every standard-library
 # element; the gate asserts the ids this implementation derives are the same
@@ -30,4 +30,4 @@ pilot_fetch_subtrees "sysml.library.xmi:$target"
 
 echo "Total $(pilot_count_files "$target") XMI file(s)."
 echo "Compare the ids this implementation derives against them with:"
-echo "  go test -count=1 ./internal/core/identity -run TestPilotLibraryXMI"
+echo "  go test -count=1 ./tests/identity -run TestPilotLibraryXMI"

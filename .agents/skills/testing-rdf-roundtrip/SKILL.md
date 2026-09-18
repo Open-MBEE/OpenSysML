@@ -51,7 +51,7 @@ long as the broken predicate is missing from both graphs alike.
 
 To make the test load-bearing, strip `sysx:sourceText` and `sysx:sourceTail` from the intermediate
 `.ttl` first (the same thing the `withoutTriples` test helper in
-`internal/core/export/export_test.go` does in-process) and only then convert back. Every literal is
+`tests/export/export_test.go` does in-process) and only then convert back. Every literal is
 written on one line, newlines escaped, so a small Python filter is enough — drop any line containing
 the predicate, and when the dropped line ended the triple block with ` .`, turn the previous line's
 trailing `;` into ` .`:
@@ -143,7 +143,7 @@ degraded output still validates clean, so judge it by the *text*, not by the exi
 
 Use `make build-sysml` and `bin/sysml FILE -convert kerml -o BACK` for KerML.
 `connector eng to tanks.main;` is anonymous; only `connector link from eng to tanks.main;`
-declares the connector name. `internal/core/export/testdata/convert/connector_ends.kerml`
+declares the connector name. `tests/export/testdata/convert/connector_ends.kerml`
 covers named ends, per-end multiplicities, `from`, `all`, and n-ary connectors.
 
 For `connector a ::> a.x to b;`, the connector's `sysx:relatedFeature` selects an
@@ -212,7 +212,7 @@ grep -rn "targetMember" internal/core/export/testdata/ internal/core/export/*_te
 
 If it is still absent, say so — the predicate is decoder-only and its encoder branch is untested.
 
-## Flag / import / succession-end predicates (fixtures under `internal/core/export/testdata/convert/`)
+## Flag / import / succession-end predicates (fixtures under `tests/export/testdata/convert/`)
 
 Each of these degrades visibly (exit 0, judge by text) or is refused when stripped together with
 `sysx:sourceText`; if the notation comes back unchanged the predicate has become decorative:
@@ -259,7 +259,7 @@ Every `@M;`, `@M { … }`, `metadata m : M about a, b;` and `#M part def P;` is 
 `sysml:MetadataUsage` with `sysml:type`, one `sysml:annotatedElement` per `about` target,
 `sysx:hasBody`, `sysx:declaredKeyword` `"@"`/`"#"` (absent for the `metadata` keyword) and body
 members as owned members ordered by `sysx:memberIndex`. Fixtures:
-`internal/core/export/testdata/convert/metadata_bodies.sysml` and `metadata_prefixes.sysml`
+`tests/export/testdata/convert/metadata_bodies.sysml` and `metadata_prefixes.sysml`
 (neither validates clean on its own — unqualified `Integer`/`Real` and a `variant` outside a
 `variation` — so judge semantic equality by identical `-validate` diagnostics, or add
 `private import ScalarValues::*;` to a copy). Hand-edit the stripped `.ttl` for the controls:

@@ -60,7 +60,7 @@ The three OMG pilot corpora are gated the same way: fetch them with
 
 So is the pilot's XMI of the standard library, which the identity gate reads: fetch it with
 `./scripts/download-pilot-library-xmi.sh` and run
-`go test -count=1 ./internal/core/identity -run TestPilotLibraryXMI`. CI sets
+`go test -count=1 ./tests/identity -run TestPilotLibraryXMI`. CI sets
 `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1`. Whatever sets a require variable must run the matching
 download script first; the scripts are idempotent, and none reports success over an empty corpus.
 
@@ -104,6 +104,8 @@ tests/                   black-box suites and their fixtures
   perf/                  benchmark harness (go test ./tests/perf -run '^$' -bench .)
   testutil/              gobuild (build a command under test), graphcmp (pointer-graph comparison)
   parser/                golden ASTs (TestGolden, -update) and negative cases, with testdata/parse
+  grpc/                  gRPC conformance cases (TestGRPCConformance) driven over the RPC surface
+  export/, resolve/, …   external-package (package x_test) suites, each beside its own testdata
   testdata/              shared fixtures (.sysml, .kerml, .golden)
 examples/                example models and demos
 docs/                    guide/ (handbook), reference/, internals/, project/ (status)

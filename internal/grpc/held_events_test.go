@@ -16,7 +16,7 @@ import (
 func TestHeldEventsAreBounded(t *testing.T) {
 	t.Setenv(HeldEventsEnvVar, "1")
 	srv := mustNewService(t, 10)
-	hash := parseFixture(t, srv, "testdata/conformance/document_query_events.sysml")
+	hash := parseFixture(t, srv, "../../tests/grpc/testdata/conformance/document_query_events.sysml")
 	holdObject(t, srv, hash, "Lamps::lamp")
 	holdObject(t, srv, hash, "Lamps::lamp")
 

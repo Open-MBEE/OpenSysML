@@ -80,7 +80,7 @@ github.com/Open-MBEE/OpenSysML
 ├── clients/python/         # Python client bindings (opensysml)
 ├── clients/rust/           # Rust client (opensysml) and its conformance runner
 ├── api/proto/              # Protobuf service definitions
-├── tests/                  # Black-box suites, benchmarks, shared fixtures (tests/parser, tests/testdata, …)
+├── tests/                  # Black-box suites, benchmarks, shared fixtures (tests/parser, tests/grpc, tests/testdata, …)
 ├── examples/               # Example models and demos
 └── docs/                   # Documentation
 ```

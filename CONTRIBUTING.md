@@ -27,7 +27,7 @@ make lint   # runs staticcheck and gosec, as CI does
 ```
 
 The gates over those downloads (`internal/core/model/training_examples_test.go`,
-`internal/core/model/pilot_corpora_test.go`, `internal/core/identity/pilot_library_xmi_test.go`)
+`internal/core/model/pilot_corpora_test.go`, `tests/identity/pilot_library_xmi_test.go`)
 skip while their corpus is absent, so run the three scripts once before trusting a local
 `make test`; a corpus already at the pin is left alone. CI runs the scripts itself and sets
 `OPENSYSML_REQUIRE_TRAINING_CORPUS=1`, `OPENSYSML_REQUIRE_PILOT_CORPORA=1` and

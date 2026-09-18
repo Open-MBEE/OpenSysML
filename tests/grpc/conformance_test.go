@@ -1,4 +1,4 @@
-package grpc
+package grpc_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/fixtures"
+	"github.com/Open-MBEE/OpenSysML/internal/grpc"
 )
 
 // expectedValue is the fixture encoding of a pb.Value: the oneof field name
@@ -148,7 +149,10 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		t.Fatalf("read model: %v", err)
 	}
 
-	srv := mustNewService(t, 4)
+	srv, err := grpc.NewService(4, "test")
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
 	ctx := context.Background()
 
 	parseResp, err := srv.ParseFile(ctx, &pb.ParseFileRequest{
@@ -184,7 +188,7 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 	}
 }
 
-func runApplyEditsCase(t *testing.T, srv *Service, ctx context.Context, modelHash string, tc conformanceCase) {
+func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
 
 	operations := make([]*pb.EditOperation, 0, len(tc.Operations))
@@ -235,7 +239,7 @@ func runApplyEditsCase(t *testing.T, srv *Service, ctx context.Context, modelHas
 	}
 }
 
-func runEvaluateCase(t *testing.T, srv *Service, ctx context.Context, modelHash string, tc conformanceCase) {
+func runEvaluateCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
 
 	resp, err := srv.Evaluate(ctx, &pb.EvaluateRequest{
@@ -257,7 +261,7 @@ func runEvaluateCase(t *testing.T, srv *Service, ctx context.Context, modelHash 
 
 // runGetSymbolCase pins the static facts a symbol is reported with, and is how
 // the attribute set is kept from regressing to empty.
-func runGetSymbolCase(t *testing.T, srv *Service, ctx context.Context, modelHash string, tc conformanceCase) {
+func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
 
 	resp, err := srv.GetSymbol(ctx, &pb.GetSymbolRequest{
@@ -317,7 +321,7 @@ func runGetSymbolCase(t *testing.T, srv *Service, ctx context.Context, modelHash
 	}
 }
 
-func runInstantiateCase(t *testing.T, srv *Service, ctx context.Context, modelHash string, tc conformanceCase) {
+func runInstantiateCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
 
 	resp, err := srv.Instantiate(ctx, &pb.InstantiateRequest{
@@ -361,7 +365,7 @@ func runInstantiateCase(t *testing.T, srv *Service, ctx context.Context, modelHa
 	}
 }
 
-func runExecuteActionCase(t *testing.T, srv *Service, ctx context.Context, modelHash string, tc conformanceCase) {
+func runExecuteActionCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
 
 	var inputs map[string]*pb.Value
@@ -393,7 +397,7 @@ func runExecuteActionCase(t *testing.T, srv *Service, ctx context.Context, model
 	}
 }
 
-func runExecuteStateCase(t *testing.T, srv *Service, ctx context.Context, modelHash string, tc conformanceCase) {
+func runExecuteStateCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
 
 	resp, err := srv.ExecuteState(ctx, &pb.ExecuteStateRequest{
@@ -546,7 +550,30 @@ func describeQuantity(q *pb.Quantity) string {
 	case *pb.Quantity_RealMagnitude:
 		magnitude = strconv.FormatFloat(m.RealMagnitude, 'g', -1, 64)
 	}
-	return fmt.Sprintf("%s [%s] = %s", magnitude, q.GetUnit(), describeUnitTerm(q.GetUnitTerm()))
+	return fmt.Sprintf("%s [%s] = %s", magnitude, q.GetUnit(), unitTermText(q.GetUnitTerm()))
+}
+
+// unitTermText renders a unit reduction the way fixtures spell it,
+// "1000/3600·SI::m·SI::s^-1", with a scale of one and exponents of one implicit.
+func unitTermText(term *pb.UnitTerm) string {
+	if term == nil {
+		return "absent"
+	}
+	var parts []string
+	if term.GetScaleNum() != term.GetScaleDen() {
+		parts = append(parts, fmt.Sprintf("%g/%g", term.GetScaleNum(), term.GetScaleDen()))
+	}
+	for _, factor := range term.GetFactors() {
+		if factor.GetExponent() == 1 {
+			parts = append(parts, factor.GetUnitId())
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s^%g", factor.GetUnitId(), factor.GetExponent()))
+	}
+	if len(parts) == 0 {
+		return "1"
+	}
+	return strings.Join(parts, "·")
 }
 
 func mustFloat(t *testing.T, ev expectedValue) float64 {

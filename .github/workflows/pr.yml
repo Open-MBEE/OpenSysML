@@ -22,7 +22,7 @@ env:
   # Same for the pinned fUML reference-implementation suite, gated by tools/referee/fuml.
   OPENSYSML_REQUIRE_FUML_SUITE: "1"
   # Same for the pilot's XMI of the standard library, downloaded below and
-  # compared against by internal/core/identity (TestPilotLibraryXMI).
+  # compared against by tests/identity (TestPilotLibraryXMI).
   OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
   # z3 is installed below, so "no solver, therefore skip" would exercise nothing:
   # this turns an absent solver into a failure (see internal/core/solve).
@@ -386,7 +386,7 @@ jobs:
       - name: Run pilot library identity gate
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/core/identity -run 'TestPilotLibraryXMI' | tee pilot-library-xmi-gate.log
+          go test -count=1 -v ./tests/identity -run 'TestPilotLibraryXMI' | tee pilot-library-xmi-gate.log
           grep -E 'pilot library XMI: [0-9]+ derived' pilot-library-xmi-gate.log
           if grep -qE '^\s*--- SKIP' pilot-library-xmi-gate.log; then
             echo "error: the pilot library identity gate skipped" >&2

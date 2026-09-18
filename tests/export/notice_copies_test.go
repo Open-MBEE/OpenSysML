@@ -14,7 +14,7 @@ import (
 // The Python client cannot import the Go constant, so it keeps a fallback copy
 // for a service too old to send its own notice. This pins the two together.
 func TestPythonFallbackNoticeMatchesTheConstant(t *testing.T) {
-	path := filepath.Join("..", "..", "..", "clients", "python", "opensysml", "conversion.py")
+	path := filepath.Join("..", "..", "clients", "python", "opensysml", "conversion.py")
 	source, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read the Python client: %v", err)

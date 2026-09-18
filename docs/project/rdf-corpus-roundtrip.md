@@ -27,7 +27,7 @@ its summary line is legible in the log and a skip cannot pass.
 
 ## Why
 
-The fixture round-trip tests in `internal/core/export/export_test.go` (`TestRoundTripIsLossless`,
+The fixture round-trip tests in `tests/export/export_test.go` (`TestRoundTripIsLossless`,
 `TestGoldenConversions` and the per-construct tests) assert byte-stability over a few dozen
 authored models, and they pass. The example corpus is an order of magnitude larger and is not
 clean under the mapping: some files are refused, some cannot be written back, and some come back

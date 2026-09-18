@@ -2,8 +2,6 @@ package export_test
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -221,15 +219,7 @@ func TestSysMLOwningMembershipFeatureIsRefused(t *testing.T) {
 // The pilot's TimeVaryingFeatures.kerml, the one corpus model whose triple set
 // moved on the graph-only round trip, now comes back from the graph alone.
 func TestTimeVaryingFeaturesComeBackFromTheGraphAlone(t *testing.T) {
-	root := corpusRoundTripRoots[1]
-	path := filepath.Join(corpusRoundTripExamples, filepath.FromSlash(root.name), "Variable Feature Examples", "TimeVaryingFeatures.kerml")
-	src, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
-		root.skip(t, path+" is missing")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	_, src := pilotCorpusModel(t, "kerml-examples/Variable Feature Examples/TimeVaryingFeatures.kerml")
 	_, back := graphOnlyRoundTrip(t, "TimeVaryingFeatures.kerml", src)
 	if strings.Count(string(back), "member feature") != strings.Count(string(src), "member feature") {
 		t.Errorf("the notation should keep every `member feature`:\n%s", back)

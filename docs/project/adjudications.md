@@ -151,7 +151,7 @@ re-exports publicly, which is how `ISQ` publishes `ISQBase`'s names. A recursive
 the containment tree but consults only each scope's own declarations makes a re-exported name visible
 through `ISQ::*` and invisible through `ISQ::**`; both go through the same re-export-aware traversal
 (`appendSubtree`), keeping the cycle guard, `importAdmits`, filters, visibility and the body-local
-exclusion. Covered by `internal/core/resolve/f67_import_reexport_test.go` and `filter_test.go`.
+exclusion. Covered by `tests/resolve/f67_import_reexport_test.go` and `filter_test.go`.
 
 ### Open — a reference's position is resolved without regard to the metaclass it admits
 

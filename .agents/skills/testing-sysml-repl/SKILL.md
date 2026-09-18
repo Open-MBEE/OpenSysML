@@ -1559,7 +1559,7 @@ real time:
   `addr=:0`, so a naive `grep -o 'addr=[^ ]*' | head -1` grabs the health line and you dial port 0
   ("Connection refused"). Always filter on `gRPC server listening` first, and take the port with
   `${ADDR##*:}` — `cut -d: -f3` yields `]` for `[::]:41325`.
-- Expected values at 0cf94e80 for `internal/grpc/testdata/conformance/instantiate_derived_slot.sysml`:
+- Expected values at 0cf94e80 for `tests/grpc/testdata/conformance/instantiate_derived_slot.sysml`:
   `mass` → `materialized=True kind=real_value 1500.0`, `doubled` → `real_value 3000.0`; a missing
   model path raises `opensysml.errors.ModelFileNotFoundError` ("file not found: open …") and the
   server logs `code = NotFound` for `/sysml.SysMLService/ParseFile` while staying alive. An already
@@ -4904,7 +4904,7 @@ at the prompt; it parses as a model line and produces `expected a namespace memb
 A kindless parameter (`in x : Real`, `out mass : Real`) is a kindless/attribute usage, so
 `sysml -convert=turtle` emits `a sysml:AttributeUsage`. Hand-written fixtures are often *not*
 discriminating (both old and new binaries agree); the repo fixture
-`internal/core/export/testdata/convert/views_flows_parameters.sysml` is, because its
+`tests/export/testdata/convert/views_flows_parameters.sysml` is, because its
 `action def Measure { out mass : Real; }` prints `AttributeUsage` on the new binary and
 `PartUsage` on a parent-commit binary. Prefer an A/B against `/tmp/old-sysml` over asserting a
 single output.
@@ -5117,7 +5117,7 @@ back to assumed `1..1`), so silence-vs-warning is the discriminator; `[0..1]` ag
 ### gRPC/Python control when library attributes are NOT withheld
 With no L3-3 projection, `GetSymbol` on a part returns own attributes **first, in declaration
 order**, then ~55 inherited from `Occurrences`/`Objects`/`Base` (e.g. `demo::Car` in
-`internal/grpc/testdata/conformance/symbol_attributes.sysml`: 6 own + 55 = 61). Assert the head
+`tests/grpc/testdata/conformance/symbol_attributes.sysml`: 6 own + 55 = 61). Assert the head
 order and that the client can read every row; don't assert a total.
 Two traps that reproduce on **base too** (do not attribute them to a record-format PR):
 - A `@Metadata` annotation written *inside* a part def collapses that symbol's gRPC attribute list

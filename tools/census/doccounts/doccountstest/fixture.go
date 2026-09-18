@@ -123,7 +123,7 @@ func TestRuntimeRobustnessSignals(t *testing.T) {
 	t.Run("g", func(t *testing.T) {})
 }
 `)
-	grpc := "internal/grpc/testdata/conformance/"
+	grpc := "tests/grpc/testdata/conformance/"
 	Write(t, root, grpc+"a.expected.json", "{}\n")
 	Write(t, root, grpc+"b.expected.json", "{}\n")
 	Write(t, root, grpc+"b.check.expected.json", "{}\n")
