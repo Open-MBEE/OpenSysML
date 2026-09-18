@@ -90,7 +90,7 @@ func (mc *w8dMetadataChecker) checkBody(sym *symbols.Symbol, typeRef *ast.Qualif
 			Source:   "constraint",
 		})
 	}
-	for _, value := range mc.model.MetadataBodyInevaluableValuesOf(sym.Scope, body) {
+	for _, value := range mc.model.MetadataBodyInevaluableValuesOf(typ, sym.Scope, body) {
 		mc.diags = append(mc.diags, Diagnostic{
 			Severity: SeverityError,
 			Span:     metadataValueSpan(body, value),

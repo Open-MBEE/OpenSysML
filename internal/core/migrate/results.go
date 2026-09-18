@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -74,12 +75,20 @@ func (r *Results) Summary() string {
 	return fmt.Sprintf("results of %d run configuration(s): %d with %d stored snapshot(s)", len(r.Configurations), stored, snapshots)
 }
 
-// ReadResults reads a sidecar -migration-results wrote; a document indexing no configuration is an error.
+// ReadResults reads a sidecar -migration-results wrote: exactly one JSON document
+// indexing at least one configuration; content after it is an error.
 func ReadResults(r io.Reader) (*Results, error) {
 	var out Results
 	dec := json.NewDecoder(r)
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&out); err != nil {
+		return nil, fmt.Errorf("the results are not the JSON -migration-results writes: %w", err)
+	}
+	var trailing json.RawMessage
+	switch err := dec.Decode(&trailing); {
+	case err == nil:
+		return nil, fmt.Errorf("the results are not the JSON -migration-results writes: content follows the document")
+	case !errors.Is(err, io.EOF):
 		return nil, fmt.Errorf("the results are not the JSON -migration-results writes: %w", err)
 	}
 	if out.Source == "" || out.Configurations == nil {

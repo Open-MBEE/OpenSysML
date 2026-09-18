@@ -282,6 +282,9 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
 		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.75; } }")
 		wantNote(t, r, "_ea", migrate.Mapped, "the probability reads the property pA of the object performing the action")
 		wantNote(t, r, "_eb", migrate.Mapped, "")
+		if errs := errors(t, "chooser.sysml", r.Notation); len(errs) > 0 {
+			t.Errorf("the property-valued probability does not analyse clean: %v\n%s", errs, r.Notation)
+		}
 		s := session(t, r)
 		meta(t, s, "%seed 1")
 		wantVerdict(t, s.RunAction("Chooser::Choose"))

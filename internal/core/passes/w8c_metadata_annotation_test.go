@@ -465,6 +465,38 @@ func TestMetadataBodyValueIsJudgedInTheBodyScope(t *testing.T) {
 	}
 }
 
+// Stochastic::Probability::p is read by the run when its decision is reached, so a
+// value only the run decides is accepted there, in both spellings, while the same
+// value bound to another metadata type's feature, or to another feature of a
+// Probability, is judged model-level as any metadata value is.
+func TestProbabilityWeightMayBeDecidedByTheRun(t *testing.T) {
+	src := `package P {
+	private import ScalarValues::*;
+	metadata def Weight :> Stochastic::Probability { attribute tag : String; }
+	metadata def Other { attribute p : Real; }
+	part def Analysis {
+		attribute pFast : Real default = 0.5;
+		attribute label : String = "x";
+		action route {
+			first start;
+			then decide d;
+			succession fast first d then done { @Stochastic::Probability { p = pFast; } }
+			succession slow first d then done { metadata w : Stochastic::Probability { p = 1.0 - pFast; } }
+			succession sub first d then done { @Weight { p = pFast; tag = label; } }
+			succession other first d then done { @Other { p = pFast; } }
+		}
+	}
+}`
+	var got []string
+	for _, d := range only(w8cLibraryDiagnostics(t, "probability-weight.sysml", src), "metadata-value-not-evaluable") {
+		got = append(got, strings.TrimSpace(src[d.Span.Offset:d.Span.End()]))
+	}
+	want := []string{"= label", "= pFast"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("findings %q, want %q", got, want)
+	}
+}
+
 // An annotation written in a document's root namespace annotates that namespace
 // and is judged like a package member's: the pilot draws exactly these findings.
 func TestMetadataAnnotationsInTheRootNamespace(t *testing.T) {

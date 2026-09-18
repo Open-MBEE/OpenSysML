@@ -261,12 +261,18 @@ func TestResultsSidecarRoundTrip(t *testing.T) {
 	if !reflect.DeepEqual(read, r.Results) {
 		t.Errorf("the sidecar read back is not the one written:\n%s", data)
 	}
+	if _, err := migrate.ReadResults(strings.NewReader(string(data) + "\n\n")); err != nil {
+		t.Errorf("ReadResults(document then whitespace) error = %v", err)
+	}
 	for name, text := range map[string]string{
 		"not JSON":          "results: none",
 		"another shape":     `[1, 2]`,
 		"an unknown key":    `{"source": "t.xmi", "configurations": [], "tuned": true}`,
 		"no source":         `{"configurations": []}`,
 		"no configurations": `{"source": "t.xmi"}`,
+		"a second document": string(data) + "\n" + string(data),
+		"trailing garbage":  string(data) + " results: none",
+		"an unclosed tail":  string(data) + `{"source": "t.xmi"`,
 	} {
 		if _, err := migrate.ReadResults(strings.NewReader(text)); err == nil || !strings.Contains(err.Error(), "not the JSON -migration-results writes") {
 			t.Errorf("ReadResults(%s) error = %v", name, err)
