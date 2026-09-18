@@ -150,7 +150,7 @@ func (fc *funcCompiler) boundFunction(qn *ast.QualifiedName) (*funcValue, bool) 
 	// names is this one exactly when it names the calc declaring the parameter.
 	rd := fc.c.resolver.ReadQualified(fc.scope, qn)
 	sym, ok := rd.Symbol()
-	if !ok || ownerOf(sym) != fc.sym {
+	if !ok || sym.Owner() != fc.sym {
 		return nil, false
 	}
 	if qualifier, ok := rd.Part(len(qn.Parts) - 2); !ok || qualifier != fc.sym {
@@ -234,7 +234,7 @@ func (fc *funcCompiler) functionValueOf(sym *symbols.Symbol, where string) (func
 			return funcValue{}, fc.unsupported(fmt.Sprintf("%s: %s, a calc usage with no unsupplied input, which reads as its result rather than as a function value", where, name))
 		}
 	}
-	for owner := ownerOf(sym); owner != nil; owner = ownerOf(owner) {
+	for owner := sym.Owner(); owner != nil; owner = owner.Owner() {
 		switch owner.Kind {
 		case symbols.SymbolPackage, symbols.SymbolNamespace:
 			continue
@@ -254,13 +254,6 @@ func (fc *funcCompiler) checkFuncArgType(p paramDecl, f funcValue) error {
 		return nil
 	}
 	return fc.unsupported(fmt.Sprintf("%s: cannot bind the function value %s to a parameter typed by %s", paramWhere(p.name), fc.c.name(f.sym), fc.c.name(p.typ)))
-}
-
-func ownerOf(sym *symbols.Symbol) *symbols.Symbol {
-	if sym.OwnerScope == nil {
-		return nil
-	}
-	return sym.OwnerScope.Owner()
 }
 
 // functionValueRead is the description of node when it names a function value
