@@ -33,14 +33,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 	} else if err != nil {
 		return 2
 	}
-	root, err := repo.Root()
-	if err != nil {
-		fmt.Fprintln(stderr, "snapshot:", err)
-		return 1
-	}
-	*out = repo.Resolve(root, *out)
-	if *out == "" {
-		*out = filepath.Join(root, filepath.FromSlash(snapshotPath))
+	if repo.NeedsRoot(*out) {
+		root, err := repo.Root()
+		if err != nil {
+			fmt.Fprintln(stderr, "snapshot:", err)
+			return 1
+		}
+		*out = repo.Resolve(root, *out)
+		if *out == "" {
+			*out = filepath.Join(root, filepath.FromSlash(snapshotPath))
+		}
 	}
 
 	data, err := libs.BuildSnapshot(libs.BundledSource())

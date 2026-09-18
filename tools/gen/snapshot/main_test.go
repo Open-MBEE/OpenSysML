@@ -71,6 +71,21 @@ func TestCheckResolvesARelativeOutputAtTheRepositoryRoot(t *testing.T) {
 	}
 }
 
+// TestRunWritesAnAbsoluteOutputFromOutsideTheRepository: with -out absolute the
+// generator never looks for the repository, so it runs from any directory.
+func TestRunWritesAnAbsoluteOutputFromOutsideTheRepository(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	out := filepath.Join(dir, "stdlib.snapshot")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"-out", out}, &stdout, &stderr); code != 0 {
+		t.Fatalf("run -out %s from %s = %d, want 0\n%s", out, dir, code, stderr.String())
+	}
+	if _, err := os.Stat(out); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRunReportsAnUnwritableOutput(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	out := filepath.Join(t.TempDir(), "missing", "stdlib.snapshot")

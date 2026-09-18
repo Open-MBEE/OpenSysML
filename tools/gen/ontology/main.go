@@ -69,14 +69,16 @@ func main() {
 	if *root == "" {
 		fail(fmt.Errorf("-ontology is required: pass a local sysmlv2-rdf-ontology checkout"))
 	}
-	repoRoot, err := repo.Root()
-	if err != nil {
-		fail(err)
-	}
-	*root = repo.Resolve(repoRoot, *root)
-	*out = repo.Resolve(repoRoot, *out)
-	if *out == "" {
-		*out = filepath.Join(repoRoot, filepath.FromSlash(tablePath))
+	if repo.NeedsRoot(*root, *out) {
+		repoRoot, err := repo.Root()
+		if err != nil {
+			fail(err)
+		}
+		*root = repo.Resolve(repoRoot, *root)
+		*out = repo.Resolve(repoRoot, *out)
+		if *out == "" {
+			*out = filepath.Join(repoRoot, filepath.FromSlash(tablePath))
+		}
 	}
 	if err := run(*root, *out); err != nil {
 		fail(err)

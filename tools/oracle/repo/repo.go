@@ -62,3 +62,14 @@ func Resolve(root, path string) string {
 	}
 	return filepath.Join(root, path)
 }
+
+// NeedsRoot reports whether Resolve depends on the root for any of paths:
+// an empty path takes the root's default and a relative one counts from it.
+func NeedsRoot(paths ...string) bool {
+	for _, p := range paths {
+		if p == "" || !filepath.IsAbs(p) {
+			return true
+		}
+	}
+	return false
+}

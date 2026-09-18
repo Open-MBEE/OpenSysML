@@ -39,6 +39,18 @@ func TestRootFromRejectsATreeWithoutTheModule(t *testing.T) {
 	}
 }
 
+func TestNeedsRootForAnyEmptyOrRelativePath(t *testing.T) {
+	abs := filepath.Join(string(filepath.Separator), "elsewhere", "out")
+	if NeedsRoot(abs, abs) {
+		t.Errorf("NeedsRoot(%q, %q) = true, want false", abs, abs)
+	}
+	for _, given := range []string{"", "build/out", "../sibling"} {
+		if !NeedsRoot(abs, given) {
+			t.Errorf("NeedsRoot(%q, %q) = false, want true", abs, given)
+		}
+	}
+}
+
 func TestResolveAnchorsRelativePathsAtTheRoot(t *testing.T) {
 	root := filepath.Join(string(filepath.Separator), "repo")
 	abs := filepath.Join(string(filepath.Separator), "elsewhere", "out")
