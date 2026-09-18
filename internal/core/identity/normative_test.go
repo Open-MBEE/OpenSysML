@@ -1,4 +1,4 @@
-package normative
+package identity
 
 import "testing"
 
