@@ -2,7 +2,6 @@
 
 Where the lamps stand and what they did.
 
-<!-- caption -->
 *Active states of every lamp*
 
 | path | machine | statePath | region | enclosing |
@@ -11,14 +10,12 @@ Where the lamps stand and what they did.
 | lamp1 | lp | on.fast | fan | on |
 | lamp2 | lp | off |  |  |
 
-<!-- caption -->
 *Lamps that are on*
 
 | qualifiedName |
 | --- |
 | lamp1 |
 
-<!-- caption -->
 *What lamp1 did from 1 s up to 2.5 s*
 
 | time | kind | event | from | to | target | payload |

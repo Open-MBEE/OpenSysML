@@ -7,18 +7,10 @@ import (
 	"strings"
 )
 
-// renderDiagrams renders each Mermaid block to an SVG in dir with the pinned
-// mermaid-cli, returning the image file names in block order. A document
-// without Mermaid diagrams needs no diagram tool at all; a DOT or PlantUML
-// block is kept as source (see dotNotice, plantumlNotice) and never handed to
-// Graphviz or PlantUML.
-func renderDiagrams(dir string, blocks []block) ([]string, error) {
-	var sources []string
-	for _, blk := range blocks {
-		if blk.Kind == blockMermaid {
-			sources = append(sources, blk.Source)
-		}
-	}
+// renderDiagrams renders each Mermaid source to an SVG in dir with the pinned
+// mermaid-cli, returning the image file names in source order. A document
+// without Mermaid diagrams needs no diagram tool at all.
+func renderDiagrams(dir string, sources []string) ([]string, error) {
 	if len(sources) == 0 {
 		return nil, nil
 	}
@@ -52,47 +44,4 @@ func renderDiagrams(dir string, blocks []block) ([]string, error) {
 		images = append(images, output)
 	}
 	return images, nil
-}
-
-// dotNotice and plantumlNotice are written ahead of a DOT or PlantUML block
-// the PDF backend keeps as source: it draws neither, as it draws no Mermaid
-// diagram without mermaid-cli.
-const (
-	dotNotice      = "This diagram is written in Graphviz DOT, which the PDF backend does not draw; its source follows."
-	plantumlNotice = "This diagram is written in PlantUML, which the PDF backend does not draw; its source follows."
-)
-
-// markdownWithImages rewrites the document's Markdown with each Mermaid fence
-// replaced by a reference to its rendered image, and each DOT or PlantUML
-// fence preceded by its notice, for converters that read Markdown themselves.
-func markdownWithImages(markdown string, images []string) string {
-	lines := strings.Split(markdown, "\n")
-	var out []string
-	image := 0
-	for i := 0; i < len(lines); i++ {
-		switch {
-		case lines[i] == mermaidFence && image < len(images):
-			i = fenceEnd(lines, i+1)
-			out = append(out, "![diagram]("+images[image]+")")
-			image++
-			continue
-		case lines[i] == dotFence:
-			out = append(out, "*"+dotNotice+"*", "")
-		case lines[i] == plantumlFence:
-			out = append(out, "*"+plantumlNotice+"*", "")
-		}
-		out = append(out, lines[i])
-	}
-	return strings.Join(out, "\n")
-}
-
-// fenceEnd returns the index of the closing fence at or after from, or
-// len(lines) when the fence is left open.
-func fenceEnd(lines []string, from int) int {
-	for i := from; i < len(lines); i++ {
-		if lines[i] == "```" {
-			return i
-		}
-	}
-	return len(lines)
 }

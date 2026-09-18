@@ -159,6 +159,12 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			_, err := s.ExecuteState(ctx, &pb.ExecuteStateRequest{PerformerSymbolId: "Wire::pair.craft"})
 			return err
 		}},
+		{"render document html", CapabilityRenderDocumentHTML, func(s *Service) error {
+			_, err := s.RenderDocument(ctx, &pb.RenderDocumentRequest{
+				ModelHash: "any", DocumentId: "Any", Form: "html",
+			})
+			return err
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

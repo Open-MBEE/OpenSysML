@@ -120,12 +120,13 @@ position; they are tracked in the project's compliance record.
   linked set together. Rendering one document alone still succeeds, but its
   cross-document links point at the target's expected file name and dangle
   until that document is rendered into the same directory.
-- **Captions are marked, not inferred.** The Markdown dialect writes a
-  `<!-- caption -->` comment line before every table and diagram caption; the
-  PDF backend styles only marked lines as captions, and an emphasized line
-  without the marker stays an ordinary paragraph. HTML needs no marker, as it
-  writes a real `<caption>` or `<figcaption>`. A marker whose next line is
-  not a fully emphasized caption is a typed `dangling-caption` error.
+- **Captions are emphasis in Markdown, elements in HTML and PDF.** The
+  Markdown dialect writes a caption as an emphasized paragraph ahead of its
+  table, diagram or formula, with no marker distinguishing it from an
+  emphasized paragraph of prose. HTML and the PDF engines reading HTML write
+  a real `<caption>` or `<figcaption>`; the pandoc engine styles a caption
+  small by matching the emphasized paragraph ahead of each captioned block
+  against the document's captions in order.
 - **HTML and PDF are CLI-only.** The REPL, gRPC and LSP surfaces render
   Markdown only.
 - **PDF reproducibility is per-toolchain.** Byte-identical output holds for

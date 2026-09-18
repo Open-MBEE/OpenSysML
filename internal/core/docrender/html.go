@@ -136,6 +136,16 @@ type HTMLOptions struct {
 	// DiagramForm is the source every graph-shaped diagram is written as,
 	// Mermaid when empty; a table-kind view is a table whichever it is.
 	DiagramForm view.Form
+
+	// DiagramImages are images drawn ahead of the render, one per graph-shaped
+	// diagram in the order Diagrams lists them, each written as <img> in place
+	// of its source; an empty entry, or none, keeps the source. More entries
+	// than diagrams is an error.
+	DiagramImages []string
+
+	// Math is typeset HTML for formulas, keyed as Formulas lists them, written
+	// in place of the delimited LaTeX; a formula with none keeps its LaTeX.
+	Math map[Formula]string
 }
 
 // MermaidScriptURL is the pinned Mermaid release a page loads from a public
@@ -168,7 +178,7 @@ func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 		return "", &Error{Kind: ErrorNilDocument}
 	}
 	for _, sheet := range opts.Stylesheets {
-		if err := sheet.check(); err != nil {
+		if err := sheet.Check(); err != nil {
 			return "", err
 		}
 	}
@@ -187,12 +197,15 @@ func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 	if err := w.writeDocument(document); err != nil {
 		return "", err
 	}
+	if w.diagrams < len(opts.DiagramImages) {
+		return "", &Error{Kind: ErrorSurplusDiagramImages, Actual: strconv.Itoa(len(opts.DiagramImages)), Count: w.diagrams}
+	}
 	return w.b.String(), nil
 }
 
-// check rejects a stylesheet that is neither content nor URL, or whose content
-// would close the <style> element it is inlined in.
-func (s Stylesheet) check() error {
+// Check rejects a stylesheet that is neither content nor URL, both at once, or
+// whose content would close the <style> element it is inlined in.
+func (s Stylesheet) Check() error {
 	switch {
 	case s.Content == "" && s.Href == "" && !s.inline:
 		return &Error{Kind: ErrorEmptyStylesheet}
@@ -205,14 +218,16 @@ func (s Stylesheet) check() error {
 }
 
 // htmlWriter accumulates one rendered document in its resolved diagram form;
-// ids maps each content node's named path to the identifier addressing it.
+// ids maps each content node's named path to the identifier addressing it,
+// and diagrams counts the graph-shaped diagrams written so far.
 type htmlWriter struct {
-	b       strings.Builder
-	opts    HTMLOptions
-	base    string
-	form    view.Form
-	ids     map[string]string
-	numbers map[string]string
+	b        strings.Builder
+	opts     HTMLOptions
+	base     string
+	form     view.Form
+	ids      map[string]string
+	numbers  map[string]string
+	diagrams int
 }
 
 func (w *htmlWriter) writeDocument(document *docir.Document) error {
@@ -547,12 +562,17 @@ func (w *htmlWriter) writeDefinitions(node docir.Content, id string) {
 	w.b.WriteString("</dl>\n")
 }
 
-// writeFormula writes one formula as a figure: its LaTeX, escaped, in display
-// delimiters for a math script to typeset, then its caption.
+// writeFormula writes one formula as a figure: its typeset HTML when the
+// render carries it, else its LaTeX, escaped, in display delimiters for a math
+// script to typeset; then its caption.
 func (w *htmlWriter) writeFormula(node docir.Content, id string) {
 	w.b.WriteString("<figure class=\"sysml-formula\"" + attr("id", id) + " data-content=\"formula\"" +
 		attr(attrName, node.Name()) + ">\n")
-	w.b.WriteString("<div class=\"sysml-math\">" + displayMathHTML(node.Source()) + "</div>\n")
+	math := displayMathHTML(node.Source())
+	if typeset, ok := w.opts.Math[displayFormula(node.Source())]; ok {
+		math = typeset
+	}
+	w.b.WriteString("<div class=\"sysml-math\">" + math + "</div>\n")
 	if node.Caption() != "" {
 		w.b.WriteString("<figcaption class=\"sysml-caption\">" + htmlText(node.Caption()) + "</figcaption>\n")
 	}
@@ -580,8 +600,9 @@ func displayMathHTML(source string) string {
 }
 
 // writeDiagram writes one diagram as a figure: a table-kind view as a table,
-// every other supported kind as its source in the render's diagram form —
-// Mermaid, which a loaded Mermaid script draws, or DOT or PlantUML — shown as text.
+// every other supported kind as the image drawn for it ahead of the render,
+// or else as its source in the render's diagram form — Mermaid, which a loaded
+// Mermaid script draws, or DOT or PlantUML — shown as text.
 func (w *htmlWriter) writeDiagram(node docir.Content, id string) error {
 	return w.writeFigure(id, node.Name(), node.Caption(), node.Rendering(), node.Options())
 }
@@ -604,16 +625,34 @@ func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rende
 		attr(attrName, name) + attr("data-view", rendering.View) +
 		attr("data-diagram-kind", string(rendering.Kind)) +
 		attr("data-direction", string(options.Direction)) + attr("data-palette", string(options.Palette)) + ">\n")
-	if rendering.Kind == view.KindTable {
+	switch {
+	case rendering.Kind == view.KindTable:
 		w.writeRenderingTable(rendering)
-	} else {
+	case w.diagramImage() != "":
+		alt := caption
+		if alt == "" {
+			alt = name
+		}
+		w.b.WriteString("<img" + attr("src", w.diagramImage()) + attr("alt", alt) + ">\n")
+		w.diagrams++
+	default:
 		w.b.WriteString("<pre" + attr("class", string(w.form)) + ">" + html.EscapeString(source) + "</pre>\n")
+		w.diagrams++
 	}
 	if caption != "" {
 		w.b.WriteString("<figcaption class=\"sysml-caption\">" + htmlText(caption) + "</figcaption>\n")
 	}
 	w.b.WriteString("</figure>\n")
 	return nil
+}
+
+// diagramImage is the image drawn for the graph-shaped diagram about to be
+// written, empty when its source is to be shown instead.
+func (w *htmlWriter) diagramImage() string {
+	if w.diagrams < len(w.opts.DiagramImages) {
+		return w.opts.DiagramImages[w.diagrams]
+	}
+	return ""
 }
 
 // writeRenderingTable writes a table-kind view's cells, keeping the notices the
@@ -668,6 +707,9 @@ func (w *htmlWriter) runHTML(run docir.TextRun) string {
 	case docir.RunCode:
 		return "<code>" + htmlText(run.Text()) + "</code>"
 	case docir.RunMath:
+		if typeset, ok := w.opts.Math[inlineFormula(run.Text())]; ok {
+			return "<span class=\"sysml-math\">" + typeset + "</span>"
+		}
 		return "<span class=\"sysml-math\">" + inlineMathHTML(run.Text()) + "</span>"
 	case docir.RunLink:
 		if target, ok := navigableURL(run.Target()); ok {
