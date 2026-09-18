@@ -33,14 +33,15 @@ The protocols and what the service serves on a single port are described in
 - **In a Rust program: `opensysml`.** Blocking, with no asynchronous runtime in its default
   dependency tree, and safe to call from inside one.
 
-The Go and Python clients each cover every RPC the service has; the Node, Java and Rust clients
-cover the v1 subset described below.
+The Go and Python clients each cover every RPC the service has; the Node and Rust clients cover
+the v1 subset described below, and the Java client covers that subset and the execution,
+verification, calculation, analysis and query RPCs beside it.
 
 ## What the newer surfaces cover
 
-The Node, Java and Rust clients are v1 surfaces with the same scope: connection lifecycle,
+The Node and Rust clients are v1 surfaces with the same scope: connection lifecycle,
 capability negotiation, parsing (a file or inline source), diagnostics, symbol lookup, expression
-evaluation and instantiation. The following are deliberately **not** in v1, in all three clients
+evaluation and instantiation. The following are deliberately **not** in v1, in both clients
 rather than half-implemented in some:
 
 - the edit API (`ApplyEdits`) and generated model-ergonomics types;
@@ -50,6 +51,19 @@ rather than half-implemented in some:
 - behaviour execution (`ExecuteAction`, `ExecuteState`);
 - `Query` and OSLC query;
 - native document queries and rendering (`RunDocumentQuery`, `RenderDocument`).
+
+The Java client starts from the same v1 scope and adds, as typed immutable results:
+
+- verification (`VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance`),
+  keeping a false verdict as an answer rather than a failure;
+- `EvaluateCalc` and `RunAnalysis`, with `ListEngines` and the `engine` selection they take, and
+  the partial result a failed analysis leaves behind;
+- behaviour execution (`ExecuteAction`, `ExecuteState`), single runs and exploration of every
+  schedule;
+- `Query` and OSLC query.
+
+It leaves out the edit API, `ParseSources`, `Convert`, `RunSweep` and the document RPCs, as the
+other two do; [the Java API](java-api.md#what-the-client-does-not-do) lists them.
 
 Those RPCs exist and are served. `ApplyEdits` also edits a model of several documents, parsed
 together by `ParseSources`, as one atomic batch — every document the edits reach is answered in
@@ -66,7 +80,7 @@ conformance runners skip the multi-document scenarios naming that reason.
 Only the Node client offers an escape hatch to them:
 `connection.rpc` is the generated Connect client. The Java and Rust clients ship the protobuf
 messages but no public call that sends one, so from those languages, reach these RPCs through the
-Go or Python client until a v2 wraps them. Each client's conformance report names, per scenario,
+Go or Python client until they are wrapped. Each client's conformance report names, per scenario,
 which of these gaps a skip belongs to, so a shrinking surface cannot pass quietly.
 
 The Go API covers all of them except the generated model-ergonomics types: it reads models through

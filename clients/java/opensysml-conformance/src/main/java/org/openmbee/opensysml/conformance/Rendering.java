@@ -1,24 +1,31 @@
 package org.openmbee.opensysml.conformance;
 
+import org.openmbee.opensysml.CaseEvaluation;
 import org.openmbee.opensysml.Diagnostic;
-import org.openmbee.opensysml.EnumLiteral;
+import org.openmbee.opensysml.EngineInfo;
+import org.openmbee.opensysml.Exploration;
+import org.openmbee.opensysml.FailureReason;
 import org.openmbee.opensysml.Instance;
-import org.openmbee.opensysml.Quantity;
+import org.openmbee.opensysml.Outcome;
+import org.openmbee.opensysml.QueryElement;
+import org.openmbee.opensysml.Standing;
 import org.openmbee.opensysml.Symbol;
 import org.openmbee.opensysml.Value;
+import org.openmbee.opensysml.Verdict;
+import org.openmbee.opensysml.VerificationVerdict;
+import org.openmbee.opensysml.internal.Protos;
 import org.openmbee.opensysml.proto.AttributeInfo;
+import org.openmbee.opensysml.proto.Bound;
+import org.openmbee.opensysml.proto.CalcOutput;
+import org.openmbee.opensysml.proto.ExplorationStatus;
 import org.openmbee.opensysml.proto.FeatureValue;
 import org.openmbee.opensysml.proto.MultiplicityInfo;
+import org.openmbee.opensysml.proto.QueryResultElement;
 import org.openmbee.opensysml.proto.Span;
 import org.openmbee.opensysml.proto.Specialization;
 import org.openmbee.opensysml.proto.SymbolInfo;
-import org.openmbee.opensysml.proto.TensorQuantity;
 import org.openmbee.opensysml.proto.TypeInfo;
-import org.openmbee.opensysml.proto.Undetermined;
-import org.openmbee.opensysml.proto.UnitFactor;
-import org.openmbee.opensysml.proto.UnitTerm;
-import org.openmbee.opensysml.proto.ValueSequence;
-import org.openmbee.opensysml.proto.ValueSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -38,121 +45,248 @@ final class Rendering {
    * @return the generated value
    */
   static org.openmbee.opensysml.proto.Value value(Value value) {
-    org.openmbee.opensysml.proto.Value.Builder builder = org.openmbee.opensysml.proto.Value.newBuilder();
-    if (value instanceof Value.IntegerValue integral) {
-      builder.setIntValue(integral.value());
-    } else if (value instanceof Value.RealValue real) {
-      builder.setRealValue(real.value());
-    } else if (value instanceof Value.ComplexValue complex) {
-      builder.setComplex(
-          org.openmbee.opensysml.proto.Complex.newBuilder()
-              .setReal(complex.real())
-              .setImaginary(complex.imaginary()));
-    } else if (value instanceof Value.BooleanValue flag) {
-      builder.setBoolValue(flag.value());
-    } else if (value instanceof Value.StringValue text) {
-      builder.setStringValue(text.value());
-    } else if (value instanceof Value.InstanceReference reference) {
-      builder.setInstanceId(reference.instanceId());
-    } else if (value instanceof Value.Sequence sequence) {
-      ValueSequence.Builder elements = ValueSequence.newBuilder();
-      sequence.elements().forEach(element -> elements.addElements(value(element)));
-      builder.setSequence(elements);
-    } else if (value instanceof Value.NullValue) {
-      builder.setNull("");
-    } else if (value instanceof Value.UnsetValue) {
-      builder.setUnset(true);
-    } else if (value instanceof Value.UndeterminedValue undetermined) {
-      builder.setUndetermined(
-          Undetermined.newBuilder()
-              .setReason(undetermined.reason())
-              .setCount(
-                  MultiplicityInfo.newBuilder()
-                      .setLower(undetermined.countLower())
-                      .setUpper(undetermined.countUpper())));
-    } else if (value instanceof Value.InfinityValue) {
-      builder.setInfinity(true);
-    } else if (value instanceof Value.QuantityValue quantity) {
-      builder.setQuantity(quantity(quantity.quantity()));
-    } else if (value instanceof Value.EnumerationValue literal) {
-      builder.setEnumLiteral(literal(literal.literal()));
-    } else if (value instanceof Value.ArrayValue array) {
-      org.openmbee.opensysml.proto.Array.Builder elements =
-          org.openmbee.opensysml.proto.Array.newBuilder().addAllDimensions(array.dimensions());
-      array.elements().forEach(element -> elements.addElements(value(element)));
-      builder.setArray(elements);
-    } else if (value instanceof Value.VectorValue vector) {
-      org.openmbee.opensysml.proto.Vector.Builder components =
-          org.openmbee.opensysml.proto.Vector.newBuilder();
-      vector.components().forEach(component -> components.addComponents(value(component)));
-      builder.setVector(components);
-    } else if (value instanceof Value.VectorQuantityValue vector) {
-      org.openmbee.opensysml.proto.VectorQuantity.Builder components =
-          org.openmbee.opensysml.proto.VectorQuantity.newBuilder();
-      vector.components().forEach(component -> components.addComponents(quantity(component)));
-      builder.setVectorQuantity(components);
-    } else if (value instanceof Value.MeasurementRefValue ref) {
-      org.openmbee.opensysml.proto.MeasurementRef.Builder reference =
-          org.openmbee.opensysml.proto.MeasurementRef.newBuilder()
-              .setUnit(ref.unit())
-              .setUnitTerm(unitTerm(ref.reduction()));
-      ref.unitId().ifPresent(reference::setUnitId);
-      builder.setMeasurementRef(reference);
-    } else if (value instanceof Value.FunctionValue function) {
-      builder.setFunction(
-          org.openmbee.opensysml.proto.Function.newBuilder()
-              .setCalcId(function.calcId())
-              .setSelfId(function.selfId().orElse(0L)));
-    } else if (value instanceof Value.SetValue set) {
-      ValueSet.Builder elements = ValueSet.newBuilder();
-      set.elements().forEach(element -> elements.addElements(value(element)));
-      builder.setSet(elements);
-    } else if (value instanceof Value.TensorQuantityValue tensor) {
-      TensorQuantity.Builder components =
-          TensorQuantity.newBuilder().addAllDimensions(tensor.dimensions());
-      tensor.components().forEach(component -> components.addComponents(quantity(component)));
-      builder.setTensorQuantity(components);
-    } else if (value instanceof Value.MetaobjectValue metaobject) {
-      builder.setMetaobject(
-          org.openmbee.opensysml.proto.Metaobject.newBuilder()
-              .setElementId(metaobject.elementId())
-              .setMetaclassId(metaobject.metaclassId()));
-    } else {
-      throw new IllegalStateException("no rendering for " + value.getClass());
-    }
+    return Protos.proto(value);
+  }
+
+  /**
+   * Values by name.
+   *
+   * @param values the immutable values by name
+   * @return the generated values by name
+   */
+  static Map<String, org.openmbee.opensysml.proto.Value> values(Map<String, Value> values) {
+    return Protos.protos(values);
+  }
+
+  /**
+   * Named outputs, in order.
+   *
+   * @param outputs the immutable outputs by name
+   * @return the generated outputs
+   */
+  static List<CalcOutput> outputs(Map<String, Value> outputs) {
+    List<CalcOutput> rendered = new ArrayList<>(outputs.size());
+    outputs.forEach(
+        (name, value) ->
+            rendered.add(CalcOutput.newBuilder().setName(name).setValue(value(value)).build()));
+    return rendered;
+  }
+
+  /**
+   * Instances.
+   *
+   * @param instances the immutable instances
+   * @return the generated instances, in order
+   */
+  static List<org.openmbee.opensysml.proto.Instance> instances(List<Instance> instances) {
+    return instances.stream().map(Rendering::instance).toList();
+  }
+
+  /**
+   * The bounds of a standing.
+   *
+   * @param standing the immutable standing
+   * @return the generated bounds, in order
+   */
+  static List<Bound> bounds(Standing standing) {
+    return standing.bounds().stream()
+        .map(
+            bound ->
+                Bound.newBuilder()
+                    .setName(bound.name())
+                    .setLimit(bound.limit())
+                    .setReached(bound.reached())
+                    .build())
+        .toList();
+  }
+
+  /**
+   * A verdict.
+   *
+   * @param verdict the immutable verdict
+   * @return the generated verdict
+   */
+  static org.openmbee.opensysml.proto.Verdict verdict(Verdict verdict) {
+    org.openmbee.opensysml.proto.Verdict.Builder builder =
+        org.openmbee.opensysml.proto.Verdict.newBuilder()
+            .setKind(verdict.kind())
+            .setElement(verdict.element())
+            .setHolds(verdict.holds())
+            .setFailureReason(failureReason(verdict.failureReason()))
+            .setEngine(verdict.standing().engine())
+            .setStrength(verdict.standing().strength())
+            .addAllBounds(bounds(verdict.standing()));
+    verdict.elementId().ifPresent(builder::setElementId);
+    verdict.condition().ifPresent(builder::setCondition);
+    verdict.instanceId().ifPresent(builder::setInstanceId);
+    verdict.instanceTypeId().ifPresent(builder::setInstanceTypeId);
+    verdict.error().ifPresent(builder::setError);
+    verdict.requirementId().ifPresent(builder::setRequirementId);
+    verdict.instancePath().ifPresent(builder::setInstancePath);
     return builder.build();
   }
 
-  private static org.openmbee.opensysml.proto.Quantity quantity(Quantity quantity) {
-    org.openmbee.opensysml.proto.Quantity.Builder builder = org.openmbee.opensysml.proto.Quantity.newBuilder();
-    if (quantity.magnitude() instanceof Long integral) {
-      builder.setIntMagnitude(integral);
-    } else {
-      builder.setRealMagnitude(quantity.magnitude().doubleValue());
-    }
-    quantity.unit().ifPresent(builder::setUnit);
-    quantity.reduction().ifPresent(reduction -> builder.setUnitTerm(unitTerm(reduction)));
-    return builder.build();
+  /**
+   * A failure reason.
+   *
+   * @param reason the immutable reason
+   * @return the generated reason
+   * @throws IllegalStateException for a reason the client read off the wire without knowing it,
+   *     which has no rendering the scenario could be compared against
+   */
+  static org.openmbee.opensysml.proto.FailureReason failureReason(FailureReason reason) {
+    return switch (reason) {
+      case UNSPECIFIED -> org.openmbee.opensysml.proto.FailureReason.FAILURE_REASON_UNSPECIFIED;
+      case EVALUATION -> org.openmbee.opensysml.proto.FailureReason.FAILURE_REASON_EVALUATION;
+      case WRONG_KIND -> org.openmbee.opensysml.proto.FailureReason.FAILURE_REASON_WRONG_KIND;
+      case AMBIGUOUS_SUBJECT ->
+          org.openmbee.opensysml.proto.FailureReason.FAILURE_REASON_AMBIGUOUS_SUBJECT;
+      case UNKNOWN -> throw new IllegalStateException("no rendering for an unknown failure reason");
+    };
   }
 
-  private static UnitTerm unitTerm(Quantity.UnitTerm reduction) {
-    UnitTerm.Builder term =
-        UnitTerm.newBuilder()
-            .setScaleNum(reduction.scaleNumerator())
-            .setScaleDen(reduction.scaleDenominator());
-    for (Quantity.UnitFactor factor : reduction.factors()) {
-      term.addFactors(
-          UnitFactor.newBuilder().setUnitId(factor.unitId()).setExponent(factor.exponent()));
-    }
-    return term.build();
+  /**
+   * Verdicts.
+   *
+   * @param verdicts the immutable verdicts
+   * @return the generated verdicts, in order
+   */
+  static List<org.openmbee.opensysml.proto.Verdict> verdicts(List<Verdict> verdicts) {
+    return verdicts.stream().map(Rendering::verdict).toList();
   }
 
-  private static org.openmbee.opensysml.proto.EnumLiteral literal(EnumLiteral literal) {
-    return org.openmbee.opensysml.proto.EnumLiteral.newBuilder()
-        .setLiteralId(literal.literalId())
-        .setEnumerationId(literal.enumerationId())
-        .setName(literal.name())
+  /**
+   * The body verdicts of verification cases.
+   *
+   * @param verdicts the immutable verdicts
+   * @return the generated verdicts, in order
+   */
+  static List<org.openmbee.opensysml.proto.VerificationVerdict> verificationVerdicts(
+      List<VerificationVerdict> verdicts) {
+    List<org.openmbee.opensysml.proto.VerificationVerdict> rendered =
+        new ArrayList<>(verdicts.size());
+    for (VerificationVerdict verdict : verdicts) {
+      org.openmbee.opensysml.proto.VerificationVerdict.Builder builder =
+          org.openmbee.opensysml.proto.VerificationVerdict.newBuilder()
+              .setCaseId(verdict.caseId())
+              .setKind(verdict.kind())
+              .setSubcase(verdict.subcase());
+      verdict.detail().ifPresent(builder::setDetail);
+      verdict.requirementId().ifPresent(builder::setRequirementId);
+      rendered.add(builder.build());
+    }
+    return rendered;
+  }
+
+  /**
+   * Case evaluations.
+   *
+   * @param evaluations the immutable evaluations
+   * @return the generated evaluations, in order
+   */
+  static List<org.openmbee.opensysml.proto.CaseEvaluation> evaluations(
+      List<CaseEvaluation> evaluations) {
+    List<org.openmbee.opensysml.proto.CaseEvaluation> rendered =
+        new ArrayList<>(evaluations.size());
+    for (CaseEvaluation evaluation : evaluations) {
+      org.openmbee.opensysml.proto.CaseEvaluation.Builder builder =
+          org.openmbee.opensysml.proto.CaseEvaluation.newBuilder()
+              .setFunctionId(evaluation.functionId())
+              .setSelected(evaluation.selected())
+              .setTied(evaluation.tied());
+      evaluation.arguments().forEach(argument -> builder.addArguments(value(argument)));
+      evaluation.result().ifPresent(result -> builder.setResult(value(result)));
+      evaluation.error().ifPresent(builder::setError);
+      rendered.add(builder.build());
+    }
+    return rendered;
+  }
+
+  /**
+   * The outcomes of an exploration.
+   *
+   * @param exploration the immutable exploration
+   * @return the generated outcomes, in order
+   */
+  static List<org.openmbee.opensysml.proto.Outcome> outcomes(Exploration exploration) {
+    List<org.openmbee.opensysml.proto.Outcome> rendered =
+        new ArrayList<>(exploration.outcomes().size());
+    for (Outcome outcome : exploration.outcomes()) {
+      org.openmbee.opensysml.proto.Outcome.Builder builder =
+          org.openmbee.opensysml.proto.Outcome.newBuilder()
+              .putAllOutputs(values(outcome.outputs()))
+              .addAllStatesVisited(outcome.statesVisited())
+              .setLinearizations(outcome.linearizations())
+              .addAllWitness(outcome.witness())
+              .addAllDiagnostics(diagnostics(outcome.diagnostics()));
+      outcome.finalState().ifPresent(builder::setFinalState);
+      outcome.error().ifPresent(builder::setError);
+      rendered.add(builder.build());
+    }
+    return rendered;
+  }
+
+  /**
+   * How an exploration ended.
+   *
+   * @param exploration the immutable exploration
+   * @return the generated status
+   */
+  static ExplorationStatus exploration(Exploration exploration) {
+    return ExplorationStatus.newBuilder()
+        .setComplete(exploration.complete())
+        .setRuns(exploration.runs())
+        .addAllBudgetsHit(exploration.budgetsHit())
+        .setRunsBudget(exploration.runsBudget())
+        .setDepthBudget(exploration.depthBudget())
         .build();
+  }
+
+  /**
+   * The elements a query selected.
+   *
+   * @param elements the immutable elements
+   * @return the generated elements, in order
+   */
+  static List<QueryResultElement> elements(List<QueryElement> elements) {
+    return elements.stream()
+        .map(
+            element ->
+                QueryResultElement.newBuilder()
+                    .setId(element.id())
+                    .setType(element.type())
+                    .putAllProperties(element.properties())
+                    .build())
+        .toList();
+  }
+
+  /**
+   * Engines.
+   *
+   * @param engines the immutable descriptions
+   * @return the generated descriptions, in order
+   */
+  static List<org.openmbee.opensysml.proto.EngineInfo> engines(List<EngineInfo> engines) {
+    return engines.stream()
+        .map(
+            engine ->
+                org.openmbee.opensysml.proto.EngineInfo.newBuilder()
+                    .setName(engine.name())
+                    .setAuthority(engine.authority())
+                    .addAllAnswers(engine.answers())
+                    .addAllBounds(engine.bounds())
+                    .setProcess(engine.process())
+                    .setProcessFound(engine.processFound())
+                    .setReady(engine.ready())
+                    .setUnavailable(engine.unavailable())
+                    .setKind(engine.kind())
+                    .setProtocol(engine.protocol())
+                    .setSource(engine.source())
+                    .setCommand(engine.command())
+                    .setVersion(engine.version())
+                    .setServed(engine.served())
+                    .build())
+        .toList();
   }
 
   /**
