@@ -440,8 +440,8 @@ func (s *scenario) call(step *scenarioStep, sort string) (*scenarioStep, string)
 	return step, ""
 }
 
-// reply resolves a reply: it answers the last call of its operation between the
-// same lifelines, and binds the call's results to the caller's attributes it names.
+// reply resolves a reply: it answers the latest unanswered call of its operation between
+// the same lifelines, and binds the call's results to the caller's attributes it names.
 func (s *scenario) reply(step *scenarioStep) (*scenarioStep, string) {
 	op := s.m.model.Ref(step.msg, "signature")
 	if op == nil {
@@ -452,6 +452,7 @@ func (s *scenario) reply(step *scenarioStep) (*scenarioStep, string) {
 		c := s.calls[i]
 		if c.op == op && sameLine(c.receiver, step.sender) && sameLine(c.sender, step.receiver) {
 			call = c
+			s.calls = slices.Delete(s.calls, i, i+1)
 			break
 		}
 	}

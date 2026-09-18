@@ -551,6 +551,115 @@ func TestSpanningDurationConstraintCountsTheStepsBetween(t *testing.T) {
 	}
 }
 
+// nestedCalls is an interaction that calls Spin twice on the motor before either reply comes
+// back: the first reply answers the second call and the second reply the first.
+const nestedCalls = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_nctl" name="Controller">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_nGot" name="got">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_nGot0" value="0.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_nFirst" name="first">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_nFirst0" value="0.0"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_nmotor" name="Motor">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_nSpeed" name="speed">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_nSpeed0" value="0.0"/>
+      </ownedAttribute>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_nspin" name="Spin" method="_nspinning">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_nspRpm" name="rpm" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_nspRes" name="result" direction="return">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+      </ownedOperation>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_nspinning" name="Spinning" specification="_nspin">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_nspRpm2" name="rpm" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_nspRes2" name="result" direction="return">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_napnRpm" name="rpm" parameter="_nspRpm2"/>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_napnRes" name="result" parameter="_nspRes2"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_nset" name="set speed" structuralFeature="_nSpeed" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_nsetVal" name="value"/>
+        </node>
+        <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="_nread" name="read speed" structuralFeature="_nSpeed">
+          <result xmi:type="uml:OutputPin" xmi:id="_nreadOut" name="result"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_nofRpm" source="_napnRpm" target="_nsetVal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ncfSet" source="_nset" target="_nread"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_nofRes" source="_nreadOut" target="_napnRes"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_nrig" name="Rig">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_nCtrl" name="ctrl" type="_nctl" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_nMotor" name="motor" type="_nmotor" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_nested" name="Nested">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_nlc" name="c" represents="_nCtrl" coveredBy="_nsA _nsB _nrRb _nrRa"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_nlm" name="m" represents="_nMotor" coveredBy="_nrA _nrB _nsRb _nsRa"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_nsA" covered="_nlc" message="_nmA"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_nrA" covered="_nlm" message="_nmA"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_nsB" covered="_nlc" message="_nmB"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_nrB" covered="_nlm" message="_nmB"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_nsRb" covered="_nlm" message="_nmRb"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_nrRb" covered="_nlc" message="_nmRb"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_nsRa" covered="_nlm" message="_nmRa"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_nrRa" covered="_nlc" message="_nmRa"/>
+        <message xmi:type="uml:Message" xmi:id="_nmA" name="outer" messageSort="synchCall" signature="_nspin" sendEvent="_nsA" receiveEvent="_nrA">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_nmARpm" value="30.0"/>
+        </message>
+        <message xmi:type="uml:Message" xmi:id="_nmB" name="inner" messageSort="synchCall" signature="_nspin" sendEvent="_nsB" receiveEvent="_nrB">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_nmBRpm" value="40.0"/>
+        </message>
+        <message xmi:type="uml:Message" xmi:id="_nmRb" name="innerDone" messageSort="reply" signature="_nspin" sendEvent="_nsRb" receiveEvent="_nrRb">
+          <argument xmi:type="uml:LiteralString" xmi:id="_nmRbArg" value="got ="/>
+        </message>
+        <message xmi:type="uml:Message" xmi:id="_nmRa" name="outerDone" messageSort="reply" signature="_nspin" sendEvent="_nsRa" receiveEvent="_nrRa">
+          <argument xmi:type="uml:LiteralString" xmi:id="_nmRaArg" value="first ="/>
+        </message>
+      </ownedBehavior>
+    </packagedElement>`
+
+const nestedApplications = `
+  <sysml:Block xmi:id="_nb1" base_Class="_nctl"/>
+  <sysml:Block xmi:id="_nb2" base_Class="_nmotor"/>
+  <sysml:Block xmi:id="_nb3" base_Class="_nrig"/>`
+
+// Each reply answers the latest call of its operation between its lifelines that no earlier
+// reply has answered, so nested calls pair with their replies stack-like.
+func TestNestedRepliesAnswerTheirOwnCalls(t *testing.T) {
+	r := migrateDocument(t, nestedCalls, nestedApplications)
+	for _, line := range []string{
+		"perform action outer : Motor::Spin ::> motor.spin { in rpm = 30.0; }",
+		"perform action inner : Motor::Spin ::> motor.spin { in rpm = 40.0; }",
+		"assign this.ctrl.got := inner.result;",
+		"assign this.ctrl.'first' := outer.result;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_nmRb", migrate.Mapped, "written as the assignment of the call inner's results to this.ctrl")
+	wantNote(t, r, "_nmRa", migrate.Mapped, "written as the assignment of the call outer's results to this.ctrl")
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Rig")
+	meta(t, s, "%action Rig::Nested #1")
+	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
+		t.Errorf("the scenario did not complete:\n%s", out)
+	}
+	if out := meta(t, s, "%eval in #1 : ctrl.got"); !strings.Contains(out, "= 40.0") {
+		t.Errorf("the inner reply did not store the inner call's result:\n%s", out)
+	}
+	if out := meta(t, s, "%eval in #1 : ctrl.'first'"); !strings.Contains(out, "= 30.0") {
+		t.Errorf("the outer reply did not store the outer call's result:\n%s", out)
+	}
+}
+
 // loggingMachine is a state machine whose state names its entry behavior, its
 // exit behavior and a nested state alike, as UML allows and v2 does not.
 const loggingMachine = `

@@ -349,7 +349,9 @@ address its steps. A signal message is
 operation's usage on the object, `perform action spin : Motor::Spin ::> drive.motor.spin
 { in rpm = 30.0; }`, its arguments bound to the operation's `in` parameters by name or by
 position, and a call that leaves a required parameter (no default, lower bound above zero)
-unbound refuses the interaction; a reply assigns the call's `out` to the attribute of the caller's lifeline the reply
+unbound refuses the interaction; a reply answers the latest call of its operation between
+its lifelines that no earlier reply has answered, so nested calls pair with their replies
+stack-like, and assigns that call's `out` to the attribute of the caller's lifeline the reply
 names. Combined fragments become the corresponding action structure when their guards are v2
 expressions whose names resolve — `if`/`else` for `alt` and `opt`, `for`/`while` for `loop`,
 `fork`/`join` for `par` — and refuse the interaction, quoting the guard, when they are not.
