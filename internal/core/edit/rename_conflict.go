@@ -1,6 +1,4 @@
-// Package rename refuses renames that would change what a name means: the new
-// name taken where the element is declared, or a rewritten reference captured.
-package rename
+package edit
 
 import (
 	"fmt"
@@ -12,8 +10,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// Occurrence is one reference segment written with the name being renamed.
-type Occurrence struct {
+// RenameOccurrence is one reference segment written with the name being renamed.
+type RenameOccurrence struct {
 	// Ref is the reference the segment belongs to, as the document walk collected it.
 	Ref resolve.Reference
 	// Part indexes the segment in Ref.QN.
@@ -21,12 +19,12 @@ type Occurrence struct {
 }
 
 // Span is the segment's bytes in its document.
-func (o Occurrence) Span() source.Span {
+func (o RenameOccurrence) Span() source.Span {
 	return o.Ref.QN.Parts[o.Part].Span
 }
 
-// Conflict is why a rename is refused: what the new name would mean instead.
-type Conflict struct {
+// RenameConflict is why a rename is refused: what the new name would mean instead.
+type RenameConflict struct {
 	// Subject is the qualified name of the element being renamed.
 	Subject string
 	// NewName is the name refused.
@@ -44,7 +42,7 @@ type Conflict struct {
 }
 
 // Error describes the conflict, naming what the new name would mean.
-func (c *Conflict) Error() string {
+func (c *RenameConflict) Error() string {
 	if c.Site == "" {
 		return fmt.Sprintf("%s cannot be renamed to %q: that name already means %s where"+
 			" %s is declared, so the rename would make it ambiguous or silently rebind"+
@@ -60,16 +58,16 @@ func (c *Conflict) Error() string {
 		c.Subject, c.NewName, c.Site, c.Means)
 }
 
-// Check reports the first conflict renaming sym's written name to newName would
+// CheckRename reports the first conflict renaming sym's written name to newName would
 // create: the declaration's own scope first, then each occurrence in order. sem
 // selects what a respelled call would run, as the checker selects it.
-func Check(r *resolve.Resolver, sem *semantics.Model, sym *symbols.Symbol, name, newName string, occurrences []Occurrence) *Conflict {
+func CheckRename(r *resolve.Resolver, sem *semantics.Model, sym *symbols.Symbol, name, newName string, occurrences []RenameOccurrence) *RenameConflict {
 	if name == newName {
 		return nil
 	}
 	subject := symbols.FQNOf(sym)
 	if means, ok := taken(r, sym, newName); ok {
-		return &Conflict{Subject: subject, NewName: newName, Means: means}
+		return &RenameConflict{Subject: subject, NewName: newName, Means: means}
 	}
 	for i, occ := range occurrences {
 		if c, ok := capturedAt(r, sem, sym, occ, newName); ok {
@@ -92,11 +90,11 @@ func taken(r *resolve.Resolver, sym *symbols.Symbol, newName string) (string, bo
 
 // capturedAt trial-reads the reference spelled newName: an alias or a qualifier reaching
 // another element captures, several elements leave it ambiguous, a call selects by arguments.
-func capturedAt(r *resolve.Resolver, sem *semantics.Model, sym *symbols.Symbol, occ Occurrence, newName string) (Conflict, bool) {
+func capturedAt(r *resolve.Resolver, sem *semantics.Model, sym *symbols.Symbol, occ RenameOccurrence, newName string) (RenameConflict, bool) {
 	qn := respelled(occ.Ref.QN, occ.Part, newName)
 	rd := r.ProbeReading(occ.Ref.Spelled(qn))
 	if n, ambiguous := rd.Ambiguity(); ambiguous {
-		return Conflict{Ambiguity: n}, true
+		return RenameConflict{Ambiguity: n}, true
 	}
 	other, ok := rd.Symbol()
 	if alias, aliased := rd.Alias(occ.Part); aliased {
@@ -107,16 +105,16 @@ func capturedAt(r *resolve.Resolver, sem *semantics.Model, sym *symbols.Symbol, 
 		return calledInstead(r, sem, sym, occ, qn)
 	}
 	means, captured := otherThan(r, sym, other, ok)
-	return Conflict{Means: means}, captured
+	return RenameConflict{Means: means}, captured
 }
 
 // calledInstead selects, as the checker would, among the overloads qn denotes plus the
 // renamed sym (or its alias target): another one chosen, or a tie, captures the call.
-func calledInstead(r *resolve.Resolver, sem *semantics.Model, sym *symbols.Symbol, occ Occurrence, qn *ast.QualifiedName) (Conflict, bool) {
+func calledInstead(r *resolve.Resolver, sem *semantics.Model, sym *symbols.Symbol, occ RenameOccurrence, qn *ast.QualifiedName) (RenameConflict, bool) {
 	named := append(r.InvocationCandidates(occ.Ref.Scope, qn), sym)
 	sel := sem.SelectCallAmong(occ.Ref.Scope, occ.Ref.Invocation, named, semantics.CallSite(occ.Ref))
 	if sel.Ambiguous {
-		return Conflict{Ambiguity: len(sel.Tied)}, true
+		return RenameConflict{Ambiguity: len(sel.Tied)}, true
 	}
 	runs, ok := r.ResolveAliasTarget(sym)
 	if !ok {
@@ -124,7 +122,7 @@ func calledInstead(r *resolve.Resolver, sem *semantics.Model, sym *symbols.Symbo
 	}
 	called := sel.Called()
 	means, captured := otherThan(r, runs, called, called != nil)
-	return Conflict{Means: means}, captured
+	return RenameConflict{Means: means}, captured
 }
 
 // respelled is qn with segment i spelled name, on a fresh node: the resolver
@@ -146,7 +144,7 @@ func otherThan(r *resolve.Resolver, sym, other *symbols.Symbol, ok bool) (string
 
 // site names the namespace a reference is made in, or the name as written where
 // that namespace has no FQN.
-func site(r *resolve.Resolver, occ Occurrence, name string) string {
+func site(r *resolve.Resolver, occ RenameOccurrence, name string) string {
 	if fqn := r.ReferringNamespaceFQN(occ.Ref.Scope); fqn != "" {
 		return fqn
 	}
