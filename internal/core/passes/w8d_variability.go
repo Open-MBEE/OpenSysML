@@ -2,6 +2,7 @@ package passes
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
@@ -37,7 +38,7 @@ func (W8DVariabilityPass) Run(ctx *Context, name string, root *ast.RootNamespace
 		return nil
 	}
 	vc := &w8dVariabilityChecker{resolver: ctx.Resolver()}
-	w8dWalkSymbols(ctx, rootScope, vc.check)
+	kit.WalkSymbols(ctx, rootScope, vc.check)
 	return vc.diags
 }
 

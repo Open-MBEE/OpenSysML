@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -62,7 +63,7 @@ func (W8DOccurrenceTypingPass) Run(ctx *Context, name string, root *ast.RootName
 		return nil
 	}
 	oc := &w8dOccurrenceChecker{resolver: ctx.Resolver()}
-	w8dWalkSymbols(ctx, rootScope, oc.check)
+	kit.WalkSymbols(ctx, rootScope, oc.check)
 	return oc.diags
 }
 
@@ -103,7 +104,7 @@ func (oc *w8dOccurrenceChecker) checkEventReference(sym *symbols.Symbol, u *ast.
 		if rel == nil || rel.Kind != ast.RelReferences || rel.Target == nil {
 			continue
 		}
-		target, ok := oc.resolver.ResolveTarget(w8dScopeOf(sym), rel.Target)
+		target, ok := oc.resolver.ResolveTarget(kit.ReferenceScope(sym), rel.Target)
 		if !ok || target == nil {
 			continue
 		}
@@ -133,7 +134,7 @@ func usageTypesOf(resolver *resolve.Resolver, sym *symbols.Symbol, own bool, vis
 	if !ok {
 		return nil
 	}
-	scope := w8dScopeOf(sym)
+	scope := kit.ReferenceScope(sym)
 	var types []w8dUsageType
 	for _, rel := range decl.Relationships {
 		if rel == nil || rel.Target == nil {

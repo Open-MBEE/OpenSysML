@@ -2,6 +2,7 @@ package passes
 
 import (
 	"errors"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
@@ -30,7 +31,7 @@ func (DocumentPlanPass) Run(ctx *Context, name string, root *ast.RootNamespace) 
 		return nil
 	}
 	var diagnostics []diag.Diagnostic
-	w8dWalkSymbols(ctx, scope, func(sym *symbols.Symbol) {
+	kit.WalkSymbols(ctx, scope, func(sym *symbols.Symbol) {
 		if !docplan.IsDocumentDefinition(ctx.Index, ctx.Model(), sym) {
 			return
 		}
@@ -43,7 +44,7 @@ func (DocumentPlanPass) Run(ctx *Context, name string, root *ast.RootNamespace) 
 				if planning.Origin.Doc != "" && planning.Origin.Doc != name {
 					return
 				}
-				if ctx.downstreamSpan(planning.Origin.Span) {
+				if ctx.DownstreamSpan(planning.Origin.Span) {
 					return
 				}
 			}

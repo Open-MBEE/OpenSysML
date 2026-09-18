@@ -61,7 +61,7 @@ func (r *Registry) Run(ctx *Context, name string, root *ast.RootNamespace) []dia
 			continue
 		}
 		if ctx != nil {
-			ctx.setFailures(spansBelow(byLevel, p.Level()))
+			ctx.SetFailures(spansBelow(byLevel, p.Level()))
 		}
 		diags := p.Run(ctx, name, root)
 		all = append(all, diags...)
@@ -74,7 +74,7 @@ func (r *Registry) Run(ctx *Context, name string, root *ast.RootNamespace) []dia
 		}
 	}
 	if ctx != nil {
-		ctx.setFailures(nil)
+		ctx.SetFailures(nil)
 	}
 	return all
 }

@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -28,8 +29,8 @@ func (AnnotationOwnershipPass) Run(ctx *Context, name string, root *ast.RootName
 		return nil
 	}
 	c := &annotationOwnershipChecker{ctx: ctx, resolver: ctx.Resolver()}
-	w := &w8cWalker{ctx: ctx}
-	w.walk(rootScope, c.check)
+	w := &kit.Walker{Ctx: ctx}
+	w.Walk(rootScope, c.check)
 	return c.diags
 }
 

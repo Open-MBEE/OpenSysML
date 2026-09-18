@@ -2,6 +2,7 @@ package passes
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
@@ -31,7 +32,7 @@ func (VariantOwnerPass) Run(ctx *Context, name string, root *ast.RootNamespace) 
 	}
 	var diags []diag.Diagnostic
 	model := ctx.Model()
-	w8dWalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
+	kit.WalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		if d, ok := variantOwnerDiagnostic(ctx, model, sym); ok {
 			diags = append(diags, d)
 		}

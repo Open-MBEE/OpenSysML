@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -35,7 +36,7 @@ func (W9CBoundFeatureTypesPass) Run(ctx *Context, name string, root *ast.RootNam
 	if c.model == nil || c.resolver == nil {
 		return nil
 	}
-	w8dWalkSymbols(ctx, rootScope, c.check)
+	kit.WalkSymbols(ctx, rootScope, c.check)
 	return c.diags
 }
 
@@ -108,7 +109,7 @@ func (c *w9cBindingChecker) checkSubject(sym *symbols.Symbol, value ast.Node, is
 		return
 	}
 	if value != nil {
-		if !isDefault && !c.valueConforms(w8cScopeOf(sym), value, want) {
+		if !isDefault && !c.valueConforms(kit.DeclarationScope(sym), value, want) {
 			c.report(span)
 		}
 		return
@@ -213,7 +214,7 @@ func (c *w9cBindingChecker) checkSatisfySubject(sym *symbols.Symbol, u *ast.Usag
 		return
 	}
 	want := c.model.FeatureTypeSet(c.model.SubjectParameterOf(sym))
-	if len(want) == 0 || c.valueConforms(w8cScopeOf(sym), by, want) {
+	if len(want) == 0 || c.valueConforms(kit.DeclarationScope(sym), by, want) {
 		return
 	}
 	c.report(by.Span())
@@ -250,7 +251,7 @@ func (c *w9cBindingChecker) bindingEnds(sym *symbols.Symbol, u *ast.Usage) []*sy
 		if feature == nil {
 			return nil
 		}
-		target, ok := c.resolver.ResolveTarget(w8cScopeOf(sym), feature)
+		target, ok := c.resolver.ResolveTarget(kit.DeclarationScope(sym), feature)
 		if !ok || target == nil {
 			return nil
 		}
@@ -267,7 +268,7 @@ func (c *w9cBindingChecker) endTypes(end *symbols.Symbol) []*symbols.Symbol {
 		if rel == nil || rel.Kind != ast.RelTyping || rel.Target == nil {
 			continue
 		}
-		if t, ok := c.resolver.ResolveTarget(w8cScopeOf(end), rel.Target); ok && t != nil {
+		if t, ok := c.resolver.ResolveTarget(kit.DeclarationScope(end), rel.Target); ok && t != nil {
 			out = append(out, t)
 		}
 	}

@@ -2,6 +2,7 @@ package passes
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"sort"
 	"strings"
 
@@ -45,7 +46,7 @@ func (W9CInheritedNameConflictPass) Run(ctx *Context, name string, root *ast.Roo
 	if c.model == nil {
 		return nil
 	}
-	w8dWalkSymbols(ctx, rootScope, c.check)
+	kit.WalkSymbols(ctx, rootScope, c.check)
 	return c.diags
 }
 

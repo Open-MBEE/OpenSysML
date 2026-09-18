@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -54,10 +55,10 @@ func (VariableFeaturePass) Run(ctx *Context, name string, root *ast.RootNamespac
 		})
 	}
 	kerml := ctx.Kind == source.KindKerML
-	w := &w8cWalker{ctx: ctx}
-	w.walk(rootScope, func(sym *symbols.Symbol) {
+	w := &kit.Walker{Ctx: ctx}
+	w.Walk(rootScope, func(sym *symbols.Symbol) {
 		if cross, ok := sym.Decl.(*ast.CrossFeatureMember); ok {
-			if ctx.downstreamSpan(cross.Span()) {
+			if ctx.DownstreamSpan(cross.Span()) {
 				return
 			}
 			if derivable && cross.IsConstant && !model.FeatureIsVariable(sym) {
@@ -105,7 +106,7 @@ func (VariableFeaturePass) Run(ctx *Context, name string, root *ast.RootNamespac
 // w8cVariabilityDownstream reports a lower-tier failure in what u's variability
 // rests on: its own head before the value, or its owner's typing head in this document.
 func w8cVariabilityDownstream(ctx *Context, sym *symbols.Symbol, u *ast.Usage) bool {
-	if ctx.downstreamSpan(w8cUsageHead(u)) {
+	if ctx.DownstreamSpan(w8cUsageHead(u)) {
 		return true
 	}
 	if sym.OwnerScope == nil {
@@ -123,7 +124,7 @@ func w8cVariabilityDownstream(ctx *Context, sym *symbols.Symbol, u *ast.Usage) b
 	if doc == "" {
 		doc = owner.DocName
 	}
-	return (doc == "" || doc == ctx.Name) && ctx.downstreamSpan(ownerHead)
+	return (doc == "" || doc == ctx.Name) && ctx.DownstreamSpan(ownerHead)
 }
 
 // w8cOwnerHead is the owner's head before its first body member, which fixes its type.

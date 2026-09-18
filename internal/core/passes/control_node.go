@@ -161,7 +161,7 @@ func (c *controlNodeChecker) walkNode(scope *symbols.Scope, owner, decl ast.Node
 // checkOwner reports a control node whose owner is not an action definition or
 // usage.
 func (c *controlNodeChecker) checkOwner(node, owner ast.Node) {
-	if actionOwner(owner) || c.ctx.downstreamSpan(declarationHead(node)) {
+	if actionOwner(owner) || c.ctx.DownstreamSpan(declarationHead(node)) {
 		return
 	}
 	where := "outside any action"
@@ -252,7 +252,7 @@ func (c *controlNodeChecker) check(owner *symbols.Symbol, succs []semantics.Acti
 	}
 	for _, node := range order {
 		f := flows[node]
-		if f.local && c.ctx.downstreamSpan(declarationHead(node)) {
+		if f.local && c.ctx.DownstreamSpan(declarationHead(node)) {
 			continue
 		}
 		own := owner == nil || c.declares(owner, node)
@@ -293,7 +293,7 @@ func (c *controlNodeChecker) check(owner *symbols.Symbol, succs []semantics.Acti
 // faults are spans in the document being checked, so only an end written there
 // can carry one.
 func (c *controlNodeChecker) unsoundEnd(s semantics.ActionSuccession, end semantics.ActionSuccessionEnd) bool {
-	return end.Span.Len > 0 && c.local(s.Owner) && c.ctx.downstreamSpan(end.Span)
+	return end.Span.Len > 0 && c.local(s.Owner) && c.ctx.DownstreamSpan(end.Span)
 }
 
 // localEnd reports whether the node end attaches to is declared in the document

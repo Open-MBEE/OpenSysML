@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -38,7 +39,7 @@ func (W10BRelatedElementsPass) Run(ctx *Context, name string, root *ast.RootName
 	model := ctx.Model()
 	isKerML := ctx.Kind == source.KindKerML
 	var diags []diag.Diagnostic
-	w8dWalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
+	kit.WalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		if u, ok := sym.Decl.(*ast.Usage); ok && u.Kind == ast.UsageBinding && model.RelatedFeatureCount(sym) != 2 {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.SeverityError,

@@ -2,6 +2,7 @@ package passes
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
@@ -157,7 +158,7 @@ func (tc *typeChecker) checkBehaviorMember(scope *symbols.Scope, n ast.Node) {
 	case *ast.ConstraintMember:
 		// `assert [not] c;` in a body states a reference to a constraint usage
 		// (SysML.xtext AssertConstraintUsage), not a condition to be Boolean.
-		if m.Keyword == "assert" && w8cIsReference(m.Expression) {
+		if m.Keyword == "assert" && kit.IsReference(m.Expression) {
 			tc.checkTypeTarget(scope, m.Expression, ast.RelReferences,
 				declKind{lang: tc.lang, useKind: ast.UsageConstraint, keyword: m.Keyword, span: m.Span()})
 		} else {
@@ -523,7 +524,7 @@ func nearestDeclaredUsageTypesOf(resolver *resolve.Resolver, sym *symbols.Symbol
 	if !ok {
 		return nil
 	}
-	scope := w8dScopeOf(sym)
+	scope := kit.ReferenceScope(sym)
 	var inherited []*symbols.Symbol
 	for _, rel := range decl.Relationships {
 		if rel == nil || rel.Target == nil {

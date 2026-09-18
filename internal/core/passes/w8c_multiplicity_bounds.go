@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -28,8 +29,8 @@ func (MultiplicityBoundsPass) Run(ctx *Context, name string, root *ast.RootNames
 		return nil
 	}
 	c := &multiplicityBoundsChecker{resolver: ctx.Resolver(), model: ctx.Model()}
-	w := &w8cWalker{ctx: ctx}
-	w.walk(rootScope, c.check)
+	w := &kit.Walker{Ctx: ctx}
+	w.Walk(rootScope, c.check)
 	return c.diags
 }
 
@@ -40,11 +41,11 @@ type multiplicityBoundsChecker struct {
 }
 
 func (c *multiplicityBoundsChecker) check(sym *symbols.Symbol) {
-	mult := w8cMultiplicityOf(sym)
+	mult := kit.MultiplicityOf(sym)
 	if mult == nil {
 		return
 	}
-	scope := w8cScopeOf(sym)
+	scope := kit.DeclarationScope(sym)
 	c.checkBound(scope, mult.Lower)
 	if mult.IsRange {
 		c.checkBound(scope, mult.Upper)
@@ -94,7 +95,7 @@ func (c *multiplicityBoundsChecker) boundConforms(scope *symbols.Scope, bound as
 		}
 	}
 	silent := &exprChecker{resolver: c.resolver, model: c.model}
-	if !w8cIsReference(bound) {
+	if !kit.IsReference(bound) {
 		if prim := silent.infer(scope, bound); prim != semantics.PrimUnknown {
 			return semantics.PrimConforms(prim, want)
 		}
