@@ -1,6 +1,10 @@
 package passes
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+)
 
 // A concrete connector with one end relates one element, so it is reported
 // where the pilot reports it (validation/invalid/Relationship_invalid_relatedElement0).
@@ -18,7 +22,7 @@ func TestW10BConnectorWithOneEndIsReported(t *testing.T) {
 	if diags[0].Message != msgRelatedElements {
 		t.Errorf("message = %q, want %q", diags[0].Message, msgRelatedElements)
 	}
-	if diags[0].Severity != SeverityError {
+	if diags[0].Severity != diag.SeverityError {
 		t.Errorf("severity = %v, want an error", diags[0].Severity)
 	}
 }

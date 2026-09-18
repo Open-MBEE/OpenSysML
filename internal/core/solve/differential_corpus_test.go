@@ -14,9 +14,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -231,7 +231,7 @@ func modelOf(t *testing.T, path string, src []byte, libraries bool) (*runtime.Co
 		idx.ExpandWildcardImports()
 	}
 	resolver := resolve.New(idx)
-	ctx := runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), 10000)
+	ctx := runtime.NewContext(runtime.NewModel(passes.NewTypedModel(resolver), resolver), 10000)
 	ctx.Model().RegisterSource(sf)
 	return ctx, idx
 }
@@ -303,7 +303,7 @@ func TestDifferentialStandardLibrary(t *testing.T) {
 	parseLibraries(t, idx)
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), 10000)
+	ctx := runtime.NewContext(runtime.NewModel(passes.NewTypedModel(resolver), resolver), 10000)
 
 	for _, doc := range libraryDocuments(idx) {
 		gate.summary.files++

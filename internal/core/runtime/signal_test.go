@@ -2194,7 +2194,11 @@ func TestSendInvocationIsACallOnlyWhereItResolvesToACalc(t *testing.T) {
 		if !ok {
 			t.Fatalf("%s: value is %T, want an invocation", fqn, sym.Decl.(*ast.Usage).Value)
 		}
-		if got := ec.invokesCalc(sym.Scope, inv); got != want {
+		got, err := ec.invokesCalc(sym.Scope, inv)
+		if err != nil {
+			t.Fatalf("%s: invokesCalc: %v", fqn, err)
+		}
+		if got != want {
 			t.Errorf("%s: invokesCalc = %v, want %v", fqn, got, want)
 		}
 	}

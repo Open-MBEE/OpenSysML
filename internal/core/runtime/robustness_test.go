@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
@@ -3343,7 +3344,7 @@ func testPerformReferenceCycle(t *testing.T) {
 func testDeferOfNonDeferrableTrigger(t *testing.T) {
 	idx := symbols.NewIndex()
 	resolver := resolve.New(idx)
-	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 1000)
+	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 1000)
 
 	machine := &ast.Usage{
 		Kind:  ast.UsageState,
@@ -3729,7 +3730,7 @@ func testStateChoiceWithoutAnEnabledBranch(t *testing.T) {
 func testStateTransitionWithoutATarget(t *testing.T) {
 	idx := symbols.NewIndex()
 	resolver := resolve.New(idx)
-	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 1000)
+	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 1000)
 
 	dangling := transitionMember("init", "busy")
 	dangling.Target = nil
@@ -4808,7 +4809,7 @@ func testTypeClassificationUnresolvedType(t *testing.T) {
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	calc := resolveSymbol(t, pkg.Scope, "classify")
-	_, err := NewContext(NewModel(model, resolver), 1000).InvokeCalc(calc, nil, pkg.Scope)
+	_, err := NewContext(typedModel(model, resolver), 1000).InvokeCalc(calc, nil, pkg.Scope)
 	if err == nil {
 		t.Fatal("expected unresolved type classification to fail")
 	}
@@ -4830,7 +4831,7 @@ func testTypeClassificationUndeterminedValueType(t *testing.T) {
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	calc := resolveSymbol(t, pkg.Scope, "classify")
-	_, err := NewContext(NewModel(model, resolver), 1000).InvokeCalc(calc, nil, pkg.Scope)
+	_, err := NewContext(typedModel(model, resolver), 1000).InvokeCalc(calc, nil, pkg.Scope)
 	if err == nil {
 		t.Fatal("expected undetermined value type classification to fail")
 	}
@@ -4841,7 +4842,7 @@ func testTypeClassificationUndeterminedValueType(t *testing.T) {
 		t.Errorf("error = %v, want the type the model has no name for", err)
 	}
 	empty := resolveSymbol(t, pkg.Scope, "empty")
-	got, err := NewContext(NewModel(model, resolver), 1000).InvokeCalc(empty, nil, pkg.Scope)
+	got, err := NewContext(typedModel(model, resolver), 1000).InvokeCalc(empty, nil, pkg.Scope)
 	if err != nil {
 		t.Fatalf("null istype Integer: %v", err)
 	}
@@ -4857,7 +4858,7 @@ func testCastToAnUnresolvedType(t *testing.T) {
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	calc := resolveSymbol(t, pkg.Scope, "narrow")
-	_, err := NewContext(NewModel(model, resolver), 1000).InvokeCalc(calc, nil, pkg.Scope)
+	_, err := NewContext(typedModel(model, resolver), 1000).InvokeCalc(calc, nil, pkg.Scope)
 	if err == nil {
 		t.Fatal("expected a cast to an unresolved type to fail")
 	}
@@ -4895,7 +4896,7 @@ func testExtentOfAnUnresolvedOrUnboundedType(t *testing.T) {
 		calc counted { return : Natural = size(all Wheel); }
 	}`)
 	pkg := resolveSymbol(t, root, "P")
-	ctx := NewContext(NewModel(model, resolver), 1000)
+	ctx := NewContext(typedModel(model, resolver), 1000)
 	for _, tc := range []struct {
 		calc string
 		want error
@@ -4970,7 +4971,7 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 		}
 	}`)
 	pkg := resolveSymbol(t, root, "P")
-	ctx := NewContext(NewModel(model, resolver), 1000)
+	ctx := NewContext(typedModel(model, resolver), 1000)
 	for calc, want := range map[string]string{"wheelCount": "3", "hubCount": "1", "seatCount": "2"} {
 		for attempt := 1; attempt <= 2; attempt++ {
 			got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
@@ -5034,7 +5035,7 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 		calc linkCount { return : Natural = size(all Link); }
 	}`)
 	r = resolveSymbol(t, root, "R")
-	ctx = NewContext(NewModel(model, resolver), 1000)
+	ctx = NewContext(typedModel(model, resolver), 1000)
 	got, err = ctx.InvokeCalc(resolveSymbol(t, r.Scope, "linkCount"), nil, r.Scope)
 	if err != nil || FormatValue(got) != "1" {
 		t.Errorf("R: size(all Link) = %s, %v; want 1: the rig's port, an optional one holding nothing", FormatValue(got), err)
@@ -5052,7 +5053,7 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 		}
 	}`)
 	s = resolveSymbol(t, root, "S")
-	ctx = NewContext(NewModel(model, resolver), 1000)
+	ctx = NewContext(typedModel(model, resolver), 1000)
 	_, err = ctx.InvokeCalc(resolveSymbol(t, s.Scope, "linkCount"), nil, s.Scope)
 	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "links") || !strings.Contains(err.Error(), "port") {
 		t.Errorf("S: size(all Link) = %v, want the nested package's two-port usage refused", err)
@@ -5079,7 +5080,7 @@ func testNamespaceCollectionOfUnfixedCount(t *testing.T) {
 		calc seatCount { return : Natural = size(all Seat); }
 	}`)
 	pkg := resolveSymbol(t, root, "P")
-	ctx := NewContext(NewModel(model, resolver), 1000)
+	ctx := NewContext(typedModel(model, resolver), 1000)
 	for calc, want := range map[string]string{"wheelCount": "wheels declares [2..?]", "hubCount": "hubs declares [?..?]"} {
 		_, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
 		if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), want) {
@@ -5131,7 +5132,7 @@ func testNamespaceCollectionThatCannotBeConstructed(t *testing.T) {
 		calc firstBad { return : Bad = bads#(1); }
 	}`)
 	pkg := resolveSymbol(t, root, "P")
-	ctx := NewContext(NewModel(model, resolver), 1000)
+	ctx := NewContext(typedModel(model, resolver), 1000)
 	for attempt := 1; attempt <= 2; attempt++ {
 		for _, calc := range []string{"badCount", "firstBad"} {
 			got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
@@ -5169,7 +5170,7 @@ func testChainedWriteThroughANamespaceCollection(t *testing.T) {
 		action def Tune { action step { assign probe.reading := 4.5; } first step; }
 	}`)
 	pkg := resolveSymbol(t, root, "P")
-	ctx := NewContext(NewModel(model, resolver), 1000)
+	ctx := NewContext(typedModel(model, resolver), 1000)
 	sensors := resolveSymbol(t, pkg.Scope, "sensors")
 	before, err := ctx.occurrencesOf(sensors)
 	if err != nil || len(before) != 2 {
@@ -5227,7 +5228,7 @@ func testNamespaceCollectionOverBudget(t *testing.T) {
 		calc wheelCount { return : Natural = size(all Wheel); }
 	}`)
 	pkg := resolveSymbol(t, root, "P")
-	ctx := NewContext(NewModel(model, resolver), 1000)
+	ctx := NewContext(typedModel(model, resolver), 1000)
 	for _, calc := range []string{"wheelCount", "manyCount"} {
 		got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
 		if !errors.Is(err, ErrMultiplicityViolation) || !strings.Contains(err.Error(), "many") {
@@ -5242,7 +5243,7 @@ func testNamespaceCollectionOverBudget(t *testing.T) {
 		t.Errorf("size(all Seat) = %s, %v; want 2: the wheels hold no Seat and are not read", FormatValue(got), err)
 	}
 	r := resolveSymbol(t, root, "R")
-	ctx = NewContext(NewModel(model, resolver), 1000)
+	ctx = NewContext(typedModel(model, resolver), 1000)
 	ctx.maxElements = 4
 	got, err = ctx.InvokeCalc(resolveSymbol(t, r.Scope, "wheelCount"), nil, r.Scope)
 	if !errors.Is(err, ErrElementLimitExceeded) || !strings.Contains(err.Error(), "some") {
@@ -5275,7 +5276,7 @@ func testExtentOverAnObjectThatCannotBeRead(t *testing.T) {
 		calc driverCount { return : Natural = size(all Driver); }
 	}`)
 	pkg := resolveSymbol(t, root, "P")
-	ctx := NewContext(NewModel(model, resolver), 1000)
+	ctx := NewContext(typedModel(model, resolver), 1000)
 	ctx.maxElements = 4
 	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
 	if !errors.Is(err, ErrElementLimitExceeded) || !strings.Contains(err.Error(), "wheels") {
@@ -5415,7 +5416,7 @@ func testExtentOverRecursiveComposition(t *testing.T) {
 		calc wheelCount { return : Natural = size(all Wheel); }
 	}`)
 	pkg := resolveSymbol(t, root, "P")
-	ctx := NewContext(NewModel(model, resolver), 100000)
+	ctx := NewContext(typedModel(model, resolver), 100000)
 	done := make(chan struct{})
 	var got Value
 	var err error
@@ -5477,7 +5478,7 @@ func testExtentThroughAValueRecursingAndNot(t *testing.T) {
 		calc seatCount { return : Natural = size(all Seat); }
 	}`)
 	pkg := resolveSymbol(t, root, "P")
-	ctx := NewContext(NewModel(model, resolver), 100000)
+	ctx := NewContext(typedModel(model, resolver), 100000)
 	_, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
 	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "mixed") || !strings.Contains(err.Error(), "Fork") {
 		t.Fatalf("size(all Wheel) = %v, want ErrExtentUnavailable naming mixed and Fork", err)
@@ -5505,7 +5506,7 @@ func testCastUndecidedByTheValue(t *testing.T) {
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	calc := resolveSymbol(t, pkg.Scope, "narrow")
-	_, err := NewContext(NewModel(model, resolver), 1000).InvokeCalc(calc, nil, pkg.Scope)
+	_, err := NewContext(typedModel(model, resolver), 1000).InvokeCalc(calc, nil, pkg.Scope)
 	if err == nil {
 		t.Fatal("expected an undecidable cast to fail")
 	}
@@ -5529,7 +5530,7 @@ func testEnumerationTypedFeatureHoldingAnUnenumeratedValue(t *testing.T) {
 		calc narrow { return : Level[0..1] = two as Level; }
 	}`)
 	pkg := resolveSymbol(t, root, "P")
-	ctx := NewContext(NewModel(model, resolver), 1000)
+	ctx := NewContext(typedModel(model, resolver), 1000)
 	dial, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "dial"))
 	if err == nil {
 		_, err = dial.GetFeatureValue(ctx, "setting")
@@ -5559,7 +5560,7 @@ func testEnumerationWhoseLiteralValueCannotBeEvaluated(t *testing.T) {
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	sym := resolveSymbol(t, pkg.Scope, "isLevel")
-	_, err := NewContext(NewModel(model, resolver), 1000).EvalWithScope(sym.Decl.(*ast.Usage).Value, pkg.Scope)
+	_, err := NewContext(typedModel(model, resolver), 1000).EvalWithScope(sym.Decl.(*ast.Usage).Value, pkg.Scope)
 	if err == nil {
 		t.Fatal("expected the literal's failing value to fail the classification")
 	}
@@ -5586,7 +5587,7 @@ func testDifferenceTypedFeatureHoldingASubtractedObject(t *testing.T) {
 		attribute held = depot.burner istype Vehicle;
 	`)
 	sym := resolveSymbol(t, root, "held")
-	_, err := NewContext(NewModel(model, resolver), 10000).Eval(sym.Decl.(*ast.Usage).Value)
+	_, err := NewContext(typedModel(model, resolver), 10000).Eval(sym.Decl.(*ast.Usage).Value)
 	if !errors.Is(err, ErrTypeMismatch) {
 		t.Fatalf("expected ErrTypeMismatch, got: %v", err)
 	}
@@ -7365,7 +7366,7 @@ func testStateDefSpecializingALibraryStateKeepsItsContent(t *testing.T) {
 	idx.AddDocument("<test>", parseAndBuild(t, src))
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
+	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
 	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
 	if sym == nil {
 		t.Fatal("state Machine not found")
@@ -11232,7 +11233,7 @@ func buildRuntime(t *testing.T, path string, file *ast.RootNamespace) (*symbols.
 	idx.AddDocument(path, file)
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	ctx := NewContext(NewModel(model, resolver), 10000)
+	ctx := NewContext(typedModel(model, resolver), 10000)
 	return idx, model, ctx
 }
 
@@ -11245,7 +11246,7 @@ func buildRuntimeWithLibraries(t *testing.T, path string, file *ast.RootNamespac
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	return idx, model, NewContext(NewModel(model, resolver), 10000)
+	return idx, model, NewContext(parsingModel(model, resolver), 10000)
 }
 
 // Helper: find symbol by name and kind
@@ -16423,7 +16424,7 @@ func testVerificationObjectiveSubjectRebound(t *testing.T) {
 	idx.ExpandWildcardImports()
 	var refusals []string
 	for _, d := range passes.Analyze("<test>", file, nil, idx) {
-		if d.Code == "feature-value-overriding" && d.Severity == passes.SeverityError {
+		if d.Code == "feature-value-overriding" && d.Severity == diag.SeverityError {
 			refusals = append(refusals, d.Message)
 		}
 	}
@@ -16801,7 +16802,7 @@ func testMetadataWithoutTheReflectiveLibrary(t *testing.T) {
 		}
 	}`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(NewModel(model, resolver), 10000)
+	ctx := NewContext(typedModel(model, resolver), 10000)
 	probe := resolveSymbol(t, root, "test").Scope
 	probe = resolveSymbol(t, probe, "probe").Scope
 	valueOf := func(name string) (Value, error) {

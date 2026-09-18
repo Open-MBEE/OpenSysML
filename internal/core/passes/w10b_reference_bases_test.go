@@ -1,6 +1,10 @@
 package passes
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+)
 
 // A reference subsetting carries the referenced feature's type along, so a
 // referencing usage inherits from it as well as from its own kind's library
@@ -26,7 +30,7 @@ func TestW10BReferenceSubsettingContributesABase(t *testing.T) {
 		t.Fatalf("want the warning on `action a`, `perform b.a` and its chain, got %v", at)
 	}
 	for _, a := range at {
-		if a.severity != SeverityWarning {
+		if a.severity != diag.SeverityWarning {
 			t.Errorf("want a warning, got %v", a.severity)
 		}
 	}
@@ -39,7 +43,7 @@ func TestW10BReferenceSubsettingContributesABase(t *testing.T) {
 
 type source0 struct {
 	offset   int
-	severity Severity
+	severity diag.Severity
 }
 
 func offsetOfW10B(src, want string) int {

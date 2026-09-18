@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
@@ -97,7 +98,7 @@ func TestCrossFeaturesComeBackFromTheGraphAlone(t *testing.T) {
     }
 }
 `
-	turtle, err := export.Convert("m.kerml", []byte(kerml), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.kerml", []byte(kerml), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -106,7 +107,7 @@ func TestCrossFeaturesComeBackFromTheGraphAlone(t *testing.T) {
 		t.Fatalf("parse turtle: %v", err)
 	}
 	wantType(t, g, rdf.ElementIRI("Crossing::C::x::@0").Value, "Feature")
-	out, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+	out, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -173,7 +174,7 @@ func TestCrossFeatureWithABodyIsRefused(t *testing.T) {
 		t.Fatalf("the graph does not declare the cross feature:\n%s", stripped)
 	}
 	withBody := strings.Replace(stripped, head, head+"    sysx:hasBody \"true\"^^xsd:boolean ;\n", 1)
-	_, err := export.Convert("m.ttl", []byte(withBody), export.FormatTurtle, export.FormatSysML)
+	_, err := convert.Convert("m.ttl", []byte(withBody), convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("error is %T, want *export.UnsupportedError: %v", err, err)
@@ -232,7 +233,7 @@ func TestCrossFeaturePrefixComesBackFromTheGraphAlone(t *testing.T) {
     }
 }
 `
-	turtle, err := export.Convert("m.kerml", []byte(kerml), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.kerml", []byte(kerml), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -247,7 +248,7 @@ func TestCrossFeaturePrefixComesBackFromTheGraphAlone(t *testing.T) {
 	if g.HasProperty(iri(elmt("Crossing::C::y::x2")), rdf.SysML+"isPortion") {
 		t.Errorf("the composite cross feature x2 is no portion")
 	}
-	out, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+	out, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -301,11 +302,11 @@ func TestCrossFeatureOrderingComesBackFromTheGraphAlone(t *testing.T) {
     }
 }
 `
-	turtle, err := export.Convert("m.kerml", []byte(kerml), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.kerml", []byte(kerml), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	out, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+	out, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}

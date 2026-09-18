@@ -1,15 +1,30 @@
 package runtime
 
 import (
+	"errors"
+	"sort"
+
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
-	"sort"
 )
+
+// ErrNoArgumentTyper reports a call reached on a semantic model with no argument
+// typing installed: the run would select among overloads by arity alone, weaker
+// than the checker did, so it selects nothing.
+var ErrNoArgumentTyper = errors.New("no argument typing installed on the semantic model")
+
+// selectCall is the declaration e calls in scope as the checker selects it, from the
+// semantic model's typing of the arguments; ErrNoArgumentTyper when none is installed.
+func (m *Model) selectCall(scope *symbols.Scope, e *ast.InvocationExpr, performs semantics.Performs) (*semantics.InvocationSelection, error) {
+	if !m.semantics.HasArgumentTyper() {
+		return nil, ErrNoArgumentTyper
+	}
+	return m.semantics.SelectCall(scope, e, performs), nil
+}
 
 // Model is the model-derived part of execution: the semantic model and resolver a
 // run reads, and what is memoized from them — calc shapes, write targets,
@@ -122,17 +137,44 @@ type Model struct {
 	// maps each declaration node to the symbol they declare for it, built on first use.
 	scopes   []*symbols.Scope
 	declared map[ast.Node]*symbols.Symbol
+
+	// parse reads the notation text a run receives as text: a witness file's input
+	// values and the units a tool answers in; installed by SetExpressionParser.
+	parse ExpressionParser
+}
+
+// ExpressionParser parses text, read from origin, as exactly one expression; false for
+// anything else. The caller that builds a Model supplies it; the runtime parses nothing itself.
+type ExpressionParser func(origin, text string) (ast.Node, bool)
+
+// ErrNoExpressionParser is the typed error a run returns on reaching notation text
+// to read with no ExpressionParser installed on its Model.
+var ErrNoExpressionParser = errors.New("no expression parser installed on the runtime model")
+
+// SetExpressionParser installs the parser the Model reads witness input values and tool
+// units with; units the previous parser read are forgotten, so every lookup goes through it.
+func (m *Model) SetExpressionParser(parse ExpressionParser) {
+	m.parse = parse
+	clear(m.toolUnits)
+}
+
+// parseOneExpression reads text as exactly one expression with the installed parser; ok is
+// false for text that is not one, err ErrNoExpressionParser when no parser is installed.
+func (m *Model) parseOneExpression(origin, text string) (expr ast.Node, ok bool, err error) {
+	if m.parse == nil {
+		return nil, false, ErrNoExpressionParser
+	}
+	expr, ok = m.parse(origin, text)
+	return expr, ok, nil
 }
 
 // NewModel builds the model-derived part of execution over a semantic model and
 // the resolver it resolves names with; either may be nil for a context that
-// evaluates literals alone. Contexts are built over it with NewContext.
+// evaluates literals alone. The caller installs the checker's argument typing on
+// sem (semantics.Model.SetArgumentTyper) before any call is selected; a run that
+// selects a call without one fails with ErrNoArgumentTyper. Contexts are built
+// over it with NewContext.
 func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
-	if sem != nil {
-		// Calls the model selects on its own (document queries, signal payloads) then
-		// pick the overload the checker's argument typing picks.
-		sem.SetArgumentTyper(passes.NewArgumentTyper(resolver, sem))
-	}
 	return &Model{
 		semantics:           sem,
 		resolver:            resolver,

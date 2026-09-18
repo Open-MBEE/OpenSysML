@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 func TestW8CMetadataAbstractType(t *testing.T) {
@@ -119,7 +120,7 @@ func TestW8CMetadataUsageTypeMustBeOneMetadataDefinition(t *testing.T) {
 	part s { @MD2; }
 }`
 	diags := w8cLibraryDiagnostics(t, "meta-usage-type.sysml", src)
-	var typed []Diagnostic
+	var typed []diag.Diagnostic
 	for _, d := range diags {
 		if d.Message == oneTypeUsageMessages[ast.UsageMetadata] {
 			typed = append(typed, d)
@@ -172,7 +173,7 @@ func TestW8CMetadataTypeIsReadInTheAnnotatedElement(t *testing.T) {
 	part def D { metadata def N; @N; }
 }`
 	diags = w8cLibraryDiagnostics(t, "meta-annotation-scope.sysml", sysml)
-	var typed []Diagnostic
+	var typed []diag.Diagnostic
 	for _, d := range diags {
 		if d.Message == oneTypeUsageMessages[ast.UsageMetadata] {
 			typed = append(typed, d)
@@ -184,7 +185,7 @@ func TestW8CMetadataTypeIsReadInTheAnnotatedElement(t *testing.T) {
 }
 
 // linesOf returns the sorted 1-based lines of the diagnostics.
-func linesOf(src string, diags []Diagnostic) []int {
+func linesOf(src string, diags []diag.Diagnostic) []int {
 	var lines []int
 	for _, d := range diags {
 		lines = append(lines, w8dLine(src, d.Span))

@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // structuredWireModel yields each structured kind as a feature value and takes a
@@ -109,7 +110,7 @@ func TestArrayRoundTrip(t *testing.T) {
 	srv := mustNewService(t, 4)
 	_, idx, sem := mustStructuredModel(t, srv)
 	metre := mustEvaluateQuantity(t, srv, mustParse(t, srv, quantityModel), "3 [SI::m]")
-	metreVal, err := ProtoToQuantity(metre, idx, sem)
+	metreVal, err := protoconv.ProtoToQuantity(metre, idx, sem)
 	if err != nil {
 		t.Fatalf("ProtoToQuantity: %v", err)
 	}
@@ -136,14 +137,14 @@ func TestArrayRoundTrip(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			pv := ValueToProto(tc.val, idx)
+			pv := protoconv.ValueToProto(tc.val, idx)
 			if pv.GetArray() == nil {
 				t.Fatalf("crossed as %T: %v", pv.GetKind(), pv)
 			}
 			if got, want := len(pv.GetArray().GetDimensions()), tc.val.Array().Rank(); got != want {
 				t.Errorf("%d dimensions, want %d", got, want)
 			}
-			back, err := ProtoToValueIn(pv, idx, sem)
+			back, err := protoconv.ProtoToValueIn(pv, idx, sem)
 			if err != nil {
 				t.Fatalf("ProtoToValueIn: %v", err)
 			}
@@ -160,7 +161,7 @@ func TestArrayRoundTrip(t *testing.T) {
 	}
 
 	// A quantity element keeps its reduction over the model's own base units.
-	back, err := ProtoToValueIn(ValueToProto(inner, idx), idx, sem)
+	back, err := protoconv.ProtoToValueIn(protoconv.ValueToProto(inner, idx), idx, sem)
 	if err != nil {
 		t.Fatalf("ProtoToValueIn: %v", err)
 	}
@@ -196,14 +197,14 @@ func TestVectorRoundTrip(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			pv := ValueToProto(tc.val, idx)
+			pv := protoconv.ValueToProto(tc.val, idx)
 			if pv.GetVector() == nil {
 				t.Fatalf("crossed as %T: %v", pv.GetKind(), pv)
 			}
 			if got, want := len(pv.GetVector().GetComponents()), tc.val.Vector().Dimension(); got != want {
 				t.Errorf("%d components, want %d", got, want)
 			}
-			back, err := ProtoToValueIn(pv, idx, nil)
+			back, err := protoconv.ProtoToValueIn(pv, idx, nil)
 			if err != nil {
 				t.Fatalf("ProtoToValueIn: %v", err)
 			}
@@ -227,9 +228,9 @@ func TestVectorRoundTrip(t *testing.T) {
 func TestVectorQuantityRoundTrip(t *testing.T) {
 	srv, modelHash, idx, sem := mustQuantityModel(t)
 	quantity := func(expr string) *runtime.Quantity {
-		val, err := ProtoToQuantity(mustEvaluateQuantity(t, srv, modelHash, expr), idx, sem)
+		val, err := protoconv.ProtoToQuantity(mustEvaluateQuantity(t, srv, modelHash, expr), idx, sem)
 		if err != nil {
-			t.Fatalf("ProtoToQuantity(%s): %v", expr, err)
+			t.Fatalf("protoconv.ProtoToQuantity(%s): %v", expr, err)
 		}
 		return val.Quantity()
 	}
@@ -254,7 +255,7 @@ func TestVectorQuantityRoundTrip(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			pv := ValueToProto(tc.val, idx)
+			pv := protoconv.ValueToProto(tc.val, idx)
 			if pv.GetVectorQuantity() == nil {
 				t.Fatalf("crossed as %T: %v", pv.GetKind(), pv)
 			}
@@ -267,7 +268,7 @@ func TestVectorQuantityRoundTrip(t *testing.T) {
 					t.Errorf("component %d crossed without its reduction", i+1)
 				}
 			}
-			back, err := ProtoToValueIn(pv, idx, sem)
+			back, err := protoconv.ProtoToValueIn(pv, idx, sem)
 			if err != nil {
 				t.Fatalf("ProtoToValueIn: %v", err)
 			}
@@ -302,32 +303,32 @@ func TestMalformedStructuredValuesAreRejected(t *testing.T) {
 		val  *pb.Value
 		want error
 	}{
-		{"too few elements", arrayValue([]int64{2, 3}, intValue(1), intValue(2)), ErrArrayShapeMismatch},
-		{"too many elements", arrayValue([]int64{2}, intValue(1), intValue(2), intValue(3)), ErrArrayShapeMismatch},
-		{"rank 0 with two elements", arrayValue(nil, intValue(1), intValue(2)), ErrArrayShapeMismatch},
-		{"zero dimension", arrayValue([]int64{0}), ErrArrayDimensionNotPositive},
-		{"negative dimension", arrayValue([]int64{-1, 2}, intValue(1), intValue(2)), ErrArrayDimensionNotPositive},
-		{"overflowing dimensions", arrayValue([]int64{1 << 62, 4}), ErrArrayShapeMismatch},
-		{"nested malformed array", arrayValue([]int64{1}, arrayValue([]int64{2}, intValue(1))), ErrArrayShapeMismatch},
-		{"array of unset", arrayValue([]int64{1}, &pb.Value{Kind: &pb.Value_Unset{Unset: true}}), ErrUnsetNotAccepted},
-		{"string component", vectorValue(realValue(1), &pb.Value{Kind: &pb.Value_StringValue{StringValue: "2"}}), ErrVectorComponentNotNumeric},
-		{"bool component", vectorValue(&pb.Value{Kind: &pb.Value_BoolValue{BoolValue: true}}), ErrVectorComponentNotNumeric},
-		{"quantity component", vectorValue(&pb.Value{Kind: &pb.Value_Quantity{Quantity: metre}}), ErrVectorComponentNotNumeric},
-		{"nested vector component", vectorValue(vectorValue(intValue(1))), ErrVectorComponentNotNumeric},
-		{"empty component", vectorValue(&pb.Value{}), ErrVectorComponentNotNumeric},
-		{"empty vector quantity", vectorQuantityValue(), ErrVectorQuantityEmpty},
-		{"unreduced unit", vectorQuantityValue(metre, unreduced), ErrUnitNotReduced},
+		{"too few elements", arrayValue([]int64{2, 3}, intValue(1), intValue(2)), protoconv.ErrArrayShapeMismatch},
+		{"too many elements", arrayValue([]int64{2}, intValue(1), intValue(2), intValue(3)), protoconv.ErrArrayShapeMismatch},
+		{"rank 0 with two elements", arrayValue(nil, intValue(1), intValue(2)), protoconv.ErrArrayShapeMismatch},
+		{"zero dimension", arrayValue([]int64{0}), protoconv.ErrArrayDimensionNotPositive},
+		{"negative dimension", arrayValue([]int64{-1, 2}, intValue(1), intValue(2)), protoconv.ErrArrayDimensionNotPositive},
+		{"overflowing dimensions", arrayValue([]int64{1 << 62, 4}), protoconv.ErrArrayShapeMismatch},
+		{"nested malformed array", arrayValue([]int64{1}, arrayValue([]int64{2}, intValue(1))), protoconv.ErrArrayShapeMismatch},
+		{"array of unset", arrayValue([]int64{1}, &pb.Value{Kind: &pb.Value_Unset{Unset: true}}), protoconv.ErrUnsetNotAccepted},
+		{"string component", vectorValue(realValue(1), &pb.Value{Kind: &pb.Value_StringValue{StringValue: "2"}}), protoconv.ErrVectorComponentNotNumeric},
+		{"bool component", vectorValue(&pb.Value{Kind: &pb.Value_BoolValue{BoolValue: true}}), protoconv.ErrVectorComponentNotNumeric},
+		{"quantity component", vectorValue(&pb.Value{Kind: &pb.Value_Quantity{Quantity: metre}}), protoconv.ErrVectorComponentNotNumeric},
+		{"nested vector component", vectorValue(vectorValue(intValue(1))), protoconv.ErrVectorComponentNotNumeric},
+		{"empty component", vectorValue(&pb.Value{}), protoconv.ErrVectorComponentNotNumeric},
+		{"empty vector quantity", vectorQuantityValue(), protoconv.ErrVectorQuantityEmpty},
+		{"unreduced unit", vectorQuantityValue(metre, unreduced), protoconv.ErrUnitNotReduced},
 		{"unknown base unit", vectorQuantityValue(&pb.Quantity{
 			Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 1}, Unit: "furlong",
 			UnitTerm: &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{{UnitId: "SI::furlong", Exponent: 1}}},
-		}), ErrUnknownBaseUnit},
-		{"component without quantity", vectorQuantityValue(metre, nil), ErrVectorComponentNotNumeric},
+		}), protoconv.ErrUnknownBaseUnit},
+		{"component without quantity", vectorQuantityValue(metre, nil), protoconv.ErrVectorComponentNotNumeric},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			val, err := ProtoToValueIn(tc.val, idx, sem)
+			val, err := protoconv.ProtoToValueIn(tc.val, idx, sem)
 			if !errors.Is(err, tc.want) {
-				t.Fatalf("ProtoToValueIn = %v, %v; want %v", val, err, tc.want)
+				t.Fatalf("protoconv.ProtoToValueIn = %v, %v; want %v", val, err, tc.want)
 			}
 			if val.Kind != runtime.ValInvalid {
 				t.Errorf("a rejected value was still returned: %v", val)
@@ -336,8 +337,8 @@ func TestMalformedStructuredValuesAreRejected(t *testing.T) {
 	}
 
 	// A quantity component's reduction needs the model, as a scalar's does.
-	if _, err := ProtoToValueIn(vectorQuantityValue(metre), nil, nil); !errors.Is(err, ErrQuantityNeedsIndex) {
-		t.Errorf("without an index: err = %v, want %v", err, ErrQuantityNeedsIndex)
+	if _, err := protoconv.ProtoToValueIn(vectorQuantityValue(metre), nil, nil); !errors.Is(err, protoconv.ErrQuantityNeedsIndex) {
+		t.Errorf("without an index: err = %v, want %v", err, protoconv.ErrQuantityNeedsIndex)
 	}
 }
 
@@ -429,8 +430,8 @@ func TestStructuredValuesCrossEveryValueSurface(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EvaluateCalc(malformed): %v", err)
 	}
-	if !strings.Contains(calc.Error, ErrVectorComponentNotNumeric.Error()) {
-		t.Errorf("EvaluateCalc(malformed) error = %q, want one naming %v", calc.Error, ErrVectorComponentNotNumeric)
+	if !strings.Contains(calc.Error, protoconv.ErrVectorComponentNotNumeric.Error()) {
+		t.Errorf("EvaluateCalc(malformed) error = %q, want one naming %v", calc.Error, protoconv.ErrVectorComponentNotNumeric)
 	}
 }
 
@@ -464,7 +465,7 @@ func TestStructuredValuesCapability(t *testing.T) {
 
 	// An array's elements are filtered like any values when the arm itself crosses.
 	served := mustNewServiceWithout(t, CapabilityComplexValues)
-	pv := arrayValue([]int64{1}, &pb.Value{Kind: &pb.Value_Complex{Complex: ComplexToProto(complex(0, 1))}})
+	pv := arrayValue([]int64{1}, &pb.Value{Kind: &pb.Value_Complex{Complex: protoconv.ComplexToProto(complex(0, 1))}})
 	served.filterValueCapabilities(pv)
 	if pv.GetArray() == nil || !strings.Contains(pv.GetArray().GetElements()[0].GetNull(), "complex number") {
 		t.Errorf("array of a complex without complex_values = %v, want the element withheld", pv)
@@ -489,13 +490,13 @@ func TestValueCarriesStructured(t *testing.T) {
 		{"sequence of ints", sequence(one, one), false},
 		{"sequence with an array", sequence(one, sequence(arrayValue([]int64{1}, one))), true},
 	} {
-		if got := ValueCarriesStructured(tc.value); got != tc.want {
-			t.Errorf("ValueCarriesStructured(%s) = %v, want %v", tc.name, got, tc.want)
+		if got := protoconv.ValueCarriesStructured(tc.value); got != tc.want {
+			t.Errorf("protoconv.ValueCarriesStructured(%s) = %v, want %v", tc.name, got, tc.want)
 		}
 	}
-	z := &pb.Value{Kind: &pb.Value_Complex{Complex: ComplexToProto(complex(1, 2))}}
-	if !ValueCarriesComplex(arrayValue([]int64{1}, z)) {
-		t.Error("ValueCarriesComplex misses a complex element of an array")
+	z := &pb.Value{Kind: &pb.Value_Complex{Complex: protoconv.ComplexToProto(complex(1, 2))}}
+	if !protoconv.ValueCarriesComplex(arrayValue([]int64{1}, z)) {
+		t.Error("protoconv.ValueCarriesComplex misses a complex element of an array")
 	}
 }
 
@@ -532,12 +533,12 @@ func TestCoordinateFrameCrossesAsUnsupported(t *testing.T) {
 		"unsupported: coordinate frame spatialCF [m, m, m]":                                          runtime.NewCoordinateFrameValue(frame),
 		"unsupported: coordinate transformation a coordinate transformation (spatialCF → spatialCF)": runtime.NewCoordinateTransformationValue(&runtime.CoordinateTransformation{Source: frame, Target: frame}),
 	} {
-		pv := ValueToProto(val, nil)
+		pv := protoconv.ValueToProto(val, nil)
 		if pv.GetSequence() != nil || pv.GetQuantity() != nil || pv.GetStringValue() != "" {
 			t.Fatalf("%s crossed as %T: %v", runtime.FormatValue(val), pv.GetKind(), pv)
 		}
 		if pv.GetNull() != want {
-			t.Errorf("ValueToProto(%s) = %v, want null %q", runtime.FormatValue(val), pv, want)
+			t.Errorf("protoconv.ValueToProto(%s) = %v, want null %q", runtime.FormatValue(val), pv, want)
 		}
 	}
 }

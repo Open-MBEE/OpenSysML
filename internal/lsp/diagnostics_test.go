@@ -95,7 +95,7 @@ func TestPublishDiagnosticsReportsSyntaxError(t *testing.T) {
 	if len(got.Diagnostics) == 0 {
 		t.Fatalf("expected at least one diagnostic")
 	}
-	// passes.SeverityError (0) -> LSP severity 1.
+	// diag.SeverityError (0) -> LSP severity 1.
 	if got.Diagnostics[0].Severity != protocol.DiagnosticSeverityError {
 		t.Errorf("severity = %v, want %v", got.Diagnostics[0].Severity, protocol.DiagnosticSeverityError)
 	}

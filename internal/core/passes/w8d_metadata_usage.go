@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -19,7 +20,7 @@ type W8DMetadataUsagePass struct{}
 
 func (W8DMetadataUsagePass) Level() PassLevel { return LevelType }
 
-func (W8DMetadataUsagePass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W8DMetadataUsagePass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -38,7 +39,7 @@ func (W8DMetadataUsagePass) Run(ctx *Context, name string, root *ast.RootNamespa
 type w8dMetadataChecker struct {
 	resolver *resolve.Resolver
 	model    *semantics.Model
-	diags    []Diagnostic
+	diags    []diag.Diagnostic
 }
 
 func (mc *w8dMetadataChecker) check(sym *symbols.Symbol) {
@@ -82,8 +83,8 @@ func (mc *w8dMetadataChecker) checkBody(sym *symbols.Symbol, typeRef *ast.Qualif
 		return
 	}
 	for _, node := range mc.model.MetadataBodyViolationsOf(typ, sym.Scope, body) {
-		mc.diags = append(mc.diags, Diagnostic{
-			Severity: SeverityError,
+		mc.diags = append(mc.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     node.Span(),
 			Message:  msgMetadataBodyFeature,
 			Code:     "metadata-body-feature",
@@ -91,8 +92,8 @@ func (mc *w8dMetadataChecker) checkBody(sym *symbols.Symbol, typeRef *ast.Qualif
 		})
 	}
 	for _, value := range mc.model.MetadataBodyInevaluableValuesOf(typ, sym.Scope, body) {
-		mc.diags = append(mc.diags, Diagnostic{
-			Severity: SeverityError,
+		mc.diags = append(mc.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     metadataValueSpan(body, value),
 			Message:  msgFilterNotEvaluable,
 			Code:     "metadata-value-not-evaluable",

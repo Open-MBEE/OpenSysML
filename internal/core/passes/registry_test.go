@@ -4,24 +4,25 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 type stubPass struct {
 	level PassLevel
-	diags []Diagnostic
+	diags []diag.Diagnostic
 }
 
 func (s stubPass) Level() PassLevel { return s.level }
 
-func (s stubPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (s stubPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	return s.diags
 }
 
 func TestRegistryRunsPassesInLevelOrder(t *testing.T) {
 	reg := NewRegistry()
-	reg.Register(stubPass{level: LevelNameResolution, diags: []Diagnostic{{Severity: SeverityWarning, Source: "b"}}})
-	reg.Register(stubPass{level: LevelSyntax, diags: []Diagnostic{{Severity: SeverityWarning, Source: "a"}}})
+	reg.Register(stubPass{level: LevelNameResolution, diags: []diag.Diagnostic{{Severity: diag.SeverityWarning, Source: "b"}}})
+	reg.Register(stubPass{level: LevelSyntax, diags: []diag.Diagnostic{{Severity: diag.SeverityWarning, Source: "a"}}})
 	got := reg.Run(NewContext("t", nil, nil), "t", nil)
 	if len(got) != 2 {
 		t.Fatalf("got %d diagnostics, want 2", len(got))
@@ -33,8 +34,8 @@ func TestRegistryRunsPassesInLevelOrder(t *testing.T) {
 
 func TestRegistrySkipsHigherLevelAfterError(t *testing.T) {
 	reg := NewRegistry()
-	reg.Register(stubPass{level: LevelSyntax, diags: []Diagnostic{{Severity: SeverityError, Source: "syntax"}}})
-	reg.Register(stubPass{level: LevelType, diags: []Diagnostic{{Source: "type"}}})
+	reg.Register(stubPass{level: LevelSyntax, diags: []diag.Diagnostic{{Severity: diag.SeverityError, Source: "syntax"}}})
+	reg.Register(stubPass{level: LevelType, diags: []diag.Diagnostic{{Source: "type"}}})
 	got := reg.Run(NewContext("t", nil, nil), "t", nil)
 	if len(got) != 1 {
 		t.Fatalf("got %d diagnostics, want 1 (type pass must be skipped)", len(got))
@@ -50,9 +51,9 @@ func (elementScopedStub) ElementScoped() {}
 
 func TestRegistryRunsElementScopedPassAfterError(t *testing.T) {
 	reg := NewRegistry()
-	reg.Register(stubPass{level: LevelSyntax, diags: []Diagnostic{{Severity: SeverityError, Source: "syntax"}}})
-	reg.Register(stubPass{level: LevelType, diags: []Diagnostic{{Source: "type"}}})
-	reg.Register(elementScopedStub{stubPass{level: LevelType, diags: []Diagnostic{{Source: "element-scoped"}}}})
+	reg.Register(stubPass{level: LevelSyntax, diags: []diag.Diagnostic{{Severity: diag.SeverityError, Source: "syntax"}}})
+	reg.Register(stubPass{level: LevelType, diags: []diag.Diagnostic{{Source: "type"}}})
+	reg.Register(elementScopedStub{stubPass{level: LevelType, diags: []diag.Diagnostic{{Source: "element-scoped"}}}})
 	got := reg.Run(NewContext("t", nil, nil), "t", nil)
 	if len(got) != 2 || got[1].Source != "element-scoped" {
 		t.Fatalf("want syntax plus element-scoped only, got %v", got)
@@ -69,13 +70,13 @@ func (subjectPass) Level() PassLevel { return LevelType }
 
 func (subjectPass) ElementScoped() {}
 
-func (p subjectPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
-	var out []Diagnostic
+func (p subjectPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
+	var out []diag.Diagnostic
 	for _, s := range p.subjects {
 		if ctx.DownstreamOfFailure(s) {
 			continue
 		}
-		out = append(out, Diagnostic{Span: s.Span(), Source: "subject"})
+		out = append(out, diag.Diagnostic{Span: s.Span(), Source: "subject"})
 	}
 	return out
 }
@@ -84,8 +85,8 @@ func TestRegistryGatesElementScopedPassPerElement(t *testing.T) {
 	bad := &ast.ErrorNode{NodeBase: ast.NodeBase{NodeSpan: source.Span{Offset: 10, Len: 5}}}
 	good := &ast.ErrorNode{NodeBase: ast.NodeBase{NodeSpan: source.Span{Offset: 40, Len: 5}}}
 	reg := NewRegistry()
-	reg.Register(stubPass{level: LevelNameResolution, diags: []Diagnostic{{
-		Severity: SeverityError, Span: source.Span{Offset: 11, Len: 3}, Source: "nameres",
+	reg.Register(stubPass{level: LevelNameResolution, diags: []diag.Diagnostic{{
+		Severity: diag.SeverityError, Span: source.Span{Offset: 11, Len: 3}, Source: "nameres",
 	}}})
 	reg.Register(subjectPass{subjects: []ast.Node{bad, good}})
 	got := reg.Run(NewContext("t", nil, nil), "t", nil)
@@ -101,8 +102,8 @@ func TestRegistryGatesElementScopedPassPerElement(t *testing.T) {
 func TestRegistryDoesNotGateOnSameLevelFailure(t *testing.T) {
 	subject := &ast.ErrorNode{NodeBase: ast.NodeBase{NodeSpan: source.Span{Offset: 10, Len: 5}}}
 	reg := NewRegistry()
-	reg.Register(stubPass{level: LevelType, diags: []Diagnostic{{
-		Severity: SeverityError, Span: source.Span{Offset: 11, Len: 3}, Source: "type",
+	reg.Register(stubPass{level: LevelType, diags: []diag.Diagnostic{{
+		Severity: diag.SeverityError, Span: source.Span{Offset: 11, Len: 3}, Source: "type",
 	}}})
 	reg.Register(subjectPass{subjects: []ast.Node{subject}})
 	if got := reg.Run(NewContext("t", nil, nil), "t", nil); len(got) != 2 {
@@ -112,7 +113,7 @@ func TestRegistryDoesNotGateOnSameLevelFailure(t *testing.T) {
 
 func TestRegistryGatesOnParseFailure(t *testing.T) {
 	subject := &ast.ErrorNode{NodeBase: ast.NodeBase{NodeSpan: source.Span{Offset: 10, Len: 5}}}
-	parse := []Diagnostic{{Severity: SeverityError, Span: source.Span{Offset: 10, Len: 5}, Source: "syntax"}}
+	parse := []diag.Diagnostic{{Severity: diag.SeverityError, Span: source.Span{Offset: 10, Len: 5}, Source: "syntax"}}
 	reg := NewRegistry()
 	reg.Register(subjectPass{subjects: []ast.Node{subject}})
 	if got := reg.Run(NewContext("t", nil, parse), "t", nil); len(got) != 0 {
@@ -122,8 +123,8 @@ func TestRegistryGatesOnParseFailure(t *testing.T) {
 
 func TestRegistrySameLevelNeverSkips(t *testing.T) {
 	reg := NewRegistry()
-	reg.Register(stubPass{level: LevelNameResolution, diags: []Diagnostic{{Severity: SeverityError, Source: "a"}}})
-	reg.Register(stubPass{level: LevelNameResolution, diags: []Diagnostic{{Source: "b"}}})
+	reg.Register(stubPass{level: LevelNameResolution, diags: []diag.Diagnostic{{Severity: diag.SeverityError, Source: "a"}}})
+	reg.Register(stubPass{level: LevelNameResolution, diags: []diag.Diagnostic{{Source: "b"}}})
 	got := reg.Run(NewContext("t", nil, nil), "t", nil)
 	if len(got) != 2 {
 		t.Fatalf("got %d diagnostics, want 2 (same-level passes never skip)", len(got))

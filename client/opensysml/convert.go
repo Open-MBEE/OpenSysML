@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // The conversions from the wire types to the public ones. Every conversion
@@ -94,7 +94,7 @@ func valueFromProto(value *pb.Value) Value {
 	case *pb.Value_RealValue:
 		return Real(kind.RealValue)
 	case *pb.Value_Complex:
-		return Complex(sysmlgrpc.ProtoToComplex(kind.Complex))
+		return Complex(protoconv.ProtoToComplex(kind.Complex))
 	case *pb.Value_BoolValue:
 		return Bool(kind.BoolValue)
 	case *pb.Value_StringValue:
@@ -131,7 +131,7 @@ func valueFromProto(value *pb.Value) Value {
 			CountUpper: kind.Undetermined.GetCount().GetUpper(),
 		}
 	case *pb.Value_Array:
-		if err := sysmlgrpc.CheckArrayShape(kind.Array.GetDimensions(), len(kind.Array.GetElements())); err != nil {
+		if err := protoconv.CheckArrayShape(kind.Array.GetDimensions(), len(kind.Array.GetElements())); err != nil {
 			return Null("unsupported: " + err.Error())
 		}
 		out := Array{
@@ -190,7 +190,7 @@ func valueFromProto(value *pb.Value) Value {
 		}
 		return out
 	case *pb.Value_TensorQuantity:
-		if err := sysmlgrpc.CheckTensorShape(kind.TensorQuantity.GetDimensions(), len(kind.TensorQuantity.GetComponents())); err != nil {
+		if err := protoconv.CheckTensorShape(kind.TensorQuantity.GetDimensions(), len(kind.TensorQuantity.GetComponents())); err != nil {
 			return Null("unsupported: " + err.Error())
 		}
 		out := TensorQuantity{
@@ -228,7 +228,7 @@ func valueToProto(value Value) (*pb.Value, error) {
 	case Real:
 		return &pb.Value{Kind: &pb.Value_RealValue{RealValue: float64(v)}}, nil
 	case Complex:
-		return &pb.Value{Kind: &pb.Value_Complex{Complex: sysmlgrpc.ComplexToProto(complex128(v))}}, nil
+		return &pb.Value{Kind: &pb.Value_Complex{Complex: protoconv.ComplexToProto(complex128(v))}}, nil
 	case Bool:
 		return &pb.Value{Kind: &pb.Value_BoolValue{BoolValue: bool(v)}}, nil
 	case String:
@@ -325,7 +325,7 @@ func valueToProto(value Value) (*pb.Value, error) {
 		}
 		return &pb.Value{Kind: &pb.Value_Set{Set: set}}, nil
 	case TensorQuantity:
-		if err := sysmlgrpc.CheckTensorShape(v.Dimensions, len(v.Components)); err != nil {
+		if err := protoconv.CheckTensorShape(v.Dimensions, len(v.Components)); err != nil {
 			return nil, &StatusError{Code: CodeInvalidArgument, Message: err.Error()}
 		}
 		tq := &pb.TensorQuantity{

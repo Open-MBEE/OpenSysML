@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -27,7 +28,7 @@ type TypeRelationshipsPass struct{}
 
 func (TypeRelationshipsPass) Level() PassLevel { return LevelConstraint }
 
-func (TypeRelationshipsPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (TypeRelationshipsPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -43,7 +44,7 @@ func (TypeRelationshipsPass) Run(ctx *Context, name string, root *ast.RootNamesp
 
 type typeRelationshipsChecker struct {
 	resolver *resolve.Resolver
-	diags    []Diagnostic
+	diags    []diag.Diagnostic
 }
 
 func (c *typeRelationshipsChecker) check(sym *symbols.Symbol) {
@@ -102,8 +103,8 @@ func (c *typeRelationshipsChecker) checkChaining(sym *symbols.Symbol) {
 }
 
 func (c *typeRelationshipsChecker) report(span source.Span, msg, code string) {
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message:  msg,
 		Code:     code,

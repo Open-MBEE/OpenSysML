@@ -15,7 +15,7 @@ below, `K<n>` and `S<n>` are the KerML and SysML diagnostic classes the adjudica
 into, and `P<n>` is a probe of the reference. A reader who only wants the verdicts can ignore them.
 
 [training-examples.md](training-examples.md) gates on
-`internal/core/model/testdata/training_examples_expected.txt`, which is a snapshot of *our*
+`tests/corpus/testdata/training_examples_expected.txt`, which is a snapshot of *our*
 behavior: regenerating it records whatever the code now reports, so a regression re-baselines
 as quietly as a fix. That gate answers "did we change?"; it cannot answer "are we right?".
 This page is the other half: it asks the reference implementation the same question about the

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
@@ -84,7 +85,7 @@ func TestConflictingCollectionSpellingsAreRefused(t *testing.T) {
 	turtle := editTurtle(t, idTurtle(t, collections),
 		"    sysml:specializes elmt:P__A, elmt:P__B ;",
 		"    sysml:specializes elmt:P__A ;")
-	_, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	_, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	var conflict *rdf.CollectionConflictError
 	if !errors.As(err, &conflict) {
 		t.Fatalf("want a CollectionConflictError, got %v", err)
@@ -112,7 +113,7 @@ func TestMalformedCollectionAnnotationsAreRefused(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			turtle := editTurtle(t, idTurtle(t, collections), annotation, edited)
-			_, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+			_, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 			var unsupported *export.UnsupportedError
 			if !errors.As(err, &unsupported) {
 				t.Fatalf("want an UnsupportedError, got %v", err)
@@ -212,7 +213,7 @@ package Q {
 	}
 	bare := editTurtle(t, []byte(turtle), annotation, `json:specializes "[{\"@id\":\"shared\"},{\"@id\":\"acme.proj-1:shared\"}]"`)
 	var conflict *rdf.CollectionConflictError
-	if _, err := export.Convert("m.ttl", bare, export.FormatTurtle, export.FormatSysML); !errors.As(err, &conflict) || conflict.Key != "specializes" {
+	if _, err := convert.Convert("m.ttl", bare, convert.FormatTurtle, convert.FormatSysML); !errors.As(err, &conflict) || conflict.Key != "specializes" {
 		t.Errorf("a bare id for a cross-scope reference was not refused as a conflict: %v", err)
 	}
 }
@@ -254,7 +255,7 @@ func TestAnnotatedReferenceToAnAbsentElementIsRefused(t *testing.T) {
 		`    json:specializes "[{\"@id\":\"P__A\"},{\"@id\":\"P__B\"}]" .`,
 		`    json:specializes "[{\"@id\":\"P__A\"},{\"@id\":\"P__Z\"}]" .`)
 	turtle = withoutTriples(t, []byte(structural(t, turtle)), "sysml:specializes")
-	_, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	_, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("want an UnsupportedError, got %v", err)

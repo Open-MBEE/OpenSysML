@@ -4,11 +4,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
-func documentPlanDiagnostics(t *testing.T, body string) []Diagnostic {
+func documentPlanDiagnostics(t *testing.T, body string) []diag.Diagnostic {
 	t.Helper()
 	index := newTestIndex()
 	name := "documents.sysml"

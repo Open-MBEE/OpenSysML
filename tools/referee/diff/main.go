@@ -4,7 +4,7 @@
 // positives) and the ones only the pilot reports (candidate gaps).
 //
 // It is advisory: nothing in the build or the test suite depends on it, and it
-// never touches internal/core/model/testdata/training_examples_expected.txt.
+// never touches tests/corpus/testdata/training_examples_expected.txt.
 // Provision the reference validator with scripts/download-pilot-sysml-validator.sh,
 // then run `go run -C tools ./cmd/pilot-diff`. See docs/project/pilot-differential.md.
 package diff

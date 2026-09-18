@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -40,7 +41,7 @@ func (l PassLevel) String() string {
 // executes it over a whole document and returns any diagnostics found.
 type Pass interface {
 	Level() PassLevel
-	Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic
+	Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic
 }
 
 // Context carries shared state made available to every pass in a run: the
@@ -51,7 +52,7 @@ type Context struct {
 	Name             string
 	Kind             source.Kind
 	Index            *symbols.Index
-	ParseDiagnostics []Diagnostic
+	ParseDiagnostics []diag.Diagnostic
 	// Options is what the caller asked for, fixed at construction: a pass reads
 	// it, and nothing mutates it during a run.
 	Options Options
@@ -74,19 +75,19 @@ type Options struct {
 }
 
 // NewContext builds a Context for a document, in the default mode.
-func NewContext(name string, idx *symbols.Index, parseDiags []Diagnostic) *Context {
+func NewContext(name string, idx *symbols.Index, parseDiags []diag.Diagnostic) *Context {
 	return NewContextWithKind(name, source.KindOf(name), idx, parseDiags)
 }
 
 // NewContextWithKind builds a context with an explicit source language.
 func NewContextWithKind(name string, kind source.Kind, idx *symbols.Index,
-	parseDiags []Diagnostic) *Context {
+	parseDiags []diag.Diagnostic) *Context {
 	return NewContextWithOptions(name, kind, idx, parseDiags, Options{})
 }
 
 // NewContextWithOptions builds a context that carries explicit analysis options.
 func NewContextWithOptions(name string, kind source.Kind, idx *symbols.Index,
-	parseDiags []Diagnostic, opts Options) *Context {
+	parseDiags []diag.Diagnostic, opts Options) *Context {
 	return &Context{Name: name, Kind: kind, Index: idx, ParseDiagnostics: parseDiags, Options: opts}
 }
 
@@ -145,10 +146,9 @@ func (c *Context) Resolver() *resolve.Resolver {
 // the shared resolver so constraint passes reuse one memoized instance.
 func (c *Context) Model() *semantics.Model {
 	if c.model == nil {
-		c.model = semantics.NewModel(c.Resolver())
+		c.model = NewTypedModel(c.Resolver())
 		// Attach model to resolver for inheritance-aware member resolution
 		c.Resolver().SetModel(c.model)
-		c.model.SetArgumentTyper(NewArgumentTyper(c.Resolver(), c.model))
 	}
 	return c.model
 }

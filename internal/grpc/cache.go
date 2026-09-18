@@ -11,12 +11,12 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -26,7 +26,7 @@ type CachedDocument struct {
 	Root        *ast.RootNamespace
 	Source      *source.SourceFile  // For diagnostic line/col mapping
 	ParseDiags  []parser.Diagnostic // Parser diagnostics
-	PassesDiags []passes.Diagnostic // Semantic pass diagnostics (name-resolution, type, constraint)
+	PassesDiags []diag.Diagnostic   // Semantic pass diagnostics (name-resolution, type, constraint)
 }
 
 // CachedModel holds parsed model data with semantic analysis results
@@ -91,9 +91,10 @@ func (m *CachedModel) worker() (*analysis.Worker, func()) {
 // Semantics is the model-derived runtime part as an analysis.Model builds one.
 func (m *CachedModel) Semantics() (*runtime.Model, error) {
 	resolver := resolve.New(m.Index)
-	sem := semantics.NewModel(resolver)
+	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(cachedSourceText(m))
 	model := runtime.NewModel(sem, resolver)
+	model.SetExpressionParser(parser.ParseOneExpression)
 	for _, doc := range m.Documents {
 		model.RegisterSource(doc.Source)
 	}

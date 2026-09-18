@@ -270,7 +270,7 @@ func loadTraceCase(t *testing.T, conformanceDir, testName string, expected Expec
 	idx, _ := indexCaseDocuments(t, conformanceDir, src, file, expected)
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	ctx := NewContext(NewModel(model, resolver), 10000)
+	ctx := NewContext(typedModel(model, resolver), 10000)
 	applyCaseDraws(t, ctx, expected)
 	mustSchedule(t, ctx, casePolicy(t, expected, policy))
 	return ctx, idx, idx.DocumentRoot(sysmlPath)

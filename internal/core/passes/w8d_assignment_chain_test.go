@@ -3,16 +3,18 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // assignmentChainFindings collects every diagnostic reported for a chained
 // assignment target, whatever its code.
-func assignmentChainFindings(t *testing.T, src string, warm bool) []Diagnostic {
+func assignmentChainFindings(t *testing.T, src string, warm bool) []diag.Diagnostic {
 	t.Helper()
-	var out []Diagnostic
-	for _, diag := range w9cLibraryDiags(t, src, warm) {
-		if diag.Severity == SeverityError {
-			out = append(out, diag)
+	var out []diag.Diagnostic
+	for _, d := range w9cLibraryDiags(t, src, warm) {
+		if d.Severity == diag.SeverityError {
+			out = append(out, d)
 		}
 	}
 	return out

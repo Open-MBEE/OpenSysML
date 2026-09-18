@@ -1,4 +1,4 @@
-package export_test
+package corpus
 
 import (
 	"bytes"
@@ -15,6 +15,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -24,7 +25,7 @@ var updateCorpusRoundTrip = flag.Bool("update-corpus-roundtrip", false,
 	"rewrite testdata/corpus_roundtrip_expected.txt from the current results")
 
 const (
-	corpusRoundTripExamples = "../../../examples"
+	corpusRoundTripExamples = "../../examples"
 	corpusRoundTripExpected = "testdata/corpus_roundtrip_expected.txt"
 
 	// Byte-identical to the committed file's header, so regenerating without a
@@ -38,7 +39,7 @@ const (
 		"# no longer converts) and refused:<class> (notation -> Turtle refused). This\n" +
 		"# is a per-file ratchet, not a claim that any verdict is right; see\n" +
 		"# docs/project/rdf-corpus-roundtrip.md. Regenerate with:\n" +
-		"#   go test ./internal/core/export -run TestCorpusRoundTrip -update-corpus-roundtrip\n"
+		"#   go test ./tests/corpus -run TestCorpusRoundTrip -update-corpus-roundtrip\n"
 )
 
 // corpusRoundTripRoot is one downloaded corpus under examples/. The committed
@@ -74,8 +75,8 @@ var corpusRoundTripRoots = []corpusRoundTripRoot{
 	},
 }
 
-// skip mirrors the corpus gates in internal/core/model: skip locally, fail
-// when the require-env is set, and announce it on stderr either way.
+// skip mirrors corpusGate.skip: skip locally, fail when the require-env is
+// set, and announce it on stderr either way.
 func (r corpusRoundTripRoot) skip(t *testing.T, reason string) {
 	t.Helper()
 	hint := fmt.Sprintf("examples/%s not downloaded (run %s)", r.name, r.fetch)
@@ -85,7 +86,7 @@ func (r corpusRoundTripRoot) skip(t *testing.T, reason string) {
 	fmt.Fprintf(os.Stderr, "\n!!! GATE NOT RUN: %s SKIPPED - %s.\n"+
 		"!!! The corpus is absent, so this run proves nothing about it.\n"+
 		"!!! Fetch it with %s and re-run\n"+
-		"!!!   go test -count=1 ./internal/core/export -run TestCorpusRoundTrip\n"+
+		"!!!   go test -count=1 ./tests/corpus -run TestCorpusRoundTrip\n"+
 		"!!! CI sets %s=1, where an absent corpus fails instead of skipping.\n\n",
 		t.Name(), reason, r.fetch, r.requireEnv)
 	t.Skip(hint)
@@ -157,15 +158,15 @@ func corpusRoundTripFiles(t *testing.T) ([]string, map[string]int) {
 // corpusRoundTripVerdict classifies one model's notation -> Turtle -> notation
 // -> Turtle trip. An error means the harness failed, never a verdict.
 func corpusRoundTripVerdict(rel string, src []byte) (string, error) {
-	hop1, err := export.Convert(rel, src, export.FormatSysML, export.FormatTurtle)
+	hop1, err := convert.Convert(rel, src, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		return "refused:" + refusalClass(rel, err), nil
 	}
-	back, err := export.Convert(rel+".ttl", hop1, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert(rel+".ttl", hop1, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		return "unwritable", nil
 	}
-	hop2, err := export.Convert(rel, back, export.FormatSysML, export.FormatTurtle)
+	hop2, err := convert.Convert(rel, back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		return "unparseable", nil
 	}
@@ -224,7 +225,7 @@ var refusalSlug = regexp.MustCompile(`[^a-z0-9]+`)
 // location or identifiers, "syntax" for a parse failure, "error" otherwise.
 func refusalClass(name string, err error) string {
 	var unsupported *export.UnsupportedError
-	var syntax *export.SyntaxError
+	var syntax *convert.SyntaxError
 	switch {
 	case errors.As(err, &unsupported):
 		what := unsupported.What
@@ -415,7 +416,7 @@ func TestRefusalClass(t *testing.T) {
 		{"e.sysml", &export.UnsupportedError{What: "the ElementId annotation on Pkg::Part"}, "elementid-annotation"},
 		{"e.sysml", &export.UnsupportedError{What: "usage kind \"part\" at e.sysml:1:1"}, "usage-kind-part"},
 		{"e.sysml", &export.UnsupportedError{What: "an empty document"}, "an-empty-document"},
-		{"f.sysml", &export.SyntaxError{Name: "f.sysml", Messages: []string{"f.sysml:1:1: unexpected token"}}, "syntax"},
+		{"f.sysml", &convert.SyntaxError{Name: "f.sysml", Messages: []string{"f.sysml:1:1: unexpected token"}}, "syntax"},
 		{"g.sysml", errors.New("boom"), "error"},
 	}
 	for _, c := range cases {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -90,8 +91,8 @@ func (tc *typeChecker) checkRelationshipEnd(scope *symbols.Scope, rel *ast.Relat
 	if want.admits(sym.Kind) {
 		return
 	}
-	tc.appendUnique(Diagnostic{
-		Severity: SeverityError,
+	tc.appendUnique(diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     end.Span(),
 		Message:  fmt.Sprintf("%s %s must be %s, found %s", rel.Keyword, role, want, sym.Kind),
 		Code:     "type",

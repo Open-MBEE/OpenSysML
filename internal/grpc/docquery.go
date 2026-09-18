@@ -19,6 +19,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // RunDocumentQuery runs a named document query with parameter bindings, the
@@ -175,7 +176,7 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, par
 		return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument,
 			"binding %s: an event row is answered by queries, not bound to them", parameter)
 	case *pb.DocumentValue_Quantity:
-		bound, err := ProtoToQuantity(kind.Quantity, idx, sem)
+		bound, err := protoconv.ProtoToQuantity(kind.Quantity, idx, sem)
 		if err != nil {
 			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, "binding %s: %v", parameter, err)
 		}
@@ -258,7 +259,7 @@ func documentValue(idx *symbols.Index, value queryexec.Value) *pb.DocumentValue 
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_Infinity{Infinity: true}}
 	case queryexec.ValueQuantity:
 		quantity, _ := value.Quantity()
-		return &pb.DocumentValue{Kind: &pb.DocumentValue_Quantity{Quantity: QuantityToProto(&quantity)}}
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_Quantity{Quantity: protoconv.QuantityToProto(&quantity)}}
 	default:
 		return &pb.DocumentValue{}
 	}

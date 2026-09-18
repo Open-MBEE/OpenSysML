@@ -409,7 +409,10 @@ func actionCandidates(
 	case inv.referrer != nil:
 		sym, ok = ctx.resolveReferenceTarget(scope, inv.referrer, target)
 	case inv.expr != nil:
-		sel := ctx.selectInvocation(scope, inv.expr, semantics.PerformsAction)
+		sel, err := ctx.selectInvocation(scope, inv.expr, semantics.PerformsAction)
+		if err != nil {
+			return nil, nil, err
+		}
 		switch {
 		case sel.Ambiguous && sel.Undetermined:
 			return nil, sel.Tied, nil

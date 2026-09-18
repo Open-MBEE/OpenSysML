@@ -12,10 +12,10 @@ concurrency:
 env:
   # The OMG training corpus is not vendored. Requiring it here turns "corpus
   # absent" into a test failure instead of a skip, so the gate cannot pass green
-  # without actually running (see internal/core/model/training_examples_test.go).
+  # without actually running (see tests/corpus/training_examples_test.go).
   OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
   # Same for the three pinned OMG pilot corpora, which are downloaded below and
-  # gated by internal/core/model/pilot_corpora_test.go.
+  # gated by tests/corpus/pilot_corpora_test.go.
   OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
   # Same for the pinned OMG PSSM test suite, gated by tools/referee/pssm and tools/cmd/pssm-referee.
   OPENSYSML_REQUIRE_PSSM_SUITE: "1"
@@ -360,7 +360,7 @@ jobs:
       - name: Run training corpus gate
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/core/model -run 'TestTrainingExamples|TestCorpusGates' | tee corpus-gate.log
+          go test -count=1 -v ./tests/corpus -run 'TestTrainingExamples|TestCorpusGates' | tee corpus-gate.log
           grep -E 'training files clean' corpus-gate.log
           if grep -qE '^\s*--- SKIP' corpus-gate.log; then
             echo "error: the corpus gate skipped" >&2
@@ -374,7 +374,7 @@ jobs:
       - name: Run pilot corpora gate
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/core/model -run 'TestPilotCorpora' | tee pilot-corpora-gate.log
+          go test -count=1 -v ./tests/corpus -run 'TestPilotCorpora' | tee pilot-corpora-gate.log
           grep -E 'pilot corpus files clean' pilot-corpora-gate.log
           if grep -qE '^\s*--- SKIP' pilot-corpora-gate.log; then
             echo "error: the pilot corpora gate skipped" >&2
@@ -426,7 +426,7 @@ jobs:
       - name: Run RDF corpus round-trip gate
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/core/export -run 'TestCorpusRoundTrip' | tee corpus-roundtrip-gate.log
+          go test -count=1 -v ./tests/corpus -run 'TestCorpusRoundTrip' | tee corpus-roundtrip-gate.log
           grep -E 'corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
           if grep -qE '^\s*--- SKIP' corpus-roundtrip-gate.log; then
             echo "error: the RDF corpus round-trip gate skipped" >&2

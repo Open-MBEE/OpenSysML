@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // Prefix metadata ahead of `subject` reaches the editor as one syntax error at
@@ -16,9 +16,9 @@ func TestMisplacedMemberPrefixMetadataIsASyntaxError(t *testing.T) {
 	ws.Open(uri, []byte(src), 1)
 	defer ws.Close(uri)
 
-	var errs []passes.Diagnostic
+	var errs []diag.Diagnostic
 	for _, d := range ws.Diagnostics(uri) {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			errs = append(errs, d)
 		}
 	}

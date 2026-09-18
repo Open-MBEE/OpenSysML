@@ -3,6 +3,8 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // layoutModel wraps decls in a package importing the DiagramLayout and Views
@@ -12,9 +14,9 @@ func layoutModel(decls string) string {
 }
 
 // layoutDiags analyses a model and returns the DiagramLayout diagnostics only.
-func layoutDiags(t *testing.T, src string) []Diagnostic {
+func layoutDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range w8dDiags(t, src) {
 		if strings.HasPrefix(d.Code, "diagram-layout-") {
 			out = append(out, d)
@@ -24,7 +26,7 @@ func layoutDiags(t *testing.T, src string) []Diagnostic {
 }
 
 // wantLayoutDiag checks one diagnostic's severity, code, source, message and line.
-func wantLayoutDiag(t *testing.T, src string, d Diagnostic, severity Severity, code string, line int, message ...string) {
+func wantLayoutDiag(t *testing.T, src string, d diag.Diagnostic, severity diag.Severity, code string, line int, message ...string) {
 	t.Helper()
 	if d.Severity != severity || d.Code != code || d.Source != "constraint" {
 		t.Fatalf("got severity %v, code %q, source %q; want %v, %q, constraint: %s",
@@ -63,7 +65,7 @@ func TestDiagramLayoutWellFormedAnnotationsPass(t *testing.T) {
 	}
 `)
 	for _, d := range w8dDiags(t, src) {
-		if d.Severity == SeverityError || strings.HasPrefix(d.Code, "diagram-layout-") {
+		if d.Severity == diag.SeverityError || strings.HasPrefix(d.Code, "diagram-layout-") {
 			t.Fatalf("well-formed annotations drew %v", d)
 		}
 	}
@@ -84,7 +86,7 @@ func TestDiagramLayoutOddRoutePointsIsAnError(t *testing.T) {
 	if len(diags) != 1 {
 		t.Fatalf("got %d diagnostics, want 1: %v", len(diags), diags)
 	}
-	wantLayoutDiag(t, src, diags[0], SeverityError, "diagram-layout-value", 10,
+	wantLayoutDiag(t, src, diags[0], diag.SeverityError, "diagram-layout-value", 10,
 		"connection P::Loop::supply: Route binds 3 values", "x, y pairs")
 }
 
@@ -102,7 +104,7 @@ func TestDiagramLayoutOddRoutePointsOnAnUnnamedTransitionIsAnError(t *testing.T)
 	if len(diags) != 1 {
 		t.Fatalf("got %d diagnostics, want 1: %v", len(diags), diags)
 	}
-	wantLayoutDiag(t, src, diags[0], SeverityError, "diagram-layout-value", 8,
+	wantLayoutDiag(t, src, diags[0], diag.SeverityError, "diagram-layout-value", 8,
 		"an unnamed transition of state def P::Machine: Route binds 3 values", "x, y pairs")
 }
 
@@ -155,15 +157,15 @@ func TestDiagramLayoutNonConstantValueIsAnError(t *testing.T) {
 	if len(diags) != 5 {
 		t.Fatalf("got %d diagnostics, want 5: %v", len(diags), diags)
 	}
-	wantLayoutDiag(t, src, diags[0], SeverityError, "diagram-layout-value", 5,
+	wantLayoutDiag(t, src, diags[0], diag.SeverityError, "diagram-layout-value", 5,
 		"part def P::Pump: y of Layout is not a constant number")
-	wantLayoutDiag(t, src, diags[1], SeverityError, "diagram-layout-value", 8,
+	wantLayoutDiag(t, src, diags[1], diag.SeverityError, "diagram-layout-value", 8,
 		"part def P::Tank: x of Layout is not a constant number")
-	wantLayoutDiag(t, src, diags[2], SeverityError, "diagram-layout-value", 8,
+	wantLayoutDiag(t, src, diags[2], diag.SeverityError, "diagram-layout-value", 8,
 		"part def P::Tank: collapsed of Layout is not a constant boolean")
-	wantLayoutDiag(t, src, diags[3], SeverityError, "diagram-layout-value", 14,
+	wantLayoutDiag(t, src, diags[3], diag.SeverityError, "diagram-layout-value", 14,
 		"connection P::Loop::supply: points of Route is not a constant number")
-	wantLayoutDiag(t, src, diags[4], SeverityError, "diagram-layout-value", 19,
+	wantLayoutDiag(t, src, diags[4], diag.SeverityError, "diagram-layout-value", 19,
 		"view P::diagram: Canvas binds one of width and height; an extent needs both")
 }
 
@@ -180,7 +182,7 @@ func TestDiagramLayoutCanvasOutsideAViewIsAnError(t *testing.T) {
 	if len(diags) != 1 {
 		t.Fatalf("got %d diagnostics, want 1: %v", len(diags), diags)
 	}
-	wantLayoutDiag(t, src, diags[0], SeverityError, "diagram-layout-canvas", 5,
+	wantLayoutDiag(t, src, diags[0], diag.SeverityError, "diagram-layout-canvas", 5,
 		"Canvas annotates part def P::Pump", "no view")
 }
 
@@ -200,9 +202,9 @@ func TestDiagramLayoutCanvasAboutAViewFromOutsideItsBodyIsAnError(t *testing.T) 
 	if len(diags) != 2 {
 		t.Fatalf("got %d diagnostics, want 2: %v", len(diags), diags)
 	}
-	wantLayoutDiag(t, src, diags[0], SeverityError, "diagram-layout-canvas", 8,
+	wantLayoutDiag(t, src, diags[0], diag.SeverityError, "diagram-layout-canvas", 8,
 		"Canvas about view P::diagram is stated outside its body")
-	wantLayoutDiag(t, src, diags[1], SeverityError, "diagram-layout-canvas", 10,
+	wantLayoutDiag(t, src, diags[1], diag.SeverityError, "diagram-layout-canvas", 10,
 		"Canvas about view P::diagram is stated outside its body")
 }
 
@@ -226,9 +228,9 @@ func TestDiagramLayoutUnplaceableInlineAnnotationsWarn(t *testing.T) {
 	if len(diags) != 2 {
 		t.Fatalf("got %d diagnostics, want 2: %v", len(diags), diags)
 	}
-	wantLayoutDiag(t, src, diags[0], SeverityWarning, "diagram-layout-unplaced", 8,
+	wantLayoutDiag(t, src, diags[0], diag.SeverityWarning, "diagram-layout-unplaced", 8,
 		"Route steers part def P::Pump", "no rendering draws as an edge")
-	wantLayoutDiag(t, src, diags[1], SeverityWarning, "diagram-layout-unplaced", 14,
+	wantLayoutDiag(t, src, diags[1], diag.SeverityWarning, "diagram-layout-unplaced", 14,
 		"Layout positions dependency P::feeds", "no rendering draws as a node")
 }
 
@@ -258,9 +260,9 @@ func TestDiagramLayoutViewLocalAnnotationsJudgedByTheViewsRendering(t *testing.T
 	if len(diags) != 2 {
 		t.Fatalf("got %d diagnostics, want 2: %v", len(diags), diags)
 	}
-	wantLayoutDiag(t, src, diags[0], SeverityWarning, "diagram-layout-unplaced", 15,
+	wantLayoutDiag(t, src, diags[0], diag.SeverityWarning, "diagram-layout-unplaced", 15,
 		"Layout positions connection P::Loop::supply", "interconnection rendering of view P::wiring does not draw as a node")
-	wantLayoutDiag(t, src, diags[1], SeverityWarning, "diagram-layout-unplaced", 16,
+	wantLayoutDiag(t, src, diags[1], diag.SeverityWarning, "diagram-layout-unplaced", 16,
 		"Route steers part P::Loop::pump", "interconnection rendering of view P::wiring does not draw as an edge")
 }
 
@@ -293,9 +295,9 @@ func TestDiagramLayoutViewLocalAnnotationsJudgedByWhatTheViewExposes(t *testing.
 	if len(diags) != 2 {
 		t.Fatalf("got %d diagnostics, want 2: %v", len(diags), diags)
 	}
-	wantLayoutDiag(t, src, diags[0], SeverityWarning, "diagram-layout-unplaced", 20,
+	wantLayoutDiag(t, src, diags[0], diag.SeverityWarning, "diagram-layout-unplaced", 20,
 		"Route steers connection P::Loop::supply", "interconnection rendering of view P::wiring does not draw as an edge")
-	wantLayoutDiag(t, src, diags[1], SeverityWarning, "diagram-layout-unplaced", 21,
+	wantLayoutDiag(t, src, diags[1], diag.SeverityWarning, "diagram-layout-unplaced", 21,
 		"Layout positions part P::Spare::valve", "interconnection rendering of view P::wiring does not draw as a node")
 }
 
@@ -344,7 +346,7 @@ func TestDiagramLayoutDuplicateViewLocalAnnotationWarnsOnTheSecond(t *testing.T)
 	if len(diags) != 1 {
 		t.Fatalf("got %d diagnostics, want 1: %v", len(diags), diags)
 	}
-	wantLayoutDiag(t, src, diags[0], SeverityWarning, "diagram-layout-duplicate", 13,
+	wantLayoutDiag(t, src, diags[0], diag.SeverityWarning, "diagram-layout-duplicate", 13,
 		"Layout about part P::Loop::pump is already stated in view P::a", "first stated applies")
 }
 

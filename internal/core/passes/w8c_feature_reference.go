@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -19,7 +20,7 @@ type FeatureReferencePass struct{}
 
 func (FeatureReferencePass) Level() PassLevel { return LevelConstraint }
 
-func (FeatureReferencePass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (FeatureReferencePass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	rootScope := ctx.Index.DocumentRoot(name)
 	if rootScope == nil {
 		return nil
@@ -59,7 +60,7 @@ func w8cOwnsVariants(sym *symbols.Symbol) bool {
 
 type featureReferenceChecker struct {
 	cc    *constraintChecker
-	diags []Diagnostic
+	diags []diag.Diagnostic
 }
 
 // refSite is where a reference is written: the declaration owning it, and
@@ -274,8 +275,8 @@ func (c *featureReferenceChecker) checkReferent(site refSite, scope *symbols.Sco
 		return
 	}
 	if !isUsageKind(target.Kind) {
-		c.diags = append(c.diags, Diagnostic{
-			Severity: SeverityError,
+		c.diags = append(c.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     span,
 			Message:  msgReferentIsFeature,
 			Code:     "feature-reference-referent",
@@ -327,8 +328,8 @@ func (c *featureReferenceChecker) checkReferent(site refSite, scope *symbols.Sco
 	if isChain && !site.inElementFilter {
 		msg, code = msgReferentIsFeature, "feature-reference-referent"
 	}
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message:  msg,
 		Code:     code,
@@ -476,8 +477,8 @@ func (c *featureReferenceChecker) chainingFeatureConforms(prev, ctx *symbols.Sym
 }
 
 func (c *featureReferenceChecker) reportChainMember(span source.Span) {
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message:  msgReferentIsFeature,
 		Code:     "feature-chain-conformance",

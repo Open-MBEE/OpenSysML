@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
@@ -29,18 +30,18 @@ func TestGoldenConversions(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			turtle, err := export.Convert(path, src, export.FormatSysML, export.FormatTurtle)
+			turtle, err := convert.Convert(path, src, convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
-			back, err := export.Convert(name+".ttl", turtle, export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert(name+".ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v\n%s", err, turtle)
 			}
 			if want := string(src); string(back) != want {
 				t.Errorf("the model did not come back as written:\n--- want ---\n%s--- got ---\n%s", want, back)
 			}
-			canonical, err := export.Convert(name+".ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+			canonical, err := convert.Convert(name+".ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				canonical = []byte("sysml: " + err.Error() + "\n")
 			}
@@ -62,11 +63,11 @@ func TestConvertedNotationParses(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			turtle, err := export.Convert(path, src, export.FormatSysML, export.FormatTurtle)
+			turtle, err := convert.Convert(path, src, convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
-			back, err := export.Convert(name+".ttl", turtle, export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert(name+".ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v", err)
 			}
@@ -99,15 +100,15 @@ func TestRoundTripIsLossless(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			first, err := export.Convert(path, src, export.FormatSysML, export.FormatTurtle)
+			first, err := convert.Convert(path, src, convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
-			back, err := export.Convert(name+".ttl", first, export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert(name+".ttl", first, convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v", err)
 			}
-			second, err := export.Convert(name+ext, back, export.FormatSysML, export.FormatTurtle)
+			second, err := convert.Convert(name+ext, back, convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
@@ -115,7 +116,7 @@ func TestRoundTripIsLossless(t *testing.T) {
 				t.Errorf("round trip changed the graph\n--- first ---\n%s\n--- second ---\n%s", first, second)
 			}
 			if textOnly, ok := textOnlyFixtures[name]; ok {
-				_, err := export.Convert(name+".ttl", withoutTriples(t, first, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+				_, err := convert.Convert(name+".ttl", withoutTriples(t, first, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 				var unsupported *export.UnsupportedError
 				if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), textOnly) {
 					t.Fatalf("the mapping alone should still refuse %s (%s), got: %v", name, textOnly, err)
@@ -137,11 +138,11 @@ func structuralRoundTrip(t *testing.T, name string, first []byte) []byte {
 		ext = ".sysml"
 	}
 	name = strings.TrimSuffix(name, ext)
-	fromGraph, err := export.Convert(name+".ttl", withoutTriples(t, first, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+	fromGraph, err := convert.Convert(name+".ttl", withoutTriples(t, first, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the mapping alone: %v", err)
 	}
-	again, err := export.Convert(name+ext, fromGraph, export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert(name+ext, fromGraph, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again from the mapping alone: %v", err)
 	}
@@ -200,7 +201,7 @@ func TestWrittenReferencesResolveWhereWritten(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	graph, err := export.Convert(path, src, export.FormatSysML, export.FormatTurtle)
+	graph, err := convert.Convert(path, src, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -266,7 +267,7 @@ func TestWrittenReferencesResolveWhereWritten(t *testing.T) {
 func TestGlobalSpellingIsReachedPastAShadowedRoot(t *testing.T) {
 	src := "package Root {\n    part def Target;\n    part def Holder {\n        part def Root {\n            part def Target;\n        }\n" +
 		"        part def Target;\n        part t : $::Root::Target;\n    }\n}\n"
-	graph, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	graph, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -285,7 +286,7 @@ func TestGlobalSpellingIsReachedPastAShadowedRoot(t *testing.T) {
 // definition it must write the short one.
 func TestCastTypeIsSpelledForItsScope(t *testing.T) {
 	src := "package P {\n    part def T;\n    part def H {\n        part def T;\n        attribute v = (as P::T);\n    }\n}\n"
-	graph, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	graph, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -298,7 +299,7 @@ func TestCastTypeIsSpelledForItsScope(t *testing.T) {
 	}
 	structural := withoutTriples(t, graph, "sysx:sourceText")
 	relinkedGraph := relinked(t, structural, "sysx:typeArgument elmt:P__T .", "sysx:typeArgument elmt:P__H__T .")
-	back, err := export.Convert("cast_type.ttl", relinkedGraph, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("cast_type.ttl", relinkedGraph, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v\n%s", err, relinkedGraph)
 	}
@@ -312,7 +313,7 @@ func TestCastTypeIsSpelledForItsScope(t *testing.T) {
 func TestMultiplicityBodyMembersLinkTheirReferences(t *testing.T) {
 	src := "package P {\n    datatype T;\n    feature base : T;\n    multiplicity m [1..2] {\n        feature f : T;\n        feature g subsets base;\n    }\n" +
 		"    package Q {\n        datatype T;\n        multiplicity n [0..1] {\n            feature h : P::T;\n        }\n    }\n}\n"
-	graph, err := export.Convert("m.kerml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	graph, err := convert.Convert("m.kerml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -357,7 +358,7 @@ func pilotCorpusModel(t *testing.T, rel string) (string, []byte) {
 // found on: a redefining attribute that bears its target's own name.
 func TestPacketsRoundTripsStructurally(t *testing.T) {
 	path, src := pilotCorpusModel(t, "sysml-examples/Packet Example/Packets.sysml")
-	graph, err := export.Convert(path, src, export.FormatSysML, export.FormatTurtle)
+	graph, err := convert.Convert(path, src, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -398,7 +399,7 @@ func TestTransitionEffectSuccessionLinksItsEnds(t *testing.T) {
         }
     }
 }`
-	graph, err := export.Convert("effect.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	graph, err := convert.Convert("effect.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -428,7 +429,7 @@ func relinked(t *testing.T, graph []byte, link, to string) []byte {
 // notation that would read back as a different graph.
 func refusedAsUnsupported(t *testing.T, name string, graph []byte, why string) {
 	t.Helper()
-	out, err := export.Convert(name+".ttl", graph, export.FormatTurtle, export.FormatSysML)
+	out, err := convert.Convert(name+".ttl", graph, convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("want an UnsupportedError, got %v; notation:\n%s", err, out)
@@ -449,7 +450,7 @@ func TestChainReachingAUsageNamedByAChainWritesItsEffectiveName(t *testing.T) {
     part train { part engine { perform provide.generate; } }
     allocate generator.generate to train.engine.generate;
 }`
-	graph, err := export.Convert("performed.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	graph, err := convert.Convert("performed.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -483,7 +484,7 @@ func TestSpellingsAreCheckedBesideEachOther(t *testing.T) {
         package Pkg21 { package Pkg211 { part def P211 :> P12; } }
     }
 }`
-	graph, err := export.Convert("imports.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	graph, err := convert.Convert("imports.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -510,7 +511,7 @@ func TestChainSegmentIsSpelledToReachTheGraphsTarget(t *testing.T) {
     attribute w = a.x + a.x;
     connect a.x to b.x;
 }`
-	graph, err := export.Convert("chain.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	graph, err := convert.Convert("chain.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -530,7 +531,7 @@ func TestChainSegmentIsSpelledToReachTheGraphsTarget(t *testing.T) {
 	}
 	end := "    sysml:argument expr:P___406_pend0_pa0 ;\n    sysml:targetFeature elmt:P__A__x ;"
 	for name, g := range map[string][]byte{"structure": structural, "notation": graph} {
-		back, err := export.Convert("chain-"+name+".ttl", relinked(t, g, end, strings.Replace(end, "A__x", "B__x", 1)), export.FormatTurtle, export.FormatSysML)
+		back, err := convert.Convert("chain-"+name+".ttl", relinked(t, g, end, strings.Replace(end, "A__x", "B__x", 1)), convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("back to notation (%s): %v", name, err)
 		}
@@ -570,7 +571,7 @@ func TestSharedChainIsCheckedInEveryDeclaration(t *testing.T) {
         attribute w = a.x;
     }
 }`
-	graph, err := export.Convert("shared.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	graph, err := convert.Convert("shared.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -578,7 +579,7 @@ func TestSharedChainIsCheckedInEveryDeclaration(t *testing.T) {
 	// w's value is v's chain: its root, linked to P::a, is spelled to reach it
 	// from both declarations, so both state A::x.
 	shared := relinked(t, structural, "sysml:value expr:P__H__w_pvalue ;", "sysml:value expr:P__v_pvalue ;")
-	back, err := export.Convert("shared.ttl", shared, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("shared.ttl", shared, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v\n%s", err, shared)
 	}
@@ -615,7 +616,7 @@ func TestInitialStartMustBeAMemberOfItsBody(t *testing.T) {
         }
     }
 }`
-	graph, err := export.Convert("initial.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	graph, err := convert.Convert("initial.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -626,7 +627,7 @@ func TestInitialStartMustBeAMemberOfItsBody(t *testing.T) {
 		"`first s1` does not name P::Outer::s1 in the body it is written in")
 	// A same-named sibling of the body would read as the start instead.
 	shadowed := strings.Replace(src, "action s1;", "action s2;", 1)
-	graph, err = export.Convert("initial.sysml", []byte(shadowed), export.FormatSysML, export.FormatTurtle)
+	graph, err = convert.Convert("initial.sysml", []byte(shadowed), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -654,15 +655,15 @@ func TestFixturesComeBackFromTheGraphAlone(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			first, err := export.Convert(path, src, export.FormatSysML, export.FormatTurtle)
+			first, err := convert.Convert(path, src, convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
-			back, err := export.Convert(name+".ttl", withoutTriples(t, first, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert(name+".ttl", withoutTriples(t, first, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v", err)
 			}
-			second, err := export.Convert(name+ext, back, export.FormatSysML, export.FormatTurtle)
+			second, err := convert.Convert(name+ext, back, convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
@@ -679,7 +680,7 @@ func TestIndividualDefinitionWithoutItsFlagReadsAsIndividual(t *testing.T) {
 	src := `package P {
     individual def Eagle;
 }`
-	first, err := export.Convert("legacy.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	first, err := convert.Convert("legacy.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -687,14 +688,14 @@ func TestIndividualDefinitionWithoutItsFlagReadsAsIndividual(t *testing.T) {
 		t.Fatalf("an individual def should carry sysml:isIndividual\n%s", first)
 	}
 	legacy := withoutTriples(t, withoutTriples(t, first, "sysx:sourceText"), "sysml:isIndividual")
-	back, err := export.Convert("legacy.ttl", legacy, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("legacy.ttl", legacy, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
 	if !strings.Contains(string(back), "individual def Eagle;") {
 		t.Errorf("an IndividualDefinition without its flag should still read as individual\n%s", back)
 	}
-	second, err := export.Convert("legacy.sysml", back, export.FormatSysML, export.FormatTurtle)
+	second, err := convert.Convert("legacy.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
@@ -738,7 +739,7 @@ part def Q; // trailing note
 /* a comment */
 part def R;
 }`
-	out, err := export.Convert("save.sysml", []byte(src), export.FormatSysML, export.FormatSysML)
+	out, err := convert.Convert("save.sysml", []byte(src), convert.FormatSysML, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
@@ -763,7 +764,7 @@ attribute d = 16.0;
 	span := source.Span{Offset: strings.Index(src, "// which wheel")}
 	span.Len = strings.Index(src, "\tpart def R;") - span.Offset
 
-	out, syntax, err := export.SysMLElement(file, span)
+	out, syntax, err := convert.SysMLElement(file, span)
 	if err != nil || syntax != nil {
 		t.Fatalf("element: err=%v syntax=%v", err, syntax)
 	}
@@ -785,17 +786,17 @@ func TestSysMLElementDropsTrailingComments(t *testing.T) {
 	file := source.New("session.sysml", []byte(src))
 	span := source.Span{Offset: 0, Len: strings.Index(src, "part def R;")}
 
-	out, _, err := export.SysMLElement(file, span)
+	out, _, err := convert.SysMLElement(file, span)
 	if err != nil {
 		t.Fatalf("element: %v", err)
 	}
 	if got := strings.TrimRight(string(out), "\n"); got != "part def Q { attribute d = 16.0; }" {
 		t.Errorf("element output carries trailing trivia:\n%q", got)
 	}
-	if _, _, err := export.SysMLElement(file, source.Span{
+	if _, _, err := convert.SysMLElement(file, source.Span{
 		Offset: strings.Index(src, "// which wheel"),
 		Len:    len("// which wheel\n"),
-	}); !errors.Is(err, export.ErrNoNotation) {
+	}); !errors.Is(err, convert.ErrNoNotation) {
 		t.Errorf("a span holding only a comment: err=%v, want ErrNoNotation", err)
 	}
 }
@@ -805,11 +806,11 @@ func TestSysMLElementDropsTrailingComments(t *testing.T) {
 func TestSysMLElementWithoutSource(t *testing.T) {
 	file := source.New("session.sysml", []byte("part def Q;"))
 	for _, span := range []source.Span{{}, {Offset: 0, Len: 99}, {Offset: -1, Len: 2}} {
-		if _, _, err := export.SysMLElement(file, span); !errors.Is(err, export.ErrNoNotation) {
+		if _, _, err := convert.SysMLElement(file, span); !errors.Is(err, convert.ErrNoNotation) {
 			t.Errorf("span %+v: err=%v, want ErrNoNotation", span, err)
 		}
 	}
-	if _, _, err := export.SysMLElement(nil, source.Span{Len: 1}); !errors.Is(err, export.ErrNoNotation) {
+	if _, _, err := convert.SysMLElement(nil, source.Span{Len: 1}); !errors.Is(err, convert.ErrNoNotation) {
 		t.Errorf("no file: err=%v, want ErrNoNotation", err)
 	}
 }
@@ -827,11 +828,11 @@ func TestKindKeywordSynonymsSurviveRDF(t *testing.T) {
 		"snapshot sn;",
 	} {
 		src := "package P {\n\t" + decl + "\n}"
-		turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+		turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 		if err != nil {
 			t.Fatalf("%s: to turtle: %v", decl, err)
 		}
-		back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+		back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("%s: back to notation: %v", decl, err)
 		}
@@ -853,11 +854,11 @@ func TestConditionMembersSurviveRDF(t *testing.T) {
 		"assert constraint inner {\n            mass < 1000;\n        }",
 	} {
 		src := "package P {\n\tattribute mass;\n\tconstraint def Light;\n\tconstraint c {\n\t\t" + member + "\n\t}\n}"
-		turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+		turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 		if err != nil {
 			t.Fatalf("%s: to turtle: %v", member, err)
 		}
-		back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+		back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("%s: back to notation: %v", member, err)
 		}
@@ -876,11 +877,11 @@ func TestRequirementConditionsSurviveRDF(t *testing.T) {
 		"require constraint {\n            mass < 100;\n        }",
 	} {
 		src := "package P {\n\tattribute mass;\n\tconstraint def Light;\n\trequirement r {\n\t\t" + member + "\n\t}\n}"
-		turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+		turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 		if err != nil {
 			t.Fatalf("%s: to turtle: %v", member, err)
 		}
-		back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+		back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("%s: back to notation: %v", member, err)
 		}
@@ -911,7 +912,7 @@ func TestRequirementConditionDeclarationsSurviveRDF(t *testing.T) {
 		{written: "require Light {\n        }"},
 	} {
 		src := "package P {\n\tattribute mass;\n\tconstraint def Light;\n\tmetadata def Goal;\n\trequirement r {\n\t\t" + member.written + "\n\t}\n}"
-		turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+		turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 		if err != nil {
 			t.Fatalf("%s: to turtle: %v", member.written, err)
 		}
@@ -926,7 +927,7 @@ func TestRequirementConditionDeclarationsSurviveRDF(t *testing.T) {
 			{turtle, member.written},
 			{withoutTriples(t, turtle, "sysx:sourceText"), structural},
 		} {
-			back, err := export.Convert("m.ttl", hop.graph, export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert("m.ttl", hop.graph, convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("%s: back to notation: %v", member.written, err)
 			}
@@ -945,11 +946,11 @@ func TestAssertedUsagePrefixSurvivesRDF(t *testing.T) {
 		"assert not constraint bad : Light;",
 	} {
 		src := "package P {\n\tconstraint def Light;\n\tpart def Q {\n\t\t" + decl + "\n\t}\n}"
-		turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+		turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 		if err != nil {
 			t.Fatalf("%s: to turtle: %v", decl, err)
 		}
-		back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+		back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("%s: back to notation: %v", decl, err)
 		}
@@ -976,11 +977,11 @@ func TestQuotedNamesSurviveRDF(t *testing.T) {
 		"part def 'it\\'s';",
 	} {
 		src := "package P {\n\tpart def 'Rover Model';\n\t" + decl + "\n}"
-		turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+		turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 		if err != nil {
 			t.Fatalf("%s: to turtle: %v", decl, err)
 		}
-		back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+		back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("%s: back to notation: %v", decl, err)
 		}
@@ -1004,11 +1005,11 @@ func TestSubjectBodySurvivesRDF(t *testing.T) {
 		"subject s : Rover { }": "subject s : Rover {",
 	} {
 		src := "package P {\n\tpart def Rover;\n\trequirement req {\n\t\t" + member + "\n\t}\n}"
-		turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+		turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 		if err != nil {
 			t.Fatalf("%s: to turtle: %v", member, err)
 		}
-		back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+		back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("%s: back to notation: %v", member, err)
 		}
@@ -1025,7 +1026,7 @@ func TestCommentInHeadDoesNotChangeKeyword(t *testing.T) {
 		"package P {\n\tattribute // the flow rate\n\t\trate : Real;\n}",
 		"package P {\n\tpart /* a state */ def X;\n}",
 	} {
-		turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+		turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 		if err != nil {
 			t.Fatalf("to turtle: %v", err)
 		}
@@ -1060,7 +1061,7 @@ func TestCommentedKindKeywordIsNotWrittenBack(t *testing.T) {
 		"keyword written":     {"package P {\n\tpart p {\n\t\tin attribute z : Real;\n\t}\n}", "in attribute z : Real;"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			turtle, err := export.Convert("m.sysml", []byte(tt.src), export.FormatSysML, export.FormatTurtle)
+			turtle, err := convert.Convert("m.sysml", []byte(tt.src), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
@@ -1076,11 +1077,11 @@ func TestCommentedKindKeywordIsNotWrittenBack(t *testing.T) {
 // keyword on it needs no rebuilding and is not refused.
 func TestVerbatimSynonymConverts(t *testing.T) {
 	src := "package P {\n\trequirement def R;\n\tverify R;\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -1093,11 +1094,11 @@ func TestVerbatimSynonymConverts(t *testing.T) {
 // it was written with: the canonical `action` would be a different declaration.
 func TestPerformedActionKeepsItsKeyword(t *testing.T) {
 	src := "package P {\n\taction def A;\n\tpart def Q {\n\t\tperform a : A;\n\t}\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -1111,11 +1112,11 @@ func TestPerformedActionKeepsItsKeyword(t *testing.T) {
 // reparses as a plain `case`, a different kind.
 func TestShortKindKeywordSurvivesTheRoundTrip(t *testing.T) {
 	src := "package P {\n\tverification def V;\n\tanalysis def A;\n\tanalysis a : A;\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -1154,7 +1155,7 @@ func TestPrefixMetadataComesBackFromTheGraphAlone(t *testing.T) {
 	for _, head := range heads {
 		t.Run(head.written, func(t *testing.T) {
 			src := "package P {\n    metadata def <safe> Safety;\n    metadata def Reviewed;\n    part def Vehicle;\n    requirement def Goal;\n    use case def Ride;\n    constraint def Stopped;\n    action def Move;\n    " + head.written + "\n}\n"
-			turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+			turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
@@ -1166,7 +1167,7 @@ func TestPrefixMetadataComesBackFromTheGraphAlone(t *testing.T) {
 					t.Fatalf("the metadata type %s is written as a name, not linked to its definition:\n%s", name, turtle)
 				}
 			}
-			back, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v", err)
 			}
@@ -1177,7 +1178,7 @@ func TestPrefixMetadataComesBackFromTheGraphAlone(t *testing.T) {
 			if !strings.Contains(string(back), want) {
 				t.Fatalf("the head should come back as `%s`:\n%s", want, back)
 			}
-			again, err := export.Convert("m.sysml", back, export.FormatSysML, export.FormatTurtle)
+			again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
@@ -1203,18 +1204,18 @@ func TestVarPrefixMetadataComesBackFromTheGraphAlone(t *testing.T) {
 	for _, head := range heads {
 		t.Run(head, func(t *testing.T) {
 			src := "package P {\n    metadata def Safety;\n    class C {\n        " + head + "\n    }\n}\n"
-			turtle, err := export.Convert("m.kerml", []byte(src), export.FormatSysML, export.FormatTurtle)
+			turtle, err := convert.Convert("m.kerml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
-			back, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v", err)
 			}
 			if !strings.Contains(string(back), head) {
 				t.Fatalf("the head should come back as written:\n%s", back)
 			}
-			again, err := export.Convert("m.kerml", back, export.FormatSysML, export.FormatTurtle)
+			again, err := convert.Convert("m.kerml", back, convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
@@ -1238,21 +1239,21 @@ func TestNegatedInvariantComesBackFromTheGraphAlone(t *testing.T) {
 			structural := func(turtle []byte) []byte {
 				return withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
 			}
-			turtle, err := export.Convert("m.kerml", []byte(src), export.FormatSysML, export.FormatTurtle)
+			turtle, err := convert.Convert("m.kerml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
 			if got := strings.Count(string(turtle), "sysml:isNegated"); got != strings.Count(head, "false") {
 				t.Fatalf("isNegated written %d times for %q:\n%s", got, head, turtle)
 			}
-			notation, err := export.Convert("m.ttl", structural(turtle), export.FormatTurtle, export.FormatSysML)
+			notation, err := convert.Convert("m.ttl", structural(turtle), convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v", err)
 			}
 			if !strings.Contains(string(notation), back) {
 				t.Fatalf("the head should come back as `%s`:\n%s", back, notation)
 			}
-			again, err := export.Convert("m.kerml", notation, export.FormatSysML, export.FormatTurtle)
+			again, err := convert.Convert("m.kerml", notation, convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
@@ -1269,7 +1270,7 @@ func TestNegatedInvariantComesBackFromTheGraphAlone(t *testing.T) {
 // it; a member named as another position is no collision.
 func TestPrefixCollidingWithAPositionNamedMemberIsReported(t *testing.T) {
 	src := "package P {\n\tmetadata def Safety;\n\t#Safety part def Car {\n\t\tpart '@1';\n\t}\n}"
-	_, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	_, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("expected an unsupported error, got %v", err)
@@ -1281,11 +1282,11 @@ func TestPrefixCollidingWithAPositionNamedMemberIsReported(t *testing.T) {
 	}
 
 	src = "package P {\n\tmetadata def Safety;\n\t#Safety part def Car {\n\t\tpart '@0';\n\t}\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	back, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -1298,7 +1299,7 @@ func TestPrefixCollidingWithAPositionNamedMemberIsReported(t *testing.T) {
 // relationship owns it, so a client reaches it the way it reaches any member.
 func TestMetadataOnARelationshipIsOwnedThroughAMembership(t *testing.T) {
 	src := "package P {\n\tmetadata def Safety;\n\tpart def Car;\n\t#Safety dependency from P to Car;\n\trequirement def R {\n\t\tsubject #Safety s : Car;\n\t}\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -1322,7 +1323,7 @@ func TestMetadataOnARelationshipIsOwnedThroughAMembership(t *testing.T) {
 			}
 		}
 	}
-	back, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -1366,18 +1367,18 @@ func TestMetadataMembersComeBackFromTheGraphAlone(t *testing.T) {
 				want = member.written
 			}
 			src := "package P {\n    metadata def Safety {\n        attribute level : Integer;\n        attribute reviewer : String;\n        item audit {\n            attribute year : Integer;\n        }\n    }\n    part def Vehicle;\n    part def Car {\n        attribute name : String;\n    }\n    part car : Car {\n        attribute mass : Real;\n        " + member.written + "\n    }\n}\n"
-			turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+			turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
-			back, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v", err)
 			}
 			if !strings.Contains(string(back), want) {
 				t.Fatalf("the member should come back as %q:\n%s", want, back)
 			}
-			again, err := export.Convert("m.sysml", back, export.FormatSysML, export.FormatTurtle)
+			again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
@@ -1397,14 +1398,14 @@ func TestMetadataMembersComeBackFromTheGraphAlone(t *testing.T) {
 // the writer puts every one back in its about clause.
 func TestEveryAnnotatedElementIsStated(t *testing.T) {
 	src := "package P {\n\tmetadata def Safety;\n\tpart def Car;\n\tpart def Truck;\n\tpart def Van;\n\t@Safety about Car, Truck, Van;\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
 	if !strings.Contains(string(turtle), "sysml:annotatedElement elmt:P__Car, elmt:P__Truck, elmt:P__Van") {
 		t.Errorf("the graph does not annotate every element:\n%s", turtle)
 	}
-	back, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -1418,12 +1419,12 @@ func TestEveryAnnotatedElementIsStated(t *testing.T) {
 // the grammar has no place for.
 func TestPrefixAnnotationWithABodyIsReported(t *testing.T) {
 	src := "package P {\n\tmetadata def Safety {\n\t\tattribute level : Integer;\n\t}\n\tpart car {\n\t\t@Safety {\n\t\t\tlevel = 2;\n\t\t}\n\t}\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
 	asPrefix := strings.Replace(string(withoutTriples(t, turtle, "sysx:sourceText")), `sysx:declaredKeyword "@"`, `sysx:declaredKeyword "#"`, 1)
-	_, err = export.Convert("m.ttl", []byte(asPrefix), export.FormatTurtle, export.FormatSysML)
+	_, err = convert.Convert("m.ttl", []byte(asPrefix), convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("expected an unsupported error, got %v", err)
@@ -1439,7 +1440,7 @@ func TestPrefixAnnotationWithABodyIsReported(t *testing.T) {
 // written form rather than written as a declaration that does not parse.
 func TestMetadataUsageWithoutOneDefinitionIsReported(t *testing.T) {
 	src := "package P {\n\tmetadata def M;\n\tpart def Car;\n\tmetadata m : M about Car;\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -1457,7 +1458,7 @@ func TestMetadataUsageWithoutOneDefinitionIsReported(t *testing.T) {
 		if form.keyword == "@" {
 			graph = strings.Replace(graph, `sysml:declaredName "m" ;`, `sysml:declaredName "m" ;`+"\n"+`    sysx:declaredKeyword "@" ;`, 1)
 		}
-		_, err := export.Convert("m.ttl", []byte(graph), export.FormatTurtle, export.FormatSysML)
+		_, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
 		var unsupported *export.UnsupportedError
 		if !errors.As(err, &unsupported) {
 			t.Fatalf("%s form, types %q: expected an unsupported error, got %v", form.keyword, form.replacement, err)
@@ -1475,7 +1476,7 @@ func TestMetadataUsageWithoutOneDefinitionIsReported(t *testing.T) {
 // written as an `@Car` annotation, in each of the three forms.
 func TestMetadataUsageTypedByANonMetadataDefinitionIsReported(t *testing.T) {
 	src := "package P {\n\tmetadata def M;\n\tpart def Car;\n\tattribute def Mass;\n\tmetadata m : M about Car;\n\t@M;\n\t#M part def Truck;\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -1485,7 +1486,7 @@ func TestMetadataUsageTypedByANonMetadataDefinitionIsReported(t *testing.T) {
 	if len(typings) != 4 {
 		t.Fatalf("expected three metadata usages typed by M in the graph:\n%s", structural)
 	}
-	if _, err := export.Convert("m.ttl", []byte(structural), export.FormatTurtle, export.FormatSysML); err != nil {
+	if _, err := convert.Convert("m.ttl", []byte(structural), convert.FormatTurtle, convert.FormatSysML); err != nil {
 		t.Fatalf("control: the graph typed by M does not convert: %v", err)
 	}
 	for _, other := range []struct{ id, metaclass string }{{"P__Car", "PartDefinition"}, {"P__Mass", "AttributeDefinition"}} {
@@ -1500,7 +1501,7 @@ func TestMetadataUsageTypedByANonMetadataDefinitionIsReported(t *testing.T) {
 					graph += typing + rest
 				}
 			}
-			_, err := export.Convert("m.ttl", []byte(graph), export.FormatTurtle, export.FormatSysML)
+			_, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
 			var unsupported *export.UnsupportedError
 			if !errors.As(err, &unsupported) {
 				t.Fatalf("usage %d typed by %s: expected an unsupported error, got %v", i, other.id, err)
@@ -1520,7 +1521,7 @@ func TestMetadataUsageTypedByANonMetadataDefinitionIsReported(t *testing.T) {
 // each of the three forms rather than written as `@42` or `@1 + 2`.
 func TestMetadataUsageTypedByANonNameLiteralIsReported(t *testing.T) {
 	src := "package P {\n\tmetadata def M;\n\tpart def Car;\n\tmetadata m : M about Car;\n\t@M;\n\t#M part def Truck;\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -1543,7 +1544,7 @@ func TestMetadataUsageTypedByANonNameLiteralIsReported(t *testing.T) {
 	}
 	// Control: a name the graph does not define is written as that name.
 	for i, want := range []string{"metadata m : Ext::'Safety Level' about Car;", "@Ext::'Safety Level';", "#Ext::'Safety Level' part def Truck;"} {
-		back, err := export.Convert("m.ttl", []byte(retyped(i, `"Ext::Safety Level"`)), export.FormatTurtle, export.FormatSysML)
+		back, err := convert.Convert("m.ttl", []byte(retyped(i, `"Ext::Safety Level"`)), convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("usage %d typed by a plain name: %v", i, err)
 		}
@@ -1559,7 +1560,7 @@ func TestMetadataUsageTypedByANonNameLiteralIsReported(t *testing.T) {
 		{`"M"@en`, "a language-tagged literal is an rdf:langString"},
 	} {
 		for i := 0; i < 3; i++ {
-			_, err := export.Convert("m.ttl", []byte(retyped(i, literal.object)), export.FormatTurtle, export.FormatSysML)
+			_, err := convert.Convert("m.ttl", []byte(retyped(i, literal.object)), convert.FormatTurtle, convert.FormatSysML)
 			var unsupported *export.UnsupportedError
 			if !errors.As(err, &unsupported) {
 				t.Fatalf("usage %d typed by %s: expected an unsupported error, got %v", i, literal.object, err)
@@ -1580,7 +1581,7 @@ func TestMetadataUsageTypedByANonNameLiteralIsReported(t *testing.T) {
 		{`"M\\"`, "ending in a backslash"},
 	} {
 		for i := 0; i < 3; i++ {
-			_, err := export.Convert("m.ttl", []byte(retyped(i, literal.object)), export.FormatTurtle, export.FormatSysML)
+			_, err := convert.Convert("m.ttl", []byte(retyped(i, literal.object)), convert.FormatTurtle, convert.FormatSysML)
 			var unsupported *export.UnsupportedError
 			if !errors.As(err, &unsupported) {
 				t.Fatalf("usage %d typed by %s: expected an unsupported error, got %v", i, literal.object, err)
@@ -1600,7 +1601,7 @@ func TestMetadataUsageTypedByANonNameLiteralIsReported(t *testing.T) {
 func TestMetadataUsageWithAnUnsupportedKeywordIsReported(t *testing.T) {
 	refused := func(name, graph string, wants ...string) {
 		t.Helper()
-		_, err := export.Convert("m.ttl", []byte(graph), export.FormatTurtle, export.FormatSysML)
+		_, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
 		var unsupported *export.UnsupportedError
 		if !errors.As(err, &unsupported) {
 			t.Fatalf("%s: expected an unsupported error, got %v", name, err)
@@ -1613,7 +1614,7 @@ func TestMetadataUsageWithAnUnsupportedKeywordIsReported(t *testing.T) {
 	}
 
 	src := "package P {\n\tmetadata def M;\n\tpart def Car;\n\tmetadata m : M about Car;\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -1634,7 +1635,7 @@ func TestMetadataUsageWithAnUnsupportedKeywordIsReported(t *testing.T) {
 	}
 
 	root := "metadata def M;\n@M;\n"
-	turtle, err = export.Convert("m.sysml", []byte(root), export.FormatSysML, export.FormatTurtle)
+	turtle, err = convert.Convert("m.sysml", []byte(root), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -1650,7 +1651,7 @@ func TestMetadataUsageWithAnUnsupportedKeywordIsReported(t *testing.T) {
 // refused rather than dropped from the body it was read from.
 func TestPrefixOnAnUnprefixableHeadIsReported(t *testing.T) {
 	src := "package P {\n\tmetadata def Safety;\n\taction def A {\n\t\t#Safety action a;\n\t}\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -1658,7 +1659,7 @@ func TestPrefixOnAnUnprefixableHeadIsReported(t *testing.T) {
 	if asFork == string(turtle) {
 		t.Fatalf("the action usage was not found in the graph:\n%s", turtle)
 	}
-	_, err = export.Convert("m.ttl", []byte(asFork), export.FormatTurtle, export.FormatSysML)
+	_, err = convert.Convert("m.ttl", []byte(asFork), convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("expected an unsupported error, got %v", err)
@@ -1673,7 +1674,7 @@ func TestPrefixOnAnUnprefixableHeadIsReported(t *testing.T) {
 // does not parse), so such a graph is refused rather than written unparseable.
 func TestPrefixOnAConditionWithoutADeclarationIsReported(t *testing.T) {
 	src := "package P {\n\tmetadata def Safety;\n\tconstraint def C;\n\trequirement def R {\n\t\tassume #Safety constraint c;\n\t}\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -1690,7 +1691,7 @@ func TestPrefixOnAConditionWithoutADeclarationIsReported(t *testing.T) {
 	} {
 		t.Run(tc.form, func(t *testing.T) {
 			edited := strings.Replace(structural, declaration, tc.triples, 1)
-			_, err := export.Convert("m.ttl", []byte(edited), export.FormatTurtle, export.FormatSysML)
+			_, err := convert.Convert("m.ttl", []byte(edited), convert.FormatTurtle, convert.FormatSysML)
 			var unsupported *export.UnsupportedError
 			if !errors.As(err, &unsupported) {
 				t.Fatalf("expected an unsupported error, got %v", err)
@@ -1708,7 +1709,7 @@ func TestPrefixOnAConditionWithoutADeclarationIsReported(t *testing.T) {
 // (`sysx:hasBody false`) is refused, not written as an invented constraint.
 func TestConditionWithoutAConditionIsReported(t *testing.T) {
 	src := "package P {\n\tconstraint def C;\n\trequirement def R {\n\t\tassume constraint c;\n\t}\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -1719,7 +1720,7 @@ func TestConditionWithoutAConditionIsReported(t *testing.T) {
 		}
 	}
 	edited := strings.Replace(structural, `sysx:declaredKeyword "constraint" ;`, "", 1)
-	_, err = export.Convert("m.ttl", []byte(edited), export.FormatTurtle, export.FormatSysML)
+	_, err = convert.Convert("m.ttl", []byte(edited), convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("expected an unsupported error, got %v", err)
@@ -1734,7 +1735,7 @@ func TestConditionWithoutAConditionIsReported(t *testing.T) {
 // member written in a form the keyword did not state.
 func TestConditionWithAnUnsupportedKeywordIsReported(t *testing.T) {
 	src := "package P {\n\tconstraint def C;\n\trequirement def R {\n\t\tassume constraint c { true }\n\t\trequire constraint d;\n\t\trequire C;\n\t}\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -1762,7 +1763,7 @@ func TestConditionWithAnUnsupportedKeywordIsReported(t *testing.T) {
 			if tc.edited == structural {
 				t.Fatal("the graph was not edited")
 			}
-			_, err := export.Convert("m.ttl", []byte(tc.edited), export.FormatTurtle, export.FormatSysML)
+			_, err := convert.Convert("m.ttl", []byte(tc.edited), convert.FormatTurtle, convert.FormatSysML)
 			var unsupported *export.UnsupportedError
 			if !errors.As(err, &unsupported) {
 				t.Fatalf("expected an unsupported error, got %v", err)
@@ -1775,7 +1776,7 @@ func TestConditionWithAnUnsupportedKeywordIsReported(t *testing.T) {
 		})
 	}
 	// The unedited graph still round-trips: `constraint` is the one supported keyword.
-	back, err := export.Convert("m.ttl", []byte(structural), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", []byte(structural), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to sysml: %v", err)
 	}
@@ -1791,7 +1792,7 @@ func TestConditionWithAnUnsupportedKeywordIsReported(t *testing.T) {
 // condition alone would drop the rest.
 func TestInlineConditionWithDeclarationFactsIsReported(t *testing.T) {
 	src := "package P {\n\tconstraint def C;\n\trequirement def R {\n\t\trequire C;\n\t}\n\tconstraint q {\n\t\tassert C;\n\t}\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -1818,7 +1819,7 @@ func TestInlineConditionWithDeclarationFactsIsReported(t *testing.T) {
 			if edited == structural {
 				t.Fatal("the graph was not edited")
 			}
-			_, err := export.Convert("m.ttl", []byte(edited), export.FormatTurtle, export.FormatSysML)
+			_, err := convert.Convert("m.ttl", []byte(edited), convert.FormatTurtle, convert.FormatSysML)
 			var unsupported *export.UnsupportedError
 			if !errors.As(err, &unsupported) {
 				t.Fatalf("expected an unsupported error, got %v", err)
@@ -1831,7 +1832,7 @@ func TestInlineConditionWithDeclarationFactsIsReported(t *testing.T) {
 		})
 	}
 	// The unedited graph still round-trips: the inline form alone is the form.
-	back, err := export.Convert("m.ttl", []byte(structural), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", []byte(structural), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to sysml: %v", err)
 	}
@@ -1859,11 +1860,11 @@ func TestPrefixOnAVerbatimHeadIsWrittenOrReported(t *testing.T) {
 	}
 	for _, head := range heads {
 		src := "package P {\n\tmetadata def Safety;\n\tmetadata def Audit;\n\tattribute xs : Integer[*];\n\tpart def A {\n\t\tport x;\n\t\tport y;\n\t}\n\tpart a : A {\n\t\t" + head + "\n\t}\n}"
-		turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+		turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 		if err != nil {
 			t.Fatalf("%s: to turtle: %v", head, err)
 		}
-		back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+		back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("%s: back to notation: %v", head, err)
 		}
@@ -1873,11 +1874,11 @@ func TestPrefixOnAVerbatimHeadIsWrittenOrReported(t *testing.T) {
 		}
 	}
 	src := "package P {\n    metadata def Safety;\n    metadata def Audit;\n    part a {\n        port x;\n        port y;\n        #Safety connect x to y;\n    }\n}\n"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	back, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation without source text: %v", err)
 	}
@@ -1895,7 +1896,7 @@ func TestPrefixOnAVerbatimHeadIsWrittenOrReported(t *testing.T) {
 		if edited == string(turtle) {
 			t.Fatalf("the verbatim head was not found in the graph:\n%s", turtle)
 		}
-		back, err := export.Convert("m.ttl", []byte(edited), export.FormatTurtle, export.FormatSysML)
+		back, err := convert.Convert("m.ttl", []byte(edited), convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("%s: back to notation: %v", stale, err)
 		}
@@ -1914,7 +1915,7 @@ func TestPrefixOnAVerbatimHeadIsWrittenOrReported(t *testing.T) {
 		if edited == string(turtle) {
 			t.Fatalf("the prefix's keyword was not found in the graph:\n%s", turtle)
 		}
-		_, err = export.Convert("m.ttl", []byte(edited), export.FormatTurtle, export.FormatSysML)
+		_, err = convert.Convert("m.ttl", []byte(edited), convert.FormatTurtle, convert.FormatSysML)
 		var unsupported *export.UnsupportedError
 		if !errors.As(err, &unsupported) {
 			t.Fatalf("%s: expected an unsupported error, got %v", tc.keywords, err)
@@ -1931,11 +1932,11 @@ func TestPrefixOnAVerbatimHeadIsWrittenOrReported(t *testing.T) {
 // graph must not put a keyword back that the author never wrote.
 func TestImplicitKindStaysImplicitThroughTheRoundTrip(t *testing.T) {
 	src := "package P {\n\taction def Drive {\n\t\tin x : Real;\n\t\tin attribute y : Real;\n\t\tout result : Real;\n\t}\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -1949,8 +1950,8 @@ func TestImplicitKindStaysImplicitThroughTheRoundTrip(t *testing.T) {
 // Every direction rejects notation the parser cannot read, including the
 // notation-to-notation save: formatting broken input would suggest it is valid.
 func TestSysMLToSysMLChecksSyntax(t *testing.T) {
-	_, err := export.Convert("bad.sysml", []byte("package P {\n\tpart ((( ;\n}"), export.FormatSysML, export.FormatSysML)
-	var syntax *export.SyntaxError
+	_, err := convert.Convert("bad.sysml", []byte("package P {\n\tpart ((( ;\n}"), convert.FormatSysML, convert.FormatSysML)
+	var syntax *convert.SyntaxError
 	if !errors.As(err, &syntax) {
 		t.Fatalf("want a SyntaxError, got %v", err)
 	}
@@ -1970,7 +1971,7 @@ func TestSuccessionRoundTrips(t *testing.T) {
 		then action c : A;
 	}
 }`
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -1979,7 +1980,7 @@ func TestSuccessionRoundTrips(t *testing.T) {
 			t.Errorf("the graph should carry the succession as %s:\n%s", want, turtle)
 		}
 	}
-	back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -1988,7 +1989,7 @@ func TestSuccessionRoundTrips(t *testing.T) {
 	}
 	// The notation that came back declares the same succession: converting it
 	// again yields the same graph, which member order could not have done.
-	again, err := export.Convert("m.sysml", back, export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
@@ -2010,20 +2011,20 @@ func TestSuccessionRoundTripsInEveryBody(t *testing.T) {
 	for name, body := range bodies {
 		t.Run(name, func(t *testing.T) {
 			src := "package P {\n\tstate def S;\n\t" + body + "\n}"
-			turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+			turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
 			if !strings.Contains(string(turtle), "sysml:sourceFeature") {
 				t.Fatalf("the graph should carry the succession's ends:\n%s", turtle)
 			}
-			back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v", err)
 			}
 			// The notation that came back has to parse, and to declare the same
 			// succession: a body that cannot read the edge form loses the order.
-			again, err := export.Convert("m.sysml", back, export.FormatSysML, export.FormatTurtle)
+			again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle again (%s):\n%s\n%v", name, back, err)
 			}
@@ -2065,7 +2066,7 @@ elmt:P::a
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:sourceFeature elmt:P::a .
 `
-	out, err := export.Convert("m.ttl", []byte(graph), export.FormatTurtle, export.FormatSysML)
+	out, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
 	if err == nil {
 		t.Fatalf("a succession naming one end converted to:\n%s", out)
 	}
@@ -2082,8 +2083,8 @@ func TestSuccessionOnNonUsageIsASyntaxError(t *testing.T) {
 		"package P {\n\tpart def Q {\n\t\tpart a;\n\t\tthen package Inner { }\n\t}\n}",
 		"package P {\n\tpart def Q {\n\t\tpart a;\n\t\tthen attribute x;\n\t}\n}",
 	} {
-		_, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
-		var syntax *export.SyntaxError
+		_, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+		var syntax *convert.SyntaxError
 		if !errors.As(err, &syntax) {
 			t.Errorf("want a SyntaxError for %q, got %v", src, err)
 		}
@@ -2094,7 +2095,7 @@ func TestSuccessionOnNonUsageIsASyntaxError(t *testing.T) {
 // sharing a name would merge into a single subject.
 func TestDuplicateNameIsUnsupported(t *testing.T) {
 	src := "package P {\n\tpart def A;\n\tpart def A;\n}"
-	_, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	_, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("want an UnsupportedError for a duplicate name, got %v", err)
@@ -2112,7 +2113,7 @@ elmt:A a sysml:Package ; sysml:declaredName "A" ; sysml:qualifiedName "A" ;
 elmt:B a sysml:Package ; sysml:declaredName "B" ; sysml:qualifiedName "B" ;
   sysml:owningNamespace elmt:A .
 `
-	out, err := export.Convert("cycle.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
+	out, err := convert.Convert("cycle.ttl", []byte(turtle), convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("want an UnsupportedError for a containment cycle, got %v (output %q)", err, out)
@@ -2128,11 +2129,11 @@ func TestCommentsThroughRDF(t *testing.T) {
 	comment about Wheel /* a note on wheels */
 	part def Wheel;
 }`
-	ttl, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	ttl, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	back, err := export.Convert("m.ttl", ttl, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", ttl, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("to sysml: %v", err)
 	}
@@ -2168,14 +2169,14 @@ func TestVerbatimHeadsRoundTrip(t *testing.T) {
         connect engine to spare;
     }
 }`
-	turtle, err := export.Convert("conn.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("conn.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
 	if !strings.Contains(string(turtle), "sourceText") {
 		t.Fatalf("expected the connect declaration to be carried as source text:\n%s", turtle)
 	}
-	back, err := export.Convert("conn.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("conn.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -2241,18 +2242,18 @@ func TestEndBindingHeadsComeBackFromTheGraphAlone(t *testing.T) {
 	for _, head := range heads {
 		t.Run(head, func(t *testing.T) {
 			src := "package P {\n    port def Bus;\n    requirement def R;\n    part v;\n    part def Car {\n        port left : Bus;\n        port right : Bus;\n        attribute a : Integer;\n        attribute b : Integer;\n        " + head + "\n    }\n}\n"
-			turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+			turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
-			back, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v", err)
 			}
 			if !strings.Contains(string(back), head) {
 				t.Fatalf("the head should come back as written:\n%s", back)
 			}
-			again, err := export.Convert("m.sysml", back, export.FormatSysML, export.FormatTurtle)
+			again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
@@ -2267,7 +2268,7 @@ func TestEndBindingHeadsComeBackFromTheGraphAlone(t *testing.T) {
 // so `bind [0..1] a = [0..1] b` keeps both ends' bounds without its source text.
 func TestBindingEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 	src := "package P {\n    part def Car {\n        attribute a : Integer;\n        attribute b : Integer;\n        bind [0..1] a = [0..1] b;\n    }\n}\n"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -2294,7 +2295,7 @@ func TestBindingEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 	for _, property := range []string{"sysml:lowerBound", "sysml:upperBound"} {
 		stripped = withoutTriples(t, stripped, property)
 	}
-	back, err := export.Convert("m.ttl", stripped, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -2355,7 +2356,7 @@ func TestKerMLConnectorEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.head, func(t *testing.T) {
 			src := "package P {\n    class C {\n        step a;\n        step b;\n        " + c.head + "\n    }\n}\n"
-			turtle, err := export.Convert("m.kerml", []byte(src), export.FormatSysML, export.FormatTurtle)
+			turtle, err := convert.Convert("m.kerml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
@@ -2381,7 +2382,7 @@ func TestKerMLConnectorEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 				return
 			}
 			// The bounds alone carry the multiplicities back into notation.
-			back, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v", err)
 			}
@@ -2393,7 +2394,7 @@ func TestKerMLConnectorEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 			for _, property := range []string{"sysml:lowerBound", "sysml:upperBound"} {
 				stripped = withoutTriples(t, stripped, property)
 			}
-			back, err = export.Convert("m.ttl", stripped, export.FormatTurtle, export.FormatSysML)
+			back, err = convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation without bounds: %v", err)
 			}
@@ -2411,7 +2412,7 @@ func TestEndBindingBodiesComeBackFromTheGraphAlone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	turtle, err := export.Convert("m.sysml", src, export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", src, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -2440,11 +2441,11 @@ func TestEndBindingBodiesComeBackFromTheGraphAlone(t *testing.T) {
 	// Without the text, the notation is rebuilt from the mapping alone; it may
 	// differ in layout from the notation the text writes, never in what it says.
 	structural := withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
-	back, err := export.Convert("m.ttl", structural, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", structural, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation without source text: %v", err)
 	}
-	withText, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	withText, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -2463,7 +2464,7 @@ func TestEndBindingBodiesComeBackFromTheGraphAlone(t *testing.T) {
 			t.Errorf("a transition should keep its effect apart from its body:\nmissing %q in\n%s", transition, back)
 		}
 	}
-	again, err := export.Convert("m.sysml", back, export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
@@ -2484,12 +2485,12 @@ func TestEmptyTransitionBlocksComeBackFromTheGraphAlone(t *testing.T) {
 	for transition, want := range transitions {
 		t.Run(transition, func(t *testing.T) {
 			src := "package P {\n\tstate def M {\n\t\tstate s1;\n\t\tstate s2;\n\t\t" + transition + "\n\t}\n}"
-			turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+			turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
 			stripped := withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
-			back, err := export.Convert("m.ttl", stripped, export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v", err)
 			}
@@ -2513,7 +2514,7 @@ func TestLegacyTransitionEffectsStayEffects(t *testing.T) {
 		effect, want := effect[0], effect[1]
 		t.Run(name, func(t *testing.T) {
 			src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1;\n\t\tstate s2;\n\t\ttransition first s1 " + effect + " then s2;\n\t}\n}"
-			turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+			turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
@@ -2524,7 +2525,7 @@ func TestLegacyTransitionEffectsStayEffects(t *testing.T) {
 			if !strings.Contains(legacy, "sysx:hasBody") {
 				t.Fatalf("the legacy shape needs sysx:hasBody for the effect's braces:\n%s", legacy)
 			}
-			back, err := export.Convert("m.ttl", []byte(legacy), export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert("m.ttl", []byte(legacy), convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v", err)
 			}
@@ -2543,7 +2544,7 @@ func TestLegacyTransitionEffectsStayEffects(t *testing.T) {
 // action silently moved after the target.
 func TestInconsistentTransitionLinksAreRefused(t *testing.T) {
 	src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1;\n\t\tstate s2;\n\t\ttransition first s1 do { action stop : Warm; } then s2 { action tidy : Warm; }\n\t}\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -2567,7 +2568,7 @@ func TestInconsistentTransitionLinksAreRefused(t *testing.T) {
 	for name, fault := range faults {
 		t.Run(name, func(t *testing.T) {
 			var unsupported *export.UnsupportedError
-			_, err := export.Convert("m.ttl", []byte(fault(string(turtle))), export.FormatTurtle, export.FormatSysML)
+			_, err := convert.Convert("m.ttl", []byte(fault(string(turtle))), convert.FormatTurtle, convert.FormatSysML)
 			if !errors.As(err, &unsupported) {
 				t.Fatalf("got %v, want an UnsupportedError", err)
 			}
@@ -2583,7 +2584,7 @@ func TestInconsistentTransitionLinksAreRefused(t *testing.T) {
 // than write them unchecked.
 func TestUnreadableNotationRefusesToSpellReferences(t *testing.T) {
 	src := "package P {\n\tpart def A;\n\tpart def B :> A;\n\tstate def M {\n\t\tstate s1;\n\t\tstate s2;\n\t\ttransition first s1 if true then s2;\n\t}\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -2596,7 +2597,7 @@ func TestUnreadableNotationRefusesToSpellReferences(t *testing.T) {
 	graph = string(withoutTriples(t, []byte(graph), "sysx:sourceText"))
 	graph = string(withoutTriples(t, []byte(graph), "sysx:sourceTail"))
 	var unsupported *export.UnsupportedError
-	_, err = export.Convert("m.ttl", []byte(graph), export.FormatTurtle, export.FormatSysML)
+	_, err = convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("got %v, want an UnsupportedError", err)
 	}
@@ -2616,15 +2617,15 @@ func TestBehavioralHeadsComeBackFromTheGraphAlone(t *testing.T) {
 	for name, body := range bodies {
 		t.Run(name, func(t *testing.T) {
 			src := "package P {\n    port def Bus;\n    part x;\n    part y;\n    " + body + "\n}\n"
-			turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+			turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
-			back, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v", err)
 			}
-			again, err := export.Convert("m.sysml", back, export.FormatSysML, export.FormatTurtle)
+			again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
@@ -2646,18 +2647,18 @@ func TestUnnamedSuccessionEndComesBackFromTheGraph(t *testing.T) {
 		state s1 : S;
 	}
 }`
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
 	if !strings.Contains(string(back), "then s1;") {
 		t.Fatalf("the succession beside the unnamed entry should come back:\n%s", back)
 	}
-	again, err := export.Convert("m.sysml", back, export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
@@ -2665,7 +2666,7 @@ func TestUnnamedSuccessionEndComesBackFromTheGraph(t *testing.T) {
 		t.Errorf("the second hop changed the graph\n--- first ---\n%s\n--- second ---\n%s", turtle, again)
 	}
 	// The form and the member it names carry the succession without the text.
-	fromGraph, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+	fromGraph, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the mapping alone: %v", err)
 	}
@@ -2689,14 +2690,14 @@ func TestEndFormsSurviveIrregularLayout(t *testing.T) {
 	for name, head := range heads {
 		t.Run(name, func(t *testing.T) {
 			src := "package P {\n\trequirement def R;\n\tpart def Car {\n\t\tpart left;\n\t\tpart right;\n\t\t" + head.written + "\n\t}\n}\n"
-			turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+			turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
 			if !strings.Contains(string(turtle), "sysx:endForm") {
 				t.Fatalf("the head's form should be stated:\n%s", turtle)
 			}
-			back, err := export.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation from the mapping alone: %v", err)
 			}
@@ -2711,12 +2712,12 @@ func TestEndFormsSurviveIrregularLayout(t *testing.T) {
 // alone do not say which keyword and notation the head was written in.
 func TestEndsWithoutTheirFormAreReported(t *testing.T) {
 	src := "package P {\n\tpart def Car {\n\t\tpart left;\n\t\tpart right;\n\t\tconnect left to right;\n\t}\n}"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
 	stripped := withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:endForm")
-	_, err = export.Convert("m.ttl", stripped, export.FormatTurtle, export.FormatSysML)
+	_, err = convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 	if err == nil {
 		t.Fatal("a head whose form the graph does not state should be reported")
 	}
@@ -2726,13 +2727,13 @@ func TestEndsWithoutTheirFormAreReported(t *testing.T) {
 }
 
 func TestSyntaxErrorIsReported(t *testing.T) {
-	_, err := export.Convert("bad.sysml", []byte("part def {"), export.FormatSysML, export.FormatTurtle)
+	_, err := convert.Convert("bad.sysml", []byte("part def {"), convert.FormatSysML, convert.FormatTurtle)
 	if err == nil {
 		t.Fatal("expected a syntax error")
 	}
-	syntax, ok := err.(*export.SyntaxError)
+	syntax, ok := err.(*convert.SyntaxError)
 	if !ok {
-		t.Fatalf("expected a *export.SyntaxError, got %T: %v", err, err)
+		t.Fatalf("expected a *convert.SyntaxError, got %T: %v", err, err)
 	}
 	if len(syntax.Messages) == 0 {
 		t.Error("expected at least one message")
@@ -2755,7 +2756,7 @@ func TestUnsupportedTurtleConstructs(t *testing.T) {
 	}
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {
-			if _, err := export.Convert(name+".ttl", []byte(src), export.FormatTurtle, export.FormatSysML); err == nil {
+			if _, err := convert.Convert(name+".ttl", []byte(src), convert.FormatTurtle, convert.FormatSysML); err == nil {
 				t.Error("expected an error")
 			}
 		})
@@ -2765,7 +2766,7 @@ func TestUnsupportedTurtleConstructs(t *testing.T) {
 func TestUnknownMetaclassIsUnsupported(t *testing.T) {
 	src := "@prefix sysml: <https://www.omg.org/spec/SysML#> .\n" +
 		"<urn:sysmlv2:element:X> a sysml:NoSuchMetaclass ; sysml:declaredName \"X\" ."
-	_, err := export.Convert("x.ttl", []byte(src), export.FormatTurtle, export.FormatSysML)
+	_, err := convert.Convert("x.ttl", []byte(src), convert.FormatTurtle, convert.FormatSysML)
 	if err == nil {
 		t.Fatal("expected an error")
 	}
@@ -2793,7 +2794,7 @@ func TestForeignGraph(t *testing.T) {
     sysml:owningNamespace <urn:uuid:aaaa-1> ;
     sysml:type <urn:uuid:aaaa-2> ;
     sysml:upperBound "1" .`
-	out, err := export.Convert("foreign.ttl", []byte(src), export.FormatTurtle, export.FormatSysML)
+	out, err := convert.Convert("foreign.ttl", []byte(src), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("convert: %v", err)
 	}
@@ -2814,7 +2815,7 @@ elmt:Demo a sysml:Package ; sysml:declaredName "Demo" .
 elmt:Demo__Engine a sysml:PartDefinition ;
     sysml:declaredName "Engine" ;
     sysml:owningNamespace elmt:Demo .`
-	out, err := export.Convert("foreign.ttl", []byte(src), export.FormatTurtle, export.FormatSysML)
+	out, err := convert.Convert("foreign.ttl", []byte(src), convert.FormatTurtle, convert.FormatSysML)
 	if err == nil {
 		t.Fatalf("a graph without qualified names converted to:\n%s", out)
 	}
@@ -2839,7 +2840,7 @@ elmt:P__u a sysml:PartUsage ; sysml:declaredName "u" ; sysml:qualifiedName "P::u
 elmt:P__T a sysml:PartDefinition ; sysml:declaredName "T" ; sysml:owningNamespace elmt:P .`,
 	} {
 		t.Run(name, func(t *testing.T) {
-			out, err := export.Convert("m.ttl", []byte(head+tail), export.FormatTurtle, export.FormatSysML)
+			out, err := convert.Convert("m.ttl", []byte(head+tail), convert.FormatTurtle, convert.FormatSysML)
 			if err == nil {
 				t.Fatalf("an unnameable reference converted to:\n%s", out)
 			}
@@ -2879,7 +2880,7 @@ func TestMissingRequiredPropertyIsUnsupported(t *testing.T) {
     sysml:owningNamespace elmt:P ; sysml:isNegated "true"^^xsd:boolean .`,
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := export.Convert("m.ttl", []byte(head+subject), export.FormatTurtle, export.FormatSysML)
+			_, err := convert.Convert("m.ttl", []byte(head+subject), convert.FormatTurtle, convert.FormatSysML)
 			var unsupported *export.UnsupportedError
 			if !errors.As(err, &unsupported) {
 				t.Fatalf("want an UnsupportedError, got %v", err)
@@ -2889,7 +2890,7 @@ func TestMissingRequiredPropertyIsUnsupported(t *testing.T) {
 }
 
 func TestElementIRIsEncodeQualifiedNames(t *testing.T) {
-	graph, err := export.SysMLToRDF("iri.sysml", []byte("package P { part def Q; }"))
+	graph, err := convert.SysMLToRDF("iri.sysml", []byte("package P { part def Q; }"))
 	if err != nil {
 		t.Fatalf("convert: %v", err)
 	}
@@ -2955,17 +2956,17 @@ func TestFixtureElementIDsRoundTrip(t *testing.T) {
 }
 
 func TestFormatDetection(t *testing.T) {
-	cases := map[string]export.Format{
-		"model.sysml":      export.FormatSysML,
-		"model.kerml":      export.FormatSysML,
-		"model.ttl":        export.FormatTurtle,
-		"dir/model.turtle": export.FormatTurtle,
-		"Model.xmi":        export.FormatXMI,
-		"Model.uml":        export.FormatXMI,
-		"Model.mdzip":      export.FormatXMI,
+	cases := map[string]convert.Format{
+		"model.sysml":      convert.FormatSysML,
+		"model.kerml":      convert.FormatSysML,
+		"model.ttl":        convert.FormatTurtle,
+		"dir/model.turtle": convert.FormatTurtle,
+		"Model.xmi":        convert.FormatXMI,
+		"Model.uml":        convert.FormatXMI,
+		"Model.mdzip":      convert.FormatXMI,
 	}
 	for path, want := range cases {
-		got, err := export.FormatOfPath(path)
+		got, err := convert.FormatOfPath(path)
 		if err != nil {
 			t.Fatalf("%s: %v", path, err)
 		}
@@ -2973,21 +2974,21 @@ func TestFormatDetection(t *testing.T) {
 			t.Errorf("%s: got %v, want %v", path, got, want)
 		}
 	}
-	if _, err := export.FormatOfPath("model.json"); err == nil {
+	if _, err := convert.FormatOfPath("model.json"); err == nil {
 		t.Error("expected an error for an unknown extension")
 	}
-	if _, err := export.FormatOfPath("model"); err == nil {
+	if _, err := convert.FormatOfPath("model"); err == nil {
 		t.Error("expected an error for a missing extension")
 	}
 	for _, name := range []string{"sysml", "SysML", "kerml", "ttl", " turtle ", "rdf", "xmi", "uml", "mdzip"} {
-		if _, err := export.ParseFormat(name); err != nil {
+		if _, err := convert.ParseFormat(name); err != nil {
 			t.Errorf("ParseFormat(%q): %v", name, err)
 		}
 	}
-	if _, err := export.ParseFormat("xml"); err == nil {
+	if _, err := convert.ParseFormat("xml"); err == nil {
 		t.Error("expected an error for an unknown format name")
 	}
-	if export.FormatXMI.Writable() || !export.FormatSysML.Writable() || !export.FormatTurtle.Writable() {
+	if convert.FormatXMI.Writable() || !convert.FormatSysML.Writable() || !convert.FormatTurtle.Writable() {
 		t.Error("XMI is the one format that is read and never written")
 	}
 }
@@ -3000,7 +3001,7 @@ func TestConvertFromXMI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	migrated, err := export.Migrate("vehicle.xmi", data, export.FormatSysML)
+	migrated, err := convert.Migrate("vehicle.xmi", data, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("Migrate to notation: %v", err)
 	}
@@ -3014,11 +3015,11 @@ func TestConvertFromXMI(t *testing.T) {
 	if !strings.Contains(string(notation), "part def Vehicle") {
 		t.Errorf("migrated notation lacks the Vehicle block:\n%s", notation)
 	}
-	if again, err := export.Convert("vehicle.xmi", data, export.FormatXMI, export.FormatSysML); err != nil || string(again) != string(notation) {
+	if again, err := convert.Convert("vehicle.xmi", data, convert.FormatXMI, convert.FormatSysML); err != nil || string(again) != string(notation) {
 		t.Errorf("Convert from XMI differs from Migrate: %v", err)
 	}
 
-	asTurtle, err := export.Migrate("vehicle.xmi", data, export.FormatTurtle)
+	asTurtle, err := convert.Migrate("vehicle.xmi", data, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("Migrate to Turtle: %v", err)
 	}
@@ -3030,14 +3031,14 @@ func TestConvertFromXMI(t *testing.T) {
 		t.Error("migrated Turtle is empty")
 	}
 
-	var notWritable *export.NotWritableError
-	if _, err := export.Convert("model.sysml", []byte("package P;"), export.FormatSysML, export.FormatXMI); !errors.As(err, &notWritable) {
+	var notWritable *convert.NotWritableError
+	if _, err := convert.Convert("model.sysml", []byte("package P;"), convert.FormatSysML, convert.FormatXMI); !errors.As(err, &notWritable) {
 		t.Errorf("writing XMI: got %v, want a NotWritableError", err)
 	}
-	if _, err := export.Migrate("vehicle.xmi", data, export.FormatXMI); !errors.As(err, &notWritable) {
+	if _, err := convert.Migrate("vehicle.xmi", data, convert.FormatXMI); !errors.As(err, &notWritable) {
 		t.Errorf("migrating to XMI: got %v, want a NotWritableError", err)
 	}
-	if _, err := export.Convert("model.sysml", []byte("package P;"), export.FormatXMI, export.FormatSysML); err == nil {
+	if _, err := convert.Convert("model.sysml", []byte("package P;"), convert.FormatXMI, convert.FormatSysML); err == nil {
 		t.Error("notation read as XMI was accepted")
 	}
 }
@@ -3091,7 +3092,7 @@ func TestSupersededMetadataPredicatesAreRefused(t *testing.T) {
 	}
 	refused := func(turtle []byte, property string) {
 		t.Helper()
-		_, err := export.Convert("old.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+		_, err := convert.Convert("old.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 		var unsupported *export.UnsupportedError
 		if !errors.As(err, &unsupported) {
 			t.Fatalf("expected the graph to be refused for %s, got %v", property, err)
@@ -3108,7 +3109,7 @@ func TestSupersededMetadataPredicatesAreRefused(t *testing.T) {
 
 	// Without the superseded properties the graph converts, so the refusal is
 	// the only thing standing between the graph and a silently dropped annotation.
-	back, err := export.Convert("old.ttl", withoutTriples(t, withoutPrefix, "sysml:annotates"), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("old.ttl", withoutTriples(t, withoutPrefix, "sysml:annotates"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -3128,7 +3129,7 @@ func TestSupersededPortionFlagsAreRefused(t *testing.T) {
 	}
 	refused := func(turtle []byte, property, now string) {
 		t.Helper()
-		_, err := export.Convert("old.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+		_, err := convert.Convert("old.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 		var unsupported *export.UnsupportedError
 		if !errors.As(err, &unsupported) {
 			t.Fatalf("expected the graph to be refused for %s, got %v", property, err)
@@ -3144,7 +3145,7 @@ func TestSupersededPortionFlagsAreRefused(t *testing.T) {
 	refused(withoutSnapshot, rdf.SysML+"isTimeslice", `sysml:portionKind "timeslice"`)
 
 	// With both flags gone the keyword contradicts the typing: still refused.
-	_, err = export.Convert("old.ttl", withoutTriples(t, withoutSnapshot, "sysml:isTimeslice"), export.FormatTurtle, export.FormatSysML)
+	_, err = convert.Convert("old.ttl", withoutTriples(t, withoutSnapshot, "sysml:isTimeslice"), convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("expected the untyped portion to be refused, got %v", err)
@@ -3257,7 +3258,7 @@ func TestWriteFileNamesTheMissingDirectory(t *testing.T) {
 // the syntax errors; every other direction still refuses.
 func TestConvertTolerant(t *testing.T) {
 	broken := []byte("package P { part x; }\npart 3x;\n")
-	out, syntax, err := export.ConvertTolerant("<session>", broken, export.FormatSysML, export.FormatSysML)
+	out, syntax, err := convert.ConvertTolerant("<session>", broken, convert.FormatSysML, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("sysml to sysml: %v", err)
 	}
@@ -3267,7 +3268,7 @@ func TestConvertTolerant(t *testing.T) {
 	if !strings.Contains(string(out), "part 3x;") {
 		t.Errorf("the unreadable text was dropped:\n%s", out)
 	}
-	if _, _, err := export.ConvertTolerant("<session>", broken, export.FormatSysML, export.FormatTurtle); err == nil {
+	if _, _, err := convert.ConvertTolerant("<session>", broken, convert.FormatSysML, convert.FormatTurtle); err == nil {
 		t.Error("Turtle should still refuse a broken model")
 	}
 }
@@ -3472,7 +3473,7 @@ func TestKerMLBinaryConnectorEndsCarryTheRoundTripWithoutSourceText(t *testing.T
 	}
 }
 `
-	turtle, err := export.Convert("corpus.kerml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("corpus.kerml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -3523,7 +3524,7 @@ func TestEndVerbsInCommentsAreNotVerbs(t *testing.T) {
 	}
 }
 `
-	turtle, err := export.Convert("comments.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("comments.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -3551,11 +3552,11 @@ func TestEndVerbsInCommentsAreNotVerbs(t *testing.T) {
 func backFromTheGraphAlone(t *testing.T, turtle string) string {
 	t.Helper()
 	stripped := withoutTriples(t, withoutTriples(t, []byte(turtle), "sysx:sourceText"), "sysx:sourceTail")
-	back, err := export.Convert("m.ttl", stripped, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the mapping alone: %v", err)
 	}
-	again, err := export.Convert("m.sysml", back, export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}

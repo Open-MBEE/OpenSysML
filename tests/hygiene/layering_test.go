@@ -46,6 +46,7 @@ var permitted = map[string][]string{
 var packageLayer = map[string]string{
 	"internal/core/source":       "foundation",
 	"internal/core/ast":          "foundation",
+	"internal/core/diag":         "foundation",
 	"internal/core/ast/astcodec": "foundation",
 	"internal/core/pack":         "foundation",
 	"internal/core/quickfix":     "foundation",
@@ -83,6 +84,7 @@ var packageLayer = map[string]string{
 
 	"internal/core/rdf":          "translation",
 	"internal/core/rdf/ontology": "translation",
+	"internal/core/convert":      "translation",
 	"internal/core/export":       "translation",
 	"internal/core/migrate":      "translation",
 	"internal/core/xmi":          "translation",
@@ -106,6 +108,7 @@ var packageLayer = map[string]string{
 	"api/proto":              "frontends",
 	"api/proto/protoconnect": "frontends",
 	"client/opensysml":       "frontends",
+	"internal/protoconv":     "frontends",
 	"internal/repl":          "frontends",
 	"internal/lsp":           "frontends",
 	"internal/grpc":          "frontends",
@@ -129,12 +132,16 @@ var tolerated = map[string][]string{
 	"internal/core/identity":            {"internal/core/rdf"},
 	"internal/core/migrate":             {"internal/core/libs"},
 	"internal/core/passes":              {"internal/core/rdf"},
-	"internal/core/runtime":             {"internal/core/envvar", "internal/core/parser", "internal/core/passes"},
+	"internal/core/runtime":             {"internal/core/envvar"},
 }
 
-// removed is the imports the layer table would permit that the layering took
-// out, importer → imported; reintroducing one fails.
-var removed = map[string][]string{}
+// removed is the imports the layering took out, importer → imported; reintroducing
+// one fails even where the layer table would permit it.
+var removed = map[string][]string{
+	"internal/core/export":  {"internal/core/migrate"},
+	"internal/core/runtime": {"internal/core/parser", "internal/core/passes"},
+	"internal/repl":         {"internal/grpc"},
+}
 
 // TestPackageLayering checks the import graph against the layer tables: every
 // package has a layer, and the imports outside permitted are exactly the tolerated ones.

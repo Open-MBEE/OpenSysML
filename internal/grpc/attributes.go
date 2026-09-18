@@ -7,6 +7,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // attributesOf reports the attributes an element declares and inherits, a
@@ -172,7 +173,7 @@ func (sc *SymbolContext) attributeValue(sym *symbols.Symbol) (*pb.Value, string)
 	if !ok {
 		return nil, unit
 	}
-	return ValueToProto(runtime.Value{Kind: runtime.ValConst, Const: val}, sc.Index), unit
+	return protoconv.ValueToProto(runtime.Value{Kind: runtime.ValConst, Const: val}, sc.Index), unit
 }
 
 // writesValue reports whether an attribute's declaration states a default of

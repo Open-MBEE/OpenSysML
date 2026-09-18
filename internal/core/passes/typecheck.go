@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -19,7 +20,7 @@ type TypeCheckPass struct{}
 
 func (TypeCheckPass) Level() PassLevel { return LevelType }
 
-func (TypeCheckPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (TypeCheckPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -45,7 +46,7 @@ type typeChecker struct {
 	// lang is the document's language; a document of no known kind — the REPL
 	// buffer — reads as SysML, the notation its prompt takes.
 	lang  source.Kind
-	diags []Diagnostic
+	diags []diag.Diagnostic
 	// sendPayloads are the payload bindings of send bodies, which the send-action
 	// pass types so they are checked even when this pass is gated.
 	sendPayloads map[*ast.Usage]bool
@@ -420,8 +421,8 @@ func (tc *typeChecker) checkTypeTarget(scope *symbols.Scope, target ast.Node, re
 			msg, span, code = pilot, decl.span, pilotCode
 		}
 	}
-	tc.appendUnique(Diagnostic{
-		Severity: SeverityError,
+	tc.appendUnique(diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message:  msg,
 		Code:     code,
@@ -451,8 +452,8 @@ func (tc *typeChecker) checkChainSegments(scope *symbols.Scope, target ast.Node)
 	if sym.Kind == symbols.SymbolAlias || endFeature.admits(sym.Kind) {
 		return
 	}
-	tc.appendUnique(Diagnostic{
-		Severity: SeverityError,
+	tc.appendUnique(diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     chain.Operand.Span(),
 		Message:  fmt.Sprintf("feature chain segment must be a feature, found %s", sym.Kind),
 		Code:     "type",
@@ -477,8 +478,8 @@ func (tc *typeChecker) checkChainReferenceKind(scope *symbols.Scope, target ast.
 	if msg == "" {
 		return
 	}
-	tc.appendUnique(Diagnostic{
-		Severity: SeverityError,
+	tc.appendUnique(diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     target.Span(),
 		Message:  msg,
 		Code:     "type",
@@ -504,8 +505,8 @@ func (tc *typeChecker) checkNearestDeclaredUsageTyping(target *symbols.Symbol, d
 		if compatibleTyping(decl.useKind, decl.direction, typ.sym.Kind) {
 			continue
 		}
-		tc.appendUnique(Diagnostic{
-			Severity: SeverityError,
+		tc.appendUnique(diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     decl.span,
 			Message:  msg,
 			Code:     code,
@@ -597,7 +598,7 @@ func hasTypingRelationship(rels []*ast.Relationship) bool {
 
 // appendUnique records d unless the same message was already reported there: a
 // declaration with two wrong types states its one rule once.
-func (tc *typeChecker) appendUnique(d Diagnostic) {
+func (tc *typeChecker) appendUnique(d diag.Diagnostic) {
 	for _, have := range tc.diags {
 		if have.Span.Offset == d.Span.Offset && have.Message == d.Message {
 			return
@@ -630,8 +631,8 @@ func (tc *typeChecker) checkConjugatedTyping(scope *symbols.Scope, rel *ast.Rela
 	switch sym.Kind {
 	case symbols.SymbolPortDef, symbols.SymbolPortUsage:
 	default:
-		tc.diags = append(tc.diags, Diagnostic{
-			Severity: SeverityError,
+		tc.diags = append(tc.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     target.Span(),
 			Message: fmt.Sprintf(
 				"'~' names the conjugated port definition of a port definition, found %s", sym.Kind),
@@ -641,8 +642,8 @@ func (tc *typeChecker) checkConjugatedTyping(scope *symbols.Scope, rel *ast.Rela
 		return
 	}
 	if decl.isDef || (decl.useKind != ast.UsagePort && !decl.isEnd && !decl.isReferenceUsage()) {
-		tc.diags = append(tc.diags, Diagnostic{
-			Severity: SeverityError,
+		tc.diags = append(tc.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     target.Span(),
 			Message:  "only a port usage or a connector end may be typed by a conjugated port definition",
 			Code:     "type",

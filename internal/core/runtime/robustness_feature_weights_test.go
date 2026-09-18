@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 )
@@ -47,7 +48,7 @@ func testFeatureWeightOfNoNumericTypeIsRefusedBeforeTheRun(t *testing.T) {
 		idx.ExpandWildcardImports()
 		var refusals []string
 		for _, d := range passes.Analyze("<test>", file, nil, idx) {
-			if d.Severity == passes.SeverityError {
+			if d.Severity == diag.SeverityError {
 				refusals = append(refusals, d.Message)
 			}
 		}

@@ -9,7 +9,7 @@ import (
 	"golang.org/x/text/width"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -17,13 +17,13 @@ import (
 // accumulated buffer (for the success summary), the names this submission
 // declared, and any analysis diagnostics over the whole <repl> document.
 type Result struct {
-	Members     []ast.Node          // top-level members of the <repl> AST (Task 5 renders these)
-	Declared    []string            // names introduced by THIS submission
-	Diagnostics []passes.Diagnostic // eager analysis over the whole buffer
-	Source      string              // the full joined <repl> content (Task 6 caret rendering)
-	Offset      int                 // byte offset in Source where THIS submission begins
-	Origins     []Origin            // the files of THIS submission, in buffer order
-	Notices     []string            // side effects of the submission, e.g. a debugging session it ended
+	Members     []ast.Node        // top-level members of the <repl> AST (Task 5 renders these)
+	Declared    []string          // names introduced by THIS submission
+	Diagnostics []diag.Diagnostic // eager analysis over the whole buffer
+	Source      string            // the full joined <repl> content (Task 6 caret rendering)
+	Offset      int               // byte offset in Source where THIS submission begins
+	Origins     []Origin          // the files of THIS submission, in buffer order
+	Notices     []string          // side effects of the submission, e.g. a debugging session it ended
 
 	// Blocked names the unresolved error that stopped the deeper checks from
 	// running over this submission, nil when they ran or when the session already
@@ -202,7 +202,7 @@ func qnString(qn *ast.QualifiedName) string {
 // Columns and carets are counted in printed cells, so a line with multi-byte
 // runes before the finding still points at it; the LSP server owns UTF-16
 // correctness separately.
-func renderDiagnostics(diags []passes.Diagnostic, src string, locate func(offset int) (string, int), origin bool) []string {
+func renderDiagnostics(diags []diag.Diagnostic, src string, locate func(offset int) (string, int), origin bool) []string {
 	if len(diags) == 0 {
 		return nil
 	}
@@ -239,7 +239,7 @@ func renderDiagnostics(diags []passes.Diagnostic, src string, locate func(offset
 }
 
 // diagOrigin names the pass and code behind a diagnostic, for debug output.
-func diagOrigin(d passes.Diagnostic) string {
+func diagOrigin(d diag.Diagnostic) string {
 	parts := make([]string, 0, 2)
 	for _, p := range []string{d.Source, d.Code} {
 		if p != "" {
@@ -357,7 +357,7 @@ func renderSplit(r Result, v Verbosity) (found, declared []string) {
 func renderSyntax(r Result, v Verbosity) []string {
 	// A finding about the notation is no reason a file could not be read, and the
 	// analysis this load defers reports it, so reporting it here would report it twice.
-	var diags []passes.Diagnostic
+	var diags []diag.Diagnostic
 	for _, d := range scopedDiagnostics(r, v) {
 		if d.Source == "syntax" && d.Blocking() {
 			diags = append(diags, d)
@@ -371,13 +371,13 @@ func renderSyntax(r Result, v Verbosity) []string {
 
 // scopedDiagnostics keeps the diagnostics of this submission that the verbosity
 // admits: errors always, warnings and below only above quiet.
-func scopedDiagnostics(r Result, v Verbosity) []passes.Diagnostic {
-	var out []passes.Diagnostic
+func scopedDiagnostics(r Result, v Verbosity) []diag.Diagnostic {
+	var out []diag.Diagnostic
 	for _, d := range r.Diagnostics {
 		if !r.mine(d.Span) {
 			continue
 		}
-		if d.Severity != passes.SeverityError && v <= VerbosityQuiet {
+		if d.Severity != diag.SeverityError && v <= VerbosityQuiet {
 			continue
 		}
 		out = append(out, d)
@@ -494,7 +494,7 @@ func (r Result) isMasked(span source.Span) bool {
 
 // hasError reports whether the submission failed in a way that leaves it
 // nothing to summarize; a notation error still reads, so it is not one.
-func hasError(diags []passes.Diagnostic) bool {
+func hasError(diags []diag.Diagnostic) bool {
 	for _, d := range diags {
 		if d.Blocking() {
 			return true

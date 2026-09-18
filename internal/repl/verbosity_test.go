@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // A source that analyses to exactly one warning and no error.
@@ -12,7 +12,7 @@ const warningSrc = `package W { attribute flag = 1 == "one"; }`
 
 func TestWarningSourceIsAWarning(t *testing.T) {
 	r := NewSession().Submit(warningSrc)
-	if len(r.Diagnostics) != 1 || r.Diagnostics[0].Severity != passes.SeverityWarning {
+	if len(r.Diagnostics) != 1 || r.Diagnostics[0].Severity != diag.SeverityWarning {
 		t.Fatalf("fixture is not a single warning: %v", r.Diagnostics)
 	}
 }

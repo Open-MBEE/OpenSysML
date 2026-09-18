@@ -1,6 +1,10 @@
 package passes
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+)
 
 // requirePrelude declares the requirement a require/assume body refers to.
 const requirePrelude = `package Q {
@@ -9,7 +13,7 @@ const requirePrelude = `package Q {
 }
 `
 
-func requireBodyDiags(t *testing.T, body string) []Diagnostic {
+func requireBodyDiags(t *testing.T, body string) []diag.Diagnostic {
 	t.Helper()
 	return typeDiags(t, scalarPrelude+valuePrelude+requirePrelude+`package P {
 		analysis def C {

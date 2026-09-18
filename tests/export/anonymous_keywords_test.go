@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 )
 
@@ -18,11 +19,11 @@ func anonymousFixture(t *testing.T, name string) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	format, err := export.FormatOfPath(path)
+	format, err := convert.FormatOfPath(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	turtle, err := export.Convert(path, src, format, export.FormatTurtle)
+	turtle, err := convert.Convert(path, src, format, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -105,7 +106,7 @@ func TestAnonymousKeywordsComeBackFromTheTypedFactsAlone(t *testing.T) {
 			name, _ := fixtureName(tc.fixture)
 			first := anonymousFixture(t, tc.fixture)
 			typedOnly := withoutTriples(t, withoutSourceText(t, first), "sysx:declaredKeyword")
-			back, err := export.Convert(name+".ttl", typedOnly, export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert(name+".ttl", typedOnly, convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation from the typed facts alone: %v", err)
 			}
@@ -114,7 +115,7 @@ func TestAnonymousKeywordsComeBackFromTheTypedFactsAlone(t *testing.T) {
 					t.Errorf("the typed facts should spell %q\n--- notation ---\n%s", want, back)
 				}
 			}
-			again, err := export.Convert(name+".sysml", back, export.FormatSysML, export.FormatTurtle)
+			again, err := convert.Convert(name+".sysml", back, convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
@@ -182,7 +183,7 @@ func TestContradictoryKeywordGraphsAreRefused(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			turtle := editTurtle(t, withoutSourceText(t, anonymousFixture(t, tc.fixture)), tc.old, tc.new)
-			_, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+			_, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 			var unsupported *export.UnsupportedError
 			if !errors.As(err, &unsupported) {
 				t.Fatalf("expected an UnsupportedError, got %v", err)

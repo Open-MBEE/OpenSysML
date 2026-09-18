@@ -204,7 +204,7 @@ func TestProcessNextEventTakesAPendingSignalBeforeALaterTimer(t *testing.T) {
 		}
 		attribute def Kick;
 	`)
-	ctx := NewContext(NewModel(model, resolver), 10000)
+	ctx := NewContext(typedModel(model, resolver), 10000)
 	exec, err := ctx.CreateStateExecutorFor(resolveSymbol(t, root, "Waiter"), nil)
 	if err != nil {
 		t.Fatalf("CreateStateExecutorFor: %v", err)
@@ -245,7 +245,7 @@ func TestRunToCompletionTakesAPendingSignalBeforeALaterTimer(t *testing.T) {
 		}
 		attribute def Kick;
 	`)
-	ctx := NewContext(NewModel(model, resolver), 10000)
+	ctx := NewContext(typedModel(model, resolver), 10000)
 	exec, err := ctx.CreateStateExecutorFor(resolveSymbol(t, root, "Waiter"), nil)
 	if err != nil {
 		t.Fatalf("CreateStateExecutorFor: %v", err)

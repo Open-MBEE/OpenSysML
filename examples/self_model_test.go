@@ -18,11 +18,11 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docpdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/highlight"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
@@ -495,7 +495,7 @@ func TestSelfModelWorkersAreIsolated(t *testing.T) {
 		Semantics: func() (*runtime.Model, error) {
 			built++
 			resolver := resolve.New(idx)
-			return runtime.NewModel(semantics.NewModel(resolver), resolver), nil
+			return runtime.NewModel(passes.NewTypedModel(resolver), resolver), nil
 		},
 		Fresh: func(w *analysis.Worker) (*runtime.Context, error) {
 			return runtime.NewContext(w.Model, 1000), nil
@@ -1097,7 +1097,7 @@ func TestSelfModelExportMatchesImplementation(t *testing.T) {
 	idx, ctx := analyseSelfModel(t)
 	exporter := instantiateSelfModel(t, idx, ctx, "surfaces.sysml", "OpenSysMLSurfaces", "Exporter")
 
-	names := export.FormatNames()
+	names := convert.FormatNames()
 	if declared, actual := exporter.str("formatNames"), strings.Join(names, ", "); declared != actual {
 		t.Errorf("surfaces.sysml says formatNames = %q, the implementation accepts %q", declared, actual)
 	}
@@ -1105,7 +1105,7 @@ func TestSelfModelExportMatchesImplementation(t *testing.T) {
 	seen := map[string]bool{}
 	var formats []string
 	for _, name := range names {
-		format, err := export.ParseFormat(name)
+		format, err := convert.ParseFormat(name)
 		if err != nil {
 			t.Fatalf("ParseFormat(%q): %v", name, err)
 		}
@@ -1407,7 +1407,7 @@ func analyseSelfModel(t *testing.T) (*symbols.Index, *runtime.Context) {
 		idx.AddDocument(name, parser.New(source.New(name, content)).ParseFile())
 	}
 	resolver := resolve.New(idx)
-	return idx, runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), 100000)
+	return idx, runtime.NewContext(runtime.NewModel(passes.NewTypedModel(resolver), resolver), 100000)
 }
 
 // modelInstance is an instantiated definition of the self-model, read by feature.

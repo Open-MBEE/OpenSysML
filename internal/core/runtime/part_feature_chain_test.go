@@ -1,9 +1,10 @@
 package runtime
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 )
 
 // partChainModel declares a calc usage nested in a part, whose outputs a feature

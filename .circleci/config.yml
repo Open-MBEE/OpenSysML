@@ -359,7 +359,7 @@ jobs:
           name: Run pilot corpora gate
           command: |
             set -o pipefail
-            go test -count=1 -v ./internal/core/model -run 'TestPilotCorpora' | tee pilot-corpora-gate.log
+            go test -count=1 -v ./tests/corpus -run 'TestPilotCorpora' | tee pilot-corpora-gate.log
             grep -E 'pilot corpus files clean' pilot-corpora-gate.log
             if grep -qE '^\s*--- SKIP' pilot-corpora-gate.log; then
               echo "error: the pilot corpora gate skipped" >&2
@@ -388,7 +388,7 @@ jobs:
           name: Run RDF corpus round-trip gate
           command: |
             set -o pipefail
-            go test -count=1 -v ./internal/core/export -run 'TestCorpusRoundTrip' | tee corpus-roundtrip-gate.log
+            go test -count=1 -v ./tests/corpus -run 'TestCorpusRoundTrip' | tee corpus-roundtrip-gate.log
             grep -E 'corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
             if grep -qE '^\s*--- SKIP' corpus-roundtrip-gate.log; then
               echo "error: the RDF corpus round-trip gate skipped" >&2

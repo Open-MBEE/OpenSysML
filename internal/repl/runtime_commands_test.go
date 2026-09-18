@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
@@ -29,10 +29,10 @@ func loadFixture(t *testing.T, path string) *Session {
 }
 
 // errorDiagnostics returns only the error-severity diagnostics of diags.
-func errorDiagnostics(diags []passes.Diagnostic) []passes.Diagnostic {
-	var out []passes.Diagnostic
+func errorDiagnostics(diags []diag.Diagnostic) []diag.Diagnostic {
+	var out []diag.Diagnostic
 	for _, d := range diags {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			out = append(out, d)
 		}
 	}

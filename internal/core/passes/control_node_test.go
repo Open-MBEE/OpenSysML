@@ -4,12 +4,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // controlNodeDiags runs the pass alone on a model that must parse clean.
-func controlNodeDiags(t *testing.T, src string) []Diagnostic {
+func controlNodeDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	sf := source.New("t.sysml", []byte(src))
 	p := parser.New(sf)
@@ -30,7 +31,7 @@ func wantControlNodesClean(t *testing.T, src string) {
 
 // wantControlNodeErrors fails unless the pass reports exactly the given codes, in
 // order, each at the given 1-based line with a message containing the text.
-func wantControlNodeErrors(t *testing.T, src string, want ...controlNodeWant) []Diagnostic {
+func wantControlNodeErrors(t *testing.T, src string, want ...controlNodeWant) []diag.Diagnostic {
 	t.Helper()
 	got := controlNodeDiags(t, src)
 	if len(got) != len(want) {
@@ -40,7 +41,7 @@ func wantControlNodeErrors(t *testing.T, src string, want ...controlNodeWant) []
 	for i, d := range got {
 		w := want[i]
 		line := sf.Lines().PosAt(d.Span.Offset).Line
-		if d.Severity != SeverityError || d.Source != "control-node" || d.Code != w.code {
+		if d.Severity != diag.SeverityError || d.Source != "control-node" || d.Code != w.code {
 			t.Fatalf("diagnostic %d: got %+v, want severity=error source=control-node code=%s", i, d, w.code)
 		}
 		if line != w.line {
@@ -855,7 +856,7 @@ func analyzedControlNodeCodes(t *testing.T, src string) (codes []string, lower i
 	for _, d := range Analyze("t.sysml", root, nil, newTestIndexFromDoc("t.sysml", root)) {
 		if d.Source == "control-node" {
 			codes = append(codes, d.Code)
-		} else if d.Severity == SeverityError {
+		} else if d.Severity == diag.SeverityError {
 			lower++
 		}
 	}
@@ -957,7 +958,7 @@ func TestControlNodeOtherDocumentFaultsDoNotGateInheritedNodes(t *testing.T) {
 		for _, d := range Analyze("d.sysml", root, nil, idx) {
 			if d.Source == "control-node" {
 				codes = append(codes, d.Code)
-			} else if d.Severity == SeverityError {
+			} else if d.Severity == diag.SeverityError {
 				lower++
 			}
 		}

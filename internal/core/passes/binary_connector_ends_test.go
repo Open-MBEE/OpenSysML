@@ -3,13 +3,15 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // binaryEndLines returns the 1-based line of every diagnostic reporting an end
 // beyond the two a binary link allows, in order.
 func binaryEndLines(t *testing.T, src string, kerml bool) []int {
 	t.Helper()
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	if kerml {
 		diags = constraintDiagsKerML(t, src)
 	} else {

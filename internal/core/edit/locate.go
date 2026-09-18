@@ -293,8 +293,7 @@ func (m Model) terminator(usage *ast.Usage) (source.Span, bool) {
 // subsetted members are visible, and a call's overloads are told apart by argument type.
 func (m Model) resolver() (*resolve.Resolver, *semantics.Model) {
 	r := resolve.New(m.Index)
-	sem := semantics.NewModel(r)
+	sem := passes.NewTypedModel(r)
 	r.SetModel(sem)
-	sem.SetArgumentTyper(passes.NewArgumentTyper(r, sem))
 	return r, sem
 }

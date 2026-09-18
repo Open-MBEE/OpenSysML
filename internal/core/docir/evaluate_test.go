@@ -9,6 +9,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -57,7 +58,7 @@ func loadEvaluationSource(t *testing.T, content string) evaluationFixture {
 	index.AddDocument(fixtureDoc, root)
 	index.ExpandWildcardImports()
 	resolver := resolve.New(index)
-	model := semantics.NewModel(resolver)
+	model := passes.NewTypedModel(resolver)
 	model.SetSourceText(func(doc string, span source.Span) string {
 		if doc != fixtureDoc {
 			return ""

@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
+	corediag "github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -507,7 +507,7 @@ func dotted(fqn string) string {
 	return strings.ReplaceAll(fqn, "::", ".")
 }
 
-func severityName(s passes.Severity) string {
+func severityName(s corediag.Severity) string {
 	return strings.ToLower(s.String())
 }
 

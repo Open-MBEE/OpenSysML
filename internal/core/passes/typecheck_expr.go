@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -21,7 +22,7 @@ type exprChecker struct {
 	model    *semantics.Model
 	// lang is the document's language: KerML gives `[` no function to invoke.
 	lang  source.Kind
-	diags []Diagnostic
+	diags []diag.Diagnostic
 	// chaining guards the type of a feature read through a chain against a
 	// feature whose value names itself, directly or through another feature.
 	chaining map[*symbols.Symbol]bool
@@ -49,8 +50,8 @@ func (ec *exprChecker) errorf(span source.Span, format string, args ...any) {
 
 // errorCode is errorf under the code of a rule with its own.
 func (ec *exprChecker) errorCode(code string, span source.Span, format string, args ...any) {
-	ec.diags = append(ec.diags, Diagnostic{
-		Severity: SeverityError,
+	ec.diags = append(ec.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message:  fmt.Sprintf(format, args...),
 		Code:     code,
@@ -64,8 +65,8 @@ func (ec *exprChecker) warnf(span source.Span, format string, args ...any) {
 
 // warnCode is warnf under the code of a rule with its own.
 func (ec *exprChecker) warnCode(code string, span source.Span, format string, args ...any) {
-	ec.diags = append(ec.diags, Diagnostic{
-		Severity: SeverityWarning,
+	ec.diags = append(ec.diags, diag.Diagnostic{
+		Severity: diag.SeverityWarning,
 		Span:     span,
 		Message:  fmt.Sprintf(format, args...),
 		Code:     code,
@@ -76,7 +77,7 @@ func (ec *exprChecker) warnCode(code string, span source.Span, format string, ar
 // errorsSince reports whether an error was added after the first n diagnostics.
 func (ec *exprChecker) errorsSince(n int) bool {
 	for _, d := range ec.diags[n:] {
-		if d.Severity == SeverityError {
+		if d.Severity == diag.SeverityError {
 			return true
 		}
 	}
@@ -916,10 +917,10 @@ func (ec *exprChecker) inferInvocation(scope *symbols.Scope, e *ast.InvocationEx
 // inferNodeInvocation is inferInvocation for an invocation performed by node (nil for a bare
 // call).
 func (ec *exprChecker) inferNodeInvocation(scope *symbols.Scope, e *ast.InvocationExpr, node *symbols.Symbol) semantics.PrimType {
-	args := InvocationArgs(e)
+	args := semantics.InvocationArgs(e)
 	// Typed once, for selecting the overload, so nested errors report once.
 	argTypes := ec.argumentTypes(scope, e)
-	if chain := ChainCallee(e); chain != nil {
+	if chain := semantics.ChainCallee(e); chain != nil {
 		return ec.inferChainInvocation(scope, e, chain, args, node)
 	}
 	if e.Type == nil {
@@ -936,8 +937,8 @@ func (ec *exprChecker) inferNodeInvocation(scope *symbols.Scope, e *ast.Invocati
 	if sel.Ambiguous {
 		// A tie the argument types leave open is settled by the values at run time, so it
 		// advises; one between incomparable candidates is the model's to break.
-		diag := Diagnostic{
-			Severity: SeverityError,
+		d := diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     e.Type.Span(),
 			Message: fmt.Sprintf("call of %s is ambiguous between %s",
 				e.Type.Parts[len(e.Type.Parts)-1].Text, candidateNames(sel.Tied)),
@@ -945,11 +946,11 @@ func (ec *exprChecker) inferNodeInvocation(scope *symbols.Scope, e *ast.Invocati
 			Source: "type",
 		}
 		if sel.Undetermined {
-			diag.Severity = SeverityWarning
-			diag.Message = fmt.Sprintf("call of %s is undetermined between %s: the argument types do not select one",
+			d.Severity = diag.SeverityWarning
+			d.Message = fmt.Sprintf("call of %s is undetermined between %s: the argument types do not select one",
 				e.Type.Parts[len(e.Type.Parts)-1].Text, candidateNames(sel.Tied))
 		}
-		ec.diags = append(ec.diags, diag)
+		ec.diags = append(ec.diags, d)
 		return semantics.PrimUnknown
 	}
 	// With no candidate the arguments fit, the first is checked as before and
@@ -961,8 +962,8 @@ func (ec *exprChecker) inferNodeInvocation(scope *symbols.Scope, e *ast.Invocati
 	}
 	if !ec.isInvocationBehavior(sym, map[*symbols.Symbol]bool{}) {
 		if ec.isDefinitelyNonBehavior(sym) {
-			ec.diags = append(ec.diags, Diagnostic{
-				Severity: SeverityError,
+			ec.diags = append(ec.diags, diag.Diagnostic{
+				Severity: diag.SeverityError,
 				Span:     e.Type.Span(),
 				Message:  "Must invoke a behavior or a behavioral feature",
 				Code:     "invocation-not-behavior",
@@ -974,8 +975,8 @@ func (ec *exprChecker) inferNodeInvocation(scope *symbols.Scope, e *ast.Invocati
 	// A performed call runs its behavior, so it must name an action (SysML v2
 	// §8.3.16.7 validatePerformActionUsage), as the runtime requires.
 	if performs == semantics.PerformsAction && !ec.model.Performable(performs, sym) {
-		ec.diags = append(ec.diags, Diagnostic{
-			Severity: SeverityError,
+		ec.diags = append(ec.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     e.Type.Span(),
 			Message:  msgReferenceAction,
 			Code:     "usage-reference-kind",
@@ -1007,8 +1008,8 @@ func (ec *exprChecker) inferChainInvocation(scope *symbols.Scope, e *ast.Invocat
 	}
 	if !ec.isInvocationBehavior(sym, map[*symbols.Symbol]bool{}) {
 		if ec.isDefinitelyNonBehavior(sym) {
-			ec.diags = append(ec.diags, Diagnostic{
-				Severity: SeverityError,
+			ec.diags = append(ec.diags, diag.Diagnostic{
+				Severity: diag.SeverityError,
 				Span:     chain.Span(),
 				Message:  "Must invoke a behavior or a behavioral feature",
 				Code:     "invocation-not-behavior",
@@ -1107,8 +1108,8 @@ func (ec *exprChecker) inferConstructor(scope *symbols.Scope, e *ast.Constructor
 	}
 	// Only a Type is instantiated (KerML §8.3.4.8 validateInstantiationExpressionInstantiatedType).
 	if !isTypeKind(typ.Kind) {
-		ec.diags = append(ec.diags, Diagnostic{
-			Severity: SeverityError,
+		ec.diags = append(ec.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     e.Type.Span(),
 			Message:  fmt.Sprintf("Must have an invoked/instantiated type: %s is a %s, not a type", typ.Name, typ.Kind),
 			Code:     "instantiation-not-type",
@@ -1267,7 +1268,7 @@ func (ec *exprChecker) checkNamedArguments(scope *symbols.Scope, call invocation
 	e, sym, args, params := call.e, call.sym, call.args, call.params
 	// A receiver binds by position, which named arguments leave unstated; runtime/eval.go
 	// reports the same call.
-	if e.Operand != nil && ChainCallee(e) == nil {
+	if e.Operand != nil && semantics.ChainCallee(e) == nil {
 		report(e.Span(), "%s cannot be called with a receiver and named arguments", sym.Name)
 		return
 	}

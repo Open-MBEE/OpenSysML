@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -11,7 +12,7 @@ import (
 
 // typeDiags parses src, indexes it, runs the full default registry, and returns
 // only diagnostics whose Source is "type".
-func typeDiags(t *testing.T, src string) []Diagnostic {
+func typeDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	root := parser.New(source.New("<t>", []byte(src))).ParseFile()
 	// A bare resource set: these fixtures assert the type rules, not the
@@ -19,7 +20,7 @@ func typeDiags(t *testing.T, src string) []Diagnostic {
 	idx := symbols.NewIndex()
 	idx.AddDocument("<t>", root)
 	all := Analyze("<t>", root, nil, idx)
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range all {
 		if d.Source == "type" {
 			out = append(out, d)

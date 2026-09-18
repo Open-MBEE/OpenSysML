@@ -3,6 +3,8 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // The reproducer of validation/invalid/InterfaceUsage_Invalid: an interface end
@@ -37,7 +39,7 @@ func TestW10BInterfaceEnds(t *testing.T) {
 		switch d.Message {
 		case msgInterfaceDefEndPort, msgInterfaceEndPort:
 			byMessage[d.Message]++
-			if d.Severity != SeverityError {
+			if d.Severity != diag.SeverityError {
 				t.Errorf("%q severity = %v, want an error", d.Message, d.Severity)
 			}
 			if got := src[d.Span.Offset : d.Span.Offset+len("end p")]; got != "end p" {

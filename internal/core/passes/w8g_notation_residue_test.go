@@ -4,13 +4,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // analyzeAll is diagnostics from every pass, since a residue is adjudicated by
 // what the whole analysis says about a file rather than by one pass.
-func analyzeAll(t *testing.T, name, src string) []Diagnostic {
+func analyzeAll(t *testing.T, name, src string) []diag.Diagnostic {
 	t.Helper()
 	root := parser.New(source.New(name, []byte(src))).ParseFile()
 	idx := newTestIndex()
@@ -47,7 +48,7 @@ func TestW8GNodeBodiesAnalyseClean(t *testing.T) {
 	}
 }`)
 	for _, d := range diags {
-		if d.Severity == SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Errorf("unexpected error: %s", d.Message)
 		}
 	}
@@ -62,7 +63,7 @@ func TestW8GGuardedSuccessionEndpointsResolveAsActions(t *testing.T) {
 	succession S first A1 if x == 0 then A2;
 }`)
 	for _, d := range diags {
-		if d.Severity == SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Errorf("action succession produced an error: %s", d.Message)
 		}
 	}
@@ -87,7 +88,7 @@ func TestW8GInterfaceConjugationStaysAWarning(t *testing.T) {
 			continue
 		}
 		found = true
-		if d.Severity != SeverityWarning {
+		if d.Severity != diag.SeverityWarning {
 			t.Errorf("conjugation mismatch is %v, want a warning", d.Severity)
 		}
 	}

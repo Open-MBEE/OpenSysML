@@ -585,7 +585,7 @@ Saving and SysML ↔ RDF Turtle conversion landed (`internal/core/rdf`,
 
 The RDF direction ships **experimental**, because of D1, D2 and D7 below: its vocabulary
 may change without a compatibility path, and the one triplestore interop measured — Flexo — still
-drops what those items carry. Every surface says so (`export.ExperimentalNotice`), and promoting
+drops what those items carry. Every surface says so (`convert.ExperimentalNotice`), and promoting
 it to stable is re-measuring the harness once those land, not a documentation change.
 
 Measured by the per-file ratchet at this baseline (`TestCorpusRoundTrip`,
@@ -775,7 +775,7 @@ rather than collapsing them.
 So this is a **second profile selected by a flag, not a superset**: the property IRIs differ, so
 one graph cannot satisfy both conventions, and Flexo's convention stays the default. The encoder
 already separates the term layer (`rdf.SysMLTerm`, `internal/core/rdf/vocab.go`) from the
-structural decisions (`internal/core/export/convert.go`), so the profile is mostly a term-mapping
+structural decisions (`internal/core/export/rdf_out.go`), so the profile is mostly a term-mapping
 layer: property name → defining metaclass.
 
 **Done:** the table and the gate. `internal/core/rdf/ontology` holds the term table generated
@@ -2493,8 +2493,9 @@ be built, tested and reasoned about without the layers above them, whether or no
 separately. It was deliberately **not started** before the 0.9.0 cycle: the moves touch files
 every open pull request touches, so the track waited for the pull requests open against
 `develop` at this baseline to land, with the small items first and the two large ones last; the
-tooling module (P3) is the first item in. The figures below are the baseline the track started
-from. Measured at `develop` `530c04667` (#354), non-test lines and `go list` import edges; the
+tooling module (P3) and the small moves (P1) are in, the tests tree (P2) is scheduled. The
+figures below are the baseline the track started from. Measured at `develop` `530c04667`
+(#354), non-test lines and `go list` import edges; the
 binary, test and directory figures below at `develop` `206760826` (#384), where the module has
 70 packages under `internal/`.
 
@@ -2573,13 +2574,18 @@ Three things follow:
   binaries shipped their symbol table and DWARF; `-s -w` drops both and takes `sysml` to
   37.2 MB with the version stamps, build info and stack traces intact. That is a build-flag
   change, made outside this track.
-- **One import costs a quarter of the REPL binary.** A probe linking every `internal` package
-  `sysml` reaches except `repl` and `grpc` is 17.6 MB; the same probe plus `internal/grpc` is
-  30.3 MB. The `repl → grpc` edge above, taken for one instance-graph conversion, pulls
-  gRPC-go, Connect, HTTP/2 and TLS into the terminal binary. The conversion package of P1 keeps
-  the protobuf runtime (the REPL emits the API's JSON shape on purpose) and drops the rest;
-  `net/http` stays because `interop/flexo` and `interop/reposync` are HTTP clients. `sysml`
-  stripped and without the service layer is about 25 MB.
+- **The service edge cost almost nothing.** A probe linking every `internal` package `sysml`
+  reaches except `repl` and `grpc` is 17.6 MB and the same probe plus `internal/grpc` is 30.3 MB,
+  which suggested the `repl → grpc` edge above cost a quarter of the terminal binary. Removing
+  it did not: the linker was already dropping the unreachable service, and the unstripped
+  `sysml` on `develop` carried 450 KB of gRPC-go and 2.6 KB of Connect symbols. Moving the
+  conversion to `internal/protoconv` took `sysml` from 37,224,632 to 37,220,536 bytes and its
+  transitive gRPC-go and Connect packages from 53 to 51: Connect and `internal/grpc` are gone,
+  and the 51 are gRPC-go, reached through `api/proto` itself, because the generated
+  `sysml_grpc.pb.go` shares the Go package with the message types. Taking the count to 0 is a
+  codegen change — the service stubs generated into a Go package of their own, with a
+  `go_package` of its own and every generated client updated — and is the follow-up of P1, not a
+  move. `net/http` stays because `interop/flexo` and `interop/reposync` are HTTP clients.
 
 ### What is test code
 
@@ -2634,16 +2640,16 @@ A package imports only the layers below it:
 
 | layer | packages |
 |---|---|
-| foundation | `source`, `ast`, `ast/astcodec`, `pack`, `quickfix`, the notation-text helpers |
+| foundation | `source` (with the notation-text helpers), `ast`, `ast/astcodec`, `pack`, `quickfix`, `diag` |
 | syntax | `lexer`, `parser`, `format` |
 | semantics | `symbols`, `suggest`, `resolve`, `semantics` (with invocation selection), `conformance`, `provenance`, `identity` |
 | semantic IR | `lower`, `queryplan`, `docplan` |
 | validation | `passes`, split by domain, `rename`, `edit` |
 | execution | `runtime`, `solve`, `smt`, `analysis`, `engines`, `objref`, the `graphs:1` form |
-| translation | `rdf`, `export`, `migrate`, one `xmi`, `codegen`, `interop/*` |
+| translation | `rdf`, `export`, `migrate`, `convert` (the conversion entry point), one `xmi`, `codegen`, `interop/*` |
 | documents | `queryexec`, `docir`, `docrender`, `docpdf` |
 | workspace | `model`, `libs`, `project`, `envvar` |
-| frontends | a shared proto conversion package, `repl`, `lsp`, `grpc`, `stdiorpc`, `usage`, `cmd/*` |
+| frontends | `protoconv`, `repl`, `lsp`, `grpc`, `stdiorpc`, `usage`, `cmd/*` |
 | tooling | `baseline`, the errata registry, `fixtures`, `junit`, `doccounts`, `stressmodel`, `fuml`, `pssm`, `perfbench`, `hygiene`, `testutil`, never linked by a shipped binary |
 
 The tree says the same thing as the table. `internal/` today is 121 directories: 70 packages,
@@ -2662,40 +2668,80 @@ A layering test beside `TestNoProductionCodeImportsTesting` — a table of layer
 checked against `go list -f '{{.Imports}}'` — pins each edge as it is removed; `make lint` is
 staticcheck and gosec and checks no import boundary today.
 
-## P1 — the small moves (not started)
+## P1 — the small moves (landed)
 
-Each a pull request of its own, mechanical for any branch it crosses:
+Each landed as a pull request of its own, cut from `develop`:
 
-1. `semantics → lexer`: move the notation-text helpers (`NameText`, `StringValue`,
-   `CommentBody` and the rest) to `source`.
-2. `runtime → passes` for diagnostics: move `Diagnostic` and `Severity` to a leaf package that
-   `passes` and `runtime` both import.
-3. `runtime → passes` for invocation selection: move `passes/invocation.go` into `semantics`.
-4. `runtime → parser`: the caller of `tool.go` hands the runtime the parsed tree.
-5. `repl → grpc`: move `InstanceGraphToProto` and `GraphBounds` to a proto conversion package
-   both frontends import, depending on `api/proto` and the protobuf runtime only; this is the
-   item that takes gRPC-go and Connect out of `sysml`.
-6. `export → migrate, parser`: move `Migrate` and the notation parsing out of `convert.go` into
-   the conversion entry point that calls them.
+1. `semantics → lexer`: the notation-text helpers (`NameText`, `UnrestrictedNameText`,
+   `StringValue`, `CommentBody`, `IsIdentifier`, `IsKeyword`) live in `source`; `lexer` and
+   `semantics` both import them from there.
+2. `runtime → passes` for diagnostics: `Diagnostic` and `Severity` live in `internal/core/diag`,
+   a leaf package `passes` and `runtime` both import.
+3. `runtime → passes` for invocation selection: the runtime selects through
+   `semantics.Model.SelectCall`, and `ChainCallee` and `InvocationArgs` live in `semantics`. The
+   checker's argument typing stays in `passes` — it is the whole expression checker — and the
+   code that builds a model for execution installs it with `SetArgumentTyper`; a runtime that
+   reaches selection with no typer installed returns `runtime.ErrNoArgumentTyper` rather than
+   selecting with weaker typing than validation used, and a hygiene test checks every product
+   construction site installs it.
+4. `runtime → parser`: the runtime parses notation text through an `ExpressionParser` the model's
+   builder installs with `SetExpressionParser`, and returns `ErrNoExpressionParser` without one.
+   `go list -deps ./internal/core/runtime` names neither `passes` nor `parser`.
+5. `repl → grpc`: the value and instance-graph conversion lives in `internal/protoconv`, which
+   depends on `api/proto`, `internal/core/*` and the protobuf runtime; `repl`, `grpc` and the Go
+   client import it, and `sysml` no longer links `internal/grpc` or Connect. The gRPC-go packages
+   still linked, and the codegen follow-up that removes them, are measured under "What the
+   binaries carry" above.
+6. `export → migrate, parser`: the conversion entry point is `internal/core/convert` — the
+   formats, `Convert`, `ConvertTolerant`, `SysMLElement`, `Migrate`, `SysMLToRDF` and
+   `SyntaxError` — and `cmd/sysml`, `repl`, `grpc` and `interop/flexo` call it. `export` keeps
+   `ToRDF` and `ToSysML` and no longer imports `migrate`; it still imports `parser`, because the
+   graph → notation decoder parses by nature (it re-parses preserved source text to check it still
+   encodes to the graph, parses an expression to judge its binding, and parses names), and
+   translation sits above syntax in the table.
 
-With these the runtime links neither the validation suite nor the parser, and the REPL not the
-service layer.
+The layering test beside `TestNoProductionCodeImportsTesting` pins the layer table and the
+removed edges, alongside per-edge tests of the runtime's parser and typer seams, `protoconv`'s
+dependencies and the conversion entry point's ownership of migration.
 
-## P2 — the tests tree (not started)
+## P2 — the tests tree (in review)
 
-Create `tests/` at the repository root, one black-box package per suite, and move into it: the
-runtime's execution conformance and trace suites with their fixtures (`tests/conformance`); the
-four OMG corpus gates from `internal/core/model` and the RDF round-trip ratchet from
-`internal/core/export` (`tests/corpus`); the parser's golden ASTs and negative cases
-(`tests/parser`); the LSP, gRPC and REPL protocol suites; `TestNoProductionCodeImportsTesting`
-and the layering test (`tests/hygiene`); the benchmarks of `perfbench` (`tests/perf`); the 82
-external test files; and `testutil/*`, `fixtures` and `doccounts/doccountstest` as the tree's
-support packages. Every `testdata` directory moves beside its driver under `tests/testdata/`, the
-top-level `testdata/` with them. A driver that reached into its package's unexported identifiers
-is rewritten against the exported surface, not given an export shim. The corpus policies do not
-move: the training corpus stays an assertion, the pilot roots and the round trip stay per-file
-ratchets, and the download scripts and require-variables stay as `AGENTS.md` §2 states them. This
-removes 32 `testdata` subtrees and six packages from `internal/` — 121 directories to about 80.
+`tests/` at the repository root holds the black-box suites, one package per suite, each with its
+fixtures beside it (#392, #397, #395, #401): `TestNoProductionCodeImportsTesting` (`tests/hygiene`,
+where the layering test goes too); the benchmarks (`tests/perf`); the parser's golden ASTs and
+negative cases (`tests/parser`); the four OMG corpus gates and the RDF round-trip ratchet
+(`tests/corpus`); the gRPC conformance suite (`tests/grpc`); 81 of the 82 external test files, by
+package (`tests/export`, `resolve`, `semantics`, `migrate`, `reposync`, `suggest`, `identity`,
+`model`, `queryplan`, `ontology`); the top-level `testdata/` as `tests/testdata`; and `gobuild` and
+`graphcmp` as `tests/testutil`. The drivers that reached into their package's unexported identifiers
+were rewritten against the exported surface — the gRPC suite against `grpc.NewService` with its own
+unit-term formatter, the export suite with its own pilot-corpus loader — not given an export shim.
+The corpus policies did not move: the training corpus is an assertion, the pilot roots and the round
+trip per-file ratchets, and the download scripts and require-variables are as `AGENTS.md` §2 states
+them. Measured at the track's baseline `206760826` and after the four pull requests: `testdata`
+subtrees under `internal/` 32 → 22, packages 70 → 66, entries at the top 21 → 18 (`hygiene`,
+`perfbench` and `testutil` gone), external test files beside a product package 82 → 1; 34
+directories and 17 packages under `tests/`. With P3's moves the tree under `internal/` is 121
+directories → 97.
+
+What stayed, and why. The runtime's execution conformance and trace suites
+(`TestExecutionConformance`, `TestExecutionTrace`, `conformance_test.go`, `trace_test.go` and the 11
+MB under `internal/core/runtime/testdata`) are white-box in fact, not only by location: sixteen
+runtime-internal test files run the same cases through the driver's schema types, loaders and case
+runner, eleven of them reaching unexported `Context` state (snapshots, held images, replay, the
+explore queue), and about 1,700 of the 2,300 lines of `conformance_test.go` depend on the runtime. A
+`package runtime` test cannot import a package that imports `internal/core/runtime` — Go rejects it
+as an import cycle in test — so a shared harness under `tests/` cannot be reached from those files,
+and a copy of the runner in each tree is the duplication this track removes. The driver and its
+fixtures stay beside the runtime, and the census reads them there. The LSP and REPL suites stay too:
+the files that touch no unexported identifier still share package-local helpers with the white-box
+ones (`mustDebug`, `render` and `openRenameDoc` in `lsp`; `meta`, `submitModel` and `evalOK` in
+`repl`), and moving them would copy those rather than share them;
+`internal/grpc/oslc_query_repl_test.go` is the one external file left, reaching `mustNewService` and
+`queryModel` through `export_test.go`. And the thirteen `testdata` trees still under `internal/`
+belong to white-box drivers, so they sit beside them — a fixture moves with its driver, not on its
+own. Of the support packages the plan named, `fixtures` stays product-side and `doccountstest`
+went to `tools/census/doccounts` with its owner, as P3 records.
 
 ## P3 — the tooling module (landed, unreleased)
 

@@ -427,7 +427,7 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	model := semantics.NewModel(resolver)
 	model.SetSourceText(source.TextOf(sources, nil))
 	fresh := func() *Context {
-		ctx := NewContext(NewModel(model, resolver), 10000)
+		ctx := NewContext(typedModel(model, resolver), 10000)
 		applyCaseDraws(t, ctx, expected)
 		return ctx
 	}

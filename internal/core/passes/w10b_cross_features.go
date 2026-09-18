@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -83,8 +84,8 @@ func (cc *constraintChecker) checkDeclaredCrossFeature(end *symbols.Symbol) {
 	if !ok || u.CrossFeature == nil {
 		return
 	}
-	cc.diags = append(cc.diags, Diagnostic{
-		Severity: SeverityError,
+	cc.diags = append(cc.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     u.CrossFeature.Span(),
 		Message:  msgMustBeCrossFeature,
 		Code:     "declared-cross-feature",

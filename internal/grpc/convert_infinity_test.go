@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // infinityWireModel yields the unbounded value as a feature value, alone and
@@ -45,12 +46,12 @@ func TestInfinityRoundTrip(t *testing.T) {
 	idx := symbols.NewIndex()
 	unbounded := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInfinity}}
 
-	pv := ValueToProto(unbounded, idx)
+	pv := protoconv.ValueToProto(unbounded, idx)
 	if _, ok := pv.GetKind().(*pb.Value_Infinity); !ok {
 		t.Fatalf("* crossed as %T, want the infinity arm", pv.GetKind())
 	}
 
-	back, err := ProtoToValueIn(pv, idx, nil)
+	back, err := protoconv.ProtoToValueIn(pv, idx, nil)
 	if err != nil {
 		t.Fatalf("ProtoToValueIn: %v", err)
 	}
@@ -59,13 +60,13 @@ func TestInfinityRoundTrip(t *testing.T) {
 	}
 
 	// The string "*" stays a string in both directions.
-	str := ValueToProto(runtime.NewStringValue("*"), idx)
+	str := protoconv.ValueToProto(runtime.NewStringValue("*"), idx)
 	if str.GetStringValue() != "*" {
 		t.Errorf(`"*" crossed as %T, want a string`, str.GetKind())
 	}
-	strBack, err := ProtoToValueIn(str, idx, nil)
+	strBack, err := protoconv.ProtoToValueIn(str, idx, nil)
 	if err != nil {
-		t.Fatalf(`ProtoToValueIn("*"): %v`, err)
+		t.Fatalf(`protoconv.ProtoToValueIn("*"): %v`, err)
 	}
 	if strBack.Kind != runtime.ValString || strBack.Str() != "*" {
 		t.Errorf(`round trip of "*" = %s (%v)`, strBack.Kind, strBack)
@@ -74,7 +75,7 @@ func TestInfinityRoundTrip(t *testing.T) {
 	seq := runtime.NewSequence()
 	seq.Append(runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 1}})
 	seq.Append(unbounded)
-	elements := ValueToProto(runtime.NewSequenceValue(seq), idx).GetSequence().GetElements()
+	elements := protoconv.ValueToProto(runtime.NewSequenceValue(seq), idx).GetSequence().GetElements()
 	if len(elements) != 2 {
 		t.Fatalf("(1, *) crossed as %d elements", len(elements))
 	}
@@ -158,12 +159,12 @@ func TestProtoToValueRefusesAFalseInfinityArm(t *testing.T) {
 		{"in an array", &pb.Value{Kind: &pb.Value_Array{Array: &pb.Array{Dimensions: []int64{1}, Elements: []*pb.Value{falseArm}}}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := ProtoToValueIn(tc.sent, nil, nil); !errors.Is(err, ErrInfinityNotAsserted) {
+			if _, err := protoconv.ProtoToValueIn(tc.sent, nil, nil); !errors.Is(err, protoconv.ErrInfinityNotAsserted) {
 				t.Errorf("error %v, want the infinity arm refused", err)
 			}
 		})
 	}
-	if got, err := ProtoToValueIn(infinityValue(), nil, nil); err != nil || !got.Const.IsUnbounded() {
+	if got, err := protoconv.ProtoToValueIn(infinityValue(), nil, nil); err != nil || !got.Const.IsUnbounded() {
 		t.Errorf("infinity: true read as %v (%v), want the unbounded value", got.Kind, err)
 	}
 }

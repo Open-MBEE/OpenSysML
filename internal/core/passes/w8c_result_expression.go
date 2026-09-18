@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -23,7 +24,7 @@ func (ResultExpressionPass) Level() PassLevel { return LevelConstraint }
 // ElementScoped: each type gates on the head naming its supertypes.
 func (ResultExpressionPass) ElementScoped() { /* marker: per-element gating */ }
 
-func (ResultExpressionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (ResultExpressionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -32,7 +33,7 @@ func (ResultExpressionPass) Run(ctx *Context, name string, root *ast.RootNamespa
 		return nil
 	}
 	model := ctx.Model()
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	w := &w8cWalker{ctx: ctx}
 	w.walk(rootScope, func(sym *symbols.Symbol) {
 		if !semantics.FunctionLike(sym) {
@@ -45,8 +46,8 @@ func (ResultExpressionPass) Run(ctx *Context, name string, root *ast.RootNamespa
 		if conflict == nil {
 			return
 		}
-		diags = append(diags, Diagnostic{
-			Severity: SeverityError,
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     conflict.Node.Span(),
 			Message:  msgResultExpressionAtMostOne,
 			Code:     "result-expression-at-most-one",

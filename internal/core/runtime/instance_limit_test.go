@@ -20,7 +20,7 @@ const instanceLimitSrc = `
 // of them, the ones that fit included.
 func TestInstanceLimit_CountsNestedObjects(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, instanceLimitSrc)
-	ctx := NewContext(NewModel(model, resolver), 1000)
+	ctx := NewContext(typedModel(model, resolver), 1000)
 	ctx.SetMaxInstances(3)
 	if got := ctx.MaxInstances(); got != 3 {
 		t.Fatalf("MaxInstances = %d, want 3", got)
@@ -58,7 +58,7 @@ func TestInstanceLimit_CountsNestedObjects(t *testing.T) {
 // nested object leaves neither the root nor the objects under it.
 func TestInstanceLimit_RootFailsWhole(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, instanceLimitSrc)
-	ctx := NewContext(NewModel(model, resolver), 1000)
+	ctx := NewContext(typedModel(model, resolver), 1000)
 	ctx.SetMaxInstances(5)
 	carSym := resolveSymbol(t, root, "car")
 

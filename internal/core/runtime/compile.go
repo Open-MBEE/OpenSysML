@@ -685,6 +685,9 @@ func (c *calcCompiler) compileInvocation(n *ast.InvocationExpr, scope *symbols.S
 		return nil, ineligible("invocation without a scope")
 	}
 	target := (&EvalContext{ctx: c.ctx, scope: scope}).invocationTarget(n)
+	if target.err != nil {
+		return nil, target.err
+	}
 	args, err := callArgumentsOf(n, target.names, target.unbound)
 	if err != nil {
 		return nil, err

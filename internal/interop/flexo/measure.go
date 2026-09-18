@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
 
@@ -75,7 +75,7 @@ func sortedIDs(written map[string]*writtenElement) []string {
 // back, and reports what each side delivered. The reference argument is the
 // JSON commit request; only its "change" array is posted.
 func Measure(ctx context.Context, c *Client, fixture string, model, reference []byte) (*Report, error) {
-	graph, err := export.SysMLToRDF(filepath.Base(fixture), model)
+	graph, err := convert.SysMLToRDF(filepath.Base(fixture), model)
 	if err != nil {
 		return nil, fmt.Errorf("convert %s to RDF: %w", fixture, err)
 	}

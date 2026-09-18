@@ -1294,7 +1294,10 @@ func (e *ActionExecutor) fixWitnessInputs() error {
 		}
 		value := in.Value
 		if value.Kind == ValInvalid {
-			expr, ok := parseOneExpression("<witness>", in.Written)
+			expr, ok, err := e.ctx.model.parseOneExpression("<witness>", in.Written)
+			if err != nil {
+				return err
+			}
 			if !ok {
 				return &WitnessInputError{Feature: in.Feature, Reason: fmt.Sprintf("%q is not an expression the notation reads", in.Written)}
 			}

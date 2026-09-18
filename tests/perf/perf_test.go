@@ -15,6 +15,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/api/proto/protoconnect"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -129,7 +130,7 @@ func BenchmarkAnalyze(b *testing.B) {
 				b.StartTimer()
 				diags := passes.AnalyzeWithOptions("m.sysml", source.KindSysML, root, nil, idx, passes.Options{})
 				for _, d := range diags {
-					if d.Severity == passes.SeverityError {
+					if d.Severity == diag.SeverityError {
 						b.Fatalf("error: %s", d.Message)
 					}
 				}
@@ -264,7 +265,7 @@ func BenchmarkFeaturesOf(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		r := resolve.New(idx)
-		m := semantics.NewModel(r)
+		m := passes.NewTypedModel(r)
 		ctx := runtime.NewContext(runtime.NewModel(m, r), 100000)
 		for _, t := range types {
 			_ = ctx.FeaturesOf(t)
@@ -337,7 +338,7 @@ func newRT(tb testing.TB, src []byte) *rt {
 	idx.AddDocument("m.sysml", root)
 	idx.ExpandWildcardImports()
 	r := resolve.New(idx)
-	m := semantics.NewModel(r)
+	m := passes.NewTypedModel(r)
 	ctx := runtime.NewContext(runtime.NewModel(m, r), 10_000_000)
 	return &rt{idx: idx, res: r, sem: m, ctx: ctx, root: idx.DocumentRoot("m.sysml")}
 }

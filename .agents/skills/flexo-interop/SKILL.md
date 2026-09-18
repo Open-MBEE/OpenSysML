@@ -12,7 +12,7 @@ round trip through a running stack, which is what `internal/interop/flexo` perfo
 `internal/interop/flexo/testdata/interop_expected.txt` records.
 
 The gate is **opt-in and skips by default** (`FLEXO_INTEROP`), exactly like the corpus gates in
-`internal/core/model/corpus_gate_test.go`. `go test ./...` on a machine without Docker stays green,
+`tests/corpus/corpus_gate_test.go`. `go test ./...` on a machine without Docker stays green,
 and a skipped run proves nothing — the skip says so on stderr.
 
 ## Bring the stack up

@@ -14,12 +14,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast/astcodec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // msgModelNotFound formats the not-found status for an unknown model hash.
@@ -389,42 +391,42 @@ func (s *Service) requireCapability(capability string) error {
 // requireValueCapabilities refuses a supplied value of a kind whose capability
 // is unavailable, rather than reading it as something else.
 func (s *Service) requireValueCapabilities(pv *pb.Value) error {
-	if ValueCarriesComplex(pv) {
+	if protoconv.ValueCarriesComplex(pv) {
 		if err := s.requireCapability(CapabilityComplexValues); err != nil {
 			return err
 		}
 	}
-	if ValueCarriesStructured(pv) {
+	if protoconv.ValueCarriesStructured(pv) {
 		if err := s.requireCapability(CapabilityStructuredValues); err != nil {
 			return err
 		}
 	}
-	if ValueCarriesMeasurementRef(pv) {
+	if protoconv.ValueCarriesMeasurementRef(pv) {
 		if err := s.requireCapability(CapabilityMeasurementRefs); err != nil {
 			return err
 		}
 	}
-	if ValueCarriesFunction(pv) {
+	if protoconv.ValueCarriesFunction(pv) {
 		if err := s.requireCapability(CapabilityFunctionValues); err != nil {
 			return err
 		}
 	}
-	if ValueCarriesInfinity(pv) {
+	if protoconv.ValueCarriesInfinity(pv) {
 		if err := s.requireCapability(CapabilityInfinityValue); err != nil {
 			return err
 		}
 	}
-	if ValueCarriesSet(pv) {
+	if protoconv.ValueCarriesSet(pv) {
 		if err := s.requireCapability(CapabilitySetValues); err != nil {
 			return err
 		}
 	}
-	if ValueCarriesTensor(pv) {
+	if protoconv.ValueCarriesTensor(pv) {
 		if err := s.requireCapability(CapabilityTensorValues); err != nil {
 			return err
 		}
 	}
-	if ValueCarriesMetaobject(pv) {
+	if protoconv.ValueCarriesMetaobject(pv) {
 		return s.requireCapability(CapabilityMetaobjectValues)
 	}
 	return nil
@@ -679,7 +681,7 @@ func (s *Service) parseModel(inputs []sourceInput, mode conformance.Mode) (strin
 	if parsedClean {
 		for i, doc := range documents {
 			doc.PassesDiags = passes.AnalyzeWithOptions(inputs[i].name, inputs[i].kind, doc.Root,
-				make([]passes.Diagnostic, 0), idx, passes.Options{Conformance: mode})
+				make([]diag.Diagnostic, 0), idx, passes.Options{Conformance: mode})
 		}
 	}
 
@@ -882,7 +884,7 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 
 	// Serializing the graph materializes the objects under the root, so it is
 	// part of the creation: past the held-objects bound, none of them stays.
-	var graph InstanceGraph
+	var graph protoconv.InstanceGraph
 	inst, err := runtimeCtx.InstantiateRead(sym, func(inst *runtime.Instance) error {
 		graph = s.instanceGraphToProto(runtimeCtx, inst, cached.Index)
 		for _, err := range graph.Errors {
@@ -949,7 +951,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if err := s.requireValueCapabilities(pv); err != nil {
 				return nil, nil, err
 			}
-			val, cerr := ProtoToRuntimeValue(ctx, pv, cached.Index, ctx.Semantics())
+			val, cerr := protoconv.ProtoToRuntimeValue(ctx, pv, cached.Index, ctx.Semantics())
 			if cerr != nil {
 				return nil, &pb.ExecuteActionResponse{
 					Error: fmt.Sprintf("input %q could not be read: %v", name, cerr),

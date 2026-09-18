@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
@@ -87,7 +88,7 @@ const triggerFixture = `package P {
 	}
 }`
 
-func triggerDiags(t *testing.T, body string) []Diagnostic {
+func triggerDiags(t *testing.T, body string) []diag.Diagnostic {
 	t.Helper()
 	return libraryTypeDiags(t, strings.Replace(triggerFixture, "%s", body, 1))
 }
@@ -101,7 +102,7 @@ func wantTriggerDiag(t *testing.T, body, code, want string) {
 		t.Fatalf("want one type diagnostic for %q, got %v", body, diags)
 	}
 	d := diags[0]
-	if d.Code != code || d.Severity != SeverityError {
+	if d.Code != code || d.Severity != diag.SeverityError {
 		t.Errorf("%q: got code %q severity %v, want %q error", body, d.Code, d.Severity, code)
 	}
 	if !strings.Contains(d.Message, want) {
@@ -268,9 +269,9 @@ func TestTriggerIncommensurableArithmeticIsRejected(t *testing.T) {
 		var errors, warnings int
 		for _, d := range diags {
 			switch {
-			case d.Severity == SeverityError && d.Code == tc.code && strings.Contains(d.Message, "over incommensurable quantities of dimension"):
+			case d.Severity == diag.SeverityError && d.Code == tc.code && strings.Contains(d.Message, "over incommensurable quantities of dimension"):
 				errors++
-			case d.Severity == SeverityWarning && strings.Contains(d.Message, "combines incommensurable quantities"):
+			case d.Severity == diag.SeverityWarning && strings.Contains(d.Message, "combines incommensurable quantities"):
 				warnings++
 			}
 		}
@@ -286,7 +287,7 @@ func TestTriggerIncommensurableArithmeticIsRejected(t *testing.T) {
 	} {
 		diags := triggerDiags(t, "transition first a accept "+trigger+" then b;")
 		for _, d := range diags {
-			if d.Severity == SeverityError {
+			if d.Severity == diag.SeverityError {
 				t.Errorf("%q: want no type error for an operand only evaluation measures, got %v", trigger, diags)
 			}
 		}
@@ -582,7 +583,7 @@ func TestBodyTriggerArgumentIsRejected(t *testing.T) {
 	wantTriggerDiag(t, "transition first a accept at { t } + d then b;", "trigger-at-time-instant", "`+` over an expression body `{ … }`")
 	wantTriggerSilent(t, "transition first a accept when flags->ControlFunctions::forAll {in f; f} then b;")
 	diags := triggerDiags(t, "transition first a accept when { true } == true then b;")
-	if len(diags) != 1 || diags[0].Severity != SeverityWarning || !strings.Contains(diags[0].Message, "comparing Expression with Boolean is always false") {
+	if len(diags) != 1 || diags[0].Severity != diag.SeverityWarning || !strings.Contains(diags[0].Message, "comparing Expression with Boolean is always false") {
 		t.Errorf("`{ true } == true`: want the equality warning alone, got %v", diags)
 	}
 }

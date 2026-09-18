@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -41,8 +42,8 @@ func TestSymbolToProto(t *testing.T) {
 
 // TestDiagnosticToProto verifies DiagnosticToProto conversion.
 func TestDiagnosticToProto(t *testing.T) {
-	diag := passes.Diagnostic{
-		Severity: passes.SeverityError,
+	diag := diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Message:  "test error",
 		Span:     source.Span{Offset: 5, Len: 4}, // "Test" at position 5
 	}
@@ -73,7 +74,7 @@ func TestConvertSpan(t *testing.T) {
 	// Span covering "line2" (bytes 6-11)
 	sp := source.Span{Offset: 6, Len: 5}
 
-	pb := DiagnosticToProto(passes.Diagnostic{Span: sp}, sf).Span
+	pb := DiagnosticToProto(diag.Diagnostic{Span: sp}, sf).Span
 	if pb.File != "test.sysml" {
 		t.Errorf("File: got %q, want %q", pb.File, "test.sysml")
 	}
@@ -264,12 +265,12 @@ func TestCollectionElementsHandlesSetAndSequence(t *testing.T) {
 		"sequence": runtime.NewSequenceValue(seq),
 		"set":      runtime.NewSetValue(set),
 	} {
-		if got := len(collectionElements(val)); got != 2 {
+		if got := len(objref.CollectionElements(val)); got != 2 {
 			t.Errorf("%s: got %d elements, want 2", name, got)
 		}
 	}
 
-	if got := collectionElements(runtime.Value{Kind: runtime.ValNull}); got != nil {
+	if got := objref.CollectionElements(runtime.Value{Kind: runtime.ValNull}); got != nil {
 		t.Errorf("non-collection: got %v, want nil", got)
 	}
 }
