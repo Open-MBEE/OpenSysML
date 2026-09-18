@@ -343,7 +343,8 @@ action def 'Group 0' {
   reads without re-parsing the model. A snapshot records the state of the object the run was
   made on, its configured features included, so one whose slots record other values of the
   features the target's own slots set — several configurations often share one result
-  package — is of another configuration and left out with a note counting it. A
+  package — is of another configuration and left out with a note counting it. Locations that
+  repeat or nest (a package and a sub-package of it) index each snapshot once. A
   `resultLocation` outside the document, a snapshot slot with no defining feature in the
   document or holding no one finite number, and a target with no classifier to match
   snapshots against are each noted in the configuration's `notes`.
@@ -355,7 +356,9 @@ relative difference; see
 [Comparing a migrated configuration with the tool's results](cli.md#comparing-a-migrated-configuration-with-the-tools-results).
 A stored observable is read off the target by default (`Time_Acq_Total` beside
 `target.Time_Acq_Total`), or off the feature `-observe Time_Acq_Total=clock` names, so a total
-the tool read from its time variable is set beside the run's clock. The numbers are printed
+the tool read from its time variable is set beside the run's clock. An observable the completed
+runs produce in more than one unit (a quantity in some, a bare number or another unit in others)
+has no one distribution to set beside the tool's and is noted, not pooled. The numbers are printed
 as they are: a difference is a fact about the migration's fidelity, to be read against the
 report's approximations, not tuned away.
 

@@ -281,6 +281,33 @@ func TestReferenceTagsListingSeveralIDsAreSplit(t *testing.T) {
 	wantClean(t, "t.sysml", r)
 }
 
+// Result locations that repeat or nest — a package and a sub-package of it —
+// index each snapshot once, so a stored run counts once in the distribution.
+func TestOverlappingResultLocationsIndexEachSnapshotOnce(t *testing.T) {
+	r := migrateDocument(t, storedResults, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Block xmi:id="_s2" base_Class="_sure"/>
+  <sysml:Block xmi:id="_s3" base_Class="_other"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
+      executionTarget="_s0" resultLocation="_results _more _results"/>`)
+	configs := r.Results.Configurations
+	if len(configs) != 1 {
+		t.Fatalf("results index %d configuration(s), want 1", len(configs))
+	}
+	var ids []string
+	for _, s := range configs[0].Snapshots {
+		ids = append(ids, s.ID)
+	}
+	if want := []string{"_r1", "_r2", "_r3", "_r4"}; configs[0].Location != "Results, Results::More" || !slices.Equal(ids, want) {
+		t.Errorf("overlapping locations index %q holding %v, want Results, Results::More holding %v once each", configs[0].Location, ids, want)
+	}
+	if values := configs[0].Values("pB"); !reflect.DeepEqual(values, []float64{3, 0, 0.25, 0.75}) {
+		t.Errorf("Values(pB) = %v", values)
+	}
+	wantLine(t, r.Notation, "/* results of the simulation tool: 4 snapshot(s) in Results, Results::More holding pA, pB */")
+	wantClean(t, "t.sysml", r)
+}
+
 // The sidecar is read back as written, and anything else is refused: JSON of
 // another shape, a field the sidecar never writes, or no source at all.
 func TestResultsSidecarRoundTrip(t *testing.T) {

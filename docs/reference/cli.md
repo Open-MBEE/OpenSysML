@@ -1042,7 +1042,7 @@ which `-action` names), `runs`, `draws`, `target`, `behavior`, `resultLocation`,
 `observables` its snapshots hold, one `snapshots` row per stored run with its numeric slot
 values, and `notes` stating every slot left out and why (a value that is no number, a defining
 feature the document does not hold, a result location holding no snapshot of the target's
-classifier). The sidecar is read strictly: an unknown field, a missing `source` or
+classifier); result locations that repeat or nest index each snapshot once. The sidecar is read strictly: an unknown field, a missing `source` or
 `configurations`, or malformed JSON is refused naming the file.
 
 `-compare-results <file>` on the migrated model then runs every configuration the sidecar
@@ -1067,8 +1067,9 @@ run — `clock` for the simulation time, when the tool's total is the elapsed ti
 behavior no longer writes itself — and `-observe <observable>` alone narrows the comparison to
 that stored observable. The relative difference is `(OpenSysML − tool) / |tool|` per statistic,
 `+0.0%` where both are zero and `+1 (of 0)` where only the tool's is; a stored observable the
-run holds no value for, or one whose value is no number, is a note under the table rather than a
-missing row; a configuration the tool stored no snapshot of, or whose behavior was not migrated,
+run holds no value for, one whose value is no number, or one the completed runs produce in more
+than one unit (a quantity in some, a bare number or another unit in others, which no one
+distribution can pool) is a note under the table rather than a missing row; a configuration the tool stored no snapshot of, or whose behavior was not migrated,
 is undecided saying so, with the sidecar's notes. A run that fails is an `error:` line under the
 table and fails the comparison (exit status `1`), as it fails a `-runs` table: the statistics
 are of the completed runs only, so they are not passed off as the configuration's. The statistics

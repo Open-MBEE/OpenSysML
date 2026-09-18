@@ -169,7 +169,7 @@ func comparisonTable(cfg *migrate.ConfigurationResults, table runtime.SweepTable
 			notes = append(notes, fmt.Sprintf("note: no snapshot holds a number for %s", name))
 			continue
 		}
-		ran, unit, held := runValues(table, feature)
+		ran, units, held := runValues(table, feature)
 		cells = append(cells, statisticsRow(name, "tool", stored, ""))
 		d := runtime.Distribute(ran)
 		switch {
@@ -181,8 +181,12 @@ func comparisonTable(cfg *migrate.ConfigurationResults, table runtime.SweepTable
 			cells = append(cells, []string{"", "OpenSysML (" + feature + ")", "0", "", "", "", "", ""})
 			notes = append(notes, fmt.Sprintf("note: %s holds no number in any completed run, so %s is not compared", feature, name))
 			continue
+		case len(units) > 1:
+			cells = append(cells, []string{"", "OpenSysML (" + feature + ")", fmt.Sprint(len(ran)), "", "", "", "", ""})
+			notes = append(notes, fmt.Sprintf("note: %s came to numbers in more than one unit (%s) over the completed runs, so %s is not compared", feature, unitList(units), name))
+			continue
 		}
-		cells = append(cells, statisticsRow("", "OpenSysML ("+feature+")", d, unit))
+		cells = append(cells, statisticsRow("", "OpenSysML ("+feature+")", d, units[0]))
 		cells = append(cells, differenceRow(stored, d))
 	}
 	widths := make([]int, len(cells[0]))
@@ -223,9 +227,10 @@ func comparedObservables(cfg *migrate.ConfigurationResults, observe []Observable
 	return pairs
 }
 
-// runValues collects the numbers a feature came to in the completed runs, with
-// their unit; held says whether any completed run produced the feature at all.
-func runValues(table runtime.SweepTable, feature string) (numbers []semantics.Value, unit string, held bool) {
+// runValues collects the numbers a feature came to in the completed runs and the
+// distinct units they came in, in order of first appearance ("" for a bare number);
+// held says whether any completed run produced the feature at all.
+func runValues(table runtime.SweepTable, feature string) (numbers []semantics.Value, units []string, held bool) {
 	for _, row := range table.Rows {
 		if row.Err != nil {
 			continue
@@ -237,13 +242,29 @@ func runValues(table runtime.SweepTable, feature string) (numbers []semantics.Va
 			held = true
 			if n, ok := runtime.MagnitudeValue(out.Value); ok {
 				numbers = append(numbers, n)
+				unit := ""
 				if q := out.Value.Quantity(); q != nil {
 					unit = q.Unit.String()
+				}
+				if !slices.Contains(units, unit) {
+					units = append(units, unit)
 				}
 			}
 		}
 	}
-	return numbers, unit, held
+	return numbers, units, held
+}
+
+// unitList spells the units numbers came in, a bare number's as "none".
+func unitList(units []string) string {
+	names := make([]string, len(units))
+	for i, u := range units {
+		if u == "" {
+			u = "none"
+		}
+		names[i] = u
+	}
+	return strings.Join(names, ", ")
 }
 
 // reals wraps stored numbers as the Reals the tool wrote them as.

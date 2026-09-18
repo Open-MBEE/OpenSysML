@@ -98,8 +98,8 @@ func ReadResults(r io.Reader) (*Results, error) {
 }
 
 // resultSnapshots reads into r the snapshots of the target's classifiers under the
-// resultLocation packages that record the values the target configures; lost says
-// what of the results is outside the document.
+// resultLocation packages that record the values the target configures, each once
+// though the locations repeat or nest; lost says what of the results is outside the document.
 func (m *migration) resultSnapshots(r *ConfigurationResults, s *xmi.Stereotype, target executionTarget) (lost []string) {
 	ids := s.IDs("resultLocation")
 	if len(ids) == 0 {
@@ -108,6 +108,8 @@ func (m *migration) resultSnapshots(r *ConfigurationResults, s *xmi.Stereotype, 
 	typed := m.classifierClosure(target.classifiers)
 	configured := m.configuredValues(target)
 	seenObservable := map[string]bool{}
+	seenLocation := map[*xmi.Element]bool{}
+	seenInstance := map[*xmi.Element]bool{}
 	unread := map[string]int{}
 	others := map[string]int{}
 	var locations []string
@@ -117,14 +119,19 @@ func (m *migration) resultSnapshots(r *ConfigurationResults, s *xmi.Stereotype, 
 			lost = append(lost, "the result location "+strconv.Quote(id)+" is outside the document, so its snapshots are not read")
 			continue
 		}
+		if seenLocation[pkg] {
+			continue
+		}
+		seenLocation[pkg] = true
 		locations = append(locations, qualifiedName(pkg))
 		if len(typed) == 0 {
 			continue
 		}
 		for _, inst := range m.descendantInstances(pkg) {
-			if !m.isSnapshotOf(inst, typed) {
+			if seenInstance[inst] || !m.isSnapshotOf(inst, typed) {
 				continue
 			}
+			seenInstance[inst] = true
 			if differ := m.recordsOtherValues(inst, configured); len(differ) > 0 {
 				others[strings.Join(differ, ", ")]++
 				continue
