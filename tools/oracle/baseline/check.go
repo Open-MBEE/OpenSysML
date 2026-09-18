@@ -3,6 +3,7 @@ package baseline
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -14,9 +15,9 @@ import (
 // otherwise bury the first, usually sufficient, line.
 const maxDifferences = 40
 
-// Write records a fresh report as the committed baseline. The oracle stamps the
-// recording date itself, so the bytes written here are the run's own.
-func Write(committedPath string, fresh []byte) error {
+// Write records a fresh report as the committed baseline and announces it on
+// log. The oracle stamps the recording date itself, so the bytes are the run's own.
+func Write(committedPath string, fresh []byte, log io.Writer) error {
 	var record struct {
 		Provenance Record `json:"provenance"`
 	}
@@ -32,7 +33,7 @@ func Write(committedPath string, fresh []byte) error {
 	if err := os.WriteFile(committedPath, fresh, 0o600); err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "recorded %s (provenance dated %s)\n", committedPath, record.Provenance.Recorded)
+	fmt.Fprintf(log, "recorded %s (provenance dated %s)\n", committedPath, record.Provenance.Recorded)
 	return nil
 }
 

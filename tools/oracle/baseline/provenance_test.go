@@ -1,6 +1,7 @@
 package baseline
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -236,7 +237,7 @@ func TestReproducesSaysWhichActionADifferenceCallsFor(t *testing.T) {
 // baseline the Java-free guard could not check.
 func TestWriteRefusesAReportWithoutProvenance(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "baseline.json")
-	err := Write(path, []byte(`{"totals":{"pilotOnly":61}}`))
+	err := Write(path, []byte(`{"totals":{"pilotOnly":61}}`), io.Discard)
 	if err == nil || !strings.Contains(err.Error(), "states no pilot pin") {
 		t.Fatalf("want a refusal naming the missing provenance, got %v", err)
 	}

@@ -44,14 +44,16 @@ func Main(args []string, stderr io.Writer) int {
 		}
 		return 2
 	}
-	if err := run(*repoDir, *grammars, *out, *baseline); err != nil {
+	if err := run(*repoDir, *grammars, *out, *baseline, stderr); err != nil {
 		fmt.Fprintf(stderr, "grammar-coverage: %v\n", err)
 		return 1
 	}
 	return 0
 }
 
-func run(repoDir, grammarDir, out, baseline string) error {
+// run measures the grammars and writes the reports; log receives the progress
+// lines.
+func run(repoDir, grammarDir, out, baseline string, log io.Writer) error {
 	repoDir, err := repo.Choose(repoDir)
 	if err != nil {
 		return err
@@ -81,7 +83,7 @@ func run(repoDir, grammarDir, out, baseline string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(os.Stderr, "%s: %d production(s)\n", parsed.Name, len(parsed.Productions))
+		fmt.Fprintf(log, "%s: %d production(s)\n", parsed.Name, len(parsed.Productions))
 		parsedGrammars = append(parsedGrammars, parsed)
 		for _, production := range parsed.Productions {
 			literals = append(literals, production.Literals()...)
@@ -103,17 +105,17 @@ func run(repoDir, grammarDir, out, baseline string) error {
 	if corpusFiles == 0 {
 		return fmt.Errorf("no .sysml or .kerml files found under %s: is -repo right?", repoDir)
 	}
-	fmt.Fprintf(os.Stderr, "searched %d corpus file(s) for %d distinct literal(s)\n", corpusFiles, len(lits.order))
+	fmt.Fprintf(log, "searched %d corpus file(s) for %d distinct literal(s)\n", corpusFiles, len(lits.order))
 
 	rows := classifyAll(parsedGrammars, newAnalyzer(parsedGrammars, lits), index)
 	report := buildReport(pilotTag(grammarDir), rows, index.Roots())
-	if err := writeReports(out, report); err != nil {
+	if err := writeReports(out, report, log); err != nil {
 		return err
 	}
 	if baseline == "" {
 		return nil
 	}
-	return writeBaseline(baseline, report)
+	return writeBaseline(baseline, report, log)
 }
 
 // classifyAll classifies every production, keeping the grammars in the order

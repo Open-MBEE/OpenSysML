@@ -148,7 +148,7 @@ func run(repo, out string, jobs int, update, check bool, log io.Writer) error {
 	}
 	committed := filepath.Join(repo, filepath.FromSlash(committedBaseline))
 	if update {
-		return baseline.Write(committed, fresh)
+		return baseline.Write(committed, fresh, log)
 	}
 	if check {
 		return baseline.Reproduces(committed, fresh)

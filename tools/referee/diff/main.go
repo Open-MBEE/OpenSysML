@@ -258,7 +258,7 @@ func run(opts options) error {
 	}
 	committed := filepath.Join(opts.repo, filepath.FromSlash(committedBaseline))
 	if opts.update {
-		return baseline.Write(committed, fresh)
+		return baseline.Write(committed, fresh, opts.log)
 	}
 	if opts.check {
 		return baseline.Reproduces(committed, fresh)

@@ -1,6 +1,7 @@
 package grammar
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,7 +54,7 @@ func TestSummaryKeepsCountsAndGapsOnly(t *testing.T) {
 
 func TestWriteBaselineIsTheSummary(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "baseline.json")
-	if err := writeBaseline(path, testReport()); err != nil {
+	if err := writeBaseline(path, testReport(), io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path) // #nosec G304 -- the test wrote this path.
@@ -72,10 +73,10 @@ func TestWriteBaselineIsTheSummary(t *testing.T) {
 // function of the rows alone.
 func TestWriteReportsDeterministic(t *testing.T) {
 	first, second := t.TempDir(), t.TempDir()
-	if err := writeReports(first, testReport()); err != nil {
+	if err := writeReports(first, testReport(), io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeReports(second, testReport()); err != nil {
+	if err := writeReports(second, testReport(), io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"grammar-coverage-tables.md", "grammar-coverage.json", "grammar-coverage.txt"} {

@@ -3,6 +3,7 @@ package grammar
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -84,7 +85,7 @@ func (r *Report) Summary() *Report {
 }
 
 // writeBaseline writes the compact JSON a later run is diffed against.
-func writeBaseline(path string, report *Report) error {
+func writeBaseline(path string, report *Report, log io.Writer) error {
 	encoded, err := json.MarshalIndent(report.Summary(), "", "  ")
 	if err != nil {
 		return err
@@ -92,12 +93,12 @@ func writeBaseline(path string, report *Report) error {
 	if err := os.WriteFile(path, append(encoded, '\n'), 0o600); err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "wrote %s\n", path)
+	fmt.Fprintf(log, "wrote %s\n", path)
 	return nil
 }
 
 // writeReports writes the full JSON, the text summary and the Markdown tables.
-func writeReports(dir string, report *Report) error {
+func writeReports(dir string, report *Report, log io.Writer) error {
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return err
 	}
@@ -120,7 +121,7 @@ func writeReports(dir string, report *Report) error {
 		if err := os.WriteFile(path, files[name], 0o600); err != nil {
 			return err
 		}
-		fmt.Fprintf(os.Stderr, "wrote %s\n", path)
+		fmt.Fprintf(log, "wrote %s\n", path)
 	}
 	return nil
 }
