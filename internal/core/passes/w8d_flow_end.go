@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -20,7 +21,7 @@ type W8DFlowEndPass struct{}
 
 func (W8DFlowEndPass) Level() PassLevel { return LevelConstraint }
 
-func (W8DFlowEndPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W8DFlowEndPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -29,7 +30,7 @@ func (W8DFlowEndPass) Run(ctx *Context, name string, root *ast.RootNamespace) []
 		return nil
 	}
 	resolver := ctx.Resolver()
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	w8dWalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		u, ok := sym.Decl.(*ast.Usage)
 		if !ok || u.Kind != ast.UsageFlow || u.FlowEnds == nil {
@@ -51,8 +52,8 @@ func (W8DFlowEndPass) Run(ctx *Context, name string, root *ast.RootNamespace) []
 				continue
 			}
 			unidentified++
-			diags = append(diags, Diagnostic{
-				Severity: SeverityError,
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.SeverityError,
 				Span:     end.Span(),
 				Message:  msgFlowEndSubsetting,
 				Code:     "flow-end-subsetting",
@@ -60,8 +61,8 @@ func (W8DFlowEndPass) Run(ctx *Context, name string, root *ast.RootNamespace) []
 			})
 		}
 		if unidentified > 0 {
-			diags = append(diags, Diagnostic{
-				Severity: SeverityError,
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.SeverityError,
 				Span:     u.Span(),
 				Message:  msgConnectorRelatedFeatures,
 				Code:     "connector-related-features",

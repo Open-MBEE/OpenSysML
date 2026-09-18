@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
@@ -43,7 +44,7 @@ func loadContent(t *testing.T, name, content string) Model {
 	root := p.ParseFile()
 	idx := libraryIndex(t)
 	idx.AddDocument(name, root)
-	var sem []passes.Diagnostic
+	var sem []diag.Diagnostic
 	if len(p.Diagnostics) == 0 {
 		sem = passes.Analyze(name, root, nil, idx)
 	}
@@ -129,7 +130,7 @@ func requireClean(t *testing.T, m Model) {
 		t.Fatalf("fixture does not parse: %v", m.ParseDiags)
 	}
 	for _, d := range m.SemDiags {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Fatalf("fixture is not valid: %s at %v", d.Message, d.Span)
 		}
 	}

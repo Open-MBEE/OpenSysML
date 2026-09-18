@@ -8,6 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
@@ -36,7 +37,7 @@ type Workspace struct {
 	libAlone   *symbols.Index
 	libCatalog *identity.Catalog
 	libOnce    sync.Once
-	diagCache  map[string][]passes.Diagnostic
+	diagCache  map[string][]diag.Diagnostic
 	// refs is the reverse reference index, built per document on demand and
 	// dropped per document on a change (see refindex.go).
 	refs *refIndex
@@ -109,7 +110,7 @@ func NewWorkspaceWithIndex(idx *symbols.Index, opts ...Option) *Workspace {
 		library:      map[string]libraryFile{},
 		libraryRoots: map[string]bool{},
 		libBase:      idx.Base(),
-		diagCache:    map[string][]passes.Diagnostic{},
+		diagCache:    map[string][]diag.Diagnostic{},
 		libDocs:      map[string]*Document{},
 		standIns:     map[string]string{},
 		displaced:    map[string]symbols.LibraryDocument{},
@@ -389,7 +390,7 @@ func (w *Workspace) contextLocked() *passes.Context {
 // invalidateAllLocked drops every cached answer, for a change that moves them
 // all: the conformance mode. Caller holds the write lock.
 func (w *Workspace) invalidateAllLocked() {
-	w.diagCache = map[string][]passes.Diagnostic{}
+	w.diagCache = map[string][]diag.Diagnostic{}
 	w.refs = nil
 	w.generation++
 	if w.resolver != nil {
@@ -401,7 +402,7 @@ func (w *Workspace) invalidateAllLocked() {
 
 // Diagnostics returns the analysis diagnostics for name, computing them lazily
 // (and caching) on first request after a change. Returns nil for unknown docs.
-func (w *Workspace) Diagnostics(name string) []passes.Diagnostic {
+func (w *Workspace) Diagnostics(name string) []diag.Diagnostic {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	doc := w.docs[name]
@@ -414,7 +415,7 @@ func (w *Workspace) Diagnostics(name string) []passes.Diagnostic {
 // AnalyzedContent returns a document's diagnostics together with the content
 // they were computed against, so an edit cannot split the two. Reports whether
 // the document exists.
-func (w *Workspace) AnalyzedContent(name string) ([]byte, []passes.Diagnostic, bool) {
+func (w *Workspace) AnalyzedContent(name string) ([]byte, []diag.Diagnostic, bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	doc := w.docs[name]
@@ -425,14 +426,14 @@ func (w *Workspace) AnalyzedContent(name string) ([]byte, []passes.Diagnostic, b
 }
 
 // diagnosticsLocked analyzes doc, caching the result. Caller holds the lock.
-func (w *Workspace) diagnosticsLocked(name string, doc *Document) []passes.Diagnostic {
+func (w *Workspace) diagnosticsLocked(name string, doc *Document) []diag.Diagnostic {
 	if cached, ok := w.diagCache[name]; ok {
 		return cached
 	}
-	parseDiags := make([]passes.Diagnostic, 0, len(doc.ParseDiagnostics)+len(doc.ParseWarnings))
+	parseDiags := make([]diag.Diagnostic, 0, len(doc.ParseDiagnostics)+len(doc.ParseWarnings))
 	for _, pd := range doc.ParseDiagnostics {
-		parseDiags = append(parseDiags, passes.Diagnostic{
-			Severity: passes.SeverityError,
+		parseDiags = append(parseDiags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     pd.Span,
 			Message:  pd.Message,
 			Code:     "syntax",
@@ -441,8 +442,8 @@ func (w *Workspace) diagnosticsLocked(name string, doc *Document) []passes.Diagn
 		})
 	}
 	for _, pw := range doc.ParseWarnings {
-		parseDiags = append(parseDiags, passes.Diagnostic{
-			Severity: passes.SeverityWarning,
+		parseDiags = append(parseDiags, diag.Diagnostic{
+			Severity: diag.SeverityWarning,
 			Span:     pw.Span,
 			Message:  pw.Message,
 			Code:     pw.Code,

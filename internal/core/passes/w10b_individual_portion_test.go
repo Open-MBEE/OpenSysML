@@ -3,6 +3,8 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // The reproducer of validation/invalid/IndividualUsage_Invalid: an individual
@@ -28,7 +30,7 @@ func TestW10BIndividualTypings(t *testing.T) {
 		if d.Message != want[i] {
 			t.Errorf("diagnostic %d message = %q, want %q", i, d.Message, want[i])
 		}
-		if d.Severity != SeverityError {
+		if d.Severity != diag.SeverityError {
 			t.Errorf("diagnostic %d severity = %v, want an error", i, d.Severity)
 		}
 	}
@@ -70,7 +72,7 @@ func TestW10BPortionOwner(t *testing.T) {
 		if d.Message != msgPortionOwner {
 			t.Errorf("message = %q, want %q", d.Message, msgPortionOwner)
 		}
-		if d.Severity != SeverityError {
+		if d.Severity != diag.SeverityError {
 			t.Errorf("severity = %v, want an error", d.Severity)
 		}
 	}

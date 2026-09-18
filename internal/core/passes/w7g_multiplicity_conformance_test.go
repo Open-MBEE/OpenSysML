@@ -1,9 +1,13 @@
 package passes
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+)
 
 // codesOf counts the diagnostics of one code and returns their severities.
-func multiplicityDiags(t *testing.T, src, code string) []Diagnostic {
+func multiplicityDiags(t *testing.T, src, code string) []diag.Diagnostic {
 	t.Helper()
 	return only(constraintDiags(t, src), code)
 }
@@ -19,7 +23,7 @@ func TestW7GSubsettingUpperBoundIsAWarning(t *testing.T) {
 	if len(diags) != 1 {
 		t.Fatalf("expected one upper-bound diagnostic, got %v", diags)
 	}
-	if diags[0].Severity != SeverityWarning {
+	if diags[0].Severity != diag.SeverityWarning {
 		t.Fatalf("expected a warning, got %v", diags[0].Severity)
 	}
 	if diags[0].Message != msgSubsettingMultiplicityConformance {
@@ -40,7 +44,7 @@ func TestW7GRedefinitionLowerAndUpperBoundsAreSeparateWarnings(t *testing.T) {
 		t.Fatalf("expected one upper-bound warning, got %d in %v", got, diags)
 	}
 	for _, d := range diags {
-		if d.Severity != SeverityWarning {
+		if d.Severity != diag.SeverityWarning {
 			t.Fatalf("multiplicity conformance is a warning in the reference, got %v", d)
 		}
 	}

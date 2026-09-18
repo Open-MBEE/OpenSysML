@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -31,7 +32,7 @@ func (SendActionPass) Level() PassLevel { return LevelType }
 func (SendActionPass) ElementScoped() { /* marker: per-element gating */ }
 
 // Run checks every send in the document.
-func (SendActionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (SendActionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -58,7 +59,7 @@ type sendActionChecker struct {
 	expr       *exprChecker
 	bindings   *w9cBindingChecker
 	occurrence *symbols.Symbol
-	diags      []Diagnostic
+	diags      []diag.Diagnostic
 }
 
 func (c *sendActionChecker) walk(scope *symbols.Scope, members []ast.Node) {
@@ -159,8 +160,8 @@ func (c *sendActionChecker) checkPayload(send *ast.SendStatement) {
 	if send.Message != nil || lower.SendPayload(send) != nil {
 		return
 	}
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     send.Span(),
 		Message: "a send action written as a state subaction or a transition effect must have a payload: " +
 			"name the message it sends, as in `send new Msg() to receiver`",
@@ -239,8 +240,8 @@ func (c *sendActionChecker) checkReceiver(scope *symbols.Scope, receiver ast.Nod
 		return
 	}
 	if arg.valueType != "" {
-		c.diags = append(c.diags, Diagnostic{
-			Severity: SeverityWarning,
+		c.diags = append(c.diags, diag.Diagnostic{
+			Severity: diag.SeverityWarning,
 			Span:     receiver.Span(),
 			Message: fmt.Sprintf("the receiver of a send must be an occurrence: this expression yields a %s, which is not one; "+
 				"name a part, item or other occurrence after 'to'", arg.valueType),
@@ -251,8 +252,8 @@ func (c *sendActionChecker) checkReceiver(scope *symbols.Scope, receiver ast.Nod
 	}
 	sym := arg.feature
 	if sym.Kind == symbols.SymbolPortUsage {
-		c.diags = append(c.diags, Diagnostic{
-			Severity: SeverityWarning,
+		c.diags = append(c.diags, diag.Diagnostic{
+			Severity: diag.SeverityWarning,
 			Span:     receiver.Span(),
 			Message: fmt.Sprintf("sending to the port %s should use 'via' rather than 'to': "+
 				"'via' routes the message through a port of the sender, while 'to' names the receiver", sym.Name),
@@ -262,8 +263,8 @@ func (c *sendActionChecker) checkReceiver(scope *symbols.Scope, receiver ast.Nod
 		return
 	}
 	if types, ok := c.nonOccurrenceTypes(sym); ok {
-		c.diags = append(c.diags, Diagnostic{
-			Severity: SeverityWarning,
+		c.diags = append(c.diags, diag.Diagnostic{
+			Severity: diag.SeverityWarning,
 			Span:     receiver.Span(),
 			Message: fmt.Sprintf("the receiver of a send must be an occurrence: %s is typed by %s, which is not one; "+
 				"name a part, item or other occurrence after 'to'", sym.Name, types),
@@ -280,8 +281,8 @@ func (c *sendActionChecker) checkSender(scope *symbols.Scope, sender ast.Node) {
 		return
 	}
 	if arg.valueType != "" {
-		c.diags = append(c.diags, Diagnostic{
-			Severity: SeverityWarning,
+		c.diags = append(c.diags, diag.Diagnostic{
+			Severity: diag.SeverityWarning,
 			Span:     sender.Span(),
 			Message: fmt.Sprintf("a send is routed through an occurrence of the sender: this expression yields a %s, which is not one; "+
 				"name a port after 'via'", arg.valueType),
@@ -291,8 +292,8 @@ func (c *sendActionChecker) checkSender(scope *symbols.Scope, sender ast.Node) {
 		return
 	}
 	if types, ok := c.nonOccurrenceTypes(arg.feature); ok {
-		c.diags = append(c.diags, Diagnostic{
-			Severity: SeverityWarning,
+		c.diags = append(c.diags, diag.Diagnostic{
+			Severity: diag.SeverityWarning,
 			Span:     sender.Span(),
 			Message: fmt.Sprintf("a send is routed through an occurrence of the sender: %s is typed by %s, which is not one; "+
 				"name a port after 'via'", arg.feature.Name, types),

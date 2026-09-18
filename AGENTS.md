@@ -86,6 +86,7 @@ cmd/
   sysml-lsp/             LSP server binary
 internal/core/
   source/                source files, spans, line indexing
+  diag/                  Diagnostic and Severity, the finding type every layer reports
   lexer/                 hand-written scanner (~200 keywords)
   parser/                recursive-descent parser (never panics; emits ErrorNodes)
   ast/                   syntax tree nodes — IMMUTABLE after parse

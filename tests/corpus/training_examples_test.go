@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 )
 
 var updateTraining = flag.Bool("update-training", false,
@@ -93,7 +93,7 @@ func TestRequirementDefinitionsFile(t *testing.T) {
 	ws.Open(name, content, 1)
 
 	for _, d := range ws.Diagnostics(name) {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Errorf("unexpected error: %s", d.Message)
 		}
 	}

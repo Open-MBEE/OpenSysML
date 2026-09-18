@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -23,7 +24,7 @@ func (AssignmentReferentPass) Level() PassLevel { return LevelConstraint }
 
 func (AssignmentReferentPass) ElementScoped() { /* marker: per-element gating */ }
 
-func (AssignmentReferentPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (AssignmentReferentPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -52,7 +53,7 @@ type assignmentReferentChecker struct {
 	inCalc   bool
 	// occurrence: Occurrences::Occurrence is loaded, so time-varying is decidable.
 	occurrence bool
-	diags      []Diagnostic
+	diags      []diag.Diagnostic
 }
 
 // enterBody records whether the body being walked is a calculation's and returns
@@ -233,8 +234,8 @@ func chainSteps(chain *ast.FeatureChainExpr) []ast.Node {
 }
 
 func (c *assignmentReferentChecker) report(span source.Span, message, code string) {
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message:  message,
 		Code:     code,

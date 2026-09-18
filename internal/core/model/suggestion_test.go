@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // The did-you-mean hint belongs to the diagnostic, so every surface that shows
@@ -87,7 +87,7 @@ func TestUnresolvedReferenceSuggestsSpelling(t *testing.T) {
 
 			var errs []string
 			for _, d := range ws.Diagnostics("t.sysml") {
-				if d.Severity == passes.SeverityError {
+				if d.Severity == diag.SeverityError {
 					errs = append(errs, d.Message)
 				}
 			}

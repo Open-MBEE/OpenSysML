@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -17,7 +18,7 @@ type AssociationEndTypesPass struct{}
 
 func (AssociationEndTypesPass) Level() PassLevel { return LevelConstraint }
 
-func (AssociationEndTypesPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (AssociationEndTypesPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -34,7 +35,7 @@ func (AssociationEndTypesPass) Run(ctx *Context, name string, root *ast.RootName
 type associationEndTypesChecker struct {
 	resolver *resolve.Resolver
 	model    *semantics.Model
-	diags    []Diagnostic
+	diags    []diag.Diagnostic
 }
 
 func (c *associationEndTypesChecker) check(assoc *symbols.Symbol) {
@@ -51,8 +52,8 @@ func (c *associationEndTypesChecker) check(assoc *symbols.Symbol) {
 		if len(c.endTypes(assoc, end)) < 2 {
 			return true
 		}
-		c.diags = append(c.diags, Diagnostic{
-			Severity: SeverityError,
+		c.diags = append(c.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     u.Span(),
 			Message:  msgAssociationEndTypes,
 			Code:     "association-end-types",

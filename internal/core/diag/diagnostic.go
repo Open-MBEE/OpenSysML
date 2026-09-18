@@ -1,4 +1,5 @@
-package passes
+// Package diag holds the diagnostic type every layer reports findings in.
+package diag
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/quickfix"

@@ -5,13 +5,14 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 )
 
 // endpointDiags runs the name-resolution tier over src, the tier an endpoint
 // name is resolved at.
-func endpointDiags(t *testing.T, src string) []Diagnostic {
+func endpointDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	ctx, root := nameresCtx(t, "a.sysml", src)
 	return NameResolutionPass{}.Run(ctx, "a.sysml", root)
@@ -89,7 +90,7 @@ func TestEndpointNamingNoMemberIsReported(t *testing.T) {
 				t.Fatalf("expected one diagnostic for the endpoint, got %+v", got)
 			}
 			d := got[0]
-			if d.Severity != SeverityError {
+			if d.Severity != diag.SeverityError {
 				t.Errorf("expected an error, got %v", d.Severity)
 			}
 			if d.Code != "unresolved" || d.Source != "name-resolution" {

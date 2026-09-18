@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
@@ -17,7 +18,7 @@ import (
 func (m Model) checkValue(i int, op Operation) error {
 	text := strings.TrimSpace(op.Value)
 	sf := source.New("<value>", []byte(text))
-	refuse := func(reason string, diags []passes.Diagnostic) error {
+	refuse := func(reason string, diags []diag.Diagnostic) error {
 		return &Error{
 			Failure:        FailureInvalidValue,
 			OperationIndex: i,
@@ -81,8 +82,8 @@ func (m Model) validate(edited rewrites) error {
 		Model
 		sf          *source.SourceFile
 		root        *ast.RootNamespace
-		editedParse []passes.Diagnostic
-		before      []passes.Diagnostic
+		editedParse []diag.Diagnostic
+		before      []diag.Diagnostic
 	}
 	rereads := make([]*reread, 0, len(edited))
 	for _, name := range edited.names(own) {
@@ -126,7 +127,7 @@ func (m Model) validate(edited rewrites) error {
 
 // invalidResult refuses the edit for the errors introduced into sf, named when
 // it is not the edited document own.
-func invalidResult(own string, sf *source.SourceFile, introduced []passes.Diagnostic, what string) error {
+func invalidResult(own string, sf *source.SourceFile, introduced []diag.Diagnostic, what string) error {
 	where := ""
 	if sf.Name() != own {
 		where = " in " + sf.Name()
@@ -146,7 +147,7 @@ func invalidResult(own string, sf *source.SourceFile, introduced []passes.Diagno
 // nothing about the tiers an edit that repairs the syntax reaches for the first
 // time; the original is analyzed here instead, under the edited model's gate, so
 // that both are compared at one tier.
-func (m Model) baseline(gate []passes.Diagnostic) []passes.Diagnostic {
+func (m Model) baseline(gate []diag.Diagnostic) []diag.Diagnostic {
 	if len(m.ParseDiags) == 0 {
 		return m.SemDiags
 	}
@@ -158,11 +159,11 @@ func (m Model) baseline(gate []passes.Diagnostic) []passes.Diagnostic {
 
 // parseDiagnostics presents parse diagnostics as pass diagnostics, which is how
 // every consumer of them reports them: as syntax errors.
-func parseDiagnostics(diags []parser.Diagnostic) []passes.Diagnostic {
-	out := make([]passes.Diagnostic, 0, len(diags))
+func parseDiagnostics(diags []parser.Diagnostic) []diag.Diagnostic {
+	out := make([]diag.Diagnostic, 0, len(diags))
 	for _, d := range diags {
-		out = append(out, passes.Diagnostic{
-			Severity: passes.SeverityError,
+		out = append(out, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     d.Span,
 			Message:  d.Message,
 			Code:     "syntax",
@@ -173,10 +174,10 @@ func parseDiagnostics(diags []parser.Diagnostic) []passes.Diagnostic {
 }
 
 // errorsOnly keeps the diagnostics that say the model is wrong.
-func errorsOnly(diags []passes.Diagnostic) []passes.Diagnostic {
-	out := make([]passes.Diagnostic, 0, len(diags))
+func errorsOnly(diags []diag.Diagnostic) []diag.Diagnostic {
+	out := make([]diag.Diagnostic, 0, len(diags))
 	for _, d := range diags {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			out = append(out, d)
 		}
 	}
@@ -186,12 +187,12 @@ func errorsOnly(diags []passes.Diagnostic) []passes.Diagnostic {
 // introduced returns the diagnostics of the edited notation that the original
 // did not already have. Spans move when bytes are spliced, so a diagnostic is
 // identified by what it says rather than by where it says it.
-func introduced(before, after []passes.Diagnostic) []passes.Diagnostic {
+func introduced(before, after []diag.Diagnostic) []diag.Diagnostic {
 	counts := map[string]int{}
 	for _, d := range before {
 		counts[diagKey(d)]++
 	}
-	var out []passes.Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range after {
 		key := diagKey(d)
 		if counts[key] > 0 {
@@ -203,6 +204,6 @@ func introduced(before, after []passes.Diagnostic) []passes.Diagnostic {
 	return out
 }
 
-func diagKey(d passes.Diagnostic) string {
+func diagKey(d diag.Diagnostic) string {
 	return d.Source + "\x00" + d.Code + "\x00" + d.Message
 }

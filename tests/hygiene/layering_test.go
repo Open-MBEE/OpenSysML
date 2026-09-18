@@ -46,6 +46,7 @@ var permitted = map[string][]string{
 var packageLayer = map[string]string{
 	"internal/core/source":       "foundation",
 	"internal/core/ast":          "foundation",
+	"internal/core/diag":         "foundation",
 	"internal/core/ast/astcodec": "foundation",
 	"internal/core/pack":         "foundation",
 	"internal/core/quickfix":     "foundation",

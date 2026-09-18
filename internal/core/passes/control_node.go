@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -57,7 +58,7 @@ func (ControlNodeSuccessionPass) Level() PassLevel { return LevelConstraint }
 // ElementScoped: each control node is its own subject.
 func (ControlNodeSuccessionPass) ElementScoped() { /* marker: per-element gating */ }
 
-func (ControlNodeSuccessionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (ControlNodeSuccessionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -73,7 +74,7 @@ func (ControlNodeSuccessionPass) Run(ctx *Context, name string, root *ast.RootNa
 type controlNodeChecker struct {
 	ctx   *Context
 	model *semantics.Model
-	diags []Diagnostic
+	diags []diag.Diagnostic
 }
 
 func (c *controlNodeChecker) walk(scope *symbols.Scope, owner ast.Node, members []ast.Node) {
@@ -167,8 +168,8 @@ func (c *controlNodeChecker) checkOwner(node, owner ast.Node) {
 	if text := declarationText(owner); text != "" {
 		where = "in " + text + ", which is not an action"
 	}
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     controlNodeSpan(node),
 		Message: fmt.Sprintf("%s is declared %s; declare it in the body of an action definition or usage",
 			controlNodeText(node), where),
@@ -347,8 +348,8 @@ func (c *controlNodeChecker) checkCount(owner *symbols.Symbol, own bool, node as
 	if !ok {
 		return
 	}
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message: fmt.Sprintf("%s has %d %s successions; a %s node may have at most one — %s",
 			controlNodeText(node), len(succs), side, controlNodeKind(node), fix),
@@ -386,8 +387,8 @@ func (c *controlNodeChecker) checkEndMultiplicity(owner *symbols.Symbol, own boo
 		Lower: semantics.Bound{Value: lower, Known: true},
 		Upper: semantics.Bound{Value: upper, Known: true},
 	}
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     end.Multiplicity.Span(),
 		Message: fmt.Sprintf("succession %s %s has %s multiplicity %s; successions %s a %s node must have %s multiplicity %s",
 			direction, controlNodeText(node), endName, r.Text(), direction, controlNodeKind(node), endName, want.Text()),

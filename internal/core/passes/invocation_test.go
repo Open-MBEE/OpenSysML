@@ -6,22 +6,23 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // libraryDiags analyzes src against the bundled standard library and returns
 // the name-resolution and type diagnostics, which is what a call reports.
-func libraryDiags(t *testing.T, src string) []Diagnostic {
+func libraryDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	return libraryDiagsOf(parser.New(source.New("<t>", []byte(src))).ParseFile())
 }
 
-func libraryDiagsOf(root *ast.RootNamespace) []Diagnostic {
+func libraryDiagsOf(root *ast.RootNamespace) []diag.Diagnostic {
 	idx := newTestIndex()
 	idx.AddDocument("<t>", root)
 	idx.ExpandWildcardImports()
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range Analyze("<t>", root, nil, idx) {
 		if d.Source == "type" || d.Source == "name-resolution" {
 			out = append(out, d)
@@ -39,16 +40,16 @@ func wantLibraryClean(t *testing.T, src string) {
 
 func wantLibraryDiag(t *testing.T, src, code, want string) {
 	t.Helper()
-	wantLibrarySeverity(t, src, SeverityError, code, want)
+	wantLibrarySeverity(t, src, diag.SeverityError, code, want)
 }
 
 // wantLibraryWarning is wantLibraryDiag for an advisory.
 func wantLibraryWarning(t *testing.T, src, code, want string) {
 	t.Helper()
-	wantLibrarySeverity(t, src, SeverityWarning, code, want)
+	wantLibrarySeverity(t, src, diag.SeverityWarning, code, want)
 }
 
-func wantLibrarySeverity(t *testing.T, src string, severity Severity, code, want string) {
+func wantLibrarySeverity(t *testing.T, src string, severity diag.Severity, code, want string) {
 	t.Helper()
 	diags := libraryDiags(t, src)
 	if len(diags) != 1 {
@@ -763,7 +764,7 @@ func TestInvocationOverloadSiblingsThroughOneWildcardImport(t *testing.T) {
 		attribute s : String = pick("s");
 	}`
 	for _, d := range libraryDiags(t, model) {
-		if d.Severity != SeverityWarning || d.Code != "name-conflict" {
+		if d.Severity != diag.SeverityWarning || d.Code != "name-conflict" {
 			t.Fatalf("expected only the owned name-conflict warnings, got %v", d)
 		}
 	}
@@ -871,7 +872,7 @@ func TestInvocationOverloadQualifiedReexportedAndInheritedCandidates(t *testing.
 		attribute i : Integer = Derived::pick(2);
 		attribute s : String = Derived::pick("s");
 	}`)
-	if len(diags) != 1 || diags[0].Code != "name-conflict" || diags[0].Severity != SeverityWarning {
+	if len(diags) != 1 || diags[0].Code != "name-conflict" || diags[0].Severity != diag.SeverityWarning {
 		t.Fatalf("expected only the inherited name-conflict warning, got %v", diags)
 	}
 	wantLibraryDiag(t, `package P {
@@ -922,7 +923,7 @@ func TestInvocationOverloadCandidatesThroughInheritedImports(t *testing.T) {
 	}`
 	for _, visibility := range []string{"protected", "public"} {
 		for _, d := range libraryDiags(t, fmt.Sprintf(src, visibility)) {
-			if d.Code != "name-conflict" || d.Severity != SeverityWarning {
+			if d.Code != "name-conflict" || d.Severity != diag.SeverityWarning {
 				t.Fatalf("%s import: expected only name-conflict warnings, got %v", visibility, d)
 			}
 		}
@@ -992,7 +993,7 @@ func TestInvocationOverloadCandidatesFromEveryGeneralAndRecursiveImport(t *testi
 			attribute s : String = pick("s");
 		}
 	}`)
-	if len(diags) != 1 || diags[0].Code != "name-conflict" || diags[0].Severity != SeverityWarning {
+	if len(diags) != 1 || diags[0].Code != "name-conflict" || diags[0].Severity != diag.SeverityWarning {
 		t.Fatalf("expected only the inherited name-conflict warning, got %v", diags)
 	}
 	diags = libraryDiags(t, `package P {
@@ -1007,7 +1008,7 @@ func TestInvocationOverloadCandidatesFromEveryGeneralAndRecursiveImport(t *testi
 		}
 	}`)
 	for _, d := range diags {
-		if d.Code != "name-conflict" || d.Severity != SeverityWarning {
+		if d.Code != "name-conflict" || d.Severity != diag.SeverityWarning {
 			t.Fatalf("expected only name-conflict warnings for Base's overloads, got %v", diags)
 		}
 	}
@@ -1024,7 +1025,7 @@ func TestInvocationOverloadCandidatesFromEveryGeneralAndRecursiveImport(t *testi
 		t.Fatalf("expected only the two owned name-conflict warnings, got %v", diags)
 	}
 	for _, d := range diags {
-		if d.Code != "name-conflict" || d.Severity != SeverityWarning {
+		if d.Code != "name-conflict" || d.Severity != diag.SeverityWarning {
 			t.Fatalf("expected only owned name-conflict warnings, got %v", diags)
 		}
 	}

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // dimensionDiagnostics splits a document's diagnostics into the dimensional
@@ -15,10 +15,10 @@ func dimensionDiagnostics(t *testing.T, src string) (warnings, errs []string) {
 	ws.Open("test.sysml", []byte(src), 1)
 	for _, d := range ws.Diagnostics("test.sysml") {
 		switch {
-		case d.Severity == passes.SeverityError:
+		case d.Severity == diag.SeverityError:
 			errs = append(errs, d.Message)
 		case strings.Contains(d.Message, "incommensurable quantities"):
-			if d.Severity != passes.SeverityWarning {
+			if d.Severity != diag.SeverityWarning {
 				t.Fatalf("dimensional diagnostic is %v, want warning: %s", d.Severity, d.Message)
 			}
 			warnings = append(warnings, d.Message)

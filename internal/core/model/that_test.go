@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // errorsIn returns the error diagnostics of one document, joined.
@@ -12,7 +12,7 @@ func errorsIn(t *testing.T, ws *Workspace, uri string) string {
 	t.Helper()
 	var errs []string
 	for _, d := range ws.Diagnostics(uri) {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			errs = append(errs, d.Message)
 		}
 	}

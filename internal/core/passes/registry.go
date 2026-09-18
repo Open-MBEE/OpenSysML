@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -38,14 +39,14 @@ type ElementScoped interface{ ElementScoped() }
 // once a strictly lower level emitted a blocking diagnostic, avoiding cascade
 // noise; an ElementScoped pass runs and gates itself per element. Passes at the
 // same level always run.
-func (r *Registry) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (r *Registry) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	ordered := make([]Pass, len(r.passes))
 	copy(ordered, r.passes)
 	sort.SliceStable(ordered, func(i, j int) bool {
 		return ordered[i].Level() < ordered[j].Level()
 	})
 
-	var all []Diagnostic
+	var all []diag.Diagnostic
 	// failedLevel is the lowest level at which an Error occurred; document-scoped
 	// passes at a strictly higher level are skipped.
 	failed := false
@@ -79,7 +80,7 @@ func (r *Registry) Run(ctx *Context, name string, root *ast.RootNamespace) []Dia
 }
 
 // blockingSpans returns where the diagnostics a level depends on were reported.
-func blockingSpans(diags []Diagnostic) []source.Span {
+func blockingSpans(diags []diag.Diagnostic) []source.Span {
 	var out []source.Span
 	for _, d := range diags {
 		if d.Blocking() {

@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -116,7 +116,7 @@ type Error struct {
 	OperationIndex int
 	// Diagnostics are the errors behind a refusal: those of an unreadable new
 	// value, or those the edited notation was found to have.
-	Diagnostics []passes.Diagnostic
+	Diagnostics []diag.Diagnostic
 	// Diagnosed is the source the Diagnostics' spans are offsets into: the new
 	// value's text, or the edited notation. A refusal still returns no model.
 	Diagnosed *source.SourceFile

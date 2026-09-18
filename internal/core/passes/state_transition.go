@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -62,7 +63,7 @@ type StateTransitionPass struct{}
 func (StateTransitionPass) Level() PassLevel { return LevelNameResolution }
 
 // Run checks every state machine the document declares.
-func (StateTransitionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (StateTransitionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -78,7 +79,7 @@ func (StateTransitionPass) Run(ctx *Context, name string, root *ast.RootNamespac
 // transitionChecker accumulates the diagnostics of one document.
 type transitionChecker struct {
 	resolver *resolve.Resolver
-	diags    []Diagnostic
+	diags    []diag.Diagnostic
 	// ordered are the members already reported for ordering the regions of a
 	// parallel state, whose endpoints name regions rather than vertices.
 	ordered map[ast.Node]bool
@@ -461,8 +462,8 @@ func (c *transitionChecker) checkEndpoint(
 
 // report records one diagnostic of this pass.
 func (c *transitionChecker) report(span source.Span, code, message string) {
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message:  message,
 		Code:     code,

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // wantNotation asserts one warning per want, matched by code and message
@@ -20,7 +21,7 @@ func wantNotation(t *testing.T, name, src, code string, wants ...string) {
 		t.Fatalf("%s: got %d diagnostics %+v, want %d", src, len(got), got, len(wants))
 	}
 	for i, want := range wants {
-		if got[i].Severity != SeverityWarning {
+		if got[i].Severity != diag.SeverityWarning {
 			t.Errorf("%s: severity = %v, want warning", src, got[i].Severity)
 		}
 		if got[i].Code != code {
@@ -236,7 +237,7 @@ func TestRequirementConstraintOutsideARequirementBodyIsAnExtension(t *testing.T)
 // keyword in a .kerml file is reported, and the KerML spelling is silent.
 func TestSysMLDeclarationInKerMLIsReported(t *testing.T) {
 	got := notationDiags(t, "a.kerml", "package P { part def Wheel; }", conformance.ModeDefault)
-	if len(got) != 1 || got[0].Severity != SeverityError || got[0].Code != CodeSysMLNotation ||
+	if len(got) != 1 || got[0].Severity != diag.SeverityError || got[0].Code != CodeSysMLNotation ||
 		!strings.Contains(got[0].Message, "`part` is SysML notation") {
 		t.Errorf("got %+v, want one sysml-notation error", got)
 	}

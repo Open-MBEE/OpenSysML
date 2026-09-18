@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -18,7 +19,7 @@ type MultiplicityBoundsPass struct{}
 
 func (MultiplicityBoundsPass) Level() PassLevel { return LevelConstraint }
 
-func (MultiplicityBoundsPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (MultiplicityBoundsPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -35,7 +36,7 @@ func (MultiplicityBoundsPass) Run(ctx *Context, name string, root *ast.RootNames
 type multiplicityBoundsChecker struct {
 	resolver *resolve.Resolver
 	model    *semantics.Model
-	diags    []Diagnostic
+	diags    []diag.Diagnostic
 }
 
 func (c *multiplicityBoundsChecker) check(sym *symbols.Symbol) {
@@ -124,8 +125,8 @@ func w8cWholeOperator(op ast.OperatorKind, want semantics.PrimType) bool {
 }
 
 func (c *multiplicityBoundsChecker) report(bound ast.Node) {
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     bound.Span(),
 		Message:  msgMultiplicityBoundNatural,
 		Code:     "multiplicity-bound-natural",

@@ -3,6 +3,8 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 const w10bCrossSrc = `package AssociationTest {
@@ -33,7 +35,7 @@ func TestW10BCrossFeatureTypeAndChain(t *testing.T) {
 		if got[0].Message != tc.msg {
 			t.Errorf("%s: message = %q, want %q", tc.code, got[0].Message, tc.msg)
 		}
-		if got[0].Severity != SeverityError {
+		if got[0].Severity != diag.SeverityError {
 			t.Errorf("%s: severity = %v, want an error", tc.code, got[0].Severity)
 		}
 		if text := spanText(w10bCrossSrc, got[0]); text != "y.b" {
@@ -156,7 +158,7 @@ var w10bCrossCodes = []string{
 
 // expectCrossDiag asserts exactly one diagnostic with code, its message, and
 // the source text it points at.
-func expectCrossDiag(t *testing.T, src string, diags []Diagnostic, code, msg, text string) {
+func expectCrossDiag(t *testing.T, src string, diags []diag.Diagnostic, code, msg, text string) {
 	t.Helper()
 	got := only(diags, code)
 	if len(got) != 1 {
@@ -165,7 +167,7 @@ func expectCrossDiag(t *testing.T, src string, diags []Diagnostic, code, msg, te
 	if got[0].Message != msg {
 		t.Errorf("%s: message = %q, want %q", code, got[0].Message, msg)
 	}
-	if got[0].Severity != SeverityError {
+	if got[0].Severity != diag.SeverityError {
 		t.Errorf("%s: severity = %v, want an error", code, got[0].Severity)
 	}
 	if spanned := strings.TrimSpace(spanText(src, got[0])); spanned != text {
@@ -174,7 +176,7 @@ func expectCrossDiag(t *testing.T, src string, diags []Diagnostic, code, msg, te
 }
 
 // expectNoCrossDiags asserts that none of the crossing rules fired.
-func expectNoCrossDiags(t *testing.T, diags []Diagnostic) {
+func expectNoCrossDiags(t *testing.T, diags []diag.Diagnostic) {
 	t.Helper()
 	for _, code := range w10bCrossCodes {
 		if got := only(diags, code); len(got) != 0 {
@@ -548,7 +550,7 @@ func TestW10BNamedCrossFeatureTypeAheadOfKind(t *testing.T) {
 		}`, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			var diags []Diagnostic
+			var diags []diag.Diagnostic
 			if strings.HasPrefix(tc.name, "kerml") {
 				diags = constraintDiagsKerML(t, tc.src)
 			} else {
