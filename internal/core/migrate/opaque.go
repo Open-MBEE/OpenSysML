@@ -204,12 +204,23 @@ func dialectOf(lang string) dialect {
 	case l == "", strings.HasPrefix(l, "javascript"), strings.HasPrefix(l, "ecmascript"),
 		l == "js", strings.HasPrefix(l, "rhino"), strings.HasPrefix(l, "nashorn"):
 		return dialectScript
-	case strings.HasPrefix(l, "java"):
+	case javaLabel(l):
 		return dialectJava
 	case l == "english", l == "natural", strings.HasPrefix(l, "natural language"), l == "text", l == "plain":
 		return dialectEnglish
 	}
 	return dialectNone
+}
+
+// javaLabel reports whether the lower-cased label names Java itself, bare or
+// with a version (`java 8`, `java 1.8`); `javacc` or `java expression language` is not Java.
+func javaLabel(l string) bool {
+	v, ok := strings.CutPrefix(l, "java")
+	if !ok {
+		return false
+	}
+	v = strings.TrimLeft(v, " ")
+	return v == "" || strings.Trim(v, "0123456789.") == "" && isDigit(v[0])
 }
 
 // translateExpr translates body as one expression read in sc yielding what

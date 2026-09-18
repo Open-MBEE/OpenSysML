@@ -331,7 +331,10 @@ A v1 body carries a `language` and a text the tool executed — JavaScript, in C
 v2 expressions and statements, and refuses the rest with a typed reason naming the token, so a
 translation is always complete or absent — never partial.
 
-**Scripts** (`language` JavaScript, ECMAScript, Java, or none) are read as statements:
+**Scripts** (`language` JavaScript, ECMAScript, Java, or none) are read as statements. A
+JavaScript label may name its engine (`Javascript Rhino`, `Nashorn`); a Java label is `Java`
+alone or with a version (`Java 8`), so `JavaCC` or `Java Expression Language` is a language
+the translator does not read, not Java:
 
 | Script | v2 |
 |---|---|
