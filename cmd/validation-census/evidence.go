@@ -19,7 +19,7 @@ import (
 // say which of the two tools rejects each corpus case.
 const rejectionBaselinePath = "docs/project/pilot-rejection-baseline.json"
 
-// Buckets as cmd/pilot-reject records them; only these three make a case
+// Buckets as tools/referee/reject records them; only these three make a case
 // evidence of a rejection.
 const (
 	bucketBothReject = "both-reject"

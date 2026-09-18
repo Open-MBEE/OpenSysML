@@ -47,7 +47,7 @@ OpenSysML today answers **identically on every one of these probes** (`0.3000000
 `false`, `false`, `true`, `5.551115123125783e-17`, `false`, `true`, `false`,
 `0.3333333333333333`). An exact-rational evaluator would therefore not close a gap with
 the reference — it would **open one**, flipping the observable answer of every probe row
-above against the pilot, and `cmd/pilot-exec-diff` would report each as a disagreement.
+above against the pilot, and `tools/referee/exec` would report each as a disagreement.
 This inverts the premise of the change: the evaluator's binary64 arithmetic *is* the
 reference behavior.
 
@@ -185,7 +185,7 @@ unevaluated-operand artifact `w6d:complex-is-zero-qualified` records in the
 `'/'` called by name are unevaluated too; only operator syntax folds. So the pilot cannot
 referee any of the three, the standing decision is not contradicted (nothing here shows an
 exact numerator/denominator pair for `1/3`), and the semantics are self-assessed. The
-probes are committed as `cmd/pilot-exec-diff/testdata/cases/rational_terms.cases`, where
+probes are committed as `tools/referee/exec/testdata/cases/rational_terms.cases`, where
 every call lands in `pilot-unevaluated` and the operator quotient agrees.
 
 **Adjudicated: implement all three over the binary64 the runtime already holds.**

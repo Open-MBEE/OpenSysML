@@ -153,7 +153,7 @@ func splitCells(line string) []string {
 var languageBySource = map[string]string{"kerml": "KerML", "sysml": "SysML", "both": "both"}
 
 // negativeCorpusDir holds the rejection corpus a row's negative case must be in.
-const negativeCorpusDir = "cmd/pilot-reject/testdata/negative"
+const negativeCorpusDir = "tools/referee/reject/testdata/negative"
 
 // checkDocument verifies the census document against the baseline and the
 // rejection corpus: current summary figures, one row per baseline constraint

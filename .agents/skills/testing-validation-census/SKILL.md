@@ -51,7 +51,7 @@ afterwards (`git checkout -- <file>` on a clean tree, or keep a copy).
   the cell is rejected as not a backticked name/path, not read as the normalized name.
 - Blank or misspell the baseline's `recorded` date, or change its `jar.name` away from the pinned
   artifact's filename: the baseline is rejected before any jar is read.
-- Point a row's *Negative case* at a file that is not under `cmd/pilot-reject/testdata/negative/`.
+- Point a row's *Negative case* at a file that is not under `tools/referee/reject/testdata/negative/`.
 - Delete a probe of a ✅/⚠️ row, or add a probe for a ❌/❔ row.
 - Delete the `.sysml` (or `.kerml`) probe of a row whose language is `both`: each notation needs one.
 
@@ -65,7 +65,7 @@ afterwards (`git checkout -- <file>` on a clean tree, or keep a copy).
 The header names the row and the severity plus a fragment of the message OpenSysML must report;
 `TestProbesReportTheirConstraint` opens the model with `model.NewWorkspace` and fails if no
 diagnostic matches. A probe is evidence for the *mapping*, not a corpus case: it is not run by
-`cmd/pilot-reject`, and adding one does not change any oracle baseline.
+`tools/referee/reject`, and adding one does not change any oracle baseline.
 
 ## Adjudicating a status change
 

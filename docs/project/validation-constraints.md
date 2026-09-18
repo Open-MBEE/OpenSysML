@@ -61,7 +61,7 @@ the pinned pilot validators (`build/pilot-sysml-validator/validate-sysml-batch`,
 `build/pilot-kerml-validator/validate-kerml`) to confirm the pilot reports the constraint the
 row names on the same model; where it reports a different one, the *Checks* column says so.
 
-The **Negative case** column names the file in `cmd/pilot-reject/testdata/negative/` (see
+The **Negative case** column names the file in `tools/referee/reject/testdata/negative/` (see
 [pilot-rejection.md](pilot-rejection.md)) that exercises the constraint against the pilot
 oracle, or `none` where the corpus has no case yet; every case whose header attributes its
 rejection to a pilot constraint (`pilot validate…`) is listed on that constraint's row. This

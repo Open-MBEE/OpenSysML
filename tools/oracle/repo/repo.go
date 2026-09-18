@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -21,6 +22,26 @@ func Root() (string, error) {
 		return "", err
 	}
 	return RootFrom(dir)
+}
+
+// Choose is the given root made absolute, or Root when none is given.
+func Choose(path string) (string, error) {
+	if path != "" {
+		return filepath.Abs(path)
+	}
+	return Root()
+}
+
+// DevelopCommit is the given commit, or the develop commit the checkout at dir is based on.
+func DevelopCommit(dir, given string) (string, error) {
+	if given != "" {
+		return given, nil
+	}
+	out, err := exec.Command("git", "-C", dir, "merge-base", "HEAD", "origin/develop").Output()
+	if err != nil {
+		return "", fmt.Errorf("git merge-base HEAD origin/develop: %w; pass -develop", err)
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 // RootFrom is Root walking up from dir instead of the working directory.

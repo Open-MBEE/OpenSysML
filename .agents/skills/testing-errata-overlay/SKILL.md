@@ -1,11 +1,11 @@
 ---
 name: testing-errata-overlay
-description: How to end-to-end test the declared-errata overlay (internal/errata + the errata blocks in cmd/pilot-diff, cmd/pilot-xpect, cmd/pilot-reject and the doccounts errata sentence) on Linux — proving the published corpora are never edited, that the pilot really re-runs over the corrected copy, and that registry provenance checks are load-bearing.
+description: How to end-to-end test the declared-errata overlay (tools/oracle/errata + the errata blocks in tools/referee/diff, tools/referee/xpect, tools/referee/reject and the doccounts errata sentence) on Linux — proving the published corpora are never edited, that the pilot really re-runs over the corrected copy, and that registry provenance checks are load-bearing.
 ---
 
 # Testing the declared-errata overlay
 
-`internal/errata` declares defects in OMG-published reference material (file, line,
+`tools/oracle/errata` declares defects in OMG-published reference material (file, line,
 as-published bytes, corrected bytes, spec citation, derivation); the entry type, the overlay
 applied on read and the bundled library's entries are `internal/core/libs/errata`, which the
 registry builds on. Each oracle driver reports its
@@ -19,7 +19,7 @@ Standard blueprint provisioning is enough (`scripts/download-pilot-corpora.sh`,
 `download-pilot-xpect.sh`; java 21 + go). `build/syside` is optional — without it the
 differential is two-way, which is what the committed baselines record.
 
-**Always use a fresh library cache per oracle run**: `XDG_CACHE_HOME=$(mktemp -d) go run ./cmd/pilot-diff`.
+**Always use a fresh library cache per oracle run**: `XDG_CACHE_HOME=$(mktemp -d) go run -C tools ./cmd/pilot-diff`.
 Stale on-disk index records have produced wrong oracle numbers before.
 
 ## Where the corrected copy actually lives
@@ -38,7 +38,7 @@ hash_tree examples/pilot-corpora; hash_tree build/pilot-xpect-corpus   # before 
 git status --porcelain examples/
 grep -rn '(22/2\*25.4 + 110)' examples/ build/pilot-xpect-corpus       # corrected bytes must not appear
 ```
-Every write path in `internal/errata/errata.go` must be rooted at `dst`; `repo/dir` is only ever
+Every write path in `tools/oracle/errata/errata.go` must be rooted at `dst`; `repo/dir` is only ever
 read (`os.CopyFS(dst, os.DirFS(repo/dir))`).
 
 ## Proving the *pilot* re-runs over the corrected text (the important one)
@@ -56,7 +56,7 @@ f="$root/Geometry Examples/VehicleGeometryAndCoordinateFrames.sysml"
 exec /path/to/build/pilot-sysml-validator/validate-sysml-batch "$@"
 EOF
 chmod +x /tmp/wrap/validate-sysml-batch
-XDG_CACHE_HOME=$(mktemp -d) go run ./cmd/pilot-diff -validator /tmp/wrap/validate-sysml-batch -out /tmp/pd-wrap
+XDG_CACHE_HOME=$(mktemp -d) go run -C tools ./cmd/pilot-diff -validator /tmp/wrap/validate-sysml-batch -out /tmp/pd-wrap
 ```
 Expect two logged invocations: one with `--root …/examples/pilot-corpora/sysml-examples` showing
 the published line and one with `--root <out>/errata-corpora/pilot-examples` showing the
@@ -72,7 +72,7 @@ containing only the erratum's file and point the oracle at it:
 ```bash
 mkdir -p /tmp/mini/"examples/pilot-corpora/sysml-examples/Geometry Examples"
 cp "examples/pilot-corpora/sysml-examples/Geometry Examples/VehicleGeometryAndCoordinateFrames.sysml" /tmp/mini/…/
-XDG_CACHE_HOME=$(mktemp -d) go run ./cmd/pilot-diff -repo /tmp/mini \
+XDG_CACHE_HOME=$(mktemp -d) go run -C tools ./cmd/pilot-diff -repo /tmp/mini \
   -validator $PWD/build/pilot-sysml-validator/validate-sysml-batch \
   -kerml-validator $PWD/build/pilot-kerml-validator/validate-kerml -out /tmp/pd-mini
 ```
@@ -81,11 +81,11 @@ mutated `AsPublished` it must exit 1 with `F82: …:38 reads "…", the entry re
 
 ## Registry mutation matrix
 
-`cp internal/errata/errata.go /tmp/bak` first (library entries: `internal/core/libs/errata/errata.go`),
+`cp tools/oracle/errata/errata.go /tmp/bak` first (library entries: `internal/core/libs/errata/errata.go`),
 apply one mutation at a time with a Python string replace (watch the trailing comma — a dropped
 `,` yields a *build* failure, which is not evidence the check works), run
-`go test -count=1 ./internal/errata ./internal/core/libs/errata`, then restore and confirm
-`git status --porcelain internal/errata internal/core/libs/errata` is empty. Mutations that must
+`go test -count=1 ./internal/core/libs/errata` and `go test -C tools -count=1 ./oracle/errata`, then restore and confirm
+`git status --porcelain tools/oracle/errata internal/core/libs/errata` is empty. Mutations that must
 fail: AsPublished byte, empty Citation, empty Derivation, wrong Line, no-op Corrected, second
 entry for the same file, path outside `errata.Roots`.
 

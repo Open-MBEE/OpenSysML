@@ -83,7 +83,7 @@ commands:
 
       # The three pilot corpora, gated the same way and keyed the same way. Their
       # gate is our-side-only: the comparison against the reference implementation
-      # (cmd/pilot-diff) needs Java validators and is not run in CI.
+      # (tools/referee/diff) needs Java validators and is not run in CI.
       - restore_cache:
           keys:
             - pilot-corpora-v1-{{ checksum "scripts/download-pilot-corpora.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
@@ -97,7 +97,7 @@ commands:
           paths:
             - examples/pilot-corpora
 
-      # The PSSM test suite, one pinned file, gated the same way by internal/pssm.
+      # The PSSM test suite, one pinned file, gated the same way by tools/referee/pssm.
       - restore_cache:
           keys:
             - pssm-suite-v1-{{ checksum "scripts/download-pssm-suite.sh" }}-{{ checksum "scripts/pssm-pin.sh" }}
@@ -111,7 +111,7 @@ commands:
           paths:
             - build/pssm
 
-      # The fUML reference implementation's models and jar, gated by internal/fuml;
+      # The fUML reference implementation's models and jar, gated by tools/referee/fuml;
       # the jar is never run here (docs/project/fuml-referee.md).
       - restore_cache:
           keys:
@@ -404,12 +404,12 @@ jobs:
           name: Run PSSM suite gates
           command: |
             set -o pipefail
-            go test -count=1 -v ./internal/pssm -run 'TestSuiteRead|TestSuiteClassification|TestEmitSuite' | tee pssm-gate.log
+            go test -C tools -count=1 -v ./referee/pssm -run 'TestSuiteRead|TestSuiteClassification|TestEmitSuite' | tee pssm-gate.log
             if grep -qE '^\s*--- SKIP' pssm-gate.log; then
               echo "error: the PSSM suite gate skipped" >&2
               exit 1
             fi
-            go run ./cmd/pssm-referee -check
+            go run -C tools ./cmd/pssm-referee -check
           environment:
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
 
@@ -419,12 +419,12 @@ jobs:
           name: Run fUML suite gates
           command: |
             set -o pipefail
-            go test -count=1 -v ./internal/fuml -run 'TestSuite' | tee fuml-gate.log
+            go test -C tools -count=1 -v ./referee/fuml -run 'TestSuite' | tee fuml-gate.log
             if grep -qE '^\s*--- SKIP' fuml-gate.log; then
               echo "error: the fUML suite gate skipped" >&2
               exit 1
             fi
-            go run ./cmd/fuml-referee -check
+            go run -C tools ./cmd/fuml-referee -check
           environment:
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
 

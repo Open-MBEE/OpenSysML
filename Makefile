@@ -364,7 +364,8 @@ docs-counts: ## Regenerate and verify the committed documentation counts; the te
 	go run ./cmd/doc-counts
 	go run ./cmd/doc-counts -check
 	go run ./cmd/validation-census -check
-	go test -count=1 ./cmd/pilot-diff ./cmd/pilot-reject ./cmd/doc-counts ./cmd/validation-census
+	go test -count=1 ./cmd/doc-counts ./cmd/validation-census
+	go test -C $(TOOLS_DIR) -count=1 ./referee/diff ./referee/reject
 	@echo "✓ Documentation counts and refereed figures are current"
 
 docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle figures, changelog fragments and the build-time census and test-suite figures

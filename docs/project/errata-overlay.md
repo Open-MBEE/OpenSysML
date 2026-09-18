@@ -26,7 +26,7 @@ reported.
 
 ## What it is
 
-`internal/errata` is a registry of corrections to published reference material — the OMG
+`tools/oracle/errata` is a registry of corrections to published reference material — the OMG
 example corpora the oracles read, and the standard library vendored under
 `internal/core/libs/stdlib`. The entry type, the overlay that applies corrections on read and
 the library's own entries are the product's `internal/core/libs/errata`; the registry adds the
@@ -122,7 +122,7 @@ Measured with fresh caches when the overlay landed:
 |---|---|---|
 | `pilot-diff` | 353 files, 325 fully agreeing; 32 agreed, 26 only ours, 61 only the pilot's | 353 files, **327** fully agreeing; 32 agreed, **24** only ours, 61 only the pilot's |
 | `pilot-xpect` | 428 `.xt` files, 1261 assertions, 1323 rows, 1295 agree, 28 disagree | identical — no declared correction lies under `build/pilot-xpect-corpus` |
-| `pilot-reject` | 120 cases: 120 both reject, 0 only the pilot rejects | identical — no declared correction lies under `cmd/pilot-reject/testdata/negative` |
+| `pilot-reject` | 120 cases: 120 both reject, 0 only the pilot rejects | identical — no declared correction lies under `tools/referee/reject/testdata/negative` |
 
 Where no correction applies, the oracle says so in that many words rather than
 printing a coincidentally equal number: *no declared correction lies under
@@ -154,7 +154,7 @@ of the entry and no pilot verdict has changed yet. When one does, the finding ca
 3. Add the `errata.Entry`, copying the published line byte-for-byte, trailing
    whitespace included: a corpus entry to the registry, a library entry to
    `internal/core/libs/errata`.
-4. `go test ./internal/errata ./internal/core/libs/errata`, then re-run the three oracles with fresh caches
+4. `go test ./internal/core/libs/errata` and `go test -C tools ./oracle/errata`, then re-run the three oracles with fresh caches
    and `make docs-counts`. A library entry also needs `go generate ./internal/core/libs`
    (the snapshot is built from the corrected text) and the two `internal/core/model`
    gates moved between their published and bundled sets.

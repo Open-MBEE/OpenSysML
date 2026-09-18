@@ -1,6 +1,6 @@
 /*
  * Validate SysML v2 / KerML files with Sensmetry SysIDE (sysml-2ls), printing
- * GNU-format diagnostics on stderr so cmd/pilot-diff can read them the same way
+ * GNU-format diagnostics on stderr so tools/referee/diff can read them the same way
  * it reads the two pilot validators. Provisioned by scripts/download-syside.sh.
  *
  * Usage: validate-syside --library <sysml.library> [--root <dir>] <file>...

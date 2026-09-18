@@ -14,7 +14,7 @@ The note extends [scheduling policies, choice points and exploration](scheduling
 vocabulary it uses throughout.
 
 Every claim below about what PSSM admits was read off the referee's report for the test
-(`go run ./cmd/pssm-referee -filter "<test>" -json`), not inferred from the specification; the
+(`go run -C tools ./cmd/pssm-referee -filter "<test>" -json`), not inferred from the specification; the
 admitted sets are quoted where they decide a design point.
 
 ## The sites

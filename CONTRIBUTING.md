@@ -380,7 +380,7 @@ When a change needs documenting:
   count, so two branches that both add rows cannot conflict on one. The site build
   (`scripts/mkdocs_census.py`, run by `make docs`) counts the rows into the
   `<!-- doc-counts:begin census -->` block and refuses a `🚧` row, as do `make docs-counts` and
-  `go test ./cmd/pilot-diff`. `make docs-counts` still restates the externally refereed oracle
+  `go test -C tools ./referee/diff`. `make docs-counts` still restates the externally refereed oracle
   numbers from the baseline JSONs (and the README's conformance-passing sentence); run it only
   when a baseline or `known_failures.txt` moved.
 - **Changelog entries are fragments, not edits to `CHANGELOG.md`.** A change that a user
