@@ -1,23 +1,31 @@
 # SysML v1 to v2 migration report: heater_receptions.xmi
-# migrated 24 element(s): 19 mapped, 3 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 33 element(s): 26 mapped, 5 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (2)
 Reception	Heater::Away	_rcvAway	(1 signal reference(s) resolve to nothing in the document (_elsewhere))
 Parameter	Heater::SetLevel::extra	_rpExtra	(the parameter extra matches no attribute of the signal, whose payload is all the accept carries)
 
-## approximated (3)
+## approximated (5)
 AddStructuralFeatureValueAction	Heater::Apply Level::set level	_set	-> 'set level'	(no edge leads to the node, so it starts with the activity)
+Reception	Heater::Boost	_rcvBoost	-> Heater::Boost	(written as an action def accepting Boost, which its owner's usage boost runs; the method Heater::Boosting's parameter amount must hold a value that no attribute of the signal supplies; the reception only accepts the signal)
+AddStructuralFeatureValueAction	Heater::Boosting::set level	_bset	-> 'set level'	(no edge leads to the node, so it starts with the activity)
 Reception	Heater::Reset	_rcvReset	-> Heater::Reset	(written as an action def accepting Reset, which its owner's usage reset runs; the method Heater::Resetting has no action def to perform; the reception only accepts the signal)
 Reception	Heater::Stop	_rcvStop	-> Heater::Stop	(written as an action def accepting Stop, which its owner's usage stop runs; the reception has no method, so it only accepts the signal)
 
-## mapped (19)
+## mapped (26)
 «Block» Class	Heater	_heater	-> Heater
 Activity	Heater::Apply Level	_apply	-> Heater::'Apply Level'
 ObjectFlow	Heater::Apply Level::<ObjectFlow>	_of
 Parameter	Heater::Apply Level::gain	_apGain	-> Heater::'Apply Level'::gain
 InputPin	Heater::Apply Level::set level::value	_setVal	-> Heater::'Apply Level'::'set level'.value
+Parameter	Heater::Apply Level::slack	_apSlack	-> Heater::'Apply Level'::slack
 Parameter	Heater::Apply Level::value	_apValue	-> Heater::'Apply Level'::value
 ActivityParameterNode	Heater::Apply Level::value	_apnValue	-> Heater::'Apply Level'::value	(the flows to and from the node name the parameter value)
+Activity	Heater::Boosting	_boosting	-> Heater::Boosting
+ObjectFlow	Heater::Boosting::<ObjectFlow>	_bof
+Parameter	Heater::Boosting::amount	_bpAmount	-> Heater::Boosting::amount
+ActivityParameterNode	Heater::Boosting::amount	_bpnAmount	-> Heater::Boosting::amount	(the flows to and from the node name the parameter amount)
+InputPin	Heater::Boosting::set level::value	_bsetVal	-> Heater::Boosting::'set level'.value
 StateMachine	Heater::Resetting	_resetting	-> Heater::Resetting
 Region	Heater::Resetting::<Region>	_rr	(the one region is written as the body of its owner)
 State	Heater::Resetting::<Region>::Idle	_idle	-> Idle
@@ -26,6 +34,7 @@ Parameter	Heater::SetLevel::value	_rpValue	-> Signals::SetLevel::value	(stands f
 Property	Heater::level	_level	-> Heater::level
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Signals	_sigs	-> Signals
+Signal	Signals::Boost	_boost	-> Signals::Boost
 Signal	Signals::Reset	_reset	-> Signals::Reset
 Signal	Signals::SetLevel	_setLevel	-> Signals::SetLevel
 Property	Signals::SetLevel::value	_slValue	-> Signals::SetLevel::value

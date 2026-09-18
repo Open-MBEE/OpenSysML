@@ -704,6 +704,26 @@ const nestedCalls = `
           <argument xmi:type="uml:LiteralString" xmi:id="_pmRArg" value="got ="/>
         </message>
       </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_crossed" name="Crossed">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_xlc" name="c" represents="_nCtrl"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_xlm" name="m" represents="_nMotor"/>
+        <fragment xmi:type="uml:CombinedFragment" xmi:id="_xpar" interactionOperator="par">
+          <operand xmi:type="uml:InteractionOperand" xmi:id="_xparOp1">
+            <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_xsS" covered="_xlc" message="_xmS"/>
+            <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_xrS" covered="_xlm" message="_xmS"/>
+          </operand>
+          <operand xmi:type="uml:InteractionOperand" xmi:id="_xparOp2">
+            <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_xsR" covered="_xlm" message="_xmR"/>
+            <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_xrR" covered="_xlc" message="_xmR"/>
+          </operand>
+        </fragment>
+        <message xmi:type="uml:Message" xmi:id="_xmS" name="spin" messageSort="synchCall" signature="_nspin" sendEvent="_xsS" receiveEvent="_xrS">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_xmSRpm" value="20.0"/>
+        </message>
+        <message xmi:type="uml:Message" xmi:id="_xmR" name="beside" messageSort="reply" signature="_nspin" sendEvent="_xsR" receiveEvent="_xrR">
+          <argument xmi:type="uml:LiteralString" xmi:id="_xmRArg" value="got ="/>
+        </message>
+      </ownedBehavior>
     </packagedElement>`
 
 const nestedApplications = `
@@ -714,7 +734,8 @@ const nestedApplications = `
 // Each reply answers the latest call of its operation between its lifelines that no earlier reply
 // has answered, so nested calls pair with their replies stack-like. Alternative operands each
 // resolve from the calls open before their fragment, so every branch may answer the same call,
-// while a reply after a fragment that may already have answered its call answers none.
+// while a reply after a fragment that may already have answered its call answers none, and the
+// operands of a par, unordered between themselves, do not answer each other's calls.
 func TestNestedRepliesAnswerTheirOwnCalls(t *testing.T) {
 	r := migrateDocument(t, nestedCalls, nestedApplications)
 	for _, line := range []string{
@@ -728,6 +749,7 @@ func TestNestedRepliesAnswerTheirOwnCalls(t *testing.T) {
 		"else {",
 		"assign this.ctrl.'first' := spin.result;",
 		"/* not migrated: Interaction 'Twice' — the message 'late' answers no call of Spin between its lifelines before it */",
+		"/* not migrated: Interaction 'Crossed' — the combined fragment (_xpar) the message 'beside' answers no call of Spin between its lifelines before it */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -737,6 +759,7 @@ func TestNestedRepliesAnswerTheirOwnCalls(t *testing.T) {
 	wantNote(t, r, "_emR2", migrate.Mapped, "written as the assignment of the call spin's results to this.ctrl")
 	wantNote(t, r, "_twice", migrate.Unmapped, "the message 'late' answers no call of Spin between its lifelines before it")
 	wantNote(t, r, "_pmR", migrate.Approximated, "the result result is not bound: the reply is not in the fragment of the call it answers")
+	wantNote(t, r, "_crossed", migrate.Unmapped, "the message 'beside' answers no call of Spin between its lifelines before it")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Rig")

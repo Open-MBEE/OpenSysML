@@ -6,7 +6,9 @@
   as the assignment of the call's result to the caller lifeline's attribute; a lifeline is
   resolved to the feature path through the block's parts, ports and references or to an `in`
   parameter, and `alt`/`opt`/`loop`/`par` fragments are `if`/`for`/`while`/`fork` structures
-  when their guards parse and resolve; a duration constraint between two messages with steps
+  when their guards parse and resolve, a reply answering the latest open call of its operation
+  between its lifelines, never one another alternative or a concurrent operand made; a duration
+  constraint between two messages with steps
   between them is a wait forked after the earlier step and joined before the later, so those
   steps count toward the interval. A lifeline or guard that does not resolve, a create or
   delete message and a message-less timing trace are refused with the reason, as is a call
@@ -15,7 +17,8 @@
   one type are two paths, so a lifeline standing for a part of that type is ambiguous. A Reception is
   an `action def` of the block that accepts its signal and runs its method with the signal's
   attributes bound to the method's parameters of the same name, so a signal sent to the object
-  runs the method against the object. State machines gain transitions across regions and
+  runs the method against the object; where the method requires a value no attribute supplies,
+  the reception only accepts the signal and says so. State machines gain transitions across regions and
   nesting levels named by path, `junction`/`choice`/`fork`/`join`/`history`/`deep history`
   pseudostates, entry and exit points of a submachine as states of its `state def` addressed
   by path, internal transitions as self transitions where re-entry is not observable, and

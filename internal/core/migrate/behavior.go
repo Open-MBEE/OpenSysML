@@ -715,9 +715,12 @@ func (m *migration) reception(r *xmi.Element) {
 		case !m.written(method) || !hasActionForm(method):
 			note = "the method " + qualifiedName(method) + " has no action def to perform; the reception only accepts the signal"
 		default:
+			args, refusal := m.receptionArguments(method, sig, payload)
+			if refusal != "" {
+				note = refusal + "; the reception only accepts the signal"
+				break
+			}
 			last, performed = run, true
-			args, anote := m.receptionArguments(method, sig, payload)
-			note = anote
 			m.w.line("first " + trig + " then " + run + ";")
 			decl := "action " + run + " : " + m.ref(method, owner)
 			if len(args) == 0 {
@@ -755,9 +758,9 @@ func (m *migration) receptionComment(r, sig *xmi.Element) {
 	m.add(r, Unmapped, "", note)
 }
 
-// receptionArguments binds the method's in parameters to the accepted signal's
-// attributes of the same name; one with no such attribute and no default is noted.
-func (m *migration) receptionArguments(method, sig *xmi.Element, payload string) (args []string, note string) {
+// receptionArguments binds the method's in parameters to the accepted signal's attributes of
+// the same name; a parameter with no such attribute that must hold a value refuses the method.
+func (m *migration) receptionArguments(method, sig *xmi.Element, payload string) (args []string, refusal string) {
 	attrs := map[string]bool{}
 	for _, a := range m.signalAttributes(sig) {
 		attrs[m.nameOf(a)] = true
@@ -769,14 +772,14 @@ func (m *migration) receptionArguments(method, sig *xmi.Element, payload string)
 		}
 		name := m.nameOf(p)
 		if name == "" || !attrs[name] {
-			if firstOwned(p, "defaultValue") == nil {
-				note = joinNotes(note, "the method's parameter "+m.nameFor(p)+" matches no attribute of the signal, so it receives no value")
+			if requiresValue(p) {
+				refusal = joinNotes(refusal, "the method "+qualifiedName(method)+"'s parameter "+m.nameFor(p)+" must hold a value that no attribute of the signal supplies")
 			}
 			continue
 		}
 		args = append(args, writeName(name)+" = "+payload+"."+writeName(name))
 	}
-	return args, note
+	return args, refusal
 }
 
 // receptionParameters reports a reception's own parameters, which mirror the

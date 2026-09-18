@@ -652,9 +652,9 @@ func (s *scenario) fragment(f *xmi.Element, body *[]*scenarioStep) (*scenarioSte
 			return nil, "is a " + kind + " fragment with " + strconv.Itoa(len(operands)) + " operands; it takes one"
 		}
 	}
-	// alt, opt and loop operands are alternative paths: each resolves from the calls open before the
-	// fragment, and only a call still unanswered on every path (a skipping one included) stays open after it.
-	branching := step.kind == stepAlt || step.kind == stepOpt || step.kind == stepLoop
+	// The operands of alt, opt, loop and par each resolve from the calls open before the fragment:
+	// alternatives do not see each other, and concurrent operands are unordered between themselves.
+	isolated := step.kind != stepSeq
 	in := slices.Clone(s.calls)
 	var outs [][]*scenarioStep
 	for i, o := range operands {
@@ -691,7 +691,7 @@ func (s *scenario) fragment(f *xmi.Element, body *[]*scenarioStep) (*scenarioSte
 				return nil, "has a guard on an operand of a " + kind + " fragment, which runs its operands regardless"
 			}
 		}
-		if branching {
+		if isolated {
 			s.calls = slices.Clone(in)
 		}
 		steps, note = s.resolve(o.Owned("fragment"), nil, &operand.steps)
@@ -702,11 +702,24 @@ func (s *scenario) fragment(f *xmi.Element, body *[]*scenarioStep) (*scenarioSte
 		step.operands = append(step.operands, operand)
 		outs = append(outs, s.calls)
 	}
-	if branching {
+	switch step.kind {
+	case stepAlt, stepOpt, stepLoop:
+		// A path may skip the fragment unless an alt ends in an else; only a call still open on every path stays open.
 		if last := step.operands[len(step.operands)-1]; step.kind != stepAlt || last.guard != "" {
 			outs = append(outs, in)
 		}
 		s.calls = openOnEveryPath(in, outs)
+	case stepPar:
+		// Every operand runs and completes before the join: a call any of them answers is closed,
+		// and the calls they make are open to replies after it.
+		s.calls = openOnEveryPath(in, outs)
+		for _, out := range outs {
+			for _, c := range out {
+				if !slices.Contains(in, c) {
+					s.calls = append(s.calls, c)
+				}
+			}
+		}
 	}
 	step.base = freshIn(s.used, kind)
 	step.name = writeName(step.base)

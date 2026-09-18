@@ -194,7 +194,7 @@ returned over the service yet.
 | OpaqueBehavior, FunctionBehavior | `calc def` with its parameters when its one body is a v2 expression whose names resolve; otherwise `action def` keeping the body as a comment | mapped / approximated |
 | Operation | `action def <Op>` owned by the owner, with its parameters; the `method` behavior is written as its body (an Activity as the flow, an OpaqueBehavior as expression or comment), its parameters standing for the operation's at the same position, direction and type under the operation's names; a method parameter matching none is declared and reported, since a call binds only the operation's; no method: `abstract action def`; an `action <op> : <Op>;` usage of the owner performs it, as a call on an object does | mapped |
 | Operation `precondition`, `postcondition`, `bodyCondition` | `assert constraint { <expr> }` in the action def when the expression parses and resolves; otherwise a comment | mapped / approximated |
-| Reception with a `signal` and an Activity `method` | `action def <Sig> { action receive accept sig : Sig; action run : <Method> { in p = sig.p; } }` on the `part def`, plus the usage `action sig : <Sig>;` that runs it: the signal's attributes bind the method's `in` parameters of the same name, an unbound parameter is reported | mapped (unbound parameter: approximated) |
+| Reception with a `signal` and an Activity `method` | `action def <Sig> { action receive accept sig : Sig; action run : <Method> { in p = sig.p; } }` on the `part def`, plus the usage `action sig : <Sig>;` that runs it: the signal's attributes bind the method's `in` parameters of the same name, defaulted and optional parameters stay unbound; a parameter that must hold a value no attribute supplies leaves the method unrun, with the reason | mapped (a required parameter unsupplied: approximated, the signal is only accepted) |
 | Reception without a method, or whose method is not an Activity | the same `action def` accepting the signal and ending; the method is named in the report | approximated |
 | Reception whose signal is not written | comment | **unmapped** — the reason names the signal |
 | «Unit», «QuantityKind» instance specifications | comment placeholder | **unmapped** — use the `SI`/`ISQ` libraries |
@@ -355,7 +355,9 @@ stack-like, and assigns that call's `out` to the attribute of the caller's lifel
 names when the reply lies in the call's fragment or one nested in it. The operands of an `alt`,
 `opt` or `loop` are alternative paths, so each may answer a call made before the fragment, and a
 call answered on any of those paths (or made on only some of them) is open to no reply after the
-fragment. Combined fragments become the corresponding action structure when their guards are v2
+fragment; the operands of a `par` are unordered between themselves, so none answers a call
+another makes, while the calls they make are open after the join. Combined fragments become the
+corresponding action structure when their guards are v2
 expressions whose names resolve — `if`/`else` for `alt` and `opt`, `for`/`while` for `loop`,
 `fork`/`join` for `par` — and refuse the interaction, quoting the guard, when they are not.
 A duration constraint on a message is a wait before its step, as on an action; one between
@@ -376,7 +378,9 @@ action whose `in` parameters read the accepted signal's attributes of the same n
 `action run : 'Apply Level' { in value = setLevel.value; }`; a usage `action setLevel :
 SetLevel;` on the block performs it, so a signal sent to the object is accepted and its method
 runs against the object, not the signal. A reception without a method, or with one that is not
-an Activity, accepts the signal and ends, and the report names the method it does not run.
+an Activity, accepts the signal and ends, and the report names the method it does not run; so
+does one whose method has an `in` parameter with no default and a lower bound above zero that
+no attribute of the signal supplies, since v2 does not run an action holding no value for it.
 
 **Operation calls over ports.** A `CallOperationAction` with `onPort` is resolved the way the
 connector paths are: a connector of the caller's block from that port to a port of a part
