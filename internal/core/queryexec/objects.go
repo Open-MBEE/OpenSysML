@@ -4,10 +4,10 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/query"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -151,7 +151,7 @@ func (e *executor) heldObjects(expression queryplan.Expression, row Value) ([]Va
 	if err != nil {
 		var unread *runtime.HeldObjectsError
 		if errors.As(err, &unread) {
-			return nil, e.unevaluable(expression, lexer.NameText(unread.Feature), row, unread.Err)
+			return nil, e.unevaluable(expression, source.NameText(unread.Feature), row, unread.Err)
 		}
 		return nil, e.unevaluable(expression, "", row, err)
 	}
@@ -297,7 +297,7 @@ func (e *executor) objectFeatureValues(row Value, property string) ([]Value, boo
 	if fv == nil {
 		return nil, true, nil
 	}
-	segment := label + "." + lexer.NameText(name)
+	segment := label + "." + source.NameText(name)
 	held := fv.Value
 	if fv.Values.Kind != runtime.ValInvalid {
 		held = fv.Values
@@ -324,7 +324,7 @@ func objectFeatureName(ctx *runtime.Context, inst *runtime.Instance, property st
 		return property, true
 	}
 	for _, of := range ctx.FeaturesOfObject(inst) {
-		if lexer.NameText(of.Name) == property {
+		if source.NameText(of.Name) == property {
 			return of.Name, true
 		}
 	}

@@ -12,7 +12,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -221,7 +221,7 @@ func scanSegment(ref, rest string) (Segment, string, error) {
 		if end == 0 {
 			return seg, "", &RefError{Ref: ref, Detail: fmt.Sprintf("the quoted name %s is not closed", rest)}
 		}
-		names, ok := lexer.QualifiedNameSegments(rest[:end])
+		names, ok := source.QualifiedNameSegments(rest[:end])
 		if !ok || len(names) != 1 {
 			return seg, "", &RefError{Ref: ref, Detail: fmt.Sprintf("%s is not a name", rest[:end])}
 		}

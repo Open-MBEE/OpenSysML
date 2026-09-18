@@ -959,7 +959,7 @@ func TestActionExecution(t *testing.T)
 func TestStateMachineSimulation(t *testing.T)
 ```
 
-**Conformance tests - `internal/grpc/conformance_test.go`:**
+**Conformance tests - `tests/grpc/conformance_test.go`:**
 
 ```go
 func TestStdlibViaGRPC(t *testing.T) {

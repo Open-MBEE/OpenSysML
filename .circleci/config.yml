@@ -126,7 +126,7 @@ commands:
           paths:
             - build/fuml
 
-      # The pilot's XMI of the standard library, gated by internal/core/identity.
+      # The pilot's XMI of the standard library, gated by tests/identity.
       - restore_cache:
           keys:
             - pilot-library-xmi-v1-{{ checksum "scripts/download-pilot-library-xmi.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
@@ -373,7 +373,7 @@ jobs:
           name: Run pilot library identity gate
           command: |
             set -o pipefail
-            go test -count=1 -v ./internal/core/identity -run 'TestPilotLibraryXMI' | tee pilot-library-xmi-gate.log
+            go test -count=1 -v ./tests/identity -run 'TestPilotLibraryXMI' | tee pilot-library-xmi-gate.log
             grep -E 'pilot library XMI: [0-9]+ derived' pilot-library-xmi-gate.log
             if grep -qE '^\s*--- SKIP' pilot-library-xmi-gate.log; then
               echo "error: the pilot library identity gate skipped" >&2

@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -352,7 +352,7 @@ func featurePath(names []string) string {
 	var out strings.Builder
 	for _, name := range names {
 		out.WriteString(".")
-		out.WriteString(lexer.NameText(name))
+		out.WriteString(source.NameText(name))
 	}
 	return out.String()
 }

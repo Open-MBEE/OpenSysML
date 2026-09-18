@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
 )
 
@@ -113,7 +113,7 @@ func booleanSetting(v string) (string, string) {
 }
 
 func stringSetting(v string) (string, string) {
-	return lexer.StringText(v), ""
+	return source.StringText(v), ""
 }
 
 // drawPolicySetting writes a duration simulation mode as the draw policy the

@@ -1,4 +1,4 @@
-package perfbench
+package perf
 
 import (
 	"io/fs"
@@ -13,7 +13,7 @@ import (
 // benchModelEnv names a directory of .sysml/.kerml files to load as one REPL
 // session, so a whole real model's load is timed. See docs/internals/performance.md.
 //
-//	OPENSYSML_BENCH_MODEL=/path/to/model go test ./internal/perfbench -run '^$' -bench REPLLoadModel -benchmem
+//	OPENSYSML_BENCH_MODEL=/path/to/model go test ./tests/perf -run '^$' -bench REPLLoadModel -benchmem
 const benchModelEnv = "OPENSYSML_BENCH_MODEL"
 
 func BenchmarkREPLLoadModel(b *testing.B) {

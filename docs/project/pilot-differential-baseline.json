@@ -51,7 +51,7 @@
       },
       {
         "name": "testdata",
-        "dir": "testdata",
+        "dir": "tests/testdata",
         "origin": "ours",
         "files": 18,
         "digest": "sha256:e94ae1ca4106335c99633228ca4ebd5b8f5c70a09040590646b660c2cbb2d366"
@@ -316,7 +316,7 @@
     },
     {
       "name": "testdata",
-      "dir": "testdata",
+      "dir": "tests/testdata",
       "totals": {
         "files": 18,
         "filesFullyAgreeing": 10,

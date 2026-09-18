@@ -1559,7 +1559,7 @@ real time:
   `addr=:0`, so a naive `grep -o 'addr=[^ ]*' | head -1` grabs the health line and you dial port 0
   ("Connection refused"). Always filter on `gRPC server listening` first, and take the port with
   `${ADDR##*:}` — `cut -d: -f3` yields `]` for `[::]:41325`.
-- Expected values at 0cf94e80 for `internal/grpc/testdata/conformance/instantiate_derived_slot.sysml`:
+- Expected values at 0cf94e80 for `tests/grpc/testdata/conformance/instantiate_derived_slot.sysml`:
   `mass` → `materialized=True kind=real_value 1500.0`, `doubled` → `real_value 3000.0`; a missing
   model path raises `opensysml.errors.ModelFileNotFoundError` ("file not found: open …") and the
   server logs `code = NotFound` for `/sysml.SysMLService/ParseFile` while staying alive. An already
@@ -2251,7 +2251,7 @@ Three cheap, high-signal sweeps:
      diff <(./bin/sysml -quiet /tmp/sweep.sysml </dev/null 2>&1) \
           <(/tmp/mainwt/sysml-main -quiet /tmp/sweep.sysml </dev/null 2>&1) >/dev/null \
        || { d=$((d+1)); echo "DIFF: $f"; }
-   done < <(find examples testdata internal/repl/testdata -name '*.sysml' -print0)
+   done < <(find examples tests/testdata internal/repl/testdata -name '*.sysml' -print0)
    echo "compared $n, differing $d"
    ```
    A `for f in $(find …)` loop word-splits those paths and silently compares nothing for them: on
@@ -3107,7 +3107,7 @@ is reached through a stdlib **alias** currently does **not** warn even though th
 Cheap false-positive sweep, worth running for any diagnostic-adding pass:
 
 ```bash
-for f in $(find examples testdata -name '*.sysml'); do ./bin/sysml -validate "$f" 2>&1 \
+for f in $(find examples tests/testdata -name '*.sysml'); do ./bin/sysml -validate "$f" 2>&1 \
   | grep 'incommensurable quantities'; done   # expect no output (403 files, ~90 s)
 ```
 
@@ -4904,7 +4904,7 @@ at the prompt; it parses as a model line and produces `expected a namespace memb
 A kindless parameter (`in x : Real`, `out mass : Real`) is a kindless/attribute usage, so
 `sysml -convert=turtle` emits `a sysml:AttributeUsage`. Hand-written fixtures are often *not*
 discriminating (both old and new binaries agree); the repo fixture
-`internal/core/export/testdata/convert/views_flows_parameters.sysml` is, because its
+`tests/export/testdata/convert/views_flows_parameters.sysml` is, because its
 `action def Measure { out mass : Real; }` prints `AttributeUsage` on the new binary and
 `PartUsage` on a parent-commit binary. Prefer an A/B against `/tmp/old-sysml` over asserting a
 single output.
@@ -4983,7 +4983,7 @@ Pitfalls that cost time:
   The same text in a `.sysml` file can fail earlier with `only a definition may specialize; found a
   usage`, masking the behaviour under test.
 - A batch regression sweep is cheap and is the strongest "no false positives" evidence: run every
-  file in `examples/` and `testdata/{passes,resolve}` under both binaries and require byte-identical
+  file in `examples/` and `tests/testdata/{passes,resolve}` under both binaries and require byte-identical
   output plus matching exit status.
 - Cold vs warm run under a scratch `XDG_CACHE_HOME` catches resolution that depends on the on-disk
   symbol index; diagnostics must be byte-identical.
@@ -5117,7 +5117,7 @@ back to assumed `1..1`), so silence-vs-warning is the discriminator; `[0..1]` ag
 ### gRPC/Python control when library attributes are NOT withheld
 With no L3-3 projection, `GetSymbol` on a part returns own attributes **first, in declaration
 order**, then ~55 inherited from `Occurrences`/`Objects`/`Base` (e.g. `demo::Car` in
-`internal/grpc/testdata/conformance/symbol_attributes.sysml`: 6 own + 55 = 61). Assert the head
+`tests/grpc/testdata/conformance/symbol_attributes.sysml`: 6 own + 55 = 61). Assert the head
 order and that the client can read every row; don't assert a total.
 Two traps that reproduce on **base too** (do not attribute them to a record-format PR):
 - A `@Metadata` annotation written *inside* a part def collapses that symbol's gRPC attribute list
@@ -5694,7 +5694,7 @@ tells you which one ran without any debug flag.
   `KerML::Kernel::Interaction` and `Connector::association` from `%search` — that is the failure
   this check exists for. `TestDecodeSnapshotRejectsCorruption` covers the same flips in-process.
 - Differential battery that proved behavior-neutrality: run `-validate` over
-  `examples/*.sysml` + `testdata/passes/*.sysml`, a piped REPL transcript (`%load` robot demo,
+  `examples/*.sysml` + `tests/testdata/passes/*.sysml`, a piped REPL transcript (`%load` robot demo,
   `%search`, `%eval 1 [SI::m] + 2 [SI::m]`, `%instantiate`/`%features`, `%print`), `-e 2+3` and
   `-convert ttl -o /dev/stdout`, each with `echo "exit=$?"` appended, under snapshot / edited-copy
   (cold and warm `XDG_CACHE_HOME`) / unmodified-copy / merge-base binary, then `diff -r` the four

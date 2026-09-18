@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -411,7 +411,7 @@ func unboundResultHint(chain []*symbols.Symbol) string {
 		who, trailing, expr := "the result parameter", "of the body", "<expr>"
 		typ := lower.TypeText(result)
 		if name != "" {
-			spelled := lexer.NameText(name)
+			spelled := source.NameText(name)
 			who = "result parameter " + spelled
 			if sibling := valuedMemberNamed(members, name, result); sibling != nil {
 				trailing, expr = "`"+spelled+"`", spelled

@@ -17,7 +17,7 @@ import (
 // declared returns the declarations a qualified name, spelled as the notation
 // does, names: `'x::y'` is one name and `x::y` two, so each finds its own.
 func (m Model) declared(name string) []*symbols.Symbol {
-	names, ok := lexer.QualifiedNameSegments(name)
+	names, ok := source.QualifiedNameSegments(name)
 	if !ok {
 		return nil
 	}
@@ -33,7 +33,7 @@ func (m Model) declared(name string) []*symbols.Symbol {
 
 // notationName spells a symbol's qualified name as declared reads it back.
 func notationName(sym *symbols.Symbol) string {
-	return lexer.QualifiedNameOf(symbols.NameChain(sym))
+	return source.QualifiedNameOf(symbols.NameChain(sym))
 }
 
 // target returns the declaration an operation names. Only a declaration of this

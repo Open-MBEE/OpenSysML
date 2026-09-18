@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -465,11 +465,11 @@ func nestedObjects(ctx *runtime.Context, of carrier, read func(string) (*runtime
 			continue
 		}
 		if fv.Values.Kind == runtime.ValInvalid {
-			reach(fv.Value, lexer.NameText(name), false)
+			reach(fv.Value, source.NameText(name), false)
 			continue
 		}
 		for i, val := range objref.CollectionElements(fv.Values) {
-			reach(val, fmt.Sprintf("%s[%d]", lexer.NameText(name), i+1), true)
+			reach(val, fmt.Sprintf("%s[%d]", source.NameText(name), i+1), true)
 		}
 	}
 	out := make([]carrier, 0, len(order))
@@ -538,7 +538,7 @@ func (s *Session) walkFeatureValues(inst *runtime.Instance, label string, names 
 func pathSegments(names []string) []objectSegment {
 	path := make([]objectSegment, 0, len(names))
 	for _, name := range names {
-		path = append(path, objectSegment{Text: lexer.NameText(name), Name: name})
+		path = append(path, objectSegment{Text: source.NameText(name), Name: name})
 	}
 	return path
 }

@@ -1,11 +1,15 @@
 package lexer
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+)
 
 func TestKeywordsExportsList(t *testing.T) {
-	kws := Keywords()
+	kws := source.Keywords()
 	if len(kws) == 0 {
-		t.Fatal("Keywords() returned empty")
+		t.Fatal("source.Keywords() returned empty")
 	}
 	found := false
 	for _, k := range kws {
@@ -15,11 +19,11 @@ func TestKeywordsExportsList(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("Keywords() missing 'package'")
+		t.Error("source.Keywords() missing 'package'")
 	}
 	// Must be a copy: mutating the result must not affect subsequent calls.
 	kws[0] = "MUTATED"
-	if Keywords()[0] == "MUTATED" {
-		t.Error("Keywords() leaked internal slice")
+	if source.Keywords()[0] == "MUTATED" {
+		t.Error("source.Keywords() leaked internal slice")
 	}
 }

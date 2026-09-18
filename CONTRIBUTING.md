@@ -27,7 +27,7 @@ make lint   # runs staticcheck and gosec, as CI does
 ```
 
 The gates over those downloads (`internal/core/model/training_examples_test.go`,
-`internal/core/model/pilot_corpora_test.go`, `internal/core/identity/pilot_library_xmi_test.go`)
+`internal/core/model/pilot_corpora_test.go`, `tests/identity/pilot_library_xmi_test.go`)
 skip while their corpus is absent, so run the three scripts once before trusting a local
 `make test`; a corpus already at the pin is left alone. CI runs the scripts itself and sets
 `OPENSYSML_REQUIRE_TRAINING_CORPUS=1`, `OPENSYSML_REQUIRE_PILOT_CORPORA=1` and
@@ -326,8 +326,7 @@ github.com/Open-MBEE/OpenSysML
 │   ├── reference/         # CLI, REPL, environment, APIs, RDF mapping
 │   ├── internals/         # Architecture, testing, performance, design notes
 │   └── project/           # Compliance, roadmap, releasing, measurements
-├── tests/                 # Black-box suites and their fixtures (tests/parser, …)
-├── testdata/              # Test fixtures
+├── tests/                 # Black-box suites, benchmarks, shared fixtures (tests/parser, tests/testdata, …)
 └── .circleci/             # CI configuration
 ```
 
@@ -423,7 +422,7 @@ See [ARCHITECTURE.md](docs/internals/architecture.md) for detailed design.
 
 - **Unit tests:** Per-package (`*_test.go`)
 - **Integration tests:** Cross-package scenarios
-- **Fixtures:** Real SysML v2 models in `testdata/`
+- **Fixtures:** Real SysML v2 models in `tests/testdata/`
 - **Golden files:** Expected outputs (where applicable)
 
 ## Getting Help

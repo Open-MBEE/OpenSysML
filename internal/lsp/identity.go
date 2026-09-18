@@ -109,13 +109,13 @@ type annotation struct {
 }
 
 func elementID(target *symbols.Symbol, fqn, id string) annotation {
-	path := lexer.QualifiedNameText(fqn)
+	path := source.QualifiedNameText(fqn)
 	return annotation{target: target, inline: identity.ElementIdInline(id), about: identity.ElementIdAbout(path, id)}
 }
 
 // projectRef binds a root declaration, so its qualified name is its own.
 func projectRef(target *symbols.Symbol) annotation {
-	path := lexer.NameText(target.Name)
+	path := source.NameText(target.Name)
 	return annotation{
 		target: target,
 		inline: identity.ProjectRefInline(placeholderProjectID),

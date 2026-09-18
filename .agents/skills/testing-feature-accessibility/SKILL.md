@@ -1,6 +1,6 @@
 ---
 name: testing-feature-accessibility
-description: How to end-to-end test the constraint-tier feature-accessibility rule in internal/core/passes/w8c_feature_reference.go ("Must be an accessible feature") — building a non-vacuous old-vs-new differential, sweeping examples/ and testdata/ for false positives, refereeing both directions against the pinned pilot validator, and the traps that have reverted this rule before.
+description: How to end-to-end test the constraint-tier feature-accessibility rule in internal/core/passes/w8c_feature_reference.go ("Must be an accessible feature") — building a non-vacuous old-vs-new differential, sweeping examples/ and tests/testdata/ for false positives, refereeing both directions against the pinned pilot validator, and the traps that have reverted this rule before.
 ---
 
 # Testing the `Must be an accessible feature` rule (W8C FeatureReferencePass)
@@ -46,14 +46,14 @@ cp /tmp/w8c_new.go internal/core/passes/w8c_feature_reference.go   # restore, th
 Expect surprises: e.g. `calc def C { return x = P::Q::n; }` fires on *both* builds, because
 `return x = …` is a usage with a value and was already covered.
 
-## Sweep examples/ and testdata/ with both builds — this is where regressions surface
+## Sweep examples/ and tests/testdata/ with both builds — this is where regressions surface
 
 `go test ./...` does **not** protect this rule's corpora: the runtime conformance suite executes its
 models without running the constraint tier, so a model can start erroring in the CLI while the whole
 suite stays green. Diff the flagged-file sets:
 
 ```bash
-sweep() { find examples testdata tests/parser/testdata internal/core/runtime/testdata \
+sweep() { find examples tests/testdata tests/parser/testdata internal/core/runtime/testdata \
     -type f \( -name '*.sysml' -o -name '*.kerml' \) -print0 |
   while IFS= read -r -d '' f; do
     n=$("$1" "$f" </dev/null 2>&1 | grep -c 'Must be an accessible feature')

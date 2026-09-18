@@ -13,7 +13,7 @@ import (
 
 // simconfigXMI is a v1 model with a «SimulationConfig» whose result package holds
 // the snapshots a simulation tool stored of its runs.
-var simconfigXMI = filepath.Join("..", "..", "internal", "core", "migrate", "testdata", "xmi", "simconfig.xmi")
+var simconfigXMI = filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "simconfig.xmi")
 
 // TestMigrationResultsThroughCLI checks -migration-results writes the sidecar
 // -compare-results reads: the configuration's runs and draws, its target and

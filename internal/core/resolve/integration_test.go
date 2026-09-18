@@ -18,7 +18,7 @@ var update = flag.Bool("update", false, "update resolve golden files")
 
 func runResolveGolden(t *testing.T, name string) {
 	t.Helper()
-	base := filepath.Join("..", "..", "..", "testdata", "resolve", name)
+	base := filepath.Join("..", "..", "..", "tests", "testdata", "resolve", name)
 	srcBytes, err := os.ReadFile(base + ".sysml")
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)

@@ -763,8 +763,8 @@ declared id that merely resembles a minted element's derived ids stays as it is.
 Code: `rdf.AnnotateCollections` (encoder pass), `rdf.ReconcileCollections`
 (decoder pass), `rdf.CollectionJSON`/`rdf.ParseCollectionJSON` (the shape).
 Tests: `internal/core/rdf/annotation_test.go`,
-`internal/core/export/rdf_collections_test.go`,
-`internal/interop/reposync/diff_test.go`.
+`tests/export/rdf_collections_test.go`,
+`tests/reposync/diff_test.go`.
 
 ## Expressions
 

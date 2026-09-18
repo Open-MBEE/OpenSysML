@@ -1477,7 +1477,7 @@ func stateNameAsWritten(qn *ast.QualifiedName) string {
 		default:
 			sb.WriteString("::")
 		}
-		sb.WriteString(lexer.NameText(p.Text))
+		sb.WriteString(source.NameText(p.Text))
 	}
 	return sb.String()
 }

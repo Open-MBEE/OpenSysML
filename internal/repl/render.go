@@ -9,7 +9,6 @@ import (
 	"golang.org/x/text/width"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
@@ -154,10 +153,10 @@ func renderMember(m ast.Node) string {
 
 func nameOrAnon(id ast.Identification) string {
 	if id.Name != "" {
-		return lexer.NameText(id.Name)
+		return source.NameText(id.Name)
 	}
 	if id.ShortName != "" {
-		return "<" + lexer.NameText(id.ShortName) + ">"
+		return "<" + source.NameText(id.ShortName) + ">"
 	}
 	return "<anonymous>"
 }

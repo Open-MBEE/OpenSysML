@@ -169,7 +169,7 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	@# make test above runs instead. -pgo=off as in make test.
 	@# -count=1: a replayed result carries zero blocks for the -coverpkg packages it does
 	@# not link, keyed to the sources of its own run, so they go stale as those change.
-	@# Tests that run a built command (internal/testutil/gobuild) instrument it and point
+	@# Tests that run a built command (tests/testutil/gobuild) instrument it and point
 	@# it at this directory; go test folds in only its own binary's counters.
 	rm -rf $(GO_COUNTER_DIR)
 	mkdir -p $(GO_COUNTER_DIR)
@@ -332,7 +332,7 @@ node-coverage: ## Run Node client tests and write coverage-node.lcov
 	sed -e 's|^SF:|SF:$(NODE_DIR)/|' $(NODE_DIR)/coverage/lcov.info > coverage-node.lcov
 	@echo "✓ Wrote coverage-node.lcov"
 
-vscode-grammar: ## Regenerate the VS Code TextMate grammars from the lexer keywords
+vscode-grammar: ## Regenerate the VS Code TextMate grammars from the keyword lists
 	@echo "Generating TextMate grammars..."
 	go run ./$(VSCODE_DIR)/tools/gengrammar -out $(VSCODE_DIR)/syntaxes
 	@echo "✓ Grammars generated"

@@ -80,8 +80,7 @@ github.com/Open-MBEE/OpenSysML
 ├── clients/python/         # Python client bindings (opensysml)
 ├── clients/rust/           # Rust client (opensysml) and its conformance runner
 ├── api/proto/              # Protobuf service definitions
-├── tests/                  # Black-box suites and their fixtures (tests/parser, …)
-├── testdata/               # Test fixtures (.sysml, .kerml)
+├── tests/                  # Black-box suites, benchmarks, shared fixtures (tests/parser, tests/grpc, tests/testdata, …)
 ├── examples/               # Example models and demos
 └── docs/                   # Documentation
 ```
@@ -99,9 +98,10 @@ source → lexer → parser → AST → symbol index → resolve → passes
 ### 1. Source & Lexer (`internal/core/source`, `internal/core/lexer`)
 
 - **SourceFile:** Input file (.sysml or .kerml) with byte content
+- **Notation text:** `source` also owns the keyword sets (`Keywords`, `IsKeyword`, `IsKeywordIn`, `IsIdentifier`) and the helpers that read and write notation text without a parse — `NameText`/`QualifiedNameText`, `StringValue`/`StringText`, `CommentBody` — so layers that never tokenize (semantics, runtime, export) do not import the lexer
 - **Lexer:** Hand-written scanner producing tokens with full position tracking
 - **Trivia:** Comments and whitespace tracked as leading/trailing trivia
-- **Keywords:** ~200 SysML keywords (case-sensitive, pre-registered)
+- **Keywords:** ~200 SysML keywords (case-sensitive, taken from `source.Keywords()`)
 
 ### 2. Parser (`internal/core/parser`)
 
@@ -778,7 +778,7 @@ Calc/constraint/requirement functional. Action/state executor infrastructure com
 ### Unit & Integration Tests
 - **Unit tests:** Per-package test coverage (lexer, parser, semantics, runtime)
 - **Integration tests:** End-to-end REPL/runtime scenarios
-- **Test fixtures:** `testdata/*.sysml`, `testdata/*.kerml`
+- **Test fixtures:** `tests/testdata/*.sysml`, `tests/testdata/*.kerml`
 - **Golden files:** Expected parse/resolve/diagnostic outputs
 - **Verification:** `go test ./...` (all tests pass), `go build ./...` (clean build)
 

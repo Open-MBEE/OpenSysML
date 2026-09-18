@@ -60,7 +60,7 @@ The three OMG pilot corpora are gated the same way: fetch them with
 
 So is the pilot's XMI of the standard library, which the identity gate reads: fetch it with
 `./scripts/download-pilot-library-xmi.sh` and run
-`go test -count=1 ./internal/core/identity -run TestPilotLibraryXMI`. CI sets
+`go test -count=1 ./tests/identity -run TestPilotLibraryXMI`. CI sets
 `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1`. Whatever sets a require variable must run the matching
 download script first; the scripts are idempotent, and none reports success over an empty corpus.
 
@@ -100,8 +100,13 @@ internal/core/
 internal/lsp/            LSP protocol implementation
 internal/repl/           REPL loop
 tests/                   black-box suites and their fixtures
+  hygiene/               module-wide checks (no production code imports testing)
+  perf/                  benchmark harness (go test ./tests/perf -run '^$' -bench .)
+  testutil/              gobuild (build a command under test), graphcmp (pointer-graph comparison)
   parser/                golden ASTs (TestGolden, -update) and negative cases, with testdata/parse
-testdata/                shared fixtures (.sysml, .kerml, .golden)
+  grpc/                  gRPC conformance cases (TestGRPCConformance) driven over the RPC surface
+  export/, resolve/, …   external-package (package x_test) suites, each beside its own testdata
+  testdata/              shared fixtures (.sysml, .kerml, .golden)
 examples/                example models and demos
 docs/                    guide/ (handbook), reference/, internals/, project/ (status)
 ```
@@ -141,7 +146,7 @@ Then update `docs/project/spec-compliance.md` mapping: semantic rule → impleme
 ### 5.3 General
 - Unit tests live beside code as `*_test.go`, one concern per test.
 - Design/adjust tests **before or alongside** implementation; don't retrofit weak tests afterward.
-- Prefer real SysML models in `testdata/` over hand-built ASTs when exercising end-to-end behavior; hand-built ASTs are fine for targeted unit tests.
+- Prefer real SysML models in `tests/testdata/` over hand-built ASTs when exercising end-to-end behavior; hand-built ASTs are fine for targeted unit tests.
 
 ---
 

@@ -44,7 +44,7 @@ func sharedIndexCorpus(t *testing.T) []string {
 	var out []string
 	for _, pattern := range []string{
 		"../../../examples/*.sysml",
-		"../../../testdata/*.sysml",
+		"../../../tests/testdata/*.sysml",
 	} {
 		matches, err := filepath.Glob(pattern)
 		if err != nil {

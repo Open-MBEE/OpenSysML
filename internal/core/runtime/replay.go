@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // The `replay:<file>` policy fixes a witness's input lines before the run's first move, follows
@@ -155,7 +155,7 @@ func InputOf(feature string, value Value) InputTaken {
 func (in InputTaken) String() string {
 	feature := in.Feature
 	if labelNeedsQuoting(feature) || strings.ContainsAny(feature, " \t") {
-		feature = lexer.UnrestrictedNameText(feature)
+		feature = source.UnrestrictedNameText(feature)
 	}
 	return inputPrefix + feature + " = " + in.Written
 }
@@ -712,7 +712,7 @@ const (
 // choiceLabel spells a name as a choice line carries it.
 func choiceLabel(name string) string {
 	if labelNeedsQuoting(name) {
-		return lexer.UnrestrictedNameText(name)
+		return source.UnrestrictedNameText(name)
 	}
 	return name
 }
@@ -755,7 +755,7 @@ func readLabel(text string, marks ...string) (name, mark, after string, ok bool)
 	if end < 0 {
 		return "", "", "", false
 	}
-	name, after = lexer.StringValue(text[:end+1]), text[end+1:]
+	name, after = source.StringValue(text[:end+1]), text[end+1:]
 	if after == "" {
 		return name, "", "", true
 	}

@@ -7,14 +7,14 @@ import (
 )
 
 // The list exists so highlighting and completion know these words; letting one
-// into Keywords() would reserve it and stop models naming features with it.
+// into source.Keywords() would reserve it and stop models naming features with it.
 func TestContextualWordsAreNotReserved(t *testing.T) {
 	for _, kind := range []source.Kind{source.KindSysML, source.KindKerML, source.KindUnknown} {
 		for _, w := range ContextualWords(kind) {
-			if IsKeyword(w) {
-				t.Errorf("contextual word %q is reserved by Keywords(); it must be one or the other", w)
+			if source.IsKeyword(w) {
+				t.Errorf("contextual word %q is reserved by source.Keywords(); it must be one or the other", w)
 			}
-			if !IsIdentifier(w) {
+			if !source.IsIdentifier(w) {
 				t.Errorf("contextual word %q is not writable as a basic name", w)
 			}
 		}
