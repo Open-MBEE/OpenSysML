@@ -357,6 +357,8 @@ func local(s string) string {
 	return s
 }
 
+// rootOf returns a document's root start element without reading past it, so a
+// foreign document is recognized before its content is parsed.
 func rootOf(data []byte) (xml.StartElement, error) {
 	dec := xml.NewDecoder(bytes.NewReader(data))
 	for {
