@@ -513,6 +513,11 @@ const objectModel = `<?xml version="1.0" encoding="UTF-8"?>
       <edge xmi:type="uml:ObjectFlow" xmi:id="h1" source="readSelfr" target="reflectOutNode"/>
     </ownedBehavior>
   </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="instantiator" name="Instantiator">
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createReader" name="Create(Reader)" classifier="reader">
+      <result xmi:type="uml:OutputPin" xmi:id="createReaderr" name="result" type="reader"/>
+    </node>
+  </packagedElement>
 </uml:Model>
 `
 
@@ -609,6 +614,17 @@ func TestEmitReadSelf(t *testing.T) {
 	var te *TranslateError
 	if !errors.As(err, &te) || te.Activity != "Reflect" || te.Where != "activity" || !strings.Contains(te.Reason, "owned behavior") {
 		t.Errorf("Emit(Reflect) = %v, want a TranslateError on the owned behavior", err)
+	}
+}
+
+// An activity instantiated as an object (a behavior is a class in UML) is
+// refused naming the activity, apart from a classifier the model lacks.
+func TestEmitRefusesAnActivityAsObject(t *testing.T) {
+	s := fixtureSuite(t, objectModel)
+	_, err := Emit(fixtureActivity(t, s, "Instantiator"))
+	var te *TranslateError
+	if !errors.As(err, &te) || te.Where != "Create(Reader)" || !strings.Contains(te.Reason, "object of the activity Reader") {
+		t.Errorf("Emit(Instantiator) = %v, want a TranslateError on the activity created", err)
 	}
 }
 

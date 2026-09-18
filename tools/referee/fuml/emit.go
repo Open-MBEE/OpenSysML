@@ -772,6 +772,10 @@ func (s *scope) createNode(n *Node) error {
 	}
 	c := e.a.Model.ClassOf(n.Classifier)
 	if c == nil {
+		if e.a.Model.Activity(n.Classifier.ID) != nil || e.a.Model.ActivityNamed(n.Classifier.Name) != nil {
+			return e.fail(n.Label(), "creates an object of the activity "+n.Classifier.String()+
+				"; a behavior as an object is not translated by the pilot emitter")
+		}
 		return e.fail(n.Label(), "creates a "+n.Classifier.String()+", which is no class of the model")
 	}
 	name := s.names.name(nodeName(n))
