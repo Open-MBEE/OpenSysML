@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-const fixture = "../migrate/testdata/xmi/vehicle.xmi"
+const fixture = "../../../tests/migrate/testdata/xmi/vehicle.xmi"
 
 func readFixture(t *testing.T) *Model {
 	t.Helper()

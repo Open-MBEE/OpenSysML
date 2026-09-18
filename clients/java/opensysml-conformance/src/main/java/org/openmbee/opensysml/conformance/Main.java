@@ -199,7 +199,7 @@ public final class Main {
         case "connect", "connect-json" -> protocols.add(name);
         case "grpc" ->
             throw new IllegalArgumentException(
-                "this client speaks the Connect protocol only; use cmd/conformance for grpc");
+                "this client speaks the Connect protocol only; use tools/cmd/conformance for grpc");
         default -> throw new IllegalArgumentException("unknown protocol " + protocol);
       }
     }

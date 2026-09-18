@@ -71,28 +71,28 @@ jobs:
       # re-record with -update). Each step runs even if an earlier one failed,
       # so one run reports all three verdicts.
       - name: Reference differential reproduces its baseline
-        run: go run ./cmd/pilot-diff -check
+        run: go run -C tools ./cmd/pilot-diff -check
 
       - name: Xpect oracle reproduces its baseline
         if: ${{ !cancelled() }}
-        run: go run ./cmd/pilot-xpect -check
+        run: go run -C tools ./cmd/pilot-xpect -check
 
       - name: Rejection oracle reproduces its baseline
         if: ${{ !cancelled() }}
-        run: go run ./cmd/pilot-reject -check
+        run: go run -C tools ./cmd/pilot-reject -check
 
       # Bucket counts only: a pass is never evidence of SysML v2 conformance.
       - name: PSSM referee reproduces its baseline counts
         if: ${{ !cancelled() }}
         env:
           OPENSYSML_REQUIRE_PSSM_SUITE: "1"
-        run: go run ./cmd/pssm-referee -check
+        run: go run -C tools ./cmd/pssm-referee -check
 
       # The census baseline lists the constraint names the pinned jar's validator
       # classes declare; only here is the jar present to compare against.
       - name: Validation-constraint baseline lists what the pinned jar contains
         if: ${{ !cancelled() }}
-        run: go run ./cmd/validation-census -check -require-jar
+        run: go run -C tools ./cmd/validation-census -check -require-jar
 
       # The reports themselves, so a failing run can be read without
       # reproducing the environment.

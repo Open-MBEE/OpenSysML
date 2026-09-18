@@ -60,7 +60,7 @@ The three OMG pilot corpora are gated the same way: fetch them with
 
 So is the pilot's XMI of the standard library, which the identity gate reads: fetch it with
 `./scripts/download-pilot-library-xmi.sh` and run
-`go test -count=1 ./internal/core/identity -run TestPilotLibraryXMI`. CI sets
+`go test -count=1 ./tests/identity -run TestPilotLibraryXMI`. CI sets
 `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1`. Whatever sets a require variable must run the matching
 download script first; the scripts are idempotent, and none reports success over an empty corpus.
 
@@ -99,7 +99,14 @@ internal/core/
   libs/                  stdlib bundling + conformance gate
 internal/lsp/            LSP protocol implementation
 internal/repl/           REPL loop
-testdata/                shared fixtures (.sysml, .kerml, .golden)
+tests/                   black-box suites and their fixtures
+  hygiene/               module-wide checks (no production code imports testing)
+  perf/                  benchmark harness (go test ./tests/perf -run '^$' -bench .)
+  testutil/              gobuild (build a command under test), graphcmp (pointer-graph comparison)
+  parser/                golden ASTs (TestGolden, -update) and negative cases, with testdata/parse
+  grpc/                  gRPC conformance cases (TestGRPCConformance) driven over the RPC surface
+  export/, resolve/, …   external-package (package x_test) suites, each beside its own testdata
+  testdata/              shared fixtures (.sysml, .kerml, .golden)
 examples/                example models and demos
 docs/                    guide/ (handbook), reference/, internals/, project/ (status)
 ```
@@ -124,12 +131,12 @@ Read `docs/internals/architecture.md` before non-trivial work — it documents t
 ### 5.1 Parser features — four-layer contract
 When touching the lexer/parser or adding grammar:
 1. **Conformance gate:** `go test -run TestStdlibConformance ./internal/core/libs` — all official stdlib files must still parse clean (no regressions).
-2. **Golden ASTs:** `go test -run TestGolden ./internal/core/parser`. Add a representative fixture under `internal/core/parser/testdata/parse/*.sysml`.
-3. **Negative tests:** `go test -run TestNegative ./internal/core/parser` — malformed input must produce diagnostics without panicking.
-4. **Update goldens only after intentional changes:** `go test -run TestGolden -update ./internal/core/parser`, then review the diff carefully.
+2. **Golden ASTs:** `go test -run TestGolden ./tests/parser`. Add a representative fixture under `tests/parser/testdata/parse/*.sysml`.
+3. **Negative tests:** `go test -run TestNegative ./tests/parser ./internal/core/parser` — malformed input must produce diagnostics without panicking.
+4. **Update goldens only after intentional changes:** `go test -run TestGolden -update ./tests/parser`, then review the diff carefully.
 
 ### 5.2 Behavioral features (actions/states/calc/constraints/requirements) — four-layer contract
-1. **Golden AST fixture** locking parse structure (`internal/core/parser/testdata/parse/`).
+1. **Golden AST fixture** locking parse structure (`tests/parser/testdata/parse/`).
 2. **Execution conformance:** add `.sysml` + `.expected.json` under `internal/core/runtime/testdata/conformance/`; run `go test -run TestExecutionConformance ./internal/core/runtime`. Schema is documented in that dir's `README.md`.
 3. **Golden execution traces** for ordering-sensitive behavior (fork/join, transitions): `go test -run TestExecutionTrace ./internal/core/runtime` (update flag: `-update-traces`).
 4. **Robustness:** add a failure-mode case (deadlock, unbound params, missing refs, dangling transitions, step budget) as a subtest of a `TestRuntimeRobustness<Feature>` function in `internal/core/runtime/robustness_<feature>_test.go` — a new file for a new feature, so branches never edit one shared registry; `robustness_test.go` holds the shared cases and is not where new ones go. Must return typed errors, never panic or hang. The suite counters read every `TestRuntimeRobustness*` function, and gRPC cases follow the same pattern with `TestGRPCRobustness*`.
@@ -139,7 +146,7 @@ Then update `docs/project/spec-compliance.md` mapping: semantic rule → impleme
 ### 5.3 General
 - Unit tests live beside code as `*_test.go`, one concern per test.
 - Design/adjust tests **before or alongside** implementation; don't retrofit weak tests afterward.
-- Prefer real SysML models in `testdata/` over hand-built ASTs when exercising end-to-end behavior; hand-built ASTs are fine for targeted unit tests.
+- Prefer real SysML models in `tests/testdata/` over hand-built ASTs when exercising end-to-end behavior; hand-built ASTs are fine for targeted unit tests.
 
 ---
 

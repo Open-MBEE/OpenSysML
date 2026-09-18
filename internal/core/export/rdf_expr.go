@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf/ontology"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 const literalStatesValue = "a literal expression states the value it evaluates to"
@@ -97,7 +98,7 @@ func (e *encoder) expressionStructure(subject rdf.Term, owner string, node ast.N
 		e.graph.Add(subject, e.sysml(pValue), rdf.Bool(n.Value))
 
 	case *ast.LiteralString:
-		e.graph.Add(subject, e.sysml(pValue), rdf.String(lexer.StringValue(n.Value)))
+		e.graph.Add(subject, e.sysml(pValue), rdf.String(source.StringValue(n.Value)))
 
 	case *ast.LiteralInteger:
 		e.graph.Add(subject, e.sysml(pValue), rdf.TypedLiteral(n.Value, rdf.XSD+"integer"))
@@ -600,7 +601,7 @@ func (d *decoder) expressionForm(node rdf.Term, in *element) (operand, error) {
 		if !ok {
 			return primary("", unsupported(literalStatesValue))
 		}
-		return primary(lexer.StringText(value), nil)
+		return primary(source.StringText(value), nil)
 	case mLiteralInfinity:
 		return primary("*", nil)
 	case mNullExpression:

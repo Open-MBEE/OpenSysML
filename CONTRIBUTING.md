@@ -27,7 +27,7 @@ make lint   # runs staticcheck and gosec, as CI does
 ```
 
 The gates over those downloads (`internal/core/model/training_examples_test.go`,
-`internal/core/model/pilot_corpora_test.go`, `internal/core/identity/pilot_library_xmi_test.go`)
+`internal/core/model/pilot_corpora_test.go`, `tests/identity/pilot_library_xmi_test.go`)
 skip while their corpus is absent, so run the three scripts once before trusting a local
 `make test`; a corpus already at the pin is left alone. CI runs the scripts itself and sets
 `OPENSYSML_REQUIRE_TRAINING_CORPUS=1`, `OPENSYSML_REQUIRE_PILOT_CORPORA=1` and
@@ -97,9 +97,9 @@ go test ./internal/core/parser
 **Parser-specific tests:** When modifying the parser, ensure the four-layer test contract passes:
 
 1. **Conformance gate:** `go test -run TestStdlibConformance ./internal/core/libs`
-2. **Golden ASTs:** `go test -run TestGolden ./internal/core/parser`
-3. **Negative tests:** `go test -run TestNegative ./internal/core/parser`
-4. **Update goldens** (after intentional changes): `go test -run TestGolden -update ./internal/core/parser`
+2. **Golden ASTs:** `go test -run TestGolden ./tests/parser`
+3. **Negative tests:** `go test -run TestNegative ./tests/parser ./internal/core/parser`
+4. **Update goldens** (after intentional changes): `go test -run TestGolden -update ./tests/parser`
 
 See [docs/internals/architecture.md](docs/internals/architecture.md#parser-test-contract) for full details on the parser testing contract.
 
@@ -326,7 +326,7 @@ github.com/Open-MBEE/OpenSysML
 │   ├── reference/         # CLI, REPL, environment, APIs, RDF mapping
 │   ├── internals/         # Architecture, testing, performance, design notes
 │   └── project/           # Compliance, roadmap, releasing, measurements
-├── testdata/              # Test fixtures
+├── tests/                 # Black-box suites, benchmarks, shared fixtures (tests/parser, tests/testdata, …)
 └── .circleci/             # CI configuration
 ```
 
@@ -361,8 +361,8 @@ When a change needs documenting:
   compliance map's test inventory are `<!-- doc-counts:begin inventory-… -->` blocks whose
   committed text names what is counted and states no figure; the site build
   (`scripts/mkdocs_suite_figures.py`, run by `make docs`) splices in the figures from
-  `go run ./cmd/doc-counts -site-blocks`, which counts the tree the way the gates enumerate it.
-  `go run ./cmd/doc-counts -check` refuses a figure typed into one of those blocks, so adding a
+  `go run -C tools ./cmd/doc-counts -site-blocks`, which counts the tree the way the gates enumerate it.
+  `go run -C tools ./cmd/doc-counts -check` refuses a figure typed into one of those blocks, so adding a
   test or a fixture is the whole change and two branches cannot conflict on a count. `README.md`
   names the gates without their counts; the one suite figure still committed there is whether
   every conformance case passes, which moves with `known_failures.txt` alone.
@@ -379,7 +379,7 @@ When a change needs documenting:
   count, so two branches that both add rows cannot conflict on one. The site build
   (`scripts/mkdocs_census.py`, run by `make docs`) counts the rows into the
   `<!-- doc-counts:begin census -->` block and refuses a `🚧` row, as do `make docs-counts` and
-  `go test ./cmd/pilot-diff`. `make docs-counts` still restates the externally refereed oracle
+  `go test -C tools ./referee/diff`. `make docs-counts` still restates the externally refereed oracle
   numbers from the baseline JSONs (and the README's conformance-passing sentence); run it only
   when a baseline or `known_failures.txt` moved.
 - **Changelog entries are fragments, not edits to `CHANGELOG.md`.** A change that a user
@@ -422,7 +422,7 @@ See [ARCHITECTURE.md](docs/internals/architecture.md) for detailed design.
 
 - **Unit tests:** Per-package (`*_test.go`)
 - **Integration tests:** Cross-package scenarios
-- **Fixtures:** Real SysML v2 models in `testdata/`
+- **Fixtures:** Real SysML v2 models in `tests/testdata/`
 - **Golden files:** Expected outputs (where applicable)
 
 ## Getting Help

@@ -8,7 +8,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // This file translates a bounded subset of the opaque languages a v1 model
@@ -1460,7 +1460,7 @@ func numberLiteral(text string, d dialect) (translated, *refusal) {
 }
 
 // stringLiteral writes text as a v2 string literal.
-func stringLiteral(text string) string { return lexer.StringText(text) }
+func stringLiteral(text string) string { return source.StringText(text) }
 
 // numbersAt refuses operands of op that are known not to be numbers.
 func numbersAt(op string, sides ...translated) *refusal {

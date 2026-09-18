@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
@@ -449,7 +448,7 @@ func (ec *EvalContext) evalLiteralBool(n *ast.LiteralBool) (Value, error) {
 // evalLiteralString evaluates a string literal, which spells its text with the
 // quotes and escapes of the notation.
 func (ec *EvalContext) evalLiteralString(n *ast.LiteralString) (Value, error) {
-	return NewStringValue(lexer.StringValue(n.Value)), nil
+	return NewStringValue(source.StringValue(n.Value)), nil
 }
 
 // evalNull evaluates a null expression.

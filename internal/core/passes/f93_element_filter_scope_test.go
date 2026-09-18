@@ -16,7 +16,7 @@ import (
 // the type tier — which would make a type-tier assertion vacuous.
 func libraryFixtureDiags(t *testing.T, file string) []Diagnostic {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "passes", file))
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "tests", "testdata", "passes", file))
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}

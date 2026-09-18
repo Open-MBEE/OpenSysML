@@ -15,7 +15,7 @@ Parser evolved from coverage-driven (per-file whack-a-mole) to grammar-driven de
 - Hard failing signal for parser regressions
 
 ### Phase 2: Correctness Harness ✅
-- Golden AST fixtures: `internal/core/parser/testdata/parse/*.{sysml,golden}`
+- Golden AST fixtures: `tests/parser/testdata/parse/*.{sysml,golden}`
 - Negative tests: `internal/core/parser/negative_test.go`
 - Round-trip tests: `internal/core/parser/integration_test.go`
 - Catches silently-wrong ASTs (not just diagnostics)
@@ -74,10 +74,10 @@ See `docs/internals/architecture.md` for current test requirements:
 go test ./internal/core/libs/ -run TestStdlibConformance -v
 
 # Golden AST fixtures
-go test ./internal/core/parser/ -run TestGolden -v
+go test ./tests/parser -run TestGolden -v
 
 # Negative tests
-go test ./internal/core/parser/ -run TestNegative -v
+go test ./tests/parser ./internal/core/parser -run TestNegative -v
 
 # Round-trip tests
 go test ./internal/core/parser/ -run TestIntegration -v

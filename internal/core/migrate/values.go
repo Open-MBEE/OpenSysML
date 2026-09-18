@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -59,7 +58,7 @@ func (m *migration) valueExprAs(v, scope *xmi.Element, want wanted) (expr string
 		}
 		return "", false, "boolean literal " + strconv.Quote(v.Attrs["value"]) + " is not a boolean"
 	case "LiteralString":
-		return lexer.StringText(v.Attrs["value"]), true, ""
+		return source.StringText(v.Attrs["value"]), true, ""
 	case "LiteralNull":
 		return "null", true, ""
 	case "InstanceValue":

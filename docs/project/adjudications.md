@@ -151,7 +151,7 @@ re-exports publicly, which is how `ISQ` publishes `ISQBase`'s names. A recursive
 the containment tree but consults only each scope's own declarations makes a re-exported name visible
 through `ISQ::*` and invisible through `ISQ::**`; both go through the same re-export-aware traversal
 (`appendSubtree`), keeping the cycle guard, `importAdmits`, filters, visibility and the body-local
-exclusion. Covered by `internal/core/resolve/f67_import_reexport_test.go` and `filter_test.go`.
+exclusion. Covered by `tests/resolve/f67_import_reexport_test.go` and `filter_test.go`.
 
 ### Open — a reference's position is resolved without regard to the metaclass it admits
 
@@ -377,7 +377,7 @@ the pinned release. Nothing in KerML 8.2 or SysML §7 admits `.*`, `.**`, `/`-se
 
 ## How the Xpect oracle reads its own assertions
 
-Two harness rules are decisions rather than measurements, and both live in `cmd/pilot-xpect`:
+Two harness rules are decisions rather than measurements, and both live in `tools/referee/xpect`:
 
 - **An `at "…"` clause runs to the last quote on the line.** Xpect does not escape quotes inside the
   clause, so reading to the *first* inner quote splits one assertion into a truncated expectation and

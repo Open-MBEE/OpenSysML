@@ -20,7 +20,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/testutil/gobuild"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 // pilotFixture is the pilot corpus file declaring ComputeDynamics, the action ToolExecution

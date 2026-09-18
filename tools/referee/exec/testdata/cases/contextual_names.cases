@@ -1,0 +1,8 @@
+model: tools/referee/exec/testdata/models/contextual_names.sysml
+
+# `chain` is a contextual word: it marks a feature chain only when a name
+# follows it, so `attribute chain = 1;` declares, and `chain + 1` reads, a
+# feature named `chain`.
+chain-name ::  :: Names::chain
+chain-name-read ::  :: Names::pt
+chain-name-in-part ::  :: Names::viaPart

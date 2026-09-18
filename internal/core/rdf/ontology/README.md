@@ -43,7 +43,7 @@ git clone https://github.com/Open-MBEE/sysmlv2-rdf-ontology.git
 Then, from the repository root:
 
 ```bash
-go run ./internal/core/rdf/ontology/gen -ontology /path/to/sysmlv2-rdf-ontology
+go run -C tools ./gen/ontology -ontology /path/to/sysmlv2-rdf-ontology
 ```
 
 or, equivalently, with the checkout in `$SYSMLV2_RDF_ONTOLOGY`:
@@ -52,7 +52,9 @@ or, equivalently, with the checkout in `$SYSMLV2_RDF_ONTOLOGY`:
 SYSMLV2_RDF_ONTOLOGY=/path/to/sysmlv2-rdf-ontology go generate ./internal/core/rdf/ontology
 ```
 
-The generator reads the ontology version from the checkout's `sysml2/README.md`
+The generator lives in the `tools/` module and writes the table under the
+repository root it finds above its working directory; pass the checkout as an
+absolute path. It reads the ontology version from the checkout's `sysml2/README.md`
 and the commit SHA from the checkout's on-disk Git metadata. It does not need a
 `git` binary, refuses to write a table if any property has no `rdfs:domain` or
 if a property IRI disagrees with its domain, and overwrites `table.go` in place.

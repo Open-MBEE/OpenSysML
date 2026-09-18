@@ -100,7 +100,7 @@ go test ./...
 go vet ./...
 
 # Behavioral parse safety nets (Phase B1/B2)
-go test ./internal/core/parser/ -run 'TestGolden|TestNegative' -v
+go test ./tests/parser ./internal/core/parser -run 'TestGolden|TestNegative' -v
 
 # Stdlib gate still green after unify (Phase B2)
 go test ./internal/core/libs/ -run TestStdlibConformance -v
@@ -112,7 +112,7 @@ go test ./internal/core/runtime/ -run 'TestExecutionConformance|TestExecutionTra
 go test ./internal/core/runtime/ -run TestRuntimeRobustness -v -timeout 60s
 
 # Regenerate goldens/traces intentionally (only after reviewing diffs)
-go test ./internal/core/parser/ -run TestGolden -update
+go test ./tests/parser -run TestGolden -update
 go test ./internal/core/runtime/ -run TestExecutionTrace -update-traces
 ```
 
@@ -171,7 +171,7 @@ go test ./internal/core/runtime/ -run TestExecutionTrace -update-traces
 **Status:** ✅ COMPLETE
 
 **Implementation:**
-- Created 7 behavioral golden fixtures under `internal/core/parser/testdata/parse/`:
+- Created 7 behavioral golden fixtures under `tests/parser/testdata/parse/`:
   1. action_control_flow.sysml - nested actions + general member fallback
   2. action_mixed_params.sysml - in/out/inout params with multiplicities
   3. state_full.sysml - entry/do/exit behaviors, hierarchical substates, transitions
@@ -190,7 +190,7 @@ go test ./internal/core/runtime/ -run TestExecutionTrace -update-traces
 - All behavioral negatives produce ≥1 diagnostic as required
 
 **Files created/modified:**
-- internal/core/parser/testdata/parse/{action_control_flow,action_mixed_params,state_full,state_transition_variants,calc_return,constraint_assert_assume,requirement_members}.{sysml,golden}
+- tests/parser/testdata/parse/{action_control_flow,action_mixed_params,state_full,state_transition_variants,calc_return,constraint_assert_assume,requirement_members}.{sysml,golden}
 - internal/core/parser/negative_test.go: added behavioral negative cases
 
 **Key decisions:**

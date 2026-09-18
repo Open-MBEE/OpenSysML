@@ -23,7 +23,7 @@ const pilotCorporaExpectedHeader = "# Files in the pinned OMG pilot corpora that
 // this test. These roots are not clean under our implementation, which is why
 // they ratchet where the training corpus asserts (docs/project/pilot-corpora.md).
 // It says nothing about whether those diagnostics are right — that comparison is
-// cmd/pilot-diff, which needs the pinned Java validators and stays out of CI.
+// tools/referee/diff, which needs the pinned Java validators and stays out of CI.
 // The corpora are not vendored, so this skips when they are absent unless
 // OPENSYSML_REQUIRE_PILOT_CORPORA is set, as CI does.
 func TestPilotCorporaDiagnostics(t *testing.T) {

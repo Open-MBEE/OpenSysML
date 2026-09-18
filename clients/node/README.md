@@ -402,7 +402,7 @@ npm run example 03        # one, by number or name
 The suite in `conformance/` is the service contract, and this client runs it
 **through its public API** — `load`/`loads`, `eval`, `symbol`, `instantiate` —
 not through the generated stubs. A scenario whose RPC v1 does not cover is
-skipped with a reason, and the report has the same shape `cmd/conformance` emits:
+skipped with a reason, and the report has the same shape `tools/cmd/conformance` emits:
 
 ```bash
 npm run conformance -- --allow-skips --report report.json

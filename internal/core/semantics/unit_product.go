@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -47,7 +47,7 @@ func unitNameSpelling(name string) string {
 	if name == "" || atomicName(name) {
 		return name
 	}
-	return lexer.UnrestrictedNameText(name)
+	return source.UnrestrictedNameText(name)
 }
 
 // IsEmpty reports whether the product names no unit, as a bare number does.
@@ -196,7 +196,7 @@ func afterNameSegment(name string) (string, bool) {
 	if at := strings.Index(name, "::"); at >= 0 {
 		segment, rest = name[:at], name[at:]
 	}
-	return rest, lexer.IsIdentifier(segment) && !lexer.IsKeyword(segment)
+	return rest, source.IsIdentifier(segment) && !source.IsKeyword(segment)
 }
 
 // combineProducts multiplies two products, with the exponents of the second

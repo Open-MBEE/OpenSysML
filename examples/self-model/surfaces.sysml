@@ -297,7 +297,7 @@ package OpenSysMLSurfaces {
     // The only stage that leaves the process: the tree becomes prepared
     // Markdown, its diagrams become images, and a converter makes the PDF.
     part def PdfBackend :> CodeUnit {
-        attribute :>> goPackage = "internal/docpdf";
+        attribute :>> goPackage = "internal/core/docpdf";
         attribute form : String = "pdf";
         attribute engines : String = "weasyprint, pandoc, prince";
         attribute diagramTool : String = "mmdc";
@@ -405,37 +405,37 @@ package OpenSysMLSurfaces {
     }
 
     #Oracle part def RejectionOracle :> ConformanceOracle {
-        attribute :>> goPackage = "cmd/pilot-reject";
+        attribute :>> goPackage = "tools/referee/reject";
         attribute :>> reference = "pilot validator";
         attribute :>> baseline = "docs/project/pilot-rejection-baseline.json";
     }
 
     #Oracle part def DifferentialOracle :> ConformanceOracle {
-        attribute :>> goPackage = "cmd/pilot-diff";
+        attribute :>> goPackage = "tools/referee/diff";
         attribute :>> reference = "pilot validator";
         attribute :>> baseline = "docs/project/pilot-differential-baseline.json";
     }
 
     #Oracle part def XpectOracle :> ConformanceOracle {
-        attribute :>> goPackage = "cmd/pilot-xpect";
+        attribute :>> goPackage = "tools/referee/xpect";
         attribute :>> reference = "pilot Xpect suites";
         attribute :>> baseline = "docs/project/pilot-xpect-baseline.json";
     }
 
     #Oracle part def ExecutionReferee :> ConformanceOracle {
-        attribute :>> goPackage = "cmd/pilot-exec-diff";
+        attribute :>> goPackage = "tools/referee/exec";
         attribute :>> reference = "pilot expression evaluator";
         attribute :>> baseline = "docs/project/pilot-execution-referee.md";
     }
 
     #Oracle part def GrammarCoverage :> ConformanceOracle {
-        attribute :>> goPackage = "cmd/grammar-coverage";
+        attribute :>> goPackage = "tools/census/grammar";
         attribute :>> reference = "OMG Xtext grammars";
         attribute :>> baseline = "docs/project/grammar-coverage-baseline.json";
     }
 
     #Oracle part def DocCounts :> ConformanceOracle {
-        attribute :>> goPackage = "cmd/doc-counts";
+        attribute :>> goPackage = "tools/census/doccounts";
         attribute :>> reference = "the measured repository";
         attribute :>> baseline = "docs/project/spec-compliance.md";
     }
@@ -450,7 +450,7 @@ package OpenSysMLSurfaces {
 
     // The committed library snapshot must be the one a fresh build writes.
     #Oracle part def StdlibSnapshotGate :> ConformanceOracle {
-        attribute :>> goPackage = "internal/core/libs/gensnapshot";
+        attribute :>> goPackage = "tools/gen/snapshot";
         attribute :>> reference = "the bundled library files";
         attribute :>> baseline = "internal/core/libs/stdlib.snapshot";
         attribute :>> gating = true;
@@ -459,19 +459,19 @@ package OpenSysMLSurfaces {
     // What the oracles lean on: a pinned reference, an errata overlay for the
     // defects in OMG-published material, and the census the status page reads.
     part def OraclePin :> CodeUnit {
-        attribute :>> goPackage = "internal/baseline";
+        attribute :>> goPackage = "tools/oracle/baseline";
         attribute recordsPin : Boolean = true;
         attribute recordsBridgeSource : Boolean = true;
         attribute recordsCorpusProvenance : Boolean = true;
     }
 
     part def Errata :> CodeUnit {
-        attribute :>> goPackage = "internal/errata";
+        attribute :>> goPackage = "tools/oracle/errata, internal/core/libs/errata";
         attribute overlaysPublishedMaterial : Boolean = true;
     }
 
     part def StatusCensus :> CodeUnit {
-        attribute :>> goPackage = "internal/doccounts";
+        attribute :>> goPackage = "tools/census/doccounts";
         attribute countsStatusMarkers : Boolean = true;
     }
 

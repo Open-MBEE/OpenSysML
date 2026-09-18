@@ -9,8 +9,8 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -31,7 +31,7 @@ func (s *Server) Hover(ctx context.Context, params *protocol.HoverParams) (*prot
 		if target, span, ok := s.referencedSegment(name, *ref, offset); ok && target != nil {
 			signature := target.Notation()
 			if target.Name != "" {
-				signature += " " + lexer.NameText(target.Name)
+				signature += " " + source.NameText(target.Name)
 			}
 			rng := spanToRange(content, span)
 			return &protocol.Hover{
@@ -51,7 +51,7 @@ func (s *Server) Hover(ctx context.Context, params *protocol.HoverParams) (*prot
 
 	signature := sym.Notation()
 	if sym.Name != "" {
-		signature += " " + lexer.NameText(sym.Name)
+		signature += " " + source.NameText(sym.Name)
 	}
 	// A metadata body declaration implicitly redefines a feature of the
 	// annotation's metadata definition (KerML 7.4.7); name it and its type.
@@ -158,7 +158,7 @@ func (s *Server) hoverContents(signature string, comments []string, elementID st
 func docCommentProse(comments []string) string {
 	var paragraphs []string
 	for _, comment := range comments {
-		if prose := lexer.CommentBody(comment); prose != "" {
+		if prose := source.CommentBody(comment); prose != "" {
 			paragraphs = append(paragraphs, strings.ReplaceAll(prose, "\n", "  \n"))
 		}
 	}

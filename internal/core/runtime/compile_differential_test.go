@@ -23,7 +23,7 @@ import (
 var differentialRoots = []string{
 	filepath.Join("testdata", "conformance"),
 	filepath.Join("testdata", "compiled"),
-	filepath.Join("..", "..", "..", "testdata"),
+	filepath.Join("..", "..", "..", "tests", "testdata"),
 	filepath.Join("..", "..", "..", "examples"),
 	filepath.Join("..", "..", "..", "docs", "manual", "examples"),
 }

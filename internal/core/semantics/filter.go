@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -1392,5 +1391,5 @@ func IsMetadataType(sym *symbols.Symbol) bool {
 // unquote reads the text a string literal spells, so a filter constant matches
 // the same string the runtime evaluates the literal to.
 func unquote(s string) string {
-	return lexer.StringValue(s)
+	return source.StringValue(s)
 }

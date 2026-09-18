@@ -10,7 +10,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -57,7 +56,7 @@ type libraryApply func(name string, ctx *Context, args []Value) (Value, error)
 func writtenName(fqn string) string {
 	parts := strings.Split(fqn, "::")
 	for i, part := range parts {
-		if !lexer.IsIdentifier(part) || lexer.IsKeywordIn(part, source.KindKerML) {
+		if !source.IsIdentifier(part) || source.IsKeywordIn(part, source.KindKerML) {
 			parts[i] = "'" + part + "'"
 		}
 	}

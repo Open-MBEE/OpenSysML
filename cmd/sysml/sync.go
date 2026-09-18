@@ -10,9 +10,9 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/project"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/flexo"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
 )
@@ -394,7 +394,7 @@ func annotationPath(g *rdf.Graph, subject string) string {
 				return ""
 			}
 		}
-		segments = append([]string{lexer.NameText(name)}, segments...)
+		segments = append([]string{source.NameText(name)}, segments...)
 		owner, ok := g.Object(term, rdf.SysML+"owningNamespace")
 		if !ok {
 			break

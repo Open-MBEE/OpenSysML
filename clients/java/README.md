@@ -333,7 +333,7 @@ stubs, so grpc-java never enters the build.
 The runner in `opensysml-conformance` reads `conformance/scenarios/*.json` and
 `conformance/fixtures/`, makes each call **through the public API** and compares
 what the client read out of the answer, by the rules in `conformance/README.md`.
-It writes the report shape `cmd/conformance` writes:
+It writes the report shape `tools/cmd/conformance` writes:
 
 ```bash
 make build

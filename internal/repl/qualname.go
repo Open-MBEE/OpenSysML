@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -68,7 +67,7 @@ func qualifiedText(qn *ast.QualifiedName) string {
 // the prompt prints can be typed back into a command. It is the one rule every
 // surface quotes with, `%render` included.
 func notationName(fqn string) string {
-	return lexer.QualifiedNameText(fqn)
+	return source.QualifiedNameText(fqn)
 }
 
 // declaredName spells the name an object is held under from its declaration, segment by
@@ -85,9 +84,9 @@ func (s *Session) declaredName(fqn string) string {
 // declarationNotation spells a declaration's qualified name as the notation
 // writes it, each owner and the name itself quoted on its own where needed.
 func declarationNotation(sym *symbols.Symbol) string {
-	segments := []string{lexer.NameText(sym.Name)}
+	segments := []string{source.NameText(sym.Name)}
 	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
-		segments = append(segments, lexer.NameText(scope.Owner().Name))
+		segments = append(segments, source.NameText(scope.Owner().Name))
 	}
 	slices.Reverse(segments)
 	return strings.Join(segments, "::")
