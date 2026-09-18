@@ -220,7 +220,7 @@ were typed in by hand at the tag and lagged it — last recounted at `074f9c4b7`
 889 conformance cases where the tag has 894. Since #291, on `develop` after the tag, they are
 generated: `tools/cmd/doc-counts` counts the conformance cases, golden ASTs, golden traces, negative
 parser subtests, runtime and gRPC robustness cases and top-level `Test` functions from the tree
-the way the gates enumerate them (the conformance cases through `internal/fixtures`, which the
+the way the gates enumerate them (the conformance cases through `tests/fixtures`, which the
 runtime and gRPC conformance tests read too), `make docs-counts` writes them into marker blocks
 beside the refereed pilot figures, and `go run -C tools ./cmd/doc-counts -check` fails in CI when a block
 and the tree disagree, so the surfaces cannot drift from the gate table again. They have since
@@ -940,7 +940,7 @@ which reading a graph back already takes the name from — stays the readable fo
 
 What landed:
 
-1. **The derivation.** `internal/core/identity/normative` derives the element and owning
+1. **The derivation.** `internal/core/identity` (`normative.go`) derives the element and owning
    membership UUIDs from a qualified name, with the pilot's quoting of names; `identity` maps the
    bundled library's tiers to the two prefixes (kernel libraries to KerML, systems and domain
    libraries to SysML) and catalogs every named, non-aliased, non-shadowed library symbol once
@@ -2600,16 +2600,29 @@ packages.
 
 ### What is duplicated
 
-Identically named unexported helpers defined in four or more non-test packages, each a copy:
+Identically named unexported helpers defined in four or more non-test packages at the baseline,
+each a copy, and where each lives now (P4):
 
-| helper | copies | where | belongs |
+| helper | copies | where | home now |
 |---|---|---|---|
-| `qualifiedNameText(*ast.QualifiedName) string` | 4 | `docplan`, `lower`, `runtime`, `symbols` | a method on `ast.QualifiedName` |
-| `ownerOf(*symbols.Symbol) *symbols.Symbol` | 6 | `codegen`, `edit`, `passes`, `resolve`, `semantics`, `view` | a method on `symbols.Symbol` |
-| `declMembers` | 4 | `lower`, `passes`, `runtime`, `semantics` | `ast` or `symbols` |
-| `lastSegment`, `qualifiedName` | 5 each | `export`, `queryexec`, `runtime`, `symbols`, `repl`; `export`, `migrate`, `queryplan`, `rename`, `solve` | `symbols` |
-| `sortedKeys` | 6 | across the module | the standard library's `slices` and `maps` |
-| `moduleRoot`, `writeReports`, `classify` | 5, 4, 5 | `cmd/pilot-diff`, `pilot-reject`, `pilot-xpect`, `grammar-coverage`, `validation-census` | one shared package of the tooling tree |
+| `qualifiedNameText(*ast.QualifiedName) string` | 4 | `docplan`, `lower`, `runtime`, `symbols` | `ast.QualifiedName.Text` |
+| `ownerOf(*symbols.Symbol) *symbols.Symbol` | 6 | `codegen`, `edit`, `passes`, `resolve`, `semantics`, `view` | `symbols.Symbol.Owner` |
+| `declMembers` | 4 | `lower`, `passes`, `runtime`, `semantics` | `ast.DeclMembers`; see below |
+| `lastSegment`, `qualifiedName` | 5 each | `export`, `queryexec`, `runtime`, `symbols`, `repl`; `export`, `migrate`, `queryplan`, `rename`, `solve` | `symbols.LastSegment`, `ast.QualifiedNameOf`; see below |
+| `sortedKeys` | 6 | across the module | `slices.Sorted(maps.Keys(m))` |
+| `moduleRoot`, `writeReports`, `classify` | 5, 4, 5 | `cmd/pilot-diff`, `pilot-reject`, `pilot-xpect`, `grammar-coverage`, `validation-census` | `tools/oracle/repo`, `tools/oracle/report` (P3) |
+
+The name-sharing was wider than the copying. Of the `declMembers` four, three were the same
+function (a definition's or usage's `Members`) and are `ast.DeclMembers`; the runtime's also
+walked owned-constraint bodies and unwrapped `Membership`, so it stays as
+`runtime.unwrappedDeclMembers`, and `semantics`' takes a symbol and adds `AssumeMember` bodies,
+so it stays too. Of the `lastSegment` five, `symbols` and `suggest` split a `::` name and are
+`symbols.LastSegment`; `runtime`'s splits a dotted feature path, `queryexec`'s an object label
+at `.` or `::` outside quotes, `repl`'s returns four values for completion, and `export`'s
+takes a string — different functions under one name, kept. Of the `qualifiedName` five,
+`solve`'s built an `*ast.QualifiedName` from segments and is `ast.QualifiedNameOf`,
+`queryplan`'s and `rename`'s rendered one and are `QualifiedName.Text`, `migrate`'s reads an
+XMI element, and `export`'s stays until the exporter's own track touches `graphs.go`.
 
 The larger reuse gaps are the ones the edges above already name: two XMI readers, calc lowering
 in `runtime` rather than `lower`, invocation selection in `passes` reused by `runtime`, and the
@@ -2640,17 +2653,17 @@ A package imports only the layers below it:
 
 | layer | packages |
 |---|---|
-| foundation | `source` (with the notation-text helpers), `ast`, `ast/astcodec`, `pack`, `quickfix`, `diag` |
+| foundation | `source` (with the notation-text helpers and `ReplaceFile`), `ast`, `ast/astcodec`, `pack`, `diag` (with the quick fixes and `ConformanceMode`) |
 | syntax | `lexer`, `parser`, `format` |
-| semantics | `symbols`, `suggest`, `resolve`, `semantics` (with invocation selection), `conformance`, `provenance`, `identity` |
+| semantics | `symbols` (with `Origin`), `suggest`, `resolve`, `semantics` (with invocation selection), `identity` (with the normative ids) |
 | semantic IR | `lower`, `queryplan`, `docplan` |
-| validation | `passes`, split by domain, `rename`, `edit` |
+| validation | `passes`, split by domain, `edit` (with the rename conflict check) |
 | execution | `runtime`, `solve`, `smt`, `analysis`, `engines`, `objref`, the `graphs:1` form |
 | translation | `rdf`, `export`, `migrate`, `convert` (the conversion entry point), one `xmi`, `codegen`, `interop/*` |
 | documents | `queryexec`, `docir`, `docrender`, `docpdf` |
 | workspace | `model`, `libs`, `project`, `envvar` |
 | frontends | `protoconv`, `repl`, `lsp`, `grpc`, `stdiorpc`, `usage`, `cmd/*` |
-| tooling | `baseline`, the errata registry, `fixtures`, `junit`, `doccounts`, `stressmodel`, `fuml`, `pssm`, `perfbench`, `hygiene`, `testutil`, never linked by a shipped binary |
+| tooling | `baseline`, the errata registry, `junit`, `doccounts`, `fuml`, `pssm` under `tools/`; `fixtures`, `stressmodel`, `perf`, `hygiene`, `testutil` under `tests/`; never linked by a shipped binary |
 
 The tree says the same thing as the table. `internal/` today is 121 directories: 70 packages,
 32 `testdata` subtrees, the 17 data directories of the bundled standard library and two grouping
@@ -2740,8 +2753,8 @@ ones (`mustDebug`, `render` and `openRenameDoc` in `lsp`; `meta`, `submitModel` 
 `internal/grpc/oslc_query_repl_test.go` is the one external file left, reaching `mustNewService` and
 `queryModel` through `export_test.go`. And the thirteen `testdata` trees still under `internal/`
 belong to white-box drivers, so they sit beside them — a fixture moves with its driver, not on its
-own. Of the support packages the plan named, `fixtures` stays product-side and `doccountstest`
-went to `tools/census/doccounts` with its owner, as P3 records.
+own. Of the support packages the plan named, `doccountstest` went to `tools/census/doccounts`
+with its owner, as P3 records, and `fixtures` to `tests/fixtures` under P4.
 
 ## P3 — the tooling module (landed, unreleased)
 
@@ -2767,11 +2780,13 @@ four verdict buckets the fUML and PSSM referees share, `repo` took `moduleRoot`,
 are gone. `errata` is split: the overlay the standard library applies is
 `internal/core/libs/errata` (product), the registry the oracles read is `tools/oracle/errata`.
 There is no `go.work`: `go build ./...` and `go test ./...` at the root are product-only, and
-`make test` and `make lint` run both modules. Two of the listed packages stay in the product
-because product tests import them and a test cannot import the nested module without a cyclic
-requirement: `internal/fixtures`, which also took the analysis-library census schema that the
-runtime's own test writes and `tools/census/doccounts` counts, and `internal/stressmodel`, whose
-generator `internal/core/model`'s incremental test drives (only `cmd/stress-model` moved).
+`make test` and `make lint` run both modules. Two of the listed packages could not follow the
+tools into the nested module, because product tests import them and a test cannot import the
+nested module without a cyclic requirement: `fixtures`, which also took the analysis-library
+census schema that the runtime's own test writes and `tools/census/doccounts` counts, and
+`stressmodel`, whose generator `internal/core/model`'s incremental test drives (only
+`cmd/stress-model` moved). They stayed under `internal/` at first; P4 moved them to `tests/`,
+which both the root module's tests and the tools module can import.
 `docpdf` is `internal/core/docpdf`, beside `docrender`; `envvar` and `project` already sat beside
 `model`, and whether they fold into it is P4's question. Measured at `develop` `1e44c746c`
 before and after the four pull requests: `go list -deps ./cmd/sysml` 368 → 368 (nothing moved
@@ -2780,15 +2795,65 @@ was on a shipped binary's path, and `go list -deps` of the three binaries names 
 packages. Still to do here: split `passes` by domain — core, behavior, document, diagram,
 identity — with registration left central, once the runtime no longer imports it.
 
-## P4 — one-file packages and shared helpers (not started)
+## P4 — one-file packages and shared helpers (in review)
 
-Fold the 18 single-file packages into the package that owns the concept: `core/engines`
-(36 lines), `fsutil` (38), `core/provenance` (47), `core/envvar` (49), `core/conformance` (56),
-`core/quickfix` (66), `core/rename` (162), `core/identity/normative` into `identity`,
-`core/analysis/enginewire` into `analysis`, and the tooling and test-support ones P2 and P3
-already move. Then give `qualifiedNameText` and `declMembers` a home in `ast`, `ownerOf`,
-`lastSegment` and `qualifiedName` one in `symbols`, replace `sortedKeys` with `slices.Sorted`
-over `maps.Keys`, and delete the copies. About 52 packages become about 45.
+The helpers first, one pull request per family, each deleting every copy and routing the
+callers to one home: `ast.QualifiedName.Text` and `ast.DeclMembers` (#411);
+`symbols.Symbol.Owner` (#415, which also retired the `fqnOf`, `elementID` and `contentName`
+wrappers of `symbols.FQNOf` whose fallback could not fire); `symbols.LastSegment` and
+`ast.QualifiedNameOf` (#418, on #415); and `slices.Sorted(maps.Keys(m))` for the `sortedKeys`
+copies of `passes`, `symbols`, `interop/flexo` and `interop/reposync` (#417, cut from
+`develop` on its own). The table under "What is duplicated" records which same-named functions
+were not copies and stayed.
+
+Then the one-file packages, each into the package that owns the concept, with the layering
+table consulted first so no fold adds an edge: `quickfix` into `diag` as `diag.Fix`, `Edit`,
+`Replace` and `InsertLine` (#419) — both are foundation, and every importer of one already
+imported the other; `conformance` into `diag` as `diag.ConformanceMode`, `ConformanceDefault`,
+`ConformanceStrict`, `ConformanceModeOf` and `ParseConformanceMode` (#430), the mode being the
+switch that decides a finding's severity; `fsutil` into `source` as `source.ReplaceFile`
+(#431), the one filesystem write the product does atomically; `identity/normative` into
+`identity` as `normative.go` (#420), which was its only importer; `provenance` into `symbols` as
+`symbols.Origin`, `Symbol.Origin`, `NodeOrigin` and `OriginAt` (#426), the symbol table being
+where a declaration's location already lives; and `rename` into `edit` as `edit.CheckRename`,
+`RenameConflict` and `RenameOccurrence` (#422), beside the layout edits that apply a rename.
+Where a fold moved a self-model unit, `examples/self-model/surfaces.sysml` names the new
+package, and the pilot differential baseline records the examples digest that follows.
+
+The test-support packages P3 could not take into the tools module moved to `tests/` (#427):
+`internal/fixtures` is `tests/fixtures` and `internal/stressmodel` is `tests/stressmodel`, both
+still in the root module, so `tests/model`, the census in `tools/census/doccounts` and
+`tools/cmd/stress-model` import them from there. `go list -deps` of `sysml`, `sysml-lsp` and
+`sysml-grpc` names neither before nor after, and the layering test pins that no production
+package imports anything under `tests/`.
+
+Three of the folds the plan named did not happen, each for a reason the import graph gives:
+
+- `engines → analysis` is a cycle. `engines` imports `analysis` and `smt`, and `smt` imports
+  `analysis`; folding the registry into `analysis` would make `analysis` import `smt`, which
+  imports it. `engines` stays as the leaf that links the engines to the framework.
+- `envvar → model` is a cycle too: `runtime` imports `envvar` (the tolerated edge the layering
+  test lists), and `model` imports `runtime`. `project → model` was left on ownership: `model` is
+  the workspace, with no filesystem or input-discovery surface, and `project` is the command
+  line's input discovery, used by `cmd/sysml` and `repl` only. Both stay beside `model` in the
+  workspace layer.
+- `enginewire → analysis` is not a package move. Eight of the wire's types — `Question`,
+  `Model`, `Result`, `Budget`, `Bound`, `Witness`, `Input`, `Description` — carry the names of
+  the framework's own types in `analysis`, deliberately: the wire's vocabulary is the external
+  engine protocol's, not the framework's, and it is what the schema test and the stand-in engine
+  under `testdata/` speak. Folding would rename the protocol to fit beside the framework, so
+  `analysis/enginewire` stays a package of its own, and the layering test keeps its row and its
+  `export` edge.
+
+Measured at `develop` `b270ebbc9` before and with the eleven pull requests applied:
+`go list -deps ./cmd/sysml` 367 → 361; packages under `internal/` 60 → 52; directories under
+`internal/` 100 → 92, entries at the top 11 → 8 (`fsutil`, `fixtures` and `stressmodel` gone)
+and under `core/` 44 → 40. The remaining distance to the target's 45 is the three packages
+above and `passes` split by domain, which P3 records as still to do.
+
+The pull requests land in this order, each cut from the one before it except where said:
+#411 → #415 → #418 → #419 → #430 → #431 → #420 → #426 → #427 → #422, and then this
+document's update; #417 is cut from `develop` and merges anywhere in the sequence.
 
 ## P5 — a runtime-free translation module (not started)
 
