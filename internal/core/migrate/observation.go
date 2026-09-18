@@ -49,13 +49,13 @@ func (a *activity) timings() {
 
 // timingOf reads which nodes an observation spans and at which end of each, or
 // says why it spans none: it observes no events, or events that are not nodes here.
-// An initial node is a point the activity's start reaches, so it has a start but no end.
+// An initial or flow final node is a point a token reaches, so it has a start but no end.
 func (a *activity) timingOf(o *xmi.Element) (*timing, string) {
+	if why := a.m.dangling(o, "event"); why != "" {
+		return nil, "the observation's events resolve to nothing: " + why
+	}
 	events := a.m.model.Refs(o, "event")
 	if len(events) == 0 {
-		if why := a.m.dangling(o, "event"); why != "" {
-			return nil, "the observation's events resolve to nothing: " + why
-		}
 		if by := a.m.observers(o); len(by) > 0 {
 			return nil, "the observation observes no event; the duration " + strings.Join(by, ", ") + " that refers to it is written from its own value"
 		}
@@ -65,7 +65,7 @@ func (a *activity) timingOf(o *xmi.Element) (*timing, string) {
 		return nil, "the observation names more than two events"
 	}
 	for _, e := range events {
-		if k := nodeKind(e); e.Parent != a.act || k != nodeAction && k != nodeControl && k != nodeBuffer && k != nodeFinal && k != nodeInitial {
+		if k := nodeKind(e); e.Parent != a.act || k != nodeAction && k != nodeControl && k != nodeBuffer && k != nodeFinal && k != nodeInitial && k != nodeFlowFinal {
 			return nil, "the observation's event " + describe(e) + " is not a node of the activity, so no elapsed clock can be read between its nodes"
 		}
 	}
@@ -115,6 +115,15 @@ func (a *activity) stampAt(n *xmi.Element, end bool, lines ...string) {
 		stamps[n] = s
 	}
 	s.lines = append(s.lines, lines...)
+}
+
+// flowFinal writes a flow final node: done, led into through the stamp, wait
+// or merge written before it when a timing or duration bounds the node.
+func (a *activity) flowFinal(n *xmi.Element) {
+	if _, ok := a.entry[n]; ok {
+		a.leadIn(n, "done")
+	}
+	a.m.add(n, Mapped, "done", "a flow final ends the token, as done does")
 }
 
 // timingAttributes declares the attributes the timings read the clock into.

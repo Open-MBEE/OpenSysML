@@ -152,9 +152,9 @@ returned over the service yet.
 | OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve, or is a JavaScript body of the [subset](#the-opaque-language-subset): `i = 1; GS_Found = true;` is a sequence of `assign` statements, `i += 1` an assignment of `i + 1`, `var t = 0` a local `attribute`; names resolve against the swimlane's represented object first, then the activity, then the owning block; otherwise the body as a comment inside `action x { }` naming the language and the token refused | mapped / approximated |
 | DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds; a symbolic bound (`ditSetup s`, `setup * 2 min`) is an expression whose names resolve like an action body's, `accept after this.tcs.ditSetup [SI::s]` | approximated (a tool's min/max/random mode is a run setting) |
 | DurationConstraint whose bounds name nothing the activity can read | comment | **unmapped** — the note names the unresolved name |
-| DurationObservation whose events are two nodes of one activity | an `attribute <name> : Real [0..1]` of the `action def`, stamped with `localClock.currentTime` when the first node starts and assigned the elapsed clock when the second ends (`assign T := localClock.currentTime - 'T start';`, guarded on the stamp having happened); one node observed is its own duration; an initial node's start is the activity's `start`; the attribute is one a run can `-observe`, and a run that does not reach both nodes leaves it without a value | mapped |
-| DurationObservation reading the clock at the end of a node that is no action — an initial, final or control node has no end of its own | comment | **unmapped** — the note names the node |
-| DurationObservation whose events are not nodes of the activity, or none; a DurationObservation or TimeObservation owned outside an activity; TimeObservation | comment | **unmapped** — the note names the events, or the owner |
+| DurationObservation whose events are two nodes of one activity | an `attribute <name> : Real [0..1]` of the `action def`, stamped with `localClock.currentTime` when the first node starts and assigned the elapsed clock when the second ends (`assign T := localClock.currentTime - 'T start';`, guarded on the stamp having happened); one node observed is its own duration; an initial node's start is the activity's `start`, a flow final's the token's arrival before `done`; the attribute is one a run can `-observe`, and a run that does not reach both nodes leaves it without a value | mapped |
+| DurationObservation reading the clock at the end of a node that is no action — an initial, final, flow final or control node has no end of its own | comment | **unmapped** — the note names the node |
+| DurationObservation whose events are not nodes of the activity, or none, or name an element the document does not define; a DurationObservation or TimeObservation owned outside an activity; TimeObservation | comment | **unmapped** — the note names the events, or the owner |
 | ActivityPartition | comment naming the partition, what it `represents` and its nodes; a name a body or guard in the partition uses is resolved against the represented property first and written through it, `this.tcs.i` for a partition representing the part `tcs` (a nested partition through its enclosing ones, `this.tank.valve.open`; a partition representing the context block itself, `this.x`) | mapped when the partition resolved a name / approximated when nothing in it needed one, when `represents` is unset, names nothing the document defines, a property of no v2 type, or a classifier the activity does not run in |
 | StructuredActivityNode, SequenceNode | `action x { }` holding the nested flow | mapped |
 | ExpansionRegion, LoopNode, ConditionalNode | `action x { }` holding the body's flow once; the expansion, the loop test and the clause tests are not written | approximated |
@@ -271,13 +271,17 @@ end; a node executed again in a loop
 stamps again, so the attribute holds the span between the latest executions of the two
 nodes). An initial node is the point the activity's `start` reaches, so an observation
 beginning there is stamped right after `start`, before the activity's own wait and its first
-nodes, and spans the run when it ends at the final node; only an action has an end of its
-own, so a flag asking for the end of an initial, final or control node is refused with the
-node named. Both attributes are `[0..1]` with no default, and the elapsed clock is assigned only
-when the stamp has happened, so a run that reaches neither node, or only one, leaves the
-attribute without a value — a blank cell in the `-observe` table, outside the summary — rather
-than a duration of zero; observations whose events are not nodes of the activity,
-and observations owned outside any activity, are comments whose report line says which.
+nodes, and spans the run when it ends at the final node; a flow final is the point a token
+ends, so an observation ending there is stamped as the token reaches it, before `done` (the
+edges into it lead to the stamp, through a `merge` when there are several); only an action has
+an end of its own, so a flag asking for the end of an initial, final, flow final or control node
+is refused with the node named. Both attributes are `[0..1]` with no default, and the elapsed
+clock is assigned only when the stamp has happened, so a run that reaches neither node, or only
+one, leaves the attribute without a value — a blank cell in the `-observe` table, outside the
+summary — rather than a duration of zero; observations whose events are not nodes of the
+activity, whose `event` list names an element the document does not define (the observation
+is refused whole, never read as the one event that does resolve), and observations owned
+outside any activity, are comments whose report line says which.
 
 **Durations and probabilities.** A `DurationConstraint` on an action is a wait the action's
 token takes before it: `accept after 3.0 [SI::s]` for a point interval, and

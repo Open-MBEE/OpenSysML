@@ -231,7 +231,7 @@ func (a *activity) write() {
 	a.resolveData()
 	a.timings()
 	for _, n := range a.nodes {
-		if k := nodeKind(n); k == nodeAction || k == nodeControl || k == nodeBuffer || k == nodeFinal {
+		if k := nodeKind(n); k == nodeAction || k == nodeControl || k == nodeBuffer || k == nodeFinal || k == nodeFlowFinal && (a.before[n] != nil || len(a.m.bounded[n]) > 0) {
 			a.entries(n)
 		}
 	}
@@ -247,7 +247,7 @@ func (a *activity) write() {
 		case nodeFinal:
 			a.declare(n)
 		case nodeFlowFinal:
-			a.m.add(n, Mapped, "done", "a flow final ends the token, as done does")
+			a.flowFinal(n)
 		case nodeParam:
 			a.parameterNode(n)
 		default:
@@ -355,9 +355,12 @@ func (a *activity) resolveData() {
 }
 
 // entries names n and what leads into it: a join when several edges do (a merge
-// into an activity final, which one token ends), a wait when a duration bounds it.
+// into a final, which one token ends), a wait when a duration bounds it.
 func (a *activity) entries(n *xmi.Element) {
-	name := writeName(a.name(n, baseName(n)))
+	name := "done"
+	if nodeKind(n) != nodeFlowFinal {
+		name = writeName(a.name(n, baseName(n)))
+	}
 	if delay, ok := a.waitFor(n); ok {
 		w := writeName(a.fresh("wait"))
 		a.waits[n] = waitNode{w, delay}
@@ -368,7 +371,7 @@ func (a *activity) entries(n *xmi.Element) {
 	}
 	switch {
 	case len(a.prev[n]) <= 1 || n.Type == "JoinNode" || n.Type == "MergeNode":
-	case nodeKind(n) == nodeFinal:
+	case nodeKind(n) == nodeFinal || nodeKind(n) == nodeFlowFinal:
 		m := writeName(a.fresh("merge"))
 		a.merges[n] = m
 		name = m
@@ -385,6 +388,9 @@ func (a *activity) entries(n *xmi.Element) {
 func (a *activity) endpointIn(n *xmi.Element) string {
 	switch nodeKind(n) {
 	case nodeFlowFinal:
+		if e, ok := a.entry[n]; ok {
+			return e
+		}
 		return "done"
 	case nodeInitial, nodeParam, nodePin:
 		return ""
@@ -855,13 +861,19 @@ func finiteNumber(text string) (string, bool) {
 	return realLiteral(f), true
 }
 
-// declare writes a node's declaration.
+// declare writes a node's declaration, after what leads into it.
 func (a *activity) declare(n *xmi.Element) {
 	name := writeName(a.name(n, baseName(n)))
-	into := name
+	a.leadIn(n, name)
+	a.declareNode(n, name)
+}
+
+// leadIn writes what a token passes on its way into n, named into: its wait,
+// the stamp before it, and the join or merge gathering several edges.
+func (a *activity) leadIn(n *xmi.Element, into string) {
 	if w, ok := a.waits[n]; ok {
 		a.m.w.line("action " + w.name + " accept after " + w.delay + ";")
-		a.m.w.line("first " + w.name + " then " + name + ";")
+		a.m.w.line("first " + w.name + " then " + into + ";")
 		into = w.name
 	}
 	if s, ok := a.before[n]; ok {
@@ -878,6 +890,10 @@ func (a *activity) declare(n *xmi.Element) {
 		a.m.w.line("merge " + m + ";")
 		a.m.w.line("first " + m + " then " + into + ";")
 	}
+}
+
+// declareNode writes the declaration of n itself, named name.
+func (a *activity) declareNode(n *xmi.Element, name string) {
 	switch n.Type {
 	case "ActivityFinalNode":
 		a.m.w.line("action " + name + " terminate;")

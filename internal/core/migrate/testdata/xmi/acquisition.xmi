@@ -43,6 +43,8 @@ GS_Found = false;</body>
         </node>
         <node xmi:type="uml:MergeNode" xmi:id="_merge"/>
         <node xmi:type="uml:CallBehaviorAction" xmi:id="_attempt" name="attempt"/>
+        <node xmi:type="uml:ForkNode" xmi:id="_split"/>
+        <node xmi:type="uml:FlowFinalNode" xmi:id="_ff"/>
         <node xmi:type="uml:DecisionNode" xmi:id="_decide"/>
         <node xmi:type="uml:OpaqueAction" xmi:id="_found" name="guide star found">
           <language>JavaScript</language>
@@ -66,7 +68,9 @@ GS_Found = false;</body>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_stamp0" target="_set"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_set" target="_merge"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e4" source="_merge" target="_attempt"/>
-        <edge xmi:type="uml:ControlFlow" xmi:id="_e4b" source="_attempt" target="_decide"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4b" source="_attempt" target="_split"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4c" source="_split" target="_decide"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4d" source="_split" target="_ff"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e5" source="_decide" target="_found">
           <guard xmi:type="uml:OpaqueExpression" xmi:id="_g5">
             <language>JavaScript</language>
@@ -85,7 +89,7 @@ GS_Found = false;</body>
             <body>FALSE</body>
           </guard>
         </edge>
-        <edge xmi:type="uml:ControlFlow" xmi:id="_e11" source="_abort" target="_done"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e11" source="_abort" target="_ff"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e7" source="_bump" target="_merge"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e8" source="_found" target="_done"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e12" source="_done" target="_stamp1"/>
@@ -122,6 +126,17 @@ GS_Found = false;</body>
         </observation>
         <observation xmi:type="uml:DurationObservation" xmi:id="_astray" name="Time_Astray">
           <event xmi:idref="_tcs"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_pass" name="Time_Pass" firstEvent="true true">
+          <event xmi:idref="_set"/>
+          <event xmi:idref="_ff"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_ended" name="Time_Ended">
+          <event xmi:idref="_ff"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_dangle" name="Time_Lost">
+          <event xmi:idref="_set"/>
+          <event xmi:idref="_missing"/>
         </observation>
         <observation xmi:type="uml:DurationObservation" xmi:id="_blank" name="Time_Blank"/>
       </ownedBehavior>
