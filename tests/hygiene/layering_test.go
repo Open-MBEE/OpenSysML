@@ -49,7 +49,6 @@ var packageLayer = map[string]string{
 	"internal/core/diag":         "foundation",
 	"internal/core/ast/astcodec": "foundation",
 	"internal/core/pack":         "foundation",
-	"internal/fsutil":            "foundation",
 
 	"internal/core/lexer":  "syntax",
 	"internal/core/parser": "syntax",
