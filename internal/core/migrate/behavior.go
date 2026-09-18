@@ -210,7 +210,7 @@ func (m *migration) parameter(p, scope *xmi.Element, declared map[string]bool) {
 	if dv := firstOwned(p, "defaultValue"); dv != nil && isBound {
 		note = joinNotes(note, "the default value "+describeValue(dv)+" gives way to the binding")
 	} else if dv != nil {
-		expr, ok, vnote := m.behaviorValue(dv, scope)
+		expr, ok, vnote := m.typedBehaviorValue(dv, p, scope)
 		if ok {
 			b.WriteString(" default = " + expr)
 			note = joinNotes(note, vnote)
@@ -308,9 +308,8 @@ func (m *migration) behaviorExprHow(text, lang string, scope *xmi.Element, want 
 	if text == "" {
 		return "", false, "the expression has no body", false
 	}
-	var refused *refusal
 	if dialectOf(lang) != dialectNone {
-		expr, note, refused = m.translatedExpr(text, lang, scope, want)
+		expr, note, refused := m.translatedExpr(text, lang, scope, want)
 		if refused == nil {
 			m.noted(scope, note)
 			return expr, true, "", true
@@ -321,7 +320,7 @@ func (m *migration) behaviorExprHow(text, lang string, scope *xmi.Element, want 
 	}
 	expr, ok, note = m.v2Expr(text, lang, scope)
 	if !ok {
-		return "", false, refusedNote(refused, note, lang), false
+		return "", false, note, false
 	}
 	return expr, true, note, false
 }
@@ -337,16 +336,6 @@ func (m *migration) v2Expr(text, lang string, scope *xmi.Element) (expr string, 
 		return "", false, missing + langNote(lang)
 	}
 	return m.qualifySelf(text, refs, scope), true, ""
-}
-
-// refusedNote is the note for a body neither translated nor read as v2: the
-// translator's refusal when the body declares a language it reads, else the
-// v2 reading's (a body declaring no language is v2 first).
-func refusedNote(refused *refusal, v2Note, lang string) string {
-	if refused == nil || refused.kind == refusedLanguage || strings.TrimSpace(lang) == "" {
-		return v2Note
-	}
-	return refused.note()
 }
 
 // qualifySelf prefixes `this.` to each name in text that resolves to a feature
@@ -416,9 +405,8 @@ func (m *migration) statements(body, lang string, scope *xmi.Element) (lines []s
 	if body == "" {
 		return nil, false, "the body is empty"
 	}
-	var refused *refusal
 	if dialectOf(lang).script() {
-		lines, note, refused = m.translatedStatements(body, lang, scope)
+		lines, note, refused := m.translatedStatements(body, lang, scope)
 		if refused == nil {
 			m.noted(scope, note)
 			return lines, true, ""
@@ -427,11 +415,7 @@ func (m *migration) statements(body, lang string, scope *xmi.Element) (lines []s
 			return nil, false, refused.note()
 		}
 	}
-	lines, ok, note = m.v2Statements(body, lang, scope)
-	if !ok {
-		return nil, false, refusedNote(refused, note, lang)
-	}
-	return lines, true, note
+	return m.v2Statements(body, lang, scope)
 }
 
 // v2Statements writes an opaque body whose every statement assigns a v2

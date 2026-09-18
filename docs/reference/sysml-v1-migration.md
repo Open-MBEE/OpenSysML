@@ -352,12 +352,14 @@ no object, a property of no v2 type, a name no scope defines), or types that dis
 typed by an enumeration or a block where a number or Boolean is wanted, assigned to a feature
 of a type that neither is nor generalizes its own, or compared with or chosen beside one sharing
 no type with it). A feature whose type the migrator does not know is trusted to fit. A body
-whose language the translator reads but whose text it refuses is never re-read as v2 syntax:
-the refusal is final, and the body is a comment.
+whose language the translator reads but whose text it refuses — as not that language's syntax
+any more than as a construct, call, name or type it rejects — is never re-read as v2 syntax:
+the refusal is final, and the body is a comment. A body in a language the translator does not
+read, or in none, is read as v2 syntax.
 
 A translation is emitted only when every name resolves to a written feature visible where the
 statement lands, the types agree wherever they can be told (a guard is `Boolean`, an
-assignment fits its target, a default, the value of a typed pin or result, or the result
+assignment fits its target, a property's or parameter's default, the value of a typed pin or result, or the result
 expression of a `calc def` is of the feature's or the return parameter's type — its scalar, or a
 block or enumeration it is or specializes — and one value unless the feature holds several, a
 duration is `Real`), and the result parses with the v2 parser.

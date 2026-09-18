@@ -291,7 +291,10 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 // spelling a character as a UTF-16 surrogate pair, are translated. A default
 // in a language the translator reads is refused with it, never read as v2
 // even when its text is v2 syntax over visible names: a call outside the
-// table, string concatenation, and the `-x ** y` JavaScript itself rejects.
+// table, string concatenation, the `-x ** y` JavaScript itself rejects, and
+// text that is not JavaScript at all (`ready and enabled`) as a default, a
+// guard or a statement. A parameter's opaque default is checked against the
+// parameter's type like a property's.
 func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 	r := migrateXMI(t, "meter")
 	for _, line := range []string{
@@ -305,9 +308,19 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 		`/* default value not migrated: {JavaScript} total(count) — the call "total" is not in the translated function table */`,
 		`/* default value not migrated: {JavaScript} label + "!" — the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset */`,
 		"/* default value not migrated: {JavaScript} -total ** 2 — the construct \"-total **\" is outside the translated subset: JavaScript parenthesizes a unary operand of `**` */",
+		`/* default value not migrated: {JavaScript} ready or enabled — the text "or" is not expression syntax: text follows the expression */`,
+		`/* default value not migrated: {JavaScript} Math.sqrt(total) — the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted */`,
+		"in limit : ScalarValues::Integer default = this.count + 1;",
+		"/* guard not migrated: [{JavaScript} ready and enabled] — the text \"and\" is not expression syntax: text follows the expression */",
+		"/* body not migrated (the text \"and\" is not expression syntax: a statement ends at `;` or a newline) {JavaScript}:",
+		"assign this.flag := this.ready and this.enabled;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
+	wantNoLine(t, r.Notation, "attribute lit : ScalarValues::Boolean default = ready or enabled;")
+	wantNoLine(t, r.Notation, "in armed : ScalarValues::Boolean default = RealFunctions::sqrt(this.total);")
+	wantNoLine(t, r.Notation, "if ready and enabled")
+	wantNoLine(t, r.Notation, "assign this.flag := ready and enabled;")
 	wantNoLine(t, r.Notation, "default = total(count);")
 	wantNoLine(t, r.Notation, `default = label + "!";`)
 	wantNoLine(t, r.Notation, "default = -total ** 2;")
@@ -322,6 +335,10 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 	wantNote(t, r, "_smile", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_widen", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_shown", migrate.Mapped, "the JavaScript body is translated to v2")
+	wantNote(t, r, "_latch", migrate.Mapped, "the JavaScript body is translated to v2")
+	wantNote(t, r, "_armed", migrate.Approximated, `default value not migrated: the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted`)
+	wantNote(t, r, "_lit", migrate.Approximated, `default value not migrated: the text "or" is not expression syntax: text follows the expression`)
+	wantNote(t, r, "_a2", migrate.Approximated, `the guard [{JavaScript} ready and enabled] is kept as a comment and the edge written unguarded: the text "and" is not expression syntax: text follows the expression`)
 	for id, want := range map[string]string{
 		"_bump":    `the types at "+" disagree: an operand is a Mode, not a number`,
 		"_pick":    `the types at "count =" disagree: a Mode is assigned to the Integer count holds`,

@@ -80,6 +80,21 @@
           <body>count > 0 ? dial : hand</body>
         </defaultValue>
       </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ready" name="ready"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_ready0" value="true"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_enabled" name="enabled"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_enabled0" value="false"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_flag" name="flag"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_flag0" value="false"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_lit" name="lit"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_lit0">
+          <language>JavaScript</language>
+          <body>ready or enabled</body>
+        </defaultValue>
+      </ownedAttribute>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_top" name="top"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
         <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_top0">
           <language>JavaScript</language>
@@ -202,6 +217,38 @@
         <edge xmi:type="uml:ControlFlow" xmi:id="_f8" source="_narrow" target="_huge"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f5" source="_huge" target="_smile"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_f6" source="_smile" target="_ffinal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_arm" name="Arm">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_armed" name="armed" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+          <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_armed0">
+            <language>JavaScript</language>
+            <body>Math.sqrt(total)</body>
+          </defaultValue>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_limit" name="limit" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+          <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_limit0">
+            <language>JavaScript</language>
+            <body>count + 1</body>
+          </defaultValue>
+        </ownedParameter>
+        <node xmi:type="uml:InitialNode" xmi:id="_ainit"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_fuse" name="fuse">
+          <language>JavaScript</language>
+          <body>flag = ready and enabled</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_latch" name="latch">
+          <language>JavaScript</language>
+          <body>flag = ready &amp;&amp; enabled</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_afinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_a1" source="_ainit" target="_fuse"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_a2" source="_fuse" target="_latch">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_a2g">
+            <language>JavaScript</language>
+            <body>ready and enabled</body>
+          </guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_a3" source="_latch" target="_afinal"/>
       </ownedBehavior>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_sweep" name="Sweep">
         <group xmi:type="uml:ActivityPartition" xmi:id="_cells_lane" name="cells" represents="_cells" node="_calib _span _ticking"/>

@@ -35,6 +35,12 @@ part def Meter {
     ref part pointer : Needle {
         /* default value not migrated: {JavaScript} count > 0 ? dial : hand — the types at "count > 0 ? dial : hand" disagree: the expression is a Gauge, not the Needle wanted */
     }
+    attribute ready : ScalarValues::Boolean default = true;
+    attribute enabled : ScalarValues::Boolean default = false;
+    attribute flag : ScalarValues::Boolean default = false;
+    attribute lit : ScalarValues::Boolean {
+        /* default value not migrated: {JavaScript} ready or enabled — the text "or" is not expression syntax: text follows the expression */
+    }
     attribute top : ScalarValues::Real {
         /* default value not migrated: {JavaScript} cells.reading — the types at "cells.reading" disagree: the expression is a collection, not the one value wanted */
     }
@@ -135,6 +141,25 @@ part def Meter {
             assign this.count := 9007199254740991;
         }
         first smile then final;
+        action final terminate;
+    }
+    action def Arm {
+        in armed : ScalarValues::Boolean {
+            /* default value not migrated: {JavaScript} Math.sqrt(total) — the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted */
+        }
+        in limit : ScalarValues::Integer default = this.count + 1;
+        first start then fuse;
+        action fuse {
+            /* body not migrated (the text "and" is not expression syntax: a statement ends at `;` or a newline) {JavaScript}:
+             * flag = ready and enabled
+             */
+        }
+        /* guard not migrated: [{JavaScript} ready and enabled] — the text "and" is not expression syntax: text follows the expression */
+        first fuse then latch;
+        action latch {
+            assign this.flag := this.ready and this.enabled;
+        }
+        first latch then final;
         action final terminate;
     }
     action def Sweep {

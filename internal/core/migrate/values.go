@@ -82,9 +82,8 @@ func (m *migration) valueExprAs(v, scope *xmi.Element, want wanted) (expr string
 		if body == "" {
 			return "", false, "opaque expression has no body"
 		}
-		var refused *refusal
 		if dialectOf(lang) != dialectNone {
-			expr, note, refused = m.translatedExpr(body, lang, scope, want)
+			expr, note, refused := m.translatedExpr(body, lang, scope, want)
 			if refused == nil {
 				m.noted(valueOwner(v, scope), note)
 				return expr, true, ""
@@ -95,10 +94,10 @@ func (m *migration) valueExprAs(v, scope *xmi.Element, want wanted) (expr string
 		}
 		refs, ok := exprRefs(body)
 		if !ok {
-			return "", false, refusedNote(refused, "opaque expression is not v2 expression syntax"+langNote(lang), lang)
+			return "", false, "opaque expression is not v2 expression syntax" + langNote(lang)
 		}
 		if problem := m.invisible(refs, scope); problem != "" {
-			return "", false, refusedNote(refused, "opaque expression "+problem+langNote(lang), lang)
+			return "", false, "opaque expression " + problem + langNote(lang)
 		}
 		return body, true, "opaque expression copied verbatim" + langNote(lang)
 	case "Expression", "TimeExpression", "Duration", "Interval", "StringExpression":
