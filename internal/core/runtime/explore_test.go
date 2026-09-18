@@ -1115,6 +1115,130 @@ func TestExploreDueOrder(t *testing.T) {
 	}
 }
 
+// conformanceMachine loads a state fixture of the conformance suite for
+// exploring: fresh builds a context over it and run drives Machine, sending each
+// of signals once it is started.
+func conformanceMachine(t *testing.T, name string, signals ...string) (fresh func() (*Context, error), run func(*Context) (Outcome, error)) {
+	t.Helper()
+	path := filepath.Join("testdata", "conformance", name+".sysml")
+	text, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, model, _ := buildRuntimeWithLibraries(t, path, parseAndBuild(t, string(text)))
+	resolver := resolve.New(idx)
+	sym := namedOrFoundSymbol(t, idx, "", idx.DocumentRoot(path), ast.DefState, ast.UsageState)
+	fresh = func() (*Context, error) { return NewContext(NewModel(model, resolver), 10000), nil }
+	run = func(ctx *Context) (Outcome, error) {
+		exec, err := ctx.CreateStateExecutor(sym)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		for _, signal := range signals {
+			exec.SendSignal(signal, nil)
+			if err := exec.RunToCompletion(); err != nil {
+				return Outcome{}, err
+			}
+		}
+		return exec.Outcome(), nil
+	}
+	return fresh, run
+}
+
+// Entering a parallel state draws the order of its regions' units: two regions
+// of two logged entries each interleave six ways, each reached by exactly one
+// run, and no run draws more than the front's bound of Σuᵢ − u_last = 3 times.
+// Every witness replays to its outcome, a second exploration is the same, and
+// the fixed policies keep declaration order, `reverse` and `declared` without a
+// choice, `seed:1` reporting the one it drew.
+func TestExploreEntryOrder(t *testing.T) {
+	fresh, run := conformanceMachine(t, "state_region_entry_order", "Go")
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 6 || len(x.Outcomes) != 6 {
+		t.Fatalf("status %q with %d outcomes, want complete (6 runs) reaching 6", x.Status(), len(x.Outcomes))
+	}
+	logs := make([]string, 0, len(x.Outcomes))
+	for _, o := range x.Outcomes {
+		if o.Linearizations != 1 {
+			t.Errorf("%s reached by %d linearizations, want 1", o.Outcome, o.Linearizations)
+		}
+		if draws := len(o.Witness); draws < 2 || draws > 3 {
+			t.Errorf("%s drew %d times, want 2 or 3: two two-unit queues draw at most Σuᵢ − u_last", o.Outcome, draws)
+		}
+		for _, c := range o.Witness {
+			if c.Kind != ChoiceEntryOrder || c.Where != "entering work" {
+				t.Errorf("%s drew %s, want every draw an entry order entering work", o.Outcome, c)
+			}
+		}
+		logs = append(logs, o.Outcome.String())
+	}
+	if len(slices.Compact(slices.Clone(logs))) != 6 {
+		t.Fatalf("outcomes %v, want six distinct interleavings", logs)
+	}
+	assertWitnessesReplay(t, x, fresh, run)
+	again, err := Explore(context.Background(), mustPolicy(t, "explore"), fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(outcomeTexts(again), "|") != strings.Join(logs, "|") || again.Runs != x.Runs {
+		t.Fatalf("a second exploration found %v in %d runs, want the same %v in %d", outcomeTexts(again), again.Runs, logs, x.Runs)
+	}
+	const declaredOrder = "outerL(entry) innerL(entry) outerR(entry) innerR(entry) "
+	for _, spelling := range []string{"reverse", "declared", "seed:1"} {
+		ctx, _ := fresh()
+		mustSchedule(t, ctx, mustPolicy(t, spelling))
+		outcome, err := run(ctx)
+		if err != nil {
+			t.Fatalf("%s: %v", spelling, err)
+		}
+		var drawn []ChoiceKind
+		for _, c := range ctx.Choices() {
+			drawn = append(drawn, c.Choice().Kind)
+		}
+		switch spelling {
+		case "seed:1":
+			if !slices.Contains(logs, outcome.String()) || !slices.Contains(drawn, ChoiceEntryOrder) {
+				t.Errorf("seed:1 reached %s drawing %v, want an explored outcome with the entry order reported", outcome, drawn)
+			}
+		default:
+			if !strings.Contains(outcome.String(), declaredOrder) || slices.Contains(drawn, ChoiceEntryOrder) {
+				t.Errorf("%s reached %s drawing %v, want declaration order without an entry-order choice", spelling, outcome, drawn)
+			}
+		}
+	}
+}
+
+// A fork's branches are drawn the same way, the shared owner entered once: each
+// branch's effect precedes the owner's entry, which the first branch to reach it
+// enters, and the branch targets follow in the order drawn. Ten linearizations
+// reach eight outcomes: both branches at the owner's entry is one unit, not a
+// draw, and a target entered before or after the other branch's effect leaves
+// no mark on the log.
+func TestExploreForkBranchOrder(t *testing.T) {
+	fresh, run := conformanceMachine(t, "state_fork_branch_order")
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 10 || len(x.Outcomes) != 8 {
+		t.Fatalf("status %q with %d outcomes, want complete (10 runs) reaching 8", x.Status(), len(x.Outcomes))
+	}
+	for _, o := range x.Outcomes {
+		for _, c := range o.Witness {
+			if c.Kind != ChoiceEntryOrder || c.Where != "fork split" {
+				t.Errorf("%s drew %s, want every draw an entry order at fork split", o.Outcome, c)
+			}
+		}
+	}
+	assertWitnessesReplay(t, x, fresh, run)
+}
+
 // A body paused on the clock whose wait is over is a token able to act, so it is
 // an alternative to a sibling parked accept due at the same instant, not work
 // swept up after the sibling has acted.
