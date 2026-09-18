@@ -190,7 +190,7 @@ test("drawCanvas draws a sequence's lifelines", () => {
   assert.equal(svg.querySelectorAll("g.opensysml-node.movable").length, 0);
 });
 
-test("drawCanvas classes each box as the PlantUML form stereotypes it, rounding only a usage", () => {
+test("drawCanvas classes each box as the PlantUML form stereotypes it, squaring only a definition", () => {
   const boxed: RenderResult = {
     ...result,
     nodes: [
@@ -207,7 +207,7 @@ test("drawCanvas classes each box as the PlantUML form stereotypes it, rounding 
   const rect = (id: string) => svg.querySelector(`g[data-opensysml-id="${id}"] > rect`)!;
   assert.deepEqual(
     ["p", "q", "def", "cls", "reg", "use"].map((id) => [rect(id).classList[1], rect(id).getAttribute("rx")]),
-    [["package", null], ["package", null], ["definition", null], ["definition", null], ["region", null], ["usage", "6"]],
+    [["package", "6"], ["package", "6"], ["definition", null], ["definition", null], ["region", "6"], ["usage", "6"]],
   );
 });
 

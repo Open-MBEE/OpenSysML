@@ -537,7 +537,10 @@ follow (`docs/project/view-rendering-forms.md#style`), as CSS on the `pilot` cla
 — white canvas, black text, 0.5 px `#181818` borders, square definitions and
 rounded usages by a class the node's kind gives its box, heavier packages, dashed
 regions, bold names over an italic keyword, 3 px arrowless connections, dashed
-flows, filled pseudo-states. A palette is that look plus the `fill` and `border`
+flows, filled pseudo-states. The class changes no geometry the theme look draws (a
+definition alone is square there); the pilot rules square its packages and regions.
+A rendering answered after the setting moved is dropped, since the change queued a
+render in the new style. A palette is that look plus the `fill` and `border`
 the server puts on each node when the render request names one; the canvas sets
 them as custom properties on the node's shape and computes no colour itself, so
 the panel, DOT and PlantUML of one view agree hex for hex and the contrast rule

@@ -759,6 +759,10 @@ class DiagramPanel {
         palette: colours ? palette : undefined,
       };
       const result = normalizeRender(await client.sendRequest<RenderResult>(RENDER_METHOD, params));
+      // A style chosen meanwhile has its own render queued; a drawing in the old one is dropped.
+      if (diagramStyle(this.docURI) !== style) {
+        return;
+      }
       // No palette unless the server also computes the edits it would lead to.
       if (!supportsEdit(client)) {
         delete result.palette;
@@ -1392,8 +1396,8 @@ function html(
       #diagram.pilot .shape { fill: var(--node-fill, white); stroke: var(--node-border, #181818); stroke-width: 0.5px; }
       #diagram.pilot .shape.container { fill: var(--node-fill, white); }
       #diagram.pilot .shape.usage { rx: 10px; }
-      #diagram.pilot .shape.package { stroke-width: 1.5px; }
-      #diagram.pilot .shape.region { stroke-dasharray: 4 4; }
+      #diagram.pilot .shape.package { rx: 0; stroke-width: 1.5px; }
+      #diagram.pilot .shape.region { rx: 0; stroke-dasharray: 4 4; }
       #diagram.pilot .shape.filled { fill: black; stroke: black; }
       #diagram.pilot .label { fill: black; }
       #diagram.pilot .label .head { font-weight: bold; }
