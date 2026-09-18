@@ -219,14 +219,16 @@ func (s *Session) Views() ([]model.ViewInfo, error) {
 func (s *Session) symbolsInLoadOrder(in func(*symbols.Scope) []*symbols.Symbol) []*symbols.Symbol {
 	idx := s.browseIndex()
 	var out []*symbols.Symbol
-	for _, doc := range s.sessionDocs() {
-		out = append(out, in(idx.DocumentRoot(doc.Name))...)
+	// Each document's symbols are placed where its text sits in the buffer, so
+	// sorting restores submission order across the documents.
+	at := make(map[*symbols.Symbol]int)
+	for _, l := range s.locatedDocs() {
+		for _, sym := range in(idx.DocumentRoot(l.doc.Name)) {
+			at[sym] = l.base + sym.DeclSpan.Offset
+			out = append(out, sym)
+		}
 	}
-	// The language documents are masked copies of one joined buffer, so their
-	// spans share coordinates and sorting restores submission order.
-	sort.SliceStable(out, func(i, j int) bool {
-		return out[i].DeclSpan.Offset < out[j].DeclSpan.Offset
-	})
+	sort.SliceStable(out, func(i, j int) bool { return at[out[i]] < at[out[j]] })
 	return out
 }
 

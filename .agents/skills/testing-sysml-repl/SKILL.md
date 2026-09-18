@@ -2464,9 +2464,40 @@ its output rather than in an exit code — so assert on the exact rendered text:
 
 ## Multi-file projects: `%load <path>...` and positional dirs/globs (PR #146)
 
+### Per-file document isolation probes
+
+- Give only one file a root-level `private import ScalarValues::*;`. A second
+  file's bare `Real` must stay unresolved, as must a later prompt declaration's
+  bare `Real`. A qualified expression such as `%eval A::x + 1.0` should still
+  work, proving isolation did not remove the loaded package from the index.
+- Two loaded files declaring the same root package are two root namespaces, not
+  a duplicate, and a reference to the name resolves to the first declaration in
+  load order. Use separate `A::X` and `A::Y` files and reverse their load order
+  to prove that behavior.
+- For rendering order, `%view` takes a **view**, not an ordinary package.
+  `%render #table` renders the loaded documents without a declared view; reverse
+  two nonalphabetical package names and assert their member groups reverse.
+  A declared view with `render asElementTable;` needs `private import Views::*;`
+  in its scope.
+- `%save` passes notation through the formatter. Test source retention separately
+  from byte equality: tabs can become four spaces even while comments, members,
+  file order and typed declarations survive. Compare with a `develop` build
+  before attributing such formatting to a load-path regression.
+- Both debugger fixtures in `internal/repl/testdata/` are load-ready:
+  `action_debug.sysml` (`%action Debug::tally`, `%step`, type `part def Z;`,
+  `%continue`) ends at `total = 5`; `state_debug.sysml` (`%state Debug::Cycle`,
+  `%advance 1`, type `part def Z;`, `%advance 9`, `%advance 5`) reaches working
+  at t=10 and done at t=15. This tests symbol rebinding across prompt edits.
+
+#### Devin Secrets Needed
+
+None for local multi-file CLI/REPL tests.
+
 `sysml <dir|glob|file>...` and `%load <path>...` expand to model files via
 `internal/core/project.Expand`, and every file is accepted before one analysis pass
-(`Session.SubmitAll`), so load order does not affect name resolution. Shapes to expect:
+(`Session.SubmitAll`), each file a workspace document of its own indexed with the
+others, so load order does not affect name resolution except between root namespaces of
+one name (the first wins). Shapes to expect:
 
 - More than one file prints a `loaded N files:` header listing each path (a single file prints no
   header — a good tell that the multi-file path was taken).
