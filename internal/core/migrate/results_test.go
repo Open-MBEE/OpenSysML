@@ -238,6 +238,49 @@ func TestResultSnapshotsReportWhatIsNotRead(t *testing.T) {
 	}
 }
 
+// A tool writing a reference tag as one IDREFS attribute lists every id in one
+// value: a configuration naming two result locations that way reads both, one
+// naming two execution targets has too many to run on.
+func TestReferenceTagsListingSeveralIDsAreSplit(t *testing.T) {
+	r := migrateDocument(t, storedResults+`
+    <packagedElement xmi:type="uml:Class" xmi:id="_g1" name="Group 1"/>
+    <packagedElement xmi:type="uml:Package" xmi:id="_late" name="Late">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r5" name="run 5" classifier="_sure">
+        <slot xmi:type="uml:Slot" xmi:id="_r5b" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r5bv" value="0.5"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Block xmi:id="_s2" base_Class="_sure"/>
+  <sysml:Block xmi:id="_s3" base_Class="_other"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
+      executionTarget="_s0" resultLocation="_results _late"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c1" base_Class="_g1"
+      executionTarget="_s0 _o1" resultLocation="_results"/>`)
+	wantNote(t, r, "_g0", migrate.Mapped, "")
+	wantNote(t, r, "_g1", migrate.Approximated, "names 2 execution targets, and a run has one object to run on")
+	configs := r.Results.Configurations
+	if len(configs) != 2 {
+		t.Fatalf("results index %d configuration(s), want 2", len(configs))
+	}
+	var ids []string
+	for _, s := range configs[0].Snapshots {
+		ids = append(ids, s.ID)
+	}
+	if want := []string{"_r1", "_r2", "_r3", "_r4", "_r5"}; configs[0].Location != "Results, Late" || !slices.Equal(ids, want) {
+		t.Errorf("two locations index %q holding %v, want Results, Late holding %v", configs[0].Location, ids, want)
+	}
+	if values := configs[0].Values("pB"); !reflect.DeepEqual(values, []float64{3, 0, 0.25, 0.75, 0.5}) {
+		t.Errorf("Values(pB) = %v", values)
+	}
+	wantLine(t, r.Notation, "/* results of the simulation tool: 5 snapshot(s) in Results, Late holding pA, pB */")
+	if configs[1].Target != "" || len(configs[1].Snapshots) != 0 {
+		t.Errorf("a configuration with two targets indexes %+v", configs[1])
+	}
+	wantClean(t, "t.sysml", r)
+}
+
 // The sidecar is read back as written, and anything else is refused: JSON of
 // another shape, a field the sidecar never writes, or no source at all.
 func TestResultsSidecarRoundTrip(t *testing.T) {

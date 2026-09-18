@@ -101,7 +101,7 @@ func ReadResults(r io.Reader) (*Results, error) {
 // resultLocation packages that record the values the target configures; lost says
 // what of the results is outside the document.
 func (m *migration) resultSnapshots(r *ConfigurationResults, s *xmi.Stereotype, target executionTarget) (lost []string) {
-	ids := s.Tags["resultLocation"]
+	ids := s.IDs("resultLocation")
 	if len(ids) == 0 {
 		return nil
 	}

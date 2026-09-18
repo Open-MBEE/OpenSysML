@@ -245,7 +245,7 @@ type executionTarget struct {
 // configurationTarget resolves the execution target of a configuration; it
 // notes whatever it cannot.
 func (m *migration) configurationTarget(s *xmi.Stereotype) executionTarget {
-	ids := s.Tags["executionTarget"]
+	ids := s.IDs("executionTarget")
 	switch {
 	case len(ids) == 0:
 		return executionTarget{notes: []string{"the configuration names no execution target, so it runs no behavior"}}

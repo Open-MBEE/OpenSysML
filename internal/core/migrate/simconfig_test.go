@@ -18,6 +18,7 @@ const runConfigurations = weightedChooser + `
     <packagedElement xmi:type="uml:Class" xmi:id="_g0" name="Group 0"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_g1" name="Group 1"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_g2" name="Group 2"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_g3" name="Group 3"/>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_o0" name="other" classifier="_other"/>`
 
 // A «SimulationConfig» becomes an action def holding its execution target as a
@@ -83,7 +84,9 @@ func TestSimulationConfigReportsWhatItCannotRun(t *testing.T) {
   <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c1" base_Class="_g1"
       numberOfRuns="1" durationSimulationMode="random" treatAllClassifiersAsActive="false"/>
   <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c2" base_Class="_g2"
-      executionTarget="_missing"/>`)
+      executionTarget="_missing"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c3" base_Class="_g3"
+      executionTarget="_s0 _o0"/>`)
 	for _, line := range []string{
 		"action def 'Group 0' {",
 		"runs = 3;",
@@ -93,17 +96,22 @@ func TestSimulationConfigReportsWhatItCannotRun(t *testing.T) {
 		"draws = Simulation::DrawPolicy::random;",
 		"/* «SimulationConfig» settings of the simulation tool: treatAllClassifiersAsActive = false */",
 		"action def 'Group 2' {",
+		"action def 'Group 3' {",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	if strings.Contains(string(r.Notation), "perform action run") {
 		t.Errorf("a configuration performs a behavior no target has:\n%s", r.Notation)
 	}
+	if strings.Count(string(r.Notation), "part target") != 1 {
+		t.Errorf("only the configuration with one resolved target holds a part:\n%s", r.Notation)
+	}
 	wantNote(t, r, "_g0", migrate.Approximated, `durationSimulationMode = "fastest" is not one of the draw policies random, min, max and average`)
 	wantNote(t, r, "_g0", migrate.Approximated, "neither Other nor any general of it has a classifier behavior")
 	wantNote(t, r, "_g1", migrate.Approximated, "names no execution target")
 	wantNote(t, r, "_g1", migrate.Approximated, "treatAllClassifiersAsActive = false has no v2 form")
 	wantNote(t, r, "_g2", migrate.Approximated, `the execution target "_missing" is outside the document`)
+	wantNote(t, r, "_g3", migrate.Approximated, "names 2 execution targets, and a run has one object to run on")
 	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
 		t.Errorf("the migrated configurations do not analyse clean: %v\n%s", errs, r.Notation)
 	}
