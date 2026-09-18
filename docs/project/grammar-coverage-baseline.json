@@ -33,7 +33,7 @@
     },
     {
       "name": "testdata",
-      "dir": "testdata",
+      "dir": "tests/testdata",
       "files": 18,
       "lines": 310
     },
