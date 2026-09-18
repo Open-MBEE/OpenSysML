@@ -46,7 +46,12 @@ part def Drive {
         flow forty.result to 'spin over cmd'.rpm;
     }
     action def Stray {
-        first start then 'spin over loose';
+        first start then five;
+        action five {
+            out result = 5.0;
+        }
+        first five then 'spin over loose';
         action 'spin over loose' : Motor::Spin;
+        flow five.result to 'spin over loose'.rpm;
     }
 }

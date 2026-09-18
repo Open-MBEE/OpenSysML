@@ -19,8 +19,10 @@ const heaterMachine = `
       </ownedAttribute>
     </packagedElement>
     <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_nudge" name="Nudge"/>
     <packagedElement xmi:type="uml:SignalEvent" xmi:id="_spEv" signal="_setPoint"/>
     <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_nudgeEv" signal="_nudge"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_heater" name="Heater" classifierBehavior="_hsm">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_hlast" name="last">
         <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
@@ -90,6 +92,26 @@ const heaterMachine = `
           <transition xmi:type="uml:Transition" xmi:id="_ht4" source="_hoff" target="_hidle">
             <trigger xmi:type="uml:Trigger" xmi:id="_htr4" event="_stopEv"/>
           </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_ht5" source="_heating" target="_heating">
+            <trigger xmi:type="uml:Trigger" xmi:id="_htr5" event="_spEv"/>
+            <effect xmi:type="uml:Activity" xmi:id="_heff5" name="Retarget">
+              <node xmi:type="uml:InitialNode" xmi:id="_rtI"/>
+              <node xmi:type="uml:OpaqueAction" xmi:id="_rtCount" name="count">
+                <language>JavaScript</language>
+                <body>sets = sets + 1;</body>
+              </node>
+              <node xmi:type="uml:ActivityFinalNode" xmi:id="_rtF"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_rtE1" source="_rtI" target="_rtCount"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_rtE2" source="_rtCount" target="_rtF"/>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_ht6" kind="internal" source="_heating" target="_heating">
+            <trigger xmi:type="uml:Trigger" xmi:id="_htr6" event="_nudgeEv"/>
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_heff6">
+              <language>JavaScript</language>
+              <body>sets = sets + 10;</body>
+            </effect>
+          </transition>
         </region>
       </ownedBehavior>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_warmB" name="Warm">
@@ -106,7 +128,10 @@ const heaterApplications = `
   <sysml:Block xmi:id="_h1" base_Class="_heater"/>`
 
 // Heating's transitions keep the accepted SetPoint in an item of the state def that
-// its entry and do parameters bind to; Idle, entered by the initial transition, says why not.
+// its entry and do parameters bind to, an opaque effect by its last statement and an
+// activity effect by a first node; an internal transition on another signal enters no
+// state, so it neither keeps one nor stands in the way. Idle, entered by the initial
+// transition, says why not.
 func TestStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.T) {
 	r := migrateDocument(t, heaterMachine, heaterApplications)
 	for _, line := range []string{
@@ -117,6 +142,11 @@ func TestStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.T) {
 		"then Heating;",
 		"transition first Off accept setPoint2 : SetPoint",
 		"assign this.sets := this.sets + 1;",
+		"transition first Heating accept setPoint2 : SetPoint",
+		"do action Retarget {",
+		"first start then keep;",
+		"action keep {",
+		"first keep then count;",
 		"state Heating {",
 		"in target : ScalarValues::Real = setPoint.level;",
 		"in keep : ScalarValues::Boolean = setPoint.hold;",
@@ -164,5 +194,25 @@ func TestStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.T) {
 	}
 	if out := meta(t, s, "%eval in #1 : sets"); !strings.Contains(out, "= 1") {
 		t.Errorf("the effect before keeping the signal did not run: %s", out)
+	}
+	if out := meta(t, s, "%send SetPoint(level=9.0, hold=true)"); !strings.Contains(out, "transition Heating -> Heating fires on it") {
+		t.Errorf("%%send SetPoint: %s", out)
+	}
+	meta(t, s, "%step")
+	if out := meta(t, s, "%eval in #1 : last"); !strings.Contains(out, "= 9.0") {
+		t.Errorf("the entry action did not read the signal the activity effect kept: %s", out)
+	}
+	if out := meta(t, s, "%eval in #1 : sets"); !strings.Contains(out, "= 2") {
+		t.Errorf("the activity effect did not run after keeping the signal: %s", out)
+	}
+	if out := meta(t, s, "%send Nudge()"); !strings.Contains(out, "transition Heating -> Heating fires on it") {
+		t.Errorf("%%send Nudge: %s", out)
+	}
+	meta(t, s, "%step")
+	if out := meta(t, s, "%eval in #1 : last"); !strings.Contains(out, "= 9.0") {
+		t.Errorf("re-entry on the internal transition lost the kept signal: %s", out)
+	}
+	if out := meta(t, s, "%eval in #1 : sets"); !strings.Contains(out, "= 12") {
+		t.Errorf("the internal transition's effect did not run: %s", out)
 	}
 }

@@ -425,7 +425,7 @@ func (s *stateRegion) state(v *xmi.Element) {
 		s.m.add(v, Mapped, name, "")
 	}
 	regions := s.m.populatedRegions(v)
-	entry, do, exit := firstOwned(v, "entry"), firstOwned(v, "doActivity"), firstOwned(v, "exit")
+	entry, do, exit := s.m.stateBehavior(v, "entry"), s.m.stateBehavior(v, "doActivity"), s.m.stateBehavior(v, "exit")
 	inv := firstOwned(v, "stateInvariant")
 	if entry == nil && do == nil && exit == nil && inv == nil && len(regions) == 0 && len(defers) == 0 {
 		s.m.w.line(head + ";")
@@ -524,8 +524,20 @@ func (m *migration) inlineBehavior(kw string, b, owner *xmi.Element) bool {
 			m.downgrade(b, describe(owner)+" names it as its "+kw+", which a "+cat.keyword()+" cannot be")
 			return false
 		}
-		m.w.line(kw + " : " + m.ref(b, owner) + ";")
-		m.downgrade(b, "also run as the "+kw+" of "+describe(owner))
+		line, note := kw+" : "+m.ref(b, owner)+";", "also run as the "+kw+" of "+describe(owner)
+		if c := m.contextOf(b); c != nil {
+			expr, cnote := m.contextBinding(c, classifierOf(owner), "this")
+			if expr == "" {
+				m.w.lines(commentLines(kw + " " + qualifiedName(b) + " is not run: " + cnote))
+				m.downgrade(b, "not run as the "+kw+" of "+describe(owner)+": "+cnote)
+				m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+" is not run: "+cnote)
+				return false
+			}
+			line = kw + " : " + m.ref(b, owner) + " { in " + writeName(c.name) + " = " + expr + "; }"
+			note = joinNotes(note, cnote)
+		}
+		m.w.line(line)
+		m.downgrade(b, note)
 		return true
 	}
 	saved := m.scope
@@ -873,10 +885,19 @@ func (m *migration) reentryObservable(v *xmi.Element) bool {
 	if v.Type != "State" {
 		return true
 	}
-	if firstOwned(v, "entry") != nil || firstOwned(v, "exit") != nil || firstOwned(v, "doActivity") != nil {
+	if m.stateBehavior(v, "entry") != nil || m.stateBehavior(v, "exit") != nil || m.stateBehavior(v, "doActivity") != nil {
 		return true
 	}
 	return len(v.Owned("region")) > 0 || m.model.Ref(v, "submachine") != nil || len(v.Owned("deferrableTrigger")) > 0
+}
+
+// stateBehavior gives the behavior a state runs in a role, whether it owns it
+// or refers to one owned elsewhere.
+func (m *migration) stateBehavior(v *xmi.Element, role string) *xmi.Element {
+	if b := firstOwned(v, role); b != nil {
+		return b
+	}
+	return m.model.Ref(v, role)
 }
 
 // acceptance is one written trigger: its accept clause, the name the clause

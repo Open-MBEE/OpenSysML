@@ -57,7 +57,9 @@ func FromModel(name string, model *xmi.Model) *Result {
 		triggered:    map[*xmi.Element]bool{},
 		contexts:     map[*xmi.Element]*behaviorContext{},
 		contextNotes: map[*xmi.Element]string{},
+		invokers:     map[*xmi.Element][]*xmi.Element{},
 		unvalued:     map[*xmi.Element]bool{},
+		dryOut:       map[*xmi.Element]map[*xmi.Element]bool{},
 		carrierOf:    map[*xmi.Element]*carrier{},
 		carrierNotes: map[*xmi.Element]string{},
 		indexed:      map[string]int{},
@@ -164,6 +166,9 @@ type migration struct {
 	// parameter; contextNotes says why an activity naming ports of several gets none.
 	contexts     map[*xmi.Element]*behaviorContext
 	contextNotes map[*xmi.Element]string
+	// invokers lists, for each behavior, the actions, states, transitions and
+	// classifiers that run it without owning it, whose object it then acts on.
+	invokers map[*xmi.Element][]*xmi.Element
 	// connectors lists the user model's connectors; portSends its send signal
 	// actions going out through a port. arrived indexes, from both, the ports
 	// each signal arrives at, once a trigger asks.
@@ -185,6 +190,8 @@ type migration struct {
 	// unvalued holds the in parameters nothing passes a value to, so a flow
 	// out of one is kept as a comment instead of binding an absent value.
 	unvalued map[*xmi.Element]bool
+	// dryOut holds, per activity, the out parameters no value reaches; see dryOutputs.
+	dryOut map[*xmi.Element]map[*xmi.Element]bool
 	// indexed locates each element's report entry by id, so an element that
 	// several writers account for is reported once.
 	indexed map[string]int
@@ -317,6 +324,14 @@ func (m *migration) prepare() {
 			if ev := m.model.Ref(e, "event"); ev != nil {
 				m.triggered[ev] = true
 			}
+		case "CallBehaviorAction":
+			m.invoke(e, "behavior")
+		case "State":
+			m.invoke(e, "entry", "doActivity", "exit")
+		case "Transition":
+			m.invoke(e, "effect")
+		case "Class", "Component", "Node", "Device", "ExecutionEnvironment":
+			m.invoke(e, "classifierBehavior")
 		}
 		for _, c := range e.Children {
 			walk(c)

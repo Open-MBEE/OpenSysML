@@ -602,14 +602,16 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 		"action park : Park;",
 		"perform action point ::> tel.point;",
 		"* var t = java.lang.System.currentTimeMillis();",
-		"action log : Logging;",
+		"action log {",
+		"/* not migrated: CallBehaviorAction 'log' — the pin 't' it passes for the parameter t of Station::Logging, which must hold a value, receives none: 'compute', which feeds it, produces no value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing */",
+		"first log then final;",
 		"flow 'read tel'.result to 'send Go'.target;",
 		"flow ninety.result to point.az;",
 		"/* flow compute.t to log.t not written: 'compute' is not migrated and produces no value */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	if strings.Contains(string(r.Notation), "bind log.t") || strings.Contains(string(r.Notation), "flow compute.t to log.t;") {
+	if strings.Contains(string(r.Notation), "bind log.t") || strings.Contains(string(r.Notation), "flow compute.t to log.t;") || strings.Contains(string(r.Notation), "action log : Logging") {
 		t.Errorf("a flow from an action that produces no value was written:\n%s", r.Notation)
 	}
 	wantNote(t, r, "_pointing", migrate.Mapped, "written as the body of the operation Telescope::Point, whose method it is")
@@ -618,7 +620,7 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 	wantNote(t, r, "_tr", migrate.Approximated, "the return parameter is written as an out parameter")
 	wantNote(t, r, "_rcv", migrate.Approximated, "the reception has no method, so it only accepts the signal")
 	wantNote(t, r, "_js", migrate.Approximated, "the body is kept as a comment")
-	wantNote(t, r, "_log", migrate.Approximated, "its input log.t receives no value, since 'compute' is not migrated")
+	wantNote(t, r, "_log", migrate.Approximated, "the pin 't' it passes for the parameter t of Station::Logging, which must hold a value, receives none: 'compute', which feeds it, produces no value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing")
 	wantNote(t, r, "_point", migrate.Mapped, "its owner's usage point performs it")
 	wantNote(t, r, "_callTgt", migrate.Mapped, "the call performs the usage point of the target this.tel")
 	wantNote(t, r, "_call", migrate.Approximated, "several edges lead to the node, which waits for all of them through the join 'join'")
@@ -639,8 +641,8 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 	if out := meta(t, s, "%tokens"); !strings.Contains(out, "Token 1 @ fork") {
 		t.Errorf("the accept did not release the token:\n%s", out)
 	}
-	if out := meta(t, s, "%continue"); !strings.Contains(out, "action Logging: input parameter t is bound by no argument") {
-		t.Errorf("the run did not stop at the input the unmigrated action leaves unbound:\n%s", out)
+	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
+		t.Errorf("the run did not pass the call whose input the unmigrated action leaves unvalued:\n%s", out)
 	}
 	if out := meta(t, s, "%features #1.tel"); !strings.Contains(out, "azimuth = 90.0") {
 		t.Errorf("the call did not point the telescope:\n%s", out)

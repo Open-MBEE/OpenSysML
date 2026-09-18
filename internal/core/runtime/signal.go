@@ -833,7 +833,8 @@ func (ctx *Context) addressOwner(scope *symbols.Scope, self *Instance, segments 
 
 // namesFeature reports whether a feature value of the sending object is what a name in
 // the send's scope denotes: a nearer declaration, such as a node of the sending
-// behavior, shadows the object's feature as name resolution has it.
+// behavior, shadows the object's feature as name resolution has it. A redefined
+// name reads the redefining feature's value, so it is what the name denotes too.
 func (ctx *Context) namesFeature(scope *symbols.Scope, self *Instance, fv *FeatureValue, name string) bool {
 	sym, ok := ctx.pathSymbol(scope, []string{name})
 	if !ok || (fv.Feature != nil && fv.Feature.Symbol == sym) {
@@ -842,6 +843,13 @@ func (ctx *Context) namesFeature(scope *symbols.Scope, self *Instance, fv *Featu
 	for _, of := range ctx.FeaturesOfObject(self) {
 		if of.Feature.Symbol == sym {
 			return true
+		}
+	}
+	for _, typ := range self.types() {
+		for _, feat := range ctx.FeaturesOf(typ) {
+			if feat.Name == name && feat.Symbol == sym {
+				return true
+			}
 		}
 	}
 	return false

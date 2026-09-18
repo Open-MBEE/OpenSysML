@@ -65,7 +65,14 @@
         <edge xmi:type="uml:ControlFlow" xmi:id="_e4" source="_callCmd" target="_final"/>
       </ownedBehavior>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_stray" name="Stray">
-        <node xmi:type="uml:CallOperationAction" xmi:id="_callLoose" name="spin over loose" operation="_spin" onPort="_loose"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_five" name="five">
+          <value xmi:type="uml:LiteralReal" xmi:id="_fiveV" value="5.0"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_fiveOut" name="result"/>
+        </node>
+        <node xmi:type="uml:CallOperationAction" xmi:id="_callLoose" name="spin over loose" operation="_spin" onPort="_loose">
+          <argument xmi:type="uml:InputPin" xmi:id="_callLooseRpm" name="rpm"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of4" source="_fiveOut" target="_callLooseRpm"/>
       </ownedBehavior>
     </packagedElement>
   </uml:Model>

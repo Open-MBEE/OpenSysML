@@ -17,6 +17,7 @@ type carrier struct {
 
 // carriers declares, for each state whose entry or do behavior takes parameters, the item
 // holding the incoming signal whose properties match them by position, type, order and multiplicity.
+// Internal transitions enter no state, so they neither settle the signal nor rule it out.
 func (m *migration) carriers(sm *xmi.Element, used map[string]bool) {
 	incoming := map[*xmi.Element][]*xmi.Element{}
 	var states []*xmi.Element
@@ -26,7 +27,7 @@ func (m *migration) carriers(sm *xmi.Element, used map[string]bool) {
 			return
 		}
 		switch {
-		case e.Type == "Transition" && e.Role == "transition":
+		case e.Type == "Transition" && e.Role == "transition" && e.Attrs["kind"] != "internal":
 			if tgt := m.model.Ref(e, "target"); tgt != nil {
 				incoming[tgt] = append(incoming[tgt], e)
 			}
@@ -125,8 +126,8 @@ func (m *migration) carrierSignal(v *xmi.Element, incoming []*xmi.Element) (*xmi
 			switch {
 			case eff.Parent != t:
 				return nil, "the effect of the transition from " + describe(src) + " is written once, as its own action def, which cannot keep the accepted signal"
-			case eff.Type != "OpaqueBehavior" && eff.Type != "FunctionBehavior":
-				return nil, "the effect of the transition from " + describe(src) + " is " + aOrAn(eff.Type) + ", whose flow leaves no place to keep the accepted signal"
+			case eff.Type != "Activity" && eff.Type != "OpaqueBehavior" && eff.Type != "FunctionBehavior":
+				return nil, "the effect of the transition from " + describe(src) + " is " + aOrAn(eff.Type) + ", which has no action form to keep the accepted signal in"
 			}
 		}
 	}

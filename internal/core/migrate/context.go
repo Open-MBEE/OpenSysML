@@ -8,17 +8,19 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
 )
 
-// behaviorContext is the object an activity no classifier owns acts on: the
+// behaviorContext is the object an activity acts on when its owner is not it: the
 // classifier whose ports its actions go through, taken as a reference parameter.
 type behaviorContext struct {
 	name       string
 	classifier *xmi.Element
 }
 
-// contextOf settles, once, the context an activity needs: none when a classifier owns
-// it, else the one classifier whose ports it or the behaviors it calls name.
+// contextOf settles, once, the context an activity needs: the one classifier whose
+// ports it or the behaviors it calls name. A classifier's own behavior acts on its
+// object unless nothing it needs is one: v1 runs a called behavior on the caller's
+// object, whoever owns it, so such a behavior takes the object it acts on instead.
 func (m *migration) contextOf(b *xmi.Element) *behaviorContext {
-	if b == nil || b.Type != "Activity" || classifierOf(b) != nil {
+	if b == nil || b.Type != "Activity" {
 		return nil
 	}
 	if c, settled := m.contexts[b]; settled {
@@ -26,6 +28,68 @@ func (m *migration) contextOf(b *xmi.Element) *behaviorContext {
 	}
 	// A cycle of calls contributes nothing to itself.
 	m.contexts[b] = nil
+	owners := m.portOwners(b)
+	how := "its actions go through ports of "
+	switch owner := classifierOf(b); {
+	case owner != nil && b.Parent != owner:
+		// A state's or transition's behavior runs on the machine's object.
+		return nil
+	case owner != nil:
+		if len(owners) == 0 || m.providesAny(owner, owners) || m.usesFeaturesOf(b, owner) {
+			return nil
+		}
+	case len(owners) == 0:
+		owners = m.invokerOwners(b)
+		how = "its accepts take signals arriving at the ports of "
+	}
+	c := m.mostSpecific(owners)
+	if c == nil {
+		if len(owners) > 1 {
+			names := make([]string, len(owners))
+			for i, o := range owners {
+				names[i] = qualifiedName(o)
+			}
+			m.contextNotes[b] = how + strings.Join(names, " and ") +
+				", none of which is a special of the others, so no one object is written for them to act on"
+		}
+		return nil
+	}
+	ctx := &behaviorContext{name: m.freshName(b, "context"), classifier: c}
+	m.contexts[b] = ctx
+	return ctx
+}
+
+// providesAny reports whether an object of owner is, or holds one part that is,
+// one of the classifiers cs: then a behavior it owns acts on it.
+func (m *migration) providesAny(owner *xmi.Element, cs []*xmi.Element) bool {
+	for _, c := range cs {
+		if expr, _ := m.contextBinding(&behaviorContext{classifier: c}, owner, "this"); expr != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// usesFeaturesOf reports whether b reads itself or a structural feature of c, so
+// that it plainly acts on an object of c.
+func (m *migration) usesFeaturesOf(b, c *xmi.Element) bool {
+	uses := false
+	m.walkActions(b, func(e *xmi.Element) {
+		switch e.Type {
+		case "ReadSelfAction":
+			uses = true
+		case "ReadStructuralFeatureAction", "AddStructuralFeatureValueAction", "RemoveStructuralFeatureValueAction", "ClearStructuralFeatureAction":
+			if f := m.model.Ref(e, "structuralFeature"); f != nil && m.hasFeature(c, f) {
+				uses = true
+			}
+		}
+	})
+	return uses
+}
+
+// portOwners lists the classifiers whose ports the actions of b, or the
+// behaviors it calls, name.
+func (m *migration) portOwners(b *xmi.Element) []*xmi.Element {
 	var owners []*xmi.Element
 	add := func(c *xmi.Element) {
 		if c != nil && !slices.Contains(owners, c) {
@@ -51,21 +115,97 @@ func (m *migration) contextOf(b *xmi.Element) *behaviorContext {
 			}
 		}
 	})
-	c := m.mostSpecific(owners)
-	if c == nil {
-		if len(owners) > 1 {
-			names := make([]string, len(owners))
-			for i, o := range owners {
-				names[i] = qualifiedName(o)
-			}
-			m.contextNotes[b] = "its actions go through ports of " + strings.Join(names, " and ") +
-				", none of which is a special of the others, so no one object is written for them to act on"
-		}
+	return owners
+}
+
+// invokerOwners lists the classifiers whose behaviors run b, when a signal an
+// accept of b names no port for arrives at a port of theirs: v1 hands the
+// object's accepts what its ports receive, which v2 takes only via the port.
+func (m *migration) invokerOwners(b *xmi.Element) []*xmi.Element {
+	sigs := m.unportedSignals(b)
+	if len(sigs) == 0 {
 		return nil
 	}
-	ctx := &behaviorContext{name: m.freshName(b, "context"), classifier: c}
-	m.contexts[b] = ctx
-	return ctx
+	var owners []*xmi.Element
+	for _, c := range m.runningClassifiers(b, map[*xmi.Element]bool{b: true}) {
+		if slices.Contains(owners, c) || !m.written(c) {
+			continue
+		}
+		for _, sig := range sigs {
+			if len(m.arrivalPorts(c, sig)) > 0 {
+				owners = append(owners, c)
+				break
+			}
+		}
+	}
+	return owners
+}
+
+// unportedSignals lists the signals the accept actions of b name no port for.
+func (m *migration) unportedSignals(b *xmi.Element) []*xmi.Element {
+	var sigs []*xmi.Element
+	m.walkActions(b, func(e *xmi.Element) {
+		if e.Type != "Trigger" || e.Parent == nil || e.Parent.Type != "AcceptEventAction" || len(m.model.Refs(e, "port")) > 0 {
+			return
+		}
+		ev := m.model.Ref(e, "event")
+		if ev == nil || ev.Type != "SignalEvent" {
+			return
+		}
+		if sig := m.model.Ref(ev, "signal"); sig != nil && !slices.Contains(sigs, sig) {
+			sigs = append(sigs, sig)
+		}
+	})
+	return sigs
+}
+
+// runningClassifiers lists the classifiers whose behaviors run b: the owners of
+// what invokes it, followed up through activities no classifier owns.
+func (m *migration) runningClassifiers(b *xmi.Element, seen map[*xmi.Element]bool) []*xmi.Element {
+	var out []*xmi.Element
+	add := func(c *xmi.Element) {
+		if c != nil && !slices.Contains(out, c) {
+			out = append(out, c)
+		}
+	}
+	for _, e := range m.invokers[b] {
+		host := enclosingActivity(e)
+		switch {
+		case e.Type != "CallBehaviorAction":
+			if behaviorScope(e) {
+				add(classifierOf(e))
+			} else {
+				add(e)
+			}
+		case host == nil:
+		case classifierOf(host) != nil && m.contextOf(host) == nil:
+			add(classifierOf(host))
+		case classifierOf(host) != nil:
+			add(m.contextOf(host).classifier)
+		case seen[host]:
+		default:
+			seen[host] = true
+			if c := m.mostSpecific(m.portOwners(host)); c != nil {
+				add(c)
+				continue
+			}
+			for _, c := range m.runningClassifiers(host, seen) {
+				add(c)
+			}
+		}
+	}
+	return out
+}
+
+// invoke indexes e as an invoker of each behavior a role names without owning it.
+func (m *migration) invoke(e *xmi.Element, roles ...string) {
+	for _, role := range roles {
+		for _, b := range m.model.Refs(e, role) {
+			if b.Parent != e && isBehavior(b) {
+				m.invokers[b] = append(m.invokers[b], e)
+			}
+		}
+	}
 }
 
 // walkActions visits every element of an activity's node graph, structured
@@ -113,7 +253,12 @@ func (m *migration) contextParameter(b *xmi.Element) {
 		return
 	}
 	m.w.line("in ref " + writeName(c.name) + " : " + m.ref(c.classifier, b) + ";")
-	m.add(b, Mapped, "", "acts on a "+qualifiedName(c.classifier)+" through its ports, which it takes as its parameter "+c.name)
+	note := "acts on a " + qualifiedName(c.classifier) + " through its ports, which it takes as its parameter " + c.name
+	if owner := classifierOf(b); owner != nil {
+		m.add(b, Approximated, "", note+" rather than its owner "+qualifiedName(owner)+", which is no such object and holds no one part that is: v1 ran it on whichever object called it")
+		return
+	}
+	m.add(b, Mapped, "", note)
 }
 
 // enclosingActivity is the activity whose object the nodes written for e act
@@ -170,30 +315,36 @@ func (a *activity) viaPrefix() string {
 // contextArgument writes the object bound to a called behavior's context parameter:
 // the caller's object when it is one, else its one part that is.
 func (a *activity) contextArgument(c *behaviorContext) (expr, note string) {
-	self := a.selfType()
+	return a.m.contextBinding(c, a.selfType(), a.self())
+}
+
+// contextBinding writes the object bound to a run behavior's context parameter,
+// where the runner's object is a self of type selfType: that object when it is
+// one, else its one part that is.
+func (m *migration) contextBinding(c *behaviorContext, selfType *xmi.Element, self string) (expr, note string) {
 	kind := qualifiedName(c.classifier)
 	switch {
-	case self == nil:
+	case selfType == nil:
 		return "", "the behavior acts on a " + kind + " through its parameter " + c.name + ", which is left unbound: the caller acts on no object"
-	case self == c.classifier || a.m.inherits(self, c.classifier):
-		return a.self(), "the behavior acts on a " + kind + " through its parameter " + c.name + ", which is bound to " + a.self()
+	case selfType == c.classifier || m.inherits(selfType, c.classifier):
+		return self, "the behavior acts on a " + kind + " through its parameter " + c.name + ", which is bound to " + self
 	}
 	var parts []*xmi.Element
-	for _, f := range a.m.attributesOf(self) {
-		if f.Type != "Property" || !a.m.written(f) {
+	for _, f := range m.attributesOf(selfType) {
+		if f.Type != "Property" || !m.written(f) {
 			continue
 		}
-		if t := a.m.model.Ref(f, "type"); t != nil && (t == c.classifier || a.m.inherits(t, c.classifier)) {
+		if t := m.model.Ref(f, "type"); t != nil && (t == c.classifier || m.inherits(t, c.classifier)) {
 			parts = append(parts, f)
 		}
 	}
 	if len(parts) == 1 {
-		part := a.self() + "." + writeName(a.m.nameFor(parts[0]))
+		part := self + "." + writeName(m.nameFor(parts[0]))
 		return part, "the behavior acts on a " + kind + " through its parameter " + c.name + ", which is bound to " + part + ", the caller's one part that is one"
 	}
 	why := "has no part that is one"
 	if len(parts) > 1 {
 		why = "has " + strconv.Itoa(len(parts)) + " parts that are one, so no one of them is chosen"
 	}
-	return "", "the behavior acts on a " + kind + " through its parameter " + c.name + ", which is left unbound: the caller is a " + qualifiedName(self) + ", which is no " + kind + " and " + why
+	return "", "the behavior acts on a " + kind + " through its parameter " + c.name + ", which is left unbound: the caller is a " + qualifiedName(selfType) + ", which is no " + kind + " and " + why
 }

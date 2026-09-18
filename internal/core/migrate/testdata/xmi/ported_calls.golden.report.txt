@@ -1,14 +1,15 @@
 # SysML v1 to v2 migration report: ported_calls.xmi
-# migrated 40 element(s): 35 mapped, 5 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 44 element(s): 38 mapped, 6 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (5)
+## approximated (6)
 ReadStructuralFeatureAction	Drive::Run::read motor	_readMotor	-> 'read motor'	(several edges leave the node, which a fork fork carries)
 CallOperationAction	Drive::Run::spin over cmd	_callCmd	-> 'spin over cmd'	(several edges lead to the node, which waits for all of them through the join 'join')
-CallOperationAction	Drive::Stray::spin over loose	_callLoose	-> 'spin over loose'	(no edge leads to the node, so it starts with the activity; the call runs in the caller's context: no connector of Drive joins its port loose to a part)
+ValueSpecificationAction	Drive::Stray::five	_five	-> five	(no edge leads to the node, so it starts with the activity)
+CallOperationAction	Drive::Stray::spin over loose	_callLoose	-> 'spin over loose'	(the call runs in the caller's context: no connector of Drive joins its port loose to a part)
 AddStructuralFeatureValueAction	Motor::Spinning::set speed	_setSpeed	-> 'set speed'	(no edge leads to the node, so it starts with the activity)
 Interface	MotorCmd	_cmdIf	-> MotorCmd	(a UML interface is written as a port def)
 
-## mapped (35)
+## mapped (38)
 «Block» Class	Drive	_drive	-> Drive
 Connector	Drive::<Connector>	_c	(the connector delegates the owner's port to the part's, so it is written as a binding, which relays a message either way)
 Activity	Drive::Run	_run	-> Drive::Run
@@ -30,6 +31,9 @@ InputPin	Drive::Run::spin over p::rpm	_callPRpm	-> Drive::Run::'spin over p'.rpm
 ValueSpecificationAction	Drive::Run::thirty	_thirty	-> thirty
 OutputPin	Drive::Run::thirty::result	_thirtyOut	-> Drive::Run::thirty.result
 Activity	Drive::Stray	_stray	-> Drive::Stray
+ObjectFlow	Drive::Stray::<ObjectFlow>	_of4
+OutputPin	Drive::Stray::five::result	_fiveOut	-> Drive::Stray::five.result
+InputPin	Drive::Stray::spin over loose::rpm	_callLooseRpm	-> Drive::Stray::'spin over loose'.rpm	(the pin stands for the parameter rpm of the definition, which the flows name)
 Port	Drive::loose	_loose	-> Drive::loose
 Property	Drive::motor	_motorPart	-> Drive::motor
 Port	Drive::p	_p	-> Drive::p

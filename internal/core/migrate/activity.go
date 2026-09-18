@@ -12,6 +12,8 @@ import (
 // activityBody writes the nodes and edges of act as the body of def, the v2
 // action def being written: act itself, or the operation whose method it is.
 func (m *migration) activityBody(act, def *xmi.Element) {
+	keeping := m.keeping
+	m.keeping = ""
 	for _, c := range act.Children {
 		switch c.Role {
 		case "ownedBehavior", "nestedClassifier", "ownedAttribute":
@@ -19,6 +21,7 @@ func (m *migration) activityBody(act, def *xmi.Element) {
 		}
 	}
 	a := m.newActivity(act, def)
+	a.keeping = keeping
 	m.instants(act, a.used)
 	a.write()
 	a.partitions()
@@ -72,12 +75,27 @@ type activity struct {
 	// dataOnly marks the object flows that carry a value into an action without
 	// starting it: a control flow leads to the action, and that is what starts it.
 	dataOnly map[*xmi.Element]bool
-	nodes    []*xmi.Element
-	edges    []*xmi.Element
+	// dataWhy says why such a flow stays value-only; awaited marks the flows into a
+	// control-flow-driven action that are written as successions it waits on too.
+	dataWhy map[*xmi.Element]string
+	awaited map[*xmi.Element]bool
+	// dead marks the calls found refused before writing, so that the calls their
+	// result pins feed know that no value reaches them.
+	dead map[*xmi.Element]bool
+	// dataNode marks the control and buffer nodes only object flows lead to whose
+	// every outgoing edge carries a value only: they route data and start nothing.
+	dataNode map[*xmi.Element]bool
+	// sink marks the control nodes no edge leaves: a token they take ends there.
+	sink  map[*xmi.Element]bool
+	nodes []*xmi.Element
+	edges []*xmi.Element
 	// data lists the object flows to write once the nodes are declared.
 	data []string
 	// written marks the (producer, pin) pairs a flow or bind is already written for.
 	written map[[2]*xmi.Element]bool
+	// keeping is the statement a first node runs to keep the signal a transition
+	// accepted for the state it enters, when the activity is that transition's effect.
+	keeping string
 }
 
 func (m *migration) newActivity(act, def *xmi.Element) *activity {
@@ -99,6 +117,11 @@ func (m *migration) newActivity(act, def *xmi.Element) *activity {
 		payload:     map[*xmi.Element]*xmi.Element{},
 		sources:     map[*xmi.Element][]*xmi.Element{},
 		dataOnly:    map[*xmi.Element]bool{},
+		dataWhy:     map[*xmi.Element]string{},
+		awaited:     map[*xmi.Element]bool{},
+		dead:        map[*xmi.Element]bool{},
+		dataNode:    map[*xmi.Element]bool{},
+		sink:        map[*xmi.Element]bool{},
 		edgeSources: map[*xmi.Element][]*xmi.Element{},
 		edgeSelf:    map[*xmi.Element]bool{},
 		written:     map[[2]*xmi.Element]bool{},
@@ -237,6 +260,8 @@ func baseName(n *xmi.Element) string {
 func (a *activity) write() {
 	a.link()
 	a.resolveData()
+	a.deaden()
+	a.awaitData()
 	for _, n := range a.nodes {
 		if nodeKind(n) == nodeAction {
 			if pin := a.starvedPin(n); pin != nil {
@@ -245,12 +270,23 @@ func (a *activity) write() {
 		}
 	}
 	for _, n := range a.nodes {
-		if k := nodeKind(n); k == nodeAction || k == nodeControl || k == nodeBuffer || k == nodeFinal {
+		if k := nodeKind(n); (k == nodeAction || k == nodeControl || k == nodeBuffer || k == nodeFinal) && !a.dataNode[n] && !a.sink[n] {
 			a.entries(n)
 		}
 	}
 	a.startSuccessions()
 	for _, n := range a.nodes {
+		switch {
+		case a.dataNode[n]:
+			a.m.add(n, Approximated, "", "the node routes data only: the flows through it are written from their sources to the pins it leads to")
+			continue
+		case a.sink[n] && !a.entered(n):
+			a.m.add(n, Skipped, "", unreferencedNote+": no edge leads to or leaves the node")
+			continue
+		case a.sink[n]:
+			a.m.add(n, Approximated, "", "no edge leaves the node, so the token it takes ends there, as at done")
+			continue
+		}
 		switch nodeKind(n) {
 		case nodeAction, nodeControl, nodeBuffer:
 			a.declare(n)
@@ -277,15 +313,56 @@ func (a *activity) write() {
 
 // link records the succession each edge stands for: every control flow, each with its
 // own guard, and the first object flow between two nodes no control flow joins.
-// An object flow into an action control flows also reach carries a value only.
+// An object flow into an action control flows also reach carries a value only, as
+// does one into a control or buffer node whose every outgoing edge does.
 func (a *activity) link() {
 	controlled := map[*xmi.Element]bool{}
 	control := map[[2]*xmi.Element]bool{}
+	outs := map[*xmi.Element][]*xmi.Element{}
 	for _, e := range a.edges {
 		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
 		if e.Type == "ControlFlow" && src != nil && tgt != nil {
 			controlled[tgt] = true
 			control[[2]*xmi.Element{ownerNode(src), ownerNode(tgt)}] = true
+		}
+		if src != nil && tgt != nil {
+			outs[src] = append(outs[src], e)
+		}
+	}
+	for _, e := range a.edges {
+		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
+		if src == nil || tgt == nil || nodeKind(tgt) != nodePin || !controlled[tgt.Parent] {
+			continue
+		}
+		if from := ownerNode(src); nodeKind(from) != nodeParam && from != tgt.Parent {
+			a.dataOnly[e] = true
+		}
+	}
+	for changed := true; changed; {
+		changed = false
+		for _, n := range a.nodes {
+			if k := nodeKind(n); k != nodeControl && k != nodeBuffer || a.dataNode[n] || controlled[n] || len(outs[n]) == 0 {
+				continue
+			}
+			routes := true
+			for _, e := range outs[n] {
+				routes = routes && a.dataOnly[e]
+			}
+			if !routes {
+				continue
+			}
+			a.dataNode[n] = true
+			changed = true
+			for _, e := range a.edges {
+				if a.m.model.Ref(e, "target") == n {
+					a.dataOnly[e] = true
+				}
+			}
+		}
+	}
+	for _, n := range a.nodes {
+		if nodeKind(n) == nodeControl && len(outs[n]) == 0 {
+			a.sink[n] = true
 		}
 	}
 	linked := map[[2]*xmi.Element]bool{}
@@ -299,8 +376,7 @@ func (a *activity) link() {
 			// A parameter is there from the start, not a step of the flow.
 			continue
 		}
-		if nodeKind(tgt) == nodePin && controlled[to] {
-			a.dataOnly[e] = true
+		if a.dataOnly[e] {
 			continue
 		}
 		pair := [2]*xmi.Element{from, to}
@@ -395,6 +471,16 @@ func (a *activity) entries(n *xmi.Element) {
 	a.entry[n] = name
 }
 
+// entered reports whether any edge leads to n.
+func (a *activity) entered(n *xmi.Element) bool {
+	for _, e := range a.edges {
+		if a.m.model.Ref(e, "target") == n {
+			return true
+		}
+	}
+	return false
+}
+
 // endpointIn names what a succession into n leads to: done for a flow final,
 // which ends the token, and "" for a node nothing may lead to.
 func (a *activity) endpointIn(n *xmi.Element) string {
@@ -404,7 +490,10 @@ func (a *activity) endpointIn(n *xmi.Element) string {
 	case nodeInitial, nodeParam, nodePin:
 		return ""
 	}
-	if a.starved[n] != nil {
+	switch {
+	case a.sink[n]:
+		return "done"
+	case a.starved[n] != nil:
 		return ""
 	}
 	return a.entry[n]
@@ -449,7 +538,7 @@ func (a *activity) startSuccessions() {
 	}
 	for _, n := range a.nodes {
 		k := nodeKind(n)
-		if k != nodeAction && k != nodeControl && k != nodeBuffer || len(a.prev[n]) > 0 || seen[n] {
+		if k != nodeAction && k != nodeControl && k != nodeBuffer || len(a.prev[n]) > 0 || seen[n] || a.dataNode[n] || a.sink[n] {
 			continue
 		}
 		if k == nodeControl && n.Type != "ForkNode" {
@@ -465,9 +554,15 @@ func (a *activity) startSuccessions() {
 		a.m.add(n, Approximated, "", "no edge leads to the node, so it starts with the activity")
 	}
 	from := "start"
+	if a.keeping != "" {
+		name := a.fresh("keep")
+		a.m.w.line("first start then " + writeName(name) + ";")
+		a.m.w.block("action "+writeName(name), func() { a.m.w.line(a.keeping) })
+		from = writeName(name)
+	}
 	if w, ok := a.waitFor(a.act); ok {
 		name := a.fresh("wait")
-		a.m.w.line("first start then " + writeName(name) + ";")
+		a.m.w.line("first " + from + " then " + writeName(name) + ";")
 		a.m.w.line("action " + writeName(name) + " accept after " + w + ";")
 		from = writeName(name)
 	}
@@ -1160,8 +1255,11 @@ func (a *activity) objectFlow(e *xmi.Element) {
 	if a.edgeSelf[e] {
 		a.m.add(e, Approximated, "", "the flow carries this, which the action names directly")
 	}
-	if a.dataOnly[e] {
-		a.m.add(e, Approximated, "", "the flow carries its value only: the control flow into "+describe(tgt.Parent)+" starts the action, so the action does not wait for the value on each pass")
+	if a.dataOnly[e] && !a.dryFlow(e) {
+		a.m.add(e, Approximated, "", joinNotes("the flow carries its value only: the control flow into "+describe(tgt.Parent)+" starts the action, so the action does not wait for the value on each pass", a.dataWhy[e]))
+	}
+	if a.awaited[e] {
+		a.m.add(e, Mapped, "", "the action waits for the value as well as for the control flow into it, as its pin did")
 	}
 	if receiver, ok := a.receivers[tgt]; ok {
 		a.m.add(e, Mapped, "", "the flow names the object the call performs on, which the perform names as "+receiver)
@@ -1199,6 +1297,15 @@ func (a *activity) objectFlow(e *xmi.Element) {
 			}
 			continue
 		}
+		if callee, p := a.calleeOutput(s); p != nil && a.m.dryOutputs(callee)[p] {
+			why := "nothing in the called " + qualifiedName(callee) + " gives its parameter " + a.m.nameFor(p) + " a value"
+			a.m.w.line("/* flow " + from + " to " + to + " not written: " + why + " */")
+			a.m.add(e, Approximated, "", "the flow is kept as a comment: "+why+", so none reaches "+describe(tgt))
+			if nodeKind(tgt) == nodePin {
+				a.m.add(tgt.Parent, Approximated, "", "its input "+to+" receives no value, since "+why)
+			}
+			continue
+		}
 		st, tt := a.endType(s), a.endType(tgt)
 		if !a.m.conform(st, tt) {
 			a.m.w.line("/* flow " + from + " to " + to + " not written: " + qualifiedName(st) + " and " + qualifiedName(tt) + " do not conform */")
@@ -1220,59 +1327,48 @@ func (a *activity) objectFlow(e *xmi.Element) {
 // callBehavior writes a call behavior action as an action usage typed by the called
 // behavior's definition or, when that is a calc def, an action evaluating it over its pins.
 func (a *activity) callBehavior(n *xmi.Element, name string) {
-	b := a.m.model.Ref(n, "behavior")
-	if b == nil {
-		a.placeholder(n, name, joinNotes(a.m.dangling(n, "behavior"), "the action calls no behavior"), Unmapped)
+	if why, v, refused := a.refusal(n); refused {
+		a.placeholder(n, name, why, v)
 		return
 	}
+	b := a.m.model.Ref(n, "behavior")
 	if op := a.m.methodOf[b]; op != nil {
 		b = op
 	}
-	if !a.m.written(b) {
-		a.placeholder(n, name, "the behavior "+qualifiedName(b)+" it calls has no v2 declaration", Unmapped)
-		return
-	}
-	cat, _ := a.m.classify(b)
-	switch cat {
-	case catActionDef:
+	if cat, _ := a.m.classify(b); cat == catActionDef {
+		c := a.m.contextOf(b)
 		a.m.w.line("action " + name + " : " + a.m.ref(b, a.def) + ";")
 		a.pins(n, true, b.Owned("ownedParameter"))
 		note := ""
 		if owner, here := classifierOf(b), a.selfType(); owner != nil && owner != here && (here == nil || !a.m.inherits(here, owner)) {
 			note = "the behavior belongs to " + qualifiedName(owner) + " and runs here in the caller's context"
 		}
-		if c := a.m.contextOf(b); c != nil {
+		if c != nil {
 			expr, cnote := a.contextArgument(c)
-			if expr != "" {
-				a.m.w.line("bind " + name + "." + writeName(c.name) + " = " + expr + ";")
-				a.m.add(n, Mapped, name, cnote)
-			} else {
-				note = joinNotes(note, cnote)
-			}
+			a.m.w.line("bind " + name + "." + writeName(c.name) + " = " + expr + ";")
+			a.m.add(n, Mapped, name, cnote)
 		}
 		a.m.add(n, verdictFor(note), name, note)
-	case catCalcDef:
-		a.m.w.block("action "+name, func() {
-			a.pins(n, false, nil)
-			var args []string
-			for _, pin := range n.Owned("argument") {
-				args = append(args, writeName(a.names[pin]))
-			}
-			results := n.Owned("result")
-			call := a.m.ref(b, a.def) + "(" + strings.Join(args, ", ") + ")"
-			if len(results) == 0 {
-				a.m.w.lines(commentLines("evaluates " + call + ", whose result no pin takes"))
-				return
-			}
-			for _, r := range results[1:] {
-				a.m.add(r, Unmapped, "", "a calc has one result; the pin takes nothing")
-			}
-			a.m.w.line("out " + writeName(a.names[results[0]]) + " = " + call + ";")
-		})
-		a.m.add(n, Approximated, name, "the calc "+qualifiedName(b)+" is evaluated when the action runs; a calc is no action node")
-	default:
-		a.placeholder(n, name, "the behavior "+qualifiedName(b)+" is written as a "+cat.keyword()+", which an action cannot call", Unmapped)
+		return
 	}
+	a.m.w.block("action "+name, func() {
+		a.pins(n, false, nil)
+		var args []string
+		for _, pin := range n.Owned("argument") {
+			args = append(args, writeName(a.names[pin]))
+		}
+		results := n.Owned("result")
+		call := a.m.ref(b, a.def) + "(" + strings.Join(args, ", ") + ")"
+		if len(results) == 0 {
+			a.m.w.lines(commentLines("evaluates " + call + ", whose result no pin takes"))
+			return
+		}
+		for _, r := range results[1:] {
+			a.m.add(r, Unmapped, "", "a calc has one result; the pin takes nothing")
+		}
+		a.m.w.line("out " + writeName(a.names[results[0]]) + " = " + call + ";")
+	})
+	a.m.add(n, Approximated, name, "the calc "+qualifiedName(b)+" is evaluated when the action runs; a calc is no action node")
 }
 
 // classifierOf returns the classifier a behavior belongs to: the nearest
@@ -1294,15 +1390,11 @@ func classifierOf(b *xmi.Element) *xmi.Element {
 // callOperation writes a call on the object its target pin holds as `perform
 // action x ::> obj.op`; any other target leaves the call an action typed by the operation.
 func (a *activity) callOperation(n *xmi.Element, name string) {
+	if why, v, refused := a.refusal(n); refused {
+		a.placeholder(n, name, why, v)
+		return
+	}
 	op := a.m.model.Ref(n, "operation")
-	if op == nil {
-		a.placeholder(n, name, joinNotes(a.m.dangling(n, "operation"), "the action calls no operation"), Unmapped)
-		return
-	}
-	if !a.m.written(op) {
-		a.placeholder(n, name, "the operation "+qualifiedName(op)+" it calls has no v2 declaration", Unmapped)
-		return
-	}
 	t := firstOwned(n, "target")
 	ins := slices.DeleteFunc(inputPins(n), func(p *xmi.Element) bool { return p == t })
 	outs := append(n.Owned("result"), n.Owned("outputValue")...)
@@ -1559,6 +1651,10 @@ func (a *activity) writeFeature(n *xmi.Element, name string) {
 // sendSignal writes a send signal action as an action sending a new instance of the
 // signal, over the port named or to the object the target pin holds.
 func (a *activity) sendSignal(n *xmi.Element, name string) {
+	if why, v, refused := a.refusal(n); refused {
+		a.placeholder(n, name, why, v)
+		return
+	}
 	sig := a.m.model.Ref(n, "signal")
 	if sig == nil || !a.m.written(sig) {
 		a.placeholder(n, name, "the signal sent has no v2 declaration", Unmapped)
