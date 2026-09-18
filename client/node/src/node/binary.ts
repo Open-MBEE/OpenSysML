@@ -97,7 +97,7 @@ export interface DownloadOptions {
 export class BinaryNotFoundError extends OpenSysMLError {}
 
 /**
- * The digests this package ships, synced from clients/release-digests.json: a pin
+ * The digests this package ships, synced from client/release-digests.json: a pin
  * resolved from outside the published artifact would not be a pin.
  */
 export const PINNED_SHA256: PinnedDigests = readPinnedDigests(

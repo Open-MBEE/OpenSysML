@@ -82,8 +82,8 @@ github.com/Open-MBEE/OpenSysML
 ├── internal/repl/          # REPL loop implementation
 ├── internal/protoconv/     # Runtime values and instance graphs ↔ API protobuf messages
 ├── internal/grpc/          # gRPC service implementation
-├── clients/python/         # Python client bindings (opensysml)
-├── clients/rust/           # Rust client (opensysml) and its conformance runner
+├── client/python/          # Python client bindings (opensysml)
+├── client/rust/            # Rust client (opensysml) and its conformance runner
 ├── api/proto/              # Protobuf service definitions
 ├── tests/                  # Black-box suites, benchmarks, shared fixtures (tests/parser, tests/grpc, tests/testdata, …)
 ├── examples/               # Example models and demos

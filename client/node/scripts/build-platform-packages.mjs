@@ -97,7 +97,7 @@ function main() {
           repository: {
             type: "git",
             url: "git+https://github.com/Open-MBEE/OpenSysML.git",
-            directory: "clients/node",
+            directory: "client/node",
           },
           os: [platform.os],
           cpu: [platform.cpu],

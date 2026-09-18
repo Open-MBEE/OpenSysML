@@ -10,7 +10,7 @@ import java.util.Optional;
  * The SHA-256 digest this client pins for a release asset, keyed by repository, release tag and
  * asset name.
  *
- * <p>Read from the copy of {@code clients/release-digests.json} shipped in this jar: a table
+ * <p>Read from the copy of {@code client/release-digests.json} shipped in this jar: a table
  * resolved at run time from outside the published artifact would not be a pin.
  */
 public final class ReleaseDigests {

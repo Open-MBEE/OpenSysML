@@ -57,7 +57,7 @@ def _skew(dist):
         f"opensysml {dist.version!r} is installed from {installed}, while the tests "
         f"import {imported}, which declares {VERSION!r}. These tests require the "
         f"tree under test to be the installed distribution: run "
-        f"`pip install -e clients/python/` (an artifact of another version installed "
+        f"`pip install -e client/python/` (an artifact of another version installed "
         f"beside the tree reports its own version, and the declaration is the "
         f"single source of truth, so the artifact is what is stale)."
     )
@@ -121,7 +121,7 @@ def test_the_build_takes_the_version_from_the_declaration():
 
 
 def test_no_second_version_declaration():
-    """No file under clients/python/ hard-codes a version literal of its own.
+    """No file under client/python/ hard-codes a version literal of its own.
 
     `_version.py` holds the declaration and the tests compare against it; any
     other `version = "x.y.z"` is the duplication this collapsed.

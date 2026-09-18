@@ -5,7 +5,7 @@ Python client for OpenSysML: parse, inspect and execute SysML v2 models over the
 
 ```bash
 pip install opensysml             # from PyPI
-pip install -e clients/python/          # or from a checkout, at the repository root
+pip install -e client/python/          # or from a checkout, at the repository root
 ```
 
 ```python
@@ -130,7 +130,7 @@ the client's lifetime, because the client does not own it.
 
 ### Cost of a private child
 
-Measured on Linux with `clients/python/scripts/measure_private_service.py` (n=20):
+Measured on Linux with `client/python/scripts/measure_private_service.py` (n=20):
 
 |                                                       |     p50 |     p95 |
 | ----------------------------------------------------- | ------: | ------: |
@@ -146,7 +146,7 @@ each model N times, against a cache hit some 500x cheaper.
 
 ## Pinned release digests
 
-A download is verified against the table in `clients/release-digests.json`, which
+A download is verified against the table in `client/release-digests.json`, which
 pins the SHA-256 of every asset of a release and is the one table every client
 verifies against; `opensysml` ships its own synced copy of it as
 `opensysml/release-digests.json` and reads it as `binary.PINNED_SHA256`, because a
@@ -200,7 +200,7 @@ treated as tampering and refuses to fall back.
 `opensysml.__version__` reports the installed distribution's version, and
 `scripts/check_version.py` fails a release whose tag names another version. The
 version tests therefore require the tree under test to be the installed
-distribution — `pip install -e clients/python/`. A wheel of another version installed
+distribution — `pip install -e client/python/`. A wheel of another version installed
 beside the source tree makes them fail with that remedy: the artifact is what is
 stale, not the declaration.
 
@@ -296,8 +296,8 @@ running until 1.0.0.
 
 ```bash
 make build                                    # builds bin/sysml-grpc
-pip install -e clients/python/ && pip install pytest pytest-mock
-python -m pytest clients/python/tests/ -q             # service-backed tests skip
+pip install -e client/python/ && pip install pytest pytest-mock
+python -m pytest client/python/tests/ -q             # service-backed tests skip
 ```
 
 Tests that need a service skip when none answers on `localhost:50051` and no
@@ -313,4 +313,4 @@ export `OPENSYSML_REQUIRE_SERVICE=1`, and its absence fails instead of skipping.
 - The API surface, generated typed classes, latency and the module map:
   [docs/reference/python-api.md](https://github.com/Open-MBEE/OpenSysML/blob/main/docs/reference/python-api.md)
 - Installing from source and running the tests:
-  [INSTALL.md](https://github.com/Open-MBEE/OpenSysML/blob/main/clients/python/INSTALL.md)
+  [INSTALL.md](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/INSTALL.md)

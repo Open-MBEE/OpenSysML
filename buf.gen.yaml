@@ -33,4 +33,4 @@ plugins:
   # Java message classes only: the client speaks the Connect protocol over java.net.http, so
   # grpc-java (and Netty) is not a dependency of it. The remote plugin needs network access.
   - remote: buf.build/protocolbuffers/java:v33.1
-    out: clients/java/opensysml-client/src/main/java
+    out: client/java/opensysml-client/src/main/java

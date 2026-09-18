@@ -67,7 +67,7 @@ opensysml-generate = "opensysml.generate:main"
 [project.urls]
 Homepage = "https://github.com/Open-MBEE/OpenSysML"
 Repository = "https://github.com/Open-MBEE/OpenSysML"
-Documentation = "https://github.com/Open-MBEE/OpenSysML/blob/main/clients/python/README.md"
+Documentation = "https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/README.md"
 Changelog = "https://github.com/Open-MBEE/OpenSysML/blob/main/CHANGELOG.md"
 Issues = "https://github.com/Open-MBEE/OpenSysML/issues"
 

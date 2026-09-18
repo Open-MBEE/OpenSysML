@@ -69,7 +69,7 @@ as a dependency.
 
 `sysml-grpc`, the service the Python bindings talk to, is published as a bare
 `sysml-grpc-<os>-<arch>` file with a `.sha256` sidecar rather than inside an archive, because
-the `opensysml` Python package downloads and verifies it itself (see [clients/python/README.md](../../clients/python/README.md)).
+the `opensysml` Python package downloads and verifies it itself (see [client/python/README.md](../../client/python/README.md)).
 `make build-grpc` builds it from source.
 
 **Archive layout:** the `opensysml-<os>-<arch>.tar.gz` bundles contain both binaries under their

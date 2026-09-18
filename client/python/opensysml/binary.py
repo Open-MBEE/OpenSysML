@@ -107,8 +107,8 @@ def _load_pinned_digests():
 
 #: SHA-256 digest expected of each release asset, keyed by repository, release tag
 #: and asset name: independent of the origin serving the download, so a republished
-#: release is refused. Synced from clients/release-digests.json; see "Pinned release
-#: digests" in clients/python/README.md.
+#: release is refused. Synced from client/release-digests.json; see "Pinned release
+#: digests" in client/python/README.md.
 PINNED_SHA256 = _load_pinned_digests()
 
 #: Set to the repository whose unpinned downloads may be accepted (`1` for any),

@@ -5,7 +5,7 @@ Reports p50/p95/p99 per operation, which is what an analytics loop has to budget
 for: a mean hides the tail, and the tail is what a deadline meets or misses.
 
 Usage:
-    python clients/python/scripts/bench_latency.py [--host H] [--port P] [--iterations N]
+    python client/python/scripts/bench_latency.py [--host H] [--port P] [--iterations N]
 
 The service must be reachable (``make build-grpc && bin/sysml-grpc``). Numbers
 are per-call round trips over a warm channel, so they include protobuf

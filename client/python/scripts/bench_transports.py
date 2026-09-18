@@ -11,7 +11,7 @@ times, so it is timed separately, and per-call times are reported as p50/p95/p99
 because the tail is what a deadline misses.
 
 Usage:
-    python clients/python/scripts/bench_transports.py [--iterations N] [--binary PATH]
+    python client/python/scripts/bench_transports.py [--iterations N] [--binary PATH]
 
 Requires ``make build-grpc``. The transports are evaluation prototypes; see
 docs/internals/design/transport-evaluation.md.

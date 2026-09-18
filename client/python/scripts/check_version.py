@@ -91,10 +91,10 @@ def version_from_tag(tag, version=None):
             not PEP 440 in canonical form
     """
     declared = version if version is not None else declared_version()
-    canonical = str(parse_version(declared, "clients/python/opensysml/_version.py declares"))
+    canonical = str(parse_version(declared, "client/python/opensysml/_version.py declares"))
     if canonical != declared:
         raise VersionError(
-            f"clients/python/opensysml/_version.py declares {declared!r}, whose "
+            f"client/python/opensysml/_version.py declares {declared!r}, whose "
             f"canonical PEP 440 form is {canonical!r}. The built artifacts are named "
             f"by the canonical form, so declare VERSION = {canonical!r}."
         )
@@ -113,7 +113,7 @@ def version_from_tag(tag, version=None):
     if tag_version != declared:
         raise VersionError(
             f"Tag {tag!r} names version {tag_version!r}, but "
-            f"clients/python/opensysml/_version.py declares {declared!r}. "
+            f"client/python/opensysml/_version.py declares {declared!r}. "
             "The package is released in lockstep with the core, so its declared "
             "version must be the core version being tagged. Set VERSION to "
             f"{tag_version!r} on the release branch and tag again."

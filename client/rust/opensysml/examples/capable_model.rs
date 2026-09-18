@@ -2,7 +2,7 @@
 //! navigation, evaluation and instantiation.
 //!
 //! ```text
-//! cargo run --manifest-path clients/rust/Cargo.toml -p opensysml --example capable_model
+//! cargo run --manifest-path client/rust/Cargo.toml -p opensysml --example capable_model
 //! ```
 
 use std::error::Error;

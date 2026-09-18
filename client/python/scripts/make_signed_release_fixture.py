@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Record the signed-release fixtures clients/python/tests/test_signing.py verifies against.
+"""Record the signed-release fixtures client/python/tests/test_signing.py verifies against.
 
 The client verifies the sigstore bundle a release publishes for its
 SHA256SUMS.txt, so its tests need bundles — and they must not reach the network,
@@ -15,9 +15,9 @@ The Node client verifies the same fixtures, recorded into its own tree with --ou
 
 Run it to re-record the fixtures after changing what they must contain:
 
-    python clients/python/scripts/make_signed_release_fixture.py
-    python clients/python/scripts/make_signed_release_fixture.py \
-        --out clients/node/test/fixtures/signed_release
+    python client/python/scripts/make_signed_release_fixture.py
+    python client/python/scripts/make_signed_release_fixture.py \
+        --out client/node/test/fixtures/signed_release
 
 The fixtures are committed, so this is not run by the test suite.
 """

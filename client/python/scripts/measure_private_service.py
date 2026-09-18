@@ -3,7 +3,7 @@
 Reports the cold start of the first connection, the cost of the connections that
 join it, and what a child per connection would have cost instead.
 
-Usage: python3 clients/python/scripts/measure_private_service.py [samples]
+Usage: python3 client/python/scripts/measure_private_service.py [samples]
 """
 
 import statistics

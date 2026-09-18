@@ -17,7 +17,7 @@ that digest, never used as one. `--check` re-hashes the assets of the versions
 already pinned and fails on any disagreement, so a republished release is caught
 without changing the table.
 
-The table lives in clients/release-digests.json, and `--write` syncs it into
+The table lives in client/release-digests.json, and `--write` syncs it into
 every client that ships a copy (scripts/sync-release-digests.py).
 """
 
@@ -33,7 +33,7 @@ import urllib.request
 REPO_ROOT = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
-DIGESTS_FILE = os.path.join(REPO_ROOT, "clients", "release-digests.json")
+DIGESTS_FILE = os.path.join(REPO_ROOT, "client", "release-digests.json")
 SYNC_SCRIPT = os.path.join(REPO_ROOT, "scripts", "sync-release-digests.py")
 DEFAULT_REPO = "Open-MBEE/OpenSysML"
 ASSET_PREFIX = "sysml-grpc-"
@@ -94,7 +94,7 @@ def pinned_table(digests_file=None):
     """The digests the clients currently pin.
 
     Args:
-        digests_file (str, optional): Path to clients/release-digests.json
+        digests_file (str, optional): Path to client/release-digests.json
 
     Returns:
         dict: repo -> version -> asset -> digest
@@ -226,7 +226,7 @@ def write_table(table, digests_file=None):
 
     Args:
         table (dict): repo -> version -> asset -> digest
-        digests_file (str, optional): Path to clients/release-digests.json
+        digests_file (str, optional): Path to client/release-digests.json
 
     Raises:
         PinError: If the clients' copies cannot be rewritten
@@ -283,7 +283,7 @@ def main(argv=None):
     parser.add_argument(
         "--write",
         action="store_true",
-        help="rewrite clients/release-digests.json instead of printing the table",
+        help="rewrite client/release-digests.json instead of printing the table",
     )
     parser.add_argument(
         "--check",

@@ -1,7 +1,7 @@
 """Tests for verifying the signature on a release's checksum manifest.
 
 Every test here is offline: the bundles under tests/fixtures/signed_release were
-recorded by clients/python/scripts/make_signed_release_fixture.py against a root of
+recorded by client/python/scripts/make_signed_release_fixture.py against a root of
 trust recorded beside them, and the release they belong to is served from those
 files rather than fetched. Nothing reaches the network, and nothing depends on
 the digests of the real published assets.

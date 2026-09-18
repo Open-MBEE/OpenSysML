@@ -514,7 +514,7 @@ and withholds those inherited from library content. Two conditions are part of t
    withheld, so the response carries a **count of withheld library-inherited attributes** — a count
    rather than a bare flag, because a flag cannot distinguish one withheld attribute from forty, and a
    client deciding whether to offer a "show inherited" affordance needs the size. That is a new proto
-   field, i.e. a schema change with the Python client (`clients/python/opensysml`) and the VS Code extension
+   field, i.e. a schema change with the Python client (`client/python/opensysml`) and the VS Code extension
    downstream of it.
 2. **"Library" means the index says so** — `Index.Library`/`MarkLibrary`, never a name or FQN prefix
    heuristic. A user's own imported library must not be dropped by a prefix guess.

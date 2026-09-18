@@ -5,10 +5,10 @@ version: v2
 plugins:
   - local: ["sh", "-c", 'exec "${PYTHON:-python3}" scripts/buf-plugin-python.py']
     opt: python
-    out: clients/python/opensysml/proto
+    out: client/python/opensysml/proto
   - local: ["sh", "-c", 'exec "${PYTHON:-python3}" scripts/buf-plugin-python.py']
     opt: pyi
-    out: clients/python/opensysml/proto
+    out: client/python/opensysml/proto
   - local: ["sh", "-c", 'exec "${PYTHON:-python3}" scripts/buf-plugin-python.py']
     opt: grpc_python
-    out: clients/python/opensysml/proto
+    out: client/python/opensysml/proto

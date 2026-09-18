@@ -45,7 +45,7 @@ UNSTAMPED = "unstamped"
 # Definition kinds get a class; these usage kinds become properties on the
 # enclosing class. Behavioral and connector usages (action, state, calc,
 # constraint, requirement, connection, flow, interface, allocation, case) are
-# not instance feature values and are skipped — see clients/python/README.md.
+# not instance feature values and are skipped — see client/python/README.md.
 FEATURE_KINDS = frozenset(
     {
         "attributeusage",

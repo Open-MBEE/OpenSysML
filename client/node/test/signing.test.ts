@@ -1,7 +1,7 @@
 // Verification of a release's signed checksum manifest.
 //
 // Every test here is offline: the bundles under test/fixtures/signed_release were
-// recorded by clients/python/scripts/make_signed_release_fixture.py against a root
+// recorded by client/python/scripts/make_signed_release_fixture.py against a root
 // of trust the fixtures carry, so nothing reaches Sigstore's production instance.
 
 import assert from "node:assert/strict";

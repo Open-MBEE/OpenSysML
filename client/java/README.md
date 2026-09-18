@@ -17,7 +17,7 @@ checkout:
 
 ```bash
 make build                                  # bin/sysml-grpc, which the tests start
-mvn -f clients/java/pom.xml install          # sources and javadoc jars included
+mvn -f client/java/pom.xml install          # sources and javadoc jars included
 ```
 
 ```java
@@ -249,7 +249,7 @@ fails.
 In order, and each step is a refusal rather than a fallback:
 
 1. **A pinned digest.** `release-digests.json` — this jar's synced copy of
-   `clients/release-digests.json`, loaded from the classpath — pins a SHA-256
+   `client/release-digests.json`, loaded from the classpath — pins a SHA-256
    per (repository, release, asset). Where a pin exists it is what the bytes
    must hash to, and a served `.sha256` that disagrees with it is a release
    republished with another binary: the download is refused.
@@ -337,10 +337,10 @@ It writes the report shape `tools/cmd/conformance` writes:
 
 ```bash
 make build
-mvn -f clients/java/pom.xml install -DskipTests
-mvn -f clients/java/pom.xml -pl opensysml-conformance -q \
+mvn -f client/java/pom.xml install -DskipTests
+mvn -f client/java/pom.xml -pl opensysml-conformance -q \
   dependency:build-classpath -Dmdep.outputFile=/tmp/cp.txt
-java -cp "clients/java/opensysml-conformance/target/classes:$(cat /tmp/cp.txt)" \
+java -cp "client/java/opensysml-conformance/target/classes:$(cat /tmp/cp.txt)" \
   org.openmbee.opensysml.conformance.Main -binary bin/sysml-grpc -allow-skips \
   -protocols connect,connect-json -report bin/conformance-report-java.json
 ```
@@ -350,7 +350,7 @@ service the runner did not start, `-mutate` is below, and without `-allow-skips`
 a skipped scenario is an exit code, so a shrinking API surface cannot go
 unnoticed.
 
-Or as a test, which is what CI runs: `mvn -f clients/java/pom.xml test`.
+Or as a test, which is what CI runs: `mvn -f client/java/pom.xml test`.
 
 Per protocol, of 59 scenarios:
 
@@ -380,8 +380,8 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 
 ```bash
 make build                                   # bin/sysml-grpc; tests skip without it
-mvn -f clients/java/pom.xml test             # 119 client tests, 27 conformance tests
-mvn -f clients/java/pom.xml test -Dopensysml.requireService=true   # CI: absence fails
+mvn -f client/java/pom.xml test             # 119 client tests, 27 conformance tests
+mvn -f client/java/pom.xml test -Dopensysml.requireService=true   # CI: absence fails
 ```
 
 ## Publishing

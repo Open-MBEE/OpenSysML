@@ -25,10 +25,10 @@ From the repository root:
 
 ```bash
 # Install in development mode (editable)
-pip install -e clients/python/
+pip install -e client/python/
 
 # Or install with dev dependencies
-pip install -e "clients/python/[dev]"
+pip install -e "client/python/[dev]"
 ```
 
 ## Running tests
@@ -40,16 +40,16 @@ From the repository root:
 
 ```bash
 # Run all tests
-pytest clients/python/tests/
+pytest client/python/tests/
 
 # Run with verbose output
-pytest -v clients/python/tests/
+pytest -v client/python/tests/
 
 # Run specific test file
-pytest clients/python/tests/test_connection.py
+pytest client/python/tests/test_connection.py
 
 # Run integration tests (requires the sysml-grpc binary)
-pytest -m integration clients/python/tests/
+pytest -m integration client/python/tests/
 ```
 
 A test that connects without naming a service starts a private `sysml-grpc`
@@ -60,11 +60,11 @@ yourself, set `OPENSYSML_SERVICE=host:port`.
 ## Package structure
 
 ```
-clients/python/
+client/python/
 ├── opensysml/          # Package source
 │   ├── *.py          # Core modules (connection, model, symbol, etc.)
 │   ├── proto/        # Generated protobuf stubs
-│   └── release-digests.json  # Pinned service digests, synced from clients/
+│   └── release-digests.json  # Pinned service digests, synced from client/
 ├── tests/            # Test suite
 ├── scripts/          # Release helpers (version check, latency measurement)
 ├── pyproject.toml    # Package metadata and build configuration

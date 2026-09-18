@@ -10,7 +10,7 @@ For now, use a path dependency while developing against a checkout:
 
 ```toml
 [dependencies]
-opensysml = { path = "../OpenSysML/clients/rust/opensysml" }
+opensysml = { path = "../OpenSysML/client/rust/opensysml" }
 ```
 
 The current Git dependency form is:
@@ -112,14 +112,14 @@ and is about to be started.
 
 A download is verified against the digest table the crate ships
 ([`opensysml/release-digests.json`](opensysml/release-digests.json), a synced copy of
-`clients/release-digests.json` embedded with `include_str!`) — a pin resolved
+`client/release-digests.json` embedded with `include_str!`) — a pin resolved
 from outside the published artifact would not be a pin. A `.sha256` served
 beside the binary that disagrees with a pin is tampering: the download is
 refused, and the cache is untouched.
 
 **Known limitation:** unlike the Python, Node and Java clients, this client does
 **not** verify the release's sigstore-signed `SHA256SUMS.txt` manifest
-([`clients/python/opensysml/signing.py`](../python/opensysml/signing.py) is the
+([`client/python/opensysml/signing.py`](../python/opensysml/signing.py) is the
 reference). It verifies pins only, so a release the installed crate version pins
 no digest for cannot be verified here at all and is refused, naming the gap. The
 only way through is `$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD`, which accepts the
@@ -204,7 +204,7 @@ make conformance-rust
 Or run the binary directly:
 
 ```bash
-cargo run --manifest-path clients/rust/Cargo.toml -p opensysml-conformance -- \
+cargo run --manifest-path client/rust/Cargo.toml -p opensysml-conformance -- \
   -binary bin/sysml-grpc \
   -scenarios conformance/scenarios \
   -fixtures conformance/fixtures \

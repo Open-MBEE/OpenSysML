@@ -49,7 +49,7 @@ interval, quantified. Nothing is left *open*.
   and `-state` on all three binaries, and the Apollo 11 model through
   `-validate`. Both revisions load the library from the embedded snapshot, so
   neither has an on-disk index cache to warm.
-- The Python client's `clients/python/scripts/bench_latency.py` and
+- The Python client's `client/python/scripts/bench_latency.py` and
   `bench_transports.py` were run against each revision's `sysml-grpc`, three
   times for the latency script; the transports script also measures the cold
   start of each transport.
@@ -605,6 +605,6 @@ go test ./internal/repl -run '^$' -bench 'RunCalc/elements=250' -cpuprofile calc
 bin/sysml -validate gen12000.sysml
 for i in $(seq 50); do bin/sysml -version; done
 bin/sysml-grpc -port 50123 -health-port 50124 -log-level error &
-(cd clients/python && python3 scripts/bench_latency.py --port 50123 --iterations 300)
-(cd clients/python && python3 scripts/bench_transports.py --iterations 300 --binary ../../bin/sysml-grpc)
+(cd client/python && python3 scripts/bench_latency.py --port 50123 --iterations 300)
+(cd client/python && python3 scripts/bench_transports.py --iterations 300 --binary ../../bin/sysml-grpc)
 ```

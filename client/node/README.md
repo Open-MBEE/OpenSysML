@@ -308,7 +308,7 @@ signature failure never does.
 In order, and each step refuses rather than falling back to the next:
 
 1. **A shipped pin.** `release-digests.json`, synced from
-   `clients/release-digests.json` by `python3 scripts/sync-release-digests.py`
+   `client/release-digests.json` by `python3 scripts/sync-release-digests.py`
    and published in the tarball, pins the SHA-256 of every asset of a release.
    Where it pins one, that is what the bytes must hash to, and a served
    `.sha256` that disagrees is tampering: the download fails.

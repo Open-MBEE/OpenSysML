@@ -16,7 +16,7 @@
   <name>OpenSysML Java client</name>
   <description>Parse, inspect and evaluate SysML v2 models over the sysml-grpc service's Connect
     protocol, from inside a long-lived JVM host application.</description>
-  <url>https://github.com/Open-MBEE/OpenSysML/tree/main/clients/java</url>
+  <url>https://github.com/Open-MBEE/OpenSysML/tree/main/client/java</url>
 
   <dependencies>
     <dependency>
