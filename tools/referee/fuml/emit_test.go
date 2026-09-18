@@ -197,16 +197,16 @@ func TestEmitCalls(t *testing.T) {
 // expressible, and the referee files the error.
 func TestEmitRefusesUntranslatedConstructs(t *testing.T) {
 	s := fixtureSuite(t, fixtureModel)
-	a := fixtureActivity(t, s, "Creator")
+	a := fixtureActivity(t, s, "Selfer")
 	if c := Classify(a, nil); c.Class != Expressible {
-		t.Fatalf("Creator classified %s", c.Class)
+		t.Fatalf("Selfer classified %s", c.Class)
 	}
 	_, err := Emit(a)
 	var te *TranslateError
 	if !errors.As(err, &te) || !IsTranslateError(err) {
-		t.Fatalf("Emit(Creator) = %v, want a TranslateError", err)
+		t.Fatalf("Emit(Selfer) = %v, want a TranslateError", err)
 	}
-	if te.Activity != "Creator" || te.Where != "Create(K)" || !strings.Contains(te.Reason, "CreateObjectAction") {
+	if te.Activity != "Selfer" || te.Where != "ReadSelf" || !strings.Contains(te.Reason, "no class owns") {
 		t.Errorf("TranslateError = %+v", te)
 	}
 	if IsTranslateError(errors.New("other")) {
@@ -361,5 +361,288 @@ func TestExecuteBudgets(t *testing.T) {
 	}
 	if ex.Passed() || len(ex.Errors) == 0 || !strings.HasPrefix(ex.Reasons()[0], "run error: ") {
 		t.Errorf("step budget: %+v", ex)
+	}
+}
+
+// objectModel exercises the object rules: Item specializes Base and declares
+// every multiplicity shape; Assemble creates one and edits each feature its way;
+// Reader reads and clears the features of an Item it is given; Holder's owned
+// behavior Reflect reads self.
+const objectModel = `<?xml version="1.0" encoding="UTF-8"?>
+<uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="Objects">
+  <packagedElement xmi:type="uml:Class" xmi:id="base" name="Base">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="n" name="n">` + integerType + `</ownedAttribute>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Class" xmi:id="item" name="Item">
+    <generalization xmi:type="uml:Generalization" xmi:id="gen" general="base"/>
+    <ownedAttribute xmi:type="uml:Property" xmi:id="xs" name="xs" isOrdered="true" isUnique="false">` + integerType + `
+      <lowerValue xmi:type="uml:LiteralInteger" xmi:id="xsLo"/>
+      <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="xsHi" value="*"/>
+    </ownedAttribute>
+    <ownedAttribute xmi:type="uml:Property" xmi:id="set" name="set">` + integerType + `
+      <lowerValue xmi:type="uml:LiteralInteger" xmi:id="setLo"/>
+      <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="setHi" value="3"/>
+    </ownedAttribute>
+    <ownedAttribute xmi:type="uml:Property" xmi:id="opt" name="opt">
+      <type xmi:type="uml:PrimitiveType" href="pathmap://UML_LIBRARIES/UMLPrimitiveTypes.library.uml#String"/>
+      <lowerValue xmi:type="uml:LiteralInteger" xmi:id="optLo"/>
+      <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="optHi" value="1"/>
+    </ownedAttribute>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="assemble" name="Assemble">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="assembleOut" name="made" direction="out" type="item"/>
+    <node xmi:type="uml:CreateObjectAction" xmi:id="create" name="Create(Item)" classifier="item">
+      <result xmi:type="uml:OutputPin" xmi:id="createR" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="v7" name="Value(7)">
+      <result xmi:type="uml:OutputPin" xmi:id="v7r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="v7v" value="7"/>
+    </node>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="v1" name="Value(1)">
+      <result xmi:type="uml:OutputPin" xmi:id="v1r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="v1v" value="1"/>
+    </node>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="v2" name="Value(2)">
+      <result xmi:type="uml:OutputPin" xmi:id="v2r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="v2v" value="2"/>
+    </node>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="v9" name="Value(9)">
+      <result xmi:type="uml:OutputPin" xmi:id="v9r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="v9v" value="9"/>
+    </node>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="v5" name="Value(5)">
+      <result xmi:type="uml:OutputPin" xmi:id="v5r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="v5v" value="5"/>
+    </node>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="writeN" name="Write(n)" structuralFeature="n" isReplaceAll="true">
+      <object xmi:type="uml:InputPin" xmi:id="writeNo" name="object" type="item"/>
+      <value xmi:type="uml:InputPin" xmi:id="writeNv" name="value">` + integerType + `</value>
+      <result xmi:type="uml:OutputPin" xmi:id="writeNr" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="add1" name="Add(xs)-1" structuralFeature="xs">
+      <object xmi:type="uml:InputPin" xmi:id="add1o" name="object" type="item"/>
+      <value xmi:type="uml:InputPin" xmi:id="add1v" name="value">` + integerType + `</value>
+      <result xmi:type="uml:OutputPin" xmi:id="add1r" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="add2" name="Add(xs)-2" structuralFeature="xs">
+      <object xmi:type="uml:InputPin" xmi:id="add2o" name="object" type="item"/>
+      <value xmi:type="uml:InputPin" xmi:id="add2v" name="value">` + integerType + `</value>
+      <result xmi:type="uml:OutputPin" xmi:id="add2r" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="insert" name="Insert(xs)" structuralFeature="xs">
+      <object xmi:type="uml:InputPin" xmi:id="inserto" name="object" type="item"/>
+      <value xmi:type="uml:InputPin" xmi:id="insertv" name="value">` + integerType + `</value>
+      <insertAt xmi:type="uml:InputPin" xmi:id="inserta" name="insertAt">` + integerType + `</insertAt>
+      <result xmi:type="uml:OutputPin" xmi:id="insertr" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:RemoveStructuralFeatureValueAction" xmi:id="removeAt" name="RemoveAt(xs)" structuralFeature="xs">
+      <object xmi:type="uml:InputPin" xmi:id="removeAto" name="object" type="item"/>
+      <value xmi:type="uml:InputPin" xmi:id="removeAtv" name="value">` + integerType + `</value>
+      <removeAt xmi:type="uml:InputPin" xmi:id="removeAta" name="removeAt">` + integerType + `</removeAt>
+      <result xmi:type="uml:OutputPin" xmi:id="removeAtr" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="addSet1" name="Add(set)-1" structuralFeature="set">
+      <object xmi:type="uml:InputPin" xmi:id="addSet1o" name="object" type="item"/>
+      <value xmi:type="uml:InputPin" xmi:id="addSet1v" name="value">` + integerType + `</value>
+      <result xmi:type="uml:OutputPin" xmi:id="addSet1r" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="addSet2" name="Add(set)-2" structuralFeature="set">
+      <object xmi:type="uml:InputPin" xmi:id="addSet2o" name="object" type="item"/>
+      <value xmi:type="uml:InputPin" xmi:id="addSet2v" name="value">` + integerType + `</value>
+      <result xmi:type="uml:OutputPin" xmi:id="addSet2r" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="assembleOutNode" name="Parameter(made)" parameter="assembleOut"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a1" source="createR" target="writeNo"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a2" source="v7r" target="writeNv"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a3" source="writeNr" target="add1o"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a4" source="v1r" target="add1v"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a5" source="add1r" target="add2o"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a6" source="v2r" target="add2v"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a7" source="add2r" target="inserto"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a8" source="v9r" target="insertv"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a9" source="v2r" target="inserta"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a10" source="insertr" target="removeAto"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a11" source="v1r" target="removeAtv"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a12" source="v1r" target="removeAta"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a13" source="removeAtr" target="addSet1o"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a14" source="v5r" target="addSet1v"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a15" source="addSet1r" target="addSet2o"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a16" source="v5r" target="addSet2v"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a17" source="addSet2r" target="assembleOutNode"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="reader" name="Reader">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="readerIn" name="given" direction="in" type="item"/>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="readerN" name="n" direction="out">` + integerType + `</ownedParameter>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="readerXs" name="xs" direction="out" isOrdered="true" isUnique="false">` + integerType + `
+      <lowerValue xmi:type="uml:LiteralInteger" xmi:id="readerXsLo"/>
+      <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="readerXsHi" value="*"/>
+    </ownedParameter>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="readerInNode" name="Parameter(given)" parameter="readerIn"/>
+    <node xmi:type="uml:ForkNode" xmi:id="readerFork" name="Fork"/>
+    <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="readN" name="Read(n)" structuralFeature="n">
+      <object xmi:type="uml:InputPin" xmi:id="readNo" name="object" type="item"/>
+      <result xmi:type="uml:OutputPin" xmi:id="readNr" name="result">` + integerType + `</result>
+    </node>
+    <node xmi:type="uml:ClearStructuralFeatureAction" xmi:id="clearXs" name="Clear(xs)" structuralFeature="xs">
+      <object xmi:type="uml:InputPin" xmi:id="clearXso" name="object" type="item"/>
+      <result xmi:type="uml:OutputPin" xmi:id="clearXsr" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="readXs" name="Read(xs)" structuralFeature="xs">
+      <object xmi:type="uml:InputPin" xmi:id="readXso" name="object" type="item"/>
+      <result xmi:type="uml:OutputPin" xmi:id="readXsr" name="result" isOrdered="true" isUnique="false">` + integerType + `
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="readXsrLo"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="readXsrHi" value="*"/>
+      </result>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="readerNNode" name="Parameter(n)" parameter="readerN"/>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="readerXsNode" name="Parameter(xs)" parameter="readerXs"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="r1" source="readerInNode" target="readerFork"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="r2" source="readerFork" target="readNo"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="r3" source="readerFork" target="clearXso"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="r4" source="readNr" target="readerNNode"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="r5" source="clearXsr" target="readXso"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="r6" source="readXsr" target="readerXsNode"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Class" xmi:id="holder" name="Holder">
+    <ownedBehavior xmi:type="uml:Activity" xmi:id="reflect" name="Reflect">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="reflectOut" name="me" direction="out" type="holder"/>
+      <node xmi:type="uml:ReadSelfAction" xmi:id="readSelf" name="ReadSelf">
+        <result xmi:type="uml:OutputPin" xmi:id="readSelfr" name="result" type="holder"/>
+      </node>
+      <node xmi:type="uml:ActivityParameterNode" xmi:id="reflectOutNode" name="Parameter(me)" parameter="reflectOut"/>
+      <edge xmi:type="uml:ObjectFlow" xmi:id="h1" source="readSelfr" target="reflectOutNode"/>
+    </ownedBehavior>
+  </packagedElement>
+</uml:Model>
+`
+
+// object is the implementation's record of an object of one type with the
+// features named holding the values given.
+func object(id, typeName string, features ...ExpectedFeature) ExpectedValue {
+	return ExpectedValue{Kind: "Object", ID: id, Types: []string{typeName}, Features: features}
+}
+
+func feature(name string, values ...int) ExpectedFeature {
+	return ExpectedFeature{Feature: name, Values: integers(name, values...).Values}
+}
+
+// A class is a part def with an attribute per property at its exact
+// multiplicity, the default [1..1] unordered unique left unwritten, specializing
+// its generals with `:>`; a class the activity's closure touches through a
+// parameter, a pin, a created classifier or a feature's owner is declared once.
+func TestEmitClasses(t *testing.T) {
+	s := fixtureSuite(t, objectModel)
+	em := emitted(t, s, "Assemble")
+	wantLines(t, em,
+		"\tpart def Base {\n\t\tattribute n : Integer;\n\t}\n",
+		"\tpart def Item :> Base {\n\t\tattribute xs : Integer [0..*] ordered nonunique;\n\t\tattribute set : Integer [0..3];\n\t\tattribute opt : String [0..1];\n\t}\n",
+		"out made : Item;")
+	if n := strings.Count(em.Text, "part def "); n != 2 {
+		t.Errorf("%d part defs, want Base and Item once each:\n%s", n, em.Text)
+	}
+	if strings.Contains(em.Text, "Holder") {
+		t.Errorf("Holder declared though Assemble never touches it:\n%s", em.Text)
+	}
+}
+
+// A create object action is `new T()` onto its result pin and starts no
+// behavior; a structural feature action takes the object at a pin, hands it on
+// through its result pin and assigns the feature as the reference implementation
+// does: a replacing add takes the value, an add inserts first (dropping a unique
+// feature's old copy), an indexed add inserts at insertAt, `*` appending; an
+// indexed remove drops the value at removeAt when there is one.
+func TestEmitObjectCreationAndFeatureWrites(t *testing.T) {
+	s := fixtureSuite(t, objectModel)
+	em := emitted(t, s, "Assemble")
+	wantLines(t, em,
+		"action 'Create(Item)' { out result : Item = new Item(); }",
+		"action 'Write(n)' { in object : Item; in value : Integer; out result : Item = object; assign object.n := value; }",
+		"action 'Add(xs)-1' { in object : Item; in value : Integer; out result : Item = object; assign object.xs := (value, object.xs); }",
+		"action 'Insert(xs)' { in object : Item; in value : Integer; in insertAt : Integer; out result : Item = object; assign object.xs := if insertAt < 0 ? including(object.xs, value) else if insertAt == 0 ? (value, object.xs) else includingAt(object.xs, value, insertAt); }",
+		"action 'RemoveAt(xs)' { in object : Item; in value : Integer; in removeAt : Integer; out result : Item = object; assign object.xs := if removeAt >= 1 and removeAt <= size(object.xs) ? excludingAt(object.xs, removeAt) else object.xs; }",
+		"action 'Add(set)-1' { in object : Item; in value : Integer; out result : Item = object; assign object.set := (value, excluding(object.set, value)); }",
+		"flow 'Create(Item)'.result to 'Write(n)'.object;",
+		"flow 'Write(n)'.result to 'Add(xs)-1'.object;",
+		"flow 'Value(2)'.result to 'Insert(xs)'.insertAt;",
+		"flow 'Add(set)-2'.result to 'Parameter(made)'.v;")
+	if strings.Contains(em.Text, "perform") || strings.Contains(em.Text, "start") && strings.Contains(em.Text, "Item.") {
+		t.Errorf("creation starts a behavior:\n%s", em.Text)
+	}
+}
+
+// A read structural feature action reads the object's feature onto its result
+// pin at the feature's multiplicity; a clear empties it; an object flowing from a
+// fork reaches every action fed by it.
+func TestEmitFeatureReads(t *testing.T) {
+	s := fixtureSuite(t, objectModel)
+	em := emitted(t, s, "Reader")
+	wantLines(t, em,
+		"in given : Item;",
+		"action 'Parameter(given)' { out v : Item = given; }",
+		"action 'Read(n)' { in object : Item; out result : Integer[0..1] = object.n; }",
+		"action 'Clear(xs)' { in object : Item; out result : Item = object; assign object.xs := (); }",
+		"action 'Read(xs)' { in object : Item; out result : Integer[0..*] ordered nonunique = object.xs; }",
+		"flow 'Parameter(given)'.v to 'Read(n)'.object;",
+		"flow 'Parameter(given)'.v to 'Clear(xs)'.object;",
+		"succession first Fork then 'Read(n)';",
+		"flow 'Clear(xs)'.result to 'Read(xs)'.object;",
+		"flow 'Read(n)'.result to 'Parameter(n)'.v;")
+}
+
+// A read self action outside any class is a TranslateError; a class's owned
+// behavior, where `this` would be the object, is one too until owned behaviors
+// are translated.
+func TestEmitReadSelf(t *testing.T) {
+	s := fixtureSuite(t, objectModel)
+	var reflect *Activity
+	for _, c := range s.Tests.Classes {
+		for _, b := range c.Behaviors {
+			if b.Name == "Reflect" {
+				reflect = b
+			}
+		}
+	}
+	if reflect == nil || reflect.Owner == nil || reflect.Owner.Name != "Holder" {
+		t.Fatalf("Holder owns no Reflect: %+v", reflect)
+	}
+	_, err := Emit(reflect)
+	var te *TranslateError
+	if !errors.As(err, &te) || te.Activity != "Reflect" || te.Where != "activity" || !strings.Contains(te.Reason, "owned behavior") {
+		t.Errorf("Emit(Reflect) = %v, want a TranslateError on the owned behavior", err)
+	}
+}
+
+// Assemble's object comes out with the features the reference implementation
+// would leave: n written, xs inserted first then at 2 and removed at 1, the
+// unique set holding one 5; Reader gets a default Item, whose n is 0 and whose
+// cleared xs is empty. Objects render by type and feature, numbered by mention.
+func TestExecuteObjects(t *testing.T) {
+	s := fixtureSuite(t, objectModel)
+	assemble := fixtureActivity(t, s, "Assemble")
+	want := object("o1", "Item", feature("n", 7), feature("xs", 9, 1), feature("set", 5))
+	x := executed(assemble, []ExpectedOutput{{Parameter: "made", Values: []ExpectedValue{want}}})
+	ex, err := Execute(context.Background(), emitted(t, s, "Assemble"), &x, DefaultBudget, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ex.Passed() || strings.Join(ex.Reached, "|") != "made = Item#1{n = 7; opt = -; set = 5; xs = 9, 1}" {
+		t.Errorf("Assemble: %+v", ex)
+	}
+	want = object("o1", "Item", feature("n", 7), feature("xs", 1, 9), feature("set", 5))
+	x = executed(assemble, []ExpectedOutput{{Parameter: "made", Values: []ExpectedValue{want}}})
+	if ex, err = Execute(context.Background(), emitted(t, s, "Assemble"), &x, DefaultBudget, 1); err != nil {
+		t.Fatal(err)
+	}
+	if ex.Passed() || strings.Join(ex.Reasons(), ";") != "outputs differ: made = Item#1{n = 7; opt = -; set = 5; xs = 9, 1}" {
+		t.Errorf("Assemble, order differing: %+v", ex)
+	}
+
+	reader := fixtureActivity(t, s, "Reader")
+	x = executed(reader, []ExpectedOutput{integers("n", 0), integers("xs")})
+	if ex, err = Execute(context.Background(), emitted(t, s, "Reader"), &x, DefaultBudget, 1); err != nil {
+		t.Fatal(err)
+	}
+	if !ex.Passed() || strings.Join(ex.Reached, "|") != "n = 0; xs = -" {
+		t.Errorf("Reader: %+v", ex)
 	}
 }

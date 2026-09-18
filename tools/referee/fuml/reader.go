@@ -463,7 +463,7 @@ func (r *reader) readNodeRefs(e *xmi.Element, n *Node) {
 		}
 	case SendSignalAction:
 		n.Signal = r.typeRef(e, "signal")
-	case ReadStructuralFeatureAction, AddStructuralFeatureValueAction, RemoveStructuralFeatureValueAction:
+	case ReadStructuralFeatureAction, AddStructuralFeatureValueAction, RemoveStructuralFeatureValueAction, ClearStructuralFeatureAction:
 		r.later(func() {
 			id := e.Attr("structuralFeature")
 			if n.Feature = r.props[id]; n.Feature == nil {

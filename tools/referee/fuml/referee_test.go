@@ -27,9 +27,9 @@ const fixtureLibrary = `<?xml version="1.0" encoding="UTF-8"?>
 const integerType = `<type xmi:type="uml:PrimitiveType" href="pathmap://UML_LIBRARIES/UMLPrimitiveTypes.library.uml#Integer"/>`
 
 // fixtureModel is a test model of the suite's shape: Sum adds two literals into
-// an output, Twice collects two literals into a multi-valued output, Creator
-// creates an object the pilot emitter does not translate, and Extent reads a
-// classifier extent SysML v2 cannot spell.
+// an output, Twice collects two literals into a multi-valued output, Selfer
+// reads self outside any class, which the pilot emitter does not translate, and
+// Extent reads a classifier extent SysML v2 cannot spell.
 const fixtureModel = `<?xml version="1.0" encoding="UTF-8"?>
 <uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="Fixture">
   <packagedElement xmi:type="uml:Activity" xmi:id="sum" name="Sum">
@@ -71,9 +71,9 @@ const fixtureModel = `<?xml version="1.0" encoding="UTF-8"?>
     <edge xmi:type="uml:ObjectFlow" xmi:id="w2" source="t2r" target="twiceOutNode"/>
   </packagedElement>
   <packagedElement xmi:type="uml:Class" xmi:id="k" name="K"/>
-  <packagedElement xmi:type="uml:Activity" xmi:id="creator" name="Creator">
-    <node xmi:type="uml:CreateObjectAction" xmi:id="createK" name="Create(K)" classifier="k">
-      <result xmi:type="uml:OutputPin" xmi:id="createKr" name="result" type="k"/>
+  <packagedElement xmi:type="uml:Activity" xmi:id="selfer" name="Selfer">
+    <node xmi:type="uml:ReadSelfAction" xmi:id="readSelf" name="ReadSelf">
+      <result xmi:type="uml:OutputPin" xmi:id="readSelfr" name="result"/>
     </node>
   </packagedElement>
   <packagedElement xmi:type="uml:Activity" xmi:id="extent" name="Extent">
@@ -205,7 +205,7 @@ func wantReasons(t *testing.T, row ActivityReport, wants ...string) {
 func TestRefereeBuckets(t *testing.T) {
 	s := fixtureSuite(t, fixtureModel)
 	x := fixtureExpected(t, s)
-	x.Activities = append(x.Activities, ExpectedActivity{Model: TestsFile, ID: "creator", Name: "Creator", Skipped: "no test executes it"})
+	x.Activities = append(x.Activities, ExpectedActivity{Model: TestsFile, ID: "selfer", Name: "Selfer", Skipped: "no test executes it"})
 	r := refereed(t, s, x, Options{})
 	if r.Buckets[oreport.BucketPass] != 2 || r.Buckets[oreport.BucketFail] != 0 || r.Buckets[oreport.BucketNotExpressible] != 3 || r.Buckets[oreport.BucketDiffersByDesign] != 0 {
 		t.Errorf("buckets = %v", r.Buckets)
@@ -221,11 +221,11 @@ func TestRefereeBuckets(t *testing.T) {
 	if twice.Bucket != oreport.BucketPass || strings.Join(twice.Reached, ";") != "values = 1, 2" {
 		t.Errorf("Twice = %+v", twice)
 	}
-	creator := row(t, r, "Creator")
-	if creator.Bucket != oreport.BucketNotExpressible || creator.Class != "expressible" || creator.Runs != 0 || len(creator.Reasons) != 1 {
-		t.Errorf("Creator = %+v", creator)
+	selfer := row(t, r, "Selfer")
+	if selfer.Bucket != oreport.BucketNotExpressible || selfer.Class != "expressible" || selfer.Runs != 0 || len(selfer.Reasons) != 1 {
+		t.Errorf("Selfer = %+v", selfer)
 	}
-	wantReasons(t, creator, "not yet translated: Create(K): CreateObjectAction")
+	wantReasons(t, selfer, "not yet translated: ReadSelf: reads self in an activity no class owns")
 	extent := row(t, r, "Extent")
 	if extent.Bucket != oreport.BucketNotExpressible || extent.Runs != 0 || len(extent.Reasons) != 1 {
 		t.Errorf("Extent = %+v", extent)
@@ -328,7 +328,7 @@ func TestRefereeFilterAndSummary(t *testing.T) {
 	if !strings.HasPrefix(summary, Meaning+"\n") {
 		t.Errorf("summary does not open with the meaning:\n%s", summary)
 	}
-	for _, want := range []string{"pass                 2", "fail                 0", "not-expressible      3", "differs-by-design    0", "\nnot-expressible:\n  Creator\n    not yet translated", "\n  Extent\n    ReadExtentAction"} {
+	for _, want := range []string{"pass                 2", "fail                 0", "not-expressible      3", "differs-by-design    0", "\nnot-expressible:\n  Selfer\n    not yet translated", "\n  Extent\n    ReadExtentAction"} {
 		if !strings.Contains(summary, want) {
 			t.Errorf("summary lacks %q:\n%s", want, summary)
 		}

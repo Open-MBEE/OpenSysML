@@ -36,6 +36,48 @@ func (m *Model) Class(id string) *Class {
 	return m.classes[id]
 }
 
+// ClassOf returns the class a type reference names, by ID first and then by
+// name (a reference may carry either), or nil when it names none.
+func (m *Model) ClassOf(t TypeRef) *Class {
+	if m == nil || t.Zero() {
+		return nil
+	}
+	if c := m.classes[t.ID]; c != nil {
+		return c
+	}
+	var found *Class
+	for _, c := range m.Classes {
+		if c.Name != t.Name || t.Name == "" {
+			continue
+		}
+		if found != nil {
+			return nil
+		}
+		found = c
+	}
+	return found
+}
+
+// AllAttributes returns the class's attributes with those it inherits, each
+// once, generals before the classes specializing them.
+func (c *Class) AllAttributes() []*Property {
+	seen := map[*Class]bool{}
+	var out []*Property
+	var visit func(c *Class)
+	visit = func(c *Class) {
+		if c == nil || seen[c] {
+			return
+		}
+		seen[c] = true
+		for _, g := range c.Generals {
+			visit(c.Model.ClassOf(g))
+		}
+		out = append(out, c.Attributes...)
+	}
+	visit(c)
+	return out
+}
+
 // ActivityNamed returns the activity with the given name, or nil when none or
 // more than one carry it.
 func (m *Model) ActivityNamed(name string) *Activity {
@@ -221,6 +263,7 @@ const (
 	ReadStructuralFeatureAction        NodeKind = "ReadStructuralFeatureAction"
 	AddStructuralFeatureValueAction    NodeKind = "AddStructuralFeatureValueAction"
 	RemoveStructuralFeatureValueAction NodeKind = "RemoveStructuralFeatureValueAction"
+	ClearStructuralFeatureAction       NodeKind = "ClearStructuralFeatureAction"
 	ReadExtentAction                   NodeKind = "ReadExtentAction"
 	ReadIsClassifiedObjectAction       NodeKind = "ReadIsClassifiedObjectAction"
 	ReclassifyObjectAction             NodeKind = "ReclassifyObjectAction"

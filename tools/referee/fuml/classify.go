@@ -140,7 +140,7 @@ var spellableKinds = map[NodeKind]bool{
 	ValueSpecificationAction: true, CallBehaviorAction: true, CreateObjectAction: true,
 	ReadSelfAction: true, ReadStructuralFeatureAction: true,
 	AddStructuralFeatureValueAction: true, RemoveStructuralFeatureValueAction: true,
-	SendSignalAction: true, AcceptEventAction: true, StartObjectBehaviorAction: true,
+	ClearStructuralFeatureAction: true, SendSignalAction: true, AcceptEventAction: true, StartObjectBehaviorAction: true,
 }
 
 // unlimitedNaturalType is the fUML primitive type KerML's ScalarValues lack.
