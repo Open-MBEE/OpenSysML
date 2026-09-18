@@ -242,6 +242,25 @@ func TestCheckStopsWhenCancelled(t *testing.T) {
 	}
 }
 
+// A check stopped while its start's own draws are being enumerated reports the stop, not
+// a report over the starts it never began: the machine here draws its entry order at the
+// start and rests at once, so no search ever reads the stop.
+func TestCheckStopsWhenCancelledAmongStarts(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		state machine parallel {
+			state left { entry; then l; state l; }
+			state right { entry; then r; state r; }
+		}
+	}`)
+	stop, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := Check(stop, m.fresh, starterOf(m.state(t, "machine")), CheckBudget{}, reduced(), nil)
+	var stopped *CheckStopped
+	if !errors.As(err, &stopped) || !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v, want CheckStopped wrapping context.Canceled", err)
+	}
+}
+
 // Every witness the check writes replays to the state it claims and leaves its trace.
 func TestCheckWitnessesReplay(t *testing.T) {
 	for _, c := range []struct{ file, action string }{

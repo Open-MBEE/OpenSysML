@@ -253,6 +253,9 @@ func Check(stop context.Context, fresh func() (*Context, error), start Starter, 
 	}
 	starts := [][]int{nil}
 	for i := 0; i < len(starts); i++ {
+		if err := stop.Err(); err != nil {
+			return nil, c.stopped(err)
+		}
 		more, err := c.searchFrom(stop, fresh, start, starts[i])
 		if err != nil {
 			return nil, err
@@ -475,7 +478,7 @@ func (c *checker) search(stop context.Context) error {
 	for len(c.stack) > 0 {
 		if err := stop.Err(); err != nil {
 			c.releaseAll()
-			return &CheckStopped{States: len(c.visited), Moves: c.moves, MaxDepth: c.maxDepth, Cause: err}
+			return c.stopped(err)
 		}
 		f := c.stack[len(c.stack)-1]
 		if f.next >= len(f.moves) {
@@ -498,6 +501,11 @@ func (c *checker) search(stop context.Context) error {
 		}
 	}
 	return nil
+}
+
+// stopped is the check ended by its caller, with what it had searched so far.
+func (c *checker) stopped(cause error) error {
+	return &CheckStopped{States: len(c.visited), Moves: c.moves, MaxDepth: c.maxDepth, Cause: cause}
 }
 
 // cut marks the frame's state as one the depth bound cut a schedule through.
