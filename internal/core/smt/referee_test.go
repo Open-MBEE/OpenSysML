@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -291,7 +292,7 @@ func refereeSensitivity(t *testing.T, solver *solve.Solver, r refereed, o oracle
 		q := analysis.Question{Kind: analysis.Sensitive, Subject: ask.Behavior.Name, Free: analysis.FreeSchedule,
 			Holds: &analysis.HoldsAsk{Behavior: ask.Behavior, Start: ask.Start, Diverge: []string{feature}}}
 		verdict := answer(t, e, d, q, budget)
-		listed := sortedKeys(o[feature])
+		listed := slices.Sorted(maps.Keys(o[feature]))
 		switch verdict.Claim {
 		case analysis.ClaimSensitive:
 			if verdict.Strength != analysis.Witnessed || verdict.Witness == nil || verdict.Contrast == nil {
@@ -393,7 +394,7 @@ func compareOutcomes(t *testing.T, solver *solve.Solver, encoding *Encoding, d *
 		}
 		found[spellOutputs(outputs)] = values
 	}
-	out := comparedOutcomes{explored: sortedKeys(explored), found: sortedKeys(found), agreeing: true}
+	out := comparedOutcomes{explored: slices.Sorted(maps.Keys(explored)), found: slices.Sorted(maps.Keys(found)), agreeing: true}
 	for identity, witness := range explored {
 		if _, ok := found[identity]; !ok {
 			out.agreeing = false
@@ -653,17 +654,8 @@ func spellOutputs(outputs map[string]string) string {
 		return "no outputs"
 	}
 	parts := make([]string, 0, len(outputs))
-	for _, name := range sortedKeys(outputs) {
+	for _, name := range slices.Sorted(maps.Keys(outputs)) {
 		parts = append(parts, fmt.Sprintf("%s = %s", name, outputs[name]))
 	}
 	return strings.Join(parts, "; ")
-}
-
-func sortedKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }

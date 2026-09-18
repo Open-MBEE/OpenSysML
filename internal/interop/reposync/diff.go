@@ -2,6 +2,8 @@ package reposync
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 
@@ -402,19 +404,10 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 		view.mintable = mintable(view)
 	}
 	var left []UncarriedProperty
-	for _, iri := range sortedKeys(uncarried) {
+	for _, iri := range slices.Sorted(maps.Keys(uncarried)) {
 		left = append(left, UncarriedProperty{Property: propertyLabel(iri), Triples: uncarried[iri]})
 	}
 	return views, left, nil
-}
-
-func sortedKeys(m map[string]int) []string {
-	keys := make([]string, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 // declaredID mirrors the RDF reader: an explicit declaredId marker, or an id

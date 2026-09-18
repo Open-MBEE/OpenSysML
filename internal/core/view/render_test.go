@@ -3,8 +3,10 @@ package view
 import (
 	"errors"
 	"flag"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -152,7 +154,7 @@ func TestTreeRenderingShowsNestedViewsAndDefaults(t *testing.T) {
 	names := nodeNames(rendering.Roots)
 	for _, want := range []string{"Vehicles::Vehicle", "engine", "wheels", "VehicleViews::vehicleView::engineSubview", "Vehicles::Engine", "cylinder"} {
 		if !names[want] {
-			t.Errorf("tree rendering has no node %q; nodes: %v", want, sortedKeys(names))
+			t.Errorf("tree rendering has no node %q; nodes: %v", want, slices.Sorted(maps.Keys(names)))
 		}
 	}
 }
@@ -187,7 +189,7 @@ func TestStateRenderingComesFromTheLoweredGraph(t *testing.T) {
 	names := nodeNames(rendering.Roots)
 	for _, want := range []string{"off", "operating", "idle", "moving"} {
 		if !names[want] {
-			t.Errorf("state rendering has no state %q; nodes: %v", want, sortedKeys(names))
+			t.Errorf("state rendering has no state %q; nodes: %v", want, slices.Sorted(maps.Keys(names)))
 		}
 	}
 	var labeled bool
@@ -317,7 +319,7 @@ func TestActionRenderingComesFromTheLoweredGraph(t *testing.T) {
 	names := nodeNames(rendering.Roots)
 	for _, want := range []string{"start", "provide", "monitor", "split", "sync", "check", "done", "record"} {
 		if !names[want] {
-			t.Errorf("action rendering has no node %q; nodes: %v", want, sortedKeys(names))
+			t.Errorf("action rendering has no node %q; nodes: %v", want, slices.Sorted(maps.Keys(names)))
 		}
 	}
 	var guards, flows int
@@ -341,7 +343,7 @@ func TestActionRenderingLabelsWeightedSuccessions(t *testing.T) {
 	labels := edgeLabels(rendering)
 	for _, want := range []string{"p = 0.7", "p = 0.3"} {
 		if !labels[want] {
-			t.Errorf("edge labels %v lack %q", sortedKeys(labels), want)
+			t.Errorf("edge labels %v lack %q", slices.Sorted(maps.Keys(labels)), want)
 		}
 	}
 	if text := rendering.Text(); !strings.Contains(text, "p = 0.7") {
@@ -416,10 +418,10 @@ func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
 	}
 	// An anonymous connection or message is labeled by its type, spelled once.
 	if got := edgeLabels(render(t, "typings.sysml", "SpelledViews::rigConnections")); !got["Bolt, Weld"] {
-		t.Errorf("connection edge labels %v lack %q", sortedKeys(got), "Bolt, Weld")
+		t.Errorf("connection edge labels %v lack %q", slices.Sorted(maps.Keys(got)), "Bolt, Weld")
 	}
 	if got := edgeLabels(render(t, "typings.sysml", "SpelledViews::exchangeView")); !got["$::Spelled::Note"] {
-		t.Errorf("message edge labels %v lack %q", sortedKeys(got), "$::Spelled::Note")
+		t.Errorf("message edge labels %v lack %q", slices.Sorted(maps.Keys(got)), "$::Spelled::Note")
 	}
 }
 
@@ -440,7 +442,7 @@ func TestActionRenderingSaysNothingOfANodePerformingStatements(t *testing.T) {
 		t.Errorf("notices = %v, want none: every node the action declares is shown", rendering.Notices)
 	}
 	if !nodeNames(rendering.Roots)["tally"] {
-		t.Errorf("action rendering has no node %q; nodes: %v", "tally", sortedKeys(nodeNames(rendering.Roots)))
+		t.Errorf("action rendering has no node %q; nodes: %v", "tally", slices.Sorted(maps.Keys(nodeNames(rendering.Roots))))
 	}
 }
 
@@ -485,7 +487,7 @@ func TestTableRenderingRows(t *testing.T) {
 	} {
 		got, ok := owners[name]
 		if !ok {
-			t.Errorf("table has no row for %q; rows: %v", name, sortedKeys(rowNames(rendering.Rows)))
+			t.Errorf("table has no row for %q; rows: %v", name, slices.Sorted(maps.Keys(rowNames(rendering.Rows))))
 			continue
 		}
 		if got != owner {
@@ -671,14 +673,6 @@ func rowNames(rows [][]string) map[string]bool {
 		}
 	}
 	return out
-}
-
-func sortedKeys(set map[string]bool) []string {
-	out := make([]string, 0, len(set))
-	for key := range set {
-		out = append(out, key)
-	}
-	return sorted(out)
 }
 
 func sorted(in []string) []string {
