@@ -99,6 +99,8 @@ internal/core/
   libs/                  stdlib bundling + conformance gate
 internal/lsp/            LSP protocol implementation
 internal/repl/           REPL loop
+tests/                   black-box suites and their fixtures
+  parser/                golden ASTs (TestGolden, -update) and negative cases, with testdata/parse
 testdata/                shared fixtures (.sysml, .kerml, .golden)
 examples/                example models and demos
 docs/                    guide/ (handbook), reference/, internals/, project/ (status)
@@ -124,12 +126,12 @@ Read `docs/internals/architecture.md` before non-trivial work — it documents t
 ### 5.1 Parser features — four-layer contract
 When touching the lexer/parser or adding grammar:
 1. **Conformance gate:** `go test -run TestStdlibConformance ./internal/core/libs` — all official stdlib files must still parse clean (no regressions).
-2. **Golden ASTs:** `go test -run TestGolden ./internal/core/parser`. Add a representative fixture under `internal/core/parser/testdata/parse/*.sysml`.
-3. **Negative tests:** `go test -run TestNegative ./internal/core/parser` — malformed input must produce diagnostics without panicking.
-4. **Update goldens only after intentional changes:** `go test -run TestGolden -update ./internal/core/parser`, then review the diff carefully.
+2. **Golden ASTs:** `go test -run TestGolden ./tests/parser`. Add a representative fixture under `tests/parser/testdata/parse/*.sysml`.
+3. **Negative tests:** `go test -run TestNegative ./tests/parser ./internal/core/parser` — malformed input must produce diagnostics without panicking.
+4. **Update goldens only after intentional changes:** `go test -run TestGolden -update ./tests/parser`, then review the diff carefully.
 
 ### 5.2 Behavioral features (actions/states/calc/constraints/requirements) — four-layer contract
-1. **Golden AST fixture** locking parse structure (`internal/core/parser/testdata/parse/`).
+1. **Golden AST fixture** locking parse structure (`tests/parser/testdata/parse/`).
 2. **Execution conformance:** add `.sysml` + `.expected.json` under `internal/core/runtime/testdata/conformance/`; run `go test -run TestExecutionConformance ./internal/core/runtime`. Schema is documented in that dir's `README.md`.
 3. **Golden execution traces** for ordering-sensitive behavior (fork/join, transitions): `go test -run TestExecutionTrace ./internal/core/runtime` (update flag: `-update-traces`).
 4. **Robustness:** add a failure-mode case (deadlock, unbound params, missing refs, dangling transitions, step budget) as a subtest of a `TestRuntimeRobustness<Feature>` function in `internal/core/runtime/robustness_<feature>_test.go` — a new file for a new feature, so branches never edit one shared registry; `robustness_test.go` holds the shared cases and is not where new ones go. Must return typed errors, never panic or hang. The suite counters read every `TestRuntimeRobustness*` function, and gRPC cases follow the same pattern with `TestGRPCRobustness*`.

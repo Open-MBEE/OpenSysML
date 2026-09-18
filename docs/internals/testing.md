@@ -5,11 +5,12 @@ OpenSysML uses a **multi-layer test contract** to keep parsing, semantic analysi
 ## Test Organization
 
 ```
-internal/core/
+tests/
 ├── parser/
 │   ├── golden_test.go              # Golden AST snapshots
 │   ├── negative_test.go            # Malformed input handling
 │   └── testdata/parse/             # Test fixtures + goldens
+internal/core/
 ├── runtime/
 │   ├── conformance_test.go         # Execution outcome verification, under every policy
 │   ├── trace_test.go               # Execution ordering/scheduling
@@ -43,14 +44,14 @@ go test -v -run TestStdlibConformance ./internal/core/libs
 
 **Purpose:** Verify AST structure matches expected output
 
-- **Test:** `TestGolden` (internal/core/parser/)
+- **Test:** `TestGolden` (tests/parser/)
 - **Fixtures:** `testdata/parse/*.sysml` and `*.kerml` (one representative file per construct)
 - **Goldens:** `testdata/parse/*.golden` (AST dumps)
 - **Acceptance:** Parse output matches golden file
 
 **Update goldens after intentional changes:**
 ```bash
-go test -run TestGolden -update ./internal/core/parser
+go test -run TestGolden -update ./tests/parser
 ```
 
 **Coverage includes:**
@@ -73,7 +74,7 @@ Future work: If SysML printer added, verify `parse(print(parse(input))) == parse
 
 **Purpose:** Verify parser rejects malformed input gracefully
 
-- **Test:** `TestNegative` (internal/core/parser/)
+- **Test:** `TestNegative` (tests/parser/)
 - **Coverage:** one subtest per malformed input — count in [the measured counts](../project/spec-compliance.md)
 - **Acceptance:** Each case produces diagnostics (never panics)
 
@@ -93,7 +94,7 @@ New behavioral features (actions, states, calc, constraints, requirements) requi
 
 **Purpose:** Lock in parse structure before execution changes
 
-- **Location:** `internal/core/parser/testdata/parse/` (behavioral fixtures)
+- **Location:** `tests/parser/testdata/parse/` (behavioral fixtures)
 - **Coverage:** the behavioral fixtures among the whole set — count in [the measured counts](../project/spec-compliance.md)
 - **Acceptance:** `TestGolden` passes, AST dumps match expectations
 
@@ -213,7 +214,7 @@ When adding parser support for new SysML v2 constructs:
 
 When adding execution support for actions, states, calc, constraints, requirements:
 
-1. ✅ Add golden AST fixture to `internal/core/parser/testdata/parse/` (if not already covered)
+1. ✅ Add golden AST fixture to `tests/parser/testdata/parse/` (if not already covered)
 2. ✅ Implement semantics in `internal/core/runtime/` (executor or evaluator)
 3. ✅ Add conformance case: `.sysml` + `.expected.json` in `internal/core/runtime/testdata/conformance/`
 4. ✅ Add golden trace case: `.trace.golden` for ordering-sensitive features

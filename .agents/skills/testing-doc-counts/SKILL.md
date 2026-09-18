@@ -177,7 +177,7 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
   must equal the conformance figure; the same shape with `TestRuntimeRobustness` and
   `TestGRPCRobustness` (in `./internal/grpc`) — unanchored, summing the first-level `=== RUN`
   lines of every function the prefix matches — `TestGolden$` and `Negative` (in
-  `./internal/core/parser`, summing per function) must equal theirs; and
+  `./tests/parser` and `./internal/core/parser`, summing per function) must equal theirs; and
   `go test -list '.*' ./... | grep -c '^Test'` must equal the `Test`-function figure. Test names
   carry digits (`TestF62F63Negative`), so match `[^/ ]+`, not `[A-Za-z_]+`.
 - **Every landing link resolves on the built site:** grep the `href`s out of

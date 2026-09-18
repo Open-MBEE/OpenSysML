@@ -26,7 +26,7 @@ var evidenceRoots = []corpusRoot{
 	{Name: "pilot-sysml-validation", Dir: "examples/pilot-corpora/sysml-validation"},
 	{Name: "pilot-kerml-examples", Dir: "examples/pilot-corpora/kerml-examples"},
 	{Name: "testdata", Dir: "testdata"},
-	{Name: "parser-fixtures", Dir: "internal/core/parser/testdata/parse"},
+	{Name: "parser-fixtures", Dir: "tests/parser/testdata/parse"},
 	{Name: "examples", Dir: "examples", Skip: []string{"sysml-v2-training", "pilot-corpora"}},
 }
 

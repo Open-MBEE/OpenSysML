@@ -68,7 +68,7 @@ So the measurement is refined one level down, to **forms**: each literal-bearing
 and optional group inside a production, taken together with the literals every path through
 that production needs anyway. `Disjoining` is evidence because `disjoint A from B;` occurs in
 the stdlib; its *named* form (`disjoining D disjoint A from B;`) counts only once a fixture
-writes it (`internal/core/parser/testdata/parse/kerml_disjoining_member.kerml`).
+writes it (`tests/parser/testdata/parse/kerml_disjoining_member.kerml`).
 
 | Grammar | Forms | unseen |
 |---|---:|---:|

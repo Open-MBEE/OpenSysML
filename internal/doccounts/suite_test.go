@@ -89,7 +89,7 @@ func TestReadSuiteCountsRejectsWhatNoGateWouldRead(t *testing.T) {
 			doccountstest.Write(t, root, "internal/core/runtime/testdata/conformance/state_a.seed-1.trace.golden", "trace\n")
 		},
 		"a parse fixture with no golden": func(t *testing.T, root string) {
-			doccountstest.Write(t, root, "internal/core/parser/testdata/parse/orphan.sysml", "package P;\n")
+			doccountstest.Write(t, root, "tests/parser/testdata/parse/orphan.sysml", "package P;\n")
 		},
 		"a robustness loop the source does not bound": func(t *testing.T, root string) {
 			doccountstest.Write(t, root, "internal/core/runtime/robustness_test.go", `package runtime

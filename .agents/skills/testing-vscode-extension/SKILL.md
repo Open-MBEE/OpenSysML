@@ -233,7 +233,7 @@ main.sysml  package Main { import Lib::*; part w : Widget; }
   A **declared** `render asElementTable` view (`LanderViews::partsTable`) does render — a probe from a
   workspace holding only `views-demo.sysml` reports it `supported:true`, `form=markdown`. It only lists
   `supported:false` when the workspace *is this repository*, because the parser fixture
-  `internal/core/parser/testdata/parse/view_expose.sysml` declares a `package Views` that shadows the
+  `tests/parser/testdata/parse/view_expose.sysml` declares a `package Views` that shadows the
   standard library's, so `render asElementTable` no longer resolves to a standard rendering. Test the
   diagram panel from a scratch folder, not the repo root, or expect that shadowing.
 - "Never blank" needs the webview-state cache. Hiding the panel (switching the other tab group to a
