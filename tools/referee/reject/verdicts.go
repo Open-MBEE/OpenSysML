@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -72,7 +73,7 @@ func openSysMLErrors(repo, dir string, files []string,
 // pilotErrors runs a reference validator over the corpus as a single batch and
 // returns its error-severity messages per file. Both validators report each
 // diagnostic under its path relative to --root.
-func pilotErrors(validator, repo, dir string, files []string, timeout time.Duration) (map[string][]string, error) {
+func pilotErrors(validator, repo, dir string, files []string, timeout time.Duration, log io.Writer) (map[string][]string, error) {
 	root, err := filepath.Abs(filepath.Join(repo, dir))
 	if err != nil {
 		return nil, fmt.Errorf("resolve corpus root: %w", err)
@@ -141,7 +142,7 @@ func pilotErrors(validator, repo, dir string, files []string, timeout time.Durat
 	for _, line := range unattributed {
 		// Never dropped silently: an unattributable error would otherwise
 		// look like an acceptance.
-		fmt.Fprintf(os.Stderr, "pilot output not attributable to a corpus case: %s\n", line)
+		fmt.Fprintf(log, "pilot output not attributable to a corpus case: %s\n", line)
 	}
 	return out, nil
 }

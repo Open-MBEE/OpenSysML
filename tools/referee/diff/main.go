@@ -86,6 +86,7 @@ func Main(args []string, stderr io.Writer) int {
 		timeout:        *timeout,
 		update:         *update,
 		check:          *check,
+		log:            stderr,
 	}
 	if err := run(opts); err != nil {
 		fmt.Fprintf(stderr, "pilot-diff: %v\n", err)
@@ -94,7 +95,8 @@ func Main(args []string, stderr io.Writer) int {
 	return 0
 }
 
-// options is one run's command line, with the paths resolved by resolve.
+// options is one run's command line, with the paths resolved by resolve; log
+// receives the progress lines.
 type options struct {
 	repo           string
 	validator      string
@@ -104,6 +106,7 @@ type options struct {
 	timeout        time.Duration
 	update         bool
 	check          bool
+	log            io.Writer
 }
 
 // resolve fills the paths left empty on the command line and reports the tools
@@ -140,7 +143,7 @@ func (o *options) resolve() error {
 		if requested {
 			return fmt.Errorf("SysIDE launcher not found at %s: run ./scripts/download-syside.sh", o.syside)
 		}
-		fmt.Fprintf(os.Stderr, "comparing against the pilot only; run ./scripts/download-syside.sh for a third column\n")
+		fmt.Fprintf(o.log, "comparing against the pilot only; run ./scripts/download-syside.sh for a third column\n")
 		o.syside = ""
 	}
 	return nil
@@ -191,14 +194,14 @@ func run(opts options) error {
 			return err
 		}
 		if len(files) == 0 {
-			fmt.Fprintf(os.Stderr, "skipping %s: no .sysml or .kerml files (corpus not downloaded?)\n", root.Dir)
+			fmt.Fprintf(opts.log, "skipping %s: no .sysml or .kerml files (corpus not downloaded?)\n", root.Dir)
 			continue
 		}
 
 		ours := make(map[string][]diagnostic, len(files))
 		theirs := make(map[string][]diagnostic, len(files))
 		for _, batch := range batchByLanguage(files) {
-			fmt.Fprintf(os.Stderr, "%s: %d %s file(s)\n", root.Name, len(batch.Files), batch.Kind)
+			fmt.Fprintf(opts.log, "%s: %d %s file(s)\n", root.Name, len(batch.Files), batch.Kind)
 
 			pilot := opts.validator
 			if batch.Kind == source.KindKerML {
@@ -211,7 +214,7 @@ func run(opts options) error {
 			if err != nil {
 				return err
 			}
-			batchTheirs, err := pilotDiagnostics(pilot, opts.repo, root.Dir, batch.Files, opts.timeout)
+			batchTheirs, err := pilotDiagnostics(pilot, opts.repo, root.Dir, batch.Files, opts.timeout, opts.log)
 			if err != nil {
 				return err
 			}
@@ -224,8 +227,8 @@ func run(opts options) error {
 		}
 		rootReport := compareRoot(root.Name, root.Dir, files, ours, theirs)
 		if opts.syside != "" {
-			fmt.Fprintf(os.Stderr, "%s: %d file(s) through syside\n", root.Name, len(files))
-			third, err := sysideDiagnostics(opts.syside, opts.repo, root.Dir, files, opts.timeout)
+			fmt.Fprintf(opts.log, "%s: %d file(s) through syside\n", root.Name, len(files))
+			third, err := sysideDiagnostics(opts.syside, opts.repo, root.Dir, files, opts.timeout, opts.log)
 			if err != nil {
 				return err
 			}
@@ -249,7 +252,7 @@ func run(opts options) error {
 	if report.Totals.Files == 0 {
 		return fmt.Errorf("no model files found under %s", opts.repo)
 	}
-	fresh, err := writeReports(opts.out, report)
+	fresh, err := writeReports(opts.out, report, opts.log)
 	if err != nil {
 		return err
 	}

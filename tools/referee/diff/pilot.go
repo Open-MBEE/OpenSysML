@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -47,7 +48,7 @@ func pinnedValue(pin, name string) string {
 // Both validators load every input into one resource set before validating any
 // of it, and report each diagnostic under its path relative to --root, so the
 // batch needs neither an import ordering nor unique base names.
-func pilotDiagnostics(validator, repo, dir string, files []string, timeout time.Duration) (map[string][]diagnostic, error) {
+func pilotDiagnostics(validator, repo, dir string, files []string, timeout time.Duration, log io.Writer) (map[string][]diagnostic, error) {
 	root, err := filepath.Abs(filepath.Join(repo, dir))
 	if err != nil {
 		return nil, fmt.Errorf("resolve corpus root: %w", err)
@@ -61,15 +62,16 @@ func pilotDiagnostics(validator, repo, dir string, files []string, timeout time.
 	}
 
 	out := make(map[string][]diagnostic, len(files))
-	if err := runPilot(validator, args, byPath, out, timeout, categorizePilot); err != nil {
+	if err := runPilot(validator, args, byPath, out, timeout, categorizePilot, log); err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
 // runPilot reads GNU-format diagnostics from a validator's stderr. categorize
-// is the mapping for that validator's diagnostic vocabulary.
-func runPilot(validator string, args []string, byPath map[string]string, out map[string][]diagnostic, timeout time.Duration, categorize func(string) Category) error {
+// is the mapping for that validator's diagnostic vocabulary; log gets the
+// lines that name no corpus file.
+func runPilot(validator string, args []string, byPath map[string]string, out map[string][]diagnostic, timeout time.Duration, categorize func(string) Category, log io.Writer) error {
 	ctx := context.Background()
 	if timeout > 0 {
 		var cancel context.CancelFunc
@@ -132,7 +134,7 @@ func runPilot(validator string, args []string, byPath map[string]string, out map
 	for _, line := range unattributed {
 		// Never dropped silently: an unattributable diagnostic would otherwise
 		// look like agreement.
-		fmt.Fprintf(os.Stderr, "pilot output not attributable to a corpus file: %s\n", line)
+		fmt.Fprintf(log, "pilot output not attributable to a corpus file: %s\n", line)
 	}
 	return nil
 }

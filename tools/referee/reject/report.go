@@ -2,7 +2,7 @@ package reject
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"sort"
 	"strings"
 
@@ -104,7 +104,7 @@ func (r *Report) summarize() {
 	}
 }
 
-func writeReports(dir string, report *Report) ([]byte, error) {
+func writeReports(dir string, report *Report, log io.Writer) ([]byte, error) {
 	files, err := reports.Open(dir, "pilot-reject")
 	if err != nil {
 		return nil, err
@@ -116,7 +116,7 @@ func writeReports(dir string, report *Report) ([]byte, error) {
 	if err := files.Text(renderText(report)); err != nil {
 		return nil, err
 	}
-	files.Announce(os.Stderr, headline(report.Totals))
+	files.Announce(log, headline(report.Totals))
 	return encoded, nil
 }
 

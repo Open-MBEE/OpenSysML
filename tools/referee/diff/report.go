@@ -2,7 +2,7 @@ package diff
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"sort"
 	"strings"
 
@@ -300,7 +300,7 @@ func countUnmapped(unmapped map[UnmappedRow]int, examples []string) {
 	}
 }
 
-func writeReports(dir string, report *Report) ([]byte, error) {
+func writeReports(dir string, report *Report, log io.Writer) ([]byte, error) {
 	files, err := reports.Open(dir, "pilot-diff")
 	if err != nil {
 		return nil, err
@@ -344,7 +344,7 @@ func writeReports(dir string, report *Report) ([]byte, error) {
 	if err := files.Write("sarif", sarif); err != nil {
 		return nil, err
 	}
-	files.Announce(os.Stderr, fmt.Sprintf("%d file(s), %d fully agreeing; %d agreed diagnostic(s), %d only ours, %d only the pilot's",
+	files.Announce(log, fmt.Sprintf("%d file(s), %d fully agreeing; %d agreed diagnostic(s), %d only ours, %d only the pilot's",
 		report.Totals.Files, report.Totals.FilesAgreeing, report.Totals.Agreement,
 		report.Totals.OpenSysMLOnly, report.Totals.PilotOnly))
 	return encoded, nil

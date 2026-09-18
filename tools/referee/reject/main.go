@@ -76,6 +76,7 @@ func Main(args []string, stderr io.Writer) int {
 		timeout:        *timeout,
 		update:         *update,
 		check:          *check,
+		log:            stderr,
 	}
 	if err := run(opts); err != nil {
 		fmt.Fprintf(stderr, "pilot-reject: %v\n", err)
@@ -84,7 +85,7 @@ func Main(args []string, stderr io.Writer) int {
 	return 0
 }
 
-// options is one run's command line.
+// options is one run's command line; log receives the progress lines.
 type options struct {
 	repo           string
 	validator      string
@@ -95,6 +96,7 @@ type options struct {
 	timeout        time.Duration
 	update         bool
 	check          bool
+	log            io.Writer
 }
 
 // adjudication is the corpus one run buckets, and the tools it buckets it with.
@@ -107,6 +109,7 @@ type adjudication struct {
 	files          []string
 	batches        []languageBatch
 	timeout        time.Duration
+	log            io.Writer
 }
 
 func run(opts options) error {
@@ -160,6 +163,7 @@ func run(opts options) error {
 		files:          files,
 		batches:        batches,
 		timeout:        opts.timeout,
+		log:            opts.log,
 	}
 	cases, err := adjudicate(adj)
 	if err != nil {
@@ -195,7 +199,7 @@ func run(opts options) error {
 	if err := runErrata(report, overlay, adj, out); err != nil {
 		return err
 	}
-	fresh, err := writeReports(out, report)
+	fresh, err := writeReports(out, report, opts.log)
 	if err != nil {
 		return err
 	}
@@ -232,7 +236,7 @@ func adjudicate(adj adjudication) (map[string]*Case, error) {
 	}
 
 	for _, batch := range adj.batches {
-		fmt.Fprintf(os.Stderr, "negative corpus: %d %s case(s)\n", len(batch.Files), batch.Kind)
+		fmt.Fprintf(adj.log, "negative corpus: %d %s case(s)\n", len(batch.Files), batch.Kind)
 		pilot := pilotFor(batch.Kind, adj.validator, adj.kermlValidator)
 		ours, err := openSysMLErrors(adj.repo, adj.corpusDir, batch.Files, modes)
 		if err != nil {
@@ -242,7 +246,7 @@ func adjudicate(adj adjudication) (map[string]*Case, error) {
 		if err != nil {
 			return nil, err
 		}
-		theirs, err := pilotErrors(pilot, adj.repo, adj.corpusDir, batch.Files, adj.timeout)
+		theirs, err := pilotErrors(pilot, adj.repo, adj.corpusDir, batch.Files, adj.timeout, adj.log)
 		if err != nil {
 			return nil, err
 		}

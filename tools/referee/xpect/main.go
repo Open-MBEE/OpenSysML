@@ -61,14 +61,16 @@ func Main(args []string, stderr io.Writer) int {
 		return 1
 	}
 
-	if err := run(root, repo.Resolve(root, *out), *jobs, *update, *check); err != nil {
+	if err := run(root, repo.Resolve(root, *out), *jobs, *update, *check, stderr); err != nil {
 		fmt.Fprintf(stderr, "pilot-xpect: %v\n", err)
 		return 1
 	}
 	return 0
 }
 
-func run(repo, out string, jobs int, update, check bool) error {
+// run compares every present suite and writes the reports under out; log
+// receives the progress lines.
+func run(repo, out string, jobs int, update, check bool, log io.Writer) error {
 	if out == "" {
 		out = filepath.Join(repo, "build", "pilot-xpect")
 	}
@@ -97,7 +99,7 @@ func run(repo, out string, jobs int, update, check bool) error {
 	for _, s := range defaultSuites {
 		dir := filepath.Join(repo, filepath.FromSlash(s.Dir))
 		if _, err := os.Stat(dir); err != nil {
-			fmt.Fprintf(os.Stderr, "skipping %s: %s is absent (run scripts/download-pilot-xpect.sh)\n", s.Name, s.Dir)
+			fmt.Fprintf(log, "skipping %s: %s is absent (run scripts/download-pilot-xpect.sh)\n", s.Name, s.Dir)
 			continue
 		}
 		files, err := collectXT(dir)
@@ -107,7 +109,7 @@ func run(repo, out string, jobs int, update, check bool) error {
 		published := compareAll(dir, files, jobs)
 		report.Suites = append(report.Suites, SuiteReport{Name: s.Name, Dir: s.Dir, Files: published})
 
-		corrected, applied, err := erratumSuite(s, overlay, repo, out, jobs)
+		corrected, applied, err := erratumSuite(s, overlay, repo, out, jobs, log)
 		if err != nil {
 			return err
 		}
@@ -140,7 +142,7 @@ func run(repo, out string, jobs int, update, check bool) error {
 	} else {
 		report.Errata.Note = "adjudicated again over a corrected copy of the suites; the published corpus is unchanged on disk"
 	}
-	fresh, err := writeReports(out, report)
+	fresh, err := writeReports(out, report, log)
 	if err != nil {
 		return err
 	}

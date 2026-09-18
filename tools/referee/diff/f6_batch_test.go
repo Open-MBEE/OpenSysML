@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,7 +30,7 @@ func TestPilotDiagnosticsIsOneBatchPerRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := pilotDiagnostics(validator, repo, ".", files, 0)
+	got, err := pilotDiagnostics(validator, repo, ".", files, 0, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}

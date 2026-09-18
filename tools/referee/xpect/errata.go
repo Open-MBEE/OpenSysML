@@ -2,6 +2,7 @@ package xpect
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -53,7 +54,7 @@ func newErrataReport(overlay *errata.Overlay) *ErrataReport {
 // erratumSuite adjudicates one suite again over a corrected copy of it. It
 // returns applied == 0 when no correction lies inside the suite, in which case
 // the caller carries the as-published results over unchanged.
-func erratumSuite(s suite, overlay *errata.Overlay, repo, out string, jobs int) (results []fileResult, applied int, err error) {
+func erratumSuite(s suite, overlay *errata.Overlay, repo, out string, jobs int, log io.Writer) (results []fileResult, applied int, err error) {
 	if len(overlay.Under(s.Dir)) == 0 {
 		return nil, 0, nil
 	}
@@ -73,6 +74,6 @@ func erratumSuite(s suite, overlay *errata.Overlay, repo, out string, jobs int) 
 	if err != nil {
 		return nil, 0, err
 	}
-	fmt.Fprintf(os.Stderr, "%s: %d .xt file(s) with %d correction(s) applied\n", s.Name, len(files), len(entries))
+	fmt.Fprintf(log, "%s: %d .xt file(s) with %d correction(s) applied\n", s.Name, len(files), len(entries))
 	return compareAll(corrected, files, jobs), len(entries), nil
 }

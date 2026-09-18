@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -249,7 +250,7 @@ func TestPilotDiagnosticsAttribution(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := pilotDiagnostics(bridge, repo, ".", []string{rel}, 0)
+	got, err := pilotDiagnostics(bridge, repo, ".", []string{rel}, 0, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}

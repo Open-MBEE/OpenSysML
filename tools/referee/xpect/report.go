@@ -2,7 +2,7 @@ package xpect
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"sort"
 	"strings"
 
@@ -249,7 +249,7 @@ func (t *Totals) add(other Totals) {
 	t.ForeignDiags += other.ForeignDiags
 }
 
-func writeReports(dir string, report *Report) ([]byte, error) {
+func writeReports(dir string, report *Report, log io.Writer) ([]byte, error) {
 	files, err := reports.Open(dir, "pilot-xpect")
 	if err != nil {
 		return nil, err
@@ -261,7 +261,7 @@ func writeReports(dir string, report *Report) ([]byte, error) {
 	if err := files.Text(renderText(report)); err != nil {
 		return nil, err
 	}
-	files.Announce(os.Stderr, fmt.Sprintf("%d .xt file(s), %d unparsed; %d assertion(s), %d expectation(s): %d agree (of which %d wording-only), %d disagree, %d unlocated, %d not adjudicated",
+	files.Announce(log, fmt.Sprintf("%d .xt file(s), %d unparsed; %d assertion(s), %d expectation(s): %d agree (of which %d wording-only), %d disagree, %d unlocated, %d not adjudicated",
 		report.Totals.Files, report.Totals.FilesUnparsed, report.Totals.Assertions, report.Totals.Rows,
 		report.Totals.Agree, report.Totals.WordingOnly, report.Totals.Disagree,
 		report.Totals.Unlocated, report.Totals.NotAdjudicated))

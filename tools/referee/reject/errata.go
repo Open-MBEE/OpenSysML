@@ -76,7 +76,7 @@ func runErrata(report *Report, overlay *errata.Overlay, adj adjudication, out st
 	}
 	defer func() {
 		if err := os.RemoveAll(corrected); err != nil {
-			fmt.Fprintf(os.Stderr, "remove the corrected copy: %v\n", err)
+			fmt.Fprintf(adj.log, "remove the corrected copy: %v\n", err)
 		}
 	}()
 

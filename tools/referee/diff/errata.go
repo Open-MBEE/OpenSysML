@@ -94,7 +94,7 @@ func runErrata(root corpusRoot, files []string, overlay *errata.Overlay, ours, t
 	}
 	defer func() {
 		if err := os.RemoveAll(corrected); err != nil {
-			fmt.Fprintf(os.Stderr, "remove the corrected copy: %v\n", err)
+			fmt.Fprintf(opts.log, "remove the corrected copy: %v\n", err)
 		}
 		// leaves nothing behind once the last root's copy is gone
 		_ = os.Remove(filepath.Dir(corrected))
@@ -103,7 +103,7 @@ func runErrata(root corpusRoot, files []string, overlay *errata.Overlay, ours, t
 	erratumOurs := make(map[string][]diagnostic, len(files))
 	erratumTheirs := make(map[string][]diagnostic, len(files))
 	for _, batch := range batchByLanguage(files) {
-		fmt.Fprintf(os.Stderr, "%s: %d %s file(s) with the errata applied\n", root.Name, len(batch.Files), batch.Kind)
+		fmt.Fprintf(opts.log, "%s: %d %s file(s) with the errata applied\n", root.Name, len(batch.Files), batch.Kind)
 		pilot := opts.validator
 		if batch.Kind == source.KindKerML {
 			pilot = opts.kermlValidator
@@ -112,7 +112,7 @@ func runErrata(root corpusRoot, files []string, overlay *errata.Overlay, ours, t
 		if err != nil {
 			return erratumRun{}, err
 		}
-		batchTheirs, err := pilotDiagnostics(pilot, corrected, ".", batch.Files, opts.timeout)
+		batchTheirs, err := pilotDiagnostics(pilot, corrected, ".", batch.Files, opts.timeout, opts.log)
 		if err != nil {
 			return erratumRun{}, err
 		}

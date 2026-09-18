@@ -2,6 +2,7 @@ package diff
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,7 +19,7 @@ func TestRunDispatchesBothLanguagesInOneRoot(t *testing.T) {
 	validator, kermlValidator := writeMixedRoot(t, repo, sysmlLog, kermlLog)
 
 	out := filepath.Join(repo, "out")
-	if err := run(options{repo: repo, validator: validator, kermlValidator: kermlValidator, out: out}); err != nil {
+	if err := run(options{log: io.Discard, repo: repo, validator: validator, kermlValidator: kermlValidator, out: out}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -64,10 +65,33 @@ func TestRunReportsTheMissingKerMLValidator(t *testing.T) {
 	repo := t.TempDir()
 	validator, _ := writeMixedRoot(t, repo, filepath.Join(repo, "sysml-args.txt"), filepath.Join(repo, "kerml-args.txt"))
 
-	err := run(options{repo: repo, validator: validator,
+	err := run(options{log: io.Discard, repo: repo, validator: validator,
 		kermlValidator: filepath.Join(repo, "absent", "validate-kerml"), out: filepath.Join(repo, "out")})
 	if err == nil || !strings.Contains(err.Error(), "download-pilot-kerml-validator.sh") {
 		t.Fatalf("run() error = %v", err)
+	}
+}
+
+// Progress and the report announcement go to the writer the caller supplies,
+// so an embedding program captures the whole run.
+func TestRunReportsProgressToTheSuppliedWriter(t *testing.T) {
+	repo := t.TempDir()
+	validator, kermlValidator := writeMixedRoot(t, repo, filepath.Join(repo, "sysml-args.txt"), filepath.Join(repo, "kerml-args.txt"))
+
+	var log strings.Builder
+	if err := run(options{log: &log, repo: repo, validator: validator, kermlValidator: kermlValidator, out: filepath.Join(repo, "out")}); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"comparing against the pilot only",
+		"mixed: 1 SysML file(s)\n",
+		"mixed: 1 KerML file(s)\n",
+		"wrote ",
+		"2 file(s), ",
+	} {
+		if !strings.Contains(log.String(), want) {
+			t.Errorf("log lacks %q:\n%s", want, log.String())
+		}
 	}
 }
 

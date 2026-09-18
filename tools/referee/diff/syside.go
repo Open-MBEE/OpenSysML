@@ -2,6 +2,7 @@ package diff
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -101,7 +102,7 @@ func sysideRelease(validator string) (version, library string, err error) {
 // sysideDiagnostics runs SysIDE over a root's files in one workspace, both
 // languages together: SysIDE loads SysML and KerML into a single index, so
 // splitting them would only measure the split.
-func sysideDiagnostics(validator, repo, dir string, files []string, timeout time.Duration) (map[string][]diagnostic, error) {
+func sysideDiagnostics(validator, repo, dir string, files []string, timeout time.Duration, log io.Writer) (map[string][]diagnostic, error) {
 	root, err := filepath.Abs(filepath.Join(repo, dir))
 	if err != nil {
 		return nil, fmt.Errorf("resolve corpus root: %w", err)
@@ -115,7 +116,7 @@ func sysideDiagnostics(validator, repo, dir string, files []string, timeout time
 	}
 
 	out := make(map[string][]diagnostic, len(files))
-	if err := runPilot(validator, args, byPath, out, timeout, categorizeSyside); err != nil {
+	if err := runPilot(validator, args, byPath, out, timeout, categorizeSyside, log); err != nil {
 		return nil, err
 	}
 	return out, nil
