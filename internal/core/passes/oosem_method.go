@@ -44,7 +44,7 @@ func (OOSEMMethodPass) Run(ctx *Context, name string, root *ast.RootNamespace) [
 		return nil
 	}
 	a.union = oosemUnionOf(ctx)
-	if !ctx.Gathers().Gathered(name) {
+	if !ctx.Gathers().Has(name) {
 		a.local = newOOSEMFacts()
 		a.facts = a.local
 		a.gather(rootScope)
