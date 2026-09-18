@@ -211,7 +211,7 @@ jobs:
       # table row must be a constraint the baseline records (and vice versa).
       - run:
           name: Check the validation-constraint census matches its baseline
-          command: go run ./cmd/validation-census -check
+          command: go run -C tools ./cmd/validation-census -check
 
       # Changelog entries live in changes/unreleased/ until a release folds them in.
       - run:
@@ -518,7 +518,7 @@ jobs:
       # cannot rot untested.
       - run:
           name: Run conformance suite against -transport grpc
-          command: go run ./cmd/conformance -transport grpc -protocols grpc -report bin/conformance-grpc-transport-report.json
+          command: go run -C tools ./cmd/conformance -transport grpc -protocols grpc -report bin/conformance-grpc-transport-report.json
 
       - store_artifacts:
           path: bin/conformance-grpc-transport-report.json

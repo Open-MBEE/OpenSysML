@@ -471,7 +471,7 @@ each case to rejection.
 
 The `grammar/` derivation was extended along the *unreached* axis rather than the interesting-case
 axis: [grammar-coverage.md](grammar-coverage.md) lists the forms no input of ours touches, and this round
-mutated exactly those. Measured by running `cmd/grammar-coverage` over a tree with the negative
+mutated exactly those. Measured by running `tools/census/grammar` over a tree with the negative
 corpus added as a scanned root, the five forms the committed coverage report calls unseen —
 `KerML.xtext:119` (`#`-prefixed `namespace`), `:408` `Conjugation`, `:426` `Disjoining`, `:712`
 `Redefinition`, and `KerMLExpressions.xtext:267`'s `%` operator — are all reached by the new cases

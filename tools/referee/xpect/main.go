@@ -22,8 +22,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Open-MBEE/OpenSysML/internal/baseline"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/errata"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )
@@ -148,7 +148,7 @@ func run(repo, out string, jobs int, update, check bool, log io.Writer) error {
 	}
 	committed := filepath.Join(repo, filepath.FromSlash(committedBaseline))
 	if update {
-		return baseline.Write(committed, fresh)
+		return baseline.Write(committed, fresh, log)
 	}
 	if check {
 		return baseline.Reproduces(committed, fresh)

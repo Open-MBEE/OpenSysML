@@ -15,8 +15,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Open-MBEE/OpenSysML/internal/baseline"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 	"github.com/Open-MBEE/OpenSysML/tools/referee/fuml"
 )

@@ -197,7 +197,7 @@ those RPCs from the Go or Python client until a v2 wraps them here.
 ## Conformance
 
 `opensysml-conformance` runs the language-neutral scenarios **through the public
-API** and writes the report shape `cmd/conformance` writes; `mvn -f
+API** and writes the report shape `tools/cmd/conformance` writes; `mvn -f
 clients/java/pom.xml test` is what CI runs. Of 59 scenarios, 25 run and pass over
 both `connect` and `connect-json`, and 34 are skipped — the scenarios of the RPCs
 v1 does not cover, plus one the public API cannot express (a `ParseFile` naming no

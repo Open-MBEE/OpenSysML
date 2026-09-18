@@ -19,8 +19,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/internal/baseline"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/errata"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )
@@ -258,7 +258,7 @@ func run(opts options) error {
 	}
 	committed := filepath.Join(opts.repo, filepath.FromSlash(committedBaseline))
 	if opts.update {
-		return baseline.Write(committed, fresh)
+		return baseline.Write(committed, fresh, opts.log)
 	}
 	if opts.check {
 		return baseline.Reproduces(committed, fresh)

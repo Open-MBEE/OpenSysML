@@ -15,10 +15,10 @@ smallest models carry ±30% of noise from the machine, which the trend does not.
 
 ## The workload
 
-`internal/stressmodel` generates the model; `cmd/stress-model` writes it out:
+`internal/stressmodel` generates the model; `tools/cmd/stress-model` writes it out:
 
 ```bash
-go run ./cmd/stress-model -planes 8 -satellites 25 -ground-stations 20 -stats > constellation.sysml
+go run -C tools ./cmd/stress-model -planes 8 -satellites 25 -ground-stations 20 -stats > constellation.sysml
 # satellites=200 ground-stations=20 components=4080 connections=3175 requirements=600 elements=37552 bytes=2297852
 sysml -validate -memstats constellation.sysml
 sysml -satisfy -memstats constellation.sysml

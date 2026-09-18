@@ -186,7 +186,7 @@ and `Capabilities::has` gates the response fields the same way.
 
 `make conformance-rust` runs the language-neutral scenarios through the typed API —
 public surface only, responses read through the domain accessors — and writes the
-report shape `cmd/conformance` writes. The runner takes `-binary`, `-run`,
+report shape `tools/cmd/conformance` writes. The runner takes `-binary`, `-run`,
 `-report FILE` (or `-report -`), `-allow-skips` and `-v`. The three expected v1
 boundary skips are an RPC the typed API does not cover, a `ParseFile` naming no
 source, and a model of several documents, which the single-document parse cannot

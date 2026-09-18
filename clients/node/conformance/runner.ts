@@ -18,7 +18,7 @@ import { Literal, methodOf, type Expect, type Scenario, type ScenarioModel } fro
 /** The RPCs v1 of this client covers. Everything else is a stated skip. */
 export const COVERED_RPCS = ["GetServerInfo", "ParseFile", "GetSymbol", "Evaluate", "Instantiate"] as const;
 
-/** One scenario's outcome. The shape cmd/conformance writes. */
+/** One scenario's outcome. The shape tools/cmd/conformance writes. */
 export interface Result {
   id: string;
   outcome: "pass" | "fail" | "skip" | "error";

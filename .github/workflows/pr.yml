@@ -698,7 +698,7 @@ jobs:
       # The census figures are derived from the committed baseline, and every
       # table row must be a constraint the baseline records (and vice versa).
       - name: Check the validation-constraint census matches its baseline
-        run: go run ./cmd/validation-census -check
+        run: go run -C tools ./cmd/validation-census -check
 
       # Changelog entries live in changes/unreleased/ until a release folds them in.
       - name: Check changelog fragments
@@ -1092,7 +1092,7 @@ jobs:
       # The same suite against the legacy grpc-go transport, so -transport grpc
       # cannot rot untested.
       - name: Run conformance suite against -transport grpc
-        run: go run ./cmd/conformance -transport grpc -protocols grpc -report bin/conformance-grpc-transport-report.json
+        run: go run -C tools ./cmd/conformance -transport grpc -protocols grpc -report bin/conformance-grpc-transport-report.json
 
       # The same suite through the public Go API (client/opensysml); the pkg
       # protocol runs in-process and pkg-connect dials the service, so this proves

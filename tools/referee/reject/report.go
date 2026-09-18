@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/baseline"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	reports "github.com/Open-MBEE/OpenSysML/tools/oracle/report"
 )
 

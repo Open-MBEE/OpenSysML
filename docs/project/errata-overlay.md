@@ -113,7 +113,7 @@ applied. **The as-published figure is the conformance statement**; the
 errata-applied one is a secondary diagnostic, and the generated block in
 `README.md` and [architecture](../internals/architecture.md) says so in the same
 sentence it prints them. Both come from the same run and the same committed
-baseline (`internal/doccounts` reads the baselines' `errata` sections), so the
+baseline (`tools/census/doccounts` reads the baselines' `errata` sections), so the
 two figures cannot drift apart or be composed from different trees.
 
 Measured with fresh caches when the overlay landed:
