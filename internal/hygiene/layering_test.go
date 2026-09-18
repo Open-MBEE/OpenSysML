@@ -42,7 +42,8 @@ var permitted = map[string][]string{
 }
 
 // packageLayer assigns every package under internal/, cmd/, api/ and client/
-// to a layer; a package the table does not name fails the test.
+// to a layer; a package the table does not name fails the test, as does an
+// internal/ or cmd/ entry the module no longer has (tools/ is its own module).
 var packageLayer = map[string]string{
 	"internal/core/source":       "foundation",
 	"internal/core/ast":          "foundation",
@@ -94,13 +95,14 @@ var packageLayer = map[string]string{
 	"internal/core/queryexec": "documents",
 	"internal/core/docir":     "documents",
 	"internal/core/docrender": "documents",
-	"internal/docpdf":         "documents",
+	"internal/core/docpdf":    "documents",
 
-	"internal/core/model":     "workspace",
-	"internal/core/highlight": "workspace",
-	"internal/core/libs":      "workspace",
-	"internal/core/project":   "workspace",
-	"internal/core/envvar":    "workspace",
+	"internal/core/model":       "workspace",
+	"internal/core/highlight":   "workspace",
+	"internal/core/libs":        "workspace",
+	"internal/core/libs/errata": "workspace",
+	"internal/core/project":     "workspace",
+	"internal/core/envvar":      "workspace",
 
 	"api/proto":              "frontends",
 	"api/proto/protoconnect": "frontends",
@@ -114,33 +116,12 @@ var packageLayer = map[string]string{
 	"cmd/sysml-grpc":         "frontends",
 	"cmd/sysml-lsp":          "frontends",
 
-	"internal/baseline":                "tooling",
-	"internal/errata":                  "tooling",
-	"internal/fixtures":                "tooling",
-	"internal/junit":                   "tooling",
-	"internal/doccounts":               "tooling",
-	"internal/doccounts/doccountstest": "tooling",
-	"internal/stressmodel":             "tooling",
-	"internal/fuml":                    "tooling",
-	"internal/pssm":                    "tooling",
-	"internal/xmi":                     "tooling",
-	"internal/perfbench":               "tooling",
-	"internal/hygiene":                 "tooling",
-	"internal/testutil/gobuild":        "tooling",
-	"internal/testutil/graphcmp":       "tooling",
-	"internal/core/libs/gensnapshot":   "tooling",
-	"internal/core/rdf/ontology/gen":   "tooling",
-	"cmd/conformance":                  "tooling",
-	"cmd/doc-counts":                   "tooling",
-	"cmd/fuml-referee":                 "tooling",
-	"cmd/grammar-coverage":             "tooling",
-	"cmd/pilot-diff":                   "tooling",
-	"cmd/pilot-exec-diff":              "tooling",
-	"cmd/pilot-reject":                 "tooling",
-	"cmd/pilot-xpect":                  "tooling",
-	"cmd/pssm-referee":                 "tooling",
-	"cmd/stress-model":                 "tooling",
-	"cmd/validation-census":            "tooling",
+	"internal/fixtures":          "tooling",
+	"internal/stressmodel":       "tooling",
+	"internal/perfbench":         "tooling",
+	"internal/hygiene":           "tooling",
+	"internal/testutil/gobuild":  "tooling",
+	"internal/testutil/graphcmp": "tooling",
 }
 
 // tolerated is the imports the layer table does not permit and that still
@@ -151,7 +132,6 @@ var tolerated = map[string][]string{
 	"internal/core/codegen":             {"internal/core/passes"},
 	"internal/core/export":              {"internal/core/libs"},
 	"internal/core/identity":            {"internal/core/rdf"},
-	"internal/core/libs":                {"internal/errata"},
 	"internal/core/migrate":             {"internal/core/libs"},
 	"internal/core/passes":              {"internal/core/rdf"},
 	"internal/core/runtime":             {"internal/core/envvar", "internal/core/parser", "internal/core/passes"},
@@ -200,9 +180,11 @@ func TestPackageLayering(t *testing.T) {
 	}
 
 	seen := map[string]bool{}
+	listed := map[string]bool{}
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		fields := strings.Fields(line)
 		from := strings.TrimPrefix(fields[0], modulePath)
+		listed[from] = true
 		fromLayer, ok := packageLayer[from]
 		if !ok {
 			t.Errorf("%s is not assigned to a layer", from)
@@ -244,6 +226,17 @@ func TestPackageLayering(t *testing.T) {
 	sort.Strings(stale)
 	for _, edge := range stale {
 		t.Errorf("%s no longer exists; move it from tolerated to removed so it cannot return", edge)
+	}
+
+	var gone []string
+	for pkg := range packageLayer {
+		if (strings.HasPrefix(pkg, "internal/") || strings.HasPrefix(pkg, "cmd/")) && !listed[pkg] {
+			gone = append(gone, pkg)
+		}
+	}
+	sort.Strings(gone)
+	for _, pkg := range gone {
+		t.Errorf("%s is not in the module; remove it from the layer table", pkg)
 	}
 }
 
