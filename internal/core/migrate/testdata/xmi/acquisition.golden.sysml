@@ -13,6 +13,8 @@ part def Observatory {
     action def Acquire {
         attribute 'Time_Loop start' : ScalarValues::Real default = 0.0;
         attribute Time_Loop : ScalarValues::Real default = 0.0;
+        attribute 'Time_Attempt start' : ScalarValues::Real default = 0.0;
+        attribute Time_Attempt : ScalarValues::Real default = 0.0;
         first start then 'start timer';
         action 'start timer' {
             assign this.Time_Acq_Total := localClock.currentTime;
@@ -28,11 +30,19 @@ part def Observatory {
         }
         first 'first attempt' then 'merge';
         merge 'merge';
-        first 'merge' then wait;
+        first 'merge' then stamp3;
         action wait accept after this.tcs.ditSetup [SI::s];
         first wait then attempt;
+        action stamp3 {
+            assign 'Time_Attempt start' := localClock.currentTime;
+        }
+        first stamp3 then wait;
         action attempt;
-        first attempt then 'decide';
+        first attempt then stamp4;
+        action stamp4 {
+            assign Time_Attempt := localClock.currentTime - 'Time_Attempt start';
+        }
+        first stamp4 then 'decide';
         decide 'decide';
         first 'decide' if this.tcs.i >= this.tcs.Retries then 'guide star found';
         first 'decide' if not this.tcs.GS_Found and this.tcs.i < this.tcs.Retries then 'next attempt';

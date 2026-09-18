@@ -14,6 +14,23 @@
       <language>JavaScript</language>
       <body>Math.max(E_0 - P * dt, 0)</body>
     </packagedElement>
+    <packagedElement xmi:type="uml:OpaqueBehavior" xmi:id="_scale" name="Scale">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_px" name="x"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_py" name="y" direction="out"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <language>JavaScript</language>
+      <body>x = x * 2; y = x;</body>
+    </packagedElement>
+    <packagedElement xmi:type="uml:OpaqueBehavior" xmi:id="_shift" name="Shift">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pa" name="a" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pb" name="b" direction="out"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <language>JavaScript</language>
+      <body>const step = 1; a = a + step; b = a;</body>
+    </packagedElement>
+    <packagedElement xmi:type="uml:OpaqueBehavior" xmi:id="_double" name="Double">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pn" name="n" direction="inout"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <language>JavaScript</language>
+      <body>const k = 2; n = n * k;</body>
+    </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_reactor" name="Reactor">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_power" name="power"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
         <defaultValue xmi:type="uml:LiteralReal" xmi:id="_power0" value="3.0"/>

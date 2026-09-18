@@ -8,6 +8,30 @@ calc def Energy {
     out result : ScalarValues::Real;
     RealFunctions::max(E_0 - P * dt, 0)
 }
+action def Scale {
+    in x : ScalarValues::Real;
+    out y : ScalarValues::Real;
+    /* body not migrated (the construct "x" is outside the translated subset: an in parameter is not assigned) {JavaScript}:
+     * x = x * 2; y = x;
+     */
+}
+action def Shift {
+    in a : ScalarValues::Real;
+    out b : ScalarValues::Real;
+    /* body not migrated (the construct "a" is outside the translated subset: an in parameter is not assigned) {JavaScript}:
+     * const step = 1; a = a + step; b = a;
+     */
+}
+action def Double {
+    inout n : ScalarValues::Real;
+    first start then body;
+    action body {
+        attribute k : ScalarValues::Integer;
+        assign k := 2;
+        assign n := n * k;
+    }
+    first body then done;
+}
 part def Reactor {
     attribute power : ScalarValues::Real default = 3.0;
     attribute limit : ScalarValues::Real default = RealFunctions::min(power * 2, 5);

@@ -1080,6 +1080,9 @@ func assignPerformerFeature(ctx *Context, self *Instance, scope *symbols.Scope, 
 	if self == nil {
 		return false, nil
 	}
+	if name == currentTimeName && ctx.isClock(self) {
+		return true, fmt.Errorf("assignment to %s: %w: object #%d (%s)", name, ErrClockNotAssignable, self.ID, symbolText(self.Type))
+	}
 	if _, ok := self.FeatureValues[name]; !ok {
 		return false, nil
 	}

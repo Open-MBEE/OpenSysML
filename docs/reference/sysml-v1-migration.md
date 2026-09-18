@@ -299,7 +299,7 @@ translation is always complete or absent — never partial.
 | Script | v2 |
 |---|---|
 | `x = e;` `x += e;` `-=` `*=` `/=` `x++` `x--` | `assign x := e;` `assign x := x + e;` … |
-| `var x = e;` (one name, initialized) | `attribute x : T;` `assign x := e;` with `T` the type of `e` |
+| `var x = e;` `let x = e;` `const x = e;` (one name, initialized) | `attribute x : ScalarValues::T;` `assign x := e;` with `T` the type of `e`; a later assignment to a `const` is refused |
 | several statements, on `;` or newlines | a sequence of the above |
 | integer, real, Boolean and string literals | the same literal |
 | `a`, `a.b.c` naming features that resolve | `this.a`, `this.a.b.c` (through the swimlane's object when it has one) |
@@ -316,8 +316,9 @@ translation is always complete or absent — never partial.
 **Refusals.** Anything else is refused, and the report line carries the reason with the token
 that caused it: a language not in the table (`the language "Groovy" is not translated`), text
 that is not expression syntax, a construct outside the subset (`for`, `while`, `if` statements,
-`new`, `function`, a declaration of several names, a string method, a regular expression, an
-expression that assigns nothing), a call not in the table (`the call "print" is not in the
+`new`, `function`, a declaration of several names, an assignment to a `const` or to an `in`
+parameter, a string method, a regular expression, an expression that assigns nothing, text
+after the one expression a guard or default is), a call not in the table (`the call "print" is not in the
 translated function table`), a name that resolves to nothing readable (`this.` in a context with
 no object, a property of no v2 type, a name no scope defines), or types that disagree (an
 `Integer` guard, a `Boolean` added to a `Real`, a plural where a scalar is wanted). A body

@@ -11,6 +11,7 @@ import (
 // clock, and a read through a part that holds no object.
 func TestRuntimeRobustnessClockRead(t *testing.T) {
 	t.Run("current_time_is_not_assigned", testClockReadCurrentTimeNotAssigned)
+	t.Run("own_current_time_is_not_assigned", testClockReadOwnCurrentTimeNotAssigned)
 	t.Run("clock_of_a_part_holding_no_object", testClockReadOfPartHoldingNoObject)
 	t.Run("current_time_reads_the_run_clock", testClockReadFollowsTheRunClock)
 }
@@ -43,6 +44,31 @@ func testClockReadCurrentTimeNotAssigned(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, stationObserving("assign localClock.currentTime := 5.0;"), "test::Station")
 	if !errors.Is(err, ErrClockNotAssignable) || !strings.Contains(err.Error(), "assignment to localClock.currentTime") {
 		t.Fatalf("error = %v, want ErrClockNotAssignable over localClock.currentTime", err)
+	}
+}
+
+// testClockReadOwnCurrentTimeNotAssigned: a clock's own body naming currentTime
+// bare is refused the same way, not stored as data of the body.
+func testClockReadOwnCurrentTimeNotAssigned(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		private import Clocks::*;
+		part def Chrono :> Clock {
+			attribute seen : Real default = -1.0;
+			action def Tick {
+				first start then a;
+				action a { assign currentTime := 5.0; assign seen := currentTime; }
+				first a then done;
+			}
+			exhibit state run {
+				entry; then ticking;
+				state ticking { entry action tick : Tick; }
+			}
+		}
+	}`
+	_, _, err := instantiateWithLibraries(t, src, "test::Chrono")
+	if !errors.Is(err, ErrClockNotAssignable) || !strings.Contains(err.Error(), "assignment to currentTime") {
+		t.Fatalf("error = %v, want ErrClockNotAssignable over a bare currentTime", err)
 	}
 }
 

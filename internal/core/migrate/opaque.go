@@ -397,8 +397,8 @@ type opaqueParser struct {
 	i       int
 	d       dialect
 	sc      opaqueScope
-	locals  map[string]string // names a `var` declared, with the scalar each holds
-	assigns bool              // whether `=` assigns (a statement) rather than compares
+	locals  map[string]local // names a `var`, `let` or `const` declared
+	assigns bool             // whether `=` assigns (a statement) rather than compares
 }
 
 func newOpaqueParser(body string, d dialect, sc opaqueScope) (*opaqueParser, *refusal) {
@@ -406,7 +406,14 @@ func newOpaqueParser(body string, d dialect, sc opaqueScope) (*opaqueParser, *re
 	if err != nil {
 		return nil, err
 	}
-	return &opaqueParser{toks: toks, d: d, sc: sc, locals: map[string]string{}}, nil
+	return &opaqueParser{toks: toks, d: d, sc: sc, locals: map[string]local{}}, nil
+}
+
+// local is a name a declaration introduced: the scalar it holds and whether
+// `const` made it unassignable.
+type local struct {
+	scalar   string
+	constant bool
 }
 
 // peek returns the next token, skipping newlines when skipNL is set.
@@ -453,7 +460,10 @@ func (p *opaqueParser) wholeExpr() (translated, *refusal) {
 	if err != nil {
 		return translated{}, err
 	}
-	if tok := p.peek(true); tok.kind != tokEOF && !tok.isPunct(";") {
+	if p.peek(true).isPunct(";") {
+		p.next(true)
+	}
+	if tok := p.peek(true); tok.kind != tokEOF {
 		return translated{}, &refusal{kind: refusedSyntax, token: tok.text, why: "text follows the expression"}
 	}
 	return t, nil
@@ -566,10 +576,10 @@ func (p *opaqueParser) declaration() ([]string, *refusal) {
 	if value.scalar == "" || value.plural {
 		return nil, &refusal{kind: refusedType, token: kw.text + " " + name.text, why: "the type the declaration holds cannot be told from its value"}
 	}
-	p.locals[name.text] = value.scalar
+	p.locals[name.text] = local{scalar: value.scalar, constant: kw.text == "const"}
 	target := writeName(name.text)
 	return []string{
-		"attribute " + target + " : " + value.scalar + ";",
+		"attribute " + target + " : ScalarValues::" + value.scalar + ";",
 		"assign " + target + " := " + value.expr + ";",
 	}, nil
 }
@@ -616,8 +626,11 @@ func (p *opaqueParser) assignment(path []string, op string) ([]string, *refusal)
 // target resolves the feature an assignment writes.
 func (p *opaqueParser) target(path []string) (opaqueRef, *refusal) {
 	if len(path) == 1 {
-		if scalar, ok := p.locals[path[0]]; ok {
-			return opaqueRef{expr: writeName(path[0]), scalar: scalar}, nil
+		if l, ok := p.locals[path[0]]; ok {
+			if l.constant {
+				return opaqueRef{}, &refusal{kind: refusedConstruct, token: path[0], why: "a const is not assigned again"}
+			}
+			return opaqueRef{expr: writeName(path[0]), scalar: l.scalar}, nil
 		}
 	}
 	return p.sc.feature(path, true)
@@ -938,8 +951,8 @@ func (p *opaqueParser) primary() (translated, *refusal) {
 // name resolves a dotted name through the locals and the scope.
 func (p *opaqueParser) name(path []string) (translated, *refusal) {
 	if len(path) == 1 {
-		if scalar, ok := p.locals[path[0]]; ok {
-			return translated{expr: writeName(path[0]), scalar: scalar, atomic: true}, nil
+		if l, ok := p.locals[path[0]]; ok {
+			return translated{expr: writeName(path[0]), scalar: l.scalar, atomic: true}, nil
 		}
 	}
 	ref, err := p.sc.feature(path, false)

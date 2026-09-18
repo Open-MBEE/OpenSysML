@@ -46,6 +46,7 @@ func TestTranslateExpr(t *testing.T) {
 	}{
 		{"JavaScript", "i >= Retries", "Boolean", "this.i >= this.Retries", "Boolean"},
 		{"JavaScript", "GS_Found", "Boolean", "this.GS_Found", "Boolean"},
+		{"JavaScript", "GS_Found;", "Boolean", "this.GS_Found", "Boolean"},
 		{"JavaScript", "!GS_Found", "", "not this.GS_Found", "Boolean"},
 		{"JavaScript", "i < Retries && !GS_Found", "", "this.i < this.Retries and not this.GS_Found", "Boolean"},
 		{"JavaScript", "i == 1 || i === 2", "", "this.i == 1 or this.i == 2", "Boolean"},
@@ -123,8 +124,10 @@ func TestTranslateStatements(t *testing.T) {
 			"assign this.t := " + clockRead + ";", "assign this.t0 := " + clockRead + " - this.t;"}},
 		{"JavaScript", "// start\nt = 0.0; /* reset */ i = 0", []string{"assign this.t := 0.0;", "assign this.i := 0;"}},
 		{"JavaScript", "var n = i + 1; i = n * 2", []string{
-			"attribute n : Integer;", "assign n := this.i + 1;", "assign this.i := n * 2;"}},
+			"attribute n : ScalarValues::Integer;", "assign n := this.i + 1;", "assign this.i := n * 2;"}},
 		{"JavaScript", "this.tcs.i = Math.max(i, 0)", []string{"assign this.tcs.i := IntegerFunctions::max(this.i, 0);"}},
+		{"JavaScript", "const n = 2; i = i * n", []string{
+			"attribute n : ScalarValues::Integer;", "assign n := 2;", "assign this.i := this.i * n;"}},
 		{"", "GS_Found = i >= Retries", []string{"assign this.GS_Found := this.i >= this.Retries;"}},
 	}
 	for _, c := range cases {
@@ -185,6 +188,13 @@ func TestTranslateRefusals(t *testing.T) {
 		{"JavaScript", "i +", false, refusedSyntax, ""},
 		{"JavaScript", "(i", false, refusedSyntax, "("},
 		{"JavaScript", "i > 1 j", false, refusedSyntax, "j"},
+		{"JavaScript", "GS_Found; i > 1", false, refusedSyntax, "i"},
+		{"JavaScript", "GS_Found;;", false, refusedSyntax, ";"},
+		{"JavaScript", "GS_Found; false", false, refusedSyntax, "false"},
+		{"JavaScript", "const n = 1; n = 2", true, refusedConstruct, "n"},
+		{"JavaScript", "const n = 1; n += 2", true, refusedConstruct, "n"},
+		{"JavaScript", "const n = 1; n++", true, refusedConstruct, "n"},
+		{"JavaScript", "const n = 1; --n", true, refusedConstruct, "n"},
 		{"JavaScript", "i = 1 j = 2", true, refusedSyntax, "j"},
 		{"JavaScript", "i++ + 1", false, refusedConstruct, "++"},
 		{"JavaScript", "i = 0x1F", true, refusedConstruct, "0x1F"},

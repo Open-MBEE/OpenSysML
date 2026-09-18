@@ -67,6 +67,7 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	wantNote(t, r, "_attempt", migrate.Mapped, "a step with a duration and no further behavior")
 	wantNote(t, r, "_dc", migrate.Approximated, `the duration "ditSetup s" is read as the expression this.tcs.ditSetup, in seconds`)
 	wantNote(t, r, "_span", migrate.Mapped, "is assigned to the attribute Time_Loop, in seconds")
+	wantNote(t, r, "_single", migrate.Mapped, "from the start of 'attempt' to the end of 'attempt' is assigned to the attribute Time_Attempt, in seconds")
 	wantNote(t, r, "_astray", migrate.Unmapped, "is not a node of the activity")
 	wantNote(t, r, "_blank", migrate.Unmapped, "observes no event")
 
@@ -75,11 +76,12 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	meta(t, s, "%seed 1")
 	v := s.RunAction("Observatory::Acquire", "Observatory")
 	wantVerdict(t, v)
-	runs := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 5, 1, []string{"this.Time_Acq_Total", "Time_Loop"}).Lines, "\n")
+	runs := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 5, 1, []string{"this.Time_Acq_Total", "Time_Loop", "Time_Attempt"}).Lines, "\n")
 	// Four attempts of ditSetup = 2.5 s each: the loop ran until i reached Retries.
 	for _, want := range []string{
 		"this.Time_Acq_Total: 5 run(s), min 10.0, mean 10.0, max 10.0",
 		"Time_Loop: 5 run(s), min 10.0, mean 10.0, max 10.0",
+		"Time_Attempt: 5 run(s), min 2.5, mean 2.5, max 2.5",
 	} {
 		if !strings.Contains(runs, want) {
 			t.Errorf("runs lack %q:\n%s", want, runs)
@@ -141,15 +143,22 @@ func TestTranslatorRefusalsAndConfiguredClockName(t *testing.T) {
 		"RealFunctions::max(E_0 - P * dt, 0)",
 		"attribute limit : ScalarValues::Real default = RealFunctions::min(power * 2, 5);",
 		"assign this.started := localClock.currentTime;",
+		"attribute k : ScalarValues::Integer;",
+		"assign n := n * k;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNoLine(t, r.Notation, "assign this.power := this.label + 1;")
+	wantNoLine(t, r.Notation, "assign x := x * 2;")
+	wantNoLine(t, r.Notation, "assign a := a + step;")
 	wantClean(t, "t.sysml", r)
 	wantNote(t, r, "_energy", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_limit", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_mark", migrate.Mapped, "the clock variable reads the local clock")
+	wantNote(t, r, "_double", migrate.Mapped, "the JavaScript body is translated to v2")
 	for id, want := range map[string]string{
+		"_scale":   `the construct "x" is outside the translated subset: an in parameter is not assigned`,
+		"_shift":   `the construct "a" is outside the translated subset: an in parameter is not assigned`,
 		"_loop":    `the construct "for" is outside the translated subset`,
 		"_alloc":   `the construct "new" is outside the translated subset`,
 		"_trim":    `the call "label.trim" is not in the translated function table`,

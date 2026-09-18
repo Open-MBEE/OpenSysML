@@ -81,6 +81,9 @@ GS_Found = false;</body>
           <event xmi:idref="_set"/>
           <event xmi:idref="_found"/>
         </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_single" name="Time_Attempt">
+          <event xmi:idref="_attempt"/>
+        </observation>
         <observation xmi:type="uml:DurationObservation" xmi:id="_astray" name="Time_Astray">
           <event xmi:idref="_tcs"/>
         </observation>

@@ -78,6 +78,8 @@ func (a *activity) timingOf(o *xmi.Element) (*timing, string) {
 		return dflt
 	}
 	if len(events) == 1 {
+		// UML 2.5.1 DurationObservation: one event observes the duration of that
+		// element's own execution, from its entering to its exiting.
 		t.fromEnd, t.toEnd = false, true
 	} else {
 		t.fromEnd, t.toEnd = at(0, false), at(1, true)

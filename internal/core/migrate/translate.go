@@ -129,7 +129,7 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 		expr += "." + writeName(m.nameOf(next))
 		f = next
 	}
-	if write && f.Type == "Parameter" && f.Attrs["direction"] == "in" {
+	if dir, _ := parameterDirection(f); write && f.Type == "Parameter" && dir == "in" {
 		return opaqueRef{}, &refusal{kind: refusedConstruct, token: full, why: "an in parameter is not assigned"}
 	}
 	if s.lane != nil && s.viaLane {
