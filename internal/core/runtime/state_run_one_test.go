@@ -81,6 +81,8 @@ func TestRunOneMatchesRunToQuiescence(t *testing.T) {
 	ctx, exec = runOneMachine(t)
 	var progress dueProgress
 	units := 0
+	// Note into the clock's run, as Advance does, so the two lists start alike.
+	leave := ctx.beginExecutorRun(&ctx.clockRun)
 	for {
 		moved, err := exec.runOne(&progress)
 		if err != nil {
@@ -97,6 +99,7 @@ func TestRunOneMatchesRunToQuiescence(t *testing.T) {
 			break
 		}
 	}
+	leave()
 	ctx.clock.now = 3
 
 	if got := exec.StateData()["log"]; got.Const.Int != wantLog.Const.Int {

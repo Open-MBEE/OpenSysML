@@ -1,5 +1,5 @@
-choice on accept Go: states a, b react (unordered; took a first)
 choice join sync: states a, b react (unordered; took a first)
+choice exiting inner: next a(exit), c(exit) (unordered; took a(exit) first)
 exit: a (exit action)
 stmt action body
   stmt assign log

@@ -2,6 +2,7 @@ exit: start
 stmt assign level
   eval literal 3 -> 3
 enter: Work
+choice entering Work: next a1(entry), b1(entry) (unordered; took a1(entry) first)
 enter: a1
 enter: b1
 transition: start -> Work
@@ -11,7 +12,6 @@ eval operator > -> true
   eval feature level -> 3
   eval literal 2 -> 2
 eval operator > -> true
-choice on change: states a1, b1 react (unordered; took a1 first)
 choice join sync: states a1, b1 react (unordered; took a1 first)
 exit: a1
 stmt assign log

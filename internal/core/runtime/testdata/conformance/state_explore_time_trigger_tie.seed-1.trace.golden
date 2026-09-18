@@ -1,11 +1,11 @@
-choice events at t=2.0: time a1 1->a2, time b1 1->b2 (unordered; dispatched time b1 1->b2 first)
-exit: b1
-stmt assign last
-  eval literal 2 -> 2
-enter: b2
-transition: b1 -> b2 (event: time)
+choice events at t=2.0: time a1 1->a2, time b1 1->b2 (unordered; dispatched time a1 1->a2 first)
 exit: a1
 stmt assign last
   eval literal 1 -> 1
 enter: a2
 transition: a1 -> a2 (event: time)
+exit: b1
+stmt assign last
+  eval literal 2 -> 2
+enter: b2
+transition: b1 -> b2 (event: time)
