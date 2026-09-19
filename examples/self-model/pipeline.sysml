@@ -351,7 +351,7 @@ package OpenSysMLPipeline {
 
     // Lossless: guards, triggers, effects and pseudostate edges all survive.
     #Backend part def Lowering :> Stage {
-        attribute :>> goPackage = "internal/core/lower";
+        attribute :>> goPackage = "internal/ir/lower";
         attribute lossless : Boolean = true;
         in item types : TypeTable;
         out item actions : ActionGraph;

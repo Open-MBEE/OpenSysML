@@ -199,7 +199,7 @@ package OpenSysMLSurfaces {
     part def Provenance :> CodeUnit {
         attribute :>> goPackage = "internal/semantic/symbols";
         attribute keyedByDocumentAndSpan : Boolean = true;
-        attribute consumers : String = "internal/core/docir, internal/core/view, internal/core/queryplan";
+        attribute consumers : String = "internal/core/docir, internal/ir/view, internal/ir/queryplan";
         out item origins : SourceSpan;
     }
 
@@ -229,7 +229,7 @@ package OpenSysMLSurfaces {
     // Every kind in StandardViewDefinitions is recognized, so a view stating
     // one that is not produced is told so rather than rendered as another.
     part def ViewEngine :> CodeUnit {
-        attribute :>> goPackage = "internal/core/view";
+        attribute :>> goPackage = "internal/ir/view";
         attribute recognizedKinds : Integer = 8;
         attribute supportedKinds : Integer = 6;
         part tree : RenderingKind { attribute :>> kind = "tree"; }
@@ -252,7 +252,7 @@ package OpenSysMLSurfaces {
     }
 
     part def QueryCompiler :> CodeUnit {
-        attribute :>> goPackage = "internal/core/queryplan";
+        attribute :>> goPackage = "internal/ir/queryplan";
         attribute immutablePlans : Boolean = true;
     }
 
@@ -266,7 +266,7 @@ package OpenSysMLSurfaces {
     // planner compiles a document definition into an immutable plan holding
     // compiled query programs.
     part def DocumentPlanner :> CodeUnit {
-        attribute :>> goPackage = "internal/core/docplan";
+        attribute :>> goPackage = "internal/ir/docplan";
         attribute libraryFile : String =
             "internal/core/libs/stdlib/OpenSysML Libraries/DocumentQueries.sysml";
         attribute immutablePlans : Boolean = true;

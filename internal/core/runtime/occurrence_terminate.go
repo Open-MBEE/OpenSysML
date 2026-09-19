@@ -3,7 +3,7 @@ package runtime
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 )
 
 // terminateOccurrence ends the occurrence s names (SysML v2 §7.17.10): its lifetime

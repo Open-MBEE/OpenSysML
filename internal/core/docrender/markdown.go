@@ -9,7 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/docir"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
-	"github.com/Open-MBEE/OpenSysML/internal/core/view"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
