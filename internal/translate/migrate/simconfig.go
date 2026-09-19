@@ -35,8 +35,8 @@ func isSimulationConfig(s *sysmlv1.Stereotype) bool {
 	return s.Name == "SimulationConfig" && isSimulationProfile(s.Namespace)
 }
 
-// isSimulationProfile matches, by host and path, MagicDraw's SimulationProfile
-// (…/schemas/SimulationProfile.xmi); nothing else.
+// isSimulationProfile matches, by host and path, MagicDraw's own SimulationProfile
+// (…magicdraw.com/schemas/SimulationProfile.xmi); a profile of that name elsewhere is not it.
 func isSimulationProfile(ns string) bool {
 	u, err := url.Parse(ns)
 	if err != nil {
@@ -46,8 +46,7 @@ func isSimulationProfile(ns string) bool {
 	if host != "magicdraw.com" && host != "nomagic.com" {
 		return false
 	}
-	segs := strings.Split(strings.ToLower(u.Path), "/")
-	return strings.TrimSuffix(segs[len(segs)-1], ".xmi") == "simulationprofile"
+	return strings.ToLower(u.Path) == "/schemas/simulationprofile.xmi"
 }
 
 // configurationSetting relates a «SimulationConfig» tag to the attribute of

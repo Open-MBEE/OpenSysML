@@ -122,5 +122,37 @@ func TestSimulationConfigReportsWhatItCannotRun(t *testing.T) {
 	}
 }
 
+// Only MagicDraw's own simulation profile, at its schemas path on either of the
+// vendor's hosts, makes a «SimulationConfig» a run configuration; a stereotype
+// of that name from a profile elsewhere — a custom one under the vendor's host
+// included — is any other profile's: kept as a comment on a plain class.
+func TestSimulationConfigOfAnotherProfileIsNotARunConfiguration(t *testing.T) {
+	r := migrateDocument(t, runConfigurations, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Block xmi:id="_s2" base_Class="_sure"/>
+  <sysml:Block xmi:id="_s3" base_Class="_other"/>
+  <Sim:SimulationConfig xmlns:Sim="https://nomagic.com/Schemas/simulationprofile.xmi" xmi:id="_c0" base_Class="_g0" executionTarget="_s0" numberOfRuns="2"/>
+  <acme:SimulationConfig xmlns:acme="https://magicdraw.com/acme/SimulationProfile.xmi" xmi:id="_c1" base_Class="_g1" executionTarget="_s0" numberOfRuns="2"/>
+  <deep:SimulationConfig xmlns:deep="http://www.magicdraw.com/schemas/custom/SimulationProfile.xmi" xmi:id="_c2" base_Class="_g2" executionTarget="_s0" numberOfRuns="2"/>
+  <other:SimulationConfig xmlns:other="https://profiles.example/schemas/SimulationProfile.xmi" xmi:id="_c3" base_Class="_g3" executionTarget="_s0" numberOfRuns="2"/>`)
+	wantLine(t, r.Notation, "action def 'Group 0' {")
+	wantNote(t, r, "_g0", migrate.Mapped, "")
+	for _, id := range []string{"_g1", "_g2", "_g3"} {
+		wantNote(t, r, id, migrate.Approximated, "a plain UML class without «Block» is written as a part def")
+	}
+	for _, line := range []string{"part def 'Group 1' {", "part def 'Group 2' {", "part def 'Group 3' {"} {
+		wantLine(t, r.Notation, line)
+	}
+	for _, line := range []string{"action def 'Group 1'", "action def 'Group 2'", "action def 'Group 3'"} {
+		wantNoLine(t, r.Notation, line)
+	}
+	if n := strings.Count(string(r.Notation), "applied stereotype «SimulationConfig»"); n != 3 {
+		t.Errorf("%d «SimulationConfig» comment(s), want one per lookalike:\n%s", n, r.Notation)
+	}
+	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
+		t.Errorf("the migrated document does not analyse clean: %v\n%s", errs, r.Notation)
+	}
+}
+
 // seedOf is a seed as RunRuns takes it, named.
 func seedOf(seed uint64) *uint64 { return &seed }
