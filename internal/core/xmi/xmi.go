@@ -71,7 +71,7 @@ func (e *Element) Attr(name string) string {
 	if e == nil {
 		return ""
 	}
-	if value := e.Attrs[name]; value != "" {
+	if value, ok := e.Attrs[name]; ok {
 		return value
 	}
 	return e.XMIAttrs[name]
