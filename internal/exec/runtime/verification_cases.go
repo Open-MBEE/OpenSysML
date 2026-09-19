@@ -54,10 +54,11 @@ func collectVerificationCases(scope *symbols.Scope, out *[]*symbols.Symbol) {
 	}
 }
 
-// verifies reports whether req is among the requirements verified.
+// verifies reports whether req is among the requirements verified, whichever
+// scope tree each symbol was reached through.
 func verifies(verified []*symbols.Symbol, req *symbols.Symbol) bool {
 	for _, sym := range verified {
-		if sym == req {
+		if symbols.SameElement(sym, req) {
 			return true
 		}
 	}

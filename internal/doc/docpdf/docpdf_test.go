@@ -385,6 +385,51 @@ func TestStyleSheetKeepsTablesWithinThePage(t *testing.T) {
 	}
 }
 
+// TestStyleSheetSetsWideTablesLandscape checks that a table of seven or more columns, with its
+// heading and caption, is set on a landscape page without the sibling-chain form cssselect2 misreads.
+func TestStyleSheetSetsWideTablesLandscape(t *testing.T) {
+	wide := "table:has(thead > tr > th:nth-child(7))"
+	for _, want := range []string{
+		"@page wide { size: landscape; }",
+		"body { page: main; }",
+		wide + " { page: wide; font-size: 9pt; }",
+		"p:has(+ " + wide + "),",
+		":is(p.caption, p:has(.caption)):has(+ p:has(+ " + wide + ")),",
+		":is(h1, h2, h3, h4, h5, h6):has(+ :is(p.caption, p:has(.caption)):has(+ p:has(+ " + wide + "))) { page: wide; }",
+		"th { overflow-wrap: normal; }",
+	} {
+		if !strings.Contains(styleSheet, want) {
+			t.Fatalf("stylesheet lacks %q", want)
+		}
+	}
+	if strings.Contains(styleSheet, "+ p + ") {
+		t.Fatal("stylesheet chains sibling combinators inside :has(), which cssselect2 evaluates against the first sibling alone")
+	}
+}
+
+// TestRenderForPandocLeavesDefaultStylesOff checks that pandoc is given only the print
+// stylesheet; a document-css variable, even "false", switches its screen layout back on.
+func TestRenderForPandocLeavesDefaultStylesOff(t *testing.T) {
+	dir := t.TempDir()
+	capture := filepath.Join(dir, "capture.args")
+	fakeTool(t, dir, "pandoc", PandocEnv,
+		`echo "$@" > "`+capture+`"; out=""; while [ $# -gt 0 ]; do [ "$1" = "--output" ] && out="$2"; shift; done; printf '%%PDF-1.7 fake' > "$out"`+"\n")
+	fakeTool(t, dir, "weasyprint", WeasyPrintEnv, "exit 0\n")
+	if _, err := Render("# Plain Report\n\nOne paragraph\\.\n", "pandoc", Options{}); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	args, err := os.ReadFile(capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(args), "--css pandoc.css") {
+		t.Fatalf("pandoc arguments lack the print stylesheet: %s", args)
+	}
+	if strings.Contains(string(args), "document-css") {
+		t.Fatalf("pandoc arguments set document-css: %s", args)
+	}
+}
+
 func TestMarkdownWithImages(t *testing.T) {
 	got := markdownWithImages(sampleMarkdown, []string{"diagram-1.svg"})
 	if strings.Contains(got, "```mermaid") {

@@ -542,3 +542,57 @@ func TestRunQueryReportsVerdicts(t *testing.T) {
 		"Row 1: assert constraint light on Garage::car: holds",
 		"Row 2: satisfy lightCar by car on Garage::car: holds")
 }
+
+// nestedVerdictQueryModel nests a requirement in a part, so the case names it by
+// a feature chain, and checks it from a part nested in the design.
+const nestedVerdictQueryModel = `package Descent {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+
+	part def Engine { attribute thrust : Real; }
+	requirement def ThrustMargin {
+		subject engine : Engine;
+		require constraint { engine.thrust >= 3000.0 }
+	}
+	part specification {
+		requirement thrust : ThrustMargin;
+	}
+	part lander {
+		part propulsion {
+			part engine : Engine { attribute :>> thrust = 2800.0; }
+			satisfy specification.thrust by engine;
+		}
+	}
+	verification def FireEngine {
+		subject engine : Engine;
+		VerificationCases::PassIf(engine.thrust >= 3000.0)
+	}
+	verification hotFire : FireEngine {
+		subject engine = lander.propulsion.engine;
+		objective { verify specification.thrust; }
+	}
+	calc def Checks :> Query {
+		in root : Element;
+		Project(source = Verdicts(source = root), properties = ("kind", "verdict"))
+	}
+}`
+
+// TestRunQueryVerdictsFindCasesVerifyingANestedRequirement pins that the cases verifying a
+// requirement named by feature chain are reported for a declared root and a held object alike.
+func TestRunQueryVerdictsFindCasesVerifyingANestedRequirement(t *testing.T) {
+	s := NewSession()
+	if res := s.Submit(nestedVerdictQueryModel); len(errorDiagnostics(res.Diagnostics)) > 0 {
+		t.Fatalf("model did not analyse cleanly: %v", res.Diagnostics)
+	}
+	wants(t, run(t, s, "%run-query Checks root=Descent::lander"),
+		"✓ Query Descent::Checks returned 2 rows",
+		"Row 1: satisfy specification::thrust by engine on Descent::lander.propulsion.engine: violated",
+		"Row 2: verification Descent::hotFire on Descent::lander.propulsion.engine: violated",
+		`kind = "verification"`)
+	wants(t, run(t, s, "%instantiate Descent::lander"), "Created instance")
+	wants(t, run(t, s, "%run-query Checks root=#1"),
+		"✓ Query Descent::Checks returned 2 rows",
+		"Row 2: verification Descent::hotFire on #1.propulsion.engine: violated")
+	wants(t, run(t, s, "%validate #1"), "Verification Descent::hotFire verdict: fail")
+}
