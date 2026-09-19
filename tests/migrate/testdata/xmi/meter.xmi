@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Enumeration" xmi:id="_mode" name="Mode">
+      <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_off" name="off"/>
+      <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_on" name="on"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_gauge" name="Gauge">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_reading" name="reading"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_reading0" value="3.0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_tick" name="Tick">
+        <node xmi:type="uml:InitialNode" xmi:id="_tinit"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_tfinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_t1" source="_tinit" target="_tfinal"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_needle" name="Needle">
+      <generalization xmi:type="uml:Generalization" xmi:id="_needle_gen" general="_gauge"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_meter" name="Meter">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_mmode" name="mode" type="_mode"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_dial" name="dial" type="_gauge" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_hand" name="hand" type="_needle" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_cells" name="cells" type="_gauge" aggregation="composite">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_cells_lo" value="2"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_cells_hi" value="2"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_count" name="count"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_count0" value="0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_label" name="label"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/></ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_total" name="total"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_total0" value="0.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ticks" name="ticks"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_ticks0" value="7"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_half" name="half"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_half0" value="0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_quarter" name="quarter"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_quarter0" value="0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_eighth" name="eighth"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_eighth0" value="0.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ratio" name="ratio"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_ratio0" value="0.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_floored" name="floored"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_floored0" value="0.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rounded" name="rounded"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_rounded0" value="0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_gain" name="gain"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_gain0">
+          <language>JavaScript</language>
+          <body>total(count)</body>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_tag" name="tag"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_tag0">
+          <language>JavaScript</language>
+          <body>label + "!"</body>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_square" name="square"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_square0">
+          <language>JavaScript</language>
+          <body>-total ** 2</body>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_cube" name="cube"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_cube0">
+          <language>JavaScript</language>
+          <body>-(total ** 3)</body>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_shown" name="shown" type="_gauge">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_shown0">
+          <language>JavaScript</language>
+          <body>count > 0 ? dial : hand</body>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pointer" name="pointer" type="_needle">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_pointer0">
+          <language>JavaScript</language>
+          <body>count > 0 ? dial : hand</body>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ready" name="ready"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_ready0" value="true"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_enabled" name="enabled"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_enabled0" value="false"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_flag" name="flag"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_flag0" value="false"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_lit" name="lit"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_lit0">
+          <language>JavaScript</language>
+          <body>ready or enabled</body>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_top" name="top"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_top0">
+          <language>JavaScript</language>
+          <body>cells.reading</body>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_measure" name="Measure">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_sense" name="sense">
+          <inputValue xmi:type="uml:ValuePin" xmi:id="_sensex" name="x"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+            <value xmi:type="uml:LiteralReal" xmi:id="_sensex0" value="1.5"/>
+          </inputValue>
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_sensey" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language>
+          <body>y = x * 2;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_record" name="record">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_recordv" name="v"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language>
+          <body>total = v + 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_split" name="split">
+          <language>Java</language>
+          <body>half = ticks / 2; ratio = total / 2; floored = Math.floor(total) / 8; rounded = Math.round(total) / 8;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_quarterly" name="quarterly">
+          <language>Java 1.8.0_202</language>
+          <body>quarter = ticks / 4;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_cc" name="cc">
+          <language>JavaCC</language>
+          <body>eighth = ticks / 8;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_judge" name="judge">
+          <inputValue xmi:type="uml:ValuePin" xmi:id="_judgeok" name="ok"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+            <value xmi:type="uml:OpaqueExpression" xmi:id="_judgeok0">
+              <language>JavaScript</language>
+              <body>Math.sqrt(total)</body>
+            </value>
+          </inputValue>
+          <inputValue xmi:type="uml:ValuePin" xmi:id="_judgen" name="n"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+            <value xmi:type="uml:OpaqueExpression" xmi:id="_judgen0">
+              <language>JavaScript</language>
+              <body>Math.floor(total)</body>
+            </value>
+          </inputValue>
+          <inputValue xmi:type="uml:ValuePin" xmi:id="_judgem" name="m"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+            <value xmi:type="uml:OpaqueExpression" xmi:id="_judgem0">
+              <language>JavaScript</language>
+              <body>2.0</body>
+            </value>
+          </inputValue>
+          <language>JavaScript</language>
+          <body>count = n + m;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c1" source="_init" target="_sense"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o1" source="_sensey" target="_recordv"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c2" source="_record" target="_split"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c3" source="_split" target="_quarterly"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c3b" source="_quarterly" target="_cc"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c3c" source="_cc" target="_judge"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c4" source="_judge" target="_final"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_skip" name="Skip">
+        <node xmi:type="uml:InitialNode" xmi:id="_sinit"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_idle" name="idle">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_idlez" name="z"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language>
+          <body>total = total * 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_sink" name="sink">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_sinkw" name="w"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language>
+          <body>total = w;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_dark" name="dark">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_darkq" name="q"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>Python</language>
+          <body>q = 1</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_drain" name="drain">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_drainw" name="w"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language>
+          <body>total = w;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_sfinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_s1" source="_sinit" target="_idle"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o2" source="_idlez" target="_sinkw"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_s2" source="_sink" target="_dark"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o3" source="_darkq" target="_drainw"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_s3" source="_drain" target="_sfinal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_flip" name="Flip">
+        <node xmi:type="uml:InitialNode" xmi:id="_finit"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_bump" name="bump">
+          <language>JavaScript</language>
+          <body>count = mode + 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_pick" name="pick">
+          <language>JavaScript</language>
+          <body>count = mode;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_match" name="match">
+          <language>JavaScript</language>
+          <body>mode = dial;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_widen" name="widen">
+          <language>JavaScript</language>
+          <body>dial = hand;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_narrow" name="narrow">
+          <language>JavaScript</language>
+          <body>hand = dial;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_huge" name="huge">
+          <language>JavaScript</language>
+          <body>count = 9007199254740993;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_smile" name="smile">
+          <language>JavaScript</language>
+          <body>label = "\uD83D\uDE00"; count = 9007199254740991;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_same" name="same">
+          <language>Java</language>
+          <body>lit = label.equals("\uD83D\uDE00");</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_alias" name="alias">
+          <language>Java</language>
+          <body>lit = label == "\uD83D\uDE00";</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_ffinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f1" source="_finit" target="_bump"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f2" source="_bump" target="_pick"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f3" source="_pick" target="_match"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f4" source="_match" target="_widen"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f7" source="_widen" target="_narrow"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f8" source="_narrow" target="_huge"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f5" source="_huge" target="_smile"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f6" source="_smile" target="_same"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f9" source="_same" target="_alias"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f10" source="_alias" target="_ffinal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_arm" name="Arm">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_armed" name="armed" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+          <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_armed0">
+            <language>JavaScript</language>
+            <body>Math.sqrt(total)</body>
+          </defaultValue>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_limit" name="limit" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+          <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_limit0">
+            <language>JavaScript</language>
+            <body>count + 1</body>
+          </defaultValue>
+        </ownedParameter>
+        <node xmi:type="uml:InitialNode" xmi:id="_ainit"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_fuse" name="fuse">
+          <language>JavaScript</language>
+          <body>flag = ready and enabled</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_latch" name="latch">
+          <language>JavaScript</language>
+          <body>flag = ready &amp;&amp; enabled</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_afinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_a1" source="_ainit" target="_fuse"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_a2" source="_fuse" target="_latch">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_a2g">
+            <language>JavaScript</language>
+            <body>ready and enabled</body>
+          </guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_a3" source="_latch" target="_afinal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_sweep" name="Sweep">
+        <group xmi:type="uml:ActivityPartition" xmi:id="_cells_lane" name="cells" represents="_cells" node="_calib _span _ticking"/>
+        <node xmi:type="uml:InitialNode" xmi:id="_winit"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_spread" name="spread">
+          <language>JavaScript</language>
+          <body>total = cells.reading + 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_reset" name="reset">
+          <language>JavaScript</language>
+          <body>cells.reading = 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_peak" name="peak">
+          <language>JavaScript</language>
+          <body>total = java.util.Collections.max(cells.reading);</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_calib" name="calib">
+          <language>JavaScript</language>
+          <body>reading = 2;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_span" name="span">
+          <language>JavaScript</language>
+          <body>total = reading;</body>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_ticking" name="ticking" behavior="_tick"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_wfinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w1" source="_winit" target="_spread"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w2" source="_spread" target="_reset"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w3" source="_reset" target="_peak"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w4" source="_peak" target="_calib"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w5" source="_calib" target="_span"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w6" source="_span" target="_ticking"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w7" source="_ticking" target="_wfinal"/>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_sb1" base_Class="_meter"/>
+  <sysml:Block xmi:id="_sb2" base_Class="_gauge"/>
+  <sysml:Block xmi:id="_sb3" base_Class="_needle"/>
+</xmi:XMI>

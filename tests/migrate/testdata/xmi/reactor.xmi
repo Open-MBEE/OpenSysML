@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:SimulationProfile="http://www.magicdraw.com/schemas/SimulationProfile.xmi">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_config" name="Run"/>
+    <packagedElement xmi:type="uml:FunctionBehavior" xmi:id="_energy" name="Energy">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pe0" name="E_0" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pp" name="P" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pdt" name="dt" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pr" name="result" direction="return"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <language>JavaScript</language>
+      <body>Math.max(E_0 - P * dt, 0)</body>
+    </packagedElement>
+    <packagedElement xmi:type="uml:OpaqueBehavior" xmi:id="_scale" name="Scale">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_px" name="x"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_py" name="y" direction="out"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <language>JavaScript</language>
+      <body>x = x * 2; y = x;</body>
+    </packagedElement>
+    <packagedElement xmi:type="uml:OpaqueBehavior" xmi:id="_shift" name="Shift">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pa" name="a" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pb" name="b" direction="out"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <language>JavaScript</language>
+      <body>const step = 1; a = a + step; b = a;</body>
+    </packagedElement>
+    <packagedElement xmi:type="uml:OpaqueBehavior" xmi:id="_double" name="Double">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pn" name="n" direction="inout"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <language>JavaScript</language>
+      <body>const k = 2; n = n * k;</body>
+    </packagedElement>
+    <packagedElement xmi:type="uml:OpaqueBehavior" xmi:id="_delay" name="Delay">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pts" name="t_sim" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pd" name="d" direction="out"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <language>JavaScript</language>
+      <body>d = t_sim * 2;</body>
+    </packagedElement>
+    <packagedElement xmi:type="uml:FunctionBehavior" xmi:id="_floor" name="Floor">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pfx" name="x" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pfr" name="whole" direction="return"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/></ownedParameter>
+      <language>JavaScript</language>
+      <body>Math.floor(x)</body>
+    </packagedElement>
+    <packagedElement xmi:type="uml:FunctionBehavior" xmi:id="_ceil" name="Ceil">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pcx" name="x" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pcr" name="whole" direction="return"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/></ownedParameter>
+      <language>JavaScript</language>
+      <body>Math.ceil(x)</body>
+    </packagedElement>
+    <packagedElement xmi:type="uml:FunctionBehavior" xmi:id="_round" name="Round">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_prdx" name="x" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_prdr" name="whole" direction="return"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <language>JavaScript</language>
+      <body>Math.round(x)</body>
+    </packagedElement>
+    <packagedElement xmi:type="uml:FunctionBehavior" xmi:id="_root" name="Root">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_prx" name="x" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_prok" name="ok" direction="return"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/></ownedParameter>
+      <language>JavaScript</language>
+      <body>Math.sqrt(x)</body>
+    </packagedElement>
+    <packagedElement xmi:type="uml:FunctionBehavior" xmi:id="_split" name="Split">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_psx" name="x" direction="in"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pslo" name="lo" direction="out"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_pshi" name="hi" direction="return"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      <language>JavaScript</language>
+      <body>x / 2</body>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_gauge" name="Gauge">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_gts" name="t_sim"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_gts0" value="4.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_reading" name="reading"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_reading0">
+          <language>JavaScript</language>
+          <body>t_sim + 1</body>
+        </defaultValue>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_reactor" name="Reactor">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_power" name="power"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_power0" value="3.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_limit" name="limit"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_limit0">
+          <language>JavaScript</language>
+          <body>Math.min(power * 2, 5)</body>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_started" name="started"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_started0" value="0.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_label" name="label">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_cycle" name="Cycle">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_mark" name="mark">
+          <language>JavaScript</language>
+          <body>started = t_sim;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_loop" name="loop">
+          <language>JavaScript</language>
+          <body>for (var k = 0; k &lt; 3; k++) { power = power + 1; }</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_alloc" name="alloc">
+          <language>JavaScript</language>
+          <body>power = new Number(4);</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_trim" name="trim">
+          <language>JavaScript</language>
+          <body>label = label.trim();</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_self" name="self">
+          <language>JavaScript</language>
+          <body>power = this.owner.power;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_stray" name="stray">
+          <language>JavaScript</language>
+          <body>power = nowhere + 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_mixed" name="mixed">
+          <language>JavaScript</language>
+          <body>power = label + 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_python" name="python">
+          <language>Python</language>
+          <body>power = power + 1</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_partial" name="partial">
+          <language>JavaScript</language>
+          <body>power = power + 1; label = label.trim();</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_shadow" name="shadow">
+          <language>JavaScript</language>
+          <body>var power = 1; power += 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_pinned" name="pinned">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_pinx" name="x"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language>
+          <body>var x = 1; x += 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_relay" name="relay">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_relayx" name="x"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_relayy" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language>
+          <body>y = x * 2; x = y;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_gain" name="gain">
+          <inputValue xmi:type="uml:ValuePin" xmi:id="_gainx" name="x"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+            <value xmi:type="uml:LiteralReal" xmi:id="_gainx0" value="1.5"/>
+          </inputValue>
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_gainy" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language>
+          <body>y = x * power;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_bare" name="bare">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_barer" name="raw"/>
+          <language>JavaScript</language>
+          <body>power = raw.level;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c1" source="_init" target="_mark"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c2" source="_mark" target="_loop"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c3" source="_loop" target="_alloc"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c4" source="_alloc" target="_trim"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c5" source="_trim" target="_self"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c6" source="_self" target="_stray"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c7" source="_stray" target="_mixed"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c8" source="_mixed" target="_python"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c9" source="_python" target="_partial"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c10" source="_partial" target="_shadow"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c11" source="_shadow" target="_pinned"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c12" source="_pinned" target="_relay"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c13" source="_relay" target="_gain"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c14" source="_gain" target="_bare"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c15" source="_bare" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_reactor"/>
+  <sysml:Block xmi:id="_s3" base_Class="_gauge"/>
+  <SimulationProfile:SimulationConfig xmi:id="_s2" base_Class="_config" timeVariableName="t_sim"/>
+</xmi:XMI>

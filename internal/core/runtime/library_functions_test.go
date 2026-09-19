@@ -105,6 +105,20 @@ func TestLibraryFunctionValues(t *testing.T) {
 		{"OpenSysMLMathFunctions::atan2", []Value{constReal(-1), constReal(1)}, semantics.Value{Kind: semantics.ValReal, Real: -math.Pi / 4}},
 		{"OpenSysMLMathFunctions::atan2", []Value{constReal(-1), constReal(-1)}, semantics.Value{Kind: semantics.ValReal, Real: -3 * math.Pi / 4}},
 		{"OpenSysMLMathFunctions::atan2", []Value{constInt(1), constInt(0)}, semantics.Value{Kind: semantics.ValReal, Real: math.Pi / 2}},
+		{"OpenSysMLMathFunctions::ceiling", []Value{constReal(2.1)}, semantics.Value{Kind: semantics.ValInt, Int: 3}},
+		{"OpenSysMLMathFunctions::ceiling", []Value{constReal(-2.9)}, semantics.Value{Kind: semantics.ValInt, Int: -2}},
+		{"OpenSysMLMathFunctions::ceiling", []Value{constReal(3.0)}, semantics.Value{Kind: semantics.ValInt, Int: 3}},
+		{"OpenSysMLMathFunctions::ceiling", []Value{constInt(-4)}, semantics.Value{Kind: semantics.ValInt, Int: -4}},
+		{"OpenSysMLMathFunctions::ceiling", []Value{constReal(math.MinInt64)}, semantics.Value{Kind: semantics.ValInt, Int: math.MinInt64}},
+		{"OpenSysMLMathFunctions::ceiling", []Value{constReal(-9223372036854774784)}, semantics.Value{Kind: semantics.ValInt, Int: -9223372036854774784}},
+		{"OpenSysMLMathFunctions::ceiling", []Value{constReal(9223372036854774784)}, semantics.Value{Kind: semantics.ValInt, Int: 9223372036854774784}},
+		{"OpenSysMLMathFunctions::quotient", []Value{constInt(7), constInt(2)}, semantics.Value{Kind: semantics.ValInt, Int: 3}},
+		{"OpenSysMLMathFunctions::quotient", []Value{constInt(-7), constInt(2)}, semantics.Value{Kind: semantics.ValInt, Int: -3}},
+		{"OpenSysMLMathFunctions::quotient", []Value{constInt(7), constInt(-2)}, semantics.Value{Kind: semantics.ValInt, Int: -3}},
+		{"OpenSysMLMathFunctions::quotient", []Value{constInt(-7), constInt(-2)}, semantics.Value{Kind: semantics.ValInt, Int: 3}},
+		{"OpenSysMLMathFunctions::quotient", []Value{constInt(27021597764222979), constInt(3)}, semantics.Value{Kind: semantics.ValInt, Int: 9007199254740993}},
+		{"OpenSysMLMathFunctions::quotient", []Value{constInt(math.MinInt64), constInt(1)}, semantics.Value{Kind: semantics.ValInt, Int: math.MinInt64}},
+		{"OpenSysMLMathFunctions::quotient", []Value{constInt(math.MaxInt64), constInt(-1)}, semantics.Value{Kind: semantics.ValInt, Int: -math.MaxInt64}},
 	}
 
 	for _, tc := range cases {
@@ -162,6 +176,14 @@ func TestLibraryFunctionErrors(t *testing.T) {
 		{"string argument to the logarithm", "OpenSysMLMathFunctions::ln", []Value{NewStringValue("1")}, ErrTypeMismatch},
 		{"string base", "OpenSysMLMathFunctions::log", []Value{constReal(8), NewStringValue("2")}, ErrTypeMismatch},
 		{"boolean argument to the angle", "OpenSysMLMathFunctions::atan2", []Value{constReal(1), boolValue(false)}, ErrTypeMismatch},
+		{"ceiling at the Integer boundary", "OpenSysMLMathFunctions::ceiling", []Value{constReal(-float64(math.MinInt64))}, semantics.ErrArithmeticOverflow},
+		{"ceiling below the Integer range", "OpenSysMLMathFunctions::ceiling", []Value{constReal(-1e20)}, semantics.ErrArithmeticOverflow},
+		{"ceiling of a string", "OpenSysMLMathFunctions::ceiling", []Value{NewStringValue("1")}, ErrTypeMismatch},
+		{"quotient by zero", "OpenSysMLMathFunctions::quotient", []Value{constInt(7), constInt(0)}, ErrDivisionByZero},
+		{"quotient of the least Integer by -1", "OpenSysMLMathFunctions::quotient", []Value{constInt(math.MinInt64), constInt(-1)}, semantics.ErrArithmeticOverflow},
+		{"Real argument to the quotient", "OpenSysMLMathFunctions::quotient", []Value{constReal(7.5), constInt(2)}, ErrTypeMismatch},
+		{"Real divisor to the quotient", "OpenSysMLMathFunctions::quotient", []Value{constInt(7), constReal(2.0)}, ErrTypeMismatch},
+		{"quotient with one argument", "OpenSysMLMathFunctions::quotient", []Value{constInt(7)}, ErrCalcArity},
 	}
 
 	for _, tc := range cases {
@@ -233,8 +255,8 @@ func TestOpenSysMLMathFunctionsMatchTheShippedDeclarations(t *testing.T) {
 		}
 		checkLibrarySignature(t, ctx, fqn, sym, fn)
 	}
-	if declared != 4 {
-		t.Errorf("%s declares %d functions, want 4 (exp, ln, log, atan2)", path, declared)
+	if declared != 6 {
+		t.Errorf("%s declares %d functions, want 6 (exp, ln, log, atan2, ceiling, quotient)", path, declared)
 	}
 }
 

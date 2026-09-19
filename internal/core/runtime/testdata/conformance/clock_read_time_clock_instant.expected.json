@@ -1,0 +1,11 @@
+{
+  "type": "action",
+  "libraries": true,
+  "evaluate": "test::stopwatch",
+  "outputs": {
+    "started": {"type": "Quantity", "value": 0.0, "unit": "s"},
+    "due": {"type": "Quantity", "value": 5.0, "unit": "s"},
+    "elapsed": {"type": "Quantity", "value": 5.0, "unit": "s"},
+    "later": {"type": "Boolean", "value": true}
+  }
+}

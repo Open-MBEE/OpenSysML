@@ -27,10 +27,16 @@ func (m *migration) stateMachineBody(sm *sysmlv1.Element) {
 // the body's entry action when entered says one was written; between writes
 // the members that come after it and before the states.
 func (m *migration) regions(owner *sysmlv1.Element, regions []*sysmlv1.Element, used map[string]bool, entered bool, between func()) {
+	empty := len(regions) > 0
+	regions = m.populatedRegions(regions)
 	switch len(regions) {
 	case 0:
 		between()
-		m.w.lines(commentLines("the " + kindOf(owner) + " has no region"))
+		if empty {
+			m.w.lines(commentLines("the " + kindOf(owner) + " has no region with a vertex"))
+		} else {
+			m.w.lines(commentLines("the " + kindOf(owner) + " has no region"))
+		}
 	case 1:
 		st := &stateRegion{m: m, r: regions[0], used: used, names: map[*sysmlv1.Element]string{}}
 		st.enter(entered)

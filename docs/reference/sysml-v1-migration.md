@@ -136,23 +136,26 @@ returned over the service yet.
 | Multiplicity bounds that are not natural numbers (a tool's `492x21` array dimensions) | omitted | approximated |
 | `NaN`/infinite real literals | comment | approximated |
 | References to ids the document does not define | the resolvable ends are written; the missing ids are named in the report | approximated |
-| OpaqueExpression defaults and constraints | copied verbatim when it parses as a v2 expression and every name it uses is a written element visible where it is written (a parameter, an inherited feature, an enclosing member); a script's `java.util…` path, a bare enumeration literal or an operation is not, and the body stays a `comment` | mapped / approximated |
+| OpaqueExpression defaults and constraints | copied verbatim when it parses as a v2 expression and every name it uses is a written element visible where it is written (a parameter, an inherited feature, an enclosing member); a JavaScript or English body is translated through the [opaque-language subset](#the-opaque-language-subset) when every name resolves the same way (`V = R * i` → `V == R * i`, `java.util.Collections.max(s)` → `RealFunctions::max(s)`); a body outside the subset stays a `comment` and the report names the offending token | mapped / approximated |
 | Activity | `action def` (see [Behaviors](#behaviors)); a block's `classifierBehavior` is also performed by a `perform action` usage of the `part def` | mapped |
 | Parameter, ActivityParameterNode | `in`/`out`/`inout` parameter of the `action def`; a `return` parameter is `out`; the parameter node's flows bind the parameter | mapped (return: approximated) |
 | InitialNode, ActivityFinalNode, FlowFinalNode | `first start then …`; `action x terminate;`; the token ends where a flow final does | mapped |
 | ForkNode, JoinNode, DecisionNode, MergeNode | `fork`, `join`, `decide`, `merge`; a node several edges leave or reach without a control node gets one written for it | mapped (implicit fork/join: approximated) |
-| CallBehaviorAction | `action x : Def;` with `bind`/`flow` for its pins; a call of a state machine, of a behavior with no v2 declaration, or of no behavior at all | mapped / **unmapped** |
+| CallBehaviorAction | `action x : Def;` with `bind`/`flow` for its pins; a call of no behavior whose only content is a duration is a leaf step, the wait written for it; a call of a state machine, of a behavior with no v2 declaration, or of no behavior with pins to feed | mapped (a leaf step: mapped, "a step with a duration and no further behavior") / **unmapped** |
 | CallOperationAction | `action x : Owner::Op;`, or `perform action x ::> target.op;` when the target pin's value is an object whose type owns the operation | mapped |
-| ControlFlow | `first a then b;`, `if <guard>` when the guard parses and resolves; otherwise the guard text as a comment and the edge unguarded | mapped / approximated |
+| ControlFlow | `first a then b;`, `if <guard>` when the guard parses and resolves as a v2 expression or translates from JavaScript or English (`i >= Retries`, `GS_Found`, `not Found and i < 3`, `TRUE`) through the [subset](#the-opaque-language-subset); otherwise the guard text as a comment and the edge unguarded, the report naming the token refused | mapped / approximated |
 | «Probability» on the edges out of a decision | `first d then x { @Stochastic::Probability { p = <value>; } }` when every edge carries one; weights not summing to 1 are scaled by their sum; a value outside `[0, 1]`, or a decision only some of whose edges carry one, is written unweighted | mapped / approximated |
-| ObjectFlow | `flow a.out to b.in;`, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated is a comment | mapped / approximated |
+| ObjectFlow | `flow a.out to b.in;`, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated, or from an output pin a translated opaque body never assigns, is a comment | mapped / approximated |
 | SendSignalAction | `action x send new Sig(args) to <target>;`, `via <port>` when `onPort` is set; the target is read from the target pin's flow: `this`, `this.part` where a structural read feeds the pin, else the pin itself (`in target;` bound to what feeds it, an activity parameter or another node's output), which the runtime evaluates to the object it holds | mapped / approximated |
 | AcceptEventAction | `action x accept p : Sig;` (signal trigger), `accept after <d> [SI::s]` (relative TimeEvent), `accept when <cond>` (ChangeEvent) | mapped |
 | AcceptEventAction on an absolute TimeEvent (`when` is an instant, not a duration) | comment | **unmapped** — no literal writes a `TimeInstantValue` |
-| OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve (a script's `x = expr;` statements are read as assignments); otherwise the body as a comment inside `action x { }` naming the language | mapped / approximated |
-| DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds | approximated (a tool's min/max/random mode is a run setting) |
-| DurationConstraint whose bounds are not numbers with time units (`setup s`), DurationObservation, TimeObservation | comment | **unmapped** — the runtime reports a run's clock |
-| ActivityPartition | comment naming the partition and its nodes (`perform … by` has no legal form for a partition of arbitrary nodes) | approximated |
+| OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve, or is a JavaScript body of the [subset](#the-opaque-language-subset): `i = 1; GS_Found = true;` is a sequence of `assign` statements, `i += 1` an assignment of `i + 1`, `var t = 0` a local `attribute`; names resolve against the action's own pins first, then the swimlane's represented object, then the activity, then the owning block; otherwise the body as a comment inside `action x { }` naming the language and the token refused | mapped / approximated |
+| DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds; a symbolic bound (`ditSetup s`, `setup * 2 min`) is an expression whose names resolve like an action body's, `accept after this.tcs.ditSetup [SI::s]` | approximated (a tool's min/max/random mode is a run setting) |
+| DurationConstraint whose bounds name nothing the activity can read | comment | **unmapped** — the note names the unresolved name |
+| DurationObservation whose events are two nodes of one activity | an `attribute <name> : Real [0..1]` of the `action def`, stamped with `localClock.currentTime` when the first node starts and assigned the elapsed clock when the second ends (`assign T := localClock.currentTime - 'T start';`, guarded on the stamp having happened); one node observed is its own duration; an initial node's start is the activity's `start`, a flow final's the token's arrival before `done`; the attribute is one a run can `-observe`, and a run that does not reach both nodes leaves it without a value | mapped |
+| DurationObservation reading the clock at the end of a node that is no action — an initial, final, flow final or control node has no end of its own | comment | **unmapped** — the note names the node |
+| DurationObservation whose events are not nodes of the activity, or none, or name an element the document does not define; a DurationObservation or TimeObservation owned outside an activity; TimeObservation | comment | **unmapped** — the note names the events, or the owner |
+| ActivityPartition | comment naming the partition, what it `represents` and its nodes; a name a body or guard in the partition uses is resolved against the represented property first and written through it, `this.tcs.i` for a partition representing the part `tcs` (a nested partition through its enclosing ones, `this.tank.valve.open`; a partition representing the context block itself, `this.x`) | mapped when the partition resolved a name / approximated when nothing in it needed one, when `represents` is unset, names nothing the document defines, a property of no v2 type, or a classifier the activity does not run in |
 | StructuredActivityNode, SequenceNode | `action x { }` holding the nested flow | mapped |
 | ExpansionRegion, LoopNode, ConditionalNode | `action x { }` holding the body's flow once; the expansion, the loop test and the clause tests are not written | approximated |
 | StateMachine | `state def` (see [Behaviors](#behaviors)); a block's `classifierBehavior` is also exhibited by an `exhibit state` usage of the `part def` | mapped |
@@ -173,7 +176,7 @@ returned over the service yet.
 | Absolute TimeEvent, TimeEvent whose `when` is not a number with a time unit | comment | **unmapped** |
 | Interaction | a scenario `action def` of `send`s in occurrence order, when every message is an asynchronous signal send received on a lifeline standing for a part of the interaction's owner | approximated |
 | Interaction with a synchronous call, a reply, a message to a lifeline that is not a part, or no message; DurationConstraint on an interaction | comment | **unmapped** — the reason names the message |
-| OpaqueBehavior, FunctionBehavior | `calc def` with its parameters when its one body is a v2 expression whose names resolve; otherwise `action def` keeping the body as a comment | mapped / approximated |
+| OpaqueBehavior, FunctionBehavior | `calc def` with its parameters when its one body is a v2 expression whose names resolve or a JavaScript expression of the [subset](#the-opaque-language-subset) (`Math.max(a, b)` → `RealFunctions::max(a, b)`) of the type of its one return or output parameter — a behavior with several has no one result and is written as an `action def`; an `action def` whose body is the translated `assign` sequence when the script is statements; otherwise `action def` keeping the body as a comment and the report naming the token refused | mapped / approximated |
 | Operation | `action def <Op>` owned by the owner, with its parameters; the `method` behavior is written as its body (an Activity as the flow, an OpaqueBehavior as expression or comment), its parameters standing for the operation's at the same position, direction and type under the operation's names; a method parameter matching none is declared and reported, since a call binds only the operation's; no method: `abstract action def`; an `action <op> : <Op>;` usage of the owner performs it, as a call on an object does | mapped |
 | Operation `precondition`, `postcondition`, `bodyCondition` | `assert constraint { <expr> }` in the action def when the expression parses and resolves; otherwise a comment | mapped / approximated |
 | Reception | comment on the `part def` naming the signal (the state machine's `accept sig : Sig` already carries it) | approximated |
@@ -208,12 +211,79 @@ call action is `action call : Def;`, so the callee's flow runs as a nested perfo
 are `bind`/`flow` statements from the object flows that reach them. A node several edges leave
 without a fork is written through one (`fork fork2;`), and a node several edges reach without
 a join waits through one, both reported as approximations. An opaque action whose body is a
-script is read statement by statement: `Time_Acq_Total = simtime;` and its like become
-`assign this.Time_Acq_Total := …;` when every name resolves to a written feature, and the body
-is otherwise kept as a comment naming its language. The tool's time variable (`simtime`) is
-not a feature of the model but a simulation setting, so a body reading it stays a comment;
-the total duration of a run is what the runtime's clock reports at its end, which `%runs`
-measures directly.
+script is read statement by statement through the [opaque-language subset](#the-opaque-language-subset):
+`i = 1; GS_Found = false;` becomes two `assign` statements, `i += 1` an
+`assign this.tcs.i := this.tcs.i + 1;`, and the body is kept as a comment naming its language
+and the token refused when any statement is outside the subset or names something unwritten.
+
+**Swimlanes.** An `ActivityPartition` that `represents` a property of the activity's context
+block names the object whose features the nodes inside it read and write: a body `i = 1` in
+the partition of the part `tcs` is `assign this.tcs.i := 1;`, and a guard `GS_Found` on an
+edge whose source sits in that partition is `if this.tcs.GS_Found`. Names are looked up among
+the node's own pins first — the tool binds a pin as a script variable, so a pin `Retries` on a
+node in the partition is the value flowing into that node, not `this.tcs.Retries` — then in the
+represented object, then among the activity's own parameters and locals, then in the owning
+block; a nested partition reads through its enclosing ones (`this.tank.valve.open`), a
+partition representing the context block itself reads `this`, and one representing a classifier,
+or a property of one, that the context holds only through a chain of composite parts reads
+through the whole chain, however long (`this.site.control.rack.controller.status`), when exactly
+one such chain exists. A body's explicit `this` is the same object: the tool runs a node in a
+partition in the represented object's context, so `this.status = true` there is the part's
+`status`, and a feature the part lacks is refused (`Tank has no feature level`) rather than read
+from the context block — a node that needs the block's own features sits outside the partition
+or in one representing the block. A node in no partition, and a
+partition whose `represents` is unset, names an id the document does not define, a property
+with no v2 type, or a classifier the activity does not run in, fall back to the activity and
+its block, and the partition's report line says which of these it is. A node held by two
+partitions that do not nest — a diagram's two dimensions — resolves through the one that
+represents an object when the other represents nothing, and through either when both represent
+the same object; when they represent different objects, no partition applies, the node's names
+fall back to the activity and its block, and both the node's and the partitions' report lines
+say so. An edge in no partition takes its source node's partitions, its target's only when
+the source is in none — so a guard leaving such a node is refused the same way, never read
+through the target's partition. A name read through a part that holds more than one object —
+a partition representing `cells : Gauge[2]`, or a dotted path `cells.reading` — is a
+collection, so it feeds `java.util.Collections.max` but not arithmetic or a scalar assignment,
+and an assignment through it (`cells.reading = 1`) is refused as writing several objects; a
+`CallBehaviorAction` in such a partition runs in the caller's context, no one of the objects
+performing it, and its report line says so. The partition's comment stays as documentation of its
+membership; its verdict is
+*mapped* when a name was resolved through it.
+
+**The clock.** The tool's time variable — `simtime`, or whatever the model's
+`SimulationConfig.timeVariableName` names — reads the simulation clock, so a body reading it
+is executable; the report line names the configuration that names it, or counts the
+configurations when several do. The variable is the tool's global — every configuration's
+name is recognized in every body, whichever activity the configuration targets — so a
+parameter, pin or property of the same name visible where the body lands shadows it and is
+read as that feature. `Time_Acq_Total = simtime;` is
+`assign this.Time_Acq_Total := localClock.currentTime;`, and
+`Time_Acq_Total = simtime - Time_Acq_Total;` the elapsed time since. `localClock.currentTime`
+is the standard library's own form (`Occurrences::Occurrence::localClock`, a `Clock` whose
+`currentTime` the [runtime](../guide/06-behavior.md#reading-the-clock) evaluates against the
+run's clock), so a migrated model needs no extension library and the attribute is one a run
+reports: `-observe this.Time_Acq_Total`, or `%runs` with the same. The clock is read, never
+written: a script assigning `simtime` is refused. A `DurationObservation` whose two events are
+nodes of the activity is the same bookkeeping written for the modeler: an `attribute` of the
+`action def` named after the observation, stamped when the first node starts and assigned the
+elapsed clock when the second ends (`firstEvent` chooses, per event, the instant the node's
+execution enters it or the instant it exits, as UML defines; UML gives the omitted flag no
+default, and the span then covers both nodes whole, from the first's start to the second's
+end; a node executed again in a loop
+stamps again, so the attribute holds the span between the latest executions of the two
+nodes). An initial node is the point the activity's `start` reaches, so an observation
+beginning there is stamped right after `start`, before the activity's own wait and its first
+nodes, and spans the run when it ends at the final node; a flow final is the point a token
+ends, so an observation ending there is stamped as the token reaches it, before `done` (the
+edges into it lead to the stamp, through a `merge` when there are several); only an action has
+an end of its own, so a flag asking for the end of an initial, final, flow final or control node
+is refused with the node named. Both attributes are `[0..1]` with no default, and the elapsed
+clock is assigned only when the stamp has happened, so a run that reaches neither node, or only
+one, leaves the attribute without a value — a blank cell in the `-observe` table, outside the
+summary — rather than a duration of zero; observations whose events are not nodes of the
+activity, whose `event` list names an element the document does not define (the observation
+is refused whole, never read as the one event that does resolve), and observations owned
+outside any activity, are comments whose report line says which.
 
 **Durations and probabilities.** A `DurationConstraint` on an action is a wait the action's
 token takes before it: `accept after 3.0 [SI::s]` for a point interval, and
@@ -228,7 +298,8 @@ rule v1 states itself — and the weights are scaled to sum to 1 when they do no
 with weights on only some edges, or a weight outside `[0, 1]`, is written unweighted and the
 report says why. Guards that are opaque English (`[Align BTO]`) are kept as comments and the
 edge written unguarded, so such a decision is a scheduling choice the runtime draws at random
-with the model seed; the report says so.
+with the model seed; the report says so. A guard in English that the subset reads — `TRUE`, a
+Boolean property's name, `not Found and i < Retries` — is written as the `if` it means.
 
 **State machines.** A composite state's regions become sub-states of a `parallel` state, so
 the orthogonal regions run together; a submachine state is a `state` usage typed by the
@@ -255,7 +326,65 @@ or state machine is, then step it or run it many times with the model seed:
 
 `%runs` reports the clock at the end of each run — the workflow's total duration — as min,
 mean, max, p50 and p90 with a histogram, and `sysml model.sysml -action <name> -runs 100 -seed 1`
-does the same from the command line.
+does the same from the command line. An attribute the migrated body assigns from the clock is
+observed beside it with `-observe this.Time_Acq_Total`; an action that reads its performer's
+features (the `this.tcs.i` of a swimlane) is run through the performer, `-action "'Block' 'Action'"`.
+
+## The opaque-language subset
+
+A v1 body carries a `language` and a text the tool executed — JavaScript, in Cameo's case, or
+"English" for guards written as prose. The migrator translates a bounded subset of each into
+v2 expressions and statements, and refuses the rest with a typed reason naming the token, so a
+translation is always complete or absent — never partial.
+
+**Scripts** (`language` JavaScript, ECMAScript, Java, or none) are read as statements. A
+JavaScript label may name its engine (`Javascript Rhino`, `Nashorn`); a Java label is `Java`
+alone or followed by one version (`Java 8`, `Java 1.8.0_202`, `Java 17.0.2+8`), so `JavaCC`
+or `Java Expression Language` is a language the translator does not read, not Java:
+
+| Script | v2 |
+|---|---|
+| `x = e;` `x += e;` `-=` `*=` `/=` `x++` `x--` | `assign x := e;` `assign x := x + e;` … |
+| `var x = e;` `let x = e;` `const x = e;` (one name, initialized) | `attribute x : ScalarValues::T;` `assign x := e;` with `T` the type of `e`; a later assignment to a `const` is refused, as is a declaration of a name already declared, of a pin, parameter or property visible where the body lands, or of a member every action has (`start`, `done`, `self`) |
+| several statements, on `;` or newlines | a sequence of the above |
+| integer, real, Boolean and string literals | the same literal; a whole number is refused beyond what an `Integer` holds (2⁶³ − 1), and in a JavaScript body beyond 2⁵³ − 1, since the script would round it to a `Number` (a Java body's `long` is exact); a string's `\n` `\t` `\r` `\b` `\f` `\\` `\'` `\"` `\xHH` `\uHHHH` `\u{H…}` escapes and line continuations are decoded, a high and low surrogate escape pair as the one character they spell, while a legacy octal escape or a character the notation cannot spell (`\0`, `\v`, other control characters, a lone surrogate) is refused |
+| `a`, `a.b.c` naming features that resolve | `this.a`, `this.a.b.c` (through the swimlane's object when it has one) |
+| `+ - * / %`, comparisons, `&& \|\| !`, parentheses | `+ - * / %`, comparisons, `and or not`, parentheses; a Java body's `/` of two whole numbers drops the remainder, so it is `OpenSysMLMathFunctions::quotient(x, y)` (the exact Integer quotient truncated toward zero, refused at run time only for the least Integer by `-1`, whose quotient no Integer holds), and is refused when the operands' types cannot tell whether both are whole. Whole-number arithmetic is the exact arithmetic of a v2 `Integer`: a script that rounds a result beyond 2⁵³ to a `Number`, or a Java `int`/`long` that wraps past its range, computes something else there, which the translation does not reproduce — the translated feature holds the modeler's `Integer`, not a floating-point or fixed-width number |
+| Java's `a.equals(b)` / `"x".equals(b)` on strings | `a == b`, the comparison of their content; a Java body's `==` or `!=` with an operand known to be a string is refused, since Java compares strings there by identity, which no comparison of their values reproduces, and `equals` is refused where a side is known not to be a string or neither side's type is known (a script's `==` on strings compares their content and translates as it stands) |
+| `c ? a : b` | `if c ? a else b` when `a` and `b` are of one scalar type |
+| `Math.min` `Math.max` `Math.abs` `Math.floor` `Math.ceil` `Math.round` `Math.sqrt` `Math.pow`, `a ** b` | `RealFunctions::min` … `RealFunctions::sqrt`, `**`; `Math.ceil(x)` is `OpenSysMLMathFunctions::ceiling(x)` (the extension library's `Integer` ceiling, so the least Integer is a value where `-floor(-x)` would overflow on its negation) and `Math.round(x)` is `RealFunctions::floor(x + 0.5)`, which rounds a half toward +∞ as JavaScript does. The three answer the library's `Integer` in a script, and in a Java body `Math.round` does where `Math.floor` and `Math.ceil` answer a `Real` as Java's answer a `double` (so a Java `/` after them is real division, not `quotient`); each result is exact up to the `Integer` range and a whole Real at or beyond 2⁶³ (or below −2⁶³), which the script would keep as a `Number` and Java's `Math.round` would clamp to a `long`, is a typed arithmetic-overflow error at run time, never a wrapped Integer; `-a ** b` is refused, as JavaScript rejects a unary operand of `**` without parentheses, and a Java body's `**` is refused, Java having no such operator |
+| `java.util.Collections.max(s)` / `.min(s)` | `RealFunctions::max(s)` / `RealFunctions::min(s)` over a collection |
+| the tool's time variable (`simtime`) | `localClock.currentTime` |
+
+**English** (`language` English, natural language, text) is read as one Boolean expression:
+`TRUE` / `FALSE` / `true` / `false`; a property name, spaces and all; `not X`; `X and Y`;
+`X or Y`; comparisons written with `=` or `==`, `<`, `>`, `<=`, `>=`, `!=`; parentheses. A run
+of words between operators is one name (`not Guide Star Lost and i < Retries` reads the
+property `Guide Star Lost`), refused whole when nothing visible is called that.
+
+**Refusals.** Anything else is refused, and the report line carries the reason with the token
+that caused it: a language not in the table (`the language "Groovy" is not translated`), text
+that is not expression syntax, a construct outside the subset (`for`, `while`, `if` statements,
+`new`, `function`, a declaration of several names or of a name a feature already has, an
+assignment to a `const`, to an `in` parameter or to an input pin, a string method, a regular expression, an expression that assigns nothing, text
+after the one expression a guard or default is), a call not in the table (`the call "print" is not in the
+translated function table`), a name that resolves to nothing readable (`this.` in a context with
+no object, a property of no v2 type, a name no scope defines), or types that disagree (an
+`Integer` guard, a `Boolean` added to a `Real`, a plural where a scalar is wanted, a feature
+typed by an enumeration or a block where a number or Boolean is wanted, assigned to a feature
+of a type that neither is nor generalizes its own, or compared with or chosen beside one sharing
+no type with it). A feature whose type the migrator does not know is trusted to fit. A body
+whose language the translator reads but whose text it refuses — as not that language's syntax
+any more than as a construct, call, name or type it rejects — is never re-read as v2 syntax:
+the refusal is final, and the body is a comment. A body in a language the translator does not
+read, or in none, is read as v2 syntax.
+
+A translation is emitted only when every name resolves to a written feature visible where the
+statement lands, the types agree wherever they can be told (a guard is `Boolean`, an
+assignment fits its target, a property's or parameter's default, the value of a typed pin or result, or the result
+expression of a `calc def` is of the feature's or the return parameter's type — its scalar, or a
+block or enumeration it is or specializes — and one value unless the feature holds several, a
+duration is `Real`), and the result parses with the v2 parser.
 
 ## The report
 

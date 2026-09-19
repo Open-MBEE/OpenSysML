@@ -19,6 +19,13 @@ import (
 // valueExpr writes a UML value specification as a v2 expression. ok is false
 // when it has no v2 form; note explains an approximation or the refusal.
 func (m *migration) valueExpr(v, scope *sysmlv1.Element) (expr string, ok bool, note string) {
+	return m.valueExprAs(v, scope, wanted{})
+}
+
+// valueExprAs writes a value specification yielding what want asks for: an
+// opaque body in the translated subset is translated, else copied when it is
+// already v2 whose names resolve from scope.
+func (m *migration) valueExprAs(v, scope *sysmlv1.Element, want wanted) (expr string, ok bool, note string) {
 	switch v.Type {
 	case "LiteralInteger", "LiteralUnlimitedNatural":
 		val := v.Attrs["value"]
@@ -73,6 +80,16 @@ func (m *migration) valueExpr(v, scope *sysmlv1.Element) (expr string, ok bool, 
 		body, lang := opaqueBody(v)
 		if body == "" {
 			return "", false, "opaque expression has no body"
+		}
+		if dialectOf(lang) != dialectNone {
+			expr, note, refused := m.translatedExpr(body, lang, scope, want)
+			if refused == nil {
+				m.noted(valueOwner(v, scope), note)
+				return expr, true, ""
+			}
+			if refused.final(lang) {
+				return "", false, refused.note()
+			}
 		}
 		refs, ok := exprRefs(body)
 		if !ok {
@@ -133,16 +150,25 @@ func (m *migration) typingIndividual(p *sysmlv1.Element, kw string) (*sysmlv1.El
 	return ind, ""
 }
 
+// valueOwner is the element whose report entry describes value v: the element
+// holding it, else the scope it is read in.
+func valueOwner(v, scope *sysmlv1.Element) *sysmlv1.Element {
+	if v.Parent != nil {
+		return v.Parent
+	}
+	return scope
+}
+
 // featureValue writes value v of feature f. A literal of another kind that
 // spells a value of f's scalar type, as tools store a typed-in default,
 // becomes that value: a string spelling a number, a whole real for an integer.
 // A literal that spells no value of that type is refused, not copied.
 func (m *migration) featureValue(v, f, scope *sysmlv1.Element) (expr string, ok bool, note string) {
-	expr, ok, note = m.valueExpr(v, scope)
+	t := m.model.Ref(f, "type")
+	expr, ok, note = m.valueExprAs(v, scope, m.wantedOf(f))
 	if !ok {
 		return expr, ok, note
 	}
-	t := m.model.Ref(f, "type")
 	if v.Type == "InstanceValue" && t != nil {
 		inst := m.model.Ref(v, "instance")
 		if inst.Type == "InstanceSpecification" && !m.instanceOf(m.model.Refs(inst, "classifier"), t) {

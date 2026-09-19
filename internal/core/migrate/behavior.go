@@ -94,6 +94,8 @@ func (m *migration) classifierBehavior(c *sysmlv1.Element) {
 	name := ""
 	if op := m.methodOf[b]; op != nil {
 		b, name = op, m.operationUsage(op)
+	} else if classifierOf(b) == c {
+		name = m.behaviorUsage(b)
 	} else {
 		name = m.freshName(c, lowerFirst(m.nameFor(b)))
 	}
@@ -208,7 +210,7 @@ func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]boo
 	if dv := firstOwned(p, "defaultValue"); dv != nil && isBound {
 		note = joinNotes(note, "the default value "+describeValue(dv)+" gives way to the binding")
 	} else if dv != nil {
-		expr, ok, vnote := m.behaviorValue(dv, scope)
+		expr, ok, vnote := m.typedBehaviorValue(dv, p, scope)
 		if ok {
 			b.WriteString(" default = " + expr)
 			note = joinNotes(note, vnote)
@@ -253,12 +255,16 @@ func (m *migration) behaviorValue(v, scope *sysmlv1.Element) (expr string, ok bo
 }
 
 // typedBehaviorValue writes v as the value of feature f, read inside scope: a
-// literal, opaque or not, is checked against the type f holds.
+// translated body must yield what f holds, and a literal, opaque or not, is
+// checked against that type.
 func (m *migration) typedBehaviorValue(v, f, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	if v.Type != "OpaqueExpression" {
 		return m.featureValue(v, f, scope)
 	}
-	expr, ok, note = m.behaviorValue(v, scope)
+	t := m.model.Ref(f, "type")
+	sv := m.scalarBase(t)
+	body, lang := opaqueBody(v)
+	expr, ok, note = m.behaviorExprAs(body, lang, scope, m.wantedOf(f))
 	if !ok {
 		return expr, ok, note
 	}
@@ -266,8 +272,6 @@ func (m *migration) typedBehaviorValue(v, f, scope *sysmlv1.Element) (expr strin
 	if kind == "" {
 		return expr, ok, note
 	}
-	t := m.model.Ref(f, "type")
-	sv := m.scalarBase(t)
 	if sv == "" {
 		if m.structuredValueType(t) || m.written(t) {
 			return "", false, "the literal " + expr + " is not a value of " + qualifiedName(t) + ", which has no scalar base"
@@ -287,16 +291,49 @@ func (m *migration) typedBehaviorValue(v, f, scope *sysmlv1.Element) (expr strin
 // behaviorExpr writes text as a v2 expression read inside scope, or refuses
 // with the reason: it is not expression syntax, or a name resolves to nothing.
 func (m *migration) behaviorExpr(text, lang string, scope *sysmlv1.Element) (expr string, ok bool, note string) {
+	return m.behaviorExprAs(text, lang, scope, wanted{})
+}
+
+// behaviorExprAs is behaviorExpr yielding what want asks for: a body in a
+// language the translator reads is translated first, then read as v2 syntax.
+func (m *migration) behaviorExprAs(text, lang string, scope *sysmlv1.Element, want wanted) (expr string, ok bool, note string) {
+	expr, ok, note, _ = m.behaviorExprHow(text, lang, scope, want)
+	return expr, ok, note
+}
+
+// behaviorExprHow is behaviorExprAs also reporting whether the translator
+// wrote the expression, rather than the body being v2 syntax already.
+func (m *migration) behaviorExprHow(text, lang string, scope *sysmlv1.Element, want wanted) (expr string, ok bool, note string, translated bool) {
 	text = strings.TrimSpace(text)
 	if text == "" {
-		return "", false, "the expression has no body"
+		return "", false, "the expression has no body", false
 	}
+	if dialectOf(lang) != dialectNone {
+		expr, note, refused := m.translatedExpr(text, lang, scope, want)
+		if refused == nil {
+			m.noted(scope, note)
+			return expr, true, "", true
+		}
+		if refused.final(lang) {
+			return "", false, refused.note(), false
+		}
+	}
+	expr, ok, note = m.v2Expr(text, lang, scope)
+	if !ok {
+		return "", false, note, false
+	}
+	return expr, true, note, false
+}
+
+// v2Expr writes text, already v2 expression syntax, read inside scope, or
+// refuses with the reason: it is not expression syntax, or a name resolves to nothing.
+func (m *migration) v2Expr(text, lang string, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	refs, ok := exprRefs(text)
 	if !ok {
 		return "", false, "not v2 expression syntax" + langNote(lang)
 	}
 	if missing := m.invisible(refs, scope); missing != "" {
-		return "", false, "names " + missing + langNote(lang)
+		return "", false, missing + langNote(lang)
 	}
 	return m.qualifySelf(text, refs, scope), true, ""
 }
@@ -360,13 +397,30 @@ func behaviorScope(e *sysmlv1.Element) bool {
 // assignment is one statement of an opaque body written as a v2 assignment.
 var assignment = regexp.MustCompile(`^([\p{L}_][\p{L}\p{N}_ ]*)\s*(\+\+|--|[-+*/]?=)\s*(.*)$`)
 
-// statements writes an opaque body as v2 assignments read inside scope when every
-// statement assigns a v2 expression to a visible feature, else refuses with the reason.
+// statements writes an opaque body as v2 assignments read inside scope: a body
+// in a language the translator reads is translated first, then each statement
+// is read as an assignment of a v2 expression; else refuses with the reason.
 func (m *migration) statements(body, lang string, scope *sysmlv1.Element) (lines []string, ok bool, note string) {
 	body = strings.TrimSpace(body)
 	if body == "" {
 		return nil, false, "the body is empty"
 	}
+	if dialectOf(lang).script() {
+		lines, note, refused := m.translatedStatements(body, lang, scope)
+		if refused == nil {
+			m.noted(scope, note)
+			return lines, true, ""
+		}
+		if refused.final(lang) {
+			return nil, false, refused.note()
+		}
+	}
+	return m.v2Statements(body, lang, scope)
+}
+
+// v2Statements writes an opaque body whose every statement assigns a v2
+// expression to a visible feature, else refuses with the reason.
+func (m *migration) v2Statements(body, lang string, scope *sysmlv1.Element) (lines []string, ok bool, note string) {
 	if strings.ContainsAny(body, "{}") {
 		return nil, false, "the body is not a sequence of assignments" + langNote(lang)
 	}
@@ -392,7 +446,7 @@ func (m *migration) statements(body, lang string, scope *sysmlv1.Element) (lines
 			lines = append(lines, "assign "+target+" := "+target+" "+op[:1]+" 1;")
 			continue
 		}
-		expr, ok, enote := m.behaviorExpr(rhs, lang, scope)
+		expr, ok, enote := m.v2Expr(rhs, lang, scope)
 		if !ok {
 			return nil, false, "the statement " + strconv.Quote(st) + " assigns a value whose expression is not migrated: " + enote
 		}
@@ -404,7 +458,7 @@ func (m *migration) statements(body, lang string, scope *sysmlv1.Element) (lines
 	if len(lines) == 0 {
 		return nil, false, "the body is empty"
 	}
-	return lines, true, ""
+	return lines, true, "the " + langName(lang) + " body is written as v2 assignments"
 }
 
 // assignable writes the v2 target of an assignment to name read in scope: a
@@ -494,7 +548,11 @@ func (m *migration) durationExpr(v, scope *sysmlv1.Element) (expr string, ok boo
 		if s, ok := parseDuration(v.Attrs["value"]); ok {
 			return s, true, ""
 		}
-		return "", false, "the duration " + strconv.Quote(v.Attrs["value"]) + " is not a number with a time unit"
+		expr, ok, note := m.symbolicDuration(v.Attrs["value"], "", scope)
+		if !ok {
+			return "", false, "the duration " + strconv.Quote(v.Attrs["value"]) + " is neither a number with a time unit nor an expression: " + note
+		}
+		return expr, true, note
 	case "LiteralInteger", "LiteralReal", "LiteralUnlimitedNatural":
 		expr, ok, note := m.valueExpr(v, scope)
 		if !ok {
@@ -509,11 +567,11 @@ func (m *migration) durationExpr(v, scope *sysmlv1.Element) (expr string, ok boo
 		if s, ok := parseDuration(body); ok {
 			return s, true, ""
 		}
-		expr, ok, note := m.behaviorExpr(body, lang, scope)
+		expr, ok, note := m.symbolicDuration(body, lang, scope)
 		if !ok {
 			return "", false, "the duration " + strconv.Quote(body) + " is neither a number with a time unit nor an expression: " + note
 		}
-		return expr, true, "the duration expression " + body + " is taken as seconds"
+		return expr, true, note
 	}
 	return "", false, "a UML " + v.Type + " has no v2 duration form"
 }
@@ -521,24 +579,71 @@ func (m *migration) durationExpr(v, scope *sysmlv1.Element) (expr string, ok boo
 // calcExpr returns the result expression of an opaque or function behavior,
 // when its one body is a v2 expression whose names resolve from the behavior.
 func (m *migration) calcExpr(e *sysmlv1.Element) (expr string, ok bool, note string) {
+	expr, ok, note, _ = m.calcExprHow(e)
+	return expr, ok, note
+}
+
+// calcExprHow is calcExpr also reporting whether the translator wrote the expression.
+func (m *migration) calcExprHow(e *sysmlv1.Element) (expr string, ok bool, note string, translated bool) {
 	bodies := e.Owned("body")
 	if len(bodies) > 1 {
-		return "", false, "the behavior has " + strconv.Itoa(len(bodies)) + " bodies; only one can be the result expression"
+		return "", false, "the behavior has " + strconv.Itoa(len(bodies)) + " bodies; only one can be the result expression", false
 	}
 	body, lang := opaqueBody(e)
 	if body == "" {
-		return "", false, "the behavior has no body"
+		return "", false, "the behavior has no body", false
 	}
-	return m.behaviorExpr(body, lang, e)
+	want, rnote := m.calcResult(e)
+	if rnote != "" {
+		return "", false, rnote, false
+	}
+	return m.behaviorExprHow(body, lang, e, want)
+}
+
+// calcResult is what a behavior's result expression must yield: the value of
+// its one return or output parameter; a behavior with none wants any value,
+// and with several the expression can stand for none of them.
+func (m *migration) calcResult(e *sysmlv1.Element) (wanted, string) {
+	var outs []*sysmlv1.Element
+	for _, p := range e.Owned("ownedParameter") {
+		if dir, _ := parameterDirection(p); dir != "in" {
+			outs = append(outs, p)
+		}
+	}
+	switch len(outs) {
+	case 0:
+		return wanted{}, ""
+	case 1:
+		return m.wantedOf(outs[0]), ""
+	}
+	return wanted{}, "the behavior has " + strconv.Itoa(len(outs)) + " output parameters; one result expression can stand for none of them"
+}
+
+// resultRefusal is why a body the translator reads whole as an expression is
+// still no result expression for e: its type, or which parameter it would be.
+func (m *migration) resultRefusal(e *sysmlv1.Element) string {
+	body, lang := opaqueBody(e)
+	if dialectOf(lang) == dialectNone {
+		return ""
+	}
+	want, rnote := m.calcResult(e)
+	_, _, err := m.translatedExpr(body, lang, e, want)
+	switch {
+	case err == nil:
+		return rnote
+	case err.kind == refusedType:
+		return err.note()
+	}
+	return ""
 }
 
 // calcBody writes an opaque or function behavior's parameters and result expression.
 func (m *migration) calcBody(e *sysmlv1.Element) {
 	m.parameters(e, e)
-	expr, _, _ := m.calcExpr(e)
+	expr, _, _, translated := m.calcExprHow(e)
 	_, lang := opaqueBody(e)
 	m.w.line(expr)
-	if lang != "" {
+	if lang != "" && !translated {
 		m.downgrade(e, "the "+lang+" body is written verbatim as the result expression, since it is also v2 expression syntax")
 	}
 }
@@ -549,6 +654,9 @@ func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
 	body, lang := opaqueBody(e)
 	lines, ok, note := m.statements(body, lang, scope)
 	if !ok {
+		if r := m.resultRefusal(e); r != "" && r != note {
+			note = "as the result expression, " + r + "; as statements, " + note
+		}
 		m.opaqueComment(body, lang, note)
 		m.downgrade(e, "the body is kept as a comment: "+note)
 		return
@@ -557,7 +665,9 @@ func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
 	m.w.line("first start then " + writeName(name) + ";")
 	m.w.block("action "+writeName(name), func() { m.w.lines(lines) })
 	m.w.line("first " + writeName(name) + " then done;")
-	m.downgrade(e, "the "+langName(lang)+" body is written as v2 assignments")
+	if note != "" {
+		m.downgrade(e, note)
+	}
 }
 
 // opaqueComment keeps an opaque body the mapping cannot write as a comment.

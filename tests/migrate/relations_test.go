@@ -748,7 +748,7 @@ func TestTypedHrefReferencesKeepTheirTargets(t *testing.T) {
 // An opaque body written in a tool's scripting language may happen to parse
 // as a v2 expression. It is copied only when every name it uses is visible
 // from where it is written: parameters, inherited features, enclosing
-// members; a script's library path or a bare enumeration literal is not.
+// members; a script whose call has no v2 form or whose text is no expression is refused.
 func TestOpaqueExpressionsNeedVisibleNames(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Enumeration" xmi:id="_mode" name="Mode">
@@ -800,8 +800,8 @@ func TestOpaqueExpressionsNeedVisibleNames(t *testing.T) {
 	wantNoLine(t, r.Notation, "constraint fits")
 	wantNoLine(t, r.Notation, "constraint moving")
 	for id, want := range map[string]string{
-		"_r1": "opaque expression names java, which nothing visible from Bound is called (language Javascript Rhino)",
-		"_r2": "opaque expression names TRACK, which nothing visible from Bound is called (language Javascript Rhino)",
+		"_r1": "the types at \"java.util.Collections.max\" disagree: the argument is a single value, not a collection",
+		"_r2": "the text \"|\" is not expression syntax",
 	} {
 		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Unmapped || es[0].Note != want {
 			t.Errorf("%s entries = %+v", id, es)

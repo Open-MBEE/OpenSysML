@@ -200,7 +200,7 @@ func TestRunsRefusesWhatItCannotRun(t *testing.T) {
 		{"%runs -2 7 MC::acquire", `"-2" is not a number of runs to make`},
 		{"%runs 3 x MC::acquire", `"x" is not a seed`},
 		{"%runs 2 7 MC::Missing", "unresolved reference: MC::Missing"},
-		{"%runs 3 7 MC::acquire total nope", "MC::acquire holds no feature named nope (the clock is observed as clock)"},
+		{"%runs 3 7 MC::acquire total nope", "no completed run of MC::acquire produced a value named nope (the clock is observed as clock)"},
 		{"%runs 3 7 MC::acquire total total", "observable total is named twice"},
 	} {
 		wants(t, run(t, s, tc.line), tc.want)

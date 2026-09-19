@@ -56,6 +56,10 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		bounded:   map[*sysmlv1.Element][]*sysmlv1.Element{},
 		triggered: map[*sysmlv1.Element]bool{},
 		indexed:   map[string]int{},
+		lanes:     map[*sysmlv1.Element]*lanes{},
+		routes:    map[[2]*sysmlv1.Element]partRoute{},
+		usageOf:   map[*sysmlv1.Element]string{},
+		pins:      map[*sysmlv1.Element]pinDecl{},
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -157,6 +161,19 @@ type migration struct {
 	// indexed locates each element's report entry by id, so an element that
 	// several writers account for is reported once.
 	indexed map[string]int
+	// lanes indexes each activity's partitions by the nodes and edges they hold.
+	lanes map[*sysmlv1.Element]*lanes
+	// routes memoizes, per classifier and target, the chains of composite parts between them.
+	routes map[[2]*sysmlv1.Element]partRoute
+	// usageOf names, for each activity a lane's object performs, the action
+	// usage of the activity's owner that performs it.
+	usageOf map[*sysmlv1.Element]string
+	// pins records how each declared pin is written, for the bodies that name it.
+	pins map[*sysmlv1.Element]pinDecl
+	// clocks memoizes the names a simulation configuration gives the clock.
+	clocks map[string]string
+	// observed memoizes, per observation, the durations and time expressions that read it.
+	observed map[*sysmlv1.Element][]*sysmlv1.Element
 }
 
 // add records e's verdict. An element reported before keeps one entry: the
@@ -207,7 +224,7 @@ func weaker(a, b Verdict) bool {
 // by realizing connector, names every anonymous feature that is referred to,
 // and then exposes the features the connectors and slots that will be written reach.
 func (m *migration) prepare() {
-	var reachers []*sysmlv1.Element
+	var reachers, laned []*sysmlv1.Element
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		m.distinguish(e)
@@ -261,6 +278,8 @@ func (m *migration) prepare() {
 				m.methodOf[method] = e
 				m.realizeParameters(e, method)
 			}
+		case "Activity":
+			laned = append(laned, e)
 		case "DurationConstraint":
 			for _, c := range m.model.Refs(e, "constrainedElement") {
 				m.bounded[c] = append(m.bounded[c], e)
@@ -281,6 +300,9 @@ func (m *migration) prepare() {
 	}
 	for _, e := range reachers {
 		m.exposeReached(e)
+	}
+	for _, act := range laned {
+		m.prepareLanes(act)
 	}
 }
 
@@ -760,7 +782,7 @@ func (m *migration) constraintBody(e *sysmlv1.Element) {
 		}
 		if spec == nil {
 			m.unmapped(result, "the constraint has no specification")
-		} else if expr, ok, note := m.valueExpr(spec, e); ok {
+		} else if expr, ok, note := m.valueExprAs(spec, e, oneOf("Boolean")); ok {
 			m.w.line(expr)
 			m.add(result, verdictFor(note), m.v2Name(e), note)
 		} else {
@@ -1888,7 +1910,7 @@ func (m *migration) rule(r *sysmlv1.Element) {
 		m.unmapped(r, "the constraint has no specification")
 		return
 	}
-	expr, ok, note := m.valueExpr(spec, m.scope)
+	expr, ok, note := m.valueExprAs(spec, m.scope, oneOf("Boolean"))
 	if !ok {
 		m.unmappedExpr(r, spec, note)
 		return
