@@ -1327,6 +1327,15 @@ func (a *activity) objectFlow(e *sysmlv1.Element) {
 		return
 	}
 	for _, s := range a.edgeSources[e] {
+		if callee, p := a.calleeOutput(s); callee != nil && p == nil {
+			why := "the pin " + describe(s) + " of " + describe(s.Parent) + " stands for no out parameter of the called " + qualifiedName(callee) + ", so it carries no value"
+			a.m.w.line("/* flow " + describe(s) + " to " + to + " not written: " + why + " */")
+			a.m.add(e, Approximated, "", "the flow is kept as a comment: "+why+", and none reaches "+describe(tgt))
+			if nodeKind(tgt) == nodePin {
+				a.m.add(tgt.Parent, Approximated, "", "its input "+to+" receives no value, since "+why)
+			}
+			continue
+		}
 		from, ok := a.pinRef(s)
 		if !ok {
 			a.m.add(e, Unmapped, "", "the flow's source "+describe(s)+" has no v2 name")

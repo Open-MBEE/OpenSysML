@@ -71,8 +71,9 @@
 - **A migrated call or send that v1 fires without a required value keeps its place and performs
   nothing.** A call passing no argument for a parameter that must hold a value, or a call or
   signal send passing none for a signal attribute that must, one passing a pin of a type the attribute cannot take, or one whose pin is fed only by flows no value travels — from a parameter nothing values,
-  an unmigrated opaque or value specification action, or a callee whose own activity gives that
-  `out` parameter no value, judged through any depth of nesting — is written as an empty action carrying the token,
+  an unmigrated opaque or value specification action, a callee whose own activity gives that
+  `out` parameter no value, judged through any depth of nesting, or a call's result pin past
+  the callee's `out` parameters, which stands for none — is written as an empty action carrying the token,
   with the reason in its comment and report line, and the object flow is kept as a comment
   rather than written from a feature that will hold nothing. Control and buffer nodes only
   object flows lead to route their values from source to pin, a control node no edge leaves

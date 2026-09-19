@@ -275,8 +275,9 @@ parameters and the operation's target pin are not arguments), the send passes no
 required attribute of its signal, inherited ones included, or the pin it passes is fed only
 by flows no value travels — from a parameter nothing values, from an action that is not
 migrated (an opaque action's result, or a value specification action whose literal is no value
-of its result's type), or from a call whose callee gives that `out` parameter no value, judged
-by the same analysis of the callee's own activity, through any depth of nesting. Every such object flow is kept as a comment naming its source, never written as a
+of its result's type), from a call whose callee gives that `out` parameter no value, judged
+by the same analysis of the callee's own activity, through any depth of nesting, or from a
+call's result pin past the callee's `out` parameters, which stands for none. Every such object flow is kept as a comment naming its source, never written as a
 `flow` from a feature that will hold nothing, and the receiving action's report line says which
 input receives no value. A call whose callee acts on an object the caller does not hold — the
 method reads ports of its block, and the caller is a behavior of another block with no part of
