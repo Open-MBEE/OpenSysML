@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"

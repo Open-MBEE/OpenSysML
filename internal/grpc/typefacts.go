@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"

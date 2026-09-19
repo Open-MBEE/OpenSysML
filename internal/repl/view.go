@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"

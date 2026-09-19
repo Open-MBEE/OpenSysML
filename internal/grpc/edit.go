@@ -8,8 +8,8 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/check/edit"
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )

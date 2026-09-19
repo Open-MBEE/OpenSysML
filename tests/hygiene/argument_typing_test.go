@@ -15,7 +15,7 @@ import (
 
 const (
 	runtimePkg = "github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	passesPkg  = "github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	passesPkg  = "github.com/Open-MBEE/OpenSysML/internal/check/passes"
 )
 
 // Frontends whose runtime models the check must keep seeing; a restructuring
