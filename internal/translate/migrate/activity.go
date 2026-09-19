@@ -1047,15 +1047,7 @@ func (a *activity) objectFlow(e *sysmlv1.Element) {
 		return
 	}
 	if k := nodeKind(tgt); k != nodePin && k != nodeParam {
-		if tgt.Type == "DecisionNode" {
-			a.m.add(e, Mapped, "", "the value the flow carries is what the decision's guards are compared with")
-			return
-		}
-		if nodeKind(tgt) == nodeControl || nodeKind(tgt) == nodeBuffer {
-			a.m.add(e, Approximated, "", "the flow into "+describe(tgt)+" is written from its sources to the pins the node leads to")
-			return
-		}
-		a.m.add(e, Approximated, "", "an object flow into "+describe(tgt)+" is written as a succession")
+		a.objectFlowTarget(e, tgt)
 		return
 	}
 	if len(a.edgeSources[e]) == 0 && !a.edgeSelf[e] {
@@ -1074,40 +1066,60 @@ func (a *activity) objectFlow(e *sysmlv1.Element) {
 		return
 	}
 	for _, s := range a.edgeSources[e] {
-		from, ok := a.pinRef(s)
-		if !ok {
-			a.m.add(e, Unmapped, "", "the flow's source "+describe(s)+" has no v2 name")
-			continue
-		}
-		if a.written[[2]*sysmlv1.Element{s, tgt}] {
-			a.m.add(e, Mapped, "", "the flow from "+from+" to "+to+" is written once, though several edges carry it")
-			continue
-		}
-		a.written[[2]*sysmlv1.Element{s, tgt}] = true
-		if a.inert[s.Parent] {
-			a.m.w.line("/* flow " + from + " to " + to + " not written: " + describe(s.Parent) + " is not migrated and produces no value */")
-			a.m.add(e, Approximated, "", "the flow is kept as a comment: its source "+describe(s.Parent)+" is not migrated, so no value reaches "+describe(s))
-			if nodeKind(tgt) == nodePin {
-				a.m.add(tgt.Parent, Approximated, "", "its input "+to+" receives no value, since "+describe(s.Parent)+" is not migrated; the action cannot be performed until one is bound")
-			}
-			continue
-		}
-		st, tt := a.endType(s), a.endType(tgt)
-		if !a.m.conform(st, tt) {
-			a.m.w.line("/* flow " + from + " to " + to + " not written: " + qualifiedName(st) + " and " + qualifiedName(tt) + " do not conform */")
-			a.m.add(e, Approximated, "", "the flow is kept as a comment: its ends are typed by "+qualifiedName(st)+" and "+qualifiedName(tt)+", which do not conform")
-			continue
-		}
-		if nodeKind(s) == nodeParam || nodeKind(tgt) == nodeParam {
-			a.m.w.line("bind " + to + " = " + from + ";")
-		} else {
-			a.m.w.line("flow " + from + " to " + to + ";")
-		}
-		a.m.add(e, Mapped, "", "")
+		a.objectFlowSource(e, s, tgt, to)
 	}
 	if g := firstOwned(e, "guard"); g != nil {
 		a.m.add(e, Approximated, "", "the guard ["+describeValue(g)+"] on an object flow is not written")
 	}
+}
+
+// objectFlowTarget records the object flow e whose target is no pin or
+// parameter: a decision's compared value, or a succession.
+func (a *activity) objectFlowTarget(e, tgt *sysmlv1.Element) {
+	if tgt.Type == "DecisionNode" {
+		a.m.add(e, Mapped, "", "the value the flow carries is what the decision's guards are compared with")
+		return
+	}
+	if nodeKind(tgt) == nodeControl || nodeKind(tgt) == nodeBuffer {
+		a.m.add(e, Approximated, "", "the flow into "+describe(tgt)+" is written from its sources to the pins the node leads to")
+		return
+	}
+	a.m.add(e, Approximated, "", "an object flow into "+describe(tgt)+" is written as a succession")
+}
+
+// objectFlowSource writes the flow e's one source s carries into the pin or
+// parameter to, as a bind at a parameter or a flow between pins.
+func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
+	from, ok := a.pinRef(s)
+	if !ok {
+		a.m.add(e, Unmapped, "", "the flow's source "+describe(s)+" has no v2 name")
+		return
+	}
+	if a.written[[2]*sysmlv1.Element{s, tgt}] {
+		a.m.add(e, Mapped, "", "the flow from "+from+" to "+to+" is written once, though several edges carry it")
+		return
+	}
+	a.written[[2]*sysmlv1.Element{s, tgt}] = true
+	if a.inert[s.Parent] {
+		a.m.w.line("/* flow " + from + " to " + to + " not written: " + describe(s.Parent) + " is not migrated and produces no value */")
+		a.m.add(e, Approximated, "", "the flow is kept as a comment: its source "+describe(s.Parent)+" is not migrated, so no value reaches "+describe(s))
+		if nodeKind(tgt) == nodePin {
+			a.m.add(tgt.Parent, Approximated, "", "its input "+to+" receives no value, since "+describe(s.Parent)+" is not migrated; the action cannot be performed until one is bound")
+		}
+		return
+	}
+	st, tt := a.endType(s), a.endType(tgt)
+	if !a.m.conform(st, tt) {
+		a.m.w.line("/* flow " + from + " to " + to + " not written: " + qualifiedName(st) + " and " + qualifiedName(tt) + " do not conform */")
+		a.m.add(e, Approximated, "", "the flow is kept as a comment: its ends are typed by "+qualifiedName(st)+" and "+qualifiedName(tt)+", which do not conform")
+		return
+	}
+	if nodeKind(s) == nodeParam || nodeKind(tgt) == nodeParam {
+		a.m.w.line("bind " + to + " = " + from + ";")
+	} else {
+		a.m.w.line("flow " + from + " to " + to + ";")
+	}
+	a.m.add(e, Mapped, "", "")
 }
 
 // callBehavior writes a call behavior action as an action usage typed by the called

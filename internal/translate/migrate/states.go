@@ -533,25 +533,11 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 	}
 	triggers := t.Owned("trigger")
 	for _, tr := range triggers {
-		ev := s.m.model.Ref(tr, "event")
-		if ev == nil {
-			note := joinNotes(s.m.dangling(tr, "event"), "the trigger names no event")
-			s.m.add(tr, Unmapped, "", note)
-			notes = append(notes, "a trigger is dropped: "+note)
-			continue
-		}
-		var a acceptance
-		if eff != nil {
-			a = s.payload(t, eff, ev)
-		}
-		clause, note, ok := s.m.triggerClause(ev, t, a.payload)
+		a, note, ok := s.triggerAccept(t, tr, eff)
 		if !ok {
-			s.m.add(tr, Unmapped, "", note)
-			notes = append(notes, "a trigger is dropped: "+note)
+			notes = append(notes, note)
 			continue
 		}
-		s.m.add(tr, verdictFor(note), "", note)
-		a.clause = " " + clause
 		accepts = append(accepts, a)
 	}
 	if len(triggers) > 0 && len(accepts) == 0 {
@@ -582,23 +568,50 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 		}
 		line += "first " + from + accept.clause + guard
 		if eff != nil {
-			if i > 0 {
-				s.m.downgrade(eff, "run by each of the transitions written for its triggers")
-			}
-			s.m.w.line(line)
-			s.m.w.indented(func() {
-				saved := s.m.bound
-				s.m.bound = accept.bound
-				s.m.inlineBehavior("do action", eff, t)
-				s.m.bound = saved
-				s.m.w.line("then " + to + ";")
-			})
+			s.writeTransitionEffect(t, eff, accept, line, to, i)
 			continue
 		}
 		s.m.w.line(line + " then " + to + ";")
 	}
 	note := strings.Join(notes, "; ")
 	s.m.add(t, verdictFor(note), tname, note)
+}
+
+// triggerAccept resolves one trigger into the acceptance written for it; ok is
+// false when the trigger is dropped, note saying why.
+func (s *stateRegion) triggerAccept(t, tr, eff *sysmlv1.Element) (a acceptance, note string, ok bool) {
+	ev := s.m.model.Ref(tr, "event")
+	if ev == nil {
+		note := joinNotes(s.m.dangling(tr, "event"), "the trigger names no event")
+		s.m.add(tr, Unmapped, "", note)
+		return a, "a trigger is dropped: " + note, false
+	}
+	if eff != nil {
+		a = s.payload(t, eff, ev)
+	}
+	clause, tnote, tok := s.m.triggerClause(ev, t, a.payload)
+	if !tok {
+		s.m.add(tr, Unmapped, "", tnote)
+		return a, "a trigger is dropped: " + tnote, false
+	}
+	s.m.add(tr, verdictFor(tnote), "", tnote)
+	a.clause = " " + clause
+	return a, "", true
+}
+
+// writeTransitionEffect writes a transition's effect as its do action, then its target.
+func (s *stateRegion) writeTransitionEffect(t, eff *sysmlv1.Element, accept acceptance, line, to string, i int) {
+	if i > 0 {
+		s.m.downgrade(eff, "run by each of the transitions written for its triggers")
+	}
+	s.m.w.line(line)
+	s.m.w.indented(func() {
+		saved := s.m.bound
+		s.m.bound = accept.bound
+		s.m.inlineBehavior("do action", eff, t)
+		s.m.bound = saved
+		s.m.w.line("then " + to + ";")
+	})
 }
 
 // acceptance is one written trigger: its accept clause, the name the clause

@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -54,53 +55,80 @@ func (VariableFeaturePass) Run(ctx *Context, name string, root *ast.RootNamespac
 			Source:   "constraint",
 		})
 	}
-	kerml := ctx.Kind == source.KindKerML
+	check := &variableFeatureCheck{
+		ctx: ctx, model: model, occurrence: occurrence,
+		derivable: derivable, kerml: ctx.Kind == source.KindKerML, report: report,
+	}
 	w := &kit.Walker{Ctx: ctx}
-	w.Walk(rootScope, func(sym *symbols.Symbol) {
-		if cross, ok := sym.Decl.(*ast.CrossFeatureMember); ok {
-			if ctx.DownstreamSpan(cross.Span()) {
-				return
-			}
-			if derivable && cross.IsConstant && !model.FeatureIsVariable(sym) {
-				report(cross.Span(), msgConstantNotVariable, "constant-feature-not-variable")
-			}
-			if !cross.IsVariable && !(cross.IsConstant && kerml) {
-				return
-			}
-			if cross.IsPortion {
-				report(cross.Span(), msgPortionFeatureVariable, "feature-portion-not-variable")
-			}
-			// A cross feature's membership is no FeatureMembership: no owning type.
-			report(cross.Span(), msgVariableFeatureOwner, "variable-feature-owner")
-			return
-		}
-		u, ok := sym.Decl.(*ast.Usage)
-		if !ok || w8cVariabilityDownstream(ctx, sym, u) {
-			return
-		}
-		if derivable && u.ValueIsInitial && u.Value != nil && !model.FeatureIsVariable(sym) {
-			report(w8cValueSpan(u), msgInitialValueNotVariable, "initial-value-not-variable")
-		}
-		if derivable && u.IsConstant && !model.FeatureIsVariable(sym) {
-			report(u.Span(), msgConstantNotVariable, "constant-feature-not-variable")
-		}
-		// KerML `const` declares a variable feature too; SysML's `constant` does not.
-		if !u.IsVariable && !(u.IsConstant && kerml) {
-			return
-		}
-		if u.IsPortion {
-			report(u.Span(), msgPortionFeatureVariable, "feature-portion-not-variable")
-		}
-		if occurrence == nil || sym.OwnerScope == nil {
-			return
-		}
-		owner := sym.OwnerScope.Owner()
-		if owner != nil && model.Conforms(owner, occurrence) {
-			return
-		}
-		report(u.Span(), msgVariableFeatureOwner, "variable-feature-owner")
-	})
+	w.Walk(rootScope, check.symbol)
 	return diags
+}
+
+// variableFeatureCheck carries the shared state of one Run's per-symbol checks.
+type variableFeatureCheck struct {
+	ctx        *Context
+	model      *semantics.Model
+	occurrence *symbols.Symbol
+	derivable  bool
+	kerml      bool
+	report     func(span source.Span, message, code string)
+}
+
+// symbol checks one declaration's variability constraints.
+func (c *variableFeatureCheck) symbol(sym *symbols.Symbol) {
+	if cross, ok := sym.Decl.(*ast.CrossFeatureMember); ok {
+		c.crossFeature(sym, cross)
+		return
+	}
+	u, ok := sym.Decl.(*ast.Usage)
+	if !ok || w8cVariabilityDownstream(c.ctx, sym, u) {
+		return
+	}
+	c.usage(sym, u)
+}
+
+// crossFeature checks a cross-feature member: a variable one is no portion and,
+// its membership being no FeatureMembership, has no owning type.
+func (c *variableFeatureCheck) crossFeature(sym *symbols.Symbol, cross *ast.CrossFeatureMember) {
+	if c.ctx.DownstreamSpan(cross.Span()) {
+		return
+	}
+	if c.derivable && cross.IsConstant && !c.model.FeatureIsVariable(sym) {
+		c.report(cross.Span(), msgConstantNotVariable, "constant-feature-not-variable")
+	}
+	if !cross.IsVariable && !(cross.IsConstant && c.kerml) {
+		return
+	}
+	if cross.IsPortion {
+		c.report(cross.Span(), msgPortionFeatureVariable, "feature-portion-not-variable")
+	}
+	c.report(cross.Span(), msgVariableFeatureOwner, "variable-feature-owner")
+}
+
+// usage checks a usage's variability: `var` wants an occurrence owner and no
+// portion; only a variable feature is initialized or constant.
+func (c *variableFeatureCheck) usage(sym *symbols.Symbol, u *ast.Usage) {
+	if c.derivable && u.ValueIsInitial && u.Value != nil && !c.model.FeatureIsVariable(sym) {
+		c.report(w8cValueSpan(u), msgInitialValueNotVariable, "initial-value-not-variable")
+	}
+	if c.derivable && u.IsConstant && !c.model.FeatureIsVariable(sym) {
+		c.report(u.Span(), msgConstantNotVariable, "constant-feature-not-variable")
+	}
+	// KerML `const` declares a variable feature too; SysML's `constant` does not.
+	if !u.IsVariable && !(u.IsConstant && c.kerml) {
+		return
+	}
+	if u.IsPortion {
+		c.report(u.Span(), msgPortionFeatureVariable, "feature-portion-not-variable")
+	}
+	if c.occurrence == nil || sym.OwnerScope == nil {
+		return
+	}
+	owner := sym.OwnerScope.Owner()
+	if owner != nil && c.model.Conforms(owner, c.occurrence) {
+		return
+	}
+	c.report(u.Span(), msgVariableFeatureOwner, "variable-feature-owner")
 }
 
 // w8cVariabilityDownstream reports a lower-tier failure in what u's variability

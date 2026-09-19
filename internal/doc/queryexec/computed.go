@@ -119,86 +119,7 @@ func (e *executor) evaluateColumnExpression(
 ) ([]Value, error) {
 	switch expression.Operation() {
 	case queryplan.OperationRowProperty:
-		property := expression.Target()
-		_, declaring := expression.Literal()
-		if declaringIsElement(declaring) {
-			values, present, err := e.propertyValues(row, property)
-			if err != nil {
-				return nil, e.unevaluable(expression, property, row, err)
-			}
-			tracker.record(property, present)
-			return values, nil
-		}
-		if inst, _, isObject := row.Object(); isObject {
-			if isMetaclassFQN(declaring) {
-				decl := objectDeclaration(inst)
-				if !e.context.Model.MetaclassConforms(decl, declaring) {
-					return nil, nil
-				}
-				return e.reflectiveFeatureValues(expression, property, decl)
-			}
-			if !e.objectConformsTo(inst, declaring) {
-				return nil, nil
-			}
-			values, _, err := e.objectFeatureValues(row, property)
-			if err != nil {
-				return nil, e.unevaluable(expression, property, row, err)
-			}
-			return values, nil
-		}
-		if verdict, isVerdict := row.Verdict(); isVerdict {
-			if declaring == verdictFQN {
-				values, _, err := e.verdictPropertyValues(row, property)
-				if err != nil {
-					return nil, e.unevaluable(expression, property, row, err)
-				}
-				return values, nil
-			}
-			row = ElementValue(verdict.Assertion())
-		}
-		if state, isState := row.State(); isState {
-			if declaring == stateFQN {
-				values, _, err := e.statePropertyValues(row, property)
-				if err != nil {
-					return nil, e.unevaluable(expression, property, row, err)
-				}
-				return values, nil
-			}
-			if state.symbol == nil {
-				return nil, nil
-			}
-			row = ElementValue(state.symbol)
-		}
-		if event, isEvent := row.Event(); isEvent {
-			if declaring == eventFQN {
-				values, _, err := e.eventPropertyValues(row, property)
-				if err != nil {
-					return nil, e.unevaluable(expression, property, row, err)
-				}
-				return values, nil
-			}
-			if event.Behavior() == nil {
-				return nil, nil
-			}
-			row = ElementValue(event.Behavior())
-		}
-		sym, _ := row.Element()
-		if isMetaclassFQN(declaring) {
-			if !e.context.Model.MetaclassConforms(sym, declaring) {
-				return nil, nil
-			}
-			return e.reflectiveFeatureValues(expression, property, sym)
-		}
-		if !e.rowConformsTo(sym, declaring) {
-			// The row is unrelated to the declaring type: read as absent so a
-			// ?? operator can default it. The feature resolved at planning.
-			return nil, nil
-		}
-		values, _, err := e.declaredFeatureValues(sym, property)
-		if err != nil {
-			return nil, e.unevaluable(expression, property, ElementValue(sym), err)
-		}
-		return values, nil
+		return e.rowPropertyValues(expression, row, tracker)
 	case queryplan.OperationLiteral:
 		value, err := e.evaluateLiteral(expression)
 		if err != nil {
@@ -222,6 +143,145 @@ func (e *executor) evaluateColumnExpression(
 			Origin:    expression.Origin(),
 		}
 	}
+}
+
+// rowPropertyValues evaluates a row property: metadata features read the query's
+// bookkeeping; declared features read the object, verdict, state, event or
+// element the row carries, conforming to the property's declaring type.
+func (e *executor) rowPropertyValues(
+	expression queryplan.Expression,
+	row Value,
+	tracker *propertyTracker,
+) ([]Value, error) {
+	property := expression.Target()
+	_, declaring := expression.Literal()
+	if declaringIsElement(declaring) {
+		values, present, err := e.propertyValues(row, property)
+		if err != nil {
+			return nil, e.unevaluable(expression, property, row, err)
+		}
+		tracker.record(property, present)
+		return values, nil
+	}
+	if inst, _, isObject := row.Object(); isObject {
+		return e.objectRowValues(expression, property, declaring, row, inst)
+	}
+	var values []Value
+	var done bool
+	var err error
+	row, values, done, err = e.carrierRowValues(expression, property, declaring, row)
+	if done {
+		return values, err
+	}
+	sym, _ := row.Element()
+	if isMetaclassFQN(declaring) {
+		if !e.context.Model.MetaclassConforms(sym, declaring) {
+			return nil, nil
+		}
+		return e.reflectiveFeatureValues(expression, property, sym)
+	}
+	if !e.rowConformsTo(sym, declaring) {
+		// The row is unrelated to the declaring type: read as absent so a
+		// ?? operator can default it. The feature resolved at planning.
+		return nil, nil
+	}
+	declared, _, err := e.declaredFeatureValues(sym, property)
+	if err != nil {
+		return nil, e.unevaluable(expression, property, ElementValue(sym), err)
+	}
+	return declared, nil
+}
+
+// objectRowValues reads a declared or metaclass feature of an object row.
+func (e *executor) objectRowValues(
+	expression queryplan.Expression,
+	property, declaring string,
+	row Value,
+	inst *runtime.Instance,
+) ([]Value, error) {
+	if isMetaclassFQN(declaring) {
+		decl := objectDeclaration(inst)
+		if !e.context.Model.MetaclassConforms(decl, declaring) {
+			return nil, nil
+		}
+		return e.reflectiveFeatureValues(expression, property, decl)
+	}
+	if !e.objectConformsTo(inst, declaring) {
+		return nil, nil
+	}
+	values, _, err := e.objectFeatureValues(row, property)
+	if err != nil {
+		return nil, e.unevaluable(expression, property, row, err)
+	}
+	return values, nil
+}
+
+// carrierRowValues reads a record row's own property when declaring names the
+// record's type, else unwraps the element the record carries; done reports the
+// property was evaluated (or the record carries nothing) rather than unwrapped.
+func (e *executor) carrierRowValues(
+	expression queryplan.Expression,
+	property, declaring string,
+	row Value,
+) (Value, []Value, bool, error) {
+	if verdict, isVerdict := row.Verdict(); isVerdict {
+		return e.verdictRowValues(expression, property, declaring, row, verdict)
+	}
+	if state, isState := row.State(); isState {
+		return e.stateRowValues(expression, property, declaring, row, state)
+	}
+	if event, isEvent := row.Event(); isEvent {
+		return e.eventRowValues(expression, property, declaring, row, event)
+	}
+	return row, nil, false, nil
+}
+
+// verdictRowValues reads a verdict's own property, or unwraps the assertion.
+func (e *executor) verdictRowValues(
+	expression queryplan.Expression, property, declaring string, row Value, verdict Verdict,
+) (Value, []Value, bool, error) {
+	if declaring != verdictFQN {
+		return ElementValue(verdict.Assertion()), nil, false, nil
+	}
+	values, _, err := e.verdictPropertyValues(row, property)
+	if err != nil {
+		return row, nil, true, e.unevaluable(expression, property, row, err)
+	}
+	return row, values, true, nil
+}
+
+// stateRowValues reads a state's own property, or unwraps its declaration.
+func (e *executor) stateRowValues(
+	expression queryplan.Expression, property, declaring string, row Value, state State,
+) (Value, []Value, bool, error) {
+	if declaring == stateFQN {
+		values, _, err := e.statePropertyValues(row, property)
+		if err != nil {
+			return row, nil, true, e.unevaluable(expression, property, row, err)
+		}
+		return row, values, true, nil
+	}
+	if state.symbol == nil {
+		return row, nil, true, nil
+	}
+	return ElementValue(state.symbol), nil, false, nil
+}
+
+// eventRowValues reads an event's own property, or unwraps its behavior.
+func (e *executor) eventRowValues(
+	expression queryplan.Expression, property, declaring string, row Value, event Event,
+) (Value, []Value, bool, error) {
+	if declaring == eventFQN {
+		values, _, err := e.eventPropertyValues(row, property)
+		if err != nil {
+			return row, nil, true, e.unevaluable(expression, property, row, err)
+		}
+		return row, values, true, nil
+	}
+	if event.Behavior() == nil {
+		return row, nil, true, nil
+	}
+	return ElementValue(event.Behavior()), nil, false, nil
 }
 
 // declaringIsElement reports whether a planned row property was declared on
