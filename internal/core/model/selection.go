@@ -3,7 +3,7 @@ package model
 import (
 	"sort"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/docplan"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"

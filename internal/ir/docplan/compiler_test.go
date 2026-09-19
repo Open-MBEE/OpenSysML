@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
-	"github.com/Open-MBEE/OpenSysML/internal/core/queryplan"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -459,7 +459,7 @@ func TestCompileReportsMissingBinding(t *testing.T) {
 }
 
 func TestCompileLeavesDefaultedParametersToTheExecutor(t *testing.T) {
-	fixture := loadPlanningFixtureFile(t, "../docrender/testdata/defaulted_queries.sysml")
+	fixture := loadPlanningFixtureFile(t, "../../core/docrender/testdata/defaulted_queries.sysml")
 	plan := fixture.mustCompile(t, "DefaultedReport")
 	content := plan.Content()
 	if len(content) != 3 {

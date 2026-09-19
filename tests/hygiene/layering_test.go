@@ -57,10 +57,10 @@ var packageLayer = map[string]string{
 	"internal/semantic/semantics": "semantic",
 	"internal/semantic/identity":  "semantic",
 
-	"internal/core/lower":     "ir",
-	"internal/core/queryplan": "ir",
-	"internal/core/docplan":   "ir",
-	"internal/core/view":      "ir",
+	"internal/ir/lower":     "ir",
+	"internal/ir/queryplan": "ir",
+	"internal/ir/docplan":   "ir",
+	"internal/ir/view":      "ir",
 
 	"internal/core/passes":          "check",
 	"internal/core/passes/kit":      "check",
@@ -134,7 +134,7 @@ var tolerated = map[string][]string{
 var removed = map[string][]string{
 	"internal/core/analysis":            {"internal/core/export"},
 	"internal/core/analysis/enginewire": {"internal/core/export"},
-	"internal/core/export":              {"internal/core/migrate", "internal/core/runtime", "internal/core/lower"},
+	"internal/core/export":              {"internal/core/migrate", "internal/core/runtime", "internal/ir/lower"},
 	"internal/core/passes/kit":          {"internal/core/passes"},
 	"internal/core/passes/document":     {"internal/core/passes"},
 	"internal/core/passes/diagram":      {"internal/core/passes"},

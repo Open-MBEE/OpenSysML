@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/view"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
 func renderedFigure(t *testing.T, caption string, rendering *view.Rendering, direction view.Direction) string {

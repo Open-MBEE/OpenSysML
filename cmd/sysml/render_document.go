@@ -12,7 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/docpdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
-	"github.com/Open-MBEE/OpenSysML/internal/core/view"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )

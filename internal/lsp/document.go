@@ -2,7 +2,7 @@ package lsp
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
-	"github.com/Open-MBEE/OpenSysML/internal/core/view"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
 // The custom methods a document-preview client speaks, alongside the diagram
