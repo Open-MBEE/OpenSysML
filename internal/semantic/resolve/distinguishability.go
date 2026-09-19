@@ -448,7 +448,7 @@ func ownerNames(sym *symbols.Symbol, dups []*symbols.Symbol) []string {
 // DistinguishableMembers splits the members of scope whose names the
 // distinguishability rules compare into owned members and aliases: those that
 // bind a name, as LocalBinding finds them. Exported for the library-base half
-// of the rule in internal/core/passes.
+// of the rule in internal/check/passes.
 func (r *Resolver) DistinguishableMembers(scope *symbols.Scope) (owned, aliases []*symbols.Symbol) {
 	for _, name := range scope.MemberNames() {
 		for _, sym := range scope.LookupLocalAll(name) {

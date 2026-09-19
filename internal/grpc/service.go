@@ -10,9 +10,9 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"

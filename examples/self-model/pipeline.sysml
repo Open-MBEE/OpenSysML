@@ -153,7 +153,7 @@ package OpenSysMLPipeline {
     // the tier it runs at. An element-scoped pass gates itself per subject
     // through DownstreamOfFailure instead of being skipped with its tier.
     abstract part def ValidationPass :> CodeUnit {
-        attribute :>> goPackage = "internal/core/passes";
+        attribute :>> goPackage = "internal/check/passes";
         attribute goType : String;
         attribute level : String;
         attribute elementScoped : Boolean default = false;
@@ -180,7 +180,7 @@ package OpenSysMLPipeline {
     // them stably by level; a blocking finding skips the document-scoped passes
     // of the tiers above it and leaves the element-scoped ones to gate themselves.
     #SemanticEngine part def PassRegistry :> Stage {
-        attribute :>> goPackage = "internal/core/passes";
+        attribute :>> goPackage = "internal/check/passes";
         attribute tierCount : Integer = 4;
         attribute passCount : Integer = 56;
         attribute sortsByLevel : Boolean = true;
