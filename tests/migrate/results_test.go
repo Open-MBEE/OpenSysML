@@ -644,6 +644,8 @@ func TestOverlappingResultLocationsIndexEachSnapshotOnce(t *testing.T) {
 // A snapshot holding two numbers for one feature over two slots has no one result
 // for it: the feature is left out of that snapshot with a note, whichever slot comes
 // first or last, while its other features and the other snapshots keep their numbers.
+// A slot no float64 spells exactly still counts as one of them, so its sibling is no
+// result either.
 // Held twice, a feature the target configures records no other value either, so the
 // snapshot stays; recorded once as another number, it is of another configuration.
 func TestRepeatedSnapshotSlotsHoldNoResult(t *testing.T) {
@@ -687,6 +689,14 @@ func TestRepeatedSnapshotSlotsHoldNoResult(t *testing.T) {
           <value xmi:type="uml:LiteralReal" xmi:id="_r8bv" value="60.0"/>
         </slot>
       </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r9" name="run 9" classifier="_sure">
+        <slot xmi:type="uml:Slot" xmi:id="_r9b1" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r9b1v" value="70.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r9b2" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r9b2v" value="0.12345678901234567890"/>
+        </slot>
+      </packagedElement>
     </packagedElement>`, `
   <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
   <sysml:Block xmi:id="_s2" base_Class="_sure"/>
@@ -701,6 +711,7 @@ func TestRepeatedSnapshotSlotsHoldNoResult(t *testing.T) {
 		{ID: "_r5", Name: "run 5", Values: map[string]float64{"pA": 1.0}},
 		{ID: "_r6", Name: "run 6", Values: map[string]float64{"pB": 40.0}},
 		{ID: "_r7", Name: "run 7", Values: map[string]float64{"pB": 50.0}},
+		{ID: "_r9", Name: "run 9", Values: map[string]float64{}},
 	}
 	if !reflect.DeepEqual(configs[0].Snapshots, want) {
 		t.Errorf("snapshots = %+v, want %+v", configs[0].Snapshots, want)
@@ -710,13 +721,15 @@ func TestRepeatedSnapshotSlotsHoldNoResult(t *testing.T) {
 	}
 	notes := []string{
 		"the slot of pA holds 2 numbers over as many slots, and a result is one number in 1 snapshot(s), so it is not among the results",
+		"the slot of pB holds \"0.12345678901234567890\", which no float64 spells exactly, and a result is a float64 in 1 snapshot(s), so it is not among the results",
+		"the slot of pB holds 2 numbers over as many slots, and a result is one number in 1 snapshot(s), so it is not among the results",
 		"the slot of pB holds 3 numbers over as many slots, and a result is one number in 1 snapshot(s), so it is not among the results",
 		"1 snapshot(s) record other values of pA than the target configures, so they are of another configuration and not among the results",
 	}
 	if !reflect.DeepEqual(configs[0].Notes, notes) {
 		t.Errorf("notes = %q, want %q", configs[0].Notes, notes)
 	}
-	wantLine(t, r.Notation, "/* results of the simulation tool: 3 snapshot(s) in Twice holding pA, pB */")
+	wantLine(t, r.Notation, "/* results of the simulation tool: 4 snapshot(s) in Twice holding pA, pB */")
 	wantClean(t, "t.sysml", r)
 }
 

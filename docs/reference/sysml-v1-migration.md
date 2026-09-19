@@ -356,8 +356,9 @@ action def 'Group 0' {
   exactly (an integer beyond 2^53, a decimal of more digits than a float64 keeps; the
   statistics are float64s, so it is noted rather than rounded), a feature two slots of one
   snapshot hold numbers
-  for (left out of that snapshot: it has no one result there, so it also records no other
-  value than the target configures and does not put the snapshot out), and a target with no
+  for (left out of that snapshot whether or not a float64 spells each: it has no one result
+  there, so it also records no other value than the target configures and does not put the
+  snapshot out), and a target with no
   classifier to match snapshots against are each noted in the configuration's `notes`.
 
 `sysml model.sysml -compare-results results.json` then runs every configuration the sidecar

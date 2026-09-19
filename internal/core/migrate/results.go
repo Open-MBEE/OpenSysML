@@ -69,6 +69,7 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 					continue
 				}
 				if !value.carried() {
+					held[name]++
 					unread[name+" holds "+strconv.Quote(value.text)+", which no float64 spells exactly, and a result is a float64"]++
 					continue
 				}
