@@ -7,8 +7,8 @@ import (
 	"math"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // Array is a Collections::Array: its `dimensions` and its `elements` flattened in

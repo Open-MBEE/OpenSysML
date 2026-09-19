@@ -10,7 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // verdictFixtureDocument evaluates the verdict report: over a session holding

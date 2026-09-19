@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // The seed of each run is a function of the Monte Carlo's seed and the run's

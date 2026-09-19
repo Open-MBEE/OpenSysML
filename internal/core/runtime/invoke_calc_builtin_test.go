@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // directBuiltinModel declares calcs that reach built-ins through invocation

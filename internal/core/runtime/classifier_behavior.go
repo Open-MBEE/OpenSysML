@@ -5,7 +5,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // classifierBehaviorDecl is a behavior a type binds to its objects, paired with

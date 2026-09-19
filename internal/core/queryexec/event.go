@@ -4,7 +4,7 @@ import (
 	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // Event is one row of Events: a typed record of the session's trace, at the

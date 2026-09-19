@@ -3,7 +3,7 @@ package runtime
 import (
 	"slices"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // An invocation under check or replay moves one executor one unit at a time. The

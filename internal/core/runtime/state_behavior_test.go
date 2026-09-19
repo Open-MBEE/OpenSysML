@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 func intValue(t *testing.T, data map[string]Value, name string) int64 {

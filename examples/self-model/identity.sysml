@@ -36,7 +36,7 @@ package OpenSysMLIdentity {
     // A side table keyed by symbol: the annotated id when an element carries
     // one, the derived id otherwise, plus its nearest ProjectRef scope.
     #Identity part def IdentityTable :> CodeUnit {
-        attribute :>> goPackage = "internal/core/identity";
+        attribute :>> goPackage = "internal/semantic/identity";
         attribute :>> memoized = false;
         attribute keyedBySymbol : Boolean = true;
         attribute touchesSyntaxTree : Boolean = false;

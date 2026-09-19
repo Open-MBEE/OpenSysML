@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 var updateCheckReduction = flag.Bool("update-check-reduction", false, "Rewrite the reduction ratchet of testdata/check")

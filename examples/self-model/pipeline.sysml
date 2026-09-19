@@ -118,7 +118,7 @@ package OpenSysMLPipeline {
     }
 
     #Frontend part def SymbolBuilder :> Stage {
-        attribute :>> goPackage = "internal/core/symbols";
+        attribute :>> goPackage = "internal/semantic/symbols";
         attribute buildsScopeTree : Boolean = true;
         in item tree : SyntaxTree;
         out item index : SymbolIndex;
@@ -129,7 +129,7 @@ package OpenSysMLPipeline {
     // --- Semantic engine -------------------------------------------------
 
     #SemanticEngine part def Resolver :> Stage {
-        attribute :>> goPackage = "internal/core/resolve";
+        attribute :>> goPackage = "internal/semantic/resolve";
         attribute :>> lazy = true;
         attribute :>> memoized = true;
         attribute expandsWildcardImports : Boolean = true;
@@ -141,7 +141,7 @@ package OpenSysMLPipeline {
 
     // Supertypes, conformance, members, multiplicity, constant folding.
     #SemanticEngine part def SemanticModel :> Stage {
-        attribute :>> goPackage = "internal/core/semantics";
+        attribute :>> goPackage = "internal/semantic/semantics";
         attribute :>> memoized = true;
         in item bindings : ResolutionTable;
         out item types : TypeTable;

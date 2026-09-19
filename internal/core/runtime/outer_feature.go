@@ -1,8 +1,8 @@
 package runtime
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // outerFeatureValue reads the resolved feature from the nearest owner carrying it: a nested usage

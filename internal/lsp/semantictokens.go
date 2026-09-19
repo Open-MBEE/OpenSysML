@@ -7,7 +7,7 @@ import (
 
 	"go.lsp.dev/protocol"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/highlight"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/highlight"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 

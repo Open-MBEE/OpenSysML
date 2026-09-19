@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	corequery "github.com/Open-MBEE/OpenSysML/internal/core/query"
+	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 )
 
 func TestMetaHelpAndList(t *testing.T) {

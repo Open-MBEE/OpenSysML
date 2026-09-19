@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // writeManifest writes the given files into a manifest directory of the test's own.

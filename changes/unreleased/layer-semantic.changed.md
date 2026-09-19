@@ -1,0 +1,1 @@
+- **Moved the semantic packages to `internal/semantic`.** `symbols`, `suggest`, `resolve`, `semantics`, `identity`, `highlight` and `query` now live under `internal/semantic/`; `query` declares the namespace IRIs it needs rather than importing the RDF vocabulary.

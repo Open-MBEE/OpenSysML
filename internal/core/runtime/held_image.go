@@ -7,7 +7,7 @@ import (
 	"math/rand/v2"
 	"slices"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // ErrImageIdentityTaken is the typed error for an image whose object's identity

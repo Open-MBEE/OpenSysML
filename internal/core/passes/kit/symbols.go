@@ -1,7 +1,7 @@
 package kit
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // WalkSymbols visits every symbol of the scope subtree exactly once.

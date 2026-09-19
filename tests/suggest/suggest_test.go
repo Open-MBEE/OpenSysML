@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
-	"github.com/Open-MBEE/OpenSysML/internal/core/suggest"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // TestEditDistance locks the distances the suggestions rank on, including the

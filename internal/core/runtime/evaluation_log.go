@@ -4,7 +4,7 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // evaluationLog records, for the case run under way, each application of one of

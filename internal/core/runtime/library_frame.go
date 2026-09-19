@@ -1,6 +1,6 @@
 package runtime
 
-import "github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+import "github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 
 // libraryTier reports the tier of the library that declares sym, TierNone for a
 // declaration of the model under evaluation.

@@ -154,7 +154,7 @@ package OpenSysMLSurfaces {
 
     // Semantic-token classes, in the order the LSP legend lists them.
     part def Highlighter :> CodeUnit {
-        attribute :>> goPackage = "internal/core/highlight";
+        attribute :>> goPackage = "internal/semantic/highlight";
         attribute tokenClasses : Integer = 15;
         in item tree : SyntaxTree;
         out item tokens : SemanticToken;
@@ -171,7 +171,7 @@ package OpenSysMLSurfaces {
 
     // The nearest declared names for one that did not resolve.
     part def Suggester :> CodeUnit {
-        attribute :>> goPackage = "internal/core/suggest";
+        attribute :>> goPackage = "internal/semantic/suggest";
         attribute rankedByDistance : Boolean = true;
         in item findings : Diagnostic;
     }
@@ -197,7 +197,7 @@ package OpenSysMLSurfaces {
     // A document name and a span, carried from a declaration to whatever is
     // derived from it; a synthetic artifact carries the unlocated origin.
     part def Provenance :> CodeUnit {
-        attribute :>> goPackage = "internal/core/symbols";
+        attribute :>> goPackage = "internal/semantic/symbols";
         attribute keyedByDocumentAndSpan : Boolean = true;
         attribute consumers : String = "internal/core/docir, internal/core/view, internal/core/queryplan";
         out item origins : SourceSpan;
@@ -319,7 +319,7 @@ package OpenSysMLSurfaces {
     }
 
     part def OslcQuery :> CodeUnit {
-        attribute :>> goPackage = "internal/core/query";
+        attribute :>> goPackage = "internal/semantic/query";
         attribute dialect : String = "oslc";
     }
 

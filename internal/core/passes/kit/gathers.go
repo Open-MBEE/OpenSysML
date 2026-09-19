@@ -5,7 +5,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // Union is one workspace-wide gather, kept per document by Gathers.
