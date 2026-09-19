@@ -1,5 +1,5 @@
 - **The declared errata overlay now covers the bundled standard library.** `internal/errata`
-  accepts entries under `internal/workspace/libs/stdlib` beside the example corpora, and the nine
+  accepts entries under `internal/core/libs/stdlib` beside the example corpora, and the nine
   dimension defects the expression type checker reports in the published `SI.sysml` and
   `USCustomaryUnits.sysml` are its entries, each with a citation, a derivation and the published
   line it must still match. Three have one reading with the declared dimension and carry a
