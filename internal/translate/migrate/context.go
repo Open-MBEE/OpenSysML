@@ -15,10 +15,20 @@ type behaviorContext struct {
 	classifier *sysmlv1.Element
 }
 
+// contextVisit is an activity the search settling contexts has reached: its
+// place in the visit order, the earliest place a chain of calls from it reaches,
+// and the classifiers whose ports it names itself or through settled behaviors.
+type contextVisit struct {
+	index, low int
+	owners     []*sysmlv1.Element
+}
+
 // contextOf settles, once, the context an activity needs: the one classifier whose
 // ports it or the behaviors it calls name. A classifier's own behavior acts on its
 // object unless nothing it needs is one: v1 runs a called behavior on the caller's
 // object, whoever owns it, so such a behavior takes the object it acts on instead.
+// Activities calling each other in a cycle name the same ports through the cycle,
+// so the search settles a cycle at once, with everything its members name.
 func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 	if b == nil || b.Type != "Activity" {
 		return nil
@@ -26,9 +36,73 @@ func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 	if c, settled := m.contexts[b]; settled {
 		return c
 	}
-	// A cycle of calls contributes nothing to itself.
-	m.contexts[b] = nil
-	owners := m.portOwners(b)
+	if m.visiting[b] != nil {
+		// Reached again before settling: the cycle it closes settles it.
+		return nil
+	}
+	m.visitContext(b)
+	return m.contexts[b]
+}
+
+// visitContext reaches b and, through it, the behaviors it calls; once every call
+// from b leads back no earlier than b, b and the cycle it heads are settled.
+func (m *migration) visitContext(b *sysmlv1.Element) {
+	v := &contextVisit{index: len(m.visits), low: len(m.visits), owners: m.namedPortOwners(b)}
+	m.visiting[b] = v
+	m.visits = append(m.visits, b)
+	for _, c := range m.calledActivities(b) {
+		if ctx, settled := m.contexts[c]; settled {
+			if ctx != nil {
+				v.owners = addOwner(v.owners, ctx.classifier)
+			}
+			continue
+		}
+		if w := m.visiting[c]; w != nil {
+			v.low = min(v.low, w.index)
+			continue
+		}
+		m.visitContext(c)
+		if ctx, settled := m.contexts[c]; settled {
+			if ctx != nil {
+				v.owners = addOwner(v.owners, ctx.classifier)
+			}
+		} else {
+			v.low = min(v.low, m.visiting[c].low)
+		}
+	}
+	if v.low != v.index {
+		return
+	}
+	members := slices.Clone(m.visits[v.index:])
+	m.visits = m.visits[:v.index]
+	var owners []*sysmlv1.Element
+	for _, e := range members {
+		for _, o := range m.visiting[e].owners {
+			owners = addOwner(owners, o)
+		}
+		delete(m.visiting, e)
+		// Settled as none while the members decide, so a cycle contributes nothing to itself.
+		m.contexts[e] = nil
+	}
+	decided := make([]*behaviorContext, len(members))
+	for i, e := range members {
+		decided[i] = m.decideContext(e, owners)
+	}
+	for i, e := range members {
+		m.contexts[e] = decided[i]
+	}
+}
+
+func addOwner(owners []*sysmlv1.Element, c *sysmlv1.Element) []*sysmlv1.Element {
+	if c != nil && !slices.Contains(owners, c) {
+		owners = append(owners, c)
+	}
+	return owners
+}
+
+// decideContext is the context b takes given the classifiers whose ports it or
+// the behaviors it calls name; the note why none is written is kept for the report.
+func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element) *behaviorContext {
 	how := "its actions go through ports of "
 	switch owner := classifierOf(b); {
 	case owner != nil && b.Parent != owner:
@@ -54,9 +128,7 @@ func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 		}
 		return nil
 	}
-	ctx := &behaviorContext{name: m.freshName(b, "context"), classifier: c}
-	m.contexts[b] = ctx
-	return ctx
+	return &behaviorContext{name: m.freshName(b, "context"), classifier: c}
 }
 
 // providesAny reports whether an object of owner is, or holds one part that is,
@@ -90,15 +162,21 @@ func (m *migration) usesFeaturesOf(b, c *sysmlv1.Element) bool {
 // portOwners lists the classifiers whose ports the actions of b, or the
 // behaviors it calls, name.
 func (m *migration) portOwners(b *sysmlv1.Element) []*sysmlv1.Element {
-	var owners []*sysmlv1.Element
-	add := func(c *sysmlv1.Element) {
-		if c != nil && !slices.Contains(owners, c) {
-			owners = append(owners, c)
+	owners := m.namedPortOwners(b)
+	for _, c := range m.calledActivities(b) {
+		if ctx := m.contextOf(c); ctx != nil {
+			owners = addOwner(owners, ctx.classifier)
 		}
 	}
+	return owners
+}
+
+// namedPortOwners lists the classifiers whose ports the actions of b itself name.
+func (m *migration) namedPortOwners(b *sysmlv1.Element) []*sysmlv1.Element {
+	var owners []*sysmlv1.Element
 	port := func(p *sysmlv1.Element) {
 		if p != nil && p.Parent != nil && m.written(p) && m.written(p.Parent) {
-			add(p.Parent)
+			owners = addOwner(owners, p.Parent)
 		}
 	}
 	m.walkActions(b, func(e *sysmlv1.Element) {
@@ -109,13 +187,23 @@ func (m *migration) portOwners(b *sysmlv1.Element) []*sysmlv1.Element {
 			for _, p := range m.model.Refs(e, "port") {
 				port(p)
 			}
-		case "CallBehaviorAction":
-			if c := m.contextOf(m.model.Ref(e, "behavior")); c != nil {
-				add(c.classifier)
-			}
 		}
 	})
 	return owners
+}
+
+// calledActivities lists the activities the call actions of b name, once each.
+func (m *migration) calledActivities(b *sysmlv1.Element) []*sysmlv1.Element {
+	var called []*sysmlv1.Element
+	m.walkActions(b, func(e *sysmlv1.Element) {
+		if e.Type != "CallBehaviorAction" {
+			return
+		}
+		if c := m.model.Ref(e, "behavior"); c != nil && c.Type == "Activity" && !slices.Contains(called, c) {
+			called = append(called, c)
+		}
+	})
+	return called
 }
 
 // invokerOwners lists the classifiers whose behaviors run b, when a signal an

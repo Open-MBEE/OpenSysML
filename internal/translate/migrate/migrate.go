@@ -63,6 +63,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		snapshots:    map[*sysmlv1.Element]snapshotTyping{},
 		contexts:     map[*sysmlv1.Element]*behaviorContext{},
 		contextNotes: map[*sysmlv1.Element]string{},
+		visiting:     map[*sysmlv1.Element]*contextVisit{},
 		invokers:     map[*sysmlv1.Element][]*sysmlv1.Element{},
 		unvalued:     map[*sysmlv1.Element]bool{},
 		dryOut:       map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
@@ -176,6 +177,10 @@ type migration struct {
 	// parameter; contextNotes says why an activity naming ports of several gets none.
 	contexts     map[*sysmlv1.Element]*behaviorContext
 	contextNotes map[*sysmlv1.Element]string
+	// visiting is the search settling contexts: each activity it has reached and
+	// not settled, and the order it reached them in.
+	visiting map[*sysmlv1.Element]*contextVisit
+	visits   []*sysmlv1.Element
 	// invokers lists, for each behavior, the actions, states, transitions and
 	// classifiers that run it without owning it, whose object it then acts on.
 	invokers map[*sysmlv1.Element][]*sysmlv1.Element

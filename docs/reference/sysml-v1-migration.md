@@ -244,6 +244,17 @@ not a feature of the model but a simulation setting, so a body reading it stays 
 the total duration of a run is what the runtime's clock reports at its end, which `%runs`
 measures directly.
 
+**The object an activity acts on.** A block's own activity acts on the block's object, `this`.
+An activity no block owns, or one whose sends, accepts and calls all go through the ports of
+another block, acts in v1 on whichever object ran it; it is written with a reference parameter
+for that object, `in ref context : Host;`, its ports read `context.tx`, and every call of it
+binds the parameter, `bind hit.context = this;` from that block's behaviors or `= context` from
+another such activity. The block is the one whose ports the activity or the behaviors it calls
+name; activities calling each other in a cycle name the ports of the whole cycle and take the
+same block. An activity naming ports of several blocks none of which specializes the others
+takes no parameter, and the report says which blocks; an activity naming none accepts through
+the ports the signals it waits for arrive at, on the blocks whose behaviors run it.
+
 An action whose input pin must hold a value (`lower` of 1 or more) but which only flows from
 parameters nothing values, or from object flows that trace back to no pin or parameter at all (a
 buffer nothing fills, an expansion node whose collection is not expanded), can never fire — the
