@@ -5,6 +5,12 @@ package Signals {
     item def Stop;
     item def Reset;
     item def Boost;
+    item def SetName {
+        attribute name : ScalarValues::String;
+    }
+    item def SetLevels {
+        attribute values : ScalarValues::Real[0..*];
+    }
 }
 part def Heater {
     attribute level : ScalarValues::Real default = 0.0;
@@ -48,6 +54,18 @@ part def Heater {
         first receive then receive;
     }
     perform action boost : Boost;
+    action def SetName {
+        first start then receive;
+        action receive accept setName : Signals::SetName;
+        first receive then receive;
+    }
+    perform action setName : SetName;
+    action def SetLevels {
+        first start then receive;
+        action receive accept setLevels : Signals::SetLevels;
+        first receive then receive;
+    }
+    perform action setLevels : SetLevels;
     comment /* reception 'Away' */
     action def 'Apply Level' {
         in value : ScalarValues::Real;
@@ -68,6 +86,24 @@ part def Heater {
             assign this.level := value;
         }
         bind 'set level'.value = amount;
+    }
+    action def Naming {
+        in name : ScalarValues::Integer;
+        first start then 'set level';
+        action 'set level' {
+            in value;
+            assign this.level := value;
+        }
+        bind 'set level'.value = name;
+    }
+    action def Leveling {
+        in values : ScalarValues::Real;
+        first start then 'set level';
+        action 'set level' {
+            in value;
+            assign this.level := value;
+        }
+        bind 'set level'.value = values;
     }
     state def Resetting {
         /* the region has no initial pseudostate: nothing enters it */

@@ -13,6 +13,18 @@
       <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
       <packagedElement xmi:type="uml:Signal" xmi:id="_reset" name="Reset"/>
       <packagedElement xmi:type="uml:Signal" xmi:id="_boost" name="Boost"/>
+      <packagedElement xmi:type="uml:Signal" xmi:id="_setName" name="SetName">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_snName" name="name">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Signal" xmi:id="_setLevels" name="SetLevels">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_slsValues" name="values">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_slsLo" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_slsHi" value="*"/>
+        </ownedAttribute>
+      </packagedElement>
     </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_heater" name="Heater">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_level" name="level">
@@ -32,6 +44,8 @@
       <ownedReception xmi:type="uml:Reception" xmi:id="_rcvStop" name="Stop" signal="_stop"/>
       <ownedReception xmi:type="uml:Reception" xmi:id="_rcvReset" name="Reset" signal="_reset" method="_resetting"/>
       <ownedReception xmi:type="uml:Reception" xmi:id="_rcvBoost" name="Boost" signal="_boost" method="_boosting"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvName" name="SetName" signal="_setName" method="_naming"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvLevels" name="SetLevels" signal="_setLevels" method="_leveling"/>
       <ownedReception xmi:type="uml:Reception" xmi:id="_rcvAway" name="Away" signal="_elsewhere"/>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_apply" name="Apply Level" specification="_rcvSet">
         <ownedParameter xmi:type="uml:Parameter" xmi:id="_apValue" name="value" direction="in">
@@ -61,6 +75,26 @@
           <value xmi:type="uml:InputPin" xmi:id="_bsetVal" name="value"/>
         </node>
         <edge xmi:type="uml:ObjectFlow" xmi:id="_bof" source="_bpnAmount" target="_bsetVal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_naming" name="Naming" specification="_rcvName">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_npName" name="name" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_npnName" name="name" parameter="_npName"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_nset" name="set level" structuralFeature="_level" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_nsetVal" name="value"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_nof" source="_npnName" target="_nsetVal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_leveling" name="Leveling" specification="_rcvLevels">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_lpValues" name="values" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_lpnValues" name="values" parameter="_lpValues"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_lset" name="set level" structuralFeature="_level" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_lsetVal" name="value"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_lof" source="_lpnValues" target="_lsetVal"/>
       </ownedBehavior>
       <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_resetting" name="Resetting">
         <region xmi:type="uml:Region" xmi:id="_rr">

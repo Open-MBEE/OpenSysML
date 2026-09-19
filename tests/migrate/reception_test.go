@@ -17,8 +17,9 @@ import (
 
 // testdata/xmi/heater_receptions.xmi: a reception with a method accepts its signal and performs the
 // method with the payload bound, its optional and defaulted parameters left unbound; one without a
-// method, or whose method requires a value the signal lacks, only accepts; unmigratable methods
-// and signals are refused. An object of the block performs every reception from creation and
+// method, or whose method requires a value the signal lacks or takes one of another type or
+// multiplicity, only accepts; unmigratable methods and signals are refused. An object of the block
+// performs every reception from creation and
 // accepts again after each signal, so nothing starts one and a repeated signal runs the method again.
 // A signal arriving at a port of the block is accepted via that port as well as from the object.
 func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
@@ -51,12 +52,17 @@ func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 		"action def Boost {",
 		"action receive accept boost : Signals::Boost;",
 		"perform action boost : Boost;",
+		"action def SetName {",
+		"action receive accept setName : Signals::SetName;",
+		"first receive then receive;",
+		"action def SetLevels {",
+		"action receive accept setLevels : Signals::SetLevels;",
 		"in slack : ScalarValues::Real[0..1];",
 		"comment /* reception 'Away' */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	for _, bound := range []string{"in gain =", "in slack =", ": Boosting", "then done;", "via aux"} {
+	for _, bound := range []string{"in gain =", "in slack =", ": Boosting", ": Naming", ": Leveling", "then done;", "via aux"} {
 		if strings.Contains(string(r.Notation), bound) {
 			t.Errorf("%q was written, though nothing in the fixture calls for it:\n%s", bound, r.Notation)
 		}
@@ -67,6 +73,8 @@ func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 	wantNote(t, r, "_rcvStop", migrate.Approximated, "the reception has no method, so it only accepts the signal")
 	wantNote(t, r, "_rcvReset", migrate.Approximated, "the method Heater::Resetting has no action def to perform; the reception only accepts the signal; nothing in the document declares or sends a signal to the ports rx, aux, so one arriving there is not accepted")
 	wantNote(t, r, "_rcvBoost", migrate.Approximated, "the method Heater::Boosting's parameter amount must hold a value that no attribute of the signal supplies; the reception only accepts the signal")
+	wantNote(t, r, "_rcvName", migrate.Approximated, "the signal's attribute name is typed by String, which does not conform to the type Integer of the method Heater::Naming's parameter name; the reception only accepts the signal")
+	wantNote(t, r, "_rcvLevels", migrate.Approximated, "the signal's attribute values has multiplicity 0..*, which does not lie within the 1 of the method Heater::Leveling's parameter values; the reception only accepts the signal")
 	wantNote(t, r, "_rcvAway", migrate.Unmapped, "signal")
 	wantNote(t, r, "_apply", migrate.Mapped, "")
 
@@ -83,6 +91,11 @@ func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 	h.send(t, "Signals::Boost", nil)
 	if got := h.level(t); got != 7.25 {
 		t.Errorf("the refused method ran: level = %v", got)
+	}
+	h.send(t, "Signals::SetName", map[string]runtime.Value{"name": runtime.NewStringValue("4")})
+	h.send(t, "Signals::SetLevels", map[string]runtime.Value{"values": realValue(1.5)})
+	if got := h.level(t); got != 7.25 {
+		t.Errorf("a method whose parameter the signal's attribute does not fit ran: level = %v", got)
 	}
 	h.send(t, "Signals::Stop", nil)
 	if got := len(h.heater.PerformedActionsOf(h.sym("Heater::SetLevel"))); got != 1 {

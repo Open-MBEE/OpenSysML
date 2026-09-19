@@ -802,12 +802,13 @@ func (m *migration) receptionComment(r, sig *sysmlv1.Element) {
 	m.add(r, Unmapped, "", note)
 }
 
-// receptionArguments binds the method's in parameters to the accepted signal's attributes of
-// the same name; a parameter with no such attribute that must hold a value refuses the method.
+// receptionArguments binds the method's in parameters to the accepted signal's attributes of the
+// same name, conforming in type and multiplicity; one that does not, or is missing where a value
+// is required, refuses the method.
 func (m *migration) receptionArguments(method, sig *sysmlv1.Element, payload string) (args []string, refusal string) {
-	attrs := map[string]bool{}
+	attrs := map[string]*sysmlv1.Element{}
 	for _, a := range m.signalAttributes(sig) {
-		attrs[m.nameOf(a)] = true
+		attrs[m.nameOf(a)] = a
 	}
 	for _, p := range method.Owned("ownedParameter") {
 		dir, _ := parameterDirection(p)
@@ -815,15 +816,35 @@ func (m *migration) receptionArguments(method, sig *sysmlv1.Element, payload str
 			continue
 		}
 		name := m.nameOf(p)
-		if name == "" || !attrs[name] {
+		a := attrs[name]
+		if name == "" || a == nil {
 			if requiresValue(p) {
 				refusal = joinNotes(refusal, "the method "+qualifiedName(method)+"'s parameter "+m.nameFor(p)+" must hold a value that no attribute of the signal supplies")
 			}
 			continue
 		}
+		if why := m.bindingMismatch(a, p); why != "" {
+			refusal = joinNotes(refusal, "the signal's attribute "+name+" "+why+" the method "+qualifiedName(method)+"'s parameter "+m.nameFor(p))
+			continue
+		}
 		args = append(args, writeName(name)+" = "+payload+"."+writeName(name))
 	}
 	return args, refusal
+}
+
+// bindingMismatch says why feature a cannot be bound to parameter p: its type does not conform
+// or its multiplicity does not lie within p's; "" when it can. Non-literal bounds are trusted.
+func (m *migration) bindingMismatch(a, p *sysmlv1.Element) string {
+	at, pt := m.model.Ref(a, "type"), m.model.Ref(p, "type")
+	if !m.conform(at, pt) {
+		return "is typed by " + qualifiedName(at) + ", which does not conform to the type " + qualifiedName(pt) + " of"
+	}
+	al, au, aok := bounds(a)
+	pl, pu, pok := bounds(p)
+	if aok && pok && (al < pl || (pu >= 0 && (au < 0 || au > pu))) {
+		return "has multiplicity " + boundsText(al, au) + ", which does not lie within the " + boundsText(pl, pu) + " of"
+	}
+	return ""
 }
 
 // receptionParameters reports a reception's own parameters, which mirror the
