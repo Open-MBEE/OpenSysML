@@ -433,6 +433,7 @@ func TestIncrementalEqualsFresh(t *testing.T) {
 				continue
 			}
 			t.Run(set+"/"+lang, func(t *testing.T) {
+				t.Parallel()
 				r := newReplay(t, docs, 1)
 				r.scripted()
 				r.randomized(12)
@@ -469,6 +470,7 @@ func TestIncrementalEqualsFreshCorpora(t *testing.T) {
 			}
 			for lang, docs := range languageSets(files) {
 				t.Run(lang, func(t *testing.T) {
+					t.Parallel()
 					r := newReplay(t, docs, 2)
 					r.randomized(6)
 				})
