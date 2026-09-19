@@ -60,7 +60,7 @@ def splice(markdown: str, page: str, blocks: dict[str, str]) -> str:
     return markdown
 
 
-def on_pre_build(config, **_kwargs) -> None:
+def on_pre_build(**_kwargs) -> None:
     global _rendered
     try:
         _rendered = render_site_blocks()

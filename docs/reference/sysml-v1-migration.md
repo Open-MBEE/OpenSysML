@@ -348,8 +348,9 @@ parameters and the operation's target pin are not arguments), the send passes no
 required attribute of its signal, inherited ones included, or the pin it passes is fed only
 by flows no value travels — from a parameter nothing values, from an action that is not
 migrated (an opaque action's result, or a value specification action whose literal is no value
-of its result's type), or from a call whose callee gives that `out` parameter no value, judged
-by the same analysis of the callee's own activity, through any depth of nesting. Every such object flow is kept as a comment naming its source, never written as a
+of its result's type), from a call whose callee gives that `out` parameter no value, judged
+by the same analysis of the callee's own activity, through any depth of nesting, or from a
+call's result pin past the callee's `out` parameters, which stands for none. Every such object flow is kept as a comment naming its source, never written as a
 `flow` from a feature that will hold nothing, and the receiving action's report line says which
 input receives no value. A call whose callee acts on an object the caller does not hold — the
 method reads ports of its block, and the caller is a behavior of another block with no part of
@@ -607,7 +608,8 @@ duration is `Real`), and the result parses with the v2 parser.
 ## Run configurations
 
 A simulation tool's run configuration — MagicDraw's «SimulationConfig», recognised by the
-provenance of its profile (`…/schemas/SimulationProfile.xmi`), not by its name — states which
+provenance of its profile (`magicdraw.com` or `nomagic.com`, at `/schemas/SimulationProfile.xmi` and no
+other path; a stereotype so named from any other profile is kept as a comment), not by its name — states which
 object a behavior ran on, how many times, and how the tool resolved its random durations. Each
 becomes an `action def` a user runs as any other:
 
@@ -655,7 +657,9 @@ action def 'Group 0' {
   naming no classifier — are migrated as individuals of the most special block their slots'
   features belong to, provided those blocks are one lineage ending in the configuration's target
   classifier or a general of it (a classifier-less instance anywhere else, or whose slots are of
-  unrelated blocks, is unmapped with the reason), and indexed per configuration in the JSON sidecar
+  unrelated blocks, is unmapped with the reason), and indexed per configuration — a snapshot
+  classified by the target's classifier, a general or a special of it, not one classified by a
+  sibling special sharing only a general with it, which is of a run on another kind — in the JSON sidecar
   `-convert sysml … -migration-results results.json` writes beside the notation:
 
   ```json

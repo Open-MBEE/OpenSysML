@@ -312,22 +312,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 		}
 	}
 
-	// Second pass: identify composite states with regions AND handle top-level regions
-	// Check for top-level regions (state machine itself has regions as members)
-	hasTopLevelRegions := len(graph.TopRegions) > 0
-	for _, member := range body {
-		actualMember := unwrapMembership(member.node)
-		if region, ok := actualMember.(*ast.StateRegion); ok {
-			hasTopLevelRegions = true
-			graph.TopRegions = append(graph.TopRegions, region)
-		}
-	}
-	// Also handle states that have regions as sub-members
-	for _, state := range graph.States {
-		if len(state.Regions) > 0 {
-			graph.recordCompositeState(state)
-		}
-	}
+	graph.collectRegions(body)
 
 	// Record the triggers each state defers, once every state is collected.
 	for _, state := range graph.States {
@@ -348,42 +333,70 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	if err := graph.checkJoins(); err != nil {
 		return nil, err
 	}
-	for _, region := range graph.TopRegions {
-		graph.RegionInitials[region] = graph.UnconditionalStart(region)
-		if len(graph.EntryTransitions[region]) == 0 && !graph.stateless(region) {
-			if graph.regionDecl[region] != nil {
-				return nil, fmt.Errorf("region %s has no initial state; write `entry; then <state>;` inside the region", region.Name)
-			}
-			return nil, fmt.Errorf("top-level region %s has no initial state", region.Name)
-		}
-	}
-	for _, state := range graph.CompositeStateOrder {
-		for _, region := range graph.CompositeStates[state] {
-			graph.RegionInitials[region] = graph.UnconditionalStart(region)
-			if len(graph.EntryTransitions[region]) > 0 || graph.stateless(region) {
-				continue
-			}
-			if !graph.ForkStarted(region) {
-				if graph.regionDecl[region] != nil {
-					return nil, fmt.Errorf("region %s has no initial state; write `entry; then <state>;` inside the region", region.Name)
-				}
-				return nil, fmt.Errorf("region %s in state %s has no initial state", region.Name, state.Name)
-			}
-			if err := graph.checkForkOnlyRegion(state, region); err != nil {
-				return nil, err
-			}
-		}
+	if err := graph.recordRegionInitials(); err != nil {
+		return nil, err
 	}
 
 	// A machine without top-level regions starts where its own body's entry
 	// transition says; a missing one is the executor's to report at initialize().
-	if !hasTopLevelRegions {
+	if len(graph.TopRegions) == 0 {
 		graph.Initial = graph.UnconditionalStart(nil)
 	}
 
 	graph.ownTransitionEffects()
 
 	return graph, nil
+}
+
+// collectRegions records the machine's top-level regions and the composite
+// states whose bodies declare regions.
+func (g *StateGraph) collectRegions(body []inheritedMember) {
+	for _, member := range body {
+		if region, ok := unwrapMembership(member.node).(*ast.StateRegion); ok {
+			g.TopRegions = append(g.TopRegions, region)
+		}
+	}
+	for _, state := range g.States {
+		if len(state.Regions) > 0 {
+			g.recordCompositeState(state)
+		}
+	}
+}
+
+// recordRegionInitials records where every region starts and refuses one that
+// nothing starts: a top-level region needs an entry transition, a composite
+// state's region an entry transition or a fork branch into it.
+func (g *StateGraph) recordRegionInitials() error {
+	for _, region := range g.TopRegions {
+		g.RegionInitials[region] = g.UnconditionalStart(region)
+		if len(g.EntryTransitions[region]) == 0 && !g.stateless(region) {
+			return g.noInitialState(region, fmt.Sprintf("top-level region %s", region.Name))
+		}
+	}
+	for _, state := range g.CompositeStateOrder {
+		for _, region := range g.CompositeStates[state] {
+			g.RegionInitials[region] = g.UnconditionalStart(region)
+			if len(g.EntryTransitions[region]) > 0 || g.stateless(region) {
+				continue
+			}
+			if !g.ForkStarted(region) {
+				return g.noInitialState(region, fmt.Sprintf("region %s in state %s", region.Name, state.Name))
+			}
+			if err := g.checkForkOnlyRegion(state, region); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// noInitialState is the error for a region nothing starts; a declared region
+// is told how to write its entry, an implied one is named as described.
+func (g *StateGraph) noInitialState(region *ast.StateRegion, described string) error {
+	if g.regionDecl[region] != nil {
+		return fmt.Errorf("region %s has no initial state; write `entry; then <state>;` inside the region", region.Name)
+	}
+	return fmt.Errorf("%s has no initial state", described)
 }
 
 // ownTransitionEffects records, on every transition effect, the state whose
@@ -1292,11 +1305,11 @@ func (g *StateGraph) putCopiedVertex(node ast.Node) {
 	}
 }
 
-// copyInherited records that copy stands for decl, a pseudostate or terminate
+// copyInherited records that copied stands for decl, a pseudostate or terminate
 // action a state usage inherits, declared in the scope of the body writing decl.
-func (g *StateGraph) copyInherited(copy, decl ast.Node, scope *symbols.Scope) {
-	g.copiedFrom[copy] = decl
-	g.recordDeclaredIn(copy, scope)
+func (g *StateGraph) copyInherited(copied, decl ast.Node, scope *symbols.Scope) {
+	g.copiedFrom[copied] = decl
+	g.recordDeclaredIn(copied, scope)
 }
 
 // IsTerminateUsage reports a terminate action usage (`action stop terminate;`),

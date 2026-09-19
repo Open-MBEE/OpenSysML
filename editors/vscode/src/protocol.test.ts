@@ -54,3 +54,22 @@ test("normalizeRender leaves a current server's rendering as it is", () => {
   };
   assert.deepEqual(normalizeRender(current), current);
 });
+
+test("a palette's colours pass through, and a server naming none leaves them absent", () => {
+  const coloured: RenderResult = {
+    ...olderServer,
+    nodes: [
+      { id: "n0", kind: "part def", name: "Demo::Vehicle", type: "", detail: "", fill: "#E69F00", border: "#E69F00" },
+      { id: "n1", kind: "initial", name: "", type: "", detail: "" },
+    ],
+    edges: [],
+    notices: [],
+  };
+  const result = normalizeRender(coloured);
+  assert.deepEqual([result.nodes[0].fill, result.nodes[0].border], ["#E69F00", "#E69F00"]);
+  assert.ok(!("fill" in result.nodes[1]) && !("border" in result.nodes[1]));
+  for (const node of normalizeRender(olderServer).nodes) {
+    assert.equal(node.fill, undefined);
+    assert.equal(node.border, undefined);
+  }
+});

@@ -380,9 +380,8 @@ func (w *Workspace) invalidateLocked(name string) {
 // contextLocked is a pass context over the workspace's shared semantic state,
 // for work done between analyses. Caller holds the write lock.
 func (w *Workspace) contextLocked() *passes.Context {
-	resolver, sem := w.semanticsLocked()
 	ctx := passes.NewContextWithOptions("", source.KindSysML, w.index, nil, w.analysis)
-	ctx.Share(resolver, sem, w.gathers)
+	w.sharedLocked().Share(ctx)
 	return ctx
 }
 
@@ -450,8 +449,7 @@ func (w *Workspace) diagnosticsLocked(name string, doc *Document) []diag.Diagnos
 			Fixes:    pw.Fixes,
 		})
 	}
-	resolver, sem := w.semanticsLocked()
-	diags := passes.AnalyzeShared(name, source.KindOf(name), doc.AST, parseDiags, w.analysis, resolver, sem, w.gathers)
+	diags := passes.AnalyzeShared(name, source.KindOf(name), doc.AST, parseDiags, w.analysis, w.sharedLocked())
 	w.diagCache[name] = diags
 	return diags
 }
@@ -543,6 +541,13 @@ func (w *Workspace) semanticsLocked() (*resolve.Resolver, *semantics.Model) {
 		w.resolver, w.model, w.gathers = resolver, sem, passes.NewGathers()
 	}
 	return w.resolver, w.model
+}
+
+// sharedLocked is the workspace's semantic state as a pass context shares it.
+// Caller holds the lock.
+func (w *Workspace) sharedLocked() passes.Shared {
+	resolver, sem := w.semanticsLocked()
+	return passes.Shared{Resolver: resolver, Model: sem, Gathers: w.gathers}
 }
 
 // resolverOver is a fresh resolver over idx with a semantic model attached: for

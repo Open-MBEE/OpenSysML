@@ -36,7 +36,7 @@ func drawCall(name string, args []semantics.Value) string {
 }
 
 // drawUniform is RandomFunctions::uniform: a Real uniform on [lo, hi), lo at most
-// hi; the fixed policies yield lo, hi and their midpoint.
+// hi; the fixed policies yield lo, hi (the bound, though no random draw reaches it) and their midpoint.
 func drawUniform(ctx *Context, name string, args []semantics.Value) (semantics.Value, error) {
 	lo, hi := asReal(args[0]), asReal(args[1])
 	if err := finiteBounds(name, args); err != nil {

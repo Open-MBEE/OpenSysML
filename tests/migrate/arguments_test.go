@@ -221,6 +221,102 @@ func TestResultsTheCalleeNeverProducesAreNotFlowedOn(t *testing.T) {
 	}
 }
 
+// surplusResult is a Cache whose Fetch gives its one out parameter a value, and
+// whose Run calls Fetch with two result pins, passing the second to Use, which
+// requires it, and sending it in a Fresh, whose attribute must hold a value.
+const surplusResult = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_cache" name="Cache">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_seen" name="seen">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_seen0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_fetch" name="Fetch">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_fetchOut" name="image" direction="out">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedParameter>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_fSeven" name="seven">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_fSevenL" value="7"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_fSevenOut" name="result"/>
+        </node>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_fApn" name="image" parameter="_fetchOut"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_fOf" source="_fSevenOut" target="_fApn"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_use" name="Use">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_useIn" name="image" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedParameter>
+        <node xmi:type="uml:InitialNode" xmi:id="_uInit"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_uSet" name="set seen" structuralFeature="_seen" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_uSetVal" name="value"/>
+        </node>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_uApn" name="image" parameter="_useIn"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_uE1" source="_uInit" target="_uSet"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_uOf" source="_uApn" target="_uSetVal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callFetch" name="fetch" behavior="_fetch">
+          <result xmi:type="uml:OutputPin" xmi:id="_callFetchOut" name="image"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_callFetchExtra" name="extra"/>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callUse" name="apply" behavior="_use">
+          <argument xmi:type="uml:InputPin" xmi:id="_callUseIn" name="image"/>
+        </node>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_notify" name="notify" signal="_fresh">
+          <argument xmi:type="uml:InputPin" xmi:id="_notifyIn" name="image"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_callFetch"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_callFetch" target="_callUse"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of1" source="_callFetchExtra" target="_callUseIn"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_callUse" target="_notify"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of2" source="_callFetchExtra" target="_notifyIn"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4" source="_notify" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_fresh" name="Fresh">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_freshImage" name="image">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+    </packagedElement>`
+
+// A call's result pin past the callee's out parameters stands for none and so
+// carries no value: the flows from it are kept as comments, a call or send
+// requiring that value stands in for itself, and the caller still runs through.
+func TestResultPinsBeyondTheCalleesParametersCarryNoValue(t *testing.T) {
+	r := migrateDocument(t, surplusResult, dryOutputsApplications)
+	for _, line := range []string{
+		"action fetch : Fetch;",
+		"action apply {",
+		"/* not migrated: CallBehaviorAction 'apply' — the pin 'image' it passes for the parameter image of Cache::Use, which must hold a value, receives none: 'fetch', which feeds it, produces no value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing */",
+		"/* flow 'extra' to apply.image not written: the pin 'extra' of 'fetch' stands for no out parameter of the called Cache::Fetch, so it carries no value */",
+		"first fetch then apply;",
+		"first apply then notify;",
+		"action notify {",
+		"/* not migrated: SendSignalAction 'notify' — the pin 'image' it passes for the attribute image of Fresh, which must hold a value, receives none: 'fetch', which feeds it, produces no value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing */",
+		"first notify then final;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "action apply : Use;")
+	wantNoLine(t, r.Notation, "send new Fresh(image);")
+	wantNote(t, r, "_callFetchOut", migrate.Mapped, "the pin stands for the parameter image of the definition, which the flows name")
+	wantNote(t, r, "_callFetchExtra", migrate.Unmapped, "the definition has no out parameter for the pin; a flow into it has nowhere to go")
+	wantNote(t, r, "_of1", migrate.Approximated, "the flow is kept as a comment: the pin 'extra' of 'fetch' stands for no out parameter of the called Cache::Fetch, so it carries no value, and none reaches 'image'")
+	wantNote(t, r, "_callUse", migrate.Approximated, "the pin 'image' it passes for the parameter image of Cache::Use, which must hold a value, receives none: 'fetch', which feeds it, produces no value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing")
+	wantNote(t, r, "_notify", migrate.Approximated, "the pin 'image' it passes for the attribute image of Fresh, which must hold a value, receives none: 'fetch', which feeds it, produces no value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Cache")
+	meta(t, s, "%action Cache::Run #1")
+	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
+		t.Errorf("the run did not complete:\n%s", out)
+	}
+}
+
 // omittedSignalArguments is a Siren whose Alert carries a code and a level, both
 // required, a tag that admits no value and a flag with a default. Its Raise sends
 // an Alert with a pin for the code only, then one with pins for code and level;

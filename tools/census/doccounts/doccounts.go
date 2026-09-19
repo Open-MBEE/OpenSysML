@@ -533,7 +533,7 @@ func CheckSiteBlock(content string, spec Block) error {
 		return err
 	}
 	body := span.body(spec)
-	if digit := strings.IndexAny(body, "0123456789"); digit >= 0 {
+	if strings.ContainsAny(body, "0123456789") {
 		return fmt.Errorf("%s: the block named %q states a figure (%q); the documentation build counts it, so the tree names only what is counted", spec.Path, spec.Name, strings.TrimSpace(body))
 	}
 	return nil

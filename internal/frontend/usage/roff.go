@@ -41,7 +41,15 @@ func (d Doc) WriteRoff(w io.Writer, fs *flag.FlagSet, meta ManMeta) {
 	}
 
 	fmt.Fprintf(w, ".SH OPTIONS\n")
-	writeOptions(w, fs)
+	if len(d.Options) == 0 {
+		writeOptions(w, fs)
+	}
+	for _, g := range d.Options {
+		fmt.Fprintf(w, ".SS %s\n", roffEscape(g.Title))
+		for _, o := range g.Options {
+			writeRoffOption(w, fs, o)
+		}
+	}
 
 	for _, sec := range d.Sections {
 		fmt.Fprintf(w, ".SH %s\n", roffEscape(strings.ToUpper(sec.Title)))
@@ -62,18 +70,50 @@ func (d Doc) WriteRoff(w io.Writer, fs *flag.FlagSet, meta ManMeta) {
 // set visits them, so a flag cannot be documented only in the help.
 func writeOptions(w io.Writer, fs *flag.FlagSet) {
 	fs.VisitAll(func(f *flag.Flag) {
-		placeholder, help := flag.UnquoteUsage(f)
+		placeholder, _ := flag.UnquoteUsage(f)
 		fmt.Fprintf(w, ".TP\n")
 		if placeholder == "" {
 			fmt.Fprintf(w, ".B \\-%s\n", roffEscape(f.Name))
 		} else {
 			fmt.Fprintf(w, ".BI \\-%s \" %s\"\n", roffEscape(f.Name), roffEscape(placeholder))
 		}
-		if !isZeroDefault(f.DefValue) {
-			help = sentence(help) + " The default is " + f.DefValue + "."
-		}
-		fmt.Fprintf(w, "%s\n", roffText(help))
+		fmt.Fprintf(w, "%s\n", roffText(roffHelp(f)))
 	})
+}
+
+// writeRoffOption writes one grouped option as a .BR tag: spellings in bold,
+// commas and argument in roman, the argument's <name> in italic.
+func writeRoffOption(w io.Writer, fs *flag.FlagSet, o Option) {
+	f := fs.Lookup(o.Name)
+	var words []string
+	for i, n := range o.names() {
+		if i > 0 {
+			words = append(words, `", "`)
+		}
+		words = append(words, "\\-"+roffEscape(n))
+	}
+	if o.Arg != "" {
+		arg := strings.NewReplacer("<", "\\fI", ">", "\\fP").Replace(roffEscape(o.Arg))
+		if !strings.HasPrefix(o.Arg, "[") {
+			arg = " " + arg
+		}
+		words = append(words, `"`+arg+`"`)
+	}
+	macro := ".BR"
+	if len(words) == 1 {
+		macro = ".B"
+	}
+	fmt.Fprintf(w, ".TP\n%s %s\n", macro, strings.Join(words, " "))
+	fmt.Fprintf(w, "%s\n", roffText(roffHelp(f)))
+}
+
+// roffHelp is the flag's description with its default stated as a sentence.
+func roffHelp(f *flag.Flag) string {
+	text := help(f)
+	if !isZeroDefault(f.DefValue) {
+		text = sentence(text) + " The default is " + f.DefValue + "."
+	}
+	return text
 }
 
 // sentence ends a flag's usage string so a sentence may follow it.
@@ -89,7 +129,7 @@ func sentence(text string) string {
 // flag package's own help omits.
 func isZeroDefault(value string) bool {
 	switch value {
-	case "", "0", "false", "0s":
+	case "", "[]", "0", "false", "0s":
 		return true
 	}
 	return false

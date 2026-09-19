@@ -131,11 +131,14 @@ func (a *activity) producesAt(pin *sysmlv1.Element) bool {
 		return a.opaqueOf(n).assigned[pin]
 	}
 	callee, p := a.calleeOutput(pin)
+	if callee != nil && p == nil {
+		return false
+	}
 	return p == nil || !a.m.dryOutputs(callee)[p]
 }
 
-// calleeOutput returns the behavior a call node's output pin takes its value from
-// and the out parameter it stands for, by position, as the pins are declared.
+// calleeOutput returns the activity a call node's output pin takes its value from and
+// the out parameter it stands for, by position; the callee alone when none is left for it.
 func (a *activity) calleeOutput(pin *sysmlv1.Element) (callee, param *sysmlv1.Element) {
 	n := pin.Parent
 	switch n.Type {
@@ -159,7 +162,7 @@ func (a *activity) calleeOutput(pin *sysmlv1.Element) (callee, param *sysmlv1.El
 			i--
 		}
 	}
-	return nil, nil
+	return callee, nil
 }
 
 // dryOutputs lists the out parameters of an activity no value reaches: no flow

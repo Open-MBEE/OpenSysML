@@ -275,10 +275,10 @@ func flagGiven(name string) bool {
 	return given
 }
 
-// printUsage writes the help to w: the caller chooses the stream, since help
-// asked for is a result and help shown over a misuse belongs with the error.
-func printUsage(w io.Writer) {
-	doc().WriteText(w, flag.CommandLine)
+// printUsage writes the help for the flags of fs to w: help asked for is a
+// result, so it goes on stdout.
+func printUsage(w io.Writer, fs *flag.FlagSet) {
+	doc().WriteText(w, fs)
 }
 
 // printMan writes the command's manual page, rendered from the same description
@@ -290,8 +290,9 @@ func printMan(w io.Writer) {
 // runCLI carries out what the command line asked for and returns the exit
 // status, so a profile started for the run is written before the process exits.
 func runCLI() int {
-	// Usage shown over a misuse goes on the stream the error naming it goes on.
-	flag.Usage = func() { printUsage(flag.CommandLine.Output()) }
+	// A misuse is answered on the error's stream with the synopsis and where the
+	// help is, not the help itself, which would bury the error.
+	flag.Usage = func() { doc().WriteHint(flag.CommandLine.Output()) }
 
 	// The tool manifest is read before the flags, since -engine is checked against its engines.
 	if err := resolveEngines(); err != nil {
@@ -307,7 +308,7 @@ func runCLI() int {
 	// Help that was asked for is the result of the run: it belongs on stdout, where
 	// it can be piped, and the run did what was asked.
 	if showHelp {
-		printUsage(os.Stdout)
+		printUsage(os.Stdout, flag.CommandLine)
 		return exitHolds
 	}
 

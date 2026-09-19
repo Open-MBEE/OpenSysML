@@ -3259,6 +3259,7 @@ func (e *StateExecutor) stepRound(progress *dueProgress) (bool, error) {
 const (
 	stepWherePrefix   = "at t="
 	dispatchTiedLabel = "dispatch"
+	dispatchPrefix    = "dispatch "
 )
 
 // dueDispatch is the dispatch dispatchOne would make now: a risen change, else the
@@ -3282,7 +3283,7 @@ func (e *StateExecutor) dueDispatch() dueDispatch {
 		if trans == nil {
 			return one("dispatch change", true)
 		}
-		return one("dispatch "+e.changeLabel(trans), true)
+		return one(dispatchPrefix+e.changeLabel(trans), true)
 	}
 	queue := e.eventQueue
 	if msg, ok := e.pendingSignal(); ok {
@@ -3294,12 +3295,12 @@ func (e *StateExecutor) dueDispatch() dueDispatch {
 		d := dueDispatch{due: true, label: dispatchTiedLabel, step: dispatchTiedLabel, tied: tied, among: e.actingEvents(tied)}
 		d.acts = len(d.among) > 0
 		if len(d.among) == 1 {
-			d.step = "dispatch " + e.eventLabel(d.among[0])
+			d.step = dispatchPrefix + e.eventLabel(d.among[0])
 		}
 		return d
 	}
 	head := queue.Peek()
-	return one("dispatch "+e.eventLabel(head), len(e.actingEvents([]Event{head})) > 0)
+	return one(dispatchPrefix+e.eventLabel(head), len(e.actingEvents([]Event{head})) > 0)
 }
 
 // actingEvents previews which of the events a dispatch now would take (eventActs), in

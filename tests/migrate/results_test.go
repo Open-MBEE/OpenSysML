@@ -200,6 +200,98 @@ func snapshotIDs(c simresults.ConfigurationResults) []string {
 	return ids
 }
 
+// A snapshot classified by a sibling of the target's classifier — another
+// special of the same general — is of a run on another kind of object and left
+// out of a shared result package, by name or by the features its slots are of,
+// while one classified by the general or a further special is indexed.
+func TestSiblingClassifiersShareNoResultSnapshots(t *testing.T) {
+	r := migrateDocument(t, storedResults+`
+    <packagedElement xmi:type="uml:Class" xmi:id="_rash" name="Rash">
+      <generalization xmi:type="uml:Generalization" xmi:id="_rash_g" general="_chooser"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_haste" name="haste">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_surer" name="Surer">
+      <generalization xmi:type="uml:Generalization" xmi:id="_surer_g" general="_sure"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_shared" name="Shared">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_rash1" name="rash 1" classifier="_rash">
+        <slot xmi:type="uml:Slot" xmi:id="_rash1b" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_rash1bv" value="0.5"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_rash2" name="rash 2">
+        <slot xmi:type="uml:Slot" xmi:id="_rash2b" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_rash2bv" value="0.5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_rash2h" definingFeature="_haste">
+          <value xmi:type="uml:LiteralReal" xmi:id="_rash2hv" value="2.0"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_surer1" name="surer 1" classifier="_surer">
+        <slot xmi:type="uml:Slot" xmi:id="_surer1b" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_surer1bv" value="0.5"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Block xmi:id="_s2" base_Class="_sure"/>
+  <sysml:Block xmi:id="_s3" base_Class="_other"/>
+  <sysml:Block xmi:id="_s4" base_Class="_rash"/>
+  <sysml:Block xmi:id="_s5" base_Class="_surer"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
+      executionTarget="_s0" resultLocation="_results _shared"/>`)
+	configs := r.Results.Configurations
+	if len(configs) != 1 {
+		t.Fatalf("results index %d configuration(s), want 1", len(configs))
+	}
+	if got, want := snapshotIDs(configs[0]), []string{"_r1", "_r2", "_r3", "_r4", "_surer1"}; !slices.Equal(got, want) {
+		t.Errorf("snapshots indexed %v, want %v: Chooser's and Surer's, not Rash's", got, want)
+	}
+	wantNote(t, r, "_rash1", migrate.Mapped, "")
+	wantNote(t, r, "_rash2", migrate.Unmapped, "its slots are of features of Chooser, Rash, neither a classifier of the configuration's target nor a general of one, so it is no snapshot of a run on it under the result location of the run configuration 'Group 0'")
+	wantClean(t, "t.sysml", r)
+}
+
+// A slot of the target outranks the defaults of its classifiers: a Sure whose slot
+// sets pA back to 0.25 has the snapshots recording no pA, not those recording Sure's
+// 1.0 under either the redefining property or the redefined one.
+func TestTargetSlotsOutrankClassifierDefaults(t *testing.T) {
+	r := migrateDocument(t, storedResults+`
+    <packagedElement xmi:type="uml:Package" xmi:id="_later" name="Later">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r5" name="run 5" classifier="_sure">
+        <slot xmi:type="uml:Slot" xmi:id="_r5a" definingFeature="_pa2">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r5av" value="1.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r5b" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r5bv" value="4.0"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_s5" name="reset" classifier="_sure">
+      <slot xmi:type="uml:Slot" xmi:id="_s5a" definingFeature="_pa2">
+        <value xmi:type="uml:LiteralReal" xmi:id="_s5av" value="0.25"/>
+      </slot>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Block xmi:id="_s2" base_Class="_sure"/>
+  <sysml:Block xmi:id="_s3" base_Class="_other"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
+      executionTarget="_s5" resultLocation="_results _later"/>`)
+	configs := r.Results.Configurations
+	if len(configs) != 1 {
+		t.Fatalf("results index %d configuration(s), want 1", len(configs))
+	}
+	if got, want := snapshotIDs(configs[0]), []string{"_r3", "_r4"}; !slices.Equal(got, want) {
+		t.Errorf("snapshots indexed %v, want %v: the slot's 0.25 governs pA, not Sure's default", got, want)
+	}
+	if want := "3 snapshot(s) record other values of pA than the target configures, so they are of another configuration and not among the results"; !slices.Contains(configs[0].Notes, want) {
+		t.Errorf("notes %q, want %q among them", configs[0].Notes, want)
+	}
+	wantClean(t, "t.sysml", r)
+}
+
 // A feature the target sets to a Boolean, a string or an enumeration literal tells
 // its snapshots apart as a number does: one recording another value of it is of a
 // run on another configuration and left out, while a blank literal configures nothing
