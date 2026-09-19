@@ -3261,8 +3261,9 @@ const (
 	dispatchTiedLabel = "dispatch"
 )
 
-// dueDispatch is the dispatch dispatchOne would make now: a risen change, a signal
-// in flight, else the head of the queue, a draw of its own where events are tied there.
+// dueDispatch is the dispatch dispatchOne would make now: a risen change, else the
+// head of the queue once the signal in flight is queued, a draw of its own where
+// events are tied there.
 type dueDispatch struct {
 	due   bool
 	label string  // the dispatch as dispatchOne makes it; dispatchTiedLabel over tied events
@@ -3283,13 +3284,13 @@ func (e *StateExecutor) dueDispatch() dueDispatch {
 		}
 		return one("dispatch "+e.changeLabel(trans), true)
 	}
+	queue := e.eventQueue
 	if msg, ok := e.pendingSignal(); ok {
-		return one("dispatch signal", len(e.actingEvents([]Event{e.signalEvent(msg)})) > 0)
-	}
-	if !e.hasDueEvent() {
+		queue = e.eventQueue.With(e.signalEvent(msg))
+	} else if !e.hasDueEvent() {
 		return dueDispatch{}
 	}
-	if tied := e.eventQueue.Tied(); len(tied) >= 2 {
+	if tied := queue.Tied(); len(tied) >= 2 {
 		d := dueDispatch{due: true, label: dispatchTiedLabel, step: dispatchTiedLabel, tied: tied, among: e.actingEvents(tied)}
 		d.acts = len(d.among) > 0
 		if len(d.among) == 1 {
@@ -3297,7 +3298,7 @@ func (e *StateExecutor) dueDispatch() dueDispatch {
 		}
 		return d
 	}
-	head := e.eventQueue.Peek()
+	head := queue.Peek()
 	return one("dispatch "+e.eventLabel(head), len(e.actingEvents([]Event{head})) > 0)
 }
 
