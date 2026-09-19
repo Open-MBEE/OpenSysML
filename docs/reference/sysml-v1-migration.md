@@ -328,7 +328,9 @@ action def 'Group 0' {
   naming no classifier — are migrated as individuals of the most special block their slots'
   features belong to, provided those blocks are one lineage ending in the configuration's target
   classifier or a general of it (a classifier-less instance anywhere else, or whose slots are of
-  unrelated blocks, is unmapped with the reason), and indexed per configuration in the JSON sidecar
+  unrelated blocks, is unmapped with the reason), and indexed per configuration — a snapshot
+  classified by the target's classifier, a general or a special of it, not one classified by a
+  sibling special sharing only a general with it, which is of a run on another kind — in the JSON sidecar
   `-convert sysml … -migration-results results.json` writes beside the notation:
 
   ```json
