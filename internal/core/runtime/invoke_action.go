@@ -280,7 +280,7 @@ func invokeBoundAction(
 		return nil, nil, err
 	}
 
-	callee, err := ctx.beginCallee(inv.performed(sym), sym, self, inputs)
+	callee, err := ctx.beginOrJoinCallee(inv, sym, self, inputs)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
 	}
@@ -290,16 +290,38 @@ func invokeBoundAction(
 
 // calleeFrame is an action a body performs as a sub-execution, kept where the body
 // paused on the action's wait: name is the action as invoked and out the names of
-// its output parameters, read once it completes.
+// its output parameters, read once it completes. joined marks the performance the
+// performer already runs of the action, which the caller waits on rather than owns.
 type calleeFrame struct {
-	exec *ActionExecutor
-	name string
-	out  []string
+	exec   *ActionExecutor
+	name   string
+	out    []string
+	joined bool
 }
 
-func (f *calleeFrame) abandon(*Context) { f.exec.Release() }
+func (f *calleeFrame) abandon(*Context) {
+	if !f.joined {
+		f.exec.Release()
+	}
+}
 
 func (f *calleeFrame) clone() bodyFrame { c := *f; return &c }
+
+// beginOrJoinCallee begins a performance of the action inv names on self, or, for a
+// `part.callee` whose object performs the callee already (its type performs it), joins
+// that one performance, as a run of the action named on an object does (performAction).
+func (ctx *Context) beginOrJoinCallee(inv actionInvocation, sym *symbols.Symbol, self *Instance, inputs map[string]Value) (*calleeFrame, error) {
+	if inv.chain != nil {
+		exec, err := performanceOf(sym, self, inputs)
+		if err != nil {
+			return nil, err
+		}
+		if exec != nil {
+			return &calleeFrame{exec: exec, joined: true}, nil
+		}
+	}
+	return ctx.beginCallee(inv.performed(sym), sym, self, inputs)
+}
 
 // beginCallee starts action, a performance of performed, as a sub-execution of
 // the caller nested one deeper, on the clock until run to completion.
@@ -321,7 +343,7 @@ func (ctx *Context) runCallee(callee *calleeFrame) (features, outputs map[string
 	ctx.actionDepth++
 	defer func() { ctx.actionDepth-- }()
 	defer ctx.nestRun()()
-	if err := ctx.runPerformed(callee.exec, false); err != nil {
+	if err := ctx.runCalleePerformance(callee); err != nil {
 		if paused(err) {
 			return nil, nil, ctx.pausing(callee, err)
 		}
@@ -335,6 +357,15 @@ func (ctx *Context) runCallee(callee *calleeFrame) (features, outputs map[string
 		}
 	}
 	return features, outputs, nil
+}
+
+// runCalleePerformance runs the callee's performance on; one the caller owns leaves
+// the clock once run, one joined stays the object's, on the clock as its type binds it.
+func (ctx *Context) runCalleePerformance(callee *calleeFrame) error {
+	if callee.joined {
+		return ctx.runPerformance(callee.exec, false)
+	}
+	return ctx.runPerformed(callee.exec, false)
 }
 
 // resolveActionSymbol is the action inv names; a call only its arguments' values can

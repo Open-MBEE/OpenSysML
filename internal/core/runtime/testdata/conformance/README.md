@@ -200,6 +200,12 @@ every policy of the sweep; the modeled stream is separate from the one
 `reverse`, `declared` and `seed:1`. Without it such a case refuses to draw
 (the `stochastic_*` cases).
 
+A case may instead pin the draw policy its `RandomFunctions` calls resolve under
+with `"draws": "min"`, `"max"` or `"average"`, as `%draws`/`-draws` would set it;
+a fixed policy takes the point of each call's distribution it names and needs no
+`modelSeed`, and the trace records the value taken as `draw <call> = <value>`
+(the `stochastic_draws_*` cases). Omitted or `"random"` draws from the seed.
+
 `TestExecutionConformanceUnderPolicies` runs every case under `declared` and
 under `seed:1`. A case pinning no policy was recorded under the default, so its
 stated result, or one of its `outcomes`, must hold under any policy; one that

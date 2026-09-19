@@ -216,6 +216,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle` or `rdf`. RDF is [experimental](rdf-mapping.md#status-experimental) and every run that converts it says so on stderr (see [the RDF mapping](rdf-mapping.md)) |
 | `--from <format>` | | Input format for `--convert`: the `--convert` formats, or `xmi`/`uml`/`mdzip` for a SysML v1 model to migrate (experimental; default: from the input's extension; `.xmi`, `.uml` and `.mdzip` are recognized) — see [SysML v1 migration](sysml-v1-migration.md) |
 | `--migration-report <file>` | | With `--convert` from `xmi`: write the element-by-element migration report to this file, JSON when it ends in `.json`, text otherwise. Without it the one-line summary goes to stderr |
+| `--migration-results <file>` | | With `--convert` from `xmi`: write the simulation tool's run configurations (`SimulationProfile:SimulationConfig`) and the result snapshots it stored for each of them to this JSON file — the sidecar `-compare-results` reads against the migrated model. See [Comparing a migrated configuration with the tool's results](#comparing-a-migrated-configuration-with-the-tools-results) |
 | `--render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
 | `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot` or `plantuml` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
@@ -264,8 +265,10 @@ written in, so the verdicts are about that object:
 | `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind, and the values are produced in its declared type (`1..4:1` over a `Real` binds `1.0`, `2.0`, …). Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
 | `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names — Integers inclusively for a parameter taking Integers, reals in `[<from>, <to>)` for one taking reals |
 | `-seed <s>` | The seed the model's own draws come from in every run the invocation makes, whatever `-schedule` — the branch a `@Probability`-weighted decision takes, the value a `RandomFunctions` call returns — and the seed `-samples` and `-runs` draw from, required with those two: the same seed draws the same run or table on every platform. Without it a run that must draw is refused naming the call and the flag, and a weighted decision takes its most probable branch. See [Running an action many times](#running-an-action-many-times) |
-| `-runs <n>` | Runs the one `-action` to completion `n` times, each on a fresh context with a model seed of its own derived from `-seed` and the run number, and tables what each run's `-observe` features came to with a distribution of each; needs `-seed` and exactly one `-action`, and is refused with `-sweep`, `-samples`, `-advance`, `-state` or the checker's flags. See [Running an action many times](#running-an-action-many-times) |
-| `-observe <feature>` | A feature of the `-runs` action to table, or `clock` for the simulation time each run completed at (the clock's name, never a feature's); repeatable; default every feature the action holds and the clock. A name the action does not hold, or one named twice, is refused; the flag without `-runs` is refused |
+| `-runs <n>` | Runs the one `-action` to completion `n` times, each on a fresh context with a model seed of its own derived from `-seed` and the run number, and tables what each run's `-observe` features came to with a distribution of each; needs exactly one `-action` and `-seed` — unless `-draws` is `min`, `max` or `average`, under which the runs draw nothing at random and the seed may be left out — and is refused with `-sweep`, `-samples`, `-advance`, `-state` or the checker's flags. See [Running an action many times](#running-an-action-many-times) |
+| `-draws <policy>` | How every run the invocation makes resolves the draws of `RandomFunctions` — `uniform`, `uniformInteger`, `triangular`, `normal`: `random` (the default) draws each call from `-seed`; `min`, `max` and `average` take each call's least, greatest or mean value instead and need no seed; `normal` with a positive deviation has no least or greatest value, so a run that calls it under `min` or `max` stops with an error (`normal(m, 0)` is `m` under every policy, `random` included, and needs no seed). Weighted decisions are not durations: they draw from `-seed` under every policy, and unseeded take their most probable branch. Every witness records the policy as `draws by <policy>`, and `-schedule replay:<file>` follows it. See [Running an action many times](#running-an-action-many-times) |
+| `-observe <feature>` | A feature of the `-runs` action to table, or `clock` for the simulation time each run completed at (the clock's name, never a feature's); repeatable; default every feature the action holds and the clock. A name the action does not hold, or one named twice, is refused; the flag without `-runs` or `-compare-results` is refused. With `-compare-results`, a stored observable to compare, read from the target's feature of the same name (`target.<observable>`), or `-observe <observable>=<feature>` to read it from another feature of the run (`Time_Acq_Total=clock`); default every stored observable |
+| `-compare-results <file>` | Reads the JSON sidecar `-migration-results` wrote and, for each run configuration it indexes — every one, or those `-action` names — runs the migrated configuration with its recorded `numberOfRuns` and `durationSimulationMode` (or the `-runs` and `-draws` given), seeded from `-seed`, and tables the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference. A check of its own: refused with `-convert`, `-render*`, a query flag, `-eval`, `-compile` or `-sync`. See [Comparing a migrated configuration with the tool's results](#comparing-a-migrated-configuration-with-the-tools-results) |
 | `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)) or `replay:<file>` (the `input <feature> = <value>` lines of a witness, which pin those features before the run starts, then its choice lines, one per line up to the first blank line, followed move for move and then `reverse`'s picks one token a step — a header of `no choice points`, as the checker writes for a run that met none, follows the one run there is; a move the run cannot make — a pick not offered, a step already passed, a line left over at the end — is `replay refused: move <n> (<the choice>): <what the run faced>`, an input line naming a feature the action does not have is refused naming it, and the check is *not covered*; see [Running one witness again](../guide/06-behavior.md#running-one-witness-again)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice, `replay` or `replay:` without a file, a replay file that cannot be read, is empty or has a line spelling no choice — is refused before anything runs |
 | `-check-property <name>` | With `-engine check` or `-engine all`: a constraint or requirement the checker evaluates at every stable state of the invocation's behaviors, on the performing object where there is one, reporting a schedule at which it is false; repeatable. See [Checking every schedule of an action or a state machine](#checking-every-schedule-of-an-action-or-a-state-machine) |
 | `-check-diverge <feature>` | With `-engine check`, `-engine smt` or `-engine all`: a feature whose final value is compared across schedules, so the question put to the engine is whether it is *sensitive* to the schedule — `x` for the action's attribute, `step.out` for an output of a node it performs, `this.level` for the performing object's, `finalState` for a machine's resting state, `<behavior>.<feature>` and `<behavior> finalState` for one of several behaviors checked together; repeatable; a name nothing holds is refused. Under `check` a feature a schedule leaves unset ends as `<unset>`, and absent the flag every attribute of the behaviors and of the performing object and a machine's `finalState` are compared (an action run without an object has its own attributes only); under `smt` the feature is an action's alone, decided by a two-copy query, and the performing object's features are *not covered* until they are encoded |
@@ -952,7 +955,9 @@ completion `n` times, each run on a fresh context whose model seed is derived fr
 run's number, so run 3 of seed 7 is the same run on every platform and can be made alone with
 that run's seed. The table has one row per run, numbered, with each `-observe` feature of the
 action and `clock`, the simulation time the run completed at; without `-observe` every feature
-the action holds and the clock are tabled. Below the table each numeric observable is summarised
+the action holds and the clock are tabled. A part or item the action holds exactly one of is tabled
+through its attributes (`target.total`), so an action that performs a behavior on an object it
+declares reports what the object came to. Below the table each numeric observable is summarised
 over the runs that completed — minimum, mean, maximum, the nearest-rank p50 and p90, and a
 histogram — and a non-numeric one is counted by value:
 
@@ -979,9 +984,42 @@ at a time, a run that fails is a numbered row with its error under the table, th
 bounded by `OPENSYSML_MAX_SWEEP_RUNS`, and with `-json` they are the check's `rows`, each run's
 number its one input, `run`. `-schedule` is the second, independent knob: it resolves the
 concurrency choices — which carry no probability — in every run alike, and `replay:<file>`,
-which is one run, is refused with `-runs`. `-runs` needs exactly one `-action` and `-seed`, and
-is refused with `-sweep`, `-samples`, `-advance`, `-state`, `-check-property`, `-check-diverge`
-or `-check-input`.
+which is one run, is refused with `-runs`. `-runs` needs exactly one `-action` and `-seed` —
+unless `-draws` fixes the durations, below — and is refused with `-sweep`, `-samples`,
+`-advance`, `-state`, `-check-property`, `-check-diverge` or `-check-input`.
+
+**Draw policy.** `-draws <policy>` is the third knob: how every run resolves the draws of
+`RandomFunctions`. `random`, the default, draws each `uniform`, `uniformInteger`, `triangular`
+or `normal` call from the seed; `min`, `max` and `average` resolve each call to the least,
+greatest or mean value of its distribution instead — `uniform(2.0, 3.0)` is `2.0`, `3.0` or `2.5`,
+`uniformInteger(1, 6)` is `1`, `6` or `4` (the midpoint, a half rounded toward `hi`), `triangular(1.0, 2.0, 6.0)` is `1.0`, `6.0` or its
+mean `3.0`, `normal(m, s)` is `m` under `average` and, with `s > 0`, has no least or greatest value, so a run
+that calls it under `min` or `max` stops with a typed error naming the call; `normal(m, 0)` draws
+nothing but `m`, so every policy resolves it to `m`. A run whose only
+randomness is its durations is therefore deterministic under a fixed policy and needs no seed:
+`-runs <n> -draws max` without `-seed` runs `n` times, and every row of an action with no weighted
+decision is the same. Weighted decisions are not durations — they draw from `-seed` under every
+policy, and unseeded take their most probable branch (the first written, on a tie) — so a
+configuration migrated from a tool whose `max` mode still randomizes its decisions is run as
+`-draws max -seed <s>`. The policy is recorded in every witness the checker writes, as a
+`draws by <policy>` line ahead of its draws (a random run's witness carries no such line, so
+one written before reads as before; a witness naming a policy twice, the same or another, is
+refused), and `-schedule replay:<file>` runs under the recorded
+policy whatever `-draws` says, refusing a recorded draw the policy could not have made; a
+witness naming a fixed policy and recording no draw leaves them to it, each call resolving
+to the policy's point as the run did, while one recording some but not all is refused. A
+`-draws` spelling that is none of the four is refused before anything runs.
+
+```bash
+$ sysml -action Sys::align -runs 3 -draws max -observe clock m.sysml
+runs Sys::align — 3 run(s), no seed
+run | clock    | time
+----+----------+--------
+1   | 90.2 [s] | 5.7ms
+2   | 90.2 [s] | 5.8ms
+3   | 90.2 [s] | 5.6ms
+clock: 3 run(s), min 90.2 [s], mean 90.2 [s], max 90.2 [s], p50 90.2 [s], p90 90.2 [s]
+```
 
 `-seed` alone seeds the one run an invocation makes: `sysml -action MC::route -seed 7` draws the
 model's values from `7` whatever `-schedule` shuffles the tokens with, so `-schedule declared
@@ -993,6 +1031,61 @@ probable branch, so an unseeded run stays deterministic; `-schedule seed:<n>` wi
 draws the model's values from `n` too, on a stream of its own. Every draw is recorded in the
 witness the checker writes, as `draw <call> = <value>` lines, and `-schedule replay:<file>`
 consumes them instead of drawing again.
+
+## Comparing a migrated configuration with the tool's results
+
+A SysML v1 model migrated from a simulation tool (see
+[Run configurations](sysml-v1-migration.md#run-configurations)) carries the tool's run
+configurations — each an `action def` performing the configured behavior on a `part target` of
+the configured classifier, with the tool's `numberOfRuns` and `durationSimulationMode` as
+`@Simulation::Configuration` metadata — and, in its result packages, the snapshots the tool
+stored of each run. `-convert sysml -migration-results <file>` writes both as a JSON sidecar:
+one entry per configuration with its `name` (the qualified name of the generated `action def`,
+which `-action` names), `runs`, `draws`, `target`, `behavior`, `resultLocation`, the
+`observables` its snapshots hold, one `snapshots` row per stored run with its numeric slot
+values, and `notes` stating every slot left out and why (a value that is no number, a defining
+feature the document does not hold, a feature two slots of one snapshot hold numbers for, a
+result location holding no snapshot of the target's classifier); result locations that repeat
+or nest index each snapshot once. The sidecar is read strictly: an unknown field, a missing `source` or
+`configurations`, or malformed JSON is refused naming the file.
+
+`-compare-results <file>` on the migrated model then runs every configuration the sidecar
+indexes — or those `-action` names by id, qualified name or a simple name one alone bears, an
+`-action` no configuration bears (`no configuration is named Group 9`) or several do (`2
+configurations are named Group 1 (…)`) failing the check on its own beside the ones compared — under its recorded
+count and policy, or the `-runs`, `-draws` and `-seed` given, and tables the tool's and
+OpenSysML's distributions side by side:
+
+```bash
+$ sysml tmt.sysml -compare-results tmt.results.json -seed 1 -runs 100 \
+    -observe Time_Acq_Total=clock -action "'Acq Time Group0'"
+compare Flows::'Acq Time Group0' — 13 stored run(s) in Flows::Results::'Group 0'; 100 run(s) by OpenSysML, draws random, seed 1
+observable     | source            | runs | min      | mean     | p50      | p90       | max
+---------------+-------------------+------+----------+----------+----------+-----------+----------
+Time_Acq_Total | tool              | 13   | 13.25962 | 63.08494 | 80.228   | 105.8     | 119.3
+               | OpenSysML (clock) | 100  | 3.16 [s] | 21.55 [s]| 19.90 [s]| 39.17 [s] | 78.75 [s]
+               | difference        |      | -76.1%   | -65.8%   | -75.2%   | -63.0%    | -34.0%
+note: the slot of MonteCarloAnalysis::Mean is defined outside the document in 13 snapshot(s), so it is not among the results
+```
+
+Each stored observable is read, by default, from the target's feature of the same name
+(`target.Time_Acq_Total`); `-observe <observable>=<feature>` reads it from another feature of the
+run — `clock` for the simulation time, when the tool's total is the elapsed time the migrated
+behavior no longer writes itself — and `-observe <observable>` alone narrows the comparison to
+that stored observable. The relative difference is `(OpenSysML − tool) / |tool|` per statistic,
+`+0.0%` where both are zero and `+1 (of 0)` where only the tool's is; a stored observable the
+run holds no value for, one whose value is no number, or one the completed runs produce in more
+than one unit (a quantity in some, a bare number or another unit in others, which no one
+distribution can pool) is a note under the table rather than a missing row; a configuration the tool stored no snapshot of, or whose behavior was not migrated,
+is undecided saying so, with the sidecar's notes. A run that fails is an `error:` line under the
+table and fails the comparison (exit status `1`), as it fails a `-runs` table: the statistics
+are of the completed runs only, so they are not passed off as the configuration's. The statistics
+are nearest-rank on both sides,
+so a single stored run has every statistic equal to its value. With `-json` each configuration is
+one check of the report, `compare <name>`, whose `lines` are the table and the notes. The numbers
+are what the two executions produced — nothing is scaled, filtered or tuned — so a behavior whose
+bodies or guards are not migrated compares honestly short, and the configuration's `-runs`
+override lets a tool's single stored run be set beside a hundred of OpenSysML's.
 
 ## Exploring every linearization
 

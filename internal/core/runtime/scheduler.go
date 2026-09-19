@@ -262,6 +262,8 @@ type scheduler struct {
 	explore *exploreRun
 	replay  *replayRun
 	check   *checkRun
+	// draws is the policy the run's random draws resolve under, fixed when it starts.
+	draws DrawPolicy
 }
 
 // stepTokens are the tokens one step may try, in spawn order; parked ones cannot
@@ -497,8 +499,17 @@ func (s *scheduler) chooseWeighted(c *ChoicePoint) error {
 	return nil
 }
 
-// draw is the value the call what draws from the run's modeled stream.
+// draw is the value the call what draws: the policy's fixed point unless replaying recorded
+// draws, else the modeled stream's; a fixed policy refuses an unbounded distribution.
 func (s *scheduler) draw(what string, dist distribution) (semantics.Value, error) {
+	if !s.modeled.replays() || s.replay.drawsByPolicy() {
+		if val, ok := dist.fixedPoint(s.draws); ok {
+			return val, nil
+		}
+		if s.draws.Fixed() {
+			return semantics.Value{}, &DrawUnboundedError{What: what, Policy: s.draws}
+		}
+	}
 	return s.modeled.draw(what, dist)
 }
 

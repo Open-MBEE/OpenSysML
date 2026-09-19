@@ -29,16 +29,18 @@ package test {
 }`
 
 // drawing is drawingModel indexed over the bundled libraries, built as a surface holding
-// no context supplies a model.
+// no context supplies a model, its source registered as a surface registers the files it read.
 type drawing struct {
-	idx *symbols.Index
-	pkg *symbols.Scope
+	idx    *symbols.Index
+	pkg    *symbols.Scope
+	source *source.SourceFile
 }
 
 func parseDrawing(t *testing.T) *drawing {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "drawing.sysml")
-	p := parser.New(source.New(path, []byte(drawingModel)))
+	sf := source.New(path, []byte(drawingModel))
+	p := parser.New(sf)
 	file := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
 		t.Fatalf("parse: %v", p.Diagnostics)
@@ -50,13 +52,14 @@ func parseDrawing(t *testing.T) *drawing {
 	if !ok || pkg.Scope == nil {
 		t.Fatal("test package not indexed")
 	}
-	return &drawing{idx: idx, pkg: pkg.Scope}
+	return &drawing{idx: idx, pkg: pkg.Scope, source: sf}
 }
 
 func (d *drawing) semantics() (*runtime.Model, error) {
 	resolver := resolve.New(d.idx)
 	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
 	model.SetExpressionParser(parser.ParseOneExpression)
+	model.RegisterSource(d.source)
 	return model, nil
 }
 

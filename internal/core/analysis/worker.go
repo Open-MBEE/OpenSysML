@@ -226,8 +226,9 @@ func (m *Model) NewContextOn(job int, budget Budget) (*runtime.Context, error) {
 func (m *Model) holds() bool { return m != nil && m.Context != nil }
 
 // running is the context an execution runs in: the surface's own where it holds one, its
-// limits and seed untouched, else one of the run's own under the budget drawing from seed.
-func (m *Model) running(engine string, budget Budget, seed ModelSeed) (*runtime.Context, error) {
+// limits and seed untouched, else one of the run's own under the budget drawing from seed
+// under the draw policy.
+func (m *Model) running(engine string, budget Budget, seed ModelSeed, draws runtime.DrawPolicy) (*runtime.Context, error) {
 	if m.holds() {
 		ctx, err := m.Context()
 		if err == nil && ctx != nil && m.tools != nil {
@@ -238,7 +239,7 @@ func (m *Model) running(engine string, budget Budget, seed ModelSeed) (*runtime.
 	if !m.builds() {
 		return nil, &NoRuntimeError{Engine: engine}
 	}
-	return Question{ModelSeed: seed}.fresh(m, 0, budget)
+	return Question{ModelSeed: seed, Draws: draws}.fresh(m, 0, budget)
 }
 
 // warmed is how many workers the plan built and the time that took, summed over them.

@@ -299,16 +299,18 @@ func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder, schedule *tok
 // drawn by their weights, read in ec where their guards are; a sole holding
 // succession is taken without a draw, its weight still read and checked.
 func (e *ActionExecutor) chooseBranch(ec *EvalContext, frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int) (*ChoicePoint, int, error) {
-	weights, err := e.branchWeights(ec, node, successors, holding)
+	declared, err := e.branchWeights(ec, node, successors)
 	if err != nil {
 		return nil, 0, err
 	}
-	if len(holding) < 2 {
-		if weights != nil {
-			if _, err := checkWeights(DecisionPlace(node), weights); err != nil {
-				return nil, 0, err
-			}
+	var weights []float64
+	if declared != nil {
+		weights, err = checkDistribution(DecisionPlace(node), declared, holding)
+		if err != nil {
+			return nil, 0, err
 		}
+	}
+	if len(holding) < 2 {
 		return nil, 0, nil
 	}
 	alts := make([]string, len(holding))
@@ -330,16 +332,15 @@ func (e *ActionExecutor) chooseBranch(ec *EvalContext, frame *actionFrame, node 
 	return &choice, choice.Taken, nil
 }
 
-// branchWeights evaluates the weights of the holding successions of a decision,
-// nil when the model weights none of them; lowering refuses a decision weighting
-// only some.
-func (e *ActionExecutor) branchWeights(ec *EvalContext, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int) ([]float64, error) {
-	if successors[holding[0]].Probability == nil {
+// branchWeights evaluates the weights of every succession out of a decision, nil
+// when the model weights none of them; lowering refuses a decision weighting only some.
+func (e *ActionExecutor) branchWeights(ec *EvalContext, node *ast.DecisionNode, successors []lower.ActionEdge) ([]float64, error) {
+	if len(successors) == 0 || successors[0].Probability == nil {
 		return nil, nil
 	}
-	weights := make([]float64, len(holding))
-	for i, pos := range holding {
-		p := successors[pos].Probability
+	weights := make([]float64, len(successors))
+	for pos, edge := range successors {
+		p := edge.Probability
 		val, err := ec.Eval(p.Expr)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %s: weight of %s: %v", ErrBranchWeights, DecisionPlace(node), branchName(successors, pos), err)
@@ -349,7 +350,7 @@ func (e *ActionExecutor) branchWeights(ec *EvalContext, node *ast.DecisionNode, 
 			return nil, fmt.Errorf("%w: %s: weight of %s is %s, not a number",
 				ErrBranchWeights, DecisionPlace(node), branchName(successors, pos), describeValue(val))
 		}
-		weights[i] = asReal(val.Const)
+		weights[pos] = asReal(val.Const)
 	}
 	return weights, nil
 }

@@ -108,9 +108,8 @@ func TestDiagramLayoutOddRoutePointsOnAnUnnamedTransitionIsAnError(t *testing.T)
 		"an unnamed transition of state def P::Machine: Route binds 3 values", "x, y pairs")
 }
 
-// A binding the model cannot evaluate is the metadata annotation check's report at
-// the type tier; one it evaluates to something other than the geometry's kind is
-// reported here.
+// An unevaluable binding is the metadata check's report, a mistyped one the type checker's;
+// a constant of the right type that is still no geometry (null, an odd pair) is reported here.
 func TestDiagramLayoutNonConstantValueIsAnError(t *testing.T) {
 	unevaluable := layoutModel(`	part def Pump {
 		attribute offset : ScalarValues::Real;
@@ -120,17 +119,33 @@ func TestDiagramLayoutNonConstantValueIsAnError(t *testing.T) {
 	if got := w8dLines(t, unevaluable, "metadata-value-not-evaluable"); len(got) != 1 || got[0] != 6 {
 		t.Fatalf("unevaluable binding reported on lines %v, want [6]", got)
 	}
+	mistyped := layoutModel(`	part def Tank {
+		@Layout { x = 3; y = 20; collapsed = 1; }
+	}
+	part def Loop {
+		part tank : Tank;
+		connection supply connect tank to tank {
+			@Route { points = (0, 0, "a", 1); }
+		}
+	}
+`)
+	typed := w8dDiags(t, mistyped)
+	if len(typed) != 2 || typed[0].Source != "type" || typed[1].Source != "type" ||
+		!strings.Contains(typed[0].Message, "cannot bind Natural value to a feature typed by Boolean") ||
+		!strings.Contains(typed[1].Message, "cannot bind String value to a feature typed by Real") {
+		t.Fatalf("mistyped bindings reported as %v, want two type diagnostics", typed)
+	}
 	src := layoutModel(`	part def Pump {
 		@Layout { x = 3; y = (1, 2); }
 	}
 	part def Tank {
-		@Layout { x = null; y = 20; collapsed = 1; }
+		@Layout { x = null; y = 20; collapsed = null; }
 	}
 	part def Loop {
 		part pump : Pump;
 		part tank : Tank;
 		connection supply connect pump to tank {
-			@Route { points = (0, 0, "a", 1); }
+			@Route { points = (0, 0, null, 1); }
 		}
 	}
 	view def Diagram;

@@ -8,11 +8,12 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
 
-const runsUsage = "usage: %runs <n> <seed> <action> [<observable>...]"
+const runsUsage = "usage: %runs <n> [<seed>] <action> [<observable>...]; the seed is left out under %draws min, max or average"
 
 // ClockObservable names the observable every run of a Monte Carlo reports
 // beside the action's features: the simulation clock when the action completed.
@@ -22,10 +23,10 @@ const ClockObservable = "clock"
 // witness: the witness fixes every draw, so the runs could not differ.
 var ErrRunsReplay = errors.New("a Monte Carlo runs under a driving schedule, not a replay")
 
-// doRuns carries out %runs at the prompt: the number of runs and the seed their
-// seeds derive from, the action, then the observables to report.
+// doRuns carries out %runs at the prompt: the number of runs, the seed their seeds
+// derive from — left out under a fixed %draws policy — the action, then the observables.
 func (s *Session) doRuns(tail string) ([]string, bool, error) {
-	count, seed, rest, err := splitRunsTail(tail)
+	count, seed, rest, err := splitRunsTail(tail, s.draws.Fixed())
 	if err != nil {
 		return []string{errPrefix + err.Error(), runsUsage}, false, nil
 	}
@@ -40,73 +41,55 @@ func (s *Session) doRuns(tail string) ([]string, bool, error) {
 	return s.withTrace(s.runsVerdict(Behavior{Name: fields[0]}, count, seed, observables)).Lines, false, nil
 }
 
-// splitRunsTail reads the number of runs and the seed off the front of a %runs tail.
-func splitRunsTail(tail string) (int64, uint64, string, error) {
+// splitRunsTail reads the number of runs and the seed off the front of a %runs tail;
+// under a fixed draw policy a second word that is no number is the action, and no seed.
+func splitRunsTail(tail string, fixed bool) (int64, *uint64, string, error) {
 	fields := strings.Fields(strings.TrimSpace(tail))
-	if len(fields) < 3 {
-		return 0, 0, "", errors.New("name the number of runs, the seed, then the action")
+	if len(fields) < 2 || (len(fields) < 3 && !fixed) {
+		return 0, nil, "", errors.New("name the number of runs, the seed, then the action")
 	}
 	count, err := strconv.ParseInt(fields[0], 10, 64)
 	if err != nil || count <= 0 {
-		return 0, 0, "", fmt.Errorf("%w: %q is not a number of runs to make", runtime.ErrSweepRuns, fields[0])
+		return 0, nil, "", fmt.Errorf("%w: %q is not a number of runs to make", runtime.ErrSweepRuns, fields[0])
 	}
+	taken := 2
 	seed, err := strconv.ParseUint(fields[1], 10, 64)
-	if err != nil {
-		return 0, 0, "", fmt.Errorf("%w: %q is not a seed", runtime.ErrSweepRuns, fields[1])
+	drawn := &seed
+	switch {
+	case err == nil:
+	case fixed:
+		taken, drawn = 1, nil
+	default:
+		return 0, nil, "", fmt.Errorf("%w: %q is not a seed; the seed may be left out only under a fixed %%draws policy", runtime.ErrSweepRuns, fields[1])
 	}
 	rest := strings.TrimSpace(tail)
-	for range 2 {
+	for range taken {
 		rest = strings.TrimSpace(rest[strings.IndexFunc(rest, unicode.IsSpace):])
 	}
-	return count, seed, rest, nil
+	return count, drawn, rest, nil
 }
 
 // RunRuns runs the action count times, each run drawing its modeled randomness
-// from a seed of its own derived from seed, on an object of performer when one
-// is named, and reports the table of the observables named — every feature the
-// action holds and the clock when none are — with each one's distribution.
-func (s *Session) RunRuns(name string, performer []string, count int64, seed uint64, observables []string) Verdict {
+// from a seed of its own derived from seed — the session's when seed is nil, and
+// none when it has none, as a fixed draw policy allows — on an object of performer
+// when one is named, and reports the table of the observables named — every
+// feature the action holds and the clock when none are — with each one's distribution.
+func (s *Session) RunRuns(name string, performer []string, count int64, seed *uint64, observables []string) Verdict {
 	defer s.enter()()
 	return s.withTrace(s.runsVerdict(Behavior{Name: name, Performer: performer}, count, seed, observables))
 }
 
 // runsVerdict makes the runs and reports them as a sweep reports its table, the
 // distributions after it. An observable no completed run produced is an error.
-func (s *Session) runsVerdict(action Behavior, count int64, seed uint64, observables []string) Verdict {
+func (s *Session) runsVerdict(action Behavior, count int64, seed *uint64, observables []string) Verdict {
 	label := "runs " + action.Name
-	if _, replaying := s.drivenSchedule().Replay(); replaying {
-		return unresolvedVerdict(label, ErrRunsReplay.Error())
-	}
-	if dup := duplicateName(observables); dup != "" {
-		return unresolvedVerdict(label, fmt.Sprintf("%s: observable %s is named twice", runtime.ErrSweepRuns, dup))
-	}
 	inv, unresolved := s.resolveInvocation([]Behavior{action}, nil, nil)
 	if inv == nil {
 		return unresolved[0]
 	}
-	plan := runtime.MonteCarloPlan(count, seed)
-	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
-		i, ok := runtime.RunNumber(bindings)
-		if !ok {
-			return runtime.SweepRunResult{}, fmt.Errorf("%w: the row numbers no run", runtime.ErrSweepRuns)
-		}
-		rt.SetModelSeed(runtime.RunSeed(seed, i))
-		outcome, err := inv.run(rt)
-		if err != nil {
-			return runtime.SweepRunResult{}, err
-		}
-		return runtime.SweepRunResult{Outputs: observe(rt, outcome, observables)}, nil
-	}
-	model := s.freshModel()
-	s.state.Unlock()
-	answered, err := s.sweep(inv.subject(), model, plan, run)
-	s.state.Lock()
+	answered, table, err := s.runsTable(inv, count, seed, observables, s.draws)
 	if err != nil {
-		return standing(unresolvedVerdict(label, err.Error()), &answered)
-	}
-	table := answered.Result.Table()
-	if err := unobserved(table, observables); err != nil {
-		return standing(unresolvedVerdict(label, err.Error()), &answered)
+		return standing(unresolvedVerdict(label, err.Error()), answered)
 	}
 	status, rows := sweepStatus(table)
 	lines := append(sweepTraces(table), sweepTableLines(table)...)
@@ -117,7 +100,58 @@ func (s *Session) runsVerdict(action Behavior, count int64, seed uint64, observa
 		Lines:   lines,
 		Values:  sweepValues(table, rows),
 		Rows:    rows,
-	}, &answered)
+	}, answered)
+}
+
+// runsTable makes the runs of a Monte Carlo of the invocation under the draw policy
+// and returns their table with the plan that answered, nil for a refusal made before
+// any engine ran. A seedless Monte Carlo under the random policy is refused: its
+// draws would have no source.
+func (s *Session) runsTable(inv *freshInvocation, count int64, seed *uint64, observables []string, draws runtime.DrawPolicy) (*analysis.Plan, runtime.SweepTable, error) {
+	if _, replaying := s.drivenSchedule().Replay(); replaying {
+		return nil, runtime.SweepTable{}, ErrRunsReplay
+	}
+	if dup := duplicateName(observables); dup != "" {
+		return nil, runtime.SweepTable{}, fmt.Errorf("%w: observable %s is named twice", runtime.ErrSweepRuns, dup)
+	}
+	if seed == nil && s.modelSeed.set {
+		session := s.modelSeed.value
+		seed = &session
+	}
+	plan := runtime.SeedlessMonteCarloPlan(count)
+	if seed != nil {
+		plan = runtime.MonteCarloPlan(count, *seed)
+	} else if !draws.Fixed() {
+		return nil, runtime.SweepTable{}, fmt.Errorf("%w: the runs draw at random; name the seed they draw from, or fix the draws as %%draws min|max|average", runtime.ErrSweepRuns)
+	}
+	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+		i, ok := runtime.RunNumber(bindings)
+		if !ok {
+			return runtime.SweepRunResult{}, fmt.Errorf("%w: the row numbers no run", runtime.ErrSweepRuns)
+		}
+		if seed != nil {
+			rt.SetModelSeed(runtime.RunSeed(*seed, i))
+		} else {
+			rt.ClearModelSeed()
+		}
+		outcome, err := inv.run(rt)
+		if err != nil {
+			return runtime.SweepRunResult{}, err
+		}
+		return runtime.SweepRunResult{Outputs: observe(rt, outcome, observables)}, nil
+	}
+	model := s.freshModel()
+	s.state.Unlock()
+	answered, err := s.sweep(inv.subject(), model, plan, run, draws)
+	s.state.Lock()
+	if err != nil {
+		return &answered, runtime.SweepTable{}, err
+	}
+	table := answered.Result.Table()
+	if err := unobserved(table, observables); err != nil {
+		return &answered, table, err
+	}
+	return &answered, table, nil
 }
 
 // duplicateName is the first name listed twice, "" for none.

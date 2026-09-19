@@ -51,6 +51,9 @@ type typeChecker struct {
 	// sendPayloads are the payload bindings of send bodies, which the send-action
 	// pass types so they are checked even when this pass is gated.
 	sendPayloads map[*ast.Usage]bool
+	// metadataTargets are the metadata body declarations typed by nothing of their own,
+	// each with the feature of the metadata type it restates and its value binds to.
+	metadataTargets map[*ast.Usage]*symbols.Symbol
 }
 
 func (tc *typeChecker) walk(scope *symbols.Scope, members []ast.Node) {
@@ -79,9 +82,13 @@ func (tc *typeChecker) walk(scope *symbols.Scope, members []ast.Node) {
 				span:         d.Span(),
 			})
 			tc.expr.checkUsageBounds(scope, d)
-			if tc.sendPayloads[d] {
+			switch target := tc.metadataTargets[d]; {
+			case target != nil:
 				tc.checkOneType(scope, usageDecl(d))
-			} else {
+				tc.checkMetadataBinding(scope, d, target)
+			case tc.sendPayloads[d]:
+				tc.checkOneType(scope, usageDecl(d))
+			default:
 				tc.checkFeatureDecl(scope, usageDecl(d))
 			}
 			if cross := d.CrossFeature; cross != nil {
@@ -95,12 +102,15 @@ func (tc *typeChecker) walk(scope *symbols.Scope, members []ast.Node) {
 					span:        cross.Span(),
 				})
 			}
+			tc.markMetadataUsageBody(scope, d)
 			if child := childScopeOf(scope, d); child != nil {
 				tc.walk(child, d.Members)
 			}
 		case *ast.AssumeMember, *ast.RequireMember:
 			tc.checkOwnedConstraint(scope, d)
 			tc.checkBehaviorMember(scope, d)
+		case *ast.PrefixMetadata:
+			tc.checkPrefixMetadata(scope, d)
 		case *ast.MultiplicityDecl:
 			tc.expr.checkBoundOperators(scope, d.Range)
 			if child := childScopeOf(scope, d); child != nil {

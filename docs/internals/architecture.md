@@ -245,7 +245,9 @@ source → lexer → parser → AST → symbol index → resolve → passes
   check preserved source text still encodes to the graph, to judge an expression's binding, and
   to read names). `internal/core/migrate` reads SysML v1 XMI and writes SysML v2 notation, and
   knows nothing of RDF. A hygiene test pins `export` free of `migrate` and the entry point as the
-  only package besides the CLI (which prints the migration report) that imports it.
+  only package besides the CLI (which prints the migration report) that imports it. The result
+  sidecar a migration writes (`-migration-results`) has its schema in `internal/core/simresults`,
+  which the migrator fills and the comparison (`repl`, `-compare-results`) reads without the migrator.
 
 ---
 

@@ -1,0 +1,8 @@
+{
+  "type": "action",
+  "evaluate": "test::Cfg",
+  "outputs": {
+    "target.total": {"type": "Real", "value": 2.5},
+    "target.tries": {"type": "Integer", "value": 1}
+  }
+}

@@ -201,6 +201,8 @@ type Context struct {
 	schedule SchedulePolicy
 	// modelSeed fixes the modeled draws of the runs, whatever the policy (modeled.go).
 	modelSeed modelSeed
+	// drawPolicy is how the runs resolve their random draws (draw_policy.go).
+	drawPolicy DrawPolicy
 	// exploring is the exploration run this context's runs take part in, nil
 	// outside Explore (explore.go).
 	exploring *exploreRun
@@ -461,6 +463,10 @@ func (ctx *Context) schedulerUnder(policy SchedulePolicy) *scheduler {
 		s.replay.ctx = ctx
 	}
 	s.modeled = ctx.modeledUnder(policy, s.replay)
+	s.draws = ctx.drawPolicy
+	if s.replay != nil {
+		s.draws = s.replay.policy
+	}
 	return s
 }
 

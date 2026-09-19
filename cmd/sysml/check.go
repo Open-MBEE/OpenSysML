@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
 
@@ -28,8 +30,10 @@ type checks struct {
 	sweeps       stringSlice
 	samples      sweepCount
 	seed         sweepSeed
+	draws        drawPolicy
 	runs         runCount
 	observe      stringSlice
+	compare      string
 	queries      stringSlice
 	actions      stringSlice
 	states       stringSlice
@@ -140,6 +144,32 @@ func (s *sweepSeed) Set(value string) error {
 	return nil
 }
 
+// seed is the seed as given, nil when -seed was not written.
+func (s *sweepSeed) seed() *uint64 {
+	if !s.given {
+		return nil
+	}
+	return &s.value
+}
+
+// drawPolicy is -draws as written: how every run resolves the RandomFunctions
+// draws — at random from the seed, or at each call's min, max or average.
+type drawPolicy struct {
+	value runtime.DrawPolicy
+	text  string
+}
+
+func (d *drawPolicy) String() string { return d.text }
+
+func (d *drawPolicy) Set(value string) error {
+	policy, err := runtime.ParseDrawPolicy(value)
+	if err != nil {
+		return err
+	}
+	d.value, d.text = policy, value
+	return nil
+}
+
 // runCount is -runs as written: how many times to run the action named, parsed
 // where a bad value is reported in the caller's own form.
 type runCount struct {
@@ -182,7 +212,7 @@ func (c *checks) requested() bool {
 	return c.validate.given || c.jsonOut || c.advance.given || c.satisfy.given || len(c.instantiate) > 0 ||
 		len(c.constraints) > 0 || len(c.requirements) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 ||
 		len(c.queries) > 0 || len(c.actions) > 0 || len(c.states) > 0 ||
-		c.sweeping() || c.running() || c.checker.given()
+		c.sweeping() || c.running() || c.compare != "" || c.checker.given()
 }
 
 // explicitOnly names the -check-* flags written that the check engine alone reads.
@@ -262,13 +292,16 @@ func (c *checks) sweeping() bool {
 
 // running reports whether a Monte Carlo was asked for.
 func (c *checks) running() bool {
-	return c.runs.given || len(c.observe) > 0
+	return c.compare == "" && (c.runs.given || len(c.observe) > 0)
 }
 
 // runsMisuse reports why the flags a Monte Carlo was asked for with run none,
-// and "" when they run one: -runs needs -seed and a single -action, and
-// -observe names what the runs report.
+// and "" when they run one: -runs needs a single -action and, under the random
+// draw policy, -seed; -observe names what the runs report.
 func (c *checks) runsMisuse() string {
+	if c.compare != "" {
+		return c.compareMisuse()
+	}
 	if !c.running() {
 		return ""
 	}
@@ -281,8 +314,8 @@ func (c *checks) runsMisuse() string {
 		return "-runs runs one action; name a single -action"
 	case len(c.states) > 0:
 		return "-runs runs an action; a state machine is run once, as -state <name> without -runs"
-	case !c.seed.given:
-		return "-runs draws each run's randomness from a seed; name one, as -seed <number>"
+	case !c.seed.given && !c.draws.value.Fixed():
+		return "-runs draws each run's randomness from a seed; name one, as -seed <number>, or fix the draws, as -draws min|max|average"
 	case c.sweeping():
 		return "-runs runs an action; -sweep and -samples run an analysis case or calc; ask for one of them"
 	case c.advance.given:
@@ -291,6 +324,55 @@ func (c *checks) runsMisuse() string {
 		return "-runs makes concrete runs; the -check-* flags search schedules; ask for one of them"
 	}
 	return ""
+}
+
+// compareMisuse reports why the flags -compare-results was written with compare
+// nothing, and "" when they do: it runs the configurations the results index, so
+// -runs, -seed, -draws and -observe shape the runs and -action names configurations.
+func (c *checks) compareMisuse() string {
+	switch {
+	case len(c.states) > 0 || c.sweeping() || c.advance.given || c.checker.given() ||
+		c.validate.given || c.satisfy.given || len(c.instantiate) > 0 || len(c.constraints) > 0 ||
+		len(c.requirements) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 || len(c.queries) > 0:
+		return "-compare-results runs the migrated configurations the results index and compares the runs with the tool's; the other checks are made in a run of their own"
+	}
+	for _, pair := range c.observe {
+		if stored, _, _ := strings.Cut(pair, "="); strings.TrimSpace(stored) == "" {
+			return fmt.Sprintf("-observe %q names no stored observable; with -compare-results write it as -observe <observable> or -observe <observable>=<feature>", pair)
+		}
+	}
+	return ""
+}
+
+// readResults reads the -compare-results sidecar, naming the file in what went wrong.
+func readResults(path string) (*simresults.Results, error) {
+	f, err := os.Open(path) // #nosec G304 -- the operator names the sidecar on the command line
+	if err != nil {
+		return nil, fmt.Errorf("-compare-results: %w", err)
+	}
+	defer f.Close()
+	results, err := simresults.Read(f)
+	if err != nil {
+		return nil, fmt.Errorf("-compare-results %s: %w", path, err)
+	}
+	return results, nil
+}
+
+// compareOptions are the -compare-results runs as the flags shape them.
+func (c *checks) compareOptions() repl.CompareOptions {
+	opts := repl.CompareOptions{Seed: c.seed.seed(), Only: c.actions}
+	if c.runs.given {
+		opts.Runs = c.runs.value
+	}
+	if flagGiven("draws") {
+		policy := c.draws.value
+		opts.Draws = &policy
+	}
+	for _, pair := range c.observe {
+		stored, feature, _ := strings.Cut(pair, "=")
+		opts.Observe = append(opts.Observe, repl.ObservablePair{Stored: stored, Feature: feature})
+	}
+	return opts
 }
 
 // sweepMisuse reports why the flags a sweep was asked for with make no sweep,
@@ -318,7 +400,7 @@ func (c *checks) sweepMisuse() string {
 func (c *checks) instantiatesOnly() bool {
 	return len(c.instantiate) > 0 && !c.validate.given && !c.jsonOut && !c.advance.given && !c.satisfy.given &&
 		len(c.constraints) == 0 && len(c.requirements) == 0 && len(c.calcs) == 0 && len(c.analyses) == 0 &&
-		len(c.queries) == 0 && len(c.actions) == 0 && len(c.states) == 0 && !c.sweeping() && !c.running() && !c.checker.given()
+		len(c.queries) == 0 && len(c.actions) == 0 && len(c.states) == 0 && !c.sweeping() && !c.running() && c.compare == "" && !c.checker.given()
 }
 
 // checksOnly reports whether anything was asked about the model itself, as
@@ -326,7 +408,7 @@ func (c *checks) instantiatesOnly() bool {
 func (c *checks) checksOnly() bool {
 	return len(c.validate.targets) > 0 || len(c.instantiate) > 0 || len(c.constraints) > 0 ||
 		len(c.requirements) > 0 || len(c.satisfy.targets) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 ||
-		len(c.queries) > 0 || len(c.actions) > 0 || len(c.states) > 0
+		len(c.queries) > 0 || len(c.actions) > 0 || len(c.states) > 0 || c.compare != ""
 }
 
 // optionalNames collects the values of a flag that takes an optional name, as
@@ -498,6 +580,20 @@ func runChecks(files []string, exprs []string, c checks) int {
 
 	rep.info(loaded)
 
+	// The configurations a migration indexed results for are run against those
+	// results, and nothing else is asked of the model in the same run.
+	if c.compare != "" {
+		results, err := readResults(c.compare)
+		if err != nil {
+			rep.failed(err.Error())
+			return rep.finish()
+		}
+		for _, v := range sess.CompareResults(results, c.compareOptions()) {
+			rep.verdict(v)
+		}
+		return rep.finish()
+	}
+
 	// An object first: a constraint, requirement or expression about a feature of
 	// a part is answered about the object that carries it, and only an existing
 	// one can be. Creating it materializes its feature values, so a default that does not
@@ -596,7 +692,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 	for _, value := range c.actions {
 		name, performer := repl.SplitBehavior(value)
 		if c.runs.given {
-			rep.verdict(sess.RunRuns(name, performer, c.runs.value, c.seed.value, c.observe))
+			rep.verdict(sess.RunRuns(name, performer, c.runs.value, c.seed.seed(), c.observe))
 			continue
 		}
 		rep.verdict(sess.RunAction(name, performer...))

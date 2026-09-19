@@ -30,6 +30,9 @@ const (
 	// catCalcDef is an opaque or function behavior computing a result.
 	catCalcDef
 	catStateDef
+	// catSimConfig is a simulation tool's run configuration: an action def
+	// that instantiates its execution target and performs its behavior.
+	catSimConfig
 	// catValue is an instance of a value type: an attribute usage holding its
 	// slot values, since an individual cannot specialize an attribute def.
 	catValue
@@ -70,6 +73,8 @@ func (c category) keyword() string {
 		return "calc def"
 	case catStateDef:
 		return "state def"
+	case catSimConfig:
+		return "action def"
 	case catValue:
 		return "attribute"
 	}
@@ -389,6 +394,8 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 		return catLibrary, ""
 	case "Class", "Component":
 		switch {
+		case simulationConfig(e) != nil:
+			return catSimConfig, ""
 		case has(e, requirementStereotypes...):
 			return catRequirementDef, ""
 		case has(e, "ConstraintBlock"):
@@ -428,8 +435,8 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 		if has(e, "Unit", "QuantityKind") {
 			return catUnmapped, "units and quantity kinds are not migrated; use the SI and ISQ libraries"
 		}
-		if len(m.model.Refs(e, "classifier")) == 0 {
-			return catUnmapped, "an instance specification without a classifier has no v2 form"
+		if len(m.classifiersOf(e)) == 0 {
+			return catUnmapped, joinNotes("an instance specification without a classifier has no v2 form", m.snapshots[e].note)
 		}
 		occurrences, values, note := m.instanceClassifiers(e)
 		switch {
@@ -498,7 +505,12 @@ func rootOf(e *sysmlv1.Element) *sysmlv1.Element {
 // be typed by, and a note over those it can use as neither.
 func (m *migration) instanceClassifiers(e *sysmlv1.Element) (occurrences, values []*sysmlv1.Element, note string) {
 	var notes []string
-	for _, c := range m.model.Refs(e, "classifier") {
+	if snap, ok := m.snapshots[e]; ok && len(m.model.Refs(e, "classifier")) == 0 {
+		for _, c := range snap.classifiers {
+			notes = append(notes, "classified by "+qualifiedName(c)+", the owner of its slots' defining features, since it names no classifier and is a result snapshot of "+"the run configuration "+describe(snap.config))
+		}
+	}
+	for _, c := range m.classifiersOf(e) {
 		if c.IsProxy() || m.isLibrary(c) {
 			notes = append(notes, "the instance's classifier "+c.Name+" is outside the document or in a library, so it has no v2 definition to specialize")
 			continue
@@ -513,6 +525,16 @@ func (m *migration) instanceClassifiers(e *sysmlv1.Element) (occurrences, values
 		}
 	}
 	return occurrences, values, strings.Join(notes, "; ")
+}
+
+// classifiersOf is the classifiers an instance names, or, when it names none
+// and is a result snapshot under a run configuration's result location, the
+// one its slots prove it of (indexSnapshots). Any other classifier-less instance has none.
+func (m *migration) classifiersOf(e *sysmlv1.Element) []*sysmlv1.Element {
+	if named := m.model.Refs(e, "classifier"); len(named) > 0 {
+		return named
+	}
+	return m.snapshots[e].classifiers
 }
 
 // individualClassifiers returns the kind an individual takes from its first classifier
