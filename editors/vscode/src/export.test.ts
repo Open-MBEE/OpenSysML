@@ -25,6 +25,7 @@ class FakeHost implements ExportHost {
   saveFilter?: { extension: string; filter: string };
   written?: { location: string; artifact: string };
   writeRefusal?: Error;
+  dialogRefusal?: Error;
 
   constructor(
     private readonly picks: string | undefined,
@@ -46,6 +47,9 @@ class FakeHost implements ExportHost {
   async pickSaveLocation(defaultName: string, file: { extension: string; filter: string }): Promise<string | undefined> {
     this.saveDefault = defaultName;
     this.saveFilter = file;
+    if (this.dialogRefusal) {
+      throw this.dialogRefusal;
+    }
     return this.saveAt ?? undefined;
   }
 
@@ -165,6 +169,16 @@ test("a server that refuses the form fails the export with its message, before a
   const outcome = await exportRendering(host, { uri: "file:///ws/car.sysml", documentName: "car.sysml", view: "Kit::widgetSequence", forms: DOCUMENTED_FORMS });
   assert.deepEqual(outcome, { kind: "failed", step: "render", message: '"dot" is not a form of a sequence rendering: write "mermaid", "text" or "plantuml"' });
   assert.equal(host.saveDefault, undefined);
+  assert.equal(host.written, undefined);
+});
+
+test("a save dialog that fails to open fails the export as a save failure, with its message", async () => {
+  const host = new FakeHost("dot", echoForm);
+  host.dialogRefusal = new Error("Unable to open the save dialog");
+  const outcome = await exportRendering(host, { uri: "file:///ws/car.sysml", documentName: "car.sysml", view: "Kit::widgetTree", forms: DOCUMENTED_FORMS });
+  assert.deepEqual(outcome, { kind: "failed", step: "save", message: "Unable to open the save dialog" });
+  assert.equal(host.requests.length, 1);
+  assert.equal(host.saveDefault, "car.dot");
   assert.equal(host.written, undefined);
 });
 

@@ -115,11 +115,12 @@ export async function exportRendering(host: ExportHost, request: ExportRequest):
   } catch (err) {
     return { kind: "failed", step: "render", message: errorMessage(err) };
   }
-  const location = await host.pickSaveLocation(exportFileName(request.documentName, result.form), exportFile(result.form));
-  if (location === undefined) {
-    return { kind: "cancelled" };
-  }
+  let location: string | undefined;
   try {
+    location = await host.pickSaveLocation(exportFileName(request.documentName, result.form), exportFile(result.form));
+    if (location === undefined) {
+      return { kind: "cancelled" };
+    }
     await host.write(location, result.artifact);
   } catch (err) {
     return { kind: "failed", step: "save", message: errorMessage(err) };

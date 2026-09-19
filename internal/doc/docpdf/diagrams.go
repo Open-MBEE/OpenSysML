@@ -1,13 +1,18 @@
 package docpdf
 
 import (
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"html"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+// svgNamespace is the namespace the root element of a drawn diagram must be in.
+const svgNamespace = "http://www.w3.org/2000/svg"
 
 // diagram is one diagram block's fate on the page: the SVG drawn of it, as a
 // file name within the working directory, or the notice its source is kept under.
@@ -90,10 +95,41 @@ func (f *diagramForm) render(dir string, n int, source string) (diagram, error) 
 	if err := f.draw.draw(dir, source, output); err != nil {
 		return diagram{}, err
 	}
-	if info, err := os.Stat(filepath.Join(dir, output)); err != nil || info.Size() == 0 {
-		return diagram{}, &Error{Kind: ErrorToolFailed, Tool: f.draw.name(), Detail: "wrote no SVG for diagram " + fmt.Sprint(n)}
+	if err := checkSVG(filepath.Join(dir, output)); err != nil {
+		return diagram{}, &Error{Kind: ErrorToolFailed, Tool: f.draw.name(), Detail: fmt.Sprintf("%s for diagram %d", err, n)}
 	}
 	return diagram{Image: output}, nil
+}
+
+// checkSVG requires the file a tool wrote to be well-formed XML whose root
+// element is `svg` in the SVG namespace, catching a tool that exits 0 without a drawing.
+func checkSVG(path string) error {
+	file, err := os.Open(path) // #nosec G304 -- the path is within the render directory
+	if err != nil {
+		return errors.New("wrote no SVG")
+	}
+	defer file.Close()
+	dec := xml.NewDecoder(file)
+	dec.Entity = xml.HTMLEntity
+	root := false
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			if !root {
+				return errors.New("wrote no SVG")
+			}
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("wrote no SVG, %v", err)
+		}
+		if start, ok := tok.(xml.StartElement); ok && !root {
+			if start.Name.Local != "svg" || start.Name.Space != svgNamespace {
+				return fmt.Errorf("wrote no SVG, a <%s> document", start.Name.Local)
+			}
+			root = true
+		}
+	}
 }
 
 // sourceNotice is written ahead of a diagram block kept as source. With the
