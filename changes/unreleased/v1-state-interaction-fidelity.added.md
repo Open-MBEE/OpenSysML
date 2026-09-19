@@ -17,7 +17,8 @@
   one type are two paths, so a lifeline standing for a part of that type is ambiguous. A Reception is
   an `action def` of the block that accepts its signal, runs its method with the signal's
   attributes bound to the method's parameters of the same name and accepts again, performed by
-  every object of the block from creation, so a signal sent to the object at any time runs the
+  every object of the block from creation — a method that is also the method of an operation runs
+  as that operation's `action def` — so a signal sent to the object at any time runs the
   method against the object; where the signal arrives at ports of the block, the accept is forked
   into one loop per port, `accept … via <port>`, beside the one from the object; where the method requires a value no attribute supplies,
   or a same-named attribute does not fit its parameter's type or multiplicity, the reception only

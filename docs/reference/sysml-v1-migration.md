@@ -403,7 +403,9 @@ the block, the steps addressing the parts through it.
 `action receive accept setLevel : Signals::SetLevel;`, and runs the method as a nested typed
 action whose `in` parameters read the accepted signal's attributes of the same name,
 `action run : 'Apply Level' { in value = setLevel.value; }`, then returns to the accept,
-`first run then receive;`. The block performs it, `perform action setLevel : SetLevel;`, so
+`first run then receive;`; a method that is also the method of an operation of the block is
+written once, as that operation's body, so the reception runs the operation's `action def`,
+binding the parameters it declares. The block performs it, `perform action setLevel : SetLevel;`, so
 every object of the block listens from the moment it is created — nothing starts the reception —
 and a signal sent to the object at any time is accepted and its method runs against the object,
 not the signal, as many times as the signal arrives. The runtime keeps a message delivered to a

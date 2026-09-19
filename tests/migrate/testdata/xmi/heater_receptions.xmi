@@ -25,6 +25,11 @@
           <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_slsHi" value="*"/>
         </ownedAttribute>
       </packagedElement>
+      <packagedElement xmi:type="uml:Signal" xmi:id="_nudge" name="Nudge">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_ndDelta" name="delta">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+      </packagedElement>
     </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_heater" name="Heater">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_level" name="level">
@@ -46,7 +51,13 @@
       <ownedReception xmi:type="uml:Reception" xmi:id="_rcvBoost" name="Boost" signal="_boost" method="_boosting"/>
       <ownedReception xmi:type="uml:Reception" xmi:id="_rcvName" name="SetName" signal="_setName" method="_naming"/>
       <ownedReception xmi:type="uml:Reception" xmi:id="_rcvLevels" name="SetLevels" signal="_setLevels" method="_leveling"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvNudge" name="OnNudge" signal="_nudge" method="_nudging"/>
       <ownedReception xmi:type="uml:Reception" xmi:id="_rcvAway" name="Away" signal="_elsewhere"/>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_opNudge" name="Nudge" method="_nudging">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_onDelta" name="delta" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+      </ownedOperation>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_apply" name="Apply Level" specification="_rcvSet">
         <ownedParameter xmi:type="uml:Parameter" xmi:id="_apValue" name="value" direction="in">
           <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
@@ -95,6 +106,16 @@
           <value xmi:type="uml:InputPin" xmi:id="_lsetVal" name="value"/>
         </node>
         <edge xmi:type="uml:ObjectFlow" xmi:id="_lof" source="_lpnValues" target="_lsetVal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_nudging" name="Nudging" specification="_opNudge">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_ngDelta" name="d" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_ngnDelta" name="d" parameter="_ngDelta"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_ngset" name="set level" structuralFeature="_level" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_ngsetVal" name="value"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_ngof" source="_ngnDelta" target="_ngsetVal"/>
       </ownedBehavior>
       <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_resetting" name="Resetting">
         <region xmi:type="uml:Region" xmi:id="_rr">

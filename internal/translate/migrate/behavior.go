@@ -711,7 +711,11 @@ func (m *migration) reception(r *sysmlv1.Element) {
 	usage := m.freshName(owner, lowerFirst(name))
 	ports, info := m.arrivalRoutes(owner, sig, "reception")
 	method := m.model.Ref(r, "method")
-	route := receptionRoute{owner: owner, sig: sig, method: method, used: map[string]bool{"start": true, "done": true}}
+	performed := method
+	if op := m.methodOf[method]; op != nil {
+		performed = op
+	}
+	route := receptionRoute{owner: owner, sig: sig, method: performed, used: map[string]bool{"start": true, "done": true}}
 	m.w.block("action def "+writeName(name), func() {
 		from := "start"
 		if len(ports) > 0 {
@@ -729,12 +733,15 @@ func (m *migration) reception(r *sysmlv1.Element) {
 	desc := "written as an action def accepting " + m.nameFor(sig)
 	if route.performed {
 		desc += " and performing its method " + qualifiedName(method)
+		if performed != method {
+			desc += " as the operation " + qualifiedName(performed) + ", whose body it is"
+		}
 	}
 	m.add(r, verdictFor(route.note), m.v2Name(r), joinNotes(joinNotes(desc+", which its owner performs as "+usage+" from creation, accepting the signal again after each", route.note), info))
 }
 
-// receptionRoute is what every accept loop of one reception shares: the signal and method
-// written, the names taken in the action def, and whether the method is performed.
+// receptionRoute is what every accept loop of one reception shares: the signal and the method
+// as written (the operation whose body it is), the names taken, and whether it is performed.
 type receptionRoute struct {
 	owner, sig, method *sysmlv1.Element
 	used               map[string]bool
@@ -763,7 +770,7 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 		} else {
 			route.note = "the reception has no method, so it only accepts the signal"
 		}
-	case !m.written(method) || !hasActionForm(method):
+	case !m.written(method) || !(method.Type == "Operation" || hasActionForm(method)):
 		route.note = "the method " + qualifiedName(method) + " has no action def to perform; the reception only accepts the signal"
 	default:
 		args, refusal := m.receptionArguments(method, route.sig, payload)
@@ -802,6 +809,28 @@ func (m *migration) receptionComment(r, sig *sysmlv1.Element) {
 	m.add(r, Unmapped, "", note)
 }
 
+// actionParameters lists the parameters the action def written for behavior b declares: an
+// operation's own, then its method's that stand for none of them by position or name.
+func (m *migration) actionParameters(b *sysmlv1.Element) []*sysmlv1.Element {
+	params := b.Owned("ownedParameter")
+	method := m.model.Ref(b, "method")
+	if b.Type != "Operation" || method == nil || method.Parent != b.Parent {
+		return params
+	}
+	declared := map[string]bool{}
+	for _, p := range params {
+		declared[m.nameFor(p)] = true
+	}
+	for _, p := range method.Owned("ownedParameter") {
+		if m.realizes[p] != nil || declared[m.nameFor(p)] {
+			continue
+		}
+		declared[m.nameFor(p)] = true
+		params = append(params, p)
+	}
+	return params
+}
+
 // receptionArguments binds the method's in parameters to the accepted signal's attributes of the
 // same name, conforming in type and multiplicity; one that does not, or is missing where a value
 // is required, refuses the method.
@@ -810,7 +839,7 @@ func (m *migration) receptionArguments(method, sig *sysmlv1.Element, payload str
 	for _, a := range m.signalAttributes(sig) {
 		attrs[m.nameOf(a)] = a
 	}
-	for _, p := range method.Owned("ownedParameter") {
+	for _, p := range m.actionParameters(method) {
 		dir, _ := parameterDirection(p)
 		if dir != "in" && dir != "inout" {
 			continue

@@ -423,7 +423,7 @@ func (s *scenario) call(step *scenarioStep, sort string) (*scenarioStep, string)
 	}
 	var ins []*sysmlv1.Element
 	for _, p := range op.Owned("ownedParameter") {
-		if dir, _ := parameterDirection(p); dir != "out" {
+		if dir, _ := parameterDirection(p); dir == "in" || dir == "inout" {
 			ins = append(ins, p)
 		}
 	}

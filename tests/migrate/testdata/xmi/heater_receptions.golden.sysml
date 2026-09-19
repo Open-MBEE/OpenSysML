@@ -11,6 +11,9 @@ package Signals {
     item def SetLevels {
         attribute values : ScalarValues::Real[0..*];
     }
+    item def Nudge {
+        attribute delta : ScalarValues::Real;
+    }
 }
 part def Heater {
     attribute level : ScalarValues::Real default = 0.0;
@@ -66,7 +69,25 @@ part def Heater {
         first receive then receive;
     }
     perform action setLevels : SetLevels;
+    action def OnNudge {
+        first start then receive;
+        action receive accept nudge : Signals::Nudge;
+        first receive then run;
+        action run : Nudge { in delta = nudge.delta; }
+        first run then receive;
+    }
+    perform action onNudge : OnNudge;
     comment /* reception 'Away' */
+    action def Nudge {
+        in delta : ScalarValues::Real;
+        first start then 'set level';
+        action 'set level' {
+            in value;
+            assign this.level := value;
+        }
+        bind 'set level'.value = delta;
+    }
+    action nudge : Nudge;
     action def 'Apply Level' {
         in value : ScalarValues::Real;
         in gain : ScalarValues::Real default = 1.0;
