@@ -14,8 +14,10 @@ starts and stops on its own.
 | Java | `org.openmbee:opensysml-client` | Connect, over the JDK's own HTTP client | [Java API](../reference/java-api.md) |
 | Rust | `opensysml` | Connect, blocking, with no async runtime | [Rust API](../reference/rust-api.md) |
 
-They do not all cover the same ground. Go and Python expose every RPC the service offers. Java adds
-execution, verification, calculation, analysis and query to the v1 surface; Node and Rust cover
+They do not all cover the same ground. Go and Python expose every RPC the service offers, and the
+Java client does too — `parseSources`, `convert`, `applyEdits`, `runSweep`, `runDocumentQuery` and
+`renderDocument` beside the v1 surface and its execution, verification, calculation, analysis and
+query methods; Node and Rust cover
 that smaller v1 surface (parse, look up a symbol, evaluate, instantiate), and of
 those two only Node has an escape hatch to the rest, through the generated Connect client it
 exposes. Only Python and Go are published so far.

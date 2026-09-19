@@ -37,6 +37,8 @@ try (Connection connection = Connection.open()) {          // private child serv
 | `open()` / `open(ConnectionOptions)` | connects, and starts a private service unless one was named |
 | `load(Path)`, `load(Path, ParseOptions)` | parses a file the service can read |
 | `parse(String)`, `parse(String, ParseOptions)` | parses inline content |
+| `parseSources(List<SourceDocument>)`, `parseSources(List, ParseOptions)` | parses several documents as one model |
+| `convert(String content, String toFormat[, ConversionOptions])`, `convertFile(Path, ...)` | translates source between notations (`sysml`, `kerml`, `ttl`, `xmi`) |
 | `model(String modelHash)` | adopts a model the service already holds |
 | `capabilities()` | what `GetServerInfo` reported, asked once at open |
 | `listEngines()` | the analysis engines the service can put a question to, as `EngineInfo` |
@@ -72,7 +74,7 @@ Model model = connection.load(Path.of("model.sysml"));
 model.hash();                                   // what the service holds it under
 model.parseDiagnostics();                       // from the parse that produced it
 model.diagnostics();                            // asked of the service now
-model.root();                                   // Optional: absent for an adopted model
+model.roots();                                  // one Symbol per document; empty for an adopted model
 
 Symbol vehicle = model.symbol("Demo::Vehicle"); // throws if the model has no such symbol
 model.findSymbol("Demo::Vehicle");              // Optional, for a name that may be absent
@@ -203,6 +205,94 @@ List<QueryElement> same = model.queryOslc("oslc.where=rdf:type=\"PartUsage\"&osl
 build and inspect. `queryOslc` needs the `oslc_query` capability; a scope naming
 no element is refused as `INVALID_ARGUMENT`.
 
+### Several documents, and conversion
+
+`Connection.parseSources` reads a list of `SourceDocument`s — `file(Path)` for
+what the service can read, `inline(name, content)` for what it cannot — as **one
+model**, so the references between them resolve:
+
+```java
+Model model = connection.parseSources(List.of(
+    SourceDocument.inline("library.sysml", librarySource),
+    SourceDocument.inline("use.sysml", useSource)));
+model.roots();   // one Symbol per document, in request order
+```
+
+`Connection.convert`/`convertFile` translate source text between notations and
+answer a `Conversion` (`content`, the resolved `fromFormat`/`toFormat`,
+`experimental`/`experimentalNotice`, `diagnostics`); `Model.convert` converts the
+parsed model itself. `ConversionOptions` carries a `fromFormat` (else the service
+sniffs it) and `tolerateSyntaxErrors` — without it, a syntax error throws a
+`ModelException` carrying the diagnostics rather than converting anyway.
+
+### Edits
+
+```java
+EditResult result = model.applyEdits(List.of(
+    new Edit.SetValue("Demo::sc::unitMass", "1200.0[SI::kg]"),
+    new Edit.Rename("Demo::sc", "subsystem"),
+    Edit.AddMember.of("Demo::SC", "attribute", "margin")
+        .withType("ISQ::MassValue"),
+    new Edit.Delete("Demo::old", true),      // cascade the referred declarations
+    new Edit.Move("Demo::helper", "Demo::Internal")),
+    EditOptions.defaults().withAcceptDocuments(true));
+result.content();        // the rewritten source of a one-document model
+result.documents();      // EditedDocument per rewritten document, by parse name
+result.applied();        // AppliedEdit per operation: the span it rewrote, old/new text
+```
+
+`EditOptions` `acceptDocuments` defaults to **true**: a batch that reaches
+documents beyond the one the first edit touched is refused unless the caller
+accepts a multi-document answer, and `document` limits the batch to one named
+document. A batch the service refuses — an unknown target, a delete of an
+element still referred to — throws `EditException`, a `ModelException` whose
+`failure()` is an `EditFailure` (`UNKNOWN_TARGET`, `TARGET_REFERRED`, …) and
+whose `referringElements()`/`referrers()` name the references that refused it.
+
+### Parameter sweeps
+
+```java
+Sweep sweep = model.runSweep("Sw::CostAnalysis",
+    List.of(SweepRange.of("count",
+        new Value.IntegerValue(1), new Value.IntegerValue(5)).withStep(new Value.IntegerValue(1))),
+    SweepOptions.defaults().withSamples(0));            // or .withSamples(50).withSeed(7)
+sweep.rows();                // one SweepRow per run: inputs, outputs, verdicts, elapsed
+sweep.holds();               // every row's verdicts all held, no row failed
+sweep.failures();            // the rows that carried an error
+```
+
+A `SweepRange` is `of(parameter, start, end)` plus an optional `withStep` — a
+discrete grid the sweep runs once per value; `SweepOptions` carries `subject`,
+`arguments`/`namedArguments`, and `samples`/`seed` for a sampled rather than
+enumerated sweep (the answer's `sampled` and `seed` echo what ran). A run that
+fails is a row carrying `error` and `failureReason` — a row is an answer, not an
+exception — while a sweep that cannot start at all throws a `ModelException`.
+
+### Document queries and rendering
+
+```java
+DocumentQueryResult table = model.runDocumentQuery(
+    "Observatory::SubsystemTable",
+    Map.of("root", List.of(new DocumentValue.ElementRef("Observatory::telescope", "PartUsage"))));
+table.columns();             // the declared columns
+for (DocumentRow row : table.rows()) {
+  row.element().elementId(); // the element the row is about
+  row.cells();               // List<List<DocumentValue>>, one per column
+}
+RenderedDocument page = model.renderDocument("Observatory::MassReport");
+page.markdown();             // the rendered notation
+```
+
+`DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an `Instance` plus its
+element ids), `Verdict`, `State`, `Event`, `LiteralValue` (wrapping a `Value`),
+`Quantity`, `Range`, `QuantityRange`, `InstanceRef` and `Unit` — the kinds a
+native document's cells and bindings speak. A `DocumentRow` carries its subject
+whichever kind it is — `element()` for an element row, `verdict()`/
+`state()`/`event()`/`object()` as `Optional`s for the typed rows — beside the
+cells. `runDocumentQuery` needs the `document_query` capability and
+`renderDocument` the `render_document` capability; an unknown query or document
+id is a `ServiceException` `NOT_FOUND`.
+
 ## Values and the rest of the domain
 
 Every answer is immutable, and no generated protobuf message or builder appears in
@@ -258,6 +348,7 @@ throws nothing.
 | `ServiceException` | the call was refused, carrying a `StatusCode` (`NOT_FOUND`, …) |
 | `ModelException` | the call succeeded and the answer reports a model failure; `failureReason()` classifies it and `diagnostics()` carry what the service said |
 | `AnalysisException` | a `ModelException` from `runAnalysis` whose `partial()` holds what the run computed before it stopped |
+| `EditException` | a `ModelException` from `applyEdits` carrying the `EditFailure` kind and the `referrers` a refused edit named |
 | `TransportException` | HTTP or IO failure; the service was not reached or answered |
 | `CapabilityException` | the service does not advertise a capability the call needs |
 | `ServiceStartException` | no binary, a digest mismatch, or a child that would not start |
@@ -273,7 +364,8 @@ and `verifyConstraint` returns it.
 
 `Connection.open` calls `GetServerInfo` once and keeps what it reported.
 Negotiation is on the advertised **names** — the constants on `Capabilities`, such
-as `EVALUATE_SUBJECT`, `FEATURE_VALUES`, `STRICT_CONFORMANCE`, `INLINE_LANGUAGE` —
+as `EVALUATE_SUBJECT`, `FEATURE_VALUES`, `STRICT_CONFORMANCE`, `INLINE_LANGUAGE`,
+`PARSE_SOURCES`, `DOCUMENT_QUERY`, `RENDER_DOCUMENT` —
 never on the version string:
 
 ```java
@@ -302,25 +394,21 @@ opt-out and its limitations in full.
 
 ## What the client does not do
 
-Deliberately out of scope, rather than half-implemented: the edit API
-(`ApplyEdits`), models of several documents (`ParseSources`), RDF conversion
-(`Convert`), parameter sweeps (`RunSweep`), native document queries and rendering
-(`RunDocumentQuery`, `RenderDocument`), and generated model-ergonomics types. The
-service still serves all of them, but the
-public API offers no generic call: `org.openmbee.opensysml.proto` carries the request and
-response messages — `ApplyEditsResponse.getDocumentsList()` carries the edited
-notation of every document an edit rewrote, by parse name, beside the
-sole-document `content` — and the transport that would send one is
-`org.openmbee.opensysml.internal`, which is internal and not a compatibility promise. Reach
-those RPCs from the Go or Python client until this one wraps them.
+Deliberately out of scope, rather than half-implemented: **generated
+model-ergonomics types** — no code generation from a model into Java classes.
+Every RPC the service serves is a public method now. The generated messages stay
+what they are — `org.openmbee.opensysml.proto` carries every request and
+response the service speaks, but no public call sends one directly: the
+transport that would is `org.openmbee.opensysml.internal`, which is internal and
+not a compatibility promise.
 
 ## Conformance
 
 `opensysml-conformance` runs the language-neutral scenarios **through the public
 API** and writes the report shape `tools/cmd/conformance` writes; `mvn -f
-client/java/pom.xml test` is what CI runs. Of 134 scenarios, 94 run and pass over
-both `connect` and `connect-json`, and 40 are skipped — the scenarios of the RPCs
-the client does not cover, plus the requests the public API cannot express: a
+client/java/pom.xml test` is what CI runs. Of 134 scenarios, 129 run and pass over
+both `connect` and `connect-json`, and 5 are skipped — the requests the public API
+cannot express: a
 `ParseFile` naming no source, a `Query` with both a structured and an OSLC query or
 a comparison with no operator, and an `EvaluateCalc` argument the client's own
 `Value` reader would refuse. gRPC is not run at all: this client does not speak it. `-mutate` corrupts

@@ -52,7 +52,12 @@ the answers of execution (`ActionRun`, `StateRun`, `Exploration` of `Outcome`s),
 verification (`Verification`, `Satisfaction`, `Validation`, each over `Verdict`s and
 `VerificationVerdict`s), calculation and analysis (`Calculation`, `Analysis` of
 `CaseEvaluation`s, with the engine `Standing`), query (`Query`, `Condition`,
-`QueryElement`) and `EngineInfo`.
+`QueryElement`), conversion (`Conversion`), editing (`Edit`, `EditResult`,
+`AppliedEdit`, `EditedDocument`, `Referrer`), sweeps (`Sweep` of `SweepRow`s),
+documents (`DocumentValue`, `DocumentRow`, `DocumentQueryResult`,
+`RenderedDocument`) and `EngineInfo`. `SourceDocument` names a document a
+`parseSources` call reads; `Edit` is sealed over `SetValue`, `Rename`,
+`AddMember`, `Delete` and `Move`. Every RPC the service offers is a method.
 No generated protobuf message or builder appears in the public API. A `Diagnostic`
 is `(severity, message, code, span)`; `code()` is the identifier to branch on
 (`"syntax"`, a validation code such as `"unresolved"`, `"choice-point"`,
@@ -71,6 +76,7 @@ call, and `AutoCloseable`'s `close()` here throws nothing.
 | `ServiceException`     | the call was refused, with a `StatusCode` (`NOT_FOUND`, …)         |
 | `ModelException`       | the call succeeded and the answer reports a model failure; `failureReason()` classifies it |
 | `AnalysisException`    | a `ModelException` from `runAnalysis` whose `partial()` holds what the run computed before it stopped |
+| `EditException`        | a `ModelException` from `applyEdits` whose `failure()` names the `EditFailure` kind and whose `referringElements()`/`referrers()` name what a refused delete or move is referenced from |
 | `TransportException`   | HTTP or IO failure; the service was not reached or answered. `UNAVAILABLE`, except `DEADLINE_EXCEEDED` for a call that outlived its `requestTimeout` |
 | `CapabilityException`  | the service does not advertise a capability the call needs         |
 | `ServiceStartException`| no binary, a digest mismatch, or a child that would not start      |
@@ -323,18 +329,10 @@ it, before a round trip.
 
 ## What the client does not do
 
-Deliberately out of scope, rather than half-implemented:
-
-- **the edit API** (`ApplyEdits`) — authoring notation from Java;
-- **models of several documents** (`ParseSources`) — one document is parsed at a time;
-- **RDF conversion** (`Convert`) — Turtle/RDF export;
-- **parameter sweeps** (`RunSweep`);
-- **native document queries and rendering** (`RunDocumentQuery`, `RenderDocument`);
-- **generated model-ergonomics types** — no code generation from a model into
-  Java classes.
-
-The service still serves all of them; reach them from another client, or from the
-generated stubs in `org.openmbee.opensysml.proto` with `curl`, until this client wraps them.
+Deliberately out of scope, rather than half-implemented: **generated
+model-ergonomics types** — no code generation from a model into Java classes.
+Every RPC the service serves is a public method; what remains outside is only a
+surface that would be generated per model rather than part of the client.
 
 ## Generated messages
 
@@ -372,17 +370,18 @@ Per protocol, of 134 scenarios:
 
 | protocol       | ran | passed | failed | skipped |
 | -------------- | --: | -----: | -----: | ------: |
-| `connect`      |  94 |     94 |      0 |      40 |
-| `connect-json` |  94 |     94 |      0 |      40 |
+| `connect`      | 129 |    129 |      0 |       5 |
+| `connect-json` | 129 |    129 |      0 |       5 |
 
-**40 skipped**: the scenarios of the RPCs the client does not cover —
-`ApplyEdits` (10), `RunSweep` (7), `RunDocumentQuery` (6), `Convert` (5),
-`ParseSources` (4), `RenderDocument` (3) — 35 — plus five requests the public API
-cannot express: `parse/naming_no_source_is_invalid` (the API always names a
+**5 skipped**: only the requests the public API cannot express —
+`parse/naming_no_source_is_invalid` (the API always names a
 source), a `Query` carrying both a structured and an OSLC query and one whose
 comparison has no operator (`Query` and `Condition` are values that cannot be built
 that way), and two `EvaluateCalc` arguments malformed on the wire, which the
-client's own `Value` reader refuses before any request could carry them. The suite
+client's own `Value` reader refuses before any request could carry them. A model
+of several documents is parsed by `Connection.parseSources`, which names each
+document as the fixture file named it, so the `ApplyEdits` scenarios over several
+documents run rather than skip. The suite
 test asserts that no scenario of a covered RPC is skipped as uncovered, so a
 shrinking surface cannot pass quietly. gRPC is not run at all: this client does not speak it.
 
@@ -391,15 +390,15 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 
 | `-mutate`         | what it does to every answer     | scenarios that fail |
 | ----------------- | -------------------------------- | ------------------: |
-| `perturb-reals`   | moves each real by a millionth   |                  20 |
-| `truncate-lists`  | drops the last repeated element  |                  36 |
-| `rewrite-strings` | replaces each string            |                  53 |
+| `perturb-reals`   | moves each real by a millionth   |                  24 |
+| `truncate-lists`  | drops the last repeated element  |                  50 |
+| `rewrite-strings` | replaces each string            |                  70 |
 
 ## Running the tests
 
 ```bash
 make build                                   # bin/sysml-grpc; tests skip without it
-mvn -f client/java/pom.xml test             # 200 client tests, 36 conformance tests
+mvn -f client/java/pom.xml test             # 236 client tests, 36 conformance tests
 mvn -f client/java/pom.xml test -Dopensysml.requireService=true   # CI: absence fails
 ```
 
