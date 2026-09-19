@@ -68,6 +68,7 @@ var (
 // The corrected defects must not be reported: that is the corrected text
 // reaching the checker.
 func TestExprTypeCheckNoStdlibFalsePositives(t *testing.T) {
+	t.Parallel()
 	checkStdlibExprTypeFindings(t, libs.DefaultSource(), documentedStdlibDefects)
 }
 
@@ -75,6 +76,7 @@ func TestExprTypeCheckNoStdlibFalsePositives(t *testing.T) {
 // text as published: every corrected defect is a defect the checker finds
 // there, so a correction is only ever declared for a line the checker rejects.
 func TestExprTypeCheckPublishedStdlibDefects(t *testing.T) {
+	t.Parallel()
 	checkStdlibExprTypeFindings(t, libs.EmbeddedSource(), publishedStdlibDefects)
 }
 
