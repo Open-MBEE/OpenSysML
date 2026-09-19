@@ -5,8 +5,8 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // An action node owning a flow runs it as subperformances (`subactions :> subperformances`):

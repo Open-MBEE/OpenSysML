@@ -1,6 +1,6 @@
 package symbols
 
-import "github.com/Open-MBEE/OpenSysML/internal/core/source"
+import "github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 
 // Members returns distinct symbols declared directly in this scope in
 // declaration order, with duplicate keys interleaved as declared.

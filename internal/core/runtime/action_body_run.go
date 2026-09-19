@@ -7,8 +7,8 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // A body's work — a token's step of a node with a body, or a state's do behavior —

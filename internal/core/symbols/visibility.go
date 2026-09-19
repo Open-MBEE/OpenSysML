@@ -1,6 +1,6 @@
 package symbols
 
-import "github.com/Open-MBEE/OpenSysML/internal/core/ast"
+import "github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 
 // VisibleAs reports whether a membership of the given visibility is visible to a
 // reference made inside its namespace (inside) or from one that specializes it

@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // documentedModel builds a model whose documentation is readable: the source

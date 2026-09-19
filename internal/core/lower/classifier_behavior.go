@@ -1,7 +1,7 @@
 package lower
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // ClassifierBehaviorKind is how a type binds a behavior to its objects.

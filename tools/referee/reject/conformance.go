@@ -3,7 +3,7 @@ package reject
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // The conformance policies the harness can be run under. "auto" asks each case

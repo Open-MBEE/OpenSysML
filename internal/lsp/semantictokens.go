@@ -8,7 +8,7 @@ import (
 	"go.lsp.dev/protocol"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/highlight"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // semanticTokensProvider is the LSP 3.16 capability shape, declared here because

@@ -1,6 +1,6 @@
 package symbols
 
-import "github.com/Open-MBEE/OpenSysML/internal/core/ast"
+import "github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 
 // MetadataBodyResolver is the inheritance-aware lookup needed by metadata bodies.
 type MetadataBodyResolver interface {

@@ -3,8 +3,8 @@ package semantics
 import (
 	"slices"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // EndMultiplicityIsOne reports whether end feature sym declares, or takes from a

@@ -6,7 +6,7 @@
 // # SysML output
 //
 // Saving a model that came from source writes that source, re-indented by
-// internal/core/format. Printing the AST instead would drop comments, notes and
+// internal/syntax/format. Printing the AST instead would drop comments, notes and
 // anything the parser recorded as an ErrorNode, so a save has to keep the token
 // stream (see the format package doc).
 //

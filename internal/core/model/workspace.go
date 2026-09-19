@@ -6,15 +6,15 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Workspace is the single source of truth for a server/REPL session: the
@@ -318,7 +318,7 @@ func (w *Workspace) reindexLocked(name string, content []byte, version int) {
 	doc := newDocument(name, content, version)
 	w.docs[name] = doc
 	w.displaceLocked(name)
-	w.index.AddDocument(name, doc.AST) // AddDocument removes stale entries first
+	w.index.AddDocumentScope(name, doc.AST, doc.Scope) // removes stale entries first
 	w.standInLocked(name, doc)
 	w.index.ExpandWildcardImports() // Expand new document's wildcard imports
 	w.invalidateLocked(name)

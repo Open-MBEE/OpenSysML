@@ -5,8 +5,8 @@ import (
 	"math"
 	"slices"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // scalar is an unboxed Integer, Real or Boolean, the values the compiled calc

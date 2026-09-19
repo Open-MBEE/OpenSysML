@@ -3,8 +3,8 @@ package runtime
 import (
 	"errors"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // A constraint or requirement is a predicate (KerML §7.4.9; SysML v2 §7.19, §7.21):

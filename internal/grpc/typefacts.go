@@ -4,12 +4,12 @@ import (
 	"sync"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // fqnScalarQuantityValue is the library type every quantity value specializes.

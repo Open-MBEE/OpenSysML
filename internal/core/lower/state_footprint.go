@@ -1,7 +1,7 @@
 package lower
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // Transition footprints are the static projection of what firing one transition

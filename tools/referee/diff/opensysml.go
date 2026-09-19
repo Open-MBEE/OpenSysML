@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // diagnostic is one finding from either implementation, kept with its message so

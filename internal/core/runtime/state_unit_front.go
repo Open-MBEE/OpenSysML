@@ -6,8 +6,8 @@ import (
 	"iter"
 	"slices"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // A front performs the units of several regions one at a time, drawing which advances while two

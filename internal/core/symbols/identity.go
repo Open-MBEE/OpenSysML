@@ -3,7 +3,7 @@ package symbols
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // ElementKey identifies the declaration a symbol was built from, since a document

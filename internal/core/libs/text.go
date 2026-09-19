@@ -3,7 +3,7 @@ package libs
 import (
 	"sync"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Text answers spans of the library files src serves, by the names an index

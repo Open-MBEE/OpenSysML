@@ -269,6 +269,23 @@ func TestVisibleNamesRedefinedNameWithNoVisiblePathIsGone(t *testing.T) {
 	has(t, names, []string{"b", "keep", "B.b"}, []string{"a", "A.a", "B.a"})
 }
 
+func TestVisibleNamesRedefinitionMasksAlongAnAliasPathAfterAnalysis(t *testing.T) {
+	// ShadowingTests_SameNamesInnerClassAndOuterClassWithAlias_Rdef: the
+	// redefinition being written is absent on the alias-qualified path too,
+	// after the document's analysis has resolved the alias.
+	src := "package test {\n\talias A for A1;\n\tfeature A1 {\n\t\tfeature A {\n" +
+		"\t\t\tfeature B redefines A;\n\t\t}\n\t}\n}\n"
+	ws := NewWorkspace()
+	ws.Open("t.kerml", []byte(src), 1)
+	ws.Diagnostics("t.kerml")
+	var names []string
+	for _, n := range ws.VisibleNamesAt("t.kerml", strings.Index(src, "feature A {"), VisibleNamesOptions{Redefinition: true}) {
+		names = append(names, n.Name)
+	}
+	has(t, names, []string{"test.A.A", "test.A1.A", "A1.A"},
+		[]string{"test.A.A.B", "test.A1.A.B", "A1.A.B", "B"})
+}
+
 func TestVisibleNamesMaskingLeavesAnotherRouteToTheElement(t *testing.T) {
 	// Masking removes B's inherited member, not every path to the element: the
 	// import route survives inside the namespace declaring it, where 8A admits

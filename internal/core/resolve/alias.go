@@ -1,8 +1,8 @@
 package resolve
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // AliasedElement is the element a name bound to sym reaches: an alias names an

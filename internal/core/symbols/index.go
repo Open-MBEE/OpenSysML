@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // fqnSeparator joins the segments of a fully-qualified name.
@@ -349,20 +349,28 @@ func (idx *Index) mustBeWritable(op string) {
 // indexed are in: adding a document cannot know whether the target of an import
 // it states is still to come.
 func (idx *Index) AddDocument(name string, root *ast.RootNamespace) {
-	idx.addDocument(name, root, source.KindOf(name), false)
+	idx.addDocument(name, root, nil, source.KindOf(name), false)
+}
+
+// AddDocumentScope is AddDocument over a scope tree already built for root, so
+// the index and its caller share one tree: a symbol found through either is the same.
+func (idx *Index) AddDocumentScope(name string, root *ast.RootNamespace, rs *Scope) {
+	idx.addDocument(name, root, rs, source.KindOf(name), false)
 }
 
 // AddDocumentWithKind builds the scope tree for root and records its explicit
 // language, which is needed when the document name does not carry an extension.
 func (idx *Index) AddDocumentWithKind(name string, root *ast.RootNamespace, kind source.Kind) {
-	idx.addDocument(name, root, kind, true)
+	idx.addDocument(name, root, nil, kind, true)
 }
 
-func (idx *Index) addDocument(name string, root *ast.RootNamespace, kind source.Kind, explicitKind bool) {
+func (idx *Index) addDocument(name string, root *ast.RootNamespace, rs *Scope, kind source.Kind, explicitKind bool) {
 	idx.mustBeWritable("AddDocument")
 	idx.RemoveDocument(name)
 	idx.changedDoc(name)
-	rs := Build(root)
+	if rs == nil {
+		rs = Build(root)
+	}
 	SetDocName(rs, name)
 	idx.docRoots.set(name, rs)
 	if explicitKind {

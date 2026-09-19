@@ -6,8 +6,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 const refIndexSrc = "package Shapes { part def Cube; alias Box for Cube; part p : Box; }\n" +
