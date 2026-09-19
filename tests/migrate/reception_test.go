@@ -4,13 +4,22 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // testdata/xmi/heater_receptions.xmi: a reception with a method accepts its signal and performs the
 // method with the payload bound, its optional and defaulted parameters left unbound; one without a
 // method, or whose method requires a value the signal lacks, only accepts; unmigratable methods
-// and signals are refused.
+// and signals are refused. An object of the block performs every reception from creation and
+// accepts again after each signal, so nothing starts one and a repeated signal runs the method again.
 func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 	r := migrateFixtureFile(t, "heater_receptions")
 	for _, line := range []string{
@@ -19,29 +28,29 @@ func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 		"action receive accept setLevel : Signals::SetLevel;",
 		"first receive then run;",
 		"action run : 'Apply Level' { in value = setLevel.value; }",
-		"first run then done;",
-		"action setLevel : SetLevel;",
+		"first run then receive;",
+		"perform action setLevel : SetLevel;",
 		"action def Stop {",
 		"action receive accept stop : Signals::Stop;",
-		"first receive then done;",
-		"action stop : Stop;",
+		"first receive then receive;",
+		"perform action stop : Stop;",
 		"action def Reset {",
 		"action receive accept reset : Signals::Reset;",
-		"action reset : Reset;",
+		"perform action reset : Reset;",
 		"action def Boost {",
 		"action receive accept boost : Signals::Boost;",
-		"action boost : Boost;",
+		"perform action boost : Boost;",
 		"in slack : ScalarValues::Real[0..1];",
 		"comment /* reception 'Away' */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	for _, bound := range []string{"in gain =", "in slack =", ": Boosting"} {
+	for _, bound := range []string{"in gain =", "in slack =", ": Boosting", "then done;"} {
 		if strings.Contains(string(r.Notation), bound) {
 			t.Errorf("%q was written, though no signal attribute supplies the method's parameter:\n%s", bound, r.Notation)
 		}
 	}
-	wantNote(t, r, "_rcvSet", migrate.Mapped, "written as an action def accepting SetLevel and performing its method Heater::Apply Level, which its owner's usage setLevel runs")
+	wantNote(t, r, "_rcvSet", migrate.Mapped, "written as an action def accepting SetLevel and performing its method Heater::Apply Level, which its owner performs as setLevel from creation, accepting the signal again after each")
 	wantNote(t, r, "_rpValue", migrate.Mapped, "stands for the signal's attribute value, which the accepted payload carries")
 	wantNote(t, r, "_rpExtra", migrate.Unmapped, "the parameter extra matches no attribute of the signal")
 	wantNote(t, r, "_rcvStop", migrate.Approximated, "the reception has no method, so it only accepts the signal")
@@ -50,34 +59,91 @@ func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 	wantNote(t, r, "_rcvAway", migrate.Unmapped, "signal")
 	wantNote(t, r, "_apply", migrate.Mapped, "")
 
-	s := session(t, r)
-	meta(t, s, "%instantiate Heater")
-	meta(t, s, "%action Heater::SetLevel #1")
-	meta(t, s, "%step")
-	if out := meta(t, s, "%step"); !strings.Contains(out, "State: Waiting") {
-		t.Errorf("the reception is not waiting at its accept:\n%s", out)
+	h := newHeaterRun(t, r)
+	if got := len(h.heater.PerformedActionsOf(h.sym("Heater::SetLevel"))); got != 1 {
+		t.Fatalf("the object performs SetLevel %d time(s) from creation, want 1", got)
 	}
-	if out := meta(t, s, "%send Signals::SetLevel(value=3.5)"); !strings.Contains(out, "Sent SetLevel") {
-		t.Errorf("%%send SetLevel: %s", out)
+	for _, level := range []float64{3.5, 7.25} {
+		h.send(t, "Signals::SetLevel", map[string]runtime.Value{"value": realValue(level)})
+		if got := h.level(t); got != level {
+			t.Errorf("after SetLevel(value=%v) the method left level = %v", level, got)
+		}
 	}
-	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
-		t.Errorf("the reception did not complete:\n%s", out)
+	h.send(t, "Signals::Boost", nil)
+	if got := h.level(t); got != 7.25 {
+		t.Errorf("the refused method ran: level = %v", got)
 	}
-	if out := meta(t, s, "%eval in #1 : level"); !strings.Contains(out, "= 3.5") {
-		t.Errorf("the method did not store the signal's value: %s", out)
+	h.send(t, "Signals::Stop", nil)
+	if got := len(h.heater.PerformedActionsOf(h.sym("Heater::SetLevel"))); got != 1 {
+		t.Errorf("after three signals the object performs SetLevel %d time(s), want the one it was created with", got)
 	}
-	meta(t, s, "%action Heater::Boost #1")
-	meta(t, s, "%step")
-	if out := meta(t, s, "%step"); !strings.Contains(out, "State: Waiting") {
-		t.Errorf("the Boost reception is not waiting at its accept:\n%s", out)
+}
+
+// heaterRun is a runtime over the migrated heater holding one object of it,
+// its receptions running as the object's own behaviors.
+type heaterRun struct {
+	t      *testing.T
+	idx    *symbols.Index
+	ctx    *runtime.Context
+	heater *runtime.Instance
+}
+
+func newHeaterRun(t *testing.T, r *migrate.Result) *heaterRun {
+	t.Helper()
+	p := parser.New(source.New("heater.sysml", r.Notation))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse the migrated notation: %v", p.Diagnostics[0])
 	}
-	if out := meta(t, s, "%send Signals::Boost()"); !strings.Contains(out, "Sent Boost") {
-		t.Errorf("%%send Boost: %s", out)
+	idx := libs.NewModelIndex()
+	idx.AddDocument("heater.sysml", root)
+	idx.ExpandWildcardImports()
+	res := resolve.New(idx)
+	ctx := runtime.NewContext(runtime.NewModel(passes.NewTypedModel(res), res), 10_000_000)
+	h := &heaterRun{t: t, idx: idx, ctx: ctx}
+	heater, err := ctx.Instantiate(h.sym("Heater"))
+	if err != nil {
+		t.Fatalf("instantiate Heater: %v", err)
 	}
-	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
-		t.Errorf("the Boost reception did not complete:\n%s", out)
+	h.heater = heater
+	return h
+}
+
+func (h *heaterRun) sym(fqn string) *symbols.Symbol {
+	h.t.Helper()
+	syms := h.idx.LookupQualified(fqn)
+	if len(syms) != 1 {
+		h.t.Fatalf("%s names %d symbols, want one", fqn, len(syms))
 	}
-	if out := meta(t, s, "%eval in #1 : level"); !strings.Contains(out, "= 3.5") {
-		t.Errorf("the refused method ran: %s", out)
+	return syms[0]
+}
+
+// send posts the signal to the heater and lets the clock dispatch it.
+func (h *heaterRun) send(t *testing.T, signal string, args map[string]runtime.Value) {
+	t.Helper()
+	msg, err := h.ctx.SignalMessage(h.sym(signal), args, h.heater)
+	if err != nil {
+		t.Fatalf("send %s: %v", signal, err)
 	}
+	h.ctx.PostMessage(msg)
+	if _, err := h.ctx.Advance(1); err != nil {
+		t.Fatalf("dispatch %s: %v", signal, err)
+	}
+}
+
+// level reads the heater's level attribute.
+func (h *heaterRun) level(t *testing.T) float64 {
+	t.Helper()
+	fv, err := h.heater.GetFeatureValue(h.ctx, "level")
+	if err != nil {
+		t.Fatalf("read level: %v", err)
+	}
+	if fv.Value.Kind != runtime.ValConst || fv.Value.Const.Kind != semantics.ValReal {
+		t.Fatalf("level holds %v, not a Real", fv.Value)
+	}
+	return fv.Value.Const.Real
+}
+
+func realValue(v float64) runtime.Value {
+	return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: v}}
 }

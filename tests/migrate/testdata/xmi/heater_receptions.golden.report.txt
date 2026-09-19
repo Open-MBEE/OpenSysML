@@ -7,10 +7,10 @@ Parameter	Heater::SetLevel::extra	_rpExtra	(the parameter extra matches no attri
 
 ## approximated (5)
 AddStructuralFeatureValueAction	Heater::Apply Level::set level	_set	-> 'set level'	(no edge leads to the node, so it starts with the activity)
-Reception	Heater::Boost	_rcvBoost	-> Heater::Boost	(written as an action def accepting Boost, which its owner's usage boost runs; the method Heater::Boosting's parameter amount must hold a value that no attribute of the signal supplies; the reception only accepts the signal)
+Reception	Heater::Boost	_rcvBoost	-> Heater::Boost	(written as an action def accepting Boost, which its owner performs as boost from creation, accepting the signal again after each; the method Heater::Boosting's parameter amount must hold a value that no attribute of the signal supplies; the reception only accepts the signal)
 AddStructuralFeatureValueAction	Heater::Boosting::set level	_bset	-> 'set level'	(no edge leads to the node, so it starts with the activity)
-Reception	Heater::Reset	_rcvReset	-> Heater::Reset	(written as an action def accepting Reset, which its owner's usage reset runs; the method Heater::Resetting has no action def to perform; the reception only accepts the signal)
-Reception	Heater::Stop	_rcvStop	-> Heater::Stop	(written as an action def accepting Stop, which its owner's usage stop runs; the reception has no method, so it only accepts the signal)
+Reception	Heater::Reset	_rcvReset	-> Heater::Reset	(written as an action def accepting Reset, which its owner performs as reset from creation, accepting the signal again after each; the method Heater::Resetting has no action def to perform; the reception only accepts the signal)
+Reception	Heater::Stop	_rcvStop	-> Heater::Stop	(written as an action def accepting Stop, which its owner performs as stop from creation, accepting the signal again after each; the reception has no method, so it only accepts the signal)
 
 ## mapped (26)
 «Block» Class	Heater	_heater	-> Heater
@@ -29,7 +29,7 @@ InputPin	Heater::Boosting::set level::value	_bsetVal	-> Heater::Boosting::'set l
 StateMachine	Heater::Resetting	_resetting	-> Heater::Resetting
 Region	Heater::Resetting::<Region>	_rr	(the one region is written as the body of its owner)
 State	Heater::Resetting::<Region>::Idle	_idle	-> Idle
-Reception	Heater::SetLevel	_rcvSet	-> Heater::SetLevel	(written as an action def accepting SetLevel and performing its method Heater::Apply Level, which its owner's usage setLevel runs)
+Reception	Heater::SetLevel	_rcvSet	-> Heater::SetLevel	(written as an action def accepting SetLevel and performing its method Heater::Apply Level, which its owner performs as setLevel from creation, accepting the signal again after each)
 Parameter	Heater::SetLevel::value	_rpValue	-> Signals::SetLevel::value	(stands for the signal's attribute value, which the accepted payload carries)
 Property	Heater::level	_level	-> Heater::level
 Model	Model	_m	(the root model's members are written at the top level)

@@ -685,7 +685,7 @@ func (m *migration) reported(e *sysmlv1.Element) bool {
 }
 
 // reception writes a reception as an action def of its owner that accepts the
-// signal and performs the method, with a usage an object runs it as.
+// signal, performs the method and accepts again, performed by every object from creation.
 func (m *migration) reception(r *sysmlv1.Element) {
 	sig := m.model.Ref(r, "signal")
 	if sig == nil || !m.written(sig) {
@@ -729,15 +729,15 @@ func (m *migration) reception(r *sysmlv1.Element) {
 				m.w.line(decl + " { in " + strings.Join(args, "; in ") + "; }")
 			}
 		}
-		m.w.line("first " + last + " then done;")
+		m.w.line("first " + last + " then " + trig + ";")
 	})
-	m.w.line("action " + writeName(usage) + " : " + writeName(name) + ";")
+	m.w.line("perform action " + writeName(usage) + " : " + writeName(name) + ";")
 	m.receptionParameters(r, sig)
 	desc := "written as an action def accepting " + m.nameFor(sig)
 	if performed {
 		desc += " and performing its method " + qualifiedName(method)
 	}
-	m.add(r, verdictFor(note), m.v2Name(r), joinNotes(desc+", which its owner's usage "+usage+" runs", note))
+	m.add(r, verdictFor(note), m.v2Name(r), joinNotes(desc+", which its owner performs as "+usage+" from creation, accepting the signal again after each", note))
 }
 
 // receptionComment writes a reception whose signal has no v2 declaration as a

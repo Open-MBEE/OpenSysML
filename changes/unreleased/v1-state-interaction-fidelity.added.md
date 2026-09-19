@@ -15,9 +15,10 @@
   or signal message leaving an `in` parameter or signal attribute — inherited ones included —
   with no default and a lower bound above zero unbound; two parts of
   one type are two paths, so a lifeline standing for a part of that type is ambiguous. A Reception is
-  an `action def` of the block that accepts its signal and runs its method with the signal's
-  attributes bound to the method's parameters of the same name, so a signal sent to the object
-  runs the method against the object; where the method requires a value no attribute supplies,
+  an `action def` of the block that accepts its signal, runs its method with the signal's
+  attributes bound to the method's parameters of the same name and accepts again, performed by
+  every object of the block from creation, so a signal sent to the object at any time runs the
+  method against the object; where the method requires a value no attribute supplies,
   the reception only accepts the signal and says so. State machines gain transitions across regions and
   nesting levels named by path, `junction`/`choice`/`fork`/`join`/`history`/`deep history`
   pseudostates, entry and exit points of a submachine as states of its `state def` addressed
@@ -52,7 +53,9 @@
 - **A `via` path can start at a bound reference, and delegated, redefined and untyped ports
   route.** `send … via ctx.p` from a behavior whose `ctx` is bound to another object leaves that
   object's port even when the performer owns a feature of the same name, the binding shadowing
-  it as it does in every other expression, while `via this.ctx.p` stays the performer's own;
+  it as it does in every other expression, while `via this.ctx.p` stays the performer's own,
+  and a state transition's `accept … via ctx.p` resolves its path the same way through the
+  machine's parameters;
   a part's port is known to the connectors its type inherits under the name the
   part was declared with before redefinition; a `ref` usage holds what is bound to it rather than
   an object of its own; and an untyped `port` materializes as a `Ports::Port`, so a binding

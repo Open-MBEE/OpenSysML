@@ -13,27 +13,27 @@ part def Heater {
         action receive accept setLevel : Signals::SetLevel;
         first receive then run;
         action run : 'Apply Level' { in value = setLevel.value; }
-        first run then done;
+        first run then receive;
     }
-    action setLevel : SetLevel;
+    perform action setLevel : SetLevel;
     action def Stop {
         first start then receive;
         action receive accept stop : Signals::Stop;
-        first receive then done;
+        first receive then receive;
     }
-    action stop : Stop;
+    perform action stop : Stop;
     action def Reset {
         first start then receive;
         action receive accept reset : Signals::Reset;
-        first receive then done;
+        first receive then receive;
     }
-    action reset : Reset;
+    perform action reset : Reset;
     action def Boost {
         first start then receive;
         action receive accept boost : Signals::Boost;
-        first receive then done;
+        first receive then receive;
     }
-    action boost : Boost;
+    perform action boost : Boost;
     comment /* reception 'Away' */
     action def 'Apply Level' {
         in value : ScalarValues::Real;

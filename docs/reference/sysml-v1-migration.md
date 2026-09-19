@@ -194,8 +194,8 @@ returned over the service yet.
 | OpaqueBehavior, FunctionBehavior | `calc def` with its parameters when its one body is a v2 expression whose names resolve; otherwise `action def` keeping the body as a comment | mapped / approximated |
 | Operation | `action def <Op>` owned by the owner, with its parameters; the `method` behavior is written as its body (an Activity as the flow, an OpaqueBehavior as expression or comment), its parameters standing for the operation's at the same position, direction and type under the operation's names; a method parameter matching none is declared and reported, since a call binds only the operation's; no method: `abstract action def`; an `action <op> : <Op>;` usage of the owner performs it, as a call on an object does | mapped |
 | Operation `precondition`, `postcondition`, `bodyCondition` | `assert constraint { <expr> }` in the action def when the expression parses and resolves; otherwise a comment | mapped / approximated |
-| Reception with a `signal` and an Activity `method` | `action def <Sig> { action receive accept sig : Sig; action run : <Method> { in p = sig.p; } }` on the `part def`, plus the usage `action sig : <Sig>;` that runs it: the signal's attributes bind the method's `in` parameters of the same name, defaulted and optional parameters stay unbound; a parameter that must hold a value no attribute supplies leaves the method unrun, with the reason | mapped (a required parameter unsupplied: approximated, the signal is only accepted) |
-| Reception without a method, or whose method is not an Activity | the same `action def` accepting the signal and ending; the method is named in the report | approximated |
+| Reception with a `signal` and an Activity `method` | `action def <Sig> { action receive accept sig : Sig; action run : <Method> { in p = sig.p; } first run then receive; }` on the `part def`, plus `perform action sig : <Sig>;`, so every object of the block runs it from creation and accepts the signal again after each: the signal's attributes bind the method's `in` parameters of the same name, defaulted and optional parameters stay unbound; a parameter that must hold a value no attribute supplies leaves the method unrun, with the reason | mapped (a required parameter unsupplied: approximated, the signal is only accepted) |
+| Reception without a method, or whose method is not an Activity | the same performed `action def`, accepting the signal and accepting again; the method is named in the report | approximated |
 | Reception whose signal is not written | comment | **unmapped** — the reason names the signal |
 | «Unit», «QuantityKind» instance specifications | comment placeholder | **unmapped** — use the `SI`/`ISQ` libraries |
 | Profiles, the SysML/UML libraries themselves | — | skipped |
@@ -383,12 +383,15 @@ the block, the steps addressing the parts through it.
 **Receptions.** A block's reception is an `action def` of the block that accepts its signal,
 `action receive accept setLevel : Signals::SetLevel;`, and runs the method as a nested typed
 action whose `in` parameters read the accepted signal's attributes of the same name,
-`action run : 'Apply Level' { in value = setLevel.value; }`; a usage `action setLevel :
-SetLevel;` on the block performs it, so a signal sent to the object is accepted and its method
-runs against the object, not the signal. A reception without a method, or with one that is not
-an Activity, accepts the signal and ends, and the report names the method it does not run; so
-does one whose method has an `in` parameter with no default and a lower bound above zero that
-no attribute of the signal supplies, since v2 does not run an action holding no value for it.
+`action run : 'Apply Level' { in value = setLevel.value; }`, then returns to the accept,
+`first run then receive;`. The block performs it, `perform action setLevel : SetLevel;`, so
+every object of the block listens from the moment it is created — nothing starts the reception —
+and a signal sent to the object at any time is accepted and its method runs against the object,
+not the signal, as many times as the signal arrives. A reception without a method, or with one
+that is not an Activity, accepts the signal and listens again, and the report names the method
+it does not run; so does one whose method has an `in` parameter with no default and a lower bound
+above zero that no attribute of the signal supplies, since v2 does not run an action holding no
+value for it.
 
 **Operation calls over ports.** A `CallOperationAction` with `onPort` is resolved the way the
 connector paths are: a connector of the caller's block from that port to a port of a part
