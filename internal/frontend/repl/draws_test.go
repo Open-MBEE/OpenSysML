@@ -32,6 +32,10 @@ func TestDrawsFixesTheRunsWithoutASeed(t *testing.T) {
 	wants(t, run(t, s, "%draws min"), "draws: min")
 	wants(t, sweepTable(run(t, s, "%runs 1 MC::acquire clock tries")), "1.0 [s]", "| 1     |")
 	wants(t, run(t, s, "%draws fastest"), `"fastest" is not one of random, min, max, average`)
+	wants(t, run(t, s, "%draws max random"), "usage: %draws [random|min|max|average]")
+	if s.Draws() != runtime.DrawMin {
+		t.Errorf("Draws() = %s after a refused %%draws, want min still", s.Draws())
+	}
 	wants(t, run(t, s, "%draws random"), "draws: random")
 	wants(t, run(t, s, "%runs 3 MC::acquire clock"), "the seed may be left out only under a fixed %draws policy")
 }
