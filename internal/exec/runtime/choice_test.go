@@ -34,6 +34,8 @@ func TestChoicePointRendering(t *testing.T) {
 			"choice entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first)"},
 		{ChoicePoint{Kind: ChoiceExitOrder, Where: "exiting work", Alternatives: []string{"a1(exit)", "b1(exit)"}, Taken: 1},
 			"choice exiting work: next a1(exit), b1(exit) (unordered; took b1(exit) first)"},
+		{ChoicePoint{Kind: ChoiceStepOrder, Where: "at t=0.0", Alternatives: []string{"do top", "dispatch accept Stop"}, Taken: 1},
+			"choice at t=0.0: next do top, dispatch accept Stop (unordered; took dispatch accept Stop first)"},
 	}
 	for _, c := range cases {
 		if got := c.choice.String(); got != c.want {

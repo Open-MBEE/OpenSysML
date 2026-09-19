@@ -549,24 +549,60 @@ func realLiteral(v float64) string {
 	return s
 }
 
-// openBound is the one bound of a duration interval whose other bound is
-// absent — unset, or a duration without an expression: an interval open on one
-// side is waited for at the bound it has.
-func (m *migration) openBound(spec *sysmlv1.Element, lo string, lok bool, hi string, hok bool) (bound, note string, ok bool) {
-	absent := func(role string) bool {
-		v := m.model.Ref(spec, role)
-		for v != nil && (v.Type == "Duration" || v.Type == "TimeExpression") {
-			v = firstOwned(v, "expr")
+// singleValue is the min of a duration interval whose max is a duration without
+// an expression in a MagicDraw document, which is how that tool stores and shows
+// a constraint written with one value, `{60s}`; ok is false for anything else.
+func (m *migration) singleValue(spec *sysmlv1.Element, lo string, lok bool, hok bool) (bound, note string, ok bool) {
+	if !lok || hok || !m.fromMagicDraw() {
+		return "", "", false
+	}
+	v := m.model.Ref(spec, "max")
+	if v == nil || v.Type != "Duration" && v.Type != "TimeExpression" {
+		return "", "", false
+	}
+	for v != nil && (v.Type == "Duration" || v.Type == "TimeExpression") {
+		v = firstOwned(v, "expr")
+	}
+	if v != nil {
+		return "", "", false
+	}
+	return lo, "the max is a duration without an expression, MagicDraw's form of the one-valued constraint {" + lo + " s}", true
+}
+
+// fromMagicDraw reports whether MagicDraw or Cameo wrote the document, by the
+// exporter it names or the extender of its tool-private extensions.
+func (m *migration) fromMagicDraw() bool {
+	tool := func(s string) bool {
+		s = strings.ToLower(s)
+		return strings.Contains(s, "magicdraw") || strings.Contains(s, "cameo")
+	}
+	if tool(m.model.Exporter) {
+		return true
+	}
+	for _, ext := range m.model.Extensions {
+		if tool(ext.Extender) {
+			return true
 		}
-		return v == nil
+	}
+	return false
+}
+
+// openInterval says why an interval lacking a usable bound is not written as a
+// wait: open on one side, it admits every wait past the bound it has.
+func (m *migration) openInterval(spec *sysmlv1.Element, lo string, lok bool, lnote, hi string, hok bool, hnote string) string {
+	missing := func(role, note string) string {
+		if m.model.Ref(spec, role) == nil {
+			return "the interval has no " + role
+		}
+		return "the interval's " + role + " is not written: " + note
 	}
 	switch {
-	case lok && !hok && absent("max"):
-		return lo, "the interval has no max", true
-	case hok && !lok && absent("min"):
-		return hi, "the interval has no min", true
+	case lok && !hok:
+		return missing("max", hnote) + ", so the interval is open above and no one wait of at least " + lo + " s stands for it"
+	case hok && !lok:
+		return missing("min", lnote) + ", so the interval is open below and no one wait of at most " + hi + " s stands for it"
 	}
-	return "", "", false
+	return joinNotes(missing("min", lnote), missing("max", hnote))
 }
 
 // durationExpr writes a UML duration value as a v2 expression in seconds: a scaled
@@ -589,6 +625,9 @@ func (m *migration) durationExpr(v, scope *sysmlv1.Element) (expr string, ok boo
 		}
 		return expr, true, note
 	case "LiteralInteger", "LiteralReal", "LiteralUnlimitedNatural":
+		if v.Type == "LiteralUnlimitedNatural" && v.Attrs["value"] == "*" {
+			return "", false, "the duration * is unbounded"
+		}
 		expr, ok, note := m.valueExpr(v, scope)
 		if !ok {
 			return "", false, note
@@ -817,7 +856,11 @@ func (m *migration) reception(r *sysmlv1.Element) {
 	usage := m.freshName(owner, lowerFirst(name))
 	ports, info := m.arrivalRoutes(owner, sig, "reception")
 	method := m.model.Ref(r, "method")
-	route := receptionRoute{owner: owner, sig: sig, method: method, used: map[string]bool{"start": true, "done": true}}
+	performed := method
+	if op := m.methodOf[method]; op != nil {
+		performed = op
+	}
+	route := receptionRoute{owner: owner, sig: sig, method: performed, used: map[string]bool{"start": true, "done": true}}
 	m.w.block("action def "+writeName(name), func() {
 		from := "start"
 		if len(ports) > 0 {
@@ -835,12 +878,15 @@ func (m *migration) reception(r *sysmlv1.Element) {
 	desc := "written as an action def accepting " + m.nameFor(sig)
 	if route.performed {
 		desc += " and performing its method " + qualifiedName(method)
+		if performed != method {
+			desc += " as the operation " + qualifiedName(performed) + ", whose body it is"
+		}
 	}
 	m.add(r, verdictFor(route.note), m.v2Name(r), joinNotes(joinNotes(desc+", which its owner performs as "+usage+" from creation, accepting the signal again after each", route.note), info))
 }
 
-// receptionRoute is what every accept loop of one reception shares: the signal and method
-// written, the names taken in the action def, and whether the method is performed.
+// receptionRoute is what every accept loop of one reception shares: the signal and the method
+// as written (the operation whose body it is), the names taken, and whether it is performed.
 type receptionRoute struct {
 	owner, sig, method *sysmlv1.Element
 	used               map[string]bool
@@ -869,7 +915,7 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 		} else {
 			route.note = "the reception has no method, so it only accepts the signal"
 		}
-	case !m.written(method) || !hasActionForm(method):
+	case !m.written(method) || !(method.Type == "Operation" || hasActionForm(method)):
 		route.note = "the method " + qualifiedName(method) + " has no action def to perform; the reception only accepts the signal"
 	default:
 		args, refusal := m.receptionArguments(method, route.sig, payload)
@@ -884,7 +930,7 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 		if len(args) == 0 {
 			m.w.line(decl + ";")
 		} else {
-			m.w.line(decl + " { in " + strings.Join(args, "; in ") + "; }")
+			m.w.line(decl + " { " + strings.Join(args, "; ") + "; }")
 		}
 	}
 	m.w.line("first " + last + " then " + trig + ";")
@@ -908,6 +954,28 @@ func (m *migration) receptionComment(r, sig *sysmlv1.Element) {
 	m.add(r, Unmapped, "", note)
 }
 
+// actionParameters lists the parameters the action def written for behavior b declares: an
+// operation's own, then its method's that stand for none of them by position or name.
+func (m *migration) actionParameters(b *sysmlv1.Element) []*sysmlv1.Element {
+	params := b.Owned("ownedParameter")
+	method := m.model.Ref(b, "method")
+	if b.Type != "Operation" || method == nil || method.Parent != b.Parent {
+		return params
+	}
+	declared := map[string]bool{}
+	for _, p := range params {
+		declared[m.nameFor(p)] = true
+	}
+	for _, p := range method.Owned("ownedParameter") {
+		if m.realizes[p] != nil || declared[m.nameFor(p)] {
+			continue
+		}
+		declared[m.nameFor(p)] = true
+		params = append(params, p)
+	}
+	return params
+}
+
 // receptionArguments binds the method's in parameters to the accepted signal's attributes of the
 // same name, conforming in type and multiplicity; one that does not, or is missing where a value
 // is required, refuses the method.
@@ -916,7 +984,7 @@ func (m *migration) receptionArguments(method, sig *sysmlv1.Element, payload str
 	for _, a := range m.signalAttributes(sig) {
 		attrs[m.nameOf(a)] = a
 	}
-	for _, p := range method.Owned("ownedParameter") {
+	for _, p := range m.actionParameters(method) {
 		dir, _ := parameterDirection(p)
 		if dir != "in" && dir != "inout" {
 			continue
@@ -933,9 +1001,16 @@ func (m *migration) receptionArguments(method, sig *sysmlv1.Element, payload str
 			refusal = joinNotes(refusal, "the signal's attribute "+name+" "+why+" the method "+qualifiedName(method)+"'s parameter "+m.nameFor(p))
 			continue
 		}
-		args = append(args, writeName(name)+" = "+payload+"."+writeName(name))
+		args = append(args, m.parameterBinding(p, name, payload+"."+writeName(name)))
 	}
 	return args, refusal
+}
+
+// parameterBinding writes the binding of parameter p, called name, in the body of an action
+// usage of its behavior, keeping p's direction so an inout value is written back.
+func (m *migration) parameterBinding(p *sysmlv1.Element, name, expr string) string {
+	dir, _ := parameterDirection(p)
+	return dir + " " + writeName(name) + " = " + expr
 }
 
 // bindingMismatch says why feature a cannot be bound to parameter p: its type does not conform

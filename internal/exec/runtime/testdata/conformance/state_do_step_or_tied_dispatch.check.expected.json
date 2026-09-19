@@ -1,0 +1,13 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"did one \"",
+			"\"did two \"",
+			"\"two \""
+		]
+	},
+	"agreed": {
+		"finalState": "idle"
+	}
+}

@@ -325,3 +325,126 @@ func TestCallsFromObjectsLackingTheCalleesContextAreNotPerformed(t *testing.T) {
 		t.Errorf("the machine did not pass the state whose do behavior is not run:\n%s", out)
 	}
 }
+
+// callCycle is a Controller-owned Knock sending Ping through a Host's port tx and
+// then calling the package-owned Again, which decides whether to call Knock once
+// more (it never does); a Host runs Knock, and a Receiver counts the pings.
+const callCycleKnocker = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_controller" name="Controller">
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_knock" name="Knock">
+        <node xmi:type="uml:InitialNode" xmi:id="_ki"/>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_ksend" name="send ping" signal="_ping" onPort="_tx"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callAgain" name="again" behavior="_again"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_kf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ke1" source="_ki" target="_ksend"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ke2" source="_ksend" target="_callAgain"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ke3" source="_callAgain" target="_kf"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+const callCycleAgain = `
+    <packagedElement xmi:type="uml:Activity" xmi:id="_again" name="Again">
+      <node xmi:type="uml:InitialNode" xmi:id="_ai"/>
+      <node xmi:type="uml:DecisionNode" xmi:id="_more"/>
+      <node xmi:type="uml:CallBehaviorAction" xmi:id="_callKnock" name="knock" behavior="_knock"/>
+      <node xmi:type="uml:ActivityFinalNode" xmi:id="_af"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_ae1" source="_ai" target="_more"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_ae2" source="_more" target="_callKnock">
+        <guard xmi:type="uml:OpaqueExpression" xmi:id="_gMore"><body>false</body></guard>
+      </edge>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_ae3" source="_more" target="_af">
+        <guard xmi:type="uml:OpaqueExpression" xmi:id="_gDone"><body>else</body></guard>
+      </edge>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_ae4" source="_callKnock" target="_af"/>
+    </packagedElement>`
+
+const callCycleRig = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_pingEv" signal="_ping"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_tx" name="tx" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_ri"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callKnock0" name="knock" behavior="_knock"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_rf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re1" source="_ri" target="_callKnock0"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re2" source="_callKnock0" target="_rf"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_receiver" name="Receiver" classifierBehavior="_life">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_rx" name="rx" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_life" name="Life">
+        <region xmi:type="uml:Region" xmi:id="_lr">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_linit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_waiting" name="waiting"/>
+          <subvertex xmi:type="uml:State" xmi:id="_done" name="done"/>
+          <transition xmi:type="uml:Transition" xmi:id="_lt0" source="_linit" target="_waiting"/>
+          <transition xmi:type="uml:Transition" xmi:id="_lt1" source="_waiting" target="_done">
+            <trigger xmi:type="uml:Trigger" xmi:id="_ltr1" event="_pingEv" port="_rx"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_h" name="h" type="_host" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_r" name="r" type="_receiver" aggregation="composite"/>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_link">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_le1" role="_tx" partWithPort="_h"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_le2" role="_rx" partWithPort="_r"/>
+      </ownedConnector>
+    </packagedElement>`
+
+const callCycleApplications = `
+  <sysml:Block xmi:id="_b1" base_Class="_controller"/>
+  <sysml:Block xmi:id="_b2" base_Class="_host"/>
+  <sysml:Block xmi:id="_b3" base_Class="_receiver"/>
+  <sysml:Block xmi:id="_b4" base_Class="_rig"/>`
+
+// Activities calling each other in a cycle act on the one object whose ports any
+// of them names: both take the Host as their context and pass it on to each other,
+// whichever of them the document writes first.
+func TestActivitiesCallingEachOtherShareTheContextTheCycleNeeds(t *testing.T) {
+	for name, doc := range map[string]string{
+		"owned first":   callCycleKnocker + callCycleAgain + callCycleRig,
+		"unowned first": callCycleAgain + callCycleKnocker + callCycleRig,
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := migrateDocument(t, doc, callCycleApplications)
+			for _, line := range []string{
+				"action def Knock {",
+				"in ref context : Host;",
+				"send new Ping() via context.tx;",
+				"action again : Again;",
+				"bind again.context = context;",
+				"action def Again {",
+				"action knock : Controller::Knock;",
+				"bind knock.context = context;",
+				"bind knock.context = this;",
+			} {
+				wantLine(t, r.Notation, line)
+			}
+			wantNoLine(t, r.Notation, "via this.tx")
+			wantNoLine(t, r.Notation, "in ref context : Controller;")
+			if n := strings.Count(string(r.Notation), "in ref context : Host;"); n != 2 {
+				t.Errorf("the Host context parameter is declared %d times, want 2 (Knock and Again):\n%s", n, r.Notation)
+			}
+			wantNote(t, r, "_knock", migrate.Approximated, "acts on a Host through its ports, which it takes as its parameter context rather than its owner Controller, which is no such object and holds no one part that is: v1 ran it on whichever object called it")
+			wantNote(t, r, "_again", migrate.Mapped, "acts on a Host through its ports, which it takes as its parameter context")
+			wantNote(t, r, "_callAgain", migrate.Mapped, "the behavior acts on a Host through its parameter context, which is bound to context")
+			wantNote(t, r, "_callKnock", migrate.Approximated, "the behavior acts on a Host through its parameter context, which is bound to context; the behavior belongs to Controller and runs here in the caller's context")
+			if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+				t.Errorf("%v", diags)
+			}
+
+			s := session(t, r)
+			meta(t, s, "%instantiate Rig")
+			meta(t, s, "%state Receiver::Life #1.r")
+			meta(t, s, "%action Host::Run #1.h")
+			meta(t, s, "%continue")
+			meta(t, s, "%advance 0")
+			if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: done") {
+				t.Errorf("the ping sent through the cycle's context did not reach the receiver:\n%s", out)
+			}
+		})
+	}
+}

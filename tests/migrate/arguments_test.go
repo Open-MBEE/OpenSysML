@@ -292,6 +292,15 @@ const omittedSignalArguments = `
           <argument xmi:type="uml:LiteralInteger" xmi:id="_mFullCode" name="code" value="1"/>
         </message>
       </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_mixed" name="Mixed">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_ls3" name="s" represents="_hs"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_rMixed" covered="_ls3" message="_mMixed"/>
+        <message xmi:type="uml:Message" xmi:id="_mMixed" name="mixed" messageSort="asynchSignal" signature="_alert" receiveEvent="_rMixed">
+          <argument xmi:type="uml:LiteralInteger" xmi:id="_mMixedTag" name="tag" value="7"/>
+          <argument xmi:type="uml:LiteralInteger" xmi:id="_mMixedCode" value="4"/>
+          <argument xmi:type="uml:LiteralInteger" xmi:id="_mMixedLevel" value="5"/>
+        </message>
+      </ownedBehavior>
     </packagedElement>`
 
 const omittedSignalApplications = `
@@ -301,6 +310,7 @@ const omittedSignalApplications = `
 // A send with no pin for an attribute the signal requires stands in for itself and
 // is reported, as is a scenario whose message binds no argument to one; an attribute
 // that admits no value or has a default needs none. The sends that bind both run.
+// Unnamed arguments take the attributes in order, passing over those named ones claim.
 func TestSendsOmittingRequiredSignalAttributesAreReported(t *testing.T) {
 	r := migrateDocument(t, omittedSignalArguments, omittedSignalApplications)
 	for _, line := range []string{
@@ -309,13 +319,16 @@ func TestSendsOmittingRequiredSignalAttributesAreReported(t *testing.T) {
 		"send new Alert(code, level);",
 		"/* not migrated: Interaction 'Short' — the message 'warn' binds no argument to the attribute level of Alert, which must hold a value */",
 		"action alarm send new Alert(level = 2, code = 1) to this.s;",
+		"action mixed send new Alert(tag = 7, code = 4, level = 5) to this.s;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNoLine(t, r.Notation, "send new Alert(code);")
+	wantNoLine(t, r.Notation, "level = 4")
 	wantNote(t, r, "_sendShort", migrate.Approximated, "the send passes no argument for the attribute level of Alert, which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing")
 	wantNote(t, r, "_short", migrate.Unmapped, "the message 'warn' binds no argument to the attribute level of Alert, which must hold a value")
 	wantNote(t, r, "_mFull", migrate.Mapped, "written as a send to this.s")
+	wantNote(t, r, "_mMixed", migrate.Mapped, "written as a send to this.s")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}
@@ -323,6 +336,90 @@ func TestSendsOmittingRequiredSignalAttributesAreReported(t *testing.T) {
 	s := session(t, r)
 	meta(t, s, "%instantiate Siren")
 	meta(t, s, "%action Siren::Raise #1")
+	if out := meta(t, s, "%continue"); !strings.Contains(out, "ompleted") {
+		t.Errorf("the run did not complete:\n%s", out)
+	}
+}
+
+// misfitSignalArguments is a Clerk whose File sends Request twice: 'ask' passes a
+// String pin for the Count count the signal requires, 'note' a Count count and a
+// String pin for the optional Count tag.
+const misfitSignalArguments = `
+    <packagedElement xmi:type="uml:DataType" xmi:id="_count" name="Count">
+      <generalization xmi:type="uml:Generalization" xmi:id="_countG">
+        <general xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </generalization>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_request" name="Request">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rCount" name="count" type="_count"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rTag" name="tag" type="_count">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_rTagLo" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_rTagHi" value="1"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_clerk" name="Clerk">
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_file" name="File">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_label" name="label">
+          <value xmi:type="uml:LiteralString" xmi:id="_labelV" value="x"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_labelOut" name="result">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+          </result>
+        </node>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_one" name="one">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_oneV" value="1"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_oneOut" name="result" type="_count"/>
+        </node>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_sendMisfit" name="ask" signal="_request">
+          <argument xmi:type="uml:InputPin" xmi:id="_askCount" name="count">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+          </argument>
+        </node>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_sendTagged" name="note" signal="_request">
+          <argument xmi:type="uml:InputPin" xmi:id="_noteCount" name="count"/>
+          <argument xmi:type="uml:InputPin" xmi:id="_noteTag" name="tag">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+          </argument>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_label"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_label" target="_one"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of1" source="_labelOut" target="_askCount"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_sendMisfit" target="_sendTagged"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of2" source="_oneOut" target="_noteCount"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of3" source="_labelOut" target="_noteTag"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4" source="_sendTagged" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+const misfitSignalApplications = `
+  <sysml:Block xmi:id="_b1" base_Class="_clerk"/>
+  <sysml:ValueType xmi:id="_vt1" base_DataType="_count"/>`
+
+// A send whose pin for a required attribute holds a type the attribute cannot take
+// stands in for itself and is reported, as one passing no pin does; such a pin for
+// an optional attribute is left out of a send that still runs.
+func TestSendsPassingMisfitPinsForRequiredSignalAttributesAreReported(t *testing.T) {
+	r := migrateDocument(t, misfitSignalArguments, misfitSignalApplications)
+	misfit := "the pin 'count' it passes for the attribute count of Request, which must hold a value, is a String, which count : Count cannot take; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing"
+	for _, line := range []string{
+		"action ask {",
+		"/* not migrated: SendSignalAction 'ask' — " + misfit + " */",
+		"send new Request(count);",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "send new Request();")
+	wantNoLine(t, r.Notation, "send new Request(count, tag);")
+	wantNote(t, r, "_sendMisfit", migrate.Approximated, misfit)
+	wantNote(t, r, "_sendTagged", migrate.Approximated, "the argument pin tag is a String, which the signal's tag : Count cannot take; it is not sent")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Clerk")
+	meta(t, s, "%action Clerk::File #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "ompleted") {
 		t.Errorf("the run did not complete:\n%s", out)
 	}

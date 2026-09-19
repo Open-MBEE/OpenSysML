@@ -160,6 +160,7 @@ returned over the service yet.
 | AcceptEventAction on an absolute TimeEvent (`when` is an instant, not a duration) | `accept at <instant>`, the instant a `Time::TimeInstantValue` attribute of the `action def` when `when` is a number with a time unit or an expression that resolves; otherwise a comment | approximated (the instant is read on the simulation clock, which starts at 0) / **unmapped** |
 | OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve, or is a JavaScript body of the [subset](#the-opaque-language-subset): `i = 1; GS_Found = true;` is a sequence of `assign` statements, `i += 1` an assignment of `i + 1`, `var t = 0` a local `attribute`; names resolve against the action's own pins first, then the swimlane's represented object, then the activity, then the owning block; otherwise the body as a comment inside `action x { }` naming the language and the token refused | mapped / approximated |
 | DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds; a symbolic bound (`ditSetup s`, `setup * 2 min`) is an expression whose names resolve like an action body's, `accept after this.tcs.ditSetup [SI::s]` | approximated (a tool's min/max/average/random mode is the run's `-draws` policy, which its configuration records) |
+| DurationConstraint whose interval is open on one side (a min with no max, a max of `*`, a max with no min) | comment naming the bound it lacks | **unmapped** — every wait past the bound satisfies the interval, so no one delay stands for it; a MagicDraw document's min beside a max that is a duration with no expression is that tool's encoding of a one-valued `{60s}` and is written as its fixed wait, approximated |
 | DurationConstraint whose bounds name nothing the activity can read | comment | **unmapped** — the note names the unresolved name |
 | DurationObservation whose events are two nodes of one activity | an `attribute <name> : Real [0..1]` of the `action def`, stamped with `localClock.currentTime` when the first node starts and assigned the elapsed clock when the second ends (`assign T := localClock.currentTime - 'T start';`, guarded on the stamp having happened); one node observed is its own duration; an initial node's start is the activity's `start`, a flow final's the token's arrival before `done`; the attribute is one a run can `-observe`, and a run that does not reach both nodes leaves it without a value | mapped |
 | DurationObservation reading the clock at the end of a node that is no action — an initial, final, flow final or control node has no end of its own | comment | **unmapped** — the note names the node |
@@ -317,6 +318,17 @@ activity, whose `event` list names an element the document does not define (the 
 is refused whole, never read as the one event that does resolve), and observations owned
 outside any activity, are comments whose report line says which.
 
+**The object an activity acts on.** A block's own activity acts on the block's object, `this`.
+An activity no block owns, or one whose sends, accepts and calls all go through the ports of
+another block, acts in v1 on whichever object ran it; it is written with a reference parameter
+for that object, `in ref context : Host;`, its ports read `context.tx`, and every call of it
+binds the parameter, `bind hit.context = this;` from that block's behaviors or `= context` from
+another such activity. The block is the one whose ports the activity or the behaviors it calls
+name; activities calling each other in a cycle name the ports of the whole cycle and take the
+same block. An activity naming ports of several blocks none of which specializes the others
+takes no parameter, and the report says which blocks; an activity naming none accepts through
+the ports the signals it waits for arrive at, on the blocks whose behaviors run it.
+
 An action whose input pin must hold a value (`lower` of 1 or more) but which only flows from
 parameters nothing values, or from object flows that trace back to no pin or parameter at all (a
 buffer nothing fills, an expansion node whose collection is not expanded), can never fire — the
@@ -363,7 +375,11 @@ tool's `min`/`max`/`average`/`random` duration mode belongs to its run configura
 the model, so the interval is migrated faithfully as a random duration and the mode is the
 [draw policy](../guide/06-behavior.md#draw-policies-min-max-average-and-random) of the run —
 `-draws random -seed <n>` reproduces the tool's random mode, `-draws max` its max mode — which
-each migrated configuration records (below). «Probability» on the edges out of a decision is
+each migrated configuration records (below). An interval open on one side — `{5s..}`, a max of
+`*` — is satisfied by every wait past its bound, so no one delay stands for it and the
+constraint is reported with the bound it lacks; the exception is a MagicDraw document, where a
+constraint written with one value, `{60s}`, is stored as that min beside a max that is a
+duration with no expression, and is written as the fixed wait it shows. «Probability» on the edges out of a decision is
 written as `@Stochastic::Probability { p = … }` on each succession: a tag that is a number is
 the constant `p = 0.5;`, and one that names a property of the activity or of the block whose
 classifier behavior it is — the v1 idiom of an analysis block whose `ProbabilityBTOOP : Real`
@@ -403,12 +419,15 @@ order, type and multiplicity — the signal's own attributes first, then those i
 its generals: the `state def` declares an item of the signal's type,
 `item setPoint : SetPoint;`, each transition into the state assigns what it accepted to it,
 `accept setPoint2 : SetPoint … assign setPoint := setPoint2;`, and the behavior's parameters
-read its attributes, `in target : ScalarValues::Real = setPoint.level;`. A state some
+read its attributes, `in target : ScalarValues::Real = setPoint.level;` inline, or
+`entry action : Handle { in level = setPoint.level; }` where the state refers to a behavior
+written elsewhere, an `inout` parameter bound as `inout` so its value is written back. A state some
 transition enters without a signal — from the initial pseudostate, on a time or change event,
 or carrying a different signal — or whose parameters the signal's attributes do not fit, keeps
 the parameters unvalued and the report says which transition or attribute is the reason; an
 exit behavior with parameters is refused the same way, since nothing of the exit carries a
-signal.
+signal. A referred-to behavior whose parameter must hold a value is then not run, as a call
+passing no argument for such a parameter is not.
 
 A trigger naming a port of the behavior's owner is `accept Sig via rx`; one naming a port of
 another block is written without it and the report says whose port it is. A trigger naming no
@@ -448,8 +467,9 @@ parameter or through a `selector` refuses the whole interaction, since the scena
 address its steps. A signal message is
 `send new Sig(n = 3) to this.drive.motor;`; a call message is a typed perform of the
 operation's usage on the object, `perform action spin : Motor::Spin ::> drive.motor.spin
-{ in rpm = 30.0; }`, its arguments bound to the operation's `in` parameters by name or by
-position, and a call that leaves a required parameter (no default, lower bound above zero)
+{ in rpm = 30.0; }`, its arguments bound to the operation's `in` and `inout` parameters by
+name or by position, each with the parameter's direction so an `inout` value is written back
+to what the argument named, and a call that leaves a required parameter (no default, lower bound above zero)
 unbound refuses the interaction; a reply answers the latest call of its operation between
 its lifelines that no earlier reply has answered, so nested calls pair with their replies
 stack-like, and assigns that call's `out` to the attribute of the caller's lifeline the reply
@@ -477,7 +497,9 @@ the block, the steps addressing the parts through it.
 `action receive accept setLevel : Signals::SetLevel;`, and runs the method as a nested typed
 action whose `in` parameters read the accepted signal's attributes of the same name,
 `action run : 'Apply Level' { in value = setLevel.value; }`, then returns to the accept,
-`first run then receive;`. The block performs it, `perform action setLevel : SetLevel;`, so
+`first run then receive;`; a method that is also the method of an operation of the block is
+written once, as that operation's body, so the reception runs the operation's `action def`,
+binding the parameters it declares. The block performs it, `perform action setLevel : SetLevel;`, so
 every object of the block listens from the moment it is created — nothing starts the reception —
 and a signal sent to the object at any time is accepted and its method runs against the object,
 not the signal, as many times as the signal arrives. The runtime keeps a message delivered to a

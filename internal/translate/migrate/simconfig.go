@@ -70,9 +70,9 @@ var configurationSettings = []configurationSetting{
 
 // activeObjectSettings are the tags whose true value states what every v2
 // object does anyway: run its classifier behavior from its creation.
-var activeObjectSettings = map[string]string{
-	"treatAllClassifiersAsActive": "every v2 object runs its classifier behavior",
-	"autostartActiveObjects":      "a v2 object starts its classifier behavior when it is created",
+var activeObjectSettings = []struct{ tag, means string }{
+	{"treatAllClassifiersAsActive", "every v2 object runs its classifier behavior"},
+	{"autostartActiveObjects", "a v2 object starts its classifier behavior when it is created"},
 }
 
 // naturalSetting writes a count the runtime can hold: a natural number within int64.
@@ -216,14 +216,14 @@ func (m *migration) configurationSettings(s *sysmlv1.Stereotype) (settings confi
 			settings.draws = strings.TrimPrefix(lit, "Simulation::DrawPolicy::")
 		}
 	}
-	for tag, means := range activeObjectSettings {
-		recorded[tag] = true
-		vs := s.Tags[tag]
+	for _, a := range activeObjectSettings {
+		recorded[a.tag] = true
+		vs := s.Tags[a.tag]
 		if len(vs) == 0 || (len(vs) == 1 && (vs[0] == "true" || vs[0] == "1")) {
 			continue
 		}
-		notes = append(notes, "«SimulationConfig» "+tag+" = "+strings.Join(vs, ", ")+" has no v2 form: "+means)
-		unread = append(unread, tag+" = "+strings.Join(vs, ", "))
+		notes = append(notes, "«SimulationConfig» "+a.tag+" = "+strings.Join(vs, ", ")+" has no v2 form: "+a.means)
+		unread = append(unread, a.tag+" = "+strings.Join(vs, ", "))
 	}
 	for tag, vs := range s.Tags {
 		if !recorded[tag] {

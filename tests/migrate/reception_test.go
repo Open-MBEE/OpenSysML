@@ -58,11 +58,17 @@ func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 		"action def SetLevels {",
 		"action receive accept setLevels : Signals::SetLevels;",
 		"in slack : ScalarValues::Real[0..1];",
+		"action def OnNudge {",
+		"action receive accept nudge : Signals::Nudge;",
+		"action run : Nudge { in delta = nudge.delta; }",
+		"perform action onNudge : OnNudge;",
+		"action def Nudge {",
+		"in delta : ScalarValues::Real;",
 		"comment /* reception 'Away' */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	for _, bound := range []string{"in gain =", "in slack =", ": Boosting", ": Naming", ": Leveling", "then done;", "via aux"} {
+	for _, bound := range []string{"in gain =", "in slack =", ": Boosting", ": Naming", ": Leveling", ": Nudging", "then done;", "via aux"} {
 		if strings.Contains(string(r.Notation), bound) {
 			t.Errorf("%q was written, though nothing in the fixture calls for it:\n%s", bound, r.Notation)
 		}
@@ -75,6 +81,7 @@ func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 	wantNote(t, r, "_rcvBoost", migrate.Approximated, "the method Heater::Boosting's parameter amount must hold a value that no attribute of the signal supplies; the reception only accepts the signal")
 	wantNote(t, r, "_rcvName", migrate.Approximated, "the signal's attribute name is typed by String, which does not conform to the type Integer of the method Heater::Naming's parameter name; the reception only accepts the signal")
 	wantNote(t, r, "_rcvLevels", migrate.Approximated, "the signal's attribute values has multiplicity 0..*, which does not lie within the 1 of the method Heater::Leveling's parameter values; the reception only accepts the signal")
+	wantNote(t, r, "_rcvNudge", migrate.Mapped, "written as an action def accepting Nudge and performing its method Heater::Nudging as the operation Heater::Nudge, whose body it is, which its owner performs as onNudge from creation, accepting the signal again after each; nothing in the document declares or sends a signal to the ports rx, aux, so one arriving there is not accepted")
 	wantNote(t, r, "_rcvAway", migrate.Unmapped, "signal")
 	wantNote(t, r, "_apply", migrate.Mapped, "")
 
@@ -98,8 +105,12 @@ func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 		t.Errorf("a method whose parameter the signal's attribute does not fit ran: level = %v", got)
 	}
 	h.send(t, "Signals::Stop", nil)
+	h.send(t, "Signals::Nudge", map[string]runtime.Value{"delta": realValue(2.5)})
+	if got := h.level(t); got != 2.5 {
+		t.Errorf("the method run as its operation left level = %v, want 2.5", got)
+	}
 	if got := len(h.heater.PerformedActionsOf(h.sym("Heater::SetLevel"))); got != 1 {
-		t.Errorf("after three signals the object performs SetLevel %d time(s), want the one it was created with", got)
+		t.Errorf("after the signals the object performs SetLevel %d time(s), want the one it was created with", got)
 	}
 
 	s := session(t, r)

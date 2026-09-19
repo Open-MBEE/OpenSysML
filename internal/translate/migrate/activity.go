@@ -680,22 +680,12 @@ func (a *activity) waitFor(e *sysmlv1.Element) (string, bool) {
 	}
 	lo, lok, lnote := a.m.durationExpr(a.m.model.Ref(spec, "min"), e)
 	hi, hok, hnote := a.m.durationExpr(a.m.model.Ref(spec, "max"), e)
-	if bound, bnote, ok := a.m.openBound(spec, lo, lok, hi, hok); ok {
+	if bound, bnote, ok := a.m.singleValue(spec, lo, lok, hok); ok {
 		a.m.add(dc, Approximated, a.m.v2Name(a.def), joinNotes(bnote, "so the wait is a fixed "+bound+" s before "+describe(e)))
 		return bound + " [SI::s]", true
 	}
 	if !lok || !hok {
-		note := lnote
-		if !lok && a.m.model.Ref(spec, "min") == nil {
-			note = "the interval has no min"
-		}
-		if !hok {
-			note = joinNotes(note, hnote)
-			if a.m.model.Ref(spec, "max") == nil {
-				note = joinNotes(note, "the interval has no max")
-			}
-		}
-		a.unmappedWait(dc, e, note)
+		a.unmappedWait(dc, e, a.m.openInterval(spec, lo, lok, lnote, hi, hok, hnote))
 		return "", false
 	}
 	note := joinNotes(lnote, hnote)
@@ -1915,8 +1905,7 @@ func (a *activity) signalArguments(n, sig *sysmlv1.Element) ([]string, string) {
 			notes = append(notes, "the signal has no attribute for the argument pin "+a.names[pin]+", which is not sent")
 			continue
 		}
-		pt, at := a.m.model.Ref(pin, "type"), a.m.model.Ref(attrs[i], "type")
-		if pt != nil && at != nil && pt != at && !a.m.inherits(pt, at) && a.m.written(at) {
+		if pt, at := a.misfit(pin, attrs[i]); pt != nil {
 			notes = append(notes, "the argument pin "+a.names[pin]+" is a "+qualifiedName(pt)+", which the signal's "+a.m.nameOf(attrs[i])+" : "+qualifiedName(at)+" cannot take; it is not sent")
 			continue
 		}

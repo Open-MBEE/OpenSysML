@@ -1681,6 +1681,7 @@ adjudicates the test on the traces the suite registers.
 | Test | Registered expectation | Defect | Reading | Status |
 |---|---|---|---|---|
 | *Transition 017* | eight admitted traces, two of which — `T2(effect)::S1(entry)::T2.2(effect)::T3.2(effect)::S3.1(doActivity)::T3.1.2(effect)` and `…::T2.2(effect)::T3.2(effect)::T3.1.2(effect)::S3.1(doActivity)` — have `T3.2`, the completion transition out of `S3.1`, fire before `T3.1.2`, the completion transition inside `S3.1`'s own region, and run `S3.1`'s do activity after it | a composite state completes when its regions have reached their final states, so its completion transition cannot precede a transition of its region; the suite's own "Expected execution sequence" comment on the test's state machine fires `T3.2` when the completion event `S3.1` generates is consumed, *after* the inner region's `T3.1.2` and final state — the six other traces, not these two | `StatePerformances.kerml`: `private succession [*] transitionLinkSource.nonDoMiddle then [1] Performance::self;` on `StateTransitionPerformance` orders a transition out of a state after every non-do middle step of the state, the nested region's transition performances among them; `private succession [*] middle then [1] exit;` orders every middle step, the do activity included, before the state's exit. No reading of either admits `T3.2(effect)` before `T3.1.2(effect)` | **not filed**; documented without a correction — the test stays `fail` in the referee on these two traces alone, adjudicated in [the referee record](pssm-referee.md) |
+| *Exiting 002* | one admitted trace, `S1(doActivityPartI)::S1(exit)`, the do activity's first segment before the dispatch of the tester's `Continue` that leaves `S1` | the suite has a do activity evolve on its own thread of execution, and registers both orders of the same segment against the same dispatch for *Behavior 003 A*; `S1(exit)` alone, the dispatch first, is not registered here | the second order is the suite's own reading one test earlier; the test's point, the exit aborting the do activity, holds in both | documented, not corrected: `fail` in the referee while `S1(exit)` is the only reached trace not admitted |
 
 ### PSSM Transition 017 admits a parent's completion before its region's
 
@@ -1728,6 +1729,36 @@ the likely origin; nothing in the suite says so.
 The suite is downloaded by `./scripts/download-pssm-suite.sh` under a pinned digest and is
 not vendored, so the two traces are not corrected: the referee reads the suite as published,
 reports *Transition 017* `fail` while they are the only admitted traces not reached, and
+[the referee record](pssm-referee.md) adjudicates the test on that reason. Nothing has been
+posted upstream.
+
+### PSSM Exiting 002 registers one of the two orders the suite admits elsewhere
+
+The test enters `S1`, whose do activity traces `S1(doActivityPartI)`, accepts a signal and
+traces `S1(doActivityPartII)`, and whose exit behavior traces `S1(exit)`; the tester's
+`Continue`, in the pool as `S1` is entered, fires the transition out of `S1`, and the exit aborts
+the do activity. The suite registers one trace, `S1(doActivityPartI)::S1(exit)`: the do
+activity's first segment before the dispatch of `Continue`.
+
+The suite's own account of a do activity, from *Deferred 006*'s rationale, quoted from the XMI:
+
+```text
+A doActivity behavior evolves on its own thread of execution.
+```
+
+A segment on its own thread and a dispatch on the machine's are unordered, and the suite
+registers them so one test earlier: *Behavior 003 A*, the same `S1` with an entry behavior in
+place of the exit behavior and the tester's `AnotherSignal` in place of `Continue`, admits both
+`S1(entry)::S1(doActivityPartI)` and `S1(entry)` — the dispatch before the first segment,
+which the transition's effect then never lets run. *Exiting 002*'s expected execution is the
+same race with the exit behavior in the trace, and `S1(exit)` alone, the dispatch first, is
+the order *Behavior 003 A* admits and this test does not register; its own note contemplates
+the do activity's timing (`If the doActivity was still running at the time where the exit
+behavior is executed …`) and registers one order all the same. The test's point — the exit
+aborts the do activity, so `S1(doActivityPartII)` never traces — holds in both orders.
+
+The suite is not vendored, so the missing trace is not added: the referee reports *Exiting 002*
+`fail` while `S1(exit)` is the only reached trace not admitted, and
 [the referee record](pssm-referee.md) adjudicates the test on that reason. Nothing has been
 posted upstream.
 

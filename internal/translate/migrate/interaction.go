@@ -92,7 +92,7 @@ type scenarioStep struct {
 	sender   *lifelineRef
 	receiver *lifelineRef
 	// args are the bindings a send or call writes, note what the bindings leave out.
-	args string
+	args []string
 	note string
 	// call is the call step a reply answers; assigns the bindings of its results.
 	call    *scenarioStep
@@ -423,7 +423,7 @@ func (s *scenario) call(step *scenarioStep, sort string) (*scenarioStep, string)
 	}
 	var ins []*sysmlv1.Element
 	for _, p := range op.Owned("ownedParameter") {
-		if dir, _ := parameterDirection(p); dir != "out" {
+		if dir, _ := parameterDirection(p); dir == "in" || dir == "inout" {
 			ins = append(ins, p)
 		}
 	}
@@ -471,8 +471,9 @@ func (s *scenario) reply(step *scenarioStep) (*scenarioStep, string) {
 			outs = append(outs, p)
 		}
 	}
-	for i, arg := range step.msg.Owned("argument") {
-		p := s.parameterFor(arg, outs, i)
+	replyArgs := step.msg.Owned("argument")
+	for i, p := range s.pairArguments(replyArgs, outs) {
+		arg := replyArgs[i]
 		switch {
 		case p == nil:
 			step.note = joinNotes(step.note, "the value "+describeValue(arg)+" has no out parameter of "+op.Name+" to stand for")
@@ -559,31 +560,46 @@ func (s *scenario) attributeNamed(ref *lifelineRef, name string) *sysmlv1.Elemen
 	return nil
 }
 
-// parameterFor pairs an argument with a target by name when the argument is
-// named, by position otherwise; nil when neither matches.
-func (s *scenario) parameterFor(arg *sysmlv1.Element, targets []*sysmlv1.Element, i int) *sysmlv1.Element {
-	if arg.Name != "" {
+// pairArguments pairs each argument with a target: a named argument with the target
+// of its name, an unnamed one with the next target in order that no name claims.
+func (s *scenario) pairArguments(args, targets []*sysmlv1.Element) []*sysmlv1.Element {
+	paired := make([]*sysmlv1.Element, len(args))
+	named := map[*sysmlv1.Element]bool{}
+	for i, arg := range args {
+		if arg.Name == "" {
+			continue
+		}
 		for _, t := range targets {
 			if s.m.nameOf(t) == arg.Name {
-				return t
+				paired[i], named[t] = t, true
+				break
 			}
 		}
-		return nil
 	}
-	if i < len(targets) {
-		return targets[i]
+	next := 0
+	for i, arg := range args {
+		if arg.Name != "" {
+			continue
+		}
+		for next < len(targets) && named[targets[next]] {
+			next++
+		}
+		if next < len(targets) {
+			paired[i] = targets[next]
+			next++
+		}
 	}
-	return nil
+	return paired
 }
 
 // bindArguments writes a message's arguments as bindings of the targets, an owner's
-// parameters or attributes, by name or position; a target that must hold a value
-// (no default, lower bound above 0) and that no argument binds is a refusal, why.
-func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Element, kind string, owner *sysmlv1.Element) (args, note, why string) {
-	var out []string
+// parameters (each with its direction) or attributes, by name or position; a target that
+// must hold a value (no default, lower bound above 0) and that no argument binds is a refusal, why.
+func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Element, kind string, owner *sysmlv1.Element) (args []string, note, why string) {
 	bound := map[*sysmlv1.Element]bool{}
-	for i, arg := range msg.Owned("argument") {
-		t := s.parameterFor(arg, targets, i)
+	msgArgs := msg.Owned("argument")
+	for i, t := range s.pairArguments(msgArgs, targets) {
+		arg := msgArgs[i]
 		if t == nil {
 			note = joinNotes(note, "the argument "+describeValue(arg)+" has no "+kind+" of "+owner.Name+" to bind to and is dropped")
 			continue
@@ -595,21 +611,25 @@ func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Elemen
 		expr, ok, vnote := s.m.typedBehaviorValue(arg, t, s.e)
 		if !ok {
 			if requiresValue(t) {
-				return "", "", "leaves the " + kind + " " + s.m.nameOf(t) + " of " + owner.Name + ", which must hold a value, unbound: the argument " + describeValue(arg) + " is not written: " + vnote
+				return nil, "", "leaves the " + kind + " " + s.m.nameOf(t) + " of " + owner.Name + ", which must hold a value, unbound: the argument " + describeValue(arg) + " is not written: " + vnote
 			}
 			note = joinNotes(note, "the argument "+describeValue(arg)+" for "+s.m.nameOf(t)+" is dropped: "+vnote)
 			continue
 		}
 		bound[t] = true
-		out = append(out, writeName(s.m.nameOf(t))+" = "+expr)
+		if kind == "parameter" {
+			args = append(args, s.m.parameterBinding(t, s.m.nameOf(t), expr))
+		} else {
+			args = append(args, writeName(s.m.nameOf(t))+" = "+expr)
+		}
 		note = joinNotes(note, vnote)
 	}
 	for _, t := range targets {
 		if !bound[t] && requiresValue(t) {
-			return "", "", "binds no argument to the " + kind + " " + s.m.nameOf(t) + " of " + owner.Name + ", which must hold a value"
+			return nil, "", "binds no argument to the " + kind + " " + s.m.nameOf(t) + " of " + owner.Name + ", which must hold a value"
 		}
 	}
-	return strings.Join(out, ", "), note, ""
+	return args, note, ""
 }
 
 // stepName names a step after its message, or after what it does when the message is anonymous.
@@ -935,14 +955,14 @@ func (s *scenario) step(step *scenarioStep, prev string) string {
 	}
 	switch step.kind {
 	case stepSend:
-		m.w.line("action " + step.name + " send new " + m.ref(step.signal, s.e) + "(" + step.args + ") to " + step.receiver.path + ";")
+		m.w.line("action " + step.name + " send new " + m.ref(step.signal, s.e) + "(" + strings.Join(step.args, ", ") + ") to " + step.receiver.path + ";")
 		s.messageDone(step, "written as a send to "+step.receiver.path)
 	case stepCall:
 		decl := "perform action " + step.name + " : " + m.ref(step.op, s.e) + " ::> " + step.receiver.chain + "." + writeName(m.operationUsage(step.op))
-		if step.args == "" {
+		if len(step.args) == 0 {
 			m.w.line(decl + ";")
 		} else {
-			m.w.line(decl + " { in " + strings.ReplaceAll(step.args, ", ", "; in ") + "; }")
+			m.w.line(decl + " { " + strings.Join(step.args, "; ") + "; }")
 		}
 		s.messageDone(step, "written as a call of "+m.nameOf(step.op)+" on "+step.receiver.path)
 	case stepReply:
@@ -1173,7 +1193,7 @@ func (s *scenario) waitFrom(dc *sysmlv1.Element, step *scenarioStep) (string, bo
 }
 
 // waitExpr writes the wait a duration constraint's interval stands for: a fixed
-// delay for a point or half-open interval, a uniform draw over it otherwise.
+// delay for a point interval, a uniform draw over it otherwise.
 func (s *scenario) waitExpr(dc *sysmlv1.Element) (expr, note string, ok bool) {
 	spec := firstOwned(dc, "specification")
 	if spec == nil || spec.Type != "DurationInterval" && spec.Type != "Interval" {
@@ -1182,21 +1202,11 @@ func (s *scenario) waitExpr(dc *sysmlv1.Element) (expr, note string, ok bool) {
 	m := s.m
 	lo, lok, lnote := m.durationExpr(m.model.Ref(spec, "min"), s.e)
 	hi, hok, hnote := m.durationExpr(m.model.Ref(spec, "max"), s.e)
-	if bound, bnote, ok := m.openBound(spec, lo, lok, hi, hok); ok {
+	if bound, bnote, ok := m.singleValue(spec, lo, lok, hok); ok {
 		return bound, joinNotes(bnote, "so the wait is a fixed "+bound+" s"), true
 	}
 	if !lok || !hok {
-		note := lnote
-		if !lok && m.model.Ref(spec, "min") == nil {
-			note = "the interval has no min"
-		}
-		if !hok {
-			note = joinNotes(note, hnote)
-			if m.model.Ref(spec, "max") == nil {
-				note = joinNotes(note, "the interval has no max")
-			}
-		}
-		return "", note, false
+		return "", m.openInterval(spec, lo, lok, lnote, hi, hok, hnote), false
 	}
 	note = joinNotes(lnote, hnote)
 	lf, lerr := strconv.ParseFloat(lo, 64)

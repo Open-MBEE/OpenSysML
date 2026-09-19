@@ -2,7 +2,9 @@
   executably.** An Interaction owned by a block is a scenario `action def` of every message
   kind: a signal send, a `synchCall`/`asynchCall` of an operation as a typed perform on the
   lifeline's object — `perform action spin : Motor::Spin ::> drive.motor.spin { in rpm = 30.0; }`,
-  the arguments bound to the operation's `in` parameters by name or position — and a `reply`
+  the arguments bound to the operation's `in` and `inout` parameters by name or position — an
+  unnamed argument taking the next parameter no named one claims — each
+  with the parameter's direction so an `inout` value is written back — and a `reply`
   as the assignment of the call's result to the caller lifeline's attribute; a lifeline is
   resolved to the feature path through the block's parts, ports and references or to an `in`
   parameter, and `alt`/`opt`/`loop`/`par` fragments are `if`/`for`/`while`/`fork` structures
@@ -10,14 +12,18 @@
   between its lifelines, never one another alternative or a concurrent operand made; a duration
   constraint between two messages with steps
   between them is a wait forked after the earlier step and joined before the later, so those
-  steps count toward the interval. A lifeline or guard that does not resolve, a create or
+  steps count toward the interval, and one whose interval is open on one side (a min with no
+  max, a max of `*`) is reported with the bound it lacks rather than written as a wait at the
+  bound it has, the min beside an expressionless max of a MagicDraw document — its encoding of
+  a one-valued `{60s}` — excepted. A lifeline or guard that does not resolve, a create or
   delete message and a message-less timing trace are refused with the reason, as is a call
   or signal message leaving an `in` parameter or signal attribute — inherited ones included —
   with no default and a lower bound above zero unbound; two parts of
   one type are two paths, so a lifeline standing for a part of that type is ambiguous. A Reception is
   an `action def` of the block that accepts its signal, runs its method with the signal's
   attributes bound to the method's parameters of the same name and accepts again, performed by
-  every object of the block from creation, so a signal sent to the object at any time runs the
+  every object of the block from creation — a method that is also the method of an operation runs
+  as that operation's `action def` — so a signal sent to the object at any time runs the
   method against the object; where the signal arrives at ports of the block, the accept is forked
   into one loop per port, `accept … via <port>`, beside the one from the object; where the method requires a value no attribute supplies,
   or a same-named attribute does not fit its parameter's type or multiplicity, the reception only
@@ -64,7 +70,7 @@
   connector can join it and a signal sent inward over it reaches the bound part's machine.
 - **A migrated call or send that v1 fires without a required value keeps its place and performs
   nothing.** A call passing no argument for a parameter that must hold a value, or a call or
-  signal send passing none for a signal attribute that must, or one whose pin is fed only by flows no value travels — from a parameter nothing values,
+  signal send passing none for a signal attribute that must, one passing a pin of a type the attribute cannot take, or one whose pin is fed only by flows no value travels — from a parameter nothing values,
   an unmigrated opaque or value specification action, or a callee whose own activity gives that
   `out` parameter no value, judged through any depth of nesting — is written as an empty action carrying the token,
   with the reason in its comment and report line, and the object flow is kept as a comment
