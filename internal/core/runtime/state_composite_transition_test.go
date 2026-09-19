@@ -3,7 +3,7 @@ package runtime
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // A transition out of a composite state is enabled while any of its substates is

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // CheckEngineName is the name of the engine that searches an action's schedules explicitly.

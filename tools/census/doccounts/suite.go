@@ -20,7 +20,7 @@ import (
 const (
 	runtimeDir            = "internal/core/runtime"
 	runtimeConformanceDir = runtimeDir + "/testdata/conformance"
-	parserDir             = "internal/core/parser"
+	parserDir             = "internal/syntax/parser"
 	parserSuiteDir        = "tests/parser"
 	parserGoldenDir       = parserSuiteDir + "/testdata/parse"
 	grpcDir               = "internal/grpc"

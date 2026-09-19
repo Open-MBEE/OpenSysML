@@ -3,8 +3,8 @@ package symbols
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // The Kernel tiers frame every element; the Systems, Domain and OpenSysML tiers

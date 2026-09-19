@@ -3,8 +3,8 @@ package lower
 import (
 	"errors"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // An action node whose own members state a flow — `first`, a succession, a fork

@@ -163,7 +163,7 @@ package OpenSysMLSurfaces {
     // A fix carries the edit that applies it and points at the diagnostic it
     // answers; a diagnostic with no unambiguous repair offers none.
     part def QuickFixer :> CodeUnit {
-        attribute :>> goPackage = "internal/core/diag";
+        attribute :>> goPackage = "internal/syntax/diag";
         attribute editsAttached : Boolean = true;
         in item findings : Diagnostic;
         out item fixes : QuickFix;
@@ -189,7 +189,7 @@ package OpenSysMLSurfaces {
 
     // Re-indents the token stream, so comments and error nodes survive a save.
     part def Formatter :> CodeUnit {
-        attribute :>> goPackage = "internal/core/format";
+        attribute :>> goPackage = "internal/syntax/format";
         attribute worksOnTokens : Boolean = true;
         in item text : SourceText;
     }

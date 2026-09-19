@@ -3,7 +3,7 @@ package semantics
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // invocationResultConformance judges the call `F()` at the document root

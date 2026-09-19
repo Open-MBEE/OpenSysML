@@ -3,7 +3,7 @@ package runtime
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // TestActionBodyLocalUsageBindsCurrentValues requires a calc usage declared in an

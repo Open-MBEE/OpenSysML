@@ -3,8 +3,8 @@ package solve
 import (
 	"sort"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Role says why a query asserts a term.

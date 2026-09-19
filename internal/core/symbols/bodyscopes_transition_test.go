@@ -3,7 +3,7 @@ package symbols
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // A body expression written in a triggered transition's trailing body declares

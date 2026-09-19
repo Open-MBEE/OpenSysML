@@ -2,13 +2,14 @@ package lsp
 
 import (
 	"context"
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 
 	"go.lsp.dev/protocol"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // CodeAction answers the code actions for a range: the quick fixes attached to

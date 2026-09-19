@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // maxMaterializedLowerBound bounds the anonymous objects a collection feature value is

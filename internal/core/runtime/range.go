@@ -3,8 +3,8 @@ package runtime
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // A range is not a value kind of its own: the Kernel Function Library declares

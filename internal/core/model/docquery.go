@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docir"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
@@ -13,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // DocumentDefinition is one native document definition the workspace holds: a

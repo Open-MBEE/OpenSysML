@@ -5,8 +5,8 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // actionStmtHost runs an action node's body statements: a send posts through the flow's

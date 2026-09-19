@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // ActionForm is one lowered ActionGraph. Vertices are numbered by their position

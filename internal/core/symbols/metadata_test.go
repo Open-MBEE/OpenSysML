@@ -3,7 +3,7 @@ package symbols
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 func TestDeclaredMetadataUsageIsIndexed(t *testing.T) {

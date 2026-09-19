@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // The model checker's view of an invocation's state: the moves enabled in it,

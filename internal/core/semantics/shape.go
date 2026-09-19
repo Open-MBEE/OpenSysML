@@ -1,8 +1,8 @@
 package semantics
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // Kernel-library members frame every object (`Occurrence::self`, `portions`) and stay

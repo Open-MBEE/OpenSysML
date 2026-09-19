@@ -3,8 +3,8 @@ package identity
 import (
 	"sync"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // LibraryLanguage is the half of the standard library a bundled tier belongs to:

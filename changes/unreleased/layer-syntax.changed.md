@@ -1,0 +1,1 @@
+- **Moved the foundation and syntax packages to `internal/syntax`.** `source`, `ast` (with `astcodec`), `pack`, `diag`, `lexer`, `parser` and `format` now live under `internal/syntax/`.

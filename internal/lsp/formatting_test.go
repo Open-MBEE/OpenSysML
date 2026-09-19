@@ -12,9 +12,9 @@ import (
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/format"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/format"
 )
 
 var spaces4 = protocol.FormattingOptions{TabSize: 4, InsertSpaces: true}
@@ -360,7 +360,7 @@ func formattingCorpus(t *testing.T) []string {
 	t.Helper()
 	var paths []string
 	for _, pattern := range []string{
-		"../core/format/testdata/*.sysml",
+		"../syntax/format/testdata/*.sysml",
 		"../../examples/*.sysml",
 		"../repl/testdata/*.sysml",
 	} {

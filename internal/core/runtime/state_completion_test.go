@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // A transition reaching `done` completes the machine: the state it leaves runs

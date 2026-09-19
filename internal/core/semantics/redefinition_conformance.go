@@ -1,8 +1,8 @@
 package semantics
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // Feature conformance (KerML 8.3.3.3): a subsetting feature restricts the

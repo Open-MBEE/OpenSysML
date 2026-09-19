@@ -79,14 +79,14 @@ package OpenSysMLPipeline {
     // --- Front end -------------------------------------------------------
 
     #Frontend part def SourceStore :> Stage {
-        attribute :>> goPackage = "internal/core/source";
+        attribute :>> goPackage = "internal/syntax/source";
         attribute tracksLineIndex : Boolean = true;
         out item text : SourceText;
         port textOut : ArtifactPort;
     }
 
     #Frontend part def Lexer :> Stage {
-        attribute :>> goPackage = "internal/core/lexer";
+        attribute :>> goPackage = "internal/syntax/lexer";
         attribute keywordCount : Integer = 172;
         attribute tracksTrivia : Boolean = true;
         in item text : SourceText;
@@ -97,7 +97,7 @@ package OpenSysMLPipeline {
 
     // Recursive descent with error recovery: a tree always comes back.
     #Frontend part def Parser :> Stage {
-        attribute :>> goPackage = "internal/core/parser";
+        attribute :>> goPackage = "internal/syntax/parser";
         attribute neverPanics : Boolean = true;
         attribute emitsErrorNodes : Boolean = true;
         in item tokens : TokenStream;
@@ -109,7 +109,7 @@ package OpenSysMLPipeline {
 
     // Syntax only, immutable after parse.
     #Frontend part def SyntaxTreeStore :> Stage {
-        attribute :>> goPackage = "internal/core/ast";
+        attribute :>> goPackage = "internal/syntax/ast";
         attribute immutableAfterParse : Boolean = true;
         attribute carriesSemantics : Boolean = false;
         in item tree : SyntaxTree;
@@ -309,12 +309,12 @@ package OpenSysMLPipeline {
 
     // The compact binary encoding the library snapshot is written in.
     part def SnapshotCodec :> CodeUnit {
-        attribute :>> goPackage = "internal/core/pack";
+        attribute :>> goPackage = "internal/syntax/pack";
     }
 
     // Writes syntax trees into a snapshot and reads them back, node for node.
     part def TreeCodec :> CodeUnit {
-        attribute :>> goPackage = "internal/core/ast/astcodec";
+        attribute :>> goPackage = "internal/syntax/ast/astcodec";
         in item tree : SyntaxTree;
     }
 

@@ -1,6 +1,6 @@
 package symbols
 
-import "github.com/Open-MBEE/OpenSysML/internal/core/ast"
+import "github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 
 // InStateMachine reports whether an edge written in scope belongs to a state
 // machine, the body a vertex lookup applies to; an action body (a transition's

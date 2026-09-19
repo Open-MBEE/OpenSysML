@@ -3,7 +3,7 @@ package lower
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // ForkPlan is where a fork's branches lead: one per orthogonal region of Owner,

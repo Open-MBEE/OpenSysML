@@ -3,8 +3,8 @@ package semantics
 import (
 	"errors"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // A view's exposed elements (SysML v2 8.3.26 Expose, 7.24 Views and Viewpoints)

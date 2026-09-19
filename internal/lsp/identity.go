@@ -3,17 +3,18 @@ package lsp
 import (
 	"bytes"
 	"fmt"
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 
 	"go.lsp.dev/protocol"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // identityActionKind is the kind of the opt-in identity annotation actions.
