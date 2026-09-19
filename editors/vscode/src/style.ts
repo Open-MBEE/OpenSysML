@@ -4,7 +4,7 @@
 /** The setting that picks the look every diagram panel is drawn in. */
 export const STYLE_SETTING = "opensysml.diagram.style";
 
-/** The palettes the server fills a rendering from, by keyword family, as `internal/core/view/palette.go` names them. */
+/** The palettes the server fills a rendering from, by keyword family, as `internal/ir/view/palette.go` names them. */
 export const PALETTES = [
   "okabe-ito",
   "tol-bright",
