@@ -850,6 +850,116 @@ func TestEmitSignals(t *testing.T) {
 	}
 }
 
+// redefinitionModel exercises redefined properties: Loud specializes Ping and
+// redefines its level, Special specializes Base and redefines its n, Shouter
+// sends a Loud with the one argument the effective signal takes, and Marker
+// creates a Special and writes its redefining n.
+const redefinitionModel = `<?xml version="1.0" encoding="UTF-8"?>
+<uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="Redefinitions">
+  <packagedElement xmi:type="uml:Signal" xmi:id="ping" name="Ping">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="level" name="level">` + integerType + `</ownedAttribute>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Signal" xmi:id="loud" name="Loud">
+    <generalization xmi:type="uml:Generalization" xmi:id="loudGen" general="ping"/>
+    <ownedAttribute xmi:type="uml:Property" xmi:id="loudLevel" name="level" redefinedProperty="level">` + integerType + `</ownedAttribute>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Class" xmi:id="target" name="Target"/>
+  <packagedElement xmi:type="uml:Class" xmi:id="base" name="Base">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="n" name="n">` + integerType + `</ownedAttribute>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Class" xmi:id="special" name="Special">
+    <generalization xmi:type="uml:Generalization" xmi:id="specialGen" general="base"/>
+    <ownedAttribute xmi:type="uml:Property" xmi:id="specialN" name="n">` + integerType + `
+      <redefinedProperty xmi:idref="n"/>
+    </ownedAttribute>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="shouter" name="Shouter">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="shouterTo" name="to" direction="in" type="target"/>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="shouterOut" name="sent" direction="out">` + integerType + `</ownedParameter>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="shouterToNode" name="Parameter(to)" parameter="shouterTo"/>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="v8" name="Value(8)">
+      <result xmi:type="uml:OutputPin" xmi:id="v8r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="v8v" value="8"/>
+    </node>
+    <node xmi:type="uml:ForkNode" xmi:id="shouterFork" name="Fork"/>
+    <node xmi:type="uml:SendSignalAction" xmi:id="sendLoud" name="Send(Loud)" signal="loud">
+      <target xmi:type="uml:InputPin" xmi:id="sendLoudTarget" name="target" type="target"/>
+      <argument xmi:type="uml:InputPin" xmi:id="sendLoudLevel" name="level">` + integerType + `</argument>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="shouterOutNode" name="Parameter(sent)" parameter="shouterOut"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="s1" source="shouterToNode" target="sendLoudTarget"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="s2" source="v8r" target="shouterFork"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="s3" source="shouterFork" target="sendLoudLevel"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="s4" source="shouterFork" target="shouterOutNode"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="marker" name="Marker">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="markerOut" name="made" direction="out" type="special"/>
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createSpecial" name="Create(Special)" classifier="special">
+      <result xmi:type="uml:OutputPin" xmi:id="createSpecialR" name="result" type="special"/>
+    </node>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="v3" name="Value(3)">
+      <result xmi:type="uml:OutputPin" xmi:id="v3r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="v3v" value="3"/>
+    </node>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="writeSpecialN" name="Write(n)" structuralFeature="specialN" isReplaceAll="true">
+      <object xmi:type="uml:InputPin" xmi:id="writeSpecialNo" name="object" type="special"/>
+      <value xmi:type="uml:InputPin" xmi:id="writeSpecialNv" name="value">` + integerType + `</value>
+      <result xmi:type="uml:OutputPin" xmi:id="writeSpecialNr" name="result" type="special"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="markerOutNode" name="Parameter(made)" parameter="markerOut"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="k1" source="createSpecialR" target="writeSpecialNo"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="k2" source="v3r" target="writeSpecialNv"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="k3" source="writeSpecialNr" target="markerOutNode"/>
+  </packagedElement>
+</uml:Model>
+`
+
+// A property redefining an inherited one replaces it: the effective attributes of
+// the class or signal hold the redefinition alone, so a send of the specialized
+// signal takes one argument and the object of the specialized class is written
+// and rendered through one feature; the redefinition is spelled `:>>`.
+func TestEmitRedefinedProperties(t *testing.T) {
+	s := fixtureSuite(t, redefinitionModel)
+	loud := s.Tests.SignalOf(TypeRef{Name: "Loud"})
+	special := s.Tests.ClassOf(TypeRef{Name: "Special"})
+	if loud == nil || special == nil {
+		t.Fatal("Loud or Special missing")
+	}
+	if attrs := loud.AllAttributes(); len(attrs) != 1 || attrs[0].ID != "loudLevel" {
+		t.Errorf("Loud.AllAttributes() = %v, want the redefining level alone", attrs)
+	}
+	if attrs := special.AllAttributes(); len(attrs) != 1 || attrs[0].ID != "specialN" {
+		t.Errorf("Special.AllAttributes() = %v, want the redefining n alone", attrs)
+	}
+	em := emitted(t, s, "Shouter")
+	wantLines(t, em,
+		"\tattribute def Loud :> Ping {\n\t\tattribute :>> level : Integer;\n\t}\n",
+		"action 'Send(Loud)' { in target : Target; in level : Integer; send new Loud(level = level) to target; }")
+	x := executed(fixtureActivity(t, s, "Shouter"), []ExpectedOutput{integers("sent", 8)})
+	ex, err := Execute(context.Background(), em, &x, DefaultBudget, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ex.Passed() || strings.Join(ex.Reached, "|") != "sent = 8" {
+		t.Errorf("Shouter: %+v", ex)
+	}
+	em = emitted(t, s, "Marker")
+	wantLines(t, em,
+		"\tpart def Special :> Base {\n\t\tattribute :>> n : Integer;\n\t}\n",
+		"action 'Write(n)' { in object : Special; in value : Integer; out result : Special = object; assign object.n := value; }")
+	x = executed(fixtureActivity(t, s, "Marker"), []ExpectedOutput{{Parameter: "made", Values: []ExpectedValue{object("sp", "Special", feature("n", 3))}}})
+	if ex, err = Execute(context.Background(), em, &x, DefaultBudget, 1); err != nil {
+		t.Fatal(err)
+	}
+	if !ex.Passed() || strings.Join(ex.Reached, "|") != "made = Special#1{n = 3}" {
+		t.Errorf("Marker: %+v", ex)
+	}
+	renamed := &Property{Name: "loudness", Redefines: []*Property{{Name: "level"}}}
+	if name, err := redefinedName(fixtureActivity(t, s, "Marker"), "attribute Loud.loudness", renamed); err != nil || name != "loudness :>> level" {
+		t.Errorf("redefinedName(renaming) = %q, %v", name, err)
+	}
+}
+
 // A signal typing a class's attribute is declared, and the attribute keeps its type.
 func TestEmitSignalTypedAttribute(t *testing.T) {
 	s := fixtureSuite(t, signalModel)

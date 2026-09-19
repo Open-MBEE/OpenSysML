@@ -231,6 +231,17 @@ func (r *reader) readProperty(e *xmi.Element, owner TypeRef) *Property {
 		Composite:    e.Attr("aggregation") == "composite",
 	}
 	r.props[e.ID] = p
+	if ids := e.Refs("redefinedProperty"); len(ids) > 0 {
+		r.later(func() {
+			for _, id := range ids {
+				if redefined := r.props[id]; redefined != nil {
+					p.Redefines = append(p.Redefines, redefined)
+				} else {
+					r.diag(e, "redefined property %s is not declared in this model", id)
+				}
+			}
+		})
+	}
 	if id := e.Attr("association"); id != "" {
 		r.later(func() {
 			if a := r.assocs[id]; a != nil {

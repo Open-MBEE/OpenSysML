@@ -82,7 +82,8 @@ func (m *Model) SignalOf(t TypeRef) *Signal {
 }
 
 // AllAttributes returns the class's attributes with those it inherits, each
-// once, generals before the classes specializing them.
+// once, generals before the classes specializing them; a property redefined by
+// another of them is replaced by it.
 func (c *Class) AllAttributes() []*Property {
 	seen := map[*Class]bool{}
 	var out []*Property
@@ -98,6 +99,34 @@ func (c *Class) AllAttributes() []*Property {
 		out = append(out, c.Attributes...)
 	}
 	visit(c)
+	return effectiveProperties(out)
+}
+
+// effectiveProperties drops from props every property another of them redefines,
+// directly or through a chain of redefinitions, keeping the order of the rest.
+func effectiveProperties(props []*Property) []*Property {
+	redefined := map[*Property]bool{}
+	var mark func(p *Property)
+	mark = func(p *Property) {
+		for _, r := range p.Redefines {
+			if r != nil && !redefined[r] {
+				redefined[r] = true
+				mark(r)
+			}
+		}
+	}
+	for _, p := range props {
+		mark(p)
+	}
+	if len(redefined) == 0 {
+		return props
+	}
+	out := make([]*Property, 0, len(props))
+	for _, p := range props {
+		if !redefined[p] {
+			out = append(out, p)
+		}
+	}
 	return out
 }
 
@@ -522,8 +551,8 @@ type Signal struct {
 }
 
 // AllAttributes returns the signal's attributes with those it inherits, each
-// once, generals before the signals specializing them: the order a
-// SendSignalAction's argument pins follow.
+// once, generals before the signals specializing them, a redefined one replaced
+// by its redefinition: the order a SendSignalAction's argument pins follow.
 func (s *Signal) AllAttributes() []*Property {
 	seen := map[*Signal]bool{}
 	var out []*Property
@@ -539,7 +568,7 @@ func (s *Signal) AllAttributes() []*Property {
 		out = append(out, s.Attributes...)
 	}
 	visit(s)
-	return out
+	return effectiveProperties(out)
 }
 
 // Association is a uml:Association declared by the model.
@@ -559,6 +588,9 @@ type Property struct {
 	Multiplicity
 	// Owner names the class, signal, activity or association owning it.
 	Owner TypeRef
+	// Redefines are the inherited properties this one redefines, which it
+	// replaces among its owner's effective attributes.
+	Redefines []*Property
 	// Association is set for an association end (owned by either side).
 	Association *Association
 	// Composite is set for a composite aggregation end.

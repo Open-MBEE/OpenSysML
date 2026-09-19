@@ -331,29 +331,50 @@ func emitClass(root *Activity, c *Class) (string, error) {
 
 // attributeDecl spells one attribute of a class or signal: a primitive one an
 // attribute, one typed by a class a part (composite) or a reference to one, an
-// untyped one an attribute of no type.
+// untyped one an attribute of no type. One redefining an inherited property is
+// its redefinition (`:>>`), so it replaces the inherited feature as UML's does.
 func attributeDecl(root *Activity, owner string, p *Property) (string, error) {
 	where := "attribute " + owner + "." + p.Name
 	if p.Association != nil {
 		return "", &TranslateError{root.Name, where, untranslated("an association end")}
 	}
+	name, err := redefinedName(root, where, p)
+	if err != nil {
+		return "", err
+	}
 	m := exactMultiplicity(p.Multiplicity)
 	switch {
 	case p.Type.Zero():
-		return fmt.Sprintf("attribute %s%s;", quote(p.Name), m), nil
+		return fmt.Sprintf("attribute %s%s;", name, m), nil
 	case root.Model.primitive(p.Type) != "":
-		return fmt.Sprintf("attribute %s : %s%s;", quote(p.Name), root.Model.scalar(root.Model.primitive(p.Type)), m), nil
+		return fmt.Sprintf("attribute %s : %s%s;", name, root.Model.scalar(root.Model.primitive(p.Type)), m), nil
 	case root.Model.SignalOf(p.Type) != nil:
-		return fmt.Sprintf("attribute %s : %s%s;", quote(p.Name), quote(root.Model.SignalOf(p.Type).Name), m), nil
+		return fmt.Sprintf("attribute %s : %s%s;", name, quote(root.Model.SignalOf(p.Type).Name), m), nil
 	}
 	if t := root.Model.ClassOf(p.Type); t != nil {
 		kind := "ref part"
 		if p.Composite {
 			kind = "part"
 		}
-		return fmt.Sprintf("%s %s : %s%s;", kind, quote(p.Name), quote(t.Name), m), nil
+		return fmt.Sprintf("%s %s : %s%s;", kind, name, quote(t.Name), m), nil
 	}
 	return "", &TranslateError{root.Name, where, untranslated("type " + p.Type.String())}
+}
+
+// redefinedName spells a property's declaration name: its own, or `:>> g` for
+// one redefining the inherited g of the same name and `n :>> g` for one renaming it.
+func redefinedName(root *Activity, where string, p *Property) (string, error) {
+	if len(p.Redefines) == 0 {
+		return quote(p.Name), nil
+	}
+	if len(p.Redefines) > 1 {
+		return "", &TranslateError{root.Name, where, untranslated("a property redefining several")}
+	}
+	general := p.Redefines[0]
+	if general.Name == p.Name {
+		return ":>> " + quote(p.Name), nil
+	}
+	return quote(p.Name) + " :>> " + quote(general.Name), nil
 }
 
 // exactMultiplicity spells a multiplicity as declared, `[1..1]` being the default.
