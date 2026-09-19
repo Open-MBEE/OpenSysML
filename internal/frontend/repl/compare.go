@@ -187,13 +187,21 @@ func comparisonTable(cfg *simresults.ConfigurationResults, table runtime.SweepTa
 			notes = append(notes, fmt.Sprintf("note: no snapshot holds a number for %s", name))
 			continue
 		}
-		ran, units, other := runValues(table, feature)
+		ran, units, other, missing := runValues(table, feature)
 		cells = append(cells, statisticsRow(name, "tool", stored, ""))
 		d := runtime.Distribute(ran)
 		switch {
 		case len(ran) == 0 && other == 0:
 			cells = append(cells, []string{"", "OpenSysML (" + feature + ")", "0", "", "", "", "", ""})
 			notes = append(notes, fmt.Sprintf("note: no completed run produced %s, which answers %s", feature, name))
+			continue
+		case missing > 0:
+			cells = append(cells, []string{"", "OpenSysML (" + feature + ")", fmt.Sprint(len(ran)), "", "", "", "", ""})
+			note := fmt.Sprintf("note: %s was produced by %d of the %d completed run(s)", feature, len(ran)+other, len(ran)+other+missing)
+			if other > 0 {
+				note += fmt.Sprintf(" and holds no number in %d of those", other)
+			}
+			notes = append(notes, note+fmt.Sprintf(", so %s is not compared", name))
 			continue
 		case d == nil:
 			cells = append(cells, []string{"", "OpenSysML (" + feature + ")", "0", "", "", "", "", ""})
@@ -251,16 +259,18 @@ func comparedObservables(cfg *simresults.ConfigurationResults, observe []Observa
 
 // runValues collects the numbers a feature came to in the completed runs, the
 // distinct units they came in, in order of first appearance ("" for a bare number),
-// and how many completed runs produced the feature as no number.
-func runValues(table runtime.SweepTable, feature string) (numbers []semantics.Value, units []string, other int) {
+// how many completed runs produced the feature as no number, and how many did not produce it.
+func runValues(table runtime.SweepTable, feature string) (numbers []semantics.Value, units []string, other, missing int) {
 	for _, row := range table.Rows {
 		if row.Err != nil {
 			continue
 		}
+		produced := false
 		for _, out := range row.Outputs {
 			if out.Name != feature {
 				continue
 			}
+			produced = true
 			n, ok := runtime.MagnitudeValue(out.Value)
 			if !ok {
 				other++
@@ -275,8 +285,11 @@ func runValues(table runtime.SweepTable, feature string) (numbers []semantics.Va
 				units = append(units, unit)
 			}
 		}
+		if !produced {
+			missing++
+		}
 	}
-	return numbers, units, other
+	return numbers, units, other, missing
 }
 
 // unitList spells the units numbers came in, a bare number's as "none".
