@@ -1,33 +1,33 @@
-package passes
+package kit
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// w8dWalkSymbols visits every symbol of the scope subtree exactly once.
-func w8dWalkSymbols(ctx *Context, root *symbols.Scope, visit func(*symbols.Symbol)) {
-	for _, sym := range w8dSymbols(ctx, root) {
+// WalkSymbols visits every symbol of the scope subtree exactly once.
+func WalkSymbols(ctx *Context, root *symbols.Scope, visit func(*symbols.Symbol)) {
+	for _, sym := range Symbols(ctx, root) {
 		visit(sym)
 	}
 }
 
-func w8dSymbols(ctx *Context, root *symbols.Scope) []*symbols.Symbol {
+func Symbols(ctx *Context, root *symbols.Scope) []*symbols.Symbol {
 	if ctx != nil {
-		if cached, ok := ctx.w8dCache[root]; ok {
+		if cached, ok := ctx.symbolCache[root]; ok {
 			return cached
 		}
 	}
-	out := w8dCollectSymbols(root)
+	out := collectSymbols(root)
 	if ctx != nil {
-		if ctx.w8dCache == nil {
-			ctx.w8dCache = make(map[*symbols.Scope][]*symbols.Symbol)
+		if ctx.symbolCache == nil {
+			ctx.symbolCache = make(map[*symbols.Scope][]*symbols.Symbol)
 		}
-		ctx.w8dCache[root] = out
+		ctx.symbolCache[root] = out
 	}
 	return out
 }
 
-func w8dCollectSymbols(root *symbols.Scope) []*symbols.Symbol {
+func collectSymbols(root *symbols.Scope) []*symbols.Symbol {
 	seenSyms := make(map[*symbols.Symbol]bool)
 	seenScopes := make(map[*symbols.Scope]bool)
 	var out []*symbols.Symbol
@@ -54,8 +54,8 @@ func w8dCollectSymbols(root *symbols.Scope) []*symbols.Symbol {
 	return out
 }
 
-// w8dScopeOf returns the scope a symbol's own references resolve in.
-func w8dScopeOf(sym *symbols.Symbol) *symbols.Scope {
+// ReferenceScope returns the scope a symbol's own references resolve in.
+func ReferenceScope(sym *symbols.Symbol) *symbols.Scope {
 	if sym == nil {
 		return nil
 	}

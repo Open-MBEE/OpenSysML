@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -27,7 +28,7 @@ func (W9CShortNameDistinguishabilityPass) Run(ctx *Context, name string, root *a
 	}
 	byScope := map[*symbols.Scope][]*symbols.Symbol{}
 	var order []*symbols.Scope
-	w8dWalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
+	kit.WalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		scope := sym.OwnerScope
 		if scope == nil || sym.Decl == nil {
 			return

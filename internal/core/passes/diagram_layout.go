@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -47,7 +48,7 @@ func (DiagramLayoutPass) Run(ctx *Context, name string, root *ast.RootNamespace)
 	// An `about` annotation stated in this document may annotate an element of
 	// another, so the annotated elements of the whole workspace are visited too.
 	seen := map[*symbols.Symbol]bool{}
-	w8dWalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
+	kit.WalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		seen[sym] = true
 		c.check(sym)
 	})

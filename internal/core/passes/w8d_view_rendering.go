@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -29,7 +30,7 @@ func (W8DViewRenderingPass) Run(ctx *Context, name string, root *ast.RootNamespa
 		return nil
 	}
 	var diags []diag.Diagnostic
-	w8dWalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
+	kit.WalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		msg, ok := w8dViewRenderingMessage(sym.Decl)
 		if !ok {
 			return

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -45,7 +46,7 @@ func (W9CInheritedNameConflictPass) Run(ctx *Context, name string, root *ast.Roo
 	if c.model == nil {
 		return nil
 	}
-	w8dWalkSymbols(ctx, rootScope, c.check)
+	kit.WalkSymbols(ctx, rootScope, c.check)
 	return c.diags
 }
 

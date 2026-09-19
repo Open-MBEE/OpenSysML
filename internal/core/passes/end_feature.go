@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -39,9 +40,9 @@ func (EndFeaturePass) Run(ctx *Context, name string, root *ast.RootNamespace) []
 			Source:   "constraint",
 		})
 	}
-	(&w8cWalker{ctx: ctx}).walk(rootScope, func(sym *symbols.Symbol) {
+	(&kit.Walker{Ctx: ctx}).Walk(rootScope, func(sym *symbols.Symbol) {
 		u, ok := sym.Decl.(*ast.Usage)
-		if !ok || !u.IsEnd || ctx.downstreamSpan(w8cUsageHead(u)) {
+		if !ok || !u.IsEnd || ctx.DownstreamSpan(w8cUsageHead(u)) {
 			return
 		}
 		if u.Direction != ast.DirNone {

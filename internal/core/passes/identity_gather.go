@@ -5,13 +5,10 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
-
-// aboutGather names the gather of the `about`-annotated elements no workspace
-// document declares — bundled library ones — which join the id space too.
-const aboutGather = "\x00identity"
 
 // identityKey is one effective id in one project scope: the unit the identity
 // audit reads the union by.
@@ -232,10 +229,10 @@ func (u *identityUnion) tableOf(doc string) *identity.Table {
 
 // regather replaces doc's contribution — its own elements — with a fresh
 // gather, none when doc is no workspace document, naming the keys it moved.
-func (u *identityUnion) regather(ctx *Context, g *Gathers, doc string, changed map[string]bool) {
+func (u *identityUnion) Regather(ctx *Context, g *Gathers, doc string, changed map[string]bool) {
 	var cur *identityContribution
-	if g.docs[doc] {
-		g.gather(ctx, doc, func(root *symbols.Scope) {
+	if g.Gathered(doc) {
+		g.Gather(ctx, doc, func(root *symbols.Scope) {
 			table := identity.Build(ctx.Model(), ctx.Resolver(), root)
 			cur = contribute(table, func(info *identity.Info) bool {
 				return info.Symbol.DocName == doc
@@ -252,12 +249,12 @@ func (u *identityUnion) regather(ctx *Context, g *Gathers, doc string, changed m
 
 // regatherAbout replaces the contribution of the `about`-annotated elements no
 // workspace document declares.
-func (u *identityUnion) regatherAbout(ctx *Context, g *Gathers, changed map[string]bool) {
+func (u *identityUnion) RegatherAbout(ctx *Context, g *Gathers, changed map[string]bool) {
 	var cur *identityContribution
-	ctx.Resolver().Gather(aboutGather, func() {
+	ctx.Resolver().Gather(kit.AboutGather, func() {
 		table := identity.Build(ctx.Model(), ctx.Resolver())
 		cur = contribute(table, func(info *identity.Info) bool {
-			return !g.docs[info.Symbol.DocName]
+			return !g.Gathered(info.Symbol.DocName)
 		})
 	})
 	u.replace(u.about, cur, changed)

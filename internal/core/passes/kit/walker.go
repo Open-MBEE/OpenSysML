@@ -1,4 +1,4 @@
-package passes
+package kit
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -9,19 +9,19 @@ import (
 
 // w8cWalker visits every symbol of a document's scope tree once, deduping by
 // pointer: one declaration may be registered under several keys.
-type w8cWalker struct {
-	ctx *Context
+type Walker struct {
+	Ctx *Context
 	// walked is what the first walk visited, which w8cSymbols already dedupes;
 	// seen is built only when a later walk must dedupe against it.
 	walked []*symbols.Symbol
 	seen   map[*symbols.Symbol]bool
 }
 
-func (w *w8cWalker) walk(scope *symbols.Scope, visit func(*symbols.Symbol)) {
+func (w *Walker) Walk(scope *symbols.Scope, visit func(*symbols.Symbol)) {
 	if w == nil || scope == nil {
 		return
 	}
-	syms := w8cSymbols(w.ctx, scope)
+	syms := MemberSymbols(w.Ctx, scope)
 	if w.walked == nil {
 		w.walked = syms
 		for _, sym := range syms {
@@ -46,23 +46,23 @@ func (w *w8cWalker) walk(scope *symbols.Scope, visit func(*symbols.Symbol)) {
 
 // w8cSymbols lists the scope tree's symbols once each, in visiting order, and
 // caches the list on ctx for the passes that share it.
-func w8cSymbols(ctx *Context, root *symbols.Scope) []*symbols.Symbol {
+func MemberSymbols(ctx *Context, root *symbols.Scope) []*symbols.Symbol {
 	if ctx != nil {
-		if cached, ok := ctx.w8cCache[root]; ok {
+		if cached, ok := ctx.memberCache[root]; ok {
 			return cached
 		}
 	}
-	out := w8cCollectSymbols(root)
+	out := collectMemberSymbols(root)
 	if ctx != nil {
-		if ctx.w8cCache == nil {
-			ctx.w8cCache = make(map[*symbols.Scope][]*symbols.Symbol)
+		if ctx.memberCache == nil {
+			ctx.memberCache = make(map[*symbols.Scope][]*symbols.Symbol)
 		}
-		ctx.w8cCache[root] = out
+		ctx.memberCache[root] = out
 	}
 	return out
 }
 
-func w8cCollectSymbols(root *symbols.Scope) []*symbols.Symbol {
+func collectMemberSymbols(root *symbols.Scope) []*symbols.Symbol {
 	seen := make(map[*symbols.Symbol]bool)
 	var out []*symbols.Symbol
 	var walk func(*symbols.Scope)
@@ -86,7 +86,7 @@ func w8cCollectSymbols(root *symbols.Scope) []*symbols.Symbol {
 
 // unnamedMetadataBody is the scope of an unnamed annotation's body, which no
 // symbol owns and the symbol walk therefore never reaches; nil for a named one.
-func unnamedMetadataBody(scope *symbols.Scope, prefix *ast.PrefixMetadata) *symbols.Scope {
+func UnnamedMetadataBody(scope *symbols.Scope, prefix *ast.PrefixMetadata) *symbols.Scope {
 	if scope == nil || prefix == nil || prefix.Ident.Name != "" || prefix.Ident.ShortName != "" {
 		return nil
 	}
@@ -94,21 +94,21 @@ func unnamedMetadataBody(scope *symbols.Scope, prefix *ast.PrefixMetadata) *symb
 }
 
 // forEachBodySymbol visits the symbols a metadata body declares, at any depth.
-func forEachBodySymbol(body *symbols.Scope, visit func(*symbols.Symbol)) {
+func ForEachBodySymbol(body *symbols.Scope, visit func(*symbols.Symbol)) {
 	if body == nil {
 		return
 	}
 	body.ForEachMember(func(sym *symbols.Symbol) bool {
 		if sym != nil {
 			visit(sym)
-			forEachBodySymbol(sym.Scope, visit)
+			ForEachBodySymbol(sym.Scope, visit)
 		}
 		return true
 	})
 }
 
 // w8cScopeOf returns the scope a declaration's own references resolve in.
-func w8cScopeOf(sym *symbols.Symbol) *symbols.Scope {
+func DeclarationScope(sym *symbols.Symbol) *symbols.Scope {
 	if sym == nil {
 		return nil
 	}
@@ -119,7 +119,7 @@ func w8cScopeOf(sym *symbols.Symbol) *symbols.Scope {
 }
 
 // w8cMultiplicityOf returns the multiplicity a declaration declares, or nil.
-func w8cMultiplicityOf(sym *symbols.Symbol) *ast.Multiplicity {
+func MultiplicityOf(sym *symbols.Symbol) *ast.Multiplicity {
 	if sym == nil {
 		return nil
 	}
@@ -140,7 +140,7 @@ func w8cMultiplicityOf(sym *symbols.Symbol) *ast.Multiplicity {
 }
 
 // w8cIsReference reports whether n names a feature rather than computing a value.
-func w8cIsReference(n ast.Node) bool {
+func IsReference(n ast.Node) bool {
 	switch n.(type) {
 	case *ast.QualifiedName, *ast.FeatureReference, *ast.FeatureChainExpr:
 		return true
@@ -151,14 +151,14 @@ func w8cIsReference(n ast.Node) bool {
 
 // w8cChainStep is one chaining feature: the node resolving to it and the span
 // of the segment naming it.
-type w8cChainStep struct {
+type ChainStep struct {
 	Node ast.Node
 	Span source.Span
 }
 
 // w8cChainSteps splits a chain target into chaining features: only a `.` starts
 // a new one, a `::`-qualified name is a single chaining feature.
-func w8cChainSteps(target ast.Node) []w8cChainStep {
+func ChainSteps(target ast.Node) []ChainStep {
 	switch t := target.(type) {
 	case nil:
 		return nil
@@ -166,15 +166,15 @@ func w8cChainSteps(target ast.Node) []w8cChainStep {
 		if t.Name == nil {
 			return nil
 		}
-		return []w8cChainStep{{Node: t, Span: t.Name.Span()}}
+		return []ChainStep{{Node: t, Span: t.Name.Span()}}
 	case *ast.FeatureChainExpr:
-		steps := w8cChainSteps(t.Operand)
+		steps := ChainSteps(t.Operand)
 		span := t.Span()
 		if t.Member != nil {
 			span = t.Member.Span()
 		}
-		return append(steps, w8cChainStep{Node: t, Span: span})
+		return append(steps, ChainStep{Node: t, Span: span})
 	default:
-		return []w8cChainStep{{Node: target, Span: target.Span()}}
+		return []ChainStep{{Node: target, Span: target.Span()}}
 	}
 }
