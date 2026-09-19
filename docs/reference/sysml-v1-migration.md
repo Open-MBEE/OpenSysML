@@ -236,8 +236,10 @@ the total duration of a run is what the runtime's clock reports at its end, whic
 measures directly.
 
 An action whose input pin must hold a value (`lower` of 1 or more) but which only flows from
-parameters nothing values can never fire — the token would wait forever at it — so it is written
-and reported as approximated with the pin that starves it, and the report on the activity says
+parameters nothing values, or from object flows that trace back to no pin or parameter at all (a
+buffer nothing fills, an expansion node whose collection is not expanded), can never fire — the
+token would wait forever at it — so it is written and reported as approximated with the pin that
+starves it, no succession reaches or leaves it, and the report on the activity says
 which of its parameters the caller has to value. A call whose target pin is fed from a part of
 the context block, or from the activity's `context` parameter, performs the callee on that
 object, `perform action x ::> drive.motor.spin;`.

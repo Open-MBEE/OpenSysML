@@ -180,3 +180,60 @@ func TestActionsWaitForProducersEachPassOfALoopRuns(t *testing.T) {
 		t.Errorf("the loop did not run twice: %s", out)
 	}
 }
+
+// bufferFedCall is a Meter whose Drain writes last from a central buffer nothing
+// fills, then reads gain, so the write's pin is fed by a flow carrying nothing.
+const bufferFedCall = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_meter" name="Meter">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_gain" name="gain">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_gain0" value="21"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_last" name="last">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_last0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_drain" name="Drain">
+        <node xmi:type="uml:InitialNode" xmi:id="_di"/>
+        <node xmi:type="uml:CentralBufferNode" xmi:id="_dbuf" name="pending"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_setLast" name="set last" structuralFeature="_last" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_slVal" name="value"/>
+        </node>
+        <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="_readGain" name="read gain" structuralFeature="_gain">
+          <result xmi:type="uml:OutputPin" xmi:id="_rgOut" name="result"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_df"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_de1" source="_di" target="_setLast"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_do1" source="_dbuf" target="_slVal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_de2" source="_setLast" target="_readGain"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_de3" source="_readGain" target="_df"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+// An action whose required pin is fed only by an object flow that traces to no
+// pin or parameter never fires, as it never did in v1: no succession reaches or
+// leaves it, the flow is reported as carrying nothing, and the result validates.
+func TestActionsFedByProducerlessFlowsNeverFire(t *testing.T) {
+	r := migrateDocument(t, bufferFedCall, forkFedCallApplications)
+	for _, line := range []string{
+		"first 'set last' then 'read gain';",
+		"first start then 'set last';",
+		"flow 'pending' to 'set last'.value;",
+		"flow to 'set last'.value;",
+	} {
+		wantNoLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_do1", migrate.Unmapped, "nothing the flow carries comes from a pin or parameter")
+	wantNote(t, r, "_de1", migrate.Unmapped, "the edge leads to 'set last', which never fires: no value reaches its input pin 'value'")
+	wantNote(t, r, "_de2", migrate.Unmapped, "the edge leaves 'set last', which never fires, so no token travels it")
+	starved := false
+	for _, e := range entriesFor(r, "_setLast") {
+		starved = starved || e.Verdict == migrate.Approximated && strings.Contains(e.Note, "the action never fires: its input pin 'value' must hold a value, but the object flows into it trace to no pin or parameter that produces a value")
+	}
+	if !starved {
+		t.Errorf("entries for _setLast = %+v, want one noting the action never fires", entriesFor(r, "_setLast"))
+	}
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+}

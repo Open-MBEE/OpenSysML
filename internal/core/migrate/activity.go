@@ -590,8 +590,8 @@ func (a *activity) startSuccessions() {
 }
 
 // starvedPin returns an input pin of n that must hold a value for n to fire but
-// that nothing fills: no object flow feeds it, or only parameters taking no value
-// do, and it is no value pin; nil when every pin is served.
+// that nothing fills: no object flow feeds it, its flows trace to no producer, or
+// only parameters taking no value do, and it is no value pin; nil when all are served.
 func (a *activity) starvedPin(n *sysmlv1.Element) *sysmlv1.Element {
 	for _, pin := range inputPins(n) {
 		switch {
@@ -599,7 +599,7 @@ func (a *activity) starvedPin(n *sysmlv1.Element) *sysmlv1.Element {
 			continue
 		case pin.Type == "ValuePin" && firstOwned(pin, "value") != nil:
 			continue
-		case a.fed[pin] && !a.unvaluedSources(pin):
+		case len(a.sources[pin]) > 0 && !a.unvaluedSources(pin):
 			continue
 		}
 		if lv := firstOwned(pin, "lowerValue"); lv != nil && boundValue(lv) == "0" {
@@ -630,7 +630,10 @@ func (a *activity) unvaluedSources(pin *sysmlv1.Element) bool {
 func (a *activity) starvation(n *sysmlv1.Element) {
 	pin := a.starved[n]
 	why := "no object flow feeds it and it holds no value"
-	if a.fed[pin] {
+	switch {
+	case a.fed[pin] && len(a.sources[pin]) == 0:
+		why = "the object flows into it trace to no pin or parameter that produces a value"
+	case a.fed[pin]:
 		why = "only parameters taking no value flow into it"
 	}
 	a.m.add(n, Approximated, "", "the action never fires: its input pin "+describe(pin)+" must hold a value, but "+why+"; no succession leads to it or leaves it, where v1 would wait on it forever")
