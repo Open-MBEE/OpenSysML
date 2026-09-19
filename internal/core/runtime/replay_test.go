@@ -27,6 +27,10 @@ func TestParseChoiceReadsEveryKind(t *testing.T) {
 		{"state idle on accept go -> 2->right", ChoiceTaken{Kind: ChoiceTransition, Where: "state idle on accept go", Took: "2->right"}},
 		{"on accept go: b1 first of a1, b1", ChoiceTaken{Kind: ChoiceRegionOrder, Where: "on accept go", Alternatives: 2, Taken: 1, Among: []string{"a1", "b1"}, Took: "b1"}},
 		{"t=5.0: state machine c first of state machine a, state machine b, state machine c", ChoiceTaken{Kind: ChoiceDueOrder, Where: "t=5.0", Alternatives: 3, Taken: 2, Among: []string{"state machine a", "state machine b", "state machine c"}, Took: "state machine c"}},
+		{"at t=0.0: do top first of do top, dispatch accept Stop", ChoiceTaken{Kind: ChoiceStepOrder, Where: "at t=0.0", Alternatives: 2, Taken: 0, Among: []string{"do top", "dispatch accept Stop"}, Took: "do top"}},
+		{"at t=2.0: dispatch signal first of do a, do b, dispatch signal", ChoiceTaken{Kind: ChoiceStepOrder, Where: "at t=2.0", Alternatives: 3, Taken: 2, Among: []string{"do a", "do b", "dispatch signal"}, Took: "dispatch signal"}},
+		{"at t=1.0: dispatch change level > 3 1->high first of do low, dispatch change level > 3 1->high", ChoiceTaken{Kind: ChoiceStepOrder, Where: "at t=1.0", Alternatives: 2, Taken: 1, Among: []string{"do low", "dispatch change level > 3 1->high"}, Took: "dispatch change level > 3 1->high"}},
+		{"at t=3.0: dispatch first of do work, dispatch", ChoiceTaken{Kind: ChoiceStepOrder, Where: "at t=3.0", Alternatives: 2, Taken: 1, Among: []string{"do work", "dispatch"}, Took: "dispatch"}},
 		{"step 2: decision select -> 2->slow among 1->fast p=0.7, 2->slow p=0.3 drew 0.7748", ChoiceTaken{Kind: ChoiceDecisionBranch, Step: 2, Where: "decision select", Alternatives: 2, Taken: 1, Among: []string{"1->fast", "2->slow"}, Took: "2->slow", Weights: []float64{0.7, 0.3}, Drew: 0.7748, Drawn: true}},
 		{"step 2: decision select -> 1->fast among 1->fast p=0.7, 2->slow p=0.3", ChoiceTaken{Kind: ChoiceDecisionBranch, Step: 2, Where: "decision select", Alternatives: 2, Taken: 0, Among: []string{"1->fast", "2->slow"}, Took: "1->fast", Weights: []float64{0.7, 0.3}}},
 	}
