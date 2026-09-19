@@ -542,7 +542,8 @@ definition alone is square there); the pilot rules square its packages and regio
 A rendering answered after the setting moved is dropped, since the change queued a
 render in the new style. A palette is that look plus the `fill` and `border`
 the server puts on each node when the render request names one; the canvas sets
-them as custom properties on the node's shape and computes no colour itself, so
+each it is given as a custom property on the node's shape (a sequence participant
+comes with the fill alone) and computes no colour itself, so
 the panel, DOT and PlantUML of one view agree hex for hex and the contrast rule
 lives in one place. The server advertises `openSysmlRenderPalette`; without it the
 panel asks for no palette, draws `pilot`, and says why under the diagram.

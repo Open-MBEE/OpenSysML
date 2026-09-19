@@ -94,7 +94,7 @@ export interface RenderNode {
   height?: number;
   /** The node is drawn closed, its children hidden. */
   collapsed?: boolean;
-  /** The colours the requested palette gives the node, `#RRGGBB`, the same its DOT and PlantUML forms take; absent for a node the palette leaves black and white, and under no palette. */
+  /** The colours the requested palette gives the node, `#RRGGBB`, the same its DOT and PlantUML forms take; each absent where the palette leaves it black and white (a sequence participant's border), both under no palette. */
   fill?: string;
   border?: string;
 }

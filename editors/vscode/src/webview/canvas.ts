@@ -172,13 +172,15 @@ function labelLineClass(i: number, named: boolean): string {
 }
 
 // shape is the outline a node is drawn with: a box for an element, square-cornered
-// for a definition; a symbol for a control node. The colours a palette gave the node
-// ride along as custom properties, for the looks that draw them.
+// for a definition; a symbol for a control node. Each colour a palette gave the node
+// rides along as a custom property, for the looks that draw them.
 function shape(entry: PlacedNode): SVGElement {
   const outline = outlineOf(entry);
   const { fill, border } = entry.node;
-  if (fill !== undefined && border !== undefined) {
+  if (fill !== undefined) {
     outline.style.setProperty("--node-fill", fill);
+  }
+  if (border !== undefined) {
     outline.style.setProperty("--node-border", border);
   }
   return outline;

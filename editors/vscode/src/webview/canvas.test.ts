@@ -211,12 +211,13 @@ test("drawCanvas classes each box as the PlantUML form stereotypes it, squaring 
   );
 });
 
-test("drawCanvas carries a palette's colours on the shape as custom properties, and nothing on a node given none", () => {
+test("drawCanvas carries each palette colour on the shape as its own custom property, and nothing on a node given none", () => {
   const coloured: RenderResult = {
     ...result,
     nodes: [
       node("def", "Tank", { kind: "part def", fill: "#E69F00", border: "#E69F00" }),
       node("use", "tank", { kind: "part", parent: "def", fill: "#F5D999", border: "#E69F00" }),
+      node("lifeline", "producer", { kind: "part", fill: "#F5D999" }),
       node("plain", "pump"),
       node("d", "", { kind: "fork" }),
     ],
@@ -225,11 +226,13 @@ test("drawCanvas carries a palette's colours on the shape as custom properties, 
   const shape = (id: string) => svg.querySelector<SVGElement>(`g[data-opensysml-id="${id}"] > .shape`)!;
   assert.deepEqual([shape("def").style.getPropertyValue("--node-fill"), shape("def").style.getPropertyValue("--node-border")], ["#E69F00", "#E69F00"]);
   assert.deepEqual([shape("use").style.getPropertyValue("--node-fill"), shape("use").style.getPropertyValue("--node-border")], ["#F5D999", "#E69F00"]);
+  // A sequence participant is filled alone; its border stays the look's.
+  assert.deepEqual([shape("lifeline").style.getPropertyValue("--node-fill"), shape("lifeline").style.getPropertyValue("--node-border")], ["#F5D999", ""]);
   assert.equal(shape("plain").getAttribute("style"), null);
   assert.equal(shape("d").getAttribute("style"), null);
   // Colour changes nothing the editing gestures read.
   const groups = [...svg.querySelectorAll<SVGGElement>("g.opensysml-node")];
-  assert.deepEqual(groups.map((group) => [group.dataset.opensysmlId, group.dataset.kind]), [["def", "part def"], ["use", "part"], ["plain", "part"], ["d", "fork"]]);
+  assert.deepEqual(groups.map((group) => [group.dataset.opensysmlId, group.dataset.kind]), [["def", "part def"], ["use", "part"], ["lifeline", "part"], ["plain", "part"], ["d", "fork"]]);
   assert.equal(shape("def").classList.contains("container"), true);
   assert.equal(shape("d").classList.contains("filled"), true);
 });

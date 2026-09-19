@@ -266,6 +266,56 @@ func TestFillsMatchDOT(t *testing.T) {
 	}
 }
 
+// Fills gives every node the fill and border the PlantUML form of the same
+// rendering draws it with: a participant the fill alone, its border uncoloured.
+func TestFillsMatchPlantUML(t *testing.T) {
+	decorated := regexp.MustCompile(`^\s*\w+ ".*" as ([^ ]+)(?: <<[^>]*>>)* (#[0-9A-F]{6})(?:;line:([0-9A-F]{6}))?$`)
+	sequences := 0
+	for _, tc := range plantumlGoldenCases {
+		if tc.name == "sequence-empty" {
+			continue
+		}
+		rendering := render(t, tc.file, tc.view)
+		for _, palette := range Palettes() {
+			fills, err := rendering.Fills(palette)
+			if err != nil {
+				t.Fatalf("%s %s Fills: %v", tc.name, palette, err)
+			}
+			puml, err := rendering.PlantUMLWith(Options{Palette: palette})
+			if err != nil {
+				t.Fatalf("%s %s PlantUML: %v", tc.name, palette, err)
+			}
+			want := map[string]Fill{}
+			for _, line := range strings.Split(puml, "\n") {
+				if m := decorated.FindStringSubmatch(line); m != nil {
+					fill := Fill{Fill: m[2]}
+					if m[3] != "" {
+						fill.Border = "#" + m[3]
+					}
+					want[m[1]] = fill
+				}
+			}
+			if len(want) == 0 {
+				t.Errorf("%s %s: PlantUML fills no node", tc.name, palette)
+			}
+			if fmt.Sprint(fills) != fmt.Sprint(want) {
+				t.Errorf("%s %s: Fills %v, PlantUML %v", tc.name, palette, fills, want)
+			}
+			if tc.kind == KindSequence {
+				sequences++
+				for id, fill := range fills {
+					if fill.Border != "" {
+						t.Errorf("%s %s: participant %s has border %s, want none", tc.name, palette, id, fill.Border)
+					}
+				}
+			}
+		}
+	}
+	if sequences == 0 {
+		t.Error("no sequence rendering checked")
+	}
+}
+
 // No palette fills nothing, an unknown one is refused, and a kind no form
 // fills, a control node and an interconnection's container take no fill.
 func TestFillsOutsideThePalette(t *testing.T) {
