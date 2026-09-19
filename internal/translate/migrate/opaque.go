@@ -1268,7 +1268,12 @@ func (p *opaqueParser) call(path []string) (translated, *refusal) {
 	}
 	switch fn {
 	case "Math.max", "Math.min":
-		if len(args) < 2 {
+		// Java's take two arguments; JavaScript's take any number, folded pairwise.
+		if p.d == dialectJava {
+			if err := arity(2); err != nil {
+				return translated{}, err
+			}
+		} else if len(args) < 2 {
 			return translated{}, &refusal{kind: refusedCall, token: fn, why: fn + " takes at least 2 arguments"}
 		}
 		acc := args[0]
