@@ -1,4 +1,4 @@
-package passes
+package identity
 
 import (
 	"fmt"
@@ -7,24 +7,25 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
-	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
+	ids "github.com/Open-MBEE/OpenSysML/internal/core/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// IdentityMetadataPass validates the IdentityMetadata annotations of a
+// MetadataPass validates the IdentityMetadata annotations of a
 // document: id shape, the enclosing ProjectRef an ElementId resolves against,
 // and effective-id uniqueness over the whole generated id space of each
 // project scope (element ids, `_om` membership ids, `_p` expression-node ids).
-type IdentityMetadataPass struct{}
+type MetadataPass struct{}
 
 // duplicateIDCode is the diagnostic code for an effective id two elements share.
 const duplicateIDCode = "identity-duplicate-id"
 
-func (IdentityMetadataPass) Level() PassLevel { return LevelConstraint }
+func (MetadataPass) Level() kit.PassLevel { return kit.LevelConstraint }
 
-func (IdentityMetadataPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
+func (MetadataPass) Run(ctx *kit.Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -34,19 +35,19 @@ func (IdentityMetadataPass) Run(ctx *Context, name string, root *ast.RootNamespa
 	}
 	// A project scope may span workspace documents, so uniqueness is judged
 	// over the union of their gathers; each document only reports its own elements.
-	union := identityUnionOf(ctx)
-	c := &identityChecker{space: union.identityIndex, docRoot: rootScope}
+	union := unionOf(ctx)
+	c := &checker{space: union.identityIndex, docRoot: rootScope}
 	if c.table = union.judged(ctx.Resolver(), name); c.table == nil {
-		c.table = identity.Build(ctx.Model(), ctx.Resolver(), rootScope)
+		c.table = ids.Build(ctx.Model(), ctx.Resolver(), rootScope)
 		c.space = union.including(c.table)
 	}
 	c.check()
 	return c.diags
 }
 
-type identityChecker struct {
+type checker struct {
 	// table is the document's own identities; space the id space they are judged in.
-	table   *identity.Table
+	table   *ids.Table
 	space   *identityIndex
 	docRoot *symbols.Scope
 	diags   []diag.Diagnostic
@@ -54,18 +55,18 @@ type identityChecker struct {
 
 // inDocument reports whether the info's symbol is declared in the document
 // under validation, so each document reports only its own elements.
-func (c *identityChecker) inDocument(info *identity.Info) bool {
+func (c *checker) inDocument(info *ids.Info) bool {
 	return c.inDoc(info.Symbol.OwnerScope)
 }
 
 // declInDocument reports whether the annotating node is declared in the
 // document under validation: an `about`-form annotation may live in another
 // document than the element it annotates, and its diagnostics belong there.
-func (c *identityChecker) declInDocument(d identity.Declaration) bool {
+func (c *checker) declInDocument(d ids.Declaration) bool {
 	return c.inDoc(d.Scope)
 }
 
-func (c *identityChecker) inDoc(scope *symbols.Scope) bool {
+func (c *checker) inDoc(scope *symbols.Scope) bool {
 	for sc := scope; sc != nil; sc = sc.Parent() {
 		if sc == c.docRoot {
 			return true
@@ -74,7 +75,7 @@ func (c *identityChecker) inDoc(scope *symbols.Scope) bool {
 	return false
 }
 
-func (c *identityChecker) check() {
+func (c *checker) check() {
 	for _, sym := range c.table.Symbols() {
 		info, ok := c.table.Info(sym)
 		if !ok {
@@ -99,7 +100,7 @@ func (c *identityChecker) check() {
 
 // scopeKey groups elements by the project their scope names — org plus
 // projectId — with the absent scope as a group of its own.
-func scopeKey(info *identity.Info) string {
+func scopeKey(info *ids.Info) string {
 	if info.Scope == nil {
 		return ""
 	}
@@ -108,7 +109,7 @@ func scopeKey(info *identity.Info) string {
 
 // checkShape reports the first byte of each declared id outside [a-zA-Z0-9_-],
 // including the empty id, which has no legal byte at all.
-func (c *identityChecker) checkShape(info *identity.Info) {
+func (c *checker) checkShape(info *ids.Info) {
 	for _, d := range info.Declarations {
 		if !d.Declared || !c.declInDocument(d) {
 			continue
@@ -133,7 +134,7 @@ func (c *identityChecker) checkShape(info *identity.Info) {
 
 // checkConflicts errors on every ElementId annotation of an element when two
 // of them bind distinct constant ids, one diagnostic per annotating node.
-func (c *identityChecker) checkConflicts(info *identity.Info) {
+func (c *checker) checkConflicts(info *ids.Info) {
 	ids := make(map[string]bool)
 	for _, d := range info.Declarations {
 		if d.Declared {
@@ -160,7 +161,7 @@ func (c *identityChecker) checkConflicts(info *identity.Info) {
 // checkScopeConflicts errors on every ProjectRef annotation of a namespace
 // when two of them name distinct projects (org plus projectId; branch selects
 // a version, never another identity), one diagnostic per annotating node.
-func (c *identityChecker) checkScopeConflicts(info *identity.Info) {
+func (c *checker) checkScopeConflicts(info *ids.Info) {
 	decls := info.Scope.Declarations
 	projects := make(map[string]string)
 	for _, d := range decls {
@@ -184,7 +185,7 @@ func (c *identityChecker) checkScopeConflicts(info *identity.Info) {
 }
 
 // projectName spells the project one ProjectRef declaration binds to.
-func projectName(d identity.ScopeDeclaration) string {
+func projectName(d ids.ScopeDeclaration) string {
 	if d.Org == "" {
 		return fmt.Sprintf("project %q", d.ProjectID)
 	}
@@ -195,7 +196,7 @@ func projectName(d identity.ScopeDeclaration) string {
 // project scope: an effective id another element shares, a declared id that
 // lands on another element's membership (`…_om`) or expression-node (`…_p…`)
 // id, and another element's declared id landing on this one's.
-func (c *identityChecker) checkIDSpace(info *identity.Info) {
+func (c *checker) checkIDSpace(info *ids.Info) {
 	key := keyOf(info)
 	// Distinct qualified names never derive one id, so a group of derived
 	// ids is one name seen twice, not an identity conflict.
@@ -254,7 +255,7 @@ func expressionPositions(rest string) bool {
 }
 
 // anyAnnotated reports whether any element of the group declares its id.
-func anyAnnotated(group []*identity.Info) bool {
+func anyAnnotated(group []*ids.Info) bool {
 	for _, info := range group {
 		if info.Annotated {
 			return true
@@ -265,19 +266,19 @@ func anyAnnotated(group []*identity.Info) bool {
 
 // firstInDocument is the element's first ElementId annotation declared in the
 // document under validation.
-func (c *identityChecker) firstInDocument(info *identity.Info) (identity.Declaration, bool) {
+func (c *checker) firstInDocument(info *ids.Info) (ids.Declaration, bool) {
 	for _, d := range info.Declarations {
 		if c.declInDocument(d) {
 			return d, true
 		}
 	}
-	return identity.Declaration{}, false
+	return ids.Declaration{}, false
 }
 
 // reportSite locates an element's diagnostic in the document under validation:
 // its first in-document ElementId annotation, or its declaration when the
 // element itself is in-document; not-ok when neither is.
-func (c *identityChecker) reportSite(info *identity.Info) (source.Span, bool) {
+func (c *checker) reportSite(info *ids.Info) (source.Span, bool) {
 	if d, ok := c.firstInDocument(info); ok {
 		return d.Span, true
 	}
@@ -287,7 +288,7 @@ func (c *identityChecker) reportSite(info *identity.Info) (source.Span, bool) {
 	return source.Span{}, false
 }
 
-func (c *identityChecker) errorf(span source.Span, code, format string, args ...any) {
+func (c *checker) errorf(span source.Span, code, format string, args ...any) {
 	c.diags = append(c.diags, diag.Diagnostic{
 		Severity: diag.SeverityError,
 		Span:     span,

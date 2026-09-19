@@ -69,6 +69,7 @@ var packageLayer = map[string]string{
 	"internal/core/passes/kit":      "validation",
 	"internal/core/passes/document": "validation",
 	"internal/core/passes/diagram":  "validation",
+	"internal/core/passes/identity": "validation",
 	"internal/core/edit":            "validation",
 
 	"internal/core/runtime":             "execution",
@@ -125,8 +126,8 @@ var tolerated = map[string][]string{
 	"internal/core/codegen":            {"internal/core/passes"},
 	"internal/core/export":             {"internal/core/libs"},
 	"internal/core/identity":           {"internal/core/rdf"},
+	"internal/core/passes/identity":    {"internal/core/rdf"},
 	"internal/core/migrate":            {"internal/core/libs"},
-	"internal/core/passes":             {"internal/core/rdf"},
 	"internal/core/runtime":            {"internal/core/envvar"},
 }
 
@@ -139,6 +140,7 @@ var removed = map[string][]string{
 	"internal/core/passes/kit":          {"internal/core/passes"},
 	"internal/core/passes/document":     {"internal/core/passes"},
 	"internal/core/passes/diagram":      {"internal/core/passes"},
+	"internal/core/passes/identity":     {"internal/core/passes"},
 	"internal/core/runtime":             {"internal/core/parser", "internal/core/passes"},
 	"internal/repl":                     {"internal/grpc"},
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -141,7 +142,7 @@ func gatherPointers(g *Gathers) map[string][3]uintptr {
 		p[1] = reflect.ValueOf(f).Pointer()
 		out[doc] = p
 	}
-	for doc, f := range g.Union("identity").(*identityUnion).perDoc {
+	for doc, f := range g.Union("identity").(*identity.Union).Contributions() {
 		p := out[doc]
 		p[2] = reflect.ValueOf(f).Pointer()
 		out[doc] = p
