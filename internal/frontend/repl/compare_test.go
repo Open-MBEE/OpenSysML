@@ -29,6 +29,7 @@ const compareModel = `package Cfg {
 	individual def probe :> Probe;
 	action def 'Group 0' { part target : probe; perform action run ::> target.shaky; }
 	action def 'Group 1' { part target : probe; perform action run ::> target.steady; }
+	action def 'Sub::Group' { part target : probe; perform action run ::> target.steady; }
 }`
 
 func compareSession(t *testing.T) *Session {
@@ -266,5 +267,44 @@ func TestCompareRefusesAnAmbiguousName(t *testing.T) {
 	got = s.CompareResults(&simresults.Results{Source: results.Source, Configurations: one}, CompareOptions{Seed: &seed, Only: []string{"Group 1", "'Group 1'"}})
 	if len(got) != 1 || !got[0].Holds() {
 		t.Errorf("a simple name borne by one configuration = %+v, want it compared once", got)
+	}
+}
+
+func TestSameNameSplitsOutsideQuotes(t *testing.T) {
+	for _, c := range []struct {
+		name, qualified string
+		want            bool
+	}{
+		{"A::B", "Cfg::'A::B'", true},
+		{"'A::B'", "Cfg::'A::B'", true},
+		{"B", "Cfg::'A::B'", false},
+		{"B'", "Cfg::'A::B'", false},
+		{"A::B", "Cfg::A::B", false},
+		{"B", "Cfg::A::B", true},
+		{`'it\'s'`, `Cfg::'it\'s'`, true},
+		{"'it'", `Cfg::'it\'s'`, false},
+		{"s'", `Cfg::'it\'s'`, false},
+		{"Group 1", "'Cfg::Pkg'::'Group 1'", true},
+		{"Pkg'::'Group 1'", "'Cfg::Pkg'::'Group 1'", false},
+		{"Group 1", "Group 1", true},
+		{"Group 1", "'Group 1'", true},
+	} {
+		if got := sameName(c.name, c.qualified); got != c.want {
+			t.Errorf("sameName(%q, %q) = %t, want %t", c.name, c.qualified, got, c.want)
+		}
+	}
+
+	s := compareSession(t)
+	seed := uint64(1)
+	results := compareResults("'Sub::Group'", 2)
+	for _, name := range []string{"Sub::Group", "'Sub::Group'", "Cfg::'Sub::Group'"} {
+		got := s.CompareResults(results, CompareOptions{Seed: &seed, Only: []string{name}})
+		if len(got) != 1 || !got[0].Holds() || got[0].Subject != "compare Cfg::'Sub::Group'" {
+			t.Errorf("-action %s = %+v, want the configuration named 'Sub::Group' compared", name, got)
+		}
+	}
+	got := s.CompareResults(results, CompareOptions{Seed: &seed, Only: []string{"Group"}})
+	if len(got) != 1 || got[0].Holds() || !strings.Contains(strings.Join(got[0].Lines, "\n"), "no configuration is named Group") {
+		t.Errorf("-action Group over a configuration named 'Sub::Group' = %+v, want a refusal", got)
 	}
 }

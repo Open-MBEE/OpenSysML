@@ -1050,7 +1050,9 @@ or nest index each snapshot once. The sidecar is read strictly: an unknown field
 `configurations`, or malformed JSON is refused naming the file.
 
 `-compare-results <file>` on the migrated model then runs every configuration the sidecar
-indexes — or those `-action` names by id, qualified name or a simple name one alone bears, an
+indexes — or those `-action` names by id, qualified name or a simple name one alone bears (read as
+the notation is, so `'Sub::Group'` is one name and `-action Sub::Group` or `-action "'Sub::Group'"`
+selects it; a `::` inside its quotes is no qualification), an
 `-action` no configuration bears (`no configuration is named Group 9`) or several do (`2
 configurations are named Group 1 (…)`) failing the check on its own beside the ones compared — under its recorded
 count and policy, or the `-runs`, `-draws` and `-seed` given, and tables the tool's and
