@@ -35,11 +35,11 @@ profile tests-runtime ./internal/exec/runtime -count=1
 profile tests-model   ./internal/workspace/model   -count=1
 profile tests-corpus  ./tests/corpus          -count=1
 profile tests-libs    ./internal/workspace/libs    -count=1
-profile tests-lsp     ./internal/lsp          -count=1
+profile tests-lsp     ./internal/frontend/lsp          -count=1
 
 # Benchmarks: calc/instantiation/state machines (repl), the gRPC parse path, the harness.
-profile bench-repl ./internal/repl      -run '^$' -bench . -benchtime 1s
-profile bench-grpc ./internal/grpc      -run '^$' -bench . -benchtime 1s
+profile bench-repl ./internal/frontend/repl      -run '^$' -bench . -benchtime 1s
+profile bench-grpc ./internal/frontend/grpc      -run '^$' -bench . -benchtime 1s
 profile bench-perf ./tests/perf -run '^$' \
   -bench 'Lex|Parse|IndexAdd|Analyze|WorkspaceEdit|FQNOf|LookupQualified|REPL|Lower|Execute|BatchConstraints|SameConstraint|GRPC|Connect' \
   -benchtime 1s

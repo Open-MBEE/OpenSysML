@@ -21,7 +21,7 @@ package OpenSysMLSurfaces {
     }
 
     #Surface part def Repl :> AskingInterface {
-        attribute :>> goPackage = "internal/repl";
+        attribute :>> goPackage = "internal/frontend/repl";
         attribute :>> entrypoint = "cmd/sysml";
         attribute :>> protocol = "terminal";
         attribute :>> engineSelector = "%engine";
@@ -34,7 +34,7 @@ package OpenSysMLSurfaces {
     // Every capability the server announces in its initialize result; the
     // rendering requests are the experimental extension the VS Code client uses.
     #Surface part def LanguageServer :> Interface {
-        attribute :>> goPackage = "internal/lsp";
+        attribute :>> goPackage = "internal/frontend/lsp";
         attribute :>> entrypoint = "cmd/sysml-lsp";
         attribute :>> protocol = "lsp-stdio";
         attribute incrementalSync : Boolean = true;
@@ -69,7 +69,7 @@ package OpenSysMLSurfaces {
     // One hand-written service behind two generated transports: gRPC over
     // HTTP/2 with reflection, and Connect over plain HTTP for browsers.
     #Surface part def ModelService :> AskingInterface {
-        attribute :>> goPackage = "internal/grpc";
+        attribute :>> goPackage = "internal/frontend/grpc";
         attribute :>> entrypoint = "cmd/sysml-grpc";
         attribute :>> protocol = "grpc, connect";
         attribute :>> engineSelector = "engine";
@@ -78,22 +78,22 @@ package OpenSysMLSurfaces {
         attribute enginesCapability : String = "engines";
         attribute reflectionEnabled : Boolean = true;
         attribute handWrittenService : Boolean = true;
-        attribute connectAdapter : String = "internal/grpc/connect.go";
-        attribute stdioTransport : String = "internal/stdiorpc";
+        attribute connectAdapter : String = "internal/frontend/grpc/connect.go";
+        attribute stdioTransport : String = "internal/frontend/stdiorpc";
         part schema : ApiSchema;
     }
 
     // The same service over a pipe: a process that embeds the binary talks to
     // it without a network listener.
     #Surface part def StdioService :> Interface {
-        attribute :>> goPackage = "internal/stdiorpc";
+        attribute :>> goPackage = "internal/frontend/stdiorpc";
         attribute :>> entrypoint = "cmd/sysml-grpc";
         attribute :>> protocol = "stdio";
     }
 
     // The non-interactive side of the REPL binary: convert, query, render.
     #Surface part def CommandLine :> AskingInterface {
-        attribute :>> goPackage = "internal/repl";
+        attribute :>> goPackage = "internal/frontend/repl";
         attribute :>> entrypoint = "cmd/sysml";
         attribute :>> protocol = "flags";
         attribute :>> engineSelector = "-engine";

@@ -127,7 +127,7 @@ func TestRuntimeRobustnessSignals(t *testing.T) {
 	Write(t, root, grpc+"a.expected.json", "{}\n")
 	Write(t, root, grpc+"b.expected.json", "{}\n")
 	Write(t, root, grpc+"b.check.expected.json", "{}\n")
-	Write(t, root, "internal/grpc/robustness_test.go", `package grpc
+	Write(t, root, "internal/frontend/grpc/robustness_test.go", `package grpc
 
 import "testing"
 
@@ -136,7 +136,7 @@ func TestGRPCRobustness(t *testing.T) {
 	t.Run("b", func(t *testing.T) {})
 }
 `)
-	Write(t, root, "internal/grpc/robustness_streams_test.go", `package grpc
+	Write(t, root, "internal/frontend/grpc/robustness_streams_test.go", `package grpc
 
 import "testing"
 
@@ -144,7 +144,7 @@ func TestGRPCRobustnessStreams(t *testing.T) {
 	t.Run("c", func(t *testing.T) {})
 }
 `)
-	Write(t, root, "internal/lsp/server_test.go", `package lsp
+	Write(t, root, "internal/frontend/lsp/server_test.go", `package lsp
 
 import "testing"
 

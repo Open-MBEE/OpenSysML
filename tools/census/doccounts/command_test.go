@@ -335,7 +335,7 @@ func TestSiteBlocksRenderTheTreeAsJSON(t *testing.T) {
 		"inventory-robustness":  "7 runtime robustness cases (first-level subtests across the `TestRuntimeRobustness*` functions)",
 		"inventory-grpc":        "2 gRPC conformance cases and 3 gRPC robustness cases (first-level subtests across the `TestGRPCRobustness*` functions)",
 		"inventory-tests":       want.TestFunctions + " top-level `Test` functions across the module",
-		"lsp-tests":             "1 top-level `Test` functions in `internal/lsp`",
+		"lsp-tests":             "1 top-level `Test` functions in `internal/frontend/lsp`",
 	} {
 		if !strings.HasPrefix(compliance[name], text) {
 			t.Errorf("%s renders %q, want it to open with %q", name, compliance[name], text)

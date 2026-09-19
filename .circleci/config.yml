@@ -469,7 +469,7 @@ jobs:
           name: Run solver gate (cvc5)
           command: |
             set -o pipefail
-            OPENSYSML_SMT=cvc5 go test -count=1 -v ./internal/exec/solve ./internal/repl \
+            OPENSYSML_SMT=cvc5 go test -count=1 -v ./internal/exec/solve ./internal/frontend/repl \
               -run 'TestSolver|TestDiscovery|TestSolved|TestDivisor|TestCheck|TestSolve|TestConfigure|TestSynthesis|TestPinned|TestFixed|TestExplain|TestCore' \
               | tee cvc5-gate.log
             if grep -qE '^\s*--- SKIP' cvc5-gate.log; then
@@ -487,7 +487,7 @@ jobs:
           command: |
             set -o pipefail
             env -u OPENSYSML_REQUIRE_SMT OPENSYSML_SMT=/nonexistent/no-such-solver \
-              go test -count=1 -v ./internal/exec/solve ./internal/repl | tee no-solver-gate.log
+              go test -count=1 -v ./internal/exec/solve ./internal/frontend/repl | tee no-solver-gate.log
             for name in TestCheckReportsAnAbsentSolver TestExplainReportsAnAbsentSolver \
               TestSolveReportsAnAbsentSolver TestConfigureReportsAnAbsentSolver \
               TestOptimizeReportsAnAbsentSolver; do

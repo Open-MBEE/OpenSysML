@@ -21,8 +21,8 @@ const (
 // Frontends whose runtime models the check must keep seeing; a restructuring
 // that hides one of these construction sites from the walk fails here.
 var runtimeModelFrontends = []string{
-	"internal/repl/session.go",
-	"internal/grpc/cache.go",
+	"internal/frontend/repl/session.go",
+	"internal/frontend/grpc/cache.go",
 	"internal/workspace/model/runtime.go",
 }
 
