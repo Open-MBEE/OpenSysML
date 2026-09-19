@@ -2809,8 +2809,8 @@ expression typer and the checks that call into it — among them the three behav
 moves — the constraint checker and the structural rules, and the OOSEM and MOSA audits. Every
 diagnostic code, message, range and quick fix is byte-identical; the corpus gates, the golden
 tests and the validation census are the assertion, and statement coverage over the tree is unchanged. Measured before and after the five pull requests:
-`go list -deps ./cmd/sysml` 363 → 368, `go list ./internal/...` 54 → 59 packages, directories
-under `internal/` 95 → 100 — the five new packages and nothing else; 82 non-test files in one
+`go list -deps ./cmd/sysml` 363 → 364, `go list ./internal/...` 54 → 55 packages, directories
+under `internal/` 95 → 96 — the five new packages and nothing else; 82 non-test files in one
 package become 71 in the root, 5 in `kit`, 4 in `behavior` and 3 in each of `document`, `diagram`
 and `identity`.
 
