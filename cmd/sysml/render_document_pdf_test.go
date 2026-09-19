@@ -33,6 +33,7 @@ func TestRenderDocumentPDF(t *testing.T) {
 	dir := t.TempDir()
 	seen := filepath.Join(dir, "input-seen.html")
 	weasyprint := fakePDFTool(t, dir, "weasyprint", `cp "$1" `+seen+`
+printf '%s\n' "$@" > `+seen+`.args
 printf '%%PDF-1.7 fake' > "$2"
 `)
 	mmdc := fakePDFTool(t, dir, "mmdc", `out=""
@@ -55,6 +56,13 @@ printf '<svg xmlns="http://www.w3.org/2000/svg"/>' > "$out"
 	if !strings.HasPrefix(string(pdf), "%PDF-") {
 		t.Errorf("artifact is no PDF: %.16q", pdf)
 	}
+	args, err := os.ReadFile(seen + ".args")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "--base-url\nfile://" + filepath.ToSlash(dir) + "/\n"; !strings.HasSuffix(string(args), want) {
+		t.Errorf("converter is not handed the PDF's directory as the base URL:\n%s", args)
+	}
 	page, err := os.ReadFile(seen)
 	if err != nil {
 		t.Fatal(err)
@@ -67,8 +75,9 @@ printf '<svg xmlns="http://www.w3.org/2000/svg"/>' > "$out"
 		`<span class="sysml-section-number">`,
 		"@layer opensysml {",
 		"@layer opensysml-print {",
-		`<img src="diagram-1.svg"`,
-		`<img src="diagram-2.svg"`,
+		`<img src="file:///`,
+		`/diagram-1.svg" alt=`,
+		`/diagram-2.svg" alt=`,
 		`<figcaption class="sysml-caption">`,
 	} {
 		if !strings.Contains(string(page), want) {
@@ -177,10 +186,13 @@ printf '<svg xmlns="http://www.w3.org/2000/svg"/>' > "$out"
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"--css\npandoc.css\n", "--css\nreader-1.css\n", "--css\nhttps://example.test/site.css\n"} {
+	for _, want := range []string{"--css\nfile:///", "/pandoc.css\n", "--pdf-engine-opt=--base-url=file://" + filepath.ToSlash(dir) + "/\n", "--include-in-header\nreader-stylesheets.html\n"} {
 		if !strings.Contains(string(args), want) {
 			t.Errorf("pandoc arguments miss %q:\n%s", want, args)
 		}
+	}
+	if strings.Contains(string(args), "reader-1.css") || strings.Contains(string(args), "--css\nhttps://example.test/site.css\n") {
+		t.Errorf("pandoc is handed the reader's sheets as files rather than in its page:\n%s", args)
 	}
 
 	for _, flag := range []string{"-html-theme=report", "-html-no-default-css"} {

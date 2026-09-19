@@ -7,7 +7,6 @@ package docpdf
 import (
 	"context"
 	_ "embed"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -59,6 +58,10 @@ type Prepared struct {
 	// MathCSS is the KaTeX stylesheet's path within Dir, for converters that
 	// read the Markdown themselves; empty when the document has no formulas.
 	MathCSS string
+
+	// BaseDir is the absolute directory the document's relative references
+	// resolve against; Dir's own files are referenced by absolute file URL.
+	BaseDir string
 
 	// Options are the deliverable choices, for converters with native flags.
 	Options Options
@@ -214,7 +217,7 @@ func (c *weasyPrintConverter) Convert(doc *Prepared) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := runTool(doc.Dir, path, doc.HTMLFile, outputName); err != nil {
+	if err := runTool(doc.Dir, path, doc.HTMLFile, outputName, "--base-url", dirURL(doc.BaseDir)); err != nil {
 		return nil, err
 	}
 	return readPDF(doc.Dir, outputName, weasyPrintTool.name)
@@ -251,6 +254,8 @@ func (c *pandocConverter) Convert(doc *Prepared) ([]byte, error) {
 		return nil, err
 	}
 	// Shifting the title heading into pandoc's title block keeps it unnumbered.
+	// pandoc embeds the page's resources itself, searching the later resource
+	// path first, so a sheet's relative references resolve beside the PDF.
 	args := []string{
 		doc.MarkdownFile,
 		"--from", "commonmark_x",
@@ -259,18 +264,21 @@ func (c *pandocConverter) Convert(doc *Prepared) ([]byte, error) {
 		"--standalone",
 		"--shift-heading-level-by", "-1",
 		"--variable", "document-css=false",
-		"--css", pandocCSSName,
+		"--css", fileURL(filepath.Join(doc.Dir, pandocCSSName)),
 		"--output", outputName,
+		"--resource-path", ".",
+		"--resource-path", doc.BaseDir,
+		"--pdf-engine-opt=--base-url=" + dirURL(doc.BaseDir),
 	}
 	if doc.MathCSS != "" {
-		args = append(args, "--css", doc.MathCSS)
+		args = append(args, "--css", fileURL(filepath.Join(doc.Dir, doc.MathCSS)))
 	}
-	sheets, err := writeReaderStylesheets(doc.Dir, doc.Options.Stylesheets)
-	if err != nil {
-		return nil, err
-	}
-	for _, sheet := range sheets {
-		args = append(args, "--css", sheet)
+	if len(doc.Options.Stylesheets) > 0 {
+		markup := docrender.StylesheetMarkup(doc.Options.Stylesheets)
+		if err := os.WriteFile(filepath.Join(doc.Dir, readerSheetsName), []byte(markup), 0o600); err != nil {
+			return nil, err
+		}
+		args = append(args, "--include-in-header", readerSheetsName)
 	}
 	if doc.Filter != "" {
 		args = append(args, "--lua-filter", doc.Filter)
@@ -307,7 +315,7 @@ func (c *princeConverter) Convert(doc *Prepared) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := runTool(doc.Dir, path, doc.HTMLFile, "-o", outputName); err != nil {
+	if err := runTool(doc.Dir, path, doc.HTMLFile, "-o", outputName, "--baseurl="+dirURL(doc.BaseDir)); err != nil {
 		return nil, err
 	}
 	return readPDF(doc.Dir, outputName, princeTool.name)
@@ -335,21 +343,7 @@ func pandocCSS(opts Options) string {
 	return css
 }
 
-// writeReaderStylesheets lays the reader's stylesheets out for a converter
-// reading Markdown: each inline sheet as a file in dir, each linked one as
-// its URL, in order.
-func writeReaderStylesheets(dir string, sheets []docrender.Stylesheet) ([]string, error) {
-	names := make([]string, 0, len(sheets))
-	for i, sheet := range sheets {
-		if sheet.Href != "" {
-			names = append(names, sheet.Href)
-			continue
-		}
-		name := fmt.Sprintf("reader-%d.css", i+1)
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(sheet.Content), 0o600); err != nil {
-			return nil, err
-		}
-		names = append(names, name)
-	}
-	return names, nil
-}
+// readerSheetsName is the head markup attaching the reader's stylesheets,
+// included in pandoc's page after its own so they override it, inline sheets
+// inlined so their relative references resolve against the page's base.
+const readerSheetsName = "reader-stylesheets.html"

@@ -66,7 +66,8 @@ func runRenderDocument(files []string) error {
 }
 
 // pdfOptions resolves the PDF flags: the deliverable options and the
-// stylesheet options, which reach the PDF as they reach an HTML page.
+// stylesheet options, which reach the PDF as they reach an HTML page, their
+// relative references resolving against the PDF's directory.
 func pdfOptions() (docpdf.Options, error) {
 	page, err := htmlOptions()
 	if err != nil {
@@ -79,6 +80,7 @@ func pdfOptions() (docpdf.Options, error) {
 		Theme:               page.Theme,
 		NoDefaultStylesheet: page.NoDefaultStylesheet,
 		Stylesheets:         page.Stylesheets,
+		BaseDir:             filepath.Dir(outputPath),
 		DiagramForm:         page.DiagramForm,
 	}, nil
 }

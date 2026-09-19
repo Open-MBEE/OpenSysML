@@ -130,8 +130,110 @@ func TestRenderMalformedStylesheetEveryEngine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(args), "--css reader-1.css") {
+	if !strings.Contains(string(args), "--include-in-header reader-stylesheets.html") {
 		t.Fatalf("pandoc arguments lack the empty reader stylesheet: %s", args)
+	}
+}
+
+// TestRenderBaseDirEveryEngine checks each engine is handed BaseDir as the
+// base URL for the document's relative references, so a reader sheet's
+// url() and @import resolve beside the PDF as they do beside an HTML page,
+// while the working directory's own files are referenced by absolute file URL.
+func TestRenderBaseDirEveryEngine(t *testing.T) {
+	dir := t.TempDir()
+	fakeMermaid(t, dir)
+	out := filepath.Join(dir, "out")
+	if err := os.Mkdir(out, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	base := "file://" + filepath.ToSlash(out) + "/"
+	sheets := []docrender.Stylesheet{
+		docrender.InlineStylesheet("@import url(\"beside.css\");\n.sysml-title::before { content: url(mark.png) }\n"),
+		docrender.LinkedStylesheet("https://example.test/site.css"),
+	}
+	document := telescopeDocument(t)
+	capture := filepath.Join(dir, "capture")
+	record := `echo "$@" > "` + capture + `.args"; pwd > "` + capture + `.dir"; cp "$1" "` + capture + `.in"; `
+	writePDF := `out="$2"; while [ $# -gt 0 ]; do case "$1" in --output|-o) out="$2";; esac; shift; done; printf '%%PDF-1.7 fake' > "$out"` + "\n"
+	fakeTool(t, dir, "weasyprint", WeasyPrintEnv, record+writePDF)
+	fakeTool(t, dir, "prince", PrinceEnv, record+writePDF)
+	fakeTool(t, dir, "pandoc", PandocEnv, record+`cp "$(pwd)/reader-stylesheets.html" "`+capture+`.head"; `+writePDF)
+
+	for _, engine := range []string{"weasyprint", "prince"} {
+		if _, err := Render(document, engine, Options{Stylesheets: sheets, BaseDir: out}); err != nil {
+			t.Fatalf("%s: Render: %v", engine, err)
+		}
+		args, err := os.ReadFile(capture + ".args")
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := "document.html document.pdf --base-url " + base
+		if engine == "prince" {
+			want = "document.html -o document.pdf --baseurl=" + base
+		}
+		if strings.TrimSpace(string(args)) != want {
+			t.Errorf("%s arguments: got %q, want %q", engine, strings.TrimSpace(string(args)), want)
+		}
+		page, err := os.ReadFile(capture + ".in")
+		if err != nil {
+			t.Fatal(err)
+		}
+		images := fileRefs(captureDir(t, capture), []string{"diagram-1.svg", "diagram-2.svg"})
+		for _, want := range []string{
+			docrender.StylesheetMarkup(sheets),
+			`<img src="` + images[0] + `" alt="Imaging chain interconnection">`,
+			`<img src="` + images[1] + `" alt="Observatory states, left to right">`,
+		} {
+			if !strings.Contains(string(page), want) {
+				t.Errorf("%s page lacks %q:\n%s", engine, want, page)
+			}
+		}
+		if strings.Contains(string(page), filepath.ToSlash(out)) {
+			t.Errorf("%s page references the output directory:\n%s", engine, page)
+		}
+	}
+
+	if _, err := Render(document, "pandoc", Options{Stylesheets: sheets, BaseDir: out}); err != nil {
+		t.Fatalf("pandoc: Render: %v", err)
+	}
+	args, err := os.ReadFile(capture + ".args")
+	if err != nil {
+		t.Fatal(err)
+	}
+	work := captureDir(t, capture)
+	for _, want := range []string{
+		"--css " + fileURL(filepath.Join(work, "pandoc.css")),
+		"--resource-path . --resource-path " + out + " ",
+		"--pdf-engine-opt=--base-url=" + base,
+		"--include-in-header reader-stylesheets.html",
+	} {
+		if !strings.Contains(string(args), want) {
+			t.Errorf("pandoc arguments lack %q: %s", want, args)
+		}
+	}
+	if strings.Contains(string(args), "--css reader") {
+		t.Errorf("pandoc links a reader sheet as a file, whose url() would resolve beside it: %s", args)
+	}
+	head, err := os.ReadFile(capture + ".head")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(head) != docrender.StylesheetMarkup(sheets) {
+		t.Errorf("pandoc header include is not the reader's sheets as the HTML backend attaches them:\n%s", head)
+	}
+
+	if _, err := Render(document, "weasyprint", Options{}); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	if args, err = os.ReadFile(capture + ".args"); err != nil {
+		t.Fatal(err)
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "--base-url file://" + filepath.ToSlash(cwd) + "/"; !strings.HasSuffix(strings.TrimSpace(string(args)), want) {
+		t.Errorf("BaseDir unset: got %q, want the current directory %q", args, want)
 	}
 }
 
@@ -164,8 +266,18 @@ func captureWeasyPrint(t *testing.T, dir string) string {
 	t.Helper()
 	capture := filepath.Join(dir, "capture")
 	fakeTool(t, dir, "weasyprint", WeasyPrintEnv,
-		`cp "$1" "`+capture+`.html"; ls -R "$(dirname "$1")" > "`+capture+`.ls"; printf '%%PDF-1.7 fake' > "$2"`+"\n")
+		`cp "$1" "`+capture+`.html"; ls -R "$(dirname "$1")" > "`+capture+`.ls"; pwd > "`+capture+`.dir"; echo "$@" > "`+capture+`.args"; printf '%%PDF-1.7 fake' > "$2"`+"\n")
 	return capture
+}
+
+// captureDir is the working directory a capturing fake tool ran in.
+func captureDir(t *testing.T, capture string) string {
+	t.Helper()
+	dir, err := os.ReadFile(capture + ".dir")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.TrimSpace(string(dir))
 }
 
 func readCapture(t *testing.T, capture string) (page, listing string) {
@@ -216,10 +328,11 @@ func TestRenderHTMLIsTheBackendsPage(t *testing.T) {
 		t.Fatalf("Render: %v", err)
 	}
 	page, listing := readCapture(t, capture)
+	images := fileRefs(captureDir(t, capture), []string{"diagram-1.svg", "diagram-2.svg"})
 	want, err := docrender.HTML(document, docrender.HTMLOptions{
 		TitlePage: true, TOC: true, NumberSections: true,
 		Stylesheets:   []docrender.Stylesheet{docrender.InlineStylesheet(PrintStylesheet)},
-		DiagramImages: []string{"diagram-1.svg", "diagram-2.svg"},
+		DiagramImages: images,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -228,8 +341,8 @@ func TestRenderHTMLIsTheBackendsPage(t *testing.T) {
 		t.Fatalf("page differs from the HTML backend's with the print stylesheet:\n%s", page)
 	}
 	for _, want := range []string{
-		`<img src="diagram-1.svg" alt="Imaging chain interconnection">`,
-		`<img src="diagram-2.svg" alt="Observatory states, left to right">`,
+		`<img src="` + images[0] + `" alt="Imaging chain interconnection">`,
+		`<img src="` + images[1] + `" alt="Observatory states, left to right">`,
 		`<dt class="sysml-term">M3|*</dt>`,
 		`<caption class="sysml-caption">All subsystems by mass</caption>`,
 	} {
@@ -287,7 +400,7 @@ func TestPrintStylesheetContract(t *testing.T) {
 	}
 	page, err := docrender.HTML(plainDocument(t), htmlOptions(Options{
 		Stylesheets: []docrender.Stylesheet{docrender.InlineStylesheet(".sysml-document { color: red }")},
-	}, nil, formulas{}))
+	}, t.TempDir(), nil, formulas{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,7 +423,7 @@ func TestPrintStylesheetContract(t *testing.T) {
 // tokens, so a list of qualified names cannot push columns off the page, and
 // keeps each row on one page.
 func TestPrintStylesheetKeepsTablesWithinThePage(t *testing.T) {
-	page, err := docrender.HTML(plainDocument(t), htmlOptions(Options{}, nil, formulas{}))
+	page, err := docrender.HTML(plainDocument(t), htmlOptions(Options{}, t.TempDir(), nil, formulas{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -488,7 +601,7 @@ func TestRenderForPandoc(t *testing.T) {
 	fakeMermaid(t, dir)
 	capture := filepath.Join(dir, "capture")
 	fakeTool(t, dir, "pandoc", PandocEnv,
-		`echo "$@" > "`+capture+`.args"; cp "$1" "`+capture+`.md"; cp "$(dirname "$1")/artwork.lua" "`+capture+`.lua"; cp "$(dirname "$1")/pandoc.css" "`+capture+`.css"; out=""; while [ $# -gt 0 ]; do [ "$1" = "--output" ] && out="$2"; shift; done; printf '%%PDF-1.7 fake' > "$out"`+"\n")
+		`echo "$@" > "`+capture+`.args"; pwd > "`+capture+`.dir"; cp "$1" "`+capture+`.md"; cp "$(dirname "$1")/artwork.lua" "`+capture+`.lua"; cp "$(dirname "$1")/pandoc.css" "`+capture+`.css"; out=""; while [ $# -gt 0 ]; do [ "$1" = "--output" ] && out="$2"; shift; done; printf '%%PDF-1.7 fake' > "$out"`+"\n")
 	fakeTool(t, dir, "weasyprint", WeasyPrintEnv, "exit 0\n")
 	document := telescopeDocument(t)
 	if _, err := Render(document, "pandoc", Options{TitlePage: true, TOC: true, NumberSections: true}); err != nil {
@@ -498,7 +611,8 @@ func TestRenderForPandoc(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"--css pandoc.css", "--lua-filter artwork.lua", "--toc", "--number-sections", "--pdf-engine "} {
+	work := captureDir(t, capture)
+	for _, want := range []string{"--css " + fileURL(filepath.Join(work, "pandoc.css")), "--lua-filter artwork.lua", "--toc", "--number-sections", "--pdf-engine "} {
 		if !strings.Contains(string(args), want) {
 			t.Fatalf("pandoc arguments lack %q: %s", want, args)
 		}
@@ -518,7 +632,8 @@ func TestRenderForPandoc(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`local form = "mermaid"`, `local images = {"diagram-1.svg", "diagram-2.svg"}`, "local math = {\n}"} {
+	images := fileRefs(work, []string{"diagram-1.svg", "diagram-2.svg"})
+	for _, want := range []string{`local form = "mermaid"`, `local images = {"` + images[0] + `", "` + images[1] + `"}`, "local math = {\n}"} {
 		if !strings.Contains(string(filter), want) {
 			t.Fatalf("filter lacks %q:\n%s", want, filter)
 		}

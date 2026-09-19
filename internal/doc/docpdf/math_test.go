@@ -59,7 +59,7 @@ func TestRenderFormulasWithFakeTools(t *testing.T) {
 	}
 	page, listing := readCapture(t, capture)
 	for _, want := range []string{
-		`<link rel="stylesheet" href="katex/katex.min.css">`,
+		`<link rel="stylesheet" href="` + fileURL(filepath.Join(captureDir(t, capture), "katex", "katex.min.css")) + `">`,
 		`The mirror&#39;s mass scales as <span class="sysml-math"><span class="katex inline">m \propto D^{2.5}_{\text{eff}}</span></span> and each $ of budget`,
 		"<div class=\"sysml-math\"><span class=\"katex display\">A = \\pi \\left(\\frac{D}{2}\\right)^2\n= \\frac{\\pi D^2}{4}</span></div>",
 		`<div class="sysml-math"><span class="katex display">\text{cost} = 10^6\,\$ \times D^{2.5} + \$</span></div>`,
@@ -98,7 +98,7 @@ func TestRenderFormulasForPandoc(t *testing.T) {
 	fakeKatex(t, dir)
 	capture := filepath.Join(dir, "capture")
 	fakeTool(t, dir, "pandoc", PandocEnv,
-		`echo "$@" > "`+capture+`.args"; cp "$1" "`+capture+`.md"; cp "$(dirname "$1")/artwork.lua" "`+capture+`.lua"; out=""; while [ $# -gt 0 ]; do [ "$1" = "--output" ] && out="$2"; shift; done; printf '%%PDF-1.7 fake' > "$out"`+"\n")
+		`echo "$@" > "`+capture+`.args"; pwd > "`+capture+`.dir"; cp "$1" "`+capture+`.md"; cp "$(dirname "$1")/artwork.lua" "`+capture+`.lua"; out=""; while [ $# -gt 0 ]; do [ "$1" = "--output" ] && out="$2"; shift; done; printf '%%PDF-1.7 fake' > "$out"`+"\n")
 	fakeTool(t, dir, "weasyprint", WeasyPrintEnv, "exit 0\n")
 	document := mathDocument(t)
 	if _, err := Render(document, "pandoc", Options{}); err != nil {
@@ -108,7 +108,14 @@ func TestRenderFormulasForPandoc(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(args), "--css pandoc.css --output document.pdf --css katex/katex.min.css --lua-filter artwork.lua") {
+	work := captureDir(t, capture)
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantArgs := "--css " + fileURL(filepath.Join(work, "pandoc.css")) + " --output document.pdf --resource-path . --resource-path " + cwd +
+		" --pdf-engine-opt=--base-url=" + dirURL(cwd) + " --css " + fileURL(filepath.Join(work, "katex", "katex.min.css")) + " --lua-filter artwork.lua"
+	if !strings.Contains(string(args), wantArgs) {
 		t.Fatalf("pandoc arguments lack the KaTeX stylesheet and filter: %s", args)
 	}
 	md, err := os.ReadFile(capture + ".md")

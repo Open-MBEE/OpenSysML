@@ -811,9 +811,11 @@ declared in a cascade layer `opensysml-print` after the default sheet's `opensys
 its values from the same `--sysml-*` tokens and writes no `style` attributes, so `-html-theme`
 rethemes a PDF, `-html-css` sheets apply unlayered after both layers and win on cascade origin,
 and `-html-no-default-css` leaves both layers out so only your sheets (their `@page` rules
-included) style the PDF. `pandoc` writes its own HTML, so it refuses `-html-theme` and
-`-html-no-default-css` with an `unsupported-option` error naming an engine that reads HTML, and
-passes `-html-css` sheets on as further stylesheets. `-html-fragment`, `-html-mermaid` and
+included) style the PDF. A sheet's relative `url()` and `@import` references resolve against
+the PDF's directory, as a page's resolve against the page's, so a font or image beside the
+`-o` path is found under every engine. `pandoc` writes its own HTML, so it refuses `-html-theme`
+and `-html-no-default-css` with an `unsupported-option` error naming an engine that reads HTML,
+and attaches `-html-css` sheets in its page after its own. `-html-fragment`, `-html-mermaid` and
 `-html-math` shape a browser page and are refused with `-doc-form pdf`.
 
 Diagram blocks are pre-rendered to SVG with [mermaid-cli](https://github.com/mermaid-js/mermaid-cli)

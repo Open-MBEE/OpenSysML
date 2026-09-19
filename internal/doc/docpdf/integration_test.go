@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -61,6 +62,65 @@ func pdfText(t *testing.T, pdf []byte) string {
 		t.Fatalf("pdftotext: %v", err)
 	}
 	return string(out)
+}
+
+// pdfImages lists a PDF's raster images as pdfimages reports them, one line
+// each, "" when it is not installed.
+func pdfImages(t *testing.T, pdf []byte) string {
+	t.Helper()
+	pdfimages, err := exec.LookPath("pdfimages")
+	if err != nil {
+		return ""
+	}
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "doc.pdf"), pdf, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command(pdfimages, "-list", filepath.Join(dir, "doc.pdf")).Output() // #nosec G204 -- pdfimages from PATH, fixed arguments
+	if err != nil {
+		t.Fatalf("pdfimages: %v", err)
+	}
+	return string(out)
+}
+
+// TestRenderStylesheetAssetsBesideTheOutput renders through each installed
+// converter with a reader stylesheet whose relative @import and url() name
+// files beside the PDF, as an HTML page's sheet would name files beside the
+// page, and reads back that both were found: the imported sheet's generated
+// text and the 12x12 fixture image.
+func TestRenderStylesheetAssetsBesideTheOutput(t *testing.T) {
+	out := t.TempDir()
+	mark, err := os.ReadFile(filepath.Join("testdata", "mark.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(out, "mark.png"), mark, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	beside := ".sysml-title::after, h1.title::after { content: \" IMPORTEDBESIDE\" }\n"
+	if err := os.WriteFile(filepath.Join(out, "beside.css"), []byte(beside), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sheet := docrender.InlineStylesheet("@import url(\"beside.css\");\n.sysml-title::before, h1.title::before { content: url(mark.png) }\n")
+	document := plainDocument(t)
+	for _, engine := range Engines() {
+		t.Run(engine, func(t *testing.T) {
+			pdf, text := renderInstalled(t, document, engine, Options{Stylesheets: []docrender.Stylesheet{sheet}, BaseDir: out})
+			if text == "" {
+				t.Skip("pdftotext not installed")
+			}
+			if !strings.Contains(text, "IMPORTEDBESIDE") {
+				t.Errorf("the imported sheet beside the PDF did not apply:\n%s", text)
+			}
+			images := pdfImages(t, pdf)
+			if images == "" {
+				t.Skip("pdfimages not installed")
+			}
+			if !regexp.MustCompile(`(?m)^\s*1\s+0\s+image\s+12\s+12\s`).MatchString(images) {
+				t.Errorf("the image beside the PDF was not drawn:\n%s", images)
+			}
+		})
+	}
 }
 
 // TestRenderWithInstalledEngines exercises each real converter when its tools
@@ -197,12 +257,12 @@ func TestRenderFormulasWithInstalledKatex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("renderFormulas: %v", err)
 	}
-	page, err := docrender.HTML(document, htmlOptions(Options{}, nil, typeset))
+	page, err := docrender.HTML(document, htmlOptions(Options{}, dir, nil, typeset))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		`<link rel="stylesheet" href="katex/katex.min.css">`,
+		`<link rel="stylesheet" href="` + fileURL(filepath.Join(dir, typeset.css)) + `">`,
 		`<span class="sysml-math"><span class="katex">`,
 		`<div class="sysml-math"><span class="katex-display"><span class="katex">`,
 		`<span class="mord mathnormal">A</span>`,

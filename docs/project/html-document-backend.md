@@ -362,9 +362,17 @@ default sheet and theme, the print layer, KaTeX's stylesheet when the document h
 then the reader's `-html-css` sheets unlayered — so the override contract of § *Styling and
 overriding it* holds for PDF byte for byte, and `-html-theme` and `-html-no-default-css` mean
 for PDF what they mean for HTML. Pandoc's own HTML carries pandoc's structure rather than the
-backend's classes, so the pandoc engine keeps a stylesheet of its own (`pandoc.css`), accepts
-`-html-css` as further `--css` arguments, and rejects `-html-theme` and `-html-no-default-css`
-with a typed error.
+backend's classes, so the pandoc engine keeps a stylesheet of its own (`pandoc.css`), attaches
+`-html-css` sheets in its page's head after it, and rejects `-html-theme` and
+`-html-no-default-css` with a typed error.
+
+A sheet's relative `url()` and `@import` references resolve for PDF as they do for HTML:
+against the output's own directory. The converters run in a temporary working directory, so
+the PDF backend hands each the PDF's directory as the page's base — WeasyPrint's `--base-url`,
+Prince's `--baseurl`, pandoc's `--resource-path` with `--base-url` for the engine it drives —
+and references its own generated files (diagram images, the KaTeX stylesheet) by absolute
+file URL so the base does not move them. A `docpdf.Render` caller names that directory in
+`Options.BaseDir`; the CLI passes the `-o` path's.
 
 The caption marker was the one deletion visible in existing output: an HTML comment in rendered
 Markdown, so removing it changed Markdown goldens by that line only, without changing how any

@@ -2,8 +2,10 @@ package docpdf
 
 import (
 	_ "embed"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
@@ -34,6 +36,11 @@ type Options struct {
 	// Stylesheets are the reader's, attached after the print stylesheet and
 	// unlayered, so they override it as they override the HTML form.
 	Stylesheets []docrender.Stylesheet
+
+	// BaseDir is the directory a reader stylesheet's relative url() and
+	// @import references resolve against, the current directory when empty:
+	// the PDF's own, as an HTML page's sheets resolve against the page's.
+	BaseDir string
 
 	// Lang is the document language, "en" when empty.
 	Lang string
@@ -81,15 +88,20 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 		return nil, err
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
-	images, err := drawDiagrams(dir, diagrams, opts.DiagramForm)
+	drawn, err := drawDiagrams(dir, diagrams, opts.DiagramForm)
 	if err != nil {
 		return nil, err
 	}
+	images := fileRefs(dir, drawn)
 	math, err := renderFormulas(dir, formulas)
 	if err != nil {
 		return nil, err
 	}
-	doc := &Prepared{Dir: dir, MathCSS: math.css, Options: opts}
+	base, err := filepath.Abs(opts.BaseDir)
+	if err != nil {
+		return nil, err
+	}
+	doc := &Prepared{Dir: dir, MathCSS: math.css, BaseDir: base, Options: opts}
 	switch converter.Capabilities().Input {
 	case InputMarkdown:
 		markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{DiagramForm: opts.DiagramForm})
@@ -104,7 +116,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 			return nil, err
 		}
 	case InputHTML:
-		page, err := docrender.HTML(document, htmlOptions(opts, images, math))
+		page, err := docrender.HTML(document, htmlOptions(opts, dir, images, math))
 		if err != nil {
 			return nil, err
 		}
@@ -140,14 +152,15 @@ func checkOptions(converter Converter, opts Options) error {
 // htmlOptions shapes the HTML backend's page for a print engine: the default
 // sheet and theme, the print stylesheet over them, the KaTeX stylesheet when
 // formulas were typeset, then the reader's sheets; the diagram images and
-// typeset formulas take the place of source.
-func htmlOptions(opts Options, images []string, math formulas) docrender.HTMLOptions {
+// typeset formulas take the place of source. The page's base is the reader's
+// directory, so the working directory's files are referenced by file URL.
+func htmlOptions(opts Options, dir string, images []string, math formulas) docrender.HTMLOptions {
 	var sheets []docrender.Stylesheet
 	if !opts.NoDefaultStylesheet {
 		sheets = append(sheets, docrender.InlineStylesheet(PrintStylesheet))
 	}
 	if math.css != "" {
-		sheets = append(sheets, docrender.LinkedStylesheet(math.css))
+		sheets = append(sheets, docrender.LinkedStylesheet(fileURL(filepath.Join(dir, math.css))))
 	}
 	sheets = append(sheets, opts.Stylesheets...)
 	return docrender.HTMLOptions{
@@ -162,6 +175,33 @@ func htmlOptions(opts Options, images []string, math formulas) docrender.HTMLOpt
 		DiagramImages:       images,
 		Math:                math.html,
 	}
+}
+
+// fileRefs is the file URL of each named file within dir, in order; an empty
+// name stays empty.
+func fileRefs(dir string, names []string) []string {
+	refs := make([]string, len(names))
+	for i, name := range names {
+		if name != "" {
+			refs[i] = fileURL(filepath.Join(dir, name))
+		}
+	}
+	return refs
+}
+
+// dirURL is the file URL of an absolute directory with a trailing slash, so
+// relative references resolve within it.
+func dirURL(dir string) string {
+	return strings.TrimSuffix(fileURL(dir), "/") + "/"
+}
+
+// fileURL is the file URL of an absolute path.
+func fileURL(path string) string {
+	p := filepath.ToSlash(path)
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	return (&url.URL{Scheme: "file", Path: p}).String()
 }
 
 // drawDiagrams draws the document's graph-shaped diagrams into dir, returning

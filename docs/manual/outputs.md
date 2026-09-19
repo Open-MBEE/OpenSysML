@@ -234,11 +234,13 @@ Both layers draw their values from the same `--sysml-*` tokens and write no
 `style` attributes, so `-html-theme` rethemes a PDF as it does a page,
 `-html-css` sheets apply unlayered after both layers and win on cascade
 origin, and `-html-no-default-css` leaves both layers out so that only your
-sheets — `@page` rules included — style the PDF. The pandoc engine reads
-Markdown and writes its own HTML, so `-html-theme` and `-html-no-default-css`
-are refused for it, while `-html-css` sheets are passed to pandoc as further
-stylesheets. `-html-fragment`, `-html-mermaid` and `-html-math` shape a
-browser page and are refused for PDF.
+sheets — `@page` rules included — style the PDF. A sheet's relative `url()`
+and `@import` references resolve against the PDF's directory, as a page's
+resolve against the page's. The pandoc engine reads Markdown and writes its
+own HTML, so `-html-theme` and `-html-no-default-css` are refused for it,
+while `-html-css` sheets are attached in pandoc's page after its own.
+`-html-fragment`, `-html-mermaid` and `-html-math` shape a browser page and
+are refused for PDF.
 
 ### Engines
 

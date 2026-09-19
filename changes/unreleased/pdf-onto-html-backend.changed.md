@@ -4,8 +4,10 @@
   the rendered Markdown; pandoc keeps reading the Markdown. `-html-theme`, `-html-no-default-css`
   and `-html-css` now reach a WeasyPrint or Prince PDF exactly as they reach HTML — a user
   stylesheet is unlayered, so it overrides the default and print layers without `!important` — and
-  are refused with a typed error for pandoc, whose page is its own. Tables, figures, formulas and
-  cross-references carry their `sysml-*` classes and `data-*` attributes into the PDF's HTML.
+  are refused with a typed error for pandoc, whose page is its own. A sheet's relative `url()`
+  and `@import` references resolve against the PDF's directory under every engine, as a page's
+  resolve against the page's. Tables, figures, formulas and cross-references carry their
+  `sysml-*` classes and `data-*` attributes into the PDF's HTML.
 - **Markdown output no longer carries a caption marker.** The `<!-- caption -->` comment the
   Markdown backend wrote ahead of a table's or diagram's emphasized caption is gone; the caption
   stays an emphasized paragraph. Pandoc recognizes captions by matching those paragraphs against

@@ -271,14 +271,22 @@ func (w *htmlWriter) writeShellStart(title string) {
 	if !w.opts.NoDefaultStylesheet {
 		w.b.WriteString("<style>\n" + w.base + "</style>\n")
 	}
-	for _, sheet := range w.opts.Stylesheets {
+	w.b.WriteString(StylesheetMarkup(w.opts.Stylesheets))
+	w.b.WriteString("</head>\n<body>\n")
+}
+
+// StylesheetMarkup is the head markup attaching sheets in order: a linked
+// sheet as a <link> element, an inline one as a <style> element.
+func StylesheetMarkup(sheets []Stylesheet) string {
+	var b strings.Builder
+	for _, sheet := range sheets {
 		if sheet.Href != "" {
-			w.b.WriteString("<link rel=\"stylesheet\"" + attr("href", sheet.Href) + ">\n")
+			b.WriteString("<link rel=\"stylesheet\"" + attr("href", sheet.Href) + ">\n")
 			continue
 		}
-		w.b.WriteString("<style>\n" + strings.TrimRight(sheet.Content, "\n") + "\n</style>\n")
+		b.WriteString("<style>\n" + strings.TrimRight(sheet.Content, "\n") + "\n</style>\n")
 	}
-	w.b.WriteString("</head>\n<body>\n")
+	return b.String()
 }
 
 // writeTitle writes the document title: in a page of its own when a title page
