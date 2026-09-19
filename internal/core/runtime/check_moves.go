@@ -195,15 +195,15 @@ func (e *ActionExecutor) incomplete() error {
 
 // enabledMoves lists the moves of the machine's state as oneUnit makes them: the
 // dispatch a closed round owes; else a step of each do action of the round and the
-// dispatch due together, picked as the step order lists them — the do steps by
-// their place in the round, the dispatch after them — or whichever of the two is
-// there, picked as it is alone.
+// dispatch due together where it acts on its occurrence, picked as the step order
+// lists them — the do steps by their place in the round, the dispatch after them —
+// or whichever of the two is there, picked as it is alone.
 func (e *StateExecutor) enabledMoves() []enabledMove {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	if e.state != StateRunning && e.state != StateSuspended {
 		return nil
 	}
-	dispatch := e.dispatchMoves()
+	dispatch, acts := e.dispatchMoves()
 	if e.roundDone && len(dispatch) > 0 {
 		return dispatch
 	}
@@ -211,7 +211,7 @@ func (e *StateExecutor) enabledMoves() []enabledMove {
 	if len(due) == 0 {
 		return dispatch
 	}
-	if len(dispatch) == 0 {
+	if len(dispatch) == 0 || !acts {
 		return e.doMoves(due, len(due) >= 2)
 	}
 	moves := e.doMoves(due, true)
@@ -227,7 +227,10 @@ func (e *StateExecutor) enabledMoves() []enabledMove {
 // token before the dispatch, a run the checker has no move making.
 func (e *StateExecutor) leftOut() string {
 	defer e.ctx.beginExecutorRun(&e.driven)()
-	if (e.state != StateRunning && e.state != StateSuspended) || len(e.dispatchMoves()) == 0 {
+	if e.state != StateRunning && e.state != StateSuspended {
+		return ""
+	}
+	if dispatch, _ := e.dispatchMoves(); len(dispatch) == 0 {
 		return ""
 	}
 	for _, act := range e.doActions {
@@ -263,21 +266,22 @@ func statesOf(acts []*doAction) []*ast.StateNode {
 
 // dispatchMoves is the dispatch due, if any: one move when a change condition
 // has risen, a signal is in flight or one event heads the queue, else one per
-// event tied at the head, picked by its place among them.
-func (e *StateExecutor) dispatchMoves() []enabledMove {
-	label, due := e.dueDispatch()
+// event tied at the head, picked by its place among them; acts as dueDispatch
+// reports it.
+func (e *StateExecutor) dispatchMoves() (moves []enabledMove, acts bool) {
+	label, acts, due := e.dueDispatch()
 	if !due {
-		return nil
+		return nil, false
 	}
 	if label != dispatchTiedLabel {
-		return []enabledMove{{Owner: e, Kind: moveDispatch, Label: label}}
+		return []enabledMove{{Owner: e, Kind: moveDispatch, Label: label}}, acts
 	}
 	tied := e.eventQueue.Tied()
-	moves := make([]enabledMove, 0, len(tied))
+	moves = make([]enabledMove, 0, len(tied))
 	for i, event := range tied {
 		moves = append(moves, enabledMove{Owner: e, Kind: moveDispatch, Picks: []int{i}, Label: "dispatch " + e.eventLabel(event)})
 	}
-	return moves
+	return moves, acts
 }
 
 // stepOne makes one unit of the machine's work, which its state alone fixes

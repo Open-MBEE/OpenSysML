@@ -3208,12 +3208,12 @@ func (e *StateExecutor) dueRound() []*doAction {
 }
 
 // stepRound runs one step of the round under way: one do action's step or, drawn
-// against the steps under ChoiceStepOrder while a dispatch is due, the dispatch,
-// which leaves the round as it is. The round closes, its dispatch owed, once each
-// action has stepped.
+// against the steps under ChoiceStepOrder while a dispatch that acts is due, the
+// dispatch, which leaves the round as it is. The round closes, its dispatch owed,
+// once each action has stepped.
 func (e *StateExecutor) stepRound(progress *dueProgress) (bool, error) {
 	var next int
-	if dispatch, dispatching := e.dueDispatch(); dispatching {
+	if dispatch, acts, due := e.dueDispatch(); due && acts {
 		pick, err := e.chooseStepOrder(e.round, dispatch)
 		if err != nil {
 			return false, err
@@ -3257,24 +3257,74 @@ const (
 
 // dueDispatch names the dispatch dispatchOne would make now, as a step order lists
 // it: the change condition risen, the signal in flight, else the event at the head
-// of the queue — bare where tied events leave that to a draw of its own.
-func (e *StateExecutor) dueDispatch() (string, bool) {
+// of the queue — bare where tied events leave that to a draw of its own. acts
+// reports whether the dispatch would take its occurrence (eventActs).
+func (e *StateExecutor) dueDispatch() (label string, acts, due bool) {
 	if trans, risen := e.risenChange(); risen {
 		if trans == nil {
-			return "dispatch change", true
+			return "dispatch change", true, true
 		}
-		return "dispatch " + e.changeLabel(trans), true
+		return "dispatch " + e.changeLabel(trans), true, true
 	}
-	if e.hasPendingSignal() {
-		return "dispatch signal", true
+	if msg, ok := e.pendingSignal(); ok {
+		return "dispatch signal", e.eventsAct([]Event{e.signalEvent(msg)}), true
 	}
 	if !e.hasDueEvent() {
-		return "", false
+		return "", false, false
 	}
-	if len(e.eventQueue.Tied()) >= 2 {
-		return dispatchTiedLabel, true
+	if tied := e.eventQueue.Tied(); len(tied) >= 2 {
+		return dispatchTiedLabel, e.eventsAct(tied), true
 	}
-	return "dispatch " + e.eventLabel(e.eventQueue.Peek()), true
+	head := e.eventQueue.Peek()
+	return "dispatch " + e.eventLabel(head), e.eventsAct([]Event{head}), true
+}
+
+// eventsAct previews whether dispatching each of the events now would take it; an
+// error in the preview counts as acting, the dispatch being where it surfaces.
+func (e *StateExecutor) eventsAct(events []Event) bool {
+	acts := true
+	e.preview(func() {
+		for _, event := range events {
+			if ok, err := e.eventActs(event); err == nil && !ok {
+				acts = false
+				return
+			}
+		}
+	})
+	return acts
+}
+
+// eventActs reports whether dispatching the event now would take it — fire a
+// transition or let a do behavior parked at an accept go on — not defer or drop it.
+func (e *StateExecutor) eventActs(event Event) (bool, error) {
+	if trans, ok := event.Payload.(*lower.Transition); ok && event.Type == EventTime {
+		source, _ := trans.Source.(*ast.StateNode)
+		if source != nil && !e.inActiveConfiguration(source) {
+			return false, nil
+		}
+		if trans.Trigger != nil {
+			return e.transitionEnabled(trans, &event)
+		}
+		for _, completion := range e.graph.Transitions[source] {
+			if completion.Trigger != nil {
+				continue
+			}
+			if ok, err := e.completionEnabled(completion); err != nil || ok {
+				return ok, err
+			}
+		}
+		return false, nil
+	}
+	selected, err := e.selectTransitions(&event)
+	if err != nil || len(selected) > 0 {
+		return len(selected) > 0, err
+	}
+	msg, ok := event.Payload.(Message)
+	if !ok {
+		return false, nil
+	}
+	taking, err := e.doBehaviorsTaking(msg, nil)
+	return len(taking) > 0, err
 }
 
 // changeLabel names a change-triggered transition as eventLabel names a time event.
@@ -3794,13 +3844,18 @@ func (e *StateExecutor) InvokeOperation(operation string, args map[string]Value)
 // enqueueSignal queues a message as an accept event, to fire immediately.
 func (e *StateExecutor) enqueueSignal(msg Message) {
 	e.moved = true
-	e.eventQueue.Push(Event{
+	e.eventQueue.Push(e.signalEvent(msg))
+	e.nextEventID++
+}
+
+// signalEvent is the event enqueueSignal queues for a message in flight.
+func (e *StateExecutor) signalEvent(msg Message) Event {
+	return Event{
 		ID:        e.nextEventID,
 		Type:      EventAccept,
 		Timestamp: e.ctx.clock.now,
 		Payload:   msg,
-	})
-	e.nextEventID++
+	}
 }
 
 // deliverPendingSignal reports whether an event is due, first queueing a bus
@@ -4037,12 +4092,19 @@ func (e *StateExecutor) Performer() *Instance {
 // flight, without consuming it: deliver one, or report an accept port that
 // fails to resolve.
 func (e *StateExecutor) hasPendingSignal() bool {
+	_, ok := e.pendingSignal()
+	return ok
+}
+
+// pendingSignal is the message in flight deliverPendingSignal would take, the
+// first the machine takes; ok as hasPendingSignal, so a failing port counts.
+func (e *StateExecutor) pendingSignal() (Message, bool) {
 	for _, msg := range e.ctx.PendingMessages() {
 		if takes, err := e.takesMessage(msg); err != nil || takes {
-			return true
+			return msg, true
 		}
 	}
-	return false
+	return Message{}, false
 }
 
 // acceptsSignal reports whether any transition out of the active configuration,

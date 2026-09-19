@@ -17,12 +17,6 @@
       "outputs": {
         "log": {"type": "String", "value": "tick b a sync"}
       }
-    },
-    {
-      "finalState": "a1+b1",
-      "outputs": {
-        "log": {"type": "String", "value": ""}
-      }
     }
   ],
   "admissible": "Transitions into a join: each exits its source and runs its effect before the owner is left, in which order is open"

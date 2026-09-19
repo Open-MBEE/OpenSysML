@@ -1527,7 +1527,7 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 		}
 	}`)
 	sym := m.state(t, "Machine")
-	witness, err := ParseChoices("entering work: a(entry) first of a(entry), b(entry), c(entry)\nentering work: b(entry) first of b(entry), c(entry)\nat t=0.0: do a first of do a, dispatch completion b 1->sync\njoin sync: b first of a, b, c\njoin sync: a first of a, b\n")
+	witness, err := ParseChoices("entering work: a(entry) first of a(entry), b(entry), c(entry)\nentering work: b(entry) first of b(entry), c(entry)\njoin sync: b first of a, b, c\njoin sync: a first of a, b\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1546,7 +1546,7 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 	exec.SendSignal("Go", nil)
 	err = exec.RunToCompletion()
 	var refused *ReplayError
-	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 5 {
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 4 {
 		t.Fatalf("error %T %v, want the join's second draw refused", err, err)
 	}
 	data := exec.StateData()
@@ -1563,11 +1563,11 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 	if len(exec.doActions) != 1 || exec.doActions[0].run == nil {
 		t.Errorf("do actions %v after the refusal, want a's do behavior paused as it was", exec.doActions)
 	}
-	if got := FormatChoices(takenOf(ctx.Choices())); got != FormatChoices(witness[:3]) {
-		t.Errorf("the run recorded %v, want the draws before the join alone: a refused move is not one made", got)
+	if got := FormatChoices(takenOf(ctx.Choices())); got != FormatChoices(witness[:2]) {
+		t.Errorf("the run recorded %v, want the entry's draws alone: a refused move is not one made", got)
 	}
-	if got := FormatChoices(ctx.ChoicesTaken()); got != FormatChoices(witness[:3]) {
-		t.Errorf("the context holds %v, want the draws before the join alone taken", got)
+	if got := FormatChoices(ctx.ChoicesTaken()); got != FormatChoices(witness[:2]) {
+		t.Errorf("the context holds %v, want the entry's draws alone taken", got)
 	}
 	if got := trace.String(); strings.Contains(got, "choice join sync") || strings.Contains(got, "exit: b") {
 		t.Errorf("trace after the refusal holds the segment fired:\n%s", got)
