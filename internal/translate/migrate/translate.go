@@ -151,6 +151,9 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 		}
 	}
 	for _, step := range path[1:] {
+		if unreadableBounds(f) {
+			return opaqueRef{}, boundsRefusal(f, full)
+		}
 		if !plural && manyValued(f) {
 			plural, carrier = true, expr
 		}
@@ -175,6 +178,9 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 		expr += "." + writeName(m.nameOf(next))
 		f = next
 	}
+	if unreadableBounds(f) {
+		return opaqueRef{}, boundsRefusal(f, full)
+	}
 	if dir, _ := parameterDirection(f); write && f.Type == "Parameter" && dir == "in" {
 		return opaqueRef{}, &refusal{kind: refusedConstruct, token: full, why: "an in parameter is not assigned"}
 	}
@@ -193,14 +199,30 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 	}, nil
 }
 
-// manyValued reports whether feature f holds other than exactly one value.
+// manyValued reports whether feature f is known to hold other than exactly one value.
 func manyValued(f *sysmlv1.Element) bool {
 	_, upper, ok := bounds(f)
 	return ok && upper != 1
 }
 
-// wantedOf is what a value of feature f must be: of the type f holds, and
-// one value unless f holds several.
+// unreadableBounds reports whether a multiplicity bound of f is not a literal
+// number, so whether f holds one value or several cannot be told.
+func unreadableBounds(f *sysmlv1.Element) bool {
+	_, _, ok := bounds(f)
+	return !ok
+}
+
+// boundsRefusal refuses a name read through f, whose multiplicity is unreadable.
+func boundsRefusal(f *sysmlv1.Element, token string) *refusal {
+	return &refusal{kind: refusedConstruct, token: token, why: boundsNote(f)}
+}
+
+func boundsNote(f *sysmlv1.Element) string {
+	return "the multiplicity of " + qualifiedName(f) + " is not written in numbers, so whether it holds one value cannot be told"
+}
+
+// wantedOf is what a value of feature f must be: of the type f holds, and one value
+// unless f is known to hold several (an unreadable multiplicity is written as one value).
 func (m *migration) wantedOf(f *sysmlv1.Element) wanted {
 	t := m.typedAs(f)
 	return wanted{scalar: m.scalarBase(t), object: m.nonScalar(t), single: !manyValued(f)}

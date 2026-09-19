@@ -10,8 +10,12 @@ part def Gauge {
     }
 }
 part def Needle :> Gauge;
+part def Bank {
+    attribute level : ScalarValues::Real default = 0.0;
+}
 part def Meter {
     attribute mode : Mode;
+    part banks : Bank;
     part dial : Gauge;
     part hand : Needle;
     part cells : Gauge[2];
@@ -217,8 +221,28 @@ part def Meter {
         }
         first span then ticking;
         action ticking : Gauge::Tick;
-        first ticking then final;
+        first ticking then tally;
+        action tally {
+            /* body not migrated (the construct "banks.level" is outside the translated subset: the multiplicity of Meter::banks is not written in numbers, so whether it holds one value cannot be told) {JavaScript}:
+             * total = banks.level + 1;
+             */
+        }
+        first tally then charge;
+        action charge {
+            /* body not migrated (the name "level" resolves to nothing readable: nothing visible from Meter::Sweep::charge is called level) {JavaScript}:
+             * level = 1;
+             */
+        }
+        first charge then settle;
+        action settle {
+            /* body not migrated (the name "level" resolves to nothing readable: nothing visible from Meter::Sweep::settle is called level) {JavaScript}:
+             * level = 0;
+             */
+        }
+        first settle then final;
         action final terminate;
         /* partition 'cells' represents Meter::cells: calib, span, ticking */
+        /* partition 'banks' represents Meter::banks: charge */
+        /* partition 'bank' represents Bank: settle */
     }
 }

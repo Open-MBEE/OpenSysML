@@ -213,6 +213,8 @@ func (m *migration) resolveLane(l *lane, ctx *sysmlv1.Element) {
 		switch {
 		case !m.written(r) || m.nameOf(r) == "":
 			l.note = "the property " + qualifiedName(r) + " it represents has no v2 declaration"
+		case unreadableBounds(r):
+			l.note = "the partition represents " + qualifiedName(r) + ", but " + boundsNote(r)
 		case l.parent != nil && l.parent.expr != "" && l.parent.typ != nil && m.hasFeature(l.parent.typ, r):
 			l.expr = l.parent.expr + "." + name
 			l.plural = l.parent.plural || manyValued(r)
@@ -224,7 +226,9 @@ func (m *migration) resolveLane(l *lane, ctx *sysmlv1.Element) {
 			l.plural = manyValued(r)
 			l.note = "the partition represents the context's " + m.nameOf(r) + ", read as " + l.expr
 		default:
-			if path, plural := m.partPath(ctx, owner); path != "" {
+			if path, plural, unread := m.partPath(ctx, owner); unread != nil {
+				l.note = "the partition represents " + qualifiedName(r) + " through the part " + qualifiedName(unread) + ", but " + boundsNote(unread)
+			} else if path != "" {
 				l.expr = "this." + path + "." + name
 				l.plural = plural || manyValued(r)
 				l.note = "the partition represents " + qualifiedName(r) + ", read as " + l.expr
@@ -253,7 +257,9 @@ func (m *migration) resolveLane(l *lane, ctx *sysmlv1.Element) {
 		l.expr = "this"
 		l.note = "the partition represents the context object itself, a " + qualifiedName(r)
 	default:
-		if path, plural := m.partPath(ctx, r); path != "" {
+		if path, plural, unread := m.partPath(ctx, r); unread != nil {
+			l.note = "the partition represents a " + qualifiedName(r) + " through the part " + qualifiedName(unread) + ", but " + boundsNote(unread)
+		} else if path != "" {
 			l.expr, l.plural = "this."+path, plural
 			l.note = "the partition represents the context's part " + path + ", a " + qualifiedName(r)
 		} else {
@@ -267,13 +273,14 @@ func (m *migration) resolveLane(l *lane, ctx *sysmlv1.Element) {
 
 // partPath finds the one chain of composite parts, of any length, from
 // classifier c to an object of classifier target; "" when none or several
-// exist. plural reports whether any part on the chain holds several objects.
-func (m *migration) partPath(c, target *sysmlv1.Element) (path string, plural bool) {
+// exist. plural reports whether any part on the chain holds several objects;
+// unread is the first part on it whose multiplicity is not written in numbers.
+func (m *migration) partPath(c, target *sysmlv1.Element) (path string, plural bool, unread *sysmlv1.Element) {
 	r := m.partRoutes(c, target, map[*sysmlv1.Element]bool{})
 	if r.count == 1 {
-		return r.path, r.plural
+		return r.path, r.plural, r.unread
 	}
-	return "", false
+	return "", false, nil
 }
 
 // partRoute counts the chains of composite parts from one classifier to a
@@ -282,12 +289,13 @@ type partRoute struct {
 	count  int
 	path   string
 	plural bool
-	cut    bool // a chain was cut at a classifier already on the walk, so count depends on the walk
+	unread *sysmlv1.Element // the first part on the chain whose multiplicity is not written in numbers
+	cut    bool             // a chain was cut at a classifier already on the walk, so count depends on the walk
 }
 
-func (r *partRoute) add(path string, plural bool) {
+func (r *partRoute) add(path string, plural bool, unread *sysmlv1.Element) {
 	if r.count == 0 {
-		r.path, r.plural = path, plural
+		r.path, r.plural, r.unread = path, plural, unread
 	}
 	r.count = min(r.count+1, 2)
 }
@@ -320,9 +328,13 @@ func (m *migration) partRoutes(t, target *sysmlv1.Element, onWalk map[*sysmlv1.E
 			continue
 		}
 		step, many := writeName(name), manyValued(p)
+		var unread *sysmlv1.Element
+		if unreadableBounds(p) {
+			unread = p
+		}
 		switch {
 		case pt == target || m.inherits(pt, target):
-			r.add(step, many)
+			r.add(step, many, unread)
 		case onWalk[pt]:
 			r.cut = true
 		default:
@@ -330,7 +342,10 @@ func (m *migration) partRoutes(t, target *sysmlv1.Element, onWalk map[*sysmlv1.E
 			r.cut = r.cut || sub.cut
 			switch sub.count {
 			case 1:
-				r.add(step+"."+sub.path, many || sub.plural)
+				if unread == nil {
+					unread = sub.unread
+				}
+				r.add(step+"."+sub.path, many || sub.plural, unread)
 			case 2:
 				r.count = 2
 			}

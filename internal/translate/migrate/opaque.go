@@ -201,8 +201,7 @@ func (d dialect) script() bool { return d == dialectScript || d == dialectJava }
 func dialectOf(lang string) dialect {
 	l := strings.ToLower(strings.TrimSpace(lang))
 	switch {
-	case l == "", strings.HasPrefix(l, "javascript"), strings.HasPrefix(l, "ecmascript"),
-		l == "js", strings.HasPrefix(l, "rhino"), strings.HasPrefix(l, "nashorn"):
+	case l == "", scriptLabel(l):
 		return dialectScript
 	case javaLabel(l):
 		return dialectJava
@@ -210,6 +209,23 @@ func dialectOf(lang string) dialect {
 		return dialectEnglish
 	}
 	return dialectNone
+}
+
+// scriptLabel reports whether every word of the lower-cased label is `javascript`, `ecmascript`,
+// `js`, `rhino` or `nashorn`, plus at most one digit-led version (`javascript (nashorn) 1.8`).
+func scriptLabel(l string) bool {
+	named, versioned := false, false
+	for _, w := range strings.FieldsFunc(l, func(r rune) bool { return r == ' ' || r == '\t' || r == '(' || r == ')' }) {
+		switch {
+		case w == "javascript" || w == "ecmascript" || w == "js" || w == "rhino" || w == "nashorn":
+			named = true
+		case isDigit(w[0]) && !versioned:
+			versioned = true
+		default:
+			return false
+		}
+	}
+	return named
 }
 
 // javaLabel reports whether the lower-cased label names Java itself: bare, or followed by
@@ -1200,6 +1216,10 @@ func (p *opaqueParser) primary() (translated, *refusal) {
 			return translated{}, err
 		}
 		if p.peek(false).isPunct("(") {
+			if p.d == dialectEnglish {
+				return translated{}, &refusal{kind: refusedConstruct, token: strings.Join(path, ".") + "(",
+					why: "a call is not English; the subset reads names, literals, comparisons and not/and/or"}
+			}
 			p.next(false)
 			return p.call(path)
 		}

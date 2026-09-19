@@ -20,8 +20,17 @@
     <packagedElement xmi:type="uml:Class" xmi:id="_needle" name="Needle">
       <generalization xmi:type="uml:Generalization" xmi:id="_needle_gen" general="_gauge"/>
     </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_bank" name="Bank">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_level" name="level"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_level0" value="0.0"/>
+      </ownedAttribute>
+    </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_meter" name="Meter">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_mmode" name="mode" type="_mode"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_banks" name="banks" type="_bank" aggregation="composite">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_banks_lo" value="1"/>
+        <upperValue xmi:type="uml:LiteralString" xmi:id="_banks_hi" value="n"/>
+      </ownedAttribute>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_dial" name="dial" type="_gauge" aggregation="composite"/>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_hand" name="hand" type="_needle" aggregation="composite"/>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_cells" name="cells" type="_gauge" aggregation="composite">
@@ -284,6 +293,8 @@
       </ownedBehavior>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_sweep" name="Sweep">
         <group xmi:type="uml:ActivityPartition" xmi:id="_cells_lane" name="cells" represents="_cells" node="_calib _span _ticking"/>
+        <group xmi:type="uml:ActivityPartition" xmi:id="_banks_lane" name="banks" represents="_banks" node="_charge"/>
+        <group xmi:type="uml:ActivityPartition" xmi:id="_bank_lane" name="bank" represents="_bank" node="_settle"/>
         <node xmi:type="uml:InitialNode" xmi:id="_winit"/>
         <node xmi:type="uml:OpaqueAction" xmi:id="_spread" name="spread">
           <language>JavaScript</language>
@@ -306,6 +317,18 @@
           <body>total = reading;</body>
         </node>
         <node xmi:type="uml:CallBehaviorAction" xmi:id="_ticking" name="ticking" behavior="_tick"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_tally" name="tally">
+          <language>JavaScript</language>
+          <body>total = banks.level + 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_charge" name="charge">
+          <language>JavaScript</language>
+          <body>level = 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_settle" name="settle">
+          <language>JavaScript</language>
+          <body>level = 0;</body>
+        </node>
         <node xmi:type="uml:ActivityFinalNode" xmi:id="_wfinal"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_w1" source="_winit" target="_spread"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_w2" source="_spread" target="_reset"/>
@@ -313,7 +336,10 @@
         <edge xmi:type="uml:ControlFlow" xmi:id="_w4" source="_peak" target="_calib"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_w5" source="_calib" target="_span"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_w6" source="_span" target="_ticking"/>
-        <edge xmi:type="uml:ControlFlow" xmi:id="_w7" source="_ticking" target="_wfinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w7" source="_ticking" target="_tally"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w8" source="_tally" target="_charge"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w9" source="_charge" target="_settle"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_w10" source="_settle" target="_wfinal"/>
       </ownedBehavior>
     </packagedElement>
   </uml:Model>
@@ -321,4 +347,5 @@
   <sysml:Block xmi:id="_sb1" base_Class="_meter"/>
   <sysml:Block xmi:id="_sb2" base_Class="_gauge"/>
   <sysml:Block xmi:id="_sb3" base_Class="_needle"/>
+  <sysml:Block xmi:id="_sb4" base_Class="_bank"/>
 </xmi:XMI>

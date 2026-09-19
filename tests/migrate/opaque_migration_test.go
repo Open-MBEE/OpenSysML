@@ -496,6 +496,18 @@ func TestPluralPathsStayCollections(t *testing.T) {
 	}
 	wantNote(t, r, "_cells_lane", migrate.Mapped, "read as this.cells; it is a collection, so names read through it are collections and are not assigned")
 
+	// A part of multiplicity `1..n` may hold several objects, so a name read through it
+	// and a swimlane representing it or reached through it are refused, not read as one.
+	wantNoLine(t, r.Notation, "assign this.total := this.banks.level + 1;")
+	wantNoLine(t, r.Notation, "assign this.banks.level := 1;")
+	wantNoLine(t, r.Notation, "assign this.banks.level := 0;")
+	unread := "the multiplicity of Meter::banks is not written in numbers, so whether it holds one value cannot be told"
+	wantNote(t, r, "_tally", migrate.Approximated, `the construct "banks.level" is outside the translated subset: `+unread)
+	wantNote(t, r, "_charge", migrate.Approximated, `the name "level" resolves to nothing readable`)
+	wantNote(t, r, "_settle", migrate.Approximated, `the name "level" resolves to nothing readable`)
+	wantNote(t, r, "_banks_lane", migrate.Approximated, "the partition represents Meter::banks, but "+unread)
+	wantNote(t, r, "_bank_lane", migrate.Approximated, "the partition represents a Bank through the part Meter::banks, but "+unread)
+
 	s := session(t, r)
 	meta(t, s, "%instantiate Meter")
 	wantVerdict(t, s.RunAction("Meter::Sweep", "Meter"))

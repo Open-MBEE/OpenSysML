@@ -275,8 +275,11 @@ a partition representing `cells : Gauge[2]`, or a dotted path `cells.reading` �
 collection, so it feeds `java.util.Collections.max` but not arithmetic or a scalar assignment,
 and an assignment through it (`cells.reading = 1`) is refused as writing several objects; a
 `CallBehaviorAction` in such a partition runs in the caller's context, no one of the objects
-performing it, and its report line says so. The partition's comment stays as documentation of its
-membership; its verdict is
+performing it, and its report line says so. A part whose multiplicity is not written in numbers
+(`banks : Bank[1..n]`) may hold one object or several, and the migrator cannot tell which: a
+name read through it, a partition representing it, and a partition whose object is reached
+through it are refused with the part named, never read as one object. The partition's comment
+stays as documentation of its membership; its verdict is
 *mapped* when a name was resolved through it.
 
 **The clock.** The tool's time variable — `simtime`, or whatever the model's
@@ -525,9 +528,12 @@ v2 expressions and statements, and refuses the rest with a typed reason naming t
 translation is always complete or absent — never partial.
 
 **Scripts** (`language` JavaScript, ECMAScript, Java, or none) are read as statements. A
-JavaScript label may name its engine (`Javascript Rhino`, `Nashorn`); a Java label is `Java`
-alone or followed by one version (`Java 8`, `Java 1.8.0_202`, `Java 17.0.2+8`), so `JavaCC`
-or `Java Expression Language` is a language the translator does not read, not Java:
+JavaScript label is `JavaScript`, `ECMAScript` or `JS`, or its engine (`Rhino`, `Nashorn`), in
+any combination with at most one version (`Javascript Rhino`, `JavaScript (Nashorn)`,
+`ECMAScript 2015`, `JavaScript 1.8 Rhino`); a Java label is `Java` alone or followed by one
+version (`Java 8`, `Java 1.8.0_202`, `Java 17.0.2+8`). Any other word makes the label a
+language the translator does not read: `JavaCC`, `Java Expression Language`, `JavaScript
+Expression Language`, `ECMAScript for XML`, `JSON`:
 
 | Script | v2 |
 |---|---|
@@ -547,7 +553,9 @@ or `Java Expression Language` is a language the translator does not read, not Ja
 `TRUE` / `FALSE` / `true` / `false`; a property name, spaces and all; `not X`; `X and Y`;
 `X or Y`; comparisons written with `=` or `==`, `<`, `>`, `<=`, `>=`, `!=`; parentheses. A run
 of words between operators is one name (`not Guide Star Lost and i < Retries` reads the
-property `Guide Star Lost`), refused whole when nothing visible is called that.
+property `Guide Star Lost`), refused whole when nothing visible is called that. English has no
+calls: `Math.sqrt(t) > 3` or `name.equals(other)` in an English body is refused as a construct
+outside the subset, never run as the script functions of the same name.
 
 **Refusals.** Anything else is refused, and the report line carries the reason with the token
 that caused it: a language not in the table (`the language "Groovy" is not translated`), text

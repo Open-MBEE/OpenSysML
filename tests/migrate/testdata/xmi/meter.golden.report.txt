@@ -1,7 +1,7 @@
 # SysML v1 to v2 migration report: meter.xmi
-# migrated 118 element(s): 91 mapped, 27 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 129 element(s): 96 mapped, 33 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (27)
+## approximated (33)
 ControlFlow	Meter::Arm::<ControlFlow>	_a2	(the guard [{JavaScript} ready and enabled] is kept as a comment and the edge written unguarded: the text "and" is not expression syntax: text follows the expression)
 Parameter	Meter::Arm::armed	_armed	-> Meter::Arm::armed	(default value not migrated: the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted)
 OpaqueAction	Meter::Arm::fuse	_fuse	-> fuse	(the body is kept as a comment: the text "and" is not expression syntax: a statement ends at `;` or a newline)
@@ -18,11 +18,17 @@ ObjectFlow	Meter::Skip::<ObjectFlow>	_o3	(the flow is kept as a comment: its sou
 OpaqueAction	Meter::Skip::dark	_dark	-> dark	(the body is kept as a comment: the statement assigns q, which nothing visible from Meter::Skip::dark is called (language Python))
 OpaqueAction	Meter::Skip::drain	_drain	-> drain	(the JavaScript body is translated to v2; its input drain.w receives no value, since 'dark' is not migrated; the action cannot be performed until one is bound)
 OpaqueAction	Meter::Skip::sink	_sink	-> sink	(the JavaScript body is translated to v2; its input sink.w receives no value, since the body of 'idle' never assigns idle.z; the action cannot be performed until one is bound)
+ActivityPartition	Meter::Sweep::bank	_bank_lane	(a partition names who performs its nodes; it is kept as a comment; the partition represents a Bank through the part Meter::banks, but the multiplicity of Meter::banks is not written in numbers, so whether it holds one value cannot be told)
+ActivityPartition	Meter::Sweep::banks	_banks_lane	(a partition names who performs its nodes; it is kept as a comment; the partition represents Meter::banks, but the multiplicity of Meter::banks is not written in numbers, so whether it holds one value cannot be told)
 OpaqueAction	Meter::Sweep::calib	_calib	-> calib	(the body is kept as a comment: the construct "reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects)
+OpaqueAction	Meter::Sweep::charge	_charge	-> charge	(the body is kept as a comment: the name "level" resolves to nothing readable: nothing visible from Meter::Sweep::charge is called level)
 OpaqueAction	Meter::Sweep::reset	_reset	-> reset	(the body is kept as a comment: the construct "cells.reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects)
+OpaqueAction	Meter::Sweep::settle	_settle	-> settle	(the body is kept as a comment: the name "level" resolves to nothing readable: nothing visible from Meter::Sweep::settle is called level)
 OpaqueAction	Meter::Sweep::span	_span	-> span	(the body is kept as a comment: the types at "total =" disagree: one side is a collection and the other a single value)
 OpaqueAction	Meter::Sweep::spread	_spread	-> spread	(the body is kept as a comment: the types at "+" disagree: an operand is a collection, not a number)
+OpaqueAction	Meter::Sweep::tally	_tally	-> tally	(the body is kept as a comment: the construct "banks.level" is outside the translated subset: the multiplicity of Meter::banks is not written in numbers, so whether it holds one value cannot be told)
 CallBehaviorAction	Meter::Sweep::ticking	_ticking	-> ticking	(its swimlane represents this.cells, a collection of objects, so none of them performs the call, which runs in the caller's context; the behavior belongs to Gauge and runs here in the caller's context)
+Property	Meter::banks	_banks	-> Meter::banks	(multiplicity 1..n is not a range of natural numbers and is not written)
 Property	Meter::gain	_gain	-> Meter::gain	(default value not migrated: the call "total" is not in the translated function table)
 Property	Meter::lit	_lit	-> Meter::lit	(default value not migrated: the text "or" is not expression syntax: text follows the expression)
 Property	Meter::pointer	_pointer	-> Meter::pointer	(default value not migrated: the types at "count > 0 ? dial : hand" disagree: the expression is a Gauge, not the Needle wanted)
@@ -30,7 +36,9 @@ Property	Meter::square	_square	-> Meter::square	(default value not migrated: the
 Property	Meter::tag	_tag	-> Meter::tag	(default value not migrated: the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset)
 Property	Meter::top	_top	-> Meter::top	(default value not migrated: the types at "cells.reading" disagree: the expression is a collection, not the one value wanted)
 
-## mapped (91)
+## mapped (96)
+«Block» Class	Bank	_bank	-> Bank
+Property	Bank::level	_level	-> Bank::level
 «Block» Class	Gauge	_gauge	-> Gauge
 Activity	Gauge::Tick	_tick	-> Gauge::Tick
 ActivityFinalNode	Gauge::Tick::<ActivityFinalNode>	_tfinal	-> final
@@ -95,6 +103,9 @@ ControlFlow	Meter::Sweep::<ControlFlow>	_w4
 ControlFlow	Meter::Sweep::<ControlFlow>	_w5
 ControlFlow	Meter::Sweep::<ControlFlow>	_w6
 ControlFlow	Meter::Sweep::<ControlFlow>	_w7
+ControlFlow	Meter::Sweep::<ControlFlow>	_w8
+ControlFlow	Meter::Sweep::<ControlFlow>	_w9
+ControlFlow	Meter::Sweep::<ControlFlow>	_w10
 InitialNode	Meter::Sweep::<InitialNode>	_winit	-> start
 ActivityPartition	Meter::Sweep::cells	_cells_lane	(the partition represents the context's cells, read as this.cells; it is a collection, so names read through it are collections and are not assigned)
 OpaqueAction	Meter::Sweep::peak	_peak	-> peak	(the JavaScript body is translated to v2)
