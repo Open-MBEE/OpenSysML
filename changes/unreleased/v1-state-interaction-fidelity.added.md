@@ -2,7 +2,8 @@
   executably.** An Interaction owned by a block is a scenario `action def` of every message
   kind: a signal send, a `synchCall`/`asynchCall` of an operation as a typed perform on the
   lifeline's object — `perform action spin : Motor::Spin ::> drive.motor.spin { in rpm = 30.0; }`,
-  the arguments bound to the operation's `in` parameters by name or position — and a `reply`
+  the arguments bound to the operation's `in` and `inout` parameters by name or position, each
+  with the parameter's direction so an `inout` value is written back — and a `reply`
   as the assignment of the call's result to the caller lifeline's attribute; a lifeline is
   resolved to the feature path through the block's parts, ports and references or to an `in`
   parameter, and `alt`/`opt`/`loop`/`par` fragments are `if`/`for`/`while`/`fork` structures

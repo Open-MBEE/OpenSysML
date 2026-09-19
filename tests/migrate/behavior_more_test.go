@@ -847,3 +847,82 @@ func TestStateBehaviorsSharingANameAreDistinguished(t *testing.T) {
 		t.Errorf("the entry action did not run: %s", out)
 	}
 }
+
+// inoutCall is a bench whose panel calls the counter's Bump, an operation with an inout
+// parameter its method reads into count and then values anew, passing the bench's level.
+const inoutCall = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_ipanel" name="Panel"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_icounter" name="Counter">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_iCount" name="count">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_iCount0" value="0"/>
+      </ownedAttribute>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_ibump" name="Bump" method="_ibumping">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_ibLevel" name="level" direction="inout">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedParameter>
+      </ownedOperation>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_ibumping" name="Bumping" specification="_ibump">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_ibLevel2" name="level" direction="inout">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_iapnIn" name="level" parameter="_ibLevel2"/>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_iapnOut" name="level" parameter="_ibLevel2"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_iset" name="set count" structuralFeature="_iCount" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_isetVal" name="value"/>
+        </node>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_inine" name="nine">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_inineV" value="9"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_inineOut" name="result"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_iofIn" source="_iapnIn" target="_isetVal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_icfSet" source="_iset" target="_inine"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_iofOut" source="_inineOut" target="_iapnOut"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_ibench" name="Bench">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_iPanel" name="panel" type="_ipanel" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_iCounter" name="counter" type="_icounter" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_iLevel" name="level">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_iLevel0" value="3"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_iraise" name="Raise">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_ilp" name="p" represents="_iPanel" coveredBy="_isB"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_ilc" name="c" represents="_iCounter" coveredBy="_irB"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_isB" covered="_ilp" message="_imB"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_irB" covered="_ilc" message="_imB"/>
+        <message xmi:type="uml:Message" xmi:id="_imB" name="bump" messageSort="synchCall" signature="_ibump" sendEvent="_isB" receiveEvent="_irB">
+          <argument xmi:type="uml:OpaqueExpression" xmi:id="_imBArg"><body>level</body></argument>
+        </message>
+      </ownedBehavior>
+    </packagedElement>`
+
+const inoutApplications = `
+  <sysml:Block xmi:id="_ib1" base_Class="_ipanel"/>
+  <sysml:Block xmi:id="_ib2" base_Class="_icounter"/>
+  <sysml:Block xmi:id="_ib3" base_Class="_ibench"/>`
+
+// A call's argument for an inout parameter is bound with the parameter's direction, so the
+// value the callee gives the parameter is written back to what the argument named.
+func TestCallArgumentsKeepTheParameterDirection(t *testing.T) {
+	r := migrateDocument(t, inoutCall, inoutApplications)
+	wantLine(t, r.Notation, "perform action bump : Counter::Bump ::> counter.bump { inout level = this.level; }")
+	wantNoLine(t, r.Notation, "{ in level = this.level; }")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Bench")
+	meta(t, s, "%action Bench::Raise #1")
+	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
+		t.Errorf("the scenario did not complete:\n%s", out)
+	}
+	if out := meta(t, s, "%eval in #1 : counter.count"); !strings.Contains(out, "= 3") {
+		t.Errorf("the call did not pass the level in:\n%s", out)
+	}
+	if out := meta(t, s, "%eval in #1 : level"); !strings.Contains(out, "= 9") {
+		t.Errorf("the call did not write the level back:\n%s", out)
+	}
+}

@@ -785,7 +785,7 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 		if len(args) == 0 {
 			m.w.line(decl + ";")
 		} else {
-			m.w.line(decl + " { in " + strings.Join(args, "; in ") + "; }")
+			m.w.line(decl + " { " + strings.Join(args, "; ") + "; }")
 		}
 	}
 	m.w.line("first " + last + " then " + trig + ";")
@@ -856,9 +856,16 @@ func (m *migration) receptionArguments(method, sig *sysmlv1.Element, payload str
 			refusal = joinNotes(refusal, "the signal's attribute "+name+" "+why+" the method "+qualifiedName(method)+"'s parameter "+m.nameFor(p))
 			continue
 		}
-		args = append(args, writeName(name)+" = "+payload+"."+writeName(name))
+		args = append(args, m.parameterBinding(p, name, payload+"."+writeName(name)))
 	}
 	return args, refusal
+}
+
+// parameterBinding writes the binding of parameter p, called name, in the body of an action
+// usage of its behavior, keeping p's direction so an inout value is written back.
+func (m *migration) parameterBinding(p *sysmlv1.Element, name, expr string) string {
+	dir, _ := parameterDirection(p)
+	return dir + " " + writeName(name) + " = " + expr
 }
 
 // bindingMismatch says why feature a cannot be bound to parameter p: its type does not conform

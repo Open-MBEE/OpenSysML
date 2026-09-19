@@ -342,7 +342,7 @@ its generals: the `state def` declares an item of the signal's type,
 `accept setPoint2 : SetPoint … assign setPoint := setPoint2;`, and the behavior's parameters
 read its attributes, `in target : ScalarValues::Real = setPoint.level;` inline, or
 `entry action : Handle { in level = setPoint.level; }` where the state refers to a behavior
-written elsewhere. A state some
+written elsewhere, an `inout` parameter bound as `inout` so its value is written back. A state some
 transition enters without a signal — from the initial pseudostate, on a time or change event,
 or carrying a different signal — or whose parameters the signal's attributes do not fit, keeps
 the parameters unvalued and the report says which transition or attribute is the reason; an
@@ -388,8 +388,9 @@ parameter or through a `selector` refuses the whole interaction, since the scena
 address its steps. A signal message is
 `send new Sig(n = 3) to this.drive.motor;`; a call message is a typed perform of the
 operation's usage on the object, `perform action spin : Motor::Spin ::> drive.motor.spin
-{ in rpm = 30.0; }`, its arguments bound to the operation's `in` parameters by name or by
-position, and a call that leaves a required parameter (no default, lower bound above zero)
+{ in rpm = 30.0; }`, its arguments bound to the operation's `in` and `inout` parameters by
+name or by position, each with the parameter's direction so an `inout` value is written back
+to what the argument named, and a call that leaves a required parameter (no default, lower bound above zero)
 unbound refuses the interaction; a reply answers the latest call of its operation between
 its lifelines that no earlier reply has answered, so nested calls pair with their replies
 stack-like, and assigns that call's `out` to the attribute of the caller's lifeline the reply

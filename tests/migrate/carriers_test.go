@@ -377,3 +377,72 @@ func TestReferencedStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.
 		t.Errorf("the referenced entry did not read the second signal's level: %s", out)
 	}
 }
+
+// gaugeMachine enters Reading on Level; Reading refers to the Gauge's Adjust, whose inout
+// parameter it reads into seen and then values anew, as its entry.
+const gaugeMachine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_level" name="Level">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_lValue" name="value">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_lEv" signal="_level"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_gauge" name="Gauge" classifierBehavior="_gsm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_gseen" name="seen">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_gseen0" value="0.0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_adjust" name="Adjust">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_adjustV" name="value" direction="inout">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_adjustIn" name="value" parameter="_adjustV"/>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_adjustOut" name="value" parameter="_adjustV"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_gnote" name="note" structuralFeature="_gseen" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_gnoteV" name="value"/>
+        </node>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_gzero" name="zero">
+          <value xmi:type="uml:LiteralReal" xmi:id="_gzeroV" value="0.0"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_gzeroOut" name="result"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_adjustE1" source="_adjustIn" target="_gnoteV"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_adjustE2" source="_gnote" target="_gzero"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_adjustE3" source="_gzeroOut" target="_adjustOut"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_gsm" name="Track">
+        <region xmi:type="uml:Region" xmi:id="_gr">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_ginit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_gidle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_greading" name="Reading" entry="_adjust"/>
+          <transition xmi:type="uml:Transition" xmi:id="_gt0" source="_ginit" target="_gidle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_gt1" source="_gidle" target="_greading">
+            <trigger xmi:type="uml:Trigger" xmi:id="_gtr1" event="_lEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+const gaugeApplications = `
+  <sysml:Block xmi:id="_g1" base_Class="_gauge"/>`
+
+// A referred-to behavior's inout parameter is bound with its direction, so the entry both
+// reads the accepted signal's attribute and writes its value back.
+func TestReferencedStateBehaviorsKeepTheParameterDirection(t *testing.T) {
+	r := migrateDocument(t, gaugeMachine, gaugeApplications)
+	wantLine(t, r.Notation, "entry action : Adjust { inout value = level.value; }")
+	wantNoLine(t, r.Notation, "{ in value = level.value; }")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Gauge")
+	meta(t, s, "%state Gauge::Track")
+	if out := meta(t, s, "%send Level(value=2.5)"); !strings.Contains(out, "transition Idle -> Reading fires on it") {
+		t.Errorf("%%send Level: %s", out)
+	}
+	meta(t, s, "%step")
+	if out := meta(t, s, "%eval in #1 : seen"); !strings.Contains(out, "= 2.5") {
+		t.Errorf("the referenced entry did not read the signal's value: %s", out)
+	}
+}

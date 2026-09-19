@@ -92,7 +92,7 @@ type scenarioStep struct {
 	sender   *lifelineRef
 	receiver *lifelineRef
 	// args are the bindings a send or call writes, note what the bindings leave out.
-	args string
+	args []string
 	note string
 	// call is the call step a reply answers; assigns the bindings of its results.
 	call    *scenarioStep
@@ -577,10 +577,9 @@ func (s *scenario) parameterFor(arg *sysmlv1.Element, targets []*sysmlv1.Element
 }
 
 // bindArguments writes a message's arguments as bindings of the targets, an owner's
-// parameters or attributes, by name or position; a target that must hold a value
-// (no default, lower bound above 0) and that no argument binds is a refusal, why.
-func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Element, kind string, owner *sysmlv1.Element) (args, note, why string) {
-	var out []string
+// parameters (each with its direction) or attributes, by name or position; a target that
+// must hold a value (no default, lower bound above 0) and that no argument binds is a refusal, why.
+func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Element, kind string, owner *sysmlv1.Element) (args []string, note, why string) {
 	bound := map[*sysmlv1.Element]bool{}
 	for i, arg := range msg.Owned("argument") {
 		t := s.parameterFor(arg, targets, i)
@@ -595,21 +594,25 @@ func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Elemen
 		expr, ok, vnote := s.m.typedBehaviorValue(arg, t, s.e)
 		if !ok {
 			if requiresValue(t) {
-				return "", "", "leaves the " + kind + " " + s.m.nameOf(t) + " of " + owner.Name + ", which must hold a value, unbound: the argument " + describeValue(arg) + " is not written: " + vnote
+				return nil, "", "leaves the " + kind + " " + s.m.nameOf(t) + " of " + owner.Name + ", which must hold a value, unbound: the argument " + describeValue(arg) + " is not written: " + vnote
 			}
 			note = joinNotes(note, "the argument "+describeValue(arg)+" for "+s.m.nameOf(t)+" is dropped: "+vnote)
 			continue
 		}
 		bound[t] = true
-		out = append(out, writeName(s.m.nameOf(t))+" = "+expr)
+		if kind == "parameter" {
+			args = append(args, s.m.parameterBinding(t, s.m.nameOf(t), expr))
+		} else {
+			args = append(args, writeName(s.m.nameOf(t))+" = "+expr)
+		}
 		note = joinNotes(note, vnote)
 	}
 	for _, t := range targets {
 		if !bound[t] && requiresValue(t) {
-			return "", "", "binds no argument to the " + kind + " " + s.m.nameOf(t) + " of " + owner.Name + ", which must hold a value"
+			return nil, "", "binds no argument to the " + kind + " " + s.m.nameOf(t) + " of " + owner.Name + ", which must hold a value"
 		}
 	}
-	return strings.Join(out, ", "), note, ""
+	return args, note, ""
 }
 
 // stepName names a step after its message, or after what it does when the message is anonymous.
@@ -935,14 +938,14 @@ func (s *scenario) step(step *scenarioStep, prev string) string {
 	}
 	switch step.kind {
 	case stepSend:
-		m.w.line("action " + step.name + " send new " + m.ref(step.signal, s.e) + "(" + step.args + ") to " + step.receiver.path + ";")
+		m.w.line("action " + step.name + " send new " + m.ref(step.signal, s.e) + "(" + strings.Join(step.args, ", ") + ") to " + step.receiver.path + ";")
 		s.messageDone(step, "written as a send to "+step.receiver.path)
 	case stepCall:
 		decl := "perform action " + step.name + " : " + m.ref(step.op, s.e) + " ::> " + step.receiver.chain + "." + writeName(m.operationUsage(step.op))
-		if step.args == "" {
+		if len(step.args) == 0 {
 			m.w.line(decl + ";")
 		} else {
-			m.w.line(decl + " { in " + strings.ReplaceAll(step.args, ", ", "; in ") + "; }")
+			m.w.line(decl + " { " + strings.Join(step.args, "; ") + "; }")
 		}
 		s.messageDone(step, "written as a call of "+m.nameOf(step.op)+" on "+step.receiver.path)
 	case stepReply:

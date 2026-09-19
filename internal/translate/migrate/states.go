@@ -548,7 +548,7 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 				m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+" is not run: "+cnote)
 				return false
 			}
-			ins = append(ins, writeName(c.name)+" = "+expr)
+			ins = append(ins, "in "+writeName(c.name)+" = "+expr)
 			note = joinNotes(note, cnote)
 		}
 		if params := inParameters(b); len(params) > 0 && owner.Type != "Transition" {
@@ -557,7 +557,7 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 			switch {
 			case bound != nil && kw != "exit action":
 				for _, p := range params {
-					ins = append(ins, writeName(m.nameFor(p))+" = "+bound[p])
+					ins = append(ins, m.parameterBinding(p, m.nameFor(p), bound[p]))
 				}
 				note = joinNotes(note, "its parameters take the attributes of the signal the transitions into the state accept")
 			case slices.IndexFunc(params, requiresValue) >= 0:
@@ -573,7 +573,7 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 		}
 		line := kw + " : " + m.ref(b, owner) + ";"
 		if len(ins) > 0 {
-			line = kw + " : " + m.ref(b, owner) + " { in " + strings.Join(ins, "; in ") + "; }"
+			line = kw + " : " + m.ref(b, owner) + " { " + strings.Join(ins, "; ") + "; }"
 		}
 		m.w.line(line)
 		m.downgrade(b, note)
