@@ -409,7 +409,7 @@ func TestFeatureReachedByAConnectorLosesItsPrivacy(t *testing.T) {
   <sysml:Block xmi:id="_s3" base_Class="_car"/>`)
 	wantLine(t, r.Notation, "port intake : Fuel;")
 	wantLine(t, r.Notation, "private port aux : Fuel;")
-	wantLine(t, r.Notation, "connection feed connect tank to engine.intake;")
+	wantLine(t, r.Notation, "binding feed bind tank = engine.intake;")
 	wantNote(t, r, "_pt_in", migrate.Approximated, "private visibility is not written: connector 'feed' in Car reaches it")
 	wantClean(t, "reached.sysml", r)
 }

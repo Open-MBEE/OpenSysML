@@ -96,10 +96,12 @@ func lowerAccept(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 		if !ok || !m.IsAccept {
 			continue
 		}
+		port, viaSelf := acceptPort(node)
 		graph.Accepts[node] = Accept{
 			ParamName:    m.Ident.Name,
 			SignalType:   typingTarget(m),
-			ViaPort:      acceptPort(node),
+			ViaPort:      port,
+			ViaSelf:      viaSelf,
 			SubsetsEvent: subsettingTarget(m),
 			Trigger:      m.Value,
 			Scope:        scope,

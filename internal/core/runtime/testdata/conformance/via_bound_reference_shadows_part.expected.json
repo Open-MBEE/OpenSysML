@@ -1,0 +1,27 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "ViaBoundReferenceShadowsPart::Rig",
+  "materialization": {},
+  "objects": [
+    {
+      "path": "commander",
+      "events": [{"signal": "Go"}],
+      "finalState": "ready",
+      "stateVisits": ["idle", "commanding", "ready"],
+      "slots": {
+        "lastAck": {"type": "Instance"}
+      }
+    },
+    {
+      "path": "m1cs",
+      "finalState": "installed",
+      "stateVisits": ["idle", "installed"]
+    },
+    {
+      "path": "decoy",
+      "finalState": "idle",
+      "stateVisits": ["idle"]
+    }
+  ]
+}

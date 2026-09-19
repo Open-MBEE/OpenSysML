@@ -1,0 +1,12 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "SendDelegatedPort::Rig",
+  "objects": [
+    {
+      "path": "m1cs",
+      "finalState": "installed",
+      "stateVisits": ["idle", "installed"]
+    }
+  ]
+}

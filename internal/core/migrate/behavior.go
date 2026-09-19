@@ -69,6 +69,7 @@ func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 		m.interactionBody(e)
 	case e.Type == "Activity":
 		m.parameters(e, e)
+		m.contextParameter(e)
 		m.activityBody(e, e)
 	default:
 		m.parameters(e, e)
@@ -219,7 +220,11 @@ func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]boo
 	}
 	v := verdictFor(note)
 	if isBound {
-		note = joinNotes("bound to "+bound+", the signal the transition accepts", note)
+		what := m.boundNote
+		if what == "" {
+			what = "the signal the transition accepts"
+		}
+		note = joinNotes("bound to "+bound+", "+what, note)
 	}
 	m.add(p, v, m.v2Name(p), note)
 	m.w.block(b.String(), func() {
@@ -301,8 +306,8 @@ func (m *migration) behaviorExpr(text, lang string, scope *sysmlv1.Element) (exp
 	return m.qualifySelf(text, refs, scope), true, ""
 }
 
-// qualifySelf prefixes `this.` to each name in text that resolves to a feature
-// of the classifier enclosing scope, which a nested action reaches no other way.
+// qualifySelf prefixes `this.` (or the subject's name, in a test case) to each name
+// in text that resolves to a feature of the classifier enclosing scope.
 func (m *migration) qualifySelf(text string, refs []reference, scope *sysmlv1.Element) string {
 	visible, _ := m.visibleFrom(scope)
 	var starts []int
@@ -318,7 +323,7 @@ func (m *migration) qualifySelf(text string, refs []reference, scope *sysmlv1.El
 	}
 	sort.Sort(sort.Reverse(sort.IntSlice(starts)))
 	for _, s := range starts {
-		text = text[:s] + "this." + text[s:]
+		text = text[:s] + m.self + "." + text[s:]
 	}
 	return text
 }
@@ -478,6 +483,26 @@ func realLiteral(v float64) string {
 		s += ".0"
 	}
 	return s
+}
+
+// openBound is the one bound of a duration interval whose other bound is
+// absent — unset, or a duration without an expression: an interval open on one
+// side is waited for at the bound it has.
+func (m *migration) openBound(spec *sysmlv1.Element, lo string, lok bool, hi string, hok bool) (bound, note string, ok bool) {
+	absent := func(role string) bool {
+		v := m.model.Ref(spec, role)
+		for v != nil && (v.Type == "Duration" || v.Type == "TimeExpression") {
+			v = firstOwned(v, "expr")
+		}
+		return v == nil
+	}
+	switch {
+	case lok && !hok && absent("max"):
+		return lo, "the interval has no max", true
+	case hok && !lok && absent("min"):
+		return hi, "the interval has no min", true
+	}
+	return "", "", false
 }
 
 // durationExpr writes a UML duration value as a v2 expression in seconds: a scaled
@@ -659,38 +684,126 @@ func (m *migration) reported(e *sysmlv1.Element) bool {
 	return ok
 }
 
-// reception writes a reception as a comment on its owner: v2 has no
-// reception, the signal it names being accepted by the owner's behaviors.
+// reception writes a reception as an action def of its owner that accepts the
+// signal and performs the method, with a usage an object runs it as.
 func (m *migration) reception(r *sysmlv1.Element) {
 	sig := m.model.Ref(r, "signal")
+	if sig == nil || !m.written(sig) {
+		m.receptionComment(r, sig)
+		return
+	}
+	owner := r.Parent
+	name := m.nameFor(r)
+	usage := m.freshName(owner, lowerFirst(name))
+	used := map[string]bool{"start": true, "done": true}
+	trig := freshIn(used, "receive")
+	payload := freshIn(used, lowerFirst(m.nameFor(sig)))
+	run := freshIn(used, "run")
+	method := m.model.Ref(r, "method")
+	note, performed := "", false
+	m.w.block("action def "+writeName(name), func() {
+		m.w.line("first start then " + trig + ";")
+		m.w.line("action " + trig + " accept " + payload + " : " + m.ref(sig, owner) + ";")
+		last := trig
+		switch {
+		case method == nil:
+			if len(m.model.Unresolved(r, "method")) > 0 {
+				note = "the method refers to nothing in the document; the reception only accepts the signal"
+			} else {
+				note = "the reception has no method, so it only accepts the signal"
+			}
+		case !m.written(method) || !hasActionForm(method):
+			note = "the method " + qualifiedName(method) + " has no action def to perform; the reception only accepts the signal"
+		default:
+			args, refusal := m.receptionArguments(method, sig, payload)
+			if refusal != "" {
+				note = refusal + "; the reception only accepts the signal"
+				break
+			}
+			last, performed = run, true
+			m.w.line("first " + trig + " then " + run + ";")
+			decl := "action " + run + " : " + m.ref(method, owner)
+			if len(args) == 0 {
+				m.w.line(decl + ";")
+			} else {
+				m.w.line(decl + " { in " + strings.Join(args, "; in ") + "; }")
+			}
+		}
+		m.w.line("first " + last + " then done;")
+	})
+	m.w.line("action " + writeName(usage) + " : " + writeName(name) + ";")
+	m.receptionParameters(r, sig)
+	desc := "written as an action def accepting " + m.nameFor(sig)
+	if performed {
+		desc += " and performing its method " + qualifiedName(method)
+	}
+	m.add(r, verdictFor(note), m.v2Name(r), joinNotes(desc+", which its owner's usage "+usage+" runs", note))
+}
+
+// receptionComment writes a reception whose signal has no v2 declaration as a
+// comment, since nothing could accept it.
+func (m *migration) receptionComment(r, sig *sysmlv1.Element) {
 	text := "reception " + describe(r)
-	note := "a reception names the signal its owner accepts, which the owner's behaviors carry as accept"
-	switch {
-	case sig == nil:
-		note = joinNotes(note, m.dangling(r, "signal"))
+	note := ""
+	if sig == nil {
+		note = m.dangling(r, "signal")
 		if note == "" || len(m.model.Unresolved(r, "signal")) == 0 {
 			note = joinNotes(note, "the reception names no signal")
 		}
-	case m.written(sig):
-		text += " accepts " + m.ref(sig, m.scope)
-	default:
+	} else {
 		text += " accepts " + qualifiedName(sig)
-		note = joinNotes(note, "the signal "+qualifiedName(sig)+" has no v2 declaration in the document")
+		note = "the signal " + qualifiedName(sig) + " has no v2 declaration in the document"
 	}
 	m.w.lines(prefixFirst(commentPrefix, commentLines(text)))
-	m.add(r, Approximated, "", note)
+	m.add(r, Unmapped, "", note)
+}
+
+// receptionArguments binds the method's in parameters to the accepted signal's attributes of
+// the same name; a parameter with no such attribute that must hold a value refuses the method.
+func (m *migration) receptionArguments(method, sig *sysmlv1.Element, payload string) (args []string, refusal string) {
+	attrs := map[string]bool{}
+	for _, a := range m.signalAttributes(sig) {
+		attrs[m.nameOf(a)] = true
+	}
+	for _, p := range method.Owned("ownedParameter") {
+		dir, _ := parameterDirection(p)
+		if dir != "in" && dir != "inout" {
+			continue
+		}
+		name := m.nameOf(p)
+		if name == "" || !attrs[name] {
+			if requiresValue(p) {
+				refusal = joinNotes(refusal, "the method "+qualifiedName(method)+"'s parameter "+m.nameFor(p)+" must hold a value that no attribute of the signal supplies")
+			}
+			continue
+		}
+		args = append(args, writeName(name)+" = "+payload+"."+writeName(name))
+	}
+	return args, refusal
+}
+
+// receptionParameters reports a reception's own parameters, which mirror the
+// signal's attributes and are carried by the accepted payload.
+func (m *migration) receptionParameters(r, sig *sysmlv1.Element) {
+	attrs := map[string]*sysmlv1.Element{}
+	for _, a := range m.signalAttributes(sig) {
+		attrs[m.nameOf(a)] = a
+	}
+	for _, p := range r.Owned("ownedParameter") {
+		if a := attrs[m.nameOf(p)]; a != nil {
+			m.add(p, Mapped, m.v2Name(a), "stands for the signal's attribute "+m.nameOf(a)+", which the accepted payload carries")
+			continue
+		}
+		m.add(p, Unmapped, "", "the parameter "+m.nameFor(p)+" matches no attribute of the signal, whose payload is all the accept carries")
+	}
 }
 
 // event reports an event declared as a member: it is written as an accept clause
-// where a trigger refers to it, and the triggers report those, in their own scope.
+// where a trigger refers to it, and the triggers report those, in their own
+// scope; one no trigger refers to is skipped, since no behavior would accept it.
 func (m *migration) event(e *sysmlv1.Element) {
 	if m.triggered[e] {
 		return
 	}
-	clause, note, ok := m.acceptClause(e, e.Parent, "")
-	if !ok {
-		m.unmapped(e, joinNotes("no trigger refers to the event", note))
-		return
-	}
-	m.add(e, Approximated, "", joinNotes("no trigger refers to the event, which would be written as "+clause, note))
+	m.add(e, Skipped, "", unreferencedNote+": no trigger refers to the event, so nothing would accept it")
 }

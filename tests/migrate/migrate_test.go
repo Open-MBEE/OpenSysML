@@ -149,10 +149,10 @@ func TestNotationCoversTheFixture(t *testing.T) {
 		"part wheels : Wheel[4..*];",
 		"ref part driver : Driver[0..1];",
 		"port fuelIn : ~'Vehicle Design'::Interfaces::FuelInterface;",
-		"connection 'fuel line' connect fuelIn to engine.fuelPort;",
+		"binding 'fuel line' bind fuelIn = engine.fuelPort;",
 		"flow fuelIn.fuel to engine.fuelPort.fuel;",
 		"bind mass = massLimit.m;",
-		"connect speedOut to engine.piston.p;",
+		"bind speedOut = engine.piston.p;",
 		"satisfy requirement : Requirements::'Mass Requirement';",
 		"satisfy requirement : Requirements::'Engine Mass Requirement' by engine;",
 		"part engine : Motor :>> engine;",
@@ -292,5 +292,42 @@ func TestMigratesMdzipArchive(t *testing.T) {
 func TestRejectsNonXMI(t *testing.T) {
 	if _, err := migrate.Migrate("x.xmi", []byte("<html/>")); err == nil {
 		t.Error("expected an error for a non-XMI document")
+	}
+}
+
+// constructFixtures are the XMI documents under testdata/xmi that each exercise
+// one family of behavioral constructs; their notation and report are golden.
+var constructFixtures = []string{"plant_states", "rig_interactions", "heater_receptions", "ported_calls"}
+
+// migrateFixtureFile migrates testdata/xmi/<name>.xmi.
+func migrateFixtureFile(t *testing.T, name string) *migrate.Result {
+	t.Helper()
+	data, err := os.ReadFile("testdata/xmi/" + name + ".xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := migrate.Migrate(name+".xmi", data)
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	return r
+}
+
+// The notation and report each construct fixture migrates to are pinned, and
+// the notation analyses clean.
+func TestGoldenConstructFixtures(t *testing.T) {
+	for _, name := range constructFixtures {
+		t.Run(name, func(t *testing.T) {
+			r := migrateFixtureFile(t, name)
+			checkGolden(t, "testdata/xmi/"+name+".golden.sysml", r.Notation)
+			var report bytes.Buffer
+			if err := r.Report.WriteText(&report); err != nil {
+				t.Fatal(err)
+			}
+			checkGolden(t, "testdata/xmi/"+name+".golden.report.txt", report.Bytes())
+			for _, d := range errors(t, name+".sysml", r.Notation) {
+				t.Errorf("%v", d)
+			}
+		})
 	}
 }
