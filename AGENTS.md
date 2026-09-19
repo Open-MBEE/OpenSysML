@@ -39,8 +39,8 @@ Raw equivalents / targeted runs:
 go build ./...                                   # must always be clean
 go vet ./...                                     # must be clean (catches unused/dead code)
 go test ./...                                    # all tests
-go test ./internal/core/runtime/...             # one package tree
-go test -run TestExecutionConformance ./internal/core/runtime
+go test ./internal/exec/runtime/...             # one package tree
+go test -run TestExecutionConformance ./internal/exec/runtime
 go test -race ./...                             # race detector (CI runs this)
 gofmt -l .                                      # must print nothing (CI enforces gofmt)
 ```
@@ -73,7 +73,7 @@ turn the assertion into a ratchet.
 The RDF mapping has a per-file ratchet of its own over every model under `examples/`, the
 downloaded corpora included: `TestCorpusRoundTrip` in `tests/corpus` converts each file
 notation → Turtle → notation → Turtle and pins the verdict. Run it with both require variables
-set after any change to `internal/core/export`, adjudicate every movement, then regenerate with
+set after any change to `internal/translate/export`, adjudicate every movement, then regenerate with
 `-update-corpus-roundtrip`. See `docs/project/rdf-corpus-roundtrip.md`.
 
 ---
@@ -84,22 +84,16 @@ set after any change to `internal/core/export`, adjudicate every movement, then 
 cmd/
   sysml/                 REPL binary
   sysml-lsp/             LSP server binary
-internal/core/
-  source/                source files, spans, line indexing
-  diag/                  Diagnostic and Severity, the finding type every layer reports
-  lexer/                 hand-written scanner (~200 keywords)
-  parser/                recursive-descent parser (never panics; emits ErrorNodes)
-  ast/                   syntax tree nodes — IMMUTABLE after parse
-  symbols/               symbol tables, scope trees
-  resolve/               lazy, memoized name resolution
-  semantics/             type system, conformance, multiplicity, const-folding eval
-  passes/                tiered validation (syntax → nameres → type → constraint)
-  lower/                 AST → execution IR (ActionGraph, StateGraph) for the runtime
-  runtime/               execution engine (eval, instances, action/state executors)
-  model/                 workspace / document management
-  libs/                  stdlib bundling + conformance gate
-internal/lsp/            LSP protocol implementation
-internal/repl/           REPL loop
+internal/                one directory per layer; a package imports only the layers below it
+  syntax/                source files and spans, diagnostics, lexer, parser, AST, pack, format
+  semantic/              symbol tables, name resolution, suggestions, semantics, identity, highlight, query
+  ir/                    lowered execution IR (ActionGraph, StateGraph), query/doc plans, views
+  check/                 tiered validation passes (syntax → nameres → type → constraint), workspace edits
+  exec/                  execution engine, SMT solving, analysis framework and engines
+  translate/             RDF, XMI and notation conversion, code generation, interop
+  doc/                   query execution, document IR, Markdown/HTML/PDF backends
+  workspace/             workspace and document management, stdlib bundling, project files, env vars
+  frontend/              LSP, REPL, gRPC and stdio transports, protobuf conversion, usage
 tests/                   black-box suites and their fixtures
   hygiene/               module-wide checks (no production code imports testing)
   perf/                  benchmark harness (go test ./tests/perf -run '^$' -bench .)
@@ -118,11 +112,11 @@ Read `docs/internals/architecture.md` before non-trivial work — it documents t
 
 ## 4. Architecture Invariants (do not violate)
 
-- **Immutable AST.** `internal/core/ast` is syntax-only and is never mutated after parsing. All derived/semantic data lives in **side tables keyed by node/symbol**.
+- **Immutable AST.** `internal/syntax/ast` is syntax-only and is never mutated after parsing. All derived/semantic data lives in **side tables keyed by node/symbol**.
 - **Parser never fails.** `parser.New(src).ParseFile()` always returns a tree; malformed input yields `ErrorNode`s + diagnostics, never a panic.
 - **Lazy + memoized semantics.** Name resolution and type queries compute on demand and cache. Don't force eager work.
 - **Tiered passes.** Higher validation tiers are skipped when a lower tier errors, unless a pass declares `passes.ElementScoped` and gates itself per subject via `Context.DownstreamOfFailure`. Keep passes independent and level-scoped.
-- **Runtime consumes lowered IR.** Executors should operate on `internal/core/lower` graphs (`ActionGraph`/`StateGraph`) as the single source of truth — do **not** re-parse `symbol.Decl` inside executors, and do not build parallel/duplicate structures that can drift. Lowering must be lossless (carry guards, triggers, effects, pseudostate edges).
+- **Runtime consumes lowered IR.** Executors should operate on `internal/ir/lower` graphs (`ActionGraph`/`StateGraph`) as the single source of truth — do **not** re-parse `symbol.Decl` inside executors, and do not build parallel/duplicate structures that can drift. Lowering must be lossless (carry guards, triggers, effects, pseudostate edges).
 - **Error timing is part of the contract.** Constructors (`newActionExecutor`, `newStateExecutor`) succeed on structurally-empty inputs; "no initial node/state" errors surface at `initialize()`. Don't move error points without updating the corresponding tests intentionally.
 
 ---
@@ -131,16 +125,16 @@ Read `docs/internals/architecture.md` before non-trivial work — it documents t
 
 ### 5.1 Parser features — four-layer contract
 When touching the lexer/parser or adding grammar:
-1. **Conformance gate:** `go test -run TestStdlibConformance ./internal/core/libs` — all official stdlib files must still parse clean (no regressions).
+1. **Conformance gate:** `go test -run TestStdlibConformance ./internal/workspace/libs` — all official stdlib files must still parse clean (no regressions).
 2. **Golden ASTs:** `go test -run TestGolden ./tests/parser`. Add a representative fixture under `tests/parser/testdata/parse/*.sysml`.
-3. **Negative tests:** `go test -run TestNegative ./tests/parser ./internal/core/parser` — malformed input must produce diagnostics without panicking.
+3. **Negative tests:** `go test -run TestNegative ./tests/parser ./internal/syntax/parser` — malformed input must produce diagnostics without panicking.
 4. **Update goldens only after intentional changes:** `go test -run TestGolden -update ./tests/parser`, then review the diff carefully.
 
 ### 5.2 Behavioral features (actions/states/calc/constraints/requirements) — four-layer contract
 1. **Golden AST fixture** locking parse structure (`tests/parser/testdata/parse/`).
-2. **Execution conformance:** add `.sysml` + `.expected.json` under `internal/core/runtime/testdata/conformance/`; run `go test -run TestExecutionConformance ./internal/core/runtime`. Schema is documented in that dir's `README.md`.
-3. **Golden execution traces** for ordering-sensitive behavior (fork/join, transitions): `go test -run TestExecutionTrace ./internal/core/runtime` (update flag: `-update-traces`).
-4. **Robustness:** add a failure-mode case (deadlock, unbound params, missing refs, dangling transitions, step budget) as a subtest of a `TestRuntimeRobustness<Feature>` function in `internal/core/runtime/robustness_<feature>_test.go` — a new file for a new feature, so branches never edit one shared registry; `robustness_test.go` holds the shared cases and is not where new ones go. Must return typed errors, never panic or hang. The suite counters read every `TestRuntimeRobustness*` function, and gRPC cases follow the same pattern with `TestGRPCRobustness*`.
+2. **Execution conformance:** add `.sysml` + `.expected.json` under `internal/exec/runtime/testdata/conformance/`; run `go test -run TestExecutionConformance ./internal/exec/runtime`. Schema is documented in that dir's `README.md`.
+3. **Golden execution traces** for ordering-sensitive behavior (fork/join, transitions): `go test -run TestExecutionTrace ./internal/exec/runtime` (update flag: `-update-traces`).
+4. **Robustness:** add a failure-mode case (deadlock, unbound params, missing refs, dangling transitions, step budget) as a subtest of a `TestRuntimeRobustness<Feature>` function in `internal/exec/runtime/robustness_<feature>_test.go` — a new file for a new feature, so branches never edit one shared registry; `robustness_test.go` holds the shared cases and is not where new ones go. Must return typed errors, never panic or hang. The suite counters read every `TestRuntimeRobustness*` function, and gRPC cases follow the same pattern with `TestGRPCRobustness*`.
 
 Then update `docs/project/spec-compliance.md` mapping: semantic rule → implementation (file:function) → test → status (✅ faithful / ⚠️ approximate / ❌ not implemented / 🚧 known failure).
 
@@ -207,7 +201,7 @@ Bug-fix discipline (small, scoped diffs) does **not** apply to feature work. For
 
 **Do:**
 - **Implement the whole feature**, including the hard cases (nesting, hierarchy, orthogonal regions, error/edge paths), not just the happy path.
-- **Follow the layering.** Put logic in the correct layer (lexer → parser → lower → runtime). If a feature needs new IR, extend `internal/core/lower` losslessly rather than re-deriving data downstream.
+- **Follow the layering.** Put logic in the correct layer (lexer → parser → lower → runtime). If a feature needs new IR, extend `internal/ir/lower` losslessly rather than re-deriving data downstream.
 - **Refactor when the design requires it.** If the clean implementation needs a new type, an interface change, or migrating existing callers, do that — and migrate *all* callers, deleting the superseded code.
 - **Prefer completeness over diff size** every time the two conflict.
 

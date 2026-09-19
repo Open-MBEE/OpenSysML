@@ -278,7 +278,7 @@ goes to stderr.
 
 Every migrated model is gated in the test suite to:
 
-1. parse and analyse clean under the v2 semantic passes (`go test ./internal/core/migrate`),
+1. parse and analyse clean under the v2 semantic passes (`go test ./internal/translate/migrate`),
 2. round-trip through Turtle (notation → `.ttl` → notation → `.ttl`) without changing its graph,
 3. account for every element in the report, and leave a comment for every unmapped one.
 

@@ -3,7 +3,7 @@
 ## Status: COMPLETE ✅
 
 **Phase 1**: Explicit execution IR created
-- `internal/core/lower/` package exists
+- `internal/ir/lower/` package exists
 - `ActionGraph` and `StateGraph` IR types defined
 - `ToActionGraph()` and `ToStateGraph()` conversion functions working
 - Comprehensive test coverage (5 tests: simple, fork/join, regions, pseudostates)

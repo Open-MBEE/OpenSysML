@@ -298,7 +298,7 @@ download script first (each is idempotent and refuses to report success over an 
 |----------|----------|------|
 | `OPENSYSML_REQUIRE_TRAINING_CORPUS` | `./scripts/download-training-examples.sh` → `examples/sysml-v2-training/` | `TestTrainingExamples*` in `tests/corpus` |
 | `OPENSYSML_REQUIRE_PILOT_CORPORA` | `./scripts/download-pilot-corpora.sh` → `examples/pilot-corpora/` | `TestPilotCorpora*` in `tests/corpus` |
-| `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI` | `./scripts/download-pilot-library-xmi.sh` → `build/pilot-library-xmi/` | `TestPilotLibraryXMI` in `internal/core/identity` |
+| `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI` | `./scripts/download-pilot-library-xmi.sh` → `build/pilot-library-xmi/` | `TestPilotLibraryXMI` in `internal/semantic/identity` |
 
 CI sets all three; see [pilot-corpora.md](../project/pilot-corpora.md) for the pin the downloads
 share and what the gates measure.

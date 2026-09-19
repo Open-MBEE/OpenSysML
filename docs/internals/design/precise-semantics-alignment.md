@@ -36,7 +36,7 @@ spec-numbering convention here is the document's own (PSSM `8.5.9`, fUML `8.8.1`
 |---|---|---|
 | **SysML v2** | 2.0, `formal/26-03-02`, <https://www.omg.org/spec/SysML/2.0> | §7.18.1–§7.18.3 states and transitions (entry/do/exit, `parallel`, transition steps, `done`, a transition to `terminate`); §8.4.13.4 control nodes (`ForkNode`, `JoinNode`, `MergeNode`, `DecisionNode`); §8.4.13.5–§8.4.13.6 send and accept actions; §8.4.13.8 terminate action |
 | **KerML** | 1.0, `formal/26-03-01`, <https://www.omg.org/spec/KerML/1.0> | §9.2.11.1 `StatePerformances`, §9.2.12 `TransitionPerformances`, §9.2.5 `Occurrences` (`isDispatch`, `dispatchScope`, `isRunToCompletion`, `runToCompletionScope`, `incomingTransferSort`), §9.2.10 `ControlPerformances`, §9.2.13 `Clocks` |
-| **Bundled semantic library** | the pilot implementation's library snapshot shipped under `internal/core/libs/stdlib` (EPL-2.0, see its `NOTICE`) | `Kernel Semantic Library/Occurrences.kerml`, `StatePerformances.kerml`, `TransitionPerformances.kerml`, `ControlPerformances.kerml`, `Clocks.kerml` — the text the runtime executes against, quoted where it differs in wording from the specification PDF |
+| **Bundled semantic library** | the pilot implementation's library snapshot shipped under `internal/workspace/libs/stdlib` (EPL-2.0, see its `NOTICE`) | `Kernel Semantic Library/Occurrences.kerml`, `StatePerformances.kerml`, `TransitionPerformances.kerml`, `ControlPerformances.kerml`, `Clocks.kerml` — the text the runtime executes against, quoted where it differs in wording from the specification PDF |
 
 The record of which pilot release and which OMG documents the conformance work pins is
 [spec-compliance](../../project/spec-compliance.md); this note does not re-pin them.
@@ -99,10 +99,10 @@ of four verdicts.
   offers one.
 - **gap** — a concept the runtime has no behavior for at all.
 
-Test names are conformance fixtures under `internal/core/runtime/testdata/conformance/` (run by
+Test names are conformance fixtures under `internal/exec/runtime/testdata/conformance/` (run by
 `TestExecutionConformance`; a `.trace.golden` beside one is compared by `TestExecutionTrace`),
-subtests of `TestRuntimeRobustness` in `internal/core/runtime/robustness_test.go`, or unit tests
-in the runtime package. File paths are relative to `internal/core/runtime/` unless stated.
+subtests of `TestRuntimeRobustness` in `internal/exec/runtime/robustness_test.go`, or unit tests
+in the runtime package. File paths are relative to `internal/exec/runtime/` unless stated.
 
 ### State machines (PSSM)
 

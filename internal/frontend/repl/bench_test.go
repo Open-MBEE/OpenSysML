@@ -10,7 +10,7 @@ import (
 // Benchmarks over synthetic models of a stated size: a super-linear cost is
 // visible only across sizes. See docs/internals/performance.md.
 //
-//	go test ./internal/repl -run '^$' -bench . -benchmem
+//	go test ./internal/frontend/repl -run '^$' -bench . -benchmem
 //
 // Beyond the standard figures, B/element is memory allocated per model element,
 // and live-B/op is memory the loaded model holds with the session reachable.

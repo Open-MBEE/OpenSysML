@@ -11,10 +11,10 @@ engine contract, the registry, how a question chooses engines, what a composed r
 claim, how runs are isolated so they can be parallel, and how the existing surfaces migrate
 without changing what they mean.
 
-**Status.** Stages 1, 2, 4 and 5 of the [stages](#stages) below are implemented: `internal/core/analysis`
+**Status.** Stages 1, 2, 4 and 5 of the [stages](#stages) below are implemented: `internal/exec/analysis`
 holds the contract (`Question`, `Engine`, `Result`, `Claim`, `Strength`, `Bounds`, `Budget`),
 the registry and `auto` dispatch, the `run`, `explore`, `sweep` and `solve` engines as
-adapters over the interpreter, `runtime.Explore`, `Context.RunSweep` and `internal/core/solve`,
+adapters over the interpreter, `runtime.Explore`, `Context.RunSweep` and `internal/exec/solve`,
 and one `tool:<name>` engine per entry of the manifest `OPENSYSML_TOOLS` names. The CLI (and
 the REPL session it opens) and the gRPC service each resolve a `DefaultFromEnv()` registry at
 startup and put every question the migration table lists to it, each plan on a worker of its
@@ -58,7 +58,7 @@ separate plug point with its own selection flag, budget, result type and report:
 | SMT backend — z3, cvc5, or a named binary (`solve.Discover`, `solve.Solver`) | `OPENSYSML_SMT` | `OPENSYSML_SMT_TIMEOUT` | `solve.Result` with `Status` `sat`/`unsat`/`unknown`, `SolveReport` with `SolveStatus` | one process per query |
 | Parameter sweep and sampling (`Context.RunSweep`) | `-sweep`, `-samples`, `%sweep`, `%samples`, `RunSweep` | `OPENSYSML_MAX_SWEEP_RUNS`, the request's `context.Context` | `SweepTable` of `SweepRow` | one row after another |
 | Analysis and verification cases (`RunAnalysis`, the verification RPCs) | `-analysis`, `-requirement`, `-constraint`, `-satisfy`, `%run`, `VerifyConstraint`… | `OPENSYSML_MAX_STEPS`, `OPENSYSML_MAX_CALC_DEPTH` | `Verdict` with `VerdictStatus` holds/fails/unresolved; `VerificationVerdict` pass/fail/inconclusive/error on the wire | one run |
-| External analysis tools — `AnalysisTooling::ToolExecution` and `ToolVariable` in the standard library | metadata on the analysis case's actions | none | none | not run: the metadata is parsed and resolved, and nothing in `internal/core/runtime` reads it |
+| External analysis tools — `AnalysisTooling::ToolExecution` and `ToolVariable` in the standard library | metadata on the analysis case's actions | none | none | not run: the metadata is parsed and resolved, and nothing in `internal/exec/runtime` reads it |
 
 Each was the right shape for the question it answered. Together they have four costs:
 
@@ -183,7 +183,7 @@ The engines this note names, each an adapter over code that exists or is designe
 | `run` | `evaluate`, `sweep` (one row) | the interpreter under a fixed scheduling policy | *observed* | `runtime.Context`, `RunAnalysis`, `CheckConstraintOn`, the evaluator |
 | `explore` | `outcomes`, `holds` (concrete inputs), `sensitive` (from the outcome table) | every linearization within `runs`/`depth` | *proved* over schedules on `complete`; *witnessed* for a violation | `runtime.Explore` |
 | `sweep` | `sweep` | one `run` per row, rows in parallel | *observed* per row | `runtime.RunSweepWith`'s plan and work queue of rows, each row in a context of its own |
-| `solve` | `satisfiable` and its variants (explain, synthesize, configure, optimize) | an external SMT process | *proved* for `unsat` over the encoded fragment; *witnessed* for a `sat` model the evaluator confirms | `internal/core/solve`, `SolveReport`; the evaluator's confirmation of a `sat` model is the one addition |
+| `solve` | `satisfiable` and its variants (explain, synthesize, configure, optimize) | an external SMT process | *proved* for `unsat` over the encoded fragment; *witnessed* for a `sat` model the evaluator confirms | `internal/exec/solve`, `SolveReport`; the evaluator's confirmation of a `sat` model is the one addition |
 | `smt` | `holds`, `sensitive`, `outcomes` (as a bounded enumeration) | schedules and free inputs symbolically, within `k` moves | *proved* (with induction), *bounded*, *witnessed* | the [SMT design](smt-model-checking.md) |
 | `check` | `outcomes`, `holds`, deadlock | the executor with snapshots and partial-order reduction | *bounded*; *witnessed* | the [explicit-state design](bounded-model-checking.md) |
 | `tool:<name>` | `compute` | one external process per invocation | *observed* | `AnalysisTooling` metadata and a process protocol (below) |
@@ -289,7 +289,7 @@ func Default() *Registry
 ```
 
 `analysis.Default()` holds the engines this package implements; the registry of *every* engine
-the build knows is `engines.Default()` in `internal/core/engines`, which adds those of packages
+the build knows is `engines.Default()` in `internal/exec/engines`, which adds those of packages
 `analysis` cannot import because they import it (`smt`), and `engines.DefaultFromEnv()` adds the
 tool manifest's on top. `sysml`, `sysml-lsp` and `sysml-grpc` each build one at startup and
 hand it to the coordinator, so the three binaries answer with the same engines. Engines that
@@ -737,7 +737,7 @@ behavior unchanged until stage 4.
 1. **Contract and registry.** `Question`, `Engine`, `Result`, `Strength`, `Budget`; the
    registry; `run`, `explore`, `sweep` and `solve` as adapters over existing code; every
    existing surface routed through `auto`. No output changes. *Implemented:*
-   `internal/core/analysis`, with the registry and dispatch tests of the test contract, the
+   `internal/exec/analysis`, with the registry and dispatch tests of the test contract, the
    `auto` clauses of its dispatch bullet, and the existing goldens passing through the engines.
    The `Strength` and `Claim` orderings are in place; the strength-scale tests proper, `all` and
    the disagreement result belong to stage 4.
@@ -784,7 +784,7 @@ behavior unchanged until stage 4.
    universal run is not cancelled by a witness. The `-json` `plan` key gains `workers` and
    `warming`; the human-readable report prints neither (see *What may be shared*). Tests: the
    determinism bullet over the conformance corpus and its three fixtures (the violation a later,
-   wider prefix reaches faster, under `internal/core/runtime/testdata/` because the harness
+   wider prefix reaches faster, under `internal/exec/runtime/testdata/` because the harness
    admits no erroring outcome; `runs` just above its witness; the slow first prefix beside wide
    siblings, a conformance case whose slow body is a bounded recursion) on one job against
    eight, in the runtime and through the CLI's `-json`, with the physical count bounded by
@@ -876,7 +876,7 @@ behavior unchanged until stage 4.
    standing line on every verdict; the strength-scale tests; `all` and the disagreement result.
    The `-json` additions land here, and its release checklist records whether they are patch or
    minor under the versioning rule. *Implemented:* `Selection` and `Registry.AnswerWith` in
-   `internal/core/analysis`, with `all` running the covering engines one after another in name
+   `internal/exec/analysis`, with `all` running the covering engines one after another in name
    order and `Compose` deciding the composed result, the demotion and the disagreement over the
    set of results; a cancelled engine kept in the plan as a step marked cancelled with the
    bound it reached; `Result.Standing` and `Plan.Standing` for the standing line the REPL, the

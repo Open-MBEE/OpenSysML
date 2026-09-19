@@ -366,22 +366,16 @@ github.com/Open-MBEE/OpenSysML
 │   ├── sysml-lsp/          # LSP server binary
 │   ├── sysml-grpc/         # gRPC server binary (Python bindings)
 │   └── sysml/              # Interactive REPL binary
-├── internal/core/
-│   ├── source/             # Source files, spans, line indexing
-│   ├── lexer/              # Hand-written scanner
-│   ├── parser/             # Recursive-descent parser
-│   ├── ast/                # Syntax tree nodes
-│   ├── symbols/            # Symbol tables, scope trees
-│   ├── resolve/            # Name resolution (lazy, memoized)
-│   ├── semantics/          # Type system, conformance, multiplicity
-│   ├── passes/             # Validation passes (syntax → constraints)
-│   ├── lower/              # AST → execution IR (ActionGraph/StateGraph)
-│   ├── runtime/            # Execution engine (eval, instances, builtins)
-│   ├── model/              # Workspace, document management
-│   └── libs/               # Standard library bundling & caching
-├── internal/lsp/           # LSP protocol implementation
-├── internal/grpc/          # gRPC service implementation
-├── internal/repl/          # REPL loop implementation
+├── internal/               # One directory per layer; a package imports only the layers below it
+│   ├── syntax/             # source, diag, lexer, parser, ast, pack, format
+│   ├── semantic/           # symbols, resolve, suggest, semantics, identity, highlight, query
+│   ├── ir/                 # lower, queryplan, docplan, view
+│   ├── check/              # passes, edit
+│   ├── exec/               # runtime, solve, smt, analysis, engines, objref
+│   ├── translate/          # rdf, export, xmi, migrate, convert, codegen, interop
+│   ├── doc/                # queryexec, docir, docrender, docpdf
+│   ├── workspace/          # model, libs, project, envvar
+│   └── frontend/           # protoconv, grpc, lsp, repl, stdiorpc, usage
 ├── client/opensysml/       # The public Go API (in-process and remote)
 ├── client/java/           # Java client (org.openmbee:opensysml-client)
 ├── client/node/           # Node/TypeScript client (@opensysml/client)
@@ -646,7 +640,7 @@ The constraint-solving capability set — satisfiability checking, conflict expl
 through unsat cores, value synthesis and objective optimization through an SMT solver —
 follows the design of the `ConstraintSolverService` in OpenMBEE's
 [HMF (Hivecore Model Framework)](https://github.com/hivecore-dev/hmf) (Apache 2.0). The
-implementation in `internal/core/solve` is independent: it translates conditions to
+implementation in `internal/exec/solve` is independent: it translates conditions to
 SMT-LIB 2 for an external `z3`/`cvc5` process rather than binding to Z3 in-process.
 
 ## Contributing

@@ -10,7 +10,7 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   register against, one scale for the strength of an answer (proved, bounded, witnessed,
   observed, not covered), dispatch by question with fallback, and runs isolated so they can be
   parallel; the contract, the registry and the four engines over existing code are
-  implemented (`internal/core/analysis`), the rest is a proposal
+  implemented (`internal/exec/analysis`), the rest is a proposal
 - **[Bring your own engine](bring-your-own-engines.md)** — a proposal: a manifest and a
   protocol under which a user's own engine, scheduling policy, sampler or tool registers with
   the analysis framework as a process, a WebAssembly module or Go over the public package; every

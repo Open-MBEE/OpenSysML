@@ -4,7 +4,7 @@
 
 **Goal:** Build working gRPC service (`sysml-grpc`) exposing OpenSysML's parser and symbol query capabilities.
 
-**Architecture:** Stateless gRPC service with LRU cache for parsed models. Thin wrapper over existing `internal/core/*` packages. Service keyed by content hash for cache lookup.
+**Architecture:** Stateless gRPC service with LRU cache for parsed models. Thin wrapper over existing `internal/*` packages. Service keyed by content hash for cache lookup.
 
 **Tech Stack:** Go 1.23+, gRPC, Protocol Buffers
 
@@ -16,14 +16,14 @@
 - `api/proto/sysml.proto` - Service definition and message types
 - `api/proto/generate.go` - Code generation directive
 - `cmd/sysml-grpc/main.go` - Server binary
-- `internal/grpc/service.go` - RPC implementations
-- `internal/grpc/cache.go` - LRU cache
-- `internal/grpc/convert.go` - Type conversions
-- `internal/grpc/errors.go` - Error handling
-- `internal/grpc/service_test.go` - Service unit tests
-- `internal/grpc/cache_test.go` - Cache unit tests
-- `internal/grpc/convert_test.go` - Conversion unit tests
-- `internal/grpc/integration_test.go` - Full round-trip tests
+- `internal/frontend/grpc/service.go` - RPC implementations
+- `internal/frontend/grpc/cache.go` - LRU cache
+- `internal/frontend/grpc/convert.go` - Type conversions
+- `internal/frontend/grpc/errors.go` - Error handling
+- `internal/frontend/grpc/service_test.go` - Service unit tests
+- `internal/frontend/grpc/cache_test.go` - Cache unit tests
+- `internal/frontend/grpc/convert_test.go` - Conversion unit tests
+- `internal/frontend/grpc/integration_test.go` - Full round-trip tests
 
 **Modified files:**
 - `Makefile` - Add build-grpc target
@@ -207,20 +207,20 @@ git commit -m "feat(grpc): add protobuf schema and dependencies"
 ### Task 2: Implement LRU Cache
 
 **Files:**
-- Create: `internal/grpc/cache.go`
-- Create: `internal/grpc/cache_test.go`
+- Create: `internal/frontend/grpc/cache.go`
+- Create: `internal/frontend/grpc/cache_test.go`
 
 - [ ] **Step 1: Write failing test for cache Put/Get**
 
-Create `internal/grpc/cache_test.go`:
+Create `internal/frontend/grpc/cache_test.go`:
 ```go
 package grpc
 
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 func TestCachePutGet(t *testing.T) {
@@ -282,12 +282,12 @@ func TestCacheLRUEviction(t *testing.T) {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `go test ./internal/grpc -run TestCache -v`
+Run: `go test ./internal/frontend/grpc -run TestCache -v`
 Expected: FAIL with "undefined: NewCache"
 
 - [ ] **Step 3: Implement cache.go**
 
-Create `internal/grpc/cache.go`:
+Create `internal/frontend/grpc/cache.go`:
 ```go
 package grpc
 
@@ -295,8 +295,8 @@ import (
 	"container/list"
 	"sync"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // CachedModel holds parsed model data
@@ -376,13 +376,13 @@ func (c *Cache) Put(hash string, model *CachedModel) {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `go test ./internal/grpc -run TestCache -v`
+Run: `go test ./internal/frontend/grpc -run TestCache -v`
 Expected: PASS for all 3 tests
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add internal/grpc/cache.go internal/grpc/cache_test.go
+git add internal/frontend/grpc/cache.go internal/frontend/grpc/cache_test.go
 git commit -m "feat(grpc): implement LRU cache for parsed models"
 ```
 
@@ -391,21 +391,21 @@ git commit -m "feat(grpc): implement LRU cache for parsed models"
 ### Task 3: Implement Type Conversion (Go → Protobuf)
 
 **Files:**
-- Create: `internal/grpc/convert.go`
-- Create: `internal/grpc/convert_test.go`
+- Create: `internal/frontend/grpc/convert.go`
+- Create: `internal/frontend/grpc/convert_test.go`
 
 - [ ] **Step 1: Write failing test for symbol conversion**
 
-Create `internal/grpc/convert_test.go`:
+Create `internal/frontend/grpc/convert_test.go`:
 ```go
 package grpc
 
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
 
@@ -460,12 +460,12 @@ func TestDiagnosticToProto(t *testing.T) {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `go test ./internal/grpc -run TestSymbolToProto -v`
+Run: `go test ./internal/frontend/grpc -run TestSymbolToProto -v`
 Expected: FAIL with "undefined: SymbolToProto"
 
 - [ ] **Step 3: Implement convert.go**
 
-Create `internal/grpc/convert.go`:
+Create `internal/frontend/grpc/convert.go`:
 ```go
 package grpc
 
@@ -473,8 +473,8 @@ import (
 	"fmt"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // SymbolToProto converts a Symbol to protobuf SymbolInfo
@@ -539,13 +539,13 @@ func severityToString(sev source.Severity) string {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `go test ./internal/grpc -run Test.*ToProto -v`
+Run: `go test ./internal/frontend/grpc -run Test.*ToProto -v`
 Expected: PASS for both tests
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add internal/grpc/convert.go internal/grpc/convert_test.go
+git add internal/frontend/grpc/convert.go internal/frontend/grpc/convert_test.go
 git commit -m "feat(grpc): implement type conversion Go → protobuf"
 ```
 
@@ -554,12 +554,12 @@ git commit -m "feat(grpc): implement type conversion Go → protobuf"
 ### Task 4: Implement ParseFile RPC
 
 **Files:**
-- Create: `internal/grpc/service.go`
-- Create: `internal/grpc/service_test.go`
+- Create: `internal/frontend/grpc/service.go`
+- Create: `internal/frontend/grpc/service_test.go`
 
 - [ ] **Step 1: Write failing test for ParseFile**
 
-Create `internal/grpc/service_test.go`:
+Create `internal/frontend/grpc/service_test.go`:
 ```go
 package grpc
 
@@ -633,12 +633,12 @@ func TestParseFileCache(t *testing.T) {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `go test ./internal/grpc -run TestParseFile -v`
+Run: `go test ./internal/frontend/grpc -run TestParseFile -v`
 Expected: FAIL with "undefined: service"
 
 - [ ] **Step 3: Implement service.go**
 
-Create `internal/grpc/service.go`:
+Create `internal/frontend/grpc/service.go`:
 ```go
 package grpc
 
@@ -649,9 +649,9 @@ import (
 	"os"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -778,7 +778,7 @@ func (s *service) GetDiagnostics(ctx context.Context, req *pb.DiagnosticsRequest
 
 The service implementation above has a simplified symbol table reference. Need to adjust convert.go and service.go to work with symbols.Index properly:
 
-Update `internal/grpc/cache.go`:
+Update `internal/frontend/grpc/cache.go`:
 ```go
 // CachedModel holds parsed model data
 type CachedModel struct {
@@ -789,7 +789,7 @@ type CachedModel struct {
 }
 ```
 
-Update `internal/grpc/convert.go` - change function signature:
+Update `internal/frontend/grpc/convert.go` - change function signature:
 ```go
 // SymbolToProto converts a Symbol to protobuf SymbolInfo
 func SymbolToProto(sym *symbols.Symbol, idx *symbols.Index) *pb.SymbolInfo {
@@ -818,7 +818,7 @@ func SymbolToProto(sym *symbols.Symbol, idx *symbols.Index) *pb.SymbolInfo {
 }
 ```
 
-Update `internal/grpc/service.go` ParseFile implementation:
+Update `internal/frontend/grpc/service.go` ParseFile implementation:
 ```go
 // Parse
 srcFile := source.NewFile(filePath, content)
@@ -877,7 +877,7 @@ func (s *service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 
 - [ ] **Step 5: Update test files to match new signatures**
 
-Update `internal/grpc/convert_test.go`:
+Update `internal/frontend/grpc/convert_test.go`:
 ```go
 func TestSymbolToProto(t *testing.T) {
 	sym := &symbols.Symbol{
@@ -902,13 +902,13 @@ func TestSymbolToProto(t *testing.T) {
 
 - [ ] **Step 6: Run tests to verify they pass**
 
-Run: `go test ./internal/grpc -run TestParseFile -v`
+Run: `go test ./internal/frontend/grpc -run TestParseFile -v`
 Expected: PASS
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add internal/grpc/service.go internal/grpc/service_test.go internal/grpc/cache.go internal/grpc/convert.go internal/grpc/convert_test.go
+git add internal/frontend/grpc/service.go internal/frontend/grpc/service_test.go internal/frontend/grpc/cache.go internal/frontend/grpc/convert.go internal/frontend/grpc/convert_test.go
 git commit -m "feat(grpc): implement ParseFile and GetSymbol RPCs"
 ```
 
@@ -943,7 +943,7 @@ import (
 	"syscall"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	grpcService "github.com/Open-MBEE/OpenSysML/internal/grpc"
+	grpcService "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 	"google.golang.org/grpc"
 )
 
@@ -1062,11 +1062,11 @@ git commit -m "feat(grpc): add sysml-grpc server binary"
 ### Task 6: Integration Tests
 
 **Files:**
-- Create: `internal/grpc/integration_test.go`
+- Create: `internal/frontend/grpc/integration_test.go`
 
 - [ ] **Step 1: Write integration test**
 
-Create `internal/grpc/integration_test.go`:
+Create `internal/frontend/grpc/integration_test.go`:
 ```go
 package grpc
 
@@ -1238,24 +1238,24 @@ func TestSymbolNotFound(t *testing.T) {
 
 - [ ] **Step 2: Run integration tests**
 
-Run: `go test ./internal/grpc -run TestEndToEnd -v`
+Run: `go test ./internal/frontend/grpc -run TestEndToEnd -v`
 Expected: PASS
 
-Run: `go test ./internal/grpc -run TestCacheHit -v`
+Run: `go test ./internal/frontend/grpc -run TestCacheHit -v`
 Expected: PASS
 
-Run: `go test ./internal/grpc -run TestSymbolNotFound -v`
+Run: `go test ./internal/frontend/grpc -run TestSymbolNotFound -v`
 Expected: PASS
 
 - [ ] **Step 3: Run all grpc tests**
 
-Run: `go test ./internal/grpc/... -v`
+Run: `go test ./internal/frontend/grpc/... -v`
 Expected: All tests PASS
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add internal/grpc/integration_test.go
+git add internal/frontend/grpc/integration_test.go
 git commit -m "test(grpc): add end-to-end integration tests"
 ```
 
