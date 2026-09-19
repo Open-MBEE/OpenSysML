@@ -7,6 +7,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -64,7 +65,7 @@ type sendActionChecker struct {
 
 func (c *sendActionChecker) walk(scope *symbols.Scope, members []ast.Node) {
 	for _, member := range members {
-		c.walkNode(scope, unwrapMembership(member))
+		c.walkNode(scope, kit.UnwrapMembership(member))
 	}
 }
 
@@ -129,7 +130,7 @@ func (c *sendActionChecker) walkNode(scope *symbols.Scope, node ast.Node) {
 // one, bare or as an action node's one statement, must carry a payload.
 func (c *sendActionChecker) walkSubactions(scope *symbols.Scope, actions []ast.Node) {
 	for _, action := range actions {
-		switch n := unwrapMembership(action).(type) {
+		switch n := kit.UnwrapMembership(action).(type) {
 		case *ast.SendStatement:
 			c.checkPayload(n)
 			c.check(scope, n)
@@ -150,7 +151,7 @@ func subactionSend(usage *ast.Usage) *ast.SendStatement {
 	if usage.Kind != ast.UsageAction || !usage.IsActionNode || len(usage.Members) != 1 {
 		return nil
 	}
-	send, _ := unwrapMembership(usage.Members[0]).(*ast.SendStatement)
+	send, _ := kit.UnwrapMembership(usage.Members[0]).(*ast.SendStatement)
 	return send
 }
 

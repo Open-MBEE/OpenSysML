@@ -1,4 +1,4 @@
-package passes
+package behavior_test
 
 import (
 	"strings"
@@ -7,6 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/behavior"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -21,7 +23,7 @@ func transitionDiags(t *testing.T, src string) []diag.Diagnostic {
 		t.Fatalf("unexpected parse diagnostics: %+v", p.Diagnostics)
 	}
 	idx := newTestIndexFromDoc("t.sysml", root)
-	return StateTransitionPass{}.Run(NewContext("t.sysml", idx, nil), "t.sysml", root)
+	return behavior.StateTransitionPass{}.Run(passes.NewContext("t.sysml", idx, nil), "t.sysml", root)
 }
 
 // analyzeTransitions runs every tier, for a verdict another tier reports.
@@ -34,11 +36,11 @@ func analyzeTransitions(t *testing.T, src string) []diag.Diagnostic {
 		t.Fatalf("unexpected parse diagnostics: %+v", p.Diagnostics)
 	}
 	var out []diag.Diagnostic
-	for _, d := range Analyze("t.sysml", root, nil, newTestIndexFromDoc("t.sysml", root)) {
+	for _, d := range passes.Analyze("t.sysml", root, nil, newTestIndexFromDoc("t.sysml", root)) {
 		// The models here are written in our own state notation, which
 		// NonstandardNotationPass warns about; the verdict under test is another
 		// tier's.
-		if d.Code == CodeNonstandardNotation {
+		if d.Code == passes.CodeNonstandardNotation {
 			continue
 		}
 		out = append(out, d)
@@ -140,7 +142,7 @@ func TestTransitionTargetInUnrelatedMachineIsIllegal(t *testing.T) {
 		succession first i then busy;
 		transition first busy then Other::running;
 	}
-}`, CodeEndpointNotOfMachine, "Other::running")
+}`, behavior.CodeEndpointNotOfMachine, "Other::running")
 }
 
 // The same endpoint written as a succession is the same violation.
@@ -154,7 +156,7 @@ func TestSuccessionTargetInUnrelatedMachineIsIllegal(t *testing.T) {
 		succession first i then busy;
 		succession first busy then Other::running;
 	}
-}`, CodeEndpointNotOfMachine, "Other::running")
+}`, behavior.CodeEndpointNotOfMachine, "Other::running")
 }
 
 // A history pseudostate is a vertex the composite state owns, so a transition to
@@ -253,7 +255,7 @@ func TestSourcelessTransitionWithNothingBeforeIsReported(t *testing.T) {
 		state init;
 		state active;
 	}
-}`, CodeNoTransitionSource, "has no member before it to leave")
+}`, behavior.CodeNoTransitionSource, "has no member before it to leave")
 	if d.Message != lower.NoTransitionSourceMessage {
 		t.Fatalf("got message %q, want %q", d.Message, lower.NoTransitionSourceMessage)
 	}
@@ -304,7 +306,7 @@ func TestEntryTransitionShapeIsReported(t *testing.T) {
 		accept go then active;
 		state active;
 	}
-}`, CodeEntryTransitionShape, "carries a trigger")
+}`, behavior.CodeEntryTransitionShape, "carries a trigger")
 	wantOneError(t, `package test {
 	state def M {
 		entry; then init;
@@ -312,14 +314,14 @@ func TestEntryTransitionShapeIsReported(t *testing.T) {
 		state init;
 		state active;
 	}
-}`, CodeEntryTransitionShape, "carries a trigger")
+}`, behavior.CodeEntryTransitionShape, "carries a trigger")
 	wantOneError(t, `package test {
 	state def M {
 		entry;
 		if true do action mark then active;
 		state active;
 	}
-}`, CodeEntryTransitionShape, "carries an effect")
+}`, behavior.CodeEntryTransitionShape, "carries an effect")
 	wantOneError(t, `package test {
 	state def M {
 		entry;
@@ -328,7 +330,7 @@ func TestEntryTransitionShapeIsReported(t *testing.T) {
 		transition first pick then active;
 		state active;
 	}
-}`, CodeEntryTransitionTarget, "reaches the choice pick")
+}`, behavior.CodeEntryTransitionTarget, "reaches the choice pick")
 }
 
 // The member before the shorthand is an entry action or an attribute rather than
@@ -342,7 +344,7 @@ func TestSourcelessTransitionAfterANonVertexIsReported(t *testing.T) {
 		accept go then active;
 		state active;
 	}
-}`, CodeTransitionSourceNotVertex, "leaves the attribute usage count, the member declared before it")
+}`, behavior.CodeTransitionSourceNotVertex, "leaves the attribute usage count, the member declared before it")
 	wantOneError(t, `package test {
 	state def M {
 		entry; then init;
@@ -351,7 +353,7 @@ func TestSourcelessTransitionAfterANonVertexIsReported(t *testing.T) {
 		accept go then done;
 		state active;
 	}
-}`, CodeTransitionSourceNotVertex, "leaves an unnamed succession usage, the member declared before it, which is not a state")
+}`, behavior.CodeTransitionSourceNotVertex, "leaves an unnamed succession usage, the member declared before it, which is not a state")
 	// The pilot's grammar chains the shorthand straight off the usage it leaves: a
 	// parameter, a written succession or documentation between them is what it leaves.
 	wantOneError(t, `package test {
@@ -363,7 +365,7 @@ func TestSourcelessTransitionAfterANonVertexIsReported(t *testing.T) {
 		accept go then active;
 		state active;
 	}
-}`, CodeTransitionSourceNotVertex, "leaves the in parameter v, the member declared before it")
+}`, behavior.CodeTransitionSourceNotVertex, "leaves the in parameter v, the member declared before it")
 	wantOneError(t, `package test {
 	state def M {
 		entry; then init;
@@ -372,7 +374,7 @@ func TestSourcelessTransitionAfterANonVertexIsReported(t *testing.T) {
 		accept go then done;
 		state active;
 	}
-}`, CodeTransitionSourceNotVertex, "leaves an unnamed succession usage, the member declared before it")
+}`, behavior.CodeTransitionSourceNotVertex, "leaves an unnamed succession usage, the member declared before it")
 	// A pseudostate is a vertex, but not the state usage the rule names; only a
 	// transition naming it as `first` leaves it, whatever the shorthand carries.
 	wantOneError(t, `package test {
@@ -385,7 +387,7 @@ func TestSourcelessTransitionAfterANonVertexIsReported(t *testing.T) {
 		transition first pick then active;
 		state active;
 	}
-}`, CodeTransitionSourceNotVertex,
+}`, behavior.CodeTransitionSourceNotVertex,
 		"leaves the choice pick, the member declared before it, which is a pseudostate rather than a state (SysML v2 7.18.3): write `transition first pick … then …;` to leave it")
 	wantOneError(t, `package test {
 	state def M {
@@ -398,7 +400,7 @@ func TestSourcelessTransitionAfterANonVertexIsReported(t *testing.T) {
 		transition first sync then active;
 		state active;
 	}
-}`, CodeTransitionSourceNotVertex, "leaves the join sync, the member declared before it, which is a pseudostate rather than a state")
+}`, behavior.CodeTransitionSourceNotVertex, "leaves the join sync, the member declared before it, which is a pseudostate rather than a state")
 	wantOneError(t, `package test {
 	state def M {
 		entry; then init;
@@ -407,7 +409,7 @@ func TestSourcelessTransitionAfterANonVertexIsReported(t *testing.T) {
 		accept go then active;
 		state active;
 	}
-}`, CodeTransitionSourceNotVertex, "leaves the documentation, the member declared before it")
+}`, behavior.CodeTransitionSourceNotVertex, "leaves the documentation, the member declared before it")
 }
 
 // A region of a parallel state before the shorthand is not a state the machine
@@ -429,7 +431,7 @@ func TestSourcelessTransitionAfterARegionIsReported(t *testing.T) {
 			}
 		}
 	}
-}`, CodeTransitionSourceNotVertex,
+}`, behavior.CodeTransitionSourceNotVertex,
 		"leaves the state usage r1, the member declared before it, which is an orthogonal region of a parallel state")
 }
 
@@ -445,7 +447,7 @@ func TestJunctionChainTerminatingNowhereIsIllegal(t *testing.T) {
 		succession first i then busy;
 		transition first busy then j;
 	}
-}`, CodeNoOutgoingTransition, "junction j has no outgoing transition")
+}`, behavior.CodeNoOutgoingTransition, "junction j has no outgoing transition")
 }
 
 // A junction a transition does leave routes onward, so it is legal — the check
@@ -485,7 +487,7 @@ func TestDeadEndJunctionIsReportedBesideASameNamedOneThatRoutes(t *testing.T) {
 			}
 		}
 	}
-}`, CodeNoOutgoingTransition, "junction pick has no outgoing transition")
+}`, behavior.CodeNoOutgoingTransition, "junction pick has no outgoing transition")
 }
 
 // A succession is an outgoing transition too, so a junction one leaves is legal.
@@ -522,10 +524,10 @@ func TestTransitionToFirstMarkerIsIllegal(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("got %+v, want the marker and the transition to it reported", got)
 	}
-	if got[0].Code != CodeFirstNamesNoTarget || !strings.Contains(got[0].Message, "`first marker;` names no target") {
+	if got[0].Code != behavior.CodeFirstNamesNoTarget || !strings.Contains(got[0].Message, "`first marker;` names no target") {
 		t.Errorf("got %+v, want the one-ended `first` reported as naming no target", got[0])
 	}
-	if got[1].Code != CodeEndpointNotOfMachine || !strings.Contains(got[1].Message, "marker") {
+	if got[1].Code != behavior.CodeEndpointNotOfMachine || !strings.Contains(got[1].Message, "marker") {
 		t.Errorf("got %+v, want the transition to the marker reported", got[1])
 	}
 }
@@ -571,7 +573,7 @@ func TestOneEndedFirstInAStateBodyIsReported(t *testing.T) {
 		first b;
 		succession first a then b;
 	}
-}`, CodeFirstNamesNoTarget, "`first b;` names no target: a state body orders two vertices, `first b then <target>`")
+}`, behavior.CodeFirstNamesNoTarget, "`first b;` names no target: a state body orders two vertices, `first b then <target>`")
 	wantOneError(t, `package test {
 	state def M {
 		entry; then a;
@@ -580,7 +582,7 @@ func TestOneEndedFirstInAStateBodyIsReported(t *testing.T) {
 			first a1;
 		}
 	}
-}`, CodeFirstNamesNoTarget, "`first a1;` names no target")
+}`, behavior.CodeFirstNamesNoTarget, "`first a1;` names no target")
 }
 
 // A final state is a vertex, so a transition to one is legal.
@@ -607,7 +609,7 @@ func TestStateUsageMachineIsChecked(t *testing.T) {
 		succession first i then busy;
 		transition first busy then Other::running;
 	}
-}`, CodeEndpointNotOfMachine, "Other::running")
+}`, behavior.CodeEndpointNotOfMachine, "Other::running")
 }
 
 // The machine's entry action stands in for a start pseudostate, so a transition
@@ -636,7 +638,7 @@ func TestTriggeredTransitionOutOfEntryActionIsNotAVertex(t *testing.T) {
 		transition begin accept Warning then busy;
 		state busy;
 	}
-}`, CodeAccepterSourceNotState, "must have a state as its source")
+}`, behavior.CodeAccepterSourceNotState, "must have a state as its source")
 	wantClean(t, `package test {
 	state def M {
 		in attribute c : Boolean;
@@ -658,7 +660,7 @@ func TestTransitionIntoEntryActionIsNotAVertex(t *testing.T) {
 		state busy;
 		transition busy then begin;
 	}
-}`, CodeEndpointNotOfMachine, "begin")
+}`, behavior.CodeEndpointNotOfMachine, "begin")
 }
 
 // Only the body a transition is written in lends it an entry action to leave: a
@@ -670,7 +672,7 @@ func TestTransitionOutOfAnotherStatesEntryActionIsNotAVertex(t *testing.T) {
 		state b;
 		transition begin then b;
 	}
-}`, CodeEndpointNotOfMachine, "begin")
+}`, behavior.CodeEndpointNotOfMachine, "begin")
 }
 
 // A start designation names the state the machine starts in, so a transition out
@@ -684,5 +686,5 @@ func TestEntryActionTransitionIntoPseudostateIsNotAVertex(t *testing.T) {
 		state b;
 		transition j then b;
 	}
-}`, CodeEndpointNotOfMachine, "begin")
+}`, behavior.CodeEndpointNotOfMachine, "begin")
 }

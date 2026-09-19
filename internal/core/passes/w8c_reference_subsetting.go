@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -26,8 +27,8 @@ func (ReferenceSubsettingPass) Run(ctx *Context, name string, root *ast.RootName
 		return nil
 	}
 	var diags []diag.Diagnostic
-	w := &w8cWalker{ctx: ctx}
-	w.walk(rootScope, func(sym *symbols.Symbol) {
+	w := &kit.Walker{Ctx: ctx}
+	w.Walk(rootScope, func(sym *symbols.Symbol) {
 		var refs []*ast.Relationship
 		for _, rel := range semantics.RelationshipsOf(sym) {
 			if rel != nil && rel.Kind == ast.RelReferences && rel.Target != nil {

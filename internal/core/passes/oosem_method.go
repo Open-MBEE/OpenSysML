@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -42,8 +43,8 @@ func (OOSEMMethodPass) Run(ctx *Context, name string, root *ast.RootNamespace) [
 	if a == nil {
 		return nil
 	}
-	a.union = ctx.Gathers().oosemOf(ctx, a)
-	if !ctx.Gathers().has(name) {
+	a.union = oosemUnionOf(ctx)
+	if !ctx.Gathers().Has(name) {
 		a.local = newOOSEMFacts()
 		a.facts = a.local
 		a.gather(rootScope)
@@ -208,7 +209,7 @@ search:
 // gather records the kinds a document declares and the derivation,
 // satisfaction and allocation relationships it states.
 func (a *oosemAudit) gather(root *symbols.Scope) {
-	w8dWalkSymbols(a.ctx, root, func(sym *symbols.Symbol) {
+	kit.WalkSymbols(a.ctx, root, func(sym *symbols.Symbol) {
 		usage, isUsage := sym.Decl.(*ast.Usage)
 		if kind := a.kindOf(sym); kind != oosemNone {
 			a.facts.present[kind] = true
@@ -378,7 +379,7 @@ func (a *oosemAudit) annotatedWith(sym *symbols.Symbol, fqn string) bool {
 
 // check judges the document's own artefacts.
 func (a *oosemAudit) check(root *symbols.Scope) {
-	w8dWalkSymbols(a.ctx, root, func(sym *symbols.Symbol) {
+	kit.WalkSymbols(a.ctx, root, func(sym *symbols.Symbol) {
 		switch d := sym.Decl.(type) {
 		case *ast.Usage:
 			switch d.Kind {

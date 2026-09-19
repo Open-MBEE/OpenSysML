@@ -10,6 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -131,17 +132,17 @@ func oosemSplit(n int) map[string]string {
 // tell a gather kept from one done again.
 func gatherPointers(g *Gathers) map[string][3]uintptr {
 	out := map[string][3]uintptr{}
-	for doc, f := range g.oosem.perDoc {
+	for doc, f := range g.Union("oosem").(*oosemUnion).perDoc {
 		p := out[doc]
 		p[0] = reflect.ValueOf(f).Pointer()
 		out[doc] = p
 	}
-	for doc, f := range g.mosa.perDoc {
+	for doc, f := range g.Union("mosa").(*mosaUnion).perDoc {
 		p := out[doc]
 		p[1] = reflect.ValueOf(f).Pointer()
 		out[doc] = p
 	}
-	for doc, f := range g.identity.perDoc {
+	for doc, f := range g.Union("identity").(*identity.Union).Contributions() {
 		p := out[doc]
 		p[2] = reflect.ValueOf(f).Pointer()
 		out[doc] = p
@@ -201,7 +202,7 @@ func TestGathersRegatherOnlyTheChangedDocument(t *testing.T) {
 	if _, ok := gatherPointers(w.gathers)["sat02.sysml"]; ok {
 		t.Error("a removed document keeps its gathers")
 	}
-	if w.gathers.docs["sat02.sysml"] {
+	if w.gathers.Gathered("sat02.sysml") {
 		t.Error("a removed document is still counted a workspace document")
 	}
 	w.put("sat09.sysml", "package S9 { private import OOSEM::*; #systemRequirement requirement added; }")

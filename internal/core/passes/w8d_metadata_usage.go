@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -32,7 +33,7 @@ func (W8DMetadataUsagePass) Run(ctx *Context, name string, root *ast.RootNamespa
 	if mc.resolver == nil || mc.model == nil {
 		return nil
 	}
-	w8dWalkSymbols(ctx, rootScope, mc.check)
+	kit.WalkSymbols(ctx, rootScope, mc.check)
 	return mc.diags
 }
 

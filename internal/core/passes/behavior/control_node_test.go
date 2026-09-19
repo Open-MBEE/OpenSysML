@@ -1,11 +1,14 @@
-package passes
+package behavior_test
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/behavior"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -19,7 +22,7 @@ func controlNodeDiags(t *testing.T, src string) []diag.Diagnostic {
 		t.Fatalf("unexpected parse diagnostics: %+v", p.Diagnostics)
 	}
 	idx := newTestIndexFromDoc("t.sysml", root)
-	return ControlNodeSuccessionPass{}.Run(NewContext("t.sysml", idx, nil), "t.sysml", root)
+	return behavior.ControlNodeSuccessionPass{}.Run(passes.NewContext("t.sysml", idx, nil), "t.sysml", root)
 }
 
 func wantControlNodesClean(t *testing.T, src string) {
@@ -164,7 +167,7 @@ func TestForkWithTwoIncomingSuccessions(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			wantControlNodeErrors(t, "package P {\n\taction def A {\n\t\t"+tc.body+"\n\t}\n}",
-				controlNodeWant{CodeForkIncomingSuccessions, 3, "fork f has 2 incoming successions; a fork node may have at most one"})
+				controlNodeWant{behavior.CodeForkIncomingSuccessions, 3, "fork f has 2 incoming successions; a fork node may have at most one"})
 		})
 	}
 }
@@ -180,7 +183,7 @@ func TestJoinWithTwoOutgoingSuccessions(t *testing.T) {
 		first j then b;
 		first j then c;
 	}
-}`, controlNodeWant{CodeJoinOutgoingSuccessions, 6, "join j has 2 outgoing successions; a join node may have at most one"})
+}`, controlNodeWant{behavior.CodeJoinOutgoingSuccessions, 6, "join j has 2 outgoing successions; a join node may have at most one"})
 }
 
 func TestMergeWithTwoOutgoingSuccessions(t *testing.T) {
@@ -194,7 +197,7 @@ func TestMergeWithTwoOutgoingSuccessions(t *testing.T) {
 		succession s1 first m then b;
 		succession s2 first m then c;
 	}
-}`, controlNodeWant{CodeMergeOutgoingSuccessions, 6, "merge m has 2 outgoing successions; a merge node may have at most one"})
+}`, controlNodeWant{behavior.CodeMergeOutgoingSuccessions, 6, "merge m has 2 outgoing successions; a merge node may have at most one"})
 }
 
 func TestDecisionWithTwoIncomingSuccessions(t *testing.T) {
@@ -208,7 +211,7 @@ func TestDecisionWithTwoIncomingSuccessions(t *testing.T) {
 		if true then a;
 		else b;
 	}
-}`, controlNodeWant{CodeDecisionIncomingSuccessions, 5, "decide d has 2 incoming successions; a decision node may have at most one"})
+}`, controlNodeWant{behavior.CodeDecisionIncomingSuccessions, 5, "decide d has 2 incoming successions; a decision node may have at most one"})
 }
 
 // A named guarded succession (`succession s first a if g then b`) is a
@@ -243,10 +246,10 @@ func TestControlNodeGuardedSuccessionsCount(t *testing.T) {
 		first d then y;
 	}
 }`,
-		controlNodeWant{CodeForkIncomingSuccessions, 4, "fork f has 2 incoming successions"},
-		controlNodeWant{CodeJoinOutgoingSuccessions, 11, "join j has 2 outgoing successions"},
-		controlNodeWant{CodeMergeOutgoingSuccessions, 18, "merge m has 2 outgoing successions"},
-		controlNodeWant{CodeDecisionIncomingSuccessions, 24, "decide d has 2 incoming successions"})
+		controlNodeWant{behavior.CodeForkIncomingSuccessions, 4, "fork f has 2 incoming successions"},
+		controlNodeWant{behavior.CodeJoinOutgoingSuccessions, 11, "join j has 2 outgoing successions"},
+		controlNodeWant{behavior.CodeMergeOutgoingSuccessions, 18, "merge m has 2 outgoing successions"},
+		controlNodeWant{behavior.CodeDecisionIncomingSuccessions, 24, "decide d has 2 incoming successions"})
 	wantControlNodesClean(t, `package P {
 	action def A {
 		action x; action y; action z;
@@ -297,10 +300,10 @@ func TestControlNodeSuccessionFlowsCount(t *testing.T) {
 		flow from y.v to d.v;
 	}
 }`,
-		controlNodeWant{CodeForkIncomingSuccessions, 4, "fork f has 2 incoming successions"},
-		controlNodeWant{CodeJoinOutgoingSuccessions, 12, "join j has 2 outgoing successions"},
-		controlNodeWant{CodeMergeOutgoingSuccessions, 19, "merge m has 2 outgoing successions"},
-		controlNodeWant{CodeDecisionIncomingSuccessions, 26, "decide d has 2 incoming successions"})
+		controlNodeWant{behavior.CodeForkIncomingSuccessions, 4, "fork f has 2 incoming successions"},
+		controlNodeWant{behavior.CodeJoinOutgoingSuccessions, 12, "join j has 2 outgoing successions"},
+		controlNodeWant{behavior.CodeMergeOutgoingSuccessions, 19, "merge m has 2 outgoing successions"},
+		controlNodeWant{behavior.CodeDecisionIncomingSuccessions, 26, "decide d has 2 incoming successions"})
 	wantControlNodesClean(t, `package P {
 	action def A {
 		action x { out item v; } action y { out item v; in item u; } action z { in item v; }
@@ -357,8 +360,8 @@ func TestControlNodeSuccessionFlowEnds(t *testing.T) {
 		succession flow from j.w to p.w.v;
 	}
 }`,
-		controlNodeWant{CodeForkIncomingSuccessions, 10, "fork f has 2 incoming successions"},
-		controlNodeWant{CodeJoinOutgoingSuccessions, 15, "join j has 2 outgoing successions"})
+		controlNodeWant{behavior.CodeForkIncomingSuccessions, 10, "fork f has 2 incoming successions"},
+		controlNodeWant{behavior.CodeJoinOutgoingSuccessions, 15, "join j has 2 outgoing successions"})
 }
 
 // The bounded side is the only one bounded: three successions out of a fork or
@@ -390,7 +393,7 @@ func TestMergeIncomingSourceMultiplicity(t *testing.T) {
 		merge m;
 		succession s3 first [1] m then c;
 	}
-}`, controlNodeWant{CodeMergeIncomingMultiplicity, 4,
+}`, controlNodeWant{behavior.CodeMergeIncomingMultiplicity, 4,
 		"succession into merge m has source multiplicity [1]; successions into a merge node must have source multiplicity [0..1]"})
 }
 
@@ -403,9 +406,9 @@ func TestDecisionOutgoingTargetMultiplicity(t *testing.T) {
 		succession s2 first [1] d then [1] b;
 		succession s3 first [1] d then [0..*] c;
 	}
-}`, controlNodeWant{CodeDecisionOutgoingMultiplicity, 6,
+}`, controlNodeWant{behavior.CodeDecisionOutgoingMultiplicity, 6,
 		"succession out of decide d has target multiplicity [1]; successions out of a decision node must have target multiplicity [0..1]"},
-		controlNodeWant{CodeDecisionOutgoingMultiplicity, 7,
+		controlNodeWant{behavior.CodeDecisionOutgoingMultiplicity, 7,
 			"succession out of decide d has target multiplicity [0..*]; successions out of a decision node must have target multiplicity [0..1]"})
 }
 
@@ -424,14 +427,14 @@ func TestControlNodeEndMultiplicities(t *testing.T) {
 		succession s5 first c then [1] j;
 		succession s6 first [0..1] j then a;
 	}
-}`, controlNodeWant{CodeControlNodeIncomingMultiplicity, 4,
+}`, controlNodeWant{behavior.CodeControlNodeIncomingMultiplicity, 4,
 		"succession into fork f has target multiplicity [0..1]; successions into a fork node must have target multiplicity [1]"},
-		controlNodeWant{CodeControlNodeOutgoingMultiplicity, 6,
+		controlNodeWant{behavior.CodeControlNodeOutgoingMultiplicity, 6,
 			"succession out of fork f has source multiplicity [0..1]; successions out of a fork node must have source multiplicity [1]"},
-		controlNodeWant{CodeControlNodeOutgoingMultiplicity, 7, "source multiplicity [2..3]"},
-		controlNodeWant{CodeControlNodeIncomingMultiplicity, 9,
+		controlNodeWant{behavior.CodeControlNodeOutgoingMultiplicity, 7, "source multiplicity [2..3]"},
+		controlNodeWant{behavior.CodeControlNodeIncomingMultiplicity, 9,
 			"succession into join j has target multiplicity [0..*]; successions into a join node must have target multiplicity [1]"},
-		controlNodeWant{CodeControlNodeOutgoingMultiplicity, 11,
+		controlNodeWant{behavior.CodeControlNodeOutgoingMultiplicity, 11,
 			"succession out of join j has source multiplicity [0..1]; successions out of a join node must have source multiplicity [1]"})
 }
 
@@ -459,9 +462,9 @@ func TestControlNodeInheritedSuccessionsCount(t *testing.T) {
 		action d;
 		then f;
 	}
-}`, controlNodeWant{CodeForkIncomingSuccessions, 11, "fork f has 2 incoming successions"},
-		controlNodeWant{CodeForkIncomingSuccessions, 15, "fork f has 2 incoming successions"},
-		controlNodeWant{CodeForkIncomingSuccessions, 19, "fork f has 2 incoming successions"})
+}`, controlNodeWant{behavior.CodeForkIncomingSuccessions, 11, "fork f has 2 incoming successions"},
+		controlNodeWant{behavior.CodeForkIncomingSuccessions, 15, "fork f has 2 incoming successions"},
+		controlNodeWant{behavior.CodeForkIncomingSuccessions, 19, "fork f has 2 incoming successions"})
 }
 
 // Redefining an inherited succession replaces it, so the count stays at one;
@@ -493,7 +496,7 @@ func TestControlNodeRedefinedSuccessionReplacesInherited(t *testing.T) {
 		action :>> a;
 		first c then f;
 	}
-}`, controlNodeWant{CodeForkIncomingSuccessions, 10, "fork f has 2 incoming successions"})
+}`, controlNodeWant{behavior.CodeForkIncomingSuccessions, 10, "fork f has 2 incoming successions"})
 }
 
 // A violation the general action declares is reported there, once, not again in
@@ -514,8 +517,8 @@ func TestControlNodeInheritedViolationReportedOnce(t *testing.T) {
 	action def Derived2 :> Base {
 		action c;
 	}
-}`, controlNodeWant{CodeJoinOutgoingSuccessions, 4, "join j has 2 outgoing successions"},
-		controlNodeWant{CodeJoinOutgoingSuccessions, 11, "join j has 3 outgoing successions"})
+}`, controlNodeWant{behavior.CodeJoinOutgoingSuccessions, 4, "join j has 2 outgoing successions"},
+		controlNodeWant{behavior.CodeJoinOutgoingSuccessions, 11, "join j has 3 outgoing successions"})
 }
 
 // A control node's owner must be an action definition or usage; the grammar
@@ -539,13 +542,13 @@ func TestControlNodeOwningType(t *testing.T) {
 			merge m;
 		}
 	}
-}`, controlNodeWant{CodeControlNodeOwner, 3,
+}`, controlNodeWant{behavior.CodeControlNodeOwner, 3,
 		"fork f is declared in occurrence def O, which is not an action; declare it in the body of an action definition or usage"},
-		controlNodeWant{CodeControlNodeOwner, 7,
+		controlNodeWant{behavior.CodeControlNodeOwner, 7,
 			"decide d is declared in the body of a succession, which is not an action"},
-		controlNodeWant{CodeControlNodeOwner, 10,
+		controlNodeWant{behavior.CodeControlNodeOwner, 10,
 			"join j is declared in constraint def C, which is not an action"},
-		controlNodeWant{CodeControlNodeOwner, 15,
+		controlNodeWant{behavior.CodeControlNodeOwner, 15,
 			"merge m is declared in constraint c, which is not an action"})
 }
 
@@ -564,13 +567,13 @@ func TestControlNodeInNestedConstraintBody(t *testing.T) {
 	part def Q {
 		assert constraint c { decide d; }
 	}
-}`, controlNodeWant{CodeControlNodeOwner, 3,
+}`, controlNodeWant{behavior.CodeControlNodeOwner, 3,
 		"merge m is declared in constraint q, which is not an action"},
-		controlNodeWant{CodeControlNodeOwner, 4,
+		controlNodeWant{behavior.CodeControlNodeOwner, 4,
 			"fork f is declared in an unnamed constraint, which is not an action"},
-		controlNodeWant{CodeControlNodeOwner, 7,
+		controlNodeWant{behavior.CodeControlNodeOwner, 7,
 			"join j is declared in constraint c2, which is not an action"},
-		controlNodeWant{CodeControlNodeOwner, 10,
+		controlNodeWant{behavior.CodeControlNodeOwner, 10,
 			"decide d is declared in constraint c, which is not an action"})
 }
 
@@ -595,11 +598,11 @@ func TestControlNodeInConstraintBodyStatements(t *testing.T) {
 		assume constraint { while x > 0 { action a; action b; action c; fork f; first a then f; first b then f; first f then c; } }
 		assume constraint { if x > 0 ? true else false }
 	}
-}`, controlNodeWant{CodeForkIncomingSuccessions, 5, "fork f has 2 incoming successions"},
-		controlNodeWant{CodeJoinOutgoingSuccessions, 6, "join j has 2 outgoing successions"},
-		controlNodeWant{CodeDecisionIncomingSuccessions, 10, "decide d has 2 incoming successions"},
-		controlNodeWant{CodeMergeOutgoingSuccessions, 14, "merge m has 2 outgoing successions"},
-		controlNodeWant{CodeForkIncomingSuccessions, 15, "fork f has 2 incoming successions"})
+}`, controlNodeWant{behavior.CodeForkIncomingSuccessions, 5, "fork f has 2 incoming successions"},
+		controlNodeWant{behavior.CodeJoinOutgoingSuccessions, 6, "join j has 2 outgoing successions"},
+		controlNodeWant{behavior.CodeDecisionIncomingSuccessions, 10, "decide d has 2 incoming successions"},
+		controlNodeWant{behavior.CodeMergeOutgoingSuccessions, 14, "merge m has 2 outgoing successions"},
+		controlNodeWant{behavior.CodeForkIncomingSuccessions, 15, "fork f has 2 incoming successions"})
 }
 
 // A nested constraint body declares parameters and features before its
@@ -620,9 +623,9 @@ func TestControlNodeAfterNestedConstraintDeclarations(t *testing.T) {
 			z > 0.0
 		}
 	}
-}`, controlNodeWant{CodeForkIncomingSuccessions, 6, "fork f has 2 incoming successions"},
-		controlNodeWant{CodeControlNodeOwner, 7, "merge m is declared in an unnamed constraint"},
-		controlNodeWant{CodeControlNodeOwner, 12, "decide d is declared in constraint inner"})
+}`, controlNodeWant{behavior.CodeForkIncomingSuccessions, 6, "fork f has 2 incoming successions"},
+		controlNodeWant{behavior.CodeControlNodeOwner, 7, "merge m is declared in an unnamed constraint"},
+		controlNodeWant{behavior.CodeControlNodeOwner, 12, "decide d is declared in constraint inner"})
 }
 
 // The action body a transition, a send, a guarded succession, or a state's
@@ -641,7 +644,7 @@ func TestControlNodeInAnonymousActionBodies(t *testing.T) {
 			first x then f; first y then f; first f then z;
 		}
 	}
-}`, []controlNodeWant{{CodeForkIncomingSuccessions, 5, "fork f has 2 incoming successions"}}},
+}`, []controlNodeWant{{behavior.CodeForkIncomingSuccessions, 5, "fork f has 2 incoming successions"}}},
 		{"anonymous transition", `package P {
 	state def S {
 		state a; state b;
@@ -650,7 +653,7 @@ func TestControlNodeInAnonymousActionBodies(t *testing.T) {
 			first x then j; first j then y; first j then z;
 		}
 	}
-}`, []controlNodeWant{{CodeJoinOutgoingSuccessions, 5, "join j has 2 outgoing successions"}}},
+}`, []controlNodeWant{{behavior.CodeJoinOutgoingSuccessions, 5, "join j has 2 outgoing successions"}}},
 		{"transition end multiplicity", `package P {
 	state def S {
 		state a; state b;
@@ -660,31 +663,31 @@ func TestControlNodeInAnonymousActionBodies(t *testing.T) {
 			first m then y;
 		}
 	}
-}`, []controlNodeWant{{CodeMergeIncomingMultiplicity, 6, "source multiplicity [1]; successions into a merge node must have source multiplicity [0..1]"}}},
+}`, []controlNodeWant{{behavior.CodeMergeIncomingMultiplicity, 6, "source multiplicity [1]; successions into a merge node must have source multiplicity [0..1]"}}},
 		{"effect action of named transition", `package P {
 	state def S {
 		state a; state b;
 		transition t first a do action { action x; action y; action z; fork f; first x then f; first y then f; first f then z; } then b;
 	}
-}`, []controlNodeWant{{CodeForkIncomingSuccessions, 4, "fork f has 2 incoming successions"}}},
+}`, []controlNodeWant{{behavior.CodeForkIncomingSuccessions, 4, "fork f has 2 incoming successions"}}},
 		{"effect action of anonymous transition", `package P {
 	state def S {
 		state a; state b;
 		transition first b do action e { action x; action y; action z; join j; first x then j; first j then y; first j then z; } then a;
 	}
-}`, []controlNodeWant{{CodeJoinOutgoingSuccessions, 4, "join j has 2 outgoing successions"}}},
+}`, []controlNodeWant{{behavior.CodeJoinOutgoingSuccessions, 4, "join j has 2 outgoing successions"}}},
 		{"braced effect", `package P {
 	state def S {
 		state a; state b;
 		transition u first a do { action x; action y; action z; merge m; first x then m; first m then y; first m then z; } then b;
 	}
-}`, []controlNodeWant{{CodeMergeOutgoingSuccessions, 4, "merge m has 2 outgoing successions"}}},
+}`, []controlNodeWant{{behavior.CodeMergeOutgoingSuccessions, 4, "merge m has 2 outgoing successions"}}},
 		{"effect send", `package P {
 	state def S {
 		state a; state b;
 		transition first b do send 1 to a { action x; action y; decide d; first x then d; first y then d; } then a;
 	}
-}`, []controlNodeWant{{CodeDecisionIncomingSuccessions, 4, "decide d has 2 incoming successions"}}},
+}`, []controlNodeWant{{behavior.CodeDecisionIncomingSuccessions, 4, "decide d has 2 incoming successions"}}},
 		{"triggered transition body", `package P {
 	attribute def Sig;
 	state def S {
@@ -694,54 +697,54 @@ func TestControlNodeInAnonymousActionBodies(t *testing.T) {
 			first x then f; first y then f; first f then z;
 		}
 	}
-}`, []controlNodeWant{{CodeForkIncomingSuccessions, 6, "fork f has 2 incoming successions"}}},
+}`, []controlNodeWant{{behavior.CodeForkIncomingSuccessions, 6, "fork f has 2 incoming successions"}}},
 		{"triggered transition braced effect", `package P {
 	attribute def Sig;
 	state def S {
 		state a; state b;
 		transition t first a accept e : Sig do { action x; action y; merge m; succession s first [1..1] x then m; first m then y; } then b;
 	}
-}`, []controlNodeWant{{CodeMergeIncomingMultiplicity, 5, "source multiplicity [1]; successions into a merge node must have source multiplicity [0..1]"}}},
+}`, []controlNodeWant{{behavior.CodeMergeIncomingMultiplicity, 5, "source multiplicity [1]; successions into a merge node must have source multiplicity [0..1]"}}},
 		{"triggered transition effect action", `package P {
 	attribute def Sig;
 	state def S {
 		state a; state b;
 		transition first a accept e : Sig do action { action x; action y; action z; join j; first x then j; first j then y; first j then z; } then b;
 	}
-}`, []controlNodeWant{{CodeJoinOutgoingSuccessions, 5, "join j has 2 outgoing successions"}}},
+}`, []controlNodeWant{{behavior.CodeJoinOutgoingSuccessions, 5, "join j has 2 outgoing successions"}}},
 		{"do block", `package P {
 	state def S {
 		state c {
 			do { action x; action y; action z; merge m; first x then m; first m then y; first m then z; }
 		}
 	}
-}`, []controlNodeWant{{CodeMergeOutgoingSuccessions, 4, "merge m has 2 outgoing successions"}}},
+}`, []controlNodeWant{{behavior.CodeMergeOutgoingSuccessions, 4, "merge m has 2 outgoing successions"}}},
 		{"entry action", `package P {
 	state def S {
 		state c {
 			entry action { action x; action y; decide d; first x then d; first y then d; }
 		}
 	}
-}`, []controlNodeWant{{CodeDecisionIncomingSuccessions, 4, "decide d has 2 incoming successions"}}},
+}`, []controlNodeWant{{behavior.CodeDecisionIncomingSuccessions, 4, "decide d has 2 incoming successions"}}},
 		{"exit block", `package P {
 	state def S {
 		state c {
 			exit { action x; action y; fork f; first x then f; first y then f; }
 		}
 	}
-}`, []controlNodeWant{{CodeForkIncomingSuccessions, 4, "fork f has 2 incoming successions"}}},
+}`, []controlNodeWant{{behavior.CodeForkIncomingSuccessions, 4, "fork f has 2 incoming successions"}}},
 		{"send body", `package P {
 	action def A {
 		action p;
 		send 1 to p { action x; action y; action z; fork f; first x then f; first y then f; first f then z; }
 	}
-}`, []controlNodeWant{{CodeForkIncomingSuccessions, 4, "fork f has 2 incoming successions"}}},
+}`, []controlNodeWant{{behavior.CodeForkIncomingSuccessions, 4, "fork f has 2 incoming successions"}}},
 		{"guarded succession body", `package P {
 	action def A {
 		action p; action q;
 		first p if true then q { action x; action y; action z; join j; first x then j; first j then y; first j then z; }
 	}
-}`, []controlNodeWant{{CodeJoinOutgoingSuccessions, 4, "join j has 2 outgoing successions"}}},
+}`, []controlNodeWant{{behavior.CodeJoinOutgoingSuccessions, 4, "join j has 2 outgoing successions"}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			wantControlNodeErrors(t, tc.src, tc.want...)
@@ -787,27 +790,27 @@ func TestControlNodeInUnnamedControlNodeBodies(t *testing.T) {
 	action def A {
 		fork { action x; action y; action z; fork f; first x then f; first y then f; first f then z; }
 	}
-}`, []controlNodeWant{{CodeForkIncomingSuccessions, 3, "fork f has 2 incoming successions"}}},
+}`, []controlNodeWant{{behavior.CodeForkIncomingSuccessions, 3, "fork f has 2 incoming successions"}}},
 		{"join body", `package P {
 	action def A {
 		join { action x; action y; action z; merge m; first x then m; first m then y; first m then z; }
 	}
-}`, []controlNodeWant{{CodeMergeOutgoingSuccessions, 3, "merge m has 2 outgoing successions"}}},
+}`, []controlNodeWant{{behavior.CodeMergeOutgoingSuccessions, 3, "merge m has 2 outgoing successions"}}},
 		{"merge body", `package P {
 	action def A {
 		merge { action x; action y; decide d; first x then d; first y then d; }
 	}
-}`, []controlNodeWant{{CodeDecisionIncomingSuccessions, 3, "decide d has 2 incoming successions"}}},
+}`, []controlNodeWant{{behavior.CodeDecisionIncomingSuccessions, 3, "decide d has 2 incoming successions"}}},
 		{"decide body", `package P {
 	action def A {
 		decide { action x; action y; action z; join j; first x then j; first j then y; first j then z; }
 	}
-}`, []controlNodeWant{{CodeJoinOutgoingSuccessions, 3, "join j has 2 outgoing successions"}}},
+}`, []controlNodeWant{{behavior.CodeJoinOutgoingSuccessions, 3, "join j has 2 outgoing successions"}}},
 		{"body end multiplicity", `package P {
 	action def A {
 		fork { action x; action y; merge m; succession s first [1..1] x then m; first m then y; }
 	}
-}`, []controlNodeWant{{CodeMergeIncomingMultiplicity, 3, "source multiplicity [1]; successions into a merge node must have source multiplicity [0..1]"}}},
+}`, []controlNodeWant{{behavior.CodeMergeIncomingMultiplicity, 3, "source multiplicity [1]; successions into a merge node must have source multiplicity [0..1]"}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			wantControlNodeErrors(t, tc.src, tc.want...)
@@ -839,8 +842,8 @@ func TestControlNodeStaticRuleAgreesWithRuntime(t *testing.T) {
 		first m then a;
 		first m then c;
 	}
-}`, controlNodeWant{CodeJoinOutgoingSuccessions, 4, "join j has 2 outgoing successions"},
-		controlNodeWant{CodeMergeOutgoingSuccessions, 8, "merge m has 2 outgoing successions"})
+}`, controlNodeWant{behavior.CodeJoinOutgoingSuccessions, 4, "join j has 2 outgoing successions"},
+		controlNodeWant{behavior.CodeMergeOutgoingSuccessions, 8, "merge m has 2 outgoing successions"})
 }
 
 // analyzedControlNodeCodes runs the full registry and returns the codes of the
@@ -853,7 +856,7 @@ func analyzedControlNodeCodes(t *testing.T, src string) (codes []string, lower i
 	if len(p.Diagnostics) != 0 {
 		t.Fatalf("unexpected parse diagnostics: %+v", p.Diagnostics)
 	}
-	for _, d := range Analyze("t.sysml", root, nil, newTestIndexFromDoc("t.sysml", root)) {
+	for _, d := range passes.Analyze("t.sysml", root, nil, newTestIndexFromDoc("t.sysml", root)) {
 		if d.Source == "control-node" {
 			codes = append(codes, d.Code)
 		} else if d.Severity == diag.SeverityError {
@@ -887,7 +890,7 @@ func TestControlNodeUnrelatedFaultsKeepDiagnostics(t *testing.T) {
 	if lower == 0 {
 		t.Fatal("the unresolved references were not reported")
 	}
-	want := []string{CodeControlNodeOwner, CodeForkIncomingSuccessions, CodeJoinOutgoingSuccessions}
+	want := []string{behavior.CodeControlNodeOwner, behavior.CodeForkIncomingSuccessions, behavior.CodeJoinOutgoingSuccessions}
 	if strings.Join(codes, ",") != strings.Join(want, ",") {
 		t.Fatalf("got control-node codes %v, want %v", codes, want)
 	}
@@ -909,7 +912,7 @@ func TestControlNodeUnrelatedFaultsKeepDiagnostics(t *testing.T) {
 	if lower == 0 {
 		t.Fatal("the unresolved references were not reported")
 	}
-	if want := []string{CodeJoinOutgoingSuccessions}; strings.Join(codes, ",") != strings.Join(want, ",") {
+	if want := []string{behavior.CodeJoinOutgoingSuccessions}; strings.Join(codes, ",") != strings.Join(want, ",") {
 		t.Fatalf("got control-node codes %v, want %v", codes, want)
 	}
 }
@@ -944,7 +947,7 @@ func TestControlNodeOtherDocumentFaultsDoNotGateInheritedNodes(t *testing.T) {
 		if strings.Index(src, "Missing8") != strings.Index(base, text) {
 			t.Fatalf("Missing8 at %d, want %d", strings.Index(src, "Missing8"), strings.Index(base, text))
 		}
-		idx := newTestIndex()
+		idx := libs.NewModelIndex()
 		baseRoot := parser.New(source.New("base.sysml", []byte(base))).ParseFile()
 		idx.AddDocument("base.sysml", baseRoot)
 		p := parser.New(source.New("d.sysml", []byte(src)))
@@ -955,7 +958,7 @@ func TestControlNodeOtherDocumentFaultsDoNotGateInheritedNodes(t *testing.T) {
 		idx.AddDocument("d.sysml", root)
 		var codes []string
 		lower := 0
-		for _, d := range Analyze("d.sysml", root, nil, idx) {
+		for _, d := range passes.Analyze("d.sysml", root, nil, idx) {
 			if d.Source == "control-node" {
 				codes = append(codes, d.Code)
 			} else if d.Severity == diag.SeverityError {
@@ -965,7 +968,7 @@ func TestControlNodeOtherDocumentFaultsDoNotGateInheritedNodes(t *testing.T) {
 		if lower == 0 {
 			t.Fatalf("aligned with %q: the unresolved reference was not reported", text)
 		}
-		if want := []string{CodeForkIncomingSuccessions}; strings.Join(codes, ",") != strings.Join(want, ",") {
+		if want := []string{behavior.CodeForkIncomingSuccessions}; strings.Join(codes, ",") != strings.Join(want, ",") {
 			t.Fatalf("aligned with %q: got control-node codes %v, want %v", text, codes, want)
 		}
 	}
@@ -987,8 +990,8 @@ func TestControlNodeRuleIsRegistered(t *testing.T) {
 	if len(p.Diagnostics) != 0 {
 		t.Fatalf("unexpected parse diagnostics: %+v", p.Diagnostics)
 	}
-	for _, d := range Analyze("t.sysml", root, nil, newTestIndexFromDoc("t.sysml", root)) {
-		if d.Code == CodeForkIncomingSuccessions {
+	for _, d := range passes.Analyze("t.sysml", root, nil, newTestIndexFromDoc("t.sysml", root)) {
+		if d.Code == behavior.CodeForkIncomingSuccessions {
 			return
 		}
 	}

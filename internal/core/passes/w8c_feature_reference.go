@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -29,8 +30,8 @@ func (FeatureReferencePass) Run(ctx *Context, name string, root *ast.RootNamespa
 		model:    ctx.Model(),
 		resolver: ctx.Resolver(),
 	}}
-	w := &w8cWalker{ctx: ctx}
-	w.walk(rootScope, c.checkSymbol)
+	w := &kit.Walker{Ctx: ctx}
+	w.Walk(rootScope, c.checkSymbol)
 	c.walkFilters(rootScope, make(map[*symbols.Scope]bool))
 	return c.diags
 }

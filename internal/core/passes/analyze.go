@@ -5,6 +5,10 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/behavior"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/diagram"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/document"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -19,8 +23,8 @@ func DefaultRegistry() *Registry {
 	reg.Register(GrammarViolationPass{})
 	reg.Register(NonstandardNotationPass{})
 	reg.Register(NameResolutionPass{})
-	reg.Register(StateTransitionPass{})
-	reg.Register(ActionEndpointPass{})
+	reg.Register(behavior.StateTransitionPass{})
+	reg.Register(behavior.ActionEndpointPass{})
 	reg.Register(TypeCheckPass{})
 	reg.Register(TransitionGuardPass{})
 	reg.Register(TriggerArgumentPass{})
@@ -30,8 +34,8 @@ func DefaultRegistry() *Registry {
 	reg.Register(ElementFilterPass{})
 	reg.Register(ConstraintPass{})
 	reg.Register(VariantOwnerPass{})
-	reg.Register(DocumentQueryPass{})
-	reg.Register(DocumentPlanPass{})
+	reg.Register(document.QueryPass{})
+	reg.Register(document.PlanPass{})
 	reg.Register(TypeRelationshipsPass{})
 	reg.Register(W11EConjugatedSpecializationPass{})
 	reg.Register(ImplicitBasePass{})
@@ -57,10 +61,10 @@ func DefaultRegistry() *Registry {
 	reg.Register(W10BStructuralPass{})
 	reg.Register(W10BPortionOwnerPass{})
 	reg.Register(W8DVerificationPass{})
-	reg.Register(W8DViewRenderingPass{})
+	reg.Register(diagram.ViewRenderingPass{})
 	reg.Register(W8DMetadataUsagePass{})
-	reg.Register(IdentityMetadataPass{})
-	reg.Register(DiagramLayoutPass{})
+	reg.Register(identity.MetadataPass{})
+	reg.Register(diagram.LayoutPass{})
 	reg.Register(RedefinitionConformancePass{})
 	reg.Register(W9CShortNameDistinguishabilityPass{})
 	reg.Register(W9CUserStandardLibraryPass{})
@@ -68,7 +72,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(W9CBoundFeatureTypesPass{})
 	reg.Register(W11AUsageTypingPass{})
 	reg.Register(W11AKerMLSpecializationPass{})
-	reg.Register(ControlNodeSuccessionPass{})
+	reg.Register(behavior.ControlNodeSuccessionPass{})
 	reg.Register(OOSEMMethodPass{})
 	reg.Register(MOSAPass{})
 	return reg

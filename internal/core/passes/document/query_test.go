@@ -1,17 +1,20 @@
-package passes
+package document_test
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/document"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 func documentQueryDiagnostics(t *testing.T, body string) []diag.Diagnostic {
 	t.Helper()
-	index := newTestIndex()
+	index := libs.NewModelIndex()
 	name := "queries.sysml"
 	p := parser.New(source.New(name, []byte(`
 package Fixture {
@@ -22,20 +25,7 @@ package Fixture {
 	root := p.ParseFile()
 	index.AddDocument(name, root)
 	index.ExpandWildcardImports()
-	return Analyze(name, root, parserDiagnostics(p), index)
-}
-
-func parserDiagnostics(p *parser.Parser) []diag.Diagnostic {
-	out := make([]diag.Diagnostic, 0, len(p.Diagnostics))
-	for _, diagnostic := range p.Diagnostics {
-		out = append(out, diag.Diagnostic{
-			Severity: diag.SeverityError,
-			Span:     diagnostic.Span,
-			Message:  diagnostic.Message,
-			Source:   "parser",
-		})
-	}
-	return out
+	return passes.Analyze(name, root, parserDiagnostics(p), index)
 }
 
 func TestDocumentQueryPassAcceptsComposableQuery(t *testing.T) {
@@ -74,6 +64,8 @@ calc def CycleB :> Query { in subsystem : Element; CycleA(subsystem = subsystem)
 }
 
 func TestDocumentQueryPassIsElementScoped(t *testing.T) {
+	_ = document.QueryPass{}.Run(nil, "", nil)
+
 	diagnostics := documentQueryDiagnostics(t, `
 part broken : MissingType;
 calc def BrokenQuery :> Query { MissingOperation() }
@@ -116,7 +108,7 @@ calc def Specialized :> Base {
 }
 
 func TestDocumentQueryPassReportsDependencyErrorInDeclaringDocument(t *testing.T) {
-	index := newTestIndex()
+	index := libs.NewModelIndex()
 	dependencyName := "dependency.sysml"
 	dependencyParser := parser.New(source.New(dependencyName, []byte(`
 package Shared {
@@ -148,13 +140,13 @@ package Caller {
 	index.AddDocument(callerName, callerRoot)
 	index.ExpandWildcardImports()
 
-	callerDiagnostics := Analyze(callerName, callerRoot, parserDiagnostics(callerParser), index)
+	callerDiagnostics := passes.Analyze(callerName, callerRoot, parserDiagnostics(callerParser), index)
 	for _, diagnostic := range callerDiagnostics {
 		if diagnostic.Source == "document-query" {
 			t.Fatalf("caller received dependency diagnostic: %v", callerDiagnostics)
 		}
 	}
-	dependencyDiagnostics := Analyze(
+	dependencyDiagnostics := passes.Analyze(
 		dependencyName,
 		dependencyRoot,
 		parserDiagnostics(dependencyParser),

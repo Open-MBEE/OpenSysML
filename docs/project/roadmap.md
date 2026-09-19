@@ -2657,7 +2657,7 @@ A package imports only the layers below it:
 | syntax | `lexer`, `parser`, `format` |
 | semantics | `symbols` (with `Origin`), `suggest`, `resolve`, `semantics` (with invocation selection), `identity` (with the normative ids) |
 | semantic IR | `lower`, `queryplan`, `docplan` |
-| validation | `passes`, split by domain, `edit` (with the rename conflict check) |
+| validation | `passes` (the root registers; `passes/kit`, `passes/behavior`, `passes/document`, `passes/diagram`, `passes/identity`), `edit` (with the rename conflict check) |
 | execution | `runtime`, `solve`, `smt`, `analysis`, `engines`, `objref`, the `graphs:1` form |
 | translation | `rdf`, `export`, `migrate`, `convert` (the conversion entry point), one `xmi`, `codegen`, `interop/*` |
 | documents | `queryexec`, `docir`, `docrender`, `docpdf` |
@@ -2792,8 +2792,27 @@ which both the root module's tests and the tools module can import.
 before and after the four pull requests: `go list -deps ./cmd/sysml` 368 → 368 (nothing moved
 was on a shipped binary's path, and `go list -deps` of the three binaries names no package of
 `tools/`); directories under `internal/` 119 → 110, 21 → 13 entries at the top and 70 → 61
-packages. Still to do here: split `passes` by domain — core, behavior, document, diagram,
-identity — with registration left central, once the runtime no longer imports it.
+packages. The validation-pass split is recorded below, with registration left central.
+
+`passes` is split by domain, in five pull requests stacked bottom-up. `passes/kit` is the
+framework every check is written against — `Pass`, `PassLevel`, `Context`, `Options`, `Gathers`
+and the symbol and member walkers — a leaf the root re-exports as type aliases so `passes.Context`
+and `passes.NewContext` read as before. `passes/document` holds the document-plan and
+document-query checks, `passes/diagram` the layout and view-rendering checks, `passes/identity`
+the identity-metadata check with the workspace-wide identity gather, and `passes/behavior` the
+state-transition, succession-endpoint and control-node checks. Registration is unchanged and
+stays central: `passes.DefaultRegistry` is the one place a check is registered, in the same order
+as before, so the root imports every domain package and the layering test pins that no domain
+package imports the root. The remainder of the root is the core: the registry, the static
+expression typer and the checks that call into it — among them the three behavior checks
+`send_action.go`, `transition_guard.go` and `typecheck_trigger.go`, which follow the typer when it
+moves — the constraint checker and the structural rules, and the OOSEM and MOSA audits. Every
+diagnostic code, message, range and quick fix is byte-identical; the corpus gates, the golden
+tests and the validation census are the assertion, and statement coverage over the tree is unchanged. Measured before and after the five pull requests:
+`go list -deps ./cmd/sysml` 363 → 368, `go list ./internal/...` 54 → 59 packages, directories
+under `internal/` 95 → 100 — the five new packages and nothing else; 82 non-test files in one
+package become 71 in the root, 5 in `kit`, 4 in `behavior` and 3 in each of `document`, `diagram`
+and `identity`.
 
 ## P4 — one-file packages and shared helpers (in review)
 
