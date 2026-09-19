@@ -3,7 +3,7 @@ package migrate
 import (
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // stamp is an action written beside a node that reads the clock into an
@@ -17,8 +17,8 @@ type stamp struct {
 // becomes: a [0..1] attribute holding the elapsed clock, stamped at each end
 // and left without a value, not zero, by a run that does not reach both.
 type timing struct {
-	o              *xmi.Element
-	from, to       *xmi.Element
+	o              *sysmlv1.Element
+	from, to       *sysmlv1.Element
 	fromEnd, toEnd bool
 	name, start    string
 }
@@ -50,7 +50,7 @@ func (a *activity) timings() {
 // timingOf reads which nodes an observation spans and at which end of each, or
 // says why it spans none: it observes no events, or events that are not nodes here.
 // An initial or flow final node is a point a token reaches, so it has a start but no end.
-func (a *activity) timingOf(o *xmi.Element) (*timing, string) {
+func (a *activity) timingOf(o *sysmlv1.Element) (*timing, string) {
 	if why := a.m.dangling(o, "event"); why != "" {
 		return nil, "the observation's events resolve to nothing: " + why
 	}
@@ -91,7 +91,7 @@ func (a *activity) timingOf(o *xmi.Element) (*timing, string) {
 		t.fromEnd, t.toEnd = at(0, false), at(1, true)
 	}
 	for _, end := range []struct {
-		n   *xmi.Element
+		n   *sysmlv1.Element
 		end bool
 	}{{t.from, t.fromEnd}, {t.to, t.toEnd}} {
 		if end.end && nodeKind(end.n) != nodeAction {
@@ -104,7 +104,7 @@ func (a *activity) timingOf(o *xmi.Element) (*timing, string) {
 // stampAt schedules a clock read at one end of node n: before it starts, or
 // after it ends and before anything it leads to. An initial node's start is
 // the activity's, so its stamp follows start (see startSuccessions).
-func (a *activity) stampAt(n *xmi.Element, end bool, lines ...string) {
+func (a *activity) stampAt(n *sysmlv1.Element, end bool, lines ...string) {
 	stamps := a.before
 	if end {
 		stamps = a.after
@@ -119,7 +119,7 @@ func (a *activity) stampAt(n *xmi.Element, end bool, lines ...string) {
 
 // flowFinal writes a flow final node: done, led into through the stamp, wait
 // or merge written before it when a timing or duration bounds the node.
-func (a *activity) flowFinal(n *xmi.Element) {
+func (a *activity) flowFinal(n *sysmlv1.Element) {
 	if _, ok := a.entry[n]; ok {
 		a.leadIn(n, "done")
 	}
@@ -145,7 +145,7 @@ func endName(end bool) string {
 
 // strayObservation says why an observation owned outside any activity has no v2
 // form: no nodes of an activity bound it, so there is no clock to read between.
-func (m *migration) strayObservation(o *xmi.Element) string {
+func (m *migration) strayObservation(o *sysmlv1.Element) string {
 	note := "the observation is owned by " + qualifiedName(o.Parent) + ", not an activity, so no nodes bound what it measures"
 	if by := m.observers(o); len(by) > 0 {
 		note += "; the duration " + strings.Join(by, ", ") + " that refers to it is written from its own value"
@@ -155,11 +155,11 @@ func (m *migration) strayObservation(o *xmi.Element) string {
 
 // observers names the durations that refer to observation o, which the
 // document links only from the duration's side.
-func (m *migration) observers(o *xmi.Element) []string {
+func (m *migration) observers(o *sysmlv1.Element) []string {
 	if m.observed == nil {
-		m.observed = map[*xmi.Element][]*xmi.Element{}
-		var walk func(e *xmi.Element)
-		walk = func(e *xmi.Element) {
+		m.observed = map[*sysmlv1.Element][]*sysmlv1.Element{}
+		var walk func(e *sysmlv1.Element)
+		walk = func(e *sysmlv1.Element) {
 			if e.Type == "Duration" || e.Type == "TimeExpression" {
 				for _, obs := range m.model.Refs(e, "observation") {
 					m.observed[obs] = append(m.observed[obs], e)
@@ -187,7 +187,7 @@ func (m *migration) observers(o *xmi.Element) []string {
 // leafStep writes a call behavior action that calls nothing and has no pins
 // as the step its duration constraint stands for; false when it has pins or a
 // behavior reference the document does not resolve, which are lost.
-func (a *activity) leafStep(n *xmi.Element, name string) bool {
+func (a *activity) leafStep(n *sysmlv1.Element, name string) bool {
 	if len(a.m.model.Unresolved(n, "behavior")) > 0 || len(inputPins(n)) > 0 || len(n.Owned("result")) > 0 || len(n.Owned("outputValue")) > 0 {
 		return false
 	}

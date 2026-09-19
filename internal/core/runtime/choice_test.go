@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
 
@@ -40,7 +40,7 @@ func TestChoicePointRendering(t *testing.T) {
 			t.Errorf("String() = %q, want %q", got, c.want)
 		}
 		d := c.choice.Diagnostic()
-		if d.Severity != passes.SeverityInfo {
+		if d.Severity != diag.SeverityInfo {
 			t.Errorf("%s: severity = %v, want info", c.want, d.Severity)
 		}
 		if d.Code != ChoiceDiagnosticCode || d.Source != "runtime" {
@@ -200,12 +200,12 @@ func TestLaterGuardErrorIsNotAChoiceNorAFailure(t *testing.T) {
 	if got := ctx.UnevaluableGuards(); len(got) != 1 || got[0].String() != want {
 		t.Fatalf("unevaluable guards = %v, want [%s]", got, want)
 	}
-	diag := ctx.UnevaluableGuards()[0].Diagnostic()
-	if diag.Severity != passes.SeverityInfo || diag.Code != UnevaluableGuardCode || diag.Source != "runtime" {
-		t.Errorf("diagnostic = %+v, want an informational %s from the runtime", diag, UnevaluableGuardCode)
+	d := ctx.UnevaluableGuards()[0].Diagnostic()
+	if d.Severity != diag.SeverityInfo || d.Code != UnevaluableGuardCode || d.Source != "runtime" {
+		t.Errorf("diagnostic = %+v, want an informational %s from the runtime", d, UnevaluableGuardCode)
 	}
-	if !strings.HasPrefix(diag.Message, "guard not evaluable: ") {
-		t.Errorf("message = %q, want it to say the guard is not evaluable", diag.Message)
+	if !strings.HasPrefix(d.Message, "guard not evaluable: ") {
+		t.Errorf("message = %q, want it to say the guard is not evaluable", d.Message)
 	}
 	if file, span := ctx.UnevaluableGuards()[0].Location(); file != "<test>" || span.Len == 0 {
 		t.Errorf("location = %q %v, want the guard's span in the test file", file, span)

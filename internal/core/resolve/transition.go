@@ -2,7 +2,7 @@ package resolve
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/quickfix"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -658,18 +658,18 @@ func (r *Resolver) vertexSuggestions(scope *symbols.Scope, qn *ast.QualifiedName
 }
 
 // endpointFixes offers each suggested vertex as an edit replacing the endpoint.
-func endpointFixes(name string, span source.Span, cands []string) []quickfix.Fix {
+func endpointFixes(name string, span source.Span, cands []string) []diag.Fix {
 	if span.Len == 0 {
 		return nil
 	}
-	fixes := make([]quickfix.Fix, 0, len(cands))
+	fixes := make([]diag.Fix, 0, len(cands))
 	for _, cand := range cands {
 		if cand == name {
 			continue
 		}
-		fixes = append(fixes, quickfix.Fix{
+		fixes = append(fixes, diag.Fix{
 			Title:     "Change '" + name + "' to '" + cand + "'",
-			Edits:     []quickfix.Edit{quickfix.Replace(span, cand)},
+			Edits:     []diag.Edit{diag.Replace(span, cand)},
 			Preferred: len(cands) == 1,
 		})
 	}

@@ -3,7 +3,7 @@ package reject
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // The conformance policies the harness can be run under. "auto" asks each case
@@ -32,13 +32,13 @@ func parsePolicy(name string) (string, error) {
 }
 
 // modeFor is the conformance mode a case of the named derivation is judged under.
-func modeFor(policy, src string) conformance.Mode {
+func modeFor(policy, src string) diag.ConformanceMode {
 	switch policy {
 	case policyStrict:
-		return conformance.ModeStrict
+		return diag.ConformanceStrict
 	case policyDefault:
-		return conformance.ModeDefault
+		return diag.ConformanceDefault
 	default:
-		return conformance.ModeOf(src == strictSource)
+		return diag.ConformanceModeOf(src == strictSource)
 	}
 }

@@ -660,7 +660,7 @@ func (b *footprintBuilder) accept() {
 	}
 	channel := Channel{Port: accept.ViaPort}
 	if accept.SignalType != nil {
-		channel.Signal = qualifiedNameText(accept.SignalType)
+		channel.Signal = accept.SignalType.Text()
 	}
 	if accept.ParamName != "" {
 		b.write(Place{Sym: acceptParamSymbol(b.scope, accept.ParamName), Name: accept.ParamName, Local: true})
@@ -686,14 +686,6 @@ func acceptParamSymbol(scope *symbols.Scope, name string) *symbols.Symbol {
 		return sym
 	}
 	return nil
-}
-
-func qualifiedNameText(qn *ast.QualifiedName) string {
-	parts := make([]string, 0, len(qn.Parts))
-	for _, part := range qn.Parts {
-		parts = append(parts, part.Text)
-	}
-	return strings.Join(parts, "::")
 }
 
 // successions adds the features the guards of the node's outgoing successions

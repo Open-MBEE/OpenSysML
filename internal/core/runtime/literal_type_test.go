@@ -176,7 +176,7 @@ func TestUserScalarTypeStandsInOnlyWithoutALibrary(t *testing.T) {
 		}
 		resolver := resolve.New(idx)
 		sem := semantics.NewModel(resolver)
-		ctx := NewContext(NewModel(sem, resolver), 10000)
+		ctx := NewContext(typedModel(sem, resolver), 10000)
 		pkg, ok := idx.DocumentRoot("<test>").LookupLocal("Shadow")
 		if !ok || pkg.Scope == nil {
 			t.Fatal("package Shadow not indexed")

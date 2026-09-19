@@ -126,7 +126,7 @@ func (r *Resolver) withoutImplicitlyRedefined(
 			if other == sym || !ImplicitlyRedefined(other) {
 				continue
 			}
-			if r.inheritsFrom(ownerOf(other), ownerOf(sym), model) {
+			if r.inheritsFrom(other.Owner(), sym.Owner(), model) {
 				hidden = true
 				break
 			}
@@ -158,14 +158,6 @@ func (r *Resolver) inheritsFrom(sub, sup *symbols.Symbol, model supertypeProvide
 		queue = append(queue, model.DirectSupertypes(cur)...)
 	}
 	return false
-}
-
-// ownerOf is the namespace a member belongs to.
-func ownerOf(sym *symbols.Symbol) *symbols.Symbol {
-	if sym == nil || sym.OwnerScope == nil {
-		return nil
-	}
-	return sym.OwnerScope.Owner()
 }
 
 // hasUnresolvedRedefinition reports whether sym declares a redefinition whose
@@ -540,7 +532,7 @@ func ImplicitlyRedefined(sym *symbols.Symbol) bool {
 // inMetadataUsageBody reports whether sym is a member of a metadata usage body,
 // where the name is always an owned redefinition (SysML.xtext MetadataBodyUsage).
 func inMetadataUsageBody(sym *symbols.Symbol) bool {
-	for owner := ownerOf(sym); owner != nil; owner = ownerOf(owner) {
+	for owner := sym.Owner(); owner != nil; owner = owner.Owner() {
 		usage, ok := owner.Decl.(*ast.Usage)
 		if !ok {
 			return false

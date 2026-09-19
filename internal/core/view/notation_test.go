@@ -1,6 +1,8 @@
 package view
 
 import (
+	"maps"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -33,13 +35,13 @@ func TestRenderingsNameElementsAsWritten(t *testing.T) {
 func TestNamesHoldingTheSeparatorAreQuotedWhole(t *testing.T) {
 	tree := render(t, "separators.sysml", "SepViews::partView")
 	if names := nodeNames(tree.Roots); !names["'Sep::Pkg'::'x::y'"] || !names["'fuel::out'"] || names["out"] {
-		t.Errorf("tree node names %v, want 'Sep::Pkg'::'x::y' and 'fuel::out', not out", sortedKeys(names))
+		t.Errorf("tree node names %v, want 'Sep::Pkg'::'x::y' and 'fuel::out', not out", slices.Sorted(maps.Keys(names)))
 	}
 	if got := edgeLabels(render(t, "separators.sysml", "SepViews::lineView")); !got["'fuel::line'"] {
-		t.Errorf("connection labels %v lack 'fuel::line'", sortedKeys(got))
+		t.Errorf("connection labels %v lack 'fuel::line'", slices.Sorted(maps.Keys(got)))
 	}
 	if names := nodeNames(render(t, "separators.sysml", "SepViews::modeView").Roots); !names["'idle::state'"] {
-		t.Errorf("state node names %v lack 'idle::state'", sortedKeys(names))
+		t.Errorf("state node names %v lack 'idle::state'", slices.Sorted(maps.Keys(names)))
 	}
 	table := render(t, "separators.sysml", "SepViews::tableView")
 	if got := table.Text(); !strings.Contains(got, "'fuel::out'") || strings.Contains(got, "| 'out'") {

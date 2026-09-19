@@ -3,13 +3,14 @@ package passes
 import (
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // constraintDiagsOverLibrary analyses src in an index where libSrc is marked as
 // library content, which is how a bundled definition reaches a model.
-func constraintDiagsOverLibrary(t *testing.T, libSrc, src string) []Diagnostic {
+func constraintDiagsOverLibrary(t *testing.T, libSrc, src string) []diag.Diagnostic {
 	t.Helper()
 	idx := newTestIndex()
 	idx.AddDocument("frame.sysml", parser.New(source.New("frame.sysml", []byte(libSrc))).ParseFile())
@@ -18,7 +19,7 @@ func constraintDiagsOverLibrary(t *testing.T, libSrc, src string) []Diagnostic {
 	idx.AddDocument("<t>", root)
 	idx.ExpandWildcardImports()
 
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range Analyze("<t>", root, nil, idx) {
 		if d.Source == "constraint" {
 			out = append(out, d)

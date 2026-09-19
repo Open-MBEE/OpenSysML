@@ -21,7 +21,7 @@ $ curl -s -X POST http://localhost:50099/sysml.SysMLService/<Method> \
     -H 'Content-Type: application/json' -d '<request>'
 ```
 
-The Python client's decoding (`clients/python/opensysml/values.py`, `errors.py`) is the
+The Python client's decoding (`client/python/opensysml/values.py`, `errors.py`) is the
 reference for what follows; where this page says a client *must* do something, that is what
 the Python client does, stated so that it can be reproduced in a language that has no
 client.
@@ -2125,7 +2125,7 @@ taking an empty `documents` for a batch that rewrote nothing.
 
 ## Minimal clients: four illustrations
 
-The four snippets below are **illustrations, not shipped code**. They are not in `clients/`, not
+The four snippets below are **illustrations, not shipped code**. They are not in `client/`, not
 tested, and not run by CI; they exist to show how short a correct decoder is in each language
 and where its pitfalls lie. A real client for any of these languages is one that passes the
 scenarios in `conformance/scenarios/*.json` through its own public API, as every shipped client

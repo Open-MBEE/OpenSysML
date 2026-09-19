@@ -84,7 +84,7 @@ func (t *translator) resolvePath(node ast.Node, scope *symbols.Scope, segments [
 	}
 	if !ok {
 		// A qualified name may name a package member or a library element.
-		if whole, found := resolver.ResolveQualified(scope, qualifiedName(segments)); found {
+		if whole, found := resolver.ResolveQualified(scope, ast.QualifiedNameOf(segments...)); found {
 			return []*symbols.Symbol{whole}, nil
 		}
 		return nil, t.refuse(node, msgReferencePrefix+joinPath(segments)+"`", "it resolves to nothing")
@@ -126,16 +126,6 @@ func (t *translator) objectiveLocal(scope *symbols.Scope, name string) (*symbols
 		}
 	}
 	return nil, false
-}
-
-// qualifiedName rebuilds a qualified name from the segments it steps through, for
-// resolving a name the scope itself does not hold.
-func qualifiedName(segments []string) *ast.QualifiedName {
-	qn := &ast.QualifiedName{}
-	for _, segment := range segments {
-		qn.Parts = append(qn.Parts, ast.NameSegment{Text: segment})
-	}
-	return qn
 }
 
 // joinPath renders a reference as it was written.

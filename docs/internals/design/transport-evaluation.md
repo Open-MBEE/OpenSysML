@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-25
 **Status:** Evaluation — prototypes behind flags, **not** a migration
-**Scope:** `cmd/sysml-grpc`, `internal/stdiorpc`, `internal/grpc/connect.go`, `clients/python/scripts/bench_transports.py`
+**Scope:** `cmd/sysml-grpc`, `internal/stdiorpc`, `internal/grpc/connect.go`, `client/python/scripts/bench_transports.py`
 
 ---
 
@@ -185,7 +185,7 @@ ours to specify and to test in every client, where gRPC and Connect ship them.
 
 ## 5. Measurements
 
-`clients/python/scripts/bench_transports.py` — a new harness rather than an extension of
+`client/python/scripts/bench_transports.py` — a new harness rather than an extension of
 `bench_latency.py`, because that script takes a live `Connection` (which implies TCP and the
 whole ownership path) and cannot express three transports, four operations and cold-start
 spawning. It keeps the property its docstring insists on: setup is measured separately, and warm
@@ -269,7 +269,7 @@ Payload sizes (bytes on the wire, request/response):
 
 ## 6. The lifecycle-code delta
 
-`clients/python/opensysml/connection.py` is 1,710 lines. Counted by function, **~690 of them exist only
+`client/python/opensysml/connection.py` is 1,710 lines. Counted by function, **~690 of them exist only
 because the service listens on a TCP port** — 40% of the file. Enumerated, not estimated:
 
 | Responsibility | Functions | Lines |
@@ -284,7 +284,7 @@ because the service listens on a TCP port** — 40% of the file. Enumerated, not
 | **Total** | | **~690** |
 
 Plus roughly 25 of `__init__`'s 64 lines (address, channel, refcount and release fields). The
-behaviors documented in the "Service ownership" section of `clients/python/README.md` —
+behaviors documented in the "Service ownership" section of `client/python/README.md` —
 "never stop a service you did not start", pid records authenticated by process start time so a
 reused pid is never signalled, stale-record cleanup, replacing a wrong-release service — are
 **entirely** in that 690. Under stdio the question they answer does not arise: the child is

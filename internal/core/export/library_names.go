@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -92,8 +93,14 @@ func encodeLibraryNames(doc string) any {
 	file := source.New(doc, data)
 	p := parser.New(file)
 	root := p.ParseFile()
-	if err := syntaxError(doc, file, p); err != nil {
-		return err
+	if len(p.Diagnostics) > 0 {
+		lines := file.Lines()
+		messages := make([]string, 0, len(p.Diagnostics))
+		for _, diag := range p.Diagnostics {
+			pos := lines.PosAt(diag.Span.Offset)
+			messages = append(messages, fmt.Sprintf("%d:%d: %s", pos.Line, pos.Col, diag.Message))
+		}
+		return fmt.Errorf("%s: %d syntax error(s):\n  %s", doc, len(messages), strings.Join(messages, "\n  "))
 	}
 	e, err := newEncoder(file, root, doc)
 	if err != nil {

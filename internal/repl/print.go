@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -35,7 +35,7 @@ func (s *Session) printSession() ([]string, bool, error) {
 	if strings.TrimSpace(src) == "" {
 		return []string{"nothing to print: the session is empty"}, false, nil
 	}
-	out, syntax, err := export.ConvertTolerant(sessionOrigin, []byte(src), export.FormatSysML, export.FormatSysML)
+	out, syntax, err := convert.ConvertTolerant(sessionOrigin, []byte(src), convert.FormatSysML, convert.FormatSysML)
 	if err != nil {
 		return []string{errPrefix + err.Error()}, false, nil
 	}
@@ -63,9 +63,9 @@ func (s *Session) printElement(name string) ([]string, bool, error) {
 		return []string{fmt.Sprintf("no notation to print for %s: this session declares it nowhere", shown)}, false, nil
 	}
 	file := source.New(doc.Name, doc.Content)
-	out, syntax, err := export.SysMLElement(file, declarationSpan(sym))
+	out, syntax, err := convert.SysMLElement(file, declarationSpan(sym))
 	if err != nil {
-		if errors.Is(err, export.ErrNoNotation) {
+		if errors.Is(err, convert.ErrNoNotation) {
 			return []string{fmt.Sprintf("no notation to print for %s: its declaration spans no source", shown)}, false, nil
 		}
 		return []string{errPrefix + err.Error()}, false, nil
@@ -98,7 +98,7 @@ func declarationSpan(sym *symbols.Symbol) source.Span {
 
 // printWarnings reports the syntax errors of a printed buffer, in the wording a
 // save reports them with: the notation is printed as typed either way.
-func printWarnings(syntax *export.SyntaxError) []string {
+func printWarnings(syntax *convert.SyntaxError) []string {
 	if syntax == nil {
 		return nil
 	}

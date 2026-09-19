@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // A swimlane (an ActivityPartition) says who performs the nodes it holds: the
@@ -15,19 +15,19 @@ import (
 
 // lane is one partition of an activity with the object it represents resolved.
 type lane struct {
-	g          *xmi.Element // the ActivityPartition
-	parent     *lane        // the partition it is nested in, nil at the top
-	represents *xmi.Element // the property or classifier it represents, nil when unset
-	typ        *xmi.Element // the classifier whose features names inside resolve against
-	expr       string       // how the activity reads the represented object; "" when it cannot
-	plural     bool         // whether expr reads a collection of objects rather than one
-	note       string       // why expr is "", or how it was found
-	used       bool         // whether a name or a call resolved through the lane
+	g          *sysmlv1.Element // the ActivityPartition
+	parent     *lane            // the partition it is nested in, nil at the top
+	represents *sysmlv1.Element // the property or classifier it represents, nil when unset
+	typ        *sysmlv1.Element // the classifier whose features names inside resolve against
+	expr       string           // how the activity reads the represented object; "" when it cannot
+	plural     bool             // whether expr reads a collection of objects rather than one
+	note       string           // why expr is "", or how it was found
+	used       bool             // whether a name or a call resolved through the lane
 }
 
 // use records that a name or a call at e resolved through lane l, and so
 // through every other partition holding e that represents the same object.
-func (ls *lanes) use(e *xmi.Element, l *lane) {
+func (ls *lanes) use(e *sysmlv1.Element, l *lane) {
 	l.used = true
 	for _, o := range ls.of[e] {
 		if o.expr == l.expr {
@@ -39,21 +39,21 @@ func (ls *lanes) use(e *xmi.Element, l *lane) {
 // lanes indexes the partitions of one activity by the nodes and edges they hold.
 type lanes struct {
 	all    []*lane
-	of     map[*xmi.Element][]*lane // node or edge → every partition holding it
-	picked map[*xmi.Element]*lane   // node or edge → the partition its names resolve against
-	clash  map[*xmi.Element][]*lane // node or edge → partitions of different dimensions naming different objects
+	of     map[*sysmlv1.Element][]*lane // node or edge → every partition holding it
+	picked map[*sysmlv1.Element]*lane   // node or edge → the partition its names resolve against
+	clash  map[*sysmlv1.Element][]*lane // node or edge → partitions of different dimensions naming different objects
 }
 
 // lanesOf indexes the partitions of an activity once, before its nodes are written.
-func (m *migration) lanesOf(act *xmi.Element) *lanes {
+func (m *migration) lanesOf(act *sysmlv1.Element) *lanes {
 	if ls, ok := m.lanes[act]; ok {
 		return ls
 	}
-	ls := &lanes{of: map[*xmi.Element][]*lane{}, picked: map[*xmi.Element]*lane{}, clash: map[*xmi.Element][]*lane{}}
+	ls := &lanes{of: map[*sysmlv1.Element][]*lane{}, picked: map[*sysmlv1.Element]*lane{}, clash: map[*sysmlv1.Element][]*lane{}}
 	m.lanes[act] = ls
 	ctx := m.contextClassifier(act)
-	var index func(g *xmi.Element, parent *lane)
-	index = func(g *xmi.Element, parent *lane) {
+	var index func(g *sysmlv1.Element, parent *lane)
+	index = func(g *sysmlv1.Element, parent *lane) {
 		l := &lane{g: g, parent: parent}
 		m.resolveLane(l, ctx)
 		ls.all = append(ls.all, l)
@@ -81,7 +81,7 @@ func (m *migration) lanesOf(act *xmi.Element) *lanes {
 }
 
 // hold records that partition l holds e, once.
-func (ls *lanes) hold(e *xmi.Element, l *lane) {
+func (ls *lanes) hold(e *sysmlv1.Element, l *lane) {
 	if !slices.Contains(ls.of[e], l) {
 		ls.of[e] = append(ls.of[e], l)
 	}
@@ -90,7 +90,7 @@ func (ls *lanes) hold(e *xmi.Element, l *lane) {
 // pick settles which of the partitions holding e its names resolve against:
 // the innermost when they nest in one chain, else the one naming an object;
 // several naming different objects are a clash, and nothing is picked.
-func (ls *lanes) pick(e *xmi.Element) *lane {
+func (ls *lanes) pick(e *sysmlv1.Element) *lane {
 	if l, ok := ls.picked[e]; ok {
 		return l
 	}
@@ -132,7 +132,7 @@ func (l *lane) within(o *lane) bool {
 // clashNote says why names in e resolve against no partition: subject, e or
 // the node an edge leaves, is in partitions of different dimensions that name
 // different objects; "" when not.
-func (ls *lanes) clashNote(e *xmi.Element, subject string) string {
+func (ls *lanes) clashNote(e *sysmlv1.Element, subject string) string {
 	named := ls.clash[e]
 	if len(named) == 0 {
 		return ""
@@ -158,7 +158,7 @@ func (ls *lanes) clashing(l *lane) []string {
 }
 
 // find returns the lane of a partition element.
-func (ls *lanes) find(g *xmi.Element) *lane {
+func (ls *lanes) find(g *sysmlv1.Element) *lane {
 	for _, l := range ls.all {
 		if l.g == g {
 			return l
@@ -169,7 +169,7 @@ func (ls *lanes) find(g *xmi.Element) *lane {
 
 // laneOf returns the partition a node or edge of the activity resolves names
 // against: the one holding it, else the one holding the node an edge leaves.
-func (ls *lanes) laneOf(m *migration, e *xmi.Element) *lane {
+func (ls *lanes) laneOf(m *migration, e *sysmlv1.Element) *lane {
 	if ls == nil {
 		return nil
 	}
@@ -180,7 +180,7 @@ func (ls *lanes) laneOf(m *migration, e *xmi.Element) *lane {
 // holder is the element whose partitions decide e's: e itself when partitions
 // hold it or it is a node; an edge in none, the node of its source end when
 // partitions hold that, else of its target end; with the end's role, "" for e.
-func (ls *lanes) holder(m *migration, e *xmi.Element) (*xmi.Element, string) {
+func (ls *lanes) holder(m *migration, e *sysmlv1.Element) (*sysmlv1.Element, string) {
 	if len(ls.of[e]) > 0 || (e.Type != "ControlFlow" && e.Type != "ObjectFlow") {
 		return e, ""
 	}
@@ -195,7 +195,7 @@ func (ls *lanes) holder(m *migration, e *xmi.Element) (*xmi.Element, string) {
 // resolveLane finds how the activity, whose context object is a ctx, reads
 // the object the lane represents: `this` itself, one of its parts, or a part
 // of the enclosing lane's object.
-func (m *migration) resolveLane(l *lane, ctx *xmi.Element) {
+func (m *migration) resolveLane(l *lane, ctx *sysmlv1.Element) {
 	r := m.model.Ref(l.g, "represents")
 	if r == nil {
 		if m.dangling(l.g, "represents") != "" {
@@ -268,8 +268,8 @@ func (m *migration) resolveLane(l *lane, ctx *xmi.Element) {
 // partPath finds the one chain of composite parts, of any length, from
 // classifier c to an object of classifier target; "" when none or several
 // exist. plural reports whether any part on the chain holds several objects.
-func (m *migration) partPath(c, target *xmi.Element) (path string, plural bool) {
-	r := m.partRoutes(c, target, map[*xmi.Element]bool{})
+func (m *migration) partPath(c, target *sysmlv1.Element) (path string, plural bool) {
+	r := m.partRoutes(c, target, map[*sysmlv1.Element]bool{})
 	if r.count == 1 {
 		return r.path, r.plural
 	}
@@ -294,8 +294,8 @@ func (r *partRoute) add(path string, plural bool) {
 
 // partRoutes walks the composite parts of t, memoizing each classifier's
 // routes to target once its count cannot depend on how it was reached.
-func (m *migration) partRoutes(t, target *xmi.Element, onWalk map[*xmi.Element]bool) partRoute {
-	key := [2]*xmi.Element{t, target}
+func (m *migration) partRoutes(t, target *sysmlv1.Element, onWalk map[*sysmlv1.Element]bool) partRoute {
+	key := [2]*sysmlv1.Element{t, target}
 	if r, ok := m.routes[key]; ok {
 		return r
 	}
@@ -348,7 +348,7 @@ func (m *migration) partRoutes(t, target *xmi.Element, onWalk map[*xmi.Element]b
 
 // contextClassifier is the classifier whose object is `this` inside e: the
 // nearest enclosing one that is not a behavior, nil inside a package.
-func (m *migration) contextClassifier(e *xmi.Element) *xmi.Element {
+func (m *migration) contextClassifier(e *sysmlv1.Element) *sysmlv1.Element {
 	for cur := e; cur != nil; cur = cur.Parent {
 		switch cur.Type {
 		case "Package", "Model", "Profile":
@@ -362,7 +362,7 @@ func (m *migration) contextClassifier(e *xmi.Element) *xmi.Element {
 }
 
 // laneFeature returns the feature named n of the lane's object, nil when it has none.
-func (m *migration) laneFeature(l *lane, n string) *xmi.Element {
+func (m *migration) laneFeature(l *lane, n string) *sysmlv1.Element {
 	if l == nil || l.expr == "" || l.typ == nil {
 		return nil
 	}
@@ -378,7 +378,7 @@ func (m *migration) laneFeature(l *lane, n string) *xmi.Element {
 // the behavior a call behavior action n calls: the object n's swimlane represents,
 // when it is of the classifier owning the behavior and not the context itself;
 // else "", with why when the lane's object could have performed it but is a collection.
-func (m *migration) lanePerformer(n *xmi.Element) (obj string, b *xmi.Element, why string) {
+func (m *migration) lanePerformer(n *sysmlv1.Element) (obj string, b *sysmlv1.Element, why string) {
 	b = m.model.Ref(n, "behavior")
 	if b == nil || m.methodOf[b] != nil || !m.written(b) {
 		return "", nil, ""
@@ -405,7 +405,7 @@ func (m *migration) lanePerformer(n *xmi.Element) (obj string, b *xmi.Element, w
 // classifier owning it, as an operation's usage does, so a lane's object can
 // perform it; the usage is written when the owner's body is, unless the activity
 // is the owner's classifier behavior, whose performance is that usage.
-func (m *migration) behaviorUsage(b *xmi.Element) string {
+func (m *migration) behaviorUsage(b *sysmlv1.Element) string {
 	if name, ok := m.usageOf[b]; ok {
 		return name
 	}
@@ -422,7 +422,7 @@ func (m *migration) behaviorUsage(b *xmi.Element) string {
 
 // prepareLanes indexes an activity's partitions before anything is written and
 // reserves a usage on the owner of every behavior a lane's object performs.
-func (m *migration) prepareLanes(act *xmi.Element) {
+func (m *migration) prepareLanes(act *sysmlv1.Element) {
 	m.lanesOf(act)
 	for _, n := range act.Owned("node") {
 		if n.Type != "CallBehaviorAction" {

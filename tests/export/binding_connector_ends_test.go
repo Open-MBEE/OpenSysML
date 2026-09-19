@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 )
 
@@ -13,7 +14,7 @@ import (
 // succession's or connector's does, and the graph states no sysml:value.
 func TestBindingConnectorEndsAreStatedLikeSuccessionEnds(t *testing.T) {
 	src := "package P {\n    part def Car {\n        attribute a : Integer;\n        attribute b : Integer;\n        bind e3 ::> a = b;\n        succession first s1 ::> a then s2 ::> b;\n    }\n}\n"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -64,7 +65,7 @@ func TestKerMLBindingConnectorEndsCarryTheRoundTripWithoutSourceText(t *testing.
 	}
 }
 `
-	turtle, err := export.Convert("corpus.kerml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("corpus.kerml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -117,7 +118,7 @@ func TestKerMLBindingConnectorEndsCarryTheRoundTripWithoutSourceText(t *testing.
 // rather than dropped or reported as a syntax error.
 func TestBindingEndsWithoutANotationAreRefused(t *testing.T) {
 	src := "package P {\n    part def Car {\n        attribute a : Integer;\n        attribute b : Integer;\n        bind e3 ::> a = b;\n    }\n}\n"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -165,7 +166,7 @@ func TestBindingEndsWithoutANotationAreRefused(t *testing.T) {
 			if edited == stripped {
 				t.Fatalf("the edit changed nothing:\n%s", stripped)
 			}
-			_, err := export.Convert("m.ttl", []byte(edited), export.FormatTurtle, export.FormatSysML)
+			_, err := convert.Convert("m.ttl", []byte(edited), convert.FormatTurtle, convert.FormatSysML)
 			var unsupported *export.UnsupportedError
 			if !errors.As(err, &unsupported) {
 				t.Fatalf("want an *export.UnsupportedError naming the binding end, got %v", err)

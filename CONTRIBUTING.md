@@ -26,8 +26,8 @@ make lint   # runs staticcheck and gosec, as CI does
 ./scripts/download-pilot-library-xmi.sh   # fetch the pilot's XMI of the standard library
 ```
 
-The gates over those downloads (`internal/core/model/training_examples_test.go`,
-`internal/core/model/pilot_corpora_test.go`, `tests/identity/pilot_library_xmi_test.go`)
+The gates over those downloads (`tests/corpus/training_examples_test.go`,
+`tests/corpus/pilot_corpora_test.go`, `tests/identity/pilot_library_xmi_test.go`)
 skip while their corpus is absent, so run the three scripts once before trusting a local
 `make test`; a corpus already at the pin is left alone. CI runs the scripts itself and sets
 `OPENSYSML_REQUIRE_TRAINING_CORPUS=1`, `OPENSYSML_REQUIRE_PILOT_CORPORA=1` and
@@ -319,8 +319,8 @@ github.com/Open-MBEE/OpenSysML
 ├── internal/lsp/          # LSP implementation
 ├── internal/grpc/         # gRPC service implementation
 ├── internal/repl/         # REPL implementation
-├── clients/python/        # Python client bindings (opensysml)
-├── clients/rust/          # Rust client (opensysml) and its conformance runner
+├── client/python/         # Python client bindings (opensysml)
+├── client/rust/           # Rust client (opensysml) and its conformance runner
 ├── docs/                  # Documentation
 │   ├── guide/             # The handbook, in reading order
 │   ├── reference/         # CLI, REPL, environment, APIs, RDF mapping

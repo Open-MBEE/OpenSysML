@@ -101,7 +101,7 @@ The `opensysml` Python client does not download a snapshot on its own. It accept
 manifest was signed by the CircleCI release pipeline, and a snapshot is neither. To run it
 against a snapshot, put the snapshot's `sysml-grpc` on your `PATH` (or point
 `OPENSYSML_BINARY` at it); see the
-[client's README](../../clients/python/README.md).
+[client's README](../../client/python/README.md).
 
 ## Verifying one
 

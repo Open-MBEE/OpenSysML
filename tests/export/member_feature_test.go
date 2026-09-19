@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 )
 
@@ -41,15 +42,15 @@ func withoutLayout(t *testing.T, turtle []byte) []byte {
 // notation back and converts that again, failing unless the stripped graphs agree.
 func graphOnlyRoundTrip(t *testing.T, name string, src []byte) (turtle, back []byte) {
 	t.Helper()
-	turtle, err := export.Convert(name, src, export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert(name, src, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	back, err = export.Convert("m.ttl", withoutLayout(t, turtle), export.FormatTurtle, export.FormatSysML)
+	back, err = convert.Convert("m.ttl", withoutLayout(t, turtle), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the graph alone: %v", err)
 	}
-	again, err := export.Convert(name, back, export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert(name, back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v\n%s", err, back)
 	}
@@ -109,7 +110,7 @@ func TestFeaturedByAnonymousPortionResolvesWhereWritten(t *testing.T) {
 	if !strings.Contains(string(back), "member feature CC1_startShot_snapshots redefines CC1_snapshots featured by CC1::startShot;\n") {
 		t.Errorf("the reference to the anonymous portion should be written qualified:\n%s", back)
 	}
-	again, err := export.Convert("m.kerml", back, export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert("m.kerml", back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
@@ -125,11 +126,11 @@ func TestFeaturedByAnonymousPortionResolvesWhereWritten(t *testing.T) {
 
 // With its source text the model comes back byte for byte, as before.
 func TestMemberFeatureSourceTextRoundTripsUnchanged(t *testing.T) {
-	turtle, err := export.Convert("m.kerml", []byte(memberFeatureModel), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.kerml", []byte(memberFeatureModel), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -193,7 +194,7 @@ func TestCrossFeatureFormsComeBackFromTheGraphAlone(t *testing.T) {
 // OwningMembership is refused rather than written as a feature of the type.
 func TestSysMLOwningMembershipFeatureIsRefused(t *testing.T) {
 	src := "package P {\n    part def Car {\n        attribute mass : Real;\n    }\n}\n"
-	turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -201,7 +202,7 @@ func TestSysMLOwningMembershipFeatureIsRefused(t *testing.T) {
 	for _, property := range []string{"sysml:ownedFeature", "sysml:ownedFeatureMembership", "sysml:ownedMemberFeature", "sysml:owningType", "json:ownedFeature", "json:ownedFeatureMembership"} {
 		foreign = string(withoutTriples(t, []byte(foreign), property))
 	}
-	out, err := export.Convert("m.ttl", []byte(foreign), export.FormatTurtle, export.FormatSysML)
+	out, err := convert.Convert("m.ttl", []byte(foreign), convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("want an UnsupportedError, got %v; notation:\n%s", err, out)

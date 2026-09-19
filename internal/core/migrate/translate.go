@@ -9,7 +9,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // This file reads opaque bodies where they stand in the model: it answers the
@@ -24,7 +24,7 @@ const clockRead = "localClock.currentTime"
 // of an activity, a behavior, a constraint or a property's owner.
 type bodyScope struct {
 	m       *migration
-	scope   *xmi.Element
+	scope   *sysmlv1.Element
 	lane    *lane
 	clash   string // why no lane applies, when partitions of different dimensions hold the scope
 	viaLane bool   // a name resolved against the lane's object
@@ -32,7 +32,7 @@ type bodyScope struct {
 }
 
 // bodyScope makes the scope an opaque body read at scope is translated in.
-func (m *migration) bodyScope(scope *xmi.Element) *bodyScope {
+func (m *migration) bodyScope(scope *sysmlv1.Element) *bodyScope {
 	l, clash := m.laneAt(scope)
 	return &bodyScope{m: m, scope: scope, lane: l, clash: clash}
 }
@@ -40,7 +40,7 @@ func (m *migration) bodyScope(scope *xmi.Element) *bodyScope {
 // laneAt is the partition e, a node, edge or pin of an activity, or something
 // one owns, resolves names against; nil outside every partition, or with why
 // none applies when partitions of different dimensions hold it.
-func (m *migration) laneAt(e *xmi.Element) (*lane, string) {
+func (m *migration) laneAt(e *sysmlv1.Element) (*lane, string) {
 	ls, act := m.lanesAround(e)
 	for cur := e; ls != nil && cur != act; cur = cur.Parent {
 		h, role := ls.holder(m, cur)
@@ -59,7 +59,7 @@ func (m *migration) laneAt(e *xmi.Element) (*lane, string) {
 }
 
 // useLane records that a name at e resolved through lane l, the lane laneAt found.
-func (m *migration) useLane(e *xmi.Element, l *lane) {
+func (m *migration) useLane(e *sysmlv1.Element, l *lane) {
 	ls, act := m.lanesAround(e)
 	for cur := e; ls != nil && cur != act; cur = cur.Parent {
 		if ls.laneOf(m, cur) == l {
@@ -72,7 +72,7 @@ func (m *migration) useLane(e *xmi.Element, l *lane) {
 
 // lanesAround is the partition index of the activity e is inside, with the
 // activity; nil when e is in none or is the activity itself.
-func (m *migration) lanesAround(e *xmi.Element) (*lanes, *xmi.Element) {
+func (m *migration) lanesAround(e *sysmlv1.Element) (*lanes, *sysmlv1.Element) {
 	for cur := e; cur != nil; cur = cur.Parent {
 		if cur.Type == "Activity" {
 			if cur == e {
@@ -92,7 +92,7 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 	m := s.m
 	full := strings.Join(path, ".")
 	var expr string
-	var f *xmi.Element
+	var f *sysmlv1.Element
 	var plural bool    // whether the objects the name reads through are a collection
 	var carrier string // the first such collection
 	if path[0] == "this" {
@@ -194,14 +194,14 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 }
 
 // manyValued reports whether feature f holds other than exactly one value.
-func manyValued(f *xmi.Element) bool {
+func manyValued(f *sysmlv1.Element) bool {
 	_, upper, ok := bounds(f)
 	return ok && upper != 1
 }
 
 // wantedOf is what a value of feature f must be: of the type f holds, and
 // one value unless f holds several.
-func (m *migration) wantedOf(f *xmi.Element) wanted {
+func (m *migration) wantedOf(f *sysmlv1.Element) wanted {
 	t := m.typedAs(f)
 	return wanted{scalar: m.scalarBase(t), object: m.nonScalar(t), single: !manyValued(f)}
 }
@@ -209,14 +209,14 @@ func (m *migration) wantedOf(f *xmi.Element) wanted {
 // nonScalar names t, then every type generalizing it, when its values are
 // known to be no scalar: an enumeration, a block or another classifier, or a
 // value type whose every base is one such.
-func (m *migration) nonScalar(t *xmi.Element) []string {
+func (m *migration) nonScalar(t *sysmlv1.Element) []string {
 	type known struct {
 		names []string
 		ok    bool
 	}
-	memo := map[*xmi.Element]known{}
-	var types func(*xmi.Element) ([]string, bool)
-	types = func(t *xmi.Element) ([]string, bool) {
+	memo := map[*sysmlv1.Element]known{}
+	var types func(*sysmlv1.Element) ([]string, bool)
+	types = func(t *sysmlv1.Element) ([]string, bool) {
 		if t == nil || t.IsProxy() || m.scalarBase(t) != "" {
 			return nil, false
 		}
@@ -246,7 +246,7 @@ func (m *migration) nonScalar(t *xmi.Element) []string {
 
 // typedAs is the classifier typing f: a pin's as declared, else its own type;
 // for anything but a feature or pin, f itself, whose members are its own.
-func (m *migration) typedAs(f *xmi.Element) *xmi.Element {
+func (m *migration) typedAs(f *sysmlv1.Element) *sysmlv1.Element {
 	if d, ok := m.pins[f]; ok {
 		return d.typ
 	}
@@ -274,7 +274,7 @@ func (s *bodyScope) note(lang string) string {
 
 // noted records on scope's report entry how a body read there was translated,
 // unless scope is a classifier or package, whose entry is not about the body.
-func (m *migration) noted(scope *xmi.Element, note string) {
+func (m *migration) noted(scope *sysmlv1.Element, note string) {
 	if note == "" || m.contextClassifier(scope) == scope {
 		return
 	}
@@ -288,7 +288,7 @@ func (m *migration) noted(scope *xmi.Element, note string) {
 // translatedExpr translates an opaque body as one expression read at scope
 // yielding what want asks for; the note is for the report and the refusal is
 // returned when the body has no v2 form, with the v2 text checked to parse.
-func (m *migration) translatedExpr(body, lang string, scope *xmi.Element, want wanted) (expr, note string, err *refusal) {
+func (m *migration) translatedExpr(body, lang string, scope *sysmlv1.Element, want wanted) (expr, note string, err *refusal) {
 	s := m.bodyScope(scope)
 	t, err := translateExpr(body, lang, s, want)
 	if err != nil {
@@ -303,7 +303,7 @@ func (m *migration) translatedExpr(body, lang string, scope *xmi.Element, want w
 
 // translatedStatements translates an opaque body as the statements of an action
 // body read at scope, each checked to parse.
-func (m *migration) translatedStatements(body, lang string, scope *xmi.Element) (lines []string, note string, err *refusal) {
+func (m *migration) translatedStatements(body, lang string, scope *sysmlv1.Element) (lines []string, note string, err *refusal) {
 	s := m.bodyScope(scope)
 	lines, err = translateStatements(body, lang, s)
 	if err != nil {
@@ -322,7 +322,7 @@ func (m *migration) translatedStatements(body, lang string, scope *xmi.Element) 
 
 // symbolicDuration reads a duration written as an expression, optionally
 // followed by a time unit (`ditSetup s`, `t * 2 min`), as seconds read at scope.
-func (m *migration) symbolicDuration(text, lang string, scope *xmi.Element) (expr string, ok bool, note string) {
+func (m *migration) symbolicDuration(text, lang string, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	body := strings.TrimSpace(durationVariable.ReplaceAllString(strings.TrimSpace(text), ""))
 	scale := 1.0
 	if i := strings.LastIndexAny(body, " \t"); i >= 0 {
@@ -375,10 +375,10 @@ func (m *migration) clockNames() map[string]string {
 		return m.clocks
 	}
 	m.clocks = map[string]string{}
-	var configs []*xmi.Element
+	var configs []*sysmlv1.Element
 	profiled := false
-	var walk func(e *xmi.Element)
-	walk = func(e *xmi.Element) {
+	var walk func(e *sysmlv1.Element)
+	walk = func(e *sysmlv1.Element) {
 		for _, s := range e.Stereotypes {
 			if isSimulationProfile(s) {
 				profiled = true
@@ -395,7 +395,7 @@ func (m *migration) clockNames() map[string]string {
 		walk(r)
 	}
 	sort.Slice(configs, func(i, j int) bool { return configs[i].ID < configs[j].ID })
-	namers := map[string][]*xmi.Element{}
+	namers := map[string][]*sysmlv1.Element{}
 	for _, e := range configs {
 		for _, s := range e.Stereotypes {
 			if !isSimulationProfile(s) || s.Name != "SimulationConfig" {
@@ -425,6 +425,6 @@ func (m *migration) clockNames() map[string]string {
 
 // isSimulationProfile reports whether s comes from the simulation toolkit's
 // profile, told by the namespace it was serialized under.
-func isSimulationProfile(s *xmi.Stereotype) bool {
+func isSimulationProfile(s *sysmlv1.Stereotype) bool {
 	return strings.Contains(strings.ToLower(s.Namespace), "simulationprofile")
 }

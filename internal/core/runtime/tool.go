@@ -7,8 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -184,9 +183,9 @@ func (d ToolDivergence) Location() (string, source.Span) {
 
 // Diagnostic is the divergence as a finding about the run, a warning since the
 // results resting on the tool are not reproducible.
-func (d ToolDivergence) Diagnostic() passes.Diagnostic {
-	return passes.Diagnostic{
-		Severity: passes.SeverityWarning,
+func (d ToolDivergence) Diagnostic() diag.Diagnostic {
+	return diag.Diagnostic{
+		Severity: diag.SeverityWarning,
 		Span:     d.Span,
 		Message:  d.Describe(),
 		Code:     ToolDivergenceCode,
@@ -579,7 +578,10 @@ func (e *ActionExecutor) toolOutputValue(malformed func(string, ...any) error, o
 		return Value{}, malformed("a truth is measured in %s", answered.Unit)
 	}
 	unit, err := e.toolUnit(answered.Unit)
-	if err != nil {
+	switch {
+	case errors.Is(err, ErrNoExpressionParser):
+		return Value{}, err
+	case err != nil:
 		return Value{}, malformed("%v", err)
 	}
 	q := Quantity{Num: answered.Value, Unit: unit}
@@ -636,18 +638,21 @@ func (ctx *Context) UnitOf(scope *symbols.Scope, text string) (semantics.Unit, e
 	if unit, ok := ctx.model.toolUnits[key]; ok {
 		return unit, nil
 	}
-	expr, ok := parseOneExpression("<tool>", text)
+	expr, ok, err := ctx.model.parseOneExpression("<tool>", text)
+	if err != nil {
+		return semantics.Unit{}, err
+	}
 	if !ok {
 		return semantics.Unit{}, fmt.Errorf("%q is not a unit expression", text)
 	}
 	var unit semantics.Unit
-	err := fmt.Errorf("%w: no scope reads %s", semantics.ErrNotAUnit, text)
+	err = fmt.Errorf("%w: no scope reads %s", semantics.ErrNotAUnit, text)
 	if scope != nil {
 		unit, err = ctx.model.semantics.UnitOfExpr(scope, expr)
 	}
 	if errors.Is(err, semantics.ErrNotAUnit) {
 		if si := ctx.librarySymbol(fqnSIPackage); si != nil && si.Scope != nil {
-			expr, _ = parseOneExpression("<tool>", text)
+			expr, _, _ = ctx.model.parseOneExpression("<tool>", text)
 			if inSI, siErr := ctx.model.semantics.UnitOfExpr(si.Scope, expr); siErr == nil {
 				unit, err = inSI, nil
 			}
@@ -658,11 +663,4 @@ func (ctx *Context) UnitOf(scope *symbols.Scope, text string) (semantics.Unit, e
 	}
 	ctx.model.toolUnits[key] = unit
 	return unit, nil
-}
-
-// parseOneExpression parses text, read from origin, as exactly one expression; false for anything else.
-func parseOneExpression(origin, text string) (ast.Node, bool) {
-	p := parser.New(source.New(origin, []byte(text)))
-	expr := p.ParseExpression()
-	return expr, expr != nil && len(p.Diagnostics) == 0 && p.Offset() == len(text)
 }

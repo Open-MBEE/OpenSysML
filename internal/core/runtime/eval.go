@@ -10,7 +10,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -2769,6 +2768,7 @@ type invocationTarget struct {
 	names        []string          // the parameter each named argument binds, as calc's signature spells it
 	unbound      []error           // per named argument, why calc has no parameter for it; nil when it binds
 	candidates   []*symbols.Symbol // the declarations the written name may denote, which the selection chose among
+	err          error             // why no declaration was selected, when selection itself failed
 }
 
 // invocationTarget resolves what n denotes in this context's scope, memoized
@@ -2800,7 +2800,11 @@ func (ec *EvalContext) selectInvocationTarget(key invocationKey, n *ast.Invocati
 		qualName:   qualifiedNameToString(n.Type),
 		candidates: model.resolver.InvocationCandidates(ec.scope, n.Type),
 	}
-	sel := passes.SelectInvocation(model.resolver, model.semantics, ec.scope, n, semantics.PerformsBehavior)
+	sel, err := model.selectCall(ec.scope, n, semantics.PerformsBehavior)
+	if err != nil {
+		target.err = err
+		return target
+	}
 	switch {
 	case sel.Ambiguous && sel.Undetermined:
 		target.undetermined = sel.Tied
@@ -2863,7 +2867,7 @@ func (ctx *Context) boundParameterNames(scope *symbols.Scope, callee *symbols.Sy
 		if arg.Name == nil || len(arg.Name.Parts) == 0 {
 			continue
 		}
-		names[i] = semantics.QualifiedNameText(arg.Name)
+		names[i] = arg.Name.Text()
 		if callee == nil || ctx.model.semantics == nil {
 			continue
 		}
@@ -2931,11 +2935,14 @@ func (ec *EvalContext) unresolvedInvocation(qn *ast.QualifiedName, written strin
 // evalInvocation evaluates a function/calc invocation.
 func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 	// `holder.f(a)`: the chain names the function applied, not the callee's type.
-	if chain := passes.ChainCallee(n); chain != nil {
+	if chain := semantics.ChainCallee(n); chain != nil {
 		return ec.evalChainInvocation(n, chain)
 	}
 	target := ec.invocationTarget(n)
 	qualName := target.qualName
+	if target.err != nil {
+		return Value{}, fmt.Errorf("%s: %w", qualName, target.err)
+	}
 	if len(target.ambiguous) > 0 {
 		return Value{}, ambiguousInvocationError(qualName, target.ambiguous)
 	}
@@ -2956,7 +2963,7 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 	// invocation it is written before: `seq->size()` invokes size with seq, which
 	// is how the semantics layer reads the same expression, so the two agree on
 	// which parameter an argument binds.
-	exprs := passes.InvocationArgs(n)
+	exprs := semantics.InvocationArgs(n)
 	// A calc-typed feature bound to a function value here — a parameter given a
 	// calc as its argument — applies that value, not the feature's own declaration.
 	if fn, ok, err := ec.boundFunction(target.calc, n.Type); ok {
@@ -3082,7 +3089,7 @@ func (ec *EvalContext) evalUndeterminedInvocation(n *ast.InvocationExpr, target 
 	if n.Operand != nil && len(n.NamedArgs) > 0 {
 		return Value{}, fmt.Errorf("%w: %s is called with a receiver and named arguments", ErrReceiverWithNamedArgs, qualName)
 	}
-	exprs := passes.InvocationArgs(n)
+	exprs := semantics.InvocationArgs(n)
 	// An argument some candidate takes as an `expr` stays unevaluated, unknown to the
 	// selection, so a short-circuiting built-in never sees a branch it would not have run.
 	written := writtenArguments(exprs, n.NamedArgs)

@@ -4,28 +4,29 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-func analyzeInputs(t *testing.T, name, src string) (*ast.RootNamespace, []Diagnostic, *symbols.Index) {
+func analyzeInputs(t *testing.T, name, src string) (*ast.RootNamespace, []diag.Diagnostic, *symbols.Index) {
 	t.Helper()
 	sf := source.New(name, []byte(src))
 	p := parser.New(sf)
 	root := p.ParseFile()
 	// The warnings carry their own code, as the workspace maps them, since a pass
 	// may read what the parser recovered (see keywordNameSpans).
-	parseDiags := make([]Diagnostic, 0, len(p.Diagnostics)+len(p.Warnings))
+	parseDiags := make([]diag.Diagnostic, 0, len(p.Diagnostics)+len(p.Warnings))
 	for _, d := range p.Diagnostics {
-		parseDiags = append(parseDiags, Diagnostic{
-			Severity: SeverityError, Span: d.Span, Message: d.Message,
+		parseDiags = append(parseDiags, diag.Diagnostic{
+			Severity: diag.SeverityError, Span: d.Span, Message: d.Message,
 			Code: "syntax", Source: "syntax",
 		})
 	}
 	for _, w := range p.Warnings {
-		parseDiags = append(parseDiags, Diagnostic{
-			Severity: SeverityWarning, Span: w.Span, Message: w.Message,
+		parseDiags = append(parseDiags, diag.Diagnostic{
+			Severity: diag.SeverityWarning, Span: w.Span, Message: w.Message,
 			Code: w.Code, Source: "syntax",
 		})
 	}

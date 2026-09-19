@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -26,7 +27,7 @@ type W9CInheritedNameConflictPass struct{}
 
 func (W9CInheritedNameConflictPass) Level() PassLevel { return LevelType }
 
-func (W9CInheritedNameConflictPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W9CInheritedNameConflictPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -56,7 +57,7 @@ type w9cConflictChecker struct {
 	members map[*symbols.Symbol]w9cContributor
 	// own memoizes the own members of each type passed through, per name.
 	own   map[*symbols.Symbol]w9cContributor
-	diags []Diagnostic
+	diags []diag.Diagnostic
 }
 
 // w9cCandidate is one library base's contribution of a member name, with the
@@ -516,8 +517,8 @@ func (c *w9cConflictChecker) declares(sym *symbols.Symbol, name string) bool {
 }
 
 func (c *w9cConflictChecker) report(span source.Span, name string, from []string) {
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityWarning,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityWarning,
 		Span:     span,
 		Message:  fmt.Sprintf("%s '%s' from %s", msgW9CDuplicateInherited, name, strings.Join(from, ", ")),
 		Code:     "name-conflict",

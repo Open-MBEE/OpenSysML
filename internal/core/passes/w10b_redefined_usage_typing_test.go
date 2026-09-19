@@ -1,6 +1,10 @@
 package passes
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+)
 
 func TestRedefinedUsageInheritsTypingConstraints(t *testing.T) {
 	src := `
@@ -14,7 +18,7 @@ func TestRedefinedUsageInheritsTypingConstraints(t *testing.T) {
 			}
 		}
 	`
-	var got []Diagnostic
+	var got []diag.Diagnostic
 	for _, d := range typeDiags(t, src) {
 		if d.Message == "A port must be typed by port definitions." {
 			got = append(got, d)
@@ -41,7 +45,7 @@ func TestReferenceRedefinitionsDoNotInheritUsageKindTyping(t *testing.T) {
 			}
 		}
 	`
-	var got []Diagnostic
+	var got []diag.Diagnostic
 	for _, d := range typeDiags(t, src) {
 		if d.Message == "A port must be typed by port definitions." {
 			got = append(got, d)

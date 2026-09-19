@@ -296,7 +296,7 @@ func (r *Renderer) messageEnd(flow *symbols.Symbol, end ast.Node, lifelines map[
 		if !ok {
 			continue
 		}
-		for sym := target; sym != nil; sym = ownerOf(sym) {
+		for sym := target; sym != nil; sym = sym.Owner() {
 			if node, ok := lifelines[sym]; ok {
 				return target, node
 			}
@@ -316,7 +316,7 @@ func (r *Renderer) subject(sym *symbols.Symbol, kind string) string {
 	if sym.Name != "" && !sym.EffectiveName() {
 		return kind + " " + localName(sym)
 	}
-	if owner := ownerOf(sym); owner != nil {
+	if owner := sym.Owner(); owner != nil {
 		return fmt.Sprintf("%s %s in %s", article(kind), kind, r.notationName(owner))
 	}
 	return article(kind) + " " + kind

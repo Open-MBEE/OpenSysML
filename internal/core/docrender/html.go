@@ -852,16 +852,7 @@ func elementAttrs(value queryexec.Value) string {
 	if element == nil {
 		return objectAttrs
 	}
-	return objectAttrs + attr("data-element", elementID(element)) + attr("data-element-kind", element.Kind.String())
-}
-
-// elementID identifies an element by qualified name, falling back to its
-// declared name.
-func elementID(element *symbols.Symbol) string {
-	if fqn := symbols.FQNOf(element); fqn != "" {
-		return fqn
-	}
-	return element.Name
+	return objectAttrs + attr("data-element", symbols.FQNOf(element)) + attr("data-element-kind", element.Kind.String())
 }
 
 // navigableSchemes are the URL schemes a rendered document links to; every

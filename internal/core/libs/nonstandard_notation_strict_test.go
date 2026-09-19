@@ -3,7 +3,7 @@ package libs
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -27,7 +27,7 @@ func TestStdlibIsConformingUnderStrictMode(t *testing.T) {
 		root := p.ParseFile()
 		ctx := passes.NewContextWithOptions(path, source.KindOf(path),
 			symbols.NewIndexFromDoc(path, root), nil,
-			passes.Options{Conformance: conformance.ModeStrict})
+			passes.Options{Conformance: diag.ConformanceStrict})
 		for _, d := range (passes.NonstandardNotationPass{}).Run(ctx, path, root) {
 			t.Errorf("%s: %s: %s", path, d.Code, d.Message)
 		}

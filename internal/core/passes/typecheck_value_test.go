@@ -3,6 +3,8 @@ package passes
 import (
 	"slices"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // enumPrelude declares types outside the scalar lattice: an enumeration, a
@@ -16,7 +18,7 @@ const valuePrelude = `package M {
 }
 `
 
-func valueDiags(t *testing.T, src string) []Diagnostic {
+func valueDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	return typeDiags(t, scalarPrelude+valuePrelude+src)
 }
@@ -844,12 +846,12 @@ func TestValueCountViolationPrecedesUniqueness(t *testing.T) {
 // while typing an element (an always-false comparison) leaves the repeat reported.
 func TestValueUniquenessReportedBesideWarning(t *testing.T) {
 	diags := valueDiags(t, `package P { attribute bs : ScalarValues::Boolean[*] = (true, true, 1 == "a"); }`)
-	got := map[Severity]string{}
+	got := map[diag.Severity]string{}
 	for _, d := range diags {
 		got[d.Severity] = d.Message
 	}
-	if len(diags) != 2 || got[SeverityWarning] != "comparing Natural with String is always false" ||
-		got[SeverityError] != "true (a Boolean) is written at positions 1 and 2 of a unique feature" {
+	if len(diags) != 2 || got[diag.SeverityWarning] != "comparing Natural with String is always false" ||
+		got[diag.SeverityError] != "true (a Boolean) is written at positions 1 and 2 of a unique feature" {
 		t.Fatalf("expected the comparison warning beside the uniqueness error, got %v", diags)
 	}
 }

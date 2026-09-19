@@ -638,7 +638,7 @@ func (c *checks) sweep(sess *repl.Session, invocation string) repl.Verdict {
 }
 
 // reportedErrors reports whether analysis found an error, which a check runs
-// through only when it is about the notation (see passes.Diagnostic.Blocking).
+// through only when it is about the notation (see diag.Diagnostic.Blocking).
 func reportedErrors(diags []repl.Diagnostic) bool {
 	for _, d := range diags {
 		if d.Severity == "error" {

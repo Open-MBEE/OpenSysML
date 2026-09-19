@@ -22,7 +22,7 @@ func EnumerationOwning(sym *symbols.Symbol) *symbols.Symbol {
 // EnumerationDefinitionOwning returns the enumeration definition whose body
 // declares sym, whatever sym is, or nil when its owner is not one.
 func EnumerationDefinitionOwning(sym *symbols.Symbol) *symbols.Symbol {
-	owner := ownerOf(sym)
+	owner := sym.Owner()
 	if owner == nil || owner.Kind != symbols.SymbolEnumerationDef {
 		return nil
 	}

@@ -3,20 +3,22 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 const returnParameterOwnerCode = "return-parameter-owner"
 
 // returnOwnerDiags returns the return-parameter diagnostics of src, asserting
 // that each is an error whose span is one of the wanted declarations, in order.
-func returnOwnerDiags(t *testing.T, diags []Diagnostic, src string, wantSpans ...string) {
+func returnOwnerDiags(t *testing.T, diags []diag.Diagnostic, src string, wantSpans ...string) {
 	t.Helper()
 	diags = only(diags, returnParameterOwnerCode)
 	if len(diags) != len(wantSpans) {
 		t.Fatalf("got %d diagnostics, want %d: %v", len(diags), len(wantSpans), diags)
 	}
 	for i, d := range diags {
-		if d.Severity != SeverityError {
+		if d.Severity != diag.SeverityError {
 			t.Errorf("severity = %v, want an error", d.Severity)
 		}
 		if d.Message != msgReturnParameterOwner {

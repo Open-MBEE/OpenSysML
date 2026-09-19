@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
@@ -14,7 +15,7 @@ import (
 // fixture naming a library element (`Base::Anything`, the reflective metaclasses a
 // filter condition reads) is unresolved without it, and an unresolved name skips
 // the type tier — which would make a type-tier assertion vacuous.
-func libraryFixtureDiags(t *testing.T, file string) []Diagnostic {
+func libraryFixtureDiags(t *testing.T, file string) []diag.Diagnostic {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "..", "..", "tests", "testdata", "passes", file))
 	if err != nil {

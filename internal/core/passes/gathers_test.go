@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -84,7 +85,7 @@ func (w *sharedWorkspace) invalidate(name string) {
 	}
 }
 
-func (w *sharedWorkspace) analyze(name string) []Diagnostic {
+func (w *sharedWorkspace) analyze(name string) []diag.Diagnostic {
 	return AnalyzeShared(name, source.KindSysML, w.docs[name], nil, Options{}, w.resolver, w.model, w.gathers)
 }
 
@@ -105,7 +106,7 @@ func (w *sharedWorkspace) names() []string {
 
 // fresh analyzes name over a resolver and model of the run alone, the answer
 // the shared analysis has to match.
-func (w *sharedWorkspace) fresh(name string) []Diagnostic {
+func (w *sharedWorkspace) fresh(name string) []diag.Diagnostic {
 	return AnalyzeWithOptions(name, source.KindSysML, w.docs[name], nil, w.idx, Options{})
 }
 
@@ -264,7 +265,7 @@ func TestGathersServeConcurrentAnalyses(t *testing.T) {
 		w.put(name, src)
 	}
 	w.analyze("hub.sysml")
-	want := map[string][]Diagnostic{}
+	want := map[string][]diag.Diagnostic{}
 	for _, name := range w.names() {
 		want[name] = w.fresh(name)
 	}

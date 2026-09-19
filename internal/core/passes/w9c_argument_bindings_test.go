@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // The reference judges each argument of an operator or invocation as a binding to
@@ -128,7 +130,7 @@ func TestW9CArgumentBindingYieldsToTypeError(t *testing.T) {
 	if got := only(diags, "bound-feature-types"); len(got) != 0 {
 		t.Errorf("warned beside the type errors: %v", got)
 	}
-	if errs := severityOf(diags, SeverityError); len(errs) != 3 {
+	if errs := severityOf(diags, diag.SeverityError); len(errs) != 3 {
 		t.Errorf("got %d type errors, want one per argument: %v", len(errs), errs)
 	}
 }
@@ -161,7 +163,7 @@ func TestW9CArgumentBindingsNotJudged(t *testing.T) {
 	}
 }`
 	diags := w8dDiags(t, src)
-	if errs := severityOf(diags, SeverityError); len(errs) != 0 {
+	if errs := severityOf(diags, diag.SeverityError); len(errs) != 0 {
 		t.Fatalf("the model does not analyze: %v", errs)
 	}
 	if got := only(diags, "bound-feature-types"); len(got) != 0 {
@@ -170,8 +172,8 @@ func TestW9CArgumentBindingsNotJudged(t *testing.T) {
 }
 
 // severityOf returns the findings of one severity.
-func severityOf(diags []Diagnostic, severity Severity) []Diagnostic {
-	var out []Diagnostic
+func severityOf(diags []diag.Diagnostic, severity diag.Severity) []diag.Diagnostic {
+	var out []diag.Diagnostic
 	for _, d := range diags {
 		if d.Severity == severity {
 			out = append(out, d)

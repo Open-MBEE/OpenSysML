@@ -3,18 +3,19 @@ package passes
 import (
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // conformanceDiags returns the feature-conformance findings of a KerML source.
-func conformanceDiags(t *testing.T, src string) []Diagnostic {
+func conformanceDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	root := parser.New(source.New("<t>.kerml", []byte(src))).ParseFile()
 	idx := newTestIndex()
 	idx.AddDocument("<t>.kerml", root)
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range Analyze("<t>.kerml", root, nil, idx) {
 		switch d.Code {
 		case "redefinition-direction-conformance",
@@ -28,7 +29,7 @@ func conformanceDiags(t *testing.T, src string) []Diagnostic {
 
 // codes returns the diagnostic codes, so a case can assert what did and did not
 // fire without depending on order.
-func codes(diags []Diagnostic) []string {
+func codes(diags []diag.Diagnostic) []string {
 	out := make([]string, 0, len(diags))
 	for _, d := range diags {
 		out = append(out, d.Code)
@@ -101,7 +102,7 @@ func TestW8BDirectionConformanceRunsAlongsideTypeErrors(t *testing.T) {
 	`))).ParseFile()
 	idx := symbols.NewIndex()
 	idx.AddDocument("<t>.sysml", root)
-	var directions []Diagnostic
+	var directions []diag.Diagnostic
 	for _, d := range Analyze("<t>.sysml", root, nil, idx) {
 		if d.Code == "redefinition-direction-conformance" {
 			directions = append(directions, d)
@@ -215,7 +216,7 @@ func TestW8BMetadataBodyMustRedefineOwningTypeFeature(t *testing.T) {
 	root := parser.New(source.New("<t>.kerml", []byte(src))).ParseFile()
 	idx := newTestIndex()
 	idx.AddDocument("<t>.kerml", root)
-	var got []Diagnostic
+	var got []diag.Diagnostic
 	for _, d := range Analyze("<t>.kerml", root, nil, idx) {
 		if d.Code == "metadata-owning-type-feature" {
 			got = append(got, d)

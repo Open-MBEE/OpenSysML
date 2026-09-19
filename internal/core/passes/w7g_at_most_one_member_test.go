@@ -1,6 +1,10 @@
 package passes
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+)
 
 func TestW7GStateReportsOnlyTheExtraSubactions(t *testing.T) {
 	const src = `package S {
@@ -22,7 +26,7 @@ func TestW7GStateReportsOnlyTheExtraSubactions(t *testing.T) {
 		if len(got) != 1 {
 			t.Fatalf("expected one %s diagnostic, got %v", c, got)
 		}
-		if got[0].Severity != SeverityError {
+		if got[0].Severity != diag.SeverityError {
 			t.Fatalf("%s is an error in the reference, got %v", c, got[0].Severity)
 		}
 	}

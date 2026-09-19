@@ -4,11 +4,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // stateMachineBody writes a state machine's regions as the body of its state def.
-func (m *migration) stateMachineBody(sm *xmi.Element) {
+func (m *migration) stateMachineBody(sm *sysmlv1.Element) {
 	m.parameters(sm, sm)
 	for _, c := range sm.Children {
 		switch c.Role {
@@ -26,7 +26,7 @@ func (m *migration) stateMachineBody(sm *xmi.Element) {
 // several as the sub-states of one parallel state. The entry succession follows
 // the body's entry action when entered says one was written; between writes
 // the members that come after it and before the states.
-func (m *migration) regions(owner *xmi.Element, regions []*xmi.Element, used map[string]bool, entered bool, between func()) {
+func (m *migration) regions(owner *sysmlv1.Element, regions []*sysmlv1.Element, used map[string]bool, entered bool, between func()) {
 	empty := len(regions) > 0
 	regions = m.populatedRegions(regions)
 	switch len(regions) {
@@ -38,7 +38,7 @@ func (m *migration) regions(owner *xmi.Element, regions []*xmi.Element, used map
 			m.w.lines(commentLines("the " + kindOf(owner) + " has no region"))
 		}
 	case 1:
-		st := &stateRegion{m: m, r: regions[0], used: used, names: map[*xmi.Element]string{}}
+		st := &stateRegion{m: m, r: regions[0], used: used, names: map[*sysmlv1.Element]string{}}
 		st.enter(entered)
 		between()
 		st.write()
@@ -57,7 +57,7 @@ func (m *migration) regions(owner *xmi.Element, regions []*xmi.Element, used map
 				m.names[r] = rname
 				m.parallel[r] = name
 				m.w.block("state "+writeName(rname), func() {
-					st := &stateRegion{m: m, r: r, used: inheritedStateNamesSet(), names: map[*xmi.Element]string{}}
+					st := &stateRegion{m: m, r: r, used: inheritedStateNamesSet(), names: map[*sysmlv1.Element]string{}}
 					st.enter(false)
 					st.write()
 				})
@@ -90,9 +90,9 @@ func entryThen(entered bool, to string) string {
 // stateRegion writes one region: its entry, then its states and transitions.
 type stateRegion struct {
 	m     *migration
-	r     *xmi.Element
+	r     *sysmlv1.Element
 	used  map[string]bool
-	names map[*xmi.Element]string
+	names map[*sysmlv1.Element]string
 }
 
 // enter names the region's vertices and writes its entry succession.
@@ -121,7 +121,7 @@ func (s *stateRegion) write() {
 }
 
 // name returns the v2 name of a vertex in the body written.
-func (s *stateRegion) name(v *xmi.Element) string {
+func (s *stateRegion) name(v *sysmlv1.Element) string {
 	if n, ok := s.names[v]; ok {
 		return n
 	}
@@ -145,7 +145,7 @@ func (s *stateRegion) name(v *xmi.Element) string {
 	return name
 }
 
-func pseudoKind(v *xmi.Element) string {
+func pseudoKind(v *sysmlv1.Element) string {
 	if v.Type != "Pseudostate" {
 		return ""
 	}
@@ -158,8 +158,8 @@ func pseudoKind(v *xmi.Element) string {
 // initial writes the region's entry: `entry; then s` from its initial
 // pseudostate, with the initial transition's effect as the entry action
 // unless the body wrote its own, which entered says.
-func (s *stateRegion) initial(vertices, transitions []*xmi.Element, entered bool) {
-	var init *xmi.Element
+func (s *stateRegion) initial(vertices, transitions []*sysmlv1.Element, entered bool) {
+	var init *sysmlv1.Element
 	for _, v := range vertices {
 		if pseudoKind(v) == "initial" {
 			if init != nil {
@@ -173,7 +173,7 @@ func (s *stateRegion) initial(vertices, transitions []*xmi.Element, entered bool
 		s.m.w.lines(commentLines("the region has no initial pseudostate: nothing enters it"))
 		return
 	}
-	var out []*xmi.Element
+	var out []*sysmlv1.Element
 	for _, t := range transitions {
 		if s.m.model.Ref(t, "source") == init {
 			out = append(out, t)
@@ -227,7 +227,7 @@ func (s *stateRegion) initial(vertices, transitions []*xmi.Element, entered bool
 }
 
 // vertex writes one vertex's declaration.
-func (s *stateRegion) vertex(v *xmi.Element) {
+func (s *stateRegion) vertex(v *sysmlv1.Element) {
 	switch v.Type {
 	case "State":
 		s.state(v)
@@ -255,7 +255,7 @@ func (s *stateRegion) vertex(v *xmi.Element) {
 }
 
 // connectionPoint reports an entry or exit point, which v2 has no form for.
-func (m *migration) connectionPoint(v *xmi.Element) {
+func (m *migration) connectionPoint(v *sysmlv1.Element) {
 	switch pseudoKind(v) {
 	case "exitPoint":
 		m.add(v, Approximated, "done", "a transition into the exit point is written to done, which completes the state def as a whole")
@@ -266,7 +266,7 @@ func (m *migration) connectionPoint(v *xmi.Element) {
 
 // state writes a state, typed by its submachine's state def when it has one,
 // with its entry, do and exit actions, deferrals and regions.
-func (s *stateRegion) state(v *xmi.Element) {
+func (s *stateRegion) state(v *sysmlv1.Element) {
 	name := writeName(s.name(v))
 	defers := s.deferrals(v)
 	head := "state " + name
@@ -314,7 +314,7 @@ func (s *stateRegion) state(v *xmi.Element) {
 }
 
 // invariant keeps a state invariant, which v2 has no form for, as a comment.
-func (m *migration) invariant(inv *xmi.Element) {
+func (m *migration) invariant(inv *sysmlv1.Element) {
 	note := "a state invariant has no v2 form"
 	if spec := firstOwned(inv, "specification"); spec != nil {
 		note += "; [" + describeValue(spec) + "] is kept as a comment"
@@ -324,7 +324,7 @@ func (m *migration) invariant(inv *xmi.Element) {
 
 // deferrals writes a state's deferrable triggers as `defer Sig;` lines: v2
 // defers the signal a transition would accept, so no other event kind can be.
-func (s *stateRegion) deferrals(v *xmi.Element) []string {
+func (s *stateRegion) deferrals(v *sysmlv1.Element) []string {
 	var lines []string
 	for _, d := range v.Owned("deferrableTrigger") {
 		ev := s.m.model.Ref(d, "event")
@@ -373,7 +373,7 @@ func inheritedStateNamesSet() map[string]bool {
 
 // inlineBehavior writes a behavior a state or transition owns as the action
 // kw of the current body, and reports whether anything was written.
-func (m *migration) inlineBehavior(kw string, b, owner *xmi.Element) bool {
+func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 	if b.Parent != owner {
 		if !m.written(b) {
 			m.w.lines(commentLines(kw + " " + qualifiedName(b) + " has no v2 declaration"))
@@ -435,7 +435,7 @@ func (m *migration) inlineBehavior(kw string, b, owner *xmi.Element) bool {
 
 // target names what a transition leads to: a state of the region, done for a final
 // or terminate state, or the state a connection point reference belongs to.
-func (s *stateRegion) target(t, v *xmi.Element) (string, bool) {
+func (s *stateRegion) target(t, v *sysmlv1.Element) (string, bool) {
 	if v == nil {
 		return "", false
 	}
@@ -467,7 +467,7 @@ func (s *stateRegion) target(t, v *xmi.Element) (string, bool) {
 }
 
 // source names the state a transition leaves.
-func (s *stateRegion) source(t, v *xmi.Element) (string, bool) {
+func (s *stateRegion) source(t, v *sysmlv1.Element) (string, bool) {
 	if v == nil {
 		return "", false
 	}
@@ -496,7 +496,7 @@ func (s *stateRegion) source(t, v *xmi.Element) (string, bool) {
 
 // transition writes a transition: one per trigger, since a v2 transition
 // accepts one, sharing the guard and effect.
-func (s *stateRegion) transition(t *xmi.Element) {
+func (s *stateRegion) transition(t *sysmlv1.Element) {
 	src, tgt := s.m.model.Ref(t, "source"), s.m.model.Ref(t, "target")
 	if src == nil || tgt == nil {
 		s.m.unmapped(t, joinNotes(s.m.dangling(t, "source", "target"), "the transition lacks an end"))
@@ -602,13 +602,13 @@ func (s *stateRegion) transition(t *xmi.Element) {
 type acceptance struct {
 	clause  string
 	payload string
-	bound   map[*xmi.Element]string
+	bound   map[*sysmlv1.Element]string
 }
 
 // payload binds the effect's parameters to the signal a trigger accepts, as a
 // transition passes the signal instance to its effect: to each parameter typed
 // by the signal or a general of it, or to the sole untyped in parameter.
-func (s *stateRegion) payload(t, eff, ev *xmi.Element) acceptance {
+func (s *stateRegion) payload(t, eff, ev *sysmlv1.Element) acceptance {
 	params := inParameters(eff)
 	if ev.Type != "SignalEvent" {
 		s.m.unbound(eff, "the transition accepts a "+ev.Type+", which carries no signal")
@@ -627,7 +627,7 @@ func (s *stateRegion) payload(t, eff, ev *xmi.Element) acceptance {
 		used[s.m.nameFor(p)] = true
 	}
 	name := freshIn(used, lowerFirst(s.m.nameFor(sig)))
-	a := acceptance{payload: writeName(name), bound: map[*xmi.Element]string{}}
+	a := acceptance{payload: writeName(name), bound: map[*sysmlv1.Element]string{}}
 	for _, p := range params {
 		typ := s.m.model.Ref(p, "type")
 		switch {
@@ -643,15 +643,15 @@ func (s *stateRegion) payload(t, eff, ev *xmi.Element) acceptance {
 }
 
 // unbound notes on each in parameter of an effect why it takes no value.
-func (m *migration) unbound(eff *xmi.Element, why string) {
+func (m *migration) unbound(eff *sysmlv1.Element, why string) {
 	for _, p := range inParameters(eff) {
 		m.add(p, Approximated, "", "the parameter takes no value: "+why)
 	}
 }
 
 // inParameters lists the parameters of a behavior that take a value.
-func inParameters(b *xmi.Element) []*xmi.Element {
-	var params []*xmi.Element
+func inParameters(b *sysmlv1.Element) []*sysmlv1.Element {
+	var params []*sysmlv1.Element
 	for _, p := range b.Owned("ownedParameter") {
 		switch p.Attrs["direction"] {
 		case "out", "return":
@@ -664,7 +664,7 @@ func inParameters(b *xmi.Element) []*xmi.Element {
 
 // guard writes a transition's guard as ` if <expr>`, or keeps its text in a
 // comment when it is not a v2 expression the state machine's owner resolves.
-func (s *stateRegion) guard(t *xmi.Element) (string, string) {
+func (s *stateRegion) guard(t *sysmlv1.Element) (string, string) {
 	g := firstOwned(t, "guard")
 	if g == nil {
 		return "", ""

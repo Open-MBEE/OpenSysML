@@ -6,7 +6,7 @@
 **Download:** https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/sysml/src/training  
 **Status:** 100/100 files parse and resolve cleanly (0 semantic errors)  
 **Errors**: none recorded  
-**Gate**: the per-file error counts are recorded in `internal/core/model/testdata/training_examples_expected.txt`, so `TestTrainingExamplesSemanticErrors` fails when a file regresses *or* improves without updating the list (`-update-training` regenerates it)  
+**Gate**: the per-file error counts are recorded in `tests/corpus/testdata/training_examples_expected.txt`, so `TestTrainingExamplesSemanticErrors` fails when a file regresses *or* improves without updating the list (`-update-training` regenerates it)  
 
 Defects found in OMG material *outside* this corpus — a wrong declaration in a vendored
 specification library rather than a model using it — are recorded in
@@ -588,7 +588,7 @@ was fixed (see the objective-typing re-pin above).
 To run training example analysis:
 
 ```bash
-go test -run TestTrainingExamplesSemanticErrors ./internal/core/model -v
+go test -run TestTrainingExamplesSemanticErrors ./tests/corpus -v
 ```
 
 This generates error frequency analysis and per-file diagnostics.

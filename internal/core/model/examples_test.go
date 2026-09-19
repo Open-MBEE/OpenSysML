@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 const examplesDir = "../../../examples"
@@ -41,7 +41,7 @@ func TestExamplesAnalyseCleanly(t *testing.T) {
 
 			var errs []string
 			for _, d := range ws.Diagnostics(rel) {
-				if d.Severity == passes.SeverityError {
+				if d.Severity == diag.SeverityError {
 					errs = append(errs, d.Message)
 				}
 			}

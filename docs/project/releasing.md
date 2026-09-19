@@ -8,7 +8,7 @@ published from a laptop.
 
 The Python client is released in lockstep with the core: the same `v<version>` tag
 publishes `opensysml` `<version>` to PyPI, and the workflow refuses to build anything
-unless `clients/python/opensysml/_version.py` declares that version — see
+unless `client/python/opensysml/_version.py` declares that version — see
 [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi). A caller who pins one
 version therefore gets the package and the `sysml-grpc` binary that were tested
 together.
@@ -52,8 +52,8 @@ gates on the same suite:
 
 ```bash
 make build-grpc && mkdir -p ~/.opensysml/bin && cp bin/sysml-grpc ~/.opensysml/bin/
-pip install -e clients/python/ && pip install pytest pytest-mock psutil
-pytest clients/python/tests/ -v
+pip install -e client/python/ && pip install pytest pytest-mock psutil
+pytest client/python/tests/ -v
 ```
 
 The OMG training-corpus gate skips while the corpus is absent, so fetch it and
@@ -62,7 +62,7 @@ run it explicitly — the expected result is the pinned baseline, currently
 
 ```bash
 ./scripts/download-training-examples.sh
-OPENSYSML_REQUIRE_TRAINING_CORPUS=1 go test -count=1 ./internal/core/model -run TestTrainingExamples
+OPENSYSML_REQUIRE_TRAINING_CORPUS=1 go test -count=1 ./tests/corpus -run TestTrainingExamples
 ```
 
 A change in that count is a finding to adjudicate file by file, never a
@@ -100,7 +100,7 @@ branch that moves the integration state onto `main`:
 
 2. Fold the changelog fragments on that branch — `python3 scripts/changelog.py release 0.0.5`,
    as [Before tagging](#before-tagging) describes — and commit `CHANGELOG.md` together with the
-   deleted fragments. Set `VERSION` in `clients/python/opensysml/_version.py` to `x.y.z` as
+   deleted fragments. Set `VERSION` in `client/python/opensysml/_version.py` to `x.y.z` as
    well: the tag publishes `opensysml` at the core version, and the release workflow fails
    before building anything when the two disagree (see
    [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi)). Anything else the release
@@ -143,12 +143,12 @@ git push origin v0.0.5
 The tag belongs on `Open-MBEE/OpenSysML`, the repository the releases live on
 and where development happens: every release from v0.0.1 on is tagged on its
 `main`. The clients resolve releases from that repository
-(`DEFAULT_GITHUB_REPO` in `clients/python/opensysml/binary.py`), so a tag pushed
+(`DEFAULT_GITHUB_REPO` in `client/python/opensysml/binary.py`), so a tag pushed
 to a fork builds a release nobody consumes.
 
 Tags are matched by `/^v.*/` in `.circleci/config.yml`. A tag on a commit that
 fails the suite fails the release workflow before anything is published, and so
-does a tag whose version `clients/python/opensysml/_version.py` does not declare.
+does a tag whose version `client/python/opensysml/_version.py` does not declare.
 
 ## What CircleCI publishes
 
@@ -163,7 +163,7 @@ does a tag whose version `clients/python/opensysml/_version.py` does not declare
   of a bundle that does not carry `sysml-grpc`);
 - `sysml-grpc-<os>-<arch>`, published raw with a `.sha256` sidecar rather than
   archived, because that is what `opensysml` downloads and verifies
-  (`clients/python/opensysml/binary.py`) when it starts the service for a Python caller;
+  (`client/python/opensysml/binary.py`) when it starts the service for a Python caller;
 - the Python client's distribution, `opensysml-<x.y.z>-py3-none-any.whl` and
   `opensysml-<x.y.z>.tar.gz`, built by `build-python-package` and the same files
   `publish-pypi` uploads (see [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi));
@@ -335,7 +335,7 @@ what CircleCI puts in the certificate. The client currently accepts any pipeline
 definition of that project, because no signature of the real one exists to read
 the identifier off yet — the verify step in `build-release` prints it, so after
 the first signed release set it as `definition=` on the signer in
-`clients/python/opensysml/signing.py` and in `clients/node/src/node/signing.ts`
+`client/python/opensysml/signing.py` and in `client/node/src/node/signing.ts`
 to narrow the pin to the one pipeline.
 
 Anything short of a verified manifest is refused exactly as an unpinned release
@@ -512,7 +512,7 @@ version: it changes what every installer ships.
 
 ### Pinned release digests
 
-The table in `clients/release-digests.json`, which every client ships a synced
+The table in `client/release-digests.json`, which every client ships a synced
 copy of, still covers the releases published before signing existed, and it
 stays the override: where a pin exists
 it wins, and a verified manifest that disagrees with a pin is an error rather
@@ -522,7 +522,7 @@ a release clients on an older `opensysml` should be able to install:
 
 ```bash
 export GITHUB_TOKEN=...   # must be able to read this repository's releases
-python clients/python/scripts/pin_release_checksums.py --version v0.0.8 --write
+python client/python/scripts/pin_release_checksums.py --version v0.0.8 --write
 ```
 
 The token is required, not an optimization: the script reads the release's assets
@@ -564,7 +564,7 @@ and a `target/dependency` directory it fills with `dependency:copy-dependencies`
 sensor resolves types from those, and without them it warns about missing
 `sonar.java.binaries`/`sonar.java.libraries` and degrades to a syntactic
 analysis, so the `scan` job fails if any of the six directories is empty.
-`sonar.python.version` names the range `clients/python/pyproject.toml` declares,
+`sonar.python.version` names the range `client/python/pyproject.toml` declares,
 because unset the Python sensor assumes every Python 3 version and drops the
 rules that depend on one.
 
@@ -635,7 +635,7 @@ that organization.
 
 ## Releasing opensysml to PyPI
 
-The Python client in `clients/python/` is published to PyPI as
+The Python client in `client/python/` is published to PyPI as
 [`opensysml`](https://pypi.org/project/opensysml/) by the `release` workflow — the
 same `v<version>` tag that publishes the binaries, and at the same version: `v0.9.0`
 publishes `opensysml` 0.9.0. Nothing is uploaded from a laptop, and no other tag
@@ -649,7 +649,7 @@ number is reused.
 `opensysml` does not ship the service: it downloads a `sysml-grpc` binary at
 runtime for whatever release the caller names (`version=`,
 `$OPENSYSML_GRPC_VERSION`, or `latest`), verifying it against the digest it pins
-for that release (its copy of `clients/release-digests.json`) or, for a
+for that release (its copy of `client/release-digests.json`) or, for a
 release it pins nothing for, against the digest in the release's signed
 `SHA256SUMS.txt` (see [the signed checksum manifest](#the-signed-checksum-manifest)).
 That flexibility is what makes an uncoordinated pair hard to test: a package at one
@@ -680,9 +680,9 @@ release does not exist.
 
 ### The version, in one place
 
-`clients/python/opensysml/_version.py` is the only declaration:
+`client/python/opensysml/_version.py` is the only declaration:
 
-- `clients/python/pyproject.toml` has `dynamic = ["version"]` and reads
+- `client/python/pyproject.toml` has `dynamic = ["version"]` and reads
   `opensysml._version.VERSION` (there is no `setup.py` any more —
   `pyproject.toml` declares the build);
 - `opensysml.__version__` reports that declaration, which ships beside the module
@@ -691,21 +691,21 @@ release does not exist.
   written once, at install time, and a checkout that bumps `VERSION` afterwards
   would otherwise report the version it had when `pip install -e` ran.
 
-`clients/python/tests/test_version.py` fails if a second version literal reappears
-anywhere under `clients/python/`, or if the declaration, the installed metadata and
+`client/python/tests/test_version.py` fails if a second version literal reappears
+anywhere under `client/python/`, or if the declaration, the installed metadata and
 `__version__` stop agreeing. Where the install is editable, the tests locate the
 package through the install's own PEP 610 record (`opensysml/_dist.py`) rather than
 the dist-info's directory, which for an editable install is a site-packages path
 holding no `opensysml/` at all.
 
-The tag must name the declared version. `clients/python/scripts/check_version.py` is run
+The tag must name the declared version. `client/python/scripts/check_version.py` is run
 by `build-python-package` before anything is built, and fails loudly otherwise:
 
 ```bash
-python clients/python/scripts/check_version.py --tag v0.9.0   # prints 0.9.0
+python client/python/scripts/check_version.py --tag v0.9.0   # prints 0.9.0
 ```
 
-So setting `VERSION` in `clients/python/opensysml/_version.py` to the version being
+So setting `VERSION` in `client/python/opensysml/_version.py` to the version being
 released is a step of [the release branch](#the-release-branch), beside folding the
 changelog; a `v*` tag pushed while the two disagree fails the release before a binary
 is built. The tag is SemVer and the declaration is PEP 440 in canonical form, so the
@@ -717,7 +717,7 @@ with a single PEP 440 meaning; a tag like `v0.9.0-1` is refused rather than read
 the post-release `0.9.0.post1` and sent to PyPI proper.
 
 ```bash
-python clients/python/scripts/check_version.py --tag v0.9.0-rc1   # prints 0.9.0rc1
+python client/python/scripts/check_version.py --tag v0.9.0-rc1   # prints 0.9.0rc1
 ```
 
 ### What the job needs
@@ -778,11 +778,11 @@ bytes go to the GitHub release and to PyPI.
 `build-python-package`, which runs beside the Go suite and gates `build-release`:
 
 1. `check_version.py` — the tag must name the declared version.
-2. `python -m build` — wheel *and* sdist, into `clients/python/dist/`.
+2. `python -m build` — wheel *and* sdist, into `client/python/dist/`.
 3. `twine check --strict` — the metadata a broken listing comes from.
 4. Installs the built wheel into a clean virtualenv, imports it, and checks
    `opensysml.__version__` is the version being published.
-5. Persists `clients/python/dist/` to the workspace. `build-release` copies both
+5. Persists `client/python/dist/` to the workspace. `build-release` copies both
    files into `dist/`, lists them in `SHA256SUMS.txt` before signing it, and checks
    their names carry the tag's version.
 
@@ -808,7 +808,7 @@ destination changes.
 
 ```bash
 # 1. Declare a pre-release version, e.g. VERSION = "0.9.0rc1"
-$EDITOR clients/python/opensysml/_version.py
+$EDITOR client/python/opensysml/_version.py
 # 2. Land it, then tag it (the SemVer spelling of the same version)
 git tag -a v0.9.0-rc1 -m "v0.9.0-rc1" && git push origin v0.9.0-rc1
 ```
@@ -862,7 +862,7 @@ the package's version is the core's, so the fix is a patch tag, not a new
 
 ## Releasing @opensysml/client to npm
 
-The Node client in `clients/node/` is published to npm as `@opensysml/client` by
+The Node client in `client/node/` is published to npm as `@opensysml/client` by
 the `release-node` workflow, which runs on a tag matching `/^client-node-v.*/` —
 for example `client-node-v0.1.0`. Nothing is published from a laptop, and a `v*`
 core release tag publishes no package. **Nothing has been published yet**: the
@@ -883,7 +883,7 @@ matching their `os`/`cpu` metadata:
 | `@opensysml/sysml-grpc-darwin-arm64` | darwin | arm64 |
 | `@opensysml/sysml-grpc-win32-x64` | win32 | x64 |
 
-All six share the version in `clients/node/package.json`, because the
+All six share the version in `client/node/package.json`, because the
 `optionalDependencies` name that exact version. The platform packages are
 published first, so `@opensysml/client` is never on the registry naming a
 version of them that is not. Where no package matches — a platform with no
@@ -892,7 +892,7 @@ release build — the client falls back to `$OPENSYSML_BINARY`, a binary in
 `$PATH`, or an explicit external service. That download is the Python client's:
 the same shared cache and metadata, the same pinned digests, and the same
 signed-manifest verification, refusing a release it can neither pin nor verify.
-See `clients/node/README.md`.
+See `client/node/README.md`.
 
 `build-node-binaries` cross-compiles the five binaries from the tagged revision
 and writes a `.sha256` sidecar beside each; `npm run platform-packages` refuses
@@ -925,14 +925,14 @@ nothing has been published from this path yet, so it can still follow.
 ### Releasing
 
 ```bash
-# 1. Bump "version" in clients/node/package.json, land it.
+# 1. Bump "version" in client/node/package.json, land it.
 # 2. Tag the version it declares.
 git tag client-node-v0.1.0
 git push origin client-node-v0.1.0
 ```
 
 The job fails before publishing anything if the tag and
-`clients/node/package.json` disagree, if any of the six versions is already on
+`client/node/package.json` disagree, if any of the six versions is already on
 the registry, if the Go suite or the client's own gate (`node-test`: build,
 typecheck, lint, tests, conformance, and the mutation check that proves the
 conformance runner is not vacuous) fails, or if a binary's digest does not match
@@ -943,7 +943,7 @@ its sidecar.
 An npm version cannot be replaced. `npm deprecate '@opensysml/client@0.1.0' '...'`
 marks it, `npm unpublish` is possible only within 72 hours and only if nothing
 depends on it, and either way the version number stays used: bump
-`clients/node/package.json` and tag again.
+`client/node/package.json` and tag again.
 
 ## The final `pysysml` release
 
@@ -975,7 +975,7 @@ The job resolves the version from the tag, refuses a version PyPI already has,
 builds the wheel and sdist, and — the check that matters — installs the wheel
 into a clean virtualenv and **fails if importing `pysysml` succeeds**. A
 placeholder that imports cleanly is the alias this release exists not to be.
-`clients/python/tests/test_legacy_pysysml_placeholder.py` asserts the same contract from
+`client/python/tests/test_legacy_pysysml_placeholder.py` asserts the same contract from
 source on every run.
 
 This is expected to happen exactly once. Nothing further should be published
@@ -984,9 +984,9 @@ under the old name; a client fix goes to `opensysml`.
 ## Releasing the Java client to Maven Central
 
 **Nothing has been published, and nothing in CI publishes it.** The Java client
-in `clients/java/` builds a complete, signable artifact today, and the steps
+in `client/java/` builds a complete, signable artifact today, and the steps
 below are what a maintainer does once the accounts exist. Until then
-`mvn -f clients/java/pom.xml install` is the way to consume it, and the version
+`mvn -f client/java/pom.xml install` is the way to consume it, and the version
 is `0.1.0-SNAPSHOT`, which Central refuses by design.
 
 ### What a maintainer must obtain first
@@ -1020,7 +1020,7 @@ None of these can be provisioned from a checkout:
 
 ### The version, and the tag
 
-`clients/java/pom.xml` declares the version once, and both modules inherit it
+`client/java/pom.xml` declares the version once, and both modules inherit it
 from the parent. A release drops `-SNAPSHOT`, lands, and is tagged
 `opensysml-java-v<version>` — its own tag, for the reason the Node client has
 one: the client does not ship the service, so its version says nothing about
@@ -1030,18 +1030,18 @@ replaced, so it must not hang off a `v*` core tag that `ghr -replace` re-runs.
 Like the Python client, it downloads a `sysml-grpc` binary at runtime for
 whatever release the caller names (`ConnectionOptions.downloadVersion()`,
 `$OPENSYSML_GRPC_VERSION`, or `latest`) and verifies it against the digest its
-own copy of `clients/release-digests.json` — shipped in the jar as
+own copy of `client/release-digests.json` — shipped in the jar as
 `release-digests.json` — pins for that release, or, for a release it pins
 nothing for, against the digest in the release's signed `SHA256SUMS.txt` (see
 [the signed checksum manifest](#the-signed-checksum-manifest)). A core release
 published after a client release therefore needs no new client release. The
 `dev.sigstore:sigstore-java` dependency is what verifies that bundle, so a
 consumer that excludes it can install only pinned releases. See
-`clients/java/README.md`.
+`client/java/README.md`.
 
 ### What the build already produces
 
-`mvn -f clients/java/pom.xml install` attaches everything Central validates:
+`mvn -f client/java/pom.xml install` attaches everything Central validates:
 
 - `opensysml-client-<version>.jar`, `-sources.jar` and `-javadoc.jar` (the
   `maven-source-plugin` and `maven-javadoc-plugin` executions are in the default
@@ -1060,14 +1060,14 @@ workflow had, and it is deliberate: the publication is the irreversible step.
 ### The procedure
 
 ```bash
-# 1. Drop -SNAPSHOT in clients/java/pom.xml, land it, then from that commit:
+# 1. Drop -SNAPSHOT in client/java/pom.xml, land it, then from that commit:
 make build                                            # the service the tests start
-mvn -f clients/java/pom.xml clean verify              # tests, javadoc, sources
-mvn -f clients/java/pom.xml -Prelease verify          # + signatures, no upload
-gpg --verify clients/java/opensysml-client/target/*.jar.asc   # check one by hand
+mvn -f client/java/pom.xml clean verify              # tests, javadoc, sources
+mvn -f client/java/pom.xml -Prelease verify          # + signatures, no upload
+gpg --verify client/java/opensysml-client/target/*.jar.asc   # check one by hand
 
 # 2. Upload a deployment (still not published):
-mvn -f clients/java/pom.xml -Prelease deploy -pl opensysml-client
+mvn -f client/java/pom.xml -Prelease deploy -pl opensysml-client
 
 # 3. central.sonatype.com → Deployments → review the validation report →
 #    "Publish". Availability on Maven Central follows within ~30 minutes,
@@ -1096,7 +1096,7 @@ tests and the conformance suite on every commit.
 Nothing has been published, and the first publish is a decision rather than a
 step: `opensysml` is a common enough name that its availability on crates.io must
 be checked before the crate is promised anywhere, and a name taken means renaming
-the crate rather than the client. `clients/rust/README.md` documents the path and Git
+the crate rather than the client. `client/rust/README.md` documents the path and Git
 dependency forms that work today.
 
 What the crate is ready for, and what it is not:
@@ -1110,20 +1110,20 @@ What the crate is ready for, and what it is not:
 - `opensysml-conformance` is a workspace member and a runner, not a library, and
   is **not** published: it reads `conformance/scenarios` from this repository.
 - The client downloads a `sysml-grpc` release binary when `$OPENSYSML_GRPC_VERSION`
-  asks for one, and verifies it against `clients/rust/opensysml/release-digests.json`,
+  asks for one, and verifies it against `client/rust/opensysml/release-digests.json`,
   which the crate embeds with `include_str!` and its `include` list ships — so a
   release whose digests are not in the published crate is refused rather than
   installed. Unlike the Python client it does not verify the signed
   `SHA256SUMS.txt` manifest, so publishing a release also means shipping a crate
   version that pins it if Rust callers are to install it; see
-  `clients/rust/README.md`.
+  `client/rust/README.md`.
 
 The procedure, once the name is settled:
 
 ```bash
-# 1. Bump "version" in clients/rust/opensysml/Cargo.toml, land it, then from that commit:
-cargo package -p opensysml --manifest-path clients/rust/Cargo.toml   # must be clean
-cargo publish -p opensysml --manifest-path clients/rust/Cargo.toml   # maintainer, with a crates.io token
+# 1. Bump "version" in client/rust/opensysml/Cargo.toml, land it, then from that commit:
+cargo package -p opensysml --manifest-path client/rust/Cargo.toml   # must be clean
+cargo publish -p opensysml --manifest-path client/rust/Cargo.toml   # maintainer, with a crates.io token
 
 # 2. Tag what was published.
 git tag opensysml-rust-v0.1.0 && git push origin opensysml-rust-v0.1.0

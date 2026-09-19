@@ -3,7 +3,7 @@ package docir
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // ErrorKind classifies a document-evaluation failure.
@@ -31,7 +31,7 @@ type Error struct {
 	Column   string
 	Row      int
 	Actual   string
-	Origin   provenance.Origin
+	Origin   symbols.Origin
 	Err      error
 }
 

@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -20,7 +21,7 @@ type RedefinitionConformancePass struct{}
 
 func (RedefinitionConformancePass) Level() PassLevel { return LevelConstraint }
 
-func (RedefinitionConformancePass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (RedefinitionConformancePass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -42,7 +43,7 @@ type RedefinitionDirectionPass struct{}
 
 func (RedefinitionDirectionPass) Level() PassLevel { return LevelType }
 
-func (RedefinitionDirectionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (RedefinitionDirectionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -62,7 +63,7 @@ func (RedefinitionDirectionPass) Run(ctx *Context, name string, root *ast.RootNa
 type redefinitionConformanceChecker struct {
 	model         *semantics.Model
 	seen          map[*symbols.Symbol]bool
-	diags         []Diagnostic
+	diags         []diag.Diagnostic
 	directionOnly bool
 }
 
@@ -91,8 +92,8 @@ func (rc *redefinitionConformanceChecker) check(sym *symbols.Symbol) {
 		if msg == "" || v.Ref == nil {
 			continue
 		}
-		rc.diags = append(rc.diags, Diagnostic{
-			Severity: SeverityError,
+		rc.diags = append(rc.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     v.Ref.Span(),
 			Message:  msg,
 			Code:     code,

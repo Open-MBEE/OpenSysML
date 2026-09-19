@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
@@ -49,7 +49,7 @@ func pinnedValue(pin, name string) string {
 // independent single files — under the conformance mode modes names for it, and
 // returns our error-severity messages per file.
 func openSysMLErrors(repo, dir string, files []string,
-	modes map[string]conformance.Mode) (map[string][]string, error) {
+	modes map[string]diag.ConformanceMode) (map[string][]string, error) {
 	out := make(map[string][]string, len(files))
 	for _, rel := range files {
 		// #nosec G304 -- the corpus directory is named on the command line.

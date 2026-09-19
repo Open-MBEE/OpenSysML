@@ -2,7 +2,6 @@
 package queryplan
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -79,7 +78,7 @@ type Parameter struct {
 	HasDefault   bool
 	Default      Expression
 	DefaultQuery string
-	Origin       provenance.Origin
+	Origin       symbols.Origin
 }
 
 func (p Parameter) clone() Parameter {
@@ -103,7 +102,7 @@ type Expression struct {
 	quantity  *semantics.Quantity
 	element   *symbols.Symbol
 	arguments []Argument
-	origin    provenance.Origin
+	origin    symbols.Origin
 }
 
 // Operation returns the operation this expression performs.
@@ -139,7 +138,7 @@ func (e Expression) Arguments() []Argument {
 }
 
 // Origin returns the source expression that produced this plan node.
-func (e Expression) Origin() provenance.Origin { return e.origin }
+func (e Expression) Origin() symbols.Origin { return e.origin }
 
 func (e Expression) clone() Expression {
 	e.arguments = e.Arguments()
@@ -153,7 +152,7 @@ type Definition struct {
 	result       Parameter
 	expression   Expression
 	dependencies []string
-	origin       provenance.Origin
+	origin       symbols.Origin
 }
 
 // Name returns the definition's fully qualified name.
@@ -184,7 +183,7 @@ func (d Definition) Dependencies() []string {
 }
 
 // Origin returns the definition's declaration location.
-func (d Definition) Origin() provenance.Origin { return d.origin }
+func (d Definition) Origin() symbols.Origin { return d.origin }
 
 func (d Definition) clone() Definition {
 	d.parameters = d.Parameters()

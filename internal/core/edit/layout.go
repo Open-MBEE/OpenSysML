@@ -276,7 +276,7 @@ func (m Model) exposes(sem *semantics.Model, viewSym, sym *symbols.Symbol) bool 
 	if err != nil {
 		return false
 	}
-	for cur := sym; cur != nil; cur = ownerOf(cur) {
+	for cur := sym; cur != nil; cur = cur.Owner() {
 		for _, e := range exposed {
 			if e == cur || (e.Decl != nil && e.Decl == cur.Decl) {
 				return true
@@ -284,14 +284,6 @@ func (m Model) exposes(sem *semantics.Model, viewSym, sym *symbols.Symbol) bool 
 		}
 	}
 	return false
-}
-
-// ownerOf is the element declaring sym, or nil at the root.
-func ownerOf(sym *symbols.Symbol) *symbols.Symbol {
-	if sym.OwnerScope == nil {
-		return nil
-	}
-	return sym.OwnerScope.Owner()
 }
 
 // layoutSite is the annotation of type typeFQN the operation rewrites: the one

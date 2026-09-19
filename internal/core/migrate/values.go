@@ -13,19 +13,19 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // valueExpr writes a UML value specification as a v2 expression. ok is false
 // when it has no v2 form; note explains an approximation or the refusal.
-func (m *migration) valueExpr(v, scope *xmi.Element) (expr string, ok bool, note string) {
+func (m *migration) valueExpr(v, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	return m.valueExprAs(v, scope, wanted{})
 }
 
 // valueExprAs writes a value specification yielding what want asks for: an
 // opaque body in the translated subset is translated, else copied when it is
 // already v2 whose names resolve from scope.
-func (m *migration) valueExprAs(v, scope *xmi.Element, want wanted) (expr string, ok bool, note string) {
+func (m *migration) valueExprAs(v, scope *sysmlv1.Element, want wanted) (expr string, ok bool, note string) {
 	switch v.Type {
 	case "LiteralInteger", "LiteralUnlimitedNatural":
 		val := v.Attrs["value"]
@@ -114,7 +114,7 @@ func langNote(lang string) string {
 
 // defaultIndividual returns the individual an instance-value default of p
 // names, or nil when its default is anything else.
-func (m *migration) defaultIndividual(p *xmi.Element) *xmi.Element {
+func (m *migration) defaultIndividual(p *sysmlv1.Element) *sysmlv1.Element {
 	dv := firstOwned(p, "defaultValue")
 	if dv == nil || dv.Type != "InstanceValue" {
 		return nil
@@ -132,7 +132,7 @@ func (m *migration) defaultIndividual(p *xmi.Element) *xmi.Element {
 // typingIndividual returns p's default individual when it can type the usage
 // p is written as: a plain ref takes any, a part or constraint one of its kind
 // that is an instance of p's type, a port none. The note says why it cannot.
-func (m *migration) typingIndividual(p *xmi.Element, kw string) (*xmi.Element, string) {
+func (m *migration) typingIndividual(p *sysmlv1.Element, kw string) (*sysmlv1.Element, string) {
 	ind := m.defaultIndividual(p)
 	if ind == nil || kw == "ref" {
 		return ind, ""
@@ -152,7 +152,7 @@ func (m *migration) typingIndividual(p *xmi.Element, kw string) (*xmi.Element, s
 
 // valueOwner is the element whose report entry describes value v: the element
 // holding it, else the scope it is read in.
-func valueOwner(v, scope *xmi.Element) *xmi.Element {
+func valueOwner(v, scope *sysmlv1.Element) *sysmlv1.Element {
 	if v.Parent != nil {
 		return v.Parent
 	}
@@ -163,7 +163,7 @@ func valueOwner(v, scope *xmi.Element) *xmi.Element {
 // spells a value of f's scalar type, as tools store a typed-in default,
 // becomes that value: a string spelling a number, a whole real for an integer.
 // A literal that spells no value of that type is refused, not copied.
-func (m *migration) featureValue(v, f, scope *xmi.Element) (expr string, ok bool, note string) {
+func (m *migration) featureValue(v, f, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	t := m.model.Ref(f, "type")
 	expr, ok, note = m.valueExprAs(v, scope, m.wantedOf(f))
 	if !ok {
@@ -255,7 +255,7 @@ func decimal(text string) bool {
 }
 
 // opaqueBody returns the first body of an opaque expression and its language.
-func opaqueBody(v *xmi.Element) (body, lang string) {
+func opaqueBody(v *sysmlv1.Element) (body, lang string) {
 	if b := v.Owned("body"); len(b) > 0 {
 		body = strings.TrimSpace(b[0].Text)
 	} else {
@@ -680,7 +680,7 @@ func chainRef(e *ast.FeatureChainExpr) (reference, bool) {
 
 // invisible says why the references cannot all be seen from scope: the first that
 // resolves to nothing, or reaches through an untyped local. "" if all resolve.
-func (m *migration) invisible(refs []reference, scope *xmi.Element) string {
+func (m *migration) invisible(refs []reference, scope *sysmlv1.Element) string {
 	if len(refs) == 0 {
 		return ""
 	}
@@ -702,7 +702,7 @@ func (m *migration) invisible(refs []reference, scope *xmi.Element) string {
 
 // notAValue names the kind of declaration e becomes when an expression cannot
 // read it: an operation or behavior written as an action or state def.
-func (m *migration) notAValue(e *xmi.Element) string {
+func (m *migration) notAValue(e *sysmlv1.Element) string {
 	if e == nil || (e.Type != "Operation" && !isBehavior(e)) {
 		return ""
 	}
@@ -720,14 +720,14 @@ func (m *migration) notAValue(e *xmi.Element) string {
 // through, and missing spells the reference up to the step that resolves to
 // nothing (when hidden is nil, a private feature is such a step). A name no
 // written element answers is looked up in the standard library; e is nil then.
-func (m *migration) resolve(r reference, visible, hidden map[string]*xmi.Element) (e *xmi.Element, reached []*xmi.Element, missing string) {
+func (m *migration) resolve(r reference, visible, hidden map[string]*sysmlv1.Element) (e *sysmlv1.Element, reached []*sysmlv1.Element, missing string) {
 	if r.local != "" && r.typed == 0 {
 		return nil, nil, r.text(len(r.steps))
 	}
 	var lib string
 	for i, s := range r.steps {
-		var next *xmi.Element
-		var private *xmi.Element
+		var next *sysmlv1.Element
+		var private *sysmlv1.Element
 		switch {
 		case lib != "":
 			if lib = m.libraryMember(lib, s.name, s.chain); lib == "" {
@@ -827,7 +827,7 @@ func chainKind(chain bool) memberKind {
 
 // rootMember returns the written top-level element named n: a member of the
 // global namespace, which the document's root Model or Package fills.
-func (m *migration) rootMember(n string) *xmi.Element {
+func (m *migration) rootMember(n string) *sysmlv1.Element {
 	for _, root := range m.model.Roots {
 		if root.Type != "Model" {
 			if m.nameOf(root) == n && m.written(root) {
@@ -847,7 +847,7 @@ func (m *migration) rootMember(n string) *xmi.Element {
 // memberNamed returns the written member of e named n that a step of the given
 // kind selects, reached from outside e. private is the private feature the
 // name would otherwise reach.
-func (m *migration) memberNamed(e *xmi.Element, n string, kind memberKind) (member, private *xmi.Element) {
+func (m *migration) memberNamed(e *sysmlv1.Element, n string, kind memberKind) (member, private *sysmlv1.Element) {
 	visible, hidden := m.membersOf(e, kind)
 	return visible[n], hidden[n]
 }
@@ -856,13 +856,13 @@ func (m *migration) memberNamed(e *xmi.Element, n string, kind memberKind) (memb
 // a namespace's own and inherited members, a feature's (a parameter's too) or
 // instance's the members of its type or classifiers, restricted as kind says. Private
 // features are hidden, as v2 neither inherits nor reaches them.
-func (m *migration) membersOf(e *xmi.Element, kind memberKind) (visible, hidden map[string]*xmi.Element) {
-	visible = map[string]*xmi.Element{}
-	hidden = map[string]*xmi.Element{}
-	seen := map[*xmi.Element]bool{}
+func (m *migration) membersOf(e *sysmlv1.Element, kind memberKind) (visible, hidden map[string]*sysmlv1.Element) {
+	visible = map[string]*sysmlv1.Element{}
+	hidden = map[string]*sysmlv1.Element{}
+	seen := map[*sysmlv1.Element]bool{}
 	features := kind != memberAny
-	var walk func(t *xmi.Element)
-	walk = func(t *xmi.Element) {
+	var walk func(t *sysmlv1.Element)
+	walk = func(t *sysmlv1.Element) {
 		if t == nil || t.IsProxy() || seen[t] {
 			return
 		}
@@ -908,12 +908,12 @@ func (m *migration) membersOf(e *xmi.Element, kind memberKind) (visible, hidden 
 // classifiers — or a member of a package one of them imports (every packaged
 // element is written public). Private inherited features are not visible
 // unless exposed; the hidden map holds those an expression would otherwise resolve to.
-func (m *migration) visibleFrom(scope *xmi.Element) (visible, hidden map[string]*xmi.Element) {
-	visible = map[string]*xmi.Element{}
-	hidden = map[string]*xmi.Element{}
-	seen := map[*xmi.Element]bool{}
-	var members func(e *xmi.Element, inherited bool)
-	members = func(e *xmi.Element, inherited bool) {
+func (m *migration) visibleFrom(scope *sysmlv1.Element) (visible, hidden map[string]*sysmlv1.Element) {
+	visible = map[string]*sysmlv1.Element{}
+	hidden = map[string]*sysmlv1.Element{}
+	seen := map[*sysmlv1.Element]bool{}
+	var members func(e *sysmlv1.Element, inherited bool)
+	members = func(e *sysmlv1.Element, inherited bool) {
 		if e == nil || seen[e] {
 			return
 		}
@@ -957,8 +957,8 @@ func (m *migration) visibleFrom(scope *xmi.Element) (visible, hidden map[string]
 
 // importedPackages returns the packages whose members ns imports and the
 // migration writes as `public import P::*`: those in the document outside a library.
-func (m *migration) importedPackages(ns *xmi.Element) []*xmi.Element {
-	var out []*xmi.Element
+func (m *migration) importedPackages(ns *sysmlv1.Element) []*sysmlv1.Element {
+	var out []*sysmlv1.Element
 	for _, imp := range ns.Owned("packageImport") {
 		if imp.Type != "PackageImport" {
 			continue
@@ -973,7 +973,7 @@ func (m *migration) importedPackages(ns *xmi.Element) []*xmi.Element {
 // hiddenFromHeirs reports whether feature f is written private, which v2 does
 // not inherit: a private or package property that nothing exposes and that is
 // not a constraint parameter.
-func (m *migration) hiddenFromHeirs(f *xmi.Element) bool {
+func (m *migration) hiddenFromHeirs(f *sysmlv1.Element) bool {
 	if f.Type != "Property" && f.Type != "Port" {
 		return false
 	}
@@ -989,14 +989,14 @@ func (m *migration) hiddenFromHeirs(f *xmi.Element) bool {
 
 // exposeNamed marks the private features an opaque expression in scope
 // reaches, inherited or through a chain, so its v2 copy can resolve them.
-func (m *migration) exposeNamed(v, scope *xmi.Element) {
+func (m *migration) exposeNamed(v, scope *sysmlv1.Element) {
 	body, _ := opaqueBody(v)
 	refs, ok := exprRefs(body)
 	if body == "" || !ok {
 		return
 	}
 	visible, hidden := m.visibleFrom(scope)
-	var reached []*xmi.Element
+	var reached []*sysmlv1.Element
 	for _, r := range refs {
 		_, through, missing := m.resolve(r, visible, hidden)
 		if missing != "" {

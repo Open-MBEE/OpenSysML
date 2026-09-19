@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
@@ -13,7 +14,7 @@ import (
 // what the graph says rather than which lines the writer wrote.
 func turtleOf(t *testing.T, name, src string) *rdf.Graph {
 	t.Helper()
-	data, err := export.Convert(name+".sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	data, err := convert.Convert(name+".sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -164,11 +165,11 @@ func TestExpressionResourcesAreNotElements(t *testing.T) {
     attribute a : Integer;
     attribute total : Integer = a + 1;
 }`
-	turtle, err := export.Convert("expr.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("expr.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	back, err := export.Convert("expr.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("expr.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v\n%s", err, turtle)
 	}
@@ -194,7 +195,7 @@ elmt:P__total a sysml:AttributeUsage ; sysml:declaredName "total" ; sysml:qualif
     sysml:owningNamespace elmt:P ; sysml:type "Integer" ;
     sysml:lowerBound "1" ; sysml:upperBound "4" ;
     sysml:value "a + 1" .`
-	out, err := export.Convert("literal.ttl", []byte(src), export.FormatTurtle, export.FormatSysML)
+	out, err := convert.Convert("literal.ttl", []byte(src), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("convert: %v", err)
 	}
@@ -223,7 +224,7 @@ func TestForeignExpressionTreeIsWrittenFromItsStructure(t *testing.T) {
 <urn:uuid:5> a sysml:FeatureReferenceExpression ; sysml:referent <urn:uuid:2> ;
     sysx:argumentIndex "0"^^xsd:integer .
 <urn:uuid:6> a sysml:LiteralInteger ; sysml:value "1"^^xsd:integer ; sysx:argumentIndex "1"^^xsd:integer .`
-	out, err := export.Convert("foreign-expr.ttl", []byte(src), export.FormatTurtle, export.FormatSysML)
+	out, err := convert.Convert("foreign-expr.ttl", []byte(src), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("convert: %v", err)
 	}
@@ -275,8 +276,8 @@ func TestUnsupportedExpressionShapesAreReported(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, err := export.Convert("bad.ttl", []byte(head+tc.triples),
-				export.FormatTurtle, export.FormatSysML)
+			_, err := convert.Convert("bad.ttl", []byte(head+tc.triples),
+				convert.FormatTurtle, convert.FormatSysML)
 			if err == nil {
 				t.Fatal("expected an error")
 			}
@@ -337,18 +338,18 @@ func TestExpressionTreesKeepTheRoundTripExact(t *testing.T) {
 	}
 	for name, tc := range sources {
 		t.Run(name, func(t *testing.T) {
-			first, err := export.Convert(name+".sysml", []byte(tc.src), export.FormatSysML, export.FormatTurtle)
+			first, err := convert.Convert(name+".sysml", []byte(tc.src), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle: %v", err)
 			}
-			back, err := export.Convert(name+".ttl", first, export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert(name+".ttl", first, convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v\n%s", err, first)
 			}
 			if !strings.Contains(string(back), tc.expression) {
 				t.Errorf("the notation lost %q:\n%s", tc.expression, back)
 			}
-			second, err := export.Convert(name+".2.sysml", back, export.FormatSysML, export.FormatTurtle)
+			second, err := convert.Convert(name+".2.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}

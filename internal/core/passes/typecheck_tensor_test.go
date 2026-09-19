@@ -3,6 +3,8 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // tensorPrelude declares a 2×2 TensorMeasurementReference with the imports it needs.
@@ -18,7 +20,7 @@ const tensorPrelude = `private import ScalarValues::*;
 	}
 `
 
-func tensorDiags(t *testing.T, body string) []Diagnostic {
+func tensorDiags(t *testing.T, body string) []diag.Diagnostic {
 	t.Helper()
 	return libraryTypeDiags(t, "package P {\n"+tensorPrelude+body+"\n}")
 }

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 const definitionsModel = `
@@ -153,7 +153,7 @@ func TestEvaluateDefinitionsReportsUnknownColumn(t *testing.T) {
 	if evaluation.Column != "documentation" || evaluation.Query != "Observatory::Dynamic" || evaluation.Content != "glossary" {
 		t.Fatalf("error = %+v", evaluation)
 	}
-	if evaluation.Origin == (provenance.Origin{}) || !evaluation.Origin.Located() {
+	if evaluation.Origin == (symbols.Origin{}) || !evaluation.Origin.Located() {
 		t.Fatalf("error has no origin: %+v", evaluation)
 	}
 }

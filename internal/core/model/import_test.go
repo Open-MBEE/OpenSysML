@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 func TestVerdictKindWithActions(t *testing.T) {
@@ -41,7 +42,7 @@ func TestVerdictKindWithActions(t *testing.T) {
 
 	t.Logf("Diagnostics: %d", len(diags))
 	for _, d := range diags {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Logf("  [ERROR] %v", d.Message)
 		}
 	}
@@ -49,7 +50,7 @@ func TestVerdictKindWithActions(t *testing.T) {
 	// Check if VerdictKind is resolved
 	hasUnresolvedVerdictKind := false
 	for _, d := range diags {
-		if d.Severity == passes.SeverityError && d.Message == "unresolved reference: VerdictKind" {
+		if d.Severity == diag.SeverityError && d.Message == "unresolved reference: VerdictKind" {
 			hasUnresolvedVerdictKind = true
 		}
 	}

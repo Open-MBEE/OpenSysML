@@ -90,7 +90,7 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
   errors + 1 `kind-mismatch` + 8 `unmapped` warnings appeared instead. Tier unblocking is the
   normal consequence of accepting new syntax, so expect it — but each newly revealed only-ours
   *error* is a fresh candidate false positive and should be named in the report even when the
-  committed per-file ratchet (`internal/core/model/testdata/pilot_corpora_expected.txt`) already
+  committed per-file ratchet (`tests/corpus/testdata/pilot_corpora_expected.txt`) already
   records the new number.
 - `TestPilotDifferentialDocumentCountsMatchBaseline` reads only the *committed* baseline JSON, so
   it proves doc ↔ baseline consistency and cannot detect a committed baseline that no longer

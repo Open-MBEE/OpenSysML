@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -26,7 +27,7 @@ type W10BRelatedElementsPass struct{}
 
 func (W10BRelatedElementsPass) Level() PassLevel { return LevelConstraint }
 
-func (W10BRelatedElementsPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W10BRelatedElementsPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -36,11 +37,11 @@ func (W10BRelatedElementsPass) Run(ctx *Context, name string, root *ast.RootName
 	}
 	model := ctx.Model()
 	isKerML := ctx.Kind == source.KindKerML
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	w8dWalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		if u, ok := sym.Decl.(*ast.Usage); ok && u.Kind == ast.UsageBinding && model.RelatedFeatureCount(sym) != 2 {
-			diags = append(diags, Diagnostic{
-				Severity: SeverityError,
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.SeverityError,
 				Span:     u.Span(),
 				Message:  msgBindingBinary,
 				Code:     "binding-binary",
@@ -59,8 +60,8 @@ func (W10BRelatedElementsPass) Run(ctx *Context, name string, root *ast.RootName
 		default:
 			return
 		}
-		diags = append(diags, Diagnostic{
-			Severity: SeverityError,
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     sym.Decl.Span(),
 			Message:  msgRelatedElements,
 			Code:     "related-elements",

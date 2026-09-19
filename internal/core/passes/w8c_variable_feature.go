@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -27,7 +28,7 @@ func (VariableFeaturePass) Level() PassLevel { return LevelConstraint }
 // ElementScoped: each feature gates on its own head and its owner's.
 func (VariableFeaturePass) ElementScoped() { /* marker: per-element gating */ }
 
-func (VariableFeaturePass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (VariableFeaturePass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -42,10 +43,10 @@ func (VariableFeaturePass) Run(ctx *Context, name string, root *ast.RootNamespac
 	for _, sym := range ctx.Index.LookupQualified("Occurrences::Occurrence") {
 		derivable = derivable || ctx.Index.Library(sym)
 	}
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	report := func(span source.Span, message, code string) {
-		diags = append(diags, Diagnostic{
-			Severity: SeverityError,
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     span,
 			Message:  message,
 			Code:     code,

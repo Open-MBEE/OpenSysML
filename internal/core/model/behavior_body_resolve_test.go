@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // unresolvedMessages returns the name-resolution findings for one document.
@@ -356,9 +356,9 @@ func TestReservedKeywordNameErrorDoesNotGateLaterTiers(t *testing.T) {
 	}`), 1)
 	defer ws.Close(uri)
 
-	var errors []passes.Diagnostic
+	var errors []diag.Diagnostic
 	for _, d := range ws.Diagnostics(uri) {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			errors = append(errors, d)
 		}
 	}

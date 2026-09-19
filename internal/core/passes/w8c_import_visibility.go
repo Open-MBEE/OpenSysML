@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // KerMLValidator's validateImportTopLevelVisibility message.
@@ -16,11 +17,11 @@ type TopLevelImportPass struct{}
 
 func (TopLevelImportPass) Level() PassLevel { return LevelConstraint }
 
-func (TopLevelImportPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (TopLevelImportPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if root == nil {
 		return nil
 	}
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	for _, m := range root.Members {
 		imp, ok := unwrapType(m).(*ast.Import)
 		if !ok || imp.IsExpose {
@@ -29,8 +30,8 @@ func (TopLevelImportPass) Run(ctx *Context, name string, root *ast.RootNamespace
 		if imp.Visibility != ast.VisibilityPublic && imp.Visibility != ast.VisibilityProtected {
 			continue
 		}
-		diags = append(diags, Diagnostic{
-			Severity: SeverityError,
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     imp.Span(),
 			Message:  msgTopLevelImportPrivate,
 			Code:     "import-top-level-visibility",

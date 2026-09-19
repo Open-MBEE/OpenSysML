@@ -4,13 +4,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // w8cLibraryDiagnostics analyzes src as the named document against the standard
 // library.
-func w8cLibraryDiagnostics(t *testing.T, name, src string) []Diagnostic {
+func w8cLibraryDiagnostics(t *testing.T, name, src string) []diag.Diagnostic {
 	t.Helper()
 
 	idx := newTestIndex()
@@ -35,7 +36,7 @@ func w8cLibraryErrorsIn(t *testing.T, name, src string) []string {
 	t.Helper()
 	var out []string
 	for _, d := range w8cLibraryDiagnostics(t, name, src) {
-		if d.Severity == SeverityError {
+		if d.Severity == diag.SeverityError {
 			out = append(out, d.Message)
 		}
 	}

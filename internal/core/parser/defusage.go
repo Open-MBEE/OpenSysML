@@ -2,12 +2,12 @@ package parser
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
-	"github.com/Open-MBEE/OpenSysML/internal/core/quickfix"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -3363,7 +3363,7 @@ func prefixMetadataFollowsKeyword(kw string) bool {
 func (p *Parser) reportMisplacedPrefixMetadata(prefixes []*ast.PrefixMetadata, kw lexer.Token) {
 	content := p.src.Bytes()
 	texts := make([]string, 0, len(prefixes))
-	edits := make([]quickfix.Edit, 0, len(prefixes)+1)
+	edits := make([]diag.Edit, 0, len(prefixes)+1)
 	var span source.Span
 	for i, pm := range prefixes {
 		// A node span runs to the next token, past any comment; the name's does not.
@@ -3380,17 +3380,17 @@ func (p *Parser) reportMisplacedPrefixMetadata(prefixes []*ast.PrefixMetadata, k
 		for end < kw.Span.Offset && (content[end] == ' ' || content[end] == '\t') {
 			end++
 		}
-		edits = append(edits, quickfix.Replace(source.Span{Offset: sp.Offset, Len: end - sp.Offset}, ""))
+		edits = append(edits, diag.Replace(source.Span{Offset: sp.Offset, Len: end - sp.Offset}, ""))
 	}
 	run := strings.Join(texts, " ")
-	edits = append(edits, quickfix.Insert(kw.Span.End(), " "+run))
+	edits = append(edits, diag.Insert(kw.Span.End(), " "+run))
 
 	example := kw.KeywordID + " " + run
 	switch next := p.peekN(1); next.Kind {
 	case lexer.Identifier, lexer.UnrestrictedName, lexer.Keyword:
 		example += " " + p.src.Text(next.Span)
 	}
-	p.errorWithFixes(span, "prefix metadata follows '"+kw.KeywordID+"': write `"+example+"`", quickfix.Fix{
+	p.errorWithFixes(span, "prefix metadata follows '"+kw.KeywordID+"': write `"+example+"`", diag.Fix{
 		Title:     "move the prefix metadata after '" + kw.KeywordID + "'",
 		Edits:     edits,
 		Preferred: true,

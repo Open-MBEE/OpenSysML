@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -48,8 +49,8 @@ func (tc *typeChecker) checkOneType(scope *symbols.Scope, d featureDecl) {
 	if !ok {
 		return
 	}
-	tc.appendUnique(Diagnostic{
-		Severity: SeverityError,
+	tc.appendUnique(diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     d.span,
 		Message:  msg,
 		Code:     "one-type",

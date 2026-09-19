@@ -1,0 +1,1 @@
+- **A symbol's source origin is read off the symbol.** `internal/core/provenance` is folded into `internal/core/symbols`: `provenance.Origin` is `symbols.Origin`, `provenance.Symbol(sym)` is `sym.Origin()`, and `provenance.Node` and `provenance.At` are `symbols.NodeOrigin` and `symbols.OriginAt`. No behavior changes.

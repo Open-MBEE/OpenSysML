@@ -3,13 +3,15 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // relatedElementsLines returns the 1-based source lines on which src draws a
 // related-elements diagnostic, in order.
 func relatedElementsLines(t *testing.T, src string, kerml bool) []int {
 	t.Helper()
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	if kerml {
 		diags = constraintDiagsKerML(t, src)
 	} else {

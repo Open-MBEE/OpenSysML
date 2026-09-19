@@ -381,7 +381,7 @@ package OpenSysMLCodebase {
             attribute :>> path = "cmd";
         }
         part clientLibraries : Directory {
-            attribute :>> path = "clients";
+            attribute :>> path = "client";
         }
         part editors : Directory {
             attribute :>> path = "editors";

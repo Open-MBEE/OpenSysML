@@ -318,7 +318,7 @@
     </packagedElement>
   </uml:Model>
 
-  <sysml:Block xmi:id="_s1" base_Class="_meter"/>
-  <sysml:Block xmi:id="_s2" base_Class="_gauge"/>
-  <sysml:Block xmi:id="_s3" base_Class="_needle"/>
+  <sysml:Block xmi:id="_sb1" base_Class="_meter"/>
+  <sysml:Block xmi:id="_sb2" base_Class="_gauge"/>
+  <sysml:Block xmi:id="_sb3" base_Class="_needle"/>
 </xmi:XMI>

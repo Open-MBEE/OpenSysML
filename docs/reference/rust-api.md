@@ -4,7 +4,7 @@ This page covers what the `opensysml` crate exposes, why it is blocking, and whe
 stops. To choose between the clients, see [client libraries](clients.md); for a
 task-oriented walkthrough, see [guide chapter 9](../guide/09-clients.md#from-rust). The crate's own notes on
 binary provisioning and its trust model are in
-[clients/rust/README.md](../../clients/rust/README.md).
+[client/rust/README.md](../../client/rust/README.md).
 
 Nothing is published to crates.io yet, so a consumer takes it from a path or from
 git:

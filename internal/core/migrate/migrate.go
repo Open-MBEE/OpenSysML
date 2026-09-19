@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // The v2 keywords the writer prefixes a declaration or annotation with.
@@ -28,7 +28,7 @@ type Result struct {
 // .mdzip) holding it, and writes it as SysML v2 notation. name labels the
 // source in the report.
 func Migrate(name string, data []byte) (*Result, error) {
-	model, err := xmi.Parse(data)
+	model, err := sysmlv1.Parse(data)
 	if err != nil {
 		return nil, err
 	}
@@ -36,30 +36,30 @@ func Migrate(name string, data []byte) (*Result, error) {
 }
 
 // FromModel migrates an already-read XMI model.
-func FromModel(name string, model *xmi.Model) *Result {
+func FromModel(name string, model *sysmlv1.Model) *Result {
 	m := &migration{
 		model:     model,
 		report:    &Report{Source: name, Exporter: model.Exporter},
 		w:         &writer{},
-		names:     map[*xmi.Element]string{},
-		extras:    map[*xmi.Element][]func(){},
-		flows:     map[*xmi.Element][]*xmi.Element{},
-		outcomes:  map[*xmi.Element]*flowOutcome{},
-		unplaced:  map[*xmi.Element]*placement{},
-		taken:     map[*xmi.Element]map[string]bool{},
-		parallel:  map[*xmi.Element]string{},
-		exposed:   map[*xmi.Element]string{},
-		methodOf:  map[*xmi.Element]*xmi.Element{},
-		realizes:  map[*xmi.Element]*xmi.Element{},
-		opUsage:   map[*xmi.Element]string{},
-		deciding:  map[*xmi.Element]bool{},
-		bounded:   map[*xmi.Element][]*xmi.Element{},
-		triggered: map[*xmi.Element]bool{},
+		names:     map[*sysmlv1.Element]string{},
+		extras:    map[*sysmlv1.Element][]func(){},
+		flows:     map[*sysmlv1.Element][]*sysmlv1.Element{},
+		outcomes:  map[*sysmlv1.Element]*flowOutcome{},
+		unplaced:  map[*sysmlv1.Element]*placement{},
+		taken:     map[*sysmlv1.Element]map[string]bool{},
+		parallel:  map[*sysmlv1.Element]string{},
+		exposed:   map[*sysmlv1.Element]string{},
+		methodOf:  map[*sysmlv1.Element]*sysmlv1.Element{},
+		realizes:  map[*sysmlv1.Element]*sysmlv1.Element{},
+		opUsage:   map[*sysmlv1.Element]string{},
+		deciding:  map[*sysmlv1.Element]bool{},
+		bounded:   map[*sysmlv1.Element][]*sysmlv1.Element{},
+		triggered: map[*sysmlv1.Element]bool{},
 		indexed:   map[string]int{},
-		lanes:     map[*xmi.Element]*lanes{},
-		routes:    map[[2]*xmi.Element]partRoute{},
-		usageOf:   map[*xmi.Element]string{},
-		pins:      map[*xmi.Element]pinDecl{},
+		lanes:     map[*sysmlv1.Element]*lanes{},
+		routes:    map[[2]*sysmlv1.Element]partRoute{},
+		usageOf:   map[*sysmlv1.Element]string{},
+		pins:      map[*sysmlv1.Element]pinDecl{},
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -74,7 +74,7 @@ func FromModel(name string, model *xmi.Model) *Result {
 // unwrittenEvents reports the events whose triggers were never written: those
 // belong to behaviors that were not, or to initial transitions, which take none.
 func (m *migration) unwrittenEvents() {
-	var left []*xmi.Element
+	var left []*sysmlv1.Element
 	for ev := range m.triggered {
 		if !m.reported(ev) && !m.isLibrary(ev) {
 			left = append(left, ev)
@@ -118,67 +118,67 @@ func (m *migration) extensions() {
 
 // migration holds the state of one run.
 type migration struct {
-	model  *xmi.Model
+	model  *sysmlv1.Model
 	report *Report
 	w      *writer
 	// names holds the names synthesized for anonymous elements.
-	names map[*xmi.Element]string
+	names map[*sysmlv1.Element]string
 	// extras are members other elements contribute to a body: a Satisfy is
 	// written inside the block that satisfies.
-	extras map[*xmi.Element][]func()
+	extras map[*sysmlv1.Element][]func()
 	// flows lists the item flows each connector realizes.
-	flows map[*xmi.Element][]*xmi.Element
+	flows map[*sysmlv1.Element][]*sysmlv1.Element
 	// outcomes accumulates each item flow's result over its realizing connectors.
-	outcomes map[*xmi.Element]*flowOutcome
+	outcomes map[*sysmlv1.Element]*flowOutcome
 	// unplaced records where each Satisfy or Verify was placed, and why not.
-	unplaced map[*xmi.Element]*placement
+	unplaced map[*sysmlv1.Element]*placement
 	// taken holds synthesized names reserved in a body, by owner.
-	taken map[*xmi.Element]map[string]bool
+	taken map[*sysmlv1.Element]map[string]bool
 	// parallel names the parallel state each region of an orthogonal state is
 	// written in; a lone region is written inline and has no name of its own.
-	parallel map[*xmi.Element]string
+	parallel map[*sysmlv1.Element]string
 	// exposed notes, for each feature reached from outside its owner (through
 	// a connector path, a slot or a redefinition), what reaches it.
-	exposed map[*xmi.Element]string
+	exposed map[*sysmlv1.Element]string
 	// scope is the element whose body is being written; nil at the top level.
-	scope *xmi.Element
+	scope *sysmlv1.Element
 	// methodOf maps each behavior that is the method of an operation to it.
-	methodOf map[*xmi.Element]*xmi.Element
+	methodOf map[*sysmlv1.Element]*sysmlv1.Element
 	// realizes maps a method's parameter to the operation's it stands for.
-	realizes map[*xmi.Element]*xmi.Element
+	realizes map[*sysmlv1.Element]*sysmlv1.Element
 	// opUsage names, for each operation, the action usage of its owner that performs it.
-	opUsage map[*xmi.Element]string
+	opUsage map[*sysmlv1.Element]string
 	// deciding holds each opaque behavior whose body is being checked for names
 	// it can see, which is written whichever declaration the check picks.
-	deciding map[*xmi.Element]bool
+	deciding map[*sysmlv1.Element]bool
 	// bounded lists the duration constraints constraining each element.
-	bounded map[*xmi.Element][]*xmi.Element
+	bounded map[*sysmlv1.Element][]*sysmlv1.Element
 	// triggered holds each event some trigger refers to, which is reported where it is.
-	triggered map[*xmi.Element]bool
+	triggered map[*sysmlv1.Element]bool
 	// bound gives, while a transition's effect is written, the expression over
 	// the accepted signal each of its parameters is bound to.
-	bound map[*xmi.Element]string
+	bound map[*sysmlv1.Element]string
 	// indexed locates each element's report entry by id, so an element that
 	// several writers account for is reported once.
 	indexed map[string]int
 	// lanes indexes each activity's partitions by the nodes and edges they hold.
-	lanes map[*xmi.Element]*lanes
+	lanes map[*sysmlv1.Element]*lanes
 	// routes memoizes, per classifier and target, the chains of composite parts between them.
-	routes map[[2]*xmi.Element]partRoute
+	routes map[[2]*sysmlv1.Element]partRoute
 	// usageOf names, for each activity a lane's object performs, the action
 	// usage of the activity's owner that performs it.
-	usageOf map[*xmi.Element]string
+	usageOf map[*sysmlv1.Element]string
 	// pins records how each declared pin is written, for the bodies that name it.
-	pins map[*xmi.Element]pinDecl
+	pins map[*sysmlv1.Element]pinDecl
 	// clocks memoizes the names a simulation configuration gives the clock.
 	clocks map[string]string
 	// observed memoizes, per observation, the durations and time expressions that read it.
-	observed map[*xmi.Element][]*xmi.Element
+	observed map[*sysmlv1.Element][]*sysmlv1.Element
 }
 
 // add records e's verdict. An element reported before keeps one entry: the
 // weaker verdict, the target that was written, and every distinct note.
-func (m *migration) add(e *xmi.Element, v Verdict, target, note string) {
+func (m *migration) add(e *sysmlv1.Element, v Verdict, target, note string) {
 	if n, ok := m.names[e]; ok && e.Name != "" && n != e.Name && m.realizes[e] == nil {
 		if v == Mapped {
 			v = Approximated
@@ -224,9 +224,9 @@ func weaker(a, b Verdict) bool {
 // by realizing connector, names every anonymous feature that is referred to,
 // and then exposes the features the connectors and slots that will be written reach.
 func (m *migration) prepare() {
-	var reachers, laned []*xmi.Element
-	var walk func(e *xmi.Element)
-	walk = func(e *xmi.Element) {
+	var reachers, laned []*sysmlv1.Element
+	var walk func(e *sysmlv1.Element)
+	walk = func(e *sysmlv1.Element) {
 		m.distinguish(e)
 		switch e.Type {
 		case "InformationFlow":
@@ -309,7 +309,7 @@ func (m *migration) prepare() {
 // exposeReached exposes the features a connector's ends or an instance's slots
 // refer to, once the connector or slot resolves as the writer will write it;
 // one that is left as a comment reaches nothing.
-func (m *migration) exposeReached(e *xmi.Element) {
+func (m *migration) exposeReached(e *sysmlv1.Element) {
 	switch e.Type {
 	case "Connector":
 		if e.Parent == nil {
@@ -338,21 +338,21 @@ func (m *migration) exposeReached(e *xmi.Element) {
 
 // expose records the first thing found to reach feature f from outside its
 // owner, which its v2 declaration must then not hide.
-func (m *migration) expose(f *xmi.Element, by string) {
+func (m *migration) expose(f *sysmlv1.Element, by string) {
 	if _, ok := m.exposed[f]; !ok && !f.IsProxy() {
 		m.exposed[f] = by
 	}
 }
 
 // hasFeature reports whether f is a feature of classifier c, owned or inherited.
-func (m *migration) hasFeature(c, f *xmi.Element) bool {
+func (m *migration) hasFeature(c, f *sysmlv1.Element) bool {
 	return f.Parent != nil && (f.Parent == c || m.inherits(c, f.Parent))
 }
 
 // slotClassifier returns the classifier instance e is written to specialize
 // that has feature f, or nil: a slot of a classifier the v2 form omits (a
 // value type beside a block) has no feature to redefine.
-func (m *migration) slotClassifier(e, f *xmi.Element) *xmi.Element {
+func (m *migration) slotClassifier(e, f *sysmlv1.Element) *sysmlv1.Element {
 	occurrences, values, _ := m.instanceClassifiers(e)
 	classifiers := values
 	if len(occurrences) > 0 {
@@ -368,7 +368,7 @@ func (m *migration) slotClassifier(e, f *xmi.Element) *xmi.Element {
 
 // distinguish renames the later of two members of e that share a name, since
 // v2 members of one namespace must be distinct while UML allows the clash.
-func (m *migration) distinguish(e *xmi.Element) {
+func (m *migration) distinguish(e *sysmlv1.Element) {
 	seen := map[string]bool{}
 	for _, c := range namespaceMembers(e) {
 		if c.Name == "" {
@@ -389,8 +389,8 @@ func (m *migration) distinguish(e *xmi.Element) {
 
 // namespaceMembers lists the children of e written as members of its v2 body: its
 // own, and the named vertices of its one region, which v2 puts beside them.
-func namespaceMembers(e *xmi.Element) []*xmi.Element {
-	var members []*xmi.Element
+func namespaceMembers(e *sysmlv1.Element) []*sysmlv1.Element {
+	var members []*sysmlv1.Element
 	inline := len(e.Owned("region")) == 1
 	for _, c := range e.Children {
 		switch {
@@ -426,7 +426,7 @@ func ownerWritten(role string) bool {
 
 // root writes a top-level element: a Model's members are written at the top
 // level, any other root as a declaration of its own.
-func (m *migration) root(e *xmi.Element) {
+func (m *migration) root(e *sysmlv1.Element) {
 	if e.Type == "Model" && !m.isLibrary(e) {
 		m.add(e, Mapped, "", "the root model's members are written at the top level")
 		m.body(e)
@@ -437,7 +437,7 @@ func (m *migration) root(e *xmi.Element) {
 
 // body writes the members of e's body, in document order, then what other
 // elements contribute to it.
-func (m *migration) body(e *xmi.Element) {
+func (m *migration) body(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
@@ -451,7 +451,7 @@ func (m *migration) body(e *xmi.Element) {
 }
 
 // member writes one owned element of the current scope.
-func (m *migration) member(e *xmi.Element) {
+func (m *migration) member(e *sysmlv1.Element) {
 	if ownerWritten(e.Role) {
 		return
 	}
@@ -496,7 +496,7 @@ func (m *migration) member(e *xmi.Element) {
 
 // imports writes a package import; profile applications and element imports
 // have no v2 counterpart worth writing.
-func (m *migration) imports(e *xmi.Element) {
+func (m *migration) imports(e *sysmlv1.Element) {
 	if e.Type != "PackageImport" {
 		m.add(e, Skipped, "", "profile applications and element imports are not written")
 		return
@@ -516,7 +516,7 @@ func (m *migration) imports(e *xmi.Element) {
 }
 
 // classifier writes a package, classifier or other packaged element.
-func (m *migration) classifier(e *xmi.Element) {
+func (m *migration) classifier(e *sysmlv1.Element) {
 	cat, note := m.classify(e)
 	switch cat {
 	case catNone:
@@ -623,7 +623,7 @@ func (m *migration) classifier(e *xmi.Element) {
 
 // generals writes the specializations of a classifier: its generalizations,
 // and for a value type the ScalarValues type it derives from.
-func (m *migration) generals(e *xmi.Element, cat category) (string, string) {
+func (m *migration) generals(e *sysmlv1.Element, cat category) (string, string) {
 	var refs []string
 	var notes []string
 	for _, g := range e.Owned("generalization") {
@@ -656,7 +656,7 @@ func (m *migration) generals(e *xmi.Element, cat category) (string, string) {
 		notes = append(notes, "a value type with a unit or quantity kind and no base type is written as ScalarValues::Real")
 	}
 	if cat == catIndividualDef || cat == catValue {
-		var written []*xmi.Element
+		var written []*sysmlv1.Element
 		if cat == catValue {
 			_, written, _ = m.instanceClassifiers(e)
 		} else {
@@ -678,7 +678,7 @@ func (m *migration) generals(e *xmi.Element, cat category) (string, string) {
 
 // dangling notes the references of e in the given roles that resolve to
 // nothing in the document; "" when every reference resolves.
-func (m *migration) dangling(e *xmi.Element, roles ...string) string {
+func (m *migration) dangling(e *sysmlv1.Element, roles ...string) string {
 	var notes []string
 	for _, role := range roles {
 		if ids := m.model.Unresolved(e, role); len(ids) > 0 {
@@ -689,7 +689,7 @@ func (m *migration) dangling(e *xmi.Element, roles ...string) string {
 }
 
 // downgrade marks e's report entry approximated with a further note.
-func (m *migration) downgrade(e *xmi.Element, note string) {
+func (m *migration) downgrade(e *sysmlv1.Element, note string) {
 	i, ok := m.indexed[e.ID]
 	if !ok {
 		return
@@ -715,17 +715,17 @@ func joinNotes(a, b string) string {
 
 // requirementID reads the requirement's id tag in the profile's spelling or
 // the capitalized one some tools write.
-func requirementID(e *xmi.Element) string {
+func requirementID(e *sysmlv1.Element) string {
 	return requirementTag(e, "Id", "id", "ID")
 }
 
-func requirementText(e *xmi.Element) string {
+func requirementText(e *sysmlv1.Element) string {
 	return requirementTag(e, "Text", "text")
 }
 
 // requirementTag reads a tag from the standard requirement stereotypes only;
 // a custom stereotype's same-named tag stays in its comment.
-func requirementTag(e *xmi.Element, tags ...string) string {
+func requirementTag(e *sysmlv1.Element, tags ...string) string {
 	for _, s := range e.Stereotypes {
 		if !isStandard(s) || !isRequirementStereotype(s.Name) {
 			continue
@@ -739,7 +739,7 @@ func requirementTag(e *xmi.Element, tags ...string) string {
 	return ""
 }
 
-func (m *migration) requirementBody(e *xmi.Element) {
+func (m *migration) requirementBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	text := requirementText(e)
@@ -759,11 +759,11 @@ func (m *migration) requirementBody(e *xmi.Element) {
 
 // constraintBody writes a constraint block: its parameters, then its
 // anonymous rule as the result expression.
-func (m *migration) constraintBody(e *xmi.Element) {
+func (m *migration) constraintBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
-	var result *xmi.Element
+	var result *sysmlv1.Element
 	for _, c := range e.Children {
 		if c.Role == "ownedRule" && c.Name == "" && result == nil {
 			result = c
@@ -799,7 +799,7 @@ func verdictFor(note string) Verdict {
 	return Mapped
 }
 
-func firstOwned(e *xmi.Element, role string) *xmi.Element {
+func firstOwned(e *sysmlv1.Element, role string) *sysmlv1.Element {
 	if o := e.Owned(role); len(o) > 0 {
 		return o[0]
 	}
@@ -808,7 +808,7 @@ func firstOwned(e *xmi.Element, role string) *xmi.Element {
 
 // individualBody writes an instance specification's slots as redefinitions
 // of the classifier's features with the slot values.
-func (m *migration) individualBody(e *xmi.Element) {
+func (m *migration) individualBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
@@ -834,7 +834,7 @@ func (m *migration) individualBody(e *xmi.Element) {
 // slotForm resolves a slot of instance e, of defining feature f, into the v2
 // lines that write it and the notes on them; ok is false, and note says why,
 // when it has no v2 form.
-func (m *migration) slotForm(e, slot, f *xmi.Element) (lines []string, note string, ok bool) {
+func (m *migration) slotForm(e, slot, f *sysmlv1.Element) (lines []string, note string, ok bool) {
 	if f == nil || f.IsProxy() {
 		return nil, "the slot's defining feature is not in the document", false
 	}
@@ -858,7 +858,7 @@ func (m *migration) slotForm(e, slot, f *xmi.Element) (lines []string, note stri
 
 // valueSlot resolves a slot of a value property into a redefinition bound to
 // its values, with the direction the feature has.
-func (m *migration) valueSlot(e, slot, f *xmi.Element, dir string) ([]string, string, bool) {
+func (m *migration) valueSlot(e, slot, f *sysmlv1.Element, dir string) ([]string, string, bool) {
 	var vals []string
 	var notes []string
 	for _, v := range slot.Owned("value") {
@@ -888,7 +888,7 @@ func (m *migration) valueSlot(e, slot, f *xmi.Element, dir string) ([]string, st
 
 // instanceSlot resolves a slot holding instances: one redefines the feature
 // typed by its individual; several each subset it under a redefinition counting them.
-func (m *migration) instanceSlot(e, slot, f *xmi.Element, kw, prefix string) ([]string, string, bool) {
+func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string) ([]string, string, bool) {
 	t := m.model.Ref(f, "type")
 	var refs []string
 	for _, v := range slot.Owned("value") {
@@ -954,7 +954,7 @@ func article(word string) string {
 
 // instanceOf reports whether an instance written to specialize the
 // classifiers is an instance of t: one of them is t or specializes it.
-func (m *migration) instanceOf(classifiers []*xmi.Element, t *xmi.Element) bool {
+func (m *migration) instanceOf(classifiers []*sysmlv1.Element, t *sysmlv1.Element) bool {
 	for _, c := range classifiers {
 		if c == t || m.inherits(c, t) {
 			return true
@@ -965,7 +965,7 @@ func (m *migration) instanceOf(classifiers []*xmi.Element, t *xmi.Element) bool 
 
 // slotConflict notes how slot values contradict their feature: a count outside
 // its multiplicity or a repeat on a unique feature. Both v1 and v2 reject them.
-func (m *migration) slotConflict(f *xmi.Element, vals []string) string {
+func (m *migration) slotConflict(f *sysmlv1.Element, vals []string) string {
 	n := len(vals)
 	lower, upper, ok := bounds(f)
 	if ok && (n < lower || (upper >= 0 && n > upper)) {
@@ -987,7 +987,7 @@ func valuesNote(vals []string) string {
 
 // bounds returns a property's multiplicity as numbers, upper -1 for unbounded;
 // ok is false when a bound is not a literal number.
-func bounds(p *xmi.Element) (lower, upper int, ok bool) {
+func bounds(p *sysmlv1.Element) (lower, upper int, ok bool) {
 	lower, upper = 1, 1
 	var err error
 	if lv := firstOwned(p, "lowerValue"); lv != nil {
@@ -1006,7 +1006,7 @@ func bounds(p *xmi.Element) (lower, upper int, ok bool) {
 }
 
 // boundValue reads a multiplicity bound; UML reads an omitted value as 0.
-func boundValue(b *xmi.Element) string {
+func boundValue(b *sysmlv1.Element) string {
 	if v := b.Attrs["value"]; v != "" {
 		return v
 	}
@@ -1042,7 +1042,7 @@ func repeated(vals []string) string {
 
 // verificationBody writes a test case: the requirements it verifies form its
 // objective; its behavior is not migrated.
-func (m *migration) verificationBody(e *xmi.Element) {
+func (m *migration) verificationBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
@@ -1059,7 +1059,7 @@ func (m *migration) verificationBody(e *xmi.Element) {
 
 // ownsEveryEnd reports whether no classifier property carries the association:
 // every member end is owned by the association itself.
-func ownsEveryEnd(e *xmi.Element, ends []*xmi.Element) bool {
+func ownsEveryEnd(e *sysmlv1.Element, ends []*sysmlv1.Element) bool {
 	for _, end := range ends {
 		if end.Parent != e {
 			return false
@@ -1071,7 +1071,7 @@ func ownsEveryEnd(e *xmi.Element, ends []*xmi.Element) bool {
 // association writes an association or association block as a connection def
 // with its member ends. An anonymous association with a classifier-owned end
 // is already written as that property, so it writes nothing.
-func (m *migration) association(e *xmi.Element) {
+func (m *migration) association(e *sysmlv1.Element) {
 	ends := m.model.Refs(e, "memberEnd")
 	name := m.nameOf(e)
 	if name == "" {
@@ -1138,7 +1138,7 @@ func (m *migration) association(e *xmi.Element) {
 
 // featureKeyword decides the v2 usage keyword of a v1 property from its type
 // and aggregation, given the category of its owner; prefix is `ref ` or empty.
-func (m *migration) featureKeyword(p *xmi.Element, owner category) (keyword, prefix, note string) {
+func (m *migration) featureKeyword(p *sysmlv1.Element, owner category) (keyword, prefix, note string) {
 	t := m.model.Ref(p, "type")
 	if owner == catConstraintDef {
 		// A constraint block's properties are its parameters, whichever metaclass
@@ -1190,7 +1190,7 @@ func (m *migration) featureKeyword(p *xmi.Element, owner category) (keyword, pre
 
 // typeKeyword is the usage keyword a property takes from its type alone,
 // before its owner and aggregation weigh in.
-func (m *migration) typeKeyword(t *xmi.Element) (keyword, note string) {
+func (m *migration) typeKeyword(t *sysmlv1.Element) (keyword, note string) {
 	if m.scalarValue(t) != "" {
 		return "attribute", ""
 	}
@@ -1223,7 +1223,7 @@ func (m *migration) typeKeyword(t *xmi.Element) (keyword, note string) {
 
 // featureDirection is the direction a feature is written with: a constraint
 // parameter is `in`, a port and a flow property carry their own.
-func (m *migration) featureDirection(p *xmi.Element, owner category, kw string) (dir, note string) {
+func (m *migration) featureDirection(p *sysmlv1.Element, owner category, kw string) (dir, note string) {
 	switch {
 	case owner == catConstraintDef && kw != "constraint":
 		return "in ", ""
@@ -1245,7 +1245,7 @@ func (m *migration) featureDirection(p *xmi.Element, owner category, kw string) 
 }
 
 // feature writes a property or port of the current scope.
-func (m *migration) feature(p *xmi.Element) {
+func (m *migration) feature(p *sysmlv1.Element) {
 	ownerCat, _ := m.classify(m.scope)
 	kw, prefix, note := m.featureKeyword(p, ownerCat)
 	t := m.model.Ref(p, "type")
@@ -1407,7 +1407,7 @@ func (m *migration) feature(p *xmi.Element) {
 }
 
 // portDirection writes the direction prefix of a flow port.
-func portDirection(p *xmi.Element) (string, string) {
+func portDirection(p *sysmlv1.Element) (string, string) {
 	fp := stereo(p, "FlowPort")
 	if fp == nil {
 		return "", ""
@@ -1426,7 +1426,7 @@ func portDirection(p *xmi.Element) (string, string) {
 // shadowed returns the written inherited property or port that p, declaring
 // no redefinition, would hide by sharing its name, or nil when there is none;
 // redefinable says whether both are the same kind of usage, so p can redefine it.
-func (m *migration) shadowed(p *xmi.Element) (f *xmi.Element, redefinable bool) {
+func (m *migration) shadowed(p *sysmlv1.Element) (f *sysmlv1.Element, redefinable bool) {
 	if p.Parent == nil || p.Name == "" || len(m.model.Refs(p, "redefinedProperty")) > 0 {
 		return nil, false
 	}
@@ -1434,9 +1434,9 @@ func (m *migration) shadowed(p *xmi.Element) (f *xmi.Element, redefinable bool) 
 	if ownerCat.keyword() == "" {
 		return nil, false
 	}
-	seen := map[*xmi.Element]bool{p.Parent: true}
-	var walk func(*xmi.Element) *xmi.Element
-	walk = func(c *xmi.Element) *xmi.Element {
+	seen := map[*sysmlv1.Element]bool{p.Parent: true}
+	var walk func(*sysmlv1.Element) *sysmlv1.Element
+	walk = func(c *sysmlv1.Element) *sysmlv1.Element {
 		for _, g := range c.Owned("generalization") {
 			t := m.model.Ref(g, "general")
 			if t == nil || seen[t] {
@@ -1464,7 +1464,7 @@ func (m *migration) shadowed(p *xmi.Element) (f *xmi.Element, redefinable bool) 
 }
 
 // classifyParent is the category of the element that owns e.
-func (m *migration) classifyParent(e *xmi.Element) category {
+func (m *migration) classifyParent(e *sysmlv1.Element) category {
 	if e.Parent == nil {
 		return catNone
 	}
@@ -1473,7 +1473,7 @@ func (m *migration) classifyParent(e *xmi.Element) category {
 }
 
 // written reports whether e becomes a v2 element that can be referred to.
-func (m *migration) written(e *xmi.Element) bool {
+func (m *migration) written(e *sysmlv1.Element) bool {
 	if e == nil || e.IsProxy() {
 		return false
 	}
@@ -1505,13 +1505,13 @@ func (m *migration) written(e *xmi.Element) bool {
 
 // inlinedBehavior reports whether e is a behavior a state or transition owns, written
 // as its owner's entry, do, exit or effect action, which nothing else can name.
-func inlinedBehavior(e *xmi.Element) bool {
+func inlinedBehavior(e *sysmlv1.Element) bool {
 	return isBehavior(e) && e.Parent != nil && (e.Parent.Type == "State" || e.Parent.Type == "Transition")
 }
 
 // hasActionForm reports whether behavior b is written inline as an action
 // body, parameters included, when a state or transition owns it.
-func hasActionForm(b *xmi.Element) bool {
+func hasActionForm(b *sysmlv1.Element) bool {
 	switch b.Type {
 	case "Activity", "OpaqueBehavior", "FunctionBehavior":
 		return true
@@ -1521,7 +1521,7 @@ func hasActionForm(b *xmi.Element) bool {
 
 // featureRef writes a reference to a property from a feature that redefines or
 // subsets it: the simple name when it is inherited into the current scope.
-func (m *migration) featureRef(r *xmi.Element) string {
+func (m *migration) featureRef(r *sysmlv1.Element) string {
 	if r.Parent != nil && m.inherits(m.scope, r.Parent) && r.Name != "" {
 		return writeName(m.nameOf(r))
 	}
@@ -1530,7 +1530,7 @@ func (m *migration) featureRef(r *xmi.Element) string {
 
 // conform reports whether types a and b may be bound as v2 judges a binding: one
 // specializes the other, or both are numbers; an unknown type is trusted.
-func (m *migration) conform(a, b *xmi.Element) bool {
+func (m *migration) conform(a, b *sysmlv1.Element) bool {
 	if a == nil || b == nil || a == b || m.inherits(a, b) || m.inherits(b, a) {
 		return true
 	}
@@ -1555,10 +1555,10 @@ var numericScalar = map[string]bool{
 }
 
 // inherits reports whether classifier e specializes general, transitively.
-func (m *migration) inherits(e, general *xmi.Element) bool {
-	seen := map[*xmi.Element]bool{}
-	var walk func(*xmi.Element) bool
-	walk = func(c *xmi.Element) bool {
+func (m *migration) inherits(e, general *sysmlv1.Element) bool {
+	seen := map[*sysmlv1.Element]bool{}
+	var walk func(*sysmlv1.Element) bool
+	walk = func(c *sysmlv1.Element) bool {
 		if c == nil || seen[c] {
 			return false
 		}
@@ -1576,13 +1576,13 @@ func (m *migration) inherits(e, general *xmi.Element) bool {
 
 // signalAttributes lists the attributes a signal's constructor binds by position:
 // its own, then the inherited ones no attribute nearer the signal redefines or shadows.
-func (m *migration) signalAttributes(sig *xmi.Element) []*xmi.Element {
-	var attrs []*xmi.Element
-	seen := map[*xmi.Element]bool{}
-	redefined := map[*xmi.Element]bool{}
+func (m *migration) signalAttributes(sig *sysmlv1.Element) []*sysmlv1.Element {
+	var attrs []*sysmlv1.Element
+	seen := map[*sysmlv1.Element]bool{}
+	redefined := map[*sysmlv1.Element]bool{}
 	names := map[string]bool{}
-	var walk func(*xmi.Element)
-	walk = func(c *xmi.Element) {
+	var walk func(*sysmlv1.Element)
+	walk = func(c *sysmlv1.Element) {
 		if c == nil || seen[c] {
 			return
 		}
@@ -1608,7 +1608,7 @@ func (m *migration) signalAttributes(sig *xmi.Element) []*xmi.Element {
 
 // typeRef writes the type of a feature: a ScalarValues type, a reference to a
 // migrated classifier, or nothing with a note when the type is not migrated.
-func (m *migration) typeRef(t, scope *xmi.Element) (string, string) {
+func (m *migration) typeRef(t, scope *sysmlv1.Element) (string, string) {
 	if t == nil {
 		return "", ""
 	}
@@ -1633,7 +1633,7 @@ func (m *migration) typeRef(t, scope *xmi.Element) (string, string) {
 
 // multiplicity writes a [lower..upper] multiplicity, or nothing for 1..1. A
 // bound that is not a natural number (or * above) is dropped with a note.
-func (m *migration) multiplicity(p *xmi.Element) (string, string) {
+func (m *migration) multiplicity(p *sysmlv1.Element) (string, string) {
 	lower, upper := "", ""
 	if lv := firstOwned(p, "lowerValue"); lv != nil {
 		lower = boundValue(lv)
@@ -1664,7 +1664,7 @@ func (m *migration) multiplicity(p *xmi.Element) (string, string) {
 
 // collection writes the ordered and nonunique modifiers of a property; UML and
 // v2 share the defaults (unordered, unique), so only a departure is written.
-func collection(p *xmi.Element) string {
+func collection(p *sysmlv1.Element) string {
 	s := ""
 	if p.Attrs["isOrdered"] == "true" {
 		s += " ordered"
@@ -1690,7 +1690,7 @@ func isNatural(s string) bool {
 
 // connector writes a connector: a binding connector as `bind`, another as
 // `connect`, and an item flow it realizes as `flow`.
-func (m *migration) connector(c *xmi.Element) {
+func (m *migration) connector(c *sysmlv1.Element) {
 	segs, note := m.connectorEnds(c, m.scope)
 	if note != "" {
 		m.unmappedConnector(c, note)
@@ -1723,7 +1723,7 @@ func (m *migration) connector(c *xmi.Element) {
 
 // unmappedConnector records a connector with no v2 form and settles the item
 // flows it realizes.
-func (m *migration) unmappedConnector(c *xmi.Element, note string) {
+func (m *migration) unmappedConnector(c *sysmlv1.Element, note string) {
 	m.unmapped(c, note)
 	for _, f := range m.flows[c] {
 		m.flowDone(f, nil, []string{"realizing connector " + describe(c) + " is not migrated: " + note})
@@ -1732,12 +1732,12 @@ func (m *migration) unmappedConnector(c *xmi.Element, note string) {
 
 // connectorEnds resolves the feature paths the two ends of connector c, owned
 // by owner, name; a note says why the connector has no v2 form.
-func (m *migration) connectorEnds(c, owner *xmi.Element) ([][]*xmi.Element, string) {
+func (m *migration) connectorEnds(c, owner *sysmlv1.Element) ([][]*sysmlv1.Element, string) {
 	ends := c.Owned("end")
 	if len(ends) != 2 {
 		return nil, fmt.Sprintf("a connector with %d ends is not migrated", len(ends))
 	}
-	segs := make([][]*xmi.Element, len(ends))
+	segs := make([][]*sysmlv1.Element, len(ends))
 	for i, end := range ends {
 		var note string
 		if segs[i], note = m.endSegments(end, owner); note != "" {
@@ -1750,12 +1750,12 @@ func (m *migration) connectorEnds(c, owner *xmi.Element) ([][]*xmi.Element, stri
 // endSegments resolves the features a connector end of owner names, in path
 // order, checking each is a feature of the owner or of the preceding segment's
 // type where the document knows it; a note says which is not.
-func (m *migration) endSegments(end, owner *xmi.Element) ([]*xmi.Element, string) {
+func (m *migration) endSegments(end, owner *sysmlv1.Element) ([]*sysmlv1.Element, string) {
 	role := m.model.Ref(end, "role")
 	if role == nil {
 		return nil, "a connector end names no role in the document"
 	}
-	var segs []*xmi.Element
+	var segs []*sysmlv1.Element
 	if nce := stereo(end, "NestedConnectorEnd"); nce != nil {
 		for _, id := range nce.IDs("propertyPath") {
 			p := m.model.Lookup(id)
@@ -1795,7 +1795,7 @@ func segmentWord(i, n int) string {
 // itemFlow writes an item flow realized by a connector as a flow between the
 // flow properties its ends carry for each conveyed classifier, from the end
 // whose role is the flow's source to the end whose role is its target.
-func (m *migration) itemFlow(f *xmi.Element, ends []*xmi.Element, paths []string) {
+func (m *migration) itemFlow(f *sysmlv1.Element, ends []*sysmlv1.Element, paths []string) {
 	conveyed := m.model.Refs(f, "conveyed")
 	missing := m.dangling(f, "conveyed")
 	if len(conveyed) == 0 {
@@ -1841,7 +1841,7 @@ func (m *migration) itemFlow(f *xmi.Element, ends []*xmi.Element, paths []string
 
 // flowDone records one realizing connector's result for f and reports the flow
 // once the last of them is in.
-func (m *migration) flowDone(f *xmi.Element, written, notes []string) {
+func (m *migration) flowDone(f *sysmlv1.Element, written, notes []string) {
 	o := m.outcomes[f]
 	o.written = append(o.written, written...)
 	o.notes = append(o.notes, notes...)
@@ -1852,7 +1852,7 @@ func (m *migration) flowDone(f *xmi.Element, written, notes []string) {
 }
 
 // reportFlow adds f's single report entry from what its connectors did.
-func (m *migration) reportFlow(f *xmi.Element, o *flowOutcome) {
+func (m *migration) reportFlow(f *sysmlv1.Element, o *flowOutcome) {
 	delete(m.outcomes, f)
 	note := strings.Join(o.notes, "; ")
 	switch {
@@ -1868,7 +1868,7 @@ func (m *migration) reportFlow(f *xmi.Element, o *flowOutcome) {
 // flushFlows reports the item flows still waiting on a realizing connector
 // that was never written because its owner is not migrated.
 func (m *migration) flushFlows() {
-	var rest []*xmi.Element
+	var rest []*sysmlv1.Element
 	for f := range m.outcomes {
 		rest = append(rest, f)
 	}
@@ -1881,7 +1881,7 @@ func (m *migration) flushFlows() {
 }
 
 // flowProperty finds the flow property of a port's type carrying item.
-func (m *migration) flowProperty(port, item *xmi.Element) *xmi.Element {
+func (m *migration) flowProperty(port, item *sysmlv1.Element) *sysmlv1.Element {
 	t := m.model.Ref(port, "type")
 	if t == nil {
 		return nil
@@ -1896,7 +1896,7 @@ func (m *migration) flowProperty(port, item *xmi.Element) *xmi.Element {
 
 // informationFlow writes an item flow with no realizing connector as a flow
 // between its source and target when both are features of the scope.
-func (m *migration) informationFlow(f *xmi.Element) {
+func (m *migration) informationFlow(f *sysmlv1.Element) {
 	if len(m.model.Refs(f, "realizingConnector")) > 0 {
 		return
 	}
@@ -1904,7 +1904,7 @@ func (m *migration) informationFlow(f *xmi.Element) {
 }
 
 // rule writes a constraint owned by a classifier as a constraint usage.
-func (m *migration) rule(r *xmi.Element) {
+func (m *migration) rule(r *sysmlv1.Element) {
 	spec := firstOwned(r, "specification")
 	if spec == nil {
 		m.unmapped(r, "the constraint has no specification")
@@ -1925,11 +1925,11 @@ func (m *migration) rule(r *xmi.Element) {
 
 // pair is one client–supplier pair of a dependency; a dependency with several
 // clients or suppliers stands for every pair.
-type pair struct{ client, supplier *xmi.Element }
+type pair struct{ client, supplier *sysmlv1.Element }
 
 // dependencyPairs expands a dependency into the client–supplier pairs that can
 // be written and the number that cannot; the note says why, for those.
-func (m *migration) dependencyPairs(d *xmi.Element) (pairs []pair, failed int, note string) {
+func (m *migration) dependencyPairs(d *sysmlv1.Element) (pairs []pair, failed int, note string) {
 	clients := m.model.Refs(d, "client")
 	suppliers := m.model.Refs(d, "supplier")
 	missing := m.dangling(d, "client", "supplier")
@@ -1965,7 +1965,7 @@ type placement struct {
 // placeDependency registers, ahead of writing, a Satisfy or Verify in the body
 // of the element each pair is written in, which may precede the dependency
 // itself; the dependency's report entry is written where it stands.
-func (m *migration) placeDependency(d *xmi.Element) {
+func (m *migration) placeDependency(d *sysmlv1.Element) {
 	if !has(d, "Satisfy", "Verify") {
 		return
 	}
@@ -2000,7 +2000,7 @@ func (m *migration) placeDependency(d *xmi.Element) {
 // placedName reserves name in scope's body for a Satisfy or Verify written
 // there, distinct from the members and from any earlier pair of the same name;
 // the note says when the name had to change.
-func (m *migration) placedName(scope *xmi.Element, name string) (string, string) {
+func (m *migration) placedName(scope *sysmlv1.Element, name string) (string, string) {
 	if name == "" {
 		return "", ""
 	}
@@ -2013,7 +2013,7 @@ func (m *migration) placedName(scope *xmi.Element, name string) (string, string)
 
 // dependency writes a dependency by the SysML stereotype it carries, one
 // relationship per client–supplier pair.
-func (m *migration) dependency(d *xmi.Element) {
+func (m *migration) dependency(d *sysmlv1.Element) {
 	if has(d, "Satisfy", "Verify") {
 		m.relationship(d, m.unplaced[d])
 		return
@@ -2052,7 +2052,7 @@ func (m *migration) dependency(d *xmi.Element) {
 
 // freshName returns name, or name with a numeric suffix, not yet taken in owner,
 // and reserves it.
-func (m *migration) freshName(owner *xmi.Element, name string) string {
+func (m *migration) freshName(owner *sysmlv1.Element, name string) string {
 	base := name
 	for i := 2; m.nameTaken(owner, name); i++ {
 		name = fmt.Sprintf("%s %d", base, i)
@@ -2063,7 +2063,7 @@ func (m *migration) freshName(owner *xmi.Element, name string) string {
 
 // relationship appends the one report entry of a relationship: mapped when every
 // pair was written, approximated when some were, unmapped when none.
-func (m *migration) relationship(d *xmi.Element, pl *placement) {
+func (m *migration) relationship(d *sysmlv1.Element, pl *placement) {
 	note := strings.Join(uniqueStrings(pl.notes), "; ")
 	target := ""
 	if pl.written == 1 {
@@ -2096,12 +2096,12 @@ func uniqueStrings(in []string) []string {
 
 // dependencyPair writes one client–supplier pair of a dependency, returning
 // the v2 target written, if any, whether it was written, and a note.
-func (m *migration) dependencyPair(d *xmi.Element, name string, client, supplier *xmi.Element) (string, bool, string) {
+func (m *migration) dependencyPair(d *sysmlv1.Element, name string, client, supplier *sysmlv1.Element) (string, bool, string) {
 	if has(d, "DeriveReqt") {
 		target, note := m.derive(d, name, client, supplier)
 		return target, target != "", note
 	}
-	for _, end := range []*xmi.Element{client, supplier} {
+	for _, end := range []*sysmlv1.Element{client, supplier} {
 		if !m.written(end) {
 			return "", false, "its end " + qualifiedName(end) + " is not migrated"
 		}
@@ -2150,7 +2150,7 @@ func (m *migration) dependencyPair(d *xmi.Element, name string, client, supplier
 // satisfy places `satisfy requirement` in the body of the satisfying block, or
 // of the block owning the satisfying property, returning the v2 name written,
 // a note, and whether it was written.
-func (m *migration) satisfy(client, req *xmi.Element, name string) (string, string, bool) {
+func (m *migration) satisfy(client, req *sysmlv1.Element, name string) (string, string, bool) {
 	if rc, _ := m.classify(req); rc != catRequirementDef {
 		return "", "the supplier " + qualifiedName(req) + " is not a requirement", false
 	}
@@ -2175,7 +2175,7 @@ func (m *migration) satisfy(client, req *xmi.Element, name string) (string, stri
 
 // placedTarget is the report target of a Satisfy or Verify written in scope:
 // the usage itself when named, else the body it was written in.
-func (m *migration) placedTarget(scope *xmi.Element, name string) string {
+func (m *migration) placedTarget(scope *sysmlv1.Element, name string) string {
 	if name == "" {
 		return m.v2Name(scope)
 	}
@@ -2184,7 +2184,7 @@ func (m *migration) placedTarget(scope *xmi.Element, name string) string {
 
 // usageContext finds the body a client's satisfy is written in: the
 // classifier itself, or the classifier owning a property, satisfied `by` it.
-func (m *migration) usageContext(client *xmi.Element) (*xmi.Element, string) {
+func (m *migration) usageContext(client *sysmlv1.Element) (*sysmlv1.Element, string) {
 	if client.Type == "Property" || client.Type == "Port" {
 		if client.Parent == nil {
 			return nil, ""
@@ -2202,7 +2202,7 @@ func (m *migration) usageContext(client *xmi.Element) (*xmi.Element, string) {
 }
 
 // verify places `verify requirement` in the objective of the test case.
-func (m *migration) verify(client, req *xmi.Element, name string) (string, string, bool) {
+func (m *migration) verify(client, req *sysmlv1.Element, name string) (string, string, bool) {
 	if rc, _ := m.classify(req); rc != catRequirementDef {
 		return "", "the supplier " + qualifiedName(req) + " is not a requirement", false
 	}
@@ -2222,7 +2222,7 @@ func (m *migration) verify(client, req *xmi.Element, name string) (string, strin
 
 // derive writes a requirement derivation as a connection def specializing the
 // library's Derivation, with the original and derived requirements as ends.
-func (m *migration) derive(d *xmi.Element, name string, derived, original *xmi.Element) (string, string) {
+func (m *migration) derive(d *sysmlv1.Element, name string, derived, original *sysmlv1.Element) (string, string) {
 	dc, _ := m.classify(derived)
 	oc, _ := m.classify(original)
 	if dc != catRequirementDef || oc != catRequirementDef {
@@ -2249,11 +2249,11 @@ func (m *migration) derive(d *xmi.Element, name string, derived, original *xmi.E
 
 // comments writes the comments documenting e: the first as doc, the rest as
 // comments, and a comment annotating other elements as `comment about`.
-func (m *migration) comments(e *xmi.Element) { m.writeComments(e, true) }
+func (m *migration) comments(e *sysmlv1.Element) { m.writeComments(e, true) }
 
 // writeComments writes e's comments; the first becomes doc only when e has no
 // doc yet.
-func (m *migration) writeComments(e *xmi.Element, first bool) {
+func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 	for _, c := range e.Owned("ownedComment") {
 		about := m.model.Refs(c, "annotatedElement")
 		missing := m.dangling(c, "annotatedElement")
@@ -2301,7 +2301,7 @@ func (m *migration) writeComments(e *xmi.Element, first bool) {
 }
 
 // commentBody reads a comment's text, from its body attribute or child element.
-func commentBody(c *xmi.Element) string {
+func commentBody(c *sysmlv1.Element) string {
 	if text := commentText(c.Attrs["body"]); text != "" {
 		return text
 	}
@@ -2312,7 +2312,7 @@ func commentBody(c *xmi.Element) string {
 }
 
 // comment writes a comment found outside the ownedComment role.
-func (m *migration) comment(c *xmi.Element) {
+func (m *migration) comment(c *sysmlv1.Element) {
 	text := commentBody(c)
 	if text == "" {
 		m.add(c, Skipped, "", "empty comment")
@@ -2352,7 +2352,7 @@ var consumedTags = map[string]map[string]bool{
 // stereotypeComments keeps the stereotypes the mapping does not consume, and
 // the tags it does not read of those it does, as a comment in the element's
 // body; an unread tag makes the element's migration an approximation.
-func (m *migration) stereotypeComments(e *xmi.Element) {
+func (m *migration) stereotypeComments(e *sysmlv1.Element) {
 	for _, s := range e.Stereotypes {
 		classifying := isStandard(s) && classifyingStereotypes[s.Name]
 		consumed := consumedTags[s.Name]
@@ -2391,7 +2391,7 @@ func (m *migration) stereotypeComments(e *xmi.Element) {
 
 // isConstraintParameterMarker recognises MagicDraw's «ConstraintParameter» marker,
 // which the `in` direction already says; a user profile's same-named stereotype is kept.
-func (m *migration) isConstraintParameterMarker(e *xmi.Element, s *xmi.Stereotype) bool {
+func (m *migration) isConstraintParameterMarker(e *sysmlv1.Element, s *sysmlv1.Stereotype) bool {
 	if s.Name != "ConstraintParameter" || len(s.Tags) > 0 || e.Parent == nil ||
 		!isMagicDrawCustomization(s.Namespace) {
 		return false
@@ -2423,7 +2423,7 @@ func isRequirementStereotype(name string) bool {
 
 // unmapped records an element with no v2 form and keeps a trace of it as a
 // comment where it would have been written.
-func (m *migration) unmapped(e *xmi.Element, note string) {
+func (m *migration) unmapped(e *sysmlv1.Element, note string) {
 	note = joinNotes(note, m.stereotypeSummary(e))
 	m.w.lines(commentLines("not migrated: " + kindOf(e) + " " + describe(e) + " — " + note))
 	m.add(e, Unmapped, "", note)
@@ -2431,7 +2431,7 @@ func (m *migration) unmapped(e *xmi.Element, note string) {
 
 // stereotypeSummary lists every stereotype applied to e with its tags, so an
 // element left behind keeps its metadata; "" when none is applied.
-func (m *migration) stereotypeSummary(e *xmi.Element) string {
+func (m *migration) stereotypeSummary(e *sysmlv1.Element) string {
 	var parts []string
 	for _, s := range e.Stereotypes {
 		var tags []string
@@ -2453,12 +2453,12 @@ func (m *migration) stereotypeSummary(e *xmi.Element) string {
 
 // unmappedExpr records a constraint whose expression has no v2 form, keeping
 // its text.
-func (m *migration) unmappedExpr(r, spec *xmi.Element, note string) {
+func (m *migration) unmappedExpr(r, spec *sysmlv1.Element, note string) {
 	m.w.lines(commentLines("not migrated: " + kindOf(r) + " " + describe(r) + " " + describeValue(spec) + " — " + note))
 	m.add(r, Unmapped, "", note)
 }
 
-func describe(e *xmi.Element) string {
+func describe(e *sysmlv1.Element) string {
 	if e.Name != "" {
 		return "'" + e.Name + "'"
 	}
@@ -2466,7 +2466,7 @@ func describe(e *xmi.Element) string {
 }
 
 // describeValue shows a value specification's text for a comment.
-func describeValue(v *xmi.Element) string {
+func describeValue(v *sysmlv1.Element) string {
 	if v.Type == "OpaqueExpression" {
 		body, lang := opaqueBody(v)
 		if lang != "" {

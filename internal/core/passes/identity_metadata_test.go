@@ -4,7 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/identity/normative"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -12,7 +13,7 @@ import (
 
 // identityDiagsAcross analyses two workspace documents with the default
 // registry and returns each document's diagnostics.
-func identityDiagsAcross(t *testing.T, srcA, srcB string) ([]Diagnostic, []Diagnostic) {
+func identityDiagsAcross(t *testing.T, srcA, srcB string) ([]diag.Diagnostic, []diag.Diagnostic) {
 	t.Helper()
 	rootA := parser.New(source.New("<a>", []byte(srcA))).ParseFile()
 	rootB := parser.New(source.New("<b>", []byte(srcB))).ParseFile()
@@ -38,7 +39,7 @@ func TestIdentityDuplicateIdsAcrossDocumentsOfOneProject(t *testing.T) {
 }
 `
 	diagsA, diagsB := identityDiagsAcross(t, srcA, srcB)
-	for _, diags := range [][]Diagnostic{only(diagsA, "identity-duplicate-id"), only(diagsB, "identity-duplicate-id")} {
+	for _, diags := range [][]diag.Diagnostic{only(diagsA, "identity-duplicate-id"), only(diagsB, "identity-duplicate-id")} {
 		if len(diags) != 1 {
 			t.Fatalf("got %d duplicate-id diagnostics in one document, want 1: %v", len(diags), diags)
 		}
@@ -553,7 +554,7 @@ package P {
 }
 
 func TestIdentityCollisionWithLibraryDescendantUnderAboutFormProjectRef(t *testing.T) {
-	src := libraryCollisionSrc(normative.ElementID(normative.KerML, "ScalarValues::Boolean"))
+	src := libraryCollisionSrc(identity.ElementID(identity.KerML, "ScalarValues::Boolean"))
 	diags := only(w8dDiags(t, src), "identity-duplicate-id")
 	if len(diags) != 1 {
 		t.Fatalf("got %d duplicate-id diagnostics, want 1 at the workspace annotation: %v", len(diags), diags)

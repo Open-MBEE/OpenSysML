@@ -3,17 +3,18 @@ package passes
 import (
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // duplicateOwnedNameDiags returns the duplicate-owned-member-name warnings of src.
-func duplicateOwnedNameDiags(t *testing.T, src string) []Diagnostic {
+func duplicateOwnedNameDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	root := parser.New(source.New("<t>", []byte(src))).ParseFile()
 	idx := newTestIndex()
 	idx.AddDocument("<t>", root)
-	var duplicates []Diagnostic
+	var duplicates []diag.Diagnostic
 	for _, d := range Analyze("<t>", root, nil, idx) {
 		if d.Message == "Duplicate of other owned member name" {
 			duplicates = append(duplicates, d)

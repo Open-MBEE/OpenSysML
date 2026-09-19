@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -25,7 +26,7 @@ func (MetadataTypePass) Level() PassLevel { return LevelType }
 // metaclass it names: a failure on another element does not hide it.
 func (MetadataTypePass) ElementScoped() { /* marker: per-element gating */ }
 
-func (MetadataTypePass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (MetadataTypePass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	rootScope := ctx.Index.DocumentRoot(name)
 	if rootScope == nil {
 		return nil
@@ -43,7 +44,7 @@ type metadataTypeChecker struct {
 		ResolveQualified(*symbols.Scope, *ast.QualifiedName) (*symbols.Symbol, bool)
 		ResolveAliasTarget(*symbols.Symbol) (*symbols.Symbol, bool)
 	}
-	diags []Diagnostic
+	diags []diag.Diagnostic
 }
 
 func (c *metadataTypeChecker) checkSymbol(sym *symbols.Symbol) {
@@ -99,8 +100,8 @@ func (c *metadataTypeChecker) check(scope *symbols.Scope, typeRef *ast.Qualified
 }
 
 func (c *metadataTypeChecker) report(span source.Span, msg, code string) {
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message:  msg,
 		Code:     code,

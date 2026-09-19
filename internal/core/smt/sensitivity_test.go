@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -153,7 +154,7 @@ func (o oracle) values(t *testing.T, feature string) []string {
 	if o[feature] == nil {
 		t.Fatalf("the oracle gives %s no value", feature)
 	}
-	return sortedKeys(o[feature])
+	return slices.Sorted(maps.Keys(o[feature]))
 }
 
 // replayedValues re-runs both witnesses of a sensitivity through the interpreter to

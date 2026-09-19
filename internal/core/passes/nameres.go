@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // NameResolutionPass resolves every reference in a document via the Plan-3
@@ -14,7 +15,7 @@ type NameResolutionPass struct{}
 func (NameResolutionPass) Level() PassLevel { return LevelNameResolution }
 
 // Run resolves the document and adapts resolver diagnostics.
-func (NameResolutionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (NameResolutionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -26,7 +27,7 @@ func (NameResolutionPass) Run(ctx *Context, name string, root *ast.RootNamespace
 	if len(rd) == 0 {
 		return nil
 	}
-	out := make([]Diagnostic, 0, len(rd))
+	out := make([]diag.Diagnostic, 0, len(rd))
 	for _, d := range rd {
 		code := d.Code
 		if code == "" {
@@ -35,11 +36,11 @@ func (NameResolutionPass) Run(ctx *Context, name string, root *ast.RootNamespace
 				code = "ambiguous"
 			}
 		}
-		severity := SeverityError
+		severity := diag.SeverityError
 		if d.Warning {
-			severity = SeverityWarning
+			severity = diag.SeverityWarning
 		}
-		out = append(out, Diagnostic{
+		out = append(out, diag.Diagnostic{
 			Severity: severity,
 			Span:     d.Span,
 			Message:  d.Message,

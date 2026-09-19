@@ -3,13 +3,15 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // annotationOwnershipLines returns the 1-based source lines on which src draws
 // an annotation-ownership diagnostic, in order.
 func annotationOwnershipLines(t *testing.T, src string, kerml bool) []int {
 	t.Helper()
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	if kerml {
 		diags = constraintDiagsKerML(t, src)
 	} else {
@@ -20,7 +22,7 @@ func annotationOwnershipLines(t *testing.T, src string, kerml bool) []int {
 		if d.Message != msgAnnotationOwnsAnnotating {
 			t.Errorf("message = %q, want %q", d.Message, msgAnnotationOwnsAnnotating)
 		}
-		if d.Severity != SeverityError {
+		if d.Severity != diag.SeverityError {
 			t.Errorf("severity = %v, want an error", d.Severity)
 		}
 		lines = append(lines, strings.Count(src[:d.Span.Offset], "\n")+1)

@@ -17,7 +17,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/fixtures"
+	"github.com/Open-MBEE/OpenSysML/tests/fixtures"
 )
 
 var updateLibraryCensus = flag.Bool("update-library-census", false, "Rewrite docs/project/analysis-library-census.json from this run")
@@ -338,7 +338,7 @@ func oneProbeSymbol(t *testing.T, idx *symbols.Index, decl, fqn string) *symbols
 func newLibraryContext(t *testing.T, idx *symbols.Index) *Context {
 	t.Helper()
 	resolver := resolve.New(idx)
-	return NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
+	return NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
 }
 
 // sentinelName is the census's name for the sentinel an error is typed by, or

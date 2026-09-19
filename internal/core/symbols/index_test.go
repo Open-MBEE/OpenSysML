@@ -578,7 +578,7 @@ func TestLookupDirectChildrenNamedMatchesScan(t *testing.T) {
 	scan := func(all []*Symbol, name string) []*Symbol {
 		var out []*Symbol
 		for _, sym := range all {
-			if lastSegment(sym.Name) == name || sym.ShortName == name {
+			if LastSegment(sym.Name) == name || sym.ShortName == name {
 				out = append(out, sym)
 			}
 		}

@@ -4,12 +4,13 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 )
 
 // codesOf reports the diagnostic codes of a result, so a finding is asserted by
 // the code it is stable under rather than its wording.
-func codesOf(diags []passes.Diagnostic) []string {
+func codesOf(diags []diag.Diagnostic) []string {
 	out := make([]string, 0, len(diags))
 	for _, d := range diags {
 		out = append(out, d.Code)
@@ -17,7 +18,7 @@ func codesOf(diags []passes.Diagnostic) []string {
 	return out
 }
 
-func hasCode(diags []passes.Diagnostic, code string) bool {
+func hasCode(diags []diag.Diagnostic, code string) bool {
 	for _, d := range diags {
 		if d.Code == code {
 			return true
@@ -35,7 +36,7 @@ func TestSubmittedNamespaceWarnsAsKerMLNotation(t *testing.T) {
 		t.Fatalf("want a %s finding, got %v", passes.CodeKerMLNotation, codesOf(res.Diagnostics))
 	}
 	for _, d := range res.Diagnostics {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Fatalf("the notation stays parsed, so it must not error: %v", d)
 		}
 	}

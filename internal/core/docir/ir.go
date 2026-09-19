@@ -3,8 +3,8 @@
 package docir
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
 
@@ -52,7 +52,7 @@ type TextRun struct {
 	text     string
 	target   string
 	document string
-	origin   provenance.Origin
+	origin   symbols.Origin
 }
 
 // Kind returns the classification of the run; the zero value is plain.
@@ -76,7 +76,7 @@ func (r TextRun) Target() string { return r.target }
 func (r TextRun) TargetDocument() string { return r.document }
 
 // Origin returns the source declaration or query value behind the run.
-func (r TextRun) Origin() provenance.Origin { return r.origin }
+func (r TextRun) Origin() symbols.Origin { return r.origin }
 
 // TableGroup is one group of a grouped table's rows sharing a group-column
 // value, in order of first appearance.
@@ -103,7 +103,7 @@ func cloneGroups(groups []TableGroup) []TableGroup {
 type ListItem struct {
 	runs    []TextRun
 	element queryexec.Value
-	origin  provenance.Origin
+	origin  symbols.Origin
 }
 
 // Runs returns the item's text runs in column order.
@@ -113,14 +113,14 @@ func (i ListItem) Runs() []TextRun { return append([]TextRun(nil), i.runs...) }
 func (i ListItem) Element() queryexec.Value { return i.element }
 
 // Origin returns the query row behind the item.
-func (i ListItem) Origin() provenance.Origin { return i.origin }
+func (i ListItem) Origin() symbols.Origin { return i.origin }
 
 // Definition is one evaluated definitions entry, produced from one query row.
 type Definition struct {
 	term        []TextRun
 	description []TextRun
 	element     queryexec.Value
-	origin      provenance.Origin
+	origin      symbols.Origin
 }
 
 // Term returns the runs naming the entry, one per value of the term column.
@@ -134,7 +134,7 @@ func (d Definition) Description() []TextRun { return append([]TextRun(nil), d.de
 func (d Definition) Element() queryexec.Value { return d.element }
 
 // Origin returns the query row behind the entry.
-func (d Definition) Origin() provenance.Origin { return d.origin }
+func (d Definition) Origin() symbols.Origin { return d.origin }
 
 // Content is one evaluated content node: a section, paragraph, table, list,
 // definitions block, formula, or diagram.
@@ -158,8 +158,8 @@ type Content struct {
 	palette     view.Palette
 	children    []Content
 	query       string
-	queryOrigin provenance.Origin
-	origin      provenance.Origin
+	queryOrigin symbols.Origin
+	origin      symbols.Origin
 }
 
 // Kind returns the classification of the node.
@@ -250,10 +250,10 @@ func (c Content) Children() []Content { return cloneContent(c.children) }
 func (c Content) Query() string { return c.query }
 
 // QueryOrigin returns the declaration of the query behind a query-backed node.
-func (c Content) QueryOrigin() provenance.Origin { return c.queryOrigin }
+func (c Content) QueryOrigin() symbols.Origin { return c.queryOrigin }
 
 // Origin returns the source declaration behind the node.
-func (c Content) Origin() provenance.Origin { return c.origin }
+func (c Content) Origin() symbols.Origin { return c.origin }
 
 func cloneContent(content []Content) []Content {
 	out := make([]Content, len(content))
@@ -290,7 +290,7 @@ type Document struct {
 	name    string
 	title   string
 	content []Content
-	origin  provenance.Origin
+	origin  symbols.Origin
 }
 
 // Name returns the fully-qualified name of the document definition.
@@ -303,4 +303,4 @@ func (d *Document) Title() string { return d.title }
 func (d *Document) Content() []Content { return cloneContent(d.content) }
 
 // Origin returns the source declaration behind the document.
-func (d *Document) Origin() provenance.Origin { return d.origin }
+func (d *Document) Origin() symbols.Origin { return d.origin }
