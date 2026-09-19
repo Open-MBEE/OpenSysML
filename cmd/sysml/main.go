@@ -440,6 +440,14 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -migration-results accompanies -convert of a SysML v1 model; write `sysml model.xmi -convert sysml -migration-results results.json`")
 		return 2
 	}
+	if flagGiven("migration-results") && migrationResults == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -migration-results is empty; name the JSON file to write the run configurations and result snapshots to")
+		return 2
+	}
+	if flagGiven("compare-results") && modelChecks.compare == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -compare-results is empty; name the JSON file -migration-results wrote")
+		return 2
+	}
 	if modelChecks.compare != "" && (convertFormat != "" || renderView != "" || renderAllDir != "" || renderDoc != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0 || compileCalc != "" || syncDiffWith != "" || syncApplyTo != "") {
 		fmt.Fprintln(os.Stderr, "sysml: -compare-results runs the migrated model against the tool's results; it cannot be combined with -convert, -render, -render-all, -render-document, -render-documents, -query, -eval, -compile, -sync-diff or -sync-apply")
 		return 2

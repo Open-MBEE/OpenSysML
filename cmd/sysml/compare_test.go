@@ -121,6 +121,7 @@ func TestMigrationResultsThroughCLI(t *testing.T) {
 		"results over the model":  {[]string{simconfigXMI, "-convert", "sysml", "-o", sidecar, "-migration-results", sidecar}, "-migration-results and -o both name"},
 		"results over the report": {[]string{simconfigXMI, "-convert", "sysml", "-migration-report", sidecar, "-migration-results", sidecar}, "-migration-results and -migration-report both name"},
 		"results over the input":  {[]string{simconfigXMI, "-convert", "sysml", "-migration-results", simconfigXMI}, "names the model being migrated"},
+		"empty results path":      {[]string{simconfigXMI, "-convert", "sysml", "-migration-results="}, "-migration-results is empty"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := runCommand(t, exec.Command(binary, tc.args...))
@@ -129,6 +130,23 @@ func TestMigrationResultsThroughCLI(t *testing.T) {
 			}
 			if !strings.Contains(got.output(), tc.want) {
 				t.Errorf("expected %q in the error, got:\n%s", tc.want, got.output())
+			}
+		})
+	}
+
+	// An explicitly empty path is a usage error, not the REPL the model alone would open.
+	for name, args := range map[string][]string{
+		"empty":       {model, "-compare-results="},
+		"empty first": {"-compare-results=", model},
+		"with action": {model, "-compare-results=", "-action", "Group 0"},
+	} {
+		t.Run("empty compare path "+name, func(t *testing.T) {
+			got := runCommand(t, exec.Command(binary, args...))
+			if got.status != 2 || !strings.Contains(got.stderr, "-compare-results is empty; name the JSON file -migration-results wrote") {
+				t.Fatalf("expected a usage error, got status %d:\n%s", got.status, got.output())
+			}
+			if got.stdout != "" {
+				t.Errorf("a usage error writes nothing to stdout, got:\n%s", got.stdout)
 			}
 		})
 	}
