@@ -18,7 +18,8 @@ import (
 // resultSnapshots reads into r the snapshots of the target's classifiers under the
 // resultLocation packages that record the values the target configures, each once
 // though the locations repeat or nest. A feature two slots of a snapshot hold numbers
-// for has no one result there and is noted; lost says what is outside the document.
+// for, or a number no float64 spells exactly, is no result there and is noted; lost
+// says what is outside the document.
 func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysmlv1.Stereotype, target executionTarget) (lost []string) {
 	ids := s.IDs("resultLocation")
 	if len(ids) == 0 {
@@ -65,6 +66,10 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 				}
 				if value.kind != kindNumber {
 					unread[name+" holds a "+value.spec+", which is no number"]++
+					continue
+				}
+				if !value.carried() {
+					unread[name+" holds "+strconv.Quote(value.text)+", which no float64 spells exactly, and a result is a float64"]++
 					continue
 				}
 				snap.Values[name] = value.number
@@ -393,6 +398,16 @@ func (v scalarValue) equals(o scalarValue) bool {
 	return v.text == o.text
 }
 
+// carried reports whether a number's float64 denotes it exactly: the shortest
+// decimal that reads back as the float64 is the number itself, so no digit is lost.
+func (v scalarValue) carried() bool {
+	if v.kind != kindNumber {
+		return false
+	}
+	shortest, ok := new(big.Rat).SetString(strconv.FormatFloat(v.number, 'g', -1, 64))
+	return ok && shortest.Cmp(v.exact) == 0
+}
+
 const (
 	kindNumber      = "number"
 	kindBoolean     = "boolean"
@@ -413,7 +428,7 @@ func (m *migration) literalScalar(v *sysmlv1.Element) (value scalarValue, reason
 	value.spec = v.Type
 	switch v.Type {
 	case "LiteralReal", "LiteralInteger", "LiteralUnlimitedNatural":
-		value.kind = kindNumber
+		value.kind, value.text = kindNumber, strings.TrimSpace(v.Attrs["value"])
 		value.exact, value.number, reason = literalNumber(v)
 	case "LiteralBoolean":
 		value.kind = kindBoolean

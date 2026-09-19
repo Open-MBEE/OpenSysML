@@ -390,6 +390,7 @@ func TestNonnumericConfiguredValuesTellSnapshotsApart(t *testing.T) {
 
 // A configured number tells snapshots apart exactly: two integers one float64
 // apart, 2^53 and 2^53 + 1, are two values whichever literal kind spells them.
+// A result no float64 holds exactly is noted, not rounded into the sidecar.
 func TestConfiguredNumbersTellSnapshotsApartExactly(t *testing.T) {
 	const wide = `
     <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">
@@ -423,6 +424,22 @@ func TestConfiguredNumbersTellSnapshotsApartExactly(t *testing.T) {
           <value xmi:type="uml:LiteralReal" xmi:id="_r2tv" value="2.0"/>
         </slot>
       </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r3" name="run 3" classifier="_rig">
+        <slot xmi:type="uml:Slot" xmi:id="_r3n" definingFeature="_n">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_r3nv" value="9007199254740993"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r3t" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r3tv" value="0.12345678901234567890"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r4" name="run 4" classifier="_rig">
+        <slot xmi:type="uml:Slot" xmi:id="_r4n" definingFeature="_n">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_r4nv" value="9007199254740993"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r4t" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r4tv" value="0.1"/>
+        </slot>
+      </packagedElement>
     </packagedElement>`
 	r := migrateDocument(t, wide, `
   <sysml:Block xmi:id="_s1" base_Class="_rig"/>
@@ -432,15 +449,23 @@ func TestConfiguredNumbersTellSnapshotsApartExactly(t *testing.T) {
 		t.Fatalf("results index %d configuration(s), want 1", len(r.Results.Configurations))
 	}
 	odd := r.Results.Configurations[0]
-	if ids := snapshotIDs(odd); !reflect.DeepEqual(ids, []string{"_r2"}) {
-		t.Errorf("the snapshots of odd are %v, want run 2 alone", ids)
+	if ids := snapshotIDs(odd); !reflect.DeepEqual(ids, []string{"_r2", "_r3", "_r4"}) {
+		t.Errorf("the snapshots of odd are %v, want runs 2, 3 and 4", ids)
 	}
-	want := "1 snapshot(s) record other values of n than the target configures, so they are of another configuration and not among the results"
-	if !slices.Contains(odd.Notes, want) {
-		t.Errorf("odd notes %q, want %q among them", odd.Notes, want)
+	for _, want := range []string{
+		"1 snapshot(s) record other values of n than the target configures, so they are of another configuration and not among the results",
+		`the slot of n holds "9007199254740993", which no float64 spells exactly, and a result is a float64 in 3 snapshot(s), so it is not among the results`,
+		`the slot of t holds "0.12345678901234567890", which no float64 spells exactly, and a result is a float64 in 1 snapshot(s), so it is not among the results`,
+	} {
+		if !slices.Contains(odd.Notes, want) {
+			t.Errorf("odd notes %q, want %q among them", odd.Notes, want)
+		}
 	}
-	if values := odd.Values("t"); !reflect.DeepEqual(values, []float64{2.0}) {
-		t.Errorf("odd's t = %v, want [2]", values)
+	if !reflect.DeepEqual(odd.Observables, []string{"t"}) {
+		t.Errorf("odd's observables = %v, want t alone", odd.Observables)
+	}
+	if values := odd.Values("t"); !reflect.DeepEqual(values, []float64{2.0, 0.1}) {
+		t.Errorf("odd's t = %v, want [2 0.1]", values)
 	}
 	wantClean(t, "n.sysml", r)
 }
