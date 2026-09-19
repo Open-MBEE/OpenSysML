@@ -58,11 +58,12 @@ func nestedStateStarterOf(part, sym *symbols.Symbol, path string, horizon Horizo
 
 // Every witness of a check over a state whose `do` body loops through timed
 // waits replays to its trace: at the round the body's branches are due together
-// the timed exit is due too, and the move the checker records there is the move
-// replay makes, whether the machine runs at top level or on a part nested in
-// another. The check is within bounds, not exhaustive: at that round its one
-// move dispatches the exit, and the fixed policies' run — the round finished
-// first — is the interleaving it names as not enumerated.
+// the timed exit is due too, and the moves the checker records there — the step
+// order between the body and the exit, then the token order — are the moves replay
+// makes, whether the machine runs at top level or on a part nested in another.
+// The check diverges over `left` (the exit before or after the step) and is not
+// exhaustive: the step moves one token, and the fixed policies' run — the round
+// finished first — is the interleaving it names as not enumerated.
 func TestCheckWitnessesOfALoopingDoRoundReplay(t *testing.T) {
 	for _, nested := range []bool{false, true} {
 		name := "top-level"
@@ -81,15 +82,21 @@ func TestCheckWitnessesOfALoopingDoRoundReplay(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if report.Verdict != CheckWithinBounds || len(report.Finals) == 0 {
-				t.Fatalf("check: %s, want no violation within bounds, with finals", report.Status())
+			if report.Verdict != CheckDivergent || len(report.Finals) == 0 || len(report.Violations) != 0 {
+				t.Fatalf("check: %s, want no violation, divergent, with finals", report.Status())
 			}
 			if len(report.BoundsHit) != 0 || !slices.Equal(report.NotEnumerated, []string{NotEnumeratedDoRound}) {
 				t.Fatalf("check: %s, want no bound hit and the do round before the dispatch not enumerated", report.Status())
 			}
+			if len(report.Divergent) != 1 || report.Divergent[0].Feature != "left" {
+				t.Fatalf("divergent %v, want left alone: the exit drawn before or after the step", report.Divergent)
+			}
 			for _, final := range report.Finals {
 				if final.Values["finalState"] != "heard+finished" || final.Values["late"] != "1" {
 					t.Fatalf("final %s, want heard+finished with late at 1", final.Outcome)
+				}
+				if !slices.ContainsFunc(final.Witness.Choices, func(c ChoiceTaken) bool { return c.Kind == ChoiceStepOrder }) {
+					t.Fatalf("witness %s records no step order at the round the exit is due", FormatChoices(final.Witness.Choices))
 				}
 				if !slices.ContainsFunc(final.Witness.Choices, func(c ChoiceTaken) bool { return c.Kind == ChoiceTokenOrder }) {
 					t.Fatalf("witness %s records no token order at the do round", FormatChoices(final.Witness.Choices))

@@ -576,6 +576,8 @@ func parseOrderChoice(fail func(string) (ChoiceTaken, error), step int, first, m
 			c.Kind = ChoiceEntryOrder
 		case strings.HasPrefix(first, exitingWherePrefix):
 			c.Kind = ChoiceExitOrder
+		case strings.HasPrefix(first, stepWherePrefix):
+			c.Kind = ChoiceStepOrder
 		}
 		var ok bool
 		if c.Took, mark, after, ok = readLabel(after, markFirstOf); !ok {

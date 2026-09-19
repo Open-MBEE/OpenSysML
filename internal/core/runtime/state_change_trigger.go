@@ -31,6 +31,7 @@ type changePoll struct {
 	guard       map[*lower.Transition]bool
 	blocked     map[*lower.Transition]bool
 	unevaluable map[*lower.Transition]UnevaluableGuard
+	observed    []*lower.Transition // in the order the poll read them
 	waits       []changeWait
 	waited      map[*lower.Transition]bool
 }
@@ -131,11 +132,9 @@ func newChangePoll() *changePoll {
 	}
 }
 
-// changeRisen observes the change conditions as a poll does, under a probe so the
-// machine keeps its latches, and reports whether a poll now would dispatch a rise
-// or fail: what pollChangeEvents would report, with the same rule for what a rise
-// enables, whether or not the join a segment leads into is ready to fire.
-func (e *StateExecutor) changeRisen() bool {
+// risenChange polls the change conditions under a probe, keeping the latches, and
+// reports whether pollChangeEvents would now dispatch a rise (the first transition enabled) or fail (nil).
+func (e *StateExecutor) risenChange() (*lower.Transition, bool) {
 	defer e.ctx.beginProbe()()
 	fired := maps.Clone(e.changeFired)
 	defer func() { e.changeFired = fired }()
@@ -143,14 +142,14 @@ func (e *StateExecutor) changeRisen() bool {
 	e.changeRearmed = make(map[*lower.Transition]bool)
 	defer func() { e.changeRearmed = nil }()
 	if err := e.observeChangeConditions(poll); err != nil {
-		return true
+		return nil, true
 	}
-	for trans := range poll.condition {
+	for _, trans := range poll.observed {
 		if e.riseEnables(poll, trans) {
-			return true
+			return trans, true
 		}
 	}
-	return false
+	return nil, false
 }
 
 // riseEnables reports whether the poll's rise is an occurrence for trans, one a
@@ -197,6 +196,7 @@ func (e *StateExecutor) observeChangeConditions(poll *changePoll) error {
 					return fmt.Errorf("state %s: %w", source.Name, err)
 				}
 				poll.condition[trans] = holds
+				poll.observed = append(poll.observed, trans)
 				if !holds {
 					delete(e.changeFired, trans)
 					poll.wait(trans, source.Name, "condition is false")

@@ -27,6 +27,10 @@ func TestParseChoiceReadsEveryKind(t *testing.T) {
 		{"state idle on accept go -> 2->right", ChoiceTaken{Kind: ChoiceTransition, Where: "state idle on accept go", Took: "2->right"}},
 		{"on accept go: b1 first of a1, b1", ChoiceTaken{Kind: ChoiceRegionOrder, Where: "on accept go", Alternatives: 2, Taken: 1, Among: []string{"a1", "b1"}, Took: "b1"}},
 		{"t=5.0: state machine c first of state machine a, state machine b, state machine c", ChoiceTaken{Kind: ChoiceDueOrder, Where: "t=5.0", Alternatives: 3, Taken: 2, Among: []string{"state machine a", "state machine b", "state machine c"}, Took: "state machine c"}},
+		{"at t=0.0: do top first of do top, dispatch accept Stop", ChoiceTaken{Kind: ChoiceStepOrder, Where: "at t=0.0", Alternatives: 2, Taken: 0, Among: []string{"do top", "dispatch accept Stop"}, Took: "do top"}},
+		{"at t=2.0: dispatch signal first of do a, do b, dispatch signal", ChoiceTaken{Kind: ChoiceStepOrder, Where: "at t=2.0", Alternatives: 3, Taken: 2, Among: []string{"do a", "do b", "dispatch signal"}, Took: "dispatch signal"}},
+		{"at t=1.0: dispatch change level > 3 1->high first of do low, dispatch change level > 3 1->high", ChoiceTaken{Kind: ChoiceStepOrder, Where: "at t=1.0", Alternatives: 2, Taken: 1, Among: []string{"do low", "dispatch change level > 3 1->high"}, Took: "dispatch change level > 3 1->high"}},
+		{"at t=3.0: dispatch first of do work, dispatch", ChoiceTaken{Kind: ChoiceStepOrder, Where: "at t=3.0", Alternatives: 2, Taken: 1, Among: []string{"do work", "dispatch"}, Took: "dispatch"}},
 		{"step 2: decision select -> 2->slow among 1->fast p=0.7, 2->slow p=0.3 drew 0.7748", ChoiceTaken{Kind: ChoiceDecisionBranch, Step: 2, Where: "decision select", Alternatives: 2, Taken: 1, Among: []string{"1->fast", "2->slow"}, Took: "2->slow", Weights: []float64{0.7, 0.3}, Drew: 0.7748, Drawn: true}},
 		{"step 2: decision select -> 1->fast among 1->fast p=0.7, 2->slow p=0.3", ChoiceTaken{Kind: ChoiceDecisionBranch, Step: 2, Where: "decision select", Alternatives: 2, Taken: 0, Among: []string{"1->fast", "2->slow"}, Took: "1->fast", Weights: []float64{0.7, 0.3}}},
 	}
@@ -559,18 +563,27 @@ const doForkMachine = `package test {
 	}
 }`
 
-// The token orders a do action's flow draws are steps of its own, numbered on:
-// the witness of a fork within a state's do action replays to its outcome.
+// The token orders a do action's flow draws are steps of its own, numbered on,
+// among the step orders the machine draws between the do action and the dispatch:
+// the witness of a fork within a state's do action replays to its outcome, and so
+// does the one of the dispatch leaving the state before the do action acted.
 func TestReplayFollowsDoActionWitnesses(t *testing.T) {
 	m := parseExploreModel(t, doForkMachine)
 	run := stateRun(m.state(t, "Machine"), "go")
 	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
-	if err != nil || !x.Complete() || len(x.Outcomes) != 2 {
+	if err != nil || !x.Complete() || len(x.Outcomes) != 3 {
 		t.Fatalf("explore: %v, %v", x, err)
 	}
 	for _, o := range x.Outcomes {
-		if got := FormatChoices(o.Witness); !strings.HasPrefix(got, "step 3: ") || strings.Contains(got, "; ") {
-			t.Errorf("%s: witness %s, want one token order at the flow's third step", o.Outcome, got)
+		got := FormatChoices(o.Witness)
+		if strings.HasSuffix(o.Outcome.String(), "x = 0") {
+			if strings.Contains(got, "step 3: ") || !strings.HasPrefix(got, "at t=0.0: dispatch accept go first of do busy, dispatch accept go") {
+				t.Errorf("%s: witness %s, want the dispatch drawn before the do action, no token order", o.Outcome, got)
+			}
+			continue
+		}
+		if strings.Count(got, "step 3: ") != 1 || !strings.HasPrefix(got, "at t=0.0: do busy first of do busy, dispatch accept go") {
+			t.Errorf("%s: witness %s, want the do action drawn first, then one token order at the flow's third step", o.Outcome, got)
 		}
 	}
 	assertWitnessesReplay(t, x, m.fresh, run)
@@ -1044,7 +1057,9 @@ func assertRefusedLeftOver(t *testing.T, err error, move int, choice ChoiceTaken
 }
 
 // A do-order move naming a state whose behavior is not due is refused before
-// either due behavior acts, so the run stops where the witness stopped fitting.
+// either due behavior acts, so the run stops where the witness stopped fitting;
+// lwork's round, opened before the dispatch drawn ahead of its step, ends with
+// that step, and the round the move names opens after it with rwork due too.
 func TestReplayRefusesADoOrderMoveNotEnabled(t *testing.T) {
 	m := parseExploreModel(t, `package test {
 		private import ScalarValues::*;
@@ -1069,7 +1084,7 @@ func TestReplayRefusesADoOrderMoveNotEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	witness, err := ParseChoices("entering Interleave: lstart(entry) first of lstart(entry), rstart(entry)\ndo round at t=0.0: zork first of lwork, zork\n")
+	witness, err := ParseChoices("entering Interleave: lstart(entry) first of lstart(entry), rstart(entry)\nat t=0.0: dispatch completion rstart 1->rwork first of do lwork, dispatch completion rstart 1->rwork\ndo round at t=0.0: zork first of lwork, zork\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1080,7 +1095,7 @@ func TestReplayRefusesADoOrderMoveNotEnabled(t *testing.T) {
 	}
 	err = exec.RunToCompletion()
 	var refused *ReplayError
-	if !errors.As(err, &refused) || refused.Move != 2 || !strings.Contains(err.Error(), "zork is not enabled (enabled: lwork, rwork)") {
+	if !errors.As(err, &refused) || refused.Move != 3 || !strings.Contains(err.Error(), "zork is not enabled (enabled: lwork, rwork)") {
 		t.Fatalf("error %T %v, want the do-order move refused", err, err)
 	}
 	if seq := FormatValue(exec.StateData()["seq"]); seq != "1" {
