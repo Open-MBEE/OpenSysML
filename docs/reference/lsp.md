@@ -9,15 +9,17 @@ result:
 { "capabilities": { "experimental": {
     "openSysmlRender": true, "openSysmlRenderDocument": true, "openSysmlStdlibContent": true,
     "openSysmlApplyModelEdit": true, "openSysmlDebug": true,
-    "openSysmlCrossDocumentLayout": true } } }
+    "openSysmlCrossDocumentLayout": true, "openSysmlRenderPalette": true } } }
 ```
 
 `openSysmlRender` covers the view-rendering methods, `openSysmlRenderDocument`
 the document-rendering ones, `openSysmlStdlibContent` the request that serves
 the bundled standard library's text, `openSysmlApplyModelEdit` the request
-that turns model operations into text edits, and `openSysmlDebug` the
+that turns model operations into text edits, `openSysmlDebug` the
 [`opensysml/debug/*`](#opensysmldebug-requests) requests that run a drawn
-behavior and report where it stands.
+behavior and report where it stands, and `openSysmlRenderPalette` that a
+`palette` named in an `opensysml/render` request colours the result's nodes
+(`fill`, `border`) as well as its DOT or PlantUML artifact.
 
 A client that does not see that capability must not send these methods. That is
 how a new client and an older server stay compatible.
@@ -79,7 +81,7 @@ Renders one view of a document.
 | `textDocument.uri` | The document to render. It must be one the session holds — an open document, or a workspace file the server read. |
 | `view` | The qualified name of a view the document declares, a pseudo-view (below), or omitted. |
 | `form` | `mermaid`, `text`, `markdown`, `dot` or `plantuml`. Omitted writes the machine form of the rendering's kind: `markdown` for a table, `mermaid` for every other kind. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state` or `action` rendering, without needing Graphviz installed; `plantuml` writes PlantUML in the Pilot visualizer's B&W style for those kinds and a `sequence`, without needing a PlantUML jar. |
-| `palette` | Optional. A palette the `dot` and `plantuml` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. A `mermaid` artifact notes the palette as not represented; `text` and `markdown` ignore it. |
+| `palette` | Optional. A palette the `dot` and `plantuml` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. A `mermaid` artifact notes the palette as not represented; `text` and `markdown` ignore it. Whatever the form, a server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself draws them the colours the DOT and PlantUML forms take. |
 
 Omitting `view` renders the view the document declares. If the document declares
 several, the request is ambiguous and fails, naming them
@@ -166,6 +168,7 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
 | `declaration` | On a node or edge a workspace document declares but no qualified name reaches — an unnamed transition, a connection inside an unnamed part — the `range` of that declaration, in place of `fqn`; the range is one of the document `origin.uri` names, this one or, for a client advertising `openSysmlCrossDocumentLayout`, another of the workspace. `opensysml/applyModelEdit`'s `setLayout` and `setRoute` take it, with `declaredIn` when it is another document's, as the target of an inline annotation, since a view body has no name to state one about; no other operation reaches such an element. |
 | `owners` | On a node with an `fqn`: the namespaces declaring it, nearest first, each as its `fqn` and whether it is a `feature`, whether or not the view draws them. A client writes a connection into the nearest owner two nodes share, or into the document when they share none, and spells each end from there — through a feature by `.`, into any other namespace by `::` (`tank.fuelOut`, `Car::tank.fuelOut`). Absent for a top-level declaration. |
 | `palette` | What a diagram of this kind offers to add, in the document's language: `members` are member kinds for `applyModelEdit`'s `addMember`, `connections` are connection kinds for `addConnection`, `typed` are the `members` that may be given a `type`, and `owners` lists, for each member only some bodies declare (`subject`, `actor`, `stakeholder` in a requirement or case, `objective` in a case), the ids of the nodes whose declaration opens such a body — a client offers such a member on those nodes alone, and a member absent from `owners` on every declared node. The same admission decides where a node may be moved: `owners` also lists, under the `notation` of each drawn node that only some bodies declare (`entry action`, `subject`), the nodes that admit it, so a client offers as the new owner of a node the declared nodes, and the document, that its `notation` finds in `owners` — or every one when it is absent. An `interconnection` offers parts, ports, items, attributes and the connection kinds; a `state` diagram states and transitions; an `action` or `sequence` diagram actions, control nodes and successions; a `tree` every kind the language has. Absent for a kind that is not edited from a diagram — a `table`, whose rows name no owner or endpoint to act on, included. |
+| `fill`, `border` | On a node, when the request named a `palette`: the `#RRGGBB` colours the palette gives the node's box and its outline, the same the DOT and PlantUML forms draw it with — a definition its keyword family's colour, a usage a lighter tint of it, both lightened until black text reads on them. A `sequence` participant carries `fill` alone, PlantUML taking no border colour on one. Absent for a node the palette leaves black and white — a control node, a container drawn around its children (a `tree` fills those too, drawing containment as edges) — and for every node when no palette was named. A server that does not advertise `openSysmlRenderPalette` never sends them. |
 | `x`, `y`, `width`, `height`, `collapsed` | On a node: where the model places it, from a `DiagramLayout::Layout` annotation, in pixels from the canvas's top-left corner with y increasing downward. Absent for a node the model does not place; `width` and `height` only when the annotation sizes it; `collapsed` only when it says so. |
 | `route` | On an edge: the waypoints a `DiagramLayout::Route` annotation gives it, as an array of `{"x", "y"}` in the same coordinates. Absent for an edge with none. |
 | `canvas` | The drawing surface the view states with a `DiagramLayout::Canvas` annotation: its `unit` when given, and `width` and `height` together when the annotation sizes it (an explicit `0` is a size). Absent for a view stating none and for every pseudo-view. |

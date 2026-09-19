@@ -172,8 +172,21 @@ function labelLineClass(i: number, named: boolean): string {
 }
 
 // shape is the outline a node is drawn with: a box for an element, square-cornered
-// for a definition; a symbol for a control node.
+// for a definition; a symbol for a control node. Each colour a palette gave the node
+// rides along as a custom property, for the looks that draw them.
 function shape(entry: PlacedNode): SVGElement {
+  const outline = outlineOf(entry);
+  const { fill, border } = entry.node;
+  if (fill !== undefined) {
+    outline.style.setProperty("--node-fill", fill);
+  }
+  if (border !== undefined) {
+    outline.style.setProperty("--node-border", border);
+  }
+  return outline;
+}
+
+function outlineOf(entry: PlacedNode): SVGElement {
   const { x, y, width, height } = entry.box;
   const cx = x + width / 2;
   const cy = y + height / 2;
@@ -205,17 +218,35 @@ function shape(entry: PlacedNode): SVGElement {
       return group;
     }
     case "box": {
-      const definition = entry.node.kind.endsWith(" def") || CLASSIFIER_KINDS.has(entry.node.kind);
+      const classes = ["shape", boxClass(entry.node.kind)];
+      if (entry.children.length > 0 && !entry.collapsed) {
+        classes.push("container");
+      }
       const attrs: Record<string, string> = {
         x: String(x), y: String(y), width: String(width), height: String(height),
-        class: `shape${entry.children.length > 0 && !entry.collapsed ? " container" : ""}`,
+        class: classes.join(" "),
       };
-      if (!definition) {
+      if (classes[1] !== "definition") {
         attrs.rx = String(CORNER);
       }
       return element("rect", attrs);
     }
   }
+}
+
+// boxClass is what a box is drawn as, the way the PlantUML form stereotypes it; the
+// looks pick corner and border by it, a definition alone square in every look.
+function boxClass(kind: string): "package" | "definition" | "region" | "usage" {
+  if (kind.split(" ").includes("package")) {
+    return "package";
+  }
+  if (kind === "region") {
+    return "region";
+  }
+  if (kind.endsWith(" def") || CLASSIFIER_KINDS.has(kind)) {
+    return "definition";
+  }
+  return "usage";
 }
 
 // drawEdge is an edge's polyline with the arrowhead its kind takes and its label
