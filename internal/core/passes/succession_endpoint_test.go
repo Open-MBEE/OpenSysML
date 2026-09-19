@@ -7,6 +7,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/behavior"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 )
 
@@ -327,7 +328,7 @@ func TestActionEndpointPassAcceptsLoweredNodes(t *testing.T) {
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {
 			ctx, root := nameresCtx(t, "a.sysml", src)
-			if got := (ActionEndpointPass{}).Run(ctx, "a.sysml", root); len(got) != 0 {
+			if got := (behavior.ActionEndpointPass{}).Run(ctx, "a.sysml", root); len(got) != 0 {
 				t.Fatalf("expected no action endpoint diagnostics, got %+v", got)
 			}
 		})
@@ -463,8 +464,8 @@ func TestActionEndpointPassFindsNestedActionDefinitions(t *testing.T) {
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {
 			ctx, root := nameresCtx(t, "a.sysml", src)
-			got := ActionEndpointPass{}.Run(ctx, "a.sysml", root)
-			if len(got) != 1 || got[0].Code != CodeEndpointNotANode {
+			got := behavior.ActionEndpointPass{}.Run(ctx, "a.sysml", root)
+			if len(got) != 1 || got[0].Code != behavior.CodeEndpointNotANode {
 				t.Fatalf("expected one nested action endpoint diagnostic, got %+v", got)
 			}
 		})
@@ -578,11 +579,11 @@ func TestActionEndpointPassReportsResolvedNonNodes(t *testing.T) {
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {
 			ctx, root := nameresCtx(t, "a.sysml", src)
-			got := ActionEndpointPass{}.Run(ctx, "a.sysml", root)
+			got := behavior.ActionEndpointPass{}.Run(ctx, "a.sysml", root)
 			if len(got) != 1 {
 				t.Fatalf("expected one diagnostic for the endpoint, got %+v", got)
 			}
-			if got[0].Code != CodeEndpointNotANode || got[0].Source != "action-endpoint" {
+			if got[0].Code != behavior.CodeEndpointNotANode || got[0].Source != "action-endpoint" {
 				t.Fatalf("got code %q source %q, want action endpoint diagnostic", got[0].Code, got[0].Source)
 			}
 			if covered := strings.TrimSpace(src[got[0].Span.Offset : got[0].Span.Offset+got[0].Span.Len]); covered != "flag" {
@@ -628,7 +629,7 @@ func TestActionEndpointPassDiagnosticAgreesWithLowering(t *testing.T) {
 			decl := actionDefIn(t, parseDoc(t, "a.sysml", c.src))
 			_, err := lower.ToActionGraph(decl, nil)
 			ctx, root := nameresCtx(t, "a.sysml", c.src)
-			diags := ActionEndpointPass{}.Run(ctx, "a.sysml", root)
+			diags := behavior.ActionEndpointPass{}.Run(ctx, "a.sysml", root)
 			if c.fails != (err != nil) {
 				t.Fatalf("lowering error = %v, want %v", err, c.fails)
 			}
@@ -638,7 +639,7 @@ func TestActionEndpointPassDiagnosticAgreesWithLowering(t *testing.T) {
 				}
 				return
 			}
-			if len(diags) != 1 || diags[0].Code != CodeEndpointNotANode {
+			if len(diags) != 1 || diags[0].Code != behavior.CodeEndpointNotANode {
 				t.Fatalf("lowering rejects the endpoint but pass reports %+v", diags)
 			}
 			if covered := strings.TrimSpace(c.src[diags[0].Span.Offset : diags[0].Span.Offset+diags[0].Span.Len]); covered != c.endpoint {
@@ -674,12 +675,12 @@ func TestActionEndpointPassInheritedNodes(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx, root := nameresCtx(t, "a.sysml", test.src)
 			ctx.Model()
-			got := ActionEndpointPass{}.Run(ctx, "a.sysml", root)
+			got := behavior.ActionEndpointPass{}.Run(ctx, "a.sysml", root)
 			if len(got) != test.want {
 				t.Fatalf("got %d diagnostics %+v, want %d", len(got), got, test.want)
 			}
-			if test.want == 1 && got[0].Code != CodeEndpointNotANode {
-				t.Fatalf("got code %q, want %q", got[0].Code, CodeEndpointNotANode)
+			if test.want == 1 && got[0].Code != behavior.CodeEndpointNotANode {
+				t.Fatalf("got code %q, want %q", got[0].Code, behavior.CodeEndpointNotANode)
 			}
 		})
 	}
@@ -719,7 +720,7 @@ func TestActionEndpointPassIgnoresFeatureChainsThroughNonNodes(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx, root := nameresCtx(t, "a.sysml", test.src)
-			got := ActionEndpointPass{}.Run(ctx, "a.sysml", root)
+			got := behavior.ActionEndpointPass{}.Run(ctx, "a.sysml", root)
 			if len(got) != test.want {
 				t.Fatalf("got %d diagnostics %+v, want %d", len(got), got, test.want)
 			}

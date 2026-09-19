@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -31,7 +32,7 @@ func (W8DFlowEndPass) Run(ctx *Context, name string, root *ast.RootNamespace) []
 	}
 	resolver := ctx.Resolver()
 	var diags []diag.Diagnostic
-	w8dWalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
+	kit.WalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		u, ok := sym.Decl.(*ast.Usage)
 		if !ok || u.Kind != ast.UsageFlow || u.FlowEnds == nil {
 			return

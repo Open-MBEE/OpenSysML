@@ -29,6 +29,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	passidentity "github.com/Open-MBEE/OpenSysML/internal/core/passes/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -1300,7 +1301,7 @@ func TestSelfModelIdentityMatchesImplementation(t *testing.T) {
 		t.Errorf("identity.sysml points at %s, which does not exist", file)
 	}
 
-	if level := (passes.IdentityMetadataPass{}).Level(); level != passes.LevelConstraint {
+	if level := (passidentity.MetadataPass{}).Level(); level != passes.LevelConstraint {
 		t.Errorf("identity.sysml models the identity pass at the constraint tier, the implementation runs it at %v", level)
 	}
 }

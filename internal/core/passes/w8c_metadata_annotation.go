@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -35,8 +36,8 @@ func (MetadataAnnotationPass) Run(ctx *Context, name string, root *ast.RootNames
 	if c.model == nil {
 		return nil
 	}
-	w := &w8cWalker{ctx: ctx}
-	w.walk(rootScope, c.checkSymbol)
+	w := &kit.Walker{Ctx: ctx}
+	w.Walk(rootScope, c.checkSymbol)
 	c.checkAnnotations(rootScope, root, func(typeRef *ast.QualifiedName) (string, bool) {
 		return c.model.OwnerAnnotatedElementViolation(rootScope, typeRef)
 	})
@@ -86,14 +87,14 @@ func (c *metadataAnnotationChecker) checkAnnotations(scope *symbols.Scope, decl 
 // checkNested checks what an unnamed annotation's body declares: annotations of
 // the annotation itself, and the symbols the walk does not reach.
 func (c *metadataAnnotationChecker) checkNested(scope *symbols.Scope, prefix *ast.PrefixMetadata) {
-	body := unnamedMetadataBody(scope, prefix)
+	body := kit.UnnamedMetadataBody(scope, prefix)
 	if body == nil {
 		return
 	}
 	c.checkAnnotations(body, prefix, func(typeRef *ast.QualifiedName) (string, bool) {
 		return c.model.OwnerAnnotatedElementViolation(body, typeRef)
 	})
-	forEachBodySymbol(body, c.checkSymbol)
+	kit.ForEachBodySymbol(body, c.checkSymbol)
 }
 
 // checkMetadataUsage checks what `metadata m : M about x;` may annotate, or, with

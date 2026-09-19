@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // category is the SysML v2 declaration a v1 classifier or package becomes.
@@ -122,7 +122,7 @@ var libraryRoots = map[string]bool{
 
 // isStandard reports whether s comes from a standard profile rather than a
 // user's own, whose same-named stereotypes carry no SysML meaning.
-func isStandard(s *xmi.Stereotype) bool {
+func isStandard(s *sysmlv1.Stereotype) bool {
 	return isStandardNamespace(s.Namespace)
 }
 
@@ -158,7 +158,7 @@ func isMagicDrawCustomization(ns string) bool {
 }
 
 // stereo returns e's application of the named standard-profile stereotype, or nil.
-func stereo(e *xmi.Element, name string) *xmi.Stereotype {
+func stereo(e *sysmlv1.Element, name string) *sysmlv1.Stereotype {
 	for _, s := range e.Stereotypes {
 		if s.Name == name && isStandard(s) {
 			return s
@@ -168,7 +168,7 @@ func stereo(e *xmi.Element, name string) *xmi.Stereotype {
 }
 
 // has reports whether any of the named standard-profile stereotypes applies to e.
-func has(e *xmi.Element, names ...string) bool {
+func has(e *sysmlv1.Element, names ...string) bool {
 	for _, n := range names {
 		if stereo(e, n) != nil {
 			return true
@@ -180,7 +180,7 @@ func has(e *xmi.Element, names ...string) bool {
 // isLibrary reports whether e sits in profile or bundled-library content: a
 // profile, a package the model marks as a library or auxiliary resource, or a
 // document root with a library name that sits beside the user's Model.
-func (m *migration) isLibrary(e *xmi.Element) bool {
+func (m *migration) isLibrary(e *sysmlv1.Element) bool {
 	for cur := e; cur != nil; cur = cur.Parent {
 		if cur.Type == "Profile" || has(cur, "ModelLibrary", "modelLibrary", "auxiliaryResource") {
 			return true
@@ -194,7 +194,7 @@ func (m *migration) isLibrary(e *xmi.Element) bool {
 
 // besideUserModel reports whether another root of root's document is a Model
 // or a package not named like a library, which the user's content then is.
-func (m *migration) besideUserModel(root *xmi.Element) bool {
+func (m *migration) besideUserModel(root *sysmlv1.Element) bool {
 	for _, r := range m.model.Roots {
 		if r == root || r.IsProxy() {
 			continue
@@ -225,7 +225,7 @@ func primitiveLibraryHref(href string) bool {
 // profile module: the qualified name the tool records starts in a library
 // root, and the document the href names is that library's own module, not a
 // used project whose top package happens to share the name.
-func libraryReference(t *xmi.Element) bool {
+func libraryReference(t *sysmlv1.Element) bool {
 	root := pathRoot(t.QualifiedName)
 	return root != "" && libraryRoots[root] && fold(hrefDocument(t.Href)) == fold(root)
 }
@@ -278,7 +278,7 @@ func pathRoot(qualified string) string {
 var quantityLibraries = map[string]bool{"ISO-80000": true}
 
 // quantityValueType reports whether t is a value type of a quantity library.
-func (m *migration) quantityValueType(t *xmi.Element) bool {
+func (m *migration) quantityValueType(t *sysmlv1.Element) bool {
 	if t.IsProxy() {
 		return quantityLibraries[pathRoot(t.QualifiedName)] && libraryReference(t)
 	}
@@ -287,7 +287,7 @@ func (m *migration) quantityValueType(t *xmi.Element) bool {
 
 // quantity reports whether value type e is a magnitude: its «ValueType» names
 // a unit or quantity kind and it has no fields of its own.
-func quantity(e *xmi.Element) bool {
+func quantity(e *sysmlv1.Element) bool {
 	vt := stereo(e, "ValueType")
 	if vt == nil || len(e.Owned("ownedAttribute")) > 0 {
 		return false
@@ -297,10 +297,10 @@ func quantity(e *xmi.Element) bool {
 
 // scalarBase returns the ScalarValues type the values of type t are, through
 // its generalizations; "" when t is structured or its base is unknown.
-func (m *migration) scalarBase(t *xmi.Element) string {
-	seen := map[*xmi.Element]bool{}
-	var walk func(*xmi.Element) string
-	walk = func(t *xmi.Element) string {
+func (m *migration) scalarBase(t *sysmlv1.Element) string {
+	seen := map[*sysmlv1.Element]bool{}
+	var walk func(*sysmlv1.Element) string
+	walk = func(t *sysmlv1.Element) string {
 		if t == nil || seen[t] {
 			return ""
 		}
@@ -339,7 +339,7 @@ func (m *migration) scalarBase(t *xmi.Element) string {
 
 // structuredValueType reports whether t is written as a value type with no
 // ScalarValues base, one no literal can be a value of.
-func (m *migration) structuredValueType(t *xmi.Element) bool {
+func (m *migration) structuredValueType(t *sysmlv1.Element) bool {
 	if t == nil || t.IsProxy() || m.isLibrary(t) || m.scalarBase(t) != "" {
 		return false
 	}
@@ -351,7 +351,7 @@ func (m *migration) structuredValueType(t *xmi.Element) bool {
 // type is the user's own: a primitive the UML or SysML libraries define, whether
 // referenced by href or bundled in the document, or a tool library's own
 // machine-level datatype.
-func (m *migration) scalarValue(t *xmi.Element) string {
+func (m *migration) scalarValue(t *sysmlv1.Element) string {
 	if t == nil {
 		return ""
 	}
@@ -375,7 +375,7 @@ func (m *migration) scalarValue(t *xmi.Element) string {
 
 // classify decides which v2 declaration a classifier or package becomes, and
 // why the choice is only an approximation when it is.
-func (m *migration) classify(e *xmi.Element) (category, string) {
+func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 	if e.IsProxy() {
 		return catNone, ""
 	}
@@ -461,7 +461,7 @@ func (m *migration) classify(e *xmi.Element) (category, string) {
 
 // kindOf names the v1 element as its author saw it: its classifying
 // stereotype in guillemets, else its UML metaclass.
-func kindOf(e *xmi.Element) string {
+func kindOf(e *sysmlv1.Element) string {
 	if len(e.Stereotypes) > 0 {
 		return "«" + e.Stereotypes[0].Name + "»" + " " + e.Type
 	}
@@ -469,7 +469,7 @@ func kindOf(e *xmi.Element) string {
 }
 
 // qualifiedName joins the v1 names from below the root model to e.
-func qualifiedName(e *xmi.Element) string {
+func qualifiedName(e *sysmlv1.Element) string {
 	if e.IsProxy() {
 		if e.QualifiedName != "" {
 			return e.QualifiedName
@@ -486,7 +486,7 @@ func qualifiedName(e *xmi.Element) string {
 	return strings.Join(path, "::")
 }
 
-func rootOf(e *xmi.Element) *xmi.Element {
+func rootOf(e *sysmlv1.Element) *sysmlv1.Element {
 	for e.Parent != nil {
 		e = e.Parent
 	}
@@ -496,7 +496,7 @@ func rootOf(e *xmi.Element) *xmi.Element {
 // instanceClassifiers splits an instance's classifiers into the occurrence
 // definitions an individual can specialize, the value types an attribute can
 // be typed by, and a note over those it can use as neither.
-func (m *migration) instanceClassifiers(e *xmi.Element) (occurrences, values []*xmi.Element, note string) {
+func (m *migration) instanceClassifiers(e *sysmlv1.Element) (occurrences, values []*sysmlv1.Element, note string) {
 	var notes []string
 	for _, c := range m.model.Refs(e, "classifier") {
 		if c.IsProxy() || m.isLibrary(c) {
@@ -517,7 +517,7 @@ func (m *migration) instanceClassifiers(e *xmi.Element) (occurrences, values []*
 
 // individualClassifiers returns the kind an individual takes from its first classifier
 // of a kind (part def, constraint def; a port def gives none) and the classifiers of that kind.
-func (m *migration) individualClassifiers(e *xmi.Element) (kind category, written []*xmi.Element, note string) {
+func (m *migration) individualClassifiers(e *sysmlv1.Element) (kind category, written []*sysmlv1.Element, note string) {
 	occurrences, _, _ := m.instanceClassifiers(e)
 	kinds := make([]category, len(occurrences))
 	for i, c := range occurrences {

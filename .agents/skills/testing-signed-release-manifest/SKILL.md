@@ -1,6 +1,6 @@
 ---
 name: testing-signed-release-manifest
-description: How to end-to-end test the signed release checksum manifest (clients/python/opensysml/signing.py, the signing branch of binary.py, and the cosign steps in .circleci/config.yml) on Linux without tagging a release — offline fixture bundles, cosign cross-checks, adversarial trust-model probes, and the CI-config static review.
+description: How to end-to-end test the signed release checksum manifest (client/python/opensysml/signing.py, the signing branch of binary.py, and the cosign steps in .circleci/config.yml) on Linux without tagging a release — offline fixture bundles, cosign cross-checks, adversarial trust-model probes, and the CI-config static review.
 ---
 
 # Testing the signed release manifest
@@ -38,13 +38,13 @@ unrelated to release signing.
 
 ## Proving the signing tests are offline
 
-`unshare -rn ~/pv/bin/python -m pytest clients/python/tests/test_signing.py clients/python/tests/test_binary.py -q`
+`unshare -rn ~/pv/bin/python -m pytest client/python/tests/test_signing.py client/python/tests/test_binary.py -q`
 Sanity-check the namespace first by attempting `urlopen('https://example.com')` inside it and
 seeing `URLError`. Equal pass count networked and isolated is the evidence.
 
 ## Adversarial probes worth writing (drop-in temp test file, delete afterwards)
 
-Reuse the `release`/`signer` fixture pattern in `clients/python/tests/test_signing.py`: monkeypatch
+Reuse the `release`/`signer` fixture pattern in `client/python/tests/test_signing.py`: monkeypatch
 `urllib.request.urlopen` to serve a dict of asset name → bytes, `opensysml.binary.get_binary_path`
 to a tmp path, `opensysml.binary.release_asset_name`, and set `opensysml.binary.PINNED_SHA256 = {}`.
 The recorded signer must use `trusted_root=tests/fixtures/signed_release/trusted_root.json`
@@ -69,7 +69,7 @@ Probes that actually distinguish working from broken:
 
 ## Independent cosign cross-check of the fixtures
 
-From `clients/python/tests/fixtures/signed_release/`:
+From `client/python/tests/fixtures/signed_release/`:
 
 ```
 cosign verify-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.bundle \

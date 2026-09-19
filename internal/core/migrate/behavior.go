@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // classifyBehavior decides the v2 declaration a UML behavior becomes: action def,
 // state def, calc def for an expression body, or a scenario action def for an interaction.
-func (m *migration) classifyBehavior(e *xmi.Element) (category, string) {
+func (m *migration) classifyBehavior(e *sysmlv1.Element) (category, string) {
 	switch e.Type {
 	case "Activity":
 		return catActionDef, ""
@@ -44,7 +44,7 @@ func behaviorCategory(cat category) bool {
 }
 
 // isBehavior reports whether e is a UML behavior.
-func isBehavior(e *xmi.Element) bool {
+func isBehavior(e *sysmlv1.Element) bool {
 	switch e.Type {
 	case "Activity", "StateMachine", "OpaqueBehavior", "FunctionBehavior", "Interaction":
 		return true
@@ -53,7 +53,7 @@ func isBehavior(e *xmi.Element) bool {
 }
 
 // behaviorBody writes the body of a behavior or operation declaration.
-func (m *migration) behaviorBody(e *xmi.Element, cat category) {
+func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
@@ -80,13 +80,13 @@ func (m *migration) behaviorBody(e *xmi.Element, cat category) {
 
 // methodBehavior accounts for a behavior that is the method of an operation:
 // it is written as that operation's body, not as a declaration of its own.
-func (m *migration) methodBehavior(e, op *xmi.Element) {
+func (m *migration) methodBehavior(e, op *sysmlv1.Element) {
 	m.add(e, Mapped, m.v2Name(op), "written as the body of the operation "+qualifiedName(op)+", whose method it is")
 }
 
 // classifierBehavior writes the usage that performs or exhibits the behavior
 // a class names as its classifier behavior, so an object of it runs it.
-func (m *migration) classifierBehavior(c *xmi.Element) {
+func (m *migration) classifierBehavior(c *sysmlv1.Element) {
 	b := m.model.Ref(c, "classifierBehavior")
 	if b == nil || b.Parent != c || !m.written(b) {
 		return
@@ -111,7 +111,7 @@ func (m *migration) classifierBehavior(c *xmi.Element) {
 
 // operationUsage names the action usage of an operation's owner that performs
 // it, which a call on an object refers to as `obj.<usage>`; the first ask names it.
-func (m *migration) operationUsage(op *xmi.Element) string {
+func (m *migration) operationUsage(op *sysmlv1.Element) string {
 	if name, ok := m.opUsage[op]; ok {
 		return name
 	}
@@ -122,7 +122,7 @@ func (m *migration) operationUsage(op *xmi.Element) string {
 
 // operationFeature writes the action usage that makes an operation a feature of
 // its owner, as a v1 operation is; the classifier behavior's own performance is that usage.
-func (m *migration) operationFeature(op *xmi.Element) {
+func (m *migration) operationFeature(op *sysmlv1.Element) {
 	if m.classifierBehaviorOperation(op.Parent) == op {
 		return
 	}
@@ -133,7 +133,7 @@ func (m *migration) operationFeature(op *xmi.Element) {
 
 // classifierBehaviorOperation is the operation whose method c's classifier
 // behavior is, when it is written as one; nil otherwise.
-func (m *migration) classifierBehaviorOperation(c *xmi.Element) *xmi.Element {
+func (m *migration) classifierBehaviorOperation(c *sysmlv1.Element) *sysmlv1.Element {
 	b := m.model.Ref(c, "classifierBehavior")
 	if b == nil || b.Parent != c || !m.written(b) {
 		return nil
@@ -143,7 +143,7 @@ func (m *migration) classifierBehaviorOperation(c *xmi.Element) *xmi.Element {
 
 // parameters writes the owned parameters of a behavior or operation as the
 // directed parameters of the v2 definition; scope is the definition written.
-func (m *migration) parameters(e, scope *xmi.Element) {
+func (m *migration) parameters(e, scope *sysmlv1.Element) {
 	for _, p := range e.Owned("ownedParameter") {
 		m.parameter(p, scope, nil)
 	}
@@ -151,7 +151,7 @@ func (m *migration) parameters(e, scope *xmi.Element) {
 
 // realizeParameters pairs a method's parameters with its operation's by position:
 // one agreeing in direction and type stands for the operation's and takes its name.
-func (m *migration) realizeParameters(op, method *xmi.Element) {
+func (m *migration) realizeParameters(op, method *sysmlv1.Element) {
 	ops := op.Owned("ownedParameter")
 	for i, mp := range method.Owned("ownedParameter") {
 		if i >= len(ops) {
@@ -169,7 +169,7 @@ func (m *migration) realizeParameters(op, method *xmi.Element) {
 
 // parameter writes one parameter; declared lists the names already written in
 // the definition, so a method's parameter standing for its operation's is skipped.
-func (m *migration) parameter(p, scope *xmi.Element, declared map[string]bool) {
+func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]bool) {
 	name := m.nameOf(p)
 	if name == "" {
 		name = m.nameFor(p)
@@ -230,7 +230,7 @@ func (m *migration) parameter(p, scope *xmi.Element, declared map[string]bool) {
 
 // parameterDirection maps a UML parameter direction to a v2 one: a return
 // parameter is an out parameter, since an action def has no return.
-func parameterDirection(p *xmi.Element) (string, string) {
+func parameterDirection(p *sysmlv1.Element) (string, string) {
 	switch p.Attrs["direction"] {
 	case "out":
 		return "out", ""
@@ -244,7 +244,7 @@ func parameterDirection(p *xmi.Element) (string, string) {
 
 // behaviorValue writes a value specification read inside a behavior: an opaque
 // expression's names resolve from scope, the enclosing classifier's through `this`.
-func (m *migration) behaviorValue(v, scope *xmi.Element) (expr string, ok bool, note string) {
+func (m *migration) behaviorValue(v, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	if v.Type != "OpaqueExpression" {
 		return m.valueExpr(v, scope)
 	}
@@ -254,7 +254,7 @@ func (m *migration) behaviorValue(v, scope *xmi.Element) (expr string, ok bool, 
 
 // typedBehaviorValue writes v as the value of feature f, read inside scope: a
 // literal, opaque or not, is checked against the type f holds.
-func (m *migration) typedBehaviorValue(v, f, scope *xmi.Element) (expr string, ok bool, note string) {
+func (m *migration) typedBehaviorValue(v, f, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	if v.Type != "OpaqueExpression" {
 		return m.featureValue(v, f, scope)
 	}
@@ -286,7 +286,7 @@ func (m *migration) typedBehaviorValue(v, f, scope *xmi.Element) (expr string, o
 
 // behaviorExpr writes text as a v2 expression read inside scope, or refuses
 // with the reason: it is not expression syntax, or a name resolves to nothing.
-func (m *migration) behaviorExpr(text, lang string, scope *xmi.Element) (expr string, ok bool, note string) {
+func (m *migration) behaviorExpr(text, lang string, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return "", false, "the expression has no body"
@@ -303,7 +303,7 @@ func (m *migration) behaviorExpr(text, lang string, scope *xmi.Element) (expr st
 
 // qualifySelf prefixes `this.` to each name in text that resolves to a feature
 // of the classifier enclosing scope, which a nested action reaches no other way.
-func (m *migration) qualifySelf(text string, refs []reference, scope *xmi.Element) string {
+func (m *migration) qualifySelf(text string, refs []reference, scope *sysmlv1.Element) string {
 	visible, _ := m.visibleFrom(scope)
 	var starts []int
 	for _, r := range refs {
@@ -325,7 +325,7 @@ func (m *migration) qualifySelf(text string, refs []reference, scope *xmi.Elemen
 
 // ownedByClassifier reports whether feature f belongs to a classifier that
 // scope's behavior is written inside, rather than to the behavior itself.
-func (m *migration) ownedByClassifier(f, scope *xmi.Element) bool {
+func (m *migration) ownedByClassifier(f, scope *sysmlv1.Element) bool {
 	owner := f.Parent
 	if owner == nil {
 		return false
@@ -349,7 +349,7 @@ func (m *migration) ownedByClassifier(f, scope *xmi.Element) bool {
 
 // behaviorScope reports whether `this` reaches through e to the classifier
 // enclosing it: a behavior, an operation or a piece of a state machine.
-func behaviorScope(e *xmi.Element) bool {
+func behaviorScope(e *sysmlv1.Element) bool {
 	switch e.Type {
 	case "Operation", "Region", "State", "Transition", "Pseudostate", "FinalState":
 		return true
@@ -362,7 +362,7 @@ var assignment = regexp.MustCompile(`^([\p{L}_][\p{L}\p{N}_ ]*)\s*(\+\+|--|[-+*/
 
 // statements writes an opaque body as v2 assignments read inside scope when every
 // statement assigns a v2 expression to a visible feature, else refuses with the reason.
-func (m *migration) statements(body, lang string, scope *xmi.Element) (lines []string, ok bool, note string) {
+func (m *migration) statements(body, lang string, scope *sysmlv1.Element) (lines []string, ok bool, note string) {
 	body = strings.TrimSpace(body)
 	if body == "" {
 		return nil, false, "the body is empty"
@@ -409,7 +409,7 @@ func (m *migration) statements(body, lang string, scope *xmi.Element) (lines []s
 
 // assignable writes the v2 target of an assignment to name read in scope: a
 // parameter or local of the behavior bare, a feature of its classifier as `this.`.
-func (m *migration) assignable(name string, scope *xmi.Element) (string, bool) {
+func (m *migration) assignable(name string, scope *sysmlv1.Element) (string, bool) {
 	visible, _ := m.visibleFrom(scope)
 	f := visible[name]
 	if f == nil {
@@ -482,7 +482,7 @@ func realLiteral(v float64) string {
 
 // durationExpr writes a UML duration value as a v2 expression in seconds: a scaled
 // literal, a bare number, or an expression read in scope; else ok is false with why.
-func (m *migration) durationExpr(v, scope *xmi.Element) (expr string, ok bool, note string) {
+func (m *migration) durationExpr(v, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	for v != nil && (v.Type == "Duration" || v.Type == "TimeExpression") {
 		v = firstOwned(v, "expr")
 	}
@@ -520,7 +520,7 @@ func (m *migration) durationExpr(v, scope *xmi.Element) (expr string, ok bool, n
 
 // calcExpr returns the result expression of an opaque or function behavior,
 // when its one body is a v2 expression whose names resolve from the behavior.
-func (m *migration) calcExpr(e *xmi.Element) (expr string, ok bool, note string) {
+func (m *migration) calcExpr(e *sysmlv1.Element) (expr string, ok bool, note string) {
 	bodies := e.Owned("body")
 	if len(bodies) > 1 {
 		return "", false, "the behavior has " + strconv.Itoa(len(bodies)) + " bodies; only one can be the result expression"
@@ -533,7 +533,7 @@ func (m *migration) calcExpr(e *xmi.Element) (expr string, ok bool, note string)
 }
 
 // calcBody writes an opaque or function behavior's parameters and result expression.
-func (m *migration) calcBody(e *xmi.Element) {
+func (m *migration) calcBody(e *sysmlv1.Element) {
 	m.parameters(e, e)
 	expr, _, _ := m.calcExpr(e)
 	_, lang := opaqueBody(e)
@@ -545,7 +545,7 @@ func (m *migration) calcBody(e *xmi.Element) {
 
 // opaqueBehaviorBody writes an opaque or function behavior's body that is no single
 // expression: as assignments when every statement is one, else as a comment.
-func (m *migration) opaqueBehaviorBody(e, scope *xmi.Element) {
+func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
 	body, lang := opaqueBody(e)
 	lines, ok, note := m.statements(body, lang, scope)
 	if !ok {
@@ -583,7 +583,7 @@ func langName(lang string) string {
 }
 
 // operationBody writes an operation's parameters, conditions and method.
-func (m *migration) operationBody(op *xmi.Element) {
+func (m *migration) operationBody(op *sysmlv1.Element) {
 	declared := map[string]bool{}
 	for _, p := range op.Owned("ownedParameter") {
 		m.parameter(p, op, declared)
@@ -613,7 +613,7 @@ func (m *migration) operationBody(op *xmi.Element) {
 
 // abstractOperation reports whether an operation is written abstract: it has
 // no method of its own to become its body.
-func (m *migration) abstractOperation(op *xmi.Element) bool {
+func (m *migration) abstractOperation(op *sysmlv1.Element) bool {
 	if op.Type != "Operation" {
 		return false
 	}
@@ -623,7 +623,7 @@ func (m *migration) abstractOperation(op *xmi.Element) bool {
 
 // operationConditions writes an operation's pre-, post- and body conditions
 // as asserted constraints when they are v2 expressions, else as comments.
-func (m *migration) operationConditions(op *xmi.Element) {
+func (m *migration) operationConditions(op *sysmlv1.Element) {
 	for _, role := range []string{"precondition", "postcondition", "bodyCondition"} {
 		for _, c := range m.model.Refs(op, role) {
 			spec := firstOwned(c, "specification")
@@ -654,14 +654,14 @@ func (m *migration) operationConditions(op *xmi.Element) {
 }
 
 // reported says whether e already has a report entry.
-func (m *migration) reported(e *xmi.Element) bool {
+func (m *migration) reported(e *sysmlv1.Element) bool {
 	_, ok := m.indexed[e.ID]
 	return ok
 }
 
 // reception writes a reception as a comment on its owner: v2 has no
 // reception, the signal it names being accepted by the owner's behaviors.
-func (m *migration) reception(r *xmi.Element) {
+func (m *migration) reception(r *sysmlv1.Element) {
 	sig := m.model.Ref(r, "signal")
 	text := "reception " + describe(r)
 	note := "a reception names the signal its owner accepts, which the owner's behaviors carry as accept"
@@ -683,7 +683,7 @@ func (m *migration) reception(r *xmi.Element) {
 
 // event reports an event declared as a member: it is written as an accept clause
 // where a trigger refers to it, and the triggers report those, in their own scope.
-func (m *migration) event(e *xmi.Element) {
+func (m *migration) event(e *sysmlv1.Element) {
 	if m.triggered[e] {
 		return
 	}

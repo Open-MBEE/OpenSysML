@@ -765,7 +765,7 @@ func TestOpaqueExpressionsNeedVisibleNames(t *testing.T) {
       <ownedAttribute xmi:type="uml:Property" xmi:id="_s" name="s">
         <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
       </ownedAttribute>
-      <ownedAttribute xmi:type="uml:Property" xmi:id="_m" name="m" type="_mode"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_m_prop" name="m" type="_mode"/>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_d" name="d">
         <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
         <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_dv">
@@ -1420,7 +1420,7 @@ func TestOpaqueExpressionsResolveEveryStep(t *testing.T) {
     </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_e" name="engine" type="_engine" aggregation="composite"/>
-      <ownedAttribute xmi:type="uml:Property" xmi:id="_m" name="mode" type="_mode"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_m_prop" name="mode" type="_mode"/>
       <ownedRule xmi:type="uml:Constraint" xmi:id="_r1" name="hot" constrainedElement="_car">
         <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp1"><body>engine.temp > 90.0 and engine.rpm > 0.0</body></specification>
       </ownedRule>
@@ -1473,7 +1473,7 @@ func TestOpaqueExpressionsMayNameImportedMembers(t *testing.T) {
     <packagedElement xmi:type="uml:Package" xmi:id="_sys" name="System">
       <packageImport xmi:type="uml:PackageImport" xmi:id="_imp" importedPackage="_lib"/>
       <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
-        <ownedAttribute xmi:type="uml:Property" xmi:id="_m" name="mode" type="_mode"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_m_prop" name="mode" type="_mode"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_g" name="gear" type="_gear"/>
         <ownedRule xmi:type="uml:Constraint" xmi:id="_r1" name="tracking" constrainedElement="_car">
           <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp1"><body>mode == Mode::TRACK</body></specification>

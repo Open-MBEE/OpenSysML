@@ -7,7 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // writeName writes a v1 name as a v2 name: bare when it is a basic identifier
@@ -22,7 +22,7 @@ func writeName(name string) string {
 // nameOf returns the v2 name of an element: its own, or the one synthesized
 // for an anonymous element that something refers to; "" when it is anonymous
 // and stays so.
-func (m *migration) nameOf(e *xmi.Element) string {
+func (m *migration) nameOf(e *sysmlv1.Element) string {
 	if n, ok := m.names[e]; ok {
 		return n
 	}
@@ -31,7 +31,7 @@ func (m *migration) nameOf(e *xmi.Element) string {
 
 // nameFor returns the v2 name of an element, synthesizing one for an anonymous
 // element the first time it is asked for, so it can be referred to.
-func (m *migration) nameFor(e *xmi.Element) string {
+func (m *migration) nameFor(e *sysmlv1.Element) string {
 	if n := m.nameOf(e); n != "" {
 		return n
 	}
@@ -49,7 +49,7 @@ func (m *migration) nameFor(e *xmi.Element) string {
 	return name
 }
 
-func (m *migration) nameTaken(owner *xmi.Element, name string) bool {
+func (m *migration) nameTaken(owner *sysmlv1.Element, name string) bool {
 	if m.taken[owner][name] {
 		return true
 	}
@@ -65,7 +65,7 @@ func (m *migration) nameTaken(owner *xmi.Element, name string) bool {
 }
 
 // take reserves a synthesized member name in owner's body.
-func (m *migration) take(owner *xmi.Element, name string) {
+func (m *migration) take(owner *sysmlv1.Element, name string) {
 	if m.taken[owner] == nil {
 		m.taken[owner] = map[string]bool{}
 	}
@@ -83,7 +83,7 @@ func lowerFirst(s string) string {
 // segments returns the v2 qualified-name segments of an element: the names
 // from the top-level declaration down, the root Model not being written. A
 // lone region is its owner's body; one of several is a sub-state of a parallel state.
-func (m *migration) segments(e *xmi.Element) []string {
+func (m *migration) segments(e *sysmlv1.Element) []string {
 	var segs []string
 	for cur := e; cur != nil; cur = cur.Parent {
 		if cur.Parent == nil && cur.Type == "Model" {
@@ -102,8 +102,8 @@ func (m *migration) segments(e *xmi.Element) []string {
 
 // scopeChain lists scope and its ancestors, innermost first, stopping at the
 // root Model, which is no scope of the output.
-func scopeChain(scope *xmi.Element) []*xmi.Element {
-	var chain []*xmi.Element
+func scopeChain(scope *sysmlv1.Element) []*sysmlv1.Element {
+	var chain []*sysmlv1.Element
 	for cur := scope; cur != nil; cur = cur.Parent {
 		if cur.Parent == nil && cur.Type == "Model" {
 			break
@@ -117,7 +117,7 @@ func scopeChain(scope *xmi.Element) []*xmi.Element {
 // level): the shortest qualified name that resolves there, which is the simple
 // name when target is a member of an enclosing scope no nearer scope shadows,
 // and the full qualified name otherwise.
-func (m *migration) ref(target, scope *xmi.Element) string {
+func (m *migration) ref(target, scope *sysmlv1.Element) string {
 	segs := m.segments(target)
 	owner := target.Parent
 	if owner != nil && owner.Type == "Model" && owner.Parent == nil {
@@ -154,7 +154,7 @@ func (m *migration) ref(target, scope *xmi.Element) string {
 // qualifiedFrom writes segs as a qualified name that resolves from inside the
 // scopes of chain: from the global namespace ($::) when one of them declares a
 // member named like its first segment, which would shadow the relative path.
-func (m *migration) qualifiedFrom(segs []string, chain []*xmi.Element) string {
+func (m *migration) qualifiedFrom(segs []string, chain []*sysmlv1.Element) string {
 	q := m.qualified(segs)
 	for _, s := range chain {
 		if m.nameTaken(s, segs[0]) {
@@ -173,6 +173,6 @@ func (m *migration) qualified(segs []string) string {
 }
 
 // v2Name is the qualified name a report entry records for a written element.
-func (m *migration) v2Name(e *xmi.Element) string {
+func (m *migration) v2Name(e *sysmlv1.Element) string {
 	return m.qualified(m.segments(e))
 }

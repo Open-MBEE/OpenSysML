@@ -112,27 +112,27 @@ package OpenSysMLSurfaces {
     }
 
     part def PythonClient :> Client {
-        attribute :>> goPackage = "clients/python";
+        attribute :>> goPackage = "client/python";
         attribute :>> implementationLanguage = "python";
-        attribute :>> generatedStubs = "clients/python/opensysml/proto";
+        attribute :>> generatedStubs = "client/python/opensysml/proto";
     }
 
     part def NodeClient :> Client {
-        attribute :>> goPackage = "clients/node";
+        attribute :>> goPackage = "client/node";
         attribute :>> implementationLanguage = "typescript";
-        attribute :>> generatedStubs = "clients/node/src/generated";
+        attribute :>> generatedStubs = "client/node/src/generated";
     }
 
     part def RustClient :> Client {
-        attribute :>> goPackage = "clients/rust";
+        attribute :>> goPackage = "client/rust";
         attribute :>> implementationLanguage = "rust";
-        attribute :>> generatedStubs = "clients/rust/opensysml/src/proto";
+        attribute :>> generatedStubs = "client/rust/opensysml/src/proto";
     }
 
     part def JavaClient :> Client {
-        attribute :>> goPackage = "clients/java";
+        attribute :>> goPackage = "client/java";
         attribute :>> implementationLanguage = "java";
-        attribute :>> generatedStubs = "clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto";
+        attribute :>> generatedStubs = "client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto";
     }
 
     // In the same process by default, over the wire on request: the Go client

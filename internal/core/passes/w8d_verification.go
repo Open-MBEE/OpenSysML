@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -26,7 +27,7 @@ func (W8DVerificationPass) Run(ctx *Context, name string, root *ast.RootNamespac
 		return nil
 	}
 	var diags []diag.Diagnostic
-	w8dWalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
+	kit.WalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		if !w8dIsVerify(sym) || w8dLegalVerification(sym) {
 			return
 		}

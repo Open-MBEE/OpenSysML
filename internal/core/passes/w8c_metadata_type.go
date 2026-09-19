@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -32,8 +33,8 @@ func (MetadataTypePass) Run(ctx *Context, name string, root *ast.RootNamespace) 
 		return nil
 	}
 	c := &metadataTypeChecker{ctx: ctx, resolver: ctx.Resolver()}
-	w := &w8cWalker{ctx: ctx}
-	w.walk(rootScope, c.checkSymbol)
+	w := &kit.Walker{Ctx: ctx}
+	w.Walk(rootScope, c.checkSymbol)
 	c.checkAnnotations(rootScope, root)
 	return c.diags
 }
@@ -66,9 +67,9 @@ func (c *metadataTypeChecker) checkAnnotations(scope *symbols.Scope, decl ast.No
 	}
 	for _, a := range semantics.MetadataAnnotationsWritten(decl) {
 		c.check(scope, a.Node.Type, a.Node.Span(), true)
-		if body := unnamedMetadataBody(scope, a.Node); body != nil {
+		if body := kit.UnnamedMetadataBody(scope, a.Node); body != nil {
 			c.checkAnnotations(body, a.Node)
-			forEachBodySymbol(body, c.checkSymbol)
+			kit.ForEachBodySymbol(body, c.checkSymbol)
 		}
 	}
 }

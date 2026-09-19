@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -34,12 +35,12 @@ func (ResultExpressionPass) Run(ctx *Context, name string, root *ast.RootNamespa
 	}
 	model := ctx.Model()
 	var diags []diag.Diagnostic
-	w := &w8cWalker{ctx: ctx}
-	w.walk(rootScope, func(sym *symbols.Symbol) {
+	w := &kit.Walker{Ctx: ctx}
+	w.Walk(rootScope, func(sym *symbols.Symbol) {
 		if !semantics.FunctionLike(sym) {
 			return
 		}
-		if head, typed := w8cOwnerHead(sym.Decl); typed && ctx.downstreamSpan(head) {
+		if head, typed := w8cOwnerHead(sym.Decl); typed && ctx.DownstreamSpan(head) {
 			return
 		}
 		conflict := model.ResultExpressionConflict(sym)

@@ -72,8 +72,10 @@ github.com/Open-MBEE/OpenSysML
 │   ├── docir/              # Document plan evaluation → backend-agnostic document tree
 │   ├── lower/              # AST → execution IR (ActionGraph/StateGraph)
 │   ├── runtime/            # Execution engine (eval, instances, builtins)
+│   ├── analysis/           # Analysis questions, engines and the graphs:1/sources forms (analysis/modelform)
 │   ├── rdf/                # RDF graphs, Turtle reading and writing, the SysML vocabulary
 │   ├── export/             # The RDF mapping: ToRDF (tree → graph) and ToSysML (graph → notation)
+│   ├── xmi/                # XMI element tree indexed by xmi:id; xmi/sysmlv1 reads SysML v1 exports over it
 │   ├── migrate/            # SysML v1 XMI → SysML v2 notation
 │   ├── convert/            # Conversion entry point: formats, Convert, Migrate, SyntaxError
 │   ├── model/              # Workspace, document management
@@ -82,8 +84,8 @@ github.com/Open-MBEE/OpenSysML
 ├── internal/repl/          # REPL loop implementation
 ├── internal/protoconv/     # Runtime values and instance graphs ↔ API protobuf messages
 ├── internal/grpc/          # gRPC service implementation
-├── clients/python/         # Python client bindings (opensysml)
-├── clients/rust/           # Rust client (opensysml) and its conformance runner
+├── client/python/          # Python client bindings (opensysml)
+├── client/rust/            # Rust client (opensysml) and its conformance runner
 ├── api/proto/              # Protobuf service definitions
 ├── tests/                  # Black-box suites, benchmarks, shared fixtures (tests/parser, tests/grpc, tests/testdata, …)
 ├── examples/               # Example models and demos
@@ -168,6 +170,7 @@ source → lexer → parser → AST → symbol index → resolve → passes
 - **Pass:** `{Level() PassLevel; Run(ctx, name, root) []diag.Diagnostic}`
 - **Context:** Exposes `Resolver()` + `Model()` (both lazy, memoized) and `DownstreamOfFailure(ref)` — did a lower tier report a blocking diagnostic inside this reference?
 - **DefaultRegistry:** SyntaxPass, NameResolutionPass, TypeCheckPass, ConstraintPass
+- **Packages:** the framework — `Pass`, `PassLevel`, `Context`, `Options`, `Gathers` and the symbol and member walkers — is `internal/core/passes/kit`, a leaf the root re-exports as type aliases. The checks are grouped by domain: `passes/behavior` (state transitions, succession endpoints, control nodes), `passes/document` (document plans and queries), `passes/diagram` (layout, view renderings), `passes/identity` (identity metadata, with the workspace-wide identity gather), and the root for the rest — the registry, the static expression typer and the checks that call into it, the constraint checker and the structural rules. The root is the one place a check is registered, so it imports every domain package and no domain package imports the root; `tests/hygiene` pins both directions
 - **Tiered execution:** a document-scoped pass at a higher tier is skipped once a lower tier errors; a pass marked `ElementScoped` runs and gates itself per subject through `Context.DownstreamOfFailure` ([element-scoped tier gating](../project/element-scoped-tier-gating.md))
 - **Diagnostics:** `Diagnostic` and `Severity` live in `internal/core/diag`, a leaf package beside `source`, so the runtime and the parser report findings in the same type without importing the validation suite; the strict/default conformance switch is `diag.ConformanceMode` in the same package
 - **Quick fixes:** A `Diagnostic` carries the `diag.Fix` values the layer reporting it attached, so an editor offers edits without parsing messages

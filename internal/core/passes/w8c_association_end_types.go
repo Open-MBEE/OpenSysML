@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -27,8 +28,8 @@ func (AssociationEndTypesPass) Run(ctx *Context, name string, root *ast.RootName
 		return nil
 	}
 	c := &associationEndTypesChecker{resolver: ctx.Resolver(), model: ctx.Model()}
-	w := &w8cWalker{ctx: ctx}
-	w.walk(rootScope, c.check)
+	w := &kit.Walker{Ctx: ctx}
+	w.Walk(rootScope, c.check)
 	return c.diags
 }
 
@@ -90,7 +91,7 @@ func (c *associationEndTypesChecker) declaredTypes(sym *symbols.Symbol) []*symbo
 		if rel == nil || rel.Kind != ast.RelTyping || rel.Target == nil {
 			continue
 		}
-		t, ok := c.resolver.ResolveTarget(w8cScopeOf(sym), rel.Target)
+		t, ok := c.resolver.ResolveTarget(kit.DeclarationScope(sym), rel.Target)
 		if ok && t != nil {
 			out = append(out, t)
 		}

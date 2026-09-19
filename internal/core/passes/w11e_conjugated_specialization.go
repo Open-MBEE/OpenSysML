@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -28,9 +29,9 @@ func (W11EConjugatedSpecializationPass) Run(ctx *Context, name string, root *ast
 	if rootScope == nil {
 		return nil
 	}
-	w := &w8cWalker{ctx: ctx}
+	w := &kit.Walker{Ctx: ctx}
 	c := &w11eConjugatedChecker{resolver: ctx.Resolver()}
-	w.walk(rootScope, c.check)
+	w.Walk(rootScope, c.check)
 	return c.diags
 }
 
@@ -72,7 +73,7 @@ func (c *w11eConjugatedChecker) checkRelationshipMember(sym *symbols.Symbol, rel
 	if !w11eIsSpecialization(rel.Kind) || rel.Conjugated || rel.Source == nil || rel.Target == nil {
 		return
 	}
-	specific, ok := c.resolver.ResolveTarget(w8cScopeOf(sym), rel.Source)
+	specific, ok := c.resolver.ResolveTarget(kit.DeclarationScope(sym), rel.Source)
 	if !ok || specific == nil {
 		return
 	}

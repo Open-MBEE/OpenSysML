@@ -3,6 +3,7 @@ package passes
 import (
 	"strconv"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -51,19 +52,19 @@ func (f *mosaFacts) note(m mosaMarks) {
 // and read by name, as oosemUnion is.
 type mosaUnion struct {
 	perDoc     map[string]*mosaFacts
-	present    countSet[mosaKind]
-	marks      countSet[mosaMark]
-	conformant countSet[symbols.ElementKey]
-	satisfiers countSet[symbols.ElementKey]
+	present    kit.CountSet[mosaKind]
+	marks      kit.CountSet[mosaMark]
+	conformant kit.CountSet[symbols.ElementKey]
+	satisfiers kit.CountSet[symbols.ElementKey]
 }
 
 func newMOSAUnion() *mosaUnion {
 	return &mosaUnion{
 		perDoc:     map[string]*mosaFacts{},
-		present:    countSet[mosaKind]{},
-		marks:      countSet[mosaMark]{},
-		conformant: countSet[symbols.ElementKey]{},
-		satisfiers: countSet[symbols.ElementKey]{},
+		present:    kit.CountSet[mosaKind]{},
+		marks:      kit.CountSet[mosaMark]{},
+		conformant: kit.CountSet[symbols.ElementKey]{},
+		satisfiers: kit.CountSet[symbols.ElementKey]{},
 	}
 }
 
@@ -76,19 +77,25 @@ func mosaSatisfierName(k symbols.ElementKey) string { return "\x00mosa/satisfier
 
 // regather replaces doc's facts with a fresh gather — none when doc is no
 // workspace document — naming what the union now answers differently.
+func (u *mosaUnion) Regather(ctx *Context, g *Gathers, doc string, changed map[string]bool) {
+	if a := newMOSAAudit(ctx); a != nil {
+		u.regather(ctx, g, a, doc, changed)
+	}
+}
+
 func (u *mosaUnion) regather(ctx *Context, g *Gathers, a *mosaAudit, doc string, changed map[string]bool) {
 	old := u.perDoc[doc]
 	var cur *mosaFacts
-	if g.docs[doc] {
+	if g.Gathered(doc) {
 		cur = newMOSAFacts()
 		a.facts = cur
-		g.gather(ctx, doc, a.gather)
+		g.Gather(ctx, doc, a.gather)
 		a.facts = nil
 	}
-	move(u.present, old.presentSet(), cur.presentSet(), mosaPresentName, changed)
-	move(u.marks, old.markSet(), cur.markSet(), mosaMarkName, changed)
-	move(u.conformant, old.conformantSet(), cur.conformantSet(), mosaConformantName, changed)
-	move(u.satisfiers, old.satisfierSet(), cur.satisfierSet(), mosaSatisfierName, changed)
+	kit.Move(u.present, old.presentSet(), cur.presentSet(), mosaPresentName, changed)
+	kit.Move(u.marks, old.markSet(), cur.markSet(), mosaMarkName, changed)
+	kit.Move(u.conformant, old.conformantSet(), cur.conformantSet(), mosaConformantName, changed)
+	kit.Move(u.satisfiers, old.satisfierSet(), cur.satisfierSet(), mosaSatisfierName, changed)
 	if cur == nil {
 		delete(u.perDoc, doc)
 	} else {
@@ -129,20 +136,20 @@ func (f *mosaFacts) satisfierSet() map[symbols.ElementKey]bool {
 
 func (a *mosaAudit) hasKind(k mosaKind) bool {
 	a.ctx.Resolver().ReadName(mosaPresentName(k))
-	return a.union.present.has(k) || a.local.presentSet()[k]
+	return a.union.present.Has(k) || a.local.presentSet()[k]
 }
 
 func (a *mosaAudit) anyMarked(m mosaMark) bool {
 	a.ctx.Resolver().ReadName(mosaMarkName(m))
-	return a.union.marks.has(m) || a.local.markSet()[m]
+	return a.union.marks.Has(m) || a.local.markSet()[m]
 }
 
 func (a *mosaAudit) isConformant(k symbols.ElementKey) bool {
 	a.ctx.Resolver().ReadName(mosaConformantName(k))
-	return a.union.conformant.has(k) || a.local.conformantSet()[k]
+	return a.union.conformant.Has(k) || a.local.conformantSet()[k]
 }
 
 func (a *mosaAudit) isSatisfier(k symbols.ElementKey) bool {
 	a.ctx.Resolver().ReadName(mosaSatisfierName(k))
-	return a.union.satisfiers.has(k) || a.local.satisfierSet()[k]
+	return a.union.satisfiers.Has(k) || a.local.satisfierSet()[k]
 }

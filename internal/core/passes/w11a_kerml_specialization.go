@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -110,7 +111,7 @@ func (W11AKerMLSpecializationPass) Run(ctx *Context, name string, root *ast.Root
 		return nil
 	}
 	c := &w11aSpecializationChecker{resolver: ctx.Resolver(), sysml: ctx.Kind != source.KindKerML}
-	w8dWalkSymbols(ctx, rootScope, c.check)
+	kit.WalkSymbols(ctx, rootScope, c.check)
 	return c.diags
 }
 
@@ -129,7 +130,7 @@ func (c *w11aSpecializationChecker) check(sym *symbols.Symbol) {
 		if rel == nil || rel.Target == nil || !w11aIsSpecialization(rel.Kind) {
 			continue
 		}
-		target, ok := c.resolver.ResolveTarget(w8dScopeOf(sym), rel.Target)
+		target, ok := c.resolver.ResolveTarget(kit.ReferenceScope(sym), rel.Target)
 		if !ok || target == nil {
 			continue
 		}
