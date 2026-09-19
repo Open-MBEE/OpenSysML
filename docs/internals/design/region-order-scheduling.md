@@ -570,22 +570,22 @@ row). In `StatePerformances.kerml` a state's `entry` is one step of its `StatePe
 `StateTransitionPerformance` is a performance of its own between `transitionLinkSource.exit`
 and the target's `entry`; the fold moves a behavior from the transition into the state, so it
 runs on every way into the state and not only by the initial transition. *Entering 010*'s
-region 1 is that case: its initial transition `T1.1` has an effect, and its target `S1.1` is the
-one the tester enters explicitly, bypassing the initial transition, so the fold runs
+region 1 is that case: its initial transition `T1.1` has an effect, and its target `r1` is the
+state the tester enters explicitly, bypassing the initial transition, so the fold runs
 `T1.1(effect)` on that entry and every trace reached is one the test refuses (`0 of 3`, two
 extra). Where the target is entered by the initial transition alone the fold is faithful by
 accident of the model, not by the spelling — the special case the rules above forbid. It also
 merges two behavior executions into one unit: UML performs the effect and the target's entry as
 distinct behaviors, and PSSM interleaves each against the sibling region, so *Entering 011*'s
-six admitted orders split `T1.1(effect)` from `S1.1(entry)` around the sibling's units in four,
+six admitted orders split `T1.1(effect)` from `r2(entry)` around the sibling's units in four,
 which one entry action, one unit of the front, cannot do (`2 of 6`, no extra). And it has no
 target at all when the initial transition ends at a pseudostate: *Junction 005*'s `T2.1` ends at
-a junction whose way out a guard decides at firing time, `S2.1` or `S2.2`, so there is no one
-state's entry to fold into. What the fold leaves alone is the case it was to be checked against:
-`r2`'s completion out of `top` stays a completion dispatched after the front, so the fold would
-reach no refused trace there — but it cannot be spelled there. The start state's completion
-stays the referee's spelling: it keeps the effect a behavior of its own, run once, on the
-initial transition alone, at the cost of the step boundary.
+a junction whose way out a guard decides at firing time, `r2` or its sibling state, so there is
+no one state's entry to fold into. What the fold leaves alone is the case it was to be checked
+against: `r2`'s completion out of `top` stays a completion dispatched after the front, so the
+fold would reach no refused trace there — but it cannot be spelled there. The start state's
+completion stays the referee's spelling: it keeps the effect a behavior of its own, run once,
+on the initial transition alone, at the cost of the step boundary.
 
 *Junction 005* pins the difference from the other side: `r2`'s completion is a real one,
 leaving `top` through its exit, and every admitted trace has it *after* `T1.3(effect)`, the
