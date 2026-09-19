@@ -15,9 +15,8 @@ type behaviorContext struct {
 	classifier *sysmlv1.Element
 }
 
-// contextVisit is an activity the search settling contexts has reached: its
-// place in the visit order, the earliest place a chain of calls from it reaches,
-// and the classifiers whose ports it names itself or through settled behaviors.
+// contextVisit is an activity the context search has reached: its visit index, the
+// earliest index its calls lead back to, and the port owners named so far.
 type contextVisit struct {
 	index, low int
 	owners     []*sysmlv1.Element
@@ -27,8 +26,7 @@ type contextVisit struct {
 // ports it or the behaviors it calls name. A classifier's own behavior acts on its
 // object unless nothing it needs is one: v1 runs a called behavior on the caller's
 // object, whoever owns it, so such a behavior takes the object it acts on instead.
-// Activities calling each other in a cycle name the same ports through the cycle,
-// so the search settles a cycle at once, with everything its members name.
+// A cycle of calls settles at once, with everything its members name.
 func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 	if b == nil || b.Type != "Activity" {
 		return nil
