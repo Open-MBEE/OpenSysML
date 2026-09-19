@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // isolationSource is exploreRaceSource with a calculation, whose invocation the

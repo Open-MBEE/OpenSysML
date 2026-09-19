@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"google.golang.org/protobuf/proto"
 )
 

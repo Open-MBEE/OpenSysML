@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // exploreRaceSource forks three writers of one feature, which the library leaves

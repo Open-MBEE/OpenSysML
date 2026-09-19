@@ -6,7 +6,7 @@ import "testing"
 // debugger says so rather than "completed", no state is active, `%current` keeps the
 // values the run had, and a signal sent afterwards finds no machine to take it.
 func TestStateDebuggerReportsATerminatedMachine(t *testing.T) {
-	s := loadFixture(t, "../core/runtime/testdata/conformance/state_terminate_transition_ends_machine.sysml")
+	s := loadFixture(t, "../exec/runtime/testdata/conformance/state_terminate_transition_ends_machine.sysml")
 	wants(t, run(t, s, "%state test::Machine"), "Current state: busy")
 
 	wants(t, run(t, s, "%send Abort"), `Accepted by state machine "Machine" in state busy`)

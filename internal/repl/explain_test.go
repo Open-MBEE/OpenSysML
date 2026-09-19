@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 )
 
 // conflictFixture is a session over the elements whose conditions conflict.

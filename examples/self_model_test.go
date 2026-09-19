@@ -19,14 +19,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	passidentity "github.com/Open-MBEE/OpenSysML/internal/check/passes/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docpdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
-	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
+	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	service "github.com/Open-MBEE/OpenSysML/internal/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
@@ -300,7 +300,7 @@ func TestSelfModelBudgetsMatchImplementation(t *testing.T) {
 }
 
 // TestSelfModelAnalysisFrameworkMatchesImplementation instantiates the modelled
-// analysis framework and compares it with internal/core/analysis: the engines the
+// analysis framework and compares it with internal/exec/analysis: the engines the
 // build's registry (engines.Default) holds and what each declares, the question kinds, the
 // evidence scale, the selections, the budget and the jobs setting.
 func TestSelfModelAnalysisFrameworkMatchesImplementation(t *testing.T) {
@@ -1366,7 +1366,7 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 		"[snapshotCurrent]",
 		"OpenSysMLViews::budgetExhaustion",
 		"| explore | outcomes | runs, depth | proved | true | false | runtime.ExploreWith |",
-		"| solve | satisfiable | runs, solver | proved | true | true | internal/core/solve |",
+		"| solve | satisfiable | runs, solver | proved | true | true | internal/exec/solve |",
 		"OpenSysMLViews::analysisFramework",
 		"OpenSysMLViews::questionFlow",
 		"OpenSysMLViews::exploreFlow",

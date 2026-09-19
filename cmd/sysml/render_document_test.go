@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // documentModel declares a document over the query model's part tree, so

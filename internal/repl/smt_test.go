@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/core/smt"
-	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/smt"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 )
 
 // gateSource: the requirement holds at limit's default and fails for other

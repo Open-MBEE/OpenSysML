@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // %schedule shows the policy, reverse until one is set, and rejects a spelling

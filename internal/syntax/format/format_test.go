@@ -128,7 +128,7 @@ func TestCorpusIsPreservedAndStable(t *testing.T) {
 		checkStable(t, name, content)
 	}
 
-	for _, dir := range []string{"../../../examples", "../../core/runtime/testdata"} {
+	for _, dir := range []string{"../../../examples", "../../exec/runtime/testdata"} {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
 			t.Fatalf("read dir %s: %v", dir, err)

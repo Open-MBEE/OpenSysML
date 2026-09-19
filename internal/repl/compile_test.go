@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/codegen"
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // compiledCase invokes one calc; the interpreter is the oracle for what the

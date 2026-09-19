@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	runtimePkg = "github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	runtimePkg = "github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	passesPkg  = "github.com/Open-MBEE/OpenSysML/internal/check/passes"
 )
 
@@ -58,7 +58,7 @@ func TestRuntimeModelsCarryArgumentTyping(t *testing.T) {
 	forwarderCallers := map[string]map[string]bool{}
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		fields := strings.Fields(line)
-		inRuntime := filepath.ToSlash(fields[0]) == filepath.ToSlash(filepath.Join(root, "internal/core/runtime"))
+		inRuntime := filepath.ToSlash(fields[0]) == filepath.ToSlash(filepath.Join(root, "internal/exec/runtime"))
 		for _, name := range fields[1:] {
 			path := filepath.Join(fields[0], name)
 			file, err := parser.ParseFile(fset, path, nil, 0)

@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // measurementRefSession declares a part measured in kilometres whose unit

@@ -1,7 +1,7 @@
 package codegen
 
 // SeqOp is a collection operation of the Kernel Function Library, computed by
-// the generated runtime as internal/core/runtime/collections.go computes it.
+// the generated runtime as internal/exec/runtime/collections.go computes it.
 type SeqOp int
 
 const (

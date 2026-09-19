@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 )
 
 // synthModel states values, an enumeration, two variation points and a division,

@@ -119,7 +119,7 @@ func TestW7GVerificationAndUseCaseReportTheExtraObjective(t *testing.T) {
 }
 
 // An analysis case improves several objectives lexicographically
-// (internal/core/solve), so the cardinality rule does not judge it.
+// (internal/exec/solve), so the cardinality rule does not judge it.
 func TestW7GAnalysisCaseAdmitsSeveralObjectives(t *testing.T) {
 	for _, src := range []string{
 		`package C {

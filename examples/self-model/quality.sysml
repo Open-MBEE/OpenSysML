@@ -264,7 +264,7 @@ package OpenSysMLGates {
     }
 
     verification def CalcDifferential {
-        doc /* go test -run 'TestCompiledCalc' ./internal/core/runtime */
+        doc /* go test -run 'TestCompiledCalc' ./internal/exec/runtime */
         subject evaluator : Evaluator;
         objective {
             verify evaluatorIsReference;
@@ -273,7 +273,7 @@ package OpenSysMLGates {
     }
 
     verification def RuntimeGate {
-        doc /* go test -run 'TestExecutionConformance|TestRuntimeRobustness' ./internal/core/runtime */
+        doc /* go test -run 'TestExecutionConformance|TestRuntimeRobustness' ./internal/exec/runtime */
         subject runtime : Runtime;
         objective {
             verify executionIsBounded;
@@ -291,7 +291,7 @@ package OpenSysMLGates {
     }
 
     verification def AnalysisGate {
-        doc /* go test -race ./internal/core/analysis */
+        doc /* go test -race ./internal/exec/analysis */
         subject framework : AnalysisFramework;
         objective {
             verify questionsHaveOneContract;
@@ -302,7 +302,7 @@ package OpenSysMLGates {
     }
 
     verification def RunStateGate {
-        doc /* go test -run 'TestSnapshot|TestExploreWith' ./internal/core/runtime */
+        doc /* go test -run 'TestSnapshot|TestExploreWith' ./internal/exec/runtime */
         subject runtime : Runtime;
         objective {
             verify snapshotsAreRunState;

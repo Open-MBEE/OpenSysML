@@ -442,7 +442,7 @@ operator) because the result is not yet bound when the expression computing it r
 checked after the result is bound is not a form the runtime offers, and none is added here.
 
 <!-- doc-counts:begin analysis-libraries -->
-**Measured by `go test ./internal/core/runtime -run TestAnalysisLibraryCensus -update-library-census`,** which writes [`analysis-library-census.json`](analysis-library-census.json); `make docs-counts` renders this block from that file and `go run -C tools ./cmd/doc-counts -check` fails when they disagree.
+**Measured by `go test ./internal/exec/runtime -run TestAnalysisLibraryCensus -update-library-census`,** which writes [`analysis-library-census.json`](analysis-library-census.json); `make docs-counts` renders this block from that file and `go run -C tools ./cmd/doc-counts -check` fails when they disagree.
 
 | Package | Declarations | Evaluated | Refused | Wrong |
 |---|---:|---:|---:|---:|

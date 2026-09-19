@@ -3,7 +3,7 @@ package repl
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // TestSessionBudgetsDefault: a fresh session runs on the default bounds.

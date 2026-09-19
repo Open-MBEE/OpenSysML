@@ -158,7 +158,7 @@ func TestRewritingTheExhibitedMachineDropsTheObject(t *testing.T) {
 // A machine is not something an object exhibits, so materializing the machine
 // itself leaves it debuggable as a machine another object performs.
 func TestStateDebugsAMachineMaterializedByName(t *testing.T) {
-	s := loadFixture(t, "../core/runtime/testdata/conformance/variant_connection_per_owner.sysml")
+	s := loadFixture(t, "../exec/runtime/testdata/conformance/variant_connection_per_owner.sysml")
 	run(t, s, "%instantiate VariantRouting::alpha")
 	run(t, s, "%instantiate VariantRouting::Router::Route")
 
@@ -183,7 +183,7 @@ func TestStateOverAPerformedMachineStaysOnIt(t *testing.T) {
 
 // A part exhibiting no machine is reported as such rather than debugged.
 func TestStateReportsAnObjectExhibitingNoMachine(t *testing.T) {
-	s := loadFixture(t, "../core/runtime/testdata/conformance/variant_connection_per_owner.sysml")
+	s := loadFixture(t, "../exec/runtime/testdata/conformance/variant_connection_per_owner.sysml")
 	run(t, s, "%instantiate VariantRouting::alpha")
 
 	wants(t, run(t, s, "%state VariantRouting::alpha"), "exhibits no state machine")

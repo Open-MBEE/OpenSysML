@@ -3,7 +3,7 @@ package repl
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // A paused %action resumes with its own evaluation budget: an %eval run between
