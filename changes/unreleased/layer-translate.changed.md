@@ -1,0 +1,1 @@
+- **Moved the translation packages to `internal/translate`.** `rdf` (with `ontology`), `export`, `migrate`, `convert`, `xmi` (with `sysmlv1`), `codegen` and `interop` (`flexo`, `reposync`) now live under `internal/translate/`.

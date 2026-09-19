@@ -1,0 +1,1 @@
+- **Moved the semantic IR packages to `internal/ir`.** `lower`, `queryplan`, `docplan` and `view` now live under `internal/ir/`.

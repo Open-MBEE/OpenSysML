@@ -3,7 +3,7 @@
   "roots": [
     {
       "name": "stdlib",
-      "dir": "internal/core/libs/stdlib",
+      "dir": "internal/workspace/libs/stdlib",
       "files": 103,
       "lines": 30341
     },
@@ -276,12 +276,12 @@
           "requiredLiterals": [
             "*"
           ],
-          "file": "internal/core/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
+          "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
           "evidence": [
             {
               "literal": "*",
               "root": "stdlib",
-              "file": "internal/core/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
+              "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
               "line": 8
             }
           ],
@@ -290,14 +290,14 @@
               "literals": [
                 "*"
               ],
-              "file": "internal/core/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
+              "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
               "line": 8
             },
             {
               "literals": [
                 "/"
               ],
-              "file": "internal/core/libs/stdlib/Domain Libraries/Analysis/SampledFunctions.sysml",
+              "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/SampledFunctions.sysml",
               "line": 109
             },
             {

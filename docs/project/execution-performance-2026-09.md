@@ -32,7 +32,7 @@ sub-millisecond band.
 
 ## Absolute throughput: state machines and instantiation
 
-`go test ./internal/repl -run '^$' -bench 'RunCalc|RunStateMachine|Instantiate' -benchmem -count 6`
+`go test ./internal/frontend/repl -run '^$' -bench 'RunCalc|RunStateMachine|Instantiate' -benchmem -count 6`
 over an already-loaded model (start-up excluded, medians):
 
 | figure | 250 elements | 1 000 elements | 4 000 elements |
@@ -156,7 +156,7 @@ path for pure calc bodies, is the planned follow-up and is out of scope here.
 
 Measured on the same machine, same method, at revision `8e4c84f0` (the
 evaluator above) before and after the compiled calc tier
-(`internal/core/runtime/compile.go`, `compiled_ops.go`). On its first
+(`internal/exec/runtime/compile.go`, `compiled_ops.go`). On its first
 invocation a calc definition whose body is one expression — a lone `return`,
 or a bound result over an otherwise empty body — over Integer, Real and
 Boolean literals, its own `in` parameters, the arithmetic,
@@ -284,9 +284,9 @@ same ~20 ns as `Fib`). Unboxing the library table is the natural next step
 and is out of scope here.
 
 Eligibility over the repository's fixtures, examples and the OMG corpora
-(`go test -run TestCompiledCalcDifferential -v ./internal/core/runtime`),
+(`go test -run TestCompiledCalcDifferential -v ./internal/exec/runtime`),
 before → after: 42 eligible of 263 calc definitions (16.0%) → 127 of 343
-(37.0%), the new fixtures under `internal/core/runtime/testdata/compiled/`
+(37.0%), the new fixtures under `internal/exec/runtime/testdata/compiled/`
 included; 84 449 invocations compared through both tiers over the generated
 vectors — 0, ±1, the Integer extremes, ±0.0, 1.5, −1e300, ±Inf, NaN, true
 and false — positionally and by name, none differing in value (Reals

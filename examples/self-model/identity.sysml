@@ -15,9 +15,9 @@ package OpenSysMLIdentity {
     // The two metadata definitions identity is carried by, shipped as a
     // non-normative library extension rather than surface syntax.
     #Identity part def IdentityLibrary :> CodeUnit {
-        attribute :>> goPackage = "internal/core/libs";
+        attribute :>> goPackage = "internal/workspace/libs";
         attribute libraryFile : String =
-            "internal/core/libs/stdlib/OpenSysML Libraries/IdentityMetadata.sysml";
+            "internal/workspace/libs/stdlib/OpenSysML Libraries/IdentityMetadata.sysml";
         attribute elementIdDefinition : String = "IdentityMetadata::ElementId";
         attribute projectRefDefinition : String = "IdentityMetadata::ProjectRef";
         attribute standardNotation : Boolean = true;
@@ -27,7 +27,7 @@ package OpenSysMLIdentity {
     // Readable, deterministic ids derived from a qualified name, plus the
     // derived ids of memberships (`_om`) and expression nodes (`_p`).
     #Identity part def IdEncoder :> CodeUnit {
-        attribute :>> goPackage = "internal/core/rdf";
+        attribute :>> goPackage = "internal/translate/rdf";
         attribute alphabet : String = "[a-zA-Z0-9_-]+";
         attribute derivesFromQualifiedName : Boolean = true;
         attribute reservesNoSuffix : Boolean = true;
@@ -36,7 +36,7 @@ package OpenSysMLIdentity {
     // A side table keyed by symbol: the annotated id when an element carries
     // one, the derived id otherwise, plus its nearest ProjectRef scope.
     #Identity part def IdentityTable :> CodeUnit {
-        attribute :>> goPackage = "internal/core/identity";
+        attribute :>> goPackage = "internal/semantic/identity";
         attribute :>> memoized = false;
         attribute keyedBySymbol : Boolean = true;
         attribute touchesSyntaxTree : Boolean = false;
@@ -60,7 +60,7 @@ package OpenSysMLIdentity {
     // identity instead of exporting them, and marks an annotated id so
     // explicitness survives a rename.
     #Identity part def RdfWriter :> CodeUnit {
-        attribute :>> goPackage = "internal/core/export";
+        attribute :>> goPackage = "internal/translate/export";
         attribute marksDeclaredId : Boolean = true;
         attribute consumesAnnotations : Boolean = true;
         attribute qualifiesMultiScopeIris : Boolean = true;
@@ -74,7 +74,7 @@ package OpenSysMLIdentity {
     // Re-materializes the annotations on the way back to notation, including
     // the case where an annotated id equals the derived one.
     #Identity part def RdfReader :> CodeUnit {
-        attribute :>> goPackage = "internal/core/export";
+        attribute :>> goPackage = "internal/translate/export";
         attribute rematerializesAnnotations : Boolean = true;
         attribute readsProvenanceTriples : Boolean = true;
         attribute preservesDegenerateAnnotation : Boolean = true;
@@ -87,7 +87,7 @@ package OpenSysMLIdentity {
     // Measures what survives a live Flexo round trip; the committed report is
     // the evidence the standardization submission cites.
     #Identity part def InteropHarness :> CodeUnit {
-        attribute :>> goPackage = "internal/interop/flexo";
+        attribute :>> goPackage = "internal/translate/interop/flexo";
         attribute measuresRatherThanAsserts : Boolean = true;
     }
 
@@ -95,7 +95,7 @@ package OpenSysMLIdentity {
     // repository element rather than a delete plus a create. Ids are minted
     // here, never during parsing or analysis, and only when asked.
     #Identity part def RepositorySync :> CodeUnit {
-        attribute :>> goPackage = "internal/interop/reposync";
+        attribute :>> goPackage = "internal/translate/interop/reposync";
         attribute implemented : Boolean = true;
         attribute mintsIds : Boolean = true;
         attribute mintsOnlyOnRequest : Boolean = true;
@@ -276,7 +276,7 @@ package OpenSysMLIdentity {
 
     verification def IdentityGate {
         doc /* go test -run 'TestAnnotatedIDRoundTrips|TestExplicitIDEqualToDerivedIDSurvives'
-             * ./internal/core/export */
+             * ./internal/translate/export */
         subject writer : RdfWriter;
         objective {
             verify identityRoundTrips;

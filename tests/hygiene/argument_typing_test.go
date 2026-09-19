@@ -14,16 +14,16 @@ import (
 )
 
 const (
-	runtimePkg = "github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	passesPkg  = "github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	runtimePkg = "github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	passesPkg  = "github.com/Open-MBEE/OpenSysML/internal/check/passes"
 )
 
 // Frontends whose runtime models the check must keep seeing; a restructuring
 // that hides one of these construction sites from the walk fails here.
 var runtimeModelFrontends = []string{
-	"internal/repl/session.go",
-	"internal/grpc/cache.go",
-	"internal/core/model/runtime.go",
+	"internal/frontend/repl/session.go",
+	"internal/frontend/grpc/cache.go",
+	"internal/workspace/model/runtime.go",
 }
 
 // Runtime constructors that call NewModel on a semantic model handed to them,
@@ -31,7 +31,7 @@ var runtimeModelFrontends = []string{
 // passes is pinned typed by a test over its product path, since the walk cannot
 // see through the field or parameter it arrives in.
 var runtimeModelForwarders = map[string][]string{
-	"NewDeclaredReader": {"internal/core/queryexec/derived.go"},
+	"NewDeclaredReader": {"internal/doc/queryexec/derived.go"},
 }
 
 // TestRuntimeModelsCarryArgumentTyping pins that every production site that
@@ -58,7 +58,7 @@ func TestRuntimeModelsCarryArgumentTyping(t *testing.T) {
 	forwarderCallers := map[string]map[string]bool{}
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		fields := strings.Fields(line)
-		inRuntime := filepath.ToSlash(fields[0]) == filepath.ToSlash(filepath.Join(root, "internal/core/runtime"))
+		inRuntime := filepath.ToSlash(fields[0]) == filepath.ToSlash(filepath.Join(root, "internal/exec/runtime"))
 		for _, name := range fields[1:] {
 			path := filepath.Join(fields[0], name)
 			file, err := parser.ParseFile(fset, path, nil, 0)

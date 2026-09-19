@@ -1,11 +1,11 @@
 ---
 name: testing-notation-warnings
-description: How to end-to-end test a new `nonstandard-notation` warning in internal/core/passes/nonstandard_notation.go — which surfaces show it, how to build non-vacuous false-positive scans over the four OMG corpora, how strict-conformance escalation is observed, and how to referee the boundary against the pinned pilot validator.
+description: How to end-to-end test a new `nonstandard-notation` warning in internal/check/passes/nonstandard_notation.go — which surfaces show it, how to build non-vacuous false-positive scans over the four OMG corpora, how strict-conformance escalation is observed, and how to referee the boundary against the pinned pilot validator.
 ---
 
 # Testing a new `nonstandard-notation` warning
 
-`internal/core/passes/nonstandard_notation.go` emits one code, `nonstandard-notation`, at
+`internal/check/passes/nonstandard_notation.go` emits one code, `nonstandard-notation`, at
 `LevelSyntax`. Each rule matches an AST node shape and reports
 ``<spelling> is an OpenSysML extension with no SysML v2 production: <advice>``. Testing a newly
 added rule means proving four things: it fires at the user-facing surfaces, it does **not** fire on
@@ -51,15 +51,15 @@ A severity move can preserve every diagnostic and still change behavior, because
 ask "is there an error?" independently of the pass runner. Grep for them before believing a
 severity-only claim; as of wave 10C the predicate is `Diagnostic.Blocking()`
 (`SeverityError && !Notation`) and the gates that use it are `Registry.Run`'s `hasError` and the
-REPL's `hasError` + `analysisBlocked` (`internal/repl/render.go`), while these deliberately keep a
+REPL's `hasError` + `analysisBlocked` (`internal/frontend/repl/render.go`), while these deliberately keep a
 **raw** `SeverityError` check:
 
-- `internal/repl/run.go`'s `Session.hasAnalysisErrors` → `HasErrors()`, which gates the CLI check
-  flags (`cmd/sysml/check.go`), `%query` (`internal/repl/oslc_query.go`) and `LoadReport.Errors`
-- `internal/core/edit/validate.go`'s `errorsOnly`
+- `internal/frontend/repl/run.go`'s `Session.hasAnalysisErrors` → `HasErrors()`, which gates the CLI check
+  flags (`cmd/sysml/check.go`), `%query` (`internal/frontend/repl/oslc_query.go`) and `LoadReport.Errors`
+- `internal/check/edit/validate.go`'s `errorsOnly`
 
 ```bash
-grep -rn 'SeverityError' --include=*.go internal/ cmd/ | grep -v internal/core/passes/
+grep -rn 'SeverityError' --include=*.go internal/ cmd/ | grep -v internal/check/passes/
 ```
 
 So test three distinct things, not one: (1) no diagnostic is lost, (2) the REPL still prints its
@@ -71,7 +71,7 @@ The trap to watch for: a diagnostic that is **both** `Notation` and `SeverityErr
 will disagree with `Blocking()` on every raw-severity gate. Find them with
 
 ```bash
-grep -rn -B8 'Notation:\s*true\|Notation\s*=\s*true' --include=*.go internal/core/passes/ | grep -E 'Severity|func '
+grep -rn -B8 'Notation:\s*true\|Notation\s*=\s*true' --include=*.go internal/check/passes/ | grep -E 'Severity|func '
 ```
 
 Historically `import-visibility` is the only such case (`nonstandard-notation` is a warning by
@@ -121,7 +121,7 @@ invents cross-file diagnostics — keep one file per invocation and parallelize 
 per file, 429 files × 2 binaries × 2 modes finishes in well under a minute:
 
 ```bash
-find examples internal/core/libs/stdlib -name '*.sysml' -o -name '*.kerml' | sort > /tmp/files.txt
+find examples internal/workspace/libs/stdlib -name '*.sysml' -o -name '*.kerml' | sort > /tmp/files.txt
 xargs -a /tmp/files.txt -d '\n' -P8 -I{} /tmp/scan.sh /tmp/sysml-pr "" {} > /tmp/diag_pr.txt
 ```
 
@@ -174,7 +174,7 @@ caret line. Eyeballing two screenshots is not.
 It parses the 95 embedded stdlib files and asserts zero **parse** diagnostics against
 `testdata/stdlib_known_failures.txt`; it never runs the passes. So it is *not* evidence that a new
 pass rule or a severity change leaves the stdlib alone. For that, grep the stdlib for the
-construct directly (e.g. `grep -rlE '^[[:space:]]*import ' internal/core/libs/stdlib` returns 0
+construct directly (e.g. `grep -rlE '^[[:space:]]*import ' internal/workspace/libs/stdlib` returns 0
 files, which is the real reason an import-visibility change cannot touch it).
 
 ## Recording the CLI/REPL surfaces
@@ -226,13 +226,13 @@ Use an explicit `private import ScalarValues::*;` only when you need the file to
 
 The OMG-authored corpora are asserted clean, so **any** hit is a defect. Roots:
 `examples/pilot-corpora` (includes `sysml-examples` and `kerml-examples`),
-`examples/sysml-v2-training`, and the stdlib `internal/core/libs/stdlib`.
+`examples/sysml-v2-training`, and the stdlib `internal/workspace/libs/stdlib`.
 
 ```bash
 while IFS= read -r f; do
   bin/sysml -validate "$f" 2>&1 | grep -E "<the new message text>" | sed "s|^|HIT |"
 done < <(grep -rl --include=*.sysml --include=*.kerml -E '(^|[^A-Za-z_])(return|assert|assume) ' \
-           examples/pilot-corpora examples/sysml-v2-training internal/core/libs/stdlib)
+           examples/pilot-corpora examples/sysml-v2-training internal/workspace/libs/stdlib)
 ```
 
 - Use `grep -rl` on the *keyword* to pick candidate files (99 files for `return`/`assert`/`assume`),
@@ -287,7 +287,7 @@ expecting EOF`) and it also emits its own `Duplicate of other owned member name`
 The single most likely coverage gap when a rule covers "assert/assume conditions": a condition in a
 **constraint** body is `*ast.ConstraintMember` (fields `Keyword`, `IsNegated`, `Expression`, `Name`,
 `Body`), but the same-looking condition in a **requirement** body is `*ast.AssumeMember` /
-`*ast.RequireMember` (`internal/core/ast/behavior.go`, "Phase C2: Requirement Body Members"), with a
+`*ast.RequireMember` (`internal/syntax/ast/behavior.go`, "Phase C2: Requirement Body Members"), with a
 different field set. A rule keyed on `*ast.ConstraintMember` therefore covers a constraint-body condition and
 misses the requirement-body ones. The keyworded inline condition
 (`constraint c { assert x >= 0; }`, `requirement r { require x > 0; }`) is now rejected by the
@@ -390,11 +390,11 @@ intact. Two forwarders do that, and if either dropped the code the rule would si
 everywhere:
 
 ```bash
-grep -n "Code:" internal/core/model/workspace.go   # ~244, CLI + LSP path
-grep -n "Code:" internal/repl/session.go           # ~555, REPL path
+grep -n "Code:" internal/workspace/model/workspace.go   # ~244, CLI + LSP path
+grep -n "Code:" internal/frontend/repl/session.go           # ~555, REPL path
 ```
 
-So a keyword-as-name check that passes only in `internal/core/passes` unit tests proves nothing about
+So a keyword-as-name check that passes only in `internal/check/passes` unit tests proves nothing about
 the CLI, REPL or LSP — exercise at least one real surface.
 
 ## Every diagnostic from the notation pass is Notation, whatever its code
@@ -407,7 +407,7 @@ notation. A hand-maintained set will misclassify one of them and produce a false
 
 ```bash
 grep -rn "Notation:\s*true\|\.Notation = true" --include=*.go internal/ | grep -v _test
-grep -n "Code[A-Za-z]* =" internal/core/passes/nonstandard_notation.go
+grep -n "Code[A-Za-z]* =" internal/check/passes/nonstandard_notation.go
 ```
 
 ## Surface and flag names that waste time
@@ -455,15 +455,15 @@ not a regression of the declared-members summary. Compare summaries in **default
 
 ## De-duplicating a parser warning against a notation error: sweep every construct
 
-`dropEscalatedWarnings` (`internal/core/passes/analyze.go`) drops a parse **warning** only where a
+`dropEscalatedWarnings` (`internal/check/passes/analyze.go`) drops a parse **warning** only where a
 pass reported an **error** of the same code at the same span, after the whole registry ran. Filtering
 by code alone — as `SyntaxPass.Run` once did — is asymmetric and is the thing to attack:
 
 - the parser emits the warning from **one** general site, `parseIdentification()` in
-  `internal/core/parser/namespace.go` (~line 222), so *any* construct whose name flows through it
+  `internal/syntax/parser/namespace.go` (~line 222), so *any* construct whose name flows through it
   can produce the warning;
 - the notation walker calls `keywordAsName` from only a handful of cases in
-  `internal/core/passes/nonstandard_notation.go` — the `Ident` of `ast.Namespace`, `ast.Package`,
+  `internal/check/passes/nonstandard_notation.go` — the `Ident` of `ast.Namespace`, `ast.Package`,
   `ast.Definition` and `ast.Usage`.
 
 Any construct in the first set but not the second **loses its only diagnostic under strict**, making
@@ -493,7 +493,7 @@ Before trusting a corpus differential as evidence for a keyword-as-name change, 
 code actually produces across the corpora:
 
 ```bash
-find examples/pilot-corpora internal/core/libs/stdlib -name '*.sysml' -o -name '*.kerml' \
+find examples/pilot-corpora internal/workspace/libs/stdlib -name '*.sysml' -o -name '*.kerml' \
   | xargs -P8 -I{} sh -c '/tmp/sysml -validate -strict "{}" 2>&1' | grep -c 'reserved keyword'
 ```
 
@@ -540,7 +540,7 @@ warning is replaced by a parser error. Test it as a pair of claims, not one:
    word, and exit **2**. One fixture per construct — parser recovery cascades and invents
    `expected a namespace member` errors on the closing braces if you put several in one file.
 2. **The word must still work as an ordinary name**, because these words are *unreserved*
-   (`internal/core/lexer/contextual.go`, `parser/notation.go` `notationWords`). Put
+   (`internal/syntax/lexer/contextual.go`, `parser/notation.go` `notationWords`). Put
    `attribute final : Boolean;`, `action initial;`, `out decision : Boolean;`, a kindless `final;`
    and a kindless `decision;`, and `first initial then final2;` in one clean file: default mode must
    exit 0 and `-convert sysml` must reproduce every member verbatim.
@@ -568,7 +568,7 @@ for f in state_markers.sysml oneended_first.sysml; do for m in "" "-strict"; do
   [ "$a" = "$b" ] && echo "IDENTICAL $f [$m]" || diff <(echo "$b") <(echo "$a"); done; done
 ```
 
-A whole-repo sweep of the same comparison (`examples`, `testdata`, `internal/core/*/testdata`;
+A whole-repo sweep of the same comparison (`examples`, `testdata`, `internal/*//testdata`;
 ~1440 files, ~4 min serial) is the false-positive control, and it is *non-vacuous* here because the
 hand-written removed-spelling fixtures above do differ under the identical method — cite that as the
 control rather than reporting "0 differences" alone.

@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	exportPkg  = "github.com/Open-MBEE/OpenSysML/internal/core/export"
-	convertPkg = "github.com/Open-MBEE/OpenSysML/internal/core/convert"
-	migratePkg = "github.com/Open-MBEE/OpenSysML/internal/core/migrate"
+	exportPkg  = "github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	convertPkg = "github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	migratePkg = "github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
 // packageDeps lists the transitive dependencies of a package, as go list -deps does.
@@ -45,16 +45,16 @@ func directImports(t *testing.T) map[string][]string {
 // The RDF mapping translates between a parsed tree and a graph; it does not
 // migrate SysML v1 XMI, and the conversion entry point above it does.
 func TestExportDoesNotDependOnMigration(t *testing.T) {
-	deps := packageDeps(t, "./internal/core/export")
+	deps := packageDeps(t, "./internal/translate/export")
 	if slices.Contains(deps, migratePkg) {
-		t.Errorf("internal/core/export depends on internal/core/migrate; migration belongs to internal/core/convert")
+		t.Errorf("internal/translate/export depends on internal/translate/migrate; migration belongs to internal/translate/convert")
 	}
 	if slices.Contains(deps, convertPkg) {
-		t.Errorf("internal/core/export depends on internal/core/convert, which sits above it")
+		t.Errorf("internal/translate/export depends on internal/translate/convert, which sits above it")
 	}
 }
 
-// Conversions are driven from internal/core/convert: the mapping packages do
+// Conversions are driven from internal/translate/convert: the mapping packages do
 // not import it, and only it and the CLI (which prints the migration report)
 // import the migration directly.
 func TestConversionEntryPointOwnsTheOrchestration(t *testing.T) {
@@ -68,11 +68,11 @@ func TestConversionEntryPointOwnsTheOrchestration(t *testing.T) {
 	}
 	slices.Sort(got)
 	if !slices.Equal(got, want) {
-		t.Errorf("packages importing internal/core/migrate = %v, want %v", got, want)
+		t.Errorf("packages importing internal/translate/migrate = %v, want %v", got, want)
 	}
-	for _, pkg := range []string{exportPkg, migratePkg, "github.com/Open-MBEE/OpenSysML/internal/core/rdf"} {
+	for _, pkg := range []string{exportPkg, migratePkg, "github.com/Open-MBEE/OpenSysML/internal/translate/rdf"} {
 		if slices.Contains(imports[pkg], convertPkg) {
-			t.Errorf("%s imports internal/core/convert, which drives it", pkg)
+			t.Errorf("%s imports internal/translate/convert, which drives it", pkg)
 		}
 	}
 }

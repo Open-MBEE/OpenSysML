@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
 )
 
 func TestStateRoundTrips(t *testing.T) {

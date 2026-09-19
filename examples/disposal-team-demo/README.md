@@ -230,16 +230,16 @@ Three defects, all fixed with the change that added this example:
   behavior and of the sending object, so the send reported `send reaches no
   receiving port`. Deliveries now also follow the connections of the objects
   holding the sender, on the peer object's identity
-  (`internal/core/runtime/routing.go`).
+  (`internal/exec/runtime/routing.go`).
 - **A bound subject did not carry the subject's type.** `requirement payloadHolds
   : PayloadReq { subject truck = loadedTruck; }` redefines the definition's
   subject, so it is typed by `Truck` — but the redefinition was not among the
   usage's supertypes, and `%check` refused the requirement with ``payload` names
   no member of `truck``. Implicit role redefinitions are now direct supertypes
-  (`internal/core/semantics/model.go`).
+  (`internal/semantic/semantics/model.go`).
 - **An item object could not be sent.** `send approach via command`, where
   `approach` is an `item approach : Command { … }` of the console, reported
   `message of kind instance has no signal type`: a message took its type from a
   scalar value only, so an object had none. An object's message is now typed by
   the definition it materializes, which is the type an accept of it names
-  (`internal/core/runtime/signal.go`).
+  (`internal/exec/runtime/signal.go`).

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
 
 // expectedBinding is the fixture encoding of a pb.DocumentQueryBinding: the

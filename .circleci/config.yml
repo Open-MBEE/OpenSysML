@@ -434,7 +434,7 @@ jobs:
           name: Run solver differential gate
           command: |
             set -o pipefail
-            go test -count=1 -v ./internal/core/solve -run TestDifferential | tee differential-gate.log
+            go test -count=1 -v ./internal/exec/solve -run TestDifferential | tee differential-gate.log
             grep -E 'differential gate .*: .* elements:' differential-gate.log
             if grep -qE '^\s*--- SKIP' differential-gate.log; then
               echo "error: a differential gate skipped" >&2
@@ -452,7 +452,7 @@ jobs:
           command: |
             set -o pipefail
             for solver in z3 cvc5; do
-              OPENSYSML_SMT="$solver" go test -count=1 -v ./internal/core/solve \
+              OPENSYSML_SMT="$solver" go test -count=1 -v ./internal/exec/solve \
                 -run 'TestPortability' | tee "portability-$solver.log"
               grep -E "portability of $solver" "portability-$solver.log"
               if grep -qE '^\s*--- SKIP' "portability-$solver.log"; then
@@ -469,7 +469,7 @@ jobs:
           name: Run solver gate (cvc5)
           command: |
             set -o pipefail
-            OPENSYSML_SMT=cvc5 go test -count=1 -v ./internal/core/solve ./internal/repl \
+            OPENSYSML_SMT=cvc5 go test -count=1 -v ./internal/exec/solve ./internal/frontend/repl \
               -run 'TestSolver|TestDiscovery|TestSolved|TestDivisor|TestCheck|TestSolve|TestConfigure|TestSynthesis|TestPinned|TestFixed|TestExplain|TestCore' \
               | tee cvc5-gate.log
             if grep -qE '^\s*--- SKIP' cvc5-gate.log; then
@@ -487,7 +487,7 @@ jobs:
           command: |
             set -o pipefail
             env -u OPENSYSML_REQUIRE_SMT OPENSYSML_SMT=/nonexistent/no-such-solver \
-              go test -count=1 -v ./internal/core/solve ./internal/repl | tee no-solver-gate.log
+              go test -count=1 -v ./internal/exec/solve ./internal/frontend/repl | tee no-solver-gate.log
             for name in TestCheckReportsAnAbsentSolver TestExplainReportsAnAbsentSolver \
               TestSolveReportsAnAbsentSolver TestConfigureReportsAnAbsentSolver \
               TestOptimizeReportsAnAbsentSolver; do
@@ -566,7 +566,7 @@ jobs:
   scan:
     docker:
       - image: cimg/go:1.25
-    # The Go sensor holds a whole directory's parse in memory; internal/core/runtime
+    # The Go sensor holds a whole directory's parse in memory; internal/exec/runtime
     # (168 files) overflows the default heap (a quarter of the container). 8 GB is
     # the largest class in the project's plan (xlarge is rejected).
     resource_class: large

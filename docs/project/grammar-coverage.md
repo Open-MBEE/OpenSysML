@@ -91,7 +91,7 @@ are observations; **nothing here was fixed in the change that added this page.**
 
 `KerMLExpressions.xtext:267` `MultiplicativeOperator : '*' | '/' | '%'`. `%` appears in no
 corpus file and in no fixture; `*` and `/` are cited in the stdlib. We do implement it:
-`lexer.Percent` (`internal/core/lexer/lexer.go`) → `binaryOpForToken` (`internal/core/parser/expr.go`)
+`lexer.Percent` (`internal/syntax/lexer/lexer.go`) → `binaryOpForToken` (`internal/syntax/parser/expr.go`)
 → `ast.OpMod`, and `sysml -e '7 % 3'` answers `1`.
 
 **Verdict: real notation, want a fixture.** The cheapest gap on this list: an arithmetic
@@ -101,7 +101,7 @@ operator with no test input anywhere.
 
 `KerML.xtext:119` `Namespace : ( ownedRelationship += PrefixMetadataMember )* NamespaceDeclaration NamespaceBody`.
 Both `#` and `namespace` occur in the corpora, never in one file. We implement the prefix
-(`parseMember` / the prefix-metadata loop in `internal/core/parser/namespace.go`), and
+(`parseMember` / the prefix-metadata loop in `internal/syntax/parser/namespace.go`), and
 `metadata def Meta; #Meta namespace N { part def A; }` analyses clean.
 
 **Verdict: real notation, want a fixture.**
@@ -113,14 +113,14 @@ own name, rather than as a clause of a declaration.
 
 | Form | Grammar | Status here |
 |---|---|---|
-| `disjoining D disjoint A from B;` | `KerML.xtext:426` `Disjoining`, optional `'disjoining' Identification?` | parsed as a member of its own (`parseMember`, `internal/core/parser/namespace.go`), fixture `kerml_disjoining_member.kerml`; no longer unseen |
+| `disjoining D disjoint A from B;` | `KerML.xtext:426` `Disjoining`, optional `'disjoining' Identification?` | parsed as a member of its own (`parseMember`, `internal/syntax/parser/namespace.go`), fixture `kerml_disjoining_member.kerml`; no longer unseen |
 | `conjugation Cj conjugate C ~ A.b;` | `KerML.xtext:408` `Conjugation`, the `OwnedFeatureChain` alternative | not parsed |
 | `redefinition R redefinition g :>> f;` | `KerML.xtext:712` `Redefinition`, the `':>>'` alternative | not parsed |
 
-All three are rejected by `parseMember` (`internal/core/parser/namespace.go`) with
+All three are rejected by `parseMember` (`internal/syntax/parser/namespace.go`) with
 `expected a namespace member`. What we do implement is the *clause* spelling of the same
 semantics — the anonymous `disjoint X from Y;` statement (`parseBodyMember`,
-`internal/core/parser/defusage.go`), `~` conjugation in a typing, and `:>>` in a usage
+`internal/syntax/parser/defusage.go`), `~` conjugation in a typing, and `:>>` in a usage
 declaration — so the gap is the standalone, nameable relationship element, which is KerML
 notation with no SysML v2 surface. `specialization S subtype A specializes B;` is rejected the
 same way, which literal search did not flag: `specialization` occurs in the KerML corpus, so

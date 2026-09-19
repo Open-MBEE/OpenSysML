@@ -63,7 +63,7 @@ Out of scope, and stated as such in the report where they apply:
 
 - **Data nondeterminism.** Inputs, `in` parameters and unbound features are fixed at the values
   the caller gave; the checker explores scheduling, not the value domain. Value-domain questions
-  are the SMT layer's (`internal/core/solve`), which reasons about constraints and requirements
+  are the SMT layer's (`internal/exec/solve`), which reasons about constraints and requirements
   over free variables and has no notion of a behavior's state. The two are complementary and stay
   separate here; [SMT bounded model checking](smt-model-checking.md) is the design that gives the
   solver that notion, with this engine as its referee.
@@ -341,7 +341,7 @@ Two moves in different `actionFrame`s that read and write only their own frame's
 independent by construction; this is the common case for fork branches that compute into their
 own pins and meet at a join, and it is what makes the reduction effective on real models.
 
-Footprints are computed once per node when the graph is lowered, in `internal/core/lower`, and
+Footprints are computed once per node when the graph is lowered, in `internal/ir/lower`, and
 stored beside `Bodies` as `Footprints map[ast.Node]Footprint`. The lowering layer already
 resolves every name a statement uses (`Assign.Scope`, `Send.TargetSym`, `AssignTarget.Steps`);
 the footprint is a projection of what it has, not a new analysis. That keeps the executor's

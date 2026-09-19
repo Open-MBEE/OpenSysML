@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/grpc"
+	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
 
 // Session is a persistent, interactive run of one model: it keeps a clock, a

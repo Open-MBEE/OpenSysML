@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
 const realHref = `<type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>`
