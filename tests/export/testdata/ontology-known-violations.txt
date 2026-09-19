@@ -1,7 +1,7 @@
 # Known disagreements between the graphs this tool writes and the OMG SysML v2
 # metamodel as Open-MBEE/sysmlv2-rdf-ontology renders it (version 202407). Each
 # line is one violation key — `<kind> <metaclass> <property>` — and the reason it
-# is expected; TestGoldenGraphsMatchOntology (internal/core/export) fails on any
+# is expected; TestGoldenGraphsMatchOntology (internal/translate/export) fails on any
 # key that is not listed here, and on any listed key no fixture violates any
 # more. The inventory is tracked in docs/project/roadmap.md § D7 and § D8.
 #

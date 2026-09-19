@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
-	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
 // fakeRepository holds elements by id the way the SysML v2 service does: a

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
 // pingNetwork is a net of two nodes whose machines count the pings they
