@@ -311,9 +311,8 @@ func TestEngineReportsUndecidedUncertaintyAsNotCovered(t *testing.T) {
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skipf("no sh to stand in for a solver: %v", err)
 	}
-	// Each query is a fresh process; the count file has the fourth one hang. Every
-	// process runs under the solver budget, the answering ones to their exit and the
-	// hanging one until it has counted itself, so the budget is generous for a shell.
+	// Each query is a fresh process; the count file has the fourth one hang. The budget
+	// bounds each process from launch to exit, so it is generous for a shell under load.
 	count := filepath.Join(t.TempDir(), "asked")
 	script := `n=0; read -r n 2>/dev/null < "$1"; echo $((n+1)) > "$1"
 if [ "$n" -ge 3 ]; then exec sleep 30; fi
