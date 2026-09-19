@@ -3,7 +3,7 @@ package docir
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 )
 
 const formattedFixture = `

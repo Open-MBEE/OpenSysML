@@ -13,7 +13,7 @@ import (
 
 // objectFixture declares queries over the objects a service holds and the
 // assertions on them, as the REPL's %run-query tests do.
-const objectFixture = "../core/docrender/testdata/object_report.sysml"
+const objectFixture = "../doc/docrender/testdata/object_report.sysml"
 
 // objectByID binds an object by the id Instantiate answered.
 func objectByID(id int64) *pb.DocumentValue {

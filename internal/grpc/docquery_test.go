@@ -9,24 +9,24 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 )
 
 // telescopeFixture is the document pipeline's own telescope-domain fixture, so
 // the service answers exactly what the renderer's goldens lock in.
-const telescopeFixture = "../core/docrender/testdata/telescope_report.sysml"
+const telescopeFixture = "../doc/docrender/testdata/telescope_report.sysml"
 
 // telescopeGolden is the Markdown the fixture's MassReport renders to.
-const telescopeGolden = "../core/docrender/testdata/telescope_report.golden.md"
+const telescopeGolden = "../doc/docrender/testdata/telescope_report.golden.md"
 
 // defaultedFixture declares queries whose parameters carry defaults.
-const defaultedFixture = "../core/docrender/testdata/defaulted_queries.sysml"
+const defaultedFixture = "../doc/docrender/testdata/defaulted_queries.sysml"
 
 // quantityFixture declares quantity-valued attributes and queries over them.
-const quantityFixture = "../core/docrender/testdata/quantity_report.sysml"
+const quantityFixture = "../doc/docrender/testdata/quantity_report.sysml"
 
 // verdictFixture declares assertions on a car and queries over their verdicts.
-const verdictFixture = "../core/docrender/testdata/verdict_report.sysml"
+const verdictFixture = "../doc/docrender/testdata/verdict_report.sysml"
 
 // parseTelescope loads the telescope fixture into a fresh service.
 func parseTelescope(t *testing.T, srv *Service) string {

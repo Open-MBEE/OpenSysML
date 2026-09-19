@@ -10,7 +10,7 @@ import (
 
 // traceMatrixFixture declares a requirement matrix whose columns are
 // relationship-derived: satisfier and verifier lists, a count and a flag.
-const traceMatrixFixture = "../core/queryexec/testdata/trace_matrix.sysml"
+const traceMatrixFixture = "../doc/queryexec/testdata/trace_matrix.sysml"
 
 // elementIDs spells a cell's element values by qualified name.
 func elementIDs(cell *pb.DocumentQueryCell) []string {

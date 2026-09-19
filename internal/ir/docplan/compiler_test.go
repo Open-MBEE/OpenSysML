@@ -459,7 +459,7 @@ func TestCompileReportsMissingBinding(t *testing.T) {
 }
 
 func TestCompileLeavesDefaultedParametersToTheExecutor(t *testing.T) {
-	fixture := loadPlanningFixtureFile(t, "../../core/docrender/testdata/defaulted_queries.sysml")
+	fixture := loadPlanningFixtureFile(t, "../../doc/docrender/testdata/defaulted_queries.sysml")
 	plan := fixture.mustCompile(t, "DefaultedReport")
 	content := plan.Content()
 	if len(content) != 3 {

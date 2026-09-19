@@ -91,10 +91,10 @@ var packageLayer = map[string]string{
 	"internal/translate/interop/reposync": "translate",
 
 	"internal/semantic/query": "semantic",
-	"internal/core/queryexec": "doc",
-	"internal/core/docir":     "doc",
-	"internal/core/docrender": "doc",
-	"internal/core/docpdf":    "doc",
+	"internal/doc/queryexec":  "doc",
+	"internal/doc/docir":      "doc",
+	"internal/doc/docrender":  "doc",
+	"internal/doc/docpdf":     "doc",
 
 	"internal/core/model":         "workspace",
 	"internal/semantic/highlight": "semantic",
