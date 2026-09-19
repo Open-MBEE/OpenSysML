@@ -18,7 +18,7 @@ var censusPackages = []censusPackage{
 
 // probeModel wraps the declarations of a probe in the package `test`, importing
 // the library packages it uses.
-func probeModel(imports string, body string) string {
+func probeModel(imports, body string) string {
 	model := "package test {\n\tprivate import ScalarValues::*;\n"
 	for _, pkg := range strings.Fields(imports) {
 		model += "\tprivate import " + pkg + "::*;\n"

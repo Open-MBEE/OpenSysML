@@ -588,8 +588,9 @@ calc rows : SubsystemTable {
 Bindings are validated against the query's compiled signature at planning
 time: an unknown parameter, a duplicate, a missing one without a usable
 default, or a type or multiplicity mismatch is a typed error before anything
-runs. A binding's value is an element name or a literal; the engine does not
-evaluate arbitrary default expressions.
+runs. A binding's value is an element name (`telescope`, or
+`telescope.optics.mirror` for a nested usage, in dot notation) or a literal;
+the engine does not evaluate arbitrary default expressions.
 
 ## Escaping — write content freely
 

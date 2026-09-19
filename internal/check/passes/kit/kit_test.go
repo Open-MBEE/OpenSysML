@@ -35,13 +35,13 @@ func TestGathersUnionLifecycle(t *testing.T) {
 	ctx := testContext()
 	g := NewGathers()
 	u := &testUnion{}
-	if got := g.UnionOf(ctx, "test", func() Union { return u }); got != u {
+	if got := g.UnionOf(ctx, "test", func() Regatherer { return u }); got != u {
 		t.Fatalf("UnionOf returned %T, want existing union", got)
 	}
 	if got := g.Union("test"); got != u {
 		t.Fatalf("Union returned %T, want test union", got)
 	}
-	if got := g.UnionOf(ctx, "test", func() Union { t.Fatal("rebuilt union"); return nil }); got != u {
+	if g.UnionOf(ctx, "test", func() Regatherer { t.Fatal("rebuilt union"); return nil }) != u {
 		t.Fatal("UnionOf did not return the existing union")
 	}
 	if !g.Has("a.sysml") || !g.Gathered("a.sysml") {

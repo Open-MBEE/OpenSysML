@@ -2,6 +2,8 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -41,4 +43,18 @@ func NewContextWithKind(name string, kind source.Kind, idx *symbols.Index,
 func NewContextWithOptions(name string, kind source.Kind, idx *symbols.Index,
 	parseDiags []diag.Diagnostic, opts Options) *Context {
 	return kit.NewContext(name, kind, idx, parseDiags, opts, NewTypedModel)
+}
+
+// Shared is the semantic state a workspace keeps across analyses: the resolver
+// and model it memoizes into, and what its audits gathered per document.
+type Shared struct {
+	Resolver *resolve.Resolver
+	Model    *semantics.Model
+	Gathers  *Gathers
+}
+
+// Share hands ctx the workspace's resolver, model and gathers in place of the
+// fresh ones it would make.
+func (s Shared) Share(ctx *Context) {
+	ctx.Share(s.Resolver, s.Model, s.Gathers)
 }

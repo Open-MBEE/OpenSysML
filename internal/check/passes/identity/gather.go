@@ -350,7 +350,7 @@ func (u *Union) Contributions() map[string]*Contribution {
 
 // unionOf returns the workspace-wide identity union.
 func unionOf(ctx *kit.Context) *Union {
-	return ctx.Gathers().UnionOf(ctx, "identity", func() kit.Union {
+	return ctx.Gathers().UnionOf(ctx, "identity", func() kit.Regatherer {
 		return newUnion()
 	}).(*Union)
 }

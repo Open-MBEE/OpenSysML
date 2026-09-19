@@ -1,6 +1,8 @@
 package io.opensysml.fuml;
 
 import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
@@ -19,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -32,6 +35,7 @@ import java.util.zip.ZipFile;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.ConsoleAppender;
@@ -45,6 +49,7 @@ import org.modeldriven.fuml.environment.ExecutionEnvironment;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
+import org.xml.sax.SAXException;
 
 import fuml.semantics.commonbehavior.ParameterValue;
 import fuml.semantics.commonbehavior.ParameterValueList;
@@ -76,9 +81,13 @@ import fuml.syntax.commonbehavior.Behavior;
  * Usage: {@code --model FILE=URI... --jar JAR --ri-tag TAG --ri-commit SHA --out FILE}.
  */
 public final class FumlExpected {
+	private static final PrintStream STDERR = new PrintStream(new FileOutputStream(FileDescriptor.err), true,
+			StandardCharsets.UTF_8);
 	private static final String XMI_NS = "http://www.omg.org/spec/XMI/20131001";
 	private static final long ACTIVITY_TIMEOUT_SECONDS = 120;
 	private static final int VALUE_DEPTH = 4;
+	private static final String EXECUTED = "executed";
+	private static final String VALUE = "value";
 	// The foundational model library the implementation loads is the copy inside its jar.
 	private static final String LIBRARY_RESOURCE = "org/modeldriven/fuml/library/fUML_Library.xmi";
 
@@ -162,11 +171,80 @@ public final class FumlExpected {
 
 		@Override
 		public void close() {
+			// The events list is the only state; the driver drains it itself.
 		}
 
 		@Override
 		public boolean requiresLayout() {
 			return false;
+		}
+	}
+
+	/** How one packaged activity's execution ended. */
+	private enum Outcome {
+		COMPLETED, FAILED, TIMED_OUT
+	}
+
+	/** Executes packaged activities one at a time on the thread the appender follows. */
+	private static final class ActivityRunner {
+		private final Environment environment;
+		private final EventAppender events;
+		private final Map<String, ActivityDecl> byName;
+		private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
+			Thread t = new Thread(r, "fuml-activity");
+			t.setDaemon(true);
+			return t;
+		});
+
+		ActivityRunner(Environment environment, EventAppender events, Map<String, ActivityDecl> byName) {
+			this.environment = environment;
+			this.events = events;
+			this.byName = byName;
+		}
+
+		Outcome run(ActivityDecl decl, Map<String, Object> rec) throws InterruptedException {
+			Behavior behavior = behaviorOf(decl);
+			// The JUnit suite clears the locus between tests; extents must not leak.
+			environment.locus.extensionalValues.clear();
+			events.drain();
+			Map<String, String> aliases = new LinkedHashMap<>();
+			Future<ParameterValueList> future = executor.submit(() -> {
+				events.owner.set(Thread.currentThread());
+				return new ExecutionEnvironment(environment).execute(behavior);
+			});
+			rec.put(EXECUTED, true);
+			Outcome outcome = Outcome.COMPLETED;
+			try {
+				ParameterValueList outputs = future.get(ACTIVITY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+				rec.put("parameters", parameters(behavior));
+				rec.put("outputs", outputs(outputs, aliases));
+			} catch (TimeoutException e) {
+				outcome = Outcome.TIMED_OUT;
+				rec.put("error", "timed out after " + ACTIVITY_TIMEOUT_SECONDS + "s");
+				events.owner.set(null);
+				report(decl.name + " timed out; no later activity is run");
+				executor.shutdownNow();
+			} catch (ExecutionException e) {
+				outcome = Outcome.FAILED;
+				Throwable cause = e.getCause() == null ? e : e.getCause();
+				rec.put("error", cause.getClass().getName() + ": " + cause.getMessage());
+				report(decl.name + " failed: " + cause);
+			}
+			rec.put("events", eventRecords(events.drain(), aliases, byName));
+			return outcome;
+		}
+
+		private Behavior behaviorOf(ActivityDecl decl) {
+			fuml.syntax.commonstructure.Element element = environment.findElementById(decl.id);
+			if (!(element instanceof Behavior)) {
+				fail("xmi id " + decl.id + " (" + decl.name + ") is not a Behavior in the loaded model: "
+						+ (element == null ? "null" : element.getClass().getName()));
+			}
+			return (Behavior) element;
+		}
+
+		void shutdown() {
+			executor.shutdownNow();
 		}
 	}
 
@@ -176,12 +254,12 @@ public final class FumlExpected {
 		String riTag = null;
 		String riCommit = null;
 		String out = null;
-		for (int i = 0; i < args.length; i++) {
+		for (int i = 0; i < args.length; i += 2) {
 			String a = args[i];
 			if (i + 1 >= args.length) {
 				usage("missing value for " + a);
 			}
-			String v = args[++i];
+			String v = args[i + 1];
 			switch (a) {
 			case "--model": {
 				int eq = v.indexOf('=');
@@ -247,11 +325,7 @@ public final class FumlExpected {
 		// A timed-out activity may still be running on the shared locus, so nothing runs after it.
 		String timedOut = null;
 		List<Object> records = new ArrayList<>();
-		ExecutorService runner = Executors.newSingleThreadExecutor(r -> {
-			Thread t = new Thread(r, "fuml-activity");
-			t.setDaemon(true);
-			return t;
-		});
+		ActivityRunner runner = new ActivityRunner(environment, events, byName);
 		try {
 			for (ActivityDecl decl : activities) {
 				Map<String, Object> rec = new LinkedHashMap<>();
@@ -259,63 +333,32 @@ public final class FumlExpected {
 				rec.put("id", decl.id);
 				rec.put("name", decl.name);
 				records.add(rec);
-				if (!decl.packaged()) {
-					rec.put("executed", false);
-					rec.put("skipped", decl.ownerKind + " of " + decl.ownerName
-							+ ": runs only as part of its owner, as in the JUnit suite");
-					continue;
-				}
-				if (timedOut != null) {
-					rec.put("executed", false);
-					rec.put("skipped", "not run: " + timedOut + " timed out and may still be executing");
+				String skipped = skipReason(decl, timedOut);
+				if (skipped != null) {
+					rec.put(EXECUTED, false);
+					rec.put("skipped", skipped);
 					continue;
 				}
 				packaged++;
-				fuml.syntax.commonstructure.Element element = environment.findElementById(decl.id);
-				if (!(element instanceof Behavior)) {
-					fail("xmi id " + decl.id + " (" + decl.name + ") is not a Behavior in the loaded model: "
-							+ (element == null ? "null" : element.getClass().getName()));
-				}
-				Behavior behavior = (Behavior) element;
-				// The JUnit suite clears the locus between tests; extents must not leak.
-				environment.locus.extensionalValues.clear();
-				events.drain();
-				Map<String, String> aliases = new LinkedHashMap<>();
-				Future<ParameterValueList> future = runner.submit(() -> {
-					events.owner.set(Thread.currentThread());
-					return new ExecutionEnvironment(environment).execute(behavior);
-				});
-				rec.put("executed", true);
-				try {
-					ParameterValueList outputs = future.get(ACTIVITY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-					rec.put("parameters", parameters(behavior));
-					rec.put("outputs", outputs(outputs, aliases));
-				} catch (TimeoutException e) {
-					failed++;
-					rec.put("error", "timed out after " + ACTIVITY_TIMEOUT_SECONDS + "s");
-					events.owner.set(null);
+				Outcome outcome = runner.run(decl, rec);
+				if (outcome == Outcome.TIMED_OUT) {
 					timedOut = decl.name;
-					System.err.println("error: " + decl.name + " timed out; no later activity is run");
-					runner.shutdownNow();
-				} catch (java.util.concurrent.ExecutionException e) {
-					failed++;
-					Throwable cause = e.getCause() == null ? e : e.getCause();
-					rec.put("error", cause.getClass().getName() + ": " + cause.getMessage());
-					System.err.println("error: " + decl.name + " failed: " + cause);
 				}
-				rec.put("events", eventRecords(events.drain(), aliases, byName));
+				if (outcome != Outcome.COMPLETED) {
+					failed++;
+				}
 			}
 		} finally {
-			runner.shutdownNow();
+			runner.shutdown();
 		}
 
-		Map<String, Object> record = new LinkedHashMap<>();
-		record.put("meaning", "The fUML reference implementation's outputs and event trace per test activity,"
+		Map<String, Object> document = new LinkedHashMap<>();
+		document.put("meaning", "The fUML reference implementation's outputs and event trace per test activity,"
 				+ " selected by XMI id; the referee compares against these and never runs Java itself.");
-		record.put("provenance", provenance);
-		record.put("activities", records);
+		document.put("provenance", provenance);
+		document.put("activities", records);
 		StringBuilder sb = new StringBuilder();
-		Json.write(sb, record, 0);
+		Json.write(sb, document, 0);
 		sb.append('\n');
 		Path outPath = Paths.get(out).toAbsolutePath();
 		Files.createDirectories(outPath.getParent());
@@ -329,7 +372,18 @@ public final class FumlExpected {
 		Path staged = Files.createTempFile(outPath.getParent(), outPath.getFileName() + ".", ".tmp");
 		Files.write(staged, sb.toString().getBytes(StandardCharsets.UTF_8));
 		move(staged, outPath);
-		System.err.println("Wrote " + out + ": " + activities.size() + " activities, " + packaged + " executed");
+		STDERR.println("Wrote " + out + ": " + activities.size() + " activities, " + packaged + " executed");
+	}
+
+	/** Why the activity is recorded without running, or null when it runs. */
+	private static String skipReason(ActivityDecl decl, String timedOut) {
+		if (!decl.packaged()) {
+			return decl.ownerKind + " of " + decl.ownerName + ": runs only as part of its owner, as in the JUnit suite";
+		}
+		if (timedOut != null) {
+			return "not run: " + timedOut + " timed out and may still be executing";
+		}
+		return null;
 	}
 
 	private static void move(Path from, Path to) throws IOException {
@@ -355,7 +409,8 @@ public final class FumlExpected {
 	}
 
 	/** Every uml:Activity the file declares, in document order, with the element that owns it. */
-	private static List<ActivityDecl> declaredActivities(File file) throws Exception {
+	private static List<ActivityDecl> declaredActivities(File file)
+			throws IOException, ParserConfigurationException, SAXException {
 		DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
 		f.setNamespaceAware(true);
 		f.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
@@ -389,20 +444,20 @@ public final class FumlExpected {
 	/** Indexes the nodes under an activity, structured nodes and their contents included. */
 	private static void collectNodes(Element el, Map<String, List<String>> nodeIds) {
 		for (Node n = el.getFirstChild(); n != null; n = n.getNextSibling()) {
-			if (!(n instanceof Element)) {
-				continue;
+			// An activity an action owns declares its own nodes.
+			if (n instanceof Element && !"uml:Activity".equals(((Element) n).getAttributeNS(XMI_NS, "type"))) {
+				collectNode((Element) n, nodeIds);
 			}
-			Element child = (Element) n;
-			if ("uml:Activity".equals(child.getAttributeNS(XMI_NS, "type"))) {
-				continue; // an activity an action owns declares its own nodes
-			}
-			String role = child.getLocalName();
-			if ("node".equals(role) || "structuredNode".equals(role)) {
-				nodeIds.computeIfAbsent(child.getAttribute("name"), k -> new ArrayList<>())
-						.add(child.getAttributeNS(XMI_NS, "id"));
-			}
-			collectNodes(child, nodeIds);
 		}
+	}
+
+	private static void collectNode(Element child, Map<String, List<String>> nodeIds) {
+		String role = child.getLocalName();
+		if ("node".equals(role) || "structuredNode".equals(role)) {
+			nodeIds.computeIfAbsent(child.getAttribute("name"), k -> new ArrayList<>())
+					.add(child.getAttributeNS(XMI_NS, "id"));
+		}
+		collectNodes(child, nodeIds);
 	}
 
 	/** The declared activities by name; a name two activities share resolves nothing. */
@@ -478,55 +533,70 @@ public final class FumlExpected {
 		Map<String, Object> m = new LinkedHashMap<>();
 		if (v instanceof IntegerValue) {
 			m.put("kind", "Integer");
-			m.put("value", ((IntegerValue) v).value);
+			m.put(VALUE, ((IntegerValue) v).value);
 		} else if (v instanceof BooleanValue) {
 			m.put("kind", "Boolean");
-			m.put("value", ((BooleanValue) v).value);
+			m.put(VALUE, ((BooleanValue) v).value);
 		} else if (v instanceof StringValue) {
 			m.put("kind", "String");
-			m.put("value", ((StringValue) v).value);
+			m.put(VALUE, ((StringValue) v).value);
 		} else if (v instanceof RealValue) {
 			m.put("kind", "Real");
-			m.put("value", Float.toString(((RealValue) v).value));
+			m.put(VALUE, Float.toString(((RealValue) v).value));
 		} else if (v instanceof UnlimitedNaturalValue) {
 			int n = ((UnlimitedNaturalValue) v).value.naturalValue;
 			m.put("kind", "UnlimitedNatural");
-			m.put("value", n < 0 ? "*" : String.valueOf(n));
+			m.put(VALUE, n < 0 ? "*" : String.valueOf(n));
 		} else if (v instanceof EnumerationValue) {
+			EnumerationValue ev = (EnumerationValue) v;
 			m.put("kind", "Enumeration");
-			m.put("type", ((EnumerationValue) v).type == null ? null : ((EnumerationValue) v).type.name);
-			m.put("value", ((EnumerationValue) v).literal == null ? null : ((EnumerationValue) v).literal.name);
+			m.put("type", ev.type == null ? null : ev.type.name);
+			m.put(VALUE, ev.literal == null ? null : ev.literal.name);
 		} else if (v instanceof Reference) {
 			Object_ referent = ((Reference) v).referent;
 			m.put("kind", "Reference");
 			m.put("referent", referent == null ? null : value(referent, aliases, visiting, depth));
 		} else if (v instanceof StructuredValue) {
-			m.put("kind", v instanceof Link ? "Link" : v instanceof SignalInstance ? "Signal"
-					: v instanceof DataValue ? "DataValue" : "Object");
-			if (v instanceof ExtensionalValue) {
-				m.put("id", alias(((ExtensionalValue) v).identifier, aliases));
-			}
-			m.put("types", typeNames(v.getTypes()));
-			if (depth <= 0 || visiting.containsKey(v)) {
-				m.put("truncated", true);
-				return m;
-			}
-			visiting.put(v, Boolean.TRUE);
-			List<Object> features = new ArrayList<>();
-			FeatureValueList fvs = ((StructuredValue) v).getFeatureValues();
-			for (FeatureValue fv : fvs) {
-				Map<String, Object> fm = new LinkedHashMap<>();
-				fm.put("feature", fv.feature == null ? null : fv.feature.name);
-				fm.put("values", values(fv.values, aliases, visiting, depth - 1));
-				features.add(fm);
-			}
-			visiting.remove(v);
-			m.put("features", features);
+			structuredValue((StructuredValue) v, m, aliases, visiting, depth);
 		} else {
 			m.put("kind", v.getClass().getSimpleName());
-			m.put("value", alias(v.toString(), aliases));
+			m.put(VALUE, alias(v.toString(), aliases));
 		}
 		return m;
+	}
+
+	private static void structuredValue(StructuredValue v, Map<String, Object> m, Map<String, String> aliases,
+			IdentityHashMap<Object, Boolean> visiting, int depth) {
+		m.put("kind", structuredKind(v));
+		if (v instanceof ExtensionalValue) {
+			m.put("id", alias(((ExtensionalValue) v).identifier, aliases));
+		}
+		m.put("types", typeNames(v.getTypes()));
+		if (depth <= 0 || visiting.containsKey(v)) {
+			m.put("truncated", true);
+			return;
+		}
+		visiting.put(v, Boolean.TRUE);
+		List<Object> features = new ArrayList<>();
+		FeatureValueList fvs = v.getFeatureValues();
+		for (FeatureValue fv : fvs) {
+			Map<String, Object> fm = new LinkedHashMap<>();
+			fm.put("feature", fv.feature == null ? null : fv.feature.name);
+			fm.put("values", values(fv.values, aliases, visiting, depth - 1));
+			features.add(fm);
+		}
+		visiting.remove(v);
+		m.put("features", features);
+	}
+
+	private static String structuredKind(StructuredValue v) {
+		if (v instanceof Link) {
+			return "Link";
+		}
+		if (v instanceof SignalInstance) {
+			return "Signal";
+		}
+		return v instanceof DataValue ? "DataValue" : "Object";
 	}
 
 	private static List<Object> typeNames(ClassifierList types) {
@@ -595,7 +665,7 @@ public final class FumlExpected {
 				}
 			}
 			if (value != null) {
-				m.put("value", alias(value, aliases));
+				m.put(VALUE, alias(value, aliases));
 			}
 			out.add(m);
 		}
@@ -632,16 +702,19 @@ public final class FumlExpected {
 		}
 	}
 
+	private static void report(String message) {
+		STDERR.println("error: " + message);
+	}
+
 	private static void usage(String message) {
-		PrintStream err = System.err;
-		err.println("error: " + message);
-		err.println("usage: FumlExpected --model FILE=URI [--model FILE=URI]... --jar JAR"
+		report(message);
+		STDERR.println("usage: FumlExpected --model FILE=URI [--model FILE=URI]... --jar JAR"
 				+ " --ri-tag TAG --ri-commit SHA --out FILE");
 		System.exit(2);
 	}
 
 	private static void fail(String message) {
-		System.err.println("error: " + message);
+		report(message);
 		System.exit(1);
 	}
 

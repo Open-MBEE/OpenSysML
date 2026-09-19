@@ -688,7 +688,7 @@ func TestSessionSetScheduleGovernsTheLaterTurns(t *testing.T) {
 		}
 		return session, chooser
 	}
-	go_ := func(session *opensysml.Session, chooser opensysml.InstanceID) string {
+	sendGo := func(session *opensysml.Session, chooser opensysml.InstanceID) string {
 		t.Helper()
 		if _, err := session.Send(chooser, "Fork::Go", nil); err != nil {
 			t.Fatalf("Send Go: %v", err)
@@ -712,7 +712,7 @@ func TestSessionSetScheduleGovernsTheLaterTurns(t *testing.T) {
 		if err := session.SetSchedule(seed); err != nil {
 			t.Fatalf("SetSchedule(%s): %v", seed, err)
 		}
-		first[seed] = go_(session, chooser)
+		first[seed] = sendGo(session, chooser)
 		picked[first[seed]] = true
 	}
 	if len(picked) != 2 {
@@ -722,17 +722,17 @@ func TestSessionSetScheduleGovernsTheLaterTurns(t *testing.T) {
 	// One session, its clock already advanced under the default policy: each
 	// seed set from then on starts its draws over.
 	session, chooser := open()
-	if state := go_(session, chooser); state == "start" {
+	if state := sendGo(session, chooser); state == "start" {
 		t.Fatalf("Go under the default policy left the machine in %s", state)
 	}
 	for _, seed := range seeds {
-		if state := go_(session, chooser); state != "start" {
+		if state := sendGo(session, chooser); state != "start" {
 			t.Fatalf("Go back left the machine in %s, want start", state)
 		}
 		if err := session.SetSchedule(seed); err != nil {
 			t.Fatalf("SetSchedule(%s): %v", seed, err)
 		}
-		if got := go_(session, chooser); got != first[seed] {
+		if got := sendGo(session, chooser); got != first[seed] {
 			t.Errorf("Go under %s set after earlier turns went to %s; a fresh session's first draw goes to %s", seed, got, first[seed])
 		}
 	}

@@ -263,7 +263,6 @@ func (c *pandocConverter) Convert(doc *Prepared) ([]byte, error) {
 		"--pdf-engine", engine,
 		"--standalone",
 		"--shift-heading-level-by", "-1",
-		"--variable", "document-css=false",
 		"--css", fileURL(filepath.Join(doc.Dir, pandocCSSName)),
 		"--output", outputName,
 		"--resource-path", ".",

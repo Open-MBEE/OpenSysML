@@ -36,11 +36,13 @@
     --sysml-subheading-font-size: 15pt;
     --sysml-subsubheading-font-size: 13pt;
     --sysml-diagram-font-size: 9pt;
+    --sysml-wide-table-font-size: 9pt;
     --sysml-image-width: 100%;
     --sysml-notice-font-style: italic;
 
     margin: 0;
     padding: 0;
+    page: main;
   }
 
   .sysml-document h1,
@@ -90,10 +92,38 @@
   }
 
   /* A cell holding long unbreakable tokens wraps rather than pushing the
-     rightmost columns past the page edge. */
+     rightmost columns past the page edge; a header keeps its words whole. */
   .sysml-document .sysml-table th,
   .sysml-document .sysml-table td {
     overflow-wrap: anywhere;
+  }
+
+  .sysml-document .sysml-table th {
+    overflow-wrap: normal;
+  }
+
+  /* The paragraph leading into a table stays on the table's page, as a
+     heading does above and a caption does as part of its table. */
+  .sysml-document p:has(+ .sysml-table) {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* A table of seven or more columns goes on a landscape page in smaller type
+     with its heading and lead-in; :has() nests since cssselect2 misreads "+ p + table". */
+  @page wide {
+    size: var(--sysml-page-size) landscape;
+  }
+
+  .sysml-document .sysml-table:has(thead > tr > th:nth-child(7)) {
+    page: wide;
+    font-size: var(--sysml-wide-table-font-size);
+  }
+
+  .sysml-document p:has(+ .sysml-table:has(thead > tr > th:nth-child(7))),
+  .sysml-document :is(h1, h2, h3, h4, h5, h6):has(+ .sysml-table:has(thead > tr > th:nth-child(7))),
+  .sysml-document :is(h1, h2, h3, h4, h5, h6):has(+ p:has(+ .sysml-table:has(thead > tr > th:nth-child(7)))) {
+    page: wide;
   }
 
   .sysml-document .sysml-diagram img {

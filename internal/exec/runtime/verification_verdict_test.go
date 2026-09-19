@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // verificationVerdictModel writes the four verdicts a body can produce: the
@@ -167,4 +168,49 @@ func TestVerificationsOfRequirement(t *testing.T) {
 			t.Errorf("VerificationsOf(%s) = %v, want %v", tc.requirement, got, tc.want)
 		}
 	}
+}
+
+// TestVerificationsOfRequirementAcrossScopeTrees pins that a requirement reached through
+// another scope tree, as a session document binds it, is still found verified.
+func TestVerificationsOfRequirementAcrossScopeTrees(t *testing.T) {
+	file := parseAndBuild(t, verificationVerdictModel)
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", file)
+	root := idx.DocumentRoot("<test>")
+	other := symbols.Build(file)
+	symbols.SetDocName(other, "<test>")
+	for _, tc := range []struct {
+		requirement string
+		want        []string
+	}{
+		{requirement: "test::R", want: []string{"test::Case", "test::passing", "test::failing", "test::Plan::sub"}},
+		{requirement: "test::r", want: []string{"test::Silent", "test::silent", "test::Retargeted", "test::Plan", "test::plan"}},
+	} {
+		indexed := oneSymbol(t, idx, tc.requirement)
+		req := declaredIn(other, indexed.Decl)
+		if req == nil || req == indexed {
+			t.Fatalf("no distinct symbol for %s in the second tree", tc.requirement)
+		}
+		var got []string
+		for _, sym := range ctx.VerificationsOf(root, req) {
+			got = append(got, ctx.qualifiedSymbolName(sym))
+		}
+		if strings.Join(got, ",") != strings.Join(tc.want, ",") {
+			t.Errorf("VerificationsOf(%s from another tree) = %v, want %v", tc.requirement, got, tc.want)
+		}
+	}
+}
+
+// declaredIn is the symbol scope's tree declares for decl, or nil.
+func declaredIn(scope *symbols.Scope, decl ast.Node) *symbols.Symbol {
+	for _, sym := range scope.AllMembers() {
+		if sym.Decl == decl {
+			return sym
+		}
+	}
+	for _, child := range scope.Children() {
+		if sym := declaredIn(child, decl); sym != nil {
+			return sym
+		}
+	}
+	return nil
 }

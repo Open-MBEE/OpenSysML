@@ -393,7 +393,7 @@ func TestPrintStylesheetContract(t *testing.T) {
 		case "content", "display", "flex-direction", "justify-content", "text-align", "box-sizing",
 			"break-after", "break-before", "break-inside", "page-break-after", "page-break-before", "page-break-inside",
 			"white-space", "overflow-wrap", "word-break", "orphans", "widows", "max-width", "height", "margin", "padding",
-			"border-collapse", "size", "overflow-x", "line-height", "text-decoration":
+			"border-collapse", "size", "overflow-x", "line-height", "text-decoration", "page":
 			continue
 		}
 		t.Errorf("declaration %s: %s resolves through no --sysml-* token", property, value)
@@ -440,6 +440,64 @@ func TestPrintStylesheetKeepsTablesWithinThePage(t *testing.T) {
 	rows := strings.Index(page, ".sysml-document .sysml-table tr,")
 	if avoid := strings.Index(page[rows:], "break-inside: avoid;"); avoid < 0 || avoid > 200 {
 		t.Fatalf("table rows are not kept on one page:\n%s", page[rows:rows+300])
+	}
+}
+
+// TestPrintStylesheetSetsWideTablesLandscape checks the page handed to the
+// engines sets a table of seven or more columns on a landscape page with the
+// heading and lead-in paragraph ahead of it, keeps a header's words whole, and
+// keeps a heading's and lead-in's keep-with-next apart from any :has() rule.
+func TestPrintStylesheetSetsWideTablesLandscape(t *testing.T) {
+	page, err := docrender.HTML(plainDocument(t), htmlOptions(Options{}, t.TempDir(), nil, formulas{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wide := ".sysml-table:has(thead > tr > th:nth-child(7))"
+	for _, want := range []string{
+		"@page wide {\n    size: var(--sysml-page-size) landscape;",
+		"page: main;",
+		"--sysml-wide-table-font-size: 9pt;",
+		".sysml-document " + wide + " {\n    page: wide;\n    font-size: var(--sysml-wide-table-font-size);",
+		".sysml-document p:has(+ " + wide + "),\n" +
+			"  .sysml-document :is(h1, h2, h3, h4, h5, h6):has(+ " + wide + "),\n" +
+			"  .sysml-document :is(h1, h2, h3, h4, h5, h6):has(+ p:has(+ " + wide + ")) {\n    page: wide;",
+		".sysml-document .sysml-table th {\n    overflow-wrap: normal;",
+		".sysml-document h6 {\n    font-family: var(--sysml-font-heading);\n    line-height: 1.2;\n    break-after: avoid;",
+		".sysml-document p:has(+ .sysml-table) {\n    break-after: avoid;",
+	} {
+		if !strings.Contains(page, want) {
+			t.Fatalf("page lacks %q", want)
+		}
+	}
+	if strings.Contains(stripCSSComments(PrintStylesheet), "+ p + ") {
+		t.Fatal("print stylesheet chains sibling combinators inside :has(), which cssselect2 evaluates against the first sibling alone")
+	}
+}
+
+// TestPandocStylesheetSetsWideTablesLandscape checks pandoc's stylesheet holds
+// the same wide-table contract over pandoc's HTML: a landscape page for a
+// seven-column table with the heading, caption and group key ahead of it, and
+// keep-with-next for headings and captions apart from any :has() rule.
+func TestPandocStylesheetSetsWideTablesLandscape(t *testing.T) {
+	css := stripCSSComments(pandocStylesheet)
+	wide := "table:has(thead > tr > th:nth-child(7))"
+	for _, want := range []string{
+		"@page wide { size: A4 landscape; }",
+		"body { page: main; }",
+		wide + " { page: wide; font-size: 9pt; }",
+		"p:has(+ " + wide + "),",
+		"p:has(.caption):has(+ p:has(+ " + wide + ")),",
+		":is(h1, h2, h3, h4, h5, h6):has(+ p:has(.caption):has(+ p:has(+ " + wide + "))) { page: wide; }",
+		"th { overflow-wrap: normal; }",
+		"h1, h2, h3, h4, h5, h6 {\n  font-family: sans-serif;\n  line-height: 1.2;\n  break-after: avoid;",
+		"p:has(.caption) { break-after: avoid; page-break-after: avoid; }\np:has(+ table) { break-after: avoid; page-break-after: avoid; }",
+	} {
+		if !strings.Contains(css, want) {
+			t.Fatalf("pandoc stylesheet lacks %q", want)
+		}
+	}
+	if strings.Contains(css, "+ p + ") {
+		t.Fatal("pandoc stylesheet chains sibling combinators inside :has(), which cssselect2 evaluates against the first sibling alone")
 	}
 }
 
@@ -644,6 +702,30 @@ func TestRenderForPandoc(t *testing.T) {
 	}
 	if !strings.Contains(string(css), "header#title-block-header { page-break-after: always;") || strings.Contains(stripCSSComments(string(css)), ".sysml-") {
 		t.Fatalf("pandoc stylesheet:\n%s", css)
+	}
+}
+
+// TestRenderForPandocLeavesDefaultStylesOff checks pandoc is given only its
+// print stylesheet: a document-css variable, even "false", switches pandoc's
+// screen layout back on beside it.
+func TestRenderForPandocLeavesDefaultStylesOff(t *testing.T) {
+	dir := t.TempDir()
+	capture := filepath.Join(dir, "capture.args")
+	fakeTool(t, dir, "pandoc", PandocEnv,
+		`echo "$@" > "`+capture+`"; out=""; while [ $# -gt 0 ]; do [ "$1" = "--output" ] && out="$2"; shift; done; printf '%%PDF-1.7 fake' > "$out"`+"\n")
+	fakeTool(t, dir, "weasyprint", WeasyPrintEnv, "exit 0\n")
+	if _, err := Render(plainDocument(t), "pandoc", Options{}); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	args, err := os.ReadFile(capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(args), "--css ") || !strings.Contains(string(args), "/pandoc.css") {
+		t.Fatalf("pandoc arguments lack the print stylesheet: %s", args)
+	}
+	if strings.Contains(string(args), "document-css") {
+		t.Fatalf("pandoc arguments set document-css: %s", args)
 	}
 }
 

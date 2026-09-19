@@ -135,29 +135,7 @@ func (b *stateFootprintBuilder) pseudostate(source *ast.StateNode, seg *Transiti
 			b.segment(source, branch)
 		}
 	case ast.PseudostateFork:
-		for _, branch := range b.graph.Transitions[ps] {
-			b.reads(branch.BodyScope, branch.Guard)
-			for _, effect := range branch.Effect {
-				b.statements(effect.Body)
-			}
-			if target, ok := branch.Target.(*ast.StateNode); ok {
-				b.move(source, target)
-			} else {
-				b.footprint.Dynamic = true
-			}
-		}
-		if plan := b.graph.ForkPlans[ps]; plan != nil {
-			for _, region := range b.graph.CompositeStates[plan.Owner] {
-				if plan.Branches[region] == nil {
-					b.entersRegion(plan.Owner, region)
-				}
-			}
-			if source != plan.Owner && b.graph.encloses(plan.Owner, source) {
-				for _, child := range b.graph.children(plan.Owner) {
-					b.exits(child)
-				}
-			}
-		}
+		b.fork(source, ps)
 	case ast.PseudostateJoin:
 		b.join(source, seg, ps)
 	case ast.PseudostateShallowHistory, ast.PseudostateDeepHistory:
@@ -170,6 +148,37 @@ func (b *stateFootprintBuilder) pseudostate(source *ast.StateNode, seg *Transiti
 		b.enters(owner)
 	default:
 		b.footprint.Dynamic = true
+	}
+}
+
+// fork adds what firing the fork does: every branch's guard read and effect run,
+// the move to each branch's target, the regions of the owner no branch starts
+// entered by default, and every child of the owner exited when reached from inside it.
+func (b *stateFootprintBuilder) fork(source *ast.StateNode, fork *ast.PseudostateNode) {
+	for _, branch := range b.graph.Transitions[fork] {
+		b.reads(branch.BodyScope, branch.Guard)
+		for _, effect := range branch.Effect {
+			b.statements(effect.Body)
+		}
+		if target, ok := branch.Target.(*ast.StateNode); ok {
+			b.move(source, target)
+		} else {
+			b.footprint.Dynamic = true
+		}
+	}
+	plan := b.graph.ForkPlans[fork]
+	if plan == nil {
+		return
+	}
+	for _, region := range b.graph.CompositeStates[plan.Owner] {
+		if plan.Branches[region] == nil {
+			b.entersRegion(plan.Owner, region)
+		}
+	}
+	if source != plan.Owner && b.graph.encloses(plan.Owner, source) {
+		for _, child := range b.graph.children(plan.Owner) {
+			b.exits(child)
+		}
 	}
 }
 

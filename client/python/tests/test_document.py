@@ -210,8 +210,9 @@ def test_an_object_binds_by_id_by_path_or_both():
 
 def test_an_object_naming_nothing_is_refused():
     """An ObjectRef with neither id nor path is a caller error, named early."""
+    unnamed = {"root": ObjectRef()}
     with pytest.raises(DocumentQueryError, match="'root'.*neither was given"):
-        build_bindings({"root": ObjectRef()})
+        build_bindings(unnamed)
 
 
 def test_an_oversized_int_binding_is_refused():
@@ -482,7 +483,8 @@ def test_a_state_row_decodes_to_the_object_and_its_state(fake_service):
     assert row.state == expected
     assert row.object == lamp
     assert row.element == lamp.element
-    assert row.verdict is None and row.event is None
+    assert row.verdict is None
+    assert row.event is None
     assert row[0] == (expected,)
     assert str(row.state) == "Lamps::lamp.lp in on.run"
 
@@ -536,12 +538,15 @@ def test_an_event_row_decodes_to_the_trace_record(fake_service):
         kind="accept", time=when, text="accept Toggle", object=lamp, machine="lp",
         event="Toggle", payload=("level = 2",),
     )
-    assert rows[0].object == lamp and rows[0].element == lamp.element
-    assert rows[0].state is None and rows[0].verdict is None
+    assert rows[0].object == lamp
+    assert rows[0].element == lamp.element
+    assert rows[0].state is None
+    assert rows[0].verdict is None
     assert rows[0][0] == (rows[0].event,)
     assert rows[1].event.target == other
     assert (rows[2].event.from_state, rows[2].event.to_state) == ("off", "on")
-    assert rows[3].event.object is None and rows[3].object is None
+    assert rows[3].event.object is None
+    assert rows[3].object is None
     assert rows[3].element == ElementRef("")
     assert (rows[3].event.alternatives, rows[3].event.taken) == (("light", "fan"), "fan")
     assert str(rows[0].event) == "1.5 [s]: accept Toggle"
@@ -672,10 +677,12 @@ class TestDocumentsAgainstRealService:
         assert (state[0], state[1], state[2]) == (("lp",), ("off",), ("",))
         assert [str(row.object) for row in off] == ["Lamps::lamp"]
         (entered,) = steps
-        assert entered.event.kind == "entry" and entered.event.state == "off"
+        assert entered.event.kind == "entry"
+        assert entered.event.state == "off"
         assert entered.event.object == state.state.object
         assert entered.event.time == Quantity(0.0, Unit(text="s", factors=(UnitFactor("SI::second", 1),)))
-        assert entered[0] == (entered.event.time,) and entered[1] == ("off",)
+        assert entered[0] == (entered.event.time,)
+        assert entered[1] == ("off",)
 
     def test_a_verdicts_query_checks_the_element_as_declared(self, real_service, garage):
         with Connection(port=real_service, auto_start=False) as conn:
@@ -693,7 +700,8 @@ class TestDocumentsAgainstRealService:
         assert mass_ok[2] == ("holds",)
         power_low = by_text["assert constraint powerLow on Garage::car.engine"].verdict
         assert power_low.status == "violated"
-        assert power_low.condition and power_low.reason
+        assert power_low.condition
+        assert power_low.reason
         fits = by_text["assert constraint fits on Garage::car"].verdict
         assert fits.status == "undecided"
         assert "capacity" in fits.reason
@@ -764,7 +772,8 @@ class TestDocumentsAgainstRealService:
             model.instantiate("Garage::car")
             model.instantiate("Garage::spare")
             after = model.run_document_query("Garage::Wheels")
-        assert before.columns == ("pressure",) and len(before) == 0
+        assert before.columns == ("pressure",)
+        assert len(before) == 0
         assert [(str(row.object), row[0]) for row in after] == [
             ("Garage::spare", (20,)),
             ("Garage::car.wheels[1]", (30,)),
@@ -799,31 +808,28 @@ class TestDocumentsAgainstRealService:
     ):
         with Connection(port=real_service, auto_start=False) as conn:
             model = conn.load_from_content(garage_objects("refused"))
+            unpopulated = {"root": ObjectRef(id=1)}
             with pytest.raises(SymbolNotFoundError, match="holds no objects"):
-                model.run_document_query("Garage::Parts", bindings={"root": ObjectRef(id=1)})
+                model.run_document_query("Garage::Parts", bindings=unpopulated)
             model.instantiate("Garage::car")
+            unknown_id = {"root": ObjectRef(id=99)}
             with pytest.raises(SymbolNotFoundError, match="no object #99"):
-                model.run_document_query("Garage::Parts", bindings={"root": ObjectRef(id=99)})
+                model.run_document_query("Garage::Parts", bindings=unknown_id)
+            unknown_path = {"root": ObjectRef(path="spare")}
             with pytest.raises(SymbolNotFoundError, match="no instance of"):
-                model.run_document_query(
-                    "Garage::Parts", bindings={"root": ObjectRef(path="spare")}
-                )
+                model.run_document_query("Garage::Parts", bindings=unknown_path)
+            unknown_feature = {"root": ObjectRef(path="car.hood")}
             with pytest.raises(InvalidRequestError, match="hood"):
-                model.run_document_query(
-                    "Garage::Parts", bindings={"root": ObjectRef(path="car.hood")}
-                )
+                model.run_document_query("Garage::Parts", bindings=unknown_feature)
+            value_path = {"root": ObjectRef(path="car.mass")}
             with pytest.raises(InvalidRequestError, match="not an object"):
-                model.run_document_query(
-                    "Garage::Parts", bindings={"root": ObjectRef(path="car.mass")}
-                )
+                model.run_document_query("Garage::Parts", bindings=value_path)
+            malformed_path = {"root": ObjectRef(path="car..wheels")}
             with pytest.raises(InvalidRequestError, match="not an object reference"):
-                model.run_document_query(
-                    "Garage::Parts", bindings={"root": ObjectRef(path="car..wheels")}
-                )
+                model.run_document_query("Garage::Parts", bindings=malformed_path)
+            disagreeing = {"root": ObjectRef(id=99, path="car")}
             with pytest.raises(InvalidRequestError, match="is object #"):
-                model.run_document_query(
-                    "Garage::Parts", bindings={"root": ObjectRef(id=99, path="car")}
-                )
+                model.run_document_query("Garage::Parts", bindings=disagreeing)
 
     def test_a_document_query_answers_typed_ordered_rows(self, real_service, telescope):
         with Connection(port=real_service, auto_start=False) as conn:

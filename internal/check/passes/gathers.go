@@ -10,14 +10,14 @@ func NewGathers() *Gathers { return kit.NewGathers() }
 
 // oosemUnionOf returns the workspace-wide OOSEM union.
 func oosemUnionOf(ctx *Context) *oosemUnion {
-	return ctx.Gathers().UnionOf(ctx, "oosem", func() kit.Union {
+	return ctx.Gathers().UnionOf(ctx, "oosem", func() kit.Regatherer {
 		return newOOSEMUnion()
 	}).(*oosemUnion)
 }
 
 // mosaUnionOf returns the workspace-wide MOSA union.
 func mosaUnionOf(ctx *Context) *mosaUnion {
-	return ctx.Gathers().UnionOf(ctx, "mosa", func() kit.Union {
+	return ctx.Gathers().UnionOf(ctx, "mosa", func() kit.Regatherer {
 		return newMOSAUnion()
 	}).(*mosaUnion)
 }

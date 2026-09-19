@@ -176,3 +176,68 @@ func plainDocument(t *testing.T) *docir.Document {
 }
 `, "Plain::Report")
 }
+
+// wideTableDocument is a report whose middle section holds a captioned,
+// grouped seven-column table between two one-paragraph sections.
+func wideTableDocument(t *testing.T) *docir.Document {
+	t.Helper()
+	return sourceDocument(t, "wide.sysml", `package Wide {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+
+	part def Cell {
+		attribute team : String;
+		attribute a : Integer;
+		attribute b : Integer;
+		attribute c : Integer;
+		attribute d : Integer;
+		attribute e : Integer;
+		attribute f : Integer;
+	}
+
+	part matrix {
+		part power : Cell {
+			attribute redefines team = "Power";
+			attribute redefines a = 1;
+			attribute redefines b = 2;
+			attribute redefines c = 3;
+			attribute redefines d = 4;
+			attribute redefines e = 5;
+			attribute redefines f = 6;
+		}
+	}
+
+	calc def Cells :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
+			properties = ("team", "name", "a", "b", "c", "d", "e", "f")
+		)
+	}
+
+	part def Report :> Document {
+		attribute redefines title = "Wide Report";
+		part intro : Paragraph {
+			part lead : Span { attribute redefines text = "An opening paragraph."; }
+		}
+		part matrixSection : Section {
+			attribute redefines title = "Matrix";
+			part cells : Table {
+				attribute redefines caption = "Every requirement";
+				attribute redefines groupBy = "team";
+				calc rows : Cells {
+					in root = matrix;
+				}
+			}
+		}
+		part afterwards : Section {
+			attribute redefines title = "Afterwards";
+			part closing : Paragraph {
+				part lead : Span { attribute redefines text = "A closing paragraph."; }
+			}
+		}
+	}
+}
+`, "Wide::Report")
+}

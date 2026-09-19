@@ -66,7 +66,7 @@ func (m *migration) valueExpr(v, scope *sysmlv1.Element) (expr string, ok bool, 
 		case catValue:
 			return m.ref(inst, scope), true, ""
 		case catIndividualDef:
-			return "", false, "the individual " + qualifiedName(inst) + " is a definition, which is not a v2 value"
+			return "", false, individualSubject + qualifiedName(inst) + " is a definition, which is not a v2 value"
 		}
 		return "", false, "instance value of a " + inst.Type + " has no v2 expression"
 	case "OpaqueExpression":
@@ -121,14 +121,14 @@ func (m *migration) typingIndividual(p *sysmlv1.Element, kw string) (*sysmlv1.El
 		return ind, ""
 	}
 	if kw == "port" {
-		return nil, "the individual " + qualifiedName(ind) + " cannot type a port: v2 has no individual port def"
+		return nil, individualSubject + qualifiedName(ind) + " cannot type a port: v2 has no individual port def"
 	}
 	kind, classifiers, _ := m.individualClassifiers(ind)
 	if kind == catNone || kind.keyword() != kw+" def" {
-		return nil, "the individual " + qualifiedName(ind) + " is an " + individualKeyword(kind) + ", which cannot type " + article(kw) + kw
+		return nil, individualSubject + qualifiedName(ind) + " is an " + individualKeyword(kind) + ", which cannot type " + article(kw) + kw
 	}
 	if t := m.model.Ref(p, "type"); t != nil && !m.instanceOf(classifiers, t) {
-		return nil, "the individual " + qualifiedName(ind) + " is not an instance of " + qualifiedName(t) + ", the type of " + p.Name
+		return nil, individualSubject + qualifiedName(ind) + " is not an instance of " + qualifiedName(t) + ", the type of " + p.Name
 	}
 	return ind, ""
 }
@@ -146,10 +146,10 @@ func (m *migration) featureValue(v, f, scope *sysmlv1.Element) (expr string, ok 
 	if v.Type == "InstanceValue" && t != nil {
 		inst := m.model.Ref(v, "instance")
 		if inst.Type == "InstanceSpecification" && !m.instanceOf(m.model.Refs(inst, "classifier"), t) {
-			return "", false, "the instance " + qualifiedName(inst) + " is not a " + qualifiedName(t) + ", which the feature holds"
+			return "", false, "the instance " + qualifiedName(inst) + " is not a " + qualifiedName(t) + featureHolds
 		}
 		if inst.Type == "EnumerationLiteral" && inst.Parent != t && m.written(t) {
-			return "", false, "the literal " + qualifiedName(inst) + " is not a " + qualifiedName(t) + ", which the feature holds"
+			return "", false, "the literal " + qualifiedName(inst) + " is not a " + qualifiedName(t) + featureHolds
 		}
 	}
 	sv := m.scalarBase(t)
@@ -166,7 +166,7 @@ func (m *migration) featureValue(v, f, scope *sysmlv1.Element) (expr string, ok 
 	value, spelled := scalarLiteral(kind, expr, strings.TrimSpace(v.Attrs["value"]), sv)
 	switch {
 	case !spelled:
-		return "", false, "the " + kind + " " + expr + " is not a value of " + sv + ", which the feature holds"
+		return "", false, "the " + kind + " " + expr + " is not a value of " + sv + featureHolds
 	case value != expr:
 		return value, true, joinNotes(note, "the "+kind+" "+expr+" is written as the "+sv+" the feature holds")
 	}
@@ -347,6 +347,9 @@ func exprLiteral(text string) (kind, value string) {
 
 // exprProbePrefix precedes an expression parsed on its own as an attribute's value.
 const exprProbePrefix = "attribute probe = "
+
+// featureHolds ends the notes a refused literal value carries.
+const featureHolds = ", which the feature holds"
 
 // refCollector gathers the names an expression refers to beyond its local
 // ones; unread is set when a member of a kind the walk does not read is met.
@@ -883,50 +886,72 @@ func (m *migration) membersOf(e *sysmlv1.Element, kind memberKind) (visible, hid
 // element is written public). Private inherited features are not visible
 // unless exposed; the hidden map holds those an expression would otherwise resolve to.
 func (m *migration) visibleFrom(scope *sysmlv1.Element) (visible, hidden map[string]*sysmlv1.Element) {
-	visible = map[string]*sysmlv1.Element{}
-	hidden = map[string]*sysmlv1.Element{}
-	seen := map[*sysmlv1.Element]bool{}
-	var members func(e *sysmlv1.Element, inherited bool)
-	members = func(e *sysmlv1.Element, inherited bool) {
-		if e == nil || seen[e] {
-			return
-		}
-		seen[e] = true
-		for _, c := range e.Children {
-			n := m.nameOf(c)
-			if n == "" || !m.written(c) {
-				continue
-			}
-			if inherited && m.hiddenFromHeirs(c) {
-				if hidden[n] == nil {
-					hidden[n] = c
-				}
-				continue
-			}
-			if visible[n] == nil {
-				visible[n] = c
-			}
-		}
-		for _, g := range e.Owned("generalization") {
-			members(m.model.Ref(g, "general"), true)
-		}
-		for _, c := range m.model.Refs(e, "classifier") {
-			members(c, true)
-		}
+	v := &visibility{
+		m:       m,
+		visible: map[string]*sysmlv1.Element{},
+		hidden:  map[string]*sysmlv1.Element{},
+		seen:    map[*sysmlv1.Element]bool{},
 	}
 	for cur := scope; cur != nil; cur = cur.Parent {
-		members(cur, false)
+		v.members(cur, false)
 		for _, p := range m.importedPackages(cur) {
-			for _, c := range p.Children {
-				n := m.nameOf(c)
-				if n == "" || !m.written(c) || visible[n] != nil {
-					continue
-				}
-				visible[n] = c
-			}
+			v.imported(p)
 		}
 	}
-	return visible, hidden
+	return v.visible, v.hidden
+}
+
+// visibility collects the elements the names in a scope resolve to; the first
+// element found under a name, nearest scope first, keeps it.
+type visibility struct {
+	m               *migration
+	visible, hidden map[string]*sysmlv1.Element
+	seen            map[*sysmlv1.Element]bool
+}
+
+// members adds e's written members, then those it inherits from its generals
+// and, as an instance, from its classifiers.
+func (v *visibility) members(e *sysmlv1.Element, inherited bool) {
+	if e == nil || v.seen[e] {
+		return
+	}
+	v.seen[e] = true
+	for _, c := range e.Children {
+		v.member(c, inherited)
+	}
+	for _, g := range e.Owned("generalization") {
+		v.members(v.m.model.Ref(g, "general"), true)
+	}
+	for _, c := range v.m.model.Refs(e, "classifier") {
+		v.members(c, true)
+	}
+}
+
+func (v *visibility) member(c *sysmlv1.Element, inherited bool) {
+	n := v.m.nameOf(c)
+	if n == "" || !v.m.written(c) {
+		return
+	}
+	if inherited && v.m.hiddenFromHeirs(c) {
+		if v.hidden[n] == nil {
+			v.hidden[n] = c
+		}
+		return
+	}
+	if v.visible[n] == nil {
+		v.visible[n] = c
+	}
+}
+
+// imported adds the written members of an imported package under the names
+// nothing nearer has taken.
+func (v *visibility) imported(p *sysmlv1.Element) {
+	for _, c := range p.Children {
+		n := v.m.nameOf(c)
+		if n != "" && v.m.written(c) && v.visible[n] == nil {
+			v.visible[n] = c
+		}
+	}
 }
 
 // importedPackages returns the packages whose members ns imports and the
