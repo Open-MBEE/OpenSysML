@@ -51,14 +51,15 @@ func isVersionSegment(s string) bool {
 }
 
 // Element is one XML element of an XMI document: its local tag, its xmi:type
-// and xmi:id, every other attribute by local name, and its children in
-// document order. A parsed document is never modified after Parse returns.
+// and xmi:id, its non-XMI and XMI attributes by local name, and its children
+// in document order. A parsed document is never modified after Parse returns.
 type Element struct {
 	Tag      string
 	Space    string
 	Type     string
 	ID       string
 	Attrs    map[string]string
+	XMIAttrs map[string]string
 	Text     string
 	Children []*Element
 	Parent   *Element
@@ -70,7 +71,10 @@ func (e *Element) Attr(name string) string {
 	if e == nil {
 		return ""
 	}
-	return e.Attrs[name]
+	if value := e.Attrs[name]; value != "" {
+		return value
+	}
+	return e.XMIAttrs[name]
 }
 
 // Name is the element's name attribute.
@@ -237,13 +241,20 @@ func Parse(r io.Reader) (*Document, error) {
 // newElement reads a start tag: its xmi:type and xmi:id, then the remaining
 // attributes by local name, namespace declarations aside.
 func newElement(t xml.StartElement) *Element {
-	e := &Element{Tag: t.Name.Local, Space: t.Name.Space, Attrs: make(map[string]string, len(t.Attr))}
+	e := &Element{
+		Tag:      t.Name.Local,
+		Space:    t.Name.Space,
+		Attrs:    make(map[string]string, len(t.Attr)),
+		XMIAttrs: make(map[string]string),
+	}
 	for _, a := range t.Attr {
 		switch {
 		case isXMI(a) && a.Name.Local == "type":
 			e.Type = a.Value
 		case isXMI(a) && a.Name.Local == "id":
 			e.ID = a.Value
+		case isXMI(a):
+			e.XMIAttrs[a.Name.Local] = a.Value
 		case a.Name.Space == "xmlns" || a.Name.Local == "xmlns":
 		default:
 			e.Attrs[a.Name.Local] = a.Value

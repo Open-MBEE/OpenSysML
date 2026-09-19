@@ -60,6 +60,22 @@ func TestParseIndexesAndNests(t *testing.T) {
 	}
 }
 
+func TestParseSeparatesXMIAttributes(t *testing.T) {
+	d, err := Parse(strings.NewReader(`<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmi:uuid="u"/>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := d.Root.XMIAttrs["uuid"]; got != "u" {
+		t.Errorf("XMIAttrs[uuid] = %q", got)
+	}
+	if _, ok := d.Root.Attrs["uuid"]; ok {
+		t.Error("uuid was copied into Attrs")
+	}
+	if got := d.Root.Attr("uuid"); got != "u" {
+		t.Errorf("Attr(uuid) = %q", got)
+	}
+}
+
 func TestNamespaceHelpers(t *testing.T) {
 	for _, ns := range []string{
 		"http://schema.omg.org/spec/XMI/2.1",
