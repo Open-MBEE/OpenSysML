@@ -1,10 +1,10 @@
 """Golden and static-typing tests for the generated typed classes.
 
 The golden file is `tests/golden/vehicle_types.py`, generated from
-`internal/repl/testdata/vehicle_package.sysml`. Regenerate it with a running
+`internal/frontend/repl/testdata/vehicle_package.sysml`. Regenerate it with a running
 service from the repository root:
 
-    python -m opensysml.generate internal/repl/testdata/vehicle_package.sysml \
+    python -m opensysml.generate internal/frontend/repl/testdata/vehicle_package.sysml \
         -o client/python/tests/golden/vehicle_types.py
 """
 
@@ -34,7 +34,7 @@ REPO_ROOT = PYTHON_ROOT.parents[1]
 GOLDEN = PYTHON_ROOT / "tests" / "golden" / "vehicle_types.py"
 FIXTURE = REPO_ROOT / "internal" / "repl" / "testdata" / "vehicle_package.sysml"
 REGENERATE = (
-    "python -m opensysml.generate internal/repl/testdata/vehicle_package.sysml "
+    "python -m opensysml.generate internal/frontend/repl/testdata/vehicle_package.sysml "
     "-o client/python/tests/golden/vehicle_types.py"
 )
 
