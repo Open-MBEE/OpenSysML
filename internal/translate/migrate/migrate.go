@@ -444,7 +444,7 @@ func namespaceMembers(e *sysmlv1.Element) []*sysmlv1.Element {
 				continue
 			}
 			for _, v := range c.Owned("subvertex") {
-				if v.Type == "State" || pseudoKind(v) == "choice" || pseudoKind(v) == "junction" {
+				if vertexBase(v) != "" {
 					members = append(members, v)
 				}
 			}

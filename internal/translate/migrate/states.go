@@ -34,18 +34,19 @@ func (m *migration) nameMachine(sm *sysmlv1.Element) map[string]bool {
 	used := inheritedStateNamesSet()
 	m.regionUsed[sm] = used
 	for _, cp := range sm.Owned("connectionPoint") {
-		m.nameVertex(cp, used)
+		m.nameVertex(cp, sm, used)
 	}
-	m.nameRegions(m.populatedRegions(sm), used)
+	m.nameRegions(m.populatedRegions(sm), sm, used)
 	return used
 }
 
 // nameRegions names the vertices of the regions of a state machine or state:
 // one region shares its owner's body, several become the sub-states of one
-// parallel state, each with a body of its own.
-func (m *migration) nameRegions(regions []*sysmlv1.Element, used map[string]bool) {
+// parallel state, each with a body of its own; owner is the element whose body
+// used names, nil for a body no v1 element owns.
+func (m *migration) nameRegions(regions []*sysmlv1.Element, owner *sysmlv1.Element, used map[string]bool) {
 	if len(regions) > 1 {
-		name := freshIn(used, "regions")
+		name := m.freshMember(owner, used, "regions")
 		inner := inheritedStateNamesSet()
 		for _, r := range regions {
 			rname := m.nameOf(r)
@@ -54,21 +55,21 @@ func (m *migration) nameRegions(regions []*sysmlv1.Element, used map[string]bool
 			}
 			m.names[r] = freshIn(inner, rname)
 			m.parallel[r] = name
-			m.nameRegion(r, inheritedStateNamesSet())
+			m.nameRegion(r, nil, inheritedStateNamesSet())
 		}
 		return
 	}
 	for _, r := range regions {
-		m.nameRegion(r, used)
+		m.nameRegion(r, owner, used)
 	}
 }
 
-func (m *migration) nameRegion(r *sysmlv1.Element, used map[string]bool) {
+func (m *migration) nameRegion(r, owner *sysmlv1.Element, used map[string]bool) {
 	m.regionUsed[r] = used
 	for _, v := range r.Owned("subvertex") {
-		m.nameVertex(v, used)
+		m.nameVertex(v, owner, used)
 		if v.Type == "State" {
-			m.nameRegions(m.populatedRegions(v), inheritedStateNamesSet())
+			m.nameRegions(m.populatedRegions(v), v, inheritedStateNamesSet())
 		}
 	}
 }
@@ -89,17 +90,18 @@ func (m *migration) populatedRegions(owner *sysmlv1.Element) []*sysmlv1.Element 
 }
 
 // nameVertex gives a vertex that is written as a member its name in the body
-// used lists, after its own when it has one and no sibling took it.
-func (m *migration) nameVertex(v *sysmlv1.Element, used map[string]bool) {
+// used lists, after its own when it has one and no sibling took it; a name
+// synthesized from its kind also keeps clear of owner's other members.
+func (m *migration) nameVertex(v, owner *sysmlv1.Element, used map[string]bool) {
 	base := vertexBase(v)
 	if base == "" {
 		return
 	}
 	name := m.nameOf(v)
-	if name == "" {
-		name = base
-	}
-	if used[name] {
+	switch {
+	case name == "":
+		name = m.freshMember(owner, used, base)
+	case used[name]:
 		name = freshIn(used, name)
 	}
 	used[name] = true
@@ -107,6 +109,17 @@ func (m *migration) nameVertex(v *sysmlv1.Element, used map[string]bool) {
 	if name != m.nameOf(v) {
 		m.names[v] = name
 	}
+}
+
+// freshMember is freshIn for a synthesized member of owner's body: the name
+// must also differ from the members owner writes, an attribute called fork say.
+func (m *migration) freshMember(owner *sysmlv1.Element, used map[string]bool, base string) string {
+	name := base
+	for i := 2; used[name] || m.nameTaken(owner, name); i++ {
+		name = base + strconv.Itoa(i)
+	}
+	used[name] = true
+	return name
 }
 
 // vertexBase is the name a vertex of a kind that is written as a member takes

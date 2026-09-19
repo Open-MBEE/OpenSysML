@@ -251,3 +251,106 @@ func TestEmptyRegionLeavesNoPhantomPath(t *testing.T) {
 		t.Errorf("the transition did not leave Busy for Idle:\n%s", out)
 	}
 }
+
+// clashMachine owns attributes named like its fork, join, shallow and deep history
+// pseudostates, and an attribute named like the base name an anonymous fork takes.
+const clashMachine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_cgo" name="Go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_cgoEv" signal="_cgo"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_press" name="Press" classifierBehavior="_csm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_csm" name="Cycle">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_aSpread" name="spread">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_aGather" name="gather">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_aCheck" name="checkpoint">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_aDeep" name="deepest">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_aFork" name="fork">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedAttribute>
+        <region xmi:type="uml:Region" xmi:id="_cMain" name="Main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_cinit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_cidle" name="Idle"/>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_cfork" name="spread" kind="fork"/>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_cjoin" name="gather" kind="join"/>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_cfork2" kind="fork"/>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_chist" name="checkpoint" kind="shallowHistory"/>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_cdeep" name="deepest" kind="deepHistory"/>
+          <subvertex xmi:type="uml:State" xmi:id="_cboth" name="Both">
+            <region xmi:type="uml:Region" xmi:id="_cra" name="a">
+              <subvertex xmi:type="uml:State" xmi:id="_ca1" name="A1"/>
+            </region>
+            <region xmi:type="uml:Region" xmi:id="_crb" name="b">
+              <subvertex xmi:type="uml:State" xmi:id="_cb1" name="B1"/>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_ct0" source="_cinit" target="_cidle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_ctGo" source="_cidle" target="_cfork">
+            <trigger xmi:type="uml:Trigger" xmi:id="_ctrGo" event="_cgoEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_ctA" source="_cfork" target="_ca1"/>
+          <transition xmi:type="uml:Transition" xmi:id="_ctB" source="_cfork" target="_cb1"/>
+          <transition xmi:type="uml:Transition" xmi:id="_ctJa" source="_ca1" target="_cjoin"/>
+          <transition xmi:type="uml:Transition" xmi:id="_ctJb" source="_cb1" target="_cjoin"/>
+          <transition xmi:type="uml:Transition" xmi:id="_ctBack" source="_cjoin" target="_chist"/>
+          <transition xmi:type="uml:Transition" xmi:id="_ctHist" source="_chist" target="_cfork2"/>
+          <transition xmi:type="uml:Transition" xmi:id="_ctHa" source="_cfork2" target="_ca1"/>
+          <transition xmi:type="uml:Transition" xmi:id="_ctHb" source="_cfork2" target="_cb1"/>
+          <transition xmi:type="uml:Transition" xmi:id="_ctDeep" source="_cdeep" target="_cidle"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+const clashApplications = `
+  <sysml:Block xmi:id="_c1" base_Class="_press"/>`
+
+// A fork, join or history pseudostate named like another member of the body it
+// is written in is renamed as a state would be, so the state def has distinct members.
+func TestPseudostatesNamedLikeMembersAreDistinguished(t *testing.T) {
+	r := migrateDocument(t, clashMachine, clashApplications)
+	for _, line := range []string{
+		"attribute spread : ScalarValues::Integer;",
+		"attribute gather : ScalarValues::Integer;",
+		"attribute checkpoint : ScalarValues::Integer;",
+		"attribute deepest : ScalarValues::Integer;",
+		"attribute 'fork' : ScalarValues::Integer;",
+		"fork 'spread 2';",
+		"join 'gather 2';",
+		"fork fork2;",
+		"history 'checkpoint 2';",
+		"deep history 'deepest 2';",
+		"transition first Idle accept Go then 'spread 2';",
+		"transition first 'spread 2' then Both::regions::a::A1;",
+		"transition first 'gather 2' then 'checkpoint 2';",
+		"transition first 'checkpoint 2' then fork2;",
+		"transition first 'deepest 2' then Idle;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_cfork", migrate.Approximated, "written as spread 2 since a sibling is also named spread")
+	wantNote(t, r, "_cjoin", migrate.Approximated, "written as gather 2 since a sibling is also named gather")
+	wantNote(t, r, "_chist", migrate.Approximated, "written as checkpoint 2 since a sibling is also named checkpoint")
+	wantNote(t, r, "_cdeep", migrate.Approximated, "written as deepest 2 since a sibling is also named deepest")
+
+	// The renamed fork enters both regions; the join, history and anonymous
+	// fork bring the machine round to them again.
+	s := session(t, r)
+	meta(t, s, "%instantiate Press")
+	meta(t, s, "%state Press::Cycle")
+	meta(t, s, "%send Go")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "A1") || !strings.Contains(out, "B1") {
+		t.Errorf("the renamed fork did not enter both regions:\n%s", out)
+	}
+	meta(t, s, "%step")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "A1") || !strings.Contains(out, "B1") {
+		t.Errorf("the join, history and second fork did not re-enter both regions:\n%s", out)
+	}
+}
