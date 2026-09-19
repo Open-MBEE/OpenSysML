@@ -205,6 +205,39 @@ func TestComparisonTableRefusesNonnumericRuns(t *testing.T) {
 	}
 }
 
+// An observable some completed runs do not produce at all — the target's attribute
+// was never given a value in them — is not compared over the runs that produced it,
+// whichever come first: the note counts the runs that produced it against all completed.
+func TestComparisonTableRefusesRunsMissingTheObservable(t *testing.T) {
+	number := func(n float64) runtime.Value {
+		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: n}}
+	}
+	flag := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: true}}
+	row := func(v runtime.Value) runtime.SweepRow {
+		return runtime.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: v}}}
+	}
+	without := runtime.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "clock", Value: number(1)}}}
+	cfg := &compareResults("'Group 1'", 2).Configurations[0]
+	for name, rows := range map[string][]runtime.SweepRow{
+		"number first":     {row(number(2)), without, row(number(4))},
+		"missing first":    {without, row(number(2)), row(number(4))},
+		"failed run apart": {row(number(2)), {Err: fmt.Errorf("boom")}, without, row(number(4))},
+	} {
+		got := strings.Join(comparisonTable(cfg, runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: rows}, nil), "\n")
+		if !strings.Contains(got, "note: target.total was produced by 2 of the 3 completed run(s), so total is not compared") {
+			t.Errorf("%s: a run producing no value is not counted:\n%s", name, got)
+		}
+		if strings.Contains(got, "difference") {
+			t.Errorf("%s: a difference is given over runs producing no value:\n%s", name, got)
+		}
+	}
+	mixed := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{row(number(2)), without, row(flag)}}
+	got := strings.Join(comparisonTable(cfg, mixed, nil), "\n")
+	if !strings.Contains(got, "note: target.total was produced by 2 of the 3 completed run(s) and holds no number in 1 of those, so total is not compared") {
+		t.Errorf("a run producing no value beside one holding no number:\n%s", got)
+	}
+}
+
 // A simple name naming configurations of several packages compares none of them
 // and says which it could name; an id or a qualified name compares its one.
 func TestCompareRefusesAnAmbiguousName(t *testing.T) {

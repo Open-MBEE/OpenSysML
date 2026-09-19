@@ -1,0 +1,19 @@
+do: top
+stmt action body
+enter action node: state behavior mark
+    eval literal 2 -> 2
+  eval index -> 2 [s]
+do: top
+  stmt assign log
+      eval feature log -> ""
+      eval literal "did " -> "did "
+    eval operator + -> "did "
+leave action node: state behavior mark
+choice events at t=2.0: time top 1->idle, time top 2->idle (unordered; dispatched time top 2->idle first)
+exit: top
+stmt assign log
+    eval feature log -> "did "
+    eval literal "two " -> "two "
+  eval operator + -> "did two "
+enter: idle
+transition: top -> idle (event: time)
