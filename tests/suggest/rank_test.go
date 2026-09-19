@@ -3,7 +3,7 @@ package suggest_test
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/suggest"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 )
 
 // TestBudget locks how many edits a name of each length justifies as a typo: a

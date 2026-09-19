@@ -7,7 +7,7 @@ description: How to observe SysML element filters (`filter <expr>;`, `import P::
 
 ## The only observable surface is diagnostics, not `%instantiate`
 
-`internal/repl/lookup.go` resolves a qualified name with `idx.LookupQualified` and a simple name with
+`internal/frontend/repl/lookup.go` resolves a qualified name with `idx.LookupQualified` and a simple name with
 `resolve.New(idx).LookupName` **without** `SetModel`, so no filter is ever evaluated on that path:
 `%instantiate Facade::hiddenPart` succeeds even for an element a filter rejects. Do not read that as
 "filters do not work".
@@ -124,7 +124,7 @@ filter @Meta::Safety + 1; -> warning: this filter condition cannot be evaluated,
 A REPL session document is never cached; only *library* files are. Make the model a library:
 
 ```bash
-cp -r internal/core/libs/stdlib/* /tmp/flib/          # OPENSYSML_LIBRARY_PATH REPLACES the stdlib, so copy it
+cp -r internal/workspace/libs/stdlib/* /tmp/flib/          # OPENSYSML_LIBRARY_PATH REPLACES the stdlib, so copy it
 mkdir -p /tmp/flib/Filters && cp model.sysml /tmp/flib/Filters/
 export OPENSYSML_LIBRARY_PATH=/tmp/flib XDG_CACHE_HOME=/tmp/fc
 rm -rf /tmp/fc                                        # run 1 = cache miss (parsed), run 2+ = cache hit (restored)
@@ -197,7 +197,7 @@ side by side on **one model**, and expect them to be able to disagree:
   it must still be `true`. Check subtype conformance in **both directions** too
   (`airBag @ CrashSafety` true, `seatBelt @ CrashSafety` false), since a name-based fallback that
   ignores direction would pass the positive case alone.
-- **`go test -run TestExecutionConformance ./internal/core/runtime` can pass while the binary fails
+- **`go test -run TestExecutionConformance ./internal/exec/runtime` can pass while the binary fails
   the same fixture.** Conformance builds its own index; the REPL/CLI path does not. Always re-run
   conformance fixtures through the binary:
   `./bin/sysml <fixture> -instantiate test::Vehicle -constraint test::Vehicle::tagged`.

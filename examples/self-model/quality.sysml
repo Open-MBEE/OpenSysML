@@ -237,7 +237,7 @@ package OpenSysMLGates {
     private import VerificationCases::VerdictKind;
 
     verification def ParserGate {
-        doc /* go test -run 'TestGolden|TestNegative' ./internal/core/parser */
+        doc /* go test -run 'TestGolden|TestNegative' ./internal/syntax/parser */
         subject parser : Parser;
         objective {
             verify parserRecovers;
@@ -246,7 +246,7 @@ package OpenSysMLGates {
     }
 
     verification def StdlibGate {
-        doc /* go test -run TestStdlibConformance ./internal/core/libs */
+        doc /* go test -run TestStdlibConformance ./internal/workspace/libs */
         subject stdlib : StandardLibrary;
         objective {
             verify libraryIsClean;
@@ -255,7 +255,7 @@ package OpenSysMLGates {
     }
 
     verification def SnapshotGate {
-        doc /* make stdlib-snapshot-check; go test -run 'Snapshot' ./internal/core/libs ./internal/core/symbols */
+        doc /* make stdlib-snapshot-check; go test -run 'Snapshot' ./internal/workspace/libs ./internal/semantic/symbols */
         subject stdlib : StandardLibrary;
         objective {
             verify snapshotIsDerived;
@@ -264,7 +264,7 @@ package OpenSysMLGates {
     }
 
     verification def CalcDifferential {
-        doc /* go test -run 'TestCompiledCalc' ./internal/core/runtime */
+        doc /* go test -run 'TestCompiledCalc' ./internal/exec/runtime */
         subject evaluator : Evaluator;
         objective {
             verify evaluatorIsReference;
@@ -273,7 +273,7 @@ package OpenSysMLGates {
     }
 
     verification def RuntimeGate {
-        doc /* go test -run 'TestExecutionConformance|TestRuntimeRobustness' ./internal/core/runtime */
+        doc /* go test -run 'TestExecutionConformance|TestRuntimeRobustness' ./internal/exec/runtime */
         subject runtime : Runtime;
         objective {
             verify executionIsBounded;
@@ -282,7 +282,7 @@ package OpenSysMLGates {
     }
 
     verification def ExportGate {
-        doc /* go test ./internal/core/export */
+        doc /* go test ./internal/translate/export */
         subject exporter : Exporter;
         objective {
             verify exportRoundTrips;
@@ -291,7 +291,7 @@ package OpenSysMLGates {
     }
 
     verification def AnalysisGate {
-        doc /* go test -race ./internal/core/analysis */
+        doc /* go test -race ./internal/exec/analysis */
         subject framework : AnalysisFramework;
         objective {
             verify questionsHaveOneContract;
@@ -302,7 +302,7 @@ package OpenSysMLGates {
     }
 
     verification def RunStateGate {
-        doc /* go test -run 'TestSnapshot|TestExploreWith' ./internal/core/runtime */
+        doc /* go test -run 'TestSnapshot|TestExploreWith' ./internal/exec/runtime */
         subject runtime : Runtime;
         objective {
             verify snapshotsAreRunState;
@@ -371,9 +371,6 @@ package OpenSysMLCodebase {
     }
 
     part def SourceTree {
-        part core : Directory {
-            attribute :>> path = "internal/core";
-        }
         part internals : Directory {
             attribute :>> path = "internal";
         }
@@ -395,19 +392,19 @@ package OpenSysMLCodebase {
         end directory : Directory;
     }
 
-    allocate opensysml.pipeline.lexer to tree.core;
-    allocate opensysml.pipeline.parser to tree.core;
-    allocate opensysml.pipeline.resolver to tree.core;
-    allocate opensysml.pipeline.semantics to tree.core;
-    allocate opensysml.pipeline.passes to tree.core;
-    allocate opensysml.pipeline.lowering to tree.core;
-    allocate opensysml.pipeline.runtime to tree.core;
-    allocate opensysml.pipeline.engines to tree.core;
-    allocate opensysml.pipeline.runtime.evaluator.compiled to tree.core;
-    allocate opensysml.pipeline.stdlib to tree.core;
-    allocate opensysml.pipeline.stdlib.encoding to tree.core;
-    allocate opensysml.pipeline.stdlib.trees to tree.core;
-    allocate opensysml.pipeline.stdlib.generator to tree.core;
+    allocate opensysml.pipeline.lexer to tree.internals;
+    allocate opensysml.pipeline.parser to tree.internals;
+    allocate opensysml.pipeline.resolver to tree.internals;
+    allocate opensysml.pipeline.semantics to tree.internals;
+    allocate opensysml.pipeline.passes to tree.internals;
+    allocate opensysml.pipeline.lowering to tree.internals;
+    allocate opensysml.pipeline.runtime to tree.internals;
+    allocate opensysml.pipeline.engines to tree.internals;
+    allocate opensysml.pipeline.runtime.evaluator.compiled to tree.internals;
+    allocate opensysml.pipeline.stdlib to tree.internals;
+    allocate opensysml.pipeline.stdlib.encoding to tree.internals;
+    allocate opensysml.pipeline.stdlib.trees to tree.internals;
+    allocate opensysml.pipeline.stdlib.generator to tree.internals;
     allocate opensysml.repl to tree.internals;
     allocate opensysml.lsp to tree.internals;
     allocate opensysml.service to tree.internals;

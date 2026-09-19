@@ -334,7 +334,7 @@ func TestEngineCheckBindsWitnessObjectsAcrossRuns(t *testing.T) {
 // replay:<file>: the token order is drawn at the retry, where both branches are due.
 func TestEngineReplaysAnOrderDrawnAfterTheClockRetriesAStep(t *testing.T) {
 	binary := buildCLI(t)
-	model, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "runtime", "testdata", "conformance",
+	model, err := os.ReadFile(filepath.Join("..", "..", "internal", "exec", "runtime", "testdata", "conformance",
 		"action_explore_performed_and_accept_due_together.sysml"))
 	if err != nil {
 		t.Fatal(err)
@@ -374,7 +374,7 @@ func TestEngineCheckNamesTheBoundsItHits(t *testing.T) {
 // entry order is drawn, so each outcome is tabled with either order.
 func TestEngineCheckNamesTheDoRoundItLeavesOut(t *testing.T) {
 	binary := buildCLI(t)
-	model, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "runtime", "testdata", "conformance", "state_do_action_loop_timed_exit.sysml"))
+	model, err := os.ReadFile(filepath.Join("..", "..", "internal", "exec", "runtime", "testdata", "conformance", "state_do_action_loop_timed_exit.sysml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -494,7 +494,7 @@ func TestEngineCheckRefusesMisuse(t *testing.T) {
 // sibling accept falls due with it — is a state the search holds and resumes.
 func TestEngineCheckSearchesAPausedBody(t *testing.T) {
 	binary := buildCLI(t)
-	paused, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "runtime", "testdata", "conformance",
+	paused, err := os.ReadFile(filepath.Join("..", "..", "internal", "exec", "runtime", "testdata", "conformance",
 		"action_explore_performed_and_accept_due_together.sysml"))
 	if err != nil {
 		t.Fatal(err)

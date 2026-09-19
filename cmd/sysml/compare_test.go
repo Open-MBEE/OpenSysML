@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/simresults"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 )
 
 // simconfigXMI is a v1 model with a «SimulationConfig» whose result package holds

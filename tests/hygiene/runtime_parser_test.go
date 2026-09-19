@@ -14,15 +14,15 @@ import (
 // the notation text a run reads (witness files, tool units) is parsed by the
 // runtime.ExpressionParser its frontend installs, never by the runtime itself.
 func TestRuntimeDoesNotDependOnTheParser(t *testing.T) {
-	cmd := exec.Command("go", "list", "-deps", "./internal/core/runtime")
+	cmd := exec.Command("go", "list", "-deps", "./internal/exec/runtime")
 	cmd.Dir = "../.."
 	out, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("go list: %v", err)
 	}
 	for _, dep := range strings.Fields(string(out)) {
-		if dep == "github.com/Open-MBEE/OpenSysML/internal/core/parser" {
-			t.Errorf("internal/core/runtime depends on %s", dep)
+		if dep == "github.com/Open-MBEE/OpenSysML/internal/syntax/parser" {
+			t.Errorf("internal/exec/runtime depends on %s", dep)
 		}
 	}
 }

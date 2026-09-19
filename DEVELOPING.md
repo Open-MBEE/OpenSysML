@@ -4,7 +4,7 @@ This guide is for contributors changing the OpenSysML implementation. It is
 kept at the repository root deliberately: the public site is built from
 `docs/`, so this file is not part of the published documentation.
 
-The guide focuses on the Go implementation under `internal/core`. It explains
+The guide focuses on the Go implementation under `internal/`. It explains
 how source text becomes an abstract syntax tree (AST), how names and semantics
 are derived without mutating that tree, and how executable behavior is lowered
 and run. The LSP and REPL are covered only where they help trace a symptom back
@@ -132,16 +132,16 @@ Start a change in the narrowest layer that owns the invariant:
 
 | Symptom or change | Start in |
 | --- | --- |
-| A character sequence becomes the wrong token | `internal/core/lexer` |
-| Valid syntax is rejected or the AST shape is wrong | `internal/core/parser` and `internal/core/ast` |
-| A declaration is absent from lookup | `internal/core/symbols` |
-| A reference resolves to the wrong declaration | `internal/core/resolve` |
-| A valid tree violates a language rule | `internal/core/semantics` or `internal/core/passes` |
-| Valid behavior loses guards, triggers, data flow, or structure | `internal/core/lower` |
-| Correct lowered behavior executes incorrectly | `internal/core/runtime` |
-| Open files and disk files disagree | `internal/core/model` |
-| Only an editor operation is wrong | `internal/lsp`, after checking core results |
-| Only an interactive command is wrong | `internal/repl`, after checking core results |
+| A character sequence becomes the wrong token | `internal/syntax/lexer` |
+| Valid syntax is rejected or the AST shape is wrong | `internal/syntax/parser` and `internal/syntax/ast` |
+| A declaration is absent from lookup | `internal/semantic/symbols` |
+| A reference resolves to the wrong declaration | `internal/semantic/resolve` |
+| A valid tree violates a language rule | `internal/semantic/semantics` or `internal/check/passes` |
+| Valid behavior loses guards, triggers, data flow, or structure | `internal/ir/lower` |
+| Correct lowered behavior executes incorrectly | `internal/exec/runtime` |
+| Open files and disk files disagree | `internal/workspace/model` |
+| Only an editor operation is wrong | `internal/frontend/lsp`, after checking core results |
+| Only an interactive command is wrong | `internal/frontend/repl`, after checking core results |
 
 Avoid fixing a frontend symptom by duplicating parser, resolver, semantic, or
 runtime logic in the frontend.
@@ -159,7 +159,7 @@ Several rules shape almost every implementation decision:
 - **Validation is tiered.** Do not emit downstream type or constraint noise for
   syntax or resolution failures that already block meaningful analysis.
 - **Execution consumes lowered IR.** Runtime executors must not reparse or
-  reinterpret declaration ASTs independently of `internal/core/lower`.
+  reinterpret declaration ASTs independently of `internal/ir/lower`.
 - **Failure timing is observable behavior.** Preserve whether an error is
   reported during construction, initialization, stepping, or completion.
 - **Tests are executable contracts.** Do not weaken a test or normalize away a
@@ -170,19 +170,16 @@ Several rules shape almost every implementation decision:
 The core packages have intentionally separate responsibilities:
 
 ```text
-internal/core/
-├── source/      source bytes, spans, line/column indexes, language kind
-├── lexer/       pull-based tokenization, keywords, trivia
-├── parser/      recursive-descent grammar and recovery
-├── ast/         syntax-only node types and AST dumping
-├── symbols/     declaration symbols, scopes, indexes, imports
-├── resolve/     lazy reference and endpoint resolution
-├── semantics/   reusable semantic facts and model queries
-├── passes/      ordered validation and diagnostics
-├── model/       documents, workspaces, reindexing, diagnostic caches
-├── lower/       syntax/semantic structures to execution IR
-├── runtime/     expression, action, and state execution
-└── libs/        bundled libraries and library-index construction
+internal/
+├── syntax/      source bytes and spans, lexer, parser, AST, packed files, format
+├── semantic/    symbols, scopes, name resolution, semantics, identity, highlight, query
+├── ir/          lowered execution IR, query/doc plans, views
+├── check/       ordered validation passes and diagnostics, workspace edits
+├── exec/        expression, action, and state execution; solving; analysis
+├── translate/   RDF, XMI and notation conversion, code generation, interop
+├── doc/         query execution, document IR, Markdown/HTML/PDF backends
+├── workspace/   documents, workspaces, reindexing, diagnostic caches, libraries
+└── frontend/    LSP, REPL, gRPC and stdio transports, protobuf conversion, usage
 ```
 
 The dependency direction matters. For example, a validation pass may ask the
@@ -205,7 +202,7 @@ can be rebuilt when documents change.
 
 ## Source files, spans, and language selection
 
-The source layer is in `internal/core/source`.
+The source layer is in `internal/syntax/source`.
 
 ### `SourceFile`
 
@@ -244,7 +241,7 @@ Do not assume that syntax accepted in a `.sysml` file is also legal in a
 
 ## Lexer
 
-The lexer is a handwritten, pull-based scanner in `internal/core/lexer`.
+The lexer is a handwritten, pull-based scanner in `internal/syntax/lexer`.
 `lexer.New` accepts a `SourceFile`; callers repeatedly call `Next`.
 
 ### Token model
@@ -334,8 +331,8 @@ better represented by existing tokens and contextual lookahead.
 ## Parser
 
 The parser is a handwritten recursive-descent parser in
-`internal/core/parser`. It consumes non-trivia tokens from the lexer, constructs
-nodes from `internal/core/ast`, and records syntax diagnostics.
+`internal/syntax/parser`. It consumes non-trivia tokens from the lexer, constructs
+nodes from `internal/syntax/ast`, and records syntax diagnostics.
 
 ### Entry point and parser state
 
@@ -477,7 +474,7 @@ that syntax in the AST. If the fact is derived, keep it out of the AST.
 
 ## AST
 
-AST nodes live in `internal/core/ast`. They represent syntax and source
+AST nodes live in `internal/syntax/ast`. They represent syntax and source
 structure, not resolved or inferred meaning.
 
 ### Node contract
@@ -538,7 +535,7 @@ golden diff; do not update snapshots blindly.
 
 ## Symbols, scopes, and the index
 
-`internal/core/symbols` derives declarations and lexical lookup structure from
+`internal/semantic/symbols` derives declarations and lexical lookup structure from
 the AST.
 
 ### Symbols
@@ -605,16 +602,16 @@ with `NewOverlay`, sharing the immutable library base while keeping project
 writes separate.
 
 The bundled standard library's frozen index is not built at start-up but decoded
-from `internal/core/libs/stdlib.snapshot`, a generated artifact embedded in the
-binary (`symbols.WriteSnapshot`/`ReadSnapshot` over `internal/core/pack` and
-`internal/core/ast/astcodec`). The OMG files under `internal/core/libs/stdlib/`
+from `internal/workspace/libs/stdlib.snapshot`, a generated artifact embedded in the
+binary (`symbols.WriteSnapshot`/`ReadSnapshot` over `internal/syntax/pack` and
+`internal/syntax/ast/astcodec`). The OMG files under `internal/workspace/libs/stdlib/`
 remain the source of truth: a process falls back to parsing them whenever their
 digest or the snapshot's format version differs from what the snapshot records.
 After editing a bundled library file, the snapshot's format, or anything the
 frozen index holds, regenerate and commit it:
 
 ```bash
-make stdlib-snapshot          # go generate ./internal/core/libs
+make stdlib-snapshot          # go generate ./internal/workspace/libs
 make stdlib-snapshot-check    # what CI runs; TestEmbeddedSnapshotIsCurrent fails too
 ```
 
@@ -637,7 +634,7 @@ reference starts.
 
 ## Name resolution
 
-`internal/core/resolve` resolves syntax references against a `symbols.Index`.
+`internal/semantic/resolve` resolves syntax references against a `symbols.Index`.
 Resolution is lazy and memoized.
 
 ### Resolver lifecycle
@@ -720,8 +717,8 @@ second type error whose only cause is the unresolved reference.
 ## Semantic model and validation passes
 
 Semantic analysis is split between reusable model queries in
-`internal/core/semantics` and diagnostic-producing passes in
-`internal/core/passes`.
+`internal/semantic/semantics` and diagnostic-producing passes in
+`internal/check/passes`.
 
 ### Semantic model
 
@@ -824,7 +821,7 @@ can identify more accurately.
 
 ## Workspace and incremental analysis
 
-`internal/core/model` coordinates documents, the index, and analysis for the
+`internal/workspace/model` coordinates documents, the index, and analysis for the
 frontends.
 
 ### Document construction
@@ -864,7 +861,7 @@ Replacement is the invalidation boundary.
 
 ## Lowering executable behavior
 
-`internal/core/lower` converts selected declarations into explicit
+`internal/ir/lower` converts selected declarations into explicit
 runtime-facing intermediate representations. This is where syntactic and
 resolved model structures become execution structure.
 
@@ -929,7 +926,7 @@ The complete path must preserve its meaning through lowering and execution.
 
 ## Runtime
 
-`internal/core/runtime` executes expressions, actions, states, calculations,
+`internal/exec/runtime` executes expressions, actions, states, calculations,
 constraints, requirements, and model instances.
 
 ### Runtime context
@@ -1045,7 +1042,7 @@ semantics.
 
 ### REPL
 
-`internal/repl` merges snippets into model content, reparses through the core
+`internal/frontend/repl` merges snippets into model content, reparses through the core
 workspace, displays located diagnostics, resolves query targets, and invokes
 runtime entrypoints.
 
@@ -1062,7 +1059,7 @@ resolution, conformance, and execution rules are core concerns.
 
 ### LSP
 
-`internal/lsp` synchronizes buffers with the workspace and translates core
+`internal/frontend/lsp` synchronizes buffers with the workspace and translates core
 results into LSP responses:
 
 - diagnostics come from workspace analysis;
@@ -1242,10 +1239,10 @@ Run focused tests while iterating, then the full repository checks.
 Parser changes use four complementary layers:
 
 ```bash
-go test -run TestStdlibConformance ./internal/core/libs
+go test -run TestStdlibConformance ./internal/workspace/libs
 go test -run TestGolden ./tests/parser
-go test -run TestNegative ./tests/parser ./internal/core/parser
-go test ./internal/core/parser
+go test -run TestNegative ./tests/parser ./internal/syntax/parser
+go test ./internal/syntax/parser
 ```
 
 Golden fixtures live in `tests/parser/testdata/parse`. Update them only
@@ -1266,11 +1263,11 @@ prove termination and preservation of later declarations.
 Run the directly changed package and its immediate consumers:
 
 ```bash
-go test ./internal/core/symbols
-go test ./internal/core/resolve
-go test ./internal/core/semantics
-go test ./internal/core/passes
-go test ./internal/core/model
+go test ./internal/semantic/symbols
+go test ./internal/semantic/resolve
+go test ./internal/semantic/semantics
+go test ./internal/check/passes
+go test ./internal/workspace/model
 ```
 
 Cross-file changes should include imports, aliases, visibility, insertion order,
@@ -1281,12 +1278,12 @@ and incremental replacement where relevant.
 Behavior changes use:
 
 ```bash
-go test -run TestExecutionConformance ./internal/core/runtime
-go test -run TestExecutionTrace ./internal/core/runtime
-go test -run TestRuntimeRobustness -timeout 60s ./internal/core/runtime
+go test -run TestExecutionConformance ./internal/exec/runtime
+go test -run TestExecutionTrace ./internal/exec/runtime
+go test -run TestRuntimeRobustness -timeout 60s ./internal/exec/runtime
 ```
 
-Execution fixtures live in `internal/core/runtime/testdata/conformance`:
+Execution fixtures live in `internal/exec/runtime/testdata/conformance`:
 
 ```text
 case.sysml
@@ -1301,7 +1298,7 @@ Update traces only after intentionally changing scheduling or observable
 ordering:
 
 ```bash
-go test -run TestExecutionTrace -update-traces ./internal/core/runtime
+go test -run TestExecutionTrace -update-traces ./internal/exec/runtime
 ```
 
 ### Corpora

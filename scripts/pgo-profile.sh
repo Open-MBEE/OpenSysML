@@ -27,19 +27,19 @@ profile() {
 }
 
 # Test-suite hot paths, including the corpus gates (corpus) and the stdlib gate (libs).
-profile tests-parser  ./internal/core/parser  -count=1
+profile tests-parser  ./internal/syntax/parser  -count=1
 profile tests-golden  ./tests/parser          -count=1
-profile tests-resolve ./internal/core/resolve -count=1
-profile tests-passes  ./internal/core/passes  -count=1
-profile tests-runtime ./internal/core/runtime -count=1
-profile tests-model   ./internal/core/model   -count=1
+profile tests-resolve ./internal/semantic/resolve -count=1
+profile tests-passes  ./internal/check/passes  -count=1
+profile tests-runtime ./internal/exec/runtime -count=1
+profile tests-model   ./internal/workspace/model   -count=1
 profile tests-corpus  ./tests/corpus          -count=1
-profile tests-libs    ./internal/core/libs    -count=1
-profile tests-lsp     ./internal/lsp          -count=1
+profile tests-libs    ./internal/workspace/libs    -count=1
+profile tests-lsp     ./internal/frontend/lsp          -count=1
 
 # Benchmarks: calc/instantiation/state machines (repl), the gRPC parse path, the harness.
-profile bench-repl ./internal/repl      -run '^$' -bench . -benchtime 1s
-profile bench-grpc ./internal/grpc      -run '^$' -bench . -benchtime 1s
+profile bench-repl ./internal/frontend/repl      -run '^$' -bench . -benchtime 1s
+profile bench-grpc ./internal/frontend/grpc      -run '^$' -bench . -benchtime 1s
 profile bench-perf ./tests/perf -run '^$' \
   -bench 'Lex|Parse|IndexAdd|Analyze|WorkspaceEdit|FQNOf|LookupQualified|REPL|Lower|Execute|BatchConstraints|SameConstraint|GRPC|Connect' \
   -benchtime 1s

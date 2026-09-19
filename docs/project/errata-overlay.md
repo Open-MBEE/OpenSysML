@@ -28,8 +28,8 @@ reported.
 
 `tools/oracle/errata` is a registry of corrections to published reference material — the OMG
 example corpora the oracles read, and the standard library vendored under
-`internal/core/libs/stdlib`. The entry type, the overlay that applies corrections on read and
-the library's own entries are the product's `internal/core/libs/errata`; the registry adds the
+`internal/workspace/libs/stdlib`. The entry type, the overlay that applies corrections on read and
+the library's own entries are the product's `internal/workspace/libs/errata`; the registry adds the
 corpus entries and the corrected copy of a corpus root. One entry is one line of one file; a
 file may carry several:
 
@@ -101,7 +101,7 @@ verification failed and the entry was removed rather than re-pointed.
   [the adjudications record](adjudications.md)'s terms and no analyzer behaviour. F82 stays a
   true positive of ours; what the overlay records is that the *examples* are wrong.
 - **A library correction is only declared for a line the checker rejects.** Two gates
-  in `internal/core/model` pin the expression type checker's verdict on the standard
+  in `internal/workspace/model` pin the expression type checker's verdict on the standard
   library as exact sets: all nine findings over the published text, and exactly the
   six documented-only ones over the bundled library. A correction the checker still
   reports at, or a finding that vanishes without an entry, fails a gate.
@@ -153,8 +153,8 @@ of the entry and no pilot verdict has changed yet. When one does, the finding ca
    invent one to close a row — document it without a correction instead.
 3. Add the `errata.Entry`, copying the published line byte-for-byte, trailing
    whitespace included: a corpus entry to the registry, a library entry to
-   `internal/core/libs/errata`.
-4. `go test ./internal/core/libs/errata` and `go test -C tools ./oracle/errata`, then re-run the three oracles with fresh caches
-   and `make docs-counts`. A library entry also needs `go generate ./internal/core/libs`
-   (the snapshot is built from the corrected text) and the two `internal/core/model`
+   `internal/workspace/libs/errata`.
+4. `go test ./internal/workspace/libs/errata` and `go test -C tools ./oracle/errata`, then re-run the three oracles with fresh caches
+   and `make docs-counts`. A library entry also needs `go generate ./internal/workspace/libs`
+   (the snapshot is built from the corrected text) and the two `internal/workspace/model`
    gates moved between their published and bundled sets.

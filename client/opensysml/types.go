@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/grpc"
+	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
 
 // Capability names a client can require of a ServerInfo, re-stated from the

@@ -1,7 +1,7 @@
 # Native compilation of calcs
 
 `sysml -compile` translates a `calc def` (or a calc usage) into a standalone native executable,
-ahead of time, through C or Go. The interpreter in `internal/core/runtime` stays the reference
+ahead of time, through C or Go. The interpreter in `internal/exec/runtime` stays the reference
 semantics: a compiled program computes what `sysml -calc` computes, prints it the same way, and
 fails on the same inputs — or the calc refuses to compile with a typed error saying which construct
 is outside the subset. Nothing is compiled approximately.
@@ -34,7 +34,7 @@ The generated source is always written beside the executable (`fib.c` / `fib.go`
 compiled is inspectable. `OPENSYSML_CC` names the C compiler (default `cc`) and `OPENSYSML_GO`
 the go command (default `go`).
 
-Programmatically: `Session.CompileCalc(name)` in `internal/repl` yields a `codegen.Program`, which
+Programmatically: `Session.CompileCalc(name)` in `internal/frontend/repl` yields a `codegen.Program`, which
 `codegen.Source` renders and `codegen.Build` compiles.
 
 ## The compiled subset
@@ -160,7 +160,7 @@ arithmetic rather than the host language's:
   line a sequence argument is written as the interpreter would read it: `null`, `4`, `(4)`,
   `(1, 2)`, `()`.
 
-`internal/repl/compile_test.go:TestCompiledCalcsAgreeWithInterpreter` is the differential contract:
+`internal/frontend/repl/compile_test.go:TestCompiledCalcsAgreeWithInterpreter` is the differential contract:
 every calc in `testdata/compile_calcs.sysml` is compiled by both backends and run over a matrix of
 values and failure inputs (overflow, zero divisors, non-finite Reals, deep recursion, null and
 many-valued operands, out-of-range indexes, multiplicity, uniqueness and element-budget violations), and each
@@ -201,7 +201,7 @@ parser → resolve → semantics ─┐
 lower.CalcBody (statements) ──┘
 ```
 
-- `internal/core/codegen/ir.go` — the typed IR: `Func`, `Param`, expressions (`IntLit`, `Var`,
+- `internal/translate/codegen/ir.go` — the typed IR: `Func`, `Param`, expressions (`IntLit`, `Var`,
   `Binary`, `Call`, `ToReal`, …) and statements (`Declare`, `Assign`, `If`, `While`, `Return`).
   Every expression carries its scalar `Type`; the emitters never infer.
 - `compile.go` — the front end. It walks the resolved symbol's members through
@@ -252,12 +252,12 @@ values, since the specialization happens before either emitter runs.
 
 ## Benchmark methodology
 
-`internal/repl/compile_bench_test.go:BenchmarkCompiledCalc` times the same invocation three ways
+`internal/frontend/repl/compile_bench_test.go:BenchmarkCompiledCalc` times the same invocation three ways
 in one process: interpreted (`Session.RunCalc`), and as the C and Go executables run once with
 `--repeat b.N`, so process start-up is amortized and each figure is per invocation.
 
 ```
-go test ./internal/repl -run '^$' -bench BenchmarkCompiledCalc -benchtime 2s
+go test ./internal/frontend/repl -run '^$' -bench BenchmarkCompiledCalc -benchtime 2s
 ```
 
 The C loop is confirmed to do the work each iteration rather than being hoisted: `SumTo` scales
@@ -302,7 +302,7 @@ Reading the table:
 The spike fixes the shape of the compiler; the rest of the language is reached by widening the IR
 and its emitters, never by a second front end. Three rules hold throughout:
 
-1. **One lowering, two consumers.** Every construct lowers exactly once, into `internal/core/lower`
+1. **One lowering, two consumers.** Every construct lowers exactly once, into `internal/ir/lower`
    (`CalcBody`, `ActionGraph`, `StateGraph`), `queryplan` or `docplan`, and both the interpreter
    and the compiler read that form. Nothing may be interpreter-only by accident: a construct the
    compiler does not yet handle is refused with an `UnsupportedError` naming it.
@@ -340,7 +340,7 @@ sysml system.sysml -compile Vehicle::Sim -o sim         # a part, action, state 
 | Extension notations (`defer`, `choice`, `junction`, `history`) | already lowered into the `StateGraph`; compile as any other vertex or edge. `-strict` gates them before codegen, as today |
 
 Interpreter-only, refused by the compiler with a named error: SMT-backed satisfiability
-(`internal/core/solve`), REPL introspection and `%trace`, instance adoption across edits, the
+(`internal/exec/solve`), REPL introspection and `%trace`, instance adoption across edits, the
 step budget, and the extent operator `all T` (KerML 1.0 §7.4.9.2, `BaseFunctions::'all'`). The
 interpreter answers `all T` with the extent of the run it is evaluated in — the objects the run
 has materialized and the usages typed by `T` its context reaches, a variation's variants, an
@@ -348,7 +348,7 @@ enumeration's literals — because objects materialize lazily and no run holds t
 spec's Object semantics describe in the abstract. A compiled program has no run to consult: its
 structs are the values its statements build, so the compiler refuses `all` with a typed
 `UnsupportedError` (`operator 'all'`) rather than answering a smaller extent than the
-interpreter would (`internal/repl/compile_test.go` `Refused::Extent`).
+interpreter would (`internal/frontend/repl/compile_test.go` `Refused::Extent`).
 
 ### Phases
 

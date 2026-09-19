@@ -3,7 +3,7 @@
 Status: **implemented, read and write** — the `DiagramLayout` library, the semantic
 side table that resolves a position per view, the geometry the rendering tree carries,
 what the Mermaid, text and Graphviz DOT writers make of it, the LSP fields, the
-validation pass, and the write-back: `internal/core/edit` sets, updates and clears the
+validation pass, and the write-back: `internal/check/edit` sets, updates and clears the
 annotations source-preservingly, `opensysml/applyModelEdit` exposes that as `setLayout`,
 `setRoute` and `setCanvas`, and the VS Code diagram panel writes a `Layout` when a node
 is dragged and a `Route` when an edge is. Open: the OMG proposal. This note records the
@@ -45,7 +45,7 @@ model changes: its renderings are byte-identical to what they were.
 ## The metadata library
 
 Three metadata definitions, shipped as a non-normative OpenSysML library extension in the
-same tier as `IdentityMetadata` (`internal/core/libs/stdlib/OpenSysML
+same tier as `IdentityMetadata` (`internal/workspace/libs/stdlib/OpenSysML
 Libraries/DiagramLayout.sysml`, counted by the stdlib conformance gate with the other
 extensions):
 
@@ -167,7 +167,7 @@ With no view — the `#tree`, `#interconnection:X` pseudo-views and the LSP's re
 document — only the element-level fallback applies, since there is no view body to look
 in.
 
-The resolution is a lazy, memoized side-table query in `internal/core/semantics/layout.go`
+The resolution is a lazy, memoized side-table query in `internal/semantic/semantics/layout.go`
 (`Model.LayoutOf`, `Model.RouteOf`, `Model.CanvasOf`, over `Model.LayoutSitesOf`) built
 on the metadata side table the element filters and identity annotations already use
 (`Model.ElementMetadataOf`, `AnnotationSite.Scope`, `AnnotationSite.About`). A view's body
@@ -205,7 +205,7 @@ flow.
 
 ### Validation (a constraint-tier pass)
 
-`internal/core/passes/diagram_layout.go`, `DiagramLayoutPass`, source `constraint`:
+`internal/check/passes/diagram_layout.go`, `DiagramLayoutPass`, source `constraint`:
 
 | Code | Severity | When |
 |---|---|---|

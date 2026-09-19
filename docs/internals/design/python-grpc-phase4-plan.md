@@ -4,7 +4,7 @@
 
 **Goal:** Expose OpenSysML runtime capabilities (eval, instantiate, execute actions/state machines) via Python client
 
-**Architecture:** Extend protobuf schema with 4 new RPCs (Evaluate, Instantiate, ExecuteAction, ExecuteState), implement gRPC service handlers calling existing `internal/core/runtime` functions, add Python wrapper methods in Connection class plus new Instance class
+**Architecture:** Extend protobuf schema with 4 new RPCs (Evaluate, Instantiate, ExecuteAction, ExecuteState), implement gRPC service handlers calling existing `internal/exec/runtime` functions, add Python wrapper methods in Connection class plus new Instance class
 
 **Tech Stack:** Go 1.23+, protobuf 7.35.1+, grpcio 1.83.0+, existing OpenSysML runtime (eval.go, instance.go, action_executor.go, state_executor.go)
 
@@ -14,8 +14,8 @@
 
 **Go (gRPC Service):**
 - `api/proto/sysml.proto` - Add EvaluateRequest/Response, InstantiateRequest/Response, ExecuteActionRequest/Response, ExecuteStateRequest/Response messages + 4 RPCs
-- `internal/grpc/service.go` - Add 4 RPC handlers calling runtime package
-- `internal/grpc/convert.go` - Add Value → protobuf conversion (ValueToProto), Instance → protobuf conversion (InstanceToProto)
+- `internal/frontend/grpc/service.go` - Add 4 RPC handlers calling runtime package
+- `internal/frontend/grpc/convert.go` - Add Value → protobuf conversion (ValueToProto), Instance → protobuf conversion (InstanceToProto)
 
 **Python (Client):**
 - `opensysml/instance.py` - New Instance class wrapping protobuf Instance message
@@ -24,7 +24,7 @@
 - `opensysml/__init__.py` - Export Instance, RuntimeError, add module-level eval()/instantiate() helpers
 
 **Tests:**
-- `internal/grpc/runtime_test.go` - Go unit tests for 4 new RPCs
+- `internal/frontend/grpc/runtime_test.go` - Go unit tests for 4 new RPCs
 - `tests/test_runtime.py` - Python unit tests with mocked RPCs
 - `tests/test_runtime_integration.py` - Integration tests against real service with calc/action/state fixtures
 
@@ -41,12 +41,12 @@
 - Generate: `api/proto/sysml.pb.go`, `api/proto/sysml_grpc.pb.go` (Go stubs)
 
 ### Task 2: Implement Go Runtime RPC Handlers
-**Objective:** Add Evaluate, Instantiate, ExecuteAction, ExecuteState handlers in internal/grpc/service.go
+**Objective:** Add Evaluate, Instantiate, ExecuteAction, ExecuteState handlers in internal/frontend/grpc/service.go
 
 **Files:**
-- Modify: `internal/grpc/service.go`
-- Modify: `internal/grpc/convert.go` (add ValueToProto, InstanceToProto)
-- Create: `internal/grpc/runtime_test.go` (unit tests for 4 RPCs)
+- Modify: `internal/frontend/grpc/service.go`
+- Modify: `internal/frontend/grpc/convert.go` (add ValueToProto, InstanceToProto)
+- Create: `internal/frontend/grpc/runtime_test.go` (unit tests for 4 RPCs)
 
 ### Task 3: Implement Python Instance Class
 **Objective:** Create opensysml/instance.py wrapping protobuf Instance message
@@ -266,7 +266,7 @@ Edit `opensysml/proto/sysml_pb2_grpc.py` line 6:
 ```bash
 # Go
 go build ./api/proto
-go build ./internal/grpc
+go build ./internal/frontend/grpc
 
 # Python
 PYTHONPATH=/home/han/IdeaProjects/OpenSysML python -c "from opensysml.proto import sysml_pb2, sysml_pb2_grpc; print('OK')"
@@ -286,12 +286,12 @@ git commit -m "feat(proto): add runtime RPC messages (Evaluate, Instantiate, Exe
 
 ## Task 2: Implement Go Runtime RPC Handlers
 
-**Objective:** Add Evaluate, Instantiate, ExecuteAction, ExecuteState RPC handlers to internal/grpc/service.go, plus conversion helpers
+**Objective:** Add Evaluate, Instantiate, ExecuteAction, ExecuteState RPC handlers to internal/frontend/grpc/service.go, plus conversion helpers
 
 **Files:**
-- Modify: `internal/grpc/service.go`
-- Modify: `internal/grpc/convert.go`
-- Create: `internal/grpc/runtime_test.go`
+- Modify: `internal/frontend/grpc/service.go`
+- Modify: `internal/frontend/grpc/convert.go`
+- Create: `internal/frontend/grpc/runtime_test.go`
 
 ### Phase A: Add Conversion Helpers
 
@@ -566,8 +566,8 @@ import (
 	"context"
 	"testing"
 	
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
-	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
 
@@ -637,7 +637,7 @@ func TestExecuteState_SimpleStateMachine(t *testing.T) {
 #### Step 8: Run tests
 
 ```bash
-go test ./internal/grpc/runtime_test.go -v
+go test ./internal/frontend/grpc/runtime_test.go -v
 ```
 
 Expected: TestEvaluate_SimpleExpression passes (others may need fixtures).
@@ -645,8 +645,8 @@ Expected: TestEvaluate_SimpleExpression passes (others may need fixtures).
 #### Step 9: Verify Go compilation
 
 ```bash
-go build ./internal/grpc
-go vet ./internal/grpc
+go build ./internal/frontend/grpc
+go vet ./internal/frontend/grpc
 ```
 
 Expected: Clean build, no errors.
@@ -654,7 +654,7 @@ Expected: Clean build, no errors.
 #### Step 10: Commit
 
 ```bash
-git add internal/grpc/service.go internal/grpc/convert.go internal/grpc/runtime_test.go
+git add internal/frontend/grpc/service.go internal/frontend/grpc/convert.go internal/frontend/grpc/runtime_test.go
 git commit -m "feat(grpc): implement runtime RPC handlers (Evaluate, Instantiate, ExecuteAction, ExecuteState)"
 ```
 

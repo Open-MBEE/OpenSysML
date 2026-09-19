@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 )
 
 func TestNewSessionTracingFromFlag(t *testing.T) {

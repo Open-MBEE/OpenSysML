@@ -281,7 +281,7 @@ The project is under active development, with the core infrastructure operationa
 
 | Component | Status |
 |-----------|--------|
-| Lexer/Parser (structural + behavioral grammar) | ✅ Operational (104/104 stdlib clean - see [conformance gate](internal/core/libs/stdlib_conformance_test.go)) |
+| Lexer/Parser (structural + behavioral grammar) | ✅ Operational (104/104 stdlib clean - see [conformance gate](internal/workspace/libs/stdlib_conformance_test.go)) |
 | Symbol resolution & type system | ✅ Complete |
 | Semantic layer (operators, builtins, validation) | ✅ Complete |
 | Feature chain resolution (member access) | ✅ Complete |
@@ -327,7 +327,7 @@ What these numbers cannot show: the OMG corpora are demonstrations rather than a
 
 **Current commit:** All tests pass (`go test -race ./...`), builds clean (`go build ./...`).
 **Test coverage:** top-level `Test` functions (counted from the `_test.go` files, as `go test ./...` runs them) covering parsers, semantics, runtime (actions, states, instances, operators, validation), behind golden ASTs, negatives, execution conformance cases, golden traces, runtime robustness cases and gRPC conformance and robustness cases. The figures are counted from the tree when the documentation site is built into the test inventory of [spec compliance](docs/project/spec-compliance.md), never committed, so a branch adding a test does not rewrite this page. A test skips only for want of something the run did not provide, and says what: the held-image round trip declines a conformance case that creates no instance, a few gate on a PDF or Mermaid toolchain, a pinned pilot artifact, the PSSM suite, a locale, a case-insensitive filesystem or a live Flexo stack, and the OMG corpus gates skip until the corpora are downloaded unless asked to fail.
-**Parser coverage:** 104/104 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the non-normative `OpenSysML Libraries/OpenSysMLMathFunctions.kerml`, `OpenSysML Libraries/DocumentQueries.sysml`, `OpenSysML Libraries/IdentityMetadata.sysml`, `OpenSysML Libraries/DiagramLayout.sysml`, `OpenSysML Libraries/OOSEM.sysml`, `OpenSysML Libraries/MOSA.sysml`, `OpenSysML Libraries/StateSpaceIntegration.sysml`, `OpenSysML Libraries/Stochastic.sysml`, `OpenSysML Libraries/RandomFunctions.kerml` and `OpenSysML Libraries/Simulation.sysml` extensions. Conformance verified by [stdlib_conformance_test.go](internal/core/libs/stdlib_conformance_test.go). Grammar reference: [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
+**Parser coverage:** 104/104 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the non-normative `OpenSysML Libraries/OpenSysMLMathFunctions.kerml`, `OpenSysML Libraries/DocumentQueries.sysml`, `OpenSysML Libraries/IdentityMetadata.sysml`, `OpenSysML Libraries/DiagramLayout.sysml`, `OpenSysML Libraries/OOSEM.sysml`, `OpenSysML Libraries/MOSA.sysml`, `OpenSysML Libraries/StateSpaceIntegration.sysml`, `OpenSysML Libraries/Stochastic.sysml`, `OpenSysML Libraries/RandomFunctions.kerml` and `OpenSysML Libraries/Simulation.sysml` extensions. Conformance verified by [stdlib_conformance_test.go](internal/workspace/libs/stdlib_conformance_test.go). Grammar reference: [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
 **Behavioral execution:** Calc/constraint/requirement/satisfy functional. Action/state executors handle nested invocation, control flow keywords, loop and conditional statements and the send statement (<!-- doc-counts:begin conformance-passing -->every conformance case passing<!-- doc-counts:end conformance-passing -->). Coverage is self-assessed against the specification text and the normative library: the pinned OMG pilot implementation evaluates expressions but does not execute actions or state machines headlessly, so no external implementation currently adjudicates these rows. See [spec compliance](docs/project/spec-compliance.md).
 **Reference differential:** 378 files compared diagnostic-by-diagnostic against the pinned OMG pilot implementation (`2026-08`), 347 in full agreement; every divergence is enumerated and adjudicated in [the differential](docs/project/pilot-differential.md), reproducible with `go run -C tools ./cmd/pilot-diff`.
 **Rejection oracle:** the reverse direction — do we reject what the reference rejects? 306 hand-written invalid models validated by both implementations, 297 rejected by both, 0 the pinned pilot rejects and we accept; the remainder only we reject — the control-node succession rules the pinned pilot leaves unimplemented and a non-Boolean succession guard it accepts once the standard library types it — and every permissiveness gap is enumerated with a reproducer and likely root cause in [the rejection oracle](docs/project/pilot-rejection.md), reproducible with `go run -C tools ./cmd/pilot-reject`. We wrote every case, so the count measures our coverage of the rejection surface, not our conformance — a sample, not a proof.
@@ -366,22 +366,16 @@ github.com/Open-MBEE/OpenSysML
 │   ├── sysml-lsp/          # LSP server binary
 │   ├── sysml-grpc/         # gRPC server binary (Python bindings)
 │   └── sysml/              # Interactive REPL binary
-├── internal/core/
-│   ├── source/             # Source files, spans, line indexing
-│   ├── lexer/              # Hand-written scanner
-│   ├── parser/             # Recursive-descent parser
-│   ├── ast/                # Syntax tree nodes
-│   ├── symbols/            # Symbol tables, scope trees
-│   ├── resolve/            # Name resolution (lazy, memoized)
-│   ├── semantics/          # Type system, conformance, multiplicity
-│   ├── passes/             # Validation passes (syntax → constraints)
-│   ├── lower/              # AST → execution IR (ActionGraph/StateGraph)
-│   ├── runtime/            # Execution engine (eval, instances, builtins)
-│   ├── model/              # Workspace, document management
-│   └── libs/               # Standard library bundling & caching
-├── internal/lsp/           # LSP protocol implementation
-├── internal/grpc/          # gRPC service implementation
-├── internal/repl/          # REPL loop implementation
+├── internal/               # One directory per layer; a package imports only the layers below it
+│   ├── syntax/             # source, diag, lexer, parser, ast, pack, format
+│   ├── semantic/           # symbols, resolve, suggest, semantics, identity, highlight, query
+│   ├── ir/                 # lower, queryplan, docplan, view
+│   ├── check/              # passes, edit
+│   ├── exec/               # runtime, solve, smt, analysis, engines, objref
+│   ├── translate/          # rdf, export, xmi, migrate, convert, codegen, interop
+│   ├── doc/                # queryexec, docir, docrender, docpdf
+│   ├── workspace/          # model, libs, project, envvar
+│   └── frontend/           # protoconv, grpc, lsp, repl, stdiorpc, usage
 ├── client/opensysml/       # The public Go API (in-process and remote)
 ├── client/java/           # Java client (org.openmbee:opensysml-client)
 ├── client/node/           # Node/TypeScript client (@opensysml/client)
@@ -646,7 +640,7 @@ The constraint-solving capability set — satisfiability checking, conflict expl
 through unsat cores, value synthesis and objective optimization through an SMT solver —
 follows the design of the `ConstraintSolverService` in OpenMBEE's
 [HMF (Hivecore Model Framework)](https://github.com/hivecore-dev/hmf) (Apache 2.0). The
-implementation in `internal/core/solve` is independent: it translates conditions to
+implementation in `internal/exec/solve` is independent: it translates conditions to
 SMT-LIB 2 for an external `z3`/`cvc5` process rather than binding to Z3 in-process.
 
 ## Contributing

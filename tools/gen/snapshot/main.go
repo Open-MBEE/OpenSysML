@@ -1,5 +1,5 @@
 // Command snapshot writes the bundled library's snapshot, the derived artifact
-// package libs embeds; run through `go generate ./internal/core/libs`.
+// package libs embeds; run through `go generate ./internal/workspace/libs`.
 package main
 
 import (
@@ -11,12 +11,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )
 
 // snapshotPath is the committed snapshot, relative to the repository root.
-const snapshotPath = "internal/core/libs/stdlib.snapshot"
+const snapshotPath = "internal/workspace/libs/stdlib.snapshot"
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
@@ -53,7 +53,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if *check {
 		have, err := os.ReadFile(*out)
 		if err != nil || !bytes.Equal(have, data) {
-			fmt.Fprintf(stderr, "snapshot: %s is stale; run `go generate ./internal/core/libs`\n", *out)
+			fmt.Fprintf(stderr, "snapshot: %s is stale; run `go generate ./internal/workspace/libs`\n", *out)
 			return 1
 		}
 		return 0

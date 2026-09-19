@@ -1,11 +1,11 @@
 ---
 name: testing-feature-accessibility
-description: How to end-to-end test the constraint-tier feature-accessibility rule in internal/core/passes/w8c_feature_reference.go ("Must be an accessible feature") — building a non-vacuous old-vs-new differential, sweeping examples/ and tests/testdata/ for false positives, refereeing both directions against the pinned pilot validator, and the traps that have reverted this rule before.
+description: How to end-to-end test the constraint-tier feature-accessibility rule in internal/check/passes/w8c_feature_reference.go ("Must be an accessible feature") — building a non-vacuous old-vs-new differential, sweeping examples/ and tests/testdata/ for false positives, refereeing both directions against the pinned pilot validator, and the traps that have reverted this rule before.
 ---
 
 # Testing the `Must be an accessible feature` rule (W8C FeatureReferencePass)
 
-`internal/core/passes/w8c_feature_reference.go` runs at `LevelConstraint` and emits
+`internal/check/passes/w8c_feature_reference.go` runs at `LevelConstraint` and emits
 `Must be an accessible feature (use dot notation for nesting)`
 (code `feature-reference-featuring-types`) and `Must be a valid feature`
 (`feature-reference-referent`). This rule has been **written, reverted, and rewritten** because the
@@ -37,10 +37,10 @@ long time), so a case that fires today may not be attributable to the diff under
 parent build and compare:
 
 ```bash
-cp internal/core/passes/w8c_feature_reference.go /tmp/w8c_new.go
-git show HEAD~1:internal/core/passes/w8c_feature_reference.go > internal/core/passes/w8c_feature_reference.go
+cp internal/check/passes/w8c_feature_reference.go /tmp/w8c_new.go
+git show HEAD~1:internal/check/passes/w8c_feature_reference.go > internal/check/passes/w8c_feature_reference.go
 go build -o /tmp/sysml_old ./cmd/sysml
-cp /tmp/w8c_new.go internal/core/passes/w8c_feature_reference.go   # restore, then verify git diff
+cp /tmp/w8c_new.go internal/check/passes/w8c_feature_reference.go   # restore, then verify git diff
 ```
 
 Expect surprises: e.g. `calc def C { return x = P::Q::n; }` fires on *both* builds, because
@@ -53,7 +53,7 @@ models without running the constraint tier, so a model can start erroring in the
 suite stays green. Diff the flagged-file sets:
 
 ```bash
-sweep() { find examples tests/testdata tests/parser/testdata internal/core/runtime/testdata \
+sweep() { find examples tests/testdata tests/parser/testdata internal/exec/runtime/testdata \
     -type f \( -name '*.sysml' -o -name '*.kerml' \) -print0 |
   while IFS= read -r -d '' f; do
     n=$("$1" "$f" </dev/null 2>&1 | grep -c 'Must be an accessible feature')
@@ -63,7 +63,7 @@ sweep /tmp/sysml_old > /tmp/old.txt; sweep ./bin/sysml > /tmp/new.txt
 comm -13 /tmp/old.txt /tmp/new.txt   # newly flagged files
 ```
 
-**Known sensitive cluster:** `internal/core/runtime/testdata/conformance/` models where a named
+**Known sensitive cluster:** `internal/exec/runtime/testdata/conformance/` models where a named
 `action r accept msg : T;` node's parameter is read from a *sibling* node's body
 (`action p { assign total := msg; }`). OpenSysML deliberately shares accept parameters with sibling
 nodes (a divergence noted in the source near `w8cOwnedByImplicitNode`), but that escape hatch only

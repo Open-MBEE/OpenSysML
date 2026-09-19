@@ -18,7 +18,7 @@ from opensysml.typefacts import (
 if TYPE_CHECKING:
     from opensysml.proto import sysml_pb2
 
-# Kind strings emitted by the service (internal/core/symbols: symbolKindNames).
+# Kind strings emitted by the service (internal/semantic/symbols: symbolKindNames).
 # Matched case-insensitively so older PascalCase producers still work.
 ATTRIBUTE_KINDS = frozenset({"attributedef", "attributeusage"})
 PART_KINDS = frozenset({"partdef", "partusage"})

@@ -1,0 +1,357 @@
+package runtime
+
+import (
+	"fmt"
+	"slices"
+	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+)
+
+// ChoiceKind names what an executor chose among at a choice point.
+type ChoiceKind int
+
+const (
+	// ChoiceTokenOrder: several tokens were steppable in one step, and the step
+	// advanced them in an order the library does not fix.
+	ChoiceTokenOrder ChoiceKind = iota
+	// ChoiceDecisionBranch: several guards of one decision node held.
+	ChoiceDecisionBranch
+	// ChoiceWriteOrder: two tokens wrote one feature within one step, so which
+	// value the feature holds afterwards is the order the writes were applied in.
+	ChoiceWriteOrder
+	// ChoiceTransition: several transitions out of one state were enabled for
+	// one event.
+	ChoiceTransition
+	// ChoiceRegionOrder: one event enabled transitions in several regions, which
+	// fired in an order the library does not fix.
+	ChoiceRegionOrder
+	// ChoiceDueOrder: several executors had work due at one instant of the
+	// shared clock, and one of them ran first.
+	ChoiceDueOrder
+	// ChoiceDispatchOrder: several events the library leaves unordered — time
+	// triggers, or a time trigger and a pool event — were due at one instant, and
+	// one of them was dispatched first.
+	ChoiceDispatchOrder
+	// ChoiceEntryOrder: several orthogonal regions, or a fork's branches, each had
+	// a unit of their entry left, and one of them advanced first.
+	ChoiceEntryOrder
+	// ChoiceExitOrder: several orthogonal regions each had a state left to exit,
+	// and one of them exited first.
+	ChoiceExitOrder
+)
+
+// String is the kind as a trace or diagnostic names it.
+func (k ChoiceKind) String() string {
+	switch k {
+	case ChoiceTokenOrder:
+		return "token order"
+	case ChoiceDecisionBranch:
+		return "decision branch"
+	case ChoiceWriteOrder:
+		return "write order"
+	case ChoiceTransition:
+		return "transition"
+	case ChoiceRegionOrder:
+		return "region order"
+	case ChoiceDueOrder:
+		return "due order"
+	case ChoiceDispatchOrder:
+		return "dispatch order"
+	case ChoiceEntryOrder:
+		return "entry order"
+	case ChoiceExitOrder:
+		return "exit order"
+	}
+	return fmt.Sprintf("ChoiceKind(%d)", int(k))
+}
+
+// ChoiceDiagnosticCode is the code every choice-point diagnostic carries.
+const ChoiceDiagnosticCode = "choice-point"
+
+// UnevaluableGuardCode is the code a diagnostic about a guard the run could not
+// evaluate carries.
+const UnevaluableGuardCode = "guard-unevaluable"
+
+// RunNote is a finding a run records about itself without changing it: a choice
+// point it made, or a guard it read only to report one and could not evaluate.
+type RunNote interface {
+	// Describe renders the note for a diagnostic; String is its trace line.
+	Describe() string
+	String() string
+	// Diagnostic is the note as an informational finding about the run.
+	Diagnostic() diag.Diagnostic
+	// Location is the file and span of the declaration the note is about; file is
+	// "" when the runtime could not name one.
+	Location() (file string, span source.Span)
+}
+
+// ChoicePoint is one point where an executor had several enabled alternatives the
+// Kernel Semantic Library leaves unordered and took one by its own scheduling rule.
+type ChoicePoint struct {
+	Kind ChoiceKind
+	// Step is the action step the choice was made in, 0 for a state machine.
+	Step int
+	// Where names the decision node, the state and event, or the instant of a
+	// due order; empty for a token order.
+	Where string
+	// Alternatives are canonical: tokens by ID, branches and transitions by
+	// declaration position, writes by writing token, reacting states by name in
+	// declaration order, executors due at one instant in the order they were
+	// created, tied events in arrival order. Taken indexes the one taken.
+	Alternatives []string
+	Taken        int
+	// Weights are the probabilities the model states for the alternatives of a
+	// weighted decision, one per alternative; nil for a choice the model does not weight.
+	Weights []float64
+	// Drew is the unit draw that selected Taken among the Weights, when Drawn.
+	Drew  float64
+	Drawn bool
+	// File and Span locate the declaration the choice was made at; File is ""
+	// when the runtime could not name one.
+	File string
+	Span source.Span
+}
+
+// Weighted reports whether the model weights the alternatives.
+func (c ChoicePoint) Weighted() bool {
+	return len(c.Weights) == len(c.Alternatives) && len(c.Weights) > 0
+}
+
+// Describe renders the choice for a diagnostic: the alternatives in canonical
+// order and which one the executor took; a weighted decision's alternatives carry
+// their weights and how the branch was selected.
+func (c ChoicePoint) Describe() string {
+	alts := strings.Join(c.Alternatives, ", ")
+	taken := ""
+	if c.Taken >= 0 && c.Taken < len(c.Alternatives) {
+		taken = c.Alternatives[c.Taken]
+	}
+	if c.Kind == ChoiceDecisionBranch && c.Weighted() {
+		return fmt.Sprintf("step %d: %s branches %s hold (weighted; %s)", c.Step, c.Where, c.weightedAlternatives(), c.selection(taken))
+	}
+	switch c.Kind {
+	case ChoiceTokenOrder:
+		return fmt.Sprintf("step %d: tokens %s (unordered; took %s first)", c.Step, alts, taken)
+	case ChoiceDecisionBranch:
+		return fmt.Sprintf("step %d: %s branches %s hold (unordered; took %s)", c.Step, c.Where, alts, taken)
+	case ChoiceWriteOrder:
+		return fmt.Sprintf("step %d: writes %s (unordered; %s stood)", c.Step, alts, taken)
+	case ChoiceTransition:
+		return fmt.Sprintf("%s: transitions %s (unordered; took %s)", c.Where, alts, taken)
+	case ChoiceRegionOrder:
+		if strings.HasPrefix(c.Where, firingWherePrefix) {
+			return fmt.Sprintf("%s: next %s (unordered; took %s first)", c.Where, alts, taken)
+		}
+		return fmt.Sprintf("%s: states %s react (unordered; took %s first)", c.Where, alts, taken)
+	case ChoiceDueOrder:
+		return fmt.Sprintf("at %s: due %s (unordered; ran %s first)", c.Where, alts, taken)
+	case ChoiceDispatchOrder:
+		return fmt.Sprintf("%s: %s (unordered; dispatched %s first)", c.Where, alts, taken)
+	case ChoiceEntryOrder, ChoiceExitOrder:
+		return fmt.Sprintf("%s: next %s (unordered; took %s first)", c.Where, alts, taken)
+	}
+	return fmt.Sprintf("%s: %s (unordered; took %s)", c.Kind, alts, taken)
+}
+
+// weightedAlternatives lists the alternatives each with its weight.
+func (c ChoicePoint) weightedAlternatives() string {
+	parts := make([]string, len(c.Alternatives))
+	for i, alt := range c.Alternatives {
+		parts[i] = alt + " p=" + formatWeight(c.Weights[i])
+	}
+	return strings.Join(parts, ", ")
+}
+
+// selection says how a weighted decision selected taken: by a draw, or without one.
+func (c ChoicePoint) selection(taken string) string {
+	if c.Drawn {
+		return "drew " + formatWeight(c.Drew) + ", took " + taken
+	}
+	return "took " + taken
+}
+
+// String is the trace line the choice is recorded as.
+func (c ChoicePoint) String() string {
+	return "choice " + c.Describe()
+}
+
+// Location is where the choice was made.
+func (c ChoicePoint) Location() (string, source.Span) {
+	return c.File, c.Span
+}
+
+// Diagnostic is the choice as a finding about the run: informational, since a
+// model is not wrong for admitting several orders and the run took one of them.
+func (c ChoicePoint) Diagnostic() diag.Diagnostic {
+	return diag.Diagnostic{
+		Severity: diag.SeverityInfo,
+		Span:     c.Span,
+		Message:  "choice point: " + c.Describe(),
+		Code:     ChoiceDiagnosticCode,
+		Source:   "runtime",
+	}
+}
+
+// UnevaluableGuard is a guard an executor read only to report a choice, once a
+// branch or transition already held, and could not evaluate. A guard with no
+// result is not true, so its succession is not selected; the run is unchanged.
+type UnevaluableGuard struct {
+	// Step is the action step the guard was read in, 0 for a state machine.
+	Step int
+	// Where names the decision node or the state and event, as a ChoicePoint does.
+	Where string
+	// Alternative is the branch or transition by declaration position, as a
+	// ChoicePoint lists it.
+	Alternative string
+	// Reason is the evaluation error.
+	Reason string
+	File   string
+	Span   source.Span
+}
+
+// Describe renders the guard for a diagnostic: where it was read, which
+// alternative it guards and why it has no result.
+func (g UnevaluableGuard) Describe() string {
+	if g.Step > 0 {
+		return fmt.Sprintf("step %d: %s branch %s: %s (not selected)", g.Step, g.Where, g.Alternative, g.Reason)
+	}
+	return fmt.Sprintf("%s: transition %s: %s (not selected)", g.Where, g.Alternative, g.Reason)
+}
+
+// String is the trace line the guard is recorded as.
+func (g UnevaluableGuard) String() string {
+	return "unevaluable guard " + g.Describe()
+}
+
+// Location is where the guard was declared.
+func (g UnevaluableGuard) Location() (string, source.Span) {
+	return g.File, g.Span
+}
+
+// Diagnostic is the guard as a finding about the run: informational, since the
+// library selects no succession whose guard is not true and defines no failure.
+func (g UnevaluableGuard) Diagnostic() diag.Diagnostic {
+	return diag.Diagnostic{
+		Severity: diag.SeverityInfo,
+		Span:     g.Span,
+		Message:  "guard not evaluable: " + g.Describe(),
+		Code:     UnevaluableGuardCode,
+		Source:   "runtime",
+	}
+}
+
+// noteChoice keeps a choice point for the run's diagnostics and, when tracing,
+// writes it to the trace where it was made.
+func (ctx *Context) noteChoice(c ChoicePoint) {
+	ctx.note(c)
+}
+
+// note keeps n for the run's diagnostics and, when tracing, writes it to the
+// trace where it was made. A probe's preview is not a run.
+func (ctx *Context) note(n RunNote) {
+	ctx.noteFrom(n, nil, nil)
+}
+
+// noteFrom is note for a note made by the behavior of an object, which the trace
+// record names; nil for one the run made on its own.
+func (ctx *Context) noteFrom(n RunNote, self *Instance, behavior *symbols.Symbol) {
+	if ctx.probes > 0 {
+		return
+	}
+	ctx.run.notes = append(ctx.run.notes, n)
+	if c, ok := n.(ChoicePoint); ok {
+		ctx.choices = append(ctx.choices, c.Choice())
+	}
+	if ctx.trace != nil {
+		ctx.trace.RecordNote(TraceOrigin{At: ctx.clock.now, Object: self, Behavior: behavior}, n)
+	}
+}
+
+// ChoicesTaken returns the choices every run of the context took, in order, as
+// a witness lists them: what a `replay` policy over them follows run by run.
+func (ctx *Context) ChoicesTaken() []ChoiceTaken {
+	return slices.Clone(ctx.choices)
+}
+
+// Notes returns what the latest run noted about itself, in order: its choice
+// points and the guards it could not evaluate.
+func (ctx *Context) Notes() []RunNote {
+	return ctx.run.Notes()
+}
+
+// NoteCount is how many notes the latest run has made so far.
+func (ctx *Context) NoteCount() int {
+	return ctx.run.NoteCount()
+}
+
+// Notes returns what the run noted so far, in order; nil for a run not begun.
+func (run *runState) Notes() []RunNote {
+	if run == nil {
+		return nil
+	}
+	return slices.Clone(run.notes)
+}
+
+// NoteCount is how many notes the run has made so far, so a caller driving it
+// call by call can tell what one call noted.
+func (run *runState) NoteCount() int {
+	if run == nil {
+		return 0
+	}
+	return len(run.notes)
+}
+
+// NotesSince returns the notes made since mark, a NoteCount read earlier, copying
+// only those.
+func (run *runState) NotesSince(mark int) []RunNote {
+	if mark < 0 {
+		mark = 0
+	}
+	if run == nil || mark >= len(run.notes) {
+		return nil
+	}
+	return slices.Clone(run.notes[mark:])
+}
+
+// Notes returns what the executor's run noted so far, in order; see Context.Notes.
+func (e *ActionExecutor) Notes() []RunNote { return e.driven.state.Notes() }
+
+// NoteCount is how many notes the executor's run has made so far.
+func (e *ActionExecutor) NoteCount() int { return e.driven.state.NoteCount() }
+
+// NotesSince returns what the executor's run noted since mark, a NoteCount read earlier.
+func (e *ActionExecutor) NotesSince(mark int) []RunNote { return e.driven.state.NotesSince(mark) }
+
+// Notes returns what the executor's run noted so far, in order; see Context.Notes.
+func (e *StateExecutor) Notes() []RunNote { return e.driven.state.Notes() }
+
+// NoteCount is how many notes the executor's run has made so far.
+func (e *StateExecutor) NoteCount() int { return e.driven.state.NoteCount() }
+
+// NotesSince returns what the executor's run noted since mark, a NoteCount read earlier.
+func (e *StateExecutor) NotesSince(mark int) []RunNote { return e.driven.state.NotesSince(mark) }
+
+// Choices returns the choice points made since the latest run began, in order.
+func (ctx *Context) Choices() []ChoicePoint {
+	var out []ChoicePoint
+	for _, n := range ctx.run.notes {
+		if c, ok := n.(ChoicePoint); ok {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// UnevaluableGuards returns the guards the latest run could not evaluate, in order.
+func (ctx *Context) UnevaluableGuards() []UnevaluableGuard {
+	var out []UnevaluableGuard
+	for _, n := range ctx.run.notes {
+		if g, ok := n.(UnevaluableGuard); ok {
+			out = append(out, g)
+		}
+	}
+	return out
+}
