@@ -66,6 +66,14 @@ public final class Connection implements AutoCloseable {
     this.capabilities = readCapabilities();
   }
 
+  /** A connection standing on these capabilities, for tests of what a call checks first. */
+  Connection(ConnectTransport transport, Capabilities capabilities) {
+    this.transport = transport;
+    this.address = "";
+    this.ownedService = Optional.empty();
+    this.capabilities = capabilities;
+  }
+
   /**
    * Opens a connection with the default options: a private service, protobuf bodies.
    *

@@ -1,5 +1,11 @@
 package org.openmbee.opensysml;
 
+import java.io.IOException;
+import java.io.InvalidObjectException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serial;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -14,10 +20,12 @@ public final class EditException extends ModelException {
 
   private static final long serialVersionUID = 1L;
 
+  private static final int MAX_SERIALIZED_REFERRERS = 100_000;
+
   private final EditFailure failure;
   private final String failureName;
   private final List<String> referringElements;
-  private final List<Referrer> referrers;
+  private transient List<Referrer> referrers;
 
   /**
    * Creates an edit refusal.
@@ -82,5 +90,40 @@ public final class EditException extends ModelException {
    */
   public List<Referrer> referrers() {
     return referrers;
+  }
+
+  @Serial
+  private void writeObject(ObjectOutputStream stream) throws IOException {
+    stream.defaultWriteObject();
+    if (referrers.size() > MAX_SERIALIZED_REFERRERS) {
+      throw new InvalidObjectException("too many referrers");
+    }
+    stream.writeInt(referrers.size());
+    for (Referrer referrer : referrers) {
+      stream.writeObject(referrer.name());
+      stream.writeObject(referrer.document());
+    }
+  }
+
+  @Serial
+  private void readObject(ObjectInputStream stream) throws IOException, ClassNotFoundException {
+    stream.defaultReadObject();
+    int count = stream.readInt();
+    if (count < 0) {
+      throw new InvalidObjectException("negative referrer count");
+    }
+    if (count > MAX_SERIALIZED_REFERRERS) {
+      throw new InvalidObjectException("too many referrers");
+    }
+    List<Referrer> restored = new ArrayList<>(count);
+    for (int index = 0; index < count; index++) {
+      Object name = stream.readObject();
+      Object document = stream.readObject();
+      if (!(name instanceof String referrerName) || !(document instanceof String referrerDocument)) {
+        throw new InvalidObjectException("invalid referrer");
+      }
+      restored.add(new Referrer(referrerName, referrerDocument));
+    }
+    referrers = List.copyOf(restored);
   }
 }

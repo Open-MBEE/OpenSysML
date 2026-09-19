@@ -922,6 +922,20 @@ class ApiIntegrationTest {
     assertFalse(wrongKind instanceof AnalysisException);
   }
 
+  @Test
+  void theExploreEngineRunsNoSingleAnalysis() {
+    Model model = connection.parse(TRADE_STUDY);
+    if (!connection.capabilities().has(Capabilities.SCHEDULE_EXPLORE)) {
+      assertThrows(CapabilityException.class, () -> model.withEngine("explore"));
+      return;
+    }
+    Model exploring = model.withEngine("explore");
+    IllegalArgumentException refused =
+        assertThrows(
+            IllegalArgumentException.class, () -> exploring.runAnalysis("Trade::lightest"));
+    assertEquals("engine explore answers every outcome; use exploreAnalysis", refused.getMessage());
+  }
+
   private static final String QUERY =
       """
       package Demo {

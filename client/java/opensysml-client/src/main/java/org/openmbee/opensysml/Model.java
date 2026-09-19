@@ -159,16 +159,21 @@ public final class Model {
    * name as {@link Connection#listEngines()} reports it, {@link Standing#ENGINE_ALL} for every
    * engine that covers the question, or {@link Standing#ENGINE_AUTO} to leave the choice to the
    * service. A name the service does not register fails the call with {@link
-   * StatusCode#INVALID_ARGUMENT}.
+   * StatusCode#INVALID_ARGUMENT}. The {@code "explore"} engine answers a question with every
+   * outcome rather than one run's, so it needs {@code schedule_explore} beside {@code engines}.
    *
    * @param engine the engine
    * @return a model bound to it
    * @throws CapabilityException if the service does not advertise {@code engines}, which it would
-   *     otherwise ignore rather than refuse
+   *     otherwise ignore rather than refuse, or the engine is {@code "explore"} and the service
+   *     does not advertise {@code schedule_explore}
    */
   public Model withEngine(String engine) {
     Objects.requireNonNull(engine, "engine");
     connection.capabilities().require(Capabilities.ENGINES);
+    if (engine.equals("explore")) {
+      connection.capabilities().require(Capabilities.SCHEDULE_EXPLORE);
+    }
     return new Model(connection, hash, roots, parseDiagnostics, Optional.of(engine));
   }
 
@@ -676,7 +681,7 @@ public final class Model {
    * @param options the subject, arguments and schedule; an exploring schedule belongs to {@link
    *     #exploreAnalysis}
    * @return what it computed and the verdicts of its objective and assertions
-   * @throws IllegalArgumentException if the schedule explores
+   * @throws IllegalArgumentException if the schedule or the engine explores
    * @throws AnalysisException if the case could not run to its end but left something to inspect
    * @throws ModelException if the request was refused before the run, or the failure left nothing to
    *     report; its {@link ModelException#failureReason()} says why
@@ -730,6 +735,10 @@ public final class Model {
     Objects.requireNonNull(symbolId, "symbolId");
     Objects.requireNonNull(options, "options");
     connection.capabilities().require(Capabilities.VERIFICATION);
+    if (!explore && engine.isPresent() && engine.orElseThrow().equals("explore")) {
+      throw new IllegalArgumentException(
+          "engine explore answers every outcome; use exploreAnalysis");
+    }
     RunAnalysisRequest.Builder request =
         RunAnalysisRequest.newBuilder()
             .setModelHash(hash)
