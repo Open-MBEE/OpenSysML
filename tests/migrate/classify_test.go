@@ -37,6 +37,14 @@ func TestUserPackagesWithLibraryNamesMigrate(t *testing.T) {
 	})
 }
 
+func TestXMIMetadataDoesNotBecomeStereotypeTag(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Thing"/>`,
+		`<sysml:Block xmi:id="_s" xmi:uuid="u" base_Class="_b"/>`)
+	wantLine(t, r.Notation, "part def Thing;")
+	wantNoLine(t, r.Notation, "«Block» uuid")
+}
+
 func TestExternalScalarNamesOnlyFromPrimitiveLibraries(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Thing">

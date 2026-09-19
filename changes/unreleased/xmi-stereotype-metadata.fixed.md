@@ -1,0 +1,1 @@
+- **XMI metadata attributes on stereotype applications are no longer emitted as stereotype tags.** Migration now ignores tool metadata such as `xmi:uuid` instead of reporting it as an unsupported tag.
