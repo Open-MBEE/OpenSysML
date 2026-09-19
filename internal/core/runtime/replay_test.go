@@ -1080,7 +1080,7 @@ func TestReplayRefusesADoOrderMoveNotEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	witness, err := ParseChoices("entering Interleave: lstart(entry) first of lstart(entry), rstart(entry)\nat t=0.0: dispatch time rstart 1->rwork first of do lwork, dispatch time rstart 1->rwork\ndo round at t=0.0: zork first of lwork, zork\n")
+	witness, err := ParseChoices("entering Interleave: lstart(entry) first of lstart(entry), rstart(entry)\nat t=0.0: dispatch completion rstart 1->rwork first of do lwork, dispatch completion rstart 1->rwork\ndo round at t=0.0: zork first of lwork, zork\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1527,7 +1527,7 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 		}
 	}`)
 	sym := m.state(t, "Machine")
-	witness, err := ParseChoices("entering work: a(entry) first of a(entry), b(entry), c(entry)\nentering work: b(entry) first of b(entry), c(entry)\nat t=0.0: do a first of do a, dispatch time b 1->sync\njoin sync: b first of a, b, c\njoin sync: a first of a, b\n")
+	witness, err := ParseChoices("entering work: a(entry) first of a(entry), b(entry), c(entry)\nentering work: b(entry) first of b(entry), c(entry)\nat t=0.0: do a first of do a, dispatch completion b 1->sync\njoin sync: b first of a, b, c\njoin sync: a first of a, b\n")
 	if err != nil {
 		t.Fatal(err)
 	}

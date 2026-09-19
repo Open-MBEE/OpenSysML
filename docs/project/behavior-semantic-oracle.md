@@ -1060,9 +1060,9 @@ dispatch of an occurrence due at the same instant as a step of that do behavior 
 [the next section but one](#a-do-step-and-a-dispatch-due-at-one-instant-which-goes-first-is-open)),
 and the dispatch taken first spends the occurrence the do behavior or the other segment was to
 take: a `Tick` dispatched before `b1`'s body has reached its `accept Tick` is taken by nothing,
-and `b1`'s timer dispatched before `a1`'s do behavior has ended fires a segment whose join is not
-yet enabled. Either leaves the machine in `a1+b1` for good, so each admissible set holds that
-third outcome, which no fixed policy reaches.
+and `b1`'s timer dispatched before `a1`'s do behavior has ended finds the join not yet enabled
+and is spent, the completion that follows being no timer's expiry. Either leaves the machine in
+`a1+b1` for good, so each admissible set holds that third outcome, which no fixed policy reaches.
 
 ### A merge is re-entered on every traversal of a loop
 

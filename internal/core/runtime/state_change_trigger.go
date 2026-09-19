@@ -132,12 +132,6 @@ func newChangePoll() *changePoll {
 	}
 }
 
-// changeRisen reports whether a poll now would dispatch a rise or fail.
-func (e *StateExecutor) changeRisen() bool {
-	_, risen := e.risenChange()
-	return risen
-}
-
 // risenChange observes the change conditions as a poll does, under a probe so the
 // machine keeps its latches, and reports whether a poll now would dispatch a rise
 // or fail: what pollChangeEvents would report, with the same rule for what a rise

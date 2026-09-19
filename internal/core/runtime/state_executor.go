@@ -714,13 +714,17 @@ func dispatchWhere(at float64) string {
 }
 
 // eventLabel names a queued event as a dispatch-order choice lists it: a time
-// trigger by its state and the transition's declared position and target, as a
-// transition choice names one; a pool event by what it accepts.
+// trigger or a completion by its state and the transition's declared position
+// and target, as a transition choice names one; a pool event by what it accepts.
 func (e *StateExecutor) eventLabel(event Event) string {
 	if trans, ok := event.Payload.(*lower.Transition); ok && event.Type == EventTime {
 		transitions := e.graph.Transitions[trans.Source]
 		if pos := slices.Index(transitions, trans); pos >= 0 {
-			return fmt.Sprintf("time %s %s", StateVertexName(trans.Source), transitionName(transitions, pos))
+			kind := "time"
+			if trans.Trigger == nil {
+				kind = "completion"
+			}
+			return fmt.Sprintf("%s %s %s", kind, StateVertexName(trans.Source), transitionName(transitions, pos))
 		}
 		return transitionDescription(trans)
 	}
