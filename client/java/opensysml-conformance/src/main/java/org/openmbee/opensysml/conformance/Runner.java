@@ -154,12 +154,6 @@ final class Runner {
 
     String modelHash = "";
     Optional<Scenario.Fixture> model = scenario.model();
-    if (model.isPresent() && !model.get().fixtures().isEmpty()) {
-      result.outcome = "skip";
-      result.status = "-";
-      result.reason = "the public API parses one document at a time, not a model of several";
-      return;
-    }
     if (model.isPresent()) {
       try {
         modelHash = modelHash(model.get());
@@ -315,7 +309,15 @@ final class Runner {
             org.openmbee.opensysml.Language.fromWireName(fixture.language()), fixture.strictConformance());
     Model model;
     try {
-      model = connection.parse(fixture(fixture.fixture()), options);
+      if (!fixture.fixtures().isEmpty()) {
+        List<org.openmbee.opensysml.SourceDocument> documents =
+            fixture.fixtures().stream()
+                .map(name -> org.openmbee.opensysml.SourceDocument.inline(name, fixture(name)))
+                .toList();
+        model = connection.parseSources(documents, options);
+      } else {
+        model = connection.parse(fixture(fixture.fixture()), options);
+      }
     } catch (ModelException e) {
       throw new IllegalStateException("parsing fixture " + fixture.fixture() + ": " + e.getMessage(), e);
     }

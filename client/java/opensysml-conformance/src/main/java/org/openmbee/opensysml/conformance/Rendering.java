@@ -399,4 +399,162 @@ final class Rendering {
     }
     return builder.build();
   }
+
+  /**
+   * A conversion's answer.
+   *
+   * @param conversion the immutable conversion
+   * @return the generated answer
+   */
+  static org.openmbee.opensysml.proto.ConvertResponse conversion(
+      org.openmbee.opensysml.Conversion conversion) {
+    return org.openmbee.opensysml.proto.ConvertResponse.newBuilder()
+        .setContent(conversion.content())
+        .setFromFormat(conversion.fromFormat())
+        .setToFormat(conversion.toFormat())
+        .addAllDiagnostics(diagnostics(conversion.diagnostics()))
+        .setExperimental(conversion.experimental())
+        .setExperimentalNotice(conversion.experimentalNotice())
+        .build();
+  }
+
+  /**
+   * The edits a batch applied.
+   *
+   * @param applied the immutable edits
+   * @return the generated edits, in order
+   */
+  static List<org.openmbee.opensysml.proto.AppliedEdit> appliedEdits(
+      List<org.openmbee.opensysml.AppliedEdit> applied) {
+    return applied.stream()
+        .map(
+            edit ->
+                org.openmbee.opensysml.proto.AppliedEdit.newBuilder()
+                    .setOperationIndex(edit.operationIndex())
+                    .setTarget(edit.target())
+                    .setOffset(edit.offset())
+                    .setLength(edit.length())
+                    .setOldText(edit.oldText())
+                    .setNewText(edit.newText())
+                    .setDocument(edit.document())
+                    .build())
+        .toList();
+  }
+
+  /**
+   * The documents a batch rewrote.
+   *
+   * @param documents the immutable documents
+   * @return the generated documents, in order
+   */
+  static List<org.openmbee.opensysml.proto.EditedDocument> editedDocuments(
+      List<org.openmbee.opensysml.EditedDocument> documents) {
+    return documents.stream()
+        .map(
+            document ->
+                org.openmbee.opensysml.proto.EditedDocument.newBuilder()
+                    .setName(document.name())
+                    .setContent(document.content())
+                    .build())
+        .toList();
+  }
+
+  /**
+   * The referrers a refused batch named.
+   *
+   * @param referrers the immutable referrers
+   * @return the generated referrers, in order
+   */
+  static List<org.openmbee.opensysml.proto.Referrer> referrers(
+      List<org.openmbee.opensysml.Referrer> referrers) {
+    return referrers.stream()
+        .map(
+            referrer ->
+                org.openmbee.opensysml.proto.Referrer.newBuilder()
+                    .setName(referrer.name())
+                    .setDocument(referrer.document())
+                    .build())
+        .toList();
+  }
+
+  /**
+   * A sweep's answer: its table and what ran it.
+   *
+   * @param sweep the immutable table
+   * @return the generated answer
+   */
+  static org.openmbee.opensysml.proto.RunSweepResponse sweep(org.openmbee.opensysml.Sweep sweep) {
+    List<org.openmbee.opensysml.proto.SweepRow> rows = new ArrayList<>(sweep.rows().size());
+    for (org.openmbee.opensysml.SweepRow row : sweep.rows()) {
+      rows.add(
+          org.openmbee.opensysml.proto.SweepRow.newBuilder()
+              .addAllInputs(outputs(row.inputs()))
+              .addAllOutputs(outputs(row.outputs()))
+              .addAllVerdicts(verdicts(row.verdicts()))
+              .setElapsedMicros(row.elapsed().toNanos() / 1000)
+              .setError(row.error())
+              .setFailureReason(failureReason(row.failureReason()))
+              .addAllEvaluations(evaluations(row.evaluations()))
+              .build());
+    }
+    return org.openmbee.opensysml.proto.RunSweepResponse.newBuilder()
+        .addAllRows(rows)
+        .addAllParameters(sweep.parameters())
+        .setSampled(sweep.sampled())
+        .setSeed(sweep.seed())
+        .addAllInstances(instances(sweep.instances()))
+        .addAllDiagnostics(diagnostics(sweep.diagnostics()))
+        .setEngine(sweep.standing().engine())
+        .setStrength(sweep.standing().strength())
+        .addAllBounds(bounds(sweep.standing()))
+        .build();
+  }
+
+  /**
+   * A document query's answer: its columns, and each row's element put back in the kind its
+   * {@link org.openmbee.opensysml.DocumentRow} carries it as.
+   *
+   * @param result the immutable result
+   * @return the generated answer
+   */
+  static org.openmbee.opensysml.proto.RunDocumentQueryResponse documentQueryResult(
+      org.openmbee.opensysml.DocumentQueryResult result) {
+    org.openmbee.opensysml.proto.RunDocumentQueryResponse.Builder response =
+        org.openmbee.opensysml.proto.RunDocumentQueryResponse.newBuilder();
+    result
+        .columns()
+        .forEach(
+            name ->
+                response.addColumns(
+                    org.openmbee.opensysml.proto.DocumentQueryColumn.newBuilder().setName(name)));
+    for (org.openmbee.opensysml.DocumentRow row : result.rows()) {
+      org.openmbee.opensysml.proto.DocumentQueryRow.Builder rendered =
+          org.openmbee.opensysml.proto.DocumentQueryRow.newBuilder()
+              .setElement(rowElement(row));
+      for (List<org.openmbee.opensysml.DocumentValue> cell : row.cells()) {
+        rendered.addCells(
+            org.openmbee.opensysml.proto.DocumentQueryCell.newBuilder()
+                .addAllValues(cell.stream().map(Protos::proto).toList()));
+      }
+      response.addRows(rendered);
+    }
+    return response.build();
+  }
+
+  private static org.openmbee.opensysml.proto.DocumentValue rowElement(
+      org.openmbee.opensysml.DocumentRow row) {
+    if (row.verdict().isPresent()) {
+      return Protos.proto(row.verdict().orElseThrow());
+    }
+    if (row.state().isPresent()) {
+      return Protos.proto(row.state().orElseThrow());
+    }
+    if (row.event().isPresent()) {
+      return Protos.proto(row.event().orElseThrow());
+    }
+    if (row.object().isPresent()) {
+      return Protos.proto(row.object().orElseThrow());
+    }
+    return Protos.proto(row.element());
+  }
 }

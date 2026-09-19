@@ -10,6 +10,14 @@ import org.openmbee.opensysml.Capabilities;
 import org.openmbee.opensysml.CapabilityException;
 import org.openmbee.opensysml.Condition;
 import org.openmbee.opensysml.Connection;
+import org.openmbee.opensysml.Conversion;
+import org.openmbee.opensysml.ConversionOptions;
+import org.openmbee.opensysml.DocumentQueryResult;
+import org.openmbee.opensysml.DocumentValue;
+import org.openmbee.opensysml.Edit;
+import org.openmbee.opensysml.EditException;
+import org.openmbee.opensysml.EditOptions;
+import org.openmbee.opensysml.EditResult;
 import org.openmbee.opensysml.ExecutionOptions;
 import org.openmbee.opensysml.Exploration;
 import org.openmbee.opensysml.Instantiation;
@@ -19,17 +27,26 @@ import org.openmbee.opensysml.ModelException;
 import org.openmbee.opensysml.ParseOptions;
 import org.openmbee.opensysml.Query;
 import org.openmbee.opensysml.QueryElement;
+import org.openmbee.opensysml.RenderedDocument;
 import org.openmbee.opensysml.Satisfaction;
 import org.openmbee.opensysml.ServiceException;
+import org.openmbee.opensysml.SourceDocument;
 import org.openmbee.opensysml.StateRun;
+import org.openmbee.opensysml.Sweep;
+import org.openmbee.opensysml.SweepOptions;
+import org.openmbee.opensysml.SweepRange;
 import org.openmbee.opensysml.Symbol;
 import org.openmbee.opensysml.TransportException;
 import org.openmbee.opensysml.Validation;
 import org.openmbee.opensysml.Value;
 import org.openmbee.opensysml.Verification;
 import org.openmbee.opensysml.internal.Protos;
+import org.openmbee.opensysml.proto.ApplyEditsRequest;
+import org.openmbee.opensysml.proto.ApplyEditsResponse;
 import org.openmbee.opensysml.proto.CompositeConstraint;
 import org.openmbee.opensysml.proto.Constraint;
+import org.openmbee.opensysml.proto.ConvertRequest;
+import org.openmbee.opensysml.proto.ConvertResponse;
 import org.openmbee.opensysml.proto.DiagnosticsRequest;
 import org.openmbee.opensysml.proto.DiagnosticsResponse;
 import org.openmbee.opensysml.proto.EvaluateCalcRequest;
@@ -47,11 +64,19 @@ import org.openmbee.opensysml.proto.ListEnginesRequest;
 import org.openmbee.opensysml.proto.ListEnginesResponse;
 import org.openmbee.opensysml.proto.ParseFileRequest;
 import org.openmbee.opensysml.proto.ParseFileResponse;
+import org.openmbee.opensysml.proto.ParseSourcesRequest;
+import org.openmbee.opensysml.proto.ParseSourcesResponse;
 import org.openmbee.opensysml.proto.PrimitiveConstraint;
 import org.openmbee.opensysml.proto.QueryRequest;
 import org.openmbee.opensysml.proto.QueryResponse;
+import org.openmbee.opensysml.proto.RenderDocumentRequest;
+import org.openmbee.opensysml.proto.RenderDocumentResponse;
 import org.openmbee.opensysml.proto.RunAnalysisRequest;
 import org.openmbee.opensysml.proto.RunAnalysisResponse;
+import org.openmbee.opensysml.proto.RunDocumentQueryRequest;
+import org.openmbee.opensysml.proto.RunDocumentQueryResponse;
+import org.openmbee.opensysml.proto.RunSweepRequest;
+import org.openmbee.opensysml.proto.RunSweepResponse;
 import org.openmbee.opensysml.proto.ServerInfoRequest;
 import org.openmbee.opensysml.proto.ServerInfoResponse;
 import org.openmbee.opensysml.proto.SymbolResponse;
@@ -90,8 +115,14 @@ final class Api {
   private static final String RPC_INSTANTIATE = "Instantiate";
   private static final String RPC_LIST_ENGINES = "ListEngines";
   private static final String RPC_PARSE_FILE = "ParseFile";
+  private static final String RPC_PARSE_SOURCES = "ParseSources";
+  private static final String RPC_CONVERT = "Convert";
+  private static final String RPC_APPLY_EDITS = "ApplyEdits";
   private static final String RPC_QUERY = "Query";
   private static final String RPC_RUN_ANALYSIS = "RunAnalysis";
+  private static final String RPC_RUN_SWEEP = "RunSweep";
+  private static final String RPC_RUN_DOCUMENT_QUERY = "RunDocumentQuery";
+  private static final String RPC_RENDER_DOCUMENT = "RenderDocument";
   private static final String RPC_VALIDATE_INSTANCE = "ValidateInstance";
   private static final String RPC_VERIFY_CONSTRAINT = "VerifyConstraint";
   private static final String RPC_VERIFY_REQUIREMENT = "VerifyRequirement";
@@ -115,7 +146,13 @@ final class Api {
           RPC_VALIDATE_INSTANCE,
           RPC_EVALUATE_CALC,
           RPC_RUN_ANALYSIS,
-          RPC_QUERY);
+          RPC_QUERY,
+          RPC_PARSE_SOURCES,
+          RPC_CONVERT,
+          RPC_APPLY_EDITS,
+          RPC_RUN_SWEEP,
+          RPC_RUN_DOCUMENT_QUERY,
+          RPC_RENDER_DOCUMENT);
 
   private final Connection connection;
 
@@ -159,6 +196,12 @@ final class Api {
       case RPC_EVALUATE_CALC -> EvaluateCalcRequest.newBuilder();
       case RPC_RUN_ANALYSIS -> RunAnalysisRequest.newBuilder();
       case RPC_QUERY -> QueryRequest.newBuilder();
+      case RPC_PARSE_SOURCES -> ParseSourcesRequest.newBuilder();
+      case RPC_CONVERT -> ConvertRequest.newBuilder();
+      case RPC_APPLY_EDITS -> ApplyEditsRequest.newBuilder();
+      case RPC_RUN_SWEEP -> RunSweepRequest.newBuilder();
+      case RPC_RUN_DOCUMENT_QUERY -> RunDocumentQueryRequest.newBuilder();
+      case RPC_RENDER_DOCUMENT -> RenderDocumentRequest.newBuilder();
       default -> throw new IllegalArgumentException("no request type for " + method);
     };
   }
@@ -207,6 +250,13 @@ final class Api {
             case RPC_EVALUATE_CALC -> evaluateCalc((EvaluateCalcRequest) request);
             case RPC_RUN_ANALYSIS -> runAnalysis((RunAnalysisRequest) request);
             case RPC_QUERY -> query((QueryRequest) request);
+            case RPC_PARSE_SOURCES -> parseSources((ParseSourcesRequest) request);
+            case RPC_CONVERT -> convert((ConvertRequest) request);
+            case RPC_APPLY_EDITS -> applyEdits((ApplyEditsRequest) request);
+            case RPC_RUN_SWEEP -> runSweep((RunSweepRequest) request);
+            case RPC_RUN_DOCUMENT_QUERY ->
+                runDocumentQuery((RunDocumentQueryRequest) request);
+            case RPC_RENDER_DOCUMENT -> renderDocument((RenderDocumentRequest) request);
             default -> throw new IllegalStateException(method);
           });
     } catch (Unsupported e) {
@@ -547,6 +597,197 @@ final class Api {
         .setEngine(analysis.standing().engine())
         .setStrength(analysis.standing().strength())
         .addAllBounds(Rendering.bounds(analysis.standing()));
+  }
+
+  private ParseSourcesResponse parseSources(ParseSourcesRequest request) {
+    List<SourceDocument> documents = new ArrayList<>(request.getDocumentsCount());
+    for (org.openmbee.opensysml.proto.SourceDocument document : request.getDocumentsList()) {
+      documents.add(sourceDocument(document));
+    }
+    try {
+      Model model =
+          connection.parseSources(
+              documents,
+              new ParseOptions(Language.SYSML, request.getStrictConformance()));
+      ParseSourcesResponse.Builder response =
+          ParseSourcesResponse.newBuilder()
+              .setModelHash(model.hash())
+              .addAllDiagnostics(Rendering.diagnostics(model.parseDiagnostics()));
+      model.roots().forEach(root -> response.addRoots(Rendering.symbol(root)));
+      return response.build();
+    } catch (ModelException e) {
+      return ParseSourcesResponse.newBuilder()
+          .setError(e.getMessage())
+          .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .build();
+    }
+  }
+
+  private static SourceDocument sourceDocument(
+      org.openmbee.opensysml.proto.SourceDocument document) {
+    SourceDocument read =
+        switch (document.getSourceCase()) {
+          case FILE_PATH -> SourceDocument.file(Path.of(document.getFilePath()));
+          case CONTENT ->
+              document.getName().isEmpty()
+                  ? new SourceDocument(
+                      Optional.empty(),
+                      Optional.of(document.getContent()),
+                      Optional.empty(),
+                      Optional.empty())
+                  : SourceDocument.inline(document.getName(), document.getContent());
+          case SOURCE_NOT_SET ->
+              throw new Unsupported(
+                  "the public API always names a source, so it cannot send a document naming none");
+        };
+    return document.getLanguage().isEmpty()
+        ? read
+        : read.withLanguage(Language.fromWireName(document.getLanguage()));
+  }
+
+  private ConvertResponse convert(ConvertRequest request) {
+    ConversionOptions options =
+        ConversionOptions.defaults().withTolerateSyntaxErrors(request.getTolerateSyntaxErrors());
+    if (!request.getFromFormat().isEmpty()) {
+      options = options.withFromFormat(request.getFromFormat());
+    }
+    try {
+      Conversion conversion =
+          switch (request.getSourceCase()) {
+            case FILE_PATH ->
+                connection.convertFile(Path.of(request.getFilePath()), request.getToFormat(), options);
+            case CONTENT ->
+                connection.convert(request.getContent(), request.getToFormat(), options);
+            case MODEL_HASH ->
+                connection
+                    .model(request.getModelHash())
+                    .convert(request.getToFormat(), options);
+            case SOURCE_NOT_SET ->
+                throw new Unsupported(
+                    "the public API always names a source, so it cannot send a request naming none");
+          };
+      return Rendering.conversion(conversion);
+    } catch (ModelException e) {
+      return ConvertResponse.newBuilder()
+          .setError(e.getMessage())
+          .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .build();
+    }
+  }
+
+  private ApplyEditsResponse applyEdits(ApplyEditsRequest request) {
+    Model model = connection.model(request.getModelHash());
+    List<Edit> edits = request.getOperationsList().stream().map(Api::edit).toList();
+    EditOptions options =
+        EditOptions.defaults().withAcceptDocuments(request.getAcceptDocuments());
+    if (!request.getDocument().isEmpty()) {
+      options = options.withDocument(request.getDocument());
+    }
+    try {
+      EditResult result = model.applyEdits(edits, options);
+      return ApplyEditsResponse.newBuilder()
+          .setContent(result.content())
+          .addAllApplied(Rendering.appliedEdits(result.applied()))
+          .addAllDocuments(Rendering.editedDocuments(result.documents()))
+          .addAllDiagnostics(Rendering.diagnostics(result.diagnostics()))
+          .build();
+    } catch (EditException e) {
+      ApplyEditsResponse.Builder response =
+          ApplyEditsResponse.newBuilder()
+              .setError(e.getMessage())
+              .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+              .addAllReferringElements(e.referringElements())
+              .addAllReferrers(Rendering.referrers(e.referrers()));
+      try {
+        response.setFailure(org.openmbee.opensysml.proto.EditFailure.valueOf(e.failureName()));
+      } catch (IllegalArgumentException unrecognized) {
+        response.setFailureValue(
+            Integer.parseInt(e.failureName().substring("EDIT_FAILURE_".length())));
+      }
+      return response.build();
+    }
+  }
+
+  private static Edit edit(org.openmbee.opensysml.proto.EditOperation operation) {
+    return switch (operation.getOperationCase()) {
+      case SET_VALUE ->
+          new Edit.SetValue(operation.getSetValue().getTarget(), operation.getSetValue().getValue());
+      case RENAME ->
+          new Edit.Rename(operation.getRename().getTarget(), operation.getRename().getNewName());
+      case ADD_MEMBER -> {
+        org.openmbee.opensysml.proto.AddMemberEdit add = operation.getAddMember();
+        Edit.AddMember member = Edit.AddMember.of(add.getOwner(), add.getKind(), add.getName());
+        if (!add.getType().isEmpty()) {
+          member = member.withType(add.getType());
+        }
+        if (!add.getMultiplicity().isEmpty()) {
+          member = member.withMultiplicity(add.getMultiplicity());
+        }
+        if (!add.getValue().isEmpty()) {
+          member = member.withValue(add.getValue());
+        }
+        if (add.getSpecializesCount() > 0) {
+          member = member.withSpecializes(add.getSpecializesList());
+        }
+        yield member;
+      }
+      case DELETE ->
+          new Edit.Delete(operation.getDelete().getTarget(), operation.getDelete().getCascade());
+      case MOVE ->
+          new Edit.Move(operation.getMove().getTarget(), operation.getMove().getOwner());
+      case OPERATION_NOT_SET ->
+          throw new Unsupported("the public API cannot send an edit naming no operation");
+    };
+  }
+
+  private RunSweepResponse runSweep(RunSweepRequest request) {
+    Model model = engine(connection.model(request.getModelHash()), request.getEngine());
+    SweepOptions options =
+        SweepOptions.defaults()
+            .withArguments(values(request.getArgumentsList()))
+            .withNamedArguments(values(request.getNamedArgumentsMap()))
+            .withSamples(request.getSamples())
+            .withSeed(request.getSeed());
+    if (!request.getSubjectSymbolId().isEmpty()) {
+      options = options.withSubject(request.getSubjectSymbolId());
+    }
+    List<SweepRange> ranges = new ArrayList<>(request.getRangesCount());
+    for (org.openmbee.opensysml.proto.SweepRange range : request.getRangesList()) {
+      SweepRange read =
+          SweepRange.of(
+              range.getParameter(), value(range.getStart()), value(range.getEnd()));
+      if (range.hasStep()) {
+        read = read.withStep(value(range.getStep()));
+      }
+      ranges.add(read);
+    }
+    try {
+      return Rendering.sweep(model.runSweep(request.getSymbolId(), ranges, options));
+    } catch (ModelException e) {
+      return RunSweepResponse.newBuilder()
+          .setError(e.getMessage())
+          .setFailureReason(Rendering.failureReason(e.failureReason()))
+          .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .build();
+    }
+  }
+
+  private RunDocumentQueryResponse runDocumentQuery(RunDocumentQueryRequest request) {
+    Model model = connection.model(request.getModelHash());
+    Map<String, List<DocumentValue>> bindings = new LinkedHashMap<>();
+    for (org.openmbee.opensysml.proto.DocumentQueryBinding binding : request.getBindingsList()) {
+      bindings.put(
+          binding.getParameter(),
+          binding.getValuesList().stream().map(Protos::documentValue).toList());
+    }
+    DocumentQueryResult result = model.runDocumentQuery(request.getQueryId(), bindings);
+    return Rendering.documentQueryResult(result);
+  }
+
+  private RenderDocumentResponse renderDocument(RenderDocumentRequest request) {
+    Model model = connection.model(request.getModelHash());
+    RenderedDocument rendered = model.renderDocument(request.getDocumentId());
+    return RenderDocumentResponse.newBuilder().setMarkdown(rendered.markdown()).build();
   }
 
   private QueryResponse query(QueryRequest request) {
