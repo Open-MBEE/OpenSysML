@@ -1,0 +1,20 @@
+exit: idle
+choice fork split: next split->a(effect), split->b(effect) (unordered; took split->a(effect) first)
+enter: work
+enter: a
+enter: b
+transition: idle -> split
+exit: a
+stmt assign log
+    eval feature log -> ""
+    eval literal "a " -> "a "
+  eval operator + -> "a "
+enter: a2
+transition: a -> a2
+exit: b
+stmt assign log
+    eval feature log -> "a "
+    eval literal "b " -> "b "
+  eval operator + -> "a b "
+enter: b2
+transition: b -> b2

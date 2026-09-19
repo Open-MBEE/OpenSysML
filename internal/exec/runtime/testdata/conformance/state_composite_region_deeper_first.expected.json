@@ -20,14 +20,14 @@
     },
     {
       "finalState": "d2+deep+r2",
-      "stateVisits": ["start", "Working", "rstart", "lstart", "deep", "dstart", "r1", "d1", "d2", "r2"],
+      "stateVisits": ["start", "Working", "rstart", "lstart", "r1", "deep", "dstart", "d1", "d2", "r2"],
       "outputs": {
         "log": {"type": "Integer", "value": 12}
       }
     },
     {
       "finalState": "d2+deep+r2",
-      "stateVisits": ["start", "Working", "rstart", "lstart", "deep", "dstart", "r1", "d1", "r2", "d2"],
+      "stateVisits": ["start", "Working", "rstart", "lstart", "r1", "deep", "dstart", "d1", "r2", "d2"],
       "outputs": {
         "log": {"type": "Integer", "value": 21}
       }

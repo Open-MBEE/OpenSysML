@@ -1,0 +1,12 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"a b \"",
+			"\"b a \""
+		]
+	},
+	"agreed": {
+		"finalState": "a2+b2"
+	}
+}

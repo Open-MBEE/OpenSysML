@@ -1,0 +1,39 @@
+choice on accept Go: next l1(exit), r1(exit) (unordered; took l1(exit) first)
+exit: l1
+enter: l2
+transition: l1 -> l2 (event: accept Go)
+exit: r1
+enter: r2
+transition: r1 -> r2 (event: accept Go)
+eval feature resumed -> false
+eval feature resumed -> false
+choice exiting work: next l2(exit), r2(exit) (unordered; took l2(exit) first)
+exit: l2
+exit: r2
+exit: work
+enter: paused (entry action)
+stmt assign resumed
+  eval literal true -> true
+transition: work -> paused (event: accept Pause)
+exit: paused
+enter: work
+choice entering work: next l2(entry), r2(entry) (unordered; took l2(entry) first)
+enter: l2
+enter: r2
+transition: paused -> work (event: accept Resume)
+eval feature resumed -> true
+exit: l2
+stmt assign log
+    eval feature log -> ""
+    eval literal "l " -> "l "
+  eval operator + -> "l "
+enter: l3
+transition: l2 -> l3
+eval feature resumed -> true
+exit: r2
+stmt assign log
+    eval feature log -> "l "
+    eval literal "r " -> "r "
+  eval operator + -> "l r "
+enter: r3
+transition: r2 -> r3

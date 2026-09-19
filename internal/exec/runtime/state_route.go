@@ -563,7 +563,7 @@ func (e *StateExecutor) enterAhead(chain []*ast.StateNode) error {
 			continue
 		}
 		if e.entryIsUnit(state) {
-			if _, err := e.unit(ChoiceEntryOrder, unitHead{label: e.entryLabel(state), at: state, silent: e.silentEntry(state)}); err != nil {
+			if _, err := e.unit(ChoiceEntryOrder, e.entryHead(state, false)); err != nil {
 				return err
 			}
 		}

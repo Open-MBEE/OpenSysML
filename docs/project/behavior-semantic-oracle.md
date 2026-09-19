@@ -989,23 +989,32 @@ Derived constraints:
   one before any performs its next — and which of the due behaviors acts first in a round is a
   tool-defined order.
 - Every statement writes `seq`, so the digits record the interleaving: in `state_concurrent_do`,
-  `left` enters its working state one step before `right` (`1` is alone in its round), the next two
-  rounds each have both due, and `right`'s last statement is alone again (`6` last).
+  each region's start state completes as it is entered, and the pool dispatches the two completions
+  in the order they were generated (PSSM §8.5.9) — the order the entry draw entered the two start
+  states — so the region entered first enters its working state one step before the other (its
+  first digit is alone in its round), the next two rounds each have both due, and the other's last
+  statement is alone again (its last digit last).
 
-Open: which region's do behavior acts first in each round both are due in. Two rounds of two
-orders reach four values of `seq`.
+Open: which region's start state is entered first (the entry draw, whose two orders the pool
+follows), and which region's do behavior acts first in each round both are due in. Two entry
+orders of two rounds of two orders reach eight values of `seq`.
 
-Pinned outcome: the admissible set `{124356, 142356, 124536, 142536}`, stated as `outcomes` citing
-this section. The order is a choice point under every policy, reported as `choice do round at
-t=0.0: states lwork, rwork react (unordered; took lwork first)`: `declared` and `reverse` take the
-order the states were entered in — a tool-defined order — and the default golden pins that
-linearization (`124356`); `seed:<n>` draws the order; `explore` varies it and must reach all four
-values and no other. `state_anonymous_do_atomic` is the same machine with each body written as one
-inline action, `do action { … }`, of three statements: an inline body yields after each statement,
-so it interleaves as the one-action-per-statement form does and reaches the same four values, not
-`123456`. `state_concurrent_inline_do_bodies` writes the left body as a `for` loop over 1..2 followed
-by a statement and the right one as a statement followed by an `if` block of two: an iteration and a
-statement of a nested block are each one step, so the same four values and no other are reached.
+Pinned outcome: the admissible set `{124356, 142356, 124536, 142536, 415263, 451263, 415623,
+451623}`, stated as `outcomes` citing this section. The entry order is the choice point of
+[regions entered on one occurrence](#regions-of-a-parallel-state-entered-on-one-occurrence-each-is-entered-in-which-order-is-open),
+reported as `choice entering Interleave: next lstart(entry), rstart(entry) (unordered; took
+lstart(entry) first)` — an entry that performs nothing but generates a completion event is drawn,
+its place in the pool being observable — and the round's order is a choice point under every
+policy, reported as `choice do round at t=0.0: states lwork, rwork react (unordered; took lwork
+first)`: `declared` and `reverse` take region declaration order at both and the default golden
+pins that linearization (`124356`); `seed:<n>` draws both; `explore` varies both and must reach
+all eight values and no other. `state_anonymous_do_atomic` is the same machine with each body
+written as one inline action, `do action { … }`, of three statements: an inline body yields after
+each statement, so it interleaves as the one-action-per-statement form does and reaches the same
+eight values, not `123456`. `state_concurrent_inline_do_bodies` writes the left body as a `for`
+loop over 1..2 followed by a statement and the right one as a statement followed by an `if` block
+of two: an iteration and a statement of a nested block are each one step, so the same eight values
+and no other are reached.
 `state_concurrent_do_action_bodies_timed` is the shape with action bodies
 that wait on the clock: both behaviors pause at an `accept after 2 [s]` and are due again in the
 round at `t=2.0`, where the order of the two counts is open (`1324` entering order, `3124` the
@@ -1338,8 +1347,9 @@ those fixtures keep their admissible sets. `declared`, `reverse` and `seed:<n>` 
 dispatch after it, so their traces record no such choice and end `did stop `; `explore` must reach
 both outcomes and no other. `state_do_step_among_completions` is the shape with two regions'
 completion effects for the dispatch: a region's do step and the other region's completion are
-each drawn at every instant both are due, and the region orders among the completions themselves
-stay their own draws. `state_do_step_or_tied_dispatch` ties two time triggers at the instant the
+each drawn at every instant both are due, and the order among the completions themselves is the
+entry draw's, which the pool follows (§8.5.9) — the do step falls before, between or after the
+two effects in either of their orders, six outcomes. `state_do_step_or_tied_dispatch` ties two time triggers at the instant the
 do step is due, one guarded on what the step writes: each tied event is previewed on its own, so
 the unguarded trigger alone is drawn against the step (`choice at t=2.0: next do top, dispatch
 time top 2->idle`) and the guarded one, which the dispatch would drop before the step, waits for

@@ -147,6 +147,16 @@ Exploration therefore counts linearizations of behaviors, not of bookkeeping, an
 runs the suite under `internal/pssm/run.go:DefaultBudget` — 4096 runs, past *Event 016 B*'s
 1152 — where the runtime's default is 1024.
 
+One entry that performs nothing is not silent: the entry of a state that completes as it is
+entered — a completion transition out of it and nothing below to enter (`completesAtEntry`) —
+generates a completion event, and the pool holds completion events in the order they were
+generated (PSSM §8.5.9), so the order two such entries fall in is observed through the order
+their completions dispatch. That entry is a drawn alternative under its own label (`entryHead`:
+`l1(entry)` in `state_completion_pool_entry_order`), and its completion is queued as the unit is
+performed; a state with a do behavior performs, so it is drawn already, and its completion still
+waits for the behavior (`settleDoActions`). *Event 016 B*'s entries complete nothing, so its
+count stands.
+
 ### The front
 
 At each site the executor holds a **front** (`state_unit_front.go:unitFront`): one queue of
@@ -406,7 +416,7 @@ Conformance fixtures under `internal/exec/runtime/testdata/conformance/`, each w
 | `state_firing_units_interleaved` | two regions' transitions on one event, exit and effect each; six outcomes, joined afterwards so the join row's order stays visible (*Transition 019*'s shape) |
 
 | `state_do_step_or_dispatch` | a do action due and a signal at the head of the pool; two outcomes, one where the dispatch exits the state before the do step ran (*Behavior 003 A*'s shape) |
-| `state_do_step_among_completions` | a region's do step against the other region's completion effects; three outcomes |
+| `state_do_step_among_completions` | a region's do step against the other region's completion effects, in either order of the two completions; six outcomes |
 
 `robustness_region_do_step_test.go` holds the step-order site's failure modes: a witness naming
 a state with no due do step, a dispatch not at the head of the pool or a draw at a unit offering
@@ -604,9 +614,10 @@ silent state whose completion is enabled at once. PSSM's pool holds the two comp
 the order they were generated — §8.5.9, "a new `CompletionEventOccurrence` is placed into the
 (ordered) `eventPool` behind any `CompletionEventOccurrences` already in the pool" (SM10) — and
 generates each as its source is entered, so the pool's order is the entry draw's; the runtime
-queues them once the move has settled, leaf by leaf in region declaration order
+used to queue them once the move had settled, leaf by leaf in region declaration order
 (`scheduleTransitionEvents`), whichever order the front drew, so under `seed:<n>` and `explore`
-the pool's order and the draw disagree. *History 001-C* admits exactly the two orders the entry
+the pool's order and the draw disagreed. It now queues each as its entry unit is performed
+(`enterStateInto`; the last bullet below). *History 001-C* admits exactly the two orders the entry
 draw gives (second row, `2 of 2`), and its own RTC table is one of them; the same site is what
 *Transition 017*'s three finding-11 traces need, between `T2.2(effect)` and `T3.1.2(effect)`,
 whose sources are entered silently. *History 002-B*'s first half, of the same shape — `r2`
@@ -676,29 +687,40 @@ part with its own home:
   `differs-by-design` through `tools/referee/pssm/rows.go:TestRows` — is an adjudication of the
   alignment note, not of this design; the alignment note's item 11 records the reading and its
   open decision 8 holds the row, leaning against it.
-- **The pool's order follows the entry draw.** A runtime item of the region-order design
-  proper, and the one part of the finding that is a gap of the runtime: when the entries of two
-  regions each generate a completion event, PSSM's pool holds them in the order the entries
-  happened (§8.5.9), which the entry draw decides, while `scheduleTransitionEvents` queues them
-  after the move in region declaration order whatever the draw was — SM10's *agrees* holds under
-  `declared`, where the two orders coincide, and not under `seed:<n>` or `explore`. The fix is
-  small — queue a state's completion as its entry unit is performed
-  (`scheduleCompletionTransitions` from the entry front's units rather than from the settled
-  configuration), so the event IDs follow the draw, with one consequence for the front: an entry
-  unit that generates a completion event is observable through the pool's order even when the
-  state performs nothing, so it must be drawn rather than ride with the neighboring performing
-  unit as a silent unit does — which is why *Transition 017*'s and the History tests' entries,
-  every one of them silent, record no draw today. `declared` then queues what it queues today
-  and no default golden moves, while a `reverse` or `seed:<n>` run whose draw entered two
-  completing states out of declaration order dispatches their completions in the draw's order
-  instead — and it is what *Transition 017*'s three finding-11
-  traces need beside the do-step site, `T3.1.2(effect)` before `T2.2(effect)` when region 3 is
-  drawn first. By the enumeration above it moves no test on its own: *History 001-C* gains its
-  second trace and still misses ten, *History 002-B* gains one and reaches two the suite does
-  not register. It is a runtime change of its own, small, and a real divergence under `reverse`,
-  `seed:<n>` and `explore`; with the do-step site drawn it is what completes *Transition 017*'s
-  reachable set, and it is recorded here for that change to take up, with the two History tests'
-  reasons to be re-read then against the sets above.
+- **The pool's order follows the entry draw** (implemented). A runtime item of the region-order
+  design proper, and the one part of the finding that was a gap of the runtime: when the entries
+  of two regions each generate a completion event, PSSM's pool holds them in the order the
+  entries happened (§8.5.9), which the entry draw decides, while `scheduleTransitionEvents`
+  queued them after the move in region declaration order whatever the draw was — SM10's *agrees*
+  held under `declared`, where the two orders coincide, and not under `seed:<n>` or `explore`.
+  The runtime now queues a state's completion as its entry unit is performed: `enterStateInto`
+  is told when it enters the last state of an entry path (a region's initial or restored state,
+  a fork branch's or a transition's target, the state a shared path ends at), and where that
+  state completes at once (`completesAtEntry`: a completion transition out of it and nothing
+  below to enter) it calls `scheduleCompletionTransitions` before returning, so the event IDs
+  follow the draw; `scheduleTransitionEvents` keeps scheduling the time triggers of the settled
+  configuration and its ancestors, a time trigger still counting from the state's entry, and
+  never a completion. A state whose completion waits — a running do behavior
+  (`settleDoActions`), a composite body reaching `done` (`completeIfDone`) — is untouched, and
+  a region counts as complete at its own completion vertex, not at a nested composite's
+  (`regionComplete`; `state_region_completes_at_own_done`). The front's consequence is the
+  *silent units* section's rule: an entry that generates a completion event is drawn under its
+  own label rather than riding with the neighboring performing unit, which is why *Transition
+  017*'s and the History tests' entries, every one of them silent before, record an entry draw
+  now, and why the speculative entry ahead of a choice's guards (`state_route.go`) stays silent —
+  it never ends a path. `declared` queues what it queued and no default golden moved beyond
+  gaining a `choice` line where a completing entry had ridden silently
+  (`state_firing_units_interleaved`, `l2(entry)` against `r1(exit)`), while a `reverse` or
+  `seed:<n>` run whose draw entered two completing states out of declaration order dispatches
+  their completions in the draw's order (`state_completion_pool_entry_order`,
+  `_history_order`, `_deep_history_order`, `_fork_order`, each pinning both orders under
+  `check`; `TestRuntimeRobustnessCompletionOrder`). On the suite, as the enumeration above
+  predicted and no more: no bucket moved; *History 001-C* reaches both first-half orders and
+  still misses ten, *History 002-B* reaches one more admitted trace and the two §8.5.9 gives
+  that the suite does not register, *Entering 011* its second, and *Transition 017*'s three
+  finding-11 traces — `T3.1.2(effect)` before `T2.2(effect)` when region 3 is drawn first —
+  are reached, leaving it the suite's two anomalous traces alone; the referee record's
+  movements table adjudicates each.
 - **The History pair contradicts itself and the specification.** Recorded in
   `docs/project/omg-issues.md` as a suite defect: two tests with identical halves register
   different admitted sets — *002-B* a dispatch order §8.5.9's pool cannot give and *001-C* the
@@ -716,5 +738,6 @@ part with its own home:
   drawn against the sibling's remaining entry units as it is against the dispatch — and belongs
   to that site's change.
 
-The `check` verdicts and the exploration model are untouched: no new choice kind, no new unit,
-and every draw the front records today is as it was.
+The exploration model is untouched: no new choice kind, no new unit, and every draw the front
+recorded before is as it was; what the pool's fix added is a `ChoiceEntryOrder` draw where a
+completing entry had ridden silently, under the entry unit's existing label.

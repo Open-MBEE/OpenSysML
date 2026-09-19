@@ -3,8 +3,11 @@
 	"divergent": {
 		"log": [
 			"\"did m r \"",
+			"\"did r m \"",
 			"\"m did r \"",
-			"\"m r did \""
+			"\"m r did \"",
+			"\"r did m \"",
+			"\"r m did \""
 		]
 	},
 	"agreed": {
