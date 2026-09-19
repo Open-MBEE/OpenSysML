@@ -1673,7 +1673,8 @@ This section records defects in the **OMG PSSM test suite** (`PSSM_TestSuite.xmi
 2.5 XMI file of 103 state-machine tests that [the PSSM referee](pssm-referee.md) translates
 and runs). A row lands here only when the suite's registered expectation contradicts the
 suite's own statement of the test's intent or the semantics it claims to test, established from
-the file's contents; a test the runtime merely fails is the referee's business, not this
+the file's contents — or, for two tests of one shape, contradicts the expectation registered for
+the other; a test the runtime merely fails is the referee's business, not this
 page's. The suite is downloaded, digest-checked and never vendored, so a defect here is
 documented without a correction: the referee runs the suite as published, and the record
 adjudicates the test on the traces the suite registers.
@@ -1682,6 +1683,7 @@ adjudicates the test on the traces the suite registers.
 |---|---|---|---|---|
 | *Transition 017* | eight admitted traces, two of which — `T2(effect)::S1(entry)::T2.2(effect)::T3.2(effect)::S3.1(doActivity)::T3.1.2(effect)` and `…::T2.2(effect)::T3.2(effect)::T3.1.2(effect)::S3.1(doActivity)` — have `T3.2`, the completion transition out of `S3.1`, fire before `T3.1.2`, the completion transition inside `S3.1`'s own region, and run `S3.1`'s do activity after it | a composite state completes when its regions have reached their final states, so its completion transition cannot precede a transition of its region; the suite's own "Expected execution sequence" comment on the test's state machine fires `T3.2` when the completion event `S3.1` generates is consumed, *after* the inner region's `T3.1.2` and final state — the six other traces, not these two | `StatePerformances.kerml`: `private succession [*] transitionLinkSource.nonDoMiddle then [1] Performance::self;` on `StateTransitionPerformance` orders a transition out of a state after every non-do middle step of the state, the nested region's transition performances among them; `private succession [*] middle then [1] exit;` orders every middle step, the do activity included, before the state's exit. No reading of either admits `T3.2(effect)` before `T3.1.2(effect)` | **not filed**; documented without a correction — the test stays `fail` in the referee on these two traces alone, adjudicated in [the referee record](pssm-referee.md) |
 | *Exiting 002* | one admitted trace, `S1(doActivityPartI)::S1(exit)`, the do activity's first segment before the dispatch of the tester's `Continue` that leaves `S1` | the suite has a do activity evolve on its own thread of execution, and registers both orders of the same segment against the same dispatch for *Behavior 003 A*; `S1(exit)` alone, the dispatch first, is not registered here | the second order is the suite's own reading one test earlier; the test's point, the exit aborting the do activity, holds in both | documented, not corrected: `fail` in the referee while `S1(exit)` is the only reached trace not admitted |
+| *History 001-C*, *History 002-B* | twelve and six admitted traces, each set the product of the orders registered for the test's two halves — the first entry of the parallel `S1`, then its re-entry through the history pseudostate of region 2 after `AnotherSignal`. The two halves are structurally identical between the tests (`S2.1` carries an exit action and `T2.2.2` an effect in *002-B*, labels only) and the registered orders differ: *001-C* admits `S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)` for the first half and *002-B* does not admit its counterpart, while *002-B* admits `S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)` and *001-C* does not admit its; for the second half *001-C* admits `S1.1(exit)::S2.2(entry)::S1.2(entry)::S2.2.2(entry)`, the firing of `T1.2` split around a restored entry, and *002-B* admits no split; and both admit `S1.1(exit)::S1.2(entry)` before or between region 2's restored entries | the specification's own descriptions of the two tests (PSSM 1.0 §9.3.15.4 and §9.3.15.7) end the RTC step that restores region 2 with `S1.1`'s completion event *pending* and fire `T1.2` in the next step, and §8.5.9 dispatches completion events in the order they were generated: `S2.2.1`'s completion, generated a step after `S1.1`'s, cannot be dispatched before it, and whichever region is entered first, its completion is dispatched first. Read by that text, *001-C* admits two of its twelve traces and *002-B* two of its six and two it does not register | `StatePerformances.kerml` orders a state's `entry` before its `middle` and a transition out of a state after its source's non-do middle steps, and nothing across regions; it neither orders one region's completion transition against a sibling region's entry nor forbids it, so the split firing is not excluded by the library — it is excluded by PSSM's own run-to-completion step, which the two tests describe alike and register differently | **not filed**; documented without a correction — both tests stay `fail` in the referee, adjudicated in [the referee record](pssm-referee.md); no runtime rule reaches either registered set without reaching traces the other test refuses |
 
 ### PSSM Transition 017 admits a parent's completion before its region's
 
@@ -1761,6 +1763,72 @@ The suite is not vendored, so the missing trace is not added: the referee report
 `fail` while `S1(exit)` is the only reached trace not admitted, and
 [the referee record](pssm-referee.md) adjudicates the test on that reason. Nothing has been
 posted upstream.
+
+### PSSM History 001-C and 002-B admit a completion inside the restore and contradict each other
+
+Both tests enter the parallel state `S1`, whose region 1 runs `S1.1` (no behavior) into `S1.2`
+through the completion transition `T1.2` and whose region 2 runs `S2.1` into the composite
+`S2.2`, itself running `S2.2.1` into `S2.2.2`; `AnotherSignal` leaves `S1` and re-enters it
+through a history pseudostate in region 2 — deep in *001-C*, which restores `S2.2.2`; shallow
+in *002-B*, which restores `S2.2` and runs its initial transition to `S2.2.1` — while region 1
+starts again from its initial pseudostate at `S1.1`. Between the tests, region 1 and the first
+unit of region 2's restore are identical; *002-B* adds an exit action to `S2.1` and an effect to
+`T2.2.2`, which only add labels to the trace. Each test's registered set (the `expectedTraces`
+of `h001c` and `h002b` in the `HistoryTests` activity) is a product of the orders it registers
+for the first entry of `S1` and for the re-entry: two by six for *001-C*, two by three for
+*002-B*.
+
+The specification describes the two tests alike. Its text for *History 001-C* (§9.3.15.4):
+
+```text
+As a result, the left region starts its execution from the initial pseudostate while the
+right region is restored to its last recorded configuration […]. This completes the step
+started by the firing of T4. When dispatched, the completion event occurrence generated by
+S1.1 triggers T1.2.
+```
+
+and for *History 002-B* (§9.3.15.7):
+
+```text
+At the end of the RTC step initiated by dispatching of the AnotherSignal event occurrence,
+the state machine is in configuration S1[S1.1, S2.2[S2.2.1]]. The next step consists in the
+firing of T1.2 upon the dispatching of the completion event occurrence generated by S1.1. At
+this point, the only remaining event occurrence in the event pool is the completion event
+occurrence generated for S2.2.1.
+```
+
+That is §8.5.7.4's restoration — a restored or default-entered state that is complete places a
+`CompletionEventOccurrence` in the pool, the regions are "restored concurrently", and the step
+ends — with §8.5.9's pool: "a new `CompletionEventOccurrence` is placed into the (ordered)
+`eventPool` behind any `CompletionEventOccurrences` already in the pool". Read by that text the
+re-entry has one order in *001-C*, `S2.2(entry)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)`, and
+two in *002-B*, `S1.1`'s completion and `S2.2.1`'s dispatched in either order after the restore;
+and the first entry of `S1` has two orders in each test, `S1.1`'s completion or `S2.1`'s
+dispatched first according to which region was entered first, `S2.2.1`'s — generated only when
+`S2.1`'s completion transition has entered it, a step later — behind both.
+
+The registered sets say otherwise, and differently. *001-C* registers six re-entry orders, five
+of which fire `T1.2` inside the restoring step, before or between `S2.2(entry)` and
+`S2.2.2(entry)`, three of them with `S2.2(entry)` between `S1.1(exit)` and `S1.2(entry)`.
+*002-B* registers three, one of which fires `T1.2` inside the restoring step and none of which
+splits it. For the first entry *001-C* registers the two orders the pool gives; *002-B*
+registers `S1.1`'s completion first, and then `S2.1(exit)::S2.2(entry)` first followed by
+`S2.2.1`'s completion *before* `S1.1`'s — an order §8.5.9 excludes, since `S1.1`'s event was in
+the pool a step earlier — and not the order the pool gives when region 2 is entered first,
+which is *001-C*'s. The two tests therefore contradict each other on identical halves, and
+each contradicts the specification's description of itself: *001-C* registers twelve traces
+of which two agree with that description; *002-B* registers six of which two agree, and omits
+the two others the description gives. An implementation that dispatches a default-entered
+state's completion while the sibling region's restore is still under way would produce the
+in-restore orders, and one that checks a state's completion at the wrong moment would
+produce *002-B*'s inversion; nothing in the suite says so.
+
+The suite is not vendored, so the sets are not corrected: the referee reads them as
+published and reports both tests `fail`, and [the referee record](pssm-referee.md) adjudicates
+them on that reason. The runtime adopts no rule to reach either registered set — none reaches
+one without reaching traces the other test refuses — and by the specification's own text
+neither test can reach `pass` against the published expectations. Nothing has been posted
+upstream.
 
 ---
 
