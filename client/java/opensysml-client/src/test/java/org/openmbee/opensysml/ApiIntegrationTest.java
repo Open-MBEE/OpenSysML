@@ -985,4 +985,161 @@ class ApiIntegrationTest {
     Verification holding = bound.verifyConstraint("Demo::Vehicle::massPositive");
     assertTrue(holding.holds());
   }
+
+  private static Path fixture(String name) {
+    return Path.of(System.getProperty("user.dir"))
+        .resolve("../../../conformance/fixtures")
+        .normalize()
+        .resolve(name);
+  }
+
+  @Test
+  void parseSourcesParsesSeveralDocumentsAsOneModel() throws Exception {
+    Model model =
+        connection.parseSources(
+            List.of(
+                SourceDocument.inline(
+                    "engine_library.sysml",
+                    Files.readString(fixture("engine_library.sysml"))),
+                SourceDocument.inline(
+                    "engine_user.sysml", Files.readString(fixture("engine_user.sysml")))));
+    assertEquals(2, model.roots().size());
+    assertTrue(model.root().isPresent());
+    assertEquals("Engine", model.symbol("EngineLibrary::Engine").name());
+    assertEquals("Car", model.symbol("EngineUser::Car").name());
+  }
+
+  @Test
+  void parseSourcesRefusesTwoDocumentsOfOneName() throws Exception {
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class,
+            () ->
+                connection.parseSources(
+                    List.of(
+                        SourceDocument.inline(
+                            "same.sysml", Files.readString(fixture("engine_library.sysml"))),
+                        SourceDocument.inline(
+                            "same.sysml", Files.readString(fixture("engine_user.sysml"))))));
+    assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+  }
+
+  @Test
+  void convertRewritesContentAndAParsedModel() throws Exception {
+    String source = Files.readString(fixture("vehicle.sysml"));
+    Conversion conversion =
+        connection.convert(
+            source, "sysml", ConversionOptions.defaults().withFromFormat("sysml"));
+    assertFalse(conversion.content().isBlank());
+    assertEquals("sysml", conversion.fromFormat());
+    assertEquals("sysml", conversion.toFormat());
+    assertTrue(conversion.content().contains("package"));
+
+    Model model = connection.load(fixture("vehicle.sysml"));
+    Conversion roundTrip = model.convert("sysml");
+    assertFalse(roundTrip.content().isBlank());
+  }
+
+  @Test
+  void convertOfUnreadableNotationIsAModelFailure() throws Exception {
+    String source = Files.readString(fixture("syntax_error.sysml"));
+    ModelException failed =
+        assertThrows(
+            ModelException.class,
+            () ->
+                connection.convert(
+                    source, "sysml", ConversionOptions.defaults().withFromFormat("sysml")));
+    assertFalse(failed.diagnostics().isEmpty());
+  }
+
+  @Test
+  void applyEditsRewritesAValueAndAnswersTheText() {
+    Model model = connection.load(fixture("editable.sysml"));
+    EditResult result =
+        model.applyEdits(List.of(new Edit.SetValue("Demo::SC::unitMass", "1050.0[SI::kg]")));
+    assertFalse(result.content().isBlank());
+    assertTrue(result.content().contains("1050.0"));
+    assertEquals(1, result.applied().size());
+    assertEquals("Demo::SC::unitMass", result.applied().get(0).target());
+  }
+
+  @Test
+  void applyEditsRefusesAnUnknownTargetByKind() {
+    Model model = connection.load(fixture("editable.sysml"));
+    EditException refused =
+        assertThrows(
+            EditException.class,
+            () -> model.applyEdits(List.of(new Edit.SetValue("Demo::SC::nope", "1.0"))));
+    assertEquals(EditFailure.UNKNOWN_TARGET, refused.failure());
+    assertEquals("EDIT_FAILURE_UNKNOWN_TARGET", refused.failureName());
+  }
+
+  @Test
+  void runSweepStepsThroughARangeAndReportsEachRow() {
+    Model model = connection.load(fixture("sweep.sysml"));
+    Sweep sweep =
+        model.runSweep(
+            "Sw::Sum",
+            List.of(
+                org.openmbee.opensysml.SweepRange.of(
+                        "b", new Value.RealValue(0.0), new Value.RealValue(4.0))
+                    .withStep(new Value.RealValue(2.0))),
+            SweepOptions.defaults().withArguments(List.of(new Value.RealValue(1.0))));
+    assertEquals(List.of("b"), sweep.parameters());
+    assertEquals(3, sweep.rows().size());
+    assertFalse(sweep.sampled());
+    assertEquals(
+        new Value.RealValue(1.0), sweep.rows().get(0).outputs().get("result"));
+    assertFalse(sweep.rows().get(0).failed());
+  }
+
+  @Test
+  void runSweepOfAnotherKindIsAModelFailure() {
+    Model model = connection.load(fixture("sweep.sysml"));
+    ModelException failed =
+        assertThrows(
+            ModelException.class,
+            () ->
+                model.runSweep(
+                    "Sw::barge",
+                    List.of(
+                        org.openmbee.opensysml.SweepRange.of(
+                                "limit", new Value.RealValue(0.0), new Value.RealValue(4.0))
+                            .withStep(new Value.RealValue(2.0)))));
+    assertEquals(FailureReason.WRONG_KIND, failed.failureReason());
+  }
+
+  @Test
+  void runDocumentQueryAnswersTypedRows() {
+    Model model = connection.load(fixture("document.sysml"));
+    DocumentQueryResult result =
+        model.runDocumentQuery(
+            "Observatory::SubsystemTable",
+            Map.of(
+                "root",
+                List.of(new DocumentValue.ElementRef("Observatory::telescope", ""))));
+    assertEquals(List.of("name", "mass"), result.columns());
+    assertEquals(4, result.rows().size());
+    assertEquals(
+        "Observatory::telescope::baffle|shroud *tricky*", result.rows().get(0).element().id());
+    assertEquals(
+        List.of(new DocumentValue.StringValue("baffle|shroud *tricky*")),
+        result.rows().get(0).cells().get(0));
+  }
+
+  @Test
+  void renderDocumentRendersTheNamedDocument() {
+    Model model = connection.load(fixture("document.sysml"));
+    RenderedDocument rendered = model.renderDocument("Observatory::MassReport");
+    assertTrue(rendered.markdown().contains("# Telescope Mass Report"));
+  }
+
+  @Test
+  void renderDocumentOfAnUnknownDocumentIsNotFound() {
+    Model model = connection.load(fixture("document.sysml"));
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class, () -> model.renderDocument("Observatory::NoSuchDocument"));
+    assertEquals(StatusCode.NOT_FOUND, refused.status());
+  }
 }

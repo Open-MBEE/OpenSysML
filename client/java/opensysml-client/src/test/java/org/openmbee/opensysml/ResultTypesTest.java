@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -333,5 +334,69 @@ class ResultTypesTest {
     Verification declared =
         new Verification(verdict(true, ""), List.of(), List.of(sedan), List.of());
     assertEquals(Optional.empty(), declared.subject());
+  }
+
+  @Test
+  void conversionOptionsDefaultToAnInferredFormatAndStrictSource() {
+    ConversionOptions options = ConversionOptions.defaults();
+    assertEquals(Optional.empty(), options.fromFormat());
+    assertFalse(options.tolerateSyntaxErrors());
+    ConversionOptions tolerant = options.withFromFormat("sysml").withTolerateSyntaxErrors(true);
+    assertEquals(Optional.of("sysml"), tolerant.fromFormat());
+    assertTrue(tolerant.tolerateSyntaxErrors());
+    assertFalse(options.tolerateSyntaxErrors());
+  }
+
+  @Test
+  void editOptionsDefaultToAcceptingTheDocumentsABatchWrites() {
+    EditOptions options = EditOptions.defaults();
+    assertTrue(options.acceptDocuments());
+    assertEquals(Optional.empty(), options.document());
+    EditOptions targeted = options.withAcceptDocuments(false).withDocument("engine_user.sysml");
+    assertFalse(targeted.acceptDocuments());
+    assertEquals(Optional.of("engine_user.sysml"), targeted.document());
+    assertTrue(options.acceptDocuments());
+  }
+
+  @Test
+  void sweepOptionsDefaultToSteppingThroughEveryRange() {
+    SweepOptions options = SweepOptions.defaults();
+    assertEquals(Optional.empty(), options.subject());
+    assertEquals(List.of(), options.arguments());
+    assertEquals(Map.of(), options.namedArguments());
+    assertEquals(0, options.samples());
+    assertEquals(0, options.seed());
+    SweepOptions sampled =
+        options
+            .withSubject("Sw::barge")
+            .withSamples(3)
+            .withSeed(42)
+            .withArguments(List.of(new Value.IntegerValue(1)))
+            .withNamedArguments(Map.of("rate", new Value.RealValue(2.0)));
+    assertEquals(Optional.of("Sw::barge"), sampled.subject());
+    assertEquals(3, sampled.samples());
+    assertEquals(42, sampled.seed());
+    assertEquals(List.of(new Value.IntegerValue(1)), sampled.arguments());
+    assertEquals(Map.of("rate", new Value.RealValue(2.0)), sampled.namedArguments());
+    assertEquals(0, options.samples());
+  }
+
+  @Test
+  void aSweepRowFailsByItsErrorAndHoldsByItsVerdicts() {
+    SweepRow empty = new SweepRow(Map.of(), Map.of(), List.of(), List.of(), Duration.ZERO, "", FailureReason.UNSPECIFIED);
+    assertFalse(empty.failed());
+    assertTrue(empty.holds());
+    SweepRow failed = new SweepRow(Map.of(), Map.of(), List.of(), List.of(), Duration.ZERO, "division by zero", FailureReason.UNSPECIFIED);
+    assertTrue(failed.failed());
+    assertFalse(failed.holds());
+  }
+
+  @Test
+  void aSweepResolvesItsInstancesLikeAnAnalysis() {
+    Instance sedan = new Instance(1, "Demo::sedan", Map.of());
+    Sweep sweep = new Sweep(List.of(), List.of(), false, 0, List.of(sedan), List.of(), Standing.none());
+    assertEquals(Optional.of(sedan), sweep.instance(1));
+    assertEquals(Optional.empty(), sweep.instance(2));
+    assertEquals(0, sweep.seed());
   }
 }

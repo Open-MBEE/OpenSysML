@@ -1,6 +1,10 @@
 package org.openmbee.opensysml;
 
 import org.openmbee.opensysml.internal.Protos;
+import org.openmbee.opensysml.proto.ApplyEditsRequest;
+import org.openmbee.opensysml.proto.ApplyEditsResponse;
+import org.openmbee.opensysml.proto.ConvertRequest;
+import org.openmbee.opensysml.proto.ConvertResponse;
 import org.openmbee.opensysml.proto.DiagnosticsRequest;
 import org.openmbee.opensysml.proto.DiagnosticsResponse;
 import org.openmbee.opensysml.proto.EvaluateCalcRequest;
@@ -16,8 +20,14 @@ import org.openmbee.opensysml.proto.InstantiateRequest;
 import org.openmbee.opensysml.proto.InstantiateResponse;
 import org.openmbee.opensysml.proto.QueryRequest;
 import org.openmbee.opensysml.proto.QueryResponse;
+import org.openmbee.opensysml.proto.RenderDocumentRequest;
+import org.openmbee.opensysml.proto.RenderDocumentResponse;
 import org.openmbee.opensysml.proto.RunAnalysisRequest;
 import org.openmbee.opensysml.proto.RunAnalysisResponse;
+import org.openmbee.opensysml.proto.RunDocumentQueryRequest;
+import org.openmbee.opensysml.proto.RunDocumentQueryResponse;
+import org.openmbee.opensysml.proto.RunSweepRequest;
+import org.openmbee.opensysml.proto.RunSweepResponse;
 import org.openmbee.opensysml.proto.SymbolResponse;
 import org.openmbee.opensysml.proto.ValidateInstanceRequest;
 import org.openmbee.opensysml.proto.ValidateInstanceResponse;
@@ -35,8 +45,8 @@ import java.util.Optional;
 /**
  * A model the service has parsed, named by the hash every later call carries.
  *
- * <p>Obtained from {@link Connection#load(java.nio.file.Path)}, {@link Connection#parse(String)} or
- * {@link Connection#model(String)}. Immutable and thread-safe; it holds no state of its own beyond
+ * <p>Obtained from {@link Connection#load(java.nio.file.Path)}, {@link Connection#parse(String)},
+ * {@link Connection#parseSources(List)} or {@link Connection#model(String)}. Immutable and thread-safe; it holds no state of its own beyond
  * the hash, what the parse reported and the engine {@link #withEngine(String)} named.
  *
  * <p>Reading a model is {@link #eval}, {@link #symbol} and {@link #instantiate}. Running it is
@@ -47,6 +57,15 @@ import java.util.Optional;
  * {@link Verdict} that does not hold, not an exception. {@link #evaluateCalc} and {@link
  * #runAnalysis} compute, and {@link #query} selects elements.
  *
+ * <p>A model also edits and projects itself: {@link #applyEdits(List, EditOptions)} applies
+ * element-level edits to its source text and answers the text they produce, {@link
+ * #convert(String, ConversionOptions)} rewrites it in another format, {@link #runSweep(String,
+ * List, SweepOptions)} runs a case, a verification or an analysis once per combination of its
+ * swept parameters, {@link #runDocumentQuery(String, Map)} projects its elements through a
+ * document query, and {@link #renderDocument(String)} renders a Markdown view over it. An
+ * apply-edits refusal is an {@link EditException}, a {@link ModelException} carrying the refusal's
+ * {@link EditFailure} and referrers.
+ *
  * <p>Every call answers what the service reported or throws: {@link ModelException} when the
  * service answered but reported a failure about the model, {@link ServiceException} when it refused
  * the call, {@link CapabilityException} before anything is sent when the service does not advertise
@@ -56,27 +75,23 @@ public final class Model {
 
   private final Connection connection;
   private final String hash;
-  private final Optional<Symbol> root;
+  private final List<Symbol> roots;
   private final List<Diagnostic> parseDiagnostics;
   private final Optional<String> engine;
 
-  Model(
-      Connection connection,
-      String hash,
-      Optional<Symbol> root,
-      List<Diagnostic> parseDiagnostics) {
-    this(connection, hash, root, parseDiagnostics, Optional.empty());
+  Model(Connection connection, String hash, List<Symbol> roots, List<Diagnostic> parseDiagnostics) {
+    this(connection, hash, roots, parseDiagnostics, Optional.empty());
   }
 
   private Model(
       Connection connection,
       String hash,
-      Optional<Symbol> root,
+      List<Symbol> roots,
       List<Diagnostic> parseDiagnostics,
       Optional<String> engine) {
     this.connection = connection;
     this.hash = hash;
-    this.root = root;
+    this.roots = List.copyOf(roots);
     this.parseDiagnostics = List.copyOf(parseDiagnostics);
     this.engine = engine;
   }
@@ -100,12 +115,24 @@ public final class Model {
   }
 
   /**
-   * The root namespace of the parse, absent for a model addressed by hash alone.
+   * The model's outermost elements, in document order: one per document a {@link
+   * Connection#parseSources(List)} model carries, the one root a one-document model or a handle
+   * addressed by hash declares, none for an empty model.
    *
-   * @return the root symbol
+   * @return the roots, never {@code null}
+   */
+  public List<Symbol> roots() {
+    return roots;
+  }
+
+  /**
+   * The root namespace of the parse: the first of {@link #roots()}, which is the only one for a
+   * one-document model.
+   *
+   * @return the root symbol, absent for an empty model or a model addressed by hash alone
    */
   public Optional<Symbol> root() {
-    return root;
+    return roots.isEmpty() ? Optional.empty() : Optional.of(roots.get(0));
   }
 
   /**
@@ -142,7 +169,7 @@ public final class Model {
   public Model withEngine(String engine) {
     Objects.requireNonNull(engine, "engine");
     connection.capabilities().require(Capabilities.ENGINES);
-    return new Model(connection, hash, root, parseDiagnostics, Optional.of(engine));
+    return new Model(connection, hash, roots, parseDiagnostics, Optional.of(engine));
   }
 
   /**
@@ -749,6 +776,234 @@ public final class Model {
     QueryResponse response =
         connection.call("Query", request.build(), QueryResponse.getDefaultInstance());
     return Protos.queryElements(response.getElementsList());
+  }
+
+  /**
+   * Rewrites the model in another format.
+   *
+   * @param toFormat the format to write, named as the service names formats ({@code "sysml"},
+   *     {@code "kerml"}, {@code "ttl"}, …)
+   * @return the conversion, carrying the text and the formats used
+   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code convert}
+   */
+  public Conversion convert(String toFormat) {
+    return convert(toFormat, ConversionOptions.defaults());
+  }
+
+  /**
+   * Rewrites the model in another format, with options.
+   *
+   * @param toFormat the format to write
+   * @param options the source format and whether unreadable notation is written back anyway
+   * @return the conversion, carrying the text and the formats used
+   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code convert}
+   */
+  public Conversion convert(String toFormat, ConversionOptions options) {
+    Objects.requireNonNull(toFormat, "toFormat");
+    Objects.requireNonNull(options, "options");
+    connection.capabilities().require(Capabilities.CONVERT);
+    ConvertRequest.Builder request =
+        ConvertRequest.newBuilder()
+            .setModelHash(hash)
+            .setToFormat(toFormat)
+            .setTolerateSyntaxErrors(options.tolerateSyntaxErrors());
+    options.fromFormat().ifPresent(request::setFromFormat);
+    ConvertResponse response =
+        connection.call("Convert", request.build(), ConvertResponse.getDefaultInstance());
+    failed(response.getError(), FailureReason.UNSPECIFIED, response.getDiagnosticsList());
+    return Protos.conversion(response);
+  }
+
+  /**
+   * Applies edits to the model's source text, answering the text they produce.
+   *
+   * <p>An empty batch is refused in band, as {@link EditFailure#NO_OPERATIONS}.
+   *
+   * @param edits the edits, applied in order as one batch
+   * @return the rewritten text, which edits applied where, and the new documents' content when the
+   *     batch accepted them
+   * @throws EditException if the service refused the batch; its {@link EditException#failure()}
+   *     says why and its {@link EditException#referrers()} name what references the target
+   * @throws ServiceException if the request itself was rejected
+   * @throws CapabilityException if the service does not advertise {@code apply_edits}, or an edit
+   *     is an {@link Edit.AddMember}, {@link Edit.Delete} or {@link Edit.Move} and it does not
+   *     advertise {@code authoring}
+   */
+  public EditResult applyEdits(List<Edit> edits) {
+    return applyEdits(edits, EditOptions.defaults());
+  }
+
+  /**
+   * Applies edits to the model's source text, with options.
+   *
+   * @param edits the edits, applied in order as one batch
+   * @param options the document the edits target and whether the answer's documents are read;
+   *     {@link EditOptions#defaults()} accepts them
+   * @return the rewritten text, which edits applied where, and the new documents' content when the
+   *     batch accepted them
+   * @throws EditException if the service refused the batch
+   * @throws ServiceException if the request itself was rejected, or a document is named that no
+   *     document of the model has
+   * @throws CapabilityException if the service does not advertise {@code apply_edits}, an edit
+   *     writes a declaration and it does not advertise {@code authoring}, or a document is named
+   *     and it does not advertise {@code edit_documents}
+   */
+  public EditResult applyEdits(List<Edit> edits, EditOptions options) {
+    Objects.requireNonNull(edits, "edits");
+    Objects.requireNonNull(options, "options");
+    connection.capabilities().require(Capabilities.APPLY_EDITS);
+    for (Edit edit : edits) {
+      if (edit instanceof Edit.AddMember || edit instanceof Edit.Delete || edit instanceof Edit.Move) {
+        connection.capabilities().require(Capabilities.AUTHORING);
+        break;
+      }
+    }
+    options.document().ifPresent(document -> connection.capabilities().require(Capabilities.EDIT_DOCUMENTS));
+    ApplyEditsRequest.Builder request =
+        ApplyEditsRequest.newBuilder()
+            .setModelHash(hash)
+            .addAllOperations(Protos.edits(edits))
+            .setAcceptDocuments(options.acceptDocuments());
+    options.document().ifPresent(request::setDocument);
+    ApplyEditsResponse response =
+        connection.call("ApplyEdits", request.build(), ApplyEditsResponse.getDefaultInstance());
+    if (!response.getError().isEmpty()) {
+      throw new EditException(
+          response.getError(),
+          Protos.editFailure(response.getFailure()),
+          Protos.editFailureName(response.getFailure(), response.getFailureValue()),
+          Protos.diagnostics(response.getDiagnosticsList()),
+          response.getReferringElementsList(),
+          Protos.referrers(response.getReferrersList()));
+    }
+    return Protos.editResult(response);
+  }
+
+  /**
+   * Runs a case or a calc once per combination of its swept parameters.
+   *
+   * @param symbolId qualified name of the analysis case or calc, definition or usage
+   * @param ranges the swept parameters, several of which make one row per point of their cartesian
+   *     product, the first varying slowest; empty sweeps the target's declared values
+   * @return the table of rows, in the deterministic order they ran
+   * @throws ModelException if the sweep itself failed — the target unreadable or not one that
+   *     sweeps; one combination's failure is that {@link SweepRow}'s error, not the sweep's
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification}
+   */
+  public Sweep runSweep(String symbolId, List<SweepRange> ranges) {
+    return runSweep(symbolId, ranges, SweepOptions.defaults());
+  }
+
+  /**
+   * Runs a case or a calc once per combination of its swept parameters, on a subject and with
+   * parameters bound.
+   *
+   * @param symbolId qualified name of the analysis case or calc, definition or usage
+   * @param ranges the swept parameters
+   * @param options the subject, the arguments every row binds, and the sampling ({@code samples}
+   *     draws rows uniformly and needs {@code seed}; zero steps through each range)
+   * @return the table of rows, in the deterministic order they ran
+   * @throws ModelException if the sweep itself failed; one combination's failure is that {@link
+   *     SweepRow}'s error, not the sweep's
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification}
+   */
+  public Sweep runSweep(String symbolId, List<SweepRange> ranges, SweepOptions options) {
+    Objects.requireNonNull(symbolId, "symbolId");
+    Objects.requireNonNull(ranges, "ranges");
+    Objects.requireNonNull(options, "options");
+    connection.capabilities().require(Capabilities.VERIFICATION);
+    RunSweepRequest.Builder request =
+        RunSweepRequest.newBuilder()
+            .setModelHash(hash)
+            .setSymbolId(symbolId)
+            .addAllArguments(Protos.protos(options.arguments()))
+            .putAllNamedArguments(Protos.protos(options.namedArguments()))
+            .setSamples(options.samples())
+            .setSeed(options.seed());
+    options.subject().ifPresent(request::setSubjectSymbolId);
+    engine.ifPresent(request::setEngine);
+    for (SweepRange range : ranges) {
+      request.addRanges(Protos.proto(range));
+    }
+    RunSweepResponse response =
+        connection.call("RunSweep", request.build(), RunSweepResponse.getDefaultInstance());
+    failed(response.getError(), response.getFailureReason(), response.getDiagnosticsList());
+    return Protos.sweep(response);
+  }
+
+  /**
+   * Runs a document query declared in the model, answering its columns and typed rows.
+   *
+   * @param queryId qualified name of the document query
+   * @return the projected columns and rows
+   * @throws ServiceException if the model declares no such query or it declares something else
+   * @throws CapabilityException if the service does not advertise {@code document_query}
+   */
+  public DocumentQueryResult runDocumentQuery(String queryId) {
+    return runDocumentQuery(queryId, Map.of());
+  }
+
+  /**
+   * Runs a document query with its entry parameters bound.
+   *
+   * <p>Each binding names a {@link DocumentValue}: an {@link DocumentValue.ElementRef} binds an
+   * element by qualified name, an {@link DocumentValue.ObjectRef} an object the service holds by
+   * path or id, and a literal its value. A parameter bound by several values is a nonscalar
+   * binding.
+   *
+   * @param queryId qualified name of the document query
+   * @param bindings the entry parameters' values, by parameter name
+   * @return the projected columns and rows
+   * @throws ServiceException if the model declares no such query, it declares something else, or a
+   *     binding is refused
+   * @throws CapabilityException if the service does not advertise {@code document_query}
+   */
+  public DocumentQueryResult runDocumentQuery(
+      String queryId, Map<String, List<DocumentValue>> bindings) {
+    Objects.requireNonNull(queryId, "queryId");
+    Objects.requireNonNull(bindings, "bindings");
+    connection.capabilities().require(Capabilities.DOCUMENT_QUERY);
+    RunDocumentQueryRequest.Builder request =
+        RunDocumentQueryRequest.newBuilder().setModelHash(hash).setQueryId(queryId);
+    bindings.forEach(
+        (parameter, values) ->
+            request.addBindings(
+                org.openmbee.opensysml.proto.DocumentQueryBinding.newBuilder()
+                    .setParameter(parameter)
+                    .addAllValues(
+                        values.stream().map(Protos::proto).toList())));
+    RunDocumentQueryResponse response =
+        connection.call(
+            "RunDocumentQuery", request.build(), RunDocumentQueryResponse.getDefaultInstance());
+    return Protos.documentQueryResult(response);
+  }
+
+  /**
+   * Renders a document declared in the model to Markdown.
+   *
+   * @param documentId qualified name of the document
+   * @return the rendered document, byte-for-byte what the command line writes
+   * @throws ServiceException if the model declares no such document or it declares something else
+   * @throws CapabilityException if the service does not advertise {@code render_document}
+   */
+  public RenderedDocument renderDocument(String documentId) {
+    Objects.requireNonNull(documentId, "documentId");
+    connection.capabilities().require(Capabilities.RENDER_DOCUMENT);
+    RenderDocumentResponse response =
+        connection.call(
+            "RenderDocument",
+            RenderDocumentRequest.newBuilder()
+                .setModelHash(hash)
+                .setDocumentId(documentId)
+                .build(),
+            RenderDocumentResponse.getDefaultInstance());
+    return new RenderedDocument(response.getMarkdown());
   }
 
   private String schedule(ExecutionOptions options, boolean explore) {

@@ -5,10 +5,14 @@ import org.openmbee.opensysml.internal.ConnectTransport;
 import org.openmbee.opensysml.internal.PrivateService;
 import org.openmbee.opensysml.internal.Protos;
 import org.openmbee.opensysml.internal.ServiceRegistry;
+import org.openmbee.opensysml.proto.ConvertRequest;
+import org.openmbee.opensysml.proto.ConvertResponse;
 import org.openmbee.opensysml.proto.ListEnginesRequest;
 import org.openmbee.opensysml.proto.ListEnginesResponse;
 import org.openmbee.opensysml.proto.ParseFileRequest;
 import org.openmbee.opensysml.proto.ParseFileResponse;
+import org.openmbee.opensysml.proto.ParseSourcesRequest;
+import org.openmbee.opensysml.proto.ParseSourcesResponse;
 import org.openmbee.opensysml.proto.ServerInfoRequest;
 import org.openmbee.opensysml.proto.ServerInfoResponse;
 import java.nio.file.Path;
@@ -222,6 +226,130 @@ public final class Connection implements AutoCloseable {
   }
 
   /**
+   * Parses several source documents as one model, which every later call then names by one hash.
+   *
+   * <p>Documents are parsed in the order given, each {@link SourceDocument} naming a file or
+   * inline notation and, for inline notation, the name other documents import it by. A document's
+   * own {@link SourceDocument#language()} is sent when it names one; it is not inferred from the
+   * options.
+   *
+   * @param documents the documents to parse, in order
+   * @return the parsed model, its {@link Model#roots()} naming one root per document
+   * @throws ModelException if the documents could not be parsed at all
+   * @throws ServiceException if the request names no documents or two documents by one name
+   * @throws CapabilityException if the service does not advertise {@code parse_sources}, or an
+   *     inline document names a language and it does not advertise {@code inline_language}
+   */
+  public Model parseSources(List<SourceDocument> documents) {
+    return parseSources(documents, ParseOptions.defaults());
+  }
+
+  /**
+   * Parses several source documents as one model, with options.
+   *
+   * @param documents the documents to parse, in order
+   * @param options how strictly to judge the notation; its language does not apply to the
+   *     documents, which name their own
+   * @return the parsed model, its {@link Model#roots()} naming one root per document
+   * @throws ModelException if the documents could not be parsed at all
+   * @throws ServiceException if the request names no documents or two documents by one name
+   * @throws CapabilityException if the service does not advertise {@code parse_sources}, an inline
+   *     document names a language and it does not advertise {@code inline_language}, or strict
+   *     conformance is asked and it does not advertise {@code strict_conformance}
+   */
+  public Model parseSources(List<SourceDocument> documents, ParseOptions options) {
+    Objects.requireNonNull(documents, "documents");
+    Objects.requireNonNull(options, "options");
+    capabilities.require(Capabilities.PARSE_SOURCES);
+    if (options.strictConformance()) {
+      capabilities.require(Capabilities.STRICT_CONFORMANCE);
+    }
+    ParseSourcesRequest.Builder request =
+        ParseSourcesRequest.newBuilder().setStrictConformance(options.strictConformance());
+    for (SourceDocument document : documents) {
+      if (document.language().isPresent()) {
+        capabilities.require(Capabilities.INLINE_LANGUAGE);
+      }
+      request.addDocuments(Protos.proto(document));
+    }
+    ParseSourcesResponse response =
+        call("ParseSources", request.build(), ParseSourcesResponse.getDefaultInstance());
+    List<Diagnostic> diagnostics = Protos.diagnostics(response.getDiagnosticsList());
+    if (!response.getError().isEmpty()) {
+      throw new ModelException(response.getError(), diagnostics);
+    }
+    List<Symbol> roots = new java.util.ArrayList<>(response.getRootsCount());
+    for (org.openmbee.opensysml.proto.SymbolInfo root : response.getRootsList()) {
+      roots.add(Protos.symbol(root));
+    }
+    return new Model(this, response.getModelHash(), roots, diagnostics);
+  }
+
+  /**
+   * Converts notation given inline into another format.
+   *
+   * @param content the notation to convert, which must name its format in {@code options} since
+   *     inline content has no extension to infer it from
+   * @param toFormat the format to write, named as the service names formats ({@code "sysml"},
+   *     {@code "kerml"}, {@code "ttl"}, …)
+   * @return the conversion, carrying the text and the formats used
+   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws CapabilityException if the service does not advertise {@code convert}
+   */
+  public Conversion convert(String content, String toFormat) {
+    return convert(content, toFormat, ConversionOptions.defaults());
+  }
+
+  /**
+   * Converts notation given inline into another format, with options.
+   *
+   * @param content the notation to convert
+   * @param toFormat the format to write
+   * @param options the source format and whether unreadable notation is written back anyway
+   * @return the conversion, carrying the text and the formats used
+   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ServiceException if the source format could not be inferred or the request was
+   *     refused
+   * @throws CapabilityException if the service does not advertise {@code convert}
+   */
+  public Conversion convert(String content, String toFormat, ConversionOptions options) {
+    Objects.requireNonNull(content, "content");
+    return converted(ConvertRequest.newBuilder().setContent(content), toFormat, options);
+  }
+
+  /**
+   * Converts a file into another format, its format inferred from its extension.
+   *
+   * @param file the source to convert
+   * @param toFormat the format to write
+   * @return the conversion, carrying the text and the formats used
+   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ServiceException if the service could not read the file
+   * @throws CapabilityException if the service does not advertise {@code convert}
+   */
+  public Conversion convertFile(Path file, String toFormat) {
+    return convertFile(file, toFormat, ConversionOptions.defaults());
+  }
+
+  /**
+   * Converts a file into another format, with options.
+   *
+   * @param file the source to convert
+   * @param toFormat the format to write
+   * @param options the source format, which overrides the file's extension, and whether unreadable
+   *     notation is written back anyway
+   * @return the conversion, carrying the text and the formats used
+   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ServiceException if the service could not read the file
+   * @throws CapabilityException if the service does not advertise {@code convert}
+   */
+  public Conversion convertFile(Path file, String toFormat, ConversionOptions options) {
+    Objects.requireNonNull(file, "file");
+    return converted(
+        ConvertRequest.newBuilder().setFilePath(file.toString()), toFormat, options);
+  }
+
+  /**
    * A handle on a model the service parsed already, named by its hash.
    *
    * <p>For a host that kept a hash across connections. Nothing is called here, so a hash the
@@ -237,7 +365,7 @@ public final class Connection implements AutoCloseable {
     if (modelHash.isBlank()) {
       throw new IllegalArgumentException("modelHash must not be blank");
     }
-    return new Model(this, modelHash, Optional.empty(), List.of());
+    return new Model(this, modelHash, List.of(), List.of());
   }
 
   /**
@@ -276,9 +404,25 @@ public final class Connection implements AutoCloseable {
     if (!response.getError().isEmpty()) {
       throw new ModelException(response.getError(), diagnostics);
     }
-    Optional<Symbol> root =
-        response.hasRoot() ? Optional.of(Protos.symbol(response.getRoot())) : Optional.empty();
-    return new Model(this, response.getModelHash(), root, diagnostics);
+    List<Symbol> roots =
+        response.hasRoot() ? List.of(Protos.symbol(response.getRoot())) : List.of();
+    return new Model(this, response.getModelHash(), roots, diagnostics);
+  }
+
+  private Conversion converted(
+      ConvertRequest.Builder request, String toFormat, ConversionOptions options) {
+    Objects.requireNonNull(toFormat, "toFormat");
+    Objects.requireNonNull(options, "options");
+    capabilities.require(Capabilities.CONVERT);
+    request.setToFormat(toFormat).setTolerateSyntaxErrors(options.tolerateSyntaxErrors());
+    options.fromFormat().ifPresent(request::setFromFormat);
+    ConvertResponse response =
+        call("Convert", request.build(), ConvertResponse.getDefaultInstance());
+    List<Diagnostic> diagnostics = Protos.diagnostics(response.getDiagnosticsList());
+    if (!response.getError().isEmpty()) {
+      throw new ModelException(response.getError(), diagnostics);
+    }
+    return Protos.conversion(response);
   }
 
   private static ParseFileRequest.Builder request(ParseOptions options) {
