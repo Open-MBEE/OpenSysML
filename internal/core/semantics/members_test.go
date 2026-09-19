@@ -3,8 +3,8 @@ package semantics
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 func memberNames(syms []*symbols.Symbol) map[string]bool {

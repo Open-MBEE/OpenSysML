@@ -3,8 +3,8 @@ package repl
 import (
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // satisfyText names a satisfaction assertion the way the prompt names every other

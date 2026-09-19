@@ -3,8 +3,8 @@ package semantics
 import (
 	"sort"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // The names of the shared frames the workspace-wide indexes are built in (see

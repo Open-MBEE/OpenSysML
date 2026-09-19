@@ -1,7 +1,7 @@
 package passes
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // Pilot SysMLValidator (2026-05) reports a usage typed by the wrong kind of

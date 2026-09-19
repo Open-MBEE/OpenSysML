@@ -3,9 +3,9 @@ package fuml
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // Validate parses and validates an emitted model with the front end and lowers

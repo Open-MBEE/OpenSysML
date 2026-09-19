@@ -3,7 +3,7 @@ package model
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // The two OMG training models that a performed action's members are reachable

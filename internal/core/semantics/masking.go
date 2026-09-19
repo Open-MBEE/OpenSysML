@@ -1,8 +1,8 @@
 package semantics
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // Redefinition masking (KerML 7.4.7, 8.3.3.3): a redefined feature is not

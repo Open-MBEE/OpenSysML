@@ -13,8 +13,8 @@ import (
 	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // The custom methods a diagram client speaks. They are not in the protocol, so

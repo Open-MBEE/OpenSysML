@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // libraryNotesModel renders the documentation of a standard-library element,

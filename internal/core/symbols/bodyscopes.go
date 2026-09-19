@@ -1,7 +1,7 @@
 package symbols
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // ExprWalker walks declarations and their expressions down to every member list

@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // enumPrelude declares types outside the scalar lattice: an enumeration, a

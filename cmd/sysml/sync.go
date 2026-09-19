@@ -13,9 +13,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/project"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/flexo"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // runSyncDiff reports the identity-keyed change set against a graph file or a

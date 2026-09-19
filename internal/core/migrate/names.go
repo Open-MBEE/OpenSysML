@@ -6,8 +6,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // writeName writes a v1 name as a v2 name: bare when it is a basic identifier

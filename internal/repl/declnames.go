@@ -1,6 +1,6 @@
 package repl
 
-import "github.com/Open-MBEE/OpenSysML/internal/core/ast"
+import "github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 
 // declaredNames returns the replaceable top-level names introduced by a parsed
 // submission, in source order. A named declaration is replaceable: re-typing it

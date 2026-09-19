@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // MaterializationErrors reads the feature values a caller would otherwise leave lazy, so

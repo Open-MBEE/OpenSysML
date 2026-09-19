@@ -5,8 +5,8 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // ErrSnapshotMidRun reports a snapshot asked for from inside a step: a snapshot is

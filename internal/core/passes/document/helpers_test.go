@@ -1,8 +1,8 @@
 package document_test
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
-	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 )
 
 func parserDiagnostics(p *parser.Parser) []diag.Diagnostic {

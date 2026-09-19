@@ -10,8 +10,8 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/pack"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/pack"
 )
 
 //go:generate go run -C ../../../tools ./gen/snapshot

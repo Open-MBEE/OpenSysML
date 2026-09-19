@@ -3,9 +3,9 @@ package smt
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // The constructors the finite sorts carry beside the flow's own nodes and edges.
