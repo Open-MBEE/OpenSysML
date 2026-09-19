@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 )
 
 // %jobs shows the jobs, one per CPU until set, and rejects anything but a positive

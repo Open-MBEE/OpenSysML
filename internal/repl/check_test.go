@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 )
 
 // solverRequiredEnv makes an absent solver a failure rather than a skip, so CI

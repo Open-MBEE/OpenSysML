@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 const sendUsage = "usage: %send <signal>[(<parameter>=<expression>, ...)] [to <object>]"

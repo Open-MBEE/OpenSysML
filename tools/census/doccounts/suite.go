@@ -18,7 +18,7 @@ import (
 
 // The directories the suite figures are counted from, relative to the root.
 const (
-	runtimeDir            = "internal/core/runtime"
+	runtimeDir            = "internal/exec/runtime"
 	runtimeConformanceDir = runtimeDir + "/testdata/conformance"
 	parserDir             = "internal/syntax/parser"
 	parserSuiteDir        = "tests/parser"

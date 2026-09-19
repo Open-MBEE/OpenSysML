@@ -6,7 +6,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 )
 
 // progressPrinter writes the progress an external engine reports while a plan runs, one

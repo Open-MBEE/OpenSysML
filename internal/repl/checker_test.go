@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // checkTankSource is a fork race on a performer's attribute, with a property
@@ -236,7 +236,7 @@ func TestReplayStepsTheRunAWitnessRecords(t *testing.T) {
 // A witness explore writes for a step the clock retries replays under %replay: the
 // step waits on the clock with the move kept, and %continue takes it at the retry.
 func TestReplayStepsAnOrderDrawnAfterTheClockRetriesAStep(t *testing.T) {
-	model, err := os.ReadFile(filepath.Join("..", "core", "runtime", "testdata", "conformance",
+	model, err := os.ReadFile(filepath.Join("..", "exec", "runtime", "testdata", "conformance",
 		"action_explore_performed_and_accept_due_together.sysml"))
 	if err != nil {
 		t.Fatal(err)

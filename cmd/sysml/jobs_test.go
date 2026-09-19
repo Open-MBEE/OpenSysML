@@ -72,8 +72,8 @@ func TestJobsFlagAndEnvironment(t *testing.T) {
 
 // The determinism fixtures beside the runtime's exploration tests.
 const (
-	laterPrefixViolatesFaster = "../../internal/core/runtime/testdata/later_prefix_violates_faster.sysml"
-	slowFirstWriter           = "../../internal/core/runtime/testdata/conformance/action_explore_slow_first_writer.sysml"
+	laterPrefixViolatesFaster = "../../internal/exec/runtime/testdata/later_prefix_violates_faster.sysml"
+	slowFirstWriter           = "../../internal/exec/runtime/testdata/conformance/action_explore_slow_first_writer.sysml"
 )
 
 // runFigures matches what a -json document says of the run and not of the answer: the

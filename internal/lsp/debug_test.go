@@ -19,7 +19,7 @@ import (
 	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // debugMachine is a parallel state machine: one region moves on a guarded
