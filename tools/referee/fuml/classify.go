@@ -84,6 +84,9 @@ const (
 	ConstructPerTokenRefiring Construct = "per-token action re-firing"
 )
 
+// noOperationCalls is the reason shared by the three operation-call constructs.
+const noOperationCalls = "SysML v2 actions have no operation-call semantics"
+
 // constructs gives each deciding construct its class and the one-line reason a
 // report spells beside the places it was used.
 var constructs = map[Construct]struct {
@@ -91,9 +94,9 @@ var constructs = map[Construct]struct {
 	why   string
 }{
 	ConstructExceptionModel:   {NotExpressible, "the exception-test model exists to raise and handle exceptions, which SysML v2 actions cannot spell"},
-	ConstructCallOperation:    {NotExpressible, "SysML v2 actions have no operation-call semantics"},
-	ConstructAcceptCall:       {NotExpressible, "SysML v2 actions have no operation-call semantics"},
-	ConstructReply:            {NotExpressible, "SysML v2 actions have no operation-call semantics"},
+	ConstructCallOperation:    {NotExpressible, noOperationCalls},
+	ConstructAcceptCall:       {NotExpressible, noOperationCalls},
+	ConstructReply:            {NotExpressible, noOperationCalls},
 	ConstructReadExtent:       {NotExpressible, "SysML v2 has no classifier extent"},
 	ConstructReadIsClassified: {NotExpressible, "SysML v2 actions cannot test an object's classifiers"},
 	ConstructTestIdentity:     {NotExpressible, "SysML v2 actions cannot compare object identity"},

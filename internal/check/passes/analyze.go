@@ -7,8 +7,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/diagram"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/document"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -126,12 +124,11 @@ func AnalyzeWithOptions(name string, kind source.Kind, root *ast.RootNamespace,
 // analyses: what the run memoizes is owned by the document (see
 // Resolver.InDocument), to be dropped when it or what it read changes.
 func AnalyzeShared(name string, kind source.Kind, root *ast.RootNamespace,
-	parseDiags []diag.Diagnostic, opts Options, resolver *resolve.Resolver, model *semantics.Model,
-	gathers *Gathers) []diag.Diagnostic {
-	ctx := NewContextWithOptions(name, kind, resolver.Index(), parseDiags, opts)
-	ctx.Share(resolver, model, gathers)
+	parseDiags []diag.Diagnostic, opts Options, shared Shared) []diag.Diagnostic {
+	ctx := NewContextWithOptions(name, kind, shared.Resolver.Index(), parseDiags, opts)
+	shared.Share(ctx)
 	var diags []diag.Diagnostic
-	resolver.InDocument(name, func() { diags = analyze(ctx, root) })
+	shared.Resolver.InDocument(name, func() { diags = analyze(ctx, root) })
 	return diags
 }
 

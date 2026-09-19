@@ -135,7 +135,7 @@ func TestApplyEditsRefusesAModelOfSeveralUnlessDocumentsAreAccepted(t *testing.T
 	}
 
 	resp := mustApplied(t, srv, hash, renameOp("P::Keep", "Kept"))
-	if got := strings.Join(documentNames(resp), ","); got != "p.sysml,q.sysml" {
+	if strings.Join(documentNames(resp), ",") != "p.sysml,q.sysml" {
 		t.Errorf("accepting documents: documents = %v, want p.sysml and q.sysml", documentNames(resp))
 	}
 }
@@ -225,7 +225,7 @@ func TestApplyEditsRenameCrossesDocuments(t *testing.T) {
 	if resp.Content != "" {
 		t.Errorf("content = %q, want empty for a model of several documents", resp.Content)
 	}
-	if got := strings.Join(documentNames(resp), ","); got != "p.sysml,q.sysml,r.sysml" {
+	if strings.Join(documentNames(resp), ",") != "p.sysml,q.sysml,r.sysml" {
 		t.Errorf("documents = %v, want p.sysml first, then q.sysml and r.sysml", documentNames(resp))
 	}
 	if got, want := documentContent(t, resp, "p.sysml"), strings.Replace(editDocP, "part def Keep;", "part def Kept;", 1); got != want {
@@ -276,7 +276,7 @@ func TestApplyEditsCascadeDeleteCrossesDocuments(t *testing.T) {
 	hash := mustParsedSources(t, srv, "p.sysml", editDocP, "q.sysml", editDocQ, "r.sysml", editDocR)
 
 	resp := mustApplied(t, srv, hash, deleteOp("P::Base", true))
-	if got := strings.Join(documentNames(resp), ","); got != "p.sysml,q.sysml,r.sysml" {
+	if strings.Join(documentNames(resp), ",") != "p.sysml,q.sysml,r.sysml" {
 		t.Fatalf("documents = %v, want all three", documentNames(resp))
 	}
 	if got, want := documentContent(t, resp, "p.sysml"), "package P {\n    part def Keep;\n}\n"; got != want {
@@ -309,7 +309,7 @@ func TestApplyEditsRefusalNamesReferrersInOtherDocuments(t *testing.T) {
 		t.Errorf("a refusal returned notation: content=%q documents=%v applied=%v",
 			resp.Content, documentNames(resp), resp.Applied)
 	}
-	if got := strings.Join(resp.ReferringElements, ","); got != "P::own,Q::b (q.sysml)" {
+	if strings.Join(resp.ReferringElements, ",") != "P::own,Q::b (q.sysml)" {
 		t.Errorf("referring_elements = %v, want P::own and Q::b (q.sysml)", resp.ReferringElements)
 	}
 	want := []*pb.Referrer{{Name: "P::own", Document: "p.sysml"}, {Name: "Q::b", Document: "q.sysml"}}
@@ -338,7 +338,7 @@ func TestApplyEditsRefusalOrdersReferrersByDocument(t *testing.T) {
 	if resp.Failure != pb.EditFailure_EDIT_FAILURE_DELETE_REFERENCED {
 		t.Fatalf("failure = %s (%s), want DELETE_REFERENCED", resp.Failure, resp.Error)
 	}
-	if got := strings.Join(resp.ReferringElements, ","); got != "Q::b (a.sysml),P::own" {
+	if strings.Join(resp.ReferringElements, ",") != "Q::b (a.sysml),P::own" {
 		t.Errorf("referring_elements = %v, want Q::b (a.sysml) then P::own", resp.ReferringElements)
 	}
 	want := []*pb.Referrer{{Name: "Q::b", Document: "a.sysml"}, {Name: "P::own", Document: "z.sysml"}}
@@ -425,7 +425,7 @@ func TestApplyEditsRefusesARenameAnotherDocumentWouldCapture(t *testing.T) {
 	if !strings.Contains(resp.Error, "Fresh") {
 		t.Errorf("error %q does not name the conflict", resp.Error)
 	}
-	if got := strings.Join(resp.ReferringElements, ","); got != "Q (q.sysml)" {
+	if strings.Join(resp.ReferringElements, ",") != "Q (q.sysml)" {
 		t.Errorf("referring_elements = %v, want Q (q.sysml)", resp.ReferringElements)
 	}
 	if len(resp.Referrers) != 1 || resp.Referrers[0].Name != "Q" || resp.Referrers[0].Document != "q.sysml" {
@@ -453,7 +453,7 @@ func TestApplyEditsNamesTheReferrerAMoveCannotRespell(t *testing.T) {
 	if resp.Failure != pb.EditFailure_EDIT_FAILURE_MOVE_REFERENCED {
 		t.Fatalf("failure = %s (%s), want MOVE_REFERENCED", resp.Failure, resp.Error)
 	}
-	if got := strings.Join(resp.ReferringElements, ","); got != "P::c" {
+	if strings.Join(resp.ReferringElements, ",") != "P::c" {
 		t.Errorf("referring_elements = %v, want P::c", resp.ReferringElements)
 	}
 	if len(resp.Referrers) != 1 || resp.Referrers[0].Name != "P::c" || resp.Referrers[0].Document != "move.sysml" {
@@ -548,7 +548,7 @@ func TestApplyEditsRenamesAWildcardImportedPackage(t *testing.T) {
 	)
 
 	resp := mustApplied(t, srv, hash, renameOp("P", "Fresh"))
-	if got := strings.Join(documentNames(resp), ","); got != "p.sysml,m.sysml,q.sysml" {
+	if strings.Join(documentNames(resp), ",") != "p.sysml,m.sysml,q.sysml" {
 		t.Fatalf("documents = %v, want p.sysml first, then m.sysml and q.sysml", documentNames(resp))
 	}
 	if got, want := documentContent(t, resp, "m.sysml"), "package M {\n    public import Fresh::**;\n}\n"; got != want {

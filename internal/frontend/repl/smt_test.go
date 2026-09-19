@@ -290,10 +290,13 @@ package Debug {
 // Under %engine smt the feature %check-diverge names is decided by the two-copy
 // query: sensitive with a witness for each value, either of which %replay steps to
 // the value it records; a feature the schedules agree on is proved not sensitive.
+// The race completes in six moves, so the moves bound is six: the two-copy query
+// then admits one pair of schedules, parting at the fork, and the proof needs no more.
 func TestEngineSMTDecidesSensitivity(t *testing.T) {
 	s := symbolicSession(t, raceSource)
 	dir := t.TempDir()
 	run(t, s, "%engine smt")
+	run(t, s, "%check-bounds depth=6")
 	run(t, s, "%check-witness "+dir)
 	wants(t, run(t, s, "%check-diverge x"), "check-diverge: x")
 	fileA, fileB := filepath.Join(dir, "Debug.race-x-A.witness"), filepath.Join(dir, "Debug.race-x-B.witness")

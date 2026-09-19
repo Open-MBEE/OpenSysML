@@ -171,6 +171,13 @@ func (q *EventQueue) Push(e Event) {
 	heap.Push(&q.events, e)
 }
 
+// With is a copy of the queue with the event pushed; the queue itself is untouched.
+func (q *EventQueue) With(e Event) *EventQueue {
+	copied := &EventQueue{events: slices.Clone(q.events)}
+	copied.Push(e)
+	return copied
+}
+
 // Pop removes and returns the earliest event.
 func (q *EventQueue) Pop() Event {
 	if len(q.events) == 0 {

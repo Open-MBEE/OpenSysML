@@ -165,7 +165,7 @@ package OpenSysMLExecution {
     // run records a choice point, which a replay or an exploration takes differently.
     part def Scheduler :> CodeUnit {
         attribute :>> goPackage = "internal/exec/runtime";
-        attribute choiceKindCount : Integer = 9;
+        attribute choiceKindCount : Integer = 10;
         attribute defaultPolicy : String = "reverse";
         attribute policySpellings : String = "declared, reverse, seed:<n>, explore[:runs=<n>,depth=<d>], replay:<file>";
         attribute recordsChoicePoints : Boolean = true;

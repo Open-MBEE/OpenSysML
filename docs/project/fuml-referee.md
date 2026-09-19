@@ -80,7 +80,7 @@ byte-stable across runs on one pin: the only nondeterministic content the implem
 emits — object identifiers, which are Java hash codes — is aliased per activity in order of
 first appearance (`obj1`, `obj2`, …).
 
-**The driver** (`scripts/fuml-driver/FumlExpected.java`) uses the implementation as a library:
+**The driver** (`scripts/fuml-driver/io/opensysml/fuml/FumlExpected.java`) uses the implementation as a library:
 it loads each model with `Fuml.load`, enumerates the `uml:Activity` elements the model file
 declares, and for each one packaged directly in the model (the ones the JUnit suite runs)
 selects it with `Environment.findElementById` and executes it with

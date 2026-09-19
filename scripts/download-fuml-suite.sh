@@ -27,7 +27,8 @@ esac
 
 # verify FILE SHA256 succeeds iff the file is present with the pinned digest.
 verify() {
-	[[ -f "$1" ]] && echo "$2  $1" | sha256sum -c --quiet - >/dev/null 2>&1
+	local file=$1 sha256=$2
+	[[ -f "$file" ]] && echo "$sha256  $file" | sha256sum -c --quiet - >/dev/null 2>&1
 }
 
 # present succeeds iff every pinned artefact is installed with its digest.

@@ -6,8 +6,8 @@
     "url": "https://www.omg.org/spec/PSSM/20181101/PSSM_TestSuite.xmi",
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
-    "recorded": "2026-09-18",
-    "develop": "23a50b1d1b5d6c7e8936b09311218f30d378b981"
+    "recorded": "2026-09-19",
+    "develop": "e823e6b827ed391762c462bcb3d8b7ed461b299e"
   },
   "buckets": {
     "differs-by-design": 1,
@@ -46,18 +46,16 @@
       "name": "Behavior 003 A",
       "area": "Behavior",
       "class": "standard",
-      "bucket": "fail",
-      "reasons": [
-        "admitted trace not reached: S1(entry)"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1(entry)",
         "S1(entry)::S1(doActivityPartI)"
       ],
       "reached": [
+        "S1(entry)",
         "S1(entry)::S1(doActivityPartI)"
       ],
-      "runs": 1
+      "runs": 2
     },
     {
       "name": "Behavior 003 B",
@@ -207,8 +205,6 @@
       "bucket": "fail",
       "reasons": [
         "admitted trace not reached: T2(effect)::S1(entry)::S3.1(doActivity)::T3.1.2(effect)::T2.2(effect)::T3.2(effect)",
-        "admitted trace not reached: T2(effect)::S1(entry)::T2.2(effect)::S3.1(doActivity)::T3.1.2(effect)::T3.2(effect)",
-        "admitted trace not reached: T2(effect)::S1(entry)::T2.2(effect)::T3.1.2(effect)::S3.1(doActivity)::T3.2(effect)",
         "admitted trace not reached: T2(effect)::S1(entry)::T2.2(effect)::T3.2(effect)::S3.1(doActivity)::T3.1.2(effect)",
         "admitted trace not reached: T2(effect)::S1(entry)::T2.2(effect)::T3.2(effect)::T3.1.2(effect)::S3.1(doActivity)",
         "admitted trace not reached: T2(effect)::S1(entry)::T3.1.2(effect)::S3.1(doActivity)::T2.2(effect)::T3.2(effect)",
@@ -225,9 +221,11 @@
         "T2(effect)::S1(entry)::T3.1.2(effect)::T2.2(effect)::S3.1(doActivity)::T3.2(effect)"
       ],
       "reached": [
-        "T2(effect)::S1(entry)::S3.1(doActivity)::T2.2(effect)::T3.1.2(effect)::T3.2(effect)"
+        "T2(effect)::S1(entry)::S3.1(doActivity)::T2.2(effect)::T3.1.2(effect)::T3.2(effect)",
+        "T2(effect)::S1(entry)::T2.2(effect)::S3.1(doActivity)::T3.1.2(effect)::T3.2(effect)",
+        "T2(effect)::S1(entry)::T2.2(effect)::T3.1.2(effect)::S3.1(doActivity)::T3.2(effect)"
       ],
-      "runs": 4
+      "runs": 12
     },
     {
       "name": "Transition 019",
@@ -668,14 +666,18 @@
       "name": "Exiting 002",
       "area": "Exiting",
       "class": "standard",
-      "bucket": "pass",
+      "bucket": "fail",
+      "reasons": [
+        "reached a trace the suite does not admit: S1(exit)"
+      ],
       "expected": [
         "S1(doActivityPartI)::S1(exit)"
       ],
       "reached": [
-        "S1(doActivityPartI)::S1(exit)"
+        "S1(doActivityPartI)::S1(exit)",
+        "S1(exit)"
       ],
-      "runs": 1
+      "runs": 2
     },
     {
       "name": "Exiting 003",
@@ -998,9 +1000,7 @@
       "class": "standard",
       "bucket": "fail",
       "reasons": [
-        "admitted trace not reached: S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)",
-        "admitted trace not reached: S1(entry)::S1.1(entry)::S2.1(entry)",
-        "admitted trace not reached: S1(entry)::S2.1(entry)::S1.1(entry)"
+        "admitted trace not reached: S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)"
       ],
       "expected": [
         "S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)",
@@ -1010,10 +1010,12 @@
         "S1(entry)::S2.1(entry)::S1.1(entry)::S1.1(doActivityPartI)"
       ],
       "reached": [
+        "S1(entry)::S1.1(entry)::S2.1(entry)",
         "S1(entry)::S1.1(entry)::S2.1(entry)::S1.1(doActivityPartI)",
+        "S1(entry)::S2.1(entry)::S1.1(entry)",
         "S1(entry)::S2.1(entry)::S1.1(entry)::S1.1(doActivityPartI)"
       ],
-      "runs": 2
+      "runs": 4
     },
     {
       "name": "Terminate 003",
@@ -1177,7 +1179,7 @@
         "S1.1(doActivity)::S1.2(doActivity)",
         "S1.2(doActivity)::S1.1(doActivity)"
       ],
-      "runs": 8
+      "runs": 24
     },
     {
       "name": "Deferred 007",

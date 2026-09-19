@@ -18,6 +18,9 @@ import (
 // snapshotPath is the committed snapshot, relative to the repository root.
 const snapshotPath = "internal/workspace/libs/stdlib.snapshot"
 
+// logPrefix opens every diagnostic the tool writes.
+const logPrefix = "snapshot:"
+
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
@@ -36,7 +39,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if repo.NeedsRoot(*out) {
 		root, err := repo.Root()
 		if err != nil {
-			fmt.Fprintln(stderr, "snapshot:", err)
+			fmt.Fprintln(stderr, logPrefix, err)
 			return 1
 		}
 		*out = repo.Resolve(root, *out)
@@ -47,19 +50,19 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	data, err := libs.BuildSnapshot(libs.BundledSource())
 	if err != nil {
-		fmt.Fprintln(stderr, "snapshot:", err)
+		fmt.Fprintln(stderr, logPrefix, err)
 		return 1
 	}
 	if *check {
 		have, err := os.ReadFile(*out)
 		if err != nil || !bytes.Equal(have, data) {
-			fmt.Fprintf(stderr, "snapshot: %s is stale; run `go generate ./internal/workspace/libs`\n", *out)
+			fmt.Fprintf(stderr, logPrefix+" %s is stale; run `go generate ./internal/workspace/libs`\n", *out)
 			return 1
 		}
 		return 0
 	}
 	if err := os.WriteFile(*out, data, 0o600); err != nil {
-		fmt.Fprintln(stderr, "snapshot:", err)
+		fmt.Fprintln(stderr, logPrefix, err)
 		return 1
 	}
 	fmt.Fprintf(stdout, "wrote %s (%d bytes)\n", *out, len(data))

@@ -42,7 +42,11 @@ func DevelopCommit(dir, given string) (string, error) {
 	if given != "" {
 		return given, nil
 	}
-	out, err := exec.Command("git", "-C", dir, "merge-base", "HEAD", "origin/develop").Output()
+	git, err := exec.LookPath("git")
+	if err != nil {
+		return "", fmt.Errorf("git not found on PATH: %w; pass -develop", err)
+	}
+	out, err := exec.Command(git, "-C", dir, "merge-base", "HEAD", "origin/develop").Output() // #nosec G204 -- git is resolved once by LookPath above
 	if err != nil {
 		return "", fmt.Errorf("git merge-base HEAD origin/develop: %w; pass -develop", err)
 	}

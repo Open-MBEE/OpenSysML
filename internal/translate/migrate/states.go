@@ -7,6 +7,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
+// stateKw opens a state usage; isA and outsideRegion are the note fragments the
+// unmappable-vertex diagnostics share.
+const (
+	stateKw       = "state "
+	isA           = " is a "
+	outsideRegion = " outside the region, or one with no v2 form"
+)
+
 // stateMachineBody writes a state machine's regions as the body of its state def.
 func (m *migration) stateMachineBody(sm *sysmlv1.Element) {
 	m.parameters(sm, sm)
@@ -19,7 +27,9 @@ func (m *migration) stateMachineBody(sm *sysmlv1.Element) {
 	for _, cp := range sm.Owned("connectionPoint") {
 		m.connectionPoint(cp)
 	}
-	m.regions(sm, sm.Owned("region"), inheritedStateNamesSet(), false, func() {})
+	m.regions(sm, sm.Owned("region"), inheritedStateNamesSet(), false, func() {
+		// No members come between the entry action and the regions.
+	})
 }
 
 // regions writes the regions of a state machine or composite state: one inline,
@@ -40,7 +50,7 @@ func (m *migration) regions(owner *sysmlv1.Element, regions []*sysmlv1.Element, 
 		name := freshIn(used, "regions")
 		m.w.line(entryThen(entered, writeName(name)))
 		between()
-		m.w.block("state "+writeName(name)+" parallel", func() {
+		m.w.block(stateKw+writeName(name)+" parallel", func() {
 			inner := inheritedStateNamesSet()
 			for _, r := range regions {
 				rname := m.nameOf(r)
@@ -50,7 +60,7 @@ func (m *migration) regions(owner *sysmlv1.Element, regions []*sysmlv1.Element, 
 				rname = freshIn(inner, rname)
 				m.names[r] = rname
 				m.parallel[r] = name
-				m.w.block("state "+writeName(rname), func() {
+				m.w.block(stateKw+writeName(rname), func() {
 					st := &stateRegion{m: m, r: r, used: inheritedStateNamesSet(), names: map[*sysmlv1.Element]string{}}
 					st.enter(false)
 					st.write()
@@ -188,7 +198,7 @@ func (s *stateRegion) initial(vertices, transitions []*sysmlv1.Element, entered 
 		if tgt == nil {
 			s.m.unmapped(t, joinNotes(s.m.dangling(t, "target"), "the transition lacks a target"))
 		} else {
-			s.m.unmapped(t, "the target "+describe(tgt)+" is a "+kindOf(tgt)+" outside the region, or one with no v2 form")
+			s.m.unmapped(t, "the target "+describe(tgt)+isA+kindOf(tgt)+outsideRegion)
 		}
 		return
 	}
@@ -232,7 +242,7 @@ func (s *stateRegion) vertex(v *sysmlv1.Element) {
 		case "initial":
 		case "choice", "junction":
 			name := writeName(s.name(v))
-			s.m.w.line("state " + name + ";")
+			s.m.w.line(stateKw + name + ";")
 			s.m.add(v, Approximated, name, "a "+pseudoKind(v)+" pseudostate is written as a state its guarded transitions leave at once")
 		case "terminate":
 			s.m.add(v, Approximated, "done", "a terminate pseudostate ends the machine; a transition to it is written to done, which ends its region")
@@ -263,7 +273,7 @@ func (m *migration) connectionPoint(v *sysmlv1.Element) {
 func (s *stateRegion) state(v *sysmlv1.Element) {
 	name := writeName(s.name(v))
 	defers := s.deferrals(v)
-	head := "state " + name
+	head := stateKw + name
 	if sub := s.m.model.Ref(v, "submachine"); sub != nil {
 		for _, c := range v.Owned("connection") {
 			s.m.unmapped(c, "a connection point reference has no v2 form; transitions through it are written to and from the submachine state")
@@ -422,7 +432,7 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 		}
 		return true
 	}
-	m.w.lines(commentLines(kw + " " + describe(b) + " is a " + b.Type + ", which has no action form"))
+	m.w.lines(commentLines(kw + " " + describe(b) + isA + b.Type + ", which has no action form"))
 	m.add(b, Unmapped, "", "a "+b.Type+" has no action form")
 	return false
 }
@@ -502,12 +512,12 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 	}
 	from, ok := s.source(t, src)
 	if !ok {
-		s.m.unmapped(t, "the source "+describe(src)+" is a "+kindOf(src)+" outside the region, or one with no v2 form")
+		s.m.unmapped(t, "the source "+describe(src)+isA+kindOf(src)+outsideRegion)
 		return
 	}
 	to, ok := s.target(t, tgt)
 	if !ok {
-		s.m.unmapped(t, "the target "+describe(tgt)+" is a "+kindOf(tgt)+" outside the region, or one with no v2 form")
+		s.m.unmapped(t, "the target "+describe(tgt)+isA+kindOf(tgt)+outsideRegion)
 		return
 	}
 	if t.Attrs["kind"] == "internal" {
@@ -523,25 +533,11 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 	}
 	triggers := t.Owned("trigger")
 	for _, tr := range triggers {
-		ev := s.m.model.Ref(tr, "event")
-		if ev == nil {
-			note := joinNotes(s.m.dangling(tr, "event"), "the trigger names no event")
-			s.m.add(tr, Unmapped, "", note)
-			notes = append(notes, "a trigger is dropped: "+note)
-			continue
-		}
-		var a acceptance
-		if eff != nil {
-			a = s.payload(t, eff, ev)
-		}
-		clause, note, ok := s.m.triggerClause(ev, t, a.payload)
+		a, note, ok := s.triggerAccept(t, tr, eff)
 		if !ok {
-			s.m.add(tr, Unmapped, "", note)
-			notes = append(notes, "a trigger is dropped: "+note)
+			notes = append(notes, note)
 			continue
 		}
-		s.m.add(tr, verdictFor(note), "", note)
-		a.clause = " " + clause
 		accepts = append(accepts, a)
 	}
 	if len(triggers) > 0 && len(accepts) == 0 {
@@ -572,23 +568,50 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 		}
 		line += "first " + from + accept.clause + guard
 		if eff != nil {
-			if i > 0 {
-				s.m.downgrade(eff, "run by each of the transitions written for its triggers")
-			}
-			s.m.w.line(line)
-			s.m.w.indented(func() {
-				saved := s.m.bound
-				s.m.bound = accept.bound
-				s.m.inlineBehavior("do action", eff, t)
-				s.m.bound = saved
-				s.m.w.line("then " + to + ";")
-			})
+			s.writeTransitionEffect(t, eff, accept, line, to, i)
 			continue
 		}
 		s.m.w.line(line + " then " + to + ";")
 	}
 	note := strings.Join(notes, "; ")
 	s.m.add(t, verdictFor(note), tname, note)
+}
+
+// triggerAccept resolves one trigger into the acceptance written for it; ok is
+// false when the trigger is dropped, note saying why.
+func (s *stateRegion) triggerAccept(t, tr, eff *sysmlv1.Element) (a acceptance, note string, ok bool) {
+	ev := s.m.model.Ref(tr, "event")
+	if ev == nil {
+		note := joinNotes(s.m.dangling(tr, "event"), "the trigger names no event")
+		s.m.add(tr, Unmapped, "", note)
+		return a, "a trigger is dropped: " + note, false
+	}
+	if eff != nil {
+		a = s.payload(t, eff, ev)
+	}
+	clause, tnote, tok := s.m.triggerClause(ev, t, a.payload)
+	if !tok {
+		s.m.add(tr, Unmapped, "", tnote)
+		return a, "a trigger is dropped: " + tnote, false
+	}
+	s.m.add(tr, verdictFor(tnote), "", tnote)
+	a.clause = " " + clause
+	return a, "", true
+}
+
+// writeTransitionEffect writes a transition's effect as its do action, then its target.
+func (s *stateRegion) writeTransitionEffect(t, eff *sysmlv1.Element, accept acceptance, line, to string, i int) {
+	if i > 0 {
+		s.m.downgrade(eff, "run by each of the transitions written for its triggers")
+	}
+	s.m.w.line(line)
+	s.m.w.indented(func() {
+		saved := s.m.bound
+		s.m.bound = accept.bound
+		s.m.inlineBehavior("do action", eff, t)
+		s.m.bound = saved
+		s.m.w.line("then " + to + ";")
+	})
 }
 
 // acceptance is one written trigger: its accept clause, the name the clause
