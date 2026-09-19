@@ -451,7 +451,8 @@ def test_a_state_row_decodes_to_the_object_and_its_state(fake_service):
     assert row.state == expected
     assert row.object == lamp
     assert row.element == lamp.element
-    assert row.verdict is None and row.event is None
+    assert row.verdict is None
+    assert row.event is None
     assert row[0] == (expected,)
     assert str(row.state) == "Lamps::lamp.lp in on.run"
 
@@ -505,12 +506,15 @@ def test_an_event_row_decodes_to_the_trace_record(fake_service):
         kind="accept", time=when, text="accept Toggle", object=lamp, machine="lp",
         event="Toggle", payload=("level = 2",),
     )
-    assert rows[0].object == lamp and rows[0].element == lamp.element
-    assert rows[0].state is None and rows[0].verdict is None
+    assert rows[0].object == lamp
+    assert rows[0].element == lamp.element
+    assert rows[0].state is None
+    assert rows[0].verdict is None
     assert rows[0][0] == (rows[0].event,)
     assert rows[1].event.target == other
     assert (rows[2].event.from_state, rows[2].event.to_state) == ("off", "on")
-    assert rows[3].event.object is None and rows[3].object is None
+    assert rows[3].event.object is None
+    assert rows[3].object is None
     assert rows[3].element == ElementRef("")
     assert (rows[3].event.alternatives, rows[3].event.taken) == (("light", "fan"), "fan")
     assert str(rows[0].event) == "1.5 [s]: accept Toggle"
@@ -631,10 +635,12 @@ class TestDocumentsAgainstRealService:
         assert (state[0], state[1], state[2]) == (("lp",), ("off",), ("",))
         assert [str(row.object) for row in off] == ["Lamps::lamp"]
         (entered,) = steps
-        assert entered.event.kind == "entry" and entered.event.state == "off"
+        assert entered.event.kind == "entry"
+        assert entered.event.state == "off"
         assert entered.event.object == state.state.object
         assert entered.event.time == Quantity(0.0, Unit(text="s", factors=(UnitFactor("SI::second", 1),)))
-        assert entered[0] == (entered.event.time,) and entered[1] == ("off",)
+        assert entered[0] == (entered.event.time,)
+        assert entered[1] == ("off",)
 
     def test_a_verdicts_query_checks_the_element_as_declared(self, real_service, garage):
         with Connection(port=real_service, auto_start=False) as conn:

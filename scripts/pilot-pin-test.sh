@@ -18,8 +18,9 @@ mkdir -p "$release/sysml.library.xmi/Domain" "$release/empty.subtree" "$release/
 
 # stub_xmi writes a minimal XMI document at each path given.
 stub_xmi() {
+	local paths=("$@")
 	local path
-	for path in "$@"; do
+	for path in "${paths[@]}"; do
 		echo '<xmi/>' >"$path"
 	done
 }
@@ -41,6 +42,7 @@ output=
 fetch() {
 	local expected_commit=$1
 	shift
+	local subtrees=("$@")
 	status=0
 	output=$(
 		PILOT_TAG=test-tag PILOT_RELEASE_REPO="file://$release" PILOT_RELEASE_COMMIT="$expected_commit" \
@@ -49,7 +51,7 @@ fetch() {
 				pilot_from_release
 				PILOT_FETCH_GLOBS=("*.sysmlx" "*.kermlx")
 				pilot_fetch_subtrees "$@"
-			' bash "$pin_script" "$@" 2>&1
+			' bash "$pin_script" "${subtrees[@]}" 2>&1
 	) || status=$?
 }
 

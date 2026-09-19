@@ -167,7 +167,7 @@ class DocumentEvent:
     """
 
     kind: str
-    time: Union[Quantity, int, float]
+    time: Quantity | int | float
     text: str
     object: Optional[ObjectRef] = None
     machine: str = ""
