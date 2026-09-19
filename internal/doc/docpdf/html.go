@@ -244,7 +244,8 @@ table { border-collapse: collapse; margin: 0.8em 0; width: 100%; }
 tr { break-inside: avoid; }
 th, td { border: 0.5pt solid #666666; padding: 0.3em 0.6em; text-align: left; overflow-wrap: anywhere; }
 th { overflow-wrap: normal; }
-HEADING, CAPTION, p:has(+ table) { break-after: avoid; }
+HEADING, CAPTION { break-after: avoid; }
+p:has(+ table) { break-after: avoid; }
 @page wide { size: landscape; }
 body { page: main; }
 WIDE { page: wide; font-size: 9pt; }

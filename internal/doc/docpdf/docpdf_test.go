@@ -397,6 +397,7 @@ func TestStyleSheetSetsWideTablesLandscape(t *testing.T) {
 		":is(p.caption, p:has(.caption)):has(+ p:has(+ " + wide + ")),",
 		":is(h1, h2, h3, h4, h5, h6):has(+ :is(p.caption, p:has(.caption)):has(+ p:has(+ " + wide + "))) { page: wide; }",
 		"th { overflow-wrap: normal; }",
+		":is(h1, h2, h3, h4, h5, h6), :is(p.caption, p:has(.caption)) { break-after: avoid; }\np:has(+ table) { break-after: avoid; }",
 	} {
 		if !strings.Contains(styleSheet, want) {
 			t.Fatalf("stylesheet lacks %q", want)
