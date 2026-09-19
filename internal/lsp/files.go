@@ -10,7 +10,7 @@ import (
 
 	"go.lsp.dev/protocol"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 //lint:file-ignore SA1019 rootUri/rootPath are deprecated, but see legacyRoot.

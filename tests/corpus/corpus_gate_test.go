@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 // One mechanism for the four pinned OMG model roots, two policies: training is

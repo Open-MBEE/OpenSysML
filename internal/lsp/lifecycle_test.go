@@ -11,7 +11,7 @@ import (
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 func TestInitializeAdvertisesCapabilities(t *testing.T) {

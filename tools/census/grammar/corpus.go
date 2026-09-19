@@ -20,7 +20,7 @@ type corpusRoot struct {
 // evidenceRoots are the inputs our test suite already parses. Roots are searched
 // in this order, so the citation a production gets is stable.
 var evidenceRoots = []corpusRoot{
-	{Name: "stdlib", Dir: "internal/core/libs/stdlib"},
+	{Name: "stdlib", Dir: "internal/workspace/libs/stdlib"},
 	{Name: "training", Dir: "examples/sysml-v2-training"},
 	{Name: "pilot-sysml-examples", Dir: "examples/pilot-corpora/sysml-examples"},
 	{Name: "pilot-sysml-validation", Dir: "examples/pilot-corpora/sysml-validation"},

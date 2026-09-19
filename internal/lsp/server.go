@@ -12,7 +12,7 @@ import (
 	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 // Server is the SysML v2 language server. It wraps a single model.Workspace and

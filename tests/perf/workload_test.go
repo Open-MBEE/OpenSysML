@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // syntheticBlocks sizes the generated model: 1000 blocks is ~1.4 MiB of source.

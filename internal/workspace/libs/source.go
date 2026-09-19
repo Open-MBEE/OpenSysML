@@ -12,8 +12,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/envvar"
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs/errata"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/envvar"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs/errata"
 )
 
 //go:embed stdlib

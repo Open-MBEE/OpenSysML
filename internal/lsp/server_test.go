@@ -3,7 +3,7 @@ package lsp
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 func TestNewServerWrapsWorkspace(t *testing.T) {

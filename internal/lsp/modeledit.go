@@ -12,12 +12,12 @@ import (
 	"go.lsp.dev/protocol"
 
 	modeledit "github.com/Open-MBEE/OpenSysML/internal/check/edit"
-	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 // MethodApplyModelEdit turns diagram actions into a WorkspaceEdit the client

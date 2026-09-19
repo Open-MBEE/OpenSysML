@@ -27,7 +27,7 @@ func TestSymbolKindMappingIsPinnedToTheIndexFormatVersion(t *testing.T) {
 	if got != kindMappingDigest {
 		t.Fatalf("declaration-kind to SymbolKind mapping changed (digest %s, want %s).\n"+
 			"Persisted library index records carry these kinds: bump formatVersion in "+
-			"internal/core/libs/record.go so cached records are invalidated, then update "+
+			"internal/workspace/libs/record.go so cached records are invalidated, then update "+
 			"kindMappingDigest to the new value.", got, kindMappingDigest)
 	}
 }

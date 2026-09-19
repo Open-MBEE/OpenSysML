@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs/errata"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs/errata"
 )
 
 // TestBundledSourceIsThePublishedTextPlusTheDeclaredErrata pins what a process

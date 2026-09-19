@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
@@ -24,6 +23,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // The referee holds the encoding to the interpreter over every conformance action case with

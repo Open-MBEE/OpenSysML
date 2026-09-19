@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 // errPrefix opens the line a command writes when it fails.

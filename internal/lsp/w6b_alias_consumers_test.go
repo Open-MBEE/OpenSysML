@@ -8,7 +8,7 @@ import (
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 const w6bAliasSrc = "package ShapeItems {\n\tpart def Cube {\n\t\tattribute length;\n\t}\n" +

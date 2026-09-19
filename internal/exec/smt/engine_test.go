@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
@@ -21,6 +20,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // document is one indexed document the engine is asked about: its index and the

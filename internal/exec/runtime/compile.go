@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/envvar"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/envvar"
 )
 
 // CalcCompileEnvVar switches the compiled tier for pure calc bodies off when set
