@@ -1,10 +1,11 @@
-package passes
+package behavior
 
 import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -53,12 +54,12 @@ const (
 // every control node is owned by an action definition or usage.
 type ControlNodeSuccessionPass struct{}
 
-func (ControlNodeSuccessionPass) Level() PassLevel { return LevelConstraint }
+func (ControlNodeSuccessionPass) Level() kit.PassLevel { return kit.LevelConstraint }
 
 // ElementScoped: each control node is its own subject.
 func (ControlNodeSuccessionPass) ElementScoped() { /* marker: per-element gating */ }
 
-func (ControlNodeSuccessionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
+func (ControlNodeSuccessionPass) Run(ctx *kit.Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -72,21 +73,21 @@ func (ControlNodeSuccessionPass) Run(ctx *Context, name string, root *ast.RootNa
 }
 
 type controlNodeChecker struct {
-	ctx   *Context
+	ctx   *kit.Context
 	model *semantics.Model
 	diags []diag.Diagnostic
 }
 
 func (c *controlNodeChecker) walk(scope *symbols.Scope, owner ast.Node, members []ast.Node) {
 	for _, member := range members {
-		c.walkNode(scope, owner, unwrapMembership(member))
+		c.walkNode(scope, owner, kit.UnwrapMembership(member))
 	}
 }
 
 // walkNode checks the control nodes and successions of every body shape, with
 // owner the declaration whose body decl is a member of.
 func (c *controlNodeChecker) walkNode(scope *symbols.Scope, owner, decl ast.Node) {
-	child := bodyScope(scope, decl)
+	child := kit.BodyScope(scope, decl)
 	switch n := decl.(type) {
 	case *ast.Package:
 		c.walk(child, n, n.Members)
@@ -199,7 +200,7 @@ func (c *controlNodeChecker) checkAction(scope *symbols.Scope, decl ast.Node, bo
 		c.check(sym, c.model.ActionSuccessions(sym))
 		return
 	}
-	c.checkBlock(bodyScope(scope, decl), body)
+	c.checkBlock(kit.BodyScope(scope, decl), body)
 }
 
 // checkBlock checks the control nodes of a symbol-less action body: a loop or

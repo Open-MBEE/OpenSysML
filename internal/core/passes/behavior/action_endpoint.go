@@ -1,9 +1,10 @@
-package passes
+package behavior
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -17,13 +18,13 @@ const CodeEndpointNotANode = "endpoint-not-a-node"
 type ActionEndpointPass struct{}
 
 // Level reports that this pass consumes name-resolution results.
-func (ActionEndpointPass) Level() PassLevel { return LevelNameResolution }
+func (ActionEndpointPass) Level() kit.PassLevel { return kit.LevelNameResolution }
 
 // ElementScoped lets each endpoint subject gate independently on lower failures.
 func (ActionEndpointPass) ElementScoped() { /* marker: per-element gating */ }
 
 // Run checks named endpoints in every action body in the document.
-func (ActionEndpointPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
+func (ActionEndpointPass) Run(ctx *kit.Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -37,20 +38,20 @@ func (ActionEndpointPass) Run(ctx *Context, name string, root *ast.RootNamespace
 }
 
 type actionEndpointChecker struct {
-	ctx   *Context
+	ctx   *kit.Context
 	diags []diag.Diagnostic
 }
 
 // walk visits package, namespace, declaration, and behavioral body members.
 func (c *actionEndpointChecker) walk(scope *symbols.Scope, members []ast.Node) {
 	for _, member := range members {
-		c.walkNode(scope, unwrapMembership(member))
+		c.walkNode(scope, kit.UnwrapMembership(member))
 	}
 }
 
 // walkNode checks action declarations and descends through every body shape.
 func (c *actionEndpointChecker) walkNode(scope *symbols.Scope, decl ast.Node) {
-	child := bodyScope(scope, decl)
+	child := kit.BodyScope(scope, decl)
 	switch n := decl.(type) {
 	case *ast.Package:
 		c.walk(child, n.Members)
@@ -110,7 +111,7 @@ func (c *actionEndpointChecker) checkBody(decl ast.Node, scope *symbols.Scope) {
 		return
 	}
 	for _, member := range ast.DeclMembers(decl) {
-		n := unwrapMembership(member)
+		n := kit.UnwrapMembership(member)
 		switch v := n.(type) {
 		case *ast.InitialNode:
 			if v.Successor == nil {

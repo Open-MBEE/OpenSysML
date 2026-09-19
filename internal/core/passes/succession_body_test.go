@@ -3,6 +3,8 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/behavior"
 )
 
 // successionBodyForms are the two spellings of an action target succession
@@ -40,14 +42,14 @@ func TestActionEndpointInSuccessionBody(t *testing.T) {
 			src := "package P { " + strings.Replace(form, "%s",
 				`action def Inner { attribute flag = 0; action leaf; succession first leaf then flag; }`, 1) + " }"
 			ctx, root := nameresCtx(t, "a.sysml", src)
-			got := ActionEndpointPass{}.Run(ctx, "a.sysml", root)
-			if len(got) != 1 || got[0].Code != CodeEndpointNotANode {
+			got := behavior.ActionEndpointPass{}.Run(ctx, "a.sysml", root)
+			if len(got) != 1 || got[0].Code != behavior.CodeEndpointNotANode {
 				t.Fatalf("expected one nested action endpoint diagnostic, got %+v", got)
 			}
 			silent := "package P { " + strings.Replace(form, "%s",
 				`action def Inner { action leaf; action next; succession first leaf then next; }`, 1) + " }"
 			ctx, root = nameresCtx(t, "a.sysml", silent)
-			if got := (ActionEndpointPass{}).Run(ctx, "a.sysml", root); len(got) != 0 {
+			if got := (behavior.ActionEndpointPass{}).Run(ctx, "a.sysml", root); len(got) != 0 {
 				t.Fatalf("got %+v, want no diagnostics for node endpoints", got)
 			}
 		})

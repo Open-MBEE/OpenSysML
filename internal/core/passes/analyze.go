@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/behavior"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes/diagram"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes/document"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes/identity"
@@ -22,8 +23,8 @@ func DefaultRegistry() *Registry {
 	reg.Register(GrammarViolationPass{})
 	reg.Register(NonstandardNotationPass{})
 	reg.Register(NameResolutionPass{})
-	reg.Register(StateTransitionPass{})
-	reg.Register(ActionEndpointPass{})
+	reg.Register(behavior.StateTransitionPass{})
+	reg.Register(behavior.ActionEndpointPass{})
 	reg.Register(TypeCheckPass{})
 	reg.Register(TransitionGuardPass{})
 	reg.Register(TriggerArgumentPass{})
@@ -71,7 +72,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(W9CBoundFeatureTypesPass{})
 	reg.Register(W11AUsageTypingPass{})
 	reg.Register(W11AKerMLSpecializationPass{})
-	reg.Register(ControlNodeSuccessionPass{})
+	reg.Register(behavior.ControlNodeSuccessionPass{})
 	reg.Register(OOSEMMethodPass{})
 	reg.Register(MOSAPass{})
 	return reg

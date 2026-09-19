@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -142,8 +143,8 @@ func (cc *constraintChecker) checkAtMostOneMultiplicity(decl ast.Node, members [
 		mults = append(mults, decl)
 	}
 	for _, m := range members {
-		if _, ok := unwrapMembership(m).(*ast.MultiplicityDecl); ok {
-			mults = append(mults, unwrapMembership(m))
+		if _, ok := kit.UnwrapMembership(m).(*ast.MultiplicityDecl); ok {
+			mults = append(mults, kit.UnwrapMembership(m))
 		}
 	}
 	cc.reportExtraMembers(mults, msgOnlyOneMultiplicity, "only-one-multiplicity")
