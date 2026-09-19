@@ -250,7 +250,7 @@ reports each feature as `pass`, `refuse` (the backend said it does not support t
 `fail` (the backend rejected a script, which you should report as a bug):
 
 ```bash
-OPENSYSML_SMT=/path/to/mysolver go test ./internal/core/solve -run TestPortability -v
+OPENSYSML_SMT=/path/to/mysolver go test ./internal/exec/solve -run TestPortability -v
 ```
 
 ### Verifying the solver is found

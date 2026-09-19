@@ -329,7 +329,7 @@ checkout. It is informational: negotiate on capabilities.
 This is a Go repository: a Go program that imports this module already links
 the parser, the semantic engine and the runtime. `New` calls them directly —
 no port, no child process, no serialization round trip. It answers through the
-same service implementation (`internal/grpc.Service`) the wire transports
+same service implementation (`internal/frontend/grpc.Service`) the wire transports
 serve, so the semantics are the service's semantics: the same content-addressed
 parse cache and model hashes, the same capability list, the same in-band
 failures, the same runtime budgets (read from the environment, as the service

@@ -30,9 +30,9 @@ interval, quantified. Nothing is left *open*.
   (`git worktree add ../opensysml-v0.7.0 v0.7.0`), so `bin/sysml` of each is
   its own binary. The 0.7.0 binary is 42.3 MiB, the 0.8 binary 45.2 MiB.
 - Every package that declares a benchmark on both revisions —
-  `internal/repl`, `internal/core/model`, `internal/grpc`,
-  `internal/perfbench`, `internal/core/libs`, `internal/lsp`,
-  `internal/core/runtime`, `internal/core/migrate` and `internal/core/parser`
+  `internal/frontend/repl`, `internal/workspace/model`, `internal/frontend/grpc`,
+  `internal/perfbench`, `internal/workspace/libs`, `internal/frontend/lsp`,
+  `internal/exec/runtime`, `internal/translate/migrate` and `internal/syntax/parser`
   — run on both with `go test ./<pkg> -run '^$' -bench . -benchmem -count 6`
   and compared with `benchstat`. A movement is reported when `p ≤ 0.05` and
   the change exceeds about 5%; smaller significant movements are listed as
@@ -63,14 +63,14 @@ interval, quantified. Nothing is left *open*.
   the pilot model it loads with a dimension error (`cannot bind a value of
   dimension L^4·M^2·T^-5 to a feature typed by AccelerationValue`) that the
   0.8 line's unit arithmetic resolves. `ExpandModelImports` in
-  `internal/core/libs` exists only on `develop` and is recorded as a
-  reference figure. `internal/grpc`'s `InstantiateWarmModel` is added by this
+  `internal/workspace/libs` exists only on `develop` and is recorded as a
+  reference figure. `internal/frontend/grpc`'s `InstantiateWarmModel` is added by this
   change, to pin the request path finding 1 fixes; its benchmark file was
   copied into each worktree so all three columns have it.
-- `internal/lsp`'s `FormatEdits` formats a fixture that grew from 438 to 597
+- `internal/frontend/lsp`'s `FormatEdits` formats a fixture that grew from 438 to 597
   lines between the revisions; the +60% the package comparison shows is the
   fixture, not the formatter (finding 9).
-- `internal/core/libs`'s `DecodeSnapshot` decodes a snapshot that grew from
+- `internal/workspace/libs`'s `DecodeSnapshot` decodes a snapshot that grew from
   3.58 MB to 3.64 MB and, in the package run, follows a benchmark 0.7.0 does
   not have; the two are separated in finding 8.
 - `examples/phase-c-behavioral-bodies.sysml -state PhaseC::AutopilotMode`
@@ -79,7 +79,7 @@ interval, quantified. Nothing is left *open*.
 - No committed baseline file was regenerated. The full suite, with the
   training and pilot corpora required, passes on `develop+fix`.
 
-## Benchmarks: `internal/repl`
+## Benchmarks: `internal/frontend/repl`
 
 | figure | 0.7.0 | develop | develop+fix | develop+fix vs 0.7.0 |
 | ------ | ----- | ------- | ----------- | -------------------- |
@@ -104,7 +104,7 @@ gives the same +34–39% and +116–120% on `RunStateMachine` and `RunCalc`
 the interpreted `SumTo` and `Collatz` rows were the runtime write path of
 finding 2, and are back at parity.
 
-## Benchmarks: `internal/core/model` and `internal/grpc`
+## Benchmarks: `internal/workspace/model` and `internal/frontend/grpc`
 
 | benchmark | 0.7.0 | develop | develop+fix | develop+fix vs 0.7.0 |
 | --------- | ----- | ------- | ----------- | -------------------- |
@@ -340,7 +340,7 @@ the release runs on the success, error and cancellation paths alike, and a
 context derived from a request's context is given a no-op release so only
 the owning request returns the worker. Two concurrent requests still get two
 workers and share nothing that memoizes, which is what `89c10fc21` set out
-to guarantee (`internal/grpc/cache_test.go`, `evaluate_retention_test.go`
+to guarantee (`internal/frontend/grpc/cache_test.go`, `evaluate_retention_test.go`
 and `budget_test.go` cover the isolation, the bounded retention and the
 budget). `GRPCEvaluate` is 8.06 µs (−21% against 0.7.0), `GRPCVerifyConstraint`
 2.56 ms (−90%: verification no longer re-resolves the model either),
@@ -374,7 +374,7 @@ memoizes the library symbol a qualified name denotes, preallocates the type
 list a scalar classification returns, and `comparisonValues` sets an operand
 error's span only when there is an error. The diagnostics are byte-for-byte
 those the eager code produced; the conformance tests
-(`internal/core/runtime/conformance_test.go`, `value_conformance_test.go`,
+(`internal/exec/runtime/conformance_test.go`, `value_conformance_test.go`,
 the execution conformance suite) are unchanged. `SetFeatureValueNoDependents` is 132 ns (−19% against 0.7.0),
 `DerivedReadWriteRead` and `AssignmentLoopStep` are at parity, `SumTo` and
 `Collatz` are at parity, `ActionLoop/for1000` +5%, `ExecuteActionFreshContext`
@@ -579,28 +579,28 @@ git worktree add ../opensysml-v0.7.0 v0.7.0
 (cd ../opensysml-v0.7.0 && make build)
 make build
 ./scripts/download-pilot-corpora.sh
-for pkg in internal/repl internal/core/model internal/grpc internal/perfbench \
-           internal/core/libs internal/lsp internal/core/runtime internal/core/migrate; do
+for pkg in internal/frontend/repl internal/workspace/model internal/frontend/grpc internal/perfbench \
+           internal/workspace/libs internal/frontend/lsp internal/exec/runtime internal/translate/migrate; do
   (cd ../opensysml-v0.7.0 && go test ./$pkg -run '^$' -bench . -benchmem -count 6) > old.$pkg.txt
   go test ./$pkg -run '^$' -bench . -benchmem -count 6 > new.$pkg.txt
   benchstat old.$pkg.txt new.$pkg.txt
 done
 export OPENSYSML_BENCH_MODEL=examples/pilot-corpora/sysml-examples
-(cd ../opensysml-v0.7.0 && go test ./internal/core/parser -run '^$' -bench ParseModel -benchmem -count 6)
-go test ./internal/core/parser -run '^$' -bench ParseModel -benchmem -count 6
+(cd ../opensysml-v0.7.0 && go test ./internal/syntax/parser -run '^$' -bench ParseModel -benchmem -count 6)
+go test ./internal/syntax/parser -run '^$' -bench ParseModel -benchmem -count 6
 # rows the machine's drift leaves in doubt: interleave the revisions
 PB='Analyze|WorkspaceEdit|FQNOf|REPLLoadFile|ExecuteAction|ExecuteState|StateLoop|SameConstraint|ActionLoop'
 for i in 1 2 3; do
   (cd ../opensysml-v0.7.0 && go test ./internal/perfbench -run '^$' -bench "$PB" -benchmem -count 2) >> old.i.txt
   go test ./internal/perfbench -run '^$' -bench "$PB" -benchmem -count 2 >> new.i.txt
-  (cd ../opensysml-v0.7.0 && go test ./internal/repl -run '^$' -bench LoadModel -benchmem -count 3) >> old.load.txt
-  go test ./internal/repl -run '^$' -bench LoadModel -benchmem -count 3 >> new.load.txt
+  (cd ../opensysml-v0.7.0 && go test ./internal/frontend/repl -run '^$' -bench LoadModel -benchmem -count 3) >> old.load.txt
+  go test ./internal/frontend/repl -run '^$' -bench LoadModel -benchmem -count 3 >> new.load.txt
 done
 benchstat old.i.txt new.i.txt
 benchstat old.load.txt new.load.txt
-go test ./internal/core/libs -run '^$' -bench DecodeSnapshot -benchmem -count 6   # alone
-go test ./internal/core/runtime -run '^$' -bench SetFeatureValueNoDependents -cpuprofile sfv.cpu
-go test ./internal/repl -run '^$' -bench 'RunCalc/elements=250' -cpuprofile calc.cpu
+go test ./internal/workspace/libs -run '^$' -bench DecodeSnapshot -benchmem -count 6   # alone
+go test ./internal/exec/runtime -run '^$' -bench SetFeatureValueNoDependents -cpuprofile sfv.cpu
+go test ./internal/frontend/repl -run '^$' -bench 'RunCalc/elements=250' -cpuprofile calc.cpu
 ../opensysml-v0.7.0/bin/sysml -validate gen12000.sysml
 bin/sysml -validate gen12000.sysml
 for i in $(seq 50); do bin/sysml -version; done

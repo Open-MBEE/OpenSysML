@@ -237,7 +237,7 @@ package OpenSysMLGates {
     private import VerificationCases::VerdictKind;
 
     verification def ParserGate {
-        doc /* go test -run 'TestGolden|TestNegative' ./internal/core/parser */
+        doc /* go test -run 'TestGolden|TestNegative' ./internal/syntax/parser */
         subject parser : Parser;
         objective {
             verify parserRecovers;
@@ -371,9 +371,6 @@ package OpenSysMLCodebase {
     }
 
     part def SourceTree {
-        part core : Directory {
-            attribute :>> path = "internal/core";
-        }
         part internals : Directory {
             attribute :>> path = "internal";
         }
@@ -395,19 +392,19 @@ package OpenSysMLCodebase {
         end directory : Directory;
     }
 
-    allocate opensysml.pipeline.lexer to tree.core;
-    allocate opensysml.pipeline.parser to tree.core;
-    allocate opensysml.pipeline.resolver to tree.core;
-    allocate opensysml.pipeline.semantics to tree.core;
-    allocate opensysml.pipeline.passes to tree.core;
-    allocate opensysml.pipeline.lowering to tree.core;
-    allocate opensysml.pipeline.runtime to tree.core;
-    allocate opensysml.pipeline.engines to tree.core;
-    allocate opensysml.pipeline.runtime.evaluator.compiled to tree.core;
-    allocate opensysml.pipeline.stdlib to tree.core;
-    allocate opensysml.pipeline.stdlib.encoding to tree.core;
-    allocate opensysml.pipeline.stdlib.trees to tree.core;
-    allocate opensysml.pipeline.stdlib.generator to tree.core;
+    allocate opensysml.pipeline.lexer to tree.internals;
+    allocate opensysml.pipeline.parser to tree.internals;
+    allocate opensysml.pipeline.resolver to tree.internals;
+    allocate opensysml.pipeline.semantics to tree.internals;
+    allocate opensysml.pipeline.passes to tree.internals;
+    allocate opensysml.pipeline.lowering to tree.internals;
+    allocate opensysml.pipeline.runtime to tree.internals;
+    allocate opensysml.pipeline.engines to tree.internals;
+    allocate opensysml.pipeline.runtime.evaluator.compiled to tree.internals;
+    allocate opensysml.pipeline.stdlib to tree.internals;
+    allocate opensysml.pipeline.stdlib.encoding to tree.internals;
+    allocate opensysml.pipeline.stdlib.trees to tree.internals;
+    allocate opensysml.pipeline.stdlib.generator to tree.internals;
     allocate opensysml.repl to tree.internals;
     allocate opensysml.lsp to tree.internals;
     allocate opensysml.service to tree.internals;

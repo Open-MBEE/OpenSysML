@@ -81,10 +81,10 @@ executable oracle contradicts it.
 For completeness of the adjudication, the blast radius of a `big.Rat`-backed (or
 exact-until-formatted) `Real`/`Rational` value, mapped concretely:
 
-- `internal/core/semantics`: `Value` carries `Real float64` (`eval.go`); the constant
+- `internal/semantic/semantics`: `Value` carries `Real float64` (`eval.go`); the constant
   folder's `evalRealArith`/`RealArith`, `IntQuotient`, `Pow`, comparisons and equality,
   and the numeric-widening lattice all move to a rational representation.
-- `internal/core/runtime`: the evaluator (`eval.go`, `toReal`), `value.go`
+- `internal/exec/runtime`: the evaluator (`eval.go`, `toReal`), `value.go`
   (`FormatReal` and all printing), `library_functions.go` (34 `math.*` call sites —
   `sqrt`, trig, `floor`/`round`, `exp`/`ln` — which have no exact form), quantities and
   unit scaling, collections, overflow handling; 69 `float64` sites in the package.
@@ -224,15 +224,15 @@ the runtime can honestly compute one.
 
 Whether the narrowing is worth building is an empirical question — how many queries
 does the conservative `Query.Rounded` marker sweep in that are in fact provably exact?
-`TestRoundedCensus` (`internal/core/solve/rounded_census_test.go`) answers it
+`TestRoundedCensus` (`internal/exec/solve/rounded_census_test.go`) answers it
 reproducibly: it enumerates every constraint, requirement and analysis case in the
 repository's solver-facing corpora, translates each through the same
 `Condition`/`Analysis` path the REPL's `%check`/`%solve`/`%configure all`/`%optimize`
 commands use, and classifies every translated query.
 
 ```
-OPENSYSML_SMT=/usr/bin/z3        go test -count=1 -run TestRoundedCensus -v ./internal/core/solve
-OPENSYSML_SMT=/usr/local/bin/cvc5 go test -count=1 -run TestRoundedCensus -v ./internal/core/solve
+OPENSYSML_SMT=/usr/bin/z3        go test -count=1 -run TestRoundedCensus -v ./internal/exec/solve
+OPENSYSML_SMT=/usr/local/bin/cvc5 go test -count=1 -run TestRoundedCensus -v ./internal/exec/solve
 ```
 
 A marked query is *recoverable* only if every asserted or optimized term is exact over

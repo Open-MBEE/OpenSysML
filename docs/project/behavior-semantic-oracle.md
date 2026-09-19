@@ -12,8 +12,8 @@ the sentence that justifies each ordering constraint cited, and the orderings th
 open named as open.
 
 The oracle cases live beside the other conformance cases under
-`internal/core/runtime/testdata/conformance/` and run through the same harness
-(`go test -run 'TestExecutionConformance|TestExecutionTrace' ./internal/core/runtime`). Where the
+`internal/exec/runtime/testdata/conformance/` and run through the same harness
+(`go test -run 'TestExecutionConformance|TestExecutionTrace' ./internal/exec/runtime`). Where the
 executor meets the derived expectation, the case also carries a `.trace.golden` that
 regression-locks the executor's linearization. Where it does not, the derived expectation is kept
 in the `.expected.json`, the case is listed in `known_failures.txt` so the harness reports rather
@@ -1292,7 +1292,7 @@ is not a choice and is not reported.
 ## What the executor gets wrong
 
 Nothing, at present: every derivation above is met and carries a golden. The table this section
-held is empty and so omitted; `internal/core/runtime/testdata/conformance/known_failures.txt` is
+held is empty and so omitted; `internal/exec/runtime/testdata/conformance/known_failures.txt` is
 kept with only its header comments, because the harness reads it and because it is where the
 next unmet derivation goes (see [Adding a case](#adding-a-case)).
 

@@ -125,7 +125,7 @@ untap old taps to silence it, or `brew trust local/<tap>`.
 
 ## Proving the solver stays optional at runtime (companion to `depends_on "z3"`)
 
-Discovery lives in `internal/core/solve/solver.go` (`OPENSYSML_SMT`, then `z3`, then `cvc5`) and
+Discovery lives in `internal/exec/solve/solver.go` (`OPENSYSML_SMT`, then `z3`, then `cvc5`) and
 its messages in `errors.go`. Drive `bin/sysml` with a scrubbed PATH — one directory per
 scenario, symlinking only the solver you want — and feed meta-commands on stdin:
 
