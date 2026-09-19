@@ -38,9 +38,10 @@ func (m *Model) Class(id string) *Class {
 }
 
 // ClassOf returns the class a type reference names, by ID first and then by
-// name (a reference may carry either), or nil when it names none.
+// name (a reference may carry either), or nil when it names none. An external
+// reference names an element of another document, never one of the model's.
 func (m *Model) ClassOf(t TypeRef) *Class {
-	if m == nil || t.Zero() {
+	if m == nil || t.Zero() || t.External {
 		return nil
 	}
 	if c := m.classes[t.ID]; c != nil {
@@ -60,9 +61,9 @@ func (m *Model) ClassOf(t TypeRef) *Class {
 }
 
 // SignalOf returns the signal a type reference names, by ID first and then by
-// name, or nil when it names none or the name is ambiguous.
+// name, or nil when it names none, the name is ambiguous or it is external.
 func (m *Model) SignalOf(t TypeRef) *Signal {
-	if m == nil || t.Zero() {
+	if m == nil || t.Zero() || t.External {
 		return nil
 	}
 	if s := m.signals[t.ID]; s != nil {

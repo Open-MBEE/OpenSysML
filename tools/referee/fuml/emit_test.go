@@ -2,6 +2,7 @@ package fuml
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -600,7 +601,7 @@ func TestEmitObjectCreationAndFeatureWrites(t *testing.T) {
 		"action 'Create(Item)' { out result : Item = new Item(); }",
 		"action 'Write(n)' { in object : Item; in value : Integer; out result : Item = object; assign object.n := value; }",
 		"action 'Add(xs)-1' { in object : Item; in value : Integer; out result : Item = object; assign object.xs := (value, object.xs); }",
-		"action 'Insert(xs)' { in object : Item; in value : Integer; in insertAt : Integer; out result : Item = object; assign object.xs := if insertAt < 0 ? including(object.xs, value) else if insertAt == 0 ? (value, object.xs) else includingAt(object.xs, value, insertAt); }",
+		"action 'Insert(xs)' { in object : Item; in value : Integer; in insertAt : Integer; out result : Item = object; assign object.xs := if insertAt < 0 ? including(object.xs, value) else includingAt(object.xs, value, insertAt); }",
 		"action 'RemoveAt(xs)' { in object : Item; in value : Integer; in removeAt : Integer; out result : Item = object; assign object.xs := if removeAt >= 1 and removeAt <= size(object.xs) ? excludingAt(object.xs, removeAt) else object.xs; }",
 		"action 'Add(set)-1' { in object : Item; in value : Integer; out result : Item = object; assign object.set := (value, excluding(object.set, value)); }",
 		"flow 'Create(Item)'.result to 'Write(n)'.object;",
@@ -1099,6 +1100,157 @@ func TestEmitPrimitiveNamesakeAndPositionedScalarRemove(t *testing.T) {
 	}
 	if got := featureUpdate(&Node{Kind: RemoveStructuralFeatureValueAction, RemoveDuplicates: true}, &Property{Name: "opt", Multiplicity: Multiplicity{Upper: 1}}, true); got != "if object.opt == value ? () else object.opt" {
 		t.Errorf("a removeDuplicates removal from a scalar = %q, want the value compared", got)
+	}
+}
+
+// idNamesakeModel gives a class the XMI id Integer, the fragment the UML
+// primitive's href ends in: Sum adds two primitive Integers, and Wrap holds
+// an object of the class in an Integer-typed parameter.
+const idNamesakeModel = `<?xml version="1.0" encoding="UTF-8"?>
+<uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="IdNamesakes">
+  <packagedElement xmi:type="uml:Class" xmi:id="Integer" name="Counter">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="cn" name="n">` + integerType + `</ownedAttribute>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Signal" xmi:id="String" name="Note"/>
+  <packagedElement xmi:type="uml:Activity" xmi:id="sum" name="Sum">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="sumA" name="a" direction="in">` + integerType + `</ownedParameter>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="sumOut" name="total" direction="out">` + integerType + `</ownedParameter>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="sumLabel" name="label" direction="out">
+      <type xmi:type="uml:PrimitiveType" href="pathmap://UML_LIBRARIES/UMLPrimitiveTypes.library.uml#String"/>
+    </ownedParameter>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="sumANode" name="Parameter(a)" parameter="sumA"/>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="s2" name="Value(2)">
+      <result xmi:type="uml:OutputPin" xmi:id="s2r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="s2v" value="2"/>
+    </node>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="sl" name="Value(ok)">
+      <result xmi:type="uml:OutputPin" xmi:id="slr" name="result">
+        <type xmi:type="uml:PrimitiveType" href="pathmap://UML_LIBRARIES/UMLPrimitiveTypes.library.uml#String"/>
+      </result>
+      <value xmi:type="uml:LiteralString" xmi:id="slv" value="ok"/>
+    </node>
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="add" name="Add">
+      <argument xmi:type="uml:InputPin" xmi:id="addX" name="x">` + integerType + `</argument>
+      <argument xmi:type="uml:InputPin" xmi:id="addY" name="y">` + integerType + `</argument>
+      <result xmi:type="uml:OutputPin" xmi:id="addR" name="result">` + integerType + `</result>
+      <behavior xmi:type="uml:FunctionBehavior" href="fUML_Library.xmi#PrimitiveBehaviors-IntegerFunctions-plus"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="sumOutNode" name="Parameter(total)" parameter="sumOut"/>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="sumLabelNode" name="Parameter(label)" parameter="sumLabel"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="i1" source="sumANode" target="addX"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="i2" source="s2r" target="addY"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="i3" source="addR" target="sumOutNode"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="i4" source="slr" target="sumLabelNode"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="wrap" name="Wrap">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="wrapOut" name="made" direction="out" type="Integer"/>
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createCounter" name="Create(Counter)" classifier="Integer">
+      <result xmi:type="uml:OutputPin" xmi:id="createCounterR" name="result" type="Integer"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="wrapOutNode" name="Parameter(made)" parameter="wrapOut"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="w1" source="createCounterR" target="wrapOutNode"/>
+  </packagedElement>
+</uml:Model>
+`
+
+// An external type reference names an element of another document, so its href
+// fragment selects no class or signal of the model even when one carries it as
+// its XMI id: the primitive stays a scalar, and a local reference by that id
+// still finds the classifier.
+func TestEmitExternalTypesNeverLocalClassifiers(t *testing.T) {
+	s := fixtureSuite(t, idNamesakeModel)
+	m := s.Tests
+	if c := m.ClassOf(TypeRef{ID: "Integer", Name: "Integer", Kind: "PrimitiveType", External: true}); c != nil {
+		t.Errorf("external Integer resolves to class %s", c.Name)
+	}
+	if sg := m.SignalOf(TypeRef{ID: "String", Name: "String", Kind: "PrimitiveType", External: true}); sg != nil {
+		t.Errorf("external String resolves to signal %s", sg.Name)
+	}
+	if c := m.ClassOf(TypeRef{ID: "Integer", Name: "Counter", Kind: "Class"}); c == nil || c.Name != "Counter" {
+		t.Errorf("local reference by id Integer = %v, want Counter", c)
+	}
+	if got := m.primitive(TypeRef{ID: "Integer", Name: "Integer", External: true}); got != "Integer" {
+		t.Errorf("external Integer as a primitive = %q", got)
+	}
+	if got := m.primitive(TypeRef{ID: "Integer", Name: "Counter"}); got != "" {
+		t.Errorf("the class with id Integer as a primitive = %q, want none", got)
+	}
+	em := emitted(t, s, "Sum")
+	wantLines(t, em,
+		"in a : Integer;",
+		"out total : Integer;",
+		"out label : String;",
+		"action 'Value(2)' { out result : Integer = 2; }")
+	if strings.Contains(em.Text, "part def") || strings.Contains(em.Text, "Counter") {
+		t.Errorf("Sum declares a class it never touches:\n%s", em.Text)
+	}
+	sum := fixtureActivity(t, s, "Sum")
+	x := executed(sum, []ExpectedOutput{integers("total", 2), {Parameter: "label", Values: []ExpectedValue{{Kind: "String", Value: json.RawMessage(`"ok"`)}}}})
+	ex, err := Execute(context.Background(), em, &x, DefaultBudget, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ex.Passed() || strings.Join(ex.Reached, "|") != "total = 2; label = \"ok\"" {
+		t.Errorf("Sum: %+v", ex)
+	}
+	wantLines(t, emitted(t, s, "Wrap"),
+		"\tpart def Counter {\n\t\tattribute n : Integer;\n\t}\n",
+		"out made : Counter;",
+		"action 'Create(Counter)' { out result : Counter = new Counter(); }")
+}
+
+// zeroInsertModel inserts into an ordered feature at position 0, which no
+// one-based position is.
+const zeroInsertModel = `<?xml version="1.0" encoding="UTF-8"?>
+<uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="ZeroInsert">
+  <packagedElement xmi:type="uml:Class" xmi:id="item" name="Item">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="xs" name="xs" isOrdered="true" isUnique="false">` + integerType + `
+      <lowerValue xmi:type="uml:LiteralInteger" xmi:id="xsLo"/>
+      <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="xsHi" value="*"/>
+    </ownedAttribute>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="zero" name="InsertAtZero">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="zeroOut" name="made" direction="out" type="item"/>
+    <node xmi:type="uml:CreateObjectAction" xmi:id="create" name="Create(Item)" classifier="item">
+      <result xmi:type="uml:OutputPin" xmi:id="createR" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="v9" name="Value(9)">
+      <result xmi:type="uml:OutputPin" xmi:id="v9r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="v9v" value="9"/>
+    </node>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="v0" name="Value(0)">
+      <result xmi:type="uml:OutputPin" xmi:id="v0r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralUnlimitedNatural" xmi:id="v0v" value="0"/>
+    </node>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="insert" name="Insert(xs)" structuralFeature="xs">
+      <object xmi:type="uml:InputPin" xmi:id="inserto" name="object" type="item"/>
+      <value xmi:type="uml:InputPin" xmi:id="insertv" name="value">` + integerType + `</value>
+      <insertAt xmi:type="uml:InputPin" xmi:id="inserta" name="insertAt">` + integerType + `</insertAt>
+      <result xmi:type="uml:OutputPin" xmi:id="insertr" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="zeroOutNode" name="Parameter(made)" parameter="zeroOut"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="z1" source="createR" target="inserto"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="z2" source="v9r" target="insertv"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="z3" source="v0r" target="inserta"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="z4" source="insertr" target="zeroOutNode"/>
+  </packagedElement>
+</uml:Model>
+`
+
+// Every position but `*` reaches includingAt, so an insertion at 0 is the
+// runtime's out-of-range error rather than a silent insertion first.
+func TestExecuteInsertAtZeroIsOutOfRange(t *testing.T) {
+	s := fixtureSuite(t, zeroInsertModel)
+	em := emitted(t, s, "InsertAtZero")
+	wantLines(t, em, "assign object.xs := if insertAt < 0 ? including(object.xs, value) else includingAt(object.xs, value, insertAt); }")
+	zero := fixtureActivity(t, s, "InsertAtZero")
+	x := executed(zero, []ExpectedOutput{{Parameter: "made", Values: []ExpectedValue{object("i", "Item", feature("xs", 9))}}})
+	ex, err := Execute(context.Background(), em, &x, DefaultBudget, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ex.Passed() || len(ex.Errors) != 1 || !strings.Contains(ex.Errors[0], runtime.ErrIndexOutOfRange.Error()) || !strings.Contains(ex.Errors[0], "insertion index 0") {
+		t.Errorf("insertion at 0: %+v", ex)
 	}
 }
 

@@ -507,7 +507,7 @@ func effectiveType(n *Node) TypeRef {
 // classifierBehavior is the behavior an object of the type runs when started:
 // an active activity runs itself, a class its classifierBehavior.
 func classifierBehavior(m *Model, t TypeRef) *Activity {
-	if m == nil {
+	if m == nil || t.External {
 		return nil
 	}
 	if act := m.Activity(t.ID); act != nil {

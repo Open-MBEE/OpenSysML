@@ -443,9 +443,10 @@ var scalarTypes = map[string]string{
 }
 
 // primitive is the ScalarValues type the fUML primitive type t names, or "" when
-// t names none: a class or signal of the model named as a primitive is that classifier.
+// t names none: a class or signal of the model named as a primitive is that
+// classifier, but no external reference names one, whatever its fragment.
 func (m *Model) primitive(t TypeRef) string {
-	if m != nil && (m.classes[t.ID] != nil || m.signals[t.ID] != nil) {
+	if m != nil && !t.External && (m.classes[t.ID] != nil || m.signals[t.ID] != nil) {
 		return ""
 	}
 	return scalarTypes[t.Name]
@@ -1196,7 +1197,8 @@ func orType(t, fallback TypeRef) TypeRef {
 // featureUpdate spells what a feature holds after the action, as the reference
 // implementation computes it. Add: a replacing add or a single-valued feature
 // takes the value outright; otherwise a unique feature drops its old copy, and the
-// value goes at the position given, `*` appending and none inserting first.
+// value goes at the one-based position given (the runtime rejecting any other),
+// `*` appending and none inserting first.
 // Remove: every copy (removeDuplicates), the value at the position given, or the
 // first copy; a single-valued feature is emptied when its one value is the one
 // positioned or held. Clear empties.
@@ -1215,7 +1217,7 @@ func featureUpdate(n *Node, f *Property, positioned bool) string {
 		if !positioned {
 			return "(value, " + base + ")"
 		}
-		return fmt.Sprintf("if insertAt < 0 ? including(%s, value) else if insertAt == 0 ? (value, %s) else includingAt(%s, value, insertAt)", base, base, base)
+		return fmt.Sprintf("if insertAt < 0 ? including(%s, value) else includingAt(%s, value, insertAt)", base, base)
 	case f.Upper == 1 && positioned && !n.RemoveDuplicates:
 		return fmt.Sprintf("if removeAt == 1 ? () else %s", held)
 	case f.Upper == 1:
