@@ -154,7 +154,7 @@ then the classifier's decision, below.
 ## Reading the models
 
 `tools/referee/fuml` reads the two test models and the library with the XMI element walker shared
-with the PSSM referee (`tools/oracle/xmi`). The walker accepts every OMG XMI namespace version:
+with the PSSM referee (`internal/translate/xmi`). The walker accepts every OMG XMI namespace version:
 the models are `20131001`, the library `20110701`, and the two are cross-referenced. The
 reader (`ReadModelFile`, `ReadLibraryFile`) accepts a `uml:Model` root or one wrapped in
 `xmi:XMI`, and builds an immutable `Model`:

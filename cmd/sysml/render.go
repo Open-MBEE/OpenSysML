@@ -10,9 +10,9 @@ import (
 
 	"github.com/chzyer/readline"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
-	"github.com/Open-MBEE/OpenSysML/internal/core/view"
-	"github.com/Open-MBEE/OpenSysML/internal/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
 // runRender renders the view -render names of the model the files named on the

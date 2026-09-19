@@ -56,7 +56,7 @@ case_ vscode-syntaxes docs,go,java,node,python,rust,vscode editors/vscode/syntax
 # Any markdown counts as documentation: the site links out to repository files.
 case_ two-client-readmes docs,java,node client/java/README.md client/node/README.md
 case_ two-clients java,node client/java/pom.xml client/node/tsconfig.json
-case_ go-source docs,go,java,node,python,rust,vscode internal/core/parser/parser.go
+case_ go-source docs,go,java,node,python,rust,vscode internal/syntax/parser/parser.go
 case_ go-client docs,go,java,node,python,rust,vscode client/opensysml/client.go
 case_ release-digests docs,go,java,node,python,rust,vscode client/release-digests.json
 case_ go-tools docs,go,java,node,python,rust,vscode tools/gen/snapshot/main.go

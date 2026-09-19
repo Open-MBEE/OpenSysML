@@ -6,11 +6,11 @@ import (
 	"sort"
 	"strings"
 
-	corediag "github.com/Open-MBEE/OpenSysML/internal/core/diag"
-	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	corediag "github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 // Verdicts. Agreement is strict: the declared severity at the declared offset,

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
 const realHref = `<type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>`
@@ -353,7 +353,7 @@ func TestQuantityValueTypeIsReal(t *testing.T) {
     <packagedElement xmi:type="uml:DataType" xmi:id="_mass" name="Mass"/>
     <packagedElement xmi:type="uml:DataType" xmi:id="_plain" name="Plain"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Rover">
-      <ownedAttribute xmi:type="uml:Property" xmi:id="_m" name="m" type="_mass">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_m_prop" name="m" type="_mass">
         <defaultValue xmi:type="uml:LiteralReal" xmi:id="_mv" value="900.0"/>
       </ownedAttribute>
     </packagedElement>`, `

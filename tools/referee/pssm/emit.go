@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Model is one test's state machine spelled in SysML v2 textual notation,

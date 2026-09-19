@@ -2782,7 +2782,7 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   are reported as not compared rather than diffed forever. The opt-in Flexo harness measures
   the apply against the real stack — an initial load, a revision with a retained-id rename and
   gated deletes, a conflict staged behind the sync's back — and records what read back at the
-  recorded commit ([the report](internal/interop/flexo/testdata/identity_apply_expected.txt)).
+  recorded commit ([the report](internal/translate/interop/flexo/testdata/identity_apply_expected.txt)).
 - **Action and state execution has a referee outside the executor.** Six conformance cases —
   a join fed by branches of unequal length, a join fed twice over one succession, a node two
   successions reach, two fork branches writing one feature, the specification's `ChargeBattery`

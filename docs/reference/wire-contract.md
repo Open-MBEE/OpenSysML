@@ -135,7 +135,7 @@ HTTP/1.1 400 Bad Request
 
 A model hash is the lowercase hex SHA-256 (64 characters) of the request that produced it: the
 conformance mode (`default` or `strict`), the number of documents, and each document's name,
-language and content, length-delimited (`internal/grpc/service.go`, `parseSources`). It is
+language and content, length-delimited (`internal/frontend/grpc/service.go`, `parseSources`). It is
 **deterministic**: the same documents in the same order with the same flag give the same hash
 from any service of the same version, so a client may compute nothing and simply compare
 hashes to know whether two models are the same text. It is also *only* a hash of the
@@ -154,7 +154,7 @@ in the guide.
 ### How long a hash is valid
 
 The service keeps parsed models in an in-memory **LRU cache of fixed capacity**
-(`internal/grpc/cache.go`), sized by the `-cache-size` flag, **default 100**. There is no
+(`internal/frontend/grpc/cache.go`), sized by the `-cache-size` flag, **default 100**. There is no
 time-to-live: a model stays until it is one of the least recently *used* when the cache is full
 and a new model arrives, or until the process exits. Every call that names a hash counts as a
 use, so a model in active use is not evicted. Re-parsing a model the cache still holds returns
@@ -1874,7 +1874,7 @@ A row that is an object, and a cell whose value is one, is answered with the **`
 `instanceId`, `path` (the label the object is reached under, from the binding down —
 `Garage::car.wheels[2]`, or `#1.wheels[2]` when the binding was by id) and `element`, the
 usage the object stands for as an `elementId` `DocumentValue` with its `elementType`. Model
-`0ff2…48a0` is `internal/core/docrender/testdata/object_report.sysml`; after
+`0ff2…48a0` is `internal/doc/docrender/testdata/object_report.sysml`; after
 `Instantiate` of `Garage::car` (answered id `1`, its engine `2` and wheels `3` and `4`) and of
 `Garage::spare` (`5`), `Drive` projects the car's `name`, `engine` and `wheels`:
 

@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/tools/oracle/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi"
 )
 
 // activityReader reads one UML activity graph into a Body. The suite's

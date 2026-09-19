@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	liberrata "github.com/Open-MBEE/OpenSysML/internal/core/libs/errata"
+	liberrata "github.com/Open-MBEE/OpenSysML/internal/workspace/libs/errata"
 )
 
 const repoRoot = "../../.."

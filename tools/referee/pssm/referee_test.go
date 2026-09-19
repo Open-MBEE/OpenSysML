@@ -3,11 +3,12 @@ package pssm
 import (
 	"bytes"
 	"context"
-	oreport "github.com/Open-MBEE/OpenSysML/tools/oracle/report"
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	oreport "github.com/Open-MBEE/OpenSysML/tools/oracle/report"
+
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // interleaving is a parallel state, entered on S1's completion, whose two

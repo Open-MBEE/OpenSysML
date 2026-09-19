@@ -1,4 +1,4 @@
-// Command ontology writes internal/core/rdf/ontology/table.go from a local
+// Command ontology writes internal/translate/rdf/ontology/table.go from a local
 // checkout of https://github.com/Open-MBEE/sysmlv2-rdf-ontology, which is not
 // vendored here. The checkout's version and commit SHA go into the header,
 // making the table reproducible.
@@ -23,7 +23,7 @@ import (
 )
 
 // tablePath is the generated table, relative to the repository root.
-const tablePath = "internal/core/rdf/ontology/table.go"
+const tablePath = "internal/translate/rdf/ontology/table.go"
 
 const (
 	sysmlNS  = "https://www.omg.org/spec/SysML#"

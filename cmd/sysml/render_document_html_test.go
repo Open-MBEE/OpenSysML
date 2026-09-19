@@ -289,7 +289,7 @@ func TestRenderDocumentHTMLMath(t *testing.T) {
 // either way.
 func TestRenderDocumentHTMLDiagramForm(t *testing.T) {
 	binary := buildCLI(t)
-	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
 	dot := runCommand(t, exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
 		"-doc-form", "html", "-diagram-form", "dot"))
 	wantReport(t, dot, 0,

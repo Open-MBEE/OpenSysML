@@ -24,10 +24,10 @@ func dependencies(t *testing.T, pkg string) []string {
 // instance graph it serializes for `features` comes from protoconv, which both
 // frontends share, not from the Connect service layer.
 func TestREPLDoesNotDependOnTheService(t *testing.T) {
-	for _, pkg := range []string{"./internal/repl", "./cmd/sysml"} {
+	for _, pkg := range []string{"./internal/frontend/repl", "./cmd/sysml"} {
 		for _, dep := range dependencies(t, pkg) {
 			switch {
-			case dep == module+"/internal/grpc",
+			case dep == module+"/internal/frontend/grpc",
 				dep == module+"/api/proto/protoconnect",
 				strings.HasPrefix(dep, "connectrpc.com/"):
 				t.Errorf("%s depends on %s", pkg, dep)
@@ -39,25 +39,42 @@ func TestREPLDoesNotDependOnTheService(t *testing.T) {
 // TestProtoconvImportsOnlyTheMessages keeps the proto conversion package a leaf of the
 // frontends: it reads the API's messages and the core packages, never a transport.
 func TestProtoconvImportsOnlyTheMessages(t *testing.T) {
-	cmd := exec.Command("go", "list", "-f", "{{join .Imports \"\\n\"}}", "./internal/protoconv")
+	cmd := exec.Command("go", "list", "-f", "{{join .Imports \"\\n\"}}", "./internal/frontend/protoconv")
 	cmd.Dir = "../.."
 	out, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("go list: %v", err)
 	}
+	belowFrontend := []string{
+		"/internal/syntax/",
+		"/internal/semantic/",
+		"/internal/ir/",
+		"/internal/check/",
+		"/internal/exec/",
+		"/internal/translate/",
+		"/internal/doc/",
+		"/internal/workspace/",
+	}
 	for _, imp := range strings.Fields(string(out)) {
+		core := false
+		for _, prefix := range belowFrontend {
+			if strings.HasPrefix(imp, module+prefix) {
+				core = true
+				break
+			}
+		}
 		switch {
 		case !strings.Contains(imp, "."),
 			imp == module+"/api/proto",
-			strings.HasPrefix(imp, module+"/internal/core/"),
+			core,
 			strings.HasPrefix(imp, "google.golang.org/protobuf/"):
 		default:
-			t.Errorf("internal/protoconv imports %s", imp)
+			t.Errorf("internal/frontend/protoconv imports %s", imp)
 		}
 	}
-	for _, dep := range dependencies(t, "./internal/protoconv") {
-		if dep == module+"/internal/grpc" || strings.HasPrefix(dep, "connectrpc.com/") {
-			t.Errorf("internal/protoconv depends on %s", dep)
+	for _, dep := range dependencies(t, "./internal/frontend/protoconv") {
+		if dep == module+"/internal/frontend/grpc" || strings.HasPrefix(dep, "connectrpc.com/") {
+			t.Errorf("internal/frontend/protoconv depends on %s", dep)
 		}
 	}
 }

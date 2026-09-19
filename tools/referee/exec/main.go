@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 	reports "github.com/Open-MBEE/OpenSysML/tools/oracle/report"
 )

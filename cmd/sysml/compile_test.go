@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/codegen"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/codegen"
 )
 
 const compileModel = `package Compiled {

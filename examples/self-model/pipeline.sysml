@@ -79,14 +79,14 @@ package OpenSysMLPipeline {
     // --- Front end -------------------------------------------------------
 
     #Frontend part def SourceStore :> Stage {
-        attribute :>> goPackage = "internal/core/source";
+        attribute :>> goPackage = "internal/syntax/source";
         attribute tracksLineIndex : Boolean = true;
         out item text : SourceText;
         port textOut : ArtifactPort;
     }
 
     #Frontend part def Lexer :> Stage {
-        attribute :>> goPackage = "internal/core/lexer";
+        attribute :>> goPackage = "internal/syntax/lexer";
         attribute keywordCount : Integer = 172;
         attribute tracksTrivia : Boolean = true;
         in item text : SourceText;
@@ -97,7 +97,7 @@ package OpenSysMLPipeline {
 
     // Recursive descent with error recovery: a tree always comes back.
     #Frontend part def Parser :> Stage {
-        attribute :>> goPackage = "internal/core/parser";
+        attribute :>> goPackage = "internal/syntax/parser";
         attribute neverPanics : Boolean = true;
         attribute emitsErrorNodes : Boolean = true;
         in item tokens : TokenStream;
@@ -109,7 +109,7 @@ package OpenSysMLPipeline {
 
     // Syntax only, immutable after parse.
     #Frontend part def SyntaxTreeStore :> Stage {
-        attribute :>> goPackage = "internal/core/ast";
+        attribute :>> goPackage = "internal/syntax/ast";
         attribute immutableAfterParse : Boolean = true;
         attribute carriesSemantics : Boolean = false;
         in item tree : SyntaxTree;
@@ -118,7 +118,7 @@ package OpenSysMLPipeline {
     }
 
     #Frontend part def SymbolBuilder :> Stage {
-        attribute :>> goPackage = "internal/core/symbols";
+        attribute :>> goPackage = "internal/semantic/symbols";
         attribute buildsScopeTree : Boolean = true;
         in item tree : SyntaxTree;
         out item index : SymbolIndex;
@@ -129,7 +129,7 @@ package OpenSysMLPipeline {
     // --- Semantic engine -------------------------------------------------
 
     #SemanticEngine part def Resolver :> Stage {
-        attribute :>> goPackage = "internal/core/resolve";
+        attribute :>> goPackage = "internal/semantic/resolve";
         attribute :>> lazy = true;
         attribute :>> memoized = true;
         attribute expandsWildcardImports : Boolean = true;
@@ -141,7 +141,7 @@ package OpenSysMLPipeline {
 
     // Supertypes, conformance, members, multiplicity, constant folding.
     #SemanticEngine part def SemanticModel :> Stage {
-        attribute :>> goPackage = "internal/core/semantics";
+        attribute :>> goPackage = "internal/semantic/semantics";
         attribute :>> memoized = true;
         in item bindings : ResolutionTable;
         out item types : TypeTable;
@@ -153,7 +153,7 @@ package OpenSysMLPipeline {
     // the tier it runs at. An element-scoped pass gates itself per subject
     // through DownstreamOfFailure instead of being skipped with its tier.
     abstract part def ValidationPass :> CodeUnit {
-        attribute :>> goPackage = "internal/core/passes";
+        attribute :>> goPackage = "internal/check/passes";
         attribute goType : String;
         attribute level : String;
         attribute elementScoped : Boolean default = false;
@@ -180,7 +180,7 @@ package OpenSysMLPipeline {
     // them stably by level; a blocking finding skips the document-scoped passes
     // of the tiers above it and leaves the element-scoped ones to gate themselves.
     #SemanticEngine part def PassRegistry :> Stage {
-        attribute :>> goPackage = "internal/core/passes";
+        attribute :>> goPackage = "internal/check/passes";
         attribute tierCount : Integer = 4;
         attribute passCount : Integer = 56;
         attribute sortsByLevel : Boolean = true;
@@ -221,11 +221,11 @@ package OpenSysMLPipeline {
         }
         part constraints : ConstraintCheck { attribute :>> goType = "ConstraintPass"; }
         part documentQueries : ConstraintCheck {
-            attribute :>> goType = "DocumentQueryPass";
+            attribute :>> goType = "QueryPass";
             attribute :>> elementScoped = true;
         }
         part documentPlans : ConstraintCheck {
-            attribute :>> goType = "DocumentPlanPass";
+            attribute :>> goType = "PlanPass";
             attribute :>> elementScoped = true;
         }
         part typeRelationships : ConstraintCheck { attribute :>> goType = "TypeRelationshipsPass"; }
@@ -275,10 +275,10 @@ package OpenSysMLPipeline {
         part structuralElements : TypeCheck { attribute :>> goType = "W10BStructuralPass"; }
         part portionOwners : ConstraintCheck { attribute :>> goType = "W10BPortionOwnerPass"; }
         part verificationCases : ConstraintCheck { attribute :>> goType = "W8DVerificationPass"; }
-        part viewRenderings : ConstraintCheck { attribute :>> goType = "W8DViewRenderingPass"; }
+        part viewRenderings : ConstraintCheck { attribute :>> goType = "ViewRenderingPass"; }
         part metadataUsages : TypeCheck { attribute :>> goType = "W8DMetadataUsagePass"; }
-        part identityMetadata : ConstraintCheck { attribute :>> goType = "IdentityMetadataPass"; }
-        part diagramLayout : ConstraintCheck { attribute :>> goType = "DiagramLayoutPass"; }
+        part identityMetadata : ConstraintCheck { attribute :>> goType = "MetadataPass"; }
+        part diagramLayout : ConstraintCheck { attribute :>> goType = "LayoutPass"; }
         part redefinitionConformance : ConstraintCheck { attribute :>> goType = "RedefinitionConformancePass"; }
         part shortNameDistinguishability : NameResolutionCheck { attribute :>> goType = "W9CShortNameDistinguishabilityPass"; }
         part userStandardLibrary : NameResolutionCheck { attribute :>> goType = "W9CUserStandardLibraryPass"; }
@@ -301,7 +301,7 @@ package OpenSysMLPipeline {
 
     // Owns the document set, the global index and the diagnostic cache.
     #SemanticEngine part def Workspace :> Stage {
-        attribute :>> goPackage = "internal/core/model";
+        attribute :>> goPackage = "internal/workspace/model";
         attribute oneSessionPerWorkspace : Boolean = true;
         port documents : ArtifactPort;
         port requests : RequestPort;
@@ -309,12 +309,12 @@ package OpenSysMLPipeline {
 
     // The compact binary encoding the library snapshot is written in.
     part def SnapshotCodec :> CodeUnit {
-        attribute :>> goPackage = "internal/core/pack";
+        attribute :>> goPackage = "internal/syntax/pack";
     }
 
     // Writes syntax trees into a snapshot and reads them back, node for node.
     part def TreeCodec :> CodeUnit {
-        attribute :>> goPackage = "internal/core/ast/astcodec";
+        attribute :>> goPackage = "internal/syntax/ast/astcodec";
         in item tree : SyntaxTree;
     }
 
@@ -329,10 +329,10 @@ package OpenSysMLPipeline {
     // Bundled standard library. Its frozen index is decoded from an embedded
     // snapshot when that matches the files, and parsed from the files otherwise.
     #SemanticEngine part def StandardLibrary :> Stage {
-        attribute :>> goPackage = "internal/core/libs";
+        attribute :>> goPackage = "internal/workspace/libs";
         attribute bundledFileCount : Integer = 103;
         attribute cached : Boolean = true;
-        attribute snapshotFile : String = "internal/core/libs/stdlib.snapshot";
+        attribute snapshotFile : String = "internal/workspace/libs/stdlib.snapshot";
         attribute snapshotEmbedded : Boolean = true;
         attribute snapshotChecksummed : Boolean = true;
         attribute fallsBackToParsing : Boolean = true;
@@ -351,7 +351,7 @@ package OpenSysMLPipeline {
 
     // Lossless: guards, triggers, effects and pseudostate edges all survive.
     #Backend part def Lowering :> Stage {
-        attribute :>> goPackage = "internal/core/lower";
+        attribute :>> goPackage = "internal/ir/lower";
         attribute lossless : Boolean = true;
         in item types : TypeTable;
         out item actions : ActionGraph;
@@ -362,7 +362,7 @@ package OpenSysMLPipeline {
 
     // Succession-ordered token flow over the lowered action graph.
     part def ActionExecutor :> CodeUnit {
-        attribute :>> goPackage = "internal/core/runtime";
+        attribute :>> goPackage = "internal/exec/runtime";
         attribute detectsDeadlock : Boolean = true;
         attribute recordsTrace : Boolean = true;
         in item graph : ActionGraph;
@@ -371,7 +371,7 @@ package OpenSysMLPipeline {
 
     // Event-driven, hierarchical, with orthogonal regions.
     part def StateExecutor :> CodeUnit {
-        attribute :>> goPackage = "internal/core/runtime";
+        attribute :>> goPackage = "internal/exec/runtime";
         attribute runToCompletion : Boolean = true;
         attribute defersUnhandledEvents : Boolean = true;
         in item graph : StateGraph;
@@ -381,7 +381,7 @@ package OpenSysMLPipeline {
     // Scalar calc bodies — expressions and statements alike — compiled once per
     // model into closures held in a side table; the evaluator stays the reference.
     part def CalcCompiler :> CodeUnit {
-        attribute :>> goPackage = "internal/core/runtime";
+        attribute :>> goPackage = "internal/exec/runtime";
         attribute :>> memoized = true;
         attribute overrideEnvVar : String = "OPENSYSML_CALC_COMPILE";
         attribute fallsBackToEvaluator : Boolean = true;
@@ -390,7 +390,7 @@ package OpenSysMLPipeline {
     // Literals and invocation targets are memoized per model, shared by its runs,
     // in side tables keyed by syntax node; the tree itself carries nothing.
     part def Evaluator :> CodeUnit {
-        attribute :>> goPackage = "internal/core/runtime";
+        attribute :>> goPackage = "internal/exec/runtime";
         attribute :>> memoized = true;
         attribute supportsCalcInvocation : Boolean = true;
         attribute compilesPureCalcs : Boolean = true;
@@ -401,7 +401,7 @@ package OpenSysMLPipeline {
     // A run's state between two steps, paused bodies included, restored as often as asked;
     // the model-derived state is no part of it, and a snapshot mid-step is refused.
     part def SnapshotStore :> CodeUnit {
-        attribute :>> goPackage = "internal/core/runtime";
+        attribute :>> goPackage = "internal/exec/runtime";
         attribute capturesRunState : Boolean = true;
         attribute excludesModelState : Boolean = true;
         attribute capturesPausedBody : Boolean = true;
@@ -413,7 +413,7 @@ package OpenSysMLPipeline {
     // Every linearization of a behavior under an exploring policy, worked as a
     // queue of prefixes in plan order by however many jobs; the outcomes are the same at any count.
     part def ExplorationQueue :> CodeUnit {
-        attribute :>> goPackage = "internal/core/runtime";
+        attribute :>> goPackage = "internal/exec/runtime";
         attribute defaultRuns : Integer = 1024;
         attribute defaultDepth : Integer = 64;
         attribute planOrdered : Boolean = true;
@@ -433,7 +433,7 @@ package OpenSysMLPipeline {
     // Model-derived state (resolver, semantic model, memo tables) is built once per
     // worker and shared by its runs; run-derived state lives in a context of the run's own.
     #Backend part def Runtime :> Stage {
-        attribute :>> goPackage = "internal/core/runtime";
+        attribute :>> goPackage = "internal/exec/runtime";
         attribute stepBudgeted : Boolean = true;
         attribute budgetCount : Integer = 7;
         attribute splitsModelFromRun : Boolean = true;
@@ -500,7 +500,7 @@ package OpenSysMLPipeline {
 
     // Discharges constraint sets through an external SMT solver.
     #Backend part def Solver :> Stage {
-        attribute :>> goPackage = "internal/core/solve";
+        attribute :>> goPackage = "internal/exec/solve";
         attribute engines : String = "z3, cvc5";
         port requests : RequestPort;
     }
@@ -510,7 +510,7 @@ package OpenSysMLPipeline {
     // One registered way of answering a question: the kinds it answers, the bounds
     // it takes, the strongest evidence it can produce, and whether it needs a process.
     abstract part def AnalysisEngine :> CodeUnit {
-        attribute :>> goPackage = "internal/core/analysis";
+        attribute :>> goPackage = "internal/exec/analysis";
         attribute engineName : String;
         attribute answers : String;
         attribute bounds : String;
@@ -570,7 +570,7 @@ package OpenSysMLPipeline {
         attribute :>> authority = "proved";
         attribute :>> replays = true;
         attribute :>> needsProcess = true;
-        attribute :>> adapts = "internal/core/solve";
+        attribute :>> adapts = "internal/exec/solve";
     }
 
     // One action's every schedule and every input value in its declared domain, as one
@@ -582,7 +582,7 @@ package OpenSysMLPipeline {
         attribute :>> authority = "proved";
         attribute :>> replays = true;
         attribute :>> needsProcess = true;
-        attribute :>> adapts = "internal/core/smt";
+        attribute :>> adapts = "internal/exec/smt";
     }
 
     // What can be asked of a subject, and what a question may leave free.
@@ -604,9 +604,9 @@ package OpenSysMLPipeline {
     }
 
     // The engines one binary knows, held by their owner rather than in a global: the
-    // framework's own and, assembled by internal/core/engines, those of other packages.
+    // framework's own and, assembled by internal/exec/engines, those of other packages.
     part def EngineRegistry :> CodeUnit {
-        attribute :>> goPackage = "internal/core/analysis";
+        attribute :>> goPackage = "internal/exec/analysis";
         attribute engineCount : Integer = 6;
         attribute engineNames : String = "check, explore, run, smt, solve, sweep";
         attribute perOwner : Boolean = true;
@@ -617,7 +617,7 @@ package OpenSysMLPipeline {
     // How a question reaches its engines: auto consults the strongest covering one and
     // moves on from a not-covered answer, a name consults one, all composes every answer.
     part def Dispatcher :> CodeUnit {
-        attribute :>> goPackage = "internal/core/analysis";
+        attribute :>> goPackage = "internal/exec/analysis";
         attribute selections : String = "auto, all, <engine>";
         attribute defaultSelection : String = "auto";
         attribute strongestFirst : Boolean = true;
@@ -647,7 +647,7 @@ package OpenSysMLPipeline {
     // A plan's workers, one per job and built on first use, each with model-derived
     // state of its own over the shared frozen index; every run gets a fresh context.
     part def WorkerFleet :> CodeUnit {
-        attribute :>> goPackage = "internal/core/analysis";
+        attribute :>> goPackage = "internal/exec/analysis";
         attribute onePerJob : Boolean = true;
         attribute builtOnFirstUse : Boolean = true;
         attribute ownsRuntimeModel : Boolean = true;
@@ -659,7 +659,7 @@ package OpenSysMLPipeline {
     // One contract for every way of answering a question about a model, the engines
     // that implement it, and the dispatch that turns a question into a plan.
     #Analysis part def AnalysisFramework :> Stage {
-        attribute :>> goPackage = "internal/core/analysis";
+        attribute :>> goPackage = "internal/exec/analysis";
         attribute resultIndependentOfJobs : Boolean = true;
 
         part questions : QuestionKinds;

@@ -118,7 +118,7 @@ and #232, which were closed unmerged, and #263, #267 and #278, which merged to `
 tag), in `CHANGELOG.md`'s 0.8.0 section for the detail, grouped as the paragraph above is.
 
 - *Analysis framework and engines.* Every analysis question goes through one framework
-  (`internal/core/analysis`, #172, #162): each plan runs on a resolver and semantic model of its own
+  (`internal/exec/analysis`, #172, #162): each plan runs on a resolver and semantic model of its own
   (#180), runs and sweep rows go in parallel under `-jobs` with the same answer whatever the count
   (#190, #193), a sweep over a held object runs on the object as the session holds it (#215), every
   verdict states its standing and the engines can be listed and chosen (#182), an action annotated
@@ -163,7 +163,7 @@ tag), in `CHANGELOG.md`'s 0.8.0 section for the detail, grouped as the paragraph
 - *Editing.* The VS Code diagram panel is an editable canvas: an **Add…** menu, connection edits,
   a dragged node's position written back, **Move to…** across namespaces, and rename or delete
   following references into the other documents of the model, all through the
-  `opensysml/applyModelEdit` LSP request over `internal/core/edit` (#247, #261, #265, #266).
+  `opensysml/applyModelEdit` LSP request over `internal/check/edit` (#247, #261, #265, #266).
 - *Library and identity.* Named standard-library elements carry the normative element ids the
   KerML and SysML specifications assign, and a copy of a library file rooted at the library's
   packages converts as the library (#245, #276, #278 — the last past the tag); a `MOSA` library
@@ -240,35 +240,35 @@ with the corpus and the baseline between `v0.7.0` and `074f9c4b7` (bracketed abo
 
 Statement coverage, re-measured with `go test -cover ./...` at this baseline with the corpora
 present. It counts only each package's own tests, which understates a package consumed by others
-(`internal/core/ast` is exercised by every parser test; `internal/core/codegen`'s differential
-runs from `internal/repl`). It is not the figure the SonarCloud scan reads: since #142 `make
+(`internal/syntax/ast` is exercised by every parser test; `internal/translate/codegen`'s differential
+runs from `internal/frontend/repl`). It is not the figure the SonarCloud scan reads: since #142 `make
 coverage` also builds the `sysml`, `sysml-grpc` and `sysml-lsp` binaries instrumented and folds
 the counters their test runs write into `coverage.txt`, so the scan's per-package figures for the
 command packages are higher than these.
 
 | Package | Coverage | Package | Coverage |
 |---|---|---|---|
-| `internal/core/quickfix` | 100.0% | `internal/core/symbols` | 84.7% |
-| `internal/core/conformance` | 100.0% | `internal/core/solve` | 84.3% |
-| `internal/core/ast/astcodec` | 99.5% | `client/opensysml` | 84.2% |
-| `internal/core/format` | 97.2% | `internal/core/identity` | 83.5% |
-| `internal/core/docrender` | 94.4% | `internal/core/project` | 81.0% |
-| `internal/core/rdf/ontology` | 92.1% | `internal/core/queryexec` | 80.9% |
-| `internal/grpc` | 90.9% | `internal/core/resolve` | 76.3% |
-| `internal/core/libs` | 90.0% | `internal/core/query` | 73.2% |
-| `internal/core/passes` | 89.9% | `internal/core/model` | 73.0% |
-| `internal/core/parser` | 89.8% | `internal/core/lower` | 71.3% |
-| `internal/core/export` | 89.3% | `cmd/sysml-lsp` | 70.0% |
-| `internal/core/migrate` | 89.1% | `internal/core/semantics` | 64.3% |
-| `internal/lsp` | 88.3% | `cmd/pilot-exec-diff` | 41.6% (the pilot-evaluator half is gated) |
-| `internal/repl` | 88.2% | `internal/interop/flexo` | 39.5% (the live-stack half is gated) |
-| `internal/core/runtime` | 88.1% | `cmd/sysml-grpc` | 38.7% |
-| `internal/core/rdf` | 87.1% | `internal/core/ast` | 21.8% |
-| `internal/core/queryplan` | 85.6% | `cmd/sysml` | 17.8% |
-| `internal/core/docir` | 85.6% | `internal/core/codegen` | 1.9% |
+| `internal/core/quickfix` | 100.0% | `internal/semantic/symbols` | 84.7% |
+| `internal/core/conformance` | 100.0% | `internal/exec/solve` | 84.3% |
+| `internal/syntax/ast/astcodec` | 99.5% | `client/opensysml` | 84.2% |
+| `internal/syntax/format` | 97.2% | `internal/semantic/identity` | 83.5% |
+| `internal/doc/docrender` | 94.4% | `internal/workspace/project` | 81.0% |
+| `internal/translate/rdf/ontology` | 92.1% | `internal/doc/queryexec` | 80.9% |
+| `internal/frontend/grpc` | 90.9% | `internal/semantic/resolve` | 76.3% |
+| `internal/workspace/libs` | 90.0% | `internal/semantic/query` | 73.2% |
+| `internal/check/passes` | 89.9% | `internal/workspace/model` | 73.0% |
+| `internal/syntax/parser` | 89.8% | `internal/ir/lower` | 71.3% |
+| `internal/translate/export` | 89.3% | `cmd/sysml-lsp` | 70.0% |
+| `internal/translate/migrate` | 89.1% | `internal/semantic/semantics` | 64.3% |
+| `internal/frontend/lsp` | 88.3% | `cmd/pilot-exec-diff` | 41.6% (the pilot-evaluator half is gated) |
+| `internal/frontend/repl` | 88.2% | `internal/translate/interop/flexo` | 39.5% (the live-stack half is gated) |
+| `internal/exec/runtime` | 88.1% | `cmd/sysml-grpc` | 38.7% |
+| `internal/translate/rdf` | 87.1% | `internal/syntax/ast` | 21.8% |
+| `internal/ir/queryplan` | 85.6% | `cmd/sysml` | 17.8% |
+| `internal/doc/docir` | 85.6% | `internal/translate/codegen` | 1.9% |
 
 The corpus gate needs the corpus (`./scripts/download-training-examples.sh`) and never
-re-baseline `internal/core/model/testdata/training_examples_expected.txt`: adjudicate each
+re-baseline `internal/workspace/model/testdata/training_examples_expected.txt`: adjudicate each
 drifted file and record the verdict in `docs/project/training-examples.md`.
 
 A tag cannot be cut over a corpus regression. Pull requests run one CI, the GitHub Actions
@@ -323,7 +323,7 @@ like R4, not engineering.
 
 Everything about the tap is automated and verified on Linux (install, `brew test`,
 `brew audit --strict --online`), and the manual pages (#699, `man/man1/*.1`, generated from
-`internal/usage` and drift-gated by `make man-check`) are in the bundles the formula installs. The
+`internal/frontend/usage` and drift-gated by `make man-check`) are in the bundles the formula installs. The
 one thing never done is running the darwin bottle on macOS: the darwin archives' checksums match
 the release manifest and nothing more.
 
@@ -490,7 +490,7 @@ and measurement-scale values the measurement reference libraries declare, and #1
 kind and tensor quantities of any rank, so no value kind the analysis libraries declare is
 missing. The *measured per-library conformance table* — package → declarations → evaluated →
 refused by name → wrong — **landed** in #292 on `develop` after the tag, so the library's status
-stops being anecdotal: `TestAnalysisLibraryCensus` (`internal/core/runtime`) enumerates every
+stops being anecdotal: `TestAnalysisLibraryCensus` (`internal/exec/runtime`) enumerates every
 public callable declaration of the six packages, invokes each through the runtime against a
 representative model and records whether the value passed its check, which typed error refused
 it, or what the value got wrong; the verdicts are committed to
@@ -509,7 +509,7 @@ left in the track; a verdict that moves is adjudicated in the change that moves 
 
 # Track N — native compilation
 
-The interpreter in `internal/core/runtime` is the reference semantics and is fast in absolute terms
+The interpreter in `internal/exec/runtime` is the reference semantics and is fast in absolute terms
 (about a microsecond per calc invocation after the September pass), but a compute-bound analysis —
 a recursive calc, a long numeric loop — is still three orders of magnitude off native code. The
 goal is that a calc, and eventually a whole analysis case, can be compiled ahead of time into a
@@ -579,8 +579,8 @@ constraints and requirements, documents, actions, state machines, embedding. Pha
 
 # Track D — model persistence and RDF interchange
 
-Saving and SysML ↔ RDF Turtle conversion landed (`internal/core/rdf`,
-`internal/core/export`, `%save`, `sysml -convert`, `-sync-diff`); see
+Saving and SysML ↔ RDF Turtle conversion landed (`internal/translate/rdf`,
+`internal/translate/export`, `%save`, `sysml -convert`, `-sync-diff`); see
 [the RDF mapping](../reference/rdf-mapping.md).
 
 The RDF direction ships **experimental**, because of D1, D2 and D7 below: its vocabulary
@@ -589,7 +589,7 @@ drops what those items carry. Every surface says so (`convert.ExperimentalNotice
 it to stable is re-measuring the harness once those land, not a documentation change.
 
 Measured by the per-file ratchet at this baseline (`TestCorpusRoundTrip`,
-`internal/core/export/testdata/corpus_roundtrip_expected.txt`), **all 353 models under
+`internal/translate/export/testdata/corpus_roundtrip_expected.txt`), **all 353 models under
 `examples/` convert** (the training corpus, the three pilot corpora and this repository's own
 demos), every one round-tripping `notation → RDF → notation → RDF` byte-identically; there is no
 whitespace-only, graph-diff, unwritable, unparseable or refused verdict left — each file is
@@ -645,12 +645,12 @@ rather than claimed — see the next section.
 
 ## D3 — make a converted graph readable through Flexo, and prove it
 
-The harness is `internal/interop/flexo`, the `FLEXO_INTEROP` gate `TestFlexoInterop`, documented
+The harness is `internal/translate/interop/flexo`, the `FLEXO_INTEROP` gate `TestFlexoInterop`, documented
 in `.agents/skills/flexo-interop`; it brings up the published `openmbee/*` images, `PUT`s our
 Turtle to a branch graph, reads every element back through `flexo-mms-sysmlv2` and compares with
 what the service's own commit path stores for the same model. It measures the gap instead of
 asserting the fix, so every item below shows up as movement in
-`internal/interop/flexo/testdata/interop_expected.txt`. Keep it out of `go test ./...`.
+`internal/translate/interop/flexo/testdata/interop_expected.txt`. Keep it out of `go test ./...`.
 
 What the current recording measures, for the identity-carrying fixture: **49 of 49 elements
 listed and 369 of 452 properties delivered** on the graph-load side, against 33 of 33 and 158 of
@@ -742,13 +742,13 @@ a reference, and the metaclass is `sysml:Import`, which is abstract in KerML —
 elements are `NamespaceImport` or `MembershipImport`.
 
 The reference-vs-literal half is mechanized against the OWL ontology (D8):
-`TestGoldenGraphsMatchOntology` (`internal/core/export`) checks every SysML-namespace triple in
+`TestGoldenGraphsMatchOntology` (`internal/translate/export`) checks every SysML-namespace triple in
 the 54 golden graphs against the metamodel's declared domain and range, finds **412 triples in 79
 distinct metaclass/property violations** at this baseline (the count grew with the fixtures the
 metadata, result-expression, reference and anonymous-declaration work added, not with new kinds of
 disagreement), and
 every one is inventoried key-by-key with a reason in
-`internal/core/export/testdata/ontology-known-violations.txt`, so any *new* disagreement fails the
+`internal/translate/export/testdata/ontology-known-violations.txt`, so any *new* disagreement fails the
 build. The object-property-carrying-a-literal group is this item's own bug: `type` on
 `AttributeUsage`, `ReferenceUsage` and `PartUsage`, `sourceFeature` on `SuccessionAsUsage` and
 `sysx:InitialNode`, `referent` on `FeatureReferenceExpression` where the referent resolves outside
@@ -774,11 +774,11 @@ rather than collapsing them.
 
 So this is a **second profile selected by a flag, not a superset**: the property IRIs differ, so
 one graph cannot satisfy both conventions, and Flexo's convention stays the default. The encoder
-already separates the term layer (`rdf.SysMLTerm`, `internal/core/rdf/vocab.go`) from the
-structural decisions (`internal/core/export/rdf_out.go`), so the profile is mostly a term-mapping
+already separates the term layer (`rdf.SysMLTerm`, `internal/translate/rdf/vocab.go`) from the
+structural decisions (`internal/translate/export/rdf_out.go`), so the profile is mostly a term-mapping
 layer: property name → defining metaclass.
 
-**Done:** the table and the gate. `internal/core/rdf/ontology` holds the term table generated
+**Done:** the table and the gate. `internal/translate/rdf/ontology` holds the term table generated
 from `SysML.owl` by `tools/gen/ontology` from a local checkout (version `202407`,
 upstream commit in the generated header): 411 properties spanning only **336 distinct unqualified
 names — 59 names are declared by more than one metaclass** (`type`, `value`, `source`, `target`,
@@ -800,7 +800,7 @@ those belong in `sysx:` regardless of this item.
 **Not landed; no open pull request:** [PR #774](https://github.com/JPL-Devin/OpenSysML/pull/774)
 on the previous repository (`JPL-Devin/OpenSysML`), which the `v0.6.0` baseline reported as open
 with conflicts, is closed there unmerged, and no equivalent pull request has been opened on
-`Open-MBEE/OpenSysML`. Nothing under `internal/core/rdf/ontology` changed between `v0.6.0` and
+`Open-MBEE/OpenSysML`. Nothing under `internal/translate/rdf/ontology` changed between `v0.6.0` and
 this baseline other than #142's coverage wiring, and the tree has no `ontology/sysmlv2/`
 directory, no `cmd/ontology-modules` and no `make ontology-modules-check`: the modules below
 describe that pull request's content, which would have to be re-proposed against the current
@@ -809,7 +809,7 @@ ontologies** under `ontology/sysmlv2/`, cut along
 the package hierarchy of the normative KerML/SysML XMI (`KerML/Root/Elements.ttl`,
 `KerML/Kernel/Expressions.ttl`, `SysML/Systems/Requirements.ttl`, …) with a `catalog.tsv` from
 term to declaring module and `owl:imports` computed from use. The generator
-(`cmd/ontology-modules`, `internal/core/rdf/ontology/modules`) errors rather than dropping data —
+(`cmd/ontology-modules`, `internal/translate/rdf/ontology/modules`) errors rather than dropping data —
 every source triple lands in exactly one module and the union is graph-isomorphic to upstream —
 and `make ontology-modules-check` in CI keeps the committed output equal to the pinned sources
 (`scripts/download-ontology-sources.sh`). It is additive to the term table and the Flexo export;
@@ -828,7 +828,7 @@ identity-keyed change set between the model and a repository branch, reading the
 the SysML v2 API when given an endpoint and never writing; `-sync-apply <endpoint>` writes that
 change set as one commit or a batched series through `flexo-mms-sysmlv2`, records the commit in
 the sync state, refuses a set it cannot apply whole and leaves what did land committed (#791,
-`internal/interop/reposync`, `internal/interop/flexo`); and the harness above loads a whole
+`internal/translate/interop/reposync`, `internal/translate/interop/flexo`); and the harness above loads a whole
 converted graph into a Layer 1 branch by `PUT` and measures what the service reads back. Both
 directions are refereed against the live stack, and both are element-keyed, which is what identity
 bought.
@@ -940,7 +940,7 @@ which reading a graph back already takes the name from — stays the readable fo
 
 What landed:
 
-1. **The derivation.** `internal/core/identity` (`normative.go`) derives the element and owning
+1. **The derivation.** `internal/semantic/identity` (`normative.go`) derives the element and owning
    membership UUIDs from a qualified name, with the pilot's quoting of names; `identity` maps the
    bundled library's tiers to the two prefixes (kernel libraries to KerML, systems and domain
    libraries to SysML) and catalogs every named, non-aliased, non-shadowed library symbol once
@@ -976,11 +976,11 @@ reader compares our library ids to its own.
 
 # Track F — the executor defects the conformance gate carried (closed)
 
-At `v0.6.0`, `internal/core/runtime/testdata/conformance/known_failures.txt` named three cases
+At `v0.6.0`, `internal/exec/runtime/testdata/conformance/known_failures.txt` named three cases
 that `TestExecutionConformance` skipped rather than ran, each a fixture whose expectation is
 derived from the Kernel Semantic Library in
 [behavior-semantic-oracle.md](behavior-semantic-oracle.md) ("What the executor gets wrong") and
-not met by `internal/core/runtime/action_executor.go`. **All three landed** (#116, #120) and the
+not met by `internal/exec/runtime/action_executor.go`. **All three landed** (#116, #120) and the
 file now lists no case — its one remaining line of prose reads "The list is empty: every derived
 case passes" — so the gate runs all 770 cases and skips none, and the three rows in
 `spec-compliance.md` moved from *known failure* to *faithful*. The track is closed; the items
@@ -1127,7 +1127,7 @@ granularity (`action_merge_fork_branch_and_loop` now needs `explore:runs=10000` 
 # Track E — behavior execution
 
 The runtime executes actions, state machines, calculations and constraints against the lowered
-IR (`internal/core/lower` `ActionGraph`/`StateGraph`, `internal/core/runtime`), and
+IR (`internal/ir/lower` `ActionGraph`/`StateGraph`, `internal/exec/runtime`), and
 `docs/project/spec-compliance.md` § "What We Don't (Yet) Support" lists what it does not
 execute: interruptible regions, expansion regions, streaming pins, protocol state machines,
 operation invocation with positional arguments, and routing a send to a second object of one
@@ -1156,7 +1156,7 @@ those items therefore starts by naming the SysML v2 spelling it corresponds to, 
 that spelling's semantics in the Kernel Semantic Library and the Systems Library, never the UML
 feature by name. Second, the proof for every item is the four-layer contract of `AGENTS.md`
 §5.2 — a conformance fixture (`.sysml` + `.expected.json` under
-`internal/core/runtime/testdata/conformance/`), a trace golden where ordering matters
+`internal/exec/runtime/testdata/conformance/`), a trace golden where ordering matters
 (`TestExecutionTrace`, `-update-traces`), a robustness case in `robustness_test.go` for the
 failure mode, and the row in `spec-compliance.md` moving out of the "not supported" list — and
 every item is self-assessed, since the pinned pilot evaluates expressions and executes no action
@@ -1725,7 +1725,7 @@ file the harness reads to say why each remaining disagreement is ours or the pil
 adjudications live in prose in `pilot-execution-referee.md`, and what `cmd/pilot-exec-diff`
 gained since `v0.6.0` is cases (#115's five casts, #235's stdin-fed engines), not the
 normalization; and the RDF expression trees have no round trip of their own — a tree is written,
-read and rewritten only as part of a whole model, `internal/core/export` having gained #121's set
+read and rewritten only as part of a whole model, `internal/translate/export` having gained #121's set
 and tensor values, the canonical predicate order (#166) and the library copies' normative identity
 (#276) but no tree-level harness. Two hygiene items that make every X change measurable; do them
 first when the track is next picked up.
@@ -1735,9 +1735,9 @@ first when the track is next picked up.
 # Track Q — queries over the running model
 
 Four query surfaces exist and are landed: the standard API `Query` over a project's elements
-(`internal/grpc`, the OSLC query grammar with its diagnostics — #798, #812), the native document
-query (`query def` with parameters, planned by `internal/core/queryplan` and run by
-`internal/core/queryexec`, from the CLI, the REPL and gRPC), `Evaluate`/`-eval`/`%eval in`, and the
+(`internal/frontend/grpc`, the OSLC query grammar with its diagnostics — #798, #812), the native document
+query (`query def` with parameters, planned by `internal/ir/queryplan` and run by
+`internal/doc/queryexec`, from the CLI, the REPL and gRPC), `Evaluate`/`-eval`/`%eval in`, and the
 solver's `solve`. Two of the four answer from the runtime: `Evaluate`/`-eval`/`%eval in` since 0.8.0 —
 `all T` enumerates the objects a run holds (X5) and `%eval in #1` reads an object's current values
 — and the document query since #267 and #293 on `develop`, whose rows may be the objects
@@ -2162,7 +2162,7 @@ advertised and skipping by `requires_capabilities` exactly as the client runs do
 already decides whether a skip is a pass). Second, a wider corpus: the thirteen scenario files
 cover one or two calls per RPC, which is enough to prove a client decodes the answer and far too
 little to prove a kernel computes it. The execution conformance cases under
-`internal/core/runtime/testdata/conformance/` — a model, a call, an expected result — are the same
+`internal/exec/runtime/testdata/conformance/` — a model, a call, an expected result — are the same
 shape as a scenario and are the deepest semantic oracle the repository has; generating scenarios
 from them (the `.expected.json` becomes the `response`) turns the wire suite into a kernel suite
 without writing a second corpus, and any implementation's report then reads as a fraction of the
@@ -2175,7 +2175,7 @@ refereed by running the generated scenarios against `sysml-grpc` itself, which m
 
 Every value the runtime produces comes from the model text and the bundled library. A calc
 evaluates from its own body; a bodiless library function reaches a Go implementation only through
-`builtinFor` (`internal/core/runtime/builtins.go`), which requires the symbol to be
+`builtinFor` (`internal/exec/runtime/builtins.go`), which requires the symbol to be
 *library-declared* (`libraryDeclared` in `library_functions.go` asks the index) and then looks the
 qualified name up in a table compiled into the binary. A feature without a value expression is
 unset, and stays unset. An `accept` fires only for events the model itself sends, or that a host
@@ -2288,7 +2288,7 @@ pipelines this project is meant to feed already consume.
 ## W1 — a `dot` form
 
 **Landed** — see [view rendering forms](view-rendering-forms.md). A DOT writer over `Rendering`
-(`internal/core/view/dot.go`): a rendering is a `digraph`, a node with children a `subgraph
+(`internal/ir/view/dot.go`): a rendering is a `digraph`, a node with children a `subgraph
 "cluster_*"` (a tree keeps containment as edges, as its Mermaid form does), direction maps onto
 `rankdir`, the `EdgeKind` styles parallel the Mermaid arrows, and a state rendering draws its
 states as rounded boxes with `point`/`circle`/`doublecircle` pseudo-states. Every identifier and
@@ -2311,7 +2311,7 @@ does. The node and edge attribute lists are each written by one method (`dotNode
 ## W2 — a `plantuml` form
 
 **Landed** — see [view rendering forms](view-rendering-forms.md#plantuml). A PlantUML writer over
-`Rendering` (`internal/core/view/plantuml.go`), one grammar per kind: a tree is a class diagram
+`Rendering` (`internal/ir/view/plantuml.go`), one grammar per kind: a tree is a class diagram
 with containment as edges (as its Mermaid and DOT forms draw it), an interconnection nested
 `rectangle` blocks with the Pilot's `-[thickness=3]-` connectors and dashed flows, a state
 rendering the `state` grammar with composite states, `[*]` starts and PlantUML's pseudostate
@@ -2366,7 +2366,7 @@ nothing here touched the rendering model, only writers over it.
 
 The question was whether OpenSysML models could run on a microcontroller under an RTOS, and what
 "embedded SysML v2" would mean. The review's answer, from the code: not by shrinking the interpreter
-— `internal/core/runtime` depends on maps, allocation, `big.Rat`, and the parser and semantic
+— `internal/exec/runtime` depends on maps, allocation, `big.Rat`, and the parser and semantic
 packages, and `lower.ActionGraph`/`lower.StateGraph` reference AST nodes, symbol scopes and
 expression trees, so they are not closed artifacts that can leave the process (TinyGo is therefore
 not a route). The route is Track N's discipline applied to behavior: a **closed, serializable
@@ -2438,7 +2438,7 @@ classes and `data-` model facts, the default stylesheet in a cascade layer that 
 overrides without specificity fights, `-html-css`, `-html-no-default-css`, `-html-default-css`,
 `-html-fragment`, and linked HTML sets sharing one `sysml-document.css`. What remains is the
 migration designed alongside it: point the HTML-input PDF engines (`weasyprint`, `prince`) at that
-markup and retire `internal/docpdf`'s Markdown re-parse and its own HTML writer, which splits the
+markup and retire `internal/doc/docpdf`'s Markdown re-parse and its own HTML writer, which splits the
 print styling out as a shared asset and moves the PDF goldens. Pandoc keeps reading the Markdown,
 and `-doc-form markdown` is unaffected. About one session, independent of every track above.
 
@@ -2501,16 +2501,16 @@ binary, test and directory figures below at `develop` `206760826` (#384), where 
 
 ## Where the module stands
 
-Transitive dependencies on other packages of the module: `internal/core/parser` 4 (`source`,
+Transitive dependencies on other packages of the module: `internal/syntax/parser` 4 (`source`,
 `lexer`, `ast`, `quickfix`) — the parser is separable today; `semantics` 9; `lower` 10;
 `passes` 19; `runtime` 22, including `parser` and all of `passes`; `export` 29, including
-`runtime`, `lower`, `migrate`, `parser` and `libs`; `model` 32. `internal/core/runtime` is
+`runtime`, `lower`, `migrate`, `parser` and `libs`; `model` 32. `internal/exec/runtime` is
 71,520 non-test lines, 29% of the module's non-test code, and 84 of its 138 non-test files import
-`internal/core/ast`.
+`internal/syntax/ast`.
 
 The edges that break the layering, each with the files that carry it:
 
-- **Runtime → validation.** `internal/core/runtime` imports `internal/core/passes` in seven
+- **Runtime → validation.** `internal/exec/runtime` imports `internal/check/passes` in seven
   files, for two things: `passes.Diagnostic` and `passes.Severity*` as the runtime's own
   diagnostic type (`choice.go`, `tool.go`, `modeled.go`), and the invocation selection in
   `passes/invocation.go` — `SelectInvocation`, `ChainCallee`, `NewArgumentTyper`,
@@ -2520,10 +2520,10 @@ The edges that break the layering, each with the files that carry it:
   the RDF vocabulary.
 - **Runtime → parser.** `runtime/tool.go` calls `parser.New` to parse text at execution time; the
   runtime should receive a tree, not build one.
-- **Translation → execution.** `internal/core/export` imports `runtime` and `lower` in
+- **Translation → execution.** `internal/translate/export` imports `runtime` and `lower` in
   `graphs.go`, `graphs_action.go` and `graphs_state.go` for the `graphs:1` form, and `migrate`
   and `parser` in `convert.go` because `sysml -convert` was implemented inside the exporter. In
-  the other direction `internal/core/analysis` imports `export` (`engine_entry.go`,
+  the other direction `internal/exec/analysis` imports `export` (`engine_entry.go`,
   `external_question.go`) for the same form, so execution and translation depend on each other
   through two packages. An RDF exporter cannot be built without the runtime.
 - **Validation → execution IR.** `passes` imports `lower` (`send_action.go`,
@@ -2531,11 +2531,11 @@ The edges that break the layering, each with the files that carry it:
   [architecture.md](../internals/architecture.md) describes `lower` as "AST → execution IR for the
   runtime"; validation consuming it means it is a semantic IR shared by both, and the layering
   should say so rather than place it under the runtime alone.
-- **Frontends sideways.** `internal/repl` imports `internal/grpc` for `InstanceGraphToProto` and
+- **Frontends sideways.** `internal/frontend/repl` imports `internal/frontend/grpc` for `InstanceGraphToProto` and
   `GraphBounds` (`repl/features.go`), so the terminal REPL links the Connect service layer;
   `cmd/sysml` imports nineteen `internal` packages directly rather than through `repl` or
-  `model`; `internal/lsp` imports `internal/interop/reposync`.
-- **Type system → scanner.** `internal/core/semantics` imports `internal/core/lexer` for its
+  `model`; `internal/frontend/lsp` imports `internal/translate/interop/reposync`.
+- **Type system → scanner.** `internal/semantic/semantics` imports `internal/syntax/lexer` for its
   notation-text helpers (`NameText`, `UnrestrictedNameText`, `StringValue`, `CommentBody`,
   `IsIdentifier`, `IsKeyword`) in `documentation.go`, `units.go`, `unit_product.go`,
   `annotations.go` and `filter.go`.
@@ -2552,10 +2552,10 @@ What is in `internal/` that is not product code, or is in the wrong place:
   library (product), and the pilot tools read its registry (tooling). It can only move once the
   overlay is split from the oracle bookkeeping.
 - `internal/xmi` (the XMI 2.5 reader of the UML test suites, for `fuml` and `pssm`) and
-  `internal/core/xmi` (the XMI reader of SysML v1 exports, for `migrate`) read the same format
+  `internal/translate/xmi` (the XMI reader of SysML v1 exports, for `migrate`) read the same format
   into two element trees.
-- `internal/core/envvar` and `internal/core/project` are process configuration, not language
-  core; `internal/docpdf` is the PDF backend of the `core/docrender` pipeline and the only part of
+- `internal/workspace/envvar` and `internal/workspace/project` are process configuration, not language
+  core; `internal/doc/docpdf` is the PDF backend of the `core/docrender` pipeline and the only part of
   it outside `core/`.
 
 ### What the binaries carry
@@ -2575,12 +2575,12 @@ Three things follow:
   37.2 MB with the version stamps, build info and stack traces intact. That is a build-flag
   change, made outside this track.
 - **The service edge cost almost nothing.** A probe linking every `internal` package `sysml`
-  reaches except `repl` and `grpc` is 17.6 MB and the same probe plus `internal/grpc` is 30.3 MB,
+  reaches except `repl` and `grpc` is 17.6 MB and the same probe plus `internal/frontend/grpc` is 30.3 MB,
   which suggested the `repl → grpc` edge above cost a quarter of the terminal binary. Removing
   it did not: the linker was already dropping the unreachable service, and the unstripped
   `sysml` on `develop` carried 450 KB of gRPC-go and 2.6 KB of Connect symbols. Moving the
-  conversion to `internal/protoconv` took `sysml` from 37,224,632 to 37,220,536 bytes and its
-  transitive gRPC-go and Connect packages from 53 to 51: Connect and `internal/grpc` are gone,
+  conversion to `internal/frontend/protoconv` took `sysml` from 37,224,632 to 37,220,536 bytes and its
+  transitive gRPC-go and Connect packages from 53 to 51: Connect and `internal/frontend/grpc` are gone,
   and the 51 are gRPC-go, reached through `api/proto` itself, because the generated
   `sysml_grpc.pb.go` shares the Go package with the message types. Taking the count to 0 is a
   codegen change — the service stubs generated into a Go package of their own, with a
@@ -2635,7 +2635,7 @@ The instance model is clean: `runtime.Instance` is an id, a `*symbols.Symbol` an
 collections and symbols, and `instance.go`, `value.go` and `features.go` together name `ast.`
 24 times, all for the expression payload of a `ValExpr` or function value. There is no
 execution-owned layer between it and the syntax tree, though: the lowered graphs in
-`internal/core/lower` are side tables keyed by AST nodes (`ActionGraph.Nodes []ast.Node`,
+`internal/ir/lower` are side tables keyed by AST nodes (`ActionGraph.Nodes []ast.Node`,
 `Edges map[ast.Node][]ActionEdge`, `StateGraph.Behaviors map[*ast.StateNode]*StateBehaviors`,
 `Transition{Source, Target, Trigger, Guard ast.Node}`), so a node's identity is its AST pointer
 and `state_executor.go` alone names `ast.StateNode` 211 times; expressions are never lowered,
@@ -2657,7 +2657,7 @@ A package imports only the layers below it:
 | syntax | `lexer`, `parser`, `format` |
 | semantics | `symbols` (with `Origin`), `suggest`, `resolve`, `semantics` (with invocation selection), `identity` (with the normative ids) |
 | semantic IR | `lower`, `queryplan`, `docplan` |
-| validation | `passes`, split by domain, `edit` (with the rename conflict check) |
+| validation | `passes` (the root registers; `passes/kit`, `passes/behavior`, `passes/document`, `passes/diagram`, `passes/identity`), `edit` (with the rename conflict check) |
 | execution | `runtime`, `solve`, `smt`, `analysis`, `engines`, `objref`, the `graphs:1` form |
 | translation | `rdf`, `export`, `migrate`, `convert` (the conversion entry point), one `xmi`, `codegen`, `interop/*` |
 | documents | `queryexec`, `docir`, `docrender`, `docpdf` |
@@ -2688,7 +2688,7 @@ Each landed as a pull request of its own, cut from `develop`:
 1. `semantics → lexer`: the notation-text helpers (`NameText`, `UnrestrictedNameText`,
    `StringValue`, `CommentBody`, `IsIdentifier`, `IsKeyword`) live in `source`; `lexer` and
    `semantics` both import them from there.
-2. `runtime → passes` for diagnostics: `Diagnostic` and `Severity` live in `internal/core/diag`,
+2. `runtime → passes` for diagnostics: `Diagnostic` and `Severity` live in `internal/syntax/diag`,
    a leaf package `passes` and `runtime` both import.
 3. `runtime → passes` for invocation selection: the runtime selects through
    `semantics.Model.SelectCall`, and `ChainCallee` and `InvocationArgs` live in `semantics`. The
@@ -2699,13 +2699,13 @@ Each landed as a pull request of its own, cut from `develop`:
    construction site installs it.
 4. `runtime → parser`: the runtime parses notation text through an `ExpressionParser` the model's
    builder installs with `SetExpressionParser`, and returns `ErrNoExpressionParser` without one.
-   `go list -deps ./internal/core/runtime` names neither `passes` nor `parser`.
-5. `repl → grpc`: the value and instance-graph conversion lives in `internal/protoconv`, which
-   depends on `api/proto`, `internal/core/*` and the protobuf runtime; `repl`, `grpc` and the Go
-   client import it, and `sysml` no longer links `internal/grpc` or Connect. The gRPC-go packages
+   `go list -deps ./internal/exec/runtime` names neither `passes` nor `parser`.
+5. `repl → grpc`: the value and instance-graph conversion lives in `internal/frontend/protoconv`, which
+   depends on `api/proto`, `internal/*` and the protobuf runtime; `repl`, `grpc` and the Go
+   client import it, and `sysml` no longer links `internal/frontend/grpc` or Connect. The gRPC-go packages
    still linked, and the codegen follow-up that removes them, are measured under "What the
    binaries carry" above.
-6. `export → migrate, parser`: the conversion entry point is `internal/core/convert` — the
+6. `export → migrate, parser`: the conversion entry point is `internal/translate/convert` — the
    formats, `Convert`, `ConvertTolerant`, `SysMLElement`, `Migrate`, `SysMLToRDF` and
    `SyntaxError` — and `cmd/sysml`, `repl`, `grpc` and `interop/flexo` call it. `export` keeps
    `ToRDF` and `ToSysML` and no longer imports `migrate`; it still imports `parser`, because the
@@ -2739,18 +2739,18 @@ directories → 97.
 
 What stayed, and why. The runtime's execution conformance and trace suites
 (`TestExecutionConformance`, `TestExecutionTrace`, `conformance_test.go`, `trace_test.go` and the 11
-MB under `internal/core/runtime/testdata`) are white-box in fact, not only by location: sixteen
+MB under `internal/exec/runtime/testdata`) are white-box in fact, not only by location: sixteen
 runtime-internal test files run the same cases through the driver's schema types, loaders and case
 runner, eleven of them reaching unexported `Context` state (snapshots, held images, replay, the
 explore queue), and about 1,700 of the 2,300 lines of `conformance_test.go` depend on the runtime. A
-`package runtime` test cannot import a package that imports `internal/core/runtime` — Go rejects it
+`package runtime` test cannot import a package that imports `internal/exec/runtime` — Go rejects it
 as an import cycle in test — so a shared harness under `tests/` cannot be reached from those files,
 and a copy of the runner in each tree is the duplication this track removes. The driver and its
 fixtures stay beside the runtime, and the census reads them there. The LSP and REPL suites stay too:
 the files that touch no unexported identifier still share package-local helpers with the white-box
 ones (`mustDebug`, `render` and `openRenameDoc` in `lsp`; `meta`, `submitModel` and `evalOK` in
 `repl`), and moving them would copy those rather than share them;
-`internal/grpc/oslc_query_repl_test.go` is the one external file left, reaching `mustNewService` and
+`internal/frontend/grpc/oslc_query_repl_test.go` is the one external file left, reaching `mustNewService` and
 `queryModel` through `export_test.go`. And the thirteen `testdata` trees still under `internal/`
 belong to white-box drivers, so they sit beside them — a fixture moves with its driver, not on its
 own. Of the support packages the plan named, `doccountstest` went to `tools/census/doccounts`
@@ -2778,22 +2778,41 @@ tools module, a relative path given to any of its flags (`-out`, `-baseline`, `-
 from the repository root, which `repo.Resolve` applies; `report` took `writeReports` and the
 four verdict buckets the fUML and PSSM referees share, `repo` took `moduleRoot`, and the copies
 are gone. `errata` is split: the overlay the standard library applies is
-`internal/core/libs/errata` (product), the registry the oracles read is `tools/oracle/errata`.
+`internal/workspace/libs/errata` (product), the registry the oracles read is `tools/oracle/errata`.
 There is no `go.work`: `go build ./...` and `go test ./...` at the root are product-only, and
 `make test` and `make lint` run both modules. Two of the listed packages could not follow the
 tools into the nested module, because product tests import them and a test cannot import the
 nested module without a cyclic requirement: `fixtures`, which also took the analysis-library
 census schema that the runtime's own test writes and `tools/census/doccounts` counts, and
-`stressmodel`, whose generator `internal/core/model`'s incremental test drives (only
+`stressmodel`, whose generator `internal/workspace/model`'s incremental test drives (only
 `cmd/stress-model` moved). They stayed under `internal/` at first; P4 moved them to `tests/`,
 which both the root module's tests and the tools module can import.
-`docpdf` is `internal/core/docpdf`, beside `docrender`; `envvar` and `project` already sat beside
+`docpdf` is `internal/doc/docpdf`, beside `docrender`; `envvar` and `project` already sat beside
 `model`, and whether they fold into it is P4's question. Measured at `develop` `1e44c746c`
 before and after the four pull requests: `go list -deps ./cmd/sysml` 368 → 368 (nothing moved
 was on a shipped binary's path, and `go list -deps` of the three binaries names no package of
 `tools/`); directories under `internal/` 119 → 110, 21 → 13 entries at the top and 70 → 61
-packages. Still to do here: split `passes` by domain — core, behavior, document, diagram,
-identity — with registration left central, once the runtime no longer imports it.
+packages. The validation-pass split is recorded below, with registration left central.
+
+`passes` is split by domain, in five pull requests stacked bottom-up. `passes/kit` is the
+framework every check is written against — `Pass`, `PassLevel`, `Context`, `Options`, `Gathers`
+and the symbol and member walkers — a leaf the root re-exports as type aliases so `passes.Context`
+and `passes.NewContext` read as before. `passes/document` holds the document-plan and
+document-query checks, `passes/diagram` the layout and view-rendering checks, `passes/identity`
+the identity-metadata check with the workspace-wide identity gather, and `passes/behavior` the
+state-transition, succession-endpoint and control-node checks. Registration is unchanged and
+stays central: `passes.DefaultRegistry` is the one place a check is registered, in the same order
+as before, so the root imports every domain package and the layering test pins that no domain
+package imports the root. The remainder of the root is the core: the registry, the static
+expression typer and the checks that call into it — among them the three behavior checks
+`send_action.go`, `transition_guard.go` and `typecheck_trigger.go`, which follow the typer when it
+moves — the constraint checker and the structural rules, and the OOSEM and MOSA audits. Every
+diagnostic code, message, range and quick fix is byte-identical; the corpus gates, the golden
+tests and the validation census are the assertion, and statement coverage over the tree is unchanged. Measured before and after the five pull requests:
+`go list -deps ./cmd/sysml` 363 → 368, `go list ./internal/...` 54 → 59 packages, directories
+under `internal/` 95 → 100 — the five new packages and nothing else; 82 non-test files in one
+package become 71 in the root, 5 in `kit`, 4 in `behavior` and 3 in each of `document`, `diagram`
+and `identity`.
 
 ## P4 — one-file packages and shared helpers (in review)
 
@@ -2855,19 +2874,51 @@ The pull requests land in this order, each cut from the one before it except whe
 #411 → #415 → #418 → #419 → #430 → #431 → #420 → #426 → #427 → #422, and then this
 document's update; #417 is cut from `develop` and merges anywhere in the sequence.
 
-## P5 — a runtime-free translation module (not started)
+## P5 — a runtime-free translation module (in review)
 
-Move the `graphs:1` form and `GraphsVersion` from `export` to the execution layer, so `analysis`
-no longer imports `export`; then audit `graphs_*.go` for the runtime types it still names and
-reduce it to `lower` and `semantics`. Merge `internal/xmi` and `internal/core/xmi` into one
-reader with the two interpretations on top.
+Three pull requests, each stacked on the one before:
 
-## P6 — the layer directories (not started)
+1. `analysis → export`: the `graphs:1` and `sources` forms an external engine receives —
+   `GraphsVersion`, `Graphs`, `GraphsOf`, `MarshalGraphs`, `Sources`, `SourcesOf` and their
+   refusals — live in `internal/exec/analysis/modelform`, in the execution layer, with a golden
+   per graph kind pinning the emitted bytes. `export` keeps `ToRDF` and `ToSysML` and names no
+   runtime type: `go list -deps ./internal/translate/export` (141 → 135 packages) lists neither
+   `runtime` nor `lower`, so the audit of `graphs_*.go` had nothing left to move.
+2. One XMI reader: `internal/translate/xmi` is the generic XMI 2.5 element tree (moved from the
+   tooling module, where the fUML and PSSM referees still import it), and
+   `internal/translate/xmi/sysmlv1` is the SysML v1 interpretation `migrate` reads — stereotype
+   applications, href proxies, MagicDraw archives — as a walk over that tree rather than a
+   second parser. The one reader rejects an `xmi:id` declared twice, as the referees' reader
+   always had.
+3. The layering test pins `analysis → export`, `export → runtime` and `export → lower` as
+   removed edges.
 
-Rename the packages into the nine layer directories of the target and turn the layering test on
-for every layer. This is one pull request that rewrites every import path in the module and the
-only item of the track that cannot be rebased under an open branch, so it lands in a window with
-nothing else in flight, after P1–P5 have left the graph it pins otherwise clean.
+## P6 — the layer directories (landed)
+
+Every package under `internal/` sits in one of the nine layer directories of the target —
+`syntax`, `semantic`, `ir`, `check`, `exec`, `translate`, `doc`, `workspace`, `frontend` — and
+the layering test names every layer with the layers it may import; `internal/core/` is gone.
+The item was written above as one pull request; it landed as a stack of nine, one directory per
+pull request in the table's order (#440 syntax, #441 semantic, #442 ir, #443 check, #444 exec,
+#445 translate, #446 doc, #447 workspace, #448 frontend), each based on the one before it and
+rewriting only the import paths its own move forces, root module and `tools/` module alike,
+followed by this documentation pull request. Every package keeps its last path element; nothing
+was renamed, merged or split, and no behavior changed. Three packages the target table did not
+name are placed by their imports: `highlight` and `query` under `semantic`, `view` under `ir`;
+`analysis/enginewire` stays nested under `exec/analysis`. The one edit beyond paths is
+`semantic/query`, which declares the three namespace IRIs its OSLC prefix map needs rather than
+importing `translate/rdf`, so the semantic layer no longer reaches translation; the layering test
+pins that edge as removed. The edges the test tolerates are the seven `develop` carried into the
+stack, path-rewritten, and `exec/runtime` still receives its parser and argument typer from the
+caller.
+
+Measured at `refactor/layer-frontend` `e0ecd2069` against `develop` `659391162`:
+`go list ./internal/...` 59 packages before and after; `internal/` is 108 directories
+(was 100); `go list -deps ./cmd/sysml` 368 before and after; 9006 `Test`
+functions and <OK> packages reporting `ok` before and after; no shipped binary links `tests/`,
+`stressmodel` or `fixtures`. The `examples` digest of the pilot differential and the errata
+registry digest of the pilot baselines moved because the self-model's `goPackage` strings and
+`libs/errata`'s `LibraryRoot` embed package paths; no count moved.
 
 ## P7 — an execution-owned IR (not started)
 

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
 func wantNoLine(t *testing.T, notation []byte, line string) {
@@ -35,6 +35,14 @@ func TestUserPackagesWithLibraryNamesMigrate(t *testing.T) {
 			t.Errorf("entries = %+v", es)
 		}
 	})
+}
+
+func TestXMIMetadataDoesNotBecomeStereotypeTag(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Thing"/>`,
+		`<sysml:Block xmi:id="_s" xmi:uuid="u" base_Class="_b"/>`)
+	wantLine(t, r.Notation, "part def Thing;")
+	wantNoLine(t, r.Notation, "«Block» uuid")
 }
 
 func TestExternalScalarNamesOnlyFromPrimitiveLibraries(t *testing.T) {

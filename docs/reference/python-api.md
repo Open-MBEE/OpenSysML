@@ -79,7 +79,7 @@ cannot reject `inst.mas`. `opensysml.generate` emits a Python class per SysML
 definition, so both can:
 
 ```bash
-python -m opensysml.generate internal/repl/testdata/vehicle_package.sysml -o demo_types.py
+python -m opensysml.generate internal/frontend/repl/testdata/vehicle_package.sysml -o demo_types.py
 opensysml-generate model.sysml -o model_types.py     # same thing, as a console script
 ```
 
@@ -87,7 +87,7 @@ opensysml-generate model.sysml -o model_types.py     # same thing, as a console 
 import opensysml
 from demo_types import Vehicle
 
-model = opensysml.load("internal/repl/testdata/vehicle_package.sysml")
+model = opensysml.load("internal/frontend/repl/testdata/vehicle_package.sysml")
 inst = model.instantiate("Demo::Vehicle")
 
 v: Vehicle = Vehicle.from_instance(inst)   # a typed view over the Instance
@@ -268,7 +268,7 @@ pytest -m integration client/python/tests/     # needs a running sysml-grpc
 OPENSYSML_REQUIRE_SERVICE=1 pytest client/python/tests/
 
 # Regenerate the committed golden generated file (needs a running sysml-grpc)
-python -m opensysml.generate internal/repl/testdata/vehicle_package.sysml \
+python -m opensysml.generate internal/frontend/repl/testdata/vehicle_package.sysml \
     -o client/python/tests/golden/vehicle_types.py
 
 # Regenerate protobuf bindings (from the repository root)

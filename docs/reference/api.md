@@ -106,35 +106,29 @@ strict=False)` loads inline SysML or KerML for this workflow.
 
 ## Overview
 
-OpenSysML is organized into core packages under `internal/core/`, with frontends in `internal/lsp/` and `internal/repl/`.
+OpenSysML is organized into layer directories under `internal/`, with frontends in `internal/frontend/`.
 
 **Package Organization:**
 
 ```
 github.com/Open-MBEE/OpenSysML
-├── internal/core/          # Core language implementation
-│   ├── source/             # Source files and position tracking
-│   ├── lexer/              # Tokenization
-│   ├── parser/             # Parsing to AST
-│   ├── ast/                # Abstract Syntax Tree
-│   ├── symbols/            # Symbol tables and scopes
-│   ├── resolve/            # Name resolution
-│   ├── semantics/          # Type system and semantic queries
-│   ├── passes/             # Validation passes
-│   ├── lower/              # AST → execution IR (ActionGraph/StateGraph)
-│   ├── runtime/            # Execution runtime
-│   ├── model/              # Workspace and document management
-│   └── libs/               # Standard library handling
-├── internal/lsp/           # Language Server Protocol
-├── internal/grpc/          # gRPC service implementation
-└── internal/repl/          # Interactive REPL
+├── internal/               # One directory per layer; a package imports only the layers below it
+│   ├── syntax/             # source, diag, lexer, parser, ast, pack, format
+│   ├── semantic/           # symbols, resolve, suggest, semantics, identity, highlight, query
+│   ├── ir/                 # lower, queryplan, docplan, view
+│   ├── check/              # passes, edit
+│   ├── exec/               # runtime, solve, smt, analysis, engines, objref
+│   ├── translate/          # rdf, export, xmi, migrate, convert, codegen, interop
+│   ├── doc/                # queryexec, docir, docrender, docpdf
+│   ├── workspace/          # model, libs, project, envvar
+│   └── frontend/           # protoconv, grpc, lsp, repl, stdiorpc, usage
 ```
 
 ---
 
 ## Core Packages
 
-### `internal/core/source`
+### `internal/syntax/source`
 
 Source file management and position tracking.
 
@@ -159,7 +153,7 @@ span := source.Span{Start: 0, End: 4} // "part"
 
 ---
 
-### `internal/core/lexer`
+### `internal/syntax/lexer`
 
 Tokenization of SysML v2 textual notation.
 
@@ -190,7 +184,7 @@ for tok := lex.Next(); tok.Kind != lexer.EOF; tok = lex.Next() {
 
 ---
 
-### `internal/core/parser`
+### `internal/syntax/parser`
 
 Recursive-descent parser producing AST.
 
@@ -219,7 +213,7 @@ root := p.ParseFile()
 
 ---
 
-### `internal/core/ast`
+### `internal/syntax/ast`
 
 Abstract Syntax Tree nodes (syntax-only, immutable).
 
@@ -277,7 +271,7 @@ type Node interface {
 
 ---
 
-### `internal/core/symbols`
+### `internal/semantic/symbols`
 
 Symbol tables and scope trees.
 
@@ -314,7 +308,7 @@ sym, ok := scope.LookupLocal("Wheel")
 
 ---
 
-### `internal/core/resolve`
+### `internal/semantic/resolve`
 
 Name resolution (lazy, memoized).
 
@@ -335,7 +329,7 @@ Results are memoized internally.
 
 ---
 
-### `internal/core/semantics`
+### `internal/semantic/semantics`
 
 Type system, conformance, semantic queries.
 
@@ -368,11 +362,11 @@ model := semantics.NewModel(resolver)
   - `Value{Kind ValueKind, Int int64, Real float64, Bool bool}`
   - `ValueKind` ∈ {ValInt, ValReal, ValBool, ValInfinity, ValInvalid}
 
-**Note:** `Eval()` is a **constant-folder only**. For full runtime evaluation, see `internal/core/runtime`.
+**Note:** `Eval()` is a **constant-folder only**. For full runtime evaluation, see `internal/exec/runtime`.
 
 ---
 
-### `internal/core/passes`
+### `internal/check/passes`
 
 Pluggable validation passes.
 
@@ -411,7 +405,7 @@ diagnostics := passes.Analyze("example.sysml", root, parseDiags, idx)
 
 ---
 
-### `internal/core/runtime`
+### `internal/exec/runtime`
 
 Execution runtime (Tiers 1-5: instances, expressions, behaviors).
 
@@ -682,7 +676,7 @@ for exec.State() != StateCompleted {
 
 ---
 
-### `internal/core/model`
+### `internal/workspace/model`
 
 Workspace and document management.
 
@@ -711,7 +705,7 @@ diagnostics := ws.Diagnostics("example.sysml")
 
 ---
 
-### `internal/core/libs`
+### `internal/workspace/libs`
 
 Standard library bundling and caching.
 
@@ -726,7 +720,7 @@ Standard library is embedded in the binary using Go `embed.FS`.
 
 ## Frontend Packages
 
-### `internal/lsp`
+### `internal/frontend/lsp`
 
 Language Server Protocol implementation.
 
@@ -762,7 +756,7 @@ srv.Run(ctx, stdio{}) // stdio implements io.ReadWriteCloser
 
 ---
 
-### `internal/repl`
+### `internal/frontend/repl`
 
 Interactive REPL implementation.
 
@@ -817,7 +811,7 @@ can filter a model OpenSysML parsed. The standard's schema is authoritative:
 `api/openapi.yaml` in the Java client, components `Query`, `Constraint`,
 `PrimitiveConstraint`, `CompositeConstraint`.
 
-**Implementation:** `internal/grpc/query.go` (`Service.Query`), reported from
+**Implementation:** `internal/frontend/grpc/query.go` (`Service.Query`), reported from
 `GetServerInfo` as the `query` capability. Python: `model.query(...)`
 (`client/python/opensysml/query.py`). The JSON a hand-written client sends and
 receives for this call is shown, captured, on
@@ -870,7 +864,7 @@ always a qualified name that the model resolves back to that element.
 ### Queryable properties
 
 The set is closed and is the single source of truth in
-`queryProperties` (`internal/grpc/query.go`). A property outside it is an
+`queryProperties` (`internal/frontend/grpc/query.go`). A property outside it is an
 `INVALID_ARGUMENT` error listing the ones that exist — never a silently empty
 answer.
 
@@ -894,7 +888,7 @@ answer.
 
 Mapping OpenSysML's symbol kinds onto the standard's metamodel type names is the
 substantive design decision here; `metamodelTypeNames`
-(`internal/grpc/query.go`) is the single source of truth, refined per element by
+(`internal/frontend/grpc/query.go`) is the single source of truth, refined per element by
 `MetamodelTypeNameOf` for the kinds one kind spans several metaclasses for, and
 `TestMetamodelTypeNameCoversEveryKind` keeps it total over every kind a parsed
 declaration can have. A standard-library element restored from cache may carry no
@@ -993,7 +987,7 @@ rpc RunDocumentQuery(RunDocumentQueryRequest) returns (RunDocumentQueryResponse)
 rpc RenderDocument(RenderDocumentRequest) returns (RenderDocumentResponse);
 ```
 
-**Implementation:** `internal/grpc/docquery.go` (`Service.RunDocumentQuery`,
+**Implementation:** `internal/frontend/grpc/docquery.go` (`Service.RunDocumentQuery`,
 `Service.RenderDocument`), reported from `GetServerInfo` as the
 `document_query` and `render_document` capabilities. Python:
 `model.run_document_query(...)` and `model.render_document(...)`
@@ -1092,8 +1086,8 @@ form the build writes.
 
 ```go
 import (
-    "github.com/Open-MBEE/OpenSysML/internal/core/source"
-    "github.com/Open-MBEE/OpenSysML/internal/core/parser"
+    "github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+    "github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 )
 
 src := source.New("example.sysml", []byte(`
@@ -1111,7 +1105,7 @@ root := p.ParseFile()
 
 ```go
 import (
-    "github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+    "github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 idx := symbols.NewIndex()
@@ -1124,7 +1118,7 @@ sym, ok := scope.LookupLocal("Wheel")
 
 ```go
 import (
-    "github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+    "github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 )
 
 res := resolve.New(idx)
@@ -1135,7 +1129,7 @@ sym, ok := res.ResolveQualified(scope, qualifiedName)
 
 ```go
 import (
-    "github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+    "github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 model := semantics.NewModel(res)
@@ -1147,7 +1141,7 @@ conforms := model.Conforms(wheelSym, vehiclePartSym)
 
 ```go
 import (
-    "github.com/Open-MBEE/OpenSysML/internal/core/passes"
+    "github.com/Open-MBEE/OpenSysML/internal/check/passes"
 )
 
 // Analyze wires up the default pass registry and context internally.
@@ -1158,7 +1152,7 @@ diagnostics := passes.Analyze("example.sysml", root, parseDiags, idx)
 
 ```go
 import (
-    "github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+    "github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 rtCtx := runtime.NewContext(runtime.NewModel(model, resolver), runtime.DefaultMaxSteps)
@@ -1210,10 +1204,10 @@ Each layer is independent and testable.
 All packages have comprehensive test coverage:
 
 ```bash
-go test ./internal/core/parser    # Parser tests
-go test ./internal/core/symbols   # Symbol table tests
-go test ./internal/core/semantics # Semantic tests
-go test ./internal/core/runtime   # Runtime tests
+go test ./internal/syntax/parser    # Parser tests
+go test ./internal/semantic/symbols   # Symbol table tests
+go test ./internal/semantic/semantics # Semantic tests
+go test ./internal/exec/runtime   # Runtime tests
 go test ./...                     # All tests
 ```
 

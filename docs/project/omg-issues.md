@@ -2,7 +2,7 @@
 
 One place to look for defects found in the OMG-published sources this
 implementation consumes. This page records defects in the **vendored specification
-libraries** (`internal/core/libs/stdlib/`), in the **published example corpora**, and
+libraries** (`internal/workspace/libs/stdlib/`), in the **published example corpora**, and
 in the **OMG pilot implementation** the differential is measured against, and in the
 **PSSM test suite** the state-machine referee runs.
 
@@ -24,7 +24,7 @@ divergence is also a row in [spec-compliance.md](spec-compliance.md).
 ## `Collections::UniqueCollection::elements` and its kin — unique by a note, over a `nonunique` root
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Kernel Libraries/Kernel Data Type Library/Collections.kerml`:
+`internal/workspace/libs/stdlib/Kernel Libraries/Kernel Data Type Library/Collections.kerml`:
 
 ```kerml
 abstract datatype Collection {
@@ -95,9 +95,9 @@ own declarations and defaults are conforming:
   nothing — points the other way. `Set`, `OrderedSet`, `Map`, `OrderedMap`, and a model's
   `:>> elements` under any of them, inherit uniqueness from these four.
 
-Implementation: `internal/core/semantics/uniqueness.go` (`Model.IsUnique`, `uniqueByLibraryNote`).
+Implementation: `internal/semantic/semantics/uniqueness.go` (`Model.IsUnique`, `uniqueByLibraryNote`).
 Evidence: `semantics/uniqueness_test.go:TestIsUniqueLibraryCollections` pins all six library
-collections; the conformance fixtures under `internal/core/runtime/testdata/conformance/`
+collections; the conformance fixtures under `internal/exec/runtime/testdata/conformance/`
 for ISQ vectors, coordinate frames and geometry run unchanged, and
 `library_ordered_set_elements_repeated` / `library_ordered_map_elements_repeated` refuse the repeat.
 The row is in [spec-compliance.md](spec-compliance.md) under *Uniqueness through redefinition
@@ -108,7 +108,7 @@ should say which of the two readings a redefinition takes.
 ## `includingAt` — the vendored declaration
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Kernel Libraries/Kernel Function Library/SequenceFunctions.kerml`:
+`internal/workspace/libs/stdlib/Kernel Libraries/Kernel Function Library/SequenceFunctions.kerml`:
 
 ```kerml
 function includingAt{ in seq: Anything[0..*] ordered nonunique; in values: Anything[0..*] ordered nonunique;
@@ -131,7 +131,7 @@ vendored body and is recorded here for review against a future OMG release.
 posted upstream.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Kernel Libraries/Kernel Function Library/NaturalFunctions.kerml`:
+`internal/workspace/libs/stdlib/Kernel Libraries/Kernel Function Library/NaturalFunctions.kerml`:
 
 ```kerml
 function '/' specializes IntegerFunctions::'/' { in x: Natural[1]; in y: Natural[1]; return : Natural[1]; }
@@ -170,7 +170,7 @@ than truncating or answering a Rational (`runtime/library_operators.go`
 posted upstream.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Domain Libraries/Quantities and Units/VectorCalculations.sysml`:
+`internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/VectorCalculations.sysml`:
 
 ```sysml
 	calc def inner :> VectorFunctions::inner { in : VectorQuantityValue[1]; in : VectorQuantityValue[1]; return : Number[1]; }
@@ -230,7 +230,7 @@ results as declared (`runtime/quantity_functions.go`).
 posted upstream.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Domain Libraries/Quantities and Units/VectorCalculations.sysml`:
+`internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/VectorCalculations.sysml`:
 
 ```sysml
     calc def outer { in : VectorQuantityValue[1]; in : VectorQuantityValue[1]; return : VectorQuantityValue[1]; }
@@ -274,7 +274,7 @@ types a call by the declaration, as the checker must.
 Not a defect report; a record of a reading the text does not fix.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Domain Libraries/Quantities and Units/TensorCalculations.sysml`:
+`internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/TensorCalculations.sysml`:
 
 ```sysml
     calc def isZeroTensorQuantity { 
@@ -308,7 +308,7 @@ invented for a vector, a rectangular or a higher-order tensor.
 posted upstream.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Domain Libraries/Quantities and Units/MeasurementReferences.sysml`:
+`internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/MeasurementReferences.sysml`:
 
 ```sysml
 	attribute def CoordinateFramePlacement :> CoordinateTransformation {
@@ -414,7 +414,7 @@ record's *Structured values* section names each decision).
 posted upstream.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Domain Libraries/Geometry/ShapeItems.sysml`
+`internal/workspace/libs/stdlib/Domain Libraries/Geometry/ShapeItems.sysml`
 (`CuboidOrTriangularPrism`; `Cuboid` adds the `srf`, `tsre`, `ufre`, `urre`,
 `tfrv`, `trrv` bindings in the same form):
 
@@ -582,13 +582,13 @@ Every finding is an entry of the declared errata overlay (`tools/oracle/errata`,
 [the declared errata overlay](errata-overlay.md)), under the same contract as the example-model
 entries below: a specification citation, a written derivation, and an as-published line that
 must still match the vendored file, all checked by tests. The published bytes under
-`internal/core/libs/stdlib` are never edited. Three entries carry a correction — the line has
+`internal/workspace/libs/stdlib` are never edited. Three entries carry a correction — the line has
 one reading with the declared dimension — and the library a process loads
 (`libs.BundledSource`, and the snapshot generated from it) is the published text with those
 three lines substituted on read. The other six have no unambiguous intended reading and are
 documented **without** a correction: the bundled library keeps their published text and the
 checker keeps reporting them. `libs.EmbeddedSource` still serves the text exactly as published,
-and two gates in `internal/core/model` pin both verdicts as exact sets:
+and two gates in `internal/workspace/model` pin both verdicts as exact sets:
 `TestExprTypeCheckPublishedStdlibDefects` finds all nine over the published text, and
 `TestExprTypeCheckNoStdlibFalsePositives` finds exactly the six uncorrected ones over the bundled
 library — so a correction can only be declared for a line the checker rejects, and a corrected
@@ -1146,7 +1146,7 @@ bodies, so its result is `Anything` and no argument is a unit).
 
 **Not filed.** Drafted here for a maintainer to authorise; nothing has been
 posted upstream. The rules are implemented on our side by
-`internal/core/passes/control_node.go` and refereed against the specification
+`internal/check/passes/control_node.go` and refereed against the specification
 text; the adjudication is in
 [pilot-differential.md](pilot-differential.md#control-node-successions-the-pilot-does-not-validate).
 
@@ -1222,7 +1222,7 @@ it is to be submitted, and nothing has been posted yet. Reproduced with
 `validate-kerml` at `2026-07` (0.61.0) and again at `2026-08` (0.62.0); the
 lines cited are unchanged on `master` at `5cca16d8` (2026-09-12). OpenSysML
 reads the referenced feature's declared type
-(`internal/core/passes/w8c_multiplicity_bounds.go`) wherever the feature is
+(`internal/check/passes/w8c_multiplicity_bounds.go`) wherever the feature is
 owned and rejects only a bound whose type does not conform to `Integer`; the
 adjudication is in
 [pilot-differential.md](pilot-differential.md#multiplicity-bound-result-types-round).
@@ -1414,7 +1414,7 @@ return type.getOwnedMembership().stream().
 **Not filed.** Drafted here for a maintainer to authorise; nothing has been
 posted upstream. OpenSysML counts a declaration's effective ends — owned and
 inherited — when choosing between `Links::links` and `Links::binaryLinks`
-(`internal/core/semantics/implicit.go`, `connector.go`); the adjudication is in
+(`internal/semantic/semantics/implicit.go`, `connector.go`); the adjudication is in
 [pilot-differential.md](pilot-differential.md#binary-link-specialization-round).
 
 ````markdown
@@ -1581,7 +1581,7 @@ intended reading?
 
 **Not filed.** Drafted here for a maintainer to authorise; nothing has been
 posted upstream. OpenSysML checks a conjugated classifier against every default
-base its kind and end count imply (`internal/core/passes/w11e_implicit_base.go`);
+base its kind and end count imply (`internal/check/passes/w11e_implicit_base.go`);
 the census row (`validateClassifierDefaultSupertype` in
 [validation-constraints.md](validation-constraints.md)) records the difference as
 ⚠️ approximate.
@@ -1622,7 +1622,7 @@ implicit-specialization machinery that conjugation switches off?
 
 **Not filed.** Drafted here for a maintainer to authorise; nothing has been
 posted upstream. OpenSysML reports the two `Duplicate of … member name` warnings
-on every repeated anonymous performed or exhibited use (`internal/core/resolve/distinguishability.go`),
+on every repeated anonymous performed or exhibited use (`internal/semantic/resolve/distinguishability.go`),
 as the pilot does when the uses have bodies; the Name Resolution map in
 [spec-compliance.md](spec-compliance.md) records the bodiless case as a pilot
 artefact.

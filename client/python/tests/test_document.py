@@ -51,17 +51,17 @@ GRPC_BINARIES = (
 #: The document pipeline's own telescope fixture and its golden Markdown, so
 #: the client sees exactly what the renderer's tests lock in.
 FIXTURE = os.path.join(
-    REPO_ROOT, "internal", "core", "docrender", "testdata", "telescope_report.sysml"
+    REPO_ROOT, "internal", "doc", "docrender", "testdata", "telescope_report.sysml"
 )
 GOLDEN = os.path.join(
-    REPO_ROOT, "internal", "core", "docrender", "testdata", "telescope_report.golden.md"
+    REPO_ROOT, "internal", "doc", "docrender", "testdata", "telescope_report.golden.md"
 )
 HTML_GOLDEN = os.path.join(
     REPO_ROOT, "internal", "core", "docrender", "testdata", "telescope_report.golden.html"
 )
 #: The renderer's verdict fixture: assertions on a car and queries over them.
 VERDICT_FIXTURE = os.path.join(
-    REPO_ROOT, "internal", "core", "docrender", "testdata", "verdict_report.sysml"
+    REPO_ROOT, "internal", "doc", "docrender", "testdata", "verdict_report.sysml"
 )
 #: The service's object fixture: a car with wheels, a spare wheel, and
 #: queries over the objects the service holds — bound, enumerated, checked.

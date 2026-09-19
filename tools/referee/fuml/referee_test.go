@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	oreport "github.com/Open-MBEE/OpenSysML/tools/oracle/report"
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/tools/oracle/xmi"
+	oreport "github.com/Open-MBEE/OpenSysML/tools/oracle/report"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi"
 )
 
 // fixtureLibrary is the slice of the foundational library the fixture calls.
