@@ -5,7 +5,7 @@
     "pilotTag": "2026-08",
     "pilotCommit": "692170b71867353b8f90341e61556f49a5beb0e5",
     "pilotArtifact": "0.62.0",
-    "errataRegistry": "sha256:c108867319151a4ee7375416332c233fe378bf7183748afe2494c44028418d15",
+    "errataRegistry": "sha256:d8d6e72f9e47d9579fed32b6daf79ac960bd52d0bc71f18deeca733beced139c",
     "tools": [
       {
         "name": "pilot-sysml-validator",
@@ -61,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 43,
-        "digest": "sha256:6f60351993f96adaae5bb2101a0831a5c849087d9c47b7ad602a7188de31697d"
+        "digest": "sha256:5ab4549d7a546408da6f187d58400c2cdaa0974cbf365f9c2805526e55a7fec2"
       },
       {
         "name": "probes",
@@ -6364,7 +6364,7 @@
       },
       {
         "id": "SI-137",
-        "path": "internal/core/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
         "line": 137,
         "citation": "KerML 7.4.9",
         "corrected": true,
@@ -6372,7 +6372,7 @@
       },
       {
         "id": "SI-149",
-        "path": "internal/core/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
         "line": 149,
         "citation": "KerML 7.4.9",
         "corrected": false,
@@ -6380,7 +6380,7 @@
       },
       {
         "id": "SI-163",
-        "path": "internal/core/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
         "line": 163,
         "citation": "KerML 7.4.9",
         "corrected": false,
@@ -6388,7 +6388,7 @@
       },
       {
         "id": "SI-233",
-        "path": "internal/core/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
         "line": 233,
         "citation": "KerML 7.4.9",
         "corrected": false,
@@ -6396,7 +6396,7 @@
       },
       {
         "id": "SI-239",
-        "path": "internal/core/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
         "line": 239,
         "citation": "KerML 7.4.9",
         "corrected": false,
@@ -6404,7 +6404,7 @@
       },
       {
         "id": "SI-247",
-        "path": "internal/core/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
         "line": 247,
         "citation": "KerML 7.4.9",
         "corrected": true,
@@ -6412,7 +6412,7 @@
       },
       {
         "id": "SI-286",
-        "path": "internal/core/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
         "line": 286,
         "citation": "KerML 7.4.9",
         "corrected": false,
@@ -6420,7 +6420,7 @@
       },
       {
         "id": "SI-299",
-        "path": "internal/core/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
         "line": 299,
         "citation": "KerML 7.4.9",
         "corrected": false,
@@ -6428,7 +6428,7 @@
       },
       {
         "id": "USCustomaryUnits-255",
-        "path": "internal/core/libs/stdlib/Domain Libraries/Quantities and Units/USCustomaryUnits.sysml",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/USCustomaryUnits.sysml",
         "line": 255,
         "citation": "SysML v2 §9.8.9.1",
         "corrected": true,

@@ -1,0 +1,1 @@
+- **Moved the document packages to `internal/doc`.** `queryexec`, `docir`, `docrender` and `docpdf` now live under `internal/doc/`.

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
 // Prefix metadata after a subject, actor, stakeholder, objective, variant,

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 )
 
 // TestHistoryPath covers where the prompt keeps its history, including the

@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	overlay "github.com/Open-MBEE/OpenSysML/internal/core/libs/errata"
+	overlay "github.com/Open-MBEE/OpenSysML/internal/workspace/libs/errata"
 )
 
 // Entry is one defect in published material; see the overlay package.

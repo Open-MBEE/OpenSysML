@@ -1,9 +1,9 @@
 ---
 name: testing-rdf-roundtrip
-description: How to end-to-end test the `internal/core/export` RDF mapping (`sysml -convert ttl|sysml`) so the test is load-bearing — stripping `sysx:sourceText` to force the structural predicates to carry the round trip, proving `.ttl` idempotence, and the negative controls that distinguish a working mapping from a decorative one.
+description: How to end-to-end test the `internal/translate/export` RDF mapping (`sysml -convert ttl|sysml`) so the test is load-bearing — stripping `sysx:sourceText` to force the structural predicates to carry the round trip, proving `.ttl` idempotence, and the negative controls that distinguish a working mapping from a decorative one.
 ---
 
-# Testing the SysML ↔ RDF Turtle round trip (`internal/core/export`)
+# Testing the SysML ↔ RDF Turtle round trip (`internal/translate/export`)
 
 ## Normative library identity checks
 
@@ -104,7 +104,7 @@ a failed structural mapping, without weakening the graph comparison.
 ### Heads that are *not* expected to survive without sourceText (as of this writing)
 
 - **Any end-binding head that says more than its ends.** `endForm` in
-  `internal/core/export/end_forms.go` is only emitted when rebuilding the head reproduces its
+  `internal/translate/export/end_forms.go` is only emitted when rebuilding the head reproduces its
   *tokens* (layout and comments aside, so a line break inside `connect a\n to b;` is fine), so an
   unsupported inline payload declaration or a head with a body may carry no
   `sysx:endForm`, and the sourceText-free hop is refused with `it has no sysx:endForm, and the ends
@@ -120,7 +120,7 @@ a failed structural mapping, without weakening the graph comparison.
 ## Negative controls that prove each predicate is load-bearing
 
 Strip the structural predicates the same way and re-convert. The four notation predicates below are
-defined in `internal/core/export/rdf_out.go` (`xEndForm`, `xEndVerb`, `xSourceMember`,
+defined in `internal/translate/export/rdf_out.go` (`xEndForm`, `xEndVerb`, `xSourceMember`,
 `xTargetMember`) and are *additional* to the older end triples `sysx:endIndex`, `sysx:endRole` and
 `sysx:relatedFeature`, which carry the participants rather than the notation — stripping the
 notation ones is what makes the participants insufficient. Confirm the vocabulary before trusting
@@ -207,7 +207,7 @@ before converting; a fixture that does not analyse cleanly makes every later res
 test fixture. Grep before claiming coverage:
 
 ```bash
-grep -rn "targetMember" internal/core/export/testdata/ internal/core/export/*_test.go
+grep -rn "targetMember" internal/translate/export/testdata/ internal/translate/export/*_test.go
 ```
 
 If it is still absent, say so — the predicate is decoder-only and its encoder branch is untested.

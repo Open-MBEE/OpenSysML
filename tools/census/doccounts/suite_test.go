@@ -44,7 +44,7 @@ func TestReadSuiteCountsCountsTheTreeAsTheGatesDo(t *testing.T) {
 func TestReadSuiteCountsReportsAKnownFailureAsNotPassing(t *testing.T) {
 	root := t.TempDir()
 	doccountstest.WriteSuiteFixture(t, root)
-	doccountstest.Write(t, root, "internal/core/runtime/testdata/conformance/known_failures.txt", "# pinned\ncalc_a\n")
+	doccountstest.Write(t, root, "internal/exec/runtime/testdata/conformance/known_failures.txt", "# pinned\ncalc_a\n")
 	counts, err := ReadSuiteCounts(root)
 	if err != nil {
 		t.Fatalf("read suite counts: %v", err)
@@ -73,26 +73,26 @@ func TestReadSuiteCountsReportsAKnownFailureAsNotPassing(t *testing.T) {
 func TestReadSuiteCountsRejectsWhatNoGateWouldRead(t *testing.T) {
 	for name, mutate := range map[string]func(t *testing.T, root string){
 		"a known failure that is no case": func(t *testing.T, root string) {
-			doccountstest.Write(t, root, "internal/core/runtime/testdata/conformance/known_failures.txt", "ghost_case\n")
+			doccountstest.Write(t, root, "internal/exec/runtime/testdata/conformance/known_failures.txt", "ghost_case\n")
 		},
 		"a trace owned by no case": func(t *testing.T, root string) {
-			doccountstest.Write(t, root, "internal/core/runtime/testdata/conformance/ghost.trace.golden", "trace\n")
+			doccountstest.Write(t, root, "internal/exec/runtime/testdata/conformance/ghost.trace.golden", "trace\n")
 		},
 		"a trace under no sweep policy": func(t *testing.T, root string) {
-			doccountstest.Write(t, root, "internal/core/runtime/testdata/conformance/calc_a.typo.trace.golden", "trace\n")
+			doccountstest.Write(t, root, "internal/exec/runtime/testdata/conformance/calc_a.typo.trace.golden", "trace\n")
 		},
 		"a policy trace of a case admitting one outcome": func(t *testing.T, root string) {
-			doccountstest.Write(t, root, "internal/core/runtime/testdata/conformance/calc_b.declared.trace.golden", "trace\n")
+			doccountstest.Write(t, root, "internal/exec/runtime/testdata/conformance/calc_b.declared.trace.golden", "trace\n")
 		},
 		"a policy trace of a case owning no default golden": func(t *testing.T, root string) {
-			doccountstest.Write(t, root, "internal/core/runtime/testdata/conformance/state_a.expected.json", `{"outcomes": [{}, {}]}`+"\n")
-			doccountstest.Write(t, root, "internal/core/runtime/testdata/conformance/state_a.seed-1.trace.golden", "trace\n")
+			doccountstest.Write(t, root, "internal/exec/runtime/testdata/conformance/state_a.expected.json", `{"outcomes": [{}, {}]}`+"\n")
+			doccountstest.Write(t, root, "internal/exec/runtime/testdata/conformance/state_a.seed-1.trace.golden", "trace\n")
 		},
 		"a parse fixture with no golden": func(t *testing.T, root string) {
 			doccountstest.Write(t, root, "tests/parser/testdata/parse/orphan.sysml", "package P;\n")
 		},
 		"a robustness loop the source does not bound": func(t *testing.T, root string) {
-			doccountstest.Write(t, root, "internal/core/runtime/robustness_test.go", `package runtime
+			doccountstest.Write(t, root, "internal/exec/runtime/robustness_test.go", `package runtime
 
 import "testing"
 
@@ -104,7 +104,7 @@ func TestRuntimeRobustness(t *testing.T) {
 `)
 		},
 		"a robustness range over an unknown table": func(t *testing.T, root string) {
-			doccountstest.Write(t, root, "internal/core/runtime/robustness_test.go", `package runtime
+			doccountstest.Write(t, root, "internal/exec/runtime/robustness_test.go", `package runtime
 
 import "testing"
 
@@ -118,7 +118,7 @@ func cases() []string { return nil }
 `)
 		},
 		"a robustness subtest under a condition": func(t *testing.T, root string) {
-			doccountstest.Write(t, root, "internal/core/runtime/robustness_test.go", `package runtime
+			doccountstest.Write(t, root, "internal/exec/runtime/robustness_test.go", `package runtime
 
 import (
 	"runtime"
@@ -134,7 +134,7 @@ func TestRuntimeRobustness(t *testing.T) {
 `)
 		},
 		"a robustness subtest under a switch": func(t *testing.T, root string) {
-			doccountstest.Write(t, root, "internal/core/runtime/robustness_test.go", `package runtime
+			doccountstest.Write(t, root, "internal/exec/runtime/robustness_test.go", `package runtime
 
 import "testing"
 
@@ -147,15 +147,15 @@ func TestRuntimeRobustness(t *testing.T) {
 `)
 		},
 		"no robustness test": func(t *testing.T, root string) {
-			doccountstest.Write(t, root, "internal/core/runtime/robustness_test.go", "package runtime\n")
-			doccountstest.Write(t, root, "internal/core/runtime/robustness_signals_test.go", "package runtime\n")
+			doccountstest.Write(t, root, "internal/exec/runtime/robustness_test.go", "package runtime\n")
+			doccountstest.Write(t, root, "internal/exec/runtime/robustness_signals_test.go", "package runtime\n")
 		},
 		"no conformance cases": func(t *testing.T, root string) {
-			dir := filepath.Join(root, "internal", "core", "runtime", "testdata", "conformance")
+			dir := filepath.Join(root, "internal", "exec", "runtime", "testdata", "conformance")
 			if err := os.RemoveAll(dir); err != nil {
 				t.Fatal(err)
 			}
-			doccountstest.Write(t, root, "internal/core/runtime/testdata/conformance/README.md", "empty\n")
+			doccountstest.Write(t, root, "internal/exec/runtime/testdata/conformance/README.md", "empty\n")
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

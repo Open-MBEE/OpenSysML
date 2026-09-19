@@ -91,14 +91,14 @@ go test -race ./...
 make test-short
 
 # Specific package
-go test ./internal/core/parser
+go test ./internal/syntax/parser
 ```
 
 **Parser-specific tests:** When modifying the parser, ensure the four-layer test contract passes:
 
-1. **Conformance gate:** `go test -run TestStdlibConformance ./internal/core/libs`
+1. **Conformance gate:** `go test -run TestStdlibConformance ./internal/workspace/libs`
 2. **Golden ASTs:** `go test -run TestGolden ./tests/parser`
-3. **Negative tests:** `go test -run TestNegative ./tests/parser ./internal/core/parser`
+3. **Negative tests:** `go test -run TestNegative ./tests/parser ./internal/syntax/parser`
 4. **Update goldens** (after intentional changes): `go test -run TestGolden -update ./tests/parser`
 
 See [docs/internals/architecture.md](docs/internals/architecture.md#parser-test-contract) for full details on the parser testing contract.
@@ -303,22 +303,16 @@ PRs must pass the GitHub Actions `Build and test` check, which requires:
 ```
 github.com/Open-MBEE/OpenSysML
 ├── cmd/                    # Binaries (sysml, sysml-lsp, sysml-grpc)
-├── internal/core/          # Core implementation
-│   ├── source/            # Source file handling
-│   ├── lexer/             # Tokenization
-│   ├── parser/            # Parsing
-│   ├── ast/               # AST nodes
-│   ├── symbols/           # Symbol tables
-│   ├── resolve/           # Name resolution
-│   ├── semantics/         # Type system
-│   ├── passes/            # Validation
-│   ├── lower/             # AST → execution IR (ActionGraph/StateGraph)
-│   ├── runtime/           # Execution
-│   ├── model/             # Workspace
-│   └── libs/              # Standard library bundling
-├── internal/lsp/          # LSP implementation
-├── internal/grpc/         # gRPC service implementation
-├── internal/repl/         # REPL implementation
+├── internal/              # One directory per layer; a package imports only the layers below it
+│   ├── syntax/            # source, diag, lexer, parser, ast, pack, format
+│   ├── semantic/          # symbols, resolve, suggest, semantics, identity, highlight, query
+│   ├── ir/                # lower, queryplan, docplan, view
+│   ├── check/             # passes, edit
+│   ├── exec/              # runtime, solve, smt, analysis, engines, objref
+│   ├── translate/         # rdf, export, xmi, migrate, convert, codegen, interop
+│   ├── doc/               # queryexec, docir, docrender, docpdf
+│   ├── workspace/         # model, libs, project, envvar
+│   └── frontend/          # protoconv, grpc, lsp, repl, stdiorpc, usage
 ├── client/python/         # Python client bindings (opensysml)
 ├── client/rust/           # Rust client (opensysml) and its conformance runner
 ├── docs/                  # Documentation
@@ -367,8 +361,8 @@ When a change needs documenting:
   names the gates without their counts; the one suite figure still committed there is whether
   every conformance case passes, which moves with `known_failures.txt` alone.
 - **Robustness cases are registered per feature.** A runtime failure-mode subtest goes in
-  `internal/core/runtime/robustness_<feature>_test.go` under a `TestRuntimeRobustness<Feature>`
-  function (gRPC: `internal/grpc/robustness_<feature>_test.go`, `TestGRPCRobustness<Feature>`),
+  `internal/exec/runtime/robustness_<feature>_test.go` under a `TestRuntimeRobustness<Feature>`
+  function (gRPC: `internal/frontend/grpc/robustness_<feature>_test.go`, `TestGRPCRobustness<Feature>`),
   a new file for a new feature; `robustness_test.go` holds the shared cases and is not where new
   ones go. `go test` discovers them like any test, and the build-time counters sum every
   `TestRuntimeRobustness*` and `TestGRPCRobustness*` function, so two branches adding cases never

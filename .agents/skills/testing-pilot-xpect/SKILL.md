@@ -366,10 +366,10 @@ worktree to check that a new regression test is load-bearing (fails at the paren
 
 ### Diagnostic counts move between tiers — count per tier, not just per line
 
-`internal/core/resolve` is not the only diagnostic producer, so "the resolver no longer complains"
+`internal/semantic/resolve` is not the only diagnostic producer, so "the resolver no longer complains"
 and "the line is clean" are different claims. `resolve` emits `unresolved reference: …` (sole emitter:
 `qualified.go`'s `unresolved`/`unresolvedNamespace`), while the tier-4 constraint pass in
-`internal/core/passes/constraint.go` emits its own, e.g. `"%s redefines %s, but %s is not an inherited
+`internal/check/passes/constraint.go` emits its own, e.g. `"%s redefines %s, but %s is not an inherited
 member of %s"` (code `redefinition-no-inherited`). A fix that makes a reference *resolve* can hand the
 line straight to a later tier, so an end-to-end `publishDiagnostics` count stays 1 while the message
 changes completely. A unit test asserting `len(r.Diagnostics) == 0` on a bare `Resolver` is therefore
@@ -378,7 +378,7 @@ Report the message text, not just the count, and confirm which package emits it 
 before calling a leftover diagnostic a regression.
 
 To attribute a diagnostic definitively, temporarily instrument `Resolver.report` in
-`internal/core/resolve/resolver.go` with an env-gated `debug.Stack()` dump and rebuild the LSP; if the
+`internal/semantic/resolve/resolver.go` with an env-gated `debug.Stack()` dump and rebuild the LSP; if the
 stack never fires for a message you can see in the editor, that message is coming from another package
 entirely. Restore the file and `git update-index --refresh` before checking `git status --porcelain`.
 
@@ -425,7 +425,7 @@ failing `cmp` against it is *not* evidence of an Xpect regression — compare th
 
 ## Reviewing a wave that adds validation passes (not just the harness)
 
-A wave whose passes move the Xpect verdicts (e.g. wave 9C's `internal/core/passes/w9c_*.go`) is best
+A wave whose passes move the Xpect verdicts (e.g. wave 9C's `internal/check/passes/w9c_*.go`) is best
 judged by running the harness on **both revisions** rather than by trusting the committed baseline:
 
 ```bash
@@ -471,7 +471,7 @@ add nor a removal, and a *degradation* would hide there.
 
 ## Cache independence of a library-reading rule
 
-`libs.NewCache()` resolves `$XDG_CACHE_HOME/sysml-ls/libs` (`internal/core/libs/cache.go`). A unit
+`libs.NewCache()` resolves `$XDG_CACHE_HOME/sysml-ls/libs` (`internal/workspace/libs/cache.go`). A unit
 test that just passes a `*libs.Cache` to `libs.NewLoader` **does not exercise a warm cache**: records
 are only written by `Loader.Persist`, which the test helpers do not call, so the "warm" pass reads an
 empty directory. To prove a rule behaves identically cold and warm, drive `bin/sysml` twice under a

@@ -16,30 +16,30 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
-	"github.com/Open-MBEE/OpenSysML/internal/core/docpdf"
-	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
-	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
-	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
-	"github.com/Open-MBEE/OpenSysML/internal/core/highlight"
-	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
-	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
-	passidentity "github.com/Open-MBEE/OpenSysML/internal/core/passes/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/core/view"
-	service "github.com/Open-MBEE/OpenSysML/internal/grpc"
-	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
-	"github.com/Open-MBEE/OpenSysML/internal/lsp"
-	"github.com/Open-MBEE/OpenSysML/internal/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/check/edit"
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	passidentity "github.com/Open-MBEE/OpenSysML/internal/check/passes/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docpdf"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
+	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	service "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/lsp"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/highlight"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 const selfModelDir = "self-model"
@@ -300,7 +300,7 @@ func TestSelfModelBudgetsMatchImplementation(t *testing.T) {
 }
 
 // TestSelfModelAnalysisFrameworkMatchesImplementation instantiates the modelled
-// analysis framework and compares it with internal/core/analysis: the engines the
+// analysis framework and compares it with internal/exec/analysis: the engines the
 // build's registry (engines.Default) holds and what each declares, the question kinds, the
 // evidence scale, the selections, the budget and the jobs setting.
 func TestSelfModelAnalysisFrameworkMatchesImplementation(t *testing.T) {
@@ -473,8 +473,8 @@ func TestSelfModelAnalysisFrameworkMatchesImplementation(t *testing.T) {
 	if !strings.Contains(readGoPackage(t, filepath.Join("..", "cmd", "sysml")), `"`+strings.TrimPrefix(budget.str("jobsFlag"), "-")+`"`) {
 		t.Errorf("pipeline.sysml says jobsFlag = %q, cmd/sysml defines no such flag", budget.str("jobsFlag"))
 	}
-	if !strings.Contains(readGoPackage(t, filepath.Join("..", "internal", "repl")), `"`+budget.str("jobsCommand")+`"`) {
-		t.Errorf("pipeline.sysml says jobsCommand = %q, internal/repl defines no such command", budget.str("jobsCommand"))
+	if !strings.Contains(readGoPackage(t, filepath.Join("..", "internal", "frontend", "repl")), `"`+budget.str("jobsCommand")+`"`) {
+		t.Errorf("pipeline.sysml says jobsCommand = %q, internal/frontend/repl defines no such command", budget.str("jobsCommand"))
 	}
 }
 
@@ -1232,7 +1232,7 @@ func TestSelfModelSyncMatchesImplementation(t *testing.T) {
 	sync := instantiateSelfModel(t, idx, ctx, "identity.sysml", "OpenSysMLIdentity", "RepositorySync")
 
 	if !sync.boolean("implemented") {
-		t.Error("identity.sysml says repository synchronisation is not implemented; internal/interop/reposync is")
+		t.Error("identity.sysml says repository synchronisation is not implemented; internal/translate/interop/reposync is")
 	}
 	changeKinds := []string{
 		string(reposync.KindCreate), string(reposync.KindUpdate), string(reposync.KindDelete), string(reposync.KindConflict),
@@ -1360,13 +1360,13 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 		"| sequence | true |",
 		"| geometry | false |",
 		"| differential | pilot validator | docs/project/pilot-differential-baseline.json |",
-		"| snapshotGate | the bundled library files | internal/core/libs/stdlib.snapshot |",
+		"| snapshotGate | the bundled library files | internal/workspace/libs/stdlib.snapshot |",
 		"OpenSysMLViews::pipelineStructure",
 		"OpenSysMLViews::libraryLoadFlow",
 		"[snapshotCurrent]",
 		"OpenSysMLViews::budgetExhaustion",
 		"| explore | outcomes | runs, depth | proved | true | false | runtime.ExploreWith |",
-		"| solve | satisfiable | runs, solver | proved | true | true | internal/core/solve |",
+		"| solve | satisfiable | runs, solver | proved | true | true | internal/exec/solve |",
 		"OpenSysMLViews::analysisFramework",
 		"OpenSysMLViews::questionFlow",
 		"OpenSysMLViews::exploreFlow",

@@ -340,7 +340,7 @@ conformance case under `declared` and `seed:1`, so a case whose `stateVisits` or
 declaration order under `seed:1` was pinning a scheduling artefact: the cases *about* the order
 state the exact set of linearizations the library admits as `outcomes`, and the cases whose
 subject is something else pin `reverse` with the reason stated
-(`internal/core/runtime/testdata/conformance/README.md`). The runtime showcase's spacecraft
+(`internal/exec/runtime/testdata/conformance/README.md`). The runtime showcase's spacecraft
 session gains one draw entering `modes` (two regions, one unit each; the state is never left),
 its README checkpoints regenerated; under `reverse` and `declared` the run itself, the t=79 race
 included, is unchanged, and `TestSpacecraftShowcaseFrameCountAtLowPowerIsScheduleDependent` pins
@@ -391,7 +391,7 @@ join's order on its own, so every firing order reached brings a mirror the suite
 
 ## The test contract
 
-Conformance fixtures under `internal/core/runtime/testdata/conformance/`, each with an
+Conformance fixtures under `internal/exec/runtime/testdata/conformance/`, each with an
 `outcomes` list citing the oracle, a default trace golden, and `.declared`/`.seed-1` goldens:
 
 | Fixture | Pins |
@@ -416,7 +416,7 @@ checker reach between them.
 
 `explore_test.go` covers each kind — every outcome reached exactly once, the count of draws,
 determinism across runs — and `explore_queue_test.go`'s sweep on eight jobs covers the fixtures
-by their `outcomes`. `internal/repl/explore_test.go` explores a region-entry model through the
+by their `outcomes`. `internal/frontend/repl/explore_test.go` explores a region-entry model through the
 REPL and checks the table (`TestRunStateMachineExploresEveryRegionEntryOrder`). `replay_test.go`
 refuses a witness line at each site with the run rolled back to the move's start;
 `robustness_region_order_test.go` holds the feature's failure modes.

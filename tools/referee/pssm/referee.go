@@ -3,13 +3,14 @@ package pssm
 import (
 	"context"
 	"fmt"
-	"github.com/Open-MBEE/OpenSysML/tools/oracle/report"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/report"
+
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // Meaning is what a pass means, and the first sentence of everything the
