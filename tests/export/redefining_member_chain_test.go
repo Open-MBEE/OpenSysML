@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
-	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
 // elementNamed is the one element of graph whose sysml:qualifiedName is qn.
@@ -72,7 +72,7 @@ func chainTargets(t *testing.T, graph *rdf.Graph, owner rdf.Term, text string) [
 // at ff's generals instead: Polygon inherits Path's `:>> faces`, whose `edges` is
 // the library's StructuredSpaceObject::faces::edges, outside this graph.
 func TestShapeItemsChainsThroughRedefiningFacesBindInTheGraph(t *testing.T) {
-	path := filepath.Join("..", "..", "internal", "core", "libs", "stdlib", "Domain Libraries", "Geometry", "ShapeItems.sysml")
+	path := filepath.Join("..", "..", "internal", "workspace", "libs", "stdlib", "Domain Libraries", "Geometry", "ShapeItems.sysml")
 	src, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

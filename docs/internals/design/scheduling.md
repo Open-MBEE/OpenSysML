@@ -186,7 +186,7 @@ one run and cannot replay from the start.
 ## The conformance contract
 
 Every element above has a test surface, documented for authors in
-`internal/core/runtime/testdata/conformance/README.md` and summarised in
+`internal/exec/runtime/testdata/conformance/README.md` and summarised in
 [testing](../testing.md):
 
 - A case whose model admits several results lists them under `outcomes` with an `admissible`

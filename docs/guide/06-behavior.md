@@ -547,7 +547,7 @@ the whole set of outcomes it admits.
 
 The examples below are one fixture from the conformance suite, three branches writing one feature
 between a fork and a join,
-[`action_explore_three_writers.sysml`](../../internal/core/runtime/testdata/conformance/action_explore_three_writers.sysml):
+[`action_explore_three_writers.sysml`](../../internal/exec/runtime/testdata/conformance/action_explore_three_writers.sysml):
 
 ```sysml
 package test {
@@ -857,7 +857,7 @@ no file of the caller's and `"replay:…"` is `INVALID_ARGUMENT`.
 ### Writing a test that admits several outcomes
 
 A conformance case (see the
-[conformance README](../../internal/core/runtime/testdata/conformance/README.md)) that pins one
+[conformance README](../../internal/exec/runtime/testdata/conformance/README.md)) that pins one
 outcome of a model with choice points pins the default policy's linearization, which is fine when
 that is what you mean. When the model admits several, say so with three things beside the
 `.sysml`:
@@ -944,7 +944,7 @@ simulation tool often means something else by a branch — *the acquisition succ
 in ten* — and by a duration — *the settle takes between one and eighty seconds* — and SysML v2
 has no notation for either. OpenSysML supplies one as an extension library, in standard SysML v2
 that any other tool reads as ordinary metadata and a function call: two library packages,
-`Stochastic` and `RandomFunctions` under `internal/core/libs/stdlib/OpenSysML Libraries/`, both
+`Stochastic` and `RandomFunctions` under `internal/workspace/libs/stdlib/OpenSysML Libraries/`, both
 marked NON-NORMATIVE, with the vendored OMG files untouched. What they state is *modeled*
 randomness, and the runtime keeps it apart from the scheduling kind: a weighted branch is drawn
 by its weights, a scheduling choice never is, and the two draw from two independent streams,
@@ -2024,7 +2024,7 @@ Setting `x` to `5` gives `taken = 2`. The state-machine counterparts (orthogonal
 regions, choice and junction) appear in
 [examples/orthogonal-regions-demo.sysml](../../examples/orthogonal-regions-demo.sysml) and
 [examples/pseudostates-demo.sysml](../../examples/pseudostates-demo.sysml), and every case the
-executors are tested against lives under `internal/core/runtime/testdata/conformance/`.
+executors are tested against lives under `internal/exec/runtime/testdata/conformance/`.
 
 ### Terminate: ending an action early
 

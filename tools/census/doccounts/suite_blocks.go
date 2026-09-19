@@ -42,13 +42,13 @@ var suiteBlockTemplateTexts = map[string]string{
 
 	inventoryConformanceBlock:  "{{.Suite.ConformanceCases}} conformance cases ({{if .Suite.AllPassing}}all passing{{else}}{{.Suite.ConformancePassing}} passing, {{.Suite.KnownFailures}} listed in `known_failures.txt`{{end}}: {{.Suite.ConformanceBreakdown}})",
 	inventoryRobustnessBlock:   "{{.Suite.Robustness}} runtime robustness cases (first-level subtests across the `TestRuntimeRobustness*` functions)",
-	inventoryRuntimeTestsBlock: "{{.Suite.RuntimeTestFunctions}} runtime test functions (the top-level tests `go test -v ./internal/core/runtime` reports)",
+	inventoryRuntimeTestsBlock: "{{.Suite.RuntimeTestFunctions}} runtime test functions (the top-level tests `go test -v ./internal/exec/runtime` reports)",
 	inventoryGoldenASTsBlock:   "{{.Suite.GoldenASTs}} golden AST fixtures ({{.Suite.GoldenSysML}} SysML, {{.Suite.GoldenKerML}} KerML)",
 	inventoryTracesBlock:       "{{.Suite.TracesDefault}} golden execution traces under the default schedule ({{.Suite.TraceBreakdown}}), and {{.Suite.TracesPolicy}} more `.trace.golden` files pinning a case under a named policy, `<case>.declared` or `<case>.seed-<n>`",
 	inventoryNegativesBlock:    "{{.Suite.Negatives}} negative parser subtests (first-level subtests of `TestNegative`; {{.Suite.NegativesPrefixed}} across the `TestNegative*` functions, {{.Suite.NegativesKerML}} of them KerML, and {{.Suite.NegativesAll}} across every `*Negative*` parser test)",
 	inventoryGRPCBlock:         "{{.Suite.GRPCConformance}} gRPC conformance cases and {{.Suite.GRPCRobustness}} gRPC robustness cases (first-level subtests across the `TestGRPCRobustness*` functions)",
 	inventoryTestsBlock:        "{{.Suite.TestFunctions}} top-level `Test` functions across the module",
-	lspTestsBlock:              "{{.Suite.LSPTestFunctions}} top-level `Test` functions in `internal/lsp`",
+	lspTestsBlock:              "{{.Suite.LSPTestFunctions}} top-level `Test` functions in `internal/frontend/lsp`",
 }
 
 // suiteFigures are the suite counts spelt as the templates print them.

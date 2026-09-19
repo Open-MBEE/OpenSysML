@@ -40,7 +40,7 @@ run can state it, so the prose does not quote one.
 
 A third consumer, `<!-- doc-counts:begin analysis-libraries -->` in `docs/project/spec-compliance.md`,
 renders the per-library table from `docs/project/analysis-library-census.json`, which
-`TestAnalysisLibraryCensus` (`internal/core/runtime/library_census_test.go`) writes under
+`TestAnalysisLibraryCensus` (`internal/exec/runtime/library_census_test.go`) writes under
 `-update-library-census` and otherwise asserts. Its inputs are `doccounts.ReadFigures`
 (the refereed baselines plus the census); the same stale/marker/read-only checks below apply to it,
 and a census JSON mutated by hand (a declaration dropped from `evaluated`) must fail both `-check`
@@ -138,9 +138,9 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
   add a second copy on a line of its own (`duplicate markers of the block named`), and drop the
   end marker (`missing or unterminated`).
 - **Tree propagation goes to the site, not to git:** drop a `state_probe.expected.json` into
-  `internal/core/runtime/testdata/conformance/`, or a
+  `internal/exec/runtime/testdata/conformance/`, or a
   `robustness_zz_probe_test.go` with a two-subtest `TestRuntimeRobustnessProbe` into
-  `internal/core/runtime/`, or a `TestSomething` into any `_test.go`: `-check` must still print
+  `internal/exec/runtime/`, or a `TestSomething` into any `_test.go`: `-check` must still print
   `already current` and `git status --short` must show only the probe, while `-site-blocks`
   moves the matching figure (`state×228` → `state×229`, `470 runtime robustness cases` → `472`,
   the `Test`-function figure by one) and `make docs` renders the new number into
@@ -158,7 +158,7 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
   its real-tree case (not skip it).
 - **The site shows the tree's figures:** after `make docs`, grep
   `site/project/spec-compliance/index.html` for `runtime robustness cases` and
-  `functions in <code>internal/lsp`; each must carry a number, no `doc-counts:begin inventory-`
+  `functions in <code>internal/frontend/lsp`; each must carry a number, no `doc-counts:begin inventory-`
   or `lsp-tests` marker may remain (only the committed `analysis-libraries` markers do), and
   none of the placeholder sentences (`the runtime robustness cases`) may be visible. Open the
   served page in a browser to confirm the inventory reads naturally with the numbers spliced
@@ -173,11 +173,11 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
   runs no subtest is passed over, and so are the goldens of a case `known_failures.txt` lists,
   since `TestExecutionTrace` skips the case.
 - **The figures are the gates' figures** (read them from `-site-blocks`): `go test -count=1 -v
-  -run 'TestExecutionConformance$' ./internal/core/runtime | grep -cE '^=== RUN   TestExecutionConformance/[^/]+$'`
+  -run 'TestExecutionConformance$' ./internal/exec/runtime | grep -cE '^=== RUN   TestExecutionConformance/[^/]+$'`
   must equal the conformance figure; the same shape with `TestRuntimeRobustness` and
-  `TestGRPCRobustness` (in `./internal/grpc`) — unanchored, summing the first-level `=== RUN`
+  `TestGRPCRobustness` (in `./internal/frontend/grpc`) — unanchored, summing the first-level `=== RUN`
   lines of every function the prefix matches — `TestGolden$` and `Negative` (in
-  `./tests/parser` and `./internal/core/parser`, summing per function) must equal theirs; and
+  `./tests/parser` and `./internal/syntax/parser`, summing per function) must equal theirs; and
   `go test -list '.*' ./... | grep -c '^Test'` must equal the `Test`-function figure. Test names
   carry digits (`TestF62F63Negative`), so match `[^/ ]+`, not `[A-Za-z_]+`.
 - **Every landing link resolves on the built site:** grep the `href`s out of

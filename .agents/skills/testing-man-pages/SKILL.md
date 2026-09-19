@@ -1,12 +1,12 @@
 ---
 name: testing-man-pages
-description: How to end-to-end test the generated manual pages and GNU-style installation (internal/usage, `<cmd> -man`, `make man` / `make man-check` / `make install-tree`, man/man1/*.1) on Linux — proving the drift gate is load-bearing, that `man` really renders an installed page, and that rendering is reproducible.
+description: How to end-to-end test the generated manual pages and GNU-style installation (internal/frontend/usage, `<cmd> -man`, `make man` / `make man-check` / `make install-tree`, man/man1/*.1) on Linux — proving the drift gate is load-bearing, that `man` really renders an installed page, and that rendering is reproducible.
 ---
 
 # Verifying the generated manual pages and `make install-tree` (Linux)
 
 Each command (`sysml`, `sysml-lsp`, `sysml-grpc`) declares a `usage.Doc` in its `usage.go`;
-`internal/usage` renders both the terminal help (`-help`) and the roff page (`-man`) from it, and
+`internal/frontend/usage` renders both the terminal help (`-help`) and the roff page (`-man`) from it, and
 options are enumerated from the command's `flag.FlagSet`. The pages are **committed** under
 `man/man1/*.1` and gated by `make man-check`.
 
@@ -61,7 +61,7 @@ Also check `<cmd> -man` exits 0 and writes **0 bytes to stderr** (it is piped in
 
 ## Reproducibility
 
-`internal/usage/meta.go` reads `SOURCE_DATE_EPOCH` (seconds) and otherwise uses a constant
+`internal/frontend/usage/meta.go` reads `SOURCE_DATE_EPOCH` (seconds) and otherwise uses a constant
 `manDate`. So:
 
 ```bash

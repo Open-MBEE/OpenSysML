@@ -42,14 +42,14 @@ Every number on this page was measured on this machine, on `0d4eb14f`, with a fr
 
 A standard library is **index-only**: `libs.Loader.LoadAll` parses what the cache missed and then
 `reduce` replaces every parsed document with the same `IndexRecord` a hit restores
-(`internal/core/libs/loader.go`). A library symbol therefore carries a name, a kind, a span,
+(`internal/workspace/libs/loader.go`). A library symbol therefore carries a name, a kind, a span,
 specialization and `featured by` targets, an alias target, unit/dimension facts, behavior parameter
 lists, annotation facts and compiled filter predicates — and **no `Decl`**.
 
 That contract exists because the cache was previously observable: a hit produced a poorer state than
 a miss, so `solve` evaluated library-inherited invariants and gRPC reported dozens of inherited
 library attributes only until the cache warmed, and the conformance oracles gave two answers for one
-tree. `internal/core/libs/index_only_test.go` is the proof that the cache is now free of semantic
+tree. `internal/workspace/libs/index_only_test.go` is the proof that the cache is now free of semantic
 effect, and it proves it the strong way: **no symbol of a library document has a `Decl` on either
 path**, including with no cache at all.
 
@@ -146,7 +146,7 @@ Two concrete obstacles, both verified in the tree rather than assumed:
   it is wanted, and lost *quietly*. Fixing it means exporting trivia or hand-writing
   `GobEncode`/`GobDecode` for every node.
 - The tree is interface-valued (`Members []Node`, expression operands), so gob needs a
-  `gob.Register` for each of the ~83 concrete node types in `internal/core/ast`, and a node type
+  `gob.Register` for each of the ~83 concrete node types in `internal/syntax/ast`, and a node type
   added later without a registration is a decode error — i.e. a silent miss at best.
 
 And the payoff is inverted: this pays a large new on-disk format, a real version-compatibility
@@ -194,7 +194,7 @@ Costs, measured, not speculative:
 
 The reviewer's reading is right, and it is worse than the +68 MiB the earlier draft priced.
 `Service.ParseFile` takes an index from the pool and adds the user document to it, so the model that
-took it owns it for its lifetime (`internal/grpc/service.go:229`, `CachedModel.Index`). The live count
+took it owns it for its lifetime (`internal/frontend/grpc/service.go:229`, `CachedModel.Index`). The live count
 is therefore bounded by the model cache, which `cmd/sysml-grpc/main.go` defaults to
 `--cache-size 100`.
 
@@ -205,7 +205,7 @@ distinct `*symbols.Index` values the cache still holds, twice in one process:
 |---|---|---|
 | gRPC, `--cache-size 100` full | **100** (one per cached model) | heap 1595.5 MiB, RSS 2022–2043 MiB; 1594.6 MiB over the prewarmed baseline, **15.95 MiB per index** |
 | LSP | **1** — one `model.NewWorkspace()` per process (`cmd/sysml-lsp/main.go:112`), one index in it | 15.4 MiB |
-| REPL | **2** — the workspace's, plus the one `Session.symbolIndex` builds with `model.LoadStdlibInto` (`internal/repl/session.go:998`, `discover.go:25`) | 30.7 MiB after one submission (15.3 + 15.4) |
+| REPL | **2** — the workspace's, plus the one `Session.symbolIndex` builds with `model.LoadStdlibInto` (`internal/frontend/repl/session.go:998`, `discover.go:25`) | 30.7 MiB after one submission (15.3 + 15.4) |
 
 **Result of stage A ([#504](https://github.com/JPL-Devin/OpenSysML/pull/504)), measured the same way
 on `1af78d94`:** the same 100 cached models cost **1.1 MiB of heap and 76.5 MiB RSS** (0.01 MiB per
@@ -222,8 +222,8 @@ because the pool was empty, and the 4 extra builds are the prewarm slots refille
 index it hands out leaves it for good.
 
 One further build site, not retained but not free either: `ApplyEdits` gave `edit.reparseModel` a
-fresh library index per *operation* (`internal/grpc/edit.go:43`, and `reparseModel` is called inside
-the operation loop, `internal/core/edit/edit.go:145`). Measured, a 5-operation request took **6**
+fresh library index per *operation* (`internal/frontend/grpc/edit.go:43`, and `reparseModel` is called inside
+the operation loop, `internal/check/edit/edit.go:145`). Measured, a 5-operation request took **6**
 indexes from the pool — ~96 MiB of allocation and ~0.5 s of index building for one request (row
 **L3-9**, now closed: an `Apply` call takes one).
 
@@ -334,7 +334,7 @@ Two sessions, and the split is at the package boundary:
 
 - **A — `symbols`.** `NewOverlay`, `Freeze`, the read-path audit of the 15 maps and ~123 accesses, the
   suppression channel, and the five proofs of §3.4. No consumer changes, so no oracle can move.
-- **B — the consumers.** gRPC's pool becomes one shared base (`internal/grpc/libindex.go` largely
+- **B — the consumers.** gRPC's pool becomes one shared base (`internal/frontend/grpc/libindex.go` largely
   deleted), the edit path stops taking an index per operation (**L3-9**), the REPL's second index
   becomes an overlay of the workspace's base, then re-measure §3.1 and re-run the three oracles.
 
@@ -493,13 +493,13 @@ out of this page later would otherwise mislead:
 
 Two of the 95's rows are real work:
 
-- **`solve`.** `internal/core/solve/differential_corpus_test.go` parses the library itself
+- **`solve`.** `internal/exec/solve/differential_corpus_test.go` parses the library itself
   (`parseLibraries`) *because* records hold no conditions; that workaround becomes unnecessary and is
   deleted. In exchange, the translation must decide what to do with library invariants that are
   outside the SMT-translatable subset — the pre-index-only behaviour was to try, and that is what
   made a warm cache differ from a cold one. The gate is `solve`'s own subset check, which must skip a
   library condition it cannot translate rather than reporting on it.
-- **`internal/grpc`.** `attributesOf` reads `sym.Decl` (`internal/grpc/attributes.go:142,167`), so
+- **`internal/frontend/grpc`.** `attributesOf` reads `sym.Decl` (`internal/frontend/grpc/attributes.go:142,167`), so
   inherited library attributes start appearing in responses again — dozens of them, which is the
   regression the index-only contract was adopted to stop. The difference is that now they appear on
   *both* paths, so the answer is stable. The policy is **decided** by the project maintainers (**L3-3**) and is
@@ -547,13 +547,13 @@ Every row below is open, with a category from
 |---|---|---|---|
 | **L3-1** | The design itself is unimplemented: records are still index-only, and a library still contributes no bodies. | unimplemented obligation | L3, next stage |
 | **L3-2** | `Model.Eval` cannot fold a library value expression that invokes a Kernel Function Library function over a feature (`isEmpty(voids)`). Resolution is fine; evaluation declines. | unimplemented obligation | L3, before consumers migrate |
-| **L3-3** | **Decided** (§6): the element API withholds library-inherited attributes and reports a count of what it withheld, keyed on `Index.Library`. Open only as unimplemented work, including the proto field and its two downstream clients. | adjudicated divergence, decided; implementation outstanding | `internal/grpc`, after the sharing and record stages |
+| **L3-3** | **Decided** (§6): the element API withholds library-inherited attributes and reports a count of what it withheld, keyed on `Index.Library`. Open only as unimplemented work, including the proto field and its two downstream clients. | adjudicated divergence, decided; implementation outstanding | `internal/frontend/grpc`, after the sharing and record stages |
 | **L3-4** | **Closed by stage A** ([#504](https://github.com/JPL-Devin/OpenSysML/pull/504)): the population was one index per cached model — 100 at the gRPC default, 15.95 MiB each — and is now one shared base, so the +17 MiB of keeping the trees is a once-per-process cost. | not a divergence — a cost decision | project maintainers |
 | **L3-5** | The 26 `unresolved` errors the passes report over the parsed library (`that`, feature chains such as `CartesianVectorOf::result::dimension`, and implicit-redefinition targets). Each needs a category of its own once a consumer actually surfaces it. | not yet adjudicated | L3, after step 2 |
 | **L3-7** | First derivation of a specialization edge costs ~36 µs per symbol (~365 ms over the library) and is dominated by resolving each generalization target; the memo itself is live (a second pass is 0.13 ms). Whether 36 µs per edge is acceptable is a `semantics`/`resolve` question, and if it were cheap the cache would have little reason to exist. | performance defect, unadjudicated | `semantics` |
-| **L3-8** | **Delivered** in [#504](https://github.com/JPL-Devin/OpenSysML/pull/504): `Freeze`/`NewOverlay`, the layered read paths, the suppression of an ambiguated import target, the five proofs of §3.4, and the gRPC/REPL/LSP/workspace migration — done as one stage rather than the A/B split of §3.5. | unimplemented obligation, now met | `symbols`, `internal/grpc`, `internal/repl` |
-| **L3-9** | **Closed**: `edit.Apply` takes one index per call and reuses it, since adding a document a name already holds drops the previous contributions first (`internal/core/edit/edit.go`, `reindexer`). Measured on a fresh cache, 10 runs each: a 5-operation request took **6** indexes and 12.03 MiB of allocation in 37.6 ms, and now takes **1** and 3.04 MiB in 8.7 ms; a 10-operation request went from **11** indexes, 34.97 MiB and 100.3 ms to **1**, 5.68 MiB and 15.7 ms. An overlay of the shared base is 1.4 KiB retained (200 of them, 0.3 MiB), so the heap the per-operation indexes held was the analysis each carried, not the index: the same stage stopped analyzing the intermediate notation, whose diagnostics no caller reads — an edit is judged by the original's and the returned notation's. Equivalence with applying the operations one at a time — notation, applied edits, diagnostics, whole-index qualified lookups, refusal kinds, and no write into another model's index or the frozen base — is proved in `internal/grpc/edit_reindex_test.go`. | performance defect, closed | `internal/grpc` |
-| **L3-10** | **Closed by stage A**: the REPL's two library indexes (30.7 MiB) are two overlays of one shared base; 4 sessions with a submission and a browse index cost 17.1 MiB against 122.7 MiB. | performance defect | `internal/repl` |
+| **L3-8** | **Delivered** in [#504](https://github.com/JPL-Devin/OpenSysML/pull/504): `Freeze`/`NewOverlay`, the layered read paths, the suppression of an ambiguated import target, the five proofs of §3.4, and the gRPC/REPL/LSP/workspace migration — done as one stage rather than the A/B split of §3.5. | unimplemented obligation, now met | `symbols`, `internal/frontend/grpc`, `internal/frontend/repl` |
+| **L3-9** | **Closed**: `edit.Apply` takes one index per call and reuses it, since adding a document a name already holds drops the previous contributions first (`internal/check/edit/edit.go`, `reindexer`). Measured on a fresh cache, 10 runs each: a 5-operation request took **6** indexes and 12.03 MiB of allocation in 37.6 ms, and now takes **1** and 3.04 MiB in 8.7 ms; a 10-operation request went from **11** indexes, 34.97 MiB and 100.3 ms to **1**, 5.68 MiB and 15.7 ms. An overlay of the shared base is 1.4 KiB retained (200 of them, 0.3 MiB), so the heap the per-operation indexes held was the analysis each carried, not the index: the same stage stopped analyzing the intermediate notation, whose diagnostics no caller reads — an edit is judged by the original's and the returned notation's. Equivalence with applying the operations one at a time — notation, applied edits, diagnostics, whole-index qualified lookups, refusal kinds, and no write into another model's index or the frozen base — is proved in `internal/frontend/grpc/edit_reindex_test.go`. | performance defect, closed | `internal/frontend/grpc` |
+| **L3-10** | **Closed by stage A**: the REPL's two library indexes (30.7 MiB) are two overlays of one shared base; 4 sessions with a submission and a browse index cost 17.1 MiB against 122.7 MiB. | performance defect | `internal/frontend/repl` |
 | **L3-6** | `roadmap.md`'s L3 text says library value expressions do not resolve; measured, they resolve and fail to evaluate. Also it says `TestMultiplicityOfALibraryFeatureIsTheSameColdAndWarm` skips, while it asserts. | our defect (documentation) | this page; corrected in the roadmap by this PR |
 
 No oracle row moved, in either direction, so no conformance claim is made or implied here. The Xpect,
