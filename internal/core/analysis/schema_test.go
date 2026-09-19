@@ -15,7 +15,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis/enginewire"
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis/modelform"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 )
@@ -319,8 +319,8 @@ func TestSchemaMatchesTheWireTypes(t *testing.T) {
 		"input":          enginewire.Input{},
 		"witness":        enginewire.Witness{},
 		"error":          enginewire.Error{},
-		"sources":        export.Sources{},
-		"graphs":         export.Graphs{},
+		"sources":        modelform.Sources{},
+		"graphs":         modelform.Graphs{},
 	}
 	for def, v := range types {
 		d, ok := schema.Defs[def]

@@ -10,7 +10,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // A simulation tool's run configuration («SimulationConfig» of MagicDraw's
@@ -20,7 +20,7 @@ import (
 // settings are recorded by Simulation::Configuration metadata.
 
 // simulationConfig returns e's «SimulationConfig» application, or nil.
-func simulationConfig(e *xmi.Element) *xmi.Stereotype {
+func simulationConfig(e *sysmlv1.Element) *sysmlv1.Stereotype {
 	for _, s := range e.Stereotypes {
 		if isSimulationConfig(s) {
 			return s
@@ -31,7 +31,7 @@ func simulationConfig(e *xmi.Element) *xmi.Stereotype {
 
 // isSimulationConfig recognises a «SimulationConfig» application by the
 // simulation profile's provenance, not by its name alone.
-func isSimulationConfig(s *xmi.Stereotype) bool {
+func isSimulationConfig(s *sysmlv1.Stereotype) bool {
 	return s.Name == "SimulationConfig" && isSimulationProfile(s.Namespace)
 }
 
@@ -130,7 +130,7 @@ func drawPolicySetting(v string) (string, string) {
 
 // simulationConfig writes the run configuration e, whose declaration header is
 // written, and its report entry; note carries what the header approximated.
-func (m *migration) simulationConfig(e *xmi.Element, header, note string) {
+func (m *migration) simulationConfig(e *sysmlv1.Element, header, note string) {
 	s := simulationConfig(e)
 	settings, unread, notes := m.configurationSettings(s)
 	target := m.configurationTarget(s)
@@ -189,7 +189,7 @@ type configurationValues struct {
 // configurationSettings writes the Simulation::Configuration attributes a
 // «SimulationConfig» application sets, lists the tags it keeps as a comment,
 // and notes the tags with no v2 form.
-func (m *migration) configurationSettings(s *xmi.Stereotype) (settings configurationValues, unread, notes []string) {
+func (m *migration) configurationSettings(s *sysmlv1.Stereotype) (settings configurationValues, unread, notes []string) {
 	recorded := map[string]bool{"executionTarget": true, "resultLocation": true}
 	for _, c := range configurationSettings {
 		recorded[c.tag] = true
@@ -238,8 +238,8 @@ func (m *migration) configurationSettings(s *xmi.Stereotype) (settings configura
 // part is typed by, the classifiers of that element, the usage of the part by
 // which a run performs their classifier behavior, and what could not be resolved.
 type executionTarget struct {
-	element     *xmi.Element
-	classifiers []*xmi.Element
+	element     *sysmlv1.Element
+	classifiers []*sysmlv1.Element
 	usage       string
 	notes       []string
 }
@@ -247,7 +247,7 @@ type executionTarget struct {
 // targetClassifiers resolves a configuration's execution target and the part
 // defs its part is typed by; note says why there are none, t being nil when
 // the target itself is unusable.
-func (m *migration) targetClassifiers(s *xmi.Stereotype) (t *xmi.Element, classifiers []*xmi.Element, note string) {
+func (m *migration) targetClassifiers(s *sysmlv1.Stereotype) (t *sysmlv1.Element, classifiers []*sysmlv1.Element, note string) {
 	ids := s.IDs("executionTarget")
 	switch {
 	case len(ids) == 0:
@@ -265,7 +265,7 @@ func (m *migration) targetClassifiers(s *xmi.Stereotype) (t *xmi.Element, classi
 	cat, why := m.classify(t)
 	switch cat {
 	case catPartDef:
-		classifiers = []*xmi.Element{t}
+		classifiers = []*sysmlv1.Element{t}
 	case catIndividualDef:
 		kind, written, _ := m.individualClassifiers(t)
 		if kind != catPartDef {
@@ -283,7 +283,7 @@ func (m *migration) targetClassifiers(s *xmi.Stereotype) (t *xmi.Element, classi
 
 // configurationTarget resolves the execution target of a configuration; it
 // notes whatever it cannot.
-func (m *migration) configurationTarget(s *xmi.Stereotype) executionTarget {
+func (m *migration) configurationTarget(s *sysmlv1.Stereotype) executionTarget {
 	t, classifiers, note := m.targetClassifiers(s)
 	if note != "" {
 		return executionTarget{element: t, notes: []string{note}}
@@ -308,9 +308,9 @@ func (m *migration) configurationTarget(s *xmi.Stereotype) executionTarget {
 
 // inheritedClassifierBehavior finds, breadth first through generalizations,
 // the nearest of the classifiers or their generals with a written classifier behavior.
-func (m *migration) inheritedClassifierBehavior(classifiers []*xmi.Element) *xmi.Element {
-	seen := map[*xmi.Element]bool{}
-	queue := append([]*xmi.Element(nil), classifiers...)
+func (m *migration) inheritedClassifierBehavior(classifiers []*sysmlv1.Element) *sysmlv1.Element {
+	seen := map[*sysmlv1.Element]bool{}
+	queue := append([]*sysmlv1.Element(nil), classifiers...)
 	for len(queue) > 0 {
 		c := queue[0]
 		queue = queue[1:]

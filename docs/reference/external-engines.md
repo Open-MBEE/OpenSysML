@@ -216,8 +216,8 @@ graph carries, the form carries.
 Every element the lowering names carries its `span` (`document`, `offset`, `len`) into the
 model's text, so an engine's answer can name what the model says. A subject that is neither an
 action nor a state machine, or one the model does not declare once, is refused with
-`ErrGraphsSubject` before the process is asked. The form is written by `export.GraphsOf` and
-`export.MarshalGraphs` in the export layer beside the RDF and DOT exports.
+`ErrGraphsSubject` before the process is asked. The form is written by `modelform.GraphsOf` and
+`modelform.MarshalGraphs` in the execution layer beside the analysis framework.
 
 ### What a result carries
 

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/tools/oracle/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
 )
 
 // fixtureLibrary is the slice of the foundational library the fixture calls.

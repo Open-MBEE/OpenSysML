@@ -3,27 +3,27 @@ package migrate
 import (
 	"strconv"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // scenarioSend is one message of an interaction written as a send: the
 // signal it carries and the part of the interaction's context that receives it.
 type scenarioSend struct {
-	msg    *xmi.Element
-	signal *xmi.Element
-	part   *xmi.Element
+	msg    *sysmlv1.Element
+	signal *sysmlv1.Element
+	part   *sysmlv1.Element
 }
 
 // interactionNote says why an interaction is no scenario of sends; "" when every
 // message is a signal sent to a part of the interaction's owner, in occurrence order.
-func (m *migration) interactionNote(e *xmi.Element) string {
+func (m *migration) interactionNote(e *sysmlv1.Element) string {
 	_, note := m.scenario(e)
 	return note
 }
 
 // scenario resolves the messages of an interaction to the sends a scenario
 // action def writes, in occurrence order.
-func (m *migration) scenario(e *xmi.Element) ([]scenarioSend, string) {
+func (m *migration) scenario(e *sysmlv1.Element) ([]scenarioSend, string) {
 	context := classifierOf(e)
 	if context == nil {
 		return nil, "the interaction belongs to no block whose parts its lifelines could stand for"
@@ -32,7 +32,7 @@ func (m *migration) scenario(e *xmi.Element) ([]scenarioSend, string) {
 	if len(messages) == 0 {
 		return nil, "the interaction has no message"
 	}
-	byOccurrence := map[*xmi.Element]int{}
+	byOccurrence := map[*sysmlv1.Element]int{}
 	for i, f := range e.Owned("fragment") {
 		byOccurrence[f] = i
 	}
@@ -62,7 +62,7 @@ func (m *migration) scenario(e *xmi.Element) ([]scenarioSend, string) {
 	return sends, ""
 }
 
-func indexOf(list []*xmi.Element, e *xmi.Element) int {
+func indexOf(list []*sysmlv1.Element, e *sysmlv1.Element) int {
 	for i, c := range list {
 		if c == e {
 			return i
@@ -73,7 +73,7 @@ func indexOf(list []*xmi.Element, e *xmi.Element) int {
 
 // messageSend resolves one message to a send: an asynchronous message of a migrated
 // signal whose receive occurrence covers a lifeline standing for a part of context.
-func (m *migration) messageSend(msg, context, e *xmi.Element) (scenarioSend, string) {
+func (m *migration) messageSend(msg, context, e *sysmlv1.Element) (scenarioSend, string) {
 	if sort := msg.Attrs["messageSort"]; sort != "asynchSignal" {
 		if sort == "" {
 			sort = "synchCall"
@@ -117,7 +117,7 @@ func suffixNote(s string) string {
 
 // interactionBody writes an interaction as a scenario: its messages as sends
 // to the parts their lifelines stand for, one after another.
-func (m *migration) interactionBody(e *xmi.Element) {
+func (m *migration) interactionBody(e *sysmlv1.Element) {
 	sends, note := m.scenario(e)
 	if note != "" {
 		// classifyBehavior does not let this happen; keep the body honest anyway.
@@ -167,7 +167,7 @@ func (m *migration) interactionBody(e *xmi.Element) {
 
 // messageArguments writes a message's arguments as the signal's attribute
 // values, by position against the signal's attributes, inherited ones included.
-func (m *migration) messageArguments(msg, sig, scope *xmi.Element) (string, string) {
+func (m *migration) messageArguments(msg, sig, scope *sysmlv1.Element) (string, string) {
 	args := msg.Owned("argument")
 	if len(args) == 0 {
 		return "", ""

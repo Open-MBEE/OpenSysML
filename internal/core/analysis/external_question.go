@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis/enginewire"
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis/modelform"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -304,31 +304,31 @@ func (e externalEngine) wireModel(model *Model, q Question) (enginewire.Model, e
 	for _, form := range e.entry.Forms() {
 		switch {
 		case form == FormSources:
-			sources, err := export.SourcesOf(semantics)
+			sources, err := modelform.SourcesOf(semantics)
 			if err != nil {
 				return enginewire.Model{}, err
 			}
 			out.Sources = sources
 		case form == FormRDF:
-			return enginewire.Model{}, export.RefuseRDFForm()
-		case form == GraphsForm(export.GraphsVersion):
+			return enginewire.Model{}, modelform.RefuseRDFForm()
+		case form == GraphsForm(modelform.GraphsVersion):
 			subject := subjectOf(model, q.Subject)
 			if subject == nil {
-				return enginewire.Model{}, fmt.Errorf("%w: %q resolves to no one declaration", export.ErrGraphsSubject, q.Subject)
+				return enginewire.Model{}, fmt.Errorf("%w: %q resolves to no one declaration", modelform.ErrGraphsSubject, q.Subject)
 			}
-			graphs, err := export.GraphsOf(semantics, subject)
+			graphs, err := modelform.GraphsOf(semantics, subject)
 			if err != nil {
 				return enginewire.Model{}, err
 			}
-			raw, err := export.MarshalGraphs(graphs)
+			raw, err := modelform.MarshalGraphs(graphs)
 			if err != nil {
 				return enginewire.Model{}, err
 			}
 			out.Graphs = json.RawMessage(raw)
 		default:
 			version, _ := form.GraphsVersion()
-			return enginewire.Model{}, &export.FormUnsupportedError{Form: string(form),
-				Reason: "this build exports graphs:" + strconv.Itoa(export.GraphsVersion) + ", not version " + strconv.Itoa(version)}
+			return enginewire.Model{}, &modelform.FormUnsupportedError{Form: string(form),
+				Reason: "this build exports graphs:" + strconv.Itoa(modelform.GraphsVersion) + ", not version " + strconv.Itoa(version)}
 		}
 	}
 	return out, nil
