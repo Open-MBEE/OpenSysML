@@ -421,7 +421,7 @@ func TestPrintStylesheetContract(t *testing.T) {
 // TestPrintStylesheetKeepsTablesWithinThePage checks the page handed to the
 // engines sizes a table to the text width and wraps a cell's long unbreakable
 // tokens, so a list of qualified names cannot push columns off the page, and
-// keeps each row on one page.
+// keeps each row, but not a whole table, on one page.
 func TestPrintStylesheetKeepsTablesWithinThePage(t *testing.T) {
 	page, err := docrender.HTML(plainDocument(t), htmlOptions(Options{}, t.TempDir(), nil, formulas{}))
 	if err != nil {
@@ -440,6 +440,11 @@ func TestPrintStylesheetKeepsTablesWithinThePage(t *testing.T) {
 	rows := strings.Index(page, ".sysml-document .sysml-table tr,")
 	if avoid := strings.Index(page[rows:], "break-inside: avoid;"); avoid < 0 || avoid > 200 {
 		t.Fatalf("table rows are not kept on one page:\n%s", page[rows:rows+300])
+	}
+	for _, rule := range strings.Split(stripCSSComments(PrintStylesheet), "}") {
+		if strings.Contains(rule, "break-inside: avoid") && regexp.MustCompile(`\.sysml-table\s*[,{]`).MatchString(rule) {
+			t.Fatalf("a table is kept whole, so a long one cannot split between rows:%s}", rule)
+		}
 	}
 }
 
