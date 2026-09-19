@@ -138,10 +138,7 @@ func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, opts Comp
 		v.Subject = label
 		return v
 	}
-	was := s.draws
-	s.setDraws(policy)
-	answered, table, err := s.runsTable(inv, count, opts.Seed, nil)
-	s.setDraws(was)
+	answered, table, err := s.runsTable(inv, count, opts.Seed, nil, policy)
 	if err != nil {
 		return standing(unresolvedVerdict(label, err.Error()), answered)
 	}

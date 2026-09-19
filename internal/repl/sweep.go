@@ -252,7 +252,7 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 
 	model := s.freshModel()
 	s.state.Unlock()
-	answered, err := s.sweep(fqn, model, plan, run)
+	answered, err := s.sweep(fqn, model, plan, run, s.draws)
 	s.state.Lock()
 	if err != nil {
 		return runtime.SweepTable{}, &answered, err

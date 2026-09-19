@@ -3,6 +3,7 @@ package repl
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -89,6 +90,50 @@ func TestCompareFailsWhenAnyRunFails(t *testing.T) {
 	}
 	if !strings.Contains(lines, "| tool ") || !strings.Contains(lines, "| OpenSysML") {
 		t.Errorf("the completed runs are not tabled beside the stored ones:\n%s", lines)
+	}
+}
+
+// A comparison draws under the configuration's own policy without setting the
+// session's: whoever reads %draws while the runs are made sees the session's.
+func TestCompareKeepsTheSessionDrawPolicy(t *testing.T) {
+	s := compareSession(t)
+	seed := uint64(1)
+	results := compareResults("'Group 0'", 64)
+	results.Configurations[0].Draws = "max"
+
+	done := make(chan struct{})
+	var seen sync.Map
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				seen.Store(s.Draws(), true)
+			}
+		}
+	}()
+	got := s.CompareResults(results, CompareOptions{Seed: &seed})
+	close(done)
+	wg.Wait()
+
+	seen.Range(func(policy, _ any) bool {
+		if policy != runtime.DrawRandom {
+			t.Errorf("the session's draws read %s while the comparison ran, want %s", policy, runtime.DrawRandom)
+		}
+		return true
+	})
+	if s.Draws() != runtime.DrawRandom {
+		t.Errorf("the session's draws are %s after the comparison, want %s", s.Draws(), runtime.DrawRandom)
+	}
+	if len(got) != 1 || !got[0].Holds() {
+		t.Fatalf("a comparison under max = %+v, want it to hold", got)
+	}
+	if lines := strings.Join(got[0].Lines, "\n"); !strings.Contains(lines, "64 run(s) by OpenSysML, draws max") {
+		t.Errorf("the runs were not made under the configuration's policy:\n%s", lines)
 	}
 }
 

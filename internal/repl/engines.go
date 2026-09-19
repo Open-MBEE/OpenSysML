@@ -237,15 +237,15 @@ func (s *Session) explore(subject string, policy runtime.SchedulePolicy, selecti
 }
 
 // sweep puts a domain to the engines under the session's selection: row runs the
-// target once per row of the plan, each in a context of the plan's own over model;
-// a Monte Carlo's runs are seeded from the plan, not the session.
-func (s *Session) sweep(target string, model *analysis.Model, plan runtime.SweepPlan, row runtime.SweepRun) (analysis.Plan, error) {
+// target once per row of the plan, each in a context of the plan's own over model
+// drawing under draws; a Monte Carlo's runs are seeded from the plan, not the session.
+func (s *Session) sweep(target string, model *analysis.Model, plan runtime.SweepPlan, row runtime.SweepRun, draws runtime.DrawPolicy) (analysis.Plan, error) {
 	schedule := s.drivenSchedule()
 	req := analysis.Request{
 		Model:     model,
 		Subject:   target,
 		Schedule:  schedule,
-		Draws:     s.draws,
+		Draws:     draws,
 		Budget:    s.budgetFor(schedule, analysis.Sweep),
 		Selection: s.engine,
 	}

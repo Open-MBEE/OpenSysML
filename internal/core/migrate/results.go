@@ -172,7 +172,7 @@ func (m *migration) recordsOtherValues(inst *xmi.Element, configured map[*xmi.El
 	}
 	var differ []string
 	for f, values := range held {
-		if len(values) == 1 && values[0] != configured[f] {
+		if len(values) == 1 && !values[0].equals(configured[f]) {
 			differ = append(differ, f.Name)
 		}
 	}
@@ -376,6 +376,18 @@ type scalarValue struct {
 	spec   string
 	number float64
 	text   string
+}
+
+// equals reports whether two scalars are one value: a number is the same however
+// its literal is spelled, and any other value is of one kind and text.
+func (v scalarValue) equals(o scalarValue) bool {
+	if v.kind != o.kind {
+		return false
+	}
+	if v.kind == kindNumber {
+		return v.number == o.number
+	}
+	return v.text == o.text
 }
 
 const (

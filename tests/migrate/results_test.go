@@ -27,7 +27,7 @@ const storedResults = weightedChooser + `
           <value xmi:type="uml:LiteralReal" xmi:id="_r1av" value="1.0"/>
         </slot>
         <slot xmi:type="uml:Slot" xmi:id="_r1b" definingFeature="_pb">
-          <value xmi:type="uml:LiteralInteger" xmi:id="_r1bv" value="3"/>
+          <value xmi:type="uml:LiteralReal" xmi:id="_r1bv" value="3.0"/>
         </slot>
         <slot xmi:type="uml:Slot" xmi:id="_r1f" definingFeature="_flag">
           <value xmi:type="uml:LiteralBoolean" xmi:id="_r1fv" value="true"/>
@@ -155,7 +155,8 @@ func TestResultSnapshotsOfAnotherConfigurationAreLeftOut(t *testing.T) {
 	if len(r.Results.Configurations) != 3 {
 		t.Fatalf("results index %d configuration(s), want 3", len(r.Results.Configurations))
 	}
-	// fixed sets pB to 3 by a slot: run 1 recorded it, the other three another pB.
+	// fixed sets pB to 3 by an integer literal: run 1 recorded it as the real 3.0,
+	// which is the same number, the other three another pB.
 	fixed := r.Results.Configurations[0]
 	if ids := snapshotIDs(fixed); !reflect.DeepEqual(ids, []string{"_r1"}) {
 		t.Errorf("the snapshots of fixed are %v, want run 1 alone", ids)
