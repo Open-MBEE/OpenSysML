@@ -30,11 +30,18 @@
         <defaultValue xmi:type="uml:LiteralReal" xmi:id="_tacq0" value="0.0"/>
       </ownedAttribute>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_acq" name="Acquire">
-        <group xmi:type="uml:ActivityPartition" xmi:id="_lane" name="Telescope Control" represents="_tcs" node="_set _attempt _decide _found _bump _abort" edge="_e5 _e6 _e10"/>
+        <group xmi:type="uml:ActivityPartition" xmi:id="_lane" name="Telescope Control" represents="_tcs" node="_seed _set _attempt _decide _found _bump _abort" edge="_e5 _e6 _e10"/>
         <node xmi:type="uml:InitialNode" xmi:id="_init"/>
         <node xmi:type="uml:OpaqueAction" xmi:id="_stamp0" name="start timer">
           <language>JavaScript</language>
           <body>Time_Acq_Total = simtime;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_seed" name="seed">
+          <inputValue xmi:type="uml:ValuePin" xmi:id="_seedr" name="Retries"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+            <value xmi:type="uml:LiteralInteger" xmi:id="_seedr0" value="2"/>
+          </inputValue>
+          <language>JavaScript</language>
+          <body>GS_Found = Retries &lt; 1;</body>
         </node>
         <node xmi:type="uml:OpaqueAction" xmi:id="_set" name="first attempt">
           <language>JavaScript</language>
@@ -65,7 +72,8 @@ GS_Found = false;</body>
         <node xmi:type="uml:MergeNode" xmi:id="_done"/>
         <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_stamp0"/>
-        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_stamp0" target="_set"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_stamp0" target="_seed"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2b" source="_seed" target="_set"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_set" target="_merge"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e4" source="_merge" target="_attempt"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e4b" source="_attempt" target="_split"/>

@@ -37,7 +37,12 @@ part def Observatory {
         action 'start timer' {
             assign this.Time_Acq_Total := localClock.currentTime;
         }
-        first 'start timer' then stamp;
+        first 'start timer' then seed;
+        action seed {
+            in Retries : ScalarValues::Integer = 2;
+            assign this.tcs.GS_Found := Retries < 1;
+        }
+        first seed then stamp;
         action stamp {
             assign 'Time_Loop start' := localClock.currentTime;
             assign 'Time_Unfinished start' := localClock.currentTime;
@@ -134,7 +139,7 @@ part def Observatory {
         }
         first stamp10 then final;
         action final terminate;
-        /* partition 'Telescope Control' represents Observatory::tcs: first attempt, attempt, decide, guide star found, next attempt, abort */
+        /* partition 'Telescope Control' represents Observatory::tcs: seed, first attempt, attempt, decide, guide star found, next attempt, abort */
     }
 }
 /* not migrated: TimeEvent (_te1) — no trigger refers to the event; the time event's time is not written: the duration "ditSetup s" is neither a number with a time unit nor an expression: names ditSetup, which nothing visible from Model is called */

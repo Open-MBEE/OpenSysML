@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: acquisition.xmi
-# migrated 57 element(s): 47 mapped, 3 approximated, 7 unmapped (0 skipped as profile or library content)
+# migrated 60 element(s): 50 mapped, 3 approximated, 7 unmapped (0 skipped as profile or library content)
 
 ## unmapped (7)
 TimeEvent	<TimeEvent>	_te1	(no trigger refers to the event; the time event's time is not written: the duration "ditSetup s" is neither a number with a time unit nor an expression: names ditSetup, which nothing visible from Model is called)
@@ -15,12 +15,13 @@ DurationObservation	Observatory::Acquire::Time_Lost	_dangle	(the observation's e
 «SimulationConfig» Class	Group 1	_config1	-> 'Group 1'	(a plain UML class without «Block» is written as a part def)
 DurationConstraint	Observatory::Acquire::settle	_dc	-> Observatory::Acquire	(the duration "ditSetup s" is read as the expression this.tcs.ditSetup, in seconds; the duration "ditSetup s" is read as the expression this.tcs.ditSetup, in seconds; written as a fixed wait of this.tcs.ditSetup s before 'attempt')
 
-## mapped (47)
+## mapped (50)
 Model	Model	_m	(the root model's members are written at the top level)
 «Block» Class	Observatory	_obs	-> Observatory
 Activity	Observatory::Acquire	_acq	-> Observatory::Acquire
 ActivityFinalNode	Observatory::Acquire::<ActivityFinalNode>	_final	-> final
 ControlFlow	Observatory::Acquire::<ControlFlow>	_e2
+ControlFlow	Observatory::Acquire::<ControlFlow>	_e2b
 ControlFlow	Observatory::Acquire::<ControlFlow>	_e3
 ControlFlow	Observatory::Acquire::<ControlFlow>	_e4
 ControlFlow	Observatory::Acquire::<ControlFlow>	_e4b
@@ -53,6 +54,8 @@ CallBehaviorAction	Observatory::Acquire::attempt	_attempt	-> attempt	(names reso
 OpaqueAction	Observatory::Acquire::first attempt	_set	-> 'first attempt'	(the JavaScript body is translated to v2; names resolve against the context's tcs, read as this.tcs)
 OpaqueAction	Observatory::Acquire::guide star found	_found	-> 'guide star found'	(the JavaScript body is translated to v2; names resolve against the context's tcs, read as this.tcs)
 OpaqueAction	Observatory::Acquire::next attempt	_bump	-> 'next attempt'	(the JavaScript body is translated to v2; names resolve against the context's tcs, read as this.tcs)
+OpaqueAction	Observatory::Acquire::seed	_seed	-> seed	(the JavaScript body is translated to v2; names resolve against the context's tcs, read as this.tcs)
+ValuePin	Observatory::Acquire::seed::Retries	_seedr	-> Observatory::Acquire::seed.Retries
 OpaqueAction	Observatory::Acquire::start timer	_stamp0	-> 'start timer'	(the JavaScript body is translated to v2; the clock variable simtime, named by 2 simulation configurations, reads the local clock)
 OpaqueAction	Observatory::Acquire::stop timer	_stamp1	-> 'stop timer'	(the JavaScript body is translated to v2; the clock variable simtime, named by 2 simulation configurations, reads the local clock)
 Property	Observatory::Time_Acq_Total	_tacq	-> Observatory::Time_Acq_Total

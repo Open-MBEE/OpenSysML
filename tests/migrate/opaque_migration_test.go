@@ -69,12 +69,16 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 		"first merge2 then stamp11;",
 		"assign Time_Pass := localClock.currentTime - 'Time_Pass start';",
 		"first stamp11 then done;",
+		"in Retries : ScalarValues::Integer = 2;",
+		"assign this.tcs.GS_Found := Retries < 1;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNoLine(t, r.Notation, "start' : ScalarValues::Real default")
+	wantNoLine(t, r.Notation, "this.tcs.Retries < 1")
 	wantClean(t, "t.sysml", r)
 	wantNote(t, r, "_set", migrate.Mapped, "the JavaScript body is translated to v2; names resolve against the context's tcs, read as this.tcs")
+	wantNote(t, r, "_seed", migrate.Mapped, "the JavaScript body is translated to v2; names resolve against the context's tcs, read as this.tcs")
 	wantNote(t, r, "_stamp0", migrate.Mapped, "the clock variable simtime, named by 2 simulation configurations, reads the local clock")
 	wantNote(t, r, "_e5", migrate.Mapped, "the JavaScript body is translated to v2; names resolve against the context's tcs, read as this.tcs")
 	wantNote(t, r, "_e6", migrate.Mapped, "the English body is translated to v2; names resolve against the context's tcs, read as this.tcs")
