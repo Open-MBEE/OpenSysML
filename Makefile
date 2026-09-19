@@ -59,7 +59,7 @@ SELF_MODEL_DIR := examples/self-model
 SELF_MODEL_OUT ?= build/self-model
 # Where the commands the Go tests build and run write their coverage counters.
 GO_COUNTER_DIR := $(CURDIR)/build/gocoverdir
-LIBS_DIR := internal/core/libs
+LIBS_DIR := internal/workspace/libs
 # The development tools are a nested module; go's ./... at the root stops at
 # its go.mod, so every whole-tree target runs go a second time in it.
 TOOLS_DIR := tools

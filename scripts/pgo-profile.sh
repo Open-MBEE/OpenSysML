@@ -32,9 +32,9 @@ profile tests-golden  ./tests/parser          -count=1
 profile tests-resolve ./internal/semantic/resolve -count=1
 profile tests-passes  ./internal/check/passes  -count=1
 profile tests-runtime ./internal/exec/runtime -count=1
-profile tests-model   ./internal/core/model   -count=1
+profile tests-model   ./internal/workspace/model   -count=1
 profile tests-corpus  ./tests/corpus          -count=1
-profile tests-libs    ./internal/core/libs    -count=1
+profile tests-libs    ./internal/workspace/libs    -count=1
 profile tests-lsp     ./internal/lsp          -count=1
 
 # Benchmarks: calc/instantiation/state machines (repl), the gRPC parse path, the harness.

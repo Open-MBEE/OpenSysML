@@ -96,12 +96,12 @@ var packageLayer = map[string]string{
 	"internal/doc/docrender":  "doc",
 	"internal/doc/docpdf":     "doc",
 
-	"internal/core/model":         "workspace",
-	"internal/semantic/highlight": "semantic",
-	"internal/core/libs":          "workspace",
-	"internal/core/libs/errata":   "workspace",
-	"internal/core/project":       "workspace",
-	"internal/core/envvar":        "workspace",
+	"internal/workspace/model":       "workspace",
+	"internal/semantic/highlight":    "semantic",
+	"internal/workspace/libs":        "workspace",
+	"internal/workspace/libs/errata": "workspace",
+	"internal/workspace/project":     "workspace",
+	"internal/workspace/envvar":      "workspace",
 
 	"api/proto":              "frontend",
 	"api/proto/protoconnect": "frontend",
@@ -120,13 +120,13 @@ var packageLayer = map[string]string{
 // tolerated is the imports the layer table does not permit and that still
 // exist, importer → imported; an entry whose edge is gone fails, so it only shrinks.
 var tolerated = map[string][]string{
-	"internal/exec/analysis/modelform": {"internal/core/libs"},
+	"internal/exec/analysis/modelform": {"internal/workspace/libs"},
 	"internal/translate/codegen":       {"internal/check/passes"},
-	"internal/translate/export":        {"internal/core/libs"},
+	"internal/translate/export":        {"internal/workspace/libs"},
 	"internal/semantic/identity":       {"internal/translate/rdf"},
 	"internal/check/passes/identity":   {"internal/translate/rdf"},
-	"internal/translate/migrate":       {"internal/core/libs"},
-	"internal/exec/runtime":            {"internal/core/envvar"},
+	"internal/translate/migrate":       {"internal/workspace/libs"},
+	"internal/exec/runtime":            {"internal/workspace/envvar"},
 }
 
 // removed is the imports the layering took out, importer → imported; reintroducing

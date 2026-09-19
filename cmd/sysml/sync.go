@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/project"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
@@ -16,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/flexo"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
 // runSyncDiff reports the identity-keyed change set against a graph file or a

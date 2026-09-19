@@ -14,7 +14,7 @@ const IssuesPath = "docs/project/omg-issues.md"
 // LibraryRoot is the repository path of the bundled standard library, whose
 // files are OMG-published material too. Entries under it are keyed for
 // LibrarySource by the path a libs.Source lists them under.
-const LibraryRoot = "internal/core/libs/stdlib"
+const LibraryRoot = "internal/workspace/libs/stdlib"
 
 // Entry is one defect in published material. The span is one whole line:
 // AsPublished is that line's exact bytes without its terminator, which is what

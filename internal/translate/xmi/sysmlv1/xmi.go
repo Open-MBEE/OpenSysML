@@ -1,4 +1,4 @@
-// Package sysmlv1 interprets the element tree of internal/core/xmi as the UML
+// Package sysmlv1 interprets the element tree of internal/translate/xmi as the UML
 // model with stereotype applications that SysML v1 tools export.
 //
 // The reader is deliberately tolerant of the serialization's dialect: the UML,
@@ -8,7 +8,7 @@
 // of their element name. A zip archive holding the model, such as a MagicDraw
 // .mdzip project, is opened in place and its model entries read as one document.
 //
-// The tree carries no UML semantics of its own; internal/core/migrate
+// The tree carries no UML semantics of its own; internal/translate/migrate
 // interprets it as a SysML v1 model.
 package sysmlv1
 
