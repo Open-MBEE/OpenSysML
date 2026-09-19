@@ -1,6 +1,0 @@
-{
-	"type": "state",
-	"trace": true,
-	"finalState": "ldone+rdone",
-	"stateVisits": ["lstart", "rstart", "ldone", "rdone"]
-}

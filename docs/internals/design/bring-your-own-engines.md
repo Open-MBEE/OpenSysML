@@ -69,7 +69,7 @@ not meet:
   contradiction with `explore` into a disagreement in the interpreter's favor. Run over a corpus
   of models with known outcomes, that is a harness that measures an external engine.
 - **Framed messages on standard input.** `cmd/sysml-lsp` speaks the Language Server Protocol
-  over standard input and output, and `internal/stdiorpc` serves the gRPC service the same way.
+  over standard input and output, and `internal/frontend/stdiorpc` serves the gRPC service the same way.
   A long-lived process on a pair of pipes is a transport this repository already runs and
   tests.
 - **The public Go API.** `client/opensysml` is the one package with a compatibility
@@ -187,7 +187,7 @@ declares `"concurrent": false`, in which case the coordinator starts one process
 request and the engine sees one question at a time. Standard error is captured up to `OPENSYSML_TOOL_MAX_OUTPUT`
 (the rest discarded), printed with a *not covered* result's reason, and never parsed.
 
-Messages are JSON-RPC 2.0 objects, one per line — the envelope `internal/stdiorpc` already
+Messages are JSON-RPC 2.0 objects, one per line — the envelope `internal/frontend/stdiorpc` already
 speaks, with the newline in place of its `Content-Length` header. Every message carries
 `"jsonrpc": "2.0"`; a request carries an `id` its answer repeats; a notification carries no
 `id` and gets no answer. The host sends three requests and one notification:
@@ -400,7 +400,7 @@ policy is *observed*; a sweep's rows are *observed* each. Two slots are designed
 
 **Scheduling policy** — `-schedule policy:<name>`, `%schedule policy:<name>`, and the same
 value in the `schedule` request field, beside `reverse`, `declared`, `seed:<n>` and `explore`.
-The `scheduler` in `internal/core/runtime` resolves every choice point of a run through one
+The `scheduler` in `internal/exec/runtime` resolves every choice point of a run through one
 seam, and the external policy is one more resolution: at each choice point the host sends
 `choose` with the step, the tokens able to act with their trace labels (`2@heat, 3@vent`) and
 whether each is parked or held, and the policy answers with the index it moves; for a due-time
@@ -607,7 +607,7 @@ first stage delivers, since it is the gate every external witness passes through
    with the claim kept (`admit` is refused until the next stage); the stand-in engine and its
    tests; `-engines`, `-engines -probe`, `%engines` and `ListEngines` listing external engines,
    the service refusing to run them until `-serve-external-engines`; the reference pages.
-   *Implemented:* `internal/core/analysis` reads both directories through one
+   *Implemented:* `internal/exec/analysis` reads both directories through one
    `manifest.go` (`EntryKind` distinguishing `tool`, `engine`, `policy` and `sampler`;
    `ManifestsFromEnv` reading `OPENSYSML_TOOLS` then `OPENSYSML_ENGINES`, `ExternalsFromEnv`
    registering every entry of both), the `engine` entry in `engine_entry.go`
@@ -619,9 +619,9 @@ first stage delivers, since it is the gate every external witness passes through
    and `external_standing.go`), the wire types in `enginewire` with the schema at
    `docs/reference/engine-protocol.schema.json`, and the bounded process I/O of `process.go`
    shared with the tool engine (`OPENSYSML_TOOL_MAX_OUTPUT`, default 64 MiB, one message and
-   the captured standard error). `graphs:1` is `export.GraphsOf` over the lowered
+   the captured standard error). `graphs:1` is `modelform.GraphsOf` over the lowered
    `ActionGraph` and `StateGraph`, the footprints that `lower.Footprints` computes included;
-   `sources` is `export.SourcesOf`. Standing is the framework's: a `violated` schedule replays
+   `sources` is `modelform.SourcesOf`. Standing is the framework's: a `violated` schedule replays
    through `runtime.ReplaySchedule` under the `replay:` policy as the `check` engine's witnesses
    do, and the condition is evaluated at the move named, `sensitive` needs two replaying
    schedules that end the feature differently, `satisfiable` an assignment the solver query's

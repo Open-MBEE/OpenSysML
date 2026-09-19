@@ -1,0 +1,19 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "SendToBoundParameter::Host",
+  "slots": {
+    "left.got": {
+      "type": "Integer",
+      "value": 3
+    },
+    "right.got": {
+      "type": "Integer",
+      "value": 7
+    },
+    "crew.lead.got": {
+      "type": "Integer",
+      "value": 5
+    }
+  }
+}

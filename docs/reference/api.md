@@ -41,6 +41,14 @@ some order is an `Outcome` whose `Error` is set, not a failure of the call. The 
 refuse each other's policies with `CodeInvalidArgument`, and exploring requires the
 `schedule_explore` capability alongside `schedule`.
 
+A `Session` (`opensysml.OpenSession(client, model)`) is the interactive counterpart of those
+one-run calls: it keeps its clock, its schedule (`SetSchedule`) and the objects it instantiated
+between calls, so `Instantiate`, `ActiveStates`, `Transitions`, `Accepts`, `Send`, `Advance`,
+`Perform`, `Feature`, `SetFeature`, `Evaluate` and `Members` play a model one step at a time and
+answer facts about it. It is in-process only — opened from a `New` client, refused by a `Dial`
+client with `CodeUnimplemented` — and is not part of the `Client` interface; the package README
+explains why.
+
 `ListEngines` names the analysis engines the service answers with, as `EngineInfo` in name order.
 `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` and `ValidateInstance` take `WithEngine(name)` and
 `RunAnalysis` and `ExploreAnalysis` take `Engine(name)`, and `Calculate` (`EvaluateCalc` with
@@ -98,35 +106,29 @@ strict=False)` loads inline SysML or KerML for this workflow.
 
 ## Overview
 
-OpenSysML is organized into core packages under `internal/core/`, with frontends in `internal/lsp/` and `internal/repl/`.
+OpenSysML is organized into layer directories under `internal/`, with frontends in `internal/frontend/`.
 
 **Package Organization:**
 
 ```
 github.com/Open-MBEE/OpenSysML
-├── internal/core/          # Core language implementation
-│   ├── source/             # Source files and position tracking
-│   ├── lexer/              # Tokenization
-│   ├── parser/             # Parsing to AST
-│   ├── ast/                # Abstract Syntax Tree
-│   ├── symbols/            # Symbol tables and scopes
-│   ├── resolve/            # Name resolution
-│   ├── semantics/          # Type system and semantic queries
-│   ├── passes/             # Validation passes
-│   ├── lower/              # AST → execution IR (ActionGraph/StateGraph)
-│   ├── runtime/            # Execution runtime
-│   ├── model/              # Workspace and document management
-│   └── libs/               # Standard library handling
-├── internal/lsp/           # Language Server Protocol
-├── internal/grpc/          # gRPC service implementation
-└── internal/repl/          # Interactive REPL
+├── internal/               # One directory per layer; a package imports only the layers below it
+│   ├── syntax/             # source, diag, lexer, parser, ast, pack, format
+│   ├── semantic/           # symbols, resolve, suggest, semantics, identity, highlight, query
+│   ├── ir/                 # lower, queryplan, docplan, view
+│   ├── check/              # passes, edit
+│   ├── exec/               # runtime, solve, smt, analysis, engines, objref
+│   ├── translate/          # rdf, export, xmi, migrate, convert, codegen, interop
+│   ├── doc/                # queryexec, docir, docrender, docpdf
+│   ├── workspace/          # model, libs, project, envvar
+│   └── frontend/           # protoconv, grpc, lsp, repl, stdiorpc, usage
 ```
 
 ---
 
 ## Core Packages
 
-### `internal/core/source`
+### `internal/syntax/source`
 
 Source file management and position tracking.
 
@@ -151,7 +153,7 @@ span := source.Span{Start: 0, End: 4} // "part"
 
 ---
 
-### `internal/core/lexer`
+### `internal/syntax/lexer`
 
 Tokenization of SysML v2 textual notation.
 
@@ -182,7 +184,7 @@ for tok := lex.Next(); tok.Kind != lexer.EOF; tok = lex.Next() {
 
 ---
 
-### `internal/core/parser`
+### `internal/syntax/parser`
 
 Recursive-descent parser producing AST.
 
@@ -211,7 +213,7 @@ root := p.ParseFile()
 
 ---
 
-### `internal/core/ast`
+### `internal/syntax/ast`
 
 Abstract Syntax Tree nodes (syntax-only, immutable).
 
@@ -269,7 +271,7 @@ type Node interface {
 
 ---
 
-### `internal/core/symbols`
+### `internal/semantic/symbols`
 
 Symbol tables and scope trees.
 
@@ -306,7 +308,7 @@ sym, ok := scope.LookupLocal("Wheel")
 
 ---
 
-### `internal/core/resolve`
+### `internal/semantic/resolve`
 
 Name resolution (lazy, memoized).
 
@@ -327,7 +329,7 @@ Results are memoized internally.
 
 ---
 
-### `internal/core/semantics`
+### `internal/semantic/semantics`
 
 Type system, conformance, semantic queries.
 
@@ -360,11 +362,11 @@ model := semantics.NewModel(resolver)
   - `Value{Kind ValueKind, Int int64, Real float64, Bool bool}`
   - `ValueKind` ∈ {ValInt, ValReal, ValBool, ValInfinity, ValInvalid}
 
-**Note:** `Eval()` is a **constant-folder only**. For full runtime evaluation, see `internal/core/runtime`.
+**Note:** `Eval()` is a **constant-folder only**. For full runtime evaluation, see `internal/exec/runtime`.
 
 ---
 
-### `internal/core/passes`
+### `internal/check/passes`
 
 Pluggable validation passes.
 
@@ -403,7 +405,7 @@ diagnostics := passes.Analyze("example.sysml", root, parseDiags, idx)
 
 ---
 
-### `internal/core/runtime`
+### `internal/exec/runtime`
 
 Execution runtime (Tiers 1-5: instances, expressions, behaviors).
 
@@ -443,6 +445,11 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
     now on resolve their choice points under; a run already under way keeps the one it started
     with. `explore` is refused with `ErrExploreUndriven`: an exploration replays whole runs over
     fresh contexts, so `Explore` drives it rather than one context running under it
+  - `Reschedule(policy SchedulePolicy) error` — `SetSchedule` reaching the runs driven call by
+    call as well — the clock and the behaviors the objects run — which choose under the policy
+    from their next step on as a run started under it would, their configurations, pending
+    events, clock and choices so far kept; the session surface's `SetSchedule`.
+    `ErrRescheduleMidRun` from inside a step
   - `Schedule() SchedulePolicy` — The policy the next run resolves its choice points under
   - `Clock() *Clock` — The simulation clock every executor of the context reads and waits on:
     `Now()` its current instant in `SI::s`, `Waits()` every state timer and action `accept
@@ -492,7 +499,8 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
   - `SchedulePolicyNames` — The accepted spellings, for usage text
   - `replay:<file>` follows the witness move for move — each choice point the run reaches takes
     the file's next line, which must name that step and pick among the alternatives the run
-    offers — and resolves the rest as `reverse` once the lines are spent. A run that could not
+    offers — and resolves the rest as `reverse` would, one token a step, once the lines are
+    spent. A run that could not
     follow a line, or ended with lines left over, keeps it: `Context.Unfollowed() error` is the
     `*ReplayError` (`Move`, `Choice`, `Faced`; `errors.Is(err, ErrReplayRefused)`) the run also
     fails with, nil when the witness was followed whole or the policy was another
@@ -506,9 +514,9 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
 - **`Explore(stop context.Context, policy SchedulePolicy, fresh func() (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error)`**
   — Run a behavior under `explore` once per linearization within the budget: each run starts
   from the `Context` `fresh` builds over the model and lowering they all share, records the
-  alternative taken at every choice point, and the next run replays that prefix up to its
-  frontier and takes the first untried alternative there, depth-first over the tree of choice
-  sequences. `run` performs one run and answers its `Outcome`; an error it returns is the
+  alternative taken at every choice point, and each later run replays a recorded prefix and takes
+  an untried alternative at its end — the first run's choice points each varied once, earliest
+  first, before any is varied twice. `run` performs one run and answers its `Outcome`; an error it returns is the
   `Outcome.Err` of an outcome of its own, so a run some orders fail is reported rather than
   ending the search. A `stop` that ends between runs ends the exploration with its error before
   the next context is built. A policy other than `explore` is `ErrNotExploring`; a replay that
@@ -668,7 +676,7 @@ for exec.State() != StateCompleted {
 
 ---
 
-### `internal/core/model`
+### `internal/workspace/model`
 
 Workspace and document management.
 
@@ -679,7 +687,7 @@ Workspace and document management.
   - `GetDocument(name string) (*Document, bool)`
   - `RemoveDocument(name string)`
   - `Index() *symbols.Index` — Global symbol index
-  - `Diagnostics(name string) []passes.Diagnostic`
+  - `Diagnostics(name string) []diag.Diagnostic`
 
 - **`Document`** — Single source file
   - `Name() string`
@@ -697,7 +705,7 @@ diagnostics := ws.Diagnostics("example.sysml")
 
 ---
 
-### `internal/core/libs`
+### `internal/workspace/libs`
 
 Standard library bundling and caching.
 
@@ -712,7 +720,7 @@ Standard library is embedded in the binary using Go `embed.FS`.
 
 ## Frontend Packages
 
-### `internal/lsp`
+### `internal/frontend/lsp`
 
 Language Server Protocol implementation.
 
@@ -748,7 +756,7 @@ srv.Run(ctx, stdio{}) // stdio implements io.ReadWriteCloser
 
 ---
 
-### `internal/repl`
+### `internal/frontend/repl`
 
 Interactive REPL implementation.
 
@@ -803,9 +811,9 @@ can filter a model OpenSysML parsed. The standard's schema is authoritative:
 `api/openapi.yaml` in the Java client, components `Query`, `Constraint`,
 `PrimitiveConstraint`, `CompositeConstraint`.
 
-**Implementation:** `internal/grpc/query.go` (`Service.Query`), reported from
+**Implementation:** `internal/frontend/grpc/query.go` (`Service.Query`), reported from
 `GetServerInfo` as the `query` capability. Python: `model.query(...)`
-(`clients/python/opensysml/query.py`). The JSON a hand-written client sends and
+(`client/python/opensysml/query.py`). The JSON a hand-written client sends and
 receives for this call is shown, captured, on
 [the wire contract](wire-contract.md#query).
 
@@ -856,7 +864,7 @@ always a qualified name that the model resolves back to that element.
 ### Queryable properties
 
 The set is closed and is the single source of truth in
-`queryProperties` (`internal/grpc/query.go`). A property outside it is an
+`queryProperties` (`internal/frontend/grpc/query.go`). A property outside it is an
 `INVALID_ARGUMENT` error listing the ones that exist — never a silently empty
 answer.
 
@@ -880,7 +888,7 @@ answer.
 
 Mapping OpenSysML's symbol kinds onto the standard's metamodel type names is the
 substantive design decision here; `metamodelTypeNames`
-(`internal/grpc/query.go`) is the single source of truth, refined per element by
+(`internal/frontend/grpc/query.go`) is the single source of truth, refined per element by
 `MetamodelTypeNameOf` for the kinds one kind spans several metaclasses for, and
 `TestMetamodelTypeNameCoversEveryKind` keeps it total over every kind a parsed
 declaration can have. A standard-library element restored from cache may carry no
@@ -979,11 +987,11 @@ rpc RunDocumentQuery(RunDocumentQueryRequest) returns (RunDocumentQueryResponse)
 rpc RenderDocument(RenderDocumentRequest) returns (RenderDocumentResponse);
 ```
 
-**Implementation:** `internal/grpc/docquery.go` (`Service.RunDocumentQuery`,
+**Implementation:** `internal/frontend/grpc/docquery.go` (`Service.RunDocumentQuery`,
 `Service.RenderDocument`), reported from `GetServerInfo` as the
 `document_query` and `render_document` capabilities. Python:
 `model.run_document_query(...)` and `model.render_document(...)`
-(`clients/python/opensysml/document.py`). The JSON shape of a binding and of the
+(`client/python/opensysml/document.py`). The JSON shape of a binding and of the
 result table, captured, is on [the wire contract](wire-contract.md#rundocumentquery).
 
 Both name a loaded model by its hash and a definition by qualified name, and
@@ -1074,8 +1082,8 @@ form the build writes.
 
 ```go
 import (
-    "github.com/Open-MBEE/OpenSysML/internal/core/source"
-    "github.com/Open-MBEE/OpenSysML/internal/core/parser"
+    "github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+    "github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 )
 
 src := source.New("example.sysml", []byte(`
@@ -1093,7 +1101,7 @@ root := p.ParseFile()
 
 ```go
 import (
-    "github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+    "github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 idx := symbols.NewIndex()
@@ -1106,7 +1114,7 @@ sym, ok := scope.LookupLocal("Wheel")
 
 ```go
 import (
-    "github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+    "github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 )
 
 res := resolve.New(idx)
@@ -1117,7 +1125,7 @@ sym, ok := res.ResolveQualified(scope, qualifiedName)
 
 ```go
 import (
-    "github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+    "github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 model := semantics.NewModel(res)
@@ -1129,7 +1137,7 @@ conforms := model.Conforms(wheelSym, vehiclePartSym)
 
 ```go
 import (
-    "github.com/Open-MBEE/OpenSysML/internal/core/passes"
+    "github.com/Open-MBEE/OpenSysML/internal/check/passes"
 )
 
 // Analyze wires up the default pass registry and context internally.
@@ -1140,7 +1148,7 @@ diagnostics := passes.Analyze("example.sysml", root, parseDiags, idx)
 
 ```go
 import (
-    "github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+    "github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 rtCtx := runtime.NewContext(runtime.NewModel(model, resolver), runtime.DefaultMaxSteps)
@@ -1192,10 +1200,10 @@ Each layer is independent and testable.
 All packages have comprehensive test coverage:
 
 ```bash
-go test ./internal/core/parser    # Parser tests
-go test ./internal/core/symbols   # Symbol table tests
-go test ./internal/core/semantics # Semantic tests
-go test ./internal/core/runtime   # Runtime tests
+go test ./internal/syntax/parser    # Parser tests
+go test ./internal/semantic/symbols   # Symbol table tests
+go test ./internal/semantic/semantics # Semantic tests
+go test ./internal/exec/runtime   # Runtime tests
 go test ./...                     # All tests
 ```
 

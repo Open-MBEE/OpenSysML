@@ -17,7 +17,7 @@ report:
   conversion of the written-back notation reproduces the Turtle byte for byte for
   every one — the notation is written from the [source text](#source-text) the
   graph carries. These figures are the
-  per-file ratchet in `internal/core/export/corpus_roundtrip_test.go`, described
+  per-file ratchet in `tests/corpus/roundtrip_test.go`, described
   in [rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md). See
   [Behavior](#behavior) and [Limitations](#limitations).
 - **The vocabulary may change without a compatibility path.** A graph written by
@@ -38,7 +38,7 @@ report:
   properties, the multi-valued ones included; what it loses is the `sysx:`
   properties, since the reader ignores predicates outside `sysml:` and
   `urn:sysmlv2:annotation:json:`. The measurement lives in
-  `internal/interop/flexo`, an opt-in gate described in
+  `internal/translate/interop/flexo`, an opt-in gate described in
   `.agents/skills/flexo-interop`, and its committed report records what changes
   as the remaining work lands.
 
@@ -46,7 +46,7 @@ Every surface reports this status where it is used: the command line writes a
 `note:` to stderr, `%save` prints one, and `ConvertResponse` carries `experimental`
 and `experimental_notice`, which the Python client raises as an
 `ExperimentalFeatureWarning`. The wording is a single constant,
-`export.ExperimentalNotice`.
+`convert.ExperimentalNotice`.
 
 ## The RDF mapping
 
@@ -182,7 +182,7 @@ it is in the pilot's `sysml.library.xmi`:
 `elmt:` prefixed name, so a UUID reads either way depending on its first hex
 digit.)
 
-The id is a version-5 UUID (`internal/core/identity/normative`): the library
+The id is a version-5 UUID (`internal/semantic/identity`): the library
 package's is `uuid5(URL namespace, prefix + name)` with the prefix
 `https://www.omg.org/spec/KerML/` for the kernel libraries and
 `https://www.omg.org/spec/SysML/` for the systems and domain libraries; a named
@@ -190,7 +190,7 @@ member's is `uuid5(package id, qualified name)` and its owning membership's is
 `uuid5(package id, qualified name + "/owningMembership")`, both with the names
 quoted the way the pilot quotes them. Which bundled files are which library
 follows the stdlib tiers (`symbols.LibraryTier`), so a file OpenSysML adds under
-`internal/core/libs/stdlib` that is not part of either specification keeps
+`internal/workspace/libs/stdlib` that is not part of either specification keeps
 derived ids. So does an unnamed, aliased or shadowed library element: nothing
 is guessed.
 
@@ -221,8 +221,8 @@ in an `@ElementId` annotation or be declared as the library declares it
 must be in the file's language: the text of `ScalarValues.kerml` under a `.sysml`
 name was parsed as SysML, so it is the user's file. Both sides apply
 the one test, `identity.Catalog.DocumentRootedAt` in
-`internal/core/identity/library_version.go` (`libraryDocument` for graph roots,
-`documentLibrary` for parsed roots in `internal/core/export/library_names.go`
+`internal/semantic/identity/library_version.go` (`libraryDocument` for graph roots,
+`documentLibrary` for parsed roots in `internal/translate/export/library_names.go`
 feed it). It is not a test of names, file names or UUIDs alone:
 `package Actions { part def X; }` is a user package with encoded ids (`Actions`,
 `Actions__X`) and none of the library's members, a user element carrying a
@@ -257,11 +257,11 @@ workspace takes the bundled document out of its library index and indexes the
 version where it stood, so names resolve to the version's declarations, its
 elements carry their normative ids — hover states `(normative, KerML)` as on the
 bundled file — and the language server offers no minting action on them
-(`internal/lsp/identity_test.go:TestWorkspaceCopyOfLibraryFileIsTheLibrary`).
+(`internal/frontend/lsp/identity_test.go:TestWorkspaceCopyOfLibraryFileIsTheLibrary`).
 Editing a root so it no longer qualifies (renaming the package, dropping its
 `library` keyword, stating a foreign id) makes the document the user's again and
 puts the bundled file back; closing a version whose on-disk text is the user's
-does the same (`internal/core/model/library_version_test.go`).
+does the same (`internal/workspace/model/library_version_test.go`).
 
 A document holding **more than one project scope** qualifies each element's IRI
 with its scope's provenance (`elmt:<encoded-org>.<encoded-project>:<id>`), so an
@@ -287,7 +287,7 @@ triples come); a set of classes with no such member is refused, naming the subje
 
 - `rdf:type` — the SysML metaclass (`sysml:PartUsage`, `sysml:ActionDefinition`, …).
   Every definition and usage keyword the parser accepts has a metaclass; the
-  tables in `internal/core/export/kinds.go` are the source of truth, and the
+  tables in `internal/translate/export/kinds.go` are the source of truth, and the
   reverse direction is derived from them so the two cannot disagree.
 - `sysml:declaredName`, `sysml:declaredShortName`, `sysml:qualifiedName` —
   on a requirement's `subject`, `assume constraint` and `require constraint`
@@ -348,7 +348,7 @@ triples come); a set of classes with no such member is refused, naming the subje
   spelled in — `type`, `specializes`, `subsets`, `redefines`, `references`,
   `crosses`, `disjointFrom`, `intersects`, `differences`, `inverseOf`, `unions`,
   `chains`, `includes`, `via`, `annotatedElement`, `subject`, `featuringType`
-  (`internal/core/export/kinds.go` `relationshipOrder`, the same order the
+  (`internal/translate/export/kinds.go` `relationshipOrder`, the same order the
   clauses are written back in) — with the targets of one property in the order
   they were written; so `attribute :>> num : Real;` and `attribute : Real
   redefines num;` give byte-identical Turtle, and a `.ttl` kept under version
@@ -689,7 +689,7 @@ stores a posted array both ways: one JSON annotation literal holding the array,
 plus a typed triple per member — an IRI for a `{"@id": …}` member, a typed
 literal for a primitive. The mapping writes what that path writes, so a graph
 OpenSysML produces reads back through that service with its collections intact;
-the live measurement is in `internal/interop/flexo/testdata/interop_expected.txt`.
+the live measurement is in `internal/translate/interop/flexo/testdata/interop_expected.txt`.
 
 The JSON shape is the commit path's:
 
@@ -762,9 +762,9 @@ declared id that merely resembles a minted element's derived ids stays as it is.
 
 Code: `rdf.AnnotateCollections` (encoder pass), `rdf.ReconcileCollections`
 (decoder pass), `rdf.CollectionJSON`/`rdf.ParseCollectionJSON` (the shape).
-Tests: `internal/core/rdf/annotation_test.go`,
-`internal/core/export/rdf_collections_test.go`,
-`internal/interop/reposync/diff_test.go`.
+Tests: `internal/translate/rdf/annotation_test.go`,
+`tests/export/rdf_collections_test.go`,
+`tests/reposync/diff_test.go`.
 
 ## Expressions
 
@@ -1468,10 +1468,11 @@ element it cannot place, rather than emitting a model with elements missing.
 
 | Package | Role |
 |---------|------|
-| `internal/core/rdf` | Triple/graph model, Turtle writer, Turtle parser |
-| `internal/core/export` | `ToRDF` (AST → graph), `ToSysML` (graph → notation), and the `Convert` entry point |
-| `internal/core/export/corpus_roundtrip_test.go` | The per-file round-trip ratchet over every model under `examples/`, with its baseline in `testdata/corpus_roundtrip_expected.txt` ([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)) |
-| `internal/repl` | `%save` |
+| `internal/translate/rdf` | Triple/graph model, Turtle writer, Turtle parser |
+| `internal/translate/export` | `ToRDF` (AST → graph), `ToSysML` (graph → notation) |
+| `internal/translate/convert` | The `Convert` entry point: format names, notation parsing, the SysML v1 migration |
+| `tests/corpus/roundtrip_test.go` | The per-file round-trip ratchet over every model under `examples/`, with its baseline in `testdata/corpus_roundtrip_expected.txt` ([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)) |
+| `internal/frontend/repl` | `%save` |
 | `cmd/sysml` | `-convert`, `-from`, `-o` |
 
 The RDF layer is hand-written against the Turtle grammar rather than pulled in

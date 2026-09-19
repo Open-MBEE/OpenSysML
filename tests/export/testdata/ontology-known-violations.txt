@@ -1,0 +1,112 @@
+# Known disagreements between the graphs this tool writes and the OMG SysML v2
+# metamodel as Open-MBEE/sysmlv2-rdf-ontology renders it (version 202407). Each
+# line is one violation key — `<kind> <metaclass> <property>` — and the reason it
+# is expected; TestGoldenGraphsMatchOntology (internal/translate/export) fails on any
+# key that is not listed here, and on any listed key no fixture violates any
+# more. The inventory is tracked in docs/project/roadmap.md § D7 and § D8.
+#
+# A key names no element, so this list survives a change of element identity.
+# The ontology records no abstractness, so a subject typed by a metaclass that is
+# abstract in the metamodel (sysml:Import) is not among these findings.
+
+# 1. Properties the metamodel declares on a relationship or membership element
+# that this tool collapses into the element itself. Ownership and visibility no
+# longer collapse (D3.3 materializes the membership); the rest still do. The
+# property name is right; the subject should have been the intervening element.
+domain-mismatch AttributeUsage value             # FeatureValue_value: the feature value is written on the usage instead of a FeatureValue membership
+domain-mismatch ReferenceUsage value             # FeatureValue_value: same collapse on a kindless usage's value
+domain-mismatch AssignmentActionUsage value      # FeatureValue_value: same collapse on an assignment's target value
+domain-mismatch PartUsage lowerBound             # MultiplicityRange_lowerBound: the multiplicity is written on the usage instead of a MultiplicityRange
+domain-mismatch PartUsage upperBound             # MultiplicityRange_upperBound: the multiplicity is written on the usage instead of a MultiplicityRange
+domain-mismatch ReferenceUsage lowerBound        # MultiplicityRange_lowerBound: same collapse on a kindless usage
+domain-mismatch ReferenceUsage upperBound        # MultiplicityRange_upperBound: same collapse on a kindless usage
+domain-mismatch AttributeUsage lowerBound        # MultiplicityRange_lowerBound: same collapse on an attribute (a KerML `feature`)
+domain-mismatch AttributeUsage upperBound        # MultiplicityRange_upperBound: same collapse on an attribute (a KerML `feature`)
+domain-mismatch SubjectMembership upperBound     # MultiplicityRange_upperBound: same collapse on a subject membership
+domain-mismatch OperatorExpression lowerBound    # MultiplicityRange_lowerBound: a cast's `(as T[m])` multiplicity is written on the operator expression
+domain-mismatch OperatorExpression upperBound    # MultiplicityRange_upperBound: same collapse on a cast's multiplicity
+domain-mismatch FeatureReferenceExpression lowerBound # MultiplicityRange_lowerBound: a connector end's `[0..1] a` multiplicity is written on the end's expression node
+domain-mismatch FeatureReferenceExpression upperBound # MultiplicityRange_upperBound: same collapse on a connector end
+domain-mismatch FeatureChainExpression upperBound     # MultiplicityRange_upperBound: same collapse on a connector end written as a chain
+domain-mismatch TransitionUsage sourceFeature    # Connector_sourceFeature: a transition's ends are written on the transition, not on a Connector
+domain-mismatch TransitionUsage targetFeature    # Connector_targetFeature: a transition's ends are written on the transition, not on a Connector
+domain-mismatch Import importedNamespace         # NamespaceImport_importedNamespace: the import is typed sysml:Import, not NamespaceImport (D7)
+domain-mismatch AttributeUsage visibility        # Membership_visibility: a declaration inside an expression body has no membership, so its visibility is written on the declaration
+
+# 2. Object properties carrying a name as a literal where the ontology's range is
+# an element (D7). D3.1 gives references stable IRIs to point at; emitting them is
+# D7's own work.
+literal-for-object-property AttributeUsage type                                  # Feature_type: the type is written as its name, not as an element IRI
+literal-for-object-property ReferenceUsage type                                  # Feature_type: the type is written as its name, not as an element IRI
+literal-for-object-property PartUsage type                                       # Feature_type: the type is written as its name, not as an element IRI
+literal-for-object-property urn:opensysml:sysml:InitialNode sourceFeature        # Connector_sourceFeature: a succession end is written as a name (D2)
+literal-for-object-property SuccessionAsUsage sourceFeature                       # Connector_sourceFeature: a `then` after `first start` sequences from the name start, which is no element of the graph (D2)
+literal-for-object-property FeatureReferenceExpression referent                   # FeatureReferenceExpression_referent: a name resolving outside the graph is written as a name, as every reference this tool cannot link is (D7)
+literal-for-object-property InvocationExpression function                         # Expression_function: a library function such as collect resolves outside the graph and is written as a name (D7)
+
+# 3. Metaclass names this tool writes into the SysML namespace that the 202407
+# rendering does not declare at all.
+unknown-class FlowUsage -                        # 202407 names this metaclass FlowConnectionUsage; SysML.owl declares no FlowUsage
+unknown-class TerminateActionUsage -             # SysML.owl declares no TerminateActionUsage at all (no Terminate* class exists in it)
+unknown-class ClassUsage -                       # a KerML `class` written as a usage; SysML.owl declares Class, a classifier, and no ClassUsage
+unknown-class IndividualDefinition -             # `individual def`, standardly an OccurrenceDefinition with isIndividual; SysML.owl declares no IndividualDefinition
+unknown-class IndividualUsage -                  # `individual` usage, standardly an OccurrenceUsage with isIndividual; SysML.owl declares no IndividualUsage
+
+# 4. Metaclasses of this tool's own extension namespace, for constructs it has no
+# standard metaclass for. Deliberately outside the standard vocabulary, so the
+# ontology cannot declare them; an ontology profile has to materialize the
+# abstract-syntax elements instead (D3.3).
+unknown-class urn:opensysml:sysml:Alias -                    # an alias member, standardly a Membership with a memberShortName/memberName
+unknown-class urn:opensysml:sysml:AssumeMember -             # `assume constraint`, standardly a RequirementConstraintMembership
+unknown-class urn:opensysml:sysml:RequireMember -            # `require constraint`, standardly a RequirementConstraintMembership
+unknown-class urn:opensysml:sysml:ConstraintMember -         # a constraint member, standardly a FeatureMembership
+unknown-class urn:opensysml:sysml:DeferMember -              # `defer` in a state, standardly a StateSubactionMembership
+unknown-class urn:opensysml:sysml:FilterMember -             # `filter` in a namespace, standardly an ElementFilterMembership
+unknown-class urn:opensysml:sysml:InitialNode -              # an action's initial node, standardly a Usage typed by an initial-node kind
+unknown-class urn:opensysml:sysml:FinalNode -                # an action's final node, standardly a Usage typed by a final-node kind
+unknown-class urn:opensysml:sysml:IfBranch -                 # an if/else branch, standardly an IfActionUsage's then/else parameter
+unknown-class urn:opensysml:sysml:MultiplicityDeclaration -  # a named multiplicity, standardly a MultiplicityRange
+unknown-class urn:opensysml:sysml:Pseudostate -              # a state machine pseudostate, standardly a StateUsage or TransitionUsage shape
+
+# 5. Properties written in the SysML namespace that no metaclass declares. Every
+# one of these is either a relationship the metamodel reifies as an element
+# (Specialization, Subsetting, Redefinition, ReferenceUsage) or a notation flag
+# with no metamodel property, so they belong in this tool's own namespace until
+# the elements are materialized (D3.3).
+unknown-property PartDefinition specializes                  # specialization is a Specialization element, not a property
+unknown-property IndividualDefinition specializes            # specialization is a Specialization element, not a property
+unknown-property ClassUsage specializes                      # specialization is a Specialization element, not a property
+unknown-property PartUsage subsets                           # subsetting is a Subsetting element, not a property
+unknown-property ReferenceUsage subsets                      # subsetting is a Subsetting element, not a property
+unknown-property AttributeUsage subsets                      # subsetting is a Subsetting element, not a property
+unknown-property OccurrenceUsage subsets                     # subsetting is a Subsetting element, not a property
+unknown-property SatisfyRequirementUsage subsets             # subsetting is a Subsetting element, not a property
+unknown-property SubjectMembership subsets                   # subsetting is a Subsetting element, not a property
+unknown-property AnalysisCaseUsage subsets                   # subsetting is a Subsetting element, not a property
+unknown-property urn:opensysml:sysml:MultiplicityDeclaration subsets # a MultiplicitySubset's bounds, written the same way as any other subsetting
+unknown-property PartUsage redefines                         # redefinition is a Redefinition element, not a property
+unknown-property AttributeUsage redefines                    # redefinition is a Redefinition element, not a property
+unknown-property ReferenceUsage redefines                    # redefinition is a Redefinition element, not a property
+unknown-property OccurrenceUsage redefines                   # redefinition is a Redefinition element, not a property
+unknown-property SubjectMembership redefines                 # redefinition is a Redefinition element, not a property
+unknown-property ActionUsage references                      # a referenced element is a ReferenceUsage or Membership, not a property
+unknown-property PartUsage references                        # a reference subsetting is a ReferenceSubsetting element, not a property
+unknown-property StateUsage references                       # the state an `exhibit` names, referenced the same way
+unknown-property EventOccurrenceUsage references             # the occurrence an `event m.start` names, standardly its eventOccurrence through a ReferenceSubsetting
+unknown-property AssertConstraintUsage references            # the constraint an `assert c` names, standardly its assertedConstraint through a ReferenceSubsetting
+unknown-property ReferenceUsage references                   # a connector end referencing its feature, written the same way
+unknown-property ViewRenderingMembership references          # a referenced element is a ReferenceUsage or Membership, not a property
+unknown-property urn:opensysml:sysml:AssumeMember references # a referenced element is a ReferenceUsage or Membership, not a property
+unknown-property urn:opensysml:sysml:Alias aliasedElement    # an alias target is a Membership's memberElement, not a property
+unknown-property SatisfyRequirementUsage subject             # the feature `by` names, standardly the satisfyingFeature through a SubjectMembership
+unknown-property ActionUsage via                             # the port an accept trigger listens on, which the metamodel reaches through the accept action's parameters
+unknown-property TransitionUsage via                         # the port a transition's trigger listens on, reached the same way
+unknown-property ReferenceUsage isAccept                     # notation flag for an accept parameter, no metamodel property
+unknown-property ReferenceUsage isResult                     # notation flag for a result parameter, no metamodel property
+unknown-property PartUsage isChain                           # notation flag for a feature chain, no metamodel property
+unknown-property PartUsage isVariant                         # Usage::isVariant, which the 202407 rendering omits; the metamodel derives it from the VariantMembership
+unknown-property EnumerationUsage isVariant                  # Usage::isVariant on an enumerated value, a variant of its enumeration definition; omitted the same way
+unknown-property ConnectorAsUsage isAll                      # Type::isSufficient (`connector all from a to b`), written under the notation's own name
+unknown-property AttributeUsage isAll                        # Type::isSufficient (`portion feature all slices`), written under the notation's own name
+unknown-property AttributeUsage isConstant                   # Feature::isReadOnly in the 202407 rendering, whose `readonly` the notation has since respelled `const`; written under the notation's own name
+literal-for-object-property FeatureChainExpression targetFeature                   # FeatureChainExpression_targetFeature: a library feature such as an action's done resolves outside the graph and is written as a name (D7)

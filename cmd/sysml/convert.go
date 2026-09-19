@@ -8,9 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
-	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
-	"github.com/Open-MBEE/OpenSysML/internal/core/project"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
 // deprecatedFlag rejects a flag that has been replaced, so the old spelling
@@ -54,10 +55,10 @@ func runConvert(files []string) error {
 	}
 	// Reported before the conversion, so a refusal carries it too, and on stderr,
 	// where it cannot land in the converted model written to stdout.
-	for _, notice := range export.Notices(from, to) {
+	for _, notice := range convert.Notices(from, to) {
 		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
 	}
-	if migrationReport != "" && from != export.FormatXMI {
+	if migrationReport != "" && from != convert.FormatXMI {
 		return fmt.Errorf("-migration-report describes a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
 	}
 	if migrationReport != "" && outputPath != "" && samePath(migrationReport, outputPath) {
@@ -67,13 +68,13 @@ func runConvert(files []string) error {
 		return fmt.Errorf("-migration-report names the model being migrated, %s; the report would replace it", input)
 	}
 	// A v2 model may be rewritten in place; a v1 model would be lost.
-	if from == export.FormatXMI && outputPath != "" && input != "-" && samePath(outputPath, input) {
+	if from == convert.FormatXMI && outputPath != "" && input != "-" && samePath(outputPath, input) {
 		return fmt.Errorf("-o names the model being migrated, %s; the v1 model would be replaced by its migration", input)
 	}
 	var out []byte
-	if from == export.FormatXMI {
+	if from == convert.FormatXMI {
 		var report *migrate.Report
-		out, report, err = export.Migrate(name, data, to)
+		out, report, err = convert.Migrate(name, data, to)
 		if err != nil {
 			return err
 		}
@@ -81,7 +82,7 @@ func runConvert(files []string) error {
 			return err
 		}
 	} else {
-		out, err = export.Convert(name, data, from, to)
+		out, err = convert.Convert(name, data, from, to)
 		if err != nil {
 			return err
 		}
@@ -167,13 +168,13 @@ func resolvePath(path string) (string, error) {
 
 // parseTargetFormat resolves the -convert value, explaining the flag when a file
 // name was passed where a format belongs — the spelling this flag used to take.
-func parseTargetFormat(value string) (export.Format, error) {
-	f, err := export.ParseFormat(value)
+func parseTargetFormat(value string) (convert.Format, error) {
+	f, err := convert.ParseFormat(value)
 	if err != nil && namesAFile(value) {
 		return 0, fmt.Errorf("%w; -convert names the format to convert to, so write `sysml %s -convert ttl`", err, value)
 	}
 	if err == nil && !f.Writable() {
-		return 0, &export.NotWritableError{Format: f}
+		return 0, &convert.NotWritableError{Format: f}
 	}
 	return f, err
 }
@@ -190,13 +191,13 @@ func namesAFile(value string) bool {
 // resolveFormat returns the format named by the flag, or the one the path's
 // extension implies. Standard input carries no extension to read it from, so
 // -from is the only thing that can name its format.
-func resolveFormat(flagValue, path string) (export.Format, error) {
+func resolveFormat(flagValue, path string) (convert.Format, error) {
 	if flagValue != "" {
-		return export.ParseFormat(flagValue)
+		return convert.ParseFormat(flagValue)
 	}
 	if project.IsStdin(path) {
 		return 0, errors.New("standard input carries no file name to take the format from; name it with -from, as `-from sysml`")
 	}
-	f, err := export.FormatOfPath(path)
-	return f, export.Advise(err, "pass -from, or "+export.ExtensionAdvice)
+	f, err := convert.FormatOfPath(path)
+	return f, convert.Advise(err, "pass -from, or "+convert.ExtensionAdvice)
 }

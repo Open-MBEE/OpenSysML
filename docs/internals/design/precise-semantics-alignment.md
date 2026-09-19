@@ -36,7 +36,7 @@ spec-numbering convention here is the document's own (PSSM `8.5.9`, fUML `8.8.1`
 |---|---|---|
 | **SysML v2** | 2.0, `formal/26-03-02`, <https://www.omg.org/spec/SysML/2.0> | §7.18.1–§7.18.3 states and transitions (entry/do/exit, `parallel`, transition steps, `done`, a transition to `terminate`); §8.4.13.4 control nodes (`ForkNode`, `JoinNode`, `MergeNode`, `DecisionNode`); §8.4.13.5–§8.4.13.6 send and accept actions; §8.4.13.8 terminate action |
 | **KerML** | 1.0, `formal/26-03-01`, <https://www.omg.org/spec/KerML/1.0> | §9.2.11.1 `StatePerformances`, §9.2.12 `TransitionPerformances`, §9.2.5 `Occurrences` (`isDispatch`, `dispatchScope`, `isRunToCompletion`, `runToCompletionScope`, `incomingTransferSort`), §9.2.10 `ControlPerformances`, §9.2.13 `Clocks` |
-| **Bundled semantic library** | the pilot implementation's library snapshot shipped under `internal/core/libs/stdlib` (EPL-2.0, see its `NOTICE`) | `Kernel Semantic Library/Occurrences.kerml`, `StatePerformances.kerml`, `TransitionPerformances.kerml`, `ControlPerformances.kerml`, `Clocks.kerml` — the text the runtime executes against, quoted where it differs in wording from the specification PDF |
+| **Bundled semantic library** | the pilot implementation's library snapshot shipped under `internal/workspace/libs/stdlib` (EPL-2.0, see its `NOTICE`) | `Kernel Semantic Library/Occurrences.kerml`, `StatePerformances.kerml`, `TransitionPerformances.kerml`, `ControlPerformances.kerml`, `Clocks.kerml` — the text the runtime executes against, quoted where it differs in wording from the specification PDF |
 
 The record of which pilot release and which OMG documents the conformance work pins is
 [spec-compliance](../../project/spec-compliance.md); this note does not re-pin them.
@@ -99,10 +99,10 @@ of four verdicts.
   offers one.
 - **gap** — a concept the runtime has no behavior for at all.
 
-Test names are conformance fixtures under `internal/core/runtime/testdata/conformance/` (run by
+Test names are conformance fixtures under `internal/exec/runtime/testdata/conformance/` (run by
 `TestExecutionConformance`; a `.trace.golden` beside one is compared by `TestExecutionTrace`),
-subtests of `TestRuntimeRobustness` in `internal/core/runtime/robustness_test.go`, or unit tests
-in the runtime package. File paths are relative to `internal/core/runtime/` unless stated.
+subtests of `TestRuntimeRobustness` in `internal/exec/runtime/robustness_test.go`, or unit tests
+in the runtime package. File paths are relative to `internal/exec/runtime/` unless stated.
 
 ### State machines (PSSM)
 
@@ -406,7 +406,9 @@ The step granularity (one action node per machine step) is a tool choice PSSM do
 either — its do activity runs in the fUML "as if concurrent" sense — so no trace admissible
 here is inadmissible there. The converse does not hold: the round always precedes the dispatch,
 so a do action that is due steps before the occurrence at the head of the pool is dispatched,
-and the interleavings where the dispatch comes first are not explored (finding 9). **agrees.**
+and the interleavings where the dispatch comes first are not explored (finding 9's one site
+still open, designed per token move in
+[recording the order of orthogonal regions](region-order-scheduling.md)). **agrees.**
 
 **SM14. Order of leaving a state.** PSSM §8.5.5 (`exit`) and requirements *Exiting 001–003*, *005*
 (§9.4.6): exit "commences with the innermost State"; a running do activity "is aborted before the
@@ -513,35 +515,49 @@ first's as the alternative;
 *Transition 019*, §9.3.3.12: five interleavings of two regions' exits and effects).
 *v2/KerML:* silent — the library orders a transition against its own source and nothing else, and
 `state_explore_region_order`'s header records "the order ... is open". *Runtime:* `dispatchInOrder`
-fires the selected transitions one at a time, drawing the next among the candidates still active
-from the scheduling policy (`chooseRegion`, declaration order by default) and recording a
-`ChoiceRegionOrder`; a firing may leave a sibling's leaf, which is why the draw is per firing.
+runs the selected firings as the queues of one front (`state_unit_front.go`), each firing's
+units — its source's exit, its effects, its target's entry — in the library's order, and draws
+the next unit among the firings with a unit ready from the scheduling policy, recording each
+draw as a `ChoiceRegionOrder` labelled `on <event>` with the units as its alternatives
+(`l1(exit)`, `l1->l2(effect)`); a unit may disable a sibling firing (its source left), which
+then performs nothing. `declared` and `reverse` take the firings whole in declaration order, so
+the run every fixture made before the draws were recorded is the run they make.
 `state_parallel_broadcast`, `state_explore_region_order`, `state_composite_region_depth_order` (a
-`.declared` and a `.seed-1` golden beside the default). **agrees** on the order of the firings:
-every order PSSM admits is a run the policies can produce, and the default is one of them. Each
-firing is one step, though — its source's exit and its effect run together before the next
-region is drawn — where PSSM's "concurrently" also admits the steps of two firings interleaved
-(*Transition 019* admits both sources' exits before either segment's effect, which no policy
-produces); that granularity is finding 9 below, with SM22 and SM23.
+`.declared` and a `.seed-1` golden beside the default), `state_firing_units_interleaved` (two
+regions' firings of exit and effect each: six outcomes, the linearizations of two chains of two).
+*Decision:* a firing is **not atomic** across regions. `TransitionPerformances.kerml` orders a
+firing's own units — `transitionLinkSource then effect`, `effect then
+transitionLink.laterOccurrence`, `accept`/`guard then transitionLinkSource.exit` — and places no
+succession between the units of two performances in sibling regions; §7.18.1 has the regions
+"performed concurrently"; so the unit is the grain, and *Transition 019* (both sources' exits
+before either segment's effect) is the check: every interleaving of the two firings' units is
+a run `explore` reaches, and every one PSSM admits. **agrees.**
 
 **SM22. Entering the regions of a composite state.** PSSM §8.5.5 enters regions concurrently
 (*Entering 004*, §9.3.5.2, enters two regions from one transition; *Transition 011-D*'s alternative
 trace is the interleaving PSSM admits for the exits).
 *v2/KerML:* silent on order among `parallel` substates; §7.18.1 says only that they are performed
-concurrently. *Runtime:* `enterRegionsInto` enters the regions sequentially in declaration order
-(`state_parallel_standard`, `state_typed_region_order`, `state_parallel_entry_behavior`), and
-`enterForkBranches` enters a fork's branches the same way (*Fork 002* admits the other
-interleavings of the branch effects and the entries, *Entering 010* and *Entering 011* those of
-one region's initial-transition effect and the other's entries). No
-`ChoicePoint` is recorded for this order — the run is deterministic and the alternative
-interleavings PSSM admits are not explored. **agrees** on admissibility, and the missing choice
-point is an *Open decision* and finding 9 below.
+concurrently. *Runtime:* `enterRegionsInto` enters the regions as the queues of one front,
+each region's entries a unit at a time, and draws which region's next unit runs from the
+scheduling policy, recording each draw as a `ChoiceEntryOrder` labelled `entering <state>`
+(`state_region_entry_order`, `state_region_entry_order_uneven`, `state_region_entry_nested_front`,
+`state_parallel_standard`, `state_typed_region_order`, `state_parallel_entry_behavior`);
+`enterForkBranches` draws a fork's branches the same way under `fork <name>`, the shared owner
+entered once by the branch drawn first (`state_fork_branch_order`: *Fork 002*'s four traces),
+and a history restores its regions through the same front (`state_history_restore_order`).
+A unit that performs no behavior rides with the performing unit beside it, so exploration
+counts linearizations of behaviors. `declared` and `reverse` take declaration order, the order
+the runtime always took. **agrees.** What the entry front does not yet hold is the firing of a
+completion a region's entry enables — *Entering 010*, *Entering 011* — finding 11 below.
 
 **SM23. Exiting the regions of a composite state.** PSSM §8.5.5 exits regions concurrently as
-well (*Exiting 003*, §9.3.6.4, exits nested orthogonal regions). *Runtime:* `exitState` exits the regions' active states in declaration
-order, each innermost first (`state_composite_orthogonal_exit` and its trace golden,
-`state_composite_nested_regions_exit_once`); like SM22, no choice is recorded. **agrees**, same
-caveat (finding 9).
+well (*Exiting 003*, §9.3.6.4, exits nested orthogonal regions). *Runtime:* `exitState` exits the
+regions' active states as the queues of one front, each region's exits innermost first, drawing
+which region's next exit runs and recording each draw as a `ChoiceExitOrder` labelled
+`exiting <state>`; the composite's own exit follows every region's
+(`state_region_exit_order`: *Exiting 001*'s three traces; `state_composite_orthogonal_exit` and
+its trace golden, `state_composite_nested_regions_exit_once`). `declared` and `reverse` take
+declaration order. **agrees.**
 
 **SM24. Order of do activities in one round.** PSSM: do activities are independent asynchronous
 executions; the *Behavior* and *Deferred* tests with do activities list up to 84 interleavings.
@@ -1639,7 +1655,8 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
   `explore` policy already exists; it *benefits* from stage 3 (dispatch-order choice points make
   the set comparison exhaustive for the orthogonal-region tests rather than budget-bounded). No
   Track E dependency; the three terminate tests, held in a `terminate-gap` bucket until Track E
-  closed terminate, run since (*Terminate 003* passes, *001* and *002* fail on finding 9).
+  closed terminate, run since (*Terminate 003* and *001* pass, *002* fails on finding 9's open
+  site and finding 11).
 - **Acceptance gate.** The harness reproduces its committed baseline deterministically; the
   `pass` bucket is not a CI gate, only its *count* is, adjudicated on every movement like the
   corpus ratchets. The tool's `-h` says in one sentence what a pass means, in the words of the
@@ -1730,7 +1747,8 @@ The rows below report the runtime differing from, or falling short of, SysML v2'
 Semantic Library's *own* text, or from this project's own design notes. They are bug reports and
 unsupported-feature records, not alignment questions: PSSM has nothing to do with them and they
 are not alignment questions. Each names its evidence; items 1, 4 to 8 and 10 are fixed, and
-say where; item 9 is open, and says what a fix takes.
+say where; item 9 is fixed at three of its four sites and open at the fourth; item 11 is open,
+and says what a fix takes.
 
 1. **Terminate was parsed and lowered but not executed** (SM38). SysML v2 §7.17.10 and §7.18.3
    define `terminate`; `Performances.kerml` provides `TerminatePerformance`; the parser accepted
@@ -1742,7 +1760,8 @@ say where; item 9 is open, and says what a fix takes.
    (`robustness_test.go:calc_terminate_is_rejected`). That PSSM's *Terminate 001–002* describe
    the same behavior is a coincidence of the two texts and did not make this a PSSM alignment
    item: the implementation follows §7.17.10, and *Terminate 003* passes as a consequence,
-   while *001* and *002* reach an admitted trace and fail on item 9's region-entry order.
+   *Terminate 001* since item 9's region-entry order is drawn, while *002* reaches two of its
+   five admitted traces and fails on item 9's open site and item 11.
 2. **Streaming flows, parallel expansion and interrupting an ongoing performance** (A8, A9,
    A10). `Flows.sysml` distinguishes `Flow` from `SuccessionFlow` and SysML v2 §7.16.1 says a
    streaming flow may be ongoing while both actions perform; the runtime applies every flow at
@@ -1879,44 +1898,52 @@ say where; item 9 is open, and says what a fix takes.
    transition through a junction with two branches enabled*; the test passes.
 
 9. **The order in which orthogonal regions are entered, exited and stepped is not a recorded
-   choice point.** SM21, SM22, SM23 and SM13 each say so of their own site; taken together the
-   sites are one gap, and the PSSM referee measures it: every trace the runtime reaches in the
-   tests below is one the suite admits, and the suite admits others no policy produces, so
-   `explore` reports each run complete after the one interleaving. Four sites. Entering the
+   choice point.** SM21, SM22, SM23 and SM13 each said so of their own site; taken together the
+   sites are one gap, and the PSSM referee measures it: every trace the runtime reached in the
+   tests below is one the suite admits, and the suite admits others no policy produced, so
+   `explore` reported each run complete after the one interleaving. Four sites. Entering the
    regions of a composite state (`state_region_entry.go:enterRegionsInto`) and a fork's branches
    (`enterForkBranches`) in declaration order — *Entering 010* and *Entering 011* (§9.4.5) admit
    one region's initial-transition effect between the other's entries, *Fork 002* the
    two branch effects in either order and the branch target's entry among them, *History 001-C* and
-   *History 002-B* (§9.4.15) the two regions' restored entries and exits interleaved. Exiting
-   them (`state_executor.go:exitState`) in declaration order, each innermost first —
+   *History 002-B* (§9.4.15) the two regions' restored entries and exits interleaved,
+   *Terminate 001* and *Terminate 002* (§9.4.13) the second region's entry before the first's.
+   Exiting them (`state_executor.go:exitState`) in declaration order, each innermost first —
    *Exiting 001* and *Exiting 003* (§9.4.6) admit the two regions' exits in either order. Firing
    the transitions one occurrence selects one whole firing at a time (`dispatchInOrder`, SM21) —
    *Transition 019* (§9.3.3.12) admits both sources' exits before either effect. And stepping a
    due do action before the occurrence at the head of the pool is dispatched
    (`state_executor.go:runStep`, `runDoRound`, SM13) — *Behavior 003 A* admits the
    machine's `AnotherSignal` transition before the do activity's first segment, so that
-   the first state's entry alone is a complete log, and *Transition 017* the do activity's step
-   at any point among the sibling regions' completion effects — and *Terminate 001* and
-   *Terminate 002* (§9.4.13) the second region's entry before the first's, *002* also the do
-   activity's step before the terminating completion transition or not at all. SysML v2 §7.18.1 has parallel
-   substates "performed concurrently" and `StatePerformance::do` a sub-performance concurrent
-   with `middle`, so the runs PSSM admits are runs v2 admits, and the runtime's one order per
-   site is a linearization v2 admits too: not a defect of behavior, a gap of exploration — the
-   `explore` driver enumerates the choice points a run records (`scheduling.md`), and these sites
-   record none. A fix is a scheduling design, not a local change: an entry or exit of several
-   regions, and the steps of a do action against a dispatch, would have to be stepped one
-   region or one action at a time under a draw the policy makes and a `ChoiceRegionOrder`
-   records, as `dispatchInOrder` and `runDoRound` already do among themselves, and the goldens
-   of every fixture that enters or leaves an orthogonal state would move with the trace
-   (`state_parallel_standard`, `state_composite_orthogonal_exit`, `state_concurrent_do` and
-   their kin). Not fixed; the eleven tests stay `fail` in
-   `docs/project/pssm-referee.md` citing this item, with a twelfth (*Transition 019*) that also
-   reports on SM34, and a thirteenth (*Junction 005*, §9.4.11) that item 10's fix left on this
-   gap alone: the other region's initial-transition effect and entry, admitted before or
-   around the junction segment's effect, are entered after it. The design is written
-   ([recording the order of orthogonal regions](region-order-scheduling.md)); it waits on two
-   decisions it puts to the maintainers, the goldens under the default policy and two admitted
-   traces of *Transition 017*.
+   the first state's entry alone is a complete log, *Transition 017* the do activity's step
+   at any point among the sibling regions' completion effects, and *Terminate 002* the do
+   activity's step before the terminating completion transition or not at all. SysML v2 §7.18.1
+   has parallel substates "performed concurrently" and `StatePerformance::do` a sub-performance
+   concurrent with `middle`, so the runs PSSM admits are runs v2 admits, and the runtime's one
+   order per site is a linearization v2 admits too: not a defect of behavior, a gap of
+   exploration — the `explore` driver enumerates the choice points a run records
+   (`scheduling.md`), and these sites recorded none.
+   *Fixed at three sites*, as [recording the order of orthogonal regions](region-order-scheduling.md)
+   lays out: the regions a composite state, a fork or a history enters, the regions a state
+   leaves, and the firings one occurrence selects across regions each run as the queues of one
+   front (`state_unit_front.go`), a unit — one state's entry, one state's exit, one segment's
+   effect — at a time, and each draw of which queue's next unit runs is a choice point the
+   policy makes (`ChoiceEntryOrder`, `ChoiceExitOrder`, `ChoiceRegionOrder` per unit; SM22, SM23,
+   SM21), written to the trace and the witness, replayed, refused and rolled back with its move,
+   and enumerated by `explore` and the checker. `declared` and `reverse` take the order the
+   runtime always took, unit for unit, so no event order under either moved; a unit that
+   performs no behavior is drawn with the performing unit beside it, so *Event 016 B*'s three
+   silent firings across nested regions explore 1152 linearizations rather than some 320 000.
+   *Exiting 001*, *Exiting 003*, *Fork 002*, *Terminate 001* and *Deferred 006 C* reach every
+   admitted trace and pass; *Transition 019* reaches its six and stays `fail` on SM34 alone.
+   *Open at the fourth site*: a due do step against the dispatch at the head of the pool, whose
+   draw is per token move of the do flow — "dispatch now" against "keep moving the do flow",
+   `declared` finishing the sweep first so no default trace moves, `check` and `explore`
+   enumerating both — is designed in the same note and not implemented; *Behavior 003 A* stays
+   `fail` on it, *Transition 017* on it and on item 11 and the suite's defect
+   ([omg-issues](../../project/omg-issues.md#pssm-transition-017-admits-a-parents-completion-before-its-regions)),
+   *Terminate 002* on it and item 11. The checker's bounded verdict at that state
+   (`CheckReport.NotEnumerated`, *do round before dispatch*) stands until then.
 10. **A segment leaving a junction inside a composite state runs its effect before the
     composite is entered.** PSSM *Junction 005* (§9.4.11): a transition from outside targets a
     junction that lies in one region of an orthogonal state, and the segment out of the
@@ -1958,16 +1985,38 @@ say where; item 9 is open, and says what a fix takes.
     moved. *Junction 005* now reaches an admitted trace — the owner's entry, `T1.3(effect)`,
     then the other region's `T2.1(effect)` and its target's entry — and misses only the two
     orders in which the other region's initial effect and entry come before or around
-    `T1.3(effect)` — item 9's region-entry order — so it stays `fail` citing item 9 alone, an
-    eleventh test of that family. What a pseudostate's owner does when the route only passes
+    `T1.3(effect)`: the other region's `T2.1` is a completion transition, fired as a step of its
+    own after the entry settles, so the two are item 11's and it stays `fail` citing item 11
+    alone. What a pseudostate's owner does when the route only passes
     through it — a transition from outside a composite state through its junction to a target
     outside it again — is not entered on the way, as before: the owner lies on no entry chain of
     the move, and no PSSM test or fixture pins that shape.
+11. **A completion's firing is not drawn against the entry front.** Found while fixing item 9's
+    entry site: every admitted trace *Entering 010*, *Entering 011*, *Junction 005*,
+    *History 001-C* and *History 002-B* still miss interleaves the firing of a **completion
+    transition** — a region's initial transition, translated as a completion out of a start
+    state (`T2.1(effect)`, *Entering 010*), or the restored state's exit and its successor's
+    entry in the History tests — with the entry units of the sibling region *in the same step*. The runtime dispatches a
+    completion as a run-to-completion step of its own once the entry move has settled (SM9,
+    SM10), so no draw among the entry units reaches an order in which the completion fires
+    before the sibling region's entry; PSSM fires the completion as soon as its source is
+    complete while the region's entry is still under way, and admits both. One trace of
+    *Terminate 002* has the shape with a do behavior's first step in place of the completion's
+    firing, and three of *Transition 017* have it between two regions' completions. Both
+    readings are runs v2 admits — the library orders a completion after its source's `entry`
+    and against nothing in a sibling region — so this is a gap of exploration as item 9 was.
+    *Not fixed*; the fix is designed in
+    [recording the order of orthogonal regions](region-order-scheduling.md#finding-11-a-pending-completion-inside-the-entry-front):
+    a state whose entry leaves it complete offers its completion's firing as a unit of its
+    region's queue on the front that entered it, drawn against the sibling regions' remaining
+    units under `ChoiceRegionOrder`, `declared` and `reverse` taking it last so the default
+    order — the step the runtime dispatches today — is unchanged. The five tests stay `fail` in
+    `docs/project/pssm-referee.md` citing this item.
 
 Item 3 has no fixture on `develop`; the first thing it needs is the conformance case that pins
 the behavior, then the fix, in a change set of its own — Track E of the roadmap holds its
-entry. Items 4 to 8 and 10 took that path in the change set that decided them; item 9 waits
-for its.
+entry. Items 4 to 8 and 10 took that path in the change set that decided them, item 9 at three
+of its four sites; item 9's fourth site and item 11 wait for theirs.
 
 ## Open decisions
 

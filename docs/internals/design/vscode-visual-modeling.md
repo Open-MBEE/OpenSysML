@@ -15,15 +15,15 @@ carried over the wire, tier 2 needs the source-rewriting layer widened, tier 3 n
 layout to be written back into the model.
 
 **Status.** All three tiers are built. The panel (`editors/vscode/src/diagram.ts`,
-`src/webview/`), the rendering requests (`internal/lsp/render.go`) and the
-authoring request (`internal/lsp/modeledit.go` over `internal/core/edit` and
+`src/webview/`), the rendering requests (`internal/frontend/lsp/render.go`) and the
+authoring request (`internal/frontend/lsp/modeledit.go` over `internal/check/edit` and
 `model.Workspace.ApplyEdit`) are what [docs/reference/lsp.md](../../reference/lsp.md)
 and the extension's README describe. Tier 3 is the SVG canvas in
 `src/webview/{layout,canvas}.ts` over the `setLayout`, `setRoute` and `setCanvas`
-operations of `internal/core/edit/layout.go`, writing the `DiagramLayout`
+operations of `internal/check/edit/layout.go`, writing the `DiagramLayout`
 annotations of [Diagram layout annotations](../../project/diagram-layout-annotations.md);
 its section below is the design as built. Re-parenting is `edit.OpMove`
-(`internal/core/edit/move.go`), the `move` operation of `applyModelEdit` and the
+(`internal/check/edit/move.go`), the `move` operation of `applyModelEdit` and the
 node menu's **Move to…**, which offers the drawn declarations whose body admits the
 node's kind, and the <kbd>Shift</kbd>-drop of a node on another, which issues it for
 the node under the pointer; the `CustomTextEditorProvider` registration is not
@@ -32,7 +32,7 @@ sections are the design as written before the work, kept for the reasoning behin
 
 ## What exists today
 
-- **`internal/core/view`** renders a view of the semantic model into a `Rendering`:
+- **`internal/ir/view`** renders a view of the semantic model into a `Rendering`:
   nodes, edges, table rows, and the notices for what the kind could not represent.
   Five kinds are produced — `tree`, `interconnection`, `state`, `action`, `table` —
   read from `semantics.Model.ExposedElements`, the model's connectors, and the
@@ -40,20 +40,20 @@ sections are the design as written before the work, kept for the reasoning behin
   writes it as `text`, `mermaid` or `markdown`.
 - **The frontends that use it** are `sysml <model> -render <view> -render-form
   mermaid` and the REPL's `%view`/`%render`. `Session.viewRenderer`
-  (`internal/repl/view.go`) is the pattern: build a resolver and a
+  (`internal/frontend/repl/view.go`) is the pattern: build a resolver and a
   `semantics.Model` over the browse index, hand `view.NewRenderer` a `SourceText`
   so verbatim labels read as written.
-- **`internal/lsp`** serves completion, hover, diagnostics, document and workspace
+- **`internal/frontend/lsp`** serves completion, hover, diagnostics, document and workspace
   symbols, semantic tokens, definition, references, rename, formatting and code
   actions over one `model.Workspace`. `Server.applyDidChange` folds each keystroke
   into the workspace and republishes diagnostics, debounced for the other open
   documents.
-- **`internal/core/edit`** rewrites the source a model was parsed from without
+- **`internal/check/edit`** rewrites the source a model was parsed from without
   disturbing its comments or layout: an `Operation` names an element by FQN, only
   the bytes the parse says carry that element's name or value are replaced, and the
   result is re-parsed and re-analyzed before it is handed back — an edit that would
   make the model unreadable is refused. It has two operations, `OpSetValue` and
-  `OpRename`, and one caller, `internal/grpc/edit.go`.
+  `OpRename`, and one caller, `internal/frontend/grpc/edit.go`.
 - **`editors/vscode`** contributes the two grammars, the language configuration,
   the `opensysml.*` settings, one `SysML: Restart Language Server` command, and a
   `LanguageClient` over `sysml-lsp` found on the setting, in the workspace's `bin/`,
@@ -126,7 +126,7 @@ older extension drags no unpinned name and an older server loses no menu.
 ### The Go side
 
 - `view.Node` and `view.Edge` grow an origin. `Rendering` grows a `JSON()`-shaped
-  companion in `internal/core/view` — a plain data type in `view`, marshaled by the
+  companion in `internal/ir/view` — a plain data type in `view`, marshaled by the
   LSP layer, so `view` keeps no protocol knowledge.
 - `model.Workspace` grows `RenderView(doc, fqn string) (*view.Rendering, *Document, error)`
   — the document returned is the snapshot the rendering was made from, read under
@@ -135,7 +135,7 @@ older extension drags no unpinned name and an older server loses no menu.
   `Session.viewRenderer` builds its own, with `SourceText` reading the workspace's
   content for the document. This is where the REPL and the LSP converge: the REPL's
   helper stays, but both go through one workspace-level entry point.
-- `internal/lsp` gains `render.go` handling the two requests and emitting the
+- `internal/frontend/lsp` gains `render.go` handling the two requests and emitting the
   notification, wired through the same `changeHandler`/`AsyncHandler` chain. A
   request naming no view renders the single view in the document, and reports the
   ambiguity when there are several.
@@ -245,10 +245,10 @@ passed to the renderer directly.
 
 ### Test contract
 
-- `internal/core/view`: origins are covered by the existing render tests, extended
+- `internal/ir/view`: origins are covered by the existing render tests, extended
   to assert that each node's origin spans the declaration it was built from, and
   that the text/Mermaid goldens are unchanged.
-- `internal/lsp/render_test.go`: request/response over the in-process server for
+- `internal/frontend/lsp/render_test.go`: request/response over the in-process server for
   each kind, for a pseudo-view, for a document with no views, for an unsupported
   kind (asserting the reason), and for a stale-version request. Plus a
   didChange → `renderChanged` ordering test.
@@ -275,7 +275,7 @@ The diagram gains a palette and a context menu whose actions are *text edits*: t
 rendering of what the file now says. This is the tier that makes "create models
 visually" true without a graphical editor's bookkeeping.
 
-### Widening `internal/core/edit`
+### Widening `internal/check/edit`
 
 As built, the operations below carry a few more fields than sketched here
 (`OpAddMember` also takes a multiplicity, a value and specializations;
@@ -288,7 +288,7 @@ way symbols name it, splice bytes the parse located, re-analyze before returning
   end of the owner's body span, indented to the body's own level, and an owner
   declared without a body gets one. The notation is emitted by a small writer in
   `edit`. The whole document is deliberately not passed through
-  `internal/core/format`: source-preserving edits keep every byte outside edited
+  `internal/syntax/format`: source-preserving edits keep every byte outside edited
   spans identical, so the writer detects indentation only for its insertion.
 - `OpAddConnection{Owner, Kind, From, To, Name}` inserts a `connect a to b;`,
   `flow`, `interface`, `succession` or `transition` into the owner's body, with the
@@ -373,10 +373,10 @@ palette rewritten.
 
 ### Test contract
 
-- `internal/core/edit`: per operation, a golden pair (source in, source out) proving
+- `internal/check/edit`: per operation, a golden pair (source in, source out) proving
   comments, blank lines and indentation survive; a refusal test per new-error class;
   a cascade-delete test; an idempotence test through `format`.
-- `internal/lsp`: `applyModelEdit` returning a `WorkspaceEdit` whose application
+- `internal/frontend/lsp`: `applyModelEdit` returning a `WorkspaceEdit` whose application
   reproduces the golden output, a stale-version rejection, and a refusal shape.
 - GUI: add a part and a connection from the palette, check the file, `ctrl+z`, check
   the file again.
@@ -412,7 +412,7 @@ The consequences for the editor:
 
 ### The write-back
 
-`internal/core/edit` gained `SetLayout`, `SetRoute` and `SetCanvas`
+`internal/check/edit` gained `SetLayout`, `SetRoute` and `SetCanvas`
 (`layout.go`), each a source-preserving splice: an annotation already there has
 its values rewritten in place, one added goes where the writer puts it — the view's
 body for a view-local one, the element's own body for an inline one, opening a
@@ -538,15 +538,15 @@ save are the text document's.
   document, an element in another document placed inline, a `Canvas` on a view
   elsewhere, a clearing elsewhere, several documents in one request, the refusals
   for an unheld and a library document, and the atomic refusal when the second
-  document's result is invalid (`internal/core/edit/layout_test.go`).
+  document's result is invalid (`internal/check/edit/layout_test.go`).
 - LSP: a render → `setLayout` → apply → re-render round trip that sees the new
   `x` and `y`, one versioned `TextDocumentEdit` on the document, and a refusal shape
-  (`internal/lsp/modeledit_test.go`); a view drawing another document's parts, whose
+  (`internal/frontend/lsp/modeledit_test.go`); a view drawing another document's parts, whose
   drag writes the view's document alone, a route by declaration range that writes the
   other document at the version the server holds, a direct rendering that writes the
   other document and not its own, a disk-only document written at no version, the
   library refusal, and the atomic refusal when the other document would become
-  invalid (`internal/lsp/modeledit_cross_document_test.go`).
+  invalid (`internal/frontend/lsp/modeledit_cross_document_test.go`).
 - Extension: a node another document declares is placed by its qualified name, a
   declaration range travels with the document it is one of, and the edit is applied
   only while every document it names is open at the version it carries
@@ -571,7 +571,7 @@ save are the text document's.
 
 ## Known limitations, stated rather than hidden
 
-- The `geometry` view kind is not rendered by `internal/core/view` and no tier here
+- The `geometry` view kind is not rendered by `internal/ir/view` and no tier here
   adds it; the panel reports it as unsupported.
 - Multi-document models render per document. A view exposing elements from another
   file draws them and places them in its own body; a document drawn directly places

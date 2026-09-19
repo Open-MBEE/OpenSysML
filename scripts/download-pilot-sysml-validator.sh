@@ -103,7 +103,7 @@ else
 	echo "SysML validator already compiled at $output_class"
 fi
 
-# The pin cmd/pilot-diff reports, written from pilot-pin.sh rather than read out of the
+# The pin tools/referee/diff reports, written from pilot-pin.sh rather than read out of the
 # DeciSym wrapper's pom.xml, which download-pilot-validator.sh has already checked against it.
 cat >"$target/pilot-pin.txt" <<EOF
 sysml.release.tag=$PILOT_TAG

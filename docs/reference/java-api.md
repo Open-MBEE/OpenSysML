@@ -5,7 +5,7 @@ out of its public surface, and where its v1 stops. To choose between the clients
 [client libraries](clients.md); for a task-oriented walkthrough, see
 [guide chapter 9](../guide/09-clients.md#from-java). The client's own notes on its
 dependency footprint, service ownership and release verification are in
-[clients/java/README.md](../../clients/java/README.md).
+[client/java/README.md](../../client/java/README.md).
 
 ```xml
 <dependency>
@@ -16,7 +16,7 @@ dependency footprint, service ownership and release verification are in
 ```
 
 Nothing is published yet, so a checkout installs it: `make build` for the service
-binary the tests start, then `mvn -f clients/java/pom.xml install`. The compiler
+binary the tests start, then `mvn -f client/java/pom.xml install`. The compiler
 release is **17**, the lowest baseline a realistic host — Eclipse 2023-03,
 IntelliJ 2023.2, Spring Boot 3 — can offer. The only compile-scope dependency is
 `protobuf-java`; there is no gRPC and no Netty, because the transport is the JDK's
@@ -177,7 +177,7 @@ there. A download must match either the digest pinned in the jar's
 `release-digests.json` or the release's sigstore-signed `SHA256SUMS.txt`, verified
 against the release pipeline's own identity; a release with neither is refused
 rather than trusted from the checksum served beside it.
-[clients/java/README.md](../../clients/java/README.md) states the trust model, its
+[client/java/README.md](../../client/java/README.md) states the trust model, its
 opt-out and its limitations in full.
 
 ## What v1 does not do
@@ -197,8 +197,8 @@ those RPCs from the Go or Python client until a v2 wraps them here.
 ## Conformance
 
 `opensysml-conformance` runs the language-neutral scenarios **through the public
-API** and writes the report shape `cmd/conformance` writes; `mvn -f
-clients/java/pom.xml test` is what CI runs. Of 59 scenarios, 25 run and pass over
+API** and writes the report shape `tools/cmd/conformance` writes; `mvn -f
+client/java/pom.xml test` is what CI runs. Of 59 scenarios, 25 run and pass over
 both `connect` and `connect-json`, and 34 are skipped — the scenarios of the RPCs
 v1 does not cover, plus one the public API cannot express (a `ParseFile` naming no
 source). gRPC is not run at all: this client does not speak it. `-mutate` corrupts

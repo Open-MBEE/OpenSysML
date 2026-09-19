@@ -55,7 +55,7 @@ fragment MemberPrefix returns SysML::Membership :
 ```
 
 `import Q::*;` is therefore ill-formed and we report it as an error
-(`internal/core/passes/import_visibility.go`). `expose` stays exempt: the pinned grammar gives it an
+(`internal/check/passes/import_visibility.go`). `expose` stays exempt: the pinned grammar gives it an
 implicit protected visibility (`ExposeVisibilityKind`, `SysML.xtext:2366-2372`).
 
 **Adjudicated divergence, kept.** The pilot emits two diagnostics for the bare form — one
@@ -95,7 +95,7 @@ fixture while omitting hundreds of names on another. The rule is per **member so
 continue through a source it has not already traversed on that path, and a feature's declared type is
 entered before its implicit base.
 
-`internal/core/model/scope_names.go` carries it: `enter`/`leave` maintain the traversed set for the
+`internal/workspace/model/scope_names.go` carries it: `enter`/`leave` maintain the traversed set for the
 current path, `enterFor` exempts the first level, `chainTo`/`chainAvoiding` find a route to a member's
 declarer and a detour when the direct route is already on the path, and `expand` falls back to
 implicit members only when every supertype of a symbol is already traversed. Locked by
@@ -125,7 +125,7 @@ package test {
 `::>` is reference subsetting (KerML 7.4.11), and on a connector end it names the **participant** the
 end relates. A connector's ends relate features of the type that features the connector (KerML
 8.3.4.5), so the connector's own features are not candidates: `f` is featured by `c`, and only `x` and
-`y`, featured by `test`, are. `refFilter.featuredBy` (`internal/core/resolve/target.go`) hides one
+`y`, featured by `test`, are. `refFilter.featuredBy` (`internal/semantic/resolve/target.go`) hides one
 scope's members from a reference, and `resolveRelationships` (`document.go`) sets it for a
 `RelReferences` target of an `end` whose owner is a connector-kind usage. The narrowing to connector
 kinds is load-bearing: an `end` inside a plain `feature` relates nothing and keeps ordinary
@@ -138,7 +138,7 @@ A feature with no declared name takes the **effective name** of the feature it r
 7.3.4.5), so `feature redefines c` binds a name only if `c` resolves. Where `c` is private in the
 redefined scope it does not, and the member binds nothing — indexing the borrowed name anyway masks
 the later error a reference through it should draw. `BindsName`
-(`internal/core/resolve/unqualified.go`) excludes a member whose effective name comes from a
+(`internal/semantic/resolve/unqualified.go`) excludes a member whose effective name comes from a
 redefinition that names no visible feature, memoized in `Resolver.effNames` under the existing
 `naming` cycle guard and applied through `localBinding` on every local step of the unqualified walk.
 Locked by `TestUnnamedRedefinitionOfAnInvisibleFeatureBindsNoName`.
@@ -151,7 +151,7 @@ re-exports publicly, which is how `ISQ` publishes `ISQBase`'s names. A recursive
 the containment tree but consults only each scope's own declarations makes a re-exported name visible
 through `ISQ::*` and invisible through `ISQ::**`; both go through the same re-export-aware traversal
 (`appendSubtree`), keeping the cycle guard, `importAdmits`, filters, visibility and the body-local
-exclusion. Covered by `internal/core/resolve/f67_import_reexport_test.go` and `filter_test.go`.
+exclusion. Covered by `tests/resolve/f67_import_reexport_test.go` and `filter_test.go`.
 
 ### Open — a reference's position is resolved without regard to the metaclass it admits
 
@@ -269,8 +269,8 @@ Around it:
 - **The diagnostic spans the binding, not the value.** SysML 7.24's `checkMetadataBodyFeature`
   judges the `FeatureValue`, whose notation begins at the binding operator, so the parser records the
   `=` / `:=` / `default =` operator's span on the usage and the metadata diagnostic reads it
-  (`internal/core/parser/feature_value_operator_test.go`,
-  `internal/core/passes/w8c_metadata_annotation_test.go`).
+  (`internal/syntax/parser/feature_value_operator_test.go`,
+  `internal/check/passes/w8c_metadata_annotation_test.go`).
 - **Open — an unresolved invocation target draws one diagnostic, not two.** For
   `y = ScalarFunctions::sqrt(4.0)` in a metadata body the pilot reports both `Must be model-level
   evaluable` and an unresolved reference; we report only the first, because metadata-body expressions
@@ -289,7 +289,7 @@ Around it:
 - **An index-only binary base still supplies its two ends.** `allocation def Allocation :>
   BinaryConnection` (`Systems Library/Allocations.sysml`) inherits two effective ends, so an
   allocation definition with no declared end relates two elements; `Links::BinaryLink` is index-only
-  in `internal/core/libs`, with specialization edges but no parsed body, which is why the count comes
+  in `internal/workspace/libs`, with specialization edges but no parsed body, which is why the count comes
   from semantics (`passes/w10b_related_elements.go`, `semantics/connector.go`). A generic one-end
   concrete connection is still reported.
 - **Accessibility of a `satisfy`/`verify` target** is skipped only for a dotted feature-chain target
@@ -308,11 +308,11 @@ Around it:
   `OwnedReferenceSubsetting` plus the relationship forms of that production (`::>`, `references`, an
   explicit `:>>`), so in `allocate logical references l, physical references p;` the later ends are
   ends, not relationship targets folded into the first one
-  (`internal/core/parser/connector_ends_nary_test.go`).
+  (`internal/syntax/parser/connector_ends_nary_test.go`).
 - **An anonymous enumerated value is not named after its keyword.** `EnumeratedValue` admits a
   keyworded value with no declared name, so the enum body recognizes `enum` followed by `=` or `:=`
   as an anonymous value rather than a value called `enum`; `enum red;` still declares `red`
-  (`internal/core/parser/f61_keywordless_members_test.go`).
+  (`internal/syntax/parser/f61_keywordless_members_test.go`).
 - **An index operand is a sequence.** Both index forms take a `SequenceExpression`
   (`KerMLExpressions.xtext`, `PrimaryExpression`), so `arr#(1,3)` parses.
 - **A feature with a value and no declared type is typed by its value** (KerML 7.4.9), so `b`'s
@@ -337,7 +337,7 @@ keeps linking, so it reports the earlier reference too, and its declared texts a
 resolution of a qualified name; nothing in KerML or SysML states how an implementation must recover
 from one that does not parse, nor how many diagnostics one file must produce.
 `parseRelationshipTarget` reports `expected a name after '.'` once and reads the rest of the chain
-(`internal/core/parser/chain_double_dot_test.go` pins one diagnostic, at the dots' own offset, with
+(`internal/syntax/parser/chain_double_dot_test.go` pins one diagnostic, at the dots' own offset, with
 the following declaration still in the tree).
 
 **Adjudicated divergence, kept.** Emitting an ANTLR alternative trace, or a diagnostic naming an
@@ -377,7 +377,7 @@ the pinned release. Nothing in KerML 8.2 or SysML §7 admits `.*`, `.**`, `/`-se
 
 ## How the Xpect oracle reads its own assertions
 
-Two harness rules are decisions rather than measurements, and both live in `cmd/pilot-xpect`:
+Two harness rules are decisions rather than measurements, and both live in `tools/referee/xpect`:
 
 - **An `at "…"` clause runs to the last quote on the line.** Xpect does not escape quotes inside the
   clause, so reading to the *first* inner quote splits one assertion into a truncated expectation and

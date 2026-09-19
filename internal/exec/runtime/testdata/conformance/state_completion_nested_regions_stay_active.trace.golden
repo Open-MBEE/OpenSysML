@@ -1,0 +1,27 @@
+exit: lstart (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "l;" -> "l;"
+    eval operator + -> "l;"
+enter: done
+transition: lstart -> done (event: accept First)
+exit: rstart (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "l;"
+      eval literal "r;" -> "r;"
+    eval operator + -> "l;r;"
+enter: done
+transition: rstart -> done (event: accept Second)
+choice exiting busy: next left.done(exit), right.done(exit) (unordered; took left.done(exit) first)
+exit: done
+exit: done
+exit: busy (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "l;r;"
+      eval literal "busy;" -> "busy;"
+    eval operator + -> "l;r;busy;"
+enter: idle
+transition: busy -> idle (event: accept Reset)

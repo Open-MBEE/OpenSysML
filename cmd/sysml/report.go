@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 )
 
 // The prefix this command reports a failure under, as `prog: ` does in any Unix
@@ -223,9 +223,11 @@ type checkSearch struct {
 	Moves   int    `json:"moves"`
 	Depth   int    `json:"depth"`
 	// BoundsHit names the bounds the search hit, `[]` when it was exhaustive.
-	BoundsHit  []string         `json:"boundsHit"`
-	Violations []checkViolation `json:"violations"`
-	Divergent  []checkDivergent `json:"divergent"`
+	BoundsHit []string `json:"boundsHit"`
+	// NotEnumerated names the interleavings the search's moves left out, `[]` when none.
+	NotEnumerated []string         `json:"notEnumerated"`
+	Violations    []checkViolation `json:"violations"`
+	Divergent     []checkDivergent `json:"divergent"`
 	// Outcomes are the distinct final outcomes complete schedules reached.
 	Outcomes []string `json:"outcomes"`
 }
@@ -383,14 +385,15 @@ func checkSearchOf(checked *analysis.Checked) *checkSearch {
 	}
 	report := checked.Report
 	out := &checkSearch{
-		Verdict:    report.Verdict.String(),
-		States:     report.States,
-		Moves:      report.Moves,
-		Depth:      report.MaxDepth,
-		BoundsHit:  append([]string{}, report.BoundsHit...),
-		Violations: make([]checkViolation, 0, len(report.Violations)),
-		Divergent:  make([]checkDivergent, 0, len(report.Divergent)),
-		Outcomes:   make([]string, 0, len(report.Finals)),
+		Verdict:       report.Verdict.String(),
+		States:        report.States,
+		Moves:         report.Moves,
+		Depth:         report.MaxDepth,
+		BoundsHit:     append([]string{}, report.BoundsHit...),
+		NotEnumerated: append([]string{}, report.NotEnumerated...),
+		Violations:    make([]checkViolation, 0, len(report.Violations)),
+		Divergent:     make([]checkDivergent, 0, len(report.Divergent)),
+		Outcomes:      make([]string, 0, len(report.Finals)),
 	}
 	for i, v := range report.Violations {
 		violation := checkViolation{Kind: v.Kind.String(), Name: v.Name, Depth: v.Depth, Witness: choiceStrings(v.Witness.Choices), Draws: drawStrings(v.Witness.Draws), Path: pathAt(checked.Violations, i)}

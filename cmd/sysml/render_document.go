@@ -9,12 +9,12 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
-	"github.com/Open-MBEE/OpenSysML/internal/core/view"
-	"github.com/Open-MBEE/OpenSysML/internal/docpdf"
-	"github.com/Open-MBEE/OpenSysML/internal/fsutil"
-	"github.com/Open-MBEE/OpenSysML/internal/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docpdf"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
 // runRenderDocument renders the document -render-document names of the model
@@ -369,7 +369,7 @@ func commitDocumentSet(documents []repl.RenderedDocument, form string) error {
 			}
 			switch {
 			case committed[i] && backups[i] != "":
-				_ = fsutil.Replace(backups[i], targets[i])
+				_ = source.ReplaceFile(backups[i], targets[i])
 			case committed[i]:
 				_ = os.Remove(targets[i])
 			case backups[i] != "":
@@ -404,7 +404,7 @@ func commitDocumentSet(documents []repl.RenderedDocument, form string) error {
 		if direct[i] {
 			continue
 		}
-		if err := fsutil.Replace(staged[i], targets[i]); err != nil {
+		if err := source.ReplaceFile(staged[i], targets[i]); err != nil {
 			rollback()
 			return fmt.Errorf("write %s: %w", targets[i], err)
 		}

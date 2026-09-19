@@ -3,9 +3,9 @@ package main
 import (
 	"flag"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
-	"github.com/Open-MBEE/OpenSysML/internal/interop/flexo"
-	"github.com/Open-MBEE/OpenSysML/internal/usage"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/flexo"
 )
 
 // doc describes the command for both the terminal help and the man page, so a
@@ -167,8 +167,8 @@ func doc() usage.Doc {
 					"is normalized.",
 				// Printed rather than restated, so the help cannot drift from what a
 				// conversion reports.
-				export.ExperimentalNotice,
-				export.MigrationNotice,
+				convert.ExperimentalNotice,
+				convert.MigrationNotice,
 				"Every run that converts RDF or migrates a v1 model says so on stderr. " +
 					"Saving to .sysml or .kerml is stable.",
 			},

@@ -134,17 +134,17 @@ scenarios and comparing the same results:
 make conformance             # the reference runner: gRPC, Connect, Connect-JSON
 make conformance-pkg         # the public Go API, in process and remote
 make conformance-rust
-npm --prefix clients/node run conformance -- --allow-skips
+npm --prefix client/node run conformance -- --allow-skips
 ```
 
 The Java runner is launched from its own classpath rather than by a Maven goal; the two exact
-commands are given in [clients/java/README.md](../../clients/java/README.md#conformance).
+commands are given in [client/java/README.md](../../client/java/README.md#conformance).
 
 The reference runner also takes `-junit <file>`, writing the same run as JUnit XML (one suite per
 configuration and protocol, one case per scenario). That is what `make conformance` stores beside
 the JSON report and what CI renders as its test report. The JSON report stays the source of truth.
 
-Each runner writes the report format produced by `cmd/conformance`, and each is checked against
+Each runner writes the report format produced by `tools/cmd/conformance`, and each is checked against
 deliberate corruption (a mutated response must fail a scenario), so a runner that asserts nothing
 cannot pass. Current per-client scenario counts are given in each client's README; they change as
 v1 gaps close, which is why they are maintained beside the code rather than here.

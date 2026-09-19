@@ -1,0 +1,131 @@
+# What a real Flexo MMS stack does with this project's RDF, measured by
+# TestFlexoInterop. This is a ratchet: every line is adjudicated, and a change to
+# one is a change in interoperability, not a change in the harness.
+#
+# Regenerate against a running stack (see .agents/skills/flexo-interop):
+#   FLEXO_INTEROP=1 FLEXO_INTEROP_TOKEN=<jwt> \
+#     go test -count=1 ./internal/translate/interop/flexo -run TestFlexoInterop -update-flexo
+#
+# graph-load is the Turtle this project writes, loaded through Layer 1's graph
+# endpoint. json-commit is the same model posted through the SysML v2 service's
+# own commit path: the ground truth for what its read path can carry at all.
+# Server-generated commit ids, timestamps and durations are not recorded.
+
+[graph]
+fixture	identity_model.sysml
+subjects	15
+triples	175
+bytes	11722
+triples.json	3
+triples.rdf	15
+triples.sysml	125
+triples.sysx	32
+
+[graph-load]
+accepted	yes
+commits	1
+elements.written	15
+elements.listed	15
+elements.unexpected	0
+listing.responses	1
+listing.paging-ignored	yes
+elements.readable-directly	15
+roots.reported	3
+roots.in-model	3
+
+[graph-load.properties]
+sysml:declaredName	written=7	delivered=7	multi-valued=0/0
+sysml:elementId	written=15	delivered=15	multi-valued=0/0
+sysml:memberElement	written=6	delivered=6	multi-valued=0/0
+sysml:membershipOwningNamespace	written=6	delivered=6	multi-valued=0/0
+sysml:ownedFeature	written=3	delivered=3	multi-valued=0/0
+sysml:ownedFeatureMembership	written=3	delivered=3	multi-valued=0/0
+sysml:ownedMember	written=4	delivered=4	multi-valued=1/1
+sysml:ownedMemberElement	written=6	delivered=6	multi-valued=0/0
+sysml:ownedMemberFeature	written=3	delivered=3	multi-valued=0/0
+sysml:ownedMembership	written=4	delivered=4	multi-valued=1/1
+sysml:ownedRelatedElement	written=6	delivered=6	multi-valued=0/0
+sysml:ownedRelationship	written=4	delivered=4	multi-valued=1/1
+sysml:owner	written=12	delivered=12	multi-valued=0/0
+sysml:owningMembership	written=6	delivered=6	multi-valued=0/0
+sysml:owningNamespace	written=6	delivered=6	multi-valued=0/0
+sysml:owningRelatedElement	written=6	delivered=6	multi-valued=0/0
+sysml:owningRelationship	written=6	delivered=6	multi-valued=0/0
+sysml:owningType	written=3	delivered=3	multi-valued=0/0
+sysml:qualifiedName	written=7	delivered=7	multi-valued=0/0
+sysml:specializes	written=1	delivered=1	multi-valued=0/0
+sysml:type	written=1	delivered=1	multi-valued=0/0
+sysml:value	written=4	delivered=4	multi-valued=0/0
+sysx:branch	written=1	delivered=0	multi-valued=0/0
+sysx:declaredId	written=2	delivered=0	multi-valued=0/0
+sysx:hasBody	written=7	delivered=0	multi-valued=0/0
+sysx:memberIndex	written=7	delivered=0	multi-valued=0/0
+sysx:projectId	written=1	delivered=0	multi-valued=0/0
+sysx:sourceLanguage	written=1	delivered=0	multi-valued=0/0
+sysx:sourceTail	written=4	delivered=0	multi-valued=0/0
+sysx:sourceText	written=9	delivered=0	multi-valued=0/0
+
+[graph-load.elements]
+0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c	type=PartDefinition	listed=yes	direct=ok	properties=12/17	lost=sysx:declaredId,sysx:hasBody,sysx:memberIndex,sysx:sourceTail,sysx:sourceText
+0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c_om	type=OwningMembership	listed=yes	direct=ok	properties=7/7
+8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	type=PartDefinition	listed=yes	direct=ok	properties=13/18	lost=sysx:declaredId,sysx:hasBody,sysx:memberIndex,sysx:sourceTail,sysx:sourceText
+8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om	type=OwningMembership	listed=yes	direct=ok	properties=7/7
+IdentityInterop	type=Package	listed=yes	direct=ok	properties=6/13	lost=sysx:branch,sysx:hasBody,sysx:memberIndex,sysx:projectId,sysx:sourceLanguage,sysx:sourceTail,sysx:sourceText
+IdentityInterop__Battery__capacity	type=AttributeUsage	listed=yes	direct=ok	properties=8/11	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceText
+IdentityInterop__Battery__capacity_om	type=FeatureMembership	listed=yes	direct=ok	properties=9/9
+IdentityInterop__Battery__capacity_pvalue	type=LiteralRational	listed=yes	direct=ok	properties=2/3	lost=sysx:sourceText
+IdentityInterop__Component__mass	type=AttributeUsage	listed=yes	direct=ok	properties=8/11	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceText
+IdentityInterop__Component__mass_om	type=FeatureMembership	listed=yes	direct=ok	properties=9/9
+IdentityInterop__Component__mass_pvalue	type=LiteralRational	listed=yes	direct=ok	properties=2/3	lost=sysx:sourceText
+IdentityInterop__Rover	type=PartDefinition	listed=yes	direct=ok	properties=12/16	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceTail,sysx:sourceText
+IdentityInterop__Rover__battery	type=PartUsage	listed=yes	direct=ok	properties=8/11	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceText
+IdentityInterop__Rover__battery_om	type=FeatureMembership	listed=yes	direct=ok	properties=9/9
+IdentityInterop__Rover_om	type=OwningMembership	listed=yes	direct=ok	properties=7/7
+
+[json-commit]
+accepted	yes
+commits	1
+elements.written	10
+elements.listed	10
+elements.unexpected	0
+listing.responses	2
+listing.paging-ignored	yes
+elements.readable-directly	10
+roots.reported	1
+roots.in-model	1
+
+[json-commit.properties]
+declaredName	written=7	delivered=7	multi-valued=0/0
+elementId	written=10	delivered=10	multi-valued=0/0
+general	written=1	delivered=1	multi-valued=0/0
+isAbstract	written=3	delivered=3	multi-valued=0/0
+ownedElement	written=4	delivered=4	multi-valued=1/1
+ownedSpecialization	written=1	delivered=1	multi-valued=0/0
+owner	written=10	delivered=10	multi-valued=0/0
+qualifiedName	written=7	delivered=7	multi-valued=0/0
+specific	written=1	delivered=1	multi-valued=0/0
+type	written=1	delivered=1	multi-valued=0/0
+value	written=4	delivered=4	multi-valued=0/0
+
+[json-commit.elements]
+0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c	type=PartDefinition	listed=yes	direct=ok	properties=6/6
+8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	type=PartDefinition	listed=yes	direct=ok	properties=7/7
+IdentityInterop	type=Package	listed=yes	direct=ok	properties=5/5
+IdentityInterop__Battery__capacity	type=AttributeUsage	listed=yes	direct=ok	properties=5/5
+IdentityInterop__Battery__capacity_pvalue	type=LiteralRational	listed=yes	direct=ok	properties=3/3
+IdentityInterop__Battery__spec0	type=Subclassification	listed=yes	direct=ok	properties=4/4
+IdentityInterop__Component__mass	type=AttributeUsage	listed=yes	direct=ok	properties=5/5
+IdentityInterop__Component__mass_pvalue	type=LiteralRational	listed=yes	direct=ok	properties=3/3
+IdentityInterop__Rover	type=PartDefinition	listed=yes	direct=ok	properties=6/6
+IdentityInterop__Rover__battery	type=PartUsage	listed=yes	direct=ok	properties=5/5
+
+[findings]
+graph-load: 15 of 15 elements listed, 119 of 151 properties delivered
+json-commit: 10 of 10 elements listed, 49 of 49 properties delivered
+graph-load: 8 properties are in the sysx: extension namespace and are dropped unread — extractModelElementToJson ignores every predicate outside the sysml: vocabulary and the JSON annotation namespace (sysx:branch, sysx:declaredId, sysx:hasBody, sysx:memberIndex, sysx:projectId, sysx:sourceLanguage, sysx:sourceTail, sysx:sourceText)
+graph-load: 3 of 3 multi-valued properties are delivered (sysml:ownedMember on 1/1, sysml:ownedMembership on 1/1, sysml:ownedRelationship on 1/1); a standard predicate with several values is skipped entirely unless a JSON annotation supplies the array
+graph-load: the roots endpoint reports 3 of 15 elements as roots (3 have no owner in the model); it filters on sysml:owner and sysml:owningRelatedElement
+json-commit: the roots endpoint reports 1 of 10 elements as roots, 1 in the payload
+both: the element listing answered every element it has in 1 response(s) at pageSize=10 — the service accepts pageAfter/pageBefore/pageSize and ignores them
+json-commit: 1 of 1 multi-valued properties are delivered (ownedElement on 1/1), because the commit path stores each array whole as a JSON annotation literal alongside the typed triples
+graph-load: 0 of 15 subjects of the graph are expression nodes or other subjects outside the element namespace

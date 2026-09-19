@@ -73,7 +73,7 @@ package Demo {
     </dependency>
     ```
 
-    Not published yet: `make build && mvn -f clients/java/pom.xml install` from a checkout.
+    Not published yet: `make build && mvn -f client/java/pom.xml install` from a checkout.
 
 === "Rust"
 
@@ -244,6 +244,16 @@ every linearization under `"explore"` — the default when no policy is given �
 before anything is sent; a service that does not advertise `schedule` or `schedule_explore`
 refuses with `CodeUnimplemented`.
 
+To play a model one step at a time instead — instantiate a part, offer its state machine a
+signal, perform an action on it, read what changed — open a `Session` with
+`opensysml.OpenSession(client, model)`: it keeps the clock, the schedule and the objects it made
+between calls and answers facts (the transitions out of the active states and the states
+enclosing them in every machine the object exhibits, whether a guard holds now, the choices a
+run made). Only a `New` client answers it; a `Dial` client refuses with
+`CodeUnimplemented`, since no RPC carries state between calls. The
+[Legend of the Red Dragon browser game](https://github.com/Open-MBEE/SysML-LoRD) is written
+on it and nothing else.
+
 An action or state machine runs *on* an object when `opensysml.PerformedBy(...)` names one, as
 `sysml -action "<action> <object>"` does: a part definition or usage the run makes an object of,
 or a [path from one into its parts](../reference/cli.md#objects-an-exploration-runs-on) —
@@ -299,7 +309,7 @@ the measured latency are documented in [reference/python-api.md](../reference/py
 
 ```bash
 pip install opensysml             # from PyPI
-pip install -e clients/python/          # or from a checkout, at the repository root
+pip install -e client/python/          # or from a checkout, at the repository root
 ```
 
 The dependencies (`grpcio`, `protobuf>=7.35.1`, `filelock`, `psutil`) are installed with it.
@@ -1242,7 +1252,7 @@ tree.get("wheels");
 ```
 
 `@opensysml/client` is not published yet, so build it from a checkout: `npm install && npm run build`
-in `clients/node`. `loads` and `load` are the one-shot forms; `connect()` keeps a connection (and so
+in `client/node`. `loads` and `load` are the one-shot forms; `connect()` keeps a connection (and so
 a service and its parse cache) open across several models. Both a connection and a model are
 async-disposable, so `await using` closes them, and `close()` is the explicit form. Values arrive as
 discriminated unions to switch on (`value.kind === "quantity"`), integers as `bigint` so an `int64`
@@ -1287,7 +1297,7 @@ The client is meant to live inside a JVM host application it does not own (an Ec
 a Cameo plugin, a web service), so it is built for JDK 17 and its only compile-scope dependency is
 `protobuf-java`. The transport is `java.net.http.HttpClient` speaking Connect, which keeps gRPC's
 Netty out of a host that has its own. Nothing is published yet; `make build` followed by
-`mvn -f clients/java/pom.xml install` puts it in your local repository.
+`mvn -f client/java/pom.xml install` puts it in your local repository.
 
 Everything returned is immutable, and no protobuf message appears in the public API: `Value` is a
 sealed interface over records, so its variants are closed and enumerable, and `Symbol`, `Diagnostic`,

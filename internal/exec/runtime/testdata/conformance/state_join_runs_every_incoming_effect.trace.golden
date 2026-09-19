@@ -1,0 +1,37 @@
+exit: start
+enter: Outer
+enter: Work
+choice entering Work: next l1(entry), r1(entry) (unordered; took l1(entry) first)
+enter: l1
+enter: r1
+transition: start -> Work (event: accept go)
+choice join sync: states l1, r1 react (unordered; took l1 first)
+exit: l1
+stmt assign log
+    eval feature log -> ""
+    eval literal "left(effect) " -> "left(effect) "
+  eval operator + -> "left(effect) "
+exit: r1
+stmt assign log
+    eval feature log -> "left(effect) "
+    eval literal "right(effect) " -> "right(effect) "
+  eval operator + -> "left(effect) right(effect) "
+exit: Work
+exit: Outer (exit action)
+stmt assign log
+    eval feature log -> "left(effect) right(effect) "
+    eval literal "outer(exit) " -> "outer(exit) "
+  eval operator + -> "left(effect) right(effect) outer(exit) "
+stmt assign log
+    eval feature log -> "left(effect) right(effect) outer(exit) "
+    eval literal "sync(effect) " -> "sync(effect) "
+  eval operator + -> "left(effect) right(effect) outer(exit) sync(effect) "
+enter: Rest (entry action)
+stmt assign log
+    eval feature log -> "left(effect) right(effect) outer(exit) sync(effect) "
+    eval literal "rest(entry)" -> "rest(entry)"
+  eval operator + -> "left(effect) right(effect) outer(exit) sync(effect) rest(entry)"
+transition: Work -> Rest
+exit: Rest
+enter: done
+transition: Rest -> done

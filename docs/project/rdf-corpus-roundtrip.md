@@ -15,11 +15,11 @@ pin in `scripts/pilot-pin.sh`.
 | `pilot-corpora/sysml-examples` | 99 |
 | `pilot-corpora/sysml-validation` | 56 |
 
-**Gate:** `TestCorpusRoundTrip` in `internal/core/export/corpus_roundtrip_test.go` converts each file
+**Gate:** `TestCorpusRoundTrip` in `tests/corpus/roundtrip_test.go` converts each file
 notation → Turtle (hop 1) → notation → Turtle (hop 2) and records one verdict per file in
-`internal/core/export/testdata/corpus_roundtrip_expected.txt`, so a file whose verdict moves in
+`tests/corpus/testdata/corpus_roundtrip_expected.txt`, so a file whose verdict moves in
 either direction, or that appears or disappears, fails the test
-**Regenerate:** `go test ./internal/core/export -run TestCorpusRoundTrip -update-corpus-roundtrip`
+**Regenerate:** `go test ./tests/corpus -run TestCorpusRoundTrip -update-corpus-roundtrip`
 **Required in CI:** `OPENSYSML_REQUIRE_TRAINING_CORPUS=1` and `OPENSYSML_REQUIRE_PILOT_CORPORA=1`
 in both `.circleci/config.yml` and `.github/workflows/pr.yml`, under which an absent or empty
 downloaded root fails instead of skipping. Both configurations also run the gate on its own so
@@ -27,7 +27,7 @@ its summary line is legible in the log and a skip cannot pass.
 
 ## Why
 
-The fixture round-trip tests in `internal/core/export/export_test.go` (`TestRoundTripIsLossless`,
+The fixture round-trip tests in `tests/export/export_test.go` (`TestRoundTripIsLossless`,
 `TestGoldenConversions` and the per-construct tests) assert byte-stability over a few dozen
 authored models, and they pass. The example corpus is an order of magnitude larger and is not
 clean under the mapping: some files are refused, some cannot be written back, and some come back

@@ -4,7 +4,7 @@ modules:
 lint:
   use:
     - STANDARD
-  # The schema is frozen for wire compatibility (see clients/python/tests/test_wire_compat.py),
+  # The schema is frozen for wire compatibility (see client/python/tests/test_wire_compat.py),
   # so the rules below cannot be satisfied without breaking released clients.
   except:
     - PACKAGE_DIRECTORY_MATCH

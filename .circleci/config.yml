@@ -83,7 +83,7 @@ commands:
 
       # The three pilot corpora, gated the same way and keyed the same way. Their
       # gate is our-side-only: the comparison against the reference implementation
-      # (cmd/pilot-diff) needs Java validators and is not run in CI.
+      # (tools/referee/diff) needs Java validators and is not run in CI.
       - restore_cache:
           keys:
             - pilot-corpora-v1-{{ checksum "scripts/download-pilot-corpora.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
@@ -97,7 +97,7 @@ commands:
           paths:
             - examples/pilot-corpora
 
-      # The PSSM test suite, one pinned file, gated the same way by internal/pssm.
+      # The PSSM test suite, one pinned file, gated the same way by tools/referee/pssm.
       - restore_cache:
           keys:
             - pssm-suite-v1-{{ checksum "scripts/download-pssm-suite.sh" }}-{{ checksum "scripts/pssm-pin.sh" }}
@@ -111,7 +111,7 @@ commands:
           paths:
             - build/pssm
 
-      # The fUML reference implementation's models and jar, gated by internal/fuml;
+      # The fUML reference implementation's models and jar, gated by tools/referee/fuml;
       # the jar is never run here (docs/project/fuml-referee.md).
       - restore_cache:
           keys:
@@ -126,7 +126,7 @@ commands:
           paths:
             - build/fuml
 
-      # The pilot's XMI of the standard library, gated by internal/core/identity.
+      # The pilot's XMI of the standard library, gated by tests/identity.
       - restore_cache:
           keys:
             - pilot-library-xmi-v1-{{ checksum "scripts/download-pilot-library-xmi.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
@@ -178,7 +178,9 @@ jobs:
 
       - run:
           name: Run Go vet
-          command: go vet ./...
+          command: |
+            go vet ./...
+            go vet -C tools ./...
 
       - run:
           name: Check documentation links
@@ -209,7 +211,7 @@ jobs:
       # table row must be a constraint the baseline records (and vice versa).
       - run:
           name: Check the validation-constraint census matches its baseline
-          command: go run ./cmd/validation-census -check
+          command: go run -C tools ./cmd/validation-census -check
 
       # Changelog entries live in changes/unreleased/ until a release folds them in.
       - run:
@@ -272,9 +274,9 @@ jobs:
           command: |
             make proto-buf
             git add -N api/proto \
-              clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+              client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
             git diff --exit-code api/proto \
-              clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+              client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
 
   # The race-enabled suite. It is the longest single step in the pipeline, so
   # it gets the larger class and a job to itself.
@@ -357,7 +359,7 @@ jobs:
           name: Run pilot corpora gate
           command: |
             set -o pipefail
-            go test -count=1 -v ./internal/core/model -run 'TestPilotCorpora' | tee pilot-corpora-gate.log
+            go test -count=1 -v ./tests/corpus -run 'TestPilotCorpora' | tee pilot-corpora-gate.log
             grep -E 'pilot corpus files clean' pilot-corpora-gate.log
             if grep -qE '^\s*--- SKIP' pilot-corpora-gate.log; then
               echo "error: the pilot corpora gate skipped" >&2
@@ -371,7 +373,7 @@ jobs:
           name: Run pilot library identity gate
           command: |
             set -o pipefail
-            go test -count=1 -v ./internal/core/identity -run 'TestPilotLibraryXMI' | tee pilot-library-xmi-gate.log
+            go test -count=1 -v ./tests/identity -run 'TestPilotLibraryXMI' | tee pilot-library-xmi-gate.log
             grep -E 'pilot library XMI: [0-9]+ derived' pilot-library-xmi-gate.log
             if grep -qE '^\s*--- SKIP' pilot-library-xmi-gate.log; then
               echo "error: the pilot library identity gate skipped" >&2
@@ -386,7 +388,7 @@ jobs:
           name: Run RDF corpus round-trip gate
           command: |
             set -o pipefail
-            go test -count=1 -v ./internal/core/export -run 'TestCorpusRoundTrip' | tee corpus-roundtrip-gate.log
+            go test -count=1 -v ./tests/corpus -run 'TestCorpusRoundTrip' | tee corpus-roundtrip-gate.log
             grep -E 'corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
             if grep -qE '^\s*--- SKIP' corpus-roundtrip-gate.log; then
               echo "error: the RDF corpus round-trip gate skipped" >&2
@@ -402,12 +404,12 @@ jobs:
           name: Run PSSM suite gates
           command: |
             set -o pipefail
-            go test -count=1 -v ./internal/pssm -run 'TestSuiteRead|TestSuiteClassification|TestEmitSuite' | tee pssm-gate.log
+            go test -C tools -count=1 -v ./referee/pssm -run 'TestSuiteRead|TestSuiteClassification|TestEmitSuite' | tee pssm-gate.log
             if grep -qE '^\s*--- SKIP' pssm-gate.log; then
               echo "error: the PSSM suite gate skipped" >&2
               exit 1
             fi
-            go run ./cmd/pssm-referee -check
+            go run -C tools ./cmd/pssm-referee -check
           environment:
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
 
@@ -417,12 +419,12 @@ jobs:
           name: Run fUML suite gates
           command: |
             set -o pipefail
-            go test -count=1 -v ./internal/fuml -run 'TestSuite' | tee fuml-gate.log
+            go test -C tools -count=1 -v ./referee/fuml -run 'TestSuite' | tee fuml-gate.log
             if grep -qE '^\s*--- SKIP' fuml-gate.log; then
               echo "error: the fUML suite gate skipped" >&2
               exit 1
             fi
-            go run ./cmd/fuml-referee -check
+            go run -C tools ./cmd/fuml-referee -check
           environment:
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
 
@@ -432,7 +434,7 @@ jobs:
           name: Run solver differential gate
           command: |
             set -o pipefail
-            go test -count=1 -v ./internal/core/solve -run TestDifferential | tee differential-gate.log
+            go test -count=1 -v ./internal/exec/solve -run TestDifferential | tee differential-gate.log
             grep -E 'differential gate .*: .* elements:' differential-gate.log
             if grep -qE '^\s*--- SKIP' differential-gate.log; then
               echo "error: a differential gate skipped" >&2
@@ -450,7 +452,7 @@ jobs:
           command: |
             set -o pipefail
             for solver in z3 cvc5; do
-              OPENSYSML_SMT="$solver" go test -count=1 -v ./internal/core/solve \
+              OPENSYSML_SMT="$solver" go test -count=1 -v ./internal/exec/solve \
                 -run 'TestPortability' | tee "portability-$solver.log"
               grep -E "portability of $solver" "portability-$solver.log"
               if grep -qE '^\s*--- SKIP' "portability-$solver.log"; then
@@ -467,7 +469,7 @@ jobs:
           name: Run solver gate (cvc5)
           command: |
             set -o pipefail
-            OPENSYSML_SMT=cvc5 go test -count=1 -v ./internal/core/solve ./internal/repl \
+            OPENSYSML_SMT=cvc5 go test -count=1 -v ./internal/exec/solve ./internal/frontend/repl \
               -run 'TestSolver|TestDiscovery|TestSolved|TestDivisor|TestCheck|TestSolve|TestConfigure|TestSynthesis|TestPinned|TestFixed|TestExplain|TestCore' \
               | tee cvc5-gate.log
             if grep -qE '^\s*--- SKIP' cvc5-gate.log; then
@@ -485,7 +487,7 @@ jobs:
           command: |
             set -o pipefail
             env -u OPENSYSML_REQUIRE_SMT OPENSYSML_SMT=/nonexistent/no-such-solver \
-              go test -count=1 -v ./internal/core/solve ./internal/repl | tee no-solver-gate.log
+              go test -count=1 -v ./internal/exec/solve ./internal/frontend/repl | tee no-solver-gate.log
             for name in TestCheckReportsAnAbsentSolver TestExplainReportsAnAbsentSolver \
               TestSolveReportsAnAbsentSolver TestConfigureReportsAnAbsentSolver \
               TestOptimizeReportsAnAbsentSolver; do
@@ -516,7 +518,7 @@ jobs:
       # cannot rot untested.
       - run:
           name: Run conformance suite against -transport grpc
-          command: go run ./cmd/conformance -transport grpc -protocols grpc -report bin/conformance-grpc-transport-report.json
+          command: go run -C tools ./cmd/conformance -transport grpc -protocols grpc -report bin/conformance-grpc-transport-report.json
 
       - store_artifacts:
           path: bin/conformance-grpc-transport-report.json
@@ -564,7 +566,7 @@ jobs:
   scan:
     docker:
       - image: cimg/go:1.25
-    # The Go sensor holds a whole directory's parse in memory; internal/core/runtime
+    # The Go sensor holds a whole directory's parse in memory; internal/exec/runtime
     # (168 files) overflows the default heap (a quarter of the container). 8 GB is
     # the largest class in the project's plan (xlarge is rejected).
     resource_class: large
@@ -603,12 +605,12 @@ jobs:
           name: Show the reports and Java binaries the scan reads
           command: |
             ls -l coverage.txt coverage-python.xml coverage-scripts.xml coverage-node.lcov \
-              clients/java/opensysml-client/target/site/jacoco/jacoco.xml \
-              clients/java/opensysml-conformance/target/site/jacoco/jacoco.xml
+              client/java/opensysml-client/target/site/jacoco/jacoco.xml \
+              client/java/opensysml-conformance/target/site/jacoco/jacoco.xml
             head -n 3 coverage.txt
             for module in opensysml-client opensysml-conformance; do
               for dir in classes test-classes dependency; do
-                path="clients/java/$module/target/$dir"
+                path="client/java/$module/target/$dir"
                 if [ -z "$(ls -A "$path" 2>/dev/null)" ]; then
                   echo "$path is empty or missing; java-test must persist it."
                   exit 1
@@ -779,8 +781,8 @@ jobs:
             # (GRPC_GENERATED_VERSION), so a newer release cannot fail this check.
             pip install "grpcio-tools==1.83.0"
             make python-proto BUF=buf
-            git add -N clients/python/opensysml/proto
-            git diff --exit-code clients/python/opensysml/proto
+            git add -N client/python/opensysml/proto
+            git diff --exit-code client/python/opensysml/proto
 
       - run:
           name: Verify Python client import
@@ -812,16 +814,16 @@ jobs:
 
       - run:
           name: Check Rust formatting
-          command: cd clients/rust && cargo fmt --all -- --check
+          command: cd client/rust && cargo fmt --all -- --check
 
       - run:
           name: Run Rust clippy
-          command: cd clients/rust && cargo clippy --all-targets -- -D warnings
+          command: cd client/rust && cargo clippy --all-targets -- -D warnings
 
       - run:
           name: Run Rust tests
           command: |
-            cd clients/rust
+            cd client/rust
             OPENSYSML_GRPC_BINARY="$PWD/../../bin/sysml-grpc" \
             OPENSYSML_REQUIRE_SERVICE=1 \
               cargo test --workspace
@@ -832,7 +834,7 @@ jobs:
 
       - run:
           name: Package Rust client
-          command: cd clients/rust && cargo package -p opensysml
+          command: cd client/rust && cargo package -p opensysml
 
       - run:
           name: Install Buf
@@ -847,8 +849,8 @@ jobs:
           name: Verify Rust generated artifacts
           command: |
             make BUF=/tmp/buf proto-rust
-            git add -N clients/rust/opensysml/src/proto clients/rust/conformance/sysml.descriptor.binpb
-            git diff --exit-code clients/rust/opensysml/src/proto clients/rust/conformance/sysml.descriptor.binpb
+            git add -N client/rust/opensysml/src/proto client/rust/conformance/sysml.descriptor.binpb
+            git diff --exit-code client/rust/opensysml/src/proto client/rust/conformance/sysml.descriptor.binpb
 
       - store_artifacts:
           path: bin/conformance-report-rust.json
@@ -872,15 +874,15 @@ jobs:
 
       - restore_cache:
           keys:
-            - maven-v1-{{ checksum "clients/java/pom.xml" }}-{{ checksum "clients/java/opensysml-client/pom.xml" }}-{{ checksum "clients/java/opensysml-conformance/pom.xml" }}
+            - maven-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "client/java/opensysml-conformance/pom.xml" }}
             - maven-v1-
 
       - run:
           name: Resolve dependencies
-          command: mvn -B -f clients/java/pom.xml -DskipTests dependency:go-offline
+          command: mvn -B -f client/java/pom.xml -DskipTests dependency:go-offline
 
       - save_cache:
-          key: maven-v1-{{ checksum "clients/java/pom.xml" }}-{{ checksum "clients/java/opensysml-client/pom.xml" }}-{{ checksum "clients/java/opensysml-conformance/pom.xml" }}
+          key: maven-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "client/java/opensysml-conformance/pom.xml" }}
           paths:
             - ~/.m2/repository
 
@@ -891,14 +893,14 @@ jobs:
       - run:
           name: Test and install the client
           command: |
-            mvn -B -f clients/java/pom.xml install -Dopensysml.requireService=true
+            mvn -B -f client/java/pom.xml install -Dopensysml.requireService=true
 
       # The scan's Java sensor needs the dependency jars on a path it can read,
       # and ~/.m2 is this job's cache, not the workspace.
       - run:
           name: Collect the dependency jars the scan reads
           command: |
-            mvn -B -q -f clients/java/pom.xml dependency:copy-dependencies \
+            mvn -B -q -f client/java/pom.xml dependency:copy-dependencies \
               -DincludeScope=test -DoutputDirectory=target/dependency
 
       # JaCoCo writes the reports during `test`, `install` writes the classes,
@@ -906,33 +908,33 @@ jobs:
       - persist_to_workspace:
           root: .
           paths:
-            - clients/java/opensysml-client/target/site/jacoco/jacoco.xml
-            - clients/java/opensysml-conformance/target/site/jacoco/jacoco.xml
-            - clients/java/opensysml-client/target/classes
-            - clients/java/opensysml-conformance/target/classes
-            - clients/java/opensysml-client/target/test-classes
-            - clients/java/opensysml-conformance/target/test-classes
-            - clients/java/opensysml-client/target/dependency
-            - clients/java/opensysml-conformance/target/dependency
+            - client/java/opensysml-client/target/site/jacoco/jacoco.xml
+            - client/java/opensysml-conformance/target/site/jacoco/jacoco.xml
+            - client/java/opensysml-client/target/classes
+            - client/java/opensysml-conformance/target/classes
+            - client/java/opensysml-client/target/test-classes
+            - client/java/opensysml-conformance/target/test-classes
+            - client/java/opensysml-client/target/dependency
+            - client/java/opensysml-conformance/target/dependency
 
       - run:
           name: Run the conformance suite through the client
           command: |
-            mvn -B -q -f clients/java/pom.xml -pl opensysml-conformance \
+            mvn -B -q -f client/java/pom.xml -pl opensysml-conformance \
               dependency:build-classpath -Dmdep.outputFile=/tmp/cp.txt
-            java -cp "clients/java/opensysml-conformance/target/classes:$(cat /tmp/cp.txt)" \
+            java -cp "client/java/opensysml-conformance/target/classes:$(cat /tmp/cp.txt)" \
               org.openmbee.opensysml.conformance.Main \
               -binary bin/sysml-grpc -protocols connect,connect-json -allow-skips \
               -report bin/conformance-report-java.json
 
       - store_test_results:
-          path: clients/java/opensysml-client/target/surefire-reports
+          path: client/java/opensysml-client/target/surefire-reports
 
       - store_artifacts:
           path: bin/conformance-report-java.json
 
       - store_artifacts:
-          path: clients/java/opensysml-client/target
+          path: client/java/opensysml-client/target
 
       # The committed Java stubs are checked in go-static, which has the Go
       # toolchain the one buf template needs.
@@ -951,25 +953,25 @@ jobs:
       - run:
           name: Install the client's dependencies
           command: |
-            cd clients/node
+            cd client/node
             npm ci
 
       - run:
           name: Build the package
           command: |
-            cd clients/node
+            cd client/node
             npm run build
 
       - run:
           name: Typecheck
           command: |
-            cd clients/node
+            cd client/node
             npm run typecheck
 
       - run:
           name: Lint
           command: |
-            cd clients/node
+            cd client/node
             npm run lint
 
       - run:
@@ -992,7 +994,7 @@ jobs:
           name: Run the conformance suite through the client
           command: |
             export OPENSYSML_BINARY="$(pwd)/bin/sysml-grpc"
-            cd clients/node
+            cd client/node
             npm run conformance -- --binary "$OPENSYSML_BINARY" --allow-skips \
               --report /tmp/node-conformance.json
 
@@ -1001,7 +1003,7 @@ jobs:
           name: Check the conformance runner catches a broken client
           command: |
             export OPENSYSML_BINARY="$(pwd)/bin/sysml-grpc"
-            cd clients/node
+            cd client/node
             for mutation in hide-capability drop-diagnostics blank-symbol-kind shift-integer drop-feature-values; do
               if npm run conformance -- --binary "$OPENSYSML_BINARY" --allow-skips \
                    --protocols connect --mutate "$mutation" > /dev/null 2>&1; then
@@ -1032,8 +1034,8 @@ jobs:
           name: Verify the committed TypeScript stubs are current
           command: |
             make proto-ts BUF=buf
-            git add -N clients/node/src/generated
-            git diff --exit-code clients/node/src/generated
+            git add -N client/node/src/generated
+            git diff --exit-code client/node/src/generated
 
   # Builds the opensysml wheel and sdist on a core `v<version>` tag, which must name
   # the declared version; build-release and publish-pypi ship exactly these bytes.
@@ -1051,25 +1053,25 @@ jobs:
           command: |
             # Fails loudly when the tag names a version other than the one the
             # package would publish, before anything is built.
-            VERSION="$(python clients/python/scripts/check_version.py)"
-            PRE_RELEASE="$(python clients/python/scripts/check_version.py --pre-release)"
+            VERSION="$(python client/python/scripts/check_version.py)"
+            PRE_RELEASE="$(python client/python/scripts/check_version.py --pre-release)"
             echo "export OPENSYSML_VERSION=${VERSION}" >> "$BASH_ENV"
             echo "Building opensysml ${VERSION} (pre-release: ${PRE_RELEASE})"
 
       - run:
           name: Build the wheel and the sdist
           command: |
-            rm -rf clients/python/dist
-            python -m build --outdir clients/python/dist clients/python/
-            ls -l clients/python/dist
+            rm -rf client/python/dist
+            python -m build --outdir client/python/dist client/python/
+            ls -l client/python/dist
             # The version is PEP 440 in canonical form, so these are the names
             # the build tools give the files; the release jobs rely on them.
-            ls clients/python/dist/"opensysml-${OPENSYSML_VERSION}-py3-none-any.whl" \
-               clients/python/dist/"opensysml-${OPENSYSML_VERSION}.tar.gz" > /dev/null
+            ls client/python/dist/"opensysml-${OPENSYSML_VERSION}-py3-none-any.whl" \
+               client/python/dist/"opensysml-${OPENSYSML_VERSION}.tar.gz" > /dev/null
 
       - run:
           name: Check the metadata (twine check --strict)
-          command: python -m twine check --strict clients/python/dist/*
+          command: python -m twine check --strict client/python/dist/*
 
       - run:
           name: Install the built wheel into a clean virtualenv and import it
@@ -1077,7 +1079,7 @@ jobs:
             # A broken artifact fails the job rather than PyPI.
             python -m venv /tmp/verify-wheel
             /tmp/verify-wheel/bin/python -m pip install --upgrade pip
-            /tmp/verify-wheel/bin/python -m pip install clients/python/dist/*.whl
+            /tmp/verify-wheel/bin/python -m pip install client/python/dist/*.whl
             # The backslash is CircleCI's escape for a literal heredoc operator
             # in a 2.1 config; the shell sees a plain heredoc.
             /tmp/verify-wheel/bin/python - \<<'EOF'
@@ -1091,13 +1093,13 @@ jobs:
             EOF
 
       - store_artifacts:
-          path: clients/python/dist
+          path: client/python/dist
           destination: opensysml-dist
 
       - persist_to_workspace:
           root: .
           paths:
-            - clients/python/dist
+            - client/python/dist
 
   # Uploads the distribution build-python-package made. PyPI has no OIDC publishing
   # for CircleCI (pypi/warehouse#13888), so a token from the `PyPI` context is used.
@@ -1115,14 +1117,14 @@ jobs:
       - run:
           name: Resolve the version from the tag
           command: |
-            VERSION="$(python clients/python/scripts/check_version.py)"
-            PRE_RELEASE="$(python clients/python/scripts/check_version.py --pre-release)"
+            VERSION="$(python client/python/scripts/check_version.py)"
+            PRE_RELEASE="$(python client/python/scripts/check_version.py --pre-release)"
             echo "export OPENSYSML_VERSION=${VERSION}" >> "$BASH_ENV"
             echo "export OPENSYSML_PRE_RELEASE=${PRE_RELEASE}" >> "$BASH_ENV"
             echo "Publishing opensysml ${VERSION} (pre-release: ${PRE_RELEASE})"
             # The distribution must be the one build-python-package made for this tag.
-            ls -l clients/python/dist/"opensysml-${VERSION}-py3-none-any.whl" \
-                  clients/python/dist/"opensysml-${VERSION}.tar.gz"
+            ls -l client/python/dist/"opensysml-${VERSION}-py3-none-any.whl" \
+                  client/python/dist/"opensysml-${VERSION}.tar.gz"
 
       - run:
           name: Require the publishing token
@@ -1166,14 +1168,14 @@ jobs:
               echo "and the package needs no action: publish-github-release replaces"
               echo "the GitHub assets on its own. If the package itself must change,"
               echo "that is a new core release: bump the version in"
-              echo "clients/python/opensysml/_version.py and tag v<new version>."
+              echo "client/python/opensysml/_version.py and tag v<new version>."
               exit 1
             fi
             echo "${INDEX_HOST} has no opensysml ${OPENSYSML_VERSION} (HTTP ${STATUS}); continuing"
 
       - run:
           name: Check the metadata (twine check --strict)
-          command: python -m twine check --strict clients/python/dist/*
+          command: python -m twine check --strict client/python/dist/*
 
       - run:
           name: Upload to the index
@@ -1191,7 +1193,7 @@ jobs:
             fi
             # No --skip-existing: a version that appeared since the check above
             # must fail the job rather than pass silently.
-            python -m twine upload clients/python/dist/*
+            python -m twine upload client/python/dist/*
 
   # Publishes packaging/pypi-pysysml on a `pysysml-v<version>` tag: the final
   # release of the pre-rename name, which raises on import to point at
@@ -1388,7 +1390,7 @@ jobs:
             rm -rf stage
             
             # The opensysml wheel and sdist, released with the binaries they drive.
-            cp ../clients/python/dist/opensysml-*.whl ../clients/python/dist/opensysml-*.tar.gz .
+            cp ../client/python/dist/opensysml-*.whl ../client/python/dist/opensysml-*.tar.gz .
             
             # Checksums over every published archive, so a Homebrew formula
             # (or a careful user) can verify a download.
@@ -1567,10 +1569,10 @@ jobs:
       - run:
           name: Check the tag matches the package version
           command: |
-            version=$(node -p "require('./clients/node/package.json').version")
+            version=$(node -p "require('./client/node/package.json').version")
             expected="client-node-v${version}"
             if [ "${CIRCLE_TAG}" != "$expected" ]; then
-              echo "Error: tag ${CIRCLE_TAG} does not match clients/node/package.json"
+              echo "Error: tag ${CIRCLE_TAG} does not match client/node/package.json"
               echo "version ${version}; the tag for it is ${expected}. Nothing was published."
               exit 1
             fi
@@ -1578,13 +1580,13 @@ jobs:
       - run:
           name: Refuse a version already on the registry
           command: |
-            version=$(node -p "require('./clients/node/package.json').version")
+            version=$(node -p "require('./client/node/package.json').version")
             for name in @opensysml/client @opensysml/sysml-grpc-linux-x64 \
                         @opensysml/sysml-grpc-linux-arm64 @opensysml/sysml-grpc-darwin-x64 \
                         @opensysml/sysml-grpc-darwin-arm64 @opensysml/sysml-grpc-win32-x64; do
               if npm view "${name}@${version}" version > /dev/null 2>&1; then
                 echo "Error: ${name}@${version} is already published; a version cannot be"
-                echo "replaced. Bump clients/node/package.json and tag again."
+                echo "replaced. Bump client/node/package.json and tag again."
                 exit 1
               fi
             done
@@ -1594,7 +1596,7 @@ jobs:
           command: |
             chmod +x dist/grpc/sysml-grpc-linux-amd64
             export OPENSYSML_BINARY="$(pwd)/dist/grpc/sysml-grpc-linux-amd64"
-            cd clients/node
+            cd client/node
             npm ci
             npm run build
             npm run typecheck
@@ -1604,7 +1606,7 @@ jobs:
       - run:
           name: Build the per-platform packages
           command: |
-            cd clients/node
+            cd client/node
             npm run platform-packages -- --binaries ../../dist/grpc
 
       - run:
@@ -1621,14 +1623,14 @@ jobs:
       - run:
           name: Publish the per-platform packages
           command: |
-            for directory in clients/node/packages/sysml-grpc-*; do
+            for directory in client/node/packages/sysml-grpc-*; do
               npm publish "$directory" --access public
             done
 
       - run:
           name: Publish @opensysml/client
           command: |
-            cd clients/node
+            cd client/node
             npm publish --access public
 
   publish-github-release:
@@ -1771,7 +1773,7 @@ workflows:
           filters: *release-tags
 
       # Fails the release before anything is built when the tag does not name
-      # the version clients/python/opensysml/_version.py declares.
+      # the version client/python/opensysml/_version.py declares.
       - build-python-package:
           name: Build Python distribution
           requires: *go-suite

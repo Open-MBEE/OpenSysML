@@ -1,5 +1,5 @@
 {
-  "command": "go test ./internal/core/runtime -run TestAnalysisLibraryCensus -update-library-census",
+  "command": "go test ./internal/exec/runtime -run TestAnalysisLibraryCensus -update-library-census",
   "packages": [
     {
       "name": "AnalysisTooling",

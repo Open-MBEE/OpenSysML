@@ -1,5 +1,5 @@
 // The custom methods the OpenSysML language server adds for diagrams, and the
-// payloads they carry. They mirror internal/lsp/render.go.
+// payloads they carry. They mirror internal/frontend/lsp/render.go.
 
 export const RENDER_METHOD = "opensysml/render";
 export const VIEWS_METHOD = "opensysml/views";
@@ -16,7 +16,7 @@ export const RENDER_FORMS_CAPABILITY = "openSysmlRenderForms";
 /** The capability the server advertises when it serves document rendering. */
 export const RENDER_DOCUMENT_CAPABILITY = "openSysmlRenderDocument";
 
-/** Turns diagram actions into a WorkspaceEdit; mirrors internal/lsp/modeledit.go. */
+/** Turns diagram actions into a WorkspaceEdit; mirrors internal/frontend/lsp/modeledit.go. */
 export const APPLY_MODEL_EDIT_METHOD = "opensysml/applyModelEdit";
 
 /** The capability the server advertises when it serves model edits. */
@@ -28,7 +28,7 @@ export const CROSS_DOCUMENT_CAPABILITY = "openSysmlCrossDocumentLayout";
 /** The URI scheme the server locates standard-library declarations in. */
 export const STDLIB_SCHEME = "sysml-stdlib";
 
-/** Serves the text of a `sysml-stdlib:` document; mirrors internal/lsp/stdlib.go. */
+/** Serves the text of a `sysml-stdlib:` document; mirrors internal/frontend/lsp/stdlib.go. */
 export const STDLIB_CONTENT_METHOD = "opensysml/stdlibContent";
 
 /** The capability the server advertises when it serves the content request. */

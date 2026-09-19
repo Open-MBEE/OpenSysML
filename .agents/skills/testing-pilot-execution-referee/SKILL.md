@@ -1,6 +1,6 @@
 ---
 name: testing-pilot-execution-referee
-description: How to verify the pilot execution referee (cmd/pilot-exec-diff + scripts/download-pilot-evaluator.sh) end to end on Linux — provisioning the headless pilot expression evaluator, reproducing the committed bucket counts, proving the determinism and disagree detectors are live, and the adversarial paths that actually distinguish working from broken.
+description: How to verify the pilot execution referee (tools/referee/exec + scripts/download-pilot-evaluator.sh) end to end on Linux — provisioning the headless pilot expression evaluator, reproducing the committed bucket counts, proving the determinism and disagree detectors are live, and the adversarial paths that actually distinguish working from broken.
 ---
 
 # Testing the pilot execution referee
@@ -55,7 +55,7 @@ Provisioning notes worth knowing before you test it:
 ## Run
 
 ```sh
-go run ./cmd/pilot-exec-diff          # ~13 s wall with the default fixtures
+go run -C tools ./cmd/pilot-exec-diff          # ~13 s wall with the default fixtures
 ```
 
 Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
@@ -147,9 +147,9 @@ pilot answers the representation's own. See
   source line included:
   `pilot-exec-diff: <file>:<line>: model no/such/model.sysml: stat <abs>: no
   such file or directory`.
-- **Additivity.** `go run ./cmd/pilot-diff` must still print the headline the
-  committed baseline holds (`379 file(s), 347 fully agreeing; 38 agreed
-  diagnostic(s), 38 only ours, 1334 only the pilot's` after the Legend of the Red Dragon completed-mechanics round at the `2026-08` pin — read it from the baseline JSON, not from this line, since each
+- **Additivity.** `go run -C tools ./cmd/pilot-diff` must still print the headline the
+  committed baseline holds (`378 file(s), 347 fully agreeing; 38 agreed
+  diagnostic(s), 38 only ours, 1185 only the pilot's` after the Legend of the Red Dragon example left for its own repository at the `2026-08` pin — read it from the baseline JSON, not from this line, since each
   fix round moves it) and `jq -S` diff clean against
   `docs/project/pilot-differential-baseline.json`; `git status --porcelain`
   empty at the end.
@@ -159,13 +159,13 @@ pilot answers the representation's own. See
 Any wave that flips a status flag in `docs/project/spec-compliance.md` (for
 example a row moving ⚠️ → ✅ because the pilot can now referee it) must also
 update **two aggregate count lines**, or
-`cmd/pilot-diff/doc_counts_test.go:TestPilotDifferentialDocumentCountsMatchBaseline`
+`tools/referee/diff/doc_counts_test.go:TestPilotDifferentialDocumentCountsMatchBaseline`
 fails with `coverage ✅ faithful: want N (spec-compliance.md ✅ rows), got M`:
 
 - `README.md` — the `**Measured status:**` line
 - `docs/internals/architecture.md` — the `**Current coverage:**` line
 
-This is invisible to `go run ./cmd/pilot-exec-diff` and to the `jq -S`
+This is invisible to `go run -C tools ./cmd/pilot-exec-diff` and to the `jq -S`
 baseline comparison, and it is **not** in the blueprint's abbreviated
 `-run 'TestTrainingExamples|TestPilotCorpora|TestCorpusGates'` selector, so
 always run the unfiltered `go test ./...` too. Confirm any failure is
@@ -251,10 +251,10 @@ The report's `rawPilot`/`rawOurs` are byte-reproducible (modulo pilot UUIDs):
 ```sh
 printf 'big\t\tProbe::Big()\n' > /tmp/c.tsv          # id <TAB> target <TAB> expression
 build/pilot-evaluator/eval-sysml --cases /tmp/c.tsv \
-  --model cmd/pilot-exec-diff/testdata/models/expr_values.sysml
+  --model tools/referee/exec/testdata/models/expr_values.sysml
 # → LiteralRational 1.099511627776E12 (<uuid>)   [~150 library "Reading ..." lines first]
 make build-sysml
-./bin/sysml -e 'Probe::Big()' cmd/pilot-exec-diff/testdata/models/expr_values.sysml
+./bin/sysml -e 'Probe::Big()' tools/referee/exec/testdata/models/expr_values.sysml
 # → ✓ package Probe / ✓ Probe::Big() /   = 1099511627776
 ```
 

@@ -1,0 +1,45 @@
+exit: idle
+stmt assign log
+    eval feature log -> ""
+    eval literal "T1(effect) " -> "T1(effect) "
+  eval operator + -> "T1(effect) "
+choice fork split: next split->a(effect), split->b(effect) (unordered; took split->a(effect) first)
+stmt assign log
+    eval feature log -> "T1(effect) "
+    eval literal "T1.1(effect) " -> "T1.1(effect) "
+  eval operator + -> "T1(effect) T1.1(effect) "
+choice fork split: next work(entry), split->b(effect) (unordered; took work(entry) first)
+enter: work (entry action)
+stmt assign log
+    eval feature log -> "T1(effect) T1.1(effect) "
+    eval literal "work(entry) " -> "work(entry) "
+  eval operator + -> "T1(effect) T1.1(effect) work(entry) "
+choice fork split: next wrapper(entry), split->b(effect), x0(entry) (unordered; took wrapper(entry) first)
+enter: wrapper (entry action)
+stmt assign log
+    eval feature log -> "T1(effect) T1.1(effect) work(entry) "
+    eval literal "wrapper(entry) " -> "wrapper(entry) "
+  eval operator + -> "T1(effect) T1.1(effect) work(entry) wrapper(entry) "
+choice fork split: next a(entry), split->b(effect), x0(entry) (unordered; took a(entry) first)
+enter: a (entry action)
+stmt assign log
+    eval feature log -> "T1(effect) T1.1(effect) work(entry) wrapper(entry) "
+    eval literal "a(entry) " -> "a(entry) "
+  eval operator + -> "T1(effect) T1.1(effect) work(entry) wrapper(entry) a(entry) "
+choice fork split: next split->b(effect), x0(entry) (unordered; took split->b(effect) first)
+stmt assign log
+    eval feature log -> "T1(effect) T1.1(effect) work(entry) wrapper(entry) a(entry) "
+    eval literal "T1.2(effect) " -> "T1.2(effect) "
+  eval operator + -> "T1(effect) T1.1(effect) work(entry) wrapper(entry) a(entry) T1.2(effect) "
+choice fork split: next b(entry), x0(entry) (unordered; took b(entry) first)
+enter: b (entry action)
+stmt assign log
+    eval feature log -> "T1(effect) T1.1(effect) work(entry) wrapper(entry) a(entry) T1.2(effect) "
+    eval literal "b(entry) " -> "b(entry) "
+  eval operator + -> "T1(effect) T1.1(effect) work(entry) wrapper(entry) a(entry) T1.2(effect) b(entry) "
+enter: x0 (entry action)
+stmt assign log
+    eval feature log -> "T1(effect) T1.1(effect) work(entry) wrapper(entry) a(entry) T1.2(effect) b(entry) "
+    eval literal "x0(entry) " -> "x0(entry) "
+  eval operator + -> "T1(effect) T1.1(effect) work(entry) wrapper(entry) a(entry) T1.2(effect) b(entry) x0(entry) "
+transition: idle -> split

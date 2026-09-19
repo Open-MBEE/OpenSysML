@@ -10,8 +10,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/testutil/gobuild"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 var (
@@ -31,7 +31,7 @@ func engineStandin(t *testing.T) string {
 		}
 		standinPath = filepath.Join(dir, "enginestandin")
 		build := exec.Command("go", gobuild.Args(standinPath)...)
-		build.Dir = filepath.Join("..", "..", "internal", "core", "analysis", "testdata", "enginestandin")
+		build.Dir = filepath.Join("..", "..", "internal", "exec", "analysis", "testdata", "enginestandin")
 		if out, err := build.CombinedOutput(); err != nil {
 			standinErr = fmt.Errorf("go build: %v\n%s", err, out)
 		}

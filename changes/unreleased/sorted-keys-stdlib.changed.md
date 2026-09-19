@@ -1,0 +1,1 @@
+- **Sorted map keys come from the standard library.** The seven private `sortedKeys` helpers in the symbols, validation, SMT, view, runtime and interop packages are replaced by `slices.Sorted(maps.Keys(m))`. No behavior changes.

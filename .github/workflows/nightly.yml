@@ -22,6 +22,8 @@ concurrency:
 env:
   BRANCH: develop
   TAG: nightly
+  # The commit is built by its own copy of this script; a green commit that predates it cannot be built.
+  BUILD_SCRIPT: scripts/build-release-artifacts.sh
 
 jobs:
   select:
@@ -32,6 +34,13 @@ jobs:
       sha: ${{ steps.pick.outputs.sha }}
       publish: ${{ steps.pick.outputs.publish }}
     steps:
+      - name: Check out develop
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ env.BRANCH }}
+          # Full history: the candidates are the branch's own commits, walked from the head.
+          fetch-depth: 0
+
       - name: Find the newest green develop commit
         id: pick
         env:
@@ -39,27 +48,43 @@ jobs:
           GH_REPO: ${{ github.repository }}
           FORCE: ${{ inputs.force }}
         run: |
-          # CircleCI reports each job as a commit status; the combined state is
-          # `success` only when all passed. Unbuilt commits stay `pending` and are skipped.
+          # The tag moves before the release exists, so a night counts as done only once a published
+          # release sits at it; `gh release create` uploads into a draft and publishes last.
+          # Both lookups answer an empty match, not 404, when there is no snapshot yet, so an API failure
+          # stops the job rather than passing for "no snapshot". The release is recreated nightly, so it is recent.
+          published=$(gh api "repos/$GH_REPO/git/matching-refs/tags/$TAG" \
+            --jq ".[] | select(.ref == \"refs/tags/$TAG\") | .object.sha")
+          released=$(gh api "repos/$GH_REPO/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$TAG\" and .draft == false) | .id")
+
+          # First-parent commits only (a merged branch's commits carry its PR's statuses); CircleCI's
+          # combined state is `success` only when every job passed. The walk ends at the published snapshot.
           sha=
           while read -r candidate; do
             state=$(gh api "repos/$GH_REPO/commits/$candidate/status" --jq .state)
+            if [ "$state" = success ] && ! git cat-file -e "$candidate:$BUILD_SCRIPT" 2>/dev/null; then
+              state="success, but has no $BUILD_SCRIPT"
+            fi
             echo "$candidate: $state"
             if [ "$state" = success ]; then
               sha=$candidate
               break
             fi
-          done < <(gh api "repos/$GH_REPO/commits?sha=$BRANCH&per_page=100" --jq '.[].sha')
+            if [ "$candidate" = "$published" ]; then
+              break
+            fi
+          done < <(git rev-list --first-parent --max-count=100 HEAD)
           if [ -z "$sha" ]; then
+            if [ -n "$published" ]; then
+              echo "::notice::Nothing on $BRANCH newer than the published snapshot ${published:0:7} is green among the newest 100 commits; the previous snapshot stands."
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
             echo "::error::No commit among the newest 100 on $BRANCH has a green CircleCI status; nothing to publish."
             exit 1
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-          # The tag moves before the release exists, so a night counts as done only once a published
-          # release sits at it; `gh release create` uploads into a draft and publishes last.
-          published=$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq .object.sha 2>/dev/null || true)
-          released=$(gh api "repos/$GH_REPO/releases/tags/$TAG" --jq 'select(.draft == false) | .id' 2>/dev/null || true)
           if [ "$published" = "$sha" ] && [ -n "$released" ] && [ "$FORCE" != true ]; then
             echo "::notice::$TAG already points at $sha, the newest green commit on $BRANCH, with its release; nothing to rebuild."
             echo "publish=false" >> "$GITHUB_OUTPUT"
@@ -91,6 +116,13 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+
       - name: Derive the snapshot version
         id: version
         run: |
@@ -104,11 +136,34 @@ jobs:
       - name: Build the release artifacts
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: scripts/build-release-artifacts.sh dist
+        run: '"$BUILD_SCRIPT" dist'
+
+      # The extension is side-loaded, not published to a marketplace, so the snapshot
+      # is its distribution. Its version is the manifest's with the snapshot version as
+      # the pre-release part, so two nights' builds are told apart in VS Code and any
+      # stable release of the extension ranks above them. The selected commit may be
+      # older than this workflow, so the version is passed to the extension's own
+      # package script rather than through a Makefile variable it may not have yet.
+      - name: Package the VS Code extension
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          base=$(node -p "require('./editors/vscode/package.json').version")
+          expected="${base}-${VERSION}"
+          (cd editors/vscode && npm ci && npm run package -- "$expected" --no-update-package-json)
+          unzip -q -o editors/vscode/opensysml-sysml.vsix extension/package.json -d /tmp/vsix
+          stamped=$(node -p "require('/tmp/vsix/extension/package.json').version")
+          if [ "$stamped" != "$expected" ]; then
+            echo "::error::opensysml-sysml.vsix carries version '$stamped', not the '$expected' it is being published as."
+            exit 1
+          fi
+          echo "ok: opensysml-sysml.vsix carries $stamped"
+          cp editors/vscode/opensysml-sysml.vsix dist/
+          (cd dist && sha256sum opensysml-sysml.vsix >> SHA256SUMS.txt && cat SHA256SUMS.txt)
 
       # Keyless, like the stable release; the identity is this workflow's OIDC identity.
       - name: Install cosign
-        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         with:
           cosign-release: v3.0.3
 
@@ -156,6 +211,10 @@ jobs:
             printf '%s' " to verify it and what to expect from it; the"
             printf '%s\n' " [install guide](https://opensysml.org/guide/01-install/) covers the stable releases."
             echo
+            printf '%s' "\`opensysml-sysml.vsix\` is the VS Code extension built from the same commit:"
+            printf '%s' " \`code --install-extension opensysml-sysml.vsix\`, with a snapshot's \`sysml-lsp\`"
+            printf '%s\n' " on your \`PATH\` or named by \`opensysml.server.path\`."
+            echo
             echo "Verify a download against the signed manifest:"
             echo
             echo '```bash'
@@ -197,6 +256,7 @@ jobs:
             --notes-file notes.md \
             --prerelease \
             --latest=false \
-            dist/*.tar.gz dist/*.zip dist/SHA256SUMS.txt dist/SHA256SUMS.txt.bundle \
+            dist/*.tar.gz dist/*.zip dist/opensysml-sysml.vsix \
+            dist/SHA256SUMS.txt dist/SHA256SUMS.txt.bundle \
             dist/grpc/sysml-grpc-*
           gh release view "$TAG" --json url,assets --jq '.url, (.assets[].name)'

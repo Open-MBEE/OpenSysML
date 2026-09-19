@@ -1,0 +1,13 @@
+{
+  "type": "state",
+  "schedule": "reverse",
+  "libraries": true,
+  "events": [
+    {"signal": "pause", "args": null}
+  ],
+  "finalState": "c1+late",
+  "stateVisits": ["wstart", "cstart", "waiting", "c0", "away", "waiting", "c1", "late"],
+  "outputs": {
+    "log": {"type": "Integer", "value": 21}
+  }
+}

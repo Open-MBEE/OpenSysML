@@ -331,7 +331,7 @@ export class DiagramPanels implements vscode.Disposable {
       PANEL_TYPE,
       `Diagram: ${basename(uri)}`,
       { viewColumn: column, preserveFocus: true },
-      { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist")] },
+      webviewOptions(this.extensionUri),
     );
     this.adopt(uri, panel, selected);
   }
@@ -587,6 +587,9 @@ class DiagramPanel {
     private readonly owner: PanelOwner,
   ) {
     this.selected = selected;
+    // A restored panel keeps the resource roots of the extension version that
+    // created it; after an update the script lives elsewhere, so set them again.
+    this.panel.webview.options = webviewOptions(extensionUri);
     this.panel.webview.html = html(this.panel.webview, extensionUri, docURI, selected);
     this.disposables.push(
       this.panel.webview.onDidReceiveMessage((message: FromWebview) => this.receive(message)),
@@ -1249,6 +1252,11 @@ function errorMessage(err: unknown): string {
     return String((err as { message: unknown }).message);
   }
   return String(err);
+}
+
+/** webviewOptions lets the panel run scripts and load resources from this installation's bundle only. */
+function webviewOptions(extensionUri: vscode.Uri): vscode.WebviewOptions {
+  return { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(extensionUri, "dist")] };
 }
 
 /**

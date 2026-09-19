@@ -533,7 +533,7 @@ the whole set of outcomes it admits.
 
 The examples below are one fixture from the conformance suite, three branches writing one feature
 between a fork and a join,
-[`action_explore_three_writers.sysml`](../../internal/core/runtime/testdata/conformance/action_explore_three_writers.sysml):
+[`action_explore_three_writers.sysml`](../../internal/exec/runtime/testdata/conformance/action_explore_three_writers.sysml):
 
 ```sysml
 package test {
@@ -613,8 +613,14 @@ token 2 stepped last. The other kinds read the same way: a decision with two hol
 `choice step 2: decision select branches 1->warn, 2->alarm hold (unordered; took 1->warn)`, two
 transitions out of one state enabled by one event are `choice state idle on accept Go: transitions
 1->left, 2->right (unordered; took 1->left)`, and two regions reacting to one event are
-`choice on accept Go: states a1, b1 react (unordered; took a1 first)` — `reverse` and `declared`
-take the regions in declaration order and report the pick, and `seed:<n>` may take `b1` first —
+`choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)` — each firing
+is drawn a unit at a time, its source's exit, its effect, its target's entry, so two firings may
+interleave; `reverse` and `declared` take the regions whole in declaration order and report each
+pick, and `seed:<n>` may take `b1(exit)` first. Entering a state of two regions draws the order
+of their entries the same way, `choice entering work: next left(entry), right(entry)
+(unordered; took left(entry) first)`, a fork's branches under `fork <name>` and the regions a
+state leaves under `exiting <state>`; the fixed policies take declaration order there too, so a
+model that ran before these draws were recorded runs the same and gains only the `choice` lines —
 and two executors due at one instant of the clock are `choice at t=5.0: due action watcher, state
 machine blinking of object #1 (unordered; ran state machine blinking of object #1 first)`. One
 executor alone due at an instant is not a choice and is not reported, so a model with a single
@@ -680,9 +686,10 @@ runs no seed you tried happened to take.
 
 `explore` replays the behavior once per linearization. The first run records the alternative
 taken at each choice point; each later run is a fresh executor of the same loaded model — no
-object, message, clock, calc memo or note carries over — that follows the recorded prefix and
-takes the next untried alternative at the frontier, depth-first, until every choice sequence is
-spent or a budget is hit:
+object, message, clock, calc memo or note carries over — that follows a recorded prefix and
+takes an untried alternative at its end, until every choice sequence is spent or a budget is
+hit. The runs vary every choice point of the first run once, earliest first, before any is
+varied twice, so a choice met early is varied by the second run however many choices follow it:
 
 ```console
 $ sysml -schedule explore -action test::race action_explore_three_writers.sysml
@@ -714,6 +721,26 @@ table is followed by the trace of each outcome's witness run (`trace of outcome 
 (run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, `witness`) and
 `exploration` (`complete`, `runs`, `budgetsHit`) beside the table's lines.
 
+<a id="a-do-behavior-under-explore-and-check"></a>
+A state's `do` behavior is stepped the same way under `explore` and `check`: one token at a time —
+each due `do` behavior moves one token, then the machine dispatches the event at the head of its
+pool. Under the fixed policies (`reverse`, `declared`, `seed:<n>`) a do behavior's flow instead
+advances every steppable token once a round, and the machine dispatches only between rounds. The
+run a fixed policy makes — the whole round, then the dispatch — is therefore an interleaving
+`check`'s enumeration does not yet contain: a `do` behavior that a transition interrupts may end
+with a value under `reverse` that `check` does not table. A check that reaches such a state — a
+machine owing a dispatch after a `do` step that left a token able to act standing, one ready
+beside the token moved or one its move freed, where a fixed policy's round would have moved it too
+— therefore does not report
+*exhaustive*: its verdict is `no violation within bounds` (or `divergent`, when the schedules it
+did search disagree) with `not enumerated: do round before dispatch` naming the run it left out,
+and the standing is *bounded*. Whether the dispatch waits for the round or cuts it becomes a
+recorded choice point — drawn per token move of the `do` flow — as the one site of the
+region-order scheduling work still open ([design
+note](../internals/design/region-order-scheduling.md)); until then, run a fixed policy beside the
+checker when a `do` behavior loops through timed waits. The witnesses such a check writes replay
+as any other: the search is short of a run, not wrong about the ones it made.
+
 The order of executors due at one instant of the clock is explored like any other choice:
 `sysml -schedule explore -instantiate Demo::beacon -action Demo::watcher -state
 "Demo::Beacon::blinking Demo::beacon" -advance 5` starts every behavior named on one clock in each run, advances it, and tables the
@@ -736,14 +763,14 @@ The budget is 1024 runs and 64 choice points per run unless `explore:runs=N,dept
 otherwise, and hitting it is never silent:
 
 ```console
-$ sysml -schedule explore:runs=2 -action test::race action_explore_three_writers.sysml
+$ sysml -schedule explore:runs=3 -action test::race action_explore_three_writers.sysml
 ✓ package test
 ? explored test::race: 2 outcomes
 outcome                                      | linearizations | witness
 ---------------------------------------------+----------------+------------------------------------------------------------------
 aRan = true; bRan = true; cRan = true; x = 2 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
-incomplete: runs budget 2 hit after 2 runs
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
+incomplete: runs budget 3 hit after 3 runs
 $ echo $?
 2
 ```
@@ -753,7 +780,12 @@ far and no more, the check is unresolved (`?`) and the exit status is `2` — th
 that decided nothing, as for an unevaluable verdict. Raise the budget it names
 (`explore:runs=4096`, `explore:depth=128`, or both) and run again; a model whose exploration stays
 incomplete at any budget you can afford has more linearizations than a table can carry, and a
-seed is the way to look at some of them.
+seed is the way to look at some of them. The two budgets bound different things: a choice point
+met past the `depth` budget takes its first alternative in every run and is never varied, however
+many runs remain, so a run of more choice points than `depth` — the witness column lists every
+one its run met — needs `depth` raised to at least that many before more runs can help; within
+`depth`, a `runs` budget of one more than the first run's choice points varies each of them at
+least once.
 
 The same spelling explores over the wire, where the response carries `outcomes` and an
 `exploration` status ([wire contract](../reference/wire-contract.md)), and from every client
@@ -811,7 +843,7 @@ no file of the caller's and `"replay:…"` is `INVALID_ARGUMENT`.
 ### Writing a test that admits several outcomes
 
 A conformance case (see the
-[conformance README](../../internal/core/runtime/testdata/conformance/README.md)) that pins one
+[conformance README](../../internal/exec/runtime/testdata/conformance/README.md)) that pins one
 outcome of a model with choice points pins the default policy's linearization, which is fine when
 that is what you mean. When the model admits several, say so with three things beside the
 `.sysml`:
@@ -898,7 +930,7 @@ simulation tool often means something else by a branch — *the acquisition succ
 in ten* — and by a duration — *the settle takes between one and eighty seconds* — and SysML v2
 has no notation for either. OpenSysML supplies one as an extension library, in standard SysML v2
 that any other tool reads as ordinary metadata and a function call: two library packages,
-`Stochastic` and `RandomFunctions` under `internal/core/libs/stdlib/OpenSysML Libraries/`, both
+`Stochastic` and `RandomFunctions` under `internal/workspace/libs/stdlib/OpenSysML Libraries/`, both
 marked NON-NORMATIVE, with the vendored OMG files untouched. What they state is *modeled*
 randomness, and the runtime keeps it apart from the scheduling kind: a weighted branch is drawn
 by its weights, a scheduling choice never is, and the two draw from two independent streams,
@@ -1095,6 +1127,33 @@ second knob here too: every run resolves its concurrency choices under `-schedul
 - **Monte Carlo runs are a REPL and CLI operation.** `%runs` and `-runs` run an action
   repeatedly; the `RunSweep` RPC and the service clients take ranges and samples but no run
   count, and an external engine put a Monte Carlo answers with a claim, not the table of runs.
+
+### Behaviors migrated from SysML v1
+
+The [v1 migration](../reference/sysml-v1-migration.md#behaviors) writes a v1 activity as an
+`action def` and a v1 state machine as a `state def` in exactly the forms this chapter uses, so
+a migrated behavior runs under the same debugger, seed and `%runs` as one written by hand. Two
+v1 idioms land on the machinery above:
+
+- A **`DurationConstraint`** on a call action (`[1s..80s]`) becomes a wait the token takes
+  before it — `accept after 3.0 [SI::s]` for a point interval, `accept after
+  RandomFunctions::uniform(1.0, 80.0) [SI::s]` for a proper one — so a workflow's duration is a
+  draw from the model seed, as under a v1 tool's random duration mode. The tool's `min` and
+  `max` modes are settings of its run configuration, not of the model, and are not migrated.
+- **«Probability»** on the edges out of a decision becomes `@Stochastic::Probability { p = … }`
+  on each succession, when every edge carries one; a decision whose guards are opaque English
+  (`[Align BTO]`) is written unguarded, and the runtime draws its branch with the model seed.
+
+The workflow's total duration is the clock at the end of the run, which `%runs` reports when no
+observable is named:
+
+```text
+%runs 100 1 Model::Mission::'Acquire Target'::'Acquire Target - Logical'
+```
+
+A v1 opaque action that only reads the tool's time variable (`Time_Acq_Total = simtime`) is
+kept as a comment, since `simtime` is a run setting and not a feature of the model; the report
+says so for each.
 
 ## An object runs the behaviors its type exhibits
 
@@ -1944,7 +2003,7 @@ Setting `x` to `5` gives `taken = 2`. The state-machine counterparts (orthogonal
 regions, choice and junction) appear in
 [examples/orthogonal-regions-demo.sysml](../../examples/orthogonal-regions-demo.sysml) and
 [examples/pseudostates-demo.sysml](../../examples/pseudostates-demo.sysml), and every case the
-executors are tested against lives under `internal/core/runtime/testdata/conformance/`.
+executors are tested against lives under `internal/exec/runtime/testdata/conformance/`.
 
 ### Terminate: ending an action early
 

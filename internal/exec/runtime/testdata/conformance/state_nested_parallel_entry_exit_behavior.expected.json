@@ -1,0 +1,13 @@
+{
+    "type": "state",
+    "schedule": "reverse",
+    "events": [
+        {"signal": "Finish", "args": null}
+    ],
+    "finalState": "done",
+    "stateVisits": ["start", "outer", "lidle", "ridle", "done"],
+    "outputs": {
+        "entered": {"type": "Integer", "value": 1},
+        "exited": {"type": "Integer", "value": 1}
+    }
+}

@@ -12,7 +12,7 @@ offered next to Mermaid, and what the DOT and [PlantUML](#plantuml) writers emit
 
 ## The rendering and its forms
 
-A view renders into a `view.Rendering` (`internal/core/view/view.go`): the kind (`tree`,
+A view renders into a `view.Rendering` (`internal/ir/view/view.go`): the kind (`tree`,
 `interconnection`, `state`, `action`, `sequence`, `table`), typed nodes with an identifier, a
 kind, a name, the declared type of a typed usage, an optional detail holding the notes (`initial`,
 `already shown`, `own flow`) and their children, edges with a label and an `EdgeKind`
@@ -22,7 +22,7 @@ action kinds are produced from the model — the last two from the lowered `Stat
 `ActionGraph` the runtime executes — and nothing in the rendering is text of any diagram
 language.
 
-A **form** is a writer over that tree (`internal/core/view/form.go`):
+A **form** is a writer over that tree (`internal/ir/view/form.go`):
 
 | Form | Writer | Kinds | Role |
 | --- | --- | --- | --- |
@@ -85,7 +85,7 @@ is not:
 
 Producing DOT needs **no Graphviz installation**. The writer is text over the rendering tree,
 exactly as `mermaid.go` is, and neither the writer nor its tests run a Graphviz binary. The one
-place that does is the PDF backend, and only to draw the figure it embeds: `internal/docpdf`
+place that does is the PDF backend, and only to draw the figure it embeds: `internal/doc/docpdf`
 runs the `dot` that `OPENSYSML_DOT` names (else the one on `PATH`) with `-Tsvg`, under the engine
 the block's `// layout:` header names, so a positioned view is drawn where its `Layout`s put
 it. Without a Graphviz the PDF keeps the DOT source under a notice, as it does without any
@@ -313,7 +313,7 @@ produced by pure text emission over the rendering tree, as the other forms are: 
 PlantUML jar** is needed to write it, and neither the writer, its tests nor the CLI, REPL and LSP
 surfaces run one. A jar, when present on a developer's machine, checks the goldens by hand
 (`java -jar plantuml.jar -checkonly`) or draws them; it is not a dependency of the writer. The PDF
-backend alone runs it, to draw the figure it embeds: `internal/docpdf` pipes each block through
+backend alone runs it, to draw the figure it embeds: `internal/doc/docpdf` pipes each block through
 `java -jar $OPENSYSML_PLANTUML_JAR -tsvg -pipe`, the `java` from `OPENSYSML_JAVA` or `PATH`, and
 keeps the source under a notice when either is absent — see [Surfaces](#surfaces).
 
@@ -467,14 +467,14 @@ every palette, and text stays black.
 | VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented five for a server without it), sends the pick as `form`, and saves `.dot` or `.puml` (`.mmd`, `.md`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
 | Documents | `-render-document`/`-render-documents … -diagram-form dot\|plantuml`, `%render-document <name> dot\|plantuml`, `"diagramForm"` on `opensysml/renderDocument`: every graph-shaped diagram block as a ` ```dot ` or ` ```plantuml ` fence in Markdown, `<pre class="dot">` or `<pre class="plantuml">` in HTML; in PDF, a figure drawn by Graphviz (`OPENSYSML_DOT`, else `dot` on `PATH`; `-Tsvg` under the engine the `// layout:` header names) or by the PlantUML jar (`OPENSYSML_PLANTUML_JAR`, run by `OPENSYSML_JAVA` or the `java` on `PATH`, `-tsvg -pipe`), and the source under a notice naming the variable to set when the tool is absent; a tool that fails is the typed `tool-failed` error with its stderr, as `mmdc` is. The form is chosen at render time, not stated in the model: a `Diagram` block says what is drawn, not the notation — though it may state a `palette`, as it states a `direction`, which the DOT or PlantUML figure is filled with and the HTML figure carries as `data-palette` | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md), [`docs/reference/environment.md`](../reference/environment.md) |
 
-The gRPC service (`api/proto/sysml.proto`, `internal/grpc`) has no view-render RPC and no
+The gRPC service (`api/proto/sysml.proto`, `internal/frontend/grpc`) has no view-render RPC and no
 render-form field — `RenderDocument` alone, to Markdown — so the wire contract carries no form
 and did not change. A view-render RPC added later would take the form as a string, as
 `-render-form` does.
 
 ## Test contract
 
-- `internal/core/view/dot_test.go`: a `*.dot.golden` beside every Mermaid golden for the tree,
+- `internal/ir/view/dot_test.go`: a `*.dot.golden` beside every Mermaid golden for the tree,
   interconnection, state, state-entry, action and filtered fixtures, each walked by an in-test
   DOT syntax check — balanced braces, every edge endpoint declared as a node or a cluster,
   every identifier quoted — so a golden is proven well-formed without shelling out to `dot`;
@@ -488,14 +488,14 @@ and did not change. A view-render RPC added later would take the form as a strin
   and the header's engine for none, some and all of the nodes positioned and all edges routed;
   the syntax check parses every `pos` and `bb` it meets, and reads an HTML-like label as one
   string whose tags balance and whose entities are known.
-- `internal/core/view/dot_style_test.go`, `palette_test.go`: the B&W defaults; a definition
+- `internal/ir/view/dot_style_test.go`, `palette_test.go`: the B&W defaults; a definition
   square and a usage rounded; the pseudo-state rules named and unnamed, placed and not; the
   package, element and region cluster widths; the connection's `penwidth=3`; the family of every
   kind and the stability of the family order; the contrast ratio of every palette colour at both
   tints; the sequential sampling; the unknown-palette error text; the Mermaid notice and the
   silence of the text and Markdown forms; labels holding `&`, `<`, `>`, `"`, `'` and newlines;
   and the `interconnection.okabe-ito`, `state.okabe-ito` and `tree.viridis` goldens.
-- `internal/core/view/plantuml_test.go`: a `*.plantuml.golden` beside every Mermaid golden — the
+- `internal/ir/view/plantuml_test.go`: a `*.plantuml.golden` beside every Mermaid golden — the
   tree, interconnection, state, state-entry, action, typed-action, typed-state, filtered, layout
   and every `sequence-*` fixture — and `interconnection.okabe-ito.plantuml.golden` beside the DOT
   one, each walked by an in-test PlantUML syntax check: `@startuml`/`@enduml` bracketing, a
@@ -508,33 +508,33 @@ and did not change. A view-render RPC added later would take the form as a strin
   every palette. When `OPENSYSML_PLANTUML_JAR` names a PlantUML jar and `java` is on the `PATH`,
   every golden is additionally passed through `-checkonly`; the check is silent without them and
   nothing in `go test` depends on the jar.
-- `internal/core/view/label_test.go`, `render_test.go`: the label lines of a typed usage, an
+- `internal/ir/view/label_test.go`, `render_test.go`: the label lines of a typed usage, an
   untyped usage, a definition, an anonymous node and a node with notes; the text form's
   keyword-leading line; the same `<br>`-joined label in the flowchart, state and sequence
   Mermaid grammars; the escaping of `<`, `>`, `"` and `#` in a Mermaid label.
-- `cmd/sysml/render_test.go`, `internal/repl/view_render_test.go`, `internal/lsp/render_test.go`:
+- `cmd/sysml/render_test.go`, `internal/frontend/repl/view_render_test.go`, `internal/frontend/lsp/render_test.go`:
   each form on each surface — DOT refused for a table or sequence, PlantUML for a table and
   written for a sequence; `-render-all` writing `.dot` and `.puml`; the palette accepted on both,
   noted by Mermaid, and refused by name with the palettes there are.
-- `internal/core/docplan`, `docir`, `docrender`: the `Diagram` block's `palette` accepted,
+- `internal/ir/docplan`, `docir`, `docrender`: the `Diagram` block's `palette` accepted,
   refused when unknown (`invalid-palette`) or stated on a kind with no DOT or PlantUML form
   (`unsupported-palette`), carried into the document IR and onto the DOT and HTML figures.
-- `internal/core/docrender`, `docpdf`, `cmd/sysml`, `internal/repl`, `internal/lsp`: the
+- `internal/doc/docrender`, `docpdf`, `cmd/sysml`, `internal/frontend/repl`, `internal/frontend/lsp`: the
   render-time diagram form defaulting to Mermaid, written as a `dot` or `plantuml` fence and a
   `<pre class="dot">` or `<pre class="plantuml">` for every graph-shaped block with tables left
   as tables, refused for an unknown form and for a kind with no DOT form.
-- `internal/docpdf/diagrams_test.go`, `cmd/sysml/render_document_pdf_test.go`: with fake tools, a DOT block drawn by the `dot` that
+- `internal/doc/docpdf/diagrams_test.go`, `cmd/sysml/render_document_pdf_test.go`: with fake tools, a DOT block drawn by the `dot` that
   `OPENSYSML_DOT` names and a PlantUML block by `java -jar <jar> -tsvg -pipe` fed on stdin; the
   `// layout:` header choosing `dot`, `neato`, `neato -n` and `neato -n2`; the block kept as
   source under a notice naming `OPENSYSML_DOT`, `OPENSYSML_PLANTUML_JAR` or `OPENSYSML_JAVA` when
   the tool is absent; a failing tool or one that writes no SVG the typed `tool-failed` error
   carrying its stderr; Mermaid, DOT and PlantUML blocks of one document drawn in source order,
-  Mermaid still required. `internal/docpdf/integration_test.go` draws through the pinned Graphviz
+  Mermaid still required. `internal/doc/docpdf/integration_test.go` draws through the pinned Graphviz
   and PlantUML that `scripts/download-doc-pdf-toolchain.sh` provisions — an ordinary graph, a
   `neato -n` layout whose nodes stay where the model put them, a malformed PlantUML refused with
   `Syntax Error` — and CI's `pdf-toolchain` job runs it with `OPENSYSML_REQUIRE_PDF_TOOLCHAIN=1`,
   so a missing tool there fails instead of skipping.
-- `editors/vscode/src/export.test.ts`, `internal/lsp/render_test.go`: the export picker offering
+- `editors/vscode/src/export.test.ts`, `internal/frontend/lsp/render_test.go`: the export picker offering
   the server's forms, the pick sent as `form`, the artifact saved under `.dot`/`.puml`/`.mmd`/
   `.md`/`.txt` with the matching filter, nothing sent or written when the pick or the save dialog
   is dismissed; the server advertising `openSysmlRenderForms` and answering each form it lists.

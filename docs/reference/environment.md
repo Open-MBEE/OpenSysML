@@ -29,7 +29,7 @@ run that would never finish into a reported error instead of a hang.
 | `OPENSYSML_MMDC`, `OPENSYSML_MMDC_PUPPETEER` | unset (look for `mmdc` on `PATH`) | Mermaid CLI, which draws a PDF's Mermaid diagrams, and a Puppeteer configuration file for its browser (`--no-sandbox` in a container). Required as soon as a PDF has a Mermaid diagram; a document without one needs neither |
 | `OPENSYSML_KATEX`, `OPENSYSML_KATEX_CSS` | unset (look for `katex` on `PATH`, its stylesheet beside it) | KaTeX, which typesets a PDF's formulas, and its stylesheet when it is not installed beside the command. Required as soon as a PDF has a formula |
 | `OPENSYSML_DOT` | unset (look for `dot` on `PATH`) | Graphviz, which draws a PDF's diagrams under `-diagram-form dot` — `-Tsvg`, under the engine each block's `// layout:` header names (`dot`, `neato`, `neato -n`), so positioned views are drawn where the model put them. Optional: without it every DOT block stays in the PDF as source under a notice naming this variable |
-| `OPENSYSML_PLANTUML_JAR`, `OPENSYSML_JAVA` | unset; unset (look for `java` on `PATH`) | The PlantUML jar that draws a PDF's diagrams under `-diagram-form plantuml` (`java -jar <jar> -tsvg -pipe`) and the Java that runs it. Optional: without the jar or a Java every PlantUML block stays in the PDF as source under a notice naming the variable to set. `go test ./internal/core/view` also passes its PlantUML goldens through the jar's `-checkonly` when the jar is named |
+| `OPENSYSML_PLANTUML_JAR`, `OPENSYSML_JAVA` | unset; unset (look for `java` on `PATH`) | The PlantUML jar that draws a PDF's diagrams under `-diagram-form plantuml` (`java -jar <jar> -tsvg -pipe`) and the Java that runs it. Optional: without the jar or a Java every PlantUML block stays in the PDF as source under a notice naming the variable to set. `go test ./internal/ir/view` also passes its PlantUML goldens through the jar's `-checkonly` when the jar is named |
 | `OPENSYSML_GRPC_MAX_HELD_EVENTS` | `100000` | The most trace records `sysml-grpc` keeps for one cached model's population, which is traced from its first `Instantiate` so `DocumentQueries::Events` can read the run. Past the bound the oldest records are dropped; an `Events` query whose interval reaches back to a dropped record fails as a typed `trace-truncated` error (`FAILED_PRECONDITION`) naming the instant history is kept from, so `since` can be bound later, rather than answering an incomplete relation. Read at startup |
 
 The PDF tools are external, not bundled: `scripts/download-doc-pdf-toolchain.sh` fetches pinned
@@ -306,10 +306,10 @@ download script first (each is idempotent and refuses to report success over an 
 
 | Variable | Download | Gate |
 |----------|----------|------|
-| `OPENSYSML_REQUIRE_TRAINING_CORPUS` | `./scripts/download-training-examples.sh` → `examples/sysml-v2-training/` | `TestTrainingExamples*` in `internal/core/model` |
-| `OPENSYSML_REQUIRE_PILOT_CORPORA` | `./scripts/download-pilot-corpora.sh` → `examples/pilot-corpora/` | `TestPilotCorpora*` in `internal/core/model` |
-| `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI` | `./scripts/download-pilot-library-xmi.sh` → `build/pilot-library-xmi/` | `TestPilotLibraryXMI` in `internal/core/identity` |
-| `OPENSYSML_REQUIRE_PDF_TOOLCHAIN` | `./scripts/download-doc-pdf-toolchain.sh` → `build/doc-pdf/` (WeasyPrint, pandoc, Mermaid CLI, KaTeX, Graphviz, the PlantUML jar; Java from the host) | `Test*Installed*` in `internal/docpdf`, which draw a real PDF through each tool |
+| `OPENSYSML_REQUIRE_TRAINING_CORPUS` | `./scripts/download-training-examples.sh` → `examples/sysml-v2-training/` | `TestTrainingExamples*` in `tests/corpus` |
+| `OPENSYSML_REQUIRE_PILOT_CORPORA` | `./scripts/download-pilot-corpora.sh` → `examples/pilot-corpora/` | `TestPilotCorpora*` in `tests/corpus` |
+| `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI` | `./scripts/download-pilot-library-xmi.sh` → `build/pilot-library-xmi/` | `TestPilotLibraryXMI` in `internal/semantic/identity` |
+| `OPENSYSML_REQUIRE_PDF_TOOLCHAIN` | `./scripts/download-doc-pdf-toolchain.sh` → `build/doc-pdf/` (WeasyPrint, pandoc, Mermaid CLI, KaTeX, Graphviz, the PlantUML jar; Java from the host) | `Test*Installed*` in `internal/doc/docpdf`, which draw a real PDF through each tool |
 
 CI sets all four — the PDF one in its `pdf-toolchain` job, with the script's exports set; see [pilot-corpora.md](../project/pilot-corpora.md) for the pin the downloads
 share and what the gates measure.

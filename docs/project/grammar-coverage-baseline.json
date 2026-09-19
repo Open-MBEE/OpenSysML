@@ -3,9 +3,9 @@
   "roots": [
     {
       "name": "stdlib",
-      "dir": "internal/core/libs/stdlib",
-      "files": 100,
-      "lines": 30035
+      "dir": "internal/workspace/libs/stdlib",
+      "files": 103,
+      "lines": 30341
     },
     {
       "name": "training",
@@ -33,21 +33,21 @@
     },
     {
       "name": "testdata",
-      "dir": "testdata",
+      "dir": "tests/testdata",
       "files": 18,
       "lines": 310
     },
     {
       "name": "parser-fixtures",
-      "dir": "internal/core/parser/testdata/parse",
-      "files": 204,
-      "lines": 4822
+      "dir": "tests/parser/testdata/parse",
+      "files": 209,
+      "lines": 5009
     },
     {
       "name": "examples",
       "dir": "examples",
-      "files": 40,
-      "lines": 7663
+      "files": 43,
+      "lines": 8431
     }
   ],
   "totals": {
@@ -81,18 +81,18 @@
             ";",
             "namespace"
           ],
-          "file": "testdata/parse/namespaces.sysml",
+          "file": "tests/testdata/parse/namespaces.sysml",
           "evidence": [
             {
               "literal": ";",
               "root": "testdata",
-              "file": "testdata/parse/namespaces.sysml",
+              "file": "tests/testdata/parse/namespaces.sysml",
               "line": 2
             },
             {
               "literal": "namespace",
               "root": "testdata",
-              "file": "testdata/parse/namespaces.sysml",
+              "file": "tests/testdata/parse/namespaces.sysml",
               "line": 5
             }
           ],
@@ -276,12 +276,12 @@
           "requiredLiterals": [
             "*"
           ],
-          "file": "internal/core/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
+          "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
           "evidence": [
             {
               "literal": "*",
               "root": "stdlib",
-              "file": "internal/core/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
+              "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
               "line": 8
             }
           ],
@@ -290,14 +290,14 @@
               "literals": [
                 "*"
               ],
-              "file": "internal/core/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
+              "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
               "line": 8
             },
             {
               "literals": [
                 "/"
               ],
-              "file": "internal/core/libs/stdlib/Domain Libraries/Analysis/SampledFunctions.sysml",
+              "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/SampledFunctions.sysml",
               "line": 109
             },
             {

@@ -198,7 +198,11 @@ non-empty link destination.
 Computed columns (`Column(name, expression)`) feed column runs like any
 projected property, so a query can compute both the text and the style or
 target it renders with — the `styleColumn`/`targetColumn` example above uses
-computed `style` and `url` columns.
+computed `style` and `url` columns. A `RelatedColumn(...)` cell is
+multi-valued — a table renders its elements comma-separated, each an element
+value with its `data-element` link in HTML, as any multi-valued projection is
+rendered — and its `count` or `any` form is a scalar a table can group by
+([Traceability matrix](query-cookbook.md#traceability-matrix)).
 
 Column names are checked against the query's statically-known projection at
 planning time; a projection only known at evaluation (e.g. a parameter-driven

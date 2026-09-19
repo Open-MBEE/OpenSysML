@@ -1,0 +1,26 @@
+{
+	"verdict": "divergent",
+	"divergent": {"log": [
+		"\"T1(effect) T1.1(effect) T1.2(effect) work(entry) a(entry) b(entry) a(exit) b(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.1(effect) T1.2(effect) work(entry) a(entry) b(entry) b(exit) a(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.1(effect) T1.2(effect) work(entry) b(entry) a(entry) a(exit) b(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.1(effect) T1.2(effect) work(entry) b(entry) a(entry) b(exit) a(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.1(effect) work(entry) T1.2(effect) a(entry) b(entry) a(exit) b(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.1(effect) work(entry) T1.2(effect) a(entry) b(entry) b(exit) a(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.1(effect) work(entry) T1.2(effect) b(entry) a(entry) a(exit) b(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.1(effect) work(entry) T1.2(effect) b(entry) a(entry) b(exit) a(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.1(effect) work(entry) a(entry) T1.2(effect) b(entry) a(exit) b(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.1(effect) work(entry) a(entry) T1.2(effect) b(entry) b(exit) a(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.2(effect) T1.1(effect) work(entry) a(entry) b(entry) a(exit) b(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.2(effect) T1.1(effect) work(entry) a(entry) b(entry) b(exit) a(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.2(effect) T1.1(effect) work(entry) b(entry) a(entry) a(exit) b(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.2(effect) T1.1(effect) work(entry) b(entry) a(entry) b(exit) a(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.2(effect) work(entry) T1.1(effect) a(entry) b(entry) a(exit) b(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.2(effect) work(entry) T1.1(effect) a(entry) b(entry) b(exit) a(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.2(effect) work(entry) T1.1(effect) b(entry) a(entry) a(exit) b(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.2(effect) work(entry) T1.1(effect) b(entry) a(entry) b(exit) a(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.2(effect) work(entry) b(entry) T1.1(effect) a(entry) a(exit) b(exit) work(exit) T2(effect) \"",
+		"\"T1(effect) T1.2(effect) work(entry) b(entry) T1.1(effect) a(entry) b(exit) a(exit) work(exit) T2(effect) \""
+	]},
+	"agreed": {"finalState": "done"}
+}

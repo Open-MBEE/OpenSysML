@@ -21,7 +21,7 @@ $ curl -s -X POST http://localhost:50099/sysml.SysMLService/<Method> \
     -H 'Content-Type: application/json' -d '<request>'
 ```
 
-The Python client's decoding (`clients/python/opensysml/values.py`, `errors.py`) is the
+The Python client's decoding (`client/python/opensysml/values.py`, `errors.py`) is the
 reference for what follows; where this page says a client *must* do something, that is what
 the Python client does, stated so that it can be reproduced in a language that has no
 client.
@@ -135,7 +135,7 @@ HTTP/1.1 400 Bad Request
 
 A model hash is the lowercase hex SHA-256 (64 characters) of the request that produced it: the
 conformance mode (`default` or `strict`), the number of documents, and each document's name,
-language and content, length-delimited (`internal/grpc/service.go`, `parseSources`). It is
+language and content, length-delimited (`internal/frontend/grpc/service.go`, `parseSources`). It is
 **deterministic**: the same documents in the same order with the same flag give the same hash
 from any service of the same version, so a client may compute nothing and simply compare
 hashes to know whether two models are the same text. It is also *only* a hash of the
@@ -154,7 +154,7 @@ in the guide.
 ### How long a hash is valid
 
 The service keeps parsed models in an in-memory **LRU cache of fixed capacity**
-(`internal/grpc/cache.go`), sized by the `-cache-size` flag, **default 100**. There is no
+(`internal/frontend/grpc/cache.go`), sized by the `-cache-size` flag, **default 100**. There is no
 time-to-live: a model stays until it is one of the least recently *used* when the cache is full
 and a new model arrives, or until the process exits. Every call that names a hash counts as a
 use, so a model in active use is not evicted. Re-parsing a model the cache still holds returns
@@ -1009,8 +1009,9 @@ carry the same field with the same spellings and the same refusals.
 `outputs` the response carries `outcomes`, every distinct outcome any linearization reaches, and
 `exploration`, how the search ended. The service replays the run from the start, each replay a
 fresh executor over the same lowered model, following the recorded choices of an earlier run up
-to a frontier and taking the next untried alternative there, depth-first, until no alternative
-is untried or a budget is hit. Two runs that agree on the observables — an action's outputs — are
+to a frontier and taking the next untried alternative there — the first run's choice points each
+varied once, earliest first, before any is varied twice — until no alternative is untried or a
+budget is hit. Two runs that agree on the observables — an action's outputs — are
 one outcome, with `linearizations` counting how many reached it and `witness` the choice sequence
 of one that did, one entry per choice point spelling the alternatives and the one taken;
 `diagnostics` is what that witness run noted, shaped as the single-run `diagnostics` above.
@@ -1873,7 +1874,7 @@ A row that is an object, and a cell whose value is one, is answered with the **`
 `instanceId`, `path` (the label the object is reached under, from the binding down —
 `Garage::car.wheels[2]`, or `#1.wheels[2]` when the binding was by id) and `element`, the
 usage the object stands for as an `elementId` `DocumentValue` with its `elementType`. Model
-`0ff2…48a0` is `internal/core/docrender/testdata/object_report.sysml`; after
+`0ff2…48a0` is `internal/doc/docrender/testdata/object_report.sysml`; after
 `Instantiate` of `Garage::car` (answered id `1`, its engine `2` and wheels `3` and `4`) and of
 `Garage::spare` (`5`), `Drive` projects the car's `name`, `engine` and `wheels`:
 
@@ -2124,7 +2125,7 @@ taking an empty `documents` for a batch that rewrote nothing.
 
 ## Minimal clients: four illustrations
 
-The four snippets below are **illustrations, not shipped code**. They are not in `clients/`, not
+The four snippets below are **illustrations, not shipped code**. They are not in `client/`, not
 tested, and not run by CI; they exist to show how short a correct decoder is in each language
 and where its pitfalls lie. A real client for any of these languages is one that passes the
 scenarios in `conformance/scenarios/*.json` through its own public API, as every shipped client

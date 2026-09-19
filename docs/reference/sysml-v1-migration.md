@@ -2,10 +2,10 @@
 
 ## Status: experimental
 
-The migration is **experimental**. It covers the structural, requirement, constraint, instance
-and allocation content listed under [Mapping](#mapping), reports every element
-it approximates or leaves behind, and refuses input it cannot read; behaviors, operations and
-units are not migrated yet, and what a v1 element is written as may change between releases
+The migration is **experimental**. It covers the structural, requirement, constraint, instance,
+allocation and behavioral content listed under [Mapping](#mapping), reports every element
+it approximates or leaves behind, and refuses input it cannot read; units are not migrated
+yet, and what a v1 element is written as may change between releases
 without a compatibility path. Every run says so: `sysml -convert` prints `note:` to stderr,
 `ConvertResponse` carries `experimental` and `experimental_notice` (the Python client raises
 an `ExperimentalFeatureWarning`), and the wording lives once, in `export.MigrationNotice`.
@@ -137,8 +137,46 @@ returned over the service yet.
 | `NaN`/infinite real literals | comment | approximated |
 | References to ids the document does not define | the resolvable ends are written; the missing ids are named in the report | approximated |
 | OpaqueExpression defaults and constraints | copied verbatim when it parses as a v2 expression and every name it uses is a written element visible where it is written (a parameter, an inherited feature, an enclosing member); a script's `java.util…` path, a bare enumeration literal or an operation is not, and the body stays a `comment` | mapped / approximated |
-| Activity, StateMachine, Interaction, OpaqueBehavior | comment placeholder | **unmapped** — behaviors come in a follow-up |
-| Operation, Reception | comment placeholder | **unmapped** — v2 has no operation |
+| Activity | `action def` (see [Behaviors](#behaviors)); a block's `classifierBehavior` is also performed by a `perform action` usage of the `part def` | mapped |
+| Parameter, ActivityParameterNode | `in`/`out`/`inout` parameter of the `action def`; a `return` parameter is `out`; the parameter node's flows bind the parameter | mapped (return: approximated) |
+| InitialNode, ActivityFinalNode, FlowFinalNode | `first start then …`; `action x terminate;`; the token ends where a flow final does | mapped |
+| ForkNode, JoinNode, DecisionNode, MergeNode | `fork`, `join`, `decide`, `merge`; a node several edges leave or reach without a control node gets one written for it | mapped (implicit fork/join: approximated) |
+| CallBehaviorAction | `action x : Def;` with `bind`/`flow` for its pins; a call of a state machine, of a behavior with no v2 declaration, or of no behavior at all | mapped / **unmapped** |
+| CallOperationAction | `action x : Owner::Op;`, or `perform action x ::> target.op;` when the target pin's value is an object whose type owns the operation | mapped |
+| ControlFlow | `first a then b;`, `if <guard>` when the guard parses and resolves; otherwise the guard text as a comment and the edge unguarded | mapped / approximated |
+| «Probability» on the edges out of a decision | `first d then x { @Stochastic::Probability { p = <value>; } }` when every edge carries one; weights not summing to 1 are scaled by their sum; a value outside `[0, 1]`, or a decision only some of whose edges carry one, is written unweighted | mapped / approximated |
+| ObjectFlow | `flow a.out to b.in;`, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated is a comment | mapped / approximated |
+| SendSignalAction | `action x send new Sig(args) to <target>;`, `via <port>` when `onPort` is set; the target is read from the target pin's flow: `this`, `this.part` where a structural read feeds the pin, else the pin itself (`in target;` bound to what feeds it, an activity parameter or another node's output), which the runtime evaluates to the object it holds | mapped / approximated |
+| AcceptEventAction | `action x accept p : Sig;` (signal trigger), `accept after <d> [SI::s]` (relative TimeEvent), `accept when <cond>` (ChangeEvent) | mapped |
+| AcceptEventAction on an absolute TimeEvent (`when` is an instant, not a duration) | comment | **unmapped** — no literal writes a `TimeInstantValue` |
+| OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve (a script's `x = expr;` statements are read as assignments); otherwise the body as a comment inside `action x { }` naming the language | mapped / approximated |
+| DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds | approximated (a tool's min/max/random mode is a run setting) |
+| DurationConstraint whose bounds are not numbers with time units (`setup s`), DurationObservation, TimeObservation | comment | **unmapped** — the runtime reports a run's clock |
+| ActivityPartition | comment naming the partition and its nodes (`perform … by` has no legal form for a partition of arbitrary nodes) | approximated |
+| StructuredActivityNode, SequenceNode | `action x { }` holding the nested flow | mapped |
+| ExpansionRegion, LoopNode, ConditionalNode | `action x { }` holding the body's flow once; the expansion, the loop test and the clause tests are not written | approximated |
+| StateMachine | `state def` (see [Behaviors](#behaviors)); a block's `classifierBehavior` is also exhibited by an `exhibit state` usage of the `part def` | mapped |
+| State, composite State, Region | `state`; the regions of an orthogonal state are sub-states of a `parallel` state | mapped |
+| State with `submachine` | `state s : SubMachineDef;` — the referenced state machine's own `state def`, not inlined | mapped |
+| Pseudostate initial, FinalState | `entry; then s;`, `done` | mapped |
+| Pseudostate choice, junction | a `state` its guarded transitions leave at once | approximated |
+| Pseudostate exitPoint, terminate | a transition into it is written to `done` | approximated |
+| Pseudostate entryPoint, ConnectionPointReference, deep/shallow history, fork/join pseudostates | comment | **unmapped** — no v2 form |
+| `entry`, `doActivity`, `exit` behaviors | `entry action { … }` / `do action { … }` / `exit action { … }` inline when the behavior is owned by the state, `entry x;` / `do x : Def;` by reference otherwise | mapped |
+| Transition | `transition first s accept Sig if <guard> do <effect> then t;`; several triggers are several transitions; a completion transition is `transition first s then t;` | mapped (several triggers: approximated) |
+| Transition `effect` with `in` parameters | the accepted signal is named, `accept sig : Sig`, and each parameter typed by the signal (or a general of it), or the sole untyped one, is bound to it: `in p : Sig = sig;`; a parameter of another type takes no value | mapped (an unbound parameter: approximated) |
+| State `deferrableTrigger` on a SignalEvent | `defer Sig;` in the state's body — the OpenSysML `defer` extension (see [Behavior](../guide/06-behavior.md)), which the runtime executes and the validator reports as non-standard notation | approximated |
+| Internal transition (`kind = internal`), `deferrableTrigger` on any other event | comment | **unmapped** — no v2 form |
+| State `stateInvariant` | comment in the state's body quoting the constraint; the state is written with a body so the comment has a place | **unmapped** — no v2 form |
+| Initial transition with a trigger or guard | the region's `entry; then s;`; each trigger and the guard are dropped and reported apart from the transition | approximated (the trigger, the guard: unmapped) |
+| SignalEvent, ChangeEvent, relative TimeEvent | written where a trigger refers to them, as `accept Sig`, `accept when <cond>`, `accept after <d> [SI::s]`; an event no trigger refers to is a comment | mapped / approximated |
+| Absolute TimeEvent, TimeEvent whose `when` is not a number with a time unit | comment | **unmapped** |
+| Interaction | a scenario `action def` of `send`s in occurrence order, when every message is an asynchronous signal send received on a lifeline standing for a part of the interaction's owner | approximated |
+| Interaction with a synchronous call, a reply, a message to a lifeline that is not a part, or no message; DurationConstraint on an interaction | comment | **unmapped** — the reason names the message |
+| OpaqueBehavior, FunctionBehavior | `calc def` with its parameters when its one body is a v2 expression whose names resolve; otherwise `action def` keeping the body as a comment | mapped / approximated |
+| Operation | `action def <Op>` owned by the owner, with its parameters; the `method` behavior is written as its body (an Activity as the flow, an OpaqueBehavior as expression or comment), its parameters standing for the operation's at the same position, direction and type under the operation's names; a method parameter matching none is declared and reported, since a call binds only the operation's; no method: `abstract action def`; an `action <op> : <Op>;` usage of the owner performs it, as a call on an object does | mapped |
+| Operation `precondition`, `postcondition`, `bodyCondition` | `assert constraint { <expr> }` in the action def when the expression parses and resolves; otherwise a comment | mapped / approximated |
+| Reception | comment on the `part def` naming the signal (the state machine's `accept sig : Sig` already carries it) | approximated |
 | «Unit», «QuantityKind» instance specifications | comment placeholder | **unmapped** — use the `SI`/`ISQ` libraries |
 | Profiles, the SysML/UML libraries themselves | — | skipped |
 
@@ -150,11 +188,74 @@ Names that are not v2 identifiers — with spaces, punctuation, or starting with
 quoted (`'Vehicle Design'`).
 
 The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://github.com/Open-MBEE/TMT-SysML-Model)
-(27 MB, 34,660 elements): it writes 6 MB of notation that passes the gate
-below in about a second, and 150 MB of Turtle in four. Roughly half the elements map or are
-approximated; the unmapped rest is dominated by behaviors (activities, signal and time events,
-operations), instance specifications without a classifier, simulation verdicts stored in slots
-of constraint properties, and views.
+(27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB
+of notation that passes the gate below in a few seconds, and its Turtle in a few more. Five
+elements in six map or are approximated; the unmapped rest is dominated by absolute and
+unparseable time events, call actions that call no behavior, instance specifications without a
+classifier, simulation verdicts stored in slots of constraint properties, and views.
+
+## Behaviors
+
+A behavior is migrated so that it *runs*: the `action def` an activity becomes is a token flow
+the [action executor](../guide/06-behavior.md) performs, and the `state def` a state machine
+becomes is one the state debugger steps. Every generated model is gated to analyse clean, and
+the migration tests execute a generated activity and a generated state machine, not only parse
+them.
+
+**Activities.** The nodes are written first, then the edges. A node's name is its v1 name when
+it has one, else its kind (`call`, `decide`, `fork`, …) made unique within the activity. A
+call action is `action call : Def;`, so the callee's flow runs as a nested performance; its pins
+are `bind`/`flow` statements from the object flows that reach them. A node several edges leave
+without a fork is written through one (`fork fork2;`), and a node several edges reach without
+a join waits through one, both reported as approximations. An opaque action whose body is a
+script is read statement by statement: `Time_Acq_Total = simtime;` and its like become
+`assign this.Time_Acq_Total := …;` when every name resolves to a written feature, and the body
+is otherwise kept as a comment naming its language. The tool's time variable (`simtime`) is
+not a feature of the model but a simulation setting, so a body reading it stays a comment;
+the total duration of a run is what the runtime's clock reports at its end, which `%runs`
+measures directly.
+
+**Durations and probabilities.** A `DurationConstraint` on an action is a wait the action's
+token takes before it: `accept after 3.0 [SI::s]` for a point interval, and
+`accept after RandomFunctions::uniform(1.0, 80.0) [SI::s]` for a proper one — a draw from
+the [model seed](../guide/06-behavior.md#seeds-where-the-draws-come-from). A simulation
+tool's `min`/`max`/`random` duration mode belongs to its run configuration, not to the model,
+so the interval is migrated faithfully as a random duration; a run with `-seed`/`%seed`
+reproduces the tool's random mode, and the fixed modes are a run setting to add rather than a
+fact to bake into the notation. «Probability» on the edges out of a decision is written as
+`@Stochastic::Probability { p = 0.5; }` on each succession when every edge carries one — the
+rule v1 states itself — and the weights are scaled to sum to 1 when they do not; a decision
+with weights on only some edges, or a weight outside `[0, 1]`, is written unweighted and the
+report says why. Guards that are opaque English (`[Align BTO]`) are kept as comments and the
+edge written unguarded, so such a decision is a scheduling choice the runtime draws at random
+with the model seed; the report says so.
+
+**State machines.** A composite state's regions become sub-states of a `parallel` state, so
+the orthogonal regions run together; a submachine state is a `state` usage typed by the
+referenced machine's `state def`, composing through any depth. Triggers are written on the
+transition that refers to them — `accept Sig`, `accept after 2.0 [SI::s]`,
+`accept when this.temperature > 200.0` — and the event's own report line says where. An effect
+with parameters reads the accepted signal: the accept names it, `accept sig : Sig`, and the
+parameters the signal fits are bound to that name. Entry, do and exit behaviors owned by the
+state are inline action bodies, on a submachine state as on any other; those it only refers to
+are `entry x;` references. A transition into an exit point or a terminate pseudostate is written to `done`; entry points,
+connection point references, history pseudostates and internal transitions have no v2 form and
+are comments.
+
+**Running a migrated behavior.** Instantiate the block whose classifier behavior the activity
+or state machine is, then step it or run it many times with the model seed:
+
+```text
+%runs 100 1 Model::'Mission'::'Acquire Target'::'Acquire Target - Logical'
+%instantiate Model::APS::'Acquisition Pointing and Tracking Assembly'
+%state Model::APS::'Acquisition Pointing and Tracking Assembly'::CC_APT
+%send Model::APS::Signals::'Select APT Filter_Cmd'
+%step
+```
+
+`%runs` reports the clock at the end of each run — the workflow's total duration — as min,
+mean, max, p50 and p90 with a histogram, and `sysml model.sysml -action <name> -runs 100 -seed 1`
+does the same from the command line.
 
 ## The report
 
@@ -177,7 +278,7 @@ goes to stderr.
 
 Every migrated model is gated in the test suite to:
 
-1. parse and analyse clean under the v2 semantic passes (`go test ./internal/core/migrate`),
+1. parse and analyse clean under the v2 semantic passes (`go test ./internal/translate/migrate`),
 2. round-trip through Turtle (notation → `.ttl` → notation → `.ttl`) without changing its graph,
 3. account for every element in the report, and leave a comment for every unmapped one.
 

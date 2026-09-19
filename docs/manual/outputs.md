@@ -29,11 +29,15 @@ What the renderer emits:
   line, so the caption is distinguishable from an emphasis-only paragraph.
   The marker is metadata of OpenSysML's Markdown dialect: ordinary Markdown
   renderers treat it as a comment and display nothing.
+- An object the session holds as its path from the object the query was bound
+  through (`car.wheels[2]`), and a verdict as `<assertion> on <path>: <verdict>`
+  (`assert constraint powerLow on car.engine: violated`).
 - All model-derived text escaped so it cannot break document structure.
 - A single trailing newline, no trailing whitespace.
 
-The output is deterministic: the same model produces byte-identical Markdown
-on every run, which is why the repository can keep rendered documents as
+The output is deterministic: the same model — and, for a document that reads
+the objects a session holds, the same objects in the same state — produces
+byte-identical Markdown on every run, which is why the repository can keep rendered documents as
 golden files (this manual does exactly that — see
 [the worked example](worked-example.md)).
 
@@ -91,6 +95,30 @@ apart), and a diagram's view, kind and flow direction.
     data-element-kind="partUsage">
 <td class="sysml-cell" data-column="mass" data-value-kind="real">
 <span class="sysml-value" data-value-kind="real">15</span></td>
+</tr>
+```
+
+A row over an object the session holds ([Objects the session holds](query-cookbook.md#objects-the-session-holds))
+adds `data-object="#<id>"`, the id the instantiation report printed, beside
+the usage the object stands for, and an object-valued cell is a
+`span.sysml-object` whose text is the object's path. A row a `Verdicts` query
+answered ([Which constraints and requirements hold](query-cookbook.md#which-constraints-and-requirements-hold))
+is the assertion checked, and its row or list item carries `data-verdict`
+(`holds`, `violated` or `undecided`), `data-path` (the object checked) and,
+over a held object, its `data-object`; a verdict-valued cell is a
+`span.sysml-verdict` with the same three attributes, whose text is the line
+Markdown prints, `<assertion> on <path>: <verdict>`. So a stylesheet colours
+what is violated with
+`[data-verdict="violated"] { … }` and a script reads which objects it is
+about without parsing the text.
+
+```html
+<tr class="sysml-row" data-object="#2" data-verdict="violated" data-path="car.engine"
+    data-element="Garage::Engine::powerLow" data-element-kind="constraintUsage">
+<td class="sysml-cell" data-column="path" data-value-kind="string">
+<span class="sysml-value" data-value-kind="string">car.engine</span></td>
+<td class="sysml-cell" data-column="verdict" data-value-kind="string">
+<span class="sysml-value" data-value-kind="string">violated</span></td>
 </tr>
 ```
 
@@ -268,8 +296,8 @@ with a hole in it.
 ## Determinism
 
 **Markdown** is fully deterministic: byte-identical output for the same
-model and binary. Query results preserve declaration order unless ordered
-explicitly, ordering policies are explicit parameters, and rendering
+model, the same held objects and binary. Query results preserve declaration
+order unless ordered explicitly, ordering policies are explicit parameters, and rendering
 introduces no timestamps, random identifiers or map-order dependence.
 
 **PDF** is deterministic *for a pinned toolchain*. The engine does its

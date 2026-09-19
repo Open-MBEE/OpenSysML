@@ -11,8 +11,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
-	"github.com/Open-MBEE/OpenSysML/internal/testutil/gobuild"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 var (
@@ -277,7 +277,7 @@ func run(t *testing.T, binary string, args ...string) string {
 func TestConvertMigratesXMI(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
-	xmi := filepath.Join("..", "..", "internal", "core", "migrate", "testdata", "xmi", "vehicle.xmi")
+	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi")
 	model := filepath.Join(dir, "model.sysml")
 	if err := os.WriteFile(model, []byte(sampleModel), 0o644); err != nil {
 		t.Fatal(err)
@@ -375,7 +375,7 @@ func TestConvertMigratesXMI(t *testing.T) {
 
 func TestLoadingXMIDirectlyPointsAtMigration(t *testing.T) {
 	binary := buildCLI(t)
-	xmi := filepath.Join("..", "..", "internal", "core", "migrate", "testdata", "xmi", "vehicle.xmi")
+	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi")
 	for _, args := range [][]string{
 		{xmi, "-validate"},
 		{xmi, "-eval", "1"},
