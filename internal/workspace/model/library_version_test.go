@@ -144,7 +144,7 @@ func TestWorkspaceLibraryVersionKeepsLibraryIdentity(t *testing.T) {
 	if got := ws.StandsInFor("copy.kerml"); got != scalarValues {
 		t.Fatalf("StandsInFor = %q, want %q", got, scalarValues)
 	}
-	if got := identityOf("with an unchanged version open"); got != bundled {
+	if identityOf("with an unchanged version open") != bundled {
 		t.Errorf("an unchanged version of %s changed the library's identity", scalarValues)
 	}
 
@@ -156,12 +156,12 @@ func TestWorkspaceLibraryVersionKeepsLibraryIdentity(t *testing.T) {
 	if got := ws.StandsInFor("copy.kerml"); got != scalarValues {
 		t.Fatalf("StandsInFor = %q after the edit, want %q", got, scalarValues)
 	}
-	if got := identityOf("with an edited version open"); got == bundled {
+	if identityOf("with an edited version open") == bundled {
 		t.Errorf("an edited version of %s left the library's identity as it was", scalarValues)
 	}
 
 	ws.Remove("copy.kerml")
-	if got := identityOf("after the version closed"); got != bundled {
+	if identityOf("after the version closed") != bundled {
 		t.Errorf("the library's identity did not return with the bundled file")
 	}
 }
@@ -281,17 +281,17 @@ func TestWorkspaceLibraryVersionUnderTheBundledName(t *testing.T) {
 	if ws.IsLibraryDocument(scalarValues) {
 		t.Error("a workspace document under the bundled name is the workspace's own")
 	}
-	if got := ws.LibraryDocument(scalarValues); got != nil {
+	if ws.LibraryDocument(scalarValues) != nil {
 		t.Error("LibraryDocument still answers the cached bundled file under a name the workspace holds")
 	}
-	if got := ws.LibraryDocument(filepath.ToSlash(scalarValues)); got != nil {
+	if ws.LibraryDocument(filepath.ToSlash(scalarValues)) != nil {
 		t.Error("LibraryDocument answers the bundled file under the slash form of a name the workspace holds")
 	}
 	ws.Close(scalarValues)
 	if !ws.IsLibraryDocument(scalarValues) || !ws.index.IsLibraryDocument(scalarValues) {
 		t.Error("the bundled file did not come back under its library mark")
 	}
-	if got := ws.LibraryDocument(scalarValues); got != lib {
+	if ws.LibraryDocument(scalarValues) != lib {
 		t.Error("LibraryDocument does not answer the cached bundled file once the workspace lets its name go")
 	}
 	if _, doc := realOf(t, ws); doc != scalarValues {
@@ -387,7 +387,7 @@ func TestWorkspaceLibraryVersionRestoresImports(t *testing.T) {
 	}
 	ws.Open("mine.sysml", []byte("package Mine {\n    public import ScalarValues::*;\n}\n"), 1)
 	ws.Open("car.sysml", []byte("part def Car {\n    attribute mass : Mine::Real;\n}\n"), 1)
-	imported := func(when string, want string) {
+	imported := func(when, want string) {
 		t.Helper()
 		syms := ws.LookupQualified("Mine::Real")
 		if len(syms) != 1 || syms[0].DocName != want {
@@ -548,7 +548,7 @@ func TestWorkspaceLibraryVersionEditIndexFollowsRoots(t *testing.T) {
 	for _, tc := range []struct {
 		name, text string
 		library    bool
-		real       []string // documents declaring ScalarValues::Real, sorted
+		realDocs   []string // documents declaring ScalarValues::Real, sorted
 	}{
 		{"member added", strings.Replace(src, "datatype Real specializes", "datatype Furlong;\n\tdatatype Real specializes", 1),
 			true, []string{"copy.kerml"}},
@@ -573,13 +573,13 @@ func TestWorkspaceLibraryVersionEditIndexFollowsRoots(t *testing.T) {
 		if got := idx.DocumentRoot(scalarValues) != nil; got == tc.library {
 			t.Errorf("%s: the bundled file is indexed: %v, want %v", tc.name, got, !tc.library)
 		}
-		var real []string
+		var declaredIn []string
 		for _, sym := range idx.LookupQualified("ScalarValues::Real") {
-			real = append(real, sym.DocName)
+			declaredIn = append(declaredIn, sym.DocName)
 		}
-		sort.Strings(real)
-		if !slices.Equal(real, tc.real) {
-			t.Errorf("%s: ScalarValues::Real declared in %q, want %q", tc.name, real, tc.real)
+		sort.Strings(declaredIn)
+		if !slices.Equal(declaredIn, tc.realDocs) {
+			t.Errorf("%s: ScalarValues::Real declared in %q, want %q", tc.name, declaredIn, tc.realDocs)
 		}
 	}
 }
@@ -610,9 +610,9 @@ func TestWorkspaceLibraryVersionEditIndexFollowsSequence(t *testing.T) {
 	ei := ws.editIndexLocked("copy.kerml")
 	idx := ei.build()
 	for i, step := range []struct {
-		doc     *Document
-		library bool
-		real    []string
+		doc      *Document
+		library  bool
+		realDocs []string
 	}{
 		{rooted("ScalarValues"), true, []string{"copy.kerml"}},
 		{rooted("MineAgain"), false, []string{scalarValues}},
@@ -626,13 +626,13 @@ func TestWorkspaceLibraryVersionEditIndexFollowsSequence(t *testing.T) {
 		if got := idx.DocumentRoot(scalarValues) != nil; got == step.library {
 			t.Errorf("step %d: the bundled file is indexed: %v, want %v", i, got, !step.library)
 		}
-		var real []string
+		var declaredIn []string
 		for _, sym := range idx.LookupQualified("ScalarValues::Real") {
-			real = append(real, sym.DocName)
+			declaredIn = append(declaredIn, sym.DocName)
 		}
-		sort.Strings(real)
-		if !slices.Equal(real, step.real) {
-			t.Errorf("step %d: ScalarValues::Real declared in %q, want %q", i, real, step.real)
+		sort.Strings(declaredIn)
+		if !slices.Equal(declaredIn, step.realDocs) {
+			t.Errorf("step %d: ScalarValues::Real declared in %q, want %q", i, declaredIn, step.realDocs)
 		}
 	}
 	if got := ws.standIns["copy.kerml"]; got != "" {
@@ -712,7 +712,7 @@ func TestWorkspaceLibraryVersionOverCallerBuiltIndex(t *testing.T) {
 	idx.MarkLibraryDocument(tanks, symbols.LibraryDocument{Tier: symbols.TierSystems, Digest: symbols.TextDigest(text)})
 	idx.ExpandWildcardImports()
 	ws := NewWorkspaceWithIndex(idx, WithLibrarySource(src))
-	tankIn := func(when string, want string) {
+	tankIn := func(when, want string) {
 		t.Helper()
 		syms := ws.LookupQualified("Tanks::Tank")
 		if len(syms) != 1 || syms[0].DocName != want {

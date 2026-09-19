@@ -19,6 +19,16 @@ const (
 	commentPrefix = "comment "
 )
 
+// The subjects the report's notes open with.
+const (
+	classifierSubject = "the instance's classifier "
+	individualSubject = "the individual "
+	slotValueSubject  = "the slot's value "
+)
+
+// scalarValuesPrefix qualifies a name from the standard ScalarValues package.
+const scalarValuesPrefix = "ScalarValues::"
+
 // Result is a migration's output: the v2 notation, the report over it, and
 // the result snapshots of its run configurations.
 type Result struct {
@@ -639,7 +649,7 @@ func (m *migration) generals(e *sysmlv1.Element, cat category) (string, string) 
 			continue
 		}
 		if sv := m.scalarValue(target); sv != "" {
-			refs = append(refs, "ScalarValues::"+sv)
+			refs = append(refs, scalarValuesPrefix+sv)
 			continue
 		}
 		if cat == catAttributeDef && m.quantityValueType(target) {
@@ -904,23 +914,23 @@ func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string)
 		inst := m.model.Ref(v, "instance")
 		switch {
 		case inst == nil:
-			return nil, "the slot's value names no instance", false
+			return nil, slotValueSubject + "names no instance", false
 		case inst.IsProxy():
-			return nil, "the slot's value " + qualifiedName(inst) + " is outside the document, so it has no individual to type " + f.Name + " by", false
+			return nil, slotValueSubject + qualifiedName(inst) + " is outside the document, so it has no individual to type " + f.Name + " by", false
 		}
 		if cat, note := m.classify(inst); cat != catIndividualDef {
-			return nil, "the slot's value " + describe(inst) + " is not written as an individual: " + note, false
+			return nil, slotValueSubject + describe(inst) + " is not written as an individual: " + note, false
 		}
 		kind, classifiers, _ := m.individualClassifiers(inst)
 		if kind == catNone || kind.keyword() != kw+" def" {
-			return nil, "the slot's value " + describe(inst) + " is an " + individualKeyword(kind) + ", which cannot type " + article(kw) + kw, false
+			return nil, slotValueSubject + describe(inst) + " is an " + individualKeyword(kind) + ", which cannot type " + article(kw) + kw, false
 		}
 		if !m.instanceOf(classifiers, t) {
-			return nil, "the slot's value " + describe(inst) + " is not an instance of " + qualifiedName(t) + ", the type of " + f.Name, false
+			return nil, slotValueSubject + describe(inst) + " is not an instance of " + qualifiedName(t) + ", the type of " + f.Name, false
 		}
 		// The default individual types the property, so a slot can only repeat it.
 		if d, _ := m.typingIndividual(f, kw); d != nil && d != inst {
-			return nil, "the slot's value " + describe(inst) + " is not " + describe(d) + ", the individual " + f.Name + " is typed by for its default", false
+			return nil, slotValueSubject + describe(inst) + " is not " + describe(d) + ", " + individualSubject + f.Name + " is typed by for its default", false
 		}
 		refs = append(refs, m.ref(inst, e))
 	}
@@ -1099,35 +1109,7 @@ func (m *migration) association(e *sysmlv1.Element) {
 		m.comments(e)
 		used := map[string]bool{}
 		for _, end := range ends {
-			t := m.model.Ref(end, "type")
-			typ, tnote := m.typeRef(t, e)
-			endName := m.nameOf(end)
-			if endName == "" && t != nil {
-				endName = m.nameFor(end)
-			}
-			// An end named elsewhere yields to a member of the connection def.
-			clash := func(n string) bool { return used[n] || (end.Parent != e && m.nameTaken(e, n)) }
-			for base, i := endName, 2; endName != "" && clash(endName); i++ {
-				endName = fmt.Sprintf("%s%d", base, i)
-			}
-			if endName != m.nameOf(end) && m.nameOf(end) != "" {
-				m.downgrade(e, "end "+m.nameOf(end)+" is written as "+endName+" so the ends and members stay distinct")
-			}
-			used[endName] = true
-			decl := "end"
-			if endName != "" {
-				decl += " " + writeName(endName)
-			}
-			if typ != "" {
-				decl += " : " + typ
-			}
-			mult, mnote := m.multiplicity(end)
-			decl += mult + collection(end) + ";"
-			tnote = joinNotes(tnote, mnote)
-			m.w.line(decl)
-			if end.Parent == e {
-				m.add(end, verdictFor(tnote), m.v2Name(e)+"::"+writeName(endName), tnote)
-			}
+			m.associationEnd(e, end, used)
 		}
 		for _, c := range e.Children {
 			if c.Role != "ownedEnd" {
@@ -1140,6 +1122,40 @@ func (m *migration) association(e *sysmlv1.Element) {
 		m.stereotypeComments(e)
 		m.scope = saved
 	})
+}
+
+// associationEnd writes one member end of a connection def, renaming it past
+// the ends and members already written.
+func (m *migration) associationEnd(e, end *sysmlv1.Element, used map[string]bool) {
+	t := m.model.Ref(end, "type")
+	typ, tnote := m.typeRef(t, e)
+	endName := m.nameOf(end)
+	if endName == "" && t != nil {
+		endName = m.nameFor(end)
+	}
+	// An end named elsewhere yields to a member of the connection def.
+	clash := func(n string) bool { return used[n] || (end.Parent != e && m.nameTaken(e, n)) }
+	for base, i := endName, 2; endName != "" && clash(endName); i++ {
+		endName = fmt.Sprintf("%s%d", base, i)
+	}
+	if endName != m.nameOf(end) && m.nameOf(end) != "" {
+		m.downgrade(e, "end "+m.nameOf(end)+" is written as "+endName+" so the ends and members stay distinct")
+	}
+	used[endName] = true
+	decl := "end"
+	if endName != "" {
+		decl += " " + writeName(endName)
+	}
+	if typ != "" {
+		decl += " : " + typ
+	}
+	mult, mnote := m.multiplicity(end)
+	decl += mult + collection(end) + ";"
+	tnote = joinNotes(tnote, mnote)
+	m.w.line(decl)
+	if end.Parent == e {
+		m.add(end, verdictFor(tnote), m.v2Name(e)+"::"+writeName(endName), tnote)
+	}
 }
 
 // featureKeyword decides the v2 usage keyword of a v1 property from its type
@@ -1260,46 +1276,13 @@ func (m *migration) feature(p *sysmlv1.Element) {
 	param := ownerCat == catConstraintDef && kw != "constraint"
 
 	var b strings.Builder
-	vis := p.Attrs["visibility"]
-	switch {
-	case vis != "private" && vis != "protected" && vis != "package":
-	case param:
-		// A parameter is bound from outside the constraint, so it must stay visible.
-		note = joinNotes(note, vis+" visibility is not written on a constraint parameter")
-	case m.exposed[p] != "":
-		// v2 neither inherits a private feature nor lets a path reach one.
-		note = joinNotes(note, vis+" visibility is not written: "+m.exposed[p])
-	case vis == "protected":
-		b.WriteString("protected ")
-	case vis == "package":
-		b.WriteString(privatePrefix)
-		note = joinNotes(note, "package visibility is written as private")
-	default:
-		b.WriteString(privatePrefix)
-	}
+	visPrefix, note := m.featureVisibility(p, param, note)
+	b.WriteString(visPrefix)
 	// The v2 usage prefix orders direction, derived, abstract, constant, ref.
 	dir, dnote := m.featureDirection(p, ownerCat, kw)
 	note = joinNotes(note, dnote)
 	b.WriteString(dir)
-	if p.Attrs["isDerived"] == "true" {
-		b.WriteString("derived ")
-	}
-	if p.Attrs["isAbstract"] == "true" {
-		b.WriteString("abstract ")
-	}
-	if p.Attrs["isReadOnly"] == "true" {
-		// A value type's features cannot vary, so `constant` is not allowed there.
-		if ownerCat == catAttributeDef {
-			note = joinNotes(note, "read-only is not written: the features of an attribute definition cannot vary")
-		} else {
-			b.WriteString("constant ")
-		}
-	}
-	if ownerCat == catPortDef && dir == "" && prefix == "" && (kw == "item" || kw == "part") {
-		// An interface block's usages other than ports must not be composite.
-		prefix = "ref "
-		note = joinNotes(note, "the undirected "+kw+" of an interface block is written as a reference")
-	}
+	prefix, note = m.featureModifiers(&b, p, ownerCat, kw, dir, prefix, note)
 	b.WriteString(prefix)
 	b.WriteString(kw)
 	name := m.nameOf(p)
@@ -1316,80 +1299,22 @@ func (m *migration) feature(p *sysmlv1.Element) {
 
 	// A port typed by anything but an interface block carries its type as one
 	// directed feature, since a v2 port is typed by a port def alone.
-	payload := ""
-	if kw == "port" && p.Type == "Port" && typ != "" {
-		switch tc, _ := m.classify(t); {
-		case m.scalarValue(t) != "", tc == catAttributeDef, tc == catEnumDef:
-			payload = "attribute"
-		case tc == catPartDef, tc == catItemDef:
-			payload = "item"
-		}
-	}
+	payload := m.portPayload(p, kw, typ, t)
 	ind, indNote := m.typingIndividual(p, kw)
-	if ind != nil && payload == "" {
-		// A v2 definition is not a value; the usage is typed by the individual instead.
-		if typ == "" {
-			typ = m.ref(ind, m.scope)
-		} else {
-			typ += ", " + m.ref(ind, m.scope)
-		}
-	}
-	if typ != "" && payload == "" {
-		if p.Type == "Port" && p.Attrs["isConjugated"] == "true" {
-			typ = "~" + typ
-		}
-		b.WriteString(" : " + typ)
-	}
+	m.featureTyping(&b, p, ind, payload, typ)
 	mult, mnote := m.multiplicity(p)
 	b.WriteString(mult + collection(p))
 	note = joinNotes(note, mnote)
-	for _, role := range []string{"redefinedProperty", "subsettedProperty"} {
-		op := " :>> "
-		if role == "subsettedProperty" {
-			op = " :> "
-		}
-		for _, r := range m.model.Refs(p, role) {
-			if !m.written(r) {
-				note = joinNotes(note, role+" "+describe(r)+" is not written: it has no v2 declaration in the document")
-				continue
-			}
-			b.WriteString(op + m.featureRef(r))
-		}
-	}
-	if r, redefinable := m.shadowed(p); redefinable {
-		b.WriteString(" :>> " + m.featureRef(r))
-		note = joinNotes(note, "written as a redefinition of the inherited "+qualifiedName(r)+": v2 does not let a member share an inherited member's name")
-	} else if r != nil {
-		rkw, _, _ := m.featureKeyword(r, m.classifyParent(r))
-		note = joinNotes(note, "shares the name of the inherited "+qualifiedName(r)+", which is written as "+rkw+" and so cannot be redefined by this "+kw+": v2 does not let a member share an inherited member's name")
-	}
+	note = m.featureRedefinitions(&b, p, note)
+	note = m.featureShadow(&b, p, kw, note)
 	note = joinNotes(note, m.dangling(p, "redefinedProperty", "subsettedProperty"))
 
 	var bodyLines []string
-	if dv := firstOwned(p, "defaultValue"); dv != nil {
-		expr, ok, vnote := m.featureValue(dv, p, m.scope)
-		if indNote != "" {
-			vnote = indNote
-		}
-		switch {
-		case ind != nil && payload == "":
-			note = joinNotes(note, "the default value, the individual "+qualifiedName(ind)+", is written as a type of the usage: a definition is not a v2 value")
-		case ok:
-			b.WriteString(" default = " + expr)
-			note = joinNotes(note, vnote)
-		default:
-			bodyLines = append(bodyLines, commentLines("default value not migrated: "+describeValue(dv)+" — "+vnote)...)
-			note = joinNotes(note, "default value not migrated: "+vnote)
-		}
-	}
+	note = m.featureDefault(&b, &bodyLines, p, ind, payload, indNote, note)
 	if payload != "" {
-		dir, _ := portDirection(p)
-		if payload == "item" && dir == "" {
-			// An undirected item in a port must still not be composite.
-			payload = "ref item"
-		}
-		bodyLines = append(bodyLines, dir+payload+" "+writeName(m.nameFor(p))+" : "+typ+";")
-		note = joinNotes(note, "a port typed by a "+t.Type+" is written as a port holding one directed "+payload)
+		line, plnote := m.portPayloadLine(p, payload, typ, t)
+		bodyLines = append(bodyLines, line)
+		note = joinNotes(note, plnote)
 	}
 
 	header := b.String()
@@ -1410,6 +1335,155 @@ func (m *migration) feature(p *sysmlv1.Element) {
 		m.stereotypeComments(p)
 		m.scope = saved
 	})
+}
+
+// featureVisibility returns the visibility prefix written for a feature and
+// notes a visibility v2 cannot carry.
+func (m *migration) featureVisibility(p *sysmlv1.Element, param bool, note string) (string, string) {
+	vis := p.Attrs["visibility"]
+	switch {
+	case vis != "private" && vis != "protected" && vis != "package":
+		return "", note
+	case param:
+		// A parameter is bound from outside the constraint, so it must stay visible.
+		return "", joinNotes(note, vis+" visibility is not written on a constraint parameter")
+	case m.exposed[p] != "":
+		// v2 neither inherits a private feature nor lets a path reach one.
+		return "", joinNotes(note, vis+" visibility is not written: "+m.exposed[p])
+	case vis == "protected":
+		return "protected ", note
+	case vis == "package":
+		return privatePrefix, joinNotes(note, "package visibility is written as private")
+	default:
+		return privatePrefix, note
+	}
+}
+
+// portPayload is the feature kind a port typed by other than a port def holds
+// as its one directed feature, or "".
+func (m *migration) portPayload(p *sysmlv1.Element, kw, typ string, t *sysmlv1.Element) string {
+	if kw != "port" || p.Type != "Port" || typ == "" {
+		return ""
+	}
+	switch tc, _ := m.classify(t); {
+	case m.scalarValue(t) != "", tc == catAttributeDef, tc == catEnumDef:
+		return "attribute"
+	case tc == catPartDef, tc == catItemDef:
+		return "item"
+	}
+	return ""
+}
+
+// featureRedefinitions writes the redefinition and subsetting targets into b,
+// noting the targets with no v2 declaration.
+func (m *migration) featureRedefinitions(b *strings.Builder, p *sysmlv1.Element, note string) string {
+	for _, role := range []string{"redefinedProperty", "subsettedProperty"} {
+		op := " :>> "
+		if role == "subsettedProperty" {
+			op = " :> "
+		}
+		for _, r := range m.model.Refs(p, role) {
+			if !m.written(r) {
+				note = joinNotes(note, role+" "+describe(r)+" is not written: it has no v2 declaration in the document")
+				continue
+			}
+			b.WriteString(op + m.featureRef(r))
+		}
+	}
+	return note
+}
+
+// featureDefault writes a feature's default value into b, or keeps it as a
+// body comment, noting what became of it.
+func (m *migration) featureDefault(b *strings.Builder, bodyLines *[]string, p, ind *sysmlv1.Element, payload, indNote, note string) string {
+	dv := firstOwned(p, "defaultValue")
+	if dv == nil {
+		return note
+	}
+	expr, ok, vnote := m.featureValue(dv, p, m.scope)
+	if indNote != "" {
+		vnote = indNote
+	}
+	switch {
+	case ind != nil && payload == "":
+		return joinNotes(note, "the default value, the individual "+qualifiedName(ind)+", is written as a type of the usage: a definition is not a v2 value")
+	case ok:
+		b.WriteString(" default = " + expr)
+		return joinNotes(note, vnote)
+	default:
+		*bodyLines = append(*bodyLines, commentLines("default value not migrated: "+describeValue(dv)+" — "+vnote)...)
+		return joinNotes(note, "default value not migrated: "+vnote)
+	}
+}
+
+// featureModifiers writes the derived/abstract/constant prefixes and forces
+// the reference prefix an interface block's usages take; returns the prefix.
+func (m *migration) featureModifiers(b *strings.Builder, p *sysmlv1.Element, ownerCat category, kw, dir, prefix, note string) (string, string) {
+	if p.Attrs["isDerived"] == "true" {
+		b.WriteString("derived ")
+	}
+	if p.Attrs["isAbstract"] == "true" {
+		b.WriteString("abstract ")
+	}
+	if p.Attrs["isReadOnly"] == "true" {
+		// A value type's features cannot vary, so `constant` is not allowed there.
+		if ownerCat == catAttributeDef {
+			note = joinNotes(note, "read-only is not written: the features of an attribute definition cannot vary")
+		} else {
+			b.WriteString("constant ")
+		}
+	}
+	if ownerCat == catPortDef && dir == "" && prefix == "" && (kw == "item" || kw == "part") {
+		// An interface block's usages other than ports must not be composite.
+		prefix = "ref "
+		note = joinNotes(note, "the undirected "+kw+" of an interface block is written as a reference")
+	}
+	return prefix, note
+}
+
+// featureTyping resolves the individual a feature is typed by into its type,
+// conjugating a conjugated port, and writes it into b.
+func (m *migration) featureTyping(b *strings.Builder, p, ind *sysmlv1.Element, payload, typ string) {
+	if ind != nil && payload == "" {
+		// A v2 definition is not a value; the usage is typed by the individual instead.
+		if typ == "" {
+			typ = m.ref(ind, m.scope)
+		} else {
+			typ += ", " + m.ref(ind, m.scope)
+		}
+	}
+	if typ != "" && payload == "" {
+		if p.Type == "Port" && p.Attrs["isConjugated"] == "true" {
+			typ = "~" + typ
+		}
+		b.WriteString(" : " + typ)
+	}
+}
+
+// featureShadow writes the redefinition an inherited member of the same name
+// forces, or notes why the member cannot be redefined.
+func (m *migration) featureShadow(b *strings.Builder, p *sysmlv1.Element, kw, note string) string {
+	r, redefinable := m.shadowed(p)
+	if redefinable {
+		b.WriteString(" :>> " + m.featureRef(r))
+		return joinNotes(note, "written as a redefinition of the inherited "+qualifiedName(r)+": v2 does not let a member share an inherited member's name")
+	}
+	if r != nil {
+		rkw, _, _ := m.featureKeyword(r, m.classifyParent(r))
+		return joinNotes(note, "shares the name of the inherited "+qualifiedName(r)+", which is written as "+rkw+" and so cannot be redefined by this "+kw+": v2 does not let a member share an inherited member's name")
+	}
+	return note
+}
+
+// portPayloadLine is the directed feature a typed port's body holds, with its note.
+func (m *migration) portPayloadLine(p *sysmlv1.Element, payload, typ string, t *sysmlv1.Element) (string, string) {
+	dir, _ := portDirection(p)
+	if payload == "item" && dir == "" {
+		// An undirected item in a port must still not be composite.
+		payload = "ref item"
+	}
+	return dir + payload + " " + writeName(m.nameFor(p)) + " : " + typ + ";",
+		"a port typed by a " + t.Type + " is written as a port holding one directed " + payload
 }
 
 // portDirection writes the direction prefix of a flow port.
@@ -1620,9 +1694,9 @@ func (m *migration) typeRef(t, scope *sysmlv1.Element) (string, string) {
 	}
 	if sv := m.scalarValue(t); sv != "" {
 		if _, std := scalarValues[t.Name]; !std {
-			return "ScalarValues::" + sv, "the tool's " + t.Name + " datatype is written as ScalarValues::" + sv
+			return scalarValuesPrefix + sv, "the tool's " + t.Name + " datatype is written as " + scalarValuesPrefix + sv
 		}
-		return "ScalarValues::" + sv, ""
+		return scalarValuesPrefix + sv, ""
 	}
 	if t.IsProxy() {
 		return "", "type " + qualifiedName(t) + " lives outside the document and is not written"

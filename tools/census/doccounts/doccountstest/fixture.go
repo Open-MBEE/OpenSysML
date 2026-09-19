@@ -49,10 +49,9 @@ func WriteSuiteFixture(t TB, root string) {
 	}
 	Write(t, root, conformance+"calc_a.expected.json", `{"outcomes": [{}, {}]}`+"\n")
 	Write(t, root, conformance+"calc_a.check.expected.json", "{}\n")
-	Write(t, root, conformance+"calc_a.trace.golden", "trace\n")
-	Write(t, root, conformance+"calc_b.trace.golden", "trace\n")
-	Write(t, root, conformance+"action_a.trace.golden", "trace\n")
-	Write(t, root, conformance+"calc_a.declared.trace.golden", "trace\n")
+	for _, name := range []string{"calc_a", "calc_b", "action_a", "calc_a.declared"} {
+		Write(t, root, conformance+name+".trace.golden", "trace\n")
+	}
 	Write(t, root, conformance+"known_failures.txt", "# none\n")
 
 	parse := "tests/parser/testdata/parse/"

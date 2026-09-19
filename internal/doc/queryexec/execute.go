@@ -271,79 +271,77 @@ func (e *executor) valueConforms(value Value, expected string) bool {
 	switch value.Kind() {
 	case ValueElement:
 		sym, ok := value.Element()
-		if !ok {
-			return false
-		}
-		targets := e.context.Index.LookupQualified(expected)
-		for _, target := range targets {
-			if e.context.Model.IsDataType(target) {
-				return e.context.Model.LiteralConforms(sym, target)
-			}
-			if symbols.SameElement(sym, target) || e.context.Model.Conforms(sym, target) {
-				return true
-			}
-		}
-		return expected == "Element" || expected == "KerML::Root::Element"
+		return ok && e.elementConforms(sym, expected)
 	case ValueObject:
 		inst, _, ok := value.Object()
-		if !ok {
-			return false
-		}
-		return e.objectConformsTo(inst, expected) ||
-			expected == "Element" || expected == "KerML::Root::Element"
+		return ok && (e.objectConformsTo(inst, expected) || isRootElement(expected))
 	case ValueVerdict:
 		verdict, ok := value.Verdict()
-		if !ok {
-			return false
-		}
-		return e.valueConforms(ElementValue(verdict.Assertion()), expected)
+		return ok && e.valueConforms(ElementValue(verdict.Assertion()), expected)
 	case ValueState:
 		state, ok := value.State()
-		if !ok {
-			return false
-		}
-		if state.symbol != nil {
-			return e.valueConforms(ElementValue(state.symbol), expected)
-		}
-		return expected == "Element" || expected == "KerML::Root::Element"
+		return ok && e.declaredByConforms(state.symbol, expected)
 	case ValueEvent:
 		event, ok := value.Event()
-		if !ok {
-			return false
-		}
-		if behavior := event.Behavior(); behavior != nil {
-			return e.valueConforms(ElementValue(behavior), expected)
-		}
-		return expected == "Element" || expected == "KerML::Root::Element"
+		return ok && e.declaredByConforms(event.Behavior(), expected)
 	case ValueQuantity:
 		quantity, ok := value.Quantity()
-		if !ok {
-			return false
-		}
-		for _, target := range e.context.Index.LookupQualified(expected) {
-			if c := e.context.Model.QuantityConforms(quantity.Unit.Term, target); c.Known && c.Holds {
-				return true
-			}
-		}
-		return false
+		return ok && e.quantityConforms(quantity, expected)
 	default:
 		actual, ok := scalarValueType(value)
-		if !ok {
-			return false
-		}
-		for _, target := range e.context.Index.LookupQualified(expected) {
-			expectedType := e.context.Model.PrimTypeOf(target)
-			if expectedType != semantics.PrimUnknown && semantics.PrimConforms(actual, expectedType) {
-				return true
-			}
-			// A type above the scalar lattice (ScalarValue, DataValue) is judged
-			// by the scalar's library definition.
-			if expectedType == semantics.PrimUnknown && e.context.Model.Conforms(e.context.Model.ScalarSymbol(actual), target) {
-				return true
-			}
-		}
-		return false
+		return ok && e.scalarConforms(actual, expected)
 	}
+}
+
+// isRootElement reports whether expected names the root of the KerML type
+// hierarchy, which every element and object conforms to.
+func isRootElement(expected string) bool {
+	return expected == "Element" || expected == "KerML::Root::Element"
+}
+
+// declaredByConforms judges a state or event by the element declaring it; one
+// no element declares is only an Element.
+func (e *executor) declaredByConforms(declared *symbols.Symbol, expected string) bool {
+	if declared != nil {
+		return e.valueConforms(ElementValue(declared), expected)
+	}
+	return isRootElement(expected)
+}
+
+func (e *executor) elementConforms(sym *symbols.Symbol, expected string) bool {
+	for _, target := range e.context.Index.LookupQualified(expected) {
+		if e.context.Model.IsDataType(target) {
+			return e.context.Model.LiteralConforms(sym, target)
+		}
+		if symbols.SameElement(sym, target) || e.context.Model.Conforms(sym, target) {
+			return true
+		}
+	}
+	return isRootElement(expected)
+}
+
+func (e *executor) quantityConforms(quantity semantics.Quantity, expected string) bool {
+	for _, target := range e.context.Index.LookupQualified(expected) {
+		if c := e.context.Model.QuantityConforms(quantity.Unit.Term, target); c.Known && c.Holds {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *executor) scalarConforms(actual semantics.PrimType, expected string) bool {
+	for _, target := range e.context.Index.LookupQualified(expected) {
+		expectedType := e.context.Model.PrimTypeOf(target)
+		if expectedType != semantics.PrimUnknown && semantics.PrimConforms(actual, expectedType) {
+			return true
+		}
+		// A type above the scalar lattice (ScalarValue, DataValue) is judged
+		// by the scalar's library definition.
+		if expectedType == semantics.PrimUnknown && e.context.Model.Conforms(e.context.Model.ScalarSymbol(actual), target) {
+			return true
+		}
+	}
+	return false
 }
 
 func scalarValueType(value Value) (semantics.PrimType, bool) {

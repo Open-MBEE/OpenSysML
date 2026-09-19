@@ -446,7 +446,7 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 			return catValue, note
 		}
 		for _, v := range values {
-			note = joinNotes(note, "the instance's classifier "+qualifiedName(v)+" is not written: an individual cannot specialize a value type")
+			note = joinNotes(note, classifierSubject+qualifiedName(v)+" is not written: an individual cannot specialize a value type")
 		}
 		return catIndividualDef, note
 	case "Activity", "OpaqueBehavior", "Interaction", "StateMachine", "FunctionBehavior":
@@ -512,12 +512,12 @@ func (m *migration) instanceClassifiers(e *sysmlv1.Element) (occurrences, values
 	}
 	for _, c := range m.classifiersOf(e) {
 		if c.IsProxy() || m.isLibrary(c) {
-			notes = append(notes, "the instance's classifier "+c.Name+" is outside the document or in a library, so it has no v2 definition to specialize")
+			notes = append(notes, classifierSubject+c.Name+" is outside the document or in a library, so it has no v2 definition to specialize")
 			continue
 		}
 		switch cc, _ := m.classify(c); {
 		case cc.keyword() == "":
-			notes = append(notes, "the instance's classifier "+qualifiedName(c)+" is not migrated")
+			notes = append(notes, classifierSubject+qualifiedName(c)+" is not migrated")
 		case cc == catAttributeDef, cc == catEnumDef:
 			values = append(values, c)
 		default:
@@ -558,9 +558,9 @@ func (m *migration) individualClassifiers(e *sysmlv1.Element) (kind category, wr
 		case kinds[i] == kind:
 			written = append(written, c)
 		case kinds[i] == catNone:
-			notes = append(notes, "the instance's classifier "+qualifiedName(c)+" is not written: an "+individualKeyword(kind)+" cannot specialize a port def")
+			notes = append(notes, classifierSubject+qualifiedName(c)+" is not written: an "+individualKeyword(kind)+" cannot specialize a port def")
 		default:
-			notes = append(notes, "the instance's classifier "+qualifiedName(c)+" is not written: an "+individualKeyword(kind)+" cannot specialize a "+kinds[i].keyword())
+			notes = append(notes, classifierSubject+qualifiedName(c)+" is not written: an "+individualKeyword(kind)+" cannot specialize a "+kinds[i].keyword())
 		}
 	}
 	return kind, written, strings.Join(notes, "; ")

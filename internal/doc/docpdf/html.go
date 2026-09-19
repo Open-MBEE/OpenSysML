@@ -122,7 +122,7 @@ func writeContent(b *strings.Builder, blocks []block, art artwork, opts Options)
 		case blockParagraph:
 			b.WriteString("<p>" + inlineHTML(blk.Text, art.math) + "</p>\n")
 		case blockCaption:
-			b.WriteString("<p class=\"caption\"><em>" + inlineHTML(blk.Text, art.math) + "</em></p>\n")
+			b.WriteString(emphasised("caption", inlineHTML(blk.Text, art.math)))
 		case blockAnchor:
 			b.WriteString(`<a id="` + html.EscapeString(blk.Anchor) + `"></a>` + "\n")
 		case blockTable:
@@ -137,13 +137,23 @@ func writeContent(b *strings.Builder, blocks []block, art artwork, opts Options)
 				image++
 			}
 		case blockDOT:
-			b.WriteString("<figure class=\"dot\"><p class=\"notice\"><em>" + html.EscapeString(dotNotice) + "</em></p>\n" +
-				"<pre>" + html.EscapeString(blk.Source) + "</pre></figure>\n")
+			writeSourceFigure(b, "dot", dotNotice, blk.Source)
 		case blockPlantUML:
-			b.WriteString("<figure class=\"plantuml\"><p class=\"notice\"><em>" + html.EscapeString(plantumlNotice) + "</em></p>\n" +
-				"<pre>" + html.EscapeString(blk.Source) + "</pre></figure>\n")
+			writeSourceFigure(b, "plantuml", plantumlNotice, blk.Source)
 		}
 	}
+}
+
+// emphasised returns a paragraph of the given class whose inner HTML is emphasised.
+func emphasised(class, inner string) string {
+	return "<p class=\"" + class + "\"><em>" + inner + "</em></p>\n"
+}
+
+// writeSourceFigure writes a diagram the backend does not draw: the notice
+// saying so, then its source verbatim.
+func writeSourceFigure(b *strings.Builder, class, notice, source string) {
+	b.WriteString("<figure class=\"" + class + "\">" + emphasised("notice", html.EscapeString(notice)) +
+		"<pre>" + html.EscapeString(source) + "</pre></figure>\n")
 }
 
 // headingNumber advances the hierarchical counters for a heading at the given

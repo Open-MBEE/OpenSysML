@@ -519,56 +519,20 @@ func debugPerformerKind(kind symbols.SymbolKind) bool {
 // locate binds the session to rendering, in which drawn declares the target at
 // version, keeping the breakpoints on runtime nodes still drawn.
 func (sess *debugSession) locate(rendering *view.Rendering, drawn *symbols.Symbol, version int) error {
-	nodes := make(map[string]debugNode)
+	var nodes map[string]debugNode
+	var err error
 	switch sess.kind {
 	case view.KindState:
-		loc, err := view.LocateStates(rendering, drawn, sess.targetSym, sess.machine.Graph())
-		if err != nil {
-			return err
-		}
-		graph := sess.machine.Graph()
-		for _, state := range graph.States {
-			if id, ok := loc.Node(state); ok {
-				nodes[id] = debugNode{node: state}
-			}
-		}
-		for _, pseudo := range graph.Pseudostates {
-			if id, ok := loc.Node(pseudo); ok {
-				nodes[id] = debugNode{node: pseudo}
-			}
-		}
-		sess.states, sess.actions = loc, nil
+		nodes, err = sess.locateStates(rendering, drawn)
 	case view.KindAction:
-		loc, err := view.LocateActions(rendering, drawn, sess.targetSym, sess.action.Graph())
-		if err != nil {
-			return err
-		}
-		var walk func(graph *lower.ActionGraph, within []ast.Node)
-		walk = func(graph *lower.ActionGraph, within []ast.Node) {
-			for _, node := range graph.Nodes {
-				if id, ok := loc.Node(within, node); ok {
-					nodes[id] = debugNode{within: within, node: node}
-				}
-				if sub := graph.Subflows[node]; sub != nil && sub.Graph != nil && sub.Err == nil {
-					walk(sub.Graph, append(append([]ast.Node(nil), within...), node))
-				}
-			}
-		}
-		walk(sess.action.Graph(), nil)
-		sess.actions, sess.states = loc, nil
+		nodes, err = sess.locateActions(rendering, drawn)
+	}
+	if err != nil {
+		return err
 	}
 	sess.rendering, sess.version, sess.nodes = rendering, version, nodes
 	sess.parents = make(map[string]string)
-	var nest func(nodes []*view.Node, parent string)
-	nest = func(nodes []*view.Node, parent string) {
-		for _, n := range nodes {
-			if parent != "" {
-				sess.parents[n.ID] = parent
-			}
-			nest(n.Children, n.ID)
-		}
-	}
-	nest(rendering.Roots, "")
+	sess.nest(rendering.Roots, "")
 	kept := make(map[string]debugNode, len(sess.breakpoints))
 	for id, bp := range nodes {
 		for _, old := range sess.breakpoints {
@@ -583,6 +547,63 @@ func (sess *debugSession) locate(rendering *view.Rendering, drawn *symbols.Symbo
 	sess.paused, sess.pausedName = "", ""
 	sess.pause()
 	return nil
+}
+
+// locateStates maps the drawn IDs of the machine's states and pseudostates to
+// the runtime nodes they render.
+func (sess *debugSession) locateStates(rendering *view.Rendering, drawn *symbols.Symbol) (map[string]debugNode, error) {
+	loc, err := view.LocateStates(rendering, drawn, sess.targetSym, sess.machine.Graph())
+	if err != nil {
+		return nil, err
+	}
+	nodes := make(map[string]debugNode)
+	graph := sess.machine.Graph()
+	for _, state := range graph.States {
+		if id, ok := loc.Node(state); ok {
+			nodes[id] = debugNode{node: state}
+		}
+	}
+	for _, pseudo := range graph.Pseudostates {
+		if id, ok := loc.Node(pseudo); ok {
+			nodes[id] = debugNode{node: pseudo}
+		}
+	}
+	sess.states, sess.actions = loc, nil
+	return nodes, nil
+}
+
+// locateActions maps the drawn IDs of the action's nodes, nested flows included,
+// to the runtime nodes they render.
+func (sess *debugSession) locateActions(rendering *view.Rendering, drawn *symbols.Symbol) (map[string]debugNode, error) {
+	loc, err := view.LocateActions(rendering, drawn, sess.targetSym, sess.action.Graph())
+	if err != nil {
+		return nil, err
+	}
+	nodes := make(map[string]debugNode)
+	var walk func(graph *lower.ActionGraph, within []ast.Node)
+	walk = func(graph *lower.ActionGraph, within []ast.Node) {
+		for _, node := range graph.Nodes {
+			if id, ok := loc.Node(within, node); ok {
+				nodes[id] = debugNode{within: within, node: node}
+			}
+			if sub := graph.Subflows[node]; sub != nil && sub.Graph != nil && sub.Err == nil {
+				walk(sub.Graph, append(append([]ast.Node(nil), within...), node))
+			}
+		}
+	}
+	walk(sess.action.Graph(), nil)
+	sess.actions, sess.states = loc, nil
+	return nodes, nil
+}
+
+// nest records the parent of every drawn node under nodes.
+func (sess *debugSession) nest(nodes []*view.Node, parent string) {
+	for _, n := range nodes {
+		if parent != "" {
+			sess.parents[n.ID] = parent
+		}
+		sess.nest(n.Children, n.ID)
+	}
 }
 
 // applyBreakpoints sets the executor's breakpoints to the session's; a pause
