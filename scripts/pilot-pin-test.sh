@@ -15,11 +15,18 @@ git -C "$work" init -q release
 git -C "$release" config user.email ci@example.com
 git -C "$release" config user.name CI
 mkdir -p "$release/sysml.library.xmi/Domain" "$release/empty.subtree" "$release/pair/a" "$release/pair/b"
-echo '<xmi/>' >"$release/sysml.library.xmi/Domain/Quantities.sysmlx"
-echo '<xmi/>' >"$release/sysml.library.xmi/Kernel.kermlx"
+
+# stub_xmi writes a minimal XMI document at each path given.
+stub_xmi() {
+	local paths=("$@")
+	local path
+	for path in "${paths[@]}"; do
+		echo '<xmi/>' >"$path"
+	done
+}
+stub_xmi "$release/sysml.library.xmi/Domain/Quantities.sysmlx" "$release/sysml.library.xmi/Kernel.kermlx" \
+	"$release/pair/a/A.sysmlx" "$release/pair/b/B.sysmlx"
 echo notes >"$release/empty.subtree/README.md"
-echo '<xmi/>' >"$release/pair/a/A.sysmlx"
-echo '<xmi/>' >"$release/pair/b/B.sysmlx"
 git -C "$release" add .
 git -C "$release" -c commit.gpgsign=false commit -qm release
 git -C "$release" tag test-tag
@@ -35,6 +42,7 @@ output=
 fetch() {
 	local expected_commit=$1
 	shift
+	local subtrees=("$@")
 	status=0
 	output=$(
 		PILOT_TAG=test-tag PILOT_RELEASE_REPO="file://$release" PILOT_RELEASE_COMMIT="$expected_commit" \
@@ -43,12 +51,13 @@ fetch() {
 				pilot_from_release
 				PILOT_FETCH_GLOBS=("*.sysmlx" "*.kermlx")
 				pilot_fetch_subtrees "$@"
-			' bash "$pin_script" "$@" 2>&1
+			' bash "$pin_script" "${subtrees[@]}" 2>&1
 	) || status=$?
 }
 
 count_xmi() {
-	find "$1" -type f \( -name '*.sysmlx' -o -name '*.kermlx' \) 2>/dev/null | wc -l | tr -d ' '
+	local dir=$1
+	find "$dir" -type f \( -name '*.sysmlx' -o -name '*.kermlx' \) 2>/dev/null | wc -l | tr -d ' '
 }
 
 pass() {

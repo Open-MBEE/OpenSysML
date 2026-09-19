@@ -8,14 +8,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// Union is one workspace-wide gather, kept per document by Gathers.
-type Union interface {
+// Regatherer is one workspace-wide gather, kept per document by Gathers.
+type Regatherer interface {
 	Regather(ctx *Context, g *Gathers, doc string, changed map[string]bool)
 }
 
 // AboutUnion also gathers what lies outside the workspace documents.
 type AboutUnion interface {
-	Union
+	Regatherer
 	RegatherAbout(ctx *Context, g *Gathers, changed map[string]bool)
 }
 
@@ -23,7 +23,7 @@ type AboutUnion interface {
 type Gathers struct {
 	mu     sync.Mutex
 	docs   map[string]bool
-	unions map[string]Union
+	unions map[string]Regatherer
 }
 
 // NewGathers returns gathers with nothing gathered yet.
@@ -121,11 +121,11 @@ func (g *Gathers) Regather(ctx *Context, docs map[string]bool) []string {
 
 // UnionOf returns the union under key, built on first use over every gathered
 // document.
-func (g *Gathers) UnionOf(ctx *Context, key string, build func() Union) Union {
+func (g *Gathers) UnionOf(ctx *Context, key string, build func() Regatherer) Regatherer {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if g.unions == nil {
-		g.unions = map[string]Union{}
+		g.unions = map[string]Regatherer{}
 	}
 	if u := g.unions[key]; u != nil {
 		return u
@@ -142,7 +142,7 @@ func (g *Gathers) UnionOf(ctx *Context, key string, build func() Union) Union {
 }
 
 // Union returns the union under key if built, else nil.
-func (g *Gathers) Union(key string) Union {
+func (g *Gathers) Union(key string) Regatherer {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.unions[key]
@@ -187,6 +187,6 @@ func Move[K comparable](s CountSet[K], old, cur map[K]bool, name func(K) string,
 }
 
 // unionKeys returns sorted keys of a union map.
-func unionKeys(m map[string]Union) []string {
+func unionKeys(m map[string]Regatherer) []string {
 	return slices.Sorted(maps.Keys(m))
 }

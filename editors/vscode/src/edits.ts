@@ -166,7 +166,7 @@ export function reparentOperations(
 ): ModelEditOperation[] | undefined {
   const node = rendering.nodes.find((candidate) => candidate.id === id);
   const owner = rendering.nodes.find((candidate) => candidate.id === into);
-  if (!node || !owner || owner.fqn === undefined || !moveDestinations(node, rendering).some((destination) => destination.node === owner)) {
+  if (!node || owner?.fqn === undefined || !moveDestinations(node, rendering).some((destination) => destination.node === owner)) {
     return undefined;
   }
   const placed = placementOperations(rendering, nodes, edges);

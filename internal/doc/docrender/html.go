@@ -70,6 +70,7 @@ const (
 	attrName   = "data-name"
 	attrQuery  = "data-query"
 	attrColumn = "data-column"
+	dataObject = "data-object"
 	rowEnd     = "</tr>\n"
 )
 
@@ -828,23 +829,23 @@ func attr(name, value string) string {
 func elementAttrs(value queryexec.Value) string {
 	objectAttrs := ""
 	if inst, _, ok := value.Object(); ok {
-		objectAttrs = attr("data-object", "#"+strconv.FormatInt(inst.ID, 10))
+		objectAttrs = attr(dataObject, "#"+strconv.FormatInt(inst.ID, 10))
 	}
 	if verdict, ok := value.Verdict(); ok {
 		if carrier, held := verdict.Carrier(); held && carrier != nil {
-			objectAttrs = attr("data-object", "#"+strconv.FormatInt(carrier.ID, 10))
+			objectAttrs = attr(dataObject, "#"+strconv.FormatInt(carrier.ID, 10))
 		}
 		objectAttrs += attr("data-verdict", verdict.Status().String()) + attr("data-path", verdict.Path())
 	}
 	if state, ok := value.State(); ok {
 		if inst, _ := state.Object(); inst != nil {
-			objectAttrs = attr("data-object", "#"+strconv.FormatInt(inst.ID, 10))
+			objectAttrs = attr(dataObject, "#"+strconv.FormatInt(inst.ID, 10))
 		}
 		objectAttrs += attr("data-machine", state.Machine()) + attr("data-state", state.Path()) + attr("data-region", state.Region())
 	}
 	if event, ok := value.Event(); ok {
 		if inst, _ := event.Object(); inst != nil {
-			objectAttrs = attr("data-object", "#"+strconv.FormatInt(inst.ID, 10))
+			objectAttrs = attr(dataObject, "#"+strconv.FormatInt(inst.ID, 10))
 		}
 		objectAttrs += attr("data-event-kind", event.Kind()) + attr("data-time", strconv.FormatFloat(event.At(), 'g', -1, 64))
 	}

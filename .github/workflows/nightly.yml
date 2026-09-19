@@ -150,7 +150,7 @@ jobs:
         run: |
           base=$(node -p "require('./editors/vscode/package.json').version")
           expected="${base}-${VERSION}"
-          (cd editors/vscode && npm ci && npm run package -- "$expected" --no-update-package-json)
+          (cd editors/vscode && npm ci --ignore-scripts && npm run package -- "$expected" --no-update-package-json)
           unzip -q -o editors/vscode/opensysml-sysml.vsix extension/package.json -d /tmp/vsix
           stamped=$(node -p "require('/tmp/vsix/extension/package.json').version")
           if [ "$stamped" != "$expected" ]; then
