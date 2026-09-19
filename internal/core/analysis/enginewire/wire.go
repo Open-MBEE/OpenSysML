@@ -6,7 +6,7 @@ package enginewire
 import (
 	"encoding/json"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis/modelform"
 )
 
 // Version is the version of this message set.
@@ -213,10 +213,10 @@ type Budget struct {
 }
 
 // Model is the model in the forms the entry asked for; sources is always present
-// and graphs is the export layer's `graphs:<v>` form, export.Graphs as JSON.
+// and graphs is the `graphs:<v>` form, modelform.Graphs as JSON.
 type Model struct {
-	Sources *export.Sources `json:"sources,omitempty"`
-	Graphs  json.RawMessage `json:"graphs,omitempty"`
+	Sources *modelform.Sources `json:"sources,omitempty"`
+	Graphs  json.RawMessage    `json:"graphs,omitempty"`
 }
 
 // Result is the engine's answer to run: the framework's Result as JSON. Strength is what
