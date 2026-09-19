@@ -20,21 +20,32 @@ import (
 // method, or whose method requires a value the signal lacks, only accepts; unmigratable methods
 // and signals are refused. An object of the block performs every reception from creation and
 // accepts again after each signal, so nothing starts one and a repeated signal runs the method again.
+// A signal arriving at a port of the block is accepted via that port as well as from the object.
 func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 	r := migrateFixtureFile(t, "heater_receptions")
 	for _, line := range []string{
 		"action def SetLevel {",
-		"first start then receive;",
+		"first start then spread;",
+		"fork spread;",
+		"first spread then receive;",
 		"action receive accept setLevel : Signals::SetLevel;",
 		"first receive then run;",
 		"action run : 'Apply Level' { in value = setLevel.value; }",
 		"first run then receive;",
+		"first spread then 'receive via rx';",
+		"action 'receive via rx' accept 'setLevel via rx' : Signals::SetLevel via rx;",
+		"first 'receive via rx' then 'run via rx';",
+		"action 'run via rx' : 'Apply Level' { in value = 'setLevel via rx'.value; }",
+		"first 'run via rx' then 'receive via rx';",
 		"perform action setLevel : SetLevel;",
 		"action def Stop {",
 		"action receive accept stop : Signals::Stop;",
 		"first receive then receive;",
+		"action 'receive via rx' accept 'stop via rx' : Signals::Stop via rx;",
+		"first 'receive via rx' then 'receive via rx';",
 		"perform action stop : Stop;",
 		"action def Reset {",
+		"first start then receive;",
 		"action receive accept reset : Signals::Reset;",
 		"perform action reset : Reset;",
 		"action def Boost {",
@@ -45,16 +56,16 @@ func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	for _, bound := range []string{"in gain =", "in slack =", ": Boosting", "then done;"} {
+	for _, bound := range []string{"in gain =", "in slack =", ": Boosting", "then done;", "via aux"} {
 		if strings.Contains(string(r.Notation), bound) {
-			t.Errorf("%q was written, though no signal attribute supplies the method's parameter:\n%s", bound, r.Notation)
+			t.Errorf("%q was written, though nothing in the fixture calls for it:\n%s", bound, r.Notation)
 		}
 	}
-	wantNote(t, r, "_rcvSet", migrate.Mapped, "written as an action def accepting SetLevel and performing its method Heater::Apply Level, which its owner performs as setLevel from creation, accepting the signal again after each")
+	wantNote(t, r, "_rcvSet", migrate.Mapped, "written as an action def accepting SetLevel and performing its method Heater::Apply Level, which its owner performs as setLevel from creation, accepting the signal again after each; the signal arrives at the port rx over the document's connectors or declarations, so the reception is also written accepting via each; nothing in the document declares or sends a signal to the port aux, so one arriving there is not accepted")
 	wantNote(t, r, "_rpValue", migrate.Mapped, "stands for the signal's attribute value, which the accepted payload carries")
 	wantNote(t, r, "_rpExtra", migrate.Unmapped, "the parameter extra matches no attribute of the signal")
 	wantNote(t, r, "_rcvStop", migrate.Approximated, "the reception has no method, so it only accepts the signal")
-	wantNote(t, r, "_rcvReset", migrate.Approximated, "the method Heater::Resetting has no action def to perform; the reception only accepts the signal")
+	wantNote(t, r, "_rcvReset", migrate.Approximated, "the method Heater::Resetting has no action def to perform; the reception only accepts the signal; nothing in the document declares or sends a signal to the ports rx, aux, so one arriving there is not accepted")
 	wantNote(t, r, "_rcvBoost", migrate.Approximated, "the method Heater::Boosting's parameter amount must hold a value that no attribute of the signal supplies; the reception only accepts the signal")
 	wantNote(t, r, "_rcvAway", migrate.Unmapped, "signal")
 	wantNote(t, r, "_apply", migrate.Mapped, "")
@@ -76,6 +87,15 @@ func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 	h.send(t, "Signals::Stop", nil)
 	if got := len(h.heater.PerformedActionsOf(h.sym("Heater::SetLevel"))); got != 1 {
 		t.Errorf("after three signals the object performs SetLevel %d time(s), want the one it was created with", got)
+	}
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Room")
+	meta(t, s, "%action Thermostat::'Turn Up' #1.t")
+	meta(t, s, "%continue")
+	meta(t, s, "%advance 0")
+	if out := meta(t, s, "%eval in #1 : h.level"); !strings.Contains(out, "= 7.25") {
+		t.Errorf("the heater's reception did not run its method on the signal sent through the room's connector:\n%s", out)
 	}
 }
 

@@ -698,8 +698,8 @@ func (m *migration) reported(e *sysmlv1.Element) bool {
 	return ok
 }
 
-// reception writes a reception as an action def of its owner that accepts the
-// signal, performs the method and accepts again, performed by every object from creation.
+// reception writes a reception as an action def of its owner that accepts the signal, from the
+// object and via each port it arrives at, performs the method and accepts again, performed from creation.
 func (m *migration) reception(r *sysmlv1.Element) {
 	sig := m.model.Ref(r, "signal")
 	if sig == nil || !m.written(sig) {
@@ -709,49 +709,79 @@ func (m *migration) reception(r *sysmlv1.Element) {
 	owner := r.Parent
 	name := m.nameFor(r)
 	usage := m.freshName(owner, lowerFirst(name))
-	used := map[string]bool{"start": true, "done": true}
-	trig := freshIn(used, "receive")
-	payload := freshIn(used, lowerFirst(m.nameFor(sig)))
-	run := freshIn(used, "run")
+	ports, info := m.arrivalRoutes(owner, sig, "reception")
 	method := m.model.Ref(r, "method")
-	note, performed := "", false
+	route := receptionRoute{owner: owner, sig: sig, method: method, used: map[string]bool{"start": true, "done": true}}
 	m.w.block("action def "+writeName(name), func() {
-		m.w.line("first start then " + trig + ";")
-		m.w.line("action " + trig + " accept " + payload + " : " + m.ref(sig, owner) + ";")
-		last := trig
-		switch {
-		case method == nil:
-			if len(m.model.Unresolved(r, "method")) > 0 {
-				note = "the method refers to nothing in the document; the reception only accepts the signal"
-			} else {
-				note = "the reception has no method, so it only accepts the signal"
-			}
-		case !m.written(method) || !hasActionForm(method):
-			note = "the method " + qualifiedName(method) + " has no action def to perform; the reception only accepts the signal"
-		default:
-			args, refusal := m.receptionArguments(method, sig, payload)
-			if refusal != "" {
-				note = refusal + "; the reception only accepts the signal"
-				break
-			}
-			last, performed = run, true
-			m.w.line("first " + trig + " then " + run + ";")
-			decl := "action " + run + " : " + m.ref(method, owner)
-			if len(args) == 0 {
-				m.w.line(decl + ";")
-			} else {
-				m.w.line(decl + " { in " + strings.Join(args, "; in ") + "; }")
-			}
+		from := "start"
+		if len(ports) > 0 {
+			from = freshIn(route.used, "spread")
+			m.w.line("first start then " + from + ";")
+			m.w.line("fork " + from + ";")
 		}
-		m.w.line("first " + last + " then " + trig + ";")
+		m.receptionLoop(r, &route, from, nil)
+		for _, p := range ports {
+			m.receptionLoop(r, &route, from, p)
+		}
 	})
 	m.w.line("perform action " + writeName(usage) + " : " + writeName(name) + ";")
 	m.receptionParameters(r, sig)
 	desc := "written as an action def accepting " + m.nameFor(sig)
-	if performed {
+	if route.performed {
 		desc += " and performing its method " + qualifiedName(method)
 	}
-	m.add(r, verdictFor(note), m.v2Name(r), joinNotes(desc+", which its owner performs as "+usage+" from creation, accepting the signal again after each", note))
+	m.add(r, verdictFor(route.note), m.v2Name(r), joinNotes(joinNotes(desc+", which its owner performs as "+usage+" from creation, accepting the signal again after each", route.note), info))
+}
+
+// receptionRoute is what every accept loop of one reception shares: the signal and method
+// written, the names taken in the action def, and whether the method is performed.
+type receptionRoute struct {
+	owner, sig, method *sysmlv1.Element
+	used               map[string]bool
+	note               string
+	performed          bool
+}
+
+// receptionLoop writes one accept loop of reception r reached from node from: an accept of the
+// signal from the object, or via port when given, the method performed when it can be, and the return.
+func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, from string, port *sysmlv1.Element) {
+	suffix, via := "", ""
+	if port != nil {
+		suffix = " via " + m.nameFor(port)
+		via = " via " + writeName(m.nameFor(port))
+	}
+	trig := writeName(freshIn(route.used, "receive"+suffix))
+	payload := writeName(freshIn(route.used, lowerFirst(m.nameFor(route.sig))+suffix))
+	m.w.line("first " + from + " then " + trig + ";")
+	m.w.line("action " + trig + " accept " + payload + " : " + m.ref(route.sig, route.owner) + via + ";")
+	last := trig
+	method := route.method
+	switch {
+	case method == nil:
+		if len(m.model.Unresolved(r, "method")) > 0 {
+			route.note = "the method refers to nothing in the document; the reception only accepts the signal"
+		} else {
+			route.note = "the reception has no method, so it only accepts the signal"
+		}
+	case !m.written(method) || !hasActionForm(method):
+		route.note = "the method " + qualifiedName(method) + " has no action def to perform; the reception only accepts the signal"
+	default:
+		args, refusal := m.receptionArguments(method, route.sig, payload)
+		if refusal != "" {
+			route.note = refusal + "; the reception only accepts the signal"
+			break
+		}
+		run := writeName(freshIn(route.used, "run"+suffix))
+		last, route.performed = run, true
+		m.w.line("first " + trig + " then " + run + ";")
+		decl := "action " + run + " : " + m.ref(method, route.owner)
+		if len(args) == 0 {
+			m.w.line(decl + ";")
+		} else {
+			m.w.line(decl + " { in " + strings.Join(args, "; in ") + "; }")
+		}
+	}
+	m.w.line("first " + last + " then " + trig + ";")
 }
 
 // receptionComment writes a reception whose signal has no v2 declaration as a

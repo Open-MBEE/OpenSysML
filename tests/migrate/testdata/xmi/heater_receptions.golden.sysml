@@ -8,18 +8,32 @@ package Signals {
 }
 part def Heater {
     attribute level : ScalarValues::Real default = 0.0;
+    port rx;
+    port aux;
     action def SetLevel {
-        first start then receive;
+        first start then spread;
+        fork spread;
+        first spread then receive;
         action receive accept setLevel : Signals::SetLevel;
         first receive then run;
         action run : 'Apply Level' { in value = setLevel.value; }
         first run then receive;
+        first spread then 'receive via rx';
+        action 'receive via rx' accept 'setLevel via rx' : Signals::SetLevel via rx;
+        first 'receive via rx' then 'run via rx';
+        action 'run via rx' : 'Apply Level' { in value = 'setLevel via rx'.value; }
+        first 'run via rx' then 'receive via rx';
     }
     perform action setLevel : SetLevel;
     action def Stop {
-        first start then receive;
+        first start then spread;
+        fork spread;
+        first spread then receive;
         action receive accept stop : Signals::Stop;
         first receive then receive;
+        first spread then 'receive via rx';
+        action 'receive via rx' accept 'stop via rx' : Signals::Stop via rx;
+        first 'receive via rx' then 'receive via rx';
     }
     perform action stop : Stop;
     action def Reset {
@@ -59,4 +73,30 @@ part def Heater {
         /* the region has no initial pseudostate: nothing enters it */
         state Idle;
     }
+}
+part def Thermostat {
+    port tx;
+    action def 'Turn Up' {
+        first start then seven;
+        action seven {
+            out result = 7.25;
+        }
+        first seven then 'send level';
+        action 'send level' {
+            in value;
+            send new Signals::SetLevel(value) via this.tx;
+        }
+        first 'send level' then 'send stop';
+        action 'send stop' {
+            send new Signals::Stop() via this.tx;
+        }
+        first 'send stop' then final;
+        action final terminate;
+        flow seven.result to 'send level'.value;
+    }
+}
+part def Room {
+    part t : Thermostat;
+    part h : Heater;
+    connect t.tx to h.rx;
 }

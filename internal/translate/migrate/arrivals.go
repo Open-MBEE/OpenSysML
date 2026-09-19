@@ -358,13 +358,7 @@ func (m *migration) portRoutes(tr, c, sig *sysmlv1.Element) (ports []*sysmlv1.El
 		if c == nil {
 			return nil, true, "", ""
 		}
-		ports = m.arrivalPorts(c, sig)
-		if len(ports) > 0 {
-			info = "the signal arrives at the " + m.portNames(ports) + " over the document's connectors or declarations, so the trigger is also written accepting via each"
-		}
-		if open := m.openPorts(c, sig); len(open) > 0 {
-			info = joinNotes(info, "nothing in the document declares or sends a signal to the "+m.portNames(open)+", so one arriving there is not accepted")
-		}
+		ports, info = m.arrivalRoutes(c, sig, "trigger")
 		return ports, true, info, ""
 	}
 	var dropped []string
@@ -383,6 +377,19 @@ func (m *migration) portRoutes(tr, c, sig *sysmlv1.Element) (ports []*sysmlv1.El
 		return nil, true, "", joinNotes(note, "the signal is accepted from the object itself instead")
 	}
 	return ports, false, "the trigger accepts via the " + m.portNames(ports) + " it names", note
+}
+
+// arrivalRoutes lists the ports of block c the signal arrives at, which an acceptor of
+// kind what also accepts via; info says so and names the ports nothing is known to reach.
+func (m *migration) arrivalRoutes(c, sig *sysmlv1.Element, what string) (ports []*sysmlv1.Element, info string) {
+	ports = m.arrivalPorts(c, sig)
+	if len(ports) > 0 {
+		info = "the signal arrives at the " + m.portNames(ports) + " over the document's connectors or declarations, so the " + what + " is also written accepting via each"
+	}
+	if open := m.openPorts(c, sig); len(open) > 0 {
+		info = joinNotes(info, "nothing in the document declares or sends a signal to the "+m.portNames(open)+", so one arriving there is not accepted")
+	}
+	return ports, info
 }
 
 // actionRoute picks the one route an accept action of b takes: the named port, the sole

@@ -18,7 +18,8 @@
   an `action def` of the block that accepts its signal, runs its method with the signal's
   attributes bound to the method's parameters of the same name and accepts again, performed by
   every object of the block from creation, so a signal sent to the object at any time runs the
-  method against the object; where the method requires a value no attribute supplies,
+  method against the object; where the signal arrives at ports of the block, the accept is forked
+  into one loop per port, `accept … via <port>`, beside the one from the object; where the method requires a value no attribute supplies,
   the reception only accepts the signal and says so. State machines gain transitions across regions and
   nesting levels named by path, `junction`/`choice`/`fork`/`join`/`history`/`deep history`
   pseudostates, entry and exit points of a submachine as states of its `state def` addressed
