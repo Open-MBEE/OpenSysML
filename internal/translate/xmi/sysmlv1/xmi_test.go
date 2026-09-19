@@ -248,22 +248,22 @@ func TestParseBareModelRoot(t *testing.T) {
 	}
 }
 
-// A tool profile serialized under a schema namespace ending in ".xmi" is a
-// stereotype application, not XMI bookkeeping to skip.
-func TestStereotypeUnderSchemaNamespace(t *testing.T) {
+// A profile whose namespace merely ends in ".xmi" (MagicDraw's SimulationProfile.xmi)
+// applies stereotypes; it is not XMI metadata.
+func TestProfileNamespaceEndingInXMIIsAStereotype(t *testing.T) {
 	src := `<?xml version="1.0"?>
-<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20131001" xmlns:SimulationProfile="http://www.magicdraw.com/schemas/SimulationProfile.xmi">
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20131001" xmlns:Sim="http://www.magicdraw.com/schemas/SimulationProfile.xmi">
   <uml:Model xmi:id="m" name="M">
-    <packagedElement xmi:type="uml:Class" xmi:id="c" name="Config"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="c" name="C"/>
   </uml:Model>
-  <SimulationProfile:SimulationConfig xmi:id="s" base_Class="c" timeVariableName="simtime"/>
+  <Sim:SimulationConfig xmi:id="s" base_Class="c" numberOfRuns="5"/>
 </xmi:XMI>`
 	m, err := Parse([]byte(src))
 	if err != nil {
 		t.Fatal(err)
 	}
 	s := m.Lookup("c").Stereotype("SimulationConfig")
-	if s == nil || s.Tag("timeVariableName") != "simtime" || !strings.HasSuffix(s.Namespace, "SimulationProfile.xmi") {
+	if s == nil || s.Tag("numberOfRuns") != "5" || s.ID != "s" || !strings.HasSuffix(s.Namespace, "SimulationProfile.xmi") {
 		t.Fatalf("SimulationConfig = %+v", s)
 	}
 }

@@ -448,7 +448,7 @@ func (c *checker) violate(v Violation) {
 
 // witness is the schedule so far: the choices the run noted and its trace.
 func (c *checker) witness() Witness {
-	w := Witness{Draws: c.ctx.DrawsTaken(), Choices: c.ctx.ChoicesTaken()}
+	w := Witness{DrawPolicy: c.ctx.DrawPolicyTaken(), Draws: c.ctx.DrawsTaken(), Choices: c.ctx.ChoicesTaken()}
 	w.Objects = c.ctx.objectsNamed(w.Choices)
 	if tr := c.ctx.Trace(); tr != nil {
 		w.Trace = tr.String()

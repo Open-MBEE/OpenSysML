@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: plant.xmi
-# migrated 62 element(s): 56 mapped, 6 approximated, 0 unmapped (0 skipped as profile or library content)
+# migrated 62 element(s): 56 mapped, 6 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## approximated (6)
 ControlFlow	Plant::Fill::<ControlFlow>	_f3a	(the guard [{JavaScript} on] is kept as a comment and the edge written unguarded: the name "on" resolves to nothing readable: nothing visible from Plant::Fill::<ControlFlow> is called on; its source 'torn' is in the partitions 'Tank' (this.tank) and 'Pump' (this.pump), which represent different objects, so names resolve through no partition)

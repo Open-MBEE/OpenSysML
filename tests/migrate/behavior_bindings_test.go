@@ -12,7 +12,8 @@ import (
 // a submachine state with entry and exit behaviors, a signal-triggered
 // transition whose effect takes the signal through a parameter named unlike
 // the signal beside one the signal cannot fill, and one whose effect takes it
-// through an untyped parameter.
+// through an untyped parameter. The submachine's state runs a do activity whose
+// parameter feeds a call, which a state passes no value to.
 const sensorMachine = `
     <packagedElement xmi:type="uml:Signal" xmi:id="_reading" name="Reading">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_rval" name="value">
@@ -78,9 +79,29 @@ const sensorMachine = `
       <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_cooling" name="Cooling">
         <region xmi:type="uml:Region" xmi:id="_r1">
           <subvertex xmi:type="uml:Pseudostate" xmi:id="_init1"/>
-          <subvertex xmi:type="uml:State" xmi:id="_fan" name="Fan"/>
+          <subvertex xmi:type="uml:State" xmi:id="_fan" name="Fan">
+            <doActivity xmi:type="uml:Activity" xmi:id="_spin" name="Spin">
+              <ownedParameter xmi:type="uml:Parameter" xmi:id="_speed" name="speed" direction="in">
+                <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+              </ownedParameter>
+              <node xmi:type="uml:ActivityParameterNode" xmi:id="_speedN" name="speed" parameter="_speed"/>
+              <node xmi:type="uml:InitialNode" xmi:id="_spinI"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_take" name="take" behavior="_sample">
+                <argument xmi:type="uml:InputPin" xmi:id="_takeIn" name="v"/>
+              </node>
+              <node xmi:type="uml:ActivityFinalNode" xmi:id="_spinF"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_spinE1" source="_spinI" target="_take"/>
+              <edge xmi:type="uml:ObjectFlow" xmi:id="_spinE2" source="_speedN" target="_takeIn"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_spinE3" source="_take" target="_spinF"/>
+            </doActivity>
+          </subvertex>
           <transition xmi:type="uml:Transition" xmi:id="_t1i" source="_init1" target="_fan"/>
         </region>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_sample" name="Sample">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_sampleV" name="v" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
       </ownedBehavior>
     </packagedElement>`
 
@@ -94,7 +115,9 @@ const sensorApplications = `
 // its type, a state with only an invariant keeps it as a comment, and an
 // initial transition's dropped trigger and guard each get a report entry. The
 // result runs: the effect reads the signal's value, the submachine state's
-// entry and exit actions count, and the machine completes.
+// entry and exit actions count, and the machine completes. A do activity's call
+// fed only by a parameter the state passes no value to never fires, so no
+// succession reaches it and the do activity completes instead of failing.
 func TestTransitionEffectsTakeTheAcceptedSignal(t *testing.T) {
 	r := migrateDocument(t, sensorMachine, sensorApplications)
 	for _, line := range []string{
@@ -114,8 +137,14 @@ func TestTransitionEffectsTakeTheAcceptedSignal(t *testing.T) {
 		"in reading = reading2;",
 		"assign this.count := this.count + 1;",
 		"then done;",
+		"do action Spin {",
+		"in speed : ScalarValues::Real;",
+		"action take : Sample;",
 	} {
 		wantLine(t, r.Notation, line)
+	}
+	if strings.Contains(string(r.Notation), "then take;") || strings.Contains(string(r.Notation), "first take then") {
+		t.Errorf("a succession reaches or leaves the call whose input takes no value:\n%s", r.Notation)
 	}
 	if strings.Contains(string(r.Notation), "state Idle;") || strings.Contains(string(r.Notation), "state Cool : Cooling;") {
 		t.Errorf("a state lost its invariant or its actions:\n%s", r.Notation)
@@ -132,6 +161,16 @@ func TestTransitionEffectsTakeTheAcceptedSignal(t *testing.T) {
 	wantNote(t, r, "_p1", migrate.Mapped, "bound to reading, the signal the transition accepts")
 	wantNote(t, r, "_p2", migrate.Approximated, "the parameter takes no value: the transition passes only the accepted Reading, which is no Integer")
 	wantNote(t, r, "_p3", migrate.Mapped, "bound to reading2, the signal the transition accepts")
+	wantNote(t, r, "_speed", migrate.Approximated, "the parameter takes no value: a state performs its do action with no arguments; the signal the transitions into the state accept would value them, but the transition from the initial pseudostate (_init1) enters the state with no signal of its own")
+	wantNote(t, r, "_spinE1", migrate.Unmapped, "the edge leads to 'take', which never fires: no value reaches its input pin 'v'")
+	wantNote(t, r, "_spinE3", migrate.Unmapped, "the edge leaves 'take', which never fires, so no token travels it")
+	starved := false
+	for _, e := range entriesFor(r, "_take") {
+		starved = starved || e.Verdict == migrate.Approximated && strings.Contains(e.Note, "the action never fires: its input pin 'v' must hold a value, but only parameters taking no value flow into it")
+	}
+	if !starved {
+		t.Errorf("entries for _take = %+v, want one noting the call never fires", entriesFor(r, "_take"))
+	}
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Sensor")

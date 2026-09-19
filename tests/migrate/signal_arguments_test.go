@@ -119,7 +119,7 @@ func TestSignalArgumentsIncludeInheritedAttributes(t *testing.T) {
 	if strings.Contains(string(r.Notation), "send new DetailedAlarm(level);") || strings.Contains(string(r.Notation), "send new LoudAlarm();") {
 		t.Errorf("an argument for an inherited or redefined attribute was dropped:\n%s", r.Notation)
 	}
-	wantNote(t, r, "_mA", migrate.Mapped, "written as a send to the part q")
+	wantNote(t, r, "_mA", migrate.Mapped, "written as a send to this.q")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Panel")

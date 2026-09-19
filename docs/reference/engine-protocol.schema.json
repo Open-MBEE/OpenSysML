@@ -263,6 +263,7 @@
         "subjectKind": { "description": "The subject's declaration kind as a manifest's subjects spells it; absent when the model does not declare the subject once.", "type": "string" },
         "schedule": { "description": "The scheduling policy as -schedule spells it.", "type": "string" },
         "modelSeed": { "description": "The seed the runs' modeled draws (weighted decisions, RandomFunctions) come from, apart from the schedule's; absent leaves them to a seed:<n> schedule.", "type": "integer", "minimum": 0 },
+        "draws": { "description": "The policy the runs' RandomFunctions draws resolve under, as -draws spells it: min, max or average of each call's distribution; absent draws at random from the seed.", "enum": ["min", "max", "average"] },
         "free": { "type": "array", "items": { "enum": ["schedule", "inputs"] } },
         "condition": { "$ref": "#/$defs/condition" },
         "conditions": { "type": "array", "items": { "$ref": "#/$defs/conditionSet" } },

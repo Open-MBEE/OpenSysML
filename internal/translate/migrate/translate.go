@@ -380,9 +380,9 @@ func (m *migration) clockNames() map[string]string {
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		for _, s := range e.Stereotypes {
-			if isSimulationProfile(s) {
+			if isSimulationProfile(s.Namespace) {
 				profiled = true
-				if s.Name == "SimulationConfig" {
+				if isSimulationConfig(s) {
 					configs = append(configs, e)
 				}
 			}
@@ -398,7 +398,7 @@ func (m *migration) clockNames() map[string]string {
 	namers := map[string][]*sysmlv1.Element{}
 	for _, e := range configs {
 		for _, s := range e.Stereotypes {
-			if !isSimulationProfile(s) || s.Name != "SimulationConfig" {
+			if !isSimulationConfig(s) {
 				continue
 			}
 			name := strings.TrimSpace(s.Tag("timeVariableName"))
@@ -421,10 +421,4 @@ func (m *migration) clockNames() map[string]string {
 		m.clocks[defaultClockName] = "the simulation profile's default name"
 	}
 	return m.clocks
-}
-
-// isSimulationProfile reports whether s comes from the simulation toolkit's
-// profile, told by the namespace it was serialized under.
-func isSimulationProfile(s *sysmlv1.Stereotype) bool {
-	return strings.Contains(strings.ToLower(s.Namespace), "simulationprofile")
 }

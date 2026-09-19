@@ -987,8 +987,16 @@ enforces, each violation a typed error before anything runs:
 - each `p` lies in `0.0..1.0`;
 - where every `p` out of one decision is a constant — a literal or arithmetic over literals,
   `1.0 - 0.3` as much as `0.7` — they sum to `1.0` within `1e-6`; a `p` that is an expression
-  over the action's features is evaluated when the decision is reached and refused then, as an
-  `invalid branch weights` error, if it is no probability;
+  over the action's features is evaluated when the decision is reached and refused then, as a
+  typed `invalid branch weights` error naming the decision and the branch, if it is no number,
+  no finite one, or one outside `0.0..1.0`, or if the holding weights sum to nothing positive;
+- a `p` that names a feature is typed where the annotation is written: the feature's type must
+  be `Real` or `Integer`, so `p = ready` over a `Boolean`, a `String`, an enumeration or a part is
+  a type error before anything runs, while `p = pFast` over a `Real` attribute of the action, of
+  the object performing it (`this` chain) or of an `in` parameter is a weight the run reads
+  when the decision is reached — so one object's attributes weight the decisions of the
+  behaviors it performs, and two objects of the same type with different attribute values take
+  different odds;
 - a `Probability` with no `p`, two, an attribute it does not declare, or a `p` that is not a
   number is refused naming what is wrong, and one written on an action body instead of a
   succession is refused rather than ignored.
@@ -1020,12 +1028,43 @@ the function's typing. A random `accept after` is evaluated once, when the wait 
 the instant it is due at stands while the token waits: the duration is not redrawn as the clock
 is polled.
 
+### Draw policies: `min`, `max`, `average` and `random`
+
+How a `RandomFunctions` call resolves is a setting of the run, not of the model: `-draws
+<policy>` at the command line and `%draws <policy>` at the prompt. `random`, the default,
+draws each call from the model seed. `min`, `max` and `average` resolve each call to the least,
+greatest or mean value of its distribution instead, so a duration written `uniform(1, 80) [s]`
+is `1 [s]`, `80 [s]` or `40.5 [s]`:
+
+| Function | `min` | `max` | `average` |
+|---|---|---|---|
+| `uniform(lo, hi)` | `lo` | `hi` | `(lo + hi) / 2` |
+| `uniformInteger(lo, hi)` | `lo` | `hi` | the midpoint, a half rounded toward `hi` |
+| `triangular(lo, mode, hi)` | `lo` | `hi` | `(lo + mode + hi) / 3` |
+| `normal(mean, sd)` | refused | refused | `mean` |
+
+A run whose only randomness is its durations is therefore deterministic under a fixed policy
+and needs no seed: `-runs 20 -draws max` runs the action twenty times and every row is the same,
+which is how a workflow's longest and shortest paths are read off. `normal` has no least or
+greatest value, so a run that calls it under `min` or `max` stops with a typed error naming the
+call and the policy; its `average` is its mean. Weighted decisions are not durations: they draw
+from the seed under every policy — `-draws max -seed 7` fixes the durations and randomizes the
+branches — and an unseeded one takes its most probable branch as it does under `random`. The
+policy applies to the debugger's session as well, so `%draws max` before `%action` steps through
+the longest durations. Every witness the checker writes records a fixed policy as a `draws by
+<policy>` line ahead of its draws, and `replay:<file>` runs under the recorded policy, refusing
+a recorded draw the policy could not have made (a witness that names a fixed policy and
+records no draw leaves them to the policy). A simulation tool's *duration simulation mode*
+is this knob; see [Behaviors migrated from SysML v1](#behaviors-migrated-from-sysml-v1).
+
 ### Seeds: where the draws come from
 
 A run that reaches a weighted decision or a `RandomFunctions` call needs a *model seed*. Given
 none, it is refused — `modeled randomness needs a seed: uniform(0.0, 10.0) draws a random value;
 seed the run, as -seed <n> or %seed <n>, or schedule it under seed:<n>` — rather than drawing an
-unrepeatable value that a later run could not reproduce. The model seed comes from the first of:
+unrepeatable value that a later run could not reproduce — unless the run is under a fixed
+[draw policy](#draw-policies-min-max-average-and-random), whose calls draw nothing. The model
+seed comes from the first of:
 
 1. the witness a `replay:<file>` follows, whose recorded draws the run consumes (below);
 2. an explicit model seed — the CLI's `-seed <n>`, the REPL's `%seed <n>`, a conformance
@@ -1092,9 +1131,14 @@ own derived from `<seed>` and the run number — so run 3 of seed 7 is the same 
 platform, and can be repeated alone with `%seed <its seed>` — and table what each run's named
 features, and `clock`, the simulation time it completed at, came to. Without observables every
 feature the action holds and the clock are tabled; `clock` names the clock only, so a feature of
-that name is not reported. A feature a run left without a value (an `attribute t : Real [0..1];`
-no statement of that run assigned) is a blank cell of its row, outside the summary, and an
-observable no completed run gave a value is refused. Below the table each numeric observable is
+that name is not reported; a part or item the action holds exactly one of is tabled through its
+attributes (`target.total`), so an action that performs a behavior on an object it declares
+reports what the object came to. A feature a run left without a value (an `attribute t : Real
+[0..1];` no statement of that run assigned) is a blank cell of its row, outside the summary, and
+an observable no completed run gave a value is refused. Under `%draws min`, `max` or `average`
+the seed is left out (`%runs 20 Sys::align clock`, `-runs 20 -draws max`), since the runs draw
+nothing at random; under `random` a seedless `%runs` is refused naming the seed and `%draws`.
+Below the table each numeric observable is
 summarised over the runs that completed: the minimum, mean and maximum, the nearest-rank p50
 and p90, and a histogram; a non-numeric observable is counted by value.
 
@@ -1143,6 +1187,10 @@ second knob here too: every run resolves its concurrency choices under `-schedul
 - **Monte Carlo runs are a REPL and CLI operation.** `%runs` and `-runs` run an action
   repeatedly; the `RunSweep` RPC and the service clients take ranges and samples but no run
   count, and an external engine put a Monte Carlo answers with a claim, not the table of runs.
+- **A draw policy resolves `RandomFunctions` only.** `min`, `max` and `average` fix the
+  durations and values the four functions return; a weighted decision draws from the seed under
+  every policy, and `normal` has no `min` or `max` unless its deviation is zero. Exploration and the checker enumerate a
+  weighted decision's branches whatever the policy.
 
 ### Behaviors migrated from SysML v1
 
@@ -1154,17 +1202,40 @@ v1 idioms land on the machinery above:
 - A **`DurationConstraint`** on a call action (`[1s..80s]`) becomes a wait the token takes
   before it — `accept after 3.0 [SI::s]` for a point interval, `accept after
   RandomFunctions::uniform(1.0, 80.0) [SI::s]` for a proper one — so a workflow's duration is a
-  draw from the model seed, as under a v1 tool's random duration mode. The tool's `min` and
-  `max` modes are settings of its run configuration, not of the model, and are not migrated.
+  draw from the model seed, as under a v1 tool's random duration mode. The tool's `min`, `max`
+  and `average` modes are the [draw policy](#draw-policies-min-max-average-and-random) of the
+  run, `-draws`/`%draws`, which each migrated run configuration records.
 - **«Probability»** on the edges out of a decision becomes `@Stochastic::Probability { p = … }`
-  on each succession, when every edge carries one; a decision whose guards are opaque English
-  (`[Align BTO]`) is written unguarded, and the runtime draws its branch with the model seed.
+  on each succession, when every edge carries one: a constant for a numeric tag, and for a tag
+  naming a property of the activity or of its context block — a v1 analysis block whose
+  `ProbabilityBTOOP : Real` the run configurations set to `1.0` or `0.0` — a reference to the
+  migrated attribute (`p = ProbabilityBTOOP;`, `p = 1.0 - ProbabilityBTOOP;`), read when the
+  decision is reached from the object the behavior runs on. A decision whose guards are opaque
+  English (`[Align BTO]`) is written unguarded, and the runtime draws its branch with the model
+  seed.
+- A **run configuration** (`SimulationProfile:SimulationConfig`) becomes an `action def` that
+  declares `part target : <the migrated execution target>` — the `individual def` the target
+  instance became, whose slots are its attribute values — and `perform action run ::>
+  target.<the classifier behavior>`, with the tool's `numberOfRuns` and
+  `durationSimulationMode` as `@Simulation::Configuration { runs = …; draws = …; }` metadata; so
+  running the configuration runs the behavior on an object holding that configuration's
+  property values, its probabilities included. See
+  [Run configurations](../reference/sysml-v1-migration.md#run-configurations).
 
 The workflow's total duration is the clock at the end of the run, which `%runs` reports when no
 observable is named:
 
 ```text
 %runs 100 1 Model::Mission::'Acquire Target'::'Acquire Target - Logical'
+```
+
+A migrated configuration is run by its generated name with the count and policy it records, and
+`-compare-results` sets its runs beside the snapshots the tool stored of its own
+([Comparing a migrated configuration with the tool's results](../reference/cli.md#comparing-a-migrated-configuration-with-the-tools-results)):
+
+```bash
+sysml tmt.sysml -action "Flows::'Acq Time Group0'" -runs 6 -seed 1 -draws random -observe clock
+sysml tmt.sysml -compare-results tmt.results.json -seed 1 -observe Time_Acq_Total=clock
 ```
 
 A v1 opaque action that reads the tool's time variable (`Time_Acq_Total = simtime`) reads

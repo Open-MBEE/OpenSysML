@@ -378,27 +378,27 @@ func (m *migration) laneFeature(l *lane, n string) *sysmlv1.Element {
 // the behavior a call behavior action n calls: the object n's swimlane represents,
 // when it is of the classifier owning the behavior and not the context itself;
 // else "", with why when the lane's object could have performed it but is a collection.
-func (m *migration) lanePerformer(n *sysmlv1.Element) (obj string, b *sysmlv1.Element, why string) {
+func (m *migration) lanePerformer(n *sysmlv1.Element) (performer *lane, b *sysmlv1.Element, why string) {
 	b = m.model.Ref(n, "behavior")
 	if b == nil || m.methodOf[b] != nil || !m.written(b) {
-		return "", nil, ""
+		return nil, nil, ""
 	}
 	if cat, _ := m.classify(b); cat != catActionDef {
-		return "", nil, ""
+		return nil, nil, ""
 	}
 	l, _ := m.laneAt(n)
 	if l == nil || l.expr == "" || l.expr == "this" || l.typ == nil {
-		return "", nil, ""
+		return nil, nil, ""
 	}
 	owner := classifierOf(b)
 	if owner == nil || (l.typ != owner && !m.inherits(l.typ, owner)) {
-		return "", nil, ""
+		return nil, nil, ""
 	}
 	if l.plural {
-		return "", nil, "its swimlane represents " + l.expr + ", a collection of objects, so none of them performs the call, which runs in the caller's context"
+		return nil, nil, "its swimlane represents " + l.expr + ", a collection of objects, so none of them performs the call, which runs in the caller's context"
 	}
 	m.useLane(n, l)
-	return l.expr, b, ""
+	return l, b, ""
 }
 
 // behaviorUsage names the action usage that makes an activity a feature of the

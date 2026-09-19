@@ -833,7 +833,8 @@ func (ctx *Context) addressOwner(scope *symbols.Scope, self *Instance, segments 
 
 // namesFeature reports whether a feature value of the sending object is what a name in
 // the send's scope denotes: a nearer declaration, such as a node of the sending
-// behavior, shadows the object's feature as name resolution has it.
+// behavior, shadows the object's feature as name resolution has it. A redefined
+// name reads the redefining feature's value, so it is what the name denotes too.
 func (ctx *Context) namesFeature(scope *symbols.Scope, self *Instance, fv *FeatureValue, name string) bool {
 	sym, ok := ctx.pathSymbol(scope, []string{name})
 	if !ok || (fv.Feature != nil && fv.Feature.Symbol == sym) {
@@ -842,6 +843,13 @@ func (ctx *Context) namesFeature(scope *symbols.Scope, self *Instance, fv *Featu
 	for _, of := range ctx.FeaturesOfObject(self) {
 		if of.Feature.Symbol == sym {
 			return true
+		}
+	}
+	for _, typ := range self.types() {
+		for _, feat := range ctx.FeaturesOf(typ) {
+			if feat.Name == name && feat.Symbol == sym {
+				return true
+			}
 		}
 	}
 	return false
@@ -986,13 +994,18 @@ func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Co
 }
 
 // postFor posts a message as its send addressed it: to the objects a target
-// bound in ec holds, else as post routes it.
+// bound in ec holds, else as post routes it — from the object a via path through
+// a feature bound in ec leads to, where it does.
 func (ctx *Context) postFor(ec *EvalContext, conns []lower.Connection, msg Message, s lower.Send, self *Instance, behavior *symbols.Symbol) error {
 	if addrs, bound, err := ec.boundTargetAddresses(s); bound {
 		if err != nil {
 			return err
 		}
 		return ctx.postAt(msg, addrs, self, behavior)
+	}
+	s, self, err := ec.viaSender(s, self)
+	if err != nil {
+		return err
 	}
 	return ctx.post(conns, msg, s, self, behavior)
 }

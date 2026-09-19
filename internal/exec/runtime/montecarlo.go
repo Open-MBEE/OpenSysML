@@ -40,6 +40,12 @@ func MonteCarloPlan(runs int64, seed uint64) SweepPlan {
 	return SweepPlan{Runs: runs, Seed: seed, MonteCarlo: true}
 }
 
+// SeedlessMonteCarloPlan is the plan of runs runs seeded from nothing: a fixed draw
+// policy resolves every RandomFunctions call, and a weighted decision is an unseeded draw.
+func SeedlessMonteCarloPlan(runs int64) SweepPlan {
+	return SweepPlan{Runs: runs, MonteCarlo: true, Seedless: true}
+}
+
 // runBindings is one row per run, binding RunParam to the run's number from 1;
 // the run's seed is RunSeed of the plan's, which the run derives when it starts.
 func (ctx *Context) runBindings(plan SweepPlan, limit int64) ([][]SweepBinding, error) {

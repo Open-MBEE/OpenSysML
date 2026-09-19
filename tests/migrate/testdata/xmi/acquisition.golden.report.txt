@@ -1,9 +1,7 @@
 # SysML v1 to v2 migration report: acquisition.xmi
-# migrated 60 element(s): 50 mapped, 3 approximated, 7 unmapped (0 skipped as profile or library content)
+# migrated 58 element(s): 50 mapped, 3 approximated, 5 unmapped (0 skipped as profile, library or notation-only content, 2 as model elements nothing refers to)
 
-## unmapped (7)
-TimeEvent	<TimeEvent>	_te1	(no trigger refers to the event; the time event's time is not written: the duration "ditSetup s" is neither a number with a time unit nor an expression: names ditSetup, which nothing visible from Model is called)
-TimeEvent	<TimeEvent>	_te2	(no trigger refers to the event; the time event's time is not written: the duration "ditSetup s" is neither a number with a time unit nor an expression: names ditSetup, which nothing visible from Model is called)
+## unmapped (5)
 DurationObservation	Observatory::Acquire::Time_Astray	_astray	(the observation's event 'tcs' is not a node of the activity, so no elapsed clock can be read between its nodes)
 DurationObservation	Observatory::Acquire::Time_Blank	_blank	(the observation observes no event, so there is nothing to measure between)
 DurationObservation	Observatory::Acquire::Time_Ended	_ended	(the observation reads the clock at the end of (_ff), which is no action and so has no end of its own)
@@ -11,8 +9,8 @@ DurationObservation	Observatory::Acquire::Time_Kickoff	_kickoff	(the observation
 DurationObservation	Observatory::Acquire::Time_Lost	_dangle	(the observation's events resolve to nothing: 1 event reference(s) resolve to nothing in the document (_missing))
 
 ## approximated (3)
-«SimulationConfig» Class	Group 0	_config	-> 'Group 0'	(a plain UML class without «Block» is written as a part def)
-«SimulationConfig» Class	Group 1	_config1	-> 'Group 1'	(a plain UML class without «Block» is written as a part def)
+«SimulationConfig» Class	Group 0	_config	-> 'Group 0'	(the configuration names no execution target, so it runs no behavior)
+«SimulationConfig» Class	Group 1	_config1	-> 'Group 1'	(the configuration names no execution target, so it runs no behavior)
 DurationConstraint	Observatory::Acquire::settle	_dc	-> Observatory::Acquire	(the duration "ditSetup s" is read as the expression this.tcs.ditSetup, in seconds; the duration "ditSetup s" is read as the expression this.tcs.ditSetup, in seconds; written as a fixed wait of this.tcs.ditSetup s before 'attempt')
 
 ## mapped (50)
@@ -66,3 +64,7 @@ Property	TCS::Guide Star Lost	_lost	-> TCS::'Guide Star Lost'
 Property	TCS::Retries	_retries	-> TCS::Retries
 Property	TCS::ditSetup	_dit	-> TCS::ditSetup
 Property	TCS::i	_i	-> TCS::i
+
+## skipped (2)
+TimeEvent	<TimeEvent>	_te1	(not referenced by any behavior: no trigger refers to the event, so nothing would accept it)
+TimeEvent	<TimeEvent>	_te2	(not referenced by any behavior: no trigger refers to the event, so nothing would accept it)

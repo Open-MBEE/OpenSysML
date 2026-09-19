@@ -1,8 +1,15 @@
-part def 'Group 0' {
-    /* applied stereotype «SimulationConfig»: durationSimulationMode = random; numberOfRuns = 6; timeVariableName = simtime */
+action def 'Group 0' {
+    @Simulation::Configuration {
+        runs = 6;
+        draws = Simulation::DrawPolicy::random;
+        timeVariable = "simtime";
+    }
 }
-part def 'Group 1' {
-    /* applied stereotype «SimulationConfig»: durationSimulationMode = max; numberOfRuns = 1 */
+action def 'Group 1' {
+    @Simulation::Configuration {
+        runs = 1;
+        draws = Simulation::DrawPolicy::max;
+    }
 }
 part def TCS {
     attribute i : ScalarValues::Integer default = 0;
@@ -142,5 +149,3 @@ part def Observatory {
         /* partition 'Telescope Control' represents Observatory::tcs: seed, first attempt, attempt, decide, guide star found, next attempt, abort */
     }
 }
-/* not migrated: TimeEvent (_te1) — no trigger refers to the event; the time event's time is not written: the duration "ditSetup s" is neither a number with a time unit nor an expression: names ditSetup, which nothing visible from Model is called */
-/* not migrated: TimeEvent (_te2) — no trigger refers to the event; the time event's time is not written: the duration "ditSetup s" is neither a number with a time unit nor an expression: names ditSetup, which nothing visible from Model is called */

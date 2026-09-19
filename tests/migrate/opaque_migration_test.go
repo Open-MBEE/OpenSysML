@@ -104,7 +104,7 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	meta(t, s, "%seed 1")
 	v := s.RunAction("Observatory::Acquire", "Observatory")
 	wantVerdict(t, v)
-	runs := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 5, 1, []string{"this.Time_Acq_Total", "Time_Loop", "Time_Between", "Time_Attempt", "Time_Run", "Time_Pass"}).Lines, "\n")
+	runs := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 5, seedOf(1), []string{"this.Time_Acq_Total", "Time_Loop", "Time_Between", "Time_Attempt", "Time_Run", "Time_Pass"}).Lines, "\n")
 	// Four attempts of ditSetup = 2.5 s each: the loop ran until i reached Retries,
 	// the observation from the initial node to the final spans the whole run, and
 	// the one ending at the flow final each attempt reaches holds the last pass.
@@ -126,7 +126,7 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	// The abort branch is never taken: the observation starting there and the one
 	// ending there hold no value in any run, so neither is a column nor a zero,
 	// while the stamp the unfinished one did take is.
-	all := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 2, 1, nil).Lines, "\n")
+	all := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 2, seedOf(1), nil).Lines, "\n")
 	for _, want := range []string{"| Time_Loop ", "Time_Loop: 2 run(s)", "Time_Unfinished start: 2 run(s), min 0.0"} {
 		if !strings.Contains(all, want) {
 			t.Errorf("runs lack %q:\n%s", want, all)
@@ -137,7 +137,7 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 			t.Errorf("runs mention %q:\n%s", absent, all)
 		}
 	}
-	never := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 2, 1, []string{"Time_Never"}).Lines, "\n")
+	never := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 2, seedOf(1), []string{"Time_Never"}).Lines, "\n")
 	if !strings.Contains(never, "error: invalid run request: no completed run of Observatory::Acquire produced a value named Time_Never") {
 		t.Errorf("observing the never-stamped duration:\n%s", never)
 	}
@@ -206,7 +206,7 @@ func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 			t.Errorf("%s not assigned through the deep lane:\n%s", path, got)
 		}
 	}
-	runs := strings.Join(s.RunRuns("Plant::Fill", []string{"Plant"}, 1, 1, []string{"this.level", "this.runs"}).Lines, "\n")
+	runs := strings.Join(s.RunRuns("Plant::Fill", []string{"Plant"}, 1, seedOf(1), []string{"this.level", "this.runs"}).Lines, "\n")
 	for _, want := range []string{"this.level: 1 run(s), min 9.0", "this.runs: 1 run(s), min 1"} {
 		if !strings.Contains(runs, want) {
 			t.Errorf("runs lack %q:\n%s", want, runs)
@@ -377,7 +377,7 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	s := session(t, r)
 	meta(t, s, "%instantiate Meter")
 	wantVerdict(t, s.RunAction("Meter::Measure", "Meter"))
-	runs := strings.Join(s.RunRuns("Meter::Measure", []string{"Meter"}, 1, 1, []string{"this.total", "this.half", "this.ratio", "this.floored", "this.rounded", "this.quarter", "this.eighth"}).Lines, "\n")
+	runs := strings.Join(s.RunRuns("Meter::Measure", []string{"Meter"}, 1, seedOf(1), []string{"this.total", "this.half", "this.ratio", "this.floored", "this.rounded", "this.quarter", "this.eighth"}).Lines, "\n")
 	for _, want := range []string{"this.total: 1 run(s), min 4.0", "this.half: 1 run(s), min 3", "this.ratio: 1 run(s), min 2.0", "this.floored: 1 run(s), min 0.5", "this.rounded: 1 run(s), min 0", "this.quarter: 1 run(s), min 1", "this.eighth: 1 run(s), min 0.875"} {
 		if !strings.Contains(runs, want) {
 			t.Errorf("runs lack %q:\n%s", want, runs)
@@ -462,7 +462,7 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 	s := session(t, r)
 	meta(t, s, "%instantiate Meter")
 	wantVerdict(t, s.RunAction("Meter::Flip", "Meter"))
-	runs := strings.Join(s.RunRuns("Meter::Flip", []string{"Meter"}, 1, 1, []string{"this.count", "this.lit"}).Lines, "\n")
+	runs := strings.Join(s.RunRuns("Meter::Flip", []string{"Meter"}, 1, seedOf(1), []string{"this.count", "this.lit"}).Lines, "\n")
 	for _, want := range []string{"this.count: 1 run(s), min 9007199254740991", "this.lit: true ×1"} {
 		if !strings.Contains(runs, want) {
 			t.Errorf("runs lack %q:\n%s", want, runs)
@@ -499,7 +499,7 @@ func TestPluralPathsStayCollections(t *testing.T) {
 	s := session(t, r)
 	meta(t, s, "%instantiate Meter")
 	wantVerdict(t, s.RunAction("Meter::Sweep", "Meter"))
-	runs := strings.Join(s.RunRuns("Meter::Sweep", []string{"Meter"}, 1, 1, []string{"this.total"}).Lines, "\n")
+	runs := strings.Join(s.RunRuns("Meter::Sweep", []string{"Meter"}, 1, seedOf(1), []string{"this.total"}).Lines, "\n")
 	if want := "this.total: 1 run(s), min 3"; !strings.Contains(runs, want) {
 		t.Errorf("runs lack %q:\n%s", want, runs)
 	}

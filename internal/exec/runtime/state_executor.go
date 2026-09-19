@@ -1775,7 +1775,7 @@ func (e *StateExecutor) matchesEvent(trans *lower.Transition, event *Event) (boo
 		if !ok {
 			return trans.Via == "", nil
 		}
-		return e.ctx.messageReaches(msg, e.stateMachine.Name, trans.Via, e.self)
+		return e.transitionReached(trans, msg)
 
 	case EventTime:
 		// Time events carry the specific transition in Payload
@@ -3965,12 +3965,23 @@ func (e *StateExecutor) acceptsSignalFrom(state *ast.StateNode, msg Message) (bo
 		if !ok || !e.triggerSignalMatches(accept, trans.Scope, msg) {
 			continue
 		}
-		reaches, err := e.ctx.messageReaches(msg, e.stateMachine.Name, trans.Via, e.self)
+		reaches, err := e.transitionReached(trans, msg)
 		if err != nil || reaches {
 			return reaches, err
 		}
 	}
 	return false, nil
+}
+
+// transitionReached reports whether a message arrives where a transition's
+// `via` names: the performer's port, or the port of an object the machine's
+// data binds the path's root to, as an action's accept resolves its via.
+func (e *StateExecutor) transitionReached(trans *lower.Transition, msg Message) (bool, error) {
+	holder, port, err := e.triggerEval(trans.Scope).viaHolder(trans.Via, trans.ViaSelf, e.self)
+	if err != nil {
+		return false, err
+	}
+	return e.ctx.messageReaches(msg, e.stateMachine.Name, port, holder)
 }
 
 // triggerSignalMatches reports whether the message carries the signal an

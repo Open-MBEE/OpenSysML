@@ -2930,22 +2930,21 @@ func (p *Parser) parseDeferMember(start int) ast.Node {
 }
 
 // parsePseudostate parses a pseudostate declaration in a state body:
-// choice/junction/fork/join <name>;. The keyword is already consumed.
+// choice/junction/fork/join <name>;, the name any name token, a quoted one
+// included. The keyword is already consumed.
 func (p *Parser) parsePseudostate(start int, keyword string, kind ast.PseudostateKind) ast.Node {
-	if !p.at(lexer.Identifier) && !p.at(lexer.Keyword) {
+	seg, ok := p.parseNameSegmentRelaxed()
+	if !ok {
 		p.error(p.peek().Span, fmt.Sprintf("expected name after '%s'", keyword))
 		en := &ast.ErrorNode{Message: fmt.Sprintf("expected %s name", keyword)}
 		en.NodeSpan = p.spanFrom(start)
 		return en
 	}
-
-	name := p.src.Text(p.peek().Span)
-	p.advance()
 	p.expectSemicolon(keyword + " name")
 
 	ps := &ast.PseudostateNode{
 		Kind:    kind,
-		Name:    name,
+		Name:    seg.Text,
 		Keyword: keyword,
 	}
 	ps.NodeSpan = p.spanFrom(start)

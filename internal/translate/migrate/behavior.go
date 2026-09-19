@@ -69,6 +69,7 @@ func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 		m.interactionBody(e)
 	case e.Type == "Activity":
 		m.parameters(e, e)
+		m.contextParameter(e)
 		m.activityBody(e, e)
 	default:
 		m.parameters(e, e)
@@ -87,19 +88,10 @@ func (m *migration) methodBehavior(e, op *sysmlv1.Element) {
 // classifierBehavior writes the usage that performs or exhibits the behavior
 // a class names as its classifier behavior, so an object of it runs it.
 func (m *migration) classifierBehavior(c *sysmlv1.Element) {
-	b := m.model.Ref(c, "classifierBehavior")
-	if b == nil || b.Parent != c || !m.written(b) {
+	b, name, cat := m.classifierBehaviorUsage(c)
+	if b == nil {
 		return
 	}
-	name := ""
-	if op := m.methodOf[b]; op != nil {
-		b, name = op, m.operationUsage(op)
-	} else if classifierOf(b) == c {
-		name = m.behaviorUsage(b)
-	} else {
-		name = m.freshName(c, lowerFirst(m.nameFor(b)))
-	}
-	cat, _ := m.classify(b)
 	switch cat {
 	case catStateDef:
 		m.w.line("exhibit state " + writeName(name) + " : " + m.ref(b, c) + ";")
@@ -109,6 +101,25 @@ func (m *migration) classifierBehavior(c *sysmlv1.Element) {
 		return
 	}
 	m.downgrade(b, "the classifier behavior is run by every object of "+qualifiedName(c)+" as its usage "+name)
+}
+
+// classifierBehaviorUsage names the usage by which an object of c runs its
+// classifier behavior, and the behavior (or the operation it is the method of)
+// with its category; nil when c has no written classifier behavior of its own.
+// The name is fixed on the first ask, so a reference (a call on an object, a
+// swimlane's performer) may precede the declaration.
+func (m *migration) classifierBehaviorUsage(c *sysmlv1.Element) (b *sysmlv1.Element, name string, cat category) {
+	b = m.model.Ref(c, "classifierBehavior")
+	if b == nil || b.Parent != c || !m.written(b) {
+		return nil, "", catNone
+	}
+	if op := m.methodOf[b]; op != nil {
+		b, name = op, m.operationUsage(op)
+	} else {
+		name = m.behaviorUsage(b)
+	}
+	cat, _ = m.classify(b)
+	return b, name, cat
 }
 
 // operationUsage names the action usage of an operation's owner that performs
@@ -221,7 +232,11 @@ func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]boo
 	}
 	v := verdictFor(note)
 	if isBound {
-		note = joinNotes("bound to "+bound+", the signal the transition accepts", note)
+		what := m.boundNote
+		if what == "" {
+			what = "the signal the transition accepts"
+		}
+		note = joinNotes("bound to "+bound+", "+what, note)
 	}
 	m.add(p, v, m.v2Name(p), note)
 	m.w.block(b.String(), func() {
@@ -338,8 +353,8 @@ func (m *migration) v2Expr(text, lang string, scope *sysmlv1.Element) (expr stri
 	return m.qualifySelf(text, refs, scope), true, ""
 }
 
-// qualifySelf prefixes `this.` to each name in text that resolves to a feature
-// of the classifier enclosing scope, which a nested action reaches no other way.
+// qualifySelf prefixes `this.` (or the subject's name, in a test case) to each name
+// in text that resolves to a feature of the classifier enclosing scope.
 func (m *migration) qualifySelf(text string, refs []reference, scope *sysmlv1.Element) string {
 	visible, _ := m.visibleFrom(scope)
 	var starts []int
@@ -355,7 +370,7 @@ func (m *migration) qualifySelf(text string, refs []reference, scope *sysmlv1.El
 	}
 	sort.Sort(sort.Reverse(sort.IntSlice(starts)))
 	for _, s := range starts {
-		text = text[:s] + "this." + text[s:]
+		text = text[:s] + m.self + "." + text[s:]
 	}
 	return text
 }
@@ -532,6 +547,26 @@ func realLiteral(v float64) string {
 		s += ".0"
 	}
 	return s
+}
+
+// openBound is the one bound of a duration interval whose other bound is
+// absent — unset, or a duration without an expression: an interval open on one
+// side is waited for at the bound it has.
+func (m *migration) openBound(spec *sysmlv1.Element, lo string, lok bool, hi string, hok bool) (bound, note string, ok bool) {
+	absent := func(role string) bool {
+		v := m.model.Ref(spec, role)
+		for v != nil && (v.Type == "Duration" || v.Type == "TimeExpression") {
+			v = firstOwned(v, "expr")
+		}
+		return v == nil
+	}
+	switch {
+	case lok && !hok && absent("max"):
+		return lo, "the interval has no max", true
+	case hok && !lok && absent("min"):
+		return hi, "the interval has no min", true
+	}
+	return "", "", false
 }
 
 // durationExpr writes a UML duration value as a v2 expression in seconds: a scaled
@@ -769,38 +804,177 @@ func (m *migration) reported(e *sysmlv1.Element) bool {
 	return ok
 }
 
-// reception writes a reception as a comment on its owner: v2 has no
-// reception, the signal it names being accepted by the owner's behaviors.
+// reception writes a reception as an action def of its owner that accepts the signal, from the
+// object and via each port it arrives at, performs the method and accepts again, performed from creation.
 func (m *migration) reception(r *sysmlv1.Element) {
 	sig := m.model.Ref(r, "signal")
-	text := "reception " + describe(r)
-	note := "a reception names the signal its owner accepts, which the owner's behaviors carry as accept"
+	if sig == nil || !m.written(sig) {
+		m.receptionComment(r, sig)
+		return
+	}
+	owner := r.Parent
+	name := m.nameFor(r)
+	usage := m.freshName(owner, lowerFirst(name))
+	ports, info := m.arrivalRoutes(owner, sig, "reception")
+	method := m.model.Ref(r, "method")
+	route := receptionRoute{owner: owner, sig: sig, method: method, used: map[string]bool{"start": true, "done": true}}
+	m.w.block("action def "+writeName(name), func() {
+		from := "start"
+		if len(ports) > 0 {
+			from = freshIn(route.used, "spread")
+			m.w.line("first start then " + from + ";")
+			m.w.line("fork " + from + ";")
+		}
+		m.receptionLoop(r, &route, from, nil)
+		for _, p := range ports {
+			m.receptionLoop(r, &route, from, p)
+		}
+	})
+	m.w.line("perform action " + writeName(usage) + " : " + writeName(name) + ";")
+	m.receptionParameters(r, sig)
+	desc := "written as an action def accepting " + m.nameFor(sig)
+	if route.performed {
+		desc += " and performing its method " + qualifiedName(method)
+	}
+	m.add(r, verdictFor(route.note), m.v2Name(r), joinNotes(joinNotes(desc+", which its owner performs as "+usage+" from creation, accepting the signal again after each", route.note), info))
+}
+
+// receptionRoute is what every accept loop of one reception shares: the signal and method
+// written, the names taken in the action def, and whether the method is performed.
+type receptionRoute struct {
+	owner, sig, method *sysmlv1.Element
+	used               map[string]bool
+	note               string
+	performed          bool
+}
+
+// receptionLoop writes one accept loop of reception r reached from node from: an accept of the
+// signal from the object, or via port when given, the method performed when it can be, and the return.
+func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, from string, port *sysmlv1.Element) {
+	suffix, via := "", ""
+	if port != nil {
+		suffix = " via " + m.nameFor(port)
+		via = " via " + writeName(m.nameFor(port))
+	}
+	trig := writeName(freshIn(route.used, "receive"+suffix))
+	payload := writeName(freshIn(route.used, lowerFirst(m.nameFor(route.sig))+suffix))
+	m.w.line("first " + from + " then " + trig + ";")
+	m.w.line("action " + trig + " accept " + payload + " : " + m.ref(route.sig, route.owner) + via + ";")
+	last := trig
+	method := route.method
 	switch {
-	case sig == nil:
-		note = joinNotes(note, m.dangling(r, "signal"))
+	case method == nil:
+		if len(m.model.Unresolved(r, "method")) > 0 {
+			route.note = "the method refers to nothing in the document; the reception only accepts the signal"
+		} else {
+			route.note = "the reception has no method, so it only accepts the signal"
+		}
+	case !m.written(method) || !hasActionForm(method):
+		route.note = "the method " + qualifiedName(method) + " has no action def to perform; the reception only accepts the signal"
+	default:
+		args, refusal := m.receptionArguments(method, route.sig, payload)
+		if refusal != "" {
+			route.note = refusal + "; the reception only accepts the signal"
+			break
+		}
+		run := writeName(freshIn(route.used, "run"+suffix))
+		last, route.performed = run, true
+		m.w.line("first " + trig + " then " + run + ";")
+		decl := "action " + run + " : " + m.ref(method, route.owner)
+		if len(args) == 0 {
+			m.w.line(decl + ";")
+		} else {
+			m.w.line(decl + " { in " + strings.Join(args, "; in ") + "; }")
+		}
+	}
+	m.w.line("first " + last + " then " + trig + ";")
+}
+
+// receptionComment writes a reception whose signal has no v2 declaration as a
+// comment, since nothing could accept it.
+func (m *migration) receptionComment(r, sig *sysmlv1.Element) {
+	text := "reception " + describe(r)
+	note := ""
+	if sig == nil {
+		note = m.dangling(r, "signal")
 		if note == "" || len(m.model.Unresolved(r, "signal")) == 0 {
 			note = joinNotes(note, "the reception names no signal")
 		}
-	case m.written(sig):
-		text += " accepts " + m.ref(sig, m.scope)
-	default:
+	} else {
 		text += " accepts " + qualifiedName(sig)
-		note = joinNotes(note, "the signal "+qualifiedName(sig)+" has no v2 declaration in the document")
+		note = "the signal " + qualifiedName(sig) + " has no v2 declaration in the document"
 	}
 	m.w.lines(prefixFirst(commentPrefix, commentLines(text)))
-	m.add(r, Approximated, "", note)
+	m.add(r, Unmapped, "", note)
+}
+
+// receptionArguments binds the method's in parameters to the accepted signal's attributes of the
+// same name, conforming in type and multiplicity; one that does not, or is missing where a value
+// is required, refuses the method.
+func (m *migration) receptionArguments(method, sig *sysmlv1.Element, payload string) (args []string, refusal string) {
+	attrs := map[string]*sysmlv1.Element{}
+	for _, a := range m.signalAttributes(sig) {
+		attrs[m.nameOf(a)] = a
+	}
+	for _, p := range method.Owned("ownedParameter") {
+		dir, _ := parameterDirection(p)
+		if dir != "in" && dir != "inout" {
+			continue
+		}
+		name := m.nameOf(p)
+		a := attrs[name]
+		if name == "" || a == nil {
+			if requiresValue(p) {
+				refusal = joinNotes(refusal, "the method "+qualifiedName(method)+"'s parameter "+m.nameFor(p)+" must hold a value that no attribute of the signal supplies")
+			}
+			continue
+		}
+		if why := m.bindingMismatch(a, p); why != "" {
+			refusal = joinNotes(refusal, "the signal's attribute "+name+" "+why+" the method "+qualifiedName(method)+"'s parameter "+m.nameFor(p))
+			continue
+		}
+		args = append(args, writeName(name)+" = "+payload+"."+writeName(name))
+	}
+	return args, refusal
+}
+
+// bindingMismatch says why feature a cannot be bound to parameter p: its type does not conform
+// or its multiplicity does not lie within p's; "" when it can. Non-literal bounds are trusted.
+func (m *migration) bindingMismatch(a, p *sysmlv1.Element) string {
+	at, pt := m.model.Ref(a, "type"), m.model.Ref(p, "type")
+	if !m.conform(at, pt) {
+		return "is typed by " + qualifiedName(at) + ", which does not conform to the type " + qualifiedName(pt) + " of"
+	}
+	al, au, aok := bounds(a)
+	pl, pu, pok := bounds(p)
+	if aok && pok && (al < pl || (pu >= 0 && (au < 0 || au > pu))) {
+		return "has multiplicity " + boundsText(al, au) + ", which does not lie within the " + boundsText(pl, pu) + " of"
+	}
+	return ""
+}
+
+// receptionParameters reports a reception's own parameters, which mirror the
+// signal's attributes and are carried by the accepted payload.
+func (m *migration) receptionParameters(r, sig *sysmlv1.Element) {
+	attrs := map[string]*sysmlv1.Element{}
+	for _, a := range m.signalAttributes(sig) {
+		attrs[m.nameOf(a)] = a
+	}
+	for _, p := range r.Owned("ownedParameter") {
+		if a := attrs[m.nameOf(p)]; a != nil {
+			m.add(p, Mapped, m.v2Name(a), "stands for the signal's attribute "+m.nameOf(a)+", which the accepted payload carries")
+			continue
+		}
+		m.add(p, Unmapped, "", "the parameter "+m.nameFor(p)+" matches no attribute of the signal, whose payload is all the accept carries")
+	}
 }
 
 // event reports an event declared as a member: it is written as an accept clause
-// where a trigger refers to it, and the triggers report those, in their own scope.
+// where a trigger refers to it, and the triggers report those, in their own
+// scope; one no trigger refers to is skipped, since no behavior would accept it.
 func (m *migration) event(e *sysmlv1.Element) {
 	if m.triggered[e] {
 		return
 	}
-	clause, note, ok := m.acceptClause(e, e.Parent, "")
-	if !ok {
-		m.unmapped(e, joinNotes("no trigger refers to the event", note))
-		return
-	}
-	m.add(e, Approximated, "", joinNotes("no trigger refers to the event, which would be written as "+clause, note))
+	m.add(e, Skipped, "", unreferencedNote+": no trigger refers to the event, so nothing would accept it")
 }

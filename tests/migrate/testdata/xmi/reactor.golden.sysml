@@ -1,5 +1,7 @@
-part def Run {
-    /* applied stereotype «SimulationConfig»: timeVariableName = t_sim */
+action def Run {
+    @Simulation::Configuration {
+        timeVariable = "t_sim";
+    }
 }
 calc def Energy {
     in E_0 : ScalarValues::Real;
@@ -139,14 +141,14 @@ part def Reactor {
         }
         first shadow then pinned;
         action pinned {
-            in x : ScalarValues::Real;
+            in x : ScalarValues::Real = 1.0;
             /* body not migrated (the construct "var x" is outside the translated subset: x is already a feature here, which a declaration would shadow) {JavaScript}:
              * var x = 1; x += 1;
              */
         }
         first pinned then relay;
         action relay {
-            in x : ScalarValues::Real;
+            in x : ScalarValues::Real = 1.0;
             out y : ScalarValues::Real;
             /* body not migrated (the construct "x" is outside the translated subset: an input pin is not assigned) {JavaScript}:
              * y = x * 2; x = y;
@@ -160,7 +162,7 @@ part def Reactor {
         }
         first gain then bare;
         action bare {
-            in raw;
+            in raw = 1.0;
             /* body not migrated (the name "raw.level" resolves to nothing readable: Reactor::Cycle::bare::raw has no type, so no feature level) {JavaScript}:
              * power = raw.level;
              */

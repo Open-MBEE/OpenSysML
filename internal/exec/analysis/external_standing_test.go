@@ -147,6 +147,41 @@ func TestExternalWitnessThatDoesNotReplay(t *testing.T) {
 	notCovered(t, standinAnswers(t, unreadable, f.building(), q, Budget{}), "its witness does not read as a schedule")
 }
 
+// An engine's schedule carries choices, never draws: under a fixed policy the host
+// replays it resolving each call to the policy's point, and the witness it reports
+// records those draws under that policy; under random, a drawing run has no replay.
+func TestExternalScheduleReplaysUnderTheQuestionsDrawPolicy(t *testing.T) {
+	d := parseDrawing(t)
+	atMostHalf := runtime.CheckProperty{Name: "d", Holds: func(_ *runtime.Context, inv *runtime.Invocation) (bool, error) {
+		return inv.Actions[0].Results()["d"].Const.Real <= 0.5, nil
+	}}
+	ask := &CheckAsk{Start: d.start(t), Properties: []runtime.CheckProperty{atMostHalf}}
+	question := func(draws runtime.DrawPolicy) Question {
+		return Question{Kind: Holds, Subject: "test::draw", Schedule: policy(t, "explore"), Free: FreeSchedule, Check: ask, Draws: draws}
+	}
+	answer := `{"claim":"violated","strength":"witnessed","witness":{"schedules":["no choice points"]}}`
+	result := standinAnswers(t, standinRegistry(t, answer, WitnessSchedule), d.building(), question(runtime.DrawMax), Budget{})
+	if result.Claim != ClaimViolated || result.Strength != Witnessed || result.Witness == nil {
+		t.Fatalf("result %+v, want the violation witnessed under max", result)
+	}
+	if !strings.Contains(result.Reason, "`d` evaluates false") {
+		t.Fatalf("reason %q, want d at its max refuting the claim", result.Reason)
+	}
+	replay, ok := result.Witness.Schedule.Replay()
+	if !ok || len(replay) != 0 {
+		t.Fatalf("witness schedule %s, want a replay of no choice", result.Witness.Schedule)
+	}
+	w, _ := result.Witness.Schedule.Witness()
+	if w.DrawPolicy != runtime.DrawMax || len(w.Draws) != 1 || w.Draws[0].Value.Real != 1 || len(result.Witness.Draws) != 1 {
+		t.Fatalf("witness %s, want the one draw recorded at its max", w.String())
+	}
+	if got := result.Standing(); !strings.Contains(got, "witness of 1 draw replayed") {
+		t.Errorf("standing %q, want the draw counted", got)
+	}
+	notCovered(t, standinAnswers(t, standinRegistry(t, answer, WitnessSchedule), d.building(), question(runtime.DrawMin), Budget{}), "its schedule replays and `d` holds at its end")
+	notCovered(t, standinAnswers(t, standinRegistry(t, answer, WitnessSchedule), d.building(), question(runtime.DrawRandom), Budget{}), "its witness does not replay", "records no draw left for it")
+}
+
 // A witness of the wrong kind or count is a protocol break, the run not covered.
 func TestExternalWitnessShapeIsChecked(t *testing.T) {
 	f := parseFixture(t)

@@ -134,6 +134,8 @@ func doc() usage.Doc {
 				usage.Ex(`sysml -action Acquire -runs 100 -seed 7 m.sysml`, "100 runs, every feature"),
 				usage.Ex(`sysml -action Acquire -runs 100 -seed 7 -observe elapsed m.sysml`, "One observable"),
 				usage.Ex(`sysml -action Acquire -seed 7 m.sysml`, "One run, its draws seeded"),
+				usage.Ex(`sysml -action Acquire -draws max m.sysml`, "Durations at their max"),
+				usage.Ex(`sysml -action A -runs 9 -seed 7 -draws average m.sysml`, "Mean durations"),
 			},
 			Paragraphs: []string{
 				"-runs runs one -action to completion that many times, each run on a " +
@@ -144,6 +146,17 @@ func doc() usage.Doc {
 					"and a run can be replayed alone. -schedule stays the second, " +
 					"independent knob: it decides the concurrency choices, which carry " +
 					"no probability, in every run alike.",
+				"-draws is the third knob, the duration policy: random (the default) " +
+					"draws every RandomFunctions call from the seed; min, max and average " +
+					"resolve each call to the least, greatest or mean value of its " +
+					"distribution instead — the midpoint of a uniform, the mean of a " +
+					"triangular — so a run whose only randomness is durations completes " +
+					"deterministically and needs no -seed. normal has no least or greatest " +
+					"value, so a run that calls it under min or max stops with an error. " +
+					"Weighted decisions are not durations: they draw from the seed under " +
+					"every policy, and an unseeded run takes the most probable branch. " +
+					"The policy is written into every witness as `draws by <policy>`, " +
+					"and -schedule replay: follows it.",
 				"The table has one row per run, numbered, with each -observe feature " +
 					"of the action — `clock` is the simulation time the run completed " +
 					"at, never a feature of that name — and without -observe every " +
@@ -389,6 +402,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&outputPath, "o", "", "Write conversion output to this file (shorthand)")
 	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, or xmi/uml/mdzip for a SysML v1 model to migrate (experimental; default: from the input's extension)")
 	fs.StringVar(&migrationReport, "migration-report", "", "With -convert from xmi: write the element-by-element migration report to this file (JSON when it ends in .json, text otherwise)")
+	fs.StringVar(&migrationResults, "migration-results", "", "With -convert from xmi: write the run configurations and the result snapshots the simulation tool stored for them to this JSON file, for -compare-results to read against the migrated model")
 	fs.StringVar(&renderView, "render", "", "Render this view of the model (every file named, loaded as one) instead of running it, in the form its render member states")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered Markdown")
@@ -429,8 +443,10 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.sweeps, "sweep", "Run the named -analysis or -calc once per value of this range, as -sweep \"speed=0.0 [SI::'m/s']..10.0 [SI::'m/s']:2.0 [SI::'m/s']\"; the values are produced in the parameter's declared type; several ranges run their cartesian product (repeatable)")
 	fs.Var(&modelChecks.samples, "samples", "Draw this many values uniformly from each -sweep range instead of stepping through them, Integers or reals as the parameter is typed; needs -seed")
 	fs.Var(&modelChecks.seed, "seed", "Seed the model's own draws — Probability-weighted decisions, RandomFunctions — come from in every run made, whatever -schedule, and the seed -samples or -runs draws from; the same seed draws the same run or table")
-	fs.Var(&modelChecks.runs, "runs", "Run the -action this many times, each run's modeled randomness (weighted decisions, random functions) seeded from -seed, and report the table of the -observe features with each one's distribution; needs -seed")
-	fs.Var(&modelChecks.observe, "observe", "Report this feature of the -runs action, or `clock` for the time it completed at; default every feature it holds and the clock (repeatable)")
+	fs.Var(&modelChecks.draws, "draws", "How every run resolves the draws of RandomFunctions — uniform, uniformInteger, triangular, normal: random (default) draws from -seed; min, max and average take each call's least, greatest or mean value and need no seed; normal has no min or max. Weighted decisions draw from -seed whatever the policy. A witness records the policy so replay: reproduces it")
+	fs.Var(&modelChecks.runs, "runs", "Run the -action this many times, each run's modeled randomness (weighted decisions, random functions) seeded from -seed, and report the table of the -observe features with each one's distribution; needs -seed unless -draws is min, max or average")
+	fs.Var(&modelChecks.observe, "observe", "Report this feature of the -runs action, or `clock` for the time it completed at; default every feature it holds and the clock (repeatable). With -compare-results, compare this stored observable, read from the target's feature of its own name, or -observe <observable>=<feature> to read it from another feature of the run; default every stored observable")
+	fs.StringVar(&modelChecks.compare, "compare-results", "", "Run every configuration this -migration-results file indexes with its numberOfRuns and durationSimulationMode — or the -runs and -draws given, seeded from -seed — and report the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference; -action names the configurations to compare")
 	fs.Var(&modelChecks.queries, "run-query", "Execute this document query and report its rows, as -run-query \"HeavySubsystems root=telescope\" (repeatable)")
 	fs.Var(&modelChecks.actions, "action", "Run this action to completion, as -action \"Drive rover1\" to run it on an object; under -schedule explore each run performs it on an object of its own, named as a definition or usage to create, a path into one such as mission.rover, or, named alone, the run's one -instantiate object performing it (repeatable)")
 	fs.Var(&modelChecks.states, "state", "Run this state machine, as -state \"Mission rover1\" to run it on an object; under -schedule explore each run creates the object of its own, named as a definition or usage to create or a path such as mission.rover into one — the declaration is created once per run, so machines on sibling parts share it and its connectors — or, named alone, the run's one -instantiate object exhibiting it (repeatable)")

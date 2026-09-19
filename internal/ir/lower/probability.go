@@ -14,11 +14,11 @@ import (
 )
 
 // ProbabilityFQN names the OpenSysML metadata type by which a model weights the
-// successions out of a decision node.
-const ProbabilityFQN = "Stochastic::Probability"
-
-// ProbabilityFeature is the one feature a Probability annotation binds: the weight.
-const ProbabilityFeature = "p"
+// successions out of a decision node; ProbabilityFeature is the weight it binds.
+const (
+	ProbabilityFQN     = semantics.ProbabilityFQN
+	ProbabilityFeature = semantics.ProbabilityFeature
+)
 
 // ProbabilityTolerance is how far the constant weights out of one decision may
 // sum from 1.0 and still be taken as summing to it.

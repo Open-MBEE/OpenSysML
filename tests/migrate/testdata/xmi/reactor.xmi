@@ -138,12 +138,16 @@
           <body>var power = 1; power += 1;</body>
         </node>
         <node xmi:type="uml:OpaqueAction" xmi:id="_pinned" name="pinned">
-          <inputValue xmi:type="uml:InputPin" xmi:id="_pinx" name="x"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <inputValue xmi:type="uml:ValuePin" xmi:id="_pinx" name="x"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+            <value xmi:type="uml:LiteralReal" xmi:id="_pinx0" value="1.0"/>
+          </inputValue>
           <language>JavaScript</language>
           <body>var x = 1; x += 1;</body>
         </node>
         <node xmi:type="uml:OpaqueAction" xmi:id="_relay" name="relay">
-          <inputValue xmi:type="uml:InputPin" xmi:id="_relayx" name="x"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <inputValue xmi:type="uml:ValuePin" xmi:id="_relayx" name="x"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+            <value xmi:type="uml:LiteralReal" xmi:id="_relayx0" value="1.0"/>
+          </inputValue>
           <outputValue xmi:type="uml:OutputPin" xmi:id="_relayy" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
           <language>JavaScript</language>
           <body>y = x * 2; x = y;</body>
@@ -157,7 +161,9 @@
           <body>y = x * power;</body>
         </node>
         <node xmi:type="uml:OpaqueAction" xmi:id="_bare" name="bare">
-          <inputValue xmi:type="uml:InputPin" xmi:id="_barer" name="raw"/>
+          <inputValue xmi:type="uml:ValuePin" xmi:id="_barer" name="raw">
+            <value xmi:type="uml:LiteralReal" xmi:id="_barer0" value="1.0"/>
+          </inputValue>
           <language>JavaScript</language>
           <body>power = raw.level;</body>
         </node>

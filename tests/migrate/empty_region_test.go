@@ -47,7 +47,7 @@ func TestEmptyRegionsAreNotWritten(t *testing.T) {
 		"state On {",
 		"entry; then Run;",
 		"state def Idle {",
-		"/* the StateMachine has no region with a vertex */",
+		"/* the StateMachine's regions hold no vertex: nothing enters them */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -56,8 +56,8 @@ func TestEmptyRegionsAreNotWritten(t *testing.T) {
 			t.Errorf("notation writes %q for an empty region:\n%s", line, r.Notation)
 		}
 	}
-	wantNote(t, r, "_r2", migrate.Approximated, "the region has no vertex and is not written: nothing would enter it")
-	wantNote(t, r, "_r3", migrate.Approximated, "the region has no vertex and is not written: nothing would enter it")
+	wantNote(t, r, "_r2", migrate.Skipped, "the region holds no vertex, so nothing enters it and no state is written for it")
+	wantNote(t, r, "_r3", migrate.Skipped, "the region holds no vertex, so nothing enters it and no state is written for it")
 	wantNote(t, r, "_r1", migrate.Mapped, "the one region is written as the body of its owner")
 
 	s := session(t, r)

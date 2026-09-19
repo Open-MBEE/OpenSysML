@@ -1,0 +1,40 @@
+materialize: Rig #1
+start: exhibited state machine run of #1
+materialize: run #2
+enter: spinning (entry action)
+stmt perform
+step 1: token 1@sp
+  eval literal 30.0 -> 30.0
+materialize: Drive #3
+    eval feature drive -> instance#3
+materialize: Motor #4
+  eval chain motor -> instance#4
+step 1: token 1@set speed
+  eval feature rpm -> 30.0
+  stmt assign this.speed
+    eval feature value -> 30.0
+    eval feature this -> instance#4
+step 2: token 1@read speed
+    eval feature this -> instance#4
+  eval chain speed -> 30.0
+step 3: token 1@done
+step 4: no active tokens
+step 2: token 1@keep
+  stmt assign this.got
+    eval chain result -> 30.0
+    eval feature this -> instance#1
+step 3: token 1@done
+step 4: no active tokens
+run: exhibited state machine run of #1
+        eval feature drive -> instance#3
+      eval chain motor -> instance#4
+    eval chain speed -> 30.0
+    eval literal 30.0 -> 30.0
+  eval operator == -> true
+    eval feature got -> 30.0
+    eval literal 30.0 -> 30.0
+  eval operator == -> true
+eval operator and -> true
+exit: spinning
+enter: spun
+transition: spinning -> spun

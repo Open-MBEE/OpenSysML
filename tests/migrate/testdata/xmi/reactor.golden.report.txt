@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: reactor.xmi
-# migrated 79 element(s): 56 mapped, 23 approximated, 0 unmapped (0 skipped as profile or library content)
+# migrated 79 element(s): 56 mapped, 23 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## approximated (23)
 Parameter	Ceil::whole	_pcr	-> Ceil::whole	(the return parameter is written as an out parameter)
@@ -20,7 +20,7 @@ OpaqueAction	Reactor::Cycle::trim	_trim	-> trim	(the body is kept as a comment: 
 FunctionBehavior	Root	_root	-> Root	(the body is kept as a comment: as the result expression, the types at "Math.sqrt(x)" disagree: the expression is a Real, not the Boolean wanted; as statements, the call "Math.sqrt" is not in the translated function table: a call is not a statement of the subset)
 Parameter	Root::ok	_prok	-> Root::ok	(the return parameter is written as an out parameter)
 Parameter	Round::whole	_prdr	-> Round::whole	(the return parameter is written as an out parameter)
-«SimulationConfig» Class	Run	_config	-> Run	(a plain UML class without «Block» is written as a part def)
+«SimulationConfig» Class	Run	_config	-> Run	(the configuration names no execution target, so it runs no behavior)
 OpaqueBehavior	Scale	_scale	-> Scale	(the body is kept as a comment: the construct "x" is outside the translated subset: an in parameter is not assigned)
 OpaqueBehavior	Shift	_shift	-> Shift	(the body is kept as a comment: the construct "a" is outside the translated subset: an in parameter is not assigned)
 FunctionBehavior	Split	_split	-> Split	(the body is kept as a comment: as the result expression, the behavior has 2 output parameters; one result expression can stand for none of them; as statements, the construct "x" is outside the translated subset: an expression that assigns nothing is not a statement of the subset)
@@ -62,13 +62,13 @@ ControlFlow	Reactor::Cycle::<ControlFlow>	_c13
 ControlFlow	Reactor::Cycle::<ControlFlow>	_c14
 ControlFlow	Reactor::Cycle::<ControlFlow>	_c15
 InitialNode	Reactor::Cycle::<InitialNode>	_init	-> start
-InputPin	Reactor::Cycle::bare::raw	_barer	-> Reactor::Cycle::bare.raw
+ValuePin	Reactor::Cycle::bare::raw	_barer	-> Reactor::Cycle::bare.raw
 OpaqueAction	Reactor::Cycle::gain	_gain	-> gain	(the JavaScript body is translated to v2)
 ValuePin	Reactor::Cycle::gain::x	_gainx	-> Reactor::Cycle::gain.x
 OutputPin	Reactor::Cycle::gain::y	_gainy	-> Reactor::Cycle::gain.y
 OpaqueAction	Reactor::Cycle::mark	_mark	-> mark	(the JavaScript body is translated to v2; the clock variable t_sim, named by the configuration Run, reads the local clock)
-InputPin	Reactor::Cycle::pinned::x	_pinx	-> Reactor::Cycle::pinned.x
-InputPin	Reactor::Cycle::relay::x	_relayx	-> Reactor::Cycle::relay.x
+ValuePin	Reactor::Cycle::pinned::x	_pinx	-> Reactor::Cycle::pinned.x
+ValuePin	Reactor::Cycle::relay::x	_relayx	-> Reactor::Cycle::relay.x
 OutputPin	Reactor::Cycle::relay::y	_relayy	-> Reactor::Cycle::relay.y
 Property	Reactor::label	_label	-> Reactor::label
 Property	Reactor::limit	_limit	-> Reactor::limit	(the JavaScript body is translated to v2)

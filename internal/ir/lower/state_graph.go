@@ -242,6 +242,9 @@ type Transition struct {
 	// (`accept Ping via commPort`), and "" when the trigger names no port, in
 	// which case an occurrence reaching the machine by any route fires it.
 	Via string
+	// ViaSelf records a via path written from `this`, whose root is a feature of
+	// the performer however the machine's data would resolve the name.
+	ViaSelf bool
 
 	// Scope is the scope the transition was declared in, in which the expressions
 	// its trigger carries — a time event's duration, a change event's condition —
@@ -347,7 +350,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	}
 	for _, region := range graph.TopRegions {
 		graph.RegionInitials[region] = graph.UnconditionalStart(region)
-		if len(graph.EntryTransitions[region]) == 0 {
+		if len(graph.EntryTransitions[region]) == 0 && !graph.stateless(region) {
 			if graph.regionDecl[region] != nil {
 				return nil, fmt.Errorf("region %s has no initial state; write `entry; then <state>;` inside the region", region.Name)
 			}
@@ -357,7 +360,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	for _, state := range graph.CompositeStateOrder {
 		for _, region := range graph.CompositeStates[state] {
 			graph.RegionInitials[region] = graph.UnconditionalStart(region)
-			if len(graph.EntryTransitions[region]) > 0 {
+			if len(graph.EntryTransitions[region]) > 0 || graph.stateless(region) {
 				continue
 			}
 			if !graph.ForkStarted(region) {
@@ -907,6 +910,21 @@ func collectStateContents(graph *StateGraph, state *ast.StateNode, scope *symbol
 		}
 	}
 	return nil
+}
+
+// stateless reports whether region is stood for by a state declaring no substates
+// (behaviors, transitions and deferred events are not states): such a region
+// starts in, and stays in, that state, so it needs no initial.
+func (g *StateGraph) stateless(region *ast.StateRegion) bool {
+	if g.RegionState[region] == nil {
+		return false
+	}
+	for _, member := range region.States {
+		if isParallelRegionMember(unwrapMembership(member)) {
+			return false
+		}
+	}
+	return true
 }
 
 // recordCompositeState registers a state's regions while retaining their
@@ -1511,6 +1529,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 	if err := refuseTransitionProbability(graph, member, scope); err != nil {
 		return nil, err
 	}
+	via, viaSelf := ViaPortPath(member.Via)
 	return &Transition{
 		Name:      member.Name,
 		Decl:      member,
@@ -1519,7 +1538,8 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 		Trigger:   classifyTrigger(member.Trigger),
 		Guard:     member.Guard,
 		Effect:    transitionEffects(member, bodyScope, graph.resolver),
-		Via:       FeaturePath(member.Via),
+		Via:       via,
+		ViaSelf:   viaSelf,
 		Scope:     scope,
 		BodyScope: bodyScope,
 	}, nil

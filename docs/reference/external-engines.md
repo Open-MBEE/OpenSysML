@@ -159,7 +159,9 @@ The question, in the model's own names, and the model in the forms the entry dec
 - **`question`**: `kind`; `subject`, the qualified name as the surface spelled it, and
   `subjectKind`, its declaration kind; `schedule` as `-schedule` spells it; `modelSeed`, the
   seed the runs' modeled draws come from when one is set apart from the schedule (`-seed`,
-  `%seed`), absent otherwise; `free`, what the
+  `%seed`), absent otherwise; `draws`, the policy the runs' RandomFunctions draws resolve
+  under (`-draws`, `%draws`) — `min`, `max` or `average` — absent when they draw at random;
+  `free`, what the
   question leaves open (`schedule`, `inputs`); `condition` (`name`, `text`) for `holds`;
   `conditions` for `satisfiable`, one set per query with its `features`, `assertions` and
   `pinned` values; `bindings` as `{name, value, unit}`; `inputs` as `{name, type, unit,
@@ -199,7 +201,7 @@ graph carries, the form carries.
   `initial`, `finals`, `edges`, `flows`, `bindings`, `connections`, or `error` when the lowering
   refused it. A `NodeForm` is `id` (its index), `kind`, `name`, `span`, `features`, `body`
   (lowered statements, each with its `kind`, expressions as `{text, span}`), `block`, `accept`
-  (`param`, `signalType`, `viaPort`, `trigger`), `subflow` (the nested graph or its refusal),
+  (`param`, `signalType`, `viaPort`, `viaSelf` for a port path written from `this`, `trigger`), `subflow` (the nested graph or its refusal),
   `performs`, and `footprint` — the places the move reads and writes, the channels it sends on
   and accepts from, the control nodes it joins, `dynamic` when the lowering could not project it
   — present on every node the lowering computed one for. An `EdgeForm` is `source`, `target`,
@@ -248,7 +250,13 @@ under `inputs`: the features the action leaves unbound and those `-check-input` 
 the value as JSON or as SysML notation (`"2 * 4"`, `"Mode::Fast"`); the replay fixes them on the
 action as it starts, before its defaults and ahead of the first move, as an `smt` witness's are,
 and the result lists them. An input the question does not leave free, one given twice or one
-the run cannot read is *not covered* naming it.
+the run cannot read is *not covered* naming it. A schedule carries choices, never the run's
+RandomFunctions draws: under a `draws` policy the question names, the host's replay resolves
+each call to the policy's point — `uniform(1, 10)` is `10` under `max` — as the engine's run
+did, and the witness the result reports records those draws under that policy; a drawing run
+under no policy has no replay, and its schedule is *not covered* (`its witness does not replay
+(… the witness records no draw left for it)`), so a question about a behavior that draws is
+put to an engine under a fixed policy.
 
 ## The standing of an answer
 

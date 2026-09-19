@@ -184,18 +184,32 @@ func (m *migration) observers(o *sysmlv1.Element) []string {
 	return names
 }
 
-// leafStep writes a call behavior action that calls nothing and has no pins
-// as the step its duration constraint stands for; false when it has pins or a
-// behavior reference the document does not resolve, which are lost.
-func (a *activity) leafStep(n *sysmlv1.Element, name string) bool {
-	if len(a.m.model.Unresolved(n, "behavior")) > 0 || len(inputPins(n)) > 0 || len(n.Owned("result")) > 0 || len(n.Owned("outputValue")) > 0 {
-		return false
-	}
+// leafStep reports whether a call behavior action that calls nothing is a bare
+// step: it has no pins and no behavior reference the document fails to resolve.
+func (a *activity) leafStep(n *sysmlv1.Element) bool {
+	return len(a.m.model.Unresolved(n, "behavior")) == 0 && len(inputPins(n)) == 0 && len(n.Owned("result")) == 0 && len(n.Owned("outputValue")) == 0
+}
+
+// writeLeafStep writes such a step as the action its duration constraint stands for.
+func (a *activity) writeLeafStep(n *sysmlv1.Element, name string) {
 	a.m.w.line("action " + name + ";")
 	if _, ok := a.waits[n]; ok {
 		a.m.add(n, Mapped, name, "a step with a duration and no further behavior")
 	} else {
 		a.m.add(n, Approximated, name, "a step with no behavior and no duration; it passes the token on")
 	}
-	return true
+}
+
+// unbehaved says why a call behavior action that calls nothing and is no bare
+// step is not written: what it fails to resolve and the pins nothing computes.
+func (a *activity) unbehaved(n *sysmlv1.Element) string {
+	note := "the action calls no behavior"
+	if pins := append(inputPins(n), append(n.Owned("result"), n.Owned("outputValue")...)...); len(pins) > 0 {
+		var names []string
+		for _, p := range pins {
+			names = append(names, describe(p))
+		}
+		note += ", yet has the pins " + strings.Join(names, ", ") + ", which nothing then computes"
+	}
+	return joinNotes(a.m.dangling(n, "behavior"), note)
 }
