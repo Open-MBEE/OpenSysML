@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
 )
 
@@ -305,7 +305,7 @@ func TestRepeatedAnonymousDerivationsGetDistinctNames(t *testing.T) {
 	for _, d := range errors(t, "derive.sysml", r.Notation) {
 		t.Errorf("%v", d)
 	}
-	if _, err := export.Convert("derive.sysml", r.Notation, export.FormatSysML, export.FormatTurtle); err != nil {
+	if _, err := convert.Convert("derive.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -338,7 +338,7 @@ func TestShadowedReferencesAreGlobal(t *testing.T) {
 	for _, d := range errors(t, "shadow.sysml", r.Notation) {
 		t.Errorf("%v", d)
 	}
-	if _, err := export.Convert("shadow.sysml", r.Notation, export.FormatSysML, export.FormatTurtle); err != nil {
+	if _, err := convert.Convert("shadow.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -391,7 +391,7 @@ func TestUnwritableFeaturePartsAreDroppedWithNotes(t *testing.T) {
 	for _, d := range errors(t, "drop.sysml", r.Notation) {
 		t.Errorf("%v", d)
 	}
-	if _, err := export.Convert("drop.sysml", r.Notation, export.FormatSysML, export.FormatTurtle); err != nil {
+	if _, err := convert.Convert("drop.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -436,7 +436,7 @@ func TestClashingSiblingNamesAreDistinguished(t *testing.T) {
 	for _, d := range errors(t, "clash.sysml", r.Notation) {
 		t.Errorf("%v", d)
 	}
-	if _, err := export.Convert("clash.sysml", r.Notation, export.FormatSysML, export.FormatTurtle); err != nil {
+	if _, err := convert.Convert("clash.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -469,7 +469,7 @@ func TestConnectionEndYieldsItsNameToAMember(t *testing.T) {
 	for _, d := range errors(t, "end.sysml", r.Notation) {
 		t.Errorf("%v", d)
 	}
-	if _, err := export.Convert("end.sysml", r.Notation, export.FormatSysML, export.FormatTurtle); err != nil {
+	if _, err := convert.Convert("end.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -765,7 +765,7 @@ func TestOpaqueExpressionsNeedVisibleNames(t *testing.T) {
       <ownedAttribute xmi:type="uml:Property" xmi:id="_s" name="s">
         <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
       </ownedAttribute>
-      <ownedAttribute xmi:type="uml:Property" xmi:id="_m" name="m" type="_mode"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_m_prop" name="m" type="_mode"/>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_d" name="d">
         <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
         <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_dv">
@@ -1149,7 +1149,7 @@ func TestCollectionModifiersAreWritten(t *testing.T) {
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}
-	ttl, err := export.Convert("t.sysml", r.Notation, export.FormatSysML, export.FormatTurtle)
+	ttl, err := convert.Convert("t.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1341,7 +1341,7 @@ func TestNamedRelationshipsKeepTheirNames(t *testing.T) {
 			t.Errorf("%s: entries = %+v, want %v %q", id, es, want.verdict, want.target)
 		}
 	}
-	if _, err := export.Convert("t.sysml", r.Notation, export.FormatSysML, export.FormatTurtle); err != nil {
+	if _, err := convert.Convert("t.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle); err != nil {
 		t.Fatalf("migrated notation does not convert: %v", err)
 	}
 }
@@ -1420,7 +1420,7 @@ func TestOpaqueExpressionsResolveEveryStep(t *testing.T) {
     </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_e" name="engine" type="_engine" aggregation="composite"/>
-      <ownedAttribute xmi:type="uml:Property" xmi:id="_m" name="mode" type="_mode"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_m_prop" name="mode" type="_mode"/>
       <ownedRule xmi:type="uml:Constraint" xmi:id="_r1" name="hot" constrainedElement="_car">
         <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp1"><body>engine.temp > 90.0 and engine.rpm > 0.0</body></specification>
       </ownedRule>
@@ -1473,7 +1473,7 @@ func TestOpaqueExpressionsMayNameImportedMembers(t *testing.T) {
     <packagedElement xmi:type="uml:Package" xmi:id="_sys" name="System">
       <packageImport xmi:type="uml:PackageImport" xmi:id="_imp" importedPackage="_lib"/>
       <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car">
-        <ownedAttribute xmi:type="uml:Property" xmi:id="_m" name="mode" type="_mode"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_m_prop" name="mode" type="_mode"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_g" name="gear" type="_gear"/>
         <ownedRule xmi:type="uml:Constraint" xmi:id="_r1" name="tracking" constrainedElement="_car">
           <specification xmi:type="uml:OpaqueExpression" xmi:id="_sp1"><body>mode == Mode::TRACK</body></specification>

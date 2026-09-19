@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // Without a context an expression evaluates at the document root, where a
@@ -36,7 +37,7 @@ func TestEvaluateResolvesLibraryFunctionsInTheRequestedScope(t *testing.T) {
 		if err != nil || resp.Error != "" {
 			t.Fatalf("Evaluate(%s, context %q): err = %v, error = %q", tc.expr, tc.context, err, resp.GetError())
 		}
-		if resp.Result.GetComplex() == nil || ProtoToComplex(resp.Result.GetComplex()) != complex(1, -1) {
+		if resp.Result.GetComplex() == nil || protoconv.ProtoToComplex(resp.Result.GetComplex()) != complex(1, -1) {
 			t.Errorf("Evaluate(%s, context %q) = %v, want complex 1.0 - 1.0i", tc.expr, tc.context, resp.Result)
 		}
 	}

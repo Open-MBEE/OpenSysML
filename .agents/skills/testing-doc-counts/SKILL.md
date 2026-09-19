@@ -28,7 +28,7 @@ are rendered when the site builds: `go run -C tools ./cmd/doc-counts -site-block
 `{"docs/project/spec-compliance.md": {"inventory-robustness": "470 runtime robustness cases (…)", …}}`
 and `scripts/mkdocs_suite_figures.py` (an `on_pre_build` + `on_page_markdown` hook in
 `mkdocs.yml`) splices the text into the blocks, dropping the markers. Their inputs are the
-**tree**, read by `doccounts.ReadSuiteCounts` the way the gates enumerate them: `internal/fixtures`
+**tree**, read by `doccounts.ReadSuiteCounts` the way the gates enumerate them: `tests/fixtures`
 lists the conformance cases (the same package `TestExecutionConformance` and the gRPC conformance
 gate iterate), the parse and trace goldens are stat'ed against the case that owns them, and the
 robustness, negative and `Test`-function figures are counted from the `_test.go` files with

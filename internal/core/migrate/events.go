@@ -3,7 +3,7 @@ package migrate
 import (
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // instantValue names a TimeInstantValue attribute a behavior declares for an
@@ -14,7 +14,7 @@ type instantValue struct {
 
 // signalOf says why a signal event's signal is not written as an accept: the
 // event names none, or names one with no v2 declaration; ok when it is written.
-func (m *migration) signalOf(ev *xmi.Element) (note string, ok bool) {
+func (m *migration) signalOf(ev *sysmlv1.Element) (note string, ok bool) {
 	sig := m.model.Ref(ev, "signal")
 	switch {
 	case sig == nil:
@@ -30,11 +30,11 @@ func (m *migration) signalOf(ev *xmi.Element) (note string, ok bool) {
 // instants declares, in the body of behavior b, a TimeInstantValue attribute for
 // each absolute time event a trigger of b refers to, which `accept at` reads;
 // the triggers of a behavior nested in b declare theirs in their own body.
-func (m *migration) instants(b *xmi.Element, used map[string]bool) {
-	var evs []*xmi.Element
-	seen := map[*xmi.Element]bool{}
-	var walk func(e *xmi.Element)
-	walk = func(e *xmi.Element) {
+func (m *migration) instants(b *sysmlv1.Element, used map[string]bool) {
+	var evs []*sysmlv1.Element
+	seen := map[*sysmlv1.Element]bool{}
+	var walk func(e *sysmlv1.Element)
+	walk = func(e *sysmlv1.Element) {
 		if e != b && isBehavior(e) {
 			return
 		}
@@ -62,7 +62,7 @@ func (m *migration) instants(b *xmi.Element, used map[string]bool) {
 		name = freshIn(used, name)
 		m.w.line("attribute " + writeName(name) + " : Time::TimeInstantValue = " + d + ";")
 		if m.instant[b] == nil {
-			m.instant[b] = map[*xmi.Element]instantValue{}
+			m.instant[b] = map[*sysmlv1.Element]instantValue{}
 		}
 		m.instant[b][ev] = instantValue{name: name, note: note}
 	}
@@ -71,7 +71,7 @@ func (m *migration) instants(b *xmi.Element, used map[string]bool) {
 // instantExpr writes the instant an absolute time event names as a
 // TimeInstantValue in seconds from the start of the clock: a duration literal
 // or an expression read in scope; else ok is false with why.
-func (m *migration) instantExpr(ev, scope *xmi.Element) (expr string, ok bool, note string) {
+func (m *migration) instantExpr(ev, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	d, ok, note := m.durationExpr(firstOwned(ev, "when"), scope)
 	if !ok {
 		return "", false, strings.Replace(note, "the duration", "the instant", 1)
@@ -82,7 +82,7 @@ func (m *migration) instantExpr(ev, scope *xmi.Element) (expr string, ok bool, n
 
 // instantRef names the TimeInstantValue attribute an absolute time event's accept
 // reads in scope, declared by the enclosing behavior; the note says why none is.
-func (m *migration) instantRef(ev, scope *xmi.Element) (name, note string, ok bool) {
+func (m *migration) instantRef(ev, scope *sysmlv1.Element) (name, note string, ok bool) {
 	for cur := scope; cur != nil; cur = cur.Parent {
 		if iv, ok := m.instant[cur][ev]; ok {
 			return writeName(iv.name), iv.note, true

@@ -4,17 +4,19 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // w6cDiags returns the codes and messages src produces, for reproducers whose
 // matched pinned-validator verdict is quoted in each test's comment.
-func w6cDiags(t *testing.T, name, src string) []Diagnostic {
+func w6cDiags(t *testing.T, name, src string) []diag.Diagnostic {
 	t.Helper()
 	root, pd, idx := analyzeInputs(t, name, src)
 	return Analyze(name, root, pd, idx)
 }
 
-func w6cCodes(diags []Diagnostic) string {
+func w6cCodes(diags []diag.Diagnostic) string {
 	var out []string
 	for _, d := range diags {
 		out = append(out, fmt.Sprintf("%v/%s", d.Severity, d.Code))
@@ -188,7 +190,7 @@ func TestW6CSuccessionRedefinitionTargetIsClean(t *testing.T) {
 func TestW6CImportWithoutVisibilityIsAnError(t *testing.T) {
 	got := w6cDiags(t, "w6c_import.sysml", "package P { import Q::*; package Q { attribute def A; } }")
 	for _, d := range got {
-		if d.Code == "import-visibility" && d.Severity == SeverityError {
+		if d.Code == "import-visibility" && d.Severity == diag.SeverityError {
 			return
 		}
 	}
@@ -241,7 +243,7 @@ func TestW6CNotationNoPinnedProductionAdmitsIsWarned(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := w6cDiags(t, tc.file, tc.src)
 			for _, d := range got {
-				if d.Severity == SeverityError {
+				if d.Severity == diag.SeverityError {
 					t.Fatalf("got %+v, want no error for accepted notation", got)
 				}
 			}

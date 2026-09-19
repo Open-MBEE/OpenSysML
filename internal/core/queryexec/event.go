@@ -3,7 +3,6 @@ package queryexec
 import (
 	"strconv"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -97,9 +96,9 @@ func (ev Event) Summary() string {
 func EventValue(event Event) Value {
 	value := Value{kind: ValueEvent, event: &event}
 	if event.object != nil {
-		value.origin = provenance.Symbol(objectDeclaration(event.object))
+		value.origin = objectDeclaration(event.object).Origin()
 	} else if event.record.Origin.Behavior != nil {
-		value.origin = provenance.Symbol(event.record.Origin.Behavior)
+		value.origin = event.record.Origin.Behavior.Origin()
 	}
 	return value
 }

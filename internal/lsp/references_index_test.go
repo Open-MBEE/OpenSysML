@@ -8,7 +8,7 @@ import (
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 )
 
@@ -184,6 +184,6 @@ func TestReferencesDropClosedAndRemovedDocuments(t *testing.T) {
 func TestReferencesSurviveConformanceModeChange(t *testing.T) {
 	ws, s, n := openRefIndexWorkspace(t)
 	wantLocations(t, indexReferencesAt(t, ws, s, n["lib"], "Wheel"), n["use"])
-	ws.SetConformanceMode(conformance.ModeStrict)
+	ws.SetConformanceMode(diag.ConformanceStrict)
 	wantLocations(t, indexReferencesAt(t, ws, s, n["lib"], "Wheel"), n["use"])
 }

@@ -45,8 +45,8 @@ endef
 
 # Build output directory
 BIN_DIR := bin
-PYTHON_DIR := clients/python
-NODE_DIR := clients/node
+PYTHON_DIR := client/python
+NODE_DIR := client/node
 # The TypeScript protobuf plugin, installed by `npm ci` from the client's lockfile.
 PROTOC_GEN_ES := $(NODE_DIR)/node_modules/.bin/protoc-gen-es
 VSCODE_DIR := editors/vscode
@@ -146,7 +146,7 @@ conformance: ## Run the language-independent conformance suite against sysml-grp
 conformance-rust: ## Run the conformance suite with the blocking Rust client
 	$(MAKE) build
 	@mkdir -p $(BIN_DIR)
-	OPENSYSML_GRPC_BINARY="$(CURDIR)/$(BIN_DIR)/sysml-grpc" cargo run --manifest-path clients/rust/Cargo.toml -p opensysml-conformance -- -binary "$(CURDIR)/$(BIN_DIR)/sysml-grpc" -report "$(CURDIR)/$(BIN_DIR)/conformance-report-rust.json"
+	OPENSYSML_GRPC_BINARY="$(CURDIR)/$(BIN_DIR)/sysml-grpc" cargo run --manifest-path client/rust/Cargo.toml -p opensysml-conformance -- -binary "$(CURDIR)/$(BIN_DIR)/sysml-grpc" -report "$(CURDIR)/$(BIN_DIR)/conformance-report-rust.json"
 
 conformance-pkg: ## Run the conformance suite through the public Go API (client/opensysml)
 	@echo "Running the conformance suite through client/opensysml..."
@@ -262,7 +262,7 @@ python-proto: ## Regenerate Python protobuf stubs
 	$(BUF) generate --template buf.gen.python.yaml
 	@echo "✓ Regenerated Python stubs"
 
-proto-ts: $(PROTOC_GEN_ES) ## Regenerate the TypeScript stubs the npm client in clients/node ships
+proto-ts: $(PROTOC_GEN_ES) ## Regenerate the TypeScript stubs the npm client in client/node ships
 	@echo "Regenerating TypeScript protobuf stubs..."
 	$(BUF) generate --template buf.gen.ts.yaml
 	@echo "✓ Regenerated TypeScript stubs"
@@ -272,7 +272,7 @@ $(PROTOC_GEN_ES): $(NODE_DIR)/package-lock.json
 
 proto-rust: ## Generate Rust stubs and the descriptor for the Rust clients
 	$(BUF) generate --template buf.gen.rust.yaml
-	$(BUF) build -o clients/rust/conformance/sysml.descriptor.binpb
+	$(BUF) build -o client/rust/conformance/sysml.descriptor.binpb
 
 proto-lint: ## Lint the protobuf schema
 	$(BUF) lint
@@ -304,7 +304,7 @@ python-coverage: ## Run Python client tests and write coverage-python.xml
 
 # The repository scripts the checks run, measured the same way. Each script runs
 # the way CI runs it, so the report credits what the checks execute. The release
-# scripts under clients/python/scripts are loaded by path, so their tests run here too.
+# scripts under client/python/scripts are loaded by path, so their tests run here too.
 SCRIPTS_COVERAGE := $(PYTHON) -m coverage run --append --rcfile=scripts/coverage-scripts.ini
 
 scripts-coverage: ## Run the repository scripts and their tests under coverage and write coverage-scripts.xml

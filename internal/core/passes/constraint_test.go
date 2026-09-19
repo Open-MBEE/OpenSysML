@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -12,13 +13,13 @@ import (
 
 // constraintDiags parses src, indexes it, runs the full default registry, and
 // returns only diagnostics whose Source is "constraint".
-func constraintDiags(t *testing.T, src string) []Diagnostic {
+func constraintDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	root := parser.New(source.New("<t>", []byte(src))).ParseFile()
 	idx := newTestIndex()
 	idx.AddDocument("<t>", root)
 	all := Analyze("<t>", root, nil, idx)
-	var out []Diagnostic
+	var out []diag.Diagnostic
 	for _, d := range all {
 		if d.Source == "constraint" {
 			out = append(out, d)
@@ -27,7 +28,7 @@ func constraintDiags(t *testing.T, src string) []Diagnostic {
 	return out
 }
 
-func hasCode(diags []Diagnostic, code string) bool {
+func hasCode(diags []diag.Diagnostic, code string) bool {
 	for _, d := range diags {
 		if d.Code == code {
 			return true
@@ -111,7 +112,7 @@ func TestEnumNamedValuesStillReportDuplicateNames(t *testing.T) {
 	root := parser.New(source.New("<t>", []byte(src))).ParseFile()
 	idx := newTestIndex()
 	idx.AddDocument("<t>", root)
-	var duplicates []Diagnostic
+	var duplicates []diag.Diagnostic
 	for _, d := range Analyze("<t>", root, nil, idx) {
 		if d.Message == "Duplicate of other owned member name" {
 			duplicates = append(duplicates, d)
@@ -474,7 +475,7 @@ func TestConstraint_RedefinitionTypeMismatch(t *testing.T) {
 	// KerML defines no such constraint and the pinned pilot validator is silent:
 	// the redefining type joins the redefined one's, so the report is advisory.
 	for _, d := range diags {
-		if d.Code == "redefinition-type-mismatch" && d.Severity != SeverityWarning {
+		if d.Code == "redefinition-type-mismatch" && d.Severity != diag.SeverityWarning {
 			t.Errorf("redefinition-type-mismatch is %v, want a warning", d.Severity)
 		}
 	}
@@ -505,7 +506,7 @@ func TestConstraint_ShapeItemsRedefinitionsAreNotErrors(t *testing.T) {
 	}
 	mismatches := 0
 	for _, d := range w9cLibraryDiags(t, string(src), false) {
-		if d.Severity == SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Errorf("error on ShapeItems: %s", d.Message)
 		}
 		if d.Code == "redefinition-type-mismatch" {
@@ -650,7 +651,7 @@ func TestConstraintUnnamedRedefinitionValue(t *testing.T) {
 		}
 	`
 	diags := constraintDiags(t, src)
-	var got *Diagnostic
+	var got *diag.Diagnostic
 	for i, d := range diags {
 		if d.Code == "redefinition-no-derived-name" {
 			got = &diags[i]
@@ -659,7 +660,7 @@ func TestConstraintUnnamedRedefinitionValue(t *testing.T) {
 	if got == nil {
 		t.Fatalf("expected redefinition-no-derived-name diagnostic, got %v", diags)
 	}
-	if got.Severity != SeverityWarning {
+	if got.Severity != diag.SeverityWarning {
 		t.Errorf("severity = %v, want warning", got.Severity)
 	}
 	want := "a member redefining x and y derives no name, so this value is bound to the short name <sn> only; declare a name or redefine one feature"
@@ -828,7 +829,7 @@ func TestConstraintVariantOutsideVariation(t *testing.T) {
 		}
 	`
 	diags := constraintDiags(t, src)
-	var got *Diagnostic
+	var got *diag.Diagnostic
 	for i, d := range diags {
 		if d.Code == "variant-outside-variation" {
 			got = &diags[i]
@@ -837,7 +838,7 @@ func TestConstraintVariantOutsideVariation(t *testing.T) {
 	if got == nil {
 		t.Fatalf("expected variant-outside-variation diagnostic, got %v", diags)
 	}
-	if got.Severity != SeverityError {
+	if got.Severity != diag.SeverityError {
 		t.Errorf("severity = %v, want error", got.Severity)
 	}
 	if got.Message != msgVariantOutsideVariation {

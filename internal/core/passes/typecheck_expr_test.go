@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // scalarPrelude declares the stdlib scalar types the expression checker keys
@@ -23,7 +25,7 @@ const scalarPrelude = `package ScalarValues {
 
 // exprDiags runs the default registry over the scalar prelude plus src and
 // returns the type-tier diagnostics.
-func exprDiags(t *testing.T, src string) []Diagnostic {
+func exprDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	return typeDiags(t, scalarPrelude+src)
 }
@@ -48,7 +50,7 @@ func wantOneWarning(t *testing.T, src, code, want string) {
 	if len(diags) != 1 {
 		t.Fatalf("expected exactly one type diagnostic, got %v", diags)
 	}
-	if diags[0].Severity != SeverityWarning || diags[0].Code != code {
+	if diags[0].Severity != diag.SeverityWarning || diags[0].Code != code {
 		t.Fatalf("expected warning %q, got %s %q (%s)", code, diags[0].Severity, diags[0].Code, diags[0].Message)
 	}
 	if !strings.Contains(diags[0].Message, want) {
@@ -219,7 +221,7 @@ func TestExprEqualityAcrossDisjointTypesWarns(t *testing.T) {
 	if len(diags) != 1 {
 		t.Fatalf("expected exactly one type diagnostic, got %v", diags)
 	}
-	if diags[0].Severity != SeverityWarning {
+	if diags[0].Severity != diag.SeverityWarning {
 		t.Fatalf("expected a warning, got %v", diags[0].Severity)
 	}
 }

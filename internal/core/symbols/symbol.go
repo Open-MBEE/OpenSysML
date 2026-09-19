@@ -208,6 +208,15 @@ func (k SymbolKind) IsFeature() bool {
 
 // IsFeature reports whether s declares a KerML Feature: by its kind, or by its
 // usage declaration when the kind is unclassified (a named binding).
+// Owner is the element s was declared in, and nil at the root of a document
+// or for a nil symbol.
+func (s *Symbol) Owner() *Symbol {
+	if s == nil || s.OwnerScope == nil {
+		return nil
+	}
+	return s.OwnerScope.Owner()
+}
+
 func (s *Symbol) IsFeature() bool {
 	if s.Kind != SymbolUnknown {
 		return s.Kind.IsFeature()

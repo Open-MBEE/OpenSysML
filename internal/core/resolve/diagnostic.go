@@ -1,7 +1,7 @@
 package resolve
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/quickfix"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -13,7 +13,7 @@ type Diagnostic struct {
 	Code string
 	// Fixes are the unambiguous edits resolving the diagnostic, offered by an
 	// editor as quick fixes.
-	Fixes []quickfix.Fix
+	Fixes []diag.Fix
 	// Warning reports a well-formedness rule the reference states as a warning:
 	// the model still resolves, so validation continues past it.
 	Warning bool

@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 func (s *Service) symbolToProto(sym *symbols.Symbol, sc *SymbolContext) *pb.SymbolInfo {
@@ -29,13 +30,13 @@ func (s *Service) symbolToProto(sym *symbols.Symbol, sc *SymbolContext) *pb.Symb
 }
 
 func (s *Service) valueToProto(rt *runtime.Context, value runtime.Value, idx *symbols.Index) *pb.Value {
-	out := ValueToProtoIn(rt, value, idx)
+	out := protoconv.ValueToProtoIn(rt, value, idx)
 	s.filterValueCapabilities(out)
 	return out
 }
 
-func (s *Service) instanceGraphToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index) InstanceGraph {
-	graph := InstanceGraphToProtoWithin(rt, inst, idx, DefaultGraphBounds())
+func (s *Service) instanceGraphToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index) protoconv.InstanceGraph {
+	graph := protoconv.InstanceGraphToProtoWithin(rt, inst, idx, protoconv.DefaultGraphBounds())
 	for _, instance := range graph.All {
 		s.filterInstanceCapabilities(instance)
 	}
@@ -78,10 +79,10 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 		}
 	case *pb.Value_Array, *pb.Value_Vector, *pb.Value_VectorQuantity:
 		if !s.capabilities.has(CapabilityStructuredValues) {
-			value.Kind = unsupportedShown(displayValue(value))
+			value.Kind = protoconv.UnsupportedShown(displayValue(value))
 			return
 		}
-		for _, nested := range nestedValues(value) {
+		for _, nested := range protoconv.NestedValues(value) {
 			s.filterValueCapabilities(nested)
 		}
 	case *pb.Value_Set:
@@ -96,13 +97,13 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 func (s *Service) filterSetCapabilities(value *pb.Value) {
 	shown := displayValue(value)
 	if !s.capabilities.has(CapabilitySetValues) {
-		value.Kind = unsupportedShown(shown)
+		value.Kind = protoconv.UnsupportedShown(shown)
 		return
 	}
-	for _, nested := range nestedValues(value) {
+	for _, nested := range protoconv.NestedValues(value) {
 		s.filterValueCapabilities(nested)
-		if reason, ok := unsupportedReason(nested); ok {
-			value.Kind = unsupportedSet(shown, reason).Kind
+		if reason, ok := protoconv.UnsupportedReason(nested); ok {
+			value.Kind = protoconv.UnsupportedSet(shown, reason).Kind
 			return
 		}
 	}
@@ -122,15 +123,15 @@ func (s *Service) filterLeafCapabilities(value *pb.Value) {
 		}
 	case *pb.Value_Complex:
 		if !s.capabilities.has(CapabilityComplexValues) {
-			value.Kind = &pb.Value_Null{Null: "unsupported: complex number " + runtime.FormatComplex(ProtoToComplex(kind.Complex))}
+			value.Kind = &pb.Value_Null{Null: "unsupported: complex number " + runtime.FormatComplex(protoconv.ProtoToComplex(kind.Complex))}
 		}
 	case *pb.Value_MeasurementRef:
 		if !s.capabilities.has(CapabilityMeasurementRefs) {
-			value.Kind = unsupportedShown(displayValue(value))
+			value.Kind = protoconv.UnsupportedShown(displayValue(value))
 		}
 	case *pb.Value_Function:
 		if !s.capabilities.has(CapabilityFunctionValues) {
-			value.Kind = &pb.Value_Null{Null: unsupportedNullPrefix + runtime.ValFunction.String() + " " + kind.Function.GetCalcId()}
+			value.Kind = &pb.Value_Null{Null: protoconv.UnsupportedNullPrefix + runtime.ValFunction.String() + " " + kind.Function.GetCalcId()}
 		}
 	case *pb.Value_Infinity:
 		if !s.capabilities.has(CapabilityInfinityValue) {
@@ -138,16 +139,16 @@ func (s *Service) filterLeafCapabilities(value *pb.Value) {
 		}
 	case *pb.Value_TensorQuantity:
 		if !s.capabilities.has(CapabilityTensorValues) {
-			value.Kind = unsupportedShown(displayValue(value))
+			value.Kind = protoconv.UnsupportedShown(displayValue(value))
 		}
 	case *pb.Value_Metaobject:
 		if !s.capabilities.has(CapabilityMetaobjectValues) {
-			value.Kind = &pb.Value_Null{Null: unsupportedNullPrefix + runtime.ValMetaobject.String() + " " +
+			value.Kind = &pb.Value_Null{Null: protoconv.UnsupportedNullPrefix + runtime.ValMetaobject.String() + " " +
 				kind.Metaobject.GetElementId() + " : " + kind.Metaobject.GetMetaclassId()}
 		}
 	case *pb.Value_Undetermined:
 		if !s.capabilities.has(CapabilityUndeterminedValue) {
-			value.Kind = &pb.Value_Null{Null: unsupportedNullPrefix + runtime.UndeterminedText + ": " + kind.Undetermined.GetReason()}
+			value.Kind = &pb.Value_Null{Null: protoconv.UnsupportedNullPrefix + runtime.UndeterminedText + ": " + kind.Undetermined.GetReason()}
 		}
 	}
 }
@@ -211,7 +212,7 @@ func displayValue(pv *pb.Value) runtime.Value {
 	case *pb.Value_Metaobject:
 		return runtime.NewMetaobject(&symbols.Symbol{Name: k.Metaobject.GetElementId()}, &symbols.Symbol{Name: k.Metaobject.GetMetaclassId()})
 	default:
-		return protoToScalar(pv)
+		return protoconv.ProtoToScalar(pv)
 	}
 }
 

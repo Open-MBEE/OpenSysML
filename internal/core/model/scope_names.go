@@ -573,7 +573,7 @@ func (nw *nameWalk) add(prefix, name string, sym *symbols.Symbol, depth int) {
 	nw.at[qn] = target
 	nw.out = append(nw.out, VisibleName{
 		Name:  qn,
-		FQN:   nw.fqnOf(target),
+		FQN:   symbols.FQNOf(target),
 		Kind:  target.Kind,
 		Depth: depth,
 	})
@@ -674,20 +674,11 @@ func (nw *nameWalk) loaded(sym *symbols.Symbol) bool {
 	if !nw.idx.Library(sym) {
 		return true
 	}
-	root := nw.fqnOf(sym)
+	root := symbols.FQNOf(sym)
 	if i := strings.Index(root, "::"); i >= 0 {
 		root = root[:i]
 	}
 	return nw.library[root]
-}
-
-// fqnOf is the qualified name the index registers sym under, falling back to
-// the one its scope chain spells out.
-func (nw *nameWalk) fqnOf(sym *symbols.Symbol) string {
-	if fqn := nw.idx.GetFQN(sym); fqn != "" {
-		return fqn
-	}
-	return sym.Name
 }
 
 // importedName is the last name segment a membership import writes.

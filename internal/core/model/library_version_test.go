@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -398,7 +398,7 @@ func TestWorkspaceLibraryVersionRestoresImports(t *testing.T) {
 			t.Errorf("%s: Mine::Real declared in %q, want %q", when, docs, want)
 		}
 		for _, d := range ws.Diagnostics("car.sysml") {
-			if d.Severity == passes.SeverityError {
+			if d.Severity == diag.SeverityError {
 				t.Errorf("%s: car.sysml: %s: %s", when, d.Code, d.Message)
 			}
 		}

@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -18,7 +19,7 @@ func (AnnotationOwnershipPass) Level() PassLevel { return LevelConstraint }
 // ElementScoped: each `about` reference gates on its own resolution.
 func (AnnotationOwnershipPass) ElementScoped() { /* marker: per-element gating */ }
 
-func (AnnotationOwnershipPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (AnnotationOwnershipPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -35,7 +36,7 @@ func (AnnotationOwnershipPass) Run(ctx *Context, name string, root *ast.RootName
 type annotationOwnershipChecker struct {
 	ctx      *Context
 	resolver *resolve.Resolver
-	diags    []Diagnostic
+	diags    []diag.Diagnostic
 }
 
 func (c *annotationOwnershipChecker) check(sym *symbols.Symbol) {
@@ -56,8 +57,8 @@ func (c *annotationOwnershipChecker) check(sym *symbols.Symbol) {
 		if target != sym {
 			continue
 		}
-		c.diags = append(c.diags, Diagnostic{
-			Severity: SeverityError,
+		c.diags = append(c.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     about.Span(),
 			Message:  msgAnnotationOwnsAnnotating,
 			Code:     "annotation-annotated-element-ownership",

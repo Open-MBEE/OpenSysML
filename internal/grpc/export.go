@@ -7,7 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 )
 
 // Convert writes a model in another representation, so a client can save a model
@@ -28,25 +28,25 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 	if req.ToFormat == "" {
 		return nil, statusError(connect.CodeInvalidArgument, "to_format is required: expected sysml, kerml, ttl, turtle or rdf")
 	}
-	to, err := export.ParseFormat(req.ToFormat)
+	to, err := convert.ParseFormat(req.ToFormat)
 	if err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
 	if !to.Writable() {
-		return nil, statusError(connect.CodeInvalidArgument, (&export.NotWritableError{Format: to}).Error())
+		return nil, statusError(connect.CodeInvalidArgument, (&convert.NotWritableError{Format: to}).Error())
 	}
 
 	resp := &pb.ConvertResponse{FromFormat: from.String(), ToFormat: to.String()}
 	// Marked on the response rather than left to the client to infer, so a caller
 	// that let a format be inferred learns the mapping it got is experimental.
-	if export.IsExperimental(from, to) {
+	if convert.IsExperimental(from, to) {
 		resp.Experimental = true
-		resp.ExperimentalNotice = export.Notice(from, to)
+		resp.ExperimentalNotice = convert.Notice(from, to)
 	}
 	out, syntax, err := convertModel(name, data, from, to, req.TolerateSyntaxErrors)
 	if err != nil {
 		resp.Error = err.Error()
-		var broken *export.SyntaxError
+		var broken *convert.SyntaxError
 		if errors.As(err, &broken) {
 			resp.Diagnostics = s.filterDiagnosticCapabilities(syntaxDiagnostics(broken))
 		}
@@ -59,11 +59,11 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 
 // convertModel runs the conversion, tolerating unreadable notation only when the
 // request asked for it.
-func convertModel(name string, data []byte, from, to export.Format, tolerant bool) ([]byte, *export.SyntaxError, error) {
+func convertModel(name string, data []byte, from, to convert.Format, tolerant bool) ([]byte, *convert.SyntaxError, error) {
 	if tolerant {
-		return export.ConvertTolerant(name, data, from, to)
+		return convert.ConvertTolerant(name, data, from, to)
 	}
-	out, err := export.Convert(name, data, from, to)
+	out, err := convert.Convert(name, data, from, to)
 	return out, nil, err
 }
 
@@ -103,9 +103,9 @@ func (s *Service) convertSource(req *pb.ConvertRequest) (string, []byte, error) 
 
 // convertFrom resolves the source format, inferring it from the file name when
 // the request left it unset.
-func convertFrom(req *pb.ConvertRequest, name string) (export.Format, error) {
+func convertFrom(req *pb.ConvertRequest, name string) (convert.Format, error) {
 	if req.FromFormat != "" {
-		from, err := export.ParseFormat(req.FromFormat)
+		from, err := convert.ParseFormat(req.FromFormat)
 		if err != nil {
 			return 0, statusError(connect.CodeInvalidArgument, err.Error())
 		}
@@ -114,21 +114,21 @@ func convertFrom(req *pb.ConvertRequest, name string) (export.Format, error) {
 	if req.GetModelHash() != "" {
 		// Parse reads notation, so a cached model is notation whatever it was
 		// named — including one parsed from inline content, which has no name.
-		return export.FormatSysML, nil
+		return convert.FormatSysML, nil
 	}
 	if req.GetFilePath() == "" {
-		return 0, statusError(connect.CodeInvalidArgument, "from_format is required for inline content: expected "+export.FormatList)
+		return 0, statusError(connect.CodeInvalidArgument, "from_format is required for inline content: expected "+convert.FormatList)
 	}
-	from, err := export.FormatOfPath(name)
+	from, err := convert.FormatOfPath(name)
 	if err != nil {
-		return 0, statusError(connect.CodeInvalidArgument, export.Advise(err, "pass from_format, or "+export.ExtensionAdvice).Error())
+		return 0, statusError(connect.CodeInvalidArgument, convert.Advise(err, "pass from_format, or "+convert.ExtensionAdvice).Error())
 	}
 	return from, nil
 }
 
 // syntaxDiagnostics reports a SyntaxError as diagnostics, with spans when the
 // input was notation and a bare message when it was not.
-func syntaxDiagnostics(syntax *export.SyntaxError) []*pb.Diagnostic {
+func syntaxDiagnostics(syntax *convert.SyntaxError) []*pb.Diagnostic {
 	if syntax == nil {
 		return nil
 	}

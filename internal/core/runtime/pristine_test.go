@@ -75,7 +75,7 @@ func TestPristineFollowsAStateMachinesMoves(t *testing.T) {
 // the action through a snapshot as the machine's does.
 func TestPristineFollowsAPerformedActionsMoves(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, waiterSource)
-	ctx := NewContext(NewModel(model, resolver), 10000)
+	ctx := NewContext(typedModel(model, resolver), 10000)
 	waiter, err := ctx.Instantiate(resolveSymbol(t, resolveSymbol(t, root, "test").Scope, "Waiter"))
 	if err != nil {
 		t.Fatalf("Instantiate Waiter: %v", err)

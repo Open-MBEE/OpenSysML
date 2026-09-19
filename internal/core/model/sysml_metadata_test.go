@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 func TestSysMLMetadataExample(t *testing.T) {
@@ -21,7 +22,7 @@ func TestSysMLMetadataExample(t *testing.T) {
 
 	var unresolvedCount int
 	for _, d := range diags {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Logf("ERROR: %s", d.Message)
 			if d.Message == "unresolved reference: SysML::PartDefinition" ||
 				d.Message == "unresolved reference: SysML::PartUsage" ||

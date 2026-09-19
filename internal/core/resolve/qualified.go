@@ -2,10 +2,10 @@ package resolve
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/quickfix"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -265,7 +265,7 @@ func rootOf(scope *symbols.Scope) *symbols.Scope {
 func (r *Resolver) unresolved(scope *symbols.Scope, qn *ast.QualifiedName) {
 	delete(r.ambiguities, qn)
 	msg := unresolvedReferencePrefix + qnText(qn)
-	var fixes []quickfix.Fix
+	var fixes []diag.Fix
 	if len(qn.Parts) == 1 && !qn.Global {
 		name := qn.Parts[0].Text
 		msg = r.unresolvedMessage(scope, name, qn)

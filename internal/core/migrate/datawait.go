@@ -3,7 +3,7 @@ package migrate
 import (
 	"slices"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // awaitData turns the object flows into a control-flow-driven action into
@@ -50,11 +50,11 @@ func (a *activity) awaitData() {
 // starvesWaiting reports whether a pass of to could wait for a value from a pass
 // from does not run: a loop of successions leads from to back to to without
 // passing a node from which from is surely reached again.
-func (a *activity) starvesWaiting(to, from *xmi.Element) bool {
+func (a *activity) starvesWaiting(to, from *sysmlv1.Element) bool {
 	refires := a.surelyReaching(from)
-	seen := map[*xmi.Element]bool{}
-	var walk func(*xmi.Element) bool
-	walk = func(cur *xmi.Element) bool {
+	seen := map[*sysmlv1.Element]bool{}
+	var walk func(*sysmlv1.Element) bool
+	walk = func(cur *sysmlv1.Element) bool {
 		for _, nx := range a.next[cur] {
 			if nx == to {
 				return true
@@ -74,8 +74,8 @@ func (a *activity) starvesWaiting(to, from *xmi.Element) bool {
 
 // surelyReaching lists the nodes from which n is reached by successions that fire
 // whenever their source does: unguarded edges out of anything but a decision.
-func (a *activity) surelyReaching(n *xmi.Element) map[*xmi.Element]bool {
-	reaching := map[*xmi.Element]bool{n: true}
+func (a *activity) surelyReaching(n *sysmlv1.Element) map[*sysmlv1.Element]bool {
+	reaching := map[*sysmlv1.Element]bool{n: true}
 	for changed := true; changed; {
 		changed = false
 		for src, edges := range a.succ {

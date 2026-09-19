@@ -12,10 +12,10 @@ concurrency:
 env:
   # The OMG training corpus is not vendored. Requiring it here turns "corpus
   # absent" into a test failure instead of a skip, so the gate cannot pass green
-  # without actually running (see internal/core/model/training_examples_test.go).
+  # without actually running (see tests/corpus/training_examples_test.go).
   OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
   # Same for the three pinned OMG pilot corpora, which are downloaded below and
-  # gated by internal/core/model/pilot_corpora_test.go.
+  # gated by tests/corpus/pilot_corpora_test.go.
   OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
   # Same for the pinned OMG PSSM test suite, gated by tools/referee/pssm and tools/cmd/pssm-referee.
   OPENSYSML_REQUIRE_PSSM_SUITE: "1"
@@ -98,9 +98,9 @@ jobs:
         run: |
           make proto-buf BUF=buf
           git add -N api/proto \
-            clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+            client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
           git diff --exit-code api/proto \
-            clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+            client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
 
       # The solver is an external process, never linked in: the solver-dependent
       # tests need one on PATH to run rather than skip.
@@ -360,7 +360,7 @@ jobs:
       - name: Run training corpus gate
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/core/model -run 'TestTrainingExamples|TestCorpusGates' | tee corpus-gate.log
+          go test -count=1 -v ./tests/corpus -run 'TestTrainingExamples|TestCorpusGates' | tee corpus-gate.log
           grep -E 'training files clean' corpus-gate.log
           if grep -qE '^\s*--- SKIP' corpus-gate.log; then
             echo "error: the corpus gate skipped" >&2
@@ -374,7 +374,7 @@ jobs:
       - name: Run pilot corpora gate
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/core/model -run 'TestPilotCorpora' | tee pilot-corpora-gate.log
+          go test -count=1 -v ./tests/corpus -run 'TestPilotCorpora' | tee pilot-corpora-gate.log
           grep -E 'pilot corpus files clean' pilot-corpora-gate.log
           if grep -qE '^\s*--- SKIP' pilot-corpora-gate.log; then
             echo "error: the pilot corpora gate skipped" >&2
@@ -426,7 +426,7 @@ jobs:
       - name: Run RDF corpus round-trip gate
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/core/export -run 'TestCorpusRoundTrip' | tee corpus-roundtrip-gate.log
+          go test -count=1 -v ./tests/corpus -run 'TestCorpusRoundTrip' | tee corpus-roundtrip-gate.log
           grep -E 'corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
           if grep -qE '^\s*--- SKIP' corpus-roundtrip-gate.log; then
             echo "error: the RDF corpus round-trip gate skipped" >&2
@@ -741,7 +741,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: clients/node/package-lock.json
+          cache-dependency-path: client/node/package-lock.json
 
       # The tests and the conformance runner start private children of this
       # binary; without it they would build one from the checkout, needing Go.
@@ -751,33 +751,33 @@ jobs:
           echo "OPENSYSML_BINARY=$(pwd)/bin/sysml-grpc" >> "$GITHUB_ENV"
 
       - name: Install the client's dependencies
-        working-directory: clients/node
+        working-directory: client/node
         # --ignore-scripts: no dependency of this client needs an install hook,
         # and one added upstream would run here with the workflow's token.
         run: npm ci --ignore-scripts
 
       - name: Build, typecheck and lint
-        working-directory: clients/node
+        working-directory: client/node
         run: |
           npm run build
           npm run typecheck
           npm run lint
 
       - name: Run the tests
-        working-directory: clients/node
+        working-directory: client/node
         run: npm test
 
       # --allow-skips because v1 covers 5 of the 15 RPCs; the skipped count is
       # reported and the artifact records which scenarios they were.
       - name: Run the conformance suite through the client
-        working-directory: clients/node
+        working-directory: client/node
         run: |
           npm run conformance -- --binary "$OPENSYSML_BINARY" --allow-skips \
             --report node-conformance.json
 
       # A runner that passes against a deliberately broken client tests nothing.
       - name: Check the conformance runner catches a broken client
-        working-directory: clients/node
+        working-directory: client/node
         run: |
           for mutation in hide-capability drop-diagnostics blank-symbol-kind shift-integer drop-feature-values; do
             if npm run conformance -- --binary "$OPENSYSML_BINARY" --allow-skips \
@@ -791,7 +791,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: node-conformance
-          path: clients/node/node-conformance.json
+          path: client/node/node-conformance.json
 
       # Pinned by digest, as cvc5 is above, so a substituted asset is not run.
       - name: Install buf
@@ -807,8 +807,8 @@ jobs:
       - name: Verify the committed TypeScript stubs are current
         run: |
           make proto-ts BUF=buf
-          git add -N clients/node/src/generated
-          git diff --exit-code clients/node/src/generated
+          git add -N client/node/src/generated
+          git diff --exit-code client/node/src/generated
 
   python-test:
     name: Python client tests
@@ -900,8 +900,8 @@ jobs:
           # (GRPC_GENERATED_VERSION), so a newer release cannot fail this check.
           pip install --only-binary :all: grpcio-tools==1.83.0
           make python-proto BUF=buf
-          git add -N clients/python/opensysml/proto
-          git diff --exit-code clients/python/opensysml/proto
+          git add -N client/python/opensysml/proto
+          git diff --exit-code client/python/opensysml/proto
 
   rust-test:
     name: Rust client tests
@@ -938,17 +938,17 @@ jobs:
           cargo --version
 
       - name: Check Rust formatting
-        working-directory: clients/rust
+        working-directory: client/rust
         run: cargo fmt --all -- --check
 
       - name: Run Rust clippy
-        working-directory: clients/rust
+        working-directory: client/rust
         run: cargo clippy --all-targets -- -D warnings
 
       # A missing service must fail rather than silently skipping integration
       # tests, because the downloaded binary is required by this job.
       - name: Run Rust tests
-        working-directory: clients/rust
+        working-directory: client/rust
         env:
           OPENSYSML_GRPC_BINARY: ${{ github.workspace }}/bin/sysml-grpc
           OPENSYSML_REQUIRE_SERVICE: 1
@@ -960,12 +960,12 @@ jobs:
         env:
           OPENSYSML_GRPC_BINARY: ${{ github.workspace }}/bin/sysml-grpc
         run: |
-          cargo run --manifest-path clients/rust/Cargo.toml -p opensysml-conformance -- \
+          cargo run --manifest-path client/rust/Cargo.toml -p opensysml-conformance -- \
             -binary "$GITHUB_WORKSPACE/bin/sysml-grpc" \
             -report bin/conformance-report-rust.json
 
       - name: Package Rust client
-        working-directory: clients/rust
+        working-directory: client/rust
         run: cargo package -p opensysml
 
       # The digest pins the generator binary so a substituted release cannot
@@ -981,8 +981,8 @@ jobs:
       - name: Verify Rust generated artifacts
         run: |
           make BUF=/tmp/buf proto-rust
-          git add -N clients/rust/opensysml/src/proto clients/rust/conformance/sysml.descriptor.binpb
-          git diff --exit-code clients/rust/opensysml/src/proto clients/rust/conformance/sysml.descriptor.binpb
+          git add -N client/rust/opensysml/src/proto client/rust/conformance/sysml.descriptor.binpb
+          git diff --exit-code client/rust/opensysml/src/proto client/rust/conformance/sysml.descriptor.binpb
 
       - uses: actions/upload-artifact@v4
         with:
@@ -1025,13 +1025,13 @@ jobs:
       # opensysml.requireService turns "no binary, so skip" into a failure, and
       # `install` builds the sources and javadoc jars a release needs on every commit.
       - name: Test and install the client
-        run: mvn -B -f clients/java/pom.xml install -Dopensysml.requireService=true
+        run: mvn -B -f client/java/pom.xml install -Dopensysml.requireService=true
 
       - name: Run the conformance suite through the client
         run: |
-          mvn -B -q -f clients/java/pom.xml -pl opensysml-conformance \
+          mvn -B -q -f client/java/pom.xml -pl opensysml-conformance \
             dependency:build-classpath -Dmdep.outputFile=/tmp/cp.txt
-          java -cp "clients/java/opensysml-conformance/target/classes:$(cat /tmp/cp.txt)" \
+          java -cp "client/java/opensysml-conformance/target/classes:$(cat /tmp/cp.txt)" \
             org.openmbee.opensysml.conformance.Main \
             -binary bin/sysml-grpc -protocols connect,connect-json -allow-skips \
             -report conformance-report-java.json
@@ -1063,8 +1063,8 @@ jobs:
       - name: Verify the committed Java stubs are current
         run: |
           make proto-buf BUF=buf
-          git add -N clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
-          git diff --exit-code clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+          git add -N client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+          git diff --exit-code client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
 
   conformance-pkg:
     name: Conformance suite

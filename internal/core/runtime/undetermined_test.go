@@ -947,7 +947,7 @@ func TestUndeterminedIsAValueKind(t *testing.T) {
 	if got := val.Kind.String(); got != "undetermined" {
 		t.Errorf("Kind.String() = %q, want undetermined", got)
 	}
-	ctx := NewContext(NewModel(nil, nil), 100)
+	ctx := NewContext(typedModel(nil, nil), 100)
 	if ctx.HoldsNoValue(val) {
 		t.Error("HoldsNoValue(undetermined) = true; an undetermined result is a value, not a missing one")
 	}

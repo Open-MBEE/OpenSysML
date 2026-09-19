@@ -4,7 +4,6 @@ import (
 	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -44,7 +43,7 @@ func (c *compiler) compileColumns(
 	return Expression{
 		operation: OperationSequence,
 		arguments: args,
-		origin:    provenance.Node(owner.DocName, node),
+		origin:    symbols.NodeOrigin(owner.DocName, node),
 	}, nil
 }
 
@@ -58,7 +57,7 @@ func (c *compiler) compileColumn(
 	invalid := &Error{
 		Kind:   ErrorInvalidColumn,
 		Query:  symbols.FQNOf(query),
-		Origin: provenance.Node(owner.DocName, node),
+		Origin: symbols.NodeOrigin(owner.DocName, node),
 	}
 	invocation, ok := node.(*ast.InvocationExpr)
 	if !ok || invocation.Operand != nil {
@@ -89,7 +88,7 @@ func (c *compiler) compileColumn(
 			Query:     symbols.FQNOf(query),
 			Target:    columnFQN,
 			Parameter: "expression",
-			Origin:    provenance.Node(owner.DocName, node),
+			Origin:    symbols.NodeOrigin(owner.DocName, node),
 		}
 	}
 	expression, _, err := c.compileColumnExpression(query, owner, name, expressionNode)
@@ -101,7 +100,7 @@ func (c *compiler) compileColumn(
 		operation: OperationColumn,
 		target:    name,
 		arguments: arguments,
-		origin:    provenance.Node(owner.DocName, node),
+		origin:    symbols.NodeOrigin(owner.DocName, node),
 	}, nil
 }
 
@@ -116,7 +115,7 @@ func (c *compiler) columnName(query, owner *symbols.Symbol, nameNode ast.Node) (
 		return "", &Error{
 			Kind:   ErrorColumnName,
 			Query:  symbols.FQNOf(query),
-			Origin: provenance.Node(owner.DocName, nameNode),
+			Origin: symbols.NodeOrigin(owner.DocName, nameNode),
 		}
 	}
 	name, _ := strconv.Unquote(literal.Value)
@@ -136,7 +135,7 @@ func (c *compiler) columnArguments(
 				Kind:   ErrorArgumentCount,
 				Query:  symbols.FQNOf(query),
 				Target: columnFQN,
-				Origin: provenance.Node(owner.DocName, invocation),
+				Origin: symbols.NodeOrigin(owner.DocName, invocation),
 			}
 		}
 		var expression ast.Node
@@ -147,7 +146,7 @@ func (c *compiler) columnArguments(
 	}
 	var name, expression ast.Node
 	for _, arg := range invocation.NamedArgs {
-		argName := qualifiedName(arg.Name)
+		argName := arg.Name.Text()
 		var slot *ast.Node
 		switch argName {
 		case "name":
@@ -160,7 +159,7 @@ func (c *compiler) columnArguments(
 				Query:     symbols.FQNOf(query),
 				Target:    columnFQN,
 				Parameter: argName,
-				Origin:    provenance.Node(owner.DocName, arg.Value),
+				Origin:    symbols.NodeOrigin(owner.DocName, arg.Value),
 			}
 		}
 		if *slot != nil {
@@ -169,7 +168,7 @@ func (c *compiler) columnArguments(
 				Query:     symbols.FQNOf(query),
 				Target:    columnFQN,
 				Parameter: argName,
-				Origin:    provenance.Node(owner.DocName, arg.Value),
+				Origin:    symbols.NodeOrigin(owner.DocName, arg.Value),
 			}
 		}
 		*slot = arg.Value
@@ -180,7 +179,7 @@ func (c *compiler) columnArguments(
 			Query:     symbols.FQNOf(query),
 			Target:    columnFQN,
 			Parameter: "name",
-			Origin:    provenance.Node(owner.DocName, invocation),
+			Origin:    symbols.NodeOrigin(owner.DocName, invocation),
 		}
 	}
 	return name, expression, nil
@@ -226,7 +225,7 @@ func (c *compiler) compileColumnExpression(
 			Kind:   ErrorUnsupportedExpression,
 			Query:  symbols.FQNOf(query),
 			Target: column,
-			Origin: provenance.Node(owner.DocName, node),
+			Origin: symbols.NodeOrigin(owner.DocName, node),
 		}
 	}
 }
@@ -245,8 +244,8 @@ func (c *compiler) compileColumnReference(
 			Kind:      ErrorUnknownColumnProperty,
 			Query:     symbols.FQNOf(query),
 			Target:    column,
-			Parameter: qualifiedName(expression.Name),
-			Origin:    provenance.Node(owner.DocName, expression),
+			Parameter: expression.Name.Text(),
+			Origin:    symbols.NodeOrigin(owner.DocName, expression),
 		}
 	}
 	for _, param := range c.model.BehaviorParametersOf(query) {
@@ -254,7 +253,7 @@ func (c *compiler) compileColumnReference(
 			return Expression{
 				operation: OperationParameter,
 				target:    param.Symbol.Name,
-				origin:    provenance.Node(owner.DocName, expression),
+				origin:    symbols.NodeOrigin(owner.DocName, expression),
 			}, c.staticPrimType(param.Symbol), nil
 		}
 	}
@@ -262,7 +261,7 @@ func (c *compiler) compileColumnReference(
 		operation: OperationRowProperty,
 		target:    target.Name,
 		value:     declaringTypeFQN(target),
-		origin:    provenance.Node(owner.DocName, expression),
+		origin:    symbols.NodeOrigin(owner.DocName, expression),
 	}, c.staticPrimType(target), nil
 }
 
@@ -310,7 +309,7 @@ func (c *compiler) compileColumnOperator(
 			Query:  symbols.FQNOf(query),
 			Target: column,
 			Actual: expression.Operator.String(),
-			Origin: provenance.Node(owner.DocName, expression),
+			Origin: symbols.NodeOrigin(owner.DocName, expression),
 		}
 	}
 	if len(expression.Operands) != arity {
@@ -319,7 +318,7 @@ func (c *compiler) compileColumnOperator(
 			Query:  symbols.FQNOf(query),
 			Target: column,
 			Actual: expression.Operator.String(),
-			Origin: provenance.Node(owner.DocName, expression),
+			Origin: symbols.NodeOrigin(owner.DocName, expression),
 		}
 	}
 	arguments := make([]Argument, 0, arity)
@@ -340,7 +339,7 @@ func (c *compiler) compileColumnOperator(
 		operation: OperationColumnOperator,
 		value:     expression.Operator.String(),
 		arguments: arguments,
-		origin:    provenance.Node(owner.DocName, expression),
+		origin:    symbols.NodeOrigin(owner.DocName, expression),
 	}, result, nil
 }
 
@@ -368,7 +367,7 @@ func (c *compiler) validateColumnOperator(
 			Target:    column,
 			Parameter: expression.Operator.String(),
 			Actual:    actual,
-			Origin:    provenance.Node(owner.DocName, expression),
+			Origin:    symbols.NodeOrigin(owner.DocName, expression),
 		}
 	}
 	switch expression.Operator {
@@ -447,7 +446,7 @@ func (c *compiler) validateProject(
 		return &Error{
 			Kind:   ErrorEmptyProjection,
 			Query:  symbols.FQNOf(query),
-			Origin: provenance.Node(owner.DocName, expression),
+			Origin: symbols.NodeOrigin(owner.DocName, expression),
 		}
 	}
 	seen := make(map[string]bool)
@@ -522,7 +521,7 @@ func relatedColumnNameNode(invocation *ast.InvocationExpr) ast.Node {
 		return invocation.Args[0]
 	}
 	for _, arg := range invocation.NamedArgs {
-		if qualifiedName(arg.Name) == "name" {
+		if arg.Name.Text() == "name" {
 			return arg.Value
 		}
 	}
@@ -586,6 +585,6 @@ func (c *compiler) compileRelatedColumn(
 		operation: OperationRelatedColumn,
 		target:    name,
 		arguments: arguments,
-		origin:    provenance.Node(owner.DocName, invocation),
+		origin:    symbols.NodeOrigin(owner.DocName, invocation),
 	}, nil
 }

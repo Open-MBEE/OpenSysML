@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -125,7 +125,7 @@ func TestReferenceIndexRebuiltLazilyAfterChanges(t *testing.T) {
 		{"Update", func() { ws.Update("b.sysml", []byte("package B { part y : A::X; part z : A::X; }"), 2) }, []string{"a.sysml"}, 2},
 		{"SetOnDisk", func() { ws.SetOnDisk("c.sysml", []byte("package C { part w : A::X; }")) }, []string{"a.sysml", "b.sysml"}, 3},
 		{"Close", func() { ws.Close("b.sysml") }, []string{"a.sysml", "c.sysml"}, 1},
-		{"SetConformanceMode", func() { ws.SetConformanceMode(conformance.ModeStrict) }, nil, 1},
+		{"SetConformanceMode", func() { ws.SetConformanceMode(diag.ConformanceStrict) }, nil, 1},
 		{"DeleteOnDisk", func() { ws.DeleteOnDisk("c.sysml") }, []string{"a.sysml"}, 0},
 		{"Remove", func() { ws.Remove("a.sysml") }, nil, 0},
 	} {

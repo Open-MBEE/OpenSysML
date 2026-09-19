@@ -16,7 +16,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/fixtures"
+	"github.com/Open-MBEE/OpenSysML/tests/fixtures"
 )
 
 var updateTraces = flag.Bool("update-traces", false, "Update golden trace files")
@@ -270,7 +270,7 @@ func loadTraceCase(t *testing.T, conformanceDir, testName string, expected Expec
 	idx, _ := indexCaseDocuments(t, conformanceDir, src, file, expected)
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	ctx := NewContext(NewModel(model, resolver), 10000)
+	ctx := NewContext(typedModel(model, resolver), 10000)
 	if expected.ModelSeed != nil {
 		ctx.SetModelSeed(*expected.ModelSeed)
 	}

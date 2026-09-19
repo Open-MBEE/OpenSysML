@@ -4,25 +4,25 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // carrier is the signal every transition into a state accepts, kept in an item of the
 // state def so the state's entry and do behaviors take their parameters from it.
 type carrier struct {
 	holder string
-	sig    *xmi.Element
-	attrs  []*xmi.Element
+	sig    *sysmlv1.Element
+	attrs  []*sysmlv1.Element
 }
 
 // carriers declares, for each state whose entry or do behavior takes parameters, the item
 // holding the incoming signal whose properties match them by position, type, order and multiplicity.
 // Internal transitions enter no state, so they neither settle the signal nor rule it out.
-func (m *migration) carriers(sm *xmi.Element, used map[string]bool) {
-	incoming := map[*xmi.Element][]*xmi.Element{}
-	var states []*xmi.Element
-	var walk func(e *xmi.Element)
-	walk = func(e *xmi.Element) {
+func (m *migration) carriers(sm *sysmlv1.Element, used map[string]bool) {
+	incoming := map[*sysmlv1.Element][]*sysmlv1.Element{}
+	var states []*sysmlv1.Element
+	var walk func(e *sysmlv1.Element)
+	walk = func(e *sysmlv1.Element) {
 		if e != sm && (isBehavior(e) || e.Type == "StateMachine") {
 			return
 		}
@@ -74,8 +74,8 @@ func (m *migration) carriers(sm *xmi.Element, used map[string]bool) {
 
 // parameterizedBehaviors lists the entry and do behaviors a state owns that
 // take parameters, which a carrier would value.
-func (m *migration) parameterizedBehaviors(v *xmi.Element) []*xmi.Element {
-	var out []*xmi.Element
+func (m *migration) parameterizedBehaviors(v *sysmlv1.Element) []*sysmlv1.Element {
+	var out []*sysmlv1.Element
 	for _, role := range []string{"entry", "doActivity"} {
 		b := firstOwned(v, role)
 		if b != nil && b.Parent == v && len(inParameters(b)) > 0 {
@@ -87,7 +87,7 @@ func (m *migration) parameterizedBehaviors(v *xmi.Element) []*xmi.Element {
 
 // carrierSignal returns the one signal every transition into state v accepts, or why
 // there is none.
-func (m *migration) carrierSignal(v *xmi.Element, incoming []*xmi.Element) (*xmi.Element, string) {
+func (m *migration) carrierSignal(v *sysmlv1.Element, incoming []*sysmlv1.Element) (*sysmlv1.Element, string) {
 	if len(incoming) == 0 {
 		return nil, "no transition enters the state"
 	}
@@ -98,7 +98,7 @@ func (m *migration) carrierSignal(v *xmi.Element, incoming []*xmi.Element) (*xmi
 			}
 		}
 	}
-	var sig *xmi.Element
+	var sig *sysmlv1.Element
 	for _, t := range incoming {
 		src := m.model.Ref(t, "source")
 		if src != nil && src.Type == "Pseudostate" {
@@ -138,7 +138,7 @@ func (m *migration) carrierSignal(v *xmi.Element, incoming []*xmi.Element) (*xmi
 }
 
 // eventKind names an event for a diagnostic, or its absence.
-func eventKind(ev *xmi.Element) string {
+func eventKind(ev *sysmlv1.Element) string {
 	if ev == nil {
 		return "no event"
 	}
@@ -155,7 +155,7 @@ func aOrAn(noun string) string {
 
 // carrierMatch says why the parameters of a state's behaviors do not take the attributes
 // of sig, inherited ones included: their number, position, type, order or multiplicity differ.
-func (m *migration) carrierMatch(sig *xmi.Element, behaviors []*xmi.Element) string {
+func (m *migration) carrierMatch(sig *sysmlv1.Element, behaviors []*sysmlv1.Element) string {
 	attrs := m.signalAttributes(sig)
 	for _, b := range behaviors {
 		params := inParameters(b)
@@ -174,7 +174,7 @@ func (m *migration) carrierMatch(sig *xmi.Element, behaviors []*xmi.Element) str
 
 // carrierPair says why attribute a cannot value parameter p: a type of a is not
 // p's or a special of it, or their order or multiplicity differ.
-func (m *migration) carrierPair(a, p *xmi.Element) string {
+func (m *migration) carrierPair(a, p *sysmlv1.Element) string {
 	at, pt := m.model.Ref(a, "type"), m.model.Ref(p, "type")
 	switch {
 	case at == nil || pt == nil:
@@ -197,7 +197,7 @@ func (m *migration) carrierPair(a, p *xmi.Element) string {
 
 // sameScalar reports whether two types stand for the same scalar value type,
 // as two references to the same primitive type through different libraries do.
-func (m *migration) sameScalar(a, b *xmi.Element) bool {
+func (m *migration) sameScalar(a, b *sysmlv1.Element) bool {
 	sa := m.scalarBase(a)
 	return sa != "" && sa == m.scalarBase(b)
 }
@@ -212,12 +212,12 @@ func count(n int, noun string) string {
 
 // carrierBindings binds the parameters of a state's entry or do behavior to
 // the attributes of the signal its carrier holds, and reports each binding.
-func (m *migration) carrierBindings(v, b *xmi.Element) map[*xmi.Element]string {
+func (m *migration) carrierBindings(v, b *sysmlv1.Element) map[*sysmlv1.Element]string {
 	c := m.carrierOf[v]
 	if c == nil {
 		return nil
 	}
-	bound := map[*xmi.Element]string{}
+	bound := map[*sysmlv1.Element]string{}
 	for i, p := range inParameters(b) {
 		bound[p] = writeName(c.holder) + "." + writeName(m.nameFor(c.attrs[i]))
 	}
@@ -226,7 +226,7 @@ func (m *migration) carrierBindings(v, b *xmi.Element) map[*xmi.Element]string {
 
 // carrierWhy says why the parameters of a state's kw take no value from the
 // signal a transition into the state accepts.
-func (m *migration) carrierWhy(v *xmi.Element, kw string) string {
+func (m *migration) carrierWhy(v *sysmlv1.Element, kw string) string {
 	if kw == "exit action" {
 		return "an exit runs before the effect of the transition leaving the state, which alone receives the accepted signal"
 	}
@@ -238,7 +238,7 @@ func (m *migration) carrierWhy(v *xmi.Element, kw string) string {
 
 // keep writes the statement a transition's effect keeps the accepted signal
 // with, for the carrier of the state it enters, or nothing.
-func (m *migration) keep(tgt *xmi.Element, sig *xmi.Element, payload string) string {
+func (m *migration) keep(tgt *sysmlv1.Element, sig *sysmlv1.Element, payload string) string {
 	c := m.carrierOf[tgt]
 	if c == nil || c.sig != sig || payload == "" {
 		return ""

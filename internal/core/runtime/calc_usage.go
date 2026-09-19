@@ -47,7 +47,7 @@ func (ctx *Context) calcOutputs(chain []*symbols.Symbol, aliases *map[string]str
 	index := make(map[string]int)
 
 	for _, link := range chain {
-		for _, member := range declMembers(link.Decl) {
+		for _, member := range unwrappedDeclMembers(link.Decl) {
 			usage, ok := member.(*ast.Usage)
 			if !ok {
 				continue
@@ -299,7 +299,7 @@ func (ctx *Context) calcMemberNames(shape *calcShape) map[*symbols.Symbol]string
 	members := make(map[*symbols.Symbol]string)
 	redefined := make(map[*symbols.Symbol]string)
 	for _, link := range ctx.calcChain(shape.Sym) {
-		for _, member := range declMembers(link.Decl) {
+		for _, member := range unwrappedDeclMembers(link.Decl) {
 			var name string
 			if subject, ok := subjectDeclaration(member); ok {
 				name = subject.Name

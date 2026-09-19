@@ -11,6 +11,7 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
 )
 
 // functionWireModel yields calcs as values — a definition, a usage with an
@@ -114,9 +115,9 @@ func TestFunctionRoundTrip(t *testing.T) {
 		}
 
 		rt, _ := srv.newRuntime(cached)
-		back, err := ProtoToRuntimeValue(rt, pv, idx, sem)
+		back, err := protoconv.ProtoToRuntimeValue(rt, pv, idx, sem)
 		if err != nil {
-			t.Fatalf("ProtoToRuntimeValue(%s): %v", expr, err)
+			t.Fatalf("protoconv.ProtoToRuntimeValue(%s): %v", expr, err)
 		}
 		if back.Kind != runtime.ValFunction || runtime.FormatValue(back) != want {
 			t.Errorf("%s read back as %s %s, want the function %s", expr, back.Kind, runtime.FormatValue(back), want)
@@ -141,9 +142,9 @@ func TestFunctionRoundTrip(t *testing.T) {
 		"sequence in set": setOf(sequenceOf(sqCube...)),
 	} {
 		rt, _ := srv.newRuntime(cached)
-		back, err := ProtoToRuntimeValue(rt, nested, idx, sem)
+		back, err := protoconv.ProtoToRuntimeValue(rt, nested, idx, sem)
 		if err != nil {
-			t.Fatalf("ProtoToRuntimeValue(functions in a %s): %v", name, err)
+			t.Fatalf("protoconv.ProtoToRuntimeValue(functions in a %s): %v", name, err)
 		}
 		var got []string
 		var walk func(v runtime.Value)
@@ -293,26 +294,26 @@ func TestMalformedFunctionsAreRejected(t *testing.T) {
 		val  *pb.Value
 		want error
 	}{
-		{"empty", functionValue("", 0), ErrFunctionUnbound},
-		{"unknown declaration", functionValue("F::Nope", 0), ErrFunctionUnbound},
-		{"declaration that is not a calc", functionValue("F::holder", 0), ErrFunctionUnbound},
-		{"calc usage computing a result", functionValue("F::pickSq", 0), ErrFunctionUnbound},
-		{"object of another call", functionValue("F::Sq", 12345), ErrFunctionUnbound},
+		{"empty", functionValue("", 0), protoconv.ErrFunctionUnbound},
+		{"unknown declaration", functionValue("F::Nope", 0), protoconv.ErrFunctionUnbound},
+		{"declaration that is not a calc", functionValue("F::holder", 0), protoconv.ErrFunctionUnbound},
+		{"calc usage computing a result", functionValue("F::pickSq", 0), protoconv.ErrFunctionUnbound},
+		{"object of another call", functionValue("F::Sq", 12345), protoconv.ErrFunctionUnbound},
 		{"nested in a sequence", &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: []*pb.Value{
 			intValue(1), functionValue("F::Nope", 0),
-		}}}}, ErrFunctionUnbound},
-		{"nested in an array", arrayValue([]int64{1}, functionValue("", 0)), ErrFunctionUnbound},
-		{"nested in a set", setOf(intValue(1), functionValue("F::Nope", 0)), ErrFunctionUnbound},
+		}}}}, protoconv.ErrFunctionUnbound},
+		{"nested in an array", arrayValue([]int64{1}, functionValue("", 0)), protoconv.ErrFunctionUnbound},
+		{"nested in a set", setOf(intValue(1), functionValue("F::Nope", 0)), protoconv.ErrFunctionUnbound},
 		{"nested in a set in a sequence", &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: []*pb.Value{
 			setOf(functionValue("F::Sq", 12345)),
-		}}}}, ErrFunctionUnbound},
-		{"listed twice in a set", setOf(functionValue("F::Sq", 0), functionValue("F::Sq", 0)), ErrSetElementRepeated},
+		}}}}, protoconv.ErrFunctionUnbound},
+		{"listed twice in a set", setOf(functionValue("F::Sq", 0), functionValue("F::Sq", 0)), protoconv.ErrSetElementRepeated},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			val, err := ProtoToRuntimeValue(rt, tc.val, idx, sem)
+			val, err := protoconv.ProtoToRuntimeValue(rt, tc.val, idx, sem)
 			if !errors.Is(err, tc.want) {
-				t.Fatalf("ProtoToRuntimeValue = %v, %v; want %v", val, err, tc.want)
+				t.Fatalf("protoconv.ProtoToRuntimeValue = %v, %v; want %v", val, err, tc.want)
 			}
 			if val.Kind != runtime.ValInvalid {
 				t.Errorf("a rejected value was still returned: %v", val)
@@ -325,8 +326,8 @@ func TestMalformedFunctionsAreRejected(t *testing.T) {
 		"in array": arrayValue([]int64{1}, functionValue("F::Sq", 0)),
 		"in set":   setOf(functionValue("F::Sq", 0)),
 	} {
-		if _, err := ProtoToValueIn(val, idx, sem); !errors.Is(err, ErrFunctionNeedsRuntime) {
-			t.Errorf("%s without a runtime: err = %v, want %v", name, err, ErrFunctionNeedsRuntime)
+		if _, err := protoconv.ProtoToValueIn(val, idx, sem); !errors.Is(err, protoconv.ErrFunctionNeedsRuntime) {
+			t.Errorf("%s without a runtime: err = %v, want %v", name, err, protoconv.ErrFunctionNeedsRuntime)
 		}
 	}
 
@@ -336,8 +337,8 @@ func TestMalformedFunctionsAreRejected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EvaluateCalc(unknown): %v", err)
 	}
-	if !strings.Contains(calc.Error, ErrFunctionUnbound.Error()) {
-		t.Errorf("EvaluateCalc(unknown) error = %q, want one naming %v", calc.Error, ErrFunctionUnbound)
+	if !strings.Contains(calc.Error, protoconv.ErrFunctionUnbound.Error()) {
+		t.Errorf("EvaluateCalc(unknown) error = %q, want one naming %v", calc.Error, protoconv.ErrFunctionUnbound)
 	}
 	calc, err = srv.EvaluateCalc(ctx, &pb.EvaluateCalcRequest{ModelHash: modelHash, SymbolId: "F::apply", Arguments: []*pb.Value{realValue(3), realValue(3)}})
 	if err != nil {
@@ -417,11 +418,11 @@ func TestValueCarriesFunction(t *testing.T) {
 		{"sequence with a function", sequence(one, sequence(sq)), true},
 		{"array of functions", arrayValue([]int64{1}, sq), true},
 	} {
-		if got := ValueCarriesFunction(tc.value); got != tc.want {
-			t.Errorf("ValueCarriesFunction(%s) = %v, want %v", tc.name, got, tc.want)
+		if got := protoconv.ValueCarriesFunction(tc.value); got != tc.want {
+			t.Errorf("protoconv.ValueCarriesFunction(%s) = %v, want %v", tc.name, got, tc.want)
 		}
 	}
-	if ValueCarriesStructured(sq) {
+	if protoconv.ValueCarriesStructured(sq) {
 		t.Error("a bare function is not a structured value")
 	}
 }

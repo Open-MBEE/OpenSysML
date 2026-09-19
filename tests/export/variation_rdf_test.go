@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
 
@@ -81,7 +81,7 @@ func TestEnumeratedValueIsAVariantInRDF(t *testing.T) {
 // structure alone, source text stripped, carries the same notation.
 func TestEnumerationVariationComesBackFromTheGraphAlone(t *testing.T) {
 	checkRoundTrip(t, enumVariationModel)
-	turtle, err := export.Convert("m.sysml", []byte(enumVariationModel), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(enumVariationModel), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -109,13 +109,13 @@ func TestEnumerationVariationComesBackFromTheGraphAlone(t *testing.T) {
 // A graph from another tool may flag an enumerated value sysml:isVariant under
 // a plain OwningMembership; the flag is still not written back as `variant`.
 func TestForeignEnumeratedValueFlagWritesNoKeyword(t *testing.T) {
-	turtle, err := export.Convert("m.sysml", []byte(enumVariationModel), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", []byte(enumVariationModel), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
 	foreign := strings.ReplaceAll(string(withoutSourceText(t, turtle)), "sysml:VariantMembership", "sysml:OwningMembership")
 	foreign = string(withoutTriples(t, []byte(foreign), "sysml:ownedVariantUsage"))
-	back, err := export.Convert("m.ttl", []byte(foreign), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", []byte(foreign), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}

@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 func TestWorkspaceOpenIndexesDocument(t *testing.T) {
@@ -186,7 +186,7 @@ func TestWorkspaceUnionJudgmentFollowsAnotherDocument(t *testing.T) {
 	}
 }
 
-func codesOf(diags []passes.Diagnostic) map[string]int {
+func codesOf(diags []diag.Diagnostic) map[string]int {
 	out := map[string]int{}
 	for _, d := range diags {
 		out[d.Code]++

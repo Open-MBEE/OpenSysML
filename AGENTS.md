@@ -49,13 +49,13 @@ gofmt -l .                                      # must print nothing (CI enforce
 
 The OMG training-corpus gate is part of that suite but skips while the corpus is absent, so
 fetch it once with `./scripts/download-training-examples.sh` and re-run
-`go test -count=1 ./internal/core/model -run TestTrainingExamples`. CI downloads the corpus
+`go test -count=1 ./tests/corpus -run TestTrainingExamples`. CI downloads the corpus
 too and sets `OPENSYSML_REQUIRE_TRAINING_CORPUS=1`, so there an absent corpus fails rather
 than skips.
 
 The three OMG pilot corpora are gated the same way: fetch them with
 `./scripts/download-pilot-corpora.sh` and run
-`go test -count=1 ./internal/core/model -run TestPilotCorpora`. CI sets
+`go test -count=1 ./tests/corpus -run TestPilotCorpora`. CI sets
 `OPENSYSML_REQUIRE_PILOT_CORPORA=1`. See `docs/project/pilot-corpora.md`.
 
 So is the pilot's XMI of the standard library, which the identity gate reads: fetch it with
@@ -64,14 +64,14 @@ So is the pilot's XMI of the standard library, which the identity gate reads: fe
 `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1`. Whatever sets a require variable must run the matching
 download script first; the scripts are idempotent, and none reports success over an empty corpus.
 
-All four roots share one mechanism (`internal/core/model/corpus_gate_test.go`) but two
+All four roots share one mechanism (`tests/corpus/corpus_gate_test.go`) but two
 policies, and the difference is deliberate: the training corpus is **asserted** clean, so its
 expectation file holds no per-file counts and `-update-training` refuses to record one, while
 the other three are a **per-file ratchet** whose every movement must be adjudicated. Do not
 turn the assertion into a ratchet.
 
 The RDF mapping has a per-file ratchet of its own over every model under `examples/`, the
-downloaded corpora included: `TestCorpusRoundTrip` in `internal/core/export` converts each file
+downloaded corpora included: `TestCorpusRoundTrip` in `tests/corpus` converts each file
 notation → Turtle → notation → Turtle and pins the verdict. Run it with both require variables
 set after any change to `internal/core/export`, adjudicate every movement, then regenerate with
 `-update-corpus-roundtrip`. See `docs/project/rdf-corpus-roundtrip.md`.
@@ -86,6 +86,7 @@ cmd/
   sysml-lsp/             LSP server binary
 internal/core/
   source/                source files, spans, line indexing
+  diag/                  Diagnostic and Severity, the finding type every layer reports
   lexer/                 hand-written scanner (~200 keywords)
   parser/                recursive-descent parser (never panics; emits ErrorNodes)
   ast/                   syntax tree nodes — IMMUTABLE after parse

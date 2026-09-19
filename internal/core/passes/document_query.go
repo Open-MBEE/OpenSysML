@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -20,7 +21,7 @@ func (DocumentQueryPass) ElementScoped() {
 	// A marker: each query definition is gated on its own, so there is nothing to do.
 }
 
-func (DocumentQueryPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (DocumentQueryPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -28,7 +29,7 @@ func (DocumentQueryPass) Run(ctx *Context, name string, root *ast.RootNamespace)
 	if scope == nil {
 		return nil
 	}
-	var diagnostics []Diagnostic
+	var diagnostics []diag.Diagnostic
 	w8dWalkSymbols(ctx, scope, func(sym *symbols.Symbol) {
 		if !queryplan.IsQueryDefinition(ctx.Index, ctx.Model(), sym) {
 			return
@@ -52,18 +53,18 @@ func (DocumentQueryPass) Run(ctx *Context, name string, root *ast.RootNamespace)
 	return diagnostics
 }
 
-func documentQueryDiagnostic(err error) Diagnostic {
+func documentQueryDiagnostic(err error) diag.Diagnostic {
 	var planning *queryplan.Error
 	if !errors.As(err, &planning) {
-		return Diagnostic{
-			Severity: SeverityError,
+		return diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Message:  err.Error(),
 			Code:     documentQuerySource,
 			Source:   documentQuerySource,
 		}
 	}
-	return Diagnostic{
-		Severity: SeverityError,
+	return diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     planning.Origin.Span,
 		Message:  planning.Error(),
 		Code:     documentQuerySource + "-" + string(planning.Kind),

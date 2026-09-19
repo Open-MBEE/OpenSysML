@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -16,7 +17,7 @@ func (TransitionGuardPass) Level() PassLevel { return LevelType }
 
 func (TransitionGuardPass) ElementScoped() { /* marker: per-element gating */ }
 
-func (TransitionGuardPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (TransitionGuardPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}

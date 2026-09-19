@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -28,7 +29,7 @@ const (
 
 func (DiagramLayoutPass) Level() PassLevel { return LevelConstraint }
 
-func (DiagramLayoutPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (DiagramLayoutPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -64,7 +65,7 @@ type layoutChecker struct {
 	renderer *view.Renderer
 	docRoot  *symbols.Scope
 	fqn      func(*symbols.Symbol) string
-	diags    []Diagnostic
+	diags    []diag.Diagnostic
 	// drawn is what each view's rendering draws, by the view's declaration.
 	drawn map[ast.Node]*view.Drawn
 }
@@ -199,13 +200,13 @@ func (c *layoutChecker) describe(sym *symbols.Symbol) string {
 }
 
 func (c *layoutChecker) errorf(span source.Span, code, format string, args ...any) {
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError, Span: span, Message: fmt.Sprintf(format, args...), Code: code, Source: "constraint",
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError, Span: span, Message: fmt.Sprintf(format, args...), Code: code, Source: "constraint",
 	})
 }
 
 func (c *layoutChecker) warnf(span source.Span, code, format string, args ...any) {
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityWarning, Span: span, Message: fmt.Sprintf(format, args...), Code: code, Source: "constraint",
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityWarning, Span: span, Message: fmt.Sprintf(format, args...), Code: code, Source: "constraint",
 	})
 }

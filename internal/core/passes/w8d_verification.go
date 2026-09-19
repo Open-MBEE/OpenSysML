@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -16,7 +17,7 @@ type W8DVerificationPass struct{}
 
 func (W8DVerificationPass) Level() PassLevel { return LevelConstraint }
 
-func (W8DVerificationPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W8DVerificationPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -24,13 +25,13 @@ func (W8DVerificationPass) Run(ctx *Context, name string, root *ast.RootNamespac
 	if rootScope == nil {
 		return nil
 	}
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	w8dWalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		if !w8dIsVerify(sym) || w8dLegalVerification(sym) {
 			return
 		}
-		diags = append(diags, Diagnostic{
-			Severity: SeverityError,
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     sym.Decl.Span(),
 			Message:  msgVerificationOutsideObjective,
 			Code:     "verification-owning-type",

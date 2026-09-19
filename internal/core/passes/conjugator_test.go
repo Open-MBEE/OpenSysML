@@ -3,6 +3,8 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 const typeConjugatorsCode = "type-conjugators"
@@ -24,7 +26,7 @@ func TestSecondConjugatorIsReported(t *testing.T) {
 		t.Fatalf("got %d diagnostics, want %d: %v", len(diags), len(want), diags)
 	}
 	for i, d := range diags {
-		if d.Severity != SeverityError {
+		if d.Severity != diag.SeverityError {
 			t.Errorf("severity = %v, want an error", d.Severity)
 		}
 		if d.Message != msgAtMostOneConjugator {

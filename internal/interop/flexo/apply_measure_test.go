@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
 )
@@ -133,7 +133,7 @@ func fixtureGraph(t *testing.T, path string) *rdf.Graph {
 	if err != nil {
 		t.Fatal(err)
 	}
-	graph, err := export.SysMLToRDF(path, src)
+	graph, err := convert.SysMLToRDF(path, src)
 	if err != nil {
 		t.Fatal(err)
 	}

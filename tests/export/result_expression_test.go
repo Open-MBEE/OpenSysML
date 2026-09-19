@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 )
 
@@ -22,7 +23,7 @@ func convertFixture(t *testing.T, name string) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	turtle, err := export.Convert(path, src, export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert(path, src, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -53,7 +54,7 @@ func TestResultExpressionIsAResultExpressionMembership(t *testing.T) {
 			t.Errorf("the graph still wraps the result in a member of its own (%q):\n%s", unwanted, turtle)
 		}
 	}
-	back, err := export.Convert("m.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", []byte(turtle), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -68,7 +69,7 @@ func TestResultExpressionIsAResultExpressionMembership(t *testing.T) {
 // notation comes back the same with no sysx:sourceText in the graph at all.
 func TestResultExpressionsComeBackFromTheGraphAlone(t *testing.T) {
 	turtle := convertFixture(t, "result_expressions")
-	withText, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	withText, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -76,11 +77,11 @@ func TestResultExpressionsComeBackFromTheGraphAlone(t *testing.T) {
 	if strings.Contains(string(stripped), "sysx:sourceText") {
 		t.Fatal("the stripped graph still carries source text")
 	}
-	fromGraph, err := export.Convert("m.ttl", stripped, export.FormatTurtle, export.FormatSysML)
+	fromGraph, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the mapping alone: %v", err)
 	}
-	again, err := export.Convert("m.sysml", fromGraph, export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert("m.sysml", fromGraph, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
@@ -139,7 +140,7 @@ func TestResultExpressionComesBackFromItsMembershipAlone(t *testing.T) {
 	if !strings.Contains(string(stripped), "sysml:owningType elmt:Results__AfterMembers ;\n    sysml:ownedResultExpression elmt:Results__AfterMembers___403 .") {
 		t.Fatalf("expected the result membership to keep only its ownedResultExpression:\n%s", stripped)
 	}
-	back, err := export.Convert("m.ttl", stripped, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the membership alone: %v", err)
 	}
@@ -148,7 +149,7 @@ func TestResultExpressionComesBackFromItsMembershipAlone(t *testing.T) {
 			t.Errorf("the notation lacks %q:\n%s", want, back)
 		}
 	}
-	again, err := export.Convert("m.sysml", back, export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
@@ -229,7 +230,7 @@ func TestMalformedMembershipEndsAreRefused(t *testing.T) {
 			t.Fatalf("expected %q in the graph:\n%s", tc.from, turtle)
 		}
 		mutated := strings.Replace(turtle, tc.from, tc.to, 1) + "\n" + tc.extra + "\n"
-		_, err := export.Convert("m.ttl", []byte(mutated), export.FormatTurtle, export.FormatSysML)
+		_, err := convert.Convert("m.ttl", []byte(mutated), convert.FormatTurtle, convert.FormatSysML)
 		var unsupported *export.UnsupportedError
 		if !errors.As(err, &unsupported) {
 			t.Fatalf("want an UnsupportedError for %q, got %v", tc.to, err)
@@ -251,7 +252,7 @@ func TestResultExpressionWithoutAnExpressionIsRefused(t *testing.T) {
 		t.Fatalf("expected the operands of the AfterMembers result in the graph:\n%s", turtle)
 	}
 	turtle = strings.Replace(turtle, operands, "    sysml:operator \"*\" .\n", 1)
-	_, err := export.Convert("m.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
+	_, err := convert.Convert("m.ttl", []byte(turtle), convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("want an UnsupportedError for a result expression without its operands, got %v", err)
@@ -282,7 +283,7 @@ ex:r_a a sysml:FeatureReferenceExpression ; sysml:referent ex:x .
 ex:r_b a sysml:LiteralInteger ; sysml:value "2"^^xsd:integer .
 `
 	const want = "x : Real;\n        x * 2\n    }"
-	back, err := export.Convert("m.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", []byte(turtle), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from a standard graph: %v", err)
 	}
@@ -297,7 +298,7 @@ ex:r_b a sysml:LiteralInteger ; sysml:value "2"^^xsd:integer .
 	if membershipOnly == turtle {
 		t.Fatal("the result's owningMembership triple was not removed")
 	}
-	back, err = export.Convert("m.ttl", []byte(membershipOnly), export.FormatTurtle, export.FormatSysML)
+	back, err = convert.Convert("m.ttl", []byte(membershipOnly), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the membership side alone: %v", err)
 	}
@@ -311,7 +312,7 @@ ex:r_b a sysml:LiteralInteger ; sysml:value "2"^^xsd:integer .
 	if inExprNamespace == membershipOnly {
 		t.Fatal("the result was not moved into the expression namespace")
 	}
-	back, err = export.Convert("m.ttl", []byte(inExprNamespace), export.FormatTurtle, export.FormatSysML)
+	back, err = convert.Convert("m.ttl", []byte(inExprNamespace), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation with the result in the expression namespace: %v", err)
 	}
@@ -349,14 +350,14 @@ ex:y_m a sysml:FeatureMembership ; sysml:membershipOwningNamespace ex:C ; sysml:
 		t.Fatal("the attribute was not given an index")
 	}
 	for name, graph := range map[string]string{"unindexed": turtle, "highest index": indexed} {
-		back, err := export.Convert("m.ttl", []byte(graph), export.FormatTurtle, export.FormatSysML)
+		back, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("%s: back to notation with the result listed first: %v", name, err)
 		}
 		if !strings.Contains(string(back), want) {
 			t.Errorf("%s: the notation lacks %q:\n%s", name, want, back)
 		}
-		if _, err := export.Convert("m.sysml", back, export.FormatSysML, export.FormatTurtle); err != nil {
+		if _, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle); err != nil {
 			t.Fatalf("%s: the notation written does not parse: %v", name, err)
 		}
 	}
@@ -379,7 +380,7 @@ ex:r_m a sysml:ResultExpressionMembership ; sysml:membershipOwningNamespace ex:C
 ex:r_a a sysml:LiteralInteger ; sysml:value "2"^^xsd:int .
 ex:r_b a sysml:LiteralRational ; sysml:value "0.5"^^owl:real .
 `
-	back, err := export.Convert("m.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", []byte(turtle), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from a standard graph: %v", err)
 	}
@@ -398,7 +399,7 @@ func TestIntegerLiteralsAtTheBoundsAreRead(t *testing.T) {
 		`sysml:value "2147483648"^^xsd:integer ;`:            "x * 2147483648",
 		`sysml:value "340282366920938463463"^^xsd:integer ;`: "x * 340282366920938463463",
 	} {
-		back, err := export.Convert("m.ttl", []byte(strings.Replace(turtle, from, to, 1)), export.FormatTurtle, export.FormatSysML)
+		back, err := convert.Convert("m.ttl", []byte(strings.Replace(turtle, from, to, 1)), convert.FormatTurtle, convert.FormatSysML)
 		if want == "" {
 			var unsupported *export.UnsupportedError
 			if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), `not "-2147483648"`) {
@@ -428,7 +429,7 @@ func TestIndexesOutsideIntAreRefused(t *testing.T) {
 		t.Fatalf("expected %q in the graph:\n%s", from, turtle)
 	}
 	largest := strconv.Itoa(math.MaxInt)
-	back, err := export.Convert("m.ttl", []byte(strings.Replace(turtle, from, strings.Replace(from, `"0"`, `"`+largest+`"`, 1), 1)), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", []byte(strings.Replace(turtle, from, strings.Replace(from, `"0"`, `"`+largest+`"`, 1), 1)), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation with the largest index: %v", err)
 	}
@@ -436,7 +437,7 @@ func TestIndexesOutsideIntAreRefused(t *testing.T) {
 		t.Errorf("attribute def Real at index %s should be written after every other member:\n%s", largest, back)
 	}
 	for _, index := range []string{largest + "0", "-1"} {
-		_, err := export.Convert("m.ttl", []byte(strings.Replace(turtle, from, strings.Replace(from, `"0"`, `"`+index+`"`, 1), 1)), export.FormatTurtle, export.FormatSysML)
+		_, err := convert.Convert("m.ttl", []byte(strings.Replace(turtle, from, strings.Replace(from, `"0"`, `"`+index+`"`, 1), 1)), convert.FormatTurtle, convert.FormatSysML)
 		var unsupported *export.UnsupportedError
 		if !errors.As(err, &unsupported) {
 			t.Fatalf("want an UnsupportedError for the index %s, got %v", index, err)
@@ -486,7 +487,7 @@ func TestRepeatedSingleValuedPropertiesAreRefused(t *testing.T) {
 		if !strings.Contains(turtle, tc.from) {
 			t.Fatalf("expected %q in the graph:\n%s", tc.from, turtle)
 		}
-		_, err := export.Convert("m.ttl", []byte(strings.Replace(turtle, tc.from, tc.to, 1)), export.FormatTurtle, export.FormatSysML)
+		_, err := convert.Convert("m.ttl", []byte(strings.Replace(turtle, tc.from, tc.to, 1)), convert.FormatTurtle, convert.FormatSysML)
 		var unsupported *export.UnsupportedError
 		if !errors.As(err, &unsupported) {
 			t.Fatalf("want an UnsupportedError for %s, got %v", tc.to, err)
@@ -525,7 +526,7 @@ func TestLiteralValuesAreSpelledAsTokens(t *testing.T) {
 		{rational, `sysml:value "INF"^^xsd:double ;`, "", `not "INF"`},
 		{rational, `sysml:value "NaN"^^xsd:float ;`, "", `not "NaN"`},
 	} {
-		back, err := export.Convert("m.ttl", []byte(strings.Replace(turtle, tc.from, tc.to, 1)), export.FormatTurtle, export.FormatSysML)
+		back, err := convert.Convert("m.ttl", []byte(strings.Replace(turtle, tc.from, tc.to, 1)), convert.FormatTurtle, convert.FormatSysML)
 		if tc.refused != "" {
 			var unsupported *export.UnsupportedError
 			if !errors.As(err, &unsupported) {
@@ -542,7 +543,7 @@ func TestLiteralValuesAreSpelledAsTokens(t *testing.T) {
 		if !strings.Contains(string(back), tc.want) {
 			t.Errorf("for %s the notation lacks %q:\n%s", tc.to, tc.want, back)
 		}
-		if _, err := export.Convert("m.sysml", back, export.FormatSysML, export.FormatTurtle); err != nil {
+		if _, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle); err != nil {
 			t.Errorf("the notation rebuilt with %s should parse: %v", tc.to, err)
 		}
 	}
@@ -569,7 +570,7 @@ func TestExpressionBodyDeclarationIsStructure(t *testing.T) {
 	if strings.Contains(turtle, "BodyMember") || strings.Contains(turtle, "expr:Bodies__Scaled___401_pm1 sysml:owningNamespace") {
 		t.Errorf("a body declaration is neither a notation-only node nor a namespace member:\n%s", turtle)
 	}
-	back, err := export.Convert("m.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", []byte(turtle), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the mapping alone: %v", err)
 	}
@@ -577,7 +578,7 @@ func TestExpressionBodyDeclarationIsStructure(t *testing.T) {
 		t.Errorf("the body did not come back with its declaration:\n%s", back)
 	}
 	untyped := strings.Replace(turtle, member, "expr:Bodies__Scaled___401_pm1\n", 1)
-	_, err = export.Convert("m.ttl", []byte(untyped), export.FormatTurtle, export.FormatSysML)
+	_, err = convert.Convert("m.ttl", []byte(untyped), convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("want an UnsupportedError for a body member of no type, got %v", err)
@@ -591,7 +592,7 @@ func TestExpressionBodyDeclarationIsStructure(t *testing.T) {
 // declaration, parameter comes back in that order from the graph alone.
 func TestExpressionBodyKeepsTheOrderOfItsDeclarations(t *testing.T) {
 	turtle := withoutTriples(t, convertFixture(t, "expression_body_order"), "sysx:sourceText")
-	back, err := export.Convert("m.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the body's structure: %v", err)
 	}
@@ -626,13 +627,13 @@ func TestExpressionBodyDeclarationsNest(t *testing.T) {
 // An identity annotation is not mapped inside an expression body: refused on the
 // way in, and a graph declaring an id for a body declaration is refused on the way out.
 func TestExpressionBodyDeclarationIDsAreRefused(t *testing.T) {
-	_, err := export.Convert("m.sysml", []byte(`package Edge {
+	_, err := convert.Convert("m.sysml", []byte(`package Edge {
     attribute def Real;
     calc def Ident {
         { attribute k : Real = 2 { @IdentityMetadata::ElementId { id = "k-id"; } } k }
     }
 }
-`), export.FormatSysML, export.FormatTurtle)
+`), convert.FormatSysML, convert.FormatTurtle)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "inside an expression body") {
 		t.Fatalf("want an UnsupportedError for an annotation inside a body declaration, got %v", err)
@@ -643,7 +644,7 @@ func TestExpressionBodyDeclarationIDsAreRefused(t *testing.T) {
 		t.Fatalf("the body declaration's id is not where expected:\n%s", turtle)
 	}
 	turtle = strings.Replace(turtle, id, id+"\n    sysx:declaredId \"true\"^^xsd:boolean ;", 1)
-	_, err = export.Convert("m.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
+	_, err = convert.Convert("m.ttl", []byte(turtle), convert.FormatTurtle, convert.FormatSysML)
 	if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "the body member <urn:opensysml:expr:Bodies__Scaled___401_pm1>: it declares an id of its own") {
 		t.Fatalf("want an UnsupportedError for a body declaration with an id, got %v", err)
 	}
@@ -656,7 +657,7 @@ func TestExpressionBodyDeclarationIDsAreRefused(t *testing.T) {
 		t.Fatalf("the body documentation's id is not where expected:\n%s", turtle)
 	}
 	turtle = strings.Replace(turtle, doc, doc+"\n    sysx:declaredId \"true\"^^xsd:boolean ;", 1)
-	_, err = export.Convert("m.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
+	_, err = convert.Convert("m.ttl", []byte(turtle), convert.FormatTurtle, convert.FormatSysML)
 	if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "the body member <urn:opensysml:expr:Results__Documented___401_pm0>: it declares an id of its own") {
 		t.Fatalf("want an UnsupportedError for a body documentation with an id, got %v", err)
 	}
@@ -671,14 +672,14 @@ func TestExpressionBodyParameterLiteralIsQuoted(t *testing.T) {
 		t.Fatalf("expected the parameter node of the Quoted body in the graph:\n%s", turtle)
 	}
 	turtle = strings.Replace(turtle, node, `sysx:bodyParameter "the input" ;`, 1)
-	back, err := export.Convert("m.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("m.ttl", []byte(turtle), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from a literal parameter: %v", err)
 	}
 	if want := "{ in 'the input'; 'the input' + x }"; !strings.Contains(string(back), want) {
 		t.Errorf("the notation rebuilt from the graph lacks %q:\n%s", want, back)
 	}
-	if _, err := export.Convert("m.sysml", back, export.FormatSysML, export.FormatTurtle); err != nil {
+	if _, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle); err != nil {
 		t.Fatalf("the rebuilt notation should parse: %v", err)
 	}
 }
@@ -702,7 +703,7 @@ func TestNonStringLiteralsAreRefused(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			graph := strings.Replace(turtle, node, tc.literal, 1)
-			back, err := export.Convert("m.ttl", []byte(graph), export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
 			if tc.want == "" {
 				if err != nil {
 					t.Fatalf("an xsd:string literal is a string: %v", err)
@@ -755,7 +756,7 @@ func TestMistypedLiteralsAreRefusedEverywhere(t *testing.T) {
 		if !strings.Contains(turtle, tc.from) {
 			t.Fatalf("expected %q in the graph:\n%s", tc.from, turtle)
 		}
-		_, err := export.Convert("m.ttl", []byte(strings.Replace(turtle, tc.from, tc.to, 1)), export.FormatTurtle, export.FormatSysML)
+		_, err := convert.Convert("m.ttl", []byte(strings.Replace(turtle, tc.from, tc.to, 1)), convert.FormatTurtle, convert.FormatSysML)
 		var unsupported *export.UnsupportedError
 		if !errors.As(err, &unsupported) {
 			t.Fatalf("want an UnsupportedError for %s, got %v", tc.to, err)
@@ -775,7 +776,7 @@ func TestExpressionBodyParameterNeedsItsName(t *testing.T) {
 		t.Fatalf("expected the parameter y of four bodies in the graph:\n%s", stripped)
 	}
 	stripped = strings.ReplaceAll(stripped, name, "")
-	_, err := export.Convert("m.ttl", []byte(stripped), export.FormatTurtle, export.FormatSysML)
+	_, err := convert.Convert("m.ttl", []byte(stripped), convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("want an UnsupportedError for a nameless body parameter, got %v", err)
@@ -811,7 +812,7 @@ func TestExpressionBodyParameterOfAnotherShapeIsRefused(t *testing.T) {
 				t.Fatalf("the parameter node was not rewritten:\n%s", block)
 			}
 			graph := turtle[:start] + rewritten + turtle[end:]
-			back, err := export.Convert("m.ttl", []byte(graph), export.FormatTurtle, export.FormatSysML)
+			back, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
 			if tc.want == "" {
 				if err != nil {
 					t.Fatalf("a parameter stating no direction is an `in` parameter: %v", err)
@@ -849,7 +850,7 @@ func TestForeignClassWithAKnownLocalNameIsRefused(t *testing.T) {
 			if graph == turtle {
 				t.Fatalf("%q was not found in the graph:\n%s", tc.from, turtle)
 			}
-			_, err := export.Convert("m.ttl", []byte(graph), export.FormatTurtle, export.FormatSysML)
+			_, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
 			var unsupported *export.UnsupportedError
 			if !errors.As(err, &unsupported) {
 				t.Fatalf("want an UnsupportedError, got %v", err)
@@ -892,11 +893,11 @@ func TestSuperclassesStatedFirstStillClassify(t *testing.T) {
 		}
 		widened = strings.Replace(widened, tc.from, tc.to, 1)
 	}
-	want, err := export.Convert("m.ttl", []byte(turtle), export.FormatTurtle, export.FormatSysML)
+	want, err := convert.Convert("m.ttl", []byte(turtle), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
-	got, err := export.Convert("m.ttl", []byte(widened), export.FormatTurtle, export.FormatSysML)
+	got, err := convert.Convert("m.ttl", []byte(widened), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation with superclasses stated: %v", err)
 	}
@@ -939,7 +940,7 @@ func TestUnrelatedClassesAreRefused(t *testing.T) {
 		if !strings.Contains(turtle, tc.from) {
 			t.Fatalf("expected %q in the graph:\n%s", tc.from, turtle)
 		}
-		_, err := export.Convert("m.ttl", []byte(strings.Replace(turtle, tc.from, tc.to, 1)), export.FormatTurtle, export.FormatSysML)
+		_, err := convert.Convert("m.ttl", []byte(strings.Replace(turtle, tc.from, tc.to, 1)), convert.FormatTurtle, convert.FormatSysML)
 		var unsupported *export.UnsupportedError
 		if !errors.As(err, &unsupported) {
 			t.Fatalf("want an UnsupportedError for %q, got %v", tc.to, err)
@@ -963,7 +964,7 @@ func TestFeatureValueTextStillDecodes(t *testing.T) {
 		`    sysml:value "x + 1"^^xsd:string ;`,
 		`    sysml:value "x + 1"^^sysx:Expression ;`,
 	} {
-		got, err := export.Convert("m.ttl", []byte(strings.Replace(turtle, from, to, 1)), export.FormatTurtle, export.FormatSysML)
+		got, err := convert.Convert("m.ttl", []byte(strings.Replace(turtle, from, to, 1)), convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("%s: %v", to, err)
 		}
@@ -986,7 +987,7 @@ func TestExpressionBodyParameterIsDeclaredOutsideTheBody(t *testing.T) {
     attribute two = xs->collect({ in limit : Gauge [1..upper] = limit; limit });
 }
 `)
-	turtle, err := export.Convert("m.sysml", src, export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("m.sysml", src, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -1002,7 +1003,7 @@ func TestExpressionBodyParameterIsDeclaredOutsideTheBody(t *testing.T) {
 			t.Errorf("the graph lacks\n%s\n--- graph ---\n%s", want, turtle)
 		}
 	}
-	fromGraph, err := export.Convert("m.ttl", withoutSourceText(t, turtle), export.FormatTurtle, export.FormatSysML)
+	fromGraph, err := convert.Convert("m.ttl", withoutSourceText(t, turtle), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the mapping alone: %v", err)
 	}

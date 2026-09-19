@@ -3,13 +3,15 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 // endFeatureLines returns the 1-based source lines on which src draws the
 // end-feature diagnostic with the given code, in order.
 func endFeatureLines(t *testing.T, src, code, message string, kerml bool) []int {
 	t.Helper()
-	var diags []Diagnostic
+	var diags []diag.Diagnostic
 	if kerml {
 		diags = constraintDiagsKerML(t, src)
 	} else {
@@ -20,7 +22,7 @@ func endFeatureLines(t *testing.T, src, code, message string, kerml bool) []int 
 		if d.Message != message {
 			t.Errorf("message = %q, want %q", d.Message, message)
 		}
-		if d.Severity != SeverityError {
+		if d.Severity != diag.SeverityError {
 			t.Errorf("severity = %v, want an error", d.Severity)
 		}
 		lines = append(lines, strings.Count(src[:d.Span.Offset], "\n")+1)

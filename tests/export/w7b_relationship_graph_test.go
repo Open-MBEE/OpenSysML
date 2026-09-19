@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 )
 
@@ -62,7 +62,7 @@ func elementName(t *testing.T, g *rdf.Graph, term rdf.Term) string {
 // keyword-first relationship members are KerML-only forms.
 func kermlTurtleOf(t *testing.T, name, src string) *rdf.Graph {
 	t.Helper()
-	data, err := export.Convert(name, []byte(src), export.FormatSysML, export.FormatTurtle)
+	data, err := convert.Convert(name, []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -151,11 +151,11 @@ func TestKeywordFirstRelationshipKeepsItsVisibility(t *testing.T) {
 	if !ok || vis != "private" {
 		t.Errorf("visibility = %q (present=%t), want private", vis, ok)
 	}
-	turtle, err := export.Convert("visibility.kerml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("visibility.kerml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	back, err := export.Convert("visibility.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("visibility.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -173,11 +173,11 @@ func TestKeywordFirstRelationshipRoundTrips(t *testing.T) {
     specialization Gen subtype A specializes B;
 }
 `
-	turtle, err := export.Convert("round.kerml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("round.kerml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	back, err := export.Convert("round.ttl", turtle, export.FormatTurtle, export.FormatSysML)
+	back, err := convert.Convert("round.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
@@ -207,7 +207,7 @@ const disjoiningSrc = `package P {
 // TestDisjoiningRoundTripsFromTheGraphAlone requires the ordered ends of a
 // Disjoining, not the source text, to carry `disjoint X from Y` back to notation.
 func TestDisjoiningRoundTripsFromTheGraphAlone(t *testing.T) {
-	first, err := export.Convert("disjoining.kerml", []byte(disjoiningSrc), export.FormatSysML, export.FormatTurtle)
+	first, err := convert.Convert("disjoining.kerml", []byte(disjoiningSrc), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestDisjoiningRoundTripsFromTheGraphAlone(t *testing.T) {
 // graph and expects the notation to swap its ends: which type is disjoined from
 // which is stated by the graph, not recovered from the text.
 func TestDisjoiningOrientationIsLoadBearing(t *testing.T) {
-	turtle, err := export.Convert("disjoining.kerml", []byte(disjoiningSrc), export.FormatSysML, export.FormatTurtle)
+	turtle, err := convert.Convert("disjoining.kerml", []byte(disjoiningSrc), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
@@ -263,7 +263,7 @@ func TestDisjoiningClauseStaysOnItsDeclaration(t *testing.T) {
     classifier C specializes A disjoint from B;
 }
 `
-	first, err := export.Convert("clause.kerml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	first, err := convert.Convert("clause.kerml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}

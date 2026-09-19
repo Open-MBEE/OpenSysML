@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -52,7 +53,7 @@ type W8DOccurrenceTypingPass struct{}
 
 func (W8DOccurrenceTypingPass) Level() PassLevel { return LevelType }
 
-func (W8DOccurrenceTypingPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W8DOccurrenceTypingPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -67,7 +68,7 @@ func (W8DOccurrenceTypingPass) Run(ctx *Context, name string, root *ast.RootName
 
 type w8dOccurrenceChecker struct {
 	resolver *resolve.Resolver
-	diags    []Diagnostic
+	diags    []diag.Diagnostic
 }
 
 func (oc *w8dOccurrenceChecker) check(sym *symbols.Symbol) {
@@ -85,8 +86,8 @@ func (oc *w8dOccurrenceChecker) check(sym *symbols.Symbol) {
 		if typ.declared && (w8dTypecheckedTypingKinds[u.Kind] || u.IsIndividual || u.Portion != ast.PortionNone) {
 			continue
 		}
-		oc.diags = append(oc.diags, Diagnostic{
-			Severity: SeverityError,
+		oc.diags = append(oc.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     u.Span(),
 			Message:  msgOccurrenceUsageType,
 			Code:     "occurrence-usage-type",
@@ -110,8 +111,8 @@ func (oc *w8dOccurrenceChecker) checkEventReference(sym *symbols.Symbol, u *ast.
 		if !ok || !w8dNonOccurrenceUsageKinds[ref.Kind] {
 			continue
 		}
-		oc.diags = append(oc.diags, Diagnostic{
-			Severity: SeverityError,
+		oc.diags = append(oc.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
 			Span:     rel.Target.Span(),
 			Message:  msgEventReferenceOccurrence,
 			Code:     "event-reference-occurrence",

@@ -3,17 +3,17 @@ package migrate
 import (
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // arrivals indexes the signals reaching each port over the document's connectors and
 // inward delegations; v1 hands a signal at any port to the owner, v2 accepts it only `via` the port.
 type arrivals struct {
 	// at gives the signals arriving at each port.
-	at map[*xmi.Element]map[*xmi.Element]bool
+	at map[*sysmlv1.Element]map[*sysmlv1.Element]bool
 	// peers are the ports joined within one assembly; outward and inward the delegations
 	// from a part's port to its owner's port and back.
-	peers, outward, inward map[*xmi.Element][]*xmi.Element
+	peers, outward, inward map[*sysmlv1.Element][]*sysmlv1.Element
 }
 
 // arrivalIndex builds the index on first use from the sends via a port and the
@@ -23,10 +23,10 @@ func (m *migration) arrivalIndex() *arrivals {
 		return m.arrived
 	}
 	idx := &arrivals{
-		at:      map[*xmi.Element]map[*xmi.Element]bool{},
-		peers:   map[*xmi.Element][]*xmi.Element{},
-		outward: map[*xmi.Element][]*xmi.Element{},
-		inward:  map[*xmi.Element][]*xmi.Element{},
+		at:      map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
+		peers:   map[*sysmlv1.Element][]*sysmlv1.Element{},
+		outward: map[*sysmlv1.Element][]*sysmlv1.Element{},
+		inward:  map[*sysmlv1.Element][]*sysmlv1.Element{},
 	}
 	m.arrived = idx
 	peers, outward, inward := idx.peers, idx.outward, idx.inward
@@ -55,14 +55,14 @@ func (m *migration) arrivalIndex() *arrivals {
 			peers[p1] = append(peers[p1], p0)
 		}
 	}
-	sent := map[*xmi.Element]map[*xmi.Element]bool{}
-	var leave, reach func(p, sig *xmi.Element)
-	leave = func(p, sig *xmi.Element) {
+	sent := map[*sysmlv1.Element]map[*sysmlv1.Element]bool{}
+	var leave, reach func(p, sig *sysmlv1.Element)
+	leave = func(p, sig *sysmlv1.Element) {
 		if sent[p][sig] {
 			return
 		}
 		if sent[p] == nil {
-			sent[p] = map[*xmi.Element]bool{}
+			sent[p] = map[*sysmlv1.Element]bool{}
 		}
 		sent[p][sig] = true
 		for _, q := range peers[p] {
@@ -72,12 +72,12 @@ func (m *migration) arrivalIndex() *arrivals {
 			leave(q, sig)
 		}
 	}
-	reach = func(p, sig *xmi.Element) {
+	reach = func(p, sig *sysmlv1.Element) {
 		if idx.at[p][sig] {
 			return
 		}
 		if idx.at[p] == nil {
-			idx.at[p] = map[*xmi.Element]bool{}
+			idx.at[p] = map[*sysmlv1.Element]bool{}
 		}
 		idx.at[p][sig] = true
 		for _, q := range inward[p] {
@@ -92,11 +92,11 @@ func (m *migration) arrivalIndex() *arrivals {
 
 // peerBlocks lists the blocks whose ports connectors join p to, following outward
 // and inward delegations; the owners along a delegation are not peers.
-func (idx *arrivals) peerBlocks(p *xmi.Element) map[*xmi.Element]bool {
-	blocks := map[*xmi.Element]bool{}
-	outer := map[*xmi.Element]bool{}
-	var up func(*xmi.Element)
-	up = func(q *xmi.Element) {
+func (idx *arrivals) peerBlocks(p *sysmlv1.Element) map[*sysmlv1.Element]bool {
+	blocks := map[*sysmlv1.Element]bool{}
+	outer := map[*sysmlv1.Element]bool{}
+	var up func(*sysmlv1.Element)
+	up = func(q *sysmlv1.Element) {
 		if outer[q] {
 			return
 		}
@@ -106,9 +106,9 @@ func (idx *arrivals) peerBlocks(p *xmi.Element) map[*xmi.Element]bool {
 		}
 	}
 	up(p)
-	seen := map[*xmi.Element]bool{}
-	var down func(*xmi.Element)
-	down = func(q *xmi.Element) {
+	seen := map[*sysmlv1.Element]bool{}
+	var down func(*sysmlv1.Element)
+	down = func(q *sysmlv1.Element) {
 		if seen[q] {
 			return
 		}
@@ -130,16 +130,16 @@ func (idx *arrivals) peerBlocks(p *xmi.Element) map[*xmi.Element]bool {
 
 // sentPorts lists the ports the send signal actions of behavior b and of the
 // behaviors it calls go through.
-func (m *migration) sentPorts(b *xmi.Element) []*xmi.Element {
-	var out []*xmi.Element
-	seen := map[*xmi.Element]bool{}
-	var walk func(*xmi.Element)
-	walk = func(b *xmi.Element) {
+func (m *migration) sentPorts(b *sysmlv1.Element) []*sysmlv1.Element {
+	var out []*sysmlv1.Element
+	seen := map[*sysmlv1.Element]bool{}
+	var walk func(*sysmlv1.Element)
+	walk = func(b *sysmlv1.Element) {
 		if b == nil || seen[b] {
 			return
 		}
 		seen[b] = true
-		m.walkActions(b, func(e *xmi.Element) {
+		m.walkActions(b, func(e *sysmlv1.Element) {
 			switch e.Type {
 			case "SendSignalAction", "SendObjectAction":
 				if p := m.model.Ref(e, "onPort"); p != nil {
@@ -156,15 +156,15 @@ func (m *migration) sentPorts(b *xmi.Element) []*xmi.Element {
 
 // pairedPorts narrows the ports a signal arrives at to those joined to a block
 // the behavior b itself sends to, the route a reply to its request takes.
-func (m *migration) pairedPorts(ports []*xmi.Element, b *xmi.Element) []*xmi.Element {
+func (m *migration) pairedPorts(ports []*sysmlv1.Element, b *sysmlv1.Element) []*sysmlv1.Element {
 	idx := m.arrivalIndex()
-	sentTo := map[*xmi.Element]bool{}
+	sentTo := map[*sysmlv1.Element]bool{}
 	for _, p := range m.sentPorts(b) {
 		for block := range idx.peerBlocks(p) {
 			sentTo[block] = true
 		}
 	}
-	var out []*xmi.Element
+	var out []*sysmlv1.Element
 	for _, p := range ports {
 		for block := range idx.peerBlocks(p) {
 			if sentTo[block] {
@@ -178,12 +178,12 @@ func (m *migration) pairedPorts(ports []*xmi.Element, b *xmi.Element) []*xmi.Ele
 
 // arrivalPorts lists the written ports of block c, own and inherited in
 // declaration order, at which sig or a special of it arrives.
-func (m *migration) arrivalPorts(c, sig *xmi.Element) []*xmi.Element {
+func (m *migration) arrivalPorts(c, sig *sysmlv1.Element) []*sysmlv1.Element {
 	idx := m.arrivalIndex()
-	var out []*xmi.Element
-	seen := map[*xmi.Element]bool{}
-	var walk func(*xmi.Element)
-	walk = func(cur *xmi.Element) {
+	var out []*sysmlv1.Element
+	seen := map[*sysmlv1.Element]bool{}
+	var walk func(*sysmlv1.Element)
+	walk = func(cur *sysmlv1.Element) {
 		if cur == nil || seen[cur] {
 			return
 		}
@@ -209,7 +209,7 @@ func (m *migration) arrivalPorts(c, sig *xmi.Element) []*xmi.Element {
 
 // portRoutes lists the ports a trigger of block c accepts through: the ports it names,
 // else the object itself plus each port the signal arrives at. note says which named port is dropped.
-func (m *migration) portRoutes(tr, c, sig *xmi.Element) (ports []*xmi.Element, direct bool, info, note string) {
+func (m *migration) portRoutes(tr, c, sig *sysmlv1.Element) (ports []*sysmlv1.Element, direct bool, info, note string) {
 	named := m.model.Refs(tr, "port")
 	if len(named) == 0 {
 		if c == nil {
@@ -241,7 +241,7 @@ func (m *migration) portRoutes(tr, c, sig *xmi.Element) (ports []*xmi.Element, d
 
 // actionRoute picks the one route an accept action of b takes: the named port, the sole
 // arrival port, or the arrival port joined to a block b sends to; else the object itself.
-func (m *migration) actionRoute(clause string, tr, c, b *xmi.Element, via string, sig *xmi.Element) (string, string) {
+func (m *migration) actionRoute(clause string, tr, c, b *sysmlv1.Element, via string, sig *sysmlv1.Element) (string, string) {
 	ports, direct, _, note := m.portRoutes(tr, c, sig)
 	switch {
 	case len(ports) == 0:
@@ -265,7 +265,7 @@ func (m *migration) actionRoute(clause string, tr, c, b *xmi.Element, via string
 }
 
 // portNames writes "port p" or "ports p, q" with the v2 names of the ports.
-func (m *migration) portNames(ports []*xmi.Element) string {
+func (m *migration) portNames(ports []*sysmlv1.Element) string {
 	names := make([]string, len(ports))
 	for i, p := range ports {
 		names[i] = writeName(m.nameFor(p))

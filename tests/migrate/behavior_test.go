@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
 
@@ -15,7 +15,7 @@ func session(t *testing.T, r *migrate.Result) *repl.Session {
 	t.Helper()
 	s := repl.NewSession()
 	for _, d := range s.Submit(string(r.Notation)).Diagnostics {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Fatalf("migrated notation: %v\n%s", d, r.Notation)
 		}
 	}

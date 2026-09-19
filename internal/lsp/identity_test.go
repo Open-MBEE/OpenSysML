@@ -10,10 +10,9 @@ import (
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/core/identity/normative"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -116,7 +115,7 @@ func identityAfter(t *testing.T, file, src, fqn string) *identity.Info {
 	name := uri.File(file).Filename()
 	ws.Open(name, []byte(src), 1)
 	for _, d := range ws.Diagnostics(name) {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Errorf("annotated source reports %s: %s", d.Code, d.Message)
 		}
 	}
@@ -499,7 +498,7 @@ func TestWorkspaceCopyOfLibraryFileIsTheLibrary(t *testing.T) {
 	}
 	const norm = "14c0aa22-5489-59b5-b438-ded26e83ba31"
 	real := copyIdentity(src)
-	if !real.Normative() || real.EffectiveID != norm || real.Language != normative.KerML {
+	if !real.Normative() || real.EffectiveID != norm || real.Language != identity.KerML {
 		t.Errorf("Real in a workspace copy = %+v, want the norm's KerML id %s", real, norm)
 	}
 	if got := ws.StandsInFor(name); got != bundled {

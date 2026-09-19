@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -26,7 +27,7 @@ type W10BStructuralPass struct{}
 
 func (W10BStructuralPass) Level() PassLevel { return LevelType }
 
-func (W10BStructuralPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
+func (W10BStructuralPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -42,11 +43,11 @@ func (W10BStructuralPass) Run(ctx *Context, name string, root *ast.RootNamespace
 }
 
 type w10bStructuralChecker struct {
-	diags []Diagnostic
+	diags []diag.Diagnostic
 }
 
 func (c *w10bStructuralChecker) check(decl ast.Node) {
-	members := declMembers(decl)
+	members := ast.DeclMembers(decl)
 	if len(members) == 0 {
 		return
 	}
@@ -117,8 +118,8 @@ func (c *w10bStructuralChecker) reportExtra(members []ast.Node, msg, code string
 }
 
 func (c *w10bStructuralChecker) report(node ast.Node, msg, code string) {
-	c.diags = append(c.diags, Diagnostic{
-		Severity: SeverityError,
+	c.diags = append(c.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
 		Span:     node.Span(),
 		Message:  msg,
 		Code:     code,

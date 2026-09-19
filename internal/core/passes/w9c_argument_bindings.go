@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -102,8 +103,8 @@ func (ec *exprChecker) judgeArgumentBinding(scope *symbols.Scope, value ast.Node
 
 // diagnostics are the checker's, with the warning of each non-conforming
 // argument binding no error of the checker covers.
-func (ec *exprChecker) diagnostics() []Diagnostic {
-	diags := make([]Diagnostic, len(ec.diags), len(ec.diags)+len(ec.bindings))
+func (ec *exprChecker) diagnostics() []diag.Diagnostic {
+	diags := make([]diag.Diagnostic, len(ec.diags), len(ec.diags)+len(ec.bindings))
 	copy(diags, ec.diags)
 	for _, b := range ec.bindings {
 		if !ec.errorCovers(b.judged) {
@@ -116,7 +117,7 @@ func (ec *exprChecker) diagnostics() []Diagnostic {
 // errorCovers reports whether an error of the checker spans all of span.
 func (ec *exprChecker) errorCovers(span source.Span) bool {
 	for _, d := range ec.diags {
-		if d.Severity == SeverityError && d.Span.Offset <= span.Offset && span.End() <= d.Span.End() {
+		if d.Severity == diag.SeverityError && d.Span.Offset <= span.Offset && span.End() <= d.Span.End() {
 			return true
 		}
 	}

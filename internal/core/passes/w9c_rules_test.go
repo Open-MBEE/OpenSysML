@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -14,7 +15,7 @@ import (
 
 // w9cLibraryDiags analyzes src as SysML against the standard library, which the
 // inherited-name rule needs to see the Action/Part diamond.
-func w9cLibraryDiags(t *testing.T, src string, warm bool) []Diagnostic {
+func w9cLibraryDiags(t *testing.T, src string, warm bool) []diag.Diagnostic {
 	t.Helper()
 	// The loader below is what populates the library here, so this starts empty:
 	// loading it twice would re-add every library document.
@@ -56,7 +57,7 @@ func w9cLibraryDiags(t *testing.T, src string, warm bool) []Diagnostic {
 	return Analyze("<t>.sysml", root, nil, idx)
 }
 
-func w9cMessages(diags []Diagnostic, prefix string) []string {
+func w9cMessages(diags []diag.Diagnostic, prefix string) []string {
 	var out []string
 	for _, d := range diags {
 		if strings.HasPrefix(d.Message, prefix) {

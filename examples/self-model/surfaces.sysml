@@ -112,27 +112,27 @@ package OpenSysMLSurfaces {
     }
 
     part def PythonClient :> Client {
-        attribute :>> goPackage = "clients/python";
+        attribute :>> goPackage = "client/python";
         attribute :>> implementationLanguage = "python";
-        attribute :>> generatedStubs = "clients/python/opensysml/proto";
+        attribute :>> generatedStubs = "client/python/opensysml/proto";
     }
 
     part def NodeClient :> Client {
-        attribute :>> goPackage = "clients/node";
+        attribute :>> goPackage = "client/node";
         attribute :>> implementationLanguage = "typescript";
-        attribute :>> generatedStubs = "clients/node/src/generated";
+        attribute :>> generatedStubs = "client/node/src/generated";
     }
 
     part def RustClient :> Client {
-        attribute :>> goPackage = "clients/rust";
+        attribute :>> goPackage = "client/rust";
         attribute :>> implementationLanguage = "rust";
-        attribute :>> generatedStubs = "clients/rust/opensysml/src/proto";
+        attribute :>> generatedStubs = "client/rust/opensysml/src/proto";
     }
 
     part def JavaClient :> Client {
-        attribute :>> goPackage = "clients/java";
+        attribute :>> goPackage = "client/java";
         attribute :>> implementationLanguage = "java";
-        attribute :>> generatedStubs = "clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto";
+        attribute :>> generatedStubs = "client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto";
     }
 
     // In the same process by default, over the wire on request: the Go client
@@ -163,7 +163,7 @@ package OpenSysMLSurfaces {
     // A fix carries the edit that applies it and points at the diagnostic it
     // answers; a diagnostic with no unambiguous repair offers none.
     part def QuickFixer :> CodeUnit {
-        attribute :>> goPackage = "internal/core/quickfix";
+        attribute :>> goPackage = "internal/core/diag";
         attribute editsAttached : Boolean = true;
         in item findings : Diagnostic;
         out item fixes : QuickFix;
@@ -197,7 +197,7 @@ package OpenSysMLSurfaces {
     // A document name and a span, carried from a declaration to whatever is
     // derived from it; a synthetic artifact carries the unlocated origin.
     part def Provenance :> CodeUnit {
-        attribute :>> goPackage = "internal/core/provenance";
+        attribute :>> goPackage = "internal/core/symbols";
         attribute keyedByDocumentAndSpan : Boolean = true;
         attribute consumers : String = "internal/core/docir, internal/core/view, internal/core/queryplan";
         out item origins : SourceSpan;

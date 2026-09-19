@@ -4,13 +4,13 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // portReceiver writes the operation usage a call over port performs: the part
 // the caller's connectors join to its own port, or the target object's port when
 // the port is the target's. The note says why the call is not written that way.
-func (a *activity) portReceiver(port, t, op *xmi.Element) (receiver, note string, ok bool) {
+func (a *activity) portReceiver(port, t, op *sysmlv1.Element) (receiver, note string, ok bool) {
 	if !a.m.written(port) {
 		return "", "the call runs in the caller's context: the port " + qualifiedName(port) + " it goes through has no v2 declaration", false
 	}
@@ -47,7 +47,7 @@ func (a *activity) portReceiver(port, t, op *xmi.Element) (receiver, note string
 // connectedReceiver follows the connectors of classifier c from its port to the
 // path of the part, or the part's port, whose type has operation op; the reason
 // when none does, or when several do, since the source names no one of them.
-func (m *migration) connectedReceiver(c, port, op *xmi.Element) (string, string) {
+func (m *migration) connectedReceiver(c, port, op *sysmlv1.Element) (string, string) {
 	joined := 0
 	var paths []string
 	for _, cn := range m.connectorsOf(c) {
@@ -80,7 +80,7 @@ func (m *migration) connectedReceiver(c, port, op *xmi.Element) (string, string)
 // operationHolder writes the longest prefix of a connector end's path whose last
 // segment's type has op: the port's own path when its type declares the operation,
 // else the part's the port belongs to.
-func (m *migration) operationHolder(end []*xmi.Element, op *xmi.Element) (string, bool) {
+func (m *migration) operationHolder(end []*sysmlv1.Element, op *sysmlv1.Element) (string, bool) {
 	for n := len(end); n > 0; n-- {
 		t := m.model.Ref(end[n-1], "type")
 		if t == nil || t.IsProxy() || !m.hasFeature(t, op) {
@@ -99,11 +99,11 @@ func (m *migration) operationHolder(end []*xmi.Element, op *xmi.Element) (string
 }
 
 // connectorsOf lists the connectors classifier c and its generals own, nearest first.
-func (m *migration) connectorsOf(c *xmi.Element) []*xmi.Element {
-	var out []*xmi.Element
-	seen := map[*xmi.Element]bool{}
-	var walk func(*xmi.Element)
-	walk = func(cur *xmi.Element) {
+func (m *migration) connectorsOf(c *sysmlv1.Element) []*sysmlv1.Element {
+	var out []*sysmlv1.Element
+	seen := map[*sysmlv1.Element]bool{}
+	var walk func(*sysmlv1.Element)
+	walk = func(cur *sysmlv1.Element) {
 		if cur == nil || seen[cur] {
 			return
 		}

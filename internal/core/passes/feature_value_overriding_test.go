@@ -3,20 +3,22 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 )
 
 const featureValueOverridingCode = "feature-value-overriding"
 
 // overridingDiags returns the binding-override diagnostics of src, asserting
 // that each one is an error covering one of the wanted value parts.
-func overridingDiags(t *testing.T, src string, wantSpans ...string) []Diagnostic {
+func overridingDiags(t *testing.T, src string, wantSpans ...string) []diag.Diagnostic {
 	t.Helper()
 	diags := only(constraintDiags(t, src), featureValueOverridingCode)
 	if len(diags) != len(wantSpans) {
 		t.Fatalf("got %d diagnostics, want %d: %v", len(diags), len(wantSpans), diags)
 	}
 	for i, d := range diags {
-		if d.Severity != SeverityError {
+		if d.Severity != diag.SeverityError {
 			t.Errorf("severity = %v, want an error", d.Severity)
 		}
 		if got := spanText(src, d); got != wantSpans[i] {

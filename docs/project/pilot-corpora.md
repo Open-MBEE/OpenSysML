@@ -11,11 +11,11 @@ at release `2026-08`, commit `692170b71867353b8f90341e61556f49a5beb0e5` (`script
 | `sysml-validation` | `examples/pilot-corpora/sysml-validation` | 56 `.sysml` |
 | `kerml-examples` | `examples/pilot-corpora/kerml-examples` | 58 `.kerml` |
 
-**Gate:** `TestPilotCorporaDiagnostics` in `internal/core/model/pilot_corpora_test.go` records
-every file's diagnostic count in `internal/core/model/testdata/pilot_corpora_expected.txt`, so a
+**Gate:** `TestPilotCorporaDiagnostics` in `tests/corpus/pilot_corpora_test.go` records
+every file's diagnostic count in `tests/corpus/testdata/pilot_corpora_expected.txt`, so a
 count going up, a count going down, a file that becomes clean and a file that starts reporting all
 fail the test
-**Regenerate:** `go test ./internal/core/model -run TestPilotCorporaDiagnostics -update-pilot-corpora`
+**Regenerate:** `go test ./tests/corpus -run TestPilotCorporaDiagnostics -update-pilot-corpora`
 **Required in CI:** `OPENSYSML_REQUIRE_PILOT_CORPORA=1` in both `.circleci/config.yml` and
 `.github/workflows/pr.yml`, under which an absent or empty corpus fails instead of skipping
 
@@ -23,7 +23,7 @@ fail the test
 
 All four OMG model roots — these three plus the training corpus in
 `examples/sysml-v2-training` — come from the same pinned pilot release and share one gate
-mechanism in `internal/core/model/corpus_gate_test.go`: one walker, one whole-root loader, one
+mechanism in `tests/corpus/corpus_gate_test.go`: one walker, one whole-root loader, one
 `GATE NOT RUN` skip banner, one expectation-file format, one cache-independence test
 (`TestCorpusGatesCacheStateIndependent`, which covers all four roots), and one downloader
 (`pilot_fetch_subtrees` in `scripts/pilot-pin.sh`, called with one entry by
@@ -114,7 +114,7 @@ that never ran must not look like a gate that passed. Fetch them once:
 
 ```bash
 ./scripts/download-pilot-corpora.sh
-go test -count=1 ./internal/core/model -run TestPilotCorpora
+go test -count=1 ./tests/corpus -run TestPilotCorpora
 ```
 
 The pilot's XMI serialization of the standard library is fetched the same way, from the release

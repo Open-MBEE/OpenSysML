@@ -6,37 +6,37 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // scenario is an interaction resolved to the steps its v2 form performs in
 // occurrence order: signal sends, operation calls, replies and combined fragments.
 type scenario struct {
 	m       *migration
-	e       *xmi.Element
-	context *xmi.Element
+	e       *sysmlv1.Element
+	context *sysmlv1.Element
 	self    string
 	// order gives each fragment its position among the interaction's fragments.
-	order map[*xmi.Element]int
-	lines map[*xmi.Element]lifelineRef
+	order map[*sysmlv1.Element]int
+	lines map[*sysmlv1.Element]lifelineRef
 	used  map[string]bool
 	// placed holds each message some occurrence has already stepped.
-	placed map[*xmi.Element]bool
+	placed map[*sysmlv1.Element]bool
 	steps  []*scenarioStep
 	// calls lists the call steps resolved so far, which a reply answers.
 	calls []*scenarioStep
 	// others are the fragments that order nothing: executions, invariants, orderings.
-	others []*xmi.Element
+	others []*sysmlv1.Element
 	// waited holds the duration constraints written as waits before a step.
-	waited map[*xmi.Element]bool
+	waited map[*sysmlv1.Element]bool
 	// names gives each stepped message its step's name; last is the latest one.
-	names map[*xmi.Element]string
+	names map[*sysmlv1.Element]string
 	last  string
 	// chain places each message step in the succession chain it is written in; chains counts them.
-	chain  map[*xmi.Element]chainPos
+	chain  map[*sysmlv1.Element]chainPos
 	chains int
 	// pending holds the waits forked after a message, to be joined before the later message they span to.
-	pending map[*xmi.Element]pendingWait
+	pending map[*sysmlv1.Element]pendingWait
 	// outer gives each operand's body the body of the fragment it is nested in.
 	outer map[*[]*scenarioStep]*[]*scenarioStep
 }
@@ -55,12 +55,12 @@ type pendingWait struct {
 // lifelineRef is the object a lifeline stands for: the feature path that reads
 // it from the scenario's self, and the classifier of the object at its end.
 type lifelineRef struct {
-	line *xmi.Element
+	line *sysmlv1.Element
 	// path names the object from the scenario's self; chain is the same path as a
 	// feature chain a perform subsets, which names no `this`.
 	path  string
 	chain string
-	typ   *xmi.Element
+	typ   *sysmlv1.Element
 }
 
 type stepKind int
@@ -85,10 +85,10 @@ type scenarioStep struct {
 	// name is the step's written name, base the unquoted name a fragment's operands extend.
 	name     string
 	base     string
-	msg      *xmi.Element
-	frag     *xmi.Element
-	signal   *xmi.Element
-	op       *xmi.Element
+	msg      *sysmlv1.Element
+	frag     *sysmlv1.Element
+	signal   *sysmlv1.Element
+	op       *sysmlv1.Element
 	sender   *lifelineRef
 	receiver *lifelineRef
 	// args are the bindings a send or call writes, note what the bindings leave out.
@@ -105,7 +105,7 @@ type scenarioStep struct {
 }
 
 type scenarioOperand struct {
-	e     *xmi.Element
+	e     *sysmlv1.Element
 	guard string
 	gnote string
 	steps []*scenarioStep
@@ -113,7 +113,7 @@ type scenarioOperand struct {
 
 // messagelessNote says why an interaction without messages has no steps; one of
 // state invariants under time constraints is a recorded timing trace, not a behavior.
-func messagelessNote(e *xmi.Element) string {
+func messagelessNote(e *sysmlv1.Element) string {
 	invariants := 0
 	for _, f := range e.Owned("fragment") {
 		if f.Type == "StateInvariant" {
@@ -131,14 +131,14 @@ func messagelessNote(e *xmi.Element) string {
 }
 
 // interactionNote says why an interaction has no v2 form; "" when it becomes a scenario.
-func (m *migration) interactionNote(e *xmi.Element) string {
+func (m *migration) interactionNote(e *sysmlv1.Element) string {
 	_, note := m.scenario(e, "this")
 	return note
 }
 
 // scenario resolves interaction e to the steps its v2 form performs, reading the
 // context's features through self; a note says why it has none.
-func (m *migration) scenario(e *xmi.Element, self string) (*scenario, string) {
+func (m *migration) scenario(e *sysmlv1.Element, self string) (*scenario, string) {
 	if m.deciding[e] {
 		return nil, "the interaction refers to itself through an interaction use"
 	}
@@ -159,14 +159,14 @@ func (m *migration) scenario(e *xmi.Element, self string) (*scenario, string) {
 	defer func() { m.self = saved }()
 	s := &scenario{
 		m: m, e: e, context: context, self: self,
-		order:   map[*xmi.Element]int{},
-		lines:   map[*xmi.Element]lifelineRef{},
+		order:   map[*sysmlv1.Element]int{},
+		lines:   map[*sysmlv1.Element]lifelineRef{},
 		used:    map[string]bool{"start": true, "done": true},
-		placed:  map[*xmi.Element]bool{},
-		waited:  map[*xmi.Element]bool{},
-		names:   map[*xmi.Element]string{},
-		chain:   map[*xmi.Element]chainPos{},
-		pending: map[*xmi.Element]pendingWait{},
+		placed:  map[*sysmlv1.Element]bool{},
+		waited:  map[*sysmlv1.Element]bool{},
+		names:   map[*sysmlv1.Element]string{},
+		chain:   map[*sysmlv1.Element]chainPos{},
+		pending: map[*sysmlv1.Element]pendingWait{},
 		outer:   map[*[]*scenarioStep]*[]*scenarioStep{},
 	}
 	for i, f := range e.Owned("fragment") {
@@ -187,7 +187,7 @@ func (m *migration) scenario(e *xmi.Element, self string) (*scenario, string) {
 
 // resolve turns the fragments of an operand (or the interaction) into steps, in
 // fragment order; a message neither occurrence places is stepped where it is written.
-func (s *scenario) resolve(fragments, messages []*xmi.Element, body *[]*scenarioStep) ([]*scenarioStep, string) {
+func (s *scenario) resolve(fragments, messages []*sysmlv1.Element, body *[]*scenarioStep) ([]*scenarioStep, string) {
 	var steps []*scenarioStep
 	for _, f := range fragments {
 		switch f.Type {
@@ -236,7 +236,7 @@ func (s *scenario) resolve(fragments, messages []*xmi.Element, body *[]*scenario
 
 // lifeline resolves the object a lifeline stands for: a part, port or reference
 // reached through the context's part tree, or an in parameter of the interaction.
-func (s *scenario) lifeline(line *xmi.Element) (lifelineRef, string) {
+func (s *scenario) lifeline(line *sysmlv1.Element) (lifelineRef, string) {
 	if ref, ok := s.lines[line]; ok {
 		return ref, ""
 	}
@@ -284,14 +284,14 @@ func (s *scenario) lifeline(line *xmi.Element) (lifelineRef, string) {
 // partPaths lists the feature paths from classifier c to property p through the
 // parts, ports and references c and their types own or inherit, nearest first; a
 // type is not re-entered along its own path, while sibling parts of one type each count.
-func (m *migration) partPaths(c, p *xmi.Element) []string {
+func (m *migration) partPaths(c, p *sysmlv1.Element) []string {
 	var paths []string
 	type node struct {
-		c     *xmi.Element
+		c     *sysmlv1.Element
 		path  []string
-		along []*xmi.Element
+		along []*sysmlv1.Element
 	}
-	queue := []node{{c: c, along: []*xmi.Element{c}}}
+	queue := []node{{c: c, along: []*sysmlv1.Element{c}}}
 	for len(queue) > 0 && len(paths) < 2 {
 		n := queue[0]
 		queue = queue[1:]
@@ -308,18 +308,18 @@ func (m *migration) partPaths(c, p *xmi.Element) []string {
 			if t == nil || slices.Contains(n.along, t) || !isBlockLike(t) {
 				continue
 			}
-			queue = append(queue, node{c: t, path: path, along: append(append([]*xmi.Element{}, n.along...), t)})
+			queue = append(queue, node{c: t, path: path, along: append(append([]*sysmlv1.Element{}, n.along...), t)})
 		}
 	}
 	return paths
 }
 
 // attributesOf lists the attributes of a classifier and its generals, nearest first.
-func (m *migration) attributesOf(c *xmi.Element) []*xmi.Element {
+func (m *migration) attributesOf(c *sysmlv1.Element) []*sysmlv1.Element {
 	return m.signalAttributes(c)
 }
 
-func isBlockLike(t *xmi.Element) bool {
+func isBlockLike(t *sysmlv1.Element) bool {
 	switch t.Type {
 	case "Class", "Component", "Node", "Device", "ExecutionEnvironment", "Actor", "Interface":
 		return true
@@ -328,7 +328,7 @@ func isBlockLike(t *xmi.Element) bool {
 }
 
 // message resolves one message to a step, or says why it has no v2 form.
-func (s *scenario) message(msg *xmi.Element, body *[]*scenarioStep) (*scenarioStep, string) {
+func (s *scenario) message(msg *sysmlv1.Element, body *[]*scenarioStep) (*scenarioStep, string) {
 	sort := msg.Attrs["messageSort"]
 	if sort == "" {
 		sort = "synchCall"
@@ -363,7 +363,7 @@ func (s *scenario) message(msg *xmi.Element, body *[]*scenarioStep) (*scenarioSt
 
 // end resolves the lifeline the occurrence in role of msg covers; nil when the
 // message has no such occurrence (a found or lost message).
-func (s *scenario) end(msg *xmi.Element, role string) (*lifelineRef, string) {
+func (s *scenario) end(msg *sysmlv1.Element, role string) (*lifelineRef, string) {
 	ev := s.m.model.Ref(msg, role)
 	if ev == nil {
 		return nil, ""
@@ -421,7 +421,7 @@ func (s *scenario) call(step *scenarioStep, sort string) (*scenarioStep, string)
 	case !s.m.hasFeature(step.receiver.typ, op):
 		return nil, "calls " + op.Name + " on " + step.receiver.path + ", a " + qualifiedName(step.receiver.typ) + ", which has no such operation"
 	}
-	var ins []*xmi.Element
+	var ins []*sysmlv1.Element
 	for _, p := range op.Owned("ownedParameter") {
 		if dir, _ := parameterDirection(p); dir != "out" {
 			ins = append(ins, p)
@@ -465,7 +465,7 @@ func (s *scenario) reply(step *scenarioStep) (*scenarioStep, string) {
 	step.kind = stepReply
 	step.call = call
 	step.op = op
-	var outs []*xmi.Element
+	var outs []*sysmlv1.Element
 	for _, p := range op.Owned("ownedParameter") {
 		if dir, _ := parameterDirection(p); dir != "in" {
 			outs = append(outs, p)
@@ -519,7 +519,7 @@ func (s *scenario) within(body, outer *[]*scenarioStep) bool {
 // assignmentOf reads a reply argument written as `attribute = value` (an
 // Expression with symbol "=" or an opaque body of that form): the attribute the
 // caller stores the result in, and the value the reply states for it, if any.
-func assignmentOf(arg *xmi.Element) (target, value string) {
+func assignmentOf(arg *sysmlv1.Element) (target, value string) {
 	text := ""
 	switch arg.Type {
 	case "Expression":
@@ -547,7 +547,7 @@ func assignmentOf(arg *xmi.Element) (target, value string) {
 }
 
 // attributeNamed finds the attribute of the object a lifeline stands for by name.
-func (s *scenario) attributeNamed(ref *lifelineRef, name string) *xmi.Element {
+func (s *scenario) attributeNamed(ref *lifelineRef, name string) *sysmlv1.Element {
 	if ref == nil || ref.typ == nil {
 		return nil
 	}
@@ -561,7 +561,7 @@ func (s *scenario) attributeNamed(ref *lifelineRef, name string) *xmi.Element {
 
 // parameterFor pairs an argument with a target by name when the argument is
 // named, by position otherwise; nil when neither matches.
-func (s *scenario) parameterFor(arg *xmi.Element, targets []*xmi.Element, i int) *xmi.Element {
+func (s *scenario) parameterFor(arg *sysmlv1.Element, targets []*sysmlv1.Element, i int) *sysmlv1.Element {
 	if arg.Name != "" {
 		for _, t := range targets {
 			if s.m.nameOf(t) == arg.Name {
@@ -579,9 +579,9 @@ func (s *scenario) parameterFor(arg *xmi.Element, targets []*xmi.Element, i int)
 // bindArguments writes a message's arguments as bindings of the targets, an owner's
 // parameters or attributes, by name or position; a target that must hold a value
 // (no default, lower bound above 0) and that no argument binds is a refusal, why.
-func (s *scenario) bindArguments(msg *xmi.Element, targets []*xmi.Element, kind string, owner *xmi.Element) (args, note, why string) {
+func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Element, kind string, owner *sysmlv1.Element) (args, note, why string) {
 	var out []string
-	bound := map[*xmi.Element]bool{}
+	bound := map[*sysmlv1.Element]bool{}
 	for i, arg := range msg.Owned("argument") {
 		t := s.parameterFor(arg, targets, i)
 		if t == nil {
@@ -613,7 +613,7 @@ func (s *scenario) bindArguments(msg *xmi.Element, targets []*xmi.Element, kind 
 }
 
 // stepName names a step after its message, or after what it does when the message is anonymous.
-func (s *scenario) stepName(msg *xmi.Element, fallback string) string {
+func (s *scenario) stepName(msg *sysmlv1.Element, fallback string) string {
 	name := s.m.nameOf(msg)
 	if name == "" {
 		name = lowerFirst(fallback)
@@ -623,7 +623,7 @@ func (s *scenario) stepName(msg *xmi.Element, fallback string) string {
 
 // fragment resolves a combined fragment: alt and opt to if, loop to while or for,
 // par to fork and join, seq and strict to their operands in order.
-func (s *scenario) fragment(f *xmi.Element, body *[]*scenarioStep) (*scenarioStep, string) {
+func (s *scenario) fragment(f *sysmlv1.Element, body *[]*scenarioStep) (*scenarioStep, string) {
 	kind := f.Attrs["interactionOperator"]
 	if kind == "" {
 		kind = "seq"
@@ -746,7 +746,7 @@ func openOnEveryPath(in []*scenarioStep, outs [][]*scenarioStep) []*scenarioStep
 
 // guard translates an interaction constraint: "" for none, true or else, the v2
 // expression otherwise; a note says why it cannot be written.
-func (s *scenario) guard(g *xmi.Element) (expr, note, refusal string) {
+func (s *scenario) guard(g *sysmlv1.Element) (expr, note, refusal string) {
 	if g == nil || trueGuard(g) {
 		return "", "", ""
 	}
@@ -762,14 +762,14 @@ func (s *scenario) guard(g *xmi.Element) (expr, note, refusal string) {
 }
 
 // trueGuard reports whether an interaction constraint constrains nothing.
-func trueGuard(g *xmi.Element) bool {
+func trueGuard(g *sysmlv1.Element) bool {
 	spec := firstOwned(g, "specification")
 	return spec == nil || spec.Type == "LiteralBoolean" && (spec.Attrs["value"] == "true" || spec.Attrs["value"] == "")
 }
 
 // loopBounds reads a loop's guard and bounds: a guard alone repeats while it
 // holds; equal literal bounds without a guard repeat that many times.
-func (s *scenario) loopBounds(g *xmi.Element) (guard, count, note, refusal string) {
+func (s *scenario) loopBounds(g *sysmlv1.Element) (guard, count, note, refusal string) {
 	var lo, hi string
 	if g != nil {
 		if v := firstOwned(g, "minint"); v != nil {
@@ -812,7 +812,7 @@ func suffixNote(s string) string {
 
 // interactionBody writes an interaction as a scenario: an action whose steps are
 // its messages and combined fragments in occurrence order.
-func (m *migration) interactionBody(e *xmi.Element) {
+func (m *migration) interactionBody(e *sysmlv1.Element) {
 	s, note := m.scenario(e, "this")
 	if note != "" {
 		// classifyBehavior does not let this happen; keep the body honest anyway.
@@ -1102,16 +1102,16 @@ func (s *scenario) startWaits(step *scenarioStep) string {
 
 // spansChain reports whether other is a later message of step's chain with steps between them,
 // so that a wait forked after step is joined before other.
-func (s *scenario) spansChain(step *scenarioStep, other *xmi.Element) bool {
+func (s *scenario) spansChain(step *scenarioStep, other *sysmlv1.Element) bool {
 	a, b := s.chain[step.msg], s.chain[other]
 	return b.step != nil && b.chain == a.chain && b.pos > a.pos+1 && stepWaits(b.step)
 }
 
 // constraintsOn lists the duration constraints on a message or on either of
 // its occurrences, each once.
-func (s *scenario) constraintsOn(msg *xmi.Element) []*xmi.Element {
-	var out []*xmi.Element
-	seen := map[*xmi.Element]bool{}
+func (s *scenario) constraintsOn(msg *sysmlv1.Element) []*sysmlv1.Element {
+	var out []*sysmlv1.Element
+	seen := map[*sysmlv1.Element]bool{}
 	for _, e := range s.messageEnds(msg) {
 		for _, dc := range s.m.bounded[e] {
 			if !seen[dc] {
@@ -1124,8 +1124,8 @@ func (s *scenario) constraintsOn(msg *xmi.Element) []*xmi.Element {
 }
 
 // messageEnds lists a message and the occurrences that send and receive it.
-func (s *scenario) messageEnds(msg *xmi.Element) []*xmi.Element {
-	ends := []*xmi.Element{msg}
+func (s *scenario) messageEnds(msg *sysmlv1.Element) []*sysmlv1.Element {
+	ends := []*sysmlv1.Element{msg}
 	for _, role := range []string{"sendEvent", "receiveEvent"} {
 		if ev := s.m.model.Ref(msg, role); ev != nil {
 			ends = append(ends, ev)
@@ -1136,7 +1136,7 @@ func (s *scenario) messageEnds(msg *xmi.Element) []*xmi.Element {
 
 // messageOf is the message an element constrains: itself, or the one an
 // occurrence sends or receives.
-func (s *scenario) messageOf(e *xmi.Element) *xmi.Element {
+func (s *scenario) messageOf(e *sysmlv1.Element) *sysmlv1.Element {
 	if e.Type == "Message" {
 		return e
 	}
@@ -1145,7 +1145,7 @@ func (s *scenario) messageOf(e *xmi.Element) *xmi.Element {
 
 // otherEnd is the message a duration constraint on msg measures from or to, nil
 // when it constrains msg alone.
-func (s *scenario) otherEnd(dc, msg *xmi.Element) *xmi.Element {
+func (s *scenario) otherEnd(dc, msg *sysmlv1.Element) *sysmlv1.Element {
 	for _, c := range s.m.model.Refs(dc, "constrainedElement") {
 		if m := s.messageOf(c); m != nil && m != msg {
 			return m
@@ -1157,7 +1157,7 @@ func (s *scenario) otherEnd(dc, msg *xmi.Element) *xmi.Element {
 // waitFrom says what a duration constraint on a step's message measures, and whether the
 // step is the one to wait before: the message's own duration, or the time since the other
 // message it constrains once that has been stepped; "" when steps lie between the two.
-func (s *scenario) waitFrom(dc *xmi.Element, step *scenarioStep) (string, bool) {
+func (s *scenario) waitFrom(dc *sysmlv1.Element, step *scenarioStep) (string, bool) {
 	other := s.otherEnd(dc, step.msg)
 	if other == nil {
 		return "the message's duration; a v2 send arrives at once, so the step waits for it first", true
@@ -1174,7 +1174,7 @@ func (s *scenario) waitFrom(dc *xmi.Element, step *scenarioStep) (string, bool) 
 
 // waitExpr writes the wait a duration constraint's interval stands for: a fixed
 // delay for a point or half-open interval, a uniform draw over it otherwise.
-func (s *scenario) waitExpr(dc *xmi.Element) (expr, note string, ok bool) {
+func (s *scenario) waitExpr(dc *sysmlv1.Element) (expr, note string, ok bool) {
 	spec := firstOwned(dc, "specification")
 	if spec == nil || spec.Type != "DurationInterval" && spec.Type != "Interval" {
 		return "", "the duration constraint has no interval", false
@@ -1213,7 +1213,7 @@ func (s *scenario) waitExpr(dc *xmi.Element) (expr, note string, ok bool) {
 
 // observationsDone reports the duration observations a written constraint's
 // bounds refer to as realized by the wait.
-func (s *scenario) observationsDone(dc *xmi.Element, wait, step string) {
+func (s *scenario) observationsDone(dc *sysmlv1.Element, wait, step string) {
 	spec := firstOwned(dc, "specification")
 	for _, role := range []string{"min", "max"} {
 		v := s.m.model.Ref(spec, role)
@@ -1289,7 +1289,7 @@ func (s *scenario) occurrencesDone(step *scenarioStep, name string) {
 }
 
 // other reports a fragment that orders nothing the steps do not already order.
-func (s *scenario) other(f *xmi.Element) {
+func (s *scenario) other(f *sysmlv1.Element) {
 	switch f.Type {
 	case "BehaviorExecutionSpecification", "ActionExecutionSpecification", "ExecutionOccurrenceSpecification":
 		s.m.add(f, Skipped, "", "the execution spans the steps between its occurrences, which run in order without it")

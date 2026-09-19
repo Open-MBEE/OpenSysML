@@ -4,12 +4,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
 // enumerationBodyDiags returns the enumeration-body-member findings of src.
-func enumerationBodyDiags(t *testing.T, src string) []Diagnostic {
+func enumerationBodyDiags(t *testing.T, src string) []diag.Diagnostic {
 	t.Helper()
 	return only(analyzeSrc(t, src), "enumeration-body-member")
 }
@@ -45,7 +46,7 @@ func TestEnumerationBodyRejectsNonEnumeratedDeclarations(t *testing.T) {
 		if got := w8dLine(src, d.Span); got != wantLines[i] {
 			t.Errorf("diagnostic %d on line %d, want %d: %s", i, got, wantLines[i], d.Message)
 		}
-		if d.Severity != SeverityError || !d.Notation || d.Blocking() || d.Source != "syntax" {
+		if d.Severity != diag.SeverityError || !d.Notation || d.Blocking() || d.Source != "syntax" {
 			t.Errorf("diagnostic %d = %+v, want a non-blocking syntax notation error", i, d)
 		}
 	}

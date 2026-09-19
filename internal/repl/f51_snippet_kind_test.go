@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 )
 
@@ -84,7 +85,7 @@ func TestF51MixedSessionKeepsPerSnippetKinds(t *testing.T) {
 
 	res = s.Submit("package Q { attribute r = K::f; }\n")
 	for _, d := range res.Diagnostics {
-		if d.Severity == passes.SeverityError {
+		if d.Severity == diag.SeverityError {
 			t.Fatalf("the prompt must see the .kerml snippet's names: %v", d)
 		}
 	}
@@ -126,7 +127,7 @@ func TestF51MalformedKerMLSnippetIsRobust(t *testing.T) {
 	s.SubmitFiles([]SourceFile{{Name: "bad.kerml", Text: "namespace Broken { feature f =\n"}})
 	res := s.Submit("package After { attribute a = 1; }\n")
 	for _, d := range res.Diagnostics {
-		if d.Severity == passes.SeverityError && d.Span.Offset > len("namespace Broken { feature f =\n") {
+		if d.Severity == diag.SeverityError && d.Span.Offset > len("namespace Broken { feature f =\n") {
 			t.Fatalf("the session must stay usable after a malformed snippet: %v", d)
 		}
 	}

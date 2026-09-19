@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 )
 
 // A short name on a requirement's subject, assume or require member is carried by
@@ -68,7 +68,7 @@ func TestRequirementMemberShortNamesRoundTrip(t *testing.T) {
 			t.Errorf("structural round trip lost %q:\n%s", want, back)
 		}
 	}
-	again, err := export.Convert("m.sysml", []byte(back), export.FormatSysML, export.FormatTurtle)
+	again, err := convert.Convert("m.sysml", []byte(back), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("regenerated notation does not convert: %v\n%s", err, back)
 	}

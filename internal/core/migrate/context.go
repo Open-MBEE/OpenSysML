@@ -5,21 +5,21 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/core/xmi/sysmlv1"
 )
 
 // behaviorContext is the object an activity acts on when its owner is not it: the
 // classifier whose ports its actions go through, taken as a reference parameter.
 type behaviorContext struct {
 	name       string
-	classifier *xmi.Element
+	classifier *sysmlv1.Element
 }
 
 // contextOf settles, once, the context an activity needs: the one classifier whose
 // ports it or the behaviors it calls name. A classifier's own behavior acts on its
 // object unless nothing it needs is one: v1 runs a called behavior on the caller's
 // object, whoever owns it, so such a behavior takes the object it acts on instead.
-func (m *migration) contextOf(b *xmi.Element) *behaviorContext {
+func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 	if b == nil || b.Type != "Activity" {
 		return nil
 	}
@@ -61,7 +61,7 @@ func (m *migration) contextOf(b *xmi.Element) *behaviorContext {
 
 // providesAny reports whether an object of owner is, or holds one part that is,
 // one of the classifiers cs: then a behavior it owns acts on it.
-func (m *migration) providesAny(owner *xmi.Element, cs []*xmi.Element) bool {
+func (m *migration) providesAny(owner *sysmlv1.Element, cs []*sysmlv1.Element) bool {
 	for _, c := range cs {
 		if expr, _ := m.contextBinding(&behaviorContext{classifier: c}, owner, "this"); expr != "" {
 			return true
@@ -72,9 +72,9 @@ func (m *migration) providesAny(owner *xmi.Element, cs []*xmi.Element) bool {
 
 // usesFeaturesOf reports whether b reads itself or a structural feature of c, so
 // that it plainly acts on an object of c.
-func (m *migration) usesFeaturesOf(b, c *xmi.Element) bool {
+func (m *migration) usesFeaturesOf(b, c *sysmlv1.Element) bool {
 	uses := false
-	m.walkActions(b, func(e *xmi.Element) {
+	m.walkActions(b, func(e *sysmlv1.Element) {
 		switch e.Type {
 		case "ReadSelfAction":
 			uses = true
@@ -89,19 +89,19 @@ func (m *migration) usesFeaturesOf(b, c *xmi.Element) bool {
 
 // portOwners lists the classifiers whose ports the actions of b, or the
 // behaviors it calls, name.
-func (m *migration) portOwners(b *xmi.Element) []*xmi.Element {
-	var owners []*xmi.Element
-	add := func(c *xmi.Element) {
+func (m *migration) portOwners(b *sysmlv1.Element) []*sysmlv1.Element {
+	var owners []*sysmlv1.Element
+	add := func(c *sysmlv1.Element) {
 		if c != nil && !slices.Contains(owners, c) {
 			owners = append(owners, c)
 		}
 	}
-	port := func(p *xmi.Element) {
+	port := func(p *sysmlv1.Element) {
 		if p != nil && p.Parent != nil && m.written(p) && m.written(p.Parent) {
 			add(p.Parent)
 		}
 	}
-	m.walkActions(b, func(e *xmi.Element) {
+	m.walkActions(b, func(e *sysmlv1.Element) {
 		switch e.Type {
 		case "SendSignalAction", "SendObjectAction", "CallOperationAction":
 			port(m.model.Ref(e, "onPort"))
@@ -121,13 +121,13 @@ func (m *migration) portOwners(b *xmi.Element) []*xmi.Element {
 // invokerOwners lists the classifiers whose behaviors run b, when a signal an
 // accept of b names no port for arrives at a port of theirs: v1 hands the
 // object's accepts what its ports receive, which v2 takes only via the port.
-func (m *migration) invokerOwners(b *xmi.Element) []*xmi.Element {
+func (m *migration) invokerOwners(b *sysmlv1.Element) []*sysmlv1.Element {
 	sigs := m.unportedSignals(b)
 	if len(sigs) == 0 {
 		return nil
 	}
-	var owners []*xmi.Element
-	for _, c := range m.runningClassifiers(b, map[*xmi.Element]bool{b: true}) {
+	var owners []*sysmlv1.Element
+	for _, c := range m.runningClassifiers(b, map[*sysmlv1.Element]bool{b: true}) {
 		if slices.Contains(owners, c) || !m.written(c) {
 			continue
 		}
@@ -142,9 +142,9 @@ func (m *migration) invokerOwners(b *xmi.Element) []*xmi.Element {
 }
 
 // unportedSignals lists the signals the accept actions of b name no port for.
-func (m *migration) unportedSignals(b *xmi.Element) []*xmi.Element {
-	var sigs []*xmi.Element
-	m.walkActions(b, func(e *xmi.Element) {
+func (m *migration) unportedSignals(b *sysmlv1.Element) []*sysmlv1.Element {
+	var sigs []*sysmlv1.Element
+	m.walkActions(b, func(e *sysmlv1.Element) {
 		if e.Type != "Trigger" || e.Parent == nil || e.Parent.Type != "AcceptEventAction" || len(m.model.Refs(e, "port")) > 0 {
 			return
 		}
@@ -161,9 +161,9 @@ func (m *migration) unportedSignals(b *xmi.Element) []*xmi.Element {
 
 // runningClassifiers lists the classifiers whose behaviors run b: the owners of
 // what invokes it, followed up through activities no classifier owns.
-func (m *migration) runningClassifiers(b *xmi.Element, seen map[*xmi.Element]bool) []*xmi.Element {
-	var out []*xmi.Element
-	add := func(c *xmi.Element) {
+func (m *migration) runningClassifiers(b *sysmlv1.Element, seen map[*sysmlv1.Element]bool) []*sysmlv1.Element {
+	var out []*sysmlv1.Element
+	add := func(c *sysmlv1.Element) {
 		if c != nil && !slices.Contains(out, c) {
 			out = append(out, c)
 		}
@@ -198,7 +198,7 @@ func (m *migration) runningClassifiers(b *xmi.Element, seen map[*xmi.Element]boo
 }
 
 // invoke indexes e as an invoker of each behavior a role names without owning it.
-func (m *migration) invoke(e *xmi.Element, roles ...string) {
+func (m *migration) invoke(e *sysmlv1.Element, roles ...string) {
 	for _, role := range roles {
 		for _, b := range m.model.Refs(e, role) {
 			if b.Parent != e && isBehavior(b) {
@@ -210,9 +210,9 @@ func (m *migration) invoke(e *xmi.Element, roles ...string) {
 
 // walkActions visits every element of an activity's node graph, structured
 // nodes included; a behavior nested in it is left to its own walk.
-func (m *migration) walkActions(b *xmi.Element, visit func(*xmi.Element)) {
-	var walk func(*xmi.Element)
-	walk = func(e *xmi.Element) {
+func (m *migration) walkActions(b *sysmlv1.Element, visit func(*sysmlv1.Element)) {
+	var walk func(*sysmlv1.Element)
+	walk = func(e *sysmlv1.Element) {
 		for _, c := range e.Children {
 			if isBehavior(c) {
 				continue
@@ -226,7 +226,7 @@ func (m *migration) walkActions(b *xmi.Element, visit func(*xmi.Element)) {
 
 // mostSpecific is the classifier of the list every other one generalizes, nil
 // when the list is empty or none is.
-func (m *migration) mostSpecific(cs []*xmi.Element) *xmi.Element {
+func (m *migration) mostSpecific(cs []*sysmlv1.Element) *sysmlv1.Element {
 	for _, c := range cs {
 		special := true
 		for _, o := range cs {
@@ -244,7 +244,7 @@ func (m *migration) mostSpecific(cs []*xmi.Element) *xmi.Element {
 
 // contextParameter declares the reference parameter an activity takes for the
 // object whose ports its actions go through, or reports why none is written.
-func (m *migration) contextParameter(b *xmi.Element) {
+func (m *migration) contextParameter(b *sysmlv1.Element) {
 	c := m.contextOf(b)
 	if c == nil {
 		if note := m.contextNotes[b]; note != "" {
@@ -263,7 +263,7 @@ func (m *migration) contextParameter(b *xmi.Element) {
 
 // enclosingActivity is the activity whose object the nodes written for e act
 // on: e itself or the one its structured node belongs to; nil for an operation's body.
-func enclosingActivity(e *xmi.Element) *xmi.Element {
+func enclosingActivity(e *sysmlv1.Element) *sysmlv1.Element {
 	for cur := e; cur != nil && cur.Type != "Operation"; cur = cur.Parent {
 		if cur.Type == "Activity" {
 			return cur
@@ -281,7 +281,7 @@ func (a *activity) self() string {
 }
 
 // selfType is the classifier of the object the activity acts on, nil when none is known.
-func (a *activity) selfType() *xmi.Element {
+func (a *activity) selfType() *sysmlv1.Element {
 	if a.ctx != nil {
 		return a.ctx.classifier
 	}
@@ -289,7 +289,7 @@ func (a *activity) selfType() *xmi.Element {
 }
 
 // hasPort reports whether port is a port of the object the activity acts on.
-func (a *activity) hasPort(port *xmi.Element) bool {
+func (a *activity) hasPort(port *sysmlv1.Element) bool {
 	t := a.selfType()
 	return t != nil && a.m.written(port) && a.m.hasFeature(t, port)
 }
@@ -321,7 +321,7 @@ func (a *activity) contextArgument(c *behaviorContext) (expr, note string) {
 // contextBinding writes the object bound to a run behavior's context parameter,
 // where the runner's object is a self of type selfType: that object when it is
 // one, else its one part that is.
-func (m *migration) contextBinding(c *behaviorContext, selfType *xmi.Element, self string) (expr, note string) {
+func (m *migration) contextBinding(c *behaviorContext, selfType *sysmlv1.Element, self string) (expr, note string) {
 	kind := qualifiedName(c.classifier)
 	switch {
 	case selfType == nil:
@@ -329,7 +329,7 @@ func (m *migration) contextBinding(c *behaviorContext, selfType *xmi.Element, se
 	case selfType == c.classifier || m.inherits(selfType, c.classifier):
 		return self, "the behavior acts on a " + kind + " through its parameter " + c.name + ", which is bound to " + self
 	}
-	var parts []*xmi.Element
+	var parts []*sysmlv1.Element
 	for _, f := range m.attributesOf(selfType) {
 		if f.Type != "Property" || !m.written(f) {
 			continue

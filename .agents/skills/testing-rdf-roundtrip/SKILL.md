@@ -169,7 +169,7 @@ graph through the same serializer and require identical reconstructed notation; 
 mutation refusal is vacuous. Check the graph delta is exactly the intended triple.
 
 A corpus file that `-convert ttl` refuses is not automatically an "unrelated" refusal: check
-its verdict in `internal/core/export/testdata/corpus_roundtrip_expected.txt` first. A file
+its verdict in `tests/corpus/testdata/corpus_roundtrip_expected.txt` first. A file
 pinned `stable` there that now refuses is a regression to fix, not a failure to preserve.
 Only when the baseline itself records the refusal may you isolate your feature in a modified
 copy — and label that as modified-copy evidence, never as a pass for the original file.
@@ -284,16 +284,16 @@ directory alone matches nothing and `sysml` then complains about a missing exten
 
 ## The corpus round-trip ratchet (run it before and after any writer/encoder change)
 
-`TestCorpusRoundTrip` (`internal/core/export/corpus_roundtrip_test.go`) runs the three-hop trip
+`TestCorpusRoundTrip` (`tests/corpus/roundtrip_test.go`) runs the three-hop trip
 over **every** `.sysml`/`.kerml` under `examples/` — the 32 committed models, the 100-file
 training corpus and the three pilot corpora (213 files) — and pins one verdict per file in
-`internal/core/export/testdata/corpus_roundtrip_expected.txt`. It runs in about two seconds.
+`tests/corpus/testdata/corpus_roundtrip_expected.txt`. It runs in about two seconds.
 Record: `docs/project/rdf-corpus-roundtrip.md`.
 
 ```bash
 ./scripts/download-training-examples.sh && ./scripts/download-pilot-corpora.sh   # once
 OPENSYSML_REQUIRE_TRAINING_CORPUS=1 OPENSYSML_REQUIRE_PILOT_CORPORA=1 \
-  go test -count=1 -v ./internal/core/export -run TestCorpusRoundTrip
+  go test -count=1 -v ./tests/corpus -run TestCorpusRoundTrip
 ```
 
 Without the require variables an absent corpus **skips** the gate with a `GATE NOT RUN` banner on
@@ -318,8 +318,8 @@ regression does, so every movement is adjudicated. When your change moves files:
    record.
 3. Regenerate and commit the expectation file in the same PR:
    ```bash
-   go test ./internal/core/export -run TestCorpusRoundTrip -update-corpus-roundtrip
-   git diff --stat internal/core/export/testdata/corpus_roundtrip_expected.txt
+   go test ./tests/corpus -run TestCorpusRoundTrip -update-corpus-roundtrip
+   git diff --stat tests/corpus/testdata/corpus_roundtrip_expected.txt
    ```
    Run the update twice and confirm the second run leaves the file unchanged; the run is
    deterministic (a worker pool, results indexed by sorted path) and a diff between two runs is a

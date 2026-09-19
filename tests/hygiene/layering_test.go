@@ -46,23 +46,19 @@ var permitted = map[string][]string{
 var packageLayer = map[string]string{
 	"internal/core/source":       "foundation",
 	"internal/core/ast":          "foundation",
+	"internal/core/diag":         "foundation",
 	"internal/core/ast/astcodec": "foundation",
 	"internal/core/pack":         "foundation",
-	"internal/core/quickfix":     "foundation",
-	"internal/fsutil":            "foundation",
 
 	"internal/core/lexer":  "syntax",
 	"internal/core/parser": "syntax",
 	"internal/core/format": "syntax",
 
-	"internal/core/symbols":            "semantics",
-	"internal/core/suggest":            "semantics",
-	"internal/core/resolve":            "semantics",
-	"internal/core/semantics":          "semantics",
-	"internal/core/conformance":        "semantics",
-	"internal/core/provenance":         "semantics",
-	"internal/core/identity":           "semantics",
-	"internal/core/identity/normative": "semantics",
+	"internal/core/symbols":   "semantics",
+	"internal/core/suggest":   "semantics",
+	"internal/core/resolve":   "semantics",
+	"internal/core/semantics": "semantics",
+	"internal/core/identity":  "semantics",
 
 	"internal/core/lower":     "semantic IR",
 	"internal/core/queryplan": "semantic IR",
@@ -70,7 +66,6 @@ var packageLayer = map[string]string{
 	"internal/core/view":      "semantic IR",
 
 	"internal/core/passes": "validation",
-	"internal/core/rename": "validation",
 	"internal/core/edit":   "validation",
 
 	"internal/core/runtime":             "execution",
@@ -78,14 +73,17 @@ var packageLayer = map[string]string{
 	"internal/core/smt":                 "execution",
 	"internal/core/analysis":            "execution",
 	"internal/core/analysis/enginewire": "execution",
+	"internal/core/analysis/modelform":  "execution",
 	"internal/core/engines":             "execution",
 	"internal/core/objref":              "execution",
 
 	"internal/core/rdf":          "translation",
 	"internal/core/rdf/ontology": "translation",
+	"internal/core/convert":      "translation",
 	"internal/core/export":       "translation",
 	"internal/core/migrate":      "translation",
 	"internal/core/xmi":          "translation",
+	"internal/core/xmi/sysmlv1":  "translation",
 	"internal/core/codegen":      "translation",
 	"internal/interop/flexo":     "translation",
 	"internal/interop/reposync":  "translation",
@@ -106,6 +104,7 @@ var packageLayer = map[string]string{
 	"api/proto":              "frontends",
 	"api/proto/protoconnect": "frontends",
 	"client/opensysml":       "frontends",
+	"internal/protoconv":     "frontends",
 	"internal/repl":          "frontends",
 	"internal/lsp":           "frontends",
 	"internal/grpc":          "frontends",
@@ -114,27 +113,29 @@ var packageLayer = map[string]string{
 	"cmd/sysml":              "frontends",
 	"cmd/sysml-grpc":         "frontends",
 	"cmd/sysml-lsp":          "frontends",
-
-	"internal/fixtures":    "tooling",
-	"internal/stressmodel": "tooling",
 }
 
 // tolerated is the imports the layer table does not permit and that still
 // exist, importer → imported; an entry whose edge is gone fails, so it only shrinks.
 var tolerated = map[string][]string{
-	"internal/core/analysis":            {"internal/core/export"},
-	"internal/core/analysis/enginewire": {"internal/core/export"},
-	"internal/core/codegen":             {"internal/core/passes"},
-	"internal/core/export":              {"internal/core/libs"},
-	"internal/core/identity":            {"internal/core/rdf"},
-	"internal/core/migrate":             {"internal/core/libs"},
-	"internal/core/passes":              {"internal/core/rdf"},
-	"internal/core/runtime":             {"internal/core/envvar", "internal/core/parser", "internal/core/passes"},
+	"internal/core/analysis/modelform": {"internal/core/libs"},
+	"internal/core/codegen":            {"internal/core/passes"},
+	"internal/core/export":             {"internal/core/libs"},
+	"internal/core/identity":           {"internal/core/rdf"},
+	"internal/core/migrate":            {"internal/core/libs"},
+	"internal/core/passes":             {"internal/core/rdf"},
+	"internal/core/runtime":            {"internal/core/envvar"},
 }
 
-// removed is the imports the layer table would permit that the layering took
-// out, importer → imported; reintroducing one fails.
-var removed = map[string][]string{}
+// removed is the imports the layering took out, importer → imported; reintroducing
+// one fails even where the layer table would permit it.
+var removed = map[string][]string{
+	"internal/core/analysis":            {"internal/core/export"},
+	"internal/core/analysis/enginewire": {"internal/core/export"},
+	"internal/core/export":              {"internal/core/migrate", "internal/core/runtime", "internal/core/lower"},
+	"internal/core/runtime":             {"internal/core/parser", "internal/core/passes"},
+	"internal/repl":                     {"internal/grpc"},
+}
 
 // TestPackageLayering checks the import graph against the layer tables: every
 // package has a layer, and the imports outside permitted are exactly the tolerated ones.
@@ -190,6 +191,10 @@ func TestPackageLayering(t *testing.T) {
 				continue
 			}
 			to := strings.TrimPrefix(imp, modulePath)
+			if strings.HasPrefix(to, "tests/") {
+				t.Errorf("%s imports %s; test support under tests/ is not reached from internal/ or cmd/", from, to)
+				continue
+			}
 			toLayer, ok := packageLayer[to]
 			if !ok {
 				t.Errorf("%s imports %s, which is not assigned to a layer", from, to)
