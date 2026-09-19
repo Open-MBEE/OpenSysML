@@ -1,1 +1,1 @@
-- **Atomic file replacement lives with the other file-level primitives.** The one-function `internal/fsutil` package is folded into `internal/core/source`: `fsutil.Replace` is now `source.ReplaceFile`, with the same rename-over-target semantics.
+- **Atomic file replacement lives with the other file-level primitives.** The one-function `internal/fsutil` package is folded into `internal/syntax/source`: `fsutil.Replace` is now `source.ReplaceFile`, with the same rename-over-target semantics.

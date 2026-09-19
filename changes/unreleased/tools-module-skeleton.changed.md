@@ -8,5 +8,5 @@
   directory.
 - **The errata overlay is split from the registry.** The entry type, the overlay applied to the
   bundled standard library on read and the library's own entries are the product's
-  `internal/core/libs/errata`; `internal/errata` keeps the registry the oracles read — the corpus
+  `internal/workspace/libs/errata`; `internal/errata` keeps the registry the oracles read — the corpus
   entries, the published roots and the corrected copy of a corpus root — and builds on it.

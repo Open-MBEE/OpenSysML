@@ -1,6 +1,6 @@
 # OOSEM library — design
 
-Status: **implemented.** `internal/core/libs/stdlib/OpenSysML Libraries/OOSEM.sysml` is bundled
+Status: **implemented.** `internal/workspace/libs/stdlib/OpenSysML Libraries/OOSEM.sysml` is bundled
 with the other OpenSysML extensions, enters the same conformance, strict-notation and snapshot
 gates, and is exercised by `examples/oosem-demo/oosem-demo.sysml`
 (`TestExamplesAnalyseCleanly`). Both the library and the example also validate cleanly under the

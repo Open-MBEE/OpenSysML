@@ -205,7 +205,7 @@ supervisor that already spawns the binary as a child process could reach the ser
 port, which is the question [the evaluation](../internals/design/transport-evaluation.md) asked;
 its answer was to serve clients over a port. Choosing stdio also gives up everything else on this
 page: no reflection, no `/health`, no CORS, no TLS, one client per process. Write a client against
-the default port instead. The prototype is kept behind the flag and tested (`internal/stdiorpc`
+the default port instead. The prototype is kept behind the flag and tested (`internal/frontend/stdiorpc`
 covers the protocol and `cmd/sysml-grpc` covers the binary answering a framed call) so that it
 cannot rot unnoticed while it is still in the tree.
 

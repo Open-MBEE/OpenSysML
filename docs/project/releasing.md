@@ -44,7 +44,7 @@ go build ./...
 go vet ./...
 make lint             # staticcheck + gosec, as CircleCI runs
 go test -race -count=1 ./...
-go test -run TestStdlibConformance ./internal/core/libs
+go test -run TestStdlibConformance ./internal/workspace/libs
 ```
 
 Run the Python client the way CircleCI's `python-test` job does, since a release
@@ -555,7 +555,7 @@ persisted to the workspace — `coverage.txt` from `go-coverage`,
 clone because SonarCloud needs full history for blame and new-code detection.
 
 The Go profile is written with `-coverpkg=./...` so a package is credited for
-the code it exercises elsewhere; without it `internal/core/ast/dump.go`
+the code it exercises elsewhere; without it `internal/syntax/ast/dump.go`
 measures 21% though the parser's golden tests run 90% of it.
 
 `java-test` also persists each module's `target/classes`, `target/test-classes`
@@ -584,7 +584,7 @@ the current tree and keep the faster default.
 The job runs on a `large` container with `SONAR_SCANNER_OPTS: -Xmx4g`, which is
 not tuning for its own sake: Sonar's Go sensor parses one directory at a time
 and holds that directory's parser output in memory, so a large package
-(`internal/core/runtime`) exhausted the scanner's default heap with
+(`internal/exec/runtime`) exhausted the scanner's default heap with
 `java.lang.OutOfMemoryError`. If a new package makes it fail there again, raise
 that heap rather than splitting the package. Note also that the launcher in the
 pinned scanner CLI passes `$SONAR_SCANNER_OPTS` and not

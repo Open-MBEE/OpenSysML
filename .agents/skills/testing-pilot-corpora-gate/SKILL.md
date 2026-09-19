@@ -5,7 +5,7 @@ description: How to verify the four OMG corpus gates (tests/corpus/corpus_gate_t
 
 # Testing the OMG corpus gates (training assertion + pilot-corpora ratchet)
 
-Shell-only; no GUI or recording needed. One full `./internal/core/model` run is ~60s; the two
+Shell-only; no GUI or recording needed. One full `./internal/workspace/model` run is ~60s; the two
 corpus tests alone are ~4s, so iterate with `-run` and only do the full run at the start/end.
 
 Four pinned OMG model roots, **one mechanism, two policies** (`tests/corpus/corpus_gate_test.go`):
@@ -23,7 +23,7 @@ Four pinned OMG model roots, **one mechanism, two policies** (`tests/corpus/corp
 ./scripts/download-training-examples.sh   # examples/sysml-v2-training  (untracked/gitignored)
 ./scripts/download-pilot-corpora.sh       # examples/pilot-corpora      (untracked/gitignored)
 OPENSYSML_REQUIRE_TRAINING_CORPUS=1 OPENSYSML_REQUIRE_PILOT_CORPORA=1 \
-  go test -count=1 -v ./internal/core/model
+  go test -count=1 -v ./internal/workspace/model
 ```
 
 The corpora are gitignored, so **copy them aside first** (`cp -a examples/pilot-corpora
@@ -48,7 +48,7 @@ output with `grep -E "a|b"` breaks when a pattern starts with `-`; use `grep -E 
 ```bash
 go test -count=1 ./tests/corpus -run TestPilotCorporaDiagnostics    -update-pilot-corpora
 go test -count=1 ./tests/corpus -run TestTrainingExamplesSemanticErrors -update-training
-git diff --exit-code -- internal/core/model/testdata/
+git diff --exit-code -- internal/workspace/model/testdata/
 ```
 
 Regeneration must be byte-identical across runs, from a different cwd
@@ -174,7 +174,7 @@ checkout so the gate does not skip):
    and keep a genuine violation of the same check nearby as the negative control, so "fixed" is
    distinguished from "check dropped".
 
-Print spans for one corpus file by dropping a scratch `*_test.go` into `internal/core/model`: the
+Print spans for one corpus file by dropping a scratch `*_test.go` into `internal/workspace/model`: the
 gate's own helpers are package-private but reusable (`pilotCorporaGate.files(t)` /
 `.counts(t, files)`), diagnostics carry byte offsets only, so map them with
 `source.New(name, content).Lines().PosAt(d.Span.Offset)`.

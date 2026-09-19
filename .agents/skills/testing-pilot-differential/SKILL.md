@@ -402,19 +402,19 @@ run reporting only `adv.sysml` is the proof the delta belongs to the change.
 ## Testing language-scoped (`.sysml` vs `.kerml`) diagnostic behaviour
 
 Some checks are gated on the document's language via `source.KindOf(name)` (e.g. the KerML
-type tier in `internal/core/passes/typecheck.go`). **Which surface you observe from decides
+type tier in `internal/check/passes/typecheck.go`). **Which surface you observe from decides
 whether you see it at all**, because only some surfaces analyse under the real file name:
 
 | Surface | Document name passed to `passes.Analyze` | Language honoured? |
 |---|---|---|
 | `tools/referee/diff` (`opensysml.go`, `ws.Open(rel, ...)`) | corpus-relative path with extension | **yes** |
-| `sysml-lsp` / `sysml-grpc` (`internal/core/model/workspace.go`) | the opened file's URI/path | **yes** |
-| `cmd/sysml -validate <file>` (`internal/repl/session.go`) | the real path — `session.go` branches on `source.KindOf(origin)` | **yes** (verified at `5ac8b6fb`) |
+| `sysml-lsp` / `sysml-grpc` (`internal/workspace/model/workspace.go`) | the opened file's URI/path | **yes** |
+| `cmd/sysml -validate <file>` (`internal/frontend/repl/session.go`) | the real path — `session.go` branches on `source.KindOf(origin)` | **yes** (verified at `5ac8b6fb`) |
 | `cmd/sysml` interactive REPL typing / stdin (`-`) | the constant `"<repl>"` | **no** — `KindUnknown`, so SysML rules |
 
 The REPL caveat applies to text *typed into* the session (or piped on stdin), which lands in one
 accumulated buffer named `<repl>` that `typecheck.go` deliberately reads as SysML. A file named on
-the command line under `-validate` is **not** in that bucket: `internal/repl/session.go` (the
+the command line under `-validate` is **not** in that bucket: `internal/frontend/repl/session.go` (the
 `source.KindOf(origin) == source.KindKerML` branch, line ~37 at `5ac8b6fb`) honours the extension,
 so `bin/sysml -validate 'examples/pilot-corpora/kerml-examples/Simple Tests/Conjugation.kerml'`
 **is** a valid, and by far the cheapest, KerML surface — it printed `no errors` / exit 0 there
@@ -422,9 +422,9 @@ while the same file under a reverted fix printed the KerML-only diagnostics. Re-
 rather than trusting either claim blindly, but do not skip the CLI on the assumption it is
 language-blind.
 
-### Fixture-backed `internal/core/passes` tests can be silently vacuous
+### Fixture-backed `internal/check/passes` tests can be silently vacuous
 
-The shared helper `diagsIn` (`internal/core/passes/typecheck_kerml_language_test.go`) builds a bare
+The shared helper `diagsIn` (`internal/check/passes/typecheck_kerml_language_test.go`) builds a bare
 `symbols.NewIndex()` and loads **no standard library**. Because the passes are tiered, any fixture
 that names a library type (`Base::Anything`, `Objects::Object`, …) collects `name-resolution`
 errors, which **skip the type tier entirely** — so a test that asserts "zero `type` diagnostics"
@@ -464,7 +464,7 @@ Two cheap surfaces that *do* prove the split:
 
 ## The library index cache can hold *poisoned* records from an abandoned iteration
 
-`internal/core/libs/record.go` invalidates on-disk records by a single integer, `formatVersion`,
+`internal/workspace/libs/record.go` invalidates on-disk records by a single integer, `formatVersion`,
 and the record filename ends in `-v<N>.idx` under `$XDG_CACHE_HOME/sysml-ls/libs/`. The records
 persist a symbol's **kind**, and for a cached library symbol (`sym.Decl == nil`) the runtime reads
 that kind directly (`runtime/invoke_calc.go: isCalcSymbol`, `isActionSymbol`, …). Consequences when
@@ -480,9 +480,9 @@ testing a PR that changes how a library element is classified *and* bumps `forma
   `XDG_CACHE_HOME=$(mktemp -d)`, and treat a difference as a cache-record problem, not a code bug.
   A green `go test ./...` will not catch it: tests use `t.TempDir()` caches.
 - To find out *which* kind a record persisted, drop a throwaway `*_test.go` into
-  `internal/core/libs` that `gob`-decodes each `*.idx` into `IndexRecord` and prints
+  `internal/workspace/libs` that `gob`-decodes each `*.idx` into `IndexRecord` and prints
   `symRecord.FQN` + `.Kind` (`symRecord` is unexported, so it must live in that package). Run it
-  with `go test -v -run ... ./internal/core/libs` — plain `go test` swallows stdout. Delete the file
+  with `go test -v -run ... ./internal/workspace/libs` — plain `go test` swallows stdout. Delete the file
   afterwards and confirm `git status` is clean.
 - Selective bisect: copy the cache aside and delete only `*-v<old>.idx` or only `*-v<new>.idx` to
   see which generation is responsible.
@@ -678,7 +678,7 @@ Timings at `286f420f` (8 vCPU): two-way `1m14s`, three-way `2m44s`, SysIDE alone
 SysIDE prints `Collected standard library: [...]` on **stdout**; the harness discards stdout, so
 only stderr matters.
 
-## Refereeing the name-distinguishability rule (`internal/core/resolve/distinguishability.go`)
+## Refereeing the name-distinguishability rule (`internal/semantic/resolve/distinguishability.go`)
 
 `build/pilot-validator/validate-sysml <one file>` is a faithful oracle for this rule — the four
 messages reproduce on a single file with no `--root` — so hand fixtures are the right surface, and
@@ -717,7 +717,7 @@ from HEAD alone, and the second is the risk when a rule is rewritten to match a 
 When a parser fix adds `TestNegative` rows for forms that must stay rejected, a passing row proves
 nothing on its own — the input may be rejected by an unrelated earlier error. Flip the guard the
 fix introduced (e.g. `if allowBody && p.accept2(lexer.LBrace)` → `if p.accept2(lexer.LBrace)`),
-rerun `go test ./tests/parser ./internal/core/parser -run TestNegative`, and check *which* rows fail. Rows that
+rerun `go test ./tests/parser ./internal/syntax/parser -run TestNegative`, and check *which* rows fail. Rows that
 still pass under the mutation are guarding a different code path (a package-level `then` is caught
 by `expected a namespace member` before it ever reaches `parseSuccessionEdge`), which is worth
 saying out loud rather than claiming all rows guard the new guard. Restore from a `cp` backup and
