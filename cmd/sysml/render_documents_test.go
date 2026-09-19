@@ -98,8 +98,8 @@ func TestRenderDocumentsFlag(t *testing.T) {
 // document of a set, in Markdown and in HTML.
 func TestRenderDocumentsDiagramForm(t *testing.T) {
 	binary := buildCLI(t)
-	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
-	golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.dot.golden.md"))
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
+	golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.dot.golden.md"))
 	if err != nil {
 		t.Fatal(err)
 	}

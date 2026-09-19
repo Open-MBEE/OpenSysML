@@ -31,7 +31,7 @@ var runtimeModelFrontends = []string{
 // passes is pinned typed by a test over its product path, since the walk cannot
 // see through the field or parameter it arrives in.
 var runtimeModelForwarders = map[string][]string{
-	"NewDeclaredReader": {"internal/core/queryexec/derived.go"},
+	"NewDeclaredReader": {"internal/doc/queryexec/derived.go"},
 }
 
 // TestRuntimeModelsCarryArgumentTyping pins that every production site that
