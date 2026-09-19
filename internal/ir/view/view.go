@@ -7,7 +7,7 @@
 // notation the specification defines. What is read from the model is not:
 // the exposed set comes from semantics.Model.ExposedElements, connections from
 // the model's own connector information, and states and actions from the
-// lowered graphs in internal/core/lower, never from the source text of a
+// lowered graphs in internal/ir/lower, never from the source text of a
 // declaration.
 package view
 

@@ -14,7 +14,7 @@ import (
 
 // stdlibModel resolves a model against the standard-library sources, so that a
 // table of library names can be checked against what the library declares. The
-// files are parsed here because internal/core/libs depends on this package.
+// files are parsed here because internal/workspace/libs depends on this package.
 func stdlibModel(t *testing.T) *Model {
 	t.Helper()
 	return NewModel(resolve.New(stdlibIndex(t)))
@@ -25,7 +25,7 @@ func stdlibModel(t *testing.T) *Model {
 func stdlibIndex(t *testing.T) *symbols.Index {
 	t.Helper()
 	idx := symbols.NewIndex()
-	root := filepath.Join("..", "..", "core", "libs", "stdlib")
+	root := filepath.Join("..", "..", "workspace", "libs", "stdlib")
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err

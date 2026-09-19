@@ -7,7 +7,7 @@ import (
 
 	"go.lsp.dev/uri"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 // LibraryScheme is the URI scheme the server gives the bundled standard library:

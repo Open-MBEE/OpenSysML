@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/envvar"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/envvar"
 )
 
 // Default bounds on one run. Each one stops a different kind of runaway, so each

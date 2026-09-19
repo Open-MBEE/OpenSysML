@@ -6,9 +6,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/envvar"
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/envvar"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // IndexPrewarmEnvVar names the variable saying whether the service builds the

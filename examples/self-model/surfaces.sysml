@@ -268,7 +268,7 @@ package OpenSysMLSurfaces {
     part def DocumentPlanner :> CodeUnit {
         attribute :>> goPackage = "internal/ir/docplan";
         attribute libraryFile : String =
-            "internal/core/libs/stdlib/OpenSysML Libraries/DocumentQueries.sysml";
+            "internal/workspace/libs/stdlib/OpenSysML Libraries/DocumentQueries.sysml";
         attribute immutablePlans : Boolean = true;
         attribute contentKinds : String = "section, paragraph, table, list, diagram";
         in item rows : QueryRows;
@@ -442,9 +442,9 @@ package OpenSysMLSurfaces {
 
     // The bundled standard library must parse clean; the gate is in the suite.
     #Oracle part def StdlibConformanceGate :> ConformanceOracle {
-        attribute :>> goPackage = "internal/core/libs";
+        attribute :>> goPackage = "internal/workspace/libs";
         attribute :>> reference = "OMG standard library release";
-        attribute :>> baseline = "internal/core/libs/stdlib";
+        attribute :>> baseline = "internal/workspace/libs/stdlib";
         attribute :>> gating = true;
     }
 
@@ -452,7 +452,7 @@ package OpenSysMLSurfaces {
     #Oracle part def StdlibSnapshotGate :> ConformanceOracle {
         attribute :>> goPackage = "tools/gen/snapshot";
         attribute :>> reference = "the bundled library files";
-        attribute :>> baseline = "internal/core/libs/stdlib.snapshot";
+        attribute :>> baseline = "internal/workspace/libs/stdlib.snapshot";
         attribute :>> gating = true;
     }
 
@@ -466,7 +466,7 @@ package OpenSysMLSurfaces {
     }
 
     part def Errata :> CodeUnit {
-        attribute :>> goPackage = "tools/oracle/errata, internal/core/libs/errata";
+        attribute :>> goPackage = "tools/oracle/errata, internal/workspace/libs/errata";
         attribute overlaysPublishedMaterial : Boolean = true;
     }
 

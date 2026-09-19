@@ -15,9 +15,9 @@ package OpenSysMLIdentity {
     // The two metadata definitions identity is carried by, shipped as a
     // non-normative library extension rather than surface syntax.
     #Identity part def IdentityLibrary :> CodeUnit {
-        attribute :>> goPackage = "internal/core/libs";
+        attribute :>> goPackage = "internal/workspace/libs";
         attribute libraryFile : String =
-            "internal/core/libs/stdlib/OpenSysML Libraries/IdentityMetadata.sysml";
+            "internal/workspace/libs/stdlib/OpenSysML Libraries/IdentityMetadata.sysml";
         attribute elementIdDefinition : String = "IdentityMetadata::ElementId";
         attribute projectRefDefinition : String = "IdentityMetadata::ProjectRef";
         attribute standardNotation : Boolean = true;

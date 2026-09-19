@@ -19,7 +19,7 @@ import (
 // stdlibSnapshot is the bundled library, parsed, indexed, expanded and frozen
 // at generation time, so that a process starts by decoding it instead of
 // repeating that work. It is derived from the files under stdlib/ by
-// `go generate ./internal/core/libs` and never edited by hand.
+// `go generate ./internal/workspace/libs` and never edited by hand.
 //
 //go:embed stdlib.snapshot
 var stdlibSnapshot []byte

@@ -13,7 +13,7 @@ import (
 const RandomFunctionsFQN = "RandomFunctions"
 
 // registerRandomFunctions registers the OpenSysML RandomFunctions library
-// (internal/core/libs/stdlib/OpenSysML Libraries/RandomFunctions.kerml): each call
+// (internal/workspace/libs/stdlib/OpenSysML Libraries/RandomFunctions.kerml): each call
 // is a draw from the run's modeled stream, recorded for the trace and the witness.
 func registerRandomFunctions() {
 	registerContextFunction(RandomFunctionsFQN+"::uniform", []string{"lo", "hi"}, drawUniform)

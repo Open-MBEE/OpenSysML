@@ -23,7 +23,7 @@ const (
 var runtimeModelFrontends = []string{
 	"internal/repl/session.go",
 	"internal/grpc/cache.go",
-	"internal/core/model/runtime.go",
+	"internal/workspace/model/runtime.go",
 }
 
 // Runtime constructors that call NewModel on a semantic model handed to them,

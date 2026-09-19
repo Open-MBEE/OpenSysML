@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // filterWorkspace is a two-document workspace exercising both element-filter

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // libraryGraphWithoutSourceText converts a bundled library file to Turtle and

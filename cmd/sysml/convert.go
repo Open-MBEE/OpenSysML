@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/project"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
 // deprecatedFlag rejects a flag that has been replaced, so the old spelling

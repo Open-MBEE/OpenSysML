@@ -14,7 +14,7 @@ PILOT_ARTIFACT_VERSION="${PILOT_ARTIFACT_VERSION:-0.62.0}"
 
 # The pilot publishes each release's standard library, in notation and as XMI,
 # in a second repository under the same tag. The bundled library under
-# internal/core/libs/stdlib is its sysml.library tree; sysml.library.xmi carries
+# internal/workspace/libs/stdlib is its sysml.library tree; sysml.library.xmi carries
 # the normative element ids the identity gate compares against. Pinned by commit
 # like the pilot itself; the two move together at a release.
 PILOT_RELEASE_REPO="${PILOT_RELEASE_REPO:-https://github.com/Systems-Modeling/SysML-v2-Release.git}"

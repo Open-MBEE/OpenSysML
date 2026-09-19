@@ -301,7 +301,7 @@ package OpenSysMLPipeline {
 
     // Owns the document set, the global index and the diagnostic cache.
     #SemanticEngine part def Workspace :> Stage {
-        attribute :>> goPackage = "internal/core/model";
+        attribute :>> goPackage = "internal/workspace/model";
         attribute oneSessionPerWorkspace : Boolean = true;
         port documents : ArtifactPort;
         port requests : RequestPort;
@@ -329,10 +329,10 @@ package OpenSysMLPipeline {
     // Bundled standard library. Its frozen index is decoded from an embedded
     // snapshot when that matches the files, and parsed from the files otherwise.
     #SemanticEngine part def StandardLibrary :> Stage {
-        attribute :>> goPackage = "internal/core/libs";
+        attribute :>> goPackage = "internal/workspace/libs";
         attribute bundledFileCount : Integer = 103;
         attribute cached : Boolean = true;
-        attribute snapshotFile : String = "internal/core/libs/stdlib.snapshot";
+        attribute snapshotFile : String = "internal/workspace/libs/stdlib.snapshot";
         attribute snapshotEmbedded : Boolean = true;
         attribute snapshotChecksummed : Boolean = true;
         attribute fallsBackToParsing : Boolean = true;

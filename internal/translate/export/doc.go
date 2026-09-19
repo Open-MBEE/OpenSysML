@@ -33,7 +33,7 @@
 //
 // SysML v1 as UML XMI (OMG XMI 2.5.1, the Eclipse UML2 .uml serialization
 // Papyrus writes, or a .mdzip archive holding it) is migrated to v2 notation by
-// internal/core/migrate, then takes the notation path. XMI is never written.
+// internal/translate/migrate, then takes the notation path. XMI is never written.
 //
 // # RDF back to notation
 //

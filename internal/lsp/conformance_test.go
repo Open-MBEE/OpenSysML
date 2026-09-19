@@ -6,8 +6,8 @@ import (
 
 	"go.lsp.dev/protocol"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 // lspExtension uses notation of ours: a warning in the editor by default, an

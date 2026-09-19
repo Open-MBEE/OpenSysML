@@ -27,7 +27,7 @@ func TestEmbeddedSnapshotIsCurrent(t *testing.T) {
 		t.Fatalf("BuildSnapshot: %v", err)
 	}
 	if !bytes.Equal(want, stdlibSnapshot) {
-		t.Fatalf("stdlib.snapshot is stale (%d bytes embedded, %d regenerated); run `go generate ./internal/core/libs`",
+		t.Fatalf("stdlib.snapshot is stale (%d bytes embedded, %d regenerated); run `go generate ./internal/workspace/libs`",
 			len(stdlibSnapshot), len(want))
 	}
 }
@@ -95,7 +95,7 @@ func TestSnapshotFormatVersionPinsSymbolKinds(t *testing.T) {
 		t.Fatalf("SymbolKind or PseudostateKind numbering changed under snapshot format %d (digest %s, want %s).\n"+
 			"The snapshot stream persists kinds as integers: bump snapshotFormatVersion so a "+
 			"blob in the old numbering is refused, regenerate stdlib.snapshot with "+
-			"`go generate ./internal/core/libs`, then update snapshotKindDigest.",
+			"`go generate ./internal/workspace/libs`, then update snapshotKindDigest.",
 			snapshotFormatVersion, got, snapshotKindDigest)
 	}
 }

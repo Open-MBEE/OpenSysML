@@ -19,8 +19,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	passidentity "github.com/Open-MBEE/OpenSysML/internal/check/passes/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
-	"github.com/Open-MBEE/OpenSysML/internal/core/model"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docpdf"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
@@ -40,6 +38,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 const selfModelDir = "self-model"
@@ -1360,7 +1360,7 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 		"| sequence | true |",
 		"| geometry | false |",
 		"| differential | pilot validator | docs/project/pilot-differential-baseline.json |",
-		"| snapshotGate | the bundled library files | internal/core/libs/stdlib.snapshot |",
+		"| snapshotGate | the bundled library files | internal/workspace/libs/stdlib.snapshot |",
 		"OpenSysMLViews::pipelineStructure",
 		"OpenSysMLViews::libraryLoadFlow",
 		"[snapshotCurrent]",
