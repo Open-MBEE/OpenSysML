@@ -2,7 +2,8 @@
   executably.** An Interaction owned by a block is a scenario `action def` of every message
   kind: a signal send, a `synchCall`/`asynchCall` of an operation as a typed perform on the
   lifeline's object — `perform action spin : Motor::Spin ::> drive.motor.spin { in rpm = 30.0; }`,
-  the arguments bound to the operation's `in` and `inout` parameters by name or position, each
+  the arguments bound to the operation's `in` and `inout` parameters by name or position — an
+  unnamed argument taking the next parameter no named one claims — each
   with the parameter's direction so an `inout` value is written back — and a `reply`
   as the assignment of the call's result to the caller lifeline's attribute; a lifeline is
   resolved to the feature path through the block's parts, ports and references or to an `in`
@@ -11,7 +12,10 @@
   between its lifelines, never one another alternative or a concurrent operand made; a duration
   constraint between two messages with steps
   between them is a wait forked after the earlier step and joined before the later, so those
-  steps count toward the interval. A lifeline or guard that does not resolve, a create or
+  steps count toward the interval, and one whose interval is open on one side (a min with no
+  max, a max of `*`) is reported with the bound it lacks rather than written as a wait at the
+  bound it has, the min beside an expressionless max of a MagicDraw document — its encoding of
+  a one-valued `{60s}` — excepted. A lifeline or guard that does not resolve, a create or
   delete message and a message-less timing trace are refused with the reason, as is a call
   or signal message leaving an `in` parameter or signal attribute — inherited ones included —
   with no default and a lower bound above zero unbound; two parts of

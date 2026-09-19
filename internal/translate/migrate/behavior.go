@@ -499,24 +499,60 @@ func realLiteral(v float64) string {
 	return s
 }
 
-// openBound is the one bound of a duration interval whose other bound is
-// absent — unset, or a duration without an expression: an interval open on one
-// side is waited for at the bound it has.
-func (m *migration) openBound(spec *sysmlv1.Element, lo string, lok bool, hi string, hok bool) (bound, note string, ok bool) {
-	absent := func(role string) bool {
-		v := m.model.Ref(spec, role)
-		for v != nil && (v.Type == "Duration" || v.Type == "TimeExpression") {
-			v = firstOwned(v, "expr")
+// singleValue is the min of a duration interval whose max is a duration without
+// an expression in a MagicDraw document, which is how that tool stores and shows
+// a constraint written with one value, `{60s}`; ok is false for anything else.
+func (m *migration) singleValue(spec *sysmlv1.Element, lo string, lok bool, hok bool) (bound, note string, ok bool) {
+	if !lok || hok || !m.fromMagicDraw() {
+		return "", "", false
+	}
+	v := m.model.Ref(spec, "max")
+	if v == nil || v.Type != "Duration" && v.Type != "TimeExpression" {
+		return "", "", false
+	}
+	for v != nil && (v.Type == "Duration" || v.Type == "TimeExpression") {
+		v = firstOwned(v, "expr")
+	}
+	if v != nil {
+		return "", "", false
+	}
+	return lo, "the max is a duration without an expression, MagicDraw's form of the one-valued constraint {" + lo + " s}", true
+}
+
+// fromMagicDraw reports whether MagicDraw or Cameo wrote the document, by the
+// exporter it names or the extender of its tool-private extensions.
+func (m *migration) fromMagicDraw() bool {
+	tool := func(s string) bool {
+		s = strings.ToLower(s)
+		return strings.Contains(s, "magicdraw") || strings.Contains(s, "cameo")
+	}
+	if tool(m.model.Exporter) {
+		return true
+	}
+	for _, ext := range m.model.Extensions {
+		if tool(ext.Extender) {
+			return true
 		}
-		return v == nil
+	}
+	return false
+}
+
+// openInterval says why an interval lacking a usable bound is not written as a
+// wait: open on one side, it admits every wait past the bound it has.
+func (m *migration) openInterval(spec *sysmlv1.Element, lo string, lok bool, lnote, hi string, hok bool, hnote string) string {
+	missing := func(role, note string) string {
+		if m.model.Ref(spec, role) == nil {
+			return "the interval has no " + role
+		}
+		return "the interval's " + role + " is not written: " + note
 	}
 	switch {
-	case lok && !hok && absent("max"):
-		return lo, "the interval has no max", true
-	case hok && !lok && absent("min"):
-		return hi, "the interval has no min", true
+	case lok && !hok:
+		return missing("max", hnote) + ", so the interval is open above and no one wait of at least " + lo + " s stands for it"
+	case hok && !lok:
+		return missing("min", lnote) + ", so the interval is open below and no one wait of at most " + hi + " s stands for it"
 	}
-	return "", "", false
+	return joinNotes(missing("min", lnote), missing("max", hnote))
 }
 
 // durationExpr writes a UML duration value as a v2 expression in seconds: a scaled
@@ -535,6 +571,9 @@ func (m *migration) durationExpr(v, scope *sysmlv1.Element) (expr string, ok boo
 		}
 		return "", false, "the duration " + strconv.Quote(v.Attrs["value"]) + " is not a number with a time unit"
 	case "LiteralInteger", "LiteralReal", "LiteralUnlimitedNatural":
+		if v.Type == "LiteralUnlimitedNatural" && v.Attrs["value"] == "*" {
+			return "", false, "the duration * is unbounded"
+		}
 		expr, ok, note := m.valueExpr(v, scope)
 		if !ok {
 			return "", false, note

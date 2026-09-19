@@ -292,6 +292,15 @@ const omittedSignalArguments = `
           <argument xmi:type="uml:LiteralInteger" xmi:id="_mFullCode" name="code" value="1"/>
         </message>
       </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_mixed" name="Mixed">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_ls3" name="s" represents="_hs"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_rMixed" covered="_ls3" message="_mMixed"/>
+        <message xmi:type="uml:Message" xmi:id="_mMixed" name="mixed" messageSort="asynchSignal" signature="_alert" receiveEvent="_rMixed">
+          <argument xmi:type="uml:LiteralInteger" xmi:id="_mMixedTag" name="tag" value="7"/>
+          <argument xmi:type="uml:LiteralInteger" xmi:id="_mMixedCode" value="4"/>
+          <argument xmi:type="uml:LiteralInteger" xmi:id="_mMixedLevel" value="5"/>
+        </message>
+      </ownedBehavior>
     </packagedElement>`
 
 const omittedSignalApplications = `
@@ -301,6 +310,7 @@ const omittedSignalApplications = `
 // A send with no pin for an attribute the signal requires stands in for itself and
 // is reported, as is a scenario whose message binds no argument to one; an attribute
 // that admits no value or has a default needs none. The sends that bind both run.
+// Unnamed arguments take the attributes in order, passing over those named ones claim.
 func TestSendsOmittingRequiredSignalAttributesAreReported(t *testing.T) {
 	r := migrateDocument(t, omittedSignalArguments, omittedSignalApplications)
 	for _, line := range []string{
@@ -309,13 +319,16 @@ func TestSendsOmittingRequiredSignalAttributesAreReported(t *testing.T) {
 		"send new Alert(code, level);",
 		"/* not migrated: Interaction 'Short' — the message 'warn' binds no argument to the attribute level of Alert, which must hold a value */",
 		"action alarm send new Alert(level = 2, code = 1) to this.s;",
+		"action mixed send new Alert(tag = 7, code = 4, level = 5) to this.s;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNoLine(t, r.Notation, "send new Alert(code);")
+	wantNoLine(t, r.Notation, "level = 4")
 	wantNote(t, r, "_sendShort", migrate.Approximated, "the send passes no argument for the attribute level of Alert, which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing")
 	wantNote(t, r, "_short", migrate.Unmapped, "the message 'warn' binds no argument to the attribute level of Alert, which must hold a value")
 	wantNote(t, r, "_mFull", migrate.Mapped, "written as a send to this.s")
+	wantNote(t, r, "_mMixed", migrate.Mapped, "written as a send to this.s")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}

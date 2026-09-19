@@ -657,22 +657,12 @@ func (a *activity) waitFor(e *sysmlv1.Element) (string, bool) {
 	}
 	lo, lok, lnote := a.m.durationExpr(a.m.model.Ref(spec, "min"), a.act)
 	hi, hok, hnote := a.m.durationExpr(a.m.model.Ref(spec, "max"), a.act)
-	if bound, bnote, ok := a.m.openBound(spec, lo, lok, hi, hok); ok {
+	if bound, bnote, ok := a.m.singleValue(spec, lo, lok, hok); ok {
 		a.m.add(dc, Approximated, a.m.v2Name(a.def), joinNotes(bnote, "so the wait is a fixed "+bound+" s before "+describe(e)))
 		return bound + " [SI::s]", true
 	}
 	if !lok || !hok {
-		note := lnote
-		if !lok && a.m.model.Ref(spec, "min") == nil {
-			note = "the interval has no min"
-		}
-		if !hok {
-			note = joinNotes(note, hnote)
-			if a.m.model.Ref(spec, "max") == nil {
-				note = joinNotes(note, "the interval has no max")
-			}
-		}
-		a.unmappedWait(dc, e, note)
+		a.unmappedWait(dc, e, a.m.openInterval(spec, lo, lok, lnote, hi, hok, hnote))
 		return "", false
 	}
 	note := joinNotes(lnote, hnote)

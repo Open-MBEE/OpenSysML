@@ -926,3 +926,91 @@ func TestCallArgumentsKeepTheParameterDirection(t *testing.T) {
 		t.Errorf("the call did not write the level back:\n%s", out)
 	}
 }
+
+// openIntervals is an activity whose four steps each carry a duration interval
+// lacking a bound: an expressionless max, no max, a max of *, an expressionless min.
+const openIntervals = `
+    <packagedElement xmi:type="uml:Duration" xmi:id="_oSixty">
+      <expr xmi:type="uml:LiteralString" xmi:id="_oSixtyV" value="60s"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Duration" xmi:id="_oFive">
+      <expr xmi:type="uml:LiteralString" xmi:id="_oFiveV" value="5s"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Duration" xmi:id="_oEight">
+      <expr xmi:type="uml:LiteralString" xmi:id="_oEightV" value="8s"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Duration" xmi:id="_oBlank"/>
+    <packagedElement xmi:type="uml:Duration" xmi:id="_oStar">
+      <expr xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_oStarV" value="*"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_olab" name="Lab">
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_orun" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_oinit"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_oSoak" name="Soak" behavior="_ostep"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_oSettle" name="Settle" behavior="_ostep"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_oDrift" name="Drift" behavior="_ostep"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_oCool" name="Cool" behavior="_ostep"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_ofinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_oe1" source="_oinit" target="_oSoak"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_oe2" source="_oSoak" target="_oSettle"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_oe3" source="_oSettle" target="_oDrift"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_oe4" source="_oDrift" target="_oCool"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_oe5" source="_oCool" target="_ofinal"/>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_odcOne" name="one">
+          <constrainedElement xmi:idref="_oSoak"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_odiOne" min="_oSixty" max="_oBlank"/>
+        </ownedRule>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_odcAbove" name="above">
+          <constrainedElement xmi:idref="_oSettle"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_odiAbove" min="_oFive"/>
+        </ownedRule>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_odcStar" name="star">
+          <constrainedElement xmi:idref="_oDrift"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_odiStar" min="_oFive" max="_oStar"/>
+        </ownedRule>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_odcBelow" name="below">
+          <constrainedElement xmi:idref="_oCool"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_odiBelow" min="_oBlank" max="_oEight"/>
+        </ownedRule>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_ostep" name="Step">
+        <node xmi:type="uml:InitialNode" xmi:id="_osinit"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_osfinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ose" source="_osinit" target="_osfinal"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+const openApplications = `
+  <sysml:Block xmi:id="_ob1" base_Class="_olab"/>`
+
+// An interval open on one side is reported, not waited for; only MagicDraw's
+// expressionless max beside a min — its one-valued `{60s}` — is that value's wait.
+func TestOneSidedDurationIntervalsAreNotFixedWaits(t *testing.T) {
+	r := migrateDocument(t, openIntervals, openApplications)
+	for _, line := range []string{
+		"/* duration constraint on 'Soak' not migrated — the interval's max is not written: the duration has no expression, so the interval is open above and no one wait of at least 60.0 s stands for it */",
+		"/* duration constraint on 'Settle' not migrated — the interval has no max, so the interval is open above and no one wait of at least 5.0 s stands for it */",
+		"/* duration constraint on 'Drift' not migrated — the interval's max is not written: the duration * is unbounded, so the interval is open above and no one wait of at least 5.0 s stands for it */",
+		"/* duration constraint on 'Cool' not migrated — the interval's min is not written: the duration has no expression, so the interval is open below and no one wait of at most 8.0 s stands for it */",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "accept after")
+	wantNote(t, r, "_odcOne", migrate.Unmapped, "the interval's max is not written: the duration has no expression, so the interval is open above")
+	wantNote(t, r, "_odcAbove", migrate.Unmapped, "the interval has no max, so the interval is open above and no one wait of at least 5.0 s stands for it")
+	wantNote(t, r, "_odcStar", migrate.Unmapped, "the duration * is unbounded, so the interval is open above")
+	wantNote(t, r, "_odcBelow", migrate.Unmapped, "the interval's min is not written: the duration has no expression, so the interval is open below and no one wait of at most 8.0 s stands for it")
+	wantClean(t, "t.sysml", r)
+	s := session(t, r)
+	wantVerdict(t, s.RunAction("Lab::Run"))
+
+	r = migrateDocument(t, openIntervals+`
+    <xmi:Extension extender="MagicDraw UML 2024x"/>`, openApplications)
+	wantLine(t, r.Notation, "action wait accept after 60.0 [SI::s];")
+	wantLine(t, r.Notation, "first wait then Soak;")
+	wantNote(t, r, "_odcOne", migrate.Approximated, "the max is a duration without an expression, MagicDraw's form of the one-valued constraint {60.0 s}; so the wait is a fixed 60.0 s before 'Soak'")
+	wantNote(t, r, "_odcAbove", migrate.Unmapped, "the interval has no max, so the interval is open above")
+	wantNote(t, r, "_odcStar", migrate.Unmapped, "the duration * is unbounded, so the interval is open above")
+	wantNote(t, r, "_odcBelow", migrate.Unmapped, "the interval's min is not written: the duration has no expression, so the interval is open below")
+	wantClean(t, "t.sysml", r)
+}

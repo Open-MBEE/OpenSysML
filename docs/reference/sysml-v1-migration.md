@@ -160,6 +160,7 @@ returned over the service yet.
 | AcceptEventAction on an absolute TimeEvent (`when` is an instant, not a duration) | `accept at <instant>`, the instant a `Time::TimeInstantValue` attribute of the `action def` when `when` is a number with a time unit or an expression that resolves; otherwise a comment | approximated (the instant is read on the simulation clock, which starts at 0) / **unmapped** |
 | OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve (a script's `x = expr;` statements are read as assignments); otherwise the body as a comment inside `action x { }` naming the language | mapped / approximated |
 | DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds | approximated (a tool's min/max/average/random mode is the run's `-draws` policy, which its configuration records) |
+| DurationConstraint whose interval is open on one side (a min with no max, a max of `*`, a max with no min) | comment naming the bound it lacks | **unmapped** — every wait past the bound satisfies the interval, so no one delay stands for it; a MagicDraw document's min beside a max that is a duration with no expression is that tool's encoding of a one-valued `{60s}` and is written as its fixed wait, approximated |
 | DurationConstraint whose bounds are not numbers with time units (`setup s`), DurationObservation, TimeObservation | comment | **unmapped** — the runtime reports a run's clock |
 | ActivityPartition | comment naming the partition and its nodes (`perform … by` has no legal form for a partition of arbitrary nodes) | approximated |
 | StructuredActivityNode, SequenceNode | `action x { }` holding the nested flow | mapped |
@@ -301,7 +302,11 @@ tool's `min`/`max`/`average`/`random` duration mode belongs to its run configura
 the model, so the interval is migrated faithfully as a random duration and the mode is the
 [draw policy](../guide/06-behavior.md#draw-policies-min-max-average-and-random) of the run —
 `-draws random -seed <n>` reproduces the tool's random mode, `-draws max` its max mode — which
-each migrated configuration records (below). «Probability» on the edges out of a decision is
+each migrated configuration records (below). An interval open on one side — `{5s..}`, a max of
+`*` — is satisfied by every wait past its bound, so no one delay stands for it and the
+constraint is reported with the bound it lacks; the exception is a MagicDraw document, where a
+constraint written with one value, `{60s}`, is stored as that min beside a max that is a
+duration with no expression, and is written as the fixed wait it shows. «Probability» on the edges out of a decision is
 written as `@Stochastic::Probability { p = … }` on each succession: a tag that is a number is
 the constant `p = 0.5;`, and one that names a property of the activity or of the block whose
 classifier behavior it is — the v1 idiom of an analysis block whose `ProbabilityBTOOP : Real`
