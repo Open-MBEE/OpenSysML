@@ -11,7 +11,7 @@ each would carry. Where a subsystem is already fast, the record says so.
 Two subsystems are **deliberately out of scope** because separate work was
 optimizing them while this profile was taken: calc expression evaluation
 (`runtime.Value`, literal and target caches, evaluation frames) and standard
-library start-up (`internal/core/libs`). Where they appear in a profile below
+library start-up (`internal/workspace/libs`). Where they appear in a profile below
 they are named but not analyzed; their opportunities are recorded in
 `docs/project/execution-performance-2026-09.md`.
 
@@ -269,7 +269,7 @@ represent (5–8% flat in every family), but at a cost that reaches every
 consumer of `symbols`.
 
 **Tier 1 effective-feature computation is quadratic in package width, and the
-cause is one function.** `Context.findOwnerType` (`internal/core/runtime/shape.go`)
+cause is one function.** `Context.findOwnerType` (`internal/exec/runtime/shape.go`)
 finds the type that owns a feature by taking the owner scope's *parent*, calling
 `MemberNames()` on it — which allocates a fresh `[]string` of every member name —
 and scanning them with `LookupLocalAll` until one's `Decl` matches. For a
@@ -277,7 +277,7 @@ feature of a type declared at the top of a 5 000-member package, that is a
 5 000-entry slice and up to 5 000 map lookups per feature, per type. The
 profile is unambiguous: `MemberNames` is 92% of bytes allocated (3.8 GB for
 7 000 types) and `findOwnerType` 54% of CPU. `Scope.Owner()` already returns the
-owning `Symbol` directly (`internal/core/symbols/scope.go`; the builder sets it),
+owning `Symbol` directly (`internal/semantic/symbols/scope.go`; the builder sets it),
 so the scan is redundant. The same function is the top project frame in
 sections 3 (`BatchConstraints`, `BatchSatisfy`, `Instantiate`), because every
 instantiation materializes features.
@@ -304,7 +304,7 @@ remain consistent with these profiles.
 
 | # | change | expected gain | effort | semantic risk |
 | - | ------ | ------------- | ------ | ------------- |
-| 1.1 | `findOwnerType`: use `ownerScope.Owner()` and fall back to the scan only when it is nil | `FeaturesOf` from O(package width) to O(1) per feature: −50% CPU and −90% bytes on that benchmark; the same removal in `Instantiate`, `BatchConstraints`, `BatchSatisfy` (§3). On wide packages the largest single win in this record | small (one function, one test that the fallback is still reached for scopes without an owner) | **low** — `Owner()` is the same symbol the scan looks for; the scan's tie-breaking on duplicate `Decl`s is the only behavior to preserve. Lives in `internal/core/runtime`, so it must be sequenced after the calc-evaluator work lands in that package |
+| 1.1 | `findOwnerType`: use `ownerScope.Owner()` and fall back to the scan only when it is nil | `FeaturesOf` from O(package width) to O(1) per feature: −50% CPU and −90% bytes on that benchmark; the same removal in `Instantiate`, `BatchConstraints`, `BatchSatisfy` (§3). On wide packages the largest single win in this record | small (one function, one test that the fallback is still reached for scopes without an owner) | **low** — `Owner()` is the same symbol the scan looks for; the scan's tie-breaking on duplicate `Decl`s is the only behavior to preserve. Lives in `internal/exec/runtime`, so it must be sequenced after the calc-evaluator work lands in that package |
 | 1.2 | `Scope.AnonymousMembers` / `MemberNames`: return the stored slice (or iterate via callback) instead of allocating a copy per call | −16–19% bytes in analysis and edits, less GC pressure everywhere features are enumerated | small–medium: callers that mutate the result must be found | low if the returned slice is documented read-only; the immutable-index invariant already forbids mutation after construction |
 | 1.3 | Cache the qualified name on `Symbol` at index time; have `LookupQualified` accept segments so callers stop `Split`ting | removes `joinFQN` (1.2 M objects/index build) and most `genSplit`/`Builder.grow` (the top object counts in every resolution family), roughly −10% allocations in analysis | medium: `FQNOf` callers are many but mechanical | low — the value is a pure function of the scope chain |
 | 1.4 | Incremental analysis: keep parse trees and index layers per document and re-run passes only for documents whose dependency set changed | the LSP/REPL per-edit cost falls from "whole open set" to "the edited document plus dependants"; for the small-doc-beside-large case this is the 59 ms → a few ms | high: a dependency graph over wildcard imports, re-exports, redefinitions and identity metadata, plus invalidation; diagnostics timing is a tested contract | **high** — every cross-document diagnostic must be reproduced exactly; needs the differential corpora as the oracle |
@@ -521,7 +521,7 @@ here always pops the element it just pushed.
 
 | # | change | expected gain | effort | semantic risk |
 | - | ------ | ------------- | ------ | ------------- |
-| 2.1 | Lowering cache: `map[ast.Node]*ActionGraph` / `*StateGraph` on the `Context` (or the `semantics.Model`), keyed by declaration node, invalidated with the model | second and later executions of a behavior skip `ToActionGraph`: −16% CPU and bytes on `ExecuteAction`, ~−97% on long chains (`chain1000`: 8.5 ms → ~0.3 ms); every REPL `%action`/`%state` re-run, every constraint or requirement that invokes a behavior | small–medium: the graphs are immutable after construction, so sharing is safe; the key must be `(decl, scope)` because `ToStateGraphWithEndpoints` takes endpoints. Must not change the "constructor succeeds, `initialize()` errors" contract | low. Graph identity becomes shared across executors — verify nothing mutates a graph after lowering (the traces test would catch it). Lives in `internal/core/runtime`: sequence after the calc work |
+| 2.1 | Lowering cache: `map[ast.Node]*ActionGraph` / `*StateGraph` on the `Context` (or the `semantics.Model`), keyed by declaration node, invalidated with the model | second and later executions of a behavior skip `ToActionGraph`: −16% CPU and bytes on `ExecuteAction`, ~−97% on long chains (`chain1000`: 8.5 ms → ~0.3 ms); every REPL `%action`/`%state` re-run, every constraint or requirement that invokes a behavior | small–medium: the graphs are immutable after construction, so sharing is safe; the key must be `(decl, scope)` because `ToStateGraphWithEndpoints` takes endpoints. Must not change the "constructor succeeds, `initialize()` errors" contract | low. Graph identity becomes shared across executors — verify nothing mutates a graph after lowering (the traces test would catch it). Lives in `internal/exec/runtime`: sequence after the calc work |
 | 2.2 | `findNodeByName`: index collected nodes by name once per body | `LowerChain/chain1000` 8.2 ms → ~0.1 ms; negligible for small bodies | small | low — replaces a linear search with the same match predicate; duplicate names must keep the first-match rule `nodeAnswersTo` implements |
 | 2.3 | Iterate ranges lazily in `forLoop` instead of materializing `rangeSequence` | −30–40% bytes on `for` loops over ranges; ~−25% ns/iteration | small–medium: `Sequence` is a calc-runtime type, so coordinate with that work | low if `for` semantics (evaluation order, mutation of the loop variable) are unchanged; the conformance fixtures cover them |
 | 2.4 | Cache the active-leaf set on `StateExecutor`, invalidated by `setCurrentState`; reuse one `EvalContext` per executor for guards | −35–45% allocations per event (the 26 → ~15) | medium | medium — orthogonal regions and history states make the active set non-trivial; the golden execution traces are the oracle |
@@ -833,7 +833,7 @@ joins the session's accepted snippets and the expression into one source and
 re-analyses it (`parseUsage`, `parseBase`, `parseQualifiedNameRelaxed` in the
 repl allocation profile are the parser re-walking the 1.4 MB model). Against a
 session holding the synthetic model that is a tenth of a full load per
-expression. The debugger note in `internal/repl/session.go` (a submission keeps
+expression. The debugger note in `internal/frontend/repl/session.go` (a submission keeps
 a running `%action`/`%state` session alive unless it supersedes the behavior
 being stepped) means any change here must preserve the existing session's
 graph and runtime context identity.
@@ -1047,7 +1047,7 @@ Ranked by expected gain per unit of risk, across all six areas:
    an O(package width) scan from every effective-feature computation. Halves
    instantiation and satisfaction CPU and removes 80–90% of their allocation on
    wide packages. Low risk. Sequence after the in-flight calc-evaluator work in
-   `internal/core/runtime`.
+   `internal/exec/runtime`.
 2. **Lowering cache + name-indexed endpoint resolution** (2.1 / 2.2). Every
    repeated execution of an action or state machine stops re-lowering; long
    bodies stop being quadratic. −16% on small behaviors, −97% on long chains.
@@ -1055,7 +1055,7 @@ Ranked by expected gain per unit of risk, across all six areas:
 3. **Stream the cache key into the hasher; cache resolver/model with the
    parsed index** (4.1 / 4.2). Cached `ParseFile` drops from 222 KB to ~20 KB per request and
    `Evaluate`/`VerifyConstraint` stop rebuilding immutable state. Small,
-   isolated to `internal/grpc`, effectively no semantic risk.
+   isolated to `internal/frontend/grpc`, effectively no semantic risk.
 4. **Stop copying member lists; cache FQNs** (1.2 / 1.3 / 5.2). −15–20% bytes
    and ~−10% objects across analysis, edits and REPL submissions. Mechanical
    but wide.
@@ -1077,8 +1077,8 @@ lexer work (§5).
 
 The one change this record ships: `cmd/sysml/default.pgo`,
 `cmd/sysml-lsp/default.pgo` and `cmd/sysml-grpc/default.pgo`, one merged CPU
-profile (301 s of samples) of the package test suites, the `internal/repl`,
-`internal/grpc` and `internal/perfbench` benchmarks, and the CLI validating
+profile (301 s of samples) of the package test suites, the `internal/frontend/repl`,
+`internal/frontend/grpc` and `internal/perfbench` benchmarks, and the CLI validating
 every model in the checkout and evaluating three expressions. `go build` in
 Go 1.21+ applies a `default.pgo` beside a main package automatically
 (`-pgo=auto`); `scripts/pgo-profile.sh` (`make pgo-profile`) regenerates it,
@@ -1093,12 +1093,12 @@ binaries run alternately, 11 runs each, median of the `-memstats` wall time or
 the driver's `didOpen`→`publishDiagnostics` time.
 
 ```bash
-go test ./internal/repl -run '^$' -bench . -benchmem -count 6 -pgo=off > before.txt
-go test ./internal/repl -run '^$' -bench . -benchmem -count 6 -pgo=cmd/sysml/default.pgo > after.txt
+go test ./internal/frontend/repl -run '^$' -bench . -benchmem -count 6 -pgo=off > before.txt
+go test ./internal/frontend/repl -run '^$' -bench . -benchmem -count 6 -pgo=cmd/sysml/default.pgo > after.txt
 benchstat before.txt after.txt
 ```
 
-**Runtime-facing benchmarks** (`internal/repl`; `internal/core/runtime`
+**Runtime-facing benchmarks** (`internal/frontend/repl`; `internal/exec/runtime`
 itself has no `Benchmark` functions, so these are the runtime package's
 benchmarks in effect):
 
@@ -1142,7 +1142,7 @@ benchmarks in effect):
 
 An earlier run of the same procedure on the pre-merge revision (before the
 sibling calc and stdlib work landed) gave the same picture: −9.3% geomean on
-the `internal/repl` benchmarks, −14% on `BatchConstraints`, `Parse/synthetic`
+the `internal/frontend/repl` benchmarks, −14% on `BatchConstraints`, `Parse/synthetic`
 +3.0% (p=0.028), whole-binary wall times within noise.
 
 **Reading.** PGO pays where the profile has hot, inlinable call chains: the

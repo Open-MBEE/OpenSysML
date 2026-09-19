@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
 // A short name on a requirement's subject, assume or require member is carried by

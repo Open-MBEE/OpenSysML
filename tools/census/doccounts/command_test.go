@@ -279,8 +279,8 @@ func TestAMutatedSuiteTreeMovesTheSiteBlocksAlone(t *testing.T) {
 	if _, err := run(root, io.Discard); err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	writeAt(t, root, "internal/core/runtime/testdata/conformance/state_b.expected.json", "{}\n")
-	writeAt(t, root, "internal/core/runtime/robustness_more_test.go", "package runtime\n\nimport \"testing\"\n\nfunc TestRuntimeRobustnessMore(t *testing.T) {\n\tt.Run(\"h\", func(t *testing.T) {})\n}\n")
+	writeAt(t, root, "internal/exec/runtime/testdata/conformance/state_b.expected.json", "{}\n")
+	writeAt(t, root, "internal/exec/runtime/robustness_more_test.go", "package runtime\n\nimport \"testing\"\n\nfunc TestRuntimeRobustnessMore(t *testing.T) {\n\tt.Run(\"h\", func(t *testing.T) {})\n}\n")
 	var output strings.Builder
 	stale, err := check(root, &output)
 	if err != nil {
@@ -306,7 +306,7 @@ func TestAKnownFailureMovesTheCommittedConformanceBlock(t *testing.T) {
 	if _, err := run(root, io.Discard); err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	writeAt(t, root, "internal/core/runtime/testdata/conformance/known_failures.txt", "calc_a\n")
+	writeAt(t, root, "internal/exec/runtime/testdata/conformance/known_failures.txt", "calc_a\n")
 	var output strings.Builder
 	stale, err := check(root, &output)
 	if err != nil {
@@ -335,7 +335,7 @@ func TestSiteBlocksRenderTheTreeAsJSON(t *testing.T) {
 		"inventory-robustness":  "7 runtime robustness cases (first-level subtests across the `TestRuntimeRobustness*` functions)",
 		"inventory-grpc":        "2 gRPC conformance cases and 3 gRPC robustness cases (first-level subtests across the `TestGRPCRobustness*` functions)",
 		"inventory-tests":       want.TestFunctions + " top-level `Test` functions across the module",
-		"lsp-tests":             "1 top-level `Test` functions in `internal/lsp`",
+		"lsp-tests":             "1 top-level `Test` functions in `internal/frontend/lsp`",
 	} {
 		if !strings.HasPrefix(compliance[name], text) {
 			t.Errorf("%s renders %q, want it to open with %q", name, compliance[name], text)

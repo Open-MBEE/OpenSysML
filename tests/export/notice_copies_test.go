@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
 // The Python client cannot import the Go constant, so it keeps a fallback copy

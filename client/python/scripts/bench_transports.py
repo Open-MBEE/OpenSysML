@@ -58,7 +58,7 @@ GRPC_TCP = "gRPC over TCP"
 # the same work.
 EVALUATE_EXPRESSION = "2 + 2"
 
-# stdio framing, as internal/stdiorpc writes it.
+# stdio framing, as internal/frontend/stdiorpc writes it.
 CONTENT_TYPE_JSON = "application/json"
 CONTENT_TYPE_PROTO = "application/proto"
 

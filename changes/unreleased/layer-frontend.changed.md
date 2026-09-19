@@ -1,0 +1,1 @@
+- **Moved the frontend packages to `internal/frontend`.** `protoconv`, `repl`, `lsp`, `grpc`, `stdiorpc` and `usage` now live under `internal/frontend/`.

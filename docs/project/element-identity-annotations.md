@@ -195,7 +195,7 @@ annotations and no UUIDs.
 
 One seam on each side:
 
-- **Writer** (`internal/core/export/rdf_out.go`): `rdf.ElementIRI` takes the effective
+- **Writer** (`internal/translate/export/rdf_out.go`): `rdf.ElementIRI` takes the effective
   id — annotated UUID when present, encoded qualified name otherwise. `sysml:elementId`
   continues to hold exactly the id the IRI ends in, so the invariant that the triple and
   the IRI cannot disagree is untouched. The `IdentityMetadata` annotations themselves are
@@ -213,7 +213,7 @@ One seam on each side:
   because explicitness is not recoverable from the value: an annotated id can equal the
   encoding of the element's current qualified name, and dropping the annotation there
   would turn the next rename back into a delete plus a create.
-- **Reader** (`internal/core/export/rdf_in.go`): identity is read from
+- **Reader** (`internal/translate/export/rdf_in.go`): identity is read from
   `sysml:qualifiedName` today, IRIs being treated as opaque. The reader additionally
   reads `sysml:elementId`; where an element's id is not the encoding of its qualified
   name **or the graph marks it `sysx:declaredId`**, the writer of the notation
@@ -283,7 +283,7 @@ must argue the interchange case rather than report a gap:
    and the sync diff above are all implementable without any specification change,
    because user-defined metadata is already conforming notation.
 3. **Record the measurements.** The Flexo interoperability harness
-   (`internal/interop/flexo`) already measures what survives a live round trip; extended
+   (`internal/translate/interop/flexo`) already measures what survives a live round trip; extended
    with an identity-carrying fixture, its committed report becomes the evidence the
    issue cites.
 4. Track the filing in [omg-issues.md](omg-issues.md) once posted.
@@ -315,7 +315,7 @@ one-shot tool.
 1. `IdentityMetadata` library file plus parser/stdlib conformance coverage — no
    behavioral change.
 2. The validation pass (duplicates, id shape, scoping), with negative tests.
-3. Effective-id plumbing in `internal/core/rdf` and the writer; golden `.ttl` updates.
+3. Effective-id plumbing in `internal/translate/rdf` and the writer; golden `.ttl` updates.
 4. Reader re-materialization; round-trip tests including the stripped-`sysx:sourceText`
    form the RDF round-trip harness uses.
 5. Sync diff keyed by effective id; Flexo harness fixture carrying annotated identity;

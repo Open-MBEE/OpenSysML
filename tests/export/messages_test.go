@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
 // TestUnsupportedConversionMessages pins the text of a conversion refusal: the

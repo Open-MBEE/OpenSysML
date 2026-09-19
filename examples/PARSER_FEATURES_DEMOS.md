@@ -6,7 +6,7 @@ Demonstrations of the SysML v2 / KerML parser features that let every file of th
 
 These demos showcase parser improvements across multiple development sessions (Sessions 2-5). Each demo file focuses on a specific category of features with working examples extracted from real stdlib usage patterns.
 
-**Parser Status:** 96/96 bundled library files parse cleanly (94 official SysML v2 standard library files plus two OpenSysML extensions), gated by `internal/core/libs/stdlib_conformance_test.go`.
+**Parser Status:** 96/96 bundled library files parse cleanly (94 official SysML v2 standard library files plus two OpenSysML extensions), gated by `internal/workspace/libs/stdlib_conformance_test.go`.
 
 ## Demo Files
 

@@ -44,7 +44,7 @@ check() {
   export GOROOT=${MINGW_PREFIX}/lib/go
   export CGO_ENABLED=0
   export GOFLAGS="-trimpath -mod=readonly -modcacherw"
-  go test -short ./internal/core/lexer/... ./internal/core/parser/...
+  go test -short ./internal/syntax/lexer/... ./internal/syntax/parser/...
 }
 
 package() {

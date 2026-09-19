@@ -3,7 +3,7 @@ package reject
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 func TestParsePolicy(t *testing.T) {

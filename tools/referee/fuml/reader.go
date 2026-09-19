@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi"
 )
 
 // primitiveTypes prefixes the hrefs of UML's primitive types.

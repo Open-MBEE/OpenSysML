@@ -159,7 +159,7 @@ Adversarial checks worth running for such a PR:
 - **Strict must never be more permissive than default.** Sweep every construct that can declare a
   reserved keyword as its name in both modes and require the same count in each.
 - **Corpus/stdlib regression scan.** Diff severity-normalised diagnostics between the two binaries
-  over `examples/pilot-corpora`, `examples/sysml-v2-training` and `internal/core/libs/stdlib`. Note
+  over `examples/pilot-corpora`, `examples/sysml-v2-training` and `internal/workspace/libs/stdlib`. Note
   this is **structurally vacuous** for `reserved-keyword-name`/`sysml-notation` (0 hits corpus-wide,
   since OMG corpora contain no such names) — report it as a regression control and state the 0-hit
   count, never as coverage proof. Two traps: prefix rows with `awk -v f="$F" '{print f" "$0}'`

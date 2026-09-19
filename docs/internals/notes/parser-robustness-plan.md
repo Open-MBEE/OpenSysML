@@ -10,14 +10,14 @@
 Parser evolved from coverage-driven (per-file whack-a-mole) to grammar-driven design with comprehensive test harness. All six phases delivered:
 
 ### Phase 1: Conformance Gate ✅
-- Created `internal/core/libs/stdlib_conformance_test.go`
+- Created `internal/workspace/libs/stdlib_conformance_test.go`
 - Stdlib gate: 94/94 files clean (no allowlist)
 - Hard failing signal for parser regressions
 
 ### Phase 2: Correctness Harness ✅
 - Golden AST fixtures: `tests/parser/testdata/parse/*.{sysml,golden}`
-- Negative tests: `internal/core/parser/negative_test.go`
-- Round-trip tests: `internal/core/parser/integration_test.go`
+- Negative tests: `internal/syntax/parser/negative_test.go`
+- Round-trip tests: `internal/syntax/parser/integration_test.go`
 - Catches silently-wrong ASTs (not just diagnostics)
 
 ### Phase 3: Unified Member Parsing ✅
@@ -71,19 +71,19 @@ See `docs/internals/architecture.md` for current test requirements:
 
 ```bash
 # Stdlib conformance gate
-go test ./internal/core/libs/ -run TestStdlibConformance -v
+go test ./internal/workspace/libs/ -run TestStdlibConformance -v
 
 # Golden AST fixtures
 go test ./tests/parser -run TestGolden -v
 
 # Negative tests
-go test ./tests/parser ./internal/core/parser -run TestNegative -v
+go test ./tests/parser ./internal/syntax/parser -run TestNegative -v
 
 # Round-trip tests
-go test ./internal/core/parser/ -run TestIntegration -v
+go test ./internal/syntax/parser/ -run TestIntegration -v
 
 # All parser tests
-go test ./internal/core/parser/ -v
+go test ./internal/syntax/parser/ -v
 ```
 
 ---

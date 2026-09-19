@@ -13,7 +13,7 @@ It is the next stage of the model-checking track. The
 [explicit-state design](bounded-model-checking.md) explores the executor itself, and the
 `explore` scheduling policy that landed from it
 ([Exploring every linearization](../../reference/cli.md#exploring-every-linearization)) is the
-concrete referee this design is checked against. The SMT layer (`internal/core/solve`, behind
+concrete referee this design is checked against. The SMT layer (`internal/exec/solve`, behind
 the REPL's [`%check`, `%explain`, `%solve`, `%configure` and
 `%optimize`](../../reference/repl-commands.md)) translates the conditions of constraints and
 requirements and runs an external solver over them; this design gives that layer a notion of a
@@ -49,7 +49,7 @@ the tool print, with its bound attached.
 
 ## What exists to build on
 
-`internal/core/solve` already does the following, and this design reuses each rather than
+`internal/exec/solve` already does the following, and this design reuses each rather than
 writing a second one:
 
 - **A term IR and an SMT-LIB2 writer.** Conditions become `Term`s over sorts `Bool`, `Int`,
@@ -242,7 +242,7 @@ Three rules make these honest:
 
 1. **`unknown` is not `unsat`.** A solver that gives up — nonlinear arithmetic, a timeout — has
    established nothing. The verdict is *not covered*, and the report says which query and why.
-   `internal/core/solve` already keeps the three answers distinct; this design keeps them
+   `internal/exec/solve` already keeps the three answers distinct; this design keeps them
    distinct in the user's terms.
 2. **A refusal is not a proof.** A body the encoding cannot express refuses the whole behavior
    before any query runs, as one untranslatable conjunct refuses a condition today. No partial
@@ -546,7 +546,7 @@ Each stage leaves `develop` green, ships behind `-engine smt` (the framework's s
    nested flows. The requirement and deadlock properties, the *proved*/*bounded*/*violated*/*not
    covered* verdicts, witness decoding and the `replay:` policy. Referee checks 1–3 over the
    corpus cases these constructs cover. This is where the encoding is proved faithful and is the
-   stage whose review matters most. *Implemented:* `internal/core/smt`, beside `solve` and
+   stage whose review matters most. *Implemented:* `internal/exec/smt`, beside `solve` and
    `analysis`: `Encode` builds the relation over a lowered `ActionGraph` (`state.go`,
    `encode.go`), the properties and the cut, unroll and overflow flags are `property.go`, the
    `smt` engine (`engine.go`) answers `analysis.Question.Holds` with the schedule free and refuses
@@ -563,7 +563,7 @@ Each stage leaves `develop` green, ships behind `-engine smt` (the framework's s
    *over exact arithmetic*, because a violation that exists only after `float64` rounding has
    no witness to replay. State zero is the values the started performance holds — the inputs
    the question's `Start` supplies ahead of the defaults the action declares. The engine is
-   **registered in the build's registry**, `engines.Default()` (`internal/core/engines`), which
+   **registered in the build's registry**, `engines.Default()` (`internal/exec/engines`), which
    composes `analysis.Default()` — the framework's own engines, which `smt` imports and so cannot
    be constructed from — with `smt`; the CLI, REPL and gRPC service build that registry at
    startup, so `-engine smt` and `%engine smt` reach it, and `-engines`, `%engines` and

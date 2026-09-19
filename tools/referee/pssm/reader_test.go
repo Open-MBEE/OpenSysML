@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi"
 )
 
 // fixtureHead opens a document in the suite's shape: the shared architecture

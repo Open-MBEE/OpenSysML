@@ -61,14 +61,14 @@ print(instance.slots)
 │ Go gRPC Service (sysml-grpc)            │
 │  - Stateless request/response           │
 │  - LRU cache for parsed models          │
-│  - Thin wrapper over internal/core/*    │
+│  - Thin wrapper over internal/*    │
 └──────────────┬──────────────────────────┘
                │
 ┌──────────────▼──────────────────────────┐
 │ OpenSysML Core                          │
-│  internal/core/parser                   │
-│  internal/core/semantics                │
-│  internal/core/runtime                  │
+│  internal/syntax/parser                   │
+│  internal/semantic/semantics                │
+│  internal/exec/runtime                  │
 └─────────────────────────────────────────┘
 ```
 
@@ -170,7 +170,7 @@ print(instance.slots)
    
 2. gRPC: ParseFileRequest(content, hash)
    → Service checks cache[hash]
-   → Cache miss: parse with internal/core/parser
+   → Cache miss: parse with internal/syntax/parser
    → Cache hit: return cached result
    
 3. gRPC: ParseFileResponse(model_hash, root_symbol, diagnostics)
@@ -257,7 +257,7 @@ service SysMLService {
 cmd/sysml-grpc/
   main.go              # Server startup, flags, logging
 
-internal/grpc/
+internal/frontend/grpc/
   service.go           # Implements SysMLService interface
   cache.go             # LRU cache with sha256 keys
   convert.go           # internal types → protobuf messages
@@ -290,7 +290,7 @@ cache.Put(req.ContentHash, &Model{root, symtab, ...})
 resp := convertToProto(root, symtab)
 ```
 
-**No changes to `internal/core/*`** - service consumes existing APIs.
+**No changes to `internal/*`** - service consumes existing APIs.
 
 ---
 
@@ -903,7 +903,7 @@ Options:
 
 ### Go Service Tests
 
-**Unit tests - `internal/grpc/*_test.go`:**
+**Unit tests - `internal/frontend/grpc/*_test.go`:**
 
 ```go
 // cache_test.go
@@ -922,7 +922,7 @@ func TestGetSymbolNotFound(t *testing.T)
 func TestMalformedRequest(t *testing.T)
 ```
 
-**Integration tests - `internal/grpc/integration_test.go`:**
+**Integration tests - `internal/frontend/grpc/integration_test.go`:**
 
 ```go
 func TestEndToEndParse(t *testing.T) {
@@ -1106,7 +1106,7 @@ jupyter nbconvert --execute --to notebook examples/opensysml_demo.ipynb
   run: make build-grpc
   
 - name: Test gRPC service
-  run: go test ./internal/grpc/...
+  run: go test ./internal/frontend/grpc/...
   
 - name: Build multi-platform binaries
   run: |
@@ -1164,17 +1164,17 @@ jupyter nbconvert --execute --to notebook examples/opensysml_demo.ipynb
    - HTTP health check endpoint
    - Graceful shutdown on signals
 
-3. Implement `internal/grpc/service.go`
-   - `ParseFile` RPC implementation calling `internal/core/parser`
+3. Implement `internal/frontend/grpc/service.go`
+   - `ParseFile` RPC implementation calling `internal/syntax/parser`
    - `GetSymbol` RPC querying cached symbol tables
    - Error handling and gRPC status codes
 
-4. Implement `internal/grpc/cache.go`
+4. Implement `internal/frontend/grpc/cache.go`
    - LRU cache with sha256 keys
    - Store parsed AST + symbol tables
    - Eviction policy
 
-5. Implement `internal/grpc/convert.go`
+5. Implement `internal/frontend/grpc/convert.go`
    - Convert `*ast.Node` → `SymbolInfo` protobuf
    - Convert `source.Diagnostic` → `Diagnostic` protobuf
    - Convert Go values → `Value` protobuf
@@ -1188,7 +1188,7 @@ jupyter nbconvert --execute --to notebook examples/opensysml_demo.ipynb
 - `make build-grpc` produces `bin/sysml-grpc`
 - `sysml-grpc --port 50051` starts and responds to health checks
 - Integration test loads A1.sysml, queries SPACECRAFT_WET symbol
-- All tests pass: `go test ./internal/grpc/...`
+- All tests pass: `go test ./internal/frontend/grpc/...`
 
 ---
 
@@ -1287,8 +1287,8 @@ jupyter nbconvert --execute --to notebook examples/opensysml_demo.ipynb
    - Add ExecuteActionRequest/Response
    - Add StateMachineRequest/Response
 
-2. Implement runtime RPCs in `internal/grpc/service.go`
-   - `EvaluateExpression` calls `internal/core/runtime.Eval`
+2. Implement runtime RPCs in `internal/frontend/grpc/service.go`
+   - `EvaluateExpression` calls `internal/exec/runtime.Eval`
    - `Instantiate` calls runtime instantiation
    - `ExecuteAction` calls action executor
    - `RunStateMachine` calls state executor

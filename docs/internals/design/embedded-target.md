@@ -21,7 +21,7 @@ Two things exist today. `sysml -compile` translates a calc to C or Go and proves
 against the interpreter with a differential test; and the roadmap's embedded track names six
 items, none started. Between them is a gap that the software class widens.
 
-**The calc backend is host C.** Its prelude (`internal/core/codegen/emit_c.go`) is written for
+**The calc backend is host C.** Its prelude (`internal/translate/codegen/emit_c.go`) is written for
 a compiler on a workstation: `setjmp`/`longjmp` turn a failed evaluation into a status,
 `__builtin_add_overflow` and friends check the Integer arithmetic, `unsigned __int128` computes
 the once-rounded Integer quotient, an arena allocator (`sysml_arena`, `malloc`-backed) holds
@@ -34,7 +34,7 @@ through GNU statement expressions — correct, and hard to read, review and meas
 structural coverage. This backend stays as it is; the embedded backend is a second emitter over
 the same typed IR.
 
-**The interpreter cannot be shrunk.** `internal/core/runtime` depends on maps, allocation,
+**The interpreter cannot be shrunk.** `internal/exec/runtime` depends on maps, allocation,
 `math/big` and the parser and semantic packages, and the lowered graphs it consumes are keyed by
 the syntax tree: `lower.ActionGraph` holds `Nodes []ast.Node`, `Edges map[ast.Node][]ActionEdge`,
 `Scopes map[ast.Node]*symbols.Scope`; `lower.StateGraph` resolves vertices and scopes through
@@ -94,7 +94,7 @@ The requirement basis is the specification text, not the interpreter:
    expression form with its evaluation rule, its error condition and the oracle section it
    derives from. This is the tool operational requirements document in DO-330 terms and the
    requirements document the generated C is verified against.
-3. **The execution conformance corpus** (`internal/core/runtime/testdata/conformance/`), each case
+3. **The execution conformance corpus** (`internal/exec/runtime/testdata/conformance/`), each case
    traced to the oracle section it exercises, as the test cases for both the interpreter and
    the compiled C. The cases that list several admissible `outcomes` are excluded from the
    embedded profile by construction (see [Determinism](#determinism-and-boundedness-are-refusals)).
@@ -111,7 +111,7 @@ The roadmap's first embedded item, restated as data shapes so that it can be rev
 **Closed** means every reference is an index into a table of the same artifact and no field is
 a pointer into the syntax tree, a symbol scope or a Go value: nodes, successions, guards,
 triggers, effects, states, regions, transitions, pins, features, connections and event types,
-each a record in a table, each expression a tree in the typed IR `internal/core/codegen/ir.go`
+each a record in a table, each expression a tree in the typed IR `internal/translate/codegen/ir.go`
 already defines (`Func`, `Param`, `IntLit`, `Var`, `Binary`, `Call`, `ToReal`, `Declare`,
 `Assign`, `If`, `While`, `Return`, …) widened as the native track's value phase needs. The
 scheduling rules the interpreter applies are not in the IR; they are in the semantics document,
@@ -177,7 +177,7 @@ programs from one IR, and the differential test runs both.
 The interpreter records six kinds of choice point — the order tokens act in a step, which
 holding guard a decision follows, which of several writes to one feature stands, which of several
 enabled transitions fires, the order sibling regions react, the order executors due at one
-instant run (`internal/core/runtime/choice.go`, described in [scheduling](scheduling.md)) — and
+instant run (`internal/exec/runtime/choice.go`, described in [scheduling](scheduling.md)) — and
 lets a policy resolve them. A flight artifact cannot carry an open choice. The embedded profile
 therefore holds three rules:
 
@@ -298,8 +298,8 @@ qualification argument from repository artifacts rather than from a description 
    inference from the first.
 4. **Refusal tests.** Every refusal rule has a fixture that triggers it and a test that pins the
    message and the element it names. A refusal that stops firing is a regression.
-5. **Structural coverage of the generator.** `internal/core/codegen`'s tests today run from
-   `internal/repl`, so the package's own coverage reads 1.9% — accurate for the repository and
+5. **Structural coverage of the generator.** `internal/translate/codegen`'s tests today run from
+   `internal/frontend/repl`, so the package's own coverage reads 1.9% — accurate for the repository and
    useless to an auditor. The embedded backend's tests live in its own package, and the
    coverage report for that package is one of the artifacts.
 6. **Structural coverage of the output.** The differential builds the generated C with `gcov`
@@ -364,7 +364,7 @@ external costs are named at the end.
 | Stage | Delivers | Exit criterion | Size |
 |---|---|---|---|
 | **0 — this record** | the design, reviewed | merged | 1 |
-| **1 — the closed IR** | `internal/core/bir` (name to be settled): the tables, the canonical serialization, the lowering from `ActionGraph`/`StateGraph`/`CalcBody`, the interpreter entry that runs from it, and `behavior-ir-semantics.md` with the rule → case trace table | every state and action conformance case and golden trace passes through the IR entry; the serialization is byte-stable; the trace table has no rule without a case | 2 |
+| **1 — the closed IR** | `internal/exec/bir` (name to be settled): the tables, the canonical serialization, the lowering from `ActionGraph`/`StateGraph`/`CalcBody`, the interpreter entry that runs from it, and `behavior-ir-semantics.md` with the rule → case trace table | every state and action conformance case and golden trace passes through the IR entry; the serialization is byte-stable; the trace table has no rule without a case | 2 |
 | **2 — the prelude and the embedded emitter** | `sysml_embedded.{c,h}`; the emitter over static tables in the profile above; the refusals; the host-side differential and the `gcov` and analyzer gates | the differential passes over every admitted case on the host; every refusal has a fixture; the C compiles clean under the profile's flags | 3 |
 | **3 — resources and budget** | the resource report, the budget file, the trace map, reproducibility gate | the same-host and cross-host compilations diff empty; a fixture over budget fails the build; the trace map covers every generated line | 1 |
 | **4 — the host interface** | the header above, designed with the C ABI item; `M_write`, `M_outgoing`, `M_trace` | the differential drives fixtures through the header alone | 1 |
