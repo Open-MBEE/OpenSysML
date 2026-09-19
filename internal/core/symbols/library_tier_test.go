@@ -111,19 +111,19 @@ func TestLibraryIdentityFollowsTextNotName(t *testing.T) {
 		return identityOfKind(name, text, tier, source.KindOf(name))
 	}
 	bundled := identity("Systems Library/Items.sysml", items, TierSystems)
-	if got := identity("copy.sysml", items, TierSystems); got != bundled {
+	if identity("copy.sysml", items, TierSystems) != bundled {
 		t.Errorf("the same text under another name has another identity")
 	}
-	if got := identityOfKind("copy.kerml", items, TierSystems, source.KindSysML); got != bundled {
+	if identityOfKind("copy.kerml", items, TierSystems, source.KindSysML) != bundled {
 		t.Errorf("the same text under a name of another suffix, parsed as SysML, has another identity")
 	}
-	if got := identityOfKind("Systems Library/Items.sysml", items, TierSystems, source.KindKerML); got == bundled {
+	if identityOfKind("Systems Library/Items.sysml", items, TierSystems, source.KindKerML) == bundled {
 		t.Errorf("the same text parsed as KerML has the same identity")
 	}
-	if got := identity("Systems Library/Items.sysml", items+" // edited", TierSystems); got == bundled {
+	if identity("Systems Library/Items.sysml", items+" // edited", TierSystems) == bundled {
 		t.Errorf("another text under the same name has the same identity")
 	}
-	if got := identity("Systems Library/Items.sysml", items, TierDomain); got == bundled {
+	if identity("Systems Library/Items.sysml", items, TierDomain) == bundled {
 		t.Errorf("the same text of another tier has the same identity")
 	}
 

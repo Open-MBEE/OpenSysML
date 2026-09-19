@@ -18,6 +18,16 @@ const (
 	commentPrefix = "comment "
 )
 
+// The subjects the report's notes open with.
+const (
+	classifierSubject = "the instance's classifier "
+	individualSubject = "the individual "
+	slotValueSubject  = "the slot's value "
+)
+
+// scalarValuesPrefix qualifies a name from the standard ScalarValues package.
+const scalarValuesPrefix = "ScalarValues::"
+
 // Result is a migration's output: the v2 notation and the report over it.
 type Result struct {
 	Notation []byte
@@ -611,7 +621,7 @@ func (m *migration) generals(e *sysmlv1.Element, cat category) (string, string) 
 			continue
 		}
 		if sv := m.scalarValue(target); sv != "" {
-			refs = append(refs, "ScalarValues::"+sv)
+			refs = append(refs, scalarValuesPrefix+sv)
 			continue
 		}
 		if cat == catAttributeDef && m.quantityValueType(target) {
@@ -876,23 +886,23 @@ func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string)
 		inst := m.model.Ref(v, "instance")
 		switch {
 		case inst == nil:
-			return nil, "the slot's value names no instance", false
+			return nil, slotValueSubject + "names no instance", false
 		case inst.IsProxy():
-			return nil, "the slot's value " + qualifiedName(inst) + " is outside the document, so it has no individual to type " + f.Name + " by", false
+			return nil, slotValueSubject + qualifiedName(inst) + " is outside the document, so it has no individual to type " + f.Name + " by", false
 		}
 		if cat, note := m.classify(inst); cat != catIndividualDef {
-			return nil, "the slot's value " + describe(inst) + " is not written as an individual: " + note, false
+			return nil, slotValueSubject + describe(inst) + " is not written as an individual: " + note, false
 		}
 		kind, classifiers, _ := m.individualClassifiers(inst)
 		if kind == catNone || kind.keyword() != kw+" def" {
-			return nil, "the slot's value " + describe(inst) + " is an " + individualKeyword(kind) + ", which cannot type " + article(kw) + kw, false
+			return nil, slotValueSubject + describe(inst) + " is an " + individualKeyword(kind) + ", which cannot type " + article(kw) + kw, false
 		}
 		if !m.instanceOf(classifiers, t) {
-			return nil, "the slot's value " + describe(inst) + " is not an instance of " + qualifiedName(t) + ", the type of " + f.Name, false
+			return nil, slotValueSubject + describe(inst) + " is not an instance of " + qualifiedName(t) + ", the type of " + f.Name, false
 		}
 		// The default individual types the property, so a slot can only repeat it.
 		if d, _ := m.typingIndividual(f, kw); d != nil && d != inst {
-			return nil, "the slot's value " + describe(inst) + " is not " + describe(d) + ", the individual " + f.Name + " is typed by for its default", false
+			return nil, slotValueSubject + describe(inst) + " is not " + describe(d) + ", " + individualSubject + f.Name + " is typed by for its default", false
 		}
 		refs = append(refs, m.ref(inst, e))
 	}
@@ -1592,9 +1602,9 @@ func (m *migration) typeRef(t, scope *sysmlv1.Element) (string, string) {
 	}
 	if sv := m.scalarValue(t); sv != "" {
 		if _, std := scalarValues[t.Name]; !std {
-			return "ScalarValues::" + sv, "the tool's " + t.Name + " datatype is written as ScalarValues::" + sv
+			return scalarValuesPrefix + sv, "the tool's " + t.Name + " datatype is written as " + scalarValuesPrefix + sv
 		}
-		return "ScalarValues::" + sv, ""
+		return scalarValuesPrefix + sv, ""
 	}
 	if t.IsProxy() {
 		return "", "type " + qualifiedName(t) + " lives outside the document and is not written"

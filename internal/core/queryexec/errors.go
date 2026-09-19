@@ -97,6 +97,12 @@ func (e *Error) column() string {
 }
 
 func (e *Error) Error() string {
+	if message, ok := e.columnMessage(); ok {
+		return message
+	}
+	if message, ok := e.sessionMessage(); ok {
+		return message
+	}
 	switch e.Kind {
 	case ErrorInvalidContext:
 		return "document query execution requires a program, index, resolver, and semantic model"
@@ -149,32 +155,98 @@ func (e *Error) Error() string {
 			return fmt.Sprintf("query %s exceeded its visit budget in column %s", e.Query, e.Property)
 		}
 		return fmt.Sprintf("query %s exceeded its visit budget", e.Query)
+	case ErrorResultType:
+		return fmt.Sprintf("query %s produced %s, expected %s", e.Query, e.Actual, e.Expected)
+	case ErrorResultMultiplicity:
+		return fmt.Sprintf("query %s produced multiplicity %s, expected %s", e.Query, e.Actual, e.Expected)
+	default:
+		return fmt.Sprintf("query execution failed for %s", e.Query)
+	}
+}
+
+// columnMessage spells the failures of a computed column.
+func (e *Error) columnMessage() (string, bool) {
+	switch e.Kind {
+	case ErrorColumnOperand:
+		return fmt.Sprintf(
+			"query %s column %s requires one value per %q operand, got %s for %s",
+			e.Query,
+			e.Property,
+			e.Parameter,
+			e.Actual,
+			e.Target,
+		), true
+	case ErrorColumnOperandType:
+		return fmt.Sprintf(
+			"query %s column %s cannot apply %q to %s for %s",
+			e.Query,
+			e.Property,
+			e.Parameter,
+			e.Actual,
+			e.Target,
+		), true
+	case ErrorColumnAbsent:
+		return fmt.Sprintf(
+			"query %s column %s has no value for %s; use ?? to supply a default",
+			e.Query,
+			e.Property,
+			e.Target,
+		), true
+	case ErrorColumnCardinality:
+		return fmt.Sprintf(
+			"query %s column %s produced %s values, expected one for %s",
+			e.Query,
+			e.Property,
+			e.Actual,
+			e.Target,
+		), true
+	case ErrorColumnDivisionByZero:
+		return fmt.Sprintf("query %s column %s divides by zero for %s", e.Query, e.Property, e.Target), true
+	case ErrorColumnIncommensurable:
+		return fmt.Sprintf(
+			"query %s column %s cannot apply %q to quantities in incommensurable units %s for %s",
+			e.Query,
+			e.Property,
+			e.Parameter,
+			e.Actual,
+			e.Target,
+		), true
+	case ErrorColumnArithmetic:
+		return fmt.Sprintf("query %s column %s cannot compute %q for %s: %s", e.Query, e.Property, e.Parameter, e.Target, e.Actual), true
+	default:
+		return "", false
+	}
+}
+
+// sessionMessage spells the failures of an operation over a session's objects.
+func (e *Error) sessionMessage() (string, bool) {
+	switch e.Kind {
 	case ErrorNoRuntime:
-		return fmt.Sprintf("query %s operation %s reads a session's objects, and this execution has no session: instantiate an object first", e.Query, e.Operation)
+		return fmt.Sprintf("query %s operation %s reads a session's objects, and this execution has no session: instantiate an object first", e.Query, e.Operation), true
 	case ErrorObjectRow:
-		return fmt.Sprintf("query %s operation %s applies to model elements, not to object %s", e.Query, e.Operation, e.Target)
+		return fmt.Sprintf("query %s operation %s applies to model elements, not to object %s", e.Query, e.Operation, e.Target), true
 	case ErrorVerdictRow:
-		return fmt.Sprintf("query %s operation %s applies to model elements, not to verdict %s", e.Query, e.Operation, e.Target)
+		return fmt.Sprintf("query %s operation %s applies to model elements, not to verdict %s", e.Query, e.Operation, e.Target), true
 	case ErrorNotAnObject:
-		return fmt.Sprintf("query %s operation %s cannot check %s, which declares no object", e.Query, e.Operation, e.Target)
+		return fmt.Sprintf("query %s operation %s cannot check %s, which declares no object", e.Query, e.Operation, e.Target), true
 	case ErrorIncompleteValidation:
-		return fmt.Sprintf("query %s operation %s could not check every assertion about %s: %v", e.Query, e.Operation, e.Target, e.Cause)
+		return fmt.Sprintf("query %s operation %s could not check every assertion about %s: %v", e.Query, e.Operation, e.Target, e.Cause), true
 	case ErrorStateRow:
-		return fmt.Sprintf("query %s operation %s applies to model elements, not to state %s", e.Query, e.Operation, e.Target)
+		return fmt.Sprintf("query %s operation %s applies to model elements, not to state %s", e.Query, e.Operation, e.Target), true
 	case ErrorEventRow:
-		return fmt.Sprintf("query %s operation %s applies to model elements, not to event %s", e.Query, e.Operation, e.Target)
+		return fmt.Sprintf("query %s operation %s applies to model elements, not to event %s", e.Query, e.Operation, e.Target), true
 	case ErrorUndeclaredRow:
-		return fmt.Sprintf("query %s operation %s%s traverses from %s, which no element declares", e.Query, e.Operation, e.column(), e.Target)
+		return fmt.Sprintf("query %s operation %s%s traverses from %s, which no element declares", e.Query, e.Operation, e.column(), e.Target), true
 	case ErrorNotHeld:
-		return fmt.Sprintf("query %s operation %s reads the objects of %s, and the session holds none", e.Query, e.Operation, e.Target)
+		return fmt.Sprintf("query %s operation %s reads the objects of %s, and the session holds none", e.Query, e.Operation, e.Target), true
 	case ErrorNoStateMachine:
-		return fmt.Sprintf("query %s operation %s asks the state of %s, which exhibits no state machine", e.Query, e.Operation, e.Target)
+		return fmt.Sprintf("query %s operation %s asks the state of %s, which exhibits no state machine", e.Query, e.Operation, e.Target), true
 	case ErrorUnknownState:
-		return fmt.Sprintf("query %s operation %s names state %s, which no state machine the session runs declares", e.Query, e.Operation, e.Actual)
+		return fmt.Sprintf("query %s operation %s names state %s, which no state machine the session runs declares", e.Query, e.Operation, e.Actual), true
 	case ErrorNoTrace:
-		return fmt.Sprintf("query %s operation %s reads the session's trace, and this session records none: turn tracing on before running", e.Query, e.Operation)
+		return fmt.Sprintf("query %s operation %s reads the session's trace, and this session records none: turn tracing on before running", e.Query, e.Operation), true
 	case ErrorTraceTruncated:
-		return fmt.Sprintf("query %s operation %s reaches back to records the session's trace no longer keeps (%s): bound since to a later instant", e.Query, e.Operation, e.Actual)
+		return fmt.Sprintf("query %s operation %s reaches back to records the session's trace no longer keeps (%s): bound since to a later instant", e.Query, e.Operation, e.Actual), true
 	case ErrorInvalidInterval:
 		message := fmt.Sprintf("query %s operation %s has an invalid time interval", e.Query, e.Operation)
 		if e.Parameter != "" {
@@ -185,58 +257,8 @@ func (e *Error) Error() string {
 		} else if e.Actual != "" {
 			message += ": " + e.Actual
 		}
-		return message
-	case ErrorResultType:
-		return fmt.Sprintf("query %s produced %s, expected %s", e.Query, e.Actual, e.Expected)
-	case ErrorResultMultiplicity:
-		return fmt.Sprintf("query %s produced multiplicity %s, expected %s", e.Query, e.Actual, e.Expected)
-	case ErrorColumnOperand:
-		return fmt.Sprintf(
-			"query %s column %s requires one value per %q operand, got %s for %s",
-			e.Query,
-			e.Property,
-			e.Parameter,
-			e.Actual,
-			e.Target,
-		)
-	case ErrorColumnOperandType:
-		return fmt.Sprintf(
-			"query %s column %s cannot apply %q to %s for %s",
-			e.Query,
-			e.Property,
-			e.Parameter,
-			e.Actual,
-			e.Target,
-		)
-	case ErrorColumnAbsent:
-		return fmt.Sprintf(
-			"query %s column %s has no value for %s; use ?? to supply a default",
-			e.Query,
-			e.Property,
-			e.Target,
-		)
-	case ErrorColumnCardinality:
-		return fmt.Sprintf(
-			"query %s column %s produced %s values, expected one for %s",
-			e.Query,
-			e.Property,
-			e.Actual,
-			e.Target,
-		)
-	case ErrorColumnDivisionByZero:
-		return fmt.Sprintf("query %s column %s divides by zero for %s", e.Query, e.Property, e.Target)
-	case ErrorColumnIncommensurable:
-		return fmt.Sprintf(
-			"query %s column %s cannot apply %q to quantities in incommensurable units %s for %s",
-			e.Query,
-			e.Property,
-			e.Parameter,
-			e.Actual,
-			e.Target,
-		)
-	case ErrorColumnArithmetic:
-		return fmt.Sprintf("query %s column %s cannot compute %q for %s: %s", e.Query, e.Property, e.Parameter, e.Target, e.Actual)
+		return message, true
 	default:
-		return fmt.Sprintf("query execution failed for %s", e.Query)
+		return "", false
 	}
 }

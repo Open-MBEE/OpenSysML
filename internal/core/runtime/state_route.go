@@ -353,72 +353,87 @@ func pseudostateWhere(ps *ast.PseudostateNode) string {
 // junction enabled (one that could not be settled ends nowhere), or through every
 // branch of the choice and whatever pseudostates lie beyond, each once.
 func (e *StateExecutor) reachable(r route) (states []*ast.StateNode, stops []*ast.Usage, err error) {
-	seen := make(map[*ast.PseudostateNode]bool)
+	reach := &reachSet{graph: e.graph, seen: make(map[*ast.PseudostateNode]bool)}
 	for _, ps := range r.crossed {
-		seen[ps] = true
+		reach.seen[ps] = true
 	}
-	add := func(target *ast.StateNode) {
-		if !slices.Contains(states, target) {
-			states = append(states, target)
+	err = reach.settled(r)
+	return reach.states, reach.stops, err
+}
+
+// reachSet gathers the states and terminate actions a route can end at, each
+// once, crossing each transient pseudostate once.
+type reachSet struct {
+	graph  *lower.StateGraph
+	seen   map[*ast.PseudostateNode]bool
+	states []*ast.StateNode
+	stops  []*ast.Usage
+}
+
+func (s *reachSet) add(target *ast.StateNode) {
+	if !slices.Contains(s.states, target) {
+		s.states = append(s.states, target)
+	}
+}
+
+func (s *reachSet) stop(target *ast.Usage) {
+	if !slices.Contains(s.stops, target) {
+		s.stops = append(s.stops, target)
+	}
+}
+
+// visit follows every branch out of ps and whatever pseudostates lie beyond.
+func (s *reachSet) visit(ps *ast.PseudostateNode, branches []*lower.Transition) error {
+	for _, branch := range branches {
+		switch target := branch.Target.(type) {
+		case *ast.StateNode:
+			s.add(target)
+		case *ast.PseudostateNode:
+			if !transientPseudostate(target.Kind) {
+				return fmt.Errorf("%s %s: a transition into %s %s is not supported", ps.Kind, ps.Name, target.Kind, target.Name)
+			}
+			if s.seen[target] {
+				continue
+			}
+			s.seen[target] = true
+			if err := s.visit(target, s.graph.Transitions[target]); err != nil {
+				return err
+			}
+		case *ast.Usage:
+			if !lower.IsTerminateUsage(target) {
+				return fmt.Errorf("%s %s: target must be a state, pseudostate or terminate action, got %T", ps.Kind, ps.Name, branch.Target)
+			}
+			s.stop(target)
+		default:
+			return fmt.Errorf("%s %s: target must be a state, pseudostate or terminate action, got %T", ps.Kind, ps.Name, branch.Target)
 		}
 	}
-	var visit func(ps *ast.PseudostateNode, branches []*lower.Transition) error
-	visit = func(ps *ast.PseudostateNode, branches []*lower.Transition) error {
-		for _, branch := range branches {
-			switch target := branch.Target.(type) {
-			case *ast.StateNode:
-				add(target)
-			case *ast.PseudostateNode:
-				if !transientPseudostate(target.Kind) {
-					return fmt.Errorf("%s %s: a transition into %s %s is not supported", ps.Kind, ps.Name, target.Kind, target.Name)
-				}
-				if seen[target] {
-					continue
-				}
-				seen[target] = true
-				if err := visit(target, e.graph.Transitions[target]); err != nil {
-					return err
-				}
-			case *ast.Usage:
-				if !lower.IsTerminateUsage(target) {
-					return fmt.Errorf("%s %s: target must be a state, pseudostate or terminate action, got %T", ps.Kind, ps.Name, branch.Target)
-				}
-				if !slices.Contains(stops, target) {
-					stops = append(stops, target)
-				}
-			default:
-				return fmt.Errorf("%s %s: target must be a state, pseudostate or terminate action, got %T", ps.Kind, ps.Name, branch.Target)
+	return nil
+}
+
+// settled follows the route where it is settled, and every branch of the
+// choice where it is not.
+func (s *reachSet) settled(r route) error {
+	if r.target != nil {
+		s.add(r.target)
+		return nil
+	}
+	if r.terminate != nil {
+		s.stop(r.terminate)
+		return nil
+	}
+	if r.draw != nil {
+		for _, beyond := range r.draw.beyond {
+			if beyond.err != nil {
+				continue
+			}
+			if err := s.settled(beyond.route); err != nil {
+				return err
 			}
 		}
 		return nil
 	}
-	var settled func(r route) error
-	settled = func(r route) error {
-		if r.target != nil {
-			add(r.target)
-			return nil
-		}
-		if r.terminate != nil {
-			if !slices.Contains(stops, r.terminate) {
-				stops = append(stops, r.terminate)
-			}
-			return nil
-		}
-		if r.draw != nil {
-			for _, beyond := range r.draw.beyond {
-				if beyond.err != nil {
-					continue
-				}
-				if err := settled(beyond.route); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-		return visit(r.choice, e.graph.Transitions[r.choice])
-	}
-	err = settled(r)
-	return states, stops, err
+	return s.visit(r.choice, s.graph.Transitions[r.choice])
 }
 
 // terminateBoundary is the state a move from `from` into stop's owner stays inside

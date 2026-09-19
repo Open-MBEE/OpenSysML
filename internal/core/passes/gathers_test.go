@@ -53,9 +53,13 @@ func (w *sharedWorkspace) remove(name string) {
 	w.invalidate(name)
 }
 
+func (w *sharedWorkspace) shared() Shared {
+	return Shared{Resolver: w.resolver, Model: w.model, Gathers: w.gathers}
+}
+
 func (w *sharedWorkspace) context() *Context {
 	ctx := NewContextWithOptions("", source.KindSysML, w.idx, nil, Options{})
-	ctx.Share(w.resolver, w.model, w.gathers)
+	w.shared().Share(ctx)
 	return ctx
 }
 
@@ -87,7 +91,7 @@ func (w *sharedWorkspace) invalidate(name string) {
 }
 
 func (w *sharedWorkspace) analyze(name string) []diag.Diagnostic {
-	return AnalyzeShared(name, source.KindSysML, w.docs[name], nil, Options{}, w.resolver, w.model, w.gathers)
+	return AnalyzeShared(name, source.KindSysML, w.docs[name], nil, Options{}, w.shared())
 }
 
 func (w *sharedWorkspace) analyzeAll() {
@@ -280,7 +284,7 @@ func TestGathersServeConcurrentAnalyses(t *testing.T) {
 			sem := semantics.NewModel(resolver)
 			resolver.SetModel(sem)
 			sem.SetArgumentTyper(NewArgumentTyper(resolver, sem))
-			got := AnalyzeShared(name, source.KindSysML, w.docs[name], nil, Options{}, resolver, sem, w.gathers)
+			got := AnalyzeShared(name, source.KindSysML, w.docs[name], nil, Options{}, Shared{Resolver: resolver, Model: sem, Gathers: w.gathers})
 			if !reflect.DeepEqual(got, want[name]) {
 				errs <- fmt.Sprintf("%s: concurrent analysis\n%v\nfresh analysis\n%v", name, got, want[name])
 			}

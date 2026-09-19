@@ -1,0 +1,1 @@
+- **The fUML referee driver source lives under `scripts/fuml-driver/io/opensysml/fuml/`.** The path now matches the `io.opensysml.fuml` package the source declares; `scripts/fuml-expected.sh` compiles it from there and its output is unchanged.

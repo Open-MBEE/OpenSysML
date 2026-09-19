@@ -87,7 +87,7 @@ func LibraryEntries() []Entry {
 		Line:        137,
 		AsPublished: "    attribute <'eV⋅m⁻²/kg'> 'electronvolt metre to the power minus 2 per kilogram' : TotalMassStoppingPowerUnit = eV*m^-2/kg;",
 		Corrected:   "    attribute <'eV⋅m⁻²/kg'> 'electronvolt metre to the power minus 2 per kilogram' : TotalMassStoppingPowerUnit = eV*m^2/kg;",
-		Citation:    "KerML 7.4.9",
+		Citation:    kermlFeatureValue,
 		Derivation:  "ISO 80000-10 item 10-55 defines mass stopping power as energy × area per mass, L^4·T^-2, which is the dimension TotalMassStoppingPowerUnit declares and the dimension of the file's own `J*m^2/kg` (line 147); `eV*m^-2/kg` is T^-2, and `eV*m^2/kg` is the only reading of an electronvolt spelling with that dimension. The name stays as published so the element's identity does.",
 	}, {
 		ID:          "SI-149",
@@ -95,7 +95,7 @@ func LibraryEntries() []Entry {
 		Path:        siPath,
 		Line:        149,
 		AsPublished: "    attribute <'J⋅s⋅eV⋅s'> 'joule second electronvolt second' : TotalAngularMomentumUnit = J*s*eV*s;",
-		Citation:    "KerML 7.4.9",
+		Citation:    kermlFeatureValue,
 		Derivation:  "`J*s` and `eV*s` are each an angular momentum (L^2·M·T^-1, ISO 80000-10 item 10-11), and their product is L^4·M^2·T^-2; the two are different units, so which one the line means cannot be inferred and the defect is documented without a correction.",
 	}, {
 		ID:          "SI-163",
@@ -103,7 +103,7 @@ func LibraryEntries() []Entry {
 		Path:        siPath,
 		Line:        163,
 		AsPublished: "    attribute <'J⁻¹⋅m⁻³⋅eV⁻¹⋅m⁻³'> 'joule to the power minus 1 metre to the power minus 3 electronvolt to the power minus 1 metre to the power minus 3' : EnergyDensityOfStatesUnit = J^-1*m^-3*eV^-1*m^-3;",
-		Citation:    "KerML 7.4.9",
+		Citation:    kermlFeatureValue,
 		Derivation:  "`J^-1*m^-3` and `eV^-1*m^-3` are each an energy density of states (L^-5·M^-1·T^2, ISO 80000-12 item 12-16), and their product is L^-10·M^-2·T^4; the two are different units, so the defect is documented without a correction.",
 	}, {
 		ID:          "SI-233",
@@ -111,7 +111,7 @@ func LibraryEntries() []Entry {
 		Path:        siPath,
 		Line:        233,
 		AsPublished: "    attribute <'m²⋅A'> 'metre squared ampere' : MagneticDipoleMomentUnit = m^2*A;",
-		Citation:    "KerML 7.4.9",
+		Citation:    kermlFeatureValue,
 		Derivation:  "`ISQ::*` re-exports two MagneticDipoleMomentUnits, the electromagnetic one (L^3·M·T^-2·I^-1, IEC 80000-6 item 6-30) and the atomic one (L^2·I, ISO 80000-10 item 10-9.1); `m^2*A` is the atomic unit, the unqualified name resolves to the electromagnetic one, and the ISQ library rather than this line is where the name clash is fixed, so the defect is documented without a correction.",
 	}, {
 		ID:          "SI-239",
@@ -119,7 +119,7 @@ func LibraryEntries() []Entry {
 		Path:        siPath,
 		Line:        239,
 		AsPublished: "    attribute <'m²⋅s⁻³'> 'metre squared second to the power minus 3' : DoseEquivalentUnit = m^2*s^-3;",
-		Citation:    "KerML 7.4.9",
+		Citation:    kermlFeatureValue,
 		Derivation:  "`m^2*s^-3` is L^2·T^-3, a dose-equivalent rate (ISO 80000-10 item 10-83.2), while DoseEquivalentUnit is L^2·T^-2; ISQAtomicNuclear declares no rate unit to retype the line by, so the defect is documented without a correction.",
 	}, {
 		ID:          "SI-247",
@@ -128,7 +128,7 @@ func LibraryEntries() []Entry {
 		Line:        247,
 		AsPublished: "    attribute <'m³/C⋅m³⋅s⁻¹⋅A⁻¹'> 'metre cubed per coulomb cubic metre second to the power minus 1 ampere to the power minus 1' : HallCoefficientUnit = m^3/C*m^3*s^-1*A^-1;",
 		Corrected:   "    attribute <'m³/C⋅m³⋅s⁻¹⋅A⁻¹'> 'metre cubed per coulomb cubic metre second to the power minus 1 ampere to the power minus 1' : HallCoefficientUnit = m^3/C;",
-		Citation:    "KerML 7.4.9",
+		Citation:    kermlFeatureValue,
 		Derivation:  "`m^3/C` and `m^3*s^-1*A^-1` are one coherent unit spelled twice (`C = A*s` in the same file), each the Hall coefficient of ISO 80000-12 item 12-19 (L^3·T^-1·I^-1) that HallCoefficientUnit declares; their product is L^6·T^-2·I^-2, and either spelling alone is the same unit, so `m^3/C` is substituted. The name stays as published so the element's identity does.",
 	}, {
 		ID:          "SI-286",
@@ -136,7 +136,7 @@ func LibraryEntries() []Entry {
 		Path:        siPath,
 		Line:        286,
 		AsPublished: "    attribute <'Sv/s'> 'sievert per second' : DoseEquivalentUnit = Sv/s;",
-		Citation:    "KerML 7.4.9",
+		Citation:    kermlFeatureValue,
 		Derivation:  "`Sv/s` is L^2·T^-3, a dose-equivalent rate (ISO 80000-10 item 10-83.2), while DoseEquivalentUnit is L^2·T^-2; as at line 239, no rate unit exists to retype the line by, so the defect is documented without a correction.",
 	}, {
 		ID:          "SI-299",
@@ -144,7 +144,7 @@ func LibraryEntries() []Entry {
 		Path:        siPath,
 		Line:        299,
 		AsPublished: "    attribute <'W/kg'> 'watt per kilogram' : DoseEquivalentUnit = W/kg;",
-		Citation:    "KerML 7.4.9",
+		Citation:    kermlFeatureValue,
 		Derivation:  "`W/kg` is L^2·T^-3, a dose-equivalent rate (ISO 80000-10 item 10-83.2), while DoseEquivalentUnit is L^2·T^-2; as at line 239, no rate unit exists to retype the line by, so the defect is documented without a correction.",
 	}, {
 		ID:          "USCustomaryUnits-255",
@@ -153,12 +153,18 @@ func LibraryEntries() []Entry {
 		Line:        255,
 		AsPublished: "        private attribute zeroDegreeFahrenheitInKelvin: ThermodynamicTemperatureValue = 229835/900 [K];",
 		Corrected:   "        private attribute zeroDegreeFahrenheitInKelvin: ThermodynamicTemperatureValue = (229835/900) [K];",
-		Citation:    "SysML v2 §9.8.9.1",
+		Citation:    sysmlUnitArithmetic,
 		Derivation:  "the unit postfix binds to PrimaryExpression (KerMLExpressions.xtext:308), below MultiplicativeExpression, so `[K]` qualifies 900 alone and the value is Θ^-1 where ThermodynamicTemperatureValue is Θ; the evident intent, 0 °F as a temperature in kelvin, is `(229835/900) [K]`.",
 	}}
 }
 
 const siPath = LibraryRoot + "/Domain Libraries/Quantities and Units/SI.sysml"
+
+// The clauses the published defects violate.
+const (
+	sysmlUnitArithmetic = "SysML v2 §9.8.9.1"
+	kermlFeatureValue   = "KerML 7.4.9"
+)
 
 // Overlay is a registry indexed by file, ready to apply.
 type Overlay struct {
