@@ -82,6 +82,9 @@ func (a *activity) refusal(n *sysmlv1.Element) (why string, v Verdict, refused b
 			if dry := a.valueless(pins[i]); dry != nil {
 				return a.dryArgument(pins[i], sig, attr, dry), Approximated, true
 			}
+			if pt, at := a.misfit(pins[i], attr); pt != nil {
+				return a.misfitArgument(pins[i], sig, attr, pt, at), Approximated, true
+			}
 		}
 	}
 	return "", Mapped, false
@@ -286,6 +289,22 @@ func (a *activity) dryArgument(pin, callee, p, dry *sysmlv1.Element) string {
 		what, does = "attribute", "sends the signal"
 	}
 	return "the pin " + describe(pin) + " it passes for the " + what + " " + a.m.nameFor(p) + " of " + qualifiedName(callee) + ", which must hold a value, receives none: " + describe(dry) + ", which feeds it, produces no value; v1 " + does + " without it, which v2 does not admit, so the action carries the token and performs nothing"
+}
+
+// misfit returns the types of an argument pin and of the signal attribute it stands
+// for when the attribute cannot take the pin's type; nil, nil when it can or is unknown.
+func (a *activity) misfit(pin, attr *sysmlv1.Element) (pt, at *sysmlv1.Element) {
+	pt, at = a.m.model.Ref(pin, "type"), a.m.model.Ref(attr, "type")
+	if pt == nil || at == nil || pt == at || a.m.inherits(pt, at) || !a.m.written(at) {
+		return nil, nil
+	}
+	return pt, at
+}
+
+// misfitArgument says why a send is a placeholder: the pin it passes for a
+// required signal attribute holds a type the attribute cannot take.
+func (a *activity) misfitArgument(pin, sig, attr, pt, at *sysmlv1.Element) string {
+	return "the pin " + describe(pin) + " it passes for the attribute " + a.m.nameFor(attr) + " of " + qualifiedName(sig) + ", which must hold a value, is a " + qualifiedName(pt) + ", which " + a.m.nameFor(attr) + " : " + qualifiedName(at) + " cannot take; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing"
 }
 
 // uncontexted says why a call is a placeholder: the caller holds no object the

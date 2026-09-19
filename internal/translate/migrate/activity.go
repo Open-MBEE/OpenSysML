@@ -1764,8 +1764,7 @@ func (a *activity) signalArguments(n, sig *sysmlv1.Element) ([]string, string) {
 			notes = append(notes, "the signal has no attribute for the argument pin "+a.names[pin]+", which is not sent")
 			continue
 		}
-		pt, at := a.m.model.Ref(pin, "type"), a.m.model.Ref(attrs[i], "type")
-		if pt != nil && at != nil && pt != at && !a.m.inherits(pt, at) && a.m.written(at) {
+		if pt, at := a.misfit(pin, attrs[i]); pt != nil {
 			notes = append(notes, "the argument pin "+a.names[pin]+" is a "+qualifiedName(pt)+", which the signal's "+a.m.nameOf(attrs[i])+" : "+qualifiedName(at)+" cannot take; it is not sent")
 			continue
 		}

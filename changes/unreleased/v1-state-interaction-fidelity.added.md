@@ -65,7 +65,7 @@
   connector can join it and a signal sent inward over it reaches the bound part's machine.
 - **A migrated call or send that v1 fires without a required value keeps its place and performs
   nothing.** A call passing no argument for a parameter that must hold a value, or a call or
-  signal send passing none for a signal attribute that must, or one whose pin is fed only by flows no value travels — from a parameter nothing values,
+  signal send passing none for a signal attribute that must, one passing a pin of a type the attribute cannot take, or one whose pin is fed only by flows no value travels — from a parameter nothing values,
   an unmigrated opaque or value specification action, or a callee whose own activity gives that
   `out` parameter no value, judged through any depth of nesting — is written as an empty action carrying the token,
   with the reason in its comment and report line, and the object flow is kept as a comment

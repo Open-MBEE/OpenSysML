@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -537,7 +538,8 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 			m.downgrade(b, describe(owner)+" names it as its "+kw+", which a "+cat.keyword()+" cannot be")
 			return false
 		}
-		line, note := kw+" : "+m.ref(b, owner)+";", "also run as the "+kw+" of "+describe(owner)
+		var ins []string
+		note := "also run as the " + kw + " of " + describe(owner)
 		if c := m.contextOf(b); c != nil {
 			expr, cnote := m.contextBinding(c, classifierOf(owner), "this")
 			if expr == "" {
@@ -546,8 +548,32 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 				m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+" is not run: "+cnote)
 				return false
 			}
-			line = kw + " : " + m.ref(b, owner) + " { in " + writeName(c.name) + " = " + expr + "; }"
+			ins = append(ins, writeName(c.name)+" = "+expr)
 			note = joinNotes(note, cnote)
+		}
+		if params := inParameters(b); len(params) > 0 && owner.Type != "Transition" {
+			why := "a state performs its " + kw + " with no arguments; " + m.carrierWhy(owner, kw)
+			bound := m.carrierBindings(owner, b)
+			switch {
+			case bound != nil && kw != "exit action":
+				for _, p := range params {
+					ins = append(ins, writeName(m.nameFor(p))+" = "+bound[p])
+				}
+				note = joinNotes(note, "its parameters take the attributes of the signal the transitions into the state accept")
+			case slices.IndexFunc(params, requiresValue) >= 0:
+				p := params[slices.IndexFunc(params, requiresValue)]
+				why = "its parameter " + m.nameFor(p) + " must hold a value that nothing supplies: " + why
+				m.w.lines(commentLines(kw + " " + qualifiedName(b) + " is not run: " + why))
+				m.downgrade(b, "not run as the "+kw+" of "+describe(owner)+": "+why)
+				m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+" is not run: "+why)
+				return false
+			default:
+				note = joinNotes(note, "its parameters take no value: "+why)
+			}
+		}
+		line := kw + " : " + m.ref(b, owner) + ";"
+		if len(ins) > 0 {
+			line = kw + " : " + m.ref(b, owner) + " { in " + strings.Join(ins, "; in ") + "; }"
 		}
 		m.w.line(line)
 		m.downgrade(b, note)

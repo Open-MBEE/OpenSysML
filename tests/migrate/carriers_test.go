@@ -289,3 +289,91 @@ func TestStateBehaviorsTakeInheritedSignalAttributes(t *testing.T) {
 		t.Errorf("the entry action did not read the inherited level: %s", out)
 	}
 }
+
+// monitorMachine enters Ready on Warning; Ready refers to the Monitor's Handle, which
+// takes the warning's level, as its entry, and Idle, entered from the initial
+// pseudostate, refers to it as its do.
+const monitorMachine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_warning" name="Warning">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_wLevel" name="level">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_wEv" signal="_warning"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_monitor" name="Monitor" classifierBehavior="_msm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_mseen" name="seen">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_mseen0" value="0.0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_handle" name="Handle">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_handleL" name="level" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_handleLN" name="level" parameter="_handleL"/>
+        <node xmi:type="uml:InitialNode" xmi:id="_handleI"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_note" name="note" structuralFeature="_mseen" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_noteV" name="value"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_handleF"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_handleE1" source="_handleI" target="_note"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_handleE2" source="_handleLN" target="_noteV"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_handleE3" source="_note" target="_handleF"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_msm" name="Watch">
+        <region xmi:type="uml:Region" xmi:id="_mr">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_minit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_midle" name="Idle" doActivity="_handle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_mready" name="Ready" entry="_handle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_mt0" source="_minit" target="_midle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_mt1" source="_midle" target="_mready">
+            <trigger xmi:type="uml:Trigger" xmi:id="_mtr1" event="_wEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_mt2" source="_mready" target="_mready">
+            <trigger xmi:type="uml:Trigger" xmi:id="_mtr2" event="_wEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+const monitorApplications = `
+  <sysml:Block xmi:id="_m1" base_Class="_monitor"/>`
+
+// A state's entry or do it refers to rather than owns takes the accepted signal's
+// attributes like an owned one, bound where it is run; where no signal values a
+// parameter it requires, it is not run, and the state says why.
+func TestReferencedStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.T) {
+	r := migrateDocument(t, monitorMachine, monitorApplications)
+	for _, line := range []string{
+		"item warning : Warning;",
+		"state Ready {",
+		"entry action : Handle { in level = warning.level; }",
+		"/* do action Monitor::Handle is not run: its parameter level must hold a value that nothing supplies: a state performs its do action with no arguments; the signal the transitions into the state accept would value them, but the transition from the initial pseudostate (_minit) enters the state with no signal of its own */",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "do action : Handle;")
+	wantNoLine(t, r.Notation, "entry action : Handle;")
+	wantNote(t, r, "_mready", migrate.Approximated, "the parameters of its entry and do actions take the attributes of Warning, the signal every transition into it accepts and keeps in warning")
+	wantNote(t, r, "_midle", migrate.Approximated, "its do action Monitor::Handle is not run: its parameter level must hold a value that nothing supplies: a state performs its do action with no arguments; the signal the transitions into the state accept would value them, but the transition from the initial pseudostate (_minit) enters the state with no signal of its own")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Monitor")
+	meta(t, s, "%state Monitor::Watch")
+	if out := meta(t, s, "%send Warning(level=2.5)"); !strings.Contains(out, "transition Idle -> Ready fires on it") {
+		t.Errorf("%%send Warning: %s", out)
+	}
+	meta(t, s, "%step")
+	if out := meta(t, s, "%eval in #1 : seen"); !strings.Contains(out, "= 2.5") {
+		t.Errorf("the referenced entry did not read the signal's level: %s", out)
+	}
+	if out := meta(t, s, "%send Warning(level=4.0)"); !strings.Contains(out, "transition Ready -> Ready fires on it") {
+		t.Errorf("%%send Warning: %s", out)
+	}
+	meta(t, s, "%step")
+	if out := meta(t, s, "%eval in #1 : seen"); !strings.Contains(out, "= 4.0") {
+		t.Errorf("the referenced entry did not read the second signal's level: %s", out)
+	}
+}

@@ -340,12 +340,15 @@ order, type and multiplicity — the signal's own attributes first, then those i
 its generals: the `state def` declares an item of the signal's type,
 `item setPoint : SetPoint;`, each transition into the state assigns what it accepted to it,
 `accept setPoint2 : SetPoint … assign setPoint := setPoint2;`, and the behavior's parameters
-read its attributes, `in target : ScalarValues::Real = setPoint.level;`. A state some
+read its attributes, `in target : ScalarValues::Real = setPoint.level;` inline, or
+`entry action : Handle { in level = setPoint.level; }` where the state refers to a behavior
+written elsewhere. A state some
 transition enters without a signal — from the initial pseudostate, on a time or change event,
 or carrying a different signal — or whose parameters the signal's attributes do not fit, keeps
 the parameters unvalued and the report says which transition or attribute is the reason; an
 exit behavior with parameters is refused the same way, since nothing of the exit carries a
-signal.
+signal. A referred-to behavior whose parameter must hold a value is then not run, as a call
+passing no argument for such a parameter is not.
 
 A trigger naming a port of the behavior's owner is `accept Sig via rx`; one naming a port of
 another block is written without it and the report says whose port it is. A trigger naming no

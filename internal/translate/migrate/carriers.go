@@ -72,13 +72,12 @@ func (m *migration) carriers(sm *sysmlv1.Element, used map[string]bool) {
 	}
 }
 
-// parameterizedBehaviors lists the entry and do behaviors a state owns that
-// take parameters, which a carrier would value.
+// parameterizedBehaviors lists the entry and do behaviors a state runs, owned or
+// referred to, that take parameters, which a carrier would value.
 func (m *migration) parameterizedBehaviors(v *sysmlv1.Element) []*sysmlv1.Element {
 	var out []*sysmlv1.Element
 	for _, role := range []string{"entry", "doActivity"} {
-		b := firstOwned(v, role)
-		if b != nil && b.Parent == v && len(inParameters(b)) > 0 {
+		if b := m.stateBehavior(v, role); b != nil && len(inParameters(b)) > 0 {
 			out = append(out, b)
 		}
 	}
