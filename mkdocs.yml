@@ -179,10 +179,15 @@ nav:
       - Outputs: manual/outputs.md
       - Interfaces: manual/interfaces.md
       - Worked example: manual/worked-example.md
+      - Requirements traceability examples: manual/traceability-examples.md
       - Limitations and troubleshooting: manual/troubleshooting.md
       - Worked example output: manual/examples/observatory.md
       - Requirements example output: manual/examples/requirements.md
       - Traceability example output: manual/examples/traceability.md
+      - Traceability tier 1 output: manual/examples/trace-1-basic.md
+      - Traceability tier 2 output: manual/examples/trace-2-hierarchy.md
+      - Traceability tier 3 output: manual/examples/trace-3-derivation.md
+      - Traceability tier 4 output: manual/examples/trace-4-program.md
   - Reference:
       - reference/README.md
       - CLI: reference/cli.md

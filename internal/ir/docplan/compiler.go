@@ -1831,6 +1831,8 @@ func (c *compiler) bindingValue(
 		return c.elementBinding(content, member, entry, parameter, expression.Name, origin)
 	case *ast.QualifiedName:
 		return c.elementBinding(content, member, entry, parameter, expression, origin)
+	case *ast.FeatureChainExpr:
+		return c.chainBinding(content, member, entry, parameter, expression, origin)
 	case *ast.LiteralString:
 		text, err := strconv.Unquote(expression.Value)
 		if err != nil {
@@ -1906,6 +1908,23 @@ func (c *compiler) elementBinding(
 	}
 	if canonical, ok := c.resolver.ResolveAliasTarget(resolved); ok {
 		resolved = canonical
+	}
+	return BindingValue{kind: BindingElement, element: resolved, origin: origin}, nil
+}
+
+// chainBinding compiles a dot-notation binding to the nested element the
+// chain names, as a diagram's source may name one.
+func (c *compiler) chainBinding(
+	content *symbols.Symbol,
+	member *symbols.Symbol,
+	entry string,
+	parameter string,
+	chain *ast.FeatureChainExpr,
+	origin symbols.Origin,
+) (BindingValue, error) {
+	resolved, ok := c.resolver.ResolveTarget(member.OwnerScope, chain)
+	if !ok || resolved == nil {
+		return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 	}
 	return BindingValue{kind: BindingElement, element: resolved, origin: origin}, nil
 }

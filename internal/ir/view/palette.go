@@ -108,6 +108,10 @@ func (k Kind) SupportsPalette() bool {
 // TakesPalette reports whether the form fills nodes from a palette.
 func (f Form) TakesPalette() bool { return slices.Contains(paletteForms, f) }
 
+// paletteBorders reports whether a filled node's border takes the family colour
+// in a rendering of the kind; PlantUML accepts no border colour on a participant.
+func (k Kind) paletteBorders() bool { return k != KindSequence }
+
 // controlKinds are the kinds drawn as control and pseudo-state nodes: they
 // keep the black-and-white rules and a square shape under every palette.
 var controlKinds = map[string]bool{startKind: true, "initial": true, "final": true, "fork": true, "join": true,
@@ -156,6 +160,48 @@ func (f *familyFills) color(node *Node) string {
 // fill is the fill a filled node takes: its family colour, tinted for a usage.
 func (f *familyFills) fill(node *Node) string {
 	return paletteFill(f.color(node), !isDefinitionKind(node.Kind))
+}
+
+// Fill is the colours a palette gives one node, `#RRGGBB`: the fill of its box,
+// and the border, the family colour the fill is tinted from — empty for a
+// sequence participant, whose outline keeps the black-and-white rules.
+type Fill struct {
+	Fill   string
+	Border string
+}
+
+// Fills is the fill each node takes under the palette, by node ID, as the DOT and PlantUML
+// forms fill it; a node left black and white, and every node under no palette, is absent.
+func (r *Rendering) Fills(palette Palette) (map[string]Fill, error) {
+	if err := palette.check(); err != nil {
+		return nil, err
+	}
+	fills := map[string]Fill{}
+	if palette == "" || !r.Kind.SupportsPalette() {
+		return fills, nil
+	}
+	f := familyFills{palette: palette, tree: r.Kind == KindTree}
+	for _, root := range r.Roots {
+		f.collect(root)
+	}
+	borders := r.Kind.paletteBorders()
+	var walk func(node *Node)
+	walk = func(node *Node) {
+		if f.filled(node) {
+			fill := Fill{Fill: f.fill(node)}
+			if borders {
+				fill.Border = f.color(node)
+			}
+			fills[node.ID] = fill
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root)
+	}
+	return fills, nil
 }
 
 // The palettes' colours as their authors publish them, `#RRGGBB`. The

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -687,6 +688,99 @@ func TestRenderFillsFromThePaletteAsked(t *testing.T) {
 	}
 }
 
+// A palette colours the result's nodes as the DOT artifact of the same request
+// does, hex for hex, whatever form is asked for; a control node stays uncoloured,
+// and no node is coloured when no palette is asked for.
+func TestRenderNodesCarryThePaletteFills(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	fillLine := regexp.MustCompile(`^\s*"([^"]+)" \[.*fillcolor="(#[0-9A-F]{6})", color="(#[0-9A-F]{6})"`)
+	for _, form := range []view.Form{view.FormDot, view.FormMermaid} {
+		raw, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         "KitViews::widgetStates",
+			Form:         string(form),
+			Palette:      string(view.PaletteTolBright),
+		})
+		if err != nil {
+			t.Fatalf("render %s with a palette: %v", form, err)
+		}
+		var out renderResult
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode render result: %v", err)
+		}
+		got := map[string][2]string{}
+		for _, n := range out.Nodes {
+			if n.Fill != "" || n.Border != "" {
+				got[n.ID] = [2]string{n.Fill, n.Border}
+			}
+			if n.Kind == "initial" && (n.Fill != "" || n.Border != "") {
+				t.Errorf("%s: the initial pseudostate %s is coloured %s/%s", form, n.ID, n.Fill, n.Border)
+			}
+		}
+		if len(got) < 2 {
+			t.Errorf("%s: only %d nodes coloured: %+v", form, len(got), out.Nodes)
+		}
+		if form == view.FormDot {
+			want := map[string][2]string{}
+			for _, line := range strings.Split(out.Artifact, "\n") {
+				if m := fillLine.FindStringSubmatch(line); m != nil {
+					want[m[1]] = [2]string{m[2], m[3]}
+				}
+			}
+			if fmt.Sprint(got) != fmt.Sprint(want) {
+				t.Errorf("nodes coloured %v, the DOT artifact %v", got, want)
+			}
+		}
+	}
+	raw, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetStates",
+	})
+	if err != nil {
+		t.Fatalf("render without a palette: %v", err)
+	}
+	if strings.Contains(string(raw), `"fill"`) || strings.Contains(string(raw), `"border"`) {
+		t.Errorf("a rendering without a palette carries colours:\n%s", raw)
+	}
+}
+
+// A sequence participant carries the fill alone, as PlantUML colours no
+// participant border; the border key is absent from the wire, not empty.
+func TestRenderSequenceParticipantsFillWithoutBorder(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	raw, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetSequence",
+		Form:         string(view.FormPlantUML),
+		Palette:      string(view.PaletteOkabeIto),
+	})
+	if err != nil {
+		t.Fatalf("render the sequence with a palette: %v", err)
+	}
+	var out renderResult
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode render result: %v", err)
+	}
+	filled := 0
+	for _, n := range out.Nodes {
+		if n.Fill != "" {
+			filled++
+		}
+		if n.Border != "" {
+			t.Errorf("participant %s has border %s, want none", n.ID, n.Border)
+		}
+	}
+	if filled == 0 {
+		t.Errorf("no participant filled: %+v", out.Nodes)
+	}
+	if strings.Contains(string(raw), `"border"`) {
+		t.Errorf("a sequence rendering carries a border key:\n%s", raw)
+	}
+	if strings.Contains(out.Artifact, ";line:") {
+		t.Errorf("the PlantUML artifact colours a participant border:\n%s", out.Artifact)
+	}
+}
+
 // A view's layout annotations reach the client as geometry on nodes and edges
 // and a canvas on the result; a rendering without any carries none of the fields.
 func TestRenderCarriesLayoutGeometry(t *testing.T) {
@@ -869,6 +963,9 @@ func TestInitializeAdvertisesTheRenderCapability(t *testing.T) {
 	}
 	if experimental[CrossDocumentCapability] != true {
 		t.Errorf("%s = %#v, want true", CrossDocumentCapability, experimental[CrossDocumentCapability])
+	}
+	if experimental[RenderPaletteCapability] != true {
+		t.Errorf("%s = %#v, want true", RenderPaletteCapability, experimental[RenderPaletteCapability])
 	}
 }
 
