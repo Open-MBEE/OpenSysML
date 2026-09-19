@@ -3,10 +3,10 @@ package passes
 import (
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // SelectInvocation is the declaration e calls in scope, chosen among every visible

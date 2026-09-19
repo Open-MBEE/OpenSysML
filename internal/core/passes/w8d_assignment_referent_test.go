@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 func assignmentReferentFindings(t *testing.T, src string, warm bool) []diag.Diagnostic {

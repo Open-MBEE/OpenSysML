@@ -3,8 +3,8 @@ package semantics
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // portSrc declares a directed port definition and ordinary and conjugated

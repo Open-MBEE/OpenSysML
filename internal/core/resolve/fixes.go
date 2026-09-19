@@ -1,12 +1,13 @@
 package resolve
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+
 	"github.com/Open-MBEE/OpenSysML/internal/core/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // unresolvedFixes returns the edits resolving an unresolved simple name: writing

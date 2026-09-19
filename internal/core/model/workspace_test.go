@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 func TestWorkspaceOpenIndexesDocument(t *testing.T) {

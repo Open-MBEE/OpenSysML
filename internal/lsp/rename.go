@@ -6,8 +6,8 @@ import (
 
 	"go.lsp.dev/protocol"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // renameTarget is the name under the rename cursor: the symbol it belongs to,

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/pack"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/pack"
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/graphcmp"
 )
 

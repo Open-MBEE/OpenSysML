@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/envvar"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // TestBudgetFromValue covers what each variable resolves to: unset, empty,

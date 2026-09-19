@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // transitionBetween returns the lowered transition from the named source to the

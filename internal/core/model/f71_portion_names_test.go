@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // F71: `timeslice` names a KerML feature, so the parameter of `expr while` builds

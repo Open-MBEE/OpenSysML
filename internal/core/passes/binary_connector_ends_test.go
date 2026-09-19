@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // binaryEndLines returns the 1-based line of every diagnostic reporting an end

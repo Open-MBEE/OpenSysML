@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // A condition reading a subject by its short name sees the object the subject

@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // The `replay:<file>` policy fixes a witness's input lines before the run's first move, follows

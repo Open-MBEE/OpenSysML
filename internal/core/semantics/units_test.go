@@ -4,10 +4,10 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // TestScaleStaysExact: a conversion factor is kept as a ratio, so converting at

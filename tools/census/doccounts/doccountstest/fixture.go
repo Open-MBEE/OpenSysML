@@ -81,7 +81,7 @@ func TestNegativeKerML(t *testing.T) {
 
 func TestGolden(t *testing.T) {}
 `)
-	Write(t, root, "internal/core/parser/negative_test.go", `package parser
+	Write(t, root, "internal/syntax/parser/negative_test.go", `package parser
 
 import "testing"
 

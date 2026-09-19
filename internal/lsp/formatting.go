@@ -11,7 +11,7 @@ import (
 
 	"go.lsp.dev/protocol"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/format"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/format"
 )
 
 // formatSource is the formatter behind both formatting requests; tests swap it

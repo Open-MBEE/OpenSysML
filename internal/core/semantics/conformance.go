@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // Viewpoint conformance (SysML v2 7.24): a concern is a requirement, so whether

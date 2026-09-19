@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // nestedUsageOutputs evaluates every output of the named calc usage in src.

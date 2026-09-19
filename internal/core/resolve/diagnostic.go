@@ -1,8 +1,8 @@
 package resolve
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Diagnostic is a name-resolution problem tied to a source span.

@@ -1,6 +1,6 @@
 package symbols
 
-import "github.com/Open-MBEE/OpenSysML/internal/core/ast"
+import "github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 
 // DeclIdent returns the identification a declaration node carries: the long and
 // short names it states, each with the span it was written at.

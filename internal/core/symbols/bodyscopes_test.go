@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // findBodyScopes returns every scope in the tree owned by a body expression.

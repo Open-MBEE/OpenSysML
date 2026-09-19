@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // recursiveSumModel sums the integers up to its argument by recursion, so the

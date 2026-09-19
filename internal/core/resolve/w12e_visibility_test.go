@@ -3,7 +3,7 @@ package resolve
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // A connector end's participant is a feature of the type featuring the

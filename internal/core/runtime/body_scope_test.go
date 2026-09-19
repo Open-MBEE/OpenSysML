@@ -3,7 +3,7 @@ package runtime
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // TestBodyScopeImportSpellings: the scope an action body is evaluated in is the

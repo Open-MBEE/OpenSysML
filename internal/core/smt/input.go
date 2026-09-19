@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // Input is one feature of the initial state as the encoding takes it: free in

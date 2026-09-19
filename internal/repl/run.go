@@ -7,11 +7,11 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/project"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // errRuntimeInit marks a runtime the session could not create at all, which the

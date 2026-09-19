@@ -3,8 +3,8 @@ package edit
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // connectionKind is one connector-like usage kind: the languages that write it,

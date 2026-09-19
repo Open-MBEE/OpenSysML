@@ -8,10 +8,10 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast/astcodec"
-	"github.com/Open-MBEE/OpenSysML/internal/core/pack"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast/astcodec"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/pack"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // ErrNotSnapshottable reports an index WriteSnapshot cannot serialise: one

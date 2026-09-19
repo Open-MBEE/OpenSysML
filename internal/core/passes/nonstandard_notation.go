@@ -3,10 +3,10 @@ package passes
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // CodeNonstandardNotation marks notation OpenSysML accepts that no production of

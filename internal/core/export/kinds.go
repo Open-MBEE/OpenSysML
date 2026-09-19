@@ -1,8 +1,8 @@
 package export
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf/ontology"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // The tables below are the single source of truth for the correspondence

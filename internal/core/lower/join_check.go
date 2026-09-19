@@ -3,7 +3,7 @@ package lower
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // JoinPlan is where a join's incoming segments come from: Regions maps each to

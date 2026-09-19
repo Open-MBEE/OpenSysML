@@ -17,7 +17,6 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docpdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
@@ -27,19 +26,20 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	passidentity "github.com/Open-MBEE/OpenSysML/internal/core/passes/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 	service "github.com/Open-MBEE/OpenSysML/internal/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
 	"github.com/Open-MBEE/OpenSysML/internal/lsp"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 const selfModelDir = "self-model"
@@ -1353,7 +1353,7 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 	// empty rendering of either would otherwise pass unnoticed.
 	for _, want := range []string{
 		"# OpenSysML Architecture",
-		"| sources | internal/core/source |",
+		"| sources | internal/syntax/source |",
 		"| notation | syntax | false |",
 		"| actionEndpoints | name-resolution | true |",
 		"| calcDepth | nested calculation depth | OPENSYSML\\_MAX\\_CALC\\_DEPTH | 10000 | calc recursion limit exceeded |",

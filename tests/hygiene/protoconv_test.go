@@ -45,11 +45,29 @@ func TestProtoconvImportsOnlyTheMessages(t *testing.T) {
 	if err != nil {
 		t.Fatalf("go list: %v", err)
 	}
+	belowFrontend := []string{
+		"/internal/core/",
+		"/internal/syntax/",
+		"/internal/semantic/",
+		"/internal/ir/",
+		"/internal/check/",
+		"/internal/exec/",
+		"/internal/translate/",
+		"/internal/doc/",
+		"/internal/workspace/",
+	}
 	for _, imp := range strings.Fields(string(out)) {
+		core := false
+		for _, prefix := range belowFrontend {
+			if strings.HasPrefix(imp, module+prefix) {
+				core = true
+				break
+			}
+		}
 		switch {
 		case !strings.Contains(imp, "."),
 			imp == module+"/api/proto",
-			strings.HasPrefix(imp, module+"/internal/core/"),
+			core,
 			strings.HasPrefix(imp, "google.golang.org/protobuf/"):
 		default:
 			t.Errorf("internal/protoconv imports %s", imp)

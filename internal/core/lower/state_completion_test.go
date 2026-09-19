@@ -3,7 +3,7 @@ package lower
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // A transition to `done` lowers to a completion vertex of the machine: the

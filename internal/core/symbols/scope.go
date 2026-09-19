@@ -4,7 +4,7 @@ import (
 	"math"
 	"sync/atomic"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // Scope is a node in the immutable per-document scope tree. It owns the

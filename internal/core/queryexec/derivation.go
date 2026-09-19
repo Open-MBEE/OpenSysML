@@ -1,8 +1,8 @@
 package queryexec
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // Library elements a derivation (a connection conforming to Derivation, its ends

@@ -5,7 +5,7 @@ import (
 
 	"go.lsp.dev/protocol"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // strictConformanceKey is the setting an editor sets to ask the strict question,

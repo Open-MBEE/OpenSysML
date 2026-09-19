@@ -11,10 +11,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf/ontology"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Metaclass names for the behavioral nodes the SysML metamodel has no

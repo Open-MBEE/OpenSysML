@@ -3,7 +3,7 @@ package repl
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // ConformanceMode reports the strictness the session judges notation at.

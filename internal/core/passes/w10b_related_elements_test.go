@@ -3,7 +3,7 @@ package passes
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // A concrete connector with one end relates one element, so it is reported

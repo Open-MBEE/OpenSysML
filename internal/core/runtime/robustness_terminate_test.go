@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // TestRuntimeRobustnessTerminate exercises the shapes a `terminate` refuses: each is

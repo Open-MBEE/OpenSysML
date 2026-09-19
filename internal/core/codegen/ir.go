@@ -2,7 +2,7 @@
 // see docs/project/native-compilation.md for the subset and its semantics.
 package codegen
 
-import "github.com/Open-MBEE/OpenSysML/internal/core/ast"
+import "github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 
 // Type is a type of the compiled subset: a scalar, or a collection of scalars.
 // A collection value is the interpreter's dynamic view of a multi-valued

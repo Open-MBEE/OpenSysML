@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Every KerML feature declaration subsets a Feature: a `bool`, an `expr` or a

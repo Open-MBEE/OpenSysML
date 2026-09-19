@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // ErrNoWitness is the typed error of a decode over a result that carries no model.

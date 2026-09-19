@@ -3,8 +3,8 @@ package lower
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // A block — a loop body or a branch of a conditional — whose members include an

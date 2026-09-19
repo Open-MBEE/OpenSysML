@@ -1,6 +1,6 @@
 package symbols
 
-import "github.com/Open-MBEE/OpenSysML/internal/core/ast"
+import "github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 
 // LibraryFacts is the derived analysis of one library symbol: the semantic work
 // whose derivation dominates a cold library load, held so that a later load can

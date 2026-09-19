@@ -3,7 +3,7 @@ package resolve
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // A transient name resolved inside Scratch answers as usual, and once Scratch

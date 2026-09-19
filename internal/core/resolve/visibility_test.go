@@ -3,7 +3,7 @@ package resolve
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // ident is a throwaway AST node used only as a memo key for ResolveName.

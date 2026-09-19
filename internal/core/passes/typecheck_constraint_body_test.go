@@ -3,7 +3,7 @@ package passes
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // requirePrelude declares the requirement a require/assume body refers to.

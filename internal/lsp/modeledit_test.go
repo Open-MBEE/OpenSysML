@@ -11,8 +11,8 @@ import (
 	"go.lsp.dev/uri"
 
 	modeledit "github.com/Open-MBEE/OpenSysML/internal/core/edit"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // editModel is a document with comments and blank lines an edit must not touch.

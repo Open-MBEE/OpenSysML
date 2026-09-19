@@ -7,8 +7,8 @@ import (
 	"math"
 	"slices"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // terminated unwinds a body out to the executor step within perf, the performance

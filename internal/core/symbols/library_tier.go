@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // LibraryTier is the part of the bundled library a document belongs to. The

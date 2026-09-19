@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // runOneMachine creates a machine whose two regions each run a do body that waits

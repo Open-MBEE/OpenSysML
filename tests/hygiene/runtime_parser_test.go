@@ -21,7 +21,7 @@ func TestRuntimeDoesNotDependOnTheParser(t *testing.T) {
 		t.Fatalf("go list: %v", err)
 	}
 	for _, dep := range strings.Fields(string(out)) {
-		if dep == "github.com/Open-MBEE/OpenSysML/internal/core/parser" {
+		if dep == "github.com/Open-MBEE/OpenSysML/internal/syntax/parser" {
 			t.Errorf("internal/core/runtime depends on %s", dep)
 		}
 	}

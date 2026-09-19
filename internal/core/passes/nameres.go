@@ -3,8 +3,8 @@ package passes
 import (
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // NameResolutionPass resolves every reference in a document via the Plan-3

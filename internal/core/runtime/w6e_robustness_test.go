@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // A completion self-transition on a simple state re-runs its exit and entry

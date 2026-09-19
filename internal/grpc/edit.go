@@ -10,8 +10,8 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // ApplyEdits edits the source a model was parsed from and returns the edited

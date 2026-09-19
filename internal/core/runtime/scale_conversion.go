@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // scaleAnchor places a scale's zero on the reference it is defined against: a

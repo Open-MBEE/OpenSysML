@@ -1,10 +1,11 @@
 package libs
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 func TestPerformancesActualPattern(t *testing.T) {

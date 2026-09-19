@@ -3,8 +3,8 @@ package symbols
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // F69: a KerML `function` declares a Function, a Behavior specialization, so it

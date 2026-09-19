@@ -3,7 +3,7 @@ package passes
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // spanText returns the source text a diagnostic covers, so a test can assert

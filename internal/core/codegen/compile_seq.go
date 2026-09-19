@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // bind coerces v to the shape of binding b at where: a scalar binding takes the

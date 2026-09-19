@@ -1,8 +1,8 @@
 package semantics
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // Kernel Function Library functions applying a body to each element of a collection,

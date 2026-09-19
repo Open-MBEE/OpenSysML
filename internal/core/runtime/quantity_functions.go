@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // init registers the Quantities and Units domain library's calculation packages:

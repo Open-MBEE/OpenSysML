@@ -3,7 +3,7 @@ package symbols
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Two symbols built from one declaration in one document are one element,

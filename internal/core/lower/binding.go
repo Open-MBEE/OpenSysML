@@ -1,8 +1,8 @@
 package lower
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // Binding is a lowered binding connector with its two endpoint expressions and
