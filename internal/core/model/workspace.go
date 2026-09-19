@@ -318,7 +318,7 @@ func (w *Workspace) reindexLocked(name string, content []byte, version int) {
 	doc := newDocument(name, content, version)
 	w.docs[name] = doc
 	w.displaceLocked(name)
-	w.index.AddDocument(name, doc.AST) // AddDocument removes stale entries first
+	w.index.AddDocumentScope(name, doc.AST, doc.Scope) // removes stale entries first
 	w.standInLocked(name, doc)
 	w.index.ExpandWildcardImports() // Expand new document's wildcard imports
 	w.invalidateLocked(name)
