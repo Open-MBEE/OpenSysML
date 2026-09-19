@@ -1292,7 +1292,7 @@ is not a choice and is not reported.
 ### A do step and a dispatch due at one instant: which goes first is open
 
 Fixtures: `state_do_step_or_dispatch` (golden, explored), `state_do_step_among_completions`
-(golden, explored).
+(golden, explored), `state_do_step_or_tied_dispatch` (golden, explored).
 
 ```
 state Machine { attribute log : String = "";
@@ -1339,7 +1339,13 @@ dispatch after it, so their traces record no such choice and end `did stop `; `e
 both outcomes and no other. `state_do_step_among_completions` is the shape with two regions'
 completion effects for the dispatch: a region's do step and the other region's completion are
 each drawn at every instant both are due, and the region orders among the completions themselves
-stay their own draws.
+stay their own draws. `state_do_step_or_tied_dispatch` ties two time triggers at the instant the
+do step is due, one guarded on what the step writes: each tied event is previewed on its own, so
+the unguarded trigger alone is drawn against the step (`choice at t=2.0: next do top, dispatch
+time top 2->idle`) and the guarded one, which the dispatch would drop before the step, waits for
+the round to close, where the two are a dispatch order; `log` ends `did one `, `did two ` or
+`two `, and `explore` reaches the three and no other. Were the tied events judged together, the
+dropped one would hide the acting one behind the step and `two ` would be lost.
 
 ## What the executor gets wrong
 

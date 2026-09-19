@@ -202,7 +202,7 @@ Three kinds are added to `ChoiceKind`, and one existing kind draws at a finer gr
 | `ChoiceEntryOrder` | region entry, fork branch entry, history restore | `entering <state>` — the composite whose regions are entered; `fork <name>` for a fork's branches | the queues with a unit ready, in declaration order, each labelled by its next performing unit: `left(entry)`, `T2.1(effect)`, `split->a(effect)` | the queue advanced |
 | `ChoiceExitOrder` | region exit | `exiting <state>` | the queues with a unit ready, in declaration order, each labelled by its next performing unit: `inner(exit)` | the queue advanced |
 | `ChoiceRegionOrder` (existing) | firing units across regions, and the entries and exits nested in a firing | `on accept <event>`, `on change` — as `dispatchInOrder` labels the occurrence | the firings with a unit ready, by source state in declaration order, each labelled by its next unit: `l1(exit)`, `l1->l2(effect)`, `l2(entry)` | the firing advanced |
-| `ChoiceStepOrder` | a due do step against the dispatch at the head of the pool | `at t=<instant>` | `do <state>` per due do action of the round in entry order, then `dispatch <event>` for the head of the pool (`dispatch signal` for a message in flight, `dispatch change <condition>` for a change trigger risen, `dispatch` bare where tied events leave the event to a draw of its own) | the unit run |
+| `ChoiceStepOrder` | a due do step against the dispatch at the head of the pool | `at t=<instant>` | `do <state>` per due do action of the round in entry order, then `dispatch <event>` for the head of the pool (`dispatch signal` for a message in flight, `dispatch change <condition>` for a change trigger risen, `dispatch` bare where two or more tied events whose dispatch acts leave the event to a draw of its own among them) | the unit run |
 
 Canonical order is declaration order for regions, branches and firings — the order the runtime
 took before the draws were recorded — so the first alternative taken at every draw reproduces
@@ -461,7 +461,11 @@ performance's acceptance, and the due do step may be the `accept` that takes the
 the occurrence waits for the round to close as under the fixed policies. Without that rule the
 draw spends an occurrence a do behavior is one action from accepting, a run no policy of the
 runtime's makes and none the library orders (`state_join_completion_segment_waits_for_do_behavior`'s
-`Tick`, `state_join_completion_is_not_a_timers_expiry`'s timer).
+`Tick`, `state_join_completion_is_not_a_timers_expiry`'s timer). Events tied at the head are
+previewed one by one: those that act are the dispatch's alternatives against the step — one named
+by itself, two or more as the bare `dispatch` whose dispatch order is then drawn among them alone —
+and one that would be dropped is not, so a guarded trigger tied with an unguarded one does not hide
+the unguarded one's dispatch behind the step (`state_do_step_or_tied_dispatch`).
 
 The grain is the do action's step, not the token move this note first specified: one move is
 one statement of the do body (`doRun` yields after each statement of its body) or one action of

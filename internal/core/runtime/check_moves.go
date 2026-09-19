@@ -200,20 +200,20 @@ func (e *StateExecutor) enabledMoves() []enabledMove {
 	if e.state != StateRunning && e.state != StateSuspended {
 		return nil
 	}
-	dispatch, acts := e.dispatchMoves()
-	if e.roundDone && len(dispatch) > 0 {
-		return dispatch
+	dispatch := e.dueDispatch()
+	if e.roundDone && dispatch.due {
+		return e.dispatchMoves(dispatch, false)
 	}
-	due := e.dueRound()
-	if len(due) == 0 {
-		return dispatch
+	round := e.dueRound()
+	if len(round) == 0 {
+		return e.dispatchMoves(dispatch, false)
 	}
-	if len(dispatch) == 0 || !acts {
-		return e.doMoves(due, len(due) >= 2)
+	if !dispatch.acts {
+		return e.doMoves(round, len(round) >= 2)
 	}
-	moves := e.doMoves(due, true)
-	for _, m := range dispatch {
-		m.Picks = slices.Concat([]int{len(due)}, m.Picks)
+	moves := e.doMoves(round, true)
+	for _, m := range e.dispatchMoves(dispatch, true) {
+		m.Picks = slices.Concat([]int{len(round)}, m.Picks)
 		moves = append(moves, m)
 	}
 	return moves
@@ -226,7 +226,7 @@ func (e *StateExecutor) leftOut() string {
 	if e.state != StateRunning && e.state != StateSuspended {
 		return ""
 	}
-	if dispatch, _ := e.dispatchMoves(); len(dispatch) == 0 {
+	if !e.dueDispatch().due {
 		return ""
 	}
 	for _, act := range e.doActions {
@@ -260,22 +260,24 @@ func statesOf(acts []*doAction) []*ast.StateNode {
 	return states
 }
 
-// dispatchMoves is the dispatch due, if any: one move, or one per event tied at the
-// head picked by its place among them; acts as dueDispatch reports it.
-func (e *StateExecutor) dispatchMoves() (moves []enabledMove, acts bool) {
-	label, acts, due := e.dueDispatch()
-	if !due {
-		return nil, false
+// dispatchMoves is the dispatch due: one move, or one per event tied at the head
+// picked by its place among them — among the acting ones where a step order draws it.
+func (e *StateExecutor) dispatchMoves(d dueDispatch, stepOrder bool) []enabledMove {
+	if !d.due {
+		return nil
 	}
-	if label != dispatchTiedLabel {
-		return []enabledMove{{Owner: e, Kind: moveDispatch, Label: label}}, acts
+	events, label := d.tied, d.label
+	if stepOrder {
+		events, label = d.among, d.step
 	}
-	tied := e.eventQueue.Tied()
-	moves = make([]enabledMove, 0, len(tied))
-	for i, event := range tied {
+	if len(events) < 2 {
+		return []enabledMove{{Owner: e, Kind: moveDispatch, Label: label}}
+	}
+	moves := make([]enabledMove, 0, len(events))
+	for i, event := range events {
 		moves = append(moves, enabledMove{Owner: e, Kind: moveDispatch, Picks: []int{i}, Label: "dispatch " + e.eventLabel(event)})
 	}
-	return moves, acts
+	return moves
 }
 
 // stepOne makes one unit of the machine's work, which its state alone fixes

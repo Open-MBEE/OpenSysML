@@ -91,6 +91,9 @@ type StateExecutor struct {
 	// its dispatch owed.
 	round     []*doAction
 	roundDone bool
+	// dispatchAmong narrows the events nextEvent draws among to those a step order
+	// drew ahead of a due do step: the tied events whose dispatch acts.
+	dispatchAmong []Event
 	// machineExited prevents a parallel machine's root exit behavior from
 	// running more than once if completion is reported by multiple regions.
 	machineExited bool
@@ -682,6 +685,13 @@ func (e *StateExecutor) pauseAtBreakpoint() {
 // first and the draw is reported; a replay or check refusing the draw takes none.
 func (e *StateExecutor) nextEvent() (Event, error) {
 	tied := e.eventQueue.Tied()
+	if e.dispatchAmong != nil {
+		tied = e.dispatchAmong
+	}
+	if len(tied) == 1 {
+		event, _ := e.eventQueue.Take(tied[0].ID)
+		return event, nil
+	}
 	if len(tied) < 2 {
 		return e.eventQueue.Pop(), nil
 	}
@@ -3208,12 +3218,14 @@ func (e *StateExecutor) dueRound() []*doAction {
 // while a dispatch that acts is due, the dispatch; the round closes once each has stepped.
 func (e *StateExecutor) stepRound(progress *dueProgress) (bool, error) {
 	var next int
-	if dispatch, acts, due := e.dueDispatch(); due && acts {
-		pick, err := e.chooseStepOrder(e.round, dispatch)
+	if dispatch := e.dueDispatch(); dispatch.acts {
+		pick, err := e.chooseStepOrder(e.round, dispatch.step)
 		if err != nil {
 			return false, err
 		}
 		if pick == len(e.round) {
+			e.dispatchAmong = dispatch.among
+			defer func() { e.dispatchAmong = nil }()
 			return e.dispatchOne(progress)
 		}
 		next = pick
@@ -3249,41 +3261,58 @@ const (
 	dispatchTiedLabel = "dispatch"
 )
 
-// dueDispatch names the dispatch dispatchOne would make now as a step order lists it
-// (risen change, signal in flight, else the head event); acts is eventActs over it.
-func (e *StateExecutor) dueDispatch() (label string, acts, due bool) {
-	if trans, risen := e.risenChange(); risen {
-		if trans == nil {
-			return "dispatch change", true, true
-		}
-		return "dispatch " + e.changeLabel(trans), true, true
-	}
-	if msg, ok := e.pendingSignal(); ok {
-		return "dispatch signal", e.eventsAct([]Event{e.signalEvent(msg)}), true
-	}
-	if !e.hasDueEvent() {
-		return "", false, false
-	}
-	if tied := e.eventQueue.Tied(); len(tied) >= 2 {
-		return dispatchTiedLabel, e.eventsAct(tied), true
-	}
-	head := e.eventQueue.Peek()
-	return "dispatch " + e.eventLabel(head), e.eventsAct([]Event{head}), true
+// dueDispatch is the dispatch dispatchOne would make now: a risen change, a signal
+// in flight, else the head of the queue, a draw of its own where events are tied there.
+type dueDispatch struct {
+	due   bool
+	label string  // the dispatch as dispatchOne makes it; dispatchTiedLabel over tied events
+	step  string  // the dispatch as a step order offers it: bare over the acting tied events, else one
+	tied  []Event // the events tied at the head, the dispatch being the draw among them
+	among []Event // the tied events whose dispatch acts: what a step order draws among
+	acts  bool    // whether the dispatch takes its occurrence (eventActs)
 }
 
-// eventsAct previews whether dispatching each of the events now would take it; an
-// error in the preview counts as acting, the dispatch being where it surfaces.
-func (e *StateExecutor) eventsAct(events []Event) bool {
-	acts := true
+// dueDispatch describes the dispatch due now; due is false when none is.
+func (e *StateExecutor) dueDispatch() dueDispatch {
+	one := func(label string, acts bool) dueDispatch {
+		return dueDispatch{due: true, label: label, step: label, acts: acts}
+	}
+	if trans, risen := e.risenChange(); risen {
+		if trans == nil {
+			return one("dispatch change", true)
+		}
+		return one("dispatch "+e.changeLabel(trans), true)
+	}
+	if msg, ok := e.pendingSignal(); ok {
+		return one("dispatch signal", len(e.actingEvents([]Event{e.signalEvent(msg)})) > 0)
+	}
+	if !e.hasDueEvent() {
+		return dueDispatch{}
+	}
+	if tied := e.eventQueue.Tied(); len(tied) >= 2 {
+		d := dueDispatch{due: true, label: dispatchTiedLabel, step: dispatchTiedLabel, tied: tied, among: e.actingEvents(tied)}
+		d.acts = len(d.among) > 0
+		if len(d.among) == 1 {
+			d.step = "dispatch " + e.eventLabel(d.among[0])
+		}
+		return d
+	}
+	head := e.eventQueue.Peek()
+	return one("dispatch "+e.eventLabel(head), len(e.actingEvents([]Event{head})) > 0)
+}
+
+// actingEvents previews which of the events a dispatch now would take (eventActs), in
+// order; an error in the preview counts as acting, the dispatch being where it surfaces.
+func (e *StateExecutor) actingEvents(events []Event) []Event {
+	var acting []Event
 	e.preview(func() {
 		for _, event := range events {
-			if ok, err := e.eventActs(event); err == nil && !ok {
-				acts = false
-				return
+			if ok, err := e.eventActs(event); err != nil || ok {
+				acting = append(acting, event)
 			}
 		}
 	})
-	return acts
+	return acting
 }
 
 // eventActs reports whether dispatching the event now would take it — fire a
