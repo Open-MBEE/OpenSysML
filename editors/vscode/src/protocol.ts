@@ -1,6 +1,8 @@
 // The custom methods the OpenSysML language server adds for diagrams, and the
 // payloads they carry. They mirror internal/frontend/lsp/render.go.
 
+import type { DiagramStyle } from "./style";
+
 export const RENDER_METHOD = "opensysml/render";
 export const VIEWS_METHOD = "opensysml/views";
 export const RENDER_CHANGED_METHOD = "opensysml/renderChanged";
@@ -24,6 +26,9 @@ export const APPLY_MODEL_EDIT_CAPABILITY = "openSysmlApplyModelEdit";
 
 /** The capability each side advertises when it speaks the cross-document diagram contract: renderings naming other documents' declarations, `declaredHere`, and layouts pinned with `declaredIn`. */
 export const CROSS_DOCUMENT_CAPABILITY = "openSysmlCrossDocumentLayout";
+
+/** The capability the server advertises when a render request's `palette` colours each node with `fill` and `border`. */
+export const RENDER_PALETTE_CAPABILITY = "openSysmlRenderPalette";
 
 /** The URI scheme the server locates standard-library declarations in. */
 export const STDLIB_SCHEME = "sysml-stdlib";
@@ -92,6 +97,9 @@ export interface RenderNode {
   height?: number;
   /** The node is drawn closed, its children hidden. */
   collapsed?: boolean;
+  /** The colours the requested palette gives the node, `#RRGGBB`, the same its DOT and PlantUML forms take; each absent where the palette leaves it black and white (a sequence participant's border), both under no palette. */
+  fill?: string;
+  border?: string;
 }
 
 /** One waypoint or corner, in the canvas's pixels, y down. */
@@ -137,6 +145,8 @@ export interface RenderParams {
   textDocument: { uri: string };
   view?: string;
   form?: string;
+  /** The palette the nodes are coloured from, by keyword family; absent draws in black and white. */
+  palette?: string;
 }
 
 export interface RenderResult {
@@ -333,8 +343,10 @@ export interface PickerEntry {
 
 /** A message the extension sends the webview; `drawn` counts the panel's drawings and names this one. */
 export type ToWebview =
-  | { type: "render"; result: RenderResult; selected: string; drawn: number }
+  | { type: "render"; result: RenderResult; selected: string; drawn: number; style: DiagramStyle; hint?: string }
   | { type: "views"; views: PickerEntry[]; selected: string }
+  /** The look to redraw the diagram on screen in, ahead of the rendering coloured for it. */
+  | { type: "style"; style: DiagramStyle }
   | { type: "error"; message: string }
   | { type: "highlight"; id: string | undefined }
   /** A drop the model did not take: the canvas goes back to the model's layout, the status line says why. */
@@ -365,6 +377,8 @@ export type FromWebview =
   | { type: "ready" }
   | { type: "reveal"; id: string; drawn: number }
   | { type: "pick"; view: string }
+  /** The user chose a look in the panel's toolbar; the extension keeps it as the setting. */
+  | { type: "style"; style: DiagramStyle }
   | { type: "edit"; action: EditAction; drawn: number }
   /** One completed gesture: everything it moved, applied as one edit. */
   | { type: "place"; nodes: NodePlacement[]; edges: EdgePlacement[]; drawn: number }

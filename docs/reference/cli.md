@@ -235,9 +235,9 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--html-mermaid <cdn\|url>` | | Have the HTML page load Mermaid to draw its diagrams: `cdn` loads a pinned release from jsDelivr, a URL loads the script it names (default: diagrams stay Mermaid source) |
 | `--html-math <cdn\|url>` | | Have the HTML page load MathJax to typeset its formulas: `cdn` loads a pinned release from jsDelivr, a URL loads the script it names (default: formulas stay LaTeX source) |
 | `--pdf-engine <engine>` | | Converter `--doc-form pdf` drives: `weasyprint` (default), `pandoc` or `prince` |
-| `--pdf-title-page` | | Alias of `--doc-title-page` |
-| `--pdf-toc` | | Alias of `--doc-toc` |
-| `--pdf-number-sections` | | Alias of `--doc-number-sections` |
+| `--pdf-title-page` | | Former name of `--doc-title-page` |
+| `--pdf-toc` | | Former name of `--doc-toc` |
+| `--pdf-number-sections` | | Former name of `--doc-number-sections` |
 | `--output <file>` | `-o` | Write the conversion, the rendering or the rendered document to a file instead of stdout |
 | `--version` | `-v` | Show version information |
 | `--help` | `-h` | Show usage information |

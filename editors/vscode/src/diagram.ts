@@ -42,8 +42,10 @@ import {
   RENDER_CAPABILITY,
   RENDER_CHANGED_METHOD,
   RENDER_METHOD,
+  RENDER_PALETTE_CAPABILITY,
   RenderChangedParams,
   RenderNode,
+  RenderParams,
   RenderResult,
   ToWebview,
   VIEWS_METHOD,
@@ -51,6 +53,7 @@ import {
   WorkspaceEdit,
 } from "./protocol";
 import { ActiveEditor, AUTO_OPEN_SETTING, Dismissals, Lifecycle, renamedUri, shouldAutoOpen, TabKind } from "./autoopen";
+import { DiagramStyle, paletteOf, STYLE_SETTING, styleOf } from "./style";
 import { CommandContext, PANEL_TYPE, resolveTarget } from "./target";
 import {
   chooseView,
@@ -68,6 +71,8 @@ import {
 /** Why the diagram commands cannot serve, when they cannot. */
 const NOT_RUNNING = "The SysML v2 language server is not running; run \"SysML: Restart Language Server\" to start it.";
 const NOT_SERVED = "The SysML v2 language server does not serve diagrams; update sysml-lsp to draw one.";
+/** Shown under a palette the attached server cannot fill: it predates coloured renderings. */
+export const NO_PALETTE_HINT = "This language server draws no palette; update sysml-lsp to colour the diagram.";
 
 /** The views of a document, as the picker offers them: declared first, then the pseudo-views. */
 interface ViewListing {
@@ -125,6 +130,11 @@ export class DiagramPanels implements vscode.Disposable {
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration(AUTO_OPEN_SETTING)) {
           this.autoOpen(vscode.window.activeTextEditor);
+        }
+        if (event.affectsConfiguration(STYLE_SETTING)) {
+          for (const panel of this.panels.values()) {
+            panel.restyle();
+          }
         }
       }),
       // A dismissal, a chosen view and an open panel follow the file through a rename; the records die with the file.
@@ -551,6 +561,24 @@ function autoOpenEnabled(): boolean {
   return vscode.workspace.getConfiguration("opensysml.diagram").get<boolean>("autoOpen", true);
 }
 
+/** diagramStyle is the look the setting asks for, as it applies to a document; a value it does not name is the default. */
+function diagramStyle(scope: vscode.Uri): DiagramStyle {
+  return styleOf(vscode.workspace.getConfiguration("opensysml.diagram", scope).get<string>("style"));
+}
+
+// setDiagramStyle keeps a style chosen in a panel as the setting, at the level that set the one in force.
+async function setDiagramStyle(scope: vscode.Uri, style: DiagramStyle): Promise<void> {
+  const configuration = vscode.workspace.getConfiguration("opensysml.diagram", scope);
+  const levels = configuration.inspect<string>("style");
+  let target = vscode.ConfigurationTarget.Global;
+  if (levels?.workspaceFolderValue !== undefined) {
+    target = vscode.ConfigurationTarget.WorkspaceFolder;
+  } else if (levels?.workspaceValue !== undefined) {
+    target = vscode.ConfigurationTarget.Workspace;
+  }
+  await configuration.update("style", style, target);
+}
+
 // activeEditorInfo reads the active editor and its tab into what the auto-open
 // decision looks at: a diff tab and a hover's peek editor draw no diagram.
 function activeEditorInfo(editor: vscode.TextEditor): ActiveEditor {
@@ -727,14 +755,21 @@ class DiagramPanel {
       selected: this.selected,
     });
     try {
-      // No form is asked for: the server writes the machine form of the kind it
-      // rendered, which is Mermaid for a diagram and Markdown for a table.
-      const result = normalizeRender(
-        await client.sendRequest<RenderResult>(RENDER_METHOD, {
-          textDocument,
-          view: this.selected === "" ? undefined : this.selected,
-        }),
-      );
+      // No form is asked for: the server writes the machine form of the kind it rendered.
+      // A palette is asked only of a server that colours nodes by it; the hint says why otherwise.
+      const style = diagramStyle(this.docURI);
+      const palette = paletteOf(style);
+      const colours = palette !== undefined && supportsPalette(client);
+      const params: RenderParams = {
+        textDocument,
+        view: this.selected === "" ? undefined : this.selected,
+        palette: colours ? palette : undefined,
+      };
+      const result = normalizeRender(await client.sendRequest<RenderResult>(RENDER_METHOD, params));
+      // A style chosen meanwhile has its own render queued; a drawing in the old one is dropped.
+      if (diagramStyle(this.docURI) !== style) {
+        return;
+      }
       // No palette unless the server also computes the edits it would lead to.
       if (!supportsEdit(client)) {
         delete result.palette;
@@ -751,11 +786,24 @@ class DiagramPanel {
         palette: result.palette,
       };
       this.drawn += 1;
-      this.post({ type: "render", result, selected: this.selected, drawn: this.drawn });
+      this.post({
+        type: "render",
+        result,
+        selected: this.selected,
+        drawn: this.drawn,
+        style,
+        hint: palette !== undefined && !colours ? NO_PALETTE_HINT : undefined,
+      });
       this.highlightActive();
     } catch (err) {
       this.fail(errorMessage(err));
     }
+  }
+
+  /** restyle redraws the panel in the look the setting now asks for, then renders for its palette. */
+  restyle(): void {
+    this.post({ type: "style", style: diagramStyle(this.docURI) });
+    this.refresh();
   }
 
   /** highlightAt marks the node whose declaration contains the cursor. */
@@ -800,6 +848,10 @@ class DiagramPanel {
       case "pick":
         this.select(message.view, true);
         this.refresh();
+        return;
+      case "style":
+        // The setting's change notification restyles this panel and every other.
+        setDiagramStyle(this.docURI, message.style).catch((err: unknown) => this.fail(errorMessage(err)));
         return;
       case "reveal":
         void this.revealSource(message.id, message.drawn);
@@ -1212,6 +1264,11 @@ function supportsEdit(client: LanguageClient): boolean {
   return experimental(client)?.[APPLY_MODEL_EDIT_CAPABILITY] === true;
 }
 
+/** supportsPalette reports whether the server colours a rendering's nodes by the palette asked for. */
+function supportsPalette(client: LanguageClient): boolean {
+  return experimental(client)?.[RENDER_PALETTE_CAPABILITY] === true;
+}
+
 /** supportsCrossDocument reports whether the server advertised the cross-document diagram contract. */
 function supportsCrossDocument(client: LanguageClient): boolean {
   return experimental(client)?.[CROSS_DOCUMENT_CAPABILITY] === true;
@@ -1292,6 +1349,7 @@ function html(
       body { margin: 0; padding: 0.5rem; font-family: var(--vscode-font-family); color: var(--vscode-foreground); }
       #bar { display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; }
       #view { flex: 1 1 auto; max-width: 30rem; }
+      #style { max-width: 14rem; }
       #kind { opacity: 0.8; font-size: 0.9em; }
       #add { max-width: 14rem; }
       #status { color: var(--vscode-errorForeground); min-height: 1.2em; font-size: 0.9em; white-space: pre-wrap; }
@@ -1339,6 +1397,33 @@ function html(
       #diagram .opensysml-selected > .shape, #diagram .opensysml-selected > g.shape > circle {
         stroke: var(--vscode-focusBorder); stroke-width: 3px;
       }
+      /* The pilot visualizer's Standard B&W, as the DOT and PlantUML forms draw it; a palette's fills ride on each shape. */
+      #diagram.pilot { background: white; color: black; }
+      #diagram.pilot svg { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; }
+      #diagram.pilot .shape { fill: var(--node-fill, white); stroke: var(--node-border, #181818); stroke-width: 0.5px; }
+      #diagram.pilot .shape.container { fill: var(--node-fill, white); }
+      #diagram.pilot .shape.usage { rx: 10px; }
+      #diagram.pilot .shape.package { rx: 0; stroke-width: 1.5px; }
+      #diagram.pilot .shape.region { rx: 0; stroke-dasharray: 4 4; }
+      #diagram.pilot .shape.filled { fill: black; stroke: black; }
+      #diagram.pilot .label { fill: black; }
+      #diagram.pilot .label .head { font-weight: bold; }
+      #diagram.pilot .label .keyword { font-style: italic; font-size: 0.72em; opacity: 1; }
+      #diagram.pilot .label .detail { opacity: 1; }
+      #diagram.pilot .collapsed { fill: black; }
+      #diagram.pilot .line { stroke: #181818; stroke-width: 1px; }
+      #diagram.pilot .connection .line { stroke-width: 3px; }
+      #diagram.pilot .lifeline { stroke: #181818; }
+      #diagram.pilot .arrow-fill { fill: #181818; }
+      #diagram.pilot .arrow-line { stroke: #181818; stroke-width: 1px; }
+      #diagram.pilot .edge-label { fill: black; stroke: white; }
+      #diagram.pilot .waypoint { fill: white; }
+      #diagram.pilot .opensysml-drop-target > .shape, #diagram.pilot .opensysml-drop-target > g.shape > circle {
+        stroke: var(--vscode-focusBorder); stroke-width: 3px; stroke-dasharray: 6 3; fill: #dbe9ff;
+      }
+      #diagram.pilot .opensysml-selected > .shape, #diagram.pilot .opensysml-selected > g.shape > circle {
+        stroke: var(--vscode-focusBorder); stroke-width: 3px;
+      }
       details { margin-top: 0.75rem; font-size: 0.9em; }
       pre { white-space: pre-wrap; }
     </style>
@@ -1347,6 +1432,8 @@ function html(
     <div id="bar">
       <label for="view">View</label>
       <select id="view"></select>
+      <label for="style">Style</label>
+      <select id="style"></select>
       <span id="kind"></span>
       <select id="add" hidden aria-label="Add to the model"></select>
     </div>

@@ -11,8 +11,8 @@ import (
 // survive a copied transcript in an 80-column window.
 const textWidth = 78
 
-// WriteText writes the terminal help to w: the synopsis, the flags as the flag
-// set itself describes them, then every section not reserved for the man page.
+// WriteText writes the terminal help to w: the synopsis, the sections wanted
+// first, the flags by group, then every other section not reserved for the man page.
 func (d Doc) WriteText(w io.Writer, fs *flag.FlagSet) {
 	// PrintDefaults writes to the flag set's own stream, restored after so it
 	// does not decide where a later error is reported.
@@ -20,6 +20,42 @@ func (d Doc) WriteText(w io.Writer, fs *flag.FlagSet) {
 	fs.SetOutput(w)
 	defer fs.SetOutput(previous)
 
+	d.writeSynopsis(w)
+	for _, para := range d.Description {
+		fmt.Fprintf(w, "\n%s\n", Wrap(para, textWidth))
+	}
+	for _, sec := range d.Sections {
+		if sec.BeforeOptions && !sec.ManOnly {
+			writeSection(w, sec)
+		}
+	}
+	if len(d.Options) == 0 {
+		fmt.Fprintf(w, "\nOptions:\n")
+		fs.PrintDefaults()
+	}
+	for _, g := range d.Options {
+		fmt.Fprintf(w, "\n%s:\n", g.Title)
+		for _, o := range g.Options {
+			writeOption(w, fs, o)
+		}
+	}
+
+	for _, sec := range d.Sections {
+		if sec.ManOnly || sec.BeforeOptions {
+			continue
+		}
+		writeSection(w, sec)
+	}
+}
+
+// WriteHint writes what a misuse is answered with: the synopsis and where the
+// help is, rather than the help itself, which would bury the error.
+func (d Doc) WriteHint(w io.Writer) {
+	d.writeSynopsis(w)
+	fmt.Fprintf(w, "Run '%s -help' for the options.\n", d.Command)
+}
+
+func (d Doc) writeSynopsis(w io.Writer) {
 	for i, form := range d.Synopsis {
 		label := "Usage:"
 		if i > 0 {
@@ -27,28 +63,43 @@ func (d Doc) WriteText(w io.Writer, fs *flag.FlagSet) {
 		}
 		fmt.Fprintf(w, "%s %s %s\n", label, d.Command, form)
 	}
-	for _, para := range d.Description {
-		fmt.Fprintf(w, "\n%s\n", Wrap(para, textWidth))
-	}
-	fmt.Fprintf(w, "\nOptions:\n")
-	fs.PrintDefaults()
+}
 
-	for _, sec := range d.Sections {
-		if sec.ManOnly {
-			continue
+func writeSection(w io.Writer, sec Section) {
+	fmt.Fprintf(w, "\n%s:\n", sec.Title)
+	for _, para := range sec.Lead {
+		fmt.Fprintf(w, "%s\n", Wrap(para, textWidth))
+	}
+	writeExamples(w, sec.Examples)
+	writeItems(w, sec.Items)
+	for i, para := range sec.Paragraphs {
+		if i > 0 || len(sec.Examples) > 0 || len(sec.Items) > 0 {
+			fmt.Fprintln(w)
 		}
-		fmt.Fprintf(w, "\n%s:\n", sec.Title)
-		for _, para := range sec.Lead {
-			fmt.Fprintf(w, "%s\n", Wrap(para, textWidth))
-		}
-		writeExamples(w, sec.Examples)
-		writeItems(w, sec.Items)
-		for i, para := range sec.Paragraphs {
-			if i > 0 || len(sec.Examples) > 0 || len(sec.Items) > 0 {
-				fmt.Fprintln(w)
-			}
-			fmt.Fprintf(w, "%s\n", Wrap(para, textWidth))
-		}
+		fmt.Fprintf(w, "%s\n", Wrap(para, textWidth))
+	}
+}
+
+// optionColumn is where an option's description starts, beside a spelling that
+// fits and under one that does not.
+const optionColumn = 30
+
+// writeOption writes the flag's spellings and, wrapped in the column beside
+// them, its description with the default the flag package would show.
+func writeOption(w io.Writer, fs *flag.FlagSet, o Option) {
+	f := fs.Lookup(o.Name)
+	text := help(f)
+	if !isZeroDefault(f.DefValue) {
+		text += fmt.Sprintf(" (default %s)", f.DefValue)
+	}
+	spelling := "  " + o.spelling()
+	margin := strings.Repeat(" ", optionColumn)
+	body := indent(Wrap(text, textWidth-optionColumn), margin)
+	if len(spelling) < optionColumn-1 {
+		// The body opens with the margin; the spelling takes that many of its spaces.
+		fmt.Fprintf(w, "%s%s\n", spelling, body[len(spelling):])
+	} else {
+		fmt.Fprintf(w, "%s\n%s\n", spelling, body)
 	}
 }
 

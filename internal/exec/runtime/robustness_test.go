@@ -6722,6 +6722,7 @@ func testUnguardedLoopThroughAMerge(t *testing.T) {
 		}
 	`
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	ctx.maxActionSteps = 1000
 	sym := findSymbolByName(idx.DocumentRoot("<test>"), "spin", ast.DefAction)
 	if sym == nil {
 		t.Fatal("action spin not found")
@@ -13616,6 +13617,7 @@ func testNestedFlowThatNeverEnds(t *testing.T) {
 		}
 	`
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	ctx.maxActionSteps = 1000
 	sym := findSymbolByName(idx.DocumentRoot("<test>"), "outer", ast.DefAction)
 	if sym == nil {
 		t.Fatal("action outer not found")

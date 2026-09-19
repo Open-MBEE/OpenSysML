@@ -34,6 +34,10 @@ const (
 // naming other documents' declarations and layouts pinned with declaredIn.
 const CrossDocumentCapability = "openSysmlCrossDocumentLayout"
 
+// RenderPaletteCapability is the experimental capability the server advertises
+// when a render request's palette colours the result's nodes with fill and border.
+const RenderPaletteCapability = "openSysmlRenderPalette"
+
 // RenderFormsCapability is the experimental capability whose value lists the
 // forms opensysml/render writes, so a client offers exactly those.
 const RenderFormsCapability = "openSysmlRenderForms"
@@ -50,8 +54,8 @@ func renderFormNames() []string {
 // renderParams asks for one rendering. View names a view the document declares,
 // or a supported pseudo-view (`#<kind>` or `#<kind>:<fqn>`); empty renders the
 // document's own view. Form is the artifact written, defaulting to the machine
-// form of the rendering's kind. Palette names the palette the DOT and PlantUML
-// forms fill nodes from, by keyword family; empty draws in black and white.
+// form of the rendering's kind. Palette names the palette that fills the nodes by
+// keyword family, in the artifact and as each node's Fill and Border; empty is black and white.
 type renderParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
 	View         string                          `json:"view,omitempty"`
@@ -85,7 +89,9 @@ type renderResult struct {
 // targets the declaration at that range of the document Origin names. Both are
 // given for a declaration of a workspace document alone, a library's being
 // beyond every operation; DeclaredHere marks the requested document's own, the
-// only ones the operations besides a layout reach.
+// only ones the operations besides a layout reach. Fill and Border are the
+// `#RRGGBB` colours the palette gives the node, as the DOT and PlantUML forms draw it; absent
+// for a node left black and white, and for every node when no palette is asked for.
 type renderNode struct {
 	ID           string          `json:"id"`
 	Kind         string          `json:"kind"`
@@ -93,6 +99,8 @@ type renderNode struct {
 	Type         string          `json:"type"`
 	Detail       string          `json:"detail"`
 	Parent       string          `json:"parent,omitempty"`
+	Fill         string          `json:"fill,omitempty"`
+	Border       string          `json:"border,omitempty"`
 	FQN          string          `json:"fqn,omitempty"`
 	DeclaredHere bool            `json:"declaredHere,omitempty"`
 	Notation     string          `json:"notation,omitempty"`
@@ -272,6 +280,10 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	fills, err := rendering.Fills(colors)
+	if err != nil {
+		return nil, err
+	}
 	data := rendering.Data()
 	out := &renderResult{
 		View:     data.View,
@@ -296,7 +308,7 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			out.Canvas.Width, out.Canvas.Height = &w, &h
 		}
 	}
-	s.renderNodes(out, snapshot, data.Nodes)
+	s.renderNodes(out, snapshot, data.Nodes, fills)
 	s.renderEdges(out, snapshot, data.Edges)
 	for _, row := range data.Rows {
 		out.Rows = append(out.Rows, renderRow{Cells: row.Cells, Origin: origin(row.Origin)})
@@ -304,9 +316,10 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	return out, nil
 }
 
-// renderNodes converts the rendering's nodes into out; a node the document
-// declares confines the palette to its notation and is admitted once all are known.
-func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes []view.NodeData) {
+// renderNodes converts the rendering's nodes into out, each coloured as fills
+// says; a node the document declares confines the palette to its notation and
+// is admitted once all are known.
+func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes []view.NodeData, fills map[string]view.Fill) {
 	name := snapshot.Rendered.Name
 	var declared []declaredNode
 	for _, node := range nodes {
@@ -317,6 +330,8 @@ func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes 
 			Type:   node.Type,
 			Detail: node.Detail,
 			Parent: node.Parent,
+			Fill:   fills[node.ID].Fill,
+			Border: fills[node.ID].Border,
 		}
 		declaring := s.declaring(snapshot, node.Origin)
 		n.Origin = s.originOf(declaring, node.Origin)
