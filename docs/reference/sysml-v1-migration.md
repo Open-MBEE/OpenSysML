@@ -347,8 +347,9 @@ action def 'Group 0' {
   features the target's own slots set — several configurations often share one result
   package — is of another configuration and left out with a note counting it. A configured
   value tells snapshots apart whatever its kind — a number, a Boolean, a string or an
-  enumeration literal — though only the numbers are results; a literal left blank configures
-  nothing. Locations that
+  enumeration literal — though only the numbers are results; a number is compared exactly,
+  however its literal spells it (`1` is `1.0`); a literal left blank configures nothing.
+  Locations that
   repeat or nest (a package and a sub-package of it) index each snapshot once. A
   `resultLocation` outside the document, a snapshot slot with no defining feature in the
   document or holding no one finite number, a feature two slots of one snapshot hold numbers

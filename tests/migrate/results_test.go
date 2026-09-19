@@ -388,6 +388,63 @@ func TestNonnumericConfiguredValuesTellSnapshotsApart(t *testing.T) {
 	wantClean(t, "t.sysml", r)
 }
 
+// A configured number tells snapshots apart exactly: two integers one float64
+// apart, 2^53 and 2^53 + 1, are two values whichever literal kind spells them.
+func TestConfiguredNumbersTellSnapshotsApartExactly(t *testing.T) {
+	const wide = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_n" name="n">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_t" name="t">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_g0" name="Group 0"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_odd" name="odd" classifier="_rig">
+      <slot xmi:type="uml:Slot" xmi:id="_odd_n" definingFeature="_n">
+        <value xmi:type="uml:LiteralInteger" xmi:id="_odd_nv" value="9007199254740993"/>
+      </slot>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_results" name="Results">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r1" name="run 1" classifier="_rig">
+        <slot xmi:type="uml:Slot" xmi:id="_r1n" definingFeature="_n">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r1nv" value="9007199254740992.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r1t" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r1tv" value="1.0"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r2" name="run 2" classifier="_rig">
+        <slot xmi:type="uml:Slot" xmi:id="_r2n" definingFeature="_n">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r2nv" value="9007199254740993"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_r2t" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r2tv" value="2.0"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>`
+	r := migrateDocument(t, wide, `
+  <sysml:Block xmi:id="_s1" base_Class="_rig"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
+      executionTarget="_odd" resultLocation="_results"/>`)
+	if len(r.Results.Configurations) != 1 {
+		t.Fatalf("results index %d configuration(s), want 1", len(r.Results.Configurations))
+	}
+	odd := r.Results.Configurations[0]
+	if ids := snapshotIDs(odd); !reflect.DeepEqual(ids, []string{"_r2"}) {
+		t.Errorf("the snapshots of odd are %v, want run 2 alone", ids)
+	}
+	want := "1 snapshot(s) record other values of n than the target configures, so they are of another configuration and not among the results"
+	if !slices.Contains(odd.Notes, want) {
+		t.Errorf("odd notes %q, want %q among them", odd.Notes, want)
+	}
+	if values := odd.Values("t"); !reflect.DeepEqual(values, []float64{2.0}) {
+		t.Errorf("odd's t = %v, want [2]", values)
+	}
+	wantClean(t, "n.sysml", r)
+}
+
 // A configuration whose results cannot be read says so: a result location
 // outside the document in the report, a location with no snapshot of the
 // target or a target with no classifier in the sidecar's notes.

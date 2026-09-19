@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"math"
+	"math/big"
 	"sort"
 	"strconv"
 	"strings"
@@ -370,22 +371,24 @@ func (m *migration) snapshotSlot(slot *xmi.Element) (name string, value scalarVa
 }
 
 // scalarValue is the one scalar a value specification spells — a finite number, a
-// Boolean, a string or an enumeration literal — with spec the UML kind it was read from.
+// Boolean, a string or an enumeration literal — with spec the UML kind it was read
+// from. A number is held exactly, and as the float64 the sidecar carries.
 type scalarValue struct {
 	kind   string
 	spec   string
+	exact  *big.Rat
 	number float64
 	text   string
 }
 
-// equals reports whether two scalars are one value: a number is the same however
-// its literal is spelled, and any other value is of one kind and text.
+// equals reports whether two scalars are one value: a number is the same exactly,
+// however its literal is spelled, and any other value is of one kind and text.
 func (v scalarValue) equals(o scalarValue) bool {
 	if v.kind != o.kind {
 		return false
 	}
 	if v.kind == kindNumber {
-		return v.number == o.number
+		return v.exact.Cmp(o.exact) == 0
 	}
 	return v.text == o.text
 }
@@ -411,7 +414,7 @@ func (m *migration) literalScalar(v *xmi.Element) (value scalarValue, reason str
 	switch v.Type {
 	case "LiteralReal", "LiteralInteger", "LiteralUnlimitedNatural":
 		value.kind = kindNumber
-		value.number, reason = literalNumber(v)
+		value.exact, value.number, reason = literalNumber(v)
 	case "LiteralBoolean":
 		value.kind = kindBoolean
 		switch text := strings.TrimSpace(v.Attrs["value"]); text {
@@ -437,19 +440,22 @@ func (m *migration) literalScalar(v *xmi.Element) (value scalarValue, reason str
 	return value, ""
 }
 
-// literalNumber reads a numeric literal as the one finite number it holds; reason
-// says why it holds none. A numeric literal with no value is zero.
-func literalNumber(v *xmi.Element) (value float64, reason string) {
+// literalNumber reads a numeric literal as the one finite number it holds, exactly
+// and as a float64; reason says why it holds none. A numeric literal with no value is zero.
+func literalNumber(v *xmi.Element) (exact *big.Rat, value float64, reason string) {
 	text := strings.TrimSpace(v.Attrs["value"])
 	if text == "" {
 		text = "0"
 	}
 	if text == "*" {
-		return 0, "holds the unbounded natural *, which is no number"
+		return nil, 0, "holds the unbounded natural *, which is no number"
 	}
 	value, err := strconv.ParseFloat(text, 64)
 	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
-		return 0, "holds " + strconv.Quote(text) + ", which is no finite number"
+		return nil, 0, "holds " + strconv.Quote(text) + ", which is no finite number"
 	}
-	return value, ""
+	if exact, ok := new(big.Rat).SetString(text); ok {
+		return exact, value, ""
+	}
+	return new(big.Rat).SetFloat64(value), value, ""
 }
