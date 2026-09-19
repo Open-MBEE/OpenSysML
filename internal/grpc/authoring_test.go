@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
+	"github.com/Open-MBEE/OpenSysML/internal/check/edit"
 )
 
 func addMemberOp(owner, kind, name string) *pb.EditOperation {

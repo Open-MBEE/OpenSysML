@@ -30,7 +30,7 @@ profile() {
 profile tests-parser  ./internal/syntax/parser  -count=1
 profile tests-golden  ./tests/parser          -count=1
 profile tests-resolve ./internal/semantic/resolve -count=1
-profile tests-passes  ./internal/core/passes  -count=1
+profile tests-passes  ./internal/check/passes  -count=1
 profile tests-runtime ./internal/core/runtime -count=1
 profile tests-model   ./internal/core/model   -count=1
 profile tests-corpus  ./tests/corpus          -count=1

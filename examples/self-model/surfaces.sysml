@@ -179,7 +179,7 @@ package OpenSysMLSurfaces {
     // Span-based rewriting of source text. The result is re-parsed and
     // re-analysed, and an edit that would leave the model unreadable is refused.
     part def SourceEditor :> CodeUnit {
-        attribute :>> goPackage = "internal/core/edit";
+        attribute :>> goPackage = "internal/check/edit";
         attribute operations : String = "set value, rename, add member, delete";
         attribute preservesUntouchedText : Boolean = true;
         attribute reanalysesResult : Boolean = true;
