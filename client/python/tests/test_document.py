@@ -57,7 +57,7 @@ GOLDEN = os.path.join(
     REPO_ROOT, "internal", "doc", "docrender", "testdata", "telescope_report.golden.md"
 )
 HTML_GOLDEN = os.path.join(
-    REPO_ROOT, "internal", "core", "docrender", "testdata", "telescope_report.golden.html"
+    REPO_ROOT, "internal", "doc", "docrender", "testdata", "telescope_report.golden.html"
 )
 #: The renderer's verdict fixture: assertions on a car and queries over them.
 VERDICT_FIXTURE = os.path.join(
