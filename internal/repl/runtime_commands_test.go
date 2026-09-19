@@ -751,7 +751,7 @@ func TestAdvanceRejectsBadDuration(t *testing.T) {
 // %current reports the whole active configuration of a machine whose top level
 // is orthogonal regions, rather than <unknown>.
 func TestCurrentShowsOrthogonalRegions(t *testing.T) {
-	s := loadFixture(t, "../core/runtime/testdata/conformance/state_orthogonal_regions.sysml")
+	s := loadFixture(t, "../exec/runtime/testdata/conformance/state_orthogonal_regions.sysml")
 	wants(t, run(t, s, "%state TrafficLight"), "✓ Started state machine executor")
 	got := run(t, s, "%current")
 	wants(t, got, "Current state: start | start")
@@ -1035,7 +1035,7 @@ func TestCalcWithSeveralOutputsIsNotInvocable(t *testing.T) {
 // %advance must dispatch it, so stepping the debugger reaches the same state
 // running the machine to completion does.
 func TestAdvanceDeliversPendingPortSignal(t *testing.T) {
-	s := loadFixture(t, "../core/runtime/testdata/conformance/state_transition_accept_via_port.sysml")
+	s := loadFixture(t, "../exec/runtime/testdata/conformance/state_transition_accept_via_port.sysml")
 	run(t, s, "%state Radio")
 
 	wants(t, run(t, s, "%advance 1"), "Current state: done", "State machine completed")
@@ -1046,7 +1046,7 @@ func TestAdvanceDeliversPendingPortSignal(t *testing.T) {
 // naming the object is how the debugger reaches a variant selection: two objects
 // of one type each drive the machine to the state their own variant connects to.
 func TestStateDebuggerRoutesForThePerformingObject(t *testing.T) {
-	s := loadFixture(t, "../core/runtime/testdata/conformance/variant_connection_per_owner.sysml")
+	s := loadFixture(t, "../exec/runtime/testdata/conformance/variant_connection_per_owner.sysml")
 
 	run(t, s, "%instantiate VariantRouting::alpha")
 	run(t, s, "%instantiate VariantRouting::beta")
@@ -1074,7 +1074,7 @@ func TestStateDebuggerRefusesRunToCompletionRedefinition(t *testing.T) {
 // A behavior performed by nothing routes over its own connections only, and an
 // object named for a behavior that was never instantiated is reported.
 func TestStateDebuggerReportsAnUninstantiatedPerformer(t *testing.T) {
-	s := loadFixture(t, "../core/runtime/testdata/conformance/variant_connection_per_owner.sysml")
+	s := loadFixture(t, "../exec/runtime/testdata/conformance/variant_connection_per_owner.sysml")
 	wants(t, run(t, s, "%state VariantRouting::Router::Route VariantRouting::alpha"), "no instance of")
 }
 

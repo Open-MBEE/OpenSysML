@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-const validateFixture = "../core/runtime/testdata/conformance/instance_validate_nested_tree.sysml"
+const validateFixture = "../exec/runtime/testdata/conformance/instance_validate_nested_tree.sysml"
 
 // TestValidateObjectReportsEveryAssertion checks that %validate walks the
 // object tree and reports each assertion on the object it is about, then sums up.
@@ -84,7 +84,7 @@ func TestValidateUnknownObject(t *testing.T) {
 // TestValidateUndecidedAssertion checks that an assertion that cannot be
 // evaluated is reported as undecided and keeps the object from being valid.
 func TestValidateUndecidedAssertion(t *testing.T) {
-	s := loadFixture(t, "../core/runtime/testdata/conformance/instance_validate_undecided.sysml")
+	s := loadFixture(t, "../exec/runtime/testdata/conformance/instance_validate_undecided.sysml")
 	run(t, s, "%instantiate test::Tank")
 
 	out := run(t, s, "%validate #1")
@@ -97,7 +97,7 @@ func TestValidateUndecidedAssertion(t *testing.T) {
 // TestValidateObjectStatingNoAssertion checks that an object no assertion is
 // about is not shown valid: nothing was decided, and the standing says so too.
 func TestValidateObjectStatingNoAssertion(t *testing.T) {
-	s := loadFixture(t, "../core/runtime/testdata/conformance/instance_validate_no_assertion.sysml")
+	s := loadFixture(t, "../exec/runtime/testdata/conformance/instance_validate_no_assertion.sysml")
 	run(t, s, "%instantiate test::crate")
 
 	out := run(t, s, "%validate crate")
