@@ -282,7 +282,7 @@ package OpenSysMLGates {
     }
 
     verification def ExportGate {
-        doc /* go test ./internal/core/export */
+        doc /* go test ./internal/translate/export */
         subject exporter : Exporter;
         objective {
             verify exportRoundTrips;

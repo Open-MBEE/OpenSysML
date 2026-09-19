@@ -6,12 +6,12 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
-	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	ids "github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
 // MetadataPass validates the IdentityMetadata annotations of a

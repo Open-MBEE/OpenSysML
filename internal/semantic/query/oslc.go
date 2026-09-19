@@ -10,7 +10,7 @@ import (
 	"unicode/utf8"
 )
 
-// Namespace IRIs, mirroring the RDF vocabulary in internal/core/rdf.
+// Namespace IRIs, mirroring the RDF vocabulary in internal/translate/rdf.
 const (
 	rdfNS   = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 	xsdNS   = "http://www.w3.org/2001/XMLSchema#"

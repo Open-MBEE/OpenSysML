@@ -19,7 +19,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	passidentity "github.com/Open-MBEE/OpenSysML/internal/check/passes/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docpdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
@@ -28,7 +27,6 @@ import (
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	service "github.com/Open-MBEE/OpenSysML/internal/grpc"
-	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/lsp"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
@@ -40,6 +38,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
 )
 
 const selfModelDir = "self-model"
@@ -1232,7 +1232,7 @@ func TestSelfModelSyncMatchesImplementation(t *testing.T) {
 	sync := instantiateSelfModel(t, idx, ctx, "identity.sysml", "OpenSysMLIdentity", "RepositorySync")
 
 	if !sync.boolean("implemented") {
-		t.Error("identity.sysml says repository synchronisation is not implemented; internal/interop/reposync is")
+		t.Error("identity.sysml says repository synchronisation is not implemented; internal/translate/interop/reposync is")
 	}
 	changeKinds := []string{
 		string(reposync.KindCreate), string(reposync.KindUpdate), string(reposync.KindDelete), string(reposync.KindConflict),

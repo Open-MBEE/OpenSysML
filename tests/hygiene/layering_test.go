@@ -79,16 +79,16 @@ var packageLayer = map[string]string{
 	"internal/exec/engines":             "exec",
 	"internal/exec/objref":              "exec",
 
-	"internal/core/rdf":          "translate",
-	"internal/core/rdf/ontology": "translate",
-	"internal/core/convert":      "translate",
-	"internal/core/export":       "translate",
-	"internal/core/migrate":      "translate",
-	"internal/core/xmi":          "translate",
-	"internal/core/xmi/sysmlv1":  "translate",
-	"internal/core/codegen":      "translate",
-	"internal/interop/flexo":     "translate",
-	"internal/interop/reposync":  "translate",
+	"internal/translate/rdf":              "translate",
+	"internal/translate/rdf/ontology":     "translate",
+	"internal/translate/convert":          "translate",
+	"internal/translate/export":           "translate",
+	"internal/translate/migrate":          "translate",
+	"internal/translate/xmi":              "translate",
+	"internal/translate/xmi/sysmlv1":      "translate",
+	"internal/translate/codegen":          "translate",
+	"internal/translate/interop/flexo":    "translate",
+	"internal/translate/interop/reposync": "translate",
 
 	"internal/semantic/query": "semantic",
 	"internal/core/queryexec": "doc",
@@ -121,27 +121,27 @@ var packageLayer = map[string]string{
 // exist, importer → imported; an entry whose edge is gone fails, so it only shrinks.
 var tolerated = map[string][]string{
 	"internal/exec/analysis/modelform": {"internal/core/libs"},
-	"internal/core/codegen":            {"internal/check/passes"},
-	"internal/core/export":             {"internal/core/libs"},
-	"internal/semantic/identity":       {"internal/core/rdf"},
-	"internal/check/passes/identity":   {"internal/core/rdf"},
-	"internal/core/migrate":            {"internal/core/libs"},
+	"internal/translate/codegen":       {"internal/check/passes"},
+	"internal/translate/export":        {"internal/core/libs"},
+	"internal/semantic/identity":       {"internal/translate/rdf"},
+	"internal/check/passes/identity":   {"internal/translate/rdf"},
+	"internal/translate/migrate":       {"internal/core/libs"},
 	"internal/exec/runtime":            {"internal/core/envvar"},
 }
 
 // removed is the imports the layering took out, importer → imported; reintroducing
 // one fails even where the layer table would permit it.
 var removed = map[string][]string{
-	"internal/exec/analysis":            {"internal/core/export"},
-	"internal/exec/analysis/enginewire": {"internal/core/export"},
-	"internal/core/export":              {"internal/core/migrate", "internal/exec/runtime", "internal/ir/lower"},
+	"internal/exec/analysis":            {"internal/translate/export"},
+	"internal/exec/analysis/enginewire": {"internal/translate/export"},
+	"internal/translate/export":         {"internal/translate/migrate", "internal/exec/runtime", "internal/ir/lower"},
 	"internal/check/passes/kit":         {"internal/check/passes"},
 	"internal/check/passes/document":    {"internal/check/passes"},
 	"internal/check/passes/diagram":     {"internal/check/passes"},
 	"internal/check/passes/identity":    {"internal/check/passes"},
 	"internal/check/passes/behavior":    {"internal/check/passes"},
 	"internal/exec/runtime":             {"internal/syntax/parser", "internal/check/passes"},
-	"internal/semantic/query":           {"internal/core/rdf"},
+	"internal/semantic/query":           {"internal/translate/rdf"},
 	"internal/repl":                     {"internal/grpc"},
 }
 

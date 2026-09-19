@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/codegen"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/codegen"
 )
 
 // BenchmarkCompiledCalc times each invocation interpreted and as each backend's
