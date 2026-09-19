@@ -260,7 +260,7 @@ func (n *namer) name(want string) string {
 // emitActivity spells one activity as an action definition with its parameters.
 func emitActivity(a *Activity, defs map[string]bool, spelled map[*Parameter]string) (string, *scope, error) {
 	if a.Owner != nil {
-		return "", nil, &TranslateError{a.Name, "activity", "an owned behavior of a class is not translated by the pilot emitter"}
+		return "", nil, &TranslateError{a.Name, "activity", untranslated("an owned behavior of a class")}
 	}
 	e := &emitter{a: a, defs: defs, spelled: spelled}
 	s, err := e.build(nil, a.Nodes)
@@ -503,7 +503,7 @@ func (s *scope) parameterNode(n *Node) error {
 		return s.e.fail(n.Label(), "names no parameter")
 	}
 	if s.owner != nil {
-		return s.e.fail(n.Label(), "an activity parameter node inside a structured node is not translated by the pilot emitter")
+		return s.e.fail(n.Label(), untranslated("an activity parameter node inside a structured node"))
 	}
 	t, err := s.e.typeOf(p.Type, parameterLabel(p.Name))
 	if err != nil {
@@ -723,7 +723,7 @@ func (s *scope) bindCallPins(n *Node, callee *Activity) error {
 func (s *scope) structuredNode(n *Node) error {
 	e := s.e
 	if len(n.Pins) > 0 {
-		return e.fail(n.Label(), "a structured node with pins is not translated by the pilot emitter")
+		return e.fail(n.Label(), untranslated("a structured node with pins"))
 	}
 	inner, err := e.build(n, n.Nodes)
 	if err != nil {
@@ -773,7 +773,7 @@ func (s *scope) edge(edge *Edge) error {
 		return s.crossing(edge, from, to)
 	}
 	if !unitWeight(edge) {
-		return e.fail(edgeLabel(edge), "an edge weight other than 1 is not translated by the pilot emitter")
+		return e.fail(edgeLabel(edge), untranslated("an edge weight other than 1"))
 	}
 	if src.Kind == FlowFinalNode || src.Kind == ActivityFinalNode {
 		return e.fail(edgeLabel(edge), "a final node has no outgoing edge")
@@ -830,10 +830,10 @@ func (s *scope) enable(a, b *snode) {
 func (s *scope) crossing(edge *Edge, from, to *Node) error {
 	e := s.e
 	if edge.Kind != ObjectFlow {
-		return e.fail(edgeLabel(edge), "a control flow across a structured node's boundary is not translated by the pilot emitter")
+		return e.fail(edgeLabel(edge), untranslated("a control flow across a structured node's boundary"))
 	}
 	if edge.Guard != nil || !unitWeight(edge) {
-		return e.fail(edgeLabel(edge), "a guarded or weighted flow across a structured node's boundary is not translated by the pilot emitter")
+		return e.fail(edgeLabel(edge), untranslated("a guarded or weighted flow across a structured node's boundary"))
 	}
 	src, tgt := edge.Source, edge.Target
 	switch {
@@ -861,7 +861,7 @@ func (s *scope) crossing(edge *Edge, from, to *Node) error {
 			return e.fail(edgeLabel(edge), "leaves a structured node at a pin its inner flow did not declare")
 		}
 		if b.kind != kindAction || s.pins[tgt] == "" {
-			return e.fail(edgeLabel(edge), "a flow leaving a structured node into a control node is not translated by the pilot emitter")
+			return e.fail(edgeLabel(edge), untranslated("a flow leaving a structured node into a control node"))
 		}
 		s.flows = append(s.flows, flow{sn, b, s.pins[src], s.pins[tgt]})
 		s.enable(sn, b)
@@ -1033,7 +1033,7 @@ func (s *scope) trace() error {
 func (s *scope) route(src *snode, srcPin *Node, edge *Edge, seen map[*Edge]bool) error {
 	e := s.e
 	if seen[edge] {
-		return e.fail(edgeLabel(edge), "an object flow cycle through control nodes is not translated by the pilot emitter")
+		return e.fail(edgeLabel(edge), untranslated("an object flow cycle through control nodes"))
 	}
 	seen[edge] = true
 	defer delete(seen, edge)

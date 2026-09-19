@@ -146,10 +146,10 @@ func (m *migration) featureValue(v, f, scope *sysmlv1.Element) (expr string, ok 
 	if v.Type == "InstanceValue" && t != nil {
 		inst := m.model.Ref(v, "instance")
 		if inst.Type == "InstanceSpecification" && !m.instanceOf(m.model.Refs(inst, "classifier"), t) {
-			return "", false, "the instance " + qualifiedName(inst) + " is not a " + qualifiedName(t) + ", which the feature holds"
+			return "", false, "the instance " + qualifiedName(inst) + " is not a " + qualifiedName(t) + featureHolds
 		}
 		if inst.Type == "EnumerationLiteral" && inst.Parent != t && m.written(t) {
-			return "", false, "the literal " + qualifiedName(inst) + " is not a " + qualifiedName(t) + ", which the feature holds"
+			return "", false, "the literal " + qualifiedName(inst) + " is not a " + qualifiedName(t) + featureHolds
 		}
 	}
 	sv := m.scalarBase(t)
@@ -166,7 +166,7 @@ func (m *migration) featureValue(v, f, scope *sysmlv1.Element) (expr string, ok 
 	value, spelled := scalarLiteral(kind, expr, strings.TrimSpace(v.Attrs["value"]), sv)
 	switch {
 	case !spelled:
-		return "", false, "the " + kind + " " + expr + " is not a value of " + sv + ", which the feature holds"
+		return "", false, "the " + kind + " " + expr + " is not a value of " + sv + featureHolds
 	case value != expr:
 		return value, true, joinNotes(note, "the "+kind+" "+expr+" is written as the "+sv+" the feature holds")
 	}
@@ -347,6 +347,9 @@ func exprLiteral(text string) (kind, value string) {
 
 // exprProbePrefix precedes an expression parsed on its own as an attribute's value.
 const exprProbePrefix = "attribute probe = "
+
+// featureHolds ends the notes a refused literal value carries.
+const featureHolds = ", which the feature holds"
 
 // refCollector gathers the names an expression refers to beyond its local
 // ones; unread is set when a member of a kind the walk does not read is met.

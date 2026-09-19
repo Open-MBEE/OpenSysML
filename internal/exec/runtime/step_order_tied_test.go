@@ -35,7 +35,7 @@ func TestStepOrderDrawsTheActingTiedEventAlone(t *testing.T) {
 			t.Fatalf("%s: step orders %v, want one between the step and the unguarded trigger alone", final.Outcome, steps)
 		}
 		dispatched := slices.ContainsFunc(final.Witness.Choices, func(c ChoiceTaken) bool { return c.Kind == ChoiceDispatchOrder })
-		if before := steps[0].Took != "do top"; before == dispatched {
+		if (steps[0].Took != "do top") == dispatched {
 			t.Fatalf("%s: the dispatch order is drawn exactly when the step goes first, got %s", final.Outcome, FormatChoices(final.Witness.Choices))
 		}
 		r := replayWitness(t, m, start, final.Witness, final.Outcome)

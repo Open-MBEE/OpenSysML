@@ -7,6 +7,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
+// stateKw opens a state usage; isA and outsideRegion are the note fragments the
+// unmappable-vertex diagnostics share.
+const (
+	stateKw       = "state "
+	isA           = " is a "
+	outsideRegion = " outside the region, or one with no v2 form"
+)
+
 // stateMachineBody writes a state machine's regions as the body of its state def.
 func (m *migration) stateMachineBody(sm *sysmlv1.Element) {
 	m.parameters(sm, sm)
@@ -19,7 +27,9 @@ func (m *migration) stateMachineBody(sm *sysmlv1.Element) {
 	for _, cp := range sm.Owned("connectionPoint") {
 		m.connectionPoint(cp)
 	}
-	m.regions(sm, sm.Owned("region"), inheritedStateNamesSet(), false, func() {})
+	m.regions(sm, sm.Owned("region"), inheritedStateNamesSet(), false, func() {
+		// No members come between the entry action and the regions.
+	})
 }
 
 // regions writes the regions of a state machine or composite state: one inline,
@@ -40,7 +50,7 @@ func (m *migration) regions(owner *sysmlv1.Element, regions []*sysmlv1.Element, 
 		name := freshIn(used, "regions")
 		m.w.line(entryThen(entered, writeName(name)))
 		between()
-		m.w.block("state "+writeName(name)+" parallel", func() {
+		m.w.block(stateKw+writeName(name)+" parallel", func() {
 			inner := inheritedStateNamesSet()
 			for _, r := range regions {
 				rname := m.nameOf(r)
@@ -50,7 +60,7 @@ func (m *migration) regions(owner *sysmlv1.Element, regions []*sysmlv1.Element, 
 				rname = freshIn(inner, rname)
 				m.names[r] = rname
 				m.parallel[r] = name
-				m.w.block("state "+writeName(rname), func() {
+				m.w.block(stateKw+writeName(rname), func() {
 					st := &stateRegion{m: m, r: r, used: inheritedStateNamesSet(), names: map[*sysmlv1.Element]string{}}
 					st.enter(false)
 					st.write()
@@ -188,7 +198,7 @@ func (s *stateRegion) initial(vertices, transitions []*sysmlv1.Element, entered 
 		if tgt == nil {
 			s.m.unmapped(t, joinNotes(s.m.dangling(t, "target"), "the transition lacks a target"))
 		} else {
-			s.m.unmapped(t, "the target "+describe(tgt)+" is a "+kindOf(tgt)+" outside the region, or one with no v2 form")
+			s.m.unmapped(t, "the target "+describe(tgt)+isA+kindOf(tgt)+outsideRegion)
 		}
 		return
 	}
@@ -232,7 +242,7 @@ func (s *stateRegion) vertex(v *sysmlv1.Element) {
 		case "initial":
 		case "choice", "junction":
 			name := writeName(s.name(v))
-			s.m.w.line("state " + name + ";")
+			s.m.w.line(stateKw + name + ";")
 			s.m.add(v, Approximated, name, "a "+pseudoKind(v)+" pseudostate is written as a state its guarded transitions leave at once")
 		case "terminate":
 			s.m.add(v, Approximated, "done", "a terminate pseudostate ends the machine; a transition to it is written to done, which ends its region")
@@ -263,7 +273,7 @@ func (m *migration) connectionPoint(v *sysmlv1.Element) {
 func (s *stateRegion) state(v *sysmlv1.Element) {
 	name := writeName(s.name(v))
 	defers := s.deferrals(v)
-	head := "state " + name
+	head := stateKw + name
 	if sub := s.m.model.Ref(v, "submachine"); sub != nil {
 		for _, c := range v.Owned("connection") {
 			s.m.unmapped(c, "a connection point reference has no v2 form; transitions through it are written to and from the submachine state")
@@ -422,7 +432,7 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 		}
 		return true
 	}
-	m.w.lines(commentLines(kw + " " + describe(b) + " is a " + b.Type + ", which has no action form"))
+	m.w.lines(commentLines(kw + " " + describe(b) + isA + b.Type + ", which has no action form"))
 	m.add(b, Unmapped, "", "a "+b.Type+" has no action form")
 	return false
 }
@@ -502,12 +512,12 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 	}
 	from, ok := s.source(t, src)
 	if !ok {
-		s.m.unmapped(t, "the source "+describe(src)+" is a "+kindOf(src)+" outside the region, or one with no v2 form")
+		s.m.unmapped(t, "the source "+describe(src)+isA+kindOf(src)+outsideRegion)
 		return
 	}
 	to, ok := s.target(t, tgt)
 	if !ok {
-		s.m.unmapped(t, "the target "+describe(tgt)+" is a "+kindOf(tgt)+" outside the region, or one with no v2 form")
+		s.m.unmapped(t, "the target "+describe(tgt)+isA+kindOf(tgt)+outsideRegion)
 		return
 	}
 	if t.Attrs["kind"] == "internal" {

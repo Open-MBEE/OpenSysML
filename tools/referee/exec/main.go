@@ -60,9 +60,12 @@ type execReport struct {
 // defaultCases is the shipped case corpus, relative to the repository root.
 const defaultCases = "tools/referee/exec/testdata/cases"
 
+// toolName is the command's name in its flags, messages and output directory.
+const toolName = "pilot-exec-diff"
+
 // Main runs the pilot-exec-diff command over args and returns its exit status.
 func Main(args []string, stderr io.Writer) int {
-	flags := flag.NewFlagSet("pilot-exec-diff", flag.ContinueOnError)
+	flags := flag.NewFlagSet(toolName, flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	repoFlag := flags.String("repo", "", "repository root (default: module root)")
 	casesFlag := flags.String("cases", "", "directory containing .cases files")
@@ -77,7 +80,7 @@ func Main(args []string, stderr io.Writer) int {
 
 	root, err := repo.Choose(*repoFlag)
 	if err != nil {
-		fmt.Fprintf(stderr, "pilot-exec-diff: %v\n", err)
+		fmt.Fprintf(stderr, toolName+": %v\n", err)
 		return 1
 	}
 	launcher := repo.Resolve(root, *launcherFlag)
@@ -88,7 +91,7 @@ func Main(args []string, stderr io.Writer) int {
 		fmt.Println(artifactAbsentMessage(launcher))
 		return 0
 	} else if err != nil {
-		fmt.Fprintf(stderr, "pilot-exec-diff: inspect launcher: %v\n", err)
+		fmt.Fprintf(stderr, toolName+": inspect launcher: %v\n", err)
 		return 1
 	}
 
@@ -98,20 +101,20 @@ func Main(args []string, stderr io.Writer) int {
 	}
 	caseFiles, err := readCaseFiles(casesDir)
 	if err != nil {
-		fmt.Fprintf(stderr, "pilot-exec-diff: %v\n", err)
+		fmt.Fprintf(stderr, toolName+": %v\n", err)
 		return 1
 	}
 	out := repo.Resolve(root, *outFlag)
 	if out == "" {
-		out = filepath.Join(root, "build", "pilot-exec-diff")
+		out = filepath.Join(root, "build", toolName)
 	}
 	report, err := execute(root, launcher, caseFiles)
 	if err != nil {
-		fmt.Fprintf(stderr, "pilot-exec-diff: %v\n", err)
+		fmt.Fprintf(stderr, toolName+": %v\n", err)
 		return 1
 	}
 	if err := writeReport(out, report); err != nil {
-		fmt.Fprintf(stderr, "pilot-exec-diff: %v\n", err)
+		fmt.Fprintf(stderr, toolName+": %v\n", err)
 		return 1
 	}
 	printSummary(report)
@@ -194,7 +197,7 @@ func modelPaths(models []execModel) []string {
 }
 
 func runPilot(launcher string, models []string, cases []execCase) (map[string]string, error) {
-	tsv, err := os.CreateTemp("", "pilot-exec-diff-*.tsv")
+	tsv, err := os.CreateTemp("", toolName+"-*.tsv")
 	if err != nil {
 		return nil, fmt.Errorf("create pilot cases: %w", err)
 	}
@@ -319,7 +322,7 @@ func canonicalPilot(raw string) string {
 }
 
 func writeReport(dir string, report *execReport) error {
-	files, err := reports.Open(dir, "pilot-exec-diff")
+	files, err := reports.Open(dir, toolName)
 	if err != nil {
 		return fmt.Errorf("create report directory: %w", err)
 	}
@@ -347,7 +350,7 @@ func writeReport(dir string, report *execReport) error {
 }
 
 func printSummary(report *execReport) {
-	fmt.Println("pilot-exec-diff: expressions only")
+	fmt.Println(toolName + ": expressions only")
 	fmt.Println(report.Note)
 	for _, name := range bucketNames {
 		fmt.Printf("%s: %d\n", name, report.Buckets[name])

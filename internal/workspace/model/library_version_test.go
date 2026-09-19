@@ -548,7 +548,7 @@ func TestWorkspaceLibraryVersionEditIndexFollowsRoots(t *testing.T) {
 	for _, tc := range []struct {
 		name, text string
 		library    bool
-		real       []string // documents declaring ScalarValues::Real, sorted
+		realDocs   []string // documents declaring ScalarValues::Real, sorted
 	}{
 		{"member added", strings.Replace(src, "datatype Real specializes", "datatype Furlong;\n\tdatatype Real specializes", 1),
 			true, []string{"copy.kerml"}},
@@ -578,8 +578,8 @@ func TestWorkspaceLibraryVersionEditIndexFollowsRoots(t *testing.T) {
 			declaredIn = append(declaredIn, sym.DocName)
 		}
 		sort.Strings(declaredIn)
-		if !slices.Equal(declaredIn, tc.real) {
-			t.Errorf("%s: ScalarValues::Real declared in %q, want %q", tc.name, declaredIn, tc.real)
+		if !slices.Equal(declaredIn, tc.realDocs) {
+			t.Errorf("%s: ScalarValues::Real declared in %q, want %q", tc.name, declaredIn, tc.realDocs)
 		}
 	}
 }
@@ -610,9 +610,9 @@ func TestWorkspaceLibraryVersionEditIndexFollowsSequence(t *testing.T) {
 	ei := ws.editIndexLocked("copy.kerml")
 	idx := ei.build()
 	for i, step := range []struct {
-		doc     *Document
-		library bool
-		real    []string
+		doc      *Document
+		library  bool
+		realDocs []string
 	}{
 		{rooted("ScalarValues"), true, []string{"copy.kerml"}},
 		{rooted("MineAgain"), false, []string{scalarValues}},
@@ -631,8 +631,8 @@ func TestWorkspaceLibraryVersionEditIndexFollowsSequence(t *testing.T) {
 			declaredIn = append(declaredIn, sym.DocName)
 		}
 		sort.Strings(declaredIn)
-		if !slices.Equal(declaredIn, step.real) {
-			t.Errorf("step %d: ScalarValues::Real declared in %q, want %q", i, declaredIn, step.real)
+		if !slices.Equal(declaredIn, step.realDocs) {
+			t.Errorf("step %d: ScalarValues::Real declared in %q, want %q", i, declaredIn, step.realDocs)
 		}
 	}
 	if got := ws.standIns["copy.kerml"]; got != "" {

@@ -196,11 +196,11 @@ func TestExecuteRelatedColumnFollowsDepthAndDirection(t *testing.T) {
 		t.Fatalf("depth 0: %v", err)
 	}
 	assertColumn(t, cellsByColumn(t, none), "related", [][]string{nil})
-	any, err := fixture.traced(t, mirror, "specialization", "outgoing", 0, "any", Options{})
+	reach, err := fixture.traced(t, mirror, "specialization", "outgoing", 0, "any", Options{})
 	if err != nil {
 		t.Fatalf("depth 0 any: %v", err)
 	}
-	assertColumn(t, cellsByColumn(t, any), "related", [][]string{{"false"}})
+	assertColumn(t, cellsByColumn(t, reach), "related", [][]string{{"false"}})
 }
 
 func TestExecuteRelatedColumnReportsItsColumnInErrors(t *testing.T) {
@@ -279,11 +279,11 @@ func TestExecuteRelatedColumnAnyStopsAtTheFirstElement(t *testing.T) {
 	_, err := fixture.traced(t, mirror, "specialization", "outgoing", 3, "list", Options{VisitBudget: 1})
 	executionError(t, err, ErrorVisitBudget)
 
-	any, err := fixture.traced(t, mirror, "specialization", "outgoing", 3, "any", Options{VisitBudget: 1})
+	reach, err := fixture.traced(t, mirror, "specialization", "outgoing", 3, "any", Options{VisitBudget: 1})
 	if err != nil {
 		t.Fatalf("any: %v", err)
 	}
-	assertColumn(t, cellsByColumn(t, any), "related", [][]string{{"true"}})
+	assertColumn(t, cellsByColumn(t, reach), "related", [][]string{{"true"}})
 
 	// A row that reaches nothing still walks its whole (empty) frontier.
 	none, err := fixture.traced(t, ElementValue(fixture.symbol(t, "Subsystem")), "specialization", "outgoing", 3, "any", Options{VisitBudget: 1})
