@@ -93,6 +93,11 @@ func TestNamespaceHelpers(t *testing.T) {
 	if IsUMLNamespace("http://www.omg.org/spec/UML/20161101/StandardProfile") {
 		t.Error("profile namespace classified as UML")
 	}
+	for _, ns := range []string{"http://www.magicdraw.com/schemas/SimulationProfile.xmi", "http://www.magicdraw.com/schemas/ReqIF_Profile.xmi"} {
+		if IsXMINamespace(ns) {
+			t.Errorf("IsXMINamespace(%q) = true for a profile namespace", ns)
+		}
+	}
 }
 
 func TestAccessors(t *testing.T) {

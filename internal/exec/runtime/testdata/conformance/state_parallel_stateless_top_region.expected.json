@@ -1,0 +1,10 @@
+{
+  "type": "state",
+  "events": [
+    {
+      "signal": "Go"
+    }
+  ],
+  "finalState": "idle+done",
+  "trace": true
+}

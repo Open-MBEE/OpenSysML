@@ -88,17 +88,10 @@ func (m *migration) methodBehavior(e, op *sysmlv1.Element) {
 // classifierBehavior writes the usage that performs or exhibits the behavior
 // a class names as its classifier behavior, so an object of it runs it.
 func (m *migration) classifierBehavior(c *sysmlv1.Element) {
-	b := m.model.Ref(c, "classifierBehavior")
-	if b == nil || b.Parent != c || !m.written(b) {
+	b, name, cat := m.classifierBehaviorUsage(c)
+	if b == nil {
 		return
 	}
-	name := ""
-	if op := m.methodOf[b]; op != nil {
-		b, name = op, m.operationUsage(op)
-	} else {
-		name = m.freshName(c, lowerFirst(m.nameFor(b)))
-	}
-	cat, _ := m.classify(b)
 	switch cat {
 	case catStateDef:
 		m.w.line("exhibit state " + writeName(name) + " : " + m.ref(b, c) + ";")
@@ -108,6 +101,27 @@ func (m *migration) classifierBehavior(c *sysmlv1.Element) {
 		return
 	}
 	m.downgrade(b, "the classifier behavior is run by every object of "+qualifiedName(c)+" as its usage "+name)
+}
+
+// classifierBehaviorUsage names the usage by which an object of c runs its
+// classifier behavior, and the behavior (or the operation it is the method of)
+// with its category; nil when c has no written classifier behavior of its own.
+// The name is fixed on the first ask, so a reference may precede the declaration.
+func (m *migration) classifierBehaviorUsage(c *sysmlv1.Element) (b *sysmlv1.Element, name string, cat category) {
+	b = m.model.Ref(c, "classifierBehavior")
+	if b == nil || b.Parent != c || !m.written(b) {
+		return nil, "", catNone
+	}
+	if op := m.methodOf[b]; op != nil {
+		b, name = op, m.operationUsage(op)
+	} else if n, ok := m.cbUsage[c]; ok {
+		name = n
+	} else {
+		name = m.freshName(c, lowerFirst(m.nameFor(b)))
+		m.cbUsage[c] = name
+	}
+	cat, _ = m.classify(b)
+	return b, name, cat
 }
 
 // operationUsage names the action usage of an operation's owner that performs

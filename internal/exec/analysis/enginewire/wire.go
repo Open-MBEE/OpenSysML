@@ -122,6 +122,9 @@ type Question struct {
 	// ModelSeed is the seed the runs' modeled draws come from, apart from the schedule's;
 	// absent leaves them to a `seed:<n>` schedule.
 	ModelSeed *uint64 `json:"modelSeed,omitempty"`
+	// Draws is the policy the runs' RandomFunctions draws resolve under, as -draws
+	// spells it (min, max, average); absent draws at random.
+	Draws string `json:"draws,omitempty"`
 	// Free is what the question leaves open: "schedule", "inputs".
 	Free []string `json:"free"`
 	// Condition is the requirement or constraint a holds question asks about; absent asks
@@ -166,8 +169,9 @@ type FreeInput struct {
 	Domain string `json:"domain,omitempty"`
 }
 
-// Sweep is a sweep question's domain; a Monte Carlo states runs and a seed and no range.
-// Seed is present, zero included, whenever the rows are drawn from it.
+// Sweep is a sweep question's domain; a Monte Carlo states runs and no range, with a
+// seed unless its runs draw nothing at random (a fixed Draws policy). Seed is present,
+// zero included, whenever the rows are drawn from it.
 type Sweep struct {
 	Ranges  []Range `json:"ranges"`
 	Sampled bool    `json:"sampled,omitempty"`

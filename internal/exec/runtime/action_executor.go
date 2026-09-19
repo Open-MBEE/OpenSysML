@@ -2721,12 +2721,35 @@ func (e *ActionExecutor) State() ExecutionState {
 	return e.state
 }
 
-// Results returns the values the action's features hold, and under `node.pin` those
-// of each nested node's latest performance; a performed usage's mirror its occurrence.
+// Results returns the values the action's features hold, under `node.pin` those of
+// each nested node's latest performance and under `part.attribute` what the one
+// object each of its own parts denotes holds; a performed usage's mirror its occurrence.
 func (e *ActionExecutor) Results() map[string]Value {
 	results := make(map[string]Value, len(e.root.data))
 	e.root.collect("", results)
+	e.collectPartsHeld(results)
 	return results
+}
+
+// collectPartsHeld adds the attributes held by the object each part or item usage the
+// action declares denotes, keyed `part.attribute`. A usage denotes one object for the
+// context, which every activation reads; one never denoted, or of several, is left out.
+func (e *ActionExecutor) collectPartsHeld(into map[string]Value) {
+	if e.action == nil || e.action.Scope == nil {
+		return
+	}
+	for _, sym := range e.action.Scope.Members() {
+		if sym.Name == "" || (sym.Kind != symbols.SymbolPartUsage && sym.Kind != symbols.SymbolItemUsage) {
+			continue
+		}
+		objects, live := e.ctx.liveOccurrences(sym)
+		if !live || len(objects) != 1 {
+			continue
+		}
+		for name, value := range e.ctx.attributesHeld(objects[0]) {
+			into[sym.Name+"."+name] = value
+		}
+	}
 }
 
 // Data returns the live feature space of the action's own performance; a nested

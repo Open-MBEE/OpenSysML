@@ -907,12 +907,13 @@ func guardIsValue(g *sysmlv1.Element) bool {
 	return false
 }
 
-// probabilities weights each branch of a decision carrying a «Probability»: unmarked
-// branches share the remainder to 1, marked sums other than 1 are scaled; nil when none.
+// probabilities weights each branch of a decision carrying a «Probability»: a
+// number is a constant, a property is a reference the run reads, unmarked branches
+// share the remainder to 1, constant sums other than 1 are scaled; nil when none.
 func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string {
-	values := make([]float64, len(outs))
+	weights := make([]probabilityWeight, len(outs))
 	var unmarked []int
-	sum, marked := 0.0, false
+	sum, marked, dynamic := 0.0, false, false
 	var notes []string
 	for i, e := range outs {
 		if tos[i] == "" {
@@ -929,18 +930,22 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 			notes = append(notes, "the «Probability» on "+describe(e)+" has no probability value")
 			continue
 		}
-		v, ok := a.probability(text)
-		if !ok {
-			notes = append(notes, "the probability "+strconv.Quote(text)+" on "+describe(e)+" is neither a number nor a property with a numeric default")
+		w, reason := a.probability(text)
+		if reason != "" {
+			notes = append(notes, "the probability "+strconv.Quote(text)+" on "+describe(e)+" "+reason)
 			continue
 		}
-		f, err := strconv.ParseFloat(v, 64)
-		if err != nil || f < 0 || f > 1 {
-			notes = append(notes, "the probability "+v+" on "+describe(e)+" is not between 0 and 1")
+		if w.property != nil {
+			dynamic = true
+			weights[i] = w
 			continue
 		}
-		sum += f
-		values[i] = f
+		if w.value < 0 || w.value > 1 {
+			notes = append(notes, "the probability "+w.expr+" on "+describe(e)+" is not between 0 and 1")
+			continue
+		}
+		sum += w.value
+		weights[i] = w
 	}
 	if !marked {
 		return nil
@@ -948,6 +953,7 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 	remainder := 1 - sum
 	switch {
 	case len(notes) > 0:
+	case dynamic:
 	case len(unmarked) > 0 && remainder < -probabilityTolerance:
 		notes = append(notes, "the probabilities out of the decision sum to "+realLiteral(sum)+", leaving nothing for the "+strconv.Itoa(len(unmarked))+" branch(es) without one")
 	case len(unmarked) == 0 && sum <= 0:
@@ -963,53 +969,105 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 		return nil
 	}
 	switch {
+	case len(unmarked) > 0 && dynamic:
+		share := a.dynamicRemainder(weights, len(unmarked))
+		for _, i := range unmarked {
+			weights[i] = probabilityWeight{expr: share}
+			a.m.add(outs[i], Approximated, "", "the edge carries no «Probability»: it is weighted "+share+", its share of what the marked branches leave of 1, read when the decision is reached")
+		}
 	case len(unmarked) > 0:
 		share := math.Max(remainder, 0) / float64(len(unmarked))
 		for _, i := range unmarked {
-			values[i] = share
+			weights[i] = probabilityWeight{expr: realLiteral(share), value: share}
 			a.m.add(outs[i], Approximated, "", "the edge carries no «Probability»: it is weighted "+realLiteral(share)+", its share of what the marked branches leave of 1")
 		}
-	case math.Abs(remainder) > probabilityTolerance:
+	case !dynamic && math.Abs(remainder) > probabilityTolerance:
 		for i, e := range outs {
-			values[i] /= sum
+			weights[i] = probabilityWeight{expr: realLiteral(weights[i].value / sum), value: weights[i].value / sum}
 			a.m.add(e, Approximated, "", "the probabilities out of the decision sum to "+realLiteral(sum)+", not 1: each is scaled by the sum")
 		}
 	}
-	weights := make([]string, len(outs))
-	for i, v := range values {
-		weights[i] = realLiteral(v)
+	exprs := make([]string, len(outs))
+	for i, w := range weights {
+		exprs[i] = w.expr
+		if w.property != nil {
+			a.m.add(outs[i], Mapped, "", "the probability reads the property "+a.m.nameOf(w.property)+" of the object performing the action, so a run checks it lies in [0, 1] and the branches sum to 1 when the decision is reached")
+		}
 	}
-	return weights
+	return exprs
+}
+
+// probabilityWeight is the weight of one branch: the v2 expression written for
+// it, and the number it is when it is a constant, or the property it reads.
+type probabilityWeight struct {
+	expr     string
+	value    float64
+	property *sysmlv1.Element
+}
+
+// dynamicRemainder writes what the marked branches, one of them a reference,
+// leave of 1 for each of n unmarked ones.
+func (a *activity) dynamicRemainder(weights []probabilityWeight, n int) string {
+	var terms []string
+	for _, w := range weights {
+		if w.expr != "" {
+			terms = append(terms, w.expr)
+		}
+	}
+	share := "1.0 - " + terms[0]
+	if len(terms) > 1 {
+		share = "1.0 - (" + strings.Join(terms, " + ") + ")"
+	}
+	if n > 1 {
+		share = "(" + share + ") / " + realLiteral(float64(n))
+	}
+	return share
 }
 
 // probabilityTolerance is how far probabilities out of one decision may sum
 // from 1 and still be written as they are.
 const probabilityTolerance = 1e-6
 
-// probability reads a probability tag: a number, or the name of a property
-// visible from the activity whose default value is a number.
-func (a *activity) probability(text string) (string, bool) {
+// probability reads a probability tag: a number, written as a constant, or the
+// name or id of a numeric property visible from the activity, written as a
+// reference to it; reason says why it is neither.
+func (a *activity) probability(text string) (probabilityWeight, string) {
 	text = strings.TrimSpace(text)
 	if v, ok := finiteNumber(text); ok {
-		return v, true
+		f, _ := strconv.ParseFloat(text, 64)
+		return probabilityWeight{expr: v, value: f}, ""
 	}
-	if t := a.m.model.Lookup(text); t != nil {
-		text = t.Name
-	}
-	visible, _ := a.m.visibleFrom(a.act)
+	visible, hidden := a.m.visibleFrom(a.act)
 	p := visible[text]
-	if p == nil || p.Type != "Property" {
-		return "", false
+	if p == nil {
+		if t := a.m.model.Lookup(text); t != nil && !t.IsProxy() {
+			if t.Type != "Property" {
+				return probabilityWeight{}, "names " + describe(t) + ", a " + t.Type + " rather than a property"
+			}
+			if visible[a.m.nameOf(t)] != t {
+				return probabilityWeight{}, "names the property " + qualifiedName(t) + ", which is not visible from the activity"
+			}
+			p = t
+		} else if h := hidden[text]; h != nil {
+			return probabilityWeight{}, "names the private property " + qualifiedName(h) + ", which the activity's context does not inherit"
+		} else {
+			return probabilityWeight{}, "is neither a number nor the name of a property visible from the activity"
+		}
 	}
-	dv := firstOwned(p, "defaultValue")
-	if dv == nil {
-		return "", false
+	if p.Type != "Property" {
+		return probabilityWeight{}, "names " + describe(p) + ", a " + p.Type + " rather than a property"
 	}
-	switch dv.Type {
-	case "LiteralReal", "LiteralInteger":
-		return finiteNumber(dv.Attrs["value"])
+	if t := a.m.model.Ref(p, "type"); !numericScalar[a.m.scalarBase(t)] {
+		typed := "has no type"
+		if t != nil {
+			typed = "is typed by " + describe(t)
+		}
+		return probabilityWeight{}, "names the property " + qualifiedName(p) + ", which " + typed + ", not a number"
 	}
-	return "", false
+	if mult, _ := a.m.multiplicity(p); mult != "" {
+		return probabilityWeight{}, "names the property " + qualifiedName(p) + ", which holds " + mult + " values, not one number"
+	}
+	return probabilityWeight{expr: writeName(a.m.nameOf(p)), property: p}, ""
 }
 
 // finiteNumber reads text as a finite number written as a v2 real literal.
