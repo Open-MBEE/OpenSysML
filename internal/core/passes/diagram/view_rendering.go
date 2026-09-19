@@ -1,4 +1,4 @@
-package passes
+package diagram
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -15,13 +15,13 @@ const (
 	msgOnlyOneViewRendering           = "A view may have at most one view rendering."
 )
 
-// W8DViewRenderingPass checks that a view owns at most one view rendering (SysML
+// ViewRenderingPass checks that a view owns at most one view rendering (SysML
 // v2 §8.3.26); a plain `rendering` member is no view rendering and does not count.
-type W8DViewRenderingPass struct{}
+type ViewRenderingPass struct{}
 
-func (W8DViewRenderingPass) Level() PassLevel { return LevelConstraint }
+func (ViewRenderingPass) Level() kit.PassLevel { return kit.LevelConstraint }
 
-func (W8DViewRenderingPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
+func (ViewRenderingPass) Run(ctx *kit.Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -31,13 +31,17 @@ func (W8DViewRenderingPass) Run(ctx *Context, name string, root *ast.RootNamespa
 	}
 	var diags []diag.Diagnostic
 	kit.WalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
-		msg, ok := w8dViewRenderingMessage(sym.Decl)
+		msg, ok := viewRenderingMessage(sym.Decl)
 		if !ok {
 			return
 		}
 		var renderings []ast.Node
 		for _, member := range ast.DeclMembers(sym.Decl) {
-			if u, isUsage := unwrapType(member).(*ast.Usage); isUsage && u.Kind == ast.UsageViewRendering {
+			owned := member
+			if membership, ok := member.(*ast.Membership); ok {
+				owned = membership.Member
+			}
+			if u, isUsage := owned.(*ast.Usage); isUsage && u.Kind == ast.UsageViewRendering {
 				renderings = append(renderings, member)
 			}
 		}
@@ -59,9 +63,9 @@ func (W8DViewRenderingPass) Run(ctx *Context, name string, root *ast.RootNamespa
 	return diags
 }
 
-// w8dViewRenderingMessage returns the reference's message for the view kind decl
+// viewRenderingMessage returns the reference's message for the view kind decl
 // declares, and whether it is a view at all.
-func w8dViewRenderingMessage(decl ast.Node) (string, bool) {
+func viewRenderingMessage(decl ast.Node) (string, bool) {
 	switch d := decl.(type) {
 	case *ast.Definition:
 		if d.Kind == ast.DefView {
