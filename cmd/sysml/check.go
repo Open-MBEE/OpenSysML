@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
 

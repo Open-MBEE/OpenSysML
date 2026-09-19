@@ -15,7 +15,7 @@ import (
 	"connectrpc.com/connect"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 	"google.golang.org/protobuf/proto"
 )
@@ -283,7 +283,7 @@ func engineStandin(t *testing.T) string {
 		}
 		standinPath = filepath.Join(dir, "enginestandin")
 		build := exec.Command("go", gobuild.Args(standinPath)...)
-		build.Dir = filepath.Join("..", "core", "analysis", "testdata", "enginestandin")
+		build.Dir = filepath.Join("..", "exec", "analysis", "testdata", "enginestandin")
 		if out, err := build.CombinedOutput(); err != nil {
 			standinErr = fmt.Errorf("go build: %v\n%s", err, out)
 		}

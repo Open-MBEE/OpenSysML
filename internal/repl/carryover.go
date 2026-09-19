@@ -4,7 +4,7 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // carried is one object the session materialized, together with the shapes it

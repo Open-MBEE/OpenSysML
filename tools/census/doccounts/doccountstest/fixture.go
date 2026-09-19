@@ -42,7 +42,7 @@ var Expected = Suite{
 // WriteSuiteFixture writes the fixture tree under root.
 func WriteSuiteFixture(t TB, root string) {
 	t.Helper()
-	conformance := "internal/core/runtime/testdata/conformance/"
+	conformance := "internal/exec/runtime/testdata/conformance/"
 	for _, name := range []string{"calc_a", "calc_b", "calc_c", "calc_d", "action_a", "state_a", "send_a"} {
 		Write(t, root, conformance+name+".sysml", "package P;\n")
 		Write(t, root, conformance+name+".expected.json", "{}\n")
@@ -89,7 +89,7 @@ func TestOtherNegative(t *testing.T) {
 	t.Run("only", func(t *testing.T) {})
 }
 `)
-	Write(t, root, "internal/core/runtime/robustness_test.go", `package runtime
+	Write(t, root, "internal/exec/runtime/robustness_test.go", `package runtime
 
 import "testing"
 
@@ -114,7 +114,7 @@ func helper(t *testing.T) {}
 
 func Testlower(t *testing.T) {}
 `)
-	Write(t, root, "internal/core/runtime/robustness_signals_test.go", `package runtime
+	Write(t, root, "internal/exec/runtime/robustness_signals_test.go", `package runtime
 
 import "testing"
 

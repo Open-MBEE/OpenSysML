@@ -140,7 +140,7 @@ func TestExprTypeCheckStdlibFindingsNeedTheLibrary(t *testing.T) {
 func TestExprTypeCheckNoExampleFalsePositives(t *testing.T) {
 	roots := []string{
 		filepath.Join("..", "..", "..", "examples"),
-		filepath.Join("..", "runtime", "testdata"),
+		filepath.Join("..", "..", "exec", "runtime", "testdata"),
 	}
 	ws := NewWorkspace()
 	var found []string

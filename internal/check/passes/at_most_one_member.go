@@ -251,7 +251,7 @@ func subjectOwnerDecl(decl ast.Node) bool {
 }
 
 // objectiveOwnerDecl reports whether a case declaration is judged by the objective
-// cardinality rule; analysis cases are exempt, see internal/core/solve.
+// cardinality rule; analysis cases are exempt, see internal/exec/solve.
 func objectiveOwnerDecl(decl ast.Node) bool {
 	switch d := decl.(type) {
 	case *ast.Definition:

@@ -70,14 +70,14 @@ var packageLayer = map[string]string{
 	"internal/check/passes/behavior": "check",
 	"internal/check/edit":            "check",
 
-	"internal/core/runtime":             "exec",
-	"internal/core/solve":               "exec",
-	"internal/core/smt":                 "exec",
-	"internal/core/analysis":            "exec",
-	"internal/core/analysis/enginewire": "exec",
-	"internal/core/analysis/modelform":  "exec",
-	"internal/core/engines":             "exec",
-	"internal/core/objref":              "exec",
+	"internal/exec/runtime":             "exec",
+	"internal/exec/solve":               "exec",
+	"internal/exec/smt":                 "exec",
+	"internal/exec/analysis":            "exec",
+	"internal/exec/analysis/enginewire": "exec",
+	"internal/exec/analysis/modelform":  "exec",
+	"internal/exec/engines":             "exec",
+	"internal/exec/objref":              "exec",
 
 	"internal/core/rdf":          "translate",
 	"internal/core/rdf/ontology": "translate",
@@ -120,27 +120,27 @@ var packageLayer = map[string]string{
 // tolerated is the imports the layer table does not permit and that still
 // exist, importer → imported; an entry whose edge is gone fails, so it only shrinks.
 var tolerated = map[string][]string{
-	"internal/core/analysis/modelform": {"internal/core/libs"},
+	"internal/exec/analysis/modelform": {"internal/core/libs"},
 	"internal/core/codegen":            {"internal/check/passes"},
 	"internal/core/export":             {"internal/core/libs"},
 	"internal/semantic/identity":       {"internal/core/rdf"},
 	"internal/check/passes/identity":   {"internal/core/rdf"},
 	"internal/core/migrate":            {"internal/core/libs"},
-	"internal/core/runtime":            {"internal/core/envvar"},
+	"internal/exec/runtime":            {"internal/core/envvar"},
 }
 
 // removed is the imports the layering took out, importer → imported; reintroducing
 // one fails even where the layer table would permit it.
 var removed = map[string][]string{
-	"internal/core/analysis":            {"internal/core/export"},
-	"internal/core/analysis/enginewire": {"internal/core/export"},
-	"internal/core/export":              {"internal/core/migrate", "internal/core/runtime", "internal/ir/lower"},
+	"internal/exec/analysis":            {"internal/core/export"},
+	"internal/exec/analysis/enginewire": {"internal/core/export"},
+	"internal/core/export":              {"internal/core/migrate", "internal/exec/runtime", "internal/ir/lower"},
 	"internal/check/passes/kit":         {"internal/check/passes"},
 	"internal/check/passes/document":    {"internal/check/passes"},
 	"internal/check/passes/diagram":     {"internal/check/passes"},
 	"internal/check/passes/identity":    {"internal/check/passes"},
 	"internal/check/passes/behavior":    {"internal/check/passes"},
-	"internal/core/runtime":             {"internal/syntax/parser", "internal/check/passes"},
+	"internal/exec/runtime":             {"internal/syntax/parser", "internal/check/passes"},
 	"internal/semantic/query":           {"internal/core/rdf"},
 	"internal/repl":                     {"internal/grpc"},
 }

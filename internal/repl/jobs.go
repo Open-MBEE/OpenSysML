@@ -3,7 +3,7 @@ package repl
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 )
 
 // Jobs returns how many runs of one plan the session lets go concurrently.

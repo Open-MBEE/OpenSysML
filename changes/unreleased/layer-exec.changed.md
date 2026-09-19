@@ -1,0 +1,1 @@
+- **Moved the execution packages to `internal/exec`.** `runtime`, `solve`, `smt`, `analysis` (with `enginewire` and `modelform`), `engines` and `objref` now live under `internal/exec/`.

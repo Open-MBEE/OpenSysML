@@ -533,7 +533,7 @@ the whole set of outcomes it admits.
 
 The examples below are one fixture from the conformance suite, three branches writing one feature
 between a fork and a join,
-[`action_explore_three_writers.sysml`](../../internal/core/runtime/testdata/conformance/action_explore_three_writers.sysml):
+[`action_explore_three_writers.sysml`](../../internal/exec/runtime/testdata/conformance/action_explore_three_writers.sysml):
 
 ```sysml
 package test {
@@ -843,7 +843,7 @@ no file of the caller's and `"replay:…"` is `INVALID_ARGUMENT`.
 ### Writing a test that admits several outcomes
 
 A conformance case (see the
-[conformance README](../../internal/core/runtime/testdata/conformance/README.md)) that pins one
+[conformance README](../../internal/exec/runtime/testdata/conformance/README.md)) that pins one
 outcome of a model with choice points pins the default policy's linearization, which is fine when
 that is what you mean. When the model admits several, say so with three things beside the
 `.sysml`:
@@ -2003,7 +2003,7 @@ Setting `x` to `5` gives `taken = 2`. The state-machine counterparts (orthogonal
 regions, choice and junction) appear in
 [examples/orthogonal-regions-demo.sysml](../../examples/orthogonal-regions-demo.sysml) and
 [examples/pseudostates-demo.sysml](../../examples/pseudostates-demo.sysml), and every case the
-executors are tested against lives under `internal/core/runtime/testdata/conformance/`.
+executors are tested against lives under `internal/exec/runtime/testdata/conformance/`.
 
 ### Terminate: ending an action early
 
