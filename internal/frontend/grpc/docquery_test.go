@@ -20,7 +20,7 @@ const telescopeFixture = "../../doc/docrender/testdata/telescope_report.sysml"
 const telescopeGolden = "../../doc/docrender/testdata/telescope_report.golden.md"
 
 // telescopeHTMLGolden is the standalone HTML page the same document renders to.
-const telescopeHTMLGolden = "../core/docrender/testdata/telescope_report.golden.html"
+const telescopeHTMLGolden = "../../doc/docrender/testdata/telescope_report.golden.html"
 
 // defaultedFixture declares queries whose parameters carry defaults.
 const defaultedFixture = "../../doc/docrender/testdata/defaulted_queries.sysml"

@@ -99,7 +99,7 @@ printf '<svg xmlns="http://www.w3.org/2000/svg"/>' > "$out"
 	if err := os.WriteFile(css, []byte(".sysml-document { color: rebeccapurple; }\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
 	out := filepath.Join(dir, "report.pdf")
 	env := append(os.Environ(), docpdf.WeasyPrintEnv+"="+weasyprint, docpdf.MermaidEnv+"="+mmdc)
 
@@ -163,7 +163,7 @@ printf '<svg xmlns="http://www.w3.org/2000/svg"/>' > "$out"
 	if err := os.WriteFile(css, []byte(".sysml-document { color: rebeccapurple; }\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
 	out := filepath.Join(dir, "report.pdf")
 	env := append(os.Environ(), docpdf.PandocEnv+"="+pandoc, docpdf.WeasyPrintEnv+"="+weasyprint, docpdf.MermaidEnv+"="+mmdc)
 
