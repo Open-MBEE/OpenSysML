@@ -19,7 +19,7 @@ import (
 const snapshotPath = "internal/workspace/libs/stdlib.snapshot"
 
 // logPrefix opens every diagnostic the tool writes.
-const logPrefix = "snapshot: "
+const logPrefix = "snapshot:"
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
@@ -56,7 +56,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if *check {
 		have, err := os.ReadFile(*out)
 		if err != nil || !bytes.Equal(have, data) {
-			fmt.Fprintf(stderr, logPrefix+"%s is stale; run `go generate ./internal/workspace/libs`\n", *out)
+			fmt.Fprintf(stderr, logPrefix+" %s is stale; run `go generate ./internal/workspace/libs`\n", *out)
 			return 1
 		}
 		return 0
