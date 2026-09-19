@@ -1,4 +1,4 @@
-package passes
+package document
 
 import (
 	"errors"
@@ -10,19 +10,19 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// documentPlanSource names this pass in the diagnostics it emits.
-const documentPlanSource = "document-plan"
+// planSource names this pass in the diagnostics it emits.
+const planSource = "document-plan"
 
-// DocumentPlanPass validates native document definitions.
-type DocumentPlanPass struct{}
+// PlanPass validates native document definitions.
+type PlanPass struct{}
 
-func (DocumentPlanPass) Level() PassLevel { return LevelConstraint }
+func (PlanPass) Level() kit.PassLevel { return kit.LevelConstraint }
 
-func (DocumentPlanPass) ElementScoped() {
+func (PlanPass) ElementScoped() {
 	// A marker: each document definition is gated on its own, so there is nothing to do.
 }
 
-func (DocumentPlanPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
+func (PlanPass) Run(ctx *kit.Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -48,27 +48,27 @@ func (DocumentPlanPass) Run(ctx *Context, name string, root *ast.RootNamespace) 
 					return
 				}
 			}
-			diagnostics = append(diagnostics, documentPlanDiagnostic(err))
+			diagnostics = append(diagnostics, planDiagnostic(err))
 		}
 	})
 	return diagnostics
 }
 
-func documentPlanDiagnostic(err error) diag.Diagnostic {
+func planDiagnostic(err error) diag.Diagnostic {
 	var planning *docplan.Error
 	if !errors.As(err, &planning) {
 		return diag.Diagnostic{
 			Severity: diag.SeverityError,
 			Message:  err.Error(),
-			Code:     documentPlanSource,
-			Source:   documentPlanSource,
+			Code:     planSource,
+			Source:   planSource,
 		}
 	}
 	return diag.Diagnostic{
 		Severity: diag.SeverityError,
 		Span:     planning.Origin.Span,
 		Message:  planning.Error(),
-		Code:     documentPlanSource + "-" + string(planning.Kind),
-		Source:   documentPlanSource,
+		Code:     planSource + "-" + string(planning.Kind),
+		Source:   planSource,
 	}
 }

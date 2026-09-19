@@ -1,4 +1,4 @@
-package passes
+package document
 
 import (
 	"errors"
@@ -10,19 +10,19 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// documentQuerySource names this pass in the diagnostics it emits.
-const documentQuerySource = "document-query"
+// querySource names this pass in the diagnostics it emits.
+const querySource = "document-query"
 
-// DocumentQueryPass validates native document-query definitions.
-type DocumentQueryPass struct{}
+// QueryPass validates native document-query definitions.
+type QueryPass struct{}
 
-func (DocumentQueryPass) Level() PassLevel { return LevelConstraint }
+func (QueryPass) Level() kit.PassLevel { return kit.LevelConstraint }
 
-func (DocumentQueryPass) ElementScoped() {
+func (QueryPass) ElementScoped() {
 	// A marker: each query definition is gated on its own, so there is nothing to do.
 }
 
-func (DocumentQueryPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
+func (QueryPass) Run(ctx *kit.Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -48,27 +48,27 @@ func (DocumentQueryPass) Run(ctx *Context, name string, root *ast.RootNamespace)
 					return
 				}
 			}
-			diagnostics = append(diagnostics, documentQueryDiagnostic(err))
+			diagnostics = append(diagnostics, queryDiagnostic(err))
 		}
 	})
 	return diagnostics
 }
 
-func documentQueryDiagnostic(err error) diag.Diagnostic {
+func queryDiagnostic(err error) diag.Diagnostic {
 	var planning *queryplan.Error
 	if !errors.As(err, &planning) {
 		return diag.Diagnostic{
 			Severity: diag.SeverityError,
 			Message:  err.Error(),
-			Code:     documentQuerySource,
-			Source:   documentQuerySource,
+			Code:     querySource,
+			Source:   querySource,
 		}
 	}
 	return diag.Diagnostic{
 		Severity: diag.SeverityError,
 		Span:     planning.Origin.Span,
 		Message:  planning.Error(),
-		Code:     documentQuerySource + "-" + string(planning.Kind),
-		Source:   documentQuerySource,
+		Code:     querySource + "-" + string(planning.Kind),
+		Source:   querySource,
 	}
 }

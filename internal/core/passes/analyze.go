@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/document"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -30,8 +31,8 @@ func DefaultRegistry() *Registry {
 	reg.Register(ElementFilterPass{})
 	reg.Register(ConstraintPass{})
 	reg.Register(VariantOwnerPass{})
-	reg.Register(DocumentQueryPass{})
-	reg.Register(DocumentPlanPass{})
+	reg.Register(document.QueryPass{})
+	reg.Register(document.PlanPass{})
 	reg.Register(TypeRelationshipsPass{})
 	reg.Register(W11EConjugatedSpecializationPass{})
 	reg.Register(ImplicitBasePass{})
