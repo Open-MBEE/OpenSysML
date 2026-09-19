@@ -9,9 +9,8 @@ import (
 	"testing"
 )
 
-// TestStepOrderDrawsTheActingTiedEventAlone: of two time triggers tied at the head while
-// a do step is due, the one whose dispatch acts is drawn against the step by name, the
-// dropped one waits for the round to close, and every witness replays to its own trace.
+// Of two time triggers tied at the head while a do step is due, the one whose dispatch
+// acts is drawn against the step by name, the dropped one waits; every witness replays.
 func TestStepOrderDrawsTheActingTiedEventAlone(t *testing.T) {
 	text, err := os.ReadFile(filepath.Join("testdata", "conformance", "state_do_step_or_tied_dispatch.sysml"))
 	if err != nil {
