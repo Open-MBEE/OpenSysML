@@ -302,6 +302,7 @@ func loadCompileFixture(t testing.TB) *Session {
 func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 	for _, target := range codegen.Targets() {
 		t.Run(string(target), func(t *testing.T) {
+			t.Parallel()
 			if target == codegen.TargetC {
 				if _, err := exec.LookPath("cc"); err != nil {
 					t.Skip("no C compiler on PATH")

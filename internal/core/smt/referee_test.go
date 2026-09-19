@@ -11,6 +11,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -140,6 +141,7 @@ func firstAction(scope *symbols.Scope) *symbols.Symbol {
 
 // refereeTally counts what the referee saw over the corpus.
 type refereeTally struct {
+	mu                                              sync.Mutex
 	encoded, refused, agreeing, witnesses, replayed int
 	// inputs counts the violated witnesses fixing inputs, reproduced those the
 	// exploration with the inputs pinned reaches the violation of.
@@ -149,6 +151,22 @@ type refereeTally struct {
 	// insensitive those found not sensitive with one value across its outcomes.
 	features, sensitive, insensitive int
 	refusals                         []string
+}
+
+func (tally *refereeTally) merge(other *refereeTally) {
+	tally.mu.Lock()
+	defer tally.mu.Unlock()
+	tally.encoded += other.encoded
+	tally.refused += other.refused
+	tally.agreeing += other.agreeing
+	tally.witnesses += other.witnesses
+	tally.replayed += other.replayed
+	tally.inputs += other.inputs
+	tally.reproduced += other.reproduced
+	tally.features += other.features
+	tally.sensitive += other.sensitive
+	tally.insensitive += other.insensitive
+	tally.refusals = append(tally.refusals, other.refusals...)
 }
 
 // log reports the tally as the referee's columns.
@@ -176,12 +194,18 @@ func TestRefereeCorpus(t *testing.T) {
 	}
 	sort.Strings(names)
 	tally := &refereeTally{}
-	for _, name := range names {
-		c := cases[name]
-		t.Run(name, func(t *testing.T) {
-			refereeCase(t, &solver, name, c, tally)
-		})
-	}
+	t.Run("cases", func(t *testing.T) {
+		for _, name := range names {
+			c := cases[name]
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				s := solver
+				local := &refereeTally{}
+				refereeCase(t, &s, name, c, local)
+				tally.merge(local)
+			})
+		}
+	})
 	tally.log(t)
 	if tally.encoded == 0 {
 		t.Fatal("the referee encoded no case")
