@@ -1288,15 +1288,19 @@ func (p *opaqueParser) call(path []string) (translated, *refusal) {
 	}
 	switch fn {
 	case "Math.max", "Math.min":
-		// Java's take two arguments; JavaScript's take any number, folded pairwise.
+		// Java's take two arguments; JavaScript's take any number, folded pairwise,
+		// one argument being itself and none an infinity the subset has no form for.
 		if p.d == dialectJava {
 			if err := arity(2); err != nil {
 				return translated{}, err
 			}
-		} else if len(args) < 2 {
-			return translated{}, &refusal{kind: refusedCall, token: fn, why: fn + " takes at least 2 arguments"}
+		} else if len(args) == 0 {
+			return translated{}, &refusal{kind: refusedCall, token: fn, why: fn + " with no arguments yields an infinity, which has no v2 form in the subset"}
 		}
 		acc := args[0]
+		if err := numbersAt(fn, acc); err != nil {
+			return translated{}, err
+		}
 		for _, arg := range args[1:] {
 			if err := numbersAt(fn, acc, arg); err != nil {
 				return translated{}, err

@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: meter.xmi
-# migrated 129 element(s): 96 mapped, 33 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 130 element(s): 97 mapped, 33 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## approximated (33)
 ControlFlow	Meter::Arm::<ControlFlow>	_a2	(the guard [{JavaScript} ready and enabled] is kept as a comment and the edge written unguarded: the text "and" is not expression syntax: text follows the expression)
@@ -36,7 +36,7 @@ Property	Meter::square	_square	-> Meter::square	(default value not migrated: the
 Property	Meter::tag	_tag	-> Meter::tag	(default value not migrated: the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset)
 Property	Meter::top	_top	-> Meter::top	(default value not migrated: the types at "cells.reading" disagree: the expression is a collection, not the one value wanted)
 
-## mapped (96)
+## mapped (97)
 «Block» Class	Bank	_bank	-> Bank
 Property	Bank::level	_level	-> Bank::level
 «Block» Class	Gauge	_gauge	-> Gauge
@@ -121,6 +121,7 @@ Property	Meter::half	_half	-> Meter::half
 Property	Meter::hand	_hand	-> Meter::hand
 Property	Meter::label	_label	-> Meter::label
 Property	Meter::mode	_mmode	-> Meter::mode
+Property	Meter::peak	_peakv	-> Meter::peak
 Property	Meter::quarter	_quarter	-> Meter::quarter
 Property	Meter::ratio	_ratio	-> Meter::ratio
 Property	Meter::ready	_ready	-> Meter::ready

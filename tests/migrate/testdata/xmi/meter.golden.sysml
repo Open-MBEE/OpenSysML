@@ -29,6 +29,7 @@ part def Meter {
     attribute ratio : ScalarValues::Real default = 0.0;
     attribute floored : ScalarValues::Real default = 0.0;
     attribute rounded : ScalarValues::Integer default = 0;
+    attribute peak : ScalarValues::Real default = 0.0;
     attribute gain : ScalarValues::Real {
         /* default value not migrated: {JavaScript} total(count) — the call "total" is not in the translated function table */
     }
@@ -63,6 +64,7 @@ part def Meter {
         action record {
             in v : ScalarValues::Real;
             assign this.total := v + 1;
+            assign this.peak := v;
         }
         first record then split;
         action split {

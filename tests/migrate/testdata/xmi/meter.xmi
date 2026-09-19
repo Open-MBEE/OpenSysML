@@ -65,6 +65,9 @@
       <ownedAttribute xmi:type="uml:Property" xmi:id="_rounded" name="rounded"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
         <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_rounded0" value="0"/>
       </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_peakv" name="peak"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_peakv0" value="0.0"/>
+      </ownedAttribute>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_gain" name="gain"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
         <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_gain0">
           <language>JavaScript</language>
@@ -135,7 +138,7 @@
         <node xmi:type="uml:OpaqueAction" xmi:id="_record" name="record">
           <inputValue xmi:type="uml:InputPin" xmi:id="_recordv" name="v"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
           <language>JavaScript</language>
-          <body>total = v + 1;</body>
+          <body>total = v + 1; peak = Math.max(v);</body>
         </node>
         <node xmi:type="uml:OpaqueAction" xmi:id="_split" name="split">
           <language>Java</language>

@@ -339,6 +339,7 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 		"assign y := x * 2;",
 		"flow sense.y to record.v;",
 		"assign this.total := v + 1;",
+		"assign this.peak := v;",
 		"assign this.half := OpenSysMLMathFunctions::quotient(this.ticks, 2);",
 		"assign this.ratio := this.total / 2;",
 		"assign this.floored := RealFunctions::floor(this.total) / 8;",
@@ -377,8 +378,8 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	s := session(t, r)
 	meta(t, s, "%instantiate Meter")
 	wantVerdict(t, s.RunAction("Meter::Measure", "Meter"))
-	runs := strings.Join(s.RunRuns("Meter::Measure", []string{"Meter"}, 1, seedOf(1), []string{"this.total", "this.half", "this.ratio", "this.floored", "this.rounded", "this.quarter", "this.eighth"}).Lines, "\n")
-	for _, want := range []string{"this.total: 1 run(s), min 4.0", "this.half: 1 run(s), min 3", "this.ratio: 1 run(s), min 2.0", "this.floored: 1 run(s), min 0.5", "this.rounded: 1 run(s), min 0", "this.quarter: 1 run(s), min 1", "this.eighth: 1 run(s), min 0.875"} {
+	runs := strings.Join(s.RunRuns("Meter::Measure", []string{"Meter"}, 1, seedOf(1), []string{"this.total", "this.peak", "this.half", "this.ratio", "this.floored", "this.rounded", "this.quarter", "this.eighth"}).Lines, "\n")
+	for _, want := range []string{"this.total: 1 run(s), min 4.0", "this.peak: 1 run(s), min 3.0", "this.half: 1 run(s), min 3", "this.ratio: 1 run(s), min 2.0", "this.floored: 1 run(s), min 0.5", "this.rounded: 1 run(s), min 0", "this.quarter: 1 run(s), min 1", "this.eighth: 1 run(s), min 0.875"} {
 		if !strings.Contains(runs, want) {
 			t.Errorf("runs lack %q:\n%s", want, runs)
 		}
