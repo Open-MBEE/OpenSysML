@@ -275,7 +275,12 @@ func (a *activity) write() {
 		}
 	}
 	for _, n := range a.nodes {
-		if k := nodeKind(n); (k == nodeAction || k == nodeControl || k == nodeBuffer || k == nodeFinal || k == nodeFlowFinal && (a.before[n] != nil || len(a.m.bounded[n]) > 0)) && !a.dataNode[n] && !a.sink[n] {
+		if a.dataNode[n] {
+			continue
+		}
+		k := nodeKind(n)
+		terminal := k == nodeFlowFinal || a.sink[n] && a.entered(n)
+		if k == nodeAction || k == nodeControl && !a.sink[n] || k == nodeBuffer || k == nodeFinal || terminal && (a.before[n] != nil || len(a.m.bounded[n]) > 0) {
 			a.entries(n)
 		}
 	}
@@ -290,6 +295,9 @@ func (a *activity) write() {
 			a.m.add(n, Skipped, "", unreferencedNote+": no edge leads to or leaves the node")
 			continue
 		case a.sink[n]:
+			if _, ok := a.entry[n]; ok {
+				a.leadIn(n, "done")
+			}
 			a.m.add(n, Approximated, "", "no edge leaves the node, so the token it takes ends there, as at done")
 			continue
 		}
@@ -451,10 +459,10 @@ func (a *activity) resolveData() {
 }
 
 // entries names n and what leads into it: a join when several edges do (a merge
-// into a final, which one token ends), a wait when a duration bounds it.
+// into a final or a sink, which one token ends), a wait when a duration bounds it.
 func (a *activity) entries(n *sysmlv1.Element) {
 	name := "done"
-	if nodeKind(n) != nodeFlowFinal {
+	if nodeKind(n) != nodeFlowFinal && !a.sink[n] {
 		name = writeName(a.name(n, baseName(n)))
 	}
 	if a.starved[n] != nil {
@@ -470,11 +478,12 @@ func (a *activity) entries(n *sysmlv1.Element) {
 		name = s.name
 	}
 	switch {
-	case len(a.prev[n]) <= 1 || n.Type == "JoinNode" || n.Type == "MergeNode":
-	case nodeKind(n) == nodeFinal || nodeKind(n) == nodeFlowFinal:
+	case len(a.prev[n]) <= 1:
+	case nodeKind(n) == nodeFinal || nodeKind(n) == nodeFlowFinal || a.sink[n]:
 		m := writeName(a.fresh("merge"))
 		a.merges[n] = m
 		name = m
+	case n.Type == "JoinNode" || n.Type == "MergeNode":
 	default:
 		j := writeName(a.fresh("join"))
 		a.joins[n] = j
@@ -493,22 +502,16 @@ func (a *activity) entered(n *sysmlv1.Element) bool {
 	return false
 }
 
-// endpointIn names what a succession into n leads to: done for a flow final,
-// which ends the token, and "" for a node nothing may lead to.
+// endpointIn names what a succession into n leads to: done for a flow final or
+// a sink, which end the token, and "" for a node nothing may lead to.
 func (a *activity) endpointIn(n *sysmlv1.Element) string {
-	switch nodeKind(n) {
-	case nodeFlowFinal:
+	switch k := nodeKind(n); {
+	case k == nodeFlowFinal || a.sink[n]:
 		if e, ok := a.entry[n]; ok {
 			return e
 		}
 		return "done"
-	case nodeInitial, nodeParam, nodePin:
-		return ""
-	}
-	switch {
-	case a.sink[n]:
-		return "done"
-	case a.starved[n] != nil:
+	case k == nodeInitial || k == nodeParam || k == nodePin || a.starved[n] != nil:
 		return ""
 	}
 	return a.entry[n]

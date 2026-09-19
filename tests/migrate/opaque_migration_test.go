@@ -65,10 +65,16 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 		"assign Time_Run := localClock.currentTime - 'Time_Run start';",
 		"first stamp10 then final;",
 		"first 'fork' then merge2;",
-		"first stamp8 then merge2;",
+		"first stamp8 then fork2;",
+		"first fork2 then merge2;",
 		"first merge2 then stamp11;",
 		"assign Time_Pass := localClock.currentTime - 'Time_Pass start';",
 		"first stamp11 then done;",
+		"first 'fork' then merge3;",
+		"first fork2 then merge3;",
+		"first merge3 then stamp12;",
+		"assign Time_Drop := localClock.currentTime - 'Time_Drop start';",
+		"first stamp12 then done;",
 		"in Retries : ScalarValues::Integer = 2;",
 		"assign this.tcs.GS_Found := Retries < 1;",
 	} {
@@ -95,6 +101,9 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	wantNote(t, r, "_pass", migrate.Mapped, "from the start of 'first attempt' to the start of (_ff) is assigned to the attribute Time_Pass")
 	wantNote(t, r, "_ff", migrate.Mapped, "a flow final ends the token, as done does")
 	wantNote(t, r, "_ended", migrate.Unmapped, "the observation reads the clock at the end of (_ff), which is no action and so has no end of its own")
+	wantNote(t, r, "_drop_o", migrate.Mapped, "from the start of 'first attempt' to the start of (_drop) is assigned to the attribute Time_Drop")
+	wantNote(t, r, "_drop", migrate.Approximated, "no edge leaves the node, so the token it takes ends there, as at done")
+	wantNote(t, r, "_dropped", migrate.Unmapped, "the observation reads the clock at the end of (_drop), which is no action and so has no end of its own")
 	wantNote(t, r, "_dangle", migrate.Unmapped, "the observation's events resolve to nothing: 1 event reference(s) resolve to nothing in the document (_missing)")
 	wantNote(t, r, "_astray", migrate.Unmapped, "is not a node of the activity")
 	wantNote(t, r, "_blank", migrate.Unmapped, "observes no event")
@@ -104,14 +113,16 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	meta(t, s, "%seed 1")
 	v := s.RunAction("Observatory::Acquire", "Observatory")
 	wantVerdict(t, v)
-	runs := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 5, seedOf(1), []string{"this.Time_Acq_Total", "Time_Loop", "Time_Between", "Time_Attempt", "Time_Run", "Time_Pass"}).Lines, "\n")
+	runs := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 5, seedOf(1), []string{"this.Time_Acq_Total", "Time_Loop", "Time_Between", "Time_Attempt", "Time_Run", "Time_Pass", "Time_Drop"}).Lines, "\n")
 	// Four attempts of ditSetup = 2.5 s each: the loop ran until i reached Retries,
 	// the observation from the initial node to the final spans the whole run, and
-	// the one ending at the flow final each attempt reaches holds the last pass.
+	// those ending at the flow final and at the merge no edge leaves, which each
+	// attempt reaches, hold the last pass.
 	for _, want := range []string{
 		"this.Time_Acq_Total: 5 run(s), min 10.0, mean 10.0, max 10.0",
 		"Time_Run: 5 run(s), min 10.0, mean 10.0, max 10.0",
 		"Time_Pass: 5 run(s), min 10.0, mean 10.0, max 10.0",
+		"Time_Drop: 5 run(s), min 10.0, mean 10.0, max 10.0",
 		"Time_Loop: 5 run(s), min 10.0, mean 10.0, max 10.0",
 		"Time_Between: 5 run(s), min 10.0, mean 10.0, max 10.0",
 		"Time_Attempt: 5 run(s), min 2.5, mean 2.5, max 2.5",

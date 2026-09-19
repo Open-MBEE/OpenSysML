@@ -36,6 +36,8 @@ part def Observatory {
         attribute Time_Run : ScalarValues::Real [0..1];
         attribute 'Time_Pass start' : ScalarValues::Real [0..1];
         attribute Time_Pass : ScalarValues::Real [0..1];
+        attribute 'Time_Drop start' : ScalarValues::Real [0..1];
+        attribute Time_Drop : ScalarValues::Real [0..1];
         first start then stamp9;
         action stamp9 {
             assign 'Time_Run start' := localClock.currentTime;
@@ -54,6 +56,7 @@ part def Observatory {
             assign 'Time_Loop start' := localClock.currentTime;
             assign 'Time_Unfinished start' := localClock.currentTime;
             assign 'Time_Pass start' := localClock.currentTime;
+            assign 'Time_Drop start' := localClock.currentTime;
         }
         first stamp then 'first attempt';
         action 'first attempt' {
@@ -84,6 +87,7 @@ part def Observatory {
         fork 'fork';
         first 'fork' then 'decide';
         first 'fork' then merge2;
+        first 'fork' then merge3;
         action stamp11 {
             if 'Time_Pass start'->SequenceFunctions::notEmpty() {
                 assign Time_Pass := localClock.currentTime - 'Time_Pass start';
@@ -92,6 +96,14 @@ part def Observatory {
         first stamp11 then done;
         merge merge2;
         first merge2 then stamp11;
+        action stamp12 {
+            if 'Time_Drop start'->SequenceFunctions::notEmpty() {
+                assign Time_Drop := localClock.currentTime - 'Time_Drop start';
+            }
+        }
+        first stamp12 then done;
+        merge merge3;
+        first merge3 then stamp12;
         decide 'decide';
         first 'decide' if this.tcs.i >= this.tcs.Retries then stamp4;
         first 'decide' if not this.tcs.GS_Found and not this.tcs.'Guide Star Lost' and this.tcs.i < this.tcs.Retries then 'next attempt';
@@ -114,7 +126,7 @@ part def Observatory {
                 assign Time_Never := localClock.currentTime - 'Time_Never start';
             }
         }
-        first stamp2 then merge3;
+        first stamp2 then merge4;
         action 'next attempt' {
             assign this.tcs.i := this.tcs.i + 1;
         }
@@ -132,13 +144,16 @@ part def Observatory {
                 assign Time_Unfinished := localClock.currentTime - 'Time_Unfinished start';
             }
         }
-        first stamp8 then merge2;
+        first stamp8 then fork2;
+        fork fork2;
+        first fork2 then merge3;
+        first fork2 then merge2;
         action 'stop timer' {
             assign this.Time_Acq_Total := localClock.currentTime - this.Time_Acq_Total;
         }
         first 'stop timer' then stamp10;
-        merge merge3;
-        first merge3 then 'stop timer';
+        merge merge4;
+        first merge4 then 'stop timer';
         action stamp10 {
             if 'Time_Run start'->SequenceFunctions::notEmpty() {
                 assign Time_Run := localClock.currentTime - 'Time_Run start';

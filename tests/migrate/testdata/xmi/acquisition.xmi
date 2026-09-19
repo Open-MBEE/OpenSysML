@@ -52,6 +52,7 @@ GS_Found = false;</body>
         <node xmi:type="uml:CallBehaviorAction" xmi:id="_attempt" name="attempt"/>
         <node xmi:type="uml:ForkNode" xmi:id="_split"/>
         <node xmi:type="uml:FlowFinalNode" xmi:id="_ff"/>
+        <node xmi:type="uml:MergeNode" xmi:id="_drop"/>
         <node xmi:type="uml:DecisionNode" xmi:id="_decide"/>
         <node xmi:type="uml:OpaqueAction" xmi:id="_found" name="guide star found">
           <language>JavaScript</language>
@@ -79,6 +80,8 @@ GS_Found = false;</body>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e4b" source="_attempt" target="_split"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e4c" source="_split" target="_decide"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e4d" source="_split" target="_ff"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4e" source="_split" target="_drop"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e11b" source="_abort" target="_drop"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e5" source="_decide" target="_found">
           <guard xmi:type="uml:OpaqueExpression" xmi:id="_g5">
             <language>JavaScript</language>
@@ -141,6 +144,13 @@ GS_Found = false;</body>
         </observation>
         <observation xmi:type="uml:DurationObservation" xmi:id="_ended" name="Time_Ended">
           <event xmi:idref="_ff"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_drop_o" name="Time_Drop" firstEvent="true true">
+          <event xmi:idref="_set"/>
+          <event xmi:idref="_drop"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_dropped" name="Time_Dropped">
+          <event xmi:idref="_drop"/>
         </observation>
         <observation xmi:type="uml:DurationObservation" xmi:id="_dangle" name="Time_Lost">
           <event xmi:idref="_set"/>
