@@ -2,7 +2,9 @@
 // timer is due is not that timer's expiry: a1's do behavior ends at t=1, and
 // its completion, dispatched before b1's timer due then, enables a1's segment
 // but not b1's, so it fires nothing; b1's expiry then finds a1 completed and
-// fires the join.
+// fires the join. Under check and explore the expiry may be dispatched before
+// a1's do behavior takes its last step: it then finds a1 not completed and is
+// spent, and the join never fires.
 package Test {
 	private import ScalarValues::*;
 	private import SI::*;

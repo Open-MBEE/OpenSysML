@@ -1,5 +1,4 @@
 {
 	"verdict": "divergent",
-	"divergent": {"log": ["\"tick a b sync\"", "\"tick b a sync\""]},
-	"agreed": {"finalState": "done"}
+	"divergent": {"finalState": ["a1+b1", "done"], "log": ["\"\"", "\"tick a b sync\"", "\"tick b a sync\""]}
 }

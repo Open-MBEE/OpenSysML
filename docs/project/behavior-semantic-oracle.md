@@ -1053,6 +1053,17 @@ other, in two runs. Each segment exits its source and runs its effect before the
 drawn (`exit: l1`, `assign log`, `exit: r1`, `assign log` in the golden), so the incoming effects
 interleave with the sources' exits only as the segments do, never across one segment.
 
+`state_join_completion_segment_waits_for_do_behavior` and
+`state_join_completion_is_not_a_timers_expiry` (golden, explored) put a do behavior on one source:
+its completion segment is enabled once the do behavior has ended. Under `check` and `explore` the
+dispatch of an occurrence due at the same instant as a step of that do behavior is a draw (see
+[the next section but one](#a-do-step-and-a-dispatch-due-at-one-instant-which-goes-first-is-open)),
+and the dispatch taken first spends the occurrence the do behavior or the other segment was to
+take: a `Tick` dispatched before `b1`'s body has reached its `accept Tick` is taken by nothing,
+and `b1`'s timer dispatched before `a1`'s do behavior has ended fires a segment whose join is not
+yet enabled. Either leaves the machine in `a1+b1` for good, so each admissible set holds that
+third outcome, which no fixed policy reaches.
+
 ### A merge is re-entered on every traversal of a loop
 
 Fixture: `action_merge_loop_reenters` (golden), after the specification's `ChargeBattery`.
@@ -1288,6 +1299,49 @@ blinking of object #1 (unordered; ran state machine blinking of object #1 first)
 `declared` the action, created first, runs first and reads `lit = false`; `seed:1` draws one of
 the two (`.declared.trace.golden`, `.seed-1.trace.golden`). One executor alone due at an instant
 is not a choice and is not reported.
+
+### A do step and a dispatch due at one instant: which goes first is open
+
+Fixtures: `state_do_step_or_dispatch` (golden, explored), `state_do_step_among_completions`
+(golden, explored).
+
+```
+state Machine { attribute log : String = "";
+                entry; then top;
+                state top { do action work { first start; then action mark assign log := log + "did "; then done; } }
+                transition first top accept Stop do assign log := log + "stop " then idle;
+                state idle; }
+```
+
+Derived constraints:
+
+- A state's do behavior starts before the state's other middle steps start and is otherwise
+  concurrent with them (`StatePerformances.kerml` `StatePerformance`, `succession do.startShot
+  then nonDoMiddle.startShot`); the succession is on the do performance's start, not on its first
+  action, so a do behavior that has begun and not yet performed its first action is a state the
+  library admits while the machine dispatches.
+- A transition's accept precedes its source's exit (`TransitionPerformances.kerml`
+  `StateTransitionPerformance`, `accept then transitionLinkSource.exit`), and the exit ends the
+  do behavior with the state (`succession [*] middle then [1] exit`): a dispatch that leaves the
+  state cuts the do behavior off wherever it stands.
+- No `HappensBefore` chain connects an action of the do behavior to the dispatch of an occurrence
+  in the machine's pool, so the library orders nothing between the two.
+
+Open: whether the do behavior's next action or the dispatch goes first, at every instant both are
+due. In the fixture `Stop` is in the pool as `top` is entered, so `log` ends `did stop ` or
+`stop `.
+
+Pinned outcome: the admissible set `{did stop , stop }`, stated as `outcomes` citing this section.
+Under `check`, `replay` and `explore` the order is a choice point reported as `choice at t=0.0:
+next do top, dispatch accept Stop (unordered; took do top first)`: one move is one action of a
+state's do behavior, drawn against the dispatch the machine would make now (`do <state>` per due
+state, then `dispatch <event>`), and once every due do behavior has acted the dispatch owed is made
+before another round opens. `declared`, `reverse` and `seed:<n>` run the do round to its end and
+dispatch after it, so their traces record no such choice and end `did stop `; `explore` must reach
+both outcomes and no other. `state_do_step_among_completions` is the shape with two regions'
+completion effects for the dispatch: a region's do step and the other region's completion are
+each drawn at every instant both are due, and the region orders among the completions themselves
+stay their own draws.
 
 ## What the executor gets wrong
 

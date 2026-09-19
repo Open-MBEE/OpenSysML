@@ -41,6 +41,9 @@ const (
 	// ChoiceExitOrder: several orthogonal regions each had a state left to exit,
 	// and one of them exited first.
 	ChoiceExitOrder
+	// ChoiceStepOrder: a do behavior had a step due while an event was due for
+	// dispatch, and one of them went first.
+	ChoiceStepOrder
 )
 
 // String is the kind as a trace or diagnostic names it.
@@ -64,6 +67,8 @@ func (k ChoiceKind) String() string {
 		return "entry order"
 	case ChoiceExitOrder:
 		return "exit order"
+	case ChoiceStepOrder:
+		return "step order"
 	}
 	return fmt.Sprintf("ChoiceKind(%d)", int(k))
 }
@@ -150,7 +155,7 @@ func (c ChoicePoint) Describe() string {
 		return fmt.Sprintf("at %s: due %s (unordered; ran %s first)", c.Where, alts, taken)
 	case ChoiceDispatchOrder:
 		return fmt.Sprintf("%s: %s (unordered; dispatched %s first)", c.Where, alts, taken)
-	case ChoiceEntryOrder, ChoiceExitOrder:
+	case ChoiceEntryOrder, ChoiceExitOrder, ChoiceStepOrder:
 		return fmt.Sprintf("%s: next %s (unordered; took %s first)", c.Where, alts, taken)
 	}
 	return fmt.Sprintf("%s: %s (unordered; took %s)", c.Kind, alts, taken)

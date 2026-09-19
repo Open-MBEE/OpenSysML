@@ -1,7 +1,9 @@
 // A completion segment into a join is enabled once its source has completed,
 // its do behavior finished included: a Go arriving while b1's body still waits
 // for a Tick does not fire the join, and neither does b1's completion alone; the
-// Go that comes once b1 has completed does.
+// Go that comes once b1 has completed does. Under check and explore the Tick may
+// be dispatched before b1's body has begun: nothing takes it, and the join never
+// fires.
 package Test {
 	private import ScalarValues::*;
 

@@ -559,18 +559,27 @@ const doForkMachine = `package test {
 	}
 }`
 
-// The token orders a do action's flow draws are steps of its own, numbered on:
-// the witness of a fork within a state's do action replays to its outcome.
+// The token orders a do action's flow draws are steps of its own, numbered on,
+// among the step orders the machine draws between the do action and the dispatch:
+// the witness of a fork within a state's do action replays to its outcome, and so
+// does the one of the dispatch leaving the state before the do action acted.
 func TestReplayFollowsDoActionWitnesses(t *testing.T) {
 	m := parseExploreModel(t, doForkMachine)
 	run := stateRun(m.state(t, "Machine"), "go")
 	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
-	if err != nil || !x.Complete() || len(x.Outcomes) != 2 {
+	if err != nil || !x.Complete() || len(x.Outcomes) != 3 {
 		t.Fatalf("explore: %v, %v", x, err)
 	}
 	for _, o := range x.Outcomes {
-		if got := FormatChoices(o.Witness); !strings.HasPrefix(got, "step 3: ") || strings.Contains(got, "; ") {
-			t.Errorf("%s: witness %s, want one token order at the flow's third step", o.Outcome, got)
+		got := FormatChoices(o.Witness)
+		if strings.HasSuffix(o.Outcome.String(), "x = 0") {
+			if strings.Contains(got, "step 3: ") || !strings.HasPrefix(got, "at t=0.0: dispatch accept go first of do busy, dispatch accept go") {
+				t.Errorf("%s: witness %s, want the dispatch drawn before the do action, no token order", o.Outcome, got)
+			}
+			continue
+		}
+		if strings.Count(got, "step 3: ") != 1 || !strings.HasPrefix(got, "at t=0.0: do busy first of do busy, dispatch accept go") {
+			t.Errorf("%s: witness %s, want the do action drawn first, then one token order at the flow's third step", o.Outcome, got)
 		}
 	}
 	assertWitnessesReplay(t, x, m.fresh, run)
@@ -1044,7 +1053,9 @@ func assertRefusedLeftOver(t *testing.T, err error, move int, choice ChoiceTaken
 }
 
 // A do-order move naming a state whose behavior is not due is refused before
-// either due behavior acts, so the run stops where the witness stopped fitting.
+// either due behavior acts, so the run stops where the witness stopped fitting;
+// lwork's round, opened before the dispatch drawn ahead of its step, ends with
+// that step, and the round the move names opens after it with rwork due too.
 func TestReplayRefusesADoOrderMoveNotEnabled(t *testing.T) {
 	m := parseExploreModel(t, `package test {
 		private import ScalarValues::*;
@@ -1069,7 +1080,7 @@ func TestReplayRefusesADoOrderMoveNotEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	witness, err := ParseChoices("entering Interleave: lstart(entry) first of lstart(entry), rstart(entry)\ndo round at t=0.0: zork first of lwork, zork\n")
+	witness, err := ParseChoices("entering Interleave: lstart(entry) first of lstart(entry), rstart(entry)\nat t=0.0: dispatch time rstart 1->rwork first of do lwork, dispatch time rstart 1->rwork\ndo round at t=0.0: zork first of lwork, zork\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1080,7 +1091,7 @@ func TestReplayRefusesADoOrderMoveNotEnabled(t *testing.T) {
 	}
 	err = exec.RunToCompletion()
 	var refused *ReplayError
-	if !errors.As(err, &refused) || refused.Move != 2 || !strings.Contains(err.Error(), "zork is not enabled (enabled: lwork, rwork)") {
+	if !errors.As(err, &refused) || refused.Move != 3 || !strings.Contains(err.Error(), "zork is not enabled (enabled: lwork, rwork)") {
 		t.Fatalf("error %T %v, want the do-order move refused", err, err)
 	}
 	if seq := FormatValue(exec.StateData()["seq"]); seq != "1" {
@@ -1516,7 +1527,7 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 		}
 	}`)
 	sym := m.state(t, "Machine")
-	witness, err := ParseChoices("entering work: a(entry) first of a(entry), b(entry), c(entry)\nentering work: b(entry) first of b(entry), c(entry)\njoin sync: b first of a, b, c\njoin sync: a first of a, b\n")
+	witness, err := ParseChoices("entering work: a(entry) first of a(entry), b(entry), c(entry)\nentering work: b(entry) first of b(entry), c(entry)\nat t=0.0: do a first of do a, dispatch time b 1->sync\njoin sync: b first of a, b, c\njoin sync: a first of a, b\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1535,7 +1546,7 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 	exec.SendSignal("Go", nil)
 	err = exec.RunToCompletion()
 	var refused *ReplayError
-	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 4 {
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 5 {
 		t.Fatalf("error %T %v, want the join's second draw refused", err, err)
 	}
 	data := exec.StateData()
@@ -1552,11 +1563,11 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 	if len(exec.doActions) != 1 || exec.doActions[0].run == nil {
 		t.Errorf("do actions %v after the refusal, want a's do behavior paused as it was", exec.doActions)
 	}
-	if got := FormatChoices(takenOf(ctx.Choices())); got != FormatChoices(witness[:2]) {
-		t.Errorf("the run recorded %v, want the entry's draws alone: a refused move is not one made", got)
+	if got := FormatChoices(takenOf(ctx.Choices())); got != FormatChoices(witness[:3]) {
+		t.Errorf("the run recorded %v, want the draws before the join alone: a refused move is not one made", got)
 	}
-	if got := FormatChoices(ctx.ChoicesTaken()); got != FormatChoices(witness[:2]) {
-		t.Errorf("the context holds %v, want the entry's draws alone taken", got)
+	if got := FormatChoices(ctx.ChoicesTaken()); got != FormatChoices(witness[:3]) {
+		t.Errorf("the context holds %v, want the draws before the join alone taken", got)
 	}
 	if got := trace.String(); strings.Contains(got, "choice join sync") || strings.Contains(got, "exit: b") {
 		t.Errorf("trace after the refusal holds the segment fired:\n%s", got)

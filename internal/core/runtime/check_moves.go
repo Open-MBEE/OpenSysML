@@ -193,31 +193,41 @@ func (e *ActionExecutor) incomplete() error {
 	return nil
 }
 
-// enabledMoves lists the moves of the machine's state as its next unit of work
-// runs them: the due do behaviors of the round under way, else the dispatch due,
-// else the do behaviors due for a new round.
+// enabledMoves lists the moves of the machine's state as oneUnit makes them: the
+// dispatch a closed round owes; else a step of each do action of the round and the
+// dispatch due together, picked as the step order lists them — the do steps by
+// their place in the round, the dispatch after them — or whichever of the two is
+// there, picked as it is alone.
 func (e *StateExecutor) enabledMoves() []enabledMove {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	if e.state != StateRunning && e.state != StateSuspended {
 		return nil
 	}
-	if !e.roundDone {
-		if due := e.dueRound(); len(due) > 0 {
-			return e.doMoves(due)
-		}
+	dispatch := e.dispatchMoves()
+	if e.roundDone && len(dispatch) > 0 {
+		return dispatch
 	}
-	if moves := e.dispatchMoves(); len(moves) > 0 {
-		return moves
+	due := e.dueRound()
+	if len(due) == 0 {
+		return dispatch
 	}
-	return e.doMoves(e.dueRound())
+	if len(dispatch) == 0 {
+		return e.doMoves(due, len(due) >= 2)
+	}
+	moves := e.doMoves(due, true)
+	for _, m := range dispatch {
+		m.Picks = slices.Concat([]int{len(due)}, m.Picks)
+		moves = append(moves, m)
+	}
+	return moves
 }
 
-// leftOut is NotEnumeratedDoRound at a machine owing a dispatch while a do
-// behavior its closed round stepped one token at a time can go on: a fixed policy
-// moves each ready token before the dispatch, a run the checker has no move making.
+// leftOut is NotEnumeratedDoRound at a machine with a dispatch due while a do
+// behavior stepped one token at a time can go on: a fixed policy moves each ready
+// token before the dispatch, a run the checker has no move making.
 func (e *StateExecutor) leftOut() string {
 	defer e.ctx.beginExecutorRun(&e.driven)()
-	if (e.state != StateRunning && e.state != StateSuspended) || !e.roundDone || len(e.dispatchMoves()) == 0 {
+	if (e.state != StateRunning && e.state != StateSuspended) || len(e.dispatchMoves()) == 0 {
 		return ""
 	}
 	for _, act := range e.doActions {
@@ -228,28 +238,14 @@ func (e *StateExecutor) leftOut() string {
 	return ""
 }
 
-// dueRound lists the do actions the next do step picks among: the round under
-// way, or a new round of the due ones, those still registered.
-func (e *StateExecutor) dueRound() []*doAction {
-	round := e.round
-	if len(round) == 0 {
-		for _, act := range e.doActions {
-			if act.due(e.ctx) {
-				round = append(round, act)
-			}
-		}
-	}
-	return slices.DeleteFunc(slices.Clone(round), func(act *doAction) bool { return !e.isRunningDoAction(act) })
-}
-
 // doMoves is one do-step move per due do action, picked by its index in the round
-// when the round draws an order.
-func (e *StateExecutor) doMoves(due []*doAction) []enabledMove {
+// where the unit draws an order among them.
+func (e *StateExecutor) doMoves(due []*doAction, picked bool) []enabledMove {
 	moves := make([]enabledMove, 0, len(due))
 	names := e.stateNames(statesOf(due))
 	for i, act := range due {
 		m := enabledMove{Owner: e, Node: act.state, Kind: moveDoStep, Label: "do " + names[i]}
-		if len(due) >= 2 {
+		if picked {
 			m.Picks = []int{i}
 		}
 		moves = append(moves, m)
@@ -266,20 +262,17 @@ func statesOf(acts []*doAction) []*ast.StateNode {
 }
 
 // dispatchMoves is the dispatch due, if any: one move when a change condition
-// has risen or a signal is in flight — what is dispatched then follows from the
-// machine — else one per event tied at the head of the queue, picked by its
-// place among them.
+// has risen, a signal is in flight or one event heads the queue, else one per
+// event tied at the head, picked by its place among them.
 func (e *StateExecutor) dispatchMoves() []enabledMove {
-	if e.changeRisen() || e.hasPendingSignal() {
-		return []enabledMove{{Owner: e, Kind: moveDispatch, Label: "dispatch"}}
-	}
-	if !e.hasDueEvent() {
+	label, due := e.dueDispatch()
+	if !due {
 		return nil
 	}
-	tied := e.eventQueue.Tied()
-	if len(tied) < 2 {
-		return []enabledMove{{Owner: e, Kind: moveDispatch, Label: "dispatch " + e.eventLabel(e.eventQueue.Peek())}}
+	if label != dispatchTiedLabel {
+		return []enabledMove{{Owner: e, Kind: moveDispatch, Label: label}}
 	}
+	tied := e.eventQueue.Tied()
 	moves := make([]enabledMove, 0, len(tied))
 	for i, event := range tied {
 		moves = append(moves, enabledMove{Owner: e, Kind: moveDispatch, Picks: []int{i}, Label: "dispatch " + e.eventLabel(event)})
@@ -301,7 +294,7 @@ func (e *StateExecutor) stepOne() error {
 	return nil
 }
 
-// rest leaves a machine with no move as runOne leaves one with nothing to do: the
+// rest leaves a machine with no move as oneUnit leaves one with nothing to do: the
 // dispatch its closed round owed was not there, so its next unit opens a round.
 func (e *StateExecutor) rest() {
 	e.roundDone = false
