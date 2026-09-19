@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
 
@@ -109,7 +110,7 @@ func hasParseError(diags []diag.Diagnostic) bool {
 // bodies its members carry.
 func (w *notationWalker) walk(members []ast.Node) {
 	for _, member := range members {
-		switch n := unwrapMembership(member).(type) {
+		switch n := kit.UnwrapMembership(member).(type) {
 		case *ast.Namespace:
 			w.kermlNamespace(n)
 			w.keywordAsName(n.Ident)

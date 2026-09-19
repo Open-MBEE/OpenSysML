@@ -1,4 +1,4 @@
-package passes
+package behavior
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -23,15 +24,15 @@ const CodeNoOutgoingTransition = "no-outgoing-transition"
 // direct substates of a parallel state, which are concurrent (SysML v2 §7.16).
 const CodeParallelStateTransition = "parallel-state-transition"
 
-// msgParallelStateTransition is the pilot's wording of the same rule.
-const msgParallelStateTransition = "A parallel state cannot have successions or transitions."
+// MsgParallelStateTransition is the pilot's wording of the same rule.
+const MsgParallelStateTransition = "A parallel state cannot have successions or transitions."
 
 // CodeAccepterSourceNotState marks a transition whose accepter waits in
 // something other than a state (SysML v2 §7.16 TransitionUsage).
 const CodeAccepterSourceNotState = "accepter-source-not-state"
 
-// msgAccepterSourceNotState is the pilot's wording of the same rule.
-const msgAccepterSourceNotState = "A transition with an accepter must have a state as its source."
+// MsgAccepterSourceNotState is the pilot's wording of the same rule.
+const MsgAccepterSourceNotState = "A transition with an accepter must have a state as its source."
 
 // CodeNoTransitionSource marks a transition written without a source that no
 // member precedes in its body (SysML v2 §7.18.3, TargetTransitionUsage).
@@ -60,10 +61,10 @@ const CodeFirstNamesNoTarget = "first-names-no-target"
 type StateTransitionPass struct{}
 
 // Level reports the name-resolution level: resolved endpoints are all it reads.
-func (StateTransitionPass) Level() PassLevel { return LevelNameResolution }
+func (StateTransitionPass) Level() kit.PassLevel { return kit.LevelNameResolution }
 
 // Run checks every state machine the document declares.
-func (StateTransitionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
+func (StateTransitionPass) Run(ctx *kit.Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -98,8 +99,8 @@ type machine struct {
 // another state is one of its vertices, so machine bodies are not searched.
 func (c *transitionChecker) findMachines(scope *symbols.Scope, members []ast.Node) {
 	for _, member := range members {
-		decl := unwrapMembership(member)
-		child := bodyScope(scope, decl)
+		decl := kit.UnwrapMembership(member)
+		child := kit.BodyScope(scope, decl)
 		switch n := decl.(type) {
 		case *ast.Package:
 			c.findMachines(child, n.Members)
@@ -159,9 +160,9 @@ func (c *transitionChecker) checkParallelStates(members []ast.Node, parallel boo
 		regions = directSubstateNames(members)
 	}
 	for _, member := range members {
-		decl := unwrapMembership(member)
+		decl := kit.UnwrapMembership(member)
 		if parallel && parallelStateOrdering(decl) && ordersRegion(decl, regions) {
-			c.report(decl.Span(), CodeParallelStateTransition, msgParallelStateTransition)
+			c.report(decl.Span(), CodeParallelStateTransition, MsgParallelStateTransition)
 			if c.ordered == nil {
 				c.ordered = map[ast.Node]bool{}
 			}
@@ -187,7 +188,7 @@ func (c *transitionChecker) checkParallelStates(members []ast.Node, parallel boo
 func directSubstateNames(members []ast.Node) map[string]bool {
 	names := map[string]bool{}
 	for _, member := range members {
-		switch n := unwrapMembership(member).(type) {
+		switch n := kit.UnwrapMembership(member).(type) {
 		case *ast.StateNode:
 			names[n.Name] = true
 		case *ast.SubstateMember:
@@ -256,7 +257,7 @@ func (c *transitionChecker) checkAccepterSource(
 	if at.Len == 0 {
 		at = n.Trigger.Span()
 	}
-	c.report(at, CodeAccepterSourceNotState, msgAccepterSourceNotState)
+	c.report(at, CodeAccepterSourceNotState, MsgAccepterSourceNotState)
 	return true
 }
 
@@ -297,7 +298,7 @@ func (c *transitionChecker) walkBody(m *machine, scope *symbols.Scope, members [
 		starts[action] = true
 	}
 	for _, member := range members {
-		decl := unwrapMembership(member)
+		decl := kit.UnwrapMembership(member)
 		if c.ordered[decl] {
 			continue
 		}
@@ -333,16 +334,16 @@ func (c *transitionChecker) walkBody(m *machine, scope *symbols.Scope, members [
 				m.routing = append(m.routing, n)
 			}
 		case *ast.StateNode:
-			c.walkBody(m, bodyScope(scope, n), n.Substates, n)
+			c.walkBody(m, kit.BodyScope(scope, n), n.Substates, n)
 			for _, region := range n.Regions {
-				c.walkBody(m, bodyScope(scope, region), region.States, nil)
+				c.walkBody(m, kit.BodyScope(scope, region), region.States, nil)
 			}
 		case *ast.StateRegion:
-			c.walkBody(m, bodyScope(scope, n), n.States, nil)
+			c.walkBody(m, kit.BodyScope(scope, n), n.States, nil)
 		case *ast.Usage:
 			switch n.Kind {
 			case ast.UsageState:
-				c.walkBody(m, bodyScope(scope, n), n.Members, n)
+				c.walkBody(m, kit.BodyScope(scope, n), n.Members, n)
 			case ast.UsageSuccession:
 				// A succession is a connector whose two ends name vertices, as a
 				// name (`c::c1`) or a feature chain (`c.c1`).
@@ -523,24 +524,4 @@ func endpointName(target ast.Node) *ast.QualifiedName {
 		return chain.Member
 	}
 	return ast.AsQualifiedName(target)
-}
-
-// unwrapMembership strips the membership a declaration reaches a body wrapped in.
-func unwrapMembership(node ast.Node) ast.Node {
-	if membership, ok := node.(*ast.Membership); ok {
-		return membership.Member
-	}
-	return node
-}
-
-// bodyScope returns the scope decl declares into, or scope itself when the
-// scope builder gave it none.
-func bodyScope(scope *symbols.Scope, decl ast.Node) *symbols.Scope {
-	if scope == nil || decl == nil {
-		return scope
-	}
-	if child := scope.ChildFor(decl); child != nil {
-		return child
-	}
-	return scope
 }

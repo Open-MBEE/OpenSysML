@@ -1,4 +1,4 @@
-package passes
+package diagram_test
 
 import (
 	"strings"

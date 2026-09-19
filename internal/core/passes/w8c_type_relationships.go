@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -36,9 +37,9 @@ func (TypeRelationshipsPass) Run(ctx *Context, name string, root *ast.RootNamesp
 	if rootScope == nil {
 		return nil
 	}
-	w := &w8cWalker{ctx: ctx}
+	w := &kit.Walker{Ctx: ctx}
 	c := &typeRelationshipsChecker{resolver: ctx.Resolver()}
-	w.walk(rootScope, c.check)
+	w.Walk(rootScope, c.check)
 	return c.diags
 }
 
@@ -70,7 +71,7 @@ func (c *typeRelationshipsChecker) checkNotOneAndSelf(sym *symbols.Symbol, kind 
 		c.report(rels[0].Target.Span(), notOne, code+"-not-one")
 	}
 	for _, rel := range rels {
-		target, ok := c.resolver.ResolveTarget(w8cScopeOf(sym), rel.Target)
+		target, ok := c.resolver.ResolveTarget(kit.DeclarationScope(sym), rel.Target)
 		if ok && target == sym {
 			// The rule is about the type, so it is reported on the type, not on
 			// the operand naming it.
@@ -82,10 +83,10 @@ func (c *typeRelationshipsChecker) checkNotOneAndSelf(sym *symbols.Symbol, kind 
 // checkChaining reports a feature whose chain names a single feature, and one
 // that names itself among its chaining features.
 func (c *typeRelationshipsChecker) checkChaining(sym *symbols.Symbol) {
-	var steps []w8cChainStep
+	var steps []kit.ChainStep
 	for _, rel := range semantics.RelationshipsOf(sym) {
 		if rel != nil && rel.Kind == ast.RelChains && rel.Target != nil {
-			steps = append(steps, w8cChainSteps(rel.Target)...)
+			steps = append(steps, kit.ChainSteps(rel.Target)...)
 		}
 	}
 	if len(steps) == 0 {
@@ -95,7 +96,7 @@ func (c *typeRelationshipsChecker) checkChaining(sym *symbols.Symbol) {
 		c.report(steps[0].Span, msgOnlyOneChaining, "chaining-feature-not-one")
 	}
 	for _, step := range steps {
-		target, ok := c.resolver.ResolveTarget(w8cScopeOf(sym), step.Node)
+		target, ok := c.resolver.ResolveTarget(kit.DeclarationScope(sym), step.Node)
 		if ok && target == sym {
 			c.report(w8cNameSpan(sym), msgChainingFeaturesSelf, "chaining-features-not-self")
 		}

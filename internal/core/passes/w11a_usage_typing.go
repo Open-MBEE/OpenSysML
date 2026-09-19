@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -55,7 +56,7 @@ func (W11AUsageTypingPass) Run(ctx *Context, name string, root *ast.RootNamespac
 		return nil
 	}
 	c := &w11aUsageChecker{resolver: ctx.Resolver()}
-	w8dWalkSymbols(ctx, rootScope, c.check)
+	kit.WalkSymbols(ctx, rootScope, c.check)
 	return c.diags
 }
 
@@ -115,7 +116,7 @@ func (c *w11aUsageChecker) checkReference(sym *symbols.Symbol, u *ast.Usage) {
 		if rel == nil || rel.Kind != relKind || rel.Target == nil {
 			continue
 		}
-		target, ok := c.resolver.ResolveTarget(w8dScopeOf(sym), rel.Target)
+		target, ok := c.resolver.ResolveTarget(kit.ReferenceScope(sym), rel.Target)
 		if !ok || target == nil {
 			continue
 		}

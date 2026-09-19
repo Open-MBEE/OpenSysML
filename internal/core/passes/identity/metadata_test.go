@@ -1,4 +1,4 @@
-package passes
+package identity_test
 
 import (
 	"strings"
@@ -6,7 +6,9 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
@@ -17,10 +19,10 @@ func identityDiagsAcross(t *testing.T, srcA, srcB string) ([]diag.Diagnostic, []
 	t.Helper()
 	rootA := parser.New(source.New("<a>", []byte(srcA))).ParseFile()
 	rootB := parser.New(source.New("<b>", []byte(srcB))).ParseFile()
-	idx := newTestIndex()
+	idx := libs.NewModelIndex()
 	idx.AddDocument("<a>", rootA)
 	idx.AddDocument("<b>", rootB)
-	return Analyze("<a>", rootA, nil, idx), Analyze("<b>", rootB, nil, idx)
+	return passes.Analyze("<a>", rootA, nil, idx), passes.Analyze("<b>", rootB, nil, idx)
 }
 
 func TestIdentityDuplicateIdsAcrossDocumentsOfOneProject(t *testing.T) {

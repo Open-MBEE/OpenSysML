@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -28,7 +29,7 @@ func (ImplicitBasePass) Run(ctx *Context, name string, root *ast.RootNamespace) 
 		return nil
 	}
 	c := &implicitBaseChecker{model: ctx.Model(), index: ctx.Index, isKerML: ctx.Kind == source.KindKerML}
-	(&w8cWalker{ctx: ctx}).walk(rootScope, c.check)
+	(&kit.Walker{Ctx: ctx}).Walk(rootScope, c.check)
 	return c.diags
 }
 

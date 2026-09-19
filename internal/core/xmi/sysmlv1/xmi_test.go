@@ -135,6 +135,30 @@ func TestStereotypeExtensionIsRecorded(t *testing.T) {
 	}
 }
 
+func TestStereotypeIgnoresXMIMetadata(t *testing.T) {
+	src := `<?xml version="1.0"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="M"/>
+  <sysml:Block xmi:id="_s" xmi:uuid="u" base_Class="_c"/>
+</xmi:XMI>`
+	m, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Stereotypes) != 1 {
+		t.Fatalf("stereotypes = %+v", m.Stereotypes)
+	}
+	s := m.Stereotypes[0]
+	if s.BaseID != "_c" {
+		t.Errorf("BaseID = %q", s.BaseID)
+	}
+	if _, ok := s.Tags["uuid"]; ok {
+		t.Errorf("uuid tag = %+v", s.Tags["uuid"])
+	}
+}
+
 // archive zips the entries after a prefix, as a self-extracting stub is.
 func archive(t *testing.T, prefix string, entries map[string][]byte) []byte {
 	t.Helper()

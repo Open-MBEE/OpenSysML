@@ -535,6 +535,9 @@ func (m *Model) newElement(raw *xmi.Element, parent *Element) *Element {
 	for name, value := range raw.Attrs {
 		e.Attrs[name] = value
 	}
+	for name, value := range raw.XMIAttrs {
+		e.Attrs[name] = value
+	}
 	if e.Type == "" && parent == nil {
 		e.Type = raw.Tag
 	}

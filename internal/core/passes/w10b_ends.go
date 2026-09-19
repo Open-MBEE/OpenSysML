@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -32,7 +33,7 @@ func (W10BEndKindPass) Run(ctx *Context, name string, root *ast.RootNamespace) [
 		return nil
 	}
 	c := &w10bEndChecker{model: ctx.Model()}
-	w8dWalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
+	kit.WalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		switch sym.Kind {
 		case symbols.SymbolInterfaceDef:
 			c.checkEndsArePorts(sym, msgInterfaceDefEndPort)

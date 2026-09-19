@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -40,7 +41,7 @@ func (tc *typeChecker) markMetadataBindings(owner *symbols.Symbol, scope *symbol
 		return
 	}
 	for _, node := range body {
-		usage, ok := unwrapMembership(node).(*ast.Usage)
+		usage, ok := kit.UnwrapMembership(node).(*ast.Usage)
 		if !ok || usage.Kind == ast.UsageMetadata {
 			continue
 		}

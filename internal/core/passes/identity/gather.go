@@ -1,17 +1,14 @@
-package passes
+package identity
 
 import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
+	ids "github.com/Open-MBEE/OpenSysML/internal/core/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
-
-// aboutGather names the gather of the `about`-annotated elements no workspace
-// document declares — bundled library ones — which join the id space too.
-const aboutGather = "\x00identity"
 
 // identityKey is one effective id in one project scope: the unit the identity
 // audit reads the union by.
@@ -27,8 +24,8 @@ const identityJudgments = "\x00identity/*"
 // identityHit is a declared id landing in the derived id space of the element
 // with the key it is filed under.
 type identityHit struct {
-	info  *identity.Info
-	decl  identity.Declaration
+	info  *ids.Info
+	decl  ids.Declaration
 	space string
 }
 
@@ -59,21 +56,21 @@ func derivedTargets(id string) []derivedTarget {
 // identityIndex is a generated id space indexed by effective id: the elements
 // sharing each id, and the declared ids landing in each element's derived ids.
 type identityIndex struct {
-	byID map[identityKey][]*identity.Info
+	byID map[identityKey][]*ids.Info
 	hits map[identityKey][]identityHit
 }
 
 func newIdentityIndex() *identityIndex {
-	return &identityIndex{byID: map[identityKey][]*identity.Info{}, hits: map[identityKey][]identityHit{}}
+	return &identityIndex{byID: map[identityKey][]*ids.Info{}, hits: map[identityKey][]identityHit{}}
 }
 
-func keyOf(info *identity.Info) identityKey {
+func keyOf(info *ids.Info) identityKey {
 	return identityKey{scopeKey(info), info.EffectiveID}
 }
 
 // insert files info under its effective id and its declared ids under the
 // elements whose derived id spaces they land in.
-func (x *identityIndex) insert(info *identity.Info) {
+func (x *identityIndex) insert(info *ids.Info) {
 	x.byID[keyOf(info)] = append(x.byID[keyOf(info)], info)
 	scope := scopeKey(info)
 	for _, d := range info.Declarations {
@@ -88,7 +85,7 @@ func (x *identityIndex) insert(info *identity.Info) {
 }
 
 // remove undoes insert.
-func (x *identityIndex) remove(info *identity.Info) {
+func (x *identityIndex) remove(info *ids.Info) {
 	k := keyOf(info)
 	group := x.byID[k]
 	for i, o := range group {
@@ -122,7 +119,7 @@ func (x *identityIndex) remove(info *identity.Info) {
 }
 
 // keysOf lists the keys an element's entries are filed under.
-func keysOf(info *identity.Info) []identityKey {
+func keysOf(info *ids.Info) []identityKey {
 	out := []identityKey{keyOf(info)}
 	scope := scopeKey(info)
 	for _, d := range info.Declarations {
@@ -137,7 +134,7 @@ func keysOf(info *identity.Info) []identityKey {
 }
 
 // group is the elements sharing one effective id.
-func (x *identityIndex) group(k identityKey) []*identity.Info { return x.byID[k] }
+func (x *identityIndex) group(k identityKey) []*ids.Info { return x.byID[k] }
 
 // hitsOn is the declared ids landing in one element's derived id space.
 func (x *identityIndex) hitsOn(k identityKey) []identityHit { return x.hits[k] }
@@ -152,16 +149,16 @@ func (x *identityIndex) readers(k identityKey, into map[string]bool) {
 	}
 }
 
-// identityContribution is what one gather — a document's own elements, or the
+// Contribution is what one gather — a document's own elements, or the
 // `about`-annotated library elements — adds to the union.
-type identityContribution struct {
-	table *identity.Table
-	infos []*identity.Info
+type Contribution struct {
+	table *ids.Table
+	infos []*ids.Info
 }
 
 // contribute selects the infos of table that pass keep.
-func contribute(table *identity.Table, keep func(*identity.Info) bool) *identityContribution {
-	c := &identityContribution{table: table}
+func contribute(table *ids.Table, keep func(*ids.Info) bool) *Contribution {
+	c := &Contribution{table: table}
 	for _, sym := range table.Symbols() {
 		if info, ok := table.Info(sym); ok && keep(info) {
 			c.infos = append(c.infos, info)
@@ -172,7 +169,7 @@ func contribute(table *identity.Table, keep func(*identity.Info) bool) *identity
 
 // facts spells, per key, what the contribution files there, so a regather
 // names only the keys whose entries it moved.
-func (c *identityContribution) facts() map[identityKey]string {
+func (c *Contribution) facts() map[identityKey]string {
 	if c == nil {
 		return nil
 	}
@@ -192,7 +189,7 @@ func (c *identityContribution) facts() map[identityKey]string {
 }
 
 // spellInfo spells what the union's readers see of an element.
-func spellInfo(info *identity.Info) string {
+func spellInfo(info *ids.Info) string {
 	var b strings.Builder
 	b.WriteString(info.FQN)
 	b.WriteString("\x01")
@@ -209,21 +206,21 @@ func spellInfo(info *identity.Info) string {
 	return b.String()
 }
 
-// identityUnion is the identity tables of every workspace document, indexed as
+// Union is the identity tables of every workspace document, indexed as
 // one id space per project scope and read by name, as oosemUnion is. The
 // `about`-annotated elements outside every document are one more contribution.
-type identityUnion struct {
+type Union struct {
 	*identityIndex
-	perDoc map[string]*identityContribution
-	about  *identityContribution
+	perDoc map[string]*Contribution
+	about  *Contribution
 }
 
-func newIdentityUnion() *identityUnion {
-	return &identityUnion{identityIndex: newIdentityIndex(), perDoc: map[string]*identityContribution{}}
+func newUnion() *Union {
+	return &Union{identityIndex: newIdentityIndex(), perDoc: map[string]*Contribution{}}
 }
 
 // tableOf is doc's identity table, as gathered.
-func (u *identityUnion) tableOf(doc string) *identity.Table {
+func (u *Union) tableOf(doc string) *ids.Table {
 	if c := u.perDoc[doc]; c != nil {
 		return c.table
 	}
@@ -232,12 +229,12 @@ func (u *identityUnion) tableOf(doc string) *identity.Table {
 
 // regather replaces doc's contribution — its own elements — with a fresh
 // gather, none when doc is no workspace document, naming the keys it moved.
-func (u *identityUnion) regather(ctx *Context, g *Gathers, doc string, changed map[string]bool) {
-	var cur *identityContribution
-	if g.docs[doc] {
-		g.gather(ctx, doc, func(root *symbols.Scope) {
-			table := identity.Build(ctx.Model(), ctx.Resolver(), root)
-			cur = contribute(table, func(info *identity.Info) bool {
+func (u *Union) Regather(ctx *kit.Context, g *kit.Gathers, doc string, changed map[string]bool) {
+	var cur *Contribution
+	if g.Gathered(doc) {
+		g.Gather(ctx, doc, func(root *symbols.Scope) {
+			table := ids.Build(ctx.Model(), ctx.Resolver(), root)
+			cur = contribute(table, func(info *ids.Info) bool {
 				return info.Symbol.DocName == doc
 			})
 		})
@@ -252,12 +249,12 @@ func (u *identityUnion) regather(ctx *Context, g *Gathers, doc string, changed m
 
 // regatherAbout replaces the contribution of the `about`-annotated elements no
 // workspace document declares.
-func (u *identityUnion) regatherAbout(ctx *Context, g *Gathers, changed map[string]bool) {
-	var cur *identityContribution
-	ctx.Resolver().Gather(aboutGather, func() {
-		table := identity.Build(ctx.Model(), ctx.Resolver())
-		cur = contribute(table, func(info *identity.Info) bool {
-			return !g.docs[info.Symbol.DocName]
+func (u *Union) RegatherAbout(ctx *kit.Context, g *kit.Gathers, changed map[string]bool) {
+	var cur *Contribution
+	ctx.Resolver().Gather(kit.AboutGather, func() {
+		table := ids.Build(ctx.Model(), ctx.Resolver())
+		cur = contribute(table, func(info *ids.Info) bool {
+			return !g.Gathered(info.Symbol.DocName)
 		})
 	})
 	u.replace(u.about, cur, changed)
@@ -266,7 +263,7 @@ func (u *identityUnion) regatherAbout(ctx *Context, g *Gathers, changed map[stri
 
 // replace swaps one contribution for another in the index, naming in changed,
 // when it is not nil, the judgments that read a group the swap moved.
-func (u *identityUnion) replace(old, cur *identityContribution, changed map[string]bool) {
+func (u *Union) replace(old, cur *Contribution, changed map[string]bool) {
 	var moved []identityKey
 	if changed != nil {
 		before, after := old.facts(), cur.facts()
@@ -308,7 +305,7 @@ func (u *identityUnion) replace(old, cur *identityContribution, changed map[stri
 
 // judged reads the union for the identity audit of doc, whose table it returns
 // when doc is a workspace document.
-func (u *identityUnion) judged(r *resolve.Resolver, doc string) *identity.Table {
+func (u *Union) judged(r *resolve.Resolver, doc string) *ids.Table {
 	if t := u.tableOf(doc); t != nil {
 		r.ReadName(identityJudgment(doc))
 		return t
@@ -320,10 +317,10 @@ func (u *identityUnion) judged(r *resolve.Resolver, doc string) *identity.Table 
 // including is the union with one more table's elements filed in, for a
 // document that is no workspace document — a library one — judged against
 // the workspace: the union is copied, not changed.
-func (u *identityUnion) including(table *identity.Table) *identityIndex {
+func (u *Union) including(table *ids.Table) *identityIndex {
 	x := newIdentityIndex()
 	for k, group := range u.byID {
-		x.byID[k] = append([]*identity.Info(nil), group...)
+		x.byID[k] = append([]*ids.Info(nil), group...)
 	}
 	for k, hits := range u.hits {
 		x.hits[k] = append([]identityHit(nil), hits...)
@@ -337,11 +334,23 @@ func (u *identityUnion) including(table *identity.Table) *identityIndex {
 }
 
 // holds reports whether the union files an element for info's symbol.
-func (u *identityUnion) holds(info *identity.Info) bool {
+func (u *Union) holds(info *ids.Info) bool {
 	for _, o := range u.byID[keyOf(info)] {
 		if o.Symbol == info.Symbol {
 			return true
 		}
 	}
 	return false
+}
+
+// Contributions returns the per-document gathers the union currently holds.
+func (u *Union) Contributions() map[string]*Contribution {
+	return u.perDoc
+}
+
+// unionOf returns the workspace-wide identity union.
+func unionOf(ctx *kit.Context) *Union {
+	return ctx.Gathers().UnionOf(ctx, "identity", func() kit.Union {
+		return newUnion()
+	}).(*Union)
 }

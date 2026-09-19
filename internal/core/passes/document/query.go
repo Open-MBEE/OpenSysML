@@ -1,27 +1,28 @@
-package passes
+package document
 
 import (
 	"errors"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// documentQuerySource names this pass in the diagnostics it emits.
-const documentQuerySource = "document-query"
+// querySource names this pass in the diagnostics it emits.
+const querySource = "document-query"
 
-// DocumentQueryPass validates native document-query definitions.
-type DocumentQueryPass struct{}
+// QueryPass validates native document-query definitions.
+type QueryPass struct{}
 
-func (DocumentQueryPass) Level() PassLevel { return LevelConstraint }
+func (QueryPass) Level() kit.PassLevel { return kit.LevelConstraint }
 
-func (DocumentQueryPass) ElementScoped() {
+func (QueryPass) ElementScoped() {
 	// A marker: each query definition is gated on its own, so there is nothing to do.
 }
 
-func (DocumentQueryPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
+func (QueryPass) Run(ctx *kit.Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
@@ -30,7 +31,7 @@ func (DocumentQueryPass) Run(ctx *Context, name string, root *ast.RootNamespace)
 		return nil
 	}
 	var diagnostics []diag.Diagnostic
-	w8dWalkSymbols(ctx, scope, func(sym *symbols.Symbol) {
+	kit.WalkSymbols(ctx, scope, func(sym *symbols.Symbol) {
 		if !queryplan.IsQueryDefinition(ctx.Index, ctx.Model(), sym) {
 			return
 		}
@@ -43,31 +44,31 @@ func (DocumentQueryPass) Run(ctx *Context, name string, root *ast.RootNamespace)
 				if planning.Origin.Doc != "" && planning.Origin.Doc != name {
 					return
 				}
-				if ctx.downstreamSpan(planning.Origin.Span) {
+				if ctx.DownstreamSpan(planning.Origin.Span) {
 					return
 				}
 			}
-			diagnostics = append(diagnostics, documentQueryDiagnostic(err))
+			diagnostics = append(diagnostics, queryDiagnostic(err))
 		}
 	})
 	return diagnostics
 }
 
-func documentQueryDiagnostic(err error) diag.Diagnostic {
+func queryDiagnostic(err error) diag.Diagnostic {
 	var planning *queryplan.Error
 	if !errors.As(err, &planning) {
 		return diag.Diagnostic{
 			Severity: diag.SeverityError,
 			Message:  err.Error(),
-			Code:     documentQuerySource,
-			Source:   documentQuerySource,
+			Code:     querySource,
+			Source:   querySource,
 		}
 	}
 	return diag.Diagnostic{
 		Severity: diag.SeverityError,
 		Span:     planning.Origin.Span,
 		Message:  planning.Error(),
-		Code:     documentQuerySource + "-" + string(planning.Kind),
-		Source:   documentQuerySource,
+		Code:     querySource + "-" + string(planning.Kind),
+		Source:   querySource,
 	}
 }
