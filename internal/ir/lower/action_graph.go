@@ -1064,8 +1064,8 @@ func lowerFeatures(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 			continue
 		}
 		if m.IsAccept {
-			// The payload parameter is the accept's output pin; a value on it is a trigger.
-			if m.Ident.Name != "" {
+			// A message payload is the accept's output pin; `accept when/at/after` binds none.
+			if m.Value == nil && m.Ident.Name != "" {
 				features = append(features, Feature{Name: m.Ident.Name, Direction: ast.DirOut, Node: m, Scope: scope})
 			}
 			continue

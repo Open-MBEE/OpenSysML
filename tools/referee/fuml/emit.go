@@ -142,14 +142,30 @@ func calledActivities(a *Activity) ([]*Activity, error) {
 }
 
 // classClosure is every class the definitions name — as the type of a parameter,
-// pin or attribute, as the classifier created, or as the owner of a feature
-// touched — with the classes those generalize, generals before their specializers.
+// pin or attribute, of a signal's attribute, as the classifier created, or as the
+// owner of a feature touched — with the classes those generalize, generals before
+// their specializers.
 func classClosure(root *Activity, defs []*Activity) ([]*Class, error) {
 	m := root.Model
 	seen := map[*Class]bool{}
+	seenSignals := map[*Signal]bool{}
 	var out []*Class
 	var visit func(t TypeRef) error
 	visit = func(t TypeRef) error {
+		if sg := m.SignalOf(t); sg != nil && !seenSignals[sg] {
+			seenSignals[sg] = true
+			for _, g := range sg.Generals {
+				if err := visit(g); err != nil {
+					return err
+				}
+			}
+			for _, p := range sg.Attributes {
+				if err := visit(p.Type); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
 		c := m.ClassOf(t)
 		if c == nil || seen[c] {
 			return nil
@@ -178,8 +194,13 @@ func classClosure(root *Activity, defs []*Activity) ([]*Class, error) {
 			}
 		}
 		for _, n := range d.AllNodes() {
-			for _, t := range []TypeRef{n.Type, n.Classifier} {
+			for _, t := range []TypeRef{n.Type, n.Classifier, n.Signal} {
 				if err := visit(t); err != nil {
+					return nil, err
+				}
+			}
+			for _, tr := range n.Triggers {
+				if err := visit(tr.Signal); err != nil {
 					return nil, err
 				}
 			}
@@ -255,7 +276,8 @@ func signalClosure(root *Activity, defs []*Activity, classes []*Class) ([]*Signa
 
 // emitSignal spells a signal as an attribute definition: a signal instance is a
 // value carried by a message, not an occurrence of its own. Its generals are its
-// supertypes, so a specialized signal satisfies an accept of its general.
+// supertypes, so a specialized signal satisfies an accept of its general; its
+// attributes are spelled as a class's are, an object among them referenced.
 func emitSignal(root *Activity, sg *Signal) (string, error) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "\tattribute def %s", quote(sg.Name))
@@ -272,18 +294,11 @@ func emitSignal(root *Activity, sg *Signal) (string, error) {
 	}
 	b.WriteString(" {\n")
 	for _, p := range sg.Attributes {
-		where := "attribute " + sg.Name + "." + p.Name
-		m := exactMultiplicity(p.Multiplicity)
-		switch {
-		case p.Type.Zero():
-			fmt.Fprintf(&b, "\t\tattribute %s%s;\n", quote(p.Name), m)
-		case scalarTypes[p.Type.Name] != "":
-			fmt.Fprintf(&b, "\t\tattribute %s : %s%s;\n", quote(p.Name), scalarTypes[p.Type.Name], m)
-		case root.Model.SignalOf(p.Type) != nil:
-			fmt.Fprintf(&b, "\t\tattribute %s : %s%s;\n", quote(p.Name), quote(root.Model.SignalOf(p.Type).Name), m)
-		default:
-			return "", &TranslateError{root.Name, where, untranslated("type " + p.Type.String())}
+		decl, err := attributeDecl(root, sg.Name, p)
+		if err != nil {
+			return "", err
 		}
+		b.WriteString("\t\t" + decl + "\n")
 	}
 	b.WriteString("\t}\n")
 	return b.String(), nil
@@ -304,7 +319,7 @@ func emitClass(root *Activity, c *Class) (string, error) {
 	}
 	b.WriteString(" {\n")
 	for _, p := range c.Attributes {
-		decl, err := attributeDecl(root, c, p)
+		decl, err := attributeDecl(root, c.Name, p)
 		if err != nil {
 			return "", err
 		}
@@ -314,11 +329,11 @@ func emitClass(root *Activity, c *Class) (string, error) {
 	return b.String(), nil
 }
 
-// attributeDecl spells one attribute of a class: a primitive one an attribute,
-// one typed by a class a part (composite) or a reference to one, an untyped one
-// an attribute of no type.
-func attributeDecl(root *Activity, c *Class, p *Property) (string, error) {
-	where := "attribute " + c.Name + "." + p.Name
+// attributeDecl spells one attribute of a class or signal: a primitive one an
+// attribute, one typed by a class a part (composite) or a reference to one, an
+// untyped one an attribute of no type.
+func attributeDecl(root *Activity, owner string, p *Property) (string, error) {
+	where := "attribute " + owner + "." + p.Name
 	if p.Association != nil {
 		return "", &TranslateError{root.Name, where, untranslated("an association end")}
 	}

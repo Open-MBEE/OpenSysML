@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"sort"
 	"strconv"
@@ -312,11 +313,7 @@ func renderExpected(a *Activity, x *ExpectedActivity) string {
 	r := &renderer{model: a.Model, numbers: map[string]int{}}
 	var lines []string
 	for _, p := range a.Outputs() {
-		var values []string
-		for _, v := range byName[p.Name].Values {
-			values = append(values, r.expected(v))
-		}
-		lines = append(lines, renderLine(p.Name, p.Multiplicity, values))
+		lines = append(lines, renderLine(p.Name, p.Multiplicity, r.expectedAll(p.Multiplicity, byName[p.Name].Values)))
 	}
 	return strings.Join(lines, "\n")
 }
@@ -329,7 +326,7 @@ func renderOutputs(a *Activity, ctx *runtime.Context, outputs map[string]runtime
 	for _, p := range a.Outputs() {
 		var values []string
 		if v, ok := outputs[p.Name]; ok {
-			values = r.runtime(v)
+			values = r.runtimeAll(p.Multiplicity, v)
 		}
 		lines = append(lines, renderLine(p.Name, p.Multiplicity, values))
 	}
@@ -342,10 +339,15 @@ func renderLine(name string, m Multiplicity, values []string) string {
 	if len(values) == 0 {
 		return name + " = -"
 	}
-	if !m.Ordered && m.Upper != 1 {
+	if unordered(m) {
 		sort.Strings(values)
 	}
 	return name + " = " + strings.Join(values, ", ")
+}
+
+// unordered reports whether a feature's values form a multiset rather than a list.
+func unordered(m Multiplicity) bool {
+	return !m.Ordered && m.Upper != 1
 }
 
 // renderer spells the implementation's values and the runtime's alike: a
@@ -357,6 +359,47 @@ type renderer struct {
 	model   *Model
 	ctx     *runtime.Context
 	numbers map[string]int
+}
+
+// expectedAll spells recorded values, an unordered feature's in canonical order.
+func (r *renderer) expectedAll(m Multiplicity, values []ExpectedValue) []string {
+	return r.canonical(m, len(values), func(r *renderer, i int) []string {
+		return []string{r.expected(values[i])}
+	})
+}
+
+// runtimeAll spells a run's value, an unordered sequence's elements in canonical order.
+func (r *renderer) runtimeAll(m Multiplicity, v runtime.Value) []string {
+	seq := v.Sequence()
+	if seq == nil {
+		return r.runtime(v)
+	}
+	elements := seq.Elements()
+	return r.canonical(m, len(elements), func(r *renderer, i int) []string {
+		return r.runtime(elements[i])
+	})
+}
+
+// canonical spells n values, an unordered feature's in the order of their spellings
+// from the numbers held so far, so equal multisets of objects number alike.
+func (r *renderer) canonical(m Multiplicity, n int, spell func(*renderer, int) []string) []string {
+	order := make([]int, n)
+	for i := range order {
+		order[i] = i
+	}
+	if unordered(m) && n > 1 {
+		keys := make([]string, n)
+		for i := range keys {
+			scratch := &renderer{model: r.model, ctx: r.ctx, numbers: maps.Clone(r.numbers)}
+			keys[i] = strings.Join(spell(scratch, i), ", ")
+		}
+		sort.SliceStable(order, func(a, b int) bool { return keys[order[a]] < keys[order[b]] })
+	}
+	var out []string
+	for _, i := range order {
+		out = append(out, spell(r, i)...)
+	}
+	return out
 }
 
 // expected spells a recorded value.
@@ -412,11 +455,7 @@ func (r *renderer) expectedObject(v ExpectedValue) string {
 	}
 	var lines []string
 	for _, attr := range sortedAttributes(c) {
-		var values []string
-		for _, fv := range held[attr.Name] {
-			values = append(values, r.expected(fv))
-		}
-		lines = append(lines, renderLine(attr.Name, attr.Multiplicity, values))
+		lines = append(lines, renderLine(attr.Name, attr.Multiplicity, r.expectedAll(attr.Multiplicity, held[attr.Name])))
 	}
 	return typeName + "#" + strconv.Itoa(n) + "{" + strings.Join(lines, "; ") + "}"
 }
@@ -483,10 +522,10 @@ func (r *renderer) runtimeObject(id int64) string {
 		switch {
 		case !fv.Feature.Scalar():
 			if fv.Values.Kind != runtime.ValInvalid {
-				values = r.runtime(fv.Values)
+				values = r.runtimeAll(attr.Multiplicity, fv.Values)
 			}
 		case fv.Materialized && fv.Value.Kind != runtime.ValInvalid:
-			values = r.runtime(fv.Value)
+			values = r.runtimeAll(attr.Multiplicity, fv.Value)
 		}
 		lines = append(lines, renderLine(attr.Name, attr.Multiplicity, values))
 	}

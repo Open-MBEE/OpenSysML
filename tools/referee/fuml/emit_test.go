@@ -366,8 +366,8 @@ func TestExecuteBudgets(t *testing.T) {
 
 // objectModel exercises the object rules: Item specializes Base and declares
 // every multiplicity shape; Assemble creates one and edits each feature its way;
-// Reader reads and clears the features of an Item it is given; Holder's owned
-// behavior Reflect reads self.
+// Reader reads and clears the features of an Item it is given; Pairing collects
+// two Items into an unordered output; Holder's owned behavior Reflect reads self.
 const objectModel = `<?xml version="1.0" encoding="UTF-8"?>
 <uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="Objects">
   <packagedElement xmi:type="uml:Class" xmi:id="base" name="Base">
@@ -502,6 +502,43 @@ const objectModel = `<?xml version="1.0" encoding="UTF-8"?>
     <edge xmi:type="uml:ObjectFlow" xmi:id="r4" source="readNr" target="readerNNode"/>
     <edge xmi:type="uml:ObjectFlow" xmi:id="r5" source="clearXsr" target="readXso"/>
     <edge xmi:type="uml:ObjectFlow" xmi:id="r6" source="readXsr" target="readerXsNode"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="pairing" name="Pairing">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="pairingOut" name="both" direction="out" type="item">
+      <lowerValue xmi:type="uml:LiteralInteger" xmi:id="bothLo"/>
+      <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="bothHi" value="*"/>
+    </ownedParameter>
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createA" name="Create(A)" classifier="item">
+      <result xmi:type="uml:OutputPin" xmi:id="createAr" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createB" name="Create(B)" classifier="item">
+      <result xmi:type="uml:OutputPin" xmi:id="createBr" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="pv1" name="Value(1)">
+      <result xmi:type="uml:OutputPin" xmi:id="pv1r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="pv1v" value="1"/>
+    </node>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="pv2" name="Value(2)">
+      <result xmi:type="uml:OutputPin" xmi:id="pv2r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="pv2v" value="2"/>
+    </node>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="writeA" name="Write(A.n)" structuralFeature="n" isReplaceAll="true">
+      <object xmi:type="uml:InputPin" xmi:id="writeAo" name="object" type="item"/>
+      <value xmi:type="uml:InputPin" xmi:id="writeAv" name="value">` + integerType + `</value>
+      <result xmi:type="uml:OutputPin" xmi:id="writeAr" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="writeB" name="Write(B.n)" structuralFeature="n" isReplaceAll="true">
+      <object xmi:type="uml:InputPin" xmi:id="writeBo" name="object" type="item"/>
+      <value xmi:type="uml:InputPin" xmi:id="writeBv" name="value">` + integerType + `</value>
+      <result xmi:type="uml:OutputPin" xmi:id="writeBr" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="pairingOutNode" name="Parameter(both)" parameter="pairingOut"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="p1" source="createAr" target="writeAo"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="p2" source="pv1r" target="writeAv"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="p3" source="createBr" target="writeBo"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="p4" source="pv2r" target="writeBv"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="p5" source="writeAr" target="pairingOutNode"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="p6" source="writeBr" target="pairingOutNode"/>
   </packagedElement>
   <packagedElement xmi:type="uml:Class" xmi:id="holder" name="Holder">
     <ownedBehavior xmi:type="uml:Activity" xmi:id="reflect" name="Reflect">
@@ -663,6 +700,31 @@ func TestExecuteObjects(t *testing.T) {
 	}
 }
 
+// An unordered output holding objects compares as a multiset: the objects are
+// numbered in an order their spelling fixes, not the order they arrived in, so
+// the record and every run agree whichever Item reached the parameter first.
+func TestExecuteUnorderedObjects(t *testing.T) {
+	s := fixtureSuite(t, objectModel)
+	pairing := fixtureActivity(t, s, "Pairing")
+	first := object("a", "Item", feature("n", 1))
+	second := object("b", "Item", feature("n", 2))
+	forward := executed(pairing, []ExpectedOutput{{Parameter: "both", Values: []ExpectedValue{first, second}}})
+	backward := executed(pairing, []ExpectedOutput{{Parameter: "both", Values: []ExpectedValue{second, first}}})
+	want := "both = Item#1{n = 1; opt = -; set = -; xs = -}, Item#2{n = 2; opt = -; set = -; xs = -}"
+	if got := renderExpected(pairing, &backward); got != want {
+		t.Errorf("renderExpected(backward) = %q, want %q", got, want)
+	}
+	for name, x := range map[string]ExpectedActivity{"forward": forward, "backward": backward} {
+		ex, err := Execute(context.Background(), emitted(t, s, "Pairing"), &x, DefaultBudget, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ex.Passed() || strings.Join(ex.Reached, "|") != want {
+			t.Errorf("Pairing, %s record: %+v", name, ex)
+		}
+	}
+}
+
 // signalModel exercises the signal rules: Ping carries a level, Pong specializes
 // it, Notifier sends a Pong to a Target it is given, Listener accepts a Ping onto
 // its result pin and then a bare Pong, and Carrier's attribute is a signal.
@@ -675,9 +737,16 @@ const signalModel = `<?xml version="1.0" encoding="UTF-8"?>
     <generalization xmi:type="uml:Generalization" xmi:id="pongGen" general="ping"/>
   </packagedElement>
   <packagedElement xmi:type="uml:Signal" xmi:id="idle" name="Idle"/>
+  <packagedElement xmi:type="uml:Signal" xmi:id="envelope" name="Envelope">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="payload" name="payload" type="message"/>
+  </packagedElement>
   <packagedElement xmi:type="uml:SignalEvent" xmi:id="pingEvent" signal="ping"/>
   <packagedElement xmi:type="uml:SignalEvent" xmi:id="pongEvent" signal="pong"/>
+  <packagedElement xmi:type="uml:SignalEvent" xmi:id="envelopeEvent" signal="envelope"/>
   <packagedElement xmi:type="uml:Class" xmi:id="target" name="Target"/>
+  <packagedElement xmi:type="uml:Class" xmi:id="message" name="Message">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="body" name="body">` + integerType + `</ownedAttribute>
+  </packagedElement>
   <packagedElement xmi:type="uml:Class" xmi:id="carrier" name="Carrier">
     <ownedAttribute xmi:type="uml:Property" xmi:id="last" name="last" type="ping">
       <lowerValue xmi:type="uml:LiteralInteger" xmi:id="lastLo"/>
@@ -721,6 +790,29 @@ const signalModel = `<?xml version="1.0" encoding="UTF-8"?>
     <edge xmi:type="uml:ControlFlow" xmi:id="l2" source="acceptPing" target="acceptPong"/>
     <edge xmi:type="uml:ObjectFlow" xmi:id="l3" source="acceptPingR" target="listenerOutNode"/>
   </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="opener" name="Opener">
+    <node xmi:type="uml:AcceptEventAction" xmi:id="acceptEnvelope" name="Accept(Envelope)">
+      <trigger xmi:type="uml:Trigger" xmi:id="envelopeTrigger" event="envelopeEvent"/>
+    </node>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="poster" name="Poster">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="posterTo" name="to" direction="in" type="target"/>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="posterOut" name="posted" direction="out" type="message"/>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="posterToNode" name="Parameter(to)" parameter="posterTo"/>
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createMessage" name="Create(Message)" classifier="message">
+      <result xmi:type="uml:OutputPin" xmi:id="createMessageR" name="result" type="message"/>
+    </node>
+    <node xmi:type="uml:ForkNode" xmi:id="posterFork" name="Fork"/>
+    <node xmi:type="uml:SendSignalAction" xmi:id="sendEnvelope" name="Send(Envelope)" signal="envelope">
+      <target xmi:type="uml:InputPin" xmi:id="sendEnvelopeTarget" name="target" type="target"/>
+      <argument xmi:type="uml:InputPin" xmi:id="sendEnvelopePayload" name="payload" type="message"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="posterOutNode" name="Parameter(posted)" parameter="posterOut"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="q1" source="posterToNode" target="sendEnvelopeTarget"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="q2" source="createMessageR" target="posterFork"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="q3" source="posterFork" target="sendEnvelopePayload"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="q4" source="posterFork" target="posterOutNode"/>
+  </packagedElement>
   <packagedElement xmi:type="uml:Activity" xmi:id="unmarshaller" name="Unmarshaller">
     <node xmi:type="uml:AcceptEventAction" xmi:id="acceptUnmarshalled" name="Accept(Ping)" isUnmarshall="true">
       <result xmi:type="uml:OutputPin" xmi:id="acceptLevel" name="level">` + integerType + `</result>
@@ -746,8 +838,10 @@ func TestEmitSignals(t *testing.T) {
 		strings.Index(em.Text, "attribute def Pong") > strings.Index(em.Text, "part def Target") {
 		t.Errorf("signals are not declared generals first, before the classes:\n%s", em.Text)
 	}
-	if strings.Contains(em.Text, "Idle") || strings.Contains(em.Text, "Carrier") {
-		t.Errorf("Idle or Carrier declared though Notifier never names them:\n%s", em.Text)
+	for _, stray := range []string{"Idle", "Carrier", "Envelope", "Message"} {
+		if strings.Contains(em.Text, stray) {
+			t.Errorf("%s declared though Notifier never names it:\n%s", stray, em.Text)
+		}
 	}
 	em = emitted(t, s, "Listener")
 	wantLines(t, em, "\tattribute def Ping {", "\tattribute def Pong :> Ping;\n", "out heard : Ping[0..1] = ();")
@@ -774,6 +868,30 @@ func TestEmitSignalTypedAttribute(t *testing.T) {
 	signals, err := signalClosure(root, nil, []*Class{c})
 	if err != nil || len(signals) != 1 || signals[0].Name != "Ping" {
 		t.Errorf("signalClosure(Carrier) = %v, %v; want Ping", signals, err)
+	}
+}
+
+// A signal's attribute typed by a class is a reference to an object of it, and
+// the class is declared even where the signal alone names it; a send carries the
+// object and the sender still holds it afterwards.
+func TestEmitClassTypedSignalAttribute(t *testing.T) {
+	s := fixtureSuite(t, signalModel)
+	em := emitted(t, s, "Opener")
+	wantLines(t, em,
+		"\tattribute def Envelope {\n\t\tref part payload : Message;\n\t}\n",
+		"\tpart def Message {\n\t\tattribute body : Integer;\n\t}\n",
+		"action 'Accept(Envelope)' accept Envelope;")
+	if strings.Index(em.Text, "attribute def Envelope") > strings.Index(em.Text, "part def Message") {
+		t.Errorf("the signal is not declared before the class it references:\n%s", em.Text)
+	}
+	poster := fixtureActivity(t, s, "Poster")
+	x := executed(poster, []ExpectedOutput{{Parameter: "posted", Values: []ExpectedValue{object("m", "Message", feature("body"))}}})
+	ex, err := Execute(context.Background(), emitted(t, s, "Poster"), &x, DefaultBudget, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ex.Passed() || strings.Join(ex.Reached, "|") != "posted = Message#1{body = -}" {
+		t.Errorf("Poster: %+v", ex)
 	}
 }
 
