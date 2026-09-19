@@ -65,8 +65,9 @@ var packageLayer = map[string]string{
 	"internal/core/docplan":   "semantic IR",
 	"internal/core/view":      "semantic IR",
 
-	"internal/core/passes": "validation",
-	"internal/core/edit":   "validation",
+	"internal/core/passes":     "validation",
+	"internal/core/passes/kit": "validation",
+	"internal/core/edit":       "validation",
 
 	"internal/core/runtime":             "execution",
 	"internal/core/solve":               "execution",
