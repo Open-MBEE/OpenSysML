@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/codegen"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/codegen"
 )
 
 // compiledCase invokes one calc; the interpreter is the oracle for what the

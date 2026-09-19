@@ -311,7 +311,7 @@ package OpenSysMLSurfaces {
     // turtle and rdf are Turtle, uml is XMI as Eclipse UML2 writes it and
     // mdzip is XMI in a zip archive.
     part def Exporter :> CodeUnit {
-        attribute :>> goPackage = "internal/core/export";
+        attribute :>> goPackage = "internal/translate/export";
         attribute formats : String = "sysml, ttl, xmi";
         attribute formatNames : String = "kerml, mdzip, rdf, sysml, text, ttl, turtle, uml, xmi";
         attribute roundTrips : Boolean = true;

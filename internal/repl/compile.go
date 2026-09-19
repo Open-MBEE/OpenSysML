@@ -3,10 +3,10 @@ package repl
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/codegen"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/codegen"
 )
 
 // CompileCalc compiles the named calc def and every calc it invokes to the
