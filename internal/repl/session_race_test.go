@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 )
 
 // Every exported entry point holds the session lock, so a frontend calling them

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 )
 
 // callValuedDocumentModel renders a table over an attribute whose value is a

@@ -199,7 +199,7 @@ package OpenSysMLSurfaces {
     part def Provenance :> CodeUnit {
         attribute :>> goPackage = "internal/semantic/symbols";
         attribute keyedByDocumentAndSpan : Boolean = true;
-        attribute consumers : String = "internal/core/docir, internal/ir/view, internal/ir/queryplan";
+        attribute consumers : String = "internal/doc/docir, internal/ir/view, internal/ir/queryplan";
         out item origins : SourceSpan;
     }
 
@@ -257,7 +257,7 @@ package OpenSysMLSurfaces {
     }
 
     part def QueryExecutor :> CodeUnit {
-        attribute :>> goPackage = "internal/core/queryexec";
+        attribute :>> goPackage = "internal/doc/queryexec";
         attribute orderedRows : Boolean = true;
         out item rows : QueryRows;
     }
@@ -278,7 +278,7 @@ package OpenSysMLSurfaces {
     // Evaluating a plan gives one tree, carrying provenance on every node and
     // knowing nothing about the backend that will write it out.
     part def DocumentIR :> CodeUnit {
-        attribute :>> goPackage = "internal/core/docir";
+        attribute :>> goPackage = "internal/doc/docir";
         attribute backendAgnostic : Boolean = true;
         attribute provenancePerNode : Boolean = true;
         attribute resolvesCrossDocumentRefs : Boolean = true;
@@ -288,7 +288,7 @@ package OpenSysMLSurfaces {
     }
 
     part def MarkdownBackend :> CodeUnit {
-        attribute :>> goPackage = "internal/core/docrender";
+        attribute :>> goPackage = "internal/doc/docrender";
         attribute form : String = "markdown";
         attribute needsExternalTool : Boolean = false;
         in item tree : DocumentTree;
@@ -297,7 +297,7 @@ package OpenSysMLSurfaces {
     // The only stage that leaves the process: the tree becomes prepared
     // Markdown, its diagrams become images, and a converter makes the PDF.
     part def PdfBackend :> CodeUnit {
-        attribute :>> goPackage = "internal/core/docpdf";
+        attribute :>> goPackage = "internal/doc/docpdf";
         attribute form : String = "pdf";
         attribute engines : String = "weasyprint, pandoc, prince";
         attribute diagramTool : String = "mmdc";

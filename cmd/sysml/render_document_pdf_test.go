@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/docpdf"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docpdf"
 )
 
 // fakePDFTool writes an executable shell script into dir and returns its path.
@@ -38,7 +38,7 @@ printf '%%PDF-1.7 fake' > "$2"
 while [ $# -gt 0 ]; do [ "$1" = "--output" ] && out="$2"; shift; done
 printf '<svg xmlns="http://www.w3.org/2000/svg"/>' > "$out"
 `)
-	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
 	out := filepath.Join(dir, "report.pdf")
 
 	cmd := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
@@ -83,7 +83,7 @@ printf '%%PDF-1.7 fake' > "$2"
 `)
 	mmdc := fakePDFTool(t, dir, "mmdc", `echo "mmdc must not run" >&2; exit 1
 `)
-	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
 	out := filepath.Join(dir, "report.pdf")
 
 	cmd := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
@@ -125,7 +125,7 @@ printf '%%PDF-1.7 fake' > "$2"
 `)
 	mmdc := fakePDFTool(t, dir, "mmdc", `echo "mmdc must not run" >&2; exit 1
 `)
-	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
 	out := filepath.Join(dir, "report.pdf")
 
 	cmd := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
@@ -161,7 +161,7 @@ printf '%%PDF-1.7 fake' > "$2"
 func TestRenderDocumentPDFEngineMissing(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
-	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
 	out := filepath.Join(dir, "report.pdf")
 
 	cmd := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport", "-doc-form", "pdf", "-o", out)
